@@ -30,11 +30,12 @@
   --accent: #3b82f6;
   --accent-foreground: #ffffff;
   --accent-soft: #172554;
-  --bull: #10b981;
+  /* Validated (CVD-safe) against the dark surface #111a2e */
+  --bull: #059669;
   --bull-soft: #052e21;
-  --bear: #f87171;
+  --bear: #ef4444;
   --bear-soft: #3b1212;
-  --warn: #fbbf24;
+  --warn: #d97706;
   --warn-soft: #3b2c07;
 }
 
