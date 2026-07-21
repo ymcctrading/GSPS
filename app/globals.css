@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  /* Clean modern fintech — light-first */
+  --background: #fafafa;
+  --surface: #ffffff;
+  --foreground: #0f172a;
+  --muted: #64748b;
+  --border: #e2e8f0;
+  --accent: #2563eb;
+  --accent-foreground: #ffffff;
+  --accent-soft: #eff6ff;
+  /* P/L + signal direction only */
+  --bull: #059669;
+  --bull-soft: #ecfdf5;
+  --bear: #dc2626;
+  --bear-soft: #fef2f2;
+  --warn: #d97706;
+  --warn-soft: #fffbeb;
+}
+
+.dark {
+  --background: #0b1120;
+  --surface: #111a2e;
+  --foreground: #e2e8f0;
+  --muted: #94a3b8;
+  --border: #1e293b;
+  --accent: #3b82f6;
+  --accent-foreground: #ffffff;
+  --accent-soft: #172554;
+  --bull: #10b981;
+  --bull-soft: #052e21;
+  --bear: #f87171;
+  --bear-soft: #3b1212;
+  --warn: #fbbf24;
+  --warn-soft: #3b2c07;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-soft: var(--accent-soft);
+  --color-bull: var(--bull);
+  --color-bull-soft: var(--bull-soft);
+  --color-bear: var(--bear);
+  --color-bear-soft: var(--bear-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
