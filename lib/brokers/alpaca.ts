@@ -18,8 +18,16 @@ export function envCreds(mode: TradeMode): AlpacaCreds | null {
     const secret = process.env.ALPACA_LIVE_API_SECRET;
     return key && secret ? { key, secret, mode } : null;
   }
-  const key = process.env.ALPACA_API_KEY;
-  const secret = process.env.ALPACA_API_SECRET;
+  const key =
+    process.env.ALPACA_API_KEY ??
+    process.env.ALPACAP_API ??
+    process.env.ALPACA_KEY_ID ??
+    process.env.APCA_API_KEY_ID;
+  const secret =
+    process.env.ALPACA_API_SECRET ??
+    process.env.ALPACA_API_SECRET_KEY ??
+    process.env.ALPACA_SECRET_KEY ??
+    process.env.APCA_API_SECRET_KEY;
   return key && secret ? { key, secret, mode } : null;
 }
 

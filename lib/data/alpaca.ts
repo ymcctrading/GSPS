@@ -7,9 +7,27 @@ import type { AssetClass, Bar, Timeframe } from "@/lib/types";
 
 const DATA_BASE = "https://data.alpaca.markets";
 
+// Accept the common Alpaca env-var spellings so a naming mismatch doesn't break data.
+function alpacaKeyId(): string | undefined {
+  return (
+    process.env.ALPACA_API_KEY ??
+    process.env.ALPACAP_API ??
+    process.env.ALPACA_KEY_ID ??
+    process.env.APCA_API_KEY_ID
+  );
+}
+function alpacaSecret(): string | undefined {
+  return (
+    process.env.ALPACA_API_SECRET ??
+    process.env.ALPACA_API_SECRET_KEY ??
+    process.env.ALPACA_SECRET_KEY ??
+    process.env.APCA_API_SECRET_KEY
+  );
+}
+
 function headers(): Record<string, string> {
-  const key = process.env.ALPACA_API_KEY;
-  const secret = process.env.ALPACA_API_SECRET;
+  const key = alpacaKeyId();
+  const secret = alpacaSecret();
   if (!key || !secret) {
     throw new Error("ALPACA_API_KEY / ALPACA_API_SECRET are not configured");
   }
