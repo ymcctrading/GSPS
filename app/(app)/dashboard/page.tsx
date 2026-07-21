@@ -36,19 +36,27 @@ function toRows(rows: DailyScanRow[]): ScanRow[] {
 }
 
 export default async function DashboardPage() {
-  const supabase = await createClient();
+  const configured = Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  );
 
-  const { data: latest } = await supabase
-    .from("daily_scans")
-    .select("scan_date")
-    .order("scan_date", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
+  let latest: { scan_date: string } | null = null;
   let bullish: DailyScanRow[] = [];
   let bearish: DailyScanRow[] = [];
 
+  if (configured) {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("daily_scans")
+      .select("scan_date")
+      .order("scan_date", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    latest = data;
+  }
+
   if (latest?.scan_date) {
+    const supabase = await createClient();
     const { data } = await supabase
       .from("daily_scans")
       .select("*")
