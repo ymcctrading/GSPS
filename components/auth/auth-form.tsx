@@ -22,30 +22,54 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setMessage(null);
     setLoading(true);
-    const supabase = createClient();
+    try {
+      const supabase = createClient();
 
-    if (mode === "signup") {
-      const { error } = await supabase.auth.signUp({ email, password });
-      if (error) setError(error.message);
-      else setMessage("Check your email to confirm your account, then log in.");
-    } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) setError(error.message);
-      else {
-        router.push(next);
-        router.refresh();
+      if (mode === "signup") {
+        const { data, error } = await supabase.auth.signUp({ email, password });
+        if (error) setError(error.message);
+        else if (data.session) {
+          // Email confirmation disabled — signed in immediately.
+          router.push(next);
+          router.refresh();
+        } else {
+          setMessage("Check your email to confirm your account, then log in.");
+        }
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) setError(error.message);
+        else {
+          router.push(next);
+          router.refresh();
+        }
       }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   async function handleGoogle() {
-    const supabase = createClient();
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}` },
-    });
+    setError(null);
+    setLoading(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}` },
+      });
+      if (error) {
+        setError(error.message);
+        setLoading(false);
+      }
+      // On success the browser redirects to Google; no need to reset loading.
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Google sign-in is unavailable right now.");
+      setLoading(false);
+    }
   }
 
   return (
