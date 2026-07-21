@@ -2,6 +2,9 @@
 
 export const MAG7 = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA"];
 
+/** Default watchlist scanned out of the box: Magnificent Seven + SPY + BTC. */
+export const DEFAULTS = [...MAG7, "SPY", "BTC/USD"];
+
 export const SECTORS: Record<string, { label: string; symbols: string[] }> = {
   semiconductors: {
     label: "Semiconductors",

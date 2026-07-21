@@ -2,7 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ResultsTable, type ScanRow } from "@/components/scan/results-table";
-import { MAG7 } from "@/lib/sectors";
+import { DEFAULTS } from "@/lib/sectors";
 
 export const metadata = { title: "Dashboard — GSPS" };
 export const dynamic = "force-dynamic";
@@ -80,12 +80,12 @@ export default async function DashboardPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Magnificent Seven</CardTitle>
-          <CardDescription>Default watchlist — open any symbol for a full protocol scan.</CardDescription>
+          <CardTitle>Default watchlist</CardTitle>
+          <CardDescription>Magnificent Seven, SPY, and BTC — open any symbol for a full protocol scan.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-3 gap-3 sm:grid-cols-7">
-            {MAG7.map((s) => (
+          <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
+            {DEFAULTS.map((s) => (
               <Link
                 key={s}
                 href={`/ticker/${s}`}

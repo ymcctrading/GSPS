@@ -14,7 +14,7 @@ import { scanTicker } from "@/lib/scanTicker";
 
 const DEFAULT_WATCHLIST = [
   "SPY", "AAPL", "AMD", "TSLA", "MSFT", "META",
-  "NVDA", "AMZN", "GOOGL", "TTWO",
+  "NVDA", "AMZN", "GOOGL", "TTWO", "BTC/USD",
 ];
 
 export async function GET(req: NextRequest) {
