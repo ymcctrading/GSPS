@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CandleChart, type PriceMarker } from "@/components/chart/candles";
 import { SignalCard } from "@/components/scan/signal-card";
 import { OrderTicket } from "@/components/trade/order-ticket";
+import { GlossaryDetails } from "@/components/glossary";
 import { formatUsd } from "@/lib/utils";
 import type { ScanResult } from "@/lib/types";
 
@@ -88,6 +89,8 @@ export function TickerView({ symbol }: { symbol: string }) {
       </div>
 
       {result && <SignalCard result={result} />}
+
+      <GlossaryDetails />
     </div>
   );
 }

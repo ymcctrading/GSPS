@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PROTECTED_PREFIXES = ["/dashboard", "/scanner", "/ticker", "/portfolio", "/settings"];
+const PROTECTED_PREFIXES = ["/dashboard", "/scanner", "/ticker", "/portfolio", "/glossary", "/settings"];
 
 const SUPABASE_URL =
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://vebhpmmzxixlhujlptue.supabase.co";

@@ -11,7 +11,7 @@ export interface Bar {
   v: number;
 }
 
-export type Timeframe = "1Month" | "1Week" | "1Day" | "1Hour" | "15Min";
+export type Timeframe = "1Month" | "1Week" | "1Day" | "1Hour" | "15Min" | "5Min" | "1Min";
 
 export type Direction = "bullish" | "bearish" | "none";
 
