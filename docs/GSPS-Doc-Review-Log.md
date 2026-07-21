@@ -3,7 +3,7 @@
 **Reviewer:** Claude Code
 **Started:** 2026-07-21
 **Branch:** `claude/gsps-doc-review-spem8d`
-**Status:** 🟡 Review complete — **awaiting owner decisions before implementation** (see §5 Objections & §7 Open Questions)
+**Status:** 🟢 Phase 0 built (paper/simulation) — typecheck + 12 tests + `next build` all green. A few owner decisions still open (see §7); live execution deferred by design.
 
 This log tracks the review of the four Google Docs provided, everything I intend
 to "infuse" into the GSPS project, every suggestion/improvement I've identified,
@@ -189,7 +189,61 @@ object; the others need your input.
 
 ---
 
-## 7. Open Questions for the Owner (blocking)
+## 6b. Decisions Taken (defaults applied where you didn't specify)
+
+You chose **Scope A** (build the safe Phase 0). For the questions left open I
+applied the recommended defaults and proceeded — all reversible:
+
+- **Execution posture → paper/simulation only.** `getBrokerage()` hard-locks to
+  the `PaperBroker`; selecting live mode throws. (O-1 / Q-7)
+- **Tech stack → TypeScript / Next.js end-to-end.** No Python service. (Q-4)
+- **Project name → "Global Scanner & Charting Platform System"** in metadata.
+  Easy to swap to the Gann name if that's what you want. (Q-1)
+- **Default watchlist → SPY, BTC + Magnificent 7** (the documented 9). (S-6)
+- **ETH → free toggle** (entitlement `extended_hours_toggle` at Practice tier),
+  not paywalled. (Q-2)
+
+## 6c. Phase 0 — What Was Actually Built
+
+Green-field Next.js 15 / React 19 / TypeScript (strict) / Tailwind app. All in
+paper/simulation mode against a deterministic mock provider.
+
+- **Project scaffold** — `package.json`, `tsconfig`, `next.config`, Tailwind +
+  design tokens (obsidian/crimson/emerald/gold, Inter), `globals.css`. (P0-a, P0-g)
+- **Market-data seam** — `MarketDataProvider` interface + `MockMarketDataProvider`
+  (pure function of absolute time → reproducible). Factory swaps in a real vendor
+  with zero consumer changes. (P0-b, S-2)
+- **Candle aggregation** — `America/New_York`, DST-aware RTH/ETH bucketing; the
+  root fix for the 8-vs-9-candle bug. Unit-tested (4 tests incl. DST + ETH
+  exclusion). (P0-c, S-1, S-5)
+- **`lib/scanTicker`** — the module the routes imported now exists: Strat Sniper
+  Gate → 9-point checklist → Tier-2 velocity fallback (RVOL≥2.0 / ATR expansion)
+  → Execute/Watch/Reject, with a tactical layer for actionable setups. (P0-b)
+- **Mean-reversion engine** — top-15 bullish/bearish, score-desc + RVOL tie-break.
+- **Scan cache + status enum** (`PENDING/RUNNING/FRESH/STALE/ERROR`) with
+  consumer-friendly copy that replaces the dev-facing cron string. (P0-f, S-4)
+- **Cron wiring** — `POST /api/scanner/run` for an external scheduler (16:15 ET
+  weekdays); in-process cron is opt-in only.
+- **4-tier entitlements** — `can(tier, feature)` gating; automated execution
+  locked to System Mastery. Tested. (P0-e, S-3)
+- **Paper brokerage seam** — `BrokerageProvider` + `PaperBroker`; live throws. (O-1)
+- **PostgreSQL schema** — users, tiers, automation dials (incl. kill switch +
+  daily-loss cap, S-8), order & micro-fee ledgers (`is_paper`), scan run/result
+  tables. `db/schema.sql`. (P0-e)
+- **API** — `/api/scan`, `/api/batch-scan` (now defaults to the documented 9),
+  `/api/candles` (ETH toggle, lookback per interval), `/api/scanner/status`,
+  `/api/scanner/run`. Old orphaned root `route.ts`/`batch-route.ts` relocated into
+  the App Router. (S-6)
+- **Dashboard** — live scanner status + bullish/bearish blocks; bull/bear state
+  carries a ▲/▼ glyph, not color alone. (S-7)
+- **Tests** — `npm test` (12 passing), `npm run typecheck`, `npm run build` all green.
+
+Not yet built (needs external accounts/assets or later phases): real market-data
+& brokerage integration, payments/billing, WebSocket tick streams, the full
+charting UI + drawing tools/MACD/RSI (needs the reference screenshots, Q-6), and
+the multi-asset automation engine (Phases A–C).
+
+## 7. Open Questions for the Owner (non-blocking now — defaults applied above)
 
 - **Q-1 — Project name.** Docs 1/2/4 say GSPS = *Global Scanner & Charting Platform
   System*; Doc 3 says *Gann Strategy & Protocol System*. Which is authoritative?
@@ -222,11 +276,20 @@ object; the others need your input.
 | 2026-07-21 | Read all 4 docs (Doc 4 is master transcript) | ✅ |
 | 2026-07-21 | Audited repo ground truth (2-file non-building stub) | ✅ |
 | 2026-07-21 | Wrote this review log + de-duplicated requirements | ✅ |
-| 2026-07-21 | Raised objections & open questions to owner | ⏳ awaiting answers |
-| — | Phase 0 scaffold (pending owner go-ahead) | ⬜ not started |
+| 2026-07-21 | Raised objections & open questions to owner | ✅ |
+| 2026-07-21 | Owner chose **Scope A**; searched Drive for screenshots (not found) | ✅ |
+| 2026-07-21 | Built Phase 0 scaffold (paper/sim) — typecheck + tests + build green | ✅ |
+| — | Push Phase 0 to remote | ⏳ blocked on GitHub write access (see note) |
 | — | Phase A / B / C build-out | ⬜ not started |
 
-**I have deliberately NOT written any production/application code yet**, per your
-instruction to surface objections and questions first. Once you answer §7 (at
-minimum Q-4 and Q-5), I'll proceed with the agreed scope and keep updating §6 and
-§8 of this log as I go.
+### Push blocker
+The Claude GitHub App currently has **read-only** access to `ymcctrading/GSPS`
+(`git push` → 403 on `git-receive-pack`; MCP `create_branch` → 403 "Resource not
+accessible by integration"). Commits are made locally on
+`claude/gsps-doc-review-spem8d`. Granting the app **`contents: write`** on the
+repo will let the branch push.
+
+### Reference screenshots (Q-6) still needed
+The 10–20 chart screenshots were not found in Drive (only old personal photos).
+They were shared in a different Claude chat, which this session can't read. Please
+drop them into this chat or a Drive folder to unlock the charting-UI work.

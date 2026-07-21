@@ -1,0 +1,32 @@
+{
+  "name": "gsps",
+  "version": "2.0.0",
+  "private": true,
+  "description": "GSPS — Global Scanner & Charting Platform System. Robinhood-simple UI, thinkorswim-deep analytics. Phase 0 scaffold (paper/simulation only).",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "scan:once": "tsx scripts/run-scan-once.ts"
+  },
+  "dependencies": {
+    "next": "15.1.6",
+    "react": "19.0.0",
+    "react-dom": "19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.7",
+    "@types/react": "19.0.7",
+    "@types/react-dom": "19.0.3",
+    "autoprefixer": "10.4.20",
+    "postcss": "8.5.1",
+    "tailwindcss": "3.4.17",
+    "tsx": "4.19.2",
+    "typescript": "5.7.3",
+    "vitest": "2.1.8"
+  }
+}

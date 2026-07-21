@@ -1,32 +1,21 @@
 /**
- * GSPS v2.0 — /api/batch-scan route (Next.js App Router)
- * -------------------------------------------------------
- * Usage:
- *   GET /api/batch-scan
- *     -> runs the default "Batch 1" watchlist
- *
- *   GET /api/batch-scan?tickers=SPY,AAPL,TSLA
- *     -> runs your own custom list
+ * GSPS v2.0 — /api/batch-scan
+ * ---------------------------
+ *   GET /api/batch-scan                      -> default 9-asset universe
+ *   GET /api/batch-scan?tickers=SPY,AAPL,TSLA -> custom list
  */
-
 import { NextRequest, NextResponse } from "next/server";
 import { scanTicker } from "@/lib/scanTicker";
-
-const DEFAULT_WATCHLIST = [
-  "SPY", "AAPL", "AMD", "TSLA", "MSFT", "META",
-  "NVDA", "AMZN", "GOOGL", "TTWO",
-];
+import { DEFAULT_WATCHLIST } from "@/config/watchlist";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-
   const tickersParam = searchParams.get("tickers");
   const tickers = tickersParam
     ? tickersParam.split(",").map((t) => t.trim()).filter(Boolean)
     : DEFAULT_WATCHLIST;
 
-  // Run all scans in parallel so a 10-stock batch takes roughly as
-  // long as a single scan, not 10x as long.
+  // Run all scans in parallel so a batch takes ~as long as a single scan.
   const results = await Promise.all(tickers.map((ticker) => scanTicker(ticker)));
 
   const execute = results.filter((r) => r.decision.outputState === "Execute");
@@ -36,11 +25,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     requestedAt: new Date().toISOString(),
     totalRequested: tickers.length,
-    summary: {
-      execute: execute.length,
-      watch: watch.length,
-      reject: reject.length,
-    },
+    summary: { execute: execute.length, watch: watch.length, reject: reject.length },
     results,
   });
 }
