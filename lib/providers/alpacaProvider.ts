@@ -227,14 +227,38 @@ const defaultHttpGetJson: HttpGetJson = async (url, headers) => {
   return res.json();
 };
 
+/**
+ * Accepted env-var names, in priority order. The canonical names are first; the
+ * rest are common variants (including Alpaca's own SDK `APCA_` prefix) so a
+ * reasonable name just works without an exact match.
+ */
+export const KEY_ID_ENV_VARS = [
+  "ALPACA_API_KEY_ID",
+  "ALPACA_API_KEY",
+  "APCA_API_KEY_ID",
+];
+export const SECRET_ENV_VARS = [
+  "ALPACA_API_SECRET_KEY",
+  "ALPACA_SECRET_KEY",
+  "APCA_API_SECRET_KEY",
+];
+
+/** First non-empty environment variable among `names`. */
+function firstEnv(names: string[]): string | undefined {
+  for (const name of names) {
+    const value = process.env[name];
+    if (value) return value;
+  }
+  return undefined;
+}
+
 function resolveCredentials(config: AlpacaProviderConfig): AlpacaCredentials {
-  const keyId = config.credentials?.keyId ?? process.env.ALPACA_API_KEY_ID;
-  const secretKey =
-    config.credentials?.secretKey ?? process.env.ALPACA_API_SECRET_KEY;
+  const keyId = config.credentials?.keyId ?? firstEnv(KEY_ID_ENV_VARS);
+  const secretKey = config.credentials?.secretKey ?? firstEnv(SECRET_ENV_VARS);
   if (!keyId || !secretKey) {
     throw new Error(
-      "Alpaca credentials missing. Set ALPACA_API_KEY_ID and ALPACA_API_SECRET_KEY " +
-        "(or pass config.credentials) to use the live provider.",
+      `Alpaca credentials missing. Set one of [${KEY_ID_ENV_VARS.join(", ")}] and ` +
+        `one of [${SECRET_ENV_VARS.join(", ")}] (or pass config.credentials).`,
     );
   }
   return { keyId, secretKey };
@@ -242,9 +266,7 @@ function resolveCredentials(config: AlpacaProviderConfig): AlpacaCredentials {
 
 /** True when Alpaca credentials are present in the environment. */
 export function hasAlpacaCredentials(): boolean {
-  return Boolean(
-    process.env.ALPACA_API_KEY_ID && process.env.ALPACA_API_SECRET_KEY,
-  );
+  return Boolean(firstEnv(KEY_ID_ENV_VARS) && firstEnv(SECRET_ENV_VARS));
 }
 
 /**

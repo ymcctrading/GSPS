@@ -8,6 +8,8 @@ import {
   consecutiveCloses,
   createAlpacaProvider,
   hasAlpacaCredentials,
+  KEY_ID_ENV_VARS,
+  SECRET_ENV_VARS,
   sma,
   snapshotFromBars,
   trueRange,
@@ -133,22 +135,30 @@ describe("createAlpacaProvider", () => {
 });
 
 describe("hasAlpacaCredentials", () => {
-  const original = {
-    id: process.env.ALPACA_API_KEY_ID,
-    secret: process.env.ALPACA_API_SECRET_KEY,
-  };
+  const CRED_VARS = [
+    ...KEY_ID_ENV_VARS,
+    ...SECRET_ENV_VARS,
+  ];
+  const original = new Map(CRED_VARS.map((v) => [v, process.env[v]]));
   afterEach(() => {
-    if (original.id === undefined) delete process.env.ALPACA_API_KEY_ID;
-    else process.env.ALPACA_API_KEY_ID = original.id;
-    if (original.secret === undefined) delete process.env.ALPACA_API_SECRET_KEY;
-    else process.env.ALPACA_API_SECRET_KEY = original.secret;
+    for (const v of CRED_VARS) {
+      const prev = original.get(v);
+      if (prev === undefined) delete process.env[v];
+      else process.env[v] = prev;
+    }
   });
 
   it("is false with no keys and true once both are set", () => {
-    delete process.env.ALPACA_API_KEY_ID;
-    delete process.env.ALPACA_API_SECRET_KEY;
+    for (const v of CRED_VARS) delete process.env[v];
     expect(hasAlpacaCredentials()).toBe(false);
     process.env.ALPACA_API_KEY_ID = "k";
+    process.env.ALPACA_API_SECRET_KEY = "s";
+    expect(hasAlpacaCredentials()).toBe(true);
+  });
+
+  it("accepts common alias names (e.g. ALPACA_API_KEY)", () => {
+    for (const v of CRED_VARS) delete process.env[v];
+    process.env.ALPACA_API_KEY = "k"; // no _ID suffix
     process.env.ALPACA_API_SECRET_KEY = "s";
     expect(hasAlpacaCredentials()).toBe(true);
   });
