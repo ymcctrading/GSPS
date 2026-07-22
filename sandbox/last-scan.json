@@ -1,0 +1,858 @@
+[
+  {
+    "label": "SCAN 1 — Canonical default watchlist (9 assets)",
+    "requestedAt": "2026-07-22T16:44:21.176Z",
+    "tickers": [
+      "SPY",
+      "BTC",
+      "AAPL",
+      "MSFT",
+      "GOOGL",
+      "AMZN",
+      "NVDA",
+      "META",
+      "TSLA"
+    ],
+    "results": [
+      {
+        "ticker": "SPY",
+        "assetClass": "STOCK",
+        "score": 8,
+        "passedSniperGate": true,
+        "direction": "bearish",
+        "rvol": 1.38,
+        "atrExpanding": false,
+        "decision": {
+          "outputState": "Execute"
+        },
+        "entry": 406.32,
+        "sl": 414.45,
+        "tp1": 390.06,
+        "master": 381.93,
+        "_simulated": true
+      },
+      {
+        "ticker": "BTC",
+        "assetClass": "CRYPTO",
+        "score": 1,
+        "passedSniperGate": false,
+        "direction": "bearish",
+        "rvol": 3.06,
+        "atrExpanding": true,
+        "decision": {
+          "outputState": "Reject"
+        },
+        "entry": 64849.52,
+        "sl": 66146.51,
+        "tp1": 62255.54,
+        "master": 60958.55,
+        "_simulated": true
+      },
+      {
+        "ticker": "AAPL",
+        "assetClass": "STOCK",
+        "score": 5,
+        "passedSniperGate": true,
+        "direction": "bullish",
+        "rvol": 1.69,
+        "atrExpanding": false,
+        "decision": {
+          "outputState": "Reject"
+        },
+        "entry": 842.17,
+        "sl": 825.33,
+        "tp1": 875.85,
+        "master": 892.69,
+        "_simulated": true
+      },
+      {
+        "ticker": "MSFT",
+        "assetClass": "STOCK",
+        "score": 1,
+        "passedSniperGate": true,
+        "direction": "bullish",
+        "rvol": 2.09,
+        "atrExpanding": true,
+        "decision": {
+          "outputState": "Reject"
+        },
+        "entry": 872.19,
+        "sl": 854.75,
+        "tp1": 907.07,
+        "master": 924.51,
+        "_simulated": true
+      },
+      {
+        "ticker": "GOOGL",
+        "assetClass": "STOCK",
+        "score": 0,
+        "passedSniperGate": true,
+        "direction": "bearish",
+        "rvol": 1.96,
+        "atrExpanding": false,
+        "decision": {
+          "outputState": "Reject"
+        },
+        "entry": 714.19,
+        "sl": 728.47,
+        "tp1": 685.63,
+        "master": 671.35,
+        "_simulated": true
+      },
+      {
+        "ticker": "AMZN",
+        "assetClass": "STOCK",
+        "score": 9,
+        "passedSniperGate": true,
+        "direction": "bullish",
+        "rvol": 0.74,
+        "atrExpanding": false,
+        "decision": {
+          "outputState": "Execute"
+        },
+        "entry": 583.7,
+        "sl": 572.03,
+        "tp1": 607.04,
+        "master": 618.71,
+        "_simulated": true
+      },
+      {
+        "ticker": "NVDA",
+        "assetClass": "STOCK",
+        "score": 6,
+        "passedSniperGate": true,
+        "direction": "bearish",
+        "rvol": 3.2,
+        "atrExpanding": true,
+        "decision": {
+          "outputState": "Watch"
+        },
+        "entry": 581.02,
+        "sl": 592.64,
+        "tp1": 557.78,
+        "master": 546.16,
+        "_simulated": true
+      },
+      {
+        "ticker": "META",
+        "assetClass": "STOCK",
+        "score": 1,
+        "passedSniperGate": true,
+        "direction": "bearish",
+        "rvol": 3.01,
+        "atrExpanding": true,
+        "decision": {
+          "outputState": "Reject"
+        },
+        "entry": 147.41,
+        "sl": 150.36,
+        "tp1": 141.51,
+        "master": 138.56,
+        "_simulated": true
+      },
+      {
+        "ticker": "TSLA",
+        "assetClass": "STOCK",
+        "score": 4,
+        "passedSniperGate": true,
+        "direction": "bullish",
+        "rvol": 2.81,
+        "atrExpanding": false,
+        "decision": {
+          "outputState": "Reject"
+        },
+        "entry": 278.06,
+        "sl": 272.5,
+        "tp1": 289.18,
+        "master": 294.74,
+        "_simulated": true
+      }
+    ],
+    "summary": {
+      "execute": 2,
+      "watch": 1,
+      "reject": 6,
+      "gateFails": 1
+    },
+    "bullishReversions": [
+      {
+        "ticker": "AMZN",
+        "assetClass": "STOCK",
+        "score": 9,
+        "passedSniperGate": true,
+        "direction": "bullish",
+        "rvol": 0.74,
+        "atrExpanding": false,
+        "decision": {
+          "outputState": "Execute"
+        },
+        "entry": 583.7,
+        "sl": 572.03,
+        "tp1": 607.04,
+        "master": 618.71,
+        "_simulated": true
+      }
+    ],
+    "bearishReversions": [
+      {
+        "ticker": "SPY",
+        "assetClass": "STOCK",
+        "score": 8,
+        "passedSniperGate": true,
+        "direction": "bearish",
+        "rvol": 1.38,
+        "atrExpanding": false,
+        "decision": {
+          "outputState": "Execute"
+        },
+        "entry": 406.32,
+        "sl": 414.45,
+        "tp1": 390.06,
+        "master": 381.93,
+        "_simulated": true
+      }
+    ]
+  },
+  {
+    "label": "SCAN 2 — Stress universe (29 assets, exercises top-15 waterfall)",
+    "requestedAt": "2026-07-22T16:44:21.177Z",
+    "tickers": [
+      "SPY",
+      "BTC",
+      "AAPL",
+      "MSFT",
+      "GOOGL",
+      "AMZN",
+      "NVDA",
+      "META",
+      "TSLA",
+      "AMD",
+      "TTWO",
+      "NFLX",
+      "INTC",
+      "CRM",
+      "ORCL",
+      "ADBE",
+      "QCOM",
+      "AVGO",
+      "MU",
+      "PYPL",
+      "SHOP",
+      "UBER",
+      "COIN",
+      "SNOW",
+      "PLTR",
+      "ETH",
+      "SOL",
+      "DIS",
+      "BA"
+    ],
+    "results": [
+      {
+        "ticker": "SPY",
+        "assetClass": "STOCK",
+        "score": 8,
+        "passedSniperGate": true,
+        "direction": "bearish",
+        "rvol": 1.38,
+        "atrExpanding": false,
+        "decision": {
+          "outputState": "Execute"
+        },
+        "entry": 406.32,
+        "sl": 414.45,
+        "tp1": 390.06,
+        "master": 381.93,
+        "_simulated": true
+      },
+      {
+        "ticker": "BTC",
+        "assetClass": "CRYPTO",
+        "score": 1,
+        "passedSniperGate": false,
+        "direction": "bearish",
+        "rvol": 3.06,
+        "atrExpanding": true,
+        "decision": {
+          "outputState": "Reject"
+        },
+        "entry": 64849.52,
+        "sl": 66146.51,
+        "tp1": 62255.54,
+        "master": 60958.55,
+        "_simulated": true
+      },
+      {
+        "ticker": "AAPL",
+        "assetClass": "STOCK",
+        "score": 5,
+        "passedSniperGate": true,
+        "direction": "bullish",
+        "rvol": 1.69,
+        "atrExpanding": false,
+        "decision": {
+          "outputState": "Reject"
+        },
+        "entry": 842.17,
+        "sl": 825.33,
+        "tp1": 875.85,
+        "master": 892.69,
+        "_simulated": true
+      },
+      {
+        "ticker": "MSFT",
+        "assetClass": "STOCK",
+        "score": 1,
+        "passedSniperGate": true,
+        "direction": "bullish",
+        "rvol": 2.09,
+        "atrExpanding": true,
+        "decision": {
+          "outputState": "Reject"
+        },
+        "entry": 872.19,
+        "sl": 854.75,
+        "tp1": 907.07,
+        "master": 924.51,
+        "_simulated": true
+      },
+      {
+        "ticker": "GOOGL",
+        "assetClass": "STOCK",
+        "score": 0,
+        "passedSniperGate": true,
+        "direction": "bearish",
+        "rvol": 1.96,
+        "atrExpanding": false,
+        "decision": {
+          "outputState": "Reject"
+        },
+        "entry": 714.19,
+        "sl": 728.47,
+        "tp1": 685.63,
+        "master": 671.35,
+        "_simulated": true
+      },
+      {
+        "ticker": "AMZN",
+        "assetClass": "STOCK",
+        "score": 9,
+        "passedSniperGate": true,
+        "direction": "bullish",
+        "rvol": 0.74,
+        "atrExpanding": false,
+        "decision": {
+          "outputState": "Execute"
+        },
+        "entry": 583.7,
+        "sl": 572.03,
+        "tp1": 607.04,
+        "master": 618.71,
+        "_simulated": true
+      },
+      {
+        "ticker": "NVDA",
+        "assetClass": "STOCK",
+        "score": 6,
+        "passedSniperGate": true,
+        "direction": "bearish",
+        "rvol": 3.2,
+        "atrExpanding": true,
+        "decision": {
+          "outputState": "Watch"
+        },
+        "entry": 581.02,
+        "sl": 592.64,
+        "tp1": 557.78,
+        "master": 546.16,
+        "_simulated": true
+      },
+      {
+        "ticker": "META",
+        "assetClass": "STOCK",
+        "score": 1,
+        "passedSniperGate": true,
+        "direction": "bearish",
+        "rvol": 3.01,
+        "atrExpanding": true,
+        "decision": {
+          "outputState": "Reject"
+        },
+        "entry": 147.41,
+        "sl": 150.36,
+        "tp1": 141.51,
+        "master": 138.56,
+        "_simulated": true
+      },
+      {
+        "ticker": "TSLA",
+        "assetClass": "STOCK",
+        "score": 4,
+        "passedSniperGate": true,
+        "direction": "bullish",
+        "rvol": 2.81,
+        "atrExpanding": false,
+        "decision": {
+          "outputState": "Reject"
+        },
+        "entry": 278.06,
+        "sl": 272.5,
+        "tp1": 289.18,
+        "master": 294.74,
+        "_simulated": true
+      },
+      {
+        "ticker": "AMD",
+        "assetClass": "STOCK",
+        "score": 5,
+        "passedSniperGate": true,
+        "direction": "bullish",
+        "rvol": 2.13,
+        "atrExpanding": true,
+        "decision": {
+          "outputState": "Reject"
+        },
+        "entry": 99.05,
+        "sl": 97.07,
+        "tp1": 103.01,
+        "master": 104.99,
+        "_simulated": true
+      },
+      {
+        "ticker": "TTWO",
+        "assetClass": "STOCK",
+        "score": 0,
+        "passedSniperGate": true,
+        "direction": "bearish",
+        "rvol": 2.25,
+        "atrExpanding": true,
+        "decision": {
+          "outputState": "Reject"
+        },
+        "entry": 583.63,
+        "sl": 595.3,
+        "tp1": 560.29,
+        "master": 548.62,
+        "_simulated": true
+      },
+      {
+        "ticker": "NFLX",
+        "assetClass": "STOCK",
+        "score": 5,
+        "passedSniperGate": true,
+        "direction": "bearish",
+        "rvol": 2.91,
+        "atrExpanding": false,
+        "decision": {
+          "outputState": "Reject"
+        },
+        "entry": 787.96,
+        "sl": 803.72,
+        "tp1": 756.44,
+        "master": 740.68,
+        "_simulated": true
+      },
+      {
+        "ticker": "INTC",
+        "assetClass": "STOCK",
+        "score": 2,
+        "passedSniperGate": true,
+        "direction": "bullish",
+        "rvol": 1.76,
+        "atrExpanding": false,
+        "decision": {
+          "outputState": "Reject"
+        },
+        "entry": 717.6,
+        "sl": 703.25,
+        "tp1": 746.3,
+        "master": 760.65,
+        "_simulated": true
+      },
+      {
+        "ticker": "CRM",
+        "assetClass": "STOCK",
+        "score": 1,
+        "passedSniperGate": true,
+        "direction": "bearish",
+        "rvol": 0.61,
+        "atrExpanding": false,
+        "decision": {
+          "outputState": "Reject"
+        },
+        "entry": 65.62,
+        "sl": 66.93,
+        "tp1": 63,
+        "master": 61.69,
+        "_simulated": true
+      },
+      {
+        "ticker": "ORCL",
+        "assetClass": "STOCK",
+        "score": 7,
+        "passedSniperGate": true,
+        "direction": "bearish",
+        "rvol": 2.46,
+        "atrExpanding": false,
+        "decision": {
+          "outputState": "Watch"
+        },
+        "entry": 738.19,
+        "sl": 752.95,
+        "tp1": 708.67,
+        "master": 693.91,
+        "_simulated": true
+      },
+      {
+        "ticker": "ADBE",
+        "assetClass": "STOCK",
+        "score": 5,
+        "passedSniperGate": true,
+        "direction": "bearish",
+        "rvol": 1.79,
+        "atrExpanding": true,
+        "decision": {
+          "outputState": "Reject"
+        },
+        "entry": 566.44,
+        "sl": 577.77,
+        "tp1": 543.78,
+        "master": 532.45,
+        "_simulated": true
+      },
+      {
+        "ticker": "QCOM",
+        "assetClass": "STOCK",
+        "score": 9,
+        "passedSniperGate": true,
+        "direction": "bearish",
+        "rvol": 2.89,
+        "atrExpanding": true,
+        "decision": {
+          "outputState": "Execute"
+        },
+        "entry": 535.55,
+        "sl": 546.26,
+        "tp1": 514.13,
+        "master": 503.42,
+        "_simulated": true
+      },
+      {
+        "ticker": "AVGO",
+        "assetClass": "STOCK",
+        "score": 2,
+        "passedSniperGate": false,
+        "direction": "bearish",
+        "rvol": 1.22,
+        "atrExpanding": false,
+        "decision": {
+          "outputState": "Reject"
+        },
+        "entry": 348.56,
+        "sl": 355.53,
+        "tp1": 334.62,
+        "master": 327.65,
+        "_simulated": true
+      },
+      {
+        "ticker": "MU",
+        "assetClass": "STOCK",
+        "score": 8,
+        "passedSniperGate": false,
+        "direction": "bearish",
+        "rvol": 1.89,
+        "atrExpanding": false,
+        "decision": {
+          "outputState": "Reject"
+        },
+        "entry": 49.18,
+        "sl": 50.16,
+        "tp1": 47.22,
+        "master": 46.24,
+        "_simulated": true
+      },
+      {
+        "ticker": "PYPL",
+        "assetClass": "STOCK",
+        "score": 3,
+        "passedSniperGate": true,
+        "direction": "bullish",
+        "rvol": 2.61,
+        "atrExpanding": true,
+        "decision": {
+          "outputState": "Reject"
+        },
+        "entry": 807.95,
+        "sl": 791.79,
+        "tp1": 840.27,
+        "master": 856.43,
+        "_simulated": true
+      },
+      {
+        "ticker": "SHOP",
+        "assetClass": "STOCK",
+        "score": 4,
+        "passedSniperGate": true,
+        "direction": "bullish",
+        "rvol": 2.63,
+        "atrExpanding": true,
+        "decision": {
+          "outputState": "Reject"
+        },
+        "entry": 99.44,
+        "sl": 97.45,
+        "tp1": 103.42,
+        "master": 105.41,
+        "_simulated": true
+      },
+      {
+        "ticker": "UBER",
+        "assetClass": "STOCK",
+        "score": 1,
+        "passedSniperGate": true,
+        "direction": "bullish",
+        "rvol": 0.9,
+        "atrExpanding": false,
+        "decision": {
+          "outputState": "Reject"
+        },
+        "entry": 193.97,
+        "sl": 190.09,
+        "tp1": 201.73,
+        "master": 205.61,
+        "_simulated": true
+      },
+      {
+        "ticker": "COIN",
+        "assetClass": "STOCK",
+        "score": 4,
+        "passedSniperGate": true,
+        "direction": "bullish",
+        "rvol": 0.65,
+        "atrExpanding": true,
+        "decision": {
+          "outputState": "Reject"
+        },
+        "entry": 469.16,
+        "sl": 459.78,
+        "tp1": 487.92,
+        "master": 497.3,
+        "_simulated": true
+      },
+      {
+        "ticker": "SNOW",
+        "assetClass": "STOCK",
+        "score": 6,
+        "passedSniperGate": true,
+        "direction": "bullish",
+        "rvol": 0.97,
+        "atrExpanding": false,
+        "decision": {
+          "outputState": "Watch"
+        },
+        "entry": 507.29,
+        "sl": 497.14,
+        "tp1": 527.59,
+        "master": 537.74,
+        "_simulated": true
+      },
+      {
+        "ticker": "PLTR",
+        "assetClass": "STOCK",
+        "score": 9,
+        "passedSniperGate": true,
+        "direction": "bullish",
+        "rvol": 0.87,
+        "atrExpanding": true,
+        "decision": {
+          "outputState": "Execute"
+        },
+        "entry": 358.02,
+        "sl": 350.86,
+        "tp1": 372.34,
+        "master": 379.5,
+        "_simulated": true
+      },
+      {
+        "ticker": "ETH",
+        "assetClass": "CRYPTO",
+        "score": 2,
+        "passedSniperGate": true,
+        "direction": "bullish",
+        "rvol": 2.33,
+        "atrExpanding": false,
+        "decision": {
+          "outputState": "Reject"
+        },
+        "entry": 60059.07,
+        "sl": 58857.89,
+        "tp1": 62461.43,
+        "master": 63662.61,
+        "_simulated": true
+      },
+      {
+        "ticker": "SOL",
+        "assetClass": "CRYPTO",
+        "score": 6,
+        "passedSniperGate": true,
+        "direction": "bullish",
+        "rvol": 3.18,
+        "atrExpanding": false,
+        "decision": {
+          "outputState": "Watch"
+        },
+        "entry": 95860.9,
+        "sl": 93943.68,
+        "tp1": 99695.34,
+        "master": 101612.56,
+        "_simulated": true
+      },
+      {
+        "ticker": "DIS",
+        "assetClass": "STOCK",
+        "score": 3,
+        "passedSniperGate": true,
+        "direction": "bearish",
+        "rvol": 0.88,
+        "atrExpanding": false,
+        "decision": {
+          "outputState": "Reject"
+        },
+        "entry": 265.87,
+        "sl": 271.19,
+        "tp1": 255.23,
+        "master": 249.91,
+        "_simulated": true
+      },
+      {
+        "ticker": "BA",
+        "assetClass": "STOCK",
+        "score": 9,
+        "passedSniperGate": true,
+        "direction": "bullish",
+        "rvol": 0.94,
+        "atrExpanding": false,
+        "decision": {
+          "outputState": "Execute"
+        },
+        "entry": 801.13,
+        "sl": 785.11,
+        "tp1": 833.17,
+        "master": 849.19,
+        "_simulated": true
+      }
+    ],
+    "summary": {
+      "execute": 5,
+      "watch": 4,
+      "reject": 20,
+      "gateFails": 3
+    },
+    "bullishReversions": [
+      {
+        "ticker": "BA",
+        "assetClass": "STOCK",
+        "score": 9,
+        "passedSniperGate": true,
+        "direction": "bullish",
+        "rvol": 0.94,
+        "atrExpanding": false,
+        "decision": {
+          "outputState": "Execute"
+        },
+        "entry": 801.13,
+        "sl": 785.11,
+        "tp1": 833.17,
+        "master": 849.19,
+        "_simulated": true
+      },
+      {
+        "ticker": "PLTR",
+        "assetClass": "STOCK",
+        "score": 9,
+        "passedSniperGate": true,
+        "direction": "bullish",
+        "rvol": 0.87,
+        "atrExpanding": true,
+        "decision": {
+          "outputState": "Execute"
+        },
+        "entry": 358.02,
+        "sl": 350.86,
+        "tp1": 372.34,
+        "master": 379.5,
+        "_simulated": true
+      },
+      {
+        "ticker": "AMZN",
+        "assetClass": "STOCK",
+        "score": 9,
+        "passedSniperGate": true,
+        "direction": "bullish",
+        "rvol": 0.74,
+        "atrExpanding": false,
+        "decision": {
+          "outputState": "Execute"
+        },
+        "entry": 583.7,
+        "sl": 572.03,
+        "tp1": 607.04,
+        "master": 618.71,
+        "_simulated": true
+      }
+    ],
+    "bearishReversions": [
+      {
+        "ticker": "QCOM",
+        "assetClass": "STOCK",
+        "score": 9,
+        "passedSniperGate": true,
+        "direction": "bearish",
+        "rvol": 2.89,
+        "atrExpanding": true,
+        "decision": {
+          "outputState": "Execute"
+        },
+        "entry": 535.55,
+        "sl": 546.26,
+        "tp1": 514.13,
+        "master": 503.42,
+        "_simulated": true
+      },
+      {
+        "ticker": "SPY",
+        "assetClass": "STOCK",
+        "score": 8,
+        "passedSniperGate": true,
+        "direction": "bearish",
+        "rvol": 1.38,
+        "atrExpanding": false,
+        "decision": {
+          "outputState": "Execute"
+        },
+        "entry": 406.32,
+        "sl": 414.45,
+        "tp1": 390.06,
+        "master": 381.93,
+        "_simulated": true
+      },
+      {
+        "ticker": "ORCL",
+        "assetClass": "STOCK",
+        "score": 7,
+        "passedSniperGate": true,
+        "direction": "bearish",
+        "rvol": 2.46,
+        "atrExpanding": false,
+        "decision": {
+          "outputState": "Watch"
+        },
+        "entry": 738.19,
+        "sl": 752.95,
+        "tp1": 708.67,
+        "master": 693.91,
+        "_simulated": true
+      }
+    ]
+  }
+]

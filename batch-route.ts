@@ -12,9 +12,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { scanTicker } from "@/lib/scanTicker";
 
+// Canonical default scan universe (see review/insights/03-default-asset-list.md):
+// SPY (broad-market anchor) + BTC (crypto macro indicator) + the Magnificent 7.
 const DEFAULT_WATCHLIST = [
-  "SPY", "AAPL", "AMD", "TSLA", "MSFT", "META",
-  "NVDA", "AMZN", "GOOGL", "TTWO",
+  "SPY",
+  "BTC",
+  "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA",
 ];
 
 export async function GET(req: NextRequest) {
@@ -22,7 +25,13 @@ export async function GET(req: NextRequest) {
 
   const tickersParam = searchParams.get("tickers");
   const tickers = tickersParam
-    ? tickersParam.split(",").map((t) => t.trim()).filter(Boolean)
+    ? // Normalize a custom list: trim, uppercase, drop blanks, de-duplicate.
+      [...new Set(
+        tickersParam
+          .split(",")
+          .map((t) => t.trim().toUpperCase())
+          .filter(Boolean),
+      )]
     : DEFAULT_WATCHLIST;
 
   // Run all scans in parallel so a 10-stock batch takes roughly as
