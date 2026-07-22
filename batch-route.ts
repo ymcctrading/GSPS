@@ -11,6 +11,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { scanTicker } from "@/lib/scanTicker";
+import { resolveMarketDataProvider } from "@/lib/providers";
 
 const DEFAULT_WATCHLIST = [
   "SPY", "AAPL", "AMD", "TSLA", "MSFT", "META",
@@ -25,9 +26,14 @@ export async function GET(req: NextRequest) {
     ? tickersParam.split(",").map((t) => t.trim()).filter(Boolean)
     : DEFAULT_WATCHLIST;
 
+  // Live Alpaca feed when ALPACA_API_KEY_ID/SECRET are set, else simulated.
+  const provider = resolveMarketDataProvider();
+
   // Run all scans in parallel so a 10-stock batch takes roughly as
   // long as a single scan, not 10x as long.
-  const results = await Promise.all(tickers.map((ticker) => scanTicker(ticker)));
+  const results = await Promise.all(
+    tickers.map((ticker) => scanTicker(ticker, undefined, provider)),
+  );
 
   const execute = results.filter((r) => r.decision.outputState === "Execute");
   const watch = results.filter((r) => r.decision.outputState === "Watch");

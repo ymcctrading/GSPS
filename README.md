@@ -29,6 +29,7 @@ SQL mirrors live in `supabase/migrations/`; revert with
 engine/                     framework-free, unit-tested core
   scanner/                  mean-reversion waterfall (Strat gate → 8/9 → 7+velocity → top 15)
 lib/scanTicker.ts           core per-ticker scan engine (scores a symbol → Execute/Watch/Reject)
+lib/providers/              market-data providers (Alpaca live feed + env-based resolver)
   tiers/                    4-tier entitlement matrix + FeatureGate helpers
   automation/               MultiAssetAutomationController, OptionsChainParser,
                             RiskPositionSizer (TS + Py), AssetLifecycleEngine (trailing stops)
@@ -74,25 +75,56 @@ intelligence and automation.
 
 ## Market data
 
-`engine/market-data/marketDataIngestor.ts` auto-falls back to a high-fidelity
-**simulated** random-walk feed when no live credentials are set, so the automation
-runs today. Set `MARKET_DATA_WS_URL` + `MARKET_DATA_API_KEY` to flip to a live
-provider (Polygon/Alpaca-style).
+There are two data seams, both simulated-by-default and swappable to live:
+
+- **Scanner** — `lib/scanTicker.ts` scans through a `MarketDataProvider`.
+  `lib/providers/resolveMarketDataProvider()` returns the live **Alpaca** feed
+  when credentials are set, else the deterministic simulated feed.
+- **Streaming automation** — `engine/market-data/marketDataIngestor.ts` auto-falls
+  back to a high-fidelity simulated random-walk feed; set `MARKET_DATA_WS_URL` +
+  `MARKET_DATA_API_KEY` to flip to a live WebSocket provider.
+
+### Going live with Alpaca (one config change)
+
+1. Create an Alpaca account (https://app.alpaca.markets) and generate an API
+   **Key ID** + **Secret**. Start with **paper** keys — real prices, fake money.
+2. Set them where the app runs — no code change:
+
+   ```bash
+   ALPACA_API_KEY_ID=...        # from the Alpaca dashboard
+   ALPACA_API_SECRET_KEY=...
+   ALPACA_FEED=iex              # optional: iex (free) | sip (paid)
+   ```
+
+   Locally: copy `.env.example` → `.env`. In production: Vercel env vars (for the
+   `/api/scan` routes) and, if the cron hits a different host, Supabase secrets.
+3. That's it — every scan (single, batch, and the daily cron via
+   `/api/batch-scan`) flips to the live Alpaca feed. With no keys, it stays on the
+   simulated feed so the pipeline always runs.
+
+`lib/providers/alpacaProvider.ts` computes `price`, `previousClose`,
+`relativeVolume`, and ATR from real Alpaca daily bars. The 0-9 rule checklist and
+Strat gate are a transparent, tunable first pass (each rule is a named technical
+confirmation, documented inline) — swap in the full proprietary Strat/Gann rules
+when ready. Execution (placing orders) is a separate, later step; this wires up
+live **data** only.
 
 ## Develop
 
 ```bash
 npm install
-npm test          # vitest — 49 tests (scanTicker, waterfall, entitlements, automation, pnl)
+npm test          # vitest — 63 tests (scanTicker, alpacaProvider, waterfall, entitlements, automation, pnl)
 npm run typecheck # tsc --noEmit
 ```
 
 ## Environment / secrets
 
+- Scanner live feed: `ALPACA_API_KEY_ID`, `ALPACA_API_SECRET_KEY`, optional
+  `ALPACA_FEED` (see `.env.example`). Absent → simulated feed.
 - Edge function reads `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (auto-provided),
   optional `GSPS_SCAN_ENDPOINT` (the app's `/api/batch-scan`) and `CRON_SECRET`.
 - Never commit broker or market-data keys — use Supabase function secrets / Vercel
-  env vars.
+  env vars. `.env` is gitignored; only `.env.example` (no values) is tracked.
 
 ## Notes for integration (when GitHub connects)
 
