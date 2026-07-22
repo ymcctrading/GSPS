@@ -279,8 +279,15 @@ the multi-asset automation engine (Phases A–C).
 | 2026-07-21 | Raised objections & open questions to owner | ✅ |
 | 2026-07-21 | Owner chose **Scope A**; searched Drive for screenshots (not found) | ✅ |
 | 2026-07-21 | Built Phase 0 scaffold (paper/sim) — typecheck + tests + build green | ✅ |
-| — | Push Phase 0 to remote | ⏳ blocked on GitHub write access (see note) |
+| 2026-07-22 | Phase 0 improvements (perf, hardening, health, cron, deploy-ready) | ✅ |
+| 2026-07-22 | Deployed to Vercel (production, paper/sim) — live & healthy | ✅ |
+| — | Push Phase 0 to remote GitHub | ⏳ blocked on GitHub write access (see note) |
 | — | Phase A / B / C build-out | ⬜ not started |
+
+**Live deployment:** https://gsps-gann-protocol.vercel.app (Vercel team "Gann
+Protocol", paper/simulation mode). Currently behind Vercel Authentication —
+see `docs/GSPS-Phase0-Improvements.md` → Deployment for how to make it public.
+Details on the improvements are in that same file.
 
 ### Push blocker
 The Claude GitHub App currently has **read-only** access to `ymcctrading/GSPS`

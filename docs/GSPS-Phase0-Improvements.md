@@ -108,10 +108,25 @@ Files: `package.json`, `.nvmrc`.
 
 ## Deployment
 
-Deployed the built app to Vercel (paper/simulation mode) using the Vercel
-integration — no GitHub push required, which is convenient since the Claude
-GitHub App is still read-only on the repo. The live URL and deployment details
-are recorded in the main review log (`docs/GSPS-Doc-Review-Log.md`, §8).
+Deployed the built app to Vercel (team **Gann Protocol**), production, in
+paper/simulation mode — no GitHub push required, which is convenient since the
+Claude GitHub App is still read-only on the repo.
+
+- **Production URL:** https://gsps-gann-protocol.vercel.app
+- **Status:** live / READY. `GET /api/health` returns
+  `{"status":"ok","marketDataProvider":"mock","brokerageMode":"paper"}`.
+- **Two build fixes were needed along the way:**
+  1. Vercel rejected `next@15.1.6` as a vulnerable version (CVE-2025-66478) —
+     bumped to the patched `15.5.21`.
+  2. First deploy attempt was missing files (my error assembling the tree);
+     redeployed the complete source tree.
+- **Access note:** the project has **Vercel Authentication (Deployment
+  Protection)** enabled, so the site currently requires a Vercel login. To make
+  it public, disable it in Vercel → project `gsps` → Settings → Deployment
+  Protection. While it's on, the owner can view it logged in, or use a temporary
+  `_vercel_share` bypass link.
+- **Cron:** `vercel.json` schedules `GET /api/scanner/run` at 21:15 UTC on
+  weekdays (post-close year-round). Vercel Cron only runs on production.
 
 ---
 
