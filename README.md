@@ -28,6 +28,7 @@ SQL mirrors live in `supabase/migrations/`; revert with
 ```
 engine/                     framework-free, unit-tested core
   scanner/                  mean-reversion waterfall (Strat gate → 8/9 → 7+velocity → top 15)
+lib/scanTicker.ts           core per-ticker scan engine (scores a symbol → Execute/Watch/Reject)
   tiers/                    4-tier entitlement matrix + FeatureGate helpers
   automation/               MultiAssetAutomationController, OptionsChainParser,
                             RiskPositionSizer (TS + Py), AssetLifecycleEngine (trailing stops)
@@ -82,7 +83,7 @@ provider (Polygon/Alpaca-style).
 
 ```bash
 npm install
-npm test          # vitest — 30 tests (waterfall, entitlements, automation, pnl)
+npm test          # vitest — 49 tests (scanTicker, waterfall, entitlements, automation, pnl)
 npm run typecheck # tsc --noEmit
 ```
 
@@ -96,9 +97,13 @@ npm run typecheck # tsc --noEmit
 ## Notes for integration (when GitHub connects)
 
 - The two root files `route.ts` / `batch-route.ts` pre-date this work and import
-  `@/lib/scanTicker` (not in this repo). They belong under `app/api/scan/` and
-  `app/api/batch-scan/` in the Next.js app. Keep them; add the waterfall import to
-  `batch-scan`.
+  `@/lib/scanTicker` — now provided by `lib/scanTicker.ts`, so both handlers
+  resolve and run against the engine (deterministic simulated feed until a live
+  `MarketDataProvider` is passed). They belong under `app/api/scan/` and
+  `app/api/batch-scan/` in the Next.js app; the `@/` alias resolves `@/lib/...`
+  to `lib/...` at the project root. To build the dashboard board, map each
+  `scanTicker` result (already a `ScannedAsset`) through
+  `processProtocolReversions(universe)`.
 - `docs/CHARTING_SPEC.md` is the blueprint for the charting fixes (NOK candle bug,
   OHLC tooltip, timeframe ladder, ETH bands, MACD/RSI) — frontend work that lands
   once the app source is here.
