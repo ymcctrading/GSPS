@@ -3,6 +3,9 @@
   "version": "2.0.0",
   "private": true,
   "description": "GSPS — Global Scanner & Charting Platform System. Robinhood-simple UI, thinkorswim-deep analytics. Phase 0 scaffold (paper/simulation only).",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",

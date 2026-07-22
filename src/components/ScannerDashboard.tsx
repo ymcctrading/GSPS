@@ -4,15 +4,17 @@ import { useEffect, useState } from "react";
 import type { ScanStatus } from "@/lib/scanner/cache";
 import type { ScanResult } from "@/lib/scanner/types";
 
+interface Payload {
+  bullishReversions: ScanResult[];
+  bearishReversions: ScanResult[];
+  summary: { execute: number; watch: number; reject: number };
+}
+
 interface StatusResponse {
   status: ScanStatus;
   message: string;
   completedAt: string | null;
-  payload: {
-    bullishReversions: ScanResult[];
-    bearishReversions: ScanResult[];
-    summary: { execute: number; watch: number; reject: number };
-  } | null;
+  payload: Payload | null;
 }
 
 export function ScannerDashboard({
@@ -28,6 +30,10 @@ export function ScannerDashboard({
     completedAt: null,
     payload: null,
   });
+  // Result from a manual "Run scan now" — displayed directly so it works even on
+  // serverless where the shared cache may be cold on the next request.
+  const [manualPayload, setManualPayload] = useState<Payload | null>(null);
+  const [running, setRunning] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -48,16 +54,41 @@ export function ScannerDashboard({
     };
   }, []);
 
-  const hasResults = data.payload != null;
+  const runNow = async () => {
+    setRunning(true);
+    try {
+      const res = await fetch("/api/scanner/run", { method: "POST" });
+      const json = await res.json();
+      if (json?.ok && json.payload) setManualPayload(json.payload as Payload);
+    } catch {
+      /* surfaced via status message on next poll */
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const payload = manualPayload ?? data.payload;
+  const hasResults = payload != null;
 
   return (
     <section>
       <div className="mb-6 rounded-xl border border-[#20252f] bg-canvas-raised p-4">
-        <div className="flex items-center gap-2">
-          <StatusDot status={data.status} />
-          <span className="text-sm">{data.message}</span>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <StatusDot status={running ? "RUNNING" : data.status} />
+            <span className="text-sm">
+              {running ? "Scanning the market for today's best reversion setups…" : data.message}
+            </span>
+          </div>
+          <button
+            onClick={runNow}
+            disabled={running}
+            className="shrink-0 rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent transition hover:bg-accent/20 disabled:opacity-50"
+          >
+            {running ? "Running…" : "Run scan now"}
+          </button>
         </div>
-        {data.completedAt && (
+        {data.completedAt && !manualPayload && (
           <p className="mt-1 text-xs text-[#8b93a1]">
             Last completed: {new Date(data.completedAt).toLocaleString()}
           </p>
@@ -69,16 +100,16 @@ export function ScannerDashboard({
           <ReversionColumn
             title="Bullish Reversions"
             accent="bull"
-            rows={data.payload!.bullishReversions}
+            rows={payload!.bullishReversions}
           />
           <ReversionColumn
             title="Bearish Reversions"
             accent="bear"
-            rows={data.payload!.bearishReversions}
+            rows={payload!.bearishReversions}
           />
         </div>
       ) : (
-        <EmptyState />
+        <EmptyState onRun={runNow} running={running} />
       )}
     </section>
   );
@@ -135,12 +166,19 @@ function ReversionColumn({
   );
 }
 
-function EmptyState() {
+function EmptyState({ onRun, running }: { onRun: () => void; running: boolean }) {
   return (
     <div className="rounded-xl border border-dashed border-[#2a2f3a] p-8 text-center">
       <p className="text-sm text-[#8b93a1]">
-        Setups will appear here automatically after the next market-close scan.
+        Setups appear here automatically after the market-close scan.
       </p>
+      <button
+        onClick={onRun}
+        disabled={running}
+        className="mt-3 rounded-lg border border-accent/40 bg-accent/10 px-4 py-2 text-sm font-medium text-accent transition hover:bg-accent/20 disabled:opacity-50"
+      >
+        {running ? "Running…" : "Run a scan now"}
+      </button>
     </div>
   );
 }

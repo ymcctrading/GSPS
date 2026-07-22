@@ -14,6 +14,7 @@ import type {
 } from "./types";
 import { aggregate } from "@/lib/candles/aggregate";
 import { classifySession } from "@/lib/candles/sessions";
+import type { Interval } from "./types";
 
 const BASE_PRICES: Record<string, { base: number; assetClass: AssetClass }> = {
   SPY: { base: 742.09, assetClass: "ETF" },
@@ -61,6 +62,33 @@ function meta(symbol: string): { base: number; assetClass: AssetClass } {
   return BASE_PRICES[symbol.toUpperCase()] ?? { base: 100, assetClass: "STOCK" };
 }
 
+/**
+ * Sampling resolution (ms between synthetic ticks) per chart interval. Chosen so
+ * every aggregation bucket still receives several ticks, while a 120-day daily
+ * scan doesn't generate ~47k minute ticks per symbol. Ticks must be finer than
+ * the bar width they build.
+ */
+function tickStepFor(interval: Interval): number {
+  switch (interval) {
+    case "1m":
+      return 60_000; // 1-minute ticks
+    case "5m":
+      return 60_000;
+    case "15m":
+      return 5 * 60_000;
+    case "1h":
+      return 15 * 60_000;
+    case "1d":
+      return 60 * 60_000; // hourly samples -> daily OHLC
+    case "1w":
+      return 60 * 60_000;
+    case "1M":
+      return 4 * 60 * 60_000;
+    default:
+      return 60_000;
+  }
+}
+
 export class MockMarketDataProvider implements MarketDataProvider {
   readonly name = "mock";
 
@@ -80,20 +108,32 @@ export class MockMarketDataProvider implements MarketDataProvider {
   }
 
   async getTicks(symbol: string, from: number, to: number): Promise<Tick[]> {
+    return this.generateTicks(symbol, from, to, 60_000);
+  }
+
+  /**
+   * Generate synthetic ticks at a given step. Prices are a PURE function of the
+   * absolute tick index, so any query window returns identical values for the
+   * same timestamps (a real provider property) -> scans are reproducible.
+   */
+  private generateTicks(
+    symbol: string,
+    from: number,
+    to: number,
+    stepMs: number
+  ): Tick[] {
     const { base, assetClass } = meta(symbol);
     const seed = hashSymbol(symbol);
     const isCrypto = assetClass === "CRYPTO";
-    const stepMs = 60_000; // one synthetic tick per minute
     const ticks: Tick[] = [];
 
-    // Prices are a PURE function of the absolute minute index, so any query
-    // window returns identical values for the same timestamps (a real provider
-    // property). No dependency on `from` -> scans are reproducible.
     const start = Math.ceil(from / stepMs) * stepMs;
     for (let ts = start; ts <= to; ts += stepMs) {
       // 24/7 assets always trade; equities only when the session is open.
       if (!isCrypto && classifySession(ts) === "CLOSED") continue;
-      const m = Math.floor(ts / stepMs);
+      // Index against a fixed 1-minute grid so different step sizes still sample
+      // the same underlying price curve.
+      const m = Math.floor(ts / 60_000);
       // Layered deterministic oscillation + hashed micro-noise (no random walk).
       const noise = mulberryAt(seed, m) - 0.5; // [-0.5, 0.5]
       const factor =
@@ -114,7 +154,12 @@ export class MockMarketDataProvider implements MarketDataProvider {
   }
 
   async getCandles(req: CandleRequest): Promise<OHLCVBar[]> {
-    const ticks = await this.getTicks(req.symbol, req.from, req.to);
+    const ticks = this.generateTicks(
+      req.symbol,
+      req.from,
+      req.to,
+      tickStepFor(req.interval)
+    );
     return aggregate(ticks, req.interval, {
       includeExtendedHours: req.includeExtendedHours,
     });
