@@ -63,6 +63,13 @@ export default function LandingPage() {
               <Button variant="outline" size="lg">I have an account</Button>
             </Link>
           </div>
+          <p className="mt-4 text-sm text-muted">
+            No account needed —{" "}
+            <Link href="/chart/SPY" className="font-medium text-accent hover:underline">
+              open a live shareable chart
+            </Link>
+            .
+          </p>
         </section>
 
         <section className="mx-auto grid max-w-5xl gap-6 px-4 pb-24 sm:grid-cols-3">

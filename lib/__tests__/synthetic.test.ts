@@ -35,6 +35,17 @@ describe("syntheticProvider.fetchBars", () => {
     expect(a.map((x) => x.c)).toEqual(b.map((x) => x.c));
   });
 
+  it("keeps a realistic price range over a year (no runaway drift)", async () => {
+    const start = new Date(Date.now() - 365 * 24 * 3600 * 1000);
+    for (const sym of ["SPY", "AAPL", "NVDA", "ZZZZ"]) {
+      const bars = await syntheticProvider.fetchBars(sym, "1Day", start, new Date(), "us_equity");
+      const closes = bars.map((b) => b.c);
+      const ratio = Math.max(...closes) / Math.min(...closes);
+      // A year of daily bars should stay within a sane band, not a 5x move.
+      expect(ratio).toBeLessThan(3);
+    }
+  });
+
   it("anchors the latest bar near the live price", async () => {
     const start = new Date(Date.now() - 365 * 24 * 3600 * 1000);
     const bars = await syntheticProvider.fetchBars("SPY", "1Day", start, new Date(), "us_equity");

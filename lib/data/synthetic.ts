@@ -114,8 +114,10 @@ function genBars(
 
   const rnd = mulberry32(hashStr(`${symbol.toUpperCase()}|${timeframe}`));
   const vol = VOL[timeframe];
-  // A gentle, seeded drift so charts trend rather than pure-random-walk.
-  const drift = (rnd() - 0.5) * vol * 0.6;
+  // A gentle, seeded drift so charts trend rather than pure-random-walk. Kept
+  // small because it compounds over every bar — a large value turns a 1yr daily
+  // chart into an unrealistic 5x move.
+  const drift = (rnd() - 0.5) * vol * 0.04;
 
   // Build a raw close series, then rescale so the final close hits the anchor.
   const rawCloses: number[] = [];
