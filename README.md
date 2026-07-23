@@ -83,13 +83,17 @@ To verify the switch flipped without eyeballing prices, hit the drop-in
 
 ```bash
 curl -s localhost:3000/api/health
-# { "status": "ok", "feedMode": "simulated", "live": false, "timestamp": "…" }
+# { "status": "ok", "feedMode": "simulated", "live": false,
+#   "credentials": { "wsUrl": false, "apiKey": false }, "timestamp": "…" }
 ```
 
-`feedMode` comes from `activeFeedMode()` in the ingestor module — the same
-resolution logic the ingestor itself uses — so the check can't drift from
-reality. It reads `MARKET_DATA_WS_URL` + `MARKET_DATA_API_KEY` and reports
-`"live"` only when both are present.
+`feedMode` comes from `activeFeedMode()`, which applies the same
+`resolveFeedMode()` rule the ingestor itself uses — so the check can't drift
+from reality. It reports `"live"` only when both `MARKET_DATA_WS_URL` and
+`MARKET_DATA_API_KEY` are set; `credentials` shows which half is present
+(booleans only, never the secret values), so a `"simulated"` result tells you
+exactly what's missing. The route is `force-dynamic` + `no-store`, so it always
+reflects the current switch rather than a cached value.
 
 ## Develop
 
@@ -108,10 +112,13 @@ npm run typecheck # tsc --noEmit
 
 ## Notes for integration (when GitHub connects)
 
-- The two root files `route.ts` / `batch-route.ts` pre-date this work and import
-  `@/lib/scanTicker` (not in this repo). They belong under `app/api/scan/` and
-  `app/api/batch-scan/` in the Next.js app. Keep them; add the waterfall import to
-  `batch-scan`.
+- The root files `route.ts` / `batch-route.ts` / `health-route.ts` are drop-in
+  App Router handlers that belong under `app/api/scan/`, `app/api/batch-scan/`,
+  and `app/api/health/` respectively. Like the other two, `health-route.ts` uses
+  the `@/` alias + `next/server`, so it only compiles inside the app — the engine
+  repo stays framework-free and does not depend on Next. Its one non-trivial
+  dependency, `activeFeedMode()`, **is** typechecked and unit-tested here, so the
+  wrapper itself is just a 4-line `NextResponse.json`.
 - `docs/CHARTING_SPEC.md` is the blueprint for the charting fixes (NOK candle bug,
   OHLC tooltip, timeframe ladder, ETH bands, MACD/RSI) — frontend work that lands
   once the app source is here.

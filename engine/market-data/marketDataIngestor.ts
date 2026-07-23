@@ -30,21 +30,31 @@ export interface IngestorConfig {
 export type FeedMode = "live" | "simulated";
 
 /**
- * Resolve the active market-data feed mode from config and/or environment —
- * the single source of truth shared by the ingestor and the /api/health check.
- *
- * Mirrors the ingestor's own fallback rule: an explicit `useSimulation` wins,
- * otherwise we run "live" only when BOTH a WS url and an API key are present.
- * By default it reads `MARKET_DATA_WS_URL` + `MARKET_DATA_API_KEY`, so a health
- * check can report whether the switch flipped without constructing an ingestor.
+ * The live-vs-simulated rule, applied to explicit values only (never touches
+ * the environment). An explicit `useSimulation` wins; otherwise we run "live"
+ * only when BOTH a WS url and an API key are present. This is the shared source
+ * of truth the ingestor constructor uses, so config-driven behavior stays
+ * exactly as it was.
  */
-export function activeFeedMode(
-  opts: Partial<Pick<IngestorConfig, "useSimulation" | "wsUrl" | "apiKey">> = {},
+export function resolveFeedMode(
+  config: Partial<Pick<IngestorConfig, "useSimulation" | "wsUrl" | "apiKey">>,
 ): FeedMode {
-  const wsUrl = opts.wsUrl ?? process.env.MARKET_DATA_WS_URL;
-  const apiKey = opts.apiKey ?? process.env.MARKET_DATA_API_KEY;
-  const simulated = opts.useSimulation ?? (!apiKey || !wsUrl);
+  const simulated = config.useSimulation ?? (!config.apiKey || !config.wsUrl);
   return simulated ? "simulated" : "live";
+}
+
+/**
+ * The market-data feed the engine would run given the current environment —
+ * the /api/health check's source of truth. Reads `MARKET_DATA_WS_URL` +
+ * `MARKET_DATA_API_KEY` (both required for "live") and applies the same rule as
+ * the ingestor, so a health check can report whether the switch flipped without
+ * constructing an ingestor or eyeballing prices.
+ */
+export function activeFeedMode(): FeedMode {
+  return resolveFeedMode({
+    wsUrl: process.env.MARKET_DATA_WS_URL,
+    apiKey: process.env.MARKET_DATA_API_KEY,
+  });
 }
 
 interface SimAsset {
@@ -70,7 +80,8 @@ export class MarketDataIngestor {
     private readonly config: IngestorConfig,
   ) {
     // Auto-fallback to simulation when no live credentials are configured.
-    this.isSimulation = activeFeedMode(config) === "simulated";
+    // Config-only: env vars are the app's job to wire into `config`.
+    this.isSimulation = resolveFeedMode(config) === "simulated";
   }
 
   /** The feed this instance is actually running: "live" or "simulated". */
