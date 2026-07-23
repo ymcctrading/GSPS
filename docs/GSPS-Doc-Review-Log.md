@@ -281,8 +281,11 @@ the multi-asset automation engine (Phases A–C).
 | 2026-07-21 | Built Phase 0 scaffold (paper/sim) — typecheck + tests + build green | ✅ |
 | 2026-07-22 | Phase 0 improvements (perf, hardening, health, cron, deploy-ready) | ✅ |
 | 2026-07-22 | Deployed to Vercel (production, paper/sim) — live & healthy | ✅ |
-| — | Push Phase 0 to remote GitHub | ⏳ blocked on GitHub write access (see note) |
-| — | Phase A / B / C build-out | ⬜ not started |
+| 2026-07-23 | Received the 20 reference screenshots; wrote UI spec | ✅ |
+| 2026-07-23 | Phase A: built the charting screen (candles/volume/MACD/RSI/OHLCV crosshair/timeframe ladder/ETH shading), verified in a real browser | ✅ |
+| 2026-07-23 | Redeployed Phase A to Vercel production — build READY | ✅ |
+| — | Push all commits to remote GitHub | ⏳ blocked on GitHub write access (see note) |
+| — | Phase A polish (Research/Options/Level II tabs, drawing tools) + Phase B/C | ⬜ not started |
 
 **Live deployment:** https://gsps-gann-protocol.vercel.app (Vercel team "Gann
 Protocol", paper/simulation mode). Currently behind Vercel Authentication —
