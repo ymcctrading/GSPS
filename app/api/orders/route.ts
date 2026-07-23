@@ -65,12 +65,11 @@ export async function POST(req: NextRequest) {
       qty: input.qty,
       type: input.entryMode === "advised" ? "limit" : "market",
       limitPrice: input.limitPrice,
-      // Bracket orders only support buy-side entries with both legs on Alpaca;
-      // attach when levels are provided and the entry is a buy.
-      bracket:
-        input.attachLevels && input.side === "buy"
-          ? { stopLoss: input.attachLevels.stopLoss, takeProfit: input.attachLevels.takeProfit }
-          : undefined,
+      // Alpaca supports bracket orders on both long and short entries; attach the
+      // protocol stop/target whenever levels are provided.
+      bracket: input.attachLevels
+        ? { stopLoss: input.attachLevels.stopLoss, takeProfit: input.attachLevels.takeProfit }
+        : undefined,
     });
 
     const { error: dbError } = await supabase.from("orders").insert({
@@ -79,7 +78,7 @@ export async function POST(req: NextRequest) {
       broker_order_id: broker.id,
       symbol: input.symbol.toUpperCase(),
       side: input.side,
-      order_type: input.attachLevels && input.side === "buy" ? "bracket" : input.entryMode === "advised" ? "limit" : "market",
+      order_type: input.attachLevels ? "bracket" : input.entryMode === "advised" ? "limit" : "market",
       qty: input.qty,
       limit_price: input.limitPrice ?? null,
       stop_price: input.attachLevels?.stopLoss ?? null,

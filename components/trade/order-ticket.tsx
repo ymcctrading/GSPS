@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,30 +8,45 @@ import { formatUsd, cn } from "@/lib/utils";
 import type { ScanResult } from "@/lib/types";
 
 type EntryMode = "advised" | "now";
+type Side = "buy" | "sell";
 
-export function OrderTicket({ result }: { result: ScanResult }) {
-  const { levels, pattern, currentPrice, symbol } = result;
+export function OrderTicket({
+  result,
+  livePrice,
+}: {
+  result: ScanResult;
+  livePrice?: number | null;
+}) {
+  const { levels, pattern, symbol } = result;
+  const marketPrice = livePrice ?? (result.currentPrice > 0 ? result.currentPrice : null);
+
+  const armedSide: Side | null = pattern
+    ? pattern.direction === "bullish"
+      ? "buy"
+      : "sell"
+    : null;
+
+  const [side, setSide] = useState<Side>(armedSide ?? "buy");
   const [qty, setQty] = useState("1");
-  const [entryMode, setEntryMode] = useState<EntryMode>("advised");
+  const [entryMode, setEntryMode] = useState<EntryMode>(armedSide ? "advised" : "now");
   const [attachLevels, setAttachLevels] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
 
-  if (!levels || !pattern) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Order ticket</CardTitle>
-          <CardDescription>
-            No armed setup — the protocol only authorizes entries off a live trigger line.
-          </CardDescription>
-        </CardHeader>
-      </Card>
-    );
-  }
+  // The protocol's advised entry and bracket only apply when trading the same
+  // direction as the armed setup. Otherwise it's a plain market order.
+  const matchesArmed = pattern != null && levels != null && side === armedSide;
+  const effectiveMode: EntryMode = matchesArmed ? entryMode : "now";
+  const advised = levels?.entry ?? null;
+  const canAttach = matchesArmed && attachLevels;
 
-  const side = pattern.direction === "bullish" ? "buy" : "sell";
-  const advised = levels.entry;
+  const summary = useMemo(() => {
+    if (!pattern) return "Manual order — no Strat setup is currently armed.";
+    if (matchesArmed) {
+      return `${side === "buy" ? "Long" : "Short"} ${symbol} per the armed ${pattern.name} ${pattern.direction} setup.`;
+    }
+    return `Manual ${side === "buy" ? "long" : "short"} ${symbol} — against the armed ${pattern.name} ${pattern.direction} setup, so protocol levels don't apply.`;
+  }, [pattern, matchesArmed, side, symbol]);
 
   async function submit() {
     setSubmitting(true);
@@ -44,10 +59,14 @@ export function OrderTicket({ result }: { result: ScanResult }) {
           symbol,
           side,
           qty: Number(qty),
-          entryMode,
-          limitPrice: entryMode === "advised" ? advised : undefined,
-          attachLevels: attachLevels
-            ? { stopLoss: levels!.stopLoss, takeProfit: levels!.takeProfit1, masterProfit: levels!.masterProfit }
+          entryMode: effectiveMode,
+          limitPrice: effectiveMode === "advised" ? advised ?? undefined : undefined,
+          attachLevels: canAttach
+            ? {
+                stopLoss: levels!.stopLoss,
+                takeProfit: levels!.takeProfit1,
+                masterProfit: levels!.masterProfit,
+              }
             : undefined,
           mode: "paper",
         }),
@@ -66,23 +85,37 @@ export function OrderTicket({ result }: { result: ScanResult }) {
     <Card>
       <CardHeader>
         <CardTitle>Order ticket · paper</CardTitle>
-        <CardDescription>
-          {side === "buy" ? "Long" : "Short"} {symbol} per the armed {pattern.name} setup.
-        </CardDescription>
+        <CardDescription>{summary}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        {/* Buy / Sell */}
         <div className="grid grid-cols-2 gap-2">
+          <SideButton active={side === "buy"} side="buy" onClick={() => setSide("buy")} />
+          <SideButton active={side === "sell"} side="sell" onClick={() => setSide("sell")} />
+        </div>
+
+        {/* Entry mode — advised only offered when trading the armed direction. */}
+        <div className="grid grid-cols-2 gap-2">
+          {matchesArmed && advised != null ? (
+            <ModeButton
+              active={effectiveMode === "advised"}
+              onClick={() => setEntryMode("advised")}
+              title="At advised price"
+              subtitle={formatUsd(advised)}
+            />
+          ) : (
+            <div className="rounded-lg border border-dashed border-border px-3 py-2.5 text-left">
+              <p className="text-sm font-medium text-muted/70">Advised price</p>
+              <p className="font-mono text-xs text-muted/60">
+                {pattern ? "armed other side" : "no setup"}
+              </p>
+            </div>
+          )}
           <ModeButton
-            active={entryMode === "advised"}
-            onClick={() => setEntryMode("advised")}
-            title="At advised price"
-            subtitle={formatUsd(advised)}
-          />
-          <ModeButton
-            active={entryMode === "now"}
+            active={effectiveMode === "now"}
             onClick={() => setEntryMode("now")}
-            title="Buy now (market)"
-            subtitle={currentPrice ? formatUsd(currentPrice) : "market"}
+            title={`${side === "buy" ? "Buy" : "Sell"} now (market)`}
+            subtitle={marketPrice != null ? formatUsd(marketPrice) : "market"}
           />
         </div>
 
@@ -99,22 +132,26 @@ export function OrderTicket({ result }: { result: ScanResult }) {
           />
         </div>
 
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={attachLevels}
-            onChange={(e) => setAttachLevels(e.target.checked)}
-            className="h-4 w-4 accent-[var(--accent)]"
-          />
-          Attach protocol stop ({formatUsd(levels.stopLoss)}) and TP1 ({formatUsd(levels.takeProfit1)})
-        </label>
+        {matchesArmed && levels && (
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={attachLevels}
+              onChange={(e) => setAttachLevels(e.target.checked)}
+              className="h-4 w-4 accent-[var(--accent)]"
+            />
+            Attach protocol stop ({formatUsd(levels.stopLoss)}) and TP1 ({formatUsd(levels.takeProfit1)})
+          </label>
+        )}
 
         <Button
           variant={side === "buy" ? "bull" : "bear"}
           onClick={submit}
           disabled={submitting || Number(qty) < 1}
         >
-          {submitting ? "Placing…" : `${side === "buy" ? "Buy" : "Sell short"} ${symbol}`}
+          {submitting
+            ? "Placing…"
+            : `${side === "buy" ? "Buy" : "Sell"} ${Number(qty) || ""} ${symbol}`.trim()}
         </Button>
 
         {feedback && (
@@ -125,6 +162,25 @@ export function OrderTicket({ result }: { result: ScanResult }) {
         </p>
       </CardContent>
     </Card>
+  );
+}
+
+function SideButton({ active, side, onClick }: { active: boolean; side: Side; onClick: () => void }) {
+  const buy = side === "buy";
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "rounded-lg border px-3 py-2.5 text-center text-sm font-semibold uppercase tracking-wide transition-colors cursor-pointer",
+        active
+          ? buy
+            ? "border-bull bg-bull/10 text-bull"
+            : "border-bear bg-bear/10 text-bear"
+          : "border-border text-muted hover:border-muted",
+      )}
+    >
+      {buy ? "Buy / Long" : "Sell / Short"}
+    </button>
   );
 }
 

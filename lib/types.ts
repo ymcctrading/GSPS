@@ -19,7 +19,7 @@ export type Direction = "bullish" | "bearish" | "none";
 export type StratState = "1" | "2U" | "2D" | "3";
 
 export interface StratPattern {
-  name: "2-1-2" | "2-2" | "3-1-2" | "PMG";
+  name: "2-1-2" | "2-2" | "1-2-2" | "3-2-2" | "3-1-2" | "PMG";
   direction: Exclude<Direction, "none">;
   /** Price that must be broken by one penny to trigger the trade. */
   triggerPrice: number;
@@ -80,6 +80,8 @@ export interface ScanResult {
   trends: TrendReading[];
   gann: GannLevels;
   pattern: StratPattern | null;
+  /** Every setup armed on the execution timeframe (the primary is `pattern`). */
+  armedPatterns: StratPattern[];
   levels: TradeLevels | null;
   decision: ScanDecision;
   /** Optional: option premium supplied by user for the 12–18% stop calc. */

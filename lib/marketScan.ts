@@ -13,8 +13,26 @@ import { readTrend } from "@/lib/analysis/trend";
 import { computeFanLines } from "@/lib/gann/fans";
 import { squareOf9Levels } from "@/lib/gann/squareOf9";
 import { scanTicker } from "@/lib/scanTicker";
+import { MAG7, SECTORS } from "@/lib/sectors";
 
-const MAG7 = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA"];
+// Fallback universe when the most-actives screener is unavailable (some Alpaca
+// plans don't include it): the curated sector lists, equities only.
+const FALLBACK_UNIVERSE = Array.from(
+  new Set([
+    ...MAG7,
+    ...Object.values(SECTORS).flatMap((s) => s.symbols),
+  ]),
+).filter((s) => !s.includes("/"));
+
+async function resolveUniverse(universeTop: number): Promise<string[]> {
+  try {
+    const actives = await fetchMostActives(universeTop);
+    if (actives.length > 0) return actives;
+  } catch {
+    /* screener unavailable — fall back to the curated universe */
+  }
+  return FALLBACK_UNIVERSE;
+}
 
 interface CoarseCandidate {
   symbol: string;
@@ -84,7 +102,7 @@ async function mapWithConcurrency<T, R>(
 export async function runMarketScan(universeTop = 100, perSide = 15): Promise<MarketScanOutput> {
   const scanDate = new Date().toISOString().slice(0, 10);
 
-  const actives = (await fetchMostActives(universeTop)).filter((s) => !MAG7.includes(s));
+  const actives = await resolveUniverse(universeTop);
 
   // Coarse pass on daily bars only
   const yearAgo = new Date(Date.now() - 365 * 24 * 3600 * 1000);
