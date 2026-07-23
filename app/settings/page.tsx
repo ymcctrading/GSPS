@@ -1,3 +1,5 @@
+import { alpacaConfigured } from "@/lib/alpaca";
+
 export const dynamic = "force-dynamic";
 
 function Rule({ label, value }: { label: string; value: string }) {
@@ -10,6 +12,7 @@ function Rule({ label, value }: { label: string; value: string }) {
 }
 
 export default function SettingsPage() {
+  const connected = alpacaConfigured();
   return (
     <div className="space-y-6">
       <div>
@@ -24,9 +27,22 @@ export default function SettingsPage() {
         <p className="mt-1 text-sm text-slate-500">
           Simulated account powered by Alpaca — every protocol order routes here by default.
         </p>
-        <span className="mt-3 inline-block rounded-md bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-          Connected
-        </span>
+        {connected ? (
+          <span className="mt-3 inline-block rounded-md bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+            Connected
+          </span>
+        ) : (
+          <div className="mt-3">
+            <span className="inline-block rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+              Not connected
+            </span>
+            <p className="mt-2 text-xs text-slate-500">
+              Add <code className="rounded bg-slate-100 px-1">ALPACA_KEY_ID</code> and{" "}
+              <code className="rounded bg-slate-100 px-1">ALPACA_SECRET_KEY</code> (free paper keys
+              from alpaca.markets) as Vercel environment variables to show your live paper account.
+            </p>
+          </div>
+        )}
       </section>
 
       <section className="rounded-xl border border-[var(--border)] bg-white p-5 shadow-sm">

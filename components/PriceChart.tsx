@@ -5,7 +5,8 @@ import { useEffect, useRef, useState } from "react";
 /**
  * Combined GSPS chart: candlesticks + volume + MACD + RSI sub-charts, protocol
  * overlay lines (Entry / Stop / TP1 / Master), OHLC crosshair tooltip, the full
- * timeframe ladder, and an Extended Trading Hours toggle.
+ * timeframe ladder, an Extended Trading Hours toggle, and interactive drawing
+ * tools (trendline, horizontal, Fibonacci).
  *
  * Candle data comes from /api/candles (free Yahoo source, no key, with a
  * simulated fallback). KLineCharts (free, MIT) loads lazily on the client.
@@ -21,6 +22,13 @@ export type ProtocolLevels = {
 const TIMEFRAMES = ["1m", "5m", "15m", "1H", "4H", "1D", "1W", "1M"] as const;
 type Timeframe = (typeof TIMEFRAMES)[number];
 
+// KLineCharts built-in overlay names for the drawing tools.
+const DRAW_TOOLS: { key: string; label: string }[] = [
+  { key: "segment", label: "Trendline" },
+  { key: "horizontalStraightLine", label: "Horizontal" },
+  { key: "fibonacciLine", label: "Fibonacci" },
+];
+
 type Candle = {
   timestamp: number;
   open: number;
@@ -28,6 +36,13 @@ type Candle = {
   low: number;
   close: number;
   volume: number;
+};
+
+type KLineChart = {
+  applyNewData: (d: Candle[]) => void;
+  createIndicator: (name: string, stack?: boolean, opts?: unknown) => void;
+  createOverlay: (o: unknown) => void;
+  removeOverlay: (filter?: unknown) => void;
 };
 
 export function PriceChart({
@@ -38,6 +53,7 @@ export function PriceChart({
   levels: ProtocolLevels;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<KLineChart | null>(null);
   const [tf, setTf] = useState<Timeframe>("1D");
   const [eth, setEth] = useState(false);
   const [source, setSource] = useState<"live" | "simulated" | null>(null);
@@ -65,8 +81,9 @@ export function PriceChart({
       }
       if (disposed || !containerRef.current) return;
 
-      const chart = kline.init(containerRef.current);
+      const chart = kline.init(containerRef.current) as KLineChart | null;
       if (!chart) return;
+      chartRef.current = chart;
       chart.applyNewData(candles);
 
       try {
@@ -88,10 +105,11 @@ export function PriceChart({
         try {
           chart.createOverlay({
             name: "priceLine",
+            groupId: "protocol",
             points: [{ value }],
             styles: { line: { color }, text: { color } },
             extendData: label,
-          } as never);
+          });
         } catch {
           /* overlay API differences — non-fatal */
         }
@@ -104,6 +122,7 @@ export function PriceChart({
         } catch {
           /* noop */
         }
+        chartRef.current = null;
       };
     })();
 
@@ -112,6 +131,21 @@ export function PriceChart({
       cleanup();
     };
   }, [symbol, tf, eth, levels]);
+
+  const startDrawing = (name: string) => {
+    try {
+      chartRef.current?.createOverlay({ name, groupId: "drawings" });
+    } catch {
+      /* noop */
+    }
+  };
+  const clearDrawings = () => {
+    try {
+      chartRef.current?.removeOverlay({ groupId: "drawings" });
+    } catch {
+      /* noop */
+    }
+  };
 
   return (
     <div>
@@ -150,6 +184,29 @@ export function PriceChart({
               : "live"}
         </span>
       </div>
+
+      {/* Drawing tools (Investor Mode) */}
+      <div className="mb-2 flex flex-wrap items-center gap-1">
+        <span className="mr-1 text-xs text-slate-400">Draw:</span>
+        {DRAW_TOOLS.map((tool) => (
+          <button
+            key={tool.key}
+            type="button"
+            onClick={() => startDrawing(tool.key)}
+            className="rounded-md border border-[var(--border)] px-2.5 py-1 text-xs font-medium text-slate-600 hover:border-brand-blue hover:text-brand-blue"
+          >
+            {tool.label}
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={clearDrawings}
+          className="rounded-md border border-[var(--border)] px-2.5 py-1 text-xs font-medium text-slate-500 hover:text-brand-down"
+        >
+          Clear
+        </button>
+      </div>
+
       <div ref={containerRef} className="h-[440px] w-full" />
     </div>
   );
