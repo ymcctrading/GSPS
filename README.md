@@ -78,6 +78,19 @@ intelligence and automation.
 runs today. Set `MARKET_DATA_WS_URL` + `MARKET_DATA_API_KEY` to flip to a live
 provider (Polygon/Alpaca-style).
 
+To verify the switch flipped without eyeballing prices, hit the drop-in
+`/api/health` route (`health-route.ts` → `app/api/health/route.ts`):
+
+```bash
+curl -s localhost:3000/api/health
+# { "status": "ok", "feedMode": "simulated", "live": false, "timestamp": "…" }
+```
+
+`feedMode` comes from `activeFeedMode()` in the ingestor module — the same
+resolution logic the ingestor itself uses — so the check can't drift from
+reality. It reads `MARKET_DATA_WS_URL` + `MARKET_DATA_API_KEY` and reports
+`"live"` only when both are present.
+
 ## Develop
 
 ```bash

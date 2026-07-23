@@ -26,6 +26,27 @@ export interface IngestorConfig {
   simIntervalMs?: number;
 }
 
+/** Which feed the engine is (or would be) running: real provider vs. fallback. */
+export type FeedMode = "live" | "simulated";
+
+/**
+ * Resolve the active market-data feed mode from config and/or environment —
+ * the single source of truth shared by the ingestor and the /api/health check.
+ *
+ * Mirrors the ingestor's own fallback rule: an explicit `useSimulation` wins,
+ * otherwise we run "live" only when BOTH a WS url and an API key are present.
+ * By default it reads `MARKET_DATA_WS_URL` + `MARKET_DATA_API_KEY`, so a health
+ * check can report whether the switch flipped without constructing an ingestor.
+ */
+export function activeFeedMode(
+  opts: Partial<Pick<IngestorConfig, "useSimulation" | "wsUrl" | "apiKey">> = {},
+): FeedMode {
+  const wsUrl = opts.wsUrl ?? process.env.MARKET_DATA_WS_URL;
+  const apiKey = opts.apiKey ?? process.env.MARKET_DATA_API_KEY;
+  const simulated = opts.useSimulation ?? (!apiKey || !wsUrl);
+  return simulated ? "simulated" : "live";
+}
+
 interface SimAsset {
   symbol: string;
   base: number;
@@ -49,8 +70,12 @@ export class MarketDataIngestor {
     private readonly config: IngestorConfig,
   ) {
     // Auto-fallback to simulation when no live credentials are configured.
-    this.isSimulation =
-      config.useSimulation ?? (!config.apiKey || !config.wsUrl);
+    this.isSimulation = activeFeedMode(config) === "simulated";
+  }
+
+  /** The feed this instance is actually running: "live" or "simulated". */
+  activeFeedMode(): FeedMode {
+    return this.isSimulation ? "simulated" : "live";
   }
 
   connect(): void {
