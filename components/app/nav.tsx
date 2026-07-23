@@ -4,12 +4,13 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Radar, Briefcase, BookOpen, Settings, LogOut, TrendingUp } from "lucide-react";
+import { LayoutDashboard, Radar, Briefcase, Bot, BookOpen, Settings, LogOut, TrendingUp } from "lucide-react";
 
 const LINKS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/scanner", label: "Scanner", icon: Radar },
   { href: "/portfolio", label: "Portfolio", icon: Briefcase },
+  { href: "/automation", label: "Automation", icon: Bot },
   { href: "/glossary", label: "Glossary", icon: BookOpen },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
