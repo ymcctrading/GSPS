@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { TierSwitcher } from "@/components/TierSwitcher";
 
 const TABS = [
   { href: "/dashboard", label: "Dashboard", icon: "▦" },
@@ -10,7 +11,7 @@ const TABS = [
   { href: "/settings", label: "Settings", icon: "⚙" },
 ];
 
-export function Nav() {
+export function Nav({ viewerTier }: { viewerTier: string }) {
   const pathname = usePathname();
   return (
     <header className="sticky top-0 z-20 border-b border-[var(--border)] bg-white/90 backdrop-blur">
@@ -39,7 +40,9 @@ export function Nav() {
             );
           })}
         </nav>
-        <div className="ml-auto text-sm text-slate-400">Owner access</div>
+        <div className="ml-auto">
+          <TierSwitcher current={viewerTier} />
+        </div>
       </div>
     </header>
   );

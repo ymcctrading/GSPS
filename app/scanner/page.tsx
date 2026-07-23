@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { createPublicClient } from "@/lib/supabase";
 import { usd, outputStateColor } from "@/lib/format";
+import { viewerHas } from "@/lib/tier";
+import { Paywall } from "@/components/Paywall";
 
 export const dynamic = "force-dynamic";
 
@@ -58,7 +60,10 @@ function scoreBadge(score: number) {
 }
 
 export default async function ScannerPage() {
-  const { rows, scanDate } = await loadLatestScan();
+  const unlocked = viewerHas("mean_reversion_scanner");
+  const { rows, scanDate } = unlocked
+    ? await loadLatestScan()
+    : { rows: [], scanDate: null };
 
   return (
     <div>
@@ -68,6 +73,15 @@ export default async function ScannerPage() {
           <span className="text-sm text-slate-400">Scan date: {scanDate}</span>
         )}
       </div>
+
+      {!unlocked && (
+        <Paywall
+          feature="mean_reversion_scanner"
+          title="Automated Protocol Scanner"
+          blurb="Real-time score-ranked 2-2 reversion setups across equities, crypto, and futures — with strict Strat-sniper filters and high-velocity volatility gates."
+        />
+      )}
+      {unlocked && (
       <div className="rounded-xl border border-[var(--border)] bg-white p-5 shadow-sm">
         <h2 className="text-lg font-semibold">Results</h2>
         <p className="mb-4 text-sm text-slate-500">
@@ -149,6 +163,7 @@ export default async function ScannerPage() {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

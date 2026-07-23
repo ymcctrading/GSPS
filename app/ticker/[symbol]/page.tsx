@@ -3,6 +3,7 @@ import dynamicImport from "next/dynamic";
 import { createPublicClient } from "@/lib/supabase";
 import { usd } from "@/lib/format";
 import { OrderTicket } from "@/components/OrderTicket";
+import { viewerHas } from "@/lib/tier";
 
 export const dynamic = "force-dynamic";
 
@@ -85,6 +86,8 @@ export default async function TickerPage({
             <h2 className="mb-3 text-lg font-semibold">Chart</h2>
             <PriceChart
               symbol={symbol}
+              showDrawingTools={viewerHas("drawing_tools")}
+              showOscillators={viewerHas("oscillators")}
               levels={{
                 entry: setup?.entry,
                 stop: setup?.stop_loss,

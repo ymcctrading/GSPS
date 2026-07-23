@@ -48,9 +48,13 @@ type KLineChart = {
 export function PriceChart({
   symbol,
   levels,
+  showDrawingTools = true,
+  showOscillators = true,
 }: {
   symbol: string;
   levels: ProtocolLevels;
+  showDrawingTools?: boolean;
+  showOscillators?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<KLineChart | null>(null);
@@ -88,8 +92,10 @@ export function PriceChart({
 
       try {
         chart.createIndicator("VOL", false, { id: "candle_pane" });
-        chart.createIndicator("MACD", false, { id: "pane_macd" });
-        chart.createIndicator("RSI", false, { id: "pane_rsi" });
+        if (showOscillators) {
+          chart.createIndicator("MACD", false, { id: "pane_macd" });
+          chart.createIndicator("RSI", false, { id: "pane_rsi" });
+        }
       } catch {
         /* indicator API differences — non-fatal */
       }
@@ -130,7 +136,7 @@ export function PriceChart({
       disposed = true;
       cleanup();
     };
-  }, [symbol, tf, eth, levels]);
+  }, [symbol, tf, eth, levels, showOscillators]);
 
   const startDrawing = (name: string) => {
     try {
@@ -186,26 +192,32 @@ export function PriceChart({
       </div>
 
       {/* Drawing tools (Investor Mode) */}
-      <div className="mb-2 flex flex-wrap items-center gap-1">
-        <span className="mr-1 text-xs text-slate-400">Draw:</span>
-        {DRAW_TOOLS.map((tool) => (
+      {showDrawingTools ? (
+        <div className="mb-2 flex flex-wrap items-center gap-1">
+          <span className="mr-1 text-xs text-slate-400">Draw:</span>
+          {DRAW_TOOLS.map((tool) => (
+            <button
+              key={tool.key}
+              type="button"
+              onClick={() => startDrawing(tool.key)}
+              className="rounded-md border border-[var(--border)] px-2.5 py-1 text-xs font-medium text-slate-600 hover:border-brand-blue hover:text-brand-blue"
+            >
+              {tool.label}
+            </button>
+          ))}
           <button
-            key={tool.key}
             type="button"
-            onClick={() => startDrawing(tool.key)}
-            className="rounded-md border border-[var(--border)] px-2.5 py-1 text-xs font-medium text-slate-600 hover:border-brand-blue hover:text-brand-blue"
+            onClick={clearDrawings}
+            className="rounded-md border border-[var(--border)] px-2.5 py-1 text-xs font-medium text-slate-500 hover:text-brand-down"
           >
-            {tool.label}
+            Clear
           </button>
-        ))}
-        <button
-          type="button"
-          onClick={clearDrawings}
-          className="rounded-md border border-[var(--border)] px-2.5 py-1 text-xs font-medium text-slate-500 hover:text-brand-down"
-        >
-          Clear
-        </button>
-      </div>
+        </div>
+      ) : (
+        <div className="mb-2 text-xs text-slate-400">
+          🔒 Drawing tools & MACD/RSI are an Investor Mode feature.
+        </div>
+      )}
 
       <div ref={containerRef} className="h-[440px] w-full" />
     </div>

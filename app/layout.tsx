@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Nav } from "@/components/Nav";
+import { getViewerTier } from "@/lib/tier";
 
 export const metadata: Metadata = {
   title: "GSPS — The Gann Protocol Scanner",
@@ -16,7 +17,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <Nav />
+        <Nav viewerTier={getViewerTier()} />
         <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
       </body>
     </html>
