@@ -7,6 +7,8 @@ import { Check, X } from "lucide-react";
 
 export function SignalCard({ result }: { result: ScanResult }) {
   const { decision, levels, pattern } = result;
+  const armed = result.armedPatterns ?? (pattern ? [pattern] : []);
+  const others = armed.filter((p) => p !== pattern);
 
   return (
     <Card>
@@ -28,6 +30,19 @@ export function SignalCard({ result }: { result: ScanResult }) {
         )}
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        {others.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+            <span className="text-muted">Also armed:</span>
+            {others.map((p, i) => (
+              <Badge key={`${p.name}-${p.direction}-${i}`} variant="muted">
+                {p.name}{" "}
+                <span className={p.direction === "bullish" ? "text-bull" : "text-bear"}>
+                  {p.direction}
+                </span>
+              </Badge>
+            ))}
+          </div>
+        )}
         {levels && (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <LevelStat label="Entry" value={formatUsd(levels.entry)} tone="accent" />

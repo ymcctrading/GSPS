@@ -8,12 +8,16 @@ import { ShareButton } from "@/components/chart/share-button";
 import { SignalCard } from "@/components/scan/signal-card";
 import { OrderTicket } from "@/components/trade/order-ticket";
 import { GlossaryDetails } from "@/components/glossary";
-import { formatUsd } from "@/lib/utils";
+import { useLiveQuote } from "@/lib/hooks/useLiveQuote";
+import { sessionLabel } from "@/lib/market/session";
+import { formatUsd, formatPct, cn } from "@/lib/utils";
 import type { ScanResult } from "@/lib/types";
+import type { LiveQuote } from "@/app/api/quote/route";
 
 export function TickerView({ symbol }: { symbol: string }) {
   const [result, setResult] = useState<ScanResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const quote = useLiveQuote(symbol);
 
   useEffect(() => {
     let cancelled = false;
@@ -51,13 +55,14 @@ export function TickerView({ symbol }: { symbol: string }) {
     markers.push({ price: s.price, label: `S9 ${s.degree}°`, kind: "gann" }),
   );
 
+  // Live price falls back to the scan snapshot until the first poll returns.
+  const livePrice = quote?.price ?? (result && result.currentPrice > 0 ? result.currentPrice : null);
+
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-baseline gap-3">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <h1 className="text-2xl font-semibold">{symbol}</h1>
-        {result && result.currentPrice > 0 && (
-          <span className="font-mono text-lg text-muted">{formatUsd(result.currentPrice)}</span>
-        )}
+        <PriceHeader quote={quote} fallbackPrice={livePrice} />
         {result?.gann.timeCycleActive && (
           <span className="text-xs font-medium text-warn">⏱ Gann time-cycle window active</span>
         )}
@@ -72,7 +77,7 @@ export function TickerView({ symbol }: { symbol: string }) {
             <CardTitle>Chart</CardTitle>
           </CardHeader>
           <CardContent>
-            <CandleChart symbol={symbol} markers={markers} />
+            <CandleChart symbol={symbol} markers={markers} livePrice={quote?.price ?? null} />
           </CardContent>
         </Card>
 
@@ -89,7 +94,7 @@ export function TickerView({ symbol }: { symbol: string }) {
               </CardContent>
             </Card>
           )}
-          {result && <OrderTicket result={result} />}
+          {result && <OrderTicket result={result} livePrice={livePrice} />}
         </div>
       </div>
 
@@ -98,6 +103,64 @@ export function TickerView({ symbol }: { symbol: string }) {
       {result && <SignalCard result={result} />}
 
       <GlossaryDetails />
+    </div>
+  );
+}
+
+function PriceHeader({ quote, fallbackPrice }: { quote: LiveQuote | null; fallbackPrice: number | null }) {
+  const price = quote?.price ?? fallbackPrice;
+  if (price == null) return null;
+
+  const session = quote?.session ?? "regular";
+  const extended = session === "pre" || session === "post";
+  const closed = session === "closed";
+  const live = session === "regular" || quote?.assetClass === "crypto";
+
+  // During extended hours / closed, the change we headline is the extended move
+  // vs the regular close; during the regular session it's the day's change.
+  const headlinePct = extended ? quote?.extendedPct : quote?.changePct;
+  const headlineAbs = extended ? quote?.extendedAbs : quote?.changeAbs;
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <span className="font-mono text-2xl font-semibold tabular-nums">{formatUsd(price)}</span>
+
+      {headlinePct != null && headlineAbs != null && (
+        <span
+          className={cn(
+            "font-mono text-sm font-medium tabular-nums",
+            headlinePct >= 0 ? "text-bull" : "text-bear",
+          )}
+        >
+          {headlineAbs >= 0 ? "+" : "−"}
+          {formatUsd(Math.abs(headlineAbs))} ({formatPct(headlinePct)})
+        </span>
+      )}
+
+      {/* Session pill */}
+      <span
+        className={cn(
+          "flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium",
+          live && "bg-bull/10 text-bull",
+          extended && "bg-warn/15 text-warn",
+          closed && "bg-muted/15 text-muted",
+        )}
+      >
+        {live && (
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-bull opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-bull" />
+          </span>
+        )}
+        {live ? "Live" : quote ? sessionLabel(session) : "…"}
+      </span>
+
+      {/* When outside the regular session, show the official regular close distinctly. */}
+      {(extended || closed) && quote?.regularClose != null && (
+        <span className="text-xs text-muted">
+          Regular close <span className="font-mono tabular-nums">{formatUsd(quote.regularClose)}</span>
+        </span>
+      )}
     </div>
   );
 }

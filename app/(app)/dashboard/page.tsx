@@ -1,81 +1,31 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ResultsTable, type ScanRow } from "@/components/scan/results-table";
+import { ResultsTable } from "@/components/scan/results-table";
+import { RunScanButton } from "@/components/scan/run-scan-button";
+import { getDailyScans } from "@/lib/dailyScans";
 import { DEFAULTS } from "@/lib/sectors";
+import { ArrowRight } from "lucide-react";
 
 export const metadata = { title: "Dashboard — GSPS" };
 export const dynamic = "force-dynamic";
 
-interface DailyScanRow {
-  symbol: string;
-  direction: "bullish" | "bearish";
-  rank: number;
-  score: number;
-  output_state: string;
-  entry: number | null;
-  stop_loss: number | null;
-  take_profit_1: number | null;
-  master_profit: number | null;
-  scan_date: string;
-  detail: { pattern?: { name?: string } | null } | null;
-}
-
-function toRows(rows: DailyScanRow[]): ScanRow[] {
-  return rows.map((r) => ({
-    symbol: r.symbol,
-    score: r.score,
-    outputState: r.output_state,
-    direction: r.direction,
-    entry: r.entry,
-    stopLoss: r.stop_loss,
-    takeProfit1: r.take_profit_1,
-    masterProfit: r.master_profit,
-    patternName: r.detail?.pattern?.name ?? null,
-  }));
-}
+const PREVIEW = 3;
 
 export default async function DashboardPage() {
-  const configured = Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-  );
-
-  let latest: { scan_date: string } | null = null;
-  let bullish: DailyScanRow[] = [];
-  let bearish: DailyScanRow[] = [];
-
-  if (configured) {
-    const supabase = await createClient();
-    const { data } = await supabase
-      .from("daily_scans")
-      .select("scan_date")
-      .order("scan_date", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    latest = data;
-  }
-
-  if (latest?.scan_date) {
-    const supabase = await createClient();
-    const { data } = await supabase
-      .from("daily_scans")
-      .select("*")
-      .eq("scan_date", latest.scan_date)
-      .order("rank");
-    const rows = (data ?? []) as DailyScanRow[];
-    bullish = rows.filter((r) => r.direction === "bullish");
-    bearish = rows.filter((r) => r.direction === "bearish");
-  }
+  const { scanDate, bullish, bearish } = await getDailyScans();
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Dashboard</h1>
-        <p className="text-sm text-muted">
-          {latest?.scan_date
-            ? `Daily market scan for ${latest.scan_date}`
-            : "The daily market scan has not run yet — results appear here after the first cron run."}
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Dashboard</h1>
+          <p className="text-sm text-muted">
+            {scanDate
+              ? `Daily market scan for ${scanDate}`
+              : "The daily market scan has not run yet — run it now or wait for the daily cron."}
+          </p>
+        </div>
+        <RunScanButton />
       </div>
 
       <Card>
@@ -99,31 +49,65 @@ export default async function DashboardPage() {
       </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-bull">Bullish reversions</CardTitle>
-            <CardDescription>Top 15 setups near a bullish reversion point.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResultsTable
-              rows={toRows(bullish)}
-              emptyText="No bullish list yet. Run the market scan or wait for the daily cron."
-            />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-bear">Bearish reversions</CardTitle>
-            <CardDescription>Top 15 setups near a bearish reversion point.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResultsTable
-              rows={toRows(bearish)}
-              emptyText="No bearish list yet. Run the market scan or wait for the daily cron."
-            />
-          </CardContent>
-        </Card>
+        <ReversionPreview
+          direction="bullish"
+          rows={bullish}
+          emptyText="No bullish list yet. Run the market scan or wait for the daily cron."
+        />
+        <ReversionPreview
+          direction="bearish"
+          rows={bearish}
+          emptyText="No bearish list yet. Run the market scan or wait for the daily cron."
+        />
       </div>
     </div>
+  );
+}
+
+function ReversionPreview({
+  direction,
+  rows,
+  emptyText,
+}: {
+  direction: "bullish" | "bearish";
+  rows: import("@/components/scan/results-table").ScanRow[];
+  emptyText: string;
+}) {
+  const isBull = direction === "bullish";
+  const preview = rows.slice(0, PREVIEW);
+  const more = rows.length - preview.length;
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <Link href={`/dashboard/${direction}`} className="group inline-flex items-center gap-1.5">
+              <CardTitle className={isBull ? "text-bull group-hover:underline" : "text-bear group-hover:underline"}>
+                {isBull ? "Bullish reversions" : "Bearish reversions"}
+              </CardTitle>
+              <ArrowRight className="h-4 w-4 text-muted transition-transform group-hover:translate-x-0.5" />
+            </Link>
+            <CardDescription>
+              {rows.length > 0
+                ? `${rows.length} setup${rows.length === 1 ? "" : "s"} near a ${direction} reversion point.`
+                : `Setups near a ${direction} reversion point.`}
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        <ResultsTable rows={preview} emptyText={emptyText} />
+        {more > 0 && (
+          <Link
+            href={`/dashboard/${direction}`}
+            className="inline-flex items-center gap-1.5 self-start text-sm font-medium text-accent hover:underline"
+          >
+            View all {rows.length} {direction} setups
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        )}
+      </CardContent>
+    </Card>
   );
 }

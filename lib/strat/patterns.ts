@@ -61,23 +61,33 @@ export function detectPatterns(bars: Bar[]): StratPattern[] {
   }
 
   // --- 2-2 reversal (Scenario A): a closed directional bar; the reversal fires
-  // if the next live candle breaks one penny past its opposite extreme.
+  // if the next live candle breaks one penny past its opposite extreme. The bar
+  // BEFORE the trigger bar sharpens the read: an inside bar first is a 1-2-2, an
+  // outside bar first is a 3-2-2 — both higher-conviction than a bare 2-2.
+  const revName: StratPattern["name"] =
+    prevState === "1" ? "1-2-2" : prevState === "3" ? "3-2-2" : "2-2";
+  const revContext =
+    prevState === "1"
+      ? " off a prior inside bar (1-2-2)"
+      : prevState === "3"
+        ? " off a prior outside bar (3-2-2)"
+        : "";
   if (lastState === "2U") {
     patterns.push({
-      name: "2-2",
+      name: revName,
       direction: "bearish",
       triggerPrice: last.l - PENNY,
       stopPrice: last.h + PENNY,
-      description: "Bearish 2-2 reversal: sell-stop one penny below the 2-up bar low.",
+      description: `Bearish ${revName} reversal${revContext}: sell-stop one penny below the 2-up bar low.`,
     });
   }
   if (lastState === "2D") {
     patterns.push({
-      name: "2-2",
+      name: revName,
       direction: "bullish",
       triggerPrice: last.h + PENNY,
       stopPrice: last.l - PENNY,
-      description: "Bullish 2-2 reversal: buy-stop one penny above the 2-down bar high.",
+      description: `Bullish ${revName} reversal${revContext}: buy-stop one penny above the 2-down bar high.`,
     });
   }
 
