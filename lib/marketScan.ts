@@ -8,7 +8,7 @@
  */
 
 import type { Bar, ScanResult } from "@/lib/types";
-import { fetchBars, fetchMostActives } from "@/lib/data/alpaca";
+import { getMarketDataProvider } from "@/lib/data/provider";
 import { readTrend } from "@/lib/analysis/trend";
 import { computeFanLines } from "@/lib/gann/fans";
 import { squareOf9Levels } from "@/lib/gann/squareOf9";
@@ -83,15 +83,16 @@ async function mapWithConcurrency<T, R>(
 
 export async function runMarketScan(universeTop = 100, perSide = 15): Promise<MarketScanOutput> {
   const scanDate = new Date().toISOString().slice(0, 10);
+  const provider = getMarketDataProvider();
 
-  const actives = (await fetchMostActives(universeTop)).filter((s) => !MAG7.includes(s));
+  const actives = (await provider.fetchMostActives(universeTop)).filter((s) => !MAG7.includes(s));
 
   // Coarse pass on daily bars only
   const yearAgo = new Date(Date.now() - 365 * 24 * 3600 * 1000);
   const end = new Date(Date.now() - 16 * 60 * 1000);
   const coarse = await mapWithConcurrency(actives, 8, async (symbol) => {
     try {
-      const daily = await fetchBars(symbol, "1Day", yearAgo, end, "us_equity");
+      const daily = await provider.fetchBars(symbol, "1Day", yearAgo, end, "us_equity");
       return coarseScore(symbol, daily);
     } catch {
       return null;

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchBars, isCryptoSymbol } from "@/lib/data/alpaca";
+import { isCryptoSymbol } from "@/lib/data/alpaca";
+import { getMarketDataProvider } from "@/lib/data/provider";
 import type { Timeframe } from "@/lib/types";
 
 // Lookback window per timeframe, in days.
@@ -25,14 +26,25 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: `Invalid timeframe '${timeframe}'` }, { status: 400 });
   }
 
+  const provider = getMarketDataProvider();
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
   const start = new Date(Date.now() - RANGES[timeframe] * 24 * 3600 * 1000);
-  // Crypto has no feed delay; free IEX stock data can't query the most recent ~15 min.
-  const end = assetClass === "crypto" ? null : new Date(Date.now() - 16 * 60 * 1000);
+  // Crypto has no feed delay; free IEX stock data can't query the most recent
+  // ~15 min. Synthetic data has no delay either.
+  const end =
+    assetClass === "crypto" || !provider.isLive
+      ? null
+      : new Date(Date.now() - 16 * 60 * 1000);
 
   try {
-    const bars = await fetchBars(symbol, timeframe, start, end, assetClass);
-    return NextResponse.json({ symbol: symbol.toUpperCase(), timeframe, assetClass, bars });
+    const bars = await provider.fetchBars(symbol, timeframe, start, end, assetClass);
+    return NextResponse.json({
+      symbol: symbol.toUpperCase(),
+      timeframe,
+      assetClass,
+      bars,
+      source: provider.name,
+    });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : String(err) },
