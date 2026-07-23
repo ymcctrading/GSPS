@@ -68,22 +68,26 @@ function meta(symbol: string): { base: number; assetClass: AssetClass } {
  * scan doesn't generate ~47k minute ticks per symbol. Ticks must be finer than
  * the bar width they build.
  */
+/** Price-curve granularity. Ticks must be finer than the bar they build, so we
+ *  index prices on a 15s grid and step below the bar width per interval. */
+const GRID_MS = 15_000;
+
 function tickStepFor(interval: Interval): number {
   switch (interval) {
     case "1m":
-      return 60_000; // 1-minute ticks
+      return 15_000; // 4 ticks / minute -> real 1m OHLC
     case "5m":
-      return 60_000;
+      return 30_000;
     case "15m":
-      return 5 * 60_000;
+      return 60_000;
     case "30m":
-      return 5 * 60_000;
+      return 2 * 60_000;
     case "1h":
-      return 15 * 60_000;
+      return 5 * 60_000;
     case "2h":
-      return 30 * 60_000;
+      return 10 * 60_000;
     case "4h":
-      return 60 * 60_000;
+      return 20 * 60_000;
     case "1d":
       return 60 * 60_000; // hourly samples -> daily OHLC
     case "1w":
@@ -137,9 +141,9 @@ export class MockMarketDataProvider implements MarketDataProvider {
     for (let ts = start; ts <= to; ts += stepMs) {
       // 24/7 assets always trade; equities only when the session is open.
       if (!isCrypto && classifySession(ts) === "CLOSED") continue;
-      // Index against a fixed 1-minute grid so different step sizes still sample
-      // the same underlying price curve.
-      const m = Math.floor(ts / 60_000);
+      // Index against a fixed fine grid so different step sizes still sample
+      // the same underlying price curve (and sub-minute ticks vary).
+      const m = Math.floor(ts / GRID_MS);
       // Layered deterministic oscillation + hashed micro-noise (no random walk).
       const noise = mulberryAt(seed, m) - 0.5; // [-0.5, 0.5]
       const factor =
