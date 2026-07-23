@@ -4,12 +4,11 @@ import { useEffect, useRef, useState } from "react";
 
 /**
  * Combined GSPS chart: candlesticks + volume + MACD + RSI sub-charts, protocol
- * overlay lines (Entry / Stop / TP1 / Master), OHLC crosshair tooltip, and the
- * full timeframe ladder. KLineCharts (free, MIT) is loaded lazily on the client.
+ * overlay lines (Entry / Stop / TP1 / Master), OHLC crosshair tooltip, the full
+ * timeframe ladder, and an Extended Trading Hours toggle.
  *
- * Data is currently a deterministic sample series so the chart renders before
- * the live market-data feed is wired (MarketDataIngestor). Swap `sampleCandles`
- * for a fetch to the data provider to go live.
+ * Candle data comes from /api/candles (free Yahoo source, no key, with a
+ * simulated fallback). KLineCharts (free, MIT) loads lazily on the client.
  */
 
 export type ProtocolLevels = {
@@ -19,66 +18,56 @@ export type ProtocolLevels = {
   master?: number | null;
 };
 
-const TIMEFRAMES = [
-  "1m", "5m", "15m", "1H", "4H", "1D", "1W", "1M",
-] as const;
+const TIMEFRAMES = ["1m", "5m", "15m", "1H", "4H", "1D", "1W", "1M"] as const;
 type Timeframe = (typeof TIMEFRAMES)[number];
 
-const TF_MINUTES: Record<Timeframe, number> = {
-  "1m": 1, "5m": 5, "15m": 15, "1H": 60, "4H": 240,
-  "1D": 1440, "1W": 10080, "1M": 43200,
+type Candle = {
+  timestamp: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
 };
-
-/** Deterministic random-walk candles seeded by symbol + timeframe. */
-function sampleCandles(symbol: string, tf: Timeframe, count = 160, base = 100) {
-  let seed = 0;
-  for (const ch of symbol + tf) seed = (seed * 31 + ch.charCodeAt(0)) % 2147483647;
-  const rand = () => {
-    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
-    return seed / 0x7fffffff;
-  };
-  const stepMs = TF_MINUTES[tf] * 60_000;
-  const start = Date.now() - count * stepMs;
-  let price = base;
-  const out = [];
-  for (let i = 0; i < count; i++) {
-    const drift = (rand() - 0.5) * base * 0.01;
-    const open = price;
-    const close = Math.max(0.5, open + drift);
-    const high = Math.max(open, close) + rand() * base * 0.004;
-    const low = Math.min(open, close) - rand() * base * 0.004;
-    const volume = Math.round(50_000 + rand() * 500_000);
-    out.push({ timestamp: start + i * stepMs, open, high, low, close, volume });
-    price = close;
-  }
-  return out;
-}
 
 export function PriceChart({
   symbol,
   levels,
-  basePrice = 100,
 }: {
   symbol: string;
   levels: ProtocolLevels;
-  basePrice?: number;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<unknown>(null);
   const [tf, setTf] = useState<Timeframe>("1D");
+  const [eth, setEth] = useState(false);
+  const [source, setSource] = useState<"live" | "simulated" | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let disposed = false;
     let cleanup = () => {};
+    setLoading(true);
 
     (async () => {
       const kline = await import("klinecharts");
+      let candles: Candle[] = [];
+      try {
+        const res = await fetch(
+          `/api/candles?symbol=${encodeURIComponent(symbol)}&tf=${tf}&eth=${
+            eth ? 1 : 0
+          }`,
+        );
+        const json = await res.json();
+        candles = json.candles ?? [];
+        if (!disposed) setSource(json.source ?? null);
+      } catch {
+        /* leave candles empty */
+      }
       if (disposed || !containerRef.current) return;
+
       const chart = kline.init(containerRef.current);
       if (!chart) return;
-      chartRef.current = chart;
-
-      chart.applyNewData(sampleCandles(symbol, tf, 160, basePrice));
+      chart.applyNewData(candles);
 
       try {
         chart.createIndicator("VOL", false, { id: "candle_pane" });
@@ -108,6 +97,7 @@ export function PriceChart({
         }
       }
 
+      if (!disposed) setLoading(false);
       cleanup = () => {
         try {
           kline.dispose(containerRef.current as HTMLDivElement);
@@ -121,11 +111,11 @@ export function PriceChart({
       disposed = true;
       cleanup();
     };
-  }, [symbol, tf, basePrice, levels]);
+  }, [symbol, tf, eth, levels]);
 
   return (
     <div>
-      <div className="mb-3 flex flex-wrap gap-1">
+      <div className="mb-3 flex flex-wrap items-center gap-1">
         {TIMEFRAMES.map((t) => (
           <button
             key={t}
@@ -140,6 +130,25 @@ export function PriceChart({
             {t}
           </button>
         ))}
+        <button
+          type="button"
+          onClick={() => setEth((v) => !v)}
+          className={`ml-2 rounded-md border px-3 py-1 text-xs font-semibold transition-colors ${
+            eth
+              ? "border-brand-blue bg-blue-50 text-brand-blue"
+              : "border-[var(--border)] text-slate-500"
+          }`}
+          title="Show pre-market & after-hours sessions"
+        >
+          ETH {eth ? "on" : "off"}
+        </button>
+        <span className="ml-auto text-xs text-slate-400">
+          {loading
+            ? "loading…"
+            : source === "simulated"
+              ? "simulated data"
+              : "live"}
+        </span>
       </div>
       <div ref={containerRef} className="h-[440px] w-full" />
     </div>

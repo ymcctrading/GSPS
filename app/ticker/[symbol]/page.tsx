@@ -63,7 +63,6 @@ export default async function TickerPage({
   const symbol = decodeURIComponent(params.symbol).toUpperCase();
   const setup = await loadSetup(symbol);
   const checklist = buildChecklist(setup);
-  const base = setup?.entry ?? 100;
 
   return (
     <div className="space-y-6">
@@ -86,7 +85,6 @@ export default async function TickerPage({
             <h2 className="mb-3 text-lg font-semibold">Chart</h2>
             <PriceChart
               symbol={symbol}
-              basePrice={base}
               levels={{
                 entry: setup?.entry,
                 stop: setup?.stop_loss,
