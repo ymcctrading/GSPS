@@ -11,18 +11,32 @@ import type { Interval } from "@/lib/marketData/types";
 
 const DAY = 24 * 60 * 60 * 1000;
 
-/** Default lookback per interval (ms). 1m => 5 days, 1M => ~10y. */
+/** Default lookback per interval (ms), matching the app's timeframe ladder. */
 const LOOKBACK_MS: Record<Interval, number> = {
-  "1m": 5 * DAY,
-  "5m": 10 * DAY,
+  "1m": 15 * DAY,
+  "5m": 15 * DAY,
   "15m": 30 * DAY,
-  "1h": 90 * DAY,
-  "1d": 365 * DAY,
-  "1w": 5 * 365 * DAY,
-  "1M": 10 * 365 * DAY,
+  "30m": 30 * DAY,
+  "1h": 180 * DAY,
+  "2h": 180 * DAY,
+  "4h": 180 * DAY,
+  "1d": 5 * 365 * DAY,
+  "1w": 15 * 365 * DAY,
+  "1M": 25 * 365 * DAY, // "MAX"
 };
 
-const VALID: Interval[] = ["1m", "5m", "15m", "1h", "1d", "1w", "1M"];
+const VALID: Interval[] = [
+  "1m",
+  "5m",
+  "15m",
+  "30m",
+  "1h",
+  "2h",
+  "4h",
+  "1d",
+  "1w",
+  "1M",
+];
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);

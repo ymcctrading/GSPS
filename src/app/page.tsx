@@ -18,9 +18,17 @@ export default function Home() {
             Daily mean-reversion setups · paper/simulation mode
           </p>
         </div>
-        <span className="rounded-full border border-[#2a2f3a] px-3 py-1 text-xs text-[#8b93a1]">
-          Phase 0
-        </span>
+        <div className="flex items-center gap-2">
+          <a
+            href="/chart?ticker=SPY"
+            className="rounded-full border border-accent/40 bg-accent/10 px-3 py-1 text-xs font-medium text-accent"
+          >
+            Open chart →
+          </a>
+          <span className="rounded-full border border-[#2a2f3a] px-3 py-1 text-xs text-[#8b93a1]">
+            Phase 0
+          </span>
+        </div>
       </header>
 
       <ScannerDashboard

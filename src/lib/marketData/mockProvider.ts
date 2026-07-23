@@ -76,8 +76,14 @@ function tickStepFor(interval: Interval): number {
       return 60_000;
     case "15m":
       return 5 * 60_000;
+    case "30m":
+      return 5 * 60_000;
     case "1h":
       return 15 * 60_000;
+    case "2h":
+      return 30 * 60_000;
+    case "4h":
+      return 60 * 60_000;
     case "1d":
       return 60 * 60_000; // hourly samples -> daily OHLC
     case "1w":

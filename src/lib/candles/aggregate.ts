@@ -17,7 +17,10 @@ const INTRADAY_MINUTES: Partial<Record<Interval, number>> = {
   "1m": 1,
   "5m": 5,
   "15m": 15,
+  "30m": 30,
   "1h": 60,
+  "2h": 120,
+  "4h": 240,
 };
 
 /** Build one OHLCV bar from an ordered, non-empty list of ticks. */

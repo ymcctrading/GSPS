@@ -150,14 +150,16 @@ function ReversionColumn({
       ) : (
         <ul className="space-y-1">
           {rows.map((r) => (
-            <li
-              key={r.symbol}
-              className="flex items-center justify-between rounded-lg bg-black/20 px-3 py-2 text-sm"
-            >
-              <span className="font-medium">{r.symbol}</span>
-              <span className="text-xs text-[#b5bcc8]">
-                {r.decision.score}/9 · {r.decision.outputState}
-              </span>
+            <li key={r.symbol}>
+              <a
+                href={`/chart?ticker=${r.symbol}`}
+                className="flex items-center justify-between rounded-lg bg-black/20 px-3 py-2 text-sm transition hover:bg-black/40"
+              >
+                <span className="font-medium">{r.symbol}</span>
+                <span className="text-xs text-[#b5bcc8]">
+                  {r.decision.score}/9 · {r.decision.outputState}
+                </span>
+              </a>
             </li>
           ))}
         </ul>
