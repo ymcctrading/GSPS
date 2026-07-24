@@ -30,8 +30,9 @@ const TF_LABEL: Record<Timeframe, string> = {
   "5Min": "5M",
   "1Min": "1M",
 };
-// Intraday timeframes get live price polling.
-const LIVE_TFS: Timeframe[] = ["1Hour", "15Min", "5Min", "1Min"];
+// All timeframes support live price polling — the last bar's close gets updated
+// as the current price is polled, independent of chart display period.
+const LIVE_TFS: Timeframe[] = ["1Month", "1Week", "1Day", "1Hour", "15Min", "5Min", "1Min"];
 
 const MARKER_COLOR: Record<PriceMarker["kind"], string> = {
   entry: "#2563eb",

@@ -192,6 +192,18 @@ export function simulateOptionChain(symbol: string, underlyingPrice: number): Op
       const rawDelta = Math.max(0.02, Math.min(0.98, 0.5 - k * 0.06 * (type === "call" ? 1 : -1)));
       const delta = type === "call" ? rawDelta : -Math.abs(1 - rawDelta);
       const iv = 0.25 + dist * 1.4 + rnd() * 0.05;
+
+      // Gamma: highest at the money, lower away from it
+      const gamma = Math.max(0.001, 0.08 * Math.exp(-Math.pow(k * 1.5, 2)));
+
+      // Theta: negative for long options (time decay works against buyer)
+      // More negative when out of the money
+      const timeToExpiry = crypto ? 7 : 21; // days
+      const theta = -(iv * underlyingPrice * 0.08) / Math.sqrt(timeToExpiry) * (0.8 + Math.abs(k) * 0.05);
+
+      // Vega: sensitivity to IV changes, highest at the money
+      const vega = underlyingPrice * Math.sqrt(timeToExpiry / 365) * Math.exp(-Math.pow(k * 1.5, 2)) * 0.15;
+
       const intrinsic = itm ? Math.abs(underlyingPrice - strike) : 0;
       const extrinsic = underlyingPrice * iv * 0.06 * Math.exp(-dist * 3);
       const mid = Math.max(0.01, round(intrinsic + extrinsic));
@@ -203,6 +215,9 @@ export function simulateOptionChain(symbol: string, underlyingPrice: number): Op
         ask: round(mid + halfSpread),
         last: round(mid * (1 + (rnd() - 0.5) * 0.02)),
         delta: Math.round(delta * 100) / 100,
+        gamma: Math.round(gamma * 10000) / 10000,
+        theta: Math.round(theta * 100) / 100,
+        vega: Math.round(vega * 100) / 100,
         iv: Math.round(iv * 1000) / 1000,
         openInterest: Math.round(rnd() * 12000 * Math.exp(-dist * 2)),
         volume: Math.round(rnd() * 4000 * Math.exp(-dist * 2)),
