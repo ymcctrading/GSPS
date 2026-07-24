@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatUsd, cn } from "@/lib/utils";
 import type { ScanResult } from "@/lib/types";
+import type { Level2Book } from "@/lib/data/provider";
 
-type EntryMode = "advised" | "now";
+type EntryMode = "advised" | "bid" | "ask" | "now";
 
 export function OrderTicket({ result }: { result: ScanResult }) {
   const { levels, pattern, currentPrice, symbol } = result;
@@ -16,6 +17,23 @@ export function OrderTicket({ result }: { result: ScanResult }) {
   const [attachLevels, setAttachLevels] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
+  const [level2, setLevel2] = useState<Level2Book | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/level2?symbol=${encodeURIComponent(symbol)}`)
+      .then(async (r) => {
+        if (!r.ok) return null;
+        return r.json();
+      })
+      .then((d) => !cancelled && d && setLevel2(d))
+      .catch(() => {
+        /* level2 not available */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [symbol]);
 
   if (!levels || !pattern) {
     return (
@@ -32,6 +50,14 @@ export function OrderTicket({ result }: { result: ScanResult }) {
 
   const side = pattern.direction === "bullish" ? "buy" : "sell";
   const advised = levels.entry;
+  const bestBid = level2?.bids[0]?.price ?? currentPrice;
+  const bestAsk = level2?.asks[0]?.price ?? currentPrice;
+
+  let entryPrice: number;
+  if (entryMode === "advised") entryPrice = advised;
+  else if (entryMode === "bid") entryPrice = bestBid;
+  else if (entryMode === "ask") entryPrice = bestAsk;
+  else entryPrice = currentPrice;
 
   async function submit() {
     setSubmitting(true);
@@ -45,7 +71,7 @@ export function OrderTicket({ result }: { result: ScanResult }) {
           side,
           qty: Number(qty),
           entryMode,
-          limitPrice: entryMode === "advised" ? advised : undefined,
+          limitPrice: entryMode === "now" ? undefined : entryPrice,
           attachLevels: attachLevels
             ? { stopLoss: levels!.stopLoss, takeProfit: levels!.takeProfit1, masterProfit: levels!.masterProfit }
             : undefined,
@@ -71,18 +97,36 @@ export function OrderTicket({ result }: { result: ScanResult }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${level2 ? 4 : 2}, 1fr)` }}>
           <ModeButton
             active={entryMode === "advised"}
             onClick={() => setEntryMode("advised")}
-            title="At advised price"
+            title="Protocol entry"
             subtitle={formatUsd(advised)}
           />
+          {level2 && (
+            <>
+              <ModeButton
+                active={entryMode === "bid"}
+                onClick={() => setEntryMode("bid")}
+                title="Best bid"
+                subtitle={formatUsd(bestBid)}
+                color="bull"
+              />
+              <ModeButton
+                active={entryMode === "ask"}
+                onClick={() => setEntryMode("ask")}
+                title="Best ask"
+                subtitle={formatUsd(bestAsk)}
+                color="bear"
+              />
+            </>
+          )}
           <ModeButton
             active={entryMode === "now"}
             onClick={() => setEntryMode("now")}
-            title="Buy now (market)"
-            subtitle={currentPrice ? formatUsd(currentPrice) : "market"}
+            title="Market"
+            subtitle={currentPrice ? formatUsd(currentPrice) : "now"}
           />
         </div>
 
@@ -129,17 +173,29 @@ export function OrderTicket({ result }: { result: ScanResult }) {
 }
 
 function ModeButton({
-  active, onClick, title, subtitle,
-}: { active: boolean; onClick: () => void; title: string; subtitle: string }) {
+  active,
+  onClick,
+  title,
+  subtitle,
+  color,
+}: {
+  active: boolean;
+  onClick: () => void;
+  title: string;
+  subtitle: string;
+  color?: "bull" | "bear";
+}) {
+  const activeColor = color === "bull" ? "border-bull bg-bull/10" : color === "bear" ? "border-bear bg-bear/10" : "border-accent bg-accent-soft";
+  const activeText = color === "bull" ? "text-bull" : color === "bear" ? "text-bear" : "text-accent";
   return (
     <button
       onClick={onClick}
       className={cn(
         "rounded-lg border px-3 py-2.5 text-left transition-colors cursor-pointer",
-        active ? "border-accent bg-accent-soft" : "border-border hover:border-muted",
+        active ? activeColor : "border-border hover:border-muted",
       )}
     >
-      <p className={cn("text-sm font-medium", active && "text-accent")}>{title}</p>
+      <p className={cn("text-sm font-medium", active && activeText)}>{title}</p>
       <p className="font-mono text-xs text-muted">{subtitle}</p>
     </button>
   );
