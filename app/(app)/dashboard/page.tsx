@@ -1,11 +1,12 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { ResultsTable, type ScanRow } from "@/components/scan/results-table";
 import { DEFAULTS } from "@/lib/sectors";
-
-export const metadata = { title: "Dashboard — GSPS" };
-export const dynamic = "force-dynamic";
+import type { ScanResult } from "@/lib/types";
 
 interface DailyScanRow {
   symbol: string;
@@ -35,48 +36,98 @@ function toRows(rows: DailyScanRow[]): ScanRow[] {
   }));
 }
 
-export default async function DashboardPage() {
-  const configured = Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-  );
+function toRowsFromScan(results: ScanResult[], direction: "bullish" | "bearish"): ScanRow[] {
+  return results
+    .filter((r) => r.direction === direction)
+    .map((r) => ({
+      symbol: r.symbol,
+      score: r.decision.score,
+      outputState: r.decision.outputState,
+      direction: r.direction,
+      entry: r.levels?.entry ?? null,
+      stopLoss: r.levels?.stopLoss ?? null,
+      takeProfit1: r.levels?.takeProfit1 ?? null,
+      masterProfit: r.levels?.masterProfit ?? null,
+      patternName: r.pattern?.name ?? null,
+    }));
+}
 
-  let latest: { scan_date: string } | null = null;
-  let bullish: DailyScanRow[] = [];
-  let bearish: DailyScanRow[] = [];
+export default function DashboardPage() {
+  const [latest, setLatest] = useState<{ scan_date: string } | null>(null);
+  const [bullish, setBullish] = useState<ScanRow[]>([]);
+  const [bearish, setBearish] = useState<ScanRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  if (configured) {
-    const supabase = await createClient();
-    const { data } = await supabase
-      .from("daily_scans")
-      .select("scan_date")
-      .order("scan_date", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    latest = data;
+  useEffect(() => {
+    loadDailyScanResults();
+  }, []);
+
+  async function loadDailyScanResults() {
+    try {
+      setError(null);
+      // First, try to load from database
+      const dbRes = await fetch("/api/daily-scans?latest=1");
+      if (dbRes.ok) {
+        const data = await dbRes.json();
+        if (data.latest?.scan_date) {
+          setLatest(data.latest);
+          setBullish(toRows(data.bullish || []));
+          setBearish(toRows(data.bearish || []));
+        }
+      }
+    } catch (err) {
+      // Silently fail — user can manually run scan
+    }
   }
 
-  if (latest?.scan_date) {
-    const supabase = await createClient();
-    const { data } = await supabase
-      .from("daily_scans")
-      .select("*")
-      .eq("scan_date", latest.scan_date)
-      .order("rank");
-    const rows = (data ?? []) as DailyScanRow[];
-    bullish = rows.filter((r) => r.direction === "bullish");
-    bearish = rows.filter((r) => r.direction === "bearish");
+  async function runLiveScan() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/market-scan", {
+        method: "GET",
+        headers: process.env.NEXT_PUBLIC_CRON_SECRET ? {
+          "Authorization": `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET}`,
+        } : {},
+      });
+      if (!res.ok) throw new Error(`Scan failed (${res.status})`);
+      const output = await res.json();
+
+      // Convert market scan results to row format
+      const bullishRows = toRowsFromScan(output.bullish || [], "bullish").sort((a, b) => b.score - a.score);
+      const bearishRows = toRowsFromScan(output.bearish || [], "bearish").sort((a, b) => b.score - a.score);
+
+      setLatest({ scan_date: output.scanDate });
+      setBullish(bullishRows);
+      setBearish(bearishRows);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Dashboard</h1>
-        <p className="text-sm text-muted">
-          {latest?.scan_date
-            ? `Daily market scan for ${latest.scan_date}`
-            : "The daily market scan has not run yet — results appear here after the first cron run."}
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold">Dashboard</h1>
+          <p className="text-sm text-muted">
+            {latest?.scan_date
+              ? `Daily market scan for ${latest.scan_date}`
+              : "Run a live market scan to see top bullish and bearish reversion setups."}
+          </p>
+        </div>
+        <Button
+          onClick={runLiveScan}
+          disabled={loading}
+          className="whitespace-nowrap"
+        >
+          {loading ? "Scanning…" : "Run Live Scan"}
+        </Button>
       </div>
+      {error && <p className="rounded bg-red-500/10 px-3 py-2 text-sm text-red-600">{error}</p>}
 
       <Card>
         <CardHeader>
