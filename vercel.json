@@ -1,6 +1,5 @@
 {
   "framework": "nextjs",
-  "// redeploy_trigger": "versailles_prod_2026_07_24",
   "crons": [
     {
       "path": "/api/market-scan",
