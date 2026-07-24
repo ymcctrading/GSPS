@@ -14,6 +14,7 @@ import type { ScanResult } from "@/lib/types";
 export function TickerView({ symbol }: { symbol: string }) {
   const [result, setResult] = useState<ScanResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [livePrice, setLivePrice] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -27,11 +28,39 @@ export function TickerView({ symbol }: { symbol: string }) {
       .then((data: ScanResult) => {
         if (cancelled) return;
         if (data.error) setError(data.error);
-        else setResult(data);
+        else {
+          setResult(data);
+          setLivePrice(data.currentPrice);
+        }
       })
       .catch((err) => !cancelled && setError(err instanceof Error ? err.message : String(err)));
     return () => {
       cancelled = true;
+    };
+  }, [symbol]);
+
+  // Real-time price polling to force header re-render
+  useEffect(() => {
+    if (!symbol) return;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/quote?symbol=${encodeURIComponent(symbol)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && typeof data.price === "number") {
+          setLivePrice(data.price);
+        }
+      } catch {
+        /* transient error, keep polling */
+      }
+    };
+
+    poll();
+    const interval = setInterval(poll, 2000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
     };
   }, [symbol]);
 
@@ -55,8 +84,8 @@ export function TickerView({ symbol }: { symbol: string }) {
     <div className="flex flex-col gap-6">
       <div className="flex items-baseline gap-3">
         <h1 className="text-2xl font-semibold">{symbol}</h1>
-        {result && result.currentPrice > 0 && (
-          <span className="font-mono text-lg text-muted">{formatUsd(result.currentPrice)}</span>
+        {livePrice && livePrice > 0 && (
+          <span className="font-mono text-lg font-medium text-foreground">{formatUsd(livePrice)}</span>
         )}
         {result?.gann.timeCycleActive && (
           <span className="text-xs font-medium text-warn">⏱ Gann time-cycle window active</span>

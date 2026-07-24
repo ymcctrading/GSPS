@@ -9,6 +9,7 @@ import type { ScanResult } from "@/lib/types";
 import type { Level2Book } from "@/lib/data/provider";
 
 type EntryMode = "advised" | "bid" | "ask" | "now";
+type ExecutionMode = "protocol" | "manual";
 
 export function OrderTicket({ result }: { result: ScanResult }) {
   const { levels, pattern, currentPrice, symbol } = result;
@@ -18,6 +19,7 @@ export function OrderTicket({ result }: { result: ScanResult }) {
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
   const [level2, setLevel2] = useState<Level2Book | null>(null);
+  const [executionMode, setExecutionMode] = useState<ExecutionMode>("protocol");
 
   useEffect(() => {
     let cancelled = false;
@@ -35,21 +37,9 @@ export function OrderTicket({ result }: { result: ScanResult }) {
     };
   }, [symbol]);
 
-  if (!levels || !pattern) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Order ticket</CardTitle>
-          <CardDescription>
-            No armed setup — the protocol only authorizes entries off a live trigger line.
-          </CardDescription>
-        </CardHeader>
-      </Card>
-    );
-  }
-
-  const side = pattern.direction === "bullish" ? "buy" : "sell";
-  const advised = levels.entry;
+  const hasProtocolSignal = levels && pattern;
+  const side = pattern?.direction === "bullish" ? "buy" : "sell";
+  const advised = levels?.entry ?? currentPrice;
   const bestBid = level2?.bids[0]?.price ?? currentPrice;
   const bestAsk = level2?.asks[0]?.price ?? currentPrice;
 
@@ -72,10 +62,12 @@ export function OrderTicket({ result }: { result: ScanResult }) {
           qty: Number(qty),
           entryMode,
           limitPrice: entryMode === "now" ? undefined : entryPrice,
-          attachLevels: attachLevels
-            ? { stopLoss: levels!.stopLoss, takeProfit: levels!.takeProfit1, masterProfit: levels!.masterProfit }
-            : undefined,
+          attachLevels:
+            executionMode === "protocol" && attachLevels && levels
+              ? { stopLoss: levels.stopLoss, takeProfit: levels.takeProfit1, masterProfit: levels.masterProfit }
+              : undefined,
           mode: "paper",
+          executionMode,
         }),
       });
       const data = await res.json();
@@ -91,19 +83,58 @@ export function OrderTicket({ result }: { result: ScanResult }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Order ticket · paper</CardTitle>
-        <CardDescription>
-          {side === "buy" ? "Long" : "Short"} {symbol} per the armed {pattern.name} setup.
-        </CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>Order ticket · paper</CardTitle>
+            {hasProtocolSignal && executionMode === "protocol" ? (
+              <CardDescription>
+                {side === "buy" ? "Long" : "Short"} {symbol} per the {pattern?.name} setup.
+              </CardDescription>
+            ) : (
+              <CardDescription>
+                Manual {side === "buy" ? "long" : "short"} execution for {symbol}.
+              </CardDescription>
+            )}
+          </div>
+        </div>
+        <div className="mt-3 flex items-center gap-3 border-t border-border pt-3">
+          <span className="text-xs font-semibold text-muted">Mode:</span>
+          <button
+            onClick={() => setExecutionMode("protocol")}
+            disabled={!hasProtocolSignal}
+            className={cn(
+              "rounded px-3 py-1.5 text-xs font-medium cursor-pointer transition-colors",
+              executionMode === "protocol" && hasProtocolSignal
+                ? "bg-accent text-surface"
+                : "border border-border text-muted",
+              !hasProtocolSignal && "opacity-50 cursor-not-allowed",
+            )}
+          >
+            Protocol Recommended
+          </button>
+          <button
+            onClick={() => setExecutionMode("manual")}
+            className={cn(
+              "rounded px-3 py-1.5 text-xs font-medium cursor-pointer transition-colors",
+              executionMode === "manual"
+                ? "bg-warn text-surface"
+                : "border border-border text-muted hover:border-warn",
+            )}
+          >
+            Manual Override
+          </button>
+        </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${level2 ? 4 : 2}, 1fr)` }}>
-          <ModeButton
-            active={entryMode === "advised"}
-            onClick={() => setEntryMode("advised")}
-            title="Protocol entry"
-            subtitle={formatUsd(advised)}
-          />
+          {hasProtocolSignal && (
+            <ModeButton
+              active={entryMode === "advised"}
+              onClick={() => setEntryMode("advised")}
+              title="Protocol entry"
+              subtitle={formatUsd(advised)}
+            />
+          )}
           {level2 && (
             <>
               <ModeButton
@@ -143,15 +174,18 @@ export function OrderTicket({ result }: { result: ScanResult }) {
           />
         </div>
 
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={attachLevels}
-            onChange={(e) => setAttachLevels(e.target.checked)}
-            className="h-4 w-4 accent-[var(--accent)]"
-          />
-          Attach protocol stop ({formatUsd(levels.stopLoss)}) and TP1 ({formatUsd(levels.takeProfit1)})
-        </label>
+        {hasProtocolSignal && (
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={attachLevels}
+              onChange={(e) => setAttachLevels(e.target.checked)}
+              className="h-4 w-4 accent-[var(--accent)]"
+              disabled={executionMode === "manual"}
+            />
+            Attach protocol stop ({formatUsd(levels!.stopLoss)}) and TP1 ({formatUsd(levels!.takeProfit1)})
+          </label>
+        )}
 
         <Button
           variant={side === "buy" ? "bull" : "bear"}

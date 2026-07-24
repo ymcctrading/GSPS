@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
-import { formatUsd } from "@/lib/utils";
+import { formatUsd, cn } from "@/lib/utils";
 import type { ScanResult } from "@/lib/types";
 import type { OptionChain, Level2Book } from "@/lib/data/provider";
 
@@ -375,9 +375,10 @@ function OptionsPanel({ symbol }: { symbol: string }) {
                   {call && (
                     <button
                       onClick={() => setSelectedContract(`call:${strike}`)}
-                      className="text-xs font-medium text-bull hover:underline cursor-pointer"
+                      className="text-xs font-semibold text-bull hover:underline cursor-pointer"
+                      title={`Buy ${strike} call @ ${formatUsd(call.ask)}`}
                     >
-                      Buy
+                      BUY
                     </button>
                   )}
                 </TD>
@@ -406,9 +407,10 @@ function OptionsPanel({ symbol }: { symbol: string }) {
                   {put && (
                     <button
                       onClick={() => setSelectedContract(`put:${strike}`)}
-                      className="text-xs font-medium text-bear hover:underline cursor-pointer"
+                      className="text-xs font-semibold text-bear hover:underline cursor-pointer"
+                      title={`Buy ${strike} put @ ${formatUsd(put.ask)}`}
                     >
-                      Buy
+                      BUY
                     </button>
                   )}
                 </TD>
@@ -470,9 +472,10 @@ function OptionsOrderForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           symbol,
-          side: type === "call" ? "buy" : "buy",
+          side: "buy",
           qty: Number(qty),
           entryMode: "now",
+          limitPrice: premium,
           mode: "paper",
           optionContract: {
             type,
@@ -483,10 +486,11 @@ function OptionsOrderForm({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
-      setFeedback(`Order placed: ${type} ${strike} @ ${formatUsd(premium)}`);
-      setTimeout(() => onClose(), 1500);
+      const totalCost = Number(qty) * premium * 100;
+      setFeedback(`✓ Order placed: ${qty} ${type.toUpperCase()} ${strike} @ ${formatUsd(premium)} (${formatUsd(totalCost)} total)`);
+      setTimeout(() => onClose(), 2000);
     } catch (err) {
-      setFeedback(err instanceof Error ? err.message : String(err));
+      setFeedback(`✗ ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setSubmitting(false);
     }
@@ -559,7 +563,16 @@ function OptionsOrderForm({
           {submitting ? "..." : "Place"}
         </button>
       </div>
-      {feedback && <p className="text-xs text-bull">{feedback}</p>}
+      {feedback && (
+        <p
+          className={cn(
+            "text-xs font-medium",
+            feedback.startsWith("✓") ? "text-bull" : "text-bear",
+          )}
+        >
+          {feedback}
+        </p>
+      )}
     </div>
   );
 }
