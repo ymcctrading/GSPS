@@ -54,6 +54,30 @@ describe("detectPatterns (forward-thinking)", () => {
     expect(p!.stopPrice).toBeCloseTo(112.01, 2); // 2U high + 1¢
   });
 
+  it("names a 1-2-2 reversal when an inside bar precedes the trigger bar", () => {
+    const bars = [
+      bar(98, 112, 88, 100),
+      bar(100, 110, 90, 105), // 1 (inside)
+      bar(102, 108, 95, 100), // 1 (inside)
+      bar(99, 107, 88, 90), //   2D (broke low only)
+    ];
+    const p = detectPatterns(bars).find((x) => x.name === "1-2-2" && x.direction === "bullish");
+    expect(p).toBeDefined();
+    expect(p!.triggerPrice).toBeCloseTo(107.01, 2); // 2D high + 1¢
+  });
+
+  it("names a 3-2-2 reversal when an outside bar precedes the trigger bar", () => {
+    const bars = [
+      bar(101, 111, 91, 106),
+      bar(100, 110, 90, 105), // 1 (inside)
+      bar(99, 115, 85, 110), //  3 (outside)
+      bar(110, 120, 108, 118), // 2U (broke high only)
+    ];
+    const p = detectPatterns(bars).find((x) => x.name === "3-2-2" && x.direction === "bearish");
+    expect(p).toBeDefined();
+    expect(p!.triggerPrice).toBeCloseTo(107.99, 2); // 2U low − 1¢
+  });
+
   it("detects a Pivot Machine Gun after 5+ consecutive lower highs", () => {
     const bars = [
       bar(110, 120, 105, 108),

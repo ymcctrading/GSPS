@@ -27,8 +27,15 @@ interface OptionChain {
   expirations: ExpiryGroup[];
 }
 
-export function OrderTicket({ result }: { result: ScanResult }) {
-  const { levels, pattern, currentPrice, symbol } = result;
+export function OrderTicket({
+  result,
+  livePrice,
+}: {
+  result: ScanResult;
+  livePrice?: number | null;
+}) {
+  const { levels, pattern, symbol } = result;
+  const currentPrice = livePrice ?? (result.currentPrice > 0 ? result.currentPrice : null);
 
   const signalSide: Side = pattern?.direction === "bearish" ? "sell" : "buy";
 

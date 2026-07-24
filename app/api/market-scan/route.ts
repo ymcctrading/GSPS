@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { runMarketScan } from "@/lib/marketScan";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import type { ScanResult } from "@/lib/types";
 
 export const maxDuration = 300;
@@ -27,6 +27,7 @@ function toRows(scanDate: string, direction: "bullish" | "bearish", results: Sca
     detail: {
       currentPrice: r.currentPrice,
       pattern: r.pattern,
+      armedPatterns: r.armedPatterns,
       gann: r.gann,
       breakdown: r.decision.breakdown,
       trends: r.trends.map((t) => ({ timeframe: t.timeframe, direction: t.direction })),
@@ -34,12 +35,7 @@ function toRows(scanDate: string, direction: "bullish" | "bearish", results: Sca
   }));
 }
 
-export async function GET(req: NextRequest) {
-  const auth = req.headers.get("authorization");
-  if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+async function runAndPersist() {
   const output = await runMarketScan();
 
   // Persist (best-effort — the scan output is returned either way)
@@ -68,4 +64,25 @@ export async function GET(req: NextRequest) {
     persisted,
     persistError,
   });
+}
+
+/** Cron entry point — authorized with the shared CRON_SECRET. */
+export async function GET(req: NextRequest) {
+  const auth = req.headers.get("authorization");
+  if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  return runAndPersist();
+}
+
+/** Manual refresh — any signed-in user can rebuild the market scan on demand. */
+export async function POST() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+  }
+  return runAndPersist();
 }

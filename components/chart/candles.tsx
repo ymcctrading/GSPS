@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   createChart,
   CandlestickSeries,
@@ -13,8 +13,9 @@ import {
 } from "lightweight-charts";
 import { MousePointer2, Minus, TrendingUp, Bell, BellOff, Trash2 } from "lucide-react";
 import type { Bar, Timeframe } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { barSession, isExtended } from "@/lib/market/session";
 import { sma, ema, bollinger, rsi, volumeBars, type Candle as CalcCandle } from "@/lib/indicators";
+import { cn } from "@/lib/utils";
 
 export interface PriceMarker {
   price: number;
@@ -32,8 +33,8 @@ const TF_LABEL: Record<Timeframe, string> = {
   "5Min": "5M",
   "1Min": "1M",
 };
-// Intraday timeframes get live price polling.
-const LIVE_TFS: Timeframe[] = ["1Hour", "15Min", "5Min", "1Min"];
+// Intraday timeframes get live candle rolling + are where extended hours matter.
+const INTRADAY_TFS: Timeframe[] = ["1Hour", "15Min", "5Min", "1Min"];
 
 const MARKER_COLOR: Record<PriceMarker["kind"], string> = {
   entry: "#2563eb",
@@ -44,6 +45,13 @@ const MARKER_COLOR: Record<PriceMarker["kind"], string> = {
 
 const DRAW_COLOR = "#a855f7"; // user-drawn trendlines / h-lines
 const ALERT_COLOR = "#f59e0b";
+
+// Regular-session candle colors; extended-hours prints are dimmed so they read
+// as a distinct session at a glance.
+const UP = "#059669";
+const DOWN = "#dc2626";
+const UP_EXT = "rgba(5,150,105,0.40)";
+const DOWN_EXT = "rgba(220,38,38,0.40)";
 
 type Tool = "none" | "hline" | "trend";
 type Point = { time: Time; price: number };
@@ -75,26 +83,49 @@ function roundPrice(n: number): number {
   return n >= 100 ? Math.round(n * 100) / 100 : Math.round(n * 10000) / 10000;
 }
 
-type Candle = { time: Time; open: number; high: number; low: number; close: number; volume: number };
+type Candle = {
+  time: Time;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  color?: string;
+  wickColor?: string;
+  extended?: boolean;
+};
+
+function paint(c: Candle): Candle {
+  const up = c.close >= c.open;
+  if (c.extended) {
+    const col = up ? UP_EXT : DOWN_EXT;
+    return { ...c, color: col, wickColor: col };
+  }
+  const col = up ? UP : DOWN;
+  return { ...c, color: col, wickColor: col };
+}
 
 export function CandleChart({
   symbol,
   markers,
+  livePrice,
   initialTimeframe = "1Day",
 }: {
   symbol: string;
   markers: PriceMarker[];
+  livePrice?: number | null;
   initialTimeframe?: Timeframe;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const lastBarRef = useRef<Candle | null>(null);
+  const allBarsRef = useRef<Candle[]>([]);
   const [timeframe, setTimeframe] = useState<Timeframe>(initialTimeframe);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [errorMsg, setErrorMsg] = useState("");
   const [showGann, setShowGann] = useState(true);
-  const [live, setLive] = useState(false);
+  const [showExtended, setShowExtended] = useState(true);
   const [candleData, setCandleData] = useState<Candle[]>([]);
 
   // ---- Indicator toggles
@@ -120,6 +151,11 @@ export function CandleChart({
   useEffect(() => void (alertRef.current = alertPrice), [alertPrice]);
 
   const crypto = isCryptoSym(symbol);
+  const assetClass = crypto ? "crypto" : "us_equity";
+  const intraday = INTRADAY_TFS.includes(timeframe);
+  const live = intraday && status === "ready";
+  // Extended-hours only applies to intraday stock charts.
+  const extendedApplies = !crypto && intraday;
 
   // Create the chart once.
   useEffect(() => {
@@ -144,11 +180,11 @@ export function CandleChart({
     });
 
     const series = chart.addSeries(CandlestickSeries, {
-      upColor: "#059669",
-      downColor: "#dc2626",
+      upColor: UP,
+      downColor: DOWN,
       borderVisible: false,
-      wickUpColor: "#059669",
-      wickDownColor: "#dc2626",
+      wickUpColor: UP,
+      wickDownColor: DOWN,
     });
 
     chartRef.current = chart;
@@ -187,6 +223,21 @@ export function CandleChart({
     };
   }, []);
 
+  // Push the current bar set (respecting the extended-hours toggle) to the series.
+  const render = useCallback(
+    (opts?: { keepView?: boolean }) => {
+      const series = seriesRef.current;
+      if (!series) return;
+      const bars = extendedApplies && !showExtended
+        ? allBarsRef.current.filter((b) => !b.extended)
+        : allBarsRef.current;
+      series.setData(bars);
+      lastBarRef.current = bars[bars.length - 1] ?? null;
+      if (!opts?.keepView) chartRef.current?.timeScale().fitContent();
+    },
+    [extendedApplies, showExtended],
+  );
+
   // Load bars for the active timeframe.
   const loadBars = useCallback(
     async (opts?: { keepView?: boolean }) => {
@@ -196,18 +247,20 @@ export function CandleChart({
         if (!res.ok) throw new Error((await res.json()).error ?? `HTTP ${res.status}`);
         const data: { bars: Bar[] } = await res.json();
         if (!seriesRef.current) return;
-        const candles: Candle[] = data.bars.map((b) => ({
-          time: (new Date(b.t).getTime() / 1000) as Time,
-          open: b.o,
-          high: b.h,
-          low: b.l,
-          close: b.c,
-          volume: b.v,
-        }));
-        seriesRef.current.setData(candles);
-        lastBarRef.current = candles[candles.length - 1] ?? null;
+        const candles = data.bars.map((b) =>
+          paint({
+            time: (new Date(b.t).getTime() / 1000) as Time,
+            open: b.o,
+            high: b.h,
+            low: b.l,
+            close: b.c,
+            volume: b.v,
+            extended: isExtended(barSession(b.t, assetClass)),
+          }),
+        );
+        allBarsRef.current = candles;
         setCandleData(candles);
-        if (!opts?.keepView) chartRef.current?.timeScale().fitContent();
+        render(opts);
         setStatus("ready");
       } catch (err) {
         if (opts?.keepView) return; // background refresh failure — keep current chart
@@ -215,7 +268,7 @@ export function CandleChart({
         setStatus("error");
       }
     },
-    [symbol, timeframe],
+    [symbol, timeframe, assetClass, render],
   );
 
   useEffect(() => {
@@ -239,46 +292,13 @@ export function CandleChart({
     setAlertPrice(stored && Number.isFinite(stored) ? stored : null);
   }, [symbol]);
 
-  // Live price polling (~2s) + periodic new-bar roll for intraday timeframes.
+  // Re-render (without refetch) when the extended-hours toggle flips.
   useEffect(() => {
-    if (status !== "ready" || !LIVE_TFS.includes(timeframe)) {
-      setLive(false);
-      return;
-    }
-    setLive(true);
-    let cancelled = false;
-
-    const poll = async () => {
-      try {
-        const res = await fetch(`/api/quote?symbol=${encodeURIComponent(symbol)}`);
-        if (!res.ok) return;
-        const { price } = await res.json();
-        const lb = lastBarRef.current;
-        if (cancelled || typeof price !== "number" || !seriesRef.current || !lb) return;
-        lb.high = Math.max(lb.high, price);
-        lb.low = Math.min(lb.low, price);
-        lb.close = price;
-        seriesRef.current.update(lb);
-        checkAlertCross(price);
-      } catch {
-        /* transient — keep polling */
-      }
-    };
-
-    poll();
-    const priceInterval = setInterval(poll, 2000);
-    const rollInterval = setInterval(() => loadBars({ keepView: true }), 30000);
-
-    return () => {
-      cancelled = true;
-      clearInterval(priceInterval);
-      clearInterval(rollInterval);
-      setLive(false);
-    };
+    if (status === "ready") render({ keepView: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [symbol, timeframe, status, loadBars]);
+  }, [showExtended, status]);
 
-  // Alert crossing detection against the polled last price.
+  // Alert crossing detection against the live price.
   const checkAlertCross = useCallback((price: number) => {
     const a = alertRef.current;
     const prev = lastPriceRef.current;
@@ -294,6 +314,31 @@ export function CandleChart({
       }
     }
   }, [symbol]);
+
+  // Live candle update: fold the polled live price (from the shared useLiveQuote
+  // hook upstream) into the last bar, and check it against the price alert.
+  useEffect(() => {
+    if (status !== "ready" || typeof livePrice !== "number") return;
+    const lb = lastBarRef.current;
+    const series = seriesRef.current;
+    if (!lb || !series) return;
+    const updated = paint({
+      ...lb,
+      high: Math.max(lb.high, livePrice),
+      low: Math.min(lb.low, livePrice),
+      close: livePrice,
+    });
+    lastBarRef.current = updated;
+    series.update(updated);
+    checkAlertCross(livePrice);
+  }, [livePrice, status, checkAlertCross]);
+
+  // Periodic new-bar roll for intraday timeframes so a fresh candle appears.
+  useEffect(() => {
+    if (!live) return;
+    const rollInterval = setInterval(() => loadBars({ keepView: true }), 30000);
+    return () => clearInterval(rollInterval);
+  }, [live, loadBars]);
 
   // ---- Draggable alert line: grab the line near its y-coordinate and drag.
   useEffect(() => {
@@ -355,7 +400,10 @@ export function CandleChart({
   }, [symbol]);
 
   // Price-line overlays for scan markers. Gann lines are toggleable.
-  const displayMarkers = showGann ? markers : markers.filter((m) => m.kind !== "gann");
+  const displayMarkers = useMemo(
+    () => (showGann ? markers : markers.filter((m) => m.kind !== "gann")),
+    [showGann, markers],
+  );
   useEffect(() => {
     const series = seriesRef.current;
     if (!series || status !== "ready") return;
@@ -611,17 +659,30 @@ export function CandleChart({
             LIVE
           </span>
         )}
-        {hasGann && (
-          <label className="ml-auto flex items-center gap-1.5 text-xs text-muted cursor-pointer">
-            <input
-              type="checkbox"
-              checked={showGann}
-              onChange={(e) => setShowGann(e.target.checked)}
-              className="h-3.5 w-3.5 accent-[var(--accent)]"
-            />
-            Show Gann levels
-          </label>
-        )}
+        <div className="ml-auto flex items-center gap-4">
+          {extendedApplies && (
+            <label className="flex items-center gap-1.5 text-xs text-muted cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showExtended}
+                onChange={(e) => setShowExtended(e.target.checked)}
+                className="h-3.5 w-3.5 accent-[var(--accent)]"
+              />
+              Extended hours
+            </label>
+          )}
+          {hasGann && (
+            <label className="flex items-center gap-1.5 text-xs text-muted cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showGann}
+                onChange={(e) => setShowGann(e.target.checked)}
+                className="h-3.5 w-3.5 accent-[var(--accent)]"
+              />
+              Show Gann levels
+            </label>
+          )}
+        </div>
       </div>
 
       {/* Indicator toggles */}
@@ -684,6 +745,7 @@ export function CandleChart({
         <LegendItem color="#dc2626" label="Stop loss" />
         <LegendItem color="#059669" label="TP1 & Master (profit targets)" />
         <LegendItem color="#94a3b8" dashed label="Gann levels (support/resistance zones)" />
+        {extendedApplies && <LegendItem color="rgba(5,150,105,0.40)" label="Extended-hours candles (dimmed)" solidBlock />}
         {alertPrice != null && <LegendItem color={ALERT_COLOR} dashed label="Price alert (drag to move)" />}
         {hasDrawings && <LegendItem color={DRAW_COLOR} label="Your drawings" />}
         <span className="text-muted/80">
@@ -747,13 +809,27 @@ function IndicatorChip({
   );
 }
 
-function LegendItem({ color, label, dashed }: { color: string; label: string; dashed?: boolean }) {
+function LegendItem({
+  color,
+  label,
+  dashed,
+  solidBlock,
+}: {
+  color: string;
+  label: string;
+  dashed?: boolean;
+  solidBlock?: boolean;
+}) {
   return (
     <span className="flex items-center gap-1.5">
-      <span
-        className="inline-block h-0 w-4"
-        style={{ borderTop: `2px ${dashed ? "dashed" : "solid"} ${color}` }}
-      />
+      {solidBlock ? (
+        <span className="inline-block h-3 w-3 rounded-sm" style={{ background: color }} />
+      ) : (
+        <span
+          className="inline-block h-0 w-4"
+          style={{ borderTop: `2px ${dashed ? "dashed" : "solid"} ${color}` }}
+        />
+      )}
       {label}
     </span>
   );

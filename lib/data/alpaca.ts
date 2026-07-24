@@ -128,6 +128,43 @@ export async function fetchLatestPrice(symbol: string, assetClass: AssetClass): 
   return p;
 }
 
+export interface Snapshot {
+  /** Most recent trade — reflects extended-hours prints on IEX / 24-7 crypto. */
+  price: number;
+  /** Close of the most recent regular-session daily bar. */
+  dailyClose: number | null;
+  /** Previous regular-session daily close (yesterday). */
+  prevClose: number | null;
+}
+
+/**
+ * Snapshot: latest trade plus today's and yesterday's daily bars. Lets the UI
+ * separate the live (possibly extended-hours) print from the regular close.
+ */
+export async function fetchSnapshot(symbol: string, assetClass: AssetClass): Promise<Snapshot> {
+  if (assetClass === "crypto") {
+    const sym = normalizeCryptoSymbol(symbol);
+    const data = await get(`/v1beta3/crypto/us/snapshots`, { symbols: sym });
+    const snap = data.snapshots?.[sym] ?? {};
+    const price = snap.latestTrade?.p ?? snap.dailyBar?.c;
+    if (typeof price !== "number") throw new Error(`No snapshot for ${symbol}`);
+    return {
+      price,
+      dailyClose: snap.dailyBar?.c ?? null,
+      prevClose: snap.prevDailyBar?.c ?? null,
+    };
+  }
+  const sym = symbol.toUpperCase();
+  const snap = await get(`/v2/stocks/${sym}/snapshot`, { feed: "iex" });
+  const price = snap.latestTrade?.p ?? snap.minuteBar?.c ?? snap.dailyBar?.c;
+  if (typeof price !== "number") throw new Error(`No snapshot for ${symbol}`);
+  return {
+    price,
+    dailyClose: snap.dailyBar?.c ?? null,
+    prevClose: snap.prevDailyBar?.c ?? null,
+  };
+}
+
 /** Most-active US equities by volume — the coarse universe for the daily market scan. */
 export async function fetchMostActives(top = 100): Promise<string[]> {
   const data = await get(`/v1beta1/screener/stocks/most-actives`, {

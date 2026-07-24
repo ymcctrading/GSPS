@@ -73,16 +73,32 @@ export async function scanTicker(symbol: string, optionPremium?: number): Promis
         : "bullish";
     const reversionDirection = macroDir === "bearish" ? "bullish" : "bearish";
 
-    const pattern: StratPattern | null =
-      armed
-        .sort((a, b) => {
-          const aRev = a.direction === reversionDirection ? 0 : 1;
-          const bRev = b.direction === reversionDirection ? 0 : 1;
-          if (aRev !== bRev) return aRev - bRev;
-          return (
-            Math.abs(a.triggerPrice - currentPrice) - Math.abs(b.triggerPrice - currentPrice)
-          );
-        })[0] ?? null;
+    // Three-bar compound setups carry more context than a bare 2-2 (which arms
+    // on almost every directional bar), so rank them ahead of it.
+    const specificity = (name: StratPattern["name"]): number => {
+      switch (name) {
+        case "2-1-2":
+        case "3-1-2":
+        case "1-2-2":
+        case "3-2-2":
+          return 0;
+        case "PMG":
+          return 1;
+        case "2-2":
+          return 2;
+      }
+    };
+
+    const armedPatterns = [...armed].sort((a, b) => {
+      const aRev = a.direction === reversionDirection ? 0 : 1;
+      const bRev = b.direction === reversionDirection ? 0 : 1;
+      if (aRev !== bRev) return aRev - bRev;
+      const spec = specificity(a.name) - specificity(b.name);
+      if (spec !== 0) return spec;
+      return Math.abs(a.triggerPrice - currentPrice) - Math.abs(b.triggerPrice - currentPrice);
+    });
+
+    const pattern: StratPattern | null = armedPatterns[0] ?? null;
 
     const direction: "bullish" | "bearish" | "none" = pattern?.direction ?? "none";
     const scoreDirection = pattern?.direction ?? reversionDirection;
@@ -136,6 +152,7 @@ export async function scanTicker(symbol: string, optionPremium?: number): Promis
       trends: [monthlyTrend, weeklyTrend, dailyTrend, hourlyTrend],
       gann,
       pattern,
+      armedPatterns,
       levels,
       decision,
       optionPremium,
@@ -150,6 +167,7 @@ export async function scanTicker(symbol: string, optionPremium?: number): Promis
       trends: [],
       gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleDates: [] },
       pattern: null,
+      armedPatterns: [],
       levels: null,
       decision: {
         score: 0,
