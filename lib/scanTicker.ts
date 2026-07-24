@@ -6,7 +6,8 @@
  */
 
 import type { AssetClass, GannLevels, ScanResult, StratPattern } from "@/lib/types";
-import { fetchAllTimeframes, fetchLatestPrice, isCryptoSymbol } from "@/lib/data/alpaca";
+import { isCryptoSymbol } from "@/lib/data/alpaca";
+import { fetchAllTimeframes, getMarketDataProvider } from "@/lib/data/provider";
 import { readTrend } from "@/lib/analysis/trend";
 import { atr } from "@/lib/analysis/pivots";
 import { computeFanLines } from "@/lib/gann/fans";
@@ -21,9 +22,10 @@ export async function scanTicker(symbol: string, optionPremium?: number): Promis
   const scannedAt = new Date().toISOString();
 
   try {
+    const provider = getMarketDataProvider();
     const [{ monthly, weekly, daily, hourly, m15 }, currentPrice] = await Promise.all([
       fetchAllTimeframes(symbol, assetClass),
-      fetchLatestPrice(symbol, assetClass),
+      provider.fetchLatestPrice(symbol, assetClass),
     ]);
 
     if (daily.length < 30 || m15.length < 10) {

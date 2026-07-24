@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CandleChart, type PriceMarker } from "@/components/chart/candles";
+import { MarketTabs } from "@/components/chart/market-tabs";
+import { ShareButton } from "@/components/chart/share-button";
 import { SignalCard } from "@/components/scan/signal-card";
 import { OrderTicket } from "@/components/trade/order-ticket";
 import { GlossaryDetails } from "@/components/glossary";
@@ -59,6 +61,9 @@ export function TickerView({ symbol }: { symbol: string }) {
         {result?.gann.timeCycleActive && (
           <span className="text-xs font-medium text-warn">⏱ Gann time-cycle window active</span>
         )}
+        <div className="ml-auto">
+          <ShareButton symbol={symbol} />
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -87,6 +92,8 @@ export function TickerView({ symbol }: { symbol: string }) {
           {result && <OrderTicket result={result} />}
         </div>
       </div>
+
+      <MarketTabs symbol={symbol} result={result} />
 
       {result && <SignalCard result={result} />}
 

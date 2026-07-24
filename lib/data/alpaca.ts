@@ -1,9 +1,15 @@
 /**
  * Alpaca Market Data client (stocks + crypto bars, snapshots, most-actives).
  * Uses the free IEX feed for stocks. All calls are plain fetch — no SDK.
+ *
+ * Consumers should reach this through the provider seam (`getMarketDataProvider`
+ * in ./provider), not import these functions directly, so the data source stays
+ * swappable. The `alpacaProvider` export at the bottom adapts this module to the
+ * `MarketDataProvider` interface.
  */
 
 import type { AssetClass, Bar, Timeframe } from "@/lib/types";
+import type { MarketDataProvider } from "./provider";
 
 const DATA_BASE = "https://data.alpaca.markets";
 
@@ -23,6 +29,11 @@ function alpacaSecret(): string | undefined {
     process.env.ALPACA_SECRET_KEY ??
     process.env.APCA_API_SECRET_KEY
   );
+}
+
+/** True when both Alpaca credentials are present — used by the provider seam. */
+export function alpacaConfigured(): boolean {
+  return Boolean(alpacaKeyId() && alpacaSecret());
 }
 
 function headers(): Record<string, string> {
@@ -126,22 +137,15 @@ export async function fetchMostActives(top = 100): Promise<string[]> {
   return (data.most_actives ?? []).map((a: { symbol: string }) => a.symbol);
 }
 
-/** Convenience: all timeframes needed by the top-down GSPS pipeline. */
-export async function fetchAllTimeframes(symbol: string, assetClass: AssetClass) {
-  const now = new Date();
-  const yearsAgo = (n: number) => new Date(now.getTime() - n * 365.25 * 24 * 3600 * 1000);
-  const daysAgo = (n: number) => new Date(now.getTime() - n * 24 * 3600 * 1000);
-
-  // Stocks on the free IEX feed can't query the most recent 15 min of data.
-  const end = assetClass === "crypto" ? null : new Date(now.getTime() - 16 * 60 * 1000);
-
-  const [monthly, weekly, daily, hourly, m15] = await Promise.all([
-    fetchBars(symbol, "1Month", yearsAgo(10), end, assetClass),
-    fetchBars(symbol, "1Week", yearsAgo(5), end, assetClass),
-    fetchBars(symbol, "1Day", yearsAgo(1), end, assetClass),
-    fetchBars(symbol, "1Hour", daysAgo(30), end, assetClass),
-    fetchBars(symbol, "15Min", daysAgo(7), end, assetClass),
-  ]);
-
-  return { monthly, weekly, daily, hourly, m15 };
-}
+/**
+ * Adapter exposing this module as a `MarketDataProvider`. Alpaca's free IEX feed
+ * doesn't include an options chain or Level II depth, so those optional methods
+ * are intentionally omitted — the API routes derive a simulated view instead.
+ */
+export const alpacaProvider: MarketDataProvider = {
+  name: "alpaca",
+  isLive: true,
+  fetchBars,
+  fetchLatestPrice,
+  fetchMostActives,
+};
