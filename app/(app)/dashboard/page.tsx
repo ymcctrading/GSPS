@@ -157,7 +157,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <ResultsTable
-              rows={toRows(bullish)}
+              rows={bullish}
               emptyText="No bullish list yet. Run the market scan or wait for the daily cron."
             />
           </CardContent>
@@ -169,7 +169,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <ResultsTable
-              rows={toRows(bearish)}
+              rows={bearish}
               emptyText="No bearish list yet. Run the market scan or wait for the daily cron."
             />
           </CardContent>
