@@ -49,6 +49,9 @@ export interface OptionContract {
   ask: number;
   last: number;
   delta: number;
+  gamma: number;
+  theta: number;
+  vega: number;
   iv: number;
   openInterest: number;
   volume: number;

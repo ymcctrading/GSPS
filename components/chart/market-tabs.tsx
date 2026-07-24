@@ -307,61 +307,75 @@ function OptionsPanel({ symbol }: { symbol: string }) {
         </div>
       </div>
 
-      <Table>
-        <THead>
-          <TR>
-            <TH className="text-bull">Call</TH>
-            <TH className="text-bull">Bid</TH>
-            <TH className="text-bull">Ask</TH>
-            <TH className="text-bull">Vol</TH>
-            <TH className="text-bull">Δ</TH>
-            <TH className="text-center font-semibold text-foreground">Strike</TH>
-            <TH className="text-center">Δ</TH>
-            <TH className="text-bear">Vol</TH>
-            <TH className="text-bear">Bid</TH>
-            <TH className="text-bear">Ask</TH>
-            <TH className="text-bear">Put</TH>
-          </TR>
-        </THead>
-        <TBody>
-          {filteredStrikes.map((strike) => {
-            const call = byKey.get(`call:${strike}`);
-            const put = byKey.get(`put:${strike}`);
-            const isAtm = strike === atm;
-            return (
-              <TR key={strike} className={isAtm ? "bg-accent-soft/60" : undefined}>
-                <TD className="text-center text-xs text-muted">
-                  {call?.inTheMoney ? "ITM" : ""}
-                </TD>
-                <TD className={"font-mono text-xs " + (call?.inTheMoney ? "text-bull" : "text-muted")}>
-                  {call ? formatUsd(call.bid) : "—"}
-                </TD>
-                <TD className={"font-mono text-xs " + (call?.inTheMoney ? "text-bull" : "text-muted")}>
-                  {call ? formatUsd(call.ask) : "—"}
-                </TD>
-                <TD className="text-center font-mono text-xs text-muted">
-                  {call ? call.volume.toLocaleString() : "—"}
-                </TD>
-                <TD className="text-center font-mono text-xs text-muted">{call?.delta ?? "—"}</TD>
-                <TD className="text-center font-mono text-xs font-semibold">{formatUsd(strike)}</TD>
-                <TD className="text-center font-mono text-xs text-muted">{put?.delta ?? "—"}</TD>
-                <TD className="text-center font-mono text-xs text-muted">
-                  {put ? put.volume.toLocaleString() : "—"}
-                </TD>
-                <TD className={"font-mono text-xs " + (put?.inTheMoney ? "text-bear" : "text-muted")}>
-                  {put ? formatUsd(put.bid) : "—"}
-                </TD>
-                <TD className={"font-mono text-xs " + (put?.inTheMoney ? "text-bear" : "text-muted")}>
-                  {put ? formatUsd(put.ask) : "—"}
-                </TD>
-                <TD className="text-center text-xs text-muted">
-                  {put?.inTheMoney ? "ITM" : ""}
-                </TD>
-              </TR>
-            );
-          })}
-        </TBody>
-      </Table>
+      <div className="overflow-x-auto">
+        <Table>
+          <THead>
+            <TR>
+              <TH className="text-bull">Call</TH>
+              <TH className="text-bull">Bid</TH>
+              <TH className="text-bull">Ask</TH>
+              <TH className="text-bull">Vol</TH>
+              <TH className="text-bull">Δ</TH>
+              <TH className="text-bull">Γ</TH>
+              <TH className="text-bull">Θ</TH>
+              <TH className="text-bull">ν</TH>
+              <TH className="text-center font-semibold text-foreground">Strike</TH>
+              <TH className="text-center">ν</TH>
+              <TH className="text-bear">Θ</TH>
+              <TH className="text-bear">Γ</TH>
+              <TH className="text-bear">Δ</TH>
+              <TH className="text-bear">Vol</TH>
+              <TH className="text-bear">Bid</TH>
+              <TH className="text-bear">Ask</TH>
+              <TH className="text-bear">Put</TH>
+            </TR>
+          </THead>
+          <TBody>
+            {filteredStrikes.map((strike) => {
+              const call = byKey.get(`call:${strike}`);
+              const put = byKey.get(`put:${strike}`);
+              const isAtm = strike === atm;
+              return (
+                <TR key={strike} className={isAtm ? "bg-accent-soft/60" : undefined}>
+                  <TD className="text-center text-xs text-muted">
+                    {call?.inTheMoney ? "ITM" : ""}
+                  </TD>
+                  <TD className={"font-mono text-xs " + (call?.inTheMoney ? "text-bull" : "text-muted")}>
+                    {call ? formatUsd(call.bid) : "—"}
+                  </TD>
+                  <TD className={"font-mono text-xs " + (call?.inTheMoney ? "text-bull" : "text-muted")}>
+                    {call ? formatUsd(call.ask) : "—"}
+                  </TD>
+                  <TD className="text-center font-mono text-xs text-muted">
+                    {call ? call.volume.toLocaleString() : "—"}
+                  </TD>
+                  <TD className="text-center font-mono text-xs text-muted">{call?.delta ?? "—"}</TD>
+                  <TD className="text-center font-mono text-xs text-muted">{call?.gamma ?? "—"}</TD>
+                  <TD className="text-center font-mono text-xs text-muted">{call?.theta ?? "—"}</TD>
+                  <TD className="text-center font-mono text-xs text-muted">{call?.vega ?? "—"}</TD>
+                  <TD className="text-center font-mono text-xs font-semibold">{formatUsd(strike)}</TD>
+                  <TD className="text-center font-mono text-xs text-muted">{put?.vega ?? "—"}</TD>
+                  <TD className="text-center font-mono text-xs text-muted">{put?.theta ?? "—"}</TD>
+                  <TD className="text-center font-mono text-xs text-muted">{put?.gamma ?? "—"}</TD>
+                  <TD className="text-center font-mono text-xs text-muted">{put?.delta ?? "—"}</TD>
+                  <TD className="text-center font-mono text-xs text-muted">
+                    {put ? put.volume.toLocaleString() : "—"}
+                  </TD>
+                  <TD className={"font-mono text-xs " + (put?.inTheMoney ? "text-bear" : "text-muted")}>
+                    {put ? formatUsd(put.bid) : "—"}
+                  </TD>
+                  <TD className={"font-mono text-xs " + (put?.inTheMoney ? "text-bear" : "text-muted")}>
+                    {put ? formatUsd(put.ask) : "—"}
+                  </TD>
+                  <TD className="text-center text-xs text-muted">
+                    {put?.inTheMoney ? "ITM" : ""}
+                  </TD>
+                </TR>
+              );
+            })}
+          </TBody>
+        </Table>
+      </div>
 
       <p className="text-xs text-muted/80">
         {chain.simulated

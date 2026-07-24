@@ -33,7 +33,7 @@ const TF_LABEL: Record<Timeframe, string> = {
   "5Min": "5M",
   "1Min": "1M",
 };
-// Intraday timeframes get live candle rolling + are where extended hours matter.
+// Intraday timeframes are where extended hours matter.
 const INTRADAY_TFS: Timeframe[] = ["1Hour", "15Min", "5Min", "1Min"];
 
 const MARKER_COLOR: Record<PriceMarker["kind"], string> = {
@@ -153,7 +153,9 @@ export function CandleChart({
   const crypto = isCryptoSym(symbol);
   const assetClass = crypto ? "crypto" : "us_equity";
   const intraday = INTRADAY_TFS.includes(timeframe);
-  const live = intraday && status === "ready";
+  // All timeframes poll live — the last bar's close updates independently of
+  // the chart's display period.
+  const live = status === "ready";
   // Extended-hours only applies to intraday stock charts.
   const extendedApplies = !crypto && intraday;
 
