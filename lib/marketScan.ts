@@ -9,6 +9,7 @@
 
 import type { Bar, ScanResult } from "@/lib/types";
 import { getMarketDataProvider } from "@/lib/data/provider";
+import { fetchMostActives } from "@/lib/data/alpaca";
 import { readTrend } from "@/lib/analysis/trend";
 import { computeFanLines } from "@/lib/gann/fans";
 import { squareOf9Levels } from "@/lib/gann/squareOf9";
