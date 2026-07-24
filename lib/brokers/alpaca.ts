@@ -83,6 +83,46 @@ export async function placeOrder(creds: AlpacaCreds, input: PlaceOrderInput) {
   return alpacaFetch(creds, "/v2/orders", { method: "POST", body: JSON.stringify(body) });
 }
 
+export interface OptionContract {
+  symbol: string; // OCC symbol, e.g. TSM250815C00120000
+  name: string;
+  type: "call" | "put";
+  strike_price: string;
+  expiration_date: string; // YYYY-MM-DD
+  open_interest?: string;
+  close_price?: string | null;
+}
+
+export interface OptionContractQuery {
+  underlying: string;
+  /** Restrict strikes to a window around this price (± pct). */
+  price?: number;
+  pct?: number;
+  limit?: number;
+}
+
+/**
+ * List tradable option contracts for an underlying. Uses the trading API
+ * (works on paper too). Returns near-the-money, not-yet-expired contracts.
+ */
+export async function listOptionContracts(
+  creds: AlpacaCreds,
+  q: OptionContractQuery,
+): Promise<OptionContract[]> {
+  const params = new URLSearchParams({
+    underlying_symbols: q.underlying.toUpperCase(),
+    status: "active",
+    limit: String(q.limit ?? 10000),
+    expiration_date_gte: new Date().toISOString().slice(0, 10),
+  });
+  if (q.price && q.pct) {
+    params.set("strike_price_gte", (q.price * (1 - q.pct)).toFixed(2));
+    params.set("strike_price_lte", (q.price * (1 + q.pct)).toFixed(2));
+  }
+  const data = await alpacaFetch(creds, `/v2/options/contracts?${params.toString()}`);
+  return (data.option_contracts ?? []) as OptionContract[];
+}
+
 export async function getAccount(creds: AlpacaCreds) {
   return alpacaFetch(creds, "/v2/account");
 }

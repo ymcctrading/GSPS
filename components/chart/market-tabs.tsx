@@ -245,7 +245,6 @@ function OptionsPanel({ symbol }: { symbol: string }) {
   const [chain, setChain] = useState<(OptionChain & { source?: string }) | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [strikeFilter, setStrikeFilter] = useState<StrikeFilter>("all");
-  const [selectedContract, setSelectedContract] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -331,15 +330,8 @@ function OptionsPanel({ symbol }: { symbol: string }) {
             const isAtm = strike === atm;
             return (
               <TR key={strike} className={isAtm ? "bg-accent-soft/60" : undefined}>
-                <TD className="text-center">
-                  {call && (
-                    <button
-                      onClick={() => setSelectedContract(`call:${strike}`)}
-                      className="text-xs font-medium text-bull hover:underline cursor-pointer"
-                    >
-                      Buy
-                    </button>
-                  )}
+                <TD className="text-center text-xs text-muted">
+                  {call?.inTheMoney ? "ITM" : ""}
                 </TD>
                 <TD className={"font-mono text-xs " + (call?.inTheMoney ? "text-bull" : "text-muted")}>
                   {call ? formatUsd(call.bid) : "—"}
@@ -362,15 +354,8 @@ function OptionsPanel({ symbol }: { symbol: string }) {
                 <TD className={"font-mono text-xs " + (put?.inTheMoney ? "text-bear" : "text-muted")}>
                   {put ? formatUsd(put.ask) : "—"}
                 </TD>
-                <TD className="text-center">
-                  {put && (
-                    <button
-                      onClick={() => setSelectedContract(`put:${strike}`)}
-                      className="text-xs font-medium text-bear hover:underline cursor-pointer"
-                    >
-                      Buy
-                    </button>
-                  )}
+                <TD className="text-center text-xs text-muted">
+                  {put?.inTheMoney ? "ITM" : ""}
                 </TD>
               </TR>
             );
@@ -378,113 +363,11 @@ function OptionsPanel({ symbol }: { symbol: string }) {
         </TBody>
       </Table>
 
-      {selectedContract && (
-        <OptionsOrderForm
-          symbol={symbol}
-          contract={selectedContract}
-          chain={chain}
-          byKey={byKey}
-          onClose={() => setSelectedContract(null)}
-        />
-      )}
-
-      {chain.simulated && (
-        <p className="text-xs text-muted/80">
-          Simulated chain — greeks and open interest are modelled, not exchange data. IV shown is implied volatility.
-        </p>
-      )}
-    </div>
-  );
-}
-
-function OptionsOrderForm({
-  symbol,
-  contract,
-  chain,
-  byKey,
-  onClose,
-}: {
-  symbol: string;
-  contract: string;
-  chain: OptionChain & { source?: string };
-  byKey: Map<string, import("@/lib/data/provider").OptionContract>;
-  onClose: () => void;
-}) {
-  const [qty, setQty] = useState("1");
-  const [submitting, setSubmitting] = useState(false);
-  const [feedback, setFeedback] = useState<string | null>(null);
-
-  const contractData = byKey.get(contract);
-  if (!contractData) return null;
-
-  const [type, strike] = contract.split(":");
-  const premium = contractData.ask;
-
-  async function submit() {
-    setSubmitting(true);
-    setFeedback(null);
-    try {
-      const res = await fetch("/api/orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          symbol,
-          side: type === "call" ? "buy" : "buy",
-          qty: Number(qty),
-          entryMode: "now",
-          mode: "paper",
-          optionContract: {
-            type,
-            strike: Number(strike),
-            expiration: chain.expiration,
-          },
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
-      setFeedback(`Order placed: ${type} ${strike} @ ${formatUsd(premium)}`);
-      setTimeout(() => onClose(), 1500);
-    } catch (err) {
-      setFeedback(err instanceof Error ? err.message : String(err));
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <div className="rounded-lg border border-accent bg-accent-soft/20 p-3">
-      <div className="mb-3 flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium">
-            {type === "call" ? "Buy call" : "Buy put"} {strike} @ {formatUsd(premium)}
-          </p>
-          <p className="text-xs text-muted">Delta: {contractData.delta}, IV: {(contractData.iv * 100).toFixed(1)}%</p>
-        </div>
-        <button onClick={onClose} className="text-muted hover:text-foreground">
-          ✕
-        </button>
-      </div>
-      <div className="flex items-center gap-2">
-        <input
-          type="number"
-          min="1"
-          step="1"
-          value={qty}
-          onChange={(e) => setQty(e.target.value)}
-          className="w-16 rounded border border-border bg-background px-2 py-1 text-sm"
-        />
-        <span className="text-sm text-muted">
-          contracts @ {formatUsd(premium * 100)} = {formatUsd(Number(qty) * premium * 100)}
-        </span>
-        <button
-          onClick={submit}
-          disabled={submitting}
-          className="ml-auto rounded bg-accent px-3 py-1.5 text-sm font-medium text-surface hover:bg-accent/90 disabled:opacity-50 cursor-pointer"
-        >
-          {submitting ? "..." : "Place"}
-        </button>
-      </div>
-      {feedback && <p className="mt-2 text-xs text-bull">{feedback}</p>}
+      <p className="text-xs text-muted/80">
+        {chain.simulated
+          ? "Simulated chain — greeks and open interest are modelled, not exchange data. IV shown is implied volatility."
+          : "Display only. To place a real options order, open this symbol's ticker page and use the order ticket."}
+      </p>
     </div>
   );
 }
