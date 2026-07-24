@@ -8,6 +8,18 @@
     {
       "path": "/api/market-scan",
       "schedule": "30 12 * * 1-5"
+    },
+    {
+      "path": "/api/futures?symbols=ES,NQ,CL&provider=twelve_data",
+      "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/crypto?symbols=BTC,ETH,SOL",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/forex?symbols=EUR-USD,GBP-USD,USD-JPY",
+      "schedule": "*/10 * * * *"
     }
   ]
 }
