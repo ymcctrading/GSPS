@@ -240,11 +240,15 @@ function ResearchPanel({ symbol, result }: { symbol: string; result?: ScanResult
 /* ----------------------------------------------------------------- Options */
 
 type StrikeFilter = "all" | "5" | "10" | "15" | "25" | "50";
+type SpreadType = "custom" | "call_spread" | "put_spread" | "iron_condor";
+type Exchange = "best" | "cboe" | "ise" | "edgx" | "phlx";
 
 function OptionsPanel({ symbol }: { symbol: string }) {
   const [chain, setChain] = useState<(OptionChain & { source?: string }) | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [strikeFilter, setStrikeFilter] = useState<StrikeFilter>("all");
+  const [strikeFilter, setStrikeFilter] = useState<StrikeFilter>("25");
+  const [spreadType, setSpreadType] = useState<SpreadType>("custom");
+  const [exchange, setExchange] = useState<Exchange>("best");
   const [selectedContract, setSelectedContract] = useState<string | null>(null);
 
   useEffect(() => {
@@ -276,13 +280,14 @@ function OptionsPanel({ symbol }: { symbol: string }) {
   let filteredStrikes = strikes;
   if (strikeFilter !== "all") {
     const groupSize = parseInt(strikeFilter);
-    const startIdx = Math.max(0, strikes.findIndex((s) => s === atm) - Math.floor(groupSize / 2));
+    const atmIdx = strikes.findIndex((s) => s === atm);
+    const startIdx = Math.max(0, atmIdx - Math.floor(groupSize / 2));
     filteredStrikes = strikes.slice(startIdx, startIdx + groupSize);
   }
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
           <span>
             Underlying <span className="font-mono text-foreground">{formatUsd(chain.underlyingPrice)}</span>
@@ -290,21 +295,56 @@ function OptionsPanel({ symbol }: { symbol: string }) {
           <span>· Exp {chain.expiration}</span>
           {chain.simulated && <Badge variant="muted">Simulated</Badge>}
         </div>
-        <div className="flex flex-wrap gap-1">
-          {(["all", "5", "10", "15", "25", "50"] as StrikeFilter[]).map((f) => (
-            <button
-              key={f}
-              onClick={() => setStrikeFilter(f)}
-              className={
-                "rounded px-2 py-1 text-xs font-medium cursor-pointer transition-colors " +
-                (strikeFilter === f
-                  ? "bg-accent text-surface"
-                  : "border border-border hover:border-accent")
-              }
+
+        <div className="flex flex-wrap items-center gap-3 border-t border-border pt-3">
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-semibold text-muted">Spread:</label>
+            <select
+              value={spreadType}
+              onChange={(e) => setSpreadType(e.target.value as SpreadType)}
+              className="rounded border border-border bg-background px-2 py-1 text-xs font-medium cursor-pointer hover:border-muted"
             >
-              {f === "all" ? "All" : f}
-            </button>
-          ))}
+              <option value="custom">Custom</option>
+              <option value="call_spread">Call Spread</option>
+              <option value="put_spread">Put Spread</option>
+              <option value="iron_condor">Iron Condor</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-semibold text-muted">Strikes:</label>
+            <div className="flex flex-wrap gap-1">
+              {(["5", "10", "15", "25", "50"] as StrikeFilter[]).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setStrikeFilter(f)}
+                  className={
+                    "rounded px-2 py-1 text-xs font-medium cursor-pointer transition-colors " +
+                    (strikeFilter === f
+                      ? "bg-accent text-surface"
+                      : "border border-border hover:border-accent")
+                  }
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-semibold text-muted">Exchange:</label>
+            <select
+              value={exchange}
+              onChange={(e) => setExchange(e.target.value as Exchange)}
+              className="rounded border border-border bg-background px-2 py-1 text-xs font-medium cursor-pointer hover:border-muted"
+            >
+              <option value="best">BEST</option>
+              <option value="cboe">CBOE</option>
+              <option value="ise">ISE</option>
+              <option value="edgx">EDGX</option>
+              <option value="phlx">PHLX</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -413,12 +453,13 @@ function OptionsOrderForm({
   const [qty, setQty] = useState("1");
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [selectedPrice, setSelectedPrice] = useState<"bid" | "ask" | null>(null);
 
   const contractData = byKey.get(contract);
   if (!contractData) return null;
 
   const [type, strike] = contract.split(":");
-  const premium = contractData.ask;
+  const premium = selectedPrice === "bid" ? contractData.bid : contractData.ask;
 
   async function submit() {
     setSubmitting(true);
@@ -452,19 +493,50 @@ function OptionsOrderForm({
   }
 
   return (
-    <div className="rounded-lg border border-accent bg-accent-soft/20 p-3">
-      <div className="mb-3 flex items-center justify-between">
+    <div className="rounded-lg border border-accent bg-accent-soft/20 p-4 space-y-3">
+      <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-medium">
-            {type === "call" ? "Buy call" : "Buy put"} {strike} @ {formatUsd(premium)}
+          <p className="text-sm font-semibold">
+            {type === "call" ? "Buy call" : "Buy put"} {strike}
           </p>
-          <p className="text-xs text-muted">Delta: {contractData.delta}, IV: {(contractData.iv * 100).toFixed(1)}%</p>
+          <p className="text-xs text-muted mt-1">Δ {contractData.delta} · IV {(contractData.iv * 100).toFixed(1)}%</p>
         </div>
-        <button onClick={onClose} className="text-muted hover:text-foreground">
+        <button onClick={onClose} className="text-muted hover:text-foreground font-semibold">
           ✕
         </button>
       </div>
-      <div className="flex items-center gap-2">
+
+      {/* Bid/Ask selection with sizes */}
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          onClick={() => setSelectedPrice("bid")}
+          className={
+            "rounded border px-3 py-2 text-left transition-colors cursor-pointer " +
+            (selectedPrice === "bid"
+              ? "border-bull bg-bull/10"
+              : "border-border hover:border-bull/50")
+          }
+        >
+          <div className="text-xs text-muted">Bid</div>
+          <div className="font-mono font-semibold text-bull">{formatUsd(contractData.bid)}</div>
+          <div className="text-xs text-muted mt-0.5">Size: {contractData.volume.toLocaleString()}</div>
+        </button>
+        <button
+          onClick={() => setSelectedPrice("ask")}
+          className={
+            "rounded border px-3 py-2 text-left transition-colors cursor-pointer " +
+            (selectedPrice === "ask"
+              ? "border-bear bg-bear/10"
+              : "border-border hover:border-bear/50")
+          }
+        >
+          <div className="text-xs text-muted">Ask</div>
+          <div className="font-mono font-semibold text-bear">{formatUsd(contractData.ask)}</div>
+          <div className="text-xs text-muted mt-0.5">Size: {contractData.volume.toLocaleString()}</div>
+        </button>
+      </div>
+
+      <div className="flex items-center gap-3 pt-2 border-t border-accent/30">
         <input
           type="number"
           min="1"
@@ -474,17 +546,20 @@ function OptionsOrderForm({
           className="w-16 rounded border border-border bg-background px-2 py-1 text-sm"
         />
         <span className="text-sm text-muted">
-          contracts @ {formatUsd(premium * 100)} = {formatUsd(Number(qty) * premium * 100)}
+          @ {formatUsd(premium * 100)} = <span className="font-semibold text-foreground">{formatUsd(Number(qty) * premium * 100)}</span>
         </span>
         <button
           onClick={submit}
-          disabled={submitting}
-          className="ml-auto rounded bg-accent px-3 py-1.5 text-sm font-medium text-surface hover:bg-accent/90 disabled:opacity-50 cursor-pointer"
+          disabled={submitting || !selectedPrice}
+          className={
+            "ml-auto rounded px-4 py-1.5 text-sm font-medium text-surface cursor-pointer " +
+            (selectedPrice ? "bg-accent hover:bg-accent/90" : "bg-muted/50 cursor-not-allowed")
+          }
         >
           {submitting ? "..." : "Place"}
         </button>
       </div>
-      {feedback && <p className="mt-2 text-xs text-bull">{feedback}</p>}
+      {feedback && <p className="text-xs text-bull">{feedback}</p>}
     </div>
   );
 }
