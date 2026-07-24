@@ -5,6 +5,7 @@ import {
   createChart,
   CandlestickSeries,
   LineSeries,
+  HistogramSeries,
   type IChartApi,
   type IPriceLine,
   type ISeriesApi,
@@ -13,6 +14,7 @@ import {
 import { MousePointer2, Minus, TrendingUp, Bell, BellOff, Trash2 } from "lucide-react";
 import type { Bar, Timeframe } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { sma, ema, bollinger, rsi, volumeBars, type Candle as CalcCandle } from "@/lib/indicators";
 
 export interface PriceMarker {
   price: number;
@@ -47,6 +49,22 @@ type Tool = "none" | "hline" | "trend";
 type Point = { time: Time; price: number };
 type Trendline = { a: Point; b: Point };
 
+// Overlay indicators drawn in the main price pane.
+type Overlay = "sma20" | "sma50" | "ema9" | "bb";
+// Study indicators drawn in their own pane below price.
+type Study = "volume" | "rsi";
+
+const OVERLAY_META: Record<Overlay, { label: string; color: string }> = {
+  sma20: { label: "SMA 20", color: "#f59e0b" },
+  sma50: { label: "SMA 50", color: "#8b5cf6" },
+  ema9: { label: "EMA 9", color: "#06b6d4" },
+  bb: { label: "Boll (20,2)", color: "#94a3b8" },
+};
+const STUDY_META: Record<Study, { label: string }> = {
+  volume: { label: "Volume" },
+  rsi: { label: "RSI 14" },
+};
+
 function isCryptoSym(sym: string): boolean {
   const known = ["BTC", "ETH", "SOL", "DOGE", "LTC", "AVAX", "LINK", "XRP", "BCH", "UNI"];
   const base = sym.toUpperCase().replace(/[-/]?USD[TC]?$/, "");
@@ -57,7 +75,7 @@ function roundPrice(n: number): number {
   return n >= 100 ? Math.round(n * 100) / 100 : Math.round(n * 10000) / 10000;
 }
 
-type Candle = { time: Time; open: number; high: number; low: number; close: number };
+type Candle = { time: Time; open: number; high: number; low: number; close: number; volume: number };
 
 export function CandleChart({
   symbol,
@@ -77,6 +95,11 @@ export function CandleChart({
   const [errorMsg, setErrorMsg] = useState("");
   const [showGann, setShowGann] = useState(true);
   const [live, setLive] = useState(false);
+  const [candleData, setCandleData] = useState<Candle[]>([]);
+
+  // ---- Indicator toggles
+  const [overlays, setOverlays] = useState<Set<Overlay>>(new Set());
+  const [studies, setStudies] = useState<Set<Study>>(new Set());
 
   // ---- Drawing tools + alert state
   const [tool, setTool] = useState<Tool>("none");
@@ -179,9 +202,11 @@ export function CandleChart({
           high: b.h,
           low: b.l,
           close: b.c,
+          volume: b.v,
         }));
         seriesRef.current.setData(candles);
         lastBarRef.current = candles[candles.length - 1] ?? null;
+        setCandleData(candles);
         if (!opts?.keepView) chartRef.current?.timeScale().fitContent();
         setStatus("ready");
       } catch (err) {
@@ -401,6 +426,90 @@ export function CandleChart({
     return () => series.removePriceLine(line);
   }, [alertPrice, status]);
 
+  // Indicator overlays in the main price pane (SMA/EMA/Bollinger).
+  const calcCandles: CalcCandle[] = candleData.map((c) => ({
+    time: c.time as number,
+    open: c.open,
+    high: c.high,
+    low: c.low,
+    close: c.close,
+    volume: c.volume,
+  }));
+  const overlayKey = [...overlays].sort().join(",");
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart || status !== "ready" || calcCandles.length === 0) return;
+    const created: ISeriesApi<"Line">[] = [];
+    const addLine = (data: { time: number; value: number }[], color: string, width = 2, dashed = false) => {
+      if (data.length === 0) return;
+      const s = chart.addSeries(LineSeries, {
+        color,
+        lineWidth: width as 1 | 2 | 3 | 4,
+        lineStyle: dashed ? 2 : 0,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false,
+      });
+      s.setData(data.map((d) => ({ time: d.time as Time, value: d.value })));
+      created.push(s);
+    };
+
+    if (overlays.has("sma20")) addLine(sma(calcCandles, 20), OVERLAY_META.sma20.color);
+    if (overlays.has("sma50")) addLine(sma(calcCandles, 50), OVERLAY_META.sma50.color);
+    if (overlays.has("ema9")) addLine(ema(calcCandles, 9), OVERLAY_META.ema9.color);
+    if (overlays.has("bb")) {
+      const bb = bollinger(calcCandles, 20, 2);
+      addLine(bb.upper, OVERLAY_META.bb.color, 1, true);
+      addLine(bb.middle, OVERLAY_META.bb.color, 1, false);
+      addLine(bb.lower, OVERLAY_META.bb.color, 1, true);
+    }
+
+    return () => created.forEach((s) => chart.removeSeries(s));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [overlayKey, candleData, status]);
+
+  // Study panes below price (Volume, RSI) — each in its own pane.
+  const studyKey = [...studies].sort().join(",");
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart || status !== "ready" || calcCandles.length === 0) return;
+    const created: ISeriesApi<"Histogram" | "Line">[] = [];
+    let paneIndex = 1;
+
+    if (studies.has("volume")) {
+      const vol = chart.addSeries(
+        HistogramSeries,
+        { priceFormat: { type: "volume" }, priceLineVisible: false, lastValueVisible: false },
+        paneIndex,
+      );
+      vol.setData(volumeBars(calcCandles).map((v) => ({ time: v.time as Time, value: v.value, color: v.color })));
+      created.push(vol);
+      paneIndex += 1;
+    }
+    if (studies.has("rsi")) {
+      const line = chart.addSeries(
+        LineSeries,
+        { color: "#6366f1", lineWidth: 1, priceLineVisible: false, lastValueVisible: true },
+        paneIndex,
+      );
+      line.setData(rsi(calcCandles, 14).map((d) => ({ time: d.time as Time, value: d.value })));
+      line.createPriceLine({ price: 70, color: "#dc2626", lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: "70" });
+      line.createPriceLine({ price: 30, color: "#059669", lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: "30" });
+      created.push(line);
+      paneIndex += 1;
+    }
+
+    return () => created.forEach((s) => chart.removeSeries(s));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [studyKey, candleData, status]);
+
+  const toggleSet = <T,>(set: Set<T>, setSet: (s: Set<T>) => void, key: T) => {
+    const next = new Set(set);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    setSet(next);
+  };
+
   const hasGann = markers.some((m) => m.kind === "gann");
   const hasDrawings = hlines.length > 0 || trendlines.length > 0 || pending != null;
 
@@ -515,6 +624,27 @@ export function CandleChart({
         )}
       </div>
 
+      {/* Indicator toggles */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        {(Object.keys(OVERLAY_META) as Overlay[]).map((k) => (
+          <IndicatorChip
+            key={k}
+            label={OVERLAY_META[k].label}
+            color={OVERLAY_META[k].color}
+            active={overlays.has(k)}
+            onClick={() => toggleSet(overlays, setOverlays, k)}
+          />
+        ))}
+        {(Object.keys(STUDY_META) as Study[]).map((k) => (
+          <IndicatorChip
+            key={k}
+            label={STUDY_META[k].label}
+            active={studies.has(k)}
+            onClick={() => toggleSet(studies, setStudies, k)}
+          />
+        ))}
+      </div>
+
       {/* Contextual hint while a drawing tool is armed. */}
       {tool !== "none" && (
         <div className="text-xs text-accent">
@@ -588,6 +718,31 @@ function ToolButton({
       )}
     >
       {children}
+    </button>
+  );
+}
+
+function IndicatorChip({
+  label,
+  color,
+  active,
+  onClick,
+}: {
+  label: string;
+  color?: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium cursor-pointer transition-colors",
+        active ? "border-accent bg-accent-soft text-accent" : "border-border text-muted hover:text-foreground",
+      )}
+    >
+      {color && <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: color }} />}
+      {label}
     </button>
   );
 }
