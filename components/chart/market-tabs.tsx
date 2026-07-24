@@ -47,9 +47,15 @@ export function MarketTabs({ symbol, result }: { symbol: string; result?: ScanRe
 
 /* ---------------------------------------------------------------- Research */
 
+interface IndicatorsData {
+  macd: { current: number | null; signal: number | null; histogram: number | null };
+  rsi: { current: number | null };
+}
+
 function ResearchPanel({ symbol, result }: { symbol: string; result?: ScanResult | null }) {
   const [fetched, setFetched] = useState<ScanResult | null>(result ?? null);
   const [error, setError] = useState<string | null>(null);
+  const [indicators, setIndicators] = useState<IndicatorsData | null>(null);
 
   useEffect(() => {
     if (result) {
@@ -70,6 +76,24 @@ function ResearchPanel({ symbol, result }: { symbol: string; result?: ScanResult
       cancelled = true;
     };
   }, [symbol, result]);
+
+  // Load MACD and RSI indicators
+  useEffect(() => {
+    let cancelled = false;
+    setIndicators(null);
+    fetch(`/api/indicators?symbol=${encodeURIComponent(symbol)}&timeframe=5m`)
+      .then(async (r) => {
+        if (!r.ok) return null;
+        return r.json();
+      })
+      .then((d) => !cancelled && d && setIndicators(d))
+      .catch(() => {
+        /* silently fail if indicators unavailable */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [symbol]);
 
   if (error) return <p className="text-sm text-bear">{error}</p>;
   if (!fetched) return <Skeleton label="Running the protocol scan…" />;
@@ -156,6 +180,57 @@ function ResearchPanel({ symbol, result }: { symbol: string; result?: ScanResult
               </li>
             ))}
           </ul>
+        </section>
+      )}
+
+      {indicators && (
+        <section>
+          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+            Technical indicators (5m)
+          </h4>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {indicators.macd.current !== null && (
+              <div className="rounded-lg border border-border px-3 py-2">
+                <div className="text-xs text-muted">MACD</div>
+                <div className="font-mono text-sm font-medium text-foreground">
+                  {indicators.macd.current.toFixed(2)}
+                </div>
+                {indicators.macd.signal !== null && (
+                  <div className="text-xs text-muted">Signal: {indicators.macd.signal.toFixed(2)}</div>
+                )}
+                {indicators.macd.histogram !== null && (
+                  <div
+                    className={
+                      "text-xs " +
+                      (indicators.macd.histogram > 0 ? "text-bull" : indicators.macd.histogram < 0 ? "text-bear" : "text-muted")
+                    }
+                  >
+                    Hist: {indicators.macd.histogram.toFixed(2)}
+                  </div>
+                )}
+              </div>
+            )}
+            {indicators.rsi.current !== null && (
+              <div className="rounded-lg border border-border px-3 py-2">
+                <div className="text-xs text-muted">RSI (14)</div>
+                <div
+                  className={
+                    "font-mono text-sm font-medium " +
+                    (indicators.rsi.current > 70
+                      ? "text-bear"
+                      : indicators.rsi.current < 30
+                        ? "text-bull"
+                        : "text-foreground")
+                  }
+                >
+                  {indicators.rsi.current.toFixed(1)}
+                </div>
+                <div className="text-xs text-muted">
+                  {indicators.rsi.current > 70 ? "Overbought" : indicators.rsi.current < 30 ? "Oversold" : "Neutral"}
+                </div>
+              </div>
+            )}
+          </div>
         </section>
       )}
     </div>
