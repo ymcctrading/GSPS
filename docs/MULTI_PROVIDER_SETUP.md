@@ -1,20 +1,28 @@
-# Multi-Provider Market Data Scanner
+# Multi-Provider Market Data
 
-This document outlines the new multi-provider market data architecture for GSPS.
+GSPS pulls market data from several providers, each specialized for a
+different asset class, normalized to a single schema so the frontend and
+scanner never need to know which vendor answered.
 
-## Overview
+## Providers
 
-The scanner now supports data from multiple providers, each specialized for different asset classes:
+| Provider | Asset class | Auth | Module | Functions |
+|---|---|---|---|---|
+| Alpaca | Stocks, crypto (primary) | `ALPACA_API_KEY`/`ALPACA_API_SECRET` (paper) or `ALPACA_LIVE_*` | `lib/data/alpaca.ts` | via `lib/data/provider.ts` seam |
+| Binance | Crypto | None (public endpoint) | `lib/data/binance.ts` | `fetchBinanceData()`, `fetchBinanceMultiple()` |
+| Oanda | Forex | `OANDA_API_KEY` | `lib/data/oanda.ts` | `fetchOandaData()`, `fetchOandaMultiple()` |
+| Twelve Data | Futures, stocks, indices, ETFs | `TWELVE_DATA_API_KEY` | `lib/data/twelve-data.ts` | `fetchTwelveDataQuote()`, `fetchTwelveDataMultiple()`, `fetchFuturesData()` |
+| Polygon.io | Stocks, crypto, options (fallback) | `POLYGON_API_KEY` | `lib/data/polygon.ts` | `fetchPolygonStockSnapshot()`, `fetchPolygonCryptoSnapshot()`, `fetchPolygonMultiple()` |
+| Synthetic | Demo fallback, no keys required | None | `lib/data/synthetic.ts` | used automatically when no real provider is configured |
 
-- **Binance**: Cryptocurrency (public API, no auth required for basic market data)
-- **Oanda**: Forex/Currency Pairs (requires API key)
-- **Twelve Data**: Futures, Stocks, Indices, ETFs (requires API key)
-- **Polygon.io**: Stocks, Crypto, Options, Forex (requires API key)
-- **Alpaca**: Original provider for stocks and crypto (existing integration)
+Alpaca specifically goes through the provider seam described in
+`lib/data/AGENTS.md` (`getMarketDataProvider()`), since it's the primary feed
+used by the scan pipeline. The other four are called directly from their
+respective API routes.
 
 ## Unified Data Schema
 
-All providers return data normalized to this schema:
+All providers normalize to this schema (`lib/data/market-data.ts`):
 
 ```typescript
 interface UnifiedMarketData {
@@ -22,7 +30,7 @@ interface UnifiedMarketData {
   price: number;
   timestamp: string; // ISO timestamp
   change: number; // percentage change
-  changeAbsolute?: number; // absolute price change
+  changeAbsolute?: number;
   volume?: number;
   high?: number;
   low?: number;
@@ -31,20 +39,32 @@ interface UnifiedMarketData {
 }
 ```
 
+When updating this interface, update every provider module that returns it
+and re-check anything on the frontend that destructures the response shape.
+
 ## API Endpoints
 
-### /api/crypto
-Fetches cryptocurrency data from Binance.
+### `GET /api/crypto?symbols=BTC,ETH,SOL`
+Binance. No auth required for basic market data.
 
-**Query Parameters:**
-- `symbols` (required): Comma-separated list of crypto symbols (e.g., `BTC,ETH,SOL`)
+### `GET /api/forex?symbols=EUR-USD,GBP-USD,USD-JPY`
+Oanda. Requires `OANDA_API_KEY`.
 
-**Example:**
+### `GET /api/futures?symbols=ES,NQ,CL&provider=twelve_data`
+Twelve Data (default) or Polygon via `?provider=polygon`. Requires
+`TWELVE_DATA_API_KEY` or `POLYGON_API_KEY` respectively.
+
+All three are **on-demand, read-through proxies** — they fetch live data and
+return it; nothing persists the response. They are called by the frontend
+when a user views that asset class, not on a schedule (see "Scheduling"
+below).
+
+Example:
 ```bash
 curl "https://your-domain.com/api/crypto?symbols=BTC,ETH"
 ```
 
-**Response:**
+Response:
 ```json
 {
   "data": [
@@ -63,192 +83,81 @@ curl "https://your-domain.com/api/crypto?symbols=BTC,ETH"
 }
 ```
 
-### /api/forex
-Fetches currency pair data from Oanda.
+### Error handling
 
-**Query Parameters:**
-- `symbols` (required): Comma-separated currency pairs (e.g., `EUR-USD,GBP-USD`)
-
-**Example:**
-```bash
-curl "https://your-domain.com/api/forex?symbols=EUR-USD,GBP-USD"
+```json
+{ "error": "TWELVE_DATA_API_KEY is not configured" }
 ```
 
-**Requirements:** `OANDA_API_KEY` environment variable
+- `400` — missing or invalid parameters
+- `502` — provider API error or misconfiguration (e.g. missing key)
+- `200` — success
 
-### /api/futures
-Fetches futures and stock data from Twelve Data or Polygon.
+## Scheduling
 
-**Query Parameters:**
-- `symbols` (required): Comma-separated symbols (e.g., `ES,NQ,CL`)
-- `provider` (optional): `twelve_data` (default) or `polygon`
+These three routes are **not** on Vercel Cron. They were originally
+scheduled (every 5–10 minutes) but that accomplished nothing — nothing
+persisted the response — and it also pushed the project over the Vercel
+Hobby plan's 2-cron limit. They were removed from `vercel.json` for that
+reason; see `CHANGELOG.md` and `docs/THIRD_PARTY_LIMITS.md`.
 
-**Example:**
-```bash
-curl "https://your-domain.com/api/futures?symbols=ES,NQ&provider=twelve_data"
-```
+If a real need for scheduled polling emerges (e.g. persisting a price
+history), don't add it back to Vercel Cron — see the "when you actually need
+more" section of `docs/THIRD_PARTY_LIMITS.md` for the preferred approach
+(external scheduler hitting the route over HTTPS), and make sure the route
+actually does something with the data it fetches.
 
-**Requirements:**
-- `TWELVE_DATA_API_KEY` for Twelve Data provider
-- `POLYGON_API_KEY` for Polygon provider
+The only Vercel Cron job in this project is `/api/market-scan` — see
+`app/api/AGENTS.md`.
+
+## Caching
+
+Each provider module implements a short in-memory TTL cache to stay well
+under rate limits:
+
+| Provider | TTL |
+|---|---|
+| Binance | 10s |
+| Oanda | 10s |
+| Twelve Data | 15s (delayed feed) |
+| Polygon | 10–15s depending on asset class |
+
+Route new call sites through the existing provider module to get this
+caching for free rather than calling a vendor API directly.
 
 ## Environment Setup
 
-### Local Development
-
-1. Copy `.env.example` to `.env.local`:
-   ```bash
-   cp .env.example .env.local
-   ```
-
-2. Add your API keys:
-   ```env
-   OANDA_API_KEY=your_oanda_key
-   TWELVE_DATA_API_KEY=your_twelve_data_key
-   POLYGON_API_KEY=your_polygon_key
-   ```
-
-3. Start the dev server:
-   ```bash
-   npm run dev
-   ```
-
-### Vercel Production Deployment
-
-Add environment variables via Vercel CLI or web dashboard:
-
+Local:
 ```bash
-vercel env add OANDA_API_KEY
-vercel env add TWELVE_DATA_API_KEY
-vercel env add POLYGON_API_KEY
+cp .env.example .env.local
+# fill in OANDA_API_KEY / TWELVE_DATA_API_KEY / POLYGON_API_KEY as needed
+npm run dev
 ```
 
-Or use the Vercel dashboard:
-1. Go to your project Settings
-2. Navigate to Environment Variables
-3. Add each API key with the exact names above
+Vercel: add the same keys via the dashboard (Project → Settings →
+Environment Variables) or `vercel env add <NAME>`.
 
-## Cron Jobs
+## Getting API keys
 
-The scanner includes automated polling via Vercel Crons:
+- **Binance** — no key needed for public market data.
+- **Oanda** — sign up for a practice/demo account; key is in Account Settings.
+- **Twelve Data** — free tier: 800 requests/day. https://twelvedata.com/
+- **Polygon.io** — free tier: 5 requests/min, 1000/month. https://polygon.io/
 
-- **Futures (ES, NQ, CL)**: Every 10 minutes
-- **Crypto (BTC, ETH, SOL)**: Every 5 minutes
-- **Forex (EUR-USD, GBP-USD, USD-JPY)**: Every 10 minutes
-
-Customize these in `vercel.json` under the `crons` array.
-
-## Caching Strategy
-
-Each provider implements a simple in-memory TTL cache:
-
-- **Binance (Crypto)**: 10 seconds
-- **Oanda (Forex)**: 10 seconds
-- **Twelve Data (Futures)**: 15 seconds
-- **Polygon**: 10-15 seconds depending on asset class
-
-This prevents hitting rate limits when multiple requests are made within a short window.
-
-## Getting API Keys
-
-### Binance
-- No key needed for public market data
-- Visit: https://www.binance.com/en/trade/BTC_USDT
-
-### Oanda
-- Sign up for a practice/demo account
-- API key available in Account Settings
-- Visit: https://www.oanda.com/
-
-### Twelve Data
-- Free tier: 800 requests/day
-- Sign up: https://twelvedata.com/
-- Get key from Account Settings
-
-### Polygon.io
-- Free tier: 5 API calls/minute, up to 1000 calls/month
-- Sign up: https://polygon.io/
-- Keys available in API Keys section
-
-## Error Handling
-
-All endpoints return standardized error responses:
-
-```json
-{
-  "error": "TWELVE_DATA_API_KEY is not configured"
-}
-```
-
-HTTP Status Codes:
-- `400`: Missing or invalid parameters
-- `502`: Provider API error or misconfiguration
-- `200`: Success
-
-## Rate Limiting
-
-Monitor these rate limits to avoid issues:
-
-| Provider | Free Tier | Paid | Note |
-|----------|-----------|------|------|
-| Binance | Unlimited | Unlimited | Public endpoint |
-| Oanda | 1200 requests/min | Higher | Practice account |
-| Twelve Data | 800 requests/day | Higher | Based on plan |
-| Polygon | 5 requests/min, 1000/month | Higher | Varies by plan |
-
-## Integration with Scanner Frontend
-
-The normalized schema makes it easy to swap providers or add fallbacks:
-
-```typescript
-// Frontend usage (with fallback)
-async function getMarketData(symbol: string, assetClass: string) {
-  try {
-    if (assetClass === "crypto") {
-      return fetch(`/api/crypto?symbols=${symbol}`);
-    } else if (assetClass === "forex") {
-      return fetch(`/api/forex?symbols=${symbol}`);
-    } else {
-      return fetch(`/api/futures?symbols=${symbol}`);
-    }
-  } catch (err) {
-    console.error("Market data fetch failed:", err);
-    // Fallback to existing Alpaca /api/quote endpoint
-    return fetch(`/api/quote?symbol=${symbol}`);
-  }
-}
-```
+Full limits and what happens when they're exceeded:
+`docs/THIRD_PARTY_LIMITS.md`.
 
 ## Testing
 
-Test each endpoint locally:
-
 ```bash
-# Crypto (Binance - no auth required)
 curl http://localhost:3000/api/crypto?symbols=BTC,ETH
-
-# Forex (requires OANDA_API_KEY)
-curl http://localhost:3000/api/forex?symbols=EUR-USD
-
-# Futures (requires TWELVE_DATA_API_KEY or POLYGON_API_KEY)
-curl http://localhost:3000/api/futures?symbols=ES,NQ
+curl http://localhost:3000/api/forex?symbols=EUR-USD          # needs OANDA_API_KEY
+curl http://localhost:3000/api/futures?symbols=ES,NQ          # needs TWELVE_DATA_API_KEY or POLYGON_API_KEY
 ```
-
-## Data Schema Sync with Spacebase
-
-The unified `UnifiedMarketData` type is the single source of truth. When updating the schema:
-
-1. Update `lib/data/market-data.ts` interface
-2. Sync with Spacebase reference schema
-3. Verify all providers return normalized data
-4. Update API documentation
-
-Current schema version: `1.0` (2026-07-24)
 
 ## Future Enhancements
 
-- [ ] Add provider-specific options (e.g., bid/ask spreads for forex)
-- [ ] Implement circuit-breaker pattern for API failures
-- [ ] Add webhook support for real-time updates
-- [ ] Multi-provider fallback chain
-- [ ] Provider performance metrics/monitoring
+- [ ] Provider-specific fields (e.g. bid/ask spreads for forex)
+- [ ] Circuit-breaker pattern for provider failures
+- [ ] Multi-provider fallback chain (e.g. Polygon → Twelve Data automatically)
+- [ ] Provider performance/error-rate monitoring
