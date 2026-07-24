@@ -164,9 +164,13 @@ function ResearchPanel({ symbol, result }: { symbol: string; result?: ScanResult
 
 /* ----------------------------------------------------------------- Options */
 
+type StrikeFilter = "all" | "5" | "10" | "15" | "25" | "50";
+
 function OptionsPanel({ symbol }: { symbol: string }) {
   const [chain, setChain] = useState<(OptionChain & { source?: string }) | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [strikeFilter, setStrikeFilter] = useState<StrikeFilter>("all");
+  const [selectedContract, setSelectedContract] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -193,60 +197,219 @@ function OptionsPanel({ symbol }: { symbol: string }) {
     Math.abs(s - chain.underlyingPrice) < Math.abs(best - chain.underlyingPrice) ? s : best,
   strikes[0]);
 
+  // Filter strikes based on selection
+  let filteredStrikes = strikes;
+  if (strikeFilter !== "all") {
+    const groupSize = parseInt(strikeFilter);
+    const startIdx = Math.max(0, strikes.findIndex((s) => s === atm) - Math.floor(groupSize / 2));
+    filteredStrikes = strikes.slice(startIdx, startIdx + groupSize);
+  }
+
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
-        <span>
-          Underlying <span className="font-mono text-foreground">{formatUsd(chain.underlyingPrice)}</span>
-        </span>
-        <span>· Exp {chain.expiration}</span>
-        {chain.simulated && <Badge variant="muted">Simulated</Badge>}
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
+          <span>
+            Underlying <span className="font-mono text-foreground">{formatUsd(chain.underlyingPrice)}</span>
+          </span>
+          <span>· Exp {chain.expiration}</span>
+          {chain.simulated && <Badge variant="muted">Simulated</Badge>}
+        </div>
+        <div className="flex flex-wrap gap-1">
+          {(["all", "5", "10", "15", "25", "50"] as StrikeFilter[]).map((f) => (
+            <button
+              key={f}
+              onClick={() => setStrikeFilter(f)}
+              className={
+                "rounded px-2 py-1 text-xs font-medium cursor-pointer transition-colors " +
+                (strikeFilter === f
+                  ? "bg-accent text-surface"
+                  : "border border-border hover:border-accent")
+              }
+            >
+              {f === "all" ? "All" : f}
+            </button>
+          ))}
+        </div>
       </div>
+
       <Table>
         <THead>
           <TR>
-            <TH className="text-bull">Call bid</TH>
-            <TH className="text-bull">Call ask</TH>
-            <TH className="text-center">Δ</TH>
+            <TH className="text-bull">Call</TH>
+            <TH className="text-bull">Bid</TH>
+            <TH className="text-bull">Ask</TH>
+            <TH className="text-bull">Vol</TH>
+            <TH className="text-bull">Δ</TH>
             <TH className="text-center font-semibold text-foreground">Strike</TH>
             <TH className="text-center">Δ</TH>
-            <TH className="text-bear">Put bid</TH>
-            <TH className="text-bear">Put ask</TH>
+            <TH className="text-bear">Vol</TH>
+            <TH className="text-bear">Bid</TH>
+            <TH className="text-bear">Ask</TH>
+            <TH className="text-bear">Put</TH>
           </TR>
         </THead>
         <TBody>
-          {strikes.map((strike) => {
+          {filteredStrikes.map((strike) => {
             const call = byKey.get(`call:${strike}`);
             const put = byKey.get(`put:${strike}`);
             const isAtm = strike === atm;
             return (
               <TR key={strike} className={isAtm ? "bg-accent-soft/60" : undefined}>
-                <TD className={"font-mono " + (call?.inTheMoney ? "text-bull" : "text-muted")}>
+                <TD className="text-center">
+                  {call && (
+                    <button
+                      onClick={() => setSelectedContract(`call:${strike}`)}
+                      className="text-xs font-medium text-bull hover:underline cursor-pointer"
+                    >
+                      Buy
+                    </button>
+                  )}
+                </TD>
+                <TD className={"font-mono text-xs " + (call?.inTheMoney ? "text-bull" : "text-muted")}>
                   {call ? formatUsd(call.bid) : "—"}
                 </TD>
-                <TD className={"font-mono " + (call?.inTheMoney ? "text-bull" : "text-muted")}>
+                <TD className={"font-mono text-xs " + (call?.inTheMoney ? "text-bull" : "text-muted")}>
                   {call ? formatUsd(call.ask) : "—"}
                 </TD>
+                <TD className="text-center font-mono text-xs text-muted">
+                  {call ? call.volume.toLocaleString() : "—"}
+                </TD>
                 <TD className="text-center font-mono text-xs text-muted">{call?.delta ?? "—"}</TD>
-                <TD className="text-center font-mono font-semibold">{formatUsd(strike)}</TD>
+                <TD className="text-center font-mono text-xs font-semibold">{formatUsd(strike)}</TD>
                 <TD className="text-center font-mono text-xs text-muted">{put?.delta ?? "—"}</TD>
-                <TD className={"font-mono " + (put?.inTheMoney ? "text-bear" : "text-muted")}>
+                <TD className="text-center font-mono text-xs text-muted">
+                  {put ? put.volume.toLocaleString() : "—"}
+                </TD>
+                <TD className={"font-mono text-xs " + (put?.inTheMoney ? "text-bear" : "text-muted")}>
                   {put ? formatUsd(put.bid) : "—"}
                 </TD>
-                <TD className={"font-mono " + (put?.inTheMoney ? "text-bear" : "text-muted")}>
+                <TD className={"font-mono text-xs " + (put?.inTheMoney ? "text-bear" : "text-muted")}>
                   {put ? formatUsd(put.ask) : "—"}
+                </TD>
+                <TD className="text-center">
+                  {put && (
+                    <button
+                      onClick={() => setSelectedContract(`put:${strike}`)}
+                      className="text-xs font-medium text-bear hover:underline cursor-pointer"
+                    >
+                      Buy
+                    </button>
+                  )}
                 </TD>
               </TR>
             );
           })}
         </TBody>
       </Table>
+
+      {selectedContract && (
+        <OptionsOrderForm
+          symbol={symbol}
+          contract={selectedContract}
+          chain={chain}
+          byKey={byKey}
+          onClose={() => setSelectedContract(null)}
+        />
+      )}
+
       {chain.simulated && (
         <p className="text-xs text-muted/80">
-          Simulated chain anchored on the live underlying price — greeks and open interest are
-          modelled, not exchange data. Wire a real options feed behind the provider seam to replace it.
+          Simulated chain — greeks and open interest are modelled, not exchange data. IV shown is implied volatility.
         </p>
       )}
+    </div>
+  );
+}
+
+function OptionsOrderForm({
+  symbol,
+  contract,
+  chain,
+  byKey,
+  onClose,
+}: {
+  symbol: string;
+  contract: string;
+  chain: OptionChain & { source?: string };
+  byKey: Map<string, import("@/lib/data/provider").OptionContract>;
+  onClose: () => void;
+}) {
+  const [qty, setQty] = useState("1");
+  const [submitting, setSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
+
+  const contractData = byKey.get(contract);
+  if (!contractData) return null;
+
+  const [type, strike] = contract.split(":");
+  const premium = contractData.ask;
+
+  async function submit() {
+    setSubmitting(true);
+    setFeedback(null);
+    try {
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          symbol,
+          side: type === "call" ? "buy" : "buy",
+          qty: Number(qty),
+          entryMode: "now",
+          mode: "paper",
+          optionContract: {
+            type,
+            strike: Number(strike),
+            expiration: chain.expiration,
+          },
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+      setFeedback(`Order placed: ${type} ${strike} @ ${formatUsd(premium)}`);
+      setTimeout(() => onClose(), 1500);
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="rounded-lg border border-accent bg-accent-soft/20 p-3">
+      <div className="mb-3 flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium">
+            {type === "call" ? "Buy call" : "Buy put"} {strike} @ {formatUsd(premium)}
+          </p>
+          <p className="text-xs text-muted">Delta: {contractData.delta}, IV: {(contractData.iv * 100).toFixed(1)}%</p>
+        </div>
+        <button onClick={onClose} className="text-muted hover:text-foreground">
+          ✕
+        </button>
+      </div>
+      <div className="flex items-center gap-2">
+        <input
+          type="number"
+          min="1"
+          step="1"
+          value={qty}
+          onChange={(e) => setQty(e.target.value)}
+          className="w-16 rounded border border-border bg-background px-2 py-1 text-sm"
+        />
+        <span className="text-sm text-muted">
+          contracts @ {formatUsd(premium * 100)} = {formatUsd(Number(qty) * premium * 100)}
+        </span>
+        <button
+          onClick={submit}
+          disabled={submitting}
+          className="ml-auto rounded bg-accent px-3 py-1.5 text-sm font-medium text-surface hover:bg-accent/90 disabled:opacity-50 cursor-pointer"
+        >
+          {submitting ? "..." : "Place"}
+        </button>
+      </div>
+      {feedback && <p className="mt-2 text-xs text-bull">{feedback}</p>}
     </div>
   );
 }

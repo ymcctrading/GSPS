@@ -13,7 +13,7 @@ const OrderSchema = z.object({
   symbol: z.string().min(1).max(12),
   side: z.enum(["buy", "sell"]),
   qty: z.number().int().positive().max(100000),
-  entryMode: z.enum(["advised", "now"]),
+  entryMode: z.enum(["advised", "now"]).optional(),
   limitPrice: z.number().positive().optional(),
   attachLevels: z
     .object({
@@ -23,6 +23,13 @@ const OrderSchema = z.object({
     })
     .optional(),
   mode: z.enum(["paper", "live"]).default("paper"),
+  optionContract: z
+    .object({
+      type: z.enum(["call", "put"]),
+      strike: z.number().positive(),
+      expiration: z.string(),
+    })
+    .optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -59,14 +66,42 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // For options: create a simulated paper trade entry
+    if (input.optionContract) {
+      const orderId = `opt-${Date.now()}`;
+      const asset_class = "option";
+      const contractSymbol = `${input.symbol} ${input.optionContract.type[0].toUpperCase()} ${input.optionContract.strike} ${input.optionContract.expiration}`;
+
+      const { error: dbError } = await supabase.from("orders").insert({
+        user_id: user.id,
+        mode: "paper",
+        broker_order_id: orderId,
+        symbol: contractSymbol,
+        asset_class,
+        side: input.side,
+        order_type: "market",
+        qty: input.qty,
+        status: "new",
+      });
+
+      return NextResponse.json({
+        order: {
+          id: orderId,
+          symbol: contractSymbol,
+          status: "new",
+          qty: input.qty
+        },
+        mirrored: !dbError
+      });
+    }
+
+    // Standard equity order
     const broker = await placeOrder(creds, {
       symbol: input.symbol,
       side: input.side,
       qty: input.qty,
       type: input.entryMode === "advised" ? "limit" : "market",
       limitPrice: input.limitPrice,
-      // Bracket orders only support buy-side entries with both legs on Alpaca;
-      // attach when levels are provided and the entry is a buy.
       bracket:
         input.attachLevels && input.side === "buy"
           ? { stopLoss: input.attachLevels.stopLoss, takeProfit: input.attachLevels.takeProfit }
@@ -78,6 +113,7 @@ export async function POST(req: NextRequest) {
       mode: "paper",
       broker_order_id: broker.id,
       symbol: input.symbol.toUpperCase(),
+      asset_class: "us_equity",
       side: input.side,
       order_type: input.attachLevels && input.side === "buy" ? "bracket" : input.entryMode === "advised" ? "limit" : "market",
       qty: input.qty,

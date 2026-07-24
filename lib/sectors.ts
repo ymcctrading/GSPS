@@ -6,6 +6,10 @@ export const MAG7 = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA"];
 export const DEFAULTS = [...MAG7, "SPY", "BTC/USD"];
 
 export const SECTORS: Record<string, { label: string; symbols: string[] }> = {
+  mag7: {
+    label: "Magnificent 7",
+    symbols: [...MAG7, "SPY", "BTC/USD"],
+  },
   semiconductors: {
     label: "Semiconductors",
     symbols: ["NVDA", "AMD", "AVGO", "TSM", "MU", "INTC", "QCOM", "ASML"],
@@ -38,6 +42,14 @@ export const SECTORS: Record<string, { label: string; symbols: string[] }> = {
     label: "Crypto",
     symbols: ["BTC/USD", "ETH/USD", "SOL/USD", "DOGE/USD"],
   },
+  forex: {
+    label: "Forex",
+    symbols: ["EURUSD", "GBPUSD", "USDJPY", "USDCAD", "USDCHF", "AUDUSD", "NZDUSD", "EURJPY"],
+  },
+  futures: {
+    label: "Futures",
+    symbols: ["ES", "NQ", "YM", "CL", "GC", "NG", "ZB", "ZC"],
+  },
 };
 
-export const COMING_SOON = ["Forex", "Futures", "Commodities"];
+export const COMING_SOON = ["Commodities"];

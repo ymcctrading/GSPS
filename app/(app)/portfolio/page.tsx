@@ -45,17 +45,36 @@ export default function PortfolioPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/portfolio")
-      .then(async (res) => {
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
-        setPortfolio(data);
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)));
-    fetch("/api/orders")
-      .then(async (res) => (res.ok ? (await res.json()).orders ?? [] : []))
-      .then(setOrders)
-      .catch(() => {});
+    const loadPortfolio = () => {
+      fetch("/api/portfolio")
+        .then(async (res) => {
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+          setPortfolio(data);
+          setError(null);
+        })
+        .catch((err) => setError(err instanceof Error ? err.message : String(err)));
+    };
+
+    const loadOrders = () => {
+      fetch("/api/orders")
+        .then(async (res) => (res.ok ? (await res.json()).orders ?? [] : []))
+        .then(setOrders)
+        .catch(() => {});
+    };
+
+    // Initial load
+    loadPortfolio();
+    loadOrders();
+
+    // Real-time updates: refresh portfolio every 10 seconds for live P/L tracking
+    const portfolioInterval = setInterval(loadPortfolio, 10000);
+    const ordersInterval = setInterval(loadOrders, 30000);
+
+    return () => {
+      clearInterval(portfolioInterval);
+      clearInterval(ordersInterval);
+    };
   }, []);
 
   return (
@@ -87,7 +106,7 @@ export default function PortfolioPage() {
       <Card>
         <CardHeader>
           <CardTitle>Open positions</CardTitle>
-          <CardDescription>Live P/L per position, ThinkOrSwim-style.</CardDescription>
+          <CardDescription>Live P/L per position, updated every 10 seconds.</CardDescription>
         </CardHeader>
         <CardContent>
           {portfolio && portfolio.positions.length === 0 ? (
@@ -105,6 +124,7 @@ export default function PortfolioPage() {
                   <TH className="text-right">Value</TH>
                   <TH className="text-right">Unrealized P/L</TH>
                   <TH className="text-right">Today</TH>
+                  <TH className="text-center">Action</TH>
                 </TR>
               </THead>
               <TBody>
@@ -124,6 +144,9 @@ export default function PortfolioPage() {
                     </TD>
                     <TD className={cn("text-right font-mono", p.todayPlPct >= 0 ? "text-bull" : "text-bear")}>
                       {formatPct(p.todayPlPct)}
+                    </TD>
+                    <TD className="text-center">
+                      <button className="text-xs text-muted hover:text-foreground">Close</button>
                     </TD>
                   </TR>
                 ))}
