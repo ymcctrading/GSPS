@@ -1,5 +1,6 @@
 {
   "framework": "nextjs",
+  "env": {},
   "crons": [
     {
       "path": "/api/market-scan",
