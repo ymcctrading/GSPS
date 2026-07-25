@@ -13,6 +13,14 @@ import {
 } from "lightweight-charts";
 import { MousePointer2, Minus, TrendingUp, Bell, BellOff, Trash2 } from "lucide-react";
 import type { Bar, Timeframe } from "@/lib/types";
+import {
+  DEFAULT_VISIBLE_BARS,
+  EXTENDED_HOURS_TFS,
+  INTRADAY_TFS,
+  TF_CANDLE_LABEL,
+  TF_LABEL,
+  TIMEFRAMES,
+} from "@/lib/timeframe";
 import { barSession, isExtended } from "@/lib/market/session";
 import { sma, ema, bollinger, rsi, volumeBars, type Candle as CalcCandle } from "@/lib/indicators";
 import { cn } from "@/lib/utils";
@@ -22,19 +30,6 @@ export interface PriceMarker {
   label: string;
   kind: "entry" | "stop" | "target" | "gann";
 }
-
-const TIMEFRAMES: Timeframe[] = ["1Month", "1Week", "1Day", "1Hour", "15Min", "5Min", "1Min"];
-const TF_LABEL: Record<Timeframe, string> = {
-  "1Month": "10Y",
-  "1Week": "5Y",
-  "1Day": "1Y",
-  "1Hour": "1H",
-  "15Min": "15M",
-  "5Min": "5M",
-  "1Min": "1M",
-};
-// Intraday timeframes get live candle rolling + are where extended hours matter.
-const INTRADAY_TFS: Timeframe[] = ["1Hour", "15Min", "5Min", "1Min"];
 
 const MARKER_COLOR: Record<PriceMarker["kind"], string> = {
   entry: "#2563eb",
@@ -154,8 +149,9 @@ export function CandleChart({
   const assetClass = crypto ? "crypto" : "us_equity";
   const intraday = INTRADAY_TFS.includes(timeframe);
   const live = intraday && status === "ready";
-  // Extended-hours only applies to intraday stock charts.
-  const extendedApplies = !crypto && intraday;
+  // Extended-hours shading only applies to stock timeframes whose candles sit
+  // entirely inside one session (a 2H/4H bar straddles the open/close).
+  const extendedApplies = !crypto && EXTENDED_HOURS_TFS.includes(timeframe);
 
   // Create the chart once.
   useEffect(() => {
@@ -233,7 +229,16 @@ export function CandleChart({
         : allBarsRef.current;
       series.setData(bars);
       lastBarRef.current = bars[bars.length - 1] ?? null;
-      if (!opts?.keepView) chartRef.current?.timeScale().fitContent();
+      if (opts?.keepView) return;
+      // Frame the most recent candles rather than the whole window, so deep
+      // history stays available by panning without squashing what's on screen.
+      const ts = chartRef.current?.timeScale();
+      if (!ts) return;
+      if (bars.length > DEFAULT_VISIBLE_BARS) {
+        ts.setVisibleLogicalRange({ from: bars.length - DEFAULT_VISIBLE_BARS, to: bars.length - 1 });
+      } else {
+        ts.fitContent();
+      }
     },
     [extendedApplies, showExtended],
   );
@@ -255,7 +260,10 @@ export function CandleChart({
             low: b.l,
             close: b.c,
             volume: b.v,
-            extended: isExtended(barSession(b.t, assetClass)),
+            // Only shade where a candle sits inside one session. A 1D+ bar is
+            // stamped 00:00 UTC — 19:00 the previous day in ET — which the
+            // session classifier would otherwise read as after-hours.
+            extended: extendedApplies && isExtended(barSession(b.t, assetClass)),
           }),
         );
         allBarsRef.current = candles;
@@ -268,12 +276,20 @@ export function CandleChart({
         setStatus("error");
       }
     },
-    [symbol, timeframe, assetClass, render],
+    [symbol, timeframe, assetClass, extendedApplies, render],
   );
 
   useEffect(() => {
     loadBars();
   }, [loadBars]);
+
+  // Show clock time on the axis only where a candle is shorter than a day —
+  // on 1D and up the time part is always midnight and just adds noise.
+  useEffect(() => {
+    chartRef.current?.applyOptions({
+      timeScale: { timeVisible: intraday, secondsVisible: false },
+    });
+  }, [intraday]);
 
   // Reset drawings + load the persisted alert when the symbol changes.
   useEffect(() => {
@@ -600,8 +616,10 @@ export function CandleChart({
             <button
               key={tf}
               onClick={() => setTimeframe(tf)}
+              title={`${TF_CANDLE_LABEL[tf]} per candle`}
+              aria-pressed={tf === timeframe}
               className={cn(
-                "rounded-md px-2.5 py-1 text-xs font-medium cursor-pointer",
+                "rounded-md px-2 py-1 text-xs font-medium cursor-pointer",
                 tf === timeframe ? "bg-accent-soft text-accent" : "text-muted hover:text-foreground",
               )}
             >
@@ -741,6 +759,9 @@ export function CandleChart({
 
       {/* Legend — explains the lines cluttering the right edge. */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
+        <span className="font-medium text-foreground/70">
+          1 candle = {TF_CANDLE_LABEL[timeframe]}
+        </span>
         <LegendItem color="#2563eb" label="Entry" />
         <LegendItem color="#dc2626" label="Stop loss" />
         <LegendItem color="#059669" label="TP1 & Master (profit targets)" />

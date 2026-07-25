@@ -11,7 +11,22 @@ export interface Bar {
   v: number;
 }
 
-export type Timeframe = "1Month" | "1Week" | "1Day" | "1Hour" | "15Min" | "5Min" | "1Min";
+/**
+ * Chart/scan timeframes. The name is the length of one candle — a "5Min" bar
+ * covers exactly five minutes. See `lib/timeframe.ts` for intervals, labels and
+ * lookback windows.
+ */
+export type Timeframe =
+  | "1Year"
+  | "1Month"
+  | "1Week"
+  | "1Day"
+  | "4Hour"
+  | "2Hour"
+  | "1Hour"
+  | "15Min"
+  | "5Min"
+  | "1Min";
 
 export type Direction = "bullish" | "bearish" | "none";
 

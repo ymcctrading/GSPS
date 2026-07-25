@@ -11,6 +11,7 @@
  */
 
 import type { AssetClass, Bar, Timeframe } from "@/lib/types";
+import { TF_INTERVAL_MS, TF_MAX_BARS, candleOpens } from "@/lib/timeframe";
 import type {
   Level2Book,
   MarketDataProvider,
@@ -65,21 +66,14 @@ function anchorPrice(symbol: string): number {
   return 18 + (h % 560); // typical equity range
 }
 
-const INTERVAL_MS: Record<Timeframe, number> = {
-  "1Month": 30.44 * 24 * 3600 * 1000,
-  "1Week": 7 * 24 * 3600 * 1000,
-  "1Day": 24 * 3600 * 1000,
-  "1Hour": 3600 * 1000,
-  "15Min": 15 * 60 * 1000,
-  "5Min": 5 * 60 * 1000,
-  "1Min": 60 * 1000,
-};
-
 // Per-bar volatility (stdev of returns) by timeframe — larger on higher TFs.
 const VOL: Record<Timeframe, number> = {
+  "1Year": 0.16,
   "1Month": 0.075,
   "1Week": 0.045,
   "1Day": 0.018,
+  "4Hour": 0.011,
+  "2Hour": 0.008,
   "1Hour": 0.006,
   "15Min": 0.003,
   "5Min": 0.0018,
@@ -87,16 +81,17 @@ const VOL: Record<Timeframe, number> = {
 };
 
 const MIN_BARS: Record<Timeframe, number> = {
+  "1Year": 30,
   "1Month": 60,
   "1Week": 80,
   "1Day": 120,
+  "4Hour": 120,
+  "2Hour": 120,
   "1Hour": 120,
   "15Min": 120,
   "5Min": 120,
   "1Min": 120,
 };
-
-const HARD_CAP = 1500;
 
 function genBars(
   symbol: string,
@@ -105,12 +100,17 @@ function genBars(
   end: Date | null,
   limit: number,
 ): Bar[] {
-  const interval = INTERVAL_MS[timeframe];
   const endMs = (end ?? new Date()).getTime();
   const span = Math.max(0, endMs - start.getTime());
-  let n = Math.floor(span / interval);
-  n = Math.min(n, limit, HARD_CAP);
+  let n = Math.floor(span / TF_INTERVAL_MS[timeframe]);
+  n = Math.min(n, limit, TF_MAX_BARS[timeframe]);
   n = Math.max(n, MIN_BARS[timeframe]);
+
+  // Timestamps run backwards from the candle that contains `end`, one whole
+  // interval at a time, so every bar covers exactly the period its timeframe
+  // names and the newest bar is the current one — never a stale bucket left
+  // over from wherever `start` happened to fall.
+  const opens = candleOpens(endMs, timeframe, n);
 
   const rnd = mulberry32(hashStr(`${symbol.toUpperCase()}|${timeframe}`));
   const vol = VOL[timeframe];
@@ -140,7 +140,7 @@ function genBars(
     const lo = Math.min(open, close) * (1 - wick * rnd());
     const vol_ = Math.round(1e5 + rnd() * 5e6);
     bars.push({
-      t: new Date(start.getTime() + i * interval).toISOString(),
+      t: new Date(opens[i]).toISOString(),
       o: round(open),
       h: round(hi),
       l: round(lo),
