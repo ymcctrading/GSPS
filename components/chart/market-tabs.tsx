@@ -81,7 +81,7 @@ function ResearchPanel({ symbol, result }: { symbol: string; result?: ScanResult
   useEffect(() => {
     let cancelled = false;
     setIndicators(null);
-    fetch(`/api/indicators?symbol=${encodeURIComponent(symbol)}&timeframe=5m`)
+    fetch(`/api/indicators?symbol=${encodeURIComponent(symbol)}&timeframe=5Min`)
       .then(async (r) => {
         if (!r.ok) return null;
         return r.json();
