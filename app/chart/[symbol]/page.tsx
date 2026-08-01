@@ -10,7 +10,7 @@ export async function generateMetadata({
   const sym = decodeURIComponent(symbol).toUpperCase();
   return {
     title: `${sym} chart — GSPS`,
-    description: `Live ${sym} chart with structural analysis, support/resistance levels, options and Level II — shared via GSPS.`,
+    description: `Live ${sym} chart with structural analysis, support levels, options and Level II — shared via GSPS.`,
   };
 }
 

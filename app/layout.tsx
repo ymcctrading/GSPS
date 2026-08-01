@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "GSPS — Advanced Market Scanner",
+  title: "GSPS — Structural Reversion Scanner",
   description:
-    "Multi-timeframe market scanning with structural analysis and pattern-based execution.",
+    "Multi-timeframe market scanning with structural analysis and precision entry execution.",
 };
 
 export default function RootLayout({

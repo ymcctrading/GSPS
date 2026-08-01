@@ -12,9 +12,18 @@ import {
   type Time,
 } from "lightweight-charts";
 import { MousePointer2, Minus, TrendingUp, Bell, BellOff, Trash2 } from "lucide-react";
+import { ChartTradeWidget } from "@/components/trade/chart-trade-widget";
 import type { Bar, Timeframe } from "@/lib/types";
+import {
+  DEFAULT_VISIBLE_BARS,
+  EXTENDED_HOURS_TFS,
+  INTRADAY_TFS,
+  TF_CANDLE_LABEL,
+  TF_LABEL,
+  TIMEFRAMES,
+} from "@/lib/timeframe";
 import { barSession, isExtended } from "@/lib/market/session";
-import { sma, ema, bollinger, rsi, volumeBars, type Candle as CalcCandle } from "@/lib/indicators";
+import { sma, ema, bollinger, rsi, macd, volumeBars, type Candle as CalcCandle } from "@/lib/indicators";
 import { cn } from "@/lib/utils";
 
 export interface PriceMarker {
@@ -23,25 +32,16 @@ export interface PriceMarker {
   kind: "entry" | "stop" | "target" | "gann";
 }
 
-const TIMEFRAMES: Timeframe[] = ["1Month", "1Week", "1Day", "1Hour", "15Min", "5Min", "1Min"];
-const TF_LABEL: Record<Timeframe, string> = {
-  "1Month": "10Y",
-  "1Week": "5Y",
-  "1Day": "1Y",
-  "1Hour": "1H",
-  "15Min": "15M",
-  "5Min": "5M",
-  "1Min": "1M",
-};
-// Intraday timeframes get live candle rolling + are where extended hours matter.
-const INTRADAY_TFS: Timeframe[] = ["1Hour", "15Min", "5Min", "1Min"];
-
+// Protocol levels are reference lines, not data — they run translucent and
+// dashed so a candle body crossing one stays fully readable underneath.
 const MARKER_COLOR: Record<PriceMarker["kind"], string> = {
-  entry: "#2563eb",
-  stop: "#dc2626",
-  target: "#059669",
-  gann: "#94a3b8",
+  entry: "rgba(37,99,235,0.35)",
+  stop: "rgba(220,38,38,0.35)",
+  target: "rgba(5,150,105,0.35)",
+  gann: "rgba(148,163,184,0.35)",
 };
+/** lightweight-charts LineStyle: 0 solid, 2 dashed, 3 large-dashed, 4 dotted. */
+const MARKER_LINE_STYLE = 2;
 
 const DRAW_COLOR = "#a855f7"; // user-drawn trendlines / h-lines
 const ALERT_COLOR = "#f59e0b";
@@ -60,7 +60,7 @@ type Trendline = { a: Point; b: Point };
 // Overlay indicators drawn in the main price pane.
 type Overlay = "sma20" | "sma50" | "ema9" | "bb";
 // Study indicators drawn in their own pane below price.
-type Study = "volume" | "rsi";
+type Study = "volume" | "rsi" | "macd";
 
 const OVERLAY_META: Record<Overlay, { label: string; color: string }> = {
   sma20: { label: "SMA 20", color: "#f59e0b" },
@@ -71,7 +71,11 @@ const OVERLAY_META: Record<Overlay, { label: string; color: string }> = {
 const STUDY_META: Record<Study, { label: string }> = {
   volume: { label: "Volume" },
   rsi: { label: "RSI 14" },
+  macd: { label: "MACD 12/26/9" },
 };
+
+const MACD_LINE = "#2563eb";
+const MACD_SIGNAL = "#f59e0b";
 
 function isCryptoSym(sym: string): boolean {
   const known = ["BTC", "ETH", "SOL", "DOGE", "LTC", "AVAX", "LINK", "XRP", "BCH", "UNI"];
@@ -110,11 +114,14 @@ export function CandleChart({
   markers,
   livePrice,
   initialTimeframe = "1Day",
+  enableTrading = false,
 }: {
   symbol: string;
   markers: PriceMarker[];
   livePrice?: number | null;
   initialTimeframe?: Timeframe;
+  /** Show the Buy/Sell overlay + live P/L drawer. Off on the public chart. */
+  enableTrading?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -153,9 +160,12 @@ export function CandleChart({
   const crypto = isCryptoSym(symbol);
   const assetClass = crypto ? "crypto" : "us_equity";
   const intraday = INTRADAY_TFS.includes(timeframe);
-  const live = intraday && status === "ready";
-  // Extended-hours only applies to intraday stock charts.
-  const extendedApplies = !crypto && intraday;
+  // All timeframes poll live — the last bar's close updates independently of
+  // the chart's display period.
+  const live = status === "ready";
+  // Extended-hours shading only applies to stock timeframes whose candles sit
+  // entirely inside one session (a 2H/4H bar straddles the open/close).
+  const extendedApplies = !crypto && EXTENDED_HOURS_TFS.includes(timeframe);
 
   // Create the chart once.
   useEffect(() => {
@@ -233,7 +243,16 @@ export function CandleChart({
         : allBarsRef.current;
       series.setData(bars);
       lastBarRef.current = bars[bars.length - 1] ?? null;
-      if (!opts?.keepView) chartRef.current?.timeScale().fitContent();
+      if (opts?.keepView) return;
+      // Frame the most recent candles rather than the whole window, so deep
+      // history stays available by panning without squashing what's on screen.
+      const ts = chartRef.current?.timeScale();
+      if (!ts) return;
+      if (bars.length > DEFAULT_VISIBLE_BARS) {
+        ts.setVisibleLogicalRange({ from: bars.length - DEFAULT_VISIBLE_BARS, to: bars.length - 1 });
+      } else {
+        ts.fitContent();
+      }
     },
     [extendedApplies, showExtended],
   );
@@ -255,7 +274,10 @@ export function CandleChart({
             low: b.l,
             close: b.c,
             volume: b.v,
-            extended: isExtended(barSession(b.t, assetClass)),
+            // Only shade where a candle sits inside one session. A 1D+ bar is
+            // stamped 00:00 UTC — 19:00 the previous day in ET — which the
+            // session classifier would otherwise read as after-hours.
+            extended: extendedApplies && isExtended(barSession(b.t, assetClass)),
           }),
         );
         allBarsRef.current = candles;
@@ -268,12 +290,20 @@ export function CandleChart({
         setStatus("error");
       }
     },
-    [symbol, timeframe, assetClass, render],
+    [symbol, timeframe, assetClass, extendedApplies, render],
   );
 
   useEffect(() => {
     loadBars();
   }, [loadBars]);
+
+  // Show clock time on the axis only where a candle is shorter than a day —
+  // on 1D and up the time part is always midnight and just adds noise.
+  useEffect(() => {
+    chartRef.current?.applyOptions({
+      timeScale: { timeVisible: intraday, secondsVisible: false },
+    });
+  }, [intraday]);
 
   // Reset drawings + load the persisted alert when the symbol changes.
   useEffect(() => {
@@ -411,8 +441,8 @@ export function CandleChart({
       series.createPriceLine({
         price: m.price,
         color: MARKER_COLOR[m.kind],
-        lineWidth: m.kind === "gann" ? 1 : 2,
-        lineStyle: m.kind === "gann" ? 3 : 0,
+        lineWidth: 1,
+        lineStyle: m.kind === "gann" ? 3 : MARKER_LINE_STYLE,
         axisLabelVisible: true,
         title: m.label,
       }),
@@ -546,6 +576,43 @@ export function CandleChart({
       created.push(line);
       paneIndex += 1;
     }
+    if (studies.has("macd")) {
+      const m = macd(calcCandles);
+      // Histogram first so the MACD/signal lines draw over the bars.
+      const hist = chart.addSeries(
+        HistogramSeries,
+        { priceLineVisible: false, lastValueVisible: false },
+        paneIndex,
+      );
+      hist.setData(m.histogram.map((h) => ({ time: h.time as Time, value: h.value, color: h.color })));
+      created.push(hist);
+
+      const macdLine = chart.addSeries(
+        LineSeries,
+        { color: MACD_LINE, lineWidth: 2, priceLineVisible: false, lastValueVisible: true },
+        paneIndex,
+      );
+      macdLine.setData(m.macd.map((d) => ({ time: d.time as Time, value: d.value })));
+      created.push(macdLine);
+
+      const signalLine = chart.addSeries(
+        LineSeries,
+        { color: MACD_SIGNAL, lineWidth: 1, priceLineVisible: false, lastValueVisible: true },
+        paneIndex,
+      );
+      signalLine.setData(m.signal.map((d) => ({ time: d.time as Time, value: d.value })));
+      // Zero line — the crossover that matters on MACD.
+      signalLine.createPriceLine({
+        price: 0,
+        color: "rgba(148,163,184,0.5)",
+        lineWidth: 1,
+        lineStyle: 2,
+        axisLabelVisible: false,
+        title: "",
+      });
+      created.push(signalLine);
+      paneIndex += 1;
+    }
 
     return () => created.forEach((s) => chart.removeSeries(s));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -600,8 +667,10 @@ export function CandleChart({
             <button
               key={tf}
               onClick={() => setTimeframe(tf)}
+              title={`${TF_CANDLE_LABEL[tf]} per candle`}
+              aria-pressed={tf === timeframe}
               className={cn(
-                "rounded-md px-2.5 py-1 text-xs font-medium cursor-pointer",
+                "rounded-md px-2 py-1 text-xs font-medium cursor-pointer",
                 tf === timeframe ? "bg-accent-soft text-accent" : "text-muted hover:text-foreground",
               )}
             >
@@ -679,7 +748,7 @@ export function CandleChart({
                 onChange={(e) => setShowGann(e.target.checked)}
                 className="h-3.5 w-3.5 accent-[var(--accent)]"
               />
-              Show Gann levels
+              Show structural levels
             </label>
           )}
         </div>
@@ -727,6 +796,14 @@ export function CandleChart({
 
       <div className="relative h-[420px] w-full">
         <div ref={containerRef} className="absolute inset-0" />
+        {/* Trade overlay lives inside the canvas box so its panels stay tethered
+            to the chart. Pointer events are re-enabled per child so the wrapper
+            never swallows chart drags. */}
+        {enableTrading && (
+          <div className="pointer-events-none absolute inset-0">
+            <ChartTradeWidget symbol={symbol} livePrice={livePrice} />
+          </div>
+        )}
         {status === "loading" && (
           <div className="absolute inset-0 flex items-center justify-center text-sm text-muted">
             Loading chart…
@@ -741,10 +818,13 @@ export function CandleChart({
 
       {/* Legend — explains the lines cluttering the right edge. */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
-        <LegendItem color="#2563eb" label="Entry" />
-        <LegendItem color="#dc2626" label="Stop loss" />
-        <LegendItem color="#059669" label="TP1 & Master (profit targets)" />
-        <LegendItem color="#94a3b8" dashed label="Gann levels (support/resistance zones)" />
+        <span className="font-medium text-foreground/70">
+          1 candle = {TF_CANDLE_LABEL[timeframe]}
+        </span>
+        <LegendItem color="#2563eb" dashed label="Entry" />
+        <LegendItem color="#dc2626" dashed label="Stop loss (SL)" />
+        <LegendItem color="#059669" dashed label="TP1 & MP (profit targets)" />
+        <LegendItem color="#94a3b8" dashed label="Structural levels (support/resistance zones)" />
         {extendedApplies && <LegendItem color="rgba(5,150,105,0.40)" label="Extended-hours candles (dimmed)" solidBlock />}
         {alertPrice != null && <LegendItem color={ALERT_COLOR} dashed label="Price alert (drag to move)" />}
         {hasDrawings && <LegendItem color={DRAW_COLOR} label="Your drawings" />}

@@ -41,16 +41,16 @@ export function PublicChart({ symbol }: { symbol: string }) {
   if (result?.levels) {
     markers.push(
       { price: result.levels.entry, label: "Entry", kind: "entry" },
-      { price: result.levels.stopLoss, label: "Stop", kind: "stop" },
+      { price: result.levels.stopLoss, label: "SL", kind: "stop" },
       { price: result.levels.takeProfit1, label: "TP1", kind: "target" },
-      { price: result.levels.masterProfit, label: "Master", kind: "target" },
+      { price: result.levels.masterProfit, label: "MP", kind: "target" },
     );
   }
   result?.gann.fanLines.slice(0, 2).forEach((f) =>
-    markers.push({ price: f.price, label: `Structural ${f.angle}`, kind: "gann" }),
+    markers.push({ price: f.price, label: `Support ${f.angle}`, kind: "gann" }),
   );
   result?.gann.squareOf9.slice(0, 2).forEach((s) =>
-    markers.push({ price: s.price, label: `Level ${s.degree}°`, kind: "gann" }),
+    markers.push({ price: s.price, label: `S9 ${s.degree}°`, kind: "gann" }),
   );
 
   return (
@@ -76,7 +76,7 @@ export function PublicChart({ symbol }: { symbol: string }) {
             <span className="font-mono text-lg text-muted">{formatUsd(result.currentPrice)}</span>
           )}
           {result?.gann.timeCycleActive && (
-            <span className="text-xs font-medium text-warn">⏱ Time-cycle window active</span>
+            <span className="text-xs font-medium text-warn">⏱ Cyclical turn window active</span>
           )}
           <div className="ml-auto">
             <ShareButton symbol={symbol} />

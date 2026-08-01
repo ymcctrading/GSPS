@@ -83,6 +83,35 @@ export function isCryptoSymbol(symbol: string): boolean {
   return symbol.includes("/") || knownCrypto.includes(base);
 }
 
+/**
+ * App timeframe → Alpaca bar timeframe. Alpaca accepts [1-59]Min, [1-23]Hour,
+ * 1Day, 1Week and a fixed set of Month multiples; it has no yearly bar, but
+ * 12Month is the same candle.
+ */
+const ALPACA_TIMEFRAME: Record<Timeframe, string> = {
+  "1Year": "12Month",
+  "1Month": "1Month",
+  "1Week": "1Week",
+  "1Day": "1Day",
+  "4Hour": "4Hour",
+  "2Hour": "2Hour",
+  "1Hour": "1Hour",
+  "15Min": "15Min",
+  "5Min": "5Min",
+  "1Min": "1Min",
+};
+
+/** Alpaca caps a single bars page at 10k regardless of what `limit` asks for. */
+const PAGE_LIMIT = 10000;
+
+/**
+ * Bars for a symbol, oldest → newest.
+ *
+ * Pages run newest-first (`sort=desc`) and the result is reversed at the end.
+ * That ordering matters: when `limit` is smaller than the number of bars in the
+ * window, the bars that get dropped are the oldest ones, so a chart always ends
+ * at the most recent candle instead of stopping days short of it.
+ */
 export async function fetchBars(
   symbol: string,
   timeframe: Timeframe,
@@ -91,27 +120,42 @@ export async function fetchBars(
   assetClass: AssetClass,
   limit = 10000,
 ): Promise<Bar[]> {
-  const params: Record<string, string> = {
-    timeframe,
-    start: start.toISOString(),
-    limit: String(limit),
-    sort: "asc",
-  };
-  if (end) params.end = end.toISOString();
+  const crypto = assetClass === "crypto";
+  const sym = crypto ? normalizeCryptoSymbol(symbol) : symbol.toUpperCase();
+  const path = crypto ? `/v1beta3/crypto/us/bars` : `/v2/stocks/bars`;
 
-  if (assetClass === "crypto") {
-    const sym = normalizeCryptoSymbol(symbol);
-    const data = await get(`/v1beta3/crypto/us/bars`, { ...params, symbols: sym });
-    return toBars(data.bars?.[sym]);
+  const base: Record<string, string> = {
+    timeframe: ALPACA_TIMEFRAME[timeframe] ?? timeframe,
+    start: start.toISOString(),
+    symbols: sym,
+    sort: "desc",
+  };
+  if (end) base.end = end.toISOString();
+  if (!crypto) {
+    base.adjustment = "split";
+    base.feed = "iex";
   }
 
-  const data = await get(`/v2/stocks/bars`, {
-    ...params,
-    symbols: symbol.toUpperCase(),
-    adjustment: "split",
-    feed: "iex",
-  });
-  return toBars(data.bars?.[symbol.toUpperCase()]);
+  const collected: Bar[] = [];
+  let pageToken: string | undefined;
+
+  do {
+    const remaining = limit - collected.length;
+    const params: Record<string, string> = {
+      ...base,
+      limit: String(Math.min(remaining, PAGE_LIMIT)),
+    };
+    if (pageToken) params.page_token = pageToken;
+
+    const data = await get(path, params);
+    const page = toBars(data.bars?.[sym]);
+    collected.push(...page);
+    pageToken = data.next_page_token ?? undefined;
+    // A short page means the window is exhausted even if a token came back.
+    if (page.length === 0) break;
+  } while (pageToken && collected.length < limit);
+
+  return collected.reverse();
 }
 
 export async function fetchLatestPrice(symbol: string, assetClass: AssetClass): Promise<number> {

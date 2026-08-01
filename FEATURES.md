@@ -1,7 +1,7 @@
 # GSPS Features Documentation
 
 ## Overview
-GSPS (Advanced Market Pattern Scanner) is a comprehensive trading application built with Next.js, Supabase, and Alpaca/SnapTrade integrations. It provides real-time market scanning, pattern recognition, and automated trading capabilities.
+GSPS is a comprehensive trading application built with Next.js, Supabase, and Alpaca/SnapTrade integrations. It provides real-time market scanning with structural analysis, pattern recognition, and automated trading capabilities.
 
 ## Core Features
 
@@ -14,15 +14,16 @@ GSPS (Advanced Market Pattern Scanner) is a comprehensive trading application bu
 ### 2. Market Scanning & Analysis
 - **Daily Market Scan**: Automated scan of market sectors and stocks
 - **Structural Analysis Engine**:
-  - Geometric price calculations
-  - Structural angles and fan lines
-  - Time cycle analysis
+  - Harmonic level calculations
+  - Support line analysis
+  - Cyclical turn window detection
 - **Pattern Recognition**:
   - Trend classification
   - Support/resistance level identification
-  - Pattern matching algorithms
+  - Reversal pattern matching algorithms
   - Support/resistance level analysis
-- **Multi-Timeframe Support**: 1m, 5m, 15m, 1h, 4h, 1d, 1w candle analysis
+- **Multi-Timeframe Support**: 1m, 5m, 15m, 1h, 2h, 4h, 1d, 1w, 1mo, 1y candles
+  — one candle always covers exactly the interval its label names
 
 ### 3. Live Market Data
 - **Real-time Price Quotes**: Current bid/ask pricing via Alpaca
@@ -45,10 +46,10 @@ GSPS (Advanced Market Pattern Scanner) is a comprehensive trading application bu
 
 ### 6. Charts & Visualization
 - **Lightweight Charts Integration**: Professional candlestick charts
-- **5m/1m Timeframes**: Dual timeframe analysis
+- **10 Timeframes**: 1m → 1y, each candle aligned to its interval boundary
 - **Live Chart Updates**: Real-time candlestick updates
 - **Legend Toggle**: Show/hide price legend
-- **Structural Fan Overlays**: Visualize structural analysis on charts
+- **Structural Level Overlays**: Visualize structural analysis on charts
 - **Technical Indicators**: Support/resistance levels, trend lines
 
 ### 7. SnapTrade Integration
@@ -59,7 +60,7 @@ GSPS (Advanced Market Pattern Scanner) is a comprehensive trading application bu
 
 ### 8. Educational Resources
 - **Beginner Glossary**: Educational terms for trading concepts
-- **Pattern Explanations**: Learn about market structure and breakout patterns
+- **Pattern Explanations**: Learn about structural analysis and reversal patterns
 - **Signal Definitions**: Understand scoring and signals
 
 ### 9. Dashboard & Analytics

@@ -8,6 +8,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { envCreds, listOptionContracts, type OptionContract } from "@/lib/brokers/alpaca";
 import { fetchLatestPrice, isCryptoSymbol } from "@/lib/data/alpaca";
+import {
+  expirationHorizonEnd,
+  expirationHorizonMonths,
+  toDateInput,
+} from "@/lib/options/contracts";
 
 interface StrikeRow {
   strike: number;
@@ -53,10 +58,13 @@ export async function GET(req: NextRequest) {
       price = await fetchLatestPrice(symbol, "us_equity").catch(() => 0);
     }
 
+    // 12-month horizon on daily-expiry underlyings, 24 on everything else.
+    const maxDate = toDateInput(expirationHorizonEnd(symbol));
     const contracts = await listOptionContracts(creds, {
       underlying: symbol,
       price: price || undefined,
       pct: price ? 0.2 : undefined,
+      expirationBefore: maxDate,
     });
 
     const expirations = groupByExpiration(contracts).slice(0, MAX_EXPIRATIONS);
@@ -65,6 +73,7 @@ export async function GET(req: NextRequest) {
       underlying: symbol.toUpperCase(),
       price: price || null,
       expirations,
+      horizon: { months: expirationHorizonMonths(symbol), maxDate },
     });
   } catch (err) {
     return NextResponse.json(

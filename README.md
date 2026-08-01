@@ -1,6 +1,6 @@
 # GSPS
 
-GSPS is a Next.js trading platform: a structural analysis and pattern-based market scanner, live
+GSPS is a Next.js trading platform: a structural analysis market scanner, live
 charting, paper and live order execution (via Alpaca and SnapTrade), and
 portfolio tracking, backed by Supabase.
 

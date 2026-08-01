@@ -82,7 +82,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           <CardDescription>
             {mode === "login"
               ? "Log in to your GSPS dashboard"
-              : "Start scanning with advanced market analysis"}
+              : "Start scanning with structural reversion analysis"}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">

@@ -7,74 +7,123 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
-## 2026-08-01 (2)
-
-### Added
-- **Automatic `trade_logs` population.** Added a position-reconciliation
-  job (`lib/portfolio/reconcile.ts`), run on every `GET /api/portfolio`
-  poll: compares live Alpaca positions against our own `positions` table,
-  records newly-opened positions, and for ones that closed since the last
-  poll, inspects the closing Alpaca order to classify `exit_condition`
-  (`tp1` / `stop_loss` / `manual` — a filled bracket leg's `type` tells us
-  which), computes realized P/L, and writes both the `positions` update and
-  a `trade_logs` row. This resolves the "known limitation" from the
-  previous entry below — the portfolio's Closed Trades section and
-  per-trade record are now backed by real data instead of an unpopulated
-  table.
-- **Manual close-out**: wired the previously-stubbed "Close" button in the
-  portfolio's Open Positions table to a new `POST /api/portfolio/close`,
-  which flattens the position at market via a new `closePosition()` Alpaca
-  helper. A manual close isn't a bracket leg, so reconciliation correctly
-  classifies it as `exit_condition: "manual"`.
-- **Migration `0003_positions_side.sql`**: adds `side` (`long`/`short`) and
-  `scan_result_id` to `positions`, needed by reconciliation to compute P/L
-  direction and label the derived trade log with the originating scan.
-- **Closed Trades** section on the portfolio page: entry/exit price, exit
-  reason (TP1 hit / stop-loss hit / manual close), and realized P/L per
-  closed trade.
-
-### Known limitation
-- Reconciliation only handles full closes (a symbol disappearing from live
-  Alpaca positions). Partial fills that merely shrink a position's qty are
-  not yet reconciled — the `positions` row's qty isn't updated and no
-  partial-exit `trade_logs` row is written. Full open→full close is the
-  common path for the bracket orders this app places today.
-
 ## 2026-08-01
 
 ### Added
-- **Trading-logic invariants.** `computeTradeLevels()` now rejects any scan
-  where master profit isn't strictly more extreme than TP1, or TP1 isn't
-  strictly more extreme than entry, in the trade direction — a real gap
-  where a wide structural target could otherwise land past the Gann-capped
-  master profit. The failure surfaces through the existing scan error path
-  (`outputState: "Reject"`) rather than displaying a corrupt signal.
-- **2-2 reversion confirmation gate** (`applyReversionConfirmation` in
-  `lib/scoring/score.ts`). A bare `2-2` reversal that would otherwise score
-  into "Execute" is downgraded to "Watch" unless both momentum/volatility
-  and a historical support/resistance level confirm it. Compound patterns
-  (`1-2-2`, `3-2-2`, `2-1-2`, `3-1-2`) are unaffected.
-- **Data retention config** (`lib/config.ts`): a single
-  `DATA_RETENTION_WINDOW_YEARS`/`_LABEL` pair, now surfaced on the Settings
-  page and documented in `SECURITY.md`, so future retention-policy copy has
-  one source instead of being hardcoded per surface.
-- **Portfolio: filled/pending order split.** The merged "Order history"
-  table is now two sections — Filled and Pending — each showing the called
-  entry/SL/TP1/MTP levels captured at order time (already stored in
-  `orders` but not previously rendered) alongside the actual fill price and
-  quantity for filled orders.
-- **SL-hit notifications.** `/api/portfolio` now attaches the most recently
-  called stop-loss per symbol (from bracket orders), and the portfolio page
-  compares it against live price on its existing 10-second poll, raising a
-  browser notification and an in-app banner the moment a position's stop is
-  hit — previously silent.
+- **MACD study.** A `MACD 12/26/9` toggle next to RSI, using the exact same
+  study-pane architecture (histogram + two lines in a dedicated bottom pane
+  via `lightweight-charts` panes). New shared `macd()` in `lib/indicators.ts`.
+- **Options chain: full greeks, moneyness tranches, and horizon-bounded
+  expirations.** Every strike now shows Delta, Gamma, Theta, Vega, Beta, open
+  interest and volume on both legs, computed from Black-Scholes at zero rates
+  (`lib/options/greeks.ts`) so the numbers are internally consistent with the
+  chain's own IV rather than a hand-tuned proxy. Contracts are classified
+  ITM/ATM/OTM (`lib/options/contracts.ts`) with a filter that keeps all three
+  reachable from one grid. Expiration pickers are capped at 12 months for
+  daily-expiry names (SPY/QQQ/IWM) and 24 months for everything else.
+- **Click-to-trade strike tickets.** Every strike/side cell in the options
+  chain opens a purchase modal (`components/trade/strike-order-modal.tsx`):
+  buy/sell, market/limit, quantity, an expiration picker bounded by the
+  underlying's horizon, and a live-recalculating preview-cost block (premium,
+  per-contract cost at the 100x multiplier, breakeven, max loss).
+- **Order history: contract economics, entry greeks, live day P/L, and
+  target-hit tracking.** `orders` gained purchase price, contract cost, an
+  entry-time greeks snapshot, and `tp1_hit_at`/`mp_hit_at`/`sl_hit_at`
+  (migration `0003`). `/api/orders` now enriches every row with a live mark
+  and per-target status (`lib/trade/targets.ts`) — hit/reached/pending/none,
+  evaluated against the recorded hit first and the live price otherwise — and
+  the portfolio page renders it as a three-marker TP1/MP/SL strip (green
+  check, green check, red X).
+- **Close position.** A working "Close position" action on every open
+  position and every leg of a blended group, backed by a new
+  `/api/positions/close` route that liquidates at market via Alpaca.
+- **Blended position tracking.** Open Positions now groups a broker's flat
+  position list by underlying ticker (`lib/portfolio/blend.ts`,
+  `lib/portfolio/occ.ts` for OCC symbol parsing), so a shares leg and every
+  option contract on the same name render as separate rows under one parent
+  container with an aggregate market value / P&L header. The shares leg shows
+  avg fill, total shares, current price and equity P/L; each option leg shows
+  premium, strike, expiration, greeks (modeled by solving implied vol from
+  the position's own live premium) and its own P/L — independently, since
+  Alpaca already tracks P/L per leg correctly.
+- **Strict `asset_type` flag.** `orders` and `positions` gained a generated
+  `asset_type` (`'EQUITY' | 'OPTION'`) column derived from the existing
+  `asset_class` (migration `0004`) — one source of truth, not a second flag
+  that could drift out of sync. Order history and Open Positions both render
+  it as a SHARES/OPT badge.
+- **Chart-side trading.** A Buy/Sell quick-action overlay sits directly on
+  the chart canvas (ticker pages only — the public/shared chart stays
+  read-only). Placing an order from it opens a floating, live-updating P/L
+  panel tethered to the chart, tracking the position it just opened.
+- **The dashboard scan populates itself.** The "Run market scan" button is
+  gone; the bullish/bearish opportunity lists now kick off the scan on
+  mount when today's hasn't run yet (`components/scan/auto-scan.tsx`), with
+  a manual "Refresh scan" override still available. Guarded so navigating
+  between pages doesn't re-trigger it more than once a day per tab.
+- **Earnings calendar + Market News.** A monthly calendar
+  (`components/macro/earnings-calendar.tsx`) filtered to Fortune-500 /
+  major-index names (`lib/macro/universe.ts`), and a Forex-Factory-styled
+  news feed (`components/macro/market-news.tsx`) with impact-tier colour
+  coding, date headers, and asset tags. Neither has a live data feed wired in
+  yet — both generate a deterministic, clearly-labelled demo calendar shaped
+  like the real thing (`lib/macro/earnings.ts`, `lib/macro/news.ts`), ready
+  to swap for a real provider later without changing the UI.
+- Shared `Modal` primitive (`components/ui/modal.tsx`) — portal-based,
+  animated enter/exit, used by every new popup (strike ticket, chart trade
+  ticket, close-position confirmation) so they transition consistently.
 
-### Known limitation
-- The per-trade record does not yet show "which levels were actually hit
-  vs. manually overridden" or realized P/L after close — `trade_logs` has
-  the right columns (`exit_condition`, `outcome`, `profit_loss_dollars`)
-  but nothing in the app writes to it yet. That's a separate follow-up:
-  wiring position-close events into `trade_logs`.
+### Fixed
+- **Entry/SL/TP1/MP chart lines no longer clip candle bodies.** They were
+  solid, full-opacity price lines drawn over the candles; now dashed and at
+  35% opacity, so a wick or body crossing one stays fully readable.
+- Confirmed the `/api/indicators` 502 (wrong `fetchBars` arity plus
+  unresolved `"5m"`-style timeframe strings) is fixed by the prior
+  timeframe-alignment change, and hardened it further: the research panel now
+  surfaces a real error message instead of silently vanishing when indicators
+  fail to load, and a regression test
+  (`lib/__tests__/analysis-indicators.test.ts`) exercises the exact call
+  shape the route makes.
+
+## 2026-07-25
+
+### Fixed
+- **Candles now match the timeframe they're labelled with.** The chart's
+  timeframe buttons were labelled by lookback window on the higher
+  timeframes (`10Y`, `5Y`, `1Y` actually selected monthly, weekly and daily
+  candles) and by candle length on the intraday ones — so the row read as
+  two different scales, and `1M` was ambiguous between one minute and one
+  month. Buttons are now labelled by what one candle covers, with a
+  "1 candle = …" caption under the chart.
+- **Synthetic bars land on real interval boundaries.** The demo generator
+  stamped bars at `start + i × interval`, so a 5-minute candle could open at
+  13:37 instead of 13:35, and clamping the bar count left the newest candle
+  hours or days in the past. Bars now step back from the candle containing
+  "now", on UTC boundaries — with weeks starting Monday, months on the 1st
+  and years on Jan 1 rather than a rolling average length.
+- **Daily and higher candles no longer render dimmed.** A 1D+ bar is stamped
+  00:00 UTC, which is 19:00 the previous day in ET, so the extended-hours
+  classifier shaded every one of them as after-hours. Session shading is now
+  limited to timeframes whose candles sit inside a single session.
+- **`/api/indicators` returned 502 for every request.** It called
+  `fetchBars(symbol, timeframe, assetClass)` against a six-argument
+  signature, passing the asset class where the start date belongs, and its
+  `5m`-style timeframe strings matched no known timeframe. MACD/RSI in the
+  research panel now resolve shorthand timeframes and load real bars.
+
+### Added
+- **2H, 4H and yearly charts**, alongside the existing 1m/5m/15m/1h/D/W/M.
+  Alpaca has no yearly bar, so `1Year` maps to its `12Month` candle.
+- **Timeframe registry** (`lib/timeframe.ts`) — one source of truth for each
+  timeframe's interval, label, lookback window and bar budget, shared by the
+  chart, `/api/bars`, `/api/indicators` and the synthetic provider.
+- **History scaled to the timeframe.** 1m/5m load ~15 days (they're read in
+  real time), 15m ~2 months, 1h/2h 2 years and 4h/1D 3 years for comparing
+  against past support and resistance, and W/M/Y request everything the
+  provider has. Charts open framed on the most recent ~180 candles, so the
+  deep history is a pan away instead of squashed into one screen.
+- Alpaca bar fetches now page newest-first and reverse, so when a window
+  holds more bars than the budget allows it drops the oldest ones — a chart
+  can no longer stop days short of the current candle.
 
 ## 2026-07-24
 

@@ -43,13 +43,13 @@ export function TickerView({ symbol }: { symbol: string }) {
   if (result?.levels) {
     markers.push(
       { price: result.levels.entry, label: "Entry", kind: "entry" },
-      { price: result.levels.stopLoss, label: "Stop", kind: "stop" },
+      { price: result.levels.stopLoss, label: "SL", kind: "stop" },
       { price: result.levels.takeProfit1, label: "TP1", kind: "target" },
-      { price: result.levels.masterProfit, label: "Master", kind: "target" },
+      { price: result.levels.masterProfit, label: "MP", kind: "target" },
     );
   }
   result?.gann.fanLines.slice(0, 2).forEach((f) =>
-    markers.push({ price: f.price, label: `Gann ${f.angle}`, kind: "gann" }),
+    markers.push({ price: f.price, label: `Support ${f.angle}`, kind: "gann" }),
   );
   result?.gann.squareOf9.slice(0, 2).forEach((s) =>
     markers.push({ price: s.price, label: `S9 ${s.degree}°`, kind: "gann" }),
@@ -64,7 +64,7 @@ export function TickerView({ symbol }: { symbol: string }) {
         <h1 className="text-2xl font-semibold">{symbol}</h1>
         <PriceHeader quote={quote} fallbackPrice={livePrice} />
         {result?.gann.timeCycleActive && (
-          <span className="text-xs font-medium text-warn">⏱ Gann time-cycle window active</span>
+          <span className="text-xs font-medium text-warn">⏱ Cyclical turn window active</span>
         )}
         <div className="ml-auto">
           <ShareButton symbol={symbol} />
@@ -77,7 +77,12 @@ export function TickerView({ symbol }: { symbol: string }) {
             <CardTitle>Chart</CardTitle>
           </CardHeader>
           <CardContent>
-            <CandleChart symbol={symbol} markers={markers} livePrice={quote?.price ?? null} />
+            <CandleChart
+              symbol={symbol}
+              markers={markers}
+              livePrice={quote?.price ?? null}
+              enableTrading
+            />
           </CardContent>
         </Card>
 
@@ -90,7 +95,7 @@ export function TickerView({ symbol }: { symbol: string }) {
           {!result && !error && (
             <Card>
               <CardContent className="py-6 text-sm text-muted">
-                Running the protocol scan — macro structure, Gann coordinates, Strat triggers…
+                Running the structural scan — macro structure, support analysis, pattern triggers…
               </CardContent>
             </Card>
           )}

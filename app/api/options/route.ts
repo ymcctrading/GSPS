@@ -9,6 +9,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { getMarketDataProvider } from "@/lib/data/provider";
 import { simulateOptionChain } from "@/lib/data/synthetic";
+import {
+  expirationHorizonEnd,
+  expirationHorizonMonths,
+  generateExpirations,
+  toDateInput,
+} from "@/lib/options/contracts";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -19,16 +25,23 @@ export async function GET(req: NextRequest) {
 
   const provider = getMarketDataProvider();
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
+  // Expiration ladder the picker may offer: 12 months on daily-expiry names
+  // (SPY/QQQ/IWM), 24 on everything else.
+  const horizon = {
+    months: expirationHorizonMonths(symbol),
+    maxDate: toDateInput(expirationHorizonEnd(symbol)),
+    expirations: generateExpirations(symbol),
+  };
 
   try {
     if (provider.fetchOptionChain) {
       const chain = await provider.fetchOptionChain(symbol, assetClass);
-      return NextResponse.json({ ...chain, source: provider.name });
+      return NextResponse.json({ ...chain, horizon, source: provider.name });
     }
     // Live provider has no chain feed — derive one from the real price.
     const price = await provider.fetchLatestPrice(symbol, assetClass);
     const chain = simulateOptionChain(symbol, price);
-    return NextResponse.json({ ...chain, source: `${provider.name}+simulated` });
+    return NextResponse.json({ ...chain, horizon, source: `${provider.name}+simulated` });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : String(err) },

@@ -7,7 +7,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { envCreds, getAccount, getPositions } from "@/lib/brokers/alpaca";
-import { reconcilePositions } from "@/lib/portfolio/reconcile";
+import { getMarketDataProvider } from "@/lib/data/provider";
+import { isCryptoSymbol } from "@/lib/data/alpaca";
+import { buildBlendedPositions, type RawPosition } from "@/lib/portfolio/blend";
+import { parseOccSymbol } from "@/lib/portfolio/occ";
 
 export async function GET() {
   const supabase = await createClient();
@@ -27,39 +30,55 @@ export async function GET() {
   }
 
   try {
-    const [account, rawPositions] = await Promise.all([getAccount(creds), getPositions(creds)]);
-    const positions = rawPositions as any[];
+    const [account, positions] = await Promise.all([getAccount(creds), getPositions(creds)]);
 
     const equity = Number(account.equity);
     const lastEquity = Number(account.last_equity);
     const dayPlPct = lastEquity > 0 ? ((equity - lastEquity) / lastEquity) * 100 : 0;
 
-    // Reconcile our `positions` ledger against what's actually open at the
-    // broker: records newly-opened positions, and for ones that closed since
-    // the last poll, derives exit_condition + realized P/L into trade_logs.
-    await reconcilePositions(
-      supabase,
-      creds,
-      user.id,
-      positions.map((p) => ({
-        symbol: p.symbol,
-        qty: Number(p.qty),
-        side: p.side,
-        avgEntry: Number(p.avg_entry_price),
-      })),
+    const rawPositions: RawPosition[] = (positions as any[]).map((p) => ({
+      symbol: p.symbol,
+      qty: Number(p.qty),
+      side: p.side,
+      avgEntry: Number(p.avg_entry_price),
+      currentPrice: Number(p.current_price),
+      marketValue: Number(p.market_value),
+      unrealizedPl: Number(p.unrealized_pl),
+      unrealizedPlPct: Number(p.unrealized_plpc) * 100,
+      todayPlPct: Number(p.unrealized_intraday_plpc) * 100,
+      assetClassHint: p.asset_class,
+    }));
+
+    // Greeks for option legs need the underlying's spot price. An equity leg
+    // already carries it; option-only underlyings need a quote fetched
+    // separately — bounded to just those symbols, not a market-wide call.
+    const equitySymbols = new Set(
+      rawPositions.filter((p) => !parseOccSymbol(p.symbol)).map((p) => p.symbol.toUpperCase()),
+    );
+    const optionOnlyUnderlyings = new Set(
+      rawPositions
+        .map((p) => parseOccSymbol(p.symbol)?.underlying)
+        .filter((u): u is string => Boolean(u) && !equitySymbols.has(u!)),
+    );
+    const spotEntries = await Promise.all(
+      [...optionOnlyUnderlyings].map(async (sym) => {
+        try {
+          const provider = getMarketDataProvider();
+          const price = await provider.fetchLatestPrice(sym, isCryptoSymbol(sym) ? "crypto" : "us_equity");
+          return [sym, price] as const;
+        } catch {
+          return [sym, null] as const;
+        }
+      }),
+    );
+    const spotMap = new Map<string, number | null>(spotEntries);
+    const equityPriceMap = new Map(
+      rawPositions.filter((p) => equitySymbols.has(p.symbol.toUpperCase())).map((p) => [p.symbol.toUpperCase(), p.currentPrice]),
     );
 
-    // Called stop-loss per symbol, now sourced from the just-reconciled
-    // `positions` row rather than re-deriving it from `orders` each time.
-    const { data: openPositionRows } = await supabase
-      .from("positions")
-      .select("symbol, stop_loss")
-      .eq("user_id", user.id)
-      .eq("closed", false);
-    const stopLossBySymbol = new Map(
-      (openPositionRows ?? [])
-        .filter((r) => r.stop_loss != null)
-        .map((r) => [r.symbol, Number(r.stop_loss)]),
+    const blendedPositions = buildBlendedPositions(
+      rawPositions,
+      (underlying) => equityPriceMap.get(underlying) ?? spotMap.get(underlying) ?? null,
     );
 
     return NextResponse.json({
@@ -71,18 +90,12 @@ export async function GET() {
         dayPlPct,
         currency: account.currency,
       },
-      positions: positions.map((p) => ({
-        symbol: p.symbol,
-        qty: Number(p.qty),
-        side: p.side,
-        avgEntry: Number(p.avg_entry_price),
-        currentPrice: Number(p.current_price),
-        marketValue: Number(p.market_value),
-        unrealizedPl: Number(p.unrealized_pl),
-        unrealizedPlPct: Number(p.unrealized_plpc) * 100,
-        todayPlPct: Number(p.unrealized_intraday_plpc) * 100,
-        stopLoss: stopLossBySymbol.get(p.symbol) ?? null,
-      })),
+      // Flat list, kept for callers that only need the equity-shaped view
+      // (e.g. the chart trade widget's live P/L drawer).
+      positions: rawPositions,
+      // Grouped by underlying — shares leg + each option leg, with greeks
+      // modeled from the position's own premium. See lib/portfolio/blend.ts.
+      blendedPositions,
     });
   } catch (err) {
     return NextResponse.json(

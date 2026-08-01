@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ResultsTable } from "@/components/scan/results-table";
-import { RunScanButton } from "@/components/scan/run-scan-button";
+import { AutoScan } from "@/components/scan/auto-scan";
+import { EarningsCalendar } from "@/components/macro/earnings-calendar";
+import { MarketNews } from "@/components/macro/market-news";
 import { getDailyScans } from "@/lib/dailyScans";
 import { DEFAULTS } from "@/lib/sectors";
 import { ArrowRight } from "lucide-react";
@@ -22,10 +24,10 @@ export default async function DashboardPage() {
           <p className="text-sm text-muted">
             {scanDate
               ? `Daily market scan for ${scanDate}`
-              : "The daily market scan has not run yet — run it now or wait for the daily cron."}
+              : "Building today's market scan…"}
           </p>
         </div>
-        <RunScanButton />
+        <AutoScan scanDate={scanDate} />
       </div>
 
       <Card>
@@ -52,13 +54,18 @@ export default async function DashboardPage() {
         <ReversionPreview
           direction="bullish"
           rows={bullish}
-          emptyText="No bullish list yet. Run the market scan or wait for the daily cron."
+          emptyText="Scanning for bullish reversions…"
         />
         <ReversionPreview
           direction="bearish"
           rows={bearish}
-          emptyText="No bearish list yet. Run the market scan or wait for the daily cron."
+          emptyText="Scanning for bearish reversions…"
         />
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <EarningsCalendar />
+        <MarketNews />
       </div>
     </div>
   );

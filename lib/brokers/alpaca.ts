@@ -99,6 +99,8 @@ export interface OptionContractQuery {
   price?: number;
   pct?: number;
   limit?: number;
+  /** Latest expiration to return, `YYYY-MM-DD`. Bounds the chain's horizon. */
+  expirationBefore?: string;
 }
 
 /**
@@ -119,6 +121,7 @@ export async function listOptionContracts(
     params.set("strike_price_gte", (q.price * (1 - q.pct)).toFixed(2));
     params.set("strike_price_lte", (q.price * (1 + q.pct)).toFixed(2));
   }
+  if (q.expirationBefore) params.set("expiration_date_lte", q.expirationBefore);
   const data = await alpacaFetch(creds, `/v2/options/contracts?${params.toString()}`);
   return (data.option_contracts ?? []) as OptionContract[];
 }
@@ -139,7 +142,12 @@ export async function cancelOrder(creds: AlpacaCreds, orderId: string) {
   return alpacaFetch(creds, `/v2/orders/${orderId}`, { method: "DELETE" });
 }
 
-/** Liquidate an open position at market immediately. Returns the closing order. */
-export async function closePosition(creds: AlpacaCreds, symbol: string) {
-  return alpacaFetch(creds, `/v2/positions/${symbol}`, { method: "DELETE" });
+/**
+ * Liquidate an open position at market. Omitting `qty` closes the whole
+ * position; passing one closes that many units and leaves the rest open.
+ * Alpaca cancels any resting orders on the symbol as part of this.
+ */
+export async function closePosition(creds: AlpacaCreds, symbol: string, qty?: number) {
+  const path = `/v2/positions/${encodeURIComponent(symbol)}${qty ? `?qty=${qty}` : ""}`;
+  return alpacaFetch(creds, path, { method: "DELETE" });
 }
