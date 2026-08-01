@@ -259,6 +259,8 @@ function ResearchPanel({ symbol, result }: { symbol: string; result?: ScanResult
 
 type StrikeFilter = "all" | "5" | "10" | "15" | "25" | "50";
 type MoneynessFilter = "all" | Moneyness;
+type SpreadType = "custom" | "call_spread" | "put_spread" | "iron_condor";
+type Exchange = "best" | "cboe" | "ise" | "edgx" | "phlx";
 
 interface ChainResponse extends OptionChain {
   source?: string;
@@ -270,6 +272,8 @@ function OptionsPanel({ symbol }: { symbol: string }) {
   const [error, setError] = useState<string | null>(null);
   const [strikeFilter, setStrikeFilter] = useState<StrikeFilter>("all");
   const [moneynessFilter, setMoneynessFilter] = useState<MoneynessFilter>("all");
+  const [spreadType, setSpreadType] = useState<SpreadType>("custom");
+  const [exchange, setExchange] = useState<Exchange>("best");
   const [selection, setSelection] = useState<StrikeSelection | null>(null);
 
   useEffect(() => {
@@ -364,6 +368,39 @@ function OptionsPanel({ symbol }: { symbol: string }) {
               />
             ))}
           </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 border-t border-border pt-2">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-semibold text-muted">Spread:</span>
+            <select
+              value={spreadType}
+              onChange={(e) => setSpreadType(e.target.value as SpreadType)}
+              className="rounded border border-border bg-background px-2 py-1 text-xs font-medium cursor-pointer hover:border-muted"
+            >
+              <option value="custom">Custom</option>
+              <option value="call_spread">Call Spread</option>
+              <option value="put_spread">Put Spread</option>
+              <option value="iron_condor">Iron Condor</option>
+            </select>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-semibold text-muted">Exchange:</span>
+            <select
+              value={exchange}
+              onChange={(e) => setExchange(e.target.value as Exchange)}
+              className="rounded border border-border bg-background px-2 py-1 text-xs font-medium cursor-pointer hover:border-muted"
+            >
+              <option value="best">BEST</option>
+              <option value="cboe">CBOE</option>
+              <option value="ise">ISE</option>
+              <option value="edgx">EDGX</option>
+              <option value="phlx">PHLX</option>
+            </select>
+          </div>
+          {spreadType !== "custom" && (
+            <span className="text-xs text-muted/70">Multi-leg spread builder coming soon — showing single-leg chain.</span>
+          )}
         </div>
       </div>
 
