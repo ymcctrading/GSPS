@@ -26,7 +26,7 @@ export function SignalCard({ result }: { result: ScanResult }) {
             — {pattern.description}
           </CardDescription>
         ) : (
-          <CardDescription>No Strat pattern is currently armed on the execution timeframe.</CardDescription>
+          <CardDescription>No pattern is currently armed on the execution timeframe.</CardDescription>
         )}
       </CardHeader>
       <CardContent className="flex flex-col gap-4">

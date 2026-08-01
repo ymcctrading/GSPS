@@ -1,0 +1,55 @@
+name: IP Protection - Banned Terms Gate
+
+on:
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'components/**'
+      - 'lib/**'
+      - '*.md'
+      - '.github/**'
+
+jobs:
+  banned-terms:
+    runs-on: ubuntu-latest
+    name: Check for banned terminology
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for banned terms
+        run: |
+          BANNED_TERMS="Gann|gann|GANN|Sara|sara|SARA|Sniper|sniper|SNIPER|Strat|strat|STRAT|W\.D\. Gann|w\.d\. gann"
+
+          # Scan with exceptions
+          VIOLATIONS=$(grep -r \
+            --include="*.ts" \
+            --include="*.tsx" \
+            --include="*.js" \
+            --include="*.jsx" \
+            --include="*.md" \
+            --include="*.json" \
+            --exclude-dir=node_modules \
+            --exclude-dir=.next \
+            --exclude-dir=lib/gann \
+            --exclude-dir=lib/strat \
+            --exclude=".github/ip-wordlist.json" \
+            --exclude="CHANGELOG.md" \
+            -E "$BANNED_TERMS" . 2>/dev/null || true)
+
+          if [ -n "$VIOLATIONS" ]; then
+            echo "❌ Banned terminology detected:"
+            echo "$VIOLATIONS"
+            exit 1
+          fi
+
+          echo "✅ No banned terminology found"
+
+      - name: Summary
+        if: success()
+        run: |
+          echo "## IP Protection Check ✅" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "No prohibited proprietary terminology (Gann, Sara, Sniper, Strat) found in code." >> $GITHUB_STEP_SUMMARY

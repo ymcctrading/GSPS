@@ -1,7 +1,7 @@
 # GSPS Features Documentation
 
 ## Overview
-GSPS (Gann/Strat Pattern Scanner) is a comprehensive trading application built with Next.js, Supabase, and Alpaca/SnapTrade integrations. It provides real-time market scanning, pattern recognition, and automated trading capabilities.
+GSPS (Advanced Market Pattern Scanner) is a comprehensive trading application built with Next.js, Supabase, and Alpaca/SnapTrade integrations. It provides real-time market scanning, pattern recognition, and automated trading capabilities.
 
 ## Core Features
 
@@ -13,11 +13,11 @@ GSPS (Gann/Strat Pattern Scanner) is a comprehensive trading application built w
 
 ### 2. Market Scanning & Analysis
 - **Daily Market Scan**: Automated scan of market sectors and stocks
-- **Gann Analysis Engine**:
-  - Square of 9 calculations
-  - Gann fans
+- **Structural Analysis Engine**:
+  - Geometric price calculations
+  - Structural angles and fan lines
   - Time cycle analysis
-- **Strategic Pattern Recognition**:
+- **Pattern Recognition**:
   - Trend classification
   - Support/resistance level identification
   - Pattern matching algorithms
@@ -48,7 +48,7 @@ GSPS (Gann/Strat Pattern Scanner) is a comprehensive trading application built w
 - **5m/1m Timeframes**: Dual timeframe analysis
 - **Live Chart Updates**: Real-time candlestick updates
 - **Legend Toggle**: Show/hide price legend
-- **Gann Fan Overlays**: Visualize Gann analysis on charts
+- **Structural Fan Overlays**: Visualize structural analysis on charts
 - **Technical Indicators**: Support/resistance levels, trend lines
 
 ### 7. SnapTrade Integration
@@ -59,7 +59,7 @@ GSPS (Gann/Strat Pattern Scanner) is a comprehensive trading application built w
 
 ### 8. Educational Resources
 - **Beginner Glossary**: Educational terms for trading concepts
-- **Pattern Explanations**: Learn about Gann and strat patterns
+- **Pattern Explanations**: Learn about market structure and breakout patterns
 - **Signal Definitions**: Understand scoring and signals
 
 ### 9. Dashboard & Analytics

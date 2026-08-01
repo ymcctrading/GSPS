@@ -41,10 +41,10 @@
 - [ ] Stochastic oscillator
 - [ ] Ichimoku Cloud
 
-### Advanced Gann Analysis
-- [ ] Gann boxes calculation and visualization
-- [ ] Gann angles and ray predictions
-- [ ] Gann arcs implementation
+### Advanced Structural Analysis
+- [ ] Structural boxes calculation and visualization
+- [ ] Structural angles and ray predictions
+- [ ] Structural arcs implementation
 - [ ] Harmonic pattern recognition
 - [ ] Fibonacci retracement levels
 - [ ] Fibonacci time cycles

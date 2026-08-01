@@ -1,0 +1,32 @@
+{
+  "bannedTerms": [
+    "Gann",
+    "gann",
+    "GANN",
+    "Sara",
+    "sara",
+    "SARA",
+    "Sniper",
+    "sniper",
+    "SNIPER",
+    "Strat",
+    "strat",
+    "STRAT",
+    "W.D. Gann",
+    "w.d. gann",
+    "W.D. gann"
+  ],
+  "description": "Banned proprietary terminology to protect IP — all instances must be replaced with generic equivalents (Gann → structural analysis, Sara Sniper Strat → pattern-based execution, etc.)",
+  "exceptions": {
+    "directories": [
+      "node_modules/",
+      ".next/",
+      "lib/gann/",
+      "lib/strat/"
+    ],
+    "files": [
+      ".github/ip-wordlist.json",
+      "CHANGELOG.md"
+    ]
+  }
+}

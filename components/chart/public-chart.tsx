@@ -47,10 +47,10 @@ export function PublicChart({ symbol }: { symbol: string }) {
     );
   }
   result?.gann.fanLines.slice(0, 2).forEach((f) =>
-    markers.push({ price: f.price, label: `Gann ${f.angle}`, kind: "gann" }),
+    markers.push({ price: f.price, label: `Structural ${f.angle}`, kind: "gann" }),
   );
   result?.gann.squareOf9.slice(0, 2).forEach((s) =>
-    markers.push({ price: s.price, label: `S9 ${s.degree}°`, kind: "gann" }),
+    markers.push({ price: s.price, label: `Level ${s.degree}°`, kind: "gann" }),
   );
 
   return (
@@ -76,7 +76,7 @@ export function PublicChart({ symbol }: { symbol: string }) {
             <span className="font-mono text-lg text-muted">{formatUsd(result.currentPrice)}</span>
           )}
           {result?.gann.timeCycleActive && (
-            <span className="text-xs font-medium text-warn">⏱ Gann time-cycle window active</span>
+            <span className="text-xs font-medium text-warn">⏱ Time-cycle window active</span>
           )}
           <div className="ml-auto">
             <ShareButton symbol={symbol} />

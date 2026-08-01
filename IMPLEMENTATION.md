@@ -55,7 +55,7 @@ gsps/
 │   ├── brokers/                  # Broker integrations
 │   ├── crypto.ts                 # Encryption utilities
 │   ├── data/                     # Data providers
-│   ├── gann/                     # Gann analysis engine
+│   ├── gann/                     # Structural analysis engine
 │   ├── strat/                    # Pattern recognition
 │   ├── supabase/                 # Database queries
 │   ├── types.ts                  # TypeScript types
@@ -91,8 +91,8 @@ gsps/
 4. **Scan API** (`/api/scan`):
    - Fetches current bar data via Alpaca
    - Fetches historical bars (1m, 5m, timeframes)
-   - Runs Gann analysis (fans, square of 9, time cycles)
-   - Runs strat analysis (patterns, levels)
+   - Runs structural analysis (fans, geometric price levels, time cycles)
+   - Runs pattern analysis (patterns, levels)
    - Scores patterns (0-100 scale)
    - Returns signal with score and details
 5. **Database Storage**:
@@ -136,14 +136,14 @@ gsps/
    - Updates chart candlesticks
 3. **User Interactions**:
    - Legend toggle shows/hides price
-   - Gann fan overlay displays on request
+   - Structural fan overlay displays on request
    - Timeframe switching re-fetches data
 
 ## Key Algorithms
 
-### Gann Analysis
+### Structural Analysis
 
-**Square of 9** (`lib/gann/squareOf9.ts`):
+**Geometric Price Levels** (`lib/gann/squareOf9.ts`):
 - Spiral arrangement of numbers starting from 1
 - Calculates support/resistance levels
 - Used for price projections

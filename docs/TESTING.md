@@ -12,8 +12,8 @@ Test files live under `lib/**/*.test.ts` (see `vitest.config.ts`).
 
 ## What's covered today
 
-- `lib/__tests__/gann.test.ts` — Gann analysis (Square of 9, fans, time cycles)
-- `lib/__tests__/strat.test.ts` — Strat pattern classification and level detection
+- `lib/__tests__/gann.test.ts` — Structural analysis (geometric price levels, fans, time cycles)
+- `lib/__tests__/strat.test.ts` — Pattern classification and level detection
 - `lib/__tests__/synthetic.test.ts` — synthetic/demo market-data provider
 
 This is unit-level coverage of the deterministic analysis engine — the parts

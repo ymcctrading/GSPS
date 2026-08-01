@@ -3,16 +3,16 @@ import { Button } from "@/components/ui/button";
 import { TrendingUp, Radar, Target, ShieldCheck } from "lucide-react";
 
 export const metadata = {
-  title: "GSPS — The Gann Protocol Scanner",
+  title: "GSPS — Advanced Market Scanner",
   description:
-    "Multi-timeframe market scanning with Gann geometry and Sara Sniper Strat execution: pinpoint entries, structural stops, and scored setups out of 9.",
+    "Multi-timeframe market scanning with structural analysis and pattern-based execution: pinpoint entries, structural stops, and scored setups out of 9.",
 };
 
 const FEATURES = [
   {
     icon: Radar,
     title: "Top-down scanning",
-    body: "Ten years down to fifteen minutes. The scanner reads macro trend and support, then narrows to sniper entries on the execution timeframe.",
+    body: "Ten years down to fifteen minutes. The scanner reads macro trend and support, then narrows to triggered entries on the execution timeframe.",
   },
   {
     icon: Target,
@@ -22,7 +22,7 @@ const FEATURES = [
   {
     icon: ShieldCheck,
     title: "Scored out of 9",
-    body: "Nine confluence checks across Gann geometry, Strat patterns, and risk quality. Seven or higher signals Execute; below four, the setup is rejected.",
+    body: "Nine confluence checks across market structure, pattern analysis, and risk quality. Seven or higher signals Execute; below four, the setup is rejected.",
   },
 ];
 
@@ -51,8 +51,7 @@ export default function LandingPage() {
             Trade the reversion, <span className="text-accent">not the noise</span>.
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-lg text-muted">
-            GSPS unites W.D. Gann&apos;s geometric market structure with the Sara Sniper
-            Strat execution engine — objective entries, structural stops, and a
+            GSPS combines systematic market structure analysis with pattern-based execution — objective entries, structural stops, and a
             daily list of the market&apos;s thirty most primed reversion setups.
           </p>
           <div className="mt-8 flex justify-center gap-3">
