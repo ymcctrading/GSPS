@@ -12,22 +12,22 @@ const GROUPS: { heading: string; terms: Term[] }[] = [
       {
         term: "Entry (blue line)",
         plain:
-          "The price where the trade turns on. If price crosses this line, the setup is “triggered” and that’s where you’d get in.",
+          "The price where the trade turns on. If price crosses this line, the setup is 'triggered' and that's where you'd get in.",
       },
       {
         term: "Stop loss (red line)",
         plain:
-          "Your safety exit. If the trade goes the wrong way and price reaches here, you get out to keep the loss small. Every trade has one — no exceptions.",
+          "Your safety exit. If the trade goes the wrong way and price reaches here, you get out to keep the loss small. Every trade has one - no exceptions.",
       },
       {
-        term: "TP1 — Take Profit 1 (green line)",
+        term: "TP1 - Take Profit 1 (green line)",
         plain:
-          "Your first profit goal. It’s set so you aim to make about 2× what you’re risking. That’s a 2-to-1 reward-to-risk ratio.",
+          "Your first profit goal. It's set so you aim to make about 2x what you're risking. That's a 2-to-1 reward-to-risk ratio.",
       },
       {
         term: "Master profit (green line)",
         plain:
-          "The bigger profit goal, aiming for about 3× your risk (3-to-1). You’d typically take most profit at TP1 and let a small piece run toward this.",
+          "The bigger profit goal, aiming for about 3x your risk (3-to-1). You'd typically take most profit at TP1 and let a small piece run toward this.",
       },
       {
         term: "Risk-to-reward (like 2:1)",
@@ -42,22 +42,22 @@ const GROUPS: { heading: string; terms: Term[] }[] = [
       {
         term: "What the grey dashed lines are",
         plain:
-          "They mark “structural levels” — special prices where the market often pauses or turns around. Think of them as hidden floors and ceilings. There are two kinds:",
+          "They mark 'structural levels' - special prices where the market often pauses or turns around. Think of them as hidden floors and ceilings. There are two kinds:",
       },
       {
-        term: "Support line (1x1, 1x2, 1x4…)",
+        term: "Support line (1x1, 1x2, 1x4...)",
         plain:
           "Diagonal support/resistance angles drawn from a recent high or low. Price tends to react when it reaches one. The numbers are just the steepness of the angle.",
       },
       {
-        term: "Harmonic level (45°, 90°, …)",
+        term: "Harmonic level (45, 90, ...)",
         plain:
           "Price levels derived from mathematical ratios and square roots. Like the support lines, they act as hidden support and resistance.",
       },
       {
         term: "Cyclical turn window",
         plain:
-          "Dates when structural math suggests a turn is more likely. When you see “turn window active,” today is near one of those dates.",
+          "Dates when structural math suggests a turn is more likely. When you see 'turn window active,' today is near one of those dates.",
       },
     ],
   },
@@ -70,14 +70,14 @@ const GROUPS: { heading: string; terms: Term[] }[] = [
           "How many of 9 quality checks the setup passes (trend, structural levels, pattern, risk, etc.). The higher the score, the stronger the setup.",
       },
       {
-        term: "Execute · Watch · Reject",
+        term: "Execute - Watch - Reject",
         plain:
-          "The bottom line. Execute (7–9) = strong, worth acting on. Watch (4–6) = keep an eye on it. Reject (0–3) = skip it.",
+          "The bottom line. Execute (7-9) = strong, worth acting on. Watch (4-6) = keep an eye on it. Reject (0-3) = skip it.",
       },
       {
-        term: "Reversal pattern (2-2, 2-1-2, PMG…)",
+        term: "Reversal pattern (2-2, 2-1-2, PMG...)",
         plain:
-          "A candlestick pattern that hints price may be about to flip direction. A “2-2 reversal,” for example, means price pushed one way and then broke back the other.",
+          "A candlestick pattern that hints price may be about to flip direction. A '2-2 reversal,' for example, means price pushed one way and then broke back the other.",
       },
     ],
   },
@@ -96,7 +96,7 @@ const GROUPS: { heading: string; terms: Term[] }[] = [
       {
         term: "Buy at advised price vs. Buy now",
         plain:
-          "“At advised price” waits to buy exactly at the entry line. “Buy now” buys at the current market price right away.",
+          "'At advised price' waits to buy exactly at the entry line. 'Buy now' buys at the current market price right away.",
       },
     ],
   },
