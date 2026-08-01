@@ -100,8 +100,6 @@ const EventSchema = z.union([
   UserActionSchema,
 ]);
 
-type Event = z.infer<typeof EventSchema>;
-
 export async function POST(req: NextRequest) {
   try {
     const userId = await verifyAuth(req);
@@ -116,7 +114,7 @@ export async function POST(req: NextRequest) {
 
     switch (event.type) {
       case 'scan': {
-        const { type, ...scanData } = event;
+        const { ...scanData } = event;
         result = await recordScanEvent(userId, {
           ...scanData,
           gann_root: scanData.gann_root ? parseInt(scanData.gann_root) : undefined,
@@ -127,7 +125,7 @@ export async function POST(req: NextRequest) {
       }
 
       case 'signal_lifecycle': {
-        const { type, ...lifecycleData } = event;
+        const { ...lifecycleData } = event;
         result = await recordSignalLifecycleEvent(userId, {
           ...lifecycleData,
           metadata: lifecycleData.metadata || {},
@@ -136,13 +134,13 @@ export async function POST(req: NextRequest) {
       }
 
       case 'execution': {
-        const { type, ...executionData } = event;
+        const { ...executionData } = event;
         result = await recordExecutionEvent(userId, executionData);
         break;
       }
 
       case 'user_action': {
-        const { type, ...actionData } = event;
+        const { ...actionData } = event;
         result = await recordUserAction(userId, {
           ...actionData,
           journal_tags: actionData.journal_tags || [],

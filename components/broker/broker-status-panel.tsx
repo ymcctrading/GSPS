@@ -2,29 +2,29 @@
 'use client';
 
 import { AlertCircle, CheckCircle, Zap, RotateCw } from 'lucide-react';
-import type { BrokerHealthStatus } from '@/lib/brokers/health';
+import type { BrokerHealthStatus, BrokerProvider } from '@/lib/brokers/health';
 import { getAllBrokerHealthStatus, resetBrokerErrors } from '@/lib/brokers/health';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 export function BrokerStatusPanel() {
   const [brokerStatuses, setBrokerStatuses] = useState<BrokerHealthStatus[]>([]);
-  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    refreshStatuses();
-    const interval = setInterval(refreshStatuses, 30000); // refresh every 30s
-    return () => clearInterval(interval);
-  }, []);
-
-  const refreshStatuses = () => {
-    setLoading(true);
+  const refreshStatuses = useCallback(() => {
     const statuses = getAllBrokerHealthStatus();
     setBrokerStatuses(statuses);
-    setLoading(false);
-  };
+  }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    refreshStatuses();
+    const interval = setInterval(() => {
+      refreshStatuses();
+    }, 30000); // refresh every 30s
+    return () => clearInterval(interval);
+  }, [refreshStatuses]);
 
   const handleReset = (provider: string) => {
-    resetBrokerErrors(provider as any);
+    resetBrokerErrors(provider as BrokerProvider);
     refreshStatuses();
   };
 
@@ -63,11 +63,10 @@ export function BrokerStatusPanel() {
         </div>
         <button
           onClick={refreshStatuses}
-          disabled={loading}
-          className="text-xs font-medium hover:underline disabled:opacity-50"
+          className="text-xs font-medium hover:underline"
         >
           <RotateCw className="h-3 w-3 inline mr-1" />
-          {loading ? 'Refreshing...' : 'Refresh'}
+          Refresh
         </button>
       </div>
 
