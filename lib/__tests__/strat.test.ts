@@ -135,6 +135,38 @@ describe("computeTradeLevels", () => {
     const levels = computeTradeLevels(pattern, { t: "", o: 98, h: 101, l: 96, c: 99, v: 0 }, []);
     expect(levels.stopBandWarning).toContain("tighter");
   });
+
+  it("rejects a scan where the structural TP1 target overtakes the master profit", () => {
+    // entry 100, stop 95 (risk 5): 2R=110, 3R=115, 5R=125. A previous-bar
+    // high of 130 pushes the structural TP1 past even the 5R Gann cap that
+    // bounds master profit, which must never be less extreme than TP1.
+    const pattern = {
+      name: "2-1-2" as const,
+      direction: "bullish" as const,
+      triggerPrice: 100,
+      stopPrice: 95,
+      description: "",
+    };
+    expect(() =>
+      computeTradeLevels(pattern, { t: "", o: 120, h: 130, l: 115, c: 128, v: 0 }, []),
+    ).toThrow(/master profit.*not more extreme than TP1/);
+  });
+
+  it("rejects the mirror case on a bearish setup", () => {
+    // entry 100, stop 105 (risk 5): 2R=90, 3R=85, 5R=75. A previous-bar low
+    // of 70 pushes the structural TP1 past the 5R Gann cap that bounds
+    // master profit — same corrupt-signal shape, opposite direction.
+    const pattern = {
+      name: "2-1-2" as const,
+      direction: "bearish" as const,
+      triggerPrice: 100,
+      stopPrice: 105,
+      description: "",
+    };
+    expect(() =>
+      computeTradeLevels(pattern, { t: "", o: 80, h: 85, l: 70, c: 72, v: 0 }, []),
+    ).toThrow(/master profit.*not more extreme than TP1/);
+  });
 });
 
 describe("classifySeries", () => {

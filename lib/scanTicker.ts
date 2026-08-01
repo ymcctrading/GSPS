@@ -15,7 +15,7 @@ import { squareOf9Levels } from "@/lib/gann/squareOf9";
 import { timeCycles } from "@/lib/gann/timeCycles";
 import { detectPatterns, gapRuleViolated } from "@/lib/strat/patterns";
 import { computeTradeLevels } from "@/lib/strat/levels";
-import { computeScore } from "@/lib/scoring/score";
+import { applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
 
 export async function scanTicker(symbol: string, optionPremium?: number): Promise<ScanResult> {
   const assetClass: AssetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
@@ -131,17 +131,22 @@ export async function scanTicker(symbol: string, optionPremium?: number): Promis
     // unknown (no point awarded, surfaced in the breakdown).
     const earningsSoon = assetClass === "crypto" ? false : null;
 
-    const decision = computeScore({
-      direction: scoreDirection,
-      macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
-      hourlyTrend,
-      gann,
-      nearSupportResistance,
+    const decision = applyReversionConfirmation(
+      computeScore({
+        direction: scoreDirection,
+        macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
+        hourlyTrend,
+        gann,
+        nearSupportResistance,
+        pattern,
+        momentumElevated,
+        earningsSoon,
+        levels,
+      }),
       pattern,
       momentumElevated,
-      earningsSoon,
-      levels,
-    });
+      nearSupportResistance,
+    );
 
     return {
       symbol: symbol.toUpperCase(),

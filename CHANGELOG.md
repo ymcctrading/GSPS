@@ -7,6 +7,42 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-08-01
+
+### Added
+- **Trading-logic invariants.** `computeTradeLevels()` now rejects any scan
+  where master profit isn't strictly more extreme than TP1, or TP1 isn't
+  strictly more extreme than entry, in the trade direction — a real gap
+  where a wide structural target could otherwise land past the Gann-capped
+  master profit. The failure surfaces through the existing scan error path
+  (`outputState: "Reject"`) rather than displaying a corrupt signal.
+- **2-2 reversion confirmation gate** (`applyReversionConfirmation` in
+  `lib/scoring/score.ts`). A bare `2-2` reversal that would otherwise score
+  into "Execute" is downgraded to "Watch" unless both momentum/volatility
+  and a historical support/resistance level confirm it. Compound patterns
+  (`1-2-2`, `3-2-2`, `2-1-2`, `3-1-2`) are unaffected.
+- **Data retention config** (`lib/config.ts`): a single
+  `DATA_RETENTION_WINDOW_YEARS`/`_LABEL` pair, now surfaced on the Settings
+  page and documented in `SECURITY.md`, so future retention-policy copy has
+  one source instead of being hardcoded per surface.
+- **Portfolio: filled/pending order split.** The merged "Order history"
+  table is now two sections — Filled and Pending — each showing the called
+  entry/SL/TP1/MTP levels captured at order time (already stored in
+  `orders` but not previously rendered) alongside the actual fill price and
+  quantity for filled orders.
+- **SL-hit notifications.** `/api/portfolio` now attaches the most recently
+  called stop-loss per symbol (from bracket orders), and the portfolio page
+  compares it against live price on its existing 10-second poll, raising a
+  browser notification and an in-app banner the moment a position's stop is
+  hit — previously silent.
+
+### Known limitation
+- The per-trade record does not yet show "which levels were actually hit
+  vs. manually overridden" or realized P/L after close — `trade_logs` has
+  the right columns (`exit_condition`, `outcome`, `profit_loss_dollars`)
+  but nothing in the app writes to it yet. That's a separate follow-up:
+  wiring position-close events into `trade_logs`.
+
 ## 2026-07-24
 
 ### Fixed

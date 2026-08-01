@@ -48,6 +48,21 @@ export function computeTradeLevels(
     stopBandWarning = `Structural stop is ${stopPctOfPrice.toFixed(1)}% of price — wider than the recommended 12–18% band. Reduce size or skip.`;
   }
 
+  // Invariant: master profit must be strictly more extreme than TP1, which
+  // must be strictly more extreme than entry, in the trade direction. A scan
+  // that violates this is producing a corrupt signal and must be rejected
+  // rather than silently displayed.
+  if (dir * (takeProfit1 - entry) <= 0) {
+    throw new Error(
+      `Invalid trade levels: TP1 (${round(takeProfit1)}) is not beyond entry (${round(entry)}) in the ${pattern.direction} direction.`,
+    );
+  }
+  if (dir * (masterProfit - takeProfit1) <= 0) {
+    throw new Error(
+      `Invalid trade levels: master profit (${round(masterProfit)}) is not more extreme than TP1 (${round(takeProfit1)}) in the ${pattern.direction} direction.`,
+    );
+  }
+
   return {
     entry: round(entry),
     stopLoss: round(stopLoss),

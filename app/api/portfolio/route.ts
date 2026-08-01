@@ -26,11 +26,31 @@ export async function GET() {
   }
 
   try {
-    const [account, positions] = await Promise.all([getAccount(creds), getPositions(creds)]);
+    const [account, rawPositions] = await Promise.all([getAccount(creds), getPositions(creds)]);
+    const positions = rawPositions as any[];
 
     const equity = Number(account.equity);
     const lastEquity = Number(account.last_equity);
     const dayPlPct = lastEquity > 0 ? ((equity - lastEquity) / lastEquity) * 100 : 0;
+
+    // Most recently called stop-loss per symbol, so the client can raise an
+    // SL-hit alert the moment live price crosses it. Only bracket orders
+    // capture a stop_price at order time — symbols without one stay null.
+    const symbols = positions.map((p) => p.symbol);
+    const stopLossBySymbol = new Map<string, number>();
+    if (symbols.length > 0) {
+      const { data: orderRows } = await supabase
+        .from("orders")
+        .select("symbol, stop_price, created_at")
+        .eq("user_id", user.id)
+        .eq("mode", "paper")
+        .in("symbol", symbols)
+        .not("stop_price", "is", null)
+        .order("created_at", { ascending: false });
+      for (const row of orderRows ?? []) {
+        if (!stopLossBySymbol.has(row.symbol)) stopLossBySymbol.set(row.symbol, Number(row.stop_price));
+      }
+    }
 
     return NextResponse.json({
       mode: "paper",
@@ -41,7 +61,7 @@ export async function GET() {
         dayPlPct,
         currency: account.currency,
       },
-      positions: (positions as any[]).map((p) => ({
+      positions: positions.map((p) => ({
         symbol: p.symbol,
         qty: Number(p.qty),
         side: p.side,
@@ -51,6 +71,7 @@ export async function GET() {
         unrealizedPl: Number(p.unrealized_pl),
         unrealizedPlPct: Number(p.unrealized_plpc) * 100,
         todayPlPct: Number(p.unrealized_intraday_plpc) * 100,
+        stopLoss: stopLossBySymbol.get(p.symbol) ?? null,
       })),
     });
   } catch (err) {
