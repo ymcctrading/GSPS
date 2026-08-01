@@ -11,6 +11,8 @@
  */
 
 import type { AssetClass, Bar, Timeframe } from "@/lib/types";
+import { TF_INTERVAL_MS, TF_MAX_BARS, candleOpens } from "@/lib/timeframe";
+import { computeGreeks } from "@/lib/options/greeks";
 import type {
   Level2Book,
   MarketDataProvider,
@@ -65,21 +67,14 @@ function anchorPrice(symbol: string): number {
   return 18 + (h % 560); // typical equity range
 }
 
-const INTERVAL_MS: Record<Timeframe, number> = {
-  "1Month": 30.44 * 24 * 3600 * 1000,
-  "1Week": 7 * 24 * 3600 * 1000,
-  "1Day": 24 * 3600 * 1000,
-  "1Hour": 3600 * 1000,
-  "15Min": 15 * 60 * 1000,
-  "5Min": 5 * 60 * 1000,
-  "1Min": 60 * 1000,
-};
-
 // Per-bar volatility (stdev of returns) by timeframe — larger on higher TFs.
 const VOL: Record<Timeframe, number> = {
+  "1Year": 0.16,
   "1Month": 0.075,
   "1Week": 0.045,
   "1Day": 0.018,
+  "4Hour": 0.011,
+  "2Hour": 0.008,
   "1Hour": 0.006,
   "15Min": 0.003,
   "5Min": 0.0018,
@@ -87,16 +82,17 @@ const VOL: Record<Timeframe, number> = {
 };
 
 const MIN_BARS: Record<Timeframe, number> = {
+  "1Year": 30,
   "1Month": 60,
   "1Week": 80,
   "1Day": 120,
+  "4Hour": 120,
+  "2Hour": 120,
   "1Hour": 120,
   "15Min": 120,
   "5Min": 120,
   "1Min": 120,
 };
-
-const HARD_CAP = 1500;
 
 function genBars(
   symbol: string,
@@ -105,12 +101,17 @@ function genBars(
   end: Date | null,
   limit: number,
 ): Bar[] {
-  const interval = INTERVAL_MS[timeframe];
   const endMs = (end ?? new Date()).getTime();
   const span = Math.max(0, endMs - start.getTime());
-  let n = Math.floor(span / interval);
-  n = Math.min(n, limit, HARD_CAP);
+  let n = Math.floor(span / TF_INTERVAL_MS[timeframe]);
+  n = Math.min(n, limit, TF_MAX_BARS[timeframe]);
   n = Math.max(n, MIN_BARS[timeframe]);
+
+  // Timestamps run backwards from the candle that contains `end`, one whole
+  // interval at a time, so every bar covers exactly the period its timeframe
+  // names and the newest bar is the current one — never a stale bucket left
+  // over from wherever `start` happened to fall.
+  const opens = candleOpens(endMs, timeframe, n);
 
   const rnd = mulberry32(hashStr(`${symbol.toUpperCase()}|${timeframe}`));
   const vol = VOL[timeframe];
@@ -140,7 +141,7 @@ function genBars(
     const lo = Math.min(open, close) * (1 - wick * rnd());
     const vol_ = Math.round(1e5 + rnd() * 5e6);
     bars.push({
-      t: new Date(start.getTime() + i * interval).toISOString(),
+      t: new Date(opens[i]).toISOString(),
       o: round(open),
       h: round(hi),
       l: round(lo),
@@ -172,6 +173,20 @@ const DEFAULT_ACTIVES = [
 
 /** ---- Simulated Options chain (anchored on a real price when available) --- */
 
+/**
+ * Beta vs the broad market. Real beta needs a regression against an index over
+ * a lookback window, which the demo provider has no feed for — this is a stable
+ * per-symbol stand-in in the range real large-caps occupy (~0.6–2.0), with
+ * index ETFs pinned near 1.
+ */
+function simulatedBeta(symbol: string): number {
+  const base = symbol.toUpperCase().replace(/[-/]?USD[TC]?$/, "");
+  if (base === "SPY") return 1;
+  if (base === "QQQ") return 1.15;
+  if (isCrypto(symbol)) return round(1.6 + (hashStr(base) % 90) / 100);
+  return round(0.6 + (hashStr(`${base}|beta`) % 140) / 100);
+}
+
 export function simulateOptionChain(symbol: string, underlyingPrice: number): OptionChain {
   const rnd = mulberry32(hashStr(`${symbol.toUpperCase()}|options`));
   const crypto = isCrypto(symbol);
@@ -179,6 +194,10 @@ export function simulateOptionChain(symbol: string, underlyingPrice: number): Op
   const step = niceStep(underlyingPrice);
   const atm = Math.round(underlyingPrice / step) * step;
   const contracts: OptionContract[] = [];
+
+  const daysToExpiry = crypto ? 7 : 21;
+  const t = daysToExpiry / 365; // year fraction, used by the greeks below
+  const beta = simulatedBeta(symbol);
 
   // 7 strikes each side of the money.
   for (let k = -7; k <= 7; k++) {
@@ -188,36 +207,24 @@ export function simulateOptionChain(symbol: string, underlyingPrice: number): Op
       const itm =
         type === "call" ? strike < underlyingPrice : strike > underlyingPrice;
       const dist = Math.abs(strike - underlyingPrice) / underlyingPrice;
-      // Rough Black-Scholes-ish delta proxy.
-      const rawDelta = Math.max(0.02, Math.min(0.98, 0.5 - k * 0.06 * (type === "call" ? 1 : -1)));
-      const delta = type === "call" ? rawDelta : -Math.abs(1 - rawDelta);
       const iv = 0.25 + dist * 1.4 + rnd() * 0.05;
-
-      // Gamma: highest at the money, lower away from it
-      const gamma = Math.max(0.001, 0.08 * Math.exp(-Math.pow(k * 1.5, 2)));
-
-      // Theta: negative for long options (time decay works against buyer)
-      // More negative when out of the money
-      const timeToExpiry = crypto ? 7 : 21; // days
-      const theta = -(iv * underlyingPrice * 0.08) / Math.sqrt(timeToExpiry) * (0.8 + Math.abs(k) * 0.05);
-
-      // Vega: sensitivity to IV changes, highest at the money
-      const vega = underlyingPrice * Math.sqrt(timeToExpiry / 365) * Math.exp(-Math.pow(k * 1.5, 2)) * 0.15;
-
       const intrinsic = itm ? Math.abs(underlyingPrice - strike) : 0;
       const extrinsic = underlyingPrice * iv * 0.06 * Math.exp(-dist * 3);
       const mid = Math.max(0.01, round(intrinsic + extrinsic));
       const halfSpread = Math.max(0.01, round(mid * 0.03));
+
+      // Greeks from the same moneyness/IV inputs the pricing above used, so
+      // the numbers move together instead of drifting apart.
+      const greeks = computeGreeks(type, underlyingPrice, strike, t, iv);
+
       contracts.push({
         strike,
         type,
         bid: round(Math.max(0.01, mid - halfSpread)),
         ask: round(mid + halfSpread),
         last: round(mid * (1 + (rnd() - 0.5) * 0.02)),
-        delta: Math.round(delta * 100) / 100,
-        gamma: Math.round(gamma * 10000) / 10000,
-        theta: Math.round(theta * 100) / 100,
-        vega: Math.round(vega * 100) / 100,
+        ...greeks,
+        beta,
         iv: Math.round(iv * 1000) / 1000,
         openInterest: Math.round(rnd() * 12000 * Math.exp(-dist * 2)),
         volume: Math.round(rnd() * 4000 * Math.exp(-dist * 2)),
@@ -227,7 +234,7 @@ export function simulateOptionChain(symbol: string, underlyingPrice: number): Op
   }
 
   // Next monthly-ish expiration (third Friday-ish — just a near-future date).
-  const exp = new Date(Date.now() + (crypto ? 7 : 21) * 24 * 3600 * 1000);
+  const exp = new Date(Date.now() + daysToExpiry * 24 * 3600 * 1000);
   return {
     symbol: symbol.toUpperCase(),
     underlyingPrice: round(underlyingPrice),

@@ -41,9 +41,9 @@ export function PublicChart({ symbol }: { symbol: string }) {
   if (result?.levels) {
     markers.push(
       { price: result.levels.entry, label: "Entry", kind: "entry" },
-      { price: result.levels.stopLoss, label: "Stop", kind: "stop" },
+      { price: result.levels.stopLoss, label: "SL", kind: "stop" },
       { price: result.levels.takeProfit1, label: "TP1", kind: "target" },
-      { price: result.levels.masterProfit, label: "Master", kind: "target" },
+      { price: result.levels.masterProfit, label: "MP", kind: "target" },
     );
   }
   result?.gann.fanLines.slice(0, 2).forEach((f) =>

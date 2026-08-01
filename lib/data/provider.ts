@@ -48,14 +48,25 @@ export interface OptionContract {
   bid: number;
   ask: number;
   last: number;
+  /** Rate of change of premium per $1 move in the underlying. */
   delta: number;
+  /** Rate of change of delta per $1 move — curvature of the position. */
   gamma: number;
+  /** Premium decay per day, expressed as a negative number for long options. */
   theta: number;
+  /** Premium change per 1 percentage-point move in implied volatility. */
   vega: number;
+  /** Underlying's beta vs the broad market — position-level, not per contract. */
+  beta: number;
   iv: number;
   openInterest: number;
   volume: number;
   inTheMoney: boolean;
+  /**
+   * Broker symbol to trade this contract (OCC format). Present only when the
+   * chain came from a feed that lists real tradable contracts.
+   */
+  contractSymbol?: string;
 }
 
 export interface OptionChain {

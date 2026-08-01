@@ -4,9 +4,7 @@ import {
   simulateOptionChain,
   simulateLevel2,
 } from "@/lib/data/synthetic";
-import type { Timeframe } from "@/lib/types";
-
-const TIMEFRAMES: Timeframe[] = ["1Month", "1Week", "1Day", "1Hour", "15Min", "5Min", "1Min"];
+import { TF_INTERVAL_MS, TIMEFRAMES, startOfCandle } from "@/lib/timeframe";
 
 describe("syntheticProvider.fetchBars", () => {
   it("returns enough well-formed bars for the scan pipeline on every timeframe", async () => {
@@ -24,6 +22,40 @@ describe("syntheticProvider.fetchBars", () => {
         expect(b.o).toBeGreaterThan(0);
         expect(Number.isFinite(b.c)).toBe(true);
       }
+    }
+  });
+
+  it("spaces every candle one full interval apart, aligned to the interval grid", async () => {
+    const start = new Date(Date.now() - 3650 * 24 * 3600 * 1000);
+    const end = new Date();
+    for (const tf of TIMEFRAMES) {
+      const bars = await syntheticProvider.fetchBars("AAPL", tf, start, end, "us_equity");
+      const times = bars.map((b) => Date.parse(b.t));
+
+      // Each bar opens exactly where the previous one closed — no half-width
+      // candles, no overlaps, no gaps.
+      for (let i = 1; i < times.length; i++) {
+        const gap = times[i] - times[i - 1];
+        if (tf === "1Month" || tf === "1Year") {
+          // Calendar periods vary in length; bound them instead.
+          expect(gap).toBeGreaterThan(TF_INTERVAL_MS[tf] * 0.85);
+          expect(gap).toBeLessThan(TF_INTERVAL_MS[tf] * 1.15);
+        } else {
+          expect(gap).toBe(TF_INTERVAL_MS[tf]);
+        }
+        // ...and sits on a real boundary for its timeframe.
+        expect(startOfCandle(times[i], tf)).toBe(times[i]);
+      }
+    }
+  });
+
+  it("ends on the current candle rather than a stale bucket", async () => {
+    const start = new Date(Date.now() - 3650 * 24 * 3600 * 1000);
+    for (const tf of TIMEFRAMES) {
+      const end = new Date();
+      const bars = await syntheticProvider.fetchBars("AAPL", tf, start, end, "us_equity");
+      const last = Date.parse(bars[bars.length - 1].t);
+      expect(last).toBe(startOfCandle(end.getTime(), tf));
     }
   });
 

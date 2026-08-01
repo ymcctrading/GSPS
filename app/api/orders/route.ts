@@ -7,7 +7,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { envCreds, placeOrder } from "@/lib/brokers/alpaca";
+import { envCreds, getPositions, placeOrder } from "@/lib/brokers/alpaca";
+import { evaluateTargets } from "@/lib/trade/targets";
 
 const OrderSchema = z.object({
   // Equity tickers are short; OCC option symbols run ~15–21 chars (e.g. TSM250815C00120000).
@@ -25,6 +26,24 @@ const OrderSchema = z.object({
     })
     .optional(),
   mode: z.enum(["paper", "live"]).default("paper"),
+  /**
+   * Contract economics + greeks captured at ticket time. Stored as a snapshot so
+   * the history grid shows what the trade was opened against, not what today's
+   * IV would imply.
+   */
+  optionDetail: z
+    .object({
+      strike: z.number().positive(),
+      type: z.enum(["call", "put"]),
+      expiration: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      premium: z.number().nullable().optional(),
+      contractCost: z.number().nullable().optional(),
+      delta: z.number().nullable().optional(),
+      gamma: z.number().nullable().optional(),
+      theta: z.number().nullable().optional(),
+      vega: z.number().nullable().optional(),
+    })
+    .optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -96,6 +115,16 @@ export async function POST(req: NextRequest) {
       take_profit: useBracket ? input.attachLevels!.takeProfit : null,
       master_profit: useBracket ? input.attachLevels!.masterProfit ?? null : null,
       status: broker.status ?? "new",
+      // Option economics + greeks snapshot (null on equity orders).
+      purchase_price: input.optionDetail?.premium ?? input.limitPrice ?? null,
+      contract_cost: input.optionDetail?.contractCost ?? null,
+      option_type: input.optionDetail?.type ?? null,
+      strike: input.optionDetail?.strike ?? null,
+      expiration: input.optionDetail?.expiration ?? null,
+      delta: input.optionDetail?.delta ?? null,
+      gamma: input.optionDetail?.gamma ?? null,
+      theta: input.optionDetail?.theta ?? null,
+      vega: input.optionDetail?.vega ?? null,
     });
 
     return NextResponse.json({ order: broker, mirrored: !dbError });
@@ -142,6 +171,14 @@ function explainBrokerError(
   return { code: "broker_error", status: 502, message: raw };
 }
 
+/**
+ * List the user's orders, enriched with a live mark for anything still held.
+ *
+ * Day P/L comes from the broker's open positions rather than being recomputed
+ * here: Alpaca already tracks intraday P/L against the correct prior close for
+ * both equities and option contracts. Orders with no matching open position
+ * (closed out, or filled away) report null P/L rather than a fabricated zero.
+ */
 export async function GET() {
   const supabase = await createClient();
   const {
@@ -158,5 +195,65 @@ export async function GET() {
     .limit(100);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ orders: data });
+
+  const orders = (data ?? []) as Record<string, unknown>[];
+  const marks = await liveMarks(orders.map((o) => String(o.symbol)));
+
+  const enriched = orders.map((o) => {
+    const mark = marks.get(String(o.symbol));
+    const side = o.side === "sell" ? "sell" : "buy";
+    const levels = {
+      tp1: numOrNull(o.take_profit),
+      mp: numOrNull(o.master_profit),
+      sl: numOrNull(o.stop_price),
+    };
+    return {
+      ...o,
+      currentPrice: mark?.currentPrice ?? null,
+      dayPl: mark?.dayPl ?? null,
+      dayPlPct: mark?.dayPlPct ?? null,
+      targets: evaluateTargets(side, levels, mark?.currentPrice ?? null, {
+        tp1At: o.tp1_hit_at as string | null,
+        mpAt: o.mp_hit_at as string | null,
+        slAt: o.sl_hit_at as string | null,
+      }),
+    };
+  });
+
+  return NextResponse.json({ orders: enriched });
+}
+
+function numOrNull(v: unknown): number | null {
+  const n = Number(v);
+  return v == null || Number.isNaN(n) ? null : n;
+}
+
+interface Mark {
+  currentPrice: number;
+  dayPl: number;
+  dayPlPct: number;
+}
+
+/** Current price + intraday P/L per symbol, from the broker's open positions. */
+async function liveMarks(symbols: string[]): Promise<Map<string, Mark>> {
+  const marks = new Map<string, Mark>();
+  if (symbols.length === 0) return marks;
+
+  const creds = envCreds("paper");
+  if (!creds) return marks;
+
+  try {
+    const positions = (await getPositions(creds)) as Record<string, unknown>[];
+    for (const p of positions) {
+      marks.set(String(p.symbol).toUpperCase(), {
+        currentPrice: Number(p.current_price),
+        dayPl: Number(p.unrealized_intraday_pl),
+        dayPlPct: Number(p.unrealized_intraday_plpc) * 100,
+      });
+    }
+  } catch {
+    // A broker hiccup shouldn't blank the order history — rows just render
+    // without a live mark.
+  }
+  return marks;
 }

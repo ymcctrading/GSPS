@@ -22,7 +22,8 @@ GSPS (Gann/Strat Pattern Scanner) is a comprehensive trading application built w
   - Support/resistance level identification
   - Pattern matching algorithms
   - Support/resistance level analysis
-- **Multi-Timeframe Support**: 1m, 5m, 15m, 1h, 4h, 1d, 1w candle analysis
+- **Multi-Timeframe Support**: 1m, 5m, 15m, 1h, 2h, 4h, 1d, 1w, 1mo, 1y candles
+  — one candle always covers exactly the interval its label names
 
 ### 3. Live Market Data
 - **Real-time Price Quotes**: Current bid/ask pricing via Alpaca
@@ -45,7 +46,7 @@ GSPS (Gann/Strat Pattern Scanner) is a comprehensive trading application built w
 
 ### 6. Charts & Visualization
 - **Lightweight Charts Integration**: Professional candlestick charts
-- **5m/1m Timeframes**: Dual timeframe analysis
+- **10 Timeframes**: 1m → 1y, each candle aligned to its interval boundary
 - **Live Chart Updates**: Real-time candlestick updates
 - **Legend Toggle**: Show/hide price legend
 - **Gann Fan Overlays**: Visualize Gann analysis on charts
