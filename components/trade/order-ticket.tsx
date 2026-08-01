@@ -11,6 +11,7 @@ type EntryMode = "advised" | "now";
 type AssetType = "shares" | "options";
 type Side = "buy" | "sell";
 type OptionType = "call" | "put";
+type ExecutionMode = "protocol" | "manual";
 
 interface StrikeRow {
   strike: number;
@@ -37,6 +38,7 @@ export function OrderTicket({
   const { levels, pattern, symbol } = result;
   const currentPrice = livePrice ?? (result.currentPrice > 0 ? result.currentPrice : null);
 
+  const hasProtocolSignal = !!(levels && pattern);
   const signalSide: Side = pattern?.direction === "bearish" ? "sell" : "buy";
 
   const [assetType, setAssetType] = useState<AssetType>("shares");
@@ -46,6 +48,7 @@ export function OrderTicket({
   const [attachLevels, setAttachLevels] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string; code?: string } | null>(null);
+  const [executionMode, setExecutionMode] = useState<ExecutionMode>(hasProtocolSignal ? "protocol" : "manual");
 
   // Options chain state.
   const [optionType, setOptionType] = useState<OptionType>(signalSide === "sell" ? "put" : "call");
@@ -55,7 +58,7 @@ export function OrderTicket({
   const [expiration, setExpiration] = useState("");
   const [contractSymbol, setContractSymbol] = useState("");
 
-  const advised = levels?.entry ?? 0;
+  const advised = levels?.entry ?? currentPrice ?? 0;
 
   // Find the near-the-money contract symbol for a given expiration + call/put.
   const pickAtm = useCallback(
@@ -111,19 +114,7 @@ export function OrderTicket({
   };
 
   const activeExpiry = chain?.expirations.find((e) => e.expiration === expiration);
-
-  if (!levels || !pattern) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Order ticket</CardTitle>
-          <CardDescription>
-            No armed setup — the protocol only authorizes entries off a live trigger line.
-          </CardDescription>
-        </CardHeader>
-      </Card>
-    );
-  }
+  const useProtocolLevels = executionMode === "protocol" && hasProtocolSignal;
 
   async function submit() {
     setSubmitting(true);
@@ -146,12 +137,13 @@ export function OrderTicket({
               qty: Number(qty),
               entryMode,
               limitPrice: entryMode === "advised" ? advised : undefined,
-              // Brackets only attach to long entries.
+              // Brackets only attach to long entries, and only when using protocol levels.
               attachLevels:
-                attachLevels && side === "buy"
+                useProtocolLevels && attachLevels && side === "buy"
                   ? { stopLoss: levels!.stopLoss, takeProfit: levels!.takeProfit1, masterProfit: levels!.masterProfit }
                   : undefined,
               mode: "paper" as const,
+              executionMode,
             };
 
       const res = await fetch("/api/orders", {
@@ -187,10 +179,39 @@ export function OrderTicket({
       <CardHeader>
         <CardTitle>Order ticket · paper</CardTitle>
         <CardDescription>
-          {assetType === "options"
-            ? `Trade ${symbol} options — protocol read is ${pattern.direction}.`
-            : `${side === "buy" ? "Long" : "Short"} ${symbol} — armed ${pattern.name} setup is ${pattern.direction}.`}
+          {useProtocolLevels
+            ? assetType === "options"
+              ? `Trade ${symbol} options — protocol read is ${pattern!.direction}.`
+              : `${side === "buy" ? "Long" : "Short"} ${symbol} — armed ${pattern!.name} setup is ${pattern!.direction}.`
+            : `Manual ${side === "buy" ? "long" : "short"} execution for ${symbol} ${assetType === "options" ? "options" : ""} — no protocol levels attached.`}
         </CardDescription>
+        <div className="mt-2 flex items-center gap-2 border-t border-border pt-3">
+          <span className="text-xs font-semibold text-muted">Mode:</span>
+          <button
+            onClick={() => setExecutionMode("protocol")}
+            disabled={!hasProtocolSignal}
+            className={cn(
+              "rounded px-2.5 py-1 text-xs font-medium cursor-pointer transition-colors",
+              executionMode === "protocol" && hasProtocolSignal
+                ? "bg-accent text-surface"
+                : "border border-border text-muted",
+              !hasProtocolSignal && "opacity-50 cursor-not-allowed",
+            )}
+            title={hasProtocolSignal ? "Use the protocol's recommended entry and levels" : "No armed protocol signal for this symbol"}
+          >
+            Protocol Recommended
+          </button>
+          <button
+            onClick={() => setExecutionMode("manual")}
+            className={cn(
+              "rounded px-2.5 py-1 text-xs font-medium cursor-pointer transition-colors",
+              executionMode === "manual" ? "bg-warn text-surface" : "border border-border text-muted hover:border-warn",
+            )}
+            title="Place an order independent of any protocol signal"
+          >
+            Manual Override
+          </button>
+        </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {/* Shares vs Options */}
@@ -223,7 +244,7 @@ export function OrderTicket({
               <ModeButton
                 active={entryMode === "advised"}
                 onClick={() => setEntryMode("advised")}
-                title="At advised price"
+                title={useProtocolLevels ? "At advised price" : "At reference price"}
                 subtitle={formatUsd(advised)}
               />
               <ModeButton
@@ -234,20 +255,26 @@ export function OrderTicket({
               />
             </div>
 
-            {side === "buy" ? (
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={attachLevels}
-                  onChange={(e) => setAttachLevels(e.target.checked)}
-                  className="h-4 w-4 accent-[var(--accent)]"
-                />
-                Attach protocol stop ({formatUsd(levels.stopLoss)}) and TP1 ({formatUsd(levels.takeProfit1)})
-              </label>
+            {useProtocolLevels && levels ? (
+              side === "buy" ? (
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={attachLevels}
+                    onChange={(e) => setAttachLevels(e.target.checked)}
+                    className="h-4 w-4 accent-[var(--accent)]"
+                  />
+                  Attach protocol stop ({formatUsd(levels.stopLoss)}) and TP1 ({formatUsd(levels.takeProfit1)})
+                </label>
+              ) : (
+                <p className="text-xs text-muted">
+                  Short entries route as a plain sell order — Alpaca doesn&apos;t bracket short legs. Manage the
+                  stop ({formatUsd(levels.stopLoss)}) and TP1 ({formatUsd(levels.takeProfit1)}) manually.
+                </p>
+              )
             ) : (
               <p className="text-xs text-muted">
-                Short entries route as a plain sell order — Alpaca doesn&apos;t bracket short legs. Manage the
-                stop ({formatUsd(levels.stopLoss)}) and TP1 ({formatUsd(levels.takeProfit1)}) manually.
+                Manual order — no protocol stop or take-profit will be attached.
               </p>
             )}
           </>
