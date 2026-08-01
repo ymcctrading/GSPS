@@ -160,7 +160,9 @@ export function CandleChart({
   const crypto = isCryptoSym(symbol);
   const assetClass = crypto ? "crypto" : "us_equity";
   const intraday = INTRADAY_TFS.includes(timeframe);
-  const live = intraday && status === "ready";
+  // All timeframes poll live — the last bar's close updates independently of
+  // the chart's display period.
+  const live = status === "ready";
   // Extended-hours shading only applies to stock timeframes whose candles sit
   // entirely inside one session (a 2H/4H bar straddles the open/close).
   const extendedApplies = !crypto && EXTENDED_HOURS_TFS.includes(timeframe);
