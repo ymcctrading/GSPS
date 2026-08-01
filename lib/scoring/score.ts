@@ -121,3 +121,35 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
 
   return { score, outputState, breakdown };
 }
+
+/**
+ * A bare "2-2" reversal (unsharpened by a prior inside/outside bar) is only
+ * an actionable reversion call when both momentum/volatility and a
+ * historical support/resistance level confirm it. Without both, it must be
+ * downgraded to "Watch" regardless of score — never shown as a trade signal.
+ */
+export function applyReversionConfirmation(
+  decision: ScanDecision,
+  pattern: StratPattern | null,
+  momentumElevated: boolean,
+  nearSupportResistance: boolean,
+): ScanDecision {
+  const isBareReversal = pattern?.name === "2-2";
+  const confirmed = momentumElevated && nearSupportResistance;
+  if (!isBareReversal || confirmed || decision.outputState !== "Execute") {
+    return decision;
+  }
+
+  return {
+    ...decision,
+    outputState: "Watch",
+    breakdown: [
+      ...decision.breakdown,
+      {
+        criterion: "Reversion confirmation (bare 2-2 needs momentum + S/R)",
+        passed: false,
+        note: "Bare 2-2 reversal without both momentum/volatility and support/resistance confirmation — downgraded from Execute to Watch.",
+      },
+    ],
+  };
+}

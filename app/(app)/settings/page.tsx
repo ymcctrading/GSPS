@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatUsd } from "@/lib/utils";
+import { DATA_RETENTION_WINDOW_LABEL } from "@/lib/config";
 import { Link2, Landmark } from "lucide-react";
 
 interface SnapAccounts {
@@ -109,6 +110,17 @@ export default function SettingsPage() {
             <li className="rounded-lg border border-border bg-background px-4 py-3">Master profit: <span className="font-medium">3 : 1 reward-to-risk</span></li>
             <li className="rounded-lg border border-border bg-background px-4 py-3">Execute threshold: <span className="font-medium">score 7+ of 9</span></li>
           </ul>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Data & privacy</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted">
+            Historical scan data is retained for <span className="font-medium text-foreground">{DATA_RETENTION_WINDOW_LABEL}</span>.
+          </p>
         </CardContent>
       </Card>
     </div>

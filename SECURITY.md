@@ -31,6 +31,10 @@ if one is exposed.
 3. For live Alpaca keys: rotate the key and check the Alpaca account activity log for unauthorized orders before doing anything else.
 4. Confirm the leaked value isn't still present in git history (`git log -p`, or a secret-scanning tool) before considering the incident closed.
 
+## Data retention
+
+Historical scan data is retained for `DATA_RETENTION_WINDOW_LABEL` (`lib/config.ts`) — currently 6 years. Any UI copy, docs, or schema logic describing retention duration must read from that constant rather than hardcoding a number, so a future retention change is a one-line edit instead of a text search across the codebase.
+
 ## Reporting a vulnerability
 
 This is currently a single-maintainer project without a public bug bounty.
