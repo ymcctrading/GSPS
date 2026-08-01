@@ -7,6 +7,39 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-08-01 (2)
+
+### Added
+- **Automatic `trade_logs` population.** Added a position-reconciliation
+  job (`lib/portfolio/reconcile.ts`), run on every `GET /api/portfolio`
+  poll: compares live Alpaca positions against our own `positions` table,
+  records newly-opened positions, and for ones that closed since the last
+  poll, inspects the closing Alpaca order to classify `exit_condition`
+  (`tp1` / `stop_loss` / `manual` — a filled bracket leg's `type` tells us
+  which), computes realized P/L, and writes both the `positions` update and
+  a `trade_logs` row. This resolves the "known limitation" from the
+  previous entry below — the portfolio's Closed Trades section and
+  per-trade record are now backed by real data instead of an unpopulated
+  table.
+- **Manual close-out**: wired the previously-stubbed "Close" button in the
+  portfolio's Open Positions table to a new `POST /api/portfolio/close`,
+  which flattens the position at market via a new `closePosition()` Alpaca
+  helper. A manual close isn't a bracket leg, so reconciliation correctly
+  classifies it as `exit_condition: "manual"`.
+- **Migration `0003_positions_side.sql`**: adds `side` (`long`/`short`) and
+  `scan_result_id` to `positions`, needed by reconciliation to compute P/L
+  direction and label the derived trade log with the originating scan.
+- **Closed Trades** section on the portfolio page: entry/exit price, exit
+  reason (TP1 hit / stop-loss hit / manual close), and realized P/L per
+  closed trade.
+
+### Known limitation
+- Reconciliation only handles full closes (a symbol disappearing from live
+  Alpaca positions). Partial fills that merely shrink a position's qty are
+  not yet reconciled — the `positions` row's qty isn't updated and no
+  partial-exit `trade_logs` row is written. Full open→full close is the
+  common path for the bracket orders this app places today.
+
 ## 2026-08-01
 
 ### Added

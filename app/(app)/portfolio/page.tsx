@@ -53,6 +53,30 @@ function isFilled(o: OrderRow): boolean {
   return FILLED_STATUSES.has(o.status);
 }
 
+interface TradeLogRow {
+  id: string;
+  symbol: string;
+  direction: string;
+  quantity: number;
+  entry_timestamp: string;
+  entry_price: number;
+  exit_timestamp: string | null;
+  exit_price: number | null;
+  outcome: string | null;
+  profit_loss_dollars: number | null;
+  profit_loss_percent: number | null;
+  exit_condition: string | null;
+  signal_adherence: string | null;
+}
+
+const EXIT_CONDITION_LABEL: Record<string, string> = {
+  tp1: "TP1 hit",
+  master_target: "MTP hit",
+  stop_loss: "Stop-loss hit",
+  manual: "Manual close",
+  pending: "Pending",
+};
+
 interface SlAlert {
   key: string;
   symbol: string;
@@ -62,6 +86,7 @@ interface SlAlert {
 export default function PortfolioPage() {
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [orders, setOrders] = useState<OrderRow[]>([]);
+  const [tradeLogs, setTradeLogs] = useState<TradeLogRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [slAlerts, setSlAlerts] = useState<SlAlert[]>([]);
   const notifiedRef = useRef<Set<string>>(new Set());
@@ -108,21 +133,50 @@ export default function PortfolioPage() {
         .catch(() => {});
     };
 
+    const loadTradeLogs = () => {
+      fetch("/api/trade-log")
+        .then(async (res) => (res.ok ? (await res.json()).tradeLogs ?? [] : []))
+        .then(setTradeLogs)
+        .catch(() => {});
+    };
+
     // Initial load
     loadPortfolio();
     loadOrders();
+    loadTradeLogs();
 
     // Real-time updates: refresh portfolio every 10 seconds for live P/L tracking
     const portfolioInterval = setInterval(loadPortfolio, 10000);
     const ordersInterval = setInterval(loadOrders, 30000);
+    const tradeLogsInterval = setInterval(loadTradeLogs, 30000);
 
     return () => {
       clearInterval(portfolioInterval);
       clearInterval(ordersInterval);
+      clearInterval(tradeLogsInterval);
     };
   }, [checkStopLossHits]);
 
   const dismissAlert = (key: string) => setSlAlerts((prev) => prev.filter((a) => a.key !== key));
+
+  const [closingSymbol, setClosingSymbol] = useState<string | null>(null);
+  const handleClose = async (symbol: string) => {
+    if (!confirm(`Close the entire ${symbol} position at market?`)) return;
+    setClosingSymbol(symbol);
+    try {
+      const res = await fetch("/api/portfolio/close", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setClosingSymbol(null);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -204,7 +258,13 @@ export default function PortfolioPage() {
                       {formatPct(p.todayPlPct)}
                     </TD>
                     <TD className="text-center">
-                      <button className="text-xs text-muted hover:text-foreground">Close</button>
+                      <button
+                        onClick={() => handleClose(p.symbol)}
+                        disabled={closingSymbol === p.symbol}
+                        className="text-xs text-muted hover:text-foreground disabled:opacity-50"
+                      >
+                        {closingSymbol === p.symbol ? "Closing…" : "Close"}
+                      </button>
                     </TD>
                   </TR>
                 ))}
@@ -231,6 +291,57 @@ export default function PortfolioPage() {
         </CardHeader>
         <CardContent>
           <OrdersTable orders={orders.filter((o) => !isFilled(o))} emptyLabel="No pending orders." showFill={false} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Closed trades</CardTitle>
+          <CardDescription>Which called level actually closed the trade, and the realized P/L.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {tradeLogs.filter((t) => t.exit_timestamp).length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted">No closed trades yet.</p>
+          ) : (
+            <Table>
+              <THead>
+                <TR>
+                  <TH>Entry</TH>
+                  <TH>Symbol</TH>
+                  <TH>Side</TH>
+                  <TH className="text-right">Qty</TH>
+                  <TH className="text-right">Entry price</TH>
+                  <TH className="text-right">Exit price</TH>
+                  <TH>Exit reason</TH>
+                  <TH className="text-right">Realized P/L</TH>
+                </TR>
+              </THead>
+              <TBody>
+                {tradeLogs
+                  .filter((t) => t.exit_timestamp)
+                  .map((t) => (
+                    <TR key={t.id}>
+                      <TD className="text-muted">{new Date(t.entry_timestamp).toLocaleString()}</TD>
+                      <TD className="font-medium">{t.symbol}</TD>
+                      <TD className={t.direction === "buy" ? "text-bull" : "text-bear"}>{t.direction}</TD>
+                      <TD className="text-right font-mono">{t.quantity}</TD>
+                      <TD className="text-right font-mono">{formatUsd(t.entry_price)}</TD>
+                      <TD className="text-right font-mono">{t.exit_price ? formatUsd(t.exit_price) : "—"}</TD>
+                      <TD>
+                        <Badge variant={t.exit_condition === "stop_loss" ? "bear" : t.exit_condition === "manual" ? "muted" : "bull"}>
+                          {EXIT_CONDITION_LABEL[t.exit_condition ?? "pending"] ?? t.exit_condition}
+                        </Badge>
+                      </TD>
+                      <TD className={cn("text-right font-mono", (t.profit_loss_dollars ?? 0) >= 0 ? "text-bull" : "text-bear")}>
+                        {t.profit_loss_dollars != null
+                          ? `${formatUsd(t.profit_loss_dollars)} (${formatPct(t.profit_loss_percent ?? 0)})`
+                          : "—"}
+                      </TD>
+                    </TR>
+                  ))}
+              </TBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>

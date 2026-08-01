@@ -7,6 +7,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { envCreds, getAccount, getPositions } from "@/lib/brokers/alpaca";
+import { reconcilePositions } from "@/lib/portfolio/reconcile";
 
 export async function GET() {
   const supabase = await createClient();
@@ -33,24 +34,33 @@ export async function GET() {
     const lastEquity = Number(account.last_equity);
     const dayPlPct = lastEquity > 0 ? ((equity - lastEquity) / lastEquity) * 100 : 0;
 
-    // Most recently called stop-loss per symbol, so the client can raise an
-    // SL-hit alert the moment live price crosses it. Only bracket orders
-    // capture a stop_price at order time — symbols without one stay null.
-    const symbols = positions.map((p) => p.symbol);
-    const stopLossBySymbol = new Map<string, number>();
-    if (symbols.length > 0) {
-      const { data: orderRows } = await supabase
-        .from("orders")
-        .select("symbol, stop_price, created_at")
-        .eq("user_id", user.id)
-        .eq("mode", "paper")
-        .in("symbol", symbols)
-        .not("stop_price", "is", null)
-        .order("created_at", { ascending: false });
-      for (const row of orderRows ?? []) {
-        if (!stopLossBySymbol.has(row.symbol)) stopLossBySymbol.set(row.symbol, Number(row.stop_price));
-      }
-    }
+    // Reconcile our `positions` ledger against what's actually open at the
+    // broker: records newly-opened positions, and for ones that closed since
+    // the last poll, derives exit_condition + realized P/L into trade_logs.
+    await reconcilePositions(
+      supabase,
+      creds,
+      user.id,
+      positions.map((p) => ({
+        symbol: p.symbol,
+        qty: Number(p.qty),
+        side: p.side,
+        avgEntry: Number(p.avg_entry_price),
+      })),
+    );
+
+    // Called stop-loss per symbol, now sourced from the just-reconciled
+    // `positions` row rather than re-deriving it from `orders` each time.
+    const { data: openPositionRows } = await supabase
+      .from("positions")
+      .select("symbol, stop_loss")
+      .eq("user_id", user.id)
+      .eq("closed", false);
+    const stopLossBySymbol = new Map(
+      (openPositionRows ?? [])
+        .filter((r) => r.stop_loss != null)
+        .map((r) => [r.symbol, Number(r.stop_loss)]),
+    );
 
     return NextResponse.json({
       mode: "paper",

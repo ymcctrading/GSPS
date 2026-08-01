@@ -138,3 +138,8 @@ export async function getOrders(creds: AlpacaCreds, status: "open" | "closed" | 
 export async function cancelOrder(creds: AlpacaCreds, orderId: string) {
   return alpacaFetch(creds, `/v2/orders/${orderId}`, { method: "DELETE" });
 }
+
+/** Liquidate an open position at market immediately. Returns the closing order. */
+export async function closePosition(creds: AlpacaCreds, symbol: string) {
+  return alpacaFetch(creds, `/v2/positions/${symbol}`, { method: "DELETE" });
+}

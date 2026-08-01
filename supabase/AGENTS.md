@@ -1,9 +1,16 @@
 # supabase — Migrations & Schema
 
-## Tables (as of migration `0002`)
+## Tables (as of migration `0003`)
 
 `profiles`, `watchlists`, `watchlist_items`, `scan_results`, `daily_scans`,
 `broker_connections`, `orders`, `positions`, `settings`, `trade_logs`.
+
+`positions` gained `side` and `scan_result_id` in migration `0003` — the
+position-reconciliation job (`lib/portfolio/reconcile.ts`, called from
+`GET /api/portfolio`) is the only writer. It compares live Alpaca positions
+against this table on every poll: new positions get inserted, and
+positions that disappeared get marked `closed` with a derived
+`exit_condition` and a corresponding `trade_logs` row.
 
 `daily_scans` is what `/api/market-scan` writes to and what the dashboard
 reads for its 15 bullish/15 bearish signals — see `app/api/AGENTS.md`.
