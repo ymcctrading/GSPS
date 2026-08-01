@@ -12,6 +12,7 @@ import {
   type Time,
 } from "lightweight-charts";
 import { MousePointer2, Minus, TrendingUp, Bell, BellOff, Trash2 } from "lucide-react";
+import { ChartTradeWidget } from "@/components/trade/chart-trade-widget";
 import type { Bar, Timeframe } from "@/lib/types";
 import {
   DEFAULT_VISIBLE_BARS,
@@ -22,7 +23,7 @@ import {
   TIMEFRAMES,
 } from "@/lib/timeframe";
 import { barSession, isExtended } from "@/lib/market/session";
-import { sma, ema, bollinger, rsi, volumeBars, type Candle as CalcCandle } from "@/lib/indicators";
+import { sma, ema, bollinger, rsi, macd, volumeBars, type Candle as CalcCandle } from "@/lib/indicators";
 import { cn } from "@/lib/utils";
 
 export interface PriceMarker {
@@ -31,12 +32,16 @@ export interface PriceMarker {
   kind: "entry" | "stop" | "target" | "gann";
 }
 
+// Protocol levels are reference lines, not data — they run translucent and
+// dashed so a candle body crossing one stays fully readable underneath.
 const MARKER_COLOR: Record<PriceMarker["kind"], string> = {
-  entry: "#2563eb",
-  stop: "#dc2626",
-  target: "#059669",
-  gann: "#94a3b8",
+  entry: "rgba(37,99,235,0.35)",
+  stop: "rgba(220,38,38,0.35)",
+  target: "rgba(5,150,105,0.35)",
+  gann: "rgba(148,163,184,0.35)",
 };
+/** lightweight-charts LineStyle: 0 solid, 2 dashed, 3 large-dashed, 4 dotted. */
+const MARKER_LINE_STYLE = 2;
 
 const DRAW_COLOR = "#a855f7"; // user-drawn trendlines / h-lines
 const ALERT_COLOR = "#f59e0b";
@@ -55,7 +60,7 @@ type Trendline = { a: Point; b: Point };
 // Overlay indicators drawn in the main price pane.
 type Overlay = "sma20" | "sma50" | "ema9" | "bb";
 // Study indicators drawn in their own pane below price.
-type Study = "volume" | "rsi";
+type Study = "volume" | "rsi" | "macd";
 
 const OVERLAY_META: Record<Overlay, { label: string; color: string }> = {
   sma20: { label: "SMA 20", color: "#f59e0b" },
@@ -66,7 +71,11 @@ const OVERLAY_META: Record<Overlay, { label: string; color: string }> = {
 const STUDY_META: Record<Study, { label: string }> = {
   volume: { label: "Volume" },
   rsi: { label: "RSI 14" },
+  macd: { label: "MACD 12/26/9" },
 };
+
+const MACD_LINE = "#2563eb";
+const MACD_SIGNAL = "#f59e0b";
 
 function isCryptoSym(sym: string): boolean {
   const known = ["BTC", "ETH", "SOL", "DOGE", "LTC", "AVAX", "LINK", "XRP", "BCH", "UNI"];
@@ -105,11 +114,14 @@ export function CandleChart({
   markers,
   livePrice,
   initialTimeframe = "1Day",
+  enableTrading = false,
 }: {
   symbol: string;
   markers: PriceMarker[];
   livePrice?: number | null;
   initialTimeframe?: Timeframe;
+  /** Show the Buy/Sell overlay + live P/L drawer. Off on the public chart. */
+  enableTrading?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -427,8 +439,8 @@ export function CandleChart({
       series.createPriceLine({
         price: m.price,
         color: MARKER_COLOR[m.kind],
-        lineWidth: m.kind === "gann" ? 1 : 2,
-        lineStyle: m.kind === "gann" ? 3 : 0,
+        lineWidth: 1,
+        lineStyle: m.kind === "gann" ? 3 : MARKER_LINE_STYLE,
         axisLabelVisible: true,
         title: m.label,
       }),
@@ -560,6 +572,43 @@ export function CandleChart({
       line.createPriceLine({ price: 70, color: "#dc2626", lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: "70" });
       line.createPriceLine({ price: 30, color: "#059669", lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: "30" });
       created.push(line);
+      paneIndex += 1;
+    }
+    if (studies.has("macd")) {
+      const m = macd(calcCandles);
+      // Histogram first so the MACD/signal lines draw over the bars.
+      const hist = chart.addSeries(
+        HistogramSeries,
+        { priceLineVisible: false, lastValueVisible: false },
+        paneIndex,
+      );
+      hist.setData(m.histogram.map((h) => ({ time: h.time as Time, value: h.value, color: h.color })));
+      created.push(hist);
+
+      const macdLine = chart.addSeries(
+        LineSeries,
+        { color: MACD_LINE, lineWidth: 2, priceLineVisible: false, lastValueVisible: true },
+        paneIndex,
+      );
+      macdLine.setData(m.macd.map((d) => ({ time: d.time as Time, value: d.value })));
+      created.push(macdLine);
+
+      const signalLine = chart.addSeries(
+        LineSeries,
+        { color: MACD_SIGNAL, lineWidth: 1, priceLineVisible: false, lastValueVisible: true },
+        paneIndex,
+      );
+      signalLine.setData(m.signal.map((d) => ({ time: d.time as Time, value: d.value })));
+      // Zero line — the crossover that matters on MACD.
+      signalLine.createPriceLine({
+        price: 0,
+        color: "rgba(148,163,184,0.5)",
+        lineWidth: 1,
+        lineStyle: 2,
+        axisLabelVisible: false,
+        title: "",
+      });
+      created.push(signalLine);
       paneIndex += 1;
     }
 
@@ -745,6 +794,14 @@ export function CandleChart({
 
       <div className="relative h-[420px] w-full">
         <div ref={containerRef} className="absolute inset-0" />
+        {/* Trade overlay lives inside the canvas box so its panels stay tethered
+            to the chart. Pointer events are re-enabled per child so the wrapper
+            never swallows chart drags. */}
+        {enableTrading && (
+          <div className="pointer-events-none absolute inset-0">
+            <ChartTradeWidget symbol={symbol} livePrice={livePrice} />
+          </div>
+        )}
         {status === "loading" && (
           <div className="absolute inset-0 flex items-center justify-center text-sm text-muted">
             Loading chart…
@@ -762,9 +819,9 @@ export function CandleChart({
         <span className="font-medium text-foreground/70">
           1 candle = {TF_CANDLE_LABEL[timeframe]}
         </span>
-        <LegendItem color="#2563eb" label="Entry" />
-        <LegendItem color="#dc2626" label="Stop loss" />
-        <LegendItem color="#059669" label="TP1 & Master (profit targets)" />
+        <LegendItem color="#2563eb" dashed label="Entry" />
+        <LegendItem color="#dc2626" dashed label="Stop loss (SL)" />
+        <LegendItem color="#059669" dashed label="TP1 & MP (profit targets)" />
         <LegendItem color="#94a3b8" dashed label="Gann levels (support/resistance zones)" />
         {extendedApplies && <LegendItem color="rgba(5,150,105,0.40)" label="Extended-hours candles (dimmed)" solidBlock />}
         {alertPrice != null && <LegendItem color={ALERT_COLOR} dashed label="Price alert (drag to move)" />}

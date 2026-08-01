@@ -3,9 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
+import { StrikeOrderModal, type StrikeSelection } from "@/components/trade/strike-order-modal";
+import { classifyMoneyness, strikeStep, type Moneyness } from "@/lib/options/contracts";
 import { formatUsd } from "@/lib/utils";
 import type { ScanResult } from "@/lib/types";
-import type { OptionChain, Level2Book } from "@/lib/data/provider";
+import type { OptionChain, OptionContract, Level2Book } from "@/lib/data/provider";
 
 type Tab = "research" | "options" | "levelii";
 
@@ -56,6 +58,7 @@ function ResearchPanel({ symbol, result }: { symbol: string; result?: ScanResult
   const [fetched, setFetched] = useState<ScanResult | null>(result ?? null);
   const [error, setError] = useState<string | null>(null);
   const [indicators, setIndicators] = useState<IndicatorsData | null>(null);
+  const [indicatorsError, setIndicatorsError] = useState<string | null>(null);
 
   useEffect(() => {
     if (result) {
@@ -77,19 +80,25 @@ function ResearchPanel({ symbol, result }: { symbol: string; result?: ScanResult
     };
   }, [symbol, result]);
 
-  // Load MACD and RSI indicators
+  // Load MACD and RSI indicators. A prior bug here (wrong fetchBars argument
+  // count, plus "5m" not resolving to a real timeframe) made every one of these
+  // requests 502, and the failure was invisible because it was swallowed
+  // silently — this section stayed blank with no clue why. Both bugs are fixed
+  // upstream (see lib/timeframe.ts / app/api/indicators/route.ts), and the
+  // failure path here now surfaces the error instead of erasing it, so a
+  // regression shows up in the UI rather than as a quietly missing section.
   useEffect(() => {
     let cancelled = false;
     setIndicators(null);
+    setIndicatorsError(null);
     fetch(`/api/indicators?symbol=${encodeURIComponent(symbol)}&timeframe=5m`)
       .then(async (r) => {
-        if (!r.ok) return null;
-        return r.json();
+        const body = await r.json().catch(() => null);
+        if (!r.ok) throw new Error(body?.error ?? `HTTP ${r.status}`);
+        return body;
       })
       .then((d) => !cancelled && d && setIndicators(d))
-      .catch(() => {
-        /* silently fail if indicators unavailable */
-      });
+      .catch((e) => !cancelled && setIndicatorsError(e instanceof Error ? e.message : String(e)));
     return () => {
       cancelled = true;
     };
@@ -183,6 +192,15 @@ function ResearchPanel({ symbol, result }: { symbol: string; result?: ScanResult
         </section>
       )}
 
+      {indicatorsError && !indicators && (
+        <section>
+          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+            Technical indicators (5m)
+          </h4>
+          <p className="text-sm text-bear">{indicatorsError}</p>
+        </section>
+      )}
+
       {indicators && (
         <section>
           <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
@@ -240,11 +258,19 @@ function ResearchPanel({ symbol, result }: { symbol: string; result?: ScanResult
 /* ----------------------------------------------------------------- Options */
 
 type StrikeFilter = "all" | "5" | "10" | "15" | "25" | "50";
+type MoneynessFilter = "all" | Moneyness;
+
+interface ChainResponse extends OptionChain {
+  source?: string;
+  horizon?: { months: number; maxDate: string; expirations: string[] };
+}
 
 function OptionsPanel({ symbol }: { symbol: string }) {
-  const [chain, setChain] = useState<(OptionChain & { source?: string }) | null>(null);
+  const [chain, setChain] = useState<ChainResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [strikeFilter, setStrikeFilter] = useState<StrikeFilter>("all");
+  const [moneynessFilter, setMoneynessFilter] = useState<MoneynessFilter>("all");
+  const [selection, setSelection] = useState<StrikeSelection | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -265,45 +291,79 @@ function OptionsPanel({ symbol }: { symbol: string }) {
   if (error) return <p className="text-sm text-bear">{error}</p>;
   if (!chain) return <Skeleton label="Loading options chain…" />;
 
+  const spot = chain.underlyingPrice;
   const strikes = Array.from(new Set(chain.contracts.map((c) => c.strike))).sort((a, b) => a - b);
   const byKey = new Map(chain.contracts.map((c) => [`${c.type}:${c.strike}`, c]));
-  const atm = strikes.reduce((best, s) =>
-    Math.abs(s - chain.underlyingPrice) < Math.abs(best - chain.underlyingPrice) ? s : best,
-  strikes[0]);
+  const step = strikeStep(strikes);
+  const atm = strikes.reduce((best, s) => (Math.abs(s - spot) < Math.abs(best - spot) ? s : best), strikes[0]);
 
-  // Filter strikes based on selection
+  // Narrow to a window of strikes around the money, then to a moneyness tranche.
   let filteredStrikes = strikes;
   if (strikeFilter !== "all") {
     const groupSize = parseInt(strikeFilter);
     const startIdx = Math.max(0, strikes.findIndex((s) => s === atm) - Math.floor(groupSize / 2));
     filteredStrikes = strikes.slice(startIdx, startIdx + groupSize);
   }
+  if (moneynessFilter !== "all") {
+    // A row holds both sides, so it survives when either leg is in the tranche —
+    // that's what makes every tranche reachable from the one unified grid.
+    filteredStrikes = filteredStrikes.filter(
+      (s) =>
+        classifyMoneyness("call", s, spot, step) === moneynessFilter ||
+        classifyMoneyness("put", s, spot, step) === moneynessFilter,
+    );
+  }
+
+  const expirations = chain.horizon?.expirations ?? [chain.expiration];
+  const maxExpiration = chain.horizon?.maxDate ?? chain.expiration;
+
+  const openTicket = (contract: OptionContract | undefined, strike: number) => {
+    if (!contract) return;
+    setSelection({
+      contract,
+      moneyness: classifyMoneyness(contract.type, strike, spot, step),
+      underlying: chain.symbol,
+      underlyingPrice: spot,
+      expirations,
+      maxExpiration,
+      defaultExpiration: expirations[0] ?? chain.expiration,
+    });
+  };
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
           <span>
-            Underlying <span className="font-mono text-foreground">{formatUsd(chain.underlyingPrice)}</span>
+            Underlying <span className="font-mono text-foreground">{formatUsd(spot)}</span>
           </span>
           <span>· Exp {chain.expiration}</span>
+          {chain.horizon && (
+            <span className="text-xs text-muted/80">· {chain.horizon.months}-month horizon</span>
+          )}
           {chain.simulated && <Badge variant="muted">Simulated</Badge>}
         </div>
-        <div className="flex flex-wrap gap-1">
-          {(["all", "5", "10", "15", "25", "50"] as StrikeFilter[]).map((f) => (
-            <button
-              key={f}
-              onClick={() => setStrikeFilter(f)}
-              className={
-                "rounded px-2 py-1 text-xs font-medium cursor-pointer transition-colors " +
-                (strikeFilter === f
-                  ? "bg-accent text-surface"
-                  : "border border-border hover:border-accent")
-              }
-            >
-              {f === "all" ? "All" : f}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap gap-1">
+            {(["all", "ITM", "ATM", "OTM"] as MoneynessFilter[]).map((f) => (
+              <FilterChip
+                key={f}
+                active={moneynessFilter === f}
+                onClick={() => setMoneynessFilter(f)}
+                label={f === "all" ? "All" : f}
+              />
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-1 border-l border-border pl-3">
+            {(["all", "5", "10", "15", "25", "50"] as StrikeFilter[]).map((f) => (
+              <FilterChip
+                key={f}
+                active={strikeFilter === f}
+                onClick={() => setStrikeFilter(f)}
+                label={f === "all" ? "All" : f}
+              />
+            ))}
+          </div>
         </div>
       </div>
 
@@ -313,11 +373,20 @@ function OptionsPanel({ symbol }: { symbol: string }) {
             <TH className="text-bull">Call</TH>
             <TH className="text-bull">Bid</TH>
             <TH className="text-bull">Ask</TH>
+            <TH className="text-bull" title="Delta">Δ</TH>
+            <TH className="text-bull" title="Gamma">Γ</TH>
+            <TH className="text-bull" title="Theta">Θ</TH>
+            <TH className="text-bull" title="Vega">V</TH>
+            <TH className="text-bull" title="Open interest">OI</TH>
             <TH className="text-bull">Vol</TH>
-            <TH className="text-bull">Δ</TH>
             <TH className="text-center font-semibold text-foreground">Strike</TH>
-            <TH className="text-center">Δ</TH>
+            <TH className="text-center" title="Beta vs market">β</TH>
             <TH className="text-bear">Vol</TH>
+            <TH className="text-bear" title="Open interest">OI</TH>
+            <TH className="text-bear" title="Vega">V</TH>
+            <TH className="text-bear" title="Theta">Θ</TH>
+            <TH className="text-bear" title="Gamma">Γ</TH>
+            <TH className="text-bear" title="Delta">Δ</TH>
             <TH className="text-bear">Bid</TH>
             <TH className="text-bear">Ask</TH>
             <TH className="text-bear">Put</TH>
@@ -327,36 +396,55 @@ function OptionsPanel({ symbol }: { symbol: string }) {
           {filteredStrikes.map((strike) => {
             const call = byKey.get(`call:${strike}`);
             const put = byKey.get(`put:${strike}`);
-            const isAtm = strike === atm;
+            const callM = classifyMoneyness("call", strike, spot, step);
+            const putM = classifyMoneyness("put", strike, spot, step);
+            const isAtm = callM === "ATM" || putM === "ATM";
             return (
               <TR key={strike} className={isAtm ? "bg-accent-soft/60" : undefined}>
-                <TD className="text-center text-xs text-muted">
-                  {call?.inTheMoney ? "ITM" : ""}
-                </TD>
-                <TD className={"font-mono text-xs " + (call?.inTheMoney ? "text-bull" : "text-muted")}>
+                <StrikeCell contract={call} onOpen={() => openTicket(call, strike)} className="text-center">
+                  <MoneynessTag moneyness={callM} />
+                </StrikeCell>
+                <StrikeCell contract={call} onOpen={() => openTicket(call, strike)} tone={callM === "ITM" ? "bull" : undefined}>
                   {call ? formatUsd(call.bid) : "—"}
-                </TD>
-                <TD className={"font-mono text-xs " + (call?.inTheMoney ? "text-bull" : "text-muted")}>
+                </StrikeCell>
+                <StrikeCell contract={call} onOpen={() => openTicket(call, strike)} tone={callM === "ITM" ? "bull" : undefined}>
                   {call ? formatUsd(call.ask) : "—"}
-                </TD>
-                <TD className="text-center font-mono text-xs text-muted">
+                </StrikeCell>
+                <GreekCell value={call?.delta} onOpen={() => openTicket(call, strike)} />
+                <GreekCell value={call?.gamma} digits={4} onOpen={() => openTicket(call, strike)} />
+                <GreekCell value={call?.theta} onOpen={() => openTicket(call, strike)} />
+                <GreekCell value={call?.vega} onOpen={() => openTicket(call, strike)} />
+                <StrikeCell contract={call} onOpen={() => openTicket(call, strike)} className="text-center">
+                  {call ? call.openInterest.toLocaleString() : "—"}
+                </StrikeCell>
+                <StrikeCell contract={call} onOpen={() => openTicket(call, strike)} className="text-center">
                   {call ? call.volume.toLocaleString() : "—"}
-                </TD>
-                <TD className="text-center font-mono text-xs text-muted">{call?.delta ?? "—"}</TD>
+                </StrikeCell>
+
                 <TD className="text-center font-mono text-xs font-semibold">{formatUsd(strike)}</TD>
-                <TD className="text-center font-mono text-xs text-muted">{put?.delta ?? "—"}</TD>
+
                 <TD className="text-center font-mono text-xs text-muted">
+                  {call?.beta ?? put?.beta ?? "—"}
+                </TD>
+                <StrikeCell contract={put} onOpen={() => openTicket(put, strike)} className="text-center">
                   {put ? put.volume.toLocaleString() : "—"}
-                </TD>
-                <TD className={"font-mono text-xs " + (put?.inTheMoney ? "text-bear" : "text-muted")}>
+                </StrikeCell>
+                <StrikeCell contract={put} onOpen={() => openTicket(put, strike)} className="text-center">
+                  {put ? put.openInterest.toLocaleString() : "—"}
+                </StrikeCell>
+                <GreekCell value={put?.vega} onOpen={() => openTicket(put, strike)} />
+                <GreekCell value={put?.theta} onOpen={() => openTicket(put, strike)} />
+                <GreekCell value={put?.gamma} digits={4} onOpen={() => openTicket(put, strike)} />
+                <GreekCell value={put?.delta} onOpen={() => openTicket(put, strike)} />
+                <StrikeCell contract={put} onOpen={() => openTicket(put, strike)} tone={putM === "ITM" ? "bear" : undefined}>
                   {put ? formatUsd(put.bid) : "—"}
-                </TD>
-                <TD className={"font-mono text-xs " + (put?.inTheMoney ? "text-bear" : "text-muted")}>
+                </StrikeCell>
+                <StrikeCell contract={put} onOpen={() => openTicket(put, strike)} tone={putM === "ITM" ? "bear" : undefined}>
                   {put ? formatUsd(put.ask) : "—"}
-                </TD>
-                <TD className="text-center text-xs text-muted">
-                  {put?.inTheMoney ? "ITM" : ""}
-                </TD>
+                </StrikeCell>
+                <StrikeCell contract={put} onOpen={() => openTicket(put, strike)} className="text-center">
+                  <MoneynessTag moneyness={putM} />
+                </StrikeCell>
               </TR>
             );
           })}
@@ -364,11 +452,93 @@ function OptionsPanel({ symbol }: { symbol: string }) {
       </Table>
 
       <p className="text-xs text-muted/80">
+        Click any strike to open a purchase ticket.{" "}
         {chain.simulated
-          ? "Simulated chain — greeks and open interest are modelled, not exchange data. IV shown is implied volatility."
-          : "Display only. To place a real options order, open this symbol's ticker page and use the order ticket."}
+          ? "Simulated chain — greeks, beta and open interest are modelled, not exchange data."
+          : "Greeks are derived from the chain's own IV and moneyness."}
       </p>
+
+      <StrikeOrderModal selection={selection} onClose={() => setSelection(null)} />
     </div>
+  );
+}
+
+function FilterChip({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
+  return (
+    <button
+      onClick={onClick}
+      className={
+        "rounded px-2 py-1 text-xs font-medium cursor-pointer transition-colors " +
+        (active ? "bg-accent text-surface" : "border border-border hover:border-accent")
+      }
+    >
+      {label}
+    </button>
+  );
+}
+
+function MoneynessTag({ moneyness }: { moneyness: Moneyness }) {
+  const tone =
+    moneyness === "ITM" ? "text-bull" : moneyness === "ATM" ? "text-warn" : "text-muted/60";
+  return <span className={"text-[10px] font-semibold " + tone}>{moneyness}</span>;
+}
+
+/** A chain cell that opens the purchase ticket for its contract when clicked. */
+function StrikeCell({
+  contract,
+  onOpen,
+  children,
+  className,
+  tone,
+}: {
+  contract: OptionContract | undefined;
+  onOpen: () => void;
+  children: React.ReactNode;
+  className?: string;
+  tone?: "bull" | "bear";
+}) {
+  return (
+    <TD
+      onClick={contract ? onOpen : undefined}
+      role={contract ? "button" : undefined}
+      tabIndex={contract ? 0 : undefined}
+      onKeyDown={(e) => {
+        if (contract && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+      className={
+        "font-mono text-xs " +
+        (tone === "bull" ? "text-bull " : tone === "bear" ? "text-bear " : "text-muted ") +
+        (contract ? "cursor-pointer hover:bg-accent-soft/40 " : "") +
+        (className ?? "")
+      }
+    >
+      {children}
+    </TD>
+  );
+}
+
+function GreekCell({
+  value,
+  digits = 2,
+  onOpen,
+}: {
+  value: number | undefined;
+  digits?: number;
+  onOpen: () => void;
+}) {
+  return (
+    <TD
+      onClick={value != null ? onOpen : undefined}
+      className={
+        "text-center font-mono text-xs text-muted " +
+        (value != null ? "cursor-pointer hover:bg-accent-soft/40" : "")
+      }
+    >
+      {value != null ? value.toFixed(digits) : "—"}
+    </TD>
   );
 }
 

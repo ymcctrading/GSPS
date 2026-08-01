@@ -1,6 +1,6 @@
 # supabase — Migrations & Schema
 
-## Tables (as of migration `0002`)
+## Tables (as of migration `0004`)
 
 `profiles`, `watchlists`, `watchlist_items`, `scan_results`, `daily_scans`,
 `broker_connections`, `orders`, `positions`, `settings`, `trade_logs`.
@@ -8,11 +8,23 @@
 `daily_scans` is what `/api/market-scan` writes to and what the dashboard
 reads for its 15 bullish/15 bearish signals — see `app/api/AGENTS.md`.
 
+`orders` and `positions` also carry option-contract economics (purchase
+price, contract cost, a greeks snapshot), which protocol target was hit
+(`tp1_hit_at`/`mp_hit_at`/`sl_hit_at`), and a generated `asset_type`
+(`'EQUITY' | 'OPTION'`) derived from `asset_class` — see `0003` and `0004`.
+
 ## Conventions established by existing migrations
 
 - **Numbered, sequential migration files**: `0001_initial_schema.sql`,
-  `0002_trade_logging.sql`. Keep this pattern — `000N_short_description.sql`
-  — rather than timestamp-based names.
+  `0002_trade_logging.sql`, `0003_order_greeks_and_targets.sql`,
+  `0004_asset_type_flag.sql`. Keep this pattern —
+  `000N_short_description.sql` — rather than timestamp-based names.
+- **Derive, don't duplicate.** `asset_type` (`0004`) is a `generated always
+  as` column computed from `asset_class` rather than a second value the app
+  has to keep in sync — two independent flags on the same row that could
+  disagree is a data-integrity bug waiting to happen. Prefer a generated
+  column over a parallel flag when the new field is fully determined by an
+  existing one.
 - **Row Level Security is on for every user-scoped table**, with a policy
   restricting rows to `auth.uid()`. Any new table holding per-user data
   must enable RLS and add an equivalent policy in the same migration that

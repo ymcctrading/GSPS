@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { sma, ema, bollinger, rsi, volumeBars, type Candle } from "@/lib/indicators";
+import { sma, ema, bollinger, rsi, macd, volumeBars, type Candle } from "@/lib/indicators";
 
 function mk(closes: number[]): Candle[] {
   return closes.map((c, i) => ({
@@ -60,6 +60,32 @@ describe("rsi", () => {
     for (const p of out) {
       expect(p.value).toBeGreaterThanOrEqual(0);
       expect(p.value).toBeLessThanOrEqual(100);
+    }
+  });
+});
+
+describe("macd", () => {
+  it("returns empty before the slow EMA + signal warm-up is satisfied", () => {
+    expect(macd(mk(Array.from({ length: 30 }, (_, i) => 10 + i)))).toEqual({
+      macd: [],
+      signal: [],
+      histogram: [],
+    });
+  });
+
+  it("produces aligned macd/signal/histogram series once warmed up", () => {
+    // A long enough, non-trivial series to clear slow(26) + signal(9).
+    const closes = Array.from({ length: 80 }, (_, i) => 50 + Math.sin(i / 4) * 5 + i * 0.1);
+    const out = macd(mk(closes));
+    expect(out.macd.length).toBeGreaterThan(0);
+    expect(out.histogram.length).toBe(out.signal.length);
+    // histogram = macd − signal at every aligned point.
+    const macdByTime = new Map(out.macd.map((p) => [p.time, p.value]));
+    for (const h of out.histogram) {
+      const m = macdByTime.get(h.time)!;
+      const s = out.signal.find((p) => p.time === h.time)!.value;
+      expect(h.value).toBeCloseTo(m - s, 9);
+      expect(h.color).toBe(h.value >= 0 ? "rgba(5,150,105,0.55)" : "rgba(220,38,38,0.55)");
     }
   });
 });

@@ -105,6 +105,60 @@ export function rsi(candles: Candle[], period = 14): LinePoint[] {
   return out;
 }
 
+export interface Macd {
+  /** The MACD line: fast EMA − slow EMA. */
+  macd: LinePoint[];
+  /** EMA of the MACD line. */
+  signal: LinePoint[];
+  /** macd − signal, coloured by sign for the histogram. */
+  histogram: { time: number; value: number; color: string }[];
+}
+
+const MACD_UP = "rgba(5,150,105,0.55)";
+const MACD_DOWN = "rgba(220,38,38,0.55)";
+
+/**
+ * MACD (12, 26, 9). Both EMAs are seeded from an SMA of their first `period`
+ * closes — the same warm-up `ema()` above uses — so the series starts where the
+ * slow EMA becomes defined rather than from an arbitrary first close.
+ */
+export function macd(candles: Candle[], fast = 12, slow = 26, signalPeriod = 9): Macd {
+  const empty: Macd = { macd: [], signal: [], histogram: [] };
+  if (candles.length < slow + signalPeriod) return empty;
+
+  const fastEma = ema(candles, fast);
+  const slowEma = ema(candles, slow);
+  if (fastEma.length === 0 || slowEma.length === 0) return empty;
+
+  // Align the two EMAs on time — the fast one starts earlier.
+  const fastByTime = new Map(fastEma.map((p) => [p.time, p.value]));
+  const macdLine: LinePoint[] = [];
+  for (const slowPoint of slowEma) {
+    const fastValue = fastByTime.get(slowPoint.time);
+    if (fastValue == null) continue;
+    macdLine.push({ time: slowPoint.time, value: fastValue - slowPoint.value });
+  }
+
+  // The signal line is an EMA of the MACD line, so reuse `ema()` by presenting
+  // the MACD values as closes.
+  const asCandles: Candle[] = macdLine.map((p) => ({
+    time: p.time,
+    open: p.value,
+    high: p.value,
+    low: p.value,
+    close: p.value,
+  }));
+  const signalLine = ema(asCandles, signalPeriod);
+
+  const macdByTime = new Map(macdLine.map((p) => [p.time, p.value]));
+  const histogram = signalLine.map((s) => {
+    const value = (macdByTime.get(s.time) ?? 0) - s.value;
+    return { time: s.time, value, color: value >= 0 ? MACD_UP : MACD_DOWN };
+  });
+
+  return { macd: macdLine, signal: signalLine, histogram };
+}
+
 /** Volume histogram data colored by candle direction. */
 export function volumeBars(candles: Candle[]): { time: number; value: number; color: string }[] {
   return candles
