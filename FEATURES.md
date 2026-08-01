@@ -115,7 +115,7 @@ GSPS is a comprehensive trading application built with Next.js, Supabase, and Al
 - `/glossary` - Educational resources
 
 **Core Libraries** (`lib/`):
-- `gann/` - Gann analysis calculations
+- `gann/` - Structural analysis calculations
 - `strat/` - Pattern recognition algorithms
 - `analysis/` - Trend and pivot analysis
 - `brokers/` - Broker integrations
@@ -162,7 +162,7 @@ GSPS is a comprehensive trading application built with Next.js, Supabase, and Al
 
 ## Testing & Quality Assurance
 
-- **Gann Tests**: Unit tests for Gann calculations
+- **Structural Analysis Tests**: Unit tests for structural analysis calculations
 - **Strat Tests**: Unit tests for pattern recognition
 - **Vitest Integration**: Modern test framework
 - **ESLint Configuration**: Code quality enforcement

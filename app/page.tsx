@@ -12,7 +12,7 @@ const FEATURES = [
   {
     icon: Radar,
     title: "Top-down scanning",
-    body: "Ten years down to fifteen minutes. The scanner reads macro trend and support, then narrows to sniper entries on the execution timeframe.",
+    body: "Ten years down to fifteen minutes. The scanner reads macro trend and support, then narrows to triggered entries on the execution timeframe.",
   },
   {
     icon: Target,

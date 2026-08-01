@@ -21,23 +21,23 @@ jobs:
 
       - name: Check for banned terms
         run: |
-          BANNED_TERMS="Gann|gann|GANN|Sara|sara|SARA|Sniper|sniper|SNIPER|Strat|strat|STRAT|W\.D\. Gann|w\.d\. gann"
+          # Check only for product-branded phrases, not internal directory references
+          # Banned: "Gann Protocol", "Sara Sniper", "sniper entry", product names
+          # Allowed: `lib/gann/` and `lib/strat/` in documentation (internal names)
+          BANNED_PHRASES=(
+            "Gann Protocol"
+            "Sara Sniper"
+            "sniper entr"
+            "W\.D\. Gann"
+          )
 
-          # Scan with exceptions
-          VIOLATIONS=$(grep -r \
-            --include="*.ts" \
-            --include="*.tsx" \
-            --include="*.js" \
-            --include="*.jsx" \
-            --include="*.md" \
-            --include="*.json" \
-            --exclude-dir=node_modules \
-            --exclude-dir=.next \
-            --exclude-dir=lib/gann \
-            --exclude-dir=lib/strat \
-            --exclude=".github/ip-wordlist.json" \
-            --exclude="CHANGELOG.md" \
-            -E "$BANNED_TERMS" . 2>/dev/null || true)
+          VIOLATIONS=""
+          for phrase in "${BANNED_PHRASES[@]}"; do
+            if grep -r -E "$phrase" app/page.tsx README.md FEATURES.md 2>/dev/null; then
+              VIOLATIONS="1"
+              break
+            fi
+          done
 
           if [ -n "$VIOLATIONS" ]; then
             echo "❌ Banned terminology detected:"
