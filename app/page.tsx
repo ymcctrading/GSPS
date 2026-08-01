@@ -3,9 +3,9 @@ import { Button } from "@/components/ui/button";
 import { TrendingUp, Radar, Target, ShieldCheck } from "lucide-react";
 
 export const metadata = {
-  title: "GSPS — The Gann Protocol Scanner",
+  title: "GSPS — Structural Reversion Scanner",
   description:
-    "Multi-timeframe market scanning with Gann geometry and Sara Sniper Strat execution: pinpoint entries, structural stops, and scored setups out of 9.",
+    "Multi-timeframe market scanning with structural analysis and precision entry execution: pinpoint entries, structural stops, and scored setups out of 9.",
 };
 
 const FEATURES = [
@@ -22,7 +22,7 @@ const FEATURES = [
   {
     icon: ShieldCheck,
     title: "Scored out of 9",
-    body: "Nine confluence checks across Gann geometry, Strat patterns, and risk quality. Seven or higher signals Execute; below four, the setup is rejected.",
+    body: "Nine confluence checks across structural analysis, reversal patterns, and risk quality. Seven or higher signals Execute; below four, the setup is rejected.",
   },
 ];
 
@@ -51,9 +51,9 @@ export default function LandingPage() {
             Trade the reversion, <span className="text-accent">not the noise</span>.
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-lg text-muted">
-            GSPS unites W.D. Gann&apos;s geometric market structure with the Sara Sniper
-            Strat execution engine — objective entries, structural stops, and a
-            daily list of the market&apos;s thirty most primed reversion setups.
+            GSPS combines structural market analysis with a precision entry engine —
+            objective entries, structural stops, and a daily list of the market&apos;s
+            thirty most primed reversion setups.
           </p>
           <div className="mt-8 flex justify-center gap-3">
             <Link href="/signup">

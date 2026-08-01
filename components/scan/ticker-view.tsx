@@ -49,7 +49,7 @@ export function TickerView({ symbol }: { symbol: string }) {
     );
   }
   result?.gann.fanLines.slice(0, 2).forEach((f) =>
-    markers.push({ price: f.price, label: `Gann ${f.angle}`, kind: "gann" }),
+    markers.push({ price: f.price, label: `Support ${f.angle}`, kind: "gann" }),
   );
   result?.gann.squareOf9.slice(0, 2).forEach((s) =>
     markers.push({ price: s.price, label: `S9 ${s.degree}°`, kind: "gann" }),
@@ -64,7 +64,7 @@ export function TickerView({ symbol }: { symbol: string }) {
         <h1 className="text-2xl font-semibold">{symbol}</h1>
         <PriceHeader quote={quote} fallbackPrice={livePrice} />
         {result?.gann.timeCycleActive && (
-          <span className="text-xs font-medium text-warn">⏱ Gann time-cycle window active</span>
+          <span className="text-xs font-medium text-warn">⏱ Cyclical turn window active</span>
         )}
         <div className="ml-auto">
           <ShareButton symbol={symbol} />
@@ -95,7 +95,7 @@ export function TickerView({ symbol }: { symbol: string }) {
           {!result && !error && (
             <Card>
               <CardContent className="py-6 text-sm text-muted">
-                Running the protocol scan — macro structure, Gann coordinates, Strat triggers…
+                Running the structural scan — macro structure, support analysis, pattern triggers…
               </CardContent>
             </Card>
           )}

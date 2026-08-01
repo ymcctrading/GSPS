@@ -748,7 +748,7 @@ export function CandleChart({
                 onChange={(e) => setShowGann(e.target.checked)}
                 className="h-3.5 w-3.5 accent-[var(--accent)]"
               />
-              Show Gann levels
+              Show structural levels
             </label>
           )}
         </div>
@@ -824,7 +824,7 @@ export function CandleChart({
         <LegendItem color="#2563eb" dashed label="Entry" />
         <LegendItem color="#dc2626" dashed label="Stop loss (SL)" />
         <LegendItem color="#059669" dashed label="TP1 & MP (profit targets)" />
-        <LegendItem color="#94a3b8" dashed label="Gann levels (support/resistance zones)" />
+        <LegendItem color="#94a3b8" dashed label="Structural levels (support/resistance zones)" />
         {extendedApplies && <LegendItem color="rgba(5,150,105,0.40)" label="Extended-hours candles (dimmed)" solidBlock />}
         {alertPrice != null && <LegendItem color={ALERT_COLOR} dashed label="Price alert (drag to move)" />}
         {hasDrawings && <LegendItem color={DRAW_COLOR} label="Your drawings" />}

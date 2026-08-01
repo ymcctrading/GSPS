@@ -126,7 +126,7 @@ function ResearchPanel({ symbol, result }: { symbol: string; result?: ScanResult
             {fetched.direction}
           </Badge>
         )}
-        {fetched.gann.timeCycleActive && <Badge variant="warn">⏱ Gann time-cycle</Badge>}
+        {fetched.gann.timeCycleActive && <Badge variant="warn">⏱ Cyclical turn window</Badge>}
       </div>
 
       <section>
@@ -157,7 +157,7 @@ function ResearchPanel({ symbol, result }: { symbol: string; result?: ScanResult
       {fetched.gann.fanLines.length > 0 && (
         <section>
           <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
-            Gann levels near price
+            Structural levels near price
           </h4>
           <div className="flex flex-wrap gap-2 text-xs">
             {fetched.gann.fanLines.slice(0, 4).map((f, i) => (

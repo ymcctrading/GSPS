@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "GSPS — The Gann Protocol Scanner",
+  title: "GSPS — Structural Reversion Scanner",
   description:
-    "Multi-timeframe market scanning with Gann geometry and Sara Sniper Strat execution.",
+    "Multi-timeframe market scanning with structural analysis and precision entry execution.",
 };
 
 export default function RootLayout({

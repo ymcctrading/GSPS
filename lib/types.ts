@@ -30,7 +30,7 @@ export type Timeframe =
 
 export type Direction = "bullish" | "bearish" | "none";
 
-/** Sara Sniper Strat bar states. */
+/** Reversal pattern bar states. */
 export type StratState = "1" | "2U" | "2D" | "3";
 
 export interface StratPattern {

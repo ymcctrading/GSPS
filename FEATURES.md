@@ -1,7 +1,7 @@
 # GSPS Features Documentation
 
 ## Overview
-GSPS (Gann/Strat Pattern Scanner) is a comprehensive trading application built with Next.js, Supabase, and Alpaca/SnapTrade integrations. It provides real-time market scanning, pattern recognition, and automated trading capabilities.
+GSPS is a comprehensive trading application built with Next.js, Supabase, and Alpaca/SnapTrade integrations. It provides real-time market scanning with structural analysis, pattern recognition, and automated trading capabilities.
 
 ## Core Features
 
@@ -13,14 +13,14 @@ GSPS (Gann/Strat Pattern Scanner) is a comprehensive trading application built w
 
 ### 2. Market Scanning & Analysis
 - **Daily Market Scan**: Automated scan of market sectors and stocks
-- **Gann Analysis Engine**:
-  - Square of 9 calculations
-  - Gann fans
-  - Time cycle analysis
-- **Strategic Pattern Recognition**:
+- **Structural Analysis Engine**:
+  - Harmonic level calculations
+  - Support line analysis
+  - Cyclical turn window detection
+- **Pattern Recognition**:
   - Trend classification
   - Support/resistance level identification
-  - Pattern matching algorithms
+  - Reversal pattern matching algorithms
   - Support/resistance level analysis
 - **Multi-Timeframe Support**: 1m, 5m, 15m, 1h, 2h, 4h, 1d, 1w, 1mo, 1y candles
   — one candle always covers exactly the interval its label names
@@ -49,7 +49,7 @@ GSPS (Gann/Strat Pattern Scanner) is a comprehensive trading application built w
 - **10 Timeframes**: 1m → 1y, each candle aligned to its interval boundary
 - **Live Chart Updates**: Real-time candlestick updates
 - **Legend Toggle**: Show/hide price legend
-- **Gann Fan Overlays**: Visualize Gann analysis on charts
+- **Structural Level Overlays**: Visualize structural analysis on charts
 - **Technical Indicators**: Support/resistance levels, trend lines
 
 ### 7. SnapTrade Integration
@@ -60,7 +60,7 @@ GSPS (Gann/Strat Pattern Scanner) is a comprehensive trading application built w
 
 ### 8. Educational Resources
 - **Beginner Glossary**: Educational terms for trading concepts
-- **Pattern Explanations**: Learn about Gann and strat patterns
+- **Pattern Explanations**: Learn about structural analysis and reversal patterns
 - **Signal Definitions**: Understand scoring and signals
 
 ### 9. Dashboard & Analytics
