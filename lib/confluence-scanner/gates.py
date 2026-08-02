@@ -14,10 +14,21 @@ trade.
 TIER 1 FIX: Trend regime gate expanded to 15-45 (was 15-40) to allow
 more setups with strong but not-yet-unsustainable momentum to be scored.
 Scoring rewards the sweet spot (18-32), but gate allows wider band.
+
+TIER 2 FIX: Earnings blackout expanded to 5 days (was 3) to account for
+IV expansion and earnings-week volatility effects.
 """
 
 from schema import SetupInput
 from config import CONFIG
+
+# Tier 2: Try to import live earnings fetcher (optional)
+try:
+    from earnings_live import get_trading_days_to_earnings as get_live_earnings_days
+    LIVE_EARNINGS_AVAILABLE = True
+except ImportError:
+    LIVE_EARNINGS_AVAILABLE = False
+    get_live_earnings_days = None
 
 
 def check_macro_trend_gate(setup: SetupInput) -> tuple[bool, str]:
@@ -46,13 +57,31 @@ def check_liquidity_gate(setup: SetupInput) -> tuple[bool, str]:
 
 def check_earnings_gate(setup: SetupInput) -> tuple[bool, str]:
     g = CONFIG["gates"]
-    if setup.trading_days_to_next_earnings is None:
+
+    # TIER 2: Try live earnings data first (from Yahoo Finance via Supabase cache)
+    days_to_earnings = None
+    live_source = False
+    if LIVE_EARNINGS_AVAILABLE and get_live_earnings_days:
+        try:
+            days_to_earnings = get_live_earnings_days(setup.symbol)
+            if days_to_earnings is not None:
+                live_source = True
+        except Exception:
+            pass  # Fall back to upstream data
+
+    # Fall back to upstream data if live unavailable
+    if days_to_earnings is None:
+        days_to_earnings = setup.trading_days_to_next_earnings
+
+    if days_to_earnings is None:
         if g["fail_closed_on_missing_earnings_data"]:
             return False, "Earnings calendar unavailable — failing closed (was a silent zero in the old checklist)."
         return True, "Earnings calendar unavailable — configured to pass open (not recommended)."
-    if abs(setup.trading_days_to_next_earnings) <= g["earnings_blackout_days"]:
-        return False, f"Inside earnings blackout window ({setup.trading_days_to_next_earnings} trading days out)."
-    return True, f"{setup.trading_days_to_next_earnings} trading days to next earnings — outside blackout window."
+
+    if abs(days_to_earnings) <= g["earnings_blackout_days"]:
+        source_label = " (live)" if live_source else ""
+        return False, f"Inside earnings blackout window ({days_to_earnings} trading days out{source_label})."
+    return True, f"{days_to_earnings} trading days to next earnings — outside blackout window."
 
 
 def check_trend_regime_gate(setup: SetupInput) -> tuple[bool, str]:

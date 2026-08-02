@@ -118,21 +118,29 @@ def score_macd_alignment(setup: SetupInput) -> FactorResult:
 
 
 def score_rsi_regime(setup: SetupInput) -> FactorResult:
+    """
+    TIER 2 FIX: RSI thresholds optimized for reversals.
+    Previous: Bull RSI > 50, Bear RSI < 50 (midrange)
+    Now: Bull RSI < 35 (oversold), Bear RSI > 65 (overbought)
+
+    Rationale: GSPS is a confluence/reversal scanner, so we reward fading
+    to extremes, not trading midrange RSI.
+    """
     pts = CONFIG["scored_factors"]["momentum"]["rsi_regime"]["points"]
     if setup.rsi is None:
         return _missing("rsi_regime", "momentum", pts)
     b = CONFIG["bands"]
     if setup.direction == "bull":
-        passed = setup.rsi > b["rsi_bull_min"]
+        passed = setup.rsi < b["rsi_bull_min"]  # < 35 = oversold, good fade target
     else:
-        passed = setup.rsi < b["rsi_bear_max"]
+        passed = setup.rsi > b["rsi_bear_max"]  # > 65 = overbought, good fade target
     extra = ""
     if setup.rsi >= b["rsi_overbought"] or setup.rsi <= b["rsi_oversold"]:
-        extra = " (extreme reading — treat with extra caution / context-dependent)"
+        extra = " (extreme reading — ideal for reversal fades)"
     return FactorResult(
         name="rsi_regime", category="momentum",
         points_awarded=pts if passed else 0, points_possible=pts, passed=passed,
-        rationale=f"RSI {setup.rsi:.1f} {'supports' if passed else 'does not support'} {setup.direction} bias.{extra}",
+        rationale=f"RSI {setup.rsi:.1f} {'supports' if passed else 'does not support'} {setup.direction} fade target.{extra}",
     )
 
 
