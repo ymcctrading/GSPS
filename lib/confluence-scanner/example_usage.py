@@ -1,10 +1,8 @@
 """
 example_usage.py
 -----------------
-Demonstrates both manual setup (for testing) and automatic data fetching from Yahoo Finance.
-
-Option 1: Manual values (all fields provided, no network calls)
-Option 2: Automatic from Yahoo Finance (you provide Gann/Fib/pattern, everything else fetched)
+FULLY AUTOMATED: Fetches everything from Yahoo Finance and auto-detects all levels.
+No manual inputs needed — just symbol + direction.
 
 Run: python example_usage.py
 """
@@ -68,30 +66,17 @@ entry_id = log_scan(result1)
 print(f"Logged as {entry_id}\n")
 
 
-# --- Example 2: Automatic from Yahoo Finance (minimal manual input) ---
-print("\n### Example 2: Automatic data from Yahoo Finance ###")
-print("(Only you provide Gann/Fib/pattern; everything else fetched)\n")
+# --- Example 2: Fully AUTOMATIC from Yahoo Finance ---
+print("\n### Example 2: FULLY AUTOMATIC (zero manual inputs) ###\n")
 
 try:
-    # Yahoo fetches: macro_trend, volume, spread, earnings, ADX, hourly trend, MACD, RSI, ATR percentile
-    # You supply: Gann, Sq9, S/R, Fib distances + pattern + stops/TP
     setup2 = build_setup_from_yahoo(
         symbol="AAPL",
         direction="bear",
-        # Your proprietary levels (from your tools):
-        dist_pct_gann_fan=0.25,
-        dist_pct_square_of_9=0.15,
-        dist_pct_historical_sr=0.10,
-        dist_pct_fibonacci=0.30,
-        strat_pattern_armed=True,
-        stop_distance_pct=1.2,
-        tp1_r_multiple=2.0,
-        # RSI divergence: leave as None if unsure; you review the chart
-        rsi_divergence_present=None,
     )
 
     result2 = run_scan(setup2)
-    print(f"AAPL bear setup (auto-fetched from Yahoo):")
+    print(f"AAPL bear setup (100% auto-detected):")
     print_report(result2)
     log_scan(result2)
 
@@ -176,51 +161,19 @@ print_report(result4)
 log_scan(result4)
 
 
-# --- Example 5: ADX at new gate boundary (45) - should pass, not score high ---
-print("\n### Example 5: Strong trend (ADX 44) passes gate but doesn't score high ###")
-setup5 = SetupInput(
-    symbol="STRONG_TREND",
-    direction="bear",
-    price=200.00,
+# --- Example 3b: SPY bull (fully auto) ---
+print("\n### Example 2b: SPY bull (fully auto) ###\n")
 
-    # Gates
-    macro_trend_aligned=True,
-    avg_daily_volume=5_000_000,
-    bid_ask_spread_pct=0.03,
-    trading_days_to_next_earnings=12,
-    adx_daily=44,                 # TIER 1 FIX: this now passes gate (was 40 limit before)
+try:
+    setup2b = build_setup_from_yahoo(
+        symbol="SPY",
+        direction="bull",
+    )
 
-    # Trend
-    hourly_trend_aligned=True,
-    adx_entry_tf=35,              # but scoring "healthy" range is 18-32, so gets 0 trend_strength pts
+    result2b = run_scan(setup2b)
+    print(f"SPY bull setup (100% auto-detected):")
+    print_report(result2b)
+    log_scan(result2b)
 
-    # Structure cluster
-    dist_pct_gann_fan=0.15,
-    dist_pct_square_of_9=0.18,
-    dist_pct_historical_sr=0.22,
-    dist_pct_fibonacci=0.19,
-
-    # Momentum
-    macd_line=-0.22,
-    macd_signal=-0.10,
-    macd_histogram_prev=-0.15,
-    macd_histogram_curr=-0.20,     # falling further negative
-    rsi=35,
-    rsi_divergence_present=False,
-
-    # Participation
-    relative_volume_ratio=2.8,
-    relative_strength_vs_benchmark=True,
-
-    # Environment
-    atr_percentile_6mo=78,         # high vol regime
-
-    # Execution
-    strat_pattern_armed=True,
-    stop_distance_pct=1.9,         # high-vol band is 1.5-2.2, so this passes
-    tp1_r_multiple=2.2,            # excellent tier (8/8 pts)
-)
-
-result5 = run_scan(setup5)
-print_report(result5)
-log_scan(result5)
+except Exception as e:
+    print(f"SPY auto-scan failed: {e}\n")
