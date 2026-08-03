@@ -43,7 +43,7 @@ setup = SetupInput(
     macd_histogram_rising=True,    # NOTE: this field means "improving in the TRADE's favor",
                                     # not literally rising — for a bear setup, True = histogram
                                     # pushing further negative (momentum building downward)
-    rsi=42,
+    rsi=68,                        # TIER 2: Bear fade target is RSI > 65 (overbought, was 50)
     rsi_divergence_present=True,
 
     # Participation

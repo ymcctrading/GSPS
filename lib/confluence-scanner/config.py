@@ -23,7 +23,7 @@ CONFIG = {
     "gates": {
         "min_avg_daily_volume": 500_000,       # shares/contracts
         "max_bid_ask_spread_pct": 0.30,        # percent of price
-        "earnings_blackout_days": 3,           # trading days before/after
+        "earnings_blackout_days": 5,           # TIER 2: expanded from 3 (accounts for IV expansion week-of)
         "trend_regime_adx_min": 15,            # below this = no real trend, chop
         "trend_regime_adx_max": 45,            # above this = unmeltable trend (expanded from 40)
         # If True, missing earnings-calendar data FAILS the gate instead of
@@ -94,11 +94,11 @@ CONFIG = {
     "bands": {
         "atr_percentile_target": (30, 70),   # 6-month ATR percentile range
         "healthy_adx_range": (18, 32),       # sweet spot for reversals
-        "rsi_bull_min": 50,                  # bull setup RSI minimum
-        "rsi_bear_max": 50,                  # bear setup RSI maximum
+        "rsi_bull_min": 35,                  # TIER 2: fade below 35 (oversold, was 50)
+        "rsi_bear_max": 65,                  # TIER 2: fade above 65 (overbought, was 50)
         "rsi_overbought": 70,
         "rsi_oversold": 30,
-        "volume_impulse_min_ratio": 1.5,     # relative to 20d avg volume
+        "volume_impulse_min_ratio": 2.0,     # TIER 2: tightened from 1.5x (true impulse signal)
 
         # TIER 1 FIX: Volatility-adjusted stop distance bands
         # Previous: fixed 0.5-2.0% regardless of volatility
