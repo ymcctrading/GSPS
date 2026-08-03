@@ -1,0 +1,32 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: Unit tests
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - run: npm ci
+
+      # Covers lib/__tests__/user-copy.test.ts, which asserts that the strings
+      # the scan builds at runtime — checklist criteria, pattern descriptions,
+      # trade-level warnings and errors — stay in plain language. A static scan
+      # cannot see those, so this job is the other half of the terminology gate.
+      #
+      # `npm run lint` and `tsc --noEmit` are deliberately not gated yet: both
+      # report pre-existing failures on main (see lib/learning/*), so turning
+      # them into required checks would block every PR until that is cleaned up.
+      - run: npm test

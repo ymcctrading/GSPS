@@ -5,7 +5,7 @@
 // ============ MARKET NEWS (Deferred) ============
 // Real-time news headlines, sentiment scoring, news-driven alerts
 // Rationale: Adds significant data-integration complexity and latency;
-// not required for core Gann/Sara signal logic.
+// not required for core structural signal logic.
 // Implementation timeline: Post-MVP, after core scanner is stable and audited.
 
 export interface NewsFeed {
@@ -39,7 +39,7 @@ export interface NewsProvider {
 // ============ EARNINGS CALENDAR (Deferred) ============
 // Earnings dates, EPS estimates, surprises, guidance
 // Rationale: Valuable for fundamental filters, but orthogonal to current
-// price-action/Gann geometry focus.
+// price-action/structural geometry focus.
 // Implementation timeline: Phase 2, after core execution loop is stable.
 // Hook: Store `earnings_date` and `earnings_proximity_flag` in instrument metadata.
 
@@ -85,7 +85,7 @@ export interface EarningsRiskFilter {
 // ============ MACRO FEATURES (Deferred) ============
 // Economic calendar (CPI, FOMC, jobs), rates, yield curves, macro regime indicators
 // Rationale: Macro regime modeling is a separate layer; current priority is micro
-// (instrument-level) Gann/Sara execution.
+// (instrument-level) structural execution.
 // Implementation timeline: Phase 3, after core learning loop validated on single-symbol basis.
 // Hook: Add `macro_regime` field to scan context for later model conditioning.
 
@@ -149,7 +149,7 @@ export const DEFERRED_FEATURES: DeferredFeature[] = [
     name: 'Market News Integration',
     description: 'Real-time news headlines, sentiment scoring, news-driven alerts',
     reason_deferred:
-      'Adds significant data-integration complexity and latency; not required for core Gann/Sara signal logic',
+      'Adds significant data-integration complexity and latency; not required for core structural signal logic',
     target_phase: 'Phase 2',
     implementation_criteria: [
       'Core scanner + execution loop stable and audited',
@@ -165,7 +165,7 @@ export const DEFERRED_FEATURES: DeferredFeature[] = [
     name: 'Earnings Calendar & Risk Filtering',
     description: 'Earnings dates, EPS estimates, surprises, guidance; avoid entries near earnings',
     reason_deferred:
-      'Valuable for fundamental filters, but orthogonal to current price-action/Gann geometry focus',
+      'Valuable for fundamental filters, but orthogonal to current price-action/structural geometry focus',
     target_phase: 'Phase 2',
     implementation_criteria: [
       'Instrument metadata schema finalized',
@@ -182,7 +182,7 @@ export const DEFERRED_FEATURES: DeferredFeature[] = [
     description:
       'Economic calendar (CPI, FOMC, jobs), rates, yield curves, macro regime indicators',
     reason_deferred:
-      'Macro regime modeling is a separate layer; current priority is micro (instrument-level) Gann/Sara execution',
+      'Macro regime modeling is a separate layer; current priority is micro (instrument-level) structural execution',
     target_phase: 'Phase 3',
     implementation_criteria: [
       'Core learning brain working well on per-symbol basis',

@@ -29,7 +29,7 @@ import { cn } from "@/lib/utils";
 export interface PriceMarker {
   price: number;
   label: string;
-  kind: "entry" | "stop" | "target" | "gann";
+  kind: "entry" | "stop" | "target" | "structural";
 }
 
 // Protocol levels are reference lines, not data — they run translucent and
@@ -38,7 +38,7 @@ const MARKER_COLOR: Record<PriceMarker["kind"], string> = {
   entry: "rgba(37,99,235,0.35)",
   stop: "rgba(220,38,38,0.35)",
   target: "rgba(5,150,105,0.35)",
-  gann: "rgba(148,163,184,0.35)",
+  structural: "rgba(148,163,184,0.35)",
 };
 /** lightweight-charts LineStyle: 0 solid, 2 dashed, 3 large-dashed, 4 dotted. */
 const MARKER_LINE_STYLE = 2;
@@ -431,7 +431,7 @@ export function CandleChart({
 
   // Price-line overlays for scan markers. Gann lines are toggleable.
   const displayMarkers = useMemo(
-    () => (showGann ? markers : markers.filter((m) => m.kind !== "gann")),
+    () => (showGann ? markers : markers.filter((m) => m.kind !== "structural")),
     [showGann, markers],
   );
   useEffect(() => {
@@ -442,7 +442,7 @@ export function CandleChart({
         price: m.price,
         color: MARKER_COLOR[m.kind],
         lineWidth: 1,
-        lineStyle: m.kind === "gann" ? 3 : MARKER_LINE_STYLE,
+        lineStyle: m.kind === "structural" ? 3 : MARKER_LINE_STYLE,
         axisLabelVisible: true,
         title: m.label,
       }),
@@ -625,7 +625,7 @@ export function CandleChart({
     setSet(next);
   };
 
-  const hasGann = markers.some((m) => m.kind === "gann");
+  const hasGann = markers.some((m) => m.kind === "structural");
   const hasDrawings = hlines.length > 0 || trendlines.length > 0 || pending != null;
 
   function toggleAlert() {

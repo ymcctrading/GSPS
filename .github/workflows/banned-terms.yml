@@ -6,6 +6,7 @@ on:
       - 'app/**'
       - 'components/**'
       - 'lib/**'
+      - 'scripts/check-banned-terms.mjs'
       - '*.md'
       - '.github/**'
 
@@ -16,40 +17,26 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
         with:
-          fetch-depth: 0
+          node-version: '20'
 
+      # Scans every source file that can render copy, not the three files the
+      # previous version of this gate looked at. That narrow scope is why
+      # "Gann fan angle proximity" and "Strat pattern armed" shipped to the
+      # confluence checklist twice while this job stayed green: both strings
+      # are built in lib/scoring/score.ts, which was never scanned.
+      #
+      # The script needs no dependencies, so there is no install step. The
+      # matching half of this gate — the strings assembled at runtime — is
+      # asserted by lib/__tests__/user-copy.test.ts in the Tests workflow.
       - name: Check for banned terms
-        run: |
-          # Check only for product-branded phrases, not internal directory references
-          # Banned: "Gann Protocol", "Sara Sniper", "sniper entry", product names
-          # Allowed: `lib/gann/` and `lib/strat/` in documentation (internal names)
-          BANNED_PHRASES=(
-            "Gann Protocol"
-            "Sara Sniper"
-            "sniper entr"
-            "W\.D\. Gann"
-          )
-
-          VIOLATIONS=""
-          for phrase in "${BANNED_PHRASES[@]}"; do
-            if grep -r -E "$phrase" app/page.tsx README.md FEATURES.md 2>/dev/null; then
-              VIOLATIONS="1"
-              break
-            fi
-          done
-
-          if [ -n "$VIOLATIONS" ]; then
-            echo "❌ Banned terminology detected:"
-            echo "$VIOLATIONS"
-            exit 1
-          fi
-
-          echo "✅ No banned terminology found"
+        run: node scripts/check-banned-terms.mjs
 
       - name: Summary
         if: success()
         run: |
           echo "## IP Protection Check ✅" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "No prohibited proprietary terminology (Gann, Sara, Sniper, Strat) found in code." >> $GITHUB_STEP_SUMMARY
+          echo "No prohibited proprietary terminology found in user-facing text." >> $GITHUB_STEP_SUMMARY

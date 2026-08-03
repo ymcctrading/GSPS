@@ -1,7 +1,7 @@
 /**
  * GSPS scan pipeline — the top-down flow from the Premise doc:
- *   10yr/5yr/1yr trend + S/R  →  1hr refinement  →  15min sniper entry
- * with Gann confluence (fans, Square of 9, time cycles) and Sara Sniper Strat
+ *   10yr/5yr/1yr trend + S/R  →  1hr refinement  →  15min precision entry
+ * with structural confluence (fans, harmonic levels, time cycles) and reversal-pattern
  * execution mechanics, producing entry / SL / TP1 / master profit + score /9.
  */
 
@@ -13,7 +13,7 @@ import { atr } from "@/lib/analysis/pivots";
 import { computeFanLines } from "@/lib/gann/fans";
 import { squareOf9Levels } from "@/lib/gann/squareOf9";
 import { timeCycles } from "@/lib/gann/timeCycles";
-import { detectPatterns, gapRuleViolated } from "@/lib/strat/patterns";
+import { detectPatterns, gapRuleViolated, riskFloorViolated } from "@/lib/strat/patterns";
 import { computeTradeLevels } from "@/lib/strat/levels";
 import { applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
 
@@ -61,9 +61,14 @@ export async function scanTicker(symbol: string, optionPremium?: number): Promis
       timeCycleDates: cycles.dates,
     };
 
-    // ---- Level 3: 15min sniper entry via Strat patterns (closed bars only)
+    // ---- Level 3: 15min precision entry via reversal patterns (closed bars only)
     const closedM15 = m15.slice(0, -1); // treat the final bar as potentially live
-    const armed = detectPatterns(closedM15).filter((p) => !gapRuleViolated(p, currentPrice));
+    // The execution-timeframe ATR sets the noise floor a setup's stop has to
+    // clear; without it a narrow bar arms a pattern no one could actually hold.
+    const executionAtr = atr(closedM15.slice(-30), 14);
+    const armed = detectPatterns(closedM15).filter(
+      (p) => !gapRuleViolated(p, currentPrice) && !riskFloorViolated(p, executionAtr),
+    );
 
     // Prefer the pattern aligned with a reversion of the macro move; then by
     // trigger proximity to current price.
