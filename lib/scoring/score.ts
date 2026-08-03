@@ -62,18 +62,18 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       note: `1hr trend reads ${hourlyTrend.direction}.`,
     },
     {
-      criterion: "Gann fan angle proximity",
+      criterion: "Support line proximity",
       passed: nearFan,
       note: nearFan
-        ? `Price within ${gann.fanLines[0].distancePct.toFixed(2)}% of the ${gann.fanLines[0].angle} fan line at ${gann.fanLines[0].price.toFixed(2)}.`
-        : "No Gann fan line within 1.5%.",
+        ? `Price within ${gann.fanLines[0].distancePct.toFixed(2)}% of the ${gann.fanLines[0].angle} support line at ${gann.fanLines[0].price.toFixed(2)}.`
+        : "No support line within 1.5%.",
     },
     {
-      criterion: "Square of 9 level proximity",
+      criterion: "Harmonic level proximity",
       passed: nearS9,
       note: nearS9
-        ? `Price within ${gann.squareOf9[0].distancePct.toFixed(2)}% of the ${gann.squareOf9[0].degree}° coordinate at ${gann.squareOf9[0].price.toFixed(2)}.`
-        : "No Square-of-9 coordinate within 1%.",
+        ? `Price within ${gann.squareOf9[0].distancePct.toFixed(2)}% of the ${gann.squareOf9[0].degree}° harmonic level at ${gann.squareOf9[0].price.toFixed(2)}.`
+        : "No harmonic level within 1%.",
     },
     {
       criterion: "Historical support/resistance",
@@ -83,11 +83,11 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
         : "Not at a significant historical S/R level.",
     },
     {
-      criterion: "Strat pattern armed",
+      criterion: "Reversal pattern armed",
       passed: patternValid,
       note: patternValid
         ? `${pattern!.name} ${pattern!.direction} armed — trigger ${pattern!.triggerPrice.toFixed(2)}.`
-        : "No matching Strat pattern armed on the execution timeframe.",
+        : "No matching reversal pattern armed on the execution timeframe.",
     },
     {
       criterion: "Momentum / volatility elevated",

@@ -52,7 +52,7 @@ export function TickerView({ symbol }: { symbol: string }) {
     markers.push({ price: f.price, label: `Support ${f.angle}`, kind: "gann" }),
   );
   result?.gann.squareOf9.slice(0, 2).forEach((s) =>
-    markers.push({ price: s.price, label: `S9 ${s.degree}°`, kind: "gann" }),
+    markers.push({ price: s.price, label: `Harmonic ${s.degree}°`, kind: "gann" }),
   );
 
   // Live price falls back to the scan snapshot until the first poll returns.

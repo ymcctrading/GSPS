@@ -91,10 +91,10 @@ export function SignalOverlayBadge({ signal, onExecute, onIgnore, onExplain, com
         </div>
       )}
 
-      {/* Gann root (if applicable) */}
+      {/* Harmonic root (if applicable) */}
       {signal.gannRoot && (
         <div className="text-xs text-muted">
-          Gann root: <span className="font-semibold">{signal.gannRoot}</span>
+          Harmonic root: <span className="font-semibold">{signal.gannRoot}</span>
         </div>
       )}
 
