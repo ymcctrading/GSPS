@@ -5,7 +5,7 @@
  * execution mechanics, producing entry / SL / TP1 / master profit + score /9.
  */
 
-import type { AssetClass, GannLevels, ScanResult, StratPattern } from "@/lib/types";
+import type { AssetClass, GannLevels, ScanResult, StratPattern, TradeLevels } from "@/lib/types";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { fetchAllTimeframes, getMarketDataProvider } from "@/lib/data/provider";
 import { readTrend } from "@/lib/analysis/trend";
@@ -109,9 +109,19 @@ export async function scanTicker(symbol: string, optionPremium?: number): Promis
       ...gann.fanLines.map((f) => f.price),
       ...gann.squareOf9.map((s) => s.price),
     ];
-    const levels = pattern
-      ? computeTradeLevels(pattern, previousBar, gannTargets, optionPremium)
-      : null;
+    // A trade-plan failure is confined to the trade plan. The rest of the scan
+    // — price, trends, structural levels, checklist — is still valid and worth
+    // showing, so it degrades to "no levels" with a note instead of collapsing
+    // the whole scan into an error and leaving the ticker page blank.
+    let levels: TradeLevels | null = null;
+    let levelsError: string | undefined;
+    if (pattern) {
+      try {
+        levels = computeTradeLevels(pattern, previousBar, gannTargets, optionPremium);
+      } catch (err) {
+        levelsError = err instanceof Error ? err.message : String(err);
+      }
+    }
 
     // ---- Supporting signals
     const allLevels = [
@@ -159,6 +169,7 @@ export async function scanTicker(symbol: string, optionPremium?: number): Promis
       pattern,
       armedPatterns,
       levels,
+      levelsError,
       decision,
       optionPremium,
     };
