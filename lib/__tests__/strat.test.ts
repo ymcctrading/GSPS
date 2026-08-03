@@ -136,10 +136,11 @@ describe("computeTradeLevels", () => {
     expect(levels.stopBandWarning).toContain("tighter");
   });
 
-  it("rejects a scan where the structural TP1 target overtakes the master profit", () => {
-    // entry 100, stop 95 (risk 5): 2R=110, 3R=115, 5R=125. A previous-bar
-    // high of 130 pushes the structural TP1 past even the 5R Gann cap that
-    // bounds master profit, which must never be less extreme than TP1.
+  it("steps master profit past a structural TP1 that has run beyond 3R", () => {
+    // entry 100, stop 95 (risk 5): 2R=110, 3R=115, 5R=125. A previous-bar high
+    // of 130 puts the structural TP1 past even 5R. That is a wide bar, not a
+    // corrupt signal, so master profit steps out a further 1R beyond TP1
+    // rather than the whole scan being rejected.
     const pattern = {
       name: "2-1-2" as const,
       direction: "bullish" as const,
@@ -147,15 +148,15 @@ describe("computeTradeLevels", () => {
       stopPrice: 95,
       description: "",
     };
-    expect(() =>
-      computeTradeLevels(pattern, { t: "", o: 120, h: 130, l: 115, c: 128, v: 0 }, []),
-    ).toThrow(/master profit.*not more extreme than TP1/);
+    const levels = computeTradeLevels(pattern, { t: "", o: 120, h: 130, l: 115, c: 128, v: 0 }, []);
+    expect(levels.takeProfit1).toBe(130);
+    expect(levels.masterProfit).toBe(135);
+    expect(levels.rewardToRiskMaster).toBeCloseTo(7, 5);
   });
 
-  it("rejects the mirror case on a bearish setup", () => {
-    // entry 100, stop 105 (risk 5): 2R=90, 3R=85, 5R=75. A previous-bar low
-    // of 70 pushes the structural TP1 past the 5R Gann cap that bounds
-    // master profit — same corrupt-signal shape, opposite direction.
+  it("steps master profit past a structural TP1 on a bearish setup", () => {
+    // entry 100, stop 105 (risk 5): 2R=90, 3R=85, 5R=75. A previous-bar low of
+    // 70 puts the structural TP1 past 5R — same shape, opposite direction.
     const pattern = {
       name: "2-1-2" as const,
       direction: "bearish" as const,
@@ -163,9 +164,42 @@ describe("computeTradeLevels", () => {
       stopPrice: 105,
       description: "",
     };
+    const levels = computeTradeLevels(pattern, { t: "", o: 80, h: 85, l: 70, c: 72, v: 0 }, []);
+    expect(levels.takeProfit1).toBe(70);
+    expect(levels.masterProfit).toBe(65);
+    expect(levels.rewardToRiskMaster).toBeCloseTo(7, 5);
+  });
+
+  it("prefers a structural extension sitting between TP1 and the stepped-out master", () => {
+    // Same bullish setup: TP1 lands on 130, so the master target searches
+    // (130, 135] and should snap to the structural level at 133 instead of the
+    // bare 1R step.
+    const pattern = {
+      name: "2-1-2" as const,
+      direction: "bullish" as const,
+      triggerPrice: 100,
+      stopPrice: 95,
+      description: "",
+    };
+    const levels = computeTradeLevels(
+      pattern,
+      { t: "", o: 120, h: 130, l: 115, c: 128, v: 0 },
+      [128, 133, 140],
+    );
+    expect(levels.masterProfit).toBe(133);
+  });
+
+  it("rejects a pattern whose entry and stop are the same price", () => {
+    const pattern = {
+      name: "2-2" as const,
+      direction: "bullish" as const,
+      triggerPrice: 100,
+      stopPrice: 100,
+      description: "",
+    };
     expect(() =>
-      computeTradeLevels(pattern, { t: "", o: 80, h: 85, l: 70, c: 72, v: 0 }, []),
-    ).toThrow(/master profit.*not more extreme than TP1/);
+      computeTradeLevels(pattern, { t: "", o: 98, h: 101, l: 96, c: 99, v: 0 }, []),
+    ).toThrow(/no risk to size against/);
   });
 });
 

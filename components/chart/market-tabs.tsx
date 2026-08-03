@@ -162,12 +162,12 @@ function ResearchPanel({ symbol, result }: { symbol: string; result?: ScanResult
           <div className="flex flex-wrap gap-2 text-xs">
             {fetched.gann.fanLines.slice(0, 4).map((f, i) => (
               <span key={`f${i}`} className="rounded-md bg-background px-2 py-1 text-muted">
-                Fan {f.angle}: <span className="font-mono text-foreground">{formatUsd(f.price)}</span>
+                Support {f.angle}: <span className="font-mono text-foreground">{formatUsd(f.price)}</span>
               </span>
             ))}
             {fetched.gann.squareOf9.slice(0, 4).map((s, i) => (
               <span key={`s${i}`} className="rounded-md bg-background px-2 py-1 text-muted">
-                S9 {s.degree}°: <span className="font-mono text-foreground">{formatUsd(s.price)}</span>
+                Harmonic {s.degree}°: <span className="font-mono text-foreground">{formatUsd(s.price)}</span>
               </span>
             ))}
           </div>

@@ -78,7 +78,7 @@ export function detectPatterns(bars: Bar[]): StratPattern[] {
       direction: "bearish",
       triggerPrice: last.l - PENNY,
       stopPrice: last.h + PENNY,
-      description: `Bearish ${revName} reversal${revContext}: sell-stop one penny below the 2-up bar low.`,
+      description: `Bearish ${revName} reversal${revContext}: sell-stop one penny below the low of the up bar.`,
     });
   }
   if (lastState === "2D") {
@@ -87,7 +87,7 @@ export function detectPatterns(bars: Bar[]): StratPattern[] {
       direction: "bullish",
       triggerPrice: last.h + PENNY,
       stopPrice: last.l - PENNY,
-      description: `Bullish ${revName} reversal${revContext}: buy-stop one penny above the 2-down bar high.`,
+      description: `Bullish ${revName} reversal${revContext}: buy-stop one penny above the high of the down bar.`,
     });
   }
 
@@ -104,7 +104,7 @@ export function detectPatterns(bars: Bar[]): StratPattern[] {
       direction: "bullish",
       triggerPrice: last.h + PENNY,
       stopPrice: last.l - PENNY,
-      description: `Pivot Machine Gun: ${lowerHighs} consecutive lower highs — buy-stop above the last high detonates the short stop cluster.`,
+      description: `Momentum reversal (PMG): ${lowerHighs} consecutive lower highs — a buy-stop above the last high triggers as trapped sellers are stopped out.`,
     });
   }
   let higherLows = 0;
@@ -118,7 +118,7 @@ export function detectPatterns(bars: Bar[]): StratPattern[] {
       direction: "bearish",
       triggerPrice: last.l - PENNY,
       stopPrice: last.h + PENNY,
-      description: `Pivot Machine Gun: ${higherLows} consecutive higher lows — sell-stop below the last low detonates the long stop cluster.`,
+      description: `Momentum reversal (PMG): ${higherLows} consecutive higher lows — a sell-stop below the last low triggers as trapped buyers are stopped out.`,
     });
   }
 

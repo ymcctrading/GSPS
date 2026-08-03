@@ -98,6 +98,11 @@ export interface ScanResult {
   /** Every setup armed on the execution timeframe (the primary is `pattern`). */
   armedPatterns: StratPattern[];
   levels: TradeLevels | null;
+  /**
+   * Why the trade plan is missing while the rest of the scan is intact. Unlike
+   * `error` (which means the whole scan failed), this leaves the scan usable.
+   */
+  levelsError?: string;
   decision: ScanDecision;
   /** Optional: option premium supplied by user for the 12–18% stop calc. */
   optionPremium?: number;

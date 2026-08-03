@@ -6,7 +6,7 @@ import type { ScanResult } from "@/lib/types";
 import { Check, X } from "lucide-react";
 
 export function SignalCard({ result }: { result: ScanResult }) {
-  const { decision, levels, pattern } = result;
+  const { decision, levels, levelsError, pattern } = result;
   const armed = result.armedPatterns ?? (pattern ? [pattern] : []);
   const others = armed.filter((p) => p !== pattern);
 
@@ -61,6 +61,12 @@ export function SignalCard({ result }: { result: ScanResult }) {
         )}
 
         {levels?.stopBandWarning && <Badge variant="warn">{levels.stopBandWarning}</Badge>}
+
+        {!levels && levelsError && (
+          <p className="text-sm text-bear">
+            No trade plan for this setup — {levelsError} The rest of the scan below is unaffected.
+          </p>
+        )}
 
         <div>
           <h4 className="mb-2 text-sm font-medium">Score breakdown</h4>
