@@ -26,8 +26,11 @@
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const ROOT = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
+// fileURLToPath rather than URL.pathname: the latter leaves percent-encoding
+// in place, so a checkout under a path with a space resolves to nothing.
+const ROOT = fileURLToPath(new URL("..", import.meta.url)).replace(/[/\\]$/, "");
 
 const SOURCE_ROOTS = ["app", "components", "lib"];
 const SOURCE_EXTENSIONS = [".ts", ".tsx"];

@@ -203,20 +203,41 @@ describe("trade level messages", () => {
     expectPlainLanguage([tight.stopBandWarning!, wide.stopBandWarning!]);
   });
 
-  it("phrases rejection errors in plain language", () => {
-    // These surface verbatim on the ticker page as `levelsError`.
-    const messages: string[] = [];
-    for (const [p, previous] of [
-      [{ ...pattern, triggerPrice: 100, stopPrice: 100 }, bar(98, 101, 96, 99)],
-      [{ ...pattern, direction: "bullish", triggerPrice: 100, stopPrice: 95 }, bar(98, 101, 96, 99)],
-    ] as [StratPattern, Bar][]) {
-      try {
-        computeTradeLevels(p, previous, []);
-      } catch (err) {
-        messages.push(err instanceof Error ? err.message : String(err));
+  it("phrases the reachable rejection error in plain language", () => {
+    // Surfaces verbatim on the ticker page as `levelsError`.
+    //
+    // Only the zero-risk guard is reachable. The other two invariants — TP1
+    // beyond entry, master profit beyond TP1 — are assertions against corrupt
+    // input that the target derivation makes unreachable for any pattern with
+    // non-zero risk, which is what the sibling test below pins down. Listing
+    // them here with fixtures that quietly fail to throw would claim coverage
+    // this test does not have.
+    let message: string | null = null;
+    try {
+      computeTradeLevels({ ...pattern, triggerPrice: 100, stopPrice: 100 }, bar(98, 101, 96, 99), []);
+    } catch (err) {
+      message = err instanceof Error ? err.message : String(err);
+    }
+    expect(message).toMatch(/no risk to size against/);
+    expectPlainLanguage([message!]);
+  });
+
+  it("keeps the ordering invariants unreachable across a sweep of setups", () => {
+    // If a future change lets one of those errors fire, it becomes user-facing
+    // copy and this test is where that shows up first.
+    for (const direction of ["bullish", "bearish"] as const) {
+      for (const risk of [0.01, 0.5, 5, 40]) {
+        for (const previousExtreme of [70, 96, 101, 130]) {
+          const dir = direction === "bullish" ? 1 : -1;
+          const levels = computeTradeLevels(
+            { ...pattern, direction, triggerPrice: 100, stopPrice: 100 - dir * risk },
+            bar(98, previousExtreme, previousExtreme, 99),
+            [102, 133, 140],
+          );
+          expect(dir * (levels.takeProfit1 - levels.entry)).toBeGreaterThan(0);
+          expect(dir * (levels.masterProfit - levels.takeProfit1)).toBeGreaterThan(0);
+        }
       }
     }
-    expect(messages.length).toBeGreaterThan(0);
-    expectPlainLanguage(messages);
   });
 });
