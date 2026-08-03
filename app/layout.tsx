@@ -31,10 +31,11 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   viewportFit: "cover",
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#fafafa" },
-    { media: "(prefers-color-scheme: dark)", color: "#0b1120" },
-  ],
+  // The dark palette is class-based (`.dark`), not media-query-based, and
+  // nothing toggles that class yet — so a single colour matching the light
+  // surface is correct. Splitting this by `prefers-color-scheme` would tint the
+  // browser chrome dark on a dark-mode phone while the page stayed light.
+  themeColor: "#fafafa",
 };
 
 export default function RootLayout({
