@@ -104,15 +104,22 @@ def score_trend_strength(setup: SetupInput) -> FactorResult:
 # ---------------------------------------------------------------------
 def score_macd_alignment(setup: SetupInput) -> FactorResult:
     pts = CONFIG["scored_factors"]["momentum"]["macd_alignment"]["points"]
-    if setup.macd_line is None or setup.macd_signal is None or setup.macd_histogram_rising is None:
+    if (setup.macd_line is None or setup.macd_signal is None
+            or setup.macd_histogram_prev is None or setup.macd_histogram_curr is None):
         return _missing("macd_alignment", "momentum", pts)
+
     side_ok = (setup.macd_line > setup.macd_signal) if setup.direction == "bull" else (setup.macd_line < setup.macd_signal)
-    aligned = side_ok and setup.macd_histogram_rising
+    delta = setup.macd_histogram_curr - setup.macd_histogram_prev
+    # Direction-aware: bull wants histogram rising (delta > 0), bear wants
+    # histogram falling (delta < 0). Computed here, not by the caller.
+    momentum_ok = delta > 0 if setup.direction == "bull" else delta < 0
+    aligned = side_ok and momentum_ok
+
     return FactorResult(
         name="macd_alignment", category="momentum",
         points_awarded=pts if aligned else 0, points_possible=pts, passed=aligned,
         rationale=f"MACD {'above' if setup.macd_line > setup.macd_signal else 'below'} signal, "
-                  f"histogram {'improving' if setup.macd_histogram_rising else 'weakening'} "
+                  f"histogram {'rising' if delta > 0 else 'falling'} ({delta:+.4f}) "
                   f"({'aligned' if aligned else 'not aligned'} with {setup.direction} bias).",
     )
 

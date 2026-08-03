@@ -19,16 +19,29 @@ TIER 2 FIX: Earnings blackout expanded to 5 days (was 3) to account for
 IV expansion and earnings-week volatility effects.
 """
 
+from datetime import datetime
 from schema import SetupInput
 from config import CONFIG
 
-# Tier 2: Try to import live earnings fetcher (optional)
+# Tier 2: Try to import live earnings fetcher from Yahoo Finance (optional)
 try:
-    from earnings_live import get_trading_days_to_earnings as get_live_earnings_days
+    from data_sources.yahoo_client import fetch_earnings_date
     LIVE_EARNINGS_AVAILABLE = True
 except ImportError:
     LIVE_EARNINGS_AVAILABLE = False
-    get_live_earnings_days = None
+    fetch_earnings_date = None
+
+
+def _trading_days_to_earnings_timestamp(earnings_unix: int) -> int:
+    """Convert earnings unix timestamp to trading days from now (rough 5/7 approximation)."""
+    if earnings_unix is None:
+        return None
+    earnings_dt = datetime.fromtimestamp(earnings_unix)
+    now = datetime.now()
+    calendar_days = (earnings_dt - now).days
+    if calendar_days < 0:
+        return 0
+    return round(calendar_days * 5 / 7)
 
 
 def check_macro_trend_gate(setup: SetupInput) -> tuple[bool, str]:
@@ -58,13 +71,14 @@ def check_liquidity_gate(setup: SetupInput) -> tuple[bool, str]:
 def check_earnings_gate(setup: SetupInput) -> tuple[bool, str]:
     g = CONFIG["gates"]
 
-    # TIER 2: Try live earnings data first (from Yahoo Finance via Supabase cache)
+    # TIER 2: Try live earnings data first (from Yahoo Finance)
     days_to_earnings = None
     live_source = False
-    if LIVE_EARNINGS_AVAILABLE and get_live_earnings_days:
+    if LIVE_EARNINGS_AVAILABLE and fetch_earnings_date:
         try:
-            days_to_earnings = get_live_earnings_days(setup.symbol)
-            if days_to_earnings is not None:
+            earnings_data = fetch_earnings_date(setup.symbol)
+            if earnings_data and earnings_data.get("earnings_timestamp"):
+                days_to_earnings = _trading_days_to_earnings_timestamp(earnings_data["earnings_timestamp"])
                 live_source = True
         except Exception:
             pass  # Fall back to upstream data
@@ -79,7 +93,7 @@ def check_earnings_gate(setup: SetupInput) -> tuple[bool, str]:
         return True, "Earnings calendar unavailable — configured to pass open (not recommended)."
 
     if abs(days_to_earnings) <= g["earnings_blackout_days"]:
-        source_label = " (live)" if live_source else ""
+        source_label = " (live from Yahoo)" if live_source else ""
         return False, f"Inside earnings blackout window ({days_to_earnings} trading days out{source_label})."
     return True, f"{days_to_earnings} trading days to next earnings — outside blackout window."
 

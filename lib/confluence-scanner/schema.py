@@ -50,9 +50,12 @@ class SetupInput:
     # --- Momentum ---
     macd_line: Optional[float] = None
     macd_signal: Optional[float] = None
-    macd_histogram_rising: Optional[bool] = None   # True if histogram is moving in favor of the
-                                                    # trade direction (NOT literally "rising" — for
-                                                    # a bear setup, True means pushing more negative)
+    macd_histogram_prev: Optional[float] = None    # histogram value one bar back
+    macd_histogram_curr: Optional[float] = None    # histogram value on the current/trigger bar
+    # NOTE: histogram direction is computed FROM these two raw values inside
+    # scoring.py, direction-aware (bull wants histogram rising toward/past
+    # zero, bear wants it falling toward/past zero). Don't pre-orient a
+    # boolean yourself — that was a footgun in the previous version.
     rsi: Optional[float] = None
     rsi_divergence_present: Optional[bool] = None  # True if price/RSI diverge in favor of setup
 
