@@ -90,7 +90,6 @@ const allPass: ScoreInputs = {
   nearSupportResistance: true,
   pattern,
   momentumElevated: true,
-  earningsSoon: false,
   levels,
 };
 
@@ -103,7 +102,6 @@ const allFail: ScoreInputs = {
   nearSupportResistance: false,
   pattern: null,
   momentumElevated: false,
-  earningsSoon: true,
   levels: null,
 };
 
@@ -120,8 +118,17 @@ describe("confluence checklist copy", () => {
     expectPlainLanguage(checklistStrings(allFail));
   });
 
-  it("reads in plain language when the earnings calendar is unavailable", () => {
-    expectPlainLanguage(checklistStrings({ ...allPass, earningsSoon: null }));
+  it("reads in plain language on every turn-window phrasing", () => {
+    // The note branches on both whether a window is active and whether any
+    // dates were projected, so all four combinations carry distinct copy.
+    const dated = gann.timeCycleDates;
+    for (const timeCycleActive of [true, false]) {
+      for (const timeCycleDates of [dated, []]) {
+        expectPlainLanguage(
+          checklistStrings({ ...allPass, gann: { ...gann, timeCycleActive, timeCycleDates } }),
+        );
+      }
+    }
   });
 
   it("reads in plain language on the downgrade note", () => {
