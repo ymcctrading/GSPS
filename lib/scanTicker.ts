@@ -137,10 +137,6 @@ export async function scanTicker(symbol: string, optionPremium?: number): Promis
     const baselineAtr = atr(daily.slice(-100, -20), 14);
     const momentumElevated = baselineAtr > 0 && recentAtr / baselineAtr >= 1.2;
 
-    // Earnings calendar requires a corporate-actions data subscription; null =
-    // unknown (no point awarded, surfaced in the breakdown).
-    const earningsSoon = assetClass === "crypto" ? false : null;
-
     const decision = applyReversionConfirmation(
       computeScore({
         direction: scoreDirection,
@@ -150,7 +146,6 @@ export async function scanTicker(symbol: string, optionPremium?: number): Promis
         nearSupportResistance,
         pattern,
         momentumElevated,
-        earningsSoon,
         levels,
       }),
       pattern,

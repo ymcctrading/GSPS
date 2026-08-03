@@ -68,7 +68,6 @@ describe("computeScore", () => {
         description: "",
       },
       momentumElevated: true,
-      earningsSoon: false,
       levels: {
         entry: 100.5,
         stopLoss: 86,
@@ -94,10 +93,63 @@ describe("computeScore", () => {
       nearSupportResistance: false,
       pattern: null,
       momentumElevated: false,
-      earningsSoon: true,
       levels: null,
     });
     expect(decision.score).toBeLessThanOrEqual(3);
     expect(decision.outputState).toBe("Reject");
+  });
+
+  it("awards the risk-reward point on TP1 ≥ 2R regardless of the stop's share of price", () => {
+    const item = (stopPctOfPrice: number) =>
+      computeScore({
+        direction: "bullish",
+        macroTrends: [trend("1Month", "bullish"), trend("1Week", "bullish"), trend("1Day", "bullish")],
+        hourlyTrend: trend("1Hour", "bearish"),
+        gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleDates: [] },
+        nearSupportResistance: false,
+        pattern: null,
+        momentumElevated: false,
+        levels: {
+          entry: 100,
+          stopLoss: 95,
+          takeProfit1: 110,
+          masterProfit: 115,
+          riskPerShare: 5,
+          rewardToRiskTp1: 2,
+          rewardToRiskMaster: 3,
+          stopPctOfPrice,
+          stopBandWarning: null,
+        },
+      }).breakdown.find((b) => b.criterion.startsWith("Clean risk-reward"));
+
+    // 5% and 30% both sit outside the old 12–18% band; only TP1 ≥ 2R matters now.
+    expect(item(5)?.passed).toBe(true);
+    expect(item(30)?.passed).toBe(true);
+    expect(item(14.4)?.passed).toBe(true);
+  });
+
+  it("scores the cyclical turn window and no longer scores earnings", () => {
+    const base = {
+      direction: "bullish" as const,
+      macroTrends: [trend("1Month", "bearish"), trend("1Week", "bearish"), trend("1Day", "bearish")],
+      hourlyTrend: trend("1Hour", "bullish"),
+      nearSupportResistance: false,
+      pattern: null,
+      momentumElevated: false,
+      levels: null,
+    };
+    const active = computeScore({
+      ...base,
+      gann: { fanLines: [], squareOf9: [], timeCycleActive: true, timeCycleDates: ["2026-08-05"] },
+    });
+    const inactive = computeScore({
+      ...base,
+      gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleDates: [] },
+    });
+
+    expect(active.score).toBe(inactive.score + 1);
+    expect(active.breakdown.find((b) => b.criterion === "Cyclical turn window active")?.passed).toBe(true);
+    expect(active.breakdown.map((b) => b.criterion)).toHaveLength(9);
+    expect(active.breakdown.some((b) => /earnings/i.test(b.criterion))).toBe(false);
   });
 });
