@@ -35,10 +35,14 @@ function baseUrl(mode: TradeMode): string {
   return mode === "live" ? "https://api.alpaca.markets" : "https://paper-api.alpaca.markets";
 }
 
+// Untyped boundary, same as the market-data client: one helper serves every
+// trading endpoint. The accessors below it (getAccount, getPositions) declare
+// the shapes this app actually reads, which is where the typing belongs.
 async function alpacaFetch(
   creds: AlpacaCreds,
   path: string,
   init?: RequestInit,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<any> {
   const res = await fetch(`${baseUrl(creds.mode)}${path}`, {
     ...init,
@@ -126,11 +130,38 @@ export async function listOptionContracts(
   return (data.option_contracts ?? []) as OptionContract[];
 }
 
-export async function getAccount(creds: AlpacaCreds) {
+/**
+ * The subset of Alpaca's account and position payloads this app reads. Alpaca
+ * sends every numeric field as a string; the callers do their own Number()
+ * conversion, so these keep the wire types rather than pretending otherwise.
+ */
+export interface AlpacaAccount {
+  equity: string;
+  last_equity: string;
+  buying_power: string;
+  cash: string;
+  currency: string;
+}
+
+export interface AlpacaPosition {
+  symbol: string;
+  qty: string;
+  side: string;
+  avg_entry_price: string;
+  current_price: string;
+  market_value: string;
+  unrealized_pl: string;
+  unrealized_plpc: string;
+  unrealized_intraday_pl: string;
+  unrealized_intraday_plpc: string;
+  asset_class?: string;
+}
+
+export async function getAccount(creds: AlpacaCreds): Promise<AlpacaAccount> {
   return alpacaFetch(creds, "/v2/account");
 }
 
-export async function getPositions(creds: AlpacaCreds) {
+export async function getPositions(creds: AlpacaCreds): Promise<AlpacaPosition[]> {
   return alpacaFetch(creds, "/v2/positions");
 }
 

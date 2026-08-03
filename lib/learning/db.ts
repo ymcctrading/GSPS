@@ -137,10 +137,16 @@ export async function getCoefficients(modelId: string) {
 
 export async function createModel(model: Omit<LearningModel, 'id' | 'created_at'>) {
   const client = createLearningClient();
-  const { data, error } = await client.from('learning_models').insert([model]);
+  // Without .select() an insert resolves with data: null, so the old cast
+  // handed every caller `undefined` while claiming to return the new model.
+  const { data, error } = await client
+    .from('learning_models')
+    .insert([model])
+    .select()
+    .single();
 
   if (error) throw new Error(`Failed to create learning model: ${error.message}`);
-  return data?.[0] as LearningModel;
+  return data as LearningModel;
 }
 
 export async function updateModelStatus(

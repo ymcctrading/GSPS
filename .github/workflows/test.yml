@@ -26,7 +26,12 @@ jobs:
       # trade-level warnings and errors — stay in plain language. A static scan
       # cannot see those, so this job is the other half of the terminology gate.
       #
-      # `npm run lint` and `tsc --noEmit` are deliberately not gated yet: both
-      # report pre-existing failures on main (see lib/learning/*), so turning
-      # them into required checks would block every PR until that is cleaned up.
       - run: npm test
+
+      # Both of these were advisory until the pre-existing failures in
+      # lib/learning/* and the broker clients were fixed. They are gates now;
+      # `set-state-in-effect` remains a warning (see eslint.config.mjs) so the
+      # chart-effect restructuring can be done as its own reviewable change.
+      - run: npm run lint
+
+      - run: npx tsc --noEmit

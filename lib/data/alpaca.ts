@@ -58,6 +58,11 @@ function toBars(raw: AlpacaBar[] | undefined): Bar[] {
   return (raw ?? []).map((b) => ({ t: b.t, o: b.o, h: b.h, l: b.l, c: b.c, v: b.v }));
 }
 
+// Untyped boundary: this returns whichever Alpaca market-data payload the
+// caller asked for, and each caller narrows the fields it reads. Threading a
+// generic through instead pushes `unknown` into a dozen call sites that would
+// each need a response interface — worth doing, but as its own change.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function get(path: string, params: Record<string, string>): Promise<any> {
   const url = new URL(`${DATA_BASE}${path}`);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));

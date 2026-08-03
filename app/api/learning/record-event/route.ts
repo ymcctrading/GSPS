@@ -8,6 +8,15 @@ import {
   recordExecutionEvent,
   recordUserAction,
 } from '@/lib/learning/db';
+import type { GannRoot } from '@/lib/learning/types';
+
+/**
+ * The wire format carries the root as a string enum; the stored form is the
+ * numeric union. A lookup keyed by that same enum converts between them
+ * without a cast, so adding a root to one side fails to compile until the
+ * other side is updated.
+ */
+const GANN_ROOTS: Record<'3' | '6' | '9', GannRoot> = { '3': 3, '6': 6, '9': 9 };
 
 const ScanEventSchema = z.object({
   type: z.literal('scan'),
@@ -38,7 +47,7 @@ const ScanEventSchema = z.object({
     bias: z.enum(['bull', 'bear', 'neutral']),
     score: z.number().int().min(0).max(9),
   })).optional(),
-  detail: z.record(z.unknown()).optional(),
+  detail: z.record(z.string(), z.unknown()).optional(),
 });
 
 const SignalLifecycleEventSchema = z.object({
@@ -48,7 +57,7 @@ const SignalLifecycleEventSchema = z.object({
   state: z.enum(['armed', 'active', 'confirmed', 'expired', 'invalidated']),
   state_transition_reason: z.string().optional(),
   timestamp: z.coerce.date(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 const ExecutionEventSchema = z.object({
@@ -117,7 +126,7 @@ export async function POST(req: NextRequest) {
         const { ...scanData } = event;
         result = await recordScanEvent(userId, {
           ...scanData,
-          gann_root: scanData.gann_root ? parseInt(scanData.gann_root) : undefined,
+          gann_root: scanData.gann_root ? GANN_ROOTS[scanData.gann_root] : undefined,
           higher_tf_context: scanData.higher_tf_context || [],
           detail: scanData.detail || {},
         });
@@ -153,7 +162,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Invalid event schema', details: error.errors },
+        { error: 'Invalid event schema', details: error.issues },
         { status: 400 }
       );
     }

@@ -38,7 +38,7 @@ export async function GET() {
     const accounts = await listAccounts(user.id, userSecret);
     return NextResponse.json({
       enabled: true,
-      accounts: (accounts as any[]).map((a) => ({
+      accounts: accounts.map((a) => ({
         id: a.id,
         name: a.name,
         institution: a.institution_name,

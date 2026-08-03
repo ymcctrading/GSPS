@@ -36,7 +36,7 @@ export async function GET() {
     const lastEquity = Number(account.last_equity);
     const dayPlPct = lastEquity > 0 ? ((equity - lastEquity) / lastEquity) * 100 : 0;
 
-    const rawPositions: RawPosition[] = (positions as any[]).map((p) => ({
+    const rawPositions: RawPosition[] = positions.map((p) => ({
       symbol: p.symbol,
       qty: Number(p.qty),
       side: p.side,
