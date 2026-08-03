@@ -20,14 +20,13 @@ export interface ScoreInputs {
   nearSupportResistance: boolean;
   pattern: StratPattern | null;
   momentumElevated: boolean;
-  earningsSoon: boolean | null; // null = unknown
   levels: TradeLevels | null;
 }
 
 export function computeScore(inputs: ScoreInputs): ScanDecision {
   const {
     direction, macroTrends, hourlyTrend, gann,
-    nearSupportResistance, pattern, momentumElevated, earningsSoon, levels,
+    nearSupportResistance, pattern, momentumElevated, levels,
   } = inputs;
 
   // For a reversion setup, the macro context "supports" it when the recent
@@ -42,11 +41,9 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
 
   const patternValid = pattern !== null && pattern.direction === direction;
 
-  const cleanRR =
-    levels !== null &&
-    levels.rewardToRiskTp1 >= 2 &&
-    levels.stopPctOfPrice >= 12 &&
-    levels.stopPctOfPrice <= 18;
+  const cleanRR = levels !== null && levels.rewardToRiskTp1 >= 2;
+
+  const upcomingCycles = gann.timeCycleDates.slice(0, 3).join(", ");
 
   const breakdown: ScoreBreakdownItem[] = [
     {
@@ -97,20 +94,17 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
         : "Volatility is below the threshold for a high-velocity reversion.",
     },
     {
-      criterion: "No earnings in the weekly cycle",
-      passed: earningsSoon === false,
-      note:
-        earningsSoon === null
-          ? "Earnings calendar unavailable — no point awarded."
-          : earningsSoon
-            ? "Earnings scheduled within the weekly options cycle — excluded per protocol."
-            : "No earnings within the upcoming weekly cycle.",
+      criterion: "Cyclical turn window active",
+      passed: gann.timeCycleActive,
+      note: gann.timeCycleActive
+        ? `Scan date falls inside a projected turn window${upcomingCycles ? ` — next dates of interest ${upcomingCycles}.` : "."}`
+        : `Not inside a projected turn window${upcomingCycles ? `; next dates of interest ${upcomingCycles}.` : " — none projected in the next two weeks."}`,
     },
     {
-      criterion: "Clean risk-reward (TP1 ≥ 2R, stop in 12–18% band)",
+      criterion: "Clean risk-reward (TP1 ≥ 2R)",
       passed: cleanRR,
       note: levels
-        ? `TP1 at ${levels.rewardToRiskTp1.toFixed(1)}R; stop is ${levels.stopPctOfPrice.toFixed(1)}% of price.`
+        ? `TP1 at ${levels.rewardToRiskTp1.toFixed(1)}R.`
         : "No trade levels computed.",
     },
   ];
