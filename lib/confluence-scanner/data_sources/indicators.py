@@ -289,9 +289,9 @@ def detect_fibonacci(highs: list, lows: list, lookback: int = 63) -> Optional[li
     return levels
 
 
-def detect_gann_levels(price: float, lookback_high: float, lookback_low: float) -> Optional[list]:
+def detect_gann_levels(price: float) -> Optional[list]:
     """
-    Gann approximation: square root grid (√price ± integers, squared back).
+    Gann approximation: square root grid (√price ± increments, squared back).
     Returns list of (label, level) tuples around current price.
     """
     import math
