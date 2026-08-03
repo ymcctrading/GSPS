@@ -115,7 +115,7 @@ export function Modal({
           <button
             onClick={onClose}
             aria-label="Close"
-            className="-mr-1 -mt-1 rounded-lg p-1.5 text-muted transition-colors hover:bg-background hover:text-foreground cursor-pointer"
+            className="-mr-1 -mt-1 flex min-h-11 min-w-11 items-center justify-center rounded-lg text-muted transition-colors hover:bg-background hover:text-foreground cursor-pointer"
           >
             <X className="h-4 w-4" />
           </button>
@@ -123,7 +123,9 @@ export function Modal({
 
         <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
 
-        {footer && <div className="border-t border-border px-5 py-4">{footer}</div>}
+        {/* pb-safe clears the iOS home indicator, which sits over the footer
+            while the panel is docked to the bottom of a phone screen. */}
+        {footer && <div className="pb-safe-4 border-t border-border px-5 pt-4">{footer}</div>}
       </div>
     </div>,
     document.body,

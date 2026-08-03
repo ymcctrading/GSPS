@@ -104,7 +104,7 @@ const GROUPS: { heading: string; terms: Term[] }[] = [
 
 export function Glossary() {
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
       {GROUPS.map((g) => (
         <Card key={g.heading}>
           <CardHeader>

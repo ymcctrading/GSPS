@@ -7,6 +7,7 @@
 
 import type { AssetClass, GannLevels, ScanResult, StratPattern, TradeLevels } from "@/lib/types";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
+import { describeDataError } from "@/lib/data/http";
 import { fetchAllTimeframes, getMarketDataProvider } from "@/lib/data/provider";
 import { readTrend } from "@/lib/analysis/trend";
 import { atr } from "@/lib/analysis/pivots";
@@ -174,6 +175,9 @@ export async function scanTicker(symbol: string, optionPremium?: number): Promis
       optionPremium,
     };
   } catch (err) {
+    // Provider failures get user-facing wording and a code the UI can act on;
+    // a rate limit is a "try again in a second", not "this symbol is broken".
+    const view = describeDataError(err);
     return {
       symbol: symbol.toUpperCase(),
       assetClass,
@@ -190,7 +194,8 @@ export async function scanTicker(symbol: string, optionPremium?: number): Promis
         outputState: "Reject",
         breakdown: [],
       },
-      error: err instanceof Error ? err.message : String(err),
+      error: view.message,
+      errorCode: view.code,
     };
   }
 }

@@ -106,9 +106,9 @@ export default function PortfolioPage() {
   };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
       <div className="flex items-center gap-3">
-        <h1 className="text-2xl font-semibold">Portfolio</h1>
+        <h1 className="text-xl font-semibold sm:text-2xl">Portfolio</h1>
         <Badge variant="muted">Paper account</Badge>
       </div>
 

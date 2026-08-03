@@ -39,6 +39,25 @@
   --warn-soft: #3b2c07;
 }
 
+/**
+ * Device tiers. The stock Tailwind scale covers tablet and up; `xs` fills in the
+ * gap between a 320px phone and a 640px one, where two-up controls in the order
+ * ticket stop fitting, and `3xl` gives desktop monitors a wider gutter than the
+ * laptop layout.
+ *
+ *   base … xs (384)  phone, portrait
+ *   sm (640)         phone, landscape / small tablet
+ *   md (768)         tablet, portrait
+ *   lg (1024)        tablet landscape / laptop — the 3-column ticker layout
+ *   xl (1280)        laptop
+ *   2xl (1536)       desktop
+ *   3xl (1920)       large desktop
+ */
+@theme {
+  --breakpoint-xs: 24rem;
+  --breakpoint-3xl: 120rem;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-surface: var(--surface);
@@ -58,8 +77,100 @@
   --font-mono: var(--font-geist-mono);
 }
 
+html {
+  /* Stops iOS from re-flowing text when the phone is rotated to landscape. */
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
+  /*
+   * A wide child (the 20-column options chain, a deep portfolio table) used to
+   * stretch the page past the viewport, which on a phone left the sticky header
+   * cut off and every card scrollable sideways. `clip` contains that without
+   * `hidden`'s side effect of breaking `position: sticky` in the header.
+   */
+  overflow-x: clip;
+}
+
+/* Nothing should be able to force the page wider than the screen. */
+img,
+svg,
+video,
+canvas,
+table {
+  max-width: 100%;
+}
+
+/*
+ * Horizontal scrollers (tables, the phone nav strip) get momentum scrolling and
+ * keep their scroll position out of the browser's back-gesture.
+ */
+.scroll-x {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/*
+ * Safe-area helpers. `viewportFit: "cover"` lets the page paint under the iOS
+ * home indicator, so anything docked to the bottom has to add the inset back.
+ * These are plain classes (not Tailwind utilities), so they sit outside
+ * `@layer utilities` and win over a `pb-*` on the same element — each one
+ * therefore states its full padding rather than assuming one is also applied.
+ */
+
+/* For an element with no bottom padding of its own — the phone tab bar. */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* For a bottom-docked panel that wants its usual 1rem of padding as well. */
+.pb-safe-4 {
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+}
+
+/* Page content clears the phone tab bar; from md up that bar is gone. */
+.pb-tabbar {
+  padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 48rem) {
+  .pb-tabbar {
+    padding-bottom: 2rem;
+  }
+}
+
+@media (max-width: 767px) {
+  /*
+   * iOS zooms the whole page when a focused control's text is under 16px, and
+   * the viewport never zooms back out. Quantity and search inputs were the
+   * trigger; forcing 16px on phones keeps the layout still.
+   */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* Respect a reduced-motion preference for the live-price pulse and transitions. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

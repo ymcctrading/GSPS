@@ -32,9 +32,9 @@ export default async function AutomationPage() {
   const unlocked = hasFeature(tier, "autonomous_portfolio_manager");
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
       <div>
-        <h1 className="text-2xl font-semibold">Automated Portfolio Manager</h1>
+        <h1 className="text-xl font-semibold sm:text-2xl">Automated Portfolio Manager</h1>
         <p className="text-sm text-muted">
           Hand execution to the engine — set your risk, bias, and volatility dials and it manages
           entries, trailing stops, and exits hands-free.

@@ -60,6 +60,41 @@ async function alpacaFetch(
   return res.status === 204 ? null : res.json();
 }
 
+/**
+ * The tradability facts the order ticket needs before it lets someone press a
+ * button. Alpaca returns far more; these are the fields that change what the UI
+ * should offer.
+ */
+export interface AlpacaAsset {
+  symbol: string;
+  name?: string;
+  tradable: boolean;
+  shortable: boolean;
+  easy_to_borrow: boolean;
+  fractionable?: boolean;
+  status?: string;
+  exchange?: string;
+}
+
+/**
+ * Look up one asset. Used as a pre-flight so a non-shortable name (GPUS and
+ * most small caps) disables the short side in the ticket instead of failing
+ * with a 422 after the user has already committed to the order.
+ */
+export async function getAsset(creds: AlpacaCreds, symbol: string): Promise<AlpacaAsset> {
+  const raw = await alpacaFetch(creds, `/v2/assets/${encodeURIComponent(symbol.toUpperCase())}`);
+  return {
+    symbol: String(raw.symbol ?? symbol).toUpperCase(),
+    name: raw.name,
+    tradable: Boolean(raw.tradable),
+    shortable: Boolean(raw.shortable),
+    easy_to_borrow: Boolean(raw.easy_to_borrow),
+    fractionable: raw.fractionable,
+    status: raw.status,
+    exchange: raw.exchange,
+  };
+}
+
 export interface PlaceOrderInput {
   symbol: string;
   side: "buy" | "sell";

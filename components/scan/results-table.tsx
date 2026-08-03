@@ -24,7 +24,9 @@ export function ResultsTable({ rows, emptyText }: { rows: ScanRow[]; emptyText?:
     <Table>
       <THead>
         <TR>
-          <TH>Symbol</TH>
+          {/* The symbol pins while the price columns scroll — otherwise a phone
+              user scrolling right loses track of which row they're reading. */}
+          <TH className="sticky left-0 z-10 bg-surface">Symbol</TH>
           <TH>Score</TH>
           <TH>Setup</TH>
           <TH className="text-right">Entry</TH>
@@ -36,7 +38,7 @@ export function ResultsTable({ rows, emptyText }: { rows: ScanRow[]; emptyText?:
       <TBody>
         {rows.map((r) => (
           <TR key={`${r.symbol}-${r.direction}`}>
-            <TD>
+            <TD className="sticky left-0 z-10 bg-surface">
               <Link
                 href={`/ticker/${encodeURIComponent(r.symbol)}`}
                 className="font-medium text-accent hover:underline"

@@ -660,9 +660,11 @@ export function CandleChart({
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex min-w-0 flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1">
+        {/* Ten timeframes don't fit a phone; they scroll rather than wrap into
+            three rows that push the chart below the fold. */}
+        <div className="scroll-x no-scrollbar -mx-1 flex items-center gap-1 px-1">
           {TIMEFRAMES.map((tf) => (
             <button
               key={tf}
@@ -670,7 +672,7 @@ export function CandleChart({
               title={`${TF_CANDLE_LABEL[tf]} per candle`}
               aria-pressed={tf === timeframe}
               className={cn(
-                "rounded-md px-2 py-1 text-xs font-medium cursor-pointer",
+                "min-h-9 shrink-0 rounded-md px-2 py-1 text-xs font-medium cursor-pointer",
                 tf === timeframe ? "bg-accent-soft text-accent" : "text-muted hover:text-foreground",
               )}
             >
@@ -680,7 +682,7 @@ export function CandleChart({
         </div>
 
         {/* Drawing toolbar */}
-        <div className="flex items-center gap-0.5 border-l border-border pl-2">
+        <div className="flex shrink-0 items-center gap-0.5 border-l border-border pl-2">
           <ToolButton
             active={tool === "none"}
             onClick={() => {
@@ -728,7 +730,7 @@ export function CandleChart({
             LIVE
           </span>
         )}
-        <div className="ml-auto flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 sm:ml-auto">
           {extendedApplies && (
             <label className="flex items-center gap-1.5 text-xs text-muted cursor-pointer">
               <input
@@ -755,7 +757,7 @@ export function CandleChart({
       </div>
 
       {/* Indicator toggles */}
-      <div className="flex flex-wrap items-center gap-1.5">
+      <div className="scroll-x no-scrollbar -mx-1 flex items-center gap-1.5 px-1 sm:flex-wrap sm:overflow-visible">
         {(Object.keys(OVERLAY_META) as Overlay[]).map((k) => (
           <IndicatorChip
             key={k}
@@ -794,7 +796,10 @@ export function CandleChart({
         </div>
       )}
 
-      <div className="relative h-[420px] w-full">
+      {/* Chart height tracks the device: tall enough to read structure on a
+          phone without pushing the order ticket off-screen, and taller on a
+          desktop where the vertical space is free. */}
+      <div className="relative h-[300px] w-full min-w-0 sm:h-[360px] lg:h-[420px] 2xl:h-[520px]">
         <div ref={containerRef} className="absolute inset-0" />
         {/* Trade overlay lives inside the canvas box so its panels stay tethered
             to the chart. Pointer events are re-enabled per child so the wrapper
@@ -879,7 +884,7 @@ function IndicatorChip({
     <button
       onClick={onClick}
       className={cn(
-        "flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium cursor-pointer transition-colors",
+        "flex min-h-9 shrink-0 items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium cursor-pointer transition-colors",
         active ? "border-accent bg-accent-soft text-accent" : "border-border text-muted hover:text-foreground",
       )}
     >
