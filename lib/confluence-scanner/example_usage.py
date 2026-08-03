@@ -1,22 +1,26 @@
 """
 example_usage.py
 -----------------
-Demonstrates a full scan using values loosely modeled on the original
-checklist example (price ~106, Gann 1x4 fan at 106.66, Sq9 0° at 106.00,
-2-2 bearish trigger at 106.14).
+Demonstrates both manual setup (for testing) and automatic data fetching from Yahoo Finance.
 
-Includes example of early-stage momentum opportunity detection (new in Tier 1 fixes).
+Option 1: Manual values (all fields provided, no network calls)
+Option 2: Automatic from Yahoo Finance (you provide Gann/Fib/pattern, everything else fetched)
 
 Run: python example_usage.py
 """
 
 from schema import SetupInput
 from scanner import run_scan, print_report
-from logger import log_scan, update_outcome
+from logger import log_scan
+from data_sources.build_setup import build_setup_from_yahoo
 
-# --- Example 1: a bearish setup with volatility-adjusted stops, sliding-scale R/R ---
-setup = SetupInput(
-    symbol="EXAMPLE",
+
+# --- Example 1: Manual setup (all fields provided) with new MACD schema ---
+print("### Example 1: Manual setup with new MACD schema ###")
+print("(macd_histogram_prev and macd_histogram_curr instead of boolean)\n")
+
+setup1 = SetupInput(
+    symbol="EXAMPLE1",
     direction="bear",
     price=106.30,
 
@@ -37,13 +41,12 @@ setup = SetupInput(
     dist_pct_historical_sr=0.10,  # within 0.50% -> hit
     dist_pct_fibonacci=0.55,      # outside 0.30% -> miss
 
-    # Momentum
+    # Momentum (NEW: raw histogram values, not boolean)
     macd_line=-0.12,
     macd_signal=-0.05,
-    macd_histogram_rising=True,    # NOTE: this field means "improving in the TRADE's favor",
-                                    # not literally rising — for a bear setup, True = histogram
-                                    # pushing further negative (momentum building downward)
-    rsi=68,                        # TIER 2: Bear fade target is RSI > 65 (overbought, was 50)
+    macd_histogram_prev=-0.08,     # histogram value one bar back
+    macd_histogram_curr=-0.10,     # histogram value on trigger bar (more negative = falling for bear)
+    rsi=68,                        # TIER 2: Bear fade target is RSI > 65 (overbought)
     rsi_divergence_present=True,
 
     # Participation
@@ -53,25 +56,56 @@ setup = SetupInput(
     # Environment
     atr_percentile_6mo=55,
 
-    # Execution (TIER 1 FIX: volatility-scaled stops + sliding-scale R/R)
+    # Execution (TIER 1: volatility-scaled stops + sliding-scale R/R)
     strat_pattern_armed=True,
     stop_distance_pct=1.2,         # normal vol = 1.0-1.8% band, so this passes
     tp1_r_multiple=1.8,            # 1.8R = "strong" tier (6/8 pts instead of old binary 0pts)
 )
 
-result = run_scan(setup)
-print_report(result)
-
-entry_id = log_scan(result)
-print(f"Logged as {entry_id}")
-
-# Later, once the trade resolves, you'd call:
-# update_outcome(entry_id, outcome="win", r_multiple=2.1, notes="Clean break, hit TP1 same session.")
+result1 = run_scan(setup1)
+print_report(result1)
+entry_id = log_scan(result1)
+print(f"Logged as {entry_id}\n")
 
 
-# --- Example 2: Early-stage momentum opportunity detection ---
-print("\n\n### Example 2: Early-stage momentum opportunity ###")
-setup2 = SetupInput(
+# --- Example 2: Automatic from Yahoo Finance (minimal manual input) ---
+print("\n### Example 2: Automatic data from Yahoo Finance ###")
+print("(Only you provide Gann/Fib/pattern; everything else fetched)\n")
+
+try:
+    # Yahoo fetches: macro_trend, volume, spread, earnings, ADX, hourly trend, MACD, RSI, ATR percentile
+    # You supply: Gann, Sq9, S/R, Fib distances + pattern + stops/TP
+    setup2 = build_setup_from_yahoo(
+        symbol="AAPL",
+        direction="bear",
+        # Your proprietary levels (from your tools):
+        dist_pct_gann_fan=0.25,
+        dist_pct_square_of_9=0.15,
+        dist_pct_historical_sr=0.10,
+        dist_pct_fibonacci=0.30,
+        strat_pattern_armed=True,
+        stop_distance_pct=1.2,
+        tp1_r_multiple=2.0,
+        # RSI divergence: leave as None if unsure; you review the chart
+        rsi_divergence_present=None,
+    )
+
+    result2 = run_scan(setup2)
+    print(f"AAPL bear setup (auto-fetched from Yahoo):")
+    print_report(result2)
+    log_scan(result2)
+
+except Exception as e:
+    print(f"Could not fetch from Yahoo Finance: {e}")
+    print("(This is expected if network access to query1/2.finance.yahoo.com is not available)")
+    print("In production, this would catch transient failures gracefully.\n")
+
+
+# --- Example 3: Early-stage momentum opportunity detection ---
+print("\n### Example 3: Early-stage momentum opportunity ###")
+print("(Catch moves before they hit the confluence level)\n")
+
+setup3 = SetupInput(
     symbol="MOMENTUM",
     direction="bull",
     price=150.00,
@@ -87,7 +121,7 @@ setup2 = SetupInput(
     hourly_trend_aligned=True,
     adx_entry_tf=20,
 
-    # Structure cluster
+    # Structure cluster (AT the level)
     dist_pct_gann_fan=0.08,
     dist_pct_square_of_9=0.12,
     dist_pct_historical_sr=0.06,
@@ -95,15 +129,16 @@ setup2 = SetupInput(
 
     # NEW: Early-stage momentum detection
     # Price is 2.5% away from next Gann target, 2.3% from next Fib
-    # This should trigger "early_stage_momentum_opportunity" factor
+    # This should trigger "early_stage_momentum_opportunity" factor (6 points)
     dist_pct_next_gann_target=2.5,
     dist_pct_next_fib_target=2.3,
 
     # Momentum
     macd_line=0.08,
     macd_signal=0.05,
-    macd_histogram_rising=True,
-    rsi=58,                       # not extreme (< 70), so still in early stages
+    macd_histogram_prev=0.02,      # histogram rising (2bp to 4bp)
+    macd_histogram_curr=0.04,
+    rsi=58,                        # not extreme (< 70), still in early stages
     rsi_divergence_present=False,
 
     # Participation
@@ -115,19 +150,19 @@ setup2 = SetupInput(
 
     # Execution
     strat_pattern_armed=True,
-    stop_distance_pct=0.8,         # high-vol regime, so 1.5-2.2% band... this fails
+    stop_distance_pct=0.8,         # TIER 1 FIX: high-vol regime (ATR 65th) = 1.5-2.2% band, so this fails
     tp1_r_multiple=1.6,            # marginal tier (2/8 pts)
 )
 
-result2 = run_scan(setup2)
-print_report(result2)
-log_scan(result2)
+result3 = run_scan(setup3)
+print_report(result3)
+log_scan(result3)
 
 
-# --- Example 3: Setup that fails a gate (illustrates fail-closed earnings + trend regime) ---
-print("\n\n### Example 3: Missing earnings data -> fails closed ###")
-setup3 = SetupInput(
-    symbol="EXAMPLE3",
+# --- Example 4: Setup that fails a gate ---
+print("\n### Example 4: Missing earnings data -> fails closed ###")
+setup4 = SetupInput(
+    symbol="EXAMPLE4",
     direction="bull",
     price=54.10,
     macro_trend_aligned=True,
@@ -136,14 +171,14 @@ setup3 = SetupInput(
     trading_days_to_next_earnings=None,  # unavailable -> gate fails closed
     adx_daily=20,
 )
-result3 = run_scan(setup3)
-print_report(result3)
-log_scan(result3)
+result4 = run_scan(setup4)
+print_report(result4)
+log_scan(result4)
 
 
-# --- Example 4: ADX at new gate boundary (45) - should pass, not score high ---
-print("\n\n### Example 4: Strong trend (ADX 44) passes gate but doesn't score high ###")
-setup4 = SetupInput(
+# --- Example 5: ADX at new gate boundary (45) - should pass, not score high ---
+print("\n### Example 5: Strong trend (ADX 44) passes gate but doesn't score high ###")
+setup5 = SetupInput(
     symbol="STRONG_TREND",
     direction="bear",
     price=200.00,
@@ -168,7 +203,8 @@ setup4 = SetupInput(
     # Momentum
     macd_line=-0.22,
     macd_signal=-0.10,
-    macd_histogram_rising=True,
+    macd_histogram_prev=-0.15,
+    macd_histogram_curr=-0.20,     # falling further negative
     rsi=35,
     rsi_divergence_present=False,
 
@@ -185,6 +221,6 @@ setup4 = SetupInput(
     tp1_r_multiple=2.2,            # excellent tier (8/8 pts)
 )
 
-result4 = run_scan(setup4)
-print_report(result4)
-log_scan(result4)
+result5 = run_scan(setup5)
+print_report(result5)
+log_scan(result5)
