@@ -17,10 +17,10 @@ export default async function DashboardPage() {
   const { scanDate, bullish, bearish } = await getDailyScans();
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Dashboard</h1>
+          <h1 className="text-xl font-semibold sm:text-2xl">Dashboard</h1>
           <p className="text-sm text-muted">
             {scanDate
               ? `Daily market scan for ${scanDate}`
@@ -50,7 +50,7 @@ export default async function DashboardPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid min-w-0 gap-4 sm:gap-6 lg:grid-cols-2">
         <ReversionPreview
           direction="bullish"
           rows={bullish}
@@ -63,7 +63,7 @@ export default async function DashboardPage() {
         />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid min-w-0 gap-4 sm:gap-6 lg:grid-cols-2">
         <EarningsCalendar />
         <MarketNews />
       </div>

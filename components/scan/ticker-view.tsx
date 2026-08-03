@@ -17,12 +17,18 @@ import type { LiveQuote } from "@/app/api/quote/route";
 export function TickerView({ symbol }: { symbol: string }) {
   const [result, setResult] = useState<ScanResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Set when the failure is temporary (a throttled data feed), which is the
+  // difference between offering a retry and calling the symbol unscannable.
+  const [retryable, setRetryable] = useState(false);
+  // Bumping this re-runs the scan without remounting the page.
+  const [reloadKey, setReloadKey] = useState(0);
   const quote = useLiveQuote(symbol);
 
   useEffect(() => {
     let cancelled = false;
     setResult(null);
     setError(null);
+    setRetryable(false);
     fetch(`/api/scan?ticker=${encodeURIComponent(symbol)}`)
       .then(async (res) => {
         if (!res.ok) throw new Error((await res.json()).error ?? `HTTP ${res.status}`);
@@ -30,14 +36,18 @@ export function TickerView({ symbol }: { symbol: string }) {
       })
       .then((data: ScanResult) => {
         if (cancelled) return;
-        if (data.error) setError(data.error);
-        else setResult(data);
+        if (data.error) {
+          setError(data.error);
+          setRetryable(data.errorCode === "rate_limited" || data.errorCode === "upstream");
+        } else {
+          setResult(data);
+        }
       })
       .catch((err) => !cancelled && setError(err instanceof Error ? err.message : String(err)));
     return () => {
       cancelled = true;
     };
-  }, [symbol]);
+  }, [symbol, reloadKey]);
 
   const markers: PriceMarker[] = [];
   if (result?.levels) {
@@ -59,9 +69,13 @@ export function TickerView({ symbol }: { symbol: string }) {
   const livePrice = quote?.price ?? (result && result.currentPrice > 0 ? result.currentPrice : null);
 
   return (
-    <div className="flex flex-col gap-6">
+    // `min-w-0` on the column and on every grid child is what keeps a wide
+    // child (the options chain, the depth ladder) scrolling inside its own box
+    // instead of stretching the page — the cause of the sideways scroll and the
+    // clipped header on phones.
+    <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <h1 className="text-2xl font-semibold">{symbol}</h1>
+        <h1 className="text-xl font-semibold sm:text-2xl">{symbol}</h1>
         <PriceHeader quote={quote} fallbackPrice={livePrice} />
         {result?.gann.timeCycleActive && (
           <span className="text-xs font-medium text-warn">⏱ Cyclical turn window active</span>
@@ -71,8 +85,14 @@ export function TickerView({ symbol }: { symbol: string }) {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
+      <div className="grid min-w-0 gap-4 sm:gap-6 lg:grid-cols-3">
+        {/*
+         * Phones lead with the order ticket: the chart is the reference, but the
+         * ticket is what someone opened the page to act on, and scrolling past a
+         * 320px chart to reach it on every visit is the wrong default. The
+         * laptop layout puts the chart back on the left.
+         */}
+        <Card className="min-w-0 lg:col-span-2 lg:order-1">
           <CardHeader>
             <CardTitle>Chart</CardTitle>
           </CardHeader>
@@ -86,10 +106,20 @@ export function TickerView({ symbol }: { symbol: string }) {
           </CardContent>
         </Card>
 
-        <div className="flex flex-col gap-6">
+        <div className="flex min-w-0 flex-col gap-4 sm:gap-6 lg:order-2">
           {error && (
             <Card>
-              <CardContent className="py-6 text-sm text-bear">{error}</CardContent>
+              <CardContent className="py-6 text-sm text-bear">
+                <p className="break-words">{error}</p>
+                {retryable && (
+                  <button
+                    onClick={() => setReloadKey((k) => k + 1)}
+                    className="mt-2 min-h-9 cursor-pointer underline underline-offset-2"
+                  >
+                    Retry scan →
+                  </button>
+                )}
+              </CardContent>
             </Card>
           )}
           {!result && !error && (
@@ -128,7 +158,7 @@ function PriceHeader({ quote, fallbackPrice }: { quote: LiveQuote | null; fallba
 
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-      <span className="font-mono text-2xl font-semibold tabular-nums">{formatUsd(price)}</span>
+      <span className="font-mono text-xl font-semibold tabular-nums sm:text-2xl">{formatUsd(price)}</span>
 
       {headlinePct != null && headlineAbs != null && (
         <span

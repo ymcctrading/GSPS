@@ -1,11 +1,13 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { checkBracket } from "@/lib/trade/bracket";
 import { formatUsd, cn } from "@/lib/utils";
 import type { ScanResult } from "@/lib/types";
+import type { AssetTradability } from "@/app/api/assets/route";
 
 type EntryMode = "advised" | "now";
 type AssetType = "shares" | "options";
@@ -58,7 +60,29 @@ export function OrderTicket({
   const [expiration, setExpiration] = useState("");
   const [contractSymbol, setContractSymbol] = useState("");
 
+  // Tradability pre-flight: knowing up front that a name can't be shorted lets
+  // the ticket steer toward a put instead of letting the broker reject the
+  // order after the fact.
+  const [tradability, setTradability] = useState<AssetTradability | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    setTradability(null);
+    fetch(`/api/assets?symbol=${encodeURIComponent(symbol)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: AssetTradability | null) => !cancelled && d && setTradability(d))
+      .catch(() => {
+        /* unknown tradability — the ticket stays permissive */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [symbol]);
+
   const advised = levels?.entry ?? currentPrice ?? 0;
+
+  // Only a definitive `false` blocks the short side; a lookup that didn't
+  // resolve leaves the button enabled and defers to the broker.
+  const shortBlocked = assetType === "shares" && tradability?.shortable === false;
 
   // Find the near-the-money contract symbol for a given expiration + call/put.
   const pickAtm = useCallback(
@@ -116,6 +140,24 @@ export function OrderTicket({
   const activeExpiry = chain?.expirations.find((e) => e.expiration === expiration);
   const useProtocolLevels = executionMode === "protocol" && hasProtocolSignal;
 
+  // The price Alpaca measures the bracket legs against: the limit on an advised
+  // entry, the live quote on a market entry. Choosing "buy now" below the
+  // advised entry is what puts the protocol stop on the wrong side of the fill.
+  const basePrice = entryMode === "advised" ? advised : currentPrice ?? 0;
+  const bracketCheck =
+    useProtocolLevels && levels && side === "buy" && assetType === "shares"
+      ? checkBracket({
+          side: "buy",
+          basePrice,
+          stopLoss: levels.stopLoss,
+          takeProfit: levels.takeProfit1,
+        })
+      : { ok: true as const };
+  const bracketBlocked = !bracketCheck.ok;
+  // A bracket that can't attach is silently dropped from the payload rather
+  // than sent and rejected; the note under the checkbox says so.
+  const attachingLevels = attachLevels && !bracketBlocked;
+
   async function submit() {
     setSubmitting(true);
     setFeedback(null);
@@ -137,9 +179,13 @@ export function OrderTicket({
               qty: Number(qty),
               entryMode,
               limitPrice: entryMode === "advised" ? advised : undefined,
-              // Brackets only attach to long entries, and only when using protocol levels.
+              // Lets the server validate a market entry's bracket, which has no
+              // limit price of its own to measure the legs against.
+              referencePrice: currentPrice ?? undefined,
+              // Brackets only attach to long entries, only with protocol levels,
+              // and only when the legs sit on the side the broker requires.
               attachLevels:
-                useProtocolLevels && attachLevels && side === "buy"
+                useProtocolLevels && attachingLevels && side === "buy"
                   ? { stopLoss: levels!.stopLoss, takeProfit: levels!.takeProfit1, masterProfit: levels!.masterProfit }
                   : undefined,
               mode: "paper" as const,
@@ -164,10 +210,21 @@ export function OrderTicket({
     }
   }
 
+  /** Jump straight from a blocked short to the equivalent put ticket. */
+  const switchToPut = () => {
+    setSide("buy");
+    changeOptionType("put");
+    setFeedback(null);
+    openOptions();
+  };
+
   const optionRows = activeExpiry?.strikes.filter((r) => (optionType === "call" ? r.call : r.put)) ?? [];
   const canSubmitOptions = assetType === "options" && !!contractSymbol;
   const disabled =
-    submitting || Number(qty) < 1 || (assetType === "options" && !canSubmitOptions);
+    submitting ||
+    Number(qty) < 1 ||
+    (assetType === "options" && !canSubmitOptions) ||
+    (shortBlocked && side === "sell");
 
   const actionLabel = (() => {
     if (assetType === "options") return `Buy to ${side === "buy" ? "open" : "close"} ${optionType.toUpperCase()}`;
@@ -185,13 +242,13 @@ export function OrderTicket({
               : `${side === "buy" ? "Long" : "Short"} ${symbol} — armed ${pattern!.name} setup is ${pattern!.direction}.`
             : `Manual ${side === "buy" ? "long" : "short"} execution for ${symbol} ${assetType === "options" ? "options" : ""} — no protocol levels attached.`}
         </CardDescription>
-        <div className="mt-2 flex items-center gap-2 border-t border-border pt-3">
+        <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-border pt-3">
           <span className="text-xs font-semibold text-muted">Mode:</span>
           <button
             onClick={() => setExecutionMode("protocol")}
             disabled={!hasProtocolSignal}
             className={cn(
-              "rounded px-2.5 py-1 text-xs font-medium cursor-pointer transition-colors",
+              "min-h-9 rounded px-2.5 py-1 text-xs font-medium cursor-pointer transition-colors",
               executionMode === "protocol" && hasProtocolSignal
                 ? "bg-accent text-surface"
                 : "border border-border text-muted",
@@ -204,7 +261,7 @@ export function OrderTicket({
           <button
             onClick={() => setExecutionMode("manual")}
             className={cn(
-              "rounded px-2.5 py-1 text-xs font-medium cursor-pointer transition-colors",
+              "min-h-9 rounded px-2.5 py-1 text-xs font-medium cursor-pointer transition-colors",
               executionMode === "manual" ? "bg-warn text-surface" : "border border-border text-muted hover:border-warn",
             )}
             title="Place an order independent of any protocol signal"
@@ -234,9 +291,31 @@ export function OrderTicket({
             tone="bear"
             onClick={() => setSide("sell")}
             title={assetType === "options" ? "Sell to open" : "Sell / Short"}
-            hint={signalSide === "sell" ? "protocol side" : undefined}
+            hint={
+              shortBlocked ? "not shortable" : signalSide === "sell" ? "protocol side" : undefined
+            }
+            disabled={shortBlocked}
+            titleAttr={
+              shortBlocked
+                ? `${symbol} shares aren't available to borrow, so this broker won't accept a short.`
+                : undefined
+            }
           />
         </div>
+
+        {/* Caught before submit — the broker would reject this with a 422. */}
+        {shortBlocked && side === "sell" && (
+          <div className="rounded-lg border border-warn/40 bg-warn-soft p-3 text-xs text-warn">
+            <p className="font-medium">{symbol} can&apos;t be sold short.</p>
+            <p className="mt-1">
+              Its shares aren&apos;t available to borrow through this broker, so a short order would
+              be rejected. Trade the bearish read with a put instead.
+            </p>
+            <button onClick={switchToPut} className="mt-2 min-h-9 cursor-pointer font-medium underline underline-offset-2">
+              Buy a PUT instead →
+            </button>
+          </div>
+        )}
 
         {assetType === "shares" ? (
           <>
@@ -257,15 +336,43 @@ export function OrderTicket({
 
             {useProtocolLevels && levels ? (
               side === "buy" ? (
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={attachLevels}
-                    onChange={(e) => setAttachLevels(e.target.checked)}
-                    className="h-4 w-4 accent-[var(--accent)]"
-                  />
-                  Attach protocol stop ({formatUsd(levels.stopLoss)}) and TP1 ({formatUsd(levels.takeProfit1)})
-                </label>
+                <div className="flex flex-col gap-2">
+                  <label
+                    className={cn(
+                      "flex items-start gap-2 text-sm",
+                      bracketBlocked && "opacity-60",
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={attachingLevels}
+                      disabled={bracketBlocked}
+                      onChange={(e) => setAttachLevels(e.target.checked)}
+                      className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--accent)]"
+                    />
+                    <span>
+                      Attach protocol stop ({formatUsd(levels.stopLoss)}) and TP1 (
+                      {formatUsd(levels.takeProfit1)})
+                    </span>
+                  </label>
+                  {bracketBlocked && (
+                    <div className="rounded-lg border border-warn/40 bg-warn-soft p-3 text-xs text-warn">
+                      <p className="font-medium">Protocol levels can&apos;t attach to this entry.</p>
+                      <p className="mt-1">{bracketCheck.reason}</p>
+                      {entryMode === "now" && (
+                        <button
+                          onClick={() => setEntryMode("advised")}
+                          className="mt-2 min-h-9 cursor-pointer font-medium underline underline-offset-2"
+                        >
+                          Use the advised entry ({formatUsd(advised)}) instead →
+                        </button>
+                      )}
+                      <p className="mt-2 text-warn/80">
+                        Placing it anyway routes a plain order — manage the stop yourself.
+                      </p>
+                    </div>
+                  )}
+                </div>
               ) : (
                 <p className="text-xs text-muted">
                   Short entries route as a plain sell order — Alpaca doesn&apos;t bracket short legs. Manage the
@@ -301,32 +408,47 @@ export function OrderTicket({
           <Input
             id="qty"
             type="number"
+            inputMode="numeric"
             min="1"
             step="1"
             value={qty}
             onChange={(e) => setQty(e.target.value)}
-            className="w-28"
+            className="w-24 sm:w-28"
           />
         </div>
 
-        <Button variant={side === "buy" ? "bull" : "bear"} onClick={submit} disabled={disabled}>
+        <Button
+          variant={side === "buy" ? "bull" : "bear"}
+          size="lg"
+          onClick={submit}
+          disabled={disabled}
+          className="w-full"
+        >
           {submitting ? "Placing…" : actionLabel}
         </Button>
 
         {feedback && (
-          <div className={cn("text-sm", feedback.ok ? "text-bull" : "text-bear")}>
+          <div
+            className={cn(
+              "rounded-lg border p-3 text-sm break-words",
+              feedback.ok ? "border-bull/40 bg-bull-soft text-bull" : "border-bear/40 bg-bear-soft text-bear",
+            )}
+          >
             <p>{feedback.text}</p>
             {feedback.code === "short_not_allowed" && assetType === "shares" && (
+              <button onClick={switchToPut} className="mt-2 min-h-9 underline underline-offset-2 cursor-pointer">
+                Buy a PUT instead →
+              </button>
+            )}
+            {feedback.code === "invalid_bracket" && entryMode === "now" && (
               <button
                 onClick={() => {
-                  setSide("buy");
-                  changeOptionType("put");
+                  setEntryMode("advised");
                   setFeedback(null);
-                  openOptions();
                 }}
-                className="mt-1 underline underline-offset-2 cursor-pointer"
+                className="mt-2 min-h-9 underline underline-offset-2 cursor-pointer"
               >
-                Buy a PUT instead →
+                Switch to the advised entry ({formatUsd(advised)}) →
               </button>
             )}
           </div>
@@ -438,15 +560,27 @@ function TabButton({ active, onClick, label }: { active: boolean; onClick: () =>
 }
 
 function SideButton({
-  active, tone, onClick, title, hint,
-}: { active: boolean; tone: "bull" | "bear"; onClick: () => void; title: string; hint?: string }) {
+  active, tone, onClick, title, hint, disabled, titleAttr,
+}: {
+  active: boolean;
+  tone: "bull" | "bear";
+  onClick: () => void;
+  title: string;
+  hint?: string;
+  disabled?: boolean;
+  titleAttr?: string;
+}) {
   const activeCls = tone === "bull" ? "border-bull bg-bull/10 text-bull" : "border-bear bg-bear/10 text-bear";
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
+      title={titleAttr}
       className={cn(
-        "rounded-lg border px-3 py-2.5 text-left transition-colors cursor-pointer",
+        // min-h-12 keeps every tap target at/above the 44px mobile guideline.
+        "min-h-12 rounded-lg border px-3 py-2.5 text-left transition-colors cursor-pointer",
         active ? activeCls : "border-border text-muted hover:border-muted",
+        disabled && "cursor-not-allowed opacity-50 hover:border-border",
       )}
     >
       <p className="text-sm font-medium">{title}</p>
@@ -462,12 +596,12 @@ function ModeButton({
     <button
       onClick={onClick}
       className={cn(
-        "rounded-lg border px-3 py-2.5 text-left transition-colors cursor-pointer",
+        "min-h-12 rounded-lg border px-3 py-2.5 text-left transition-colors cursor-pointer",
         active ? "border-accent bg-accent-soft" : "border-border hover:border-muted",
       )}
     >
       <p className={cn("text-sm font-medium", active && "text-accent")}>{title}</p>
-      <p className="font-mono text-xs text-muted">{subtitle}</p>
+      <p className="font-mono text-xs text-muted tabular-nums">{subtitle}</p>
     </button>
   );
 }

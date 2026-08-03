@@ -21,14 +21,14 @@ export function MarketTabs({ symbol, result }: { symbol: string; result?: ScanRe
   const [tab, setTab] = useState<Tab>("research");
 
   return (
-    <div className="rounded-xl border border-border bg-surface">
-      <div className="flex items-center gap-1 border-b border-border px-2">
+    <div className="min-w-0 overflow-hidden rounded-xl border border-border bg-surface">
+      <div className="scroll-x no-scrollbar flex items-center gap-1 border-b border-border px-2">
         {TABS.map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
             className={
-              "relative px-3 py-2.5 text-sm font-medium cursor-pointer transition-colors " +
+              "relative shrink-0 px-3 py-3 text-sm font-medium cursor-pointer transition-colors sm:py-2.5 " +
               (tab === t.id
                 ? "text-accent after:absolute after:inset-x-2 after:-bottom-px after:h-0.5 after:rounded-full after:bg-accent"
                 : "text-muted hover:text-foreground")
@@ -38,11 +38,29 @@ export function MarketTabs({ symbol, result }: { symbol: string; result?: ScanRe
           </button>
         ))}
       </div>
-      <div className="p-4">
+      <div className="min-w-0 p-3 sm:p-4">
         {tab === "research" && <ResearchPanel symbol={symbol} result={result} />}
         {tab === "options" && <OptionsPanel symbol={symbol} />}
         {tab === "levelii" && <Level2Panel symbol={symbol} />}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Panel-level failure. Rate limiting on the free data feed is transient, so it
+ * reads as a wait-and-retry rather than as a broken symbol — which is how the
+ * raw `too many requests.` body used to land here.
+ */
+function PanelError({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  return (
+    <div className="rounded-lg border border-bear/40 bg-bear-soft p-3 text-sm text-bear">
+      <p className="break-words">{message}</p>
+      {onRetry && (
+        <button onClick={onRetry} className="mt-2 min-h-9 cursor-pointer underline underline-offset-2">
+          Try again →
+        </button>
+      )}
     </div>
   );
 }
@@ -57,6 +75,8 @@ interface IndicatorsData {
 function ResearchPanel({ symbol, result }: { symbol: string; result?: ScanResult | null }) {
   const [fetched, setFetched] = useState<ScanResult | null>(result ?? null);
   const [error, setError] = useState<string | null>(null);
+  const [retryable, setRetryable] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [indicators, setIndicators] = useState<IndicatorsData | null>(null);
   const [indicatorsError, setIndicatorsError] = useState<string | null>(null);
 
@@ -68,17 +88,26 @@ function ResearchPanel({ symbol, result }: { symbol: string; result?: ScanResult
     let cancelled = false;
     setFetched(null);
     setError(null);
+    setRetryable(false);
     fetch(`/api/scan?ticker=${encodeURIComponent(symbol)}`)
       .then(async (r) => {
         if (!r.ok) throw new Error((await r.json()).error ?? `HTTP ${r.status}`);
         return r.json();
       })
-      .then((d: ScanResult) => !cancelled && (d.error ? setError(d.error) : setFetched(d)))
+      .then((d: ScanResult) => {
+        if (cancelled) return;
+        if (d.error) {
+          setError(d.error);
+          setRetryable(d.errorCode === "rate_limited" || d.errorCode === "upstream");
+        } else {
+          setFetched(d);
+        }
+      })
       .catch((e) => !cancelled && setError(e instanceof Error ? e.message : String(e)));
     return () => {
       cancelled = true;
     };
-  }, [symbol, result]);
+  }, [symbol, result, reloadKey]);
 
   // Load MACD and RSI indicators. A prior bug here (wrong fetchBars argument
   // count, plus "5m" not resolving to a real timeframe) made every one of these
@@ -104,7 +133,9 @@ function ResearchPanel({ symbol, result }: { symbol: string; result?: ScanResult
     };
   }, [symbol]);
 
-  if (error) return <p className="text-sm text-bear">{error}</p>;
+  if (error) {
+    return <PanelError message={error} onRetry={retryable ? () => setReloadKey((k) => k + 1) : undefined} />;
+  }
   if (!fetched) return <Skeleton label="Running the protocol scan…" />;
 
   const dirVariant =
@@ -133,7 +164,7 @@ function ResearchPanel({ symbol, result }: { symbol: string; result?: ScanResult
         <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
           Multi-timeframe trend
         </h4>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
           {fetched.trends.map((t) => (
             <div key={t.timeframe} className="rounded-lg border border-border px-3 py-2">
               <div className="text-xs text-muted">{t.timeframe}</div>
@@ -179,7 +210,7 @@ function ResearchPanel({ symbol, result }: { symbol: string; result?: ScanResult
           <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
             Confluence checklist
           </h4>
-          <ul className="grid gap-1.5 sm:grid-cols-2">
+          <ul className="grid gap-1.5 md:grid-cols-2">
             {fetched.decision.breakdown.map((b, i) => (
               <li key={i} className="flex items-start gap-2 text-sm">
                 <span className={b.passed ? "text-bull" : "text-muted"}>{b.passed ? "✓" : "—"}</span>
@@ -206,7 +237,7 @@ function ResearchPanel({ symbol, result }: { symbol: string; result?: ScanResult
           <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
             Technical indicators (5m)
           </h4>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
             {indicators.macd.current !== null && (
               <div className="rounded-lg border border-border px-3 py-2">
                 <div className="text-xs text-muted">MACD</div>
@@ -275,6 +306,7 @@ function OptionsPanel({ symbol }: { symbol: string }) {
   const [spreadType, setSpreadType] = useState<SpreadType>("custom");
   const [exchange, setExchange] = useState<Exchange>("best");
   const [selection, setSelection] = useState<StrikeSelection | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -290,9 +322,9 @@ function OptionsPanel({ symbol }: { symbol: string }) {
     return () => {
       cancelled = true;
     };
-  }, [symbol]);
+  }, [symbol, reloadKey]);
 
-  if (error) return <p className="text-sm text-bear">{error}</p>;
+  if (error) return <PanelError message={error} onRetry={() => setReloadKey((k) => k + 1)} />;
   if (!chain) return <Skeleton label="Loading options chain…" />;
 
   const spot = chain.underlyingPrice;
@@ -588,26 +620,34 @@ function Level2Panel({ symbol }: { symbol: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    const load = () =>
-      fetch(`/api/level2?symbol=${encodeURIComponent(symbol)}`)
+    const load = () => {
+      // A backgrounded tab shouldn't spend request budget on a book nobody is
+      // looking at — that budget is what the price poll needs.
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      return fetch(`/api/level2?symbol=${encodeURIComponent(symbol)}`)
         .then(async (r) => {
           if (!r.ok) throw new Error((await r.json()).error ?? `HTTP ${r.status}`);
           return r.json();
         })
-        .then((d) => !cancelled && setBook(d))
+        .then((d) => {
+          if (cancelled) return;
+          setBook(d);
+          setError(null);
+        })
         .catch((e) => !cancelled && setError(e instanceof Error ? e.message : String(e)));
+    };
 
     setBook(null);
     setError(null);
     load();
-    timer.current = setInterval(load, 4000); // book refreshes for a live feel
+    timer.current = setInterval(load, 5000); // book refreshes for a live feel
     return () => {
       cancelled = true;
       if (timer.current) clearInterval(timer.current);
     };
   }, [symbol]);
 
-  if (error) return <p className="text-sm text-bear">{error}</p>;
+  if (error && !book) return <PanelError message={error} />;
   if (!book) return <Skeleton label="Loading market depth…" />;
 
   const maxSize = Math.max(...book.bids.map((b) => b.size), ...book.asks.map((a) => a.size), 1);

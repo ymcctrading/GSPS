@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { fetchSnapshot, isCryptoSymbol } from "@/lib/data/alpaca";
+import { describeDataError } from "@/lib/data/http";
 import { marketSession } from "@/lib/market/session";
 
 export interface LiveQuote {
@@ -66,9 +67,18 @@ export async function GET(req: NextRequest) {
     };
     return NextResponse.json(quote);
   } catch (err) {
+    // A throttled upstream answers 429 with Retry-After so the client poller
+    // backs off instead of hammering the same limit every few seconds.
+    const view = describeDataError(err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
-      { status: 502 },
+      { error: view.message, code: view.code },
+      {
+        status: view.status,
+        headers:
+          view.status === 429
+            ? { "Retry-After": String(Math.ceil((view.retryAfterMs ?? 5000) / 1000)) }
+            : undefined,
+      },
     );
   }
 }

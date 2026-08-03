@@ -107,4 +107,10 @@ export interface ScanResult {
   /** Optional: option premium supplied by user for the 12–18% stop calc. */
   optionPremium?: number;
   error?: string;
+  /**
+   * Why the scan failed, as a stable discriminator. `rate_limited` in
+   * particular is temporary — the UI offers a retry rather than presenting the
+   * symbol as unscannable.
+   */
+  errorCode?: "rate_limited" | "unauthorized" | "not_found" | "upstream" | "unknown";
 }

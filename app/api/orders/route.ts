@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { envCreds, getPositions, placeOrder } from "@/lib/brokers/alpaca";
+import { checkBracket } from "@/lib/trade/bracket";
 import { evaluateTargets } from "@/lib/trade/targets";
 
 const OrderSchema = z.object({
@@ -26,6 +27,11 @@ const OrderSchema = z.object({
     })
     .optional(),
   mode: z.enum(["paper", "live"]).default("paper"),
+  /**
+   * Last price the ticket showed. Used only to validate a bracket on a market
+   * entry, where there is no limit price to check the legs against.
+   */
+  referencePrice: z.number().positive().optional(),
   /**
    * Contract economics + greeks captured at ticket time. Stored as a snapshot so
    * the history grid shows what the trade was opened against, not what today's
@@ -87,6 +93,29 @@ export async function POST(req: NextRequest) {
   const useBracket = !isOption && !!input.attachLevels && input.side === "buy";
   const orderType = input.limitPrice ? "limit" : "market";
 
+  // Alpaca requires the stop below and the target above the entry (by at least
+  // a cent). The protocol computes its levels against the advised entry, so a
+  // market entry on the other side of that price produces legs the broker will
+  // refuse — catch it here with wording that says what to do about it.
+  if (useBracket) {
+    const basePrice = input.limitPrice ?? input.referencePrice ?? 0;
+    const check = checkBracket({
+      side: input.side,
+      basePrice,
+      stopLoss: input.attachLevels!.stopLoss,
+      takeProfit: input.attachLevels!.takeProfit,
+    });
+    if (!check.ok) {
+      return NextResponse.json(
+        {
+          error: `${check.reason} Place the order at the advised price instead, or uncheck the protocol levels and manage the stop yourself.`,
+          code: "invalid_bracket",
+        },
+        { status: 422 },
+      );
+    }
+  }
+
   try {
     // Real order (equity or option) — options carry a real Alpaca OCC symbol
     // from /api/options/chain, not a fabricated one.
@@ -136,8 +165,12 @@ export async function POST(req: NextRequest) {
 }
 
 /**
- * Map opaque Alpaca rejections to actionable guidance. The paper account can't
- * short some names and needs options enabled before it will accept contracts.
+ * Map opaque Alpaca rejections to actionable guidance.
+ *
+ * The wording varies by rejection path — the same "can't short this" outcome
+ * arrives as `not allowed to short` (account-level) or as
+ * `asset "GPUS" cannot be sold short` under the generic 42210000 code
+ * (asset-level) — so match on the phrasing rather than one code.
  */
 function explainBrokerError(
   raw: string,
@@ -145,12 +178,54 @@ function explainBrokerError(
   isOption: boolean,
 ): { message: string; code: string; status: number } {
   const lower = raw.toLowerCase();
-  if (lower.includes("not allowed to short") || lower.includes("40310000")) {
+  const shortRejected =
+    lower.includes("not allowed to short") ||
+    lower.includes("cannot be sold short") ||
+    lower.includes("not shortable") ||
+    lower.includes("40310000");
+  if (shortRejected) {
     return {
       code: "short_not_allowed",
       status: 422,
+      message: isOption
+        ? "This account can't open that short contract. Buy the opposite side instead."
+        : "This symbol can't be sold short — its shares aren't available to borrow. To trade the bearish setup, buy a PUT (switch to Options above) or wait for a long entry.",
+    };
+  }
+  // Bracket legs on the wrong side of the entry. Alpaca reports this as a
+  // base_price constraint; the user-facing problem is that the protocol stop no
+  // longer fits the price they're actually entering at.
+  if (lower.includes("base_price")) {
+    const stopLeg = lower.includes("stop_loss") || lower.includes("stop_price");
+    return {
+      code: "invalid_bracket",
+      status: 422,
+      message: stopLeg
+        ? "The protocol stop sits on the wrong side of the current market price, so the broker rejected the bracket. Switch to the advised entry price, or uncheck the protocol levels and manage the stop manually."
+        : "The protocol target sits on the wrong side of the current market price, so the broker rejected the bracket. Switch to the advised entry price, or uncheck the protocol levels and manage the target manually.",
+    };
+  }
+  if (lower.includes("market is closed") || lower.includes("outside of market hours")) {
+    return {
+      code: "market_closed",
+      status: 422,
       message:
-        "This paper account can't short this symbol. To trade the bearish setup, buy a PUT (switch to Options above) or wait for a long entry.",
+        "The market is closed, so this order can't be routed right now. Place it during regular hours, or use a limit order that rests until the open.",
+    };
+  }
+  if (lower.includes("not tradable") || lower.includes("asset is not active")) {
+    return {
+      code: "not_tradable",
+      status: 422,
+      message: "This symbol isn't tradable through the connected broker.",
+    };
+  }
+  if (lower.includes("wash trade") || lower.includes("potential wash trade")) {
+    return {
+      code: "wash_trade",
+      status: 422,
+      message:
+        "The broker blocked this as a potential wash trade — you have an opposing order working on the same symbol. Cancel it first, then retry.",
     };
   }
   if (isOption && (lower.includes("not eligible") || lower.includes("options") && lower.includes("not"))) {
@@ -168,7 +243,30 @@ function explainBrokerError(
       message: "Not enough buying power in the paper account for this order size.",
     };
   }
-  return { code: "broker_error", status: 502, message: raw };
+  return { code: "broker_error", status: 502, message: humanizeBrokerError(raw) };
+}
+
+/**
+ * Last resort for a rejection with no known translation. The raw string is an
+ * internal URL plus a JSON blob; lift the broker's own `message` out of it so
+ * the ticket shows a sentence rather than `Alpaca trading /v2/orders failed
+ * (422): {"code":42210000,...}`. The untouched original still rides along in
+ * the response's `raw` field for debugging.
+ */
+function humanizeBrokerError(raw: string): string {
+  const jsonStart = raw.indexOf("{");
+  if (jsonStart !== -1) {
+    try {
+      const parsed = JSON.parse(raw.slice(jsonStart)) as { message?: unknown };
+      if (typeof parsed.message === "string" && parsed.message.trim()) {
+        const detail = parsed.message.trim();
+        return `The broker rejected this order: ${detail.charAt(0).toUpperCase()}${detail.slice(1)}`;
+      }
+    } catch {
+      /* not JSON — fall through to the generic sentence */
+    }
+  }
+  return "The broker rejected this order. Check the quantity and price, then try again.";
 }
 
 /**

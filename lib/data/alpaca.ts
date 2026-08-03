@@ -10,8 +10,23 @@
 
 import type { AssetClass, Bar, Timeframe } from "@/lib/types";
 import type { MarketDataProvider } from "./provider";
+import { cachedFetch, fetchWithRetry, MarketDataError } from "./http";
 
 const DATA_BASE = "https://data.alpaca.markets";
+
+/**
+ * How long a response stays reusable, by endpoint. Quotes and latest trades get
+ * a sub-poll-interval window: long enough that the ticker header, the chart, and
+ * the order ticket share one upstream call, short enough that the price still
+ * ticks. Bars are keyed by an explicit time window, so a longer window is safe.
+ */
+function ttlFor(path: string): number {
+  if (path.includes("/trades/latest") || path.includes("/latest/trades")) return 2_000;
+  if (path.includes("/snapshot")) return 2_000;
+  if (path.includes("/bars")) return 15_000;
+  if (path.includes("most-actives")) return 300_000;
+  return 5_000;
+}
 
 // Accept the common Alpaca env-var spellings so a naming mismatch doesn't break data.
 function alpacaKeyId(): string | undefined {
@@ -62,17 +77,27 @@ function toBars(raw: AlpacaBar[] | undefined): Bar[] {
 // caller asked for, and each caller narrows the fields it reads. Threading a
 // generic through instead pushes `unknown` into a dozen call sites that would
 // each need a response interface — worth doing, but as its own change.
+//
+// Every read goes through the cache + coalescing + retry stack in ./http, so a
+// burst of page loads costs one upstream request and a throttled response is
+// retried rather than surfaced.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function get(path: string, params: Record<string, string>): Promise<any> {
   const url = new URL(`${DATA_BASE}${path}`);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-  const res = await fetch(url, { headers: headers(), next: { revalidate: 0 } });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Alpaca ${path} failed (${res.status}): ${body.slice(0, 200)}`);
-  }
-  return res.json();
+
+  return cachedFetch(url.toString(), ttlFor(path), async () => {
+    const res = await fetchWithRetry(
+      url,
+      { headers: headers(), next: { revalidate: 0 } } as RequestInit,
+      { provider: "Alpaca market data" },
+    );
+    return res.json();
+  });
 }
+
+/** Re-exported so routes can branch on rate limiting without importing ./http. */
+export { MarketDataError };
 
 /** Normalize a crypto symbol like BTCUSD or BTC-USD to Alpaca's BTC/USD. */
 export function normalizeCryptoSymbol(symbol: string): string {
