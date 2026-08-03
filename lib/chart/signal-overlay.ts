@@ -98,7 +98,7 @@ export function generateSignalTooltip(signal: SignalOverlay): string {
   lines.push(`Bars remaining: ${signal.validityBarsRemaining}`);
 
   if (signal.gannRoot) {
-    lines.push(`Gann Root: ${signal.gannRoot}`);
+    lines.push(`Harmonic root: ${signal.gannRoot}`);
   }
 
   if (signal.higherTfSignals.length > 0) {
@@ -194,10 +194,10 @@ export function checkExtendedHoursBanner(signal: SignalOverlay): ExtendedHoursBa
 export function generateSignalExplanation(signal: SignalOverlay): string[] {
   const bullets: string[] = [];
 
-  // Gann root explanation
+  // Harmonic root explanation
   if (signal.gannRoot) {
     bullets.push(
-      `Entry aligned with Gann ${signal.gannRoot} node — a harmonic level with historical significance.`
+      `Entry aligned with the ${signal.gannRoot} node — a harmonic level with historical significance.`
     );
   }
 

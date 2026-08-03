@@ -1,7 +1,7 @@
 import type { Bar, StratState } from "@/lib/types";
 
 /**
- * Sara Sniper Strat bar states:
+ * Reversal-pattern bar states:
  *  1  — inside bar (fully consumed by previous range)
  *  2U — directional up (breaks previous high only)
  *  2D — directional down (breaks previous low only)

@@ -49,10 +49,10 @@ export function TickerView({ symbol }: { symbol: string }) {
     );
   }
   result?.gann.fanLines.slice(0, 2).forEach((f) =>
-    markers.push({ price: f.price, label: `Support ${f.angle}`, kind: "gann" }),
+    markers.push({ price: f.price, label: `Support ${f.angle}`, kind: "structural" }),
   );
   result?.gann.squareOf9.slice(0, 2).forEach((s) =>
-    markers.push({ price: s.price, label: `Harmonic ${s.degree}°`, kind: "gann" }),
+    markers.push({ price: s.price, label: `Harmonic ${s.degree}°`, kind: "structural" }),
   );
 
   // Live price falls back to the scan snapshot until the first poll returns.
