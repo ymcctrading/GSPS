@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import { classifyBar, classifySeries } from "@/lib/strat/classify";
-import { detectPatterns, gapRuleViolated } from "@/lib/strat/patterns";
+import {
+  MIN_RISK_ATR_FRACTION,
+  detectPatterns,
+  gapRuleViolated,
+  riskFloorViolated,
+} from "@/lib/strat/patterns";
 import { computeTradeLevels } from "@/lib/strat/levels";
 
 function bar(o: number, h: number, l: number, c: number): Bar {
@@ -104,6 +109,51 @@ describe("gap rule", () => {
     };
     expect(gapRuleViolated(pattern, 103)).toBe(true);
     expect(gapRuleViolated(pattern, 99.5)).toBe(false);
+  });
+});
+
+describe("risk floor", () => {
+  // The shape that prompted this: a PMG armed on AAPL with a 35¢ stop on a
+  // $308 stock — 0.11% of price, and a fraction of a 15-minute candle.
+  const hairTrigger = {
+    name: "PMG" as const,
+    direction: "bearish" as const,
+    triggerPrice: 308.81,
+    stopPrice: 309.16,
+    description: "",
+  };
+
+  it("rejects a stop far tighter than the average bar range", () => {
+    expect(riskFloorViolated(hairTrigger, 1.5)).toBe(true);
+  });
+
+  it("accepts the same stop when the timeframe is genuinely that quiet", () => {
+    // ATR 0.9: the floor is 0.30, and the 0.35 stop clears it.
+    expect(riskFloorViolated(hairTrigger, 0.9)).toBe(false);
+  });
+
+  it("rejects a stop too tight to clear its own costs, whatever the ATR", () => {
+    // 10¢ on a $308 stock is 0.03% of price — under the cost floor even though
+    // it sits well above a third of this (near-zero) ATR.
+    const scalp = { ...hairTrigger, stopPrice: 308.91 };
+    expect(riskFloorViolated(scalp, 0.01)).toBe(true);
+  });
+
+  it("falls back to the cost floor when ATR is unavailable", () => {
+    // A flat or too-short series returns ATR 0, which must not wave setups
+    // through on the noise test alone.
+    expect(riskFloorViolated(hairTrigger, 0)).toBe(false);
+    expect(riskFloorViolated({ ...hairTrigger, stopPrice: 308.91 }, 0)).toBe(true);
+  });
+
+  it("passes a setup whose stop sits right at the noise floor", () => {
+    const atRange = 3;
+    const pattern = {
+      ...hairTrigger,
+      triggerPrice: 100,
+      stopPrice: 100 + atRange * MIN_RISK_ATR_FRACTION,
+    };
+    expect(riskFloorViolated(pattern, atRange)).toBe(false);
   });
 });
 
