@@ -116,10 +116,17 @@ export interface LearningModel {
 export interface LearningCoefficient {
   id: string;
   model_id: string;
-  timeframe?: Timeframe;
-  instrument_class?: AssetClass;
+  /**
+   * A coefficient row scopes itself to one timeframe / instrument class /
+   * tier, or to `'all'` as a wildcard. The wildcard was already the intent —
+   * matchCoefficients and the specificity weighting in inference.ts both test
+   * for it — but the types omitted it, so those comparisons narrowed to `never`
+   * and every wildcard row silently failed to match.
+   */
+  timeframe?: Timeframe | 'all';
+  instrument_class?: AssetClass | 'all';
   gann_root?: GannRoot;
-  tier?: Tier;
+  tier?: Tier | 'all';
   score_drift?: number;
   target_envelope_widen_factor?: number;
   entry_confidence_boost?: number;

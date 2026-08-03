@@ -243,7 +243,7 @@ async function liveMarks(symbols: string[]): Promise<Map<string, Mark>> {
   if (!creds) return marks;
 
   try {
-    const positions = (await getPositions(creds)) as Record<string, unknown>[];
+    const positions = await getPositions(creds);
     for (const p of positions) {
       marks.set(String(p.symbol).toUpperCase(), {
         currentPrice: Number(p.current_price),

@@ -20,10 +20,12 @@ export async function recordScanEvent(userId: string, event: Omit<ScanEvent, 'us
   const client = createLearningClient();
   const { data, error } = await client
     .from('scan_events')
-    .insert([{ user_id: userId, ...event }]);
+    .insert([{ user_id: userId, ...event }])
+    .select()
+    .single();
 
   if (error) throw new Error(`Failed to record scan event: ${error.message}`);
-  return data?.[0];
+  return data;
 }
 
 export async function recordSignalLifecycleEvent(
@@ -33,30 +35,36 @@ export async function recordSignalLifecycleEvent(
   const client = createLearningClient();
   const { data, error } = await client
     .from('signal_lifecycle_events')
-    .insert([{ user_id: userId, ...event }]);
+    .insert([{ user_id: userId, ...event }])
+    .select()
+    .single();
 
   if (error) throw new Error(`Failed to record signal lifecycle event: ${error.message}`);
-  return data?.[0];
+  return data;
 }
 
 export async function recordExecutionEvent(userId: string, event: Omit<ExecutionEvent, 'user_id'>) {
   const client = createLearningClient();
   const { data, error } = await client
     .from('execution_events')
-    .insert([{ user_id: userId, ...event }]);
+    .insert([{ user_id: userId, ...event }])
+    .select()
+    .single();
 
   if (error) throw new Error(`Failed to record execution event: ${error.message}`);
-  return data?.[0];
+  return data;
 }
 
 export async function recordUserAction(userId: string, action: Omit<UserAction, 'user_id'>) {
   const client = createLearningClient();
   const { data, error } = await client
     .from('user_actions')
-    .insert([{ user_id: userId, ...action }]);
+    .insert([{ user_id: userId, ...action }])
+    .select()
+    .single();
 
   if (error) throw new Error(`Failed to record user action: ${error.message}`);
-  return data?.[0];
+  return data;
 }
 
 export async function getScanEventsByUser(userId: string, limit = 100) {
@@ -137,10 +145,16 @@ export async function getCoefficients(modelId: string) {
 
 export async function createModel(model: Omit<LearningModel, 'id' | 'created_at'>) {
   const client = createLearningClient();
-  const { data, error } = await client.from('learning_models').insert([model]);
+  // Without .select() an insert resolves with data: null, so the old cast
+  // handed every caller `undefined` while claiming to return the new model.
+  const { data, error } = await client
+    .from('learning_models')
+    .insert([model])
+    .select()
+    .single();
 
   if (error) throw new Error(`Failed to create learning model: ${error.message}`);
-  return data?.[0] as LearningModel;
+  return data as LearningModel;
 }
 
 export async function updateModelStatus(
