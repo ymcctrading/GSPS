@@ -15,20 +15,36 @@ import type { ScanResult } from "@/lib/types";
 import type { LiveQuote } from "@/app/api/quote/route";
 
 export function TickerView({ symbol }: { symbol: string }) {
-  const [result, setResult] = useState<ScanResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  // Set when the failure is temporary (a throttled data feed), which is the
-  // difference between offering a retry and calling the symbol unscannable.
-  const [retryable, setRetryable] = useState(false);
   // Bumping this re-runs the scan without remounting the page.
   const [reloadKey, setReloadKey] = useState(0);
   const quote = useLiveQuote(symbol);
 
+  /**
+   * The scan is stored together with the request it answers, and read back
+   * only when the two still agree. Clearing it from inside the effect instead
+   * would leave one committed render — this page is reached by client-side
+   * links from the dashboard, scanner and portfolio, so React reuses this
+   * component rather than remounting it — where the new symbol's header sits
+   * above the previous symbol's entry, stop and targets.
+   */
+  const [scan, setScan] = useState<{
+    key: string;
+    result: ScanResult | null;
+    error: string | null;
+    // Set when the failure is temporary (a throttled data feed), which is the
+    // difference between offering a retry and calling the symbol unscannable.
+    retryable: boolean;
+  }>({ key: "", result: null, error: null, retryable: false });
+
+  const scanKey = `${symbol}:${reloadKey}`;
+  const current = scan.key === scanKey ? scan : null;
+  const result = current?.result ?? null;
+  const error = current?.error ?? null;
+  const retryable = current?.retryable ?? false;
+
   useEffect(() => {
     let cancelled = false;
-    setResult(null);
-    setError(null);
-    setRetryable(false);
+    const key = `${symbol}:${reloadKey}`;
     fetch(`/api/scan?ticker=${encodeURIComponent(symbol)}`)
       .then(async (res) => {
         if (!res.ok) throw new Error((await res.json()).error ?? `HTTP ${res.status}`);
@@ -36,14 +52,27 @@ export function TickerView({ symbol }: { symbol: string }) {
       })
       .then((data: ScanResult) => {
         if (cancelled) return;
-        if (data.error) {
-          setError(data.error);
-          setRetryable(data.errorCode === "rate_limited" || data.errorCode === "upstream");
-        } else {
-          setResult(data);
-        }
+        setScan(
+          data.error
+            ? {
+                key,
+                result: null,
+                error: data.error,
+                retryable: data.errorCode === "rate_limited" || data.errorCode === "upstream",
+              }
+            : { key, result: data, error: null, retryable: false },
+        );
       })
-      .catch((err) => !cancelled && setError(err instanceof Error ? err.message : String(err)));
+      .catch(
+        (err) =>
+          !cancelled &&
+          setScan({
+            key,
+            result: null,
+            error: err instanceof Error ? err.message : String(err),
+            retryable: false,
+          }),
+      );
     return () => {
       cancelled = true;
     };

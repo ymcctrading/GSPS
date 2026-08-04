@@ -187,20 +187,16 @@ describe("pattern descriptions", () => {
 });
 
 describe("trade level messages", () => {
-  it("phrases both stop-band warnings in plain language", () => {
-    const tight = computeTradeLevels(
-      { ...pattern, triggerPrice: 100, stopPrice: 99 },
-      bar(98, 101, 96, 99),
-      [],
-    );
-    const wide = computeTradeLevels(
-      { ...pattern, triggerPrice: 100, stopPrice: 70 },
-      bar(98, 101, 96, 99),
-      [],
-    );
-    expect(tight.stopBandWarning).toContain("tighter");
-    expect(wide.stopBandWarning).toContain("wider");
-    expectPlainLanguage([tight.stopBandWarning!, wide.stopBandWarning!]);
+  it("phrases every stop advisory in plain language", () => {
+    const p = { ...pattern, triggerPrice: 100, stopPrice: 99 };
+    const prev = bar(98, 101, 96, 99);
+    const warnings = [
+      computeTradeLevels(p, prev, [], 10).stopBandWarning, // under the premium band
+      computeTradeLevels(p, prev, [], 4).stopBandWarning, // over the premium band
+      computeTradeLevels(p, prev, [], undefined, 0.2).stopBandWarning, // wide vs volatility
+    ];
+    expect(warnings.every((w) => typeof w === "string")).toBe(true);
+    expectPlainLanguage(warnings as string[]);
   });
 
   it("phrases the reachable rejection error in plain language", () => {

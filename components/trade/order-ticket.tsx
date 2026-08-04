@@ -63,13 +63,20 @@ export function OrderTicket({
   // Tradability pre-flight: knowing up front that a name can't be shorted lets
   // the ticket steer toward a put instead of letting the broker reject the
   // order after the fact.
-  const [tradability, setTradability] = useState<AssetTradability | null>(null);
+  // Held against the symbol it describes, so a symbol change can never leave
+  // the previous name's answer gating the short button for a render — which is
+  // the rejection this pre-flight exists to avoid.
+  const [tradabilityState, setTradability] = useState<{
+    symbol: string;
+    value: AssetTradability | null;
+  }>({ symbol: "", value: null });
+  const tradability = tradabilityState.symbol === symbol ? tradabilityState.value : null;
+
   useEffect(() => {
     let cancelled = false;
-    setTradability(null);
     fetch(`/api/assets?symbol=${encodeURIComponent(symbol)}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: AssetTradability | null) => !cancelled && d && setTradability(d))
+      .then((d: AssetTradability | null) => !cancelled && d && setTradability({ symbol, value: d }))
       .catch(() => {
         /* unknown tradability — the ticket stays permissive */
       });

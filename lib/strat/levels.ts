@@ -7,17 +7,40 @@
  *  - Master profit: 3R, stretched to the nearest structural extension when one
  *    sits beyond 3R within reason; always kept beyond TP1, stepping out a
  *    further 1R when a structural TP1 has already run past 3R.
- *  - Recommended stop sanity band: 12–18% of price paid (warning only; the
- *    structural stop always wins).
+ *  - Stop sanity: advisory only — the structural stop always wins. Which
+ *    advisory applies depends on what is known (see the warning block below).
  */
 
 import type { Bar, StratPattern, TradeLevels } from "@/lib/types";
+
+/**
+ * The share of premium paid that a structural stop may consume. This is a
+ * position-sizing rule for long contracts: pay too little premium and an
+ * ordinary stop takes most of it, pay too much and the trade is inefficient.
+ * It is deliberately tighter than the 25–50% max-loss heuristic common for
+ * long options, because it is written for high-delta contracts held as
+ * leveraged stock rather than for cheap out-of-the-money premium.
+ */
+export const STOP_BAND_MIN_PCT_OF_PREMIUM = 12;
+export const STOP_BAND_MAX_PCT_OF_PREMIUM = 18;
+
+/**
+ * Widest structural stop worth taking on the execution timeframe, in average
+ * candles. This is the ceiling to the floor in lib/strat/patterns.ts: below a
+ * third of an average candle the stop is inside the noise, above two and a
+ * half the structural level is so far away that TP1 at 2R needs a five-candle
+ * run to pay. Measured over a year of AAPL 15-minute bars, it flags the
+ * widest 2.7% of setups that clear the floor (median 0.8x, p95 2.0x), and it
+ * sits inside the 1.5–3x ATR range conventionally used for stop placement.
+ */
+export const MAX_STOP_ATR_MULTIPLE = 2.5;
 
 export function computeTradeLevels(
   pattern: StratPattern,
   previousBar: Bar,
   gannTargets: number[],
   optionPremium?: number,
+  executionAtr?: number,
 ): TradeLevels {
   const entry = pattern.triggerPrice;
   const stopLoss = pattern.stopPrice;
@@ -60,13 +83,31 @@ export function computeTradeLevels(
     .sort((a, b) => dir * (a - b))[0];
   const masterProfit = structuralExtension ?? steppedMaster;
 
-  const basis = optionPremium ?? entry;
-  const stopPctOfPrice = (risk / basis) * 100;
+  const stopPctOfPrice = (risk / entry) * 100;
   let stopBandWarning: string | null = null;
-  if (stopPctOfPrice < 12) {
-    stopBandWarning = `Structural stop is ${stopPctOfPrice.toFixed(1)}% of price — tighter than the recommended 12–18% band. Position size can be increased or entries may whipsaw.`;
-  } else if (stopPctOfPrice > 18) {
-    stopBandWarning = `Structural stop is ${stopPctOfPrice.toFixed(1)}% of price — wider than the recommended 12–18% band. Reduce size or skip.`;
+
+  if (optionPremium && optionPremium > 0) {
+    // The 12–18% band asks what share of the premium paid a structural stop
+    // consumes. That only means something once a premium is known, and it
+    // assumes the contract moves close to point-for-point with the underlying
+    // — true for deep in-the-money contracts, optimistic further out, where
+    // the real premium loss is roughly this figure times delta.
+    const pctOfPremium = (risk / optionPremium) * 100;
+    if (pctOfPremium < STOP_BAND_MIN_PCT_OF_PREMIUM) {
+      stopBandWarning = `Structural stop risks ${pctOfPremium.toFixed(1)}% of the premium — tighter than the ${STOP_BAND_MIN_PCT_OF_PREMIUM}–${STOP_BAND_MAX_PCT_OF_PREMIUM}% band. Size can be increased, or a cheaper contract holds the same stop.`;
+    } else if (pctOfPremium > STOP_BAND_MAX_PCT_OF_PREMIUM) {
+      stopBandWarning = `Structural stop risks ${pctOfPremium.toFixed(1)}% of the premium — wider than the ${STOP_BAND_MIN_PCT_OF_PREMIUM}–${STOP_BAND_MAX_PCT_OF_PREMIUM}% band. Reduce size or skip.`;
+    }
+  } else if (executionAtr && executionAtr > 0) {
+    // No premium: the honest question is whether the stop is sane for how much
+    // this instrument moves, not what fraction of the notional it represents.
+    // Measuring against share price puts every intraday structural stop at
+    // 0.1–1%, which can never reach 12% — so the old fallback warned on every
+    // equity scan, and told the reader to increase size while doing it.
+    const atrMultiple = risk / executionAtr;
+    if (atrMultiple > MAX_STOP_ATR_MULTIPLE) {
+      stopBandWarning = `Structural stop is ${atrMultiple.toFixed(1)}× the average candle on the execution timeframe — an unusually wide setup. Reduce size, or wait for a tighter trigger.`;
+    }
   }
 
   // Invariant: master profit must be strictly more extreme than TP1, which

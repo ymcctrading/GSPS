@@ -73,22 +73,28 @@ interface IndicatorsData {
 }
 
 function ResearchPanel({ symbol, result }: { symbol: string; result?: ScanResult | null }) {
-  const [fetched, setFetched] = useState<ScanResult | null>(result ?? null);
-  const [error, setError] = useState<string | null>(null);
-  const [retryable, setRetryable] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
-  const [indicators, setIndicators] = useState<IndicatorsData | null>(null);
-  const [indicatorsError, setIndicatorsError] = useState<string | null>(null);
+
+  // Each fetch is stored against the request it answers and read back only
+  // while the two agree, so switching symbols cannot show the previous one's
+  // checklist or levels for a render. See components/scan/ticker-view.tsx.
+  const [scan, setScan] = useState<{
+    key: string;
+    data: ScanResult | null;
+    error: string | null;
+    retryable: boolean;
+  }>({ key: "", data: null, error: null, retryable: false });
+
+  const scanKey = `${symbol}:${reloadKey}`;
+  const own = scan.key === scanKey ? scan : null;
+  const fetched = result ?? own?.data ?? null;
+  const error = result ? null : (own?.error ?? null);
+  const retryable = result ? false : (own?.retryable ?? false);
 
   useEffect(() => {
-    if (result) {
-      setFetched(result);
-      return;
-    }
+    if (result) return; // The parent already scanned; don't duplicate it.
     let cancelled = false;
-    setFetched(null);
-    setError(null);
-    setRetryable(false);
+    const key = `${symbol}:${reloadKey}`;
     fetch(`/api/scan?ticker=${encodeURIComponent(symbol)}`)
       .then(async (r) => {
         if (!r.ok) throw new Error((await r.json()).error ?? `HTTP ${r.status}`);
@@ -96,18 +102,41 @@ function ResearchPanel({ symbol, result }: { symbol: string; result?: ScanResult
       })
       .then((d: ScanResult) => {
         if (cancelled) return;
-        if (d.error) {
-          setError(d.error);
-          setRetryable(d.errorCode === "rate_limited" || d.errorCode === "upstream");
-        } else {
-          setFetched(d);
-        }
+        setScan(
+          d.error
+            ? {
+                key,
+                data: null,
+                error: d.error,
+                retryable: d.errorCode === "rate_limited" || d.errorCode === "upstream",
+              }
+            : { key, data: d, error: null, retryable: false },
+        );
       })
-      .catch((e) => !cancelled && setError(e instanceof Error ? e.message : String(e)));
+      .catch(
+        (e) =>
+          !cancelled &&
+          setScan({
+            key,
+            data: null,
+            error: e instanceof Error ? e.message : String(e),
+            retryable: false,
+          }),
+      );
     return () => {
       cancelled = true;
     };
   }, [symbol, result, reloadKey]);
+
+  const [ind, setInd] = useState<{
+    symbol: string;
+    data: IndicatorsData | null;
+    error: string | null;
+  }>({ symbol: "", data: null, error: null });
+
+  const indForSymbol = ind.symbol === symbol ? ind : null;
+  const indicators = indForSymbol?.data ?? null;
+  const indicatorsError = indForSymbol?.error ?? null;
 
   // Load MACD and RSI indicators. A prior bug here (wrong fetchBars argument
   // count, plus "5m" not resolving to a real timeframe) made every one of these
@@ -118,16 +147,18 @@ function ResearchPanel({ symbol, result }: { symbol: string; result?: ScanResult
   // regression shows up in the UI rather than as a quietly missing section.
   useEffect(() => {
     let cancelled = false;
-    setIndicators(null);
-    setIndicatorsError(null);
     fetch(`/api/indicators?symbol=${encodeURIComponent(symbol)}&timeframe=5m`)
       .then(async (r) => {
         const body = await r.json().catch(() => null);
         if (!r.ok) throw new Error(body?.error ?? `HTTP ${r.status}`);
         return body;
       })
-      .then((d) => !cancelled && d && setIndicators(d))
-      .catch((e) => !cancelled && setIndicatorsError(e instanceof Error ? e.message : String(e)));
+      .then((d) => !cancelled && d && setInd({ symbol, data: d, error: null }))
+      .catch(
+        (e) =>
+          !cancelled &&
+          setInd({ symbol, data: null, error: e instanceof Error ? e.message : String(e) }),
+      );
     return () => {
       cancelled = true;
     };
@@ -299,8 +330,6 @@ interface ChainResponse extends OptionChain {
 }
 
 function OptionsPanel({ symbol }: { symbol: string }) {
-  const [chain, setChain] = useState<ChainResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [strikeFilter, setStrikeFilter] = useState<StrikeFilter>("all");
   const [moneynessFilter, setMoneynessFilter] = useState<MoneynessFilter>("all");
   const [spreadType, setSpreadType] = useState<SpreadType>("custom");
@@ -308,17 +337,31 @@ function OptionsPanel({ symbol }: { symbol: string }) {
   const [selection, setSelection] = useState<StrikeSelection | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
+  // Keyed on the request, so one symbol's chain never renders under another's.
+  const [state, setState] = useState<{
+    key: string;
+    chain: ChainResponse | null;
+    error: string | null;
+  }>({ key: "", chain: null, error: null });
+
+  const current = state.key === `${symbol}:${reloadKey}` ? state : null;
+  const chain = current?.chain ?? null;
+  const error = current?.error ?? null;
+
   useEffect(() => {
     let cancelled = false;
-    setChain(null);
-    setError(null);
+    const key = `${symbol}:${reloadKey}`;
     fetch(`/api/options?symbol=${encodeURIComponent(symbol)}`)
       .then(async (r) => {
         if (!r.ok) throw new Error((await r.json()).error ?? `HTTP ${r.status}`);
         return r.json();
       })
-      .then((d) => !cancelled && setChain(d))
-      .catch((e) => !cancelled && setError(e instanceof Error ? e.message : String(e)));
+      .then((d) => !cancelled && setState({ key, chain: d, error: null }))
+      .catch(
+        (e) =>
+          !cancelled &&
+          setState({ key, chain: null, error: e instanceof Error ? e.message : String(e) }),
+      );
     return () => {
       cancelled = true;
     };
@@ -614,9 +657,18 @@ function GreekCell({
 /* ---------------------------------------------------------------- Level II */
 
 function Level2Panel({ symbol }: { symbol: string }) {
-  const [book, setBook] = useState<(Level2Book & { source?: string }) | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // Keyed on symbol: the book polls every 5s, and a depth ladder belonging to
+  // the ticker you just navigated away from is worse than none at all.
+  const [state, setState] = useState<{
+    symbol: string;
+    book: (Level2Book & { source?: string }) | null;
+    error: string | null;
+  }>({ symbol: "", book: null, error: null });
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const current = state.symbol === symbol ? state : null;
+  const book = current?.book ?? null;
+  const error = current?.error ?? null;
 
   useEffect(() => {
     let cancelled = false;
@@ -629,16 +681,20 @@ function Level2Panel({ symbol }: { symbol: string }) {
           if (!r.ok) throw new Error((await r.json()).error ?? `HTTP ${r.status}`);
           return r.json();
         })
-        .then((d) => {
-          if (cancelled) return;
-          setBook(d);
-          setError(null);
-        })
-        .catch((e) => !cancelled && setError(e instanceof Error ? e.message : String(e)));
+        .then((d) => !cancelled && setState({ symbol, book: d, error: null }))
+        .catch(
+          (e) =>
+            !cancelled &&
+            // Keep the last good ladder on a transient poll failure; the render
+            // guard already drops it if the symbol has moved on.
+            setState((prev) => ({
+              symbol,
+              book: prev.symbol === symbol ? prev.book : null,
+              error: e instanceof Error ? e.message : String(e),
+            })),
+        );
     };
 
-    setBook(null);
-    setError(null);
     load();
     timer.current = setInterval(load, 5000); // book refreshes for a live feel
     return () => {

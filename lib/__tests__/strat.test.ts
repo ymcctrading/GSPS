@@ -174,16 +174,48 @@ describe("computeTradeLevels", () => {
     expect(levels.stopBandWarning).toBeNull();
   });
 
-  it("warns when structural stop is outside the 12–18% band", () => {
+  describe("stop advisory", () => {
     const pattern = {
       name: "2-2" as const,
       direction: "bullish" as const,
       triggerPrice: 100,
-      stopPrice: 99, // 1% risk — far tighter than band
+      stopPrice: 99, // $1 of risk
       description: "",
     };
-    const levels = computeTradeLevels(pattern, { t: "", o: 98, h: 101, l: 96, c: 99, v: 0 }, []);
-    expect(levels.stopBandWarning).toContain("tighter");
+    const prev = { t: "", o: 98, h: 101, l: 96, c: 99, v: 0 };
+
+    it("reports the premium band on both sides when a premium is known", () => {
+      // $1 of risk against $10 of premium is 10% — inside the band's floor.
+      expect(computeTradeLevels(pattern, prev, [], 10).stopBandWarning).toContain("tighter");
+      // …and against $4 it is 25%, above the ceiling.
+      expect(computeTradeLevels(pattern, prev, [], 4).stopBandWarning).toContain("wider");
+      // $6.50 puts it at ~15%, mid-band.
+      expect(computeTradeLevels(pattern, prev, [], 6.5).stopBandWarning).toBeNull();
+    });
+
+    it("says nothing about the premium band when no premium is supplied", () => {
+      // The old behaviour measured the stop against share price, which lands
+      // near 1% on every equity setup and so warned "tighter" every time —
+      // while advising the reader to increase position size.
+      expect(computeTradeLevels(pattern, prev, []).stopBandWarning).toBeNull();
+    });
+
+    it("flags a stop far wider than the instrument's average candle", () => {
+      // $1 of risk against a $0.20 average candle is 5x — well past the ceiling.
+      const levels = computeTradeLevels(pattern, prev, [], undefined, 0.2);
+      expect(levels.stopBandWarning).toContain("average candle");
+      expect(levels.stopBandWarning).not.toContain("%");
+    });
+
+    it("stays quiet at a normal stop width", () => {
+      // 1x the average candle — the measured median is 0.8x.
+      expect(computeTradeLevels(pattern, prev, [], undefined, 1).stopBandWarning).toBeNull();
+    });
+
+    it("prefers the premium band over the volatility one when both are known", () => {
+      const levels = computeTradeLevels(pattern, prev, [], 4, 0.2);
+      expect(levels.stopBandWarning).toContain("premium");
+    });
   });
 
   it("steps master profit past a structural TP1 that has run beyond 3R", () => {

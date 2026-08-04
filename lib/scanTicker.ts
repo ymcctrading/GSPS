@@ -123,7 +123,13 @@ export async function scanTicker(symbol: string, optionPremium?: number): Promis
     let levelsError: string | undefined;
     if (pattern) {
       try {
-        levels = computeTradeLevels(pattern, previousBar, gannTargets, optionPremium);
+        levels = computeTradeLevels(
+          pattern,
+          previousBar,
+          gannTargets,
+          optionPremium,
+          executionAtr,
+        );
       } catch (err) {
         levelsError = err instanceof Error ? err.message : String(err);
       }
