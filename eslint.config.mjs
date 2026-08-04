@@ -6,14 +6,19 @@ const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   {
+    // Every data-bearing component now stores a fetch against the symbol it
+    // answers and drops it at render time when the two disagree, so the rule
+    // is a hard error everywhere: a new violation means a component can render
+    // one ticker's data under another's name, which is how wrong trade levels
+    // reach the screen.
+    //
+    // candles.tsx is the exception. Its two sites are chart-internal — kicking
+    // off a bar load, and clearing drawings/alerts when the symbol changes —
+    // not stale fetched data, and untangling them means restructuring the
+    // chart's imperative lifecycle around lightweight-charts with no UI tests
+    // to catch a regression. Left visible rather than silenced.
+    files: ["components/chart/candles.tsx"],
     rules: {
-      // Eight call sites in the chart components reset local state at the top
-      // of a fetch effect so stale data clears the moment the symbol changes.
-      // The rule is right that this cascades renders, but the fix is to
-      // restructure each effect around derived state, and the chart has no UI
-      // tests to catch a regression — so this stays visible as a warning and
-      // gets addressed on its own, rather than blocking the gate or being
-      // rushed alongside unrelated work.
       "react-hooks/set-state-in-effect": "warn",
     },
   },

@@ -14,13 +14,21 @@ import type { ScanResult } from "@/lib/types";
  * chart, drawing tools, alerts, and the Research / Options / Level II tabs.
  */
 export function PublicChart({ symbol }: { symbol: string }) {
-  const [result, setResult] = useState<ScanResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // Stored with the symbol it answers and read back only while the two agree,
+  // so a symbol change can never render the previous ticker's levels. See the
+  // same pattern in components/scan/ticker-view.tsx.
+  const [scan, setScan] = useState<{
+    symbol: string;
+    result: ScanResult | null;
+    error: string | null;
+  }>({ symbol: "", result: null, error: null });
+
+  const current = scan.symbol === symbol ? scan : null;
+  const result = current?.result ?? null;
+  const error = current?.error ?? null;
 
   useEffect(() => {
     let cancelled = false;
-    setResult(null);
-    setError(null);
     fetch(`/api/scan?ticker=${encodeURIComponent(symbol)}`)
       .then(async (res) => {
         if (!res.ok) throw new Error((await res.json()).error ?? `HTTP ${res.status}`);
@@ -28,10 +36,21 @@ export function PublicChart({ symbol }: { symbol: string }) {
       })
       .then((data: ScanResult) => {
         if (cancelled) return;
-        if (data.error) setError(data.error);
-        else setResult(data);
+        setScan({
+          symbol,
+          result: data.error ? null : data,
+          error: data.error ?? null,
+        });
       })
-      .catch((err) => !cancelled && setError(err instanceof Error ? err.message : String(err)));
+      .catch(
+        (err) =>
+          !cancelled &&
+          setScan({
+            symbol,
+            result: null,
+            error: err instanceof Error ? err.message : String(err),
+          }),
+      );
     return () => {
       cancelled = true;
     };
