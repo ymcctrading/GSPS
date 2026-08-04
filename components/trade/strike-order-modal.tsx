@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { formatUsd, cn } from "@/lib/utils";
 import type { OptionContract } from "@/lib/data/provider";
 import type { Moneyness } from "@/lib/options/contracts";
+import { readPremiumStop } from "@/lib/trade/premium-stop";
+import type { TradeLevels } from "@/lib/types";
 import { toDateInput } from "@/lib/options/contracts";
 
 export type OrderKind = "market" | "limit";
@@ -36,9 +38,17 @@ export interface StrikeSelection {
  */
 export function StrikeOrderModal({
   selection,
+  levels,
   onClose,
 }: {
   selection: StrikeSelection | null;
+  /**
+   * Protocol levels for the underlying. The structural stop distance is what
+   * the premium band is measured against — this is the one place in the app
+   * that knows both it and the contract's delta, so the reading here is exact
+   * rather than the scan's point-for-point approximation.
+   */
+  levels?: TradeLevels | null;
   onClose: () => void;
 }) {
   const [action, setAction] = useState<TradeAction>("buy");
@@ -103,6 +113,20 @@ export function StrikeOrderModal({
           : contract.strike - perShare,
     };
   }, [contract, orderKind, action, limit, quantity]);
+
+  /**
+   * The premium band, evaluated exactly. Long premium only: the rule is about
+   * how much of what you paid a structural stop consumes, which has no meaning
+   * on a short where the premium is collected and the loss is open-ended.
+   */
+  const stopReading = useMemo(() => {
+    if (!contract || !preview || !levels || action !== "buy") return null;
+    return readPremiumStop({
+      risk: Math.abs(levels.entry - levels.stopLoss),
+      premium: preview.perShare,
+      delta: contract.delta,
+    });
+  }, [contract, preview, levels, action]);
 
   const invalid =
     !contract ||
@@ -314,9 +338,19 @@ export function StrikeOrderModal({
                   value={preview.maxLoss != null ? formatUsd(preview.maxLoss) : "Undefined (short)"}
                   tone={preview.maxLoss != null ? undefined : "bear"}
                 />
+                {stopReading && (
+                  <Row
+                    label={`Stop costs (at delta ${Math.abs(contract.delta).toFixed(2)})`}
+                    value={`${stopReading.pctOfPremium.toFixed(1)}% of premium`}
+                    tone={stopReading.verdict === "in-band" ? "bull" : "warn"}
+                  />
+                )}
               </dl>
             ) : (
               <p className="text-sm text-muted">Enter a whole quantity and a valid price.</p>
+            )}
+            {stopReading?.warning && (
+              <p className="mt-2 text-xs text-warn">{stopReading.warning}</p>
             )}
             {orderKind === "market" && (
               <p className="mt-2 text-xs text-muted">
@@ -403,7 +437,7 @@ function Row({
   label: string;
   value: string;
   strong?: boolean;
-  tone?: "bear";
+  tone?: "bear" | "bull" | "warn";
 }) {
   return (
     <div className="flex items-baseline justify-between gap-4">
@@ -413,6 +447,8 @@ function Row({
           "font-mono tabular-nums",
           strong && "text-base font-semibold",
           tone === "bear" && "text-bear",
+          tone === "bull" && "text-bull",
+          tone === "warn" && "text-warn",
         )}
       >
         {value}

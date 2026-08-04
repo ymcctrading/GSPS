@@ -12,17 +12,7 @@
  */
 
 import type { Bar, StratPattern, TradeLevels } from "@/lib/types";
-
-/**
- * The share of premium paid that a structural stop may consume. This is a
- * position-sizing rule for long contracts: pay too little premium and an
- * ordinary stop takes most of it, pay too much and the trade is inefficient.
- * It is deliberately tighter than the 25–50% max-loss heuristic common for
- * long options, because it is written for high-delta contracts held as
- * leveraged stock rather than for cheap out-of-the-money premium.
- */
-export const STOP_BAND_MIN_PCT_OF_PREMIUM = 12;
-export const STOP_BAND_MAX_PCT_OF_PREMIUM = 18;
+import { readPremiumStop } from "@/lib/trade/premium-stop";
 
 /**
  * Widest structural stop worth taking on the execution timeframe, in average
@@ -87,17 +77,11 @@ export function computeTradeLevels(
   let stopBandWarning: string | null = null;
 
   if (optionPremium && optionPremium > 0) {
-    // The 12–18% band asks what share of the premium paid a structural stop
-    // consumes. That only means something once a premium is known, and it
-    // assumes the contract moves close to point-for-point with the underlying
-    // — true for deep in-the-money contracts, optimistic further out, where
-    // the real premium loss is roughly this figure times delta.
-    const pctOfPremium = (risk / optionPremium) * 100;
-    if (pctOfPremium < STOP_BAND_MIN_PCT_OF_PREMIUM) {
-      stopBandWarning = `Structural stop risks ${pctOfPremium.toFixed(1)}% of the premium — tighter than the ${STOP_BAND_MIN_PCT_OF_PREMIUM}–${STOP_BAND_MAX_PCT_OF_PREMIUM}% band. Size can be increased, or a cheaper contract holds the same stop.`;
-    } else if (pctOfPremium > STOP_BAND_MAX_PCT_OF_PREMIUM) {
-      stopBandWarning = `Structural stop risks ${pctOfPremium.toFixed(1)}% of the premium — wider than the ${STOP_BAND_MIN_PCT_OF_PREMIUM}–${STOP_BAND_MAX_PCT_OF_PREMIUM}% band. Reduce size or skip.`;
-    }
+    // The scan has a premium but never a delta, so this reading assumes the
+    // contract moves point-for-point with the underlying. The strike ticket
+    // knows the contract's delta and reports the exact figure — same rule,
+    // same wording, from lib/trade/premium-stop.ts.
+    stopBandWarning = readPremiumStop({ risk, premium: optionPremium })?.warning ?? null;
   } else if (executionAtr && executionAtr > 0) {
     // No premium: the honest question is whether the stop is sane for how much
     // this instrument moves, not what fraction of the notional it represents.

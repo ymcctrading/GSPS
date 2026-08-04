@@ -6,7 +6,7 @@ import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { StrikeOrderModal, type StrikeSelection } from "@/components/trade/strike-order-modal";
 import { classifyMoneyness, strikeStep, type Moneyness } from "@/lib/options/contracts";
 import { formatUsd } from "@/lib/utils";
-import type { ScanResult } from "@/lib/types";
+import type { ScanResult, TradeLevels } from "@/lib/types";
 import type { OptionChain, OptionContract, Level2Book } from "@/lib/data/provider";
 
 type Tab = "research" | "options" | "levelii";
@@ -40,7 +40,9 @@ export function MarketTabs({ symbol, result }: { symbol: string; result?: ScanRe
       </div>
       <div className="min-w-0 p-3 sm:p-4">
         {tab === "research" && <ResearchPanel symbol={symbol} result={result} />}
-        {tab === "options" && <OptionsPanel symbol={symbol} />}
+        {tab === "options" && (
+          <OptionsPanel symbol={symbol} levels={result?.levels ?? null} />
+        )}
         {tab === "levelii" && <Level2Panel symbol={symbol} />}
       </div>
     </div>
@@ -329,7 +331,14 @@ interface ChainResponse extends OptionChain {
   horizon?: { months: number; maxDate: string; expirations: string[] };
 }
 
-function OptionsPanel({ symbol }: { symbol: string }) {
+function OptionsPanel({
+  symbol,
+  levels,
+}: {
+  symbol: string;
+  /** Protocol levels for the underlying, when a scan has produced them. */
+  levels: TradeLevels | null;
+}) {
   const [strikeFilter, setStrikeFilter] = useState<StrikeFilter>("all");
   const [moneynessFilter, setMoneynessFilter] = useState<MoneynessFilter>("all");
   const [spreadType, setSpreadType] = useState<SpreadType>("custom");
@@ -570,7 +579,11 @@ function OptionsPanel({ symbol }: { symbol: string }) {
           : "Greeks are derived from the chain's own IV and moneyness."}
       </p>
 
-      <StrikeOrderModal selection={selection} onClose={() => setSelection(null)} />
+      <StrikeOrderModal
+        selection={selection}
+        levels={levels}
+        onClose={() => setSelection(null)}
+      />
     </div>
   );
 }
