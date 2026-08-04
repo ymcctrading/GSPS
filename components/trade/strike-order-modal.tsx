@@ -125,6 +125,7 @@ export function StrikeOrderModal({
       risk: Math.abs(levels.entry - levels.stopLoss),
       premium: preview.perShare,
       delta: contract.delta,
+      theta: contract.theta,
     });
   }, [contract, preview, levels, action]);
 
@@ -340,7 +341,7 @@ export function StrikeOrderModal({
                 />
                 {stopReading && (
                   <Row
-                    label={`Stop costs (at delta ${Math.abs(contract.delta).toFixed(2)})`}
+                    label={`Premium at risk (delta ${Math.abs(contract.delta).toFixed(2)})`}
                     value={`${stopReading.pctOfPremium.toFixed(1)}% of premium`}
                     tone={stopReading.verdict === "in-band" ? "bull" : "warn"}
                   />
@@ -348,6 +349,14 @@ export function StrikeOrderModal({
               </dl>
             ) : (
               <p className="text-sm text-muted">Enter a whole quantity and a valid price.</p>
+            )}
+            {stopReading && (
+              <p className="mt-2 text-xs text-muted">
+                {formatUsd(stopReading.stopCost)} to the stop
+                {stopReading.decayCost > 0 &&
+                  ` + ${formatUsd(stopReading.decayCost)} decay`}{" "}
+                per share, against a typical hold of under one session.
+              </p>
             )}
             {stopReading?.warning && (
               <p className="mt-2 text-xs text-warn">{stopReading.warning}</p>
