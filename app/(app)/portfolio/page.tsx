@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +12,7 @@ import { TargetStatusCells } from "@/components/trade/target-status";
 import { AssetTypeBadge } from "@/components/trade/asset-type-badge";
 import type { TargetStatus } from "@/lib/trade/targets";
 import type { BlendedPosition, EquityLeg, OptionLeg } from "@/lib/portfolio/blend";
+import { countOpenLegs, sectionOrders } from "@/lib/portfolio/sections";
 import { formatUsd, formatPct, cn } from "@/lib/utils";
 
 /** A position row that a close action can target — either leg shape qualifies. */
@@ -105,6 +107,17 @@ export default function PortfolioPage() {
     loadOrders();
   };
 
+  const blendedPositions = useMemo(() => portfolio?.blendedPositions ?? [], [portfolio]);
+  // Open / Pending / Closed. Order status settles pending vs. terminal; a
+  // `filled` order needs the live position list to know whether the position
+  // it opened is still held. See lib/portfolio/sections.ts.
+  const sections = useMemo(
+    () => sectionOrders(orders, blendedPositions),
+    [orders, blendedPositions],
+  );
+  const openLegCount = countOpenLegs(blendedPositions);
+  const loading = portfolio === null && error === null;
+
   return (
     <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
       <div className="flex items-center gap-3">
@@ -131,130 +144,235 @@ export default function PortfolioPage() {
         </div>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Open positions</CardTitle>
-          <CardDescription>
-            Grouped by ticker — shares and every option contract on the same underlying track as
-            separate legs, live, updated every 10 seconds.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {portfolio && portfolio.blendedPositions.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted">
-              No open positions. Find a setup in the{" "}
-              <Link href="/scanner" className="text-accent hover:underline">
-                scanner
-              </Link>{" "}
-              and place a paper order.
-            </p>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {portfolio?.blendedPositions.map((group) => (
-                <BlendedPositionGroup key={group.underlying} group={group} onClose={setClosing} />
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <PositionSection
+        id="open-positions"
+        title="Open Positions"
+        count={openLegCount}
+        description="Live legs at the broker, grouped by ticker — shares and every option contract on the same underlying track separately, updated every 10 seconds."
+      >
+        {blendedPositions.length === 0 ? (
+          <EmptyState>
+            {loading ? (
+              "Loading positions…"
+            ) : (
+              <>
+                No open positions. Find a setup in the{" "}
+                <Link href="/scanner" className="text-accent hover:underline">
+                  scanner
+                </Link>{" "}
+                and place a paper order.
+              </>
+            )}
+          </EmptyState>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {blendedPositions.map((group) => (
+              <BlendedPositionGroup key={group.underlying} group={group} onClose={setClosing} />
+            ))}
+          </div>
+        )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Order history</CardTitle>
-          <CardDescription>
-            Contract economics, entry greeks, live day P/L, and which protocol target was reached.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {orders.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted">No orders yet.</p>
-          ) : (
-            <Table>
-              <THead>
-                <TR>
-                  <TH>Placed</TH>
-                  <TH>Asset</TH>
-                  <TH>Symbol</TH>
-                  <TH>Side</TH>
-                  <TH>Order</TH>
-                  <TH className="text-right">Qty</TH>
-                  <TH className="text-right">Purchase</TH>
-                  <TH className="text-right">Contract cost</TH>
-                  <TH className="text-right" title="Delta">Δ</TH>
-                  <TH className="text-right" title="Gamma">Γ</TH>
-                  <TH className="text-right" title="Theta">Θ</TH>
-                  <TH className="text-right" title="Vega">V</TH>
-                  <TH className="text-right">P/L today</TH>
-                  <TH className="text-right">P/L %</TH>
-                  <TH className="text-right">TP1</TH>
-                  <TH className="text-right">MP</TH>
-                  <TH className="text-right">SL</TH>
-                  <TH className="text-center">Target hit</TH>
-                  <TH>Status</TH>
-                </TR>
-              </THead>
-              <TBody>
-                {orders.map((o) => (
-                  <TR key={o.id}>
-                    <TD className="whitespace-nowrap text-muted">
-                      {new Date(o.created_at).toLocaleString()}
-                    </TD>
-                    <TD>
-                      <AssetTypeBadge assetType={o.asset_type} />
-                    </TD>
-                    <TD className="font-medium">
-                      {o.symbol}
-                      {o.option_type && (
-                        <span className="ml-1 text-xs text-muted">
-                          {o.strike ? formatUsd(o.strike) : ""} {o.option_type.toUpperCase()}
-                          {o.expiration ? ` ${o.expiration.slice(5)}` : ""}
-                        </span>
-                      )}
-                    </TD>
-                    <TD className={o.side === "buy" ? "text-bull" : "text-bear"}>{o.side}</TD>
-                    <TD className="text-muted">{o.order_type}</TD>
-                    <TD className="text-right font-mono">{o.qty}</TD>
-                    <Num value={o.purchase_price} />
-                    <Num value={o.contract_cost} />
-                    <Num value={o.delta} plain digits={2} />
-                    <Num value={o.gamma} plain digits={4} />
-                    <Num value={o.theta} plain digits={2} />
-                    <Num value={o.vega} plain digits={2} />
-                    <TD
-                      className={cn(
-                        "text-right font-mono",
-                        o.dayPl == null ? "text-muted" : o.dayPl >= 0 ? "text-bull" : "text-bear",
-                      )}
-                    >
-                      {o.dayPl == null ? "—" : formatUsd(o.dayPl)}
-                    </TD>
-                    <TD
-                      className={cn(
-                        "text-right font-mono",
-                        o.dayPlPct == null ? "text-muted" : o.dayPlPct >= 0 ? "text-bull" : "text-bear",
-                      )}
-                    >
-                      {o.dayPlPct == null ? "—" : formatPct(o.dayPlPct)}
-                    </TD>
-                    <Num value={o.take_profit} />
-                    <Num value={o.master_profit} />
-                    <Num value={o.stop_price} />
-                    <TD>
-                      <TargetStatusCells status={o.targets} />
-                    </TD>
-                    <TD>
-                      <Badge variant={o.status === "filled" ? "bull" : "muted"}>{o.status}</Badge>
-                    </TD>
-                  </TR>
-                ))}
-              </TBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+        {sections.open.length > 0 && (
+          <div className="mt-4 flex flex-col gap-2">
+            <p className="text-xs uppercase tracking-wide text-muted">
+              Entry orders ({sections.open.length})
+            </p>
+            <OrdersTable orders={sections.open} />
+          </div>
+        )}
+      </PositionSection>
+
+      <PositionSection
+        id="pending-positions"
+        title="Pending Positions"
+        count={sections.pending.length}
+        description="Submitted or queued at the broker — not yet filled or confirmed."
+      >
+        {sections.pending.length === 0 ? (
+          <EmptyState>No pending positions.</EmptyState>
+        ) : (
+          <OrdersTable orders={sections.pending} />
+        )}
+      </PositionSection>
+
+      <PositionSection
+        id="closed-positions"
+        title="Closed Positions"
+        count={sections.closed.length}
+        description="Exited and settled positions, plus orders that ended without a fill — canceled, expired, or rejected."
+        collapsible
+      >
+        {sections.closed.length === 0 ? (
+          <EmptyState>No closed positions.</EmptyState>
+        ) : (
+          <OrdersTable orders={sections.closed} />
+        )}
+      </PositionSection>
 
       <ClosePositionModal position={closing} onClose={() => setClosing(null)} onClosed={refresh} />
     </div>
+  );
+}
+
+/**
+ * One of the three Portfolio panels. Every section renders its header and
+ * count even when it holds nothing, so an empty bucket reads as "none right
+ * now" rather than vanishing from the page.
+ *
+ * `collapsible` sections start collapsed — Closed grows without bound as the
+ * account keeps trading, and it isn't what the page is for. An empty one has
+ * nothing to hide, so it drops the toggle and shows its empty state outright.
+ */
+function PositionSection({
+  id,
+  title,
+  count,
+  description,
+  collapsible = false,
+  children,
+}: {
+  id: string;
+  title: string;
+  count: number;
+  description: string;
+  collapsible?: boolean;
+  children: ReactNode;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const bodyId = `${id}-body`;
+  const togglable = collapsible && count > 0;
+  const showBody = !togglable || expanded;
+
+  const heading = (
+    <>
+      <div className="flex items-center gap-1.5">
+        {togglable &&
+          (expanded ? (
+            <ChevronDown className="size-4 shrink-0 text-muted" aria-hidden />
+          ) : (
+            <ChevronRight className="size-4 shrink-0 text-muted" aria-hidden />
+          ))}
+        <CardTitle>
+          {title} ({count})
+        </CardTitle>
+      </div>
+      <CardDescription>{description}</CardDescription>
+    </>
+  );
+
+  return (
+    <Card>
+      <CardHeader>
+        {togglable ? (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            aria-expanded={expanded}
+            aria-controls={bodyId}
+            className="flex w-full cursor-pointer flex-col gap-1 text-left"
+          >
+            {heading}
+          </button>
+        ) : (
+          heading
+        )}
+      </CardHeader>
+      <div id={bodyId}>{showBody && <CardContent>{children}</CardContent>}</div>
+    </Card>
+  );
+}
+
+function EmptyState({ children }: { children: ReactNode }) {
+  return <p className="py-6 text-center text-sm text-muted">{children}</p>;
+}
+
+/**
+ * The order ledger grid — contract economics, entry greeks, live day P/L, and
+ * which protocol target was reached. One layout, rendered once per section
+ * against that section's rows.
+ */
+function OrdersTable({ orders }: { orders: OrderRow[] }) {
+  return (
+    <Table>
+      <THead>
+        <TR>
+          <TH>Placed</TH>
+          <TH>Asset</TH>
+          <TH>Symbol</TH>
+          <TH>Side</TH>
+          <TH>Order</TH>
+          <TH className="text-right">Qty</TH>
+          <TH className="text-right">Purchase</TH>
+          <TH className="text-right">Contract cost</TH>
+          <TH className="text-right" title="Delta">Δ</TH>
+          <TH className="text-right" title="Gamma">Γ</TH>
+          <TH className="text-right" title="Theta">Θ</TH>
+          <TH className="text-right" title="Vega">V</TH>
+          <TH className="text-right">P/L today</TH>
+          <TH className="text-right">P/L %</TH>
+          <TH className="text-right">TP1</TH>
+          <TH className="text-right">MP</TH>
+          <TH className="text-right">SL</TH>
+          <TH className="text-center">Target hit</TH>
+          <TH>Status</TH>
+        </TR>
+      </THead>
+      <TBody>
+        {orders.map((o) => (
+          <TR key={o.id}>
+            <TD className="whitespace-nowrap text-muted">
+              {new Date(o.created_at).toLocaleString()}
+            </TD>
+            <TD>
+              <AssetTypeBadge assetType={o.asset_type} />
+            </TD>
+            <TD className="font-medium">
+              {o.symbol}
+              {o.option_type && (
+                <span className="ml-1 text-xs text-muted">
+                  {o.strike ? formatUsd(o.strike) : ""} {o.option_type.toUpperCase()}
+                  {o.expiration ? ` ${o.expiration.slice(5)}` : ""}
+                </span>
+              )}
+            </TD>
+            <TD className={o.side === "buy" ? "text-bull" : "text-bear"}>{o.side}</TD>
+            <TD className="text-muted">{o.order_type}</TD>
+            <TD className="text-right font-mono">{o.qty}</TD>
+            <Num value={o.purchase_price} />
+            <Num value={o.contract_cost} />
+            <Num value={o.delta} plain digits={2} />
+            <Num value={o.gamma} plain digits={4} />
+            <Num value={o.theta} plain digits={2} />
+            <Num value={o.vega} plain digits={2} />
+            <TD
+              className={cn(
+                "text-right font-mono",
+                o.dayPl == null ? "text-muted" : o.dayPl >= 0 ? "text-bull" : "text-bear",
+              )}
+            >
+              {o.dayPl == null ? "—" : formatUsd(o.dayPl)}
+            </TD>
+            <TD
+              className={cn(
+                "text-right font-mono",
+                o.dayPlPct == null ? "text-muted" : o.dayPlPct >= 0 ? "text-bull" : "text-bear",
+              )}
+            >
+              {o.dayPlPct == null ? "—" : formatPct(o.dayPlPct)}
+            </TD>
+            <Num value={o.take_profit} />
+            <Num value={o.master_profit} />
+            <Num value={o.stop_price} />
+            <TD>
+              <TargetStatusCells status={o.targets} />
+            </TD>
+            <TD>
+              <Badge variant={o.status === "filled" ? "bull" : "muted"}>{o.status}</Badge>
+            </TD>
+          </TR>
+        ))}
+      </TBody>
+    </Table>
   );
 }
 
