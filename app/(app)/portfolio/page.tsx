@@ -12,7 +12,7 @@ import { TargetStatusCells } from "@/components/trade/target-status";
 import { AssetTypeBadge } from "@/components/trade/asset-type-badge";
 import type { TargetStatus } from "@/lib/trade/targets";
 import type { BlendedPosition, EquityLeg, OptionLeg } from "@/lib/portfolio/blend";
-import { countOpenLegs, sectionOrders } from "@/lib/portfolio/sections";
+import { countOpenLegs, groupByDisposition, sectionOrders } from "@/lib/portfolio/sections";
 import { formatUsd, formatPct, cn } from "@/lib/utils";
 
 /** A position row that a close action can target — either leg shape qualifies. */
@@ -199,13 +199,39 @@ export default function PortfolioPage() {
         id="closed-positions"
         title="Closed Positions"
         count={sections.closed.length}
-        description="Exited and settled positions, plus orders that ended without a fill — canceled, expired, or rejected."
+        description="Positions that were filled and have since been exited — the trade is settled."
         collapsible
       >
         {sections.closed.length === 0 ? (
           <EmptyState>No closed positions.</EmptyState>
         ) : (
           <OrdersTable orders={sections.closed} />
+        )}
+      </PositionSection>
+
+      <PositionSection
+        id="unfilled-orders"
+        title="Canceled & Rejected"
+        count={sections.unfilled.length}
+        description="Orders that never became a position, grouped by how each one ended — a cancellation is an order pulled after the broker accepted it, a rejection is the broker refusing it outright."
+        collapsible
+      >
+        {sections.unfilled.length === 0 ? (
+          <EmptyState>No canceled or rejected orders.</EmptyState>
+        ) : (
+          <div className="flex flex-col gap-5">
+            {groupByDisposition(sections.unfilled).map((group) => (
+              <div key={group.disposition} className="flex flex-col gap-2">
+                <div>
+                  <p className="text-sm font-medium">
+                    {group.label} ({group.orders.length})
+                  </p>
+                  <p className="text-xs text-muted">{group.description}</p>
+                </div>
+                <OrdersTable orders={group.orders} />
+              </div>
+            ))}
+          </div>
         )}
       </PositionSection>
 
@@ -284,6 +310,18 @@ function PositionSection({
 
 function EmptyState({ children }: { children: ReactNode }) {
   return <p className="py-6 text-center text-sm text-muted">{children}</p>;
+}
+
+/**
+ * A rejection is the one status that says something went wrong and wants the
+ * user's attention — a cancellation was almost always their own doing. Colour
+ * the two differently so a row's badge distinguishes them at a glance.
+ */
+function statusTone(status: string): "bull" | "bear" | "muted" {
+  const normalized = status?.toLowerCase().trim();
+  if (normalized === "filled") return "bull";
+  if (normalized === "rejected") return "bear";
+  return "muted";
 }
 
 /**
@@ -367,7 +405,7 @@ function OrdersTable({ orders }: { orders: OrderRow[] }) {
               <TargetStatusCells status={o.targets} />
             </TD>
             <TD>
-              <Badge variant={o.status === "filled" ? "bull" : "muted"}>{o.status}</Badge>
+              <Badge variant={statusTone(o.status)}>{o.status}</Badge>
             </TD>
           </TR>
         ))}
