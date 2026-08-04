@@ -7,6 +7,19 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-08-04
+
+### Changed
+- **Automatic deploys are back on, and the docs now say so.** `vercel.json`
+  was flipped to `"git": {"deploymentEnabled": true}` on 2026-08-03, which
+  reversed the 2026-08-01 entry below: pushing a branch builds a preview
+  again, and **merging to `main` deploys production immediately**. Four
+  documents still described the old manual-only workflow and have been
+  corrected — `AGENTS.md`, `CONTRIBUTING.md`, `docs/RUNBOOK.md` and
+  `docs/DEPLOYMENT_SOP.md`. The practical consequence, now stated in each:
+  a merge to `main` *is* a release, so review and verification have to
+  happen before the merge, not between merge and deploy.
+
 ## 2026-08-01
 
 ### Added

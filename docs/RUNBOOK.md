@@ -10,10 +10,12 @@ The `daily_scans` table is only populated by `/api/market-scan`, which runs
 on Vercel Cron (weekdays, 12:30 and 21:30 UTC — see `vercel.json`).
 
 1. Check Vercel → Project → Cron Jobs for the last run status and logs.
-2. If the cron didn't fire: confirm the deployment it's attached to is
-   actually in production (`vercel.json`'s `git.deploymentEnabled: false`
-   means nothing auto-deploys — a stale production build with an old cron
-   config can be running). Trigger a manual production deploy if needed.
+2. If the cron didn't fire: confirm the production deployment carries the
+   current cron config. `vercel.json` sets `git.deploymentEnabled: true`, so
+   every merge to `main` redeploys production — production should track
+   `main` within minutes of a merge. If it doesn't, the last production
+   build likely errored; check Vercel → Deployments for a failed build and
+   redeploy the current `main`.
 3. If the cron fired but failed: check the response. `401 Unauthorized`
    means `CRON_SECRET` isn't set (or doesn't match) in the Vercel project's
    env vars — see `app/api/market-scan/route.ts`.
