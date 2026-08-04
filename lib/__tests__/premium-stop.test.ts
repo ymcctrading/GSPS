@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   STOP_BAND_MAX_PCT_OF_PREMIUM,
   STOP_BAND_MIN_PCT_OF_PREMIUM,
+  TYPICAL_HOLDING_DAYS,
   readPremiumStop,
 } from "@/lib/trade/premium-stop";
 
@@ -54,6 +55,63 @@ describe("readPremiumStop", () => {
     expect(readPremiumStop({ risk: 1, premium: 0 })).toBeNull();
     // A contract with no directional exposure has no premium to lose this way.
     expect(readPremiumStop({ risk: 1, premium: 6.5, delta: 0 })).toBeNull();
+  });
+
+  it("charges no decay when theta is unknown", () => {
+    const reading = readPremiumStop({ risk: 1, premium: 6.5, delta: 0.55 })!;
+    expect(reading.decayCost).toBe(0);
+    expect(reading.stopCost).toBeCloseTo(0.55, 10);
+  });
+
+  it("charges decay over the assumed hold when theta is known", () => {
+    const reading = readPremiumStop({
+      risk: 1,
+      premium: 6.5,
+      delta: 0.55,
+      theta: -0.2,
+    })!;
+    expect(reading.holdingDays).toBe(TYPICAL_HOLDING_DAYS);
+    expect(reading.decayCost).toBeCloseTo(0.2 * TYPICAL_HOLDING_DAYS, 10);
+    // Stop alone would read 8.5%; decay lifts it.
+    expect(reading.pctOfPremium).toBeCloseTo(((0.55 + 0.1) / 6.5) * 100, 6);
+  });
+
+  it("takes an explicit hold for a position carried longer", () => {
+    const overnight = readPremiumStop({
+      risk: 1,
+      premium: 6.5,
+      delta: 0.55,
+      theta: -0.2,
+      holdingDays: 3,
+    })!;
+    expect(overnight.decayCost).toBeCloseTo(0.6, 10);
+    expect(overnight.holdingDays).toBe(3);
+  });
+
+  it("moves a near-band contract across the line — the NVDA 210 call", () => {
+    // Live chain: $3.53 ask, delta 0.424, theta -0.134/day, against the scan's
+    // $0.83 structural stop. The stop alone reads 10.0% and is dismissed as
+    // over-priced; charging half a session of decay puts it inside the band.
+    const stopOnly = readPremiumStop({ risk: 0.83, premium: 3.5341, delta: 0.4241 })!;
+    const withDecay = readPremiumStop({
+      risk: 0.83,
+      premium: 3.5341,
+      delta: 0.4241,
+      theta: -0.1342,
+    })!;
+    expect(stopOnly.pctOfPremium).toBeCloseTo(9.96, 1);
+    expect(stopOnly.verdict).toBe("tight");
+    expect(withDecay.pctOfPremium).toBeCloseTo(11.86, 1);
+    expect(withDecay.verdict).toBe("tight");
+    // Decay is a fifth of the total risk on this contract, not a rounding error.
+    expect(withDecay.decayCost / (withDecay.stopCost + withDecay.decayCost)).toBeGreaterThan(0.15);
+  });
+
+  it("treats a positive theta quote as decay all the same", () => {
+    // Sign conventions vary by feed; magnitude is what is charged.
+    const negative = readPremiumStop({ risk: 1, premium: 6.5, theta: -0.2 })!;
+    const positive = readPremiumStop({ risk: 1, premium: 6.5, theta: 0.2 })!;
+    expect(positive.pctOfPremium).toBeCloseTo(negative.pctOfPremium, 10);
   });
 
   it("is unaffected by the 100-share contract multiplier", () => {
