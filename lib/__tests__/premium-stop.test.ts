@@ -107,6 +107,33 @@ describe("readPremiumStop", () => {
     expect(withDecay.decayCost / (withDecay.stopCost + withDecay.decayCost)).toBeGreaterThan(0.15);
   });
 
+  it("never lets a bad hold or theta understate the risk", () => {
+    // Each of these would otherwise subtract decay or produce NaN — and NaN
+    // compares false against both band edges, so it would read as a silent
+    // "in-band, no warning" on a measure the trader sizes against.
+    const baseline = readPremiumStop({ risk: 1, premium: 6.5, delta: 0.55, theta: -0.2 })!;
+    for (const holdingDays of [-5, Number.NaN, Number.POSITIVE_INFINITY]) {
+      const reading = readPremiumStop({
+        risk: 1,
+        premium: 6.5,
+        delta: 0.55,
+        theta: -0.2,
+        holdingDays,
+      })!;
+      expect(Number.isFinite(reading.pctOfPremium)).toBe(true);
+      expect(reading.decayCost).toBeGreaterThanOrEqual(0);
+      expect(reading.pctOfPremium).toBeGreaterThanOrEqual(
+        (reading.stopCost / 6.5) * 100 - 1e-9,
+      );
+    }
+    for (const theta of [Number.NaN, Number.POSITIVE_INFINITY]) {
+      const reading = readPremiumStop({ risk: 1, premium: 6.5, delta: 0.55, theta })!;
+      expect(Number.isFinite(reading.pctOfPremium)).toBe(true);
+      expect(reading.decayCost).toBe(0);
+    }
+    expect(baseline.verdict).toBe("tight");
+  });
+
   it("treats a positive theta quote as decay all the same", () => {
     // Sign conventions vary by feed; magnitude is what is charged.
     const negative = readPremiumStop({ risk: 1, premium: 6.5, theta: -0.2 })!;

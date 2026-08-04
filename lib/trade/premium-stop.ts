@@ -86,9 +86,17 @@ export function readPremiumStop(input: PremiumStopInput): PremiumStopReading | n
   // to the stop, plus the decay charged for holding it that long. Charging the
   // stop alone flatters a near-dated contract, where decay can be the larger
   // of the two.
-  const holdingDays = input.holdingDays ?? TYPICAL_HOLDING_DAYS;
+  // Both of these are clamped rather than trusted. A negative or non-finite
+  // hold would subtract decay from the risk, and NaN compares false against
+  // both band edges — so a bad input would read as "in-band, no warning".
+  // Every way this can fail understates risk, which is the direction that
+  // matters on a measure a trader sizes against.
+  const requested = input.holdingDays ?? TYPICAL_HOLDING_DAYS;
+  const holdingDays = Number.isFinite(requested) ? Math.max(0, requested) : TYPICAL_HOLDING_DAYS;
+  const theta = input.theta != null && Number.isFinite(input.theta) ? Math.abs(input.theta) : null;
+
   const stopCost = risk * (delta ?? 1);
-  const decayCost = input.theta == null ? 0 : Math.abs(input.theta) * holdingDays;
+  const decayCost = theta === null ? 0 : theta * holdingDays;
 
   // Premium, delta and theta are all per-share, so the 100x contract
   // multiplier cancels and never enters the ratio.
