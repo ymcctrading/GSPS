@@ -17,6 +17,10 @@
  *   Unfilled — ended without ever becoming a position. Canceled and rejected
  *              are different events (one is a withdrawal, the other a refusal)
  *              and stay distinguishable inside the section by disposition.
+ *
+ * Open and Closed both depend on the live position list, so callers pass null
+ * for it while it's still loading or its fetch failed. In that state a filled
+ * order is never called Closed — see `classifyOrder`.
  */
 
 import type { BlendedPosition } from "./blend";
@@ -113,8 +117,15 @@ function normalize(status: string | null | undefined): string {
   return status?.toLowerCase().trim() ?? "";
 }
 
-/** Symbols the broker currently reports a live position in, upper-cased. */
-export function heldSymbols(blendedPositions: BlendedPosition[]): Set<string> {
+/**
+ * Symbols the broker currently reports a live position in, upper-cased.
+ * Null in, null out: "we don't know what's held" is not the same as "nothing
+ * is held", and the two must not collapse into one another.
+ */
+export function heldSymbols(blendedPositions: BlendedPosition[]): Set<string>;
+export function heldSymbols(blendedPositions: BlendedPosition[] | null): Set<string> | null;
+export function heldSymbols(blendedPositions: BlendedPosition[] | null): Set<string> | null {
+  if (blendedPositions === null) return null;
   const held = new Set<string>();
   for (const group of blendedPositions) {
     if (group.equity) held.add(group.equity.symbol.toUpperCase());
@@ -133,12 +144,23 @@ export function countOpenLegs(blendedPositions: BlendedPosition[]): number {
  * pending rather than terminal: a status we don't know is most likely a live
  * broker state, and Pending renders expanded, so the row stays visible instead
  * of being buried in a collapsed section.
+ *
+ * `held` is null when the broker's position list hasn't loaded or its fetch
+ * failed — the paper account with no Alpaca keys configured gets a 503 from
+ * /api/portfolio while /api/orders still returns rows. A filled order stays
+ * Open in that case. Calling it Closed would assert the position was exited
+ * on the strength of a snapshot we never received, and "you're flat" is the
+ * more dangerous thing to be wrong about.
  */
-export function classifyOrder(order: SectionableOrder, held: ReadonlySet<string>): PositionSection {
+export function classifyOrder(
+  order: SectionableOrder,
+  held: ReadonlySet<string> | null,
+): PositionSection {
   const status = normalize(order.status);
   if (dispositionOf(status)) return "unfilled";
   if (PENDING_STATUSES.has(status)) return "pending";
   if (status === "filled") {
+    if (held === null) return "open";
     return held.has(order.symbol?.toUpperCase() ?? "") ? "open" : "closed";
   }
   return "pending";
@@ -158,10 +180,14 @@ function byNewestFirst(a: SectionableOrder, b: SectionableOrder): number {
  * Split orders into the four sections, each sorted newest first. The API
  * already returns `created_at desc`, but sorting here keeps each section
  * ordered no matter what order the caller hands them over in.
+ *
+ * Pass null for `blendedPositions` when the broker's position snapshot isn't
+ * available, so no filled order gets reported as closed on the strength of a
+ * list that never arrived.
  */
 export function sectionOrders<T extends SectionableOrder>(
   orders: T[],
-  blendedPositions: BlendedPosition[],
+  blendedPositions: BlendedPosition[] | null,
 ): SectionedOrders<T> {
   const held = heldSymbols(blendedPositions);
   const sections: SectionedOrders<T> = { open: [], pending: [], closed: [], unfilled: [] };

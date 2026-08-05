@@ -107,14 +107,16 @@ export default function PortfolioPage() {
     loadOrders();
   };
 
-  const blendedPositions = useMemo(() => portfolio?.blendedPositions ?? [], [portfolio]);
-  // Open / Pending / Closed. Order status settles pending vs. terminal; a
-  // `filled` order needs the live position list to know whether the position
-  // it opened is still held. See lib/portfolio/sections.ts.
-  const sections = useMemo(
-    () => sectionOrders(orders, blendedPositions),
-    [orders, blendedPositions],
-  );
+  // Null until the first snapshot lands, and it stays null if that fetch
+  // failed — sectioning needs the difference between "nothing is held" and
+  // "we don't know yet" to avoid reporting open positions as closed.
+  const livePositions = portfolio?.blendedPositions ?? null;
+  const blendedPositions = useMemo(() => livePositions ?? [], [livePositions]);
+  // Open / Pending / Closed / Canceled & Rejected. Order status settles
+  // pending vs. terminal; a `filled` order needs the live position list to
+  // know whether the position it opened is still held. See
+  // lib/portfolio/sections.ts.
+  const sections = useMemo(() => sectionOrders(orders, livePositions), [orders, livePositions]);
   const openLegCount = countOpenLegs(blendedPositions);
   const loading = portfolio === null && error === null;
 

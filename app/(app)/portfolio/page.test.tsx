@@ -67,22 +67,40 @@ function order(o: { id: string; symbol: string; status: string; created_at?: str
   };
 }
 
-/** Route the page's two fetches to canned payloads. */
-function mockApi(payload: { positions?: typeof blendedPositions; orders?: ReturnType<typeof order>[] }) {
-  const body = (url: string) =>
-    url.includes("/api/portfolio")
-      ? { mode: "paper", account, blendedPositions: payload.positions ?? [] }
-      : { orders: payload.orders ?? [] };
+/**
+ * Route the page's two fetches to canned payloads. `portfolioFails` models the
+ * real asymmetry: /api/portfolio 503s when the paper account has no Alpaca
+ * keys, while /api/orders still serves rows out of Supabase.
+ */
+function mockApi(payload: {
+  positions?: typeof blendedPositions;
+  orders?: ReturnType<typeof order>[];
+  portfolioFails?: boolean;
+}) {
+  const isPortfolio = (url: string) => url.includes("/api/portfolio");
 
   vi.stubGlobal(
     "fetch",
-    vi.fn((input: RequestInfo | URL) =>
-      Promise.resolve({
+    vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (isPortfolio(url) && payload.portfolioFails) {
+        return Promise.resolve({
+          ok: false,
+          status: 503,
+          json: () => Promise.resolve({ error: "Paper account is not configured." }),
+        } as Response);
+      }
+      return Promise.resolve({
         ok: true,
         status: 200,
-        json: () => Promise.resolve(body(String(input))),
-      } as Response),
-    ),
+        json: () =>
+          Promise.resolve(
+            isPortfolio(url)
+              ? { mode: "paper", account, blendedPositions: payload.positions ?? [] }
+              : { orders: payload.orders ?? [] },
+          ),
+      } as Response);
+    }),
   );
 }
 
@@ -199,6 +217,22 @@ describe("Portfolio sections", () => {
     // Each group explains what that ending means, so the two aren't conflated.
     expect(within(panel).getByText(/broker refused the order outright/)).toBeInTheDocument();
     expect(within(panel).getByText(/Pulled before filling/)).toBeInTheDocument();
+  });
+
+  it("does not report filled orders as closed when the position snapshot fails to load", async () => {
+    mockApi({
+      portfolioFails: true,
+      orders: [
+        order({ id: "1", symbol: "AAPL", status: "filled" }),
+        order({ id: "2", symbol: "TSLA", status: "filled" }),
+      ],
+    });
+    render(<PortfolioPage />);
+
+    expect(await screen.findByText(/Paper account is not configured/)).toBeInTheDocument();
+    // Without a snapshot we cannot know these were exited, so nothing claims it.
+    expect(screen.getByRole("heading", { name: "Closed Positions (0)" })).toBeInTheDocument();
+    expect(within(section(/^Open Positions/)).getByText("Entry orders (2)")).toBeInTheDocument();
   });
 
   it("sorts a section newest first", async () => {

@@ -67,6 +67,10 @@ describe("heldSymbols", () => {
   it("is empty when nothing is held", () => {
     expect(heldSymbols([])).toEqual(new Set());
   });
+
+  it("stays null when the snapshot is unavailable — that isn't the same as empty", () => {
+    expect(heldSymbols(null)).toBeNull();
+  });
 });
 
 describe("countOpenLegs", () => {
@@ -287,6 +291,32 @@ describe("sectionOrders", () => {
     );
     expect(sections.open).toEqual([]);
     expect(sections.closed).toHaveLength(2);
+  });
+
+  it("never reports a filled order as closed when the position snapshot is unavailable", () => {
+    // /api/portfolio 503s (no Alpaca keys) while /api/orders still returns
+    // rows. Empty-and-known would call every one of these exited.
+    const sections = sectionOrders(
+      [
+        order({ id: "a", symbol: "AAPL", status: "filled" }),
+        order({ id: "b", symbol: "TSLA", status: "filled" }),
+      ],
+      null,
+    );
+    expect(sections.open.map((o) => o.id)).toEqual(["a", "b"]);
+    expect(sections.closed).toEqual([]);
+  });
+
+  it("still sorts the other sections with no position snapshot", () => {
+    const sections = sectionOrders(
+      [
+        order({ id: "p", symbol: "MSFT", status: "new" }),
+        order({ id: "c", symbol: "AMD", status: "canceled" }),
+      ],
+      null,
+    );
+    expect(sections.pending.map((o) => o.id)).toEqual(["p"]);
+    expect(sections.unfilled.map((o) => o.id)).toEqual(["c"]);
   });
 
   it("keeps unrelated fields on the rows it sorts into sections", () => {
