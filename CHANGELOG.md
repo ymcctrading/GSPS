@@ -9,6 +9,41 @@ date.
 
 ## 2026-08-05
 
+### Changed
+- **The Portfolio tab splits into four sections.** The single flat order
+  ledger mixed working orders with settled ones; it now partitions into
+  Open, Pending, Closed, and Canceled & Rejected, each with its own header,
+  count, empty state, and newest-first ordering. Closed and Canceled &
+  Rejected start collapsed, since both grow without bound — an empty one
+  drops its toggle and shows its empty state outright.
+
+  No single column answers "is this position open?" — a filled entry and a
+  filled exit are indistinguishable in `orders.status` — so the split is a
+  derived condition in `lib/portfolio/sections.ts`: order status settles
+  working vs. terminal, and a `filled` order is Open or Closed depending on
+  whether the symbol is still in the broker's live position list. When that
+  snapshot is unavailable (a paper account with no Alpaca keys gets a 503
+  from `/api/portfolio` while `/api/orders` keeps serving rows), the list is
+  null rather than empty and a filled order stays Open. Reporting a held
+  position as closed on the strength of a response that never arrived is the
+  more dangerous way to be wrong.
+
+  Canceled and rejected orders never became positions, so they sit outside
+  Closed entirely, grouped by how each one ended — canceled, rejected,
+  expired, replaced, done for day — with a line explaining each disposition.
+  A cancellation is an order pulled after the broker accepted it; a rejection
+  is the broker refusing it outright. `rejected` badges red. `stopped` counts
+  as Pending rather than terminal: the broker has guaranteed a trade at a
+  stated price, but it hasn't happened yet.
+
+### Added
+- **React Testing Library.** Vitest now runs two projects: `lib` keeps the
+  pure-logic tests in Node, `ui` renders components in jsdom with the
+  jest-dom matchers (`vitest.setup.ts`). Rendering behaviour no unit test
+  could reach — sections landing in the right panel, empty states, collapse
+  toggles, disposition sub-groups — is covered in
+  `app/(app)/portfolio/page.test.tsx`.
+
 ### Fixed
 - **The daily scan could not save.** Migration `0006` (four price columns
   `NOT NULL`) was applied to production on 2026-08-04 while the writer still
