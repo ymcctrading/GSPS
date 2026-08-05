@@ -7,6 +7,41 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-08-05
+
+### Fixed
+- **The daily scan could not save.** Migration `0006` (four price columns
+  `NOT NULL`) was applied to production on 2026-08-04 while the writer still
+  sent rows with null levels, so Postgres rejected every batch with `23502`
+  and the dashboard held the 2026-08-03 lists. `runMarketScan` no longer ranks
+  a result that armed no pattern — it has no priced plan — and `buildScanRows`
+  filters again before the insert, renumbering ranks so the stored list is
+  `1..n`.
+- **A failed save used to empty the day.** The write deleted the day's rows
+  before inserting the replacement, so a rejected insert left nothing behind.
+  Rows are now upserted over the `(scan_date, direction, rank)` key and the
+  stale tail pruned afterwards; the previous run stays readable until the new
+  one lands. A scan that finds no publishable setup leaves the lists alone
+  instead of clearing them.
+- **"Scan ran but couldn't save ([object Object])".** A PostgREST error is a
+  plain object, not an `Error`, so `String(err)` erased the one thing worth
+  reading. `describeDbError` reports message, details, hint and SQLSTATE, and
+  the route logs the same line server-side.
+- **An unset `CRON_SECRET` looked like an attack.** The cron entry point
+  answered `401` whether the caller was unauthorized or the deployment simply
+  had no secret configured. The second case now answers `503` and says so —
+  Vercel only sends the bearer header when the variable exists, so this is the
+  likelier cause of a scan that never runs.
+
+### Removed
+- **The mock daily scan.** Migration `0007` unschedules the out-of-repo
+  `gsps-daily-scan` pg_cron job. It POSTed a Supabase edge function that fell
+  back to a fixed mock universe whenever `GSPS_SCAN_ENDPOINT` was unset —
+  every row written between 2026-07-23 and 2026-08-03 carries its arithmetic
+  prices (entry `100 + i`, stop `entry - 3`, TP1 `entry + 4`, master profit
+  `entry + 8`), which is why SPY was listed entering at $100.00. Real scans
+  come from `/api/market-scan` on the Vercel cron.
+
 ## 2026-08-01
 
 ### Added
