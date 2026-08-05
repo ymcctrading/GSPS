@@ -7,53 +7,33 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { runMarketScan } from "@/lib/marketScan";
+import { buildScanRows, describeDbError, persistDailyScans } from "@/lib/scan/publish";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import type { ScanResult } from "@/lib/types";
 
 export const maxDuration = 300;
-
-function toRows(scanDate: string, direction: "bullish" | "bearish", results: ScanResult[]) {
-  return results.map((r, i) => ({
-    scan_date: scanDate,
-    direction,
-    rank: i + 1,
-    symbol: r.symbol,
-    score: r.decision.score,
-    output_state: r.decision.outputState,
-    entry: r.levels?.entry ?? null,
-    stop_loss: r.levels?.stopLoss ?? null,
-    take_profit_1: r.levels?.takeProfit1 ?? null,
-    master_profit: r.levels?.masterProfit ?? null,
-    detail: {
-      currentPrice: r.currentPrice,
-      pattern: r.pattern,
-      armedPatterns: r.armedPatterns,
-      gann: r.gann,
-      breakdown: r.decision.breakdown,
-      trends: r.trends.map((t) => ({ timeframe: t.timeframe, direction: t.direction })),
-    },
-  }));
-}
 
 async function runAndPersist() {
   const output = await runMarketScan();
 
   // Persist (best-effort — the scan output is returned either way)
   let persisted = false;
+  let persistedCount = 0;
   let persistError: string | null = null;
   try {
-    const supabase = createServiceClient();
     const rows = [
-      ...toRows(output.scanDate, "bullish", output.bullish),
-      ...toRows(output.scanDate, "bearish", output.bearish),
+      ...buildScanRows(output.scanDate, "bullish", output.bullish),
+      ...buildScanRows(output.scanDate, "bearish", output.bearish),
     ];
-    await supabase.from("daily_scans").delete().eq("scan_date", output.scanDate);
-    const { error } = await supabase.from("daily_scans").insert(rows);
-    if (error) throw error;
-    persisted = true;
+    const outcome = await persistDailyScans(createServiceClient(), output.scanDate, rows);
+    persisted = outcome.persisted;
+    persistedCount = outcome.count;
+    persistError = outcome.error;
   } catch (err) {
-    persistError = err instanceof Error ? err.message : String(err);
+    // A throw here is the client itself failing to build — a missing service
+    // role key, most likely — rather than the write being rejected.
+    persistError = describeDbError(err);
   }
+  if (persistError) console.error(`market-scan: ${output.scanDate} not saved — ${persistError}`);
 
   return NextResponse.json({
     scanDate: output.scanDate,
@@ -62,14 +42,28 @@ async function runAndPersist() {
     bullish: output.bullish.map((r) => ({ symbol: r.symbol, score: r.decision.score, state: r.decision.outputState })),
     bearish: output.bearish.map((r) => ({ symbol: r.symbol, score: r.decision.score, state: r.decision.outputState })),
     persisted,
+    persistedCount,
     persistError,
   });
 }
 
-/** Cron entry point — authorized with the shared CRON_SECRET. */
+/**
+ * Cron entry point — authorized with the shared CRON_SECRET.
+ *
+ * Vercel only attaches the `Authorization: Bearer` header when CRON_SECRET is
+ * set on the project, so an unset secret doesn't leave the endpoint open, it
+ * makes the scheduled scan 401 silently. The response says which of the two it
+ * is; the dashboard sitting on a stale day is the symptom either way.
+ */
 export async function GET(req: NextRequest) {
-  const auth = req.headers.get("authorization");
-  if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!process.env.CRON_SECRET) {
+    console.error("market-scan: CRON_SECRET is not set — the scheduled scan cannot run");
+    return NextResponse.json(
+      { error: "CRON_SECRET is not configured on this deployment" },
+      { status: 503 },
+    );
+  }
+  if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   return runAndPersist();
