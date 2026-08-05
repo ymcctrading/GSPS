@@ -7,6 +7,7 @@ import type {
   GannLevels,
   ScanDecision,
   ScoreBreakdownItem,
+  SetupKind,
   StratPattern,
   TradeLevels,
   TrendReading,
@@ -21,18 +22,26 @@ export interface ScoreInputs {
   pattern: StratPattern | null;
   momentumElevated: boolean;
   levels: TradeLevels | null;
+  /** Defaults to "reversion" — the protocol's primary setup. */
+  setupKind?: SetupKind;
 }
 
 export function computeScore(inputs: ScoreInputs): ScanDecision {
   const {
     direction, macroTrends, hourlyTrend, gann,
     nearSupportResistance, pattern, momentumElevated, levels,
+    setupKind = "reversion",
   } = inputs;
 
-  // For a reversion setup, the macro context "supports" it when the recent
-  // trend runs OPPOSITE the setup direction (an extended move into the level).
+  // The macro criterion is the one place the two setup kinds read the same
+  // evidence in opposite directions. A reversion wants an extended move
+  // AGAINST it (price stretched into the level it will bounce off); a
+  // continuation wants the macro running WITH it (a trend still intact).
+  // Scoring a continuation on the reversion question would fail it for the
+  // very condition that makes it a continuation.
   const opposite = direction === "bullish" ? "bearish" : "bullish";
-  const macroExtended = macroTrends.filter((t) => t.direction === opposite).length >= 2;
+  const macroWanted = setupKind === "continuation" ? direction : opposite;
+  const macroSupports = macroTrends.filter((t) => t.direction === macroWanted).length >= 2;
 
   const hourlyAgrees = hourlyTrend.direction === direction || hourlyTrend.direction === "sideways";
 
@@ -48,10 +57,14 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   const breakdown: ScoreBreakdownItem[] = [
     {
       criterion: "Macro trend context (10yr/5yr/1yr)",
-      passed: macroExtended,
-      note: macroExtended
-        ? `Extended ${opposite} move into the level — primed for ${direction} reversion.`
-        : "Macro timeframes are not extended against the setup direction.",
+      passed: macroSupports,
+      note: macroSupports
+        ? setupKind === "continuation"
+          ? `Macro timeframes read ${direction} — the trend this setup continues is intact.`
+          : `Extended ${opposite} move into the level — primed for ${direction} reversion.`
+        : setupKind === "continuation"
+          ? "Macro timeframes do not confirm the trend this setup would continue."
+          : "Macro timeframes are not extended against the setup direction.",
     },
     {
       criterion: "1-hour trend agreement",
@@ -80,11 +93,15 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
         : "Not at a significant historical S/R level.",
     },
     {
-      criterion: "Reversal pattern armed",
+      // The criterion is "a pattern armed in the setup's own direction", which
+      // is a reversal for a reversion and a continuation for a continuation.
+      // Labelling a 2-1-2 that carries a trend "Reversal pattern armed" would
+      // describe the opposite trade.
+      criterion: `${setupKind === "continuation" ? "Continuation" : "Reversal"} pattern armed`,
       passed: patternValid,
       note: patternValid
         ? `${pattern!.name} ${pattern!.direction} armed — trigger ${pattern!.triggerPrice.toFixed(2)}.`
-        : "No matching reversal pattern armed on the execution timeframe.",
+        : `No matching ${setupKind === "continuation" ? "continuation" : "reversal"} pattern armed on the execution timeframe.`,
     },
     {
       criterion: "Momentum / volatility elevated",
@@ -110,8 +127,25 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   ];
 
   const score = breakdown.filter((b) => b.passed).length;
+
+  // "Execute" is an instruction to place an order, so it requires an order to
+  // place. Seven of the nine criteria are context — macro, structure, cycles —
+  // and can all pass with no armed pattern and no priced trade plan, which is
+  // exactly the 7/9 that would otherwise read as Execute with no entry, stop or
+  // targets. Without a plan the strongest honest reading is Watch.
+  const tradePlanReady = patternValid && levels !== null;
+  if (score >= 7 && !tradePlanReady) {
+    breakdown.push({
+      criterion: "Trade plan priced (entry / stop / TP1 / master)",
+      passed: false,
+      note: levels
+        ? "No armed pattern in the setup direction — nothing to enter against, so the state is held at Watch."
+        : "No trade plan computed — no entry, stop or targets to act on, so the state is held at Watch.",
+    });
+  }
+
   const outputState: ScanDecision["outputState"] =
-    score >= 7 ? "Execute" : score >= 4 ? "Watch" : "Reject";
+    score >= 7 && tradePlanReady ? "Execute" : score >= 4 ? "Watch" : "Reject";
 
   return { score, outputState, breakdown };
 }

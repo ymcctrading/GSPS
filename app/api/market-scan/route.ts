@@ -1,8 +1,9 @@
 /**
  * GSPS — /api/market-scan
- * Runs the daily market-wide reversion scan (15 bullish + 15 bearish) and
- * persists results to Supabase. Invoked by Vercel Cron (Authorization:
- * Bearer CRON_SECRET) or manually with the same header.
+ * Runs the daily market-wide scan (up to 15 bullish + 15 bearish) and persists
+ * results to Supabase. Invoked by Vercel Cron (Authorization: Bearer
+ * CRON_SECRET) or manually with the same header. A side short of 15 is topped
+ * up with momentum continuations rather than padded — see lib/marketScan.ts.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -39,6 +40,7 @@ async function runAndPersist() {
     scanDate: output.scanDate,
     universeSize: output.universeSize,
     shortlisted: output.shortlisted,
+    continuationFills: output.continuationFills,
     bullish: output.bullish.map((r) => ({ symbol: r.symbol, score: r.decision.score, state: r.decision.outputState })),
     bearish: output.bearish.map((r) => ({ symbol: r.symbol, score: r.decision.score, state: r.decision.outputState })),
     persisted,

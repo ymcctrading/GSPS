@@ -82,6 +82,11 @@ export function buildScanRows(
     master_profit: r.levels!.masterProfit,
     detail: {
       currentPrice: r.currentPrice,
+      // Which bet the row is: a reversion against an extended move, or a
+      // momentum continuation that topped up a short side. The lists render
+      // them together, so the distinction has to survive the round trip.
+      setupKind: r.setupKind,
+      momentumElevated: r.momentumElevated,
       pattern: r.pattern,
       armedPatterns: r.armedPatterns,
       gann: r.gann,

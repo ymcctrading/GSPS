@@ -29,6 +29,8 @@ function result(overrides: Partial<ScanResult> = {}): ScanResult {
     scannedAt: "2026-08-05T13:00:00.000Z",
     currentPrice: 200,
     direction: "bullish",
+    setupKind: "reversion",
+    momentumElevated: false,
     trends: [],
     gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleDates: [] },
     pattern: {

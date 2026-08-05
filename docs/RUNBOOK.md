@@ -62,6 +62,30 @@ select count(*) from daily_scans where detail ? 'setupTier';     -- expect 0
 `setupTier`/`relativeVolume`/`atrExpansion`, rows from `/api/market-scan` carry
 `pattern`/`gann`/`breakdown`.
 
+## A direction list has fewer than 15 rows
+
+Expected, not a fault. A row is only published when the execution timeframe
+armed a tradeable trigger and the plan priced out — entry, stop, TP1 and
+master profit all present. Narrow-range names (bond ETFs, thin tape) routinely
+arm nothing, and the four price columns are `NOT NULL` in `daily_scans`, so
+there is no way to pad the list with a symbol that has no plan.
+
+When a side comes up short the scan tops it up with momentum continuations:
+candidates whose daily range is expanding at least 1.2x its trailing baseline,
+still trading on the trend side of their 20-bar mean, that armed a `2-1-2` or
+`3-1-2` in the same direction the macro timeframes read. Those rows are tagged
+`continuation` in the table and in `detail.setupKind`. The scan response
+reports `continuationFills` per direction.
+
+A list that is short *and* got no continuation fills means the continuation
+gates found nothing either — a quiet, directionless tape. Check
+`shortlisted` and `universeSize` in the scan response before suspecting a
+data-provider problem.
+
+Expect short lists to be the norm rather than the exception: the risk floor
+sits at `0.75x` the execution-timeframe ATR (`MIN_RISK_ATR_FRACTION`), which
+roughly halves the setups that arm at all.
+
 ## A market-data endpoint (crypto/forex/futures) is failing
 
 1. Identify the provider from the route: `/api/crypto` → Binance,
