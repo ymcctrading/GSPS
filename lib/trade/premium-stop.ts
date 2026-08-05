@@ -22,7 +22,7 @@ export const STOP_BAND_MAX_PCT_OF_PREMIUM = 18;
  * How long a triggered setup is assumed to stay open, in days, for the purpose
  * of charging time decay against the premium at risk.
  *
- * Measured by walking a year of AAPL 15-minute bars: of 1,071 setups that
+ * Measured by walking ~48 sessions of AAPL 15-minute bars: of 1,071 setups that
  * cleared the gap rule and the risk floor, 418 triggered on the very next
  * candle as the protocol requires, and every one resolved at TP1 or the stop.
  * Time to resolution was 3 bars at the median (~45 minutes), 13 at p90 and 19

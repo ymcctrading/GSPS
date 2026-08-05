@@ -128,8 +128,13 @@ describe("risk floor", () => {
   });
 
   it("accepts the same stop when the timeframe is genuinely that quiet", () => {
-    // ATR 0.9: the floor is 0.30, and the 0.35 stop clears it.
-    expect(riskFloorViolated(hairTrigger, 0.9)).toBe(false);
+    // Derived from the constant rather than hardcoded: the floor moved from a
+    // third to three quarters once it was measured against replayed results,
+    // and a literal here just silently encodes whatever it used to be.
+    const risk = Math.abs(hairTrigger.triggerPrice - hairTrigger.stopPrice);
+    const quietEnough = risk / MIN_RISK_ATR_FRACTION;
+    expect(riskFloorViolated(hairTrigger, quietEnough * 0.99)).toBe(false);
+    expect(riskFloorViolated(hairTrigger, quietEnough * 1.01)).toBe(true);
   });
 
   it("rejects a stop too tight to clear its own costs, whatever the ATR", () => {
