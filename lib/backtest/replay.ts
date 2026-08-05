@@ -19,12 +19,25 @@
  * output as an upper bound on a strategy's quality, never a promise.
  */
 
-import type { Bar, StratPattern } from "@/lib/types";
+import type { Bar, GannLevels, ScanDecision, StratPattern, TrendReading } from "@/lib/types";
 import { detectPatterns, gapRuleViolated, riskFloorViolated } from "@/lib/strat/patterns";
+import { computeTradeLevels } from "@/lib/strat/levels";
+import { applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
+import { readTrend } from "@/lib/analysis/trend";
 import { atr } from "@/lib/analysis/pivots";
+import { computeFanLines } from "@/lib/gann/fans";
+import { squareOf9Levels } from "@/lib/gann/squareOf9";
+import { timeCycles } from "@/lib/gann/timeCycles";
 
 /** 6.5 hours of 15-minute candles. */
 export const BARS_PER_SESSION = 26;
+
+/**
+ * Daily history needed before a confluence score is worth computing. Below
+ * this the macro trends and structural levels are being read off too little
+ * data to mean anything, and a fabricated score is worse than none.
+ */
+export const MIN_DAILY_BARS_FOR_SCORE = 120;
 
 export interface ReplayOptions {
   /** Take-profit distance as a multiple of the trade's risk. */
@@ -38,6 +51,12 @@ export interface ReplayOptions {
   maxBarsHeld?: number;
   /** Minimum bars of history before a setup may be taken. */
   warmupBars?: number;
+  /**
+   * Daily bars for the same symbol. Supplying them turns on the confluence
+   * score, so each trade records the verdict the scanner would have shown.
+   * Only sessions strictly before the day being traded are ever read.
+   */
+  dailyBars?: Bar[];
 }
 
 export interface ReplayTrade {
@@ -60,6 +79,14 @@ export interface ReplayTrade {
    * afterwards.
    */
   atrMultiple: number;
+  /**
+   * The verdict the scanner would have displayed, when daily bars were
+   * supplied and there was enough history to compute one. Undefined otherwise
+   * — never defaulted, because a missing score and a score of zero mean very
+   * different things.
+   */
+  score?: number;
+  outputState?: ScanDecision["outputState"];
 }
 
 export interface ReplayResult {
@@ -82,17 +109,108 @@ const EMPTY: Omit<ReplayResult, "trades"> = {
   winRate: 0, expectancyR: 0, totalR: 0,
 };
 
+/**
+ * Roll a bar series up to a coarser timeframe by a key on each bar's stamp.
+ * Assumes the input is ordered oldest first, which every provider path is.
+ */
+export function rollUp(bars: Bar[], key: (bar: Bar) => string): Bar[] {
+  const out: Bar[] = [];
+  let current: Bar | null = null;
+  let currentKey = "";
+  for (const b of bars) {
+    const k = key(b);
+    if (k !== currentKey) {
+      if (current) out.push(current);
+      current = { ...b };
+      currentKey = k;
+    } else if (current) {
+      current.h = Math.max(current.h, b.h);
+      current.l = Math.min(current.l, b.l);
+      current.c = b.c;
+      current.v += b.v;
+    }
+  }
+  if (current) out.push(current);
+  return out;
+}
+
+/** Whole weeks since the start of the bar's year. Buckets, not ISO weeks. */
+const weekKey = (b: Bar) => {
+  const t = new Date(b.t);
+  const yearStart = Date.UTC(t.getUTCFullYear(), 0, 1);
+  return `${t.getUTCFullYear()}-${Math.floor((t.getTime() - yearStart) / 604_800_000)}`;
+};
+
+/**
+ * The slower-moving half of a scan: macro trends, structural levels and the
+ * volatility regime. Everything here is derived from daily bars, so it only
+ * changes once a session and is cached per date by the caller.
+ *
+ * This mirrors lib/scanTicker.ts rather than calling it, because that function
+ * fetches live data. The two can drift — if the scan's context assembly
+ * changes, this needs the same change, or the replay stops describing the
+ * shipped system.
+ */
+export interface MacroContext {
+  macroTrends: TrendReading[];
+  gann: GannLevels;
+  nearSupportResistance: boolean;
+  momentumElevated: boolean;
+}
+
+export function buildMacroContext(daily: Bar[], price: number): MacroContext {
+  const weekly = rollUp(daily, weekKey);
+  const monthly = rollUp(daily, (b) => b.t.slice(0, 7));
+  const monthlyTrend = readTrend(monthly, "1Month");
+  const weeklyTrend = readTrend(weekly, "1Week");
+  const dailyTrend = readTrend(daily, "1Day");
+
+  const fanLines = computeFanLines(daily, price);
+  const majorLow = Math.min(...daily.map((b) => b.l));
+  const s9 = squareOf9Levels(majorLow, price).slice(0, 12);
+  const cycles = timeCycles(daily);
+
+  const allLevels = [
+    ...dailyTrend.support, ...dailyTrend.resistance,
+    ...weeklyTrend.support, ...weeklyTrend.resistance,
+    ...monthlyTrend.support, ...monthlyTrend.resistance,
+  ];
+  const recentAtr = atr(daily.slice(-20), 14);
+  const baselineAtr = atr(daily.slice(-100, -20), 14);
+
+  return {
+    macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
+    gann: {
+      fanLines: fanLines.slice(0, 6).map(({ angle, price: p, distancePct }) => ({
+        angle, price: Math.round(p * 100) / 100, distancePct,
+      })),
+      squareOf9: s9.slice(0, 6).map(({ degree, price: p, distancePct }) => ({
+        degree, price: Math.round(p * 100) / 100, distancePct,
+      })),
+      timeCycleActive: cycles.active,
+      timeCycleDates: cycles.dates,
+    },
+    nearSupportResistance: allLevels.some((l) => Math.abs(price - l) / price <= 0.015),
+    momentumElevated: baselineAtr > 0 && recentAtr / baselineAtr >= 1.2,
+  };
+}
+
 export function replay(symbol: string, bars: Bar[], options: ReplayOptions): ReplayResult {
   const {
     targetR,
     costPerShare = 0.02,
     maxBarsHeld = BARS_PER_SESSION * 10,
     warmupBars = 40,
+    dailyBars,
   } = options;
 
   const trades: ReplayTrade[] = [];
   let armed = 0;
   let triggered = 0;
+  // Macro context only moves once a session, so it is built per date, not per
+  // bar. Without this the replay recomputes trends and fan lines thousands of
+  // times over identical inputs.
+  const contextByDate = new Map<string, MacroContext | null>();
 
   for (let i = warmupBars; i < bars.length - 1; i++) {
     const history = bars.slice(0, i);
@@ -117,6 +235,18 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       const risk = Math.abs(entry - stop);
       if (!(risk > 0)) continue;
       const target = entry + dir * targetR * risk;
+
+      const decision = dailyBars
+        ? scoreSetup({
+            pattern,
+            dailyBars,
+            contextByDate,
+            date: live.t.slice(0, 10),
+            history,
+            price: lastClose,
+            executionAtr,
+          })
+        : undefined;
 
       let outcome: ReplayTrade["outcome"] = "timeout";
       let barsHeld = 0;
@@ -144,6 +274,8 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           rMultiple: (dir * (exit - entry) - costPerShare) / risk,
           ambiguous: false,
           atrMultiple: executionAtr > 0 ? risk / executionAtr : 0,
+          score: decision?.score,
+          outputState: decision?.outputState,
         });
         continue;
       }
@@ -155,6 +287,8 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         rMultiple: (gross - costPerShare) / risk,
         ambiguous,
         atrMultiple: executionAtr > 0 ? risk / executionAtr : 0,
+        score: decision?.score,
+        outputState: decision?.outputState,
       });
     }
   }
@@ -190,4 +324,89 @@ export function combine(results: ReplayResult[]): ReplayResult {
   const armed = results.reduce((s, r) => s + r.armed, 0);
   const triggered = results.reduce((s, r) => s + r.triggered, 0);
   return summarise(trades, armed, triggered);
+}
+
+/**
+ * Rebuild the verdict the scanner would have shown for one armed setup.
+ *
+ * Reads only sessions strictly before the day being traded. That is stricter
+ * than production, which sees the current day's partial bar, and the direction
+ * of the difference is deliberate: a replay that peeks is worthless.
+ */
+function scoreSetup(input: {
+  pattern: StratPattern;
+  dailyBars: Bar[];
+  contextByDate: Map<string, MacroContext | null>;
+  date: string;
+  history: Bar[];
+  price: number;
+  executionAtr: number;
+}): ScanDecision | undefined {
+  const { pattern, dailyBars, contextByDate, date, history, price, executionAtr } = input;
+
+  let context = contextByDate.get(date);
+  if (context === undefined) {
+    const priorSessions = dailyBars.filter((b) => b.t.slice(0, 10) < date);
+    context =
+      priorSessions.length >= MIN_DAILY_BARS_FOR_SCORE
+        ? buildMacroContext(priorSessions, price)
+        : null;
+    contextByDate.set(date, context);
+  }
+  if (!context) return undefined;
+
+  // The last 400 candles is ~15 sessions of hourly context, which is more than
+  // readTrend looks back over and keeps the roll-up cheap.
+  const hourlyTrend = readTrend(rollUp(history.slice(-400), (b) => b.t.slice(0, 13)), "1Hour");
+
+  let levels = null;
+  try {
+    levels = computeTradeLevels(
+      pattern,
+      history[history.length - 2] ?? history[history.length - 1],
+      [...context.gann.fanLines.map((f) => f.price), ...context.gann.squareOf9.map((s) => s.price)],
+      undefined,
+      executionAtr,
+    );
+  } catch {
+    // A setup with no valid plan is scored without one, exactly as the scan
+    // does when computeTradeLevels rejects it.
+  }
+
+  return applyReversionConfirmation(
+    computeScore({
+      direction: pattern.direction,
+      macroTrends: context.macroTrends,
+      hourlyTrend,
+      gann: context.gann,
+      nearSupportResistance: context.nearSupportResistance,
+      pattern,
+      momentumElevated: context.momentumElevated,
+      levels,
+    }),
+    pattern,
+    context.momentumElevated,
+    context.nearSupportResistance,
+  );
+}
+
+/**
+ * Split a run by the verdict the scanner would have shown. Trades with no
+ * verdict — too little daily history, or none supplied — are reported under
+ * `unscored` rather than folded into a bucket they were never assigned to.
+ */
+export function byOutputState(result: ReplayResult): {
+  Execute: ReplayResult;
+  Watch: ReplayResult;
+  Reject: ReplayResult;
+  unscored: ReplayResult;
+} {
+  const pick = (state: ScanDecision["outputState"]) =>
+    summarise(result.trades.filter((t) => t.outputState === state));
+  return {
+    Execute: pick("Execute"),
+    Watch: pick("Watch"),
+    Reject: pick("Reject"),
+    unscored: summarise(result.trades.filter((t) => t.outputState === undefined)),
+  };
 }
