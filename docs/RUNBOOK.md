@@ -48,13 +48,19 @@ scheduled scan isn't reaching the route:
 
 **The lists are full but the prices look invented** (SPY entering at
 $100.00, AMD at $102.00, NVDA at $106.00, every stop exactly $3 below entry).
-That is the `daily-scan` Supabase edge function's mock fallback, scheduled by
-pg_cron outside this repo and retired by migration `0007`. Confirm the job is
-gone before trusting the table:
+That is the `daily-scan` Supabase edge function's mock fallback. Both halves of
+it are retired: migration `0007` unscheduled the pg_cron job, and the function
+body is now the 410 stub in `supabase/functions/daily-scan/index.ts`. If those
+prices reappear, one of the two has been restored — check both:
 
 ```sql
-select jobname, schedule, active from cron.job;
+select jobname, schedule, active from cron.job;                  -- expect no rows
+select count(*) from daily_scans where detail ? 'setupTier';     -- expect 0
 ```
+
+`detail ? 'setupTier'` is the tell: rows from the edge function carry
+`setupTier`/`relativeVolume`/`atrExpansion`, rows from `/api/market-scan` carry
+`pattern`/`gann`/`breakdown`.
 
 ## A market-data endpoint (crypto/forex/futures) is failing
 

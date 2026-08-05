@@ -40,7 +40,15 @@ date.
   every row written between 2026-07-23 and 2026-08-03 carries its arithmetic
   prices (entry `100 + i`, stop `entry - 3`, TP1 `entry + 4`, master profit
   `entry + 8`), which is why SPY was listed entering at $100.00. Real scans
-  come from `/api/market-scan` on the Vercel cron.
+  come from `/api/market-scan` on the Vercel cron. Those 36 rows, across six
+  scan dates, have been deleted from `daily_scans`.
+- **The edge function behind it.** Unscheduling left the function deployed and
+  publicly invokable with `verify_jwt: false`, and its first act was
+  `delete from daily_scans where scan_date = today`. Its body is now a stub
+  that touches no data and answers `410`, with `verify_jwt` on. The deployed
+  source lives at `supabase/functions/daily-scan/index.ts` rather than only in
+  the Supabase dashboard — running unversioned code against this database is
+  how the mock prices survived unnoticed for two weeks.
 
 ## 2026-08-01
 
