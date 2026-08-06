@@ -7,6 +7,36 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-08-06
+
+### Added
+- **A per-candle readout on the chart.** Hovering a candle now reports that
+  bar's numbers in a panel docked to the top-left of the price pane: date and
+  timeframe, the percentage change across the bar, O/H/L/C in a 2×2 grid, and
+  two measure rows — range and volume.
+
+  The measure rows carry the part that reading four prices does not give you
+  quickly. Range plots the bar's low→high as a track with the open→close body
+  drawn inside it and a notch where the close landed, so "long upper wick,
+  closed on the lows" is a shape rather than an arithmetic exercise; a doji
+  still shows a sliver. Volume is drawn against its own trailing 20-bar
+  average with the 1× mark ruled on the track, which is the only way a volume
+  number means anything without the chart's volume study open. The average
+  covers the bars *behind* the current one — including it would pull the
+  baseline toward the very spike the ratio exists to reveal.
+
+  Docked rather than floating on the crosshair: a panel that chases the
+  pointer covers the candles either side of the one it describes, which is the
+  context you are reading it against, and on a phone it would sit under the
+  thumb. With the pointer off the chart it idles on the newest bar and tracks
+  the live close, so it doubles as a legend.
+
+  The maths lives in `lib/chart/readout.ts`, apart from the chart component
+  and under test — a body percentage that divides by a zero-range bar, or a
+  change taken against the wrong bar, is a wrong number shown with full
+  confidence. It indexes the bars actually on screen, so a candle hidden by
+  the extended-hours toggle can never be the one reported.
+
 ## 2026-08-05
 
 ### Changed
