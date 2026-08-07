@@ -13,6 +13,8 @@ import {
 } from "lightweight-charts";
 import { MousePointer2, Minus, TrendingUp, Bell, BellOff, Trash2 } from "lucide-react";
 import { ChartTradeWidget } from "@/components/trade/chart-trade-widget";
+import { CandleReadoutPanel } from "@/components/chart/candle-readout";
+import { buildReadout, indexAtTime, type ReadoutBar } from "@/lib/chart/readout";
 import type { Bar, Timeframe } from "@/lib/types";
 import {
   DEFAULT_VISIBLE_BARS,
@@ -134,6 +136,12 @@ export function CandleChart({
   const [showGann, setShowGann] = useState(true);
   const [showExtended, setShowExtended] = useState(true);
   const [candleData, setCandleData] = useState<Candle[]>([]);
+  // Bars actually on screen (post extended-hours filter) — what the readout
+  // panel indexes into, so a hidden bar can never be reported.
+  const [shownBars, setShownBars] = useState<Candle[]>([]);
+  // Epoch seconds of the bar under the crosshair; null when the pointer is off
+  // the chart, where the readout falls back to the most recent bar.
+  const [hoverTime, setHoverTime] = useState<number | null>(null);
 
   // ---- Indicator toggles
   const [overlays, setOverlays] = useState<Set<Overlay>>(new Set());
@@ -226,6 +234,13 @@ export function CandleChart({
     };
     chart.subscribeClick(onClick);
 
+    // Track which bar the crosshair is over. `time` is absent once the pointer
+    // leaves the data area, which resets the readout to the latest bar.
+    const onCrosshair = (param: { time?: Time }) => {
+      setHoverTime(typeof param.time === "number" ? param.time : null);
+    };
+    chart.subscribeCrosshairMove(onCrosshair);
+
     return () => {
       chart.remove();
       chartRef.current = null;
@@ -242,6 +257,7 @@ export function CandleChart({
         ? allBarsRef.current.filter((b) => !b.extended)
         : allBarsRef.current;
       series.setData(bars);
+      setShownBars(bars);
       lastBarRef.current = bars[bars.length - 1] ?? null;
       if (opts?.keepView) return;
       // Frame the most recent candles rather than the whole window, so deep
@@ -360,6 +376,13 @@ export function CandleChart({
     });
     lastBarRef.current = updated;
     series.update(updated);
+    // Keep the readout's copy of the forming bar in step with the series, so a
+    // ticking close is reported rather than the close it had on load.
+    setShownBars((prev) =>
+      prev.length > 0 && prev[prev.length - 1].time === updated.time
+        ? [...prev.slice(0, -1), updated]
+        : prev,
+    );
     checkAlertCross(livePrice);
   }, [livePrice, status, checkAlertCross]);
 
@@ -625,6 +648,33 @@ export function CandleChart({
     setSet(next);
   };
 
+  // ---- Per-candle readout. Follows the crosshair; idles on the newest bar.
+  const readoutBars: ReadoutBar[] = useMemo(
+    () =>
+      shownBars.map((c) => ({
+        time: c.time as number,
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        close: c.close,
+        volume: c.volume,
+        extended: c.extended,
+      })),
+    [shownBars],
+  );
+  const readoutIndex = useMemo(() => {
+    if (readoutBars.length === 0) return -1;
+    if (hoverTime == null) return readoutBars.length - 1;
+    const i = indexAtTime(readoutBars, hoverTime);
+    // The crosshair can sit past the last bar in the whitespace to its right.
+    return i === -1 ? readoutBars.length - 1 : i;
+  }, [readoutBars, hoverTime]);
+  const readout = useMemo(
+    () => buildReadout(readoutBars, readoutIndex),
+    [readoutBars, readoutIndex],
+  );
+  const readoutIsLatest = readoutIndex === readoutBars.length - 1;
+
   const hasGann = markers.some((m) => m.kind === "structural");
   const hasDrawings = hlines.length > 0 || trendlines.length > 0 || pending != null;
 
@@ -801,6 +851,22 @@ export function CandleChart({
           desktop where the vertical space is free. */}
       <div className="relative h-[300px] w-full min-w-0 sm:h-[360px] lg:h-[420px] 2xl:h-[520px]">
         <div ref={containerRef} className="absolute inset-0" />
+        {/* Per-candle readout. Docked top-left, dropped below the Buy/Sell bar
+            when the trade overlay owns that corner. */}
+        {status === "ready" && (
+          <div
+            className={cn(
+              "pointer-events-none absolute left-2 z-10",
+              enableTrading ? "top-13" : "top-2",
+            )}
+          >
+            <CandleReadoutPanel
+              readout={readout}
+              timeframeLabel={TF_LABEL[timeframe]}
+              live={live && readoutIsLatest}
+            />
+          </div>
+        )}
         {/* Trade overlay lives inside the canvas box so its panels stay tethered
             to the chart. Pointer events are re-enabled per child so the wrapper
             never swallows chart drags. */}

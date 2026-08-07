@@ -56,6 +56,8 @@ GSPS is a comprehensive trading application built with Next.js, Supabase, and Al
 - **Lightweight Charts Integration**: Professional candlestick charts
 - **10 Timeframes**: 1m → 1y, each candle aligned to its interval boundary
 - **Live Chart Updates**: Real-time candlestick updates
+- **Per-Candle Readout**: Docked panel reporting the hovered bar's OHLC, range,
+  body share, close position and volume vs. its trailing average
 - **Legend Toggle**: Show/hide price legend
 - **Structural Level Overlays**: Visualize structural analysis on charts
 - **Technical Indicators**: Support/resistance levels, trend lines
