@@ -75,6 +75,23 @@ function coarseScore(symbol: string, daily: Bar[]): CoarseCandidate | null {
   return { symbol, direction, coarseScore: score };
 }
 
+/**
+ * A scan result is publishable to the daily lists only when it carries a
+ * complete, finite trade plan. Every consumer of `daily_scans` renders the four
+ * price columns as the reason to take the trade, so a row missing any of them
+ * is not a setup — it is noise that outranks real ones on score alone.
+ */
+export function hasTradePlan(r: ScanResult): boolean {
+  const l = r.levels;
+  return (
+    r.pattern !== null &&
+    l !== null &&
+    [l.entry, l.stopLoss, l.takeProfit1, l.masterProfit].every(
+      (v) => typeof v === "number" && Number.isFinite(v),
+    )
+  );
+}
+
 export interface MarketScanOutput {
   scanDate: string;
   bullish: ScanResult[];
@@ -127,9 +144,15 @@ export async function runMarketScan(universeTop = 100, perSide = 15): Promise<Ma
   const full = await mapWithConcurrency(shortlist, 5, (c) => scanTicker(c.symbol));
   const valid = full.filter((r) => !r.error);
 
+  // The daily lists are trade plans, not a watchlist. A symbol only earns a row
+  // when the execution timeframe actually armed a pattern in that direction and
+  // the plan priced out — entry, stop, TP1 and master profit all present.
+  // Bucketing a `direction === "none"` result by the coarse pass's guess put
+  // rows with four null prices into a table whose price columns are NOT NULL,
+  // which rejected the whole batch and left the dashboard on a stale day.
   const rank = (dir: "bullish" | "bearish") =>
     valid
-      .filter((r) => r.direction === dir || (r.direction === "none" && shortlist.find((c) => c.symbol === r.symbol)?.direction === dir))
+      .filter((r) => r.direction === dir && hasTradePlan(r))
       .sort((a, b) => b.decision.score - a.decision.score)
       .slice(0, perSide);
 

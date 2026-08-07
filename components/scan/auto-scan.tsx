@@ -65,13 +65,16 @@ export function AutoScan({ scanDate }: { scanDate: string | null }) {
           const res = await fetch("/api/market-scan", { method: "POST" });
           const data = await res.json();
           if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
-          const n = (data.bullish?.length ?? 0) + (data.bearish?.length ?? 0);
+          const found = (data.bullish?.length ?? 0) + (data.bearish?.length ?? 0);
           if (mounted.current) {
             setMsg({
-              ok: true,
+              // A scan that saved nothing hasn't updated the lists below, so it
+              // reads as a failure — even when the reason is simply that today
+              // offered no setup worth publishing.
+              ok: Boolean(data.persisted),
               text: data.persisted
-                ? `Scan complete — ${n} setups found.`
-                : `Scan ran but couldn't save (${data.persistError ?? "unknown"}).`,
+                ? `Scan complete — ${data.persistedCount ?? found} setups found.`
+                : `Scan ran but nothing was saved: ${data.persistError ?? "unknown reason"}.`,
             });
           }
           router.refresh();

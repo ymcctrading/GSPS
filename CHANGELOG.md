@@ -7,6 +7,84 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-08-05
+
+### Changed
+- **The Portfolio tab splits into four sections.** The single flat order
+  ledger mixed working orders with settled ones; it now partitions into
+  Open, Pending, Closed, and Canceled & Rejected, each with its own header,
+  count, empty state, and newest-first ordering. Closed and Canceled &
+  Rejected start collapsed, since both grow without bound — an empty one
+  drops its toggle and shows its empty state outright.
+
+  No single column answers "is this position open?" — a filled entry and a
+  filled exit are indistinguishable in `orders.status` — so the split is a
+  derived condition in `lib/portfolio/sections.ts`: order status settles
+  working vs. terminal, and a `filled` order is Open or Closed depending on
+  whether the symbol is still in the broker's live position list. When that
+  snapshot is unavailable (a paper account with no Alpaca keys gets a 503
+  from `/api/portfolio` while `/api/orders` keeps serving rows), the list is
+  null rather than empty and a filled order stays Open. Reporting a held
+  position as closed on the strength of a response that never arrived is the
+  more dangerous way to be wrong.
+
+  Canceled and rejected orders never became positions, so they sit outside
+  Closed entirely, grouped by how each one ended — canceled, rejected,
+  expired, replaced, done for day — with a line explaining each disposition.
+  A cancellation is an order pulled after the broker accepted it; a rejection
+  is the broker refusing it outright. `rejected` badges red. `stopped` counts
+  as Pending rather than terminal: the broker has guaranteed a trade at a
+  stated price, but it hasn't happened yet.
+
+### Added
+- **React Testing Library.** Vitest now runs two projects: `lib` keeps the
+  pure-logic tests in Node, `ui` renders components in jsdom with the
+  jest-dom matchers (`vitest.setup.ts`). Rendering behaviour no unit test
+  could reach — sections landing in the right panel, empty states, collapse
+  toggles, disposition sub-groups — is covered in
+  `app/(app)/portfolio/page.test.tsx`.
+
+### Fixed
+- **The daily scan could not save.** Migration `0006` (four price columns
+  `NOT NULL`) was applied to production on 2026-08-04 while the writer still
+  sent rows with null levels, so Postgres rejected every batch with `23502`
+  and the dashboard held the 2026-08-03 lists. `runMarketScan` no longer ranks
+  a result that armed no pattern — it has no priced plan — and `buildScanRows`
+  filters again before the insert, renumbering ranks so the stored list is
+  `1..n`.
+- **A failed save used to empty the day.** The write deleted the day's rows
+  before inserting the replacement, so a rejected insert left nothing behind.
+  Rows are now upserted over the `(scan_date, direction, rank)` key and the
+  stale tail pruned afterwards; the previous run stays readable until the new
+  one lands. A scan that finds no publishable setup leaves the lists alone
+  instead of clearing them.
+- **"Scan ran but couldn't save ([object Object])".** A PostgREST error is a
+  plain object, not an `Error`, so `String(err)` erased the one thing worth
+  reading. `describeDbError` reports message, details, hint and SQLSTATE, and
+  the route logs the same line server-side.
+- **An unset `CRON_SECRET` looked like an attack.** The cron entry point
+  answered `401` whether the caller was unauthorized or the deployment simply
+  had no secret configured. The second case now answers `503` and says so —
+  Vercel only sends the bearer header when the variable exists, so this is the
+  likelier cause of a scan that never runs.
+
+### Removed
+- **The mock daily scan.** Migration `0007` unschedules the out-of-repo
+  `gsps-daily-scan` pg_cron job. It POSTed a Supabase edge function that fell
+  back to a fixed mock universe whenever `GSPS_SCAN_ENDPOINT` was unset —
+  every row written between 2026-07-23 and 2026-08-03 carries its arithmetic
+  prices (entry `100 + i`, stop `entry - 3`, TP1 `entry + 4`, master profit
+  `entry + 8`), which is why SPY was listed entering at $100.00. Real scans
+  come from `/api/market-scan` on the Vercel cron. Those 36 rows, across six
+  scan dates, have been deleted from `daily_scans`.
+- **The edge function behind it.** Unscheduling left the function deployed and
+  publicly invokable with `verify_jwt: false`, and its first act was
+  `delete from daily_scans where scan_date = today`. Its body is now a stub
+  that touches no data and answers `410`, with `verify_jwt` on. The deployed
+  source lives at `supabase/functions/daily-scan/index.ts` rather than only in
+  the Supabase dashboard — running unversioned code against this database is
+  how the mock prices survived unnoticed for two weeks.
+
 ## 2026-08-04
 
 ### Changed

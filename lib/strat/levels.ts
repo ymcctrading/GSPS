@@ -19,7 +19,7 @@ import { readPremiumStop } from "@/lib/trade/premium-stop";
  * candles. This is the ceiling to the floor in lib/strat/patterns.ts: below a
  * third of an average candle the stop is inside the noise, above two and a
  * half the structural level is so far away that TP1 at 2R needs a five-candle
- * run to pay. Measured over a year of AAPL 15-minute bars, it flags the
+ * run to pay. Measured over ~48 sessions of AAPL 15-minute bars, it flags the
  * widest 2.7% of setups that clear the floor (median 0.8x, p95 2.0x), and it
  * sits inside the 1.5–3x ATR range conventionally used for stop placement.
  */

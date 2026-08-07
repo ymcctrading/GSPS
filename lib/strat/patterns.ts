@@ -147,12 +147,23 @@ export function gapRuleViolated(pattern: StratPattern, currentPrice: number): bo
  * against ATR rather than a fixed amount keeps the floor meaningful across
  * instruments, price levels and asset classes.
  *
- * A third was chosen against a year of AAPL 15-minute bars: of 1,225 armed
- * setups it rejects 12.4%, concentrated in the inside-bar patterns (3-1-2 29%,
- * 2-1-2 20%) whose trigger candle is narrow by construction. It trims the
- * untradeable tail rather than culling the signal.
+ * Raised from a third to three quarters after replaying the entry logic over
+ * ~48 sessions of 15-minute bars on AAPL, MSFT, NVDA, QQQ, SPY and TSLA
+ * (lib/backtest/replay.ts, 2,213 triggered trades). Expectancy improves
+ * monotonically as the floor rises — at a 2R target, -0.142R per trade at a
+ * third, -0.128R at a half, -0.083R at three quarters — and the same ordering
+ * holds at a 1R target, so this is a trend across buckets rather than one
+ * lucky slice.
+ *
+ * Three quarters rather than 1.0x, which measured better still (-0.057R), on
+ * the grounds that it keeps half the setups instead of a quarter; a floor
+ * tuned to the best number on two months of six symbols is a floor fitted to
+ * noise. Note this halves the setups reaching the scanner.
+ *
+ * It does not make the entry logic profitable. Expectancy is negative at every
+ * floor and every target tested. This narrows the loss; it does not turn it.
  */
-export const MIN_RISK_ATR_FRACTION = 1 / 3;
+export const MIN_RISK_ATR_FRACTION = 0.75;
 
 /**
  * Minimum stop distance as a fraction of the trigger price, so that spread and

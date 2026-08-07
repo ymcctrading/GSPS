@@ -46,3 +46,19 @@ price, contract cost, a greeks snapshot), which protocol target was hit
    definition.
 3. If the change affects what `IMPLEMENTATION.md`'s schema overview or this
    file's table list describes, update those too.
+
+## Edge functions
+
+`functions/<slug>/` holds the source of what is deployed to Supabase Edge
+Functions. Keep it in sync with the deployed body in both directions — a
+function edited only in the Supabase dashboard is code running against this
+database that no review, test or grep can see. `daily-scan` is the cautionary
+tale: it wrote `daily_scans` every weekday for two weeks, falling back to
+invented prices, while nothing in this repo mentioned it.
+
+`daily-scan` is now a retired stub (410, writes nothing, `verify_jwt` on) and
+its pg_cron schedule is gone via `0007`. The daily scan is `/api/market-scan`
+in the Next.js app.
+
+Deno code is excluded from `tsconfig.json` and the ESLint config — it doesn't
+run on the Node/Next toolchain and shouldn't be judged by it.

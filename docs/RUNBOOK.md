@@ -4,25 +4,63 @@ Operational checklist for when something in GSPS breaks. This app runs
 unattended crons and depends on five external APIs — most incidents trace
 back to one of those.
 
-## Dashboard shows no signals / "awaiting first scan"
+## Dashboard shows no signals, or a stale scan date
 
-The `daily_scans` table is only populated by `/api/market-scan`, which runs
-on Vercel Cron (weekdays, 12:30 and 21:30 UTC — see `vercel.json`).
+`daily_scans` is written by `/api/market-scan`: on Vercel Cron (weekdays,
+12:30 and 21:30 UTC — see `vercel.json`) and by the dashboard's own Refresh
+scan button, which POSTs the same route as the signed-in user.
+
+Read the scan date on the dashboard first — it says which failure this is.
+
+**The date is old and the button reports "nothing was saved".** The scan ran;
+the write was refused. The message carries the Postgres error verbatim,
+including its code:
+
+- `23502` (not-null violation) — a row reached the insert without a complete
+  trade plan. `daily_scans` requires all four price columns (migration
+  `0006`); `hasTradePlan` in `lib/marketScan.ts` and `buildScanRows` in
+  `lib/scan/publish.ts` are what keep planless results out.
+- `42501` / `permission denied` — `SUPABASE_SERVICE_ROLE_KEY` is missing or
+  wrong on the deployment. The table is written by the service role only; RLS
+  allows reads to signed-in users and nothing else.
+- "no setup cleared the protocol with a complete trade plan" — not an error.
+  Nothing armed a tradeable trigger today, so the previous day's list is
+  deliberately left in place rather than replaced with an empty one.
+
+**The date is old and the button works, but nothing runs unattended.** The
+scheduled scan isn't reaching the route:
 
 1. Check Vercel → Project → Cron Jobs for the last run status and logs.
-2. If the cron didn't fire: confirm the production deployment carries the
-   current cron config. `vercel.json` sets `git.deploymentEnabled: true`, so
-   every merge to `main` redeploys production — production should track
-   `main` within minutes of a merge. If it doesn't, the last production
-   build likely errored; check Vercel → Deployments for a failed build and
-   redeploy the current `main`.
-3. If the cron fired but failed: check the response. `401 Unauthorized`
-   means `CRON_SECRET` isn't set (or doesn't match) in the Vercel project's
-   env vars — see `app/api/market-scan/route.ts`.
-4. To test manually, call the endpoint with the cron secret:
+2. `503` means `CRON_SECRET` isn't set on the project. Vercel only attaches
+   the `Authorization: Bearer` header when that variable exists, so an unset
+   secret makes every scheduled run fail closed — set it in the project's env
+   vars and redeploy.
+3. `401` means the header didn't match: the deployment's `CRON_SECRET`
+   differs from the one the cron was configured with.
+4. If nothing fired at all, confirm production is running the deployment you
+   expect. `vercel.json` sets `git.deploymentEnabled: true`, so production
+   tracks `main` within minutes of a merge — a missing cron usually means the
+   last production build failed, not that deploys are off.
+5. To test manually:
    ```bash
    curl -H "Authorization: Bearer $CRON_SECRET" https://<your-domain>/api/market-scan
    ```
+
+**The lists are full but the prices look invented** (SPY entering at
+$100.00, AMD at $102.00, NVDA at $106.00, every stop exactly $3 below entry).
+That is the `daily-scan` Supabase edge function's mock fallback. Both halves of
+it are retired: migration `0007` unscheduled the pg_cron job, and the function
+body is now the 410 stub in `supabase/functions/daily-scan/index.ts`. If those
+prices reappear, one of the two has been restored — check both:
+
+```sql
+select jobname, schedule, active from cron.job;                  -- expect no rows
+select count(*) from daily_scans where detail ? 'setupTier';     -- expect 0
+```
+
+`detail ? 'setupTier'` is the tell: rows from the edge function carry
+`setupTier`/`relativeVolume`/`atrExpansion`, rows from `/api/market-scan` carry
+`pattern`/`gann`/`breakdown`.
 
 ## A market-data endpoint (crypto/forex/futures) is failing
 

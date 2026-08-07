@@ -34,7 +34,15 @@ GSPS is a comprehensive trading application built with Next.js, Supabase, and Al
 ### 4. Portfolio Management
 - **Paper Trading**: Risk-free account for strategy testing
 - **Real Account Trading**: Live trading with Alpaca or SnapTrade
-- **Portfolio Back Office**: View positions, P&L, and account details
+- **Portfolio Back Office**: Account equity, cash, buying power, and day P/L
+- **Four Position Sections**: Open, Pending, Closed, and Canceled & Rejected —
+  each with its own count, empty state, and newest-first ordering. Closed and
+  Canceled & Rejected start collapsed
+- **Blended Open Positions**: Shares and every option contract on the same
+  underlying tracked as separate legs under one ticker, with an aggregate
+  market value / P&L header, refreshed every 10 seconds
+- **Ended-Order Dispositions**: Orders that never became a position group by
+  how each one ended — canceled, rejected, expired, replaced, done for day
 - **Position Tracking**: Real-time position monitoring
 
 ### 5. Trading Interface
