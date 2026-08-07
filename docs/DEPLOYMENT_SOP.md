@@ -1,11 +1,13 @@
 # Deployment SOP — Three-Phase Adoption
 
-This document establishes the deployment workflow for GSPS across preview, staging, and production environments. All deployments are **explicit and manual** — `vercel.json` has `deploymentEnabled: false` to prevent accidental automatic deploys.
+This document establishes the deployment workflow for GSPS across preview, staging, and production environments.
+
+> **Deploys are automatic.** `vercel.json` sets `deploymentEnabled: true`: pushing a branch builds a preview, and **merging to `main` deploys production immediately**. The phases below describe the verification you should still perform — they are not manual gates, because nothing blocks a merge from reaching users. If you need a change to land without shipping, keep it on a branch.
 
 ## Environments
 
 ### Phase 1: Preview
-- **Trigger**: Manual deployment of any branch to Vercel Preview
+- **Trigger**: Automatic on every push to any non-`main` branch
 - **Duration**: Ephemeral per branch, destroyed when branch is deleted
 - **Use case**: Test features on a live URL before merging to main
 - **Access**: Public shareable URLs, feature-flagged to staging/prod
@@ -19,7 +21,7 @@ This document establishes the deployment workflow for GSPS across preview, stagi
 - **Verification**: Full CI suite, integration tests, E2E validation
 
 ### Phase 3: Production
-- **Trigger**: Explicit production deploy (after staging approval)
+- **Trigger**: Automatic on merge to `main` — the merge *is* the release
 - **Duration**: Live, serves all users
 - **Use case**: User-facing app and API
 - **Access**: Production Alpaca keys, real user data
@@ -37,8 +39,8 @@ This document establishes the deployment workflow for GSPS across preview, stagi
 
 ### Deploy steps
 1. Push your branch to origin: `git push -u origin <branch-name>`
-2. Request preview deploy with branch name
-3. Vercel generates a preview URL: `https://<branch-name>.<project>.vercel.app`
+2. Vercel builds a preview automatically — no request needed
+3. The preview URL appears on the PR (also `https://<branch-name>.<project>.vercel.app`)
 4. Test the feature on the live URL
 5. When branch is deleted, preview automatically tears down
 
@@ -52,6 +54,15 @@ This document establishes the deployment workflow for GSPS across preview, stagi
 ---
 
 ## Phase 2: Staging Deployment
+
+> **Ordering caveat — unresolved.** This phase was written as a gate between
+> "merged to `main`" and "live in production". With `deploymentEnabled: true`
+> that gap no longer exists: the merge deploys production directly, so a
+> staging pass *after* merge validates something users are already running.
+> Until a staging environment is wired to something other than `main` (a
+> `staging` branch, or a promotion flow with auto-deploy off), treat the
+> checklist below as **pre-merge** verification and run it against the PR's
+> preview URL.
 
 ### When to deploy to staging
 - After PR is merged to `main`
@@ -102,8 +113,9 @@ git push origin main
 - Incident response team is aware (if applicable)
 
 ### Deploy steps
-1. Confirm staging is healthy and verification checklist is complete
-2. Request production deployment with `main` reference or commit SHA
+1. Confirm staging is healthy and the verification checklist is complete
+   — do this **before merging**, since the merge ships it
+2. Merge the PR to `main`; Vercel builds and promotes production automatically
 3. Production URL: `https://gsps.vercel.app` (live user-facing app)
 4. Run post-deploy spot checks (see below)
 5. Monitor error rate and cron job execution for 30 minutes
@@ -239,7 +251,7 @@ Both market-scan crons are pinned to the current production deployment:
 To add a new scheduled task:
 1. Check that total crons stay ≤ 2
 2. If more frequent than daily needed, use external scheduler (not Vercel crons)
-3. Update `vercel.json`, commit, deploy (no automatic deploy, so cron doesn't attach until you request production deploy)
+3. Update `vercel.json` and commit. The cron attaches when the change reaches production, which happens automatically on merge to `main` — verify it in Vercel → Cron Jobs after the deploy completes
 
 ---
 
