@@ -83,6 +83,7 @@ function ReversionPreview({
   const isBull = direction === "bullish";
   const preview = rows.slice(0, PREVIEW);
   const more = rows.length - preview.length;
+  const continuations = rows.filter((r) => r.setupKind === "continuation").length;
 
   return (
     <Card>
@@ -91,13 +92,16 @@ function ReversionPreview({
           <div>
             <Link href={`/dashboard/${direction}`} className="group inline-flex items-center gap-1.5">
               <CardTitle className={isBull ? "text-bull group-hover:underline" : "text-bear group-hover:underline"}>
-                {isBull ? "Bullish reversions" : "Bearish reversions"}
+                {isBull ? "Bullish setups" : "Bearish setups"}
               </CardTitle>
               <ArrowRight className="h-4 w-4 text-muted transition-transform group-hover:translate-x-0.5" />
             </Link>
             <CardDescription>
               {rows.length > 0
-                ? `${rows.length} setup${rows.length === 1 ? "" : "s"} near a ${direction} reversion point.`
+                ? `${rows.length} setup${rows.length === 1 ? "" : "s"} near a ${direction} reversion point` +
+                  (continuations > 0
+                    ? `, including ${continuations} momentum continuation${continuations === 1 ? "" : "s"}.`
+                    : ".")
                 : `Setups near a ${direction} reversion point.`}
             </CardDescription>
           </div>

@@ -9,6 +9,17 @@ import { classifySeries } from "./classify";
 
 const PENNY = 0.01;
 
+/**
+ * The shapes that break in the direction the bar sequence was already going —
+ * an inside bar consolidating inside a trend, then resolving with it. The 2-2
+ * family (including 1-2-2 and 3-2-2) reverses the last directional bar instead,
+ * and PMG detonates against a run of pivots, so neither continues a trend.
+ */
+export const CONTINUATION_PATTERNS: ReadonlySet<StratPattern["name"]> = new Set([
+  "2-1-2",
+  "3-1-2",
+]);
+
 /** All armed setups on a closed-bar series, most specific first. */
 export function detectPatterns(bars: Bar[]): StratPattern[] {
   if (bars.length < 4) return [];

@@ -25,6 +25,7 @@ export default async function DirectionListPage({
 
   const { scanDate, bullish, bearish } = await getDailyScans();
   const rows = isBull ? bullish : bearish;
+  const continuations = rows.filter((r) => r.setupKind === "continuation").length;
 
   return (
     <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
@@ -37,11 +38,14 @@ export default async function DirectionListPage({
           Back to dashboard
         </Link>
         <h1 className={`text-xl font-semibold sm:text-2xl ${isBull ? "text-bull" : "text-bear"}`}>
-          {isBull ? "Bullish reversions" : "Bearish reversions"}
+          {isBull ? "Bullish setups" : "Bearish setups"}
         </h1>
         <p className="text-sm text-muted">
           {scanDate
-            ? `Top ${rows.length} ${dir} reversion setup${rows.length === 1 ? "" : "s"} from the ${scanDate} market scan.`
+            ? `Top ${rows.length} ${dir} setup${rows.length === 1 ? "" : "s"} from the ${scanDate} market scan` +
+              (continuations > 0
+                ? `: reversions first, topped up with ${continuations} momentum continuation${continuations === 1 ? "" : "s"} where too few reversions armed a trigger.`
+                : ". Every row carries a complete trade plan; a short list means the rest armed no trigger.")
             : "The daily market scan has not run yet — results appear here after the first cron run."}
         </p>
       </div>
@@ -50,7 +54,13 @@ export default async function DirectionListPage({
         <CardHeader>
           <CardTitle>Ranked setups</CardTitle>
           <CardDescription>
-            Sorted by protocol score. Open any symbol for the chart, score breakdown, and order ticket.
+            {/* Continuations are appended after the reversions rather than
+                merged by score, so a flat "sorted by score" would misdescribe
+                the order the moment one is in the list. */}
+            {continuations > 0
+              ? "Reversions first, by protocol score, then the continuations that topped the list up."
+              : "Sorted by protocol score."}{" "}
+            Open any symbol for the chart, score breakdown, and order ticket.
           </CardDescription>
         </CardHeader>
         <CardContent>

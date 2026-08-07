@@ -5,7 +5,14 @@
  * execution mechanics, producing entry / SL / TP1 / master profit + score /9.
  */
 
-import type { AssetClass, GannLevels, ScanResult, StratPattern, TradeLevels } from "@/lib/types";
+import type {
+  AssetClass,
+  GannLevels,
+  ScanResult,
+  SetupKind,
+  StratPattern,
+  TradeLevels,
+} from "@/lib/types";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { describeDataError } from "@/lib/data/http";
 import { fetchAllTimeframes, getMarketDataProvider } from "@/lib/data/provider";
@@ -14,13 +21,35 @@ import { atr } from "@/lib/analysis/pivots";
 import { computeFanLines } from "@/lib/gann/fans";
 import { squareOf9Levels } from "@/lib/gann/squareOf9";
 import { timeCycles } from "@/lib/gann/timeCycles";
-import { detectPatterns, gapRuleViolated, riskFloorViolated } from "@/lib/strat/patterns";
+import {
+  CONTINUATION_PATTERNS,
+  detectPatterns,
+  gapRuleViolated,
+  riskFloorViolated,
+} from "@/lib/strat/patterns";
 import { computeTradeLevels } from "@/lib/strat/levels";
 import { applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
 
-export async function scanTicker(symbol: string, optionPremium?: number): Promise<ScanResult> {
+/**
+ * What the caller is looking for. Left unset, a scan hunts reversions and
+ * prefers the armed pattern that trades against the macro move — the protocol's
+ * default. The market scan sets it when it is deliberately looking for a
+ * momentum continuation instead, so the pattern chosen, the trade plan priced
+ * from it, and the macro criterion it is scored on all describe the same trade.
+ */
+export interface ScanPreference {
+  direction: "bullish" | "bearish";
+  kind: SetupKind;
+}
+
+export async function scanTicker(
+  symbol: string,
+  optionPremium?: number,
+  preference?: ScanPreference,
+): Promise<ScanResult> {
   const assetClass: AssetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
   const scannedAt = new Date().toISOString();
+  const setupKind: SetupKind = preference?.kind ?? "reversion";
 
   try {
     const provider = getMarketDataProvider();
@@ -72,12 +101,14 @@ export async function scanTicker(symbol: string, optionPremium?: number): Promis
     );
 
     // Prefer the pattern aligned with a reversion of the macro move; then by
-    // trigger proximity to current price.
+    // trigger proximity to current price. A caller hunting a continuation
+    // supplies its own direction instead — the trend's, not the reversion of it.
     const macroDir =
       [monthlyTrend, weeklyTrend, dailyTrend].filter((t) => t.direction === "bearish").length >= 2
         ? "bearish"
         : "bullish";
     const reversionDirection = macroDir === "bearish" ? "bullish" : "bearish";
+    const preferredDirection = preference?.direction ?? reversionDirection;
 
     // Three-bar compound setups carry more context than a bare 2-2 (which arms
     // on almost every directional bar), so rank them ahead of it.
@@ -95,10 +126,19 @@ export async function scanTicker(symbol: string, optionPremium?: number): Promis
       }
     };
 
+    // A continuation is carried by the compound patterns that break in the
+    // direction of the bar sequence; the 2-2 family reverses it. Within the
+    // preferred direction, rank the continuation shapes first when that is what
+    // was asked for, so the trade plan priced below is the continuation's.
+    const kindRank = (p: StratPattern): number =>
+      setupKind === "continuation" && !CONTINUATION_PATTERNS.has(p.name) ? 1 : 0;
+
     const armedPatterns = [...armed].sort((a, b) => {
-      const aRev = a.direction === reversionDirection ? 0 : 1;
-      const bRev = b.direction === reversionDirection ? 0 : 1;
+      const aRev = a.direction === preferredDirection ? 0 : 1;
+      const bRev = b.direction === preferredDirection ? 0 : 1;
       if (aRev !== bRev) return aRev - bRev;
+      const kind = kindRank(a) - kindRank(b);
+      if (kind !== 0) return kind;
       const spec = specificity(a.name) - specificity(b.name);
       if (spec !== 0) return spec;
       return Math.abs(a.triggerPrice - currentPrice) - Math.abs(b.triggerPrice - currentPrice);
@@ -107,7 +147,7 @@ export async function scanTicker(symbol: string, optionPremium?: number): Promis
     const pattern: StratPattern | null = armedPatterns[0] ?? null;
 
     const direction: "bullish" | "bearish" | "none" = pattern?.direction ?? "none";
-    const scoreDirection = pattern?.direction ?? reversionDirection;
+    const scoreDirection = pattern?.direction ?? preferredDirection;
 
     // ---- Trade levels
     const previousBar = closedM15[closedM15.length - 2] ?? closedM15[closedM15.length - 1];
@@ -159,6 +199,7 @@ export async function scanTicker(symbol: string, optionPremium?: number): Promis
         pattern,
         momentumElevated,
         levels,
+        setupKind,
       }),
       pattern,
       momentumElevated,
@@ -171,6 +212,8 @@ export async function scanTicker(symbol: string, optionPremium?: number): Promis
       scannedAt,
       currentPrice,
       direction,
+      setupKind,
+      momentumElevated,
       trends: [monthlyTrend, weeklyTrend, dailyTrend, hourlyTrend],
       gann,
       pattern,
@@ -190,6 +233,8 @@ export async function scanTicker(symbol: string, optionPremium?: number): Promis
       scannedAt,
       currentPrice: 0,
       direction: "none",
+      setupKind,
+      momentumElevated: false,
       trends: [],
       gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleDates: [] },
       pattern: null,

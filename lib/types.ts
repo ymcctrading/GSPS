@@ -86,12 +86,23 @@ export interface ScanDecision {
   breakdown: ScoreBreakdownItem[];
 }
 
+/**
+ * What the setup is betting on. A reversion trades against an extended move
+ * into a level; a continuation trades with a trend that is still expanding.
+ * The two read the same macro evidence in opposite directions, so the score
+ * and the published lists both have to know which one is being judged.
+ */
+export type SetupKind = "reversion" | "continuation";
+
 export interface ScanResult {
   symbol: string;
   assetClass: AssetClass;
   scannedAt: string;
   currentPrice: number;
   direction: Direction;
+  setupKind: SetupKind;
+  /** Recent range expansion against the trailing baseline — the momentum read. */
+  momentumElevated: boolean;
   trends: TrendReading[];
   gann: GannLevels;
   pattern: StratPattern | null;

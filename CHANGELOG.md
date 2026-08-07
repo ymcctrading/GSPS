@@ -43,8 +43,39 @@ date.
   could reach — sections landing in the right panel, empty states, collapse
   toggles, disposition sub-groups — is covered in
   `app/(app)/portfolio/page.test.tsx`.
+- **Momentum continuations top up a short direction list.** Refusing to publish
+  a row without a trade plan can leave a side with fewer than 15 setups. Rather
+  than pad it back out with symbols that have nothing to enter against, the
+  daily scan reads a second candidate pool off the same daily bars: trends whose
+  range is expanding at least 1.2x its trailing baseline, still holding the
+  trend side of their 20-bar mean, with volume behind the move. When — and only
+  when — a direction comes up short, the highest-momentum of those are scanned
+  with a continuation preference and appended if they arm a `2-1-2` or `3-1-2`
+  running the same way the macro timeframes read. `scanTicker` takes an optional
+  `ScanPreference` so the pattern chosen, the plan priced from it and the macro
+  criterion it is scored on all describe the same trade; a continuation is
+  credited for a macro trend running *with* it, where a reversion is credited
+  for one running against it. Continuation rows are tagged in the table, carry
+  `detail.setupKind`, and are reported per direction as `continuationFills` in
+  the scan response. Top-up scans are capped at 24 and split across short sides.
+  This matters more now that `MIN_RISK_ATR_FRACTION` sits at `0.75`: roughly
+  half as many setups arm, so a side comes up short far more often.
 
 ### Fixed
+- **"Execute" now always has an order to place.** Seven of the nine confluence
+  criteria are context — macro trend, structure, cycles, momentum — and could
+  all pass with no pattern armed and no levels computed, scoring 7/9 and
+  rendering as Execute with nothing to enter against. Without a priced plan the
+  state is held at Watch, with the reason appended to the breakdown.
+- **The pattern criterion is named after the trade it describes.** A `2-1-2`
+  carrying a trend was scored under "Reversal pattern armed" — the opposite
+  trade. Both the criterion and its failing note follow the setup kind.
+- **Rows stored before the filter existed no longer render.** `getDailyScans`
+  drops any row missing one of the four prices, so the lists correct themselves
+  without waiting for the next scan.
+- **Empty price columns say why.** A results-table row with no plan reads
+  "no trade plan" in the setup column, so four em-dashes can't be mistaken for
+  prices that failed to load.
 - **The daily scan could not save.** Migration `0006` (four price columns
   `NOT NULL`) was applied to production on 2026-08-04 while the writer still
   sent rows with null levels, so Postgres rejected every batch with `23502`

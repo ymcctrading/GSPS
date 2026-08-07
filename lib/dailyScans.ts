@@ -19,7 +19,24 @@ interface DailyScanRow {
   take_profit_1: number | null;
   master_profit: number | null;
   scan_date: string;
-  detail: { pattern?: { name?: string } | null } | null;
+  detail: {
+    pattern?: { name?: string } | null;
+    setupKind?: string | null;
+  } | null;
+}
+
+/**
+ * A published row must carry the whole trade plan. The scan pipeline now
+ * guarantees it, but rows written before that are still in the table and would
+ * otherwise keep rendering as scored setups with four empty price columns —
+ * so the reader drops them too, rather than waiting for the next daily run.
+ */
+function isComplete(r: DailyScanRow): boolean {
+  return [r.entry, r.stop_loss, r.take_profit_1, r.master_profit].every(
+    // Coerced rather than typeof-checked: a driver that hands back `numeric`
+    // as a string must not empty the whole dashboard.
+    (v) => v !== null && v !== undefined && Number.isFinite(Number(v)),
+  );
 }
 
 function toRow(r: DailyScanRow): ScanRow {
@@ -33,6 +50,9 @@ function toRow(r: DailyScanRow): ScanRow {
     takeProfit1: r.take_profit_1,
     masterProfit: r.master_profit,
     patternName: r.detail?.pattern?.name ?? null,
+    // Rows written before continuations existed carry no kind; they were all
+    // reversions, which is also what the column defaults to reading as.
+    setupKind: r.detail?.setupKind === "continuation" ? "continuation" : "reversion",
   };
 }
 
@@ -65,7 +85,7 @@ export async function getDailyScans(): Promise<DailyScans> {
     .select("*")
     .eq("scan_date", scanDate)
     .order("rank");
-  const rows = (data ?? []) as DailyScanRow[];
+  const rows = ((data ?? []) as DailyScanRow[]).filter(isComplete);
 
   return {
     configured: true,
