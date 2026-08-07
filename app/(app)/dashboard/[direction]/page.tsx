@@ -54,7 +54,13 @@ export default async function DirectionListPage({
         <CardHeader>
           <CardTitle>Ranked setups</CardTitle>
           <CardDescription>
-            Sorted by protocol score. Open any symbol for the chart, score breakdown, and order ticket.
+            {/* Continuations are appended after the reversions rather than
+                merged by score, so a flat "sorted by score" would misdescribe
+                the order the moment one is in the list. */}
+            {continuations > 0
+              ? "Reversions first, by protocol score, then the continuations that topped the list up."
+              : "Sorted by protocol score."}{" "}
+            Open any symbol for the chart, score breakdown, and order ticket.
           </CardDescription>
         </CardHeader>
         <CardContent>
