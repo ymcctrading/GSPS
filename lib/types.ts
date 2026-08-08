@@ -69,6 +69,16 @@ export interface TradeLevels {
   riskPerShare: number;
   rewardToRiskTp1: number;
   rewardToRiskMaster: number;
+  /**
+   * True when the master target snapped to a Gann or harmonic level in range
+   * rather than falling back to the plain 3R default — i.e. a structural level
+   * confirms the target; it was not merely projected from risk.
+   *
+   * Recorded as a flag rather than inferred by comparing `masterProfit` against
+   * 3R, because that comparison is float arithmetic on bar prices and would
+   * flip on rounding noise. This reports which branch actually ran.
+   */
+  masterFromStructure: boolean;
   /** Warning when the structural stop is outside the recommended 12–18% band. */
   stopPctOfPrice: number;
   stopBandWarning: string | null;

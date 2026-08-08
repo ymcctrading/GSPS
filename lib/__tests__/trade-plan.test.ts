@@ -41,11 +41,12 @@ const pattern: StratPattern = {
 const levels: TradeLevels = {
   entry: 100,
   stopLoss: 99,
-  takeProfit1: 102,
+  takeProfit1: 102.4,
   masterProfit: 103,
   riskPerShare: 1,
-  rewardToRiskTp1: 2,
+  rewardToRiskTp1: 2.4,
   rewardToRiskMaster: 3,
+  masterFromStructure: true,
   stopPctOfPrice: 1,
   stopBandWarning: null,
 };

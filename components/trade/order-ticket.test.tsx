@@ -46,6 +46,7 @@ function scanWithEntry(entry: number, direction: "bullish" | "bearish" = "bullis
       riskPerShare: entry * 0.12,
       rewardToRiskTp1: 2,
       rewardToRiskMaster: 3,
+      masterFromStructure: false,
       stopPctOfPrice: 12,
       stopBandWarning: null,
     },

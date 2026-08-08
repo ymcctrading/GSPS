@@ -47,13 +47,21 @@ export function computeTradeLevels(
     );
   }
 
-  // TP1: max(2R, structural previous-candle extreme in the trade direction)
+  // TP1: max(2R, structural previous-candle extreme in the trade direction).
+  //
+  // In practice the floor always wins. Every pattern sets its trigger a penny
+  // beyond the signal candle's extreme and its stop a penny beyond the other
+  // side, so `risk` is that candle's own range; the structural branch would
+  // need the *previous* candle's extreme to sit more than two of those ranges
+  // beyond it. Measured over 6,362 armed setups, it fired zero times. The
+  // branch is kept because the protocol specifies it and a wide enough prior
+  // candle can reach, but nothing should be scored on it — see
+  // docs/BACKTESTING.md.
   const structuralT1 = pattern.direction === "bullish" ? previousBar.h : previousBar.l;
   const twoR = entry + dir * 2 * risk;
-  const takeProfit1 =
-    dir * (structuralT1 - entry) > dir * (twoR - entry) && dir * (structuralT1 - entry) > 0
-      ? structuralT1
-      : twoR;
+  const tp1FromStructure =
+    dir * (structuralT1 - entry) > dir * (twoR - entry) && dir * (structuralT1 - entry) > 0;
+  const takeProfit1 = tp1FromStructure ? structuralT1 : twoR;
 
   // Master profit: 3R, or the nearest structural extension beyond it (capped
   // at 5R). A structural TP1 lifted from the previous candle can legitimately
@@ -71,6 +79,7 @@ export function computeTradeLevels(
   const structuralExtension = gannTargets
     .filter((g) => dir * (g - masterFloor) > 0 && dir * (g - masterCap) <= 0)
     .sort((a, b) => dir * (a - b))[0];
+  const masterFromStructure = structuralExtension !== undefined;
   const masterProfit = structuralExtension ?? steppedMaster;
 
   const stopPctOfPrice = (risk / entry) * 100;
@@ -118,6 +127,7 @@ export function computeTradeLevels(
     riskPerShare: round(risk),
     rewardToRiskTp1: risk > 0 ? Math.abs(takeProfit1 - entry) / risk : 0,
     rewardToRiskMaster: risk > 0 ? Math.abs(masterProfit - entry) / risk : 0,
+    masterFromStructure,
     stopPctOfPrice,
     stopBandWarning,
   };

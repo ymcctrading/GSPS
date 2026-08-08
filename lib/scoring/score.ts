@@ -50,7 +50,20 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
 
   const patternValid = pattern !== null && pattern.direction === direction;
 
-  const cleanRR = levels !== null && levels.rewardToRiskTp1 >= 2;
+  // "TP1 ≥ 2R" could never fail, and so was never a criterion. computeTradeLevels
+  // sets TP1 to max(2R, previous candle's extreme), which puts the ratio at 2 or
+  // better on every well-formed pattern — a free point on all nine-criteria
+  // scores, inflating every verdict by one and discriminating nothing.
+  //
+  // Scoring TP1's structural branch instead is no better: it is unreachable in
+  // practice (zero of 6,362 armed setups) and only mirrors the defect, turning
+  // a point nobody could lose into one nobody could win.
+  //
+  // The master target is where structure actually shows up. It snaps to a Gann
+  // or harmonic level when one sits in range and falls back to a plain 3R
+  // projection when none does — roughly a 29/71 split, so both arms carry
+  // enough trades to separate a winner from a loser.
+  const cleanRR = levels !== null && levels.masterFromStructure;
 
   const upcomingCycles = gann.timeCycleDates.slice(0, 3).join(", ");
 
@@ -118,11 +131,13 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
         : `Not inside a projected turn window${upcomingCycles ? `; next dates of interest ${upcomingCycles}.` : " — none projected in the next two weeks."}`,
     },
     {
-      criterion: "Clean risk-reward (TP1 ≥ 2R)",
+      criterion: "Master target confirmed by a structural level",
       passed: cleanRR,
-      note: levels
-        ? `TP1 at ${levels.rewardToRiskTp1.toFixed(1)}R.`
-        : "No trade levels computed.",
+      note: !levels
+        ? "No trade levels computed."
+        : cleanRR
+          ? `Master profit at ${levels.masterProfit.toFixed(2)} (${levels.rewardToRiskMaster.toFixed(1)}R) sits on a support or harmonic level, not just a projection from risk.`
+          : `Master profit at ${levels.masterProfit.toFixed(2)} (${levels.rewardToRiskMaster.toFixed(1)}R) is projected from risk — no support or harmonic level in range to confirm it.`,
     },
   ];
 

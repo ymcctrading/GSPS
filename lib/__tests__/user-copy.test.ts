@@ -64,11 +64,12 @@ const gann: GannLevels = {
 const levels: TradeLevels = {
   entry: 100,
   stopLoss: 85,
-  takeProfit1: 130,
+  takeProfit1: 136,
   masterProfit: 145,
   riskPerShare: 15,
-  rewardToRiskTp1: 2,
+  rewardToRiskTp1: 2.4,
   rewardToRiskMaster: 3,
+  masterFromStructure: true,
   stopPctOfPrice: 15,
   stopBandWarning: null,
 };

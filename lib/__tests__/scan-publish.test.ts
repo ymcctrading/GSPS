@@ -17,6 +17,7 @@ function levels(entry: number): TradeLevels {
     riskPerShare: 2,
     rewardToRiskTp1: 1.5,
     rewardToRiskMaster: 3,
+    masterFromStructure: false,
     stopPctOfPrice: 2,
     stopBandWarning: null,
   };
