@@ -87,6 +87,23 @@ export interface ReplayTrade {
    */
   score?: number;
   outputState?: ScanDecision["outputState"];
+  /**
+   * Which of the score's criteria passed on this setup, keyed by the criterion
+   * text verbatim from the breakdown.
+   *
+   * Keyed by the label rather than a short code on purpose: any mapping table
+   * would silently mis-attribute the moment someone reworded a criterion in
+   * lib/scoring/score.ts, and a factor study that quietly attributes results to
+   * the wrong factor is worse than no study. Verbatim keys can only ever
+   * *split* a factor across a rename, which shows up immediately as two
+   * half-sized samples.
+   *
+   * Partial by construction. Two criteria are appended only in the situations
+   * that trigger them (the trade-plan check, the bare-2-2 downgrade), so an
+   * absent key means "not evaluated on this setup", never "failed". Consumers
+   * must not read absence as false — see `attribution.ts`.
+   */
+  criteria?: Record<string, boolean>;
 }
 
 export interface ReplayResult {
@@ -276,6 +293,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           atrMultiple: executionAtr > 0 ? risk / executionAtr : 0,
           score: decision?.score,
           outputState: decision?.outputState,
+          criteria: criteriaOf(decision),
         });
         continue;
       }
@@ -289,11 +307,24 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         atrMultiple: executionAtr > 0 ? risk / executionAtr : 0,
         score: decision?.score,
         outputState: decision?.outputState,
+        criteria: criteriaOf(decision),
       });
     }
   }
 
   return summarise(trades, armed, triggered);
+}
+
+/**
+ * Flatten a decision's breakdown into a pass map. Returns undefined for an
+ * unscored setup so the trade carries no criteria at all, rather than an empty
+ * object that would read as "every criterion failed".
+ */
+function criteriaOf(decision: ScanDecision | undefined): Record<string, boolean> | undefined {
+  if (!decision) return undefined;
+  const out: Record<string, boolean> = {};
+  for (const item of decision.breakdown) out[item.criterion] = item.passed;
+  return out;
 }
 
 export function summarise(trades: ReplayTrade[], armed = 0, triggered = 0): ReplayResult {

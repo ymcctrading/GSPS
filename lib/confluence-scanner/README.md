@@ -4,6 +4,12 @@ A gate-then-score trade scanner built from the synthesized checklist design, wit
 
 Pure Python standard library — no dependencies to install.
 
+> **This package is standalone.** Nothing outside this directory imports it. The
+> app and the replay harness score with `lib/scoring/score.ts`, a separate
+> 9-criteria system, so tuning `config.py` here cannot change any number the
+> replay reports. See [`docs/BACKTESTING.md`](../../docs/BACKTESTING.md) before
+> using replay output as feedback on a change made here.
+
 ## What's Changed (Tier 1 Fixes)
 
 | Issue | Fix | Impact |
@@ -13,7 +19,15 @@ Pure Python standard library — no dependencies to install.
 | Trend regime gate too restrictive | Expanded ADX max from 40 to 45 | **Allows more setups** |
 | No early-stage momentum detection | New factor: 1.5–4.0% from target + RSI/vol | **+0–6 pts** |
 
-**Result:** Setups now score 8–9/9 instead of capping at 7/9. See `TIER1_TUNING_SUMMARY.md` for details.
+**Result:** the partial-credit paths above let a setup earn points it previously
+scored zero on, so the same setup lands higher on this package's scale. See
+`TIER1_TUNING_SUMMARY.md` for details.
+
+This scanner scores out of **118 points** (`total_score` / `max_score`, plus a
+`score_pct`), set by the weights in `config.py`. Earlier revisions of this file
+described the result as "8–9/9" — that is the 9-criteria scale of
+`lib/scoring/score.ts`, a different system this package does not touch, and no
+Tier 1 change here moves it.
 
 ## Files
 

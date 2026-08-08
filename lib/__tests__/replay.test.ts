@@ -211,6 +211,26 @@ describe("replay scoring", () => {
     }
   });
 
+  it("records which criteria passed, so the factors can be attributed later", () => {
+    const r = replay("TEST", intraday, {
+      targetR: 2,
+      dailyBars: dailyHistory(300, "2026-06-15"),
+    });
+    expect(r.trades.length).toBeGreaterThan(0);
+    for (const t of r.trades) {
+      const passed = Object.values(t.criteria!).filter(Boolean).length;
+      // The recorded map has to agree with the headline score, or the factor
+      // study and the verdict split would be describing different trades.
+      expect(passed).toBe(t.score);
+    }
+  });
+
+  it("attaches no criteria at all to an unscored trade", () => {
+    // An empty map would read as "every criterion failed" once attributed.
+    const r = replay("TEST", intraday, { targetR: 2 });
+    for (const t of r.trades) expect(t.criteria).toBeUndefined();
+  });
+
   it("reads only sessions before the day being traded", () => {
     // Every daily bar here is dated on or after the trading day, so a replay
     // that peeked would still find history to score against. It must not.

@@ -126,7 +126,7 @@ Old checklist: Setups capped at 7/9 (never higher)
 
 ### After Tier 1 + Tier 2
 ```
-New scanner: Setups can score 8-9/9+
+New scanner: more of the 118 available points are reachable
 - Risk-reward: 1.2-2.0R gets partial credit
 - Stops: volatility-adjusted (high/mid/low regimes)
 - Earnings: live Yahoo data (when TypeScript built)
