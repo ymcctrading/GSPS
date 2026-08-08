@@ -36,7 +36,6 @@ export type PositionSection = "open" | "pending" | "rejected" | "closed" | "unfi
 /** The order fields sectioning needs — anything wider passes through intact. */
 export interface SectionableOrder {
   symbol: string;
-  side?: string; // "buy" or "sell"
   status: string;
   created_at: string;
   /** Broker-accepted time, when reconciliation has recorded one. */
@@ -180,14 +179,11 @@ export function classifyOrder(
   if (PENDING_STATUSES.has(status)) return "pending";
   if (status === "filled") {
     if (held === null) return "open";
-    const isHeld = held.has(order.symbol?.toUpperCase() ?? "");
-    // A filled sell is typically an exit, so classify as closed unless we know
-    // the symbol is held (which could indicate a short that hasn't exited yet).
-    // A filled buy without the symbol in held means we exited after buying.
-    if (order.side?.toLowerCase() === "sell" && !isHeld) {
-      return "closed";
-    }
-    return isHeld ? "open" : "closed";
+    // Whether the symbol is still held is the whole answer, on either side. A
+    // filled sell that leaves nothing held closed the position; one that leaves
+    // something held is a partial exit, or a short that is now the position —
+    // both still open. The buy cases fall the same way, so side adds nothing.
+    return held.has(order.symbol?.toUpperCase() ?? "") ? "open" : "closed";
   }
   return "pending";
 }
