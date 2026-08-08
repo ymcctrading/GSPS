@@ -60,8 +60,8 @@ export async function GET(req: NextRequest) {
   const todayEt = etDateKey(now);
   const nowEtMinute = etParts(now).minutes;
 
-  const inputs = await mapWithConcurrency(universe, 4, (entry) =>
-    buildInput(entry, todayEt, provider),
+  const inputs = await mapWithConcurrency(universe, 4, async (entry) =>
+    buildInput(entry, todayEt, provider, supabase),
   );
 
   const resolved = inputs.filter((i): i is SymbolInput => i !== null);
@@ -70,6 +70,20 @@ export async function GET(req: NextRequest) {
     .map((u) => u.symbol);
 
   const output = scanIntraday(resolved, config, now);
+
+  // Persist alerts for cooldown suppression across runs
+  for (const alert of output.alerts) {
+    await supabase
+      .from("intraday_alerts")
+      .insert({
+        user_id: user.id,
+        symbol: alert.symbol,
+        signal_type: alert.type,
+        direction: alert.direction,
+        alerted_at: alert.triggerTime,
+      })
+      .throwOnError();
+  }
 
   return NextResponse.json({
     ...output,
@@ -158,6 +172,7 @@ async function buildInput(
   entry: { symbol: string; kind: AssetKind },
   todayEt: string,
   provider: Provider,
+  supabase: Awaited<ReturnType<typeof createClient>>,
 ): Promise<SymbolInput | null> {
   const { symbol, kind } = entry;
   const assetClass = kind === "crypto" ? "crypto" : "us_equity";
@@ -169,10 +184,16 @@ async function buildInput(
     assetClass === "crypto" || !provider.isLive ? null : new Date(Date.now() - 16 * 60 * 1000);
 
   try {
-    const [minuteBars, baselineBars, dailyBars] = await Promise.all([
+    const [minuteBars, baselineBars, dailyBars, { data: priorAlerts }] = await Promise.all([
       provider.fetchBars(symbol, "1Min", startOfDayUtc(), end, assetClass, 2000),
       provider.fetchBars(symbol, "5Min", daysAgo(BASELINE_DAYS), end, assetClass, 5000),
       provider.fetchBars(symbol, "1Day", daysAgo(DAILY_ATR_DAYS), end, assetClass, 200),
+      supabase
+        .from("intraday_alerts")
+        .select("signal_type, direction, alerted_at")
+        .eq("symbol", symbol)
+        .order("alerted_at", { ascending: false })
+        .limit(50),
     ]);
 
     const sessionBars = pickSessionBars(minuteBars, baselineBars, todayEt);
@@ -196,10 +217,11 @@ async function buildInput(
       // actually received.
       volumeBaseline: volumeBaseline(baselineBars, etParts(new Date(last.t)).minutes, todayEt),
       dailyAtr: dailyBars.length > 2 ? atr(dailyBars.slice(-20), 14) : null,
-      // Alerts are not persisted yet, so nothing is suppressed across runs.
-      // Within a run, each symbol is evaluated once. See the deferred-work note
-      // in the route's response contract.
-      lastAlerts: [],
+      lastAlerts: (priorAlerts ?? []).map((a) => ({
+        type: a.signal_type as any,
+        direction: a.direction as any,
+        at: a.alerted_at,
+      })),
     };
   } catch {
     return null;

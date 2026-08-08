@@ -251,12 +251,12 @@ export function OrderTicket({
   }
 
   /** Jump straight from a blocked short to the equivalent put ticket. */
-  const switchToPut = () => {
+  const switchToPut = useCallback(() => {
     setSide("buy");
     changeOptionType("put");
     setFeedback(null);
     openOptions();
-  };
+  }, [changeOptionType, openOptions]);
 
   const optionRows = activeExpiry?.strikes.filter((r) => (optionType === "call" ? r.call : r.put)) ?? [];
   const canSubmitOptions = assetType === "options" && !!contractSymbol;
@@ -268,7 +268,7 @@ export function OrderTicket({
     priceBlocked;
 
   const actionLabel = (() => {
-    if (assetType === "options") return `Buy to ${side === "buy" ? "open" : "close"} ${optionType.toUpperCase()}`;
+    if (assetType === "options") return `${side === "buy" ? "Buy" : "Sell"} to open ${optionType.toUpperCase()}`;
     return side === "buy" ? `Buy ${symbol}` : `Sell short ${symbol}`;
   })();
 
