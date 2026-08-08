@@ -259,3 +259,40 @@ describe("acceptedAt / byNewestAccepted", () => {
     expect([...rows].sort(byNewestAccepted).map((r) => r.id)).toEqual(["good", "bad"]);
   });
 });
+
+describe("reconcileOrders — orphan recovery", () => {
+  const now = new Date("2026-08-07T16:00:00.000Z");
+
+  // Marking a row `sync_error` was one-way: it normalizes to `unknown`, and the
+  // reconciler skipped anything that wasn't `working`. So a row orphaned by a
+  // transient broker outage — the most likely cause — could never come back.
+  it("re-checks a row previously marked sync_error", () => {
+    const result = reconcileOrders(
+      [local({ status: "sync_error" })],
+      [broker({ status: "filled", filled_qty: "10", filled_avg_price: "49.75" })],
+      now,
+    );
+    expect(result.updates).toHaveLength(1);
+    expect(result.updates[0].status).toBe("filled");
+  });
+
+  it("restores a row to pending when the broker reports it working again", () => {
+    const result = reconcileOrders(
+      [local({ status: "sync_error" })],
+      [broker({ status: "accepted" })],
+      now,
+    );
+    expect(result.updates[0].status).toBe("accepted");
+  });
+
+  it("does not re-flag a sync_error row the broker still has no record of", () => {
+    const result = reconcileOrders([local({ status: "sync_error" })], [], now);
+    expect(result.orphanedIds).toEqual([]);
+    expect(result.updates).toHaveLength(0);
+  });
+
+  it("still orphans a working row on its first disappearance", () => {
+    const result = reconcileOrders([local({ status: "new" })], [], now);
+    expect(result.orphanedIds).toEqual(["row-1"]);
+  });
+});

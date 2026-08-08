@@ -251,21 +251,30 @@ export function validateLimitPrice(input: ValidateLimitPriceInput): PriceValidat
 
   const tick = tickSizeFor(instrument, price);
 
+  // Always return the value snapped to the grid, never the caller's float.
+  //
+  // `isOnTick` compares in integer ten-thousandths, so a price that is on-tick
+  // *as a decimal* passes even when its binary representation is not — the
+  // arithmetic that produces trade levels routinely yields values like
+  // `1.12 + 0.01 === 1.1300000000000001`. Returning that untouched sent
+  // `String(1.1300000000000001)` to the broker and drew exactly the sub-penny
+  // rejection this module exists to prevent. Snapping is a no-op on the
+  // decimal value and normalizes the float, so the two can't disagree.
+  const corrected = snapToTick(price, tick.size, mode);
+
   if (isOnTick(price, tick.size)) {
     return {
       ok: true,
-      price,
+      price: corrected,
       requested: price,
       tick,
       adjusted: false,
       direction: "none",
       blockedReason: null,
-      explanation: `${formatPrice(price)} is a valid price. ${tick.rule}`,
+      explanation: `${formatPrice(corrected)} is a valid price. ${tick.rule}`,
       fillProbabilityNote: null,
     };
   }
-
-  const corrected = snapToTick(price, tick.size, mode);
 
   // Rounding down from inside the first increment lands on zero. There is no
   // valid price on the requested side of the market, so the order is blocked

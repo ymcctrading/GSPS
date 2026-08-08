@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
   const nowEtMinute = etParts(now).minutes;
 
   const inputs = await mapWithConcurrency(universe, 4, (entry) =>
-    buildInput(entry, todayEt, nowEtMinute, provider),
+    buildInput(entry, todayEt, provider),
   );
 
   const resolved = inputs.filter((i): i is SymbolInput => i !== null);
@@ -157,7 +157,6 @@ type Provider = ReturnType<typeof getMarketDataProvider>;
 async function buildInput(
   entry: { symbol: string; kind: AssetKind },
   todayEt: string,
-  nowEtMinute: number,
   provider: Provider,
 ): Promise<SymbolInput | null> {
   const { symbol, kind } = entry;
@@ -188,7 +187,14 @@ async function buildInput(
       barIntervalMinutes: sessionBars.intervalMinutes,
       prevClose: previousClose(dailyBars, todayEt),
       quote: { price: last.c, at: last.t },
-      volumeBaseline: volumeBaseline(baselineBars, nowEtMinute, todayEt),
+      // The baseline must cover exactly the window today's bars cover, not the
+      // window the wall clock covers. The free IEX feed can't serve the most
+      // recent ~15 minutes, so today's cumulative volume stops there while a
+      // baseline measured to `now` kept counting — which made every symbol read
+      // roughly 0.5x normal through the morning and suppressed the alerts this
+      // scanner exists to produce. Measure the baseline to the last bar we
+      // actually received.
+      volumeBaseline: volumeBaseline(baselineBars, etParts(new Date(last.t)).minutes, todayEt),
       dailyAtr: dailyBars.length > 2 ? atr(dailyBars.slice(-20), 14) : null,
       // Alerts are not persisted yet, so nothing is suppressed across runs.
       // Within a run, each symbol is evaluated once. See the deferred-work note

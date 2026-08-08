@@ -137,6 +137,41 @@ export async function POST(req: NextRequest) {
   const useBracket = !isOption && !!input.attachLevels && input.side === "buy";
   const orderType = submittedLimitPrice ? "limit" : "market";
 
+  // The bracket legs are prices too, and they reach the broker the same way the
+  // entry does — `String(stopLoss)`. They are computed by arithmetic on bar
+  // prices, so they carry the same float dirt (`483.51 - 0.01`), and validating
+  // only the entry left two thirds of the order able to draw the rejection this
+  // is meant to prevent. Each leg is snapped on the side that keeps it where the
+  // protocol intended: a stop rounds down (further from the entry, never tighter
+  // than asked for) and a target rounds up.
+  let bracketLevels: { stopLoss: number; takeProfit: number } | undefined;
+  if (useBracket) {
+    const equity = { assetType: "EQUITY" as const };
+    const stop = validateLimitPrice({
+      price: input.attachLevels!.stopLoss,
+      side: "sell",
+      instrument: equity,
+      mode: "down",
+    });
+    const target = validateLimitPrice({
+      price: input.attachLevels!.takeProfit,
+      side: "sell",
+      instrument: equity,
+      mode: "up",
+    });
+    if (!stop.ok || stop.price == null || !target.ok || target.price == null) {
+      return NextResponse.json(
+        {
+          error:
+            "The protocol stop or target can't be expressed at a price this instrument accepts. Uncheck the protocol levels and manage them yourself.",
+          code: "invalid_price_increment",
+        },
+        { status: 422 },
+      );
+    }
+    bracketLevels = { stopLoss: stop.price, takeProfit: target.price };
+  }
+
   // Alpaca requires the stop below and the target above the entry (by at least
   // a cent). The protocol computes its levels against the advised entry, so a
   // market entry on the other side of that price produces legs the broker will
@@ -146,8 +181,8 @@ export async function POST(req: NextRequest) {
     const check = checkBracket({
       side: input.side,
       basePrice,
-      stopLoss: input.attachLevels!.stopLoss,
-      takeProfit: input.attachLevels!.takeProfit,
+      stopLoss: bracketLevels!.stopLoss,
+      takeProfit: bracketLevels!.takeProfit,
     });
     if (!check.ok) {
       return NextResponse.json(
@@ -175,8 +210,8 @@ export async function POST(req: NextRequest) {
     requested_limit_price: input.limitPrice ?? null,
     tick_size: priceCheck?.tick?.size ?? null,
     tick_source: priceCheck?.tick?.source ?? null,
-    stop_price: useBracket ? input.attachLevels!.stopLoss : null,
-    take_profit: useBracket ? input.attachLevels!.takeProfit : null,
+    stop_price: bracketLevels?.stopLoss ?? null,
+    take_profit: bracketLevels?.takeProfit ?? null,
     master_profit: useBracket ? input.attachLevels!.masterProfit ?? null : null,
     // Option economics + greeks snapshot (null on equity orders).
     purchase_price: input.optionDetail?.premium ?? submittedLimitPrice ?? null,
@@ -199,9 +234,7 @@ export async function POST(req: NextRequest) {
       qty: input.qty,
       type: !isOption && input.entryMode === "advised" ? "limit" : orderType,
       limitPrice: submittedLimitPrice,
-      bracket: useBracket
-        ? { stopLoss: input.attachLevels!.stopLoss, takeProfit: input.attachLevels!.takeProfit }
-        : undefined,
+      bracket: bracketLevels,
     });
 
     const { error: dbError } = await supabase.from("orders").insert({
@@ -455,7 +488,19 @@ async function syncWithBroker(
   supabase: Awaited<ReturnType<typeof createClient>>,
   orders: Record<string, unknown>[],
 ): Promise<SyncOutcome> {
-  const working = orders.filter((o) => isWorking(normalizeOrderStatus(String(o.status ?? ""))));
+  // Working orders, plus anything previously marked `sync_error`.
+  //
+  // An orphaned row normalizes to `unknown`, which `isWorking` reports false
+  // for — correct for display, since it must stop looking live, but it made the
+  // marking permanent: the row was filtered out of every subsequent
+  // reconciliation and could never recover. A transient broker outage is the
+  // most likely way a row gets orphaned in the first place, so the state has to
+  // be re-checkable. It is chased again here and returns to its true status the
+  // moment the broker reports one.
+  const working = orders.filter((o) => {
+    const status = normalizeOrderStatus(String(o.status ?? ""));
+    return isWorking(status) || status === "unknown";
+  });
   if (working.length === 0) {
     return { syncedAt: new Date().toISOString(), error: null, reconciled: 0, orphaned: 0, refreshed: null };
   }

@@ -178,11 +178,26 @@ export interface SessionMetrics {
  * fifteen bars past the intended window.
  */
 export function sessionMetrics(input: SymbolInput, config: ScannerConfig): SessionMetrics | null {
-  const bars = input.bars.filter(isUsableBar);
+  // Equities are measured over the regular session only. The feed returns
+  // pre-market bars from 04:00 ET, and anchoring on "the first bar of the day"
+  // put the opening range in the pre-market — where a handful of thin prints
+  // set a range two cents wide that essentially every symbol then "broke out"
+  // of the moment real trading started. The opening range is a statement about
+  // the auction, so it has to start at the auction.
+  //
+  // Crypto has no session boundary; its whole day is the session.
+  const regularOnly = input.kind !== "crypto";
+  const bars = input.bars
+    .filter(isUsableBar)
+    .filter((b) => !regularOnly || isRegularSession(new Date(b.t)));
   if (bars.length === 0) return null;
 
   const first = bars[0];
-  const openMinutes = etParts(new Date(first.t)).minutes;
+  // Anchor on the session open rather than on whichever bar arrived first, so a
+  // feed that drops the 09:30 bar doesn't slide the whole range later.
+  const openMinutes = regularOnly
+    ? REGULAR_OPEN_MINUTE
+    : etParts(new Date(first.t)).minutes;
   const rangeEnd = openMinutes + config.openingRangeMinutes;
 
   let high = -Infinity;
@@ -229,6 +244,16 @@ export function sessionMetrics(input: SymbolInput, config: ScannerConfig): Sessi
     dataTimestamp: input.quote?.at ?? bars[bars.length - 1].t,
     barCount: bars.length,
   };
+}
+
+/** 09:30 and 16:00 ET, as minutes since midnight. */
+const REGULAR_OPEN_MINUTE = 9 * 60 + 30;
+const REGULAR_CLOSE_MINUTE = 16 * 60;
+
+/** True when a bar printed inside the US equity regular session. */
+function isRegularSession(at: Date): boolean {
+  const { minutes } = etParts(at);
+  return minutes >= REGULAR_OPEN_MINUTE && minutes < REGULAR_CLOSE_MINUTE;
 }
 
 /**

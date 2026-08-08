@@ -166,3 +166,39 @@ describe("validateLimitPrice", () => {
     expect(v.price).toBe(2.5);
   });
 });
+
+describe("validateLimitPrice — float normalization", () => {
+  // Trade levels are arithmetic on bar prices, and that arithmetic produces
+  // values whose decimal form is on-tick but whose binary form is not:
+  // 1.12 + 0.01 === 1.1300000000000001. Returning the caller's float untouched
+  // sent String(1.1300000000000001) to the broker, which is the exact
+  // sub-penny rejection this module exists to prevent.
+  it("normalizes a price that is on-tick as a decimal but not as a float", () => {
+    const dirty = 1.12 + 0.01;
+    expect(String(dirty)).toBe("1.1300000000000001");
+
+    const v = validateLimitPrice({ price: dirty, side: "buy", instrument: EQUITY });
+    expect(v.ok).toBe(true);
+    expect(v.adjusted).toBe(false); // the decimal value did not change
+    expect(String(v.price)).toBe("1.13"); // but the float is now clean
+  });
+
+  it("keeps the requested value as the caller supplied it", () => {
+    const dirty = 1.12 + 0.01;
+    const v = validateLimitPrice({ price: dirty, side: "buy", instrument: EQUITY });
+    expect(v.requested).toBe(dirty);
+  });
+
+  it("normalizes a dirty option premium against the OPRA grid", () => {
+    const dirty = 2.5 + 0.05;
+    const v = validateLimitPrice({ price: dirty, side: "buy", instrument: OPTION });
+    expect(v.adjusted).toBe(false);
+    expect(String(v.price)).toBe("2.55");
+  });
+
+  it("still reports a genuine sub-penny price as adjusted", () => {
+    const v = validateLimitPrice({ price: 49.755, side: "buy", instrument: EQUITY });
+    expect(v.adjusted).toBe(true);
+    expect(String(v.price)).toBe("49.75");
+  });
+});

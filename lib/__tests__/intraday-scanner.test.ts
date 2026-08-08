@@ -441,3 +441,68 @@ describe("barsForSession", () => {
     expect(barsForSession(bars, "2026-08-07")).toHaveLength(1);
   });
 });
+
+describe("session boundaries", () => {
+  /** A bar at a given ET wall-clock minute on 2026-08-07. */
+  function etBar(hour: number, minute: number, price: number, v = 1_000_000): Bar {
+    // 2026-08-07 is EDT (UTC-4), so ET hour + 4 is the UTC hour.
+    const t = new Date(Date.UTC(2026, 7, 7, hour + 4, minute)).toISOString();
+    return { t, o: price, h: price + 0.1, l: price - 0.1, c: price, v };
+  }
+
+  // The feed serves pre-market from 04:00 ET. Anchoring the opening range on
+  // "the first bar of the day" put it in the pre-market, where a few thin
+  // prints set a range two cents wide that everything then "broke out" of at
+  // 09:30 — turning the detector into a clock.
+  it("ignores pre-market bars when setting the opening range", () => {
+    const bars = [
+      etBar(4, 0, 400),
+      etBar(4, 5, 401),
+      etBar(4, 10, 402),
+      etBar(9, 30, 500),
+      etBar(9, 40, 501),
+      etBar(9, 50, 502),
+      etBar(10, 0, 503),
+    ];
+    const m = sessionMetrics(input({ bars, kind: "etf" }), DEFAULT_CONFIG)!;
+
+    // The range is 09:30–09:45, so the 09:30 and 09:40 bars are in it and the
+    // three pre-market bars are not — a range anchored on the first bar of the
+    // day would have been 400–402.
+    expect(m.openingRangeHigh).toBeCloseTo(501.1, 5);
+    expect(m.openingRangeLow).toBeCloseTo(499.9, 5);
+    // And the pre-market prints are not in the session high/low either.
+    expect(m.low).toBeGreaterThan(490);
+  });
+
+  it("excludes pre-market volume from the session total", () => {
+    const bars = [etBar(4, 0, 400, 5_000_000), etBar(9, 30, 500, 1_000_000)];
+    const m = sessionMetrics(input({ bars }), DEFAULT_CONFIG)!;
+    expect(m.cumulativeVolume).toBe(1_000_000);
+  });
+
+  it("excludes after-hours bars too", () => {
+    const bars = [etBar(9, 30, 500), etBar(15, 59, 501), etBar(17, 0, 520)];
+    const m = sessionMetrics(input({ bars }), DEFAULT_CONFIG)!;
+    expect(m.high).toBeLessThan(510);
+  });
+
+  it("anchors the range at 09:30 even when that bar is missing from the feed", () => {
+    const bars = [etBar(9, 42, 500), etBar(9, 50, 505), etBar(10, 0, 510)];
+    const m = sessionMetrics(input({ bars }), DEFAULT_CONFIG)!;
+    // Range is 09:30–09:45, so only the 09:42 bar falls inside it — the window
+    // does not slide forward to start at the first bar that happened to arrive.
+    expect(m.openingRangeHigh).toBeCloseTo(500.1, 5);
+  });
+
+  it("treats the whole day as the session for crypto, which has no open", () => {
+    const bars = [etBar(2, 0, 100), etBar(2, 30, 101), etBar(20, 0, 102)];
+    const m = sessionMetrics(input({ bars, kind: "crypto", symbol: "BTC/USD" }), DEFAULT_CONFIG)!;
+    expect(m.barCount).toBe(3);
+    expect(m.openingRangeHigh).toBeCloseTo(100.1, 5);
+  });
+
+  it("returns null when a symbol traded only outside the regular session", () => {
+    expect(sessionMetrics(input({ bars: [etBar(4, 0, 400)] }), DEFAULT_CONFIG)).toBeNull();
+  });
+});

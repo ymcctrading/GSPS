@@ -198,13 +198,20 @@ export function reconcileOrders(
   let inSyncCount = 0;
 
   for (const local of localOrders) {
-    if (!isWorking(normalizeOrderStatus(local.status))) continue;
+    const localStatus = normalizeOrderStatus(local.status);
+    // `unknown` is chased alongside the working states. It is what an orphaned
+    // row was marked with, and the usual cause is a transient broker outage —
+    // so it has to be able to recover. Skipping it made the marking permanent.
+    if (!isWorking(localStatus) && localStatus !== "unknown") continue;
 
     const broker = local.broker_order_id ? byBrokerId.get(local.broker_order_id) : undefined;
     if (!broker) {
       // Never mirrored (no broker id), or the broker has no record of it. Either
-      // way it is not a live order and must stop being presented as one.
-      orphanedIds.push(local.id);
+      // way it is not a live order and must stop being presented as one. A row
+      // already marked `unknown` needs no second write — re-flagging it on every
+      // poll would rewrite `last_synced_at` forever for a row that will never
+      // resolve.
+      if (localStatus !== "unknown") orphanedIds.push(local.id);
       continue;
     }
 
