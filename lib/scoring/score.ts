@@ -24,6 +24,8 @@ export interface ScoreInputs {
   levels: TradeLevels | null;
   /** Defaults to "reversion" — the protocol's primary setup. */
   setupKind?: SetupKind;
+  /** Ratio of recent volume to baseline volume (e.g., 1.2 = 20% above avg). */
+  volumeRatio?: number;
 }
 
 export function computeScore(inputs: ScoreInputs): ScanDecision {
@@ -31,6 +33,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     direction, macroTrends, hourlyTrend, gann,
     nearSupportResistance, pattern, momentumElevated, levels,
     setupKind = "reversion",
+    volumeRatio = 1.0,
   } = inputs;
 
   // The macro criterion is the one place the two setup kinds read the same
@@ -53,6 +56,9 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   const cleanRR = levels !== null && levels.rewardToRiskTp1 >= 2;
 
   const upcomingCycles = gann.timeCycleDates.slice(0, 3).join(", ");
+
+  // Low-volume stocks are acceptable only if volatility is elevated.
+  const adequateLiquidity = volumeRatio >= 1.0 || momentumElevated;
 
   const breakdown: ScoreBreakdownItem[] = [
     {
@@ -142,6 +148,24 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
         ? "No armed pattern in the setup direction — nothing to enter against, so the state is held at Watch."
         : "No trade plan computed — no entry, stop or targets to act on, so the state is held at Watch.",
     });
+  }
+
+  // Liquidity is a hard gate — reject low-volume setups without elevated volatility
+  // before considering the score. Report why in a breakdown item.
+  if (!adequateLiquidity) {
+    breakdown.unshift({
+      criterion: "Adequate liquidity (volume or volatility)",
+      passed: false,
+      note:
+        volumeRatio < 1.0 && !momentumElevated
+          ? `Low volume (${(volumeRatio * 100).toFixed(0)}% of avg) without elevated volatility — insufficient trading conditions.`
+          : `Rejected due to insufficient liquidity.`,
+    });
+    return {
+      score: 0,
+      outputState: "Reject",
+      breakdown,
+    };
   }
 
   const outputState: ScanDecision["outputState"] =

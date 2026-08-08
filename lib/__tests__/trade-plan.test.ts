@@ -251,3 +251,41 @@ describe("continuation scoring", () => {
     expect(computeScore(inputs()).breakdown[0].passed).toBe(true);
   });
 });
+
+describe("volume filtering", () => {
+  it("accepts a setup with normal volume", () => {
+    const decision = computeScore(inputs({ volumeRatio: 1.0 }));
+    expect(decision.outputState).toBe("Execute");
+    expect(decision.score).toBe(9);
+  });
+
+  it("accepts a setup with above-average volume", () => {
+    const decision = computeScore(inputs({ volumeRatio: 1.5 }));
+    expect(decision.outputState).toBe("Execute");
+    expect(decision.score).toBe(9);
+  });
+
+  it("rejects low-volume setups when momentum is not elevated", () => {
+    const decision = computeScore(inputs({ volumeRatio: 0.5, momentumElevated: false }));
+    expect(decision.outputState).toBe("Reject");
+    expect(decision.score).toBe(0);
+    expect(decision.breakdown[0].criterion).toMatch(/Adequate liquidity/);
+    expect(decision.breakdown[0].passed).toBe(false);
+  });
+
+  it("accepts low-volume setups when momentum is elevated", () => {
+    const decision = computeScore(inputs({ volumeRatio: 0.5, momentumElevated: true }));
+    expect(decision.outputState).toBe("Execute");
+    expect(decision.score).toBe(9);
+  });
+
+  it("explains the liquidity reason in the breakdown", () => {
+    const rejected = computeScore(inputs({ volumeRatio: 0.3, momentumElevated: false }));
+    const accepted = computeScore(inputs({ volumeRatio: 0.3, momentumElevated: true }));
+    expect(rejected.breakdown[0].note).toContain("30%");
+    expect(rejected.breakdown[0].note).toContain("insufficient");
+    expect(accepted.breakdown).not.toContainEqual(
+      expect.objectContaining({ criterion: expect.stringMatching(/Adequate liquidity/) }),
+    );
+  });
+});
