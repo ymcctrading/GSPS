@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkBracket } from "@/lib/trade/bracket";
+import { checkBracket, bracketMinGap } from "@/lib/trade/bracket";
 
 describe("checkBracket", () => {
   describe("long entries", () => {
@@ -67,5 +67,71 @@ describe("checkBracket", () => {
       expect(check.ok).toBe(false);
       expect(check.problem).toBe("no_base_price");
     });
+  });
+
+  describe("sub-penny stocks", () => {
+    it("accepts gaps scaled for sub-penny instruments", () => {
+      const price = 0.50;
+      const minGap = bracketMinGap(price);
+      expect(checkBracket({
+        side: "buy",
+        basePrice: price,
+        stopLoss: price - minGap - 0.0001,
+        takeProfit: price + minGap + 0.0001,
+      }).ok).toBe(true);
+    });
+
+    it("rejects stops too tight for sub-penny longs", () => {
+      const price = 0.50;
+      const minGap = bracketMinGap(price);
+      const check = checkBracket({
+        side: "buy",
+        basePrice: price,
+        stopLoss: price - minGap / 2,
+        takeProfit: price + minGap + 0.01,
+      });
+      expect(check.ok).toBe(false);
+      expect(check.problem).toBe("stop_wrong_side");
+    });
+
+    it("rejects targets too tight for sub-penny longs", () => {
+      const price = 0.50;
+      const minGap = bracketMinGap(price);
+      const check = checkBracket({
+        side: "buy",
+        basePrice: price,
+        stopLoss: price - minGap - 0.01,
+        takeProfit: price + minGap / 2,
+      });
+      expect(check.ok).toBe(false);
+      expect(check.problem).toBe("target_wrong_side");
+    });
+  });
+});
+
+describe("bracketMinGap", () => {
+  it("uses fixed 0.01 gap for prices >= $1", () => {
+    expect(bracketMinGap(1.0)).toBe(0.01);
+    expect(bracketMinGap(1.01)).toBe(0.01);
+    expect(bracketMinGap(100)).toBe(0.01);
+    expect(bracketMinGap(1000)).toBe(0.01);
+  });
+
+  it("scales to 1% of price for sub-penny stocks", () => {
+    expect(bracketMinGap(0.50)).toBeCloseTo(0.005, 10);
+    expect(bracketMinGap(0.10)).toBeCloseTo(0.001, 10);
+    expect(bracketMinGap(0.05)).toBeCloseTo(0.001, 10); // Floored at 0.001
+  });
+
+  it("enforces absolute minimum gap of 0.001 for ultra-cheap penny stocks", () => {
+    expect(bracketMinGap(0.05)).toBeCloseTo(0.001, 10); // Would be 0.0005 without floor
+    expect(bracketMinGap(0.02)).toBe(0.001); // Would be 0.0002 without floor
+    expect(bracketMinGap(0.001)).toBe(0.001); // Would be 0.00001 without floor
+  });
+
+  it("transitions correctly at the $1 threshold", () => {
+    expect(bracketMinGap(0.99)).toBeCloseTo(0.0099, 10);
+    expect(bracketMinGap(1.00)).toBe(0.01);
+    expect(bracketMinGap(1.01)).toBe(0.01);
   });
 });
