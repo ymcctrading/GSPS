@@ -70,6 +70,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   const breakdown: ScoreBreakdownItem[] = [
     {
       criterion: "Macro trend context (10yr/5yr/1yr)",
+      pillar: "trend",
       passed: macroSupports,
       note: macroSupports
         ? setupKind === "continuation"
@@ -81,11 +82,13 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     },
     {
       criterion: "1-hour trend agreement",
+      pillar: "trend",
       passed: hourlyAgrees,
       note: `1hr trend reads ${hourlyTrend.direction}.`,
     },
     {
       criterion: "Support line proximity",
+      pillar: "structure",
       passed: nearFan,
       note: nearFan
         ? `Price within ${gann.fanLines[0].distancePct.toFixed(2)}% of the ${gann.fanLines[0].angle} support line at ${gann.fanLines[0].price.toFixed(2)}.`
@@ -93,6 +96,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     },
     {
       criterion: "Harmonic level proximity",
+      pillar: "structure",
       passed: nearS9,
       note: nearS9
         ? `Price within ${gann.squareOf9[0].distancePct.toFixed(2)}% of the ${gann.squareOf9[0].degree}° harmonic level at ${gann.squareOf9[0].price.toFixed(2)}.`
@@ -100,6 +104,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     },
     {
       criterion: "Historical support/resistance",
+      pillar: "structure",
       passed: nearSupportResistance,
       note: nearSupportResistance
         ? "Price sits at a clustered macro S/R level."
@@ -111,6 +116,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       // Labelling a 2-1-2 that carries a trend "Reversal pattern armed" would
       // describe the opposite trade.
       criterion: `${setupKind === "continuation" ? "Continuation" : "Reversal"} pattern armed`,
+      pillar: "setup",
       passed: patternValid,
       note: patternValid
         ? `${pattern!.name} ${pattern!.direction} armed — trigger ${pattern!.triggerPrice.toFixed(2)}.`
@@ -118,6 +124,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     },
     {
       criterion: "Momentum / volatility elevated",
+      pillar: "setup",
       passed: momentumElevated,
       note: momentumElevated
         ? "Range expansion above average — high-velocity conditions."
@@ -125,6 +132,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     },
     {
       criterion: "Cyclical turn window active",
+      pillar: "timing",
       passed: gann.timeCycleActive,
       note: gann.timeCycleActive
         ? `Scan date falls inside a projected turn window${upcomingCycles ? ` — next dates of interest ${upcomingCycles}.` : "."}`
@@ -132,6 +140,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     },
     {
       criterion: "Master target confirmed by a structural level",
+      pillar: "riskReward",
       passed: cleanRR,
       note: !levels
         ? "No trade levels computed."
