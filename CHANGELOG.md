@@ -7,6 +7,34 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-08-07
+
+### Changed
+- **The deployment SOP drops its staging phase, and the runbook stops
+  promising manual deploys.** Two loose ends from the 2026-08-04 correction.
+
+  The SOP described three phases, the middle one being a staging deployment
+  of `main` to `staging.gsps.vercel.app` for final validation before
+  production. That gate cannot exist: with `deploymentEnabled: true`, `main`
+  *is* production, so validating it after merge inspects a release users are
+  already on — and the domain it named was never configured. The phase is
+  gone. Its verification checklist was the part worth keeping and now runs
+  pre-merge against the PR's preview URL, where it can still change the
+  outcome. Two phases remain: Preview (pre-merge) and Production (the merge).
+  A real staging setup is written up under Future Enhancements, with the
+  two-merges-per-change cost that is why it isn't built.
+
+  Also adds a "landing a change without shipping it" section, since merging
+  is no longer a way to do that, and a note on migration ordering — applying
+  a constraint before the code satisfying it has shipped is what broke the
+  daily scan for four days.
+
+  `docs/RUNBOOK.md` still had two sections claiming deploys never happen
+  automatically and that a redeploy must be requested after a revert. Both
+  now describe automatic deploys, and rollback leads with promoting the last
+  good build rather than reverting, which is faster when the current build is
+  the broken thing.
+
 ## 2026-08-06
 
 ### Added
