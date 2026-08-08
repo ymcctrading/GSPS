@@ -4,13 +4,14 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Radar, Briefcase, Bot, BookOpen, Settings, LogOut, TrendingUp } from "lucide-react";
+import { LayoutDashboard, Radar, Briefcase, Bot, FlaskConical, BookOpen, Settings, LogOut, TrendingUp } from "lucide-react";
 
 const LINKS = [
   { href: "/dashboard", label: "Dashboard", short: "Home", icon: LayoutDashboard },
   { href: "/scanner", label: "Scanner", short: "Scan", icon: Radar },
   { href: "/portfolio", label: "Portfolio", short: "Book", icon: Briefcase },
   { href: "/automation", label: "Automation", short: "Auto", icon: Bot },
+  { href: "/learning", label: "Backtest", short: "Test", icon: FlaskConical },
   { href: "/glossary", label: "Glossary", short: "Terms", icon: BookOpen },
   { href: "/settings", label: "Settings", short: "Setup", icon: Settings },
 ];
@@ -19,9 +20,13 @@ const LINKS = [
  * Navigation, calibrated per device class.
  *
  * Phones (< md) get a compact top bar for identity plus a fixed bottom tab bar
- * for the destinations: six icon targets crammed into a 14px-tall header left
+ * for the destinations: seven icon targets crammed into a 14px-tall header left
  * no room for labels and put the whole nav out of thumb reach. Tablets and up
  * keep the single top bar, gaining labels at md and more breathing room at xl.
+ *
+ * Seven is the ceiling for the tab bar. On the narrowest supported screen each
+ * tab is ~51px wide, still clear of the 44px minimum target; an eighth
+ * destination would cross it and needs a different shape, not another tab.
  */
 export function AppNav() {
   const pathname = usePathname();

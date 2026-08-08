@@ -75,7 +75,11 @@ def score_risk_reward(setup: SetupInput) -> FactorResult:
 
 - **Old:** 1.8R setup scored 0/8 on risk-reward
 - **New:** 1.8R setup scores 6/8 on risk-reward
-- **Result:** Score goes from 7/9 ceiling to potentially 8-9/9
+- **Result:** +6 points on this package's 118-point scale for that setup
+
+(An earlier version of this line claimed the score went "from 7/9 to 8-9/9".
+`/9` is the scale of `lib/scoring/score.ts`, which this package does not feed —
+see `docs/BACKTESTING.md`.)
 
 ---
 

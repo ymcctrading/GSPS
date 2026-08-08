@@ -1,8 +1,22 @@
 """
 config.py
 ---------
-Single source of truth for gate thresholds and scoring weights.
-Tune everything here. Nothing else in the package should hardcode a number.
+Single source of truth for gate thresholds and scoring weights *of this Python
+package*. Tune everything here. Nothing else in the package should hardcode a
+number.
+
+SCOPE — READ FIRST
+------------------
+Nothing outside this directory imports this file. It does not feed the app, the
+live scan, or the replay harness in lib/backtest/replay.ts. The app scores with
+lib/scoring/score.ts, which is a separate 9-criteria system that knows nothing
+about the weights below.
+
+So: changing a number in this file cannot move win rate or expectancy as the
+replay reports them. Measure a change here with this package's own backtest.py
+(which needs a hand-labelled scan_log.jsonl), or port the idea into
+lib/scoring/score.ts where the replay can see it. See docs/BACKTESTING.md for
+why the two systems diverged and which levers actually move replay numbers.
 
 This is deliberately a plain dict-of-dicts (not a class) so it can be
 dumped to / loaded from JSON easily for backtesting sweeps (see backtest.py).
