@@ -7,6 +7,33 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-08-08
+
+### Fixed
+- **"Buy a PUT instead" bought a call.** The shortcut offered when a symbol
+  can't be sold short sets the option type and opens the options tab in one
+  handler, and the chain load read the call/put state from the render that
+  created it — still `call` at that point, because `setOptionType` had not
+  committed. The chain then selected an at-the-money *call* while the UI showed
+  Put selected, so the order submitted the opposite instrument to the one on
+  screen. The type is now passed explicitly rather than inferred from state
+  that hasn't landed.
+
+  The argument is validated rather than defaulted: the same callback is wired
+  straight to the Retry button's `onClick`, which would otherwise hand it a
+  MouseEvent as the requested option type.
+
+  Only reachable on a bullish scan — a bearish one already defaults to `put`,
+  which is why it survived earlier passes over this component.
+
+### Changed
+- **`docs/THIRD_PARTY_LIMITS.md` stopped claiming deploys are manual.** The
+  Vercel row still read "Auto-deploy on push is disabled", which `AGENTS.md`
+  had already been corrected away from: Git-triggered deploys are on, a branch
+  push builds a preview and a merge to `main` releases to production. Two docs
+  disagreeing about whether merging is releasing is the kind of thing that gets
+  read the wrong way round exactly once.
+
 ## 2026-08-07
 
 ### Changed

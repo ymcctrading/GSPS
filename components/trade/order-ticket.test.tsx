@@ -140,3 +140,155 @@ describe("OrderTicket price increments", () => {
     expect(body.limitPrice).toBe(49.755);
   });
 });
+
+/**
+ * "Buy a PUT instead" is offered when a symbol can't be sold short. It sets the
+ * option type and opens the options tab in one handler — and the chain load
+ * used to read the option type from state that had not committed yet, so it
+ * selected an at-the-money *call* while the UI showed Put selected. Pressing
+ * the button then bought the opposite instrument to the one on screen.
+ */
+describe("OrderTicket — switching to a put", () => {
+  const CHAIN = {
+    underlying: "GPUS",
+    price: 220,
+    expirations: [
+      {
+        expiration: "2026-09-18",
+        strikes: [
+          { strike: 215, call: "GPUS260918C00215000", put: "GPUS260918P00215000" },
+          { strike: 220, call: "GPUS260918C00220000", put: "GPUS260918P00220000" },
+        ],
+      },
+    ],
+  };
+
+  /**
+   * Tradability is unknown (the lookup fails), so the ticket stays permissive
+   * and the short side remains clickable — the broker is what refuses it. That
+   * is the reachable path to the shortcut on a bullish scan, and a bullish scan
+   * is what makes this the real bug: the option type defaults to `call` there,
+   * so the shortcut has to change it. On a bearish scan it already defaults to
+   * `put` and the defect is invisible.
+   */
+  function mockShortRejected() {
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      void init;
+      const url = String(input);
+      if (url.includes("/api/assets")) {
+        return Promise.reject(new Error("tradability lookup unavailable"));
+      }
+      if (url.includes("/api/options/chain")) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve(CHAIN),
+        } as Response);
+      }
+      const body = String(init?.body ?? "");
+      if (body.includes('"assetClass":"equity"')) {
+        return Promise.resolve({
+          ok: false,
+          status: 422,
+          json: () =>
+            Promise.resolve({
+              error: "This symbol can't be sold short.",
+              code: "short_not_allowed",
+            }),
+        } as Response);
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ order: { status: "accepted" } }),
+      } as Response);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+
+  function bullishScan(): ScanResult {
+    return { ...scanWithEntry(220, "bullish"), symbol: "GPUS" };
+  }
+
+  /** Short the name, get refused by the broker, then take the offered shortcut. */
+  async function takeShortcut(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(await screen.findByRole("button", { name: /Sell \/ Short/ }));
+    await user.click(screen.getByRole("button", { name: /Sell short GPUS/ }));
+    await user.click(await screen.findByRole("button", { name: /Buy a PUT instead/ }));
+  }
+
+  it("selects a put contract, not a call, after taking the shortcut", async () => {
+    const user = userEvent.setup();
+    mockShortRejected();
+    render(<OrderTicket result={bullishScan()} />);
+
+    await takeShortcut(user);
+
+    // The contract actually staged for submission is a P, not a C.
+    const contract = await screen.findByText(/^Contract: GPUS260918/);
+    expect(contract.textContent).toMatch(/P00220000$/);
+  });
+
+  it("submits the put contract the button offered", async () => {
+    const user = userEvent.setup();
+    const fetchMock = mockShortRejected();
+    render(<OrderTicket result={bullishScan()} />);
+
+    await takeShortcut(user);
+    await screen.findByText(/^Contract: GPUS260918/);
+    await user.click(screen.getByRole("button", { name: /Buy to open PUT/ }));
+
+    const optionCall = fetchMock.mock.calls
+      .filter(([url]) => String(url).includes("/api/orders"))
+      .find(([, init]) => String((init as RequestInit)?.body ?? "").includes('"option"'));
+    expect(optionCall).toBeDefined();
+    const body = JSON.parse(String((optionCall![1] as RequestInit)?.body));
+    expect(body.symbol).toMatch(/P00220000$/);
+    expect(body.assetClass).toBe("option");
+  });
+
+  it("keeps the retry button working — its click event is not read as an option type", async () => {
+    const user = userEvent.setup();
+    // Fail the chain once so Retry renders, then succeed.
+    let chainCalls = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/api/assets")) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ symbol: "DRAM", shortable: true, tradable: true }),
+          } as Response);
+        }
+        if (url.includes("/api/options/chain")) {
+          chainCalls++;
+          if (chainCalls === 1) {
+            return Promise.resolve({
+              ok: false,
+              status: 502,
+              json: () => Promise.resolve({ error: "Chain unavailable" }),
+            } as Response);
+          }
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ ...CHAIN, underlying: "DRAM" }),
+          } as Response);
+        }
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({}) } as Response);
+      }),
+    );
+
+    render(<OrderTicket result={scanWithEntry(220, "bearish")} />);
+    await user.click(screen.getByRole("button", { name: "Options" }));
+    await user.click(await screen.findByRole("button", { name: "Retry" }));
+
+    // The default call/put state is a put on a bearish scan, and the retry must
+    // honour it rather than treating its MouseEvent as the requested type.
+    const contract = await screen.findByText(/^Contract: /);
+    expect(contract.textContent).toMatch(/P00220000$/);
+  });
+});
