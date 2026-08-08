@@ -55,26 +55,55 @@ where the replay can see them, or measure them with the Python scanner's own
 `backtest.py` and a real `scan_log.jsonl`. Both are defensible. Doing neither
 and reading replay numbers as feedback on `config.py` is not.
 
-## Three criteria carry no information inside `Execute`
+## Criteria that carry no information inside `Execute`
 
 The factor table reports a criterion as **never varied** when every trade in the
-bucket landed on the same side of it. Two of the nine are constant inside
-`Execute` *by construction*, not because of the sample:
+bucket landed on the same side of it. Such a criterion cannot be tuned to
+improve anything: it never separates a winner from a loser, it only shifts every
+score by a constant.
 
-- **Reversal pattern armed.** The replay only evaluates setups where a pattern
-  was detected, and takes the trade direction from the pattern itself. This
-  criterion is therefore true on every replayed trade, in every bucket.
-- **Clean risk-reward (TP1 ≥ 2R).** `computeTradeLevels` sets TP1 to
-  `max(2R, structural extreme)`, so `rewardToRiskTp1 >= 2` always holds.
+**Reversal pattern armed** is constant *by construction* and always will be. The
+replay only evaluates setups where a pattern was detected, and takes the trade
+direction from the pattern itself, so the criterion is true on every replayed
+trade in every bucket. It contributes a guaranteed +1, which means the `Execute`
+cutoff of ≥7/9 is really ≥6 of the 8 criteria that can vary. It also means replay
+scores sit systematically higher than live-scan scores, where a symbol can be
+scanned with nothing armed and no plan priced — **do not compare a replay score
+distribution against a live one.**
 
-Both contribute a guaranteed +2 to every replayed score. The practical
-consequence: the `Execute` cutoff of ≥7/9 is really **≥5 of the 7 criteria that
-can vary**, and neither of those two can be tuned to improve anything, because
-neither ever discriminates between a winner and a loser.
+### The ninth criterion, and two ways to get it wrong
 
-This also means replay scores sit systematically higher than live-scan scores,
-where a symbol can be scanned with nothing armed and no plan priced. Do not
-compare a replay score distribution against a live one.
+This slot was a free point for a long time, and fixing it took two attempts
+worth recording, because both failure modes look like working code.
+
+**It began as "Clean risk-reward (TP1 ≥ 2R)", which could never fail.**
+`computeTradeLevels` sets TP1 to `max(2R, structural extreme)`, so
+`rewardToRiskTp1 >= 2` holds on every well-formed pattern. Every score was
+inflated by one and the criterion discriminated nothing.
+
+**Scoring TP1's structural branch instead was no better — it essentially never
+passed.** Every pattern sets its trigger a penny beyond the signal candle's
+extreme and its stop a penny beyond the other side, so `risk` is close to that
+candle's range. For the structural branch to win, the **previous** candle's
+extreme would have to sit more than two of those ranges beyond it. Measured
+against the flat 2R floor over 6,362 armed setups it fired **zero** times. That
+change turned a point nobody could lose into one nobody could win — the same
+defect mirrored, and it cut `Execute` by 76%.
+
+That measurement is now historical: TP1 moved to asset-class multiples (1.5R for
+equities and crypto), which lowers the bar the structural extreme has to clear
+and makes the branch reachable. **Nobody has re-measured how often it fires**, so
+do not resurrect it as a criterion on the assumption that it now varies — check
+first, with the tool below.
+
+**What works is the master target.** It snaps to a support or harmonic level when
+one sits in range and falls back to a plain 3R projection when none does — about
+a 29/71 split across armed setups, and 90 of 161 inside `Execute` on the
+reference run. Both arms carry enough trades to read, so the criterion finally
+does the job the slot was there for.
+
+The lesson generalises: before scoring a condition, check that **both** of its
+arms occur. `attributeFactors` reports `constant` precisely so this cannot hide.
 
 ## What the numbers are worth
 

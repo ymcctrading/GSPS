@@ -134,6 +134,15 @@ export function computeTradeLevels(
 
   // TP1: asset-class-default R-multiple, or the previous candle's high/low if
   // that structural target is further than the default multiple.
+  //
+  // Do not score anything on which branch wins here. Every pattern sets its
+  // trigger a penny beyond the signal candle's extreme and its stop a penny
+  // beyond the other side, so `risk` is close to that candle's own range, and
+  // the structural branch needs the *previous* candle's extreme to clear a
+  // multiple of it. Measured against the old flat 2R floor it fired zero times
+  // in 6,362 armed setups; the lower asset-class multiples here make it
+  // reachable, but nothing has re-measured how often. The scored structural
+  // criterion reads the master target instead — see docs/BACKTESTING.md.
   const tp1Multiple = assetClass
     ? TP1_MULTIPLE_BY_ASSET[assetClass]
     : DEFAULT_TP1_MULTIPLE;
@@ -160,6 +169,7 @@ export function computeTradeLevels(
   const structuralExtension = gannTargets
     .filter((g) => dir * (g - masterFloor) > 0 && dir * (g - masterCap) <= 0)
     .sort((a, b) => dir * (a - b))[0];
+  const masterFromStructure = structuralExtension !== undefined;
   const masterProfit = structuralExtension ?? steppedMaster;
 
   // Use structural risk for warning checks (the actual setup as presented,
@@ -214,6 +224,7 @@ export function computeTradeLevels(
     rewardToRiskTp1: risk > 0 ? Math.abs(takeProfit1 - entry) / risk : 0,
     rewardToRiskTp2: risk > 0 ? Math.abs(masterProfit - entry) / risk : 0,
     rewardToRiskMaster: risk > 0 ? Math.abs(masterProfit - entry) / risk : 0,
+    masterFromStructure,
     stopPctOfPrice,
     stopBandWarning,
   };
