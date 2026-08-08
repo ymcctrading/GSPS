@@ -65,10 +65,12 @@ export interface TradeLevels {
   entry: number;
   stopLoss: number;
   takeProfit1: number;
-  masterProfit: number;
+  takeProfit2: number; // Runner target, scaled per asset class
+  masterProfit: number; // Alias for takeProfit2 (for backward compatibility)
   riskPerShare: number;
   rewardToRiskTp1: number;
-  rewardToRiskMaster: number;
+  rewardToRiskTp2: number;
+  rewardToRiskMaster: number; // Alias for rewardToRiskTp2 (for backward compatibility)
   /** Warning when the structural stop is outside the recommended 12–18% band. */
   stopPctOfPrice: number;
   stopBandWarning: string | null;
