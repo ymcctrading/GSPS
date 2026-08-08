@@ -112,12 +112,19 @@ describe("classifyOrder", () => {
     expect(classifyOrder(order({ status }), held)).toBe("pending");
   });
 
-  it.each(["canceled", "cancelled", "expired", "rejected", "replaced", "done_for_day"])(
+  it.each(["canceled", "cancelled", "expired", "replaced", "done_for_day"])(
     "treats %s as unfilled, not closed — it never became a position",
     (status) => {
       expect(classifyOrder(order({ status }), held)).toBe("unfilled");
     },
   );
+
+  // A rejection is the one ending the user has to act on, so it gets its own
+  // section rather than sharing the collapsed pile with routine cancellations.
+  it("gives a rejection its own section, apart from the routine unfilled endings", () => {
+    expect(classifyOrder(order({ status: "rejected" }), held)).toBe("rejected");
+    expect(classifyOrder(order({ status: " REJECTED " }), held)).toBe("rejected");
+  });
 
   it("reserves closed for a position that was actually filled and then exited", () => {
     expect(classifyOrder(order({ status: "filled", symbol: "TSLA" }), held)).toBe("closed");
@@ -158,33 +165,39 @@ describe("dispositionOf", () => {
 });
 
 describe("groupByDisposition", () => {
-  it("splits an unfilled section into labeled groups, canceled before rejected", () => {
+  it("splits an unfilled section into labeled groups in the display order", () => {
     const groups = groupByDisposition([
-      order({ id: "r1", status: "rejected" }),
+      order({ id: "e1", status: "expired" }),
       order({ id: "c1", status: "canceled" }),
       order({ id: "c2", status: "cancelled" }),
-      order({ id: "e1", status: "expired" }),
+      order({ id: "d1", status: "done_for_day" }),
     ]);
 
-    expect(groups.map((g) => g.label)).toEqual(["Canceled", "Rejected", "Expired"]);
+    expect(groups.map((g) => g.label)).toEqual(["Canceled", "Expired", "Done for day"]);
     expect(groups[0].orders.map((o) => o.id)).toEqual(["c1", "c2"]);
-    expect(groups[1].orders.map((o) => o.id)).toEqual(["r1"]);
-    expect(groups[2].orders.map((o) => o.id)).toEqual(["e1"]);
+    expect(groups[1].orders.map((o) => o.id)).toEqual(["e1"]);
+    expect(groups[2].orders.map((o) => o.id)).toEqual(["d1"]);
   });
 
   it("gives every group a distinct description of how the order ended", () => {
     const groups = groupByDisposition([
       order({ id: "c", status: "canceled" }),
-      order({ id: "r", status: "rejected" }),
+      order({ id: "e", status: "expired" }),
     ]);
     expect(groups[0].description).not.toBe(groups[1].description);
     expect(groups.every((g) => g.description.length > 0)).toBe(true);
   });
 
   it("omits dispositions with nothing in them", () => {
-    const groups = groupByDisposition([order({ id: "r", status: "rejected" })]);
+    const groups = groupByDisposition([order({ id: "e", status: "expired" })]);
     expect(groups).toHaveLength(1);
-    expect(groups[0].disposition).toBe("rejected");
+    expect(groups[0].disposition).toBe("expired");
+  });
+
+  // Rejections are sectioned out before this runs, so the unfilled groups never
+  // see one — and must not silently render an empty "Rejected" heading if they do.
+  it("does not group rejections, which have their own section", () => {
+    expect(groupByDisposition([order({ id: "r", status: "rejected" })])).toEqual([]);
   });
 
   it("preserves the order rows arrive in, which sectionOrders left newest first", () => {
@@ -205,7 +218,7 @@ describe("groupByDisposition", () => {
 });
 
 describe("sectionOrders", () => {
-  it("populates all four sections from mixed data", () => {
+  it("populates all five sections from mixed data", () => {
     const positions = live([rawEquity(), rawOption()]); // AAPL shares + AAPL call held
     const orders = [
       order({ id: "open-equity", symbol: "AAPL", status: "filled" }),
@@ -214,7 +227,7 @@ describe("sectionOrders", () => {
       order({ id: "pending-partial", symbol: "NVDA", status: "partially_filled" }),
       order({ id: "closed-exited", symbol: "TSLA", status: "filled" }),
       order({ id: "unfilled-canceled", symbol: "AMD", status: "canceled" }),
-      order({ id: "unfilled-rejected", symbol: "GME", status: "rejected" }),
+      order({ id: "rejected-subpenny", symbol: "DRAM", status: "rejected" }),
     ];
 
     const sections = sectionOrders(orders, positions);
@@ -222,7 +235,8 @@ describe("sectionOrders", () => {
     expect(sections.open.map((o) => o.id)).toEqual(["open-equity", "open-option"]);
     expect(sections.pending.map((o) => o.id)).toEqual(["pending-limit", "pending-partial"]);
     expect(sections.closed.map((o) => o.id)).toEqual(["closed-exited"]);
-    expect(sections.unfilled.map((o) => o.id)).toEqual(["unfilled-canceled", "unfilled-rejected"]);
+    expect(sections.unfilled.map((o) => o.id)).toEqual(["unfilled-canceled"]);
+    expect(sections.rejected.map((o) => o.id)).toEqual(["rejected-subpenny"]);
   });
 
   it("assigns every order to exactly one section", () => {
@@ -235,8 +249,7 @@ describe("sectionOrders", () => {
     ];
 
     const sections = sectionOrders(orders, positions);
-    const total =
-      sections.open.length + sections.pending.length + sections.closed.length + sections.unfilled.length;
+    const total = Object.values(sections).reduce((n, bucket) => n + bucket.length, 0);
     expect(total).toBe(orders.length);
   });
 
@@ -255,6 +268,42 @@ describe("sectionOrders", () => {
     ]);
   });
 
+  // A pre-market order is placed the evening before and accepted at 09:30.
+  // Pending lists what is live at the broker, so it sorts on the broker's clock.
+  it("sorts on the broker-accepted time when one has been reconciled", () => {
+    const orders = [
+      order({
+        id: "placed-later-accepted-first",
+        symbol: "AMD",
+        status: "new",
+        created_at: "2026-08-07T02:00:00Z",
+        broker_submitted_at: "2026-08-07T13:30:00Z",
+      }),
+      order({
+        id: "placed-earlier-accepted-later",
+        symbol: "GME",
+        status: "new",
+        created_at: "2026-08-07T01:00:00Z",
+        broker_submitted_at: "2026-08-07T15:00:00Z",
+      }),
+    ];
+
+    expect(sectionOrders(orders, []).pending.map((o) => o.id)).toEqual([
+      "placed-earlier-accepted-later",
+      "placed-later-accepted-first",
+    ]);
+  });
+
+  it("breaks a tie by id so section order is stable between renders", () => {
+    const at = "2026-08-07T13:30:00Z";
+    const orders = [
+      order({ id: "z", symbol: "AMD", status: "new", created_at: at }),
+      order({ id: "a", symbol: "GME", status: "new", created_at: at }),
+    ];
+    expect(sectionOrders(orders, []).pending.map((o) => o.id)).toEqual(["a", "z"]);
+    expect(sectionOrders([...orders].reverse(), []).pending.map((o) => o.id)).toEqual(["a", "z"]);
+  });
+
   it("sorts an unparseable placement date last rather than dropping the row", () => {
     const orders = [
       order({ id: "bad", symbol: "AMD", status: "canceled", created_at: "not-a-date" }),
@@ -264,8 +313,14 @@ describe("sectionOrders", () => {
     expect(sectionOrders(orders, []).unfilled.map((o) => o.id)).toEqual(["good", "bad"]);
   });
 
-  it("returns four empty buckets when there are no orders at all", () => {
-    expect(sectionOrders([], [])).toEqual({ open: [], pending: [], closed: [], unfilled: [] });
+  it("returns five empty buckets when there are no orders at all", () => {
+    expect(sectionOrders([], [])).toEqual({
+      open: [],
+      pending: [],
+      rejected: [],
+      closed: [],
+      unfilled: [],
+    });
   });
 
   it("leaves the other buckets empty when every order is pending", () => {

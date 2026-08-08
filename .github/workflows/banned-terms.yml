@@ -1,5 +1,9 @@
 name: IP Protection - Banned Terms Gate
 
+# Same reasoning as the Tests workflow: a PR opened through the GitHub App API
+# can be created without Actions scheduling a `pull_request` run, so this gate
+# also watches pushes. The path filter is repeated rather than shared because
+# GitHub has no way to define it once for two events.
 on:
   pull_request:
     paths:
@@ -9,6 +13,19 @@ on:
       - 'scripts/check-banned-terms.mjs'
       - '*.md'
       - '.github/**'
+  push:
+    paths:
+      - 'app/**'
+      - 'components/**'
+      - 'lib/**'
+      - 'scripts/check-banned-terms.mjs'
+      - '*.md'
+      - '.github/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   banned-terms:

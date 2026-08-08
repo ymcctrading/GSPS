@@ -24,6 +24,19 @@ GSPS is a comprehensive trading application built with Next.js, Supabase, and Al
   - Support/resistance level analysis
 - **Multi-Timeframe Support**: 1m, 5m, 15m, 1h, 2h, 4h, 1d, 1w, 1mo, 1y candles
   — one candle always covers exactly the interval its label names
+- **Intraday Movement Scanner**: Confirmation of moves already underway, run on
+  demand rather than on a schedule. Five modes — opening momentum, trend
+  continuation, volatility expansion, unusual volume and reversal risk — sized
+  against the symbol's own range and against a same-time-of-day volume baseline
+  rather than fixed dollar thresholds
+- **Explained Alerts**: Every alert names its reference price and the basis it
+  was measured against, the data timestamp separately from the trigger time, an
+  invalidation level, an inspectable confidence breakdown, a continuation plan
+  and an opposite-direction pivot plan
+- **Per-Symbol Audit Trail**: Records what happened to every symbol that did
+  *not* alert — evaluated and quiet, filtered on liquidity, suppressed by a
+  cooldown, or skipped on a stale feed — so "why didn't this appear" has an
+  answer with a timestamp on it
 
 ### 3. Live Market Data
 - **Real-time Price Quotes**: Current bid/ask pricing via Alpaca
@@ -35,17 +48,40 @@ GSPS is a comprehensive trading application built with Next.js, Supabase, and Al
 - **Paper Trading**: Risk-free account for strategy testing
 - **Real Account Trading**: Live trading with Alpaca or SnapTrade
 - **Portfolio Back Office**: Account equity, cash, buying power, and day P/L
-- **Four Position Sections**: Open, Pending, Closed, and Canceled & Rejected —
-  each with its own count, empty state, and newest-first ordering. Closed and
-  Canceled & Rejected start collapsed
+- **Five Position Sections**: Open, Pending, Rejected, Closed, and Canceled &
+  Expired — each with its own count, empty state, and newest-first ordering.
+  Closed and Canceled & Expired start collapsed; Pending and Rejected never do,
+  because both hold things that may need acting on
+- **Broker Order Reconciliation**: Every load diffs the local order ledger
+  against the broker's own order list and writes the broker's answer back, so
+  Pending shows what is actually working rather than what was working when each
+  order was submitted
+- **Last-Synced Stamp & Refresh**: The order list says when it was last
+  confirmed with the broker, and the refresh control performs a real server
+  round trip. A failed sync is shown, not swallowed
 - **Blended Open Positions**: Shares and every option contract on the same
   underlying tracked as separate legs under one ticker, with an aggregate
   market value / P&L header, refreshed every 10 seconds
+- **Opened-At Timestamps**: Each leg shows when it was first opened, derived
+  from the broker's fill history and preserved across partial fills and
+  scale-ins. Reads `Unavailable — historical fill data missing` when the
+  history is too short to answer rather than showing a date it cannot support
+- **Asset-Aware Rows**: Shares and option contracts render separate tables with
+  their own columns — an equity row never shows a Greek column. Option Greeks
+  sit behind a `Show Greeks` toggle that starts closed
+- **Rejection Reasons & Fix Order**: A refused order is recorded with the
+  broker's own explanation and a route back to a corrected ticket
 - **Ended-Order Dispositions**: Orders that never became a position group by
-  how each one ended — canceled, rejected, expired, replaced, done for day
+  how each one ended — canceled, expired, replaced, done for day
 - **Position Tracking**: Real-time position monitoring
 
 ### 5. Trading Interface
+- **Price-Increment Validation**: A limit price is snapped to the increment the
+  instrument actually trades on before it reaches the broker. Buys round down
+  and sells round up by default, so a correction never moves the order against
+  the user; `Round down` / `Round to nearest` / `Round up` are selectable, the
+  corrected price and the rule behind it are shown before submission, and an
+  order that cannot be priced validly is blocked rather than sent
 - **Order Ticket**: Create and submit market/limit orders
 - **Paper Trading Orders**: Execute paper trades for backtesting
 - **Live Order Execution**: Submit orders to brokers
@@ -109,6 +145,7 @@ GSPS is a comprehensive trading application built with Next.js, Supabase, and Al
 - `/api/scan` - Core scanning engine
 - `/api/batch-scan` - Batch ticker scanning
 - `/api/market-scan` - Daily market scan
+- `/api/intraday-scan` - On-demand intraday momentum scan
 - `/api/bars` - OHLC bar data retrieval
 - `/api/quote` - Current price quotes
 - `/api/orders` - Order management
