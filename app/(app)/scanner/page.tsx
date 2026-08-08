@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ResultsTable, type ScanRow } from "@/components/scan/results-table";
+import { IntradayAlerts } from "@/components/scan/intraday-alerts";
 import { SECTORS, COMING_SOON } from "@/lib/sectors";
 import { cn } from "@/lib/utils";
 import type { ScanResult } from "@/lib/types";
@@ -81,6 +82,16 @@ export default function ScannerPage() {
           Choose industries or enter symbols — the protocol scans top-down from ten years to fifteen minutes.
         </p>
       </div>
+
+      {/*
+        Two scans, and the difference between them is the point. The panel below
+        is a top-down reversion screen on daily bars — it looks for setups
+        *against* an extended move, and it can only answer once a session's bars
+        have closed. It is structurally unable to notice a symbol running hard
+        right now, which is why the intraday panel exists alongside it rather
+        than as a mode inside it.
+      */}
+      <IntradayAlerts />
 
       <Card>
         <CardHeader>
