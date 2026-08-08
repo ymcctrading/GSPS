@@ -19,7 +19,8 @@
  * output as an upper bound on a strategy's quality, never a promise.
  */
 
-import type { Bar, GannLevels, ScanDecision, StratPattern, TrendReading } from "@/lib/types";
+import type { AssetClass, Bar, GannLevels, ScanDecision, StratPattern, TrendReading } from "@/lib/types";
+import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { detectPatterns, gapRuleViolated, riskFloorViolated } from "@/lib/strat/patterns";
 import { computeTradeLevels } from "@/lib/strat/levels";
 import { applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
@@ -221,6 +222,8 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     dailyBars,
   } = options;
 
+  const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
+
   const trades: ReplayTrade[] = [];
   let armed = 0;
   let triggered = 0;
@@ -262,6 +265,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
             history,
             price: lastClose,
             executionAtr,
+            assetClass,
           })
         : undefined;
 
@@ -372,8 +376,9 @@ function scoreSetup(input: {
   history: Bar[];
   price: number;
   executionAtr: number;
+  assetClass: AssetClass;
 }): ScanDecision | undefined {
-  const { pattern, dailyBars, contextByDate, date, history, price, executionAtr } = input;
+  const { pattern, dailyBars, contextByDate, date, history, price, executionAtr, assetClass } = input;
 
   let context = contextByDate.get(date);
   if (context === undefined) {
@@ -398,6 +403,7 @@ function scoreSetup(input: {
       [...context.gann.fanLines.map((f) => f.price), ...context.gann.squareOf9.map((s) => s.price)],
       undefined,
       executionAtr,
+      assetClass,
     );
   } catch {
     // A setup with no valid plan is scored without one, exactly as the scan
