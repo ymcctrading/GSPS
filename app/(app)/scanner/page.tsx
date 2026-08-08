@@ -22,6 +22,7 @@ function toRow(r: ScanResult): ScanRow {
     takeProfit1: r.levels?.takeProfit1 ?? null,
     masterProfit: r.levels?.masterProfit ?? null,
     patternName: r.pattern?.name ?? null,
+    setupKind: r.setupKind,
   };
 }
 

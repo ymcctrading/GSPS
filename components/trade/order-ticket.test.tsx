@@ -26,6 +26,8 @@ function scanWithEntry(entry: number, direction: "bullish" | "bearish" = "bullis
     scannedAt: "2026-08-07T15:33:00.000Z",
     currentPrice: entry,
     direction,
+    setupKind: "reversion",
+    momentumElevated: false,
     trends: [],
     gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleDates: [] },
     pattern: {

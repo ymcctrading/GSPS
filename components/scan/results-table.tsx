@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { ScoreBadge } from "@/components/scan/score-badge";
 import { formatUsd } from "@/lib/utils";
 
@@ -13,6 +14,7 @@ export interface ScanRow {
   takeProfit1: number | null;
   masterProfit: number | null;
   patternName?: string | null;
+  setupKind?: "reversion" | "continuation";
 }
 
 export function ResultsTable({ rows, emptyText }: { rows: ScanRow[]; emptyText?: string }) {
@@ -49,11 +51,25 @@ export function ResultsTable({ rows, emptyText }: { rows: ScanRow[]; emptyText?:
             <TD>
               <ScoreBadge score={r.score} state={r.outputState} />
             </TD>
+            {/* Four empty price columns need a reason on the row itself —
+                otherwise a scored symbol reads as a setup whose numbers failed
+                to load. No trigger armed means there is nothing to price. */}
             <TD className="text-muted">
-              {r.patternName ? `${r.patternName} ` : ""}
-              <span className={r.direction === "bullish" ? "text-bull" : r.direction === "bearish" ? "text-bear" : ""}>
-                {r.direction !== "none" ? r.direction : "—"}
-              </span>
+              {r.entry == null ? (
+                <span className="italic">no trade plan</span>
+              ) : (
+                <>
+                  {r.patternName ? `${r.patternName} ` : ""}
+                  <span className={r.direction === "bullish" ? "text-bull" : r.direction === "bearish" ? "text-bear" : ""}>
+                    {r.direction !== "none" ? r.direction : "—"}
+                  </span>
+                  {/* A continuation trades WITH the trend the rest of the list
+                      is fading, so it can't read as just another row. */}
+                  {r.setupKind === "continuation" && (
+                    <Badge variant="muted" className="ml-1.5 align-middle">continuation</Badge>
+                  )}
+                </>
+              )}
             </TD>
             <TD className="text-right font-mono">{r.entry != null ? formatUsd(r.entry) : "—"}</TD>
             <TD className="text-right font-mono text-bear">{r.stopLoss != null ? formatUsd(r.stopLoss) : "—"}</TD>

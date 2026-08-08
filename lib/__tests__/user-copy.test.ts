@@ -131,6 +131,18 @@ describe("confluence checklist copy", () => {
     }
   });
 
+  it("reads in plain language on both continuation branches", () => {
+    // The macro criterion and the pattern criterion both reword themselves for
+    // a continuation, so those four strings are outside the corpus above.
+    const withTrend: ScoreInputs = {
+      ...allPass,
+      setupKind: "continuation",
+      macroTrends: [trend("bullish"), trend("bullish"), trend("bullish")],
+    };
+    expectPlainLanguage(checklistStrings(withTrend));
+    expectPlainLanguage(checklistStrings({ ...allFail, setupKind: "continuation" }));
+  });
+
   it("reads in plain language on the downgrade note", () => {
     const decision = applyReversionConfirmation(computeScore(allPass), pattern, false, false);
     expectPlainLanguage(decision.breakdown.flatMap((item) => [item.criterion, item.note]));

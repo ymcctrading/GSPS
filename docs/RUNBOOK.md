@@ -62,6 +62,30 @@ select count(*) from daily_scans where detail ? 'setupTier';     -- expect 0
 `setupTier`/`relativeVolume`/`atrExpansion`, rows from `/api/market-scan` carry
 `pattern`/`gann`/`breakdown`.
 
+## A direction list has fewer than 15 rows
+
+Expected, not a fault. A row is only published when the execution timeframe
+armed a tradeable trigger and the plan priced out — entry, stop, TP1 and
+master profit all present. Narrow-range names (bond ETFs, thin tape) routinely
+arm nothing, and the four price columns are `NOT NULL` in `daily_scans`, so
+there is no way to pad the list with a symbol that has no plan.
+
+When a side comes up short the scan tops it up with momentum continuations:
+candidates whose daily range is expanding at least 1.2x its trailing baseline,
+still trading on the trend side of their 20-bar mean, that armed a `2-1-2` or
+`3-1-2` in the same direction the macro timeframes read. Those rows are tagged
+`continuation` in the table and in `detail.setupKind`. The scan response
+reports `continuationFills` per direction.
+
+A list that is short *and* got no continuation fills means the continuation
+gates found nothing either — a quiet, directionless tape. Check
+`shortlisted` and `universeSize` in the scan response before suspecting a
+data-provider problem.
+
+Expect short lists to be the norm rather than the exception: the risk floor
+sits at `0.75x` the execution-timeframe ATR (`MIN_RISK_ATR_FRACTION`), which
+roughly halves the setups that arm at all.
+
 ## A market-data endpoint (crypto/forex/futures) is failing
 
 1. Identify the provider from the route: `/api/crypto` → Binance,
@@ -106,22 +130,33 @@ dashboard; there's no code-side workaround.
 
 ## A deploy needs to go out
 
-Per `AGENTS.md`, deploys never happen automatically. To ship:
-1. Confirm the target branch has the intended commits merged into `main`
-   (or deploy a specific branch to preview).
-2. Explicitly request the deploy and specify **preview** or **production**.
-3. After a production deploy, spot-check `/api/market-scan` (cron auth),
-   one market-data route, and the dashboard load before considering it done.
+Deploys are automatic (`vercel.json` sets `git.deploymentEnabled: true`), so
+there is nothing to request — **merging the PR to `main` ships it**, live
+within a couple of minutes. What that means in practice:
+
+1. Verify *before* merging, against the PR's preview URL. After the merge
+   there is no gate left to catch anything.
+2. Merge only when you mean to release. A merge you intended as bookkeeping
+   is still a release.
+3. After the merge, spot-check `/api/market-scan` (cron auth), one
+   market-data route, and the dashboard load before considering it done.
+
+To get a build without shipping it, push the branch and use its preview —
+that is what previews are for.
 
 ## Rollback
 
+Fastest first: **promote the last good production deployment** from the
+Vercel dashboard (Deployments → the previous `Ready` production build →
+Promote). It is live in seconds and needs no build, which matters when the
+current build is the thing that is broken.
+
+Reverting in git is the durable fix, and redeploys on its own:
+
 ```bash
-# Revert the offending commit(s) on main
 git revert <sha>
-git push origin main
-# Then explicitly request a production redeploy — it will not happen automatically.
+git push origin main   # this redeploys production automatically
 ```
 
-Or use the Vercel dashboard to promote a previous production deployment
-directly, which is faster than a code revert when the previous build is
-known-good.
+Do both when the bad commit is staying out: promote first to stop the
+bleeding, then revert so the next merge doesn't carry it back in.

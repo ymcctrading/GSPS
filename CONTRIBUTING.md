@@ -11,10 +11,10 @@ the code.
 2. Commit with clear, descriptive messages explaining *why*, not just *what*.
 3. Push the branch, then open a pull request against `main`. This is not
    optional: per `AGENTS.md`, a PR follows every push of code changes.
-4. Merging to `main` does **not** trigger a deployment (see `AGENTS.md`,
-   `vercel.json`'s `git.deploymentEnabled: false`). A deploy is a separate,
-   explicit step — say which environment (preview or production) when you
-   want one.
+4. Merging to `main` **deploys to production automatically** (see
+   `AGENTS.md`, `vercel.json`'s `git.deploymentEnabled: true`). There is no
+   separate deploy step and no manual gate: merge when you mean to ship.
+   Pushing a branch likewise builds a preview automatically.
 
 ## Before opening a PR
 

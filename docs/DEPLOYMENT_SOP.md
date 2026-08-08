@@ -1,76 +1,70 @@
-# Deployment SOP — Three-Phase Adoption
+# Deployment SOP
 
-This document establishes the deployment workflow for GSPS across preview, staging, and production environments. All deployments are **explicit and manual** — `vercel.json` has `deploymentEnabled: false` to prevent accidental automatic deploys.
+How changes reach users in GSPS, and what to verify at each point.
+
+> **Deploys are automatic.** `vercel.json` sets `deploymentEnabled: true`:
+> pushing a branch builds a preview, and **merging to `main` deploys
+> production immediately**. There is no manual deploy step and no gate in
+> between — the merge *is* the release. Everything below is verification you
+> perform around that fact, not permission you request.
+
+There are two environments, because there are two things Vercel builds: a
+preview per branch, and production from `main`.
 
 ## Environments
 
-### Phase 1: Preview
-- **Trigger**: Manual deployment of any branch to Vercel Preview
-- **Duration**: Ephemeral per branch, destroyed when branch is deleted
-- **Use case**: Test features on a live URL before merging to main
-- **Access**: Public shareable URLs, feature-flagged to staging/prod
-- **Verification**: Basic smoke tests, visual inspection
+### Preview — every branch
+- **Trigger**: automatic on every push to any non-`main` branch
+- **Duration**: ephemeral per branch, torn down when the branch is deleted
+- **Use case**: verify a change *before* it can reach users
+- **Access**: public shareable URL, posted on the PR
+- **Verification**: the full pre-merge checklist below
 
-### Phase 2: Staging
-- **Trigger**: Manual deployment of `main` branch to staging environment
-- **Duration**: Persistent, always reflects latest merge to main
-- **Use case**: Final validation before production release
-- **Access**: Full feature set, production-like configuration
-- **Verification**: Full CI suite, integration tests, E2E validation
+### Production — `main`
+- **Trigger**: automatic on merge to `main` — the merge is the release
+- **Duration**: live, serves all users
+- **Access**: live Alpaca keys, real Supabase project, crons active
+- **Verification**: post-merge spot checks, then monitoring
 
-### Phase 3: Production
-- **Trigger**: Explicit production deploy (after staging approval)
-- **Duration**: Live, serves all users
-- **Use case**: User-facing app and API
-- **Access**: Production Alpaca keys, real user data
-- **Verification**: Post-deploy spot-checks, monitoring, incident response ready
+> **There is no staging environment.** A third "staging" phase used to be
+> documented here, defined as deploying `main` to a staging domain for final
+> validation before production. It could not work: `main` *is* production
+> now, so that validation would run against a release users were already
+> using, and the `staging.gsps.vercel.app` domain it named was never
+> configured. Its verification checklist was the valuable part and has been
+> folded into the pre-merge checklist below, where it runs against the PR's
+> preview URL and can still change the outcome. See "Future enhancements" if
+> you want a real one.
 
 ---
 
-## Phase 1: Preview Deployment
+## Phase 1: Preview (pre-merge)
 
-### When to deploy to preview
-- Testing a feature branch before opening a PR
-- Demonstrating work to stakeholders
-- Testing integrations with external APIs
-- Validating UI/UX changes
+This is the only phase where verification can still change the outcome. Once
+the PR merges, the change is live.
 
-### Deploy steps
+### Steps
 1. Push your branch to origin: `git push -u origin <branch-name>`
-2. Request preview deploy with branch name
-3. Vercel generates a preview URL: `https://<branch-name>.<project>.vercel.app`
-4. Test the feature on the live URL
-5. When branch is deleted, preview automatically tears down
+2. Vercel builds a preview automatically — no request needed
+3. The preview URL appears on the PR (also `https://<branch-name>.<project>.vercel.app`)
+4. Work through the checklist below against that URL
+5. When the branch is deleted, the preview tears down
 
-### Verification checklist
+### Smoke checks
 - [ ] App loads without errors
 - [ ] Core navigation works
 - [ ] Authentication flow succeeds
 - [ ] Market data endpoints respond
 - [ ] No console errors in browser DevTools
 
----
+### Full verification
+Run this before merging anything beyond a docs change.
 
-## Phase 2: Staging Deployment
-
-### When to deploy to staging
-- After PR is merged to `main`
-- Before any production release
-- To validate full CI suite passes on merged code
-- For final integration testing
-
-### Deploy steps
-1. Confirm PR is merged to `main`
-2. Request staging deployment with commit SHA or `main` reference
-3. Staging URL: `https://staging.gsps.vercel.app` (or configured staging domain)
-4. Run full validation suite against staging
-5. If validation fails, revert the offending commit on main and re-deploy
-
-### Verification checklist
-- [ ] All 103+ tests pass locally (already gated by CI)
-- [ ] `npx eslint` clean (no new lint errors)
+- [ ] Test suite passes (gated by CI on the PR — confirm it's green, don't assume)
+- [ ] `npm run lint` clean (no new lint errors)
+- [ ] `npx tsc --noEmit` clean
 - [ ] Build completes without errors: `npx next build`
-- [ ] Market scan cron `/api/market-scan` responds with auth header
+- [ ] Market scan `/api/market-scan` responds with the auth header
 - [ ] Portfolio API `/api/portfolio` returns account data
 - [ ] Paper trading order submission works end-to-end
 - [ ] Database migrations applied (Supabase schema current)
@@ -78,37 +72,33 @@ This document establishes the deployment workflow for GSPS across preview, stagi
 - [ ] Alpaca paper trading connection works
 - [ ] SnapTrade integration present (if keys configured)
 
-### Rollback from staging
-If staging deployment fails:
-```bash
-# 1. Identify the offending commit
-git log --oneline main | head -10
-
-# 2. Revert it
-git revert <sha>
-git push origin main
-
-# 3. Request re-deployment to staging
-```
+### Migrations need care here
+A migration applied to the production database takes effect for the *current*
+production build, not the one that merges alongside it. Applying a
+constraint before the code that satisfies it has shipped breaks production in
+the gap between the two — this has happened: migration `0006` made four
+columns `NOT NULL` while the writer still sent nulls, and every daily scan
+was rejected for days. Ship the code first, or make the migration tolerant of
+both shapes.
 
 ---
 
-## Phase 3: Production Deployment
+## Phase 2: Production (the merge)
 
-### Prerequisites
-- Staging deployment is passing all verification checks
-- Code review approval (if required)
-- Any schema migrations have been tested on staging
-- Incident response team is aware (if applicable)
+### Before you merge
+- The pre-merge checklist above is complete
+- CI is green on the PR's head commit
+- Any schema migration is ordered safely against the code (see above)
+- You actually intend to release right now
 
-### Deploy steps
-1. Confirm staging is healthy and verification checklist is complete
-2. Request production deployment with `main` reference or commit SHA
-3. Production URL: `https://gsps.vercel.app` (live user-facing app)
-4. Run post-deploy spot checks (see below)
-5. Monitor error rate and cron job execution for 30 minutes
+### What happens
+1. Merge the PR to `main`
+2. Vercel builds and promotes production automatically (a couple of minutes)
+3. Production URL: `https://gsps.vercel.app`
+4. Run the spot checks below
+5. Watch error rate and cron execution for 30 minutes
 
-### Post-deploy spot checks (5–10 minutes after deploy)
+### Post-deploy spot checks (5–10 minutes after the merge)
 ```bash
 # 1. Cron job fires successfully
 curl -H "Authorization: Bearer $CRON_SECRET" https://gsps.vercel.app/api/market-scan
@@ -148,71 +138,59 @@ curl https://gsps.vercel.app/api/quote?symbol=SPY
 
 ## Rollback from Production
 
-### Automatic rollback (safest, fastest)
-If a production deploy has a critical issue:
+**Option 1: Promote the previous build (fastest — do this first).**
+Vercel dashboard → Project → Deployments → a known-good production build →
+"Promote to Production". Live in seconds, no rebuild. This is the right first
+move when the current build is itself the problem.
 
-**Option 1: Revert code and re-deploy**
+**Option 2: Revert in git (durable).**
 ```bash
 # 1. Identify the bad commit
 git log --oneline main | head -5
 
-# 2. Revert it
+# 2. Revert it — this redeploys production automatically
 git revert <sha>
 git push origin main
-
-# 3. Request production re-deploy
-# (Vercel will build the reverted code, which is now the latest on main)
 ```
 
-**Option 2: Promote previous build directly (fastest)**
-Use Vercel dashboard → Project → Deployments → select a known-good production build → "Promote to Production". This skips code rebuild and goes live in seconds.
+Do both when the bad commit is staying out: promote to stop the bleeding,
+then revert so the next merge doesn't carry it back in.
 
 ### Rollback checklist
 - [ ] Identify root cause (code bug, config issue, external API problem)
-- [ ] Notify team if customer-facing impact
+- [ ] Notify anyone affected if there was customer-facing impact
 - [ ] If external API issue (Alpaca, Supabase down): monitor status pages, no code rollback needed
 - [ ] Re-run post-deploy spot checks after rollback
 - [ ] Post-incident review: prevent similar issues in future
 
 ---
 
-## Deployment Request Template
+## Landing a change without shipping it
 
-When requesting a deployment, provide:
+Sometimes work needs to be reviewable, or shared, without going live. Merging
+is not the way to do that any more. Options, in order of preference:
 
-```
-**Environment**: [Preview / Staging / Production]
-**Branch/Commit**: [branch-name or commit SHA]
-**Verification**: [link to passing CI / checklist completion]
-**Reason**: [why this deploy is needed]
-```
-
-Example:
-```
-**Environment**: Staging
-**Branch/Commit**: main (sha: a1b2c3d)
-**Verification**: All tests passing, PR #17 merged
-**Reason**: Deploy trade_logs population work before production release
-```
+1. **Keep it on the branch.** The preview URL is a real, shareable deployment
+   of exactly that code. This covers most cases.
+2. **Merge it inert.** Land the code behind a flag or an unreferenced module
+   so the merge ships nothing user-visible.
+3. **Turn deploys off deliberately.** Setting `deploymentEnabled: false` in
+   `vercel.json` restores manual-only deploys. If you do this, correct
+   `AGENTS.md`, `CONTRIBUTING.md`, `docs/RUNBOOK.md` and this file in the same
+   PR — that drift is what made these docs wrong for four days.
 
 ---
 
 ## Environment Configuration
 
 ### Preview
-- Uses branch-specific Vercel deployment
+- Branch-specific Vercel deployment
 - Inherits `env` from `vercel.json` + Vercel project settings
 - Can override with preview-specific env vars if needed
 - Auto-destroyed when branch is deleted
 
-### Staging
-- Permanent deployment to staging domain
-- Uses production-like config (same API keys, full feature flags)
-- Can use subset of real data (separate Supabase branch if desired)
-- Separate Alpaca paper trading account recommended
-
 ### Production
-- Permanent deployment to production domain
+- Permanent deployment to the production domain
 - Uses live Alpaca keys, real Supabase project
 - All features enabled
 - Cron jobs execute against production data
@@ -239,7 +217,7 @@ Both market-scan crons are pinned to the current production deployment:
 To add a new scheduled task:
 1. Check that total crons stay ≤ 2
 2. If more frequent than daily needed, use external scheduler (not Vercel crons)
-3. Update `vercel.json`, commit, deploy (no automatic deploy, so cron doesn't attach until you request production deploy)
+3. Update `vercel.json` and commit. The cron attaches when the change reaches production, which happens automatically on merge to `main` — verify it in Vercel → Cron Jobs after the deploy completes
 
 ---
 
@@ -251,13 +229,14 @@ To add a new scheduled task:
 - Verify branch exists and has commits beyond main
 
 ### Cron doesn't fire after deploy
-- Confirm production deployment is live (check Vercel dashboard, current build)
+- Confirm the current production deployment is the one you expect (Vercel dashboard)
 - Confirm `CRON_SECRET` is set in Vercel project env vars (not in `.env.local`)
-- Cron runs only when prod deploy is active; preview/staging deploys don't trigger crons
+- Crons run only against production; preview deploys don't trigger them
+- See `docs/RUNBOOK.md` for the `503` vs `401` distinction
 
-### Post-deploy tests fail
+### Post-deploy checks fail
 - Re-run tests locally first: `npm test`
-- Check environment variables in staging/prod are correct
+- Check production environment variables are correct
 - Confirm Supabase project isn't paused (free tier pause-on-inactivity)
 - Check Alpaca account status (paper vs. live key mismatch)
 
@@ -265,9 +244,13 @@ To add a new scheduled task:
 
 ## Future Enhancements
 
-- [ ] Automated staging validation (post-deploy test suite)
+- [ ] **A real staging environment**, if the lack of a pre-production gate
+      starts to bite. The shape that works with auto-deploy on: a long-lived
+      `staging` branch with its own stable preview alias, PRs merging there
+      first and `staging` → `main` promoting to production. The cost is two
+      merges per change, which is why it isn't set up today.
+- [ ] Automated post-deploy validation (smoke suite run against production on merge)
 - [ ] Slack notifications on deploy completion
-- [ ] Deployment approval workflow (team sign-off before prod)
 - [ ] Performance benchmarking (compare before/after metrics)
-- [ ] Database backup before production deploys
+- [ ] Database backup before migrations that drop or constrain columns
 - [ ] Canary deploy strategy (gradual rollout to percentage of users)

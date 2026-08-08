@@ -9,49 +9,81 @@ date.
 
 ## 2026-08-07
 
-### Fixed
-- **Orders placed after 31 July never reached the Portfolio.** Two independent
-  defects, both in `app/api/orders/route.ts`, and each one alone was enough to
-  produce the symptom.
+### Changed
+- **The deployment SOP drops its staging phase, and the runbook stops
+  promising manual deploys.** Two loose ends from the 2026-08-04 correction.
 
-  A rejected order left no trace anywhere. `POST` called `placeOrder` inside a
-  `try`, and the `supabase.from("orders").insert(...)` sat *after* it in the
-  same block — so a broker refusal threw straight past the insert into the
-  `catch`, which returned an error message and wrote nothing. The order had
-  never existed at the broker and now did not exist locally either. A day whose
-  orders were refused (the DRAM sub-penny rejection, for one) looked like a day
-  on which nothing had been submitted. Both paths now write a row; the
-  rejection path records `status: 'rejected'` with the broker's reason.
+  The SOP described three phases, the middle one being a staging deployment
+  of `main` to `staging.gsps.vercel.app` for final validation before
+  production. That gate cannot exist: with `deploymentEnabled: true`, `main`
+  *is* production, so validating it after merge inspects a release users are
+  already on — and the domain it named was never configured. The phase is
+  gone. Its verification checklist was the part worth keeping and now runs
+  pre-merge against the PR's preview URL, where it can still change the
+  outcome. Two phases remain: Preview (pre-merge) and Production (the merge).
+  A real staging setup is written up under Future Enhancements, with the
+  two-merges-per-change cost that is why it isn't built.
 
-  Nothing ever updated an order after insert. The `status` column was written
-  once, from `broker.status ?? "new"`, and no code path revisited it — `GET`
-  read straight out of Supabase and `lib/brokers/alpaca.ts#getOrders` was only
-  ever called by close reconciliation. Every order ever placed therefore stayed
-  Pending forever, whatever had since happened to it at the broker. "Pending
-  Positions (22)" was an archive of everything ever submitted, and the newest
-  row in it was the newest order that had ever been *accepted* — which is why
-  the list appeared to stop on a date. `lib/portfolio/order-status.ts` adds the
-  missing half: `reconcileOrders` diffs the local ledger against the broker's
-  order list on every load and writes the broker's answer back. Only working
-  rows are chased, so a settled ledger costs no broker call.
+  Also adds a "landing a change without shipping it" section, since merging
+  is no longer a way to do that, and a note on migration ordering — applying
+  a constraint before the code satisfying it has shipped is what broke the
+  daily scan for four days.
 
-- **Limit prices are validated against the instrument's increment before
-  routing.** `Invalid limit_price 49.755. sub-penny increment does not fulfill
-  minimum pricing criteria.` arrived from the broker after the user had already
-  committed to the order. `lib/trade/tick-size.ts` applies SEC Rule 612 for
-  shares ($0.01 at or above $1.00, $0.0001 below) and the OPRA increments for
-  contracts ($0.05 below $3.00, $0.10 at or above, $0.01 only for a class the
-  broker confirms trades in pennies), snaps the price, and blocks submission
-  when no valid price can be produced or the instrument's metadata is missing.
+  `docs/RUNBOOK.md` still had two sections claiming deploys never happen
+  automatically and that a redeploy must be requested after a revert. Both
+  now describe automatic deploys, and rollback leads with promoting the last
+  good build rather than reverting, which is faster when the current build is
+  the broken thing.
 
-  The default rounding is conservative by side: a buy rounds down so the fill
-  can never be above the price asked for, a sell rounds up so it can never be
-  below. The ticket states the corrected price, the rule behind it, and what
-  the rounding costs in fill probability — and repeats the corrected number on
-  the button, so it cannot be pressed unseen. `Round down` / `Round to nearest`
-  / `Round up` are selectable per order.
+## 2026-08-06
+
+- **The Portfolio's order ledger splits by asset type.** One table served both
+  shares and contracts, so every equity row rendered four Greek columns filled
+  with em dashes — which reads as "these failed to load" rather than "shares do
+  not have a Delta". Shares and contracts now render separate tables with their
+  own columns, and option Greeks sit behind a `Show Greeks` toggle that starts
+  closed. Both layouts render as cards below the `sm` breakpoint so a phone
+  reads top-to-bottom instead of scrolling a fifteen-column grid sideways.
+
+- **Pending orders sort on the broker-accepted time**, falling back to local
+  placement time. The two diverge exactly when it matters: an order queued
+  before the open is accepted at 09:30, hours after it was placed. Ties break
+  on row id so the order does not shuffle between renders.
+
+- **Order statuses render normalized labels.** `accepted_for_bidding` means
+  nothing to a first-time user; the six user-facing states are Pending,
+  Partially filled, Filled, Rejected, Cancelled and Sync error, each with a
+  plain-language description. An unrecognized broker status becomes Sync error
+  rather than silently landing in a bucket that looks fine.
 
 ### Added
+- **A per-candle readout on the chart.** Hovering a candle now reports that
+  bar's numbers in a panel docked to the top-left of the price pane: date and
+  timeframe, the percentage change across the bar, O/H/L/C in a 2×2 grid, and
+  two measure rows — range and volume.
+
+  The measure rows carry the part that reading four prices does not give you
+  quickly. Range plots the bar's low→high as a track with the open→close body
+  drawn inside it and a notch where the close landed, so "long upper wick,
+  closed on the lows" is a shape rather than an arithmetic exercise; a doji
+  still shows a sliver. Volume is drawn against its own trailing 20-bar
+  average with the 1× mark ruled on the track, which is the only way a volume
+  number means anything without the chart's volume study open. The average
+  covers the bars *behind* the current one — including it would pull the
+  baseline toward the very spike the ratio exists to reveal.
+
+  Docked rather than floating on the crosshair: a panel that chases the
+  pointer covers the candles either side of the one it describes, which is the
+  context you are reading it against, and on a phone it would sit under the
+  thumb. With the pointer off the chart it idles on the newest bar and tracks
+  the live close, so it doubles as a legend.
+
+  The maths lives in `lib/chart/readout.ts`, apart from the chart component
+  and under test — a body percentage that divides by a zero-range bar, or a
+  change taken against the wrong bar, is a wrong number shown with full
+  confidence. It indexes the bars actually on screen, so a candle hidden by
+  the extended-hours toggle can never be the one reported.
+
 - **Open positions carry the moment they were first opened.** Derived in
   `lib/portfolio/opened-at.ts` from the broker's fill activities, not from an
   order's placement time — a limit order can rest for days before it fills, and
@@ -105,25 +137,47 @@ date.
   few minutes cannot come from `vercel.json`. The panel refreshes while it is
   open and the footer says so.
 
-### Changed
-- **The Portfolio's order ledger splits by asset type.** One table served both
-  shares and contracts, so every equity row rendered four Greek columns filled
-  with em dashes — which reads as "these failed to load" rather than "shares do
-  not have a Delta". Shares and contracts now render separate tables with their
-  own columns, and option Greeks sit behind a `Show Greeks` toggle that starts
-  closed. Both layouts render as cards below the `sm` breakpoint so a phone
-  reads top-to-bottom instead of scrolling a fifteen-column grid sideways.
+### Fixed
+- **Orders placed after 31 July never reached the Portfolio.** Two independent
+  defects, both in `app/api/orders/route.ts`, and each one alone was enough to
+  produce the symptom.
 
-- **Pending orders sort on the broker-accepted time**, falling back to local
-  placement time. The two diverge exactly when it matters: an order queued
-  before the open is accepted at 09:30, hours after it was placed. Ties break
-  on row id so the order does not shuffle between renders.
+  A rejected order left no trace anywhere. `POST` called `placeOrder` inside a
+  `try`, and the `supabase.from("orders").insert(...)` sat *after* it in the
+  same block — so a broker refusal threw straight past the insert into the
+  `catch`, which returned an error message and wrote nothing. The order had
+  never existed at the broker and now did not exist locally either. A day whose
+  orders were refused (the DRAM sub-penny rejection, for one) looked like a day
+  on which nothing had been submitted. Both paths now write a row; the
+  rejection path records `status: 'rejected'` with the broker's reason.
 
-- **Order statuses render normalized labels.** `accepted_for_bidding` means
-  nothing to a first-time user; the six user-facing states are Pending,
-  Partially filled, Filled, Rejected, Cancelled and Sync error, each with a
-  plain-language description. An unrecognized broker status becomes Sync error
-  rather than silently landing in a bucket that looks fine.
+  Nothing ever updated an order after insert. The `status` column was written
+  once, from `broker.status ?? "new"`, and no code path revisited it — `GET`
+  read straight out of Supabase and `lib/brokers/alpaca.ts#getOrders` was only
+  ever called by close reconciliation. Every order ever placed therefore stayed
+  Pending forever, whatever had since happened to it at the broker. "Pending
+  Positions (22)" was an archive of everything ever submitted, and the newest
+  row in it was the newest order that had ever been *accepted* — which is why
+  the list appeared to stop on a date. `lib/portfolio/order-status.ts` adds the
+  missing half: `reconcileOrders` diffs the local ledger against the broker's
+  order list on every load and writes the broker's answer back. Only working
+  rows are chased, so a settled ledger costs no broker call.
+
+- **Limit prices are validated against the instrument's increment before
+  routing.** `Invalid limit_price 49.755. sub-penny increment does not fulfill
+  minimum pricing criteria.` arrived from the broker after the user had already
+  committed to the order. `lib/trade/tick-size.ts` applies SEC Rule 612 for
+  shares ($0.01 at or above $1.00, $0.0001 below) and the OPRA increments for
+  contracts ($0.05 below $3.00, $0.10 at or above, $0.01 only for a class the
+  broker confirms trades in pennies), snaps the price, and blocks submission
+  when no valid price can be produced or the instrument's metadata is missing.
+
+  The default rounding is conservative by side: a buy rounds down so the fill
+  can never be above the price asked for, a sell rounds up so it can never be
+  below. The ticket states the corrected price, the rule behind it, and what
+  the rounding costs in fill probability — and repeats the corrected number on
+  the button, so it cannot be pressed unseen. `Round down` / `Round to nearest`
+  / `Round up` are selectable per order.
 
 ### Database
 - `supabase/migrations/0008_order_lifecycle_reconciliation.sql` adds
@@ -134,6 +188,7 @@ date.
   `last_synced_at` reads as "never synced" and the reconciler picks the row up
   on the next load. Rollback is a `drop column if exists` per column — no
   existing column is altered and no data is rewritten.
+
 
 ## 2026-08-05
 
@@ -171,8 +226,39 @@ date.
   could reach — sections landing in the right panel, empty states, collapse
   toggles, disposition sub-groups — is covered in
   `app/(app)/portfolio/page.test.tsx`.
+- **Momentum continuations top up a short direction list.** Refusing to publish
+  a row without a trade plan can leave a side with fewer than 15 setups. Rather
+  than pad it back out with symbols that have nothing to enter against, the
+  daily scan reads a second candidate pool off the same daily bars: trends whose
+  range is expanding at least 1.2x its trailing baseline, still holding the
+  trend side of their 20-bar mean, with volume behind the move. When — and only
+  when — a direction comes up short, the highest-momentum of those are scanned
+  with a continuation preference and appended if they arm a `2-1-2` or `3-1-2`
+  running the same way the macro timeframes read. `scanTicker` takes an optional
+  `ScanPreference` so the pattern chosen, the plan priced from it and the macro
+  criterion it is scored on all describe the same trade; a continuation is
+  credited for a macro trend running *with* it, where a reversion is credited
+  for one running against it. Continuation rows are tagged in the table, carry
+  `detail.setupKind`, and are reported per direction as `continuationFills` in
+  the scan response. Top-up scans are capped at 24 and split across short sides.
+  This matters more now that `MIN_RISK_ATR_FRACTION` sits at `0.75`: roughly
+  half as many setups arm, so a side comes up short far more often.
 
 ### Fixed
+- **"Execute" now always has an order to place.** Seven of the nine confluence
+  criteria are context — macro trend, structure, cycles, momentum — and could
+  all pass with no pattern armed and no levels computed, scoring 7/9 and
+  rendering as Execute with nothing to enter against. Without a priced plan the
+  state is held at Watch, with the reason appended to the breakdown.
+- **The pattern criterion is named after the trade it describes.** A `2-1-2`
+  carrying a trend was scored under "Reversal pattern armed" — the opposite
+  trade. Both the criterion and its failing note follow the setup kind.
+- **Rows stored before the filter existed no longer render.** `getDailyScans`
+  drops any row missing one of the four prices, so the lists correct themselves
+  without waiting for the next scan.
+- **Empty price columns say why.** A results-table row with no plan reads
+  "no trade plan" in the setup column, so four em-dashes can't be mistaken for
+  prices that failed to load.
 - **The daily scan could not save.** Migration `0006` (four price columns
   `NOT NULL`) was applied to production on 2026-08-04 while the writer still
   sent rows with null levels, so Postgres rejected every batch with `23502`
@@ -212,6 +298,19 @@ date.
   source lives at `supabase/functions/daily-scan/index.ts` rather than only in
   the Supabase dashboard — running unversioned code against this database is
   how the mock prices survived unnoticed for two weeks.
+
+## 2026-08-04
+
+### Changed
+- **Automatic deploys are back on, and the docs now say so.** `vercel.json`
+  was flipped to `"git": {"deploymentEnabled": true}` on 2026-08-03, which
+  reversed the 2026-08-01 entry below: pushing a branch builds a preview
+  again, and **merging to `main` deploys production immediately**. Four
+  documents still described the old manual-only workflow and have been
+  corrected — `AGENTS.md`, `CONTRIBUTING.md`, `docs/RUNBOOK.md` and
+  `docs/DEPLOYMENT_SOP.md`. The practical consequence, now stated in each:
+  a merge to `main` *is* a release, so review and verification have to
+  happen before the merge, not between merge and deploy.
 
 ## 2026-08-01
 
