@@ -152,11 +152,13 @@ function Measure({
  * lows" without the reader differencing four numbers in their head.
  */
 function RangeStrip({ readout, tint }: { readout: CandleReadout; tint: string }) {
-  const { low, open, close, range } = readout;
+  const { low, open, close, range, closePosition } = readout;
   const pos = (price: number) => (range === 0 ? 50 : ((price - low) / range) * 100);
   const bodyLeft = Math.min(pos(open), pos(close));
   const bodyWidth = Math.max(Math.abs(pos(close) - pos(open)), 1.5); // a doji still shows
-  const closeAt = pos(close);
+  // The readout already located the close inside the range, zero-range bars
+  // included — recomputing it here would be a second definition to keep in step.
+  const closeAt = closePosition * 100;
 
   return (
     <div className="relative h-2 w-full rounded-sm bg-border/60">

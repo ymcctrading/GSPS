@@ -28,11 +28,14 @@ describe("buildReadout", () => {
     expect(r.direction).toBe("down");
   });
 
-  it("marks a close at the high and at the low", () => {
+  it("marks a close at the high, at the low, and part-way up", () => {
     const high = buildReadout([bar({ time: 1, low: 9, high: 11, close: 11 })], 0)!;
     const low = buildReadout([bar({ time: 1, low: 9, high: 11, close: 9 })], 0)!;
+    const mid = buildReadout([bar({ time: 1, low: 9, high: 11, close: 10.5 })], 0)!;
     expect(high.closePosition).toBeCloseTo(1);
     expect(low.closePosition).toBeCloseTo(0);
+    // The range strip renders this directly as a percentage across the track.
+    expect(mid.closePosition).toBeCloseTo(0.75);
   });
 
   it("survives a zero-range bar instead of dividing by it", () => {
