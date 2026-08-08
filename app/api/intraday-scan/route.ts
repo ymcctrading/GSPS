@@ -27,8 +27,11 @@ import {
   etDateKey,
   scanIntraday,
   volumeBaseline,
+  type Alert,
   type AssetKind,
+  type Direction,
   type ScannerConfig,
+  type SignalType,
   type SymbolInput,
 } from "@/lib/scanner/intraday";
 import type { Bar } from "@/lib/types";
@@ -38,6 +41,30 @@ export const maxDuration = 120;
 /** Sessions of history behind the relative-volume baseline and the daily ATR. */
 const BASELINE_DAYS = 12;
 const DAILY_ATR_DAYS = 45;
+
+/**
+ * `intraday_alerts` (migration 0008) was shaped for the confluence scan, so
+ * three of its columns carry intraday values under names that don't say so.
+ * The mapping is stated once, here, and used by both the read and the write —
+ * a round trip that disagrees with itself would silently disable the cooldown.
+ *
+ *   signal_id            ← the signal mode ("unusual_volume", …). Also what
+ *                          makes the table's (user, symbol, signal_id,
+ *                          poll_cycle_timestamp) key mean one row per
+ *                          symbol+mode per scan, which is the grain we want.
+ *   signal_type          ← direction, in the vocabulary its CHECK allows
+ *                          ("up" → bullish, "down" → bearish).
+ *   poll_cycle_timestamp ← when the scan ran; the cooldown's clock.
+ *
+ * `score` is NOT NULL and bounded 0–9, but an intraday alert carries a 0–100
+ * confidence. It is banded to fit and the true value kept in `metadata`.
+ */
+type PriorAlert = NonNullable<SymbolInput["lastAlerts"]>[number];
+
+const DIRECTION_TO_SIGNAL_TYPE: Record<Direction, string> = { up: "bullish", down: "bearish" };
+
+/** How far back the cooldown can possibly look, whatever `cooldownMinutes` is. */
+const COOLDOWN_LOOKBACK_HOURS = 24;
 
 /** Bounded so a hand-typed symbol list can't turn into an unbounded fan-out. */
 const MAX_SYMBOLS = 25;
@@ -60,8 +87,17 @@ export async function GET(req: NextRequest) {
   const todayEt = etDateKey(now);
   const nowEtMinute = etParts(now).minutes;
 
-  const inputs = await mapWithConcurrency(universe, 4, (entry) =>
-    buildInput(entry, todayEt, provider),
+  // Cooldown history for the whole universe in one query rather than one per
+  // symbol — the fan-out is already bounded at MAX_SYMBOLS, and a round trip
+  // per symbol would dominate the scan's latency.
+  const priorAlerts = await loadPriorAlerts(
+    supabase,
+    universe.map((u) => u.symbol),
+    now,
+  );
+
+  const inputs = await mapWithConcurrency(universe, 4, async (entry) =>
+    buildInput(entry, todayEt, provider, priorAlerts.get(entry.symbol) ?? []),
   );
 
   const resolved = inputs.filter((i): i is SymbolInput => i !== null);
@@ -71,8 +107,15 @@ export async function GET(req: NextRequest) {
 
   const output = scanIntraday(resolved, config, now);
 
+  // Persisting the alerts is what makes the cooldown survive across runs, but
+  // it is not what the caller asked for. A write failure must not discard a
+  // scan that already succeeded — it is reported alongside the result and the
+  // cooldown degrades to within-run only, which is where it was before.
+  const alertsPersisted = await persistAlerts(supabase, user.id, output.alerts, resolved);
+
   return NextResponse.json({
     ...output,
+    alertsPersisted,
     // Freshness and provenance travel with the result. A scan run against the
     // synthetic demo provider must never be presentable as a live one.
     dataSource: provider.name,
@@ -142,6 +185,97 @@ function resolveConfig(params: URLSearchParams): ScannerConfig {
 }
 
 type Provider = ReturnType<typeof getMarketDataProvider>;
+type Supabase = Awaited<ReturnType<typeof createClient>>;
+
+/**
+ * Every symbol's recent alerts, in one query, keyed by symbol.
+ *
+ * Rows are scoped to the signed-in user by RLS; the explicit `user_id` filter
+ * says so at the call site rather than relying on a policy defined elsewhere.
+ * A read failure yields an empty map — the cooldown then suppresses nothing,
+ * which shows a duplicate alert rather than hiding a real one.
+ */
+async function loadPriorAlerts(
+  supabase: Supabase,
+  symbols: string[],
+  now: Date,
+): Promise<Map<string, PriorAlert[]>> {
+  const bySymbol = new Map<string, PriorAlert[]>();
+  if (symbols.length === 0) return bySymbol;
+
+  const since = new Date(now.getTime() - COOLDOWN_LOOKBACK_HOURS * 3600_000).toISOString();
+  const { data, error } = await supabase
+    .from("intraday_alerts")
+    .select("symbol, signal_id, signal_type, poll_cycle_timestamp")
+    .in("symbol", symbols)
+    .gte("poll_cycle_timestamp", since)
+    .order("poll_cycle_timestamp", { ascending: false });
+
+  if (error || !data) return bySymbol;
+
+  for (const row of data) {
+    const prior: PriorAlert = {
+      type: row.signal_id as SignalType,
+      direction: row.signal_type === "bearish" ? "down" : "up",
+      at: row.poll_cycle_timestamp,
+    };
+    const existing = bySymbol.get(row.symbol);
+    if (existing) existing.push(prior);
+    else bySymbol.set(row.symbol, [prior]);
+  }
+  return bySymbol;
+}
+
+/**
+ * Record this run's alerts so the cooldown outlives the request.
+ *
+ * One statement for the batch, and failure is reported rather than thrown: the
+ * scan the caller asked for has already succeeded by this point, and losing it
+ * to a bookkeeping write would repeat the fault that stopped the daily scan
+ * saving for four days.
+ */
+async function persistAlerts(
+  supabase: Supabase,
+  userId: string,
+  alerts: Alert[],
+  inputs: SymbolInput[],
+): Promise<boolean> {
+  if (alerts.length === 0) return true;
+
+  const intervalBySymbol = new Map(inputs.map((i) => [i.symbol, i.barIntervalMinutes]));
+
+  const rows = alerts.map((alert) => ({
+    user_id: userId,
+    symbol: alert.symbol,
+    signal_id: alert.type,
+    alert_type: "new_signal",
+    // 0–100 confidence banded into the column's 0–9 range; the unrounded value
+    // travels in metadata so nothing depends on the lossy copy.
+    score: Math.max(0, Math.min(9, Math.round((alert.confidence / 100) * 9))),
+    signal_type: DIRECTION_TO_SIGNAL_TYPE[alert.direction],
+    timeframe: intervalBySymbol.get(alert.symbol) === 5 ? "5m" : "1m",
+    entry_level: alert.move.current,
+    stop_loss_level: alert.invalidation,
+    take_profit_1_level: alert.continuationPlan.firstTarget,
+    poll_cycle_timestamp: alert.triggerTime,
+    metadata: {
+      confidence: alert.confidence,
+      direction: alert.direction,
+      relativeVolume: alert.relativeVolume,
+      dataTimestamp: alert.dataTimestamp,
+    },
+  }));
+
+  const { error } = await supabase
+    .from("intraday_alerts")
+    .upsert(rows, { onConflict: "user_id,symbol,signal_id,poll_cycle_timestamp" });
+
+  if (error) {
+    console.error("[intraday-scan] could not persist alerts:", error);
+    return false;
+  }
+  return true;
+}
 
 /**
  * Assemble one symbol's scan input from three bar series.
@@ -158,6 +292,7 @@ async function buildInput(
   entry: { symbol: string; kind: AssetKind },
   todayEt: string,
   provider: Provider,
+  lastAlerts: PriorAlert[],
 ): Promise<SymbolInput | null> {
   const { symbol, kind } = entry;
   const assetClass = kind === "crypto" ? "crypto" : "us_equity";
@@ -196,10 +331,7 @@ async function buildInput(
       // actually received.
       volumeBaseline: volumeBaseline(baselineBars, etParts(new Date(last.t)).minutes, todayEt),
       dailyAtr: dailyBars.length > 2 ? atr(dailyBars.slice(-20), 14) : null,
-      // Alerts are not persisted yet, so nothing is suppressed across runs.
-      // Within a run, each symbol is evaluated once. See the deferred-work note
-      // in the route's response contract.
-      lastAlerts: [],
+      lastAlerts,
     };
   } catch {
     return null;

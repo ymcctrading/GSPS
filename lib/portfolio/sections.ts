@@ -179,6 +179,10 @@ export function classifyOrder(
   if (PENDING_STATUSES.has(status)) return "pending";
   if (status === "filled") {
     if (held === null) return "open";
+    // Whether the symbol is still held is the whole answer, on either side. A
+    // filled sell that leaves nothing held closed the position; one that leaves
+    // something held is a partial exit, or a short that is now the position —
+    // both still open. The buy cases fall the same way, so side adds nothing.
     return held.has(order.symbol?.toUpperCase() ?? "") ? "open" : "closed";
   }
   return "pending";

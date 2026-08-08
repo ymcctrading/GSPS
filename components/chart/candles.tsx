@@ -144,6 +144,8 @@ export function CandleChart({
   const [hoverTime, setHoverTime] = useState<number | null>(null);
 
   // ---- Indicator toggles
+  // Volume is hidden by default to preserve screen space on mobile, but users
+  // can enable it via the toggle chip below the timeframes.
   const [overlays, setOverlays] = useState<Set<Overlay>>(new Set());
   const [studies, setStudies] = useState<Set<Study>>(new Set());
 
