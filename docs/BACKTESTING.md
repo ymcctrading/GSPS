@@ -81,13 +81,20 @@ worth recording, because both failure modes look like working code.
 `rewardToRiskTp1 >= 2` holds on every well-formed pattern. Every score was
 inflated by one and the criterion discriminated nothing.
 
-**Scoring TP1's structural branch instead was no better — it can never pass.**
-Every pattern sets its trigger a penny beyond the signal candle's extreme and
-its stop a penny beyond the other side, so `risk` *is* that candle's range. For
-the structural branch to win, the **previous** candle's extreme would have to sit
-more than two of those ranges beyond it. Measured over 6,362 armed setups it
-fired **zero** times. That change turned a point nobody could lose into one
-nobody could win — the same defect mirrored, and it cut `Execute` by 76%.
+**Scoring TP1's structural branch instead was no better — it essentially never
+passed.** Every pattern sets its trigger a penny beyond the signal candle's
+extreme and its stop a penny beyond the other side, so `risk` is close to that
+candle's range. For the structural branch to win, the **previous** candle's
+extreme would have to sit more than two of those ranges beyond it. Measured
+against the flat 2R floor over 6,362 armed setups it fired **zero** times. That
+change turned a point nobody could lose into one nobody could win — the same
+defect mirrored, and it cut `Execute` by 76%.
+
+That measurement is now historical: TP1 moved to asset-class multiples (1.5R for
+equities and crypto), which lowers the bar the structural extreme has to clear
+and makes the branch reachable. **Nobody has re-measured how often it fires**, so
+do not resurrect it as a criterion on the assumption that it now varies — check
+first, with the tool below.
 
 **What works is the master target.** It snaps to a support or harmonic level when
 one sits in range and falls back to a plain 3R projection when none does — about

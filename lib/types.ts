@@ -65,18 +65,21 @@ export interface TradeLevels {
   entry: number;
   stopLoss: number;
   takeProfit1: number;
-  masterProfit: number;
+  takeProfit2: number; // Runner target, scaled per asset class
+  masterProfit: number; // Alias for takeProfit2 (for backward compatibility)
   riskPerShare: number;
   rewardToRiskTp1: number;
-  rewardToRiskMaster: number;
+  rewardToRiskTp2: number;
+  rewardToRiskMaster: number; // Alias for rewardToRiskTp2 (for backward compatibility)
   /**
-   * True when the master target snapped to a Gann or harmonic level in range
-   * rather than falling back to the plain 3R default — i.e. a structural level
-   * confirms the target; it was not merely projected from risk.
+   * True when the master target snapped to a support or harmonic level in range
+   * rather than falling back to the asset class's default runner multiple — i.e.
+   * a structural level confirms the target; it was not merely projected from
+   * risk.
    *
    * Recorded as a flag rather than inferred by comparing `masterProfit` against
-   * 3R, because that comparison is float arithmetic on bar prices and would
-   * flip on rounding noise. This reports which branch actually ran.
+   * that default, because the comparison is float arithmetic on bar prices and
+   * would flip on rounding noise. This reports which branch actually ran.
    */
   masterFromStructure: boolean;
   /** Warning when the structural stop is outside the recommended 12–18% band. */
