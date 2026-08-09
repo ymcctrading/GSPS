@@ -186,6 +186,17 @@ describe("persistDailyScans", () => {
     expect(calls).toEqual([]);
   });
 
+  it("prunes a direction entirely when the new scan wrote nothing for it", async () => {
+    const { client, calls } = fakeClient();
+
+    // Only bullish rows this run — bearish came up empty.
+    const outcome = await persistDailyScans(client, "2026-08-05", [row("bullish", 1)]);
+
+    expect(outcome).toEqual({ persisted: true, count: 1, error: null });
+    expect(calls).toContain("delete.eq:bearish");
+    expect(calls).toContain("delete.gt:0"); // no bearish survivors this run — clear all of them
+  });
+
   it("still reports success when only the stale-tail prune fails", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { client } = fakeClient({ pruneError: { message: "timeout", code: "57014" } });

@@ -190,18 +190,6 @@ export async function scanTicker(
     const baselineAtr = atr(daily.slice(-100, -20), 14);
     const momentumElevated = baselineAtr > 0 && recentAtr / baselineAtr >= 1.2;
 
-    // Volume sufficiency: recent average vs. longer baseline. Low-volume stocks
-    // are only acceptable if momentum (volatility) is elevated.
-    const recentVolumes = daily.slice(-20).map((b) => b.v);
-    const recentAvgVolume = recentVolumes.length > 0
-      ? recentVolumes.reduce((sum, v) => sum + v, 0) / recentVolumes.length
-      : 0;
-    const baselineVolumes = daily.slice(-100, -20).map((b) => b.v);
-    const baselineAvgVolume = baselineVolumes.length > 0
-      ? baselineVolumes.reduce((sum, v) => sum + v, 0) / baselineVolumes.length
-      : 0;
-    const volumeRatio = baselineAvgVolume > 0 ? recentAvgVolume / baselineAvgVolume : 1.0;
-
     const decision = applyReversionConfirmation(
       computeScore({
         direction: scoreDirection,
@@ -213,7 +201,6 @@ export async function scanTicker(
         momentumElevated,
         levels,
         setupKind,
-        volumeRatio,
       }),
       pattern,
       momentumElevated,
