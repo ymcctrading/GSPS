@@ -48,7 +48,8 @@ npx vitest      # run the test suite — see docs/TESTING.md
 - `AGENTS.md` — instructions for AI coding agents working in this repo (deploy rules, cron limits, git workflow)
 - `IMPLEMENTATION.md` — system architecture, data flow, key algorithms
 - `FEATURES.md` — feature documentation
-- `BACKLOG.md` — roadmap
+- `ROADMAP.md` — the governing product roadmap and PRD: phases, priorities, metrics
+- `BACKLOG.md` — unscheduled idea pool (candidates; `ROADMAP.md` decides what ships)
 - `CHANGELOG.md` — release history
 - `SECURITY.md` — how secrets and credentials are handled, and what to do if one leaks
 - `docs/MULTI_PROVIDER_SETUP.md` — market-data provider architecture and setup

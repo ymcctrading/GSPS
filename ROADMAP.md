@@ -1,0 +1,462 @@
+# GSPS Product Roadmap & PRD
+
+**Status:** Active — this is the governing roadmap for GSPS.
+**Horizon:** 12 months from August 2026.
+**Last updated:** 2026-08-09.
+
+This document decides *what we build next and in what order*. Proposals and
+implementation work should trace back to a phase below. See
+"[Using this document](#using-this-document)" at the end for how it interacts
+with `BACKLOG.md` and how to change it.
+
+---
+
+## Vision
+
+**Become the trusted platform for traders who combine structural analysis with
+disciplined risk management.** GSPS differentiates on pattern accuracy,
+real-time scanning, and multi-broker flexibility — a tool traders depend on for
+both signal discovery and execution.
+
+| | |
+|---|---|
+| Core differentiator | Structural analysis |
+| Primary revenue driver | Premium alerts |
+| Initial market | US equities |
+| Horizon | 12 months |
+
+---
+
+## Current State Assessment
+
+### What's built
+
+- **Core engine (production)** — Structural analysis engine (Gann fans,
+  geometric price levels, time cycles), pattern recognition, multi-timeframe
+  support (1m–1y), real-time charting via Lightweight Charts.
+- **Trading infrastructure (production)** — Paper trading via Alpaca, live
+  trading, broker order reconciliation, portfolio tracking with position
+  grouping, option Greeks, price-increment validation.
+- **Data pipeline (mature)** — Multi-provider architecture (Alpaca, Binance,
+  Oanda, Twelve Data, Polygon), intraday momentum scanner, daily market scans,
+  per-symbol audit trail for non-alerts, explained alerts with invalidation
+  levels.
+- **Platform (beta)** — Supabase auth and storage, Vercel hosting (Hobby tier,
+  2 crons/day cap), SnapTrade multi-broker linking, settings and watchlists.
+
+### Strengths to build on
+
+- Accurate signal engine with explainable logic and tuned scoring
+- Risk-first design across order management and position tracking
+- Multi-broker foundation (Alpaca + SnapTrade)
+- Real-time capability and charting parity with professional tools
+- Documentation depth, which sustains feature velocity
+
+### Critical gaps
+
+| Gap | Consequence |
+|---|---|
+| Notification system | Alerts exist but cannot reach users |
+| Performance analytics | No win rate, Sharpe, or drawdown tracking |
+| Advanced order types | No stop-loss, take-profit, or bracket orders |
+| Backtesting | Signals cannot be validated against history |
+| Mobile presence | Desktop-only; no trading on the go |
+
+---
+
+## North Star Metrics
+
+| Metric | Target | Definition |
+|---|---|---|
+| User retention | 80% | Monthly active: returned within the past 30 days |
+| Pattern accuracy | 65%+ | Win rate on signals within 5 days of alert (baseline ~55%) |
+| Feature adoption | 60% | Active users executing ≥1 trade per month |
+| System uptime | 99.5% | Measured at the data-pipeline level; broker downtime excluded |
+| Signal latency | <2s | Alert trigger to delivery, across all channels |
+| NPS | 45+ | Quarterly survey |
+
+---
+
+## Q1 — Months 0–3: Monetization & Retention Foundation
+
+**Aug 2026 – Oct 2026**
+
+### Strategic goals
+
+- **Enable real-time alerts** — notifications are the primary conversion lever
+  from free to paying.
+- **Prove signal quality** — performance analytics shows historical accuracy
+  and builds trust.
+- **Reduce friction** — improve onboarding, broker linking, and execution UX.
+
+### Initiatives
+
+- **Notification system** — email, SMS, and browser push for high-confidence
+  alerts. Quiet hours, scheduling, alert history dashboard.
+- **Portfolio analytics dashboard** — win/loss ratio, Sharpe ratio, drawdown
+  analysis, monthly/quarterly P&L, performance by pattern type.
+- **Conditional orders** — stop-loss and take-profit on any order; the
+  foundation for Q2 bracket orders.
+- **Improved onboarding** — glossary integration, pattern education,
+  guided paper-trade walkthrough.
+- **Mobile-responsive dashboard** — not a native app yet, but positions and
+  alerts must be usable on phones and tablets.
+- **Technical indicators (phase 1)** — SMA, EMA, RSI, MACD as chart overlays.
+  Visible for analysis; not yet alert factors.
+
+### Dependencies
+
+Notification provider (SendGrid; Twilio for SMS/push). Backtest framework
+(local history replay). Supabase performance-query optimization.
+
+### Outcome
+
+Paid tier launches on an alert-based pricing model. First 20–30 paying users.
+Portfolio analytics drives retention and trust.
+
+---
+
+## Q2 — Months 3–6: Differentiation & Scale Foundation
+
+**Nov 2026 – Jan 2027**
+
+### Strategic goals
+
+- **Prove backtesting accuracy** — validate signals against history and improve
+  scoring from the data.
+- **Expand market coverage** — crypto, forex, and futures as separate scanners.
+- **Scale safely** — infrastructure hardening, caching, and query optimization
+  for 100+ concurrent users.
+- **Deepen engagement** — advanced order types, strategy templates, and the
+  risk dashboard drive feature adoption.
+
+### Initiatives
+
+- **Backtesting engine** — walk-forward testing, Monte Carlo simulation,
+  parameter sensitivity. Replay the scanner against 2 years of history; surface
+  win rate and expectancy per pattern.
+- **Advanced order types** — bracket orders (entry + stop + target), trailing
+  stops, one-cancels-other (OCO), with live paper-trading support.
+- **Crypto scanner** — separate scan queue for BTC, ETH, and major alts.
+  Adapted timeframes (4h, 1d focus) on Binance data.
+- **Forex scanner** — major pairs (EURUSD, GBPUSD, …) with structural analysis
+  on Oanda data.
+- **Risk dashboard** — position-sizing calculator, max daily loss enforcement,
+  correlation-based position warnings, VIX tracking.
+- **Performance replay UI** — replay past scans, compare alerts across dates,
+  see what would have been caught.
+- **Database optimization** — indexing for scan queries, caching for frequent
+  chart requests, query-plan review.
+
+### Dependencies
+
+**Hard:** working backtesting engine (needed to understand signal quality);
+crypto/forex data feeds; Redis cache on the Vercel Pro tier.
+**Soft:** backtest results should feed back into alert scoring.
+
+### Outcome
+
+Backtest data supports public accuracy claims. Crypto/forex scanners broaden
+the audience. Risk dashboard becomes a differentiator. 50–80 paying users.
+
+---
+
+## Q3 — Months 6–9: Mobile & Community
+
+**Feb 2027 – Apr 2027**
+
+### Strategic goals
+
+- **Mobile-first users** — a native app captures on-the-go traders; push
+  notifications drive engagement.
+- **Community engagement** — shared watchlists, leaderboards, and trade
+  journals build network effects.
+- **Expand broker support** — Interactive Brokers and Schwab open access to
+  larger accounts.
+
+### Initiatives
+
+- **React Native mobile app** — iOS and Android. Alerts, quick order entry,
+  position viewing, chart browsing, notifications.
+- **Trade journal & social** — notes on closed trades, shared watchlists,
+  follow expert traders, opt-in public leaderboards.
+- **Interactive Brokers API** — account linking, order execution, portfolio
+  sync.
+- **Sector & market breadth scanning** — sector rotation signals, put/call
+  ratio analysis, market heat map.
+- **Dashboard customization** — drag-and-drop widgets, saved layouts, custom
+  themes (dark/light).
+- **Alternative data** — news feed, sentiment indicators, macro calendars
+  linked to alerts.
+- **Email & in-app analytics** — weekly digest of top signals, performance
+  summary, personalized recommendations.
+
+### Dependencies
+
+**Hard:** mobile framework choice (React Native vs. Flutter); App Store and
+Google Play developer accounts.
+**Soft:** community features need moderation and anti-spam guardrails.
+
+### Outcome
+
+Mobile drives a 2–3x increase in daily active users. Community features create
+stickiness and word-of-mouth. 150–200 paying users.
+
+---
+
+## Q4 — Months 9–12: Enterprise & Scale
+
+**May 2027 – Jul 2027**
+
+### Strategic goals
+
+- **Enterprise readiness** — multi-user teams, audit logging, and compliance
+  reporting for small asset managers.
+- **Automated trading** — execute strategies without manual intervention.
+- **Data products** — API access for third-party integrations and white-label
+  partnerships.
+
+### Initiatives
+
+- **Team & collaboration** — multiple users per account, role-based permissions
+  (viewer/trader/admin), shared alerts and watchlists.
+- **Compliance & audit logging** — complete trade audit trail, compliance
+  reporting, tax reporting helpers.
+- **Automated trading (algo)** — simple rules (e.g. high-confidence alert → buy
+  100 shares with a $1k stop), in both paper and live modes.
+- **API & webhooks** — third-party alert delivery, custom integrations, data
+  export; enables white-label.
+- **Enterprise deployment option** — self-hosted guide for institutions; VPC
+  peering for large brokers.
+- **Performance optimization** — CDN for static assets, horizontal scaling,
+  multi-region deployment.
+- **Data & analytics marketplace** — anonymized aggregated signal data for
+  quants and researchers.
+
+### Dependencies
+
+**Hard:** regulatory review (compliance, best execution); API design and
+documentation.
+**Soft:** traction from Q1–Q3 to justify the enterprise investment.
+
+### Outcome
+
+Enterprise tier launches (annual contracts, $5–50k). API enables a third-party
+ecosystem. 300+ paying users, $50k+ MRR.
+
+---
+
+## Feature Priority Matrix
+
+| Feature | Phase | Priority | Retention impact | Effort | Dependencies |
+|---|---|---|---|---|---|
+| Notification system | Q1 | Critical | Very high | 3 weeks | SendGrid, Twilio setup |
+| Portfolio analytics | Q1 | Critical | Very high | 2 weeks | Historical trade data |
+| Conditional orders | Q1 | Critical | High | 2 weeks | Alpaca API updates |
+| Backtesting engine | Q2 | Critical | Very high | 4 weeks | Historical bars, scoring refactor |
+| Crypto scanner | Q2 | High | High | 2 weeks | Binance integration |
+| Risk dashboard | Q2 | High | High | 2 weeks | Position-sizing algorithms |
+| Advanced order types | Q2 | High | Medium | 2 weeks | Alpaca API, order state machine |
+| Mobile app (MVP) | Q3 | High | Very high | 6 weeks | React Native, stable backend APIs |
+| Trade journal & social | Q3 | Medium | High | 3 weeks | Database schema extensions |
+| IB integration | Q3 | Medium | Medium | 3 weeks | IB credentials, account linking |
+| Automated trading (algo) | Q4 | Medium | Medium | 4 weeks | Order validation, risk controls |
+| Team & RBAC | Q4 | Medium | Low | 3 weeks | Auth refactor, Supabase RLS |
+| API & webhooks | Q4 | Low | Low | 3 weeks | API design, rate limiting, docs |
+
+---
+
+## Technical & Infrastructure Roadmap
+
+### Data & analytics
+
+- **Q1** — Historical performance query optimization; caching for scan results
+  and portfolio snapshots.
+- **Q2** — Backtest framework; event replay with configurable slippage and
+  commissions; pattern-accuracy analytics pipeline.
+- **Q3** — Distributed scanning (5000+ tickers/day); real-time tick ingestion.
+- **Q4** — Data lake for aggregation; ML training pipeline; sentiment and news.
+
+### Platform & reliability
+
+- **Q1** — Upgrade Vercel to Pro (removes the 2-cron/day cap); structured error
+  logging (Sentry).
+- **Q2** — Database indexing audit; query performance baselines; Redis cache
+  for order and portfolio data.
+- **Q3** — Horizontal scaling investigation; load-balancing design.
+- **Q4** — Multi-region active-active; disaster recovery playbook; immutable
+  compliance audit ledger.
+
+### Security & compliance
+
+- **Q1** — API key encryption rotation; rate-limit hardening.
+- **Q2** — Penetration testing; SOC 2 Type I kickoff.
+- **Q3** — SOC 2 Type I completion; compliance dashboard and audit log exports.
+- **Q4** — SOC 2 Type II; GDPR and privacy controls; best-execution docs.
+
+### Developer experience & testing
+
+- **Q1** — E2E framework (Playwright) covering login, trade execution, alert
+  delivery.
+- **Q2** — Integration tests for all data providers; broker API mocking.
+- **Q3** — Load testing and capacity planning; performance benchmarking in CI.
+- **Q4** — Chaos engineering; disaster recovery drills.
+
+---
+
+## Revenue & Growth Model
+
+### Q1–Q2: foundation
+
+Freemium. Free tier: 5 daily scans, no alerts. Premium ($29–49/mo): unlimited
+scans, email/SMS alerts, portfolio analytics, advanced order types.
+
+- Q1: 20–30 paying users (beta launch, early adopters)
+- Q2: 50–80 paying users (backtesting builds trust)
+
+### Q3–Q4: scale
+
+| Tier | Price | Includes |
+|---|---|---|
+| Free | $0 | 5 daily scans, basic charts, paper trading |
+| Premium | $49/mo | Unlimited scans, all order types, analytics, notifications |
+| Professional | $149/mo | Crypto/forex/futures, API access, custom alerts, priority support |
+| Team | $499/mo | Multiple users, audit logging, compliance reporting, white-label |
+
+- Q3: 150–200 paying users (mobile launch)
+- Q4: 300–400 paying users (enterprise tier, API partners)
+
+### Secondary revenue (Q4+)
+
+Data products ($5–10k/mo projected), API licensing ($2–5k/mo), broker affiliate
+commissions ($1–3k/mo).
+
+### Unit economics
+
+12-month lean cost estimate: Vercel Pro $240, Supabase Pro $1,440, data
+providers $3,600, notifications $2,400, monitoring $1,200, developer time
+(founder + 1 contractor) ~$80,000. **Total ~$90k. Break-even at 150–200 paying
+users on the premium tier.**
+
+---
+
+## Risks & Mitigations
+
+| Risk | Impact | Mitigation |
+|---|---|---|
+| Low product-market fit | Paying-user targets missed | Continuous user research; track NPS and retention cohorts; pivot to institutional/research tier if retail fails |
+| Signal accuracy degrades at scale | More tickers, more false positives; backtest doesn't match live | Rigorous backtesting (Q2); per-pattern accuracy metrics; throttle alerts if false-positive rate >40% |
+| Broker API changes or terms | Alpaca/SnapTrade/IB restrict access | Multi-broker strategy; monitor broker news; abstraction layer over broker APIs |
+| Incumbents add similar features | TradingView/ToS add structural analysis | Compete on accuracy and ease of use, not feature count; community moat; deeper broker integrations |
+| Vercel or Supabase outage | Users cannot trade during downtime | Monitoring and alerts; fallback DNS; Q3–Q4 multi-region; public status page |
+| Funding needed before break-even | Runway ends short of 200 users | Lean spend discipline; break even on current infra by Q2; seek seed after Q1 traction |
+
+---
+
+## Execution Approach
+
+### Cadence
+
+Two-week sprints aligned to phases. Weekly stakeholder syncs. Bi-weekly user
+research. Monthly review against the North Star metrics.
+
+### Team model
+
+- **Q1** — Founder (core product) + 1 contractor (backend/notifications).
+- **Q2** — Founder + 2 contractors (backend, mobile); hire first full-time
+  engineer if Q1 targets are met.
+- **Q3** — Founder + 2–3 engineers (mobile push); consider part-time design.
+- **Q4** — Founder + 3–4 engineers; add customer success for enterprise.
+
+### Critical path
+
+Notifications → unlocks paid conversion. Portfolio analytics → builds
+retention. Backtesting → validates accuracy claims. Mobile → drives DAU.
+Break-even gross margin by end of Q2.
+
+### Decision gates
+
+- **After Q1** — continue or pivot, on retention and revenue. Target: 70%+
+  retention, 25+ paying users.
+- **After Q2** — hire first full-time engineer, or bootstrap longer. Target:
+  60+ paying users, 65%+ signal accuracy.
+- **After Q3** — fundraise for the enterprise push, or stay independent.
+  Target: 180+ paying users.
+
+---
+
+## Success Milestones
+
+| Quarter | Done means |
+|---|---|
+| Q1 | Notifications deployed · portfolio analytics live · 25+ paying users · first-cohort retention 70%+ |
+| Q2 | Backtesting live · crypto scanner operational · 60+ paying users · signal accuracy 62%+ |
+| Q3 | Mobile app shipped (iOS/Android) · trade journal & social · 180+ paying users · 2–3x DAU from mobile |
+| Q4 | Algo trading live · team features & RBAC · 350+ paying users · $50k+ MRR |
+
+---
+
+## Competitive Landscape
+
+**Incumbents:** TradingView (charting and some alerts, weak on structural
+analysis), Think or Swim (complex UI, no mobile parity), Finviz (screener, not
+a scanner with alerts).
+
+**Why GSPS wins:**
+
+1. **Accuracy first** — 65%+ win rate backed by backtesting, vs. generic
+   oscillators.
+2. **Trader-centric risk** — position sizing, correlation warnings, max daily
+   loss; rare in retail tools.
+3. **Multi-broker** — Alpaca + SnapTrade + IB + Schwab; traders keep their
+   broker.
+4. **Transparency** — every alert carries an invalidation level and a next-move
+   plan.
+5. **Community** — shared watchlists, leaderboards, and journals create network
+   effects that are hard to copy.
+
+---
+
+## Glossary
+
+- **Backtesting** — Event replay simulating alert generation against historical
+  OHLC data. Produces win rate, expectancy, and Sharpe ratio.
+- **Pattern accuracy** — Share of alerts where price moved the expected
+  direction by at least the minimum move size within 5 trading days.
+- **Conditional orders** — Stop-loss and take-profit levels set at submission,
+  executed by the broker when touched.
+- **Bracket orders** — Entry plus simultaneous stop-loss and take-profit, with
+  one-cancels-other logic.
+- **Trailing stops** — A stop that moves favorably with price to lock in gains.
+- **Walk-forward testing** — Train to date X, test X→X+N, advance the windows.
+  Guards against overfitting.
+- **Sharpe ratio** — (Average return − risk-free rate) / standard deviation of
+  returns. S&P 500 benchmark ~0.5.
+- **Drawdown** — Peak-to-trough decline; max drawdown is the largest such fall.
+- **Expectancy** — (Win % × avg win) − (Loss % × avg loss). Must be positive.
+- **Data lake** — Central store of historical market data, trades, and alerts,
+  enabling analytics without hitting live APIs.
+- **RBAC** — Role-based access control: viewer, trader, admin.
+- **SOC 2 Type I / II** — Security certification; Type I is point-in-time,
+  Type II covers 6+ months of continuous monitoring.
+
+---
+
+## Using this document
+
+**Precedence.** This roadmap governs *sequencing and priority*. `BACKLOG.md` is
+the unscheduled idea pool — items there are candidates, not commitments, and do
+not become work until a phase here picks them up. Where the two disagree, this
+document wins.
+
+**Proposing work.** New suggestions should name the phase they belong to. Work
+that fits no phase is either out of scope or a reason to amend the roadmap —
+say which, rather than quietly building it.
+
+**Out-of-phase work is allowed** when there's a reason: a production bug, a
+security issue, a blocked dependency, or an explicit request. Note the
+deviation; don't pretend it was planned.
+
+**Amending.** Phases shift as reality lands. Update this file in the same PR as
+the work that invalidated it, and move the "Last updated" date. Decision gates
+after each quarter are the natural checkpoints for a larger revision.

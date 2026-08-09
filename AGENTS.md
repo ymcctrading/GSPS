@@ -6,6 +6,27 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # GSPS Agent Instructions
 
+## Product Roadmap
+
+`ROADMAP.md` is the governing roadmap for this project. **Read it before
+proposing new work, scoping a feature, or prioritizing between options** — it
+decides what gets built and in what order, and it outranks `BACKLOG.md`, which
+is an unscheduled idea pool rather than a set of commitments.
+
+Current phase — **Q1 (Aug–Oct 2026): Monetization & Retention Foundation**.
+Critical-priority items, in order: notification system, portfolio analytics
+dashboard, conditional orders (stop-loss / take-profit). Then: improved
+onboarding, mobile-responsive dashboard, technical indicators as chart
+overlays.
+
+- When suggesting work, name the phase it belongs to. If it fits no phase, say
+  so plainly — it is either out of scope or a reason to amend the roadmap.
+- Out-of-phase work is fine when there's a reason (production bug, security
+  issue, blocked dependency, or a direct request). Note the deviation rather
+  than presenting it as planned.
+- When a change invalidates part of the roadmap, update `ROADMAP.md` in the
+  same PR and move its "Last updated" date.
+
 ## Deployment (Vercel)
 
 - The project runs on the **Vercel Hobby (free) plan**. Cron jobs are capped at **2 per project**, each running **no more than once a day**. Before adding a new scheduled job, confirm the total stays at or under that cap — see `docs/THIRD_PARTY_LIMITS.md`. If something needs to run more often than daily, it does not belong in `vercel.json` crons; trigger it from an external scheduler instead.
