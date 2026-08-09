@@ -1,5 +1,11 @@
 # GSPS Development Backlog
 
+> **This is an idea pool, not a plan.** `ROADMAP.md` is the governing roadmap —
+> it decides what gets built and in what order. Items below are candidates:
+> they become work only when a roadmap phase picks them up. Where the two
+> disagree, `ROADMAP.md` wins. The "Priority N" headings here indicate rough
+> appetite, not scheduling.
+
 ## Priority 1: Critical Features (Production Ready)
 
 ### High-Probability Signal Alerts
