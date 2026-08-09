@@ -134,12 +134,12 @@ export async function persistDailyScans(
 
   // A shorter list than the run it replaces leaves higher ranks behind. The new
   // rows are already live, so a failure here is a stale tail, not a failed save.
-  // Only prune if rows were written for this direction; if written is 0, the new
-  // scan produced no results for this direction and pruning would erase the
-  // previous run instead of trimming beyond it.
+  // Prune unconditionally, including when a direction wrote zero rows: if the
+  // latest scan found no bearish setups, keeping an earlier run's bearish rows
+  // would publish levels the current scan doesn't stand behind. `gt(rank, 0)`
+  // deletes every row for that direction in that case.
   for (const direction of DIRECTIONS) {
     const written = rows.filter((r) => r.direction === direction).length;
-    if (written === 0) continue;
     const { error: pruneError } = await client
       .from("daily_scans")
       .delete()
