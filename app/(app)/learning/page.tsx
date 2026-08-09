@@ -8,8 +8,35 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import type { BacktestReport, Bucket } from "@/lib/backtest/run";
+import type { WeightProposal } from "@/lib/backtest/propose-weights";
+import { CRITERION_LABELS, type CriterionKey } from "@/lib/scoring/weights";
 
 const DEFAULT_SYMBOLS = "SPY, AAPL, AMD, TSLA, MSFT, NVDA";
+
+interface ProposalResponse {
+  live: boolean;
+  source: string;
+  proposal: WeightProposal;
+  stored: { id: string; version: number } | null;
+  notStored: string | null;
+}
+
+/**
+ * Factor rows are keyed by the criterion's stable id, which is what the weights
+ * and the replay both use. Fall back to the raw key for anything the score
+ * appends outside the nine — the holds carry ids too, and showing the id is
+ * better than showing nothing.
+ */
+function criterionLabel(key: string): string {
+  return CRITERION_LABELS[key as CriterionKey] ?? key;
+}
+
+const OUTCOME_LABELS: Record<string, string> = {
+  adopted: "moves",
+  disagreed: "halves disagree",
+  unreadable: "not readable",
+  "too-small": "inside the noise",
+};
 
 const pct = (n: number) => `${(n * 100).toFixed(1)}%`;
 /** R is signed and small; the sign is the whole point, so it is always shown. */
@@ -26,15 +53,50 @@ export default function LearningPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<BacktestReport | null>(null);
+  const [proposing, setProposing] = useState(false);
+  const [proposalError, setProposalError] = useState<string | null>(null);
+  const [proposal, setProposal] = useState<ProposalResponse | null>(null);
+
+  function universe() {
+    return symbols
+      .split(/[,\s]+/)
+      .map((s) => s.trim().toUpperCase())
+      .filter(Boolean);
+  }
+
+  /**
+   * Runs the same replay, splits it in time, and asks what the attribution
+   * supports out of sample. The result is written as a draft — it scores
+   * nothing until someone promotes it.
+   */
+  async function propose() {
+    setProposing(true);
+    setProposalError(null);
+    try {
+      const params = new URLSearchParams({
+        symbols: universe().join(","),
+        within,
+        targetR,
+      });
+      const res = await fetch(`/api/learning/propose-weights?${params}`, { method: "POST" });
+      const body = await res.json();
+      if (!res.ok) {
+        setProposalError(body.error ?? `Request failed (${res.status})`);
+        return;
+      }
+      setProposal(body as ProposalResponse);
+    } catch (err) {
+      setProposalError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setProposing(false);
+    }
+  }
 
   async function run(bucket: Bucket = within) {
     setLoading(true);
     setError(null);
     try {
-      const list = symbols
-        .split(/[,\s]+/)
-        .map((s) => s.trim().toUpperCase())
-        .filter(Boolean);
+      const list = universe();
       if (list.length === 0) {
         setError("Enter at least one symbol.");
         return;
@@ -126,6 +188,17 @@ export default function LearningPage() {
                 {report.triggered} triggered) across {report.symbols.length}{" "}
                 {report.symbols.length === 1 ? "symbol" : "symbols"} · {report.source}
                 {report.skipped.length > 0 && ` · ${report.skipped.length} skipped`}
+                <br />
+                {/*
+                  The window and the break-even bar, stated with the numbers
+                  rather than under them: a 29% win rate is a loss at a 2R
+                  target and a win at 3R, and neither reading is available from
+                  the win rate alone.
+                */}
+                {report.window.from && report.window.to
+                  ? `${report.window.from.slice(0, 10)} → ${report.window.to.slice(0, 10)}`
+                  : "window unknown"}{" "}
+                · break-even at {report.targetR}R is a {pct(report.breakEvenWinRate)} win rate
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -221,7 +294,7 @@ export default function LearningPage() {
                       return (
                         <TR key={f.criterion} className={cn(!readable && "opacity-60")}>
                           <TD className="sticky left-0 z-10 max-w-[16rem] truncate bg-surface">
-                            <span title={f.criterion}>{f.criterion}</span>
+                            <span title={f.criterion}>{criterionLabel(f.criterion)}</span>
                             {f.verdict === "constant" && (
                               <Badge variant="muted" className="ml-2">
                                 never varied
@@ -265,6 +338,84 @@ export default function LearningPage() {
                     })}
                   </TBody>
                 </Table>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Proposed weights</CardTitle>
+              <CardDescription>
+                All nine criteria are worth one point, which was a placeholder, not a
+                measurement. This splits the same run in time, keeps only the criteria whose
+                expectancy gap holds up on the later half, and proposes a weight set that still
+                sums to nine points so the Execute and Watch cutoffs keep their meaning. The
+                result is saved as a draft: it changes no score until it is promoted.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Button onClick={propose} disabled={proposing}>
+                {proposing ? "Measuring…" : `Propose from ${report.attributeWithin}`}
+              </Button>
+              {proposalError && <p className="text-sm text-bear">{proposalError}</p>}
+
+              {proposal && (
+                <>
+                  <p className="text-sm text-muted">
+                    {proposal.proposal.inSampleTrades} in-sample ·{" "}
+                    {proposal.proposal.outOfSampleTrades} out-of-sample
+                    {proposal.proposal.splitAt &&
+                      ` · split at ${proposal.proposal.splitAt.slice(0, 10)}`}
+                  </p>
+
+                  {proposal.stored && (
+                    <p className="text-sm">
+                      <Badge variant="muted">Draft v{proposal.stored.version}</Badge> saved. Promote
+                      it to <code>live</code> to score with it.
+                    </p>
+                  )}
+                  {proposal.notStored && <p className="text-sm text-warn">{proposal.notStored}</p>}
+
+                  {proposal.proposal.weights && (
+                    <Table>
+                      <THead>
+                        <TR>
+                          <TH>Criterion</TH>
+                          <TH className="text-right">Now</TH>
+                          <TH className="text-right">Proposed</TH>
+                          <TH className="text-right">In-sample</TH>
+                          <TH className="text-right">Out-of-sample</TH>
+                          <TH>Verdict</TH>
+                        </TR>
+                      </THead>
+                      <TBody>
+                        {proposal.proposal.proposals.map((p) => (
+                          <TR key={p.criterion} className={cn(p.outcome !== "adopted" && "opacity-60")}>
+                            <TD className="max-w-[14rem] truncate">
+                              <span title={p.rationale}>{criterionLabel(p.criterion)}</span>
+                            </TD>
+                            <TD className="text-right tabular-nums">{p.currentWeight.toFixed(2)}</TD>
+                            <TD
+                              className={cn(
+                                "text-right font-medium tabular-nums",
+                                toneFor(p.proposedWeight - p.currentWeight),
+                              )}
+                            >
+                              {p.proposedWeight.toFixed(2)}
+                            </TD>
+                            <TD className="text-right tabular-nums text-muted">
+                              {p.inSampleDeltaR === undefined ? "—" : r(p.inSampleDeltaR)}
+                            </TD>
+                            <TD className="text-right tabular-nums text-muted">
+                              {p.outOfSampleDeltaR === undefined ? "—" : r(p.outOfSampleDeltaR)}
+                            </TD>
+                            <TD className="text-xs text-muted">{OUTCOME_LABELS[p.outcome]}</TD>
+                          </TR>
+                        ))}
+                      </TBody>
+                    </Table>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>

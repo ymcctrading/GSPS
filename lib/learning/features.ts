@@ -78,12 +78,19 @@ export function calculateValidityCountdown(
 // Higher-TF conflict detection
 export function detectHigherTfConflict(
   originScore: number,
-  higherTfContext: Array<{ timeframe: Timeframe; bias: 'bull' | 'bear' | 'neutral'; score: number }>
+  higherTfContext: Array<{ timeframe: Timeframe; bias: 'bull' | 'bear' | 'neutral'; score?: number }>
 ): boolean {
-  if (higherTfContext.length === 0) return false;
+  // Entries without a score cannot answer this question. Treating a missing
+  // score as zero would report a conflict on every scan from a producer that
+  // does not score each timeframe — a fabricated feature, and a confident one.
+  const scored = higherTfContext.filter(
+    (ctx): ctx is { timeframe: Timeframe; bias: 'bull' | 'bear' | 'neutral'; score: number } =>
+      typeof ctx.score === 'number',
+  );
+  if (scored.length === 0) return false;
 
   // Conflict = origin score high but higher-TF score low, or vice versa
-  const avgHigherScore = higherTfContext.reduce((sum, ctx) => sum + ctx.score, 0) / higherTfContext.length;
+  const avgHigherScore = scored.reduce((sum, ctx) => sum + ctx.score, 0) / scored.length;
   const scoreGap = Math.abs(originScore - avgHigherScore);
   const conflictThreshold = 3; // 3+ point gap = conflict
 

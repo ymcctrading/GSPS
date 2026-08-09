@@ -24,6 +24,14 @@ import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { detectPatterns, gapRuleViolated, riskFloorViolated } from "@/lib/strat/patterns";
 import { computeTradeLevels } from "@/lib/strat/levels";
 import { applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
+import {
+  FALLBACK_SR_PCT,
+  SR_PROXIMITY_ATR,
+  atrPercentOfPrice,
+  nearAnyLevel,
+  proximityBandPct,
+} from "@/lib/scoring/proximity";
+import type { CriterionWeights } from "@/lib/scoring/weights";
 import { readTrend } from "@/lib/analysis/trend";
 import { atr } from "@/lib/analysis/pivots";
 import { computeFanLines } from "@/lib/gann/fans";
@@ -58,10 +66,23 @@ export interface ReplayOptions {
    * Only sessions strictly before the day being traded are ever read.
    */
   dailyBars?: Bar[];
+  /**
+   * Criterion weights to score with. Defaults to one point each. Supplying a
+   * candidate set is how a weight proposal is checked against the same trades
+   * the current weights produced — see lib/backtest/propose-weights.ts.
+   */
+  weights?: CriterionWeights;
 }
 
 export interface ReplayTrade {
   symbol: string;
+  /**
+   * Timestamp of the bar the setup triggered on. Carried so a run can state the
+   * window it actually covered, and so a study can split trades chronologically
+   * — an out-of-sample check that shuffled trades at random would leak the
+   * future into the training half.
+   */
+  openedAt: string;
   pattern: StratPattern["name"];
   direction: "bullish" | "bearish";
   entry: number;
@@ -89,20 +110,23 @@ export interface ReplayTrade {
   score?: number;
   outputState?: ScanDecision["outputState"];
   /**
-   * Which of the score's criteria passed on this setup, keyed by the criterion
-   * text verbatim from the breakdown.
+   * Which of the score's criteria passed on this setup, keyed by the stable
+   * `key` each breakdown item now carries (`lib/scoring/weights.ts`), falling
+   * back to the criterion text for any item built without one.
    *
-   * Keyed by the label rather than a short code on purpose: any mapping table
-   * would silently mis-attribute the moment someone reworded a criterion in
-   * lib/scoring/score.ts, and a factor study that quietly attributes results to
-   * the wrong factor is worse than no study. Verbatim keys can only ever
-   * *split* a factor across a rename, which shows up immediately as two
-   * half-sized samples.
+   * This used to key by the display text verbatim, to stop a mapping table from
+   * silently mis-attributing results after a rename. The stable id is the
+   * stronger version of that guarantee: a rename now changes neither the key
+   * nor the factor's history, where verbatim text split one factor into two
+   * half-sized samples. It also merges the two spellings of the pattern
+   * criterion ("Reversal"/"Continuation pattern armed"), which were always one
+   * criterion asked of two setup kinds.
    *
-   * Partial by construction. Two criteria are appended only in the situations
-   * that trigger them (the trade-plan check, the bare-2-2 downgrade), so an
-   * absent key means "not evaluated on this setup", never "failed". Consumers
-   * must not read absence as false — see `attribution.ts`.
+   * Partial by construction. Some checks are appended only in the situations
+   * that trigger them (the trade-plan hold, the bare-2-2 downgrade, the
+   * decision-lag hold), so an absent key means "not evaluated on this setup",
+   * never "failed". Consumers must not read absence as false — see
+   * `attribution.ts`.
    */
   criteria?: Record<string, boolean>;
 }
@@ -174,6 +198,13 @@ export interface MacroContext {
   gann: GannLevels;
   nearSupportResistance: boolean;
   momentumElevated: boolean;
+  /**
+   * Daily ATR as a percentage of price on the day being traded. The structural
+   * proximity criteria are measured in multiples of it, so the replay has to
+   * carry it for the same reason the live scan does — see
+   * lib/scoring/proximity.ts.
+   */
+  atrPct?: number;
 }
 
 export function buildMacroContext(daily: Bar[], price: number): MacroContext {
@@ -195,6 +226,7 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
   ];
   const recentAtr = atr(daily.slice(-20), 14);
   const baselineAtr = atr(daily.slice(-100, -20), 14);
+  const atrPct = atrPercentOfPrice(recentAtr, price);
 
   return {
     macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
@@ -208,8 +240,13 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
       timeCycleActive: cycles.active,
       timeCycleDates: cycles.dates,
     },
-    nearSupportResistance: allLevels.some((l) => Math.abs(price - l) / price <= 0.015),
+    nearSupportResistance: nearAnyLevel(
+      price,
+      allLevels,
+      proximityBandPct(SR_PROXIMITY_ATR, FALLBACK_SR_PCT, atrPct),
+    ),
     momentumElevated: baselineAtr > 0 && recentAtr / baselineAtr >= 1.2,
+    atrPct,
   };
 }
 
@@ -220,6 +257,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     maxBarsHeld = BARS_PER_SESSION * 10,
     warmupBars = 40,
     dailyBars,
+    weights,
   } = options;
 
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
@@ -266,6 +304,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
             price: lastClose,
             executionAtr,
             assetClass,
+            weights,
           })
         : undefined;
 
@@ -290,7 +329,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         barsHeld = Math.min(maxBarsHeld, bars.length - i);
         const exit = bars[Math.min(bars.length - 1, i + barsHeld - 1)].c;
         trades.push({
-          symbol, pattern: pattern.name, direction: pattern.direction,
+          symbol, openedAt: live.t, pattern: pattern.name, direction: pattern.direction,
           entry, stop, target, barsHeld, outcome,
           rMultiple: (dir * (exit - entry) - costPerShare) / risk,
           ambiguous: false,
@@ -304,7 +343,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
 
       const gross = outcome === "win" ? targetR * risk : -risk;
       trades.push({
-        symbol, pattern: pattern.name, direction: pattern.direction,
+        symbol, openedAt: live.t, pattern: pattern.name, direction: pattern.direction,
         entry, stop, target, barsHeld, outcome,
         rMultiple: (gross - costPerShare) / risk,
         ambiguous,
@@ -327,7 +366,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
 function criteriaOf(decision: ScanDecision | undefined): Record<string, boolean> | undefined {
   if (!decision) return undefined;
   const out: Record<string, boolean> = {};
-  for (const item of decision.breakdown) out[item.criterion] = item.passed;
+  for (const item of decision.breakdown) out[item.key ?? item.criterion] = item.passed;
   return out;
 }
 
@@ -377,8 +416,10 @@ function scoreSetup(input: {
   price: number;
   executionAtr: number;
   assetClass: AssetClass;
+  weights?: CriterionWeights;
 }): ScanDecision | undefined {
-  const { pattern, dailyBars, contextByDate, date, history, price, executionAtr, assetClass } = input;
+  const { pattern, dailyBars, contextByDate, date, history, price, executionAtr, assetClass, weights } =
+    input;
 
   let context = contextByDate.get(date);
   if (context === undefined) {
@@ -420,6 +461,8 @@ function scoreSetup(input: {
       pattern,
       momentumElevated: context.momentumElevated,
       levels,
+      atrPct: context.atrPct,
+      ...(weights ? { weights } : {}),
     }),
     pattern,
     context.momentumElevated,

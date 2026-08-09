@@ -9,7 +9,70 @@ date.
 
 ## 2026-08-09
 
+### Added
+- **A committable backtest run.** `npm run backtest` replays the shipped entry
+  logic over a stated universe and writes `docs/REPLAY_RESULTS.md` with every
+  cell filled — trades, win rate, expectancy and total R per verdict bucket,
+  the factor table, and the stop-width bands. It refuses to write a report from
+  synthetic bars or from a run with no trades, because a complete and confident
+  table describing a seeded random walk is exactly how a placeholder becomes a
+  published finding.
+
+  A run now also reports the **window it actually covered** (from the bars
+  returned, not the lookback requested) and the **break-even win rate for its
+  target**, `1 / (1 + targetR)`. That second number is why the previous
+  headline decided nothing: 29% is a losing system at a 2R target (break-even
+  33.3%) and a winning one at 3R (break-even 25%), and the cell that separated
+  them was blank.
+
+- **Weight proposals from attribution.** All nine criteria were worth one point,
+  which was a placeholder rather than a measurement, while
+  `lib/backtest/attribution.ts` already produced the number a weight should be
+  set from. `POST /api/learning/propose-weights` — and the **Proposed weights**
+  panel on `/learning` — splits a run chronologically, keeps only criteria whose
+  expectancy gap holds up on the later half and agrees in sign, sizes the move
+  off the weaker half, caps the step, and renormalises the set to nine points so
+  the Execute and Watch cutoffs keep their meaning. The result is saved as a
+  **draft** and changes no score until a human promotes it to live. Not on a
+  Vercel cron, and documented as needing an external scheduler: the Hobby plan's
+  two daily crons are already spent, and a replay is far too slow for one.
+
 ### Changed
+- **"Near a level" is measured in ATR, not percent of price.** The three
+  structural proximity criteria gated on fixed percentages — 1.5% for a support
+  line, 1.0% for a harmonic level, 1.5% for historical support/resistance. On a
+  5%-ATR name that is a third of a day's range and the point is nearly free; on
+  a 1%-ATR name it is more than a full day's range and the point is genuinely
+  selective, so a 7/9 did not mean the same thing across the universe — and the
+  bias ran towards volatile names, which the momentum criterion also rewards.
+  The bands are now 0.5× the daily ATR (0.33× for the harmonic level, the same
+  ratio the fixed pair expressed). This is the move the stop placement already
+  made in `lib/strat/levels.ts`.
+
+- **Delayed data is a scoring input, not a chart footnote.** Stocks run ~15
+  minutes behind on the free feed, which is a *full candle* on the 15-minute
+  execution timeframe — an armed trigger can already have come and gone before
+  it renders. A scan now computes that lag against the execution bar, states it
+  on the signal card, and holds Execute at Watch when it runs a whole bar or
+  more *while the market is open* — with the market shut the lag is still
+  reported but nothing can have come and gone behind it, so the daily post-close
+  scan is unaffected. Crypto and the synthetic generator carry no delay, and
+  `MARKET_DATA_REALTIME=true` turns the hold off for a paid real-time feed.
+
+- **The learning tables have writers.** `recordScanEvent`,
+  `recordSignalLifecycleEvent` and `recordExecutionEvent` had no callers outside
+  the route that defined them, so nothing was ever recorded and the 100- and
+  50-sample training floors were unreachable forever. Verdicts are now recorded
+  on `/api/scan` for signed-in callers, order outcomes (including rejections) on
+  `/api/orders`, and exits on `/api/positions/close` — which also writes the
+  `trade_logs` row that endpoint has never had a writer for. Recording never
+  fails the request it is recording, and is inert without a service-role key.
+
+  Relatedly, `modelConfidenceScore` took `features` and never read it, so how
+  well a setup matched the model had no bearing on how much the model was
+  trusted. It now scores scope against the setup in front of it and discounts
+  conditions the model cannot speak to.
+
 - **The candle stat panel can be put away, and reads open/close first.** The
   panel docked over the price pane — open, close, high, low, range and volume —
   now has a **Candle stats** checkbox beside Extended hours and Show structural

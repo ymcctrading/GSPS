@@ -36,6 +36,7 @@ const ARMS_AND_TRIGGERS: Bar[] = series([
 
 const trade = (over: Partial<ReplayTrade> = {}): ReplayTrade => ({
   symbol: "TEST",
+  openedAt: "2025-01-02T15:00:00Z",
   pattern: "2-2",
   direction: "bullish",
   entry: 100,

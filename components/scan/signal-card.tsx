@@ -6,7 +6,7 @@ import { formatUsd, cn } from "@/lib/utils";
 import type { PublicScoreSummary, ScanResult } from "@/lib/types";
 
 export function SignalCard({ result }: { result: ScanResult }) {
-  const { decision, levels, levelsError, pattern } = result;
+  const { decision, levels, levelsError, pattern, dataLag } = result;
   const armed = result.armedPatterns ?? (pattern ? [pattern] : []);
   const others = armed.filter((p) => p !== pattern);
 
@@ -61,6 +61,18 @@ export function SignalCard({ result }: { result: ScanResult }) {
         )}
 
         {levels?.stopBandWarning && <Badge variant="warn">{levels.stopBandWarning}</Badge>}
+
+        {/*
+          The lag the verdict was decided under, stated on the card rather than
+          left in the chart legend. When it runs a full bar or more the state is
+          held at Watch, so the sentence explaining it has to be next to the
+          state it explains.
+        */}
+        {dataLag && dataLag.delayMs > 0 && (
+          <p className={cn("text-xs", dataLag.holdsExecute ? "text-warn" : "text-muted")}>
+            {dataLag.note}
+          </p>
+        )}
 
         {!levels && levelsError && (
           <p className="text-sm text-bear">

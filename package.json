@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "check:terms": "node scripts/check-banned-terms.mjs",
+    "backtest": "node scripts/replay-report.mjs",
     "test": "vitest run"
   },
   "dependencies": {
