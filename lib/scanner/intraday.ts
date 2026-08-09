@@ -43,7 +43,7 @@
 
 import type { Bar } from "@/lib/types";
 import { atr } from "@/lib/analysis/pivots";
-import { etParts } from "@/lib/market/session";
+import { etDateKey, etParts } from "@/lib/market/session";
 
 /** ---- Configuration ----------------------------------------------------- */
 
@@ -1138,15 +1138,12 @@ export function volumeBaseline(
   return sessions.reduce((s, v) => s + v, 0) / sessions.length;
 }
 
-/** `YYYY-MM-DD` in America/New_York — the key a trading session groups under. */
-export function etDateKey(date: Date): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/New_York",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
-}
+/**
+ * `YYYY-MM-DD` in America/New_York — the key a trading session groups under.
+ * Re-exported from the module that owns Eastern-time reasoning so the daily
+ * scan and the intraday scan cannot drift on what day it is.
+ */
+export { etDateKey };
 
 /** Bars belonging to the given Eastern calendar date, oldest first. */
 export function barsForSession(bars: Bar[], etDate: string): Bar[] {

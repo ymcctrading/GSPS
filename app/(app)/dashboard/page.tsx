@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ResultsTable } from "@/components/scan/results-table";
 import { AutoScan } from "@/components/scan/auto-scan";
+import { StaleScanNotice } from "@/components/scan/stale-scan-notice";
 import { EarningsCalendar } from "@/components/macro/earnings-calendar";
 import { MarketNews } from "@/components/macro/market-news";
 import { getDailyScans } from "@/lib/dailyScans";
@@ -14,7 +15,7 @@ export const dynamic = "force-dynamic";
 const PREVIEW = 3;
 
 export default async function DashboardPage() {
-  const { scanDate, bullish, bearish } = await getDailyScans();
+  const { scanDate, freshness, bullish, bearish } = await getDailyScans();
 
   return (
     <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
@@ -29,6 +30,8 @@ export default async function DashboardPage() {
         </div>
         <AutoScan scanDate={scanDate} />
       </div>
+
+      <StaleScanNotice freshness={freshness} scanDate={scanDate} />
 
       <Card>
         <CardHeader>

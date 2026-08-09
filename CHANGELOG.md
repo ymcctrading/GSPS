@@ -7,6 +7,35 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-08-08
+
+### Added
+- **The dashboard says how old its prices are.** `getDailyScans` returns the
+  newest scan in the table whatever its age, and nothing said so: a Friday list
+  rendered identically to this morning's. The four price columns are
+  15-minute-bar levels — an entry a penny beyond a signal candle, a stop a penny
+  beyond the other side — so outside their own session they are meaningless, and
+  they still look precise. `scanFreshness` counts the sessions between the scan
+  and now, and `StaleScanNotice` states it on the dashboard and both direction
+  lists: a quiet line at one session behind, a red warning from two. Age is
+  counted in sessions, so a Friday scan does not read as stale on Saturday.
+
+### Fixed
+- **One definition of the trading day.** `scan_date` was the UTC date, but the
+  sessions it describes are Eastern. The two disagree between 20:00 ET and
+  midnight, so a post-close re-run was filed under tomorrow — and tomorrow then
+  opened on tonight's levels with nothing marking them old. The scan, the
+  freshness reading and the auto-scan guard now all date themselves with
+  `etDateKey`, which moves to `lib/market/session.ts` as the single
+  implementation the intraday scanner also uses.
+- **A direction the scan found nothing in is cleared, not left standing.** The
+  prune had been skipped when a side came back empty, on the reasoning that
+  wiping it would erase the earlier run. It would — and that is the point: the
+  rows left behind are ones the current scan no longer endorses, rendered under
+  the current scan's date with no way for a reader to tell. The case that skip
+  was protecting is already handled: a run that resolves no symbol at all
+  produces zero rows on both sides and returns before touching the table.
+
 ## 2026-08-07
 
 ### Changed

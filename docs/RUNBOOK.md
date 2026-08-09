@@ -62,6 +62,31 @@ select count(*) from daily_scans where detail ? 'setupTier';     -- expect 0
 `setupTier`/`relativeVolume`/`atrExpansion`, rows from `/api/market-scan` carry
 `pattern`/`gann`/`breakdown`.
 
+## The dashboard says the prices are from a previous session
+
+Working as intended. `getDailyScans` returns the newest scan in the table
+whatever its age, so `StaleScanNotice` states that age rather than letting a
+closed session's levels render like today's. The four price columns are
+15-minute-bar levels — an entry a penny beyond a signal candle, a stop a penny
+beyond the other side — so they mean nothing outside the session that produced
+them, and they look just as precise either way.
+
+- **"From the previous session"** — one session behind. Ordinary before the
+  day's scan has run. Press Refresh scan, or wait for the cron.
+- **"These prices are N sessions old"** (red) — the scan has not run when it
+  should have. Work the cron checklist above; do not trade off the list.
+
+Age is counted in sessions, not calendar days, so a Friday scan does not read
+as stale on Saturday. Market holidays are not modelled — a scan taken before
+one reads a session staler than it is, which is the safe direction to be wrong.
+
+Both the scan date and "today" are Eastern (`etDateKey` in
+`lib/market/session.ts`), not UTC. That matters between 20:00 ET and midnight,
+when the two calendars disagree: a post-close re-run dated in UTC would be
+filed under tomorrow, and tomorrow would open showing tonight's levels as
+current. One definition of the trading day, used by the writer, the reader and
+the auto-scan guard alike.
+
 ## A direction list has fewer than 15 rows
 
 Expected, not a fault. A row is only published when the execution timeframe

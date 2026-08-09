@@ -134,12 +134,20 @@ export async function persistDailyScans(
 
   // A shorter list than the run it replaces leaves higher ranks behind. The new
   // rows are already live, so a failure here is a stale tail, not a failed save.
-  // Only prune if rows were written for this direction; if written is 0, the new
-  // scan produced no results for this direction and pruning would erase the
-  // previous run instead of trimming beyond it.
+  //
+  // A direction that produced nothing is pruned to nothing, deliberately. The
+  // alternative — skipping the prune at zero to protect the earlier run — keeps
+  // rows the current scan does not stand behind, and the reader cannot tell:
+  // both sides render as one list under one scan date. "Six shorts, priced this
+  // morning, that this afternoon's scan no longer finds" is exactly the kind of
+  // half-true screen this pipeline has already been burned by.
+  //
+  // The case that skipping was meant to guard — a run that failed rather than
+  // found nothing — is caught above: a scan that resolves no symbol at all
+  // produces zero rows on BOTH sides and returns before touching the table. One
+  // side empty while the other is full is a real reading of the tape.
   for (const direction of DIRECTIONS) {
     const written = rows.filter((r) => r.direction === direction).length;
-    if (written === 0) continue;
     const { error: pruneError } = await client
       .from("daily_scans")
       .delete()
