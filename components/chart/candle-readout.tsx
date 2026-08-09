@@ -15,17 +15,25 @@ import { cn } from "@/lib/utils";
  * it also survives a phone, where there is no hover and the panel would
  * otherwise sit under the thumb.
  *
- * Layout is a 2×2 OHLC grid over two measure rows — a range strip showing where
+ * Layout is a 2×2 price grid over two measure rows — a range strip showing where
  * the body and close sit inside the bar's high/low, and volume against its own
  * trailing average — so the shape of the candle is legible without counting
- * decimals. The volume row is the one part a reader can switch off; price
- * without volume is a legible chart, volume without price is not.
+ * decimals.
+ *
+ * The grid reads open, close, high, low: the two prices that decide whether the
+ * bar went up or down sit on the first line, and the two that describe how far
+ * it stretched getting there sit on the second. Conventional OHLC order splits
+ * that pair across both lines, so the comparison a reader makes first is the
+ * one the layout makes hardest.
+ *
+ * The whole panel is optional — see the Candle stats switch in the chart
+ * toolbar. It sits over the price pane, and a reader who wants the candles
+ * underneath it should be able to have them.
  */
 export function CandleReadoutPanel({
   readout,
   timeframeLabel,
   live,
-  showVolume = true,
   className,
 }: {
   readout: CandleReadout | null;
@@ -33,8 +41,6 @@ export function CandleReadoutPanel({
   timeframeLabel: string;
   /** True while the panel is describing the still-forming last bar. */
   live?: boolean;
-  /** Draw the volume measure. Off drops the row and its meter entirely. */
-  showVolume?: boolean;
   className?: string;
 }) {
   const stamp = useMemo(
@@ -88,11 +94,12 @@ export function CandleReadoutPanel({
         </span>
       </div>
 
+      {/* Open/close on the top line, high/low beneath — see the note above. */}
       <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 px-2 py-1.5">
         <Field label="O" value={formatPrice(open, digits)} />
+        <Field label="C" value={formatPrice(close, digits)} tone={tone} />
         <Field label="H" value={formatPrice(high, digits)} />
         <Field label="L" value={formatPrice(low, digits)} />
-        <Field label="C" value={formatPrice(close, digits)} tone={tone} />
       </div>
 
       <div className="space-y-1.5 border-t border-border/60 px-2 py-1.5">
@@ -104,15 +111,13 @@ export function CandleReadoutPanel({
           <RangeStrip readout={readout} tint={rail} />
         </Measure>
 
-        {showVolume && (
-          <Measure
-            label="Vol"
-            value={formatVolume(readout.volume)}
-            note={relVolume == null ? "—" : `${relVolume.toFixed(1)}× avg`}
-          >
-            <VolumeMeter relVolume={relVolume} tint={rail} />
-          </Measure>
-        )}
+        <Measure
+          label="Vol"
+          value={formatVolume(readout.volume)}
+          note={relVolume == null ? "—" : `${relVolume.toFixed(1)}× avg`}
+        >
+          <VolumeMeter relVolume={relVolume} tint={rail} />
+        </Measure>
       </div>
     </div>
   );

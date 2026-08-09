@@ -145,9 +145,10 @@ export function CandleChart({
   const [errorMsg, setErrorMsg] = useState("");
   const [showGann, setShowGann] = useState(true);
   const [showExtended, setShowExtended] = useState(true);
-  // The volume row inside the docked candle readout. On by default — it costs
-  // no chart height — but switchable, like everything else drawn over the bars.
-  const [showVolumeReadout, setShowVolumeReadout] = useState(true);
+  // The docked per-candle stat panel. On by default, because it is how you read
+  // a bar you cannot hover on a phone — but it is painted over the price pane,
+  // so switching it off is the one control that hands screen back to the chart.
+  const [showReadout, setShowReadout] = useState(true);
   const [candleData, setCandleData] = useState<Candle[]>([]);
   // Bars actually on screen (post extended-hours filter) — what the readout
   // panel indexes into, so a hidden bar can never be reported.
@@ -808,11 +809,9 @@ export function CandleChart({
             </label>
           )}
           {/*
-           * The two places volume is drawn, each switchable on its own. They
-           * are separate controls rather than one because they cost different
-           * things: the pane takes height away from the candles, while the
-           * readout row takes none — so they have opposite defaults, and one
-           * switch could only have honoured one of them.
+           * The two things the chart draws besides the candles themselves, each
+           * switchable. Both cost screen: the volume pane takes height from the
+           * price pane, and the stat panel covers a corner of it.
            */}
           <label className="flex items-center gap-1.5 text-xs text-muted cursor-pointer">
             <input
@@ -826,11 +825,11 @@ export function CandleChart({
           <label className="flex items-center gap-1.5 text-xs text-muted cursor-pointer">
             <input
               type="checkbox"
-              checked={showVolumeReadout}
-              onChange={(e) => setShowVolumeReadout(e.target.checked)}
+              checked={showReadout}
+              onChange={(e) => setShowReadout(e.target.checked)}
               className="h-3.5 w-3.5 accent-[var(--accent)]"
             />
-            Volume in readout
+            Candle stats
           </label>
           {hasGann && (
             <label className="flex items-center gap-1.5 text-xs text-muted cursor-pointer">
@@ -893,7 +892,7 @@ export function CandleChart({
         <div ref={containerRef} className="absolute inset-0" />
         {/* Per-candle readout. Docked top-left, dropped below the Buy/Sell bar
             when the trade overlay owns that corner. */}
-        {status === "ready" && (
+        {status === "ready" && showReadout && (
           <div
             className={cn(
               "pointer-events-none absolute left-2 z-10",
@@ -904,7 +903,6 @@ export function CandleChart({
               readout={readout}
               timeframeLabel={TF_LABEL[timeframe]}
               live={live && readoutIsLatest}
-              showVolume={showVolumeReadout}
             />
           </div>
         )}
