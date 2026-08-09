@@ -19,10 +19,35 @@
  * `base_price` is the limit price on a limit entry, and the current quote on a
  * market entry. Validating here means the ticket can explain the problem while
  * the user can still fix it, rather than after the order round-trips.
+ *
+ * For sub-penny stocks (< $1), a fixed 0.01 gap can be excessive as a % of price.
+ * The gap scales with price to stay in the 1–2% band for any instrument, but never
+ * falls below 0.001 (a tenth of a penny, supported by most brokers).
  */
 
-/** Alpaca's required minimum separation between a bracket leg and the entry. */
-export const BRACKET_MIN_GAP = 0.01;
+/** Absolute minimum separation for Alpaca bracket orders. */
+const ALPACA_MIN_GAP = 0.01;
+
+/** Percentage-based gap for sub-penny instruments. Minimum 1% of price. */
+const SUB_PENNY_GAP_PCT = 0.01; // 1%
+
+/** Sub-penny threshold: use percentage-based gap for prices below this. */
+const SUB_PENNY_THRESHOLD = 1.0;
+
+/** Minimum gap even for the cheapest penny stocks. */
+const ABSOLUTE_MIN_GAP = 0.001;
+
+/**
+ * Calculate the minimum separation required between bracket legs.
+ * For stocks < $1, scales with price; for >= $1, uses Alpaca's 0.01 minimum.
+ */
+export function bracketMinGap(price: number): number {
+  if (price >= SUB_PENNY_THRESHOLD) {
+    return ALPACA_MIN_GAP;
+  }
+  // For sub-penny: use 1% of price, but never below 0.001
+  return Math.max(ABSOLUTE_MIN_GAP, price * SUB_PENNY_GAP_PCT);
+}
 
 export type BracketSide = "buy" | "sell";
 
@@ -64,15 +89,17 @@ export function checkBracket(input: BracketInput): BracketCheck {
     };
   }
 
+  const minGap = bracketMinGap(basePrice);
+
   if (side === "buy") {
-    if (!(stopLoss <= basePrice - BRACKET_MIN_GAP)) {
+    if (!(stopLoss <= basePrice - minGap)) {
       return {
         ok: false,
         problem: "stop_wrong_side",
         reason: `The protocol stop (${usd(stopLoss)}) is at or above the entry price (${usd(basePrice)}). A stop on a long has to sit below the entry, so the broker would reject the bracket.`,
       };
     }
-    if (!(takeProfit >= basePrice + BRACKET_MIN_GAP)) {
+    if (!(takeProfit >= basePrice + minGap)) {
       return {
         ok: false,
         problem: "target_wrong_side",
@@ -82,14 +109,14 @@ export function checkBracket(input: BracketInput): BracketCheck {
     return { ok: true };
   }
 
-  if (!(stopLoss >= basePrice + BRACKET_MIN_GAP)) {
+  if (!(stopLoss >= basePrice + minGap)) {
     return {
       ok: false,
       problem: "stop_wrong_side",
       reason: `The protocol stop (${usd(stopLoss)}) is at or below the entry price (${usd(basePrice)}). A stop on a short has to sit above the entry, so the broker would reject the bracket.`,
     };
   }
-  if (!(takeProfit <= basePrice - BRACKET_MIN_GAP)) {
+  if (!(takeProfit <= basePrice - minGap)) {
     return {
       ok: false,
       problem: "target_wrong_side",

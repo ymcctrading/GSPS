@@ -42,7 +42,11 @@ export type CriterionKey = (typeof CRITERION_KEYS)[number];
  * They carry no points and take no weight, but they are keyed too so the
  * replay's factor table and the UI can identify them without string matching.
  */
-export type HoldKey = "tradePlanPriced" | "reversionConfirmation" | "dataLag";
+export type HoldKey =
+  | "tradePlanPriced"
+  | "reversionConfirmation"
+  | "dataLag"
+  | "liquidity";
 
 export type BreakdownKey = CriterionKey | HoldKey;
 

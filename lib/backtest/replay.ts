@@ -199,6 +199,13 @@ export interface MacroContext {
   nearSupportResistance: boolean;
   momentumElevated: boolean;
   /**
+   * Recent volume against its own trailing baseline, on the same windows as
+   * the momentum read. The score treats this as a hard liquidity gate, so the
+   * replay has to supply it — left out, it defaults open and the gate silently
+   * never fires here while rejecting setups in production.
+   */
+  volumeRatio: number;
+  /**
    * Daily ATR as a percentage of price on the day being traded. The structural
    * proximity criteria are measured in multiples of it, so the replay has to
    * carry it for the same reason the live scan does — see
@@ -228,6 +235,13 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
   const baselineAtr = atr(daily.slice(-100, -20), 14);
   const atrPct = atrPercentOfPrice(recentAtr, price);
 
+  // Same windows and the same open-on-missing-data default as lib/scanTicker.ts.
+  // If that calculation moves, this has to move with it, or the replay stops
+  // describing the shipped system.
+  const mean = (bars: Bar[]) =>
+    bars.length > 0 ? bars.reduce((sum, b) => sum + b.v, 0) / bars.length : 0;
+  const baselineVolume = mean(daily.slice(-100, -20));
+
   return {
     macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
     gann: {
@@ -246,6 +260,7 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
       proximityBandPct(SR_PROXIMITY_ATR, FALLBACK_SR_PCT, atrPct),
     ),
     momentumElevated: baselineAtr > 0 && recentAtr / baselineAtr >= 1.2,
+    volumeRatio: baselineVolume > 0 ? mean(daily.slice(-20)) / baselineVolume : 1,
     atrPct,
   };
 }
@@ -461,6 +476,7 @@ function scoreSetup(input: {
       pattern,
       momentumElevated: context.momentumElevated,
       levels,
+      volumeRatio: context.volumeRatio,
       atrPct: context.atrPct,
       ...(weights ? { weights } : {}),
     }),
