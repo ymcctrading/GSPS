@@ -10,6 +10,24 @@ date.
 ## 2026-08-09
 
 ### Changed
+- **The candle stat panel can be put away, and reads open/close first.** The
+  panel docked over the price pane — open, close, high, low, range and volume —
+  now has a **Candle stats** checkbox beside Extended hours and Show structural
+  levels. It is painted over the chart rather than beside it, so switching it
+  off is the one control that hands a corner of the price pane back to the
+  candles. On by default.
+
+  Its price grid now reads **open, close, high, low** rather than the
+  conventional OHLC. Open and close are the pair that decide whether the bar
+  went up or down, so they share the first line; high and low describe how far
+  it stretched getting there and sit beneath them. OHLC order splits that first
+  pair across both lines, which makes the comparison a reader makes first the
+  one the layout makes hardest.
+
+  This replaces the **Volume in readout** switch added earlier the same day —
+  a control for one row of a panel that can now be dismissed whole was a
+  toolbar slot doing very little. The **Volume pane** switch is unaffected.
+
 - **Volume is a display switch, not an indicator.** Both places the chart draws
   volume can now be turned off from the same row as Extended hours and Show
   structural levels:
