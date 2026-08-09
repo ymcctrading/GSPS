@@ -7,6 +7,26 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-08-09
+
+### Changed
+- **Volume is a display switch, not an indicator.** Both places the chart draws
+  volume can now be turned off from the same row as Extended hours and Show
+  structural levels:
+
+  - **Volume pane** — the histogram below price. It was already optional, but
+    only as a chip in the indicator strip, which scrolls sideways on a phone
+    and spent most of its life past the right edge of the screen. The chip is
+    gone; the checkbox replaces it. Still off by default.
+  - **Volume in readout** — the VOL row and its meter inside the docked candle
+    panel. This had no switch at all. On by default, as before.
+
+  Two switches rather than one because the two cost different things: the pane
+  takes height away from the candles and the readout row takes none, so they
+  have opposite defaults and one switch could only have honoured one of them.
+  The indicator strip keeps the chips for the things that are actually derived
+  indicators — the moving averages, Bollinger, RSI and MACD.
+
 ## 2026-08-08
 
 ### Changed

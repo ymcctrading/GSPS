@@ -18,12 +18,14 @@ import { cn } from "@/lib/utils";
  * Layout is a 2×2 OHLC grid over two measure rows — a range strip showing where
  * the body and close sit inside the bar's high/low, and volume against its own
  * trailing average — so the shape of the candle is legible without counting
- * decimals.
+ * decimals. The volume row is the one part a reader can switch off; price
+ * without volume is a legible chart, volume without price is not.
  */
 export function CandleReadoutPanel({
   readout,
   timeframeLabel,
   live,
+  showVolume = true,
   className,
 }: {
   readout: CandleReadout | null;
@@ -31,6 +33,8 @@ export function CandleReadoutPanel({
   timeframeLabel: string;
   /** True while the panel is describing the still-forming last bar. */
   live?: boolean;
+  /** Draw the volume measure. Off drops the row and its meter entirely. */
+  showVolume?: boolean;
   className?: string;
 }) {
   const stamp = useMemo(
@@ -100,13 +104,15 @@ export function CandleReadoutPanel({
           <RangeStrip readout={readout} tint={rail} />
         </Measure>
 
-        <Measure
-          label="Vol"
-          value={formatVolume(readout.volume)}
-          note={relVolume == null ? "—" : `${relVolume.toFixed(1)}× avg`}
-        >
-          <VolumeMeter relVolume={relVolume} tint={rail} />
-        </Measure>
+        {showVolume && (
+          <Measure
+            label="Vol"
+            value={formatVolume(readout.volume)}
+            note={relVolume == null ? "—" : `${relVolume.toFixed(1)}× avg`}
+          >
+            <VolumeMeter relVolume={relVolume} tint={rail} />
+          </Measure>
+        )}
       </div>
     </div>
   );
