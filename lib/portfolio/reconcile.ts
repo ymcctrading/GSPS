@@ -1,13 +1,21 @@
 /**
  * Position reconciliation: compares live Alpaca positions against our own
- * `positions` ledger on every portfolio poll, so opens/closes get recorded
- * without requiring a broker webhook. A close also derives its
- * exit_condition and writes a `trade_logs` row — this is what makes the
- * portfolio's realized P/L and "actual trigger type" fields real instead
- * of stubbed.
+ * `positions` ledger, so opens/closes get recorded without requiring a broker
+ * webhook. A close also derives its exit_condition and writes a `trade_logs`
+ * row.
  *
  * Scope: full closes only (a symbol disappearing from live positions).
  * Partial fills that merely shrink a position's qty are not reconciled here.
+ *
+ * Status: `reconcilePositions` is not called from anywhere. It was written for
+ * a portfolio poll that reads the `positions` ledger, and the app reads
+ * positions straight from the broker instead, so nothing ever populated that
+ * ledger for it to diff against. What actually records a finished trade today
+ * is `lib/trade/exit-manager.ts` (which retires a staged exit when the broker
+ * shows the symbol flat) and `/api/positions/close`; both write the exit as
+ * pending and let `lib/portfolio/trade-log-settle.ts` fill in the real fill
+ * price. `classifyExit` and `computeRealizedPl` below are used by that path and
+ * are covered by tests — don't delete them with the rest.
  */
 
 import type { AlpacaCreds } from "@/lib/brokers/alpaca";

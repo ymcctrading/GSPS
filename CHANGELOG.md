@@ -9,6 +9,83 @@ date.
 
 ## 2026-08-09
 
+### Added
+- **Protocol orders now exit themselves, in stages.** "Attach protocol levels"
+  used to place one Alpaca bracket: the whole position left at TP1, or the whole
+  position left at the stop. That is not the protocol, and a user who scaled out
+  by hand was doing the work the checkbox implied was automatic. Four rules now
+  run, in the order they bind:
+
+  1. **The stop takes the user completely out.** Every tranche carries the same
+     stop price, so a stop-out closes the trade in full.
+  2. **TP1 takes 60% out.** Whole shares, never rounded up to the entire
+     position — a "60% scale-out" that exits everything is a full exit wearing
+     the wrong name.
+  3. **The master target takes half of what is left** (20% of the original).
+     The last 20% keeps running until the user closes it, or until price pushes
+     through the master target and falls back through it, which closes the
+     remainder.
+  4. **Once TP1 is reached the stop never sits below the entry again**, and from
+     there it trails the best price seen by one unit of the trade's original
+     risk. It only tightens. A trade that has proved itself cannot come back as
+     a loss.
+
+  The ticket states the real share counts before the order is placed
+  (`3 of 5 shares (60%) exit at TP1, 1 at the master target, 1 runs on behind a
+  trailing stop`), because the wording it replaced described a different order.
+  A single share cannot be scaled out of and says so rather than rounding to
+  100%.
+
+  **Why the exits are not a bracket.** A bracket attaches to an entry and an
+  entry carries one, so three tranches would need three bracketed buys — and
+  Alpaca refuses a buy while a sell is working on the same symbol ("potential
+  wash trade detected"), which would reject the second and third. The entry
+  therefore carries a single full-size stop, attached atomically because it is
+  the rule that caps the loss, and the profit tranches go on as sell-side OCO
+  orders once the shares are held (`lib/trade/exit-manager.ts`). The tranche
+  orders rest at the broker as GTC, so rules 1–3 fill whether or not the app is
+  running.
+
+  **What depends on the app being open.** Rule 4 and the reversal half of rule 3
+  cannot be resting orders: both depend on where price has *been*. They advance
+  on a pass that runs inside `GET /api/orders`, which the Portfolio polls. So
+  between polls the protection in the market is the last stop that pass placed —
+  never nothing, but never tighter than the last sample either. The ticket says
+  this rather than implying a tick-by-tick trail. New `protocol_exits` table
+  (migration `0009`) holds the levels, tranche order ids, the best price seen,
+  and the stop currently resting; `GET /api/orders` reports what each pass did.
+
+### Fixed
+- **A trade log from a market close stayed pending forever.** Closing a position
+  at market wrote no trade log at all, and the route's own header explained that
+  the next portfolio poll's reconciliation pass would record it — a pass wired
+  to nothing, because it diffs a `positions` ledger the app never populates.
+  Every market close therefore left no trace in `trade_logs`, and every row the
+  API did write kept `outcome = 'pending'` for good.
+
+  Both halves are now real. A close writes the log the moment it happens, from
+  the broker's own position (entry price, quantity, side) read *before* the
+  liquidation, with the exit left empty — at that instant the order has been
+  accepted, not filled, and there is no exit price in existence to record.
+  `settlePendingTradeLogs` (`lib/portfolio/trade-log-settle.ts`) then matches
+  each pending row against the broker's fill activities and writes back the
+  quantity-weighted exit price, realized P/L and P/L percent, and which protocol
+  level produced the exit. `GET /api/trade-log` settles before it reads, so the
+  log is completed by the act of looking at it.
+
+  A row it cannot complete stays pending and is *counted* as pending in the
+  response — a trade still holding a runner is not finished, and a fabricated
+  exit price in an audit trail is worse than an absent one, because it is a
+  number someone measures a strategy against. Staged exits settle on the
+  weighted average of every fill that closed the position, once the position is
+  actually flat.
+
+  `/api/portfolio/close` was a second, unused implementation of the same close
+  carrying the same false claim; it is now an alias for `/api/positions/close`
+  rather than a second place to keep the promise. `POST /api/trade-log` also
+  stopped claiming to return the row it inserted — it never selected one back,
+  so `tradeLog` was always undefined.
+
 ### Changed
 - **The candle stat panel can be put away, and reads open/close first.** The
   panel docked over the price pane — open, close, high, low, range and volume —

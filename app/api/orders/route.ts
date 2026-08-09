@@ -7,9 +7,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { envCreds, getPositions, listOrders, placeOrder } from "@/lib/brokers/alpaca";
+import {
+  envCreds,
+  getPositions,
+  listOrders,
+  placeOrder,
+  type AlpacaCreds,
+  type AlpacaPosition,
+} from "@/lib/brokers/alpaca";
 import { checkBracket } from "@/lib/trade/bracket";
 import { evaluateTargets } from "@/lib/trade/targets";
+import { planProtocolExit } from "@/lib/trade/protocol-exit";
+import { manageProtocolExits } from "@/lib/trade/exit-manager";
 import { validateLimitPrice, type RoundingMode } from "@/lib/trade/tick-size";
 import {
   isWorking,
@@ -225,20 +234,79 @@ export async function POST(req: NextRequest) {
     vega: input.optionDetail?.vega ?? null,
   };
 
+  // What the protocol will do on the way out, for the ticket's confirmation.
+  // The split is recomputed from the quantity actually filled when the exits are
+  // attached, so this is the plan for the order as asked for.
+  const exitPlan = useBracket
+    ? planProtocolExit(input.qty, {
+        stopLoss: bracketLevels!.stopLoss,
+        takeProfit1: bracketLevels!.takeProfit,
+        masterProfit: input.attachLevels!.masterProfit ?? null,
+      })
+    : null;
+
   try {
     // Real order (equity or option) — options carry a real Alpaca OCC symbol
     // from /api/options/chain, not a fabricated one.
+    //
+    // Protocol entries attach the stop and nothing else. The stop is the leg
+    // that has to exist from the first tick — it is what caps the loss — and it
+    // can be attached atomically because it applies to the whole position. The
+    // profit tranches can't: they are three sell orders, and three bracketed
+    // buys draw a wash-trade rejection on the second one. They go on once the
+    // shares are held, from `manageProtocolExits`.
     const broker = await placeOrder(creds, {
       symbol: input.symbol,
       side: input.side,
       qty: input.qty,
       type: !isOption && input.entryMode === "advised" ? "limit" : orderType,
       limitPrice: submittedLimitPrice,
-      bracket: bracketLevels,
+      bracket: bracketLevels ? { stopLoss: bracketLevels.stopLoss } : undefined,
     });
+
+    // The plan is what carries the exit rules after this request ends. Written
+    // before the ledger row so the row can point at it; a failure here costs
+    // the staged exit, which is worth saying out loud rather than silently
+    // leaving the position on a bare stop.
+    let planId: string | null = null;
+    let planError: string | null = null;
+    if (exitPlan) {
+      const { data: plan, error } = await supabase
+        .from("protocol_exits")
+        .insert({
+          user_id: user.id,
+          symbol: input.symbol.toUpperCase(),
+          side: "long",
+          mode: "paper",
+          qty: input.qty,
+          // The price the levels were measured against. `checkBracket` has
+          // already refused the order if neither exists, and the manage pass
+          // replaces it with the broker's average fill once there is one.
+          entry_price: submittedLimitPrice ?? input.referencePrice!,
+          entry_order_id: broker.id,
+          stop_loss: bracketLevels!.stopLoss,
+          take_profit_1: bracketLevels!.takeProfit,
+          master_profit: input.attachLevels!.masterProfit ?? null,
+          scale_out_qty: exitPlan.scaleOutQty,
+          master_qty: exitPlan.masterQty,
+          runner_qty: exitPlan.runnerQty,
+          applied_stop: bracketLevels!.stopLoss,
+          applied_stop_reason: "protocol",
+        })
+        .select("id")
+        .maybeSingle();
+      if (error) {
+        console.error(`orders: exit plan for ${ledgerRow.symbol} not recorded — ${error.message}`);
+        planError =
+          "The order is placed and its stop is attached, but the staged exit couldn't be saved — TP1 and the master target won't be taken automatically. Manage them at the broker.";
+      } else {
+        planId = plan?.id ? String(plan.id) : null;
+      }
+    }
 
     const { error: dbError } = await supabase.from("orders").insert({
       ...ledgerRow,
+      exit_plan_id: planId,
       broker_order_id: broker.id,
       status: broker.status ?? "new",
       broker_submitted_at: broker.submitted_at ?? new Date().toISOString(),
@@ -253,7 +321,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return NextResponse.json({ order: broker, mirrored: !dbError, priceCheck });
+    return NextResponse.json({
+      order: broker,
+      mirrored: !dbError,
+      priceCheck,
+      // How this position will be exited, in the ticket's own words.
+      exitPlan: exitPlan
+        ? { summary: exitPlan.summary, splittable: exitPlan.splittable, tranches: exitPlan.tranches }
+        : null,
+      warning: planError,
+    });
   } catch (err) {
     const raw = err instanceof Error ? err.message : String(err);
     const friendly = explainBrokerError(raw, input.side, isOption);
@@ -425,7 +502,37 @@ export async function GET() {
   const sync = await syncWithBroker(supabase, orders);
   if (sync.refreshed) orders = sync.refreshed;
 
-  const marks = await liveMarks(orders.map((o) => String(o.symbol)));
+  // One read of the broker's open positions serves both consumers: the live
+  // marks below, and the exit manager, which needs to know what is still held
+  // to decide whether a plan is running or finished. Null means the read
+  // failed — the manager treats that as "don't touch anything" rather than as
+  // "everything is flat".
+  //
+  // An empty ledger costs no broker call at all: a staged exit only exists
+  // because an order created it, so with no orders there is nothing to mark and
+  // nothing to manage. This endpoint is polled on a ten-second timer, which is
+  // why that shortcut is worth keeping.
+  const creds = envCreds("paper");
+  const active = creds != null && orders.length > 0;
+  const positions = active ? await openPositions(creds!) : null;
+  const marks = markPrices(positions ?? []);
+
+  // Advancing the staged exits here is what makes the trailing stop and the
+  // master-target reversal real: both depend on where price has *been*, so they
+  // can only move forward when something samples the market. The Portfolio
+  // polls this endpoint, so this is where the sampling happens.
+  const exits = active
+    ? await manageProtocolExits(supabase, creds!, user.id, positions)
+    : {
+        managed: 0,
+        attached: 0,
+        adjusted: 0,
+        closed: 0,
+        notes: [] as string[],
+        error: creds
+          ? null
+          : "Paper trading isn't configured, so the protocol's exit rules aren't running.",
+      };
 
   const enriched = orders.map((o) => {
     const mark = marks.get(String(o.symbol));
@@ -460,6 +567,17 @@ export async function GET() {
       reconciled: sync.reconciled,
       orphaned: sync.orphaned,
       source: "alpaca-paper",
+    },
+    // What the staged exits did on this pass. Reported rather than silent: a
+    // stop that moved is a change to the user's risk, and one that couldn't be
+    // moved is something they need to know about while they can still act.
+    exits: {
+      managed: exits.managed,
+      attached: exits.attached,
+      adjusted: exits.adjusted,
+      closed: exits.closed,
+      notes: exits.notes,
+      error: exits.error,
     },
   });
 }
@@ -621,26 +739,32 @@ interface Mark {
   dayPlPct: number;
 }
 
-/** Current price + intraday P/L per symbol, from the broker's open positions. */
-async function liveMarks(symbols: string[]): Promise<Map<string, Mark>> {
-  const marks = new Map<string, Mark>();
-  if (symbols.length === 0) return marks;
-
-  const creds = envCreds("paper");
-  if (!creds) return marks;
-
+/**
+ * The broker's open positions, or null when they couldn't be read.
+ *
+ * The distinction matters more than it looks: an empty list means "you hold
+ * nothing", and the exit manager retires a plan whose symbol isn't in the list.
+ * Returning `[]` on a failed fetch would therefore close every live plan and
+ * log every open trade as finished. A broker hiccup returns null instead, and
+ * the manager sits the pass out.
+ */
+async function openPositions(creds: AlpacaCreds): Promise<AlpacaPosition[] | null> {
   try {
-    const positions = await getPositions(creds);
-    for (const p of positions) {
-      marks.set(String(p.symbol).toUpperCase(), {
-        currentPrice: Number(p.current_price),
-        dayPl: Number(p.unrealized_intraday_pl),
-        dayPlPct: Number(p.unrealized_intraday_plpc) * 100,
-      });
-    }
+    return await getPositions(creds);
   } catch {
-    // A broker hiccup shouldn't blank the order history — rows just render
-    // without a live mark.
+    return null;
+  }
+}
+
+/** Current price + intraday P/L per symbol, from the broker's open positions. */
+function markPrices(positions: AlpacaPosition[]): Map<string, Mark> {
+  const marks = new Map<string, Mark>();
+  for (const p of positions) {
+    marks.set(String(p.symbol).toUpperCase(), {
+      currentPrice: Number(p.current_price),
+      dayPl: Number(p.unrealized_intraday_pl),
+      dayPlPct: Number(p.unrealized_intraday_plpc) * 100,
+    });
   }
   return marks;
 }
