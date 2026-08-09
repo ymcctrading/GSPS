@@ -76,6 +76,16 @@ const STUDY_META: Record<Study, { label: string }> = {
   macd: { label: "MACD 12/26/9" },
 };
 
+/**
+ * Studies that get a chip in the indicator strip. Volume is deliberately not
+ * one of them: it is a reading of the same bars the chart already draws rather
+ * than a derived indicator, so it sits with the other display switches
+ * (extended hours, structural levels) where someone looking to turn it off
+ * will actually look. The chip strip scrolls sideways on a phone, which is
+ * where "Volume" spent most of its life off the edge of the screen.
+ */
+const CHIP_STUDIES: Study[] = ["rsi", "macd"];
+
 const MACD_LINE = "#2563eb";
 const MACD_SIGNAL = "#f59e0b";
 
@@ -135,6 +145,9 @@ export function CandleChart({
   const [errorMsg, setErrorMsg] = useState("");
   const [showGann, setShowGann] = useState(true);
   const [showExtended, setShowExtended] = useState(true);
+  // The volume row inside the docked candle readout. On by default — it costs
+  // no chart height — but switchable, like everything else drawn over the bars.
+  const [showVolumeReadout, setShowVolumeReadout] = useState(true);
   const [candleData, setCandleData] = useState<Candle[]>([]);
   // Bars actually on screen (post extended-hours filter) — what the readout
   // panel indexes into, so a hidden bar can never be reported.
@@ -794,6 +807,31 @@ export function CandleChart({
               Extended hours
             </label>
           )}
+          {/*
+           * The two places volume is drawn, each switchable on its own. They
+           * are separate controls rather than one because they cost different
+           * things: the pane takes height away from the candles, while the
+           * readout row takes none — so they have opposite defaults, and one
+           * switch could only have honoured one of them.
+           */}
+          <label className="flex items-center gap-1.5 text-xs text-muted cursor-pointer">
+            <input
+              type="checkbox"
+              checked={studies.has("volume")}
+              onChange={() => toggleSet(studies, setStudies, "volume")}
+              className="h-3.5 w-3.5 accent-[var(--accent)]"
+            />
+            Volume pane
+          </label>
+          <label className="flex items-center gap-1.5 text-xs text-muted cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showVolumeReadout}
+              onChange={(e) => setShowVolumeReadout(e.target.checked)}
+              className="h-3.5 w-3.5 accent-[var(--accent)]"
+            />
+            Volume in readout
+          </label>
           {hasGann && (
             <label className="flex items-center gap-1.5 text-xs text-muted cursor-pointer">
               <input
@@ -819,7 +857,7 @@ export function CandleChart({
             onClick={() => toggleSet(overlays, setOverlays, k)}
           />
         ))}
-        {(Object.keys(STUDY_META) as Study[]).map((k) => (
+        {CHIP_STUDIES.map((k) => (
           <IndicatorChip
             key={k}
             label={STUDY_META[k].label}
@@ -866,6 +904,7 @@ export function CandleChart({
               readout={readout}
               timeframeLabel={TF_LABEL[timeframe]}
               live={live && readoutIsLatest}
+              showVolume={showVolumeReadout}
             />
           </div>
         )}
