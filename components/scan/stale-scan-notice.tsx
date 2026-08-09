@@ -19,11 +19,34 @@ import type { ScanFreshness } from "@/lib/scan/freshness";
 export function StaleScanNotice({
   freshness,
   scanDate,
+  pricedBeforeSession = false,
 }: {
   freshness: ScanFreshness;
   scanDate: string | null;
+  /** The run happened before its own session opened — see lib/scan/freshness. */
+  pricedBeforeSession?: boolean;
 }) {
-  if (!freshness.stale || !scanDate) return null;
+  if (!scanDate) return null;
+
+  // A list dated today but priced before the open is the subtler failure: the
+  // date says current, the bars behind it are yesterday's. Staleness takes
+  // precedence when both apply — being days old is the larger problem.
+  if (!freshness.stale) {
+    if (!pricedBeforeSession) return null;
+    return (
+      <div
+        role="status"
+        className="flex min-w-0 items-start gap-2.5 rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-muted"
+      >
+        <Clock className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+        <p className="min-w-0">
+          Priced before the {scanDate} session opened, so the 15-minute bars behind these
+          levels are the previous session&apos;s. Re-run the scan once the market has been
+          open a while for levels drawn on today&apos;s tape.
+        </p>
+      </div>
+    );
+  }
 
   const hard = freshness.severity === "stale";
   const Icon = hard ? AlertTriangle : Clock;

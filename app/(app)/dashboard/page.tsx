@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 const PREVIEW = 3;
 
 export default async function DashboardPage() {
-  const { scanDate, freshness, bullish, bearish } = await getDailyScans();
+  const { scanDate, freshness, pricedBeforeSession, bullish, bearish } = await getDailyScans();
 
   return (
     <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
@@ -31,7 +31,11 @@ export default async function DashboardPage() {
         <AutoScan scanDate={scanDate} />
       </div>
 
-      <StaleScanNotice freshness={freshness} scanDate={scanDate} />
+      <StaleScanNotice
+        freshness={freshness}
+        scanDate={scanDate}
+        pricedBeforeSession={pricedBeforeSession}
+      />
 
       <Card>
         <CardHeader>

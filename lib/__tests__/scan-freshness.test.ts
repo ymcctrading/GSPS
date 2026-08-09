@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { scanFreshness } from "@/lib/scan/freshness";
+import { pricedBeforeSession, scanFreshness } from "@/lib/scan/freshness";
 
 /** 2026-08-05 is a Wednesday; 08-07 Friday, 08-08 Saturday, 08-10 Monday. */
 const at = (iso: string) => new Date(`${iso}T14:00:00.000Z`);
@@ -74,5 +74,39 @@ describe("scanFreshness — the UTC/Eastern boundary", () => {
   it("still ages it once the next Eastern day begins", () => {
     const nextMorning = new Date("2026-08-06T13:00:00.000Z"); // 09:00 ET Thursday
     expect(scanFreshness("2026-08-05", nextMorning).sessionsBehind).toBe(1);
+  });
+});
+
+describe("pricedBeforeSession", () => {
+  // 2026-08-05 is a Wednesday. 12:30 UTC = 08:30 ET, the pre-open cron.
+  const preOpenCron = "2026-08-05T12:30:00.000Z";
+  const midSession = "2026-08-05T15:00:00.000Z"; // 11:00 ET
+  const afterClose = "2026-08-05T21:30:00.000Z"; // 17:30 ET
+
+  it("flags the pre-open cron run — its closed bars are yesterday's", () => {
+    expect(pricedBeforeSession("2026-08-05", preOpenCron)).toBe(true);
+  });
+
+  it("does not flag a run inside the session", () => {
+    expect(pricedBeforeSession("2026-08-05", midSession)).toBe(false);
+  });
+
+  it("does not flag the after-close run — outside hours, but today's bars", () => {
+    expect(pricedBeforeSession("2026-08-05", afterClose)).toBe(false);
+  });
+
+  it("flags a weekend run, which can only have read Friday", () => {
+    expect(pricedBeforeSession("2026-08-08", "2026-08-08T15:00:00.000Z")).toBe(true);
+  });
+
+  it("stays quiet when the run does not belong to the date it is filed under", () => {
+    // Staleness already reports this; two notices for one problem is noise.
+    expect(pricedBeforeSession("2026-08-05", "2026-08-04T12:30:00.000Z")).toBe(false);
+  });
+
+  it("stays quiet on rows written before scannedAt was recorded", () => {
+    expect(pricedBeforeSession("2026-08-05", null)).toBe(false);
+    expect(pricedBeforeSession("2026-08-05", undefined)).toBe(false);
+    expect(pricedBeforeSession("2026-08-05", "nonsense")).toBe(false);
   });
 });

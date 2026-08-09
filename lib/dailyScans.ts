@@ -4,7 +4,7 @@
  */
 
 import { createClient } from "@/lib/supabase/server";
-import { scanFreshness, type ScanFreshness } from "@/lib/scan/freshness";
+import { pricedBeforeSession, scanFreshness, type ScanFreshness } from "@/lib/scan/freshness";
 import type { ScanRow } from "@/components/scan/results-table";
 
 export type Direction = "bullish" | "bearish";
@@ -23,6 +23,7 @@ interface DailyScanRow {
   detail: {
     pattern?: { name?: string } | null;
     setupKind?: string | null;
+    scannedAt?: string | null;
   } | null;
 }
 
@@ -66,6 +67,12 @@ export interface DailyScans {
    * a list from a closed session must not render as though it were today's.
    */
   freshness: ScanFreshness;
+  /**
+   * True when the run that priced these levels happened before its own
+   * session opened — the pre-open cron, whose closed 15-minute bars belong to
+   * the day before. Dated today, priced yesterday.
+   */
+  pricedBeforeSession: boolean;
   bullish: ScanRow[];
   bearish: ScanRow[];
 }
@@ -74,6 +81,7 @@ const NO_SCAN = (configured: boolean): DailyScans => ({
   configured,
   scanDate: null,
   freshness: scanFreshness(null, new Date()),
+  pricedBeforeSession: false,
   bullish: [],
   bearish: [],
 });
@@ -102,10 +110,19 @@ export async function getDailyScans(): Promise<DailyScans> {
     .order("rank");
   const rows = ((data ?? []) as DailyScanRow[]).filter(isComplete);
 
+  // The most recent write wins: a day can be scanned twice, and it is the run
+  // that produced the rows now on screen whose timing matters.
+  const scannedAt = rows
+    .map((r) => r.detail?.scannedAt)
+    .filter((t): t is string => typeof t === "string")
+    .sort()
+    .at(-1);
+
   return {
     configured: true,
     scanDate,
     freshness: scanFreshness(scanDate, new Date()),
+    pricedBeforeSession: pricedBeforeSession(scanDate, scannedAt),
     bullish: rows.filter((r) => r.direction === "bullish").map(toRow),
     bearish: rows.filter((r) => r.direction === "bearish").map(toRow),
   };

@@ -75,6 +75,14 @@ them, and they look just as precise either way.
   day's scan has run. Press Refresh scan, or wait for the cron.
 - **"These prices are N sessions old"** (red) — the scan has not run when it
   should have. Work the cron checklist above; do not trade off the list.
+- **"Priced before the … session opened"** — the list is dated today, but the
+  run that produced it was the 12:30 UTC cron, which fires at 08:30 ET, an hour
+  before the open. The scan reads *closed* 15-minute bars, so at that hour the
+  most recent one belongs to the previous session. The levels are real, they are
+  just drawn on yesterday's tape and have not seen the overnight session or the
+  opening auction. Re-run once the market has been open a while. (The 17:30 ET
+  run is also outside market hours but reads that day's bars, so it is not
+  flagged.) The check is `pricedBeforeSession`, off `detail.scannedAt`.
 
 Age is counted in sessions, not calendar days, so a Friday scan does not read
 as stale on Saturday. Market holidays are not modelled — a scan taken before

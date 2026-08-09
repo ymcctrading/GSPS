@@ -82,6 +82,10 @@ export function buildScanRows(
     master_profit: r.levels!.masterProfit,
     detail: {
       currentPrice: r.currentPrice,
+      // When the plan was priced, not just which day it is filed under. The
+      // pre-open cron reads the previous session's closed bars, and the date
+      // alone cannot show that — see pricedBeforeSession in scan/freshness.
+      scannedAt: r.scannedAt,
       // Which bet the row is: a reversion against an extended move, or a
       // momentum continuation that topped up a short side. The lists render
       // them together, so the distinction has to survive the round trip.

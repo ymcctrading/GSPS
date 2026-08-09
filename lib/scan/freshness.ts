@@ -17,7 +17,7 @@
  * be wrong about whether a price is current.
  */
 
-import { etDateKey } from "@/lib/market/session";
+import { etDateKey, etParts } from "@/lib/market/session";
 
 export type ScanSeverity = "current" | "previous-session" | "stale";
 
@@ -80,4 +80,42 @@ export function scanFreshness(scanDate: string | null, now: Date): ScanFreshness
   if (from.getTime() >= to.getTime()) return fresh(0);
 
   return fresh(sessionsBetween(from, to));
+}
+
+/** 09:30 ET, in minutes since midnight. */
+const REGULAR_OPEN = 9 * 60 + 30;
+
+/**
+ * Whether a plan's levels come from a session earlier than the one it is dated
+ * for.
+ *
+ * The scan reads *closed* 15-minute bars, so what it can see depends entirely
+ * on when it runs. The 12:30 UTC cron fires at 08:30 ET — an hour before the
+ * open — where the most recent closed bar belongs to yesterday. That run is
+ * dated today and overwrites last evening's list, so by date alone it looks
+ * like the freshest thing available while being priced off tape that has
+ * already been superseded by the overnight session and the opening auction.
+ *
+ * The 17:30 ET run has the opposite property: also outside market hours, but
+ * its bars are that day's, which is why the test is "before the open" and not
+ * "outside the session".
+ *
+ * A weekend run counts too — Saturday's scan reads Friday's bars.
+ */
+export function pricedBeforeSession(
+  scanDate: string | null,
+  scannedAt: string | null | undefined,
+): boolean {
+  if (!scanDate || !scannedAt) return false;
+
+  const at = new Date(scannedAt);
+  if (Number.isNaN(at.getTime())) return false;
+
+  // A run dated to a different day than it happened on is a staleness question,
+  // not a within-session one, and the sessions-behind count already reports it.
+  if (etDateKey(at) !== scanDate) return false;
+
+  const { minutes, weekday } = etParts(at);
+  if (weekday === 0 || weekday === 6) return true; // no session that day to be inside of
+  return minutes < REGULAR_OPEN;
 }

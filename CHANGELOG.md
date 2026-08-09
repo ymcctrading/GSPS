@@ -20,7 +20,29 @@ date.
   lists: a quiet line at one session behind, a red warning from two. Age is
   counted in sessions, so a Friday scan does not read as stale on Saturday.
 
+- **The pre-open scan says it is one.** The 12:30 UTC cron fires at 08:30 ET, an
+  hour before the open, and the scan reads *closed* 15-minute bars — so its
+  levels are drawn on the previous session's tape, then filed under today and
+  written over the previous evening's list. By date alone it looked like the
+  freshest thing available. `pricedBeforeSession` reads `detail.scannedAt` (now
+  carried on every row) and the dashboard says so. The 17:30 ET run is also
+  outside market hours but reads that day's bars, so it is not flagged.
+
 ### Fixed
+- **The learning brain's schema now exists.** Migration `0005` had never been
+  applied: `learning_coefficients` declared its scope key as a table-level
+  `UNIQUE` over `coalesce()` expressions, which Postgres rejects — only bare
+  column names are allowed there — so the file failed on parse and all seven
+  tables were missing while `lib/learning/db.ts` queried them. The key is now a
+  unique index, which does permit expressions. Applied to production, along with
+  `0008`, whose `scan_events` foreign key was the reason it could not run either.
+  The intraday alert cooldown works from here.
+- **Three system tables were reachable with the publishable key.**
+  `learning_models`, `learning_coefficients` and `learning_audit_log` carry no
+  `user_id`, so `0005` left RLS off — which in a Supabase project means
+  PostgREST serves them to anyone. RLS is on with no policy attached: the
+  service role still writes them, nothing else reads them. The linter reports
+  that as `rls_enabled_no_policy` at INFO; it is deliberate.
 - **One definition of the trading day.** `scan_date` was the UTC date, but the
   sessions it describes are Eastern. The two disagree between 20:00 ET and
   midnight, so a post-close re-run was filed under tomorrow — and tomorrow then
