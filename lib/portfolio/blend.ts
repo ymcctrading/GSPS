@@ -13,8 +13,21 @@
 
 import { parseOccSymbol } from "./occ";
 import { computeGreeks, impliedVolatility, yearsBetween, type Greeks } from "@/lib/options/greeks";
+import type { OpenedAt } from "./opened-at";
 
 export type AssetType = "EQUITY" | "OPTION";
+
+/**
+ * When a leg was first opened, and whether that answer is trustworthy.
+ *
+ * Present on every leg so the UI never has to decide between a date and a
+ * placeholder — `openedAt: null` with a reason is the explicit "we don't know"
+ * that renders as "Unavailable — historical fill data missing".
+ */
+export type LegOpenedAt = OpenedAt;
+
+/** "We weren't asked to derive it", the default when no resolver is supplied. */
+const UNRESOLVED: LegOpenedAt = { openedAt: null, reason: "no-executions" };
 
 export interface RawPosition {
   symbol: string;
@@ -40,6 +53,8 @@ export interface EquityLeg {
   equityPl: number;
   equityPlPct: number;
   todayPlPct: number;
+  /** First fill of the current open run. See lib/portfolio/opened-at.ts. */
+  opened: LegOpenedAt;
 }
 
 export interface OptionLeg {
@@ -62,6 +77,14 @@ export interface OptionLeg {
   /** IV backed out of the position's own current premium, not a market quote. */
   impliedVol: number;
   greeksModeled: true;
+  /**
+   * False when no underlying spot was available, so `greeks` is a zero-filled
+   * placeholder rather than a model output. The UI must not present those
+   * numbers as if they were computed.
+   */
+  greeksAvailable: boolean;
+  /** First fill of the current open run. See lib/portfolio/opened-at.ts. */
+  opened: LegOpenedAt;
 }
 
 export interface BlendedPosition {
@@ -90,8 +113,11 @@ function classify(p: RawPosition): AssetType {
 export function buildBlendedPositions(
   positions: RawPosition[],
   spotFor: (underlying: string) => number | null,
+  openedAtFor?: (symbol: string) => LegOpenedAt | undefined,
 ): BlendedPosition[] {
   const groups = new Map<string, BlendedPosition>();
+  const openedFor = (symbol: string): LegOpenedAt =>
+    openedAtFor?.(symbol.toUpperCase()) ?? UNRESOLVED;
 
   const getGroup = (underlying: string): BlendedPosition => {
     let g = groups.get(underlying);
@@ -117,6 +143,7 @@ export function buildBlendedPositions(
         equityPl: p.unrealizedPl,
         equityPlPct: p.unrealizedPlPct,
         todayPlPct: p.todayPlPct,
+        opened: openedFor(p.symbol),
       };
       continue;
     }
@@ -128,10 +155,14 @@ export function buildBlendedPositions(
     const spot = spotFor(parsed.underlying);
     let greeks: Greeks = { delta: 0, gamma: 0, theta: 0, vega: 0 };
     let iv = 0;
-    if (spot != null && spot > 0 && p.currentPrice > 0) {
+    // Without a spot price there is no model input, so the zeros above stay
+    // zeros. `greeksAvailable` is what stops the UI from rendering them as
+    // though a delta of 0.00 were a computed answer.
+    const greeksAvailable = spot != null && spot > 0 && p.currentPrice > 0;
+    if (greeksAvailable) {
       const t = yearsBetween(new Date(), new Date(`${parsed.expiration}T16:00:00.000Z`));
-      iv = impliedVolatility(parsed.type, spot, parsed.strike, t, p.currentPrice);
-      greeks = computeGreeks(parsed.type, spot, parsed.strike, t, iv || 0.3);
+      iv = impliedVolatility(parsed.type, spot!, parsed.strike, t, p.currentPrice);
+      greeks = computeGreeks(parsed.type, spot!, parsed.strike, t, iv || 0.3);
     }
 
     g.options.push({
@@ -152,6 +183,8 @@ export function buildBlendedPositions(
       greeks,
       impliedVol: iv,
       greeksModeled: true,
+      greeksAvailable,
+      opened: openedFor(p.symbol),
     });
   }
 

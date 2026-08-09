@@ -111,7 +111,7 @@ const EventSchema = z.union([
 
 export async function POST(req: NextRequest) {
   try {
-    const userId = await verifyAuth(req);
+    const userId = await verifyAuth();
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

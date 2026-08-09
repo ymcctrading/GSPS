@@ -65,10 +65,13 @@ const levels: TradeLevels = {
   entry: 100,
   stopLoss: 85,
   takeProfit1: 130,
+  takeProfit2: 145,
   masterProfit: 145,
   riskPerShare: 15,
   rewardToRiskTp1: 2,
+  rewardToRiskTp2: 3,
   rewardToRiskMaster: 3,
+  masterFromStructure: true,
   stopPctOfPrice: 15,
   stopBandWarning: null,
 };

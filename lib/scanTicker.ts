@@ -169,6 +169,7 @@ export async function scanTicker(
           gannTargets,
           optionPremium,
           executionAtr,
+          assetClass,
         );
       } catch (err) {
         levelsError = err instanceof Error ? err.message : String(err);

@@ -72,10 +72,13 @@ describe("computeScore", () => {
         entry: 100.5,
         stopLoss: 86,
         takeProfit1: 129.5,
+        takeProfit2: 144,
         masterProfit: 144,
         riskPerShare: 14.5,
         rewardToRiskTp1: 2,
+        rewardToRiskTp2: 3,
         rewardToRiskMaster: 3,
+        masterFromStructure: true,
         stopPctOfPrice: 14.4,
         stopBandWarning: null,
       },
@@ -99,7 +102,7 @@ describe("computeScore", () => {
     expect(decision.outputState).toBe("Reject");
   });
 
-  it("awards the risk-reward point on TP1 ≥ 2R regardless of the stop's share of price", () => {
+  it("awards the structural-confirmation point regardless of the stop's share of price", () => {
     const item = (stopPctOfPrice: number) =>
       computeScore({
         direction: "bullish",
@@ -113,16 +116,20 @@ describe("computeScore", () => {
           entry: 100,
           stopLoss: 95,
           takeProfit1: 110,
+          takeProfit2: 115,
           masterProfit: 115,
           riskPerShare: 5,
           rewardToRiskTp1: 2,
+          rewardToRiskTp2: 3,
           rewardToRiskMaster: 3,
+          masterFromStructure: true,
           stopPctOfPrice,
           stopBandWarning: null,
         },
-      }).breakdown.find((b) => b.criterion.startsWith("Clean risk-reward"));
+      }).breakdown.find((b) => b.criterion.startsWith("Master target"));
 
-    // 5% and 30% both sit outside the old 12–18% band; only TP1 ≥ 2R matters now.
+    // 5% and 30% both sit outside the old 12–18% band; only whether a
+    // structural level confirms the master target matters now.
     expect(item(5)?.passed).toBe(true);
     expect(item(30)?.passed).toBe(true);
     expect(item(14.4)?.passed).toBe(true);

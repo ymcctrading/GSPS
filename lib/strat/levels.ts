@@ -1,17 +1,17 @@
 /**
  * Trade levels per the protocol:
  *  - Entry: the pattern trigger line (break by one penny).
- *  - Stop: structural — one penny opposite the trigger candle ("no exceptions").
- *  - TP1: 2R (two-to-one reward:risk), or the previous candle's high/low if
- *    that structural target is further than 2R.
- *  - Master profit: 3R, stretched to the nearest structural extension when one
- *    sits beyond 3R within reason; always kept beyond TP1, stepping out a
- *    further 1R when a structural TP1 has already run past 3R.
- *  - Stop sanity: advisory only — the structural stop always wins. Which
- *    advisory applies depends on what is known (see the warning block below).
+ *  - Stop: structural (one penny opposite the trigger candle) + ATR leeway buffer
+ *    to avoid false stops in noise while respecting structural invalidation.
+ *  - TP1: asset-class-dependent default (1.5R for most), or the previous candle's
+ *    high/low if that structural target is further.
+ *  - TP2 (runner): asset-class-dependent (2.5–3R), scaled after TP1 hit.
+ *  - Stop sanity: advisory only — the structural stop respects the invalidation
+ *    while leeway prevents noise whipsaws. Which advisory applies depends on what
+ *    is known (see the warning block below).
  */
 
-import type { Bar, StratPattern, TradeLevels } from "@/lib/types";
+import type { AssetClass, Bar, StratPattern, TradeLevels } from "@/lib/types";
 import { readPremiumStop } from "@/lib/trade/premium-stop";
 
 /**
@@ -25,19 +25,104 @@ import { readPremiumStop } from "@/lib/trade/premium-stop";
  */
 export const MAX_STOP_ATR_MULTIPLE = 2.5;
 
+/**
+ * Default TP1 R-multiple by asset class. Most strategies hit higher win rates
+ * with moderate first targets (1.5R), scaling the runner (TP2) higher to keep
+ * upside. Adjusted for market microstructure and typical move distribution.
+ */
+const TP1_MULTIPLE_BY_ASSET: Record<AssetClass, number> = {
+  us_equity: 1.5,
+  crypto: 1.5,
+};
+
+/**
+ * Default TP2 (runner) R-multiple by asset class. Typically hit after TP1
+ * is reached and stop is moved to breakeven or slightly better.
+ */
+const TP2_MULTIPLE_BY_ASSET: Record<AssetClass, number> = {
+  us_equity: 2.5,
+  crypto: 3.0,
+};
+
+/** Fallback multipliers when asset class is not provided (for backward compatibility). */
+const DEFAULT_TP1_MULTIPLE = 2.0;
+const DEFAULT_TP2_MULTIPLE = 3.0;
+
+type StopSide = "long" | "short";
+
+/**
+ * Compute stop-loss with structural boundary + ATR leeway buffer.
+ * Prevents stops from being too tight (noise whipsaw) while respecting
+ * the true structural invalidation level.
+ */
+function computeStopWithLeeway(params: {
+  side: StopSide;
+  entry: number;
+  structuralStop: number;
+  atr15: number;
+}) {
+  const { side, entry, structuralStop, atr15 } = params;
+
+  const leewayAtr = 0.1; // 0.10×ATR leeway
+  const minStopPct = 0.001; // 0.1% of price
+  const minStopWidth = Math.max(entry * minStopPct, 0.1 * atr15);
+  const maxStopWidth = MAX_STOP_ATR_MULTIPLE * atr15;
+
+  const leewayCandidate =
+    side === "long"
+      ? entry - leewayAtr * atr15
+      : entry + leewayAtr * atr15;
+
+  let sl =
+    side === "long"
+      ? Math.min(structuralStop, leewayCandidate)
+      : Math.max(structuralStop, leewayCandidate);
+
+  const risk = Math.abs(entry - sl);
+
+  if (!isFinite(risk) || !isFinite(sl) || risk <= 0) {
+    sl = structuralStop;
+  }
+
+  const risk2 = Math.abs(entry - sl);
+
+  if (risk2 < minStopWidth) {
+    sl = side === "long" ? entry - minStopWidth : entry + minStopWidth;
+  } else if (risk2 > maxStopWidth) {
+    sl = side === "long" ? entry - maxStopWidth : entry + maxStopWidth;
+  }
+
+  sl = Math.max(sl, 0.01);
+
+  return sl;
+}
+
 export function computeTradeLevels(
   pattern: StratPattern,
   previousBar: Bar,
   gannTargets: number[],
   optionPremium?: number,
   executionAtr?: number,
+  assetClass?: AssetClass,
 ): TradeLevels {
   const entry = pattern.triggerPrice;
-  const stopLoss = pattern.stopPrice;
-  const risk = Math.abs(entry - stopLoss);
   const dir = pattern.direction === "bullish" ? 1 : -1;
 
-  // A pattern whose trigger and structural stop are the same price has no risk
+  // Compute stop with ATR leeway (structural boundary + buffer for noise)
+  // If no ATR available, fall back to structural stop only.
+  let stopLoss = pattern.stopPrice;
+  if (executionAtr && executionAtr > 0) {
+    stopLoss = computeStopWithLeeway({
+      side: pattern.direction === "bullish" ? "long" : "short",
+      entry,
+      structuralStop: pattern.stopPrice,
+      atr15: executionAtr,
+    });
+  }
+
+  const risk = Math.abs(entry - stopLoss);
+
+  // A pattern whose trigger and stop are the same price has no risk
   // to size against and no R-multiple to project targets from. Every detected
   // pattern puts them a penny either side of a bar, so this only fires on
   // corrupt input.
@@ -47,33 +132,52 @@ export function computeTradeLevels(
     );
   }
 
-  // TP1: max(2R, structural previous-candle extreme in the trade direction)
+  // TP1: asset-class-default R-multiple, or the previous candle's high/low if
+  // that structural target is further than the default multiple.
+  //
+  // Do not score anything on which branch wins here. Every pattern sets its
+  // trigger a penny beyond the signal candle's extreme and its stop a penny
+  // beyond the other side, so `risk` is close to that candle's own range, and
+  // the structural branch needs the *previous* candle's extreme to clear a
+  // multiple of it. Measured against the old flat 2R floor it fired zero times
+  // in 6,362 armed setups; the lower asset-class multiples here make it
+  // reachable, but nothing has re-measured how often. The scored structural
+  // criterion reads the master target instead — see docs/BACKTESTING.md.
+  const tp1Multiple = assetClass
+    ? TP1_MULTIPLE_BY_ASSET[assetClass]
+    : DEFAULT_TP1_MULTIPLE;
   const structuralT1 = pattern.direction === "bullish" ? previousBar.h : previousBar.l;
-  const twoR = entry + dir * 2 * risk;
+  const tp1Target = entry + dir * tp1Multiple * risk;
   const takeProfit1 =
-    dir * (structuralT1 - entry) > dir * (twoR - entry) && dir * (structuralT1 - entry) > 0
+    dir * (structuralT1 - entry) > dir * (tp1Target - entry) && dir * (structuralT1 - entry) > 0
       ? structuralT1
-      : twoR;
+      : tp1Target;
 
-  // Master profit: 3R, or the nearest structural extension beyond it (capped
-  // at 5R). A structural TP1 lifted from the previous candle can legitimately
-  // sit at or past 3R on a wide bar — that is a real market condition, not a
-  // corrupt signal — so in that case the master target steps out a further 1R
-  // beyond TP1 and the extension search window moves with it.
-  const threeR = entry + dir * 3 * risk;
+  // TP2 (runner): asset-class-dependent, snaps to structural extensions.
+  // If TP1 (via structural extension) runs past TP2, step the runner out by 1R.
+  const tp2Multiple = assetClass
+    ? TP2_MULTIPLE_BY_ASSET[assetClass]
+    : DEFAULT_TP2_MULTIPLE;
+  const tp2Target = entry + dir * tp2Multiple * risk;
   const fiveR = entry + dir * 5 * risk;
-  const tp1Overruns3R = dir * (takeProfit1 - threeR) >= 0;
-  // Everything the master target may snap to has to clear this floor…
-  const masterFloor = tp1Overruns3R ? takeProfit1 : threeR;
-  // …and this is where it lands when nothing structural is in range.
-  const steppedMaster = tp1Overruns3R ? takeProfit1 + dir * risk : threeR;
+
+  // If TP1 has overrun TP2 (structural TP1 beyond the calculated TP2), step master out further
+  const tp1OverrunsTP2 = dir * (takeProfit1 - tp2Target) > 0;
+  const masterFloor = tp1OverrunsTP2 ? takeProfit1 : tp2Target;
+  const steppedMaster = tp1OverrunsTP2 ? takeProfit1 + dir * risk : tp2Target;
   const masterCap = dir * (fiveR - steppedMaster) > 0 ? fiveR : steppedMaster + dir * risk;
   const structuralExtension = gannTargets
     .filter((g) => dir * (g - masterFloor) > 0 && dir * (g - masterCap) <= 0)
     .sort((a, b) => dir * (a - b))[0];
+  const masterFromStructure = structuralExtension !== undefined;
   const masterProfit = structuralExtension ?? steppedMaster;
 
-  const stopPctOfPrice = (risk / entry) * 100;
+  // Use structural risk for warning checks (the actual setup as presented,
+  // before ATR bounds are applied). The computed risk may have been constrained
+  // by ATR leeway bounds, so we check the original structural setup against
+  // the bands to inform the trader about the underlying setup quality.
+  const structuralRisk = Math.abs(entry - pattern.stopPrice);
+  const stopPctOfPrice = (structuralRisk / entry) * 100;
   let stopBandWarning: string | null = null;
 
   if (optionPremium && optionPremium > 0) {
@@ -81,14 +185,14 @@ export function computeTradeLevels(
     // contract moves point-for-point with the underlying. The strike ticket
     // knows the contract's delta and reports the exact figure — same rule,
     // same wording, from lib/trade/premium-stop.ts.
-    stopBandWarning = readPremiumStop({ risk, premium: optionPremium })?.warning ?? null;
+    stopBandWarning = readPremiumStop({ risk: structuralRisk, premium: optionPremium })?.warning ?? null;
   } else if (executionAtr && executionAtr > 0) {
     // No premium: the honest question is whether the stop is sane for how much
     // this instrument moves, not what fraction of the notional it represents.
     // Measuring against share price puts every intraday structural stop at
     // 0.1–1%, which can never reach 12% — so the old fallback warned on every
     // equity scan, and told the reader to increase size while doing it.
-    const atrMultiple = risk / executionAtr;
+    const atrMultiple = structuralRisk / executionAtr;
     if (atrMultiple > MAX_STOP_ATR_MULTIPLE) {
       stopBandWarning = `Structural stop is ${atrMultiple.toFixed(1)}× the average candle on the execution timeframe — an unusually wide setup. Reduce size, or wait for a tighter trigger.`;
     }
@@ -114,10 +218,13 @@ export function computeTradeLevels(
     entry: round(entry),
     stopLoss: round(stopLoss),
     takeProfit1: round(takeProfit1),
+    takeProfit2: round(masterProfit),
     masterProfit: round(masterProfit),
     riskPerShare: round(risk),
     rewardToRiskTp1: risk > 0 ? Math.abs(takeProfit1 - entry) / risk : 0,
+    rewardToRiskTp2: risk > 0 ? Math.abs(masterProfit - entry) / risk : 0,
     rewardToRiskMaster: risk > 0 ? Math.abs(masterProfit - entry) / risk : 0,
+    masterFromStructure,
     stopPctOfPrice,
     stopBandWarning,
   };

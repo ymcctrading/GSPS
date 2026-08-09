@@ -134,8 +134,12 @@ export async function persistDailyScans(
 
   // A shorter list than the run it replaces leaves higher ranks behind. The new
   // rows are already live, so a failure here is a stale tail, not a failed save.
+  // Only prune if rows were written for this direction; if written is 0, the new
+  // scan produced no results for this direction and pruning would erase the
+  // previous run instead of trimming beyond it.
   for (const direction of DIRECTIONS) {
     const written = rows.filter((r) => r.direction === direction).length;
+    if (written === 0) continue;
     const { error: pruneError } = await client
       .from("daily_scans")
       .delete()

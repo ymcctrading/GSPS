@@ -1,22 +1,28 @@
 /**
- * Portfolio sectioning — splits the order ledger into the four buckets the
- * Portfolio tab renders: Open, Pending, Closed, and Canceled & Rejected.
+ * Portfolio sectioning — splits the order ledger into the five buckets the
+ * Portfolio tab renders: Open, Pending, Rejected, Closed, and Canceled.
  *
  * There is no single `status` column that answers "is this position open?".
  * The `orders` table carries the broker's order status (Alpaca's vocabulary,
- * mirrored verbatim on insert and update), which settles Pending vs. terminal,
- * but a `filled` order says nothing about whether the position it opened is
- * still held — a filled entry and a filled exit look identical in that column.
- * So the classification is a derived condition: order status first, and for
- * `filled` orders, whether the symbol still appears in the broker's live
- * positions.
+ * mirrored on insert and refreshed by reconciliation), which settles Pending
+ * vs. terminal, but a `filled` order says nothing about whether the position it
+ * opened is still held — a filled entry and a filled exit look identical in
+ * that column. So the classification is a derived condition: order status
+ * first, and for `filled` orders, whether the symbol still appears in the
+ * broker's live positions.
  *
  *   Open     — filled, and the symbol is still held at the broker.
  *   Pending  — submitted/queued, not yet fully filled or confirmed.
+ *   Rejected — the broker refused it. Its own bucket rather than a subgroup of
+ *              the unfilled pile, because a rejection is the one ending that
+ *              needs the user to do something: it carries a reason and a route
+ *              back to a corrected order. Burying it in a collapsed section
+ *              alongside routine cancellations is how a rejected order goes
+ *              unnoticed.
  *   Closed   — filled and no longer held: a position that was exited/settled.
- *   Unfilled — ended without ever becoming a position. Canceled and rejected
- *              are different events (one is a withdrawal, the other a refusal)
- *              and stay distinguishable inside the section by disposition.
+ *   Unfilled — ended without filling and without being refused: cancelled,
+ *              expired, replaced, done for day. Routine endings, kept
+ *              distinguishable inside the section by disposition.
  *
  * Open and Closed both depend on the live position list, so callers pass null
  * for it while it's still loading or its fetch failed. In that state a filled
@@ -25,18 +31,23 @@
 
 import type { BlendedPosition } from "./blend";
 
-export type PositionSection = "open" | "pending" | "closed" | "unfilled";
+export type PositionSection = "open" | "pending" | "rejected" | "closed" | "unfilled";
 
 /** The order fields sectioning needs — anything wider passes through intact. */
 export interface SectionableOrder {
   symbol: string;
   status: string;
   created_at: string;
+  /** Broker-accepted time, when reconciliation has recorded one. */
+  broker_submitted_at?: string | null;
+  /** Deterministic tiebreak for rows accepted in the same millisecond. */
+  id?: string;
 }
 
 export interface SectionedOrders<T> {
   open: T[];
   pending: T[];
+  rejected: T[];
   closed: T[];
   unfilled: T[];
 }
@@ -99,10 +110,16 @@ export const DISPOSITION_DESCRIPTIONS: Record<Disposition, string> = {
   done_for_day: "Stopped working for the session without filling.",
 };
 
-/** Fixed display order for the section's disposition sub-groups. */
+/**
+ * Fixed display order for the unfilled section's disposition sub-groups.
+ *
+ * `rejected` is deliberately absent: rejections have their own section, so a
+ * rejected order never reaches `groupByDisposition`. The disposition itself
+ * stays defined above because `dispositionOf` is still the thing that
+ * recognizes the status.
+ */
 export const DISPOSITION_ORDER: readonly Disposition[] = [
   "canceled",
-  "rejected",
   "expired",
   "replaced",
   "done_for_day",
@@ -157,23 +174,47 @@ export function classifyOrder(
   held: ReadonlySet<string> | null,
 ): PositionSection {
   const status = normalize(order.status);
+  if (status === "rejected") return "rejected";
   if (dispositionOf(status)) return "unfilled";
   if (PENDING_STATUSES.has(status)) return "pending";
   if (status === "filled") {
     if (held === null) return "open";
+    // Whether the symbol is still held is the whole answer, on either side. A
+    // filled sell that leaves nothing held closed the position; one that leaves
+    // something held is a partial exit, or a short that is now the position —
+    // both still open. The buy cases fall the same way, so side adds nothing.
     return held.has(order.symbol?.toUpperCase() ?? "") ? "open" : "closed";
   }
   return "pending";
 }
 
-/** Newest first, by placement time. Rows with an unparseable date sort last. */
+/**
+ * Newest first, by the time the broker accepted the order, falling back to
+ * when this app recorded it.
+ *
+ * The two are usually within a second of each other and diverge exactly when
+ * it matters: an order queued before the open is accepted at 09:30, hours
+ * after it was placed. A section listing what is live at the broker has to sort
+ * on the broker's clock. Rows with no usable date sort last rather than
+ * dropping out of view, and the id breaks ties so the order doesn't shuffle
+ * between renders.
+ */
 function byNewestFirst(a: SectionableOrder, b: SectionableOrder): number {
-  const ta = Date.parse(a.created_at);
-  const tb = Date.parse(b.created_at);
-  if (Number.isNaN(ta) && Number.isNaN(tb)) return 0;
-  if (Number.isNaN(ta)) return 1;
-  if (Number.isNaN(tb)) return -1;
-  return tb - ta;
+  const ta = acceptedTime(a);
+  const tb = acceptedTime(b);
+  if (ta !== tb) {
+    if (ta === null) return 1;
+    if (tb === null) return -1;
+    return tb - ta;
+  }
+  return (a.id ?? "").localeCompare(b.id ?? "");
+}
+
+function acceptedTime(order: SectionableOrder): number | null {
+  const submitted = order.broker_submitted_at ? Date.parse(order.broker_submitted_at) : NaN;
+  if (!Number.isNaN(submitted)) return submitted;
+  const created = Date.parse(order.created_at);
+  return Number.isNaN(created) ? null : created;
 }
 
 /**
@@ -190,7 +231,13 @@ export function sectionOrders<T extends SectionableOrder>(
   blendedPositions: BlendedPosition[] | null,
 ): SectionedOrders<T> {
   const held = heldSymbols(blendedPositions);
-  const sections: SectionedOrders<T> = { open: [], pending: [], closed: [], unfilled: [] };
+  const sections: SectionedOrders<T> = {
+    open: [],
+    pending: [],
+    rejected: [],
+    closed: [],
+    unfilled: [],
+  };
   for (const order of orders) {
     sections[classifyOrder(order, held)].push(order);
   }

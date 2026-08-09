@@ -204,6 +204,142 @@ export async function getOrders(creds: AlpacaCreds, status: "open" | "closed" | 
   return alpacaFetch(creds, `/v2/orders?status=${status}&limit=100`);
 }
 
+/** The order fields the reconciler reads. Alpaca returns considerably more. */
+export interface AlpacaOrder {
+  id: string;
+  client_order_id?: string;
+  symbol: string;
+  status: string;
+  side: "buy" | "sell";
+  qty: string | null;
+  filled_qty: string | null;
+  filled_avg_price: string | null;
+  type: string;
+  order_class?: string;
+  limit_price?: string | null;
+  submitted_at?: string | null;
+  created_at?: string | null;
+  filled_at?: string | null;
+  canceled_at?: string | null;
+  expired_at?: string | null;
+  failed_at?: string | null;
+  legs?: AlpacaOrder[] | null;
+}
+
+/**
+ * Every order the broker has on file since `since`, newest first, paged.
+ *
+ * Reconciliation depends on this being the *complete* set for the window: a
+ * local order missing from it is treated as one the broker has no record of.
+ * Alpaca caps a page at 500 and offers no cursor for orders, so pages walk
+ * backwards through time using the oldest `submitted_at` seen so far as the
+ * next `until`. `maxPages` bounds the walk — a ledger deeper than that is a
+ * reporting problem, not a portfolio-load problem.
+ *
+ * `nested=false` keeps bracket legs as top-level rows, which is what the
+ * ledger stores them as.
+ */
+export async function listOrders(
+  creds: AlpacaCreds,
+  opts: { since: Date; maxPages?: number } = { since: new Date(Date.now() - 90 * 24 * 3600 * 1000) },
+): Promise<AlpacaOrder[]> {
+  const pageSize = 500;
+  const maxPages = opts.maxPages ?? 6;
+  const collected: AlpacaOrder[] = [];
+  const seen = new Set<string>();
+  let until: Date | null = null;
+
+  for (let page = 0; page < maxPages; page++) {
+    const params = new URLSearchParams({
+      status: "all",
+      limit: String(pageSize),
+      direction: "desc",
+      nested: "false",
+      after: opts.since.toISOString(),
+    });
+    if (until) params.set("until", until.toISOString());
+
+    const rows = (await alpacaFetch(creds, `/v2/orders?${params.toString()}`)) as AlpacaOrder[];
+    if (!Array.isArray(rows) || rows.length === 0) break;
+
+    let advanced = false;
+    let oldest: number | null = null;
+    for (const row of rows) {
+      const id = String(row.id);
+      if (!seen.has(id)) {
+        seen.add(id);
+        collected.push(row);
+        advanced = true;
+      }
+      const t = Date.parse(row.submitted_at ?? row.created_at ?? "");
+      if (!Number.isNaN(t) && (oldest === null || t < oldest)) oldest = t;
+    }
+
+    if (rows.length < pageSize || oldest === null || !advanced) break;
+    // Step one millisecond past the oldest row so the next page can't return
+    // the same boundary order forever.
+    until = new Date(oldest - 1);
+  }
+
+  return collected;
+}
+
+/**
+ * Fill activities — the execution-level record, one entry per (partial) fill.
+ *
+ * This is the source of truth for when a position opened. An order's
+ * `filled_at` collapses a multi-execution fill to a single moment, and its
+ * `submitted_at` is not a fill at all; the activities feed keeps each execution
+ * with its own `transaction_time`, which is what `deriveOpenedAt` walks.
+ */
+export interface AlpacaFillActivity {
+  id: string;
+  activity_type: string;
+  /** "fill" | "partial_fill" */
+  type?: string;
+  transaction_time: string;
+  symbol: string;
+  side: "buy" | "sell" | "sell_short";
+  qty: string;
+  price?: string;
+  order_id?: string;
+  cum_qty?: string;
+  leaves_qty?: string;
+}
+
+export async function listFillActivities(
+  creds: AlpacaCreds,
+  opts: { since: Date; maxPages?: number },
+): Promise<AlpacaFillActivity[]> {
+  const pageSize = 100;
+  const maxPages = opts.maxPages ?? 10;
+  const collected: AlpacaFillActivity[] = [];
+  let pageToken: string | undefined;
+
+  for (let page = 0; page < maxPages; page++) {
+    const params = new URLSearchParams({
+      activity_types: "FILL",
+      page_size: String(pageSize),
+      direction: "desc",
+      after: opts.since.toISOString(),
+    });
+    if (pageToken) params.set("page_token", pageToken);
+
+    const rows = (await alpacaFetch(
+      creds,
+      `/v2/account/activities?${params.toString()}`,
+    )) as AlpacaFillActivity[];
+    if (!Array.isArray(rows) || rows.length === 0) break;
+
+    collected.push(...rows);
+    if (rows.length < pageSize) break;
+    pageToken = rows[rows.length - 1]?.id;
+    if (!pageToken) break;
+  }
+
+  return collected;
+}
+
 export async function cancelOrder(creds: AlpacaCreds, orderId: string) {
   return alpacaFetch(creds, `/v2/orders/${orderId}`, { method: "DELETE" });
 }

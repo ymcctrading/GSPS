@@ -37,6 +37,25 @@ date.
 
 ## 2026-08-06
 
+- **The Portfolio's order ledger splits by asset type.** One table served both
+  shares and contracts, so every equity row rendered four Greek columns filled
+  with em dashes — which reads as "these failed to load" rather than "shares do
+  not have a Delta". Shares and contracts now render separate tables with their
+  own columns, and option Greeks sit behind a `Show Greeks` toggle that starts
+  closed. Both layouts render as cards below the `sm` breakpoint so a phone
+  reads top-to-bottom instead of scrolling a fifteen-column grid sideways.
+
+- **Pending orders sort on the broker-accepted time**, falling back to local
+  placement time. The two diverge exactly when it matters: an order queued
+  before the open is accepted at 09:30, hours after it was placed. Ties break
+  on row id so the order does not shuffle between renders.
+
+- **Order statuses render normalized labels.** `accepted_for_bidding` means
+  nothing to a first-time user; the six user-facing states are Pending,
+  Partially filled, Filled, Rejected, Cancelled and Sync error, each with a
+  plain-language description. An unrecognized broker status becomes Sync error
+  rather than silently landing in a bucket that looks fine.
+
 ### Added
 - **A per-candle readout on the chart.** Hovering a candle now reports that
   bar's numbers in a panel docked to the top-left of the price pane: date and
@@ -64,6 +83,112 @@ date.
   change taken against the wrong bar, is a wrong number shown with full
   confidence. It indexes the bars actually on screen, so a candle hidden by
   the extended-hours toggle can never be the one reported.
+
+- **Open positions carry the moment they were first opened.** Derived in
+  `lib/portfolio/opened-at.ts` from the broker's fill activities, not from an
+  order's placement time — a limit order can rest for days before it fills, and
+  the position began at the fill. The derivation walks executions oldest to
+  newest carrying a signed net quantity, recording the fill that took the net
+  off zero and discarding it when the net returns; partial fills and scale-ins
+  keep the original timestamp, a flatten-and-reopen starts a new one, and a
+  fill that reverses through zero opens the new position. When the replay
+  doesn't reconstruct the quantity the broker reports, the history window is
+  too short to answer and the cell reads `Unavailable — historical fill data
+  missing` rather than dating the position from whatever fill happened to be
+  visible. Rendered in Eastern time with the zone named, on both the desktop
+  table and the mobile card.
+
+- **A dedicated Rejected Orders section.** Rejections were previously grouped
+  with routine cancellations inside a collapsed panel. They now have their own
+  always-expanded section carrying the broker's reason, the timestamp, a
+  `Fix order` route back to the symbol's ticket, and — where the submitted
+  price differs from the requested one — a line saying so.
+
+- **Last-synced stamp and a real Refresh control.** The Portfolio says when the
+  order list was last confirmed against the broker and offers a refresh that
+  performs a server round trip rather than a client re-render. A failed sync
+  says so instead of letting a stale list pass for a current one.
+
+- **Intraday movement scanner** (`lib/scanner/intraday.ts`,
+  `/api/intraday-scan`, `components/scan/intraday-alerts.tsx`). The existing
+  market scan could not have flagged a large intraday move: it runs twice a day
+  on cron (08:30 and 17:30 ET, neither during the session), it is a *reversion*
+  screen that selects the direction opposite the trend, and its execution
+  timeframe requires an armed reversal pattern on closed 15-minute bars. There
+  was no detector for "this moved a lot today", so this adds one.
+
+  Five modes — opening momentum, trend continuation, volatility expansion,
+  unusual volume and reversal risk — each sized against the symbol rather than
+  a fixed dollar threshold: move size is measured in multiples of the symbol's
+  own ATR, and relative volume against a same-time-of-day baseline rather than
+  a whole-session average, which would otherwise make every symbol look quiet
+  through the morning. Every alert names the reference price and the basis it
+  came from, the data timestamp separately from the trigger time, an
+  invalidation level, an inspectable confidence breakdown, a continuation plan
+  and an opposite-direction pivot plan.
+
+  A per-symbol audit trail records what happened to everything that was *not*
+  alerted — evaluated and quiet, filtered on liquidity, suppressed by a
+  cooldown, or skipped because its feed was stale. "The scanner missed it" was
+  previously unanswerable.
+
+  Served on demand rather than on a schedule: the Hobby plan's two cron slots
+  are both spent on the daily market scan, and a scan that needs to run every
+  few minutes cannot come from `vercel.json`. The panel refreshes while it is
+  open and the footer says so.
+
+### Fixed
+- **Orders placed after 31 July never reached the Portfolio.** Two independent
+  defects, both in `app/api/orders/route.ts`, and each one alone was enough to
+  produce the symptom.
+
+  A rejected order left no trace anywhere. `POST` called `placeOrder` inside a
+  `try`, and the `supabase.from("orders").insert(...)` sat *after* it in the
+  same block — so a broker refusal threw straight past the insert into the
+  `catch`, which returned an error message and wrote nothing. The order had
+  never existed at the broker and now did not exist locally either. A day whose
+  orders were refused (the DRAM sub-penny rejection, for one) looked like a day
+  on which nothing had been submitted. Both paths now write a row; the
+  rejection path records `status: 'rejected'` with the broker's reason.
+
+  Nothing ever updated an order after insert. The `status` column was written
+  once, from `broker.status ?? "new"`, and no code path revisited it — `GET`
+  read straight out of Supabase and `lib/brokers/alpaca.ts#getOrders` was only
+  ever called by close reconciliation. Every order ever placed therefore stayed
+  Pending forever, whatever had since happened to it at the broker. "Pending
+  Positions (22)" was an archive of everything ever submitted, and the newest
+  row in it was the newest order that had ever been *accepted* — which is why
+  the list appeared to stop on a date. `lib/portfolio/order-status.ts` adds the
+  missing half: `reconcileOrders` diffs the local ledger against the broker's
+  order list on every load and writes the broker's answer back. Only working
+  rows are chased, so a settled ledger costs no broker call.
+
+- **Limit prices are validated against the instrument's increment before
+  routing.** `Invalid limit_price 49.755. sub-penny increment does not fulfill
+  minimum pricing criteria.` arrived from the broker after the user had already
+  committed to the order. `lib/trade/tick-size.ts` applies SEC Rule 612 for
+  shares ($0.01 at or above $1.00, $0.0001 below) and the OPRA increments for
+  contracts ($0.05 below $3.00, $0.10 at or above, $0.01 only for a class the
+  broker confirms trades in pennies), snaps the price, and blocks submission
+  when no valid price can be produced or the instrument's metadata is missing.
+
+  The default rounding is conservative by side: a buy rounds down so the fill
+  can never be above the price asked for, a sell rounds up so it can never be
+  below. The ticket states the corrected price, the rule behind it, and what
+  the rounding costs in fill probability — and repeats the corrected number on
+  the button, so it cannot be pressed unseen. `Round down` / `Round to nearest`
+  / `Round up` are selectable per order.
+
+### Database
+- `supabase/migrations/0008_order_lifecycle_reconciliation.sql` adds
+  `broker_submitted_at`, `reject_reason`, `last_synced_at`,
+  `requested_limit_price`, `tick_size` and `tick_source` to `orders`, plus two
+  indexes. Every column is nullable and added with `if not exists`, so the
+  migration is safe on a populated table and safe to re-run; a null
+  `last_synced_at` reads as "never synced" and the reconciler picks the row up
+  on the next load. Rollback is a `drop column if exists` per column — no
+  existing column is altered and no data is rewritten.
+
 
 ## 2026-08-05
 

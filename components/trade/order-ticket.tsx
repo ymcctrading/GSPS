@@ -5,6 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { checkBracket } from "@/lib/trade/bracket";
+import {
+  ROUNDING_MODE_LABELS,
+  conservativeMode,
+  validateLimitPrice,
+  type RoundingMode,
+} from "@/lib/trade/tick-size";
 import { formatUsd, cn } from "@/lib/utils";
 import type { ScanResult } from "@/lib/types";
 import type { AssetTradability } from "@/app/api/assets/route";
@@ -50,6 +56,12 @@ export function OrderTicket({
   const [attachLevels, setAttachLevels] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string; code?: string } | null>(null);
+  /**
+   * Null means "use the conservative default for this side" — a buy rounds
+   * down so the user never pays more than they asked, a sell rounds up so they
+   * never receive less. An explicit choice overrides it.
+   */
+  const [rounding, setRounding] = useState<RoundingMode | null>(null);
   const [executionMode, setExecutionMode] = useState<ExecutionMode>(hasProtocolSignal ? "protocol" : "manual");
 
   // Options chain state.
@@ -165,6 +177,24 @@ export function OrderTicket({
   // than sent and rejected; the note under the checkbox says so.
   const attachingLevels = attachLevels && !bracketBlocked;
 
+  // A limit price between two valid increments is refused by the broker
+  // (`Invalid limit_price 49.755. sub-penny increment...`). The same check the
+  // server runs before routing runs here too, so the corrected price is on
+  // screen before the button is pressed rather than in a rejection after it.
+  const limitPrice = assetType === "shares" && entryMode === "advised" ? advised : null;
+  const effectiveRounding = rounding ?? conservativeMode(side);
+  const priceCheck =
+    limitPrice != null && limitPrice > 0
+      ? validateLimitPrice({
+          price: limitPrice,
+          side,
+          instrument: { assetType: "EQUITY" },
+          mode: effectiveRounding,
+        })
+      : null;
+  const priceBlocked = priceCheck != null && !priceCheck.ok;
+  const submittedPrice = priceCheck?.price ?? limitPrice;
+
   async function submit() {
     setSubmitting(true);
     setFeedback(null);
@@ -186,6 +216,9 @@ export function OrderTicket({
               qty: Number(qty),
               entryMode,
               limitPrice: entryMode === "advised" ? advised : undefined,
+              // The server re-validates and re-rounds; sending the mode keeps
+              // its answer identical to the one shown above the button.
+              rounding: effectiveRounding,
               // Lets the server validate a market entry's bracket, which has no
               // limit price of its own to measure the legs against.
               referencePrice: currentPrice ?? undefined,
@@ -218,12 +251,12 @@ export function OrderTicket({
   }
 
   /** Jump straight from a blocked short to the equivalent put ticket. */
-  const switchToPut = () => {
+  const switchToPut = useCallback(() => {
     setSide("buy");
     changeOptionType("put");
     setFeedback(null);
     openOptions();
-  };
+  }, [changeOptionType, openOptions]);
 
   const optionRows = activeExpiry?.strikes.filter((r) => (optionType === "call" ? r.call : r.put)) ?? [];
   const canSubmitOptions = assetType === "options" && !!contractSymbol;
@@ -231,10 +264,11 @@ export function OrderTicket({
     submitting ||
     Number(qty) < 1 ||
     (assetType === "options" && !canSubmitOptions) ||
-    (shortBlocked && side === "sell");
+    (shortBlocked && side === "sell") ||
+    priceBlocked;
 
   const actionLabel = (() => {
-    if (assetType === "options") return `Buy to ${side === "buy" ? "open" : "close"} ${optionType.toUpperCase()}`;
+    if (assetType === "options") return `${side === "buy" ? "Buy" : "Sell"} to open ${optionType.toUpperCase()}`;
     return side === "buy" ? `Buy ${symbol}` : `Sell short ${symbol}`;
   })();
 
@@ -424,6 +458,14 @@ export function OrderTicket({
           />
         </div>
 
+        {priceCheck && (
+          <PriceIncrementNotice
+            check={priceCheck}
+            mode={effectiveRounding}
+            onModeChange={setRounding}
+          />
+        )}
+
         <Button
           variant={side === "buy" ? "bull" : "bear"}
           size="lg"
@@ -431,7 +473,11 @@ export function OrderTicket({
           disabled={disabled}
           className="w-full"
         >
-          {submitting ? "Placing…" : actionLabel}
+          {submitting
+            ? "Placing…"
+            : priceCheck?.adjusted && submittedPrice != null
+              ? `${actionLabel} at ${formatUsd(submittedPrice)}`
+              : actionLabel}
         </Button>
 
         {feedback && (
@@ -465,6 +511,66 @@ export function OrderTicket({
         </p>
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * What the order will actually be priced at, and why it differs from the
+ * advised price.
+ *
+ * This sits above the submit button rather than in an error toast afterwards
+ * because the correction changes the trade: rounding a buy down by a cent is a
+ * cent the user will not pay, and also a cent of fill probability they give up.
+ * Both halves are stated, and the button label repeats the corrected price so
+ * there is no way to press it without having seen the number.
+ */
+function PriceIncrementNotice({
+  check,
+  mode,
+  onModeChange,
+}: {
+  check: ReturnType<typeof validateLimitPrice>;
+  mode: RoundingMode;
+  onModeChange: (m: RoundingMode) => void;
+}) {
+  if (!check.ok) {
+    return (
+      <div className="rounded-lg border border-bear/40 bg-bear-soft p-3 text-xs text-bear">
+        <p className="font-medium">This price can&apos;t be used.</p>
+        <p className="mt-1">{check.blockedReason}</p>
+      </div>
+    );
+  }
+
+  if (!check.adjusted) return null;
+
+  return (
+    <div className="rounded-lg border border-warn/40 bg-warn-soft p-3 text-xs text-warn">
+      <p className="font-medium">
+        Price adjusted to {formatUsd(check.price!)} — the broker won&apos;t accept{" "}
+        {formatUsd(check.requested, 4)}.
+      </p>
+      <p className="mt-1">{check.tick?.rule}</p>
+      {check.fillProbabilityNote && <p className="mt-1">{check.fillProbabilityNote}</p>}
+
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        <span className="font-medium">Rounding:</span>
+        {(["down", "nearest", "up"] as const).map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => onModeChange(m)}
+            aria-pressed={mode === m}
+            className={cn(
+              "min-h-9 cursor-pointer rounded px-2 py-1 font-medium transition-colors",
+              mode === m ? "bg-warn text-surface" : "border border-warn/40 hover:bg-warn/10",
+            )}
+          >
+            {ROUNDING_MODE_LABELS[m]}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
