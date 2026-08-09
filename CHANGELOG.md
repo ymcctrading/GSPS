@@ -7,7 +7,43 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
-## 2026-08-08
+## 2026-08-09
+
+### Changed
+- **The candle stat panel can be put away, and reads open/close first.** The
+  panel docked over the price pane — open, close, high, low, range and volume —
+  now has a **Candle stats** checkbox beside Extended hours and Show structural
+  levels. It is painted over the chart rather than beside it, so switching it
+  off is the one control that hands a corner of the price pane back to the
+  candles. On by default.
+
+  Its price grid now reads **open, close, high, low** rather than the
+  conventional OHLC. Open and close are the pair that decide whether the bar
+  went up or down, so they share the first line; high and low describe how far
+  it stretched getting there and sit beneath them. OHLC order splits that first
+  pair across both lines, which makes the comparison a reader makes first the
+  one the layout makes hardest.
+
+  This replaces the **Volume in readout** switch added earlier the same day —
+  a control for one row of a panel that can now be dismissed whole was a
+  toolbar slot doing very little. The **Volume pane** switch is unaffected.
+
+- **Volume is a display switch, not an indicator.** Both places the chart draws
+  volume can now be turned off from the same row as Extended hours and Show
+  structural levels:
+
+  - **Volume pane** — the histogram below price. It was already optional, but
+    only as a chip in the indicator strip, which scrolls sideways on a phone
+    and spent most of its life past the right edge of the screen. The chip is
+    gone; the checkbox replaces it. Still off by default.
+  - **Volume in readout** — the VOL row and its meter inside the docked candle
+    panel. This had no switch at all. On by default, as before.
+
+  Two switches rather than one because the two cost different things: the pane
+  takes height away from the candles and the readout row takes none, so they
+  have opposite defaults and one switch could only have honoured one of them.
+  The indicator strip keeps the chips for the things that are actually derived
+  indicators — the moving averages, Bollinger, RSI and MACD.
 
 ### Added
 - **The dashboard says how old its prices are.** `getDailyScans` returns the
@@ -57,6 +93,57 @@ date.
   the current scan's date with no way for a reader to tell. The case that skip
   was protecting is already handled: a run that resolves no symbol at all
   produces zero rows on both sides and returns before touching the table.
+
+## 2026-08-08
+
+### Changed
+- **The scoring model stops being published.** The symbol page listed every
+  criterion the score tests — twice, as the research tab's checklist and again
+  under the protocol signal — each with the threshold it measured and the value
+  that passed or failed it. That is the product, printed on the page.
+
+  Both listings are gone, and so is the underlying leak: `/api/scan` and
+  `/api/batch-scan` now strip `decision.breakdown` before responding, so the
+  criteria are not readable from a network response either. What ships in its
+  place is a rollup — points earned per pillar (trend, structure, setup,
+  timing, risk/reward) out of points available — which still answers "where did
+  this score come from" without answering "what earns one". The scan pipeline,
+  the backtest replay and the published `daily_scans` rows are unaffected: the
+  breakdown is intact server-side, it just stops at the boundary.
+
+- **The symbol and price stay on screen.** The header on a symbol page pins
+  under the app nav instead of scrolling away, so the ticker you are reading a
+  chart, ticket or signal against is always in the top-left corner. Only the
+  bar's background and border change when it pins — never its contents or
+  height, since it is the first element in the flow and anything it gained or
+  lost on pinning would jerk the page mid-scroll. Phones drop the turn-window
+  note and the regular-close reference from the bar (both still shown in the
+  research tab) to keep it to a single line.
+
+### Fixed
+- **"Buy a PUT instead" bought a call.** The shortcut offered when a symbol
+  can't be sold short sets the option type and opens the options tab in one
+  handler, and the chain load read the call/put state from the render that
+  created it — still `call` at that point, because `setOptionType` had not
+  committed. The chain then selected an at-the-money *call* while the UI showed
+  Put selected, so the order submitted the opposite instrument to the one on
+  screen. The type is now passed explicitly rather than inferred from state
+  that hasn't landed.
+
+  The argument is validated rather than defaulted: the same callback is wired
+  straight to the Retry button's `onClick`, which would otherwise hand it a
+  MouseEvent as the requested option type.
+
+  Only reachable on a bullish scan — a bearish one already defaults to `put`,
+  which is why it survived earlier passes over this component.
+
+### Changed
+- **`docs/THIRD_PARTY_LIMITS.md` stopped claiming deploys are manual.** The
+  Vercel row still read "Auto-deploy on push is disabled", which `AGENTS.md`
+  had already been corrected away from: Git-triggered deploys are on, a branch
+  push builds a preview and a merge to `main` releases to production. Two docs
+  disagreeing about whether merging is releasing is the kind of thing that gets
+  read the wrong way round exactly once.
 
 ## 2026-08-07
 

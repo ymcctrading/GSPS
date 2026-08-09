@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { scanTicker } from "@/lib/scanTicker";
+import { redactScanResult } from "@/lib/scoring/public-summary";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -20,5 +21,6 @@ export async function GET(req: NextRequest) {
   }
 
   const result = await scanTicker(ticker, optionPremium);
-  return NextResponse.json(result);
+  // The per-criterion breakdown is the scoring model; only its rollup ships.
+  return NextResponse.json(redactScanResult(result));
 }

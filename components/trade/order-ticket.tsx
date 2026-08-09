@@ -119,32 +119,51 @@ export function OrderTicket({
     [currentPrice],
   );
 
-  const loadChain = useCallback(async () => {
-    setChainStatus("loading");
-    setChainError("");
-    try {
-      const url = `/api/options/chain?symbol=${encodeURIComponent(symbol)}${
-        currentPrice ? `&price=${currentPrice}` : ""
-      }`;
-      const res = await fetch(url);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
-      const c = data as OptionChain;
-      const first = c.expirations[0]?.expiration ?? "";
-      setChain(c);
-      setExpiration(first);
-      setContractSymbol(pickAtm(c, first, optionType));
-      setChainStatus("ready");
-    } catch (err) {
-      setChainError(err instanceof Error ? err.message : String(err));
-      setChainStatus("error");
-    }
-  }, [symbol, currentPrice, optionType, pickAtm]);
+  /**
+   * Load the chain and select its at-the-money contract.
+   *
+   * `wanted` exists because the call/put state is not readable here when it
+   * matters. "Buy a PUT instead" sets the option type and opens the tab in one
+   * handler, and this callback closes over the value from the render that
+   * created it — still `call`. The chain would then load and select an ATM
+   * *call* while the UI showed Put selected, and the order would buy the call.
+   * Passing the type explicitly removes the dependency on state that hasn't
+   * committed yet.
+   *
+   * The argument is validated rather than defaulted, because this is also wired
+   * straight to the Retry button's `onClick`, which would otherwise pass a
+   * MouseEvent as the option type.
+   */
+  const loadChain = useCallback(
+    async (wanted?: OptionType) => {
+      const type: OptionType = wanted === "call" || wanted === "put" ? wanted : optionType;
+      setChainStatus("loading");
+      setChainError("");
+      try {
+        const url = `/api/options/chain?symbol=${encodeURIComponent(symbol)}${
+          currentPrice ? `&price=${currentPrice}` : ""
+        }`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+        const c = data as OptionChain;
+        const first = c.expirations[0]?.expiration ?? "";
+        setChain(c);
+        setExpiration(first);
+        setContractSymbol(pickAtm(c, first, type));
+        setChainStatus("ready");
+      } catch (err) {
+        setChainError(err instanceof Error ? err.message : String(err));
+        setChainStatus("error");
+      }
+    },
+    [symbol, currentPrice, optionType, pickAtm],
+  );
 
   // Switching to the Options tab lazily loads the chain once.
-  const openOptions = () => {
+  const openOptions = (wanted?: OptionType) => {
     setAssetType("options");
-    if (chainStatus === "idle") loadChain();
+    if (chainStatus === "idle") loadChain(wanted);
   };
 
   const changeExpiration = (exp: string) => {
@@ -255,7 +274,10 @@ export function OrderTicket({
     setSide("buy");
     changeOptionType("put");
     setFeedback(null);
-    openOptions();
+    // Explicit, not inferred from state: `setOptionType` above has not
+    // committed yet, so anything reading the option type here still sees the
+    // old value. Without this the chain loads an at-the-money call.
+    openOptions("put");
   }, [changeOptionType, openOptions]);
 
   const optionRows = activeExpiry?.strikes.filter((r) => (optionType === "call" ? r.call : r.put)) ?? [];

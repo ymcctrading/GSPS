@@ -76,6 +76,16 @@ const STUDY_META: Record<Study, { label: string }> = {
   macd: { label: "MACD 12/26/9" },
 };
 
+/**
+ * Studies that get a chip in the indicator strip. Volume is deliberately not
+ * one of them: it is a reading of the same bars the chart already draws rather
+ * than a derived indicator, so it sits with the other display switches
+ * (extended hours, structural levels) where someone looking to turn it off
+ * will actually look. The chip strip scrolls sideways on a phone, which is
+ * where "Volume" spent most of its life off the edge of the screen.
+ */
+const CHIP_STUDIES: Study[] = ["rsi", "macd"];
+
 const MACD_LINE = "#2563eb";
 const MACD_SIGNAL = "#f59e0b";
 
@@ -135,6 +145,10 @@ export function CandleChart({
   const [errorMsg, setErrorMsg] = useState("");
   const [showGann, setShowGann] = useState(true);
   const [showExtended, setShowExtended] = useState(true);
+  // The docked per-candle stat panel. On by default, because it is how you read
+  // a bar you cannot hover on a phone — but it is painted over the price pane,
+  // so switching it off is the one control that hands screen back to the chart.
+  const [showReadout, setShowReadout] = useState(true);
   const [candleData, setCandleData] = useState<Candle[]>([]);
   // Bars actually on screen (post extended-hours filter) — what the readout
   // panel indexes into, so a hidden bar can never be reported.
@@ -794,6 +808,29 @@ export function CandleChart({
               Extended hours
             </label>
           )}
+          {/*
+           * The two things the chart draws besides the candles themselves, each
+           * switchable. Both cost screen: the volume pane takes height from the
+           * price pane, and the stat panel covers a corner of it.
+           */}
+          <label className="flex items-center gap-1.5 text-xs text-muted cursor-pointer">
+            <input
+              type="checkbox"
+              checked={studies.has("volume")}
+              onChange={() => toggleSet(studies, setStudies, "volume")}
+              className="h-3.5 w-3.5 accent-[var(--accent)]"
+            />
+            Volume pane
+          </label>
+          <label className="flex items-center gap-1.5 text-xs text-muted cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showReadout}
+              onChange={(e) => setShowReadout(e.target.checked)}
+              className="h-3.5 w-3.5 accent-[var(--accent)]"
+            />
+            Candle stats
+          </label>
           {hasGann && (
             <label className="flex items-center gap-1.5 text-xs text-muted cursor-pointer">
               <input
@@ -819,7 +856,7 @@ export function CandleChart({
             onClick={() => toggleSet(overlays, setOverlays, k)}
           />
         ))}
-        {(Object.keys(STUDY_META) as Study[]).map((k) => (
+        {CHIP_STUDIES.map((k) => (
           <IndicatorChip
             key={k}
             label={STUDY_META[k].label}
@@ -855,7 +892,7 @@ export function CandleChart({
         <div ref={containerRef} className="absolute inset-0" />
         {/* Per-candle readout. Docked top-left, dropped below the Buy/Sell bar
             when the trade overlay owns that corner. */}
-        {status === "ready" && (
+        {status === "ready" && showReadout && (
           <div
             className={cn(
               "pointer-events-none absolute left-2 z-10",

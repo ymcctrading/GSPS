@@ -174,6 +174,13 @@ export interface MacroContext {
   gann: GannLevels;
   nearSupportResistance: boolean;
   momentumElevated: boolean;
+  /**
+   * Recent volume against its own trailing baseline, on the same windows as
+   * the momentum read. The score treats this as a hard liquidity gate, so the
+   * replay has to supply it — left out, it defaults open and the gate silently
+   * never fires here while rejecting setups in production.
+   */
+  volumeRatio: number;
 }
 
 export function buildMacroContext(daily: Bar[], price: number): MacroContext {
@@ -196,6 +203,13 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
   const recentAtr = atr(daily.slice(-20), 14);
   const baselineAtr = atr(daily.slice(-100, -20), 14);
 
+  // Same windows and the same open-on-missing-data default as lib/scanTicker.ts.
+  // If that calculation moves, this has to move with it, or the replay stops
+  // describing the shipped system.
+  const mean = (bars: Bar[]) =>
+    bars.length > 0 ? bars.reduce((sum, b) => sum + b.v, 0) / bars.length : 0;
+  const baselineVolume = mean(daily.slice(-100, -20));
+
   return {
     macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
     gann: {
@@ -210,6 +224,7 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
     },
     nearSupportResistance: allLevels.some((l) => Math.abs(price - l) / price <= 0.015),
     momentumElevated: baselineAtr > 0 && recentAtr / baselineAtr >= 1.2,
+    volumeRatio: baselineVolume > 0 ? mean(daily.slice(-20)) / baselineVolume : 1,
   };
 }
 
@@ -420,6 +435,7 @@ function scoreSetup(input: {
       pattern,
       momentumElevated: context.momentumElevated,
       levels,
+      volumeRatio: context.volumeRatio,
     }),
     pattern,
     context.momentumElevated,

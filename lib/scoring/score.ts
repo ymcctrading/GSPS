@@ -24,6 +24,8 @@ export interface ScoreInputs {
   levels: TradeLevels | null;
   /** Defaults to "reversion" — the protocol's primary setup. */
   setupKind?: SetupKind;
+  /** Ratio of recent volume to baseline volume (e.g., 1.2 = 20% above avg). */
+  volumeRatio?: number;
 }
 
 export function computeScore(inputs: ScoreInputs): ScanDecision {
@@ -31,6 +33,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     direction, macroTrends, hourlyTrend, gann,
     nearSupportResistance, pattern, momentumElevated, levels,
     setupKind = "reversion",
+    volumeRatio = 1.0,
   } = inputs;
 
   // The macro criterion is the one place the two setup kinds read the same
@@ -67,9 +70,13 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
 
   const upcomingCycles = gann.timeCycleDates.slice(0, 3).join(", ");
 
+  // Low-volume stocks are acceptable only if volatility is elevated.
+  const adequateLiquidity = volumeRatio >= 1.0 || momentumElevated;
+
   const breakdown: ScoreBreakdownItem[] = [
     {
       criterion: "Macro trend context (10yr/5yr/1yr)",
+      pillar: "trend",
       passed: macroSupports,
       note: macroSupports
         ? setupKind === "continuation"
@@ -81,11 +88,13 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     },
     {
       criterion: "1-hour trend agreement",
+      pillar: "trend",
       passed: hourlyAgrees,
       note: `1hr trend reads ${hourlyTrend.direction}.`,
     },
     {
       criterion: "Support line proximity",
+      pillar: "structure",
       passed: nearFan,
       note: nearFan
         ? `Price within ${gann.fanLines[0].distancePct.toFixed(2)}% of the ${gann.fanLines[0].angle} support line at ${gann.fanLines[0].price.toFixed(2)}.`
@@ -93,6 +102,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     },
     {
       criterion: "Harmonic level proximity",
+      pillar: "structure",
       passed: nearS9,
       note: nearS9
         ? `Price within ${gann.squareOf9[0].distancePct.toFixed(2)}% of the ${gann.squareOf9[0].degree}° harmonic level at ${gann.squareOf9[0].price.toFixed(2)}.`
@@ -100,6 +110,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     },
     {
       criterion: "Historical support/resistance",
+      pillar: "structure",
       passed: nearSupportResistance,
       note: nearSupportResistance
         ? "Price sits at a clustered macro S/R level."
@@ -111,6 +122,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       // Labelling a 2-1-2 that carries a trend "Reversal pattern armed" would
       // describe the opposite trade.
       criterion: `${setupKind === "continuation" ? "Continuation" : "Reversal"} pattern armed`,
+      pillar: "setup",
       passed: patternValid,
       note: patternValid
         ? `${pattern!.name} ${pattern!.direction} armed — trigger ${pattern!.triggerPrice.toFixed(2)}.`
@@ -118,6 +130,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     },
     {
       criterion: "Momentum / volatility elevated",
+      pillar: "setup",
       passed: momentumElevated,
       note: momentumElevated
         ? "Range expansion above average — high-velocity conditions."
@@ -125,6 +138,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     },
     {
       criterion: "Cyclical turn window active",
+      pillar: "timing",
       passed: gann.timeCycleActive,
       note: gann.timeCycleActive
         ? `Scan date falls inside a projected turn window${upcomingCycles ? ` — next dates of interest ${upcomingCycles}.` : "."}`
@@ -132,6 +146,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     },
     {
       criterion: "Master target confirmed by a structural level",
+      pillar: "riskReward",
       passed: cleanRR,
       note: !levels
         ? "No trade levels computed."
@@ -157,6 +172,32 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
         ? "No armed pattern in the setup direction — nothing to enter against, so the state is held at Watch."
         : "No trade plan computed — no entry, stop or targets to act on, so the state is held at Watch.",
     });
+  }
+
+  // Liquidity is a hard gate — reject low-volume setups without elevated volatility
+  // before considering the score. Report why in a breakdown item.
+  if (!adequateLiquidity) {
+    breakdown.unshift({
+      criterion: "Adequate liquidity (volume or volatility)",
+      passed: false,
+      note:
+        volumeRatio < 1.0 && !momentumElevated
+          ? `Low volume (${(volumeRatio * 100).toFixed(0)}% of avg) without elevated volatility — insufficient trading conditions.`
+          : `Rejected due to insufficient liquidity.`,
+    });
+    return {
+      // The gate decides the verdict, not the score. Zeroing it here would
+      // contradict the breakdown sitting right beside it — every criterion the
+      // setup genuinely passed is still listed — and `scan_events.score`
+      // persists this number, so an 8/9 setup rejected on liquidity would enter
+      // the learning data as a 0/9 one. The invariant that `score` equals the
+      // count of passed criteria is what makes the factor attribution in
+      // lib/backtest/attribution.ts trustworthy; the liquidity item is appended
+      // as a failure, so it holds.
+      score,
+      outputState: "Reject",
+      breakdown,
+    };
   }
 
   const outputState: ScanDecision["outputState"] =
