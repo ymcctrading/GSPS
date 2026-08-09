@@ -1,9 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ScoreBadge } from "@/components/scan/score-badge";
 import { Badge } from "@/components/ui/badge";
-import { formatUsd } from "@/lib/utils";
-import type { ScanResult } from "@/lib/types";
-import { Check, X } from "lucide-react";
+import { SCORE_PILLAR_DESCRIPTIONS, SCORE_PILLAR_LABELS } from "@/lib/scoring/public-summary";
+import { formatUsd, cn } from "@/lib/utils";
+import type { PublicScoreSummary, ScanResult } from "@/lib/types";
 
 export function SignalCard({ result }: { result: ScanResult }) {
   const { decision, levels, levelsError, pattern } = result;
@@ -68,26 +68,70 @@ export function SignalCard({ result }: { result: ScanResult }) {
           </p>
         )}
 
-        <div>
-          <h4 className="mb-2 text-sm font-medium">Score breakdown</h4>
-          <ul className="flex flex-col gap-1.5">
-            {decision.breakdown.map((b) => (
-              <li key={b.criterion} className="flex items-start gap-2 text-sm">
-                {b.passed ? (
-                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-bull" />
-                ) : (
-                  <X className="mt-0.5 h-4 w-4 shrink-0 text-muted" />
-                )}
-                <span>
-                  <span className="font-medium">{b.criterion}.</span>{" "}
-                  <span className="text-muted">{b.note}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        {decision.summary && <ScoreBreakdown summary={decision.summary} />}
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * Where the score came from, at the only resolution that is ours to publish.
+ *
+ * Each pillar shows points earned out of points available, so a reader can see
+ * that a setup is carried by structure and empty on timing. The conditions
+ * inside a pillar — what each one tests, and where its threshold sits — are the
+ * scoring model, and they never reach the browser: `/api/scan` strips them (see
+ * lib/scoring/public-summary.ts), so there is nothing here to read back out of
+ * a network response either.
+ */
+function ScoreBreakdown({ summary }: { summary: PublicScoreSummary }) {
+  if (summary.pillars.length === 0) return null;
+
+  return (
+    <div>
+      <div className="mb-2 flex items-baseline justify-between gap-3">
+        <h4 className="text-sm font-medium">Score breakdown</h4>
+        <span className="font-mono text-xs text-muted tabular-nums">
+          {summary.score}/{summary.max} points
+        </span>
+      </div>
+
+      <ul className="flex flex-col gap-2">
+        {summary.pillars.map((p) => (
+          <li key={p.pillar} className="grid grid-cols-[7.5rem_auto_1fr] items-center gap-x-3 gap-y-0.5 sm:grid-cols-[9rem_auto_1fr]">
+            <span className="text-sm font-medium">{SCORE_PILLAR_LABELS[p.pillar]}</span>
+
+            {/* The meter is decoration; the count beside it carries the value. */}
+            <span className="flex items-center gap-1" aria-hidden>
+              {Array.from({ length: p.total }, (_, i) => (
+                <span
+                  key={i}
+                  className={cn(
+                    "h-1.5 w-5 rounded-full",
+                    i < p.met ? "bg-accent" : "bg-border",
+                  )}
+                />
+              ))}
+            </span>
+
+            <span className="font-mono text-xs text-muted tabular-nums">
+              {p.met}/{p.total}
+            </span>
+
+            <span className="col-span-3 text-xs text-muted">
+              {SCORE_PILLAR_DESCRIPTIONS[p.pillar]}
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      {summary.stateNote && <p className="mt-3 text-xs text-warn">{summary.stateNote}</p>}
+
+      <p className="mt-3 text-xs text-muted">
+        Grouped by category. The conditions each category tests are part of the GSPS scoring
+        model and are not published.
+      </p>
+    </div>
   );
 }
 

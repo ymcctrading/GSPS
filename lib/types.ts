@@ -87,16 +87,61 @@ export interface TradeLevels {
   stopBandWarning: string | null;
 }
 
+/**
+ * The public grouping a scored criterion rolls up into.
+ *
+ * The individual criteria — what each one tests, and at what threshold — are
+ * the scoring model, and the model does not leave the server. The pillar is
+ * the coarse, publishable half: it says which part of the analysis earned or
+ * lost a point without naming the condition that decided it.
+ */
+export type ScorePillar = "trend" | "structure" | "setup" | "timing" | "riskReward";
+
 export interface ScoreBreakdownItem {
   criterion: string;
   passed: boolean;
   note: string;
+  /**
+   * Which pillar this criterion counts towards. Absent on the items that are
+   * appended after scoring to explain a capped state — they carry no point, so
+   * they belong to no pillar.
+   */
+  pillar?: ScorePillar;
+}
+
+/** One pillar's contribution to the score: points earned out of points available. */
+export interface ScorePillarSummary {
+  pillar: ScorePillar;
+  met: number;
+  total: number;
+}
+
+/**
+ * The client-safe view of a score. Carries enough to show where a score came
+ * from — which pillars are strong, which are empty — and nothing that would
+ * let a reader reconstruct the criteria behind them.
+ */
+export interface PublicScoreSummary {
+  score: number;
+  max: number;
+  pillars: ScorePillarSummary[];
+  /**
+   * Set when the published state sits below what the score alone would give,
+   * phrased without reference to the rule that capped it.
+   */
+  stateNote: string | null;
 }
 
 export interface ScanDecision {
   score: number; // 0–9
   outputState: "Execute" | "Watch" | "Reject";
+  /**
+   * Server-only. `redactDecision` empties this before a decision crosses an
+   * API boundary — see lib/scoring/public-summary.ts.
+   */
   breakdown: ScoreBreakdownItem[];
+  /** The publishable rollup of `breakdown`, attached in place of it. */
+  summary?: PublicScoreSummary;
 }
 
 /**

@@ -9,6 +9,30 @@ date.
 
 ## 2026-08-08
 
+### Changed
+- **The scoring model stops being published.** The symbol page listed every
+  criterion the score tests — twice, as the research tab's checklist and again
+  under the protocol signal — each with the threshold it measured and the value
+  that passed or failed it. That is the product, printed on the page.
+
+  Both listings are gone, and so is the underlying leak: `/api/scan` and
+  `/api/batch-scan` now strip `decision.breakdown` before responding, so the
+  criteria are not readable from a network response either. What ships in its
+  place is a rollup — points earned per pillar (trend, structure, setup,
+  timing, risk/reward) out of points available — which still answers "where did
+  this score come from" without answering "what earns one". The scan pipeline,
+  the backtest replay and the published `daily_scans` rows are unaffected: the
+  breakdown is intact server-side, it just stops at the boundary.
+
+- **The symbol and price stay on screen.** The header on a symbol page pins
+  under the app nav instead of scrolling away, so the ticker you are reading a
+  chart, ticket or signal against is always in the top-left corner. Only the
+  bar's background and border change when it pins — never its contents or
+  height, since it is the first element in the flow and anything it gained or
+  lost on pinning would jerk the page mid-scroll. Phones drop the turn-window
+  note and the regular-close reference from the bar (both still shown in the
+  research tab) to keep it to a single line.
+
 ### Fixed
 - **"Buy a PUT instead" bought a call.** The shortcut offered when a symbol
   can't be sold short sets the option type and opens the options tab in one

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CandleChart, type PriceMarker } from "@/components/chart/candles";
 import { MarketTabs } from "@/components/chart/market-tabs";
@@ -97,17 +97,46 @@ export function TickerView({ symbol }: { symbol: string }) {
   // Live price falls back to the scan snapshot until the first poll returns.
   const livePrice = quote?.price ?? (result && result.currentPrice > 0 ? result.currentPrice : null);
 
+  const { headerRef, stuck } = useStuckHeader();
+
   return (
     // `min-w-0` on the column and on every grid child is what keeps a wide
     // child (the options chain, the depth ladder) scrolling inside its own box
     // instead of stretching the page — the cause of the sideways scroll and the
     // clipped header on phones.
     <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <h1 className="text-xl font-semibold sm:text-2xl">{symbol}</h1>
+      {/*
+       * The symbol and its price never leave the screen: everything below —
+       * chart, ticket, research, signal — is read against them, and scrolling
+       * back up to check which symbol you are looking at is the one thing this
+       * page should never ask for. The bar pins directly under the app nav.
+       *
+       * Only the chrome changes when it pins — never the contents, the type
+       * sizes or the padding. A bar that condensed on pinning would change
+       * height, and since it is the first element in the flow, every pixel it
+       * loses or gains yanks the whole page under the reader's eyes at the
+       * exact moment they are scrolling past it.
+       */}
+      <div
+        ref={headerRef}
+        className={cn(
+          // The negative margins cancel the shell's gutter so the pinned bar
+          // spans the full width; the padding puts the gutter back inside it.
+          "sticky top-14 z-30 -mx-3 flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2 sm:-mx-4 sm:px-4 lg:-mx-6 lg:px-6",
+          stuck && "border-b border-border bg-surface/90 backdrop-blur",
+        )}
+      >
+        <h1 className="text-lg font-semibold sm:text-2xl">{symbol}</h1>
         <PriceHeader quote={quote} fallbackPrice={livePrice} />
+        {/*
+         * Phones keep the bar to what has to be there. The turn window is a
+         * standing condition rather than a live reading, and the research tab
+         * carries it on every screen size.
+         */}
         {result?.gann.timeCycleActive && (
-          <span className="text-xs font-medium text-warn">⏱ Cyclical turn window active</span>
+          <span className="hidden text-xs font-medium text-warn sm:inline">
+            ⏱ Cyclical turn window active
+          </span>
         )}
         <div className="ml-auto">
           <ShareButton symbol={symbol} />
@@ -171,6 +200,48 @@ export function TickerView({ symbol }: { symbol: string }) {
   );
 }
 
+/** Height of the app nav the header pins beneath (`h-14`), in pixels. */
+const NAV_HEIGHT = 56;
+
+/**
+ * Whether the header is currently pinned rather than sitting in its resting
+ * place. Driven by the header's own position rather than a scroll offset, so
+ * it stays correct when anything above it changes height.
+ *
+ * A sentinel element would be the other way to do this, but it has to be a
+ * flex child of a `gap`-spaced column, and would open a gap of its own between
+ * the header and the content below it.
+ */
+function useStuckHeader() {
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [stuck, setStuck] = useState(false);
+
+  useEffect(() => {
+    let frame = 0;
+    const measure = () => {
+      frame = 0;
+      const el = headerRef.current;
+      if (el) setStuck(el.getBoundingClientRect().top <= NAV_HEIGHT + 0.5);
+    };
+    // One measurement per frame at most: the listener fires far more often
+    // than the browser paints, and each measurement forces a layout read.
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(measure);
+    };
+
+    measure();
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule);
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+    };
+  }, []);
+
+  return { headerRef, stuck };
+}
+
 function PriceHeader({ quote, fallbackPrice }: { quote: LiveQuote | null; fallbackPrice: number | null }) {
   const price = quote?.price ?? fallbackPrice;
   if (price == null) return null;
@@ -187,7 +258,9 @@ function PriceHeader({ quote, fallbackPrice }: { quote: LiveQuote | null; fallba
 
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-      <span className="font-mono text-xl font-semibold tabular-nums sm:text-2xl">{formatUsd(price)}</span>
+      <span className="font-mono text-lg font-semibold tabular-nums sm:text-2xl">
+        {formatUsd(price)}
+      </span>
 
       {headlinePct != null && headlineAbs != null && (
         <span
@@ -219,9 +292,14 @@ function PriceHeader({ quote, fallbackPrice }: { quote: LiveQuote | null; fallba
         {live ? "Live" : quote ? sessionLabel(session) : "…"}
       </span>
 
-      {/* When outside the regular session, show the official regular close distinctly. */}
+      {/*
+       * When outside the regular session, show the official regular close
+       * distinctly. It is a reference figure rather than a live one, so it
+       * gives up its place on a phone, where the bar is pinned and every line
+       * it takes is a line off the chart.
+       */}
       {(extended || closed) && quote?.regularClose != null && (
-        <span className="text-xs text-muted">
+        <span className="hidden text-xs text-muted sm:inline">
           Regular close <span className="font-mono tabular-nums">{formatUsd(quote.regularClose)}</span>
         </span>
       )}

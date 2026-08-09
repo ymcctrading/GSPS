@@ -11,6 +11,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { scanTicker } from "@/lib/scanTicker";
+import { redactScanResult } from "@/lib/scoring/public-summary";
 
 const DEFAULT_WATCHLIST = [
   "SPY", "AAPL", "AMD", "TSLA", "MSFT", "META",
@@ -41,6 +42,7 @@ export async function GET(req: NextRequest) {
       watch: watch.length,
       reject: reject.length,
     },
-    results,
+    // The per-criterion breakdown is the scoring model; only its rollup ships.
+    results: results.map(redactScanResult),
   });
 }

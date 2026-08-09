@@ -79,7 +79,7 @@ function ResearchPanel({ symbol, result }: { symbol: string; result?: ScanResult
 
   // Each fetch is stored against the request it answers and read back only
   // while the two agree, so switching symbols cannot show the previous one's
-  // checklist or levels for a render. See components/scan/ticker-view.tsx.
+  // score or levels for a render. See components/scan/ticker-view.tsx.
   const [scan, setScan] = useState<{
     key: string;
     data: ScanResult | null;
@@ -238,23 +238,12 @@ function ResearchPanel({ symbol, result }: { symbol: string; result?: ScanResult
         </section>
       )}
 
-      {fetched.decision.breakdown.length > 0 && (
-        <section>
-          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
-            Confluence checklist
-          </h4>
-          <ul className="grid gap-1.5 md:grid-cols-2">
-            {fetched.decision.breakdown.map((b, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm">
-                <span className={b.passed ? "text-bull" : "text-muted"}>{b.passed ? "✓" : "—"}</span>
-                <span className="text-muted">
-                  <span className="text-foreground">{b.criterion}.</span> {b.note}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      {/*
+       * No criterion-by-criterion checklist here. The conditions the score
+       * tests are the scoring model, and they are not published — the API
+       * strips them (lib/scoring/public-summary.ts) and the protocol signal
+       * card shows the pillar rollup instead.
+       */}
 
       {indicatorsError && !indicators && (
         <section>
