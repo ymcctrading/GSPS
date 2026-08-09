@@ -13,11 +13,19 @@ proposing new work, scoping a feature, or prioritizing between options** — it
 decides what gets built and in what order, and it outranks `BACKLOG.md`, which
 is an unscheduled idea pool rather than a set of commitments.
 
-Current phase — **Q1 (Aug–Oct 2026): Monetization & Retention Foundation**.
-Critical-priority items, in order: notification system, portfolio analytics
-dashboard, conditional orders (stop-loss / take-profit). Then: improved
-onboarding, mobile-responsive dashboard, technical indicators as chart
-overlays.
+**Work out the current phase from today's date against this table** — don't
+assume Q1:
+
+| Phase | Window | Theme |
+|---|---|---|
+| Q1 | Aug–Oct 2026 | Monetization & retention foundation |
+| Q2 | Nov 2026 – Jan 2027 | Differentiation & scale foundation |
+| Q3 | Feb–Apr 2027 | Mobile & community |
+| Q4 | May–Jul 2027 | Enterprise & scale |
+
+Then open `ROADMAP.md` for that phase's goals, initiatives, and dependencies.
+If today's date is past Jul 2027, the roadmap is expired — say so rather than
+defaulting to the last phase.
 
 - When suggesting work, name the phase it belongs to. If it fits no phase, say
   so plainly — it is either out of scope or a reason to amend the roadmap.
