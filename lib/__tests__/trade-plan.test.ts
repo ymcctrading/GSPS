@@ -271,9 +271,24 @@ describe("volume filtering", () => {
   it("rejects low-volume setups when momentum is not elevated", () => {
     const decision = computeScore(inputs({ volumeRatio: 0.5, momentumElevated: false }));
     expect(decision.outputState).toBe("Reject");
-    expect(decision.score).toBe(0);
     expect(decision.breakdown[0].criterion).toMatch(/Adequate liquidity/);
     expect(decision.breakdown[0].passed).toBe(false);
+  });
+
+  it("reports the confluence the setup really had, while still rejecting it", () => {
+    // The gate decides the verdict; it does not rewrite the evidence. Zeroing
+    // the score would contradict the breakdown beside it and would land in
+    // scan_events as a 0/9 setup, poisoning the factor attribution that reads
+    // that column.
+    const decision = computeScore({
+      ...inputs({ volumeRatio: 0.5, momentumElevated: false }),
+      momentumElevated: false,
+    });
+    expect(decision.outputState).toBe("Reject");
+    expect(decision.score).toBeGreaterThan(0);
+    // The invariant the attribution pass depends on: the score is the number of
+    // criteria that passed, liquidity included as a failure.
+    expect(decision.score).toBe(decision.breakdown.filter((b) => b.passed).length);
   });
 
   it("accepts low-volume setups when momentum is elevated", () => {

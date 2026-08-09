@@ -177,7 +177,15 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
           : `Rejected due to insufficient liquidity.`,
     });
     return {
-      score: 0,
+      // The gate decides the verdict, not the score. Zeroing it here would
+      // contradict the breakdown sitting right beside it — every criterion the
+      // setup genuinely passed is still listed — and `scan_events.score`
+      // persists this number, so an 8/9 setup rejected on liquidity would enter
+      // the learning data as a 0/9 one. The invariant that `score` equals the
+      // count of passed criteria is what makes the factor attribution in
+      // lib/backtest/attribution.ts trustworthy; the liquidity item is appended
+      // as a failure, so it holds.
+      score,
       outputState: "Reject",
       breakdown,
     };
