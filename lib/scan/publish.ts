@@ -144,7 +144,8 @@ export async function persistDailyScans(
   // rows the current scan does not stand behind, and the reader cannot tell:
   // both sides render as one list under one scan date. "Six shorts, priced this
   // morning, that this afternoon's scan no longer finds" is exactly the kind of
-  // half-true screen this pipeline has already been burned by.
+  // half-true screen this pipeline has already been burned by. `gt(rank, 0)`
+  // deletes every row for that direction when the new run wrote none.
   //
   // The case that skipping was meant to guard — a run that failed rather than
   // found nothing — is caught above: a scan that resolves no symbol at all

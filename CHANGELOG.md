@@ -7,7 +7,70 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-08-10
+
+### Correction
+- **`CRON_SECRET` is set on Vercel production, correcting the 2026-08-09
+  entry below.** That entry's `503` finding was accurate at the time — the
+  Vercel dashboard now shows the variable present and scoped to Production
+  and Preview. No `GET /api/market-scan` has yet been observed at either
+  cron window (`12:30`/`21:30` UTC) in the runtime logs, so whether the
+  scheduled run now succeeds is still unconfirmed, not yet disproven; the
+  original entry is left as written below rather than edited, per this
+  file's own convention, since it was true when recorded.
+
 ## 2026-08-09
+
+### Fixed
+- **The liquidity hard-reject gate is split back out of the score.** PR #45
+  added two things together: scaling the bracket's minimum gap with price
+  (kept), and a hard gate that rejected any setup whose trailing 20-day
+  volume trailed its own prior 80-day average unless volatility was
+  elevated. By construction roughly half of all symbols fail that
+  comparison at any given moment, including the most liquid ones — it read
+  AAPL in a quiet week as a 0-confluence Reject while letting a thin
+  small-cap with a volume spike through, and it thinned the daily lists
+  hardest on the quiet days a mean-reversion protocol expects to find
+  setups on. Reverted (`lib/scoring/score.ts`, `lib/scanTicker.ts`,
+  `lib/backtest/replay.ts`) so the volume/liquidity idea can be redesigned
+  and reviewed on its own; the bracket-gap fix is untouched.
+
+- **`persistDailyScans` now prunes a direction with zero new rows, instead
+  of leaving the previous run's list in place.** If today's scan finds no
+  bearish setups, the previous run's bearish rows described a different
+  day's tape and shouldn't keep publishing as if the current scan still
+  stood behind them. `lib/scan/publish.ts` no longer skips the delete when
+  a direction wrote nothing — `rank > 0` clears the whole direction for
+  that date in that case.
+
+- **Orders were failing in production since the reconciliation columns
+  were never migrated.** `app/api/orders/route.ts` writes
+  `broker_submitted_at`, `reject_reason`, `last_synced_at`,
+  `requested_limit_price`, `tick_size` and `tick_source` on every order,
+  but migration `0008_order_lifecycle_reconciliation.sql` had never been
+  applied to the live database — confirmed live in the runtime logs as
+  `Could not find the 'broker_submitted_at' column of 'orders' in the
+  schema cache` on every reconciliation pass. Applied directly.
+
+### Database
+- Applied `0008_order_lifecycle_reconciliation.sql` (`orders` gains
+  `broker_submitted_at`, `reject_reason`, `last_synced_at`,
+  `requested_limit_price`, `tick_size`, `tick_source`, plus two indexes),
+  which shipped in the repo but was missing from the live database.
+
+### Known issue
+- **The market-scan cron has never fired successfully.** `CRON_SECRET` is
+  not set on the Vercel production project — confirmed by an unauthenticated
+  `GET /api/market-scan` against `https://gsps.vercel.app`, which returns
+  `503 {"error":"CRON_SECRET is not configured on this deployment"}` rather
+  than `401`. Every `daily_scans` row landing on schedule so far has come
+  from `components/scan/auto-scan.tsx` — a client-side effect that POSTs to
+  the same endpoint whenever a signed-in user loads the dashboard and
+  today's scan is missing — not from the Vercel Cron in `vercel.json`. That
+  also explains the off-schedule write times (06:17, 19:58, 23:23 UTC
+  instead of 12:30/21:30): those are page loads, not cron ticks. Needs a
+  `CRON_SECRET` value set in the Vercel project's environment variables;
+  no tool available in this session can set it.
 
 ### Changed
 - **The candle stat panel can be put away, and reads open/close first.** The
