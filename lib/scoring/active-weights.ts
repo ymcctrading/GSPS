@@ -62,11 +62,18 @@ async function load(now: number): Promise<Cached> {
   if (cache && now - cache.at < CACHE_TTL_MS) return cache;
   if (inflight) return inflight;
 
-  inflight = fetchLiveWeights(now).then((result) => {
-    cache = result;
-    inflight = null;
-    return result;
-  });
+  // The `catch` is not belt-and-braces: without it a rejected lookup would be
+  // memoised in `inflight` and handed to every subsequent caller forever, and
+  // this sits in the path of every scan — one bad promise would take the
+  // scanner down until the process restarted. `fetchLiveWeights` already
+  // swallows its own failures, so this is the guard for anything it cannot see.
+  inflight = fetchLiveWeights(now)
+    .catch(() => ({ weights: DEFAULT_CRITERION_WEIGHTS, version: null, at: now }))
+    .then((result) => {
+      cache = result;
+      inflight = null;
+      return result;
+    });
   return inflight;
 }
 
