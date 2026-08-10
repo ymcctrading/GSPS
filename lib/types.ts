@@ -1,5 +1,8 @@
 /** Shared types for the GSPS scan engine. */
 
+import type { BreakdownKey } from "@/lib/scoring/weights";
+import type { DecisionLag } from "@/lib/data/latency";
+
 export type AssetClass = "us_equity" | "crypto";
 
 export interface Bar {
@@ -98,6 +101,14 @@ export interface TradeLevels {
 export type ScorePillar = "trend" | "structure" | "setup" | "timing" | "riskReward";
 
 export interface ScoreBreakdownItem {
+  /**
+   * Stable id for the criterion, independent of its display text. Weights and
+   * factor attribution key off this, so rewording a criterion no longer
+   * detaches its weight or splits its history in two — see
+   * lib/scoring/weights.ts. Absent only on items built outside `computeScore`
+   * (test fixtures, and anything constructed before this field existed).
+   */
+  key?: BreakdownKey;
   criterion: string;
   passed: boolean;
   note: string;
@@ -172,6 +183,19 @@ export interface ScanResult {
    * `error` (which means the whole scan failed), this leaves the scan usable.
    */
   levelsError?: string;
+  /**
+   * How far behind the market the bars this scan was computed on are, expressed
+   * against the execution timeframe. Published deliberately: the verdict is
+   * held back when the lag is a whole bar or more, and a reader is owed the
+   * reason rather than an unexplained Watch. See lib/data/latency.ts.
+   */
+  dataLag?: DecisionLag;
+  /**
+   * The last closed candle on the execution timeframe — the bar the setup was
+   * actually read off. Carried so a recorded scan can store the OHLCV it was
+   * decided on rather than a zero-filled placeholder (lib/learning/record.ts).
+   */
+  executionBar?: Bar;
   decision: ScanDecision;
   /** Optional: option premium supplied by user for the 12–18% stop calc. */
   optionPremium?: number;

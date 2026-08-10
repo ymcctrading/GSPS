@@ -32,10 +32,19 @@ export interface ScanEvent {
     close: number;
     volume: number;
   };
+  /**
+   * Direction (and, where the producer computes one, a score) per higher
+   * timeframe.
+   *
+   * `score` is optional because the GSPS scanner reads a trend direction on
+   * every timeframe but only scores the setup as a whole. Requiring the field
+   * would have forced its recorder to invent one, and `detectHigherTfConflict`
+   * would then be comparing a real number against a fabricated one.
+   */
   higher_tf_context: Array<{
     timeframe: Timeframe;
     bias: Bias;
-    score: number;
+    score?: number;
   }>;
   detail: Record<string, unknown>;
 }

@@ -12,6 +12,20 @@ import type {
   TradeLevels,
   TrendReading,
 } from "@/lib/types";
+import {
+  FALLBACK_FAN_PCT,
+  FALLBACK_HARMONIC_PCT,
+  FAN_PROXIMITY_ATR,
+  HARMONIC_PROXIMITY_ATR,
+  bandBasis,
+  proximityBandPct,
+} from "@/lib/scoring/proximity";
+import {
+  DEFAULT_CRITERION_WEIGHTS,
+  type CriterionKey,
+  type CriterionWeights,
+} from "@/lib/scoring/weights";
+import type { DecisionLag } from "@/lib/data/latency";
 
 export interface ScoreInputs {
   direction: "bullish" | "bearish";
@@ -24,6 +38,21 @@ export interface ScoreInputs {
   levels: TradeLevels | null;
   /** Defaults to "reversion" — the protocol's primary setup. */
   setupKind?: SetupKind;
+  /**
+   * Daily ATR as a percentage of price. The structural proximity criteria are
+   * measured in multiples of it, so "near a level" means the same fraction of a
+   * day's range on every instrument — see lib/scoring/proximity.ts. Omitted
+   * means no volatility read is available and the old fixed bands apply.
+   */
+  atrPct?: number;
+  /**
+   * Per-criterion weights, keyed by the stable id each breakdown item carries
+   * rather than its display text, so rewording a criterion cannot detach its
+   * weight. Defaults to one point each, which is what the score has always been. A
+   * weight set from `lib/backtest/propose-weights.ts` sums to the same 9 points,
+   * so the Execute/Watch cutoffs keep their meaning.
+   */
+  weights?: CriterionWeights;
 }
 
 export function computeScore(inputs: ScoreInputs): ScanDecision {
@@ -31,6 +60,8 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     direction, macroTrends, hourlyTrend, gann,
     nearSupportResistance, pattern, momentumElevated, levels,
     setupKind = "reversion",
+    atrPct,
+    weights = DEFAULT_CRITERION_WEIGHTS,
   } = inputs;
 
   // The macro criterion is the one place the two setup kinds read the same
@@ -45,8 +76,17 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
 
   const hourlyAgrees = hourlyTrend.direction === direction || hourlyTrend.direction === "sideways";
 
-  const nearFan = gann.fanLines.length > 0 && gann.fanLines[0].distancePct <= 1.5;
-  const nearS9 = gann.squareOf9.length > 0 && gann.squareOf9[0].distancePct <= 1.0;
+  // "Near a level" is a multiple of the instrument's own daily range, not a
+  // fixed percentage of price — see lib/scoring/proximity.ts for why a fixed
+  // band made a 7/9 mean different things on different names.
+  const fanBandPct = proximityBandPct(FAN_PROXIMITY_ATR, FALLBACK_FAN_PCT, atrPct);
+  const harmonicBandPct = proximityBandPct(
+    HARMONIC_PROXIMITY_ATR,
+    FALLBACK_HARMONIC_PCT,
+    atrPct,
+  );
+  const nearFan = gann.fanLines.length > 0 && gann.fanLines[0].distancePct <= fanBandPct;
+  const nearS9 = gann.squareOf9.length > 0 && gann.squareOf9[0].distancePct <= harmonicBandPct;
 
   const patternValid = pattern !== null && pattern.direction === direction;
 
@@ -69,6 +109,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
 
   const breakdown: ScoreBreakdownItem[] = [
     {
+      key: "macroTrend",
       criterion: "Macro trend context (10yr/5yr/1yr)",
       pillar: "trend",
       passed: macroSupports,
@@ -81,28 +122,32 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
           : "Macro timeframes are not extended against the setup direction.",
     },
     {
+      key: "hourlyTrend",
       criterion: "1-hour trend agreement",
       pillar: "trend",
       passed: hourlyAgrees,
       note: `1hr trend reads ${hourlyTrend.direction}.`,
     },
     {
+      key: "fanProximity",
       criterion: "Support line proximity",
       pillar: "structure",
       passed: nearFan,
       note: nearFan
-        ? `Price within ${gann.fanLines[0].distancePct.toFixed(2)}% of the ${gann.fanLines[0].angle} support line at ${gann.fanLines[0].price.toFixed(2)}.`
-        : "No support line within 1.5%.",
+        ? `Price within ${gann.fanLines[0].distancePct.toFixed(2)}% of the ${gann.fanLines[0].angle} support line at ${gann.fanLines[0].price.toFixed(2)} — inside the ${fanBandPct.toFixed(2)}% band (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}).`
+        : `No support line within ${fanBandPct.toFixed(2)}% (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}).`,
     },
     {
+      key: "harmonicProximity",
       criterion: "Harmonic level proximity",
       pillar: "structure",
       passed: nearS9,
       note: nearS9
-        ? `Price within ${gann.squareOf9[0].distancePct.toFixed(2)}% of the ${gann.squareOf9[0].degree}° harmonic level at ${gann.squareOf9[0].price.toFixed(2)}.`
-        : "No harmonic level within 1%.",
+        ? `Price within ${gann.squareOf9[0].distancePct.toFixed(2)}% of the ${gann.squareOf9[0].degree}° harmonic level at ${gann.squareOf9[0].price.toFixed(2)} — inside the ${harmonicBandPct.toFixed(2)}% band (${bandBasis(HARMONIC_PROXIMITY_ATR, atrPct)}).`
+        : `No harmonic level within ${harmonicBandPct.toFixed(2)}% (${bandBasis(HARMONIC_PROXIMITY_ATR, atrPct)}).`,
     },
     {
+      key: "historicalSR",
       criterion: "Historical support/resistance",
       pillar: "structure",
       passed: nearSupportResistance,
@@ -111,6 +156,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
         : "Not at a significant historical S/R level.",
     },
     {
+      key: "patternArmed",
       // The criterion is "a pattern armed in the setup's own direction", which
       // is a reversal for a reversion and a continuation for a continuation.
       // Labelling a 2-1-2 that carries a trend "Reversal pattern armed" would
@@ -123,6 +169,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
         : `No matching ${setupKind === "continuation" ? "continuation" : "reversal"} pattern armed on the execution timeframe.`,
     },
     {
+      key: "momentum",
       criterion: "Momentum / volatility elevated",
       pillar: "setup",
       passed: momentumElevated,
@@ -131,6 +178,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
         : "Volatility is below the threshold for a high-velocity reversion.",
     },
     {
+      key: "timeCycle",
       criterion: "Cyclical turn window active",
       pillar: "timing",
       passed: gann.timeCycleActive,
@@ -139,6 +187,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
         : `Not inside a projected turn window${upcomingCycles ? `; next dates of interest ${upcomingCycles}.` : " — none projected in the next two weeks."}`,
     },
     {
+      key: "masterStructural",
       criterion: "Master target confirmed by a structural level",
       pillar: "riskReward",
       passed: cleanRR,
@@ -150,7 +199,17 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     },
   ];
 
-  const score = breakdown.filter((b) => b.passed).length;
+  // Points, not criteria met: every criterion is worth one point under the
+  // default weights, so this is the same integer it has always been, and a
+  // weight set from the attribution study redistributes the same nine points
+  // without moving the Execute/Watch cutoffs. Rounded to two decimals because
+  // the difference between 6.999 and 7 is float dirt, not a verdict.
+  const score =
+    Math.round(
+      breakdown
+        .filter((b) => b.passed && b.pillar !== undefined)
+        .reduce((sum, b) => sum + (weights[b.key as CriterionKey] ?? 1), 0) * 100,
+    ) / 100;
 
   // "Execute" is an instruction to place an order, so it requires an order to
   // place. Seven of the nine criteria are context — macro, structure, cycles —
@@ -160,6 +219,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   const tradePlanReady = patternValid && levels !== null;
   if (score >= 7 && !tradePlanReady) {
     breakdown.push({
+      key: "tradePlanPriced",
       criterion: "Trade plan priced (entry / stop / TP1 / master)",
       passed: false,
       note: levels
@@ -172,6 +232,38 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     score >= 7 && tradePlanReady ? "Execute" : score >= 4 ? "Watch" : "Reject";
 
   return { score, outputState, breakdown };
+}
+
+/**
+ * Hold Execute when the data the verdict was computed on is a whole execution
+ * bar or more behind the market.
+ *
+ * "Execute" is an instruction to place an order at a named trigger price. On a
+ * feed delayed by a full bar, that price belongs to a candle that has already
+ * closed — the move it was arming for either happened without us or did not
+ * happen at all, and there is no way to tell which from the data in hand. Watch
+ * is the strongest honest reading, and the note says so in the same voice as the
+ * other holds.
+ *
+ * The score itself is untouched: the analysis was sound, the data was late.
+ * Only the instruction to act on it is withdrawn.
+ */
+export function applyDataLagHold(decision: ScanDecision, lag: DecisionLag): ScanDecision {
+  if (!lag.holdsExecute || decision.outputState !== "Execute") return decision;
+
+  return {
+    ...decision,
+    outputState: "Watch",
+    breakdown: [
+      ...decision.breakdown,
+      {
+        key: "dataLag",
+        criterion: "Data current enough to act on",
+        passed: false,
+        note: `${lag.note} Held from Execute to Watch — confirm the trigger against a live quote before acting.`,
+      },
+    ],
+  };
 }
 
 /**
@@ -198,6 +290,7 @@ export function applyReversionConfirmation(
     breakdown: [
       ...decision.breakdown,
       {
+        key: "reversionConfirmation",
         criterion: "Reversion confirmation (bare 2-2 needs momentum + S/R)",
         passed: false,
         note: "Bare 2-2 reversal without both momentum/volatility and support/resistance confirmation — downgraded from Execute to Watch.",
