@@ -63,7 +63,7 @@ Everything the replay scores flows through these, and a change to any of them
 shows up in the next run:
 
 - **`lib/scoring/score.ts`** — the nine criteria, the 7/4 bucket cutoffs, the
-  bare-2-2 downgrade, the liquidity gate, and the decision-lag hold.
+  bare-2-2 downgrade, and the decision-lag hold.
 - **`lib/scoring/proximity.ts`** — how close "near a level" is. These were fixed
   percentages of price (fan ≤1.5%, harmonic ≤1.0%, S/R ≤1.5%) and are now
   multiples of the instrument's own daily ATR, so a 7/9 means the same thing on
