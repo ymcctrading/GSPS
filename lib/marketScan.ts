@@ -20,6 +20,7 @@ import type { Bar, ScanResult, SetupKind } from "@/lib/types";
 import { getMarketDataProvider } from "@/lib/data/provider";
 import { fetchMostActives } from "@/lib/data/alpaca";
 import { readTrend } from "@/lib/analysis/trend";
+import { etDateKey } from "@/lib/market/session";
 import { atr } from "@/lib/analysis/pivots";
 import { computeFanLines } from "@/lib/gann/fans";
 import { squareOf9Levels } from "@/lib/gann/squareOf9";
@@ -211,7 +212,11 @@ async function mapWithConcurrency<T, R>(
 const MAX_TOPUP_SCANS = 24;
 
 export async function runMarketScan(universeTop = 100, perSide = 15): Promise<MarketScanOutput> {
-  const scanDate = new Date().toISOString().slice(0, 10);
+  // The trading date the scan describes, not the UTC date it happened to run
+  // on. The two diverge between 20:00 ET and midnight — a post-close re-run
+  // would otherwise be filed under tomorrow, and tomorrow would open showing
+  // tonight's levels as though they were current.
+  const scanDate = etDateKey(new Date());
   const provider = getMarketDataProvider();
 
   const actives = await resolveUniverse(universeTop);

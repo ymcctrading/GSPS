@@ -7,6 +7,18 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-08-10
+
+### Correction
+- **`CRON_SECRET` is set on Vercel production, correcting the 2026-08-09
+  entry below.** That entry's `503` finding was accurate at the time — the
+  Vercel dashboard now shows the variable present and scoped to Production
+  and Preview. No `GET /api/market-scan` has yet been observed at either
+  cron window (`12:30`/`21:30` UTC) in the runtime logs, so whether the
+  scheduled run now succeeds is still unconfirmed, not yet disproven; the
+  original entry is left as written below rather than edited, per this
+  file's own convention, since it was true when recorded.
+
 ## 2026-08-09
 
 ### Fixed
@@ -95,6 +107,55 @@ date.
   have opposite defaults and one switch could only have honoured one of them.
   The indicator strip keeps the chips for the things that are actually derived
   indicators — the moving averages, Bollinger, RSI and MACD.
+
+### Added
+- **The dashboard says how old its prices are.** `getDailyScans` returns the
+  newest scan in the table whatever its age, and nothing said so: a Friday list
+  rendered identically to this morning's. The four price columns are
+  15-minute-bar levels — an entry a penny beyond a signal candle, a stop a penny
+  beyond the other side — so outside their own session they are meaningless, and
+  they still look precise. `scanFreshness` counts the sessions between the scan
+  and now, and `StaleScanNotice` states it on the dashboard and both direction
+  lists: a quiet line at one session behind, a red warning from two. Age is
+  counted in sessions, so a Friday scan does not read as stale on Saturday.
+
+- **The pre-open scan says it is one.** The 12:30 UTC cron fires at 08:30 ET, an
+  hour before the open, and the scan reads *closed* 15-minute bars — so its
+  levels are drawn on the previous session's tape, then filed under today and
+  written over the previous evening's list. By date alone it looked like the
+  freshest thing available. `pricedBeforeSession` reads `detail.scannedAt` (now
+  carried on every row) and the dashboard says so. The 17:30 ET run is also
+  outside market hours but reads that day's bars, so it is not flagged.
+
+### Fixed
+- **The learning brain's schema now exists.** Migration `0005` had never been
+  applied: `learning_coefficients` declared its scope key as a table-level
+  `UNIQUE` over `coalesce()` expressions, which Postgres rejects — only bare
+  column names are allowed there — so the file failed on parse and all seven
+  tables were missing while `lib/learning/db.ts` queried them. The key is now a
+  unique index, which does permit expressions. Applied to production, along with
+  `0008`, whose `scan_events` foreign key was the reason it could not run either.
+  The intraday alert cooldown works from here.
+- **Three system tables were reachable with the publishable key.**
+  `learning_models`, `learning_coefficients` and `learning_audit_log` carry no
+  `user_id`, so `0005` left RLS off — which in a Supabase project means
+  PostgREST serves them to anyone. RLS is on with no policy attached: the
+  service role still writes them, nothing else reads them. The linter reports
+  that as `rls_enabled_no_policy` at INFO; it is deliberate.
+- **One definition of the trading day.** `scan_date` was the UTC date, but the
+  sessions it describes are Eastern. The two disagree between 20:00 ET and
+  midnight, so a post-close re-run was filed under tomorrow — and tomorrow then
+  opened on tonight's levels with nothing marking them old. The scan, the
+  freshness reading and the auto-scan guard now all date themselves with
+  `etDateKey`, which moves to `lib/market/session.ts` as the single
+  implementation the intraday scanner also uses.
+- **A direction the scan found nothing in is cleared, not left standing.** The
+  prune had been skipped when a side came back empty, on the reasoning that
+  wiping it would erase the earlier run. It would — and that is the point: the
+  rows left behind are ones the current scan no longer endorses, rendered under
+  the current scan's date with no way for a reader to tell. The case that skip
+  was protecting is already handled: a run that resolves no symbol at all
+  produces zero rows on both sides and returns before touching the table.
 
 ## 2026-08-08
 

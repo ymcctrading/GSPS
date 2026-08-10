@@ -15,6 +15,23 @@ const CLOSE = 16 * 60; //   16:00 ET
 const PRE_OPEN = 4 * 60; //  04:00 ET
 const POST_CLOSE = 20 * 60; // 20:00 ET
 
+/**
+ * `YYYY-MM-DD` in America/New_York — the trading date a moment belongs to.
+ *
+ * This, not the UTC date, is what a scan is "for". The two disagree between
+ * 20:00 ET and midnight, which is exactly when someone re-runs the scan after
+ * the close: a UTC date would file that run under tomorrow, and tomorrow would
+ * then open showing last night's levels as though they were current.
+ */
+export function etDateKey(date: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
 /** Minutes-since-midnight and weekday (0=Sun…6=Sat) in America/New_York. */
 export function etParts(date: Date = new Date()): { minutes: number; weekday: number } {
   const fmt = new Intl.DateTimeFormat("en-US", {

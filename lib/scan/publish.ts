@@ -82,6 +82,10 @@ export function buildScanRows(
     master_profit: r.levels!.masterProfit,
     detail: {
       currentPrice: r.currentPrice,
+      // When the plan was priced, not just which day it is filed under. The
+      // pre-open cron reads the previous session's closed bars, and the date
+      // alone cannot show that — see pricedBeforeSession in scan/freshness.
+      scannedAt: r.scannedAt,
       // Which bet the row is: a reversion against an extended move, or a
       // momentum continuation that topped up a short side. The lists render
       // them together, so the distinction has to survive the round trip.
@@ -134,10 +138,19 @@ export async function persistDailyScans(
 
   // A shorter list than the run it replaces leaves higher ranks behind. The new
   // rows are already live, so a failure here is a stale tail, not a failed save.
-  // Prune unconditionally, including when a direction wrote zero rows: if the
-  // latest scan found no bearish setups, keeping an earlier run's bearish rows
-  // would publish levels the current scan doesn't stand behind. `gt(rank, 0)`
-  // deletes every row for that direction in that case.
+  //
+  // A direction that produced nothing is pruned to nothing, deliberately. The
+  // alternative — skipping the prune at zero to protect the earlier run — keeps
+  // rows the current scan does not stand behind, and the reader cannot tell:
+  // both sides render as one list under one scan date. "Six shorts, priced this
+  // morning, that this afternoon's scan no longer finds" is exactly the kind of
+  // half-true screen this pipeline has already been burned by. `gt(rank, 0)`
+  // deletes every row for that direction when the new run wrote none.
+  //
+  // The case that skipping was meant to guard — a run that failed rather than
+  // found nothing — is caught above: a scan that resolves no symbol at all
+  // produces zero rows on BOTH sides and returns before touching the table. One
+  // side empty while the other is full is a real reading of the tape.
   for (const direction of DIRECTIONS) {
     const written = rows.filter((r) => r.direction === direction).length;
     const { error: pruneError } = await client
