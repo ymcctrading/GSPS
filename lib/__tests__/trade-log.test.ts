@@ -1,11 +1,17 @@
 /**
- * `trade_logs` had a table, an endpoint and no writer. These pin the record the
- * close path now builds — in particular that an unfilled close is `pending`
- * rather than a fabricated exit, and that a short's outcome is not inverted.
+ * `trade_logs` had a table, an endpoint and no writer. These pin the record
+ * `buildTradeLogRow` builds for a partial close — in particular that an
+ * unfilled exit is `pending` rather than a fabricated one, and that a short's
+ * outcome is not inverted — and the `isFullClose` split that decides whether
+ * this function or `reconcilePositions` (lib/portfolio/reconcile.ts) owns the
+ * resulting row. A *full* close no longer goes through `buildTradeLogRow` at
+ * all: it stays open in the local ledger until `reconcilePositions` notices
+ * it vanished from the broker's book and writes a row with the real fill
+ * price, so it never gets stuck on 'pending'.
  */
 
 import { describe, expect, it } from "vitest";
-import { buildTradeLogRow, type ClosablePosition } from "@/lib/portfolio/trade-log";
+import { buildTradeLogRow, isFullClose, type ClosablePosition } from "@/lib/portfolio/trade-log";
 
 const position = (over: Partial<ClosablePosition> = {}): ClosablePosition => ({
   id: "pos-1",
@@ -74,5 +80,32 @@ describe("buildTradeLogRow", () => {
   it("carries the position's own entry time, not the time of the close", () => {
     const row = buildTradeLogRow({ userId: "u1", position: position(), exitPrice: 210 });
     expect(row.entry_timestamp).toBe("2026-08-07T14:00:00.000Z");
+  });
+});
+
+describe("isFullClose", () => {
+  it("treats an omitted quantity as closing everything", () => {
+    // The API contract: leaving qty off means close the whole position.
+    expect(isFullClose(10)).toBe(true);
+    expect(isFullClose(10, undefined)).toBe(true);
+  });
+
+  it("is full when the requested quantity covers the whole position", () => {
+    expect(isFullClose(10, 10)).toBe(true);
+  });
+
+  it("is full even when the requested quantity overshoots what's held", () => {
+    // The broker will only ever close what exists; asking for more is still
+    // a request to close everything, not an error condition this decides.
+    expect(isFullClose(10, 15)).toBe(true);
+  });
+
+  it("is partial when the requested quantity is less than the position", () => {
+    expect(isFullClose(10, 4)).toBe(false);
+  });
+
+  it("is full at the exact boundary", () => {
+    expect(isFullClose(10, 9.999999)).toBe(false);
+    expect(isFullClose(10, 10.000001)).toBe(true);
   });
 });

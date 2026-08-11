@@ -94,3 +94,24 @@ export function buildTradeLogRow(input: {
 function round(n: number): number {
   return Math.round(n * 100) / 100;
 }
+
+/**
+ * Whether a close request would empty the position, given what is on the
+ * books right now.
+ *
+ * This decides which of two writers owns the resulting trade_logs row.
+ * `reconcilePositions` (lib/portfolio/reconcile.ts) diffs the live broker
+ * book against the local ledger, so it only ever notices a position that has
+ * *disappeared* — a partial close that merely shrinks the qty never trips
+ * that diff, by that function's own documented scope. So a full close must
+ * be left for reconcilePositions to record (with the real fill price, once
+ * the broker confirms it), while a partial close has to be recorded
+ * immediately by the caller, because nothing else ever will be.
+ *
+ * Omitting `requestedQty` means "close everything", matching the API
+ * contract in `/api/positions/close` where a caller leaves `qty` off to
+ * close the whole position.
+ */
+export function isFullClose(positionQty: number, requestedQty?: number): boolean {
+  return requestedQty === undefined || requestedQty >= positionQty;
+}

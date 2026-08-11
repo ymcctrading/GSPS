@@ -15,7 +15,7 @@ import {
   numericOrUndefined,
   recordOrderExecution,
 } from "@/lib/learning/record";
-import { buildTradeLogRow, type ClosablePosition } from "@/lib/portfolio/trade-log";
+import { buildTradeLogRow, isFullClose, type ClosablePosition } from "@/lib/portfolio/trade-log";
 
 /**
  * Which way the closing order went. Alpaca reports it on the order it created;
@@ -79,29 +79,36 @@ export async function POST(req: NextRequest) {
     .limit(1)
     .maybeSingle();
 
+  const fullClose = isFullClose(openPosition ? Number(openPosition.qty) : Infinity, qty);
+
   const startedAt = Date.now();
   try {
     const order = await closePosition(creds, symbol.toUpperCase(), qty);
 
-    // Mark the local ledger closed so the portfolio reflects the exit even
-    // before the broker's fill lands. A failure here doesn't undo the exit.
-    await supabase
-      .from("positions")
-      .update({ closed: true, closed_at: new Date().toISOString() })
-      .eq("user_id", user.id)
-      .eq("symbol", symbol.toUpperCase())
-      .eq("closed", false);
-
-    // The audit trail `trade_logs` was built for. Nothing has ever written to
-    // it, which is why the outcome half of every trade has been missing.
+    // The audit trail `trade_logs` was built for, and — as of the fix this
+    // comment replaces — the reconciliation that keeps it from going
+    // permanently 'pending'.
     //
-    // A market close usually comes back accepted but not yet filled, so the row
-    // lands with `outcome: 'pending'` and no exit price. That is the honest
-    // state — recording a fabricated exit would be worse — but it does mean a
-    // pending row currently stays pending: the reconciliation in /api/orders
-    // chases order statuses, not trade logs. Wiring that through is the next
-    // step, and until it exists the entry half is still worth keeping.
-    if (openPosition) {
+    // A full close is deliberately NOT recorded here, and `positions.closed`
+    // is deliberately NOT set here either. `reconcilePositions`
+    // (lib/portfolio/reconcile.ts, called from GET /api/portfolio on every
+    // 10-second poll) notices this position has disappeared from the live
+    // broker book, pulls the actual filled closing order, and writes a
+    // trade_logs row with the real exit price, P/L and exit_condition
+    // (tp1 / stop_loss / manual) — richer than anything available the instant
+    // this route returns, since a market order's fill is not always in the
+    // response body yet. Writing a row here too would either race it into a
+    // duplicate, or — if this also marked `closed: true` — hide the position
+    // from that reconciliation forever, which is exactly why every trade_logs
+    // row from this route used to stay 'pending' indefinitely.
+    //
+    // A partial close is the one case reconcilePositions structurally cannot
+    // see: the position never disappears from the broker's book, it only
+    // shrinks, so nothing else will ever record this exit. It is logged here,
+    // and the position is left open (not marked `closed: true` — shares
+    // remain, and doing so would make reconcilePositions treat the next poll's
+    // still-live, reduced-qty position as a brand-new one).
+    if (!fullClose && openPosition) {
       const row = buildTradeLogRow({
         userId: user.id,
         position: openPosition as unknown as ClosablePosition,
@@ -116,6 +123,8 @@ export async function POST(req: NextRequest) {
 
     // The exit is the half of the trade that carries the outcome. Without it the
     // learning tables would hold entries with nothing to score them against.
+    // Recorded for both full and partial closes — this is the order-submission
+    // event, independent of who ends up owning the trade_logs row.
     await recordOrderExecution(user.id, {
       symbol: symbol.toUpperCase(),
       assetClass: isCryptoSymbol(symbol) ? "crypto" : "us_equity",
@@ -128,7 +137,7 @@ export async function POST(req: NextRequest) {
       latencyMs: Date.now() - startedAt,
     });
 
-    return NextResponse.json({ ok: true, order });
+    return NextResponse.json({ ok: true, order, fullClose });
   } catch (err) {
     const raw = err instanceof Error ? err.message : String(err);
     // Alpaca 404s when the position is already flat — that's the desired state,

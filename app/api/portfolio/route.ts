@@ -18,6 +18,11 @@ import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { buildBlendedPositions, type RawPosition } from "@/lib/portfolio/blend";
 import { parseOccSymbol } from "@/lib/portfolio/occ";
 import { deriveOpenedAtBySymbol, type Execution, type OpenedAt } from "@/lib/portfolio/opened-at";
+import {
+  reconcilePositions,
+  type LivePosition,
+  type ReconcileOutcome,
+} from "@/lib/portfolio/reconcile";
 
 /**
  * How far back to walk the fill history when deriving open timestamps.
@@ -97,6 +102,33 @@ export async function GET() {
       assetClassHint: p.asset_class,
     }));
 
+    // Diffs the live broker book against our own `positions` ledger on every
+    // poll — this route is the only caller, and the Portfolio page's 10-second
+    // refresh is what makes it run at all. A close (full or bracket-triggered)
+    // gets its trade_logs row here, with a real fill price and P/L rather than
+    // the pending stub /api/positions/close would otherwise be stuck with,
+    // since nothing else ever revisits a closed position to fill one in.
+    //
+    // A reconciliation failure must not blank the portfolio the user is
+    // looking at, so it is caught rather than left to reject this response —
+    // the same policy the learning-table writers use elsewhere.
+    const livePositions: LivePosition[] = positions.map((p) => ({
+      symbol: p.symbol,
+      qty: Number(p.qty),
+      side: p.side === "short" ? "short" : "long",
+      avgEntry: Number(p.avg_entry_price),
+    }));
+    const reconcile = await reconcilePositions(supabase, creds, user.id, livePositions).catch(
+      (err): ReconcileOutcome => ({
+        opened: 0,
+        closed: 0,
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
+    if (reconcile.error) {
+      console.error(`portfolio: position reconciliation — ${reconcile.error}`);
+    }
+
     // Greeks for option legs need the underlying's spot price. An equity leg
     // already carries it; option-only underlyings need a quote fetched
     // separately — bounded to just those symbols, not a market-wide call.
@@ -161,6 +193,9 @@ export async function GET() {
         source: "alpaca-paper",
         /** False when the fill history couldn't be read, so open timestamps are unavailable. */
         fillHistoryAvailable: executions.length > 0,
+        /** Positions opened/closed in the local ledger by this poll's reconciliation. */
+        reconciled: { opened: reconcile.opened, closed: reconcile.closed },
+        reconcileError: reconcile.error,
       },
     });
   } catch (err) {
