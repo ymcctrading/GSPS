@@ -7,6 +7,55 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-08-12
+
+### Added
+- **The baseline run exists.** `docs/REPLAY_RESULTS.md` said "no live run has
+  been recorded yet" since the harness was built. It is now a real run on live
+  Alpaca bars — SPY, AAPL, AMD, TSLA, MSFT, NVDA on 15Min over
+  2026-06-15 → 2026-08-12, 3,351 setups armed and 1,033 triggered — and
+  `docs/REPLAY_RESULTS_3R.md` is the same window at the master target.
+
+  | At 2R (break-even 33.3%) | Trades | Win rate | Expectancy | Total |
+  |---|---:|---:|---:|---:|
+  | Execute | 126 | 34.1% | +0.013R | +1.6R |
+  | Watch | 843 | 31.2% | −0.072R | −61.0R |
+  | Reject | 64 | 31.3% | −0.081R | −5.2R |
+  | **All** | 1033 | 31.6% | −0.062R | −64.5R |
+
+  | At 3R (break-even 25.0%) | Trades | Win rate | Expectancy | Total |
+  |---|---:|---:|---:|---:|
+  | Execute | 126 | 28.6% | **+0.132R** | +16.6R |
+  | Watch | 843 | 22.1% | −0.126R | −106.0R |
+  | **All** | 1033 | 23.1% | −0.084R | −86.5R |
+
+  So the question the PDF's blank cell left open has an answer, and it is not
+  the one either arm of that arithmetic guessed. Taken as a whole the protocol
+  is **negative at both targets** — 31.6% against a 33.3% break-even at 2R,
+  23.1% against 25.0% at 3R. What is positive is Execute, and only Execute:
+  +0.132R per trade at the master target, on 126 trades. The verdict ladder
+  also orders correctly at both targets (Execute > Watch), which is the first
+  direct evidence that the score separates anything at all.
+
+  Two cautions the numbers carry themselves. 126 trades over a two-month window
+  on six large-caps is one market regime, and +0.013R at 2R is indistinguishable
+  from zero. The window is short because `15Min` history is the binding limit,
+  not a choice.
+
+- **`npm run backtest -- --from <payload.json>`.** The credentials are not
+  always where the checkout is: this container has no vendor keys, and the
+  deployment that has them returns exactly the `BacktestReport` the renderer
+  consumes. `--from` renders a captured run instead of performing one, saves the
+  payload beside the report (`docs/replay-runs/`) so every figure stays checkable
+  against the response that produced it, and applies the same two refusals — a
+  captured synthetic run is no more publishable than a local one.
+
+  `refuseReason` is now its own exported function rather than two inline blocks,
+  and `lib/__tests__/replay-report.test.ts` covers it and the renderer: the
+  synthetic and no-trade refusals, the above-break-even column, empty buckets
+  dashed rather than reported as 0.0%, and the reproduce line being built from
+  the report rather than from whichever flags the process was handed.
+
 ## 2026-08-11
 
 ### Fixed

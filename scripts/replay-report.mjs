@@ -13,12 +13,21 @@
  *   npm run backtest                                    # writes docs/REPLAY_RESULTS.md
  *   npm run backtest -- --symbols SPY,AAPL --targetR 3  # a different universe and target
  *   npm run backtest -- --stdout                        # print instead of writing
+ *   npm run backtest -- --from docs/replay-runs/x.json  # render a captured run
  *
  * It refuses to write a report from synthetic bars. With no vendor credentials
  * configured, `getMarketDataProvider()` falls back to a seeded random walk that
  * will happily produce a full table of numbers describing nothing — which is
  * precisely the way a placeholder becomes a published finding. Configure
  * `ALPACA_API_KEY` / `ALPACA_API_SECRET` (see `.env.example`) and run it again.
+ *
+ * `--from` exists because the credentials are not always where the checkout is.
+ * `GET /api/backtest` returns exactly the `BacktestReport` this renders, so a
+ * run performed by a deployment that holds the vendor keys can be captured and
+ * committed rather than retyped. The payload is saved alongside the report so
+ * every figure stays checkable against the response that produced it, and the
+ * two refusals below apply to a loaded report exactly as to a fresh one — a
+ * captured synthetic run is no more publishable than a local one.
  *
  * TypeScript is loaded through Vite so the `@/` alias and the app's own modules
  * resolve exactly as they do in the app — the report describes the shipped code,
@@ -28,7 +37,7 @@
 import { createServer } from "vite";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -42,6 +51,7 @@ export function parseArgs(argv) {
     targetR: 2,
     within: "Execute",
     out: DEFAULT_OUT,
+    from: null,
   };
   for (let i = 0; i < argv.length; i++) {
     const [flag, inline] = argv[i].split("=");
@@ -51,6 +61,7 @@ export function parseArgs(argv) {
     }
     const value = inline ?? argv[++i];
     switch (flag) {
+      case "--from": args.from = value; break;
       case "--symbols": args.symbols = value.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean); break;
       case "--timeframe": args.timeframe = value; break;
       case "--targetR": args.targetR = Number(value); break;
@@ -90,6 +101,11 @@ export function markdown(report, args) {
   lines.push(`| Data source | ${report.source} (${report.live ? "live feed" : "SYNTHETIC"}) |`);
   lines.push(`| Armed / triggered | ${report.armed} / ${report.triggered} |`);
   lines.push(`| Generated | ${report.generatedAt} |`);
+  // Where the replay ran. Only stated when it was not this checkout, because
+  // that is the case a reader has to be able to audit — hence the payload path.
+  if (args.from) {
+    lines.push(`| Run by | \`GET /api/backtest\` on the deployment; payload \`${args.from}\` |`);
+  }
   if (report.skipped.length > 0) {
     lines.push(
       `| Skipped | ${report.skipped.map((s) => `${s.symbol} (${s.reason})`).join("; ")} |`,
@@ -156,9 +172,11 @@ export function markdown(report, args) {
   lines.push("---");
   lines.push("");
   lines.push(
+    // Taken from the report rather than the arguments: a rendered payload was
+    // not necessarily produced by the flags this process was handed.
     `Reproduce: \`npm run backtest -- --symbols ${report.symbols.join(",")} --timeframe ${
       report.timeframe
-    } --targetR ${report.targetR} --within ${args.within}\``,
+    } --targetR ${report.targetR} --within ${report.attributeWithin}\``,
   );
   lines.push("");
   lines.push(
@@ -172,9 +190,29 @@ export function markdown(report, args) {
   return lines.join("\n");
 }
 
-async function main() {
-  const args = parseArgs(process.argv.slice(2));
+/**
+ * Why a report may not be published, or null when it may be. Applied to a
+ * loaded payload as well as a fresh run: the point of the refusal is the
+ * finding, not the process that produced it.
+ */
+export function refuseReason(report) {
+  if (!report.live) {
+    return (
+      `bars came from the '${report.source}' generator, which is a seeded random walk.\n` +
+      `Configure ALPACA_API_KEY and ALPACA_API_SECRET (see .env.example) and run this again.`
+    );
+  }
+  if (report.overall.trades === 0) {
+    return (
+      `the run produced no trades. ${report.armed} setups armed and ${report.triggered} triggered.\n` +
+      `Widen the universe or check the data window.`
+    );
+  }
+  return null;
+}
 
+/** Run the harness in this checkout. Needs the `@/` alias, hence Vite. */
+async function runHere(args) {
   const server = await createServer({
     configFile: false,
     root,
@@ -183,48 +221,41 @@ async function main() {
     appType: "custom",
     logLevel: "warn",
   });
-
   try {
     const { runBacktest } = await server.ssrLoadModule("/lib/backtest/run.ts");
-
     const symbols = args.symbols ?? ["SPY", "AAPL", "AMD", "TSLA", "MSFT", "NVDA"];
     process.stderr.write(`Replaying ${symbols.join(", ")} on ${args.timeframe} at ${args.targetR}R…\n`);
-
-    const report = await runBacktest({
+    return await runBacktest({
       symbols,
       timeframe: args.timeframe,
       targetR: args.targetR,
       attributeWithin: args.within,
     });
-
-    if (!report.live) {
-      process.stderr.write(
-        `\nRefusing to write a report: bars came from the '${report.source}' generator, which is a\n` +
-          `seeded random walk. Configure ALPACA_API_KEY and ALPACA_API_SECRET (see .env.example) and\n` +
-          `run this again. Nothing was written.\n`,
-      );
-      process.exitCode = 1;
-      return;
-    }
-
-    if (report.overall.trades === 0) {
-      process.stderr.write(
-        `\nRefusing to write a report: the run produced no trades. ${report.armed} setups armed and ` +
-          `${report.triggered} triggered. Widen the universe or check the data window.\n`,
-      );
-      process.exitCode = 1;
-      return;
-    }
-
-    const out = markdown(report, args);
-    if (args.out) {
-      await writeFile(path.resolve(root, args.out), out, "utf8");
-      process.stderr.write(`\nWrote ${args.out}\n`);
-    } else {
-      process.stdout.write(out);
-    }
   } finally {
     await server.close();
+  }
+}
+
+async function main() {
+  const args = parseArgs(process.argv.slice(2));
+
+  const report = args.from
+    ? JSON.parse(await readFile(path.resolve(root, args.from), "utf8"))
+    : await runHere(args);
+
+  const refusal = refuseReason(report);
+  if (refusal) {
+    process.stderr.write(`\nRefusing to write a report: ${refusal}\nNothing was written.\n`);
+    process.exitCode = 1;
+    return;
+  }
+
+  const out = markdown(report, args);
+  if (args.out) {
+    await writeFile(path.resolve(root, args.out), out, "utf8");
+    process.stderr.write(`\nWrote ${args.out}\n`);
+  } else {
+    process.stdout.write(out);
   }
 }
 
