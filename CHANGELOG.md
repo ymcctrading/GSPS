@@ -7,6 +7,42 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-08-11
+
+### Fixed
+- **`trade_logs` rows from a full position close no longer get stuck on
+  `pending`.** A market close order is often accepted-but-unfilled in the
+  response `/api/positions/close` gets back from the broker, so writing the
+  audit row immediately meant recording a guess — and nothing ever revisited
+  that row,
+  because the same code also marked the local `positions` ledger closed on
+  the spot, which hid it from the one function built to fix this up:
+  `reconcilePositions` (`lib/portfolio/reconcile.ts`) diffs the live broker
+  book against that ledger and, on noticing a position gone, pulls the real
+  filled closing order and writes a `trade_logs` row with the actual exit
+  price, P/L and exit condition (`tp1` / `stop_loss` / `manual`) — but it had
+  **zero callers**, so none of that ever ran.
+
+  Now wired into `GET /api/portfolio`, which the Portfolio page already polls
+  every 10 seconds, so every full close — a bracket TP/SL fill or the
+  "Close position" button — gets its trade_logs row from there instead, with
+  a real fill price rather than a placeholder. `/api/positions/close` no
+  longer writes a row or marks the position closed for a full close; it
+  still does both for a **partial** close, since `reconcilePositions` can
+  structurally never see one (the position shrinks, it doesn't disappear) —
+  previously it *also* marked a partial close as fully closed, which would
+  have made the next reconciliation poll treat the still-live remainder as a
+  brand-new position once this wiring went in. `isFullClose`
+  (`lib/portfolio/trade-log.ts`) makes the split explicit and testable.
+
+  `reconcilePositions` also went from swallowing every write failure
+  silently (the Supabase client resolves with `{ error }`, it does not
+  throw) to surfacing them: each write now throws on an error response, the
+  position-close write is reordered after the trade_logs write so a failure
+  leaves the row eligible for retry on the next poll rather than lost
+  forever, and the route surfaces a `sync.reconciled` / `sync.reconcileError`
+  summary the same way `/api/orders` already reports its own sync outcome.
+
 ## 2026-08-10
 
 ### Correction
