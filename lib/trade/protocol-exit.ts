@@ -91,19 +91,35 @@ export function planProtocolExit(qty: number, levels: ProtocolLevels): ExitPlan 
   const whole = Math.floor(qty);
   const mp = levels.masterProfit ?? null;
 
-  if (!Number.isFinite(whole) || whole < 2) {
+  // Non-finite or non-positive input (a cleared quantity field, a bad read from
+  // the broker) has nothing to build a plan from. `Math.max(1, whole)` used to
+  // sit here and turn that case into a qty-1 or qty-NaN tranche — an order for
+  // a share that may not exist, or a broker call for `"NaN"` shares.
+  if (!Number.isFinite(whole) || whole <= 0) {
+    return {
+      tranches: [],
+      splittable: false,
+      scaleOutQty: 0,
+      masterQty: 0,
+      runnerQty: 0,
+      scaleOutPct: 0,
+      summary: "No shares to exit.",
+    };
+  }
+
+  if (whole < 2) {
     return {
       tranches: [
         {
           key: "single",
-          qty: Math.max(1, whole),
+          qty: whole,
           takeProfit: levels.takeProfit1,
           stopLoss: levels.stopLoss,
           label: "Exits whole at TP1 or at the stop",
         },
       ],
       splittable: false,
-      scaleOutQty: Math.max(1, whole),
+      scaleOutQty: whole,
       masterQty: 0,
       runnerQty: 0,
       scaleOutPct: 1,
@@ -244,9 +260,24 @@ export function planStopAdjustment(state: ExitState): ExitAction {
   };
 
   const best = highWater ?? lastPrice;
+  // Reached counts a touch: the level was traded at or better, which is enough
+  // to arm break-even and the trail — those only ever tighten the stop, so
+  // arming a tick early costs nothing.
   const reached = (level: number | null | undefined): boolean => {
     if (level == null || best == null) return false;
     return long ? best >= level : best <= level;
+  };
+  // The reversal check needs more than a touch. The master tranche's own OCO
+  // limit fills *at* the target, which would satisfy `reached` on the very tick
+  // the tranche exits — arming a stop one tick inside the target at that instant
+  // put the close trigger one tick from the fill price itself, so the runner was
+  // liquidated on the next tick of ordinary noise. Requiring price to have
+  // traded *past* the target, and setting the trigger *at* the target rather
+  // than inside it, means the close only fires on a genuine round trip: up
+  // through the level, then back down through it.
+  const passedThrough = (level: number | null | undefined): boolean => {
+    if (level == null || best == null) return false;
+    return long ? best > level : best < level;
   };
 
   // Rule 4. TP1 reached is the threshold: from there the entry is the floor,
@@ -259,11 +290,11 @@ export function planStopAdjustment(state: ExitState): ExitAction {
     }
   }
 
-  // Rule 3's reversal half. Armed only once price has actually traded through
-  // the master target; a tick inside it so the exit needs a genuine cross back,
-  // not a touch on the way up.
-  if (levels.masterProfit != null && reached(levels.masterProfit)) {
-    adopt(long ? levels.masterProfit - tick : levels.masterProfit + tick, "master_reversal");
+  // Rule 3's reversal half. Armed only once price has genuinely traded through
+  // the master target — not merely reached it — and the trigger sits at the
+  // target itself, so the close needs an actual cross back through the level.
+  if (passedThrough(levels.masterProfit)) {
+    adopt(levels.masterProfit!, "master_reversal");
   }
 
   // Snap away from the market: a long's stop rounds down, a short's rounds up,

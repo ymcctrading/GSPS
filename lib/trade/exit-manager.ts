@@ -5,13 +5,34 @@
  * half that talks to the broker and the database. On each pass it reads every
  * working plan and does one of four things:
  *
- *   1. Waits, when the entry hasn't filled yet.
+ *   1. Waits, when the entry hasn't filled at all, or is still partially
+ *      filling — attaching against a partial quantity would lock in that split
+ *      permanently and leave any shares that fill afterward with no stop and no
+ *      exit orders at all.
  *   2. Attaches the exits, the first time there is a position to attach them to
  *      — 60% at TP1, half the remainder at the master target, the rest behind a
  *      stop.
  *   3. Moves the protective stop, once the trade has earned a tighter one.
  *   4. Closes the plan, when the position is gone or the master-target reversal
  *      rule fires.
+ *
+ * Two races this module has to survive
+ * -------------------------------------
+ * `GET /api/orders` runs this on every poll, and nothing stops two polls from
+ * overlapping — a second browser tab, or a request that outlives the interval.
+ * Two places matter:
+ *
+ *   * Attaching exits cancels the entry's stop before replacing it, so a plan
+ *     caught mid-attach by a second pass would be double-attached — twice the
+ *     resting sell quantity. `claimAttach` marks a plan as claimed before
+ *     anything is cancelled or placed, and a second pass that sees the claim
+ *     skips the plan.
+ *   * Finishing a plan writes a trade log and closes it, and a manual close
+ *     (`/api/positions/close`) can finish the same plan independently at
+ *     nearly the same moment. `recordPendingExit` closes this one at the
+ *     database, not in application code: the insert carries a unique
+ *     `exit_plan_id`, and the loser of the race gets `duplicate` back instead
+ *     of a second row.
  *
  * Why the exits aren't a bracket on the entry
  * -------------------------------------------
@@ -53,6 +74,7 @@ import {
   type StopReason,
 } from "@/lib/trade/protocol-exit";
 import { describeProtocolSignal, recordPendingExit } from "@/lib/portfolio/trade-log-record";
+import { isWorking, normalizeOrderStatus } from "@/lib/portfolio/order-status";
 import type { createClient } from "@/lib/supabase/server";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
@@ -72,9 +94,11 @@ export interface PlanRow {
   master_order_id: string | null;
   runner_order_id: string | null;
   exits_attached_at: string | null;
+  attach_claimed_at: string | null;
   high_water: number | null;
   applied_stop: number | null;
   applied_stop_reason: StopReason | null;
+  status: "working" | "closed";
   created_at: string;
 }
 
@@ -102,10 +126,29 @@ const idle = (): ManageRun => ({
   error: null,
 });
 
-/** Broker statuses that mean an order is still live and can be replaced. */
-const RESTING = new Set(["new", "accepted", "held", "pending_new", "replaced", "partially_filled"]);
-/** Statuses that mean an entry ended without ever producing a position. */
-const DEAD = new Set(["canceled", "cancelled", "expired", "rejected", "done_for_day", "replaced"]);
+/**
+ * Broker statuses that mean an order is still live and can be replaced.
+ *
+ * `"replaced"` is deliberately absent. It means this specific order id was
+ * superseded by a *different* order, whose id Alpaca reports in `replaced_by`
+ * — a field this module doesn't read. Treating a replaced order as still
+ * resting sent `replaceOrder` at a stale id that can no longer be moved.
+ */
+const RESTING = new Set(["new", "accepted", "held", "pending_new", "partially_filled"]);
+
+/**
+ * Statuses that mean an entry order ended without ever producing a position.
+ *
+ * `"replaced"` is absent here too, for the same reason: it does not mean the
+ * order died without filling, it means a *different* order took its place —
+ * one this module has no id for and can't chase. Reporting it as dead would
+ * abandon a plan whose entry may still be working under a new id; leaving it
+ * unresolved (the plan just waits) is the safer of two wrong answers.
+ */
+const ENTRY_DEAD = new Set(["canceled", "cancelled", "expired", "rejected", "done_for_day"]);
+
+/** How long a stale attach claim is honored before another pass may retry it. */
+const CLAIM_STALE_MS = 2 * 60 * 1000;
 
 /**
  * Advance every working exit plan for this user.
@@ -198,7 +241,7 @@ async function advance(
     // Exits were attached and the position is gone: every tranche is out. The
     // trade gets its audit row, with the exit left pending — the fills that
     // closed it are what settlement reads, not a price guessed here.
-    await finish(supabase, userId, plan, "flat");
+    await finish(supabase, userId, plan, "flat", run);
     run.closed++;
     run.notes.push(`${plan.symbol} is flat — logged, waiting on the broker's exit prices.`);
     return;
@@ -212,6 +255,18 @@ async function advance(
   const highWater = extendHighWater(plan.side, plan.high_water, Number.isFinite(price) ? price : null);
 
   if (!plan.exits_attached_at) {
+    // Cancelling the entry's stop and attaching against `held` while the entry
+    // order can still fill more would strand any shares that arrive after this
+    // pass: `exits_attached_at` marks the plan done, so nothing would ever
+    // revisit the split. Wait for the entry to stop working before touching it.
+    if (await entryStillFilling(creds, plan)) return;
+
+    // Claim before cancelling anything. A second pass — another tab, or a
+    // request that outlived the polling interval — sees the claim and skips
+    // the plan instead of cancelling the stop and placing a second full set of
+    // tranches on top of the first.
+    if (!(await claimAttach(supabase, userId, plan))) return;
+
     await attachExits(supabase, creds, userId, plan, held, entryPrice, highWater, run);
     return;
   }
@@ -231,7 +286,7 @@ async function advance(
 
   if (action.kind === "close_all") {
     await closePosition(creds, plan.symbol);
-    await finish(supabase, userId, plan, "reversal", { highWater, entryPrice });
+    await finish(supabase, userId, plan, "reversal", run, { highWater, entryPrice });
     run.closed++;
     run.notes.push(`${plan.symbol}: ${action.explanation}`);
     return;
@@ -261,7 +316,58 @@ async function advance(
 }
 
 /**
- * Place the staged exits against a position that now exists.
+ * True while the entry order can still produce more fills.
+ *
+ * The bracket leg Alpaca attaches to the entry already scales to whatever has
+ * filled so far, so a partial fill is protected on its own while this returns
+ * true — nothing here needs to touch it yet. When the entry's own status can't
+ * be confirmed (a transient read failure), this errs toward waiting: a stalled
+ * plan retries next pass, but shares orphaned by attaching too early are not
+ * easily recovered.
+ */
+async function entryStillFilling(creds: AlpacaCreds, plan: PlanRow): Promise<boolean> {
+  if (!plan.entry_order_id) return false;
+  const entry = await getOrder(creds, plan.entry_order_id).catch(() => undefined);
+  if (entry === undefined) return true;
+  return isWorking(normalizeOrderStatus(entry.status));
+}
+
+/**
+ * Claim the right to attach this plan's exits, so a concurrent pass backs off
+ * instead of cancelling the entry's stop a second time.
+ *
+ * The claim is a conditional update: it only succeeds when `exits_attached_at`
+ * is still null (the plan isn't already done) and `attach_claimed_at` is
+ * either null or older than `CLAIM_STALE_MS` (no other pass holds a fresh
+ * claim). A crashed attach — the process died between claiming and finishing —
+ * self-heals after the staleness window rather than parking the plan forever;
+ * a clean failure clears the claim immediately instead of waiting it out (see
+ * `attachExits`).
+ */
+async function claimAttach(supabase: Supabase, userId: string, plan: PlanRow): Promise<boolean> {
+  const now = new Date();
+  const staleBefore = new Date(now.getTime() - CLAIM_STALE_MS).toISOString();
+  const { data, error } = await supabase
+    .from("protocol_exits")
+    .update({ attach_claimed_at: now.toISOString() })
+    .eq("id", plan.id)
+    .eq("user_id", userId)
+    .is("exits_attached_at", null)
+    .or(`attach_claimed_at.is.null,attach_claimed_at.lt.${staleBefore}`)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    console.error(`exit-manager: attach claim for plan ${plan.id} failed — ${error.message}`);
+    return false;
+  }
+  return data != null;
+}
+
+/**
+ * Place the staged exits against a position that now exists. Only reached
+ * after `claimAttach` has succeeded, so this is the sole pass acting on the
+ * plan.
  *
  * The tranche split is recomputed from the quantity actually held rather than
  * the quantity ordered: a partially-filled entry should scale out of what it
@@ -269,11 +375,18 @@ async function advance(
  *
  * Sequencing is deliberate. The entry's full-size stop is cancelled first
  * because it reserves every share — nothing else can be placed while it rests —
- * and the replacements go on largest-first, so each call restores protection to
- * a bigger slice of the position than the last. If one of them fails, whatever
- * is left unprotected gets a plain stop immediately and the run says so out
- * loud; a position left naked because a placement 502'd is the one outcome this
- * function must never produce quietly.
+ * and the replacements go on in the split's own order, so each call restores
+ * protection to a bigger slice of the position than the last. If one of them
+ * fails, whatever is left uncovered gets a plain stop immediately and the run
+ * says so out loud; a position left naked because a placement 502'd is not
+ * allowed to pass silently.
+ *
+ * If *nothing* can be placed — the entry's stop is already cancelled and every
+ * attempt after it fails, including the plain-stop fallback — `exits_attached_at`
+ * is left null rather than written as if the attach succeeded. Marking it done
+ * here would freeze the plan: the position is still open, so `finish` never
+ * fires, and `exits_attached_at` being set means this function never runs
+ * again either. The claim is released instead, so the very next pass retries.
  */
 async function attachExits(
   supabase: Supabase,
@@ -291,6 +404,14 @@ async function attachExits(
     takeProfit1: plan.take_profit_1,
     masterProfit: plan.master_profit,
   });
+
+  if (split.tranches.length === 0) {
+    // Nothing worth splitting — the broker's held quantity read back as zero
+    // or non-finite. Release the claim; the next pass sees either a real
+    // position or none, and reasons from there instead of from a guess.
+    await patchPlan(supabase, userId, plan, { attach_claimed_at: null });
+    return;
+  }
 
   await cancelEntryStop(creds, plan);
 
@@ -318,7 +439,8 @@ async function attachExits(
   // Best-effort restore: anything the loop didn't cover gets a plain stop, so
   // the position is never left without one.
   const uncovered = heldQty - placedQty;
-  if (failure && uncovered > 0) {
+  let restoreFailed = false;
+  if (uncovered > 0) {
     try {
       const order = await placeExitOrder(creds, {
         symbol: plan.symbol,
@@ -326,11 +448,27 @@ async function attachExits(
         qty: uncovered,
         stopLoss: plan.stop_loss,
       });
-      ids.runner = String(order.id);
-      run.error = `${plan.symbol}: the profit targets couldn't all be placed, so the remaining ${uncovered} share${uncovered === 1 ? "" : "s"} carry a stop only. Set the target by hand at the broker.`;
-    } catch {
-      run.error = `${plan.symbol}: ${uncovered} share${uncovered === 1 ? "" : "s"} have no stop at the broker — the exit orders were refused (${failure}). Close the position or place a stop manually.`;
+      // Only the runner slot can still be free here — a failure severe enough
+      // to leave shares uncovered happened on the scale-out or master tranche.
+      ids.runner = ids.runner ?? String(order.id);
+      if (failure) {
+        run.error = `${plan.symbol}: the profit targets couldn't all be placed, so the remaining ${uncovered} share${uncovered === 1 ? "" : "s"} carry a stop only. Set the target by hand at the broker.`;
+      }
+    } catch (restoreErr) {
+      restoreFailed = true;
+      const detail = restoreErr instanceof Error ? restoreErr.message : String(restoreErr);
+      run.error = failure
+        ? `${plan.symbol}: ${uncovered} share${uncovered === 1 ? "" : "s"} have no stop at the broker — the exit orders were refused (${failure}). Close the position or place a stop manually.`
+        : `${plan.symbol}: the stop for ${uncovered} share${uncovered === 1 ? "" : "s"} couldn't be placed (${detail}). Close the position or place a stop manually.`;
     }
+  }
+
+  if (Object.keys(ids).length === 0) {
+    // Total failure: the entry's stop is already cancelled and nothing
+    // replaced it anywhere in the position. Don't record this as attached.
+    run.error = `${plan.symbol}: no exit orders could be placed after the entry's stop was cancelled — the position has no resting protection until the next pass succeeds. (${failure ?? "unknown error"})`;
+    await patchPlan(supabase, userId, plan, { attach_claimed_at: null });
+    return;
   }
 
   await patchPlan(supabase, userId, plan, {
@@ -344,12 +482,15 @@ async function attachExits(
     master_order_id: ids.master ?? null,
     runner_order_id: ids.runner ?? null,
     exits_attached_at: new Date().toISOString(),
+    // Some protection is resting (checked above), even if partial coverage
+    // means it isn't every share — `applied_stop` describes the price it
+    // rests at, not how much of the position it currently covers.
     applied_stop: plan.stop_loss,
     applied_stop_reason: "protocol",
   });
 
   run.attached++;
-  run.notes.push(`${plan.symbol}: ${split.summary}`);
+  if (!restoreFailed) run.notes.push(`${plan.symbol}: ${split.summary}`);
 }
 
 /** Free the shares the entry's own stop reserves, so the tranches can be placed. */
@@ -417,7 +558,7 @@ async function entryIsDead(creds: AlpacaCreds, plan: PlanRow): Promise<boolean> 
   if (!plan.entry_order_id) return false;
   const entry = await getOrder(creds, plan.entry_order_id).catch(() => null);
   if (!entry) return false;
-  return DEAD.has(String(entry.status ?? "").toLowerCase());
+  return ENTRY_DEAD.has(String(entry.status ?? "").toLowerCase());
 }
 
 /**
@@ -426,48 +567,46 @@ async function entryIsDead(creds: AlpacaCreds, plan: PlanRow): Promise<boolean> 
  * The entry timestamp is the plan's own creation time — when the entry was
  * submitted — which is what settlement measures the closing fills from. The
  * exit stays pending until those fills are read.
+ *
+ * The insert carries `exit_plan_id`, unique in the database where not null
+ * (migration `0009`). A manual close can write this same plan's row through
+ * `logClose` in `/api/positions/close` at nearly the same moment a poll lands
+ * here — both see the plan as flat, both try to log it. Rather than a
+ * check-then-insert race in application code (which only narrows the window,
+ * it doesn't close it), the second insert simply collides with the first's
+ * unique index and comes back `duplicate`, which is treated as success: the
+ * trade is logged, just not by this call.
+ *
+ * A real write failure leaves the plan `working` rather than retiring it —
+ * losing the audit trail permanently because of one transient error is worse
+ * than a few more no-op passes retrying the insert.
  */
 async function finish(
   supabase: Supabase,
   userId: string,
   plan: PlanRow,
   cause: "flat" | "reversal",
+  run: ManageRun,
   ctx?: { highWater: number | null; entryPrice: number },
 ): Promise<void> {
-  // A manual close writes this row itself and then retires the plan. A poll
-  // landing between those two calls would see a flat symbol and a still-working
-  // plan, and log the same trade twice. The plan's creation time is the key
-  // both paths write, so it is what rules the second write out.
-  const { data: already } = await supabase
-    .from("trade_logs")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("symbol", plan.symbol.toUpperCase())
-    .eq("entry_timestamp", plan.created_at)
-    .eq("outcome", "pending")
-    .limit(1)
-    .maybeSingle();
-
-  if (already) {
-    await closePlan(supabase, userId, plan, {
-      high_water: ctx?.highWater ?? plan.high_water,
-      entry_price: ctx?.entryPrice ?? plan.entry_price,
-    });
-    return;
-  }
-
-  await recordPendingExit(supabase, userId, {
+  const result = await recordPendingExit(supabase, userId, {
     symbol: plan.symbol,
     direction: plan.side === "long" ? "buy" : "sell",
     quantity: plan.qty,
     entryPrice: ctx?.entryPrice ?? plan.entry_price,
     entryTimestamp: plan.created_at,
+    exitPlanId: plan.id,
     signalCalled: describeProtocolSignal({
       stopLoss: plan.stop_loss,
       takeProfit1: plan.take_profit_1,
       masterProfit: plan.master_profit,
     }),
   });
+
+  if (result.status === "failed") {
+    run.error = `${plan.symbol}: the trade finished but couldn't be written to the trade log. It will retry next pass.`;
+    return;
+  }
 
   await closePlan(supabase, userId, plan, {
     high_water: ctx?.highWater ?? plan.high_water,
@@ -509,8 +648,18 @@ async function patchPlan(
  * escape hatch. Without this the manager would keep re-arming stops against a
  * position that is gone, and would later log the trade a second time.
  *
- * Returns the plan it closed, so the caller can log the trade with the levels
- * that were actually being run.
+ * Returns the plan (whichever status it's in), so the caller can log the trade
+ * with the levels that were actually being run and — just as importantly —
+ * with the plan's own `id` to carry as `exit_plan_id`. Not filtered to
+ * `status = 'working'`: a concurrent poll can finish this exact plan (the
+ * position it was protecting just went flat) in the moment between this
+ * function being called and its own `advance()` reaching the same row. Filtering
+ * on `working` would then find nothing, and the caller would fall back to
+ * `exit_plan_id: null` — losing the database's own duplicate-log protection
+ * (migration `0009`) for the one case that most needs it. The most recently
+ * created plan for the symbol is the current one regardless of whether it has
+ * already been marked closed by whoever won that race; `closePlan` here is a
+ * no-op when it has.
  */
 export async function closePlanForSymbol(
   supabase: Supabase,
@@ -522,13 +671,14 @@ export async function closePlanForSymbol(
     .select("*")
     .eq("user_id", userId)
     .eq("symbol", symbol.toUpperCase())
-    .eq("status", "working")
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
   if (!data) return null;
   const plan = normalizePlan(data as PlanRow);
-  await closePlan(supabase, userId, plan, {});
+  if (plan.status !== "closed") {
+    await closePlan(supabase, userId, plan, {});
+  }
   return plan;
 }

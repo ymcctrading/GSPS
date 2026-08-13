@@ -56,8 +56,24 @@ describe("planProtocolExit", () => {
     const plan = planProtocolExit(1, levels);
     expect(plan.splittable).toBe(false);
     expect(plan.tranches).toHaveLength(1);
+    expect(plan.tranches[0].qty).toBe(1);
     expect(plan.tranches[0].takeProfit).toBe(120);
     expect(plan.summary).toMatch(/single share/i);
+  });
+
+  it("produces no tranches for a zero or negative quantity, rather than a phantom 1-share order", () => {
+    for (const qty of [0, -3]) {
+      const plan = planProtocolExit(qty, levels);
+      expect(plan.tranches).toHaveLength(0);
+      expect(plan.scaleOutQty).toBe(0);
+    }
+  });
+
+  it("produces no tranches for a non-finite quantity, rather than an order for NaN shares", () => {
+    const plan = planProtocolExit(NaN, levels);
+    expect(plan.tranches).toHaveLength(0);
+    expect(Number.isFinite(plan.scaleOutQty)).toBe(true);
+    expect(plan.scaleOutQty).toBe(0);
   });
 });
 
@@ -97,17 +113,25 @@ describe("planStopAdjustment", () => {
     expect(action.reason).toBe("break_even");
   });
 
-  it("arms a stop just inside the master target once price trades through it", () => {
+  it("does not arm the reversal rule on a touch — the master tranche's own fill happens at the target", () => {
+    // The master OCO tranche fills exactly at 140. If a touch were enough to
+    // arm the reversal, the stop would land one tick below the fill price and
+    // the very next tick of ordinary noise would close the runner.
+    const action = planStopAdjustment(state({ highWater: 140, lastPrice: 140, appliedStop: 100 }));
+    expect(action.reason).not.toBe("master_reversal");
+  });
+
+  it("arms a stop at the master target once price has genuinely traded through it", () => {
     const action = planStopAdjustment(state({ highWater: 141, lastPrice: 141, appliedStop: 100 }));
     expect(action.kind).toBe("replace_stop");
     // Trailing from 141 by one risk unit gives 131; the reversal rule is
-    // tighter, so it binds.
-    expect(action.stop).toBeCloseTo(139.99, 2);
+    // tighter, so it binds — at the target itself, not one tick inside it.
+    expect(action.stop).toBe(140);
     expect(action.reason).toBe("master_reversal");
   });
 
   it("keeps trailing once the trail is tighter than the master-target trigger", () => {
-    const action = planStopAdjustment(state({ highWater: 160, lastPrice: 158, appliedStop: 139.99 }));
+    const action = planStopAdjustment(state({ highWater: 160, lastPrice: 158, appliedStop: 140 }));
     expect(action.kind).toBe("replace_stop");
     expect(action.stop).toBe(150);
     expect(action.reason).toBe("trailing");

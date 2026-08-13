@@ -55,6 +55,57 @@ date.
   (migration `0009`) holds the levels, tranche order ids, the best price seen,
   and the stop currently resting; `GET /api/orders` reports what each pass did.
 
+  **Correctness hardening from review, before this ever ran against a live
+  account:**
+  - The exit tranches attach only once the entry order has *stopped* filling
+    (`entryStillFilling`) — attaching against a partial fill would have locked
+    the split in permanently and left later fills with no stop and no exit
+    orders at all.
+  - A concurrent poll (a second tab, or a request outliving the interval) no
+    longer double-attaches a plan: `claimAttach` marks the plan as claimed,
+    with a database-level conditional update, before the entry's stop is
+    cancelled.
+  - An attach that fails completely — the entry's stop cancelled and every
+    replacement rejected — no longer marks the plan as attached. That used to
+    freeze it forever with zero resting protection: nothing would ever close a
+    position that's still open, and `exits_attached_at` being set meant the
+    attach itself would never retry.
+  - The master-target reversal no longer arms on the master tranche's own
+    fill. It requires price to trade *past* the target, not just touch it, and
+    the trigger sits at the target rather than one tick inside it — the
+    previous version could close the runner on the very next tick of ordinary
+    noise, the moment the master tranche itself filled.
+  - `classifyExit` (`lib/portfolio/reconcile.ts`) now recognizes the staged
+    exit's own order shapes — a plain stop, an OCO limit — instead of only
+    Alpaca brackets. Every protocol exit was settling as `manual` with no
+    signal adherence recorded at all.
+  - `"replaced"` status is no longer read as "dead" (an entry that never
+    filled) or as "still resting" (a stop safe to replace) — it means a
+    *different* order took over, whose id this app doesn't have, and treating
+    it as either abandoned a plan or replaced a stale, already-superseded
+    order.
+  - `planProtocolExit` no longer produces a phantom order for a non-finite or
+    zero/negative quantity (`Math.max(1, NaN)` used to become an order for
+    `"NaN"` shares).
+  - A manual close's trade-log row now always carries the plan's *original*
+    quantity, not just what that particular call closed. Settlement consumes a
+    row's fills oldest-first up to its declared quantity; a row that
+    under-declares (the remainder after TP1 already took some shares) got
+    satisfied by TP1's own earlier fill and never reached the fill the manual
+    close actually produced — reporting the wrong exit price, timestamp and
+    P/L sign.
+  - A genuinely partial manual close (some, not all, of what's held) no longer
+    retires the plan — it kept abandoning the trailing-stop management on
+    whatever remained.
+  - Two independent writers finishing the same plan at nearly the same moment
+    (a poll's own completion, and a manual close) can no longer produce two
+    trade-log rows: `trade_logs.exit_plan_id` is unique where not null, so the
+    database — not a check-then-insert race in application code — decides the
+    loser.
+  - The `exits` payload `GET /api/orders` was already computing (what moved,
+    what failed) is now shown on the Portfolio page (`ExitActivity`) instead of
+    being silently dropped.
+
 ### Fixed
 - **A trade log from a market close stayed pending forever.** Closing a position
   at market wrote no trade log at all, and the route's own header explained that

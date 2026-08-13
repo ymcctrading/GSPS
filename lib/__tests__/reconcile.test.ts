@@ -14,9 +14,27 @@ describe("classifyExit", () => {
     expect(classifyExit({ type: "limit", order_class: "bracket" })).toBe("tp1");
   });
 
-  it("classifies a non-bracket order as manual", () => {
-    expect(classifyExit({ type: "market", order_class: undefined })).toBe("manual");
+  it("classifies a stop with no order class as stop_loss", () => {
+    // The staged exit's runner tranche is a plain stop, no bracket wrapper —
+    // it is still a stop being hit, not a discretionary exit.
+    expect(classifyExit({ type: "stop", order_class: undefined })).toBe("stop_loss");
+    expect(classifyExit({ type: "stop_limit", order_class: undefined })).toBe("stop_loss");
+  });
+
+  it("classifies a filled OCO limit leg as tp1", () => {
+    // The staged exit's scale-out and master tranches are OCO orders, not
+    // brackets — before this they settled as "manual" and recorded no signal
+    // adherence at all.
+    expect(classifyExit({ type: "limit", order_class: "oco" })).toBe("tp1");
+  });
+
+  it("classifies a bare limit sell as manual", () => {
+    // No bracket, no OCO — somebody selling, not a protocol level being hit.
     expect(classifyExit({ type: "limit", order_class: undefined })).toBe("manual");
+  });
+
+  it("classifies a plain market order as manual", () => {
+    expect(classifyExit({ type: "market", order_class: undefined })).toBe("manual");
   });
 });
 

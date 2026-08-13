@@ -56,11 +56,25 @@ interface PositionRow {
 
 export type ExitCondition = "tp1" | "stop_loss" | "manual";
 
-/** A bracket leg's own `type` tells us which side of the bracket filled. */
+/**
+ * Which protocol level produced an exit, read off the order that filled.
+ *
+ * A stop is a stop wherever it came from: the staged exit places the runner's
+ * protection as a plain `stop` order with no order class at all, and reading
+ * that as "manual" would report a stop-out as a discretionary exit. A resting
+ * limit only counts as a target when it is part of a bracket or an OCO — a bare
+ * limit sell is somebody selling, not a protocol level being hit.
+ *
+ * `oco` is here because that is what the staged exit's profit tranches are.
+ * Before it was, every automatic exit this app placed settled as "manual" with
+ * no signal adherence recorded, which is the opposite of what the trade log
+ * exists to measure.
+ */
 export function classifyExit(order: Pick<AlpacaOrderRow, "type" | "order_class">): ExitCondition {
-  if (order.order_class !== "bracket") return "manual";
   if (order.type === "stop" || order.type === "stop_limit") return "stop_loss";
-  if (order.type === "limit") return "tp1";
+  if (order.type === "limit" && (order.order_class === "bracket" || order.order_class === "oco")) {
+    return "tp1";
+  }
   return "manual";
 }
 

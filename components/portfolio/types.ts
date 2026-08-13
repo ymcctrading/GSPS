@@ -51,6 +51,22 @@ export interface SyncState {
   fillHistoryAvailable?: boolean;
 }
 
+/**
+ * What the staged-exit manager did on the last `/api/orders` poll — moving a
+ * trailing stop, attaching a position's tranches, retiring a finished plan.
+ * This is a change to the user's risk (a stop that moved) or something they
+ * need to know about while they can still act (one that couldn't be moved),
+ * so it isn't optional telemetry — see `lib/trade/exit-manager.ts`.
+ */
+export interface ExitsState {
+  managed: number;
+  attached: number;
+  adjusted: number;
+  closed: number;
+  notes: string[];
+  error: string | null;
+}
+
 export interface Portfolio {
   mode: string;
   account: { equity: number; cash: number; buyingPower: number; dayPlPct: number };

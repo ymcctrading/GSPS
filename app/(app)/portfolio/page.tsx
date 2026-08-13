@@ -11,7 +11,8 @@ import { OrderLedger } from "@/components/portfolio/order-rows";
 import { BlendedPositionGroup, type Closable } from "@/components/portfolio/open-positions";
 import { RejectedOrders } from "@/components/portfolio/rejected-orders";
 import { SyncBar } from "@/components/portfolio/sync-bar";
-import type { OrderRow, Portfolio, SyncState } from "@/components/portfolio/types";
+import { ExitActivity } from "@/components/portfolio/exit-activity";
+import type { ExitsState, OrderRow, Portfolio, SyncState } from "@/components/portfolio/types";
 import { countOpenLegs, groupByDisposition, sectionOrders } from "@/lib/portfolio/sections";
 import { formatUsd, formatPct, cn } from "@/lib/utils";
 
@@ -21,6 +22,7 @@ export default function PortfolioPage() {
   const [ordersLoaded, setOrdersLoaded] = useState(false);
   const [ordersError, setOrdersError] = useState<string | null>(null);
   const [sync, setSync] = useState<SyncState | null>(null);
+  const [exits, setExits] = useState<ExitsState | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [closing, setClosing] = useState<Closable | null>(null);
@@ -56,6 +58,7 @@ export default function PortfolioPage() {
           if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
           setOrders(data.orders ?? []);
           setSync(data.sync ?? null);
+          setExits(data.exits ?? null);
           setOrdersError(null);
         })
         .catch((err) => {
@@ -134,6 +137,8 @@ export default function PortfolioPage() {
           <Stat label="Buying power" value={formatUsd(portfolio.account.buyingPower)} />
         </div>
       )}
+
+      <ExitActivity exits={exits} />
 
       <PositionSection
         id="open-positions"

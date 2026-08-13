@@ -22,12 +22,23 @@
 -- a single full-size stop, and the profit tranches are placed as sell-side
 -- OCO orders once there is a position to attach them to.
 --
+-- Two more things guard against `GET /api/orders` running twice at once — a
+-- second browser tab, or a request that outlives the polling interval:
+--
+--   * `attach_claimed_at` lets one pass claim the right to place a plan's exit
+--     orders before it cancels the entry's stop, so a concurrent pass sees the
+--     claim and skips the plan instead of placing two full sets of tranches.
+--   * `trade_logs.exit_plan_id`, unique where not null, means the database —
+--     not a check-then-insert race in application code — is what stops two
+--     passes from logging the same finished trade twice.
+--
 -- Rollback
 -- --------
 -- `drop table if exists public.protocol_exits;` and
--- `alter table public.orders drop column if exists exit_plan_id;`. Both are
+-- `alter table public.orders drop column if exists exit_plan_id;` and
+-- `alter table public.trade_logs drop column if exists exit_plan_id;`. All
 -- additive — no existing column is altered and no data is rewritten, so a
--- rollback loses the staged-exit state and leaves the order ledger untouched.
+-- rollback loses the staged-exit state and leaves both ledgers untouched.
 -- Resting broker orders are unaffected either way: they live at Alpaca, not
 -- here, and a rollback strands them rather than cancelling them.
 
@@ -66,6 +77,13 @@ create table if not exists public.protocol_exits (
   master_order_id text,
   runner_order_id text,
   exits_attached_at timestamptz,
+  -- Set the moment a pass decides to attach this plan's exits, before it
+  -- cancels the entry's stop or places anything — the claim a concurrent pass
+  -- checks so it doesn't attach the same plan a second time. Cleared back to
+  -- null if the attach fails outright, so a genuinely stuck claim (the process
+  -- died mid-attach) is retried rather than parked forever; `manageProtocolExits`
+  -- also re-claims a claim older than a couple of minutes for the same reason.
+  attach_claimed_at timestamptz,
 
   -- Live state the stop rules read.
   -- `high_water` is the best price seen *as far as we have sampled it*: it is
@@ -103,3 +121,20 @@ create policy "own protocol exits" on public.protocol_exits
 create index if not exists trade_logs_pending_idx
   on public.trade_logs (user_id, created_at)
   where outcome = 'pending';
+
+alter table public.trade_logs
+  -- The plan this row closes out, when one was involved. Not a foreign key to
+  -- `orders` (a plan can outlive the specific entry order id it started from)
+  -- — it points at the plan itself.
+  add column if not exists exit_plan_id uuid references public.protocol_exits (id) on delete set null;
+
+-- One trade log per finished plan. Two racing passes that both decide a plan
+-- is done — a poll's `finish` and a manual close's `logClose` landing at
+-- nearly the same moment — both attempt this insert; the loser gets a unique-
+-- violation instead of a second row, and treats it as "already logged" rather
+-- than retrying into a duplicate. Partial so it says nothing about the manual
+-- closes that never had a plan (`exit_plan_id is null`), which are allowed to
+-- repeat — a plain position can be closed, reopened and closed again.
+create unique index if not exists trade_logs_exit_plan_unique_idx
+  on public.trade_logs (exit_plan_id)
+  where exit_plan_id is not null;

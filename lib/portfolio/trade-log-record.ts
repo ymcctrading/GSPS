@@ -27,23 +27,42 @@ export interface PendingExitLog {
   entryTimestamp?: string | null;
   positionId?: string | null;
   orderId?: string | null;
+  /**
+   * The staged-exit plan this trade closes out, when there is one. Carries a
+   * database-enforced uniqueness: two writers racing to log the same finished
+   * plan (a poll's own `finish` and a manual close landing at nearly the same
+   * moment) both attempt this insert, and the one that loses the race gets a
+   * `duplicate` result instead of a second row — see migration `0009`.
+   */
+  exitPlanId?: string | null;
   /** What was called at entry. Required by the table, so it is never blank. */
   signalCalled: string;
 }
 
+export type RecordExitResult =
+  | { status: "recorded"; id: string }
+  /** Another writer already logged this plan. Not a failure — treat it as done. */
+  | { status: "duplicate" }
+  | { status: "failed" };
+
+/** Postgres's own code for a unique-constraint violation. */
+const UNIQUE_VIOLATION = "23505";
+
 /**
  * Record a trade that has just been closed out, exit unknown.
  *
- * Returns the row id, or null when the write failed — a failure is logged and
- * swallowed rather than propagated, because the exit itself has already
- * happened at the broker and an audit-trail failure must not be reported to
- * the user as a failed close.
+ * A failure is logged and reported as `failed` rather than thrown, because the
+ * exit itself has already happened at the broker and an audit-trail failure
+ * must not be surfaced to the user as a failed close. A unique-constraint hit
+ * on `exit_plan_id` is reported separately as `duplicate`, because it isn't a
+ * failure at all — it means a concurrent pass already wrote this trade's row,
+ * and the caller should treat the trade as logged rather than retry.
  */
 export async function recordPendingExit(
   supabase: Supabase,
   userId: string,
   input: PendingExitLog,
-): Promise<string | null> {
+): Promise<RecordExitResult> {
   const { data, error } = await supabase
     .from("trade_logs")
     .insert({
@@ -56,6 +75,7 @@ export async function recordPendingExit(
       entry_price: input.entryPrice,
       position_id: input.positionId ?? null,
       order_id: input.orderId ?? null,
+      exit_plan_id: input.exitPlanId ?? null,
       exit_timestamp: null,
       exit_price: null,
       outcome: "pending",
@@ -66,10 +86,12 @@ export async function recordPendingExit(
     .maybeSingle();
 
   if (error) {
+    if (error.code === UNIQUE_VIOLATION) return { status: "duplicate" };
     console.error(`trade-log: exit for ${input.symbol} not recorded — ${error.message}`);
-    return null;
+    return { status: "failed" };
   }
-  return data?.id ? String(data.id) : null;
+  if (!data?.id) return { status: "failed" };
+  return { status: "recorded", id: String(data.id) };
 }
 
 /** How a protocol entry is described in the log, from the levels it was given. */
