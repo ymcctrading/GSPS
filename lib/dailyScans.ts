@@ -4,6 +4,7 @@
  */
 
 import { createClient } from "@/lib/supabase/server";
+import { pricedBeforeSession, scanFreshness, type ScanFreshness } from "@/lib/scan/freshness";
 import type { ScanRow } from "@/components/scan/results-table";
 
 export type Direction = "bullish" | "bearish";
@@ -22,6 +23,7 @@ interface DailyScanRow {
   detail: {
     pattern?: { name?: string } | null;
     setupKind?: string | null;
+    scannedAt?: string | null;
   } | null;
 }
 
@@ -59,15 +61,36 @@ function toRow(r: DailyScanRow): ScanRow {
 export interface DailyScans {
   configured: boolean;
   scanDate: string | null;
+  /**
+   * How old the stored plan is. The reader always returns the newest scan it
+   * has, however old that is, so every consumer needs to be able to say so —
+   * a list from a closed session must not render as though it were today's.
+   */
+  freshness: ScanFreshness;
+  /**
+   * True when the run that priced these levels happened before its own
+   * session opened — the pre-open cron, whose closed 15-minute bars belong to
+   * the day before. Dated today, priced yesterday.
+   */
+  pricedBeforeSession: boolean;
   bullish: ScanRow[];
   bearish: ScanRow[];
 }
+
+const NO_SCAN = (configured: boolean): DailyScans => ({
+  configured,
+  scanDate: null,
+  freshness: scanFreshness(null, new Date()),
+  pricedBeforeSession: false,
+  bullish: [],
+  bearish: [],
+});
 
 export async function getDailyScans(): Promise<DailyScans> {
   const configured = Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   );
-  if (!configured) return { configured: false, scanDate: null, bullish: [], bearish: [] };
+  if (!configured) return NO_SCAN(false);
 
   const supabase = await createClient();
   const { data: latest } = await supabase
@@ -78,7 +101,7 @@ export async function getDailyScans(): Promise<DailyScans> {
     .maybeSingle();
 
   const scanDate = latest?.scan_date ?? null;
-  if (!scanDate) return { configured: true, scanDate: null, bullish: [], bearish: [] };
+  if (!scanDate) return NO_SCAN(true);
 
   const { data } = await supabase
     .from("daily_scans")
@@ -87,9 +110,19 @@ export async function getDailyScans(): Promise<DailyScans> {
     .order("rank");
   const rows = ((data ?? []) as DailyScanRow[]).filter(isComplete);
 
+  // The most recent write wins: a day can be scanned twice, and it is the run
+  // that produced the rows now on screen whose timing matters.
+  const scannedAt = rows
+    .map((r) => r.detail?.scannedAt)
+    .filter((t): t is string => typeof t === "string")
+    .sort()
+    .at(-1);
+
   return {
     configured: true,
     scanDate,
+    freshness: scanFreshness(scanDate, new Date()),
+    pricedBeforeSession: pricedBeforeSession(scanDate, scannedAt),
     bullish: rows.filter((r) => r.direction === "bullish").map(toRow),
     bearish: rows.filter((r) => r.direction === "bearish").map(toRow),
   };

@@ -7,7 +7,7 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
-## 2026-08-09
+## 2026-08-13
 
 ### Added
 - **Protocol orders now exit themselves, in stages.** "Attach protocol levels"
@@ -107,37 +107,307 @@ date.
     being silently dropped.
 
 ### Fixed
-- **A trade log from a market close stayed pending forever.** Closing a position
-  at market wrote no trade log at all, and the route's own header explained that
-  the next portfolio poll's reconciliation pass would record it — a pass wired
-  to nothing, because it diffs a `positions` ledger the app never populates.
-  Every market close therefore left no trace in `trade_logs`, and every row the
-  API did write kept `outcome = 'pending'` for good.
+- **A staged protocol exit's trade log had nothing to complete it, and no
+  single-fill exit price could describe it correctly anyway.** The
+  2026-08-11 fix wired `reconcilePositions` into `GET /api/portfolio`, so a
+  plain position's full close is recorded there with a real exit price. That
+  approach cannot describe a staged exit: `reconcilePositions.recordClose`
+  prices the *entire* original quantity off whichever single closing order
+  happened to fill *last* — right for one fill, wrong the moment a position
+  leaves in three tranches at three different prices (60% at TP1, part of the
+  rest at the master target, a runner behind a trailing stop).
 
-  Both halves are now real. A close writes the log the moment it happens, from
-  the broker's own position (entry price, quantity, side) read *before* the
-  liquidation, with the exit left empty — at that instant the order has been
-  accepted, not filled, and there is no exit price in existence to record.
-  `settlePendingTradeLogs` (`lib/portfolio/trade-log-settle.ts`) then matches
-  each pending row against the broker's fill activities and writes back the
-  quantity-weighted exit price, realized P/L and P/L percent, and which protocol
-  level produced the exit. `GET /api/trade-log` settles before it reads, so the
-  log is completed by the act of looking at it.
+  So the staged exit gets its own settlement path rather than reusing that
+  one. A close writes the trade log the moment it happens — from the broker's
+  own position (entry price, quantity, side) read *before* the liquidation —
+  with the exit left empty, because at that instant the order has been
+  accepted, not filled. `settlePendingTradeLogs`
+  (`lib/portfolio/trade-log-settle.ts`) then matches each pending row against
+  the broker's fill activities and writes back the *quantity-weighted* exit
+  price across every tranche that closed it, realized P/L and P/L percent, and
+  which protocol level produced the exit. `GET /api/trade-log` settles before
+  it reads, so the log is completed by the act of looking at it. A row it
+  cannot complete stays pending and is *counted* as pending in the response —
+  a trade still holding a runner is not finished, and a fabricated exit price
+  in an audit trail is worse than an absent one.
 
-  A row it cannot complete stays pending and is *counted* as pending in the
-  response — a trade still holding a runner is not finished, and a fabricated
-  exit price in an audit trail is worse than an absent one, because it is a
-  number someone measures a strategy against. Staged exits settle on the
-  weighted average of every fill that closed the position, once the position is
-  actually flat.
+  The two systems are partitioned so they never write the same trade twice:
+  `lib/portfolio/reconcile.ts`'s `recordOpen` now skips creating a `positions`
+  row for any order carrying an `exit_plan_id` (see the staged-exit entry
+  above), which means that symbol's close is structurally invisible to
+  `reconcilePositions` — the new settlement path owns it end to end instead.
+  `/api/positions/close` picks between the two the same way: a protocol-managed
+  symbol logs its own close and defers to `settlePendingTradeLogs`; a plain
+  one is left for `reconcilePositions`, exactly as it was on 2026-08-11.
 
-  `/api/portfolio/close` was a second, unused implementation of the same close
-  carrying the same false claim; it is now an alias for `/api/positions/close`
-  rather than a second place to keep the promise. `POST /api/trade-log` also
+  `/api/portfolio/close` was a second, unused implementation of the close
+  route; it is now an alias for `/api/positions/close` rather than a second
+  place for this logic to drift out of sync. `POST /api/trade-log` also
   stopped claiming to return the row it inserted — it never selected one back,
   so `tradeLog` was always undefined.
 
 ### Changed
+- **The verdict ladder inverts out of sample, and nothing is being re-weighted
+  until that is understood.** Two more runs over the same six symbols, on 1Hour
+  bars, which reach back two years where 15Min reaches back sixty days:
+
+  | Run | Window | Trades | Execute | Watch | Reject | All |
+  |---|---|---:|---:|---:|---:|---:|
+  | 15Min, 2R | 2 months | 1,033 | **+0.013R** | −0.072R | −0.081R | −0.062R |
+  | 15Min, 3R | 2 months | 1,033 | **+0.132R** | −0.126R | — | −0.084R |
+  | 1Hour, 2R | 2 years | 3,631 | **−0.230R** | +0.038R | +0.086R | +0.026R |
+  | 1Hour, 3R | 2 years | 3,631 | **−0.289R** | +0.057R | +0.061R | +0.030R |
+
+  Yesterday's baseline said Execute was the one bucket above water and read as
+  the score doing its job. On a sample twelve times larger the order reverses at
+  both targets: Execute is the worst bucket and Reject among the best. The
+  honest reading is that **the score has not been shown to select for
+  anything**, and that the comfortable result was also the smallest and
+  shortest one.
+
+  So the change this was heading towards — promoting the master target to the
+  recommended exit, on the strength of Execute's +0.132R at 3R — is **not
+  made**. The evidence it rested on did not survive the first attempt to
+  reproduce it. `docs/BACKTESTING.md` carries the table and what would settle
+  it; `docs/REPLAY_RESULTS_1H_2R.md` and `_1H_3R.md` carry the runs.
+
+### Added
+- **`--since` / `?since=`, to hold the period still while the timeframe moves.**
+  The two runs above differ in execution timeframe *and* in period, because each
+  timeframe carries its own lookback — so they cannot say whether the inversion
+  belongs to the timeframe or to the market it covered. `since` trims the
+  execution bars to a fixed start while leaving the daily bars that feed the
+  score untouched, which turns two variables into one. An unparseable value is
+  rejected rather than ignored: a silently dropped start would publish two years
+  of trades under a heading claiming two months.
+
+### Security
+- **`GET /api/backtest` requires a session.** It was unauthenticated — the
+  middleware matcher excludes `/api`, and unlike `/api/scan` the route had no
+  check of its own. A request walks every bar of every symbol, holds a function
+  open for the whole run, and spends vendor quota metered per project rather
+  than per caller, so one URL was an unauthenticated way to exhaust both. It now
+  returns `401` without a session.
+
+  `/learning` joins `PROTECTED_PREFIXES` in `proxy.ts` for the same reason: it
+  is the page that calls this endpoint, and left public it would render a page
+  whose only button 401s. `/automation` stays off that list deliberately — it
+  authenticates and tier-gates itself in the server component.
+
+## 2026-08-12
+
+### Added
+- **The baseline run exists.** `docs/REPLAY_RESULTS.md` said "no live run has
+  been recorded yet" since the harness was built. It is now a real run on live
+  Alpaca bars — SPY, AAPL, AMD, TSLA, MSFT, NVDA on 15Min over
+  2026-06-15 → 2026-08-12, 3,351 setups armed and 1,033 triggered — and
+  `docs/REPLAY_RESULTS_3R.md` is the same window at the master target.
+
+  | At 2R (break-even 33.3%) | Trades | Win rate | Expectancy | Total |
+  |---|---:|---:|---:|---:|
+  | Execute | 126 | 34.1% | +0.013R | +1.6R |
+  | Watch | 843 | 31.2% | −0.072R | −61.0R |
+  | Reject | 64 | 31.3% | −0.081R | −5.2R |
+  | **All** | 1033 | 31.6% | −0.062R | −64.5R |
+
+  | At 3R (break-even 25.0%) | Trades | Win rate | Expectancy | Total |
+  |---|---:|---:|---:|---:|
+  | Execute | 126 | 28.6% | **+0.132R** | +16.6R |
+  | Watch | 843 | 22.1% | −0.126R | −106.0R |
+  | **All** | 1033 | 23.1% | −0.084R | −86.5R |
+
+  So the question the PDF's blank cell left open has an answer, and it is not
+  the one either arm of that arithmetic guessed. Taken as a whole the protocol
+  is **negative at both targets** — 31.6% against a 33.3% break-even at 2R,
+  23.1% against 25.0% at 3R. What is positive is Execute, and only Execute:
+  +0.132R per trade at the master target, on 126 trades. The verdict ladder
+  also orders correctly at both targets (Execute > Watch), which is the first
+  direct evidence that the score separates anything at all.
+
+  Two cautions the numbers carry themselves. 126 trades over a two-month window
+  on six large-caps is one market regime, and +0.013R at 2R is indistinguishable
+  from zero. The window is short because `15Min` history is the binding limit,
+  not a choice.
+
+- **`npm run backtest -- --from <payload.json>`.** The credentials are not
+  always where the checkout is: this container has no vendor keys, and the
+  deployment that has them returns exactly the `BacktestReport` the renderer
+  consumes. `--from` renders a captured run instead of performing one, saves the
+  payload beside the report (`docs/replay-runs/`) so every figure stays checkable
+  against the response that produced it, and applies the same two refusals — a
+  captured synthetic run is no more publishable than a local one.
+
+  `refuseReason` is now its own exported function rather than two inline blocks,
+  and `lib/__tests__/replay-report.test.ts` covers it and the renderer: the
+  synthetic and no-trade refusals, the above-break-even column, empty buckets
+  dashed rather than reported as 0.0%, and the reproduce line being built from
+  the report rather than from whichever flags the process was handed.
+
+## 2026-08-11
+
+### Fixed
+- **`trade_logs` rows from a full position close no longer get stuck on
+  `pending`.** A market close order is often accepted-but-unfilled in the
+  response `/api/positions/close` gets back from the broker, so writing the
+  audit row immediately meant recording a guess — and nothing ever revisited
+  that row,
+  because the same code also marked the local `positions` ledger closed on
+  the spot, which hid it from the one function built to fix this up:
+  `reconcilePositions` (`lib/portfolio/reconcile.ts`) diffs the live broker
+  book against that ledger and, on noticing a position gone, pulls the real
+  filled closing order and writes a `trade_logs` row with the actual exit
+  price, P/L and exit condition (`tp1` / `stop_loss` / `manual`) — but it had
+  **zero callers**, so none of that ever ran.
+
+  Now wired into `GET /api/portfolio`, which the Portfolio page already polls
+  every 10 seconds, so every full close — a bracket TP/SL fill or the
+  "Close position" button — gets its trade_logs row from there instead, with
+  a real fill price rather than a placeholder. `/api/positions/close` no
+  longer writes a row or marks the position closed for a full close; it
+  still does both for a **partial** close, since `reconcilePositions` can
+  structurally never see one (the position shrinks, it doesn't disappear) —
+  previously it *also* marked a partial close as fully closed, which would
+  have made the next reconciliation poll treat the still-live remainder as a
+  brand-new position once this wiring went in. `isFullClose`
+  (`lib/portfolio/trade-log.ts`) makes the split explicit and testable.
+
+  `reconcilePositions` also went from swallowing every write failure
+  silently (the Supabase client resolves with `{ error }`, it does not
+  throw) to surfacing them: each write now throws on an error response, the
+  position-close write is reordered after the trade_logs write so a failure
+  leaves the row eligible for retry on the next poll rather than lost
+  forever, and the route surfaces a `sync.reconciled` / `sync.reconcileError`
+  summary the same way `/api/orders` already reports its own sync outcome.
+
+## 2026-08-10
+
+### Correction
+- **`CRON_SECRET` is set on Vercel production, correcting the 2026-08-09
+  entry below.** That entry's `503` finding was accurate at the time — the
+  Vercel dashboard now shows the variable present and scoped to Production
+  and Preview. No `GET /api/market-scan` has yet been observed at either
+  cron window (`12:30`/`21:30` UTC) in the runtime logs, so whether the
+  scheduled run now succeeds is still unconfirmed, not yet disproven; the
+  original entry is left as written below rather than edited, per this
+  file's own convention, since it was true when recorded.
+
+## 2026-08-09
+
+### Fixed
+- **The liquidity hard-reject gate is split back out of the score.** PR #45
+  added two things together: scaling the bracket's minimum gap with price
+  (kept), and a hard gate that rejected any setup whose trailing 20-day
+  volume trailed its own prior 80-day average unless volatility was
+  elevated. By construction roughly half of all symbols fail that
+  comparison at any given moment, including the most liquid ones — it read
+  AAPL in a quiet week as a 0-confluence Reject while letting a thin
+  small-cap with a volume spike through, and it thinned the daily lists
+  hardest on the quiet days a mean-reversion protocol expects to find
+  setups on. Reverted (`lib/scoring/score.ts`, `lib/scanTicker.ts`,
+  `lib/backtest/replay.ts`) so the volume/liquidity idea can be redesigned
+  and reviewed on its own; the bracket-gap fix is untouched.
+
+- **`persistDailyScans` now prunes a direction with zero new rows, instead
+  of leaving the previous run's list in place.** If today's scan finds no
+  bearish setups, the previous run's bearish rows described a different
+  day's tape and shouldn't keep publishing as if the current scan still
+  stood behind them. `lib/scan/publish.ts` no longer skips the delete when
+  a direction wrote nothing — `rank > 0` clears the whole direction for
+  that date in that case.
+
+- **Orders were failing in production since the reconciliation columns
+  were never migrated.** `app/api/orders/route.ts` writes
+  `broker_submitted_at`, `reject_reason`, `last_synced_at`,
+  `requested_limit_price`, `tick_size` and `tick_source` on every order,
+  but migration `0008_order_lifecycle_reconciliation.sql` had never been
+  applied to the live database — confirmed live in the runtime logs as
+  `Could not find the 'broker_submitted_at' column of 'orders' in the
+  schema cache` on every reconciliation pass. Applied directly.
+
+### Database
+- Applied `0008_order_lifecycle_reconciliation.sql` (`orders` gains
+  `broker_submitted_at`, `reject_reason`, `last_synced_at`,
+  `requested_limit_price`, `tick_size`, `tick_source`, plus two indexes),
+  which shipped in the repo but was missing from the live database.
+
+### Known issue
+- **The market-scan cron has never fired successfully.** `CRON_SECRET` is
+  not set on the Vercel production project — confirmed by an unauthenticated
+  `GET /api/market-scan` against `https://gsps.vercel.app`, which returns
+  `503 {"error":"CRON_SECRET is not configured on this deployment"}` rather
+  than `401`. Every `daily_scans` row landing on schedule so far has come
+  from `components/scan/auto-scan.tsx` — a client-side effect that POSTs to
+  the same endpoint whenever a signed-in user loads the dashboard and
+  today's scan is missing — not from the Vercel Cron in `vercel.json`. That
+  also explains the off-schedule write times (06:17, 19:58, 23:23 UTC
+  instead of 12:30/21:30): those are page loads, not cron ticks. Needs a
+  `CRON_SECRET` value set in the Vercel project's environment variables;
+  no tool available in this session can set it.
+
+### Added
+- **A committable backtest run.** `npm run backtest` replays the shipped entry
+  logic over a stated universe and writes `docs/REPLAY_RESULTS.md` with every
+  cell filled — trades, win rate, expectancy and total R per verdict bucket,
+  the factor table, and the stop-width bands. It refuses to write a report from
+  synthetic bars or from a run with no trades, because a complete and confident
+  table describing a seeded random walk is exactly how a placeholder becomes a
+  published finding.
+
+  A run now also reports the **window it actually covered** (from the bars
+  returned, not the lookback requested) and the **break-even win rate for its
+  target**, `1 / (1 + targetR)`. That second number is why the previous
+  headline decided nothing: 29% is a losing system at a 2R target (break-even
+  33.3%) and a winning one at 3R (break-even 25%), and the cell that separated
+  them was blank.
+
+- **Weight proposals from attribution.** All nine criteria were worth one point,
+  which was a placeholder rather than a measurement, while
+  `lib/backtest/attribution.ts` already produced the number a weight should be
+  set from. `POST /api/learning/propose-weights` — and the **Proposed weights**
+  panel on `/learning` — splits a run chronologically, keeps only criteria whose
+  expectancy gap holds up on the later half and agrees in sign, sizes the move
+  off the weaker half, caps the step, and renormalises the set to nine points so
+  the Execute and Watch cutoffs keep their meaning. The result is saved as a
+  **draft** and changes no score until a human promotes it to live. Not on a
+  Vercel cron, and documented as needing an external scheduler: the Hobby plan's
+  two daily crons are already spent, and a replay is far too slow for one.
+
+### Changed
+- **"Near a level" is measured in ATR, not percent of price.** The three
+  structural proximity criteria gated on fixed percentages — 1.5% for a support
+  line, 1.0% for a harmonic level, 1.5% for historical support/resistance. On a
+  5%-ATR name that is a third of a day's range and the point is nearly free; on
+  a 1%-ATR name it is more than a full day's range and the point is genuinely
+  selective, so a 7/9 did not mean the same thing across the universe — and the
+  bias ran towards volatile names, which the momentum criterion also rewards.
+  The bands are now 0.5× the daily ATR (0.33× for the harmonic level, the same
+  ratio the fixed pair expressed). This is the move the stop placement already
+  made in `lib/strat/levels.ts`.
+
+- **Delayed data is a scoring input, not a chart footnote.** Stocks run ~15
+  minutes behind on the free feed, which is a *full candle* on the 15-minute
+  execution timeframe — an armed trigger can already have come and gone before
+  it renders. A scan now computes that lag against the execution bar, states it
+  on the signal card, and holds Execute at Watch when it runs a whole bar or
+  more *while the market is open* — with the market shut the lag is still
+  reported but nothing can have come and gone behind it, so the daily post-close
+  scan is unaffected. Crypto and the synthetic generator carry no delay, and
+  `MARKET_DATA_REALTIME=true` turns the hold off for a paid real-time feed.
+
+- **The learning tables have writers.** `recordScanEvent`,
+  `recordSignalLifecycleEvent` and `recordExecutionEvent` had no callers outside
+  the route that defined them, so nothing was ever recorded and the 100- and
+  50-sample training floors were unreachable forever. Verdicts are now recorded
+  on `/api/scan` for signed-in callers, order outcomes (including rejections) on
+  `/api/orders`, and exits on `/api/positions/close` — which also writes the
+  `trade_logs` row that endpoint has never had a writer for. Recording never
+  fails the request it is recording, and is inert without a service-role key.
+
+  Relatedly, `modelConfidenceScore` took `features` and never read it, so how
+  well a setup matched the model had no bearing on how much the model was
+  trusted. It now scores scope against the setup in front of it and discounts
+  conditions the model cannot speak to.
+
 - **The candle stat panel can be put away, and reads open/close first.** The
   panel docked over the price pane — open, close, high, low, range and volume —
   now has a **Candle stats** checkbox beside Extended hours and Show structural
@@ -172,6 +442,55 @@ date.
   have opposite defaults and one switch could only have honoured one of them.
   The indicator strip keeps the chips for the things that are actually derived
   indicators — the moving averages, Bollinger, RSI and MACD.
+
+### Added
+- **The dashboard says how old its prices are.** `getDailyScans` returns the
+  newest scan in the table whatever its age, and nothing said so: a Friday list
+  rendered identically to this morning's. The four price columns are
+  15-minute-bar levels — an entry a penny beyond a signal candle, a stop a penny
+  beyond the other side — so outside their own session they are meaningless, and
+  they still look precise. `scanFreshness` counts the sessions between the scan
+  and now, and `StaleScanNotice` states it on the dashboard and both direction
+  lists: a quiet line at one session behind, a red warning from two. Age is
+  counted in sessions, so a Friday scan does not read as stale on Saturday.
+
+- **The pre-open scan says it is one.** The 12:30 UTC cron fires at 08:30 ET, an
+  hour before the open, and the scan reads *closed* 15-minute bars — so its
+  levels are drawn on the previous session's tape, then filed under today and
+  written over the previous evening's list. By date alone it looked like the
+  freshest thing available. `pricedBeforeSession` reads `detail.scannedAt` (now
+  carried on every row) and the dashboard says so. The 17:30 ET run is also
+  outside market hours but reads that day's bars, so it is not flagged.
+
+### Fixed
+- **The learning brain's schema now exists.** Migration `0005` had never been
+  applied: `learning_coefficients` declared its scope key as a table-level
+  `UNIQUE` over `coalesce()` expressions, which Postgres rejects — only bare
+  column names are allowed there — so the file failed on parse and all seven
+  tables were missing while `lib/learning/db.ts` queried them. The key is now a
+  unique index, which does permit expressions. Applied to production, along with
+  `0008`, whose `scan_events` foreign key was the reason it could not run either.
+  The intraday alert cooldown works from here.
+- **Three system tables were reachable with the publishable key.**
+  `learning_models`, `learning_coefficients` and `learning_audit_log` carry no
+  `user_id`, so `0005` left RLS off — which in a Supabase project means
+  PostgREST serves them to anyone. RLS is on with no policy attached: the
+  service role still writes them, nothing else reads them. The linter reports
+  that as `rls_enabled_no_policy` at INFO; it is deliberate.
+- **One definition of the trading day.** `scan_date` was the UTC date, but the
+  sessions it describes are Eastern. The two disagree between 20:00 ET and
+  midnight, so a post-close re-run was filed under tomorrow — and tomorrow then
+  opened on tonight's levels with nothing marking them old. The scan, the
+  freshness reading and the auto-scan guard now all date themselves with
+  `etDateKey`, which moves to `lib/market/session.ts` as the single
+  implementation the intraday scanner also uses.
+- **A direction the scan found nothing in is cleared, not left standing.** The
+  prune had been skipped when a side came back empty, on the reasoning that
+  wiping it would erase the earlier run. It would — and that is the point: the
+  rows left behind are ones the current scan no longer endorses, rendered under
+  the current scan's date with no way for a reader to tell. The case that skip
+  was protecting is already handled: a run that resolves no symbol at all
+  produces zero rows on both sides and returns before touching the table.
 
 ## 2026-08-08
 

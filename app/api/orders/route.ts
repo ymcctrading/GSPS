@@ -27,6 +27,14 @@ import {
   type BrokerOrder,
   type LocalOrder,
 } from "@/lib/portfolio/order-status";
+import {
+  brokerStatusFrom,
+  numericOrUndefined,
+  recordOrderExecution,
+  type RecordExecutionOptions,
+} from "@/lib/learning/record";
+
+type RecordedOrderType = RecordExecutionOptions["orderType"];
 
 const OrderSchema = z.object({
   // Equity tickers are short; OCC option symbols run ~15–21 chars (e.g. TSM250815C00120000).
@@ -245,6 +253,7 @@ export async function POST(req: NextRequest) {
       })
     : null;
 
+  const submittedAt = Date.now();
   try {
     // Real order (equity or option) — options carry a real Alpaca OCC symbol
     // from /api/options/chain, not a fabricated one.
@@ -304,14 +313,36 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const { error: dbError } = await supabase.from("orders").insert({
-      ...ledgerRow,
-      exit_plan_id: planId,
-      broker_order_id: broker.id,
-      status: broker.status ?? "new",
-      broker_submitted_at: broker.submitted_at ?? new Date().toISOString(),
-      last_synced_at: new Date().toISOString(),
+    const { data: inserted, error: dbError } = await supabase
+      .from("orders")
+      .insert({
+        ...ledgerRow,
+        exit_plan_id: planId,
+        broker_order_id: broker.id,
+        status: broker.status ?? "new",
+        broker_submitted_at: broker.submitted_at ?? new Date().toISOString(),
+        last_synced_at: new Date().toISOString(),
+      })
+      .select("id")
+      .single();
+
+    // What the broker did with a real order is the other half of the data the
+    // learning tables need: a verdict with no fill beside it can never be
+    // scored against an outcome.
+    await recordOrderExecution(user.id, {
+      orderId: (inserted as { id?: string } | null)?.id,
+      symbol: input.symbol,
+      assetClass: isOption ? "option" : "us_equity",
+      orderType: (ledgerRow.order_type as RecordedOrderType) ?? "market",
+      side: input.side,
+      quantity: input.qty,
+      requestedPrice: submittedLimitPrice,
+      filledPrice: numericOrUndefined(broker.filled_avg_price),
+      filledQty: numericOrUndefined(broker.filled_qty),
+      brokerStatus: brokerStatusFrom(broker.status),
+      latencyMs: Date.now() - submittedAt,
     });
+
     if (dbError) {
       // The order is live at the broker but absent from our ledger, so it will
       // not appear in the Portfolio. That is a data-loss event, not a cosmetic
@@ -340,17 +371,38 @@ export async function POST(req: NextRequest) {
     // app — the user saw a toast, and the order was gone. A rejected order is
     // still something that happened, and it needs a row to be shown, explained
     // and resubmitted from.
-    const { error: dbError } = await supabase.from("orders").insert({
-      ...ledgerRow,
-      broker_order_id: null,
-      status: "rejected",
-      reject_reason: friendly.message,
-      broker_submitted_at: new Date().toISOString(),
-      last_synced_at: new Date().toISOString(),
-    });
+    const { data: inserted, error: dbError } = await supabase
+      .from("orders")
+      .insert({
+        ...ledgerRow,
+        broker_order_id: null,
+        status: "rejected",
+        reject_reason: friendly.message,
+        broker_submitted_at: new Date().toISOString(),
+        last_synced_at: new Date().toISOString(),
+      })
+      .select("id")
+      .single();
     if (dbError) {
       console.error(`orders: rejection for ${ledgerRow.symbol} not recorded — ${dbError.message}`);
     }
+
+    // A refusal is evidence about the setup that produced it — a stop the broker
+    // would not take, a symbol that cannot be shorted. Recording only the orders
+    // that were easy to place would leave the table describing the wrong sample.
+    await recordOrderExecution(user.id, {
+      orderId: (inserted as { id?: string } | null)?.id,
+      symbol: input.symbol,
+      assetClass: isOption ? "option" : "us_equity",
+      orderType: (ledgerRow.order_type as RecordedOrderType) ?? "market",
+      side: input.side,
+      quantity: input.qty,
+      requestedPrice: submittedLimitPrice,
+      brokerStatus: "rejected",
+      brokerErrorCode: friendly.code,
+      brokerErrorMsg: friendly.message,
+      latencyMs: Date.now() - submittedAt,
+    });
 
     return NextResponse.json(
       { error: friendly.message, code: friendly.code, raw, recorded: !dbError },

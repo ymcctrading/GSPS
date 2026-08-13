@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { etDateKey } from "@/lib/market/session";
 
 /**
  * Populates the dashboard's reversion opportunities without anyone pressing a
@@ -103,7 +104,9 @@ export function AutoScan({ scanDate }: { scanDate: string | null }) {
   // microtask so that update lands after this effect's commit instead of
   // inside it.
   useEffect(() => {
-    const today = new Date().toISOString().slice(0, 10);
+    // Eastern, matching how the scan dates itself. On UTC the guard would think
+    // an evening scan was yesterday's and re-run it on every mount after 8pm ET.
+    const today = etDateKey(new Date());
     if (scanDate === today) return;
     if (alreadyAutoRan(today)) return;
     markAutoRan(today);

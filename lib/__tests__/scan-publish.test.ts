@@ -176,6 +176,21 @@ describe("persistDailyScans", () => {
     expect(calls).toEqual(["upsert:1"]);
   });
 
+  it("clears a direction the new scan found nothing in, rather than leaving its earlier rows", async () => {
+    const { client, calls } = fakeClient();
+
+    // Two bullish, no bearish: a real reading of the tape, not a failure.
+    // Any bearish rows an earlier run stored today are no longer endorsed.
+    const outcome = await persistDailyScans(client, "2026-08-05", [
+      row("bullish", 1),
+      row("bullish", 2),
+    ]);
+
+    expect(outcome).toEqual({ persisted: true, count: 2, error: null });
+    expect(calls).toContain("delete.eq:bearish");
+    expect(calls).toContain("delete.gt:0"); // no bearish survivors this run — clear all of them
+  });
+
   it("leaves the previous day's lists alone when the scan found nothing", async () => {
     const { client, calls } = fakeClient();
 

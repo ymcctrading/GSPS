@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ResultsTable } from "@/components/scan/results-table";
+import { StaleScanNotice } from "@/components/scan/stale-scan-notice";
 import { getDailyScans, type Direction } from "@/lib/dailyScans";
 import { ArrowLeft } from "lucide-react";
 
@@ -23,7 +24,7 @@ export default async function DirectionListPage({
   const dir = direction as Direction;
   const isBull = dir === "bullish";
 
-  const { scanDate, bullish, bearish } = await getDailyScans();
+  const { scanDate, freshness, pricedBeforeSession, bullish, bearish } = await getDailyScans();
   const rows = isBull ? bullish : bearish;
   const continuations = rows.filter((r) => r.setupKind === "continuation").length;
 
@@ -49,6 +50,12 @@ export default async function DirectionListPage({
             : "The daily market scan has not run yet — results appear here after the first cron run."}
         </p>
       </div>
+
+      <StaleScanNotice
+        freshness={freshness}
+        scanDate={scanDate}
+        pricedBeforeSession={pricedBeforeSession}
+      />
 
       <Card>
         <CardHeader>

@@ -45,7 +45,9 @@ const ScanEventSchema = z.object({
   higher_tf_context: z.array(z.object({
     timeframe: z.enum(['1m', '5m', '15m', '1h', '2h', '4h', '1d', '1w', '1mo', '1y']),
     bias: z.enum(['bull', 'bear', 'neutral']),
-    score: z.number().int().min(0).max(9),
+    // Optional: a producer that reads a direction per timeframe without scoring
+    // each one should say so by omitting this, not by sending a made-up number.
+    score: z.number().int().min(0).max(9).optional(),
   })).optional(),
   detail: z.record(z.string(), z.unknown()).optional(),
 });

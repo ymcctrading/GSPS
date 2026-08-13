@@ -11,6 +11,7 @@ import type {
   ScanResult,
   SetupKind,
   StratPattern,
+  Timeframe,
   TradeLevels,
 } from "@/lib/types";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
@@ -28,7 +29,17 @@ import {
   riskFloorViolated,
 } from "@/lib/strat/patterns";
 import { computeTradeLevels } from "@/lib/strat/levels";
-import { applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
+import { applyDataLagHold, applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
+import { decisionLag, feedDelayMs } from "@/lib/data/latency";
+import { marketSession } from "@/lib/market/session";
+import {
+  FALLBACK_SR_PCT,
+  SR_PROXIMITY_ATR,
+  atrPercentOfPrice,
+  nearAnyLevel,
+  proximityBandPct,
+} from "@/lib/scoring/proximity";
+import { getActiveCriterionWeights } from "@/lib/scoring/active-weights";
 
 /**
  * What the caller is looking for. Left unset, a scan hunts reversions and
@@ -41,6 +52,13 @@ export interface ScanPreference {
   direction: "bullish" | "bearish";
   kind: SetupKind;
 }
+
+/**
+ * The timeframe precision entries are detected on. Named here because the feed
+ * delay only means something measured against it — 15 minutes is a whole candle
+ * on this timeframe and 6% of one on a 4-hour chart.
+ */
+const EXECUTION_TIMEFRAME: Timeframe = "15Min";
 
 export async function scanTicker(
   symbol: string,
@@ -182,29 +200,49 @@ export async function scanTicker(
       ...weeklyTrend.support, ...weeklyTrend.resistance,
       ...monthlyTrend.support, ...monthlyTrend.resistance,
     ];
-    const nearSupportResistance = allLevels.some(
-      (l) => Math.abs(currentPrice - l) / currentPrice <= 0.015,
-    );
-
     const recentAtr = atr(daily.slice(-20), 14);
     const baselineAtr = atr(daily.slice(-100, -20), 14);
     const momentumElevated = baselineAtr > 0 && recentAtr / baselineAtr >= 1.2;
 
-    const decision = applyReversionConfirmation(
-      computeScore({
-        direction: scoreDirection,
-        macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
-        hourlyTrend,
-        gann,
-        nearSupportResistance,
+    // The structural proximity criteria are measured in multiples of this
+    // symbol's own daily range, so "near a level" is the same fraction of a
+    // day's move on a utility as on a high-beta name.
+    const atrPct = atrPercentOfPrice(recentAtr, currentPrice);
+    const nearSupportResistance = nearAnyLevel(
+      currentPrice,
+      allLevels,
+      proximityBandPct(SR_PROXIMITY_ATR, FALLBACK_SR_PCT, atrPct),
+    );
+
+    // The bars above are what the verdict is computed on, and on the free feed
+    // they are ~15 minutes old — a full candle on the 15-minute execution
+    // timeframe. That is a property of the decision, not of the chart legend.
+    const dataLag = decisionLag(
+      EXECUTION_TIMEFRAME,
+      feedDelayMs(assetClass, provider.isLive),
+      marketSession(assetClass) === "regular",
+    );
+
+    const decision = applyDataLagHold(
+      applyReversionConfirmation(
+        computeScore({
+          direction: scoreDirection,
+          macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
+          hourlyTrend,
+          gann,
+          nearSupportResistance,
+          pattern,
+          momentumElevated,
+          levels,
+          setupKind,
+          atrPct,
+          weights: await getActiveCriterionWeights(),
+        }),
         pattern,
         momentumElevated,
-        levels,
-        setupKind,
-      }),
-      pattern,
-      momentumElevated,
-      nearSupportResistance,
+        nearSupportResistance,
+      ),
+      dataLag,
     );
 
     return {
@@ -221,6 +259,8 @@ export async function scanTicker(
       armedPatterns,
       levels,
       levelsError,
+      dataLag,
+      executionBar: closedM15[closedM15.length - 1],
       decision,
       optionPremium,
     };

@@ -5,17 +5,28 @@
  * row.
  *
  * Scope: full closes only (a symbol disappearing from live positions).
- * Partial fills that merely shrink a position's qty are not reconciled here.
+ * Partial fills that merely shrink a position's qty are not reconciled here
+ * — `/api/positions/close` records those itself, since this function will
+ * never see them (see the comment on `isFullClose` in trade-log.ts).
  *
- * Status: `reconcilePositions` is not called from anywhere. It was written for
- * a portfolio poll that reads the `positions` ledger, and the app reads
- * positions straight from the broker instead, so nothing ever populated that
- * ledger for it to diff against. What actually records a finished trade today
- * is `lib/trade/exit-manager.ts` (which retires a staged exit when the broker
- * shows the symbol flat) and `/api/positions/close`; both write the exit as
- * pending and let `lib/portfolio/trade-log-settle.ts` fill in the real fill
- * price. `classifyExit` and `computeRealizedPl` below are used by that path and
- * are covered by tests — don't delete them with the rest.
+ * Called from `GET /api/portfolio`, which the Portfolio page polls every
+ * 10 seconds — that poll is what makes this run at all. It has no other
+ * caller, so a broken import here silently stops trade_logs from ever
+ * gaining an exit price, exactly as it did before anything called this file.
+ *
+ * Out of scope: staged protocol exits. A position bought with protocol levels
+ * attached exits in tranches — see `lib/trade/protocol-exit.ts` — and the
+ * *close* half of that lifecycle is owned end-to-end by
+ * `lib/trade/exit-manager.ts` plus `lib/portfolio/trade-log-settle.ts`, which
+ * average every tranche's fill into one weighted exit price. This file's
+ * `recordClose` instead picks a single "most recently filled" order and prices
+ * the whole original quantity off it — correct for a plain single-fill exit,
+ * wrong for a staged one (it would price 100% of the position at whatever the
+ * *last* tranche happened to fill at). So `recordOpen` never creates a
+ * `positions` row for an order carrying an `exit_plan_id`; with no row, this
+ * file structurally never sees that symbol again, and the exit-manager owns
+ * its entire lifecycle without a second writer racing it for the same
+ * `trade_logs` row.
  */
 
 import type { AlpacaCreds } from "@/lib/brokers/alpaca";
@@ -93,27 +104,61 @@ function signalAdherenceFor(exitCondition: ExitCondition): "yes" | null {
   return exitCondition === "manual" ? null : "yes";
 }
 
+export interface ReconcileOutcome {
+  opened: number;
+  closed: number;
+  /** Null when every write succeeded. The detail is in the server logs. */
+  error: string | null;
+}
+
 export async function reconcilePositions(
   supabase: Supabase,
   creds: AlpacaCreds,
   userId: string,
   livePositions: LivePosition[],
-): Promise<void> {
-  const { data: openRows } = await supabase
+): Promise<ReconcileOutcome> {
+  const { data: openRows, error: readError } = await supabase
     .from("positions")
     .select("*")
     .eq("user_id", userId)
     .eq("closed", false);
+
+  if (readError) {
+    return { opened: 0, closed: 0, error: readError.message };
+  }
+
   const openBySymbol = new Map((openRows ?? []).map((r) => [r.symbol, r]));
   const liveBySymbol = new Map(livePositions.map((p) => [p.symbol, p]));
 
   const newlyOpened = livePositions.filter((p) => !openBySymbol.has(p.symbol));
   const newlyClosed = (openRows ?? []).filter((r) => !liveBySymbol.has(r.symbol));
 
-  await Promise.all([
-    ...newlyOpened.map((p) => recordOpen(supabase, userId, p)),
-    ...newlyClosed.map((r) => recordClose(supabase, creds, userId, r)),
+  // allSettled rather than all: one symbol's write failing (a transient
+  // Supabase error, most likely) must not stop the others from being
+  // recorded, and the caller needs to know a write was lost rather than have
+  // it disappear into a rejected Promise.all.
+  const [openResults, closeResults] = await Promise.all([
+    Promise.allSettled(newlyOpened.map((p) => recordOpen(supabase, userId, p))),
+    Promise.allSettled(newlyClosed.map((r) => recordClose(supabase, creds, userId, r))),
   ]);
+
+  const failures = [...openResults, ...closeResults].filter(
+    (r): r is PromiseRejectedResult => r.status === "rejected",
+  );
+  for (const f of failures) {
+    console.error(
+      `reconcilePositions: ${f.reason instanceof Error ? f.reason.message : String(f.reason)}`,
+    );
+  }
+
+  return {
+    opened: openResults.filter((r) => r.status === "fulfilled").length,
+    closed: closeResults.filter((r) => r.status === "fulfilled").length,
+    error:
+      failures.length > 0
+        ? `${failures.length} of ${newlyOpened.length + newlyClosed.length} reconciliation write(s) failed — see server logs.`
+        : null,
+  };
 }
 
 async function recordOpen(supabase: Supabase, userId: string, live: LivePosition): Promise<void> {
@@ -127,7 +172,16 @@ async function recordOpen(supabase: Supabase, userId: string, live: LivePosition
     .limit(1)
     .maybeSingle();
 
-  await supabase.from("positions").insert({
+  // A staged protocol exit owns this position's whole lifecycle — see the
+  // file header. No `positions` row means this file never sees the position
+  // disappear either, so `recordClose`'s single-fill pricing never runs
+  // against a trade that actually left in three tranches.
+  if (order?.exit_plan_id) return;
+
+  // The Supabase client resolves with `{ error }` rather than rejecting, so a
+  // failed insert would otherwise vanish silently instead of showing up as a
+  // rejection in reconcilePositions' Promise.allSettled.
+  const { error } = await supabase.from("positions").insert({
     user_id: userId,
     connection_id: order?.connection_id ?? null,
     mode: order?.mode ?? "paper",
@@ -143,6 +197,7 @@ async function recordOpen(supabase: Supabase, userId: string, live: LivePosition
     closed: false,
     opened_at: order?.created_at ?? new Date().toISOString(),
   });
+  if (error) throw new Error(`positions insert for ${live.symbol} failed: ${error.message}`);
 }
 
 async function recordClose(
@@ -166,10 +221,11 @@ async function recordClose(
   if (!closingOrder) {
     // Closed outside any order we tracked (e.g. via the broker directly) —
     // mark it closed without fabricating an exit price or P/L.
-    await supabase
+    const { error } = await supabase
       .from("positions")
       .update({ closed: true, closed_at: new Date().toISOString() })
       .eq("id", openRow.id);
+    if (error) throw new Error(`positions close for ${openRow.symbol} failed: ${error.message}`);
     return;
   }
 
@@ -182,11 +238,6 @@ async function recordClose(
     openRow.side,
   );
 
-  await supabase
-    .from("positions")
-    .update({ closed: true, closed_at: closingOrder.filled_at, realized_pl: realizedPl })
-    .eq("id", openRow.id);
-
   let signalCalled = "Manual entry (no linked scan)";
   if (openRow.scan_result_id) {
     const { data: scan } = await supabase
@@ -197,7 +248,16 @@ async function recordClose(
     if (scan) signalCalled = `${scan.output_state} ${scan.direction} @ score ${scan.score}`;
   }
 
-  await supabase.from("trade_logs").insert({
+  // Written before the position is marked closed, deliberately. Once
+  // `closed: true` lands, this row drops out of `openBySymbol` on every
+  // future poll and recordClose never runs for it again — so if the
+  // trade_logs insert below failed *after* the position-close write, the
+  // audit row would be lost permanently rather than retried. Failing here
+  // instead leaves the position open for the next poll to try again. A
+  // failure on this exact retry, immediately after the first insert
+  // succeeded, can in principle double-write the row; that is a visible,
+  // auditable duplicate, which is the safer failure to risk.
+  const { error: logError } = await supabase.from("trade_logs").insert({
     user_id: userId,
     position_id: openRow.id,
     symbol: openRow.symbol,
@@ -215,4 +275,13 @@ async function recordClose(
     signal_called: signalCalled,
     signal_adherence: signalAdherenceFor(exitCondition),
   });
+  if (logError) throw new Error(`trade_logs insert for ${openRow.symbol} failed: ${logError.message}`);
+
+  const { error: closeError } = await supabase
+    .from("positions")
+    .update({ closed: true, closed_at: closingOrder.filled_at, realized_pl: realizedPl })
+    .eq("id", openRow.id);
+  if (closeError) {
+    throw new Error(`positions close for ${openRow.symbol} failed: ${closeError.message}`);
+  }
 }

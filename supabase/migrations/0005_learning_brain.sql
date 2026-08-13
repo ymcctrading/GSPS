@@ -1,6 +1,21 @@
 -- Learning Brain Instrumentation
 -- Deterministic, audit-ready learning layer that improves scoring without mutating core Gann scanner
 -- Collects comprehensive scan, trade, and market data for ML feature engineering
+--
+-- Applied to production 2026-08-09. It had never run before that: the
+-- learning_coefficients scope key was written as a table-level UNIQUE over
+-- coalesce() expressions, which Postgres does not accept — only bare column
+-- names — so the file failed on parse. lib/learning/db.ts had been querying
+-- these tables against a schema that did not exist. The key is unchanged in
+-- meaning; it is declared below as a unique index, which does allow
+-- expressions.
+--
+-- The three learning_* tables carry no user_id, so RLS was originally left off.
+-- In a Supabase project that means PostgREST serves them to anyone holding the
+-- publishable key. They now enable RLS with no policy attached: the service
+-- role still reads and writes them, and nothing else can. The database linter
+-- reports that as `rls_enabled_no_policy` at INFO — it is deliberate, and a
+-- permissive policy must not be added to silence it.
 
 -- ============ scan_events (every scan snapshot) ============
 create table public.scan_events (
@@ -160,22 +175,37 @@ create table public.learning_models (
 
 create index learning_models_type_status_idx on public.learning_models (model_type, status);
 
+-- System table: written by the service role, readable by nothing else.
+alter table public.learning_models enable row level security;
+
 -- ============ learning_coefficients (versioned adjustment factors) ============
 create table public.learning_coefficients (
   id uuid primary key default gen_random_uuid (),
   model_id uuid not null references public.learning_models (id) on delete cascade,
   timeframe text check (timeframe in ('1m', '5m', '15m', '1h', '2h', '4h', '1d', '1w', '1mo', '1y', 'all')),
   instrument_class text check (instrument_class in ('us_equity', 'option', 'crypto', 'forex', 'futures', 'commodities', 'all')),
-  gann_root int check (gann_root in (3, 6, 9, null)), -- null = applies to all
+  gann_root int check (gann_root in (3, 6, 9)), -- null = applies to all
   tier text check (tier in ('Passive', 'Modest', 'Aggressive', 'all')),
   -- Adjustment factors (normalized deltas, not raw values)
   score_drift numeric, -- e.g., +0.5 means add 0.5 points to base score
   target_envelope_widen_factor numeric, -- e.g., 1.1 = widen TP/SL by 10%
   entry_confidence_boost numeric, -- e.g., +0.15 = +15% confidence
   sample_count int,
-  last_updated timestamptz not null default now(),
-  unique (model_id, coalesce(timeframe, ''), coalesce(instrument_class, ''), coalesce(gann_root::text, ''), coalesce(tier, ''))
+  last_updated timestamptz not null default now()
 );
+
+-- One row per (model, scope). A table-level UNIQUE cannot hold expressions, and
+-- the scope columns are nullable, so the key is a unique index over coalesce()
+-- — otherwise two rows differing only by a NULL would both be allowed.
+create unique index learning_coefficients_scope_idx on public.learning_coefficients (
+  model_id,
+  coalesce(timeframe, ''),
+  coalesce(instrument_class, ''),
+  coalesce(gann_root::text, ''),
+  coalesce(tier, '')
+);
+
+alter table public.learning_coefficients enable row level security;
 
 -- ============ learning_audit_log (immutable record of model changes) ============
 create table public.learning_audit_log (
@@ -190,3 +220,5 @@ create table public.learning_audit_log (
 );
 
 create index learning_audit_log_model_idx on public.learning_audit_log (model_id, timestamp desc);
+
+alter table public.learning_audit_log enable row level security;

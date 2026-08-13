@@ -5,8 +5,74 @@ replays the shipped entry logic bar by bar — the same `detectPatterns`, the sa
 gap rule, the same risk floor — so a number quoted from it describes the system
 that runs, not a re-implementation of it.
 
-Run it from **Backtest** in the app nav (`/learning`), or hit
-`GET /api/backtest?symbols=SPY,AAPL&targetR=2&within=Execute` directly.
+Run it from **Backtest** in the app nav (`/learning`), hit
+`GET /api/backtest?symbols=SPY,AAPL&targetR=2&within=Execute` directly, or from the command line:
+
+```
+npm run backtest                                    # writes docs/REPLAY_RESULTS.md
+npm run backtest -- --symbols SPY,AAPL --targetR 3  # a different universe and target
+npm run backtest -- --stdout                        # print instead of writing
+```
+
+The CLI is the one that produces a committable record, and it refuses to write a report from
+synthetic bars or from a run with no trades. See `docs/REPLAY_RESULTS.md`.
+
+## Win rate decides nothing on its own
+
+A run reports `breakEvenWinRate` — `1 / (1 + targetR)` — beside the win rate, and every bucket
+row carries an explicit above-break-even flag. This is not decoration. At the 2R default,
+break-even is a 33.3% win rate; at 3R it is 25%. A 29% win rate is therefore a losing system at
+one target and a winning one at the other, and quoting it without the target beside it says
+nothing at all. Expectancy is the deciding metric; the win rate is context for it.
+
+A run also states the **window** it covered, taken from the bars actually returned rather than
+the lookback requested, so a result over three weeks can never be read as one over three years.
+
+## The verdict ladder has not held up out of sample
+
+Four runs over the same six symbols, all committed under `docs/replay-runs/`:
+
+| Run | Window | Trades | Execute | Watch | Reject | All |
+|---|---|---:|---:|---:|---:|---:|
+| 15Min, 2R | 2 months | 1,033 | **+0.013R** | −0.072R | −0.081R | −0.062R |
+| 15Min, 3R | 2 months | 1,033 | **+0.132R** | −0.126R | — | −0.084R |
+| 1Hour, 2R | 2 years | 3,631 | **−0.230R** | +0.038R | +0.086R | +0.026R |
+| 1Hour, 3R | 2 years | 3,631 | **−0.289R** | +0.057R | +0.061R | +0.030R |
+
+On the two-month 15Min sample the ladder ordered the way the product assumes: Execute best,
+Reject worst. On the two-year 1Hour sample it is **inverted at both targets** — Execute is the
+worst bucket by a wide margin and Reject is among the best, on a sample twelve times larger.
+
+This is the single most important thing the harness has said so far, and what it says is that
+**the score has not been shown to select for anything.** The 15Min result was the more
+comfortable one and it is also the smaller, shorter and more recent one. Read in the other
+direction — a two-year sample says the setups the product tells users to trade are the ones that
+lost money — it is a reason to treat every Execute verdict as unvalidated rather than as
+endorsed.
+
+### What would settle it
+
+Two things changed between those runs, not one: the execution timeframe **and** the period, because
+each timeframe carries its own lookback (`TF_LOOKBACK_DAYS` — 60 days for 15Min, 730 for 1Hour).
+An inversion caused by the timeframe and an inversion caused by the regime are different problems
+with different fixes, and these four runs cannot tell them apart.
+
+`--since` exists for exactly this. It trims the execution bars to a fixed start while leaving the
+daily bars that feed the score untouched, so the period can be held still while the timeframe
+moves:
+
+```
+npm run backtest -- --timeframe 1Hour --since 2026-06-15 --out docs/replay-runs/1H-recent.md
+```
+
+If 1Hour over the recent two months also shows Execute on top, the inversion is a regime effect
+and the 15Min baseline describes one favourable quarter. If it stays inverted, the effect belongs
+to the timeframe, and a score built on daily structure is being asked to rank intraday triggers it
+was never fitted to.
+
+**Until one of those runs exists, do not re-weight anything and do not move the recommended exit.**
+A weight fitted to whichever sample is in front of you is fitted to a coin whose bias has not been
+established.
 
 ## Read this before tuning `config.py`
 
@@ -42,12 +108,36 @@ before it will report. That log is gitignored and does not exist in the repo.
 Everything the replay scores flows through these, and a change to any of them
 shows up in the next run:
 
-- **`lib/scoring/score.ts`** — the nine criteria, their thresholds (fan ≤1.5%,
-  harmonic ≤1.0%, TP1 ≥2R), the 7/4 bucket cutoffs, and the bare-2-2 downgrade.
+- **`lib/scoring/score.ts`** — the nine criteria, the 7/4 bucket cutoffs, the
+  bare-2-2 downgrade, and the decision-lag hold.
+- **`lib/scoring/proximity.ts`** — how close "near a level" is. These were fixed
+  percentages of price (fan ≤1.5%, harmonic ≤1.0%, S/R ≤1.5%) and are now
+  multiples of the instrument's own daily ATR, so a 7/9 means the same thing on
+  a utility and on a high-beta name. See below.
+- **`lib/scoring/weights.ts`** — what each criterion is worth. One point each by
+  default; a weight set adopted from a proposal redistributes the same nine.
 - **`lib/strat/patterns.ts`** — which setups arm at all, plus `gapRuleViolated`
   and `riskFloorViolated`.
 - **`lib/strat/levels.ts`** — the trade plan, and `MAX_STOP_ATR_MULTIPLE`.
 - **`targetR`** on the replay itself.
+
+## Proximity is measured in ATR, not percent
+
+Three criteria ask whether price is sitting on a structural level. They used to answer with a
+fixed percentage of price, which does not mean the same thing twice across a mixed universe: on a
+5%-ATR name, 1.5% is a third of a day's range and the point is nearly free; on a 1%-ATR name it
+is more than a full day's range and the point is genuinely selective. The bias ran towards
+volatile names — which the momentum criterion also rewards, so the two errors compounded rather
+than cancelled.
+
+The bands are now `0.5×` the daily ATR for the fan and historical S/R, and `0.33×` for the
+harmonic level — the same ratio the old 1.0%/1.5% pair expressed, so re-basing the unit did not
+quietly re-tune which criterion is strictest. A caller with no volatility read falls back to the
+old fixed numbers rather than to a silently different rule.
+
+This is the same move `lib/strat/levels.ts` already made for stops. **Re-run attribution before
+and after**: this is directly measurable, and it is the kind of change whose sign is not obvious
+in advance.
 
 Tuning `config.py` against replay output is not a slower path to an answer; it
 is a path to no answer. Either port the Tier 1/Tier 2 ideas into `score.ts`
@@ -62,7 +152,13 @@ bucket landed on the same side of it. Such a criterion cannot be tuned to
 improve anything: it never separates a winner from a loser, it only shifts every
 score by a constant.
 
-**Reversal pattern armed** is constant *by construction* and always will be. The
+Factor rows are keyed by each criterion's **stable id** (`patternArmed`, `momentum`, …) rather
+than its display text — see `lib/scoring/weights.ts`. Rewording a criterion used to split its
+history into two half-sized samples; it no longer does, and the two spellings of the pattern
+criterion ("Reversal"/"Continuation pattern armed") now correctly count as the one criterion they
+always were.
+
+**`patternArmed`** is constant *by construction* and always will be. The
 replay only evaluates setups where a pattern was detected, and takes the trade
 direction from the pattern itself, so the criterion is true on every replayed
 trade in every bucket. It contributes a guaranteed +1, which means the `Execute`
@@ -70,6 +166,12 @@ cutoff of ≥7/9 is really ≥6 of the 8 criteria that can vary. It also means r
 scores sit systematically higher than live-scan scores, where a symbol can be
 scanned with nothing armed and no plan priced — **do not compare a replay score
 distribution against a live one.**
+
+The decision-lag hold (`lib/data/latency.ts`) is a second reason not to. It
+withdraws Execute on a live intraday scan when the feed is a whole execution bar
+behind; a replay runs on settled historical bars where that lag does not exist,
+so the replay's Execute bucket is the one the score produces before any
+freshness question is asked.
 
 ### The ninth criterion, and two ways to get it wrong
 
@@ -125,6 +227,37 @@ Two more limits worth holding onto:
   will happily produce a full factor ranking describing nothing. Every report
   carries `live` and `source`, and the dashboard puts a **Simulated data**
   banner above a non-live run. Check it before quoting anything.
+
+## From attribution to weights
+
+`attributeFactors` produces `deltaExpectancyR` per criterion — how much better a trade did when
+the criterion passed. That is the number a weight should be set from, and for a long time nothing
+consumed it.
+
+`lib/backtest/propose-weights.ts` does. Run it from the **Proposed weights** panel on `/learning`,
+or `POST /api/learning/propose-weights` (authorised with `CRON_SECRET`, or as a signed-in user).
+The guardrails, in the order they bite:
+
+1. The run is split **chronologically** — earlier trades train, later trades check. A shuffled
+   split leaks the same conditions into both halves and validates nothing.
+2. A criterion must be `informative` in **both** halves. Constant or thin-armed on either side
+   means the sample cannot see it.
+3. Both halves must **agree on the sign**. A factor that helped then hurt is noise.
+4. The effect must clear `MIN_EFFECT_R` (0.1R) — below that it is inside the friction the replay
+   already charges.
+5. The move is sized off the **weaker** half, so the out-of-sample check constrains the step
+   rather than merely permitting it.
+6. Steps are capped at a third of a weight, weights are clamped to [0.5, 2], and the set is
+   renormalised to nine points, so the Execute (≥7) and Watch (≥4) cutoffs keep their meaning.
+
+A proposal is written as a **draft** `learning_models` row and changes no score. Promoting it to
+`live` is a deliberate human act; `lib/scoring/active-weights.ts` picks it up from there, cached
+for a minute, and falls back to one point each on any failure.
+
+**It is not on a Vercel cron and must not be.** The Hobby plan allows two daily crons and both are
+spent on `/api/market-scan` (`docs/THIRD_PARTY_LIMITS.md`), and a replay is far too slow for a
+scheduled function anyway. Point an external scheduler at it — weekly is the right cadence, since
+a proposal that moves faster than the held-out half can refresh is fitting noise.
 
 ## Sample-size floor
 

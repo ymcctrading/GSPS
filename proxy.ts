@@ -1,7 +1,13 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PROTECTED_PREFIXES = ["/dashboard", "/scanner", "/ticker", "/portfolio", "/glossary", "/settings"];
+// `/learning` joins the list because the endpoint behind it now requires a
+// session: left public it would render a page whose only button 401s.
+// `/automation` is absent on purpose — that page authenticates and tier-gates
+// itself in the server component.
+const PROTECTED_PREFIXES = [
+  "/dashboard", "/scanner", "/ticker", "/portfolio", "/glossary", "/settings", "/learning",
+];
 
 const SUPABASE_URL =
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://vebhpmmzxixlhujlptue.supabase.co";
