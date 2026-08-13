@@ -139,6 +139,11 @@ describe("parseArgs", () => {
     expect(parseArgs(["--from=b.json"]).from).toBe("b.json");
   });
 
+  it("takes --since, and defaults it to the timeframe's own lookback", () => {
+    expect(parseArgs(["--since", "2026-06-15"]).since).toBe("2026-06-15");
+    expect(parseArgs([]).since).toBeNull();
+  });
+
   it("rejects an unknown flag rather than silently ignoring it", () => {
     expect(() => parseArgs(["--symbol", "SPY"])).toThrow(/Unknown argument/);
   });

@@ -14,6 +14,7 @@
  *   npm run backtest -- --symbols SPY,AAPL --targetR 3  # a different universe and target
  *   npm run backtest -- --stdout                        # print instead of writing
  *   npm run backtest -- --from docs/replay-runs/x.json  # render a captured run
+ *   npm run backtest -- --timeframe 1Hour --since 2026-06-15  # hold the period still
  *
  * It refuses to write a report from synthetic bars. With no vendor credentials
  * configured, `getMarketDataProvider()` falls back to a seeded random walk that
@@ -52,6 +53,7 @@ export function parseArgs(argv) {
     within: "Execute",
     out: DEFAULT_OUT,
     from: null,
+    since: null,
   };
   for (let i = 0; i < argv.length; i++) {
     const [flag, inline] = argv[i].split("=");
@@ -62,6 +64,7 @@ export function parseArgs(argv) {
     const value = inline ?? argv[++i];
     switch (flag) {
       case "--from": args.from = value; break;
+      case "--since": args.since = value; break;
       case "--symbols": args.symbols = value.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean); break;
       case "--timeframe": args.timeframe = value; break;
       case "--targetR": args.targetR = Number(value); break;
@@ -230,6 +233,7 @@ async function runHere(args) {
       timeframe: args.timeframe,
       targetR: args.targetR,
       attributeWithin: args.within,
+      ...(args.since ? { since: args.since } : {}),
     });
   } finally {
     await server.close();
