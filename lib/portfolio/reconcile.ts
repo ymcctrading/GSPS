@@ -1,10 +1,8 @@
 /**
  * Position reconciliation: compares live Alpaca positions against our own
- * `positions` ledger on every portfolio poll, so opens/closes get recorded
- * without requiring a broker webhook. A close also derives its
- * exit_condition and writes a `trade_logs` row — this is what makes the
- * portfolio's realized P/L and "actual trigger type" fields real instead
- * of stubbed.
+ * `positions` ledger, so opens/closes get recorded without requiring a broker
+ * webhook. A close also derives its exit_condition and writes a `trade_logs`
+ * row.
  *
  * Scope: full closes only (a symbol disappearing from live positions).
  * Partial fills that merely shrink a position's qty are not reconciled here
@@ -15,6 +13,20 @@
  * 10 seconds — that poll is what makes this run at all. It has no other
  * caller, so a broken import here silently stops trade_logs from ever
  * gaining an exit price, exactly as it did before anything called this file.
+ *
+ * Out of scope: staged protocol exits. A position bought with protocol levels
+ * attached exits in tranches — see `lib/trade/protocol-exit.ts` — and the
+ * *close* half of that lifecycle is owned end-to-end by
+ * `lib/trade/exit-manager.ts` plus `lib/portfolio/trade-log-settle.ts`, which
+ * average every tranche's fill into one weighted exit price. This file's
+ * `recordClose` instead picks a single "most recently filled" order and prices
+ * the whole original quantity off it — correct for a plain single-fill exit,
+ * wrong for a staged one (it would price 100% of the position at whatever the
+ * *last* tranche happened to fill at). So `recordOpen` never creates a
+ * `positions` row for an order carrying an `exit_plan_id`; with no row, this
+ * file structurally never sees that symbol again, and the exit-manager owns
+ * its entire lifecycle without a second writer racing it for the same
+ * `trade_logs` row.
  */
 
 import type { AlpacaCreds } from "@/lib/brokers/alpaca";
@@ -55,11 +67,25 @@ interface PositionRow {
 
 export type ExitCondition = "tp1" | "stop_loss" | "manual";
 
-/** A bracket leg's own `type` tells us which side of the bracket filled. */
+/**
+ * Which protocol level produced an exit, read off the order that filled.
+ *
+ * A stop is a stop wherever it came from: the staged exit places the runner's
+ * protection as a plain `stop` order with no order class at all, and reading
+ * that as "manual" would report a stop-out as a discretionary exit. A resting
+ * limit only counts as a target when it is part of a bracket or an OCO — a bare
+ * limit sell is somebody selling, not a protocol level being hit.
+ *
+ * `oco` is here because that is what the staged exit's profit tranches are.
+ * Before it was, every automatic exit this app placed settled as "manual" with
+ * no signal adherence recorded, which is the opposite of what the trade log
+ * exists to measure.
+ */
 export function classifyExit(order: Pick<AlpacaOrderRow, "type" | "order_class">): ExitCondition {
-  if (order.order_class !== "bracket") return "manual";
   if (order.type === "stop" || order.type === "stop_limit") return "stop_loss";
-  if (order.type === "limit") return "tp1";
+  if (order.type === "limit" && (order.order_class === "bracket" || order.order_class === "oco")) {
+    return "tp1";
+  }
   return "manual";
 }
 
@@ -145,6 +171,12 @@ async function recordOpen(supabase: Supabase, userId: string, live: LivePosition
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+
+  // A staged protocol exit owns this position's whole lifecycle — see the
+  // file header. No `positions` row means this file never sees the position
+  // disappear either, so `recordClose`'s single-fill pricing never runs
+  // against a trade that actually left in three tranches.
+  if (order?.exit_plan_id) return;
 
   // The Supabase client resolves with `{ error }` rather than rejecting, so a
   // failed insert would otherwise vanish silently instead of showing up as a

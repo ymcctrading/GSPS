@@ -101,8 +101,17 @@ export interface PlaceOrderInput {
   qty: number;
   type: "market" | "limit";
   limitPrice?: number;
-  /** Attach protocol stop/target as a bracket. */
-  bracket?: { stopLoss: number; takeProfit: number };
+  /**
+   * Attach protocol levels as resting exit orders.
+   *
+   * Both legs is a `bracket`; a stop with no target is an `oto`, which is what
+   * the protocol's runner tranche needs — it is protected but has no resting
+   * profit level, because the rule that gets it out is a trailing one the
+   * broker can't express as a static order.
+   */
+  bracket?: { stopLoss: number; takeProfit?: number | null };
+  /** Rides through to the fill record; used to label a tranche. */
+  clientOrderId?: string;
 }
 
 export async function placeOrder(creds: AlpacaCreds, input: PlaceOrderInput) {
@@ -114,12 +123,99 @@ export async function placeOrder(creds: AlpacaCreds, input: PlaceOrderInput) {
     time_in_force: "day",
   };
   if (input.type === "limit") body.limit_price = String(input.limitPrice);
+  if (input.clientOrderId) body.client_order_id = input.clientOrderId;
   if (input.bracket) {
-    body.order_class = "bracket";
-    body.stop_loss = { stop_price: String(input.bracket.stopLoss) };
-    body.take_profit = { limit_price: String(input.bracket.takeProfit) };
+    const { stopLoss, takeProfit } = input.bracket;
+    body.stop_loss = { stop_price: String(stopLoss) };
+    if (takeProfit != null) {
+      body.order_class = "bracket";
+      body.take_profit = { limit_price: String(takeProfit) };
+    } else {
+      body.order_class = "oto";
+    }
   }
   return alpacaFetch(creds, "/v2/orders", { method: "POST", body: JSON.stringify(body) });
+}
+
+export interface ExitOrderInput {
+  symbol: string;
+  /** The side that *closes* the position: `sell` for a long. */
+  side: "buy" | "sell";
+  qty: number;
+  /** Resting profit level. Omit for a protective stop with no target. */
+  takeProfit?: number | null;
+  stopLoss: number;
+}
+
+/**
+ * Attach an exit to a position that already exists.
+ *
+ * This is the sell-side counterpart to a bracket, and it is what the staged
+ * protocol exit is built from. A bracket can only be attached to an entry, and
+ * an entry can only carry one — so a position that leaves in three tranches has
+ * to place its exits separately, after the shares are held.
+ *
+ * With a target it is an OCO: the limit and the stop cancel each other, so a
+ * tranche can only leave once. Without one it is a plain stop.
+ *
+ * `gtc`, not `day`: a protective stop that expires at the close leaves the
+ * position naked overnight, which is the opposite of what it was placed for.
+ */
+export async function placeExitOrder(creds: AlpacaCreds, input: ExitOrderInput) {
+  const body: Record<string, unknown> = {
+    symbol: input.symbol,
+    qty: String(input.qty),
+    side: input.side,
+    time_in_force: "gtc",
+  };
+  if (input.takeProfit != null) {
+    body.order_class = "oco";
+    body.type = "limit";
+    body.take_profit = { limit_price: String(input.takeProfit) };
+    body.stop_loss = { stop_price: String(input.stopLoss) };
+  } else {
+    body.type = "stop";
+    body.stop_price = String(input.stopLoss);
+  }
+  return alpacaFetch(creds, "/v2/orders", { method: "POST", body: JSON.stringify(body) }) as Promise<AlpacaOrder>;
+}
+
+/**
+ * One order, with its bracket legs attached.
+ *
+ * The exit manager needs the legs: it moves a resting stop by replacing the
+ * *leg's* order, and a leg id is only reachable through its parent.
+ */
+export async function getOrder(
+  creds: AlpacaCreds,
+  orderId: string,
+  opts: { nested?: boolean } = {},
+): Promise<AlpacaOrder> {
+  const query = opts.nested ? "?nested=true" : "";
+  return alpacaFetch(creds, `/v2/orders/${encodeURIComponent(orderId)}${query}`);
+}
+
+/**
+ * Move a resting order's price.
+ *
+ * Alpaca replaces rather than edits: the original is cancelled and a new order
+ * takes its place, inheriting the bracket relationship. The response carries
+ * the *new* id, which is why callers have to store what comes back rather than
+ * assuming the id they patched still exists.
+ */
+export async function replaceOrder(
+  creds: AlpacaCreds,
+  orderId: string,
+  changes: { stopPrice?: number; limitPrice?: number; qty?: number },
+): Promise<AlpacaOrder> {
+  const body: Record<string, unknown> = {};
+  if (changes.stopPrice != null) body.stop_price = String(changes.stopPrice);
+  if (changes.limitPrice != null) body.limit_price = String(changes.limitPrice);
+  if (changes.qty != null) body.qty = String(changes.qty);
+  return alpacaFetch(creds, `/v2/orders/${encodeURIComponent(orderId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
 }
 
 export interface OptionContract {

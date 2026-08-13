@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { checkBracket } from "@/lib/trade/bracket";
+import { planProtocolExit } from "@/lib/trade/protocol-exit";
 import {
   ROUNDING_MODE_LABELS,
   conservativeMode,
@@ -196,6 +197,19 @@ export function OrderTicket({
   // than sent and rejected; the note under the checkbox says so.
   const attachingLevels = attachLevels && !bracketBlocked;
 
+  // How the position will be exited, computed from the same function the server
+  // runs. Shown before the button is pressed, because "60% out at TP1" changes
+  // what the order *is* — a user who reads "attach protocol levels" and expects
+  // an all-or-nothing bracket has been told the wrong thing.
+  const exitPlan =
+    useProtocolLevels && levels && side === "buy" && assetType === "shares" && Number(qty) >= 1
+      ? planProtocolExit(Number(qty), {
+          stopLoss: levels.stopLoss,
+          takeProfit1: levels.takeProfit1,
+          masterProfit: levels.masterProfit,
+        })
+      : null;
+
   // A limit price between two valid increments is refused by the broker
   // (`Invalid limit_price 49.755. sub-penny increment...`). The same check the
   // server runs before routing runs here too, so the corrected price is on
@@ -261,7 +275,11 @@ export function OrderTicket({
         setFeedback({ ok: false, text: data.error ?? `HTTP ${res.status}`, code: data.code });
         return;
       }
-      setFeedback({ ok: true, text: `Paper order placed — ${data.order?.status ?? "accepted"}.` });
+      const placed = `Paper order placed — ${data.order?.status ?? "accepted"}.`;
+      // The exit plan is part of what was just agreed to, so it is echoed back
+      // from the server's own answer rather than from what the ticket predicted.
+      const plan = data.exitPlan?.summary ? ` ${data.exitPlan.summary}` : "";
+      setFeedback({ ok: !data.warning, text: `${placed}${plan}${data.warning ? ` ${data.warning}` : ""}` });
     } catch (err) {
       setFeedback({ ok: false, text: err instanceof Error ? err.message : String(err) });
     } finally {
@@ -414,10 +432,19 @@ export function OrderTicket({
                       className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--accent)]"
                     />
                     <span>
-                      Attach protocol stop ({formatUsd(levels.stopLoss)}) and TP1 (
-                      {formatUsd(levels.takeProfit1)})
+                      Exit this trade on the protocol&apos;s levels — stop{" "}
+                      {formatUsd(levels.stopLoss)}, TP1 {formatUsd(levels.takeProfit1)}
+                      {levels.masterProfit ? `, master ${formatUsd(levels.masterProfit)}` : ""}
                     </span>
                   </label>
+
+                  {attachingLevels && exitPlan && (
+                    <ExitPlanNotice
+                      summary={exitPlan.summary}
+                      splittable={exitPlan.splittable}
+                      hasMaster={levels.masterProfit != null}
+                    />
+                  )}
                   {bracketBlocked && (
                     <div className="rounded-lg border border-warn/40 bg-warn-soft p-3 text-xs text-warn">
                       <p className="font-medium">Protocol levels can&apos;t attach to this entry.</p>
@@ -533,6 +560,49 @@ export function OrderTicket({
         </p>
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * What the protocol will do on the way out.
+ *
+ * This sits under the checkbox because "attach protocol levels" no longer means
+ * one bracket that exits the whole position. It means a staged exit — most of
+ * the position at TP1, part of the rest at the master target, a runner behind a
+ * stop that ratchets to break-even and then trails. A user who presses the
+ * button expecting all-or-nothing has been misled by the old wording, so the
+ * real behaviour is spelled out in the real quantities before they commit.
+ */
+function ExitPlanNotice({
+  summary,
+  splittable,
+  hasMaster,
+}: {
+  summary: string;
+  splittable: boolean;
+  hasMaster: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-lg border p-3 text-xs",
+        splittable ? "border-border bg-surface text-muted" : "border-warn/40 bg-warn-soft text-warn",
+      )}
+    >
+      <p className="font-medium">On the way out</p>
+      <p className="mt-1">{summary}</p>
+      {splittable && (
+        <p className="mt-1">
+          Once TP1 is reached the stop moves to your entry and then trails the best price seen, so
+          the trade can&apos;t come back as a loss.
+          {hasMaster
+            ? " If price pushes through the master target and falls back through it, the rest is closed."
+            : ""}{" "}
+          The trailing part advances while the app is open; the stop resting at the broker is what
+          protects the position the rest of the time.
+        </p>
+      )}
+    </div>
   );
 }
 

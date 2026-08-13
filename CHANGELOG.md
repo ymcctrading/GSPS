@@ -9,6 +9,143 @@ date.
 
 ## 2026-08-13
 
+### Added
+- **Protocol orders now exit themselves, in stages.** "Attach protocol levels"
+  used to place one Alpaca bracket: the whole position left at TP1, or the whole
+  position left at the stop. That is not the protocol, and a user who scaled out
+  by hand was doing the work the checkbox implied was automatic. Four rules now
+  run, in the order they bind:
+
+  1. **The stop takes the user completely out.** Every tranche carries the same
+     stop price, so a stop-out closes the trade in full.
+  2. **TP1 takes 60% out.** Whole shares, never rounded up to the entire
+     position — a "60% scale-out" that exits everything is a full exit wearing
+     the wrong name.
+  3. **The master target takes half of what is left** (20% of the original).
+     The last 20% keeps running until the user closes it, or until price pushes
+     through the master target and falls back through it, which closes the
+     remainder.
+  4. **Once TP1 is reached the stop never sits below the entry again**, and from
+     there it trails the best price seen by one unit of the trade's original
+     risk. It only tightens. A trade that has proved itself cannot come back as
+     a loss.
+
+  The ticket states the real share counts before the order is placed
+  (`3 of 5 shares (60%) exit at TP1, 1 at the master target, 1 runs on behind a
+  trailing stop`), because the wording it replaced described a different order.
+  A single share cannot be scaled out of and says so rather than rounding to
+  100%.
+
+  **Why the exits are not a bracket.** A bracket attaches to an entry and an
+  entry carries one, so three tranches would need three bracketed buys — and
+  Alpaca refuses a buy while a sell is working on the same symbol ("potential
+  wash trade detected"), which would reject the second and third. The entry
+  therefore carries a single full-size stop, attached atomically because it is
+  the rule that caps the loss, and the profit tranches go on as sell-side OCO
+  orders once the shares are held (`lib/trade/exit-manager.ts`). The tranche
+  orders rest at the broker as GTC, so rules 1–3 fill whether or not the app is
+  running.
+
+  **What depends on the app being open.** Rule 4 and the reversal half of rule 3
+  cannot be resting orders: both depend on where price has *been*. They advance
+  on a pass that runs inside `GET /api/orders`, which the Portfolio polls. So
+  between polls the protection in the market is the last stop that pass placed —
+  never nothing, but never tighter than the last sample either. The ticket says
+  this rather than implying a tick-by-tick trail. New `protocol_exits` table
+  (migration `0009`) holds the levels, tranche order ids, the best price seen,
+  and the stop currently resting; `GET /api/orders` reports what each pass did.
+
+  **Correctness hardening from review, before this ever ran against a live
+  account:**
+  - The exit tranches attach only once the entry order has *stopped* filling
+    (`entryStillFilling`) — attaching against a partial fill would have locked
+    the split in permanently and left later fills with no stop and no exit
+    orders at all.
+  - A concurrent poll (a second tab, or a request outliving the interval) no
+    longer double-attaches a plan: `claimAttach` marks the plan as claimed,
+    with a database-level conditional update, before the entry's stop is
+    cancelled.
+  - An attach that fails completely — the entry's stop cancelled and every
+    replacement rejected — no longer marks the plan as attached. That used to
+    freeze it forever with zero resting protection: nothing would ever close a
+    position that's still open, and `exits_attached_at` being set meant the
+    attach itself would never retry.
+  - The master-target reversal no longer arms on the master tranche's own
+    fill. It requires price to trade *past* the target, not just touch it, and
+    the trigger sits at the target rather than one tick inside it — the
+    previous version could close the runner on the very next tick of ordinary
+    noise, the moment the master tranche itself filled.
+  - `classifyExit` (`lib/portfolio/reconcile.ts`) now recognizes the staged
+    exit's own order shapes — a plain stop, an OCO limit — instead of only
+    Alpaca brackets. Every protocol exit was settling as `manual` with no
+    signal adherence recorded at all.
+  - `"replaced"` status is no longer read as "dead" (an entry that never
+    filled) or as "still resting" (a stop safe to replace) — it means a
+    *different* order took over, whose id this app doesn't have, and treating
+    it as either abandoned a plan or replaced a stale, already-superseded
+    order.
+  - `planProtocolExit` no longer produces a phantom order for a non-finite or
+    zero/negative quantity (`Math.max(1, NaN)` used to become an order for
+    `"NaN"` shares).
+  - A manual close's trade-log row now always carries the plan's *original*
+    quantity, not just what that particular call closed. Settlement consumes a
+    row's fills oldest-first up to its declared quantity; a row that
+    under-declares (the remainder after TP1 already took some shares) got
+    satisfied by TP1's own earlier fill and never reached the fill the manual
+    close actually produced — reporting the wrong exit price, timestamp and
+    P/L sign.
+  - A genuinely partial manual close (some, not all, of what's held) no longer
+    retires the plan — it kept abandoning the trailing-stop management on
+    whatever remained.
+  - Two independent writers finishing the same plan at nearly the same moment
+    (a poll's own completion, and a manual close) can no longer produce two
+    trade-log rows: `trade_logs.exit_plan_id` is unique where not null, so the
+    database — not a check-then-insert race in application code — decides the
+    loser.
+  - The `exits` payload `GET /api/orders` was already computing (what moved,
+    what failed) is now shown on the Portfolio page (`ExitActivity`) instead of
+    being silently dropped.
+
+### Fixed
+- **A staged protocol exit's trade log had nothing to complete it, and no
+  single-fill exit price could describe it correctly anyway.** The
+  2026-08-11 fix wired `reconcilePositions` into `GET /api/portfolio`, so a
+  plain position's full close is recorded there with a real exit price. That
+  approach cannot describe a staged exit: `reconcilePositions.recordClose`
+  prices the *entire* original quantity off whichever single closing order
+  happened to fill *last* — right for one fill, wrong the moment a position
+  leaves in three tranches at three different prices (60% at TP1, part of the
+  rest at the master target, a runner behind a trailing stop).
+
+  So the staged exit gets its own settlement path rather than reusing that
+  one. A close writes the trade log the moment it happens — from the broker's
+  own position (entry price, quantity, side) read *before* the liquidation —
+  with the exit left empty, because at that instant the order has been
+  accepted, not filled. `settlePendingTradeLogs`
+  (`lib/portfolio/trade-log-settle.ts`) then matches each pending row against
+  the broker's fill activities and writes back the *quantity-weighted* exit
+  price across every tranche that closed it, realized P/L and P/L percent, and
+  which protocol level produced the exit. `GET /api/trade-log` settles before
+  it reads, so the log is completed by the act of looking at it. A row it
+  cannot complete stays pending and is *counted* as pending in the response —
+  a trade still holding a runner is not finished, and a fabricated exit price
+  in an audit trail is worse than an absent one.
+
+  The two systems are partitioned so they never write the same trade twice:
+  `lib/portfolio/reconcile.ts`'s `recordOpen` now skips creating a `positions`
+  row for any order carrying an `exit_plan_id` (see the staged-exit entry
+  above), which means that symbol's close is structurally invisible to
+  `reconcilePositions` — the new settlement path owns it end to end instead.
+  `/api/positions/close` picks between the two the same way: a protocol-managed
+  symbol logs its own close and defers to `settlePendingTradeLogs`; a plain
+  one is left for `reconcilePositions`, exactly as it was on 2026-08-11.
+
+  `/api/portfolio/close` was a second, unused implementation of the close
+  route; it is now an alias for `/api/positions/close` rather than a second
+  place for this logic to drift out of sync. `POST /api/trade-log` also
+  stopped claiming to return the row it inserted — it never selected one back,
+  so `tradeLog` was always undefined.
+
 ### Changed
 - **The verdict ladder inverts out of sample, and nothing is being re-weighted
   until that is understood.** Two more runs over the same six symbols, on 1Hour
