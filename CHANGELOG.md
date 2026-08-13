@@ -7,6 +7,56 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-08-13
+
+### Changed
+- **The verdict ladder inverts out of sample, and nothing is being re-weighted
+  until that is understood.** Two more runs over the same six symbols, on 1Hour
+  bars, which reach back two years where 15Min reaches back sixty days:
+
+  | Run | Window | Trades | Execute | Watch | Reject | All |
+  |---|---|---:|---:|---:|---:|---:|
+  | 15Min, 2R | 2 months | 1,033 | **+0.013R** | −0.072R | −0.081R | −0.062R |
+  | 15Min, 3R | 2 months | 1,033 | **+0.132R** | −0.126R | — | −0.084R |
+  | 1Hour, 2R | 2 years | 3,631 | **−0.230R** | +0.038R | +0.086R | +0.026R |
+  | 1Hour, 3R | 2 years | 3,631 | **−0.289R** | +0.057R | +0.061R | +0.030R |
+
+  Yesterday's baseline said Execute was the one bucket above water and read as
+  the score doing its job. On a sample twelve times larger the order reverses at
+  both targets: Execute is the worst bucket and Reject among the best. The
+  honest reading is that **the score has not been shown to select for
+  anything**, and that the comfortable result was also the smallest and
+  shortest one.
+
+  So the change this was heading towards — promoting the master target to the
+  recommended exit, on the strength of Execute's +0.132R at 3R — is **not
+  made**. The evidence it rested on did not survive the first attempt to
+  reproduce it. `docs/BACKTESTING.md` carries the table and what would settle
+  it; `docs/REPLAY_RESULTS_1H_2R.md` and `_1H_3R.md` carry the runs.
+
+### Added
+- **`--since` / `?since=`, to hold the period still while the timeframe moves.**
+  The two runs above differ in execution timeframe *and* in period, because each
+  timeframe carries its own lookback — so they cannot say whether the inversion
+  belongs to the timeframe or to the market it covered. `since` trims the
+  execution bars to a fixed start while leaving the daily bars that feed the
+  score untouched, which turns two variables into one. An unparseable value is
+  rejected rather than ignored: a silently dropped start would publish two years
+  of trades under a heading claiming two months.
+
+### Security
+- **`GET /api/backtest` requires a session.** It was unauthenticated — the
+  middleware matcher excludes `/api`, and unlike `/api/scan` the route had no
+  check of its own. A request walks every bar of every symbol, holds a function
+  open for the whole run, and spends vendor quota metered per project rather
+  than per caller, so one URL was an unauthenticated way to exhaust both. It now
+  returns `401` without a session.
+
+  `/learning` joins `PROTECTED_PREFIXES` in `proxy.ts` for the same reason: it
+  is the page that calls this endpoint, and left public it would render a page
+  whose only button 401s. `/automation` stays off that list deliberately — it
+  authenticates and tier-gates itself in the server component.
+
 ## 2026-08-12
 
 ### Added

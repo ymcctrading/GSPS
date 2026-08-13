@@ -28,6 +28,52 @@ nothing at all. Expectancy is the deciding metric; the win rate is context for i
 A run also states the **window** it covered, taken from the bars actually returned rather than
 the lookback requested, so a result over three weeks can never be read as one over three years.
 
+## The verdict ladder has not held up out of sample
+
+Four runs over the same six symbols, all committed under `docs/replay-runs/`:
+
+| Run | Window | Trades | Execute | Watch | Reject | All |
+|---|---|---:|---:|---:|---:|---:|
+| 15Min, 2R | 2 months | 1,033 | **+0.013R** | −0.072R | −0.081R | −0.062R |
+| 15Min, 3R | 2 months | 1,033 | **+0.132R** | −0.126R | — | −0.084R |
+| 1Hour, 2R | 2 years | 3,631 | **−0.230R** | +0.038R | +0.086R | +0.026R |
+| 1Hour, 3R | 2 years | 3,631 | **−0.289R** | +0.057R | +0.061R | +0.030R |
+
+On the two-month 15Min sample the ladder ordered the way the product assumes: Execute best,
+Reject worst. On the two-year 1Hour sample it is **inverted at both targets** — Execute is the
+worst bucket by a wide margin and Reject is among the best, on a sample twelve times larger.
+
+This is the single most important thing the harness has said so far, and what it says is that
+**the score has not been shown to select for anything.** The 15Min result was the more
+comfortable one and it is also the smaller, shorter and more recent one. Read in the other
+direction — a two-year sample says the setups the product tells users to trade are the ones that
+lost money — it is a reason to treat every Execute verdict as unvalidated rather than as
+endorsed.
+
+### What would settle it
+
+Two things changed between those runs, not one: the execution timeframe **and** the period, because
+each timeframe carries its own lookback (`TF_LOOKBACK_DAYS` — 60 days for 15Min, 730 for 1Hour).
+An inversion caused by the timeframe and an inversion caused by the regime are different problems
+with different fixes, and these four runs cannot tell them apart.
+
+`--since` exists for exactly this. It trims the execution bars to a fixed start while leaving the
+daily bars that feed the score untouched, so the period can be held still while the timeframe
+moves:
+
+```
+npm run backtest -- --timeframe 1Hour --since 2026-06-15 --out docs/replay-runs/1H-recent.md
+```
+
+If 1Hour over the recent two months also shows Execute on top, the inversion is a regime effect
+and the 15Min baseline describes one favourable quarter. If it stays inverted, the effect belongs
+to the timeframe, and a score built on daily structure is being asked to rank intraday triggers it
+was never fitted to.
+
+**Until one of those runs exists, do not re-weight anything and do not move the recommended exit.**
+A weight fitted to whichever sample is in front of you is fitted to a coin whose bias has not been
+established.
+
 ## Read this before tuning `config.py`
 
 **`lib/confluence-scanner/config.py` does not feed the replay, and tuning it

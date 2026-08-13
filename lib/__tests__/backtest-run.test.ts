@@ -66,3 +66,58 @@ describe("runBacktest", () => {
     expect(banded).toBe(execute.trades);
   });
 });
+
+/**
+ * `since` is what lets the period be held still while the timeframe moves, so
+ * the thing worth pinning is that the window it reports is the window it
+ * replayed — a start that is silently ignored would label two years of trades
+ * as two months.
+ */
+describe("runBacktest with a pinned start", () => {
+  const full = () => runBacktest({ symbols: ["SPY"], timeframe: "15Min" });
+
+  it("starts the window no earlier than the requested instant", async () => {
+    const baseline = await full();
+    // Halfway through whatever the lookback returned, so the trim is real on
+    // any day this runs rather than pegged to a date that ages out.
+    const from = Date.parse(baseline.window.from!);
+    const to = Date.parse(baseline.window.to!);
+    const since = new Date(from + (to - from) / 2).toISOString();
+
+    const trimmed = await runBacktest({ symbols: ["SPY"], timeframe: "15Min", since });
+
+    expect(Date.parse(trimmed.window.from!)).toBeGreaterThanOrEqual(Date.parse(since));
+    expect(Date.parse(baseline.window.from!)).toBeLessThan(Date.parse(since));
+    expect(trimmed.overall.trades).toBeLessThanOrEqual(baseline.overall.trades);
+  });
+
+  it("leaves the run untouched when the start precedes the data", async () => {
+    const baseline = await full();
+    const pinned = await runBacktest({
+      symbols: ["SPY"],
+      timeframe: "15Min",
+      since: "1970-01-01T00:00:00Z",
+    });
+
+    expect(pinned.window).toEqual(baseline.window);
+    expect(pinned.overall.trades).toBe(baseline.overall.trades);
+  });
+
+  it("skips a symbol whose bars all precede the start, rather than reporting an empty run", async () => {
+    const report = await runBacktest({
+      symbols: ["SPY"],
+      timeframe: "15Min",
+      since: "2999-01-01T00:00:00Z",
+    });
+
+    expect(report.symbols).toEqual([]);
+    expect(report.skipped).toHaveLength(1);
+    expect(report.skipped[0].reason).toContain("2999-01-01");
+  });
+
+  it("throws on an unparseable start instead of replaying everything", async () => {
+    await expect(
+      runBacktest({ symbols: ["SPY"], timeframe: "15Min", since: "last tuesday" }),
+    ).rejects.toThrow(/Invalid 'since'/);
+  });
+});

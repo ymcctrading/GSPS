@@ -52,6 +52,19 @@ export interface BacktestRequest {
   attributeWithin?: Bucket;
   /** Criterion weights to score with. Defaults to one point each. */
   weights?: CriterionWeights;
+  /**
+   * Replay only execution bars at or after this instant, inside whatever the
+   * timeframe's lookback returned. Its purpose is to hold the period still
+   * while the timeframe changes: each timeframe has its own lookback, so a
+   * 1Hour run covers two years where a 15Min run covers two months, and a
+   * result that differs between them differs for two reasons at once. Pinning
+   * the start leaves one.
+   *
+   * Daily bars are deliberately not trimmed — they are the score's history, not
+   * the replay's sample, and starving them would change the verdicts rather
+   * than the window they are measured over.
+   */
+  since?: string;
 }
 
 export interface RunSummary {
@@ -169,7 +182,13 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
     targetR = 2,
     costPerShare,
     weights,
+    since,
   } = request;
+
+  const sinceMs = since === undefined ? null : Date.parse(since);
+  if (sinceMs !== null && Number.isNaN(sinceMs)) {
+    throw new Error(`Invalid 'since' timestamp: ${since}`);
+  }
 
   const provider = getMarketDataProvider();
   const options: ReplayOptions = {
@@ -189,15 +208,23 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
   // while looking like it succeeded.
   for (const symbol of symbols) {
     try {
-      const { bars, daily } = await fetchSeries(symbol, timeframe);
+      const { bars: fetched, daily } = await fetchSeries(symbol, timeframe);
+      const bars = sinceMs === null ? fetched : fetched.filter((b) => Date.parse(b.t) >= sinceMs);
       if (bars.length === 0) {
-        skipped.push({ symbol, reason: "no execution-timeframe bars returned" });
+        skipped.push({
+          symbol,
+          reason:
+            sinceMs === null
+              ? "no execution-timeframe bars returned"
+              : `no execution-timeframe bars at or after ${since}`,
+        });
         continue;
       }
       // The window is taken from the bars rather than from the requested
       // lookback: a symbol that only returned six months of history did not
       // cover the year the request asked for, and the report must say what was
-      // actually replayed.
+      // actually replayed. That holds for `since` too — asking for a start the
+      // feed cannot reach does not move the window there.
       const first = bars[0].t;
       const last = bars[bars.length - 1].t;
       if (from === null || first < from) from = first;
