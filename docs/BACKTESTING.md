@@ -17,6 +17,22 @@ npm run backtest -- --stdout                        # print instead of writing
 The CLI is the one that produces a committable record, and it refuses to write a report from
 synthetic bars or from a run with no trades. See `docs/REPLAY_RESULTS.md`.
 
+### Where the Alpaca keys live
+
+Real Alpaca credentials are configured on Vercel (`gann-protocol/gsps` → Settings → Environment
+Variables), scoped to **Production and Preview**, not in any local checkout. As of 2026-08-14 the
+project stores them under the names `ALPACAP_API` (key ID) and `ALPACA_API_SECRET_KEY` (secret) —
+`lib/data/alpaca.ts`'s `alpacaKeyId()`/`alpacaSecret()` already accept those exact spellings as
+fallbacks alongside `ALPACA_API_KEY`/`ALPACA_API_SECRET`, so no rename is needed.
+
+This repo does not store the key values anywhere, including here — only that they exist and where.
+Because the keys live on the deployment and not on a local machine, the way to produce a
+credentialed run is the `--from` flow: hit `GET /api/backtest` while signed in on that deployment,
+save the returned JSON under `docs/replay-runs/`, then run
+`npm run backtest -- --from docs/replay-runs/<file>.json` locally to render and commit
+`docs/REPLAY_RESULTS.md`. `/api/backtest` requires a signed-in session (`verifyAuth()`), so it
+can't be curled anonymously.
+
 ## Win rate decides nothing on its own
 
 A run reports `breakEvenWinRate` — `1 / (1 + targetR)` — beside the win rate, and every bucket
