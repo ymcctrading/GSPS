@@ -5,10 +5,14 @@ import {
   dispositionOf,
   groupByDisposition,
   heldSymbols,
+  isClosedOrderVisible,
   sectionOrders,
   DISPOSITION_ORDER,
   type SectionableOrder,
 } from "@/lib/portfolio/sections";
+
+/** Same-day as the fixtures' default `created_at`, well before the next open. */
+const SOON_AFTER_CLOSE = new Date("2026-08-01T18:00:00.000Z");
 import { buildBlendedPositions, type BlendedPosition, type RawPosition } from "@/lib/portfolio/blend";
 
 function order(overrides: Partial<SectionableOrder> & { id?: string } = {}) {
@@ -217,6 +221,31 @@ describe("groupByDisposition", () => {
   });
 });
 
+describe("isClosedOrderVisible", () => {
+  // A Friday close (2026-08-07) should still show through the weekend and
+  // vanish once the next trading day (Monday 2026-08-10, 09:30 ET) opens.
+  const closedFriday = order({ id: "x", status: "filled", created_at: "2026-08-07T19:00:00.000Z" });
+
+  it("stays visible the rest of the close day", () => {
+    expect(isClosedOrderVisible(closedFriday, new Date("2026-08-07T23:00:00.000Z"))).toBe(true);
+  });
+
+  it("stays visible over a weekend, before the next trading day opens", () => {
+    expect(isClosedOrderVisible(closedFriday, new Date("2026-08-09T12:00:00.000Z"))).toBe(true);
+    expect(isClosedOrderVisible(closedFriday, new Date("2026-08-10T13:29:00.000Z"))).toBe(true);
+  });
+
+  it("drops out once the next trading day's open passes", () => {
+    expect(isClosedOrderVisible(closedFriday, new Date("2026-08-10T13:31:00.000Z"))).toBe(false);
+  });
+
+  it("stays visible when there's no timestamp to judge by", () => {
+    expect(isClosedOrderVisible(order({ id: "y", status: "filled", created_at: "not-a-date" }))).toBe(
+      true,
+    );
+  });
+});
+
 describe("sectionOrders", () => {
   it("populates all five sections from mixed data", () => {
     const positions = live([rawEquity(), rawOption()]); // AAPL shares + AAPL call held
@@ -230,7 +259,7 @@ describe("sectionOrders", () => {
       order({ id: "rejected-subpenny", symbol: "DRAM", status: "rejected" }),
     ];
 
-    const sections = sectionOrders(orders, positions);
+    const sections = sectionOrders(orders, positions, SOON_AFTER_CLOSE);
 
     expect(sections.open.map((o) => o.id)).toEqual(["open-equity", "open-option"]);
     expect(sections.pending.map((o) => o.id)).toEqual(["pending-limit", "pending-partial"]);
@@ -248,7 +277,7 @@ describe("sectionOrders", () => {
       order({ id: "d", symbol: "AMD", status: "rejected" }),
     ];
 
-    const sections = sectionOrders(orders, positions);
+    const sections = sectionOrders(orders, positions, SOON_AFTER_CLOSE);
     const total = Object.values(sections).reduce((n, bucket) => n + bucket.length, 0);
     expect(total).toBe(orders.length);
   });
@@ -343,6 +372,7 @@ describe("sectionOrders", () => {
         order({ id: "b", symbol: "AAPL250117C00220000", status: "filled" }),
       ],
       [],
+      SOON_AFTER_CLOSE,
     );
     expect(sections.open).toEqual([]);
     expect(sections.closed).toHaveLength(2);

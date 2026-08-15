@@ -7,6 +7,7 @@ import { StrikeOrderModal, type StrikeSelection } from "@/components/trade/strik
 import { classifyMoneyness, strikeStep, type Moneyness } from "@/lib/options/contracts";
 import { formatUsd } from "@/lib/utils";
 import type { ScanResult, TradeLevels } from "@/lib/types";
+import { tradeSideLabel } from "@/lib/scoring/direction-copy";
 import type { OptionChain, OptionContract, Level2Book } from "@/lib/data/provider";
 
 type Tab = "research" | "options" | "levelii";
@@ -187,7 +188,7 @@ function ResearchPanel({ symbol, result }: { symbol: string; result?: ScanResult
         </span>
         {fetched.direction !== "none" && (
           <Badge variant={fetched.direction === "bullish" ? "bull" : "bear"}>
-            {fetched.direction}
+            {tradeSideLabel(fetched.direction)}
           </Badge>
         )}
         {fetched.gann.timeCycleActive && <Badge variant="warn">⏱ Cyclical turn window</Badge>}

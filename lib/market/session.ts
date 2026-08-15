@@ -87,3 +87,36 @@ export function sessionLabel(session: MarketSession): string {
       return "Market closed";
   }
 }
+
+/**
+ * UTC instant for a given ET calendar date (`YYYY-MM-DD`) and wall-clock time.
+ * Resolved by measuring the actual UTC↔ET offset rather than hardcoding it, so
+ * it holds across the EDT/EST transition.
+ */
+function etWallTimeToUtc(dateKey: string, hour: number, minute: number): Date {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  let guess = Date.UTC(y, m - 1, d, hour, minute);
+  const wantMinutes = hour * 60 + minute;
+  // Two passes: the first gets within a day of the right offset, the second
+  // corrects the residual once the day is settled.
+  for (let i = 0; i < 2; i++) {
+    const at = new Date(guess);
+    const drift = etDateKey(at) === dateKey ? 0 : etDateKey(at) < dateKey ? 1 : -1;
+    guess += (wantMinutes + drift * 24 * 60 - etParts(at).minutes) * 60 * 1000;
+  }
+  return new Date(guess);
+}
+
+/**
+ * Market open (09:30 ET) of the next trading day after `from`, holiday-agnostic
+ * like the rest of this module — weekends are skipped, holidays are not.
+ */
+export function nextTradingDayOpen(from: Date = new Date()): Date {
+  let cursor = from;
+  let weekday: number;
+  do {
+    cursor = new Date(cursor.getTime() + 24 * 3600 * 1000);
+    weekday = etParts(cursor).weekday;
+  } while (weekday === 0 || weekday === 6);
+  return etWallTimeToUtc(etDateKey(cursor), 9, 30);
+}

@@ -231,11 +231,11 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
   return {
     macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
     gann: {
-      fanLines: fanLines.slice(0, 6).map(({ angle, price: p, distancePct }) => ({
-        angle, price: Math.round(p * 100) / 100, distancePct,
+      fanLines: fanLines.slice(0, 6).map(({ angle, price: p, distancePct, role }) => ({
+        angle, price: Math.round(p * 100) / 100, distancePct, role,
       })),
-      squareOf9: s9.slice(0, 6).map(({ degree, price: p, distancePct }) => ({
-        degree, price: Math.round(p * 100) / 100, distancePct,
+      squareOf9: s9.slice(0, 6).map(({ degree, price: p, distancePct, role }) => ({
+        degree, price: Math.round(p * 100) / 100, distancePct, role,
       })),
       timeCycleActive: cycles.active,
       timeCycleDates: cycles.dates,

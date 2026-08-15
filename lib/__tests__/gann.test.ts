@@ -54,8 +54,8 @@ describe("computeScore", () => {
       macroTrends: [trend("1Month", "bearish"), trend("1Week", "bearish"), trend("1Day", "bearish")],
       hourlyTrend: trend("1Hour", "bullish"),
       gann: {
-        fanLines: [{ angle: "1x1 (low)", price: 100, distancePct: 0.5 }],
-        squareOf9: [{ degree: 90, price: 100.2, distancePct: 0.3 }],
+        fanLines: [{ angle: "1x1 (low)", price: 100, distancePct: 0.5, role: "support" }],
+        squareOf9: [{ degree: 90, price: 100.2, distancePct: 0.3, role: "resistance" }],
         timeCycleActive: true,
         timeCycleDates: [],
       },

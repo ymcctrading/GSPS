@@ -7,6 +7,43 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-08-15
+
+### Added
+- **Structural levels now say support or resistance, not just "structural."**
+  Gann fan lines and Square-of-9 levels carry a `role` — support while price
+  sits above the line, resistance while below — computed fresh from current
+  price so the label never goes stale as price crosses it. Every proximity
+  criterion's note also says which timeframe the level is best used on
+  (daily structure for fan/harmonic levels, the level's own timeframe for
+  historical S/R), matching how the scan pipeline already separates macro
+  context from execution timing.
+- **Continuations are scouted every scan, not only when reversions fall
+  short.** The coarse continuation gate now requires a genuine range *and*
+  volume spike in the most recently closed 4-hour bar (`hasExceptional4hMomentum`),
+  and every run scans a small guaranteed allotment of continuation candidates
+  per direction even when the reversion list already filled — reversions still
+  get scanned first and keep priority.
+- **Closed positions stay visible through the next trading day's open, then
+  drop from the ledger.** The Portfolio tab's Closed Positions section no
+  longer grows without bound — `isClosedOrderVisible` hides a closed order
+  once the next trading day opens. The underlying `positions`/`trade_logs`
+  rows are never deleted, so the trade's evidence is kept; only the UI list is
+  capped.
+- **Intraday bars now include extended-hours trades live.** `/api/bars`
+  (and the chart it feeds) omitted the `extended_hours=true` parameter on
+  Alpaca bar requests, so pre/post-market prints were dropped from intraday
+  candles entirely and only reappeared the next day once the daily bar
+  backfilled from the consolidated tape. Pre/post-market now shows up on the
+  chart as it happens.
+
+### Changed
+- **"Bullish"/"bearish" setup labels read as "Buy"/"Sell"** wherever the UI is
+  telling someone which side to trade — the dashboard, results table, signal
+  card, order ticket, and automation directional-bias control. Trend-context
+  displays (the multi-timeframe trend grid) are unchanged, since a trend
+  reading isn't a trade instruction.
+
 ## 2026-08-13
 
 ### Added

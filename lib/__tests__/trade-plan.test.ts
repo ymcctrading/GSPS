@@ -24,8 +24,8 @@ function trend(
 
 /** Every structural criterion passing — 7 of 9 without a pattern or levels. */
 const gann: GannLevels = {
-  fanLines: [{ angle: "1x1", price: 100, distancePct: 0.2 }],
-  squareOf9: [{ degree: 90, price: 100, distancePct: 0.1 }],
+  fanLines: [{ angle: "1x1", price: 100, distancePct: 0.2, role: "support" }],
+  squareOf9: [{ degree: 90, price: 100, distancePct: 0.1, role: "support" }],
   timeCycleActive: true,
   timeCycleDates: ["2026-08-05"],
 };

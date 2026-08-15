@@ -20,6 +20,9 @@
  *              alongside routine cancellations is how a rejected order goes
  *              unnoticed.
  *   Closed   — filled and no longer held: a position that was exited/settled.
+ *              Visible only through the next trading day's open — see
+ *              `isClosedOrderVisible` — after which it drops from this list
+ *              even though the underlying rows are kept.
  *   Unfilled — ended without filling and without being refused: cancelled,
  *              expired, replaced, done for day. Routine endings, kept
  *              distinguishable inside the section by disposition.
@@ -30,6 +33,7 @@
  */
 
 import type { BlendedPosition } from "./blend";
+import { nextTradingDayOpen } from "@/lib/market/session";
 
 export type PositionSection = "open" | "pending" | "rejected" | "closed" | "unfilled";
 
@@ -210,6 +214,19 @@ function byNewestFirst(a: SectionableOrder, b: SectionableOrder): number {
   return (a.id ?? "").localeCompare(b.id ?? "");
 }
 
+/**
+ * A closed position stays in the Closed Positions section through the next
+ * trading day's open, then drops out of the ledger view — the trade's
+ * evidence (the `positions`/`trade_logs` rows) is never deleted, only the
+ * unbounded UI list is capped. No timestamp to judge by is treated as
+ * "still visible" rather than hidden.
+ */
+export function isClosedOrderVisible(order: SectionableOrder, now: Date = new Date()): boolean {
+  const closedAt = acceptedTime(order);
+  if (closedAt === null) return true;
+  return now.getTime() < nextTradingDayOpen(new Date(closedAt)).getTime();
+}
+
 function acceptedTime(order: SectionableOrder): number | null {
   const submitted = order.broker_submitted_at ? Date.parse(order.broker_submitted_at) : NaN;
   if (!Number.isNaN(submitted)) return submitted;
@@ -229,6 +246,7 @@ function acceptedTime(order: SectionableOrder): number | null {
 export function sectionOrders<T extends SectionableOrder>(
   orders: T[],
   blendedPositions: BlendedPosition[] | null,
+  now: Date = new Date(),
 ): SectionedOrders<T> {
   const held = heldSymbols(blendedPositions);
   const sections: SectionedOrders<T> = {
@@ -241,6 +259,7 @@ export function sectionOrders<T extends SectionableOrder>(
   for (const order of orders) {
     sections[classifyOrder(order, held)].push(order);
   }
+  sections.closed = sections.closed.filter((o) => isClosedOrderVisible(o, now));
   for (const bucket of Object.values(sections)) bucket.sort(byNewestFirst);
   return sections;
 }

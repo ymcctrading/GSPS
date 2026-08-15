@@ -56,8 +56,8 @@ const levels: TradeLevels = {
 /** Both structural levels sit 1.2% away — inside the old fixed fan band. */
 function gannAt(distancePct: number): GannLevels {
   return {
-    fanLines: [{ angle: "1x1", price: 100, distancePct }],
-    squareOf9: [{ degree: 90, price: 100, distancePct }],
+    fanLines: [{ angle: "1x1", price: 100, distancePct, role: "support" }],
+    squareOf9: [{ degree: 90, price: 100, distancePct, role: "support" }],
     timeCycleActive: false,
     timeCycleDates: [],
   };

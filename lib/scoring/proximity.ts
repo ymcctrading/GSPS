@@ -93,3 +93,27 @@ export function nearAnyLevel(price: number, levels: number[], bandPct: number): 
   if (!(price > 0)) return false;
   return levels.some((l) => (Math.abs(price - l) / price) * 100 <= bandPct);
 }
+
+/**
+ * The closest of `levels` that sits inside the band around `price`, or null.
+ * Unlike `nearAnyLevel` this keeps whatever the caller attached to each level
+ * (its origin timeframe, most often) so a match can say more than "yes" — see
+ * lib/analysis/levelRole.ts for why the timeframe a level came from matters.
+ */
+export function nearestLevelMatch<T extends { price: number }>(
+  price: number,
+  levels: T[],
+  bandPct: number,
+): T | null {
+  if (!(price > 0)) return null;
+  let best: T | null = null;
+  let bestDist = Infinity;
+  for (const level of levels) {
+    const dist = (Math.abs(price - level.price) / price) * 100;
+    if (dist <= bandPct && dist < bestDist) {
+      best = level;
+      bestDist = dist;
+    }
+  }
+  return best;
+}
