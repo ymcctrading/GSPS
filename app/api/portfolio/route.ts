@@ -1,7 +1,33 @@
 /**
  * GSPS — /api/portfolio
- * Back-office snapshot: account equity, P/L percentages, and open positions
- * from the paper account (live/SnapTrade accounts merge in when connected).
+ * Back-office snapshot: the caller's own open positions and what they add up
+ * to, read from the shared paper account.
+ *
+ * ## Why this is not simply "the account"
+ *
+ * Every user of this deployment trades one Alpaca paper account. This route
+ * used to return that account's `equity`, `cash`, `buying_power` and its
+ * complete position list to any signed-in caller, which meant every user could
+ * read every other user's book and the account's balances.
+ *
+ * So the broker's answer is now filtered through `lib/portfolio/ownership.ts`
+ * before anything is returned: positions the caller's own ledger doesn't
+ * account for are dropped, a position they only partly own is scaled to their
+ * share, and the summary figures are derived from what is left rather than
+ * read off the account.
+ *
+ * Two consequences worth stating plainly, because the response says so too:
+ *
+ *   - **Cash and buying power are null.** They are properties of the account,
+ *     not of a user, and there is no honest way to divide them. A number that
+ *     looked per-user would be a fiction, and it is spendable by everyone.
+ *   - **`avgEntry` is the account's blended average** for a symbol two users
+ *     both hold, not the caller's own entry price. Correcting that needs
+ *     per-user brokerage connections; until then the field is approximate and
+ *     `positionScope` in the response marks it as such.
+ *
+ * Both disappear once each user connects their own account, at which point the
+ * broker's book *is* their book and this filtering retires.
  */
 
 import { NextResponse } from "next/server";
@@ -12,6 +38,7 @@ import {
   getPositions,
   listFillActivities,
   type AlpacaCreds,
+  type AlpacaPosition,
 } from "@/lib/brokers/alpaca";
 import { getMarketDataProvider } from "@/lib/data/provider";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
@@ -23,6 +50,7 @@ import {
   type LivePosition,
   type ReconcileOutcome,
 } from "@/lib/portfolio/reconcile";
+import { ownedQty, readOwnershipLedger, type OwnershipLedger } from "@/lib/portfolio/ownership";
 
 /**
  * How far back to walk the fill history when deriving open timestamps.
@@ -61,6 +89,88 @@ async function fetchExecutions(creds: AlpacaCreds): Promise<Execution[]> {
   }
 }
 
+/**
+ * Cut the broker's position list down to the caller's share of it.
+ *
+ * A position the ledger doesn't account for is dropped entirely. One the caller
+ * partly owns is scaled: quantity and every absolute figure derived from it
+ * (market value, unrealized P/L) are multiplied by their share, while the
+ * per-share and percentage fields — current price, entry price, P/L percent —
+ * carry through unchanged, since a ratio doesn't depend on how many shares it
+ * is measured over.
+ */
+export function scopePositionsToOwner(
+  positions: AlpacaPosition[],
+  ledger: OwnershipLedger,
+): AlpacaPosition[] {
+  const scoped: AlpacaPosition[] = [];
+
+  for (const p of positions) {
+    const brokerQty = Math.abs(Number(p.qty));
+    const owned = ownedQty(ledger, p.symbol);
+    if (!Number.isFinite(brokerQty) || brokerQty === 0 || owned <= 0) continue;
+
+    // Never claim more than the broker actually holds: a ledger that has run
+    // ahead of the book (a close recorded locally but not yet at the broker)
+    // must not inflate the caller's position.
+    const mine = Math.min(owned, brokerQty);
+    const share = mine / brokerQty;
+    if (share >= 1) {
+      scoped.push(p);
+      continue;
+    }
+
+    const scale = (v: string) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? String(n * share) : v;
+    };
+    // Preserve the sign convention: Alpaca reports a short's quantity as
+    // negative, and `mine` is an absolute value.
+    const signedQty = Number(p.qty) < 0 ? -mine : mine;
+
+    scoped.push({
+      ...p,
+      qty: String(signedQty),
+      market_value: scale(p.market_value),
+      unrealized_pl: scale(p.unrealized_pl),
+      unrealized_intraday_pl: scale(p.unrealized_intraday_pl),
+    });
+  }
+
+  return scoped;
+}
+
+/**
+ * The summary tiles, computed from the caller's own positions.
+ *
+ * `equity` here is the market value of what they hold — not an account equity,
+ * which would include cash they don't individually have a claim on. Day P/L is
+ * summed in dollars and expressed against the positions' opening value, so it
+ * is the caller's day, not the account's.
+ */
+export function summarizeOwnedPositions(positions: AlpacaPosition[]): {
+  equity: number;
+  dayPl: number;
+  dayPlPct: number;
+} {
+  let equity = 0;
+  let dayPl = 0;
+
+  for (const p of positions) {
+    const value = Number(p.market_value);
+    const intraday = Number(p.unrealized_intraday_pl);
+    if (Number.isFinite(value)) equity += value;
+    if (Number.isFinite(intraday)) dayPl += intraday;
+  }
+
+  // Opening value is what the day's P/L is a percentage *of*. Guard the case
+  // where it rounds to zero rather than reporting an infinite percentage.
+  const opening = equity - dayPl;
+  const dayPlPct = Math.abs(opening) > 1e-9 ? (dayPl / opening) * 100 : 0;
+
+  return { equity, dayPl, dayPlPct };
+}
+
 export async function GET() {
   const supabase = await createClient();
   const {
@@ -79,15 +189,29 @@ export async function GET() {
   }
 
   try {
-    const [account, positions, executions] = await Promise.all([
+    // `account` is still read, for its currency and to confirm the broker is
+    // reachable — but its equity, cash and buying power are the *account's*,
+    // and none of the three is returned. See this file's header.
+    const [account, brokerPositions, executions] = await Promise.all([
       getAccount(creds),
       getPositions(creds),
       fetchExecutions(creds),
     ]);
 
-    const equity = Number(account.equity);
-    const lastEquity = Number(account.last_equity);
-    const dayPlPct = lastEquity > 0 ? ((equity - lastEquity) / lastEquity) * 100 : 0;
+    // The ownership read is a hard dependency, not an enrichment: without it
+    // there is no way to tell the caller's positions from anyone else's, and
+    // the safe response is an error rather than the whole account's book.
+    const ledger = await readOwnershipLedger(supabase, user.id);
+    if (ledger.error) {
+      console.error(`portfolio: ownership read failed — ${ledger.error}`);
+      return NextResponse.json(
+        { error: "Your position records couldn't be read, so the portfolio isn't available right now." },
+        { status: 503 },
+      );
+    }
+
+    const positions = scopePositionsToOwner(brokerPositions, ledger);
+    const owned = summarizeOwnedPositions(positions);
 
     const rawPositions: RawPosition[] = positions.map((p) => ({
       symbol: p.symbol,
@@ -112,7 +236,19 @@ export async function GET() {
     // A reconciliation failure must not blank the portfolio the user is
     // looking at, so it is caught rather than left to reject this response —
     // the same policy the learning-table writers use elsewhere.
-    const livePositions: LivePosition[] = positions.map((p) => ({
+    //
+    // This gets the *unscoped* broker list on purpose. Reconciliation decides a
+    // position is closed by its symbol being absent from the book, and the
+    // scoped list is derived from the ledger it is checking — feeding it that
+    // would make every ledger row self-confirming, and no close would ever be
+    // detected.
+    //
+    // The shared account limits what this can see: while another user still
+    // holds a symbol, this caller's own closed position in it stays visible to
+    // the broker's book and their ledger row is not retired here. That is a
+    // known consequence of one account serving every user, and it resolves when
+    // each user connects their own — it is not something this filter can fix.
+    const livePositions: LivePosition[] = brokerPositions.map((p) => ({
       symbol: p.symbol,
       qty: Number(p.qty),
       side: p.side === "short" ? "short" : "long",
@@ -174,12 +310,24 @@ export async function GET() {
     return NextResponse.json({
       mode: "paper",
       account: {
-        equity,
-        cash: Number(account.cash),
-        buyingPower: Number(account.buying_power),
-        dayPlPct,
+        // The value of this caller's own positions — not the shared account's
+        // equity, which includes cash and everyone else's holdings.
+        equity: owned.equity,
+        dayPl: owned.dayPl,
+        dayPlPct: owned.dayPlPct,
+        // Not divisible between users, so not reported as if it were. The UI
+        // renders these as unavailable rather than as zero.
+        cash: null,
+        buyingPower: null,
         currency: account.currency,
       },
+      /**
+       * What the numbers above and the positions below actually cover, so the
+       * client never has to assume. `owner` means: this caller's share of a
+       * shared brokerage account, with entry prices blended at the account
+       * level. See this file's header.
+       */
+      positionScope: "owner",
       // Flat list, kept for callers that only need the equity-shaped view
       // (e.g. the chart trade widget's live P/L drawer).
       positions: rawPositions,

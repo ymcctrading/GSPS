@@ -27,6 +27,20 @@
  *
  * Either way, the order-submission event itself is recorded for the learning
  * tables regardless of who ends up owning the `trade_logs` row.
+ *
+ * ## Ownership
+ *
+ * Every user of this deployment trades one shared Alpaca paper account, so the
+ * broker's position for a symbol can contain shares belonging to several
+ * people. This route used to take the client's `symbol`, pass it straight to
+ * `closePosition`, and — with no `qty` — liquidate the broker's entire
+ * position in it. Any signed-in user could flatten any other user's trade by
+ * naming its ticker.
+ *
+ * So the quantity is now decided by `lib/portfolio/ownership.ts` from this
+ * user's own ledger rows, before any broker call is made, and it is always
+ * sent explicitly: "close everything" means everything *they* hold, never
+ * everything the account holds.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -39,6 +53,8 @@ import {
   type AlpacaCreds,
   type AlpacaPosition,
 } from "@/lib/brokers/alpaca";
+import { authorizeClose, ownedQty, readOwnershipLedger } from "@/lib/portfolio/ownership";
+import { killSwitchRefusal } from "@/lib/trade/kill-switch";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { brokerStatusFrom, numericOrUndefined, recordOrderExecution } from "@/lib/learning/record";
 import { buildTradeLogRow, type ClosablePosition } from "@/lib/portfolio/trade-log";
@@ -90,6 +106,9 @@ export async function POST(req: NextRequest) {
   const { symbol, qty } = parsed.data;
   const ticker = symbol.toUpperCase();
 
+  const halted = killSwitchRefusal();
+  if (halted) return NextResponse.json(halted, { status: 503 });
+
   const creds = envCreds("paper");
   if (!creds) {
     return NextResponse.json(
@@ -106,14 +125,43 @@ export async function POST(req: NextRequest) {
   // query returns.
   const held = await heldPosition(creds, ticker);
   const heldQty = held ? Math.abs(Number(held.qty)) : null;
-  // Undefined `qty` always means "close everything." A `qty` that covers (or
-  // very nearly covers) what's held is the same thing by another route — the
-  // distinction that matters is whether shares remain afterward, not which
-  // request shape asked for it. Based on the live broker quantity rather than
-  // the local ledger's, which is more accurate for this and is also the only
-  // option for a protocol-managed position — it never gets a `positions` row
-  // at all (see `lib/portfolio/reconcile.ts`).
-  const fullClose = qty == null || heldQty == null || qty >= heldQty - QTY_EPSILON;
+
+  // ---- Ownership gate ------------------------------------------------------
+  // Nothing above this point has touched the broker's book, and nothing below
+  // may touch more of it than this user's own ledger accounts for. See
+  // `lib/portfolio/ownership.ts` for why the broker cannot answer this itself.
+  const ledger = await readOwnershipLedger(supabase, user.id);
+  if (ledger.error) {
+    console.error(`positions/close: ownership read failed — ${ledger.error}`);
+    return NextResponse.json(
+      {
+        error:
+          "Your position records couldn't be read, so the close wasn't sent. Try again in a moment.",
+      },
+      { status: 503 },
+    );
+  }
+
+  const owned = ownedQty(ledger, ticker);
+  const authorization = authorizeClose({ owned, brokerHeld: heldQty, requested: qty });
+  if (!authorization.allowed) {
+    return NextResponse.json(
+      { error: authorization.reason, code: "not_owned" },
+      // 409, not 403: the request is well-formed and the caller is who they say
+      // they are — it conflicts with what the ledger says they hold.
+      { status: 409 },
+    );
+  }
+
+  // The quantity that actually goes to the broker. Always a number: passing
+  // `undefined` to `closePosition` liquidates the account's whole position in
+  // the symbol, which in a shared account is not this user's to liquidate.
+  const closeQty = authorization.qty;
+
+  // "Full" now means the user's whole holding, not the account's. Which trade
+  // log gets written, and whether a protocol plan retires, follows from
+  // whether *they* are flat afterward.
+  const fullClose = closeQty >= owned - QTY_EPSILON;
 
   const { data: openPosition } = await supabase
     .from("positions")
@@ -127,7 +175,7 @@ export async function POST(req: NextRequest) {
 
   const startedAt = Date.now();
   try {
-    const order = await closePosition(creds, ticker, qty);
+    const order = await closePosition(creds, ticker, closeQty);
 
     // Which lifecycle owns this trade. `closePlanForSymbol` finds the most
     // recent protocol_exits plan for the symbol regardless of its status —
@@ -165,7 +213,7 @@ export async function POST(req: NextRequest) {
       const row = buildTradeLogRow({
         userId: user.id,
         position: openPosition as unknown as ClosablePosition,
-        closedQty: closedQty(order, qty),
+        closedQty: closedQty(order, closeQty),
         exitPrice: numericOrUndefined(order?.filled_avg_price),
       });
       const { error: logError } = await supabase.from("trade_logs").insert(row);
@@ -188,7 +236,7 @@ export async function POST(req: NextRequest) {
       assetClass: isCryptoSymbol(symbol) ? "crypto" : "us_equity",
       orderType: "market",
       side: closingSide(order),
-      quantity: closedQty(order, qty),
+      quantity: closedQty(order, closeQty),
       filledPrice: numericOrUndefined(order?.filled_avg_price),
       filledQty: numericOrUndefined(order?.filled_qty),
       brokerStatus: brokerStatusFrom(order?.status),

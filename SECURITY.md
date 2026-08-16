@@ -14,7 +14,30 @@ if one is exposed.
 | `ALPACA_LIVE_API_KEY` / `ALPACA_LIVE_API_SECRET` | Vercel env var | Live-money trading. Treat as high-severity if leaked — real funds are reachable. |
 | `SNAPTRADE_CLIENT_ID` / `SNAPTRADE_CONSUMER_KEY` | Vercel env var | Lets the app act as a SnapTrade partner; a leak lets an attacker impersonate the app to SnapTrade's API. |
 | `CRON_SECRET` | Vercel env var | Bearer token gating `/api/market-scan`. Low severity if leaked (worst case: someone triggers an extra scan), but rotate anyway. |
+| `TRADING_DISABLED` | Vercel env var | Not a secret — an operational control. Set to exactly `true` to refuse every order placement and position close app-wide (`lib/trade/kill-switch.ts`). Use it during an incident instead of removing the Alpaca keys, which would also break read-only portfolio and scanner views. |
 | Per-user broker credentials | Supabase `broker_connections` table | Stored via `encryptJson()` (`lib/crypto.ts`), not plaintext. Decrypted only server-side, only when a request needs to call the broker. |
+
+## Shared brokerage account — a known limitation
+
+Every signed-in user currently trades **one** Alpaca paper account, whose keys
+live in `ALPACA_API_KEY` / `ALPACA_API_SECRET`. The broker therefore reports one
+book for all users, and it cannot answer "whose position is this?".
+
+Two containment rules follow, and both are load-bearing:
+
+- **Ownership is decided by our own ledger, never by the broker.**
+  `lib/portfolio/ownership.ts` derives each user's holding from their
+  `positions` and `protocol_exits` rows. Any endpoint that *acts on* or
+  *reports* a broker position must resolve ownership through it first.
+- **A close is always sent with an explicit quantity.** `closePosition` with no
+  quantity liquidates the account's entire position in a symbol — everyone's.
+  There is no legitimate call site for the two-argument form.
+
+Consequences that are accepted while the account is shared: cash and buying
+power are not reported per user (they cannot be divided honestly), `avgEntry` on
+a symbol two users both hold is the account's blended average, and a user's
+closed position is not reconciled away while another user still holds the same
+symbol. All three resolve with per-user brokerage connections.
 
 ## Rules for this codebase
 

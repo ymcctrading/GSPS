@@ -69,7 +69,24 @@ export interface ExitsState {
 
 export interface Portfolio {
   mode: string;
-  account: { equity: number; cash: number; buyingPower: number; dayPlPct: number };
+  /**
+   * The caller's own book, not the brokerage account's.
+   *
+   * `equity` is the market value of the positions below. `cash` and
+   * `buyingPower` are null because they belong to the shared paper account and
+   * cannot be divided between its users — see `app/api/portfolio/route.ts`.
+   * They become numbers again once each user connects their own account.
+   */
+  account: {
+    equity: number;
+    cash: number | null;
+    buyingPower: number | null;
+    dayPl?: number;
+    dayPlPct: number;
+    currency?: string;
+  };
+  /** What `account` and `blendedPositions` cover. See the route's header. */
+  positionScope?: "owner";
   blendedPositions: BlendedPosition[];
   sync?: SyncState;
 }

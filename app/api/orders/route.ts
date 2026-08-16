@@ -33,6 +33,8 @@ import {
   recordOrderExecution,
   type RecordExecutionOptions,
 } from "@/lib/learning/record";
+import { ownedQty, readOwnershipLedger } from "@/lib/portfolio/ownership";
+import { killSwitchRefusal } from "@/lib/trade/kill-switch";
 
 type RecordedOrderType = RecordExecutionOptions["orderType"];
 
@@ -92,6 +94,9 @@ export async function POST(req: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   }
+
+  const halted = killSwitchRefusal();
+  if (halted) return NextResponse.json(halted, { status: 503 });
 
   const parsed = OrderSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
@@ -567,7 +572,20 @@ export async function GET() {
   const creds = envCreds("paper");
   const active = creds != null && orders.length > 0;
   const positions = active ? await openPositions(creds!) : null;
-  const marks = markPrices(positions ?? []);
+
+  // Marks are priced off the broker's book, which in this deployment is shared
+  // by every user. A price is a price — it is the same number whoever holds the
+  // shares — but a mark on a symbol this caller doesn't hold would attach a
+  // live P/L to somebody else's position. So marks are limited to symbols their
+  // own ledger accounts for; an order with no mark reports null P/L, which the
+  // ledger already renders correctly.
+  const ledger = active ? await readOwnershipLedger(supabase, user.id) : null;
+  if (ledger?.error) {
+    console.error(`orders: ownership read failed — ${ledger.error}`);
+  }
+  const marks = markPrices(
+    (positions ?? []).filter((p) => ledger != null && ownedQty(ledger, p.symbol) > 0),
+  );
 
   // Advancing the staged exits here is what makes the trailing stop and the
   // master-target reversal real: both depend on where price has *been*, so they
