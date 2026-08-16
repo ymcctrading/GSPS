@@ -23,7 +23,7 @@
  * `planStopAdjustment` already reasons about the stop.
  */
 
-import { applyFill, quotePrice, assetClassOf, adjustCash } from "@/lib/brokers/simulator";
+import { executeFill, quotePrice, assetClassOf } from "@/lib/brokers/simulator";
 import {
   extendHighWater,
   planStopAdjustment,
@@ -241,10 +241,14 @@ async function advance(supabase: Supabase, userId: string, plan: SimPlanRow, run
 }
 
 /**
- * Execute one tranche's simulated fill — the position/cash mutation only.
- * Trade-log writing happens once in `finish`, after every tranche is in, so
- * the log carries one blended exit price for the whole trade rather than one
- * row per tranche.
+ * Execute one tranche's simulated fill — the position/cash mutation only,
+ * via the same atomic `executeFill` every other simulated fill goes
+ * through (migration `0012` locks the position row for the length of the
+ * fill, so this can't race a concurrent poll or a manual close). Trade-log
+ * writing happens once in `finish`, after every tranche is in, so the log
+ * carries one blended exit price for the whole trade rather than one row
+ * per tranche — `executeFill`'s own closed-fill result is intentionally
+ * discarded here rather than logged.
  */
 async function executeTrancheFill(
   supabase: Supabase,
@@ -254,40 +258,13 @@ async function executeTrancheFill(
   price: number,
 ): Promise<void> {
   const closingSide: "buy" | "sell" = plan.side === "long" ? "sell" : "buy";
-  const existing = await supabase
-    .from("positions")
-    .select("id, side, qty, avg_entry_price")
-    .eq("user_id", userId)
-    .eq("symbol", plan.symbol.toUpperCase())
-    .eq("closed", false)
-    .order("opened_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const row = existing.data;
-  if (!row) return; // nothing left to fill against — already closed by hand
-
-  const outcome = applyFill(
-    { side: row.side === "short" ? "short" : "long", qty: Number(row.qty), avgEntryPrice: Number(row.avg_entry_price) },
-    closingSide,
+  await executeFill(supabase, userId, {
+    symbol: plan.symbol,
+    assetClass: assetClassOf(plan.symbol),
+    side: closingSide,
     qty,
     price,
-  );
-
-  if (outcome.position === null) {
-    await supabase
-      .from("positions")
-      .update({ closed: true, closed_at: new Date().toISOString(), realized_pl: outcome.closed?.realizedPl ?? null })
-      .eq("id", row.id);
-  } else {
-    await supabase
-      .from("positions")
-      .update({ qty: outcome.position.qty, updated_at: new Date().toISOString() })
-      .eq("id", row.id);
-  }
-
-  const cashDelta = closingSide === "buy" ? -(price * qty) : price * qty;
-  await adjustCash(supabase, userId, cashDelta);
+  });
 }
 
 /** Blended exit price across whichever tranches actually filled. */

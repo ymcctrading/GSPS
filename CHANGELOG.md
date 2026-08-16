@@ -52,6 +52,14 @@ date.
   writes the trade log directly from the fill, skipping it only when a
   working `protocol_exits` plan already owns the symbol (that log is
   written once, blended, when the whole plan finishes).
+- **Position writes are now atomic too.** `execute_position_fill` (migration
+  `0012`) locks the position row with `for update` for the length of a fill,
+  closing the same class of race `adjustCash` closed for cash: two fills for
+  the same user+symbol landing close together — a resting order filling on
+  one poll while a fresh order for it is submitted on another — now
+  serialize on the lock instead of one clobbering the other's read.
+  `exit-manager-sim.ts`'s tranche fills go through the same atomic path
+  instead of duplicating the position/cash mutation.
 
 ## 2026-08-15
 

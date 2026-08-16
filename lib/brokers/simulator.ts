@@ -265,17 +265,12 @@ export interface ExecutedFill {
  * debits it — which is what makes shorting and covering both just work as
  * the mirror image of buying and selling, without a separate margin model.
  *
- * Known gap: the position row's read-then-write (below) isn't atomic the way
- * `adjustCash` is. Two fills for the *same symbol* landing close together —
- * a resting order filling on one poll while a fresh order for it is
- * submitted on another — could each read the same starting quantity and one
- * write would clobber the other's. Cash can never be lost this way (it's a
- * single atomic increment regardless), only a position's quantity could
- * under-count in that narrow window. Tranche fills within one exit plan are
- * already race-safe (see the claim in `lib/trade/exit-manager-sim.ts`); this
- * is the same class of race one level up, across independent order sources
- * for the same symbol, and would need the position write to move through an
- * atomic increment the same way cash does to close fully.
+ * The position write goes through `execute_position_fill` (migration
+ * `0012`), which locks the row with `for update` for the length of the
+ * fill — the same reasoning as `adjustCash`'s atomic increment: two fills
+ * for the same user+symbol landing close together (a resting order filling
+ * on one poll while a fresh order for it is submitted on another) serialize
+ * on the lock instead of one clobbering the other's read.
  */
 export async function executeFill(
   supabase: Supabase,
@@ -283,72 +278,29 @@ export async function executeFill(
   input: ExecuteFillInput,
 ): Promise<ExecutedFill> {
   const symbol = input.symbol.toUpperCase();
-  const existing = await getOpenPosition(supabase, userId, symbol);
-  const outcome = applyFill(
-    existing ? { side: existing.side, qty: existing.qty, avgEntryPrice: existing.avg_entry_price } : null,
-    input.side,
-    input.qty,
-    input.price,
-  );
 
   const notional = input.price * input.qty;
   await getOrCreateAccount(supabase, userId); // ensures the row exists before the increment below
   const cashDelta = input.side === "buy" ? -notional : notional;
   await adjustCash(supabase, userId, cashDelta);
 
-  let positionId: string | null = existing?.id ?? null;
+  const assetClass = input.assetClass === "crypto" ? "crypto" : isOption(symbol) ? "option" : "us_equity";
+  const { data, error } = await supabase.rpc("execute_position_fill", {
+    p_user_id: userId,
+    p_symbol: symbol,
+    p_asset_class: assetClass,
+    p_side: input.side,
+    p_qty: input.qty,
+    p_price: input.price,
+    p_stop_loss: input.stopLoss ?? null,
+    p_take_profit: input.takeProfit ?? null,
+    p_master_profit: input.masterProfit ?? null,
+    p_scan_result_id: input.scanResultId ?? null,
+  });
+  if (error) throw new Error(`Position fill failed for ${symbol}: ${error.message}`);
 
-  if (existing && outcome.position === null) {
-    // Fully closed.
-    await supabase
-      .from("positions")
-      .update({ closed: true, closed_at: new Date().toISOString(), realized_pl: outcome.closed?.realizedPl ?? null })
-      .eq("id", existing.id)
-      .eq("user_id", userId);
-  } else if (existing && outcome.position) {
-    // Adjusted in place (added to, reduced, or flipped) — same row, whether
-    // or not the side changed, so `opened_at` (and the row's identity) is
-    // preserved across a same-symbol flip the way a real broker's position
-    // record would be.
-    await supabase
-      .from("positions")
-      .update({
-        side: outcome.position.side,
-        qty: outcome.position.qty,
-        avg_entry_price: outcome.position.avgEntryPrice,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", existing.id)
-      .eq("user_id", userId);
-  } else if (!existing && outcome.position) {
-    const { data: inserted } = await supabase
-      .from("positions")
-      .insert({
-        user_id: userId,
-        mode: "paper",
-        symbol,
-        asset_class: input.assetClass === "crypto" ? "crypto" : isOption(symbol) ? "option" : "us_equity",
-        side: outcome.position.side,
-        qty: outcome.position.qty,
-        avg_entry_price: outcome.position.avgEntryPrice,
-        stop_loss: input.stopLoss ?? null,
-        take_profit: input.takeProfit ?? null,
-        master_profit: input.masterProfit ?? null,
-        scan_result_id: input.scanResultId ?? null,
-        closed: false,
-        opened_at: new Date().toISOString(),
-      })
-      .select("id")
-      .maybeSingle();
-    positionId = inserted?.id ? String(inserted.id) : null;
-  }
-
-  return {
-    price: input.price,
-    qty: input.qty,
-    positionId,
-    closed: outcome.closed && existing ? { ...outcome.closed, openedAt: existing.opened_at } : null,
-  };
+  const result = data as { positionId: string | null; closed: (NonNullable<FillOutcome["closed"]> & { openedAt: string }) | null };
+  return { price: input.price, qty: input.qty, positionId: result.positionId, closed: result.closed };
 }
 
 /**
