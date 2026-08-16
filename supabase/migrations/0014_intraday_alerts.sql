@@ -1,3 +1,9 @@
+-- Renumbered from 0008_intraday_alerts.sql: it originally shared the 0008
+-- prefix with 0008_order_lifecycle_reconciliation.sql. A lexicographic sort
+-- would apply this one first, which is backwards from how the two were
+-- actually rolled out (see CHANGELOG.md). Content unchanged; already-applied
+-- databases are unaffected by the rename.
+--
 -- Intraday Alerts Table
 -- Tracks alert triggers within a trading day, enabling repeated signals to re-alert on each polling cycle.
 -- This allows the same signal to trigger an alert again if it persists or repeats in subsequent polls.

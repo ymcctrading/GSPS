@@ -49,3 +49,14 @@ jobs:
       - run: npm run lint
 
       - run: npx tsc --noEmit
+
+      # `next.config.ts` no longer sets `ignoreBuildErrors`, so this also
+      # re-checks types — but it's the only step that catches a build-only
+      # failure (e.g. a route that type-checks but fails to compile/prerender)
+      # before it reaches Vercel.
+      - run: npm run build
+
+      # Prevents the collision documented in CHANGELOG.md: two migrations
+      # sharing a numeric prefix, where apply order was ambiguous and one
+      # was silently skipped in production. See scripts/check-migrations.mjs.
+      - run: npm run check:migrations

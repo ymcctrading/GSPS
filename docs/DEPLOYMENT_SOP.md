@@ -36,6 +36,26 @@ preview per branch, and production from `main`.
 > preview URL and can still change the outcome. See "Future enhancements" if
 > you want a real one.
 
+> **`main` has no branch protection rule.** Confirmed via the GitHub API:
+> `protected: false`. Combined with `deploymentEnabled: true` above, nothing
+> stops a merge to `main` — or a direct push — that never had a green run of
+> the `Tests` or `Security` workflows. CI is advisory until this is turned
+> on; it cannot act as a merge gate no matter how many checks are added to
+> it. Fixing this requires repo admin access this codebase's tooling doesn't
+> have (no MCP tool here can write branch-protection rules), so it has to be
+> done by hand in GitHub:
+>
+> 1. Settings → Branches → Add branch protection rule → `main`
+> 2. Require status checks to pass before merging; select `Unit tests` (from
+>    `Tests`) and, once it's been observed running clean, `Secret scan` and
+>    `Dependency review` (from `Security`)
+> 3. Require the branch to be up to date before merging
+> 4. Consider requiring a PR (no direct pushes) — note this also blocks the
+>    admin's own direct pushes unless "Do not allow bypassing" is left off
+>
+> Until this is done, treat the workflows below as reviewer information, not
+> as a guarantee — anyone with push access can merge past a red run.
+
 ---
 
 ## Phase 1: Preview (pre-merge)
