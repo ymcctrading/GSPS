@@ -8,32 +8,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import {
-  envCreds,
-  getPositions,
-  listOrders,
-  placeOrder,
-  type AlpacaCreds,
-  type AlpacaPosition,
-} from "@/lib/brokers/alpaca";
+  assetClassOf,
+  evaluateRestingOrders,
+  executeFill,
+  isMarketable,
+  listOpenPositions,
+  quotePrice,
+} from "@/lib/brokers/simulator";
 import { checkBracket } from "@/lib/trade/bracket";
 import { evaluateTargets } from "@/lib/trade/targets";
 import { planProtocolExit } from "@/lib/trade/protocol-exit";
-import { manageProtocolExits } from "@/lib/trade/exit-manager";
+import { manageSimulatedExits } from "@/lib/trade/exit-manager-sim";
 import { validateLimitPrice, type RoundingMode } from "@/lib/trade/tick-size";
-import {
-  isWorking,
-  normalizeOrderStatus,
-  reconcileOrders,
-  type BrokerOrder,
-  type LocalOrder,
-} from "@/lib/portfolio/order-status";
-import {
-  brokerStatusFrom,
-  numericOrUndefined,
-  recordOrderExecution,
-  type RecordExecutionOptions,
-} from "@/lib/learning/record";
+import { recordOrderExecution, type RecordExecutionOptions } from "@/lib/learning/record";
 import { pruneClosedOrders } from "@/lib/portfolio/prune";
+import { parseOccSymbol } from "@/lib/portfolio/occ";
 
 type RecordedOrderType = RecordExecutionOptions["orderType"];
 
@@ -112,14 +101,6 @@ export async function POST(req: NextRequest) {
   // unless the user supplied an explicit limit.
   if (!isOption && input.entryMode === "advised" && !input.limitPrice) {
     return NextResponse.json({ error: "Advised-price orders need a limitPrice" }, { status: 400 });
-  }
-
-  const creds = envCreds("paper");
-  if (!creds) {
-    return NextResponse.json(
-      { error: "Paper trading is not configured (missing Alpaca API keys)." },
-      { status: 503 },
-    );
   }
 
   // ---- Price-increment validation -----------------------------------------
@@ -256,106 +237,120 @@ export async function POST(req: NextRequest) {
 
   const submittedAt = Date.now();
   try {
-    // Real order (equity or option) — options carry a real Alpaca OCC symbol
-    // from /api/options/chain, not a fabricated one.
-    //
-    // Protocol entries attach the stop and nothing else. The stop is the leg
-    // that has to exist from the first tick — it is what caps the loss — and it
-    // can be attached atomically because it applies to the whole position. The
-    // profit tranches can't: they are three sell orders, and three bracketed
-    // buys draw a wash-trade rejection on the second one. They go on once the
-    // shares are held, from `manageProtocolExits`.
-    const broker = await placeOrder(creds, {
-      symbol: input.symbol,
-      side: input.side,
-      qty: input.qty,
-      type: !isOption && input.entryMode === "advised" ? "limit" : orderType,
-      limitPrice: submittedLimitPrice,
-      bracket: bracketLevels ? { stopLoss: bracketLevels.stopLoss } : undefined,
-    });
+    // Simulated fill (see lib/brokers/simulator.ts): a market order, or a
+    // limit that's already marketable, fills right here, synchronously — an
+    // option order fills at the premium the ticket already knew, since there
+    // is no live per-contract quote to check marketability against. Anything
+    // else rests as a `new` order, picked up by `evaluateRestingOrders` on the
+    // next poll once the market reaches it.
+    const fillAssetClass = assetClassOf(input.symbol);
+    let fillPrice: number | null = null;
+    let filled = false;
 
-    // The plan is what carries the exit rules after this request ends. Written
-    // before the ledger row so the row can point at it; a failure here costs
-    // the staged exit, which is worth saying out loud rather than silently
-    // leaving the position on a bare stop.
-    let planId: string | null = null;
-    let planError: string | null = null;
-    if (exitPlan) {
-      const { data: plan, error } = await supabase
-        .from("protocol_exits")
-        .insert({
-          user_id: user.id,
-          symbol: input.symbol.toUpperCase(),
-          side: "long",
-          mode: "paper",
-          qty: input.qty,
-          // The price the levels were measured against. `checkBracket` has
-          // already refused the order if neither exists, and the manage pass
-          // replaces it with the broker's average fill once there is one.
-          entry_price: submittedLimitPrice ?? input.referencePrice!,
-          entry_order_id: broker.id,
-          stop_loss: bracketLevels!.stopLoss,
-          take_profit_1: bracketLevels!.takeProfit,
-          master_profit: input.attachLevels!.masterProfit ?? null,
-          scale_out_qty: exitPlan.scaleOutQty,
-          master_qty: exitPlan.masterQty,
-          runner_qty: exitPlan.runnerQty,
-          applied_stop: bracketLevels!.stopLoss,
-          applied_stop_reason: "protocol",
-        })
-        .select("id")
-        .maybeSingle();
-      if (error) {
-        console.error(`orders: exit plan for ${ledgerRow.symbol} not recorded — ${error.message}`);
-        planError =
-          "The order is placed and its stop is attached, but the staged exit couldn't be saved — TP1 and the master target won't be taken automatically. Manage them at the broker.";
-      } else {
-        planId = plan?.id ? String(plan.id) : null;
+    if (isOption) {
+      fillPrice = submittedLimitPrice ?? input.optionDetail?.premium ?? null;
+      if (fillPrice == null) {
+        throw new Error("No price available to fill this option order — refresh the chain and try again.");
       }
+      filled = true;
+    } else if (orderType === "market") {
+      fillPrice = await quotePrice(input.symbol, fillAssetClass);
+      if (fillPrice == null) {
+        throw new Error(`No live price available for ${input.symbol} right now — the order wasn't placed.`);
+      }
+      filled = true;
+    } else {
+      const market = await quotePrice(input.symbol, fillAssetClass);
+      if (market != null && isMarketable(input.side, submittedLimitPrice!, market)) {
+        fillPrice = submittedLimitPrice!;
+        filled = true;
+      }
+      // Not marketable yet (or no quote this instant) — rests as `new` and is
+      // picked up by evaluateRestingOrders once the market reaches it.
     }
 
     const { data: inserted, error: dbError } = await supabase
       .from("orders")
       .insert({
         ...ledgerRow,
-        exit_plan_id: planId,
-        broker_order_id: broker.id,
-        status: broker.status ?? "new",
-        broker_submitted_at: broker.submitted_at ?? new Date().toISOString(),
+        status: filled ? "filled" : "new",
+        filled_qty: filled ? input.qty : null,
+        filled_avg_price: filled ? fillPrice : null,
+        broker_submitted_at: new Date().toISOString(),
         last_synced_at: new Date().toISOString(),
       })
       .select("id")
       .single();
+    if (dbError) throw new Error(`Order couldn't be recorded — ${dbError.message}`);
+    const orderId = (inserted as { id?: string } | null)?.id ?? null;
 
-    // What the broker did with a real order is the other half of the data the
-    // learning tables need: a verdict with no fill beside it can never be
-    // scored against an outcome.
+    let planError: string | null = null;
+    if (filled) {
+      await executeFill(supabase, user.id, {
+        symbol: input.symbol,
+        assetClass: fillAssetClass,
+        side: input.side,
+        qty: input.qty,
+        price: fillPrice!,
+      });
+
+      // The plan carries the exit rules from here on. The entry already
+      // filled (synchronously, above), so the split is against the real
+      // quantity bought — no "wait for the entry to stop filling" step is
+      // needed, unlike the real broker's asynchronous fills.
+      if (exitPlan && bracketLevels) {
+        const { data: plan, error } = await supabase
+          .from("protocol_exits")
+          .insert({
+            user_id: user.id,
+            symbol: input.symbol.toUpperCase(),
+            side: "long",
+            mode: "paper",
+            qty: input.qty,
+            entry_price: fillPrice,
+            entry_order_id: orderId,
+            stop_loss: bracketLevels.stopLoss,
+            take_profit_1: bracketLevels.takeProfit,
+            master_profit: input.attachLevels!.masterProfit ?? null,
+            scale_out_qty: exitPlan.scaleOutQty,
+            master_qty: exitPlan.masterQty,
+            runner_qty: exitPlan.runnerQty,
+            exits_attached_at: new Date().toISOString(),
+            applied_stop: bracketLevels.stopLoss,
+            applied_stop_reason: "protocol",
+          })
+          .select("id")
+          .maybeSingle();
+        if (error) {
+          console.error(`orders: exit plan for ${ledgerRow.symbol} not recorded — ${error.message}`);
+          planError =
+            "The order filled, but the staged exit couldn't be saved — TP1 and the master target won't be taken automatically. Close the position by hand if it moves against you.";
+        } else if (plan?.id && orderId) {
+          await supabase.from("orders").update({ exit_plan_id: plan.id }).eq("id", orderId);
+        }
+      }
+    }
+
+    // What happened to the order is the other half of the data the learning
+    // tables need: a verdict with no fill beside it can never be scored
+    // against an outcome.
     await recordOrderExecution(user.id, {
-      orderId: (inserted as { id?: string } | null)?.id,
+      orderId: orderId ?? undefined,
       symbol: input.symbol,
       assetClass: isOption ? "option" : "us_equity",
       orderType: (ledgerRow.order_type as RecordedOrderType) ?? "market",
       side: input.side,
       quantity: input.qty,
       requestedPrice: submittedLimitPrice,
-      filledPrice: numericOrUndefined(broker.filled_avg_price),
-      filledQty: numericOrUndefined(broker.filled_qty),
-      brokerStatus: brokerStatusFrom(broker.status),
+      filledPrice: filled ? (fillPrice ?? undefined) : undefined,
+      filledQty: filled ? input.qty : undefined,
+      brokerStatus: filled ? "filled" : "pending",
       latencyMs: Date.now() - submittedAt,
     });
 
-    if (dbError) {
-      // The order is live at the broker but absent from our ledger, so it will
-      // not appear in the Portfolio. That is a data-loss event, not a cosmetic
-      // one — log it with the broker id so it can be reconciled by hand.
-      console.error(
-        `orders: broker order ${broker.id} placed but not mirrored — ${dbError.message}`,
-      );
-    }
-
     return NextResponse.json({
-      order: broker,
-      mirrored: !dbError,
+      order: { id: orderId, symbol: input.symbol.toUpperCase(), side: input.side, qty: input.qty, status: filled ? "filled" : "new", filled_avg_price: fillPrice, filled_qty: filled ? input.qty : null },
+      mirrored: true,
       priceCheck,
       // How this position will be exited, in the ticket's own words.
       exitPlan: exitPlan
@@ -365,20 +360,15 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     const raw = err instanceof Error ? err.message : String(err);
-    const friendly = explainBrokerError(raw, input.side, isOption);
 
-    // Record the rejection. Previously this path returned without touching the
-    // database, so an order the broker refused left no trace anywhere in the
-    // app — the user saw a toast, and the order was gone. A rejected order is
-    // still something that happened, and it needs a row to be shown, explained
-    // and resubmitted from.
+    // Record the rejection. A rejected order still needs a row to be shown,
+    // explained and resubmitted from.
     const { data: inserted, error: dbError } = await supabase
       .from("orders")
       .insert({
         ...ledgerRow,
-        broker_order_id: null,
         status: "rejected",
-        reject_reason: friendly.message,
+        reject_reason: raw,
         broker_submitted_at: new Date().toISOString(),
         last_synced_at: new Date().toISOString(),
       })
@@ -388,9 +378,6 @@ export async function POST(req: NextRequest) {
       console.error(`orders: rejection for ${ledgerRow.symbol} not recorded — ${dbError.message}`);
     }
 
-    // A refusal is evidence about the setup that produced it — a stop the broker
-    // would not take, a symbol that cannot be shorted. Recording only the orders
-    // that were easy to place would leave the table describing the wrong sample.
     await recordOrderExecution(user.id, {
       orderId: (inserted as { id?: string } | null)?.id,
       symbol: input.symbol,
@@ -400,139 +387,27 @@ export async function POST(req: NextRequest) {
       quantity: input.qty,
       requestedPrice: submittedLimitPrice,
       brokerStatus: "rejected",
-      brokerErrorCode: friendly.code,
-      brokerErrorMsg: friendly.message,
+      brokerErrorMsg: raw,
       latencyMs: Date.now() - submittedAt,
     });
 
     return NextResponse.json(
-      { error: friendly.message, code: friendly.code, raw, recorded: !dbError },
-      { status: friendly.status },
+      { error: raw, code: "simulated_order_error", recorded: !dbError },
+      { status: 502 },
     );
   }
 }
 
-/**
- * Map opaque Alpaca rejections to actionable guidance.
- *
- * The wording varies by rejection path — the same "can't short this" outcome
- * arrives as `not allowed to short` (account-level) or as
- * `asset "GPUS" cannot be sold short` under the generic 42210000 code
- * (asset-level) — so match on the phrasing rather than one code.
- */
-function explainBrokerError(
-  raw: string,
-  side: "buy" | "sell",
-  isOption: boolean,
-): { message: string; code: string; status: number } {
-  const lower = raw.toLowerCase();
-  const shortRejected =
-    lower.includes("not allowed to short") ||
-    lower.includes("cannot be sold short") ||
-    lower.includes("not shortable") ||
-    lower.includes("40310000");
-  if (shortRejected) {
-    return {
-      code: "short_not_allowed",
-      status: 422,
-      message: isOption
-        ? "This account can't open that short contract. Buy the opposite side instead."
-        : "This symbol can't be sold short — its shares aren't available to borrow. To trade the bearish setup, buy a PUT (switch to Options above) or wait for a long entry.",
-    };
-  }
-  // Bracket legs on the wrong side of the entry. Alpaca reports this as a
-  // base_price constraint; the user-facing problem is that the protocol stop no
-  // longer fits the price they're actually entering at.
-  if (lower.includes("base_price")) {
-    const stopLeg = lower.includes("stop_loss") || lower.includes("stop_price");
-    return {
-      code: "invalid_bracket",
-      status: 422,
-      message: stopLeg
-        ? "The protocol stop sits on the wrong side of the current market price, so the broker rejected the bracket. Switch to the advised entry price, or uncheck the protocol levels and manage the stop manually."
-        : "The protocol target sits on the wrong side of the current market price, so the broker rejected the bracket. Switch to the advised entry price, or uncheck the protocol levels and manage the target manually.",
-    };
-  }
-  if (lower.includes("market is closed") || lower.includes("outside of market hours")) {
-    return {
-      code: "market_closed",
-      status: 422,
-      message:
-        "The market is closed, so this order can't be routed right now. Place it during regular hours, or use a limit order that rests until the open.",
-    };
-  }
-  if (lower.includes("not tradable") || lower.includes("asset is not active")) {
-    return {
-      code: "not_tradable",
-      status: 422,
-      message: "This symbol isn't tradable through the connected broker.",
-    };
-  }
-  if (lower.includes("wash trade") || lower.includes("potential wash trade")) {
-    return {
-      code: "wash_trade",
-      status: 422,
-      message:
-        "The broker blocked this as a potential wash trade — you have an opposing order working on the same symbol. Cancel it first, then retry.",
-    };
-  }
-  if (isOption && (lower.includes("not eligible") || lower.includes("options") && lower.includes("not"))) {
-    return {
-      code: "options_not_enabled",
-      status: 422,
-      message:
-        "This paper account isn't approved for options yet. Enable options trading on your Alpaca account, then retry.",
-    };
-  }
-  if (lower.includes("insufficient") || lower.includes("buying power")) {
-    return {
-      code: "insufficient_funds",
-      status: 422,
-      message: "Not enough buying power in the paper account for this order size.",
-    };
-  }
-  return { code: "broker_error", status: 502, message: humanizeBrokerError(raw) };
-}
 
 /**
- * Last resort for a rejection with no known translation. The raw string is an
- * internal URL plus a JSON blob; lift the broker's own `message` out of it so
- * the ticket shows a sentence rather than `Alpaca trading /v2/orders failed
- * (422): {"code":42210000,...}`. The untouched original still rides along in
- * the response's `raw` field for debugging.
- */
-function humanizeBrokerError(raw: string): string {
-  const jsonStart = raw.indexOf("{");
-  if (jsonStart !== -1) {
-    try {
-      const parsed = JSON.parse(raw.slice(jsonStart)) as { message?: unknown };
-      if (typeof parsed.message === "string" && parsed.message.trim()) {
-        const detail = parsed.message.trim();
-        return `The broker rejected this order: ${detail.charAt(0).toUpperCase()}${detail.slice(1)}`;
-      }
-    } catch {
-      /* not JSON — fall through to the generic sentence */
-    }
-  }
-  return "The broker rejected this order. Check the quantity and price, then try again.";
-}
-
-/**
- * List the user's orders, reconciled against the broker and enriched with a
- * live mark for anything still held.
+ * List the user's orders, with resting simulated limit orders evaluated
+ * against live prices and the staged protocol exits advanced.
  *
- * Reconciliation runs first, and it is the fix for the Pending panel showing a
- * frozen archive: local rows were written once at submit time and never
- * chased, so an order that filled or was cancelled at the broker still read
- * `new` here forever. `reconcileOrders` diffs the two and writes the broker's
- * answer back before the response is built, so what the page renders is the
- * broker's current state rather than a snapshot of the moment each order was
- * placed.
- *
- * Day P/L comes from the broker's open positions rather than being recomputed
- * here: Alpaca already tracks intraday P/L against the correct prior close for
- * both equities and option contracts. Orders with no matching open position
- * (closed out, or filled away) report null P/L rather than a fabricated zero.
+ * Paper trading has no external broker to reconcile against — this app's own
+ * `orders`/`positions` tables are the only ledger there is (see
+ * lib/brokers/simulator.ts), so what used to be a broker-sync pass is now
+ * just "did any resting order cross its price" and "did any exit plan's
+ * levels get touched", both evaluated directly against the live feed.
  */
 export async function GET() {
   const supabase = await createClient();
@@ -543,76 +418,69 @@ export async function GET() {
     return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   }
 
+  // Fill whatever resting limit orders the market has now reached, before
+  // reading the ledger back — otherwise the response is a snapshot taken one
+  // moment before the rows in it became true.
+  const restingFill = await evaluateRestingOrders(supabase, user.id).catch(
+    (err): { filled: number; error: string | null } => ({
+      filled: 0,
+      error: err instanceof Error ? err.message : String(err),
+    }),
+  );
+  if (restingFill.error) console.error(`orders: resting-order evaluation — ${restingFill.error}`);
+
+  // Advancing the staged exits here is what makes the trailing stop and the
+  // master-target reversal real: both depend on where price has *been*, so
+  // they can only move forward when something samples the market. The
+  // Portfolio page polls this endpoint, which is where the sampling happens.
+  const exits = await manageSimulatedExits(supabase, user.id).catch(
+    (err): { managed: number; filled: number; closed: number; notes: string[]; error: string | null } => ({
+      managed: 0,
+      filled: 0,
+      closed: 0,
+      notes: [],
+      error: err instanceof Error ? err.message : String(err),
+    }),
+  );
+  if (exits.error) console.error(`orders: exit management — ${exits.error}`);
+
   const { data, error } = await supabase
     .from("orders")
     .select("*")
     .order("created_at", { ascending: false })
     .limit(200);
-
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   let orders = (data ?? []) as Record<string, unknown>[];
-  const sync = await syncWithBroker(supabase, orders);
-  if (sync.refreshed) orders = sync.refreshed;
-
-  // One read of the broker's open positions serves both consumers: the live
-  // marks below, and the exit manager, which needs to know what is still held
-  // to decide whether a plan is running or finished. Null means the read
-  // failed — the manager treats that as "don't touch anything" rather than as
-  // "everything is flat".
-  //
-  // An empty ledger costs no broker call at all: a staged exit only exists
-  // because an order created it, so with no orders there is nothing to mark and
-  // nothing to manage. This endpoint is polled on a ten-second timer, which is
-  // why that shortcut is worth keeping.
-  const creds = envCreds("paper");
-  const active = creds != null && orders.length > 0;
-  const positions = active ? await openPositions(creds!) : null;
-  const marks = markPrices(positions ?? []);
 
   // A closed order — filled, no longer held, untouched for 24+ hours — has
-  // nothing left to show, so it's deleted rather than kept growing the
-  // ledger. `positions === null` means "we don't know what's held" (broker
-  // read failed, or paper trading isn't configured), which must not be
-  // treated as "nothing is held" — that would prune a still-open position's
-  // orders on a snapshot that never arrived, so pruning is skipped entirely
-  // until a real read succeeds.
-  if (positions !== null) {
-    const heldSymbols = new Set(positions.map((p) => p.symbol.toUpperCase()));
-    const prune = await pruneClosedOrders(supabase, user.id, heldSymbols).catch(
-      (err): { deleted: number; error: string | null; staleIds: string[] } => ({
-        deleted: 0,
-        error: err instanceof Error ? err.message : String(err),
-        staleIds: [],
-      }),
-    );
-    if (prune.error) {
-      console.error(`orders: closed-order prune — ${prune.error}`);
-    } else if (prune.staleIds.length > 0) {
-      const pruned = new Set(prune.staleIds);
-      orders = orders.filter((o) => !pruned.has(String(o.id)));
-    }
+  // nothing left to show, so it's deleted rather than kept growing the ledger.
+  const heldSymbols = new Set((await listOpenPositions(supabase, user.id)).map((p) => p.symbol.toUpperCase()));
+  const prune = await pruneClosedOrders(supabase, user.id, heldSymbols).catch(
+    (err): { deleted: number; error: string | null; staleIds: string[] } => ({
+      deleted: 0,
+      error: err instanceof Error ? err.message : String(err),
+      staleIds: [],
+    }),
+  );
+  if (prune.error) {
+    console.error(`orders: closed-order prune — ${prune.error}`);
+  } else if (prune.staleIds.length > 0) {
+    const pruned = new Set(prune.staleIds);
+    orders = orders.filter((o) => !pruned.has(String(o.id)));
   }
 
-  // Advancing the staged exits here is what makes the trailing stop and the
-  // master-target reversal real: both depend on where price has *been*, so they
-  // can only move forward when something samples the market. The Portfolio
-  // polls this endpoint, so this is where the sampling happens.
-  const exits = active
-    ? await manageProtocolExits(supabase, creds!, user.id, positions)
-    : {
-        managed: 0,
-        attached: 0,
-        adjusted: 0,
-        closed: 0,
-        notes: [] as string[],
-        error: creds
-          ? null
-          : "Paper trading isn't configured, so the protocol's exit rules aren't running.",
-      };
+  // One quote per unique equity/crypto symbol on the page — bounded to what's
+  // actually shown, not a market-wide call. Options have no live per-contract
+  // feed (see lib/brokers/simulator.ts), so they carry no live mark here.
+  const symbols = [...new Set(orders.map((o) => String(o.symbol).toUpperCase()))].filter((s) => !parseOccSymbol(s));
+  const quoteEntries = await Promise.all(
+    symbols.map(async (s) => [s, await quotePrice(s, assetClassOf(s))] as const),
+  );
+  const quotes = new Map(quoteEntries);
 
   const enriched = orders.map((o) => {
-    const mark = marks.get(String(o.symbol));
+    const currentPrice = quotes.get(String(o.symbol).toUpperCase()) ?? null;
     const side = o.side === "sell" ? "sell" : "buy";
     const levels = {
       tp1: numOrNull(o.take_profit),
@@ -621,10 +489,12 @@ export async function GET() {
     };
     return {
       ...o,
-      currentPrice: mark?.currentPrice ?? null,
-      dayPl: mark?.dayPl ?? null,
-      dayPlPct: mark?.dayPlPct ?? null,
-      targets: evaluateTargets(side, levels, mark?.currentPrice ?? null, {
+      currentPrice,
+      // Not modeled: an accurate day P/L needs the symbol's previous session
+      // close, which isn't fetched here.
+      dayPl: null,
+      dayPlPct: null,
+      targets: evaluateTargets(side, levels, currentPrice, {
         tp1At: o.tp1_hit_at as string | null,
         mpAt: o.mp_hit_at as string | null,
         slAt: o.sl_hit_at as string | null,
@@ -634,24 +504,20 @@ export async function GET() {
 
   return NextResponse.json({
     orders: enriched,
-    // Data-freshness contract. The page shows these so an incomplete list is
-    // never presented as though it were current: `syncedAt` stamps the last
-    // successful reconciliation, and `syncError` says plainly when the broker
-    // could not be reached, rather than letting the stale ledger pass for live.
     sync: {
-      syncedAt: sync.syncedAt,
-      syncError: sync.error,
-      reconciled: sync.reconciled,
-      orphaned: sync.orphaned,
-      source: "alpaca-paper",
+      syncedAt: new Date().toISOString(),
+      syncError: restingFill.error,
+      reconciled: restingFill.filled,
+      orphaned: 0,
+      source: "simulated-paper",
     },
     // What the staged exits did on this pass. Reported rather than silent: a
-    // stop that moved is a change to the user's risk, and one that couldn't be
-    // moved is something they need to know about while they can still act.
+    // stop that moved is a change to the user's risk, and one that couldn't
+    // be moved is something they need to know about while they can still act.
     exits: {
       managed: exits.managed,
-      attached: exits.attached,
-      adjusted: exits.adjusted,
+      attached: exits.filled,
+      adjusted: 0,
       closed: exits.closed,
       notes: exits.notes,
       error: exits.error,
@@ -659,189 +525,8 @@ export async function GET() {
   });
 }
 
-interface SyncOutcome {
-  syncedAt: string | null;
-  error: string | null;
-  reconciled: number;
-  orphaned: number;
-  /** Re-read rows when anything changed; null when the ledger is unchanged. */
-  refreshed: Record<string, unknown>[] | null;
-}
-
-/**
- * Bring locally-working orders in line with the broker.
- *
- * Only rows still in a working state are chased, and the broker window starts
- * at the oldest of those rows. A ledger with nothing working costs no broker
- * call at all, which matters because the Portfolio polls this endpoint on a
- * timer.
- *
- * A broker failure is reported, never swallowed: the caller surfaces it so the
- * user knows the list in front of them may be behind.
- */
-async function syncWithBroker(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  orders: Record<string, unknown>[],
-): Promise<SyncOutcome> {
-  // Working orders, plus anything previously marked `sync_error`.
-  //
-  // An orphaned row normalizes to `unknown`, which `isWorking` reports false
-  // for — correct for display, since it must stop looking live, but it made the
-  // marking permanent: the row was filtered out of every subsequent
-  // reconciliation and could never recover. A transient broker outage is the
-  // most likely way a row gets orphaned in the first place, so the state has to
-  // be re-checkable. It is chased again here and returns to its true status the
-  // moment the broker reports one.
-  const working = orders.filter((o) => {
-    const status = normalizeOrderStatus(String(o.status ?? ""));
-    return isWorking(status) || status === "unknown";
-  });
-  if (working.length === 0) {
-    return { syncedAt: new Date().toISOString(), error: null, reconciled: 0, orphaned: 0, refreshed: null };
-  }
-
-  const creds = envCreds("paper");
-  if (!creds) {
-    return {
-      syncedAt: null,
-      error: "Paper trading is not configured, so order statuses can't be confirmed with the broker.",
-      reconciled: 0,
-      orphaned: 0,
-      refreshed: null,
-    };
-  }
-
-  // Start the broker window a day before the oldest working order so a
-  // boundary order can't fall outside it and be mistaken for one the broker
-  // has no record of.
-  const oldest = working.reduce((min, o) => {
-    const t = Date.parse(String(o.created_at ?? ""));
-    return Number.isNaN(t) ? min : Math.min(min, t);
-  }, Date.now());
-  const since = new Date(oldest - 24 * 3600 * 1000);
-
-  let brokerOrders: BrokerOrder[];
-  try {
-    brokerOrders = (await listOrders(creds, { since })) as unknown as BrokerOrder[];
-  } catch (err) {
-    console.error(`orders: broker sync failed — ${err instanceof Error ? err.message : String(err)}`);
-    return {
-      syncedAt: null,
-      error: "Couldn't reach the broker to confirm order statuses. The list below may be out of date.",
-      reconciled: 0,
-      orphaned: 0,
-      refreshed: null,
-    };
-  }
-
-  const local: LocalOrder[] = working.map((o) => ({
-    id: String(o.id),
-    broker_order_id: o.broker_order_id == null ? null : String(o.broker_order_id),
-    status: String(o.status ?? ""),
-    filled_qty: numOrNull(o.filled_qty),
-    filled_avg_price: numOrNull(o.filled_avg_price),
-    created_at: String(o.created_at ?? ""),
-  }));
-
-  const now = new Date();
-  const { updates, orphanedIds } = reconcileOrders(local, brokerOrders, now);
-  if (updates.length === 0 && orphanedIds.length === 0) {
-    return { syncedAt: now.toISOString(), error: null, reconciled: 0, orphaned: 0, refreshed: null };
-  }
-
-  const writes: PromiseLike<{ error: { message: string } | null }>[] = updates.map((u) =>
-    supabase
-      .from("orders")
-      .update({
-        status: u.status,
-        filled_qty: u.filled_qty,
-        filled_avg_price: u.filled_avg_price,
-        broker_submitted_at: u.broker_submitted_at,
-        // Never overwrite a reason we already recorded with a null.
-        ...(u.reject_reason ? { reject_reason: u.reject_reason } : {}),
-        last_synced_at: u.last_synced_at,
-        updated_at: u.last_synced_at,
-      })
-      .eq("id", u.id),
-  );
-
-  // An order the broker has no record of stops being presented as live. It
-  // becomes `sync_error`, which normalizes to "unknown" and renders with a
-  // visible flag rather than sitting in Pending indefinitely.
-  if (orphanedIds.length > 0) {
-    writes.push(
-      supabase
-        .from("orders")
-        .update({ status: "sync_error", last_synced_at: now.toISOString() })
-        .in("id", orphanedIds),
-    );
-  }
-
-  const results = await Promise.all(writes);
-  const writeError = results.find((r) => r?.error)?.error;
-  if (writeError) {
-    console.error(`orders: reconciliation write failed — ${writeError.message}`);
-    return {
-      syncedAt: null,
-      error: "Order statuses were read from the broker but couldn't be saved. Try refreshing.",
-      reconciled: updates.length,
-      orphaned: orphanedIds.length,
-      refreshed: null,
-    };
-  }
-
-  const { data: refreshed } = await supabase
-    .from("orders")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(200);
-
-  return {
-    syncedAt: now.toISOString(),
-    error: null,
-    reconciled: updates.length,
-    orphaned: orphanedIds.length,
-    refreshed: (refreshed ?? null) as Record<string, unknown>[] | null,
-  };
-}
-
 function numOrNull(v: unknown): number | null {
   const n = Number(v);
   return v == null || Number.isNaN(n) ? null : n;
 }
 
-interface Mark {
-  currentPrice: number;
-  dayPl: number;
-  dayPlPct: number;
-}
-
-/**
- * The broker's open positions, or null when they couldn't be read.
- *
- * The distinction matters more than it looks: an empty list means "you hold
- * nothing", and the exit manager retires a plan whose symbol isn't in the list.
- * Returning `[]` on a failed fetch would therefore close every live plan and
- * log every open trade as finished. A broker hiccup returns null instead, and
- * the manager sits the pass out.
- */
-async function openPositions(creds: AlpacaCreds): Promise<AlpacaPosition[] | null> {
-  try {
-    return await getPositions(creds);
-  } catch {
-    return null;
-  }
-}
-
-/** Current price + intraday P/L per symbol, from the broker's open positions. */
-function markPrices(positions: AlpacaPosition[]): Map<string, Mark> {
-  const marks = new Map<string, Mark>();
-  for (const p of positions) {
-    marks.set(String(p.symbol).toUpperCase(), {
-      currentPrice: Number(p.current_price),
-      dayPl: Number(p.unrealized_intraday_pl),
-      dayPlPct: Number(p.unrealized_intraday_plpc) * 100,
-    });
-  }
-  return marks;
-}

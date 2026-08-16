@@ -7,6 +7,45 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-08-16
+
+### Fixed
+- **Paper trading is now simulated per-user instead of sharing one real Alpaca
+  paper account across every signed-in user.** A brand-new signup landed in
+  the same portfolio as every other account — the same shares, the same cash,
+  the same open positions — because every "paper" route resolved credentials
+  from a single set of server env vars (`envCreds("paper")`) rather than
+  anything user-specific. `lib/brokers/simulator.ts` replaces that: a market
+  order (or a marketable limit) fills synchronously against the live
+  market-data feed already used elsewhere in the app, debits/credits a new
+  per-user `paper_accounts.cash` balance, and writes straight to this app's
+  own `positions`/`orders` tables — both already RLS-scoped by `user_id`, the
+  same isolation every other per-user table relies on. A non-marketable limit
+  order rests and is evaluated against live price on each poll
+  (`evaluateRestingOrders`).
+- The staged protocol exit (60% at TP1, 20% at the master target, the rest on
+  a trailing stop — see the 2026-08-13 entry) is reworked for the simulator in
+  `lib/trade/exit-manager-sim.ts`: since there's no external broker for the
+  profit tranches to rest at, each tranche's fill is evaluated and executed
+  directly against live price on every poll, using the same rule logic
+  (`lib/trade/protocol-exit.ts`) unchanged. A conditional claim on each
+  tranche's order-id column stops two overlapping polls from double-filling
+  (and double-crediting cash for) the same tranche.
+- Cash updates move through a single atomic `increment_paper_cash` Postgres
+  function (migration `0011`) rather than a read-then-write from application
+  code, which would otherwise lose an update when two fills for the same user
+  land close together.
+- Trade logs for paper trades are now written already settled — a simulated
+  fill's price is known the instant it happens, so the old pending → broker →
+  settle two-step (`lib/portfolio/trade-log-settle.ts`, still used for live
+  trading) is bypassed entirely for paper.
+- Scope for this pass: equities and crypto are fully simulated against live
+  quotes; options fill at the premium the ticket already knew (no live
+  per-contract quote feed exists in this app yet), and a plain sell order that
+  closes a position outside the dedicated "Close position" action doesn't yet
+  write its own trade-log row (the dedicated close action and every entry
+  path do).
+
 ## 2026-08-15
 
 ### Added

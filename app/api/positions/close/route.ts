@@ -4,72 +4,32 @@
  * quantity). Backs the "Close position" action in the portfolio's open-positions
  * grid, and is rule 3's manual escape hatch out of a staged protocol exit.
  *
- * Two lifecycles meet here, and this route defers to whichever one owns the
- * position being closed:
+ * Paper trading is simulated (see lib/brokers/simulator.ts), so the fill and
+ * its price are known synchronously — there is no broker to wait on, and this
+ * route writes the trade log itself instead of leaving it pending for
+ * settlement. Two lifecycles still meet here, same as before:
  *
- *   - **Protocol-managed** (a working or ever-existed `protocol_exits` plan
- *     for the symbol): owned end-to-end by this file and
- *     `lib/trade/exit-manager.ts`. A full close writes the trade log itself,
- *     with the exit left pending — at this point the liquidation has been
- *     *accepted*, not filled, and the price it will fill at doesn't exist yet.
- *     `settlePendingTradeLogs` completes the row from the broker's own fills —
- *     see `lib/portfolio/trade-log-settle.ts`. A partial close against a
- *     working plan logs nothing and retires nothing: the trade isn't over, and
- *     the plan keeps managing the trailing stop on what's left.
- *   - **Plain** (no plan ever existed for the symbol): owned by
- *     `reconcilePositions` (`lib/portfolio/reconcile.ts`, via `GET
- *     /api/portfolio`'s poll). A full close is deliberately not recorded here
- *     — reconciliation notices the position gone from the broker's book and
- *     writes the row with a real fill price, which usually isn't available in
- *     this response yet. A partial close *is* recorded here, immediately,
- *     because reconciliation only ever sees a position disappear, never
- *     shrink — nothing else would ever log a partial exit on a plain position.
- *
- * Either way, the order-submission event itself is recorded for the learning
- * tables regardless of who ends up owning the `trade_logs` row.
+ *   - **Protocol-managed** (a working `protocol_exits` plan for the symbol):
+ *     `closeSimPlanForSymbol` retires the plan and writes its own blended
+ *     trade log across whatever tranches already filled plus this close.
+ *   - **Plain** (no plan ever existed for the symbol): this route writes the
+ *     trade log itself, directly, using the fill this call just produced.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import {
-  closePosition,
-  envCreds,
-  getPositions,
-  type AlpacaCreds,
-  type AlpacaPosition,
-} from "@/lib/brokers/alpaca";
+import { closePositionSim, getOpenPosition } from "@/lib/brokers/simulator";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
-import { brokerStatusFrom, numericOrUndefined, recordOrderExecution } from "@/lib/learning/record";
-import { buildTradeLogRow, type ClosablePosition } from "@/lib/portfolio/trade-log";
-import { closePlanForSymbol, type PlanRow } from "@/lib/trade/exit-manager";
-import { describeProtocolSignal, recordPendingExit } from "@/lib/portfolio/trade-log-record";
-
-/**
- * Which way the closing order went. Alpaca reports it on the order it created;
- * absent that, a close is a sale far more often than not, and guessing wrong on
- * a field the model reads is worse than the small bias of the default.
- */
-function closingSide(order: { side?: unknown } | null | undefined): "buy" | "sell" {
-  return order?.side === "buy" ? "buy" : "sell";
-}
-
-/** Quantity actually sent to the broker, falling back to what was requested. */
-function closedQty(
-  order: { qty?: unknown } | null | undefined,
-  requested: number | undefined,
-): number {
-  return numericOrUndefined(order?.qty) ?? requested ?? 0;
-}
+import { brokerStatusFrom, recordOrderExecution } from "@/lib/learning/record";
+import { buildTradeLogRow } from "@/lib/portfolio/trade-log";
+import { closeSimPlanForSymbol } from "@/lib/trade/exit-manager-sim";
 
 const CloseSchema = z.object({
   symbol: z.string().min(1).max(24),
   /** Omit to close the entire position. */
   qty: z.number().positive().max(100000).optional(),
 });
-
-/** Float slop for "the requested qty is effectively the whole position." */
-const QTY_EPSILON = 1e-6;
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -90,83 +50,42 @@ export async function POST(req: NextRequest) {
   const { symbol, qty } = parsed.data;
   const ticker = symbol.toUpperCase();
 
-  const creds = envCreds("paper");
-  if (!creds) {
-    return NextResponse.json(
-      { error: "Paper trading is not configured (missing Alpaca API keys)." },
-      { status: 503 },
-    );
-  }
-
-  // Read the position *before* liquidating it — from both sources, since
-  // which one turns out to matter depends on which lifecycle owns the trade.
-  // Afterwards the entry price and quantity are gone from the broker, and the
-  // local `positions` row (for a plain trade) still exists but the trade log
-  // has to be built from the position that existed, not from whatever a later
-  // query returns.
-  const held = await heldPosition(creds, ticker);
-  const heldQty = held ? Math.abs(Number(held.qty)) : null;
-  // Undefined `qty` always means "close everything." A `qty` that covers (or
-  // very nearly covers) what's held is the same thing by another route — the
-  // distinction that matters is whether shares remain afterward, not which
-  // request shape asked for it. Based on the live broker quantity rather than
-  // the local ledger's, which is more accurate for this and is also the only
-  // option for a protocol-managed position — it never gets a `positions` row
-  // at all (see `lib/portfolio/reconcile.ts`).
-  const fullClose = qty == null || heldQty == null || qty >= heldQty - QTY_EPSILON;
-
-  const { data: openPosition } = await supabase
-    .from("positions")
-    .select("id, symbol, asset_class, qty, avg_entry_price, opened_at")
-    .eq("user_id", user.id)
-    .eq("symbol", ticker)
-    .eq("closed", false)
-    .order("opened_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
   const startedAt = Date.now();
   try {
-    const order = await closePosition(creds, ticker, qty);
+    const before = await getOpenPosition(supabase, user.id, ticker);
+    if (!before) {
+      return NextResponse.json({ ok: true, alreadyFlat: true });
+    }
 
-    // Which lifecycle owns this trade. `closePlanForSymbol` finds the most
-    // recent protocol_exits plan for the symbol regardless of its status —
-    // see that function's own doc comment for why a status filter here would
-    // be a race — and retires it (a no-op if a concurrent poll already did).
-    // A plan existing at all, even a closed one, means this symbol has never
-    // had a `positions` row (reconcile.ts's `recordOpen` skips it), so the
-    // reconciliation path below is never in play for it.
-    const plan = await closePlanForSymbol(supabase, user.id, ticker);
+    const fill = await closePositionSim(supabase, user.id, ticker, qty);
+    if (!fill) {
+      return NextResponse.json({ ok: true, alreadyFlat: true });
+    }
 
-    let tradeLogged = false;
-    if (plan) {
-      // Defensive only — a protocol-managed symbol normally has no
-      // `positions` row to update. Harmless no-op when that's the case.
-      await supabase
-        .from("positions")
-        .update({ closed: true, closed_at: new Date().toISOString() })
-        .eq("user_id", user.id)
-        .eq("symbol", ticker)
-        .eq("closed", false);
+    const fullClose = qty == null || qty >= before.qty - 1e-6;
 
-      if (fullClose) {
-        tradeLogged = await logClose(supabase, user.id, ticker, held, plan);
-      }
-      // A genuine partial close against a plan logs nothing: the trade isn't
-      // over, and the plan keeps managing the trailing stop on what's left.
-      // (Its tranche bookkeeping is now stale relative to what's actually
-      // held, since these shares left outside its own tranche orders —
-      // reconciling that, resizing or cancelling the affected resting order,
-      // isn't done automatically. `manageProtocolExits` still moves the stop
-      // for whatever the broker reports as held.)
-    } else if (!fullClose && openPosition) {
-      // Plain position, partial close — the one case reconcilePositions can
-      // never see (a shrink, not a disappearance), so it's logged here.
+    // Which lifecycle owns this trade. `closeSimPlanForSymbol` finds the most
+    // recent working plan for the symbol, attributes whatever tranches never
+    // got the chance to fill to this close, and writes its own blended trade
+    // log — a symbol with a working plan must never also get the plain
+    // trade-log write below, or the trade would be logged twice.
+    const plan = fullClose ? await closeSimPlanForSymbol(supabase, user.id, ticker, fill.price) : null;
+
+    let tradeLogged = plan != null;
+    if (!plan) {
       const row = buildTradeLogRow({
         userId: user.id,
-        position: openPosition as unknown as ClosablePosition,
-        closedQty: closedQty(order, qty),
-        exitPrice: numericOrUndefined(order?.filled_avg_price),
+        position: {
+          id: before.id,
+          symbol: before.symbol,
+          asset_class: before.asset_class,
+          qty: before.qty,
+          avg_entry_price: before.avg_entry_price,
+          opened_at: before.opened_at,
+          side: before.side === "short" ? "sell" : "buy",
+        },
+        closedQty: fill.qty,
+        exitPrice: fill.price,
       });
       const { error: logError } = await supabase.from("trade_logs").insert(row);
       if (logError) {
@@ -175,104 +94,30 @@ export async function POST(req: NextRequest) {
         tradeLogged = true;
       }
     }
-    // Plain position, full close: recorded by nothing here on purpose —
-    // reconcilePositions picks it up with a real fill price on the next
-    // portfolio poll.
 
-    // The exit is the half of the trade that carries the outcome. Without it
-    // the learning tables would hold entries with nothing to score them
-    // against. Recorded for every close — this is the order-submission event,
-    // independent of who ends up owning the trade_logs row.
     await recordOrderExecution(user.id, {
       symbol: ticker,
       assetClass: isCryptoSymbol(symbol) ? "crypto" : "us_equity",
       orderType: "market",
-      side: closingSide(order),
-      quantity: closedQty(order, qty),
-      filledPrice: numericOrUndefined(order?.filled_avg_price),
-      filledQty: numericOrUndefined(order?.filled_qty),
-      brokerStatus: brokerStatusFrom(order?.status),
+      side: before.side === "long" ? "sell" : "buy",
+      quantity: fill.qty,
+      filledPrice: fill.price,
+      filledQty: fill.qty,
+      brokerStatus: brokerStatusFrom("filled"),
       latencyMs: Date.now() - startedAt,
     });
 
-    return NextResponse.json({ ok: true, order, fullClose, tradeLogged, planRetired: plan != null });
+    return NextResponse.json({
+      ok: true,
+      order: { symbol: ticker, side: before.side === "long" ? "sell" : "buy", qty: fill.qty, filled_avg_price: fill.price, status: "filled" },
+      fullClose,
+      tradeLogged,
+      planRetired: plan != null,
+    });
   } catch (err) {
-    const raw = err instanceof Error ? err.message : String(err);
-    // Alpaca 404s when the position is already flat — that's the desired state,
-    // not a failure the user needs to act on. Nothing is logged: no position
-    // means no trade ended here.
-    if (raw.includes("(404)")) {
-      await closePlanForSymbol(supabase, user.id, ticker);
-      return NextResponse.json({ ok: true, alreadyFlat: true });
-    }
-    return NextResponse.json({ error: raw }, { status: 502 });
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : String(err) },
+      { status: 502 },
+    );
   }
-}
-
-async function heldPosition(creds: AlpacaCreds, ticker: string): Promise<AlpacaPosition | null> {
-  try {
-    const positions = await getPositions(creds);
-    return positions.find((p) => p.symbol.toUpperCase() === ticker) ?? null;
-  } catch {
-    // The close still goes ahead — an unreadable position list is a reason to
-    // log less, not a reason to leave the user in a trade they asked to exit.
-    return null;
-  }
-}
-
-/**
- * Write the trade log for a protocol-managed trade that has just fully closed.
- *
- * The logged quantity is the plan's *original* size, not what this particular
- * call closed. A staged exit can reach this point after TP1 already took part
- * of the position out at the broker, and settlement (`settleTradeLog`) matches
- * a row's fills chronologically from its entry timestamp, consuming the
- * *oldest* fills first up to the logged quantity. A row that under-declares
- * its quantity — the remainder this call closed, rather than the whole trade —
- * would be satisfied by the earlier TP1 fill alone and never reach the fill
- * this call actually produced, reporting TP1's price, timestamp and P/L sign
- * for what was really a different exit. Logging the full original quantity
- * means settlement has to walk every fill the trade produced, landing on the
- * correct blended price across all of them.
- *
- * Returns false when there was nothing to log: no position was readable, so
- * every field of the row would have been a guess. The close itself still
- * succeeded, and the caller reports that honestly rather than claiming an audit
- * trail it doesn't have.
- */
-async function logClose(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
-  ticker: string,
-  held: AlpacaPosition | null,
-  plan: PlanRow,
-): Promise<boolean> {
-  if (!held) return false;
-
-  const quantity = plan.qty;
-  if (!Number.isFinite(quantity) || quantity <= 0) return false;
-
-  const entryPrice = Number(held.avg_entry_price);
-  if (!Number.isFinite(entryPrice) || entryPrice <= 0) return false;
-
-  const result = await recordPendingExit(supabase, userId, {
-    symbol: ticker,
-    direction: held.side === "short" ? "sell" : "buy",
-    quantity,
-    entryPrice,
-    // The plan's creation time is the closest thing to a real entry timestamp
-    // we hold; settlement measures the closing fills from it.
-    entryTimestamp: plan.created_at,
-    exitPlanId: plan.id,
-    signalCalled: describeProtocolSignal({
-      stopLoss: plan.stop_loss,
-      takeProfit1: plan.take_profit_1,
-      masterProfit: plan.master_profit,
-    }),
-  });
-
-  // `duplicate` means a concurrent pass (a poll's own `finish`, landing at
-  // nearly the same moment) already logged this plan — the trade is recorded,
-  // just not by this call. Only `failed` means nothing is on record anywhere.
-  return result.status !== "failed";
 }
