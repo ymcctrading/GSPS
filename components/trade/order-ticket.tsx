@@ -390,7 +390,7 @@ export function OrderTicket({
             <p className="font-medium">{symbol} can&apos;t be sold short.</p>
             <p className="mt-1">
               Its shares aren&apos;t available to borrow through this broker, so a short order would
-              be rejected. Trade the bearish read with a put instead.
+              be rejected. Trade the sell read with a put instead.
             </p>
             <button onClick={switchToPut} className="mt-2 min-h-9 cursor-pointer font-medium underline underline-offset-2">
               Buy a PUT instead →

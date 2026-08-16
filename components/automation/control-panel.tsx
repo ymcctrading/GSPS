@@ -20,8 +20,8 @@ export interface AutomationProfile {
 
 const RISK: RiskProfile[] = ["PASSIVE", "MODERATE", "AGGRESSIVE"];
 const BIAS: { key: DirectionalBias; label: string }[] = [
-  { key: "BULLISH_ONLY", label: "Bullish" },
-  { key: "BEARISH_ONLY", label: "Bearish" },
+  { key: "BULLISH_ONLY", label: "Buy" },
+  { key: "BEARISH_ONLY", label: "Sell" },
   { key: "BOTH", label: "Both" },
 ];
 
@@ -108,7 +108,7 @@ export function AutomationControlPanel({
       <Card>
         <CardHeader>
           <CardTitle>Directional bias</CardTitle>
-          <CardDescription>Which reversion setups the engine may take.</CardDescription>
+          <CardDescription>Which setups the engine may take.</CardDescription>
         </CardHeader>
         <CardContent>
           <Segmented

@@ -11,11 +11,15 @@
  * protocol expects liquidity to rest.
  */
 
+import { levelRole, type LevelRole } from "@/lib/analysis/levelRole";
+
 export interface S9Level {
   degree: number;
   price: number;
   distancePct: number;
   rotation: number;
+  /** Support while price sits above the level, resistance while below it. */
+  role: LevelRole;
 }
 
 const DEGREES = [0, 45, 90, 135, 180, 225, 270, 315];
@@ -41,6 +45,7 @@ export function squareOf9Levels(
           price,
           distancePct: (Math.abs(currentPrice - price) / currentPrice) * 100,
           rotation: sign * rot,
+          role: levelRole(currentPrice, price),
         });
       }
     }

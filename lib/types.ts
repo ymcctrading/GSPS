@@ -55,10 +55,15 @@ export interface TrendReading {
 }
 
 export interface GannLevels {
-  /** Nearest Gann fan line values and their angle labels. */
-  fanLines: { angle: string; price: number; distancePct: number }[];
-  /** Square of 9 cardinal/ordinal levels near current price. */
-  squareOf9: { degree: number; price: number; distancePct: number }[];
+  /**
+   * Nearest Gann fan line values and their angle labels. Support while price
+   * sits above the line, resistance while below — see lib/analysis/levelRole.
+   * Anchored on daily bars, so these are daily-structure levels: see
+   * LEVEL_TIMEFRAME_USAGE["1Day"] for how that's meant to be used.
+   */
+  fanLines: { angle: string; price: number; distancePct: number; role: "support" | "resistance" }[];
+  /** Square of 9 cardinal/ordinal levels near current price. Same role rule as fanLines. */
+  squareOf9: { degree: number; price: number; distancePct: number; role: "support" | "resistance" }[];
   /** Whether today falls in a Gann time-cycle window. */
   timeCycleActive: boolean;
   timeCycleDates: string[];

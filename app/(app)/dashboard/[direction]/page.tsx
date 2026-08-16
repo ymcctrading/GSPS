@@ -4,14 +4,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { ResultsTable } from "@/components/scan/results-table";
 import { StaleScanNotice } from "@/components/scan/stale-scan-notice";
 import { getDailyScans, type Direction } from "@/lib/dailyScans";
+import { tradeSideWord } from "@/lib/scoring/direction-copy";
 import { ArrowLeft } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ direction: string }> }) {
   const { direction } = await params;
-  const label = direction === "bearish" ? "Bearish" : "Bullish";
-  return { title: `${label} reversions — GSPS` };
+  const label = direction === "bearish" ? "Sell" : "Buy";
+  return { title: `${label} setups — GSPS` };
 }
 
 export default async function DirectionListPage({
@@ -23,6 +24,7 @@ export default async function DirectionListPage({
   if (direction !== "bullish" && direction !== "bearish") notFound();
   const dir = direction as Direction;
   const isBull = dir === "bullish";
+  const side = tradeSideWord(dir);
 
   const { scanDate, freshness, pricedBeforeSession, bullish, bearish } = await getDailyScans();
   const rows = isBull ? bullish : bearish;
@@ -39,11 +41,11 @@ export default async function DirectionListPage({
           Back to dashboard
         </Link>
         <h1 className={`text-xl font-semibold sm:text-2xl ${isBull ? "text-bull" : "text-bear"}`}>
-          {isBull ? "Bullish setups" : "Bearish setups"}
+          {isBull ? "Buy setups" : "Sell setups"}
         </h1>
         <p className="text-sm text-muted">
           {scanDate
-            ? `Top ${rows.length} ${dir} setup${rows.length === 1 ? "" : "s"} from the ${scanDate} market scan` +
+            ? `Top ${rows.length} ${side} setup${rows.length === 1 ? "" : "s"} from the ${scanDate} market scan` +
               (continuations > 0
                 ? `: reversions first, topped up with ${continuations} momentum continuation${continuations === 1 ? "" : "s"} where too few reversions armed a trigger.`
                 : ". Every row carries a complete trade plan; a short list means the rest armed no trigger.")
@@ -73,7 +75,7 @@ export default async function DirectionListPage({
         <CardContent>
           <ResultsTable
             rows={rows}
-            emptyText={`No ${dir} list yet. Run the market scan or wait for the daily cron.`}
+            emptyText={`No ${side} list yet. Run the market scan or wait for the daily cron.`}
           />
         </CardContent>
       </Card>

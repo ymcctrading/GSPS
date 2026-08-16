@@ -9,6 +9,7 @@ import type {
   ScoreBreakdownItem,
   SetupKind,
   StratPattern,
+  Timeframe,
   TradeLevels,
   TrendReading,
 } from "@/lib/types";
@@ -20,6 +21,7 @@ import {
   bandBasis,
   proximityBandPct,
 } from "@/lib/scoring/proximity";
+import { LEVEL_TIMEFRAME_USAGE, levelRoleLabel, type LevelRole } from "@/lib/analysis/levelRole";
 import {
   DEFAULT_CRITERION_WEIGHTS,
   type CriterionKey,
@@ -33,6 +35,13 @@ export interface ScoreInputs {
   hourlyTrend: TrendReading;
   gann: GannLevels;
   nearSupportResistance: boolean;
+  /**
+   * The clustered swing level `nearSupportResistance` matched, if any, plus
+   * the timeframe it was read off and its role at current price. Optional so
+   * callers that only have the boolean (the backtest replay, existing tests)
+   * keep working — the note just falls back to the generic wording.
+   */
+  srMatch?: { price: number; timeframe: Timeframe; role: LevelRole } | null;
   pattern: StratPattern | null;
   momentumElevated: boolean;
   levels: TradeLevels | null;
@@ -58,7 +67,7 @@ export interface ScoreInputs {
 export function computeScore(inputs: ScoreInputs): ScanDecision {
   const {
     direction, macroTrends, hourlyTrend, gann,
-    nearSupportResistance, pattern, momentumElevated, levels,
+    nearSupportResistance, srMatch, pattern, momentumElevated, levels,
     setupKind = "reversion",
     atrPct,
     weights = DEFAULT_CRITERION_WEIGHTS,
@@ -130,12 +139,12 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     },
     {
       key: "fanProximity",
-      criterion: "Support line proximity",
+      criterion: "Support/resistance line proximity",
       pillar: "structure",
       passed: nearFan,
       note: nearFan
-        ? `Price within ${gann.fanLines[0].distancePct.toFixed(2)}% of the ${gann.fanLines[0].angle} support line at ${gann.fanLines[0].price.toFixed(2)} — inside the ${fanBandPct.toFixed(2)}% band (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}).`
-        : `No support line within ${fanBandPct.toFixed(2)}% (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}).`,
+        ? `Price within ${gann.fanLines[0].distancePct.toFixed(2)}% of the ${gann.fanLines[0].angle} ${levelRoleLabel(gann.fanLines[0].role).toLowerCase()} line at ${gann.fanLines[0].price.toFixed(2)} — inside the ${fanBandPct.toFixed(2)}% band (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}). ${LEVEL_TIMEFRAME_USAGE["1Day"]}.`
+        : `No support/resistance line within ${fanBandPct.toFixed(2)}% (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}).`,
     },
     {
       key: "harmonicProximity",
@@ -143,7 +152,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       pillar: "structure",
       passed: nearS9,
       note: nearS9
-        ? `Price within ${gann.squareOf9[0].distancePct.toFixed(2)}% of the ${gann.squareOf9[0].degree}° harmonic level at ${gann.squareOf9[0].price.toFixed(2)} — inside the ${harmonicBandPct.toFixed(2)}% band (${bandBasis(HARMONIC_PROXIMITY_ATR, atrPct)}).`
+        ? `Price within ${gann.squareOf9[0].distancePct.toFixed(2)}% of the ${gann.squareOf9[0].degree}° harmonic ${levelRoleLabel(gann.squareOf9[0].role).toLowerCase()} level at ${gann.squareOf9[0].price.toFixed(2)} — inside the ${harmonicBandPct.toFixed(2)}% band (${bandBasis(HARMONIC_PROXIMITY_ATR, atrPct)}). ${LEVEL_TIMEFRAME_USAGE["1Day"]}.`
         : `No harmonic level within ${harmonicBandPct.toFixed(2)}% (${bandBasis(HARMONIC_PROXIMITY_ATR, atrPct)}).`,
     },
     {
@@ -152,7 +161,9 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       pillar: "structure",
       passed: nearSupportResistance,
       note: nearSupportResistance
-        ? "Price sits at a clustered macro S/R level."
+        ? srMatch
+          ? `Price sits at a clustered ${srMatch.timeframe} ${levelRoleLabel(srMatch.role).toLowerCase()} level at ${srMatch.price.toFixed(2)}. ${LEVEL_TIMEFRAME_USAGE[srMatch.timeframe]}.`
+          : "Price sits at a clustered macro S/R level."
         : "Not at a significant historical S/R level.",
     },
     {

@@ -1,22 +1,19 @@
 /**
  * GSPS — /api/trade-log
  * POST: Log a trade entry or exit event for audit trail and analytics.
- * GET:  the log, with every pending row settled against the broker first.
+ * GET:  the log.
  *
- * A row lands here with `outcome = 'pending'` whenever a trade ends before its
- * exit price exists — which is every time, since a liquidation is accepted
- * before it is filled. Reading the log is what completes those rows: the GET
- * below matches each one against the broker's own fill activities and writes
- * back the real exit price, realized P/L and which protocol level produced the
- * exit. Rows it can't complete stay pending and are counted in the response,
- * never filled in with an invented exit.
+ * Paper trades are simulated (see `lib/brokers/simulator.ts`), so a fill's
+ * price is known the instant it happens — there is no external broker to wait
+ * on, and every row this app writes for a paper trade is already settled by
+ * the time it lands. `settlePendingTradeLogs` still exists for live trades
+ * placed through a real connected broker, but nothing routes through this GET
+ * anymore; it stays a live-trading concern for whichever endpoint drives that.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { envCreds } from "@/lib/brokers/alpaca";
-import { settlePendingTradeLogs } from "@/lib/portfolio/trade-log-settle";
 
 const TradeLogSchema = z.object({
   orderId: z.string().uuid().optional(),
@@ -100,17 +97,6 @@ export async function GET() {
     return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   }
 
-  // Settle first, then read — otherwise the response is a snapshot taken one
-  // moment before the rows in it became true.
-  const creds = envCreds("paper");
-  const settlement = creds
-    ? await settlePendingTradeLogs(supabase, creds, user.id)
-    : {
-        settled: 0,
-        stillPending: 0,
-        error: "Paper trading isn't configured, so pending exits can't be settled.",
-      };
-
   try {
     const { data, error } = await supabase
       .from("trade_logs")
@@ -120,12 +106,14 @@ export async function GET() {
 
     if (error) throw error;
 
+    const stillPending = (data ?? []).filter((row) => row.outcome === "pending").length;
+
     return NextResponse.json({
       tradeLogs: data,
-      // What settlement could and couldn't do. `stillPending` is the honest
-      // count of trades whose exit price the broker hasn't reported yet — those
-      // rows carry no P/L rather than a made-up one.
-      settlement,
+      // Paper trades resolve at fill time, so this should always read zero —
+      // kept in the response shape so a client built against the old contract
+      // doesn't need to change.
+      settlement: { settled: 0, stillPending, error: null },
     });
   } catch (err) {
     return NextResponse.json(

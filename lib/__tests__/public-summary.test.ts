@@ -33,8 +33,8 @@ const trend = (direction: TrendReading["direction"]): TrendReading => ({
 });
 
 const gann: GannLevels = {
-  fanLines: [{ angle: "1x4 (high)", price: 101, distancePct: 0.4 }],
-  squareOf9: [{ degree: 45, price: 100.5, distancePct: 0.2 }],
+  fanLines: [{ angle: "1x4 (high)", price: 101, distancePct: 0.4, role: "resistance" }],
+  squareOf9: [{ degree: 45, price: 100.5, distancePct: 0.2, role: "resistance" }],
   timeCycleActive: true,
   timeCycleDates: ["2026-08-06"],
 };

@@ -10,10 +10,16 @@
  * shortlist and keep the top `perSide` per direction. Reversions are the
  * protocol's primary setup, so they fill the lists first.
  *
- * Top-up pass: only when a direction comes up short — because nothing armed a
- * tradeable trigger there — the highest-momentum continuation candidates for
- * that direction are scanned and appended. A short list is an acceptable
- * outcome; a list padded with symbols that have no trade plan is not.
+ * Continuation pass: not solely a shortfall backstop — every run scouts the
+ * continuation pool, gated on `hasExceptional4hMomentum` (a genuine range and
+ * volume spike in the most recently closed 4-hour bar, not just an ordinary
+ * elevated day). A short direction gets topped up to `perSide`; a direction
+ * that already filled on reversions alone still gets a small guaranteed
+ * allotment appended past `perSide` when the pool has candidates that clear
+ * the bar — reversions are scanned first and keep priority, but continuations
+ * are no longer something the market only looks for when reversions come up
+ * short. A short list is an acceptable outcome; a list padded with symbols
+ * that have no trade plan is not.
  */
 
 import type { Bar, ScanResult, SetupKind } from "@/lib/types";
@@ -72,6 +78,42 @@ function expansionRatio(daily: Bar[]): number {
   return baseline > 0 ? recent / baseline : 0;
 }
 
+/**
+ * How much more range/volume than normal counts as "exceptional" over the
+ * past 4 hours — deliberately stricter than `MOMENTUM_EXPANSION`, which only
+ * asks for a trend that's still expanding. A continuation candidate has to
+ * clear both: the trend intact on daily bars, *and* a genuine spike in the
+ * most recent 4-hour bar, not just an ordinary elevated day.
+ */
+export const EXCEPTIONAL_4H_RANGE_MULT = 2;
+export const EXCEPTIONAL_4H_VOLUME_MULT = 2;
+
+/** Bars needed before and including the most recent 4-hour candle to judge it. */
+const BARS_4H_BASELINE = 20;
+
+/**
+ * Whether the most recently closed 4-hour candle shows a genuine volatility
+ * *and* volume spike against its own trailing baseline — "the past 4 hours"
+ * a continuation candidate is asked to prove itself on. Both have to fire:
+ * a wide bar on thin volume is a gap, not participation; heavy volume in a
+ * narrow bar is absorption, not a breakout.
+ */
+export function hasExceptional4hMomentum(bars4h: Bar[]): boolean {
+  if (bars4h.length < BARS_4H_BASELINE + 1) return false;
+  const last = bars4h[bars4h.length - 1];
+  const baseline = bars4h.slice(-(BARS_4H_BASELINE + 1), -1);
+
+  const lastRange = last.h - last.l;
+  const baselineRange = mean(baseline.map((b) => b.h - b.l));
+  const baselineVolume = mean(baseline.map((b) => b.v));
+
+  if (!(baselineRange > 0) || !(baselineVolume > 0)) return false;
+  return (
+    lastRange / baselineRange >= EXCEPTIONAL_4H_RANGE_MULT &&
+    last.v / baselineVolume >= EXCEPTIONAL_4H_VOLUME_MULT
+  );
+}
+
 function coarseReversion(symbol: string, daily: Bar[]): CoarseCandidate | null {
   if (daily.length < 60) return null;
   const price = daily[daily.length - 1].c;
@@ -109,12 +151,15 @@ function coarseReversion(symbol: string, daily: Bar[]): CoarseCandidate | null {
  * The other side of the same daily bars: a trend that is still running, not one
  * stretched far enough to snap back. Scored on how much momentum is behind it,
  * because that is the whole reason to take a continuation — the gates are hard
- * (an expanding range, price holding the trend side of its mean) so the pool
- * stays small and the fills are the ones actually moving.
+ * (an expanding range, price holding the trend side of its mean, and a genuine
+ * volatility/volume spike in the past 4 hours — see `hasExceptional4hMomentum`)
+ * so the pool stays small and the fills are the ones actually moving right now,
+ * not just a name with an elevated day somewhere in its trailing average.
  */
-function coarseContinuation(symbol: string, daily: Bar[]): CoarseCandidate | null {
+function coarseContinuation(symbol: string, daily: Bar[], bars4h: Bar[]): CoarseCandidate | null {
   // Needs the full trailing window the baseline is measured over.
   if (daily.length < 120) return null;
+  if (!hasExceptional4hMomentum(bars4h)) return null;
   const price = daily[daily.length - 1].c;
   const trend = readTrend(daily, "1Day");
   if (trend.direction === "sideways") return null;
@@ -131,7 +176,7 @@ function coarseContinuation(symbol: string, daily: Bar[]): CoarseCandidate | nul
   const intact = direction === "bullish" ? price > mean20 : price < mean20;
   if (!intact) return null;
 
-  let score = 2; // cleared the expansion gate
+  let score = 3; // cleared the daily expansion gate and the 4-hour spike gate
   if (ratio >= 1.5) score += 1;
   if (ratio >= 2) score += 1;
 
@@ -211,6 +256,14 @@ async function mapWithConcurrency<T, R>(
 /** Ceiling on top-up scans, so a two-sided shortage can't run past the budget. */
 const MAX_TOPUP_SCANS = 24;
 
+/**
+ * Minimum continuation slots scouted per side on every run, regardless of
+ * whether reversions already filled that side's list to `perSide` — the
+ * market is scanned for continuations every run, not only when reversions
+ * come up short.
+ */
+const CONTINUATION_QUOTA_PER_SIDE = 2;
+
 export async function runMarketScan(universeTop = 100, perSide = 15): Promise<MarketScanOutput> {
   // The trading date the scan describes, not the UTC date it happened to run
   // on. The two diverge between 20:00 ET and midnight — a post-close re-run
@@ -221,13 +274,22 @@ export async function runMarketScan(universeTop = 100, perSide = 15): Promise<Ma
 
   const actives = await resolveUniverse(universeTop);
 
-  // Coarse pass on daily bars only — fetched once, read twice.
+  // Coarse pass — daily bars for trend/level context, plus a short window of
+  // 4-hour bars so the continuation gate can judge the last 4 hours on their
+  // own bar rather than inferring them from the daily candle.
   const yearAgo = new Date(Date.now() - 365 * 24 * 3600 * 1000);
+  const recentWeeks = new Date(Date.now() - 15 * 24 * 3600 * 1000);
   const end = new Date(Date.now() - 16 * 60 * 1000);
   const coarse = await mapWithConcurrency(actives, 8, async (symbol) => {
     try {
-      const daily = await provider.fetchBars(symbol, "1Day", yearAgo, end, "us_equity");
-      return { reversion: coarseReversion(symbol, daily), continuation: coarseContinuation(symbol, daily) };
+      const [daily, bars4h] = await Promise.all([
+        provider.fetchBars(symbol, "1Day", yearAgo, end, "us_equity"),
+        provider.fetchBars(symbol, "4Hour", recentWeeks, end, "us_equity"),
+      ]);
+      return {
+        reversion: coarseReversion(symbol, daily),
+        continuation: coarseContinuation(symbol, daily, bars4h),
+      };
     } catch {
       return { reversion: null, continuation: null };
     }
@@ -263,19 +325,29 @@ export async function runMarketScan(universeTop = 100, perSide = 15): Promise<Ma
   };
   const continuationFills = { bullish: 0, bearish: 0 };
 
-  // ---- Top-up pass: fill a short side with high-momentum continuations.
+  // ---- Continuation pass: fill a short side, and give every side a small
+  // guaranteed allotment even when reversions already filled it — a strong
+  // 4-hour spike is worth scouting regardless of whether the reversion list
+  // needed help. `shortfall` still reflects the reversion-list gap (kept for
+  // `continuationFills` accounting downstream); `target` is what actually
+  // drives how many top-up slots each side gets scanned for.
   const shortfall = {
     bullish: perSide - lists.bullish.length,
     bearish: perSide - lists.bearish.length,
   };
-  const totalShortfall = Math.max(shortfall.bullish, 0) + Math.max(shortfall.bearish, 0);
+  const target = {
+    bullish: Math.max(shortfall.bullish, CONTINUATION_QUOTA_PER_SIDE),
+    bearish: Math.max(shortfall.bearish, CONTINUATION_QUOTA_PER_SIDE),
+  };
 
-  if (totalShortfall > 0 && continuationPool.length > 0) {
+  if (continuationPool.length > 0) {
     const published = new Set([...lists.bullish, ...lists.bearish].map((r) => r.symbol));
-    const shortSides = (["bullish", "bearish"] as const).filter((d) => shortfall[d] > 0);
-    // Split the budget across the short sides so a deep shortfall on one can't
-    // consume every scan and leave the other empty.
-    const perSideBudget = Math.floor(MAX_TOPUP_SCANS / shortSides.length);
+    const shortSides = (["bullish", "bearish"] as const).filter(
+      (d) => target[d] > 0 && continuationPool.some((c) => c.direction === d),
+    );
+    // Split the budget across the sides being scanned so a deep shortfall on
+    // one can't consume every scan and leave the other empty.
+    const perSideBudget = Math.floor(MAX_TOPUP_SCANS / Math.max(shortSides.length, 1));
     // A symbol already scanned in the reversion pass told us every pattern it
     // armed. If none of them was a continuation shape in the direction we need,
     // re-scanning it cannot produce one — the preference only reorders the same
@@ -294,9 +366,9 @@ export async function runMarketScan(universeTop = 100, perSide = 15): Promise<Ma
     const fills = shortSides.flatMap((dir) =>
       continuationPool
         .filter((c) => c.direction === dir && !published.has(c.symbol) && !cannotArm(c))
-        // Over-scan the shortfall: not every candidate still arms a trigger on
+        // Over-scan the target: not every candidate still arms a trigger on
         // the execution timeframe, and the ones that don't are dropped.
-        .slice(0, Math.min(shortfall[dir] * 3, perSideBudget)),
+        .slice(0, Math.min(target[dir] * 3, perSideBudget)),
     );
 
     const scans = await mapWithConcurrency(fills, 5, (c) =>
@@ -304,11 +376,11 @@ export async function runMarketScan(universeTop = 100, perSide = 15): Promise<Ma
     );
 
     for (const dir of ["bullish", "bearish"] as const) {
-      if (shortfall[dir] <= 0) continue;
+      if (target[dir] <= 0) continue;
       const additions = scans
         .filter((r) => !r.error && isMomentumContinuation(r, dir))
         .sort((a, b) => b.decision.score - a.decision.score)
-        .slice(0, shortfall[dir]);
+        .slice(0, target[dir]);
       lists[dir] = [...lists[dir], ...additions];
       continuationFills[dir] = additions.length;
     }
