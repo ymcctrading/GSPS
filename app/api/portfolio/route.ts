@@ -7,7 +7,7 @@
 
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getOrCreateAccount, listOpenPositions, quotePrice, assetClassOf } from "@/lib/brokers/simulator";
+import { getOrCreateAccount, listOpenPositions, quotePrice, quoteOptionPrice, assetClassOf } from "@/lib/brokers/simulator";
 import { buildBlendedPositions, type RawPosition } from "@/lib/portfolio/blend";
 import { parseOccSymbol } from "@/lib/portfolio/occ";
 import type { OpenedAt } from "@/lib/portfolio/opened-at";
@@ -55,21 +55,20 @@ export async function GET() {
     ]);
 
     // One quote per held symbol. Equity/crypto reads the live feed; an option
-    // leg is marked at its own entry price for now — see the module header in
-    // lib/brokers/simulator.ts for why (no live per-contract options feed).
+    // leg tries a live per-contract quote first (see lib/brokers/simulator.ts)
+    // and falls back to the underlying's spot, then its own entry price, when
+    // no live options data is available.
     const quotes = await Promise.all(
       positionRows.map(async (p) => {
         const occ = parseOccSymbol(p.symbol);
-        if (occ) return [p.symbol, null] as const; // resolved via optionOnlyUnderlyings below
-        const price = await quotePrice(p.symbol, assetClassOf(p.symbol));
+        const price = occ ? await quoteOptionPrice(p.symbol) : await quotePrice(p.symbol, assetClassOf(p.symbol));
         return [p.symbol, price] as const;
       }),
     );
     const equityPriceMap = new Map(quotes.filter(([, price]) => price != null));
 
-    // Option legs are marked from their underlying's spot price the same way
-    // the rest of the app already models option Greeks — bounded to just the
-    // underlyings actually held, not a market-wide call.
+    // The underlying's spot, as the option leg's fallback mark — bounded to
+    // just the underlyings actually held, not a market-wide call.
     const optionUnderlyings = new Set(
       positionRows.map((p) => parseOccSymbol(p.symbol)?.underlying).filter((u): u is string => Boolean(u)),
     );
@@ -80,9 +79,10 @@ export async function GET() {
 
     const rawPositions: RawPosition[] = positionRows.map((p) => {
       const occ = parseOccSymbol(p.symbol);
-      // A live quote for the position itself (equities), else the underlying's
-      // spot as a stand-in for an option leg's mark, else the entry price —
-      // never leave a leg with no price to render at all.
+      // A live quote for the position itself (equity, crypto, or — best
+      // effort — the option contract), else the underlying's spot as a
+      // stand-in for an option leg's mark, else the entry price — never leave
+      // a leg with no price to render at all.
       const currentPrice = equityPriceMap.get(p.symbol) ?? (occ ? spotMap.get(occ.underlying) : null) ?? p.avg_entry_price;
       const signedQty = p.side === "short" ? -p.qty : p.qty;
       const marketValue = currentPrice * p.qty;

@@ -18,16 +18,16 @@
  * happens and every write below is synchronous and final.
  *
  * Scope. Equities are fully simulated: live quotes from the market-data
- * provider already used everywhere else in the app. Options are simulated too,
- * but marked at the premium the ticket already knew (the chain's last close)
- * rather than a live per-contract quote — this app has no live options
- * quote feed, only the daily `close_price` the contracts endpoint returns.
- * A position's unrealized P/L for an option leg is therefore end-of-day
- * accurate, not tick-by-tick, until a live options quote source is added.
+ * provider already used everywhere else in the app. Options try a live
+ * per-contract quote first (`quoteOptionPrice`, Alpaca's options trades
+ * endpoint) and fall back to the ticket's own known premium when that isn't
+ * available — no options market-data subscription on the account, or the
+ * contract hasn't traded recently. A leg marked from the fallback is
+ * end-of-day accurate rather than tick-by-tick.
  */
 
 import { getMarketDataProvider } from "@/lib/data/provider";
-import { isCryptoSymbol } from "@/lib/data/alpaca";
+import { isCryptoSymbol, fetchOptionLatestTrade } from "@/lib/data/alpaca";
 import { parseOccSymbol } from "@/lib/portfolio/occ";
 import type { createClient } from "@/lib/supabase/server";
 import type { AssetClass } from "@/lib/types";
@@ -160,6 +160,16 @@ export function isOption(symbol: string): boolean {
 }
 
 /**
+ * Live per-contract price for an option leg, or null when there's nothing to
+ * read — see the module header. Callers fall back to the underlying's spot
+ * or the position's entry price; never treat null as "the contract is worth
+ * nothing."
+ */
+export async function quoteOptionPrice(occSymbol: string): Promise<number | null> {
+  return fetchOptionLatestTrade(occSymbol);
+}
+
+/**
  * The result of matching a fill against the position that was open before it.
  * A fill only ever does one of three things to a position: opens/adds to one
  * that agrees with its direction, reduces one that opposes it (partial or full
@@ -244,7 +254,8 @@ export interface ExecutedFill {
   price: number;
   qty: number;
   positionId: string | null;
-  closed: FillOutcome["closed"];
+  /** The closed portion's realized P/L, plus when the position that produced it was opened. */
+  closed: (NonNullable<FillOutcome["closed"]> & { openedAt: string }) | null;
 }
 
 /**
@@ -320,7 +331,78 @@ export async function executeFill(
     positionId = inserted?.id ? String(inserted.id) : null;
   }
 
-  return { price: input.price, qty: input.qty, positionId, closed: outcome.closed };
+  return {
+    price: input.price,
+    qty: input.qty,
+    positionId,
+    closed: outcome.closed && existing ? { ...outcome.closed, openedAt: existing.opened_at } : null,
+  };
+}
+
+/**
+ * Whether a working protocol_exits plan currently owns this symbol. A closing
+ * fill against a protocol-managed position must never also get a plain
+ * trade-log write — `lib/trade/exit-manager-sim.ts` owns that log, blended
+ * across every tranche, once the whole plan finishes.
+ */
+async function hasWorkingPlan(supabase: Supabase, userId: string, symbol: string): Promise<boolean> {
+  const { data } = await supabase
+    .from("protocol_exits")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("symbol", symbol.toUpperCase())
+    .eq("status", "working")
+    .limit(1)
+    .maybeSingle();
+  return data != null;
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+/**
+ * Write the trade log for a fill that closed (all or part of) a plain,
+ * non-protocol-managed position — the case `executeFill` on its own leaves
+ * unlogged, since it has no way to know whether the caller already owns that
+ * responsibility (the dedicated "Close position" action does, and writes its
+ * own row). Used by callers where a close can happen incidentally — a plain
+ * sell placed through the order ticket, or a resting limit order filling —
+ * and nothing else would ever log it.
+ */
+export async function logPlainClose(
+  supabase: Supabase,
+  userId: string,
+  symbol: string,
+  assetClass: AssetClass,
+  fillSide: "buy" | "sell",
+  closed: NonNullable<ExecutedFill["closed"]>,
+): Promise<void> {
+  if (await hasWorkingPlan(supabase, userId, symbol)) return;
+
+  // The closing fill's side is the opposite of the position it closed: a
+  // sell closes a long (entered on a buy), a buy closes a short.
+  const direction: "buy" | "sell" = fillSide === "sell" ? "buy" : "sell";
+  const perShare = closed.qty > 0 ? closed.realizedPl / closed.qty : 0;
+  const percent = closed.entryPrice === 0 ? null : round2((perShare / closed.entryPrice) * 100);
+
+  const { error } = await supabase.from("trade_logs").insert({
+    user_id: userId,
+    symbol: symbol.toUpperCase(),
+    asset_class: assetClass === "crypto" ? "crypto" : isOption(symbol) ? "option" : "us_equity",
+    direction,
+    quantity: closed.qty,
+    entry_timestamp: closed.openedAt,
+    entry_price: closed.entryPrice,
+    exit_timestamp: new Date().toISOString(),
+    exit_price: closed.exitPrice,
+    outcome: closed.realizedPl >= 0 ? "profit" : "loss",
+    profit_loss_dollars: round2(closed.realizedPl),
+    profit_loss_percent: percent,
+    exit_condition: "manual",
+    signal_called: "manual order",
+  });
+  if (error) console.error(`simulator: trade log for ${symbol} not written — ${error.message}`);
 }
 
 /** Liquidate all (or `qty`) of an open position at the current market price. */
@@ -394,13 +476,16 @@ export async function evaluateRestingOrders(
       .maybeSingle();
     if (!claimed) continue;
 
-    await executeFill(supabase, userId, {
+    const executed = await executeFill(supabase, userId, {
       symbol,
       assetClass: assetClassOf(symbol),
       side,
       qty: Number(row.qty),
       price: limitPrice,
     });
+    if (executed.closed) {
+      await logPlainClose(supabase, userId, symbol, assetClassOf(symbol), side, executed.closed);
+    }
     filled++;
   }
   return { filled, error: null };

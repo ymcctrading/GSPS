@@ -39,12 +39,19 @@ date.
   fill's price is known the instant it happens, so the old pending → broker →
   settle two-step (`lib/portfolio/trade-log-settle.ts`, still used for live
   trading) is bypassed entirely for paper.
-- Scope for this pass: equities and crypto are fully simulated against live
-  quotes; options fill at the premium the ticket already knew (no live
-  per-contract quote feed exists in this app yet), and a plain sell order that
-  closes a position outside the dedicated "Close position" action doesn't yet
-  write its own trade-log row (the dedicated close action and every entry
-  path do).
+- **Options now try a live per-contract quote before falling back.**
+  `fetchOptionLatestTrade` (`lib/data/alpaca.ts`) reads Alpaca's options
+  trades endpoint for a market fill and for marking an open option leg's
+  P/L; the ticket's known premium, then the underlying's spot, are the
+  fallbacks when no live options data is available (no subscription on the
+  account, or the contract hasn't traded recently) — this app still has no
+  guaranteed options quote feed, only a best-effort one.
+- **A plain sell that closes a position outside the dedicated "Close
+  position" action is now logged too** — a resting limit order filling, or a
+  plain sell placed straight through the order ticket. `logPlainClose`
+  writes the trade log directly from the fill, skipping it only when a
+  working `protocol_exits` plan already owns the symbol (that log is
+  written once, blended, when the whole plan finishes).
 
 ## 2026-08-15
 

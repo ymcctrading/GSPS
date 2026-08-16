@@ -244,6 +244,25 @@ export async function fetchSnapshot(symbol: string, assetClass: AssetClass): Pro
   };
 }
 
+/**
+ * Latest trade price for one option contract (OCC symbol), or null when
+ * there's nothing to read — no options market-data subscription on this
+ * account, the contract hasn't traded, or the upstream call failed. Callers
+ * are expected to fall back (to the contract's daily close, or the ticket's
+ * own known premium) rather than treat null as an error; this app has no
+ * guaranteed options quote feed, only a best-effort one.
+ */
+export async function fetchOptionLatestTrade(occSymbol: string): Promise<number | null> {
+  try {
+    const sym = occSymbol.toUpperCase();
+    const data = await get(`/v1beta1/options/trades/latest`, { symbols: sym });
+    const p = data.trades?.[sym]?.p;
+    return typeof p === "number" ? p : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Most-active US equities by volume — the coarse universe for the daily market scan. */
 export async function fetchMostActives(top = 100): Promise<string[]> {
   const data = await get(`/v1beta1/screener/stocks/most-actives`, {

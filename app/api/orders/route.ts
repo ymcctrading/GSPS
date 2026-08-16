@@ -13,6 +13,8 @@ import {
   executeFill,
   isMarketable,
   listOpenPositions,
+  logPlainClose,
+  quoteOptionPrice,
   quotePrice,
 } from "@/lib/brokers/simulator";
 import { checkBracket } from "@/lib/trade/bracket";
@@ -238,17 +240,20 @@ export async function POST(req: NextRequest) {
   const submittedAt = Date.now();
   try {
     // Simulated fill (see lib/brokers/simulator.ts): a market order, or a
-    // limit that's already marketable, fills right here, synchronously — an
-    // option order fills at the premium the ticket already knew, since there
-    // is no live per-contract quote to check marketability against. Anything
-    // else rests as a `new` order, picked up by `evaluateRestingOrders` on the
-    // next poll once the market reaches it.
+    // limit that's already marketable, fills right here, synchronously. An
+    // option limit order fills at the price the user asked for, same as
+    // equities; an option market order tries a live per-contract quote first
+    // and falls back to the premium the ticket already knew only when no live
+    // quote is available (no options market-data subscription, or the
+    // contract hasn't traded recently). Anything that doesn't fill rests as a
+    // `new` order, picked up by `evaluateRestingOrders` on the next poll once
+    // the market reaches it.
     const fillAssetClass = assetClassOf(input.symbol);
     let fillPrice: number | null = null;
     let filled = false;
 
     if (isOption) {
-      fillPrice = submittedLimitPrice ?? input.optionDetail?.premium ?? null;
+      fillPrice = submittedLimitPrice ?? (await quoteOptionPrice(input.symbol)) ?? input.optionDetail?.premium ?? null;
       if (fillPrice == null) {
         throw new Error("No price available to fill this option order — refresh the chain and try again.");
       }
@@ -286,13 +291,20 @@ export async function POST(req: NextRequest) {
 
     let planError: string | null = null;
     if (filled) {
-      await executeFill(supabase, user.id, {
+      const executed = await executeFill(supabase, user.id, {
         symbol: input.symbol,
         assetClass: fillAssetClass,
         side: input.side,
         qty: input.qty,
         price: fillPrice!,
       });
+
+      // A plain sell placed through the ticket (not the dedicated "Close
+      // position" action) can still close or reduce an existing position —
+      // nothing else will log that trade, so it's logged right here.
+      if (executed.closed) {
+        await logPlainClose(supabase, user.id, input.symbol, fillAssetClass, input.side, executed.closed);
+      }
 
       // The plan carries the exit rules from here on. The entry already
       // filled (synchronously, above), so the split is against the real
