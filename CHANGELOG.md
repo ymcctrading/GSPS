@@ -24,12 +24,13 @@ date.
   and every run scans a small guaranteed allotment of continuation candidates
   per direction even when the reversion list already filled — reversions still
   get scanned first and keep priority.
-- **Closed positions stay visible through the next trading day's open, then
-  drop from the ledger.** The Portfolio tab's Closed Positions section no
-  longer grows without bound — `isClosedOrderVisible` hides a closed order
-  once the next trading day opens. The underlying `positions`/`trade_logs`
-  rows are never deleted, so the trade's evidence is kept; only the UI list is
-  capped.
+- **Closed positions are deleted 24 hours after they close**, not kept
+  indefinitely. `pruneClosedPositions` removes the `positions` row once
+  `closed_at` is more than a day old; `pruneClosedOrders` removes the
+  matching `orders` rows once they're filled, no longer held, and untouched
+  for 24+ hours — both run on every Portfolio/Orders poll. `trade_logs` is
+  unaffected: its `position_id`/`order_id` columns are `on delete set null`,
+  so the analytics record survives even though the raw ledger row doesn't.
 - **Intraday bars now include extended-hours trades live.** `/api/bars`
   (and the chart it feeds) omitted the `extended_hours=true` parameter on
   Alpaca bar requests, so pre/post-market prints were dropped from intraday

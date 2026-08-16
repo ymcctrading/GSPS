@@ -33,6 +33,7 @@ import {
   recordOrderExecution,
   type RecordExecutionOptions,
 } from "@/lib/learning/record";
+import { pruneClosedOrders } from "@/lib/portfolio/prune";
 
 type RecordedOrderType = RecordExecutionOptions["orderType"];
 
@@ -568,6 +569,30 @@ export async function GET() {
   const active = creds != null && orders.length > 0;
   const positions = active ? await openPositions(creds!) : null;
   const marks = markPrices(positions ?? []);
+
+  // A closed order — filled, no longer held, untouched for 24+ hours — has
+  // nothing left to show, so it's deleted rather than kept growing the
+  // ledger. `positions === null` means "we don't know what's held" (broker
+  // read failed, or paper trading isn't configured), which must not be
+  // treated as "nothing is held" — that would prune a still-open position's
+  // orders on a snapshot that never arrived, so pruning is skipped entirely
+  // until a real read succeeds.
+  if (positions !== null) {
+    const heldSymbols = new Set(positions.map((p) => p.symbol.toUpperCase()));
+    const prune = await pruneClosedOrders(supabase, user.id, heldSymbols).catch(
+      (err): { deleted: number; error: string | null; staleIds: string[] } => ({
+        deleted: 0,
+        error: err instanceof Error ? err.message : String(err),
+        staleIds: [],
+      }),
+    );
+    if (prune.error) {
+      console.error(`orders: closed-order prune — ${prune.error}`);
+    } else if (prune.staleIds.length > 0) {
+      const pruned = new Set(prune.staleIds);
+      orders = orders.filter((o) => !pruned.has(String(o.id)));
+    }
+  }
 
   // Advancing the staged exits here is what makes the trailing stop and the
   // master-target reversal real: both depend on where price has *been*, so they

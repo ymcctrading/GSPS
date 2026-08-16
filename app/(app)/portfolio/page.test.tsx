@@ -94,10 +94,7 @@ function order(o: {
     limit_price: null,
     requested_limit_price: null,
     status: o.status,
-    // A closed order only stays in the Closed Positions section through the
-    // next trading day's open (see isClosedOrderVisible), so the default has
-    // to be "now" rather than a fixed date the retention window will age out.
-    created_at: o.created_at ?? new Date().toISOString(),
+    created_at: o.created_at ?? "2026-08-01T14:30:00.000Z",
     broker_submitted_at: o.broker_submitted_at ?? null,
     reject_reason: o.reject_reason ?? null,
     filled_qty: null,

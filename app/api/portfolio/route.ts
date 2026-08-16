@@ -23,6 +23,7 @@ import {
   type LivePosition,
   type ReconcileOutcome,
 } from "@/lib/portfolio/reconcile";
+import { pruneClosedPositions } from "@/lib/portfolio/prune";
 
 /**
  * How far back to walk the fill history when deriving open timestamps.
@@ -127,6 +128,20 @@ export async function GET() {
     );
     if (reconcile.error) {
       console.error(`portfolio: position reconciliation — ${reconcile.error}`);
+    }
+
+    // A closed position has nothing left to show once it's more than 24
+    // hours old — see lib/portfolio/prune.ts. Best-effort like reconciliation
+    // above: a failed prune must not blank the portfolio being viewed right
+    // now, it just means the row survives until the next poll retries it.
+    const prune = await pruneClosedPositions(supabase, user.id).catch(
+      (err): { deleted: number; error: string | null } => ({
+        deleted: 0,
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
+    if (prune.error) {
+      console.error(`portfolio: closed-position prune — ${prune.error}`);
     }
 
     // Greeks for option legs need the underlying's spot price. An equity leg

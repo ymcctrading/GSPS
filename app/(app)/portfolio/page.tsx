@@ -268,12 +268,12 @@ export default function PortfolioPage() {
  * when it holds nothing, so an empty bucket reads as "none right now" rather
  * than vanishing from the page.
  *
- * `collapsible` sections start collapsed — Canceled grows without bound as the
- * account keeps trading, and Closed (capped through the next trading day's
- * open, see `isClosedOrderVisible`) is still routine history — neither is what
- * the page is for. Pending and Rejected are never collapsible: both describe
- * something the user may need to act on, and a count behind a chevron is a
- * count nobody reads.
+ * `collapsible` sections start collapsed — Closed and Canceled are routine
+ * history, not what the page is for; Closed also self-prunes after 24 hours
+ * (see `lib/portfolio/prune.ts`), so it never grows unbounded the way it used
+ * to. Pending and Rejected are never collapsible: both describe something the
+ * user may need to act on, and a count behind a chevron is a count nobody
+ * reads.
  * An empty collapsible section has nothing to hide, so it drops the toggle and
  * shows its empty state outright.
  */
