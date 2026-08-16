@@ -264,6 +264,18 @@ export interface ExecutedFill {
  * Cash moves by the full notional either way — a sell credits it, a buy
  * debits it — which is what makes shorting and covering both just work as
  * the mirror image of buying and selling, without a separate margin model.
+ *
+ * Known gap: the position row's read-then-write (below) isn't atomic the way
+ * `adjustCash` is. Two fills for the *same symbol* landing close together —
+ * a resting order filling on one poll while a fresh order for it is
+ * submitted on another — could each read the same starting quantity and one
+ * write would clobber the other's. Cash can never be lost this way (it's a
+ * single atomic increment regardless), only a position's quantity could
+ * under-count in that narrow window. Tranche fills within one exit plan are
+ * already race-safe (see the claim in `lib/trade/exit-manager-sim.ts`); this
+ * is the same class of race one level up, across independent order sources
+ * for the same symbol, and would need the position write to move through an
+ * atomic increment the same way cash does to close fully.
  */
 export async function executeFill(
   supabase: Supabase,
