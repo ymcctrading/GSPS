@@ -36,12 +36,21 @@ async function runAndPersist() {
     // role key, most likely — rather than the write being rejected.
     persistError = describeDbError(err);
   }
-  if (persistError) console.error(`market-scan: ${output.scanDate} not saved — ${persistError}`);
+  if (persistError) {
+    // `scanErrors` distinguishes "the feed failed for most/all of the
+    // shortlist" from "everything scanned cleanly and just didn't arm" —
+    // the two produce the identical publish-side message otherwise.
+    console.error(
+      `market-scan: ${output.scanDate} not saved — ${persistError} ` +
+        `[shortlisted=${output.shortlisted} scanErrors=${output.scanErrors}]`,
+    );
+  }
 
   return NextResponse.json({
     scanDate: output.scanDate,
     universeSize: output.universeSize,
     shortlisted: output.shortlisted,
+    scanErrors: output.scanErrors,
     continuationFills: output.continuationFills,
     bullish: output.bullish.map((r) => ({ symbol: r.symbol, score: r.decision.score, state: r.decision.outputState })),
     bearish: output.bearish.map((r) => ({ symbol: r.symbol, score: r.decision.score, state: r.decision.outputState })),
