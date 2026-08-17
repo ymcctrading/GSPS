@@ -173,7 +173,7 @@ GSPS is a comprehensive trading application built with Next.js, Supabase, and Al
 - `/dashboard` - Main trading dashboard
 - `/scanner` - Market scan interface
 - `/portfolio` - Portfolio management
-- `/ticker/[symbol]` - Individual stock analysis
+- `/ticker/[...symbol]` - Individual stock analysis (catch-all route so symbols like BTC/USD route correctly)
 - `/settings` - User configuration
 - `/glossary` - Educational resources
 

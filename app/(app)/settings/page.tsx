@@ -106,9 +106,9 @@ export default function SettingsPage() {
         <CardContent>
           <ul className="grid gap-2 text-sm sm:grid-cols-2">
             <li className="rounded-lg border border-border bg-background px-4 py-3">Recommended stop: <span className="font-medium">12–18% of price paid</span></li>
-            <li className="rounded-lg border border-border bg-background px-4 py-3">Take profit 1: <span className="font-medium">2 : 1 reward-to-risk</span></li>
-            <li className="rounded-lg border border-border bg-background px-4 py-3">Master profit: <span className="font-medium">3 : 1 reward-to-risk</span></li>
-            <li className="rounded-lg border border-border bg-background px-4 py-3">Execute threshold: <span className="font-medium">score 7+ of 9</span></li>
+            <li className="rounded-lg border border-border bg-background px-4 py-3">Take profit 1: <span className="font-medium">~1.5 : 1 reward-to-risk</span> default, or the prior candle&rsquo;s high/low if that structural level sits further out</li>
+            <li className="rounded-lg border border-border bg-background px-4 py-3">Master profit: <span className="font-medium">~2.5 : 1 (equities) to 3 : 1 (crypto)</span>, snapped to the nearest structural or harmonic level in range</li>
+            <li className="rounded-lg border border-border bg-background px-4 py-3">Execute threshold: <span className="font-medium">score 7+ of 9, with an armed trade plan</span> — a 7+ score with no valid entry/stop/target stays at Watch</li>
           </ul>
         </CardContent>
       </Card>
