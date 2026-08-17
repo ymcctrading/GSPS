@@ -31,6 +31,23 @@ date.
   scanner had been surfacing sub-$1 names alongside megacaps with nothing on the
   row to distinguish them.
 
+### Security
+- **Cleared the database security advisors** (migration 0014). The three
+  `learning_*` tables are service-role-only and had RLS enabled with no
+  policies, which denies everything — correct, but indistinguishable from an
+  oversight. They now carry an explicit restrictive `using (false)` policy for
+  `anon` and `authenticated`, and the table grants for those roles are revoked
+  so the denial survives RLS ever being switched off by accident. Effective
+  access is unchanged: the service role does not consult policies.
+- `pg_net` was registered against the `public` schema. All twelve of its
+  functions actually live in `net`, so nothing callable sat on the public search
+  path, but the registration is what governs where a future version would put
+  things. It is non-relocatable, so it was dropped and recreated into
+  `extensions` inside one transaction. Nothing depended on it — no cron jobs, no
+  database webhooks, no referencing function bodies.
+- Migration 0013's policy statement is now re-runnable (`drop policy if
+  exists` ahead of the `create`), matching what was applied to the database.
+
 ### Changed
 - Order placement moved out of the `/api/orders` route handler into
   `lib/trade/place-order.ts`, so Guided Mode submits through exactly the same

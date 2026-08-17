@@ -90,6 +90,10 @@ create index if not exists guided_recs_symbol_idx
 
 alter table public.guided_recommendations enable row level security;
 
+-- Dropped first so the whole migration is re-runnable: every other statement
+-- here is `if not exists`, and a bare `create policy` would be the one line
+-- that fails on a second application.
+drop policy if exists "own guided recommendations" on public.guided_recommendations;
 create policy "own guided recommendations" on public.guided_recommendations
   for all using (auth.uid () = user_id) with check (auth.uid () = user_id);
 
