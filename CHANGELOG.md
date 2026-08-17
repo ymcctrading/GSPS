@@ -7,6 +7,39 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-08-17
+
+### Fixed
+- **The market scanner had produced zero results for 72 hours and had grown
+  from ~5s to 60s+ per run.** Two compounding regressions:
+  - `runMarketScan` fetches bars one HTTP request per symbol per timeframe —
+    ~700 Alpaca requests for a full scan (100-symbol coarse pass × 2
+    timeframes, up to 60 shortlisted symbols × 6 requests, up to 24 top-up
+    scans × 6 requests). A rate limiter added in #68 to stop recurring 429s
+    (`lib/data/http.ts`) correctly throttles that volume to Alpaca's real
+    ~150-200/min cap, but that makes the *total* volume the actual problem:
+    at the throttled rate the scan takes minutes, and the route silently
+    outlives Vercel Hobby's 60s function ceiling before it can persist
+    results — every cron run died mid-scan with nothing saved, though the
+    logs gave no indication anything was wrong.
+  - Fixed by batching: `fetchBarsBatch` (`lib/data/alpaca.ts`) fetches many
+    symbols' bars for one timeframe in a single Alpaca request (it accepts a
+    comma-separated symbol list), and `fetchAllTimeframesBatch`
+    (`lib/data/provider.ts`) does this across all five scan timeframes at
+    once for a symbol set. `runMarketScan`'s coarse, full, and continuation
+    passes now batch-fetch up front instead of looping `scanTicker`/
+    `fetchBars` per symbol; `scanTicker` accepts the pre-fetched bars and
+    skips its own fetch when given them. Cuts a full scan from ~700 requests
+    to roughly 100, comfortably finishing well inside both Alpaca's rate
+    limit and the 60s function cap.
+  - A separate, already-fixed regression (`extended_hours=true` added to
+    intraday bar requests on 2026-08-15, which Alpaca's bars endpoint
+    rejects with a 400) had been the actual cause of the empty results for
+    the ~36 hours before the rate limiter landed; scans were completing
+    fast but every bar fetch was failing and getting swallowed into an
+    empty result set. Removed the param — it's an order-placement field, not
+    a bars-query one.
+
 ## 2026-08-16
 
 ### Fixed
