@@ -53,7 +53,7 @@ export default function LandingPage() {
           <p className="mx-auto mt-5 max-w-xl text-lg text-muted">
             GSPS combines structural market analysis with a precision entry engine —
             objective entries, structural stops, and a daily list of the market&apos;s
-            thirty most primed reversion setups.
+            most primed reversion setups.
           </p>
           <div className="mt-8 flex justify-center gap-3">
             <Link href="/signup">

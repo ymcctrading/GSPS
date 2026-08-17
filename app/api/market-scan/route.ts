@@ -1,11 +1,11 @@
 /**
  * GSPS — /api/market-scan
- * Runs the daily market-wide scan (up to 15 bullish + 15 bearish reversions,
- * plus a small guaranteed allotment of momentum continuations scouted on every
- * run — see lib/marketScan.ts) and persists results to Supabase. Invoked by
- * Vercel Cron (Authorization: Bearer CRON_SECRET) or manually with the same
- * header. A side short of 15 is topped up with continuations rather than
- * padded.
+ * Runs the daily market-wide scan (up to `perSide` bullish + `perSide` bearish
+ * reversions, plus a small guaranteed allotment of momentum continuations
+ * scouted on every run — see lib/marketScan.ts) and persists results to
+ * Supabase. Invoked by Vercel Cron (Authorization: Bearer CRON_SECRET) or
+ * manually with the same header. A side short of `perSide` is topped up with
+ * continuations rather than padded.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -13,7 +13,12 @@ import { runMarketScan } from "@/lib/marketScan";
 import { buildScanRows, describeDbError, persistDailyScans } from "@/lib/scan/publish";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 
-export const maxDuration = 300;
+// The Vercel Hobby plan hard-caps function execution at 60s regardless of
+// what this says — a higher value here is silently unenforced, not granted.
+// runMarketScan's defaults are sized to finish well inside this ceiling; see
+// the budget comment on `runMarketScan` in lib/marketScan.ts before raising
+// either number.
+export const maxDuration = 60;
 
 async function runAndPersist() {
   const output = await runMarketScan();
