@@ -33,6 +33,16 @@ import { squareOf9Levels } from "@/lib/gann/squareOf9";
 import { CONTINUATION_PATTERNS } from "@/lib/strat/patterns";
 import { scanTicker } from "@/lib/scanTicker";
 import { MAG7, SECTORS } from "@/lib/sectors";
+import { envCreds, getAsset } from "@/lib/brokers/alpaca";
+
+/**
+ * SEC's own line for a "penny stock" is under $5, and it doubles as a proxy
+ * for the wide spreads and thin, unreliable borrow that make this whole
+ * price band a bad fit for a bracket-order protocol regardless of how the
+ * pattern scores. Distinct from the liquidity/volume gate reverted in
+ * 6a34f33 — this is a hard price floor, not a volume coin flip, so it stays.
+ */
+export const MIN_SCAN_PRICE = 5;
 
 // Fallback universe when the most-actives screener is unavailable (some Alpaca
 // plans don't include it): the curated sector lists, equities only.
@@ -114,9 +124,10 @@ export function hasExceptional4hMomentum(bars4h: Bar[]): boolean {
   );
 }
 
-function coarseReversion(symbol: string, daily: Bar[]): CoarseCandidate | null {
+export function coarseReversion(symbol: string, daily: Bar[]): CoarseCandidate | null {
   if (daily.length < 60) return null;
   const price = daily[daily.length - 1].c;
+  if (price < MIN_SCAN_PRICE) return null;
   const trend = readTrend(daily, "1Day");
   if (trend.direction === "sideways") return null;
 
@@ -156,11 +167,12 @@ function coarseReversion(symbol: string, daily: Bar[]): CoarseCandidate | null {
  * so the pool stays small and the fills are the ones actually moving right now,
  * not just a name with an elevated day somewhere in its trailing average.
  */
-function coarseContinuation(symbol: string, daily: Bar[], bars4h: Bar[]): CoarseCandidate | null {
+export function coarseContinuation(symbol: string, daily: Bar[], bars4h: Bar[]): CoarseCandidate | null {
   // Needs the full trailing window the baseline is measured over.
   if (daily.length < 120) return null;
   if (!hasExceptional4hMomentum(bars4h)) return null;
   const price = daily[daily.length - 1].c;
+  if (price < MIN_SCAN_PRICE) return null;
   const trend = readTrend(daily, "1Day");
   if (trend.direction === "sideways") return null;
 
@@ -251,6 +263,30 @@ async function mapWithConcurrency<T, R>(
   }
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
   return results;
+}
+
+/**
+ * A "Sell" row means short shares — that is what the order ticket's Protocol
+ * Recommended mode puts up first. Alpaca will not borrow every listed name
+ * (small caps especially), and a row the broker will reject on submission is
+ * not a trade plan, whatever the pattern scored. Checked only for the bearish
+ * list; going long never needs a borrow. Unknown/unreachable broker fails
+ * open, same direction as the /api/assets preflight the order ticket itself
+ * uses — better an occasional non-shortable row than the whole list going
+ * dark because the broker call failed.
+ */
+export async function filterShortable(results: ScanResult[]): Promise<ScanResult[]> {
+  const creds = envCreds("paper");
+  if (!creds) return results;
+  const checked = await mapWithConcurrency(results, 8, async (r) => {
+    try {
+      const asset = await getAsset(creds, r.symbol);
+      return asset.shortable ? r : null;
+    } catch {
+      return r;
+    }
+  });
+  return checked.filter((r): r is ScanResult => r !== null);
 }
 
 /** Ceiling on top-up scans, so a two-sided shortage can't run past the budget. */
@@ -406,6 +442,8 @@ export async function runMarketScan(universeTop = 100, perSide = 15): Promise<Ma
       continuationFills[dir] = additions.length;
     }
   }
+
+  lists.bearish = await filterShortable(lists.bearish);
 
   return {
     scanDate,

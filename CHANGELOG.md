@@ -9,6 +9,26 @@ date.
 
 ## 2026-08-17
 
+### Fixed
+- **The daily market scan kept ranking sub-$5 penny stocks (OSRH, GRAB, …)
+  alongside real setups, and could rank a "Sell" setup on a symbol Alpaca
+  won't let anyone short (ONDS scored 7/9 "Execute" the same day its own
+  order ticket refused the short and pointed at a put instead).** Neither
+  gate had ever existed in `runMarketScan` — the only prior liquidity/volume
+  gate was reverted in `6a34f33` for unrelated reasons (it coin-flipped on
+  volume, not price or borrow), and shortability was checked only client-side,
+  lazily, in the order ticket, never during scanning/ranking. Added two
+  independent gates in `lib/marketScan.ts`: a flat `MIN_SCAN_PRICE` ($5, the
+  SEC's own penny-stock line) applied in the coarse pass before either setup
+  kind is scored, and `filterShortable`, which checks Alpaca's per-symbol
+  `shortable` flag for the bearish list only (going long never needs a
+  borrow) and drops rows the broker would reject on submission. Both fail
+  toward showing a shorter, honest list rather than a padded one: an
+  unreachable broker leaves the shortability check open (same direction as
+  the `/api/assets` preflight the ticket already uses) instead of blanking
+  the whole bearish list. Tests added
+  (`lib/__tests__/market-scan-filters.test.ts`).
+
 ### Added
 - **Short and Manual Override orders can now carry a staged, managed exit.**
   Protocol Recommended shorts attach the protocol's stop/TP1/master the same
