@@ -379,6 +379,13 @@ export interface MarketScanOutput {
   continuationFills: { bullish: number; bearish: number };
   /** Per-symbol coarse-gate diagnostics for later threshold calibration. */
   coarseTelemetry: CoarseTelemetryRow[];
+  /**
+   * Of `shortlisted` full-pass scans, how many came back with `.error` set —
+   * a provider/data failure, not a symbol that was scanned and found clean.
+   * An empty day where this is near `shortlisted` means the feed failed, not
+   * that nothing armed; the two look identical in the published lists alone.
+   */
+  scanErrors: number;
 }
 
 async function mapWithConcurrency<T, R>(
@@ -499,6 +506,7 @@ export async function runMarketScan(universeTop = 100, perSide = 15): Promise<Ma
     scanTicker(c.symbol, undefined, undefined, shortlistBars.get(c.symbol.toUpperCase())),
   );
   const valid = full.filter((r) => !r.error);
+  const scanErrors = full.length - valid.length;
 
   // The daily lists are trade plans, not a watchlist. A symbol only earns a row
   // when the execution timeframe actually armed a pattern in that direction and
@@ -622,5 +630,6 @@ export async function runMarketScan(universeTop = 100, perSide = 15): Promise<Ma
     shortlisted: shortlist.length,
     continuationFills,
     coarseTelemetry,
+    scanErrors,
   };
 }
