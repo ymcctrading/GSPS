@@ -139,13 +139,12 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // The user agreed to a number of shares, and the re-derived size can only be
-  // honoured downwards: a size that has grown since the card was rendered is
-  // more risk than was confirmed, so the agreed quantity stands.
-  const qty = Math.min(sized.qty, rec.qty);
-  if (qty < rec.qty) {
-    // Sizing down is a change to what was confirmed, so it is refused rather
-    // than quietly placed smaller. The user re-taps a card that says the truth.
+  // The size the user confirmed is the size that gets placed. A re-derived size
+  // that has *grown* changes nothing — the agreed quantity stands, because more
+  // risk than was confirmed is not what was confirmed. One that has shrunk is
+  // refused rather than quietly placed smaller, and the user re-taps a card that
+  // says the truth.
+  if (sized.qty < rec.qty) {
     return NextResponse.json(
       {
         error:
@@ -156,11 +155,39 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // ---- Claim the recommendation before placing anything.
+  //
+  // Every check above is a read, so two taps arriving together — a double tap,
+  // a second tab, a retried request — would both pass them and both place an
+  // order. The claim is a conditional write: `status = 'shown'` is the guard, so
+  // exactly one request can flip it, and the loser is told the recommendation is
+  // already resolved instead of buying the position twice. Same shape as the
+  // `attach_claimed_at` claim in migration 0009, and for the same reason.
+  //
+  // It is claimed as `executed` rather than an interim state so that a crash
+  // between here and the order leaves it resolved rather than tappable. The
+  // failure path below puts it back.
+  const claimedAt = new Date().toISOString();
+  const { data: claimed } = await supabase
+    .from("guided_recommendations")
+    .update({ status: "executed", resolved_at: claimedAt })
+    .eq("id", rec.id)
+    .eq("user_id", user.id)
+    .eq("status", "shown")
+    .select("id");
+
+  if (!claimed || claimed.length === 0) {
+    return NextResponse.json(
+      { error: "This recommendation was already acted on. Refresh for the current list.", code: "already_resolved" },
+      { status: 409 },
+    );
+  }
+
   const placed = await placeSimulatedOrder(supabase, user.id, {
     symbol: rec.symbol,
     assetClass: "equity",
     side: "buy",
-    qty,
+    qty: rec.qty,
     // At the protocol's entry price, exactly as the "Protocol Recommended" path
     // does from the ticket — never a market order at whatever is on the screen.
     entryMode: "advised",
@@ -175,16 +202,27 @@ export async function POST(req: NextRequest) {
   });
 
   if (placed.status >= 400) {
+    // The claim was optimistic and no order exists, so it is released back to
+    // `shown` — a refused order the user can fix (a bad tick, a transient feed
+    // failure) should not cost them the recommendation. The expiry still bounds
+    // how long that second chance lasts.
+    await supabase
+      .from("guided_recommendations")
+      .update({
+        status: "shown",
+        resolved_at: null,
+        resolution_note: `Order refused at ${claimedAt}: ${String((placed.body as { error?: string }).error ?? "unknown error")}`,
+      })
+      .eq("id", rec.id)
+      .eq("user_id", user.id)
+      .eq("status", "executed");
     return NextResponse.json(placed.body, { status: placed.status });
   }
 
+  // Already claimed as executed above; this attaches the order it produced.
   await supabase
     .from("guided_recommendations")
-    .update({
-      status: "executed",
-      resolved_at: new Date().toISOString(),
-      order_id: placed.orderId ?? null,
-    })
+    .update({ order_id: placed.orderId ?? null })
     .eq("id", rec.id)
     .eq("user_id", user.id);
 
