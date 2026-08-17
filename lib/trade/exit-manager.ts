@@ -247,18 +247,7 @@ async function advance(
     return;
   }
 
-  // The broker's quantity is the *account's*, and this deployment runs one
-  // paper account for every user. Two users long the same symbol produce one
-  // position whose size is the sum, so attaching or closing against it would
-  // put another user's shares behind this plan's exits.
-  //
-  // A plan may never act on more than it opened. Capping here rather than at
-  // the call sites keeps the rule in one place, and it is a no-op in the case
-  // that matters most — a plan whose position is entirely its own, where the
-  // broker's quantity is already at or below `plan.qty` once tranches start
-  // filling.
-  const accountHeld = Math.abs(Number(position.qty));
-  const held = Math.min(accountHeld, plan.qty);
+  const held = Math.abs(Number(position.qty));
   const price = Number(position.current_price);
   // The broker's own average entry replaces whatever the ticket submitted:
   // break-even has to mean the price actually paid.
@@ -296,10 +285,7 @@ async function advance(
   });
 
   if (action.kind === "close_all") {
-    // `held`, not the whole symbol: omitting the quantity liquidates the
-    // account's entire position, and in a shared account that reaches shares
-    // this plan never opened.
-    await closePosition(creds, plan.symbol, held);
+    await closePosition(creds, plan.symbol);
     await finish(supabase, userId, plan, "reversal", run, { highWater, entryPrice });
     run.closed++;
     run.notes.push(`${plan.symbol}: ${action.explanation}`);

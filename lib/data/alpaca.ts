@@ -11,6 +11,7 @@
 import type { AssetClass, Bar, Timeframe } from "@/lib/types";
 import type { MarketDataProvider } from "./provider";
 import { cachedFetch, fetchWithRetry, MarketDataError } from "./http";
+import { INTRADAY_TFS } from "@/lib/timeframe";
 
 const DATA_BASE = "https://data.alpaca.markets";
 
@@ -164,6 +165,10 @@ export async function fetchBars(
   if (!crypto) {
     base.adjustment = "split";
     base.feed = "iex";
+    // Without this, Alpaca drops pre/post-market trades from intraday bars
+    // entirely — they only reappear the next day once the daily bar backfills
+    // from the consolidated tape. Daily+ candles ignore the flag either way.
+    if (INTRADAY_TFS.includes(timeframe)) base.extended_hours = "true";
   }
 
   const collected: Bar[] = [];
@@ -237,6 +242,25 @@ export async function fetchSnapshot(symbol: string, assetClass: AssetClass): Pro
     dailyClose: snap.dailyBar?.c ?? null,
     prevClose: snap.prevDailyBar?.c ?? null,
   };
+}
+
+/**
+ * Latest trade price for one option contract (OCC symbol), or null when
+ * there's nothing to read — no options market-data subscription on this
+ * account, the contract hasn't traded, or the upstream call failed. Callers
+ * are expected to fall back (to the contract's daily close, or the ticket's
+ * own known premium) rather than treat null as an error; this app has no
+ * guaranteed options quote feed, only a best-effort one.
+ */
+export async function fetchOptionLatestTrade(occSymbol: string): Promise<number | null> {
+  try {
+    const sym = occSymbol.toUpperCase();
+    const data = await get(`/v1beta1/options/trades/latest`, { symbols: sym });
+    const p = data.trades?.[sym]?.p;
+    return typeof p === "number" ? p : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Most-active US equities by volume — the coarse universe for the daily market scan. */

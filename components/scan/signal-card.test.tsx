@@ -31,7 +31,7 @@ const inputs: ScoreInputs = {
   macroTrends: [trend("bearish"), trend("bearish"), trend("bullish")],
   hourlyTrend: trend("bullish"),
   gann: {
-    fanLines: [{ angle: "1x4 (high)", price: 101, distancePct: 0.4 }],
+    fanLines: [{ angle: "1x4 (high)", price: 101, distancePct: 0.4, role: "resistance" }],
     squareOf9: [],
     timeCycleActive: false,
     timeCycleDates: [],

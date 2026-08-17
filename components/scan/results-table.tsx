@@ -61,7 +61,7 @@ export function ResultsTable({ rows, emptyText }: { rows: ScanRow[]; emptyText?:
                 <>
                   {r.patternName ? `${r.patternName} ` : ""}
                   <span className={r.direction === "bullish" ? "text-bull" : r.direction === "bearish" ? "text-bear" : ""}>
-                    {r.direction !== "none" ? r.direction : "—"}
+                    {r.direction === "bullish" ? "Buy" : r.direction === "bearish" ? "Sell" : "—"}
                   </span>
                   {/* A continuation trades WITH the trend the rest of the list
                       is fading, so it can't read as just another row. */}

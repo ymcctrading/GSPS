@@ -50,7 +50,9 @@ describe("killSwitchRefusal", () => {
     const refusal = killSwitchRefusal();
 
     expect(refusal?.code).toBe("trading_disabled");
-    // The user needs to know their existing positions weren't touched.
+    // The user needs to know their existing positions weren't touched. The
+    // simulator fills synchronously, so a refusal is genuinely all-or-nothing:
+    // there is no accepted-but-unfilled order left in limbo behind it.
     expect(refusal?.error).toMatch(/positions and resting orders .* are untouched/);
   });
 });

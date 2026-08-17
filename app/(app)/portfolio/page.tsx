@@ -127,37 +127,14 @@ export default function PortfolioPage() {
 
       {portfolio && (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <Stat
-            label="Position value"
-            value={formatUsd(portfolio.account.equity)}
-            hint="The market value of your open positions."
-          />
+          <Stat label="Equity" value={formatUsd(portfolio.account.equity)} />
           <Stat
             label="Today"
             value={formatPct(portfolio.account.dayPlPct)}
             tone={portfolio.account.dayPlPct >= 0 ? "bull" : "bear"}
-            hint="Intraday P/L across your positions."
           />
-          {/*
-            Cash and buying power belong to the shared paper account rather than
-            to any one user, so they are reported as unavailable instead of
-            being split into a number that would look personal and is in fact
-            spendable by everyone. They return when accounts are per-user.
-          */}
-          <Stat
-            label="Cash"
-            value={portfolio.account.cash == null ? "—" : formatUsd(portfolio.account.cash)}
-            hint="Not available while the paper account is shared."
-          />
-          <Stat
-            label="Buying power"
-            value={
-              portfolio.account.buyingPower == null
-                ? "—"
-                : formatUsd(portfolio.account.buyingPower)
-            }
-            hint="Not available while the paper account is shared."
-          />
+          <Stat label="Cash" value={formatUsd(portfolio.account.cash)} />
+          <Stat label="Buying power" value={formatUsd(portfolio.account.buyingPower)} />
         </div>
       )}
 
@@ -291,10 +268,12 @@ export default function PortfolioPage() {
  * when it holds nothing, so an empty bucket reads as "none right now" rather
  * than vanishing from the page.
  *
- * `collapsible` sections start collapsed — Closed and Canceled grow without
- * bound as the account keeps trading, and neither is what the page is for.
- * Pending and Rejected are never collapsible: both describe something the user
- * may need to act on, and a count behind a chevron is a count nobody reads.
+ * `collapsible` sections start collapsed — Closed and Canceled are routine
+ * history, not what the page is for; Closed also self-prunes after 24 hours
+ * (see `lib/portfolio/prune.ts`), so it never grows unbounded the way it used
+ * to. Pending and Rejected are never collapsible: both describe something the
+ * user may need to act on, and a count behind a chevron is a count nobody
+ * reads.
  * An empty collapsible section has nothing to hide, so it drops the toggle and
  * shows its empty state outright.
  */
@@ -462,18 +441,7 @@ function Line({ label, value, tone }: { label: string; value: string; tone?: "bu
   );
 }
 
-function Stat({
-  label,
-  value,
-  tone,
-  hint,
-}: {
-  label: string;
-  value: string;
-  tone?: "bull" | "bear";
-  /** One line saying what the number covers — or why there isn't one. */
-  hint?: string;
-}) {
+function Stat({ label, value, tone }: { label: string; value: string; tone?: "bull" | "bear" }) {
   return (
     <Card>
       <CardContent className="p-4">
@@ -487,7 +455,6 @@ function Stat({
         >
           {value}
         </p>
-        {hint && <p className="mt-1 text-xs text-muted">{hint}</p>}
       </CardContent>
     </Card>
   );

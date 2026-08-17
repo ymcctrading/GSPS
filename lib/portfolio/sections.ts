@@ -20,6 +20,9 @@
  *              alongside routine cancellations is how a rejected order goes
  *              unnoticed.
  *   Closed   — filled and no longer held: a position that was exited/settled.
+ *              A closed order's row is deleted outright once it's more than
+ *              24 hours old — see `lib/portfolio/prune.ts` — so this section
+ *              only ever shows what the database still has.
  *   Unfilled — ended without filling and without being refused: cancelled,
  *              expired, replaced, done for day. Routine endings, kept
  *              distinguishable inside the section by disposition.

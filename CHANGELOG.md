@@ -7,6 +7,98 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-08-16
+
+### Fixed
+- **Paper trading is now simulated per-user instead of sharing one real Alpaca
+  paper account across every signed-in user.** A brand-new signup landed in
+  the same portfolio as every other account — the same shares, the same cash,
+  the same open positions — because every "paper" route resolved credentials
+  from a single set of server env vars (`envCreds("paper")`) rather than
+  anything user-specific. `lib/brokers/simulator.ts` replaces that: a market
+  order (or a marketable limit) fills synchronously against the live
+  market-data feed already used elsewhere in the app, debits/credits a new
+  per-user `paper_accounts.cash` balance, and writes straight to this app's
+  own `positions`/`orders` tables — both already RLS-scoped by `user_id`, the
+  same isolation every other per-user table relies on. A non-marketable limit
+  order rests and is evaluated against live price on each poll
+  (`evaluateRestingOrders`).
+- The staged protocol exit (60% at TP1, 20% at the master target, the rest on
+  a trailing stop — see the 2026-08-13 entry) is reworked for the simulator in
+  `lib/trade/exit-manager-sim.ts`: since there's no external broker for the
+  profit tranches to rest at, each tranche's fill is evaluated and executed
+  directly against live price on every poll, using the same rule logic
+  (`lib/trade/protocol-exit.ts`) unchanged. A conditional claim on each
+  tranche's order-id column stops two overlapping polls from double-filling
+  (and double-crediting cash for) the same tranche.
+- Cash updates move through a single atomic `increment_paper_cash` Postgres
+  function (migration `0011`) rather than a read-then-write from application
+  code, which would otherwise lose an update when two fills for the same user
+  land close together.
+- Trade logs for paper trades are now written already settled — a simulated
+  fill's price is known the instant it happens, so the old pending → broker →
+  settle two-step (`lib/portfolio/trade-log-settle.ts`, still used for live
+  trading) is bypassed entirely for paper.
+- **Options now try a live per-contract quote before falling back.**
+  `fetchOptionLatestTrade` (`lib/data/alpaca.ts`) reads Alpaca's options
+  trades endpoint for a market fill and for marking an open option leg's
+  P/L; the ticket's known premium, then the underlying's spot, are the
+  fallbacks when no live options data is available (no subscription on the
+  account, or the contract hasn't traded recently) — this app still has no
+  guaranteed options quote feed, only a best-effort one.
+- **A plain sell that closes a position outside the dedicated "Close
+  position" action is now logged too** — a resting limit order filling, or a
+  plain sell placed straight through the order ticket. `logPlainClose`
+  writes the trade log directly from the fill, skipping it only when a
+  working `protocol_exits` plan already owns the symbol (that log is
+  written once, blended, when the whole plan finishes).
+- **Position writes are now atomic too.** `execute_position_fill` (migration
+  `0012`) locks the position row with `for update` for the length of a fill,
+  closing the same class of race `adjustCash` closed for cash: two fills for
+  the same user+symbol landing close together — a resting order filling on
+  one poll while a fresh order for it is submitted on another — now
+  serialize on the lock instead of one clobbering the other's read.
+  `exit-manager-sim.ts`'s tranche fills go through the same atomic path
+  instead of duplicating the position/cash mutation.
+
+## 2026-08-15
+
+### Added
+- **Structural levels now say support or resistance, not just "structural."**
+  Gann fan lines and Square-of-9 levels carry a `role` — support while price
+  sits above the line, resistance while below — computed fresh from current
+  price so the label never goes stale as price crosses it. Every proximity
+  criterion's note also says which timeframe the level is best used on
+  (daily structure for fan/harmonic levels, the level's own timeframe for
+  historical S/R), matching how the scan pipeline already separates macro
+  context from execution timing.
+- **Continuations are scouted every scan, not only when reversions fall
+  short.** The coarse continuation gate now requires a genuine range *and*
+  volume spike in the most recently closed 4-hour bar (`hasExceptional4hMomentum`),
+  and every run scans a small guaranteed allotment of continuation candidates
+  per direction even when the reversion list already filled — reversions still
+  get scanned first and keep priority.
+- **Closed positions are deleted 24 hours after they close**, not kept
+  indefinitely. `pruneClosedPositions` removes the `positions` row once
+  `closed_at` is more than a day old; `pruneClosedOrders` removes the
+  matching `orders` rows once they're filled, no longer held, and untouched
+  for 24+ hours — both run on every Portfolio/Orders poll. `trade_logs` is
+  unaffected: its `position_id`/`order_id` columns are `on delete set null`,
+  so the analytics record survives even though the raw ledger row doesn't.
+- **Intraday bars now include extended-hours trades live.** `/api/bars`
+  (and the chart it feeds) omitted the `extended_hours=true` parameter on
+  Alpaca bar requests, so pre/post-market prints were dropped from intraday
+  candles entirely and only reappeared the next day once the daily bar
+  backfilled from the consolidated tape. Pre/post-market now shows up on the
+  chart as it happens.
+
+### Changed
+- **"Bullish"/"bearish" setup labels read as "Buy"/"Sell"** wherever the UI is
+  telling someone which side to trade — the dashboard, results table, signal
+  card, order ticket, and automation directional-bias control. Trend-context
+  displays (the multi-timeframe trend grid) are unchanged, since a trend
+  reading isn't a trade instruction.
+
 ## 2026-08-13
 
 ### Added

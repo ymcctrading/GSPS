@@ -19,6 +19,7 @@ import { describeDataError } from "@/lib/data/http";
 import { fetchAllTimeframes, getMarketDataProvider } from "@/lib/data/provider";
 import { readTrend } from "@/lib/analysis/trend";
 import { atr } from "@/lib/analysis/pivots";
+import { levelRole } from "@/lib/analysis/levelRole";
 import { computeFanLines } from "@/lib/gann/fans";
 import { squareOf9Levels } from "@/lib/gann/squareOf9";
 import { timeCycles } from "@/lib/gann/timeCycles";
@@ -36,7 +37,7 @@ import {
   FALLBACK_SR_PCT,
   SR_PROXIMITY_ATR,
   atrPercentOfPrice,
-  nearAnyLevel,
+  nearestLevelMatch,
   proximityBandPct,
 } from "@/lib/scoring/proximity";
 import { getActiveCriterionWeights } from "@/lib/scoring/active-weights";
@@ -95,15 +96,17 @@ export async function scanTicker(
     const cycles = timeCycles(daily);
 
     const gann: GannLevels = {
-      fanLines: fanLines.slice(0, 6).map(({ angle, price, distancePct }) => ({
+      fanLines: fanLines.slice(0, 6).map(({ angle, price, distancePct, role }) => ({
         angle,
         price: Math.round(price * 100) / 100,
         distancePct,
+        role,
       })),
-      squareOf9: s9.slice(0, 6).map(({ degree, price, distancePct }) => ({
+      squareOf9: s9.slice(0, 6).map(({ degree, price, distancePct, role }) => ({
         degree,
         price: Math.round(price * 100) / 100,
         distancePct,
+        role,
       })),
       timeCycleActive: cycles.active,
       timeCycleDates: cycles.dates,
@@ -195,10 +198,18 @@ export async function scanTicker(
     }
 
     // ---- Supporting signals
+    //
+    // Each level keeps the timeframe it was read off — the flat number-only
+    // list this used to be threw that away, so the "near S/R" criterion could
+    // never say more than yes/no. See lib/analysis/levelRole.ts for why the
+    // originating timeframe is what tells a trader how to use the level.
     const allLevels = [
-      ...dailyTrend.support, ...dailyTrend.resistance,
-      ...weeklyTrend.support, ...weeklyTrend.resistance,
-      ...monthlyTrend.support, ...monthlyTrend.resistance,
+      ...dailyTrend.support.map((price) => ({ price, timeframe: dailyTrend.timeframe })),
+      ...dailyTrend.resistance.map((price) => ({ price, timeframe: dailyTrend.timeframe })),
+      ...weeklyTrend.support.map((price) => ({ price, timeframe: weeklyTrend.timeframe })),
+      ...weeklyTrend.resistance.map((price) => ({ price, timeframe: weeklyTrend.timeframe })),
+      ...monthlyTrend.support.map((price) => ({ price, timeframe: monthlyTrend.timeframe })),
+      ...monthlyTrend.resistance.map((price) => ({ price, timeframe: monthlyTrend.timeframe })),
     ];
     const recentAtr = atr(daily.slice(-20), 14);
     const baselineAtr = atr(daily.slice(-100, -20), 14);
@@ -208,11 +219,9 @@ export async function scanTicker(
     // symbol's own daily range, so "near a level" is the same fraction of a
     // day's move on a utility as on a high-beta name.
     const atrPct = atrPercentOfPrice(recentAtr, currentPrice);
-    const nearSupportResistance = nearAnyLevel(
-      currentPrice,
-      allLevels,
-      proximityBandPct(SR_PROXIMITY_ATR, FALLBACK_SR_PCT, atrPct),
-    );
+    const srBandPct = proximityBandPct(SR_PROXIMITY_ATR, FALLBACK_SR_PCT, atrPct);
+    const srMatch = nearestLevelMatch(currentPrice, allLevels, srBandPct);
+    const nearSupportResistance = srMatch !== null;
 
     // The bars above are what the verdict is computed on, and on the free feed
     // they are ~15 minutes old — a full candle on the 15-minute execution
@@ -231,6 +240,7 @@ export async function scanTicker(
           hourlyTrend,
           gann,
           nearSupportResistance,
+          srMatch: srMatch && { ...srMatch, role: levelRole(currentPrice, srMatch.price) },
           pattern,
           momentumElevated,
           levels,

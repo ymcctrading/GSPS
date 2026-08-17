@@ -8,6 +8,7 @@ import { MarketNews } from "@/components/macro/market-news";
 import { getDailyScans } from "@/lib/dailyScans";
 import { DEFAULTS } from "@/lib/sectors";
 import { ArrowRight } from "lucide-react";
+import { tradeSideWord } from "@/lib/scoring/direction-copy";
 
 export const metadata = { title: "Dashboard — GSPS" };
 export const dynamic = "force-dynamic";
@@ -61,12 +62,12 @@ export default async function DashboardPage() {
         <ReversionPreview
           direction="bullish"
           rows={bullish}
-          emptyText="Scanning for bullish reversions…"
+          emptyText="Scanning for buy setups…"
         />
         <ReversionPreview
           direction="bearish"
           rows={bearish}
-          emptyText="Scanning for bearish reversions…"
+          emptyText="Scanning for sell setups…"
         />
       </div>
 
@@ -88,6 +89,7 @@ function ReversionPreview({
   emptyText: string;
 }) {
   const isBull = direction === "bullish";
+  const side = tradeSideWord(direction);
   const preview = rows.slice(0, PREVIEW);
   const more = rows.length - preview.length;
   const continuations = rows.filter((r) => r.setupKind === "continuation").length;
@@ -99,17 +101,17 @@ function ReversionPreview({
           <div>
             <Link href={`/dashboard/${direction}`} className="group inline-flex items-center gap-1.5">
               <CardTitle className={isBull ? "text-bull group-hover:underline" : "text-bear group-hover:underline"}>
-                {isBull ? "Bullish setups" : "Bearish setups"}
+                {isBull ? "Buy setups" : "Sell setups"}
               </CardTitle>
               <ArrowRight className="h-4 w-4 text-muted transition-transform group-hover:translate-x-0.5" />
             </Link>
             <CardDescription>
               {rows.length > 0
-                ? `${rows.length} setup${rows.length === 1 ? "" : "s"} near a ${direction} reversion point` +
+                ? `${rows.length} setup${rows.length === 1 ? "" : "s"} near a ${side} point` +
                   (continuations > 0
                     ? `, including ${continuations} momentum continuation${continuations === 1 ? "" : "s"}.`
                     : ".")
-                : `Setups near a ${direction} reversion point.`}
+                : `Setups near a ${side} point.`}
             </CardDescription>
           </div>
         </div>
@@ -121,7 +123,7 @@ function ReversionPreview({
             href={`/dashboard/${direction}`}
             className="inline-flex items-center gap-1.5 self-start text-sm font-medium text-accent hover:underline"
           >
-            View all {rows.length} {direction} setups
+            View all {rows.length} {side} setups
             <ArrowRight className="h-4 w-4" />
           </Link>
         )}

@@ -8,12 +8,15 @@
 
 import type { Bar } from "@/lib/types";
 import { findPivots, atr } from "@/lib/analysis/pivots";
+import { levelRole, type LevelRole } from "@/lib/analysis/levelRole";
 
 export interface FanLine {
   angle: string;
   price: number;
   distancePct: number;
   anchor: { price: number; index: number; kind: "high" | "low" };
+  /** Support while price sits above the line, resistance while below it. */
+  role: LevelRole;
 }
 
 const ANGLES: { label: string; ratio: number }[] = [
@@ -52,6 +55,7 @@ export function computeFanLines(bars: Bar[], currentPrice: number): FanLine[] {
         price,
         distancePct: Math.abs(currentPrice - price) / currentPrice * 100,
         anchor: { price: anchor.price, index: anchor.index, kind: anchor.kind },
+        role: levelRole(currentPrice, price),
       });
     }
   }

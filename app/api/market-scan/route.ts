@@ -1,9 +1,11 @@
 /**
  * GSPS — /api/market-scan
- * Runs the daily market-wide scan (up to 15 bullish + 15 bearish) and persists
- * results to Supabase. Invoked by Vercel Cron (Authorization: Bearer
- * CRON_SECRET) or manually with the same header. A side short of 15 is topped
- * up with momentum continuations rather than padded — see lib/marketScan.ts.
+ * Runs the daily market-wide scan (up to 15 bullish + 15 bearish reversions,
+ * plus a small guaranteed allotment of momentum continuations scouted on every
+ * run — see lib/marketScan.ts) and persists results to Supabase. Invoked by
+ * Vercel Cron (Authorization: Bearer CRON_SECRET) or manually with the same
+ * header. A side short of 15 is topped up with continuations rather than
+ * padded.
  */
 
 import { NextRequest, NextResponse } from "next/server";

@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { ScoreBadge } from "@/components/scan/score-badge";
 import { Badge } from "@/components/ui/badge";
 import { SCORE_PILLAR_DESCRIPTIONS, SCORE_PILLAR_LABELS } from "@/lib/scoring/public-summary";
+import { tradeSideLabel } from "@/lib/scoring/direction-copy";
 import { formatUsd, cn } from "@/lib/utils";
 import type { PublicScoreSummary, ScanResult } from "@/lib/types";
 
@@ -21,7 +22,7 @@ export function SignalCard({ result }: { result: ScanResult }) {
           <CardDescription>
             {pattern.name}{" "}
             <span className={pattern.direction === "bullish" ? "text-bull" : "text-bear"}>
-              {pattern.direction}
+              {tradeSideLabel(pattern.direction)}
             </span>{" "}
             — {pattern.description}
           </CardDescription>
@@ -37,7 +38,7 @@ export function SignalCard({ result }: { result: ScanResult }) {
               <Badge key={`${p.name}-${p.direction}-${i}`} variant="muted">
                 {p.name}{" "}
                 <span className={p.direction === "bullish" ? "text-bull" : "text-bear"}>
-                  {p.direction}
+                  {tradeSideLabel(p.direction)}
                 </span>
               </Badge>
             ))}
