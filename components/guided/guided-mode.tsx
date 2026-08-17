@@ -99,7 +99,7 @@ export function GuidedMode() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: rec.id }),
       });
-      const body = await res.json();
+      const body: { error?: string; order?: { status?: string } } = await res.json();
       if (!res.ok) {
         setError(body.error ?? `HTTP ${res.status}`);
         // Anything refused at submission has also been resolved server-side, so
@@ -110,7 +110,17 @@ export function GuidedMode() {
         return;
       }
       setConfirming(null);
-      setPlaced(`${rec.qty} ${rec.symbol} bought. Taking you to your portfolio…`);
+      // A guided order goes in as a limit at the protocol's entry price, so it
+      // fills now only if the market is already there — otherwise it rests until
+      // price reaches the trigger. Saying "bought" for an order that has not
+      // filled is the precise kind of thing this mode must not do, so the
+      // wording comes from the status the server actually reported.
+      const filled = body.order?.status === "filled";
+      setPlaced(
+        filled
+          ? `${rec.qty} ${rec.symbol} bought. Taking you to your portfolio…`
+          : `Order placed for ${rec.qty} ${rec.symbol}. It's waiting at the entry price and will fill if ${rec.symbol} reaches it — you'll find it in your portfolio.`,
+      );
       // Straight to Portfolio with the new position and its real bracket
       // levels — not back to a screen offering the next trade.
       router.push("/portfolio");
