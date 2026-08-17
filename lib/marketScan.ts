@@ -430,7 +430,7 @@ export async function filterShortable(results: ScanResult[]): Promise<ScanResult
 }
 
 /** Ceiling on top-up scans, so a two-sided shortage can't run past the budget. */
-const MAX_TOPUP_SCANS = 24;
+const MAX_TOPUP_SCANS = 4;
 
 /**
  * Minimum continuation slots scouted per side on every run, regardless of
@@ -440,7 +440,34 @@ const MAX_TOPUP_SCANS = 24;
  */
 const CONTINUATION_QUOTA_PER_SIDE = 2;
 
-export async function runMarketScan(universeTop = 100, perSide = 15): Promise<MarketScanOutput> {
+/**
+ * Full-pass shortlist size, as a multiple of `perSide`. Each shortlisted
+ * symbol costs 6 Alpaca calls (`scanTicker`'s 5 timeframes + latest price),
+ * so this is the main lever on total request count — see the defaults below.
+ */
+const SHORTLIST_MULTIPLE = 2;
+
+/**
+ * Defaults sized to finish inside Vercel Hobby's hard 60s function ceiling —
+ * `maxDuration` in the route can *say* more, the platform will not honor it
+ * (see `app/api/market-scan/route.ts`). The token-bucket limiter in
+ * `lib/data/http.ts` caps Alpaca calls to 150/min, shared with every other
+ * page hitting the feed concurrently, so total request count is the budget
+ * that matters:
+ *
+ *   resolveUniverse        1 call
+ *   coarse pass             universeTop × 2   (daily + 4h bars)
+ *   full pass          ≤ perSide × SHORTLIST_MULTIPLE × 6   (5 timeframes + price)
+ *   continuation top-up    ≤ MAX_TOPUP_SCANS × 6
+ *
+ * With the values below that's ≈1 + 24 + 60 + 24 = 109 calls, ≈44s of queuing
+ * at the shared cap — leaving headroom for concurrent traffic and network
+ * latency before the platform kills the invocation. Previous defaults
+ * (universeTop=100, perSide=15) needed ~700 calls, well past what any Hobby
+ * invocation can complete: the scan looked hung because it was silently
+ * killed mid-run.
+ */
+export async function runMarketScan(universeTop = 12, perSide = 5): Promise<MarketScanOutput> {
   // The trading date the scan describes, not the UTC date it happened to run
   // on. The two diverge between 20:00 ET and midnight — a post-close re-run
   // would otherwise be filed under tomorrow, and tomorrow would open showing
@@ -492,7 +519,7 @@ export async function runMarketScan(universeTop = 100, perSide = 15): Promise<Ma
     .map((c) => c.reversion)
     .filter((c): c is CoarseCandidate => c !== null)
     .sort(byCoarseScore)
-    .slice(0, perSide * 4); // full-scan up to 60 candidates
+    .slice(0, perSide * SHORTLIST_MULTIPLE); // full-scan up to perSide*SHORTLIST_MULTIPLE candidates
   const continuationPool = coarse
     .map((c) => c.continuation)
     .filter((c): c is CoarseCandidate => c !== null)
