@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { formatOpenedAt } from "@/lib/portfolio/opened-at";
-import { formatUsd } from "@/lib/utils";
+import { formatUsd, tickerHref } from "@/lib/utils";
 import type { OrderRow } from "./types";
 
 /**
@@ -50,7 +50,7 @@ function RejectedOrderCard({ order }: { order: OrderRow }) {
           </p>
         </div>
         <Link
-          href={`/ticker/${ticker}`}
+          href={tickerHref(ticker)}
           className="min-h-9 shrink-0 rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-accent transition-colors hover:border-accent"
         >
           Fix order →

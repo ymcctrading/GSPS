@@ -31,6 +31,7 @@ import { atr } from "@/lib/analysis/pivots";
 import { computeFanLines } from "@/lib/gann/fans";
 import { squareOf9Levels } from "@/lib/gann/squareOf9";
 import { CONTINUATION_PATTERNS } from "@/lib/strat/patterns";
+import { meetsLiquidityFloor, readLiquidity } from "@/lib/scan/liquidity";
 import { scanTicker } from "@/lib/scanTicker";
 import { MAG7, SECTORS } from "@/lib/sectors";
 
@@ -114,8 +115,22 @@ export function hasExceptional4hMomentum(bars4h: Bar[]): boolean {
   );
 }
 
+/**
+ * The liquidity floor, applied at the top of the coarse pass so it gates both
+ * candidate pools from the same read of the same bars. A symbol that cannot be
+ * filled cleanly is not a setup on either side — see lib/scan/liquidity.ts.
+ * Every universe reaches here: the most-actives screener returns whatever is
+ * moving, including sub-$1 names, and the curated fallback is not immune either.
+ */
+function tradeable(daily: Bar[]): boolean {
+  // The market scan's universe is US equities (`resolveUniverse` filters pairs
+  // out of the fallback list and the screener returns none).
+  return meetsLiquidityFloor(readLiquidity(daily), "us_equity").ok;
+}
+
 function coarseReversion(symbol: string, daily: Bar[]): CoarseCandidate | null {
   if (daily.length < 60) return null;
+  if (!tradeable(daily)) return null;
   const price = daily[daily.length - 1].c;
   const trend = readTrend(daily, "1Day");
   if (trend.direction === "sideways") return null;
@@ -159,6 +174,7 @@ function coarseReversion(symbol: string, daily: Bar[]): CoarseCandidate | null {
 function coarseContinuation(symbol: string, daily: Bar[], bars4h: Bar[]): CoarseCandidate | null {
   // Needs the full trailing window the baseline is measured over.
   if (daily.length < 120) return null;
+  if (!tradeable(daily)) return null;
   if (!hasExceptional4hMomentum(bars4h)) return null;
   const price = daily[daily.length - 1].c;
   const trend = readTrend(daily, "1Day");

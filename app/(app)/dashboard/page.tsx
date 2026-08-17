@@ -9,6 +9,7 @@ import { getDailyScans } from "@/lib/dailyScans";
 import { DEFAULTS } from "@/lib/sectors";
 import { ArrowRight } from "lucide-react";
 import { tradeSideWord } from "@/lib/scoring/direction-copy";
+import { tickerHref } from "@/lib/utils";
 
 export const metadata = { title: "Dashboard — GSPS" };
 export const dynamic = "force-dynamic";
@@ -48,7 +49,7 @@ export default async function DashboardPage() {
             {DEFAULTS.map((s) => (
               <Link
                 key={s}
-                href={`/ticker/${s}`}
+                href={tickerHref(s)}
                 className="rounded-lg border border-border bg-background px-3 py-3 text-center text-sm font-semibold hover:border-accent hover:text-accent"
               >
                 {s}

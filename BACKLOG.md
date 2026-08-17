@@ -28,6 +28,13 @@
 - [ ] Order history and analytics
 - [ ] Order modification and cancellation
 
+### Short-Side Stop Enforcement
+- [ ] Enforce a stop on short entries — broker-side, or synthetic and managed by
+      the exit manager. Short entries are currently unbracketed, which is why
+      Guided Decision Mode is long-only (`docs/GUIDED_DECISION_MODE.md`).
+      Resolving this is the prerequisite for short recommendations, not a
+      nice-to-have alongside them.
+
 ### Risk Management
 - [ ] Position sizing based on account equity
 - [ ] Maximum daily loss limits

@@ -19,7 +19,7 @@ import {
   type ScanOutput,
   type SymbolAudit,
 } from "@/lib/scanner/intraday";
-import { formatUsd, cn } from "@/lib/utils";
+import { formatUsd, cn, tickerHref } from "@/lib/utils";
 
 /**
  * Intraday momentum panel.
@@ -185,7 +185,7 @@ function AlertCard({ alert }: { alert: Alert }) {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <Link
-              href={`/ticker/${alert.symbol}`}
+              href={tickerHref(alert.symbol)}
               className="font-semibold text-accent hover:underline"
             >
               {alert.symbol}

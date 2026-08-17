@@ -9,7 +9,59 @@ date.
 
 ## 2026-08-17
 
+### Added
+- **Guided Decision Mode** (`/guided`) — one recommended action per symbol,
+  sized from a per-trade risk cap rather than from a quantity the user types,
+  placed through a single confirmation dialog. Paper-only and long-only at
+  launch; only Execute-verdict setups with a priced trade plan are eligible;
+  candidates are re-scanned live at render *and* again at submission, so a plan
+  that de-armed or re-priced in between is refused rather than placed. Caps ship
+  conservative: 1% of paper equity risked per trade, 3 new positions a day, 10 a
+  rolling week, and no more than 25% of equity deployed through the mode at
+  once. A connected live brokerage disables the mode entirely. Every
+  recommendation *shown* — not only those acted on — is logged to
+  `guided_recommendations` so the Backtest-style expectancy analysis can later
+  be pointed at the guided stream itself. Every cap is editable in Settings
+  (`/api/settings/guided`), within bounds the mode enforces on both sides. See
+  `docs/GUIDED_DECISION_MODE.md`.
+- **A liquidity floor on every scan** (`lib/scan/liquidity.ts`): US equities
+  need a price of at least $5 and 500k average daily shares; crypto needs $5M of
+  average daily turnover. The daily market scan gates both its candidate pools on
+  it, and the intraday scanner records it in its per-symbol audit trail. The
+  scanner had been surfacing sub-$1 names alongside megacaps with nothing on the
+  row to distinguish them.
+
+### Changed
+- Order placement moved out of the `/api/orders` route handler into
+  `lib/trade/place-order.ts`, so Guided Mode submits through exactly the same
+  path the manual ticket does — same price-increment validation, same bracket
+  checks, same staged protocol exit — rather than through a copy of it that
+  would drift.
+- The phone tab bar renders seven of the eight destinations; Glossary keeps its
+  place in the top bar and gives up its tab slot to Guided.
+
 ### Fixed
+- **Settings and the landing page advertised a reward:risk the engine has never
+  priced.** TP1 was described as 2:1 and the master target as 3:1; the engine
+  prices TP1 at 1.5R and the master at the asset class's runner multiple (2.5R
+  equities, 3R crypto), stepped to a structural level up to a 5R cap. The stop
+  rule was described as "12–18% of price paid", which is the option-premium band
+  and was never how a share entry's stop is placed. All four protocol rules are
+  now generated from the engine's own constants (`lib/trade/protocol-rules.ts`)
+  and a test fails if the copy and the code diverge.
+- **"Execute threshold: score 7+ of 9" did not describe what the app does.** A
+  7-scored setup is correctly held at Watch when it has no priced trade plan,
+  when a bare 2-2 reversal lacks momentum and support/resistance confirmation, or
+  when the price feed is a full execution candle behind — so users saw 7s
+  labelled Watch and nothing reaching Execute, with no stated reason. The
+  behaviour was right; the copy now states every condition.
+- **Links to a crypto pair 404'd.** `/ticker/${symbol}` on `BTC/USD` produced
+  `/ticker/BTC/USD` — two path segments against a one-segment route. Links now go
+  through `tickerHref`, which keeps the pair in one segment, and the page
+  restores the separator via `symbolFromRoute`. Percent-encoding is not a fix:
+  `%2F` is normalised back to a slash before the route matches.
+- The `settings` table's `tp1_r_multiple` / `master_r_multiple` defaults (2 and
+  3) now match the engine (1.5 and 2.5). Existing rows are untouched.
 - **The bars-batching fix below this same day silently dropped most of the
   scan universe, cutting a normal 8-20-setup day down to one lone `Reject`
   row.** `fetchBarsBatch`'s `limit` param is a total across every symbol in

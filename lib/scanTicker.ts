@@ -45,6 +45,7 @@ import {
   proximityBandPct,
 } from "@/lib/scoring/proximity";
 import { getActiveCriterionWeights } from "@/lib/scoring/active-weights";
+import { readLiquidity } from "@/lib/scan/liquidity";
 
 /**
  * What the caller is looking for. Left unset, a scan hunts reversions and
@@ -282,6 +283,10 @@ export async function scanTicker(
       dataLag,
       executionBar: closedM15[closedM15.length - 1],
       decision,
+      // Read off the same daily bars the structure was computed from, so any
+      // consumer can apply the platform-wide liquidity floor without a second
+      // fetch — see lib/scan/liquidity.ts.
+      liquidity: readLiquidity(daily) ?? undefined,
       optionPremium,
     };
   } catch (err) {

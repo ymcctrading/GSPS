@@ -7,7 +7,7 @@ import { AssetTypeBadge } from "@/components/trade/asset-type-badge";
 import { GreeksToggle } from "./order-rows";
 import { formatOpenedAt } from "@/lib/portfolio/opened-at";
 import type { BlendedPosition, EquityLeg, OptionLeg } from "@/lib/portfolio/blend";
-import { formatUsd, formatPct, cn } from "@/lib/utils";
+import { formatUsd, formatPct, cn, tickerHref } from "@/lib/utils";
 
 /**
  * Open positions, grouped by underlying, with each asset type rendered in its
@@ -53,7 +53,7 @@ export function BlendedPositionGroup({
       <div className="flex flex-wrap items-center justify-between gap-2 bg-background px-3 py-2">
         <div className="flex items-center gap-2">
           <Link
-            href={`/ticker/${group.underlying}`}
+            href={tickerHref(group.underlying)}
             className="font-semibold text-accent hover:underline"
           >
             {group.underlying}
