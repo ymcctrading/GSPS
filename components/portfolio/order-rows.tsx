@@ -250,7 +250,7 @@ function SideCell({ order }: { order: OrderRow }) {
         {isUnprotectedShort(order) && (
           <Badge
             variant="warn"
-            title="Short entries route as a plain sell order — Alpaca can't bracket short legs. Manage the stop and TP1 manually."
+            title="No stop or target attached to this short — it isn't protected while it's open. Attach protocol levels, or a custom stop/target under Manual Override, so GSPS manages the exit."
           >
             No stop
           </Badge>
@@ -261,11 +261,13 @@ function SideCell({ order }: { order: OrderRow }) {
 }
 
 /**
- * Alpaca can't attach a bracket to a short leg, so a filled/working short sits
- * with no broker-side stop unless the user babysits it manually — unlike a
- * long, which always has one attached at entry. Surfaced here (not just in the
- * order-ticket copy at submit time) because that copy is easy to miss and the
- * risk persists for as long as the position is open.
+ * A short can carry a staged exit the same way a long does (see
+ * app/api/orders/route.ts and lib/trade/exit-manager-sim.ts), but only when
+ * the user attached one — protocol levels checked, or a custom stop/target
+ * under Manual Override. Skip either and the short sits with no protection
+ * unless it's babysat by hand. Surfaced here (not just in the order-ticket
+ * copy at submit time) because that copy is easy to miss and the risk
+ * persists for as long as the position is open.
  */
 function isUnprotectedShort(order: OrderRow): boolean {
   const state = normalizeOrderStatus(order.status);
@@ -382,7 +384,7 @@ function OrderCard({
             {isUnprotectedShort(order) && (
               <Badge
                 variant="warn"
-                title="Short entries route as a plain sell order — Alpaca can't bracket short legs. Manage the stop and TP1 manually."
+                title="No stop or target attached to this short — it isn't protected while it's open. Attach protocol levels, or a custom stop/target under Manual Override, so GSPS manages the exit."
               >
                 No stop
               </Badge>

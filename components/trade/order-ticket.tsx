@@ -219,8 +219,13 @@ export function OrderTicket({
   // this mode too, on both sides.
   const manualStopNum = Number(manualStop);
   const manualTargetNum = Number(manualTarget);
-  const manualLevelsEntered = manualStop.trim() !== "" || manualTarget.trim() !== "";
+  // Guarded by assetType: the fields only render on the Shares tab, but the
+  // state persists across a tab switch, so a value left over from Shares must
+  // not block submitting an Options order that never showed these fields.
+  const manualLevelsEntered =
+    assetType === "shares" && (manualStop.trim() !== "" || manualTarget.trim() !== "");
   const manualLevelsComplete =
+    assetType === "shares" &&
     manualStop.trim() !== "" &&
     manualTarget.trim() !== "" &&
     Number.isFinite(manualStopNum) &&
