@@ -283,7 +283,15 @@ export async function POST(req: NextRequest) {
     } else {
       const market = await quotePrice(input.symbol, fillAssetClass);
       if (market != null && isMarketable(input.side, submittedLimitPrice!, market)) {
-        fillPrice = submittedLimitPrice!;
+        // Marketable means the live price is already at least as good as the
+        // limit (a buy limit's market is <= it, a sell limit's is >=) — a real
+        // broker fills at that better price, not at the stale limit typed into
+        // the ticket. Filling at `submittedLimitPrice` here previously meant an
+        // "advised price" short placed while the market had already rallied
+        // past its entry filled instantly at the stale, worse entry instead of
+        // the price actually on offer — a same-second paper loss with no fill
+        // ever tested against the market.
+        fillPrice = market;
         filled = true;
       }
       // Not marketable yet (or no quote this instant) — rests as `new` and is
