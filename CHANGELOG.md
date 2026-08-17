@@ -9,6 +9,24 @@ date.
 
 ## 2026-08-17
 
+### Added
+- **Short and Manual Override orders can now carry a staged, managed exit.**
+  Protocol Recommended shorts attach the protocol's stop/TP1/master the same
+  way a long does — GSPS stages and manages the exit itself
+  (`lib/trade/exit-manager-sim.ts` already supported `side: "short"`; the
+  `/api/orders` route just never exercised it). Manual Override gets optional
+  custom stop-loss/take-profit fields, on both sides, that stage the same way.
+  Closes the gap where a short or a manual order carried no protection beyond
+  ticket copy telling the user to watch it by hand (Q1 roadmap: conditional
+  orders).
+- Dashboard "Buy setups"/"Sell setups" preview cards now show a "Scanned
+  HH:MM" timestamp, so a card can't silently disagree with a fresher scan
+  without the user knowing.
+- A short position with no broker-side stop now carries a persistent "No
+  stop" badge in the Portfolio order ledger, not just easy-to-miss ticket copy.
+- A soft nudge appears next to Quantity when submitting qty=1 in Protocol
+  Recommended mode ("Buy 2+ to use the full staged-exit plan").
+
 ### Fixed
 - **A marketable limit order filled at its stale limit price instead of the
   live market, so an "advised price" short placed after the market had
@@ -24,6 +42,21 @@ date.
   improvement a real broker reports, and the fix for the case that motivated
   it: an ASML short's advised entry at $1,877.79 filled while the market was
   already at $1,886.38, instead of getting that better price.
+- **`/ticker/BTC/USD` — one of only 9 symbols in the default watchlist —
+  404'd.** The dynamic route was a single `[symbol]` segment, so `/USD` split
+  off as an extra path segment. Switched to a catch-all `[...symbol]` route
+  and added a shared `tickerHref()` helper (`lib/routes.ts`) so every link
+  builder encodes a slash-bearing symbol consistently instead of ad hoc
+  `encodeURIComponent` calls (or none) scattered across five components.
+- Settings/Glossary described TP1/Master as flat 2:1/3:1 reward-to-risk; the
+  scoring engine actually targets ~1.5R (TP1, snapped to the prior candle's
+  high/low if further) and ~2.5R equities/3R crypto (Master, snapped to a
+  structural/harmonic level) — copy now matches. Also documented the
+  `tradePlanReady` gate: a 7+ score with no armed entry/stop/target reads as
+  Watch, not Execute, which the settings/glossary text didn't explain.
+- The chart Share button's Web Share path returned without ever flashing the
+  "Copied" confirmation, so a successful native share looked like nothing
+  happened.
 - **The bars-batching fix below this same day silently dropped most of the
   scan universe, cutting a normal 8-20-setup day down to one lone `Reject`
   row.** `fetchBarsBatch`'s `limit` param is a total across every symbol in

@@ -141,8 +141,12 @@ export async function POST(req: NextRequest) {
     submittedLimitPrice = priceCheck.price;
   }
 
-  // Brackets only apply to long equity entries (both legs, buy side, on Alpaca).
-  const useBracket = !isOption && !!input.attachLevels && input.side === "buy";
+  // Equity entries only — options carry no staged-exit plan. Unlike a real
+  // broker, this is our own simulator: nothing here calls out to Alpaca, so
+  // the "no bracket on a short leg" limitation a live Alpaca account would
+  // hit doesn't apply — a short's exit is staged and managed the same way a
+  // long's is, via lib/trade/exit-manager-sim.ts, on both sides.
+  const useBracket = !isOption && !!input.attachLevels;
   const orderType = submittedLimitPrice ? "limit" : "market";
 
   // The bracket legs are prices too, and they reach the broker the same way the
@@ -150,28 +154,32 @@ export async function POST(req: NextRequest) {
   // prices, so they carry the same float dirt (`483.51 - 0.01`), and validating
   // only the entry left two thirds of the order able to draw the rejection this
   // is meant to prevent. Each leg is snapped on the side that keeps it where the
-  // protocol intended: a stop rounds down (further from the entry, never tighter
-  // than asked for) and a target rounds up.
+  // protocol intended: never tighter than asked for. On a long the stop sits
+  // below entry (round down) and the target above (round up); a short is the
+  // mirror image.
   let bracketLevels: { stopLoss: number; takeProfit: number } | undefined;
   if (useBracket) {
     const equity = { assetType: "EQUITY" as const };
+    const closingSide = input.side === "buy" ? "sell" : "buy";
+    const stopMode: RoundingMode = input.side === "buy" ? "down" : "up";
+    const targetMode: RoundingMode = input.side === "buy" ? "up" : "down";
     const stop = validateLimitPrice({
       price: input.attachLevels!.stopLoss,
-      side: "sell",
+      side: closingSide,
       instrument: equity,
-      mode: "down",
+      mode: stopMode,
     });
     const target = validateLimitPrice({
       price: input.attachLevels!.takeProfit,
-      side: "sell",
+      side: closingSide,
       instrument: equity,
-      mode: "up",
+      mode: targetMode,
     });
     if (!stop.ok || stop.price == null || !target.ok || target.price == null) {
       return NextResponse.json(
         {
           error:
-            "The protocol stop or target can't be expressed at a price this instrument accepts. Uncheck the protocol levels and manage them yourself.",
+            "The stop or target can't be expressed at a price this instrument accepts. Uncheck protocol levels (or clear the custom stop/target) and manage them yourself.",
           code: "invalid_price_increment",
         },
         { status: 422 },
@@ -180,10 +188,11 @@ export async function POST(req: NextRequest) {
     bracketLevels = { stopLoss: stop.price, takeProfit: target.price };
   }
 
-  // Alpaca requires the stop below and the target above the entry (by at least
-  // a cent). The protocol computes its levels against the advised entry, so a
-  // market entry on the other side of that price produces legs the broker will
-  // refuse — catch it here with wording that says what to do about it.
+  // A stop/target has to sit on the correct side of the entry (by at least a
+  // cent) or the staged exit can never trigger sanely. Protocol levels are
+  // computed against the advised entry, so a market entry on the other side of
+  // that price can produce legs on the wrong side — catch it here with wording
+  // that says what to do about it.
   if (useBracket) {
     const basePrice = submittedLimitPrice ?? input.referencePrice ?? 0;
     const check = checkBracket({
@@ -331,7 +340,7 @@ export async function POST(req: NextRequest) {
           .insert({
             user_id: user.id,
             symbol: input.symbol.toUpperCase(),
-            side: "long",
+            side: input.side === "buy" ? "long" : "short",
             mode: "paper",
             qty: input.qty,
             entry_price: fillPrice,
