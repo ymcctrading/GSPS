@@ -33,6 +33,7 @@ import { squareOf9Levels } from "@/lib/gann/squareOf9";
 import { CONTINUATION_PATTERNS } from "@/lib/strat/patterns";
 import { scanTicker } from "@/lib/scanTicker";
 import { MAG7, SECTORS } from "@/lib/sectors";
+import type { CoarseTelemetryRow } from "@/lib/scan/telemetry";
 import {
   FALLBACK_FAN_PCT,
   FALLBACK_HARMONIC_PCT,
@@ -249,6 +250,52 @@ function coarseContinuation(symbol: string, daily: Bar[], bars4h: Bar[]): Coarse
   return { symbol, direction, kind: "continuation", coarseScore: score };
 }
 
+interface CoarseDiagnostics {
+  symbol: string;
+  /** The underlying daily trend read, or null when sideways/unreadable. Not
+   * the same as either gate's candidate direction — a reversion candidate
+   * trades against this. */
+  trendDirection: "bullish" | "bearish" | null;
+  price: number;
+  atrPct: number | null;
+  extensionPct: number;
+  extensionAtr: number | null;
+  travelPct: number | null;
+  travelAtr: number | null;
+}
+
+/**
+ * The raw ATR-relative measurements behind both coarse gates, recomputed
+ * independently of `coarseReversion`/`coarseContinuation`'s pass/fail logic.
+ * Exists purely to log what the gate saw for every symbol it considered —
+ * cleared or not — so the ATR-multiple thresholds chosen when the gate was
+ * rebased off flat percentages can be calibrated against real outcomes
+ * later instead of staying a one-time guess (see `lib/scan/telemetry.ts`).
+ * Cheap (same bars already in memory, no extra network calls) and never
+ * feeds back into the gates, so instrumenting it can't change scan behavior.
+ */
+function coarseDiagnostics(symbol: string, daily: Bar[]): CoarseDiagnostics | null {
+  if (daily.length < 60) return null;
+  const price = daily[daily.length - 1].c;
+  const atrPct = atrPercentOfPrice(atr(daily.slice(-20), 14), price) ?? null;
+  const mean50 = mean(daily.slice(-50).map((b) => b.c));
+  const extensionPct = mean50 > 0 ? (Math.abs(price - mean50) / mean50) * 100 : 0;
+  const extensionAtr = atrPct !== null && atrPct > 0 ? extensionPct / atrPct : null;
+
+  const trend = daily.length >= 120 ? readTrend(daily, "1Day") : null;
+  let trendDirection: "bullish" | "bearish" | null = null;
+  let travelPct: number | null = null;
+  let travelAtr: number | null = null;
+  if (trend && trend.direction !== "sideways") {
+    trendDirection = trend.direction;
+    const dir = trend.direction === "bullish" ? 1 : -1;
+    travelPct = mean50 > 0 ? ((price - mean50) / mean50) * 100 * dir : 0;
+    travelAtr = atrPct !== null && atrPct > 0 ? travelPct / atrPct : null;
+  }
+
+  return { symbol, trendDirection, price, atrPct, extensionPct, extensionAtr, travelPct, travelAtr };
+}
+
 /**
  * A scan result is publishable to the daily lists only when it carries a
  * complete, finite trade plan. Every consumer of `daily_scans` renders the four
@@ -289,6 +336,8 @@ export interface MarketScanOutput {
   shortlisted: number;
   /** How many rows the continuation top-up contributed, per direction. */
   continuationFills: { bullish: number; bearish: number };
+  /** Per-symbol coarse-gate diagnostics for later threshold calibration. */
+  coarseTelemetry: CoarseTelemetryRow[];
 }
 
 async function mapWithConcurrency<T, R>(
@@ -359,9 +408,10 @@ export async function runMarketScan(universeTop = 100, perSide = 15): Promise<Ma
       return {
         reversion: coarseReversion(symbol, daily),
         continuation: coarseContinuation(symbol, daily, bars4h),
+        diagnostics: coarseDiagnostics(symbol, daily),
       };
     } catch {
-      return { reversion: null, continuation: null };
+      return { reversion: null, continuation: null, diagnostics: null };
     }
   });
 
@@ -415,6 +465,10 @@ export async function runMarketScan(universeTop = 100, perSide = 15): Promise<Ma
     bearish: Math.max(shortfall.bearish, CONTINUATION_QUOTA_PER_SIDE),
   };
 
+  // Hoisted so the telemetry build below (outside this block) can see which
+  // continuation candidates got a real full scan and what score they made.
+  let continuationScanResults: ScanResult[] = [];
+
   if (continuationPool.length > 0) {
     const published = new Set([...lists.bullish, ...lists.bearish].map((r) => r.symbol));
     const shortSides = (["bullish", "bearish"] as const).filter(
@@ -450,6 +504,7 @@ export async function runMarketScan(universeTop = 100, perSide = 15): Promise<Ma
     const scans = await mapWithConcurrency(fills, 5, (c) =>
       scanTicker(c.symbol, undefined, { direction: c.direction, kind: "continuation" }, fillBars.get(c.symbol.toUpperCase())),
     );
+    continuationScanResults = scans;
 
     for (const dir of ["bullish", "bearish"] as const) {
       if (target[dir] <= 0) continue;
@@ -462,6 +517,36 @@ export async function runMarketScan(universeTop = 100, perSide = 15): Promise<Ma
     }
   }
 
+  const shortlistedSymbols = new Set(shortlist.map((c) => c.symbol.toUpperCase()));
+  const fullScanResults = new Map(
+    [...valid, ...continuationScanResults].map((r) => [r.symbol, r]),
+  );
+  const coarseTelemetry: CoarseTelemetryRow[] = coarse
+    .filter((c) => c.diagnostics !== null)
+    .map((c) => {
+      const d = c.diagnostics!;
+      const sym = d.symbol.toUpperCase();
+      const fullResult = fullScanResults.get(sym);
+      return {
+        scan_date: scanDate,
+        symbol: sym,
+        direction: d.trendDirection,
+        price: d.price,
+        atr_pct: d.atrPct,
+        extension_pct: d.extensionPct,
+        extension_atr: d.extensionAtr,
+        cleared_reversion: c.reversion !== null,
+        reversion_score: c.reversion?.coarseScore ?? null,
+        cleared_continuation: c.continuation !== null,
+        continuation_score: c.continuation?.coarseScore ?? null,
+        travel_pct: d.travelPct,
+        travel_atr: d.travelAtr,
+        shortlisted: shortlistedSymbols.has(sym),
+        full_scan_score: fullResult?.decision.score ?? null,
+        full_scan_output_state: fullResult?.decision.outputState ?? null,
+      };
+    });
+
   return {
     scanDate,
     bullish: lists.bullish,
@@ -469,5 +554,6 @@ export async function runMarketScan(universeTop = 100, perSide = 15): Promise<Ma
     universeSize: actives.length,
     shortlisted: shortlist.length,
     continuationFills,
+    coarseTelemetry,
   };
 }

@@ -9,6 +9,24 @@ date.
 
 ## 2026-08-17
 
+### Added
+- **A calibration feedback loop for the coarse scan gate's ATR multiples.**
+  The ATR-relative rebasing below was calibrated by preserving the old flat
+  percentages' ratios, not by measuring real outcomes — no live market data
+  was reachable to verify the specific multiples chosen. `coarse_gate_telemetry`
+  (migration `0013`) now logs one row per symbol per scan day: its ATR%,
+  extension distance in both percent and ATR multiples, whether each gate
+  cleared it, and — when it went on to a real full-protocol scan — the actual
+  score and output state. `runMarketScan` computes this independently of the
+  gates' own pass/fail logic (`coarseDiagnostics` in `lib/marketScan.ts`), so
+  instrumenting it can never change scan behavior, and the write
+  (`persistCoarseTelemetry`, `lib/scan/telemetry.ts`) is best-effort like
+  `daily_scans` — a failure there never blocks or fails the scan itself. Once
+  enough scan days accumulate, this data answers the question the current
+  multiples can't: does a 2-ATR extension actually predict a good score more
+  reliably than a 1.5-ATR or 3-ATR one, and does that threshold differ by cap
+  size — instead of guessing.
+
 ### Changed
 - **The market scan's coarse pre-filter now judges "extended" and "moving a
   lot" relative to each symbol's own volatility, not a flat percent of

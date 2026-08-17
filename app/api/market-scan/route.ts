@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runMarketScan } from "@/lib/marketScan";
 import { buildScanRows, describeDbError, persistDailyScans } from "@/lib/scan/publish";
+import { persistCoarseTelemetry } from "@/lib/scan/telemetry";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 
 export const maxDuration = 300;
@@ -37,6 +38,15 @@ async function runAndPersist() {
     persistError = describeDbError(err);
   }
   if (persistError) console.error(`market-scan: ${output.scanDate} not saved — ${persistError}`);
+
+  // Coarse-gate calibration data — best-effort, and deliberately outside the
+  // try/catch above so a telemetry write failure can never be mistaken for
+  // the actual scan results failing to save.
+  try {
+    await persistCoarseTelemetry(createServiceClient(), output.coarseTelemetry);
+  } catch (err) {
+    console.warn(`market-scan: coarse telemetry not saved — ${describeDbError(err)}`);
+  }
 
   return NextResponse.json({
     scanDate: output.scanDate,
