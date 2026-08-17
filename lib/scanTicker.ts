@@ -16,7 +16,11 @@ import type {
 } from "@/lib/types";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { describeDataError } from "@/lib/data/http";
-import { fetchAllTimeframes, getMarketDataProvider } from "@/lib/data/provider";
+import {
+  type AllTimeframeBars,
+  fetchAllTimeframes,
+  getMarketDataProvider,
+} from "@/lib/data/provider";
 import { readTrend } from "@/lib/analysis/trend";
 import { atr } from "@/lib/analysis/pivots";
 import { levelRole } from "@/lib/analysis/levelRole";
@@ -65,6 +69,12 @@ export async function scanTicker(
   symbol: string,
   optionPremium?: number,
   preference?: ScanPreference,
+  /**
+   * Bars already fetched by the caller (e.g. `runMarketScan`'s batched
+   * multi-symbol fetch), so this call can skip its own five-timeframe fetch.
+   * Undefined falls back to fetching individually — the pre-batching path.
+   */
+  prefetched?: AllTimeframeBars,
 ): Promise<ScanResult> {
   const assetClass: AssetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
   const scannedAt = new Date().toISOString();
@@ -73,7 +83,7 @@ export async function scanTicker(
   try {
     const provider = getMarketDataProvider();
     const [{ monthly, weekly, daily, hourly, m15 }, currentPrice] = await Promise.all([
-      fetchAllTimeframes(symbol, assetClass),
+      prefetched ?? fetchAllTimeframes(symbol, assetClass),
       provider.fetchLatestPrice(symbol, assetClass),
     ]);
 
