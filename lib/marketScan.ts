@@ -23,7 +23,7 @@
  */
 
 import type { Bar, ScanResult, SetupKind } from "@/lib/types";
-import { getMarketDataProvider } from "@/lib/data/provider";
+import { fetchAllTimeframesBatch, getMarketDataProvider } from "@/lib/data/provider";
 import { fetchMostActives } from "@/lib/data/alpaca";
 import { readTrend } from "@/lib/analysis/trend";
 import { etDateKey } from "@/lib/market/session";
@@ -280,12 +280,27 @@ export async function runMarketScan(universeTop = 100, perSide = 15): Promise<Ma
   const yearAgo = new Date(Date.now() - 365 * 24 * 3600 * 1000);
   const recentWeeks = new Date(Date.now() - 15 * 24 * 3600 * 1000);
   const end = new Date(Date.now() - 16 * 60 * 1000);
+
+  // Batched where the provider supports it: one request per timeframe for the
+  // whole universe instead of one per symbol. `runMarketScan` scanning 100+
+  // symbols individually was the single largest source of outbound requests —
+  // enough to blow through both the upstream rate limit and Vercel's function
+  // timeout before a scan could finish. Falls back to per-symbol fetches below
+  // when unavailable (e.g. the synthetic demo provider).
+  const [dailyBatch, bars4hBatch] = await Promise.all([
+    provider.fetchBarsBatch?.(actives, "1Day", yearAgo, end, "us_equity") ?? null,
+    provider.fetchBarsBatch?.(actives, "4Hour", recentWeeks, end, "us_equity") ?? null,
+  ]);
+
   const coarse = await mapWithConcurrency(actives, 8, async (symbol) => {
     try {
-      const [daily, bars4h] = await Promise.all([
-        provider.fetchBars(symbol, "1Day", yearAgo, end, "us_equity"),
-        provider.fetchBars(symbol, "4Hour", recentWeeks, end, "us_equity"),
-      ]);
+      const [daily, bars4h] =
+        dailyBatch && bars4hBatch
+          ? [dailyBatch.get(symbol.toUpperCase()) ?? [], bars4hBatch.get(symbol.toUpperCase()) ?? []]
+          : await Promise.all([
+              provider.fetchBars(symbol, "1Day", yearAgo, end, "us_equity"),
+              provider.fetchBars(symbol, "4Hour", recentWeeks, end, "us_equity"),
+            ]);
       return {
         reversion: coarseReversion(symbol, daily),
         continuation: coarseContinuation(symbol, daily, bars4h),
@@ -306,8 +321,13 @@ export async function runMarketScan(universeTop = 100, perSide = 15): Promise<Ma
     .filter((c): c is CoarseCandidate => c !== null)
     .sort(byCoarseScore);
 
-  // Full multi-timeframe pass
-  const full = await mapWithConcurrency(shortlist, 5, (c) => scanTicker(c.symbol));
+  // Full multi-timeframe pass — batch-fetch all five timeframes for the whole
+  // shortlist up front (five requests total) so each scanTicker call below is
+  // just scoring, not a fresh five-request fetch per symbol.
+  const shortlistBars = await fetchAllTimeframesBatch(shortlist.map((c) => c.symbol));
+  const full = await mapWithConcurrency(shortlist, 5, (c) =>
+    scanTicker(c.symbol, undefined, undefined, shortlistBars.get(c.symbol.toUpperCase())),
+  );
   const valid = full.filter((r) => !r.error);
 
   // The daily lists are trade plans, not a watchlist. A symbol only earns a row
@@ -371,8 +391,9 @@ export async function runMarketScan(universeTop = 100, perSide = 15): Promise<Ma
         .slice(0, Math.min(target[dir] * 3, perSideBudget)),
     );
 
+    const fillBars = await fetchAllTimeframesBatch(fills.map((c) => c.symbol));
     const scans = await mapWithConcurrency(fills, 5, (c) =>
-      scanTicker(c.symbol, undefined, { direction: c.direction, kind: "continuation" }),
+      scanTicker(c.symbol, undefined, { direction: c.direction, kind: "continuation" }, fillBars.get(c.symbol.toUpperCase())),
     );
 
     for (const dir of ["bullish", "bearish"] as const) {

@@ -134,6 +134,35 @@ const ALPACA_TIMEFRAME: Record<Timeframe, string> = {
 /** Alpaca caps a single bars page at 10k regardless of what `limit` asks for. */
 const PAGE_LIMIT = 10000;
 
+/** Shared param-building for the bars endpoint — one or many symbols. */
+function barsRequest(
+  symbols: string,
+  timeframe: Timeframe,
+  start: Date,
+  end: Date | null,
+  assetClass: AssetClass,
+  limit: number,
+  pageToken?: string,
+): { path: string; params: Record<string, string> } {
+  const crypto = assetClass === "crypto";
+  const path = crypto ? `/v1beta3/crypto/us/bars` : `/v2/stocks/bars`;
+
+  const params: Record<string, string> = {
+    timeframe: ALPACA_TIMEFRAME[timeframe] ?? timeframe,
+    start: start.toISOString(),
+    symbols,
+    sort: "desc",
+  };
+  if (end) params.end = end.toISOString();
+  if (!crypto) {
+    params.adjustment = "split";
+    params.feed = "iex";
+  }
+  params.limit = String(Math.min(limit, PAGE_LIMIT));
+  if (pageToken) params.page_token = pageToken;
+  return { path, params };
+}
+
 /**
  * Bars for a symbol, oldest → newest.
  *
@@ -152,30 +181,13 @@ export async function fetchBars(
 ): Promise<Bar[]> {
   const crypto = assetClass === "crypto";
   const sym = crypto ? normalizeCryptoSymbol(symbol) : symbol.toUpperCase();
-  const path = crypto ? `/v1beta3/crypto/us/bars` : `/v2/stocks/bars`;
-
-  const base: Record<string, string> = {
-    timeframe: ALPACA_TIMEFRAME[timeframe] ?? timeframe,
-    start: start.toISOString(),
-    symbols: sym,
-    sort: "desc",
-  };
-  if (end) base.end = end.toISOString();
-  if (!crypto) {
-    base.adjustment = "split";
-    base.feed = "iex";
-  }
 
   const collected: Bar[] = [];
   let pageToken: string | undefined;
 
   do {
     const remaining = limit - collected.length;
-    const params: Record<string, string> = {
-      ...base,
-      limit: String(Math.min(remaining, PAGE_LIMIT)),
-    };
-    if (pageToken) params.page_token = pageToken;
+    const { path, params } = barsRequest(sym, timeframe, start, end, assetClass, remaining, pageToken);
 
     const data = await get(path, params);
     const page = toBars(data.bars?.[sym]);
@@ -186,6 +198,52 @@ export async function fetchBars(
   } while (pageToken && collected.length < limit);
 
   return collected.reverse();
+}
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
+/** Symbols per multi-symbol bars request — comfortably under any URL-length limit. */
+const BATCH_CHUNK = 100;
+
+/**
+ * Bars for many symbols, one timeframe, in a handful of requests instead of
+ * one per symbol. Alpaca's `/v2/stocks/bars` accepts a comma-separated symbol
+ * list and returns each symbol's bars keyed by symbol — a market scan asking
+ * for the same timeframe across dozens or hundreds of symbols was previously
+ * the single largest source of request volume (see `runMarketScan`), enough
+ * to blow through both Alpaca's per-minute cap and Vercel's function timeout
+ * before a scan could finish. This assumes each symbol's window fits in one
+ * page (true for every window the app currently asks for — well under
+ * `PAGE_LIMIT`); it does not paginate per symbol.
+ */
+export async function fetchBarsBatch(
+  symbols: string[],
+  timeframe: Timeframe,
+  start: Date,
+  end: Date | null,
+  assetClass: AssetClass,
+  limit = 10000,
+): Promise<Map<string, Bar[]>> {
+  const crypto = assetClass === "crypto";
+  const syms = Array.from(
+    new Set(symbols.map((s) => (crypto ? normalizeCryptoSymbol(s) : s.toUpperCase()))),
+  );
+  const result = new Map<string, Bar[]>();
+  if (syms.length === 0) return result;
+
+  await Promise.all(
+    chunk(syms, BATCH_CHUNK).map(async (group) => {
+      const { path, params } = barsRequest(group.join(","), timeframe, start, end, assetClass, limit);
+      const data = await get(path, params);
+      for (const sym of group) result.set(sym, toBars(data.bars?.[sym]));
+    }),
+  );
+
+  return result;
 }
 
 export async function fetchLatestPrice(symbol: string, assetClass: AssetClass): Promise<number> {
@@ -276,6 +334,7 @@ export const alpacaProvider: MarketDataProvider = {
   name: "alpaca",
   isLive: true,
   fetchBars,
+  fetchBarsBatch,
   fetchLatestPrice,
   fetchMostActives,
 };
