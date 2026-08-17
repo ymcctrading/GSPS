@@ -10,11 +10,46 @@ if one is exposed.
 |---|---|---|
 | `SUPABASE_SERVICE_ROLE_KEY` | Vercel env var | Bypasses Row Level Security. Server-only, never sent to the client. |
 | `CREDENTIALS_ENCRYPTION_KEY` | Vercel env var | 32-byte base64 AES-256-GCM key. Encrypts broker credentials at rest in `broker_connections` (`lib/crypto.ts`). If this key is lost, every stored broker credential becomes unrecoverable. If it leaks, every stored broker credential must be treated as compromised. |
-| `ALPACA_API_KEY` / `ALPACA_API_SECRET` (paper) | Vercel env var | App-level default paper-trading credentials. |
+| `ALPACA_API_KEY` / `ALPACA_API_SECRET` | Vercel env var | Market-data credentials, and the paper keys for reference lookups. No longer used to trade on any user's behalf — paper trading is simulated (see below). |
 | `ALPACA_LIVE_API_KEY` / `ALPACA_LIVE_API_SECRET` | Vercel env var | Live-money trading. Treat as high-severity if leaked — real funds are reachable. |
 | `SNAPTRADE_CLIENT_ID` / `SNAPTRADE_CONSUMER_KEY` | Vercel env var | Lets the app act as a SnapTrade partner; a leak lets an attacker impersonate the app to SnapTrade's API. |
 | `CRON_SECRET` | Vercel env var | Bearer token gating `/api/market-scan`. Low severity if leaked (worst case: someone triggers an extra scan), but rotate anyway. |
+| `TRADING_DISABLED` | Vercel env var | Not a secret — an operational control. Set to exactly `true` to refuse every order placement and position close app-wide (`lib/trade/kill-switch.ts`). Use it during an incident instead of removing the Alpaca keys, which would also break read-only portfolio and scanner views. |
 | Per-user broker credentials | Supabase `broker_connections` table | Stored via `encryptJson()` (`lib/crypto.ts`), not plaintext. Decrypted only server-side, only when a request needs to call the broker. |
+
+## Paper trading is simulated, not brokered
+
+Paper mode has no external broker. `lib/brokers/simulator.ts` fills orders
+synchronously against the live market-data feed and writes to this app's own
+`paper_accounts`, `positions` and `orders` tables, every one of which carries
+`user_id` and RLS. Isolation between users is therefore the same RLS guarantee
+every other per-user table relies on, not something the trading code has to
+enforce for itself.
+
+This replaced a shared arrangement in which every signed-in user traded one
+Alpaca paper account from server-side keys, and could see and act on whatever
+that account held. Two rules keep it from coming back:
+
+- **No paper code path may take brokerage credentials.** `envCreds()` survives
+  only for read-only reference lookups (`/api/assets`, `/api/options/chain`) and
+  for live trading. A new paper call site that reaches for it is a regression,
+  not a shortcut.
+- **Live trading is the case that still needs per-user credentials.** It is
+  refused at the route today (`/api/orders` rejects `mode: "live"`), and the
+  per-user connection work is what unblocks it. Until then no live path should
+  be wired to app-level keys for anything a user initiates.
+
+`ALPACA_API_KEY` / `ALPACA_API_SECRET` remain configured because market data
+uses them. They are no longer a trading credential for any user-facing path.
+
+## Halting trading
+
+`TRADING_DISABLED=true` refuses every order placement and position close
+app-wide (`lib/trade/kill-switch.ts`). Prefer it to removing the Alpaca keys
+during an incident: the keys also serve market data, so pulling them takes the
+scanner and the charts down alongside trading. Anything other than exactly
+`true` leaves trading enabled, so the switch cannot be thrown — or released —
+by a typo.
 
 ## Rules for this codebase
 

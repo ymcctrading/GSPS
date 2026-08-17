@@ -22,6 +22,7 @@ import { evaluateTargets } from "@/lib/trade/targets";
 import { planProtocolExit } from "@/lib/trade/protocol-exit";
 import { manageSimulatedExits } from "@/lib/trade/exit-manager-sim";
 import { validateLimitPrice, type RoundingMode } from "@/lib/trade/tick-size";
+import { killSwitchRefusal } from "@/lib/trade/kill-switch";
 import { recordOrderExecution, type RecordExecutionOptions } from "@/lib/learning/record";
 import { pruneClosedOrders } from "@/lib/portfolio/prune";
 import { parseOccSymbol } from "@/lib/portfolio/occ";
@@ -84,6 +85,12 @@ export async function POST(req: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   }
+
+  // Refuse before anything is written or priced. The simulator fills
+  // synchronously, so there is no "accepted but not yet executed" state to
+  // unwind — a halt has to happen ahead of the fill, not around it.
+  const halted = killSwitchRefusal();
+  if (halted) return NextResponse.json(halted, { status: 503 });
 
   const parsed = OrderSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {

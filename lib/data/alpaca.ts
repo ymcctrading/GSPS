@@ -11,7 +11,6 @@
 import type { AssetClass, Bar, Timeframe } from "@/lib/types";
 import type { MarketDataProvider } from "./provider";
 import { cachedFetch, fetchWithRetry, MarketDataError } from "./http";
-import { INTRADAY_TFS } from "@/lib/timeframe";
 
 const DATA_BASE = "https://data.alpaca.markets";
 
@@ -165,10 +164,6 @@ export async function fetchBars(
   if (!crypto) {
     base.adjustment = "split";
     base.feed = "iex";
-    // Without this, Alpaca drops pre/post-market trades from intraday bars
-    // entirely — they only reappear the next day once the daily bar backfills
-    // from the consolidated tape. Daily+ candles ignore the flag either way.
-    if (INTRADAY_TFS.includes(timeframe)) base.extended_hours = "true";
   }
 
   const collected: Bar[] = [];
