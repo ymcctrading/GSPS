@@ -216,9 +216,15 @@ const BATCH_CHUNK = 100;
  * for the same timeframe across dozens or hundreds of symbols was previously
  * the single largest source of request volume (see `runMarketScan`), enough
  * to blow through both Alpaca's per-minute cap and Vercel's function timeout
- * before a scan could finish. This assumes each symbol's window fits in one
- * page (true for every window the app currently asks for — well under
- * `PAGE_LIMIT`); it does not paginate per symbol.
+ * before a scan could finish.
+ *
+ * `PAGE_LIMIT` bars per page is shared across the *whole* multi-symbol
+ * response, not per symbol — 100 symbols x a ~250-bar daily window blows
+ * through it in one page, silently dropping every symbol past whichever one
+ * filled the page. This drains `next_page_token` the same way the
+ * single-symbol `fetchBars` does, merging each page's per-symbol bars, so a
+ * chunk that needs more than one page still returns complete data for every
+ * symbol in it — just at the cost of an extra request for that chunk.
  */
 export async function fetchBarsBatch(
   symbols: string[],
@@ -237,9 +243,25 @@ export async function fetchBarsBatch(
 
   await Promise.all(
     chunk(syms, BATCH_CHUNK).map(async (group) => {
-      const { path, params } = barsRequest(group.join(","), timeframe, start, end, assetClass, limit);
-      const data = await get(path, params);
-      for (const sym of group) result.set(sym, toBars(data.bars?.[sym]));
+      const collected = new Map<string, Bar[]>(group.map((s) => [s, []]));
+      let pageToken: string | undefined;
+
+      do {
+        const { path, params } = barsRequest(group.join(","), timeframe, start, end, assetClass, limit, pageToken);
+        const data = await get(path, params);
+
+        let pageBarCount = 0;
+        for (const sym of group) {
+          const page = toBars(data.bars?.[sym]);
+          if (page.length > 0) collected.get(sym)!.push(...page);
+          pageBarCount += page.length;
+        }
+        pageToken = data.next_page_token ?? undefined;
+        // An empty page means the window is exhausted even if a token came back.
+        if (pageBarCount === 0) break;
+      } while (pageToken);
+
+      for (const sym of group) result.set(sym, collected.get(sym)!.reverse());
     }),
   );
 
