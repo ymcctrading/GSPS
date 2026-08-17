@@ -59,6 +59,53 @@ function retryAfterMs(res: Response): number | null {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/**
+ * Token-bucket limiter, one per provider, shared by every call site that
+ * routes through `fetchWithRetry`. A single market scan or ticker scan fires
+ * dozens of concurrent requests (see `runMarketScan` / `scanTicker`) — without
+ * this, that burst trips the upstream per-minute cap immediately and every
+ * request then fights the same 429 with its own retry/backoff, which is what
+ * kept re-triggering the rate-limit banner instead of resolving it. Queuing
+ * here keeps outbound traffic under the cap in the first place.
+ */
+class RateLimiter {
+  private tokens: number;
+  private lastRefill = Date.now();
+  private readonly refillPerMs: number;
+
+  constructor(private readonly capacity: number) {
+    this.tokens = capacity;
+    this.refillPerMs = capacity / 60_000;
+  }
+
+  private refill() {
+    const now = Date.now();
+    this.tokens = Math.min(this.capacity, this.tokens + (now - this.lastRefill) * this.refillPerMs);
+    this.lastRefill = now;
+  }
+
+  async acquire(): Promise<void> {
+    for (;;) {
+      this.refill();
+      if (this.tokens >= 1) {
+        this.tokens -= 1;
+        return;
+      }
+      await sleep(Math.max((1 - this.tokens) / this.refillPerMs, 10));
+    }
+  }
+}
+
+const limiters = new Map<string, RateLimiter>();
+function limiterFor(provider: string, ratePerMinute: number): RateLimiter {
+  let limiter = limiters.get(provider);
+  if (!limiter) {
+    limiter = new RateLimiter(ratePerMinute);
+    limiters.set(provider, limiter);
+  }
+  return limiter;
+}
+
 export interface RetryOptions {
   /** Label used in error messages, e.g. "Alpaca". */
   provider: string;
@@ -68,6 +115,12 @@ export interface RetryOptions {
   baseDelayMs?: number;
   /** Ceiling for a single backoff step. */
   maxDelayMs?: number;
+  /**
+   * Outbound cap for this provider, shared across all callers. Left below
+   * Alpaca's documented ~200/min so retries and other providers' headroom
+   * don't push the account over it. Set to 0 to disable throttling.
+   */
+  ratePerMinute?: number;
 }
 
 /**
@@ -82,12 +135,15 @@ export async function fetchWithRetry(
   const retries = opts.retries ?? 3;
   const baseDelay = opts.baseDelayMs ?? 400;
   const maxDelay = opts.maxDelayMs ?? 4000;
+  const ratePerMinute = opts.ratePerMinute ?? 150;
 
   let lastStatus = 0;
   let lastBody = "";
   let lastRetryAfter: number | null = null;
 
   for (let attempt = 0; attempt <= retries; attempt++) {
+    if (ratePerMinute > 0) await limiterFor(opts.provider, ratePerMinute).acquire();
+
     let res: Response;
     try {
       res = await fetch(url, init);
