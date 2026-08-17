@@ -10,6 +10,20 @@ date.
 ## 2026-08-17
 
 ### Fixed
+- **A marketable limit order filled at its stale limit price instead of the
+  live market, so an "advised price" short placed after the market had
+  already rallied past its entry filled instantly at a worse price than what
+  was on offer — reading as an immediate paper loss the moment the ticket
+  confirmed.** `isMarketable` correctly judges a sell limit marketable once
+  `market >= limitPrice` (and a buy limit once `market <= limitPrice`), but
+  both fill paths (`POST /api/orders`'s synchronous fill and
+  `evaluateRestingOrders`'s resting-order sweep) then filled at the order's
+  own limit price rather than the market price that made it marketable.
+  Marketable by definition means the market is already at least as good as
+  the limit, so both now fill at the live market price — the same price
+  improvement a real broker reports, and the fix for the case that motivated
+  it: an ASML short's advised entry at $1,877.79 filled while the market was
+  already at $1,886.38, instead of getting that better price.
 - **The bars-batching fix below this same day silently dropped most of the
   scan universe, cutting a normal 8-20-setup day down to one lone `Reject`
   row.** `fetchBarsBatch`'s `limit` param is a total across every symbol in
