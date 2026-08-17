@@ -10,6 +10,22 @@ date.
 ## 2026-08-17
 
 ### Fixed
+- **The bars-batching fix below this same day silently dropped most of the
+  scan universe, cutting a normal 8-20-setup day down to one lone `Reject`
+  row.** `fetchBarsBatch`'s `limit` param is a total across every symbol in
+  the multi-symbol request, sorted symbol-then-timestamp — not a per-symbol
+  cap, contrary to what the batching fix assumed. A 100-symbol chunk asking
+  for a year of daily bars (~250/symbol, ~25k total) blew through the
+  10k-per-page ceiling in one page, which came back with bars for only the
+  first ~38 symbols and nothing at all for the rest — every one of those
+  silently read as "insufficient data" and got dropped everywhere
+  downstream (coarse candidates, the full pass, continuations). Fixed by
+  draining `next_page_token` per chunk until exhausted, merging each page's
+  per-symbol bars — the same pattern the single-symbol `fetchBars` already
+  used, just not carried over to the batch path. Regression test added
+  (`lib/__tests__/alpaca-batch.test.ts`) simulating a response split across
+  two pages.
+
 - **The market scanner had produced zero results for 72 hours and had grown
   from ~5s to 60s+ per run.** Two compounding regressions:
   - `runMarketScan` fetches bars one HTTP request per symbol per timeframe —
