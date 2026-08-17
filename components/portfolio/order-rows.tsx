@@ -243,7 +243,34 @@ function placedTitle(order: OrderRow): string {
 }
 
 function SideCell({ order }: { order: OrderRow }) {
-  return <TD className={order.side === "buy" ? "text-bull" : "text-bear"}>{order.side}</TD>;
+  return (
+    <TD className={order.side === "buy" ? "text-bull" : "text-bear"}>
+      <span className="inline-flex items-center gap-1.5">
+        {order.side}
+        {isUnprotectedShort(order) && (
+          <Badge
+            variant="warn"
+            title="Short entries route as a plain sell order — Alpaca can't bracket short legs. Manage the stop and TP1 manually."
+          >
+            No stop
+          </Badge>
+        )}
+      </span>
+    </TD>
+  );
+}
+
+/**
+ * Alpaca can't attach a bracket to a short leg, so a filled/working short sits
+ * with no broker-side stop unless the user babysits it manually — unlike a
+ * long, which always has one attached at entry. Surfaced here (not just in the
+ * order-ticket copy at submit time) because that copy is easy to miss and the
+ * risk persists for as long as the position is open.
+ */
+function isUnprotectedShort(order: OrderRow): boolean {
+  const state = normalizeOrderStatus(order.status);
+  const isLive = state === "pending" || state === "partially_filled" || state === "filled";
+  return order.asset_type !== "OPTION" && order.side === "sell" && order.stop_price == null && isLive;
 }
 
 function DayPlCell({ order }: { order: OrderRow }) {
@@ -346,7 +373,22 @@ function OrderCard({
       <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
         <Field label="Placed" value={formatOpenedAt(order.broker_submitted_at ?? order.created_at)} />
         <Field label={isOption ? "Contracts" : "Quantity"} value={String(order.qty)} />
-        <Field label="Side" value={order.side} tone={order.side === "buy" ? "bull" : "bear"} />
+        <div className="flex items-baseline justify-between gap-2">
+          <dt className="text-muted">Side</dt>
+          <dd className="flex items-center gap-1.5">
+            <span className={cn("font-mono tabular-nums", order.side === "buy" ? "text-bull" : "text-bear")}>
+              {order.side}
+            </span>
+            {isUnprotectedShort(order) && (
+              <Badge
+                variant="warn"
+                title="Short entries route as a plain sell order — Alpaca can't bracket short legs. Manage the stop and TP1 manually."
+              >
+                No stop
+              </Badge>
+            )}
+          </dd>
+        </div>
         <Field
           label={isOption ? "Premium" : "Limit"}
           value={money(isOption ? order.purchase_price : order.limit_price)}

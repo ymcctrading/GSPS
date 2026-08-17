@@ -73,6 +73,13 @@ export interface DailyScans {
    * the day before. Dated today, priced yesterday.
    */
   pricedBeforeSession: boolean;
+  /**
+   * When the run that produced today's rows actually executed, ISO 8601 —
+   * distinct from `scanDate`, which is the session the rows are dated for.
+   * Null when no scan has ever recorded it. Lets the dashboard preview say
+   * "Scanned HH:MM" instead of silently reusing a cached run.
+   */
+  scannedAt: string | null;
   bullish: ScanRow[];
   bearish: ScanRow[];
 }
@@ -82,6 +89,7 @@ const NO_SCAN = (configured: boolean): DailyScans => ({
   scanDate: null,
   freshness: scanFreshness(null, new Date()),
   pricedBeforeSession: false,
+  scannedAt: null,
   bullish: [],
   bearish: [],
 });
@@ -123,6 +131,7 @@ export async function getDailyScans(): Promise<DailyScans> {
     scanDate,
     freshness: scanFreshness(scanDate, new Date()),
     pricedBeforeSession: pricedBeforeSession(scanDate, scannedAt),
+    scannedAt: scannedAt ?? null,
     bullish: rows.filter((r) => r.direction === "bullish").map(toRow),
     bearish: rows.filter((r) => r.direction === "bearish").map(toRow),
   };

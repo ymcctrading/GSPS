@@ -15,6 +15,8 @@ export function ShareButton({ symbol }: { symbol: string }) {
     try {
       if (navigator.share) {
         await navigator.share({ title: `${symbol.toUpperCase()} — GSPS`, url });
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1800);
         return;
       }
       await navigator.clipboard.writeText(url);

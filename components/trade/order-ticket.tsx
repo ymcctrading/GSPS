@@ -55,6 +55,8 @@ export function OrderTicket({
   const [qty, setQty] = useState("1");
   const [entryMode, setEntryMode] = useState<EntryMode>("advised");
   const [attachLevels, setAttachLevels] = useState(true);
+  const [manualStop, setManualStop] = useState("");
+  const [manualTarget, setManualTarget] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string; code?: string } | null>(null);
   /**
@@ -184,9 +186,9 @@ export function OrderTicket({
   // advised entry is what puts the protocol stop on the wrong side of the fill.
   const basePrice = entryMode === "advised" ? advised : currentPrice ?? 0;
   const bracketCheck =
-    useProtocolLevels && levels && side === "buy" && assetType === "shares"
+    useProtocolLevels && levels && assetType === "shares"
       ? checkBracket({
-          side: "buy",
+          side,
           basePrice,
           stopLoss: levels.stopLoss,
           takeProfit: levels.takeProfit1,
@@ -202,11 +204,42 @@ export function OrderTicket({
   // what the order *is* — a user who reads "attach protocol levels" and expects
   // an all-or-nothing bracket has been told the wrong thing.
   const exitPlan =
-    useProtocolLevels && levels && side === "buy" && assetType === "shares" && Number(qty) >= 1
+    useProtocolLevels && levels && assetType === "shares" && Number(qty) >= 1
       ? planProtocolExit(Number(qty), {
           stopLoss: levels.stopLoss,
           takeProfit1: levels.takeProfit1,
           masterProfit: levels.masterProfit,
+        })
+      : null;
+
+  // Manual Override carries no armed signal to source levels from, so a stop
+  // and target here are whatever the user types — optional, but once both are
+  // filled in they're validated and staged the same way a protocol bracket is
+  // (see lib/trade/exit-manager-sim.ts), so "every trade has a stop" holds in
+  // this mode too, on both sides.
+  const manualStopNum = Number(manualStop);
+  const manualTargetNum = Number(manualTarget);
+  const manualLevelsEntered = manualStop.trim() !== "" || manualTarget.trim() !== "";
+  const manualLevelsComplete =
+    manualStop.trim() !== "" &&
+    manualTarget.trim() !== "" &&
+    Number.isFinite(manualStopNum) &&
+    manualStopNum > 0 &&
+    Number.isFinite(manualTargetNum) &&
+    manualTargetNum > 0;
+  const manualBracketCheck =
+    manualLevelsComplete && assetType === "shares"
+      ? checkBracket({ side, basePrice, stopLoss: manualStopNum, takeProfit: manualTargetNum })
+      : { ok: true as const };
+  const manualLevelsBlocked = manualLevelsComplete && !manualBracketCheck.ok;
+  const attachingManualLevels =
+    executionMode === "manual" && assetType === "shares" && manualLevelsComplete && !manualLevelsBlocked;
+  const manualExitPlan =
+    attachingManualLevels && Number(qty) >= 1
+      ? planProtocolExit(Number(qty), {
+          stopLoss: manualStopNum,
+          takeProfit1: manualTargetNum,
+          masterProfit: null,
         })
       : null;
 
@@ -255,11 +288,16 @@ export function OrderTicket({
               // Lets the server validate a market entry's bracket, which has no
               // limit price of its own to measure the legs against.
               referencePrice: currentPrice ?? undefined,
-              // Brackets only attach to long entries, only with protocol levels,
-              // and only when the legs sit on the side the broker requires.
-              attachLevels:
-                useProtocolLevels && attachingLevels && side === "buy"
+              // A staged exit attaches from the protocol's levels, or — in
+              // Manual Override — from whatever stop/target the user typed in.
+              // Both sides: this is our own simulated exit management, not a
+              // real broker bracket, so it isn't limited to long entries.
+              attachLevels: useProtocolLevels
+                ? attachingLevels
                   ? { stopLoss: levels!.stopLoss, takeProfit: levels!.takeProfit1, masterProfit: levels!.masterProfit }
+                  : undefined
+                : attachingManualLevels
+                  ? { stopLoss: manualStopNum, takeProfit: manualTargetNum }
                   : undefined,
               mode: "paper" as const,
               executionMode,
@@ -305,7 +343,8 @@ export function OrderTicket({
     Number(qty) < 1 ||
     (assetType === "options" && !canSubmitOptions) ||
     (shortBlocked && side === "sell") ||
-    priceBlocked;
+    priceBlocked ||
+    (executionMode === "manual" && manualLevelsEntered && (!manualLevelsComplete || manualLevelsBlocked));
 
   const actionLabel = (() => {
     if (assetType === "options") return `${side === "buy" ? "Buy" : "Sell"} to open ${optionType.toUpperCase()}`;
@@ -321,7 +360,7 @@ export function OrderTicket({
             ? assetType === "options"
               ? `Trade ${symbol} options — protocol read is ${pattern!.direction}.`
               : `${side === "buy" ? "Long" : "Short"} ${symbol} — armed ${pattern!.name} setup is ${pattern!.direction}.`
-            : `Manual ${side === "buy" ? "long" : "short"} execution for ${symbol} ${assetType === "options" ? "options" : ""} — no protocol levels attached.`}
+            : `Manual ${side === "buy" ? "long" : "short"} execution for ${symbol} ${assetType === "options" ? "options" : ""} — no protocol levels attached${assetType === "shares" ? "; optional custom stop/target below" : ""}.`}
         </CardDescription>
         <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-border pt-3">
           <span className="text-xs font-semibold text-muted">Mode:</span>
@@ -416,63 +455,103 @@ export function OrderTicket({
             </div>
 
             {useProtocolLevels && levels ? (
-              side === "buy" ? (
-                <div className="flex flex-col gap-2">
-                  <label
-                    className={cn(
-                      "flex items-start gap-2 text-sm",
-                      bracketBlocked && "opacity-60",
-                    )}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={attachingLevels}
-                      disabled={bracketBlocked}
-                      onChange={(e) => setAttachLevels(e.target.checked)}
-                      className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--accent)]"
-                    />
-                    <span>
-                      Exit this trade on the protocol&apos;s levels — stop{" "}
-                      {formatUsd(levels.stopLoss)}, TP1 {formatUsd(levels.takeProfit1)}
-                      {levels.masterProfit ? `, master ${formatUsd(levels.masterProfit)}` : ""}
-                    </span>
-                  </label>
+              <div className="flex flex-col gap-2">
+                <label
+                  className={cn(
+                    "flex items-start gap-2 text-sm",
+                    bracketBlocked && "opacity-60",
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    checked={attachingLevels}
+                    disabled={bracketBlocked}
+                    onChange={(e) => setAttachLevels(e.target.checked)}
+                    className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--accent)]"
+                  />
+                  <span>
+                    Exit this trade on the protocol&apos;s levels — stop{" "}
+                    {formatUsd(levels.stopLoss)}, TP1 {formatUsd(levels.takeProfit1)}
+                    {levels.masterProfit ? `, master ${formatUsd(levels.masterProfit)}` : ""}
+                    {side === "sell" &&
+                      " GSPS stages and manages this exit itself — it isn't a native broker bracket, so it only advances while the app can poll (see Portfolio)."}
+                  </span>
+                </label>
 
-                  {attachingLevels && exitPlan && (
-                    <ExitPlanNotice
-                      summary={exitPlan.summary}
-                      splittable={exitPlan.splittable}
-                      hasMaster={levels.masterProfit != null}
-                    />
-                  )}
-                  {bracketBlocked && (
-                    <div className="rounded-lg border border-warn/40 bg-warn-soft p-3 text-xs text-warn">
-                      <p className="font-medium">Protocol levels can&apos;t attach to this entry.</p>
-                      <p className="mt-1">{bracketCheck.reason}</p>
-                      {entryMode === "now" && (
-                        <button
-                          onClick={() => setEntryMode("advised")}
-                          className="mt-2 min-h-9 cursor-pointer font-medium underline underline-offset-2"
-                        >
-                          Use the advised entry ({formatUsd(advised)}) instead →
-                        </button>
-                      )}
-                      <p className="mt-2 text-warn/80">
-                        Placing it anyway routes a plain order — manage the stop yourself.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <p className="text-xs text-muted">
-                  Short entries route as a plain sell order — Alpaca doesn&apos;t bracket short legs. Manage the
-                  stop ({formatUsd(levels.stopLoss)}) and TP1 ({formatUsd(levels.takeProfit1)}) manually.
-                </p>
-              )
+                {attachingLevels && exitPlan && (
+                  <ExitPlanNotice
+                    summary={exitPlan.summary}
+                    splittable={exitPlan.splittable}
+                    hasMaster={levels.masterProfit != null}
+                  />
+                )}
+                {bracketBlocked && (
+                  <div className="rounded-lg border border-warn/40 bg-warn-soft p-3 text-xs text-warn">
+                    <p className="font-medium">Protocol levels can&apos;t attach to this entry.</p>
+                    <p className="mt-1">{bracketCheck.reason}</p>
+                    {entryMode === "now" && (
+                      <button
+                        onClick={() => setEntryMode("advised")}
+                        className="mt-2 min-h-9 cursor-pointer font-medium underline underline-offset-2"
+                      >
+                        Use the advised entry ({formatUsd(advised)}) instead →
+                      </button>
+                    )}
+                    <p className="mt-2 text-warn/80">
+                      Placing it anyway routes a plain order — manage the stop yourself.
+                    </p>
+                  </div>
+                )}
+              </div>
             ) : (
-              <p className="text-xs text-muted">
-                Manual order — no protocol stop or take-profit will be attached.
-              </p>
+              <div className="flex flex-col gap-2">
+                <p className="text-xs text-muted">
+                  Optional — set a stop and target and GSPS stages the exit itself, the same way it
+                  does for a protocol-recommended trade. Leave both blank for a plain order with no
+                  managed exit.
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="flex flex-col gap-1 text-xs text-muted">
+                    Stop-loss
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.01"
+                      min="0"
+                      value={manualStop}
+                      onChange={(e) => setManualStop(e.target.value)}
+                      placeholder="Optional"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 text-xs text-muted">
+                    Take-profit
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.01"
+                      min="0"
+                      value={manualTarget}
+                      onChange={(e) => setManualTarget(e.target.value)}
+                      placeholder="Optional"
+                    />
+                  </label>
+                </div>
+                {manualLevelsBlocked && (
+                  <p className="text-xs text-warn">{manualBracketCheck.reason}</p>
+                )}
+                {attachingManualLevels && manualExitPlan && (
+                  <ExitPlanNotice
+                    summary={manualExitPlan.summary}
+                    splittable={manualExitPlan.splittable}
+                    hasMaster={false}
+                  />
+                )}
+                {!manualLevelsEntered && (
+                  <p className="text-xs text-muted">
+                    No stop or target attached — this order carries no managed exit.
+                  </p>
+                )}
+              </div>
             )}
           </>
         ) : (
@@ -505,6 +584,9 @@ export function OrderTicket({
             onChange={(e) => setQty(e.target.value)}
             className="w-24 sm:w-28"
           />
+          {useProtocolLevels && side === "buy" && assetType === "shares" && Number(qty) === 1 && (
+            <span className="text-xs text-warn">Buy 2+ to use the full staged-exit plan.</span>
+          )}
         </div>
 
         {priceCheck && (
