@@ -9,6 +9,36 @@ date.
 
 ## 2026-08-17
 
+### Changed
+- **The market scan's coarse pre-filter now judges "extended" and "moving a
+  lot" relative to each symbol's own volatility, not a flat percent of
+  price.** This is why the Magnificent 7 barely showed up in market-wide
+  scans while a direct ticker scan on the same names found solid setups —
+  `coarseReversion`/`coarseContinuation` (`lib/marketScan.ts`) decide which
+  ~60 of the ~100 most-active symbols are worth the expensive full protocol
+  scan, using cheap daily-bar heuristics, and those heuristics used fixed
+  thresholds (extension >5%/10% of price, proximity within 1.0-2.0% of a
+  level). A 1% move on SPY and a 15% move on a small-cap can represent the
+  same real significance, so the flat thresholds structurally favored
+  volatile small/mid-caps and could exclude a mega-cap with a genuinely
+  strong setup before it was ever scored. The full protocol scorer already
+  solved exactly this problem for its own proximity criteria (see the
+  2026-08-13-and-earlier `lib/scoring/proximity.ts` re-basing to ATR
+  multiples) — this carries that same fix upstream into the coarse gate,
+  reusing the same `atrPercentOfPrice`/`proximityBandPct` helpers: extension
+  is now measured in multiples of the symbol's own 20-day ATR
+  (`EXTENSION_ATR_TIER1`/`TIER2`), and the fan/harmonic/S-R proximity checks
+  use the identical ATR-relative bands the real scorer uses, so a symbol
+  that clears the coarse gate is now likely to clear the real one too. The
+  continuation gate's `hasExceptional4hMomentum` and volume-participation
+  checks were already self-relative (ratios against the symbol's own
+  trailing baseline) and needed no change; only its `travelPct` threshold
+  got the same ATR rebasing. Threshold multiples were chosen to preserve
+  the old thresholds' relative strictness (tier 2 stays double tier 1, the
+  continuation travel gate stays proportionally tighter than the reversion
+  extension gate) rather than independently re-tuned — worth watching over
+  the next few scan days and adjusting if the mix still looks off.
+
 ### Fixed
 - **The bars-batching fix below this same day silently dropped most of the
   scan universe, cutting a normal 8-20-setup day down to one lone `Reject`

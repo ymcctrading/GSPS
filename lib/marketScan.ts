@@ -33,6 +33,16 @@ import { squareOf9Levels } from "@/lib/gann/squareOf9";
 import { CONTINUATION_PATTERNS } from "@/lib/strat/patterns";
 import { scanTicker } from "@/lib/scanTicker";
 import { MAG7, SECTORS } from "@/lib/sectors";
+import {
+  FALLBACK_FAN_PCT,
+  FALLBACK_HARMONIC_PCT,
+  FALLBACK_SR_PCT,
+  FAN_PROXIMITY_ATR,
+  HARMONIC_PROXIMITY_ATR,
+  SR_PROXIMITY_ATR,
+  atrPercentOfPrice,
+  proximityBandPct,
+} from "@/lib/scoring/proximity";
 
 // Fallback universe when the most-actives screener is unavailable (some Alpaca
 // plans don't include it): the curated sector lists, equities only.
@@ -114,6 +124,27 @@ export function hasExceptional4hMomentum(bars4h: Bar[]): boolean {
   );
 }
 
+/**
+ * How far "extended" means, in multiples of the symbol's own daily ATR —
+ * the same re-basing the proximity gates already went through (see
+ * lib/scoring/proximity.ts): a flat percent of price does not mean the same
+ * thing on a 0.5%-ATR mega-cap as on a 4%-ATR small-cap, so a 1% SPY move
+ * and a 15% small-cap move that cover the same number of ATRs now register
+ * as equally "extended" instead of the mega-cap almost never qualifying.
+ * Tier 2 is double tier 1, preserving the ratio the old 5%/10% pair
+ * expressed — re-basing the unit, not covertly re-tuning which tier is
+ * stricter.
+ */
+export const EXTENSION_ATR_TIER1 = 2;
+export const EXTENSION_ATR_TIER2 = 4;
+/**
+ * Fallback fixed-percent thresholds for when no ATR read is available —
+ * identical to the values they replace, so a symbol with no volatility read
+ * gets exactly the old behavior instead of a silently different one.
+ */
+export const FALLBACK_EXTENSION_PCT_TIER1 = 5;
+export const FALLBACK_EXTENSION_PCT_TIER2 = 10;
+
 function coarseReversion(symbol: string, daily: Bar[]): CoarseCandidate | null {
   if (daily.length < 60) return null;
   const price = daily[daily.length - 1].c;
@@ -125,23 +156,34 @@ function coarseReversion(symbol: string, daily: Bar[]): CoarseCandidate | null {
 
   let score = 0;
 
-  // Extension: distance of price from its 50-bar mean, in % — more extended,
-  // more primed for reversion.
+  // Every distance below is measured against this symbol's own daily range,
+  // not a flat percent of price — see EXTENSION_ATR_TIER1 above for why.
+  const atrPct = atrPercentOfPrice(atr(daily.slice(-20), 14), price);
+
+  // Extension: distance of price from its 50-bar mean, in multiples of the
+  // symbol's own ATR — more extended, more primed for reversion.
   const mean50 = mean(daily.slice(-50).map((b) => b.c));
   const extensionPct = (Math.abs(price - mean50) / mean50) * 100;
-  if (extensionPct > 5) score += 1;
-  if (extensionPct > 10) score += 1;
+  const tier1Pct = proximityBandPct(EXTENSION_ATR_TIER1, FALLBACK_EXTENSION_PCT_TIER1, atrPct);
+  const tier2Pct = proximityBandPct(EXTENSION_ATR_TIER2, FALLBACK_EXTENSION_PCT_TIER2, atrPct);
+  if (extensionPct > tier1Pct) score += 1;
+  if (extensionPct > tier2Pct) score += 1;
 
-  // Proximity to a Gann fan line or Square-of-9 level
+  // Proximity to a Gann fan line or Square-of-9 level — the same ATR-relative
+  // bands the full scan's proximity criteria use, so a symbol that clears
+  // this coarse gate is likely to clear the real one too.
+  const fanBandPct = proximityBandPct(FAN_PROXIMITY_ATR, FALLBACK_FAN_PCT, atrPct);
+  const harmonicBandPct = proximityBandPct(HARMONIC_PROXIMITY_ATR, FALLBACK_HARMONIC_PCT, atrPct);
   const fans = computeFanLines(daily, price);
-  if (fans.length > 0 && fans[0].distancePct <= 1.5) score += 2;
+  if (fans.length > 0 && fans[0].distancePct <= fanBandPct) score += 2;
   const majorLow = Math.min(...daily.map((b) => b.l));
   const s9 = squareOf9Levels(majorLow, price);
-  if (s9.length > 0 && s9[0].distancePct <= 1.0) score += 2;
+  if (s9.length > 0 && s9[0].distancePct <= harmonicBandPct) score += 2;
 
   // Proximity to a clustered S/R level in the reversion direction
+  const srBandPct = proximityBandPct(SR_PROXIMITY_ATR, FALLBACK_SR_PCT, atrPct);
   const levels = direction === "bullish" ? trend.support : trend.resistance;
-  if (levels.some((l) => (Math.abs(price - l) / price) * 100 <= 2)) score += 2;
+  if (levels.some((l) => (Math.abs(price - l) / price) * 100 <= srBandPct)) score += 2;
 
   if (score < 3) return null;
   return { symbol, direction, kind: "reversion", coarseScore: score };
@@ -156,6 +198,15 @@ function coarseReversion(symbol: string, daily: Bar[]): CoarseCandidate | null {
  * so the pool stays small and the fills are the ones actually moving right now,
  * not just a name with an elevated day somewhere in its trailing average.
  */
+/**
+ * Travel-from-mean threshold for the continuation gate, in ATR multiples —
+ * scaled down from EXTENSION_ATR_TIER1 by the same ratio the old fixed
+ * percentages (3% vs. 5%) expressed, so re-basing the unit doesn't quietly
+ * change how strict this gate is relative to the reversion gate.
+ */
+export const TRAVEL_ATR_MULT = 1.2;
+export const FALLBACK_TRAVEL_PCT = 3;
+
 function coarseContinuation(symbol: string, daily: Bar[], bars4h: Bar[]): CoarseCandidate | null {
   // Needs the full trailing window the baseline is measured over.
   if (daily.length < 120) return null;
@@ -187,9 +238,13 @@ function coarseContinuation(symbol: string, daily: Bar[], bars4h: Bar[]): Coarse
 
   // Distance travelled from the 50-bar mean in the trend direction — a trend
   // that has actually gone somewhere, scored the opposite way to a reversion.
+  // Same ATR-relative rebasing as coarseReversion's extension tiers, scaled
+  // down to preserve the ratio the old 3%-vs-5% pair expressed.
   const mean50 = mean(daily.slice(-50).map((b) => b.c));
   const travelPct = mean50 > 0 ? ((price - mean50) / mean50) * 100 * (direction === "bullish" ? 1 : -1) : 0;
-  if (travelPct > 3) score += 1;
+  const atrPct = atrPercentOfPrice(atr(daily.slice(-20), 14), price);
+  const travelBandPct = proximityBandPct(TRAVEL_ATR_MULT, FALLBACK_TRAVEL_PCT, atrPct);
+  if (travelPct > travelBandPct) score += 1;
 
   return { symbol, direction, kind: "continuation", coarseScore: score };
 }
