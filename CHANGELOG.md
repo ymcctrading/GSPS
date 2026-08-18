@@ -165,6 +165,55 @@ date.
   `%2F` is normalised back to a slash before the route matches.
 - The `settings` table's `tp1_r_multiple` / `master_r_multiple` defaults (2 and
   3) now match the engine (1.5 and 2.5). Existing rows are untouched.
+
+- **A calibration feedback loop for the coarse scan gate's ATR multiples.**
+  The ATR-relative rebasing below was calibrated by preserving the old flat
+  percentages' ratios, not by measuring real outcomes — no live market data
+  was reachable to verify the specific multiples chosen. `coarse_gate_telemetry`
+  (migration `0019`) now logs one row per symbol per scan day: its ATR%,
+  extension distance in both percent and ATR multiples, whether each gate
+  cleared it, and — when it went on to a real full-protocol scan — the actual
+  score and output state. `runMarketScan` computes this independently of the
+  gates' own pass/fail logic (`coarseDiagnostics` in `lib/marketScan.ts`), so
+  instrumenting it can never change scan behavior, and the write
+  (`persistCoarseTelemetry`, `lib/scan/telemetry.ts`) is best-effort like
+  `daily_scans` — a failure there never blocks or fails the scan itself. Once
+  enough scan days accumulate, this data answers the question the current
+  multiples can't: does a 2-ATR extension actually predict a good score more
+  reliably than a 1.5-ATR or 3-ATR one, and does that threshold differ by cap
+  size — instead of guessing.
+
+### Changed
+- **The market scan's coarse pre-filter now judges "extended" and "moving a
+  lot" relative to each symbol's own volatility, not a flat percent of
+  price.** This is why the Magnificent 7 barely showed up in market-wide
+  scans while a direct ticker scan on the same names found solid setups —
+  `coarseReversion`/`coarseContinuation` (`lib/marketScan.ts`) decide which
+  ~60 of the ~100 most-active symbols are worth the expensive full protocol
+  scan, using cheap daily-bar heuristics, and those heuristics used fixed
+  thresholds (extension >5%/10% of price, proximity within 1.0-2.0% of a
+  level). A 1% move on SPY and a 15% move on a small-cap can represent the
+  same real significance, so the flat thresholds structurally favored
+  volatile small/mid-caps and could exclude a mega-cap with a genuinely
+  strong setup before it was ever scored. The full protocol scorer already
+  solved exactly this problem for its own proximity criteria (see the
+  2026-08-13-and-earlier `lib/scoring/proximity.ts` re-basing to ATR
+  multiples) — this carries that same fix upstream into the coarse gate,
+  reusing the same `atrPercentOfPrice`/`proximityBandPct` helpers: extension
+  is now measured in multiples of the symbol's own 20-day ATR
+  (`EXTENSION_ATR_TIER1`/`TIER2`), and the fan/harmonic/S-R proximity checks
+  use the identical ATR-relative bands the real scorer uses, so a symbol
+  that clears the coarse gate is now likely to clear the real one too. The
+  continuation gate's `hasExceptional4hMomentum` and volume-participation
+  checks were already self-relative (ratios against the symbol's own
+  trailing baseline) and needed no change; only its `travelPct` threshold
+  got the same ATR rebasing. Threshold multiples were chosen to preserve
+  the old thresholds' relative strictness (tier 2 stays double tier 1, the
+  continuation travel gate stays proportionally tighter than the reversion
+  extension gate) rather than independently re-tuned — worth watching over
+  the next few scan days and adjusting if the mix still looks off.
+
+### Fixed
 - **The bars-batching fix below this same day silently dropped most of the
   scan universe, cutting a normal 8-20-setup day down to one lone `Reject`
   row.** `fetchBarsBatch`'s `limit` param is a total across every symbol in
