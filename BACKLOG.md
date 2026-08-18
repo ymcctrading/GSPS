@@ -84,6 +84,27 @@
 
 ## Priority 3: User Experience Improvements
 
+### Header/Navigation & Account (requested 2026-08-18)
+- [ ] Profile icon in the top header (next to logout) opening a back-office
+      view: name, address, email, phone, and other account info on record
+- [ ] Search icon in the top header (next to profile) for manual symbol
+      search — today the only manual search entry point is under Scan
+- [ ] Saved scans folder: let a user revisit previously identified/scanned
+      stocks and see whether any are now closer to (or newly) "armed"
+
+### Options Chain Accuracy (requested 2026-08-18)
+- [ ] Options research view (options / Level 2) currently shows placeholder/
+      simulated bid-ask-greeks data even though contracts and expirations are
+      correct — replace with real quote data
+- [ ] Visually separate ITM/ATM from OTM strikes in the chain (thinkorswim
+      uses a dashed divider line; use a distinct-but-non-derivative treatment)
+
+### Scan Duplicate Results Bug (requested 2026-08-18)
+- [ ] Intraday movement scan is emitting 2-3 alerts per symbol (e.g. QQQ
+      "Trend continuation", "Opening momentum", "Reversal risk" all firing
+      together) — investigate whether this is intended multi-signal output
+      needing better grouping/dedup in the UI, or a scan-run duplication bug
+
 ### Dashboard Customization
 - [ ] Drag-and-drop widget arrangement
 - [ ] Custom dashboard layouts
