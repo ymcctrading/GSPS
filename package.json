@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "check:terms": "node scripts/check-banned-terms.mjs",
+    "check:migrations": "node scripts/check-migrations.mjs",
     "backtest": "node scripts/replay-report.mjs",
     "test": "vitest run"
   },
@@ -36,6 +37,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
     "jsdom": "^27.4.0",
+    "supabase": "^2.114.0",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.10"

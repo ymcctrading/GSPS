@@ -34,3 +34,37 @@ Prefer, in order:
 1. **Cache more aggressively** or reduce polling frequency in the calling code.
 2. **Move frequent/scheduled calls outside Vercel Cron** to an external scheduler (e.g. a GitHub Actions cron job hitting the route over HTTPS) rather than upgrading Vercel — cheaper, and Vercel's cron limit isn't a data-provider limit anyway.
 3. **Upgrade the specific service's plan** only once you've confirmed the above two don't solve it — and only with explicit sign-off, since it's a recurring cost.
+
+### Both Vercel cron slots are already spent
+
+`vercel.json` uses both of the Hobby plan's 2 cron slots on `/api/market-scan`
+(weekday open/close). There is currently no slot free for anything else —
+a broker-token refresh job, an order-reconciliation sweep, etc. Adding a
+third entry to `vercel.json`'s `crons` array doesn't get a "silently
+ignored" warning; per the table above, either the deploy fails or the cron
+just doesn't get created, and nothing tells you which happened at push time.
+
+If a scheduled job is needed before either existing slot is freed up, use
+option 2 above — an external scheduler calling the route over HTTPS, the
+same way a Vercel cron would, protected by the same `CRON_SECRET` check the
+route already does for `/api/market-scan`. A GitHub Actions workflow can
+serve this without touching `vercel.json`:
+
+```yaml
+name: External cron — <name>
+on:
+  schedule:
+    - cron: '<schedule>'
+  workflow_dispatch:
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -fsS -X GET "https://gsps.vercel.app/api/<route>" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+```
+
+This isn't wired up yet — there's no token-refresh or reconciliation route
+to call. Add it when that route exists, rather than standing up an unused
+workflow now.

@@ -1,0 +1,61 @@
+name: Security
+
+# None of this existed before: no secret scanning, no dependency review, no
+# audit of known-vulnerable packages. All three are cheap and catch a
+# different class of problem than the Tests workflow does.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secret-scan:
+    runs-on: ubuntu-latest
+    name: Secret scan
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  dependency-review:
+    # Only runs on PRs — it diffs the base ref against the head ref, so it
+    # has nothing to compare on a plain push.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    name: Dependency review
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+
+  npm-audit:
+    runs-on: ubuntu-latest
+    name: npm audit
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - run: npm ci
+
+      # Informational for now: fixing the current high-severity findings
+      # means a breaking Next.js upgrade (`npm audit fix --force`), which is
+      # its own reviewable change, not something this gate should force on
+      # an unrelated PR. `continue-on-error` keeps the finding visible in the
+      # Actions UI without blocking merges until that upgrade lands.
+      - run: npm audit --audit-level=high
+        continue-on-error: true
