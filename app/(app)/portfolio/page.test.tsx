@@ -147,12 +147,36 @@ function mockApi(payload: {
   ordersFail?: boolean;
   sync?: { syncedAt: string | null; syncError: string | null };
 }) {
-  const isPortfolio = (url: string) => url.includes("/api/portfolio");
+  const isAnalytics = (url: string) => url.includes("/api/portfolio/analytics");
+  const isPortfolio = (url: string) => url.includes("/api/portfolio") && !isAnalytics(url);
   const calls: string[] = [];
 
   const fetchMock = vi.fn((input: RequestInfo | URL) => {
     const url = String(input);
     calls.push(url);
+    // The analytics dashboard fetches its own endpoint independently of the
+    // page's portfolio/orders loaders — always serve it an empty-but-ok
+    // payload here so it doesn't interfere with assertions about the other
+    // two fetches (its own rendering is covered by analytics-dashboard tests
+    // and the pure functions it calls are covered in lib/__tests__).
+    if (isAnalytics(url)) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            analytics: {
+              winLoss: { trades: 0, wins: 0, losses: 0, winRatePct: null, winLossRatio: null },
+              profitFactor: null,
+              sharpeRatio: null,
+              drawdown: { curve: [], maxDrawdownDollars: 0, maxDrawdownPct: null },
+              monthlyPnl: [],
+              quarterlyPnl: [],
+              byPattern: [],
+            },
+          }),
+      } as Response);
+    }
     if (isPortfolio(url) && payload.portfolioFails) {
       return Promise.resolve({
         ok: false,
