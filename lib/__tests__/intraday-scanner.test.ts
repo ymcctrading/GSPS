@@ -171,6 +171,60 @@ describe("scanIntraday — the reported SPY miss", () => {
   });
 });
 
+describe("scanIntraday — the liquidity floor", () => {
+  /** The same trending session, re-priced onto a sub-$5 symbol. */
+  function pennyBars(): Bar[] {
+    return trendingUpBars().map((b) => ({
+      ...b,
+      o: b.o / 1000,
+      h: b.h / 1000,
+      l: b.l / 1000,
+      c: b.c / 1000,
+    }));
+  }
+
+  it("filters a sub-$5 symbol however hard it is moving", () => {
+    const output = scanIntraday(
+      [input({ symbol: "AGRZ", kind: "equity", bars: pennyBars(), prevClose: 0.5 })],
+      DEFAULT_CONFIG,
+      AT_1133,
+    );
+
+    expect(output.alerts).toHaveLength(0);
+    expect(output.audit[0].outcome).toBe("filtered");
+    expect(output.audit[0].reason).toMatch(/below the \$5 floor/);
+  });
+
+  it("filters a symbol whose daily turnover is below the floor", () => {
+    const output = scanIntraday(
+      [input({ symbol: "SNYR", kind: "equity", avgDailyVolume: 100_000 })],
+      DEFAULT_CONFIG,
+      AT_1133,
+    );
+
+    expect(output.alerts).toHaveLength(0);
+    expect(output.audit[0].outcome).toBe("filtered");
+    expect(output.audit[0].reason).toMatch(/a day/);
+  });
+
+  it("still alerts on a liquid symbol, and says what it measured", () => {
+    const output = scanIntraday([input({ avgDailyVolume: 80_000_000 })], DEFAULT_CONFIG, AT_1133);
+
+    expect(output.alerts.length).toBeGreaterThan(0);
+    const check = output.audit[0].checks.find((c) => c.name === "Tradeable instrument")!;
+    expect(check.passed).toBe(true);
+    expect(check.detail).toMatch(/shares a day/);
+  });
+
+  it("applies the price floor alone when no daily volume was supplied", () => {
+    const check = scanIntraday([input()], DEFAULT_CONFIG, AT_1133).audit[0].checks.find(
+      (c) => c.name === "Tradeable instrument",
+    )!;
+    expect(check.passed).toBe(true);
+    expect(check.detail).toMatch(/only the price floor/);
+  });
+});
+
 describe("scanIntraday — data freshness", () => {
   it("refuses to alert on a stale feed and says so", () => {
     // Bars end at 11:15 ET but the scan runs at 15:33 ET — four hours behind.

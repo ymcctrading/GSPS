@@ -17,12 +17,12 @@ const FEATURES = [
   {
     icon: Target,
     title: "Pinpoint levels",
-    body: "Every setup ships with an entry, structural stop, 2R take-profit, and 3R master profit — mapped before the candle opens, never in hindsight.",
+    body: "Every setup ships with an entry, a structural stop, a 1.5R first target, and a master target stepped out to the nearest structural level — mapped before the candle opens, never in hindsight.",
   },
   {
     icon: ShieldCheck,
     title: "Scored out of 9",
-    body: "Nine confluence checks across structural analysis, reversal patterns, and risk quality. Seven or higher signals Execute; below four, the setup is rejected.",
+    body: "Nine confluence checks across structural analysis, reversal patterns, and risk quality. Seven or higher with a priced trade plan signals Execute; below four, the setup is rejected.",
   },
 ];
 

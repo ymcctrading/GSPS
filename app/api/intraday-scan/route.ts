@@ -20,6 +20,7 @@ import { getMarketDataProvider } from "@/lib/data/provider";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { atr } from "@/lib/analysis/pivots";
 import { etParts } from "@/lib/market/session";
+import { readLiquidity } from "@/lib/scan/liquidity";
 import {
   DEFAULT_CONFIG,
   WATCHLIST,
@@ -331,6 +332,9 @@ async function buildInput(
       // actually received.
       volumeBaseline: volumeBaseline(baselineBars, etParts(new Date(last.t)).minutes, todayEt),
       dailyAtr: dailyBars.length > 2 ? atr(dailyBars.slice(-20), 14) : null,
+      // The volume half of the platform-wide liquidity floor, read off the
+      // daily bars already fetched above for the ATR — see lib/scan/liquidity.ts.
+      avgDailyVolume: readLiquidity(dailyBars)?.avgVolume ?? null,
       lastAlerts,
     };
   } catch {

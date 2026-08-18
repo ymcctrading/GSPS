@@ -398,11 +398,14 @@ export function isMarketable(side: "buy" | "sell", limitPrice: number, market: n
 
 /**
  * Fill every resting simulated limit order whose price the market has now
- * reached. Filled at the order's own limit price — what a resting limit
- * order at the broker would have filled at, never worse than what was asked
- * for. Options are skipped: without a live per-contract quote there's nothing
- * to test marketability against, so an option order only ever fills (or
- * doesn't) at placement time — see the option branch in `POST /api/orders`.
+ * reached. Filled at the live market price, not the order's own limit — by
+ * the time a resting limit is marketable, the market is already at least as
+ * good as the limit (a buy's market is <= it, a sell's is >=), and that's the
+ * price a real broker would report back, especially after a gap carries price
+ * well past the limit between polls. Options are skipped: without a live
+ * per-contract quote there's nothing to test marketability against, so an
+ * option order only ever fills (or doesn't) at placement time — see the
+ * option branch in `POST /api/orders`.
  */
 export async function evaluateRestingOrders(
   supabase: Supabase,
@@ -432,7 +435,7 @@ export async function evaluateRestingOrders(
     // claim: a concurrent poll must not fill this same resting order twice.
     const { data: claimed } = await supabase
       .from("orders")
-      .update({ status: "filled", filled_qty: row.qty, filled_avg_price: limitPrice, updated_at: new Date().toISOString() })
+      .update({ status: "filled", filled_qty: row.qty, filled_avg_price: market, updated_at: new Date().toISOString() })
       .eq("id", row.id)
       .eq("user_id", userId)
       .eq("status", "new")
@@ -445,7 +448,7 @@ export async function evaluateRestingOrders(
       assetClass: assetClassOf(symbol),
       side,
       qty: Number(row.qty),
-      price: limitPrice,
+      price: market,
     });
     if (executed.closed) {
       await logPlainClose(supabase, userId, symbol, assetClassOf(symbol), side, executed.closed);
