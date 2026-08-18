@@ -103,4 +103,19 @@ describe("GuidedCard", () => {
     expect(screen.getByRole("button", { name: /Buy 24 META/ })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Skip" })).toBeDisabled();
   });
+
+  it("never says Buy for a short", () => {
+    const shortRec: Recommendation = {
+      ...rec,
+      action: "sell",
+      symbol: "ONDS",
+      why: { ...rec.why, entry: 12.5, stopLoss: 13.2, takeProfit1: 11.45, masterProfit: 10.75 },
+    };
+    render(<GuidedCard rec={shortRec} onConfirm={noop} onDismiss={noop} busy={false} />);
+
+    expect(screen.getByRole("button", { name: /Sell short 24 ONDS/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Buy/ })).not.toBeInTheDocument();
+    // The badge says it too, not only the button.
+    expect(screen.getAllByText(/Sell short/).length).toBeGreaterThan(1);
+  });
 });

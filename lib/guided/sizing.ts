@@ -1,8 +1,8 @@
 /**
  * Guided Decision Mode — how many shares, and what that actually risks.
  *
- * Pressing Buy must never mean "buy an unset quantity". The share count is
- * derived from the one number the user is entitled to have decided for them
+ * Pressing Buy or Sell must never mean "trade an unset quantity". The share
+ * count is derived from the one number the user is entitled to have decided for them
  * conservatively — the share of their equity they are willing to lose on this
  * trade — divided by the distance from entry to stop. Everything the card says
  * in dollars is computed from the resulting quantity against the real
@@ -10,18 +10,39 @@
  *
  * Four ceilings apply, in this order, and the smallest wins:
  *
- *   1. Risk cap        — riskPct of equity ÷ (entry − stop).
+ *   1. Risk cap        — riskPct of equity ÷ the entry-to-stop distance.
  *   2. Portfolio cap   — what is left under the deployed-capital ceiling.
- *   3. Buying power    — a simulated cash account cannot buy what it cannot pay for.
+ *   3. Buying power    — a simulated cash account cannot buy what it cannot pay
+ *                        for. This one does not apply to a short: the simulator
+ *                        moves cash by the full notional either way, so a sell
+ *                        *credits* cash rather than spending it (see
+ *                        `executeFill` in lib/brokers/simulator.ts). Sizing a
+ *                        short against buying power would be arithmetic on a
+ *                        number that grows as the position grows.
  *   4. Tradeability    — below MIN_GUIDED_QTY the protocol's staged exit collapses
  *                        into a single all-or-nothing target, which is not the
  *                        trade the card describes. Below it, there is no trade.
+ *
+ * Because a short consumes no cash, the deployed-capital cap is the *only*
+ * ceiling standing between a guided short and unbounded exposure. That is
+ * deliberate and it is why the cap counts notional on both sides — see
+ * lib/guided/caps.ts.
+ *
+ * Everything below is written in terms of "the risk side" and "the reward
+ * side" rather than above/below, because a short is the mirror image of a long
+ * and the arithmetic must not be duplicated per side to say so.
  */
 
 import { MIN_GUIDED_QTY } from "@/lib/guided/config";
 import { planProtocolExit, SCALE_OUT_PCT } from "@/lib/trade/protocol-exit";
 
 export interface SizingInputs {
+  /**
+   * Which way the trade goes. Required rather than defaulted: every price
+   * relationship below inverts with it, so a caller that forgets would be
+   * silently sized against a risk-per-share of the wrong sign.
+   */
+  side: "buy" | "sell";
   /** Current paper account equity — cash plus the market value of open positions. */
   equity: number;
   /** Cash actually available to buy with. */
@@ -43,7 +64,11 @@ export interface SizingInputs {
 
 export interface SizedTrade {
   qty: number;
-  /** Cash the entry consumes. */
+  /**
+   * The position's notional at the entry price. Cash consumed on a long;
+   * exposure taken on a short, which credits cash instead. Either way it is
+   * what the deployed-capital cap counts.
+   */
   notionalUsd: number;
   /** Dollars lost if the stop is hit on the whole position. */
   riskUsd: number;
@@ -65,11 +90,15 @@ export interface SizedTrade {
 
 export function sizeGuidedTrade(input: SizingInputs): SizedTrade {
   const {
-    equity, buyingPower, entry, stopLoss, takeProfit1, masterProfit,
+    side, equity, buyingPower, entry, stopLoss, takeProfit1, masterProfit,
     riskPct, maxDeployedPct, deployedUsd, wholeUnitsOnly = true,
   } = input;
 
-  const riskPerShare = entry - stopLoss;
+  // +1 long, −1 short. Every price difference below is multiplied by it, so a
+  // short's stop sitting *above* its entry produces the same positive risk per
+  // share a long's stop below its entry does.
+  const dir = side === "buy" ? 1 : -1;
+  const riskPerShare = (entry - stopLoss) * dir;
   const empty = (reason: string): SizedTrade => ({
     qty: 0,
     notionalUsd: 0,
@@ -94,7 +123,9 @@ export function sizeGuidedTrade(input: SizingInputs): SizedTrade {
   const deployableUsd = Math.max(equity * (maxDeployedPct / 100) - deployedUsd, 0);
   const byPortfolio = deployableUsd / entry;
 
-  const byCash = Math.max(buyingPower, 0) / entry;
+  // A short credits cash instead of spending it, so buying power cannot bound
+  // it — see the header. The portfolio cap above is what bounds a short's size.
+  const byCash = side === "buy" ? Math.max(buyingPower, 0) / entry : Number.POSITIVE_INFINITY;
 
   const raw = Math.min(byRisk, byPortfolio, byCash);
   const qty = wholeUnitsOnly ? Math.floor(raw) : Math.floor(raw * 1e6) / 1e6;
@@ -120,8 +151,8 @@ export function sizeGuidedTrade(input: SizingInputs): SizedTrade {
   // — a 60% scale-out on 7 shares is 4 shares, not 4.2, and the difference
   // shows up in the dollar figure the user is shown.
   const plan = planProtocolExit(qty, { stopLoss, takeProfit1, masterProfit });
-  const tp1Gain = (takeProfit1 - entry) * plan.scaleOutQty;
-  const masterGain = (masterProfit - entry) * (plan.masterQty + plan.runnerQty);
+  const tp1Gain = (takeProfit1 - entry) * dir * plan.scaleOutQty;
+  const masterGain = (masterProfit - entry) * dir * (plan.masterQty + plan.runnerQty);
 
   const riskUsd = riskPerShare * qty;
   const rewardUsd = tp1Gain + masterGain;

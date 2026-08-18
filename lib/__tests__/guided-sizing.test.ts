@@ -10,6 +10,7 @@ import { MIN_GUIDED_QTY } from "@/lib/guided/config";
 
 /** Entry 100, stop 90, first target 1.5R, master 2.5R — $10 of risk a share. */
 const base = {
+  side: "buy" as const,
   equity: 100_000,
   buyingPower: 100_000,
   entry: 100,
@@ -94,5 +95,64 @@ describe("sizeGuidedTrade", () => {
   it("never risks more than the cap, however wide the stop", () => {
     const sized = sizeGuidedTrade({ ...base, stopLoss: 40 });
     expect(sized.riskUsd).toBeLessThanOrEqual(base.equity * (base.riskPct / 100));
+  });
+});
+
+/**
+ * The mirror image: entry 100, stop 110, first target 85, master 75. Same $10
+ * of risk a share, same 1.5R/2.5R geometry, every price relationship inverted.
+ * A sign error anywhere in the sizing arithmetic shows up here and nowhere else.
+ */
+const short = { ...base, side: "sell" as const, stopLoss: 110, takeProfit1: 85, masterProfit: 75 };
+
+describe("sizeGuidedTrade — shorts", () => {
+  it("reads risk per share off a stop that sits above the entry", () => {
+    const sized = sizeGuidedTrade(short);
+    expect(sized.qty).toBe(100); // $1,000 of risk ÷ $10 a share
+    expect(sized.riskUsd).toBeCloseTo(1000, 6);
+  });
+
+  it("counts a falling price as the reward, not as a loss", () => {
+    const sized = sizeGuidedTrade(short);
+    // 60 shares covered at 85, the remaining 40 at 75.
+    expect(sized.rewardUsd).toBeCloseTo(60 * 15 + 40 * 25, 6);
+    expect(sized.rewardUsd).toBeGreaterThan(0);
+  });
+
+  it("produces the same numbers as the equivalent long, mirrored", () => {
+    const long = sizeGuidedTrade(base);
+    const sold = sizeGuidedTrade(short);
+    expect(sold.qty).toBe(long.qty);
+    expect(sold.riskUsd).toBeCloseTo(long.riskUsd, 6);
+    expect(sold.rewardUsd).toBeCloseTo(long.rewardUsd, 6);
+    expect(sold.rewardToRisk).toBeCloseTo(long.rewardToRisk, 6);
+  });
+
+  it("refuses a short whose stop sits below its entry — that is a long's geometry", () => {
+    const sized = sizeGuidedTrade({ ...short, stopLoss: 90 });
+    expect(sized.qty).toBe(0);
+    expect(sized.blockedReason).toContain("no usable distance");
+  });
+
+  it("is not bounded by cash, because a short credits it rather than spending it", () => {
+    // The same account with no cash at all still sizes the short, because
+    // shorting does not consume buying power in this simulator.
+    const sized = sizeGuidedTrade({ ...short, buyingPower: 0 });
+    expect(sized.qty).toBe(100);
+    expect(sized.boundBy).toBe("risk");
+    // The long is refused on the identical account, which is the whole point of
+    // the distinction.
+    expect(sizeGuidedTrade({ ...base, buyingPower: 0 }).qty).toBe(0);
+  });
+
+  it("is still bounded by the deployed-capital cap, which is a short's only ceiling", () => {
+    const sized = sizeGuidedTrade({ ...short, deployedUsd: 24_000 });
+    expect(sized.qty).toBe(10); // $1,000 of headroom ÷ $100
+    expect(sized.boundBy).toBe("portfolio");
+  });
+
+  it("never risks more than the cap on a wide short stop", () => {
+    const sized = sizeGuidedTrade({ ...short, stopLoss: 160 });
+    expect(sized.riskUsd).toBeLessThanOrEqual(short.equity * (short.riskPct / 100));
   });
 });

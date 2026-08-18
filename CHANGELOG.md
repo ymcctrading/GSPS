@@ -7,6 +7,34 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-08-18
+
+### Added
+- **Guided Decision Mode now recommends shorts as well as longs.** The
+  constraint that made it long-only was that short entries carried no enforced
+  stop; #72 removed it by staging a short's exit in the simulator exactly as it
+  stages a long's. Enabling it was not a flag flip — three things about a short
+  differ from a long and each is handled explicitly:
+  - **Borrow.** A short candidate's shortability is resolved at the broker
+    before the card renders and again at submission, because availability moves
+    during a session. An unknown answer *fails* the short. That is deliberately
+    stricter than `filterShortable` on the market scan, which fails open so the
+    daily list doesn't go dark: a scan row a user reads is not an order a user
+    taps.
+  - **Cash.** The simulator credits cash on a sell rather than spending it, so
+    the buying-power ceiling cannot bound a short. It is skipped for one, which
+    leaves the deployed-capital cap as a short's only exposure ceiling — noted
+    in `BACKLOG.md` as worth re-deriving now that it carries that weight alone.
+  - **Words.** The reason line is written per side rather than produced by
+    swapping direction words; the exit sentence says *bought back* and *trails
+    down*; the badge and button say "Sell short" in the bear colour, so a card
+    can never read "Buy" for an order that would sell.
+  The sizing arithmetic is shared rather than duplicated — a ±1 direction
+  multiplies every price difference — and a test asserts a mirrored short
+  produces numerically identical size, risk, reward and R to its equivalent
+  long. `stillMatches` now also refuses a setup that flipped direction between
+  the card and the tap. Migration 0015 widens the ledger's `side` constraint.
+
 ## 2026-08-17
 
 ### Added

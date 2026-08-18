@@ -11,9 +11,15 @@
  *                     behind a friendly Buy button, shown to someone who can no
  *                     longer see the score, is a misleading interface regardless
  *                     of intent.
- *   Long only       — short entries are not bracketed at the broker today, so a
- *                     recommended short would have no enforced stop. Guided Mode
- *                     stays long-only until that is resolved.
+ *   Borrow          — a short needs shares to borrow. Alpaca will not lend every
+ *                     listed name, and a recommendation the broker refuses on
+ *                     submission is not a recommendation. Longs never need one,
+ *                     so the check is asked only of the short side. Unknown is
+ *                     treated as *not* shortable here — unlike the market scan,
+ *                     which fails open to keep its list from going dark. A list
+ *                     with one unborrowable row is a bad row a user can see; a
+ *                     one-tap Sell button on one is an order that dies at the
+ *                     broker after they have already committed.
  *   Priced plan     — no entry/stop/target, no risk figure to state in dollars,
  *                     and nothing for the staged exit to attach to.
  *   Liquidity floor — see lib/scan/liquidity.ts.
@@ -36,7 +42,15 @@ export interface EligibilityVerdict {
   reasons: string[];
 }
 
-export function assessEligibility(result: ScanResult): EligibilityVerdict {
+export function assessEligibility(
+  result: ScanResult,
+  /**
+   * Whether the symbol can be borrowed. Only consulted for a short; pass it
+   * whenever the direction might be bearish. Omitted reads as "not asked",
+   * which fails a short rather than passing it.
+   */
+  shortable?: boolean,
+): EligibilityVerdict {
   const reasons: string[] = [];
 
   if (result.error) {
@@ -50,11 +64,19 @@ export function assessEligibility(result: ScanResult): EligibilityVerdict {
     );
   }
 
-  if (result.direction !== "bullish") {
+  if (result.direction === "none") {
+    reasons.push("No setup is armed in either direction.");
+  }
+
+  // A short that cannot be borrowed is an order that fails at submission. The
+  // caller resolves borrow availability (it is a broker call, and this module
+  // is pure); `undefined` means it was never asked, which for a short is not
+  // an answer this may guess at.
+  if (result.direction === "bearish" && shortable !== true) {
     reasons.push(
-      result.direction === "bearish"
-        ? "Short setups are held back until stops on the short side are enforced at the broker."
-        : "No setup is armed in either direction.",
+      shortable === false
+        ? `${result.symbol} can't be borrowed to short right now, so the order would be refused at the broker.`
+        : `Borrow availability for ${result.symbol} couldn't be confirmed, and a short is not recommended without it.`,
     );
   }
 
@@ -88,11 +110,27 @@ export function assessEligibility(result: ScanResult): EligibilityVerdict {
  */
 export function stillMatches(
   result: ScanResult,
-  agreed: { entry: number; stopLoss: number; takeProfit1: number; masterProfit: number },
+  agreed: {
+    entry: number;
+    stopLoss: number;
+    takeProfit1: number;
+    masterProfit: number;
+    /** The side the user confirmed. A setup that flipped is a different trade. */
+    direction: "bullish" | "bearish";
+  },
+  shortable?: boolean,
 ): { ok: boolean; reason: string | null } {
-  const verdict = assessEligibility(result);
+  const verdict = assessEligibility(result, shortable);
   if (!verdict.eligible) {
     return { ok: false, reason: verdict.reasons[0] };
+  }
+
+  if (result.direction !== agreed.direction) {
+    return {
+      ok: false,
+      reason:
+        "This setup has flipped direction since the recommendation was shown, so the order wasn't placed. Refresh for the current plan.",
+    };
   }
 
   const levels = result.levels!;

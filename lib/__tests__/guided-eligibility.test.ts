@@ -63,10 +63,26 @@ describe("assessEligibility", () => {
     expect(verdict.reasons[0]).toContain("Watch");
   });
 
-  it("refuses a short setup while short stops are unenforced", () => {
+  it("accepts a borrowable short", () => {
+    const verdict = assessEligibility(scan({ direction: "bearish" }), true);
+    expect(verdict).toEqual({ eligible: true, reasons: [] });
+  });
+
+  it("refuses a short the broker will not lend", () => {
+    const verdict = assessEligibility(scan({ direction: "bearish" }), false);
+    expect(verdict.eligible).toBe(false);
+    expect(verdict.reasons.some((r) => r.includes("borrowed"))).toBe(true);
+  });
+
+  it("refuses a short whose borrow was never confirmed, rather than assuming it", () => {
     const verdict = assessEligibility(scan({ direction: "bearish" }));
     expect(verdict.eligible).toBe(false);
-    expect(verdict.reasons.some((r) => r.includes("Short setups"))).toBe(true);
+    expect(verdict.reasons.some((r) => r.includes("couldn't be confirmed"))).toBe(true);
+  });
+
+  it("never asks for a borrow on a long", () => {
+    // `shortable: false` must not fail a long — it is not a question about it.
+    expect(assessEligibility(scan(), false).eligible).toBe(true);
   });
 
   it("refuses a setup with no priced trade plan", () => {
@@ -109,7 +125,13 @@ describe("assessEligibility", () => {
 });
 
 describe("stillMatches", () => {
-  const agreed = { entry: 100, stopLoss: 98, takeProfit1: 103, masterProfit: 105 };
+  const agreed = {
+    entry: 100,
+    stopLoss: 98,
+    takeProfit1: 103,
+    masterProfit: 105,
+    direction: "bullish" as const,
+  };
 
   it("accepts an unchanged plan", () => {
     expect(stillMatches(scan(), agreed)).toEqual({ ok: true, reason: null });
@@ -133,6 +155,23 @@ describe("stillMatches", () => {
       agreed,
     );
     expect(result.ok).toBe(false);
+  });
+
+  it("refuses a setup that flipped direction between render and tap", () => {
+    // The prices are unchanged; only the side is not. Submitting this would
+    // sell a position the user confirmed buying.
+    const flipped = scan({ direction: "bearish" });
+    const result = stillMatches(flipped, agreed, true);
+    expect(result.ok).toBe(false);
+    expect(result.reason).toContain("flipped direction");
+  });
+
+  it("re-checks the borrow on a short at submission, not only at render", () => {
+    const shortAgreed = { ...agreed, direction: "bearish" as const };
+    const shortScan = scan({ direction: "bearish" });
+    expect(stillMatches(shortScan, shortAgreed, true).ok).toBe(true);
+    // Borrow withdrawn between the card and the tap.
+    expect(stillMatches(shortScan, shortAgreed, false).ok).toBe(false);
   });
 });
 

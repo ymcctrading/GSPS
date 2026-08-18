@@ -30,6 +30,11 @@ export function GuidedCard({
   busy: boolean;
 }) {
   const [showWhy, setShowWhy] = useState(false);
+  // A short is a different trade, not a differently-coloured one: the verb on
+  // the button, the badge and its colour all follow the side, so the card can
+  // never read "Buy" for an order that would sell.
+  const short = rec.action === "sell";
+  const verb = short ? "Sell short" : "Buy";
 
   return (
     <Card>
@@ -39,8 +44,13 @@ export function GuidedCard({
             <span className="text-lg font-semibold">{rec.symbol}</span>
             <span className="font-mono text-sm text-muted">{formatUsd(rec.currentPrice)}</span>
           </div>
-          <span className="rounded-full bg-bull/10 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-bull">
-            Buy
+          <span
+            className={cn(
+              "rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide",
+              short ? "bg-bear/10 text-bear" : "bg-bull/10 text-bull",
+            )}
+          >
+            {short ? "Sell short" : "Buy"}
           </span>
         </div>
 
@@ -73,7 +83,7 @@ export function GuidedCard({
 
         <div className="flex flex-wrap gap-2">
           <Button onClick={onConfirm} disabled={busy} size="lg" className="flex-1 sm:flex-none">
-            Buy {rec.qty} {rec.symbol}
+            {verb} {rec.qty} {rec.symbol}
           </Button>
           <Button onClick={onDismiss} disabled={busy} variant="outline" size="lg">
             Skip
@@ -108,6 +118,9 @@ function WhyPanel({ rec }: { rec: Recommendation }) {
       </ul>
       {why.score.stateNote && <p className="text-xs text-muted">{why.score.stateNote}</p>}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {/* Tone tracks meaning, not direction: a target is the good outcome and
+            the stop the bad one on either side, even though a short's targets
+            sit below its entry rather than above. */}
         <Level label="Entry" value={why.entry} tone="accent" />
         <Level label="Stop" value={why.stopLoss} tone="bear" />
         <Level label="Target 1" value={why.takeProfit1} tone="bull" />
