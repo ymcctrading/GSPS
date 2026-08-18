@@ -36,8 +36,16 @@ import {
   type SymbolInput,
 } from "@/lib/scanner/intraday";
 import type { Bar } from "@/lib/types";
+import { dispatchNotification, type DispatchSupabase } from "@/lib/notifications/dispatch";
 
 export const maxDuration = 120;
+
+/**
+ * Same "Execute" threshold lib/scoring/score.ts uses on the daily-scan 0-9
+ * scale, and the default `notification_preferences.min_score` — an alert
+ * below this isn't "high-confidence" so it never reaches the dispatcher.
+ */
+const HIGH_CONFIDENCE_SCORE = 7;
 
 /** Sessions of history behind the relative-volume baseline and the daily ATR. */
 const BASELINE_DAYS = 12;
@@ -267,14 +275,36 @@ async function persistAlerts(
     },
   }));
 
-  const { error } = await supabase
+  const { data: persisted, error } = await supabase
     .from("intraday_alerts")
-    .upsert(rows, { onConflict: "user_id,symbol,signal_id,poll_cycle_timestamp" });
+    .upsert(rows, { onConflict: "user_id,symbol,signal_id,poll_cycle_timestamp" })
+    .select("id, symbol, score");
 
   if (error) {
     console.error("[intraday-scan] could not persist alerts:", error);
     return false;
   }
+
+  // Notification sending is deliberately synchronous and inline here rather
+  // than a new cron: Vercel's Hobby plan caps scheduled jobs at two per
+  // project and both are already spent (docs/THIRD_PARTY_LIMITS.md), so
+  // dispatch has to ride the same request that just persisted the alert.
+  // Best-effort — a notification failure must not turn a successful scan
+  // into a failed one; dispatch already logs its own outcomes.
+  const highConfidence = (persisted ?? []).filter((row) => row.score >= HIGH_CONFIDENCE_SCORE);
+  await Promise.all(
+    highConfidence.map((row) =>
+      dispatchNotification(supabase as unknown as DispatchSupabase, userId, {
+        alertId: row.id,
+        symbol: row.symbol,
+        score: row.score,
+        message: `${row.symbol} scored ${row.score}/9 on the intraday scan.`,
+      }).catch((err) => {
+        console.error("[intraday-scan] notification dispatch failed:", err);
+      }),
+    ),
+  );
+
   return true;
 }
 
