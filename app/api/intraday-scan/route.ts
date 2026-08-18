@@ -19,7 +19,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getMarketDataProvider } from "@/lib/data/provider";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { atr } from "@/lib/analysis/pivots";
-import { etParts } from "@/lib/market/session";
+import { equitySession, etParts } from "@/lib/market/session";
 import { readLiquidity } from "@/lib/scan/liquidity";
 import {
   DEFAULT_CONFIG,
@@ -98,7 +98,7 @@ export async function GET(req: NextRequest) {
   );
 
   const inputs = await mapWithConcurrency(universe, 4, async (entry) =>
-    buildInput(entry, todayEt, provider, priorAlerts.get(entry.symbol) ?? []),
+    buildInput(entry, todayEt, provider, priorAlerts.get(entry.symbol) ?? [], now),
   );
 
   const resolved = inputs.filter((i): i is SymbolInput => i !== null);
@@ -294,9 +294,15 @@ async function buildInput(
   todayEt: string,
   provider: Provider,
   lastAlerts: PriorAlert[],
+  now: Date,
 ): Promise<SymbolInput | null> {
   const { symbol, kind } = entry;
   const assetClass = kind === "crypto" ? "crypto" : "us_equity";
+
+  // Crypto never closes. Equities do, and when they're closed there's no
+  // fresher data to wait for — the scan runs on the most recent session's
+  // bars instead of refusing to run at all (see pickSessionBars below).
+  const marketClosed = assetClass === "us_equity" && equitySession(now) === "closed";
 
   // Crypto has no feed delay. Free IEX stock data can't serve the most recent
   // ~15 minutes, and asking for it returns an empty tail rather than an error —
@@ -304,14 +310,20 @@ async function buildInput(
   const end =
     assetClass === "crypto" || !provider.isLive ? null : new Date(Date.now() - 16 * 60 * 1000);
 
+  // A closed market can mean a weekend, or a holiday sitting right next to
+  // one, so the minute-bar lookback is widened to find the last session that
+  // actually traded. Alpaca pages newest-first and drops the oldest bars past
+  // `limit`, so widening this never costs the recent data the live path needs.
+  const minuteLookbackDays = marketClosed ? 6 : 2;
+
   try {
     const [minuteBars, baselineBars, dailyBars] = await Promise.all([
-      provider.fetchBars(symbol, "1Min", startOfDayUtc(), end, assetClass, 2000),
+      provider.fetchBars(symbol, "1Min", daysAgo(minuteLookbackDays), end, assetClass, 2000),
       provider.fetchBars(symbol, "5Min", daysAgo(BASELINE_DAYS), end, assetClass, 5000),
       provider.fetchBars(symbol, "1Day", daysAgo(DAILY_ATR_DAYS), end, assetClass, 200),
     ]);
 
-    const sessionBars = pickSessionBars(minuteBars, baselineBars, todayEt);
+    const sessionBars = pickSessionBars(minuteBars, baselineBars, todayEt, marketClosed);
     if (sessionBars.bars.length === 0) return null;
 
     const last = sessionBars.bars[sessionBars.bars.length - 1];
@@ -321,7 +333,7 @@ async function buildInput(
       kind,
       bars: sessionBars.bars,
       barIntervalMinutes: sessionBars.intervalMinutes,
-      prevClose: previousClose(dailyBars, todayEt),
+      prevClose: previousClose(dailyBars, sessionBars.sessionDate),
       quote: { price: last.c, at: last.t },
       // The baseline must cover exactly the window today's bars cover, not the
       // window the wall clock covers. The free IEX feed can't serve the most
@@ -329,13 +341,18 @@ async function buildInput(
       // baseline measured to `now` kept counting — which made every symbol read
       // roughly 0.5x normal through the morning and suppressed the alerts this
       // scanner exists to produce. Measure the baseline to the last bar we
-      // actually received.
-      volumeBaseline: volumeBaseline(baselineBars, etParts(new Date(last.t)).minutes, todayEt),
+      // actually received, against the same session the bars came from.
+      volumeBaseline: volumeBaseline(
+        baselineBars,
+        etParts(new Date(last.t)).minutes,
+        sessionBars.sessionDate,
+      ),
       dailyAtr: dailyBars.length > 2 ? atr(dailyBars.slice(-20), 14) : null,
       // The volume half of the platform-wide liquidity floor, read off the
       // daily bars already fetched above for the ATR — see lib/scan/liquidity.ts.
       avgDailyVolume: readLiquidity(dailyBars)?.avgVolume ?? null,
       lastAlerts,
+      marketClosed,
     };
   } catch {
     return null;
@@ -343,39 +360,66 @@ async function buildInput(
 }
 
 /**
- * Today's session bars at the best resolution available.
+ * Session bars at the best resolution available.
  *
- * Minute bars are preferred. When the feed returns none for today — which
- * happens on a thinly-traded name, or when the delayed window swallows a short
- * session — the five-minute series is used instead, and the caller is told
- * which, because a signal derived from five-minute bars can miss a move that
- * reverses inside one.
+ * Minute bars for today are preferred. When the feed returns none for today —
+ * which happens on a thinly-traded name, or when the delayed window swallows a
+ * short session — the five-minute series is used instead, and the caller is
+ * told which, because a signal derived from five-minute bars can miss a move
+ * that reverses inside one.
+ *
+ * When the market is closed and nothing has printed today at all (before the
+ * open, over a weekend, or on a holiday), there is no "today" to fall back
+ * within — the most recent session that actually traded is used instead, so a
+ * closed market shows the last real move rather than nothing. `sessionDate`
+ * always names which Eastern session the returned bars belong to, so callers
+ * measuring "today's" volume or reference price against the right day.
  */
 function pickSessionBars(
   minuteBars: Bar[],
   fallbackBars: Bar[],
   todayEt: string,
-): { bars: Bar[]; intervalMinutes: number } {
+  marketClosed: boolean,
+): { bars: Bar[]; intervalMinutes: number; sessionDate: string } {
   const minute = barsForSession(minuteBars, todayEt);
-  if (minute.length > 0) return { bars: minute, intervalMinutes: 1 };
-  return { bars: barsForSession(fallbackBars, todayEt), intervalMinutes: 5 };
+  if (minute.length > 0) return { bars: minute, intervalMinutes: 1, sessionDate: todayEt };
+
+  const fiveMin = barsForSession(fallbackBars, todayEt);
+  if (fiveMin.length > 0) return { bars: fiveMin, intervalMinutes: 5, sessionDate: todayEt };
+
+  if (!marketClosed) return { bars: [], intervalMinutes: 1, sessionDate: todayEt };
+
+  const staleDate = latestSessionDate(minuteBars) ?? latestSessionDate(fallbackBars);
+  if (!staleDate || staleDate === todayEt) {
+    return { bars: [], intervalMinutes: 1, sessionDate: todayEt };
+  }
+
+  const staleMinute = barsForSession(minuteBars, staleDate);
+  if (staleMinute.length > 0) return { bars: staleMinute, intervalMinutes: 1, sessionDate: staleDate };
+
+  return { bars: barsForSession(fallbackBars, staleDate), intervalMinutes: 5, sessionDate: staleDate };
 }
 
-/** The last daily close before today. Null when the history doesn't reach it. */
-function previousClose(dailyBars: Bar[], todayEt: string): number | null {
+/** The most recent Eastern calendar date any bar belongs to, or null if none. */
+function latestSessionDate(bars: Bar[]): string | null {
+  let latest: string | null = null;
+  for (const bar of bars) {
+    if (Number.isNaN(Date.parse(bar.t))) continue;
+    const date = etDateKey(new Date(bar.t));
+    if (latest === null || date > latest) latest = date;
+  }
+  return latest;
+}
+
+/** The last daily close before `sessionEt`. Null when the history doesn't reach it. */
+function previousClose(dailyBars: Bar[], sessionEt: string): number | null {
   for (let i = dailyBars.length - 1; i >= 0; i--) {
     const bar = dailyBars[i];
     if (Number.isNaN(Date.parse(bar.t))) continue;
-    if (etDateKey(new Date(bar.t)) === todayEt) continue;
+    if (etDateKey(new Date(bar.t)) >= sessionEt) continue;
     return bar.c > 0 ? bar.c : null;
   }
   return null;
-}
-
-function startOfDayUtc(): Date {
-  // Two calendar days back, so an Eastern session that began "yesterday" in UTC
-  // terms is fully inside the window.
-  return daysAgo(2);
 }
 
 function daysAgo(n: number): Date {
