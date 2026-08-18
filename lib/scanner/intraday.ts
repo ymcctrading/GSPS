@@ -44,6 +44,7 @@
 import type { Bar } from "@/lib/types";
 import { atr } from "@/lib/analysis/pivots";
 import { etDateKey, etParts } from "@/lib/market/session";
+import { meetsLiquidityFloor } from "@/lib/scan/liquidity";
 
 /** ---- Configuration ----------------------------------------------------- */
 
@@ -144,6 +145,13 @@ export interface SymbolInput {
   volumeBaseline: number | null;
   /** Daily ATR, for sizing a move against the symbol's usual range. */
   dailyAtr: number | null;
+  /**
+   * Average daily volume over the recent sessions, for the platform-wide
+   * liquidity floor (see lib/scan/liquidity.ts). Null when no daily history
+   * came back, which fails the floor rather than passing it silently — a
+   * symbol whose turnover cannot be read is not one to alert a novice onto.
+   */
+  avgDailyVolume?: number | null;
   /** Last time this symbol+signal+direction alerted, for cooldown suppression. */
   lastAlerts?: { type: SignalType; direction: Direction; at: string }[];
 }
@@ -503,6 +511,39 @@ function scanSymbol(input: SymbolInput, config: ScannerConfig, now: Date): Symbo
       "Too little has traded today for a move here to mean much, so it was skipped.",
       metrics,
     );
+  }
+
+  // The platform-wide floor, on top of the session-volume gate above: today's
+  // turnover says whether this session is active, the floor says whether the
+  // instrument is one to put in front of a user at all. Applied here so a
+  // sub-$5, thinly-traded name cannot alert out of the intraday scan while the
+  // daily scan and Guided Mode both refuse it — see lib/scan/liquidity.ts.
+  //
+  // `avgDailyVolume` is optional on the input: the API route always supplies it
+  // from the daily bars it already fetches, but a caller that has not measured
+  // it (fixtures, an embedder with minute bars only) is judged on price alone
+  // rather than being failed for a number nobody asked them for.
+  const floorAssetClass = input.kind === "crypto" ? ("crypto" as const) : ("us_equity" as const);
+  const avgVolume = input.avgDailyVolume ?? null;
+  const floor = meetsLiquidityFloor(
+    {
+      price: metrics.last,
+      avgVolume: avgVolume ?? Number.POSITIVE_INFINITY,
+      avgDollarVolume: avgVolume != null ? avgVolume * metrics.last : Number.POSITIVE_INFINITY,
+    },
+    floorAssetClass,
+  );
+  checks.push({
+    name: "Tradeable instrument",
+    passed: floor.ok,
+    detail: floor.ok
+      ? avgVolume != null
+        ? `Trades at ${metrics.last.toFixed(2)} on ${formatVolume(avgVolume)} shares a day.`
+        : `Trades at ${metrics.last.toFixed(2)}; no daily-volume history was supplied, so only the price floor was applied.`
+      : floor.reason!,
+  });
+  if (!floor.ok) {
+    return bail("filtered", floor.reason!, metrics);
   }
 
   // The day's move, against the reference that exists. Prior close is the

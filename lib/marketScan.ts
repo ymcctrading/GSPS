@@ -31,8 +31,34 @@ import { atr } from "@/lib/analysis/pivots";
 import { computeFanLines } from "@/lib/gann/fans";
 import { squareOf9Levels } from "@/lib/gann/squareOf9";
 import { CONTINUATION_PATTERNS } from "@/lib/strat/patterns";
+import { MIN_EQUITY_PRICE_USD, meetsLiquidityFloor, readLiquidity } from "@/lib/scan/liquidity";
 import { scanTicker } from "@/lib/scanTicker";
 import { MAG7, SECTORS } from "@/lib/sectors";
+import type { CoarseTelemetryRow } from "@/lib/scan/telemetry";
+import {
+  FALLBACK_FAN_PCT,
+  FALLBACK_HARMONIC_PCT,
+  FALLBACK_SR_PCT,
+  FAN_PROXIMITY_ATR,
+  HARMONIC_PROXIMITY_ATR,
+  SR_PROXIMITY_ATR,
+  atrPercentOfPrice,
+  proximityBandPct,
+} from "@/lib/scoring/proximity";
+import { envCreds, getAsset } from "@/lib/brokers/alpaca";
+
+/**
+ * SEC's own line for a "penny stock" is under $5, and it doubles as a proxy
+ * for the wide spreads and thin, unreliable borrow that make this whole
+ * price band a bad fit for a bracket-order protocol regardless of how the
+ * pattern scores. Distinct from the liquidity/volume gate reverted in
+ * 6a34f33 — this is a hard price floor, not a volume coin flip, so it stays.
+ *
+ * Aliased to the platform-wide floor rather than restated, so the scan's price
+ * line and the one every other scan applies cannot drift to two different
+ * numbers — see lib/scan/liquidity.ts.
+ */
+export const MIN_SCAN_PRICE = MIN_EQUITY_PRICE_USD;
 
 // Fallback universe when the most-actives screener is unavailable (some Alpaca
 // plans don't include it): the curated sector lists, equities only.
@@ -114,9 +140,54 @@ export function hasExceptional4hMomentum(bars4h: Bar[]): boolean {
   );
 }
 
-function coarseReversion(symbol: string, daily: Bar[]): CoarseCandidate | null {
+/**
+ * How far "extended" means, in multiples of the symbol's own daily ATR —
+ * the same re-basing the proximity gates already went through (see
+ * lib/scoring/proximity.ts): a flat percent of price does not mean the same
+ * thing on a 0.5%-ATR mega-cap as on a 4%-ATR small-cap, so a 1% SPY move
+ * and a 15% small-cap move that cover the same number of ATRs now register
+ * as equally "extended" instead of the mega-cap almost never qualifying.
+ * Tier 2 is double tier 1, preserving the ratio the old 5%/10% pair
+ * expressed — re-basing the unit, not covertly re-tuning which tier is
+ * stricter.
+ */
+export const EXTENSION_ATR_TIER1 = 2;
+export const EXTENSION_ATR_TIER2 = 4;
+/**
+ * Fallback fixed-percent thresholds for when no ATR read is available —
+ * identical to the values they replace, so a symbol with no volatility read
+ * gets exactly the old behavior instead of a silently different one.
+ */
+export const FALLBACK_EXTENSION_PCT_TIER1 = 5;
+export const FALLBACK_EXTENSION_PCT_TIER2 = 10;
+
+/**
+ * The liquidity floor, applied at the top of the coarse pass so it gates both
+ * candidate pools from the same read of the same bars. A symbol that cannot be
+ * filled cleanly is not a setup on either side — see lib/scan/liquidity.ts.
+ * Every universe reaches here: the most-actives screener returns whatever is
+ * moving, including sub-$1 names, and the curated fallback is not immune either.
+ *
+ * This subsumes the `MIN_SCAN_PRICE` check below — the floor enforces the same
+ * $5 line — and adds an absolute average-volume minimum on top of it. That is
+ * deliberately *not* the relative-volume gate reverted in 6a34f33, which failed
+ * a symbol for trading below its own trailing average: half of all symbols do
+ * that at any moment, so it was a coin flip that zeroed out AAPL in a quiet
+ * week. An absolute floor asks a different question — is there enough tape here
+ * to fill a plan at all — and AAPL in its quietest week clears it by two orders
+ * of magnitude.
+ */
+function tradeable(daily: Bar[]): boolean {
+  // The market scan's universe is US equities (`resolveUniverse` filters pairs
+  // out of the fallback list and the screener returns none).
+  return meetsLiquidityFloor(readLiquidity(daily), "us_equity").ok;
+}
+
+export function coarseReversion(symbol: string, daily: Bar[]): CoarseCandidate | null {
   if (daily.length < 60) return null;
+  if (!tradeable(daily)) return null;
   const price = daily[daily.length - 1].c;
+  if (price < MIN_SCAN_PRICE) return null;
   const trend = readTrend(daily, "1Day");
   if (trend.direction === "sideways") return null;
 
@@ -125,23 +196,34 @@ function coarseReversion(symbol: string, daily: Bar[]): CoarseCandidate | null {
 
   let score = 0;
 
-  // Extension: distance of price from its 50-bar mean, in % — more extended,
-  // more primed for reversion.
+  // Every distance below is measured against this symbol's own daily range,
+  // not a flat percent of price — see EXTENSION_ATR_TIER1 above for why.
+  const atrPct = atrPercentOfPrice(atr(daily.slice(-20), 14), price);
+
+  // Extension: distance of price from its 50-bar mean, in multiples of the
+  // symbol's own ATR — more extended, more primed for reversion.
   const mean50 = mean(daily.slice(-50).map((b) => b.c));
   const extensionPct = (Math.abs(price - mean50) / mean50) * 100;
-  if (extensionPct > 5) score += 1;
-  if (extensionPct > 10) score += 1;
+  const tier1Pct = proximityBandPct(EXTENSION_ATR_TIER1, FALLBACK_EXTENSION_PCT_TIER1, atrPct);
+  const tier2Pct = proximityBandPct(EXTENSION_ATR_TIER2, FALLBACK_EXTENSION_PCT_TIER2, atrPct);
+  if (extensionPct > tier1Pct) score += 1;
+  if (extensionPct > tier2Pct) score += 1;
 
-  // Proximity to a Gann fan line or Square-of-9 level
+  // Proximity to a Gann fan line or Square-of-9 level — the same ATR-relative
+  // bands the full scan's proximity criteria use, so a symbol that clears
+  // this coarse gate is likely to clear the real one too.
+  const fanBandPct = proximityBandPct(FAN_PROXIMITY_ATR, FALLBACK_FAN_PCT, atrPct);
+  const harmonicBandPct = proximityBandPct(HARMONIC_PROXIMITY_ATR, FALLBACK_HARMONIC_PCT, atrPct);
   const fans = computeFanLines(daily, price);
-  if (fans.length > 0 && fans[0].distancePct <= 1.5) score += 2;
+  if (fans.length > 0 && fans[0].distancePct <= fanBandPct) score += 2;
   const majorLow = Math.min(...daily.map((b) => b.l));
   const s9 = squareOf9Levels(majorLow, price);
-  if (s9.length > 0 && s9[0].distancePct <= 1.0) score += 2;
+  if (s9.length > 0 && s9[0].distancePct <= harmonicBandPct) score += 2;
 
   // Proximity to a clustered S/R level in the reversion direction
+  const srBandPct = proximityBandPct(SR_PROXIMITY_ATR, FALLBACK_SR_PCT, atrPct);
   const levels = direction === "bullish" ? trend.support : trend.resistance;
-  if (levels.some((l) => (Math.abs(price - l) / price) * 100 <= 2)) score += 2;
+  if (levels.some((l) => (Math.abs(price - l) / price) * 100 <= srBandPct)) score += 2;
 
   if (score < 3) return null;
   return { symbol, direction, kind: "reversion", coarseScore: score };
@@ -156,11 +238,22 @@ function coarseReversion(symbol: string, daily: Bar[]): CoarseCandidate | null {
  * so the pool stays small and the fills are the ones actually moving right now,
  * not just a name with an elevated day somewhere in its trailing average.
  */
-function coarseContinuation(symbol: string, daily: Bar[], bars4h: Bar[]): CoarseCandidate | null {
+/**
+ * Travel-from-mean threshold for the continuation gate, in ATR multiples —
+ * scaled down from EXTENSION_ATR_TIER1 by the same ratio the old fixed
+ * percentages (3% vs. 5%) expressed, so re-basing the unit doesn't quietly
+ * change how strict this gate is relative to the reversion gate.
+ */
+export const TRAVEL_ATR_MULT = 1.2;
+export const FALLBACK_TRAVEL_PCT = 3;
+
+export function coarseContinuation(symbol: string, daily: Bar[], bars4h: Bar[]): CoarseCandidate | null {
   // Needs the full trailing window the baseline is measured over.
   if (daily.length < 120) return null;
+  if (!tradeable(daily)) return null;
   if (!hasExceptional4hMomentum(bars4h)) return null;
   const price = daily[daily.length - 1].c;
+  if (price < MIN_SCAN_PRICE) return null;
   const trend = readTrend(daily, "1Day");
   if (trend.direction === "sideways") return null;
 
@@ -187,11 +280,61 @@ function coarseContinuation(symbol: string, daily: Bar[], bars4h: Bar[]): Coarse
 
   // Distance travelled from the 50-bar mean in the trend direction — a trend
   // that has actually gone somewhere, scored the opposite way to a reversion.
+  // Same ATR-relative rebasing as coarseReversion's extension tiers, scaled
+  // down to preserve the ratio the old 3%-vs-5% pair expressed.
   const mean50 = mean(daily.slice(-50).map((b) => b.c));
   const travelPct = mean50 > 0 ? ((price - mean50) / mean50) * 100 * (direction === "bullish" ? 1 : -1) : 0;
-  if (travelPct > 3) score += 1;
+  const atrPct = atrPercentOfPrice(atr(daily.slice(-20), 14), price);
+  const travelBandPct = proximityBandPct(TRAVEL_ATR_MULT, FALLBACK_TRAVEL_PCT, atrPct);
+  if (travelPct > travelBandPct) score += 1;
 
   return { symbol, direction, kind: "continuation", coarseScore: score };
+}
+
+interface CoarseDiagnostics {
+  symbol: string;
+  /** The underlying daily trend read, or null when sideways/unreadable. Not
+   * the same as either gate's candidate direction — a reversion candidate
+   * trades against this. */
+  trendDirection: "bullish" | "bearish" | null;
+  price: number;
+  atrPct: number | null;
+  extensionPct: number;
+  extensionAtr: number | null;
+  travelPct: number | null;
+  travelAtr: number | null;
+}
+
+/**
+ * The raw ATR-relative measurements behind both coarse gates, recomputed
+ * independently of `coarseReversion`/`coarseContinuation`'s pass/fail logic.
+ * Exists purely to log what the gate saw for every symbol it considered —
+ * cleared or not — so the ATR-multiple thresholds chosen when the gate was
+ * rebased off flat percentages can be calibrated against real outcomes
+ * later instead of staying a one-time guess (see `lib/scan/telemetry.ts`).
+ * Cheap (same bars already in memory, no extra network calls) and never
+ * feeds back into the gates, so instrumenting it can't change scan behavior.
+ */
+function coarseDiagnostics(symbol: string, daily: Bar[]): CoarseDiagnostics | null {
+  if (daily.length < 60) return null;
+  const price = daily[daily.length - 1].c;
+  const atrPct = atrPercentOfPrice(atr(daily.slice(-20), 14), price) ?? null;
+  const mean50 = mean(daily.slice(-50).map((b) => b.c));
+  const extensionPct = mean50 > 0 ? (Math.abs(price - mean50) / mean50) * 100 : 0;
+  const extensionAtr = atrPct !== null && atrPct > 0 ? extensionPct / atrPct : null;
+
+  const trend = daily.length >= 120 ? readTrend(daily, "1Day") : null;
+  let trendDirection: "bullish" | "bearish" | null = null;
+  let travelPct: number | null = null;
+  let travelAtr: number | null = null;
+  if (trend && trend.direction !== "sideways") {
+    trendDirection = trend.direction;
+    const dir = trend.direction === "bullish" ? 1 : -1;
+    travelPct = mean50 > 0 ? ((price - mean50) / mean50) * 100 * dir : 0;
+    travelAtr = atrPct !== null && atrPct > 0 ? travelPct / atrPct : null;
+  }
+
+  return { symbol, trendDirection, price, atrPct, extensionPct, extensionAtr, travelPct, travelAtr };
 }
 
 /**
@@ -241,6 +384,8 @@ export interface MarketScanOutput {
    * that nothing armed; the two look identical in the published lists alone.
    */
   scanErrors: number;
+  /** Per-symbol coarse-gate diagnostics for later threshold calibration. */
+  coarseTelemetry: CoarseTelemetryRow[];
 }
 
 async function mapWithConcurrency<T, R>(
@@ -258,6 +403,30 @@ async function mapWithConcurrency<T, R>(
   }
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
   return results;
+}
+
+/**
+ * A "Sell" row means short shares — that is what the order ticket's Protocol
+ * Recommended mode puts up first. Alpaca will not borrow every listed name
+ * (small caps especially), and a row the broker will reject on submission is
+ * not a trade plan, whatever the pattern scored. Checked only for the bearish
+ * list; going long never needs a borrow. Unknown/unreachable broker fails
+ * open, same direction as the /api/assets preflight the order ticket itself
+ * uses — better an occasional non-shortable row than the whole list going
+ * dark because the broker call failed.
+ */
+export async function filterShortable(results: ScanResult[]): Promise<ScanResult[]> {
+  const creds = envCreds("paper");
+  if (!creds) return results;
+  const checked = await mapWithConcurrency(results, 8, async (r) => {
+    try {
+      const asset = await getAsset(creds, r.symbol);
+      return asset.shortable ? r : null;
+    } catch {
+      return r;
+    }
+  });
+  return checked.filter((r): r is ScanResult => r !== null);
 }
 
 /** Ceiling on top-up scans, so a two-sided shortage can't run past the budget. */
@@ -323,9 +492,10 @@ export async function runMarketScan(universeTop = 100, perSide = 15): Promise<Ma
       return {
         reversion: coarseReversion(symbol, daily),
         continuation: coarseContinuation(symbol, daily, bars4h),
+        diagnostics: coarseDiagnostics(symbol, daily),
       };
     } catch {
-      return { reversion: null, continuation: null };
+      return { reversion: null, continuation: null, diagnostics: null };
     }
   });
 
@@ -380,6 +550,10 @@ export async function runMarketScan(universeTop = 100, perSide = 15): Promise<Ma
     bearish: Math.max(shortfall.bearish, CONTINUATION_QUOTA_PER_SIDE),
   };
 
+  // Hoisted so the telemetry build below (outside this block) can see which
+  // continuation candidates got a real full scan and what score they made.
+  let continuationScanResults: ScanResult[] = [];
+
   if (continuationPool.length > 0) {
     const published = new Set([...lists.bullish, ...lists.bearish].map((r) => r.symbol));
     const shortSides = (["bullish", "bearish"] as const).filter(
@@ -415,6 +589,7 @@ export async function runMarketScan(universeTop = 100, perSide = 15): Promise<Ma
     const scans = await mapWithConcurrency(fills, 5, (c) =>
       scanTicker(c.symbol, undefined, { direction: c.direction, kind: "continuation" }, fillBars.get(c.symbol.toUpperCase())),
     );
+    continuationScanResults = scans;
 
     for (const dir of ["bullish", "bearish"] as const) {
       if (target[dir] <= 0) continue;
@@ -427,6 +602,38 @@ export async function runMarketScan(universeTop = 100, perSide = 15): Promise<Ma
     }
   }
 
+  lists.bearish = await filterShortable(lists.bearish);
+
+  const shortlistedSymbols = new Set(shortlist.map((c) => c.symbol.toUpperCase()));
+  const fullScanResults = new Map(
+    [...valid, ...continuationScanResults].map((r) => [r.symbol, r]),
+  );
+  const coarseTelemetry: CoarseTelemetryRow[] = coarse
+    .filter((c) => c.diagnostics !== null)
+    .map((c) => {
+      const d = c.diagnostics!;
+      const sym = d.symbol.toUpperCase();
+      const fullResult = fullScanResults.get(sym);
+      return {
+        scan_date: scanDate,
+        symbol: sym,
+        direction: d.trendDirection,
+        price: d.price,
+        atr_pct: d.atrPct,
+        extension_pct: d.extensionPct,
+        extension_atr: d.extensionAtr,
+        cleared_reversion: c.reversion !== null,
+        reversion_score: c.reversion?.coarseScore ?? null,
+        cleared_continuation: c.continuation !== null,
+        continuation_score: c.continuation?.coarseScore ?? null,
+        travel_pct: d.travelPct,
+        travel_atr: d.travelAtr,
+        shortlisted: shortlistedSymbols.has(sym),
+        full_scan_score: fullResult?.decision.score ?? null,
+        full_scan_output_state: fullResult?.decision.outputState ?? null,
+      };
+    });
+
   return {
     scanDate,
     bullish: lists.bullish,
@@ -435,5 +642,6 @@ export async function runMarketScan(universeTop = 100, perSide = 15): Promise<Ma
     shortlisted: shortlist.length,
     continuationFills,
     scanErrors,
+    coarseTelemetry,
   };
 }

@@ -7,7 +7,239 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-08-18
+
+### Added
+- **Guided Decision Mode now recommends shorts as well as longs.** The
+  constraint that made it long-only was that short entries carried no enforced
+  stop; #72 removed it by staging a short's exit in the simulator exactly as it
+  stages a long's. Enabling it was not a flag flip — three things about a short
+  differ from a long and each is handled explicitly:
+  - **Borrow.** A short candidate's shortability is resolved at the broker
+    before the card renders and again at submission, because availability moves
+    during a session. An unknown answer *fails* the short. That is deliberately
+    stricter than `filterShortable` on the market scan, which fails open so the
+    daily list doesn't go dark: a scan row a user reads is not an order a user
+    taps.
+  - **Cash.** The simulator credits cash on a sell rather than spending it, so
+    the buying-power ceiling cannot bound a short. It is skipped for one, which
+    leaves the deployed-capital cap as a short's only exposure ceiling — noted
+    in `BACKLOG.md` as worth re-deriving now that it carries that weight alone.
+  - **Words.** The reason line is written per side rather than produced by
+    swapping direction words; the exit sentence says *bought back* and *trails
+    down*; the badge and button say "Sell short" in the bear colour, so a card
+    can never read "Buy" for an order that would sell.
+  The sizing arithmetic is shared rather than duplicated — a ±1 direction
+  multiplies every price difference — and a test asserts a mirrored short
+  produces numerically identical size, risk, reward and R to its equivalent
+  long. `stillMatches` now also refuses a setup that flipped direction between
+  the card and the tap. Migration 0015 widens the ledger's `side` constraint.
+
 ## 2026-08-17
+
+### Added
+- **Guided Decision Mode** (`/guided`) — one recommended action per symbol,
+  sized from a per-trade risk cap rather than from a quantity the user types,
+  placed through a single confirmation dialog. Paper-only and long-only at
+  launch; only Execute-verdict setups with a priced trade plan are eligible;
+  candidates are re-scanned live at render *and* again at submission, so a plan
+  that de-armed or re-priced in between is refused rather than placed. Caps ship
+  conservative: 1% of paper equity risked per trade, 3 new positions a day, 10 a
+  rolling week, and no more than 25% of equity deployed through the mode at
+  once. A connected live brokerage disables the mode entirely. Every
+  recommendation *shown* — not only those acted on — is logged to
+  `guided_recommendations` so the Backtest-style expectancy analysis can later
+  be pointed at the guided stream itself. Every cap is editable in Settings
+  (`/api/settings/guided`), within bounds the mode enforces on both sides. See
+  `docs/GUIDED_DECISION_MODE.md`.
+- **A liquidity floor on every scan** (`lib/scan/liquidity.ts`): US equities
+  need a price of at least $5 and 500k average daily shares; crypto needs $5M of
+  average daily turnover. The daily market scan gates both its candidate pools on
+  it, and the intraday scanner records it in its per-symbol audit trail. The
+  scanner had been surfacing sub-$1 names alongside megacaps with nothing on the
+  row to distinguish them.
+
+### Security
+- **Cleared the database security advisors** (migration 0014). The three
+  `learning_*` tables are service-role-only and had RLS enabled with no
+  policies, which denies everything — correct, but indistinguishable from an
+  oversight. They now carry an explicit restrictive `using (false)` policy for
+  `anon` and `authenticated`, and the table grants for those roles are revoked
+  so the denial survives RLS ever being switched off by accident. Effective
+  access is unchanged: the service role does not consult policies.
+- `pg_net` was registered against the `public` schema. All twelve of its
+  functions actually live in `net`, so nothing callable sat on the public search
+  path, but the registration is what governs where a future version would put
+  things. It is non-relocatable, so it was dropped and recreated into
+  `extensions` inside one transaction. Nothing depended on it — no cron jobs, no
+  database webhooks, no referencing function bodies.
+- Migration 0013's policy statement is now re-runnable (`drop policy if
+  exists` ahead of the `create`), matching what was applied to the database.
+
+### Changed
+- Merged `main` (#72, #73, #74), which had landed overlapping work while this
+  branch was open. Three reconciliations worth naming, because a careless merge
+  would have reverted shipped fixes:
+  - `lib/trade/place-order.ts` was **re-extracted from main's** post-#72/#73
+    handler rather than kept as this branch's copy of the pre-#72 one. The
+    stale copy would have silently reverted both short-side staged exits (#72)
+    and filling a marketable limit at the market price (#73) the moment the
+    route started delegating to it.
+  - This branch's `tickerHref` (single segment, hyphen-encoded pair) is dropped
+    in favour of main's catch-all `[...symbol]` route and `lib/routes.ts`
+    helper, which shipped first. The round-trip test this branch wrote is kept
+    and retargeted at main's helper, which had none.
+  - `MIN_SCAN_PRICE` is now an alias of the platform-wide
+    `MIN_EQUITY_PRICE_USD` rather than a second $5 that can drift from it. The
+    absolute average-volume floor sits alongside it and is explicitly *not* the
+    relative-volume gate reverted in `6a34f33` — that one failed a symbol for
+    trading below its own trailing average, which half of all symbols do at any
+    moment.
+- Order placement moved out of the `/api/orders` route handler into
+  `lib/trade/place-order.ts`, so Guided Mode submits through exactly the same
+  path the manual ticket does — same price-increment validation, same bracket
+  checks, same staged protocol exit — rather than through a copy of it that
+  would drift.
+- The phone tab bar renders seven of the eight destinations; Glossary keeps its
+  place in the top bar and gives up its tab slot to Guided.
+
+### Fixed
+- **The daily market scan kept ranking sub-$5 penny stocks (OSRH, GRAB, …)
+  alongside real setups, and could rank a "Sell" setup on a symbol Alpaca
+  won't let anyone short (ONDS scored 7/9 "Execute" the same day its own
+  order ticket refused the short and pointed at a put instead).** Neither
+  gate had ever existed in `runMarketScan` — the only prior liquidity/volume
+  gate was reverted in `6a34f33` for unrelated reasons (it coin-flipped on
+  volume, not price or borrow), and shortability was checked only client-side,
+  lazily, in the order ticket, never during scanning/ranking. Added two
+  independent gates in `lib/marketScan.ts`: a flat `MIN_SCAN_PRICE` ($5, the
+  SEC's own penny-stock line) applied in the coarse pass before either setup
+  kind is scored, and `filterShortable`, which checks Alpaca's per-symbol
+  `shortable` flag for the bearish list only (going long never needs a
+  borrow) and drops rows the broker would reject on submission. Both fail
+  toward showing a shorter, honest list rather than a padded one: an
+  unreachable broker leaves the shortability check open (same direction as
+  the `/api/assets` preflight the ticket already uses) instead of blanking
+  the whole bearish list. Tests added
+  (`lib/__tests__/market-scan-filters.test.ts`).
+
+### Added
+- **Short and Manual Override orders can now carry a staged, managed exit.**
+  Protocol Recommended shorts attach the protocol's stop/TP1/master the same
+  way a long does — GSPS stages and manages the exit itself
+  (`lib/trade/exit-manager-sim.ts` already supported `side: "short"`; the
+  `/api/orders` route just never exercised it). Manual Override gets optional
+  custom stop-loss/take-profit fields, on both sides, that stage the same way.
+  Closes the gap where a short or a manual order carried no protection beyond
+  ticket copy telling the user to watch it by hand (Q1 roadmap: conditional
+  orders).
+- Dashboard "Buy setups"/"Sell setups" preview cards now show a "Scanned
+  HH:MM" timestamp, so a card can't silently disagree with a fresher scan
+  without the user knowing.
+- A short position with no broker-side stop now carries a persistent "No
+  stop" badge in the Portfolio order ledger, not just easy-to-miss ticket copy.
+- A soft nudge appears next to Quantity when submitting qty=1 in Protocol
+  Recommended mode ("Buy 2+ to use the full staged-exit plan").
+
+### Fixed
+- **A marketable limit order filled at its stale limit price instead of the
+  live market, so an "advised price" short placed after the market had
+  already rallied past its entry filled instantly at a worse price than what
+  was on offer — reading as an immediate paper loss the moment the ticket
+  confirmed.** `isMarketable` correctly judges a sell limit marketable once
+  `market >= limitPrice` (and a buy limit once `market <= limitPrice`), but
+  both fill paths (`POST /api/orders`'s synchronous fill and
+  `evaluateRestingOrders`'s resting-order sweep) then filled at the order's
+  own limit price rather than the market price that made it marketable.
+  Marketable by definition means the market is already at least as good as
+  the limit, so both now fill at the live market price — the same price
+  improvement a real broker reports, and the fix for the case that motivated
+  it: an ASML short's advised entry at $1,877.79 filled while the market was
+  already at $1,886.38, instead of getting that better price.
+- **`/ticker/BTC/USD` — one of only 9 symbols in the default watchlist —
+  404'd.** The dynamic route was a single `[symbol]` segment, so `/USD` split
+  off as an extra path segment. Switched to a catch-all `[...symbol]` route
+  and added a shared `tickerHref()` helper (`lib/routes.ts`) so every link
+  builder encodes a slash-bearing symbol consistently instead of ad hoc
+  `encodeURIComponent` calls (or none) scattered across five components.
+- Settings/Glossary described TP1/Master as flat 2:1/3:1 reward-to-risk; the
+  scoring engine actually targets ~1.5R (TP1, snapped to the prior candle's
+  high/low if further) and ~2.5R equities/3R crypto (Master, snapped to a
+  structural/harmonic level) — copy now matches. Also documented the
+  `tradePlanReady` gate: a 7+ score with no armed entry/stop/target reads as
+  Watch, not Execute, which the settings/glossary text didn't explain.
+- The chart Share button's Web Share path returned without ever flashing the
+  "Copied" confirmation, so a successful native share looked like nothing
+  happened.
+
+- **Settings and the landing page advertised a reward:risk the engine has never
+  priced.** TP1 was described as 2:1 and the master target as 3:1; the engine
+  prices TP1 at 1.5R and the master at the asset class's runner multiple (2.5R
+  equities, 3R crypto), stepped to a structural level up to a 5R cap. The stop
+  rule was described as "12–18% of price paid", which is the option-premium band
+  and was never how a share entry's stop is placed. All four protocol rules are
+  now generated from the engine's own constants (`lib/trade/protocol-rules.ts`)
+  and a test fails if the copy and the code diverge.
+- **"Execute threshold: score 7+ of 9" did not describe what the app does.** A
+  7-scored setup is correctly held at Watch when it has no priced trade plan,
+  when a bare 2-2 reversal lacks momentum and support/resistance confirmation, or
+  when the price feed is a full execution candle behind — so users saw 7s
+  labelled Watch and nothing reaching Execute, with no stated reason. The
+  behaviour was right; the copy now states every condition.
+- **Links to a crypto pair 404'd.** `/ticker/${symbol}` on `BTC/USD` produced
+  `/ticker/BTC/USD` — two path segments against a one-segment route. Links now go
+  through `tickerHref`, which keeps the pair in one segment, and the page
+  restores the separator via `symbolFromRoute`. Percent-encoding is not a fix:
+  `%2F` is normalised back to a slash before the route matches.
+- The `settings` table's `tp1_r_multiple` / `master_r_multiple` defaults (2 and
+  3) now match the engine (1.5 and 2.5). Existing rows are untouched.
+
+- **A calibration feedback loop for the coarse scan gate's ATR multiples.**
+  The ATR-relative rebasing below was calibrated by preserving the old flat
+  percentages' ratios, not by measuring real outcomes — no live market data
+  was reachable to verify the specific multiples chosen. `coarse_gate_telemetry`
+  (migration `0019`) now logs one row per symbol per scan day: its ATR%,
+  extension distance in both percent and ATR multiples, whether each gate
+  cleared it, and — when it went on to a real full-protocol scan — the actual
+  score and output state. `runMarketScan` computes this independently of the
+  gates' own pass/fail logic (`coarseDiagnostics` in `lib/marketScan.ts`), so
+  instrumenting it can never change scan behavior, and the write
+  (`persistCoarseTelemetry`, `lib/scan/telemetry.ts`) is best-effort like
+  `daily_scans` — a failure there never blocks or fails the scan itself. Once
+  enough scan days accumulate, this data answers the question the current
+  multiples can't: does a 2-ATR extension actually predict a good score more
+  reliably than a 1.5-ATR or 3-ATR one, and does that threshold differ by cap
+  size — instead of guessing.
+
+### Changed
+- **The market scan's coarse pre-filter now judges "extended" and "moving a
+  lot" relative to each symbol's own volatility, not a flat percent of
+  price.** This is why the Magnificent 7 barely showed up in market-wide
+  scans while a direct ticker scan on the same names found solid setups —
+  `coarseReversion`/`coarseContinuation` (`lib/marketScan.ts`) decide which
+  ~60 of the ~100 most-active symbols are worth the expensive full protocol
+  scan, using cheap daily-bar heuristics, and those heuristics used fixed
+  thresholds (extension >5%/10% of price, proximity within 1.0-2.0% of a
+  level). A 1% move on SPY and a 15% move on a small-cap can represent the
+  same real significance, so the flat thresholds structurally favored
+  volatile small/mid-caps and could exclude a mega-cap with a genuinely
+  strong setup before it was ever scored. The full protocol scorer already
+  solved exactly this problem for its own proximity criteria (see the
+  2026-08-13-and-earlier `lib/scoring/proximity.ts` re-basing to ATR
+  multiples) — this carries that same fix upstream into the coarse gate,
+  reusing the same `atrPercentOfPrice`/`proximityBandPct` helpers: extension
+  is now measured in multiples of the symbol's own 20-day ATR
+  (`EXTENSION_ATR_TIER1`/`TIER2`), and the fan/harmonic/S-R proximity checks
+  use the identical ATR-relative bands the real scorer uses, so a symbol
+  that clears the coarse gate is now likely to clear the real one too. The
+  continuation gate's `hasExceptional4hMomentum` and volume-participation
+  checks were already self-relative (ratios against the symbol's own
+  trailing baseline) and needed no change; only its `travelPct` threshold
+  got the same ATR rebasing. Threshold multiples were chosen to preserve
+  the old thresholds' relative strictness (tier 2 stays double tier 1, the
+  continuation travel gate stays proportionally tighter than the reversion
+  extension gate) rather than independently re-tuned — worth watching over
+  the next few scan days and adjusting if the mix still looks off.
 
 ### Fixed
 - **The bars-batching fix below this same day silently dropped most of the
@@ -55,6 +287,41 @@ date.
     fast but every bar fetch was failing and getting swallowed into an
     empty result set. Removed the param — it's an order-placement field, not
     a bars-query one.
+
+### Changed
+- **Renumbered the two colliding migration filenames.** `0003` named both
+  `order_greeks_and_targets.sql` and `positions_side.sql`; `0008` named both
+  `intraday_alerts.sql` and `order_lifecycle_reconciliation.sql` — one file
+  per PR, merged independently, neither branch aware the number was taken.
+  Both pairs had already been applied to production safely, under distinct
+  Supabase-assigned versions, so this is a repo-only rename: `positions_side`
+  → `0017`, `order_greeks_and_targets` → `0018`, `intraday_alerts` → `0016`.
+  (The renames originally targeted `0013`–`0015`; those numbers were taken by
+  Guided Decision Mode and the security remediations while this branch was
+  open, and `0015` is claimed by the guided short-side migration in flight, so
+  the batch moved up to the next free numbers rather than re-creating the
+  collision this change exists to remove.)
+  Left as a genuine duplicate, either pair was a `supabase db push` landmine:
+  that tool tracks applied migrations by the leading number, so a real
+  duplicate is read as "the second file is already applied" and silently
+  skipped.
+- **Verified the full migration backlog against production, table by table
+  and column by column** — every table, check constraint, unique index and
+  RLS policy in `supabase/migrations/0005`–`0012` and the renamed `0016`
+  matches what's live, with the one exception below. Nothing needed
+  (re-)applying; this was reconciliation, not a deploy.
+- **`0005_learning_brain.sql`'s invalid `learning_coefficients` constraint
+  was already fixed** — by the time this reconciliation reached it, the file
+  in the repo already used a `create unique index ... coalesce(...)`
+  instead of a table-level `UNIQUE` over expressions, which Postgres
+  rejects. Confirmed the index that's live matches the file exactly.
+- **`supabase/AGENTS.md` updated**: the table list was current as of
+  migration `0004` and eleven tables behind; now lists all twenty-three,
+  grouped by what added them. Adding-a-migration steps now say to check
+  `ls supabase/migrations/` for the real next number rather than trusting
+  the last commit you saw, and to confirm a migration actually landed
+  (`list_migrations`) before merging — a file in the repo is a claim about
+  the database, not a guarantee.
 
 ## 2026-08-16
 

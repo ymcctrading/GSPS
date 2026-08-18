@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runMarketScan } from "@/lib/marketScan";
 import { buildScanRows, describeDbError, persistDailyScans } from "@/lib/scan/publish";
+import { persistCoarseTelemetry } from "@/lib/scan/telemetry";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 
 // The Vercel Hobby plan hard-caps function execution at 60s regardless of
@@ -49,6 +50,15 @@ async function runAndPersist() {
       `market-scan: ${output.scanDate} not saved — ${persistError} ` +
         `[shortlisted=${output.shortlisted} scanErrors=${output.scanErrors}]`,
     );
+  }
+
+  // Coarse-gate calibration data — best-effort, and deliberately outside the
+  // try/catch above so a telemetry write failure can never be mistaken for
+  // the actual scan results failing to save.
+  try {
+    await persistCoarseTelemetry(createServiceClient(), output.coarseTelemetry);
+  } catch (err) {
+    console.warn(`market-scan: coarse telemetry not saved — ${describeDbError(err)}`);
   }
 
   return NextResponse.json({

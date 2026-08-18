@@ -28,6 +28,17 @@
 - [ ] Order history and analytics
 - [ ] Order modification and cancellation
 
+### Short-Side Recommendations in Guided Mode
+- [x] ~~Enforce a stop on short entries~~ — done in #72.
+- [x] ~~Enable short recommendations in Guided Mode~~ — done: side-aware sizing,
+      a borrow check that fails closed, per-side copy, and a `sell` side on the
+      recommendation ledger. See `docs/GUIDED_DECISION_MODE.md`.
+- [ ] Revisit the deployed-capital cap now that it is a short's *only* exposure
+      ceiling. 25% of equity was chosen when every guided position also had to
+      be paid for in cash; a short does not consume cash, so the same percentage
+      permits more total exposure than it used to. Worth re-deriving rather than
+      inheriting.
+
 ### Risk Management
 - [ ] Position sizing based on account equity
 - [ ] Maximum daily loss limits
