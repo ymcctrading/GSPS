@@ -116,9 +116,10 @@ export function GuidedMode() {
       // filled is the precise kind of thing this mode must not do, so the
       // wording comes from the status the server actually reported.
       const filled = body.order?.status === "filled";
+      const opened = rec.action === "sell" ? "sold short" : "bought";
       setPlaced(
         filled
-          ? `${rec.qty} ${rec.symbol} bought. Taking you to your portfolio…`
+          ? `${rec.qty} ${rec.symbol} ${opened}. Taking you to your portfolio…`
           : `Order placed for ${rec.qty} ${rec.symbol}. It's waiting at the entry price and will fill if ${rec.symbol} reaches it — you'll find it in your portfolio.`,
       );
       // Straight to Portfolio with the new position and its real bracket
@@ -209,7 +210,7 @@ function ConfirmDialog({
     <Modal
       open={rec !== null}
       onClose={onClose}
-      title={rec ? `Buy ${rec.qty} ${rec.symbol}?` : ""}
+      title={rec ? `${rec.action === "sell" ? "Sell short" : "Buy"} ${rec.qty} ${rec.symbol}?` : ""}
       description="Paper trading only. This places a real order in your simulated account."
       footer={
         rec && (
@@ -217,7 +218,9 @@ function ConfirmDialog({
             <p className="text-xs leading-relaxed text-muted">{GUIDED_DISCLOSURE}</p>
             <div className="flex gap-2">
               <Button onClick={onConfirm} disabled={busy} size="lg" className="flex-1">
-                {busy ? "Placing…" : `Confirm — buy ${rec.qty} ${rec.symbol}`}
+                {busy
+                  ? "Placing…"
+                  : `Confirm — ${rec.action === "sell" ? "short" : "buy"} ${rec.qty} ${rec.symbol}`}
               </Button>
               <Button onClick={onClose} disabled={busy} variant="outline" size="lg">
                 Cancel
@@ -230,7 +233,7 @@ function ConfirmDialog({
       {rec && (
         <dl className="flex flex-col gap-2 text-sm">
           <Row label="Symbol" value={rec.symbol} />
-          <Row label="Action" value="Buy" />
+          <Row label="Action" value={rec.action === "sell" ? "Sell short" : "Buy"} />
           <Row label="Size" value={`${rec.qty} shares (${formatUsd(rec.notionalUsd, 0)})`} />
           <Row label="If it hits the stop" value={`− ${formatUsd(rec.riskUsd, 0)}`} />
           <Row label="If it reaches the target" value={`+ ${formatUsd(rec.rewardUsd, 0)}`} />

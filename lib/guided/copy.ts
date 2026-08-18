@@ -29,10 +29,18 @@ export function reasonLine(result: ScanResult): string {
   if (!pattern || !levels) return "A setup is armed, but its trade plan hasn't priced yet.";
 
   const trigger = formatUsd(levels.entry);
+  // Four sentences rather than one with the direction words swapped: a short
+  // reversion is not "a long, downwards". It is price failing at a ceiling it
+  // has failed at before, and saying so is the whole job of this line.
+  const short = result.direction === "bearish";
   const move =
     setupKind === "continuation"
-      ? `${result.symbol} is trending up and pushing through ${trigger}`
-      : `${result.symbol} has sold off into a price area that has stopped declines before, and is turning back up through ${trigger}`;
+      ? short
+        ? `${result.symbol} is trending down and breaking through ${trigger}`
+        : `${result.symbol} is trending up and pushing through ${trigger}`
+      : short
+        ? `${result.symbol} has run up into a price area that has capped rallies before, and is rolling back down through ${trigger}`
+        : `${result.symbol} has sold off into a price area that has stopped declines before, and is turning back up through ${trigger}`;
 
   const structure = nearestStructure(result);
   const volume = momentumElevated
@@ -45,16 +53,24 @@ export function reasonLine(result: ScanResult): string {
 /**
  * The risk/reward sentence, in dollars, for the size actually being placed.
  * Loss first: it is the half the user is committing to, and the half a
- * one-tap flow makes easiest to skip past.
+ * one-tap flow makes easiest to skip past. Side-agnostic — both figures arrive
+ * already signed for the trade's own direction (see lib/guided/sizing.ts).
  */
 export function riskRewardSentence(riskUsd: number, rewardUsd: number): string {
   return `You could lose about ${formatUsd(Math.abs(riskUsd), 0)} if this doesn't work, or make about ${formatUsd(Math.abs(rewardUsd), 0)} if it reaches the target.`;
 }
 
-/** The staged exit, said once, without tranche vocabulary. */
-export function exitSentence(scaleOutQty: number, qty: number): string {
+/**
+ * The staged exit, said once, without tranche vocabulary.
+ *
+ * A short exits by buying back, and its stop trails *down* — the words have to
+ * follow the trade or the sentence describes the opposite one.
+ */
+export function exitSentence(scaleOutQty: number, qty: number, side: "buy" | "sell" = "buy"): string {
   const rest = qty - scaleOutQty;
-  return `If it works, ${scaleOutQty} of the ${qty} shares are sold at the first target and the other ${rest} run on to the second, with the stop moved up behind them. If it doesn't, the whole position is sold at the stop.`;
+  const close = side === "buy" ? "sold" : "bought back";
+  const behind = side === "buy" ? "up" : "down";
+  return `If it works, ${scaleOutQty} of the ${qty} shares are ${close} at the first target and the other ${rest} run on to the second, with the stop moved ${behind} behind them. If it doesn't, the whole position is ${close} at the stop.`;
 }
 
 /** How the higher timeframes read, for the expandable "why" panel. */

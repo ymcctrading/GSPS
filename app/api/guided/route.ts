@@ -155,7 +155,7 @@ async function logRecommendations(
     user_id: userId,
     symbol: r.symbol,
     asset_class: r.assetClass,
-    side: "buy",
+    side: r.action,
     score: r.why.score.score,
     verdict: r.why.verdict,
     pattern_name: r.why.patternName,

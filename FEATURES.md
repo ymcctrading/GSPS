@@ -83,8 +83,10 @@ GSPS is a comprehensive trading application built with Next.js, Supabase, and Al
 - **Guided Decision Mode**: One recommended action per symbol, in plain English,
   with the share count computed from a per-trade risk cap rather than typed by
   the user, and the risk and reward stated in dollars for that size. Only
-  Execute-verdict long setups with a priced trade plan are eligible, and every
-  candidate is re-scanned live before the card renders and again before the
+  Execute-verdict setups with a priced trade plan are eligible — long or short,
+  with a short additionally requiring a confirmed borrow at both render and
+  submission — and every candidate is re-scanned live before the card renders
+  and again before the
   order is submitted — a plan that de-armed or re-priced in between is refused,
   not placed. One tap opens a confirmation dialog restating symbol, side, size,
   risk and reward, with the "not personalized financial advice" disclosure

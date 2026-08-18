@@ -28,13 +28,14 @@ import { readCapUsage } from "@/lib/guided/caps";
 import { sizeIsTradeable, stillMatches } from "@/lib/guided/eligibility";
 import { sizeGuidedTrade } from "@/lib/guided/sizing";
 import { LIVE_BROKERAGE_BLOCK, resolveGuidedCaps } from "@/lib/guided/config";
-import { hasLiveBrokerage, readGuidedAccount } from "@/lib/guided/service";
+import { hasLiveBrokerage, readGuidedAccount, resolveShortable } from "@/lib/guided/service";
 
 const ExecuteSchema = z.object({ id: z.uuid() });
 
 interface RecommendationRow {
   id: string;
   symbol: string;
+  side: string;
   qty: number;
   status: string;
   expires_at: string;
@@ -65,7 +66,7 @@ export async function POST(req: NextRequest) {
   const { data } = await supabase
     .from("guided_recommendations")
     .select(
-      "id, symbol, qty, status, expires_at, agreed_entry, agreed_stop_loss, agreed_take_profit_1, agreed_master_profit",
+      "id, symbol, side, qty, status, expires_at, agreed_entry, agreed_stop_loss, agreed_take_profit_1, agreed_master_profit",
     )
     .eq("id", parsed.data.id)
     .eq("user_id", user.id)
@@ -92,16 +93,27 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // The side the user confirmed. Everything downstream — the risk arithmetic,
+  // the bracket legs, the order itself — is derived from this rather than from
+  // whatever the fresh scan happens to arm, so a setup that flipped direction
+  // is refused below instead of quietly submitted the other way round.
+  const side: "buy" | "sell" = rec.side === "sell" ? "sell" : "buy";
   const agreed = {
     entry: Number(rec.agreed_entry),
     stopLoss: Number(rec.agreed_stop_loss),
     takeProfit1: Number(rec.agreed_take_profit_1),
     masterProfit: Number(rec.agreed_master_profit),
+    direction: (side === "sell" ? "bearish" : "bullish") as "bullish" | "bearish",
   };
 
   // ---- Re-verify against the market as it is right now, not as it was.
   const fresh = await scanTicker(rec.symbol);
-  const match = stillMatches(fresh, agreed);
+  // A short also has to still be borrowable at submission: availability moves
+  // during the session, and a recommendation written when it was borrowable is
+  // an order that dies at the broker when it is not.
+  const shortable =
+    side === "sell" ? (await resolveShortable([rec.symbol])).get(rec.symbol.toUpperCase()) : undefined;
+  const match = stillMatches(fresh, agreed, shortable);
   if (!match.ok) {
     await resolve(supabase, rec.id, "expired", match.reason);
     return NextResponse.json({ error: match.reason, code: "changed" }, { status: 409 });
@@ -122,6 +134,7 @@ export async function POST(req: NextRequest) {
   }
 
   const sized = sizeGuidedTrade({
+    side,
     equity: account.equity,
     buyingPower: account.buyingPower,
     entry: agreed.entry,
@@ -186,7 +199,7 @@ export async function POST(req: NextRequest) {
   const placed = await placeSimulatedOrder(supabase, user.id, {
     symbol: rec.symbol,
     assetClass: "equity",
-    side: "buy",
+    side,
     qty: rec.qty,
     // At the protocol's entry price, exactly as the "Protocol Recommended" path
     // does from the ticket — never a market order at whatever is on the screen.
