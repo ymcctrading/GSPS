@@ -288,6 +288,41 @@ date.
     empty result set. Removed the param — it's an order-placement field, not
     a bars-query one.
 
+### Changed
+- **Renumbered the two colliding migration filenames.** `0003` named both
+  `order_greeks_and_targets.sql` and `positions_side.sql`; `0008` named both
+  `intraday_alerts.sql` and `order_lifecycle_reconciliation.sql` — one file
+  per PR, merged independently, neither branch aware the number was taken.
+  Both pairs had already been applied to production safely, under distinct
+  Supabase-assigned versions, so this is a repo-only rename: `positions_side`
+  → `0017`, `order_greeks_and_targets` → `0018`, `intraday_alerts` → `0016`.
+  (The renames originally targeted `0013`–`0015`; those numbers were taken by
+  Guided Decision Mode and the security remediations while this branch was
+  open, and `0015` is claimed by the guided short-side migration in flight, so
+  the batch moved up to the next free numbers rather than re-creating the
+  collision this change exists to remove.)
+  Left as a genuine duplicate, either pair was a `supabase db push` landmine:
+  that tool tracks applied migrations by the leading number, so a real
+  duplicate is read as "the second file is already applied" and silently
+  skipped.
+- **Verified the full migration backlog against production, table by table
+  and column by column** — every table, check constraint, unique index and
+  RLS policy in `supabase/migrations/0005`–`0012` and the renamed `0016`
+  matches what's live, with the one exception below. Nothing needed
+  (re-)applying; this was reconciliation, not a deploy.
+- **`0005_learning_brain.sql`'s invalid `learning_coefficients` constraint
+  was already fixed** — by the time this reconciliation reached it, the file
+  in the repo already used a `create unique index ... coalesce(...)`
+  instead of a table-level `UNIQUE` over expressions, which Postgres
+  rejects. Confirmed the index that's live matches the file exactly.
+- **`supabase/AGENTS.md` updated**: the table list was current as of
+  migration `0004` and eleven tables behind; now lists all twenty-three,
+  grouped by what added them. Adding-a-migration steps now say to check
+  `ls supabase/migrations/` for the real next number rather than trusting
+  the last commit you saw, and to confirm a migration actually landed
+  (`list_migrations`) before merging — a file in the repo is a claim about
+  the database, not a guarantee.
+
 ## 2026-08-16
 
 ### Fixed
