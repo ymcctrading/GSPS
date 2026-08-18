@@ -30,7 +30,7 @@ export const MAX_STOP_ATR_MULTIPLE = 2.5;
  * with moderate first targets (1.5R), scaling the runner (TP2) higher to keep
  * upside. Adjusted for market microstructure and typical move distribution.
  */
-const TP1_MULTIPLE_BY_ASSET: Record<AssetClass, number> = {
+export const TP1_MULTIPLE_BY_ASSET: Record<AssetClass, number> = {
   us_equity: 1.5,
   crypto: 1.5,
 };
@@ -39,10 +39,18 @@ const TP1_MULTIPLE_BY_ASSET: Record<AssetClass, number> = {
  * Default TP2 (runner) R-multiple by asset class. Typically hit after TP1
  * is reached and stop is moved to breakeven or slightly better.
  */
-const TP2_MULTIPLE_BY_ASSET: Record<AssetClass, number> = {
+export const TP2_MULTIPLE_BY_ASSET: Record<AssetClass, number> = {
   us_equity: 2.5,
   crypto: 3.0,
 };
+
+/**
+ * Ceiling on how far a structural master target may sit from entry. A Gann or
+ * harmonic level beyond this is real structure, but it is too far to describe
+ * as the trade's target — the runner would be holding for a move several times
+ * the size of the setup that produced it.
+ */
+export const MASTER_CAP_R = 5;
 
 /** Fallback multipliers when asset class is not provided (for backward compatibility). */
 const DEFAULT_TP1_MULTIPLE = 2.0;
@@ -159,7 +167,7 @@ export function computeTradeLevels(
     ? TP2_MULTIPLE_BY_ASSET[assetClass]
     : DEFAULT_TP2_MULTIPLE;
   const tp2Target = entry + dir * tp2Multiple * risk;
-  const fiveR = entry + dir * 5 * risk;
+  const fiveR = entry + dir * MASTER_CAP_R * risk;
 
   // If TP1 has overrun TP2 (structural TP1 beyond the calculated TP2), step master out further
   const tp1OverrunsTP2 = dir * (takeProfit1 - tp2Target) > 0;

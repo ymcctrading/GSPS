@@ -6,6 +6,17 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatUsd } from "@/lib/utils";
 import { DATA_RETENTION_WINDOW_LABEL } from "@/lib/config";
+import {
+  EXECUTE_RULE_DETAIL,
+  EXECUTE_RULE_LABEL,
+  MASTER_RULE_DETAIL,
+  MASTER_RULE_LABEL,
+  STOP_RULE_DETAIL,
+  STOP_RULE_LABEL,
+  TP1_RULE_DETAIL,
+  TP1_RULE_LABEL,
+} from "@/lib/trade/protocol-rules";
+import { GuidedCapsForm } from "@/components/guided/guided-caps-form";
 import { Link2, Landmark } from "lucide-react";
 
 interface SnapAccounts {
@@ -101,17 +112,22 @@ export default function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Protocol risk rules</CardTitle>
-          <CardDescription>The defaults every scan uses. Customization arrives in a later release.</CardDescription>
+          <CardDescription>
+            What the engine actually prices, read from the same constants it computes with.
+            Customization arrives in a later release.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <ul className="grid gap-2 text-sm sm:grid-cols-2">
-            <li className="rounded-lg border border-border bg-background px-4 py-3">Recommended stop: <span className="font-medium">12–18% of price paid</span></li>
-            <li className="rounded-lg border border-border bg-background px-4 py-3">Take profit 1: <span className="font-medium">~1.5 : 1 reward-to-risk</span> default, or the prior candle&rsquo;s high/low if that structural level sits further out</li>
-            <li className="rounded-lg border border-border bg-background px-4 py-3">Master profit: <span className="font-medium">~2.5 : 1 (equities) to 3 : 1 (crypto)</span>, snapped to the nearest structural or harmonic level in range</li>
-            <li className="rounded-lg border border-border bg-background px-4 py-3">Execute threshold: <span className="font-medium">score 7+ of 9, with an armed trade plan</span> — a 7+ score with no valid entry/stop/target stays at Watch</li>
+            <ProtocolRule label="Stop loss" value={STOP_RULE_LABEL} detail={STOP_RULE_DETAIL} />
+            <ProtocolRule label="Take profit 1" value={TP1_RULE_LABEL} detail={TP1_RULE_DETAIL} />
+            <ProtocolRule label="Master profit" value={MASTER_RULE_LABEL} detail={MASTER_RULE_DETAIL} />
+            <ProtocolRule label="Execute threshold" value={EXECUTE_RULE_LABEL} detail={EXECUTE_RULE_DETAIL} />
           </ul>
         </CardContent>
       </Card>
+
+      <GuidedCapsForm />
 
       <Card>
         <CardHeader>
@@ -124,5 +140,19 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/**
+ * One protocol rule: the headline number, and the sentence that says what it
+ * really means. The detail is on the page rather than behind a tooltip because
+ * the headline alone is what used to be misleading.
+ */
+function ProtocolRule({ label, value, detail }: { label: string; value: string; detail: string }) {
+  return (
+    <li className="rounded-lg border border-border bg-background px-4 py-3">
+      <span className="text-muted">{label}:</span> <span className="font-medium">{value}</span>
+      <p className="mt-1 text-xs text-muted">{detail}</p>
+    </li>
   );
 }

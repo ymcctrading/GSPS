@@ -9,6 +9,72 @@ date.
 
 ## 2026-08-17
 
+### Added
+- **Guided Decision Mode** (`/guided`) — one recommended action per symbol,
+  sized from a per-trade risk cap rather than from a quantity the user types,
+  placed through a single confirmation dialog. Paper-only and long-only at
+  launch; only Execute-verdict setups with a priced trade plan are eligible;
+  candidates are re-scanned live at render *and* again at submission, so a plan
+  that de-armed or re-priced in between is refused rather than placed. Caps ship
+  conservative: 1% of paper equity risked per trade, 3 new positions a day, 10 a
+  rolling week, and no more than 25% of equity deployed through the mode at
+  once. A connected live brokerage disables the mode entirely. Every
+  recommendation *shown* — not only those acted on — is logged to
+  `guided_recommendations` so the Backtest-style expectancy analysis can later
+  be pointed at the guided stream itself. Every cap is editable in Settings
+  (`/api/settings/guided`), within bounds the mode enforces on both sides. See
+  `docs/GUIDED_DECISION_MODE.md`.
+- **A liquidity floor on every scan** (`lib/scan/liquidity.ts`): US equities
+  need a price of at least $5 and 500k average daily shares; crypto needs $5M of
+  average daily turnover. The daily market scan gates both its candidate pools on
+  it, and the intraday scanner records it in its per-symbol audit trail. The
+  scanner had been surfacing sub-$1 names alongside megacaps with nothing on the
+  row to distinguish them.
+
+### Security
+- **Cleared the database security advisors** (migration 0014). The three
+  `learning_*` tables are service-role-only and had RLS enabled with no
+  policies, which denies everything — correct, but indistinguishable from an
+  oversight. They now carry an explicit restrictive `using (false)` policy for
+  `anon` and `authenticated`, and the table grants for those roles are revoked
+  so the denial survives RLS ever being switched off by accident. Effective
+  access is unchanged: the service role does not consult policies.
+- `pg_net` was registered against the `public` schema. All twelve of its
+  functions actually live in `net`, so nothing callable sat on the public search
+  path, but the registration is what governs where a future version would put
+  things. It is non-relocatable, so it was dropped and recreated into
+  `extensions` inside one transaction. Nothing depended on it — no cron jobs, no
+  database webhooks, no referencing function bodies.
+- Migration 0013's policy statement is now re-runnable (`drop policy if
+  exists` ahead of the `create`), matching what was applied to the database.
+
+### Changed
+- Merged `main` (#72, #73, #74), which had landed overlapping work while this
+  branch was open. Three reconciliations worth naming, because a careless merge
+  would have reverted shipped fixes:
+  - `lib/trade/place-order.ts` was **re-extracted from main's** post-#72/#73
+    handler rather than kept as this branch's copy of the pre-#72 one. The
+    stale copy would have silently reverted both short-side staged exits (#72)
+    and filling a marketable limit at the market price (#73) the moment the
+    route started delegating to it.
+  - This branch's `tickerHref` (single segment, hyphen-encoded pair) is dropped
+    in favour of main's catch-all `[...symbol]` route and `lib/routes.ts`
+    helper, which shipped first. The round-trip test this branch wrote is kept
+    and retargeted at main's helper, which had none.
+  - `MIN_SCAN_PRICE` is now an alias of the platform-wide
+    `MIN_EQUITY_PRICE_USD` rather than a second $5 that can drift from it. The
+    absolute average-volume floor sits alongside it and is explicitly *not* the
+    relative-volume gate reverted in `6a34f33` — that one failed a symbol for
+    trading below its own trailing average, which half of all symbols do at any
+    moment.
+- Order placement moved out of the `/api/orders` route handler into
+  `lib/trade/place-order.ts`, so Guided Mode submits through exactly the same
+  path the manual ticket does — same price-increment validation, same bracket
+  checks, same staged protocol exit — rather than through a copy of it that
+  would drift.
+- The phone tab bar renders seven of the eight destinations; Glossary keeps its
+  place in the top bar and gives up its tab slot to Guided.
+
 ### Fixed
 - **The daily market scan kept ranking sub-$5 penny stocks (OSRH, GRAB, …)
   alongside real setups, and could rank a "Sell" setup on a symbol Alpaca
@@ -77,6 +143,28 @@ date.
 - The chart Share button's Web Share path returned without ever flashing the
   "Copied" confirmation, so a successful native share looked like nothing
   happened.
+
+- **Settings and the landing page advertised a reward:risk the engine has never
+  priced.** TP1 was described as 2:1 and the master target as 3:1; the engine
+  prices TP1 at 1.5R and the master at the asset class's runner multiple (2.5R
+  equities, 3R crypto), stepped to a structural level up to a 5R cap. The stop
+  rule was described as "12–18% of price paid", which is the option-premium band
+  and was never how a share entry's stop is placed. All four protocol rules are
+  now generated from the engine's own constants (`lib/trade/protocol-rules.ts`)
+  and a test fails if the copy and the code diverge.
+- **"Execute threshold: score 7+ of 9" did not describe what the app does.** A
+  7-scored setup is correctly held at Watch when it has no priced trade plan,
+  when a bare 2-2 reversal lacks momentum and support/resistance confirmation, or
+  when the price feed is a full execution candle behind — so users saw 7s
+  labelled Watch and nothing reaching Execute, with no stated reason. The
+  behaviour was right; the copy now states every condition.
+- **Links to a crypto pair 404'd.** `/ticker/${symbol}` on `BTC/USD` produced
+  `/ticker/BTC/USD` — two path segments against a one-segment route. Links now go
+  through `tickerHref`, which keeps the pair in one segment, and the page
+  restores the separator via `symbolFromRoute`. Percent-encoding is not a fix:
+  `%2F` is normalised back to a slash before the route matches.
+- The `settings` table's `tp1_r_multiple` / `master_r_multiple` defaults (2 and
+  3) now match the engine (1.5 and 2.5). Existing rows are untouched.
 - **The bars-batching fix below this same day silently dropped most of the
   scan universe, cutting a normal 8-20-setup day down to one lone `Reject`
   row.** `fetchBarsBatch`'s `limit` param is a total across every symbol in

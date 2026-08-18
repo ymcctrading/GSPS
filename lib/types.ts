@@ -2,6 +2,7 @@
 
 import type { BreakdownKey } from "@/lib/scoring/weights";
 import type { DecisionLag } from "@/lib/data/latency";
+import type { LiquidityRead } from "@/lib/scan/liquidity";
 
 export type AssetClass = "us_equity" | "crypto";
 
@@ -202,6 +203,12 @@ export interface ScanResult {
    */
   executionBar?: Bar;
   decision: ScanDecision;
+  /**
+   * Price and average turnover, for the platform-wide liquidity floor — see
+   * lib/scan/liquidity.ts. Absent when the scan could not read enough daily
+   * history to average, which the floor treats as a failure rather than a pass.
+   */
+  liquidity?: LiquidityRead;
   /** Optional: option premium supplied by user for the 12–18% stop calc. */
   optionPremium?: number;
   error?: string;

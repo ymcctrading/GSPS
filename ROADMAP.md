@@ -101,6 +101,14 @@ both signal discovery and execution.
   foundation for Q2 bracket orders.
 - **Improved onboarding** — glossary integration, pattern education,
   guided paper-trade walkthrough.
+- **Guided Decision Mode** *(shipped 2026-08-17)* — one recommended action per
+  symbol, sized from a per-trade risk cap, executed through a single
+  confirmation. Paper-only, long-only, Execute-verdict only, with daily/weekly
+  trade caps and a deployed-capital ceiling. Every recommendation shown is
+  logged so its expectancy can later be measured against the Backtest tool.
+  See `docs/GUIDED_DECISION_MODE.md`. Shipped alongside a platform-wide
+  liquidity floor on every scan (price ≥ $5, average volume ≥ 500k shares, or
+  the dollar-turnover equivalent for crypto).
 - **Mobile-responsive dashboard** — not a native app yet, but positions and
   alerts must be usable on phones and tablets.
 - **Technical indicators (phase 1)** — SMA, EMA, RSI, MACD as chart overlays.
