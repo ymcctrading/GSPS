@@ -16,6 +16,47 @@ the code.
    separate deploy step and no manual gate: merge when you mean to ship.
    Pushing a branch likewise builds a preview automatically.
 
+## Branch hygiene
+
+Branches outlive their PRs by default, and this repo has accumulated dozens of
+them. Three rules keep that from recurring; the first is the one that matters.
+
+1. **Delete the branch as soon as its PR merges.** Use GitHub's "Delete
+   branch" button on the merged PR, or from a shell:
+
+   ```sh
+   git push origin --delete <branch>
+   ```
+
+   Do it in the same sitting as the merge. A merged branch has no remaining
+   purpose — its commits are in `main` — and every one left behind makes the
+   next audit longer.
+
+2. **Name the roadmap phase in every PR.** Put `Q1`, `Q2`, `Q3`, `Q4`, or
+   `N/A` in the title or body (the PR template has a field for it). The
+   `roadmap-phase` gate enforces this. `N/A` is a legitimate answer for a
+   production bug, a security fix, docs, or a direct request — `AGENTS.md`
+   allows out-of-phase work, it just wants it marked as a deviation. The point
+   is that open PRs can be filtered by phase without opening each one.
+
+3. **Audit monthly.** A scheduled job runs on the 1st and posts a report to
+   the Actions run summary. Run the same report locally any time:
+
+   ```sh
+   git fetch --prune origin && bash scripts/audit-stale-branches.sh
+   ```
+
+   It sorts every remote branch into merged (safe to delete, with the delete
+   commands ready to paste), stale-and-unmerged (needs a decision — finish it
+   or delete it), and active. It never deletes anything itself.
+
+A PR whose branch diverged from `main` more than **30 days** ago fails the
+`stale-branch` gate. Merging `main` into the branch and pushing resets the
+merge base and clears it. The gate measures divergence rather than the
+branch's first commit, because what makes an old branch dangerous is how far
+`main` has moved underneath it — merging is a production deploy, and a
+three-month-old branch deploys three-month-old assumptions.
+
 ## Before opening a PR
 
 - `npm run lint` and `npm test` should both pass locally.

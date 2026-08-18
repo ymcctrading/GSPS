@@ -1,0 +1,140 @@
+name: Branch Hygiene
+
+# Three separate concerns, one file, because they all answer the same question:
+# is this branch still a live piece of work?
+#
+#   1. stale-branch  — fails a PR whose branch diverged from `main` more than
+#                      30 days ago. A long-lived branch has been rebuilt around
+#                      it by then; merging it is a deploy of stale assumptions
+#                      straight to production (vercel.json: git.deploymentEnabled).
+#   2. roadmap-phase — requires the PR to name the ROADMAP.md phase it belongs
+#                      to, so open work can be filtered by phase without opening
+#                      each PR.
+#   3. audit         — monthly report of remote branches nobody has touched, so
+#                      cleanup is a five-minute read rather than a half-hour dig.
+#
+# Only the audit runs on a schedule; the gates are PR-scoped by nature (a bare
+# push has no base ref to measure divergence against).
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited, ready_for_review]
+  schedule:
+    # 09:00 UTC on the 1st of each month.
+    - cron: '0 9 1 * *'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  MAX_BRANCH_AGE_DAYS: 30
+
+jobs:
+  stale-branch:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    name: Branch age
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fail if the branch diverged more than 30 days ago
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+
+          # Age is measured from the merge base, not from the branch's first
+          # commit: what matters is how much `main` has moved since this branch
+          # last shared history with it. A branch created yesterday off a
+          # three-month-old commit is exactly the case this catches.
+          base="$(git merge-base "$BASE_SHA" "$HEAD_SHA")"
+          base_epoch="$(git show -s --format=%ct "$base")"
+          now="$(date -u +%s)"
+          age_days=$(( (now - base_epoch) / 86400 ))
+
+          echo "Merge base: $base ($(git show -s --format=%ci "$base"))"
+          echo "Diverged from base branch: ${age_days} day(s) ago"
+
+          {
+            echo "## Branch age"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Branch | \`${HEAD_REF}\` |"
+            echo "| Diverged from base | ${age_days} day(s) ago |"
+            echo "| Limit | ${MAX_BRANCH_AGE_DAYS} days |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$age_days" -gt "$MAX_BRANCH_AGE_DAYS" ]; then
+            {
+              echo
+              echo "❌ **Stale branch.** Merge \`main\` into this branch (or"
+              echo "rebase onto it) and push — that resets the merge base and"
+              echo "re-runs this check against current \`main\`."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::Branch diverged from the base branch ${age_days} days ago (limit ${MAX_BRANCH_AGE_DAYS}). Merge or rebase onto main and push."
+            exit 1
+          fi
+
+          echo "✅ Within the ${MAX_BRANCH_AGE_DAYS}-day limit." >> "$GITHUB_STEP_SUMMARY"
+
+  roadmap-phase:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    name: Roadmap phase named
+    steps:
+      - name: Require a Q1–Q4 (or N/A) phase in the title or body
+        env:
+          # Read through the environment, never interpolated into the script
+          # body — a PR title is attacker-controlled text.
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          set -euo pipefail
+
+          # Matches `Q1`/`Q3:`/`Phase: Q2` anywhere in the title or body, or an
+          # explicit `N/A` for out-of-phase work (production bug, security fix,
+          # docs, direct request — AGENTS.md allows these, it just wants them
+          # marked as deviations rather than passed off as planned).
+          if printf '%s\n%s' "$PR_TITLE" "$PR_BODY" | grep -Eqi '(^|[^a-z0-9])(q[1-4]|n/a)([^a-z0-9]|$)'; then
+            echo "✅ Roadmap phase named." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          {
+            echo "## Roadmap phase missing"
+            echo
+            echo "Name the \`ROADMAP.md\` phase this work belongs to in the PR"
+            echo "title or body — \`Q1\`, \`Q2\`, \`Q3\`, \`Q4\`, or \`N/A\` for"
+            echo "out-of-phase work (production bug, security fix, docs, or a"
+            echo "direct request), with one line saying which."
+            echo
+            echo "| Phase | Window | Theme |"
+            echo "|---|---|---|"
+            echo "| Q1 | Aug–Oct 2026 | Monetization & retention foundation |"
+            echo "| Q2 | Nov 2026 – Jan 2027 | Differentiation & scale foundation |"
+            echo "| Q3 | Feb–Apr 2027 | Mobile & community |"
+            echo "| Q4 | May–Jul 2027 | Enterprise & scale |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::error::No roadmap phase (Q1–Q4 or N/A) found in the PR title or body. See ROADMAP.md and the PR template."
+          exit 1
+
+  audit:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    name: Monthly stale branch audit
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Report branches nobody has touched
+        run: bash scripts/audit-stale-branches.sh >> "$GITHUB_STEP_SUMMARY"
