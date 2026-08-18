@@ -111,7 +111,6 @@ export const WATCHLIST: { symbol: string; kind: AssetKind }[] = [
   { symbol: "NVDA", kind: "equity" },
   { symbol: "AMZN", kind: "equity" },
   { symbol: "GOOGL", kind: "equity" },
-  { symbol: "BTC/USD", kind: "crypto" },
 ];
 
 export const ASSET_KIND_LABELS: Record<AssetKind, string> = {
@@ -154,6 +153,15 @@ export interface SymbolInput {
   avgDailyVolume?: number | null;
   /** Last time this symbol+signal+direction alerted, for cooldown suppression. */
   lastAlerts?: { type: SignalType; direction: Direction; at: string }[];
+  /**
+   * True when the instrument's market is currently closed (after hours,
+   * overnight, or a weekend/holiday for equities; crypto is never closed).
+   * The only market data that exists in that state is stale by definition, so
+   * the freshness gate is not applied — the scan runs on the most recent
+   * session's data instead of refusing to run at all. Every alert produced
+   * this way says so, in `whyNotEarlier`.
+   */
+  marketClosed?: boolean;
 }
 
 /** ---- Derived session metrics ------------------------------------------- */
@@ -483,13 +491,20 @@ function scanSymbol(input: SymbolInput, config: ScannerConfig, now: Date): Symbo
   });
 
   // Freshness is checked before anything is computed from the data, because an
-  // alert on a stale feed is worse than no alert: it looks live.
+  // alert on a stale feed is worse than no alert: it looks live. The one
+  // exception is a closed market: there, stale data isn't a feed problem, it's
+  // the only data that exists, and refusing to run leaves the panel empty for
+  // as long as the market stays closed. The gate is skipped in that case, not
+  // widened — a live-market feed that goes quiet still gets caught.
   const age = ageSeconds(metrics.dataTimestamp, now);
-  const fresh = age <= config.maxDataAgeSeconds;
+  const marketClosed = input.marketClosed === true;
+  const fresh = age <= config.maxDataAgeSeconds || marketClosed;
   checks.push({
     name: "Data freshness",
     passed: fresh,
-    detail: `Newest print is ${formatAge(age)} old (limit ${formatAge(config.maxDataAgeSeconds)}).`,
+    detail: marketClosed
+      ? `Market is closed; running on the most recent available data, from ${formatAge(age)} ago.`
+      : `Newest print is ${formatAge(age)} old (limit ${formatAge(config.maxDataAgeSeconds)}).`,
   });
   if (!fresh) {
     return bail(
@@ -1040,7 +1055,7 @@ function buildAlert(args: {
     continuationPlan: continuationPlan(m, direction, invalidation, risk),
     pivotPlan: pivotPlan(m, direction, invalidation),
     whyThisAppeared: args.whyThisAppeared,
-    whyNotEarlier: explainLateness(dataAge, type),
+    whyNotEarlier: explainLateness(dataAge, type, input.marketClosed === true),
   };
 }
 
@@ -1095,9 +1110,13 @@ function pivotPlan(m: SessionMetrics, direction: Direction, invalidation: number
  * and a delayed feed means every evaluation is running against prices that are
  * already minutes old.
  */
-function explainLateness(dataAge: number, type: SignalType): string | null {
+function explainLateness(dataAge: number, type: SignalType, marketClosed: boolean): string | null {
   const reasons: string[] = [];
-  if (dataAge > 60) {
+  if (marketClosed) {
+    reasons.push(
+      `the market is closed right now, so this confirms the most recent session's move rather than something happening live`,
+    );
+  } else if (dataAge > 60) {
     reasons.push(
       `the price feed for this symbol runs about ${formatAge(dataAge)} behind, so every check is made against a print that has already happened`,
     );

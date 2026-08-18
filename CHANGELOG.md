@@ -35,6 +35,26 @@ date.
   long. `stillMatches` now also refuses a setup that flipped direction between
   the card and the tap. Migration 0015 widens the ledger's `side` constraint.
 
+### Fixed
+- **The intraday movement scan went silent whenever the market was closed.**
+  The freshness gate refused to alert on any data older than ~20 minutes,
+  which is every print once the session ends — so a scan run overnight or on
+  a weekend returned nothing, and returned it in a way that looked like a
+  feed outage rather than "there's nothing newer." The gate is now skipped
+  specifically when the instrument's market is closed
+  (`lib/scanner/intraday.ts`), and the scan falls back to the most recent
+  session's bars instead of only looking at "today"
+  (`pickSessionBars` in `app/api/intraday-scan/route.ts`), widening its
+  lookback to cross a weekend or holiday. Every alert produced this way says
+  so in `whyNotEarlier` and the audit's "Data freshness" check, so a
+  stale-because-closed read is never presented as live.
+- **Removed BTC/USD from the intraday scan's default watchlist.** It
+  produced the same outcome on every run — "too little has traded today for
+  a move here to mean much" — because the session-volume floor was
+  calibrated for equities, not this pair's typical turnover. A scan row that
+  never varies isn't informative; the symbol can still be scanned explicitly
+  via `?symbols=BTC/USD`.
+
 ## 2026-08-17
 
 ### Added
