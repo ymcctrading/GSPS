@@ -94,19 +94,16 @@ export async function placeSimulatedOrder(
   userId: string,
   input: OrderInput,
 ): Promise<PlacedOrder> {
-  // Refuse before anything is written or priced. The simulator fills
-  // synchronously, so there is no "accepted but not yet executed" state to
-  // unwind — a halt has to happen ahead of the fill, not around it.
+  // Refuse before anything is written or priced.
+  // The simulator fills synchronously, so there is no "accepted but not yet
+  // executed" state to unwind — a halt has to happen ahead of the fill, not
+  // around it.
   const halted = killSwitchRefusal();
   if (halted) return { status: 503, body: { ...halted } };
 
   if (input.mode === "live") {
-    return {
-      status: 400,
-      body: { error: "Live trading requires a connected live brokerage in Settings." },
-    };
+    return { status: 400, body: { error: "Live trading requires a connected live brokerage in Settings." } };
   }
-
   const isOption = input.assetClass === "option";
   // Equity advised entries route as limits at the protocol price. Options carry
   // no advised limit (the ticket doesn't price the premium), so they go market
@@ -132,20 +129,21 @@ export async function placeSimulatedOrder(
       mode: input.rounding as RoundingMode | undefined,
     });
     if (!priceCheck.ok || priceCheck.price == null) {
-      return {
-        status: 422,
-        body: {
+      return { status: 422, body: {
           error: priceCheck.blockedReason ?? "This limit price can't be used for this instrument.",
           code: "invalid_price_increment",
           priceCheck,
-        },
-      };
+        } };
     }
     submittedLimitPrice = priceCheck.price;
   }
 
-  // Brackets only apply to long equity entries (both legs, buy side, on Alpaca).
-  const useBracket = !isOption && !!input.attachLevels && input.side === "buy";
+  // Equity entries only — options carry no staged-exit plan. Unlike a real
+  // broker, this is our own simulator: nothing here calls out to Alpaca, so
+  // the "no bracket on a short leg" limitation a live Alpaca account would
+  // hit doesn't apply — a short's exit is staged and managed the same way a
+  // long's is, via lib/trade/exit-manager-sim.ts, on both sides.
+  const useBracket = !isOption && !!input.attachLevels;
   const orderType = submittedLimitPrice ? "limit" : "market";
 
   // The bracket legs are prices too, and they reach the broker the same way the
@@ -153,40 +151,42 @@ export async function placeSimulatedOrder(
   // prices, so they carry the same float dirt (`483.51 - 0.01`), and validating
   // only the entry left two thirds of the order able to draw the rejection this
   // is meant to prevent. Each leg is snapped on the side that keeps it where the
-  // protocol intended: a stop rounds down (further from the entry, never tighter
-  // than asked for) and a target rounds up.
+  // protocol intended: never tighter than asked for. On a long the stop sits
+  // below entry (round down) and the target above (round up); a short is the
+  // mirror image.
   let bracketLevels: { stopLoss: number; takeProfit: number } | undefined;
   if (useBracket) {
     const equity = { assetType: "EQUITY" as const };
+    const closingSide = input.side === "buy" ? "sell" : "buy";
+    const stopMode: RoundingMode = input.side === "buy" ? "down" : "up";
+    const targetMode: RoundingMode = input.side === "buy" ? "up" : "down";
     const stop = validateLimitPrice({
       price: input.attachLevels!.stopLoss,
-      side: "sell",
+      side: closingSide,
       instrument: equity,
-      mode: "down",
+      mode: stopMode,
     });
     const target = validateLimitPrice({
       price: input.attachLevels!.takeProfit,
-      side: "sell",
+      side: closingSide,
       instrument: equity,
-      mode: "up",
+      mode: targetMode,
     });
     if (!stop.ok || stop.price == null || !target.ok || target.price == null) {
-      return {
-        status: 422,
-        body: {
+      return { status: 422, body: {
           error:
-            "The protocol stop or target can't be expressed at a price this instrument accepts. Uncheck the protocol levels and manage them yourself.",
+            "The stop or target can't be expressed at a price this instrument accepts. Uncheck protocol levels (or clear the custom stop/target) and manage them yourself.",
           code: "invalid_price_increment",
-        },
-      };
+        } };
     }
     bracketLevels = { stopLoss: stop.price, takeProfit: target.price };
   }
 
-  // Alpaca requires the stop below and the target above the entry (by at least
-  // a cent). The protocol computes its levels against the advised entry, so a
-  // market entry on the other side of that price produces legs the broker will
-  // refuse — catch it here with wording that says what to do about it.
+  // A stop/target has to sit on the correct side of the entry (by at least a
+  // cent) or the staged exit can never trigger sanely. Protocol levels are
+  // computed against the advised entry, so a market entry on the other side of
+  // that price can produce legs on the wrong side — catch it here with wording
+  // that says what to do about it.
   if (useBracket) {
     const basePrice = submittedLimitPrice ?? input.referencePrice ?? 0;
     const check = checkBracket({
@@ -196,13 +196,10 @@ export async function placeSimulatedOrder(
       takeProfit: bracketLevels!.takeProfit,
     });
     if (!check.ok) {
-      return {
-        status: 422,
-        body: {
+      return { status: 422, body: {
           error: `${check.reason} Place the order at the advised price instead, or uncheck the protocol levels and manage the stop yourself.`,
           code: "invalid_bracket",
-        },
-      };
+        } };
     }
   }
 
@@ -277,7 +274,15 @@ export async function placeSimulatedOrder(
     } else {
       const market = await quotePrice(input.symbol, fillAssetClass);
       if (market != null && isMarketable(input.side, submittedLimitPrice!, market)) {
-        fillPrice = submittedLimitPrice!;
+        // Marketable means the live price is already at least as good as the
+        // limit (a buy limit's market is <= it, a sell limit's is >=) — a real
+        // broker fills at that better price, not at the stale limit typed into
+        // the ticket. Filling at `submittedLimitPrice` here previously meant an
+        // "advised price" short placed while the market had already rallied
+        // past its entry filled instantly at the stale, worse entry instead of
+        // the price actually on offer — a same-second paper loss with no fill
+        // ever tested against the market.
+        fillPrice = market;
         filled = true;
       }
       // Not marketable yet (or no quote this instant) — rests as `new` and is
@@ -326,7 +331,7 @@ export async function placeSimulatedOrder(
           .insert({
             user_id: userId,
             symbol: input.symbol.toUpperCase(),
-            side: "long",
+            side: input.side === "buy" ? "long" : "short",
             mode: "paper",
             qty: input.qty,
             entry_price: fillPrice,
@@ -370,28 +375,16 @@ export async function placeSimulatedOrder(
       latencyMs: Date.now() - submittedAt,
     });
 
-    return {
-      status: 200,
-      orderId,
-      body: {
-        order: {
-          id: orderId,
-          symbol: input.symbol.toUpperCase(),
-          side: input.side,
-          qty: input.qty,
-          status: filled ? "filled" : "new",
-          filled_avg_price: fillPrice,
-          filled_qty: filled ? input.qty : null,
-        },
-        mirrored: true,
-        priceCheck,
-        // How this position will be exited, in the ticket's own words.
-        exitPlan: exitPlan
-          ? { summary: exitPlan.summary, splittable: exitPlan.splittable, tranches: exitPlan.tranches }
-          : null,
-        warning: planError,
-      },
-    };
+    return { status: 200, orderId, body: {
+      order: { id: orderId, symbol: input.symbol.toUpperCase(), side: input.side, qty: input.qty, status: filled ? "filled" : "new", filled_avg_price: fillPrice, filled_qty: filled ? input.qty : null },
+      mirrored: true,
+      priceCheck,
+      // How this position will be exited, in the ticket's own words.
+      exitPlan: exitPlan
+        ? { summary: exitPlan.summary, splittable: exitPlan.splittable, tranches: exitPlan.tranches }
+        : null,
+      warning: planError,
+    } };
   } catch (err) {
     const raw = err instanceof Error ? err.message : String(err);
 
@@ -425,9 +418,6 @@ export async function placeSimulatedOrder(
       latencyMs: Date.now() - submittedAt,
     });
 
-    return {
-      status: 502,
-      body: { error: raw, code: "simulated_order_error", recorded: !dbError },
-    };
+    return { status: 502, body: { error: raw, code: "simulated_order_error", recorded: !dbError } };
   }
 }

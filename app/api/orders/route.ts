@@ -36,8 +36,7 @@ export async function POST(req: NextRequest) {
   // lib/trade/place-order.ts, so Guided Decision Mode submits through the same
   // path this ticket does rather than through a copy of it.
   const placed = await placeSimulatedOrder(supabase, user.id, parsed.data);
-  return NextResponse.json(placed.body, { status: placed.status });
-}
+  return NextResponse.json(placed.body, { status: placed.status });}
 
 
 /**

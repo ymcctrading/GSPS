@@ -22,7 +22,7 @@ gsps/
 │   │   ├── dashboard/            # Trading dashboard
 │   │   ├── scanner/              # Market scan interface
 │   │   ├── portfolio/            # Portfolio management
-│   │   ├── ticker/[symbol]/      # Stock detail view
+│   │   ├── ticker/[...symbol]/   # Stock detail view (catch-all so BTC/USD-style symbols route)
 │   │   ├── settings/             # User preferences
 │   │   ├── glossary/             # Educational content
 │   │   └── layout.tsx            # App layout wrapper

@@ -2,7 +2,8 @@ import Link from "next/link";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { ScoreBadge } from "@/components/scan/score-badge";
-import { formatUsd, tickerHref } from "@/lib/utils";
+import { formatUsd } from "@/lib/utils";
+import { tickerHref } from "@/lib/routes";
 
 export interface ScanRow {
   symbol: string;

@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { formatOpenedAt } from "@/lib/portfolio/opened-at";
-import { formatUsd, tickerHref } from "@/lib/utils";
+import { formatUsd } from "@/lib/utils";
+import { tickerHref } from "@/lib/routes";
 import type { OrderRow } from "./types";
 
 /**

@@ -25,8 +25,8 @@ to sanity-check them. Four things were resolved before the one-tap flow:
 |---|---|
 | The advertised reward:risk did not match the priced one | Settings and the landing page advertised 2:1 (TP1) and 3:1 (master). The engine prices TP1 at 1.5R and the master target at the asset class's runner multiple (2.5R equities, 3R crypto), stepped out to a structural level up to a 5R ceiling. All copy is now generated from the engine's own constants — `lib/trade/protocol-rules.ts` — and a test (`lib/__tests__/protocol-rules.test.ts`) fails if they drift. Guided Mode's dollar figures come from the real levels. |
 | "Execute = score 7+" did not describe observed behaviour | Score 7 is necessary and never sufficient: `computeScore` holds the state at Watch with no priced trade plan, `applyReversionConfirmation` holds an unconfirmed bare 2-2, and `applyDataLagHold` holds anything computed on stale bars. That was correct behaviour described by incorrect copy. Settings now states all of it. |
-| `/ticker/BTC/USD` 404'd | A crypto pair's slash was a path separator. `tickerHref` (lib/utils.ts) emits `BTC-USD`; `symbolFromRoute` (lib/market/symbol-route.ts) restores it. Percent-encoding does not work here — `%2F` is normalised back to a slash before the route matches. Every link in the app now goes through the helper. |
-| Short-side stops are not enforced at the broker | Guided Mode is **long only**. A recommended short would carry no enforced stop, which is not a trade to put behind a one-tap button. |
+| `/ticker/BTC/USD` 404'd | A crypto pair's slash made the URL two path segments against a one-segment route. Fixed upstream in #72 by a catch-all `[...symbol]` route plus `tickerHref` (`lib/routes.ts`), which every link in the app now goes through; the page rejoins the segments. Percent-encoding would not have worked — `%2F` is normalised back to a slash before the route matches. This branch added the round-trip test (`lib/__tests__/symbol-route.test.ts`) that pins the two halves together. |
+| Short-side stops are not enforced at the broker | Guided Mode is **long only**. This was the original reason: a recommended short would have carried no enforced stop. That specific blocker was removed upstream in #72, which stages a short's exit in the simulator exactly as it stages a long's. Guided Mode stays long-only anyway, now for a narrower reason — the eligibility filter, the sizing arithmetic, the copy and the confirmation dialog all assume a long, and none of that path has been exercised on the short side. Enabling shorts is a scoped follow-up with its own tests, tracked in `BACKLOG.md`, not a flag flip. |
 
 ## Eligibility
 
@@ -123,7 +123,8 @@ row cannot widen a cap past what the mode is willing to honour.
 ## Out of scope at launch
 
 No unattended execution, no live brokerage execution, no short-side
-recommendations, no options recommendations.
+recommendations, no options recommendations. Short-side is the one of these
+whose underlying blocker is already resolved — see the prerequisites table.
 
 ## Auditability
 

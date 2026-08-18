@@ -7,9 +7,10 @@ import { EarningsCalendar } from "@/components/macro/earnings-calendar";
 import { MarketNews } from "@/components/macro/market-news";
 import { getDailyScans } from "@/lib/dailyScans";
 import { DEFAULTS } from "@/lib/sectors";
+import { tickerHref } from "@/lib/routes";
 import { ArrowRight } from "lucide-react";
 import { tradeSideWord } from "@/lib/scoring/direction-copy";
-import { tickerHref } from "@/lib/utils";
+import { formatOpenedAt } from "@/lib/portfolio/opened-at";
 
 export const metadata = { title: "Dashboard — GSPS" };
 export const dynamic = "force-dynamic";
@@ -17,7 +18,8 @@ export const dynamic = "force-dynamic";
 const PREVIEW = 3;
 
 export default async function DashboardPage() {
-  const { scanDate, freshness, pricedBeforeSession, bullish, bearish } = await getDailyScans();
+  const { scanDate, freshness, pricedBeforeSession, scannedAt, bullish, bearish } =
+    await getDailyScans();
 
   return (
     <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
@@ -64,11 +66,13 @@ export default async function DashboardPage() {
           direction="bullish"
           rows={bullish}
           emptyText="Scanning for buy setups…"
+          scannedAt={scannedAt}
         />
         <ReversionPreview
           direction="bearish"
           rows={bearish}
           emptyText="Scanning for sell setups…"
+          scannedAt={scannedAt}
         />
       </div>
 
@@ -84,10 +88,12 @@ function ReversionPreview({
   direction,
   rows,
   emptyText,
+  scannedAt,
 }: {
   direction: "bullish" | "bearish";
   rows: import("@/components/scan/results-table").ScanRow[];
   emptyText: string;
+  scannedAt: string | null;
 }) {
   const isBull = direction === "bullish";
   const side = tradeSideWord(direction);
@@ -113,6 +119,12 @@ function ReversionPreview({
                     ? `, including ${continuations} momentum continuation${continuations === 1 ? "" : "s"}.`
                     : ".")
                 : `Setups near a ${side} point.`}
+              {scannedAt && (
+                <>
+                  {" "}
+                  <span className="text-muted">Scanned {formatOpenedAt(scannedAt)}.</span>
+                </>
+              )}
             </CardDescription>
           </div>
         </div>

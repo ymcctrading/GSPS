@@ -49,6 +49,24 @@ date.
   exists` ahead of the `create`), matching what was applied to the database.
 
 ### Changed
+- Merged `main` (#72, #73, #74), which had landed overlapping work while this
+  branch was open. Three reconciliations worth naming, because a careless merge
+  would have reverted shipped fixes:
+  - `lib/trade/place-order.ts` was **re-extracted from main's** post-#72/#73
+    handler rather than kept as this branch's copy of the pre-#72 one. The
+    stale copy would have silently reverted both short-side staged exits (#72)
+    and filling a marketable limit at the market price (#73) the moment the
+    route started delegating to it.
+  - This branch's `tickerHref` (single segment, hyphen-encoded pair) is dropped
+    in favour of main's catch-all `[...symbol]` route and `lib/routes.ts`
+    helper, which shipped first. The round-trip test this branch wrote is kept
+    and retargeted at main's helper, which had none.
+  - `MIN_SCAN_PRICE` is now an alias of the platform-wide
+    `MIN_EQUITY_PRICE_USD` rather than a second $5 that can drift from it. The
+    absolute average-volume floor sits alongside it and is explicitly *not* the
+    relative-volume gate reverted in `6a34f33` — that one failed a symbol for
+    trading below its own trailing average, which half of all symbols do at any
+    moment.
 - Order placement moved out of the `/api/orders` route handler into
   `lib/trade/place-order.ts`, so Guided Mode submits through exactly the same
   path the manual ticket does — same price-increment validation, same bracket
@@ -58,6 +76,74 @@ date.
   place in the top bar and gives up its tab slot to Guided.
 
 ### Fixed
+- **The daily market scan kept ranking sub-$5 penny stocks (OSRH, GRAB, …)
+  alongside real setups, and could rank a "Sell" setup on a symbol Alpaca
+  won't let anyone short (ONDS scored 7/9 "Execute" the same day its own
+  order ticket refused the short and pointed at a put instead).** Neither
+  gate had ever existed in `runMarketScan` — the only prior liquidity/volume
+  gate was reverted in `6a34f33` for unrelated reasons (it coin-flipped on
+  volume, not price or borrow), and shortability was checked only client-side,
+  lazily, in the order ticket, never during scanning/ranking. Added two
+  independent gates in `lib/marketScan.ts`: a flat `MIN_SCAN_PRICE` ($5, the
+  SEC's own penny-stock line) applied in the coarse pass before either setup
+  kind is scored, and `filterShortable`, which checks Alpaca's per-symbol
+  `shortable` flag for the bearish list only (going long never needs a
+  borrow) and drops rows the broker would reject on submission. Both fail
+  toward showing a shorter, honest list rather than a padded one: an
+  unreachable broker leaves the shortability check open (same direction as
+  the `/api/assets` preflight the ticket already uses) instead of blanking
+  the whole bearish list. Tests added
+  (`lib/__tests__/market-scan-filters.test.ts`).
+
+### Added
+- **Short and Manual Override orders can now carry a staged, managed exit.**
+  Protocol Recommended shorts attach the protocol's stop/TP1/master the same
+  way a long does — GSPS stages and manages the exit itself
+  (`lib/trade/exit-manager-sim.ts` already supported `side: "short"`; the
+  `/api/orders` route just never exercised it). Manual Override gets optional
+  custom stop-loss/take-profit fields, on both sides, that stage the same way.
+  Closes the gap where a short or a manual order carried no protection beyond
+  ticket copy telling the user to watch it by hand (Q1 roadmap: conditional
+  orders).
+- Dashboard "Buy setups"/"Sell setups" preview cards now show a "Scanned
+  HH:MM" timestamp, so a card can't silently disagree with a fresher scan
+  without the user knowing.
+- A short position with no broker-side stop now carries a persistent "No
+  stop" badge in the Portfolio order ledger, not just easy-to-miss ticket copy.
+- A soft nudge appears next to Quantity when submitting qty=1 in Protocol
+  Recommended mode ("Buy 2+ to use the full staged-exit plan").
+
+### Fixed
+- **A marketable limit order filled at its stale limit price instead of the
+  live market, so an "advised price" short placed after the market had
+  already rallied past its entry filled instantly at a worse price than what
+  was on offer — reading as an immediate paper loss the moment the ticket
+  confirmed.** `isMarketable` correctly judges a sell limit marketable once
+  `market >= limitPrice` (and a buy limit once `market <= limitPrice`), but
+  both fill paths (`POST /api/orders`'s synchronous fill and
+  `evaluateRestingOrders`'s resting-order sweep) then filled at the order's
+  own limit price rather than the market price that made it marketable.
+  Marketable by definition means the market is already at least as good as
+  the limit, so both now fill at the live market price — the same price
+  improvement a real broker reports, and the fix for the case that motivated
+  it: an ASML short's advised entry at $1,877.79 filled while the market was
+  already at $1,886.38, instead of getting that better price.
+- **`/ticker/BTC/USD` — one of only 9 symbols in the default watchlist —
+  404'd.** The dynamic route was a single `[symbol]` segment, so `/USD` split
+  off as an extra path segment. Switched to a catch-all `[...symbol]` route
+  and added a shared `tickerHref()` helper (`lib/routes.ts`) so every link
+  builder encodes a slash-bearing symbol consistently instead of ad hoc
+  `encodeURIComponent` calls (or none) scattered across five components.
+- Settings/Glossary described TP1/Master as flat 2:1/3:1 reward-to-risk; the
+  scoring engine actually targets ~1.5R (TP1, snapped to the prior candle's
+  high/low if further) and ~2.5R equities/3R crypto (Master, snapped to a
+  structural/harmonic level) — copy now matches. Also documented the
+  `tradePlanReady` gate: a 7+ score with no armed entry/stop/target reads as
+  Watch, not Execute, which the settings/glossary text didn't explain.
+- The chart Share button's Web Share path returned without ever flashing the
+  "Copied" confirmation, so a successful native share looked like nothing
+  happened.
+
 - **Settings and the landing page advertised a reward:risk the engine has never
   priced.** TP1 was described as 2:1 and the master target as 3:1; the engine
   prices TP1 at 1.5R and the master at the asset class's runner multiple (2.5R

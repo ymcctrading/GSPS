@@ -27,7 +27,7 @@ import { sizeGuidedTrade, type SizedTrade } from "@/lib/guided/sizing";
 import { exitSentence, reasonLine, riskRewardSentence, trendSummary } from "@/lib/guided/copy";
 import { planProtocolExit } from "@/lib/trade/protocol-exit";
 import { toPublicScoreSummary } from "@/lib/scoring/public-summary";
-import { tickerHref } from "@/lib/utils";
+import { tickerHref } from "@/lib/routes";
 import {
   MAX_CANDIDATES_SCANNED,
   MAX_RECOMMENDATIONS,

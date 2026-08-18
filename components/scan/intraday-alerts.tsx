@@ -19,7 +19,8 @@ import {
   type ScanOutput,
   type SymbolAudit,
 } from "@/lib/scanner/intraday";
-import { formatUsd, cn, tickerHref } from "@/lib/utils";
+import { formatUsd, cn } from "@/lib/utils";
+import { tickerHref } from "@/lib/routes";
 
 /**
  * Intraday momentum panel.

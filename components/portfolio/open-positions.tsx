@@ -6,8 +6,9 @@ import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { AssetTypeBadge } from "@/components/trade/asset-type-badge";
 import { GreeksToggle } from "./order-rows";
 import { formatOpenedAt } from "@/lib/portfolio/opened-at";
+import { tickerHref } from "@/lib/routes";
 import type { BlendedPosition, EquityLeg, OptionLeg } from "@/lib/portfolio/blend";
-import { formatUsd, formatPct, cn, tickerHref } from "@/lib/utils";
+import { formatUsd, formatPct, cn } from "@/lib/utils";
 
 /**
  * Open positions, grouped by underlying, with each asset type rendered in its

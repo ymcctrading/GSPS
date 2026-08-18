@@ -5,7 +5,8 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { cn, tickerHref } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { tickerHref } from "@/lib/routes";
 import type { EarningsEvent } from "@/lib/macro/earnings";
 
 /**
