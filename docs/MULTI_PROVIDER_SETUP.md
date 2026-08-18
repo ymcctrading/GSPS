@@ -107,8 +107,10 @@ more" section of `docs/THIRD_PARTY_LIMITS.md` for the preferred approach
 (external scheduler hitting the route over HTTPS), and make sure the route
 actually does something with the data it fetches.
 
-The only Vercel Cron job in this project is `/api/market-scan` — see
-`app/api/AGENTS.md`.
+The only native Vercel Cron job in this project is `/api/market-scan`'s
+post-close run — see `app/api/AGENTS.md`. Its pre-market run moved to a
+GitHub Actions schedule to free a Vercel cron slot; see
+`docs/THIRD_PARTY_LIMITS.md`.
 
 ## Caching
 

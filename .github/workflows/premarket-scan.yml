@@ -1,0 +1,32 @@
+name: Pre-market scan
+
+# The 08:30 ET / 12:30 UTC market-scan run, moved off Vercel Cron to free a
+# slot on the Hobby plan's 2-cron cap (see docs/THIRD_PARTY_LIMITS.md). The
+# 17:30 ET post-close run stays a native Vercel cron in vercel.json — it's
+# the more time-sensitive of the two (feeds the next session's list), so it
+# keeps the more reliable scheduler; this one tolerates GitHub Actions'
+# looser cron timing (routinely a few minutes late, occasionally more under
+# load) because the route already reads bars as of a fixed prior close
+# regardless of exactly when it's called — see docs/RUNBOOK.md on
+# `pricedBeforeSession`.
+on:
+  schedule:
+    - cron: '30 12 * * 1-5'
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    name: Trigger /api/market-scan
+    steps:
+      - name: Call market-scan
+        run: |
+          status=$(curl -sS -o /tmp/response.json -w '%{http_code}' \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ vars.PRODUCTION_URL || 'https://gsps.vercel.app' }}/api/market-scan")
+          echo "HTTP $status"
+          cat /tmp/response.json
+          if [ "$status" -ge 300 ]; then
+            echo "market-scan returned $status" >&2
+            exit 1
+          fi
