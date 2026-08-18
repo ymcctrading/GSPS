@@ -28,6 +28,7 @@ import { exitSentence, reasonLine, riskRewardSentence, trendSummary } from "@/li
 import { planProtocolExit } from "@/lib/trade/protocol-exit";
 import { toPublicScoreSummary } from "@/lib/scoring/public-summary";
 import { tickerHref } from "@/lib/routes";
+import { envCreds, getAsset } from "@/lib/brokers/alpaca";
 import {
   MAX_CANDIDATES_SCANNED,
   MAX_RECOMMENDATIONS,
@@ -100,11 +101,14 @@ export async function hasLiveBrokerage(supabase: SupabaseClient, userId: string)
 }
 
 /**
- * Candidate symbols: today's published bullish list, most recent scan date.
+ * Candidate symbols: today's published lists, most recent scan date, both
+ * directions interleaved by rank so one side cannot crowd the other out of the
+ * scan budget.
  *
- * Only symbols cross this boundary. Scores, levels and verdicts from the stored
- * row are deliberately dropped — every one of them is re-derived by the live
- * scan in `buildRecommendations`.
+ * Only symbols cross this boundary. Scores, levels, verdicts *and the
+ * direction* from the stored row are deliberately dropped — every one of them
+ * is re-derived by the live scan in `buildRecommendations`. A symbol published
+ * as bearish this morning that now arms long is treated as the long it is.
  */
 export async function candidateSymbols(supabase: SupabaseClient): Promise<string[]> {
   const { data: latest } = await supabase
@@ -118,14 +122,52 @@ export async function candidateSymbols(supabase: SupabaseClient): Promise<string
 
   const { data } = await supabase
     .from("daily_scans")
-    .select("symbol, rank")
+    .select("symbol, rank, direction")
     .eq("scan_date", scanDate)
-    // Long only at launch — see lib/guided/eligibility.ts.
-    .eq("direction", "bullish")
-    .order("rank")
-    .limit(MAX_CANDIDATES_SCANNED);
+    .order("rank");
 
-  return [...new Set(((data ?? []) as { symbol: string }[]).map((r) => r.symbol.toUpperCase()))];
+  const rows = (data ?? []) as { symbol: string; rank: number; direction: string }[];
+  const bullish = rows.filter((r) => r.direction === "bullish");
+  const bearish = rows.filter((r) => r.direction === "bearish");
+
+  // Interleaved rather than concatenated: taking the first N of a combined list
+  // sorted by rank would spend the whole scan budget on whichever side happened
+  // to publish more rows, and the budget is small enough for that to mean the
+  // other side never gets looked at.
+  const interleaved: string[] = [];
+  for (let i = 0; i < Math.max(bullish.length, bearish.length); i++) {
+    if (bullish[i]) interleaved.push(bullish[i].symbol.toUpperCase());
+    if (bearish[i]) interleaved.push(bearish[i].symbol.toUpperCase());
+  }
+
+  return [...new Set(interleaved)].slice(0, MAX_CANDIDATES_SCANNED);
+}
+
+/**
+ * Whether each symbol can be borrowed to short, asked once per symbol.
+ *
+ * Only the short candidates are looked up — a long never needs a borrow, and
+ * the call costs a broker round trip apiece. Unknown stays unknown rather than
+ * becoming `true`: `assessEligibility` refuses a short it cannot confirm, which
+ * is the opposite of how `filterShortable` treats the market scan's list, and
+ * deliberately so. A scan row a user reads is not an order a user taps.
+ */
+export async function resolveShortable(symbols: string[]): Promise<Map<string, boolean>> {
+  const out = new Map<string, boolean>();
+  const creds = envCreds("paper");
+  if (!creds || symbols.length === 0) return out;
+
+  await Promise.all(
+    symbols.map(async (symbol) => {
+      try {
+        const asset = await getAsset(creds, symbol);
+        out.set(symbol.toUpperCase(), Boolean(asset.shortable));
+      } catch {
+        // Left unset — "not asked", which fails the short rather than passing it.
+      }
+    }),
+  );
+  return out;
 }
 
 /** One card. Everything on it is derived; nothing is echoed from a stored row. */
@@ -133,7 +175,7 @@ export interface Recommendation {
   id: string | null;
   symbol: string;
   assetClass: string;
-  action: "buy";
+  action: "buy" | "sell";
   currentPrice: number;
   reason: string;
   qty: number;
@@ -181,6 +223,14 @@ export async function buildRecommendations(params: {
     symbols.slice(0, MAX_CANDIDATES_SCANNED).map((s) => scanTicker(s).catch((): ScanResult | null => null)),
   );
 
+  // One borrow lookup per short candidate, before the loop, so the broker is
+  // asked once per symbol rather than once per eligibility check.
+  const shortable = await resolveShortable(
+    scans
+      .filter((r): r is ScanResult => r !== null && r.direction === "bearish" && !r.error)
+      .map((r) => r.symbol),
+  );
+
   const recommendations: Recommendation[] = [];
   const skipped: SkippedCandidate[] = [];
   const expiresAt = new Date(now.getTime() + RECOMMENDATION_TTL_MINUTES * 60_000).toISOString();
@@ -198,14 +248,16 @@ export async function buildRecommendations(params: {
       continue;
     }
 
-    const verdict = assessEligibility(result);
+    const verdict = assessEligibility(result, shortable.get(result.symbol.toUpperCase()));
     if (!verdict.eligible) {
       skipped.push({ symbol: result.symbol, reasons: verdict.reasons });
       continue;
     }
 
     const levels = result.levels!;
+    const side = result.direction === "bearish" ? ("sell" as const) : ("buy" as const);
     const sized = sizeGuidedTrade({
+      side,
       equity: account.equity,
       buyingPower: account.buyingPower,
       entry: levels.entry,
@@ -223,14 +275,19 @@ export async function buildRecommendations(params: {
     }
 
     committed += sized.notionalUsd;
-    recommendations.push(toRecommendation(result, sized, expiresAt));
+    recommendations.push(toRecommendation(result, side, sized, expiresAt));
     if (recommendations.length >= MAX_RECOMMENDATIONS) break;
   }
 
   return { recommendations, skipped };
 }
 
-function toRecommendation(result: ScanResult, sized: SizedTrade, expiresAt: string): Recommendation {
+function toRecommendation(
+  result: ScanResult,
+  side: "buy" | "sell",
+  sized: SizedTrade,
+  expiresAt: string,
+): Recommendation {
   const levels = result.levels!;
   const plan = planProtocolExit(sized.qty, {
     stopLoss: levels.stopLoss,
@@ -242,7 +299,7 @@ function toRecommendation(result: ScanResult, sized: SizedTrade, expiresAt: stri
     id: null, // filled in once the row is logged
     symbol: result.symbol,
     assetClass: result.assetClass,
-    action: "buy",
+    action: side,
     currentPrice: result.currentPrice,
     reason: reasonLine(result),
     qty: sized.qty,
@@ -250,7 +307,7 @@ function toRecommendation(result: ScanResult, sized: SizedTrade, expiresAt: stri
     riskUsd: sized.riskUsd,
     rewardUsd: sized.rewardUsd,
     riskRewardSentence: riskRewardSentence(sized.riskUsd, sized.rewardUsd),
-    exitSentence: exitSentence(plan.scaleOutQty, sized.qty),
+    exitSentence: exitSentence(plan.scaleOutQty, sized.qty, side),
     expiresAt,
     why: {
       // The rollup, not the breakdown: the scoring criteria do not cross an API

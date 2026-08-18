@@ -7,6 +7,34 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-08-18
+
+### Added
+- **Guided Decision Mode now recommends shorts as well as longs.** The
+  constraint that made it long-only was that short entries carried no enforced
+  stop; #72 removed it by staging a short's exit in the simulator exactly as it
+  stages a long's. Enabling it was not a flag flip — three things about a short
+  differ from a long and each is handled explicitly:
+  - **Borrow.** A short candidate's shortability is resolved at the broker
+    before the card renders and again at submission, because availability moves
+    during a session. An unknown answer *fails* the short. That is deliberately
+    stricter than `filterShortable` on the market scan, which fails open so the
+    daily list doesn't go dark: a scan row a user reads is not an order a user
+    taps.
+  - **Cash.** The simulator credits cash on a sell rather than spending it, so
+    the buying-power ceiling cannot bound a short. It is skipped for one, which
+    leaves the deployed-capital cap as a short's only exposure ceiling — noted
+    in `BACKLOG.md` as worth re-deriving now that it carries that weight alone.
+  - **Words.** The reason line is written per side rather than produced by
+    swapping direction words; the exit sentence says *bought back* and *trails
+    down*; the badge and button say "Sell short" in the bear colour, so a card
+    can never read "Buy" for an order that would sell.
+  The sizing arithmetic is shared rather than duplicated — a ±1 direction
+  multiplies every price difference — and a test asserts a mirrored short
+  produces numerically identical size, risk, reward and R to its equivalent
+  long. `stillMatches` now also refuses a setup that flipped direction between
+  the card and the tap. Migration 0015 widens the ledger's `side` constraint.
+
 ## 2026-08-17
 
 ### Added
@@ -165,6 +193,55 @@ date.
   `%2F` is normalised back to a slash before the route matches.
 - The `settings` table's `tp1_r_multiple` / `master_r_multiple` defaults (2 and
   3) now match the engine (1.5 and 2.5). Existing rows are untouched.
+
+- **A calibration feedback loop for the coarse scan gate's ATR multiples.**
+  The ATR-relative rebasing below was calibrated by preserving the old flat
+  percentages' ratios, not by measuring real outcomes — no live market data
+  was reachable to verify the specific multiples chosen. `coarse_gate_telemetry`
+  (migration `0019`) now logs one row per symbol per scan day: its ATR%,
+  extension distance in both percent and ATR multiples, whether each gate
+  cleared it, and — when it went on to a real full-protocol scan — the actual
+  score and output state. `runMarketScan` computes this independently of the
+  gates' own pass/fail logic (`coarseDiagnostics` in `lib/marketScan.ts`), so
+  instrumenting it can never change scan behavior, and the write
+  (`persistCoarseTelemetry`, `lib/scan/telemetry.ts`) is best-effort like
+  `daily_scans` — a failure there never blocks or fails the scan itself. Once
+  enough scan days accumulate, this data answers the question the current
+  multiples can't: does a 2-ATR extension actually predict a good score more
+  reliably than a 1.5-ATR or 3-ATR one, and does that threshold differ by cap
+  size — instead of guessing.
+
+### Changed
+- **The market scan's coarse pre-filter now judges "extended" and "moving a
+  lot" relative to each symbol's own volatility, not a flat percent of
+  price.** This is why the Magnificent 7 barely showed up in market-wide
+  scans while a direct ticker scan on the same names found solid setups —
+  `coarseReversion`/`coarseContinuation` (`lib/marketScan.ts`) decide which
+  ~60 of the ~100 most-active symbols are worth the expensive full protocol
+  scan, using cheap daily-bar heuristics, and those heuristics used fixed
+  thresholds (extension >5%/10% of price, proximity within 1.0-2.0% of a
+  level). A 1% move on SPY and a 15% move on a small-cap can represent the
+  same real significance, so the flat thresholds structurally favored
+  volatile small/mid-caps and could exclude a mega-cap with a genuinely
+  strong setup before it was ever scored. The full protocol scorer already
+  solved exactly this problem for its own proximity criteria (see the
+  2026-08-13-and-earlier `lib/scoring/proximity.ts` re-basing to ATR
+  multiples) — this carries that same fix upstream into the coarse gate,
+  reusing the same `atrPercentOfPrice`/`proximityBandPct` helpers: extension
+  is now measured in multiples of the symbol's own 20-day ATR
+  (`EXTENSION_ATR_TIER1`/`TIER2`), and the fan/harmonic/S-R proximity checks
+  use the identical ATR-relative bands the real scorer uses, so a symbol
+  that clears the coarse gate is now likely to clear the real one too. The
+  continuation gate's `hasExceptional4hMomentum` and volume-participation
+  checks were already self-relative (ratios against the symbol's own
+  trailing baseline) and needed no change; only its `travelPct` threshold
+  got the same ATR rebasing. Threshold multiples were chosen to preserve
+  the old thresholds' relative strictness (tier 2 stays double tier 1, the
+  continuation travel gate stays proportionally tighter than the reversion
+  extension gate) rather than independently re-tuned — worth watching over
+  the next few scan days and adjusting if the mix still looks off.
+
+### Fixed
 - **The bars-batching fix below this same day silently dropped most of the
   scan universe, cutting a normal 8-20-setup day down to one lone `Reject`
   row.** `fetchBarsBatch`'s `limit` param is a total across every symbol in
@@ -210,6 +287,41 @@ date.
     fast but every bar fetch was failing and getting swallowed into an
     empty result set. Removed the param — it's an order-placement field, not
     a bars-query one.
+
+### Changed
+- **Renumbered the two colliding migration filenames.** `0003` named both
+  `order_greeks_and_targets.sql` and `positions_side.sql`; `0008` named both
+  `intraday_alerts.sql` and `order_lifecycle_reconciliation.sql` — one file
+  per PR, merged independently, neither branch aware the number was taken.
+  Both pairs had already been applied to production safely, under distinct
+  Supabase-assigned versions, so this is a repo-only rename: `positions_side`
+  → `0017`, `order_greeks_and_targets` → `0018`, `intraday_alerts` → `0016`.
+  (The renames originally targeted `0013`–`0015`; those numbers were taken by
+  Guided Decision Mode and the security remediations while this branch was
+  open, and `0015` is claimed by the guided short-side migration in flight, so
+  the batch moved up to the next free numbers rather than re-creating the
+  collision this change exists to remove.)
+  Left as a genuine duplicate, either pair was a `supabase db push` landmine:
+  that tool tracks applied migrations by the leading number, so a real
+  duplicate is read as "the second file is already applied" and silently
+  skipped.
+- **Verified the full migration backlog against production, table by table
+  and column by column** — every table, check constraint, unique index and
+  RLS policy in `supabase/migrations/0005`–`0012` and the renamed `0016`
+  matches what's live, with the one exception below. Nothing needed
+  (re-)applying; this was reconciliation, not a deploy.
+- **`0005_learning_brain.sql`'s invalid `learning_coefficients` constraint
+  was already fixed** — by the time this reconciliation reached it, the file
+  in the repo already used a `create unique index ... coalesce(...)`
+  instead of a table-level `UNIQUE` over expressions, which Postgres
+  rejects. Confirmed the index that's live matches the file exactly.
+- **`supabase/AGENTS.md` updated**: the table list was current as of
+  migration `0004` and eleven tables behind; now lists all twenty-three,
+  grouped by what added them. Adding-a-migration steps now say to check
+  `ls supabase/migrations/` for the real next number rather than trusting
+  the last commit you saw, and to confirm a migration actually landed
+  (`list_migrations`) before merging — a file in the repo is a claim about
+  the database, not a guarantee.
 
 ## 2026-08-16
 
