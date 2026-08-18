@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { GlossaryTerm } from "@/components/glossary-term";
 import { checkBracket } from "@/lib/trade/bracket";
 import { planProtocolExit } from "@/lib/trade/protocol-exit";
 import {
@@ -444,7 +445,7 @@ export function OrderTicket({
 
         {assetType === "shares" ? (
           <>
-            <div className="grid grid-cols-2 gap-2">
+            <div id="tour-entry" className="grid grid-cols-2 gap-2">
               <ModeButton
                 active={entryMode === "advised"}
                 onClick={() => setEntryMode("advised")}
@@ -460,7 +461,7 @@ export function OrderTicket({
             </div>
 
             {useProtocolLevels && levels ? (
-              <div className="flex flex-col gap-2">
+              <div id="tour-exit" className="flex flex-col gap-2">
                 <label
                   className={cn(
                     "flex items-start gap-2 text-sm",
@@ -642,8 +643,10 @@ export function OrderTicket({
             )}
           </div>
         )}
-        <p className="text-xs text-muted">
-          Orders route to your paper account. Connect a live brokerage in Settings to trade real funds.
+        <p id="tour-review" className="text-xs text-muted">
+          Orders route to your{" "}
+          <GlossaryTerm term="Paper trading" label="paper account" className="decoration-muted" />. Connect a
+          live brokerage in Settings to trade real funds.
         </p>
       </CardContent>
     </Card>
