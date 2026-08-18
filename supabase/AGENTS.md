@@ -1,6 +1,6 @@
 # supabase — Migrations & Schema
 
-## Tables (as of migration `0015`)
+## Tables (as of migration `0018`)
 
 Core: `profiles`, `watchlists`, `watchlist_items`, `scan_results`,
 `daily_scans`, `broker_connections`, `orders`, `positions`, `settings`,
@@ -14,7 +14,7 @@ from `lib/learning/db.ts`; RLS is on with no user-facing policy, which is
 intentional deny-all for these — there's no per-user ownership concept for a
 global model table, only server-side access.
 
-Intraday scanning (`0013`): `intraday_alerts`.
+Intraday scanning (`0016`): `intraday_alerts`.
 
 Protocol exits and paper trading (`0009`–`0012`): `protocol_exits`,
 `paper_accounts`, plus the `increment_paper_cash` and `execute_position_fill`
@@ -26,16 +26,16 @@ reads for its bullish/bearish signals — see `app/api/AGENTS.md`.
 `orders` and `positions` also carry option-contract economics (purchase
 price, contract cost, a greeks snapshot), which protocol target was hit
 (`tp1_hit_at`/`mp_hit_at`/`sl_hit_at`), and a generated `asset_type`
-(`'EQUITY' | 'OPTION'`) derived from `asset_class` — see `0015` and `0004`.
+(`'EQUITY' | 'OPTION'`) derived from `asset_class` — see `0018` and `0004`.
 
 ## Conventions established by existing migrations
 
 - **Numbered, sequential migration files**: `0001_initial_schema.sql`,
-  `0002_trade_logging.sql`, `0015_order_greeks_and_targets.sql`,
+  `0002_trade_logging.sql`, `0018_order_greeks_and_targets.sql`,
   `0004_asset_type_flag.sql`. Keep this pattern —
   `000N_short_description.sql` — rather than timestamp-based names. **Number
   is not chronology.** `0004_asset_type_flag.sql` was applied last of a
-  three-migration batch that also produced `0014`/`0015`, because those two
+  three-migration batch that also produced `0017`/`0018`, because those two
   didn't get their real numbers until this reconciliation — see below.
 - **A number claimed by two files is a landmine, not a style nit.** `0003`
   and `0008` each named two different migrations for a while — one file per

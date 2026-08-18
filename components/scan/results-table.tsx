@@ -3,6 +3,7 @@ import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { ScoreBadge } from "@/components/scan/score-badge";
 import { formatUsd } from "@/lib/utils";
+import { tickerHref } from "@/lib/routes";
 
 export interface ScanRow {
   symbol: string;
@@ -42,7 +43,7 @@ export function ResultsTable({ rows, emptyText }: { rows: ScanRow[]; emptyText?:
           <TR key={`${r.symbol}-${r.direction}`}>
             <TD className="sticky left-0 z-10 bg-surface">
               <Link
-                href={`/ticker/${encodeURIComponent(r.symbol)}`}
+                href={tickerHref(r.symbol)}
                 className="font-medium text-accent hover:underline"
               >
                 {r.symbol}

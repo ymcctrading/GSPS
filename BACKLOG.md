@@ -28,6 +28,17 @@
 - [ ] Order history and analytics
 - [ ] Order modification and cancellation
 
+### Short-Side Recommendations in Guided Mode
+- [x] ~~Enforce a stop on short entries~~ — done in #72: the simulator stages a
+      short's exit the same way it stages a long's, so the "unbracketed short"
+      that made Guided Decision Mode long-only no longer exists.
+- [ ] Enable short recommendations in Guided Mode now that the blocker is gone.
+      Not a flag flip: the eligibility filter, the sizing arithmetic (risk per
+      share inverts), the plain-English copy and the confirmation dialog all
+      assume a long, and none of that path has been tested on the short side.
+      Scope it as its own change with its own tests — see
+      `docs/GUIDED_DECISION_MODE.md`.
+
 ### Risk Management
 - [ ] Position sizing based on account equity
 - [ ] Maximum daily loss limits

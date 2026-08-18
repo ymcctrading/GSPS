@@ -2,7 +2,7 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-08-09.
+**Last updated:** 2026-08-17.
 
 This document decides *what we build next and in what order*. Proposals and
 implementation work should trace back to a phase below. See
@@ -34,9 +34,11 @@ both signal discovery and execution.
 - **Core engine (production)** — Structural analysis engine (Gann fans,
   geometric price levels, time cycles), pattern recognition, multi-timeframe
   support (1m–1y), real-time charting via Lightweight Charts.
-- **Trading infrastructure (production)** — Paper trading via Alpaca, live
-  trading, broker order reconciliation, portfolio tracking with position
-  grouping, option Greeks, price-increment validation.
+- **Trading infrastructure (production)** — Per-user simulated paper trading
+  (`lib/brokers/simulator.ts`; fills against live quotes, own cash ledger),
+  staged protocol exits, portfolio tracking with position grouping, option
+  Greeks, price-increment validation. Live trading is **not** enabled: it needs
+  per-user brokerage credentials, which is unscheduled work.
 - **Data pipeline (mature)** — Multi-provider architecture (Alpaca, Binance,
   Oanda, Twelve Data, Polygon), intraday momentum scanner, daily market scans,
   per-symbol audit trail for non-alerts, explained alerts with invalidation
@@ -99,6 +101,14 @@ both signal discovery and execution.
   foundation for Q2 bracket orders.
 - **Improved onboarding** — glossary integration, pattern education,
   guided paper-trade walkthrough.
+- **Guided Decision Mode** *(shipped 2026-08-17)* — one recommended action per
+  symbol, sized from a per-trade risk cap, executed through a single
+  confirmation. Paper-only, long-only, Execute-verdict only, with daily/weekly
+  trade caps and a deployed-capital ceiling. Every recommendation shown is
+  logged so its expectancy can later be measured against the Backtest tool.
+  See `docs/GUIDED_DECISION_MODE.md`. Shipped alongside a platform-wide
+  liquidity floor on every scan (price ≥ $5, average volume ≥ 500k shares, or
+  the dollar-turnover equivalent for crypto).
 - **Mobile-responsive dashboard** — not a native app yet, but positions and
   alerts must be usable on phones and tablets.
 - **Technical indicators (phase 1)** — SMA, EMA, RSI, MACD as chart overlays.

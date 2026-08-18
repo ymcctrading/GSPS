@@ -49,3 +49,15 @@ jobs:
       - run: npm run lint
 
       - run: npx tsc --noEmit
+
+      # The production build was not a gate until now, which left a gap the
+      # other three jobs cannot cover: `next.config.ts` sets
+      # `typescript: { ignoreBuildErrors: true }`, so a build can fail for
+      # reasons `tsc --noEmit` never sees — a bad import boundary, a server-only
+      # module pulled into a client component. Vercel builds on every push
+      # regardless; this makes the same failure visible here, before a merge
+      # deploys it.
+      #
+      # No secrets are configured for this step on purpose. The build must not
+      # need them, and if it ever starts to, that is the finding.
+      - run: npm run build

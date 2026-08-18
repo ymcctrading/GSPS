@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { tickerHref } from "@/lib/routes";
 import type { EarningsEvent } from "@/lib/macro/earnings";
 
 /**
@@ -140,7 +141,7 @@ export function EarningsCalendar() {
                 {selectedEvents.map((e) => (
                   <div key={e.symbol} className="flex items-center justify-between gap-2 text-sm">
                     <div className="flex items-center gap-2">
-                      <Link href={`/ticker/${e.symbol}`} className="font-medium text-accent hover:underline">
+                      <Link href={tickerHref(e.symbol)} className="font-medium text-accent hover:underline">
                         {e.symbol}
                       </Link>
                       <span className="text-muted">{e.name}</span>
