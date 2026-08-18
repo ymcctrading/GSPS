@@ -14,6 +14,8 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const next = searchParams.get("next") ?? "/dashboard";
 
   const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -29,16 +31,40 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 
       if (mode === "signup") {
         const { data, error } = await supabase.auth.signUp({ email, password });
-        if (error) setError(error.message);
-        else if (data.session) {
-          // Email confirmation disabled — signed in immediately.
-          router.push(next);
-          router.refresh();
-        } else {
-          setMessage("Check your email to confirm your account, then log in.");
+        if (error) {
+          setError(error.message);
+        } else if (username && data.user) {
+          const { error: usernameError } = await supabase
+            .from("profiles")
+            .update({ username })
+            .eq("id", data.user.id);
+          if (usernameError) setError(`Signed up, but username couldn't be set: ${usernameError.message}`);
+        }
+        if (!error) {
+          if (data.session) {
+            // Email confirmation disabled — signed in immediately.
+            router.push(next);
+            router.refresh();
+          } else {
+            setMessage("Check your email to confirm your account, then log in.");
+          }
         }
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        // Login accepts either an email address or a username.
+        let loginEmail = identifier;
+        if (!identifier.includes("@")) {
+          const { data: resolvedEmail, error: lookupError } = await supabase.rpc(
+            "resolve_username_email",
+            { p_username: identifier },
+          );
+          if (lookupError || !resolvedEmail) {
+            setError("Invalid login credentials");
+            setLoading(false);
+            return;
+          }
+          loginEmail = resolvedEmail;
+        }
+        const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password });
         if (error) setError(error.message);
         else {
           router.push(next);
@@ -87,14 +113,36 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-            <Input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-            />
+            {mode === "login" ? (
+              <Input
+                type="text"
+                placeholder="Email or username"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                required
+                autoComplete="username"
+              />
+            ) : (
+              <>
+                <Input
+                  type="email"
+                  placeholder="Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                />
+                <Input
+                  type="text"
+                  placeholder="Username (optional)"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  pattern="[a-zA-Z0-9_]{3,32}"
+                  title="3-32 characters: letters, numbers, underscores"
+                  autoComplete="username"
+                />
+              </>
+            )}
             <Input
               type="password"
               placeholder="Password"
@@ -104,6 +152,11 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
               minLength={8}
               autoComplete={mode === "login" ? "current-password" : "new-password"}
             />
+            {mode === "login" && (
+              <Link href="/forgot-password" className="self-end text-sm text-accent hover:underline">
+                Forgot password?
+              </Link>
+            )}
             {error && <p className="text-sm text-bear">{error}</p>}
             {message && <p className="text-sm text-bull">{message}</p>}
             <Button type="submit" disabled={loading}>

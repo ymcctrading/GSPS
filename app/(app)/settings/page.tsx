@@ -17,6 +17,7 @@ import {
   TP1_RULE_LABEL,
 } from "@/lib/trade/protocol-rules";
 import { GuidedCapsForm } from "@/components/guided/guided-caps-form";
+import { AccountSettings } from "@/components/settings/account-settings";
 import { Link2, Landmark } from "lucide-react";
 
 interface SnapAccounts {
@@ -45,6 +46,8 @@ export default function SettingsPage() {
         <h1 className="text-xl font-semibold sm:text-2xl">Settings</h1>
         <p className="text-sm text-muted">Brokerage connections and protocol risk preferences.</p>
       </div>
+
+      <AccountSettings />
 
       <Card>
         <CardHeader>
