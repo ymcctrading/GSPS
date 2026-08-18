@@ -10,7 +10,8 @@
     "check:terms": "node scripts/check-banned-terms.mjs",
     "check:migrations": "node scripts/check-migrations.mjs",
     "backtest": "node scripts/replay-report.mjs",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.3",
@@ -22,10 +23,12 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "snaptrade-typescript-sdk": "^10.0.18",
+    "stripe": "^22.5.0",
     "tailwind-merge": "^3.6.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
