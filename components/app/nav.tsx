@@ -4,17 +4,27 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Radar, Briefcase, Bot, FlaskConical, BookOpen, Settings, LogOut, TrendingUp } from "lucide-react";
+import { LayoutDashboard, Radar, Briefcase, Bot, FlaskConical, BookOpen, Settings, LogOut, TrendingUp, Compass } from "lucide-react";
 
+/**
+ * Every destination, in order. `tabBar: false` keeps one out of the phone tab
+ * bar without removing it from the app — see the ceiling explained on `AppNav`.
+ */
 const LINKS = [
-  { href: "/dashboard", label: "Dashboard", short: "Home", icon: LayoutDashboard },
-  { href: "/scanner", label: "Scanner", short: "Scan", icon: Radar },
-  { href: "/portfolio", label: "Portfolio", short: "Book", icon: Briefcase },
-  { href: "/automation", label: "Automation", short: "Auto", icon: Bot },
-  { href: "/learning", label: "Backtest", short: "Test", icon: FlaskConical },
-  { href: "/glossary", label: "Glossary", short: "Terms", icon: BookOpen },
-  { href: "/settings", label: "Settings", short: "Setup", icon: Settings },
+  { href: "/dashboard", label: "Dashboard", short: "Home", icon: LayoutDashboard, tabBar: true },
+  { href: "/guided", label: "Guided", short: "Guided", icon: Compass, tabBar: true },
+  { href: "/scanner", label: "Scanner", short: "Scan", icon: Radar, tabBar: true },
+  { href: "/portfolio", label: "Portfolio", short: "Book", icon: Briefcase, tabBar: true },
+  { href: "/automation", label: "Automation", short: "Auto", icon: Bot, tabBar: true },
+  { href: "/learning", label: "Backtest", short: "Test", icon: FlaskConical, tabBar: true },
+  // Reference material rather than a destination you navigate to on purpose,
+  // and it is linked from the copy that uses its terms — so it is the one that
+  // gives up its tab-bar slot to Guided, which is the novice's primary path.
+  { href: "/glossary", label: "Glossary", short: "Terms", icon: BookOpen, tabBar: false },
+  { href: "/settings", label: "Settings", short: "Setup", icon: Settings, tabBar: true },
 ];
+
+const TAB_BAR_LINKS = LINKS.filter((l) => l.tabBar);
 
 /**
  * Navigation, calibrated per device class.
@@ -26,7 +36,10 @@ const LINKS = [
  *
  * Seven is the ceiling for the tab bar. On the narrowest supported screen each
  * tab is ~51px wide, still clear of the 44px minimum target; an eighth
- * destination would cross it and needs a different shape, not another tab.
+ * destination would cross it and needs a different shape, not another tab. So
+ * the tab bar renders the seven marked `tabBar` and the top bar renders all
+ * eight — adding a destination means deciding which one leaves the tab bar, not
+ * quietly shrinking every target.
  */
 export function AppNav() {
   const pathname = usePathname();
@@ -82,7 +95,7 @@ export function AppNav() {
       {/* Phones: thumb-reachable tab bar pinned above the home indicator. */}
       <nav className="pb-safe fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 backdrop-blur md:hidden">
         <div className="flex items-stretch justify-around">
-          {LINKS.map(({ href, short, label, icon: Icon }) => (
+          {TAB_BAR_LINKS.map(({ href, short, label, icon: Icon }) => (
             <Link
               key={href}
               href={href}

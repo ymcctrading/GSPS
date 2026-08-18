@@ -23,7 +23,7 @@
  */
 
 import type { Bar, ScanResult, SetupKind } from "@/lib/types";
-import { getMarketDataProvider } from "@/lib/data/provider";
+import { fetchAllTimeframesBatch, getMarketDataProvider } from "@/lib/data/provider";
 import { fetchMostActives } from "@/lib/data/alpaca";
 import { readTrend } from "@/lib/analysis/trend";
 import { etDateKey } from "@/lib/market/session";
@@ -31,8 +31,23 @@ import { atr } from "@/lib/analysis/pivots";
 import { computeFanLines } from "@/lib/gann/fans";
 import { squareOf9Levels } from "@/lib/gann/squareOf9";
 import { CONTINUATION_PATTERNS } from "@/lib/strat/patterns";
+import { MIN_EQUITY_PRICE_USD, meetsLiquidityFloor, readLiquidity } from "@/lib/scan/liquidity";
 import { scanTicker } from "@/lib/scanTicker";
 import { MAG7, SECTORS } from "@/lib/sectors";
+import { envCreds, getAsset } from "@/lib/brokers/alpaca";
+
+/**
+ * SEC's own line for a "penny stock" is under $5, and it doubles as a proxy
+ * for the wide spreads and thin, unreliable borrow that make this whole
+ * price band a bad fit for a bracket-order protocol regardless of how the
+ * pattern scores. Distinct from the liquidity/volume gate reverted in
+ * 6a34f33 — this is a hard price floor, not a volume coin flip, so it stays.
+ *
+ * Aliased to the platform-wide floor rather than restated, so the scan's price
+ * line and the one every other scan applies cannot drift to two different
+ * numbers — see lib/scan/liquidity.ts.
+ */
+export const MIN_SCAN_PRICE = MIN_EQUITY_PRICE_USD;
 
 // Fallback universe when the most-actives screener is unavailable (some Alpaca
 // plans don't include it): the curated sector lists, equities only.
@@ -114,9 +129,33 @@ export function hasExceptional4hMomentum(bars4h: Bar[]): boolean {
   );
 }
 
-function coarseReversion(symbol: string, daily: Bar[]): CoarseCandidate | null {
+/**
+ * The liquidity floor, applied at the top of the coarse pass so it gates both
+ * candidate pools from the same read of the same bars. A symbol that cannot be
+ * filled cleanly is not a setup on either side — see lib/scan/liquidity.ts.
+ * Every universe reaches here: the most-actives screener returns whatever is
+ * moving, including sub-$1 names, and the curated fallback is not immune either.
+ *
+ * This subsumes the `MIN_SCAN_PRICE` check below — the floor enforces the same
+ * $5 line — and adds an absolute average-volume minimum on top of it. That is
+ * deliberately *not* the relative-volume gate reverted in 6a34f33, which failed
+ * a symbol for trading below its own trailing average: half of all symbols do
+ * that at any moment, so it was a coin flip that zeroed out AAPL in a quiet
+ * week. An absolute floor asks a different question — is there enough tape here
+ * to fill a plan at all — and AAPL in its quietest week clears it by two orders
+ * of magnitude.
+ */
+function tradeable(daily: Bar[]): boolean {
+  // The market scan's universe is US equities (`resolveUniverse` filters pairs
+  // out of the fallback list and the screener returns none).
+  return meetsLiquidityFloor(readLiquidity(daily), "us_equity").ok;
+}
+
+export function coarseReversion(symbol: string, daily: Bar[]): CoarseCandidate | null {
   if (daily.length < 60) return null;
+  if (!tradeable(daily)) return null;
   const price = daily[daily.length - 1].c;
+  if (price < MIN_SCAN_PRICE) return null;
   const trend = readTrend(daily, "1Day");
   if (trend.direction === "sideways") return null;
 
@@ -156,11 +195,13 @@ function coarseReversion(symbol: string, daily: Bar[]): CoarseCandidate | null {
  * so the pool stays small and the fills are the ones actually moving right now,
  * not just a name with an elevated day somewhere in its trailing average.
  */
-function coarseContinuation(symbol: string, daily: Bar[], bars4h: Bar[]): CoarseCandidate | null {
+export function coarseContinuation(symbol: string, daily: Bar[], bars4h: Bar[]): CoarseCandidate | null {
   // Needs the full trailing window the baseline is measured over.
   if (daily.length < 120) return null;
+  if (!tradeable(daily)) return null;
   if (!hasExceptional4hMomentum(bars4h)) return null;
   const price = daily[daily.length - 1].c;
+  if (price < MIN_SCAN_PRICE) return null;
   const trend = readTrend(daily, "1Day");
   if (trend.direction === "sideways") return null;
 
@@ -253,6 +294,30 @@ async function mapWithConcurrency<T, R>(
   return results;
 }
 
+/**
+ * A "Sell" row means short shares — that is what the order ticket's Protocol
+ * Recommended mode puts up first. Alpaca will not borrow every listed name
+ * (small caps especially), and a row the broker will reject on submission is
+ * not a trade plan, whatever the pattern scored. Checked only for the bearish
+ * list; going long never needs a borrow. Unknown/unreachable broker fails
+ * open, same direction as the /api/assets preflight the order ticket itself
+ * uses — better an occasional non-shortable row than the whole list going
+ * dark because the broker call failed.
+ */
+export async function filterShortable(results: ScanResult[]): Promise<ScanResult[]> {
+  const creds = envCreds("paper");
+  if (!creds) return results;
+  const checked = await mapWithConcurrency(results, 8, async (r) => {
+    try {
+      const asset = await getAsset(creds, r.symbol);
+      return asset.shortable ? r : null;
+    } catch {
+      return r;
+    }
+  });
+  return checked.filter((r): r is ScanResult => r !== null);
+}
+
 /** Ceiling on top-up scans, so a two-sided shortage can't run past the budget. */
 const MAX_TOPUP_SCANS = 24;
 
@@ -280,12 +345,27 @@ export async function runMarketScan(universeTop = 100, perSide = 15): Promise<Ma
   const yearAgo = new Date(Date.now() - 365 * 24 * 3600 * 1000);
   const recentWeeks = new Date(Date.now() - 15 * 24 * 3600 * 1000);
   const end = new Date(Date.now() - 16 * 60 * 1000);
+
+  // Batched where the provider supports it: one request per timeframe for the
+  // whole universe instead of one per symbol. `runMarketScan` scanning 100+
+  // symbols individually was the single largest source of outbound requests —
+  // enough to blow through both the upstream rate limit and Vercel's function
+  // timeout before a scan could finish. Falls back to per-symbol fetches below
+  // when unavailable (e.g. the synthetic demo provider).
+  const [dailyBatch, bars4hBatch] = await Promise.all([
+    provider.fetchBarsBatch?.(actives, "1Day", yearAgo, end, "us_equity") ?? null,
+    provider.fetchBarsBatch?.(actives, "4Hour", recentWeeks, end, "us_equity") ?? null,
+  ]);
+
   const coarse = await mapWithConcurrency(actives, 8, async (symbol) => {
     try {
-      const [daily, bars4h] = await Promise.all([
-        provider.fetchBars(symbol, "1Day", yearAgo, end, "us_equity"),
-        provider.fetchBars(symbol, "4Hour", recentWeeks, end, "us_equity"),
-      ]);
+      const [daily, bars4h] =
+        dailyBatch && bars4hBatch
+          ? [dailyBatch.get(symbol.toUpperCase()) ?? [], bars4hBatch.get(symbol.toUpperCase()) ?? []]
+          : await Promise.all([
+              provider.fetchBars(symbol, "1Day", yearAgo, end, "us_equity"),
+              provider.fetchBars(symbol, "4Hour", recentWeeks, end, "us_equity"),
+            ]);
       return {
         reversion: coarseReversion(symbol, daily),
         continuation: coarseContinuation(symbol, daily, bars4h),
@@ -306,8 +386,13 @@ export async function runMarketScan(universeTop = 100, perSide = 15): Promise<Ma
     .filter((c): c is CoarseCandidate => c !== null)
     .sort(byCoarseScore);
 
-  // Full multi-timeframe pass
-  const full = await mapWithConcurrency(shortlist, 5, (c) => scanTicker(c.symbol));
+  // Full multi-timeframe pass — batch-fetch all five timeframes for the whole
+  // shortlist up front (five requests total) so each scanTicker call below is
+  // just scoring, not a fresh five-request fetch per symbol.
+  const shortlistBars = await fetchAllTimeframesBatch(shortlist.map((c) => c.symbol));
+  const full = await mapWithConcurrency(shortlist, 5, (c) =>
+    scanTicker(c.symbol, undefined, undefined, shortlistBars.get(c.symbol.toUpperCase())),
+  );
   const valid = full.filter((r) => !r.error);
 
   // The daily lists are trade plans, not a watchlist. A symbol only earns a row
@@ -371,8 +456,9 @@ export async function runMarketScan(universeTop = 100, perSide = 15): Promise<Ma
         .slice(0, Math.min(target[dir] * 3, perSideBudget)),
     );
 
+    const fillBars = await fetchAllTimeframesBatch(fills.map((c) => c.symbol));
     const scans = await mapWithConcurrency(fills, 5, (c) =>
-      scanTicker(c.symbol, undefined, { direction: c.direction, kind: "continuation" }),
+      scanTicker(c.symbol, undefined, { direction: c.direction, kind: "continuation" }, fillBars.get(c.symbol.toUpperCase())),
     );
 
     for (const dir of ["bullish", "bearish"] as const) {
@@ -385,6 +471,8 @@ export async function runMarketScan(universeTop = 100, perSide = 15): Promise<Ma
       continuationFills[dir] = additions.length;
     }
   }
+
+  lists.bearish = await filterShortable(lists.bearish);
 
   return {
     scanDate,

@@ -22,12 +22,12 @@ const GROUPS: { heading: string; terms: Term[] }[] = [
       {
         term: "TP1 - Take Profit 1 (green line)",
         plain:
-          "Your first profit goal. It's set so you aim to make about 2x what you're risking. That's a 2-to-1 reward-to-risk ratio.",
+          "Your first profit goal. It defaults to about 1.5x what you're risking, but can sit further out if the prior candle's high/low gives a better structural target — so the actual multiple varies trade to trade.",
       },
       {
         term: "Master profit (green line)",
         plain:
-          "The bigger profit goal, aiming for about 3x your risk (3-to-1). You'd typically take most profit at TP1 and let a small piece run toward this.",
+          "The bigger profit goal — roughly 2.5x your risk on stocks, 3x on crypto by default, then snapped to the nearest support or harmonic level in range. You'd typically take most profit at TP1 and let a small piece run toward this.",
       },
       {
         term: "Risk-to-reward (like 2:1)",
@@ -72,7 +72,7 @@ const GROUPS: { heading: string; terms: Term[] }[] = [
       {
         term: "Execute - Watch - Reject",
         plain:
-          "The bottom line. Execute (7-9) = strong, worth acting on. Watch (4-6) = keep an eye on it. Reject (0-3) = skip it.",
+          "The bottom line. Execute (7-9) = strong and has a valid entry/stop/target ready to trade. Watch (4-6) = keep an eye on it — a 7-9 score with no armed trade plan also shows as Watch, since there's nothing to act on yet. Reject (0-3) = skip it.",
       },
       {
         term: "Reversal pattern (2-2, 2-1-2, PMG...)",

@@ -11,7 +11,6 @@
 import type { AssetClass, Bar, Timeframe } from "@/lib/types";
 import type { MarketDataProvider } from "./provider";
 import { cachedFetch, fetchWithRetry, MarketDataError } from "./http";
-import { INTRADAY_TFS } from "@/lib/timeframe";
 
 const DATA_BASE = "https://data.alpaca.markets";
 
@@ -135,6 +134,35 @@ const ALPACA_TIMEFRAME: Record<Timeframe, string> = {
 /** Alpaca caps a single bars page at 10k regardless of what `limit` asks for. */
 const PAGE_LIMIT = 10000;
 
+/** Shared param-building for the bars endpoint — one or many symbols. */
+function barsRequest(
+  symbols: string,
+  timeframe: Timeframe,
+  start: Date,
+  end: Date | null,
+  assetClass: AssetClass,
+  limit: number,
+  pageToken?: string,
+): { path: string; params: Record<string, string> } {
+  const crypto = assetClass === "crypto";
+  const path = crypto ? `/v1beta3/crypto/us/bars` : `/v2/stocks/bars`;
+
+  const params: Record<string, string> = {
+    timeframe: ALPACA_TIMEFRAME[timeframe] ?? timeframe,
+    start: start.toISOString(),
+    symbols,
+    sort: "desc",
+  };
+  if (end) params.end = end.toISOString();
+  if (!crypto) {
+    params.adjustment = "split";
+    params.feed = "iex";
+  }
+  params.limit = String(Math.min(limit, PAGE_LIMIT));
+  if (pageToken) params.page_token = pageToken;
+  return { path, params };
+}
+
 /**
  * Bars for a symbol, oldest → newest.
  *
@@ -153,34 +181,13 @@ export async function fetchBars(
 ): Promise<Bar[]> {
   const crypto = assetClass === "crypto";
   const sym = crypto ? normalizeCryptoSymbol(symbol) : symbol.toUpperCase();
-  const path = crypto ? `/v1beta3/crypto/us/bars` : `/v2/stocks/bars`;
-
-  const base: Record<string, string> = {
-    timeframe: ALPACA_TIMEFRAME[timeframe] ?? timeframe,
-    start: start.toISOString(),
-    symbols: sym,
-    sort: "desc",
-  };
-  if (end) base.end = end.toISOString();
-  if (!crypto) {
-    base.adjustment = "split";
-    base.feed = "iex";
-    // Without this, Alpaca drops pre/post-market trades from intraday bars
-    // entirely — they only reappear the next day once the daily bar backfills
-    // from the consolidated tape. Daily+ candles ignore the flag either way.
-    if (INTRADAY_TFS.includes(timeframe)) base.extended_hours = "true";
-  }
 
   const collected: Bar[] = [];
   let pageToken: string | undefined;
 
   do {
     const remaining = limit - collected.length;
-    const params: Record<string, string> = {
-      ...base,
-      limit: String(Math.min(remaining, PAGE_LIMIT)),
-    };
-    if (pageToken) params.page_token = pageToken;
+    const { path, params } = barsRequest(sym, timeframe, start, end, assetClass, remaining, pageToken);
 
     const data = await get(path, params);
     const page = toBars(data.bars?.[sym]);
@@ -191,6 +198,74 @@ export async function fetchBars(
   } while (pageToken && collected.length < limit);
 
   return collected.reverse();
+}
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
+/** Symbols per multi-symbol bars request — comfortably under any URL-length limit. */
+const BATCH_CHUNK = 100;
+
+/**
+ * Bars for many symbols, one timeframe, in a handful of requests instead of
+ * one per symbol. Alpaca's `/v2/stocks/bars` accepts a comma-separated symbol
+ * list and returns each symbol's bars keyed by symbol — a market scan asking
+ * for the same timeframe across dozens or hundreds of symbols was previously
+ * the single largest source of request volume (see `runMarketScan`), enough
+ * to blow through both Alpaca's per-minute cap and Vercel's function timeout
+ * before a scan could finish.
+ *
+ * `PAGE_LIMIT` bars per page is shared across the *whole* multi-symbol
+ * response, not per symbol — 100 symbols x a ~250-bar daily window blows
+ * through it in one page, silently dropping every symbol past whichever one
+ * filled the page. This drains `next_page_token` the same way the
+ * single-symbol `fetchBars` does, merging each page's per-symbol bars, so a
+ * chunk that needs more than one page still returns complete data for every
+ * symbol in it — just at the cost of an extra request for that chunk.
+ */
+export async function fetchBarsBatch(
+  symbols: string[],
+  timeframe: Timeframe,
+  start: Date,
+  end: Date | null,
+  assetClass: AssetClass,
+  limit = 10000,
+): Promise<Map<string, Bar[]>> {
+  const crypto = assetClass === "crypto";
+  const syms = Array.from(
+    new Set(symbols.map((s) => (crypto ? normalizeCryptoSymbol(s) : s.toUpperCase()))),
+  );
+  const result = new Map<string, Bar[]>();
+  if (syms.length === 0) return result;
+
+  await Promise.all(
+    chunk(syms, BATCH_CHUNK).map(async (group) => {
+      const collected = new Map<string, Bar[]>(group.map((s) => [s, []]));
+      let pageToken: string | undefined;
+
+      do {
+        const { path, params } = barsRequest(group.join(","), timeframe, start, end, assetClass, limit, pageToken);
+        const data = await get(path, params);
+
+        let pageBarCount = 0;
+        for (const sym of group) {
+          const page = toBars(data.bars?.[sym]);
+          if (page.length > 0) collected.get(sym)!.push(...page);
+          pageBarCount += page.length;
+        }
+        pageToken = data.next_page_token ?? undefined;
+        // An empty page means the window is exhausted even if a token came back.
+        if (pageBarCount === 0) break;
+      } while (pageToken);
+
+      for (const sym of group) result.set(sym, collected.get(sym)!.reverse());
+    }),
+  );
+
+  return result;
 }
 
 export async function fetchLatestPrice(symbol: string, assetClass: AssetClass): Promise<number> {
@@ -281,6 +356,7 @@ export const alpacaProvider: MarketDataProvider = {
   name: "alpaca",
   isLive: true,
   fetchBars,
+  fetchBarsBatch,
   fetchLatestPrice,
   fetchMostActives,
 };

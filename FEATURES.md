@@ -33,6 +33,10 @@ GSPS is a comprehensive trading application built with Next.js, Supabase, and Al
   was measured against, the data timestamp separately from the trigger time, an
   invalidation level, an inspectable confidence breakdown, a continuation plan
   and an opposite-direction pivot plan
+- **Liquidity Floor**: Every scan applies the same tradeability floor before a
+  symbol can become a setup — US equities need a price of at least $5 and 500k
+  average daily shares, crypto needs $5M of average daily turnover. A symbol
+  whose history can't be read fails it rather than passing silently
 - **Per-Symbol Audit Trail**: Records what happened to every symbol that did
   *not* alert — evaluated and quiet, filtered on liquidity, suppressed by a
   cooldown, or skipped on a stale feed — so "why didn't this appear" has an
@@ -76,6 +80,18 @@ GSPS is a comprehensive trading application built with Next.js, Supabase, and Al
 - **Position Tracking**: Real-time position monitoring
 
 ### 5. Trading Interface
+- **Guided Decision Mode**: One recommended action per symbol, in plain English,
+  with the share count computed from a per-trade risk cap rather than typed by
+  the user, and the risk and reward stated in dollars for that size. Only
+  Execute-verdict long setups with a priced trade plan are eligible, and every
+  candidate is re-scanned live before the card renders and again before the
+  order is submitted — a plan that de-armed or re-priced in between is refused,
+  not placed. One tap opens a confirmation dialog restating symbol, side, size,
+  risk and reward, with the "not personalized financial advice" disclosure
+  directly above the button. Paper-only; a connected live brokerage disables the
+  mode. Conservative caps ship by default (1% risk per trade, 3 trades a day, 10
+  a week, 25% of equity deployed at once) and every recommendation *shown* is
+  logged for later expectancy analysis. See `docs/GUIDED_DECISION_MODE.md`
 - **Price-Increment Validation**: A limit price is snapped to the increment the
   instrument actually trades on before it reaches the broker. Buys round down
   and sells round up by default, so a correction never moves the order against
@@ -173,7 +189,7 @@ GSPS is a comprehensive trading application built with Next.js, Supabase, and Al
 - `/dashboard` - Main trading dashboard
 - `/scanner` - Market scan interface
 - `/portfolio` - Portfolio management
-- `/ticker/[symbol]` - Individual stock analysis
+- `/ticker/[...symbol]` - Individual stock analysis (catch-all route so symbols like BTC/USD route correctly)
 - `/settings` - User configuration
 - `/glossary` - Educational resources
 
