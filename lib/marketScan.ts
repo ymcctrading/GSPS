@@ -377,6 +377,13 @@ export interface MarketScanOutput {
   shortlisted: number;
   /** How many rows the continuation top-up contributed, per direction. */
   continuationFills: { bullish: number; bearish: number };
+  /**
+   * Of `shortlisted` full-pass scans, how many came back with `.error` set —
+   * a provider/data failure, not a symbol that was scanned and found clean.
+   * An empty day where this is near `shortlisted` means the feed failed, not
+   * that nothing armed; the two look identical in the published lists alone.
+   */
+  scanErrors: number;
   /** Per-symbol coarse-gate diagnostics for later threshold calibration. */
   coarseTelemetry: CoarseTelemetryRow[];
 }
@@ -433,6 +440,18 @@ const MAX_TOPUP_SCANS = 24;
  */
 const CONTINUATION_QUOTA_PER_SIDE = 2;
 
+/** Full-pass shortlist size, as a multiple of `perSide`. */
+const SHORTLIST_MULTIPLE = 4;
+
+/**
+ * `universeTop`/`perSide` at full breadth are safe again now that the coarse,
+ * full, and continuation passes batch-fetch bars for the whole shortlist in a
+ * handful of requests (`fetchBarsBatch` / `fetchAllTimeframesBatch`) instead
+ * of one request per symbol per timeframe — the ~700-request version of this
+ * scan was what blew through Vercel Hobby's 60s function ceiling, not the
+ * universe size itself. See `app/api/market-scan/route.ts` for the ceiling
+ * this now comfortably fits inside.
+ */
 export async function runMarketScan(universeTop = 100, perSide = 15): Promise<MarketScanOutput> {
   // The trading date the scan describes, not the UTC date it happened to run
   // on. The two diverge between 20:00 ET and midnight — a post-close re-run
@@ -485,7 +504,7 @@ export async function runMarketScan(universeTop = 100, perSide = 15): Promise<Ma
     .map((c) => c.reversion)
     .filter((c): c is CoarseCandidate => c !== null)
     .sort(byCoarseScore)
-    .slice(0, perSide * 4); // full-scan up to 60 candidates
+    .slice(0, perSide * SHORTLIST_MULTIPLE); // full-scan up to perSide*SHORTLIST_MULTIPLE candidates
   const continuationPool = coarse
     .map((c) => c.continuation)
     .filter((c): c is CoarseCandidate => c !== null)
@@ -499,6 +518,7 @@ export async function runMarketScan(universeTop = 100, perSide = 15): Promise<Ma
     scanTicker(c.symbol, undefined, undefined, shortlistBars.get(c.symbol.toUpperCase())),
   );
   const valid = full.filter((r) => !r.error);
+  const scanErrors = full.length - valid.length;
 
   // The daily lists are trade plans, not a watchlist. A symbol only earns a row
   // when the execution timeframe actually armed a pattern in that direction and
@@ -621,6 +641,7 @@ export async function runMarketScan(universeTop = 100, perSide = 15): Promise<Ma
     universeSize: actives.length,
     shortlisted: shortlist.length,
     continuationFills,
+    scanErrors,
     coarseTelemetry,
   };
 }
