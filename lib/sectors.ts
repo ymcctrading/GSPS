@@ -53,3 +53,12 @@ export const SECTORS: Record<string, { label: string; symbols: string[] }> = {
 };
 
 export const COMING_SOON = ["Commodities"];
+
+/** Reverse lookup for the Company tab's simulated sector fallback — first curated list a symbol appears in. */
+export function sectorForSymbol(symbol: string): string | undefined {
+  const up = symbol.toUpperCase();
+  for (const key of ["semiconductors", "technology", "financials", "industrials", "energy", "healthcare"]) {
+    if (SECTORS[key].symbols.includes(up)) return SECTORS[key].label;
+  }
+  return undefined;
+}

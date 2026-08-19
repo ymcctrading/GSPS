@@ -67,6 +67,8 @@ export function CompanyPanel({
 
   return (
     <div className="flex flex-col gap-5">
+      <ProfileHeader profile={snapshot.profile} live={snapshot.sources.profile === "finnhub"} />
+
       <ConvictionBanner conviction={conviction} />
 
       <section>
@@ -216,6 +218,39 @@ export function CompanyPanel({
       </p>
     </div>
   );
+}
+
+function ProfileHeader({ profile, live }: { profile: CompanySnapshot["profile"]; live: boolean }) {
+  return (
+    <section className="rounded-xl border border-border bg-background p-3">
+      <div className="mb-1.5 flex flex-wrap items-center gap-2">
+        <span className="text-sm font-semibold text-foreground">{profile.name}</span>
+        <Badge variant="muted" className="text-[10px]">
+          {profile.sector}
+        </Badge>
+        <DataSourceBadge live={live} />
+      </div>
+      <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
+        <span>
+          Industry: <span className="text-foreground">{profile.industry}</span>
+        </span>
+        <span>
+          Market cap: <span className="font-mono text-foreground">{formatMarketCap(profile.marketCapM)}</span>
+        </span>
+        {profile.exchange && <span>Exchange: <span className="text-foreground">{profile.exchange}</span></span>}
+      </div>
+      <p className="text-xs text-muted">{profile.description}</p>
+    </section>
+  );
+}
+
+function formatMarketCap(marketCapM: number): string {
+  if (!marketCapM || marketCapM <= 0) return "—";
+  const usd = marketCapM * 1e6;
+  if (usd >= 1e12) return `$${(usd / 1e12).toFixed(2)}T`;
+  if (usd >= 1e9) return `$${(usd / 1e9).toFixed(2)}B`;
+  if (usd >= 1e6) return `$${(usd / 1e6).toFixed(2)}M`;
+  return `$${usd.toFixed(0)}`;
 }
 
 /* -------------------------------------------------------------- synthesis */
