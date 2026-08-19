@@ -1,6 +1,8 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+function getResendClient() {
+  return new Resend(process.env.RESEND_API_KEY);
+}
 
 export interface AlertEmailData {
   userEmail: string;
@@ -78,7 +80,7 @@ export async function sendAlertEmail(data: AlertEmailData) {
 
     // Use Resend's default "onboarding" domain until gsps.app is verified
     // Format: from@resend.dev or your verified domain
-    const result = await resend.emails.send({
+    const result = await getResendClient().emails.send({
       from: "GSPS Alerts <onboarding@resend.dev>",
       to: data.userEmail,
       subject,
