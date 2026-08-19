@@ -297,14 +297,16 @@ async function persistAlerts(
   await Promise.all(
     highConfidence.map((row) => {
       const source = bySymbol.get(row.symbol);
-      if (!source) return Promise.resolve();
+      const stopLoss = source?.invalidation;
+      const takeProfit = source?.continuationPlan.firstTarget;
+      if (!source || stopLoss == null || takeProfit == null) return Promise.resolve();
       return dispatchNotification(supabase as unknown as DispatchSupabase, userId, userEmail, {
         symbol: row.symbol,
         direction: DIRECTION_TO_SIGNAL_TYPE[source.direction] as "bullish" | "bearish",
         score: row.score,
         entry: source.move.current,
-        stopLoss: source.invalidation,
-        takeProfit: source.continuationPlan.firstTarget,
+        stopLoss,
+        takeProfit,
         confidence: source.confidence,
       }).catch((err) => {
         console.error("[intraday-scan] notification dispatch failed:", err);

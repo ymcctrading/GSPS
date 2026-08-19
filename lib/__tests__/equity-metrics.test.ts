@@ -12,7 +12,7 @@ describe("maxDrawdown", () => {
 
   it("is zero for a monotonically rising equity curve", () => {
     const points = [point("2026-01-01", 100, 100), point("2026-01-02", 100, 200)];
-    expect(maxDrawdown(points)).toEqual({ amount: 0, percent: 0 });
+    expect(maxDrawdown(points)).toEqual({ amount: 0, percent: null });
   });
 
   it("finds the largest peak-to-trough drop, not just the last one", () => {

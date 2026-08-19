@@ -160,21 +160,12 @@ function mockApi(payload: {
     // two fetches (its own rendering is covered by analytics-dashboard tests
     // and the pure functions it calls are covered in lib/__tests__).
     if (isAnalytics(url)) {
+      const metric = new URL(url, "http://localhost").searchParams.get("metric");
+      const body = metric === "summary" ? { total_trades: 0 } : [];
       return Promise.resolve({
         ok: true,
         status: 200,
-        json: () =>
-          Promise.resolve({
-            analytics: {
-              winLoss: { trades: 0, wins: 0, losses: 0, winRatePct: null, winLossRatio: null },
-              profitFactor: null,
-              sharpeRatio: null,
-              drawdown: { curve: [], maxDrawdownDollars: 0, maxDrawdownPct: null },
-              monthlyPnl: [],
-              quarterlyPnl: [],
-              byPattern: [],
-            },
-          }),
+        json: () => Promise.resolve(body),
       } as Response);
     }
     if (isPortfolio(url) && payload.portfolioFails) {
