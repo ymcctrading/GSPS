@@ -192,14 +192,14 @@ export function CompanyPanel({
             <div className="font-mono text-sm font-medium text-foreground">
               {snapshot.impliedVolatilityPct.toFixed(1)}%
             </div>
-            <div className="text-xs text-muted">{snapshot.ivPercentile}th percentile (52w)</div>
+            <div className="text-xs text-muted">{ordinal(snapshot.ivPercentile)} percentile (52w)</div>
           </div>
           <div className="rounded-lg border border-border px-3 py-2">
             <div className="text-xs text-muted">Historical volatility</div>
             <div className="font-mono text-sm font-medium text-foreground">
               {snapshot.historicalVolatilityPct.toFixed(1)}%
             </div>
-            <div className="text-xs text-muted">{snapshot.hvPercentile}th percentile (52w)</div>
+            <div className="text-xs text-muted">{ordinal(snapshot.hvPercentile)} percentile (52w)</div>
           </div>
         </div>
       </section>
@@ -408,6 +408,21 @@ function formatShares(n: number): string {
   if (n >= 1e6) return `${(n / 1e6).toFixed(2)}M`;
   if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`;
   return String(n);
+}
+
+function ordinal(n: number): string {
+  const mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${n}th`;
+  switch (n % 10) {
+    case 1:
+      return `${n}st`;
+    case 2:
+      return `${n}nd`;
+    case 3:
+      return `${n}rd`;
+    default:
+      return `${n}th`;
+  }
 }
 
 /** Tiny inline bar-sparkline — no charting lib needed for 24 points. */
