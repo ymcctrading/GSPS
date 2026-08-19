@@ -23,6 +23,7 @@
 import { formatUsd, cn } from "@/lib/utils";
 import type { TourFigure } from "@/lib/onboarding/tour";
 import {
+  SNAPSHOT_ACCOUNT,
   SNAPSHOT_BACKTEST,
   SNAPSHOT_BADGE,
   SNAPSHOT_BARS,
@@ -105,10 +106,10 @@ export function SnapshotFigure({ figure }: { figure: TourFigure }) {
           <ExitLadder />
         </SnapshotFrame>
       );
-    case "position":
+    case "portfolio":
       return (
-        <SnapshotFrame label="An open position in your Portfolio">
-          <PositionRow />
+        <SnapshotFrame label="The Portfolio screen">
+          <PortfolioSummary />
         </SnapshotFrame>
       );
     case "backtest":
@@ -323,7 +324,40 @@ function ExitLadder() {
   );
 }
 
-/** An open position, with the unrealized number explained rather than shown bare. */
+/**
+ * The Portfolio screen: what the account holds, then what one holding is doing.
+ *
+ * Balances come first because the tour shows this screen twice, and the first
+ * time is to make the point that the $100,000 is not real. A position row alone
+ * would not carry that; the account total is the thing a reader recognises as
+ * "their money".
+ */
+function PortfolioSummary() {
+  const up = SNAPSHOT_ACCOUNT.dayPnlUsd >= 0;
+  return (
+    <div className="flex min-w-0 flex-col gap-3">
+      <div className="grid grid-cols-2 gap-2 xs:grid-cols-3">
+        <Stat label="Account value" value={formatUsd(SNAPSHOT_ACCOUNT.equity)} />
+        <Stat label="Cash" value={formatUsd(SNAPSHOT_ACCOUNT.cash)} />
+        <Stat
+          label="Profit so far"
+          value={`${up ? "+" : ""}${formatUsd(SNAPSHOT_ACCOUNT.dayPnlUsd)}`}
+          tone={up ? "bull" : "bear"}
+        />
+      </div>
+      <p className="text-xs text-muted">
+        Practice money. The account opened with {formatUsd(SNAPSHOT_ACCOUNT.startingCash, 0)} and no deposit was
+        ever made.
+      </p>
+      <div className="border-t border-border pt-3">
+        <p className="mb-2 text-[11px] uppercase tracking-wide text-muted">Open</p>
+        <PositionRow />
+      </div>
+    </div>
+  );
+}
+
+/** One holding, with the unrealized number explained rather than shown bare. */
 function PositionRow() {
   const up = SNAPSHOT_POSITION.unrealizedUsd >= 0;
   return (
@@ -345,8 +379,8 @@ function PositionRow() {
         </div>
       </div>
       <p className="text-xs text-muted">
-        That green number is what you&apos;d gain if you sold right now. It changes every few seconds and it
-        isn&apos;t yours until the trade is closed.
+        The green figure is what selling right now would produce. That number moves constantly and stays
+        hypothetical until the position closes.
       </p>
     </div>
   );
@@ -369,11 +403,13 @@ function BacktestStats() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, tone }: { label: string; value: string; tone?: "bull" | "bear" }) {
   return (
     <div className="rounded-lg border border-border bg-background px-2 py-1.5">
       <p className="text-[11px] uppercase tracking-wide text-muted">{label}</p>
-      <p className="font-mono text-sm">{value}</p>
+      <p className={cn("font-mono text-sm", tone === "bull" && "text-bull", tone === "bear" && "text-bear")}>
+        {value}
+      </p>
     </div>
   );
 }

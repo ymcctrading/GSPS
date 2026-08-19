@@ -10,15 +10,27 @@
  *
  * ## The voice
  *
- * The reader has never placed a trade. Not "is a bit rusty" — has never done it
- * and may not be sure they want to. So:
+ * The reader has never placed a trade. That is a gap in *vocabulary*, not in
+ * intelligence, and the distinction decides how every sentence here is written.
+ * Simple words, adult register — an explanation a competent person would want,
+ * not one pitched at a child.
  *
- *   - One idea per step. If a step needs the word "and" twice it is two steps.
- *   - Every term is defined the first time it appears, in the same sentence,
- *     without sending the reader somewhere else to find out.
- *   - Say what a thing is *for* before saying what it is called.
- *   - Nothing is oversold. This tool can lose money, the tour says so, and it
- *     says so early rather than in a footnote.
+ * What that means concretely:
+ *
+ *   - **Name the subject.** "GSPS calculates the size", not "it works it out".
+ *     Chains of pronouns are the fastest route to prose that sounds like a
+ *     children's book while also being harder to follow, because the reader is
+ *     tracking what each "it" refers to instead of the idea. `tour.test.ts`
+ *     enforces a ceiling on this rather than trusting good intentions.
+ *   - **One idea per step.** A step needing "and" twice is two steps.
+ *   - **Define on first use, in the same sentence.** Never send the reader
+ *     elsewhere mid-thought to find out what a word means.
+ *   - **Say what a thing is for before saying what it is called.**
+ *   - **State the downside early.** This tool can lose money. That belongs in
+ *     the body, not a footnote, and not softened.
+ *   - **No cheerleading.** No "that's the whole idea", no exclamation marks,
+ *     nothing that sounds like a brochure. The reader is deciding whether to
+ *     trust software with money; enthusiasm reads as evasion.
  *
  * ## The anchors
  *
@@ -48,7 +60,7 @@ export type TourFigure =
   | "scan"
   | "guided"
   | "exits"
-  | "position"
+  | "portfolio"
   | "backtest"
   | "caps";
 
@@ -81,210 +93,212 @@ export const TOUR_VERSION = 1;
 export const TOUR_STEPS: TourStep[] = [
   {
     id: "welcome",
-    title: "Welcome — here's what this is",
+    title: "Welcome to GSPS \u2014 Trading Made Easy",
     figure: "none",
     body: [
-      "GSPS watches the stock market for you and points out moments that look worth acting on. That's the whole idea.",
-      "It does three things: it looks for opportunities, it works out exactly how much to buy and when to get out, and it keeps a record of how everything turned out.",
-      "This tour walks through every part of it. It takes about five minutes, you can leave at any point, and you can start it again later from Settings.",
+      "GSPS scans the stock market and flags the moments worth your attention.",
+      "Three jobs, all handled here: finding opportunities, calculating how much to buy and the exact prices to sell at, and recording how every trade turned out.",
+      "This tour covers every screen in the app. Five minutes start to finish, leave whenever you like, and Settings holds a button to run the whole thing again.",
     ],
   },
   {
     id: "practice-money",
-    title: "First: none of this is real money",
-    figure: "none",
+    title: "Everything here is practice money",
+    figure: "portfolio",
+    href: "/portfolio",
+    hrefLabel: "Open your Portfolio",
     body: [
-      "Your account starts with $100,000 of pretend money. It isn't real, you can't lose anything real with it, and nobody asked you for a bank account.",
-      "This is called paper trading. The prices are real and the results are real, but the money is play money — like a flight simulator for the stock market. Get it wrong as many times as you want.",
-      "The rest of this tour uses that practice account for every example.",
+      "Your account opens with $100,000 that does not exist. No bank details, no deposit, nothing real at stake.",
+      "The industry calls this paper trading. Real prices, real results, imaginary money \u2014 a flight simulator for the stock market. Crash as often as you like.",
+      "The Portfolio screen tracks that practice balance: cash on hand, what your holdings are currently worth, and profit or loss to date. Every example in this tour draws on the same account.",
     ],
   },
   {
     id: "example-note",
-    title: "About the pictures in this tour",
+    title: "About the examples in this tour",
     figure: "chart",
     body: [
-      `Every example you're about to see uses one saved snapshot of SPY, taken on ${SNAPSHOT_TAKEN_LABEL}.`,
+      `Every picture ahead shows SPY, captured on ${SNAPSHOT_TAKEN_LABEL}.`,
       SNAPSHOT_SYMBOL_PLAIN,
-      "It's frozen on purpose, so the tour always matches what it's describing. The real screens will show today's prices instead, so your numbers will look different from these. That's expected — nothing is broken.",
-      "The chart shows the last 30 days. Each vertical bar is one day: the thin line is the highest and lowest price that day, and the thick part is where it opened and closed.",
+      "These figures are frozen \u2014 a saved snapshot rather than a live feed \u2014 so the pictures always match the words beside them. Your own screens will show today's prices and different numbers. Nothing is broken.",
+      "Read the chart left to right, one bar per day. The thin line spans the day's high and low; the thick block marks where the price opened and closed.",
     ],
   },
   {
     id: "dashboard",
-    title: "Dashboard — what happened while you were away",
+    title: "Dashboard \u2014 the morning briefing",
     figure: "scan",
     anchor: "nav-dashboard",
     href: "/dashboard",
     hrefLabel: "Open the Dashboard",
     body: [
-      "This is your home screen. Once a day GSPS looks over the market and lists what it found, so you can see the whole picture in about ten seconds.",
-      "Setups are split into two lists: ones where it thinks the price may rise, and ones where it thinks the price may fall. Each row gives a score out of 9 for how strong the setup looks, and a one-word verdict.",
-      "Execute means it's strong and ready. Watch means keep an eye on it — it isn't ready yet. Reject means skip it. You'll see those three words all over the app.",
-      "There's also a short list of well-known symbols you can tap to look at any time, plus upcoming company earnings dates and market news.",
+      "Your home screen. Once a day GSPS reviews the market and posts the findings here, so ten seconds gives you the state of play.",
+      "Findings split two ways: symbols expected to rise, and symbols expected to fall. Each row carries a score out of 9 and a one-word verdict.",
+      "Execute means strong and ready to trade. Watch means promising but not yet. Reject means leave alone. Those three words appear throughout GSPS.",
+      "The Dashboard also lists familiar symbols you can open on a tap, upcoming company earnings dates, and market news.",
     ],
   },
   {
     id: "guided",
-    title: "Guided — the one to start with",
+    title: "Guided \u2014 start here",
     figure: "guided",
     anchor: "nav-guided",
     href: "/guided",
     hrefLabel: "Open Guided",
     body: [
-      "Guided is the simplest way to use GSPS, and it's where we'd suggest you begin.",
-      "Instead of a screen full of numbers, it shows you one suggestion at a time, written as a sentence. What it thinks you should do, why, how much it would cost, and what happens if it goes wrong.",
-      "Only the strongest setups get here — the ones scoring Execute with a complete plan already worked out. Everything else is filtered out before you ever see it.",
-      "Guided only ever uses practice money. If you connect a real brokerage account later, Guided switches itself off rather than risk it.",
+      "Guided is the simplest route through GSPS, and the right place to begin.",
+      "Rather than a screen of figures, Guided presents one recommendation at a time in full sentences: the action, the reasoning behind it, the cost, and the downside.",
+      "Only the strongest candidates reach Guided \u2014 setups scoring Execute with a complete trade plan already calculated. Everything weaker is filtered out before you ever see a card.",
+      "Guided trades practice money exclusively. Connect a real brokerage account later and Guided shuts itself off rather than risk live funds.",
     ],
   },
   {
     id: "guided-size",
-    title: "You never have to work out how much to buy",
+    title: "GSPS calculates the position size",
     figure: "guided",
     anchor: "nav-guided",
     href: "/guided",
     hrefLabel: "Open Guided",
     body: [
-      "Deciding how many shares to buy is where beginners usually get hurt, so GSPS does that part for you.",
-      "In the example, it settled on 36 shares. Two separate safety limits were checked. The first says no single trade may risk more than 1% of your account — that would have allowed 135 shares. The second says no more than a quarter of your account can be in the market at once — that only allows 36.",
-      "When two limits disagree, the more cautious one always wins. So you get 36.",
-      "Then it tells you what that means in dollars: about $266 at risk, about $472 if it goes well. Not percentages, not ratios — dollars.",
+      "Choosing how many shares to buy is where beginners lose money, so GSPS makes that call for you.",
+      "The example lands on 36 shares after two safety limits are checked. The first caps any single trade at 1% of the account, which would permit 135 shares. The second caps total holdings at a quarter of the account, which permits only 36.",
+      "When two limits disagree, the stricter number wins. Hence 36.",
+      "GSPS then translates the position into money: roughly $266 at risk, roughly $472 if both profit targets are reached. Dollars, not percentages.",
     ],
   },
   {
     id: "guided-confirm",
-    title: "Nothing happens until you say so",
+    title: "Nothing reaches the market without your approval",
     figure: "none",
     anchor: "nav-guided",
     href: "/guided",
     hrefLabel: "Open Guided",
     body: [
-      "Tapping the button doesn't place anything. It opens a summary that repeats the symbol, whether you're buying or selling, how many shares, and both dollar figures — and you have to confirm that separately.",
-      "You can also just skip a suggestion. There's no penalty and no pressure; it moves on to the next one.",
-      "GSPS never trades on its own. There is no setting that lets it. Every single order in this app was confirmed by a person.",
-      "One thing to be clear about: these are suggestions produced by a set of rules, not financial advice tailored to you or your situation. They can be wrong, and some of them will be.",
+      "The button on a recommendation places no order. Tapping opens a summary \u2014 symbol, buy or sell, share count, both dollar figures \u2014 and a second, separate approval.",
+      "Declining costs nothing. Skip a recommendation and Guided moves to the next one.",
+      "GSPS never trades on your behalf. No setting enables that. Every order this app has ever sent was confirmed by a person first.",
+      "One caveat, stated plainly: recommendations come from a fixed set of scoring rules, not financial advice tailored to your circumstances. Some will be wrong.",
     ],
   },
   {
     id: "scanner",
-    title: "Scanner — going looking yourself",
+    title: "Scanner \u2014 search on your own terms",
     figure: "scan",
     anchor: "nav-scanner",
     href: "/scanner",
     hrefLabel: "Open the Scanner",
     body: [
-      "The Scanner is the same search Guided uses, but you drive it. Type in the symbols you're curious about and it checks each one and reports back.",
-      "It's useful when you have a company in mind — somewhere you shop, somewhere you worked — and you want to know whether GSPS sees anything there right now.",
-      "Most of the time the answer is no, and that's normal. Good setups are rare. A scanner that found something every time wouldn't be worth much.",
+      "The Scanner runs the same analysis Guided runs, except you choose the targets. Enter any list of symbols and GSPS reports back on each one.",
+      "Useful when a particular company is already on your mind \u2014 a store you shop at, a former employer \u2014 and you want a read on that company right now.",
+      "Expect \u201Cnothing here\u201D most of the time. Strong setups are genuinely rare, and a scanner that found one every session would be worth very little.",
     ],
   },
   {
     id: "chart",
-    title: "The chart page — a closer look at one symbol",
+    title: "The symbol page \u2014 one company up close",
     figure: "plan",
     href: "/dashboard",
     hrefLabel: "Pick a symbol from the Dashboard",
     body: [
-      "Tapping any symbol opens its own page: a full-size chart with GSPS's reading of it drawn straight onto the picture.",
-      "The most important thing on that page is the trade plan — four prices, decided before any money moves. This is what separates a plan from a guess.",
-      "The blue line is the entry: the price where the trade would start. The red line is the stop loss: if the price falls to there, you're out, and the loss stops growing. The two green lines are profit targets.",
-      "Every trade in GSPS has all four. There is no version of this where you buy something and then work out what to do next.",
+      "Tapping any symbol opens a dedicated page: a full chart with GSPS's analysis drawn directly onto the price.",
+      "The trade plan is the centrepiece \u2014 four prices fixed before a single dollar moves. Those four prices are what separate a plan from a hunch.",
+      "Blue marks the entry, the price at which the trade begins. Red marks the stop loss: reach that price and the position closes, capping the damage. Two green lines mark profit targets.",
+      "Every GSPS trade carries all four. No position opens without an exit already decided.",
     ],
   },
   {
     id: "levels",
-    title: "The grey boxes and lines on the chart",
+    title: "The grey lines and shaded bands",
     figure: "chart",
     href: "/glossary",
     hrefLabel: "Look these up in the Glossary",
     body: [
-      "You'll also see faint grey lines and shaded areas on the chart. Those mark price areas where the market has tended to slow down or turn around before.",
-      "Think of them as a floor and a ceiling that aren't printed anywhere but that lots of people watch anyway. Prices often stall when they reach one.",
-      "You don't need to understand how they're calculated to use the app. They're shown so you can see why GSPS picked the entry and stop where it did rather than having to take its word for it.",
-      "Anything on that page you don't recognise is explained in the Glossary, in the same plain language as this tour.",
+      "Faint grey lines and shaded bands also appear on the chart, marking price areas where the market has slowed or reversed before.",
+      "Treat those bands as an unofficial floor and ceiling \u2014 printed nowhere, watched by plenty of traders, and often where a move runs out of steam.",
+      "The underlying maths is not something you need. The bands are drawn so the reasoning behind an entry and a stop stays visible, rather than being something GSPS asks you to take on faith.",
+      "Anything unfamiliar on that page has a plain-language definition waiting in the Glossary.",
     ],
   },
   {
     id: "portfolio",
-    title: "Portfolio — everything you've done",
-    figure: "position",
+    title: "Portfolio \u2014 the complete record",
+    figure: "portfolio",
     anchor: "nav-portfolio",
     href: "/portfolio",
     hrefLabel: "Open your Portfolio",
     body: [
-      "This is your record. How much practice money you have, what you currently own, and how every past trade turned out.",
-      "Positions are grouped into five lists: Open (you own it now), Pending (an order is waiting for its price), Rejected (an order was refused, with the reason), Closed (finished trades), and Canceled or Expired.",
-      "On an open position, the profit or loss shown is what you'd get if you sold this instant. It moves constantly and it isn't real until you close the trade. Green is up, red is down.",
-      "The list checks with the broker every time you open it, so it shows what's actually happening rather than what was happening earlier.",
+      "Your account and your history in one place: practice balance, current holdings, and the outcome of every trade closed so far.",
+      "Holdings sort into five lists. Open covers what you hold now. Pending covers orders waiting for a price. Rejected covers orders the broker refused, with the reason attached. Closed covers finished trades. Canceled or Expired covers the remainder.",
+      "On an open position, the profit figure answers one question: what would selling right now produce? That number moves constantly and stays hypothetical until the position closes. Green is a gain, red is a loss.",
+      "Every visit re-checks the lists against the broker, so the screen reflects the current state rather than a stale copy.",
     ],
   },
   {
     id: "automation",
-    title: "Automation — getting out in stages",
+    title: "Automation \u2014 selling in stages",
     figure: "exits",
     anchor: "nav-automation",
     href: "/automation",
     hrefLabel: "Open Automation",
     body: [
-      "Knowing when to sell is harder than knowing when to buy, so GSPS handles the selling for you, in pieces.",
-      "Most of the position is sold at the first profit target. Some more goes at the second. A small remainder is left to keep running in case the price keeps climbing.",
-      "That last piece is protected by a trailing stop — a sell price that follows the price upward and never moves back down. Once a trade is far enough ahead, it can't turn back into a loss.",
-      "The exact share counts are shown before you agree to anything. Nothing is hidden until afterwards.",
+      "Knowing when to sell is harder than knowing when to buy, so GSPS divides the exit into stages.",
+      "The bulk of a position sells at the first profit target. A further slice sells at the second. A small remainder stays open in case the price keeps climbing.",
+      "That remainder sits behind a trailing stop \u2014 a sell price that climbs with the market and never retreats. Once a trade is far enough ahead, a reversal cannot turn the gain back into a loss.",
+      "Exact share counts appear on the ticket before you approve anything.",
     ],
   },
   {
     id: "backtest",
-    title: "Backtest — checking the idea against history",
+    title: "Backtest \u2014 checking the record",
     figure: "backtest",
     anchor: "nav-learning",
     href: "/learning",
     hrefLabel: "Open Backtest",
     body: [
-      "Backtest replays GSPS's rules over past market data and reports how they would have done. It's the honesty check.",
-      "It tells you how often these setups made money and how much the average one made compared with what it risked.",
-      "Read those numbers carefully. A tool that wins 6 times out of 10 is a good tool — and it still loses 4 times out of 10. Losses are part of it working correctly, not a sign it's broken.",
-      "And however good the past looks, it doesn't promise anything about the future.",
+      "Backtest replays GSPS's rules across past market data and reports the outcome. Consider this the honesty check.",
+      "Two figures matter: how often these setups made money, and how much the average trade returned against what that trade risked.",
+      "Read both carefully. A system winning 6 trades in 10 is a good system \u2014 and still loses the other 4. Losing trades are a normal part of a working method, not a sign of a broken one.",
+      "A strong record across past data still promises nothing about next week.",
     ],
   },
   {
     id: "glossary",
-    title: "Glossary — the dictionary",
+    title: "Glossary \u2014 every term defined",
     figure: "none",
     anchor: "nav-glossary",
     href: "/glossary",
     hrefLabel: "Open the Glossary",
     body: [
-      "Every term GSPS uses, explained in ordinary English. Entry, stop loss, long, short, all of it.",
-      "Use it constantly. Nobody was born knowing these words, and looking one up takes ten seconds.",
-      "It's linked from the chart pages too, so you can check a term without losing your place.",
+      "Plain-English definitions for the whole vocabulary: entry, stop loss, long, short, and the rest.",
+      "Lean on the Glossary freely. Nobody arrives knowing these words, and a definition takes ten seconds to read.",
+      "Symbol pages link straight into the Glossary, so checking a term never costs you your place.",
     ],
   },
   {
     id: "settings",
-    title: "Settings — the safety limits",
+    title: "Settings \u2014 where the limits live",
     figure: "caps",
     anchor: "nav-settings",
     href: "/settings",
     hrefLabel: "Open Settings",
     body: [
-      "Settings is where the limits live — the ones that decided you were buying 36 shares and not 135.",
-      "They ship deliberately cautious. You can loosen them, but GSPS won't let you past a hard ceiling however hard you push, because that ceiling is the point.",
-      "This is also where you'd connect a real brokerage account, manage your subscription, and change your sign-in details. None of that is needed to use the practice account.",
-      "And it's where you can run this tour again, any time you want.",
+      "Settings holds the safety limits \u2014 the rules that produced 36 shares instead of 135.",
+      "The shipped values are deliberately cautious. Loosening them is allowed; pushing past the hard ceiling is not, because that ceiling is the entire point.",
+      "Settings also handles connecting a real brokerage account, managing your subscription, and changing your sign-in details. None of that is required to trade the practice account.",
+      "This tour lives here too, ready to run again whenever you want.",
     ],
   },
   {
     id: "finish",
-    title: "That's everything",
+    title: "That covers everything",
     figure: "none",
     href: "/guided",
     hrefLabel: "Start with Guided",
     body: [
-      "Four things worth remembering:",
-      "It's practice money — you cannot lose anything real. Nothing trades without you confirming it. Every trade knows how it ends before it starts. And losing trades are normal, not a mistake.",
-      "If you're not sure where to begin, open Guided and just read a suggestion without acting on it. Reading them is free.",
-      "This tour lives in Settings whenever you want it again.",
+      "Four things worth carrying forward.",
+      "The money is practice money, so nothing real is at stake. No order goes out without your approval. Every trade has an exit planned before the entry. And losing trades are a normal part of the process.",
+      "Unsure where to start? Open Guided and read a recommendation without acting on it. Reading costs nothing.",
+      "Settings holds this tour whenever you want a refresher.",
     ],
   },
 ];

@@ -69,6 +69,16 @@ describe("figures", () => {
     expect(screen.queryByRole("button")).toBeNull();
   });
 
+  it("shows the account balances on the Portfolio figure", () => {
+    // The practice-money step leans on this figure to prove the $100,000 is
+    // play money, so the balances have to actually render.
+    render(<SnapshotFigure figure="portfolio" />);
+    expect(screen.getByText("Account value")).toBeInTheDocument();
+    expect(screen.getByText("Cash")).toBeInTheDocument();
+    expect(screen.getByText(/practice money/i)).toBeInTheDocument();
+    expect(screen.getByText(/no deposit was ever made/i)).toBeInTheDocument();
+  });
+
   it("shows an exit ladder whose shares add up in front of the reader", () => {
     render(<SnapshotFigure figure="exits" />);
     expect(screen.getByText(/21 \+ 7 \+ 8 = 36/)).toBeInTheDocument();

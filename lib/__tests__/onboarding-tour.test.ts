@@ -16,18 +16,21 @@
 import { describe, expect, it } from "vitest";
 import { TOUR_STEPS, TOUR_STEP_COUNT, TOUR_VERSION, stepById } from "@/lib/onboarding/tour";
 import {
+  SNAPSHOT_ACCOUNT,
   SNAPSHOT_BARS,
   SNAPSHOT_EXIT_LADDER,
   SNAPSHOT_GUIDED,
   SNAPSHOT_LAST_CLOSE,
   SNAPSHOT_NOTICE,
   SNAPSHOT_PLAN,
+  SNAPSHOT_POSITION,
   SNAPSHOT_RISK_PER_SHARE,
 } from "@/lib/onboarding/spy-snapshot";
 import {
   DEFAULT_MAX_DEPLOYED_PCT,
   DEFAULT_RISK_PCT,
 } from "@/lib/guided/config";
+import { exitSentence, riskRewardSentence } from "@/lib/guided/copy";
 
 /** Every `data-tour` value the nav actually renders, derived the same way it is. */
 const NAV_ANCHORS = [
@@ -41,7 +44,7 @@ const NAV_ANCHORS = [
   "/settings",
 ].map((href) => `nav-${href.slice(1)}`);
 
-const FIGURES = ["none", "chart", "plan", "scan", "guided", "exits", "position", "backtest", "caps"];
+const FIGURES = ["none", "chart", "plan", "scan", "guided", "exits", "portfolio", "backtest", "caps"];
 
 const allCopy = TOUR_STEPS.flatMap((s) => [s.title, ...s.body]);
 
@@ -138,6 +141,60 @@ describe("tour language", () => {
   });
 });
 
+/**
+ * The prose guards.
+ *
+ * These exist because the first draft of this tour was rewritten wholesale for
+ * reading like a children's book, and the specific mechanism was pronoun
+ * chains: paragraphs that opened with "It" and then used "it" four more times,
+ * leaving the reader to track referents instead of following the point. Prose
+ * has no type system, so the failure recurs silently unless something checks.
+ *
+ * These are deliberately coarse. They cannot tell good writing from bad; they
+ * can only catch the one measurable habit that produced the bad version, which
+ * is enough to make a reviewer look.
+ */
+describe("prose quality", () => {
+  const paragraphs = TOUR_STEPS.flatMap((s) => s.body.map((p) => ({ id: s.id, p })));
+
+  it("never opens a paragraph with a bare pronoun", () => {
+    // The first word of a paragraph has nothing behind it to refer to, so a
+    // pronoun there always costs the reader a backward glance.
+    const offenders = paragraphs
+      .filter(({ p }) => /^(It|They|This does|These do)\b/.test(p))
+      .map(({ id, p }) => `${id}: ${p.slice(0, 60)}…`);
+    expect(offenders).toEqual([]);
+  });
+
+  it("keeps pronouns from crowding out the subject", () => {
+    // Two per paragraph is comfortable; a third means the subject has stopped
+    // being named and the paragraph has started referring to itself.
+    const offenders = paragraphs
+      .filter(({ p }) => (p.match(/\bit\b/gi) ?? []).length > 2)
+      .map(({ id, p }) => `${id}: ${p.slice(0, 60)}…`);
+    expect(offenders).toEqual([]);
+  });
+
+  it("names the product often enough to anchor the reader", () => {
+    // Not a branding rule. "GSPS calculates the size" is the concrete
+    // alternative to "it works it out", so the product name appearing across
+    // several steps is evidence the subject is being named at all.
+    const stepsNamingGsps = TOUR_STEPS.filter((s) => s.body.some((p) => p.includes("GSPS")));
+    expect(stepsNamingGsps.length).toBeGreaterThanOrEqual(6);
+  });
+
+  it("does not cheerlead", () => {
+    const offenders = paragraphs
+      .filter(({ p }) => /!|that's the whole idea|super |awesome|don't worry/i.test(p))
+      .map(({ id, p }) => `${id}: ${p.slice(0, 60)}…`);
+    expect(offenders).toEqual([]);
+  });
+
+  it("opens with the title the product leads on", () => {
+    expect(TOUR_STEPS[0].title).toBe("Welcome to GSPS — Trading Made Easy");
+  });
+});
+
 describe("the frozen snapshot holds together", () => {
   it("has thirty candles in date order, each one internally possible", () => {
     expect(SNAPSHOT_BARS).toHaveLength(30);
@@ -187,6 +244,37 @@ describe("the frozen snapshot holds together", () => {
   it("sells exactly the position it opened, no more and no less", () => {
     const laddered = SNAPSHOT_EXIT_LADDER.reduce((sum, stage) => sum + stage.shares, 0);
     expect(laddered).toBe(SNAPSHOT_GUIDED.qty);
+  });
+
+  it("reports an account whose parts add up to its total", () => {
+    // The practice-money step shows this screen to prove the $100,000 is not
+    // real. A reader who adds cash to holdings and gets a different total
+    // learns the opposite lesson about how much to trust these numbers.
+    expect(SNAPSHOT_ACCOUNT.cash + SNAPSHOT_ACCOUNT.holdingsValue).toBeCloseTo(SNAPSHOT_ACCOUNT.equity, 2);
+    expect(SNAPSHOT_ACCOUNT.holdingsValue).toBeCloseTo(SNAPSHOT_POSITION.marketValue, 2);
+    expect(SNAPSHOT_ACCOUNT.cash).toBeCloseTo(SNAPSHOT_ACCOUNT.startingCash - SNAPSHOT_GUIDED.notionalUsd, 2);
+    expect(SNAPSHOT_ACCOUNT.dayPnlUsd).toBeCloseTo(SNAPSHOT_ACCOUNT.equity - SNAPSHOT_ACCOUNT.startingCash, 2);
+  });
+
+  it("shows the Portfolio screen on the step that talks about the money", () => {
+    // The balances are the evidence for "none of this is real", so that step
+    // has to render them rather than assert them in prose.
+    expect(stepById("practice-money")?.figure).toBe("portfolio");
+    expect(stepById("portfolio")?.figure).toBe("portfolio");
+  });
+
+  it("puts the real card's words in the example card", () => {
+    // The Guided figure exists to look like the live card, so its sentences are
+    // generated by the same functions the live card uses rather than written to
+    // sound nicer here. A copy change in lib/guided/copy.ts fails this test,
+    // which is the point: the tour must not keep teaching a card that no longer
+    // exists.
+    expect(SNAPSHOT_GUIDED.riskRewardSentence).toBe(
+      riskRewardSentence(SNAPSHOT_GUIDED.riskUsd, SNAPSHOT_GUIDED.rewardUsd),
+    );
+    expect(SNAPSHOT_GUIDED.exitSentence).toBe(
+      exitSentence(SNAPSHOT_EXIT_LADDER[0].shares, SNAPSHOT_GUIDED.qty, "buy"),
+    );
   });
 
   it("quotes the risk and reward figures its own sentences quote", () => {

@@ -65,7 +65,7 @@ export const SNAPSHOT_BADGE = "Saved example · not live";
 
 export const SNAPSHOT_SYMBOL = "SPY";
 export const SNAPSHOT_SYMBOL_PLAIN =
-  "SPY is a fund that holds the 500 largest US companies at once, so its price roughly tracks \"the market\" as a whole.";
+  "SPY is a single fund holding the 500 largest US companies, so the price moves roughly with the market as a whole.";
 
 /**
  * Thirty daily candles ending on the snapshot date. The shape is deliberate:
@@ -154,14 +154,23 @@ export const SNAPSHOT_GUIDED = {
   /** Which cap produced the size. */
   bindingCap: "deployed" as const,
   qtyAllowedByRiskCap: 135,
+  /**
+   * The three sentences the real card would carry, phrased as `lib/guided/copy.ts`
+   * phrases them rather than paraphrased. The figure's whole purpose is to look
+   * like the live card, so inventing friendlier wording here would teach a
+   * reader to expect a card they will never actually meet. The two that are
+   * cheap to generate exactly are asserted against their real generators in
+   * `onboarding-tour.test.ts`; `reason` is shaped like `reasonLine` output but
+   * written out, since producing the real thing needs a whole `ScanResult`.
+   */
   reason:
-    "SPY drifted down for two weeks and stopped in a price area that has halted declines before, then closed higher on the day.",
+    "SPY has sold off into a price area that has stopped declines before, and is turning back up through $683.90. The daily range is ordinary, so this is a structural entry rather than a momentum one.",
   riskRewardSentence:
-    "You could lose about $266 if this doesn't work out, or make about $472 if it reaches both profit targets.",
+    "You could lose about $266 if this doesn't work, or make about $472 if it reaches the target.",
   sizeSentence:
-    "36 shares — not because you typed 36, but because that is the most GSPS will put into one position while keeping a quarter of your practice account as the ceiling on everything you hold at once.",
+    "36 shares — not a number you typed, but the most GSPS will commit to one position while holding total exposure under a quarter of the practice account.",
   exitSentence:
-    "If it works, 21 of the 36 shares are sold at the first target, 7 more at the second, and the last 8 keep running behind a stop that follows the price up.",
+    "If it works, 21 of the 36 shares are sold at the first target and the other 15 run on to the second, with the stop moved up behind them. If it doesn't, the whole position is sold at the stop.",
   scoreOutOf9: 8,
   verdict: "Execute" as const,
   trend: "Weekly and daily both pointing up.",
@@ -208,6 +217,30 @@ export const SNAPSHOT_POSITION = {
   unrealizedUsd: 90.72,
   unrealizedPct: 0.37,
   openedAtLabel: "Opened Aug 18, 2026",
+} as const;
+
+/**
+ * The account, as the Portfolio screen reports it.
+ *
+ * Derived from the position above rather than invented alongside it, which
+ * matters because the tour uses this screen to make one specific point — the
+ * $100,000 is practice money — and a reader who adds up the parts and gets a
+ * different total learns the opposite lesson about how much to trust the
+ * numbers. Cash is the starting balance minus what the position cost; equity is
+ * cash plus what the position is worth now; the day's profit is the gap between
+ * equity and the $100,000 the account opened with. `spy-snapshot` tests assert
+ * all three.
+ */
+export const SNAPSHOT_ACCOUNT = {
+  startingCash: SNAPSHOT_EQUITY,
+  /** Uninvested money. Starting balance less the cost of the open position. */
+  cash: 75_379.60,
+  /** What the open position would fetch at the current price. */
+  holdingsValue: 24_711.12,
+  /** Cash plus holdings — the number a beginner means by "how much do I have". */
+  equity: 100_090.72,
+  /** Change since the account opened. */
+  dayPnlUsd: 90.72,
 } as const;
 
 /**
