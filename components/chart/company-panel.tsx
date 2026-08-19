@@ -70,7 +70,12 @@ export function CompanyPanel({
       <ConvictionBanner conviction={conviction} />
 
       <section>
-        <SectionHeader>Analyst rating · Price target</SectionHeader>
+        <div className="mb-2 flex items-center justify-between">
+          <SectionHeader noMargin>Analyst rating · Price target</SectionHeader>
+          <DataSourceBadge
+            live={snapshot.sources.analystRating === "finnhub" && snapshot.sources.priceTarget === "finnhub"}
+          />
+        </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-lg border border-border px-3 py-2">
             <div className="mb-1 flex items-center justify-between">
@@ -205,9 +210,9 @@ export function CompanyPanel({
       </section>
 
       <p className="text-xs text-muted/80">
-        Simulated fundamentals — analyst coverage, short interest, institutional flow and margin
-        terms are modelled, not vendor data. A real fundamentals feed drops in behind this same
-        shape (lib/data/company.ts) without touching the layout above.
+        {snapshot.sources.analystRating === "finnhub" || snapshot.sources.priceTarget === "finnhub"
+          ? "Analyst rating and price target are live (Finnhub). Short interest, institutional flow and margin terms are still modelled — no vendor for those is wired up yet."
+          : "Simulated fundamentals — analyst coverage, short interest, institutional flow and margin terms are all modelled, not vendor data. Set FINNHUB_API_KEY to bring analyst rating and price target live."}
       </p>
     </div>
   );
@@ -330,9 +335,25 @@ function ConvictionBanner({ conviction }: { conviction: Conviction }) {
 
 /* ------------------------------------------------------------------ bits */
 
-function SectionHeader({ children }: { children: React.ReactNode }) {
+function SectionHeader({ children, noMargin }: { children: React.ReactNode; noMargin?: boolean }) {
   return (
-    <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{children}</h4>
+    <h4
+      className={cn(
+        "text-xs font-semibold uppercase tracking-wide text-muted",
+        !noMargin && "mb-2",
+      )}
+    >
+      {children}
+    </h4>
+  );
+}
+
+/** Small pill marking a section's data as live-vendor vs. modelled. */
+function DataSourceBadge({ live }: { live: boolean }) {
+  return (
+    <Badge variant={live ? "bull" : "muted"} className="text-[10px]">
+      {live ? "Live · Finnhub" : "Simulated"}
+    </Badge>
   );
 }
 
