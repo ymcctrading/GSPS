@@ -7,7 +7,9 @@ import { Input } from "@/components/ui/input";
 import {
   DEFAULT_GUIDED_CAPS,
   MAX_RISK_PCT,
+  MAX_TRADE_NOTIONAL_PCT,
   MIN_RISK_PCT,
+  MIN_TRADE_NOTIONAL_PCT,
   type GuidedCaps,
 } from "@/lib/guided/config";
 
@@ -53,6 +55,14 @@ const FIELDS: {
     min: 5,
     max: 100,
   },
+  {
+    key: "maxTradeNotionalPct",
+    label: "Most equity in one stock trade (%)",
+    hint: "Stocks only. Keeps a single recommendation's dollar size and share count reasonable even when a tight stop would otherwise size a much bigger position.",
+    step: "1",
+    min: MIN_TRADE_NOTIONAL_PCT,
+    max: MAX_TRADE_NOTIONAL_PCT,
+  },
 ];
 
 /**
@@ -96,6 +106,7 @@ export function GuidedCapsForm() {
           maxTradesPerDay: Number(draft.maxTradesPerDay),
           maxTradesPerWeek: Number(draft.maxTradesPerWeek),
           maxDeployedPct: Number(draft.maxDeployedPct),
+          maxTradeNotionalPct: Number(draft.maxTradeNotionalPct),
         }),
       });
       const body = await res.json();
@@ -173,5 +184,6 @@ function toDraft(caps: GuidedCaps): Draft {
     maxTradesPerDay: String(caps.maxTradesPerDay),
     maxTradesPerWeek: String(caps.maxTradesPerWeek),
     maxDeployedPct: String(caps.maxDeployedPct),
+    maxTradeNotionalPct: String(caps.maxTradeNotionalPct),
   };
 }

@@ -99,18 +99,27 @@ recording the outcome in its per-symbol audit trail.
 
 ## Position sizing
 
-`lib/guided/sizing.ts`. Pressing Buy or Sell never sets a quantity. Four
+`lib/guided/sizing.ts`. Pressing Buy or Sell never sets a quantity. Five
 ceilings apply and the smallest wins:
 
 1. **Per-trade risk cap** — 1% of paper equity by default, divided by the
    entry-to-stop distance, measured in the trade's own direction.
-2. **Deployed-capital cap** — no more than 25% of paper equity across open
+2. **Per-trade notional cap** — stocks only, 8% of paper equity by default.
+   A structural entry sitting right on a level it has held before often
+   carries a very tight stop, and a tight stop divided into even a small risk
+   budget can size a triple-digit share count that is correctly risk-managed
+   but does not read as one ordinary trade — this is what was putting
+   100+-share, tens-of-thousands-of-dollars recommendations in front of
+   novices on names like MSFT. This cap keeps every guided stock
+   recommendation sized like a trade a person would actually place, whatever
+   the stop distance implies. It does not apply to crypto.
+3. **Deployed-capital cap** — no more than 25% of paper equity across open
    guided positions at once. Cards rendered together are sized against each
    other, so three cards that each fit the cap cannot breach it collectively.
-3. **Buying power** — the simulated account is cash-only; no margin is modelled.
+4. **Buying power** — the simulated account is cash-only; no margin is modelled.
    Longs only: a short credits cash rather than spending it, so this ceiling
    does not apply to one (see "Shorts").
-4. **Minimum size** — at least 2 shares. The protocol exits in tranches, and a
+5. **Minimum size** — at least 2 shares. The protocol exits in tranches, and a
    single share collapses that into an all-or-nothing target, which is not the
    trade the card describes. Below the minimum, the recommendation is skipped,
    not shrunk.

@@ -43,6 +43,29 @@ export const DEFAULT_MAX_TRADES_PER_WEEK = 10;
 export const DEFAULT_MAX_DEPLOYED_PCT = 25;
 
 /**
+ * Ceiling on a *single* stock trade's notional, as a share of paper equity —
+ * separate from, and much tighter than, `DEFAULT_MAX_DEPLOYED_PCT` above.
+ *
+ * The risk cap alone sizes purely off the entry-to-stop distance. A structural
+ * entry sitting right on a level it has held before often carries a very tight
+ * stop, and a tight stop divided into even a small risk budget produces a huge
+ * share count and a huge dollar position — arithmetically "1% risk" but
+ * nothing a novice would recognise as one trade. That is what was landing a
+ * paper account in triple-digit share counts on names like MSFT: correctly
+ * risk-sized, but not sized to look or feel like a single, ordinary trade.
+ *
+ * This cap exists to keep every guided stock recommendation looking like a
+ * trade a novice would actually place — a few thousand dollars, not tens of
+ * thousands — regardless of how tight the stop is. It only applies to equities:
+ * crypto guided trades are unaffected (see `sizeGuidedTrade`).
+ */
+export const DEFAULT_MAX_TRADE_NOTIONAL_PCT = 8;
+
+/** Bounds a user may move the per-trade notional cap between, once Settings exposes it. */
+export const MIN_TRADE_NOTIONAL_PCT = 2;
+export const MAX_TRADE_NOTIONAL_PCT = 20;
+
+/**
  * Minimum shares a guided order may be placed for.
  *
  * The protocol exits in tranches — 60% at TP1, half of the rest at the master
@@ -92,6 +115,8 @@ export interface GuidedCaps {
   maxTradesPerDay: number;
   maxTradesPerWeek: number;
   maxDeployedPct: number;
+  /** Per-trade notional ceiling for stocks only — see `DEFAULT_MAX_TRADE_NOTIONAL_PCT`. */
+  maxTradeNotionalPct: number;
 }
 
 export const DEFAULT_GUIDED_CAPS: GuidedCaps = {
@@ -99,6 +124,7 @@ export const DEFAULT_GUIDED_CAPS: GuidedCaps = {
   maxTradesPerDay: DEFAULT_MAX_TRADES_PER_DAY,
   maxTradesPerWeek: DEFAULT_MAX_TRADES_PER_WEEK,
   maxDeployedPct: DEFAULT_MAX_DEPLOYED_PCT,
+  maxTradeNotionalPct: DEFAULT_MAX_TRADE_NOTIONAL_PCT,
 };
 
 /**
@@ -118,5 +144,11 @@ export function resolveGuidedCaps(prefs: unknown): GuidedCaps {
     maxTradesPerDay: num("maxTradesPerDay", DEFAULT_MAX_TRADES_PER_DAY, 1, 20),
     maxTradesPerWeek: num("maxTradesPerWeek", DEFAULT_MAX_TRADES_PER_WEEK, 1, 50),
     maxDeployedPct: num("maxDeployedPct", DEFAULT_MAX_DEPLOYED_PCT, 5, 100),
+    maxTradeNotionalPct: num(
+      "maxTradeNotionalPct",
+      DEFAULT_MAX_TRADE_NOTIONAL_PCT,
+      MIN_TRADE_NOTIONAL_PCT,
+      MAX_TRADE_NOTIONAL_PCT,
+    ),
   };
 }

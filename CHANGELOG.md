@@ -7,6 +7,30 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-08-19
+
+### Added
+- **Referral program (minimal).** Every user gets a `/r/<username>` link,
+  visible in Settings, that credits an attributed signup back to them and
+  counts clicks before conversion. Attribution runs through
+  `handle_new_user` for email/password signup and through `/auth/callback`
+  for Google OAuth, since Google — not this app — creates the `auth.users`
+  row in that path. No commission or payout model yet; this ships the link
+  and the counts a payout model would need, not the payout itself. Out of
+  phase for Q1 — see `ROADMAP.md`.
+
+### Changed
+- **Guided Decision Mode stock sizing no longer balloons on a tight stop.**
+  Position sizing (`lib/guided/sizing.ts`) previously applied only a risk cap,
+  a deployed-capital cap, and buying power. A structural entry with a very
+  tight stop — the common case for an entry sitting right on a level — could
+  pass all three while still sizing a triple-digit share count and a
+  tens-of-thousands-of-dollars position: correctly risk-managed as a percent
+  of equity, but nothing a first-time user would read as one ordinary trade.
+  Added a fifth ceiling, a per-trade notional cap (8% of paper equity by
+  default, editable in Settings → Guided Mode limits), that applies to stocks
+  only — crypto guided trades are unaffected. See `docs/GUIDED_DECISION_MODE.md`.
+
 ## 2026-08-18
 
 ### Added

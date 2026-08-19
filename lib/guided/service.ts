@@ -266,7 +266,9 @@ export async function buildRecommendations(params: {
       masterProfit: levels.masterProfit,
       riskPct: caps.riskPct,
       maxDeployedPct: caps.maxDeployedPct,
+      maxTradeNotionalPct: caps.maxTradeNotionalPct,
       deployedUsd: committed,
+      assetClass: result.assetClass,
     });
 
     if (sized.blockedReason) {

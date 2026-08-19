@@ -2,7 +2,7 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-08-17.
+**Last updated:** 2026-08-19.
 
 This document decides *what we build next and in what order*. Proposals and
 implementation work should trace back to a phase below. See
@@ -108,7 +108,20 @@ both signal discovery and execution.
   logged so its expectancy can later be measured against the Backtest tool.
   See `docs/GUIDED_DECISION_MODE.md`. Shipped alongside a platform-wide
   liquidity floor on every scan (price ≥ $5, average volume ≥ 500k shares, or
-  the dollar-turnover equivalent for crypto).
+  the dollar-turnover equivalent for crypto). *(2026-08-19)* Added a per-trade
+  notional cap (8% of paper equity by default, stocks only) alongside the
+  existing risk cap — a tight structural stop was sizing correctly-risked but
+  triple-digit-share, tens-of-thousands-of-dollars recommendations that read
+  as intimidating rather than as one ordinary trade to a first-time user.
+- **Referral program (minimal)** *(2026-08-19, out-of-phase)* — a per-user
+  referral link (`/r/<username>`), click counter, and signup attribution,
+  surfaced in Settings. Not named in this roadmap's Q1 initiatives — it was
+  built ahead of schedule at explicit request, in service of this phase's
+  retention goal (a reason to bring a friend back in) rather than as a
+  reprioritization. No commission or payout model yet: that needs a
+  compliance and payments decision this document doesn't make for it. If a
+  paid referral program becomes a real initiative, it belongs here explicitly
+  rather than continuing to live as a deviation note.
 - **Mobile-responsive dashboard** — not a native app yet, but positions and
   alerts must be usable on phones and tablets.
 - **Technical indicators (phase 1)** — SMA, EMA, RSI, MACD as chart overlays.
