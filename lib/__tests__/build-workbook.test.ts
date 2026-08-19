@@ -36,7 +36,7 @@ describe("buildJournalWorkbook", () => {
 
     const buffer = await buildJournalWorkbook([todayTrade, oldTrade], now);
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(buffer);
+    await workbook.xlsx.load(buffer as unknown as Parameters<typeof workbook.xlsx.load>[0]);
 
     const symbolsOn = (sheetName: string) => {
       const sheet = workbook.getWorksheet(sheetName)!;
@@ -58,7 +58,7 @@ describe("buildJournalWorkbook", () => {
   it("produces empty sheets, not an error, when there are no closed trades", async () => {
     const buffer = await buildJournalWorkbook([], new Date());
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(buffer);
+    await workbook.xlsx.load(buffer as unknown as Parameters<typeof workbook.xlsx.load>[0]);
     expect(workbook.getWorksheet("All Time")).toBeDefined();
   });
 });
