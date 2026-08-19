@@ -3,14 +3,14 @@
 import { useEffect, useState } from "react";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { authorizedFetch } from "@/lib/supabase/authorized-fetch";
 
 interface HistoryEntry {
   id: string;
   symbol: string;
   channel: "email" | "sms" | "push";
-  status: "sent" | "failed" | "skipped_quiet_hours" | "skipped_preference";
-  message: string | null;
-  provider_response: string | null;
+  status: "pending" | "sent" | "failed" | "bounced";
+  error_message: string | null;
   created_at: string;
 }
 
@@ -19,11 +19,10 @@ function statusBadge(status: HistoryEntry["status"]) {
     case "sent":
       return <Badge variant="bull">Sent</Badge>;
     case "failed":
-      return <Badge variant="bear">Failed</Badge>;
-    case "skipped_quiet_hours":
-      return <Badge variant="muted">Quiet hours</Badge>;
-    case "skipped_preference":
-      return <Badge variant="muted">Below threshold</Badge>;
+    case "bounced":
+      return <Badge variant="bear">{status === "bounced" ? "Bounced" : "Failed"}</Badge>;
+    case "pending":
+      return <Badge variant="muted">Pending</Badge>;
   }
 }
 
@@ -32,9 +31,9 @@ export function NotificationHistory() {
   const [entries, setEntries] = useState<HistoryEntry[] | null>(null);
 
   useEffect(() => {
-    fetch("/api/notifications/history?limit=25")
+    authorizedFetch("/api/notifications/log?limit=25")
       .then((res) => res.json())
-      .then((body) => setEntries(body.entries ?? []))
+      .then((body) => setEntries(Array.isArray(body) ? body : []))
       .catch(() => setEntries([]));
   }, []);
 

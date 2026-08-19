@@ -5,32 +5,21 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { subscribeToPush } from "@/lib/notifications/push-client";
 import { NotificationHistory } from "@/components/settings/notification-history";
+import { authorizedFetch } from "@/lib/supabase/authorized-fetch";
 import { Bell } from "lucide-react";
 
 interface Preferences {
   email_enabled: boolean;
   sms_enabled: boolean;
   push_enabled: boolean;
-  quiet_hours_enabled: boolean;
-  quiet_hours_start: string;
-  quiet_hours_end: string;
-  timezone: string;
-  phone_number: string | null;
   min_score: number;
-}
-
-interface ChannelsEnabled {
-  email: boolean;
-  sms: boolean;
-  push: boolean;
-}
-
-interface PreferencesResponse {
-  preferences: Preferences;
-  channelsEnabled: ChannelsEnabled;
-  vapidPublicKey: string | null;
+  notify_on_verdict: "execute" | "watch" | "any";
+  quiet_hours_enabled: boolean;
+  quiet_start: string | null;
+  quiet_end: string | null;
+  user_timezone: string;
+  phone_number: string | null;
 }
 
 const TIMEZONES = [
@@ -41,29 +30,20 @@ const TIMEZONES = [
   "UTC",
 ];
 
-function ChannelBadge({ enabled }: { enabled: boolean }) {
-  return enabled ? (
-    <Badge variant="bull">Configured</Badge>
-  ) : (
-    <Badge variant="muted">Not configured</Badge>
-  );
-}
-
 export function NotificationSettings() {
-  const [data, setData] = useState<PreferencesResponse | null>(null);
+  const [preferences, setPreferences] = useState<Preferences | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [testMessage, setTestMessage] = useState<string | null>(null);
-  const [pushMessage, setPushMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/notifications/preferences")
+    authorizedFetch("/api/notifications/preferences")
       .then((res) => res.json())
-      .then(setData)
-      .catch(() => setData(null));
+      .then(setPreferences)
+      .catch(() => setPreferences(null));
   }, []);
 
-  if (!data) {
+  if (!preferences) {
     return (
       <Card>
         <CardHeader>
@@ -78,36 +58,36 @@ export function NotificationSettings() {
     );
   }
 
-  const { preferences, channelsEnabled } = data;
-
   function update<K extends keyof Preferences>(key: K, value: Preferences[K]) {
-    setData((prev) => (prev ? { ...prev, preferences: { ...prev.preferences, [key]: value } } : prev));
+    setPreferences((prev) => (prev ? { ...prev, [key]: value } : prev));
   }
 
   async function save() {
+    if (!preferences) return;
     setSaving(true);
     setSaveMessage(null);
     try {
-      const res = await fetch("/api/notifications/preferences", {
-        method: "PUT",
+      const res = await authorizedFetch("/api/notifications/preferences", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          emailEnabled: preferences.email_enabled,
-          smsEnabled: preferences.sms_enabled,
-          pushEnabled: preferences.push_enabled,
-          quietHoursEnabled: preferences.quiet_hours_enabled,
-          quietHoursStart: preferences.quiet_hours_start,
-          quietHoursEnd: preferences.quiet_hours_end,
-          timezone: preferences.timezone,
-          phoneNumber: preferences.phone_number,
-          minScore: preferences.min_score,
+          email_enabled: preferences.email_enabled,
+          sms_enabled: preferences.sms_enabled,
+          push_enabled: preferences.push_enabled,
+          min_score: preferences.min_score,
+          notify_on_verdict: preferences.notify_on_verdict,
+          quiet_hours_enabled: preferences.quiet_hours_enabled,
+          quiet_start: preferences.quiet_start,
+          quiet_end: preferences.quiet_end,
+          user_timezone: preferences.user_timezone,
+          phone_number: preferences.phone_number,
         }),
       });
       const body = await res.json();
       if (!res.ok) {
         setSaveMessage(body.error ?? "Could not save preferences");
       } else {
-        setData(body);
+        setPreferences(body);
         setSaveMessage("Saved.");
       }
     } catch {
@@ -120,33 +100,12 @@ export function NotificationSettings() {
   async function sendTest() {
     setTestMessage("Sending…");
     try {
-      const res = await fetch("/api/notifications/test", { method: "POST" });
+      const res = await authorizedFetch("/api/notifications/send-test", { method: "POST" });
       const body = await res.json();
-      if (!res.ok) {
-        setTestMessage(body.error ?? "Could not send test alert");
-        return;
-      }
-      if (body.note) {
-        setTestMessage(body.note);
-        return;
-      }
-      const summary = (body.results ?? [])
-        .map((r: { channel: string; status: string }) => `${r.channel}: ${r.status}`)
-        .join(", ");
-      setTestMessage(summary || "No channels enabled.");
+      setTestMessage(res.ok ? (body.message ?? "Sent.") : (body.error ?? "Could not send test alert"));
     } catch {
       setTestMessage("Could not send test alert");
     }
-  }
-
-  async function enablePush() {
-    const vapidPublicKey = data?.vapidPublicKey;
-    if (!vapidPublicKey) {
-      setPushMessage("Push is not configured on the server yet.");
-      return;
-    }
-    const result = await subscribeToPush(vapidPublicKey);
-    setPushMessage(result.ok ? "Browser push enabled." : (result.error ?? "Could not enable push"));
   }
 
   return (
@@ -156,7 +115,9 @@ export function NotificationSettings() {
           <Bell className="h-4 w-4 text-accent" /> Notifications
         </CardTitle>
         <CardDescription>
-          Email, SMS, and browser push for high-confidence alerts (score 7+ of 9), plus quiet hours.
+          Email alerts for high-confidence signals, with quiet hours and a minimum score filter. Only
+          email actually sends today — SMS and browser push are on the roadmap, so those toggles save
+          your preference but nothing delivers to them yet.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
@@ -170,7 +131,7 @@ export function NotificationSettings() {
               />
               Email
             </span>
-            <ChannelBadge enabled={channelsEnabled.email} />
+            <Badge variant="bull">Live</Badge>
           </label>
           <label className="flex items-center justify-between gap-2 rounded-lg border border-border bg-background px-4 py-3 text-sm">
             <span className="flex items-center gap-2">
@@ -181,7 +142,7 @@ export function NotificationSettings() {
               />
               SMS
             </span>
-            <ChannelBadge enabled={channelsEnabled.sms} />
+            <Badge variant="muted">Coming soon</Badge>
           </label>
           <label className="flex items-center justify-between gap-2 rounded-lg border border-border bg-background px-4 py-3 text-sm">
             <span className="flex items-center gap-2">
@@ -192,23 +153,14 @@ export function NotificationSettings() {
               />
               Browser push
             </span>
-            <ChannelBadge enabled={channelsEnabled.push} />
+            <Badge variant="muted">Coming soon</Badge>
           </label>
         </div>
-
-        {preferences.push_enabled && channelsEnabled.push && (
-          <div className="flex items-center gap-3">
-            <Button type="button" variant="outline" onClick={enablePush}>
-              Enable push in this browser
-            </Button>
-            {pushMessage && <p className="text-sm text-muted">{pushMessage}</p>}
-          </div>
-        )}
 
         {preferences.sms_enabled && (
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium" htmlFor="phone-number">
-              Phone number (for SMS)
+              Phone number (for SMS, once it ships)
             </label>
             <Input
               id="phone-number"
@@ -221,7 +173,7 @@ export function NotificationSettings() {
           </div>
         )}
 
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-3">
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium" htmlFor="min-score">
               Minimum alert score (0-9)
@@ -237,13 +189,28 @@ export function NotificationSettings() {
             />
           </div>
           <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium" htmlFor="verdict">
+              Notify on
+            </label>
+            <select
+              id="verdict"
+              value={preferences.notify_on_verdict}
+              onChange={(e) => update("notify_on_verdict", e.target.value as Preferences["notify_on_verdict"])}
+              className="h-10 max-w-xs rounded-lg border border-border bg-surface px-3 text-sm"
+            >
+              <option value="execute">Execute only</option>
+              <option value="watch">Execute + Watch</option>
+              <option value="any">Any verdict</option>
+            </select>
+          </div>
+          <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium" htmlFor="timezone">
               Timezone
             </label>
             <select
               id="timezone"
-              value={preferences.timezone}
-              onChange={(e) => update("timezone", e.target.value)}
+              value={preferences.user_timezone}
+              onChange={(e) => update("user_timezone", e.target.value)}
               className="h-10 max-w-xs rounded-lg border border-border bg-surface px-3 text-sm"
             >
               {TIMEZONES.map((tz) => (
@@ -262,7 +229,7 @@ export function NotificationSettings() {
               checked={preferences.quiet_hours_enabled}
               onChange={(e) => update("quiet_hours_enabled", e.target.checked)}
             />
-            Quiet hours (suppress email/SMS/push during this local time window)
+            Quiet hours (suppress alerts during this local time window)
           </label>
           {preferences.quiet_hours_enabled && (
             <div className="flex flex-wrap items-center gap-3">
@@ -270,8 +237,8 @@ export function NotificationSettings() {
                 From
                 <Input
                   type="time"
-                  value={preferences.quiet_hours_start}
-                  onChange={(e) => update("quiet_hours_start", e.target.value)}
+                  value={preferences.quiet_start ?? "21:00"}
+                  onChange={(e) => update("quiet_start", e.target.value)}
                   className="w-32"
                 />
               </label>
@@ -279,8 +246,8 @@ export function NotificationSettings() {
                 To
                 <Input
                   type="time"
-                  value={preferences.quiet_hours_end}
-                  onChange={(e) => update("quiet_hours_end", e.target.value)}
+                  value={preferences.quiet_end ?? "06:00"}
+                  onChange={(e) => update("quiet_end", e.target.value)}
                   className="w-32"
                 />
               </label>

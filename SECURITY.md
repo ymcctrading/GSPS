@@ -10,10 +10,13 @@ if one is exposed.
 |---|---|---|
 | `SUPABASE_SERVICE_ROLE_KEY` | Vercel env var | Bypasses Row Level Security. Server-only, never sent to the client. |
 | `CREDENTIALS_ENCRYPTION_KEY` | Vercel env var | 32-byte base64 AES-256-GCM key. Encrypts broker credentials at rest in `broker_connections` (`lib/crypto.ts`). If this key is lost, every stored broker credential becomes unrecoverable. If it leaks, every stored broker credential must be treated as compromised. |
+| `CREDENTIALS_ENCRYPTION_KEY_PREVIOUS` | Vercel env var | Set only during a rotation window. `decryptJson()` tries the current key first, then this one, so rows encrypted under the old key keep decrypting until `scripts/rotate-credentials-key.mjs` re-encrypts them. Remove once rotation finishes. |
 | `ALPACA_API_KEY` / `ALPACA_API_SECRET` | Vercel env var | Market-data credentials, and the paper keys for reference lookups. No longer used to trade on any user's behalf — paper trading is simulated (see below). |
 | `ALPACA_LIVE_API_KEY` / `ALPACA_LIVE_API_SECRET` | Vercel env var | Live-money trading. Treat as high-severity if leaked — real funds are reachable. |
 | `SNAPTRADE_CLIENT_ID` / `SNAPTRADE_CONSUMER_KEY` | Vercel env var | Lets the app act as a SnapTrade partner; a leak lets an attacker impersonate the app to SnapTrade's API. |
 | `CRON_SECRET` | Vercel env var | Bearer token gating `/api/market-scan`. Low severity if leaked (worst case: someone triggers an extra scan), but rotate anyway. |
+| `STRIPE_SECRET_KEY` | Vercel env var | Full account access at Stripe (create charges, issue refunds, read customer data). Treat as high-severity if leaked. |
+| `STRIPE_WEBHOOK_SECRET` | Vercel env var | Verifies `/api/billing/webhook` requests actually came from Stripe (`stripe.webhooks.constructEvent`). Without this check anyone could POST a fake `checkout.session.completed` and grant themselves a paid tier — never skip signature verification on that route. |
 | `TRADING_DISABLED` | Vercel env var | Not a secret — an operational control. Set to exactly `true` to refuse every order placement and position close app-wide (`lib/trade/kill-switch.ts`). Use it during an incident instead of removing the Alpaca keys, which would also break read-only portfolio and scanner views. |
 | Per-user broker credentials | Supabase `broker_connections` table | Stored via `encryptJson()` (`lib/crypto.ts`), not plaintext. Decrypted only server-side, only when a request needs to call the broker. |
 
@@ -62,7 +65,7 @@ by a typo.
 ## If a secret leaks
 
 1. **Rotate it immediately** at the provider (Supabase, Alpaca, SnapTrade, the data provider) and update the Vercel env var.
-2. For `CREDENTIALS_ENCRYPTION_KEY` specifically: rotating it invalidates every already-encrypted row in `broker_connections`. Users will need to relink their brokerage accounts. There is currently no re-encryption/migration path — treat key rotation here as a last resort, not a routine action.
+2. For `CREDENTIALS_ENCRYPTION_KEY` specifically: move the current value to `CREDENTIALS_ENCRYPTION_KEY_PREVIOUS`, set the new value as `CREDENTIALS_ENCRYPTION_KEY`, deploy, then run `node scripts/rotate-credentials-key.mjs` to re-encrypt every `broker_connections` row under the new key. Once it reports zero rows left on the previous key, remove `CREDENTIALS_ENCRYPTION_KEY_PREVIOUS` and redeploy. No user needs to relink a brokerage account for this — see `lib/crypto.ts`.
 3. For live Alpaca keys: rotate the key and check the Alpaca account activity log for unauthorized orders before doing anything else.
 4. Confirm the leaked value isn't still present in git history (`git log -p`, or a secret-scanning tool) before considering the incident closed.
 

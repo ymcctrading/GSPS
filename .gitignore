@@ -8,3 +8,7 @@ build
 next-env.d.ts
 .DS_Store
 .claude/worktrees
+/playwright-report
+/test-results
+/blob-report
+/playwright/.cache

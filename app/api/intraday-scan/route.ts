@@ -120,7 +120,7 @@ export async function GET(req: NextRequest) {
   // it is not what the caller asked for. A write failure must not discard a
   // scan that already succeeded — it is reported alongside the result and the
   // cooldown degrades to within-run only, which is where it was before.
-  const alertsPersisted = await persistAlerts(supabase, user.id, output.alerts, resolved);
+  const alertsPersisted = await persistAlerts(supabase, user.id, user.email ?? null, output.alerts, resolved);
 
   return NextResponse.json({
     ...output,
@@ -246,6 +246,7 @@ async function loadPriorAlerts(
 async function persistAlerts(
   supabase: Supabase,
   userId: string,
+  userEmail: string | null,
   alerts: Alert[],
   inputs: SymbolInput[],
 ): Promise<boolean> {
@@ -291,18 +292,24 @@ async function persistAlerts(
   // dispatch has to ride the same request that just persisted the alert.
   // Best-effort — a notification failure must not turn a successful scan
   // into a failed one; dispatch already logs its own outcomes.
+  const bySymbol = new Map(alerts.map((a) => [a.symbol, a]));
   const highConfidence = (persisted ?? []).filter((row) => row.score >= HIGH_CONFIDENCE_SCORE);
   await Promise.all(
-    highConfidence.map((row) =>
-      dispatchNotification(supabase as unknown as DispatchSupabase, userId, {
-        alertId: row.id,
+    highConfidence.map((row) => {
+      const source = bySymbol.get(row.symbol);
+      if (!source) return Promise.resolve();
+      return dispatchNotification(supabase as unknown as DispatchSupabase, userId, userEmail, {
         symbol: row.symbol,
+        direction: DIRECTION_TO_SIGNAL_TYPE[source.direction] as "bullish" | "bearish",
         score: row.score,
-        message: `${row.symbol} scored ${row.score}/9 on the intraday scan.`,
+        entry: source.move.current,
+        stopLoss: source.invalidation,
+        takeProfit: source.continuationPlan.firstTarget,
+        confidence: source.confidence,
       }).catch((err) => {
         console.error("[intraday-scan] notification dispatch failed:", err);
-      }),
-    ),
+      });
+    }),
   );
 
   return true;

@@ -2,7 +2,10 @@
 
 ## Cron-invoked endpoints
 
-Only `/api/market-scan` is invoked by Vercel Cron. It checks a bearer
+Only `/api/market-scan` is cron-invoked, but not by a single scheduler: the
+17:30 ET run is a native Vercel Cron entry in `vercel.json`, and the 08:30 ET
+run is a GitHub Actions schedule (`.github/workflows/premarket-scan.yml`)
+calling the same route over HTTPS with the same secret. Both checks a bearer
 secret before doing anything:
 
 ```ts
@@ -17,10 +20,14 @@ than in response to a user action.
 
 **Before adding a new cron entry to `vercel.json`**, check
 `docs/THIRD_PARTY_LIMITS.md` — the project is on the Vercel Hobby plan,
-capped at 2 cron jobs total, each running at most once/day. The cap is
-currently fully used by `/api/market-scan`'s two daily runs. If you need
-something to run more often than daily, it does not belong in `vercel.json`
-— use an external scheduler hitting the route over HTTPS instead.
+capped at 2 cron jobs total, each running at most once/day.
+`/api/market-scan` only occupies one of those two slots now (the other run
+moved to GitHub Actions, above), leaving one Vercel cron slot free for the
+next daily job — a broker-token refresh, a reconciliation sweep, etc. If you
+need something to run more often than daily, it does not belong in
+`vercel.json` regardless of slot availability — use an external scheduler
+hitting the route over HTTPS instead, following the `premarket-scan.yml`
+pattern.
 
 ## Read-through data proxies
 
