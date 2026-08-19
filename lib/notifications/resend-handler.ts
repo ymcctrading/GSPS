@@ -76,8 +76,10 @@ export async function sendAlertEmail(data: AlertEmailData) {
       </div>
     `;
 
+    // Use Resend's default "onboarding" domain until gsps.app is verified
+    // Format: from@resend.dev or your verified domain
     const result = await resend.emails.send({
-      from: "alerts@gsps.app",
+      from: "GSPS Alerts <onboarding@resend.dev>",
       to: data.userEmail,
       subject,
       html,
