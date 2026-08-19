@@ -150,7 +150,7 @@ export function planProtocolExit(qty: number, levels: ProtocolLevels): ExitPlan 
       qty: masterQty,
       takeProfit: mp,
       stopLoss: levels.stopLoss,
-      label: "Takes profit at the master target",
+      label: "Takes profit at the final target",
     });
   }
   if (runnerQty > 0) {
@@ -184,7 +184,7 @@ function buildSummary(
 ): string {
   const share = `${scaleOut} of ${qty} shares (${Math.round(pct * 100)}%)`;
   const parts = [`${share} exit at TP1`];
-  if (master > 0) parts.push(`${master} at the master target`);
+  if (master > 0) parts.push(`${master} at the final target`);
   if (runner > 0) parts.push(`${runner} run on behind a trailing stop`);
   return `${parts.join(", ")}. The stop covers all ${qty} shares, so a stop-out closes the trade completely.`;
 }
@@ -328,7 +328,7 @@ function explain(reason: StopReason, stop: number, long: boolean): string {
     case "trailing":
       return `The stop trails the best price seen to ${usd(stop)}, locking in part of the move.`;
     case "master_reversal":
-      return `Price traded through the master target, so the remainder now exits if it falls back ${long ? "below" : "above"} it (${usd(stop)}).`;
+      return `Price traded through the final target, so the remainder now exits if it falls back ${long ? "below" : "above"} it (${usd(stop)}).`;
     case "protocol":
     default:
       return `The protocol stop rests at ${usd(stop)}.`;
