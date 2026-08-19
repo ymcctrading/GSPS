@@ -20,8 +20,10 @@ import { readCapUsage } from "@/lib/guided/caps";
 import {
   GUIDED_DISCLOSURE,
   LIVE_BROKERAGE_BLOCK,
+  MAX_CANDIDATES_SCANNED,
   resolveGuidedCaps,
 } from "@/lib/guided/config";
+import { orderedCandidates } from "@/lib/guided/universe";
 import {
   buildRecommendations,
   candidateSymbols,
@@ -50,6 +52,7 @@ export async function GET() {
       blockedReason: reason,
       disclosure: GUIDED_DISCLOSURE,
       recommendations: [],
+      nearMiss: null,
     });
 
   if (await hasLiveBrokerage(supabase, user.id)) {
@@ -76,6 +79,7 @@ export async function GET() {
         caps,
         usage,
         recommendations: [],
+        nearMiss: null,
       });
     }
 
@@ -86,9 +90,11 @@ export async function GET() {
     // from staying tappable: a recommendation is single-use.
     await expireOutstanding(supabase, user.id);
 
-    const symbols = await candidateSymbols(supabase);
-    const { recommendations, skipped } = await buildRecommendations({
-      symbols,
+    // The published list leads; `orderedCandidates` appends the wider universe
+    // behind it and applies the scan ceiling once. See lib/guided/universe.ts.
+    const published = await candidateSymbols(supabase);
+    const { recommendations, skipped, nearMiss, scanned } = await buildRecommendations({
+      symbols: orderedCandidates(published, MAX_CANDIDATES_SCANNED),
       account,
       caps,
       deployedUsd: usage.deployedUsd,
@@ -106,6 +112,13 @@ export async function GET() {
       // Standing aside is a valid output: a scan that found nothing is not an
       // error, and the UI says so rather than showing an empty list.
       standAside: logged.length === 0,
+      // The closest candidate, when there was nothing to recommend. Carries no
+      // size, risk or reward and has no execute path — it exists so the screen
+      // explains itself rather than going blank. Deliberately NOT merged into
+      // `recommendations`: nothing downstream should be able to reach the buy
+      // flow with one of these.
+      nearMiss,
+      scanned,
       // Not shown to the user by default — this is what a maintainer reads when
       // a symbol they expected on the dashboard did not become a recommendation.
       skipped,
