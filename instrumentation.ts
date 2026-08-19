@@ -11,10 +11,6 @@ export async function register() {
     Sentry.init({
       dsn: process.env.SENTRY_DSN,
       environment: process.env.NODE_ENV || "production",
-      integrations: [
-        new Sentry.Integrations.OnUncaughtException(),
-        new Sentry.Integrations.OnUnhandledRejection(),
-      ],
       tracesSampleRate: 0.1,
       debug: false,
       enabled: !!process.env.SENTRY_DSN,

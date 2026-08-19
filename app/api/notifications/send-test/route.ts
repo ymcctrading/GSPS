@@ -1,11 +1,6 @@
 import { sendAlertEmail } from "@/lib/notifications/resend-handler";
-import { createClient } from "@supabase/supabase-js";
+import { createServiceClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,6 +10,7 @@ export async function POST(req: NextRequest) {
     }
 
     const token = authHeader.slice(7);
+    const supabase = createServiceClient();
 
     const {
       data: { user },
