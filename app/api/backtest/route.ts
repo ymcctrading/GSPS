@@ -6,6 +6,8 @@
  *   ?targetR=2             take-profit distance, in multiples of risk
  *   ?within=Execute        verdict bucket to attribute factors inside
  *   ?since=2026-06-15      replay only bars at or after this instant
+ *   ?productionStop=1      walk the leeway/large-cap-widened stop instead of
+ *                          the raw pattern one — see ReplayOptions.useProductionStop
  *
  * Not on a cron and it must not go on one: a run walks every bar of every
  * symbol and is far too slow for a scheduled hobby-plan invocation. It is
@@ -78,6 +80,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: `Invalid since '${since}'` }, { status: 400 });
   }
 
+  const productionStopRaw = searchParams.get("productionStop");
+  const useProductionStop = productionStopRaw !== null && productionStopRaw !== "0" && productionStopRaw !== "false";
+
   try {
     const report = await runBacktest({
       symbols: universe,
@@ -85,6 +90,7 @@ export async function GET(req: NextRequest) {
       targetR,
       attributeWithin: within as Bucket,
       ...(since !== null ? { since } : {}),
+      ...(useProductionStop ? { useProductionStop } : {}),
     });
     return NextResponse.json(report);
   } catch (err) {

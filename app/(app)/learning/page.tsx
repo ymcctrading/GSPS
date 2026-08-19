@@ -50,6 +50,12 @@ export default function LearningPage() {
   const [symbols, setSymbols] = useState(DEFAULT_SYMBOLS);
   const [within, setWithin] = useState<Bucket>("Execute");
   const [targetR, setTargetR] = useState("2");
+  // Walks the leeway/large-cap-widened stop instead of the raw pattern one —
+  // see ReplayOptions.useProductionStop. Off by default so a first run shows
+  // the harness's original, already-understood behaviour; toggling it and
+  // re-running is how the "Large-cap vs. not" card below becomes a real
+  // before/after rather than one static split.
+  const [productionStop, setProductionStop] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<BacktestReport | null>(null);
@@ -105,6 +111,7 @@ export default function LearningPage() {
         symbols: list.join(","),
         within: bucket,
         targetR,
+        ...(productionStop ? { productionStop: "1" } : {}),
       });
       const res = await fetch(`/api/backtest?${params}`);
       const body = await res.json();
@@ -161,6 +168,17 @@ export default function LearningPage() {
               {loading ? "Replaying…" : "Run"}
             </Button>
           </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={productionStop}
+              onChange={(e) => setProductionStop(e.target.checked)}
+              className="h-4 w-4"
+            />
+            <span>
+              Walk the widened stop (large-cap leeway + ceiling) instead of the raw pattern one
+            </span>
+          </label>
           {error && <p className="text-sm text-bear">{error}</p>}
         </CardContent>
       </Card>
@@ -257,6 +275,63 @@ export default function LearningPage() {
               </Table>
             </CardContent>
           </Card>
+
+          {report.largeCapSplit && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Large-cap vs. not</CardTitle>
+                <CardDescription>
+                  Every trade, split by whether its symbol read as large-cap at the time —
+                  independent of verdict. Stop model:{" "}
+                  <span className="font-medium text-foreground">
+                    {report.useProductionStop
+                      ? "production (leeway + large-cap widening)"
+                      : "raw pattern (original harness behaviour)"}
+                  </span>
+                  . With the widened stop off, both rows are walked against the identical,
+                  unwidened stop, so a difference between them describes large-cap names
+                  generally, not the widening — toggle the checkbox above and re-run, then
+                  compare the Large-cap row across both runs to isolate the widening&apos;s own
+                  effect.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <THead>
+                    <TR>
+                      <TH />
+                      <TH className="text-right">Trades</TH>
+                      <TH className="text-right">Win rate</TH>
+                      <TH className="text-right">Expectancy</TH>
+                      <TH className="text-right">Total</TH>
+                    </TR>
+                  </THead>
+                  <TBody>
+                    {(
+                      [
+                        ["Large-cap", report.largeCapSplit.largeCap],
+                        ["Not large-cap", report.largeCapSplit.notLargeCap],
+                      ] as const
+                    ).map(([label, s]) => (
+                      <TR key={label}>
+                        <TD className="font-medium">{label}</TD>
+                        <TD className="text-right tabular-nums">{s.trades}</TD>
+                        <TD className="text-right tabular-nums">
+                          {s.trades === 0 ? "—" : pct(s.winRate)}
+                        </TD>
+                        <TD className={cn("text-right tabular-nums", toneFor(s.expectancyR))}>
+                          {s.trades === 0 ? "—" : r(s.expectancyR)}
+                        </TD>
+                        <TD className={cn("text-right tabular-nums", toneFor(s.totalR))}>
+                          {s.trades === 0 ? "—" : r(s.totalR)}
+                        </TD>
+                      </TR>
+                    ))}
+                  </TBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>
