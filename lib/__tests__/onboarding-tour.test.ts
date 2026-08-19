@@ -14,7 +14,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { TOUR_STEPS, TOUR_STEP_COUNT, TOUR_VERSION, stepById } from "@/lib/onboarding/tour";
+import { TOUR_STEPS, TOUR_STEP_COUNT, TOUR_VERSION, stepById, stepLink } from "@/lib/onboarding/tour";
 import {
   SNAPSHOT_ACCOUNT,
   SNAPSHOT_BARS,
@@ -32,7 +32,17 @@ import {
 } from "@/lib/guided/config";
 import { exitSentence, riskRewardSentence } from "@/lib/guided/copy";
 
-/** Every `data-tour` value the nav actually renders, derived the same way it is. */
+/**
+ * Every `data-tour` value rendered anywhere in the app.
+ *
+ * The nav tabs are still anchored (and still used by nothing, now that steps
+ * point at page sections) but the list that matters is the second one: these
+ * are attributes on real page content, added solely for the tour, and a step
+ * naming one that no page renders is the failure this list exists to catch.
+ *
+ * Kept by hand rather than grepped: a test that discovers its own expectations
+ * from the source it is testing passes whatever the source happens to say.
+ */
 const NAV_ANCHORS = [
   "/dashboard",
   "/guided",
@@ -43,6 +53,34 @@ const NAV_ANCHORS = [
   "/glossary",
   "/settings",
 ].map((href) => `nav-${href.slice(1)}`);
+
+/** Anchors on page content, one per section a step points at. */
+const PAGE_ANCHORS = [
+  "dash-watchlist",
+  "dash-setups",
+  "guided-card",
+  "scanner-universe",
+  "scanner-results",
+  "portfolio-account",
+  "automation-deployments",
+  "backtest-run",
+  "glossary-terms",
+  "settings-caps",
+];
+
+const ALL_ANCHORS = [...NAV_ANCHORS, ...PAGE_ANCHORS];
+
+/** Routes the app actually serves, for the steps that navigate. */
+const ROUTES = [
+  "/dashboard",
+  "/guided",
+  "/scanner",
+  "/portfolio",
+  "/automation",
+  "/learning",
+  "/glossary",
+  "/settings",
+];
 
 const FIGURES = ["none", "chart", "plan", "scan", "guided", "exits", "portfolio", "backtest", "caps"];
 
@@ -71,11 +109,55 @@ describe("tour structure", () => {
     // therefore the one nothing else would report.
     const anchors = TOUR_STEPS.map((s) => s.anchor).filter((a): a is string => Boolean(a));
     expect(anchors.length).toBeGreaterThan(0);
-    for (const anchor of anchors) expect(NAV_ANCHORS).toContain(anchor);
+    for (const anchor of anchors) expect(ALL_ANCHORS).toContain(anchor);
+  });
+
+  it("points at page content rather than nav tabs", () => {
+    // The whole point of the change: a step about the Settings limits should
+    // highlight the limits, not the Settings tab with the Dashboard behind it.
+    const anchors = TOUR_STEPS.map((s) => s.anchor).filter((a): a is string => Boolean(a));
+    expect(anchors.filter((a) => PAGE_ANCHORS.includes(a)).length).toBeGreaterThanOrEqual(10);
+  });
+
+  it("navigates to a route the app serves", () => {
+    const routed = TOUR_STEPS.filter((s) => s.route);
+    expect(routed.length).toBeGreaterThanOrEqual(10);
+    for (const step of routed) expect(ROUTES).toContain(step.route);
+  });
+
+  it("puts every anchored step on the page holding its anchor", () => {
+    // An anchor without a route would only resolve if the reader happened to
+    // already be on the right page — which is exactly the bug being fixed.
+    for (const step of TOUR_STEPS) {
+      if (step.anchor && PAGE_ANCHORS.includes(step.anchor)) {
+        expect(step.route, `step "${step.id}" anchors page content but has no route`).toBeTruthy();
+      }
+    }
   });
 
   it("only asks for figures that exist", () => {
     for (const step of TOUR_STEPS) expect(FIGURES).toContain(step.figure);
+  });
+
+  it("offers a way onward from every step that names a destination", () => {
+    // /welcome is read rather than walked, so a step whose overlay version
+    // navigates on the reader's behalf still needs a link there. Losing these
+    // was a real regression when steps traded `href` for `route`.
+    for (const step of TOUR_STEPS) {
+      if (!step.route) continue;
+      const link = stepLink(step);
+      expect(link, `step "${step.id}" has a route but no link for /welcome`).not.toBeNull();
+      expect(link!.href.startsWith("/")).toBe(true);
+      expect(link!.label.length).toBeGreaterThan(4);
+    }
+  });
+
+  it("prefers an explicit link over the step's own route", () => {
+    // The chart step routes to the dashboard but its link says "pick a symbol",
+    // which is a different and better instruction than "open the Dashboard".
+    const chart = stepById("chart")!;
+    expect(chart.href).toBe("/dashboard");
+    expect(stepLink(chart)!.label).toBe(chart.hrefLabel);
   });
 
   it("gives every in-app link a label, and every label a link", () => {

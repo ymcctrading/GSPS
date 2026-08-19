@@ -73,6 +73,16 @@ export interface TourStep {
   body: string[];
   /** `data-tour` value of the element to spotlight, when the step has one. */
   anchor?: string;
+  /**
+   * The page this step is about. The overlay navigates here on entry, so the
+   * screen behind the bubble is the screen being described.
+   *
+   * Distinct from `href`, which is an optional extra link the reader may follow
+   * themselves. A step that explains the Settings limits sets `route` to
+   * `/settings`; a step that says "pick any symbol" sets `href` to the
+   * dashboard without claiming the dashboard is what it is describing.
+   */
+  route?: string;
   /** Where this step lives in the app, for the "take me there" link. */
   href?: string;
   /** Label for that link. Reads as an instruction, not a destination name. */
@@ -105,8 +115,8 @@ export const TOUR_STEPS: TourStep[] = [
     id: "practice-money",
     title: "Everything here is practice money",
     figure: "portfolio",
-    href: "/portfolio",
-    hrefLabel: "Open your Portfolio",
+    route: "/portfolio",
+    anchor: "portfolio-account",
     body: [
       "Your account opens with $100,000 that does not exist. No bank details, no deposit, nothing real at stake.",
       "The industry calls this paper trading. Real prices, real results, imaginary money \u2014 a flight simulator for the stock market. Crash as often as you like.",
@@ -128,9 +138,8 @@ export const TOUR_STEPS: TourStep[] = [
     id: "dashboard",
     title: "Dashboard \u2014 the morning briefing",
     figure: "scan",
-    anchor: "nav-dashboard",
-    href: "/dashboard",
-    hrefLabel: "Open the Dashboard",
+    route: "/dashboard",
+    anchor: "dash-setups",
     body: [
       "Your home screen. Once a day GSPS reviews the market and posts the findings here, so ten seconds gives you the state of play.",
       "Findings split two ways: symbols expected to rise, and symbols expected to fall. Each row carries a score out of 9 and a one-word verdict.",
@@ -142,9 +151,8 @@ export const TOUR_STEPS: TourStep[] = [
     id: "guided",
     title: "Guided \u2014 start here",
     figure: "guided",
-    anchor: "nav-guided",
-    href: "/guided",
-    hrefLabel: "Open Guided",
+    route: "/guided",
+    anchor: "guided-card",
     body: [
       "Guided is the simplest route through GSPS, and the right place to begin.",
       "Rather than a screen of figures, Guided presents one recommendation at a time in full sentences: the action, the reasoning behind it, the cost, and the downside.",
@@ -156,9 +164,8 @@ export const TOUR_STEPS: TourStep[] = [
     id: "guided-size",
     title: "GSPS calculates the position size",
     figure: "guided",
-    anchor: "nav-guided",
-    href: "/guided",
-    hrefLabel: "Open Guided",
+    route: "/guided",
+    anchor: "guided-card",
     body: [
       "Choosing how many shares to buy is where beginners lose money, so GSPS makes that call for you.",
       "The example lands on 36 shares after two safety limits are checked. The first caps any single trade at 1% of the account, which would permit 135 shares. The second caps total holdings at a quarter of the account, which permits only 36.",
@@ -170,9 +177,8 @@ export const TOUR_STEPS: TourStep[] = [
     id: "guided-confirm",
     title: "Nothing reaches the market without your approval",
     figure: "none",
-    anchor: "nav-guided",
-    href: "/guided",
-    hrefLabel: "Open Guided",
+    route: "/guided",
+    anchor: "guided-card",
     body: [
       "The button on a recommendation places no order. Tapping opens a summary \u2014 symbol, buy or sell, share count, both dollar figures \u2014 and a second, separate approval.",
       "Declining costs nothing. Skip a recommendation and Guided moves to the next one.",
@@ -184,9 +190,8 @@ export const TOUR_STEPS: TourStep[] = [
     id: "scanner",
     title: "Scanner \u2014 search on your own terms",
     figure: "scan",
-    anchor: "nav-scanner",
-    href: "/scanner",
-    hrefLabel: "Open the Scanner",
+    route: "/scanner",
+    anchor: "scanner-universe",
     body: [
       "The Scanner runs the same analysis Guided runs, except you choose the targets. Enter any list of symbols and GSPS reports back on each one.",
       "Useful when a particular company is already on your mind \u2014 a store you shop at, a former employer \u2014 and you want a read on that company right now.",
@@ -197,6 +202,8 @@ export const TOUR_STEPS: TourStep[] = [
     id: "chart",
     title: "The symbol page \u2014 one company up close",
     figure: "plan",
+    route: "/dashboard",
+    anchor: "dash-watchlist",
     href: "/dashboard",
     hrefLabel: "Pick a symbol from the Dashboard",
     body: [
@@ -210,8 +217,8 @@ export const TOUR_STEPS: TourStep[] = [
     id: "levels",
     title: "The grey lines and shaded bands",
     figure: "chart",
-    href: "/glossary",
-    hrefLabel: "Look these up in the Glossary",
+    route: "/glossary",
+    anchor: "glossary-terms",
     body: [
       "Faint grey lines and shaded bands also appear on the chart, marking price areas where the market has slowed or reversed before.",
       "Treat those bands as an unofficial floor and ceiling \u2014 printed nowhere, watched by plenty of traders, and often where a move runs out of steam.",
@@ -223,9 +230,8 @@ export const TOUR_STEPS: TourStep[] = [
     id: "portfolio",
     title: "Portfolio \u2014 the complete record",
     figure: "portfolio",
-    anchor: "nav-portfolio",
-    href: "/portfolio",
-    hrefLabel: "Open your Portfolio",
+    route: "/portfolio",
+    anchor: "portfolio-account",
     body: [
       "Your account and your history in one place: practice balance, current holdings, and the outcome of every trade closed so far.",
       "Holdings sort into five lists. Open covers what you hold now. Pending covers orders waiting for a price. Rejected covers orders the broker refused, with the reason attached. Closed covers finished trades. Canceled or Expired covers the remainder.",
@@ -237,9 +243,8 @@ export const TOUR_STEPS: TourStep[] = [
     id: "automation",
     title: "Automation \u2014 selling in stages",
     figure: "exits",
-    anchor: "nav-automation",
-    href: "/automation",
-    hrefLabel: "Open Automation",
+    route: "/automation",
+    anchor: "automation-deployments",
     body: [
       "Knowing when to sell is harder than knowing when to buy, so GSPS divides the exit into stages.",
       "The bulk of a position sells at the first profit target. A further slice sells at the second. A small remainder stays open in case the price keeps climbing.",
@@ -251,9 +256,8 @@ export const TOUR_STEPS: TourStep[] = [
     id: "backtest",
     title: "Backtest \u2014 checking the record",
     figure: "backtest",
-    anchor: "nav-learning",
-    href: "/learning",
-    hrefLabel: "Open Backtest",
+    route: "/learning",
+    anchor: "backtest-run",
     body: [
       "Backtest replays GSPS's rules across past market data and reports the outcome. Consider this the honesty check.",
       "Two figures matter: how often these setups made money, and how much the average trade returned against what that trade risked.",
@@ -265,9 +269,8 @@ export const TOUR_STEPS: TourStep[] = [
     id: "glossary",
     title: "Glossary \u2014 every term defined",
     figure: "none",
-    anchor: "nav-glossary",
-    href: "/glossary",
-    hrefLabel: "Open the Glossary",
+    route: "/glossary",
+    anchor: "glossary-terms",
     body: [
       "Plain-English definitions for the whole vocabulary: entry, stop loss, long, short, and the rest.",
       "Lean on the Glossary freely. Nobody arrives knowing these words, and a definition takes ten seconds to read.",
@@ -278,9 +281,8 @@ export const TOUR_STEPS: TourStep[] = [
     id: "settings",
     title: "Settings \u2014 where the limits live",
     figure: "caps",
-    anchor: "nav-settings",
-    href: "/settings",
-    hrefLabel: "Open Settings",
+    route: "/settings",
+    anchor: "settings-caps",
     body: [
       "Settings holds the safety limits \u2014 the rules that produced 36 shares instead of 135.",
       "The shipped values are deliberately cautious. Loosening them is allowed; pushing past the hard ceiling is not, because that ceiling is the entire point.",
@@ -305,6 +307,38 @@ export const TOUR_STEPS: TourStep[] = [
 
 /** Total steps, for "Step 3 of 15" counters that must not drift from the list. */
 export const TOUR_STEP_COUNT = TOUR_STEPS.length;
+
+/**
+ * Where a step's "take me there" link should point on the reading page.
+ *
+ * `/welcome` is read rather than walked — nothing navigates on the reader's
+ * behalf there — so every step that names a destination should offer a way to
+ * reach it. Most steps carry a `route` (used by the overlay to navigate) and no
+ * `href`; a few carry an `href` to somewhere they are not describing, like the
+ * chart step pointing at the dashboard to pick a symbol from. The explicit
+ * `href` wins where both exist, because it was chosen for the reader rather
+ * than for the overlay.
+ */
+export function stepLink(step: TourStep): { href: string; label: string } | null {
+  if (step.href && step.hrefLabel) return { href: step.href, label: step.hrefLabel };
+  if (step.route) return { href: step.route, label: `Open ${routeLabel(step.route)}` };
+  return null;
+}
+
+const ROUTE_LABELS: Record<string, string> = {
+  "/dashboard": "the Dashboard",
+  "/guided": "Guided",
+  "/scanner": "the Scanner",
+  "/portfolio": "your Portfolio",
+  "/automation": "Automation",
+  "/learning": "Backtest",
+  "/glossary": "the Glossary",
+  "/settings": "Settings",
+};
+
+function routeLabel(route: string): string {
+  return ROUTE_LABELS[route] ?? route;
+}
 
 /** Lookup by id, for deep links into a single step on /welcome. */
 export function stepById(id: string): TourStep | undefined {

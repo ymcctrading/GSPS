@@ -37,7 +37,7 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SnapshotFigure } from "@/components/onboarding/snapshot-figure";
@@ -46,6 +46,15 @@ import type { TourOutcome } from "@/lib/onboarding/status";
 
 /** Padding around the spotlit element, so the ring does not sit on its edge. */
 const HOLE_PAD = 6;
+/**
+ * How long to keep re-measuring after a step opens.
+ *
+ * Covers a navigation, a fetch and a smooth scroll settling. Bounded rather
+ * than indefinite: a permanent 4-per-second interval behind a tour someone
+ * left open is a battery cost for no benefit, and by this point either the
+ * anchor exists or the centred fallback is the right answer anyway.
+ */
+const ANCHOR_SETTLE_MS = 6000;
 /** Card width, and the room a card needs before it will sit on a given side. */
 const CARD_W = 360;
 const CARD_SPACE = 300;
@@ -108,6 +117,7 @@ export function TourOverlay({ open, onClose }: { open: boolean; onClose: (outcom
   const [rect, setRect] = React.useState<Rect | null>(null);
   const cardRef = React.useRef<HTMLDivElement>(null);
   const pathname = usePathname();
+  const router = useRouter();
 
   const mounted = React.useSyncExternalStore(
     () => () => {},
@@ -134,26 +144,74 @@ export function TourOverlay({ open, onClose }: { open: boolean; onClose: (outcom
     if (open) setIndex(0);
   }
 
-  // Measure the anchor. Re-runs on step change, on navigation (a step's link
-  // may have moved the page under the overlay), and on resize — a phone
-  // rotating swaps the top bar for the tab bar, which moves every anchor.
+  // Take the reader to the page the step is about, so the screen behind the
+  // bubble is the screen being described rather than whichever one they
+  // happened to be on. `startsWith` because a step naming /ticker should not
+  // bounce a reader already looking at /ticker/AAPL back to a bare route.
   React.useEffect(() => {
-    if (!open) return;
-    const measure = () => setRect(resolveAnchor(step?.anchor));
-    measure();
-    window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
-  }, [open, step?.anchor, pathname]);
+    if (!open || !step?.route) return;
+    if (!pathname.startsWith(step.route)) router.push(step.route);
+  }, [open, step?.route, pathname, router]);
 
-  // Freeze the page behind, as Modal does.
+  // Find and follow the anchor.
+  //
+  // Three things make this harder than reading a rect once. The page may still
+  // be navigating. The element may not exist yet — Guided runs a live scan,
+  // Settings fetches its caps, the Dashboard may still be building today's
+  // list — so the anchor can arrive seconds after the step does. And an in-page
+  // section is usually below the fold, unlike a nav tab.
+  //
+  // So: watch the DOM until the anchor appears, scroll it into view once, then
+  // keep re-measuring as the page settles. If it never arrives, `rect` stays
+  // null and the bubble centres itself, which is a supported outcome rather
+  // than a failure — see the note at the top of this file.
   React.useEffect(() => {
     if (!open) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previous;
+    const anchor = step?.anchor;
+    let scrolled = false;
+    let cancelled = false;
+
+    const measure = () => {
+      if (cancelled) return;
+      const next = resolveAnchor(anchor);
+      setRect(next);
+      if (next && !scrolled) {
+        scrolled = true;
+        // `center` rather than `nearest`: a section flush against the sticky
+        // header is technically in view and reads as cut off.
+        //
+        // Feature-tested rather than called outright. Scrolling is a nicety —
+        // the ring and the bubble are already positioned correctly without it —
+        // so an environment that lacks it (jsdom under test, and any renderer
+        // that stubs layout) should quietly go without rather than throw and
+        // take the whole tour down.
+        const el = document.querySelector<HTMLElement>(`[data-tour="${CSS.escape(anchor!)}"]`);
+        if (typeof el?.scrollIntoView === "function") {
+          el.scrollIntoView({ block: "center", behavior: "smooth" });
+        }
+      }
     };
-  }, [open]);
+
+    measure();
+    // Re-measures while content loads in and while the smooth scroll runs.
+    const observer = new MutationObserver(measure);
+    observer.observe(document.body, { childList: true, subtree: true });
+    window.addEventListener("resize", measure);
+    window.addEventListener("scroll", measure, { passive: true });
+    // MutationObserver misses a rect that moved without the DOM changing —
+    // the tail of a smooth scroll, a font swapping in, an image settling.
+    const settle = window.setInterval(measure, 250);
+    const stopSettling = window.setTimeout(() => window.clearInterval(settle), ANCHOR_SETTLE_MS);
+
+    return () => {
+      cancelled = true;
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("scroll", measure);
+      window.clearInterval(settle);
+      window.clearTimeout(stopSettling);
+    };
+  }, [open, step?.anchor, pathname]);
 
   const next = React.useCallback(() => {
     setIndex((i) => {

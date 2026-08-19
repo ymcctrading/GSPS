@@ -113,7 +113,7 @@ export function GuidedCapsForm() {
   }
 
   return (
-    <Card>
+    <Card data-tour="settings-caps">
       <CardHeader>
         <CardTitle>Guided Mode limits</CardTitle>
         <CardDescription>

@@ -55,7 +55,7 @@ export default async function DashboardPage() {
         pricedBeforeSession={pricedBeforeSession}
       />
 
-      <Card>
+      <Card data-tour="dash-watchlist">
         <CardHeader>
           <CardTitle>Default watchlist</CardTitle>
           <CardDescription>Magnificent Seven, SPY, and BTC — open any symbol for a full protocol scan.</CardDescription>
@@ -75,7 +75,7 @@ export default async function DashboardPage() {
         </CardContent>
       </Card>
 
-      <div className="grid min-w-0 gap-4 sm:gap-6 lg:grid-cols-2">
+      <div data-tour="dash-setups" className="grid min-w-0 gap-4 sm:gap-6 lg:grid-cols-2">
         <ReversionPreview
           direction="bullish"
           rows={bullish}

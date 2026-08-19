@@ -20,7 +20,7 @@ import { Compass } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SnapshotDisclosure, SnapshotFigure } from "@/components/onboarding/snapshot-figure";
 import { StartTourButton } from "@/components/onboarding/tour-provider";
-import { TOUR_STEPS } from "@/lib/onboarding/tour";
+import { TOUR_STEPS, stepLink } from "@/lib/onboarding/tour";
 
 export const metadata = { title: "Getting started — GSPS" };
 
@@ -93,11 +93,14 @@ export default function WelcomePage() {
               </p>
             ))}
             <SnapshotFigure figure={step.figure} />
-            {step.href && step.hrefLabel && (
-              <Link href={step.href} className="w-fit text-sm font-medium text-accent hover:underline">
-                {step.hrefLabel} →
-              </Link>
-            )}
+            {(() => {
+              const link = stepLink(step);
+              return link ? (
+                <Link href={link.href} className="w-fit text-sm font-medium text-accent hover:underline">
+                  {link.label} →
+                </Link>
+              ) : null;
+            })()}
           </CardContent>
         </Card>
       ))}

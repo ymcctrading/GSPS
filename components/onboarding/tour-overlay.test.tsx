@@ -18,12 +18,20 @@ import userEvent from "@testing-library/user-event";
 import { TourOverlay } from "./tour-overlay";
 import { TOUR_STEPS } from "@/lib/onboarding/tour";
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/dashboard" }));
+// The overlay navigates to each step's page, so the router is part of the
+// contract now rather than incidental. `push` is captured so a test can assert
+// the tour actually took the reader somewhere.
+const push = vi.fn();
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/dashboard",
+  useRouter: () => ({ push: (...args: unknown[]) => push(...args) }),
+}));
 
 const onClose = vi.fn();
 
 beforeEach(() => {
   onClose.mockReset();
+  push.mockReset();
 });
 
 /** Give one element a real rect, the way a laid-out browser would. */
@@ -120,10 +128,12 @@ describe("moving through the steps", () => {
 
 describe("pointing at things", () => {
   it("keeps running when a step's anchor is not on the page", async () => {
-    // The Glossary gives up its slot in the phone tab bar, so on a phone this
-    // is the ordinary case, not a bug. The step still has to be readable.
+    // Page sections load asynchronously — Guided runs a live scan, Settings
+    // fetches its caps — so an anchor that is not in the DOM yet, or never
+    // arrives, is the ordinary case rather than a bug. The step still has to
+    // be readable.
     const user = userEvent.setup();
-    const glossaryIndex = TOUR_STEPS.findIndex((s) => s.anchor === "nav-glossary");
+    const glossaryIndex = TOUR_STEPS.findIndex((s) => s.anchor === "glossary-terms");
     expect(glossaryIndex).toBeGreaterThan(0);
 
     render(<TourOverlay open onClose={onClose} />);
@@ -135,15 +145,15 @@ describe("pointing at things", () => {
   });
 
   it("spotlights a laid-out anchor rather than a hidden duplicate of it", async () => {
-    // The nav renders `nav-dashboard` twice — top bar and tab bar — and exactly
-    // one of them has a size at any breakpoint. The zero-size one must lose.
+    // A section can appear twice in the DOM across breakpoints, and only one
+    // copy has a size at a time. The zero-size one must lose.
     const hidden = document.createElement("a");
-    hidden.setAttribute("data-tour", "nav-dashboard");
+    hidden.setAttribute("data-tour", "dash-setups");
     document.body.appendChild(hidden);
-    const visible = layOutAnchor("nav-dashboard");
+    const visible = layOutAnchor("dash-setups");
 
     const user = userEvent.setup();
-    const dashboardIndex = TOUR_STEPS.findIndex((s) => s.anchor === "nav-dashboard");
+    const dashboardIndex = TOUR_STEPS.findIndex((s) => s.anchor === "dash-setups");
     render(<TourOverlay open onClose={onClose} />);
     for (let i = 0; i < dashboardIndex; i++) {
       await user.click(screen.getByRole("button", { name: /Next/ }));
@@ -157,6 +167,40 @@ describe("pointing at things", () => {
 
     hidden.remove();
     visible.remove();
+  });
+});
+
+describe("taking the reader to the page", () => {
+  it("navigates to the page a step is about", async () => {
+    // The bug this whole change exists to fix: a step describing the Settings
+    // limits while the Dashboard sat behind it.
+    const user = userEvent.setup();
+    const settingsIndex = TOUR_STEPS.findIndex((s) => s.route === "/settings");
+    expect(settingsIndex).toBeGreaterThan(0);
+
+    render(<TourOverlay open onClose={onClose} />);
+    for (let i = 0; i < settingsIndex; i++) {
+      await user.click(screen.getByRole("button", { name: /Next/ }));
+    }
+    expect(push).toHaveBeenCalledWith("/settings");
+  });
+
+  it("does not navigate away from a page it is already on", () => {
+    // usePathname is mocked to /dashboard, and the opening step has no route,
+    // so nothing should move. A tour that re-pushes the current route on every
+    // render would fight the user's own scrolling.
+    render(<TourOverlay open onClose={onClose} />);
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("gives every routed step a route that exists in the app", () => {
+    const known = [
+      "/dashboard", "/guided", "/scanner", "/portfolio",
+      "/automation", "/learning", "/glossary", "/settings",
+    ];
+    for (const step of TOUR_STEPS) {
+      if (step.route) expect(known).toContain(step.route);
+    }
   });
 });
 
