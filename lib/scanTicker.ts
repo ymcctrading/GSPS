@@ -34,6 +34,7 @@ import {
   riskFloorViolated,
 } from "@/lib/strat/patterns";
 import { computeTradeLevels } from "@/lib/strat/levels";
+import { isLargeCapStock } from "@/lib/strat/large-cap";
 import { applyDataLagHold, applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
 import { decisionLag, feedDelayMs } from "@/lib/data/latency";
 import { marketSession } from "@/lib/market/session";
@@ -191,6 +192,12 @@ export async function scanTicker(
     // — price, trends, structural levels, checklist — is still valid and worth
     // showing, so it degrades to "no levels" with a note instead of collapsing
     // the whole scan into an error and leaving the ticker page blank.
+    // Read once, shared by the large-cap check below and the `liquidity` field
+    // on the returned result — same daily bars either way, no reason to read
+    // them twice.
+    const liquidity = readLiquidity(daily) ?? undefined;
+    const largeCap = isLargeCapStock(symbol, assetClass, liquidity);
+
     let levels: TradeLevels | null = null;
     let levelsError: string | undefined;
     if (pattern) {
@@ -202,6 +209,7 @@ export async function scanTicker(
           optionPremium,
           executionAtr,
           assetClass,
+          largeCap,
         );
       } catch (err) {
         levelsError = err instanceof Error ? err.message : String(err);
@@ -286,7 +294,7 @@ export async function scanTicker(
       // Read off the same daily bars the structure was computed from, so any
       // consumer can apply the platform-wide liquidity floor without a second
       // fetch — see lib/scan/liquidity.ts.
-      liquidity: readLiquidity(daily) ?? undefined,
+      liquidity,
       optionPremium,
     };
   } catch (err) {

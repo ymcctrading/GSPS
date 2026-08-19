@@ -23,6 +23,8 @@ import type { AssetClass, Bar, GannLevels, ScanDecision, StratPattern, TrendRead
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { detectPatterns, gapRuleViolated, riskFloorViolated } from "@/lib/strat/patterns";
 import { computeTradeLevels } from "@/lib/strat/levels";
+import { isLargeCapStock } from "@/lib/strat/large-cap";
+import { readLiquidity } from "@/lib/scan/liquidity";
 import { applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
 import {
   FALLBACK_SR_PCT,
@@ -296,6 +298,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
 
       const decision = dailyBars
         ? scoreSetup({
+            symbol,
             pattern,
             dailyBars,
             contextByDate,
@@ -408,6 +411,7 @@ export function combine(results: ReplayResult[]): ReplayResult {
  * of the difference is deliberate: a replay that peeks is worthless.
  */
 function scoreSetup(input: {
+  symbol: string;
   pattern: StratPattern;
   dailyBars: Bar[];
   contextByDate: Map<string, MacroContext | null>;
@@ -418,12 +422,17 @@ function scoreSetup(input: {
   assetClass: AssetClass;
   weights?: CriterionWeights;
 }): ScanDecision | undefined {
-  const { pattern, dailyBars, contextByDate, date, history, price, executionAtr, assetClass, weights } =
+  const { symbol, pattern, dailyBars, contextByDate, date, history, price, executionAtr, assetClass, weights } =
     input;
+
+  // Strictly prior sessions, reused for both macro context and the
+  // large-cap read below — a backtest that peeked at same-day-or-later bars
+  // to decide whether a name gets the wider stop would be worthless in
+  // exactly the way the module comment above warns about for scoring.
+  const priorSessions = dailyBars.filter((b) => b.t.slice(0, 10) < date);
 
   let context = contextByDate.get(date);
   if (context === undefined) {
-    const priorSessions = dailyBars.filter((b) => b.t.slice(0, 10) < date);
     context =
       priorSessions.length >= MIN_DAILY_BARS_FOR_SCORE
         ? buildMacroContext(priorSessions, price)
@@ -436,6 +445,8 @@ function scoreSetup(input: {
   // readTrend looks back over and keeps the roll-up cheap.
   const hourlyTrend = readTrend(rollUp(history.slice(-400), (b) => b.t.slice(0, 13)), "1Hour");
 
+  const largeCap = isLargeCapStock(symbol, assetClass, readLiquidity(priorSessions));
+
   let levels = null;
   try {
     levels = computeTradeLevels(
@@ -445,6 +456,7 @@ function scoreSetup(input: {
       undefined,
       executionAtr,
       assetClass,
+      largeCap,
     );
   } catch {
     // A setup with no valid plan is scored without one, exactly as the scan

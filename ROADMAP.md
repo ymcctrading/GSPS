@@ -113,6 +113,14 @@ both signal discovery and execution.
   existing risk cap — a tight structural stop was sizing correctly-risked but
   triple-digit-share, tens-of-thousands-of-dollars recommendations that read
   as intimidating rather than as one ordinary trade to a first-time user.
+  *(2026-08-19)* Followed up with a core-engine change (not Guided-Mode-only):
+  large-cap stocks now get a wider stop-loss leeway and ceiling
+  (`lib/strat/large-cap.ts`, `lib/strat/levels.ts`), so an ordinary swing on a
+  mega-cap name doesn't clip the stop before the setup can move, and the wider
+  risk-per-share also shrinks the share count needed at a given risk budget —
+  compounding with the notional cap above. This touches every scan and the
+  score, not only Guided Mode, and is unmeasured against the backtest replay
+  as of this writing — see `docs/BACKTESTING.md`.
 - **Referral program (minimal)** *(2026-08-19, out-of-phase)* — a per-user
   referral link (`/r/<username>`), click counter, and signup attribution,
   surfaced in Settings. Not named in this roadmap's Q1 initiatives — it was

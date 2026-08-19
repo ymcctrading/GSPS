@@ -30,6 +30,17 @@ date.
   Added a fifth ceiling, a per-trade notional cap (8% of paper equity by
   default, editable in Settings → Guided Mode limits), that applies to stocks
   only — crypto guided trades are unaffected. See `docs/GUIDED_DECISION_MODE.md`.
+- **Large-cap stocks get a wider stop, platform-wide.** Follow-up to the
+  sizing fix above: `lib/strat/levels.ts`'s stop-placement leeway (0.10x an
+  execution candle) and ceiling (2.5x) were clipping large-cap names before
+  an ordinary swing had room to work — the setup was right, the stop was
+  just narrower than the name's own noise floor. Large-cap stocks (known
+  mega-cap list, or a price-and-turnover proxy for names not on it — see
+  `lib/strat/large-cap.ts`) now get 0.25x leeway and a 3.5x ceiling instead.
+  This is a core-engine change: it affects every scan and the score, not
+  only Guided Mode, since a wider risk-per-share also means fewer shares at
+  the same risk budget. Unlike the notional cap above, this has not been
+  separately measured against the backtest replay — see `docs/BACKTESTING.md`.
 
 ## 2026-08-18
 

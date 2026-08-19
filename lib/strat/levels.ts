@@ -26,6 +26,35 @@ import { readPremiumStop } from "@/lib/trade/premium-stop";
 export const MAX_STOP_ATR_MULTIPLE = 2.5;
 
 /**
+ * The large-cap widening. A structural stop this tight on a mega-cap name
+ * routinely gets clipped by ordinary intraday noise before the setup has had
+ * room to move — the trade was right, the stop was just narrower than the
+ * name's own noise floor. Both numbers below only apply when
+ * `isLargeCapStock` (lib/strat/large-cap.ts) says so:
+ *
+ *   - The noise-leeway buffer more than doubles (0.10x -> 0.25x an average
+ *     execution candle), so the stop sits further behind the structural
+ *     level before the leeway trims it back.
+ *   - The ceiling widens from 2.5x to 3.5x, so a structural stop that would
+ *     otherwise be clipped back to the 2.5x ceiling can stay closer to the
+ *     level that actually invalidates the setup.
+ *
+ * The effect compounds with the per-trade notional cap added to Guided Mode
+ * this session (lib/guided/config.ts): a wider stop means more risk per
+ * share, so the same risk-percent budget buys fewer shares — directly
+ * addressing the "why is this recommending 100+ shares" complaint from the
+ * same conversation, on top of fixing premature stop-outs.
+ *
+ * This is a deliberate, unmeasured widening — the 2.5x ceiling above and the
+ * 0.10x leeway were derived from an AAPL sample (see their own comments);
+ * this pair has not been separately backtested. Treat it as a hypothesis to
+ * validate once `docs/BACKTESTING.md`'s replay can be run against it, not as
+ * a re-tuned constant with the same evidence behind it.
+ */
+export const LARGE_CAP_LEEWAY_ATR = 0.25;
+export const LARGE_CAP_MAX_STOP_ATR_MULTIPLE = 3.5;
+
+/**
  * Default TP1 R-multiple by asset class. Most strategies hit higher win rates
  * with moderate first targets (1.5R), scaling the runner (TP2) higher to keep
  * upside. Adjusted for market microstructure and typical move distribution.
@@ -68,13 +97,15 @@ function computeStopWithLeeway(params: {
   entry: number;
   structuralStop: number;
   atr15: number;
+  /** Large-cap stocks get more noise leeway and a wider ceiling — see the constants' own comments. */
+  largeCap?: boolean;
 }) {
-  const { side, entry, structuralStop, atr15 } = params;
+  const { side, entry, structuralStop, atr15, largeCap = false } = params;
 
-  const leewayAtr = 0.1; // 0.10×ATR leeway
+  const leewayAtr = largeCap ? LARGE_CAP_LEEWAY_ATR : 0.1; // ATR leeway
   const minStopPct = 0.001; // 0.1% of price
   const minStopWidth = Math.max(entry * minStopPct, 0.1 * atr15);
-  const maxStopWidth = MAX_STOP_ATR_MULTIPLE * atr15;
+  const maxStopWidth = (largeCap ? LARGE_CAP_MAX_STOP_ATR_MULTIPLE : MAX_STOP_ATR_MULTIPLE) * atr15;
 
   const leewayCandidate =
     side === "long"
@@ -112,9 +143,12 @@ export function computeTradeLevels(
   optionPremium?: number,
   executionAtr?: number,
   assetClass?: AssetClass,
+  /** Widens the stop's noise leeway and ceiling — see `LARGE_CAP_LEEWAY_ATR`. Stocks only; ignored for crypto. */
+  largeCap = false,
 ): TradeLevels {
   const entry = pattern.triggerPrice;
   const dir = pattern.direction === "bullish" ? 1 : -1;
+  const effectiveLargeCap = largeCap && assetClass !== "crypto";
 
   // Compute stop with ATR leeway (structural boundary + buffer for noise)
   // If no ATR available, fall back to structural stop only.
@@ -125,6 +159,7 @@ export function computeTradeLevels(
       entry,
       structuralStop: pattern.stopPrice,
       atr15: executionAtr,
+      largeCap: effectiveLargeCap,
     });
   }
 
@@ -201,7 +236,8 @@ export function computeTradeLevels(
     // 0.1–1%, which can never reach 12% — so the old fallback warned on every
     // equity scan, and told the reader to increase size while doing it.
     const atrMultiple = structuralRisk / executionAtr;
-    if (atrMultiple > MAX_STOP_ATR_MULTIPLE) {
+    const effectiveMaxStopAtrMultiple = effectiveLargeCap ? LARGE_CAP_MAX_STOP_ATR_MULTIPLE : MAX_STOP_ATR_MULTIPLE;
+    if (atrMultiple > effectiveMaxStopAtrMultiple) {
       stopBandWarning = `Structural stop is ${atrMultiple.toFixed(1)}× the average candle on the execution timeframe — an unusually wide setup. Reduce size, or wait for a tighter trigger.`;
     }
   }
