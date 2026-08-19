@@ -5,17 +5,19 @@ import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { StrikeOrderModal, type StrikeSelection } from "@/components/trade/strike-order-modal";
 import { classifyMoneyness, strikeStep, type Moneyness } from "@/lib/options/contracts";
+import { CompanyPanel } from "@/components/chart/company-panel";
 import { formatUsd } from "@/lib/utils";
 import type { ScanResult, TradeLevels } from "@/lib/types";
 import { tradeSideLabel } from "@/lib/scoring/direction-copy";
 import type { OptionChain, OptionContract, Level2Book } from "@/lib/data/provider";
 
-type Tab = "research" | "options" | "levelii";
+type Tab = "research" | "options" | "levelii" | "company";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "research", label: "Research" },
   { id: "options", label: "Options" },
   { id: "levelii", label: "Level II" },
+  { id: "company", label: "Company" },
 ];
 
 export function MarketTabs({ symbol, result }: { symbol: string; result?: ScanResult | null }) {
@@ -45,6 +47,7 @@ export function MarketTabs({ symbol, result }: { symbol: string; result?: ScanRe
           <OptionsPanel symbol={symbol} levels={result?.levels ?? null} />
         )}
         {tab === "levelii" && <Level2Panel symbol={symbol} />}
+        {tab === "company" && <CompanyPanel symbol={symbol} result={result} />}
       </div>
     </div>
   );
@@ -55,7 +58,7 @@ export function MarketTabs({ symbol, result }: { symbol: string; result?: ScanRe
  * reads as a wait-and-retry rather than as a broken symbol — which is how the
  * raw `too many requests.` body used to land here.
  */
-function PanelError({ message, onRetry }: { message: string; onRetry?: () => void }) {
+export function PanelError({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
     <div className="rounded-lg border border-bear/40 bg-bear-soft p-3 text-sm text-bear">
       <p className="break-words">{message}</p>
@@ -770,6 +773,6 @@ function DepthColumn({
 
 /* ------------------------------------------------------------------ shared */
 
-function Skeleton({ label }: { label: string }) {
+export function Skeleton({ label }: { label: string }) {
   return <div className="py-8 text-center text-sm text-muted">{label}</div>;
 }
