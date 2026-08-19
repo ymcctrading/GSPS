@@ -18,6 +18,7 @@ import {
 } from "@/lib/trade/protocol-rules";
 import { GuidedCapsForm } from "@/components/guided/guided-caps-form";
 import { AccountSettings } from "@/components/settings/account-settings";
+import { NotificationSettings } from "@/components/settings/notification-settings";
 import { BillingSettings } from "@/components/settings/billing-settings";
 import { Link2, Landmark } from "lucide-react";
 
@@ -114,6 +115,8 @@ export default function SettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      <NotificationSettings />
 
       <Card>
         <CardHeader>

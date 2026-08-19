@@ -8,16 +8,21 @@ import { ShareButton } from "@/components/chart/share-button";
 import { SignalCard } from "@/components/scan/signal-card";
 import { OrderTicket } from "@/components/trade/order-ticket";
 import { GlossaryDetails } from "@/components/glossary";
+import { GlossaryTerm } from "@/components/glossary-term";
+import { OnboardingTour } from "@/components/guided/onboarding-tour";
 import { useLiveQuote } from "@/lib/hooks/useLiveQuote";
 import { sessionLabel } from "@/lib/market/session";
+import { shouldOfferTour, type OnboardingPrefs } from "@/lib/onboarding/tour";
 import { formatUsd, formatPct, cn } from "@/lib/utils";
 import type { ScanResult } from "@/lib/types";
 import type { LiveQuote } from "@/app/api/quote/route";
+import { Compass } from "lucide-react";
 
 export function TickerView({ symbol }: { symbol: string }) {
   // Bumping this re-runs the scan without remounting the page.
   const [reloadKey, setReloadKey] = useState(0);
   const quote = useLiveQuote(symbol);
+  const { offerTour, showTour, startTour, endTour } = useOnboardingTour();
 
   /**
    * The scan is stored together with the request it answers, and read back
@@ -126,6 +131,7 @@ export function TickerView({ symbol }: { symbol: string }) {
        * exact moment they are scrolling past it.
        */}
       <div
+        id="tour-setup"
         ref={headerRef}
         className={cn(
           // The negative margins cancel the shell's gutter so the pinned bar
@@ -143,10 +149,19 @@ export function TickerView({ symbol }: { symbol: string }) {
          */}
         {result?.gann.timeCycleActive && (
           <span className="hidden text-xs font-medium text-warn sm:inline">
-            ⏱ Cyclical turn window active
+            ⏱ <GlossaryTerm term="Cyclical turn window" label="Cyclical turn window" className="decoration-warn/60" /> active
           </span>
         )}
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          {offerTour && (
+            <button
+              onClick={startTour}
+              className="flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-accent/40 bg-accent-soft px-2.5 py-1.5 text-xs font-medium text-accent hover:bg-accent-soft/70"
+            >
+              <Compass className="h-3.5 w-3.5" />
+              Take the tour
+            </button>
+          )}
           <ShareButton symbol={symbol} />
         </div>
       </div>
@@ -201,11 +216,66 @@ export function TickerView({ symbol }: { symbol: string }) {
 
       <MarketTabs symbol={symbol} result={result} />
 
-      {result && <SignalCard result={result} />}
+      {result && (
+        <div id="tour-signal">
+          <SignalCard result={result} />
+        </div>
+      )}
 
       <GlossaryDetails />
+
+      {showTour && (
+        <OnboardingTour
+          onFinish={(completed) => {
+            endTour(completed);
+          }}
+        />
+      )}
     </div>
   );
+}
+
+/**
+ * Whether the "Take the tour" banner is offered, and starting/ending the
+ * tour. Onboarding state lives on `settings.prefs.onboarding` (see
+ * `/api/settings/onboarding`) so it's fetched once on mount and only ever
+ * written back when the tour actually starts or ends — a page that never
+ * touches the tour never calls the endpoint.
+ */
+function useOnboardingTour() {
+  const [prefs, setPrefs] = useState<OnboardingPrefs | null>(null);
+  const [showTour, setShowTour] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/settings/onboarding")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { onboarding?: OnboardingPrefs } | null) => {
+        if (!cancelled) setPrefs(d?.onboarding ?? {});
+      })
+      // Signed out, or the endpoint is unreachable — the banner simply
+      // doesn't offer itself rather than guessing at eligibility.
+      .catch(() => !cancelled && setPrefs({ tourCompleted: true }));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const startTour = () => setShowTour(true);
+
+  const endTour = (completed: boolean) => {
+    setShowTour(false);
+    setPrefs((p) => ({ ...p, ...(completed ? { tourCompleted: true } : { tourDismissedAt: new Date().toISOString() }) }));
+    fetch("/api/settings/onboarding", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(completed ? { tourCompleted: true } : { tourDismissed: true }),
+    }).catch(() => {
+      /* best-effort — worst case the banner reappears next visit */
+    });
+  };
+
+  return { offerTour: shouldOfferTour(prefs), showTour, startTour, endTour };
 }
 
 /** Height of the app nav the header pins beneath (`h-14`), in pixels. */
