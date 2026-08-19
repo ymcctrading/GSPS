@@ -25,6 +25,7 @@
  */
 
 import { SECTORS } from "@/lib/sectors";
+import { LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
 
 /**
  * Sectors Guided will draw from.
@@ -71,6 +72,16 @@ export function fallbackUniverse(): string[] {
       seen.add(upper);
       out.push(upper);
     }
+  }
+  // The large caps sit behind the sector lists rather than replacing them.
+  // Guided scans a few dozen symbols at most per request, so this tail is
+  // reached only when the published list and the watchlists between them have
+  // not produced a setup — which is exactly the day it exists for.
+  for (const symbol of LARGE_CAP_UNIVERSE) {
+    const upper = symbol.toUpperCase();
+    if (seen.has(upper)) continue;
+    seen.add(upper);
+    out.push(upper);
   }
   return out;
 }

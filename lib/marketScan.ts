@@ -34,6 +34,7 @@ import { CONTINUATION_PATTERNS } from "@/lib/strat/patterns";
 import { MIN_EQUITY_PRICE_USD, meetsLiquidityFloor, readLiquidity } from "@/lib/scan/liquidity";
 import { scanTicker } from "@/lib/scanTicker";
 import { MAG7, SECTORS } from "@/lib/sectors";
+import { LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
 import type { CoarseTelemetryRow } from "@/lib/scan/telemetry";
 import {
   FALLBACK_FAN_PCT,
@@ -60,23 +61,66 @@ import { envCreds, getAsset } from "@/lib/brokers/alpaca";
  */
 export const MIN_SCAN_PRICE = MIN_EQUITY_PRICE_USD;
 
-// Fallback universe when the most-actives screener is unavailable (some Alpaca
-// plans don't include it): the curated sector lists, equities only.
+/**
+ * What the coarse gate is willing to look at, in priority order.
+ *
+ * The curated sector lists come first — they are the names the product talks
+ * about and the ones a user is most likely to recognise on the dashboard — then
+ * the large-cap universe behind them, then anything the sector lists contain
+ * that the large-cap list does not.
+ *
+ * This used to be the sector lists alone: about 65 symbols, which is a thin
+ * slice of the market to look for a handful of setups in, and thin enough that
+ * a quiet day in those 65 names produced an empty dashboard that read as "the
+ * market has nothing" rather than "we looked at 65 things". Widening the input
+ * does not touch any threshold: the liquidity floor, the coarse momentum gate
+ * and the full scan all run afterwards, unchanged.
+ */
 const FALLBACK_UNIVERSE = Array.from(
   new Set([
     ...MAG7,
     ...Object.values(SECTORS).flatMap((s) => s.symbols),
+    ...LARGE_CAP_UNIVERSE,
   ]),
 ).filter((s) => !s.includes("/"));
 
 async function resolveUniverse(universeTop: number): Promise<string[]> {
   try {
     const actives = await fetchMostActives(universeTop);
-    if (actives.length > 0) return actives;
+    // Union rather than either/or. The screener answers "what is busy today",
+    // which is a genuinely different question from "what is large and liquid",
+    // and a setup can live in either — a name can be structurally interesting
+    // without being one of the day's most active. Actives lead because unusual
+    // volume is itself evidence, and the combined list is capped by the caller's
+    // budget rather than here.
+    if (actives.length > 0) {
+      return capUniverse([...actives, ...FALLBACK_UNIVERSE]);
+    }
   } catch {
     /* screener unavailable — fall back to the curated universe */
   }
-  return FALLBACK_UNIVERSE;
+  return capUniverse(FALLBACK_UNIVERSE);
+}
+
+/**
+ * Hard ceiling on how many symbols reach the coarse pass.
+ *
+ * The coarse pass batch-fetches bars, so its cost grows in whole requests per
+ * ~100 symbols rather than per symbol, and the expensive full pass is bounded
+ * separately by the shortlist. That makes a universe this size affordable —
+ * but "affordable" is a claim about a 60-second function ceiling that nothing
+ * here can prove, and the failure mode is the daily scan timing out and the
+ * dashboard going dark for the day.
+ *
+ * So the ceiling is explicit and deliberately larger than the current universe:
+ * growth is fine, silent unbounded growth is not. Raising it means re-checking
+ * the scan's wall-clock time against the ceiling in
+ * `app/api/market-scan/route.ts` first.
+ */
+export const MAX_COARSE_UNIVERSE = 750;
+
+function capUniverse(symbols: string[]): string[] {
+  return Array.from(new Set(symbols)).slice(0, MAX_COARSE_UNIVERSE);
 }
 
 interface CoarseCandidate {
