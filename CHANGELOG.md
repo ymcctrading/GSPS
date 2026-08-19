@@ -7,6 +7,44 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-08-19
+
+### Fixed
+- **New signups stopped receiving the confirmation email.** Root cause: Auth
+  logs showed repeat `user_repeated_signup` events with no follow-up login —
+  the project has never had custom SMTP configured for Supabase Auth, so
+  confirmation mail has been going out through Supabase's built-in mailer,
+  which caps at a handful of sends per hour project-wide. `RESEND_API_KEY`
+  only ever covered this app's own alert emails, not Auth's. The dashboard
+  SMTP fix itself is outside anything this codebase's tooling can apply — see
+  `docs/AUTH_EMAIL_SETUP.md` for the exact steps. In the meantime,
+  `components/auth/auth-form.tsx` now offers an explicit **Resend
+  confirmation email** action (`supabase.auth.resend`) so a swallowed send
+  isn't a dead end.
+
+### Added
+- **Pending entries invalidated before they fill are canceled instead of left
+  stale.** A resting entry order whose planned stop the market has now
+  reached — without the entry ever being reached first — no longer sits in
+  Pending indefinitely. `lib/trade/invalidate-pending.ts` checks it on every
+  `evaluateRestingOrders` pass; an invalidated order is rejected with a reason
+  explaining what happened (lands in the existing Rejected Orders section, no
+  UI changes needed) and the user gets an email
+  (`sendOrderInvalidatedEmail`).
+- **Closed, rejected, and canceled orders/positions are now purged 3 hours
+  after the market close that followed them**, replacing the previous flat
+  24-hour retention. `lib/market/session.ts` gained `mostRecentClose`;
+  `lib/portfolio/prune.ts` now anchors its cutoff to it and also prunes
+  rejected/canceled/expired orders, not just filled-and-closed ones.
+- **Daily trade-journal email.** `/api/trade-journal/daily-email` (new Vercel
+  cron, 18:00 ET weekdays — the second and last of the Hobby plan's 2 cron
+  slots, see `docs/THIRD_PARTY_LIMITS.md`) emails every user with a closed
+  trade an `.xlsx` workbook built from `trade_logs` — Today / This Week /
+  This Month / All Time sheets, each trade with its entry, exit, P/L, and the
+  reasoning (`signal_called`) it was placed under. No new trade-recording
+  system was needed: `trade_logs` already captured this. See
+  `lib/journal/build-workbook.ts`.
+
 ## 2026-08-18
 
 ### Added
