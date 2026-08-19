@@ -113,7 +113,7 @@ export function SignalOverlayBadge({ signal, onExecute, onIgnore, onExplain, com
           <p className="font-mono font-semibold text-green-600">${signal.tp1.toFixed(2)}</p>
         </div>
         <div className="p-2 bg-muted rounded">
-          <p className="text-muted text-xs">Master Target</p>
+          <p className="text-muted text-xs">Final Target</p>
           <p className="font-mono font-semibold text-green-600">${signal.mtp.toFixed(2)}</p>
         </div>
       </div>

@@ -3,9 +3,9 @@ import { Button } from "@/components/ui/button";
 import { TrendingUp, Radar, Target, ShieldCheck } from "lucide-react";
 
 export const metadata = {
-  title: "GSPS — Structural Reversion Scanner",
+  title: "GSPS — Guided Stock Projection System",
   description:
-    "Multi-timeframe market scanning with structural analysis and precision entry execution: pinpoint entries, structural stops, and scored setups out of 9.",
+    "GSPS helps traders see the setup, plan the trade, and manage risk before entering a position. Multi-timeframe scanning, clear entries, defined stops, and setups scored out of 9.",
 };
 
 const FEATURES = [
@@ -17,7 +17,7 @@ const FEATURES = [
   {
     icon: Target,
     title: "Pinpoint levels",
-    body: "Every setup ships with an entry, a structural stop, a 1.5R first target, and a master target stepped out to the nearest structural level — mapped before the candle opens, never in hindsight.",
+    body: "Every setup ships with an entry, a structural stop, a 1.5R first target, and a final target stepped out to the nearest structural level — mapped before the candle opens, never in hindsight.",
   },
   {
     icon: ShieldCheck,
@@ -48,12 +48,12 @@ export default function LandingPage() {
       <main className="flex-1">
         <section className="mx-auto max-w-3xl px-4 py-24 text-center">
           <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
-            Trade the reversion, <span className="text-accent">not the noise</span>.
+            See the setup. <span className="text-accent">Plan the trade.</span>
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-lg text-muted">
-            GSPS combines structural market analysis with a precision entry engine —
-            objective entries, structural stops, and a daily list of the market&apos;s
-            thirty most primed reversion setups.
+            GSPS is a guided trade-planning system that turns market movement into
+            clear, risk-defined trade scenarios — objective entries, defined stops,
+            and a daily list of the market&apos;s thirty most promising setups.
           </p>
           <div className="mt-8 flex justify-center gap-3">
             <Link href="/signup">
