@@ -1,15 +1,16 @@
 /**
- * Simulated company/fundamentals snapshot — analyst coverage, short interest,
- * institutional ownership, capital flow, margin terms. GSPS has no fundamentals
- * vendor wired up (see lib/data/provider.ts), so this follows the same seam the
- * options chain and Level II book use: a deterministic, seeded generator
- * anchored on the real price when one is available, flagged `simulated: true`
- * so the UI can label it. A real vendor (Benzinga, S&P, etc.) drops in behind
- * this same shape later.
+ * Company/fundamentals snapshot — analyst coverage, short interest,
+ * institutional ownership, capital flow, margin terms.
  *
- * The numbers here are cosmetic — the point is the *shape* (what a company tab
- * needs to say) and the synthesis in components/chart/company-panel.tsx that
- * reads GSPS's own structural score alongside this fundamental/flow read.
+ * Analyst rating and price target are real when `FINNHUB_API_KEY` is set
+ * (see lib/data/finnhub.ts) — everything else has no vendor wired up, so it
+ * follows the seam the options chain and Level II book use: a deterministic,
+ * seeded generator anchored on the real price, so the same symbol always
+ * produces the same numbers. `CompanySnapshot.sources` tells the UI which
+ * sections are real per request, and it can differ per section on the same
+ * response — the point is the *shape* (what a company tab needs to say) and
+ * the synthesis in components/chart/company-panel.tsx that reads GSPS's own
+ * structural score alongside this fundamental/flow read.
  */
 
 function hashStr(s: string): number {
@@ -84,9 +85,17 @@ export interface MarginTerms {
   maxShortLeverage: number;
 }
 
+/** Per-section provenance, so the UI can label real vs. simulated independently. */
+export interface CompanySnapshotSources {
+  analystRating: "finnhub" | "simulated";
+  priceTarget: "finnhub" | "simulated";
+}
+
 export interface CompanySnapshot {
   symbol: string;
+  /** True only when every section is simulated — kept for the blanket disclaimer. */
   simulated: boolean;
+  sources: CompanySnapshotSources;
   price: number;
   margin: MarginTerms;
   analystRating: AnalystRating;
@@ -107,6 +116,11 @@ const CONSENSUS_BANDS: { min: number; label: AnalystRating["consensus"] }[] = [
   { min: 0.2, label: "Underperform" },
   { min: 0, label: "Sell" },
 ];
+
+/** Shared by the simulated generator and the real Finnhub mapping (lib/data/finnhub.ts). */
+export function consensusFromBullishness(bullishness: number): AnalystRating["consensus"] {
+  return CONSENSUS_BANDS.find((b) => bullishness >= b.min)?.label ?? "Sell";
+}
 
 export function simulateCompanySnapshot(symbol: string, price: number): CompanySnapshot {
   const up = symbol.toUpperCase();
@@ -132,8 +146,7 @@ export function simulateCompanySnapshot(symbol: string, price: number): CompanyS
   const holdPct = Math.round(remainder * 0.6);
   const underperformPct = Math.round(remainder * 0.3);
   const sellPct = Math.max(0, 100 - strongBuyPct - buyPct - holdPct - underperformPct);
-  const consensus =
-    CONSENSUS_BANDS.find((b) => bullishness >= b.min)?.label ?? "Hold";
+  const consensus = consensusFromBullishness(bullishness);
 
   const upsidePct = round2((bullishness - 0.4) * 45 + (rnd() - 0.5) * 8);
   const avg = round2(price * (1 + upsidePct / 100));
@@ -197,6 +210,7 @@ export function simulateCompanySnapshot(symbol: string, price: number): CompanyS
   return {
     symbol: up,
     simulated: true,
+    sources: { analystRating: "simulated", priceTarget: "simulated" },
     price,
     margin,
     analystRating: {
