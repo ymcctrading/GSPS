@@ -92,7 +92,17 @@ type StopSide = "long" | "short";
  * Prevents stops from being too tight (noise whipsaw) while respecting
  * the true structural invalidation level.
  */
-function computeStopWithLeeway(params: {
+/**
+ * Exported so the backtest replay (`lib/backtest/replay.ts`) can measure the
+ * effect of the leeway/large-cap widening on trade outcomes directly. The
+ * replay's own P&L walk uses the raw pattern stop by default, independent of
+ * this function — `computeTradeLevels`'s stop only reaches the live scan, the
+ * ticker page, and Guided Mode's sizing. Without this export there is no way
+ * to ask the replay "what if the stop it actually walked against were the
+ * production one instead", which is exactly the question a claim like "this
+ * reduces premature stop-outs" has to answer with a number, not an assertion.
+ */
+export function computeStopWithLeeway(params: {
   side: StopSide;
   entry: number;
   structuralStop: number;

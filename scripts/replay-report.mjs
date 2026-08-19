@@ -15,6 +15,13 @@
  *   npm run backtest -- --stdout                        # print instead of writing
  *   npm run backtest -- --from docs/replay-runs/x.json  # render a captured run
  *   npm run backtest -- --timeframe 1Hour --since 2026-06-15  # hold the period still
+ *   npm run backtest -- --productionStop                # walk the widened stop, not the raw pattern one
+ *
+ * `--productionStop` and the "Large-cap vs. not" section exist for one
+ * question: does the large-cap stop widening (lib/strat/large-cap.ts,
+ * lib/strat/levels.ts) actually help? Run the same universe twice, with and
+ * without the flag, and compare the "Large-cap" row across both reports —
+ * see that section's own note in the rendered output.
  *
  * It refuses to write a report from synthetic bars. With no vendor credentials
  * configured, `getMarketDataProvider()` falls back to a seeded random walk that
@@ -54,11 +61,16 @@ export function parseArgs(argv) {
     out: DEFAULT_OUT,
     from: null,
     since: null,
+    productionStop: false,
   };
   for (let i = 0; i < argv.length; i++) {
     const [flag, inline] = argv[i].split("=");
     if (flag === "--stdout") {
       args.out = null;
+      continue;
+    }
+    if (flag === "--productionStop") {
+      args.productionStop = true;
       continue;
     }
     const value = inline ?? argv[++i];
@@ -100,6 +112,13 @@ export function markdown(report, args) {
   lines.push(`| Window | ${day(report.window.from)} → ${day(report.window.to)} |`);
   lines.push(`| Execution timeframe | ${report.timeframe} |`);
   lines.push(`| Target | ${report.targetR}R |`);
+  lines.push(
+    `| Stop model | ${
+      report.useProductionStop
+        ? "production (leeway + large-cap widening)"
+        : "raw pattern (original harness behaviour)"
+    } |`,
+  );
   lines.push(`| Break-even win rate at this target | ${pct(report.breakEvenWinRate)} |`);
   lines.push(`| Data source | ${report.source} (${report.live ? "live feed" : "SYNTHETIC"}) |`);
   lines.push(`| Armed / triggered | ${report.armed} / ${report.triggered} |`);
@@ -140,6 +159,35 @@ export function markdown(report, args) {
   );
   lines.push("");
 
+  if (report.largeCapSplit) {
+    lines.push("## Large-cap vs. not");
+    lines.push("");
+    lines.push(
+      "Every trade, split by whether its symbol read as large-cap at the time",
+      "(`lib/strat/large-cap.ts`) — independent of verdict, so this partitions the",
+      "whole run rather than one bucket. With `Stop model` above set to \"raw",
+      "pattern\", both rows are walked against the identical, unwidened stop, so a",
+      "difference between them describes large-cap names generally, not the",
+      "widening. Re-run with `--productionStop` and compare the same two rows",
+      "across both reports to isolate the widening's own effect — that pair is",
+      "the before/after `docs/BACKTESTING.md` calls for on this constant.",
+    );
+    lines.push("");
+    lines.push("| | Trades | Win rate | Expectancy | Total |");
+    lines.push("|---|---:|---:|---:|---:|");
+    for (const [label, s] of [
+      ["Large-cap", report.largeCapSplit.largeCap],
+      ["Not large-cap", report.largeCapSplit.notLargeCap],
+    ]) {
+      lines.push(
+        `| ${label} | ${s.trades} | ${s.trades === 0 ? "—" : pct(s.winRate)} | ${
+          s.trades === 0 ? "—" : r(s.expectancyR)
+        } | ${s.trades === 0 ? "—" : r(s.totalR)} |`,
+      );
+    }
+    lines.push("");
+  }
+
   lines.push(`## Factors inside ${report.attributeWithin}`);
   lines.push("");
   lines.push(
@@ -179,7 +227,9 @@ export function markdown(report, args) {
     // not necessarily produced by the flags this process was handed.
     `Reproduce: \`npm run backtest -- --symbols ${report.symbols.join(",")} --timeframe ${
       report.timeframe
-    } --targetR ${report.targetR} --within ${report.attributeWithin}\``,
+    } --targetR ${report.targetR} --within ${report.attributeWithin}${
+      report.useProductionStop ? " --productionStop" : ""
+    }\``,
   );
   lines.push("");
   lines.push(
@@ -234,6 +284,7 @@ async function runHere(args) {
       targetR: args.targetR,
       attributeWithin: args.within,
       ...(args.since ? { since: args.since } : {}),
+      ...(args.productionStop ? { useProductionStop: true } : {}),
     });
   } finally {
     await server.close();

@@ -65,6 +65,26 @@ describe("runBacktest", () => {
     const execute = report.buckets.find((b) => b.bucket === "Execute")!;
     expect(banded).toBe(execute.trades);
   });
+
+  it("partitions every trade into the large-cap split, unlike the verdict buckets", async () => {
+    // MSFT is on the known-name list (lib/strat/large-cap.ts) regardless of
+    // the synthetic generator's price/volume, so this exercises both halves
+    // of the split without needing the liquidity proxy to cooperate.
+    const report = await runBacktest({ symbols: ["MSFT", "SPY"], timeframe: "15Min" });
+    const split = report.largeCapSplit.largeCap.trades + report.largeCapSplit.notLargeCap.trades;
+    expect(split).toBe(report.overall.trades);
+    expect(report.useProductionStop).toBe(false);
+  });
+
+  it("echoes useProductionStop, and both stop models still partition the same trade count", async () => {
+    const raw = await runBacktest({ symbols: ["MSFT"], timeframe: "15Min" });
+    const widened = await runBacktest({ symbols: ["MSFT"], timeframe: "15Min", useProductionStop: true });
+    expect(raw.useProductionStop).toBe(false);
+    expect(widened.useProductionStop).toBe(true);
+    // Same setups arm and trigger either way — only the stop distance the P&L
+    // walk checks against differs, never which bars produced a trade.
+    expect(widened.overall.trades).toBe(raw.overall.trades);
+  });
 });
 
 /**

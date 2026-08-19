@@ -27,6 +27,7 @@ import { getMarketDataProvider } from "@/lib/data/provider";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { TF_LOOKBACK_DAYS, TF_MAX_BARS } from "@/lib/timeframe";
 import {
+  byLargeCap,
   byOutputState,
   combine,
   replay,
@@ -65,6 +66,14 @@ export interface BacktestRequest {
    * than the window they are measured over.
    */
   since?: string;
+  /**
+   * Walk the P&L simulation against the leeway/large-cap-widened stop instead
+   * of the raw pattern stop. See `ReplayOptions.useProductionStop` — the flag
+   * exists so the same request can be run twice, once per stop model, and the
+   * two `largeCap` bucket rows compared, which is the before/after
+   * `docs/BACKTESTING.md` asks for on an unmeasured constant.
+   */
+  useProductionStop?: boolean;
 }
 
 export interface RunSummary {
@@ -114,6 +123,18 @@ export interface BacktestReport {
   /** Every trade taken, before the verdict split. */
   overall: RunSummary;
   buckets: BucketSummary[];
+  /**
+   * The run split by whether each trade's symbol read as large-cap at the
+   * time — see `lib/strat/large-cap.ts`. Unlike `buckets`, this is computed
+   * over every trade regardless of verdict, since the large-cap read needs no
+   * score. Whether this split reflects the stop-widening itself depends on
+   * `useProductionStop`: with it unset (the default), both rows are walked
+   * against the identical, unwidened stop, and any difference between them is
+   * a property of large-cap names generally — not of the widening.
+   */
+  largeCapSplit: { largeCap: RunSummary; notLargeCap: RunSummary };
+  /** Echoes the request — a report has to say which stop model produced it. */
+  useProductionStop: boolean;
   /** Setups armed and triggered across the run, for a fill-rate sanity check. */
   armed: number;
   triggered: number;
@@ -183,6 +204,7 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
     costPerShare,
     weights,
     since,
+    useProductionStop,
   } = request;
 
   const sinceMs = since === undefined ? null : Date.parse(since);
@@ -195,6 +217,7 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
     targetR,
     ...(costPerShare !== undefined ? { costPerShare } : {}),
     ...(weights ? { weights } : {}),
+    ...(useProductionStop !== undefined ? { useProductionStop } : {}),
   };
 
   const results: ReplayResult[] = [];
@@ -250,11 +273,12 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
 }
 
 export async function runBacktest(request: BacktestRequest): Promise<BacktestReport> {
-  const { attributeWithin = "Execute" } = request;
+  const { attributeWithin = "Execute", useProductionStop = false } = request;
 
   const run = await collectRun(request);
   const split = byOutputState(run.overall);
   const target = split[attributeWithin];
+  const capSplit = byLargeCap(run.overall);
 
   return {
     source: run.source,
@@ -267,6 +291,11 @@ export async function runBacktest(request: BacktestRequest): Promise<BacktestRep
     window: run.window,
     overall: summarise(run.overall),
     buckets: BUCKETS.map((b) => ({ bucket: b, ...summarise(split[b]) })),
+    largeCapSplit: {
+      largeCap: summarise(capSplit.largeCap),
+      notLargeCap: summarise(capSplit.notLargeCap),
+    },
+    useProductionStop,
     armed: run.overall.armed,
     triggered: run.overall.triggered,
     attributeWithin,
