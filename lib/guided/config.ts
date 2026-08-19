@@ -70,7 +70,34 @@ export const RECOMMENDATION_TTL_MINUTES = 15;
  * multi-timeframe scan; the cap is what keeps the request inside a serverless
  * function's budget, and a guided list longer than this is not a shortlist.
  */
-export const MAX_CANDIDATES_SCANNED = 8;
+/**
+ * Symbols Guided may scan in one request.
+ *
+ * Was 8, drawn only from the published daily list. That budget assumed the list
+ * always exists and is always fresh; when it is neither — a deployment whose
+ * first cron has not run, a weekend, a provider outage during the scan — Guided
+ * had nothing to look at and reported "nothing worth trading right now", which
+ * is a sentence about the market that was actually a sentence about our own
+ * pipeline. A novice cannot tell those apart.
+ *
+ * 40 is a *ceiling*, not a target. Scanning stops the moment enough
+ * recommendations exist (see `GUIDED_SCAN_BATCH`), so the common case still
+ * costs the same handful of scans it always did and the wider reach is only
+ * paid for on the days it is needed. The ceiling exists because `scanTicker`
+ * costs several provider requests per symbol and Alpaca's data API allows
+ * roughly 200 a minute — see docs/THIRD_PARTY_LIMITS.md.
+ */
+export const MAX_CANDIDATES_SCANNED = 40;
+
+/**
+ * Symbols scanned per round before checking whether we can stop.
+ *
+ * Batched rather than all-at-once so a day with an obvious setup at the top of
+ * the list costs one round trip's worth of scanning, and rather than
+ * one-at-a-time so a day without one does not serialise forty sequential
+ * network calls into the user's page load.
+ */
+export const GUIDED_SCAN_BATCH = 8;
 
 /** Most cards rendered at once, after eligibility. */
 export const MAX_RECOMMENDATIONS = 3;

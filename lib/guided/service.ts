@@ -25,11 +25,13 @@ import { parseOccSymbol } from "@/lib/portfolio/occ";
 import { assessEligibility } from "@/lib/guided/eligibility";
 import { sizeGuidedTrade, type SizedTrade } from "@/lib/guided/sizing";
 import { exitSentence, reasonLine, riskRewardSentence, trendSummary } from "@/lib/guided/copy";
+import { pickNearestMiss, type NearMiss } from "@/lib/guided/near-miss";
 import { planProtocolExit } from "@/lib/trade/protocol-exit";
 import { toPublicScoreSummary } from "@/lib/scoring/public-summary";
 import { tickerHref } from "@/lib/routes";
 import { envCreds, getAsset } from "@/lib/brokers/alpaca";
 import {
+  GUIDED_SCAN_BATCH,
   MAX_CANDIDATES_SCANNED,
   MAX_RECOMMENDATIONS,
   RECOMMENDATION_TTL_MINUTES,
@@ -140,7 +142,12 @@ export async function candidateSymbols(supabase: SupabaseClient): Promise<string
     if (bearish[i]) interleaved.push(bearish[i].symbol.toUpperCase());
   }
 
-  return [...new Set(interleaved)].slice(0, MAX_CANDIDATES_SCANNED);
+  // Deliberately uncapped here. Trimming to the scan budget was this function's
+  // job while the published list was the only source; now `orderedCandidates`
+  // appends the fallback universe behind these and applies the ceiling once, so
+  // capping twice would silently discard published rows in favour of watchlist
+  // ones that rank below them.
+  return [...new Set(interleaved)];
 }
 
 /**
@@ -208,6 +215,14 @@ export interface SkippedCandidate {
 export interface BuiltRecommendations {
   recommendations: Recommendation[];
   skipped: SkippedCandidate[];
+  /**
+   * The closest candidate, when nothing qualified. Never a recommendation and
+   * never tappable — a separate type precisely so it cannot be rendered through
+   * the buy path. See `lib/guided/near-miss.ts`.
+   */
+  nearMiss: NearMiss | null;
+  /** How many symbols were actually scanned, for the audit trail. */
+  scanned: number;
 }
 
 export async function buildRecommendations(params: {
@@ -219,21 +234,13 @@ export async function buildRecommendations(params: {
 }): Promise<BuiltRecommendations> {
   const { symbols, account, caps, deployedUsd, now = new Date() } = params;
 
-  const scans = await Promise.all(
-    symbols.slice(0, MAX_CANDIDATES_SCANNED).map((s) => scanTicker(s).catch((): ScanResult | null => null)),
-  );
-
-  // One borrow lookup per short candidate, before the loop, so the broker is
-  // asked once per symbol rather than once per eligibility check.
-  const shortable = await resolveShortable(
-    scans
-      .filter((r): r is ScanResult => r !== null && r.direction === "bearish" && !r.error)
-      .map((r) => r.symbol),
-  );
-
   const recommendations: Recommendation[] = [];
   const skipped: SkippedCandidate[] = [];
   const expiresAt = new Date(now.getTime() + RECOMMENDATION_TTL_MINUTES * 60_000).toISOString();
+
+  // Every scan performed, kept so the nearest miss can be chosen from the whole
+  // set rather than from whichever batch happened to run last.
+  const allScans: (ScanResult | null)[] = [];
 
   // Deployed capital rises as this loop commits size, so each card is sized
   // against what the *previous* cards on the same screen would already use.
@@ -241,10 +248,83 @@ export async function buildRecommendations(params: {
   // that are each inside the portfolio cap breach it together.
   let committed = deployedUsd;
 
+  const budget = symbols.slice(0, MAX_CANDIDATES_SCANNED);
+
+  // Batched with an early exit rather than one `Promise.all` over the whole
+  // budget: the wider universe exists for the rare day that needs it, and
+  // making every ordinary day pay forty scans to find the setup sitting at
+  // position two would be a poor trade.
+  for (let start = 0; start < budget.length; start += GUIDED_SCAN_BATCH) {
+    if (recommendations.length >= MAX_RECOMMENDATIONS) break;
+    const batch = budget.slice(start, start + GUIDED_SCAN_BATCH);
+
+    const scans = await Promise.all(
+      batch.map((s) => scanTicker(s).catch((): ScanResult | null => null)),
+    );
+    allScans.push(...scans);
+
+    // One borrow lookup per short candidate, before the loop, so the broker is
+    // asked once per symbol rather than once per eligibility check.
+    const shortable = await resolveShortable(
+      scans
+        .filter((r): r is ScanResult => r !== null && r.direction === "bearish" && !r.error)
+        .map((r) => r.symbol),
+    );
+
+    const batchResult = collectBatch({
+      batch,
+      scans,
+      shortable,
+      account,
+      caps,
+      committed,
+      expiresAt,
+      room: MAX_RECOMMENDATIONS - recommendations.length,
+    });
+    recommendations.push(...batchResult.recommendations);
+    skipped.push(...batchResult.skipped);
+    committed = batchResult.committed;
+  }
+
+  return {
+    recommendations,
+    skipped,
+    // Only when there is nothing to recommend. A near miss beside a real
+    // recommendation would be noise competing with the thing the user is
+    // supposed to be reading.
+    nearMiss: recommendations.length === 0 ? pickNearestMiss(allScans) : null,
+    scanned: allScans.length,
+  };
+}
+
+/**
+ * Eligibility, sizing and rejection for one batch of scans.
+ *
+ * Split out of `buildRecommendations` when scanning became batched: the body
+ * below is exactly what it always was, and keeping it inline would have meant a
+ * loop inside a loop sharing four mutable variables, which is where this kind of
+ * accounting starts getting the deployed-capital total wrong.
+ */
+function collectBatch(params: {
+  batch: string[];
+  scans: (ScanResult | null)[];
+  shortable: Map<string, boolean>;
+  account: GuidedAccount;
+  caps: GuidedCaps;
+  committed: number;
+  expiresAt: string;
+  room: number;
+}): { recommendations: Recommendation[]; skipped: SkippedCandidate[]; committed: number } {
+  const { batch, scans, shortable, account, caps, expiresAt, room } = params;
+  const recommendations: Recommendation[] = [];
+  const skipped: SkippedCandidate[] = [];
+  let committed = params.committed;
+
   for (let i = 0; i < scans.length; i++) {
+    if (recommendations.length >= room) break;
     const result = scans[i];
     if (!result) {
-      skipped.push({ symbol: symbols[i], reasons: ["The scan could not be completed."] });
+      skipped.push({ symbol: batch[i], reasons: ["The scan could not be completed."] });
       continue;
     }
 
@@ -276,10 +356,9 @@ export async function buildRecommendations(params: {
 
     committed += sized.notionalUsd;
     recommendations.push(toRecommendation(result, side, sized, expiresAt));
-    if (recommendations.length >= MAX_RECOMMENDATIONS) break;
   }
 
-  return { recommendations, skipped };
+  return { recommendations, skipped, committed };
 }
 
 function toRecommendation(
