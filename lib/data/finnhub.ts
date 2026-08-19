@@ -1,14 +1,19 @@
 /**
- * Finnhub — real analyst rating + price target for the Company tab.
+ * Finnhub — real analyst rating for the Company tab (price target attempted
+ * too, but see below).
  *
- * Free-tier Finnhub (60 req/min, no card) covers recommendation trends and
- * price targets but not short interest or institutional/13F ownership, so
- * only those two sections read from here; everything else in
- * lib/data/company.ts stays on the seeded simulated generator. Both fetchers
- * return `null` on any failure (missing key, network error, empty response,
- * rate limit) rather than throwing — the caller falls back to simulated data
- * for that section, the same "degrade, don't break" seam every other
- * provider in this app uses.
+ * Confirmed live against a real key (2026-08-19): `/stock/recommendation`
+ * (analyst rating) is free-tier. `/stock/price-target` 403s on the free
+ * tier — despite Finnhub's own docs listing it as free, it now requires a
+ * paid plan — so in practice price target stays on the simulated generator
+ * unless the key is upgraded. Short interest and institutional/13F
+ * ownership were never attempted here; Finnhub doesn't have those on any
+ * tier this app has checked. Everything not fetched from here stays on the
+ * seeded generator in lib/data/company.ts. Both fetchers return `null` on
+ * any failure (missing key, network error, empty response, rate limit, a
+ * plan that doesn't cover the endpoint) rather than throwing — the caller
+ * falls back to simulated data for that section, the same "degrade, don't
+ * break" seam every other provider in this app uses.
  */
 
 import { consensusFromBullishness, type AnalystRating } from "./company";
