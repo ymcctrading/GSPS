@@ -6,9 +6,10 @@ back to one of those.
 
 ## Dashboard shows no signals, or a stale scan date
 
-`daily_scans` is written by `/api/market-scan`: on Vercel Cron (weekdays,
-12:30 and 21:30 UTC — see `vercel.json`) and by the dashboard's own Refresh
-scan button, which POSTs the same route as the signed-in user.
+`daily_scans` is written by `/api/market-scan`: on a schedule (weekdays,
+12:30 UTC via GitHub Actions — `.github/workflows/premarket-scan.yml` — and
+21:30 UTC via native Vercel Cron — see `vercel.json`) and by the dashboard's
+own Refresh scan button, which POSTs the same route as the signed-in user.
 
 Read the scan date on the dashboard first — it says which failure this is.
 
@@ -28,20 +29,33 @@ including its code:
   deliberately left in place rather than replaced with an empty one.
 
 **The date is old and the button works, but nothing runs unattended.** The
-scheduled scan isn't reaching the route:
+scheduled scan isn't reaching the route. Which scheduler to check depends on
+which of the two daily runs is missing:
 
-1. Check Vercel → Project → Cron Jobs for the last run status and logs.
-2. `503` means `CRON_SECRET` isn't set on the project. Vercel only attaches
-   the `Authorization: Bearer` header when that variable exists, so an unset
-   secret makes every scheduled run fail closed — set it in the project's env
-   vars and redeploy.
-3. `401` means the header didn't match: the deployment's `CRON_SECRET`
-   differs from the one the cron was configured with.
-4. If nothing fired at all, confirm production is running the deployment you
-   expect. `vercel.json` sets `git.deploymentEnabled: true`, so production
-   tracks `main` within minutes of a merge — a missing cron usually means the
-   last production build failed, not that deploys are off.
-5. To test manually:
+- **21:30 UTC (post-close) missing** → check Vercel → Project → Cron Jobs
+  for the last run status and logs.
+- **12:30 UTC (pre-market) missing** → check the repo's Actions tab for the
+  `Pre-market scan` workflow's run history
+  (`.github/workflows/premarket-scan.yml`). A run that fired but failed
+  shows the HTTP status and response body in its log.
+
+Either way:
+
+1. `503` means `CRON_SECRET` isn't set where the caller reads it from —
+   Vercel project env vars for the native cron, or the `CRON_SECRET` GitHub
+   Actions repo secret for the moved one. Vercel only attaches the
+   `Authorization: Bearer` header when its variable exists, so an unset
+   secret makes that scheduled run fail closed.
+2. `401` means the header didn't match: the caller's `CRON_SECRET` differs
+   from the one the deployment checks against.
+3. If nothing fired at all from Vercel, confirm production is running the
+   deployment you expect. `vercel.json` sets `git.deploymentEnabled: true`,
+   so production tracks `main` within minutes of a merge — a missing cron
+   usually means the last production build failed, not that deploys are off.
+   If nothing fired at all from GitHub Actions, confirm the workflow is
+   still enabled (Actions → Pre-market scan) — GitHub disables scheduled
+   workflows in repos with no activity for 60 days.
+4. To test manually:
    ```bash
    curl -H "Authorization: Bearer $CRON_SECRET" https://<your-domain>/api/market-scan
    ```

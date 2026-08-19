@@ -11,7 +11,7 @@ confirm you're still under its limit.
 
 | Service | Current plan | Limit | What happens if exceeded | Notes |
 |---|---|---|---|---|
-| **Vercel** | Hobby (free) | 2 cron jobs per project, each ≤ once/day. Deployments/builds also capped (see Vercel dashboard for current usage). | Deploy fails, or the cron silently isn't created. | `vercel.json` currently defines exactly 2 crons (`/api/market-scan`, weekdays) — both slots are spent. `/api/intraday-scan` needs to run every few minutes during the session, so it is deliberately **not** a cron: it is served on demand and driven by the Scanner page while a user has it open. Git-triggered deploys are **on**: a branch push builds a preview and a merge to `main` releases to production — see `AGENTS.md`. |
+| **Vercel** | Hobby (free) | 2 cron jobs per project, each ≤ once/day. Deployments/builds also capped (see Vercel dashboard for current usage). | Deploy fails, or the cron silently isn't created. | `vercel.json` currently defines **1** cron (`/api/market-scan`, 17:30 ET weekdays) — **1 of 2 slots is free.** The 08:30 ET run of the same route moved to GitHub Actions (`.github/workflows/premarket-scan.yml`) to free that slot; see below. `/api/intraday-scan` needs to run every few minutes during the session, so it is deliberately **not** a cron: it is served on demand and driven by the Scanner page while a user has it open. Git-triggered deploys are **on**: a branch push builds a preview and a merge to `main` releases to production — see `AGENTS.md`. |
 | **Supabase** | Free project tier | Row/storage/bandwidth caps per Supabase's Hobby project limits; project pauses after a period of inactivity. | Paused project = the whole app loses its database until manually resumed. | Check the Supabase dashboard for current usage before assuming headroom. |
 | **Binance** (crypto data) | Public API | Effectively unlimited for basic market data (public endpoint, no key). | N/A | No auth required; still subject to Binance's general IP rate limiting under heavy load. |
 | **Oanda** (forex data) | Practice/demo account | ~1200 requests/min | 429s from Oanda; endpoint returns an error to the caller. | `OANDA_API_KEY` required. Practice account, not live. |
@@ -35,20 +35,46 @@ Prefer, in order:
 2. **Move frequent/scheduled calls outside Vercel Cron** to an external scheduler (e.g. a GitHub Actions cron job hitting the route over HTTPS) rather than upgrading Vercel — cheaper, and Vercel's cron limit isn't a data-provider limit anyway.
 3. **Upgrade the specific service's plan** only once you've confirmed the above two don't solve it — and only with explicit sign-off, since it's a recurring cost.
 
-### Both Vercel cron slots are already spent
+### One Vercel cron slot is free; the other run moved to GitHub Actions
 
-`vercel.json` uses both of the Hobby plan's 2 cron slots on `/api/market-scan`
-(weekday open/close). There is currently no slot free for anything else —
-a broker-token refresh job, an order-reconciliation sweep, etc. Adding a
-third entry to `vercel.json`'s `crons` array doesn't get a "silently
-ignored" warning; per the table above, either the deploy fails or the cron
-just doesn't get created, and nothing tells you which happened at push time.
+`vercel.json` used to spend both of the Hobby plan's 2 cron slots on
+`/api/market-scan` (one pre-market run, one post-close run). Both runs are
+still needed — the endpoint's inputs and RUNBOOK guidance around
+`pricedBeforeSession` depend on it firing at both times — so freeing a slot
+meant moving one run off Vercel Cron entirely rather than dropping it.
 
-If a scheduled job is needed before either existing slot is freed up, use
-option 2 above — an external scheduler calling the route over HTTPS, the
-same way a Vercel cron would, protected by the same `CRON_SECRET` check the
-route already does for `/api/market-scan`. A GitHub Actions workflow can
-serve this without touching `vercel.json`:
+The 08:30 ET / 12:30 UTC pre-market run now fires from
+`.github/workflows/premarket-scan.yml` (GitHub Actions schedule), calling
+`/api/market-scan` over HTTPS with the same `CRON_SECRET` bearer auth the
+route already checks for the native Vercel cron. The 17:30 ET / 21:30 UTC
+post-close run — the more time-sensitive of the two, since it feeds the next
+session's list — stays a native `vercel.json` cron, since Vercel's scheduler
+is more punctual than GitHub Actions' (which can run several minutes late
+under load, sometimes more; see `crontap`/Vercel community reports on GitHub
+Actions cron drift). The pre-market run tolerates that slack because the
+route reads bars as of a fixed prior close regardless of the exact minute
+it's called.
+
+**This requires two things set outside this repo, neither of which any tool
+available to this codebase's agent can configure — both need to be done by
+hand in GitHub → Settings → Secrets and variables → Actions:**
+1. Repository secret `CRON_SECRET` — same value as the Vercel project's
+   `CRON_SECRET` env var, so the workflow's bearer token matches what the
+   route checks.
+2. Optionally, repository variable `PRODUCTION_URL` if the production
+   domain isn't `https://gsps.vercel.app` — the workflow falls back to that
+   default otherwise.
+
+Without secret (1) set, the workflow runs on schedule but every invocation
+gets a 401 from the route — check the Actions tab for the workflow's run
+history if the pre-market scan looks like it stopped firing.
+
+That leaves **1 of 2 Vercel cron slots free** for the next daily job — a
+broker-token refresh, an order-reconciliation sweep, etc. Adding a second
+entry to `vercel.json`'s `crons` array now succeeds (there's room), but for
+anything that needs to run *more often* than daily, use the same external-
+scheduler pattern instead of spending the last slot — option 2 above, and
+the `premarket-scan.yml` file as a template:
 
 ```yaml
 name: External cron — <name>
@@ -65,6 +91,6 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
 ```
 
-This isn't wired up yet — there's no token-refresh or reconciliation route
-to call. Add it when that route exists, rather than standing up an unused
-workflow now.
+No route needs this yet beyond the pre-market scan above — add a job when a
+real one (token refresh, reconciliation) exists, rather than standing up an
+unused workflow now.
