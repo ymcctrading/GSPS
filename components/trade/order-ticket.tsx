@@ -686,7 +686,7 @@ function ExitPlanNotice({
           Once TP1 is reached the stop moves to your entry and then trails the best price seen, so
           the trade can&apos;t come back as a loss.
           {hasMaster
-            ? " If price pushes through the master target and falls back through it, the rest is closed."
+            ? " If price pushes through the final target and falls back through it, the rest is closed."
             : ""}{" "}
           The trailing part advances while the app is open; the stop resting at the broker is what
           protects the position the rest of the time.

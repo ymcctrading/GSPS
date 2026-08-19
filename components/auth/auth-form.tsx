@@ -20,6 +20,8 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
+  const [resending, setResending] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -46,7 +48,14 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             router.push(next);
             router.refresh();
           } else {
+            // Supabase returns success here whether the account is brand new or
+            // already exists unconfirmed (it never reveals which, to avoid
+            // leaking which emails are registered). Either way the confirmation
+            // email may not have landed — the built-in mailer is rate-limited
+            // and silently drops sends past its cap — so offer an explicit
+            // resend instead of leaving the user stuck re-submitting the form.
             setMessage("Check your email to confirm your account, then log in.");
+            setAwaitingConfirmation(true);
           }
         }
       } else {
@@ -75,6 +84,21 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleResendConfirmation() {
+    setError(null);
+    setResending(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.resend({ type: "signup", email });
+      if (error) setError(error.message);
+      else setMessage("Confirmation email sent again. Check your inbox (and spam folder).");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't resend the confirmation email.");
+    } finally {
+      setResending(false);
     }
   }
 
@@ -163,6 +187,11 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
               {loading ? "Working…" : mode === "login" ? "Log in" : "Sign up"}
             </Button>
           </form>
+          {mode === "signup" && awaitingConfirmation && (
+            <Button variant="outline" onClick={handleResendConfirmation} disabled={resending || !email}>
+              {resending ? "Sending…" : "Resend confirmation email"}
+            </Button>
+          )}
           <Button variant="outline" onClick={handleGoogle}>
             Continue with Google
           </Button>
