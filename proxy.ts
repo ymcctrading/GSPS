@@ -8,6 +8,10 @@ import { checkRateLimit } from "@/lib/rate-limit";
 // itself in the server component.
 const PROTECTED_PREFIXES = [
   "/dashboard", "/scanner", "/ticker", "/portfolio", "/glossary", "/settings", "/learning",
+  // `/welcome` holds no user data, but it renders inside the signed-in shell —
+  // nav, sign-out and all — so serving it to a visitor with no session would
+  // show them a header they cannot use.
+  "/welcome",
 ];
 
 // Per-minute budget for /api routes, keyed by signed-in user (falls back to

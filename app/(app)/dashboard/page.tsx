@@ -8,7 +8,7 @@ import { MarketNews } from "@/components/macro/market-news";
 import { getDailyScans } from "@/lib/dailyScans";
 import { DEFAULTS } from "@/lib/sectors";
 import { tickerHref } from "@/lib/routes";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Compass } from "lucide-react";
 import { tradeSideWord } from "@/lib/scoring/direction-copy";
 import { formatOpenedAt } from "@/lib/portfolio/opened-at";
 
@@ -34,6 +34,20 @@ export default async function DashboardPage() {
         </div>
         <AutoScan scanDate={scanDate} />
       </div>
+
+      {/*
+        A quiet, permanent way back to the walkthrough. It sits on the Dashboard
+        rather than only in Settings because the moment someone needs it is the
+        moment they land on a screen of scores they cannot read, and that screen
+        is this one.
+      */}
+      <Link
+        href="/welcome"
+        className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-muted hover:border-accent hover:text-accent"
+      >
+        <Compass className="h-4 w-4 shrink-0" />
+        New to this? Read the plain-English walkthrough of every part of GSPS.
+      </Link>
 
       <StaleScanNotice
         freshness={freshness}
