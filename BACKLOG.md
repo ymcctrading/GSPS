@@ -192,7 +192,9 @@
 - [ ] Synthetic monitoring
 
 ### Testing & Quality
-- [ ] E2E testing (Playwright/Cypress)
+- [x] E2E testing (Playwright) — `e2e/` covers login, a scan run, and a paper
+      trade. Not wired into CI (needs a live Supabase project); run locally
+      or against a preview with `npm run test:e2e`.
 - [ ] Integration tests
 - [ ] Performance benchmarks
 - [ ] Security scanning

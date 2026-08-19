@@ -219,24 +219,41 @@ is not the way to do that any more. Options, in order of preference:
 
 ## Cron Jobs & Scheduled Tasks
 
-Both market-scan crons are pinned to the current production deployment:
+The post-close market-scan run is a native Vercel cron, pinned to the
+current production deployment:
 ```json
 {
   "crons": [
-    { "path": "/api/market-scan", "schedule": "30 21 * * 1-5" },
-    { "path": "/api/market-scan", "schedule": "30 12 * * 1-5" }
+    { "path": "/api/market-scan", "schedule": "30 21 * * 1-5" }
   ]
 }
 ```
 
-- **Limit**: 2 crons max on Hobby plan (currently at capacity)
-- **Frequency**: Both daily (max 1/day each on Hobby)
-- **Auth**: Requires `CRON_SECRET` header (set in Vercel env vars)
-- **Fallback**: If cron fails 3 times, Vercel disables it. Re-enable in dashboard.
+The pre-market run of the same route (`30 12 * * 1-5`, 08:30 ET) moved to
+`.github/workflows/premarket-scan.yml` — a GitHub Actions schedule calling
+`/api/market-scan` over HTTPS with the same `CRON_SECRET` bearer auth. See
+`docs/THIRD_PARTY_LIMITS.md` for why (freeing a Vercel cron slot) and the
+GitHub repo secret it needs (`CRON_SECRET`, and optionally the
+`PRODUCTION_URL` variable) — neither can be set by this codebase's tooling
+and must be added by hand under Settings → Secrets and variables → Actions.
+
+- **Limit**: 2 crons max on Hobby plan — **1 of 2 slots currently free**
+- **Frequency**: Both `/api/market-scan` runs are daily (the Vercel one is
+  capped at 1/day on Hobby; the GitHub Actions one has no such cap but isn't
+  run more often, to match)
+- **Auth**: Requires `CRON_SECRET` header — set in Vercel env vars for the
+  native cron, and as a GitHub Actions repo secret for the moved one
+- **Fallback**: If the Vercel cron fails 3 times, Vercel disables it —
+  re-enable in the dashboard. The GitHub Actions run shows failures in the
+  repo's Actions tab instead.
 
 To add a new scheduled task:
-1. Check that total crons stay ≤ 2
-2. If more frequent than daily needed, use external scheduler (not Vercel crons)
+1. Prefer the free Vercel cron slot for a second daily job before reaching
+   for another GitHub Actions workflow — check `docs/THIRD_PARTY_LIMITS.md`
+   for current slot usage.
+2. If more frequent than daily is needed, it doesn't belong in `vercel.json`
+   regardless of slot availability — use an external scheduler (GitHub
+   Actions, following `premarket-scan.yml` as a template).
 3. Update `vercel.json` and commit. The cron attaches when the change reaches production, which happens automatically on merge to `main` — verify it in Vercel → Cron Jobs after the deploy completes
 
 ---
