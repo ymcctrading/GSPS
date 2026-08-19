@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { equitySession, marketSession, isExtended, barSession } from "@/lib/market/session";
+import { equitySession, marketSession, isExtended, barSession, mostRecentClose } from "@/lib/market/session";
 
 // Helper: build a Date at a given America/New_York wall-clock time by picking a
 // UTC instant. EDT is UTC−4 (summer). These dates are all in July (EDT).
@@ -53,5 +53,27 @@ describe("isExtended / barSession", () => {
   });
   it("crypto bars are never extended", () => {
     expect(isExtended(barSession(etDate(6, 7, 0).toISOString(), "crypto"))).toBe(false);
+  });
+});
+
+describe("mostRecentClose (EDT)", () => {
+  it("same-day close when asked for after 16:00 ET", () => {
+    // 2026-07-06 is a Monday.
+    const close = mostRecentClose(etDate(6, 17, 0));
+    expect(close.getTime()).toBe(etDate(6, 16, 0).getTime());
+  });
+  it("previous trading day's close when asked before today's close", () => {
+    // 2026-07-06 10:00 ET, before today's 16:00 close — falls back to Friday 7/3.
+    const close = mostRecentClose(etDate(6, 10, 0));
+    expect(close.getTime()).toBe(etDate(3, 16, 0).getTime());
+  });
+  it("skips the weekend: Monday's close is Friday's, not Saturday's or Sunday's", () => {
+    // Sunday 2026-07-05 mid-afternoon.
+    const close = mostRecentClose(etDate(5, 14, 0));
+    expect(close.getTime()).toBe(etDate(3, 16, 0).getTime());
+  });
+  it("exactly at the close counts as reached", () => {
+    const close = mostRecentClose(etDate(6, 16, 0));
+    expect(close.getTime()).toBe(etDate(6, 16, 0).getTime());
   });
 });

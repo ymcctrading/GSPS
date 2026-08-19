@@ -60,10 +60,13 @@ export async function GET() {
 
   // Fill whatever resting limit orders the market has now reached, before
   // reading the ledger back — otherwise the response is a snapshot taken one
-  // moment before the rows in it became true.
-  const restingFill = await evaluateRestingOrders(supabase, user.id).catch(
-    (err): { filled: number; error: string | null } => ({
+  // moment before the rows in it became true. Also cancels entries the market
+  // has invalidated (stop hit before the entry ever filled) — see
+  // lib/trade/invalidate-pending.ts.
+  const restingFill = await evaluateRestingOrders(supabase, user.id, user.email).catch(
+    (err): { filled: number; invalidated: number; error: string | null } => ({
       filled: 0,
+      invalidated: 0,
       error: err instanceof Error ? err.message : String(err),
     }),
   );
@@ -148,6 +151,7 @@ export async function GET() {
       syncedAt: new Date().toISOString(),
       syncError: restingFill.error,
       reconciled: restingFill.filled,
+      invalidated: restingFill.invalidated,
       orphaned: 0,
       source: "simulated-paper",
     },

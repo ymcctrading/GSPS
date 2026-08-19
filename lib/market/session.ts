@@ -75,6 +75,43 @@ export function isExtended(session: MarketSession): boolean {
   return session === "pre" || session === "post";
 }
 
+/**
+ * The most recent US-equities market close (16:00 ET) at or before `date`,
+ * as a UTC instant. Weekends are skipped, like the rest of this module;
+ * holidays are not, since nothing here has a holiday calendar to check
+ * against — a holiday shows as an ordinary weekday close that never actually
+ * happened, which only ever makes retention *more* generous (see
+ * `lib/portfolio/prune.ts`), never less.
+ *
+ * Walks backward by day rather than computing the offset directly, since ET
+ * is only ever -4 or -5 UTC and DST transitions make that offset unsafe to
+ * hardcode.
+ */
+export function mostRecentClose(date: Date = new Date()): Date {
+  const cursor = new Date(date);
+  for (let daysBack = 0; daysBack < 10; daysBack++) {
+    const { weekday } = etParts(cursor);
+    if (weekday !== 0 && weekday !== 6) {
+      const closeToday = closeInstantFor(cursor);
+      if (closeToday.getTime() <= date.getTime()) return closeToday;
+    }
+    cursor.setUTCDate(cursor.getUTCDate() - 1);
+  }
+  // Unreachable in practice (would require 10 consecutive weekend days).
+  return cursor;
+}
+
+/** 16:00 ET on the same ET calendar day as `date`, as a UTC instant. */
+function closeInstantFor(date: Date): Date {
+  const key = etDateKey(date); // "YYYY-MM-DD" in ET
+  // ET offset for this date: compare a fixed UTC instant on this date against
+  // its ET wall-clock rendering to derive the current offset (handles DST).
+  const probe = new Date(`${key}T16:00:00Z`);
+  const { minutes: probeEtMinutes } = etParts(probe);
+  const offsetMinutes = probeEtMinutes - CLOSE; // e.g. -4*60 (EDT) or -5*60 (EST) from 16:00Z
+  return new Date(probe.getTime() - offsetMinutes * 60_000);
+}
+
 export function sessionLabel(session: MarketSession): string {
   switch (session) {
     case "pre":
