@@ -60,6 +60,11 @@ three-month-old branch deploys three-month-old assumptions.
 ## Before opening a PR
 
 - `npm run lint` and `npm test` should both pass locally.
+- E2E specs live in `e2e/` (Playwright) and are not wired into CI, since they
+  need a live Supabase project — run them locally or against a preview
+  deploy with `npm run test:e2e` (set `E2E_BASE_URL` to point at a preview
+  instead of spinning up `next dev`). They sign up a disposable throwaway
+  account per run rather than relying on shared seed credentials.
 - If you touched `vercel.json` crons, re-check `docs/THIRD_PARTY_LIMITS.md`
   — the Vercel Hobby plan caps at 2 cron jobs, once/day each.
 - If you touched anything credential- or encryption-related

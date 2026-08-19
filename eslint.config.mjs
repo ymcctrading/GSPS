@@ -34,6 +34,10 @@ const eslintConfig = defineConfig([
     // reports failures that mean nothing about how they actually run.
     // tsconfig.json excludes the same directory.
     "supabase/functions/**",
+    // Playwright specs, not React: eslint-config-next's react-hooks rules
+    // misfire on Playwright's `use` fixture callback (rules-of-hooks reads
+    // "use" as a hook name regardless of context).
+    "e2e/**",
   ]),
 ]);
 

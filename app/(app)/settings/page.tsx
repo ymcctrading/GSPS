@@ -18,6 +18,7 @@ import {
 } from "@/lib/trade/protocol-rules";
 import { GuidedCapsForm } from "@/components/guided/guided-caps-form";
 import { AccountSettings } from "@/components/settings/account-settings";
+import { BillingSettings } from "@/components/settings/billing-settings";
 import { Link2, Landmark } from "lucide-react";
 
 interface SnapAccounts {
@@ -48,6 +49,8 @@ export default function SettingsPage() {
       </div>
 
       <AccountSettings />
+
+      <BillingSettings />
 
       <Card>
         <CardHeader>
