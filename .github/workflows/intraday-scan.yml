@@ -1,0 +1,43 @@
+name: Intraday scan
+
+# The coverage gap that let a real move go unnoticed: /api/intraday-scan was
+# "on demand" only — driven by a signed-in user's browser while the Scanner
+# page happened to be open (see the route's own header comment). Nobody has
+# to be watching for this to run now. Same workaround as premarket-scan.yml:
+# Vercel Hobby caps scheduled jobs at 2/project, 1 run/day each, and both
+# slots are spent on the daily market scan — so a job that needs to run every
+# few minutes during the session has to live outside vercel.json entirely.
+#
+# `13-21 UTC` is wider than the actual 09:30-16:00 ET session on purpose — it
+# has to cover the session under both EST (UTC-5) and EDT (UTC-4) without a
+# DST-aware cron, and GitHub Actions' scheduler is routinely a few minutes
+# late anyway. A run that lands before the open or after the close is cheap:
+# the route reports it as pre-market/after-hours and scans the last closed
+# session's data rather than fabricating anything.
+#
+# Authorized the same way as /api/market-scan: CRON_SECRET as a bearer token.
+# The route only fans out email notifications and writes to
+# intraday_system_alerts on this authorized path — a signed-in user's own
+# on-demand scan (still served the same way it always was) never emails
+# anyone on their behalf.
+on:
+  schedule:
+    - cron: '*/15 13-21 * * 1-5'
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    name: Trigger /api/intraday-scan
+    steps:
+      - name: Call intraday-scan
+        run: |
+          status=$(curl -sS -o /tmp/response.json -w '%{http_code}' \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ vars.PRODUCTION_URL || 'https://gsps.vercel.app' }}/api/intraday-scan")
+          echo "HTTP $status"
+          cat /tmp/response.json
+          if [ "$status" -ge 300 ]; then
+            echo "intraday-scan returned $status" >&2
+            exit 1
+          fi

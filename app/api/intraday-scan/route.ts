@@ -1,13 +1,25 @@
 /**
  * GSPS — /api/intraday-scan
  *
- * On-demand intraday momentum scan. Deliberately *not* a cron: this project
- * runs on Vercel's Hobby plan, which caps scheduled jobs at two per project and
- * one run per day (see docs/THIRD_PARTY_LIMITS.md), and both slots are already
- * spent on the daily market scan. A scan that needs to run every few minutes
- * during the session cannot come from `vercel.json`, so it is served here and
- * driven by the Scanner page while a user has it open. An external scheduler
- * can call the same endpoint later without any change to this file.
+ * Intraday momentum scan, reachable two ways.
+ *
+ * Signed-in user (no `Authorization` header): on-demand, driven by the
+ * Scanner page while a user has it open. This project runs on Vercel's
+ * Hobby plan, which caps scheduled jobs at two per project and one run per
+ * day (see docs/THIRD_PARTY_LIMITS.md), and both slots are already spent on
+ * the daily market scan — so a scan that needs to run every few minutes
+ * during the session cannot come from `vercel.json`. Results persist to
+ * `intraday_alerts`, per-user, for that user's own cooldown history.
+ *
+ * `Authorization: Bearer CRON_SECRET` (system scan): the background
+ * coverage this project didn't have — see
+ * .github/workflows/intraday-scan.yml, which calls this on a timer during
+ * market hours without any browser tab open. It always scans the full
+ * default watchlist (ignores `?symbols=`, which is a personal override, not
+ * a market-wide one), persists to `intraday_system_alerts` (no per-user
+ * cooldown to key off), and emails every user whose notification
+ * preferences match — this is the path that actually answers "why didn't
+ * the scanner notify me."
  *
  * Market data only. Nothing here touches broker or order state — those are
  * different sources with different trust properties, and the separation is
@@ -15,12 +27,13 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getMarketDataProvider } from "@/lib/data/provider";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { atr } from "@/lib/analysis/pivots";
 import { equitySession, etParts } from "@/lib/market/session";
 import { readLiquidity } from "@/lib/scan/liquidity";
+import { sendAlertEmail } from "@/lib/notifications/resend-handler";
 import {
   DEFAULT_CONFIG,
   WATCHLIST,
@@ -70,17 +83,38 @@ const COOLDOWN_LOOKBACK_HOURS = 24;
 /** Bounded so a hand-typed symbol list can't turn into an unbounded fan-out. */
 const MAX_SYMBOLS = 25;
 
+/**
+ * True when the request carries the shared cron secret. Same check as
+ * `/api/market-scan`: Vercel only attaches this header for its own scheduled
+ * invocations, so an unset secret means the check fails closed, not open.
+ */
+function isSystemScan(req: NextRequest): boolean {
+  return (
+    Boolean(process.env.CRON_SECRET) &&
+    req.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}`
+  );
+}
+
 export async function GET(req: NextRequest) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+  const systemScan = isSystemScan(req);
+
+  const supabase = systemScan ? createServiceClient() : await createClient();
+  let userId: string | null = null;
+  if (!systemScan) {
+    const {
+      data: { user },
+    } = await (supabase as Supabase).auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+    }
+    userId = user.id;
   }
 
   const params = new URL(req.url).searchParams;
-  const universe = resolveUniverse(params.get("symbols"));
+  // A system scan always covers the full watchlist — `?symbols=` is a
+  // personal narrowing a signed-in user asked for, not something a
+  // background run driven by GitHub Actions has an opinion about.
+  const universe = systemScan ? WATCHLIST : resolveUniverse(params.get("symbols"));
   const config = resolveConfig(params);
   const provider = getMarketDataProvider();
 
@@ -89,13 +123,11 @@ export async function GET(req: NextRequest) {
   const nowEtMinute = etParts(now).minutes;
 
   // Cooldown history for the whole universe in one query rather than one per
-  // symbol — the fan-out is already bounded at MAX_SYMBOLS, and a round trip
-  // per symbol would dominate the scan's latency.
-  const priorAlerts = await loadPriorAlerts(
-    supabase,
-    universe.map((u) => u.symbol),
-    now,
-  );
+  // symbol — the fan-out is already bounded, and a round trip per symbol
+  // would dominate the scan's latency.
+  const priorAlerts = systemScan
+    ? await loadPriorSystemAlerts(supabase as ServiceSupabase, universe.map((u) => u.symbol), now)
+    : await loadPriorAlerts(supabase as Supabase, universe.map((u) => u.symbol), now);
 
   const inputs = await mapWithConcurrency(universe, 4, async (entry) =>
     buildInput(entry, todayEt, provider, priorAlerts.get(entry.symbol) ?? [], now),
@@ -112,7 +144,23 @@ export async function GET(req: NextRequest) {
   // it is not what the caller asked for. A write failure must not discard a
   // scan that already succeeded — it is reported alongside the result and the
   // cooldown degrades to within-run only, which is where it was before.
-  const alertsPersisted = await persistAlerts(supabase, user.id, output.alerts, resolved);
+  const alertsPersisted = systemScan
+    ? await persistSystemAlerts(supabase as ServiceSupabase, output.alerts, resolved)
+    : await persistAlerts(supabase as Supabase, userId!, output.alerts, resolved);
+
+  // The email fan-out is what actually answers "why wasn't I notified" — it
+  // only runs for the system scan. A signed-in user's own on-demand check is
+  // them looking, not the market moving; emailing every viewer of the
+  // Scanner page on every tab-open would turn a convenience feature into
+  // spam. Best-effort: a notification failure must not turn a scan that
+  // already succeeded, and already persisted, into an error response.
+  if (systemScan && output.alerts.length > 0) {
+    try {
+      await notifySubscribedUsers(supabase as ServiceSupabase, output.alerts);
+    } catch (err) {
+      console.error("[intraday-scan] notification fan-out failed:", err);
+    }
+  }
 
   return NextResponse.json({
     ...output,
@@ -187,6 +235,7 @@ function resolveConfig(params: URLSearchParams): ScannerConfig {
 
 type Provider = ReturnType<typeof getMarketDataProvider>;
 type Supabase = Awaited<ReturnType<typeof createClient>>;
+type ServiceSupabase = ReturnType<typeof createServiceClient>;
 
 /**
  * Every symbol's recent alerts, in one query, keyed by symbol.
@@ -276,6 +325,161 @@ async function persistAlerts(
     return false;
   }
   return true;
+}
+
+/**
+ * System-scan counterpart to `loadPriorAlerts`: cooldown history from
+ * `intraday_system_alerts` instead of the per-user table, since a background
+ * run has no `user_id` to scope by.
+ */
+async function loadPriorSystemAlerts(
+  supabase: ServiceSupabase,
+  symbols: string[],
+  now: Date,
+): Promise<Map<string, PriorAlert[]>> {
+  const bySymbol = new Map<string, PriorAlert[]>();
+  if (symbols.length === 0) return bySymbol;
+
+  const since = new Date(now.getTime() - COOLDOWN_LOOKBACK_HOURS * 3600_000).toISOString();
+  const { data, error } = await supabase
+    .from("intraday_system_alerts")
+    .select("symbol, signal_id, signal_type, poll_cycle_timestamp")
+    .in("symbol", symbols)
+    .gte("poll_cycle_timestamp", since)
+    .order("poll_cycle_timestamp", { ascending: false });
+
+  if (error || !data) return bySymbol;
+
+  for (const row of data) {
+    const prior: PriorAlert = {
+      type: row.signal_id as SignalType,
+      direction: row.signal_type === "bearish" ? "down" : "up",
+      at: row.poll_cycle_timestamp,
+    };
+    const existing = bySymbol.get(row.symbol);
+    if (existing) existing.push(prior);
+    else bySymbol.set(row.symbol, [prior]);
+  }
+  return bySymbol;
+}
+
+/** System-scan counterpart to `persistAlerts`: writes `intraday_system_alerts`, no `user_id`. */
+async function persistSystemAlerts(
+  supabase: ServiceSupabase,
+  alerts: Alert[],
+  inputs: SymbolInput[],
+): Promise<boolean> {
+  if (alerts.length === 0) return true;
+
+  const intervalBySymbol = new Map(inputs.map((i) => [i.symbol, i.barIntervalMinutes]));
+
+  const rows = alerts.map((alert) => ({
+    symbol: alert.symbol,
+    signal_id: alert.type,
+    score: Math.max(0, Math.min(9, Math.round((alert.confidence / 100) * 9))),
+    signal_type: DIRECTION_TO_SIGNAL_TYPE[alert.direction],
+    entry_level: alert.move.current,
+    stop_loss_level: alert.invalidation,
+    take_profit_1_level: alert.continuationPlan.firstTarget,
+    poll_cycle_timestamp: alert.triggerTime,
+    metadata: {
+      confidence: alert.confidence,
+      direction: alert.direction,
+      relativeVolume: alert.relativeVolume,
+      dataTimestamp: alert.dataTimestamp,
+      barIntervalMinutes: intervalBySymbol.get(alert.symbol) ?? 1,
+    },
+  }));
+
+  const { error } = await supabase
+    .from("intraday_system_alerts")
+    .upsert(rows, { onConflict: "symbol,signal_id,poll_cycle_timestamp" });
+
+  if (error) {
+    console.error("[intraday-scan] could not persist system alerts:", error);
+    return false;
+  }
+  return true;
+}
+
+/** How far back a notification_log row still counts as "already sent this". */
+const NOTIFICATION_DEDUP_HOURS = 24;
+
+/**
+ * Email every user whose notification preferences match a system-scan
+ * alert. This is the piece that was built (migration 0022) but never wired
+ * up — preferences and a Resend sender existed, nothing called them from an
+ * actual scan. Best-effort per user: one user's bad email address or a
+ * `notification_log` write failure must not stop the rest of the list from
+ * being notified.
+ */
+async function notifySubscribedUsers(supabase: ServiceSupabase, alerts: Alert[]): Promise<void> {
+  if (!process.env.RESEND_API_KEY) return; // sendAlertEmail would no-op anyway; skip the query entirely
+
+  const { data: prefs, error } = await supabase
+    .from("notification_preferences")
+    .select("user_id, min_score, quiet_hours_enabled")
+    .eq("email_enabled", true);
+  if (error || !prefs || prefs.length === 0) return;
+
+  for (const alert of alerts) {
+    const direction = DIRECTION_TO_SIGNAL_TYPE[alert.direction] as "bullish" | "bearish";
+    const score = Math.max(0, Math.min(9, Math.round((alert.confidence / 100) * 9)));
+    const signalHash = `${alert.symbol}-${direction}-${score}`;
+
+    for (const pref of prefs) {
+      if (score < pref.min_score) continue;
+
+      const since = new Date(Date.now() - NOTIFICATION_DEDUP_HOURS * 3600_000).toISOString();
+      const { data: alreadySent } = await supabase
+        .from("notification_log")
+        .select("id")
+        .eq("user_id", pref.user_id)
+        .eq("signal_hash", signalHash)
+        .gte("triggered_at", since)
+        .limit(1);
+      if (alreadySent && alreadySent.length > 0) continue;
+
+      if (pref.quiet_hours_enabled) {
+        const { data: inQuietHours } = await supabase.rpc("is_in_quiet_hours", {
+          user_id: pref.user_id,
+        });
+        if (inQuietHours) continue;
+      }
+
+      const { data: userRecord } = await supabase.auth.admin.getUserById(pref.user_id);
+      const email = userRecord?.user?.email;
+      if (!email) continue;
+
+      const result = await sendAlertEmail({
+        userEmail: email,
+        symbol: alert.symbol,
+        direction,
+        score,
+        entry: alert.move.current,
+        stopLoss: alert.invalidation ?? alert.move.current,
+        takeProfit: alert.continuationPlan.firstTarget ?? alert.move.current,
+        verdict: "Execute",
+        confidence: alert.confidence / 100,
+      });
+
+      const { error: logError } = await supabase.from("notification_log").insert({
+        user_id: pref.user_id,
+        symbol: alert.symbol,
+        direction,
+        score,
+        channel: "email",
+        status: result.success ? "sent" : "failed",
+        recipient: email,
+        triggered_at: new Date().toISOString(),
+        sent_at: result.success ? new Date().toISOString() : null,
+        failed_at: result.success ? null : new Date().toISOString(),
+        error_message: result.success ? null : (result.error ?? null),
+        signal_hash: signalHash,
+      });
+      if (logError) console.error("[intraday-scan] could not log notification:", logError);
+    }
+  }
 }
 
 /**

@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Radar, Briefcase, Bot, FlaskConical, BookOpen, Settings, LogOut, TrendingUp, Compass } from "lucide-react";
+import { LayoutDashboard, Radar, Briefcase, Bot, FlaskConical, BookOpen, Settings, LogOut, TrendingUp, Compass, UserCircle } from "lucide-react";
+import { SymbolSearch } from "@/components/search/symbol-search";
 
 /**
  * Every destination, in order. `tabBar: false` keeps one out of the phone tab
@@ -81,14 +82,30 @@ export function AppNav() {
             ))}
           </nav>
 
-          <button
-            onClick={signOut}
-            className="ml-auto flex min-h-11 shrink-0 items-center gap-1.5 text-sm text-muted hover:text-foreground cursor-pointer"
-          >
-            <LogOut className="h-4 w-4" />
-            <span className="hidden lg:inline">Sign out</span>
-            <span className="sr-only lg:hidden">Sign out</span>
-          </button>
+          <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
+            <SymbolSearch />
+
+            <Link
+              href="/settings"
+              aria-label="Account settings"
+              aria-current={isActive("/settings") ? "page" : undefined}
+              className={cn(
+                "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent transition-colors hover:opacity-80",
+                isActive("/settings") && "ring-2 ring-accent",
+              )}
+            >
+              <UserCircle className="h-5 w-5" />
+            </Link>
+
+            <button
+              onClick={signOut}
+              className="flex min-h-11 shrink-0 items-center gap-1.5 text-sm text-muted hover:text-foreground cursor-pointer"
+            >
+              <LogOut className="h-4 w-4" />
+              <span className="hidden lg:inline">Sign out</span>
+              <span className="sr-only lg:hidden">Sign out</span>
+            </button>
+          </div>
         </div>
       </header>
 
