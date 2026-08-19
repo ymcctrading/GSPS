@@ -18,7 +18,7 @@ const TIMEOUT_MS = 4000;
 
 async function finnhubGet(path: string, params: Record<string, string>): Promise<unknown> {
   const apiKey = process.env.FINNHUB_API_KEY;
-  if (!apiKey) return null;
+  if (!apiKey) return null; // Expected/common (local dev, unconfigured env) — not worth logging.
 
   const url = new URL(`${FINNHUB_BASE}${path}`);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
@@ -28,9 +28,16 @@ async function finnhubGet(path: string, params: Record<string, string>): Promise
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
     const res = await fetch(url, { signal: controller.signal });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      // A key IS configured here, so a failure is worth knowing about — this is
+      // the only signal distinguishing "not wired up" from "wired up but broken"
+      // (expired/invalid key, plan doesn't cover this endpoint, rate limited).
+      console.warn(`[finnhub] ${path} → HTTP ${res.status}`);
+      return null;
+    }
     return await res.json();
-  } catch {
+  } catch (err) {
+    console.warn(`[finnhub] ${path} failed:`, err instanceof Error ? err.message : String(err));
     return null;
   } finally {
     clearTimeout(timer);
