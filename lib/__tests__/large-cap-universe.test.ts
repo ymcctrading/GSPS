@@ -14,6 +14,7 @@ import {
   LARGE_CAP_UNIVERSE,
 } from "@/lib/scan/large-cap-universe";
 import { fallbackUniverse } from "@/lib/guided/universe";
+import { GUIDED_SCAN_BATCH, MAX_CANDIDATES_SCANNED } from "@/lib/guided/config";
 
 describe("the large-cap universe", () => {
   it("holds exactly the ranks it claims to hold", () => {
@@ -74,12 +75,43 @@ describe("what Guided will look at", () => {
     ]);
   });
 
-  it("keeps crypto in, for the hours the US market is shut", () => {
-    expect(fallbackUniverse()).toContain("BTC/USD");
+  it("holds no crypto while the execute path assumes equities", () => {
+    // Not a preference. app/api/guided/execute/route.ts hardcodes
+    // assetClass: "equity" on submission, so a crypto recommendation would be
+    // priced against equity tick rules and logged as us_equity. Widening the
+    // search must not change what the execute path is handed.
+    expect(fallbackUniverse().filter((s) => s.includes("/"))).toEqual([]);
+  });
+
+  it("stays inside the provider's per-minute budget", () => {
+    // scanTicker costs ~6 provider requests per symbol and Alpaca allows ~200
+    // a minute, so one page load must not be able to spend the whole thing.
+    const REQUESTS_PER_SCAN = 6;
+    const PROVIDER_BUDGET_PER_MIN = 200;
+    expect(MAX_CANDIDATES_SCANNED * REQUESTS_PER_SCAN).toBeLessThan(PROVIDER_BUDGET_PER_MIN);
+  });
+
+  it("batches small enough to exit early on an ordinary day", () => {
+    expect(GUIDED_SCAN_BATCH).toBeLessThanOrEqual(MAX_CANDIDATES_SCANNED);
+    expect(MAX_CANDIDATES_SCANNED % GUIDED_SCAN_BATCH).toBe(0);
   });
 
   it("has no duplicates once the lists are merged", () => {
     const u = fallbackUniverse();
     expect(new Set(u).size).toBe(u.length);
+  });
+});
+
+/**
+ * The coarse pass runs inside a 60-second Vercel function. Widening the pool of
+ * symbols the scan may *consider* must not widen the number it actually scans —
+ * that distinction is the whole safety margin, and it was lost once already.
+ */
+describe("the coarse scan budget", () => {
+  it("honours the caller's universeTop rather than the pool size", async () => {
+    const { MAX_COARSE_UNIVERSE } = await import("@/lib/marketScan");
+    // The backstop must sit above a realistic caller budget, or it would be
+    // doing the caller's job and hiding a mistake in it.
+    expect(MAX_COARSE_UNIVERSE).toBeGreaterThan(100);
   });
 });

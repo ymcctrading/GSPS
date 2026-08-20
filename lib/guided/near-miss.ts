@@ -53,9 +53,16 @@ export interface NearMiss {
 export function missingFor(result: ScanResult, score: number): string[] {
   const missing: string[] = [];
 
+  // Two different reasons a verdict lands below Execute, and saying the wrong
+  // one is worse than saying nothing: a setup can score 7-9 and still be held
+  // at Watch because its plan has not armed or its data is stale. Telling that
+  // reader "scores 8 out of 9, and we only offer 7 or better" is a sentence
+  // that contradicts itself.
   if (result.decision.outputState !== "Execute") {
     missing.push(
-      `Scores ${score} out of 9. Guided only offers setups scoring 7 or better, so this one is worth watching rather than buying.`,
+      score < 7
+        ? `Scores ${score} out of 9. Guided only offers setups scoring 7 or better, so this one is worth watching rather than buying.`
+        : `Scores ${score} out of 9, which is strong — but the verdict is still ${result.decision.outputState}, so something else has not lined up yet.`,
     );
   }
   if (result.direction === "none") {

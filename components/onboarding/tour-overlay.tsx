@@ -27,11 +27,16 @@
  *
  * ## Scrolling
  *
- * The page is frozen while the tour runs, the same way `Modal` freezes it.
- * Every anchor lives in the sticky header or the fixed tab bar, so nothing the
- * tour points at can be scrolled out of reach; an anchor that somehow is
- * off-screen measures as invisible and degrades to the centred layout above,
- * rather than the tour pointing confidently at a blank patch of screen.
+ * The page is deliberately NOT frozen. Steps point at real page sections, which
+ * are usually below the fold when the step opens, so the tour has to move the
+ * page rather than hold it still. The anchor is scrolled to centre once, then
+ * re-measured as the page settles.
+ *
+ * The subtle trap here, and the reason `resolveAnchor` is written the way it
+ * is: an off-screen anchor must still resolve. Treating "outside the viewport"
+ * as "not found" means the element never resolves, so the scroll that would
+ * bring it into view never fires, so it never resolves — and every page-
+ * anchored step quietly degrades to a centred bubble that points at nothing.
  */
 
 import * as React from "react";
@@ -76,14 +81,18 @@ interface Rect {
  * nothing to point at — so they collapse to one return value rather than three
  * flavours of failure the layout would have to tell apart.
  */
-function resolveAnchor(anchor: string | undefined): Rect | null {
+function resolveAnchor(anchor: string | undefined): { el: HTMLElement; rect: Rect } | null {
   if (!anchor || typeof document === "undefined") return null;
   const candidates = document.querySelectorAll<HTMLElement>(`[data-tour="${CSS.escape(anchor)}"]`);
   for (const el of candidates) {
     const r = el.getBoundingClientRect();
+    // Zero-size is the only disqualifier. Being outside the viewport is NOT:
+    // an in-page section is normally below the fold when its step opens, and
+    // rejecting it here would mean never resolving it, therefore never
+    // scrolling to it — which silently reduced every page-anchored step to a
+    // centred bubble. Off-screen means "scroll to me", not "ignore me".
     if (r.width === 0 || r.height === 0) continue;
-    if (r.bottom < 0 || r.top > window.innerHeight) continue;
-    return { top: r.top, left: r.left, width: r.width, height: r.height };
+    return { el, rect: { top: r.top, left: r.left, width: r.width, height: r.height } };
   }
   return null;
 }
@@ -173,9 +182,9 @@ export function TourOverlay({ open, onClose }: { open: boolean; onClose: (outcom
 
     const measure = () => {
       if (cancelled) return;
-      const next = resolveAnchor(anchor);
-      setRect(next);
-      if (next && !scrolled) {
+      const found = resolveAnchor(anchor);
+      setRect(found?.rect ?? null);
+      if (found && !scrolled) {
         scrolled = true;
         // `center` rather than `nearest`: a section flush against the sticky
         // header is technically in view and reads as cut off.
@@ -185,9 +194,11 @@ export function TourOverlay({ open, onClose }: { open: boolean; onClose: (outcom
         // so an environment that lacks it (jsdom under test, and any renderer
         // that stubs layout) should quietly go without rather than throw and
         // take the whole tour down.
-        const el = document.querySelector<HTMLElement>(`[data-tour="${CSS.escape(anchor!)}"]`);
-        if (typeof el?.scrollIntoView === "function") {
-          el.scrollIntoView({ block: "center", behavior: "smooth" });
+        // The element `resolveAnchor` measured, not a fresh querySelector —
+        // those disagree when a section is rendered twice across breakpoints,
+        // and scrolling the hidden copy moves nothing.
+        if (typeof found.el.scrollIntoView === "function") {
+          found.el.scrollIntoView({ block: "center", behavior: "smooth" });
         }
       }
     };

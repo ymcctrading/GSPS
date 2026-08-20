@@ -35,13 +35,24 @@ beforeEach(() => {
 });
 
 /** Give one element a real rect, the way a laid-out browser would. */
-function layOutAnchor(anchor: string) {
+function layOutAnchor(anchor: string, top = 12) {
   const el = document.createElement("a");
   el.setAttribute("data-tour", anchor);
+  el.scrollIntoView = vi.fn();
   el.getBoundingClientRect = () =>
-    ({ top: 12, left: 40, width: 90, height: 32, bottom: 44, right: 130, x: 40, y: 12, toJSON: () => ({}) }) as DOMRect;
+    ({ top, left: 40, width: 90, height: 32, bottom: top + 32, right: 130, x: 40, y: top, toJSON: () => ({}) }) as DOMRect;
   document.body.appendChild(el);
   return el;
+}
+
+/** Walk to the step that points at a given anchor. */
+async function advanceTo(user: ReturnType<typeof userEvent.setup>, anchor: string) {
+  const index = TOUR_STEPS.findIndex((s) => s.anchor === anchor);
+  expect(index).toBeGreaterThanOrEqual(0);
+  for (let i = 0; i < index; i++) {
+    await user.click(screen.getByRole("button", { name: /Next/ }));
+  }
+  return index;
 }
 
 describe("leaving the tour", () => {
@@ -201,6 +212,46 @@ describe("taking the reader to the page", () => {
     for (const step of TOUR_STEPS) {
       if (step.route) expect(known).toContain(step.route);
     }
+  });
+});
+
+describe("anchors below the fold", () => {
+  it("scrolls to a section that starts off-screen, and spotlights it", async () => {
+    // The regression this exists for: `resolveAnchor` used to reject any rect
+    // outside the viewport. Page sections are normally below the fold when
+    // their step opens, so rejecting them meant never resolving them, never
+    // scrolling to them, and never pointing at them — every page-anchored step
+    // silently became a centred bubble. Off-screen means "scroll to me".
+    const user = userEvent.setup();
+    const el = layOutAnchor("settings-caps", 4000);
+
+    render(<TourOverlay open onClose={onClose} />);
+    await advanceTo(user, "settings-caps");
+
+    expect(el.scrollIntoView).toHaveBeenCalled();
+    const ring = document.querySelector<HTMLElement>(".ring-accent");
+    expect(ring, "an off-screen anchor must still be spotlit").not.toBeNull();
+    el.remove();
+  });
+
+  it("scrolls the copy that is actually laid out, not the first in the DOM", async () => {
+    // The ring measured the first laid-out element while the scroll grabbed
+    // the first DOM match. Across breakpoints those are different elements,
+    // and scrolling the hidden one moves nothing.
+    const user = userEvent.setup();
+    const hidden = document.createElement("div");
+    hidden.setAttribute("data-tour", "settings-caps");
+    hidden.scrollIntoView = vi.fn();
+    document.body.appendChild(hidden);
+    const visible = layOutAnchor("settings-caps", 3000);
+
+    render(<TourOverlay open onClose={onClose} />);
+    await advanceTo(user, "settings-caps");
+
+    expect(visible.scrollIntoView).toHaveBeenCalled();
+    expect(hidden.scrollIntoView).not.toHaveBeenCalled();
+    hidden.remove();
+    visible.remove();
   });
 });
 

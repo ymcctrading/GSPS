@@ -36,9 +36,13 @@ import { LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
  * contract does not size that way, so a recommendation for one would be
  * arithmetic the rest of the mode cannot honour.
  *
- * Crypto is deliberately in. It trades around the clock, so it is the only
- * thing standing between "the US market is shut" and an empty screen at a
- * weekend.
+ * Crypto is excluded too, and this one is a deferral rather than a principle.
+ * It trades around the clock and would be genuinely useful here, but
+ * `app/api/guided/execute/route.ts` hardcodes `assetClass: "equity"` on
+ * submission — so a crypto recommendation would be priced against equity tick
+ * rules and recorded in the learning tables as `us_equity`. Widening the search
+ * must not quietly change what the execute path is being handed. Re-enable this
+ * once that route derives the asset class from the recommendation.
  */
 const GUIDED_SECTORS = [
   "mag7",
@@ -49,7 +53,6 @@ const GUIDED_SECTORS = [
   "energy",
   "healthcare",
   "etfs",
-  "crypto",
 ] as const;
 
 /**
@@ -65,24 +68,24 @@ const GUIDED_SECTORS = [
 export function fallbackUniverse(): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
+  const add = (symbol: string) => {
+    const upper = symbol.toUpperCase();
+    // Dropping the crypto *sector* is not enough: BTC/USD also lives inside the
+    // mag7 watchlist. The pair separator is the reliable test, so it is applied
+    // to every symbol rather than trusting the sector it arrived in.
+    if (upper.includes("/")) return;
+    if (seen.has(upper)) return;
+    seen.add(upper);
+    out.push(upper);
+  };
   for (const key of GUIDED_SECTORS) {
-    for (const symbol of SECTORS[key]?.symbols ?? []) {
-      const upper = symbol.toUpperCase();
-      if (seen.has(upper)) continue;
-      seen.add(upper);
-      out.push(upper);
-    }
+    for (const symbol of SECTORS[key]?.symbols ?? []) add(symbol);
   }
   // The large caps sit behind the sector lists rather than replacing them.
   // Guided scans a few dozen symbols at most per request, so this tail is
   // reached only when the published list and the watchlists between them have
   // not produced a setup — which is exactly the day it exists for.
-  for (const symbol of LARGE_CAP_UNIVERSE) {
-    const upper = symbol.toUpperCase();
-    if (seen.has(upper)) continue;
-    seen.add(upper);
-    out.push(upper);
-  }
+  for (const symbol of LARGE_CAP_UNIVERSE) add(symbol);
   return out;
 }
 

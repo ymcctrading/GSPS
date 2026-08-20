@@ -80,14 +80,20 @@ export const RECOMMENDATION_TTL_MINUTES = 15;
  * is a sentence about the market that was actually a sentence about our own
  * pipeline. A novice cannot tell those apart.
  *
- * 40 is a *ceiling*, not a target. Scanning stops the moment enough
+ * 16 is a *ceiling*, not a target. Scanning stops the moment enough
  * recommendations exist (see `GUIDED_SCAN_BATCH`), so the common case still
  * costs the same handful of scans it always did and the wider reach is only
- * paid for on the days it is needed. The ceiling exists because `scanTicker`
- * costs several provider requests per symbol and Alpaca's data API allows
- * roughly 200 a minute — see docs/THIRD_PARTY_LIMITS.md.
+ * paid for on the days it is needed.
+ *
+ * The number is set by arithmetic rather than taste. `scanTicker` costs roughly
+ * six provider requests per symbol (one per timeframe, distinct URLs, so the
+ * cache does not help), and Alpaca's data API allows about 200 a minute — see
+ * docs/THIRD_PARTY_LIMITS.md. 16 symbols is ~96 requests, which leaves room for
+ * the rest of the app inside the same minute. An earlier draft of this used 40,
+ * or ~240 requests, which is over the whole per-minute budget for one page load
+ * by a single user.
  */
-export const MAX_CANDIDATES_SCANNED = 40;
+export const MAX_CANDIDATES_SCANNED = 16;
 
 /**
  * Symbols scanned per round before checking whether we can stop.

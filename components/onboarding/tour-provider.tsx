@@ -46,9 +46,6 @@ export function useTour(): TourControls {
 
 export function TourProvider({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = React.useState(false);
-  // Tracked so a replay from Settings does not re-trigger the auto-launch
-  // check, and so the check itself only ever runs once per page load.
-  const seenRef = React.useRef(true);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -56,7 +53,6 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
       .then((res) => (res.ok ? (res.json() as Promise<OnboardingStatus>) : null))
       .then((status) => {
         if (cancelled || !status || status.seen) return;
-        seenRef.current = false;
         setOpen(true);
       })
       .catch(() => {
@@ -69,16 +65,16 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
 
   const close = React.useCallback((outcome: TourOutcome) => {
     setOpen(false);
-    seenRef.current = true;
     void fetch("/api/onboarding", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ outcome }),
     }).catch(() => {
-      // The local flag above already stops it reopening in this session. A
-      // failed write means it may auto-launch once more on the next visit,
-      // which is a better outcome than surfacing a network error to someone
-      // who has just been told what a stop loss is.
+      // Deliberately swallowed. The status is only re-read on a fresh page
+      // load, so a failed write cannot reopen the tour in this session; it may
+      // auto-launch once more on the next visit, which is a better outcome
+      // than surfacing a network error to someone who has just been told what
+      // a stop loss is.
     });
   }, []);
 

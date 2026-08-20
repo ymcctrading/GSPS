@@ -94,12 +94,12 @@ async function resolveUniverse(universeTop: number): Promise<string[]> {
     // volume is itself evidence, and the combined list is capped by the caller's
     // budget rather than here.
     if (actives.length > 0) {
-      return capUniverse([...actives, ...FALLBACK_UNIVERSE]);
+      return capUniverse([...actives, ...FALLBACK_UNIVERSE], universeTop);
     }
   } catch {
     /* screener unavailable — fall back to the curated universe */
   }
-  return capUniverse(FALLBACK_UNIVERSE);
+  return capUniverse(FALLBACK_UNIVERSE, universeTop);
 }
 
 /**
@@ -119,8 +119,17 @@ async function resolveUniverse(universeTop: number): Promise<string[]> {
  */
 export const MAX_COARSE_UNIVERSE = 750;
 
-function capUniverse(symbols: string[]): string[] {
-  return Array.from(new Set(symbols)).slice(0, MAX_COARSE_UNIVERSE);
+/**
+ * Apply the caller's budget, then the hard ceiling.
+ *
+ * `universeTop` was being ignored, which is how a change meant to widen the
+ * *available* pool silently widened the *scanned* pool from ≤100 to ~650 inside
+ * a 60-second cron. The caller's number is the real budget; MAX_COARSE_UNIVERSE
+ * is only a backstop for a caller that asks for something absurd.
+ */
+function capUniverse(symbols: string[], universeTop: number): string[] {
+  const limit = Math.min(Math.max(universeTop, 1), MAX_COARSE_UNIVERSE);
+  return Array.from(new Set(symbols)).slice(0, limit);
 }
 
 interface CoarseCandidate {

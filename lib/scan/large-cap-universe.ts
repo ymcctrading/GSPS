@@ -42,9 +42,19 @@ export const LARGE_CAP_SOURCE_RANKS = { from: 1, to: 500, sourceTotal: 893 } as 
 /**
  * Ordered by market capitalisation, largest first.
  *
- * The order is load-bearing: `runMarketScan` takes the first `universeTop` when
- * the screener is unavailable, so the biggest and most liquid names are the ones
- * a reduced budget spends itself on.
+ * The order is load-bearing. `runMarketScan` trims the combined universe to its
+ * `universeTop` budget, and this list sits behind the most-actives screener in
+ * that combined order — so when the budget bites, the names that survive are the
+ * biggest and most liquid ones.
+ *
+ * A note on the symbols themselves: they are transcribed exactly as the source
+ * listing published them, including tickers that may since have changed hands or
+ * been renamed. They are not corrected against any other source. A symbol the
+ * data provider cannot resolve returns no bars and is dropped by the coarse
+ * pass, so a stale entry costs a wasted slot rather than a wrong answer — but a
+ * list that has drifted far enough to lose many at once would quietly shrink the
+ * universe, which is the reason to refresh it from the source rather than patch
+ * it by hand.
  */
 export const LARGE_CAP_UNIVERSE: string[] = [
   "TTE", "APH", "TMUS", "ABT", "SCHW", "PEP", "MRVL", "MCD", "SHOP", "BLK",
