@@ -105,8 +105,8 @@ const GROUPS: { heading: string; terms: Term[] }[] = [
 export function Glossary() {
   return (
     <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
-      {GROUPS.map((g) => (
-        <Card key={g.heading}>
+      {GROUPS.map((g, i) => (
+        <Card key={g.heading} data-tour={i === 0 ? "glossary-terms" : undefined}>
           <CardHeader>
             <CardTitle>{g.heading}</CardTitle>
           </CardHeader>

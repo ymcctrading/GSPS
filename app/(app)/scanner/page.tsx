@@ -93,7 +93,7 @@ export default function ScannerPage() {
       */}
       <IntradayAlerts />
 
-      <Card>
+      <Card data-tour="scanner-universe">
         <CardHeader>
           <CardTitle>Universe</CardTitle>
           <CardDescription>Combine industries freely, or scan specific symbols.</CardDescription>
@@ -140,8 +140,8 @@ export default function ScannerPage() {
       </Card>
 
       {results && (
-        <Card>
-          <CardHeader>
+        <Card data-tour="scanner-results">
+            <CardHeader>
             <CardTitle>Results</CardTitle>
             <CardDescription>
               Sorted by score. Open a symbol for the chart, breakdown, and order ticket.

@@ -13,7 +13,17 @@ export default function GuidedPage() {
           your confirmation — nothing here trades on its own.
         </p>
       </div>
-      <GuidedMode />
+      {/*
+        The tour's anchor sits here rather than inside GuidedMode, because
+        GuidedMode returns early while loading, when the API errors, and when
+        the mode is blocked — so an anchor in its success branch would exist
+        only on the days a recommendation happens to render. What the tour is
+        pointing at is "where the suggestion appears", which is this slot in
+        every one of those states.
+      */}
+      <div data-tour="guided-card" className="min-w-0">
+        <GuidedMode />
+      </div>
     </div>
   );
 }

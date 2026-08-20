@@ -2,7 +2,7 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-08-17.
+**Last updated:** 2026-08-19.
 
 This document decides *what we build next and in what order*. Proposals and
 implementation work should trace back to a phase below. See
@@ -100,7 +100,12 @@ both signal discovery and execution.
 - **Conditional orders** — stop-loss and take-profit on any order; the
   foundation for Q2 bracket orders.
 - **Improved onboarding** — glossary integration, pattern education,
-  guided paper-trade walkthrough.
+  guided paper-trade walkthrough. *(First-run tour shipped 2026-08-19: a
+  spotlight walkthrough that auto-launches once per account and covers every
+  destination in plain English, plus `/welcome` as a permanent, re-readable
+  version of the same content. Illustrated throughout by a frozen after-hours
+  SPY snapshot, labelled as saved rather than live on every figure. Glossary
+  integration and pattern education remain open.)*
 - **Guided Decision Mode** *(shipped 2026-08-17)* — one recommended action per
   symbol, sized from a per-trade risk cap, executed through a single
   confirmation. Paper-only, long-only, Execute-verdict only, with daily/weekly

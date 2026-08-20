@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { GuidedCard } from "@/components/guided/guided-card";
+import { NearMissCard } from "@/components/guided/near-miss-card";
+import type { NearMiss } from "@/lib/guided/near-miss";
 import { formatUsd } from "@/lib/utils";
 import { GUIDED_DISCLOSURE } from "@/lib/guided/config";
 import type { Recommendation } from "@/lib/guided/service";
@@ -16,6 +18,12 @@ interface GuidedResponse {
   blockedReason: string | null;
   disclosure: string;
   recommendations: Recommendation[];
+  /**
+   * The closest candidate when `recommendations` is empty. A distinct type from
+   * `Recommendation` on purpose: it has no size, risk or reward, so no render
+   * path can carry one into the confirm dialog.
+   */
+  nearMiss?: NearMiss | null;
   standAside?: boolean;
   caps?: { riskPct: number; maxTradesPerDay: number; maxDeployedPct: number };
   usage?: { tradesToday: number; deployedPct: number };
@@ -162,13 +170,21 @@ export function GuidedMode() {
       )}
 
       {recs.length === 0 ? (
-        <Notice title="Nothing worth trading right now">
-          No setup cleared today&apos;s bar. Standing aside is a position — the{" "}
-          <Link href="/dashboard" className="text-accent hover:underline">
-            dashboard
-          </Link>{" "}
-          still has everything the scanner found.
-        </Notice>
+        // A near miss when the scan found something close, and the plain notice
+        // when it genuinely found nothing at all — a brand-new account before
+        // the first scan, or a provider outage. Both are honest; only one of
+        // them has anything to show.
+        data?.nearMiss ? (
+          <NearMissCard nearMiss={data.nearMiss} />
+        ) : (
+          <Notice title="Nothing worth trading right now">
+            No setup cleared today&apos;s bar. Standing aside is a position — the{" "}
+            <Link href="/dashboard" className="text-accent hover:underline">
+              dashboard
+            </Link>{" "}
+            still has everything the scanner found.
+          </Notice>
+        )
       ) : (
         recs.map((rec) => (
           <GuidedCard

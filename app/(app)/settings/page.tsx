@@ -19,7 +19,9 @@ import {
 import { GuidedCapsForm } from "@/components/guided/guided-caps-form";
 import { AccountSettings } from "@/components/settings/account-settings";
 import { BillingSettings } from "@/components/settings/billing-settings";
-import { Link2, Landmark } from "lucide-react";
+import { StartTourButton } from "@/components/onboarding/tour-provider";
+import Link from "next/link";
+import { Link2, Landmark, Compass } from "lucide-react";
 
 interface SnapAccounts {
   enabled: boolean;
@@ -47,6 +49,32 @@ export default function SettingsPage() {
         <h1 className="text-xl font-semibold sm:text-2xl">Settings</h1>
         <p className="text-sm text-muted">Brokerage connections and protocol risk preferences.</p>
       </div>
+
+      {/*
+        Placed above the account and billing cards on purpose. Someone who has
+        come to Settings confused is more likely to be looking for help than for
+        their subscription, and the tour is the cheapest answer to "what does
+        this do" that this app has.
+      */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Compass className="h-4 w-4 text-accent" /> Getting started
+          </CardTitle>
+          <CardDescription>
+            A plain-English walkthrough of every part of GSPS. Take it as many times as you like.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap items-center gap-3">
+          <StartTourButton className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-accent">
+            <Compass className="h-4 w-4" />
+            Show me around
+          </StartTourButton>
+          <Link href="/welcome" className="text-sm font-medium text-accent hover:underline">
+            Or read it as a page
+          </Link>
+        </CardContent>
+      </Card>
 
       <AccountSettings />
 
