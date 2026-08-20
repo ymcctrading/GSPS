@@ -25,9 +25,9 @@ const GROUPS: { heading: string; terms: Term[] }[] = [
           "Your first profit goal. It defaults to about 1.5x what you're risking, but can sit further out if the prior candle's high/low gives a better structural target — so the actual multiple varies trade to trade.",
       },
       {
-        term: "Master profit (green line)",
+        term: "Final target (green line)",
         plain:
-          "The bigger profit goal — roughly 2.5x your risk on stocks, 3x on crypto by default, then snapped to the nearest support or harmonic level in range. You'd typically take most profit at TP1 and let a small piece run toward this.",
+          "The bigger profit goal — roughly 2.5x your risk on stocks, 3x on crypto by default, then snapped to the nearest support or key price level in range. You'd typically take most profit at TP1 and let a small piece run toward this.",
       },
       {
         term: "Risk-to-reward (like 2:1)",
@@ -50,7 +50,7 @@ const GROUPS: { heading: string; terms: Term[] }[] = [
           "Diagonal support/resistance angles drawn from a recent high or low. Price tends to react when it reaches one. The numbers are just the steepness of the angle.",
       },
       {
-        term: "Harmonic level (45, 90, ...)",
+        term: "Key price level (45, 90, ...)",
         plain:
           "Price levels derived from mathematical ratios and square roots. Like the support lines, they act as hidden support and resistance.",
       },

@@ -10,7 +10,7 @@ export interface SignalOverlay {
   originScore: number;
   originState: SignalState;
   direction: 'bullish' | 'bearish';
-  gannRoot?: 3 | 6 | 9;
+  setupSignal?: boolean;
   entry: number;
   stopLoss: number;
   tp1: number;
@@ -97,8 +97,8 @@ export function generateSignalTooltip(signal: SignalOverlay): string {
   lines.push(`Score: ${signal.originScore}/9`);
   lines.push(`Bars remaining: ${signal.validityBarsRemaining}`);
 
-  if (signal.gannRoot) {
-    lines.push(`Harmonic root: ${signal.gannRoot}`);
+  if (signal.setupSignal) {
+    lines.push('Setup Signal: Confirmed');
   }
 
   if (signal.higherTfSignals.length > 0) {
@@ -120,9 +120,9 @@ export function generateSignalTooltip(signal: SignalOverlay): string {
   return lines.join('\n');
 }
 
-// Gann geometry display filter
-export interface GannGeometry {
-  root: 3 | 6 | 9;
+// Key-level geometry display filter
+export interface KeyLevelGeometry {
+  level: 3 | 6 | 9;
   lines: Array<{
     angle: number; // degrees from pivot
     isActive: boolean;
@@ -130,14 +130,14 @@ export interface GannGeometry {
   }>;
 }
 
-export function filterActiveGannLines(geometry: GannGeometry[], activeRoot?: 3 | 6 | 9): GannGeometry[] {
-  if (!activeRoot) {
-    return []; // no active root, hide all
+export function filterActiveKeyLevels(geometry: KeyLevelGeometry[], activeLevel?: 3 | 6 | 9): KeyLevelGeometry[] {
+  if (!activeLevel) {
+    return []; // no active level, hide all
   }
 
-  // Show only lines for the active root
+  // Show only lines for the active level
   return geometry
-    .filter((g) => g.root === activeRoot)
+    .filter((g) => g.level === activeLevel)
     .map((g) => ({
       ...g,
       lines: g.lines.filter((line) => line.isActive),
@@ -194,10 +194,10 @@ export function checkExtendedHoursBanner(signal: SignalOverlay): ExtendedHoursBa
 export function generateSignalExplanation(signal: SignalOverlay): string[] {
   const bullets: string[] = [];
 
-  // Harmonic root explanation
-  if (signal.gannRoot) {
+  // Setup signal explanation
+  if (signal.setupSignal) {
     bullets.push(
-      `Entry aligned with the ${signal.gannRoot} node — a harmonic level with historical significance.`
+      'Entry aligned with a key price level — a signal with historical significance.'
     );
   }
 

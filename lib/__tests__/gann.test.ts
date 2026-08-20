@@ -126,7 +126,7 @@ describe("computeScore", () => {
           stopPctOfPrice,
           stopBandWarning: null,
         },
-      }).breakdown.find((b) => b.criterion.startsWith("Master target"));
+      }).breakdown.find((b) => b.criterion.startsWith("Final target"));
 
     // 5% and 30% both sit outside the old 12–18% band; only whether a
     // structural level confirms the master target matters now.

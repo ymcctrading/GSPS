@@ -69,7 +69,7 @@ export function PublicChart({ symbol }: { symbol: string }) {
     markers.push({ price: f.price, label: `Support ${f.angle}`, kind: "structural" }),
   );
   result?.gann.squareOf9.slice(0, 2).forEach((s) =>
-    markers.push({ price: s.price, label: `Harmonic ${s.degree}°`, kind: "structural" }),
+    markers.push({ price: s.price, label: `Key Level ${s.degree}°`, kind: "structural" }),
   );
 
   return (

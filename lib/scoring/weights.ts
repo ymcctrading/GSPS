@@ -51,12 +51,12 @@ export const CRITERION_LABELS: Record<CriterionKey, string> = {
   macroTrend: "Macro trend context",
   hourlyTrend: "1-hour trend agreement",
   fanProximity: "Support line proximity",
-  harmonicProximity: "Harmonic level proximity",
+  harmonicProximity: "Key price level proximity",
   historicalSR: "Historical support/resistance",
   patternArmed: "Pattern armed",
   momentum: "Momentum / volatility elevated",
   timeCycle: "Cyclical turn window active",
-  masterStructural: "Master target confirmed by structure",
+  masterStructural: "Final target confirmed by structure",
 };
 
 export type CriterionWeights = Record<CriterionKey, number>;
