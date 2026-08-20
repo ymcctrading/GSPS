@@ -1,4 +1,5 @@
 import { GuidedMode } from "@/components/guided/guided-mode";
+import { MascotTip } from "@/components/onboarding/mascot-tip";
 
 export const metadata = { title: "Guided — GSPS" };
 export const dynamic = "force-dynamic";
@@ -21,6 +22,9 @@ export default function GuidedPage() {
         pointing at is "where the suggestion appears", which is this slot in
         every one of those states.
       */}
+      {/* Above the slot, never over it — the tip explains the card, so covering
+          the card would defeat it. */}
+      <MascotTip id="first-guided-card" />
       <div data-tour="guided-card" className="min-w-0">
         <GuidedMode />
       </div>

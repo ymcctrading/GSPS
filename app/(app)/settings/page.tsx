@@ -18,6 +18,7 @@ import {
 } from "@/lib/trade/protocol-rules";
 import { GuidedCapsForm } from "@/components/guided/guided-caps-form";
 import { AccountSettings } from "@/components/settings/account-settings";
+import { TipsToggle } from "@/components/settings/tips-toggle";
 import { BillingSettings } from "@/components/settings/billing-settings";
 import { StartTourButton } from "@/components/onboarding/tour-provider";
 import Link from "next/link";
@@ -75,6 +76,8 @@ export default function SettingsPage() {
           </Link>
         </CardContent>
       </Card>
+
+      <TipsToggle />
 
       <AccountSettings />
 

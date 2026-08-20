@@ -17,6 +17,8 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TourOverlay } from "./tour-overlay";
 import { TOUR_STEPS } from "@/lib/onboarding/tour";
+import { MASCOTS } from "@/components/onboarding/mascots";
+import { speakerFor } from "@/lib/onboarding/mascot";
 
 // The overlay navigates to each step's page, so the router is part of the
 // contract now rather than incidental. `push` is captured so a test can assert
@@ -98,8 +100,22 @@ describe("leaving the tour", () => {
 describe("moving through the steps", () => {
   it("opens on the first step and counts honestly", () => {
     render(<TourOverlay open onClose={onClose} />);
-    expect(screen.getByText(`Step 1 of ${TOUR_STEPS.length}`)).toBeInTheDocument();
+    // The counter now names the speaker too, because who is talking is part of
+    // the lesson rather than decoration — see lib/onboarding/mascot.ts.
+    expect(
+      screen.getByText(`${MASCOTS[speakerFor(TOUR_STEPS[0].id)].label} · Step 1 of ${TOUR_STEPS.length}`),
+    ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: TOUR_STEPS[0].title })).toBeInTheDocument();
+  });
+
+  it("shows the speaking mascot on every step", async () => {
+    const user = userEvent.setup();
+    render(<TourOverlay open onClose={onClose} />);
+    for (let i = 0; i < 4; i++) {
+      const expected = MASCOTS[speakerFor(TOUR_STEPS[i].id)].label;
+      expect(screen.getAllByLabelText(expected).length).toBeGreaterThan(0);
+      await user.click(screen.getByRole("button", { name: /Next/ }));
+    }
   });
 
   it("cannot go back from the first step", () => {

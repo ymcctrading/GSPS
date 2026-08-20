@@ -112,6 +112,17 @@ export const TOUR_STEPS: TourStep[] = [
     ],
   },
   {
+    id: "meet-the-guides",
+    title: "Your two guides",
+    figure: "none",
+    body: [
+      "Two characters walk you through this, and which one turns up tells you what kind of thing you are about to read.",
+      "Mrs. Bull handles opportunities and the upside. In markets a bull expects prices to rise, and a rising market is called a bull market.",
+      "Mr. Bear handles risk and protecting your money. A bear expects prices to fall, and a falling market is a bear market.",
+      "Those two words are everywhere in finance, and now you know both.",
+    ],
+  },
+  {
     id: "practice-money",
     title: "Everything here is practice money",
     figure: "portfolio",

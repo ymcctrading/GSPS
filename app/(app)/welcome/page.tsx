@@ -21,6 +21,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SnapshotDisclosure, SnapshotFigure } from "@/components/onboarding/snapshot-figure";
 import { StartTourButton } from "@/components/onboarding/tour-provider";
 import { TOUR_STEPS, stepLink } from "@/lib/onboarding/tour";
+import { Mascot, MascotPair, MASCOTS } from "@/components/onboarding/mascots";
+import { speakerFor } from "@/lib/onboarding/mascot";
 
 export const metadata = { title: "Getting started — GSPS" };
 
@@ -81,6 +83,14 @@ export default function WelcomePage() {
         // with the heading tucked underneath the nav bar.
         <Card key={step.id} id={step.id} className="scroll-mt-20">
           <CardHeader>
+            {/* Same speaker as the overlay, so a reader who took the tour meets
+                the same character on the same subject when they come back. */}
+            <div className="flex items-center gap-2">
+              <Mascot name={speakerFor(step.id)} size="sm" />
+              <span className="text-xs font-medium uppercase tracking-wide text-muted">
+                {MASCOTS[speakerFor(step.id)].label}
+              </span>
+            </div>
             <CardTitle className="flex items-baseline gap-2">
               <span className="text-sm font-normal text-muted">{i + 1}</span>
               {step.title}
@@ -92,6 +102,7 @@ export default function WelcomePage() {
                 {paragraph}
               </p>
             ))}
+            {step.id === "meet-the-guides" && <MascotPair />}
             <SnapshotFigure figure={step.figure} />
             {(() => {
               const link = stepLink(step);

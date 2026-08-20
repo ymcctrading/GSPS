@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import Link from "next/link";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { MascotTip } from "@/components/onboarding/mascot-tip";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
@@ -118,6 +119,8 @@ export default function PortfolioPage() {
         <h1 className="text-xl font-semibold sm:text-2xl">Portfolio</h1>
         <Badge variant="muted">Paper account</Badge>
       </div>
+
+      <MascotTip id="paper-account" />
 
       {error && (
         <Card>

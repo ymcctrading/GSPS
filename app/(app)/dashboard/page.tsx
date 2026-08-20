@@ -9,6 +9,7 @@ import { getDailyScans } from "@/lib/dailyScans";
 import { DEFAULTS } from "@/lib/sectors";
 import { tickerHref } from "@/lib/routes";
 import { ArrowRight, Compass } from "lucide-react";
+import { MascotTip } from "@/components/onboarding/mascot-tip";
 import { tradeSideWord } from "@/lib/scoring/direction-copy";
 import { formatOpenedAt } from "@/lib/portfolio/opened-at";
 
@@ -74,6 +75,8 @@ export default async function DashboardPage() {
           </div>
         </CardContent>
       </Card>
+
+      <MascotTip id="score-badge" />
 
       <div data-tour="dash-setups" className="grid min-w-0 gap-4 sm:gap-6 lg:grid-cols-2">
         <ReversionPreview

@@ -152,6 +152,20 @@ GSPS is a comprehensive trading application built with Next.js, Supabase, and Al
   from the Dashboard at any time; leaving it early and finishing it both count,
   and neither prompts again. Completion is stored per user rather than per
   browser, so it does not reappear on a second device
+- **Mrs. Bull and Mr. Bear**: two guides who deliver the walkthrough and the
+  contextual tips. Which one appears is meaningful rather than decorative —
+  Mrs. Bull covers opportunities and the upside, Mr. Bear covers risk and
+  protecting money — so a beginner absorbs what "bull market" and "bear market"
+  mean by watching who turns up, and an early step states the convention
+  outright. Drawn as inline SVG, so they carry no extra request and follow the
+  light and dark palettes without a second asset
+- **Contextual Tips**: short explanations from either guide, shown beside a real
+  control the first time a user meets it — what a stop loss does, why an order
+  was rejected, how to read a suggestion, what a score means. Deliberately few.
+  A tip never covers the control it explains and never attaches to anything that
+  moves money; only one is ever on screen at a time, enforced by a shared slot
+  rather than by convention; dismissing one is permanent and stored per user
+  rather than per browser; and a single switch in Settings turns all of them off
 - **Saved Example Data**: Every figure in the introduction is drawn from one
   frozen after-hours SPY snapshot rather than live market data, so the copy can
   never contradict the picture beside it. Each figure is labelled as a saved
@@ -204,6 +218,7 @@ GSPS is a comprehensive trading application built with Next.js, Supabase, and Al
 - `/api/snaptrade/connect` - SnapTrade linking
 - `/api/snaptrade/accounts` - SnapTrade account management
 - `/api/onboarding` - Whether the first-run introduction has been shown
+- `/api/onboarding/tips` - Which contextual tips are dismissed, and the global switch
 
 **Frontend Pages** (`app/(app)/`):
 - `/dashboard` - Main trading dashboard

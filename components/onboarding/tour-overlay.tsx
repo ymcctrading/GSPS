@@ -46,6 +46,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SnapshotFigure } from "@/components/onboarding/snapshot-figure";
+import { Mascot, MascotPair, MASCOTS } from "@/components/onboarding/mascots";
+import { speakerFor } from "@/lib/onboarding/mascot";
 import { TOUR_STEPS } from "@/lib/onboarding/tour";
 import type { TourOutcome } from "@/lib/onboarding/status";
 
@@ -260,6 +262,7 @@ export function TourOverlay({ open, onClose }: { open: boolean; onClose: (outcom
 
   if (!mounted || !open || !step) return null;
 
+  const speaker = speakerFor(step.id);
   const placement = placeCard(rect);
   const width = Math.min(CARD_W, (typeof window === "undefined" ? CARD_W : window.innerWidth) - GAP * 2);
 
@@ -305,10 +308,18 @@ export function TourOverlay({ open, onClose }: { open: boolean; onClose: (outcom
         style={cardStyle}
         className="flex max-h-[80vh] flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl outline-none"
       >
+        {/*
+          The character sits in the header and the copy below is what they are
+          saying — the whole card is the speech bubble. Putting the mascot
+          outside it, the way Clippy stood beside his balloon, costs horizontal
+          room the card does not have on a 360px phone, and the first thing to
+          get clipped would be the character.
+        */}
         <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
-          <div className="min-w-0">
+          <Mascot name={speaker} size="sm" />
+          <div className="min-w-0 flex-1">
             <p className="text-xs font-medium uppercase tracking-wide text-muted">
-              Step {index + 1} of {TOUR_STEPS.length}
+              {MASCOTS[speaker].label} · Step {index + 1} of {TOUR_STEPS.length}
             </p>
             <h2 className="text-base font-semibold text-balance">{step.title}</h2>
           </div>
@@ -327,6 +338,8 @@ export function TourOverlay({ open, onClose }: { open: boolean; onClose: (outcom
               {paragraph}
             </p>
           ))}
+          {/* The one step whose subject is the characters themselves. */}
+          {step.id === "meet-the-guides" && <MascotPair />}
           <SnapshotFigure figure={step.figure} />
           {step.href && step.hrefLabel && (
             <Link

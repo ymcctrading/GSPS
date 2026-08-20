@@ -62,3 +62,57 @@ export function resolveOnboarding(prefs: unknown): OnboardingStatus {
 export function onboardingRecord(outcome: TourOutcome, now = new Date()): Record<string, unknown> {
   return { version: TOUR_VERSION, seenAt: now.toISOString(), skipped: outcome === "skipped" };
 }
+
+/**
+ * Tip state: which contextual tips this user has dismissed, and whether they
+ * want any at all.
+ *
+ * Lives beside the onboarding record in `settings.prefs` for the same reason
+ * that does — per-user rather than per-browser, because "I already dismissed
+ * this" is a fact about a person, not about a device. Dismissing a tip on a
+ * laptop and meeting it again on a phone is exactly the behaviour that made
+ * Clippy a punchline.
+ */
+export interface TipState {
+  /** False when the user has switched tips off entirely in Settings. */
+  enabled: boolean;
+  /** Ids the user has dismissed. Dismissal is permanent, not per-session. */
+  dismissed: string[];
+}
+
+export const TIPS_DEFAULT: TipState = { enabled: true, dismissed: [] };
+
+/**
+ * Narrow `prefs.tips` into a usable state, without ever throwing.
+ *
+ * Guesses toward *showing* a tip when the data is unreadable, which is the
+ * opposite of how `resolveOnboarding` guesses — and deliberately. A stray tip
+ * is a one-click annoyance; a tour that reopens over an order ticket is not.
+ * The costs are not symmetric, so the defaults are not either.
+ */
+export function resolveTips(prefs: unknown): TipState {
+  if (typeof prefs !== "object" || prefs === null) return TIPS_DEFAULT;
+  const raw = (prefs as Record<string, unknown>).tips;
+  if (typeof raw !== "object" || raw === null) return TIPS_DEFAULT;
+
+  const record = raw as Record<string, unknown>;
+  return {
+    // Only an explicit `false` turns them off. Anything else — missing, junk,
+    // a string — leaves them on.
+    enabled: record.enabled !== false,
+    dismissed: Array.isArray(record.dismissed)
+      ? record.dismissed.filter((id): id is string => typeof id === "string")
+      : [],
+  };
+}
+
+/** Should this tip render? The single question every call site asks. */
+export function shouldShowTip(state: TipState, tipId: string): boolean {
+  return state.enabled && !state.dismissed.includes(tipId);
+}
+
+/** The value to merge into `prefs.tips` after a dismissal. Idempotent. */
+export function withDismissed(state: TipState, tipId: string): TipState {
+  if (state.dismissed.includes(tipId)) return state;
+  return { ...state, dismissed: [...state.dismissed, tipId] };
+}
