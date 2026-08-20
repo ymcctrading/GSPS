@@ -351,7 +351,7 @@ export async function placeSimulatedOrder(
         if (error) {
           console.error(`orders: exit plan for ${ledgerRow.symbol} not recorded — ${error.message}`);
           planError =
-            "The order filled, but the staged exit couldn't be saved — TP1 and the master target won't be taken automatically. Close the position by hand if it moves against you.";
+            "The order filled, but the staged exit couldn't be saved — TP1 and the final target won't be taken automatically. Close the position by hand if it moves against you.";
         } else if (plan?.id && orderId) {
           await supabase.from("orders").update({ exit_plan_id: plan.id }).eq("id", orderId);
         }

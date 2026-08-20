@@ -102,14 +102,14 @@ GSPS is a comprehensive trading application built with Next.js, Supabase, and Al
   order that cannot be priced validly is blocked rather than sent
 - **Staged Protocol Exit**: An order placed on the recommended levels exits in
   stages instead of all at once — 60% of the position at TP1, half of what
-  remains at the master target, and a runner that keeps going. The stop covers
+  remains at the final target, and a runner that keeps going. The stop covers
   the whole position, so a stop-out closes the trade completely. The exact
   share counts are shown on the ticket before the order is placed
 - **Break-Even and Trailing Stop**: Once TP1 has been reached the stop moves to
   the entry price and then trails the best price seen by one unit of the trade's
   original risk. It only ever tightens, so a trade that has proved itself
   cannot come back as a loss
-- **Master-Target Reversal Exit**: If price pushes through the master target and
+- **Final-Target Reversal Exit**: If price pushes through the final target and
   then falls back through it, what is left of the position is closed
 - **Trade Log Settlement**: A closed trade is logged the moment it ends, with
   the exit left empty because the fill hasn't happened yet, and completed from

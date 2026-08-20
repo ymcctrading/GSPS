@@ -9,6 +9,10 @@
     {
       "path": "/api/market-scan",
       "schedule": "30 21 * * 1-5"
+    },
+    {
+      "path": "/api/trade-journal/daily-email",
+      "schedule": "0 22 * * 1-5"
     }
   ]
 }

@@ -45,6 +45,7 @@ import type { Bar } from "@/lib/types";
 import { atr } from "@/lib/analysis/pivots";
 import { etDateKey, etParts } from "@/lib/market/session";
 import { meetsLiquidityFloor } from "@/lib/scan/liquidity";
+import { MAG7 } from "@/lib/sectors";
 
 /** ---- Configuration ----------------------------------------------------- */
 
@@ -100,17 +101,31 @@ export const DEFAULT_CONFIG: ScannerConfig = {
  * 24/7 crypto pair are not the same thing and the UI must not present them as
  * interchangeable rows.
  */
+/**
+ * Broadened from the original 8 mega-cap tech names + 2 index ETFs, which
+ * never covered healthcare, financials, energy, or industrials — a $30+
+ * intraday move in a name like Eli Lilly (LLY) was invisible to this list
+ * simply because nothing here checked it, not because it failed to qualify.
+ * One or two representative names per sector in lib/sectors.ts, bounded to
+ * stay well inside this route's 120s ceiling (see `maxDuration` in
+ * app/api/intraday-scan/route.ts) — breadth here trades against per-symbol
+ * latency, so this is representative coverage, not exhaustive; a caller that
+ * wants a specific sector in full already has the `?symbols=` override.
+ */
 export const WATCHLIST: { symbol: string; kind: AssetKind }[] = [
   { symbol: "SPY", kind: "etf" },
   { symbol: "QQQ", kind: "etf" },
-  { symbol: "AAPL", kind: "equity" },
+  { symbol: "IWM", kind: "etf" },
+  ...MAG7.map((symbol) => ({ symbol, kind: "equity" as const })),
   { symbol: "AMD", kind: "equity" },
-  { symbol: "TSLA", kind: "equity" },
-  { symbol: "MSFT", kind: "equity" },
-  { symbol: "META", kind: "equity" },
-  { symbol: "NVDA", kind: "equity" },
-  { symbol: "AMZN", kind: "equity" },
-  { symbol: "GOOGL", kind: "equity" },
+  { symbol: "AVGO", kind: "equity" },
+  { symbol: "JPM", kind: "equity" },
+  { symbol: "V", kind: "equity" },
+  { symbol: "CAT", kind: "equity" },
+  { symbol: "XOM", kind: "equity" },
+  { symbol: "UNH", kind: "equity" },
+  { symbol: "LLY", kind: "equity" },
+  { symbol: "JNJ", kind: "equity" },
 ];
 
 export const ASSET_KIND_LABELS: Record<AssetKind, string> = {
