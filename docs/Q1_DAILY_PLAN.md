@@ -25,7 +25,7 @@ analytics has a data model and query layer to build UI against.
 
 | Date | Founder (core product) | Contractor (backend/notifications) |
 |---|---|---|
-| Mon Aug 17 | Audit historical trade/alert data available for analytics (trade_logs, positions) | SendGrid account + API key setup; Vercel Pro upgrade (removes 2-cron/day cap per Platform roadmap) |
+| Mon Aug 17 | Audit historical trade/alert data available for analytics (trade_logs, positions) — done, see notes below | SendGrid account + API key setup; ~~Vercel Pro upgrade~~ deferred, staying on Hobby for now (see notes) |
 | Tue Aug 18 | Design portfolio analytics schema: win/loss, P&L rollups per user | Notification schema: `notification_preferences`, `notification_log` tables + migration |
 | Wed Aug 19 | Write Supabase queries for win/loss ratio and monthly/quarterly P&L | Sentry setup (structured error logging, per Platform & reliability roadmap) |
 | Thu Aug 20 | Query for drawdown calc (peak-to-trough on equity curve) | Wire notification trigger into existing alert-generation path (email only, no UI yet) |
@@ -130,9 +130,30 @@ targets (70%+ first-cohort retention, 25+ paying users).
 
 ## Notes
 
-- **Dependencies to unblock early:** SendGrid/Twilio accounts (Sprint 1) and
-  Vercel Pro upgrade (Sprint 1, day 1) gate almost everything downstream —
-  don't let these slip past week 1.
+- **Staying on Vercel Hobby.** The Vercel Pro upgrade is deferred until
+  there's budget for it — Q1 stays on the free tier's 2-crons/day cap (per
+  `docs/THIRD_PARTY_LIMITS.md`). This doesn't block the analytics or
+  notification work below, since neither needs a new cron: notifications
+  hang off the existing alert-generation path (event-driven, not scheduled),
+  and analytics queries run on page load, not on a schedule. If a Q1
+  initiative later needs a third scheduled job, it must trigger from an
+  external scheduler instead of `vercel.json` — see `AGENTS.md`. Revisit the
+  upgrade if that changes.
+- **Aug 17 data audit (done):** `trade_logs` (`supabase/migrations/0002_trade_logging.sql`,
+  extended by `0009_protocol_exit_plans.sql`) already carries everything
+  portfolio analytics needs — `outcome` (profit/loss/pending),
+  `profit_loss_dollars`, `profit_loss_percent`, `entry_timestamp`/
+  `exit_timestamp`, `signal_called` (for performance-by-pattern), and
+  `exit_condition`. Rows are populated by `lib/portfolio/trade-log-settle.ts`
+  and `lib/portfolio/reconcile.ts` as positions close; `outcome = 'pending'`
+  rows should be excluded from realized-P&L aggregates. `positions`
+  (`0001_initial_schema.sql`, `+side` from `0003_positions_side.sql`) has the
+  open/closed ledger with `realized_pl` for a faster closed-position
+  summary. No analytics/aggregation code exists yet (checked `lib/portfolio/*`)
+  — Tuesday's schema/query design is greenfield, not a refactor.
+- **Dependencies to unblock early:** SendGrid/Twilio accounts (Sprint 1) gate
+  almost everything downstream in notifications — don't let these slip past
+  week 1. Vercel Pro is no longer a Sprint 1 blocker (deferred, see above).
 - **Buffer:** each sprint's Friday is lighter by design (demo + retro) and
   can absorb 0.5–1 day of overflow from earlier in the sprint.
 - **Out of phase:** if a production bug or security issue surfaces, it takes
