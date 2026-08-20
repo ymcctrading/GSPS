@@ -17,6 +17,7 @@ import {
   TP1_RULE_LABEL,
 } from "@/lib/trade/protocol-rules";
 import { GuidedCapsForm } from "@/components/guided/guided-caps-form";
+import { NotificationsCard } from "@/components/settings/notifications-card";
 import { Link2, Landmark } from "lucide-react";
 
 interface SnapAccounts {
@@ -128,6 +129,8 @@ export default function SettingsPage() {
       </Card>
 
       <GuidedCapsForm />
+
+      <NotificationsCard />
 
       <Card>
         <CardHeader>

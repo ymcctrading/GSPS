@@ -12,10 +12,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { runMarketScan } from "@/lib/marketScan";
 import { buildScanRows, describeDbError, persistDailyScans } from "@/lib/scan/publish";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { dispatchDailyScanNotifications } from "@/lib/notifications";
 
 export const maxDuration = 300;
 
-async function runAndPersist() {
+/**
+ * @param notify Fan out email/SMS notifications after a successful save.
+ *   Only the cron path passes true — a manual "Refresh" click rebuilds the
+ *   same market-wide dataset and must not re-notify every opted-in user.
+ */
+async function runAndPersist(notify: boolean) {
   const output = await runMarketScan();
 
   // Persist (best-effort — the scan output is returned either way)
@@ -23,14 +29,25 @@ async function runAndPersist() {
   let persistedCount = 0;
   let persistError: string | null = null;
   try {
-    const rows = [
-      ...buildScanRows(output.scanDate, "bullish", output.bullish),
-      ...buildScanRows(output.scanDate, "bearish", output.bearish),
-    ];
-    const outcome = await persistDailyScans(createServiceClient(), output.scanDate, rows);
+    const bullishRows = buildScanRows(output.scanDate, "bullish", output.bullish);
+    const bearishRows = buildScanRows(output.scanDate, "bearish", output.bearish);
+    const service = createServiceClient();
+    const outcome = await persistDailyScans(service, output.scanDate, [...bullishRows, ...bearishRows]);
     persisted = outcome.persisted;
     persistedCount = outcome.count;
     persistError = outcome.error;
+
+    if (persisted && notify) {
+      // Awaited so delivery finishes before the function returns (Vercel does
+      // not guarantee an unawaited promise survives past the response), but
+      // best-effort: a notification failure must not turn a saved scan into
+      // an error response.
+      try {
+        await dispatchDailyScanNotifications(service, bullishRows, bearishRows);
+      } catch (err) {
+        console.error("market-scan: notification dispatch failed:", err);
+      }
+    }
   } catch (err) {
     // A throw here is the client itself failing to build — a missing service
     // role key, most likely — rather than the write being rejected.
@@ -70,7 +87,7 @@ export async function GET(req: NextRequest) {
   if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  return runAndPersist();
+  return runAndPersist(true);
 }
 
 /** Manual refresh — any signed-in user can rebuild the market scan on demand. */
@@ -82,5 +99,5 @@ export async function POST() {
   if (!user) {
     return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   }
-  return runAndPersist();
+  return runAndPersist(false);
 }

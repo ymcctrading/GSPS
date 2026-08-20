@@ -19,6 +19,24 @@ confirm you're still under its limit.
 | **Polygon.io** (stocks/crypto/options) | Free tier | 5 requests/min, 1000/month | 429s; monthly cap can be hit well before month-end. | `POLYGON_API_KEY` required. Used as a fallback for futures data. |
 | **Alpaca** (market data + trading) | Paper by default; live optional | ~200 requests/min (data API); order rate limits are separate and stricter | Requests throttled/rejected. | Live trading keys (`ALPACA_LIVE_API_KEY`/`SECRET`) hit real markets — see `SECURITY.md` for handling. |
 | **SnapTrade** (external brokerage linking) | Whatever tier is configured via `SNAPTRADE_CLIENT_ID`/`SNAPTRADE_CONSUMER_KEY` | Sandbox vs. production have different call/account limits | Feature-flagged off entirely without credentials (`lib/brokers/snaptrade.ts`); with credentials, limits depend on SnapTrade's plan for this app. | Check the SnapTrade partner dashboard for the current plan before assuming production-grade limits. |
+| **SendGrid** (email notifications) | Whatever tier is configured via `SENDGRID_API_KEY` | Free tier caps daily sends; check the SendGrid dashboard. | Feature-flagged off entirely without `SENDGRID_API_KEY`/`NOTIFICATIONS_FROM_EMAIL` (`lib/notifications/email.ts`) — the UI shows the channel as unavailable and preferences that need it are logged `skipped_disabled`, never an error. | Dispatch is triggered from the daily scan cron (2×/day) and from the on-demand intraday-scan route while a user has the Scanner open — see the notification-system note below. |
+| **Twilio** (SMS notifications) | Whatever tier is configured via `TWILIO_ACCOUNT_SID`/`TWILIO_AUTH_TOKEN`/`TWILIO_FROM_NUMBER` | Pay-as-you-go per segment; a trial account can only text verified numbers. | Feature-flagged off entirely without credentials (`lib/notifications/sms.ts`), same `skipped_disabled` behavior as SendGrid above. | Message bodies are capped well under the 160-char GSM-7 segment boundary to avoid multi-segment billing per alert. |
+
+## Notification system and the cron cap
+
+`lib/notifications/` (migration `0015`) sends email/SMS for high-score
+alerts, gated by per-user preferences and quiet hours. It does **not** add a
+cron — both Vercel cron slots are already spent on `/api/market-scan` — so it
+only fires from paths that already run:
+
+- The **daily market scan cron** (2×/day) fans out to every opted-in user
+  after a successful save. A manual "Refresh" of the same page does **not**
+  re-notify — see `notify` in `app/api/market-scan/route.ts`.
+- The **intraday scan** stays on-demand (per the Vercel row above): a user only
+  gets an intraday notification while their Scanner page is open and polling.
+  There is no background delivery for intraday alerts while a user is away —
+  that would need an external scheduler hitting `/api/intraday-scan`, per the
+  "outside Vercel Cron" option below, and hasn't been built.
 
 ## Caching as the first line of defense
 

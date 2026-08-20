@@ -21,6 +21,7 @@ import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { atr } from "@/lib/analysis/pivots";
 import { etParts } from "@/lib/market/session";
 import { readLiquidity } from "@/lib/scan/liquidity";
+import { dispatchIntradayAlertNotifications } from "@/lib/notifications";
 import {
   DEFAULT_CONFIG,
   WATCHLIST,
@@ -113,6 +114,14 @@ export async function GET(req: NextRequest) {
   // scan that already succeeded — it is reported alongside the result and the
   // cooldown degrades to within-run only, which is where it was before.
   const alertsPersisted = await persistAlerts(supabase, user.id, output.alerts, resolved);
+
+  // Best-effort, same reasoning as the persist step above: a notification
+  // failure must not turn a successful scan into an error response.
+  try {
+    await dispatchIntradayAlertNotifications(supabase, user.id, output.alerts);
+  } catch (err) {
+    console.error("[intraday-scan] notification dispatch failed:", err);
+  }
 
   return NextResponse.json({
     ...output,

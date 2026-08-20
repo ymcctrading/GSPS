@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@sendgrid/mail": "^8.1.6",
     "@supabase/ssr": "^0.12.3",
     "@supabase/supabase-js": "^2.110.7",
     "clsx": "^2.1.1",
@@ -22,6 +23,7 @@
     "react-dom": "19.2.4",
     "snaptrade-typescript-sdk": "^10.0.18",
     "tailwind-merge": "^3.6.0",
+    "twilio": "^6.1.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
