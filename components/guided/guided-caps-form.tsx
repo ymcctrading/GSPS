@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { fetchWithTimeout } from "@/lib/utils";
 import {
   DEFAULT_GUIDED_BUDGET_USD,
   DEFAULT_GUIDED_CAPS,
@@ -75,18 +76,25 @@ const FIELDS: {
  */
 export function GuidedCapsForm() {
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/settings/guided")
+    fetchWithTimeout("/api/settings/guided")
       .then((res) => res.json())
       .then((body: { caps?: GuidedCaps }) => {
         if (cancelled) return;
         setDraft(toDraft(body.caps ?? DEFAULT_GUIDED_CAPS));
       })
-      .catch(() => !cancelled && setDraft(toDraft(DEFAULT_GUIDED_CAPS)));
+      .catch(() => {
+        if (cancelled) return;
+        // Fall back to the defaults so the form is still usable, but flag it
+        // — these may not be the limits actually saved for this account.
+        setLoadError(true);
+        setDraft(toDraft(DEFAULT_GUIDED_CAPS));
+      });
     return () => {
       cancelled = true;
     };
@@ -136,6 +144,12 @@ export function GuidedCapsForm() {
           <p className="text-sm text-muted">Loading…</p>
         ) : (
           <>
+            {loadError && (
+              <p className="text-sm text-bear">
+                Couldn&apos;t load your saved limits — showing defaults instead. Saving will overwrite
+                whatever was previously set.
+              </p>
+            )}
             <div className="grid gap-4 sm:grid-cols-2">
               {FIELDS.map((f) => (
                 <label key={f.key} className="flex flex-col gap-1.5 text-sm">
