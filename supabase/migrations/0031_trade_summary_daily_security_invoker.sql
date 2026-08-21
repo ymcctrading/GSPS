@@ -1,0 +1,26 @@
+-- trade_summary_daily (0023) is a per-user aggregate over trade_logs — the
+-- migration's own comment says "for a user" — but it set
+-- security_barrier = true rather than security_invoker = true. Those are
+-- different Postgres view options and only one of them matters for RLS: a
+-- view with no security_invoker runs as its owner (here, `postgres`) for the
+-- purpose of the underlying table's row security, which bypasses
+-- trade_logs' own `user_id = auth.uid()` policy entirely.
+-- security_barrier only hardens against a different, optimizer-related
+-- leak (a filter pushed below the view's own WHERE clause).
+--
+-- Caught as an ERROR-level finding (the worst severity Supabase's advisor
+-- has) by get_advisors immediately after 0029/0030 were applied. anon and
+-- authenticated both hold SELECT on this view (Supabase's default grant on
+-- new public-schema objects), so the practical effect was: any caller,
+-- signed in or not, could select every user's daily P&L, win/loss counts
+-- and average return straight out of trade_logs — a complete bypass of the
+-- one RLS policy that table has, on the single most sensitive number in
+-- this schema.
+--
+-- No route or client code queries this view yet (grep turns up nothing
+-- beyond its own migration), so there is no live behavior to preserve or
+-- break — this is a pure fix. security_invoker makes the view check the
+-- querying user's own permissions and RLS, restoring the isolation
+-- trade_logs already enforces everywhere else it's read.
+
+alter view public.trade_summary_daily set (security_invoker = true);
