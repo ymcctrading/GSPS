@@ -97,7 +97,7 @@ export function TickerView({ symbol }: { symbol: string }) {
   result?.gann.squareOf9.slice(0, 2).forEach((s) =>
     markers.push({
       price: s.price,
-      label: `Harmonic ${s.role === "support" ? "support" : "resistance"} ${s.degree}°`,
+      label: `Key ${s.role === "support" ? "support" : "resistance"} level ${s.degree}°`,
       kind: "structural",
     }),
   );

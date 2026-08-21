@@ -168,7 +168,7 @@ export default function SettingsPage() {
           <ul className="grid gap-2 text-sm sm:grid-cols-2">
             <ProtocolRule label="Stop loss" value={STOP_RULE_LABEL} detail={STOP_RULE_DETAIL} />
             <ProtocolRule label="Take profit 1" value={TP1_RULE_LABEL} detail={TP1_RULE_DETAIL} />
-            <ProtocolRule label="Master profit" value={MASTER_RULE_LABEL} detail={MASTER_RULE_DETAIL} />
+            <ProtocolRule label="Final target" value={MASTER_RULE_LABEL} detail={MASTER_RULE_DETAIL} />
             <ProtocolRule label="Execute threshold" value={EXECUTE_RULE_LABEL} detail={EXECUTE_RULE_DETAIL} />
           </ul>
         </CardContent>

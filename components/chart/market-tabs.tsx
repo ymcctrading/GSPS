@@ -235,7 +235,7 @@ function ResearchPanel({ symbol, result }: { symbol: string; result?: ScanResult
             ))}
             {fetched.gann.squareOf9.slice(0, 4).map((s, i) => (
               <span key={`s${i}`} className="rounded-md bg-background px-2 py-1 text-muted">
-                Harmonic {s.degree}°: <span className="font-mono text-foreground">{formatUsd(s.price)}</span>
+                Key Level {s.degree}°: <span className="font-mono text-foreground">{formatUsd(s.price)}</span>
               </span>
             ))}
           </div>

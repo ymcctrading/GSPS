@@ -31,6 +31,7 @@ const BANNED = [
   /\bs9\b/i,
   /\bsara\b/i,
   /\bsniper\b/i,
+  /\bharmonic\b/i,
   /\bpivot machine gun\b/i,
   /\b2-(up|down) bar\b/i,
 ];

@@ -36,12 +36,18 @@ const SOURCE_ROOTS = ["app", "components", "lib"];
 const SOURCE_EXTENSIONS = [".ts", ".tsx"];
 const PUBLIC_DOCS = ["README.md", "FEATURES.md"];
 
-/** Directories whose contents are exempt, with the reason they are exempt. */
+/**
+ * Directories or exact file paths whose contents are exempt, with the
+ * reason they are exempt.
+ */
 const SKIPPED_DIRECTORIES = [
   // Tests name the banned terms in order to assert they are absent.
   "lib/__tests__",
   // Standalone Python research module with its own docs and vocabulary.
   "lib/confluence-scanner",
+  // Documents the banned-term → approved-label mapping table itself, the
+  // same reason this script's own "instead" field is allowed to say them.
+  "lib/constants/gspsTerminology.ts",
   "node_modules",
   ".next",
 ];
@@ -61,10 +67,11 @@ const PRODUCT_NAMES = [
  * `squareOf9`, `const s9 = ...`), which these patterns cannot match.
  */
 const USER_FACING_TERMS = [
-  { pattern: /\bGann\b/, term: "Gann", instead: "structural / support / harmonic" },
+  { pattern: /\bGann\b/, term: "Gann", instead: "structural / support / key price level" },
   { pattern: /\bStrat\b/, term: "Strat", instead: "reversal pattern" },
-  { pattern: /\bSquare[ -]of[ -](9|Nine)\b/i, term: "Square of 9", instead: "harmonic level" },
-  { pattern: /\bS9\b/, term: "S9", instead: "Harmonic" },
+  { pattern: /\bSquare[ -]of[ -](9|Nine)\b/i, term: "Square of 9", instead: "key price level" },
+  { pattern: /\bS9\b/, term: "S9", instead: "key level" },
+  { pattern: /\bHarmonic\b/, term: "Harmonic", instead: "structural / key price level" },
   { pattern: /\bPivot Machine Gun\b/i, term: "Pivot Machine Gun", instead: "Momentum reversal (PMG)" },
   { pattern: /\b2-(up|down) bar\b/i, term: "2-up/2-down bar", instead: "the up bar / the down bar" },
 ];
