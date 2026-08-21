@@ -22,7 +22,7 @@ import {
   UNSEEN,
   type OnboardingStatus,
 } from "@/lib/onboarding/status";
-import { resetDemoAccountIfStale } from "@/lib/demo/reset";
+import { isDemoAccount } from "@/lib/demo/reset";
 
 /** Nobody to show a tour to. Shaped like a real status so the client is uniform. */
 const NO_SESSION: OnboardingStatus = { ...UNSEEN, seen: true };
@@ -35,12 +35,9 @@ export async function GET() {
   if (!user) return NextResponse.json(NO_SESSION);
 
   // The showcase demo profile always looks first-run: whatever
-  // `settings.prefs.onboarding` remembers from a previous visitor is ignored,
-  // and this is also the earliest point after sign-in (TourProvider fires it
-  // on mount) to catch a trading day rollover, so the account's daily reset
-  // happens here too rather than waiting for a portfolio poll.
-  const demo = await resetDemoAccountIfStale(supabase, user.id);
-  if (demo.isDemo) return NextResponse.json(UNSEEN);
+  // `settings.prefs.onboarding` remembers from a previous visitor is ignored.
+  // Its money and trades are unaffected — only the tour reopens.
+  if (await isDemoAccount(supabase, user.id)) return NextResponse.json(UNSEEN);
 
   const { data, error } = await supabase
     .from("settings")
