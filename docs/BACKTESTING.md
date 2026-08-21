@@ -275,6 +275,41 @@ spent on `/api/market-scan` (`docs/THIRD_PARTY_LIMITS.md`), and a replay is far 
 scheduled function anyway. Point an external scheduler at it — weekly is the right cadence, since
 a proposal that moves faster than the held-out half can refresh is fitting noise.
 
+## Open question: is `masterStructural` inverted?
+
+A manual walkthrough on 2026-08-21 (`GET /learning`, live Alpaca data, default 2R target, the
+Execute bucket, 88 trades) found this criterion reading the wrong way:
+
+| Criterion | Passed | E[R] pass | E[R] fail | Δ E[R] |
+|---|---:|---:|---:|---:|
+| Master target confirmed by structure | 73/88 | −0.225R | +0.782R | −1.007R |
+
+Every other criterion in that table had the expected sign — passing correlated with a better
+outcome. This one did not, and the swing is the largest of the nine.
+
+**This has not been acted on**, for the same reason the section above gives for the 15Min/1Hour
+inversion: 88 trades is a single bucket on a two-month window, and this project's standing rule is
+not to re-weight anything until an effect clears an out-of-sample check
+(`lib/backtest/propose-weights.ts`, summarised under "From attribution to weights" below) — a
+90/71 in-sample split on one run is exactly the shape of result that check exists to catch before
+it reaches the score. `masterStructural` is already one of the nine `CRITERION_KEYS`, so running
+**Proposed weights** from `/learning` (or `POST /api/learning/propose-weights`) over a longer,
+multi-symbol window already puts this criterion through that check with no code change required.
+
+What that run should decide:
+
+- **Both halves agree the sign is negative and clear `MIN_EFFECT_R`** → the criterion is genuinely
+  costing expectancy. `proposeWeights` will already move its weight toward `MIN_WEIGHT` (0.5); if
+  it holds up on a second, independent window too, that is the point to consider dropping the
+  criterion or inverting `cleanRR` in `lib/scoring/score.ts` outright, not merely down-weighting it.
+- **The halves disagree, or the effect doesn't clear the floor** → this 88-trade reading was noise
+  wearing a result's clothes, matching the pattern the timeframe/regime section above already
+  documents. Leave scoring as-is.
+
+Nobody has run that check yet — this repo has no local Alpaca credentials (see "Where the Alpaca
+keys live" above), so producing it requires the `--from` flow against a signed-in deployment.
+Until it exists, `cleanRR`'s polarity in `lib/scoring/score.ts` stays as it is.
+
 ## Sample-size floor
 
 `attributeFactors` withholds a recommendation when either arm of a split has

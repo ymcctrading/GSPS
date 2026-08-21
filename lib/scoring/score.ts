@@ -112,6 +112,13 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // or harmonic level when one sits in range and falls back to a plain 3R
   // projection when none does — roughly a 29/71 split, so both arms carry
   // enough trades to separate a winner from a loser.
+  //
+  // A 2026-08-21 walkthrough found this reading the wrong way inside Execute
+  // (88 trades, Δ E[R] −1.007R, the largest and only inverted swing in the
+  // table) — see "Open question: is masterStructural inverted?" in
+  // docs/BACKTESTING.md. Not acted on: 88 trades on one window is exactly the
+  // shape of result `propose-weights.ts`'s out-of-sample check exists to
+  // catch, and that check hasn't been run yet. Don't flip this without it.
   const cleanRR = levels !== null && levels.masterFromStructure;
 
   const upcomingCycles = gann.timeCycleDates.slice(0, 3).join(", ");
