@@ -7,7 +7,11 @@ import {
   gapRuleViolated,
   riskFloorViolated,
 } from "@/lib/strat/patterns";
-import { computeTradeLevels } from "@/lib/strat/levels";
+import {
+  LARGE_CAP_MAX_STOP_ATR_MULTIPLE,
+  MAX_STOP_ATR_MULTIPLE,
+  computeTradeLevels,
+} from "@/lib/strat/levels";
 
 function bar(o: number, h: number, l: number, c: number): Bar {
   return { t: "2026-01-01T00:00:00Z", o, h, l, c, v: 1000 };
@@ -275,6 +279,55 @@ describe("computeTradeLevels", () => {
     it("prefers the premium band over the volatility one when both are known", () => {
       const levels = computeTradeLevels(pattern, prev, [], 4, 0.2);
       expect(levels.stopBandWarning).toContain("premium");
+    });
+  });
+
+  describe("large-cap widening", () => {
+    // $2 of risk on a $1 average execution candle — 2x, wide enough to bite
+    // the default 2.5x ceiling's leeway trim but not the widened one, so the
+    // two behave differently rather than coincidentally the same.
+    const pattern = {
+      name: "2-1-2" as const,
+      direction: "bullish" as const,
+      triggerPrice: 100,
+      stopPrice: 96.5, // $3.50 structural risk — beyond the default 2.5x*$1 ceiling
+      description: "",
+    };
+    const prev = { t: "", o: 98, h: 101, l: 96, c: 99, v: 0 };
+
+    it("widens the stop's noise leeway for a large-cap stock", () => {
+      const ordinary = computeTradeLevels(pattern, prev, [], undefined, 1, "us_equity", false);
+      const largeCap = computeTradeLevels(pattern, prev, [], undefined, 1, "us_equity", true);
+      // Both are clipped to their respective ceilings (2.5x vs 3.5x an
+      // execution candle of 1), so the large-cap stop sits further from entry.
+      expect(ordinary.stopLoss).toBe(100 - MAX_STOP_ATR_MULTIPLE);
+      expect(largeCap.stopLoss).toBe(100 - LARGE_CAP_MAX_STOP_ATR_MULTIPLE);
+      expect(largeCap.riskPerShare).toBeGreaterThan(ordinary.riskPerShare);
+    });
+
+    it("raises the stop-band warning threshold for a large-cap stock", () => {
+      // 3x an average candle clears the default 2.5x ceiling but not the
+      // large-cap 3.5x one.
+      const ordinary = computeTradeLevels(pattern, prev, [], undefined, 1, "us_equity", false);
+      const largeCap = computeTradeLevels(pattern, prev, [], undefined, 1, "us_equity", true);
+      expect(ordinary.stopBandWarning).toContain("average candle");
+      expect(largeCap.stopBandWarning).toBeNull();
+    });
+
+    it("ignores the large-cap flag for crypto", () => {
+      const flaggedCrypto = computeTradeLevels(pattern, prev, [], undefined, 1, "crypto", true);
+      const ordinaryCrypto = computeTradeLevels(pattern, prev, [], undefined, 1, "crypto", false);
+      expect(flaggedCrypto.stopLoss).toBe(ordinaryCrypto.stopLoss);
+    });
+
+    it("a wider large-cap risk-per-share means fewer shares for the same risk budget", () => {
+      // The point of the change: at a fixed dollar risk budget, more risk per
+      // share means fewer shares — directly addressing the oversized guided
+      // recommendations this session started with.
+      const ordinary = computeTradeLevels(pattern, prev, [], undefined, 1, "us_equity", false);
+      const largeCap = computeTradeLevels(pattern, prev, [], undefined, 1, "us_equity", true);
+      const riskBudget = 1_000;
+      expect(riskBudget / largeCap.riskPerShare).toBeLessThan(riskBudget / ordinary.riskPerShare);
     });
   });
 

@@ -67,6 +67,39 @@ date.
 
 ## 2026-08-19
 
+### Added
+- **Referral program (minimal).** Every user gets a `/r/<username>` link,
+  visible in Settings, that credits an attributed signup back to them and
+  counts clicks before conversion. Attribution runs through
+  `handle_new_user` for email/password signup and through `/auth/callback`
+  for Google OAuth, since Google — not this app — creates the `auth.users`
+  row in that path. No commission or payout model yet; this ships the link
+  and the counts a payout model would need, not the payout itself. Out of
+  phase for Q1 — see `ROADMAP.md`.
+
+### Changed
+- **Guided Decision Mode stock sizing no longer balloons on a tight stop.**
+  Position sizing (`lib/guided/sizing.ts`) previously applied only a risk cap,
+  a deployed-capital cap, and buying power. A structural entry with a very
+  tight stop — the common case for an entry sitting right on a level — could
+  pass all three while still sizing a triple-digit share count and a
+  tens-of-thousands-of-dollars position: correctly risk-managed as a percent
+  of equity, but nothing a first-time user would read as one ordinary trade.
+  Added a fifth ceiling, a per-trade notional cap (8% of paper equity by
+  default, editable in Settings → Guided Mode limits), that applies to stocks
+  only — crypto guided trades are unaffected. See `docs/GUIDED_DECISION_MODE.md`.
+- **Large-cap stocks get a wider stop, platform-wide.** Follow-up to the
+  sizing fix above: `lib/strat/levels.ts`'s stop-placement leeway (0.10x an
+  execution candle) and ceiling (2.5x) were clipping large-cap names before
+  an ordinary swing had room to work — the setup was right, the stop was
+  just narrower than the name's own noise floor. Large-cap stocks (known
+  mega-cap list, or a price-and-turnover proxy for names not on it — see
+  `lib/strat/large-cap.ts`) now get 0.25x leeway and a 3.5x ceiling instead.
+  This is a core-engine change: it affects every scan and the score, not
+  only Guided Mode, since a wider risk-per-share also means fewer shares at
+  the same risk budget. Unlike the notional cap above, this has not been
+  separately measured against the backtest replay — see `docs/BACKTESTING.md`.
+
 ### Fixed
 - **New signups stopped receiving the confirmation email.** Root cause: Auth
   logs showed repeat `user_repeated_signup` events with no follow-up login —

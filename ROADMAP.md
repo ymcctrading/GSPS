@@ -137,7 +137,24 @@ both signal discovery and execution.
   $250 default, editable down to $50 or off — now applies alongside them, on
   by default. Direct response to a novice-friction report against the shipped
   UI; no separate low-capital tool was built, since the fix is a fifth sizing
-  ceiling on the existing engine, not a different one.)*
+  ceiling on the existing engine, not a different one.)* *(2026-08-19)*
+  Followed up with a core-engine change (not Guided-Mode-only): large-cap
+  stocks now get a wider stop-loss leeway and ceiling (`lib/strat/large-cap.ts`,
+  `lib/strat/levels.ts`), so an ordinary swing on a mega-cap name doesn't clip
+  the stop before the setup can move, and the wider risk-per-share also
+  shrinks the share count needed at a given risk budget — compounding with
+  the dollar budget above. This touches every scan and the score, not only
+  Guided Mode, and is unmeasured against the backtest replay as of this
+  writing — see `docs/BACKTESTING.md`.
+- **Referral program (minimal)** *(2026-08-19, out-of-phase)* — a per-user
+  referral link (`/r/<username>`), click counter, and signup attribution,
+  surfaced in Settings. Not named in this roadmap's Q1 initiatives — it was
+  built ahead of schedule at explicit request, in service of this phase's
+  retention goal (a reason to bring a friend back in) rather than as a
+  reprioritization. No commission or payout model yet: that needs a
+  compliance and payments decision this document doesn't make for it. If a
+  paid referral program becomes a real initiative, it belongs here explicitly
+  rather than continuing to live as a deviation note.
 - **Mobile-responsive dashboard** — not a native app yet, but positions and
   alerts must be usable on phones and tablets.
 - **Technical indicators (phase 1)** — SMA, EMA, RSI, MACD as chart overlays.

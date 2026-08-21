@@ -19,6 +19,7 @@ import {
 import { GuidedCapsForm } from "@/components/guided/guided-caps-form";
 import { AccountSettings } from "@/components/settings/account-settings";
 import { BillingSettings } from "@/components/settings/billing-settings";
+import { ReferralSettings } from "@/components/settings/referral-settings";
 import { StartTourButton } from "@/components/onboarding/tour-provider";
 import Link from "next/link";
 import { Link2, Landmark, Compass } from "lucide-react";
@@ -79,6 +80,8 @@ export default function SettingsPage() {
       </Card>
 
       <AccountSettings />
+
+      <ReferralSettings />
 
       <BillingSettings />
 
