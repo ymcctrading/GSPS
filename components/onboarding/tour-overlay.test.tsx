@@ -268,32 +268,50 @@ describe("anchors below the fold", () => {
     // silently became a centred bubble. Off-screen means "scroll to me".
     const user = userEvent.setup();
     const el = layOutAnchor("settings-caps", 4000);
+    const scrollBy = vi.spyOn(window, "scrollBy").mockImplementation(() => {});
 
     render(<TourOverlay open onClose={onClose} />);
     await advanceTo(user, "settings-caps");
 
-    expect(el.scrollIntoView).toHaveBeenCalled();
+    expect(scrollBy).toHaveBeenCalled();
     const ring = document.querySelector<HTMLElement>(".ring-accent");
     expect(ring, "an off-screen anchor must still be spotlit").not.toBeNull();
+    scrollBy.mockRestore();
     el.remove();
   });
 
-  it("scrolls the copy that is actually laid out, not the first in the DOM", async () => {
-    // The ring measured the first laid-out element while the scroll grabbed
-    // the first DOM match. Across breakpoints those are different elements,
-    // and scrolling the hidden one moves nothing.
+  it("does not scroll when the anchor is already fully on screen", async () => {
+    // The page should hold still unless the target actually needs help — a
+    // step whose anchor is already visible must not re-centre the viewport
+    // out from under a reader who hasn't moved.
+    const user = userEvent.setup();
+    const el = layOutAnchor("settings-caps", 100);
+    const scrollBy = vi.spyOn(window, "scrollBy").mockImplementation(() => {});
+
+    render(<TourOverlay open onClose={onClose} />);
+    await advanceTo(user, "settings-caps");
+
+    expect(scrollBy).not.toHaveBeenCalled();
+    scrollBy.mockRestore();
+    el.remove();
+  });
+
+  it("spotlights the copy that is actually laid out, not the first in the DOM", async () => {
+    // Across breakpoints the same `data-tour` value can appear twice (a
+    // section rendered once per layout); only the one with real dimensions
+    // should ever be measured or spotlit.
     const user = userEvent.setup();
     const hidden = document.createElement("div");
     hidden.setAttribute("data-tour", "settings-caps");
-    hidden.scrollIntoView = vi.fn();
     document.body.appendChild(hidden);
     const visible = layOutAnchor("settings-caps", 3000);
 
     render(<TourOverlay open onClose={onClose} />);
     await advanceTo(user, "settings-caps");
 
-    expect(visible.scrollIntoView).toHaveBeenCalled();
-    expect(hidden.scrollIntoView).not.toHaveBeenCalled();
+    const ring = document.querySelector<HTMLElement>(".ring-accent");
+    expect(ring, "the laid-out duplicate must be spotlit").not.toBeNull();
+    expect(ring!.style.top).toBe("2994px"); // 3000 top − 6 padding
     hidden.remove();
     visible.remove();
   });
