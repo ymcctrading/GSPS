@@ -13,7 +13,7 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { SnapshotDisclosure, SnapshotFigure } from "./snapshot-figure";
-import { SNAPSHOT_BADGE, SNAPSHOT_NOTICE, SNAPSHOT_GUIDED } from "@/lib/onboarding/spy-snapshot";
+import { SNAPSHOT_BADGE, SNAPSHOT_NOTICE, SNAPSHOT_GUIDED } from "@/lib/onboarding/tour-snapshot";
 import { TOUR_STEPS, type TourFigure } from "@/lib/onboarding/tour";
 
 /** Every figure the step list actually uses, so a new one is covered on arrival. */
@@ -51,7 +51,7 @@ describe("figures", () => {
   it("describes the chart to a screen reader instead of leaving it silent", () => {
     render(<SnapshotFigure figure="chart" />);
     const chart = screen.getByRole("img");
-    expect(chart).toHaveAccessibleName(/SPY daily prices over 30 days/i);
+    expect(chart).toHaveAccessibleName(/F daily prices over 30 days/i);
     expect(chart).toHaveAccessibleName(/not live data/i);
   });
 
@@ -81,6 +81,6 @@ describe("figures", () => {
 
   it("shows an exit ladder whose shares add up in front of the reader", () => {
     render(<SnapshotFigure figure="exits" />);
-    expect(screen.getByText(/21 \+ 7 \+ 8 = 36/)).toBeInTheDocument();
+    expect(screen.getByText(/6 \+ 2 \+ 2 = 10/)).toBeInTheDocument();
   });
 });

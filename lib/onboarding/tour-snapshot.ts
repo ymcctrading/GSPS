@@ -1,5 +1,5 @@
 /**
- * GSPS — the frozen SPY snapshot used by the first-run tour.
+ * GSPS — the frozen example used by the first-run tour.
  *
  * The tour has to show a reader what a real setup looks like, and the obvious
  * way to do that would be to render live data. That is the wrong call here for
@@ -14,18 +14,27 @@
  *   3. An example that changes on every visit cannot be taught from, referred
  *      back to, or screenshotted into a support reply.
  *
- * So the example is a fixed snapshot: SPY as of one specific after-hours
- * timestamp, stored here in full and never refetched. Everything downstream
- * renders through the app's real components, so it looks and behaves like the
- * live screens, but the numbers never move.
+ * So the example is a fixed snapshot: F (Ford Motor Company) as of one specific
+ * after-hours timestamp, stored here in full and never refetched. Everything
+ * downstream renders through the app's real components, so it looks and
+ * behaves like the live screens, but the numbers never move.
  *
  * This is illustrative data, not engine output. It was authored to be
  * internally consistent with the rules the engine actually applies — the
- * position size below is what the Guided caps in `lib/guided/config.ts` produce
- * for this account size and this stop distance — but no claim is made that the
- * scanner would have scored this exact bar series this exact way. Nothing here
- * is ever priced, traded, or compared against a live quote. It exists to be
- * looked at.
+ * position size below is what the five Guided ceilings in
+ * `lib/guided/config.ts` produce for this account size, this stop distance and
+ * this price — but no claim is made that the scanner would have scored this
+ * exact bar series this exact way. Nothing here is ever priced, traded, or
+ * compared against a live quote. It exists to be looked at.
+ *
+ * The symbol is deliberately not SPY. Guided Mode's per-trade budget cap ships
+ * on by default at $250 (`DEFAULT_GUIDED_BUDGET_USD`), and a symbol priced in
+ * the hundreds of dollars a share cannot clear the protocol's two-share
+ * minimum on that budget — the exact "$54,000 to make $400" experience a
+ * novice reported that this cap exists to prevent. A single lower-priced stock
+ * is a worse pattern-recognition example than an index (its price can move on
+ * company news, not only the market), a trade-off accepted so the worked
+ * example is one Guided would actually produce for the account it describes.
  *
  * Every surface that renders it must label it. `SNAPSHOT_NOTICE` is that label,
  * and `lib/__tests__` holds a test asserting no figure component ships without
@@ -51,21 +60,21 @@ export interface SnapshotBar {
 export const SNAPSHOT_TAKEN_AT = "2026-08-18T20:00:00Z";
 export const SNAPSHOT_TAKEN_LABEL = "Tuesday, August 18, 2026, after the market closed";
 
+export const SNAPSHOT_SYMBOL = "F";
+export const SNAPSHOT_SYMBOL_PLAIN =
+  "Ford is a single company rather than a fund, so its price can move on news about Ford itself and not only the wider market.";
+
 /**
  * The disclosure, in the words a beginner needs rather than the words a
  * compliance page would use. It says all three things that matter: it is an
  * example, it is old, and the real screen will not match it.
  */
 export const SNAPSHOT_NOTICE =
-  `Example only — not live data. This is a saved snapshot of SPY from ${SNAPSHOT_TAKEN_LABEL}. ` +
+  `Example only — not live data. This is a saved snapshot of ${SNAPSHOT_SYMBOL} from ${SNAPSHOT_TAKEN_LABEL}. ` +
   `The real screens in GSPS will show today's numbers, which will look different.`;
 
 /** The short form, for a corner badge where the full sentence will not fit. */
 export const SNAPSHOT_BADGE = "Saved example · not live";
-
-export const SNAPSHOT_SYMBOL = "SPY";
-export const SNAPSHOT_SYMBOL_PLAIN =
-  "SPY is a single fund holding the 500 largest US companies, so the price moves roughly with the market as a whole.";
 
 /**
  * Thirty daily candles ending on the snapshot date. The shape is deliberate:
@@ -74,40 +83,40 @@ export const SNAPSHOT_SYMBOL_PLAIN =
  * of this file describes, so the picture and the words agree.
  */
 export const SNAPSHOT_BARS: SnapshotBar[] = [
-  { date: "2026-07-08", open: 664.10, high: 667.42, low: 662.88, close: 666.91 },
-  { date: "2026-07-09", open: 667.20, high: 670.05, low: 665.74, close: 669.38 },
-  { date: "2026-07-10", open: 669.55, high: 672.60, low: 668.11, close: 671.84 },
-  { date: "2026-07-13", open: 672.30, high: 673.15, low: 668.02, close: 668.77 },
-  { date: "2026-07-14", open: 668.40, high: 671.96, low: 667.35, close: 671.20 },
-  { date: "2026-07-15", open: 671.65, high: 675.88, low: 671.02, close: 675.31 },
-  { date: "2026-07-16", open: 675.70, high: 678.44, low: 674.19, close: 677.95 },
-  { date: "2026-07-17", open: 678.10, high: 679.02, low: 674.60, close: 675.12 },
-  { date: "2026-07-20", open: 675.40, high: 678.83, low: 674.88, close: 678.29 },
-  { date: "2026-07-21", open: 678.60, high: 682.17, low: 677.94, close: 681.55 },
-  { date: "2026-07-22", open: 681.90, high: 685.30, low: 681.04, close: 684.72 },
-  { date: "2026-07-23", open: 685.05, high: 686.11, low: 681.36, close: 682.08 },
-  { date: "2026-07-24", open: 682.30, high: 685.94, low: 681.77, close: 685.40 },
-  { date: "2026-07-27", open: 685.75, high: 689.26, low: 685.02, close: 688.61 },
-  { date: "2026-07-28", open: 688.90, high: 691.48, low: 687.15, close: 690.77 },
-  { date: "2026-07-29", open: 691.02, high: 691.85, low: 686.40, close: 687.13 },
-  { date: "2026-07-30", open: 687.35, high: 690.92, low: 686.71, close: 690.44 },
-  { date: "2026-07-31", open: 690.70, high: 694.28, low: 690.09, close: 693.86 },
-  { date: "2026-08-03", open: 694.15, high: 696.70, low: 692.83, close: 696.02 },
-  { date: "2026-08-04", open: 696.30, high: 697.41, low: 693.12, close: 693.55 },
-  { date: "2026-08-05", open: 693.70, high: 695.88, low: 691.06, close: 691.49 },
-  { date: "2026-08-06", open: 691.20, high: 692.34, low: 686.55, close: 687.02 },
-  { date: "2026-08-07", open: 686.80, high: 688.19, low: 683.27, close: 683.94 },
-  { date: "2026-08-10", open: 683.60, high: 685.72, low: 680.11, close: 680.85 },
-  { date: "2026-08-11", open: 680.55, high: 682.03, low: 677.42, close: 678.16 },
-  { date: "2026-08-12", open: 678.40, high: 680.95, low: 677.08, close: 680.32 },
-  { date: "2026-08-13", open: 680.10, high: 681.44, low: 676.93, close: 677.51 },
-  { date: "2026-08-14", open: 677.25, high: 679.60, low: 676.42, close: 679.08 },
-  { date: "2026-08-17", open: 678.85, high: 680.17, low: 676.28, close: 677.90 },
-  { date: "2026-08-18", open: 678.20, high: 683.05, low: 677.66, close: 682.14 },
+  { date: "2026-07-08", open: 24.09, high: 24.21, low: 24.04, close: 24.19 },
+  { date: "2026-07-09", open: 24.20, high: 24.30, low: 24.15, close: 24.28 },
+  { date: "2026-07-10", open: 24.28, high: 24.39, low: 24.23, close: 24.37 },
+  { date: "2026-07-13", open: 24.38, high: 24.41, low: 24.23, close: 24.26 },
+  { date: "2026-07-14", open: 24.24, high: 24.37, low: 24.20, close: 24.34 },
+  { date: "2026-07-15", open: 24.36, high: 24.51, low: 24.34, close: 24.49 },
+  { date: "2026-07-16", open: 24.51, high: 24.61, low: 24.45, close: 24.59 },
+  { date: "2026-07-17", open: 24.59, high: 24.63, low: 24.47, close: 24.49 },
+  { date: "2026-07-20", open: 24.50, high: 24.62, low: 24.48, close: 24.60 },
+  { date: "2026-07-21", open: 24.61, high: 24.74, low: 24.59, close: 24.72 },
+  { date: "2026-07-22", open: 24.73, high: 24.85, low: 24.70, close: 24.83 },
+  { date: "2026-07-23", open: 24.85, high: 24.88, low: 24.71, close: 24.74 },
+  { date: "2026-07-24", open: 24.75, high: 24.88, low: 24.73, close: 24.86 },
+  { date: "2026-07-27", open: 24.87, high: 25.00, low: 24.84, close: 24.97 },
+  { date: "2026-07-28", open: 24.99, high: 25.08, low: 24.92, close: 25.05 },
+  { date: "2026-07-29", open: 25.06, high: 25.09, low: 24.89, close: 24.92 },
+  { date: "2026-07-30", open: 24.93, high: 25.06, low: 24.91, close: 25.04 },
+  { date: "2026-07-31", open: 25.05, high: 25.18, low: 25.03, close: 25.17 },
+  { date: "2026-08-03", open: 25.18, high: 25.27, low: 25.13, close: 25.24 },
+  { date: "2026-08-04", open: 25.25, high: 25.29, low: 25.14, close: 25.15 },
+  { date: "2026-08-05", open: 25.16, high: 25.24, low: 25.06, close: 25.08 },
+  { date: "2026-08-06", open: 25.07, high: 25.11, low: 24.90, close: 24.92 },
+  { date: "2026-08-07", open: 24.91, high: 24.96, low: 24.78, close: 24.81 },
+  { date: "2026-08-10", open: 24.79, high: 24.87, low: 24.67, close: 24.69 },
+  { date: "2026-08-11", open: 24.68, high: 24.74, low: 24.57, close: 24.60 },
+  { date: "2026-08-12", open: 24.60, high: 24.70, low: 24.56, close: 24.67 },
+  { date: "2026-08-13", open: 24.67, high: 24.71, low: 24.55, close: 24.57 },
+  { date: "2026-08-14", open: 24.56, high: 24.65, low: 24.53, close: 24.63 },
+  { date: "2026-08-17", open: 24.62, high: 24.67, low: 24.53, close: 24.59 },
+  { date: "2026-08-18", open: 24.60, high: 24.77, low: 24.58, close: 24.74 },
 ];
 
 /** The last close in the series, quoted throughout the tour as "the price". */
-export const SNAPSHOT_LAST_CLOSE = 682.14;
+export const SNAPSHOT_LAST_CLOSE = 24.74;
 
 /**
  * The four prices that make up a trade plan, which is the single most important
@@ -115,15 +124,15 @@ export const SNAPSHOT_LAST_CLOSE = 682.14;
  * decided before any money moves.
  */
 export const SNAPSHOT_PLAN = {
-  entry: 683.90,
-  stopLoss: 676.50,
-  takeProfit1: 694.00,
-  masterProfit: 701.20,
+  entry: 24.80,
+  stopLoss: 24.35,
+  takeProfit1: 25.50,
+  masterProfit: 25.95,
 } as const;
 
 /** Entry to stop, per share. Every dollar figure below is derived from this. */
 export const SNAPSHOT_RISK_PER_SHARE =
-  SNAPSHOT_PLAN.entry - SNAPSHOT_PLAN.stopLoss; // 7.40
+  SNAPSHOT_PLAN.entry - SNAPSHOT_PLAN.stopLoss; // 0.45
 
 /**
  * The example account. A fresh paper account opens with this balance
@@ -135,25 +144,31 @@ export const SNAPSHOT_EQUITY = 100_000;
 /**
  * The size, and the reason it is what it is.
  *
- * Two separate caps apply, and which one binds is the interesting part. The
- * per-trade risk cap (1% of equity, so $1,000) would allow 135 shares. The
- * deployed-capital ceiling (25% of equity, so $25,000 of stock at once) allows
- * 36. The smaller number wins, which means this trade risks $266 rather than
- * the $1,000 the risk cap alone would have permitted.
+ * Three ceilings apply, and which one binds is the interesting part. The
+ * per-trade risk cap (1% of equity, so $1,000) would allow 2,222 shares. The
+ * deployed-capital ceiling (25% of equity, so $25,000 of stock at once) would
+ * allow 1,008. The per-trade dollar budget — $250 by default, on for every new
+ * account — allows only 10. The smallest number wins, which means this trade
+ * risks about $5 rather than the $1,000 the risk cap alone would have
+ * permitted, or the $25,000 of stock the deployed-capital cap alone would.
  *
- * The tour states that out loud instead of just showing "36 shares", because
- * "the app said no before I had to" is the single most reassuring thing a
- * nervous first-time user can learn about it.
+ * The tour states that out loud instead of just showing "10 shares", because
+ * "the app kept this small on purpose" is the single most reassuring thing a
+ * nervous first-time user — trading with real money in the low hundreds — can
+ * learn about it.
  */
 export const SNAPSHOT_GUIDED = {
   action: "buy" as const,
-  qty: 36,
-  notionalUsd: 24_620.40,
-  riskUsd: 266.40,
-  rewardUsd: 471.60,
+  qty: 10,
+  notionalUsd: 248.00,
+  riskUsd: 4.50,
+  rewardUsd: 8.80,
   /** Which cap produced the size. */
-  bindingCap: "deployed" as const,
-  qtyAllowedByRiskCap: 135,
+  bindingCap: "budget" as const,
+  qtyAllowedByRiskCap: 2222,
+  qtyAllowedByDeployedCap: 1008,
+  /** The per-trade dollar ceiling that actually bound this example. */
+  budgetUsd: 250,
   /**
    * The three sentences the real card would carry, phrased as `lib/guided/copy.ts`
    * phrases them rather than paraphrased. The figure's whole purpose is to look
@@ -164,13 +179,13 @@ export const SNAPSHOT_GUIDED = {
    * written out, since producing the real thing needs a whole `ScanResult`.
    */
   reason:
-    "SPY has sold off into a price area that has stopped declines before, and is turning back up through $683.90. The daily range is ordinary, so this is a structural entry rather than a momentum one.",
+    "F has sold off into a price area that has stopped declines before, and is turning back up through $24.80. The daily range is ordinary, so this is a structural entry rather than a momentum one.",
   riskRewardSentence:
-    "You could lose about $266 if this doesn't work, or make about $472 if it reaches the target.",
+    "You could lose about $5 if this doesn't work, or make about $9 if it reaches the target.",
   sizeSentence:
-    "36 shares — not a number you typed, but the most GSPS will commit to one position while holding total exposure under a quarter of the practice account.",
+    "10 shares — not a number you typed, but the most a $250 per-trade budget will stretch to at this price.",
   exitSentence:
-    "If it works, 21 of the 36 shares are sold at the first target and the other 15 run on to the second, with the stop moved up behind them. If it doesn't, the whole position is sold at the stop.",
+    "If it works, 6 of the 10 shares are sold at the first target and the other 4 run on to the second, with the stop moved up behind them. If it doesn't, the whole position is sold at the stop.",
   scoreOutOf9: 8,
   verdict: "Execute" as const,
   trend: "Weekly and daily both pointing up.",
@@ -178,25 +193,25 @@ export const SNAPSHOT_GUIDED = {
 
 /**
  * The staged exit, as share counts rather than percentages — a beginner can
- * check "21 + 7 + 8 = 36" and cannot check "60% of the remainder".
+ * check "6 + 2 + 2 = 10" and cannot check "60% of the remainder".
  */
 export const SNAPSHOT_EXIT_LADDER = [
   {
     stage: "First target",
     price: SNAPSHOT_PLAN.takeProfit1,
-    shares: 21,
+    shares: 6,
     plain: "Most of the position is sold here, which locks in a profit early.",
   },
   {
     stage: "Second target",
     price: SNAPSHOT_PLAN.masterProfit,
-    shares: 7,
+    shares: 2,
     plain: "Half of what's left comes off here.",
   },
   {
     stage: "Runner",
     price: null,
-    shares: 8,
+    shares: 2,
     plain:
       "The last shares keep going, protected by a stop that rises as the price rises but never falls back down.",
   },
@@ -209,13 +224,13 @@ export const SNAPSHOT_EXIT_LADDER = [
  */
 export const SNAPSHOT_POSITION = {
   symbol: SNAPSHOT_SYMBOL,
-  qty: 36,
+  qty: 10,
   side: "long" as const,
-  avgEntry: 683.90,
-  lastPrice: 686.42,
-  marketValue: 24_711.12,
-  unrealizedUsd: 90.72,
-  unrealizedPct: 0.37,
+  avgEntry: 24.80,
+  lastPrice: 24.89,
+  marketValue: 248.90,
+  unrealizedUsd: 0.90,
+  unrealizedPct: 0.36,
   openedAtLabel: "Opened Aug 18, 2026",
 } as const;
 
@@ -228,19 +243,19 @@ export const SNAPSHOT_POSITION = {
  * different total learns the opposite lesson about how much to trust the
  * numbers. Cash is the starting balance minus what the position cost; equity is
  * cash plus what the position is worth now; the day's profit is the gap between
- * equity and the $100,000 the account opened with. `spy-snapshot` tests assert
+ * equity and the $100,000 the account opened with. `tour-snapshot` tests assert
  * all three.
  */
 export const SNAPSHOT_ACCOUNT = {
   startingCash: SNAPSHOT_EQUITY,
   /** Uninvested money. Starting balance less the cost of the open position. */
-  cash: 75_379.60,
+  cash: 99_752.00,
   /** What the open position would fetch at the current price. */
-  holdingsValue: 24_711.12,
+  holdingsValue: 248.90,
   /** Cash plus holdings — the number a beginner means by "how much do I have". */
-  equity: 100_090.72,
+  equity: 100_000.90,
   /** Change since the account opened. */
-  dayPnlUsd: 90.72,
+  dayPnlUsd: 0.90,
 } as const;
 
 /**
@@ -261,6 +276,11 @@ export const SNAPSHOT_BACKTEST = {
 /** The shipped Guided caps, restated for the Settings step of the tour. */
 export const SNAPSHOT_CAPS = [
   { label: "Risk per trade", value: "1% of the account", plain: "How much one trade is allowed to lose." },
+  {
+    label: "Money in any one trade",
+    value: "$250",
+    plain: "However the risk math works out, no single trade commits more practice dollars than this.",
+  },
   { label: "Trades per day", value: "3", plain: "Stops a bad afternoon from becoming a bad week." },
   { label: "Trades per week", value: "10", plain: "The same idea over a longer stretch." },
   {
