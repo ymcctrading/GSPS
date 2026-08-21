@@ -128,7 +128,7 @@ export const TOUR_STEPS: TourStep[] = [
     title: "About the examples in this tour",
     figure: "chart",
     body: [
-      `Every picture ahead shows SPY, captured on ${SNAPSHOT_TAKEN_LABEL}.`,
+      `Every picture ahead shows SPY, captured ${SNAPSHOT_TAKEN_LABEL}.`,
       SNAPSHOT_SYMBOL_PLAIN,
       "These figures are frozen \u2014 a saved snapshot rather than a live feed \u2014 so the pictures always match the words beside them. Your own screens will show today's prices and different numbers. Nothing is broken.",
       "Read the chart left to right, one bar per day. The thin line spans the day's high and low; the thick block marks where the price opened and closed.",
