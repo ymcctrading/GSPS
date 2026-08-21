@@ -16,7 +16,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { getMarketDataProvider } from "@/lib/data/provider";
 import { simulateCompanySnapshot } from "@/lib/data/company";
-import { fetchFinnhubAnalystRating, fetchFinnhubPriceTarget } from "@/lib/data/finnhub";
+import {
+  fetchFinnhubAnalystRating,
+  fetchFinnhubCompanyProfile,
+  fetchFinnhubPriceTarget,
+} from "@/lib/data/finnhub";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -32,9 +36,10 @@ export async function GET(req: NextRequest) {
     const price = await provider.fetchLatestPrice(symbol, assetClass);
     const snapshot = simulateCompanySnapshot(symbol, price);
 
-    const [realRating, realTarget] = await Promise.all([
+    const [realRating, realTarget, realProfile] = await Promise.all([
       fetchFinnhubAnalystRating(symbol),
       fetchFinnhubPriceTarget(symbol, price),
+      fetchFinnhubCompanyProfile(symbol),
     ]);
     if (realRating) {
       snapshot.analystRating = realRating;
@@ -44,7 +49,11 @@ export async function GET(req: NextRequest) {
       snapshot.priceTarget = realTarget;
       snapshot.sources.priceTarget = "finnhub";
     }
-    snapshot.simulated = !realRating && !realTarget;
+    if (realProfile) {
+      snapshot.profile = realProfile;
+      snapshot.sources.profile = "finnhub";
+    }
+    snapshot.simulated = !realRating && !realTarget && !realProfile;
 
     return NextResponse.json({
       ...snapshot,

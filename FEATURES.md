@@ -142,6 +142,23 @@ GSPS is a comprehensive trading application built with Next.js, Supabase, and Al
 - **Beginner Glossary**: Educational terms for trading concepts
 - **Pattern Explanations**: Learn about structural analysis and reversal patterns
 - **Signal Definitions**: Understand scoring and signals
+- **First-Run Introduction**: A 16-step walkthrough written for someone who has
+  never placed a trade, covering every destination in the app — what it is for,
+  where it is, and what happens when you use it. It runs in two shapes over one
+  shared body of copy: a spotlight tour that auto-launches once per account,
+  dimming the app and highlighting each element as it describes it, and
+  `/welcome`, the same steps as a scannable page with a contents list and
+  per-step anchors for anyone wanting a refresher. Reachable from Settings and
+  from the Dashboard at any time; leaving it early and finishing it both count,
+  and neither prompts again. Completion is stored per user rather than per
+  browser, so it does not reappear on a second device
+- **Saved Example Data**: Every figure in the introduction is drawn from one
+  frozen after-hours SPY snapshot rather than live market data, so the copy can
+  never contradict the picture beside it. Each figure is labelled as a saved
+  example with the date it was taken, and states that the real screens will show
+  different numbers. The example position size is verified against the shipped
+  Guided caps in the test suite, so a change to a cap fails a test rather than
+  leaving the walkthrough describing arithmetic the app no longer does
 
 ### 9. Dashboard & Analytics
 - **Trading Dashboard**: Overview of portfolio and scan results
@@ -186,6 +203,7 @@ GSPS is a comprehensive trading application built with Next.js, Supabase, and Al
 - `/api/portfolio` - Portfolio data
 - `/api/snaptrade/connect` - SnapTrade linking
 - `/api/snaptrade/accounts` - SnapTrade account management
+- `/api/onboarding` - Whether the first-run introduction has been shown
 
 **Frontend Pages** (`app/(app)/`):
 - `/dashboard` - Main trading dashboard
@@ -194,6 +212,7 @@ GSPS is a comprehensive trading application built with Next.js, Supabase, and Al
 - `/ticker/[...symbol]` - Individual stock analysis (catch-all route so symbols like BTC/USD route correctly)
 - `/settings` - User configuration
 - `/glossary` - Educational resources
+- `/welcome` - The first-run introduction, as a re-readable page
 
 **Core Libraries** (`lib/`):
 - `gann/` - Structural analysis calculations

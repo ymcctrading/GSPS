@@ -6,6 +6,11 @@
  *   ?targetR=2             take-profit distance, in multiples of risk
  *   ?within=Execute        verdict bucket to attribute factors inside
  *   ?since=2026-06-15      replay only bars at or after this instant
+ *   ?trades=1              return the dated, per-trade list for `within`
+ *                          instead of the aggregate report — small on
+ *                          purpose (one bucket, not the whole universe's
+ *                          trades), for building a real trade-by-trade
+ *                          timeline the aggregate numbers can't answer
  *
  * Not on a cron and it must not go on one: a run walks every bar of every
  * symbol and is far too slow for a scheduled hobby-plan invocation. It is
@@ -20,7 +25,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { BUCKETS, runBacktest, type Bucket } from "@/lib/backtest/run";
+import { BUCKETS, collectRun, runBacktest, type Bucket } from "@/lib/backtest/run";
+import { byOutputState } from "@/lib/backtest/replay";
 import { isTimeframe } from "@/lib/timeframe";
 import { verifyAuth } from "@/lib/auth";
 
@@ -78,7 +84,39 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: `Invalid since '${since}'` }, { status: 400 });
   }
 
+  const wantTrades = searchParams.get("trades") === "1";
+
   try {
+    if (wantTrades) {
+      const run = await collectRun({
+        symbols: universe,
+        timeframe,
+        targetR,
+        ...(since !== null ? { since } : {}),
+      });
+      const bucketTrades = byOutputState(run.overall)[within as Bucket].trades;
+      return NextResponse.json({
+        source: run.source,
+        live: run.live,
+        timeframe: run.timeframe,
+        targetR: run.targetR,
+        symbols: run.symbols,
+        skipped: run.skipped,
+        window: run.window,
+        bucket: within,
+        trades: bucketTrades.map((t) => ({
+          symbol: t.symbol,
+          openedAt: t.openedAt,
+          direction: t.direction,
+          entry: t.entry,
+          stop: t.stop,
+          target: t.target,
+          rMultiple: t.rMultiple,
+          outcome: t.outcome,
+        })),
+      });
+    }
+
     const report = await runBacktest({
       symbols: universe,
       timeframe,

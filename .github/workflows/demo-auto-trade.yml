@@ -1,0 +1,43 @@
+name: Demo profile auto-trade
+
+# Trades the showcase demo profile automatically — see lib/demo/auto-trade.ts
+# and app/api/demo/auto-trade/route.ts. Same reason this lives in GitHub
+# Actions rather than vercel.json as premarket-scan.yml and intraday-scan.yml:
+# the Vercel Hobby plan caps scheduled jobs at 2/project, and both slots are
+# already spent on the daily market scan and the trade-journal email.
+#
+# Three runs on a trading day, not one: the route enforces its own daily/
+# weekly caps and re-checks live prices on every call, so multiple runs are
+# safe (a run with nothing new to do just tries a quiet-day DCA add and
+# exits). The point of more than one run is that a "cadence" A/B day
+# (lib/demo/auto-trade.ts's pickArm) allows a couple of extra trades over the
+# normal daily cap, and those only have somewhere to come from if the job
+# runs more than once while new setups can still arm during the session.
+#
+# 12:35 UTC: shortly after premarket-scan.yml (12:30 UTC) publishes the
+# day's shortlist, so there's something to look at from the open.
+# 17:00 UTC / 19:30 UTC: two more looks through the session, wide enough to
+# tolerate GitHub Actions' looser cron timing under both EST and EDT.
+on:
+  schedule:
+    - cron: '35 12 * * 1-5'
+    - cron: '0 17 * * 1-5'
+    - cron: '30 19 * * 1-5'
+  workflow_dispatch:
+
+jobs:
+  trade:
+    runs-on: ubuntu-latest
+    name: Trigger /api/demo/auto-trade
+    steps:
+      - name: Call demo auto-trade
+        run: |
+          status=$(curl -sS -o /tmp/response.json -w '%{http_code}' \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ vars.PRODUCTION_URL || 'https://gsps.vercel.app' }}/api/demo/auto-trade")
+          echo "HTTP $status"
+          cat /tmp/response.json
+          if [ "$status" -ge 300 ]; then
+            echo "demo/auto-trade returned $status" >&2
+            exit 1
+          fi

@@ -94,8 +94,30 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     FALLBACK_HARMONIC_PCT,
     atrPct,
   );
-  const nearFan = gann.fanLines.length > 0 && gann.fanLines[0].distancePct <= fanBandPct;
-  const nearS9 = gann.squareOf9.length > 0 && gann.squareOf9[0].distancePct <= harmonicBandPct;
+
+  // A structural level only confirms a trade when it's on the *right side* of
+  // it — a long wants a support floor underneath, a short wants a resistance
+  // ceiling overhead. The opposite level is a headwind, not confluence, so
+  // proximity alone (the old check) awarded the point identically whether the
+  // level helped the trade or fought it. `role` was already computed for
+  // every level (see lib/analysis/levelRole.ts) and used only in rationale
+  // text — never in the pass/fail logic — until now.
+  //
+  // Each array is already sorted nearest-first, but the single nearest entry
+  // is frequently the wrong role — searching for the nearest entry *of the
+  // wanted role* within the band finds real confluence a farther-but-still
+  // in-band level would otherwise miss, rather than failing the whole
+  // criterion just because the literal closest line happens to be on the
+  // wrong side.
+  const wantedRole: LevelRole = direction === "bullish" ? "support" : "resistance";
+  const fanMatch = gann.fanLines.find((f) => f.role === wantedRole && f.distancePct <= fanBandPct) ?? null;
+  const s9Match = gann.squareOf9.find((s) => s.role === wantedRole && s.distancePct <= harmonicBandPct) ?? null;
+  const nearFan = fanMatch !== null;
+  const nearS9 = s9Match !== null;
+  // srMatch carries the role of the matched level; older callers that only
+  // pass the boolean (no srMatch) keep the pre-fix behavior for this
+  // criterion rather than being silently failed by a check they can't answer.
+  const historicalSRPassed = srMatch ? srMatch.role === wantedRole : nearSupportResistance;
 
   const patternValid = pattern !== null && pattern.direction === direction;
 
@@ -142,29 +164,31 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       criterion: "Support/resistance line proximity",
       pillar: "structure",
       passed: nearFan,
-      note: nearFan
-        ? `Price within ${gann.fanLines[0].distancePct.toFixed(2)}% of the ${gann.fanLines[0].angle} ${levelRoleLabel(gann.fanLines[0].role).toLowerCase()} line at ${gann.fanLines[0].price.toFixed(2)} — inside the ${fanBandPct.toFixed(2)}% band (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}). ${LEVEL_TIMEFRAME_USAGE["1Day"]}.`
-        : `No support/resistance line within ${fanBandPct.toFixed(2)}% (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}).`,
+      note: fanMatch
+        ? `Price within ${fanMatch.distancePct.toFixed(2)}% of the ${fanMatch.angle} ${levelRoleLabel(fanMatch.role).toLowerCase()} line at ${fanMatch.price.toFixed(2)} — inside the ${fanBandPct.toFixed(2)}% band (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}). ${LEVEL_TIMEFRAME_USAGE["1Day"]}.`
+        : `No ${levelRoleLabel(wantedRole).toLowerCase()} line within ${fanBandPct.toFixed(2)}% (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}).`,
     },
     {
       key: "harmonicProximity",
       criterion: "Key price level proximity",
       pillar: "structure",
       passed: nearS9,
-      note: nearS9
-        ? `Price within ${gann.squareOf9[0].distancePct.toFixed(2)}% of the ${gann.squareOf9[0].degree}° key price ${levelRoleLabel(gann.squareOf9[0].role).toLowerCase()} level at ${gann.squareOf9[0].price.toFixed(2)} — inside the ${harmonicBandPct.toFixed(2)}% band (${bandBasis(HARMONIC_PROXIMITY_ATR, atrPct)}). ${LEVEL_TIMEFRAME_USAGE["1Day"]}.`
-        : `No key price level within ${harmonicBandPct.toFixed(2)}% (${bandBasis(HARMONIC_PROXIMITY_ATR, atrPct)}).`,
+      note: s9Match
+        ? `Price within ${s9Match.distancePct.toFixed(2)}% of the ${s9Match.degree}° key price ${levelRoleLabel(s9Match.role).toLowerCase()} level at ${s9Match.price.toFixed(2)} — inside the ${harmonicBandPct.toFixed(2)}% band (${bandBasis(HARMONIC_PROXIMITY_ATR, atrPct)}). ${LEVEL_TIMEFRAME_USAGE["1Day"]}.`
+        : `No ${levelRoleLabel(wantedRole).toLowerCase()} key price level within ${harmonicBandPct.toFixed(2)}% (${bandBasis(HARMONIC_PROXIMITY_ATR, atrPct)}).`,
     },
     {
       key: "historicalSR",
       criterion: "Historical support/resistance",
       pillar: "structure",
-      passed: nearSupportResistance,
-      note: nearSupportResistance
+      passed: historicalSRPassed,
+      note: historicalSRPassed
         ? srMatch
           ? `Price sits at a clustered ${srMatch.timeframe} ${levelRoleLabel(srMatch.role).toLowerCase()} level at ${srMatch.price.toFixed(2)}. ${LEVEL_TIMEFRAME_USAGE[srMatch.timeframe]}.`
           : "Price sits at a clustered macro S/R level."
-        : "Not at a significant historical S/R level.",
+        : nearSupportResistance && srMatch
+          ? `Nearest clustered level at ${srMatch.price.toFixed(2)} is ${levelRoleLabel(srMatch.role).toLowerCase()} — wrong side for a ${direction} setup, so it doesn't confirm.`
+          : "Not at a significant historical S/R level.",
     },
     {
       key: "patternArmed",
@@ -287,10 +311,14 @@ export function applyReversionConfirmation(
   decision: ScanDecision,
   pattern: StratPattern | null,
   momentumElevated: boolean,
-  nearSupportResistance: boolean,
+  // Kept for signature stability; the confirmation itself now reads the
+  // score's own (role-aware) historicalSR verdict below so this can never
+  // disagree with what the breakdown actually shows.
+  _nearSupportResistance: boolean,
 ): ScanDecision {
   const isBareReversal = pattern?.name === "2-2";
-  const confirmed = momentumElevated && nearSupportResistance;
+  const srConfirmed = decision.breakdown.some((b) => b.key === "historicalSR" && b.passed);
+  const confirmed = momentumElevated && srConfirmed;
   if (!isBareReversal || confirmed || decision.outputState !== "Execute") {
     return decision;
   }

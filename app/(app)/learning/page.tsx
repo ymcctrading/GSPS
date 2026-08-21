@@ -132,7 +132,7 @@ export default function LearningPage() {
         </p>
       </div>
 
-      <Card>
+      <Card data-tour="backtest-run">
         <CardHeader>
           <CardTitle>Run a replay</CardTitle>
           <CardDescription>

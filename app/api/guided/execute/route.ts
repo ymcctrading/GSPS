@@ -144,6 +144,7 @@ export async function POST(req: NextRequest) {
     riskPct: caps.riskPct,
     maxDeployedPct: caps.maxDeployedPct,
     deployedUsd: usage.deployedUsd,
+    maxNotionalUsd: caps.budgetUsd,
   });
   if (sized.blockedReason || !sizeIsTradeable(sized.qty)) {
     return NextResponse.json(

@@ -13,6 +13,8 @@
  * structural score alongside this fundamental/flow read.
  */
 
+import { sectorForSymbol } from "@/lib/sectors";
+
 function hashStr(s: string): number {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) {
@@ -35,6 +37,15 @@ function mulberry32(seed: number): () => number {
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+export interface CompanyProfile {
+  name: string;
+  sector: string;
+  industry: string;
+  marketCapM: number; // millions USD
+  exchange?: string;
+  description: string;
 }
 
 export interface AnalystRating {
@@ -89,6 +100,7 @@ export interface MarginTerms {
 export interface CompanySnapshotSources {
   analystRating: "finnhub" | "simulated";
   priceTarget: "finnhub" | "simulated";
+  profile: "finnhub" | "simulated";
 }
 
 export interface CompanySnapshot {
@@ -96,6 +108,7 @@ export interface CompanySnapshot {
   /** True only when every section is simulated — kept for the blanket disclaimer. */
   simulated: boolean;
   sources: CompanySnapshotSources;
+  profile: CompanyProfile;
   price: number;
   margin: MarginTerms;
   analystRating: AnalystRating;
@@ -125,6 +138,19 @@ export function consensusFromBullishness(bullishness: number): AnalystRating["co
 export function simulateCompanySnapshot(symbol: string, price: number): CompanySnapshot {
   const up = symbol.toUpperCase();
   const rnd = mulberry32(hashStr(`${up}|company`));
+
+  // Profile: sector from the curated watchlists when the symbol appears in
+  // one, otherwise a generic label — market cap seeded off price so it's at
+  // least in the right ballpark rather than pure noise.
+  const sector = sectorForSymbol(up) ?? "Diversified";
+  const shareOutstandingM = 50 + rnd() * 4950; // 50M–5B shares, seeded
+  const profile: CompanyProfile = {
+    name: up,
+    sector,
+    industry: sector,
+    marketCapM: round2(price * shareOutstandingM),
+    description: `${up} is a publicly traded company. Sector and industry detail is simulated — set FINNHUB_API_KEY to bring in real company profile data.`,
+  };
 
   // Margin/shortable rates cluster around a broker-typical 8–11%, nudged by a
   // per-symbol offset so they aren't identical across the board.
@@ -210,7 +236,8 @@ export function simulateCompanySnapshot(symbol: string, price: number): CompanyS
   return {
     symbol: up,
     simulated: true,
-    sources: { analystRating: "simulated", priceTarget: "simulated" },
+    sources: { analystRating: "simulated", priceTarget: "simulated", profile: "simulated" },
+    profile,
     price,
     margin,
     analystRating: {

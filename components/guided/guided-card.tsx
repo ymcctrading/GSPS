@@ -65,6 +65,12 @@ export function GuidedCard({
             <span className="text-muted">({formatUsd(rec.notionalUsd, 0)})</span>
           </p>
           <p className="mt-1.5 text-sm leading-relaxed">{rec.riskRewardSentence}</p>
+          {rec.boundBy === "budget" && (
+            <p className="mt-1.5 text-xs text-muted">
+              Capped to your per-trade dollar budget, not just the risk math — adjustable in
+              Settings → Guided Mode limits.
+            </p>
+          )}
         </div>
 
         <button

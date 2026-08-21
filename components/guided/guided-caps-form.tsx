@@ -4,14 +4,24 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { fetchWithTimeout } from "@/lib/utils";
 import {
+  DEFAULT_GUIDED_BUDGET_USD,
   DEFAULT_GUIDED_CAPS,
+  MAX_GUIDED_BUDGET_USD,
   MAX_RISK_PCT,
+  MIN_GUIDED_BUDGET_USD,
   MIN_RISK_PCT,
   type GuidedCaps,
 } from "@/lib/guided/config";
 
-type Draft = Record<keyof GuidedCaps, string>;
+// budgetUsd stays a plain numeric string, same as every other field — the
+// on/off state lives in `budgetEnabled` instead of being inferred from an
+// empty string, because the input has to survive being cleared mid-edit
+// (select-all-and-retype) without the field itself disappearing under the
+// user's cursor. It is kept out of the generic FIELDS loop below and
+// rendered with its own checkbox.
+type Draft = Record<keyof GuidedCaps, string> & { budgetEnabled: boolean };
 
 const FIELDS: {
   key: keyof GuidedCaps;
@@ -66,18 +76,25 @@ const FIELDS: {
  */
 export function GuidedCapsForm() {
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/settings/guided")
+    fetchWithTimeout("/api/settings/guided")
       .then((res) => res.json())
       .then((body: { caps?: GuidedCaps }) => {
         if (cancelled) return;
         setDraft(toDraft(body.caps ?? DEFAULT_GUIDED_CAPS));
       })
-      .catch(() => !cancelled && setDraft(toDraft(DEFAULT_GUIDED_CAPS)));
+      .catch(() => {
+        if (cancelled) return;
+        // Fall back to the defaults so the form is still usable, but flag it
+        // — these may not be the limits actually saved for this account.
+        setLoadError(true);
+        setDraft(toDraft(DEFAULT_GUIDED_CAPS));
+      });
     return () => {
       cancelled = true;
     };
@@ -96,6 +113,7 @@ export function GuidedCapsForm() {
           maxTradesPerDay: Number(draft.maxTradesPerDay),
           maxTradesPerWeek: Number(draft.maxTradesPerWeek),
           maxDeployedPct: Number(draft.maxDeployedPct),
+          budgetUsd: draft.budgetEnabled ? Number(draft.budgetUsd) : null,
         }),
       });
       const body = await res.json();
@@ -113,7 +131,7 @@ export function GuidedCapsForm() {
   }
 
   return (
-    <Card>
+    <Card data-tour="settings-caps">
       <CardHeader>
         <CardTitle>Guided Mode limits</CardTitle>
         <CardDescription>
@@ -126,6 +144,12 @@ export function GuidedCapsForm() {
           <p className="text-sm text-muted">Loading…</p>
         ) : (
           <>
+            {loadError && (
+              <p className="text-sm text-bear">
+                Couldn&apos;t load your saved limits — showing defaults instead. Saving will overwrite
+                whatever was previously set.
+              </p>
+            )}
             <div className="grid gap-4 sm:grid-cols-2">
               {FIELDS.map((f) => (
                 <label key={f.key} className="flex flex-col gap-1.5 text-sm">
@@ -142,6 +166,34 @@ export function GuidedCapsForm() {
                   <span className="text-xs text-muted">{f.hint}</span>
                 </label>
               ))}
+            </div>
+            <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-background px-4 py-3 text-sm">
+              <label className="flex items-center gap-2 font-medium">
+                <input
+                  type="checkbox"
+                  checked={draft.budgetEnabled}
+                  onChange={(e) => setDraft({ ...draft, budgetEnabled: e.target.checked })}
+                />
+                Cap each trade to a dollar budget
+              </label>
+              <span className="text-xs text-muted">
+                For accounts trading with real money in the low hundreds: no recommendation will
+                ever cost more than this, however much the risk percentage above would otherwise
+                size it to. On by default, because the percentage caps alone are sized against
+                paper equity that can be far larger than what you actually have to spend.
+              </span>
+              {draft.budgetEnabled && (
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  step="10"
+                  min={MIN_GUIDED_BUDGET_USD}
+                  max={MAX_GUIDED_BUDGET_USD}
+                  value={draft.budgetUsd}
+                  onChange={(e) => setDraft({ ...draft, budgetUsd: e.target.value })}
+                  className="max-w-40"
+                />
+              )}
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <Button onClick={() => void save()} disabled={saving}>
@@ -173,5 +225,9 @@ function toDraft(caps: GuidedCaps): Draft {
     maxTradesPerDay: String(caps.maxTradesPerDay),
     maxTradesPerWeek: String(caps.maxTradesPerWeek),
     maxDeployedPct: String(caps.maxDeployedPct),
+    // A remembered numeric value even while off, so re-checking the box does
+    // not reset a figure the user already chose.
+    budgetUsd: String(caps.budgetUsd ?? DEFAULT_GUIDED_BUDGET_USD),
+    budgetEnabled: caps.budgetUsd != null,
   };
 }

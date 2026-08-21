@@ -1,4 +1,5 @@
 import { AppNav } from "@/components/app/nav";
+import { TourProvider } from "@/components/onboarding/tour-provider";
 
 /**
  * App shell. The container widens by device class — a phone gets edge-to-edge
@@ -11,11 +12,16 @@ import { AppNav } from "@/components/app/nav";
  */
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col">
-      <AppNav />
-      <main className="pb-tabbar mx-auto w-full min-w-0 max-w-6xl flex-1 px-3 pt-4 sm:px-4 sm:pt-5 lg:px-6 lg:pt-6 2xl:max-w-7xl">
-        {children}
-      </main>
-    </div>
+    // The tour provider wraps the shell rather than sitting inside a page: one
+    // overlay serves every destination, and following a step's link navigates
+    // the app underneath it instead of unmounting the tour mid-sentence.
+    <TourProvider>
+      <div className="flex min-h-screen flex-col">
+        <AppNav />
+        <main className="pb-tabbar mx-auto w-full min-w-0 max-w-6xl flex-1 px-3 pt-4 sm:px-4 sm:pt-5 lg:px-6 lg:pt-6 2xl:max-w-7xl">
+          {children}
+        </main>
+      </div>
+    </TourProvider>
   );
 }

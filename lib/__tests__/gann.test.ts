@@ -55,11 +55,12 @@ describe("computeScore", () => {
       hourlyTrend: trend("1Hour", "bullish"),
       gann: {
         fanLines: [{ angle: "1x1 (low)", price: 100, distancePct: 0.5, role: "support" }],
-        squareOf9: [{ degree: 90, price: 100.2, distancePct: 0.3, role: "resistance" }],
+        squareOf9: [{ degree: 90, price: 100.2, distancePct: 0.3, role: "support" }],
         timeCycleActive: true,
         timeCycleDates: [],
       },
       nearSupportResistance: true,
+      srMatch: { price: 99.8, timeframe: "1Day", role: "support" },
       pattern: {
         name: "2-1-2",
         direction: "bullish",
@@ -85,6 +86,57 @@ describe("computeScore", () => {
     });
     expect(decision.score).toBe(9);
     expect(decision.outputState).toBe("Execute");
+  });
+
+  it("does not award structural-proximity points for a level on the wrong side of the trade", () => {
+    // Same setup as full-confluence above, but every structural level is a
+    // resistance ceiling overhead instead of a support floor underneath —
+    // the opposite of what a bullish (long) trade wants. Proximity alone
+    // used to score this identically to the supportive case; role must now
+    // gate it.
+    const decision = computeScore({
+      direction: "bullish",
+      macroTrends: [trend("1Month", "bearish"), trend("1Week", "bearish"), trend("1Day", "bearish")],
+      hourlyTrend: trend("1Hour", "bullish"),
+      gann: {
+        fanLines: [{ angle: "1x1 (low)", price: 100, distancePct: 0.5, role: "resistance" }],
+        squareOf9: [{ degree: 90, price: 100.2, distancePct: 0.3, role: "resistance" }],
+        timeCycleActive: true,
+        timeCycleDates: [],
+      },
+      nearSupportResistance: true,
+      srMatch: { price: 100.4, timeframe: "1Day", role: "resistance" },
+      pattern: {
+        name: "2-1-2",
+        direction: "bullish",
+        triggerPrice: 100.5,
+        stopPrice: 86,
+        description: "",
+      },
+      momentumElevated: true,
+      levels: {
+        entry: 100.5,
+        stopLoss: 86,
+        takeProfit1: 129.5,
+        takeProfit2: 144,
+        masterProfit: 144,
+        riskPerShare: 14.5,
+        rewardToRiskTp1: 2,
+        rewardToRiskTp2: 3,
+        rewardToRiskMaster: 3,
+        masterFromStructure: true,
+        stopPctOfPrice: 14.4,
+        stopBandWarning: null,
+      },
+    });
+    const byKey = Object.fromEntries(decision.breakdown.map((b) => [b.key, b.passed]));
+    expect(byKey.fanProximity).toBe(false);
+    expect(byKey.harmonicProximity).toBe(false);
+    expect(byKey.historicalSR).toBe(false);
+    // The three structural criteria lose their point; everything else in the
+    // full-confluence fixture still passes, so score drops by exactly 3.
+    expect(decision.score).toBe(6);
+    expect(decision.outputState).toBe("Watch");
   });
 
   it("maps a weak setup to Reject", () => {
