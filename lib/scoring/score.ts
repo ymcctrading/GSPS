@@ -102,12 +102,18 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // level helped the trade or fought it. `role` was already computed for
   // every level (see lib/analysis/levelRole.ts) and used only in rationale
   // text — never in the pass/fail logic — until now.
+  //
+  // Each array is already sorted nearest-first, but the single nearest entry
+  // is frequently the wrong role — searching for the nearest entry *of the
+  // wanted role* within the band finds real confluence a farther-but-still
+  // in-band level would otherwise miss, rather than failing the whole
+  // criterion just because the literal closest line happens to be on the
+  // wrong side.
   const wantedRole: LevelRole = direction === "bullish" ? "support" : "resistance";
-
-  const nearFanRaw = gann.fanLines.length > 0 && gann.fanLines[0].distancePct <= fanBandPct;
-  const nearFan = nearFanRaw && gann.fanLines[0].role === wantedRole;
-  const nearS9Raw = gann.squareOf9.length > 0 && gann.squareOf9[0].distancePct <= harmonicBandPct;
-  const nearS9 = nearS9Raw && gann.squareOf9[0].role === wantedRole;
+  const fanMatch = gann.fanLines.find((f) => f.role === wantedRole && f.distancePct <= fanBandPct) ?? null;
+  const s9Match = gann.squareOf9.find((s) => s.role === wantedRole && s.distancePct <= harmonicBandPct) ?? null;
+  const nearFan = fanMatch !== null;
+  const nearS9 = s9Match !== null;
   // srMatch carries the role of the matched level; older callers that only
   // pass the boolean (no srMatch) keep the pre-fix behavior for this
   // criterion rather than being silently failed by a check they can't answer.
@@ -158,22 +164,18 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       criterion: "Support/resistance line proximity",
       pillar: "structure",
       passed: nearFan,
-      note: nearFan
-        ? `Price within ${gann.fanLines[0].distancePct.toFixed(2)}% of the ${gann.fanLines[0].angle} ${levelRoleLabel(gann.fanLines[0].role).toLowerCase()} line at ${gann.fanLines[0].price.toFixed(2)} — inside the ${fanBandPct.toFixed(2)}% band (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}). ${LEVEL_TIMEFRAME_USAGE["1Day"]}.`
-        : nearFanRaw
-          ? `Nearest line at ${gann.fanLines[0].price.toFixed(2)} is ${levelRoleLabel(gann.fanLines[0].role).toLowerCase()} — wrong side for a ${direction} setup, so it doesn't confirm.`
-          : `No support/resistance line within ${fanBandPct.toFixed(2)}% (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}).`,
+      note: fanMatch
+        ? `Price within ${fanMatch.distancePct.toFixed(2)}% of the ${fanMatch.angle} ${levelRoleLabel(fanMatch.role).toLowerCase()} line at ${fanMatch.price.toFixed(2)} — inside the ${fanBandPct.toFixed(2)}% band (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}). ${LEVEL_TIMEFRAME_USAGE["1Day"]}.`
+        : `No ${levelRoleLabel(wantedRole).toLowerCase()} line within ${fanBandPct.toFixed(2)}% (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}).`,
     },
     {
       key: "harmonicProximity",
       criterion: "Harmonic level proximity",
       pillar: "structure",
       passed: nearS9,
-      note: nearS9
-        ? `Price within ${gann.squareOf9[0].distancePct.toFixed(2)}% of the ${gann.squareOf9[0].degree}° harmonic ${levelRoleLabel(gann.squareOf9[0].role).toLowerCase()} level at ${gann.squareOf9[0].price.toFixed(2)} — inside the ${harmonicBandPct.toFixed(2)}% band (${bandBasis(HARMONIC_PROXIMITY_ATR, atrPct)}). ${LEVEL_TIMEFRAME_USAGE["1Day"]}.`
-        : nearS9Raw
-          ? `Nearest harmonic level at ${gann.squareOf9[0].price.toFixed(2)} is ${levelRoleLabel(gann.squareOf9[0].role).toLowerCase()} — wrong side for a ${direction} setup, so it doesn't confirm.`
-          : `No harmonic level within ${harmonicBandPct.toFixed(2)}% (${bandBasis(HARMONIC_PROXIMITY_ATR, atrPct)}).`,
+      note: s9Match
+        ? `Price within ${s9Match.distancePct.toFixed(2)}% of the ${s9Match.degree}° harmonic ${levelRoleLabel(s9Match.role).toLowerCase()} level at ${s9Match.price.toFixed(2)} — inside the ${harmonicBandPct.toFixed(2)}% band (${bandBasis(HARMONIC_PROXIMITY_ATR, atrPct)}). ${LEVEL_TIMEFRAME_USAGE["1Day"]}.`
+        : `No ${levelRoleLabel(wantedRole).toLowerCase()} harmonic level within ${harmonicBandPct.toFixed(2)}% (${bandBasis(HARMONIC_PROXIMITY_ATR, atrPct)}).`,
     },
     {
       key: "historicalSR",
