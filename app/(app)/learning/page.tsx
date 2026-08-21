@@ -10,6 +10,8 @@ import { cn } from "@/lib/utils";
 import type { BacktestReport, Bucket } from "@/lib/backtest/run";
 import type { WeightProposal } from "@/lib/backtest/propose-weights";
 import { CRITERION_LABELS, type CriterionKey } from "@/lib/scoring/weights";
+import { TIMEFRAMES, TF_LABEL } from "@/lib/timeframe";
+import type { Timeframe } from "@/lib/types";
 
 const DEFAULT_SYMBOLS = "SPY, AAPL, AMD, TSLA, MSFT, NVDA";
 
@@ -50,6 +52,10 @@ export default function LearningPage() {
   const [symbols, setSymbols] = useState(DEFAULT_SYMBOLS);
   const [within, setWithin] = useState<Bucket>("Execute");
   const [targetR, setTargetR] = useState("2");
+  // Defaults to 15Min to match /api/backtest's own default, not because it's
+  // the right window for every check — a longer timeframe (1Hour, 1Day) is
+  // often needed for enough trades to clear propose-weights' per-half floor.
+  const [timeframe, setTimeframe] = useState<Timeframe>("15Min");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<BacktestReport | null>(null);
@@ -77,6 +83,7 @@ export default function LearningPage() {
         symbols: universe().join(","),
         within,
         targetR,
+        timeframe,
       });
       const res = await fetch(`/api/learning/propose-weights?${params}`, { method: "POST" });
       const body = await res.json();
@@ -105,6 +112,7 @@ export default function LearningPage() {
         symbols: list.join(","),
         within: bucket,
         targetR,
+        timeframe,
       });
       const res = await fetch(`/api/backtest?${params}`);
       const body = await res.json();
@@ -148,6 +156,20 @@ export default function LearningPage() {
                 onChange={(e) => setSymbols(e.target.value)}
                 placeholder="SPY, AAPL"
               />
+            </label>
+            <label className="text-sm sm:w-40">
+              <span className="mb-1 block text-muted">Timeframe</span>
+              <select
+                value={timeframe}
+                onChange={(e) => setTimeframe(e.target.value as Timeframe)}
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              >
+                {TIMEFRAMES.map((tf) => (
+                  <option key={tf} value={tf}>
+                    {TF_LABEL[tf]}
+                  </option>
+                ))}
+              </select>
             </label>
             <label className="text-sm sm:w-28">
               <span className="mb-1 block text-muted">Target (R)</span>
