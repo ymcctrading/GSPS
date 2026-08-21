@@ -7,6 +7,25 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-08-21
+
+### Fixed
+- **The first-run tour's card covered the very element it was describing, on
+  phone-sized screens.** `placeCard` (`components/onboarding/tour-overlay.tsx`)
+  only placed the card above or below the spotlit hole when that side had
+  300px clear — otherwise it fell back to dead-centring the card on the
+  screen. A phone viewport routinely has under 300px clear on *both* sides of
+  a tall anchor (a dashboard section under a sticky header, say), so the
+  fallback fired constantly on mobile, putting the card directly over the
+  thing it was explaining instead of beside it. Fixed by always preferring
+  whichever side — above or below — has more room, and sizing the card's
+  max-height to fit that room (floored at a legible minimum, scrollable past
+  it) rather than requiring a fixed amount before using a side at all. The
+  centred fallback now only fires when a step's anchor isn't on the page at
+  all, which is the case it was actually meant for. Regression test added
+  pinning a scenario where neither side clears 300px but one still clearly
+  has more room than the other.
+
 ## 2026-08-20
 
 ### Added
