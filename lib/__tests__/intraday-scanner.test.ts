@@ -223,6 +223,58 @@ describe("scanIntraday — the liquidity floor", () => {
     expect(check.passed).toBe(true);
     expect(check.detail).toMatch(/only the price floor/);
   });
+
+  /**
+   * The bug that let a live BTC move go unflagged: `minSessionVolume` (50,000)
+   * is a share count, and a session's worth of a big-cap coin is measured in
+   * single or double-digit units, not shares — so the gate failed every
+   * crypto symbol regardless of how much money actually moved. Same session
+   * shape as the rest of this file, re-volumed to coin units.
+   */
+  function cryptoVolumeBars(): Bar[] {
+    return trendingUpBars().map((b) => ({ ...b, v: 0.2 }));
+  }
+
+  it("does not apply the share-denominated session-volume floor to crypto", () => {
+    const output = scanIntraday(
+      [
+        input({
+          symbol: "BTC/USD",
+          kind: "crypto",
+          bars: cryptoVolumeBars(),
+          avgDailyVolume: 20_000, // ~20,000 coins/day at this fixture's ~$500-504 price clears the $5M dollar floor
+        }),
+      ],
+      DEFAULT_CONFIG,
+      AT_1133,
+    );
+
+    expect(output.audit[0].outcome).not.toBe("filtered");
+    const liquidityCheck = output.audit[0].checks.find((c) => c.name === "Liquidity")!;
+    expect(liquidityCheck.passed).toBe(true);
+    expect(liquidityCheck.detail).toMatch(/coins/);
+    expect(liquidityCheck.detail).not.toMatch(/shares/);
+    expect(output.alerts.length).toBeGreaterThan(0);
+  });
+
+  it("still filters a crypto pair whose dollar turnover is below the floor", () => {
+    const output = scanIntraday(
+      [
+        input({
+          symbol: "SHIB/USD",
+          kind: "crypto",
+          bars: cryptoVolumeBars(),
+          avgDailyVolume: 100, // ~$50k/day at this fixture's price — far below the $5M floor
+        }),
+      ],
+      DEFAULT_CONFIG,
+      AT_1133,
+    );
+
+    expect(output.alerts).toHaveLength(0);
+    expect(output.audit[0].outcome).toBe("filtered");
+    expect(output.audit[0].reason).toMatch(/turnover/);
+  });
 });
 
 describe("scanIntraday — data freshness", () => {
