@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Provisions (or re-marks) the showcase demo profile shown to investors,
 // partners, teammates, and prospective users — see supabase/migrations/
-// 0028_demo_showcase_profile.sql and lib/demo/reset.ts for what the flag
+// 0032_demo_showcase_profile.sql and lib/demo/reset.ts for what the flag
 // this sets actually does (always-on tour, daily wipe back to $100,000).
 //
 // Usage (needs SUPABASE_SERVICE_ROLE_KEY and NEXT_PUBLIC_SUPABASE_URL, or
