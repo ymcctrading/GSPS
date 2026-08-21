@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // Provisions (or re-marks) the showcase demo profile shown to investors,
 // partners, teammates, and prospective users — see supabase/migrations/
-// 0032_demo_showcase_profile.sql and lib/demo/reset.ts for what the flag
-// this sets actually does (always-on tour, daily wipe back to $100,000).
+// 0032_demo_showcase_profile.sql, lib/demo/reset.ts, and
+// lib/demo/auto-trade.ts for what the flag this sets actually does
+// (always-on tour, automated trading that compounds real profit).
 //
 // Usage (needs SUPABASE_SERVICE_ROLE_KEY and NEXT_PUBLIC_SUPABASE_URL, or
 // the same defaults lib/supabase/server.ts falls back to):
@@ -74,15 +75,21 @@ async function main() {
     .upsert({ id: userId, display_name: displayName, is_demo: true }, { onConflict: "id" });
   if (profileError) throw profileError;
 
-  // Force an immediate reset to a clean $100,000 slate rather than waiting
-  // for the next sign-in to discover the trading day has "rolled over".
-  const { error: accountError } = await supabase
+  // Seed the starting balance only if this account has never had one — the
+  // account's cash compounds with real trading from here on, so re-running
+  // this script (to rotate the password, say) must never stomp on profit or
+  // loss the auto-trader has already produced.
+  const { data: existingAccount } = await supabase
     .from("paper_accounts")
-    .upsert(
-      { user_id: userId, cash: 100000, demo_reset_date: null },
-      { onConflict: "user_id" },
-    );
-  if (accountError) throw accountError;
+    .select("user_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!existingAccount) {
+    const { error: accountError } = await supabase
+      .from("paper_accounts")
+      .insert({ user_id: userId, cash: 100000 });
+    if (accountError) throw accountError;
+  }
 
   console.log(`${email} is now the showcase demo profile (is_demo = true).`);
 }
