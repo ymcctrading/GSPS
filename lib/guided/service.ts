@@ -189,6 +189,8 @@ export interface Recommendation {
   notionalUsd: number;
   riskUsd: number;
   rewardUsd: number;
+  /** Which ceiling decided the size — "budget" lets the card explain why it's smaller than the risk math alone would size. */
+  boundBy: SizedTrade["boundBy"];
   riskRewardSentence: string;
   exitSentence: string;
   expiresAt: string;
@@ -347,6 +349,7 @@ function collectBatch(params: {
       riskPct: caps.riskPct,
       maxDeployedPct: caps.maxDeployedPct,
       deployedUsd: committed,
+      maxNotionalUsd: caps.budgetUsd,
     });
 
     if (sized.blockedReason) {
@@ -385,6 +388,7 @@ function toRecommendation(
     notionalUsd: sized.notionalUsd,
     riskUsd: sized.riskUsd,
     rewardUsd: sized.rewardUsd,
+    boundBy: sized.boundBy,
     riskRewardSentence: riskRewardSentence(sized.riskUsd, sized.rewardUsd),
     exitSentence: exitSentence(plan.scaleOutQty, sized.qty, side),
     expiresAt,

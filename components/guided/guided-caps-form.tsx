@@ -5,12 +5,18 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  DEFAULT_GUIDED_BUDGET_USD,
   DEFAULT_GUIDED_CAPS,
+  MAX_GUIDED_BUDGET_USD,
   MAX_RISK_PCT,
+  MIN_GUIDED_BUDGET_USD,
   MIN_RISK_PCT,
   type GuidedCaps,
 } from "@/lib/guided/config";
 
+// budgetUsd is a string like every other field, but "" is a meaningful third
+// state — the cap turned off — rather than an invalid number, so it is kept
+// out of the generic FIELDS loop below and rendered with its own checkbox.
 type Draft = Record<keyof GuidedCaps, string>;
 
 const FIELDS: {
@@ -96,6 +102,7 @@ export function GuidedCapsForm() {
           maxTradesPerDay: Number(draft.maxTradesPerDay),
           maxTradesPerWeek: Number(draft.maxTradesPerWeek),
           maxDeployedPct: Number(draft.maxDeployedPct),
+          budgetUsd: draft.budgetUsd.trim() === "" ? null : Number(draft.budgetUsd),
         }),
       });
       const body = await res.json();
@@ -143,6 +150,39 @@ export function GuidedCapsForm() {
                 </label>
               ))}
             </div>
+            <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-background px-4 py-3 text-sm">
+              <label className="flex items-center gap-2 font-medium">
+                <input
+                  type="checkbox"
+                  checked={draft.budgetUsd !== ""}
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      budgetUsd: e.target.checked ? String(DEFAULT_GUIDED_BUDGET_USD) : "",
+                    })
+                  }
+                />
+                Cap each trade to a dollar budget
+              </label>
+              <span className="text-xs text-muted">
+                For accounts trading with real money in the low hundreds: no recommendation will
+                ever cost more than this, however much the risk percentage above would otherwise
+                size it to. On by default, because the percentage caps alone are sized against
+                paper equity that can be far larger than what you actually have to spend.
+              </span>
+              {draft.budgetUsd !== "" && (
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  step="10"
+                  min={MIN_GUIDED_BUDGET_USD}
+                  max={MAX_GUIDED_BUDGET_USD}
+                  value={draft.budgetUsd}
+                  onChange={(e) => setDraft({ ...draft, budgetUsd: e.target.value })}
+                  className="max-w-40"
+                />
+              )}
+            </div>
             <div className="flex flex-wrap items-center gap-3">
               <Button onClick={() => void save()} disabled={saving}>
                 {saving ? "Saving…" : "Save limits"}
@@ -173,5 +213,6 @@ function toDraft(caps: GuidedCaps): Draft {
     maxTradesPerDay: String(caps.maxTradesPerDay),
     maxTradesPerWeek: String(caps.maxTradesPerWeek),
     maxDeployedPct: String(caps.maxDeployedPct),
+    budgetUsd: caps.budgetUsd == null ? "" : String(caps.budgetUsd),
   };
 }
