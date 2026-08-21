@@ -94,7 +94,24 @@ both signal discovery and execution.
 ### Initiatives
 
 - **Notification system** — email, SMS, and browser push for high-confidence
-  alerts. Quiet hours, scheduling, alert history dashboard.
+  alerts. Quiet hours, scheduling, alert history dashboard. *(Gap fixed
+  2026-08-21, out-of-phase/direct report: a live ~6% BTC intraday move went
+  unflagged and un-emailed. Root cause was two-fold — `WATCHLIST` in
+  `lib/scanner/intraday.ts`, the universe the system scan and email fan-out
+  actually cover, had no crypto symbol in it despite the scanner engine
+  already supporting `kind: "crypto"`; and once BTC/USD and ETH/USD were
+  added, the session-volume liquidity gate — tuned in share counts — would
+  have filtered every crypto alert anyway, since a session's coin volume is
+  single/double digits, not tens of thousands. Both fixed: the two symbols
+  added to `WATCHLIST`, and that gate skipped for crypto in favor of the
+  dollar-turnover floor `lib/scan/liquidity.ts` already applies correctly.
+  This is deliberately narrower than the Q2 "Crypto scanner" item below — it
+  wires two large-cap pairs into the existing equity-hours intraday engine,
+  not a separate scan queue or Binance data. One known gap remains open:
+  `.github/workflows/intraday-scan.yml` still only fires Mon–Fri during the
+  equity session, so a weekend or overnight BTC move is still not covered —
+  crypto trades 24/7 and this schedule doesn't yet, which needs its own
+  follow-up given the GitHub Actions run-budget tradeoff.)*
 - **Portfolio analytics dashboard** — win/loss ratio, Sharpe ratio, drawdown
   analysis, monthly/quarterly P&L, performance by pattern type.
 - **Conditional orders** — stop-loss and take-profit on any order; the
