@@ -12,11 +12,18 @@
  * Uses the service-role client deliberately: this writes orders/positions
  * for an account that is never the caller, which is exactly what RLS exists
  * to block for every other route in this app.
+ *
+ * Also sweeps for any of the account's closed trades missing an LLM
+ * critique (lib/demo/critique.ts) and writes them here rather than on a
+ * separate schedule — trading and critiquing the results are naturally the
+ * same cadence, and it saves a second cron slot neither Vercel nor this
+ * project's GitHub Actions budget has to spare.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { runDemoAutoTrade } from "@/lib/demo/auto-trade";
+import { generateMissingCritiques } from "@/lib/demo/critique";
 
 // Vercel Hobby hard-caps function execution at 60s regardless of what this
 // says. buildRecommendations batches its live re-scans specifically to fit
@@ -34,6 +41,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const result = await runDemoAutoTrade(createServiceClient());
-  return NextResponse.json(result);
+  const supabase = createServiceClient();
+  const result = await runDemoAutoTrade(supabase);
+
+  const critiques = result.demoUserId
+    ? await generateMissingCritiques(supabase, result.demoUserId)
+    : { generated: 0, errors: 0 };
+
+  return NextResponse.json({ ...result, critiques });
 }
