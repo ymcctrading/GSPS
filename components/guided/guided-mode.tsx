@@ -25,7 +25,7 @@ interface GuidedResponse {
    */
   nearMiss?: NearMiss | null;
   standAside?: boolean;
-  caps?: { riskPct: number; maxTradesPerDay: number; maxDeployedPct: number };
+  caps?: { riskPct: number; maxTradesPerDay: number; maxDeployedPct: number; budgetUsd: number | null };
   usage?: { tradesToday: number; deployedPct: number };
   error?: string;
 }
@@ -163,9 +163,10 @@ export function GuidedMode() {
 
       {data?.caps && data.usage && (
         <p className="text-sm text-muted">
-          Risking {data.caps.riskPct}% of your paper equity per trade · {data.usage.tradesToday} of{" "}
-          {data.caps.maxTradesPerDay} guided trades today · {data.usage.deployedPct.toFixed(0)}% of{" "}
-          {data.caps.maxDeployedPct}% deployed.
+          Risking {data.caps.riskPct}% of your paper equity per trade
+          {data.caps.budgetUsd != null && <> · never more than {formatUsd(data.caps.budgetUsd, 0)} in one trade</>}{" "}
+          · {data.usage.tradesToday} of {data.caps.maxTradesPerDay} guided trades today ·{" "}
+          {data.usage.deployedPct.toFixed(0)}% of {data.caps.maxDeployedPct}% deployed.
         </p>
       )}
 

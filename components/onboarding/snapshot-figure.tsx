@@ -35,7 +35,7 @@ import {
   SNAPSHOT_PLAN,
   SNAPSHOT_POSITION,
   SNAPSHOT_SYMBOL,
-} from "@/lib/onboarding/spy-snapshot";
+} from "@/lib/onboarding/tour-snapshot";
 
 /**
  * The frame every figure sits in.
@@ -102,7 +102,7 @@ export function SnapshotFigure({ figure }: { figure: TourFigure }) {
       );
     case "exits":
       return (
-        <SnapshotFrame label="How the 36 shares would be sold">
+        <SnapshotFrame label={`How the ${SNAPSHOT_GUIDED.qty} shares would be sold`}>
           <ExitLadder />
         </SnapshotFrame>
       );
@@ -302,8 +302,15 @@ function GuidedPreview() {
   );
 }
 
-/** The staged exit as share counts, which add up to the position in plain sight. */
+/**
+ * The staged exit as share counts, which add up to the position in plain
+ * sight. The footer sums `SNAPSHOT_EXIT_LADDER` rather than repeating the
+ * total as a separate literal — a fixture edit that changed the shares used to
+ * leave this sentence saying a stale number until someone noticed by eye.
+ */
 function ExitLadder() {
+  const total = SNAPSHOT_EXIT_LADDER.reduce((sum, stage) => sum + stage.shares, 0);
+  const sumText = SNAPSHOT_EXIT_LADDER.map((stage) => stage.shares).join(" + ");
   return (
     <ol className="flex flex-col gap-2">
       {SNAPSHOT_EXIT_LADDER.map((stage) => (
@@ -317,8 +324,8 @@ function ExitLadder() {
         </li>
       ))}
       <li className="border-t border-border pt-2 text-xs text-muted">
-        21 + 7 + 8 = 36, the whole position. If the stop is hit first, all 36 are sold at once and the trade is
-        over.
+        {sumText} = {total}, the whole position. If the stop is hit first, all {total} are sold at once and the
+        trade is over.
       </li>
     </ol>
   );
