@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { formatUsd } from "@/lib/utils";
+import { fetchWithTimeout, formatUsd } from "@/lib/utils";
 import { DATA_RETENTION_WINDOW_LABEL } from "@/lib/config";
 import {
   EXECUTE_RULE_DETAIL,
@@ -31,16 +31,18 @@ interface SnapAccounts {
 
 export default function SettingsPage() {
   const [snap, setSnap] = useState<SnapAccounts | null>(null);
+  const [snapError, setSnapError] = useState(false);
   const [paperOk, setPaperOk] = useState<boolean | null>(null);
+  const [paperError, setPaperError] = useState(false);
 
   useEffect(() => {
-    fetch("/api/snaptrade/accounts")
+    fetchWithTimeout("/api/snaptrade/accounts")
       .then((res) => res.json())
       .then(setSnap)
-      .catch(() => setSnap({ enabled: false, accounts: [] }));
-    fetch("/api/portfolio")
+      .catch(() => setSnapError(true));
+    fetchWithTimeout("/api/portfolio")
       .then((res) => setPaperOk(res.ok))
-      .catch(() => setPaperOk(false));
+      .catch(() => setPaperError(true));
   }, []);
 
   return (
@@ -91,7 +93,11 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent>
           {paperOk === null ? (
-            <p className="text-sm text-muted">Checking…</p>
+            paperError ? (
+              <Badge variant="warn">Couldn&apos;t check paper trading status</Badge>
+            ) : (
+              <p className="text-sm text-muted">Checking…</p>
+            )
           ) : paperOk ? (
             <Badge variant="bull">Connected</Badge>
           ) : (
@@ -111,7 +117,11 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           {snap === null ? (
-            <p className="text-sm text-muted">Checking…</p>
+            snapError ? (
+              <Badge variant="warn">Couldn&apos;t load external brokerage status</Badge>
+            ) : (
+              <p className="text-sm text-muted">Checking…</p>
+            )
           ) : !snap.enabled ? (
             <Badge variant="muted">Coming soon — external linking is not enabled yet</Badge>
           ) : (

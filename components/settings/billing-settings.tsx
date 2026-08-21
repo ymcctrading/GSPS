@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CreditCard } from "lucide-react";
 import type { PlatformTier } from "@/lib/tiers";
+import { fetchWithTimeout } from "@/lib/utils";
 
 type Status = {
   enabled: boolean;
@@ -21,7 +22,7 @@ export function BillingSettings() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/billing/status")
+    fetchWithTimeout("/api/billing/status")
       .then((res) => res.json())
       .then(setStatus)
       .catch(() => setError("Couldn't load billing status."));
@@ -70,6 +71,8 @@ export function BillingSettings() {
             <>
               Current plan: <Badge>{status.tierMeta[status.tier]?.label ?? status.tier}</Badge>
             </>
+          ) : error ? (
+            error
           ) : (
             "Loading…"
           )}
@@ -102,7 +105,7 @@ export function BillingSettings() {
           </div>
         )}
 
-        {error && <p className="text-sm text-bear">{error}</p>}
+        {error && status && <p className="text-sm text-bear">{error}</p>}
       </CardContent>
     </Card>
   );
