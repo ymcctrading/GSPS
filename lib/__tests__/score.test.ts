@@ -12,30 +12,37 @@ function pattern(name: StratPattern["name"]): StratPattern {
   };
 }
 
-function executeDecision(): ScanDecision {
-  return { score: 8, outputState: "Execute", breakdown: [] };
+// applyReversionConfirmation reads the score's own (role-aware) historicalSR
+// verdict off the breakdown rather than a duplicate raw boolean, so the test
+// double needs that entry present to stand in for "S/R confirmed".
+function executeDecision(srPassed: boolean): ScanDecision {
+  return {
+    score: 8,
+    outputState: "Execute",
+    breakdown: [{ key: "historicalSR", criterion: "Historical support/resistance", passed: srPassed, note: "" }],
+  };
 }
 
 describe("applyReversionConfirmation", () => {
   it("downgrades a bare 2-2 Execute to Watch when unconfirmed", () => {
-    const result = applyReversionConfirmation(executeDecision(), pattern("2-2"), false, false);
+    const result = applyReversionConfirmation(executeDecision(false), pattern("2-2"), false, false);
     expect(result.outputState).toBe("Watch");
     expect(result.breakdown.at(-1)?.criterion).toMatch(/Reversion confirmation/);
   });
 
   it("downgrades a bare 2-2 when only one of momentum/S-R confirms", () => {
-    expect(applyReversionConfirmation(executeDecision(), pattern("2-2"), true, false).outputState).toBe("Watch");
-    expect(applyReversionConfirmation(executeDecision(), pattern("2-2"), false, true).outputState).toBe("Watch");
+    expect(applyReversionConfirmation(executeDecision(false), pattern("2-2"), true, false).outputState).toBe("Watch");
+    expect(applyReversionConfirmation(executeDecision(true), pattern("2-2"), false, true).outputState).toBe("Watch");
   });
 
   it("leaves a bare 2-2 as Execute when both momentum and S/R confirm", () => {
-    const result = applyReversionConfirmation(executeDecision(), pattern("2-2"), true, true);
+    const result = applyReversionConfirmation(executeDecision(true), pattern("2-2"), true, true);
     expect(result.outputState).toBe("Execute");
-    expect(result.breakdown).toHaveLength(0);
+    expect(result.breakdown).toHaveLength(1);
   });
 
   it("does not touch a compound pattern (1-2-2) even when unconfirmed", () => {
-    const result = applyReversionConfirmation(executeDecision(), pattern("1-2-2"), false, false);
+    const result = applyReversionConfirmation(executeDecision(false), pattern("1-2-2"), false, false);
     expect(result.outputState).toBe("Execute");
   });
 
@@ -45,7 +52,7 @@ describe("applyReversionConfirmation", () => {
   });
 
   it("passes through a null pattern unchanged", () => {
-    const result = applyReversionConfirmation(executeDecision(), null, false, false);
+    const result = applyReversionConfirmation(executeDecision(false), null, false, false);
     expect(result.outputState).toBe("Execute");
   });
 });
