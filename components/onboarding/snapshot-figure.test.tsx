@@ -29,11 +29,11 @@ describe("the not-live label", () => {
     }
   });
 
-  it("names the date and says the real screens will differ", () => {
+  it("says it's a saved example and that the real screens will differ", () => {
     render(<SnapshotDisclosure />);
     expect(screen.getByText(SNAPSHOT_NOTICE)).toBeInTheDocument();
     expect(SNAPSHOT_NOTICE).toMatch(/not live data/i);
-    expect(SNAPSHOT_NOTICE).toMatch(/August 18, 2026/);
+    expect(SNAPSHOT_NOTICE).not.toMatch(/\b(19|20)\d{2}\b/);
     expect(SNAPSHOT_NOTICE).toMatch(/look different/i);
   });
 

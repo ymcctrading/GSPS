@@ -51,14 +51,14 @@ export interface SnapshotBar {
 }
 
 /**
- * When this snapshot was taken: after the US close on the day before it was
- * authored. Stored as an ISO instant plus the human phrasing the UI shows,
- * because "8:00 PM UTC" is not a useful thing to tell a first-time user and
- * `toLocaleString` on the client would render it differently per reader — which
- * is precisely the drift this fixture exists to avoid.
+ * When this snapshot is framed as having been taken: deliberately undated.
+ * An actual calendar date ages the moment a reader notices it doesn't match
+ * today, which teaches the wrong lesson ("this app shows old data") instead of
+ * the right one ("this is a worked example"). Phrasing it as an ordinary
+ * after-hours moment, with no year attached, avoids that without pretending
+ * the numbers are current.
  */
-export const SNAPSHOT_TAKEN_AT = "2026-08-18T20:00:00Z";
-export const SNAPSHOT_TAKEN_LABEL = "Tuesday, August 18, 2026, after the market closed";
+export const SNAPSHOT_TAKEN_LABEL = "one afternoon after the market closed";
 
 export const SNAPSHOT_SYMBOL = "F";
 export const SNAPSHOT_SYMBOL_PLAIN =
@@ -231,7 +231,7 @@ export const SNAPSHOT_POSITION = {
   marketValue: 248.90,
   unrealizedUsd: 0.90,
   unrealizedPct: 0.36,
-  openedAtLabel: "Opened Aug 18, 2026",
+  openedAtLabel: "Opened earlier in this example",
 } as const;
 
 /**
