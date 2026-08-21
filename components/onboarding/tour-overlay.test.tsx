@@ -181,6 +181,50 @@ describe("pointing at things", () => {
   });
 });
 
+describe("staying beside the hole on a small screen", () => {
+  it("never covers the spotlit element, even when neither side has 300px clear", async () => {
+    // The regression this exists for: a tall anchor on a phone-height viewport
+    // — a dashboard section under a sticky header, say — routinely has less
+    // than 300px clear on *both* sides at once. The old threshold made that
+    // the trigger for dead-centring the card, which put it directly over the
+    // element it was describing rather than beside it. Here: 120px above the
+    // anchor, 120px below — neither clears 300, but "below" still has room to
+    // spare over "above" (a tie goes to below), so that is where the card must
+    // land, sized to fit rather than falling back to centre.
+    const originalWidth = window.innerWidth;
+    const originalHeight = window.innerHeight;
+    Object.defineProperty(window, "innerWidth", { value: 390, configurable: true });
+    Object.defineProperty(window, "innerHeight", { value: 700, configurable: true });
+
+    const el = layOutAnchor("dash-setups", 150);
+    Object.defineProperty(el, "getBoundingClientRect", {
+      value: () =>
+        ({ top: 150, left: 20, width: 350, height: 400, bottom: 550, right: 370, x: 20, y: 150, toJSON: () => ({}) }) as DOMRect,
+    });
+
+    const user = userEvent.setup();
+    const dashboardIndex = TOUR_STEPS.findIndex((s) => s.anchor === "dash-setups");
+    render(<TourOverlay open onClose={onClose} />);
+    for (let i = 0; i < dashboardIndex; i++) {
+      await user.click(screen.getByRole("button", { name: /Next/ }));
+    }
+
+    const card = screen.getByRole("heading", { name: TOUR_STEPS[dashboardIndex].title }).closest("div[style]");
+    expect(card).not.toBeNull();
+    const style = (card as HTMLElement).style;
+    // A centred card sets `transform`; a below/above one never does. This is
+    // the exact distinction between the old fallback and the fix.
+    expect(style.transform).toBe("");
+    // 150 (rect.top) + 400 (rect.height) + 6 (hole padding) + 12 (gap) = 568.
+    // Well clear of the hole, which ends at 556 (550 + 6 padding).
+    expect(Number.parseFloat(style.top)).toBe(568);
+
+    el.remove();
+    Object.defineProperty(window, "innerWidth", { value: originalWidth, configurable: true });
+    Object.defineProperty(window, "innerHeight", { value: originalHeight, configurable: true });
+  });
+});
+
 describe("taking the reader to the page", () => {
   it("navigates to the page a step is about", async () => {
     // The bug this whole change exists to fix: a step describing the Settings
