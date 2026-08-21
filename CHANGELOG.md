@@ -7,6 +7,30 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-08-20
+
+### Added
+- **Signing up with an email that already has an account no longer creates
+  confusion or a duplicate.** `/api/auth/account-status` (backed by
+  `public.find_auth_user_by_email`, already applied and locked down to
+  service-role-only on the live project) checks before `auth.signUp` runs. An
+  unconfirmed existing account gets the confirmation email resent; a
+  confirmed one gets a password-reset link instead of a new account — there's
+  no way to email someone their existing password (it's hashed the moment
+  it's set and never recoverable in the clear), so a reset link is the actual
+  secure equivalent of "recover my account."
+
+### Fixed
+- **"Continue with Google" doesn't work.** Root-caused: zero `/authorize`
+  requests in `auth_logs` over the trailing 24h, and no Google OAuth
+  credentials referenced anywhere in this repo's env — the code path
+  (`signInWithOAuth` → Supabase → Google → `/auth/callback`) matches
+  Supabase's documented flow exactly, so this is a Supabase Dashboard +
+  Google Cloud Console configuration gap, not a code bug. Exact manual
+  steps in `docs/GOOGLE_OAUTH_SETUP.md`. In the meantime, the button now
+  surfaces a specific, actionable message when the provider itself isn't
+  enabled instead of Supabase's raw error text.
+
 ## 2026-08-19
 
 ### Fixed
