@@ -226,19 +226,40 @@ gsps/
 
 ## Database Schema Overview
 
+> This section named tables — `users`, `user_portfolios`, `trades`,
+> `user_watchlists`, `snaptrade_links` — that don't exist in this schema and
+> apparently never did; it predates the schema actually built rather than
+> having drifted from it. Corrected below as of migration `0015`. The rest of
+> this document (API endpoint list, scoring formula, directory structure) has
+> not been re-verified against the current code and may be similarly stale —
+> `supabase/AGENTS.md` is the maintained source of truth for the schema.
+
 ### Tables
-- `users` - User accounts and preferences
-- `user_portfolios` - Portfolio snapshots
-- `trades` - Trade history
-- `scan_results` - Market scan results
-- `user_watchlists` - Saved watchlists
-- `snaptrade_links` - Linked SnapTrade accounts
+Core: `profiles`, `watchlists`, `watchlist_items`, `scan_results`,
+`daily_scans`, `broker_connections`, `orders`, `positions`, `settings`,
+`user_automation_profiles`, `platform_transaction_revenue_ledger`,
+`scan_runs`, `trade_logs`.
+
+Learning instrumentation: `scan_events`, `signal_lifecycle_events`,
+`execution_events`, `user_actions`, `learning_models`,
+`learning_coefficients`, `learning_audit_log` — service-role-only, no
+user-facing RLS policy.
+
+Intraday scanning: `intraday_alerts`, `intraday_system_alerts`,
+`coarse_gate_telemetry`, `guided_recommendations`.
+
+Protocol exits, paper trading, and notifications: `protocol_exits`,
+`paper_accounts`, `notification_preferences`, `notification_log`.
 
 ### Key Relationships
-- Users → Portfolios (1:many)
-- Users → Trades (1:many)
-- Users → Scan Results (1:many)
-- Users → SnapTrade Links (1:many)
+- `auth.users` → most tables above (1:many, `user_id`, RLS-scoped to
+  `auth.uid()`).
+- `orders`/`positions` → `scan_results` (which scan produced the trade).
+- `orders` → `protocol_exits` via `exit_plan_id`.
+- `scan_events` → `signal_lifecycle_events` / `intraday_alerts` /
+  `user_actions` via `scan_event_id`.
+- `learning_models` → `learning_coefficients` / `learning_audit_log` via
+  `model_id`.
 
 ## Authentication & Security
 

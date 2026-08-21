@@ -31,7 +31,9 @@ const inputs: ScoreInputs = {
   macroTrends: [trend("bearish"), trend("bearish"), trend("bullish")],
   hourlyTrend: trend("bullish"),
   gann: {
-    fanLines: [{ angle: "1x4 (high)", price: 101, distancePct: 0.4, role: "resistance" }],
+    // direction is "bullish" (a long), so this is a support floor underneath
+    // price — the side that actually confirms a long.
+    fanLines: [{ angle: "1x4 (high)", price: 101, distancePct: 0.4, role: "support" }],
     squareOf9: [],
     timeCycleActive: false,
     timeCycleDates: [],

@@ -7,6 +7,49 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-08-21
+
+### Fixed
+- **The first-run tour's card covered the very element it was describing, on
+  phone-sized screens.** `placeCard` (`components/onboarding/tour-overlay.tsx`)
+  only placed the card above or below the spotlit hole when that side had
+  300px clear — otherwise it fell back to dead-centring the card on the
+  screen. A phone viewport routinely has under 300px clear on *both* sides of
+  a tall anchor (a dashboard section under a sticky header, say), so the
+  fallback fired constantly on mobile, putting the card directly over the
+  thing it was explaining instead of beside it. Fixed by always preferring
+  whichever side — above or below — has more room, and sizing the card's
+  max-height to fit that room (floored at a legible minimum, scrollable past
+  it) rather than requiring a fixed amount before using a side at all. The
+  centred fallback now only fires when a step's anchor isn't on the page at
+  all, which is the case it was actually meant for. Regression test added
+  pinning a scenario where neither side clears 300px but one still clearly
+  has more room than the other.
+
+## 2026-08-20
+
+### Added
+- **Signing up with an email that already has an account no longer creates
+  confusion or a duplicate.** `/api/auth/account-status` (backed by
+  `public.find_auth_user_by_email`, already applied and locked down to
+  service-role-only on the live project) checks before `auth.signUp` runs. An
+  unconfirmed existing account gets the confirmation email resent; a
+  confirmed one gets a password-reset link instead of a new account — there's
+  no way to email someone their existing password (it's hashed the moment
+  it's set and never recoverable in the clear), so a reset link is the actual
+  secure equivalent of "recover my account."
+
+### Fixed
+- **"Continue with Google" doesn't work.** Root-caused: zero `/authorize`
+  requests in `auth_logs` over the trailing 24h, and no Google OAuth
+  credentials referenced anywhere in this repo's env — the code path
+  (`signInWithOAuth` → Supabase → Google → `/auth/callback`) matches
+  Supabase's documented flow exactly, so this is a Supabase Dashboard +
+  Google Cloud Console configuration gap, not a code bug. Exact manual
+  steps in `docs/GOOGLE_OAUTH_SETUP.md`. In the meantime, the button now
+  surfaces a specific, actionable message when the provider itself isn't
+  enabled instead of Supabase's raw error text.
+
 ## 2026-08-19
 
 ### Added
@@ -41,6 +84,92 @@ date.
   only Guided Mode, since a wider risk-per-share also means fewer shares at
   the same risk budget. Unlike the notional cap above, this has not been
   separately measured against the backtest replay — see `docs/BACKTESTING.md`.
+
+### Fixed
+- **New signups stopped receiving the confirmation email.** Root cause: Auth
+  logs showed repeat `user_repeated_signup` events with no follow-up login —
+  the project has never had custom SMTP configured for Supabase Auth, so
+  confirmation mail has been going out through Supabase's built-in mailer,
+  which caps at a handful of sends per hour project-wide. `RESEND_API_KEY`
+  only ever covered this app's own alert emails, not Auth's. The dashboard
+  SMTP fix itself is outside anything this codebase's tooling can apply — see
+  `docs/AUTH_EMAIL_SETUP.md` for the exact steps. In the meantime,
+  `components/auth/auth-form.tsx` now offers an explicit **Resend
+  confirmation email** action (`supabase.auth.resend`) so a swallowed send
+  isn't a dead end.
+
+### Added
+- **Pending entries invalidated before they fill are canceled instead of left
+  stale.** A resting entry order whose planned stop the market has now
+  reached — without the entry ever being reached first — no longer sits in
+  Pending indefinitely. `lib/trade/invalidate-pending.ts` checks it on every
+  `evaluateRestingOrders` pass; an invalidated order is rejected with a reason
+  explaining what happened (lands in the existing Rejected Orders section, no
+  UI changes needed) and the user gets an email
+  (`sendOrderInvalidatedEmail`).
+- **Closed, rejected, and canceled orders/positions are now purged 3 hours
+  after the market close that followed them**, replacing the previous flat
+  24-hour retention. `lib/market/session.ts` gained `mostRecentClose`;
+  `lib/portfolio/prune.ts` now anchors its cutoff to it and also prunes
+  rejected/canceled/expired orders, not just filled-and-closed ones.
+- **Daily trade-journal email.** `/api/trade-journal/daily-email` (new Vercel
+  cron, 18:00 ET weekdays — the second and last of the Hobby plan's 2 cron
+  slots, see `docs/THIRD_PARTY_LIMITS.md`) emails every user with a closed
+  trade an `.xlsx` workbook built from `trade_logs` — Today / This Week /
+  This Month / All Time sheets, each trade with its entry, exit, P/L, and the
+  reasoning (`signal_called`) it was placed under. No new trade-recording
+  system was needed: `trade_logs` already captured this. See
+  `lib/journal/build-workbook.ts`.
+
+- **A first-run introduction for people who have never traded.** GSPS assumed a
+  user who already knew what an entry, a stop and a position were. Guided
+  Decision Mode removed the need to *calculate* any of that but not the need to
+  recognise it, so a genuine beginner still landed on a dashboard of scores with
+  no way in. This adds one, in two shapes that share a single body of copy
+  (`lib/onboarding/tour.ts`) so they cannot drift apart:
+  - **A spotlight tour**, auto-launched once per account. It dims the app, cuts
+    a hole around the thing being described and puts plain-English copy beside
+    it — 16 steps covering Dashboard, Guided, Scanner, the chart page and its
+    trade plan, Portfolio, Automation, Backtest, Glossary and Settings. It runs
+    over the live app rather than a mock, so what a reader learns is where
+    things are on their own screen at their own size.
+  - **`/welcome`**, the same steps as a scannable page with a contents list and
+    per-step anchors, for the refresher case — which is "find the one thing I
+    have forgotten", not "read all sixteen again". Reachable from Settings and
+    from a permanent line on the Dashboard.
+
+  The copy is written for an adult who has never traded, which is a gap in
+  vocabulary rather than in intelligence — simple words, but no talking down,
+  and the subject named in each sentence ("GSPS calculates the size") rather
+  than referred to ("it works it out"). Pronoun-chained prose reads as childish
+  *and* scans worse, since the reader ends up tracking referents instead of the
+  point. `onboarding-tour.test.ts` enforces a ceiling on that, bans paragraphs
+  opening on a bare pronoun, and rejects cheerleading, because prose has no type
+  system and the habit returns silently otherwise.
+
+  Three decisions worth recording:
+  - **The examples are a frozen SPY snapshot, not live data.** Live figures
+    would contradict the copy describing them the moment the market moved, and a
+    beginner cannot tell stale prose from a broken app. So one after-hours
+    capture (`lib/onboarding/spy-snapshot.ts`) illustrates every step, rendered
+    through components that look like the real ones, and every figure carries a
+    "saved example · not live" label that no prop can switch off. The example's
+    position size is checked in tests against the caps in `lib/guided/config.ts`
+    rather than asserted in prose, so changing a cap fails the build instead of
+    quietly making the tour wrong. The example card's sentences are generated by
+    the same `lib/guided/copy.ts` functions the live card uses, so a copy change
+    there fails a test rather than leaving the tour teaching a card that no
+    longer exists. The step introducing the practice balance renders the real
+    Portfolio screen — cash, holdings, account value — since those balances are
+    the evidence for "none of this is real".
+  - **Completion lives in `settings.prefs.onboarding`, not `localStorage`.** New
+    users are precisely the ones who sign in on a laptop and then a phone;
+    browser-local state would re-interrupt them on each device with a tour they
+    had already finished.
+  - **Auto-launch requires a positive answer.** A failed request, an absent
+    session or an unreachable database all resolve to "already seen". A tour
+    that quietly never appears is still reachable from Settings; one that
+    reopens over an order ticket on every network blip is not recoverable.
 
 ## 2026-08-18
 

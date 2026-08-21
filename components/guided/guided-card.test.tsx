@@ -26,6 +26,7 @@ const rec: Recommendation = {
   notionalUsd: 12_297,
   riskUsd: 12,
   rewardUsd: 31,
+  boundBy: "risk",
   riskRewardSentence:
     "You could lose about $12 if this doesn't work, or make about $31 if it reaches the target.",
   exitSentence: "If it works, 14 of the 24 shares are sold at the first target.",
@@ -117,5 +118,15 @@ describe("GuidedCard", () => {
     expect(screen.queryByRole("button", { name: /^Buy/ })).not.toBeInTheDocument();
     // The badge says it too, not only the button.
     expect(screen.getAllByText(/Sell short/).length).toBeGreaterThan(1);
+  });
+
+  it("explains a budget-capped size, and stays quiet when the risk math decided it", () => {
+    const { rerender } = render(
+      <GuidedCard rec={{ ...rec, boundBy: "budget" }} onConfirm={noop} onDismiss={noop} busy={false} />,
+    );
+    expect(screen.getByText(/Capped to your per-trade dollar budget/)).toBeInTheDocument();
+
+    rerender(<GuidedCard rec={rec} onConfirm={noop} onDismiss={noop} busy={false} />);
+    expect(screen.queryByText(/Capped to your per-trade dollar budget/)).not.toBeInTheDocument();
   });
 });

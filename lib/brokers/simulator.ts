@@ -29,6 +29,12 @@
 import { getMarketDataProvider } from "@/lib/data/provider";
 import { isCryptoSymbol, fetchOptionLatestTrade } from "@/lib/data/alpaca";
 import { parseOccSymbol } from "@/lib/portfolio/occ";
+import {
+  isInvalidatedByStop,
+  invalidationReason,
+  type InvalidatableOrder,
+} from "@/lib/trade/invalidate-pending";
+import { sendOrderInvalidatedEmail } from "@/lib/notifications/resend-handler";
 import type { createClient } from "@/lib/supabase/server";
 import type { AssetClass } from "@/lib/types";
 
@@ -410,17 +416,19 @@ export function isMarketable(side: "buy" | "sell", limitPrice: number, market: n
 export async function evaluateRestingOrders(
   supabase: Supabase,
   userId: string,
-): Promise<{ filled: number; error: string | null }> {
+  userEmail?: string | null,
+): Promise<{ filled: number; invalidated: number; error: string | null }> {
   const { data, error } = await supabase
     .from("orders")
-    .select("id, symbol, side, qty, limit_price, asset_class")
+    .select("id, symbol, side, qty, limit_price, stop_price, asset_class")
     .eq("user_id", userId)
     .eq("mode", "paper")
     .eq("status", "new")
     .eq("order_type", "limit");
-  if (error) return { filled: 0, error: error.message };
+  if (error) return { filled: 0, invalidated: 0, error: error.message };
 
   let filled = 0;
+  let invalidated = 0;
   for (const row of data ?? []) {
     const symbol = String(row.symbol);
     if (isOption(symbol)) continue;
@@ -429,31 +437,69 @@ export async function evaluateRestingOrders(
     if (!Number.isFinite(limitPrice)) continue;
 
     const market = await quotePrice(symbol, assetClassOf(symbol));
-    if (market == null || !isMarketable(side, limitPrice, market)) continue;
+    if (market == null) continue;
 
-    // Claim before executing, same reasoning as the exit manager's tranche
-    // claim: a concurrent poll must not fill this same resting order twice.
+    if (isMarketable(side, limitPrice, market)) {
+      // Claim before executing, same reasoning as the exit manager's tranche
+      // claim: a concurrent poll must not fill this same resting order twice.
+      const { data: claimed } = await supabase
+        .from("orders")
+        .update({ status: "filled", filled_qty: row.qty, filled_avg_price: market, updated_at: new Date().toISOString() })
+        .eq("id", row.id)
+        .eq("user_id", userId)
+        .eq("status", "new")
+        .select("id")
+        .maybeSingle();
+      if (!claimed) continue;
+
+      const executed = await executeFill(supabase, userId, {
+        symbol,
+        assetClass: assetClassOf(symbol),
+        side,
+        qty: Number(row.qty),
+        price: market,
+      });
+      if (executed.closed) {
+        await logPlainClose(supabase, userId, symbol, assetClassOf(symbol), side, executed.closed);
+      }
+      filled++;
+      continue;
+    }
+
+    // Never reached the entry, but the market has now hit the planned stop —
+    // the setup is broken. Cancel rather than leave it resting indefinitely;
+    // see lib/trade/invalidate-pending.ts.
+    const stopPrice = Number(row.stop_price);
+    const invalidatable: InvalidatableOrder = {
+      side,
+      limit_price: limitPrice,
+      stop_price: Number.isFinite(stopPrice) ? stopPrice : null,
+    };
+    if (!isInvalidatedByStop(invalidatable, market)) continue;
+
+    const reason = invalidationReason(invalidatable, market);
     const { data: claimed } = await supabase
       .from("orders")
-      .update({ status: "filled", filled_qty: row.qty, filled_avg_price: market, updated_at: new Date().toISOString() })
+      .update({ status: "rejected", reject_reason: reason, updated_at: new Date().toISOString() })
       .eq("id", row.id)
       .eq("user_id", userId)
       .eq("status", "new")
       .select("id")
       .maybeSingle();
     if (!claimed) continue;
+    invalidated++;
 
-    const executed = await executeFill(supabase, userId, {
-      symbol,
-      assetClass: assetClassOf(symbol),
-      side,
-      qty: Number(row.qty),
-      price: market,
-    });
-    if (executed.closed) {
-      await logPlainClose(supabase, userId, symbol, assetClassOf(symbol), side, executed.closed);
+    if (userEmail) {
+      await sendOrderInvalidatedEmail({
+        userEmail,
+        symbol,
+        side,
+        qty: Number(row.qty),
+        limitPrice,
+        stopPrice: invalidatable.stop_price,
+        reason,
+      }).catch((err) => console.error(`invalidation email failed for ${symbol}:`, err));
     }
-    filled++;
   }
-  return { filled, error: null };
+  return { filled, invalidated, error: null };
 }

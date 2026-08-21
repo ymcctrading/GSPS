@@ -11,26 +11,22 @@
  * Five ceilings apply, in this order, and the smallest wins:
  *
  *   1. Risk cap        — riskPct of equity ÷ the entry-to-stop distance.
- *   2. Notional cap     — stocks only: a single trade may not exceed
- *                        maxTradeNotionalPct of equity, however tight the stop.
- *                        A structural entry sitting right on a level it has
- *                        held before often carries a very tight stop, and a
- *                        tight stop divided into even a small risk budget can
- *                        produce a triple-digit share count that is correctly
- *                        risk-sized but does not look or feel like one ordinary
- *                        trade to a novice. This cap keeps every guided stock
- *                        recommendation sized like a trade a person would
- *                        actually place. It does not apply to crypto, which is
- *                        already sized in fractional units against the same
- *                        risk budget. See lib/guided/config.ts.
- *   3. Portfolio cap   — what is left under the deployed-capital ceiling.
- *   4. Buying power    — a simulated cash account cannot buy what it cannot pay
+ *   2. Portfolio cap   — what is left under the deployed-capital ceiling.
+ *   3. Buying power    — a simulated cash account cannot buy what it cannot pay
  *                        for. This one does not apply to a short: the simulator
  *                        moves cash by the full notional either way, so a sell
  *                        *credits* cash rather than spending it (see
  *                        `executeFill` in lib/brokers/simulator.ts). Sizing a
  *                        short against buying power would be arithmetic on a
  *                        number that grows as the position grows.
+ *   4. Per-trade budget — an optional flat dollar ceiling (`lib/guided/config.ts`),
+ *                        on by default, that exists because the other three are
+ *                        all percentages of paper equity: correct arithmetic
+ *                        against a $100k paper account still prices a
+ *                        recommendation in the tens of thousands, which is not a
+ *                        number a novice sizing real trades can act on. Applies
+ *                        to both sides — unlike buying power, a budget bounds
+ *                        exposure taken, not just cash spent.
  *   5. Tradeability    — below MIN_GUIDED_QTY the protocol's staged exit collapses
  *                        into a single all-or-nothing target, which is not the
  *                        trade the card describes. Below it, there is no trade.
@@ -45,9 +41,8 @@
  * and the arithmetic must not be duplicated per side to say so.
  */
 
-import { MIN_GUIDED_QTY, DEFAULT_MAX_TRADE_NOTIONAL_PCT } from "@/lib/guided/config";
+import { MIN_GUIDED_QTY } from "@/lib/guided/config";
 import { planProtocolExit, SCALE_OUT_PCT } from "@/lib/trade/protocol-exit";
-import type { AssetClass } from "@/lib/types";
 
 export interface SizingInputs {
   /**
@@ -68,24 +63,13 @@ export interface SizingInputs {
   riskPct: number;
   /** Ceiling on total guided capital deployed at once, as a percent of equity. */
   maxDeployedPct: number;
-  /**
-   * Ceiling on a single trade's notional, as a percent of equity. Stocks only
-   * — see the module header. Defaults to the shipped default so existing
-   * callers (and tests) that don't pass it keep the same conservative
-   * behaviour rather than an unbounded one.
-   */
-  maxTradeNotionalPct?: number;
   /** Capital already tied up in open guided positions, in dollars. */
   deployedUsd: number;
+  /** Flat per-trade dollar ceiling. `null`/`undefined` means no such ceiling applies. */
+  maxNotionalUsd?: number | null;
   /** Whole units only (equities). Crypto can be fractional at the broker, but the
    *  simulator's ledger and the protocol's tranche split are both whole-unit. */
   wholeUnitsOnly?: boolean;
-  /**
-   * Which asset this is. The notional cap applies only to `"us_equity"` —
-   * crypto is unaffected. Defaults to `"us_equity"` so an existing caller that
-   * doesn't pass it gets the safer behaviour, not the exemption.
-   */
-  assetClass?: AssetClass;
 }
 
 export interface SizedTrade {
@@ -109,7 +93,7 @@ export interface SizedTrade {
   /** Realised reward-to-risk of the staged plan, for the "why" panel. */
   rewardToRisk: number;
   /** Which ceiling decided the size — named so the card can say so. */
-  boundBy: "risk" | "notional" | "portfolio" | "buying_power";
+  boundBy: "risk" | "portfolio" | "buying_power" | "budget";
   /** Null when the trade is placeable; otherwise why it is not. */
   blockedReason: string | null;
 }
@@ -117,9 +101,7 @@ export interface SizedTrade {
 export function sizeGuidedTrade(input: SizingInputs): SizedTrade {
   const {
     side, equity, buyingPower, entry, stopLoss, takeProfit1, masterProfit,
-    riskPct, maxDeployedPct, deployedUsd, wholeUnitsOnly = true,
-    maxTradeNotionalPct = DEFAULT_MAX_TRADE_NOTIONAL_PCT,
-    assetClass = "us_equity",
+    riskPct, maxDeployedPct, deployedUsd, maxNotionalUsd = null, wholeUnitsOnly = true,
   } = input;
 
   // +1 long, −1 short. Every price difference below is multiplied by it, so a
@@ -148,13 +130,6 @@ export function sizeGuidedTrade(input: SizingInputs): SizedTrade {
   const riskBudget = equity * (riskPct / 100);
   const byRisk = riskBudget / riskPerShare;
 
-  // Stocks only — see the module header. Crypto is exempt: `Number.POSITIVE_INFINITY`
-  // makes this ceiling a no-op in the Math.min below.
-  const byNotional =
-    assetClass === "us_equity"
-      ? (equity * (maxTradeNotionalPct / 100)) / entry
-      : Number.POSITIVE_INFINITY;
-
   const deployableUsd = Math.max(equity * (maxDeployedPct / 100) - deployedUsd, 0);
   const byPortfolio = deployableUsd / entry;
 
@@ -162,18 +137,22 @@ export function sizeGuidedTrade(input: SizingInputs): SizedTrade {
   // it — see the header. The portfolio cap above is what bounds a short's size.
   const byCash = side === "buy" ? Math.max(buyingPower, 0) / entry : Number.POSITIVE_INFINITY;
 
-  const raw = Math.min(byRisk, byNotional, byPortfolio, byCash);
+  // Unlike buying power, the budget cap bounds exposure taken, not cash spent —
+  // it applies to both sides. See the header for why this ceiling exists.
+  const byBudget = maxNotionalUsd != null ? Math.max(maxNotionalUsd, 0) / entry : Number.POSITIVE_INFINITY;
+
+  const raw = Math.min(byRisk, byPortfolio, byCash, byBudget);
   const qty = wholeUnitsOnly ? Math.floor(raw) : Math.floor(raw * 1e6) / 1e6;
 
   // Which ceiling actually bit. Compared on the pre-rounding numbers, because
   // after flooring several of them can tie at the same integer.
   const boundBy: SizedTrade["boundBy"] =
-    byPortfolio <= byRisk && byPortfolio <= byNotional && byPortfolio <= byCash
-      ? "portfolio"
-      : byCash <= byRisk && byCash <= byNotional
-        ? "buying_power"
-        : byNotional <= byRisk
-          ? "notional"
+    byBudget <= byRisk && byBudget <= byPortfolio && byBudget <= byCash
+      ? "budget"
+      : byPortfolio <= byRisk && byPortfolio <= byCash
+        ? "portfolio"
+        : byCash <= byRisk
+          ? "buying_power"
           : "risk";
 
   if (qty < MIN_GUIDED_QTY) {
@@ -219,15 +198,15 @@ function blockedCopy(boundBy: SizedTrade["boundBy"], qty: number, alreadyDeploye
         ? "Guided Mode has already deployed as much of your paper equity as its cap allows. Close a guided position to free it up."
         : "A single share of this symbol would be more of your paper equity than Guided Mode is allowed to commit at once.";
     }
-    if (boundBy === "buying_power") {
-      return "There isn't enough cash in the paper account to open a position here.";
+    if (boundBy === "budget") {
+      return "A single share of this symbol costs more than your per-trade budget. Raise it in Settings → Guided Mode limits, or wait for a lower-priced setup.";
     }
-    if (boundBy === "notional") {
-      return "A single share of this symbol would already be more than Guided Mode's per-trade size limit for your paper equity.";
-    }
-    return "Your per-trade risk cap doesn't stretch to a single share of this symbol.";
+    return boundBy === "buying_power"
+      ? "There isn't enough cash in the paper account to open a position here."
+      : "Your per-trade risk cap doesn't stretch to a single share of this symbol.";
   }
-  return `A trade sized to your risk cap would be ${qty} share${qty === 1 ? "" : "s"}, and the protocol's staged exit needs at least ${MIN_GUIDED_QTY} to scale out of. Skipped rather than placed as an all-or-nothing trade.`;
+  const sizedTo = boundBy === "budget" ? "your per-trade budget" : "your risk cap";
+  return `A trade sized to ${sizedTo} would be ${qty} share${qty === 1 ? "" : "s"}, and the protocol's staged exit needs at least ${MIN_GUIDED_QTY} to scale out of. Skipped rather than placed as an all-or-nothing trade.`;
 }
 
 /** The share of the position that leaves at TP1, for copy that needs to say so. */

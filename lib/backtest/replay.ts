@@ -19,7 +19,7 @@
  * output as an upper bound on a strategy's quality, never a promise.
  */
 
-import type { AssetClass, Bar, GannLevels, ScanDecision, StratPattern, TrendReading } from "@/lib/types";
+import type { AssetClass, Bar, GannLevels, ScanDecision, StratPattern, Timeframe, TrendReading } from "@/lib/types";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { detectPatterns, gapRuleViolated, riskFloorViolated } from "@/lib/strat/patterns";
 import { computeStopWithLeeway, computeTradeLevels } from "@/lib/strat/levels";
@@ -30,11 +30,12 @@ import {
   FALLBACK_SR_PCT,
   SR_PROXIMITY_ATR,
   atrPercentOfPrice,
-  nearAnyLevel,
+  nearestLevelMatch,
   proximityBandPct,
 } from "@/lib/scoring/proximity";
 import type { CriterionWeights } from "@/lib/scoring/weights";
 import { readTrend } from "@/lib/analysis/trend";
+import { levelRole, type LevelRole } from "@/lib/analysis/levelRole";
 import { atr } from "@/lib/analysis/pivots";
 import { computeFanLines } from "@/lib/gann/fans";
 import { squareOf9Levels } from "@/lib/gann/squareOf9";
@@ -224,6 +225,8 @@ export interface MacroContext {
   macroTrends: TrendReading[];
   gann: GannLevels;
   nearSupportResistance: boolean;
+  /** The matched level and its role, when one is in range — see lib/scanTicker.ts's srMatch. */
+  srMatch: { price: number; timeframe: Timeframe; role: LevelRole } | null;
   momentumElevated: boolean;
   /**
    * Daily ATR as a percentage of price on the day being traded. The structural
@@ -247,13 +250,25 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
   const cycles = timeCycles(daily);
 
   const allLevels = [
-    ...dailyTrend.support, ...dailyTrend.resistance,
-    ...weeklyTrend.support, ...weeklyTrend.resistance,
-    ...monthlyTrend.support, ...monthlyTrend.resistance,
+    ...dailyTrend.support.map((p) => ({ price: p, timeframe: dailyTrend.timeframe })),
+    ...dailyTrend.resistance.map((p) => ({ price: p, timeframe: dailyTrend.timeframe })),
+    ...weeklyTrend.support.map((p) => ({ price: p, timeframe: weeklyTrend.timeframe })),
+    ...weeklyTrend.resistance.map((p) => ({ price: p, timeframe: weeklyTrend.timeframe })),
+    ...monthlyTrend.support.map((p) => ({ price: p, timeframe: monthlyTrend.timeframe })),
+    ...monthlyTrend.resistance.map((p) => ({ price: p, timeframe: monthlyTrend.timeframe })),
   ];
   const recentAtr = atr(daily.slice(-20), 14);
   const baselineAtr = atr(daily.slice(-100, -20), 14);
   const atrPct = atrPercentOfPrice(recentAtr, price);
+
+  // Mirrors lib/scanTicker.ts: keep the matched level (and its role at
+  // current price) rather than just a boolean, so the score can tell whether
+  // it's on the trade's side or not.
+  const srMatch = nearestLevelMatch(
+    price,
+    allLevels,
+    proximityBandPct(SR_PROXIMITY_ATR, FALLBACK_SR_PCT, atrPct),
+  );
 
   return {
     macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
@@ -267,11 +282,8 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
       timeCycleActive: cycles.active,
       timeCycleDates: cycles.dates,
     },
-    nearSupportResistance: nearAnyLevel(
-      price,
-      allLevels,
-      proximityBandPct(SR_PROXIMITY_ATR, FALLBACK_SR_PCT, atrPct),
-    ),
+    nearSupportResistance: srMatch !== null,
+    srMatch: srMatch && { ...srMatch, role: levelRole(price, srMatch.price) },
     momentumElevated: baselineAtr > 0 && recentAtr / baselineAtr >= 1.2,
     atrPct,
   };
@@ -517,6 +529,7 @@ function scoreSetup(input: {
       hourlyTrend,
       gann: context.gann,
       nearSupportResistance: context.nearSupportResistance,
+      srMatch: context.srMatch,
       pattern,
       momentumElevated: context.momentumElevated,
       levels,

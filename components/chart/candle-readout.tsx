@@ -26,9 +26,10 @@ import { cn } from "@/lib/utils";
  * that pair across both lines, so the comparison a reader makes first is the
  * one the layout makes hardest.
  *
- * The whole panel is optional — see the Candle stats switch in the chart
- * toolbar. It sits over the price pane, and a reader who wants the candles
- * underneath it should be able to have them.
+ * The whole panel is optional and off by default — see the Candle stats
+ * switch in the chart toolbar. It sits over the price pane, so on narrow
+ * screens it renders smaller and more transparent to keep the candles
+ * underneath it legible.
  */
 export function CandleReadoutPanel({
   readout,
@@ -64,8 +65,8 @@ export function CandleReadoutPanel({
   return (
     <div
       className={cn(
-        "pointer-events-none max-w-[15rem] overflow-hidden rounded-lg border border-border/80",
-        "bg-surface/85 text-[11px] shadow-sm backdrop-blur-sm",
+        "pointer-events-none max-w-[11rem] overflow-hidden rounded-lg border border-border/80",
+        "bg-surface/60 text-[11px] shadow-sm backdrop-blur-[2px] sm:max-w-[15rem] sm:bg-surface/85 sm:backdrop-blur-sm",
         className,
       )}
       // The direction rail. A tinted edge reads at a glance from across the

@@ -1,8 +1,10 @@
-# GSPS
+# GSPS — Guided Stock Projection System
 
-GSPS is a Next.js trading platform: a structural analysis market scanner, live
-charting, paper and live order execution (via Alpaca and SnapTrade), and
-portfolio tracking, backed by Supabase.
+GSPS is a guided trade-planning system that helps traders turn market
+movement into clear, risk-defined trade scenarios. It's a Next.js trading
+platform: a structural analysis market scanner, live charting, paper and live
+order execution (via Alpaca and SnapTrade), and portfolio tracking, backed by
+Supabase.
 
 ## Stack
 

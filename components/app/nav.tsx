@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Radar, Briefcase, Bot, FlaskConical, BookOpen, Settings, LogOut, TrendingUp, Compass } from "lucide-react";
+import { LayoutDashboard, Radar, Briefcase, Bot, FlaskConical, BookOpen, Settings, LogOut, TrendingUp, Compass, UserCircle } from "lucide-react";
+import { SymbolSearch } from "@/components/search/symbol-search";
 
 /**
  * Every destination, in order. `tabBar: false` keeps one out of the phone tab
@@ -23,6 +24,21 @@ const LINKS = [
   { href: "/glossary", label: "Glossary", short: "Terms", icon: BookOpen, tabBar: false },
   { href: "/settings", label: "Settings", short: "Setup", icon: Settings, tabBar: true },
 ];
+
+/**
+ * The `data-tour` value for a destination, derived from its href rather than
+ * listed separately so the two can never drift apart. Both the top bar and the
+ * tab bar carry it: exactly one of them is visible at any breakpoint, and the
+ * tour picks whichever one actually has a size — see `resolveAnchor` in
+ * `components/onboarding/tour-overlay.tsx`.
+ *
+ * This attribute exists only for the tour. It is not a styling hook and nothing
+ * else should read it, which is the point: a class or an id used for both would
+ * be renamed during a restyle and take the tour's anchors with it, silently.
+ */
+function tourAnchor(href: string): string {
+  return `nav-${href.replace(/^\//, "")}`;
+}
 
 const TAB_BAR_LINKS = LINKS.filter((l) => l.tabBar);
 
@@ -69,6 +85,7 @@ export function AppNav() {
               <Link
                 key={href}
                 href={href}
+                data-tour={tourAnchor(href)}
                 aria-current={isActive(href) ? "page" : undefined}
                 className={cn(
                   "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-muted transition-colors hover:text-foreground lg:px-3",
@@ -81,14 +98,30 @@ export function AppNav() {
             ))}
           </nav>
 
-          <button
-            onClick={signOut}
-            className="ml-auto flex min-h-11 shrink-0 items-center gap-1.5 text-sm text-muted hover:text-foreground cursor-pointer"
-          >
-            <LogOut className="h-4 w-4" />
-            <span className="hidden lg:inline">Sign out</span>
-            <span className="sr-only lg:hidden">Sign out</span>
-          </button>
+          <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
+            <SymbolSearch />
+
+            <Link
+              href="/settings"
+              aria-label="Account settings"
+              aria-current={isActive("/settings") ? "page" : undefined}
+              className={cn(
+                "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent transition-colors hover:opacity-80",
+                isActive("/settings") && "ring-2 ring-accent",
+              )}
+            >
+              <UserCircle className="h-5 w-5" />
+            </Link>
+
+            <button
+              onClick={signOut}
+              className="flex min-h-11 shrink-0 items-center gap-1.5 text-sm text-muted hover:text-foreground cursor-pointer"
+            >
+              <LogOut className="h-4 w-4" />
+              <span className="hidden lg:inline">Sign out</span>
+              <span className="sr-only lg:hidden">Sign out</span>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -99,6 +132,7 @@ export function AppNav() {
             <Link
               key={href}
               href={href}
+              data-tour={tourAnchor(href)}
               aria-label={label}
               aria-current={isActive(href) ? "page" : undefined}
               className={cn(

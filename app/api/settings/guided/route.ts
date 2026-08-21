@@ -15,10 +15,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import {
+  MAX_GUIDED_BUDGET_USD,
   MAX_RISK_PCT,
-  MAX_TRADE_NOTIONAL_PCT,
+  MIN_GUIDED_BUDGET_USD,
   MIN_RISK_PCT,
-  MIN_TRADE_NOTIONAL_PCT,
   resolveGuidedCaps,
   type GuidedCaps,
 } from "@/lib/guided/config";
@@ -28,7 +28,7 @@ const CapsSchema = z.object({
   maxTradesPerDay: z.number().int().min(1).max(20),
   maxTradesPerWeek: z.number().int().min(1).max(50),
   maxDeployedPct: z.number().min(5).max(100),
-  maxTradeNotionalPct: z.number().min(MIN_TRADE_NOTIONAL_PCT).max(MAX_TRADE_NOTIONAL_PCT),
+  budgetUsd: z.number().min(MIN_GUIDED_BUDGET_USD).max(MAX_GUIDED_BUDGET_USD).nullable(),
 });
 
 export async function GET() {
@@ -48,7 +48,7 @@ export async function GET() {
     caps: resolveGuidedCaps((data as { prefs?: unknown } | null)?.prefs ?? null),
     bounds: {
       riskPct: [MIN_RISK_PCT, MAX_RISK_PCT],
-      maxTradeNotionalPct: [MIN_TRADE_NOTIONAL_PCT, MAX_TRADE_NOTIONAL_PCT],
+      budgetUsd: [MIN_GUIDED_BUDGET_USD, MAX_GUIDED_BUDGET_USD],
     },
   });
 }

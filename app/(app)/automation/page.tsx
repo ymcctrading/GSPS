@@ -75,7 +75,7 @@ async function AutomationHub({
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
       <AutomationControlPanel userId={userId} initial={initial} />
       <div className="flex flex-col gap-4">
-        <Card>
+        <Card data-tour="automation-deployments">
           <CardHeader>
             <CardTitle>Active algorithmic deployments</CardTitle>
             <CardDescription>

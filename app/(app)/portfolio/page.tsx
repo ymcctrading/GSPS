@@ -126,7 +126,7 @@ export default function PortfolioPage() {
       )}
 
       {portfolio && (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div data-tour="portfolio-account" className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <Stat label="Equity" value={formatUsd(portfolio.account.equity)} />
           <Stat
             label="Today"

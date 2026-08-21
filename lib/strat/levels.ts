@@ -39,9 +39,9 @@ export const MAX_STOP_ATR_MULTIPLE = 2.5;
  *     otherwise be clipped back to the 2.5x ceiling can stay closer to the
  *     level that actually invalidates the setup.
  *
- * The effect compounds with the per-trade notional cap added to Guided Mode
- * this session (lib/guided/config.ts): a wider stop means more risk per
- * share, so the same risk-percent budget buys fewer shares — directly
+ * The effect compounds with Guided Mode's per-trade dollar budget
+ * (`DEFAULT_GUIDED_BUDGET_USD`, lib/guided/config.ts): a wider stop means more
+ * risk per share, so the same risk-percent budget buys fewer shares —
  * addressing the "why is this recommending 100+ shares" complaint from the
  * same conversation, on top of fixing premature stop-outs.
  *

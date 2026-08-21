@@ -150,7 +150,7 @@ export default function LearningPage() {
         </p>
       </div>
 
-      <Card>
+      <Card data-tour="backtest-run">
         <CardHeader>
           <CardTitle>Run a test</CardTitle>
           <CardDescription>

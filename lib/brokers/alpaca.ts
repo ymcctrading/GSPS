@@ -95,6 +95,82 @@ export async function getAsset(creds: AlpacaCreds, symbol: string): Promise<Alpa
   };
 }
 
+export interface AlpacaAssetSummary {
+  symbol: string;
+  name: string;
+  exchange?: string;
+}
+
+/**
+ * The full tradable-equity list, module-scoped so a warm serverless instance
+ * reuses it instead of paying Alpaca's full-catalog round trip on every
+ * keystroke. Six hours because new listings and delistings are a daily-at-most
+ * event, never something a novice's search needs to reflect within minutes.
+ */
+let assetsCache: { at: number; assets: AlpacaAssetSummary[] } | null = null;
+const ASSETS_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+
+async function loadTradableAssets(creds: AlpacaCreds): Promise<AlpacaAssetSummary[]> {
+  if (assetsCache && Date.now() - assetsCache.at < ASSETS_CACHE_TTL_MS) {
+    return assetsCache.assets;
+  }
+  const raw = await alpacaFetch(creds, `/v2/assets?status=active&asset_class=us_equity`);
+  const assets: AlpacaAssetSummary[] = (Array.isArray(raw) ? raw : [])
+    .filter((a) => a.tradable && a.symbol && a.name)
+    .map((a) => ({
+      symbol: String(a.symbol).toUpperCase(),
+      name: String(a.name),
+      exchange: a.exchange,
+    }));
+  assetsCache = { at: Date.now(), assets };
+  return assets;
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Search the tradable-equity list by ticker or company name, so a novice who
+ * doesn't know "LLY" is Eli Lilly can type either. Ranked so an exact or
+ * prefix ticker match always outranks a name hit, since a name substring can
+ * appear inside dozens of unrelated companies (e.g. "American").
+ */
+export async function searchAssets(
+  creds: AlpacaCreds,
+  query: string,
+  limit = 8,
+): Promise<AlpacaAssetSummary[]> {
+  const q = query.trim().toUpperCase();
+  if (!q) return [];
+  const assets = await loadTradableAssets(creds);
+
+  const symbolPrefix: AlpacaAssetSummary[] = [];
+  const symbolContains: AlpacaAssetSummary[] = [];
+  const nameWordStart: AlpacaAssetSummary[] = [];
+  const nameContains: AlpacaAssetSummary[] = [];
+  const nameWordBoundary = new RegExp(`\\b${escapeRegExp(q)}`);
+
+  for (const asset of assets) {
+    if (asset.symbol.startsWith(q)) {
+      symbolPrefix.push(asset);
+      continue;
+    }
+    if (asset.symbol.includes(q)) {
+      symbolContains.push(asset);
+      continue;
+    }
+    const nameUpper = asset.name.toUpperCase();
+    if (nameWordBoundary.test(nameUpper)) {
+      nameWordStart.push(asset);
+    } else if (nameUpper.includes(q)) {
+      nameContains.push(asset);
+    }
+  }
+
+  return [...symbolPrefix, ...symbolContains, ...nameWordStart, ...nameContains].slice(0, limit);
+}
+
 export interface PlaceOrderInput {
   symbol: string;
   side: "buy" | "sell";

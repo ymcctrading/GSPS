@@ -143,12 +143,16 @@ export function CandleChart({
   const [timeframe, setTimeframe] = useState<Timeframe>(initialTimeframe);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [errorMsg, setErrorMsg] = useState("");
-  const [showGann, setShowGann] = useState(true);
+  // Structural (Gann/harmonic) levels and entry/stop/target levels both draw
+  // in-pane title labels that stack up and cover the candles on a phone-sized
+  // chart, so they start off and are opt-in rather than opt-out.
+  const [showGann, setShowGann] = useState(false);
+  const [showLevels, setShowLevels] = useState(false);
   const [showExtended, setShowExtended] = useState(true);
-  // The docked per-candle stat panel. On by default, because it is how you read
-  // a bar you cannot hover on a phone — but it is painted over the price pane,
-  // so switching it off is the one control that hands screen back to the chart.
-  const [showReadout, setShowReadout] = useState(true);
+  // The docked per-candle stat panel. It is how you read a bar you cannot
+  // hover on a phone, but it is painted over the price pane, so it defaults
+  // off and stays easy to switch on when it's actually needed.
+  const [showReadout, setShowReadout] = useState(false);
   const [candleData, setCandleData] = useState<Candle[]>([]);
   // Bars actually on screen (post extended-hours filter) — what the readout
   // panel indexes into, so a hidden bar can never be reported.
@@ -468,10 +472,15 @@ export function CandleChart({
     };
   }, [symbol]);
 
-  // Price-line overlays for scan markers. Gann lines are toggleable.
+  // Price-line overlays for scan markers. Structural (Gann/harmonic) levels
+  // and entry/stop/target levels are each independently toggleable, since
+  // both draw in-pane labels that can crowd out the candles.
   const displayMarkers = useMemo(
-    () => (showGann ? markers : markers.filter((m) => m.kind !== "structural")),
-    [showGann, markers],
+    () =>
+      markers.filter((m) =>
+        m.kind === "structural" ? showGann : showLevels,
+      ),
+    [showGann, showLevels, markers],
   );
   useEffect(() => {
     const series = seriesRef.current;
@@ -692,6 +701,7 @@ export function CandleChart({
   const readoutIsLatest = readoutIndex === readoutBars.length - 1;
 
   const hasGann = markers.some((m) => m.kind === "structural");
+  const hasLevels = markers.some((m) => m.kind !== "structural");
   const hasDrawings = hlines.length > 0 || trendlines.length > 0 || pending != null;
 
   function toggleAlert() {
@@ -831,6 +841,17 @@ export function CandleChart({
             />
             Candle stats
           </label>
+          {hasLevels && (
+            <label className="flex items-center gap-1.5 text-xs text-muted cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showLevels}
+                onChange={(e) => setShowLevels(e.target.checked)}
+                className="h-3.5 w-3.5 accent-[var(--accent)]"
+              />
+              Trade levels
+            </label>
+          )}
           {hasGann && (
             <label className="flex items-center gap-1.5 text-xs text-muted cursor-pointer">
               <input

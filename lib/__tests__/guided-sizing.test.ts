@@ -8,13 +8,7 @@ import { describe, expect, it } from "vitest";
 import { sizeGuidedTrade } from "@/lib/guided/sizing";
 import { MIN_GUIDED_QTY } from "@/lib/guided/config";
 
-/**
- * Entry 100, stop 90, first target 1.5R, master 2.5R — $10 of risk a share.
- *
- * `maxTradeNotionalPct` is set well above what any of these fixtures would
- * imply so the risk/portfolio/cash tests below keep isolating the ceiling
- * they're named for. The notional cap itself gets its own describe block.
- */
+/** Entry 100, stop 90, first target 1.5R, master 2.5R — $10 of risk a share. */
 const base = {
   side: "buy" as const,
   equity: 100_000,
@@ -25,7 +19,6 @@ const base = {
   masterProfit: 125,
   riskPct: 1,
   maxDeployedPct: 25,
-  maxTradeNotionalPct: 100,
   deployedUsd: 0,
 };
 
@@ -103,6 +96,35 @@ describe("sizeGuidedTrade", () => {
     const sized = sizeGuidedTrade({ ...base, stopLoss: 40 });
     expect(sized.riskUsd).toBeLessThanOrEqual(base.equity * (base.riskPct / 100));
   });
+
+  it("lets the budget cap bind before the risk math ever gets to size the trade", () => {
+    // 100 shares at 1% risk (see the first test), but a $250 budget at a $100
+    // entry only reaches 2 shares — the novice ceiling, not the paper-equity one.
+    const sized = sizeGuidedTrade({ ...base, maxNotionalUsd: 250 });
+    expect(sized.qty).toBe(2);
+    expect(sized.boundBy).toBe("budget");
+    expect(sized.notionalUsd).toBeCloseTo(200, 6);
+  });
+
+  it("is unaffected by a budget cap wider than what the other ceilings would size anyway", () => {
+    const sized = sizeGuidedTrade({ ...base, maxNotionalUsd: 1_000_000 });
+    expect(sized.qty).toBe(100);
+    expect(sized.boundBy).toBe("risk");
+  });
+
+  it("refuses a symbol whose share price alone exceeds the budget", () => {
+    // $250 budget against a $300 entry can't buy even one share.
+    const sized = sizeGuidedTrade({ ...base, entry: 300, maxNotionalUsd: 250 });
+    expect(sized.qty).toBe(0);
+    expect(sized.boundBy).toBe("budget");
+    expect(sized.blockedReason).toContain("per-trade budget");
+  });
+
+  it("ignores the budget ceiling entirely when it is null", () => {
+    const sized = sizeGuidedTrade({ ...base, maxNotionalUsd: null });
+    expect(sized.qty).toBe(100);
+    expect(sized.boundBy).toBe("risk");
+  });
 });
 
 /**
@@ -161,52 +183,5 @@ describe("sizeGuidedTrade — shorts", () => {
   it("never risks more than the cap on a wide short stop", () => {
     const sized = sizeGuidedTrade({ ...short, stopLoss: 160 });
     expect(sized.riskUsd).toBeLessThanOrEqual(short.equity * (short.riskPct / 100));
-  });
-});
-
-/**
- * The per-trade notional cap — stocks only. A stop sitting very close to entry
- * (the common case for a structural entry right on a level) implies a huge
- * position under pure risk sizing; this ceiling is what keeps that position
- * looking like a trade a novice would actually place.
- */
-describe("sizeGuidedTrade — per-trade notional cap", () => {
-  // $0.50 of risk a share — a stop 0.5% below a $100 entry — makes the risk
-  // cap alone imply 1% of 100k / $0.50 = 2,000 shares, or $200,000 of notional
-  // on a $100,000 account. Nothing about that is one ordinary trade.
-  const tightStop = { ...base, stopLoss: 99.5, takeProfit1: 100.75, masterProfit: 101.25 };
-
-  it("binds a tight-stop stock trade to the notional cap rather than the risk cap", () => {
-    const sized = sizeGuidedTrade({ ...tightStop, maxTradeNotionalPct: 8 });
-    // 8% of $100,000 ÷ $100 entry = 80 shares, not the 2,000 the risk cap implies.
-    expect(sized.qty).toBe(80);
-    expect(sized.boundBy).toBe("notional");
-    expect(sized.notionalUsd).toBeCloseTo(8_000, 6);
-  });
-
-  it("does not apply the notional cap to crypto", () => {
-    const sized = sizeGuidedTrade({
-      ...tightStop,
-      maxTradeNotionalPct: 8,
-      assetClass: "crypto",
-      wholeUnitsOnly: false,
-    });
-    expect(sized.boundBy).not.toBe("notional");
-    expect(sized.notionalUsd).toBeGreaterThan(8_000);
-  });
-
-  it("defaults to the shipped notional cap when a caller omits it", () => {
-    const sized = sizeGuidedTrade({ ...tightStop, maxTradeNotionalPct: undefined });
-    expect(sized.boundBy).toBe("notional");
-    expect(sized.notionalUsd).toBeLessThanOrEqual(base.equity * 0.08 + 1e-6);
-  });
-
-  it("leaves an ordinary, wider-stop trade bound by risk as before", () => {
-    // The original base fixture: $10 of risk a share, 1% risk cap → 100
-    // shares, $10,000 notional — 10% of equity, comfortably inside a
-    // generous 15% notional cap.
-    const sized = sizeGuidedTrade({ ...base, maxTradeNotionalPct: 15 });
-    expect(sized.qty).toBe(100);
-    expect(sized.boundBy).toBe("risk");
   });
 });

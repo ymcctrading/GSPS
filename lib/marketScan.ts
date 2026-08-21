@@ -34,6 +34,7 @@ import { CONTINUATION_PATTERNS } from "@/lib/strat/patterns";
 import { MIN_EQUITY_PRICE_USD, meetsLiquidityFloor, readLiquidity } from "@/lib/scan/liquidity";
 import { scanTicker } from "@/lib/scanTicker";
 import { MAG7, SECTORS } from "@/lib/sectors";
+import { LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
 import type { CoarseTelemetryRow } from "@/lib/scan/telemetry";
 import {
   FALLBACK_FAN_PCT,
@@ -60,23 +61,75 @@ import { envCreds, getAsset } from "@/lib/brokers/alpaca";
  */
 export const MIN_SCAN_PRICE = MIN_EQUITY_PRICE_USD;
 
-// Fallback universe when the most-actives screener is unavailable (some Alpaca
-// plans don't include it): the curated sector lists, equities only.
+/**
+ * What the coarse gate is willing to look at, in priority order.
+ *
+ * The curated sector lists come first — they are the names the product talks
+ * about and the ones a user is most likely to recognise on the dashboard — then
+ * the large-cap universe behind them, then anything the sector lists contain
+ * that the large-cap list does not.
+ *
+ * This used to be the sector lists alone: about 65 symbols, which is a thin
+ * slice of the market to look for a handful of setups in, and thin enough that
+ * a quiet day in those 65 names produced an empty dashboard that read as "the
+ * market has nothing" rather than "we looked at 65 things". Widening the input
+ * does not touch any threshold: the liquidity floor, the coarse momentum gate
+ * and the full scan all run afterwards, unchanged.
+ */
 const FALLBACK_UNIVERSE = Array.from(
   new Set([
     ...MAG7,
     ...Object.values(SECTORS).flatMap((s) => s.symbols),
+    ...LARGE_CAP_UNIVERSE,
   ]),
 ).filter((s) => !s.includes("/"));
 
 async function resolveUniverse(universeTop: number): Promise<string[]> {
   try {
     const actives = await fetchMostActives(universeTop);
-    if (actives.length > 0) return actives;
+    // Union rather than either/or. The screener answers "what is busy today",
+    // which is a genuinely different question from "what is large and liquid",
+    // and a setup can live in either — a name can be structurally interesting
+    // without being one of the day's most active. Actives lead because unusual
+    // volume is itself evidence, and the combined list is capped by the caller's
+    // budget rather than here.
+    if (actives.length > 0) {
+      return capUniverse([...actives, ...FALLBACK_UNIVERSE], universeTop);
+    }
   } catch {
     /* screener unavailable — fall back to the curated universe */
   }
-  return FALLBACK_UNIVERSE;
+  return capUniverse(FALLBACK_UNIVERSE, universeTop);
+}
+
+/**
+ * Hard ceiling on how many symbols reach the coarse pass.
+ *
+ * The coarse pass batch-fetches bars, so its cost grows in whole requests per
+ * ~100 symbols rather than per symbol, and the expensive full pass is bounded
+ * separately by the shortlist. That makes a universe this size affordable —
+ * but "affordable" is a claim about a 60-second function ceiling that nothing
+ * here can prove, and the failure mode is the daily scan timing out and the
+ * dashboard going dark for the day.
+ *
+ * So the ceiling is explicit and deliberately larger than the current universe:
+ * growth is fine, silent unbounded growth is not. Raising it means re-checking
+ * the scan's wall-clock time against the ceiling in
+ * `app/api/market-scan/route.ts` first.
+ */
+export const MAX_COARSE_UNIVERSE = 750;
+
+/**
+ * Apply the caller's budget, then the hard ceiling.
+ *
+ * `universeTop` was being ignored, which is how a change meant to widen the
+ * *available* pool silently widened the *scanned* pool from ≤100 to ~650 inside
+ * a 60-second cron. The caller's number is the real budget; MAX_COARSE_UNIVERSE
+ * is only a backstop for a caller that asks for something absurd.
+ */
+function capUniverse(symbols: string[], universeTop: number): string[] {
+  const limit = Math.min(Math.max(universeTop, 1), MAX_COARSE_UNIVERSE);
+  return Array.from(new Set(symbols)).slice(0, limit);
 }
 
 interface CoarseCandidate {
@@ -386,6 +439,13 @@ export interface MarketScanOutput {
   scanErrors: number;
   /** Per-symbol coarse-gate diagnostics for later threshold calibration. */
   coarseTelemetry: CoarseTelemetryRow[];
+  /**
+   * True when the continuation top-up pass was skipped because the scan was
+   * already past its soft time budget — see `CONTINUATION_DEADLINE_MS`. The
+   * reversion lists are unaffected either way; this only means continuation
+   * fills weren't attempted on a run that was running long.
+   */
+  continuationSkipped: boolean;
 }
 
 async function mapWithConcurrency<T, R>(
@@ -444,6 +504,22 @@ const CONTINUATION_QUOTA_PER_SIDE = 2;
 const SHORTLIST_MULTIPLE = 4;
 
 /**
+ * Soft internal deadline, in ms from the start of the scan, past which the
+ * continuation top-up pass is skipped rather than attempted. Batching (see
+ * `fetchBarsBatch`/`fetchAllTimeframesBatch`) made a normal run comfortably
+ * fit Vercel Hobby's 60s hard ceiling, but a slow day on the upstream feed —
+ * a large multi-symbol page taking longer than usual — can still eat enough
+ * of the budget that the optional continuation pass is what tips a run over
+ * the edge. Left below `maxDuration` in `app/api/market-scan/route.ts` with
+ * headroom for `filterShortable` and the Supabase writes the route does
+ * after this function returns. The reversion lists (the protocol's primary
+ * setup) are already complete by the time this is checked, so skipping the
+ * top-up here means publishing what was found instead of the whole run
+ * getting killed with nothing persisted.
+ */
+const CONTINUATION_DEADLINE_MS = 42_000;
+
+/**
  * `universeTop`/`perSide` at full breadth are safe again now that the coarse,
  * full, and continuation passes batch-fetch bars for the whole shortlist in a
  * handful of requests (`fetchBarsBatch` / `fetchAllTimeframesBatch`) instead
@@ -453,6 +529,7 @@ const SHORTLIST_MULTIPLE = 4;
  * this now comfortably fits inside.
  */
 export async function runMarketScan(universeTop = 100, perSide = 15): Promise<MarketScanOutput> {
+  const startedAt = Date.now();
   // The trading date the scan describes, not the UTC date it happened to run
   // on. The two diverge between 20:00 ET and midnight — a post-close re-run
   // would otherwise be filed under tomorrow, and tomorrow would open showing
@@ -553,8 +630,18 @@ export async function runMarketScan(universeTop = 100, perSide = 15): Promise<Ma
   // Hoisted so the telemetry build below (outside this block) can see which
   // continuation candidates got a real full scan and what score they made.
   let continuationScanResults: ScanResult[] = [];
+  let continuationSkipped = false;
 
-  if (continuationPool.length > 0) {
+  const elapsedBeforeContinuation = Date.now() - startedAt;
+  if (elapsedBeforeContinuation >= CONTINUATION_DEADLINE_MS) {
+    continuationSkipped = true;
+    console.warn(
+      `market-scan: ${scanDate} skipping continuation pass — ${elapsedBeforeContinuation}ms ` +
+        `elapsed, over the ${CONTINUATION_DEADLINE_MS}ms budget`,
+    );
+  }
+
+  if (!continuationSkipped && continuationPool.length > 0) {
     const published = new Set([...lists.bullish, ...lists.bearish].map((r) => r.symbol));
     const shortSides = (["bullish", "bearish"] as const).filter(
       (d) => target[d] > 0 && continuationPool.some((c) => c.direction === d),
@@ -643,5 +730,6 @@ export async function runMarketScan(universeTop = 100, perSide = 15): Promise<Ma
     continuationFills,
     scanErrors,
     coarseTelemetry,
+    continuationSkipped,
   };
 }

@@ -29,7 +29,6 @@ import { sizeIsTradeable, stillMatches } from "@/lib/guided/eligibility";
 import { sizeGuidedTrade } from "@/lib/guided/sizing";
 import { LIVE_BROKERAGE_BLOCK, resolveGuidedCaps } from "@/lib/guided/config";
 import { hasLiveBrokerage, readGuidedAccount, resolveShortable } from "@/lib/guided/service";
-import { assetClassOf } from "@/lib/brokers/simulator";
 
 const ExecuteSchema = z.object({ id: z.uuid() });
 
@@ -144,9 +143,8 @@ export async function POST(req: NextRequest) {
     masterProfit: agreed.masterProfit,
     riskPct: caps.riskPct,
     maxDeployedPct: caps.maxDeployedPct,
-    maxTradeNotionalPct: caps.maxTradeNotionalPct,
     deployedUsd: usage.deployedUsd,
-    assetClass: assetClassOf(rec.symbol),
+    maxNotionalUsd: caps.budgetUsd,
   });
   if (sized.blockedReason || !sizeIsTradeable(sized.qty)) {
     return NextResponse.json(

@@ -43,27 +43,29 @@ export const DEFAULT_MAX_TRADES_PER_WEEK = 10;
 export const DEFAULT_MAX_DEPLOYED_PCT = 25;
 
 /**
- * Ceiling on a *single* stock trade's notional, as a share of paper equity —
- * separate from, and much tighter than, `DEFAULT_MAX_DEPLOYED_PCT` above.
+ * Per-trade dollar ceiling, on top of the risk/portfolio/cash ceilings above.
  *
- * The risk cap alone sizes purely off the entry-to-stop distance. A structural
- * entry sitting right on a level it has held before often carries a very tight
- * stop, and a tight stop divided into even a small risk budget produces a huge
- * share count and a huge dollar position — arithmetically "1% risk" but
- * nothing a novice would recognise as one trade. That is what was landing a
- * paper account in triple-digit share counts on names like MSFT: correctly
- * risk-sized, but not sized to look or feel like a single, ordinary trade.
+ * The other three ceilings are all percentages of paper equity, which defaults
+ * to $100,000 (`STARTING_CASH` in lib/brokers/simulator.ts) — a number nobody
+ * trading with real money in the low hundreds recognises. A 1% risk cap against
+ * that account can still price a recommendation at tens of thousands of dollars
+ * of notional, which is arithmetically correct and useless to a novice sizing
+ * real trades: they cannot act on a number that has nothing to do with what
+ * they actually have to spend.
  *
- * This cap exists to keep every guided stock recommendation looking like a
- * trade a novice would actually place — a few thousand dollars, not tens of
- * thousands — regardless of how tight the stop is. It only applies to equities:
- * crypto guided trades are unaffected (see `sizeGuidedTrade`).
+ * This is a fifth ceiling, not a replacement for the risk-based ones — the
+ * structural entry/stop/target levels and the staged-exit reward figure are
+ * untouched. It only caps the dollar amount any one recommendation may ask the
+ * user to commit, so the headline numbers on a card look like what a trader
+ * with a few hundred real dollars would actually risk. Ships on by default at
+ * the top of the range, because the account most likely to hit this ceiling —
+ * a fresh $100k paper account with no other caps yet dialed in — is exactly the
+ * one this exists for; Settings can turn it off for anyone sizing against their
+ * paper equity on purpose.
  */
-export const DEFAULT_MAX_TRADE_NOTIONAL_PCT = 8;
-
-/** Bounds a user may move the per-trade notional cap between, once Settings exposes it. */
-export const MIN_TRADE_NOTIONAL_PCT = 2;
-export const MAX_TRADE_NOTIONAL_PCT = 20;
+export const MIN_GUIDED_BUDGET_USD = 50;
+export const MAX_GUIDED_BUDGET_USD = 250;
+export const DEFAULT_GUIDED_BUDGET_USD = 250;
 
 /**
  * Minimum shares a guided order may be placed for.
@@ -93,7 +95,40 @@ export const RECOMMENDATION_TTL_MINUTES = 15;
  * multi-timeframe scan; the cap is what keeps the request inside a serverless
  * function's budget, and a guided list longer than this is not a shortlist.
  */
-export const MAX_CANDIDATES_SCANNED = 8;
+/**
+ * Symbols Guided may scan in one request.
+ *
+ * Was 8, drawn only from the published daily list. That budget assumed the list
+ * always exists and is always fresh; when it is neither — a deployment whose
+ * first cron has not run, a weekend, a provider outage during the scan — Guided
+ * had nothing to look at and reported "nothing worth trading right now", which
+ * is a sentence about the market that was actually a sentence about our own
+ * pipeline. A novice cannot tell those apart.
+ *
+ * 16 is a *ceiling*, not a target. Scanning stops the moment enough
+ * recommendations exist (see `GUIDED_SCAN_BATCH`), so the common case still
+ * costs the same handful of scans it always did and the wider reach is only
+ * paid for on the days it is needed.
+ *
+ * The number is set by arithmetic rather than taste. `scanTicker` costs roughly
+ * six provider requests per symbol (one per timeframe, distinct URLs, so the
+ * cache does not help), and Alpaca's data API allows about 200 a minute — see
+ * docs/THIRD_PARTY_LIMITS.md. 16 symbols is ~96 requests, which leaves room for
+ * the rest of the app inside the same minute. An earlier draft of this used 40,
+ * or ~240 requests, which is over the whole per-minute budget for one page load
+ * by a single user.
+ */
+export const MAX_CANDIDATES_SCANNED = 16;
+
+/**
+ * Symbols scanned per round before checking whether we can stop.
+ *
+ * Batched rather than all-at-once so a day with an obvious setup at the top of
+ * the list costs one round trip's worth of scanning, and rather than
+ * one-at-a-time so a day without one does not serialise forty sequential
+ * network calls into the user's page load.
+ */
+export const GUIDED_SCAN_BATCH = 8;
 
 /** Most cards rendered at once, after eligibility. */
 export const MAX_RECOMMENDATIONS = 3;
@@ -115,8 +150,8 @@ export interface GuidedCaps {
   maxTradesPerDay: number;
   maxTradesPerWeek: number;
   maxDeployedPct: number;
-  /** Per-trade notional ceiling for stocks only — see `DEFAULT_MAX_TRADE_NOTIONAL_PCT`. */
-  maxTradeNotionalPct: number;
+  /** Per-trade dollar ceiling. `null` means off — sized on the percentage ceilings alone. */
+  budgetUsd: number | null;
 }
 
 export const DEFAULT_GUIDED_CAPS: GuidedCaps = {
@@ -124,7 +159,7 @@ export const DEFAULT_GUIDED_CAPS: GuidedCaps = {
   maxTradesPerDay: DEFAULT_MAX_TRADES_PER_DAY,
   maxTradesPerWeek: DEFAULT_MAX_TRADES_PER_WEEK,
   maxDeployedPct: DEFAULT_MAX_DEPLOYED_PCT,
-  maxTradeNotionalPct: DEFAULT_MAX_TRADE_NOTIONAL_PCT,
+  budgetUsd: DEFAULT_GUIDED_BUDGET_USD,
 };
 
 /**
@@ -144,11 +179,22 @@ export function resolveGuidedCaps(prefs: unknown): GuidedCaps {
     maxTradesPerDay: num("maxTradesPerDay", DEFAULT_MAX_TRADES_PER_DAY, 1, 20),
     maxTradesPerWeek: num("maxTradesPerWeek", DEFAULT_MAX_TRADES_PER_WEEK, 1, 50),
     maxDeployedPct: num("maxDeployedPct", DEFAULT_MAX_DEPLOYED_PCT, 5, 100),
-    maxTradeNotionalPct: num(
-      "maxTradeNotionalPct",
-      DEFAULT_MAX_TRADE_NOTIONAL_PCT,
-      MIN_TRADE_NOTIONAL_PCT,
-      MAX_TRADE_NOTIONAL_PCT,
-    ),
+    budgetUsd: budget(stored),
   };
+}
+
+/**
+ * `budgetUsd` is the one cap with a meaningful "off" state, so it cannot share
+ * `num`'s helper: a stored `null` is a deliberate choice to size on the
+ * percentage ceilings alone, and has to survive round-tripping through this
+ * function rather than being coerced to the default like any other invalid
+ * value. Anything else non-numeric, unset, or outside the permitted range falls
+ * back to the conservative default — on, at the top of the novice range.
+ */
+function budget(stored: Record<string, unknown>): number | null {
+  if (stored.budgetUsd === null) return null;
+  const v = Number(stored.budgetUsd);
+  return Number.isFinite(v) && v >= MIN_GUIDED_BUDGET_USD && v <= MAX_GUIDED_BUDGET_USD
+    ? v
+    : DEFAULT_GUIDED_BUDGET_USD;
 }

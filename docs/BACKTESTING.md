@@ -174,6 +174,47 @@ where the replay can see them, or measure them with the Python scanner's own
 `backtest.py` and a real `scan_log.jsonl`. Both are defensible. Doing neither
 and reading replay numbers as feedback on `config.py` is not.
 
+## Fixed: proximity criteria ignored level role
+
+`fanProximity` and `harmonicProximity` asked "is there a structural level near price", full stop
+— they read `gann.fanLines[0]`/`gann.squareOf9[0]`, the single nearest level by distance, without
+checking `role`. A level only confirms confluence when it sits on the side that helps the trade: a
+**support** floor underneath a long, a **resistance** ceiling above a short. The nearest level is
+frequently the wrong one — a long entering right under overhead resistance is not confluence, it
+is a headwind the trade has to punch through — and the criteria were awarding the point either way.
+
+Four committed real replay runs (`docs/replay-runs/*.json`, live Alpaca data, two different
+windows and execution timeframes) showed exactly the damage this does:
+
+| Run | harmonicProximity Δ E[R] (pass − fail) | Verdict |
+|---|---:|---|
+| 15Min, 2R | −0.181R | insufficient (failed arm n=5) |
+| 15Min, 3R | −0.474R | insufficient (failed arm n=5) |
+| 1Hour, 2R | −0.443R | informative |
+| 1Hour, 3R | −0.927R | informative |
+
+Passing correlated with a **worse** outcome than failing in all four samples — the only criterion
+of nine with that property in every run — and the effect grows at the larger 3R target, consistent
+with a wrong-side level capping the move before a bigger target could be reached. `fanProximity`
+showed the same role-blindness in a noisier form: its sign flipped between the 15Min and 1Hour
+samples, which is what a role-blind criterion mixing real confluence with a headwind looks like
+when the mix ratio shifts between universes.
+
+**The fix**: both criteria now search each level array (already sorted nearest-first, already
+carrying `role`) for the nearest entry whose role matches the trade direction — `support` for a
+long, `resistance` for a short — inside the same ATR band as before. See `wantedRole` in
+`lib/scoring/score.ts` and the `computeScore proximity criteria respect level role` tests in
+`lib/__tests__/score.test.ts`.
+
+This is a role filter, not a re-weight, and it is a different fix from the `masterStructural`
+question below: that one's sign disagreed between timeframes (the disqualifying case
+`propose-weights.ts` calls `disagreed`), so it was left alone. `harmonicProximity`'s sign agreed
+across all four available real samples — the strongest evidence this repo has produced for any of
+the nine criteria — and the mechanism (role-blindness) is a plausible, checkable defect rather than
+a market read. **Re-run the replay after this lands** to confirm Execute's expectancy actually
+moved, the same way the ATR re-basing above asked for a before/after — this change hasn't been
+confirmed against live data from this environment, which has no Alpaca credentials.
+
 ## Criteria that carry no information inside `Execute`
 
 The factor table reports a criterion as **never varied** when every trade in the
@@ -287,6 +328,41 @@ for a minute, and falls back to one point each on any failure.
 spent on `/api/market-scan` (`docs/THIRD_PARTY_LIMITS.md`), and a replay is far too slow for a
 scheduled function anyway. Point an external scheduler at it — weekly is the right cadence, since
 a proposal that moves faster than the held-out half can refresh is fitting noise.
+
+## Open question: is `masterStructural` inverted?
+
+A manual walkthrough on 2026-08-21 (`GET /learning`, live Alpaca data, default 2R target, the
+Execute bucket, 88 trades) found this criterion reading the wrong way:
+
+| Criterion | Passed | E[R] pass | E[R] fail | Δ E[R] |
+|---|---:|---:|---:|---:|
+| Master target confirmed by structure | 73/88 | −0.225R | +0.782R | −1.007R |
+
+Every other criterion in that table had the expected sign — passing correlated with a better
+outcome. This one did not, and the swing is the largest of the nine.
+
+**This has not been acted on**, for the same reason the section above gives for the 15Min/1Hour
+inversion: 88 trades is a single bucket on a two-month window, and this project's standing rule is
+not to re-weight anything until an effect clears an out-of-sample check
+(`lib/backtest/propose-weights.ts`, summarised under "From attribution to weights" below) — a
+90/71 in-sample split on one run is exactly the shape of result that check exists to catch before
+it reaches the score. `masterStructural` is already one of the nine `CRITERION_KEYS`, so running
+**Proposed weights** from `/learning` (or `POST /api/learning/propose-weights`) over a longer,
+multi-symbol window already puts this criterion through that check with no code change required.
+
+What that run should decide:
+
+- **Both halves agree the sign is negative and clear `MIN_EFFECT_R`** → the criterion is genuinely
+  costing expectancy. `proposeWeights` will already move its weight toward `MIN_WEIGHT` (0.5); if
+  it holds up on a second, independent window too, that is the point to consider dropping the
+  criterion or inverting `cleanRR` in `lib/scoring/score.ts` outright, not merely down-weighting it.
+- **The halves disagree, or the effect doesn't clear the floor** → this 88-trade reading was noise
+  wearing a result's clothes, matching the pattern the timeframe/regime section above already
+  documents. Leave scoring as-is.
+
+Nobody has run that check yet — this repo has no local Alpaca credentials (see "Where the Alpaca
+keys live" above), so producing it requires the `--from` flow against a signed-in deployment.
+Until it exists, `cleanRR`'s polarity in `lib/scoring/score.ts` stays as it is.
 
 ## Sample-size floor
 

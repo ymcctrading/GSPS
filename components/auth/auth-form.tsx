@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { Eye, EyeOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,9 +21,12 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const [identifier, setIdentifier] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
+  const [resending, setResending] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -33,6 +37,45 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       const supabase = createClient();
 
       if (mode === "signup") {
+        // Check for an existing account before creating a new one. Without
+        // this, resubmitting the signup form for an email that already has a
+        // profile either silently no-ops (Supabase obscures repeat signups to
+        // avoid leaking which emails are registered) or, worse, lets someone
+        // create a second, unrelated account tied to an email they don't
+        // control — neither confirms the existing account or gets the person
+        // back into it, which is what they actually came here for.
+        const statusRes = await fetch("/api/auth/account-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+        const status = statusRes.ok
+          ? ((await statusRes.json()) as { exists: boolean; confirmed?: boolean })
+          : { exists: false };
+
+        if (status.exists && !status.confirmed) {
+          const { error } = await supabase.auth.resend({ type: "signup", email });
+          if (error) setError(error.message);
+          else setMessage("That email already has an account pending confirmation — we've resent the confirmation link. Check your inbox.");
+          setLoading(false);
+          return;
+        }
+
+        if (status.exists && status.confirmed) {
+          // There is no way to email someone their existing password — it's
+          // hashed the moment it's set, and the app never has the plaintext
+          // again. A reset link is the actual, secure equivalent: it gets
+          // them back into the account without anyone (including us) ever
+          // handling their password in the clear.
+          const { error } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/reset-password")}`,
+          });
+          if (error) setError(error.message);
+          else setMessage("That email already has an account — we've sent a link to reset the password, since we can't email you the existing one.");
+          setLoading(false);
+          return;
+        }
+
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -53,18 +96,33 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             router.push(next);
             router.refresh();
           } else {
+            // The confirmation email may not land even for this brand-new
+            // account — the built-in mailer is rate-limited and silently
+            // drops sends past its cap — so offer an explicit resend instead
+            // of leaving the user stuck re-submitting the form.
             setMessage("Check your email to confirm your account, then log in.");
+            setAwaitingConfirmation(true);
           }
         }
       } else {
-        // Login accepts either an email address or a username.
+        // Login accepts either an email address or a username. The lookup
+        // goes through our own route rather than calling the
+        // resolve_username_email RPC directly — see
+        // app/api/auth/resolve-username/route.ts for why.
         let loginEmail = identifier;
         if (!identifier.includes("@")) {
-          const { data: resolvedEmail, error: lookupError } = await supabase.rpc(
-            "resolve_username_email",
-            { p_username: identifier },
-          );
-          if (lookupError || !resolvedEmail) {
+          let resolvedEmail: string | null = null;
+          try {
+            const res = await fetch("/api/auth/resolve-username", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ username: identifier }),
+            });
+            ({ email: resolvedEmail } = await res.json());
+          } catch {
+            // Falls through to the generic error below, same as a lookup miss.
+          }
+          if (!resolvedEmail) {
             setError("Invalid login credentials");
             setLoading(false);
             return;
@@ -85,6 +143,21 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     }
   }
 
+  async function handleResendConfirmation() {
+    setError(null);
+    setResending(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.resend({ type: "signup", email });
+      if (error) setError(error.message);
+      else setMessage("Confirmation email sent again. Check your inbox (and spam folder).");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't resend the confirmation email.");
+    } finally {
+      setResending(false);
+    }
+  }
+
   async function handleGoogle() {
     setError(null);
     setLoading(true);
@@ -98,7 +171,14 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         options: { redirectTo: callbackUrl.toString() },
       });
       if (error) {
-        setError(error.message);
+        // Supabase's own message for "the Google provider isn't turned on in
+        // this project" — a Dashboard setting, not something a retry fixes.
+        // See docs/GOOGLE_OAUTH_SETUP.md for what's actually missing.
+        setError(
+          /provider is not enabled|unsupported provider/i.test(error.message)
+            ? "Google sign-in isn't set up on this account yet. Use email/password below instead."
+            : error.message,
+        );
         setLoading(false);
       }
       // On success the browser redirects to Google; no need to reset loading.
@@ -153,15 +233,28 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
                 />
               </>
             )}
-            <Input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={8}
-              autoComplete={mode === "login" ? "current-password" : "new-password"}
-            />
+            <div className="relative">
+              <Input
+                type={showPassword ? "text" : "password"}
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={8}
+                autoComplete={mode === "login" ? "current-password" : "new-password"}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-pressed={showPassword}
+                tabIndex={-1}
+                className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted hover:text-foreground"
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
             {mode === "login" && (
               <Link href="/forgot-password" className="self-end text-sm text-accent hover:underline">
                 Forgot password?
@@ -173,6 +266,11 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
               {loading ? "Working…" : mode === "login" ? "Log in" : "Sign up"}
             </Button>
           </form>
+          {mode === "signup" && awaitingConfirmation && (
+            <Button variant="outline" onClick={handleResendConfirmation} disabled={resending || !email}>
+              {resending ? "Sending…" : "Resend confirmation email"}
+            </Button>
+          )}
           <Button variant="outline" onClick={handleGoogle}>
             Continue with Google
           </Button>

@@ -11,7 +11,7 @@ confirm you're still under its limit.
 
 | Service | Current plan | Limit | What happens if exceeded | Notes |
 |---|---|---|---|---|
-| **Vercel** | Hobby (free) | 2 cron jobs per project, each ≤ once/day. Deployments/builds also capped (see Vercel dashboard for current usage). | Deploy fails, or the cron silently isn't created. | `vercel.json` currently defines **1** cron (`/api/market-scan`, 17:30 ET weekdays) — **1 of 2 slots is free.** The 08:30 ET run of the same route moved to GitHub Actions (`.github/workflows/premarket-scan.yml`) to free that slot; see below. `/api/intraday-scan` needs to run every few minutes during the session, so it is deliberately **not** a cron: it is served on demand and driven by the Scanner page while a user has it open. Git-triggered deploys are **on**: a branch push builds a preview and a merge to `main` releases to production — see `AGENTS.md`. |
+| **Vercel** | Hobby (free) | 2 cron jobs per project, each ≤ once/day. Deployments/builds also capped (see Vercel dashboard for current usage). | Deploy fails, or the cron silently isn't created. | `vercel.json` now defines **2** crons — `/api/market-scan` (17:30 ET weekdays) and `/api/trade-journal/daily-email` (18:00 ET weekdays, 2 hours after close) — **both of 2 slots are now spent.** The 08:30 ET run of the market scan moved to GitHub Actions (`.github/workflows/premarket-scan.yml`) to free the slot the journal digest now uses; see below. `/api/intraday-scan` needs to run every ~15 minutes during the session, well past the 1-run/day cap, so it's scheduled the same way: `.github/workflows/intraday-scan.yml` calls it with `CRON_SECRET`, outside `vercel.json` entirely — it still also serves on-demand requests from a signed-in user's Scanner tab, same as before. **Any future scheduled job must use the GitHub Actions pattern below instead of `vercel.json` — there is no cron slot left.** Git-triggered deploys are **on**: a branch push builds a preview and a merge to `main` releases to production — see `AGENTS.md`. |
 | **Supabase** | Free project tier | Row/storage/bandwidth caps per Supabase's Hobby project limits; project pauses after a period of inactivity. | Paused project = the whole app loses its database until manually resumed. | Check the Supabase dashboard for current usage before assuming headroom. |
 | **Binance** (crypto data) | Public API | Effectively unlimited for basic market data (public endpoint, no key). | N/A | No auth required; still subject to Binance's general IP rate limiting under heavy load. |
 | **Oanda** (forex data) | Practice/demo account | ~1200 requests/min | 429s from Oanda; endpoint returns an error to the caller. | `OANDA_API_KEY` required. Practice account, not live. |
@@ -19,6 +19,7 @@ confirm you're still under its limit.
 | **Polygon.io** (stocks/crypto/options) | Free tier | 5 requests/min, 1000/month | 429s; monthly cap can be hit well before month-end. | `POLYGON_API_KEY` required. Used as a fallback for futures data. |
 | **Alpaca** (market data + trading) | Paper by default; live optional | ~200 requests/min (data API); order rate limits are separate and stricter | Requests throttled/rejected. | Live trading keys (`ALPACA_LIVE_API_KEY`/`SECRET`) hit real markets — see `SECURITY.md` for handling. |
 | **SnapTrade** (external brokerage linking) | Whatever tier is configured via `SNAPTRADE_CLIENT_ID`/`SNAPTRADE_CONSUMER_KEY` | Sandbox vs. production have different call/account limits | Feature-flagged off entirely without credentials (`lib/brokers/snaptrade.ts`); with credentials, limits depend on SnapTrade's plan for this app. | Check the SnapTrade partner dashboard for the current plan before assuming production-grade limits. |
+| **Finnhub** (analyst rating, ticker Company tab) | Free | 60 requests/min, no card required | Calls beyond the limit 429; `lib/data/finnhub.ts` treats any failure (missing key, 429, network error, timeout, wrong plan) as "no data" and falls back to the tab's simulated value for that request — never a broken page. | `FINNHUB_API_KEY` required; unset = fully simulated. Confirmed live 2026-08-19: `/stock/recommendation` (analyst rating) works free-tier; `/stock/price-target` 403s free-tier despite Finnhub's docs listing it as free — it needs a paid plan, so price target stays simulated on this key regardless. Short interest and institutional/13F ownership are **not** on Finnhub's free tier either and stay simulated. |
 
 ## Caching as the first line of defense
 
@@ -69,12 +70,13 @@ Without secret (1) set, the workflow runs on schedule but every invocation
 gets a 401 from the route — check the Actions tab for the workflow's run
 history if the pre-market scan looks like it stopped firing.
 
-That leaves **1 of 2 Vercel cron slots free** for the next daily job — a
-broker-token refresh, an order-reconciliation sweep, etc. Adding a second
-entry to `vercel.json`'s `crons` array now succeeds (there's room), but for
-anything that needs to run *more often* than daily, use the same external-
-scheduler pattern instead of spending the last slot — option 2 above, and
-the `premarket-scan.yml` file as a template:
+That left **1 of 2 Vercel cron slots free** for the next daily job, which is
+now spent: `/api/trade-journal/daily-email` (18:00 ET weekdays) emails each
+user their trade-journal spreadsheet 2 hours after the close — see
+`lib/journal/build-workbook.ts`. **Both Vercel cron slots are now in use.**
+Any further scheduled job — daily or otherwise — needs the external-scheduler
+pattern instead, option 2 above, and the `premarket-scan.yml` file as a
+template:
 
 ```yaml
 name: External cron — <name>

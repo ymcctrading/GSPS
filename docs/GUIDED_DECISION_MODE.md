@@ -104,25 +104,29 @@ ceilings apply and the smallest wins:
 
 1. **Per-trade risk cap** — 1% of paper equity by default, divided by the
    entry-to-stop distance, measured in the trade's own direction.
-2. **Per-trade notional cap** — stocks only, 8% of paper equity by default.
-   A structural entry sitting right on a level it has held before often
-   carries a very tight stop, and a tight stop divided into even a small risk
-   budget can size a triple-digit share count that is correctly risk-managed
-   but does not read as one ordinary trade — this is what was putting
-   100+-share, tens-of-thousands-of-dollars recommendations in front of
-   novices on names like MSFT. This cap keeps every guided stock
-   recommendation sized like a trade a person would actually place, whatever
-   the stop distance implies. It does not apply to crypto.
-3. **Deployed-capital cap** — no more than 25% of paper equity across open
+2. **Deployed-capital cap** — no more than 25% of paper equity across open
    guided positions at once. Cards rendered together are sized against each
    other, so three cards that each fit the cap cannot breach it collectively.
-4. **Buying power** — the simulated account is cash-only; no margin is modelled.
+3. **Buying power** — the simulated account is cash-only; no margin is modelled.
    Longs only: a short credits cash rather than spending it, so this ceiling
    does not apply to one (see "Shorts").
+4. **Per-trade dollar budget** — a flat cap on notional, $250 by default and
+   editable down to $50 in Settings, or off entirely. It exists because 1–3 are
+   all percentages of paper equity, which defaults to $100,000
+   (`STARTING_CASH`) — a number that has nothing to do with what someone
+   trading real money in the low hundreds actually has to spend. A card sized
+   correctly against a $100k paper account can still ask for tens of thousands
+   of dollars of notional, which is accurate and useless to a novice. This
+   ceiling applies to both sides, unlike buying power (see "Shorts"), and
+   shows up on the card as "Capped to your per-trade dollar budget" when it is
+   the one that bound the size (`Recommendation.boundBy === "budget"`).
 5. **Minimum size** — at least 2 shares. The protocol exits in tranches, and a
    single share collapses that into an all-or-nothing target, which is not the
    trade the card describes. Below the minimum, the recommendation is skipped,
-   not shrunk.
+   not shrunk. A higher-priced symbol that a small budget cannot buy 2 shares
+   of is skipped the same way — the budget cap does not need a separate
+   price-band filter on the candidate list to keep novice recommendations
+   affordable; sizing already does it.
 
 The reward figure is computed from the staged exit `planProtocolExit` will
 actually place (60% at TP1, the remainder at the master target), never from
@@ -136,7 +140,11 @@ All caps live in `lib/guided/config.ts` and are editable in **Settings → Guide
 Mode limits**, which writes to `settings.prefs.guided` through
 `/api/settings/guided`. Anything unset, unparseable or outside the permitted
 range falls back to the conservative default — a value written directly to the
-row cannot widen a cap past what the mode is willing to honour.
+row cannot widen a cap past what the mode is willing to honour. `budgetUsd` is
+the one cap with a meaningful "off" state: a stored `null` disables it (sizing
+on the percentage ceilings alone), while anything else invalid falls back to
+the default of $250 — on, not off, because the account most likely to need it
+is a fresh one that has not touched Settings yet.
 
 ## Execution
 
