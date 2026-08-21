@@ -14,10 +14,13 @@ import {
   type GuidedCaps,
 } from "@/lib/guided/config";
 
-// budgetUsd is a string like every other field, but "" is a meaningful third
-// state — the cap turned off — rather than an invalid number, so it is kept
-// out of the generic FIELDS loop below and rendered with its own checkbox.
-type Draft = Record<keyof GuidedCaps, string>;
+// budgetUsd stays a plain numeric string, same as every other field — the
+// on/off state lives in `budgetEnabled` instead of being inferred from an
+// empty string, because the input has to survive being cleared mid-edit
+// (select-all-and-retype) without the field itself disappearing under the
+// user's cursor. It is kept out of the generic FIELDS loop below and
+// rendered with its own checkbox.
+type Draft = Record<keyof GuidedCaps, string> & { budgetEnabled: boolean };
 
 const FIELDS: {
   key: keyof GuidedCaps;
@@ -102,7 +105,7 @@ export function GuidedCapsForm() {
           maxTradesPerDay: Number(draft.maxTradesPerDay),
           maxTradesPerWeek: Number(draft.maxTradesPerWeek),
           maxDeployedPct: Number(draft.maxDeployedPct),
-          budgetUsd: draft.budgetUsd.trim() === "" ? null : Number(draft.budgetUsd),
+          budgetUsd: draft.budgetEnabled ? Number(draft.budgetUsd) : null,
         }),
       });
       const body = await res.json();
@@ -154,13 +157,8 @@ export function GuidedCapsForm() {
               <label className="flex items-center gap-2 font-medium">
                 <input
                   type="checkbox"
-                  checked={draft.budgetUsd !== ""}
-                  onChange={(e) =>
-                    setDraft({
-                      ...draft,
-                      budgetUsd: e.target.checked ? String(DEFAULT_GUIDED_BUDGET_USD) : "",
-                    })
-                  }
+                  checked={draft.budgetEnabled}
+                  onChange={(e) => setDraft({ ...draft, budgetEnabled: e.target.checked })}
                 />
                 Cap each trade to a dollar budget
               </label>
@@ -170,7 +168,7 @@ export function GuidedCapsForm() {
                 size it to. On by default, because the percentage caps alone are sized against
                 paper equity that can be far larger than what you actually have to spend.
               </span>
-              {draft.budgetUsd !== "" && (
+              {draft.budgetEnabled && (
                 <Input
                   type="number"
                   inputMode="decimal"
@@ -213,6 +211,9 @@ function toDraft(caps: GuidedCaps): Draft {
     maxTradesPerDay: String(caps.maxTradesPerDay),
     maxTradesPerWeek: String(caps.maxTradesPerWeek),
     maxDeployedPct: String(caps.maxDeployedPct),
-    budgetUsd: caps.budgetUsd == null ? "" : String(caps.budgetUsd),
+    // A remembered numeric value even while off, so re-checking the box does
+    // not reset a figure the user already chose.
+    budgetUsd: String(caps.budgetUsd ?? DEFAULT_GUIDED_BUDGET_USD),
+    budgetEnabled: caps.budgetUsd != null,
   };
 }
