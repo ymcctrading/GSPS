@@ -2,7 +2,7 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-08-19.
+**Last updated:** 2026-08-21.
 
 This document decides *what we build next and in what order*. Proposals and
 implementation work should trace back to a phase below. See
@@ -113,7 +113,14 @@ both signal discovery and execution.
   logged so its expectancy can later be measured against the Backtest tool.
   See `docs/GUIDED_DECISION_MODE.md`. Shipped alongside a platform-wide
   liquidity floor on every scan (price ≥ $5, average volume ≥ 500k shares, or
-  the dollar-turnover equivalent for crypto).
+  the dollar-turnover equivalent for crypto). *(Per-trade dollar budget added
+  2026-08-21: the risk/portfolio ceilings are percentages of the $100k paper
+  account, which sized recommendations correctly but in dollar amounts no one
+  trading real money in the low hundreds could act on. A flat notional cap —
+  $250 default, editable down to $50 or off — now applies alongside them, on
+  by default. Direct response to a novice-friction report against the shipped
+  UI; no separate low-capital tool was built, since the fix is a fifth sizing
+  ceiling on the existing engine, not a different one.)*
 - **Mobile-responsive dashboard** — not a native app yet, but positions and
   alerts must be usable on phones and tablets.
 - **Technical indicators (phase 1)** — SMA, EMA, RSI, MACD as chart overlays.
