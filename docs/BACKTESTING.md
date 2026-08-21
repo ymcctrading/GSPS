@@ -155,6 +155,47 @@ This is the same move `lib/strat/levels.ts` already made for stops. **Re-run att
 and after**: this is directly measurable, and it is the kind of change whose sign is not obvious
 in advance.
 
+## Fixed: proximity criteria ignored level role
+
+`fanProximity` and `harmonicProximity` asked "is there a structural level near price", full stop
+— they read `gann.fanLines[0]`/`gann.squareOf9[0]`, the single nearest level by distance, without
+checking `role`. A level only confirms confluence when it sits on the side that helps the trade: a
+**support** floor underneath a long, a **resistance** ceiling above a short. The nearest level is
+frequently the wrong one — a long entering right under overhead resistance is not confluence, it
+is a headwind the trade has to punch through — and the criteria were awarding the point either way.
+
+Four committed real replay runs (`docs/replay-runs/*.json`, live Alpaca data, two different
+windows and execution timeframes) showed exactly the damage this does:
+
+| Run | harmonicProximity Δ E[R] (pass − fail) | Verdict |
+|---|---:|---|
+| 15Min, 2R | −0.181R | insufficient (failed arm n=5) |
+| 15Min, 3R | −0.474R | insufficient (failed arm n=5) |
+| 1Hour, 2R | −0.443R | informative |
+| 1Hour, 3R | −0.927R | informative |
+
+Passing correlated with a **worse** outcome than failing in all four samples — the only criterion
+of nine with that property in every run — and the effect grows at the larger 3R target, consistent
+with a wrong-side level capping the move before a bigger target could be reached. `fanProximity`
+showed the same role-blindness in a noisier form: its sign flipped between the 15Min and 1Hour
+samples, which is what a role-blind criterion mixing real confluence with a headwind looks like
+when the mix ratio shifts between universes.
+
+**The fix**: both criteria now search each level array (already sorted nearest-first, already
+carrying `role`) for the nearest entry whose role matches the trade direction — `support` for a
+long, `resistance` for a short — inside the same ATR band as before. See `wantedRole` in
+`lib/scoring/score.ts` and the `computeScore proximity criteria respect level role` tests in
+`lib/__tests__/score.test.ts`.
+
+This is a role filter, not a re-weight, and it is a different fix from the `masterStructural`
+question above: that one's sign disagreed between timeframes (the disqualifying case
+`propose-weights.ts` calls `disagreed`), so it was left alone. `harmonicProximity`'s sign agreed
+across all four available real samples — the strongest evidence this repo has produced for any of
+the nine criteria — and the mechanism (role-blindness) is a plausible, checkable defect rather than
+a market read. **Re-run the replay after this lands** to confirm Execute's expectancy actually
+moved, the same way the ATR re-basing above asked for a before/after — this change hasn't been
+confirmed against live data from this environment, which has no Alpaca credentials.
+
 Tuning `config.py` against replay output is not a slower path to an answer; it
 is a path to no answer. Either port the Tier 1/Tier 2 ideas into `score.ts`
 where the replay can see them, or measure them with the Python scanner's own

@@ -32,9 +32,11 @@ const trend = (direction: TrendReading["direction"]): TrendReading => ({
   resistance: [110],
 });
 
+// direction is "bullish" below, so a passing level needs the "support" role —
+// the criterion only counts a level on the side that actually helps the trade.
 const gann: GannLevels = {
-  fanLines: [{ angle: "1x4 (high)", price: 101, distancePct: 0.4, role: "resistance" }],
-  squareOf9: [{ degree: 45, price: 100.5, distancePct: 0.2, role: "resistance" }],
+  fanLines: [{ angle: "1x4 (high)", price: 101, distancePct: 0.4, role: "support" }],
+  squareOf9: [{ degree: 45, price: 100.5, distancePct: 0.2, role: "support" }],
   timeCycleActive: true,
   timeCycleDates: ["2026-08-06"],
 };

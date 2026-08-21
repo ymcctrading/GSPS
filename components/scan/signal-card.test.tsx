@@ -31,7 +31,9 @@ const inputs: ScoreInputs = {
   macroTrends: [trend("bearish"), trend("bearish"), trend("bullish")],
   hourlyTrend: trend("bullish"),
   gann: {
-    fanLines: [{ angle: "1x4 (high)", price: 101, distancePct: 0.4, role: "resistance" }],
+    // direction is "bullish" below, so a passing level needs the "support"
+    // role — the criterion only counts a level on the side that helps the trade.
+    fanLines: [{ angle: "1x4 (high)", price: 101, distancePct: 0.4, role: "support" }],
     squareOf9: [],
     timeCycleActive: false,
     timeCycleDates: [],

@@ -94,8 +94,28 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     FALLBACK_HARMONIC_PCT,
     atrPct,
   );
-  const nearFan = gann.fanLines.length > 0 && gann.fanLines[0].distancePct <= fanBandPct;
-  const nearS9 = gann.squareOf9.length > 0 && gann.squareOf9[0].distancePct <= harmonicBandPct;
+
+  // A level only confirms confluence when it sits on the side that helps this
+  // trade: a support floor for a long, a resistance ceiling for a short. The
+  // nearest level overall is frequently the wrong one — a long entering right
+  // under overhead resistance is not confluence, it is a headwind — and both
+  // arrays were taking gann.fanLines[0]/squareOf9[0] regardless of role.
+  //
+  // Four real, committed replay runs (docs/replay-runs/*.json, live Alpaca
+  // data, two different windows and execution timeframes) all show this
+  // costing expectancy: harmonicProximity passing correlated with a *worse*
+  // outcome than failing it in all four (Δ E[R] -0.18 to -0.93R, worsening at
+  // the larger 3R target — consistent with "the level capped the move before
+  // a bigger target could be reached"), and fanProximity's sign was unstable
+  // between the two timeframes in the same way a role-blind mixed signal
+  // would produce. Restricting the match to the role that actually helps the
+  // trade is the fix, not a re-weighting — see "Fixed: proximity criteria
+  // ignored level role" in docs/BACKTESTING.md.
+  const wantedRole: LevelRole = direction === "bullish" ? "support" : "resistance";
+  const fanMatch = gann.fanLines.find((f) => f.role === wantedRole && f.distancePct <= fanBandPct) ?? null;
+  const s9Match = gann.squareOf9.find((s) => s.role === wantedRole && s.distancePct <= harmonicBandPct) ?? null;
+  const nearFan = fanMatch !== null;
+  const nearS9 = s9Match !== null;
 
   const patternValid = pattern !== null && pattern.direction === direction;
 
@@ -149,18 +169,18 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       criterion: "Support/resistance line proximity",
       pillar: "structure",
       passed: nearFan,
-      note: nearFan
-        ? `Price within ${gann.fanLines[0].distancePct.toFixed(2)}% of the ${gann.fanLines[0].angle} ${levelRoleLabel(gann.fanLines[0].role).toLowerCase()} line at ${gann.fanLines[0].price.toFixed(2)} — inside the ${fanBandPct.toFixed(2)}% band (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}). ${LEVEL_TIMEFRAME_USAGE["1Day"]}.`
-        : `No support/resistance line within ${fanBandPct.toFixed(2)}% (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}).`,
+      note: fanMatch
+        ? `Price within ${fanMatch.distancePct.toFixed(2)}% of the ${fanMatch.angle} ${levelRoleLabel(fanMatch.role).toLowerCase()} line at ${fanMatch.price.toFixed(2)} — inside the ${fanBandPct.toFixed(2)}% band (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}). ${LEVEL_TIMEFRAME_USAGE["1Day"]}.`
+        : `No ${levelRoleLabel(wantedRole).toLowerCase()} line within ${fanBandPct.toFixed(2)}% (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}).`,
     },
     {
       key: "harmonicProximity",
       criterion: "Harmonic level proximity",
       pillar: "structure",
       passed: nearS9,
-      note: nearS9
-        ? `Price within ${gann.squareOf9[0].distancePct.toFixed(2)}% of the ${gann.squareOf9[0].degree}° harmonic ${levelRoleLabel(gann.squareOf9[0].role).toLowerCase()} level at ${gann.squareOf9[0].price.toFixed(2)} — inside the ${harmonicBandPct.toFixed(2)}% band (${bandBasis(HARMONIC_PROXIMITY_ATR, atrPct)}). ${LEVEL_TIMEFRAME_USAGE["1Day"]}.`
-        : `No harmonic level within ${harmonicBandPct.toFixed(2)}% (${bandBasis(HARMONIC_PROXIMITY_ATR, atrPct)}).`,
+      note: s9Match
+        ? `Price within ${s9Match.distancePct.toFixed(2)}% of the ${s9Match.degree}° harmonic ${levelRoleLabel(s9Match.role).toLowerCase()} level at ${s9Match.price.toFixed(2)} — inside the ${harmonicBandPct.toFixed(2)}% band (${bandBasis(HARMONIC_PROXIMITY_ATR, atrPct)}). ${LEVEL_TIMEFRAME_USAGE["1Day"]}.`
+        : `No ${levelRoleLabel(wantedRole).toLowerCase()} harmonic level within ${harmonicBandPct.toFixed(2)}% (${bandBasis(HARMONIC_PROXIMITY_ATR, atrPct)}).`,
     },
     {
       key: "historicalSR",

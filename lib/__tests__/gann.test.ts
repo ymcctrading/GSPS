@@ -55,7 +55,7 @@ describe("computeScore", () => {
       hourlyTrend: trend("1Hour", "bullish"),
       gann: {
         fanLines: [{ angle: "1x1 (low)", price: 100, distancePct: 0.5, role: "support" }],
-        squareOf9: [{ degree: 90, price: 100.2, distancePct: 0.3, role: "resistance" }],
+        squareOf9: [{ degree: 90, price: 100.2, distancePct: 0.3, role: "support" }],
         timeCycleActive: true,
         timeCycleDates: [],
       },
