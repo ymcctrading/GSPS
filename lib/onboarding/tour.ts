@@ -46,7 +46,7 @@
 import {
   SNAPSHOT_SYMBOL_PLAIN,
   SNAPSHOT_TAKEN_LABEL,
-} from "./spy-snapshot";
+} from "./tour-snapshot";
 
 /**
  * Which piece of the frozen SPY snapshot a step illustrates. `"none"` is a real
@@ -128,7 +128,7 @@ export const TOUR_STEPS: TourStep[] = [
     title: "About the examples in this tour",
     figure: "chart",
     body: [
-      `Every picture ahead shows SPY, captured on ${SNAPSHOT_TAKEN_LABEL}.`,
+      `Every picture ahead shows F, the ticker for Ford Motor Company, captured on ${SNAPSHOT_TAKEN_LABEL}.`,
       SNAPSHOT_SYMBOL_PLAIN,
       "These figures are frozen \u2014 a saved snapshot rather than a live feed \u2014 so the pictures always match the words beside them. Your own screens will show today's prices and different numbers. Nothing is broken.",
       "Read the chart left to right, one bar per day. The thin line spans the day's high and low; the thick block marks where the price opened and closed.",
@@ -168,9 +168,9 @@ export const TOUR_STEPS: TourStep[] = [
     anchor: "guided-card",
     body: [
       "Choosing how many shares to buy is where beginners lose money, so GSPS makes that call for you.",
-      "The example lands on 36 shares after two safety limits are checked. The first caps any single trade at 1% of the account, which would permit 135 shares. The second caps total holdings at a quarter of the account, which permits only 36.",
-      "When two limits disagree, the stricter number wins. Hence 36.",
-      "GSPS then translates the position into money: roughly $266 at risk, roughly $472 if both profit targets are reached. Dollars, not percentages.",
+      "Three safety limits are checked every time. The risk limit caps one trade at 1% of the account, which would permit 2,222 shares here. The exposure limit caps total holdings at a quarter of the account, which permits 1,008. The budget limit caps any single trade at $250, which permits only 10.",
+      "When limits disagree, the strictest number wins. Hence 10 shares, not thousands of dollars — an amount that fits an account trading real money in the low hundreds.",
+      "GSPS then translates the position into money: roughly $5 at risk, roughly $9 if both profit targets are reached. Dollars, not percentages.",
     ],
   },
   {
@@ -284,7 +284,7 @@ export const TOUR_STEPS: TourStep[] = [
     route: "/settings",
     anchor: "settings-caps",
     body: [
-      "Settings holds the safety limits \u2014 the rules that produced 36 shares instead of 135.",
+      "Settings holds the safety limits \u2014 the same three that produced 10 shares instead of 2,222.",
       "The shipped values are deliberately cautious. Loosening them is allowed; pushing past the hard ceiling is not, because that ceiling is the entire point.",
       "Settings also handles connecting a real brokerage account, managing your subscription, and changing your sign-in details. None of that is required to trade the practice account.",
       "This tour lives here too, ready to run again whenever you want.",

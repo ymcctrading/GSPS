@@ -17,6 +17,7 @@ import { manageSimulatedExits } from "@/lib/trade/exit-manager-sim";
 import { OrderSchema, placeSimulatedOrder } from "@/lib/trade/place-order";
 import { pruneClosedOrders } from "@/lib/portfolio/prune";
 import { parseOccSymbol } from "@/lib/portfolio/occ";
+import { resetDemoAccountIfStale } from "@/lib/demo/reset";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -56,6 +57,19 @@ export async function GET() {
   } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+  }
+
+  // The showcase demo profile resets to a clean $100,000 slate once a
+  // trading day rolls over — see lib/demo/reset.ts. A no-op for everyone
+  // else, and for the demo account on every call after the first one on a
+  // given day. If this fires, there's nothing left below worth reconciling.
+  const demo = await resetDemoAccountIfStale(supabase, user.id);
+  if (demo.reset) {
+    return NextResponse.json({
+      orders: [],
+      sync: { syncedAt: new Date().toISOString(), syncError: null, reconciled: 0, invalidated: 0, orphaned: 0, source: "simulated-paper" },
+      exits: { managed: 0, attached: 0, adjusted: 0, closed: 0, notes: [], error: null },
+    });
   }
 
   // Fill whatever resting limit orders the market has now reached, before
