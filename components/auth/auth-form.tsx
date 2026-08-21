@@ -13,6 +13,9 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") ?? "/dashboard";
+  // Carried from a referral link (/r/<username> redirects here with ?ref=)
+  // straight into signUp's metadata, for handle_new_user to attribute.
+  const ref = searchParams.get("ref");
 
   const [email, setEmail] = useState("");
   const [identifier, setIdentifier] = useState("");
@@ -73,7 +76,11 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           return;
         }
 
-        const { data, error } = await supabase.auth.signUp({ email, password });
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: ref ? { data: { ref } } : undefined,
+        });
         if (error) {
           setError(error.message);
         } else if (username && data.user) {
@@ -156,9 +163,12 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     setLoading(true);
     try {
       const supabase = createClient();
+      const callbackUrl = new URL("/auth/callback", window.location.origin);
+      callbackUrl.searchParams.set("next", next);
+      if (ref) callbackUrl.searchParams.set("ref", ref);
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}` },
+        options: { redirectTo: callbackUrl.toString() },
       });
       if (error) {
         // Supabase's own message for "the Google provider isn't turned on in

@@ -50,6 +50,17 @@ export default function LearningPage() {
   const [symbols, setSymbols] = useState(DEFAULT_SYMBOLS);
   const [within, setWithin] = useState<Bucket>("Execute");
   const [targetR, setTargetR] = useState("2");
+  // Walks the leeway/large-cap-widened stop instead of the raw pattern one —
+  // see ReplayOptions.useProductionStop. Off by default so a first run shows
+  // the harness's original, already-understood behaviour; toggling it and
+  // re-running is how the "Large-cap vs. not" card below becomes a real
+  // before/after rather than one static split.
+  // Checked by default: the app's real trading behavior already includes the
+  // large-cap widening (lib/strat/large-cap.ts), so a first run should show
+  // what actually happens, not a legacy mode nobody trades with any more.
+  // Unchecking it is how the "Bigger stocks vs. smaller stocks" card below
+  // becomes a true before/after comparison.
+  const [productionStop, setProductionStop] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<BacktestReport | null>(null);
@@ -105,6 +116,7 @@ export default function LearningPage() {
         symbols: list.join(","),
         within: bucket,
         targetR,
+        ...(productionStop ? { productionStop: "1" } : {}),
       });
       const res = await fetch(`/api/backtest?${params}`);
       const body = await res.json();
@@ -126,31 +138,38 @@ export default function LearningPage() {
       <div>
         <h1 className="text-xl font-semibold">Backtest</h1>
         <p className="text-sm text-muted">
-          Replays the protocol&apos;s own entry logic bar by bar over historical data, then splits
-          the result by the verdict the scanner would have shown. Use it to check whether a change
-          to the score moved expectancy — not to confirm that it should have.
+          This replays GSPS&apos;s trading rules against real, historical price data — as if the
+          app had been trading for real the whole time — and shows what would have happened. It&apos;s
+          how we check whether a change to the rules actually helps, instead of just guessing.
+        </p>
+        <p className="mt-2 text-sm text-muted">
+          One term shows up everywhere below: <span className="font-medium text-foreground">R</span>{" "}
+          means &quot;multiples of what was risked on the trade.&quot; +1R = made back exactly what
+          you risked. -1R = lost the full amount you risked. +2R = doubled it. It&apos;s a way to
+          compare trades of very different dollar sizes on the same scale.
         </p>
       </div>
 
       <Card data-tour="backtest-run">
         <CardHeader>
-          <CardTitle>Run a replay</CardTitle>
+          <CardTitle>Run a test</CardTitle>
           <CardDescription>
-            15-minute execution bars, scored against daily history from before each trading day.
+            Uses 15-minute price charts, and only ever looks at history that would have been
+            available on the day of each trade — never a sneak peek at the future.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <label className="min-w-0 flex-1 text-sm">
-              <span className="mb-1 block text-muted">Symbols</span>
+              <span className="mb-1 block text-muted">Stocks to test</span>
               <Input
                 value={symbols}
                 onChange={(e) => setSymbols(e.target.value)}
                 placeholder="SPY, AAPL"
               />
             </label>
-            <label className="text-sm sm:w-28">
-              <span className="mb-1 block text-muted">Target (R)</span>
+            <label className="text-sm sm:w-36">
+              <span className="mb-1 block text-muted">Profit goal</span>
               <Input
                 value={targetR}
                 onChange={(e) => setTargetR(e.target.value)}
@@ -158,9 +177,25 @@ export default function LearningPage() {
               />
             </label>
             <Button onClick={() => run()} disabled={loading}>
-              {loading ? "Replaying…" : "Run"}
+              {loading ? "Testing…" : "Run"}
             </Button>
           </div>
+          <p className="text-xs text-muted">
+            Profit goal is in R — 2 means &quot;aim to make twice what&apos;s being risked on each
+            trade.&quot;
+          </p>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={productionStop}
+              onChange={(e) => setProductionStop(e.target.checked)}
+              className="h-4 w-4"
+            />
+            <span>
+              Give big, well-known stocks (like Apple or Microsoft) extra room before their
+              stop-loss triggers — this matches how the app actually trades today
+            </span>
+          </label>
           {error && <p className="text-sm text-bear">{error}</p>}
         </CardContent>
       </Card>
@@ -182,34 +217,29 @@ export default function LearningPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Expectancy by verdict</CardTitle>
+              <CardTitle>Results by how confident the app was</CardTitle>
               <CardDescription>
-                {report.overall.trades} trades from {report.armed} armed setups (
-                {report.triggered} triggered) across {report.symbols.length}{" "}
-                {report.symbols.length === 1 ? "symbol" : "symbols"} · {report.source}
+                {report.overall.trades} trades taken out of {report.armed} setups the app noticed (
+                {report.triggered} actually triggered), across {report.symbols.length}{" "}
+                {report.symbols.length === 1 ? "stock" : "stocks"} · price data from {report.source}
                 {report.skipped.length > 0 && ` · ${report.skipped.length} skipped`}
                 <br />
-                {/*
-                  The window and the break-even bar, stated with the numbers
-                  rather than under them: a 29% win rate is a loss at a 2R
-                  target and a win at 3R, and neither reading is available from
-                  the win rate alone.
-                */}
                 {report.window.from && report.window.to
                   ? `${report.window.from.slice(0, 10)} → ${report.window.to.slice(0, 10)}`
-                  : "window unknown"}{" "}
-                · break-even at {report.targetR}R is a {pct(report.breakEvenWinRate)} win rate
+                  : "date range unknown"}{" "}
+                · at a {report.targetR}R profit goal, you need to win at least{" "}
+                {pct(report.breakEvenWinRate)} of the time just to break even
               </CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
                 <THead>
                   <TR>
-                    <TH>Bucket</TH>
+                    <TH>How confident</TH>
                     <TH className="text-right">Trades</TH>
                     <TH className="text-right">Win rate</TH>
-                    <TH className="text-right">Expectancy</TH>
-                    <TH className="text-right">Total</TH>
+                    <TH className="text-right">Avg. result / trade</TH>
+                    <TH className="text-right">Total result</TH>
                     <TH />
                   </TR>
                 </THead>
@@ -258,34 +288,107 @@ export default function LearningPage() {
             </CardContent>
           </Card>
 
+          {report.largeCapSplit && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Big, well-known stocks vs. everything else</CardTitle>
+                <CardDescription>
+                  Splits every trade into two groups — well-known, heavily-traded companies (like
+                  Apple or Microsoft) versus smaller or less-traded ones — so you can see whether
+                  they behave differently.
+                  <br />
+                  <br />
+                  Right now this test is using:{" "}
+                  <span className="font-medium text-foreground">
+                    {report.useProductionStop
+                      ? "extra room for big stocks before the stop-loss triggers (how the app trades today)"
+                      : "the same stop-loss rules for every stock, big or small (the old behavior)"}
+                  </span>
+                  . To see whether giving big stocks that extra room actually helps: note the
+                  &quot;Big stocks&quot; row below, then check or uncheck the box above, run again,
+                  and compare that same row between the two runs. That comparison — not either row
+                  on its own — is the answer.
+                  {report.largeCapSplit.largeCap.trades > 0 &&
+                    report.largeCapSplit.notLargeCap.trades === 0 && (
+                      <>
+                        <br />
+                        <br />
+                        <span className="text-warn">
+                          Every stock in this run landed in &quot;Big stocks&quot; and none in
+                          &quot;Everything else&quot; — add a few smaller, less-traded names to
+                          &quot;Stocks to test&quot; above to get a real comparison.
+                        </span>
+                      </>
+                    )}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <THead>
+                    <TR>
+                      <TH />
+                      <TH className="text-right">Trades</TH>
+                      <TH className="text-right">Win rate</TH>
+                      <TH className="text-right">Avg. result / trade</TH>
+                      <TH className="text-right">Total result</TH>
+                    </TR>
+                  </THead>
+                  <TBody>
+                    {(
+                      [
+                        ["Big stocks", report.largeCapSplit.largeCap],
+                        ["Everything else", report.largeCapSplit.notLargeCap],
+                      ] as const
+                    ).map(([label, s]) => (
+                      <TR key={label}>
+                        <TD className="font-medium">{label}</TD>
+                        <TD className="text-right tabular-nums">{s.trades}</TD>
+                        <TD className="text-right tabular-nums">
+                          {s.trades === 0 ? "—" : pct(s.winRate)}
+                        </TD>
+                        <TD className={cn("text-right tabular-nums", toneFor(s.expectancyR))}>
+                          {s.trades === 0 ? "—" : r(s.expectancyR)}
+                        </TD>
+                        <TD className={cn("text-right tabular-nums", toneFor(s.totalR))}>
+                          {s.trades === 0 ? "—" : r(s.totalR)}
+                        </TD>
+                      </TR>
+                    ))}
+                  </TBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader>
-              <CardTitle>Factors inside {report.attributeWithin}</CardTitle>
+              <CardTitle>Which signals actually helped, inside {report.attributeWithin}</CardTitle>
               <CardDescription>
-                Expectancy when each criterion passed versus when it failed, over the{" "}
+                For each thing the app checks for, this compares trades where that check passed
+                against trades where it didn&apos;t — over the{" "}
                 {report.buckets.find((b) => b.bucket === report.attributeWithin)?.trades ?? 0} trades
-                in this bucket. Δ is the lever: positive means up-weighting the criterion should
-                help. Marginal, not causal — a factor can read well because it travels with one
-                that works.
+                in this group. &quot;Difference&quot; is the size of the edge: a bigger positive
+                number means that check is pulling its weight. This shows what travels together
+                with good results, not proof that the check itself causes them.
               </CardDescription>
             </CardHeader>
             <CardContent>
               {report.factors.length === 0 ? (
                 <p className="py-8 text-center text-sm text-muted">
-                  No scored trades in this bucket. The score only runs when a symbol has at least
-                  120 daily bars before the trading day.
+                  Not enough scored trades in this group yet. Scoring needs at least 120 days of
+                  price history behind a stock before it counts.
                 </p>
               ) : (
                 <Table>
                   <THead>
                     <TR>
-                      <TH className="sticky left-0 z-10 bg-surface">Criterion</TH>
+                      <TH className="sticky left-0 z-10 bg-surface">Signal</TH>
                       <TH className="text-right">Passed</TH>
-                      <TH className="text-right">E[R] pass</TH>
-                      <TH className="text-right">E[R] fail</TH>
-                      <TH className="text-right">Δ E[R]</TH>
-                      <TH className="text-right">Δ win</TH>
-                      <TH className="text-right">Corr</TH>
+                      <TH className="text-right">Result when passed</TH>
+                      <TH className="text-right">Result when failed</TH>
+                      <TH className="text-right">Difference</TH>
+                      <TH className="text-right">Win-rate difference</TH>
+                      <TH className="text-right">How linked</TH>
                     </TR>
                   </THead>
                   <TBody>
@@ -344,34 +447,35 @@ export default function LearningPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Proposed weights</CardTitle>
+              <CardTitle>Suggest better scoring weights</CardTitle>
               <CardDescription>
-                All nine criteria are worth one point, which was a placeholder, not a
-                measurement. This splits the same run in time, keeps only the criteria whose
-                expectancy gap holds up on the later half, and proposes a weight set that still
-                sums to nine points so the Execute and Watch cutoffs keep their meaning. The
-                result is saved as a draft: it changes no score until it is promoted.
+                Today every one of the nine checks counts equally — a starting guess, not
+                something that was ever measured. This tool re-checks that guess: it splits this
+                same test into an earlier and a later half, keeps only the checks that kept
+                helping in the later half too (so a fluke doesn&apos;t get rewarded), and suggests
+                new point values that still add up to nine. Nothing changes automatically — this
+                only saves a draft for someone to review and turn on later.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <Button onClick={propose} disabled={proposing}>
-                {proposing ? "Measuring…" : `Propose from ${report.attributeWithin}`}
+                {proposing ? "Measuring…" : `Suggest weights from ${report.attributeWithin}`}
               </Button>
               {proposalError && <p className="text-sm text-bear">{proposalError}</p>}
 
               {proposal && (
                 <>
                   <p className="text-sm text-muted">
-                    {proposal.proposal.inSampleTrades} in-sample ·{" "}
-                    {proposal.proposal.outOfSampleTrades} out-of-sample
+                    {proposal.proposal.inSampleTrades} trades used to build the suggestion ·{" "}
+                    {proposal.proposal.outOfSampleTrades} held back to double-check it
                     {proposal.proposal.splitAt &&
                       ` · split at ${proposal.proposal.splitAt.slice(0, 10)}`}
                   </p>
 
                   {proposal.stored && (
                     <p className="text-sm">
-                      <Badge variant="muted">Draft v{proposal.stored.version}</Badge> saved. Promote
-                      it to <code>live</code> to score with it.
+                      <Badge variant="muted">Draft v{proposal.stored.version}</Badge> saved. Someone
+                      still has to turn it on before it affects any score.
                     </p>
                   )}
                   {proposal.notStored && <p className="text-sm text-warn">{proposal.notStored}</p>}
@@ -380,11 +484,11 @@ export default function LearningPage() {
                     <Table>
                       <THead>
                         <TR>
-                          <TH>Criterion</TH>
-                          <TH className="text-right">Now</TH>
-                          <TH className="text-right">Proposed</TH>
-                          <TH className="text-right">In-sample</TH>
-                          <TH className="text-right">Out-of-sample</TH>
+                          <TH>Signal</TH>
+                          <TH className="text-right">Current weight</TH>
+                          <TH className="text-right">Suggested weight</TH>
+                          <TH className="text-right">Held up on first half</TH>
+                          <TH className="text-right">Held up on second half</TH>
                           <TH>Verdict</TH>
                         </TR>
                       </THead>
@@ -422,22 +526,23 @@ export default function LearningPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Stop width</CardTitle>
+              <CardTitle>Does a tighter or looser stop-loss do better?</CardTitle>
               <CardDescription>
-                Expectancy by stop distance in ATR, inside {report.attributeWithin}. This is the one
-                continuous lever the protocol already gates on — the risk floor in{" "}
-                <code>patterns.ts</code> and <code>MAX_STOP_ATR_MULTIPLE</code> are both thresholds
-                on this number, and both are knowable before the trade.
+                Groups trades in {report.attributeWithin} by how far the stop-loss sat from
+                entry, measured against how much that stock normally moves in a day (a tight
+                stop is a small multiple, a loose stop is a large one). This is the one dial the
+                app already limits automatically, and it&apos;s knowable before the trade is even
+                placed — which is what makes it worth checking here.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
                 <THead>
                   <TR>
-                    <TH>Band (×ATR)</TH>
+                    <TH>Stop distance (× a normal day&apos;s move)</TH>
                     <TH className="text-right">Trades</TH>
                     <TH className="text-right">Win rate</TH>
-                    <TH className="text-right">Expectancy</TH>
+                    <TH className="text-right">Avg. result / trade</TH>
                   </TR>
                 </THead>
                 <TBody>

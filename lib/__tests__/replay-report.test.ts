@@ -127,6 +127,37 @@ describe("markdown", () => {
 
     expect(out).toContain("--symbols SPY,AAPL --timeframe 15Min --targetR 2 --within Execute");
   });
+
+  it("renders no large-cap section for an older payload that lacks the field", () => {
+    // --from can load a report committed before this session's change.
+    const out = markdown(report, { within: "Execute" });
+    expect(out).not.toContain("## Large-cap vs. not");
+  });
+
+  it("renders the large-cap split and states which stop model produced it", () => {
+    const withSplit = {
+      ...report,
+      useProductionStop: true,
+      largeCapSplit: {
+        largeCap: { trades: 30, winRate: 0.5, expectancyR: 0.4, totalR: 12, profitable: true },
+        notLargeCap: { trades: 70, winRate: 0.35, expectancyR: 0.1, totalR: 7, profitable: true },
+      },
+    };
+    const out = markdown(withSplit, { within: "Execute" });
+    expect(out).toContain("production (leeway + large-cap widening)");
+    expect(out).toContain("## Large-cap vs. not");
+    const largeCapRow = out.split("\n").find((l) => l.startsWith("| Large-cap |"));
+    const notLargeCapRow = out.split("\n").find((l) => l.startsWith("| Not large-cap |"));
+    expect(largeCapRow).toContain("50.0%");
+    expect(notLargeCapRow).toContain("35.0%");
+    expect(out).toContain("--productionStop");
+  });
+
+  it("states the raw-pattern stop model when useProductionStop is unset", () => {
+    const out = markdown(report, { within: "Execute" });
+    expect(out).toContain("raw pattern (original harness behaviour)");
+    expect(out).not.toContain("--productionStop");
+  });
 });
 
 describe("parseArgs", () => {
@@ -146,5 +177,12 @@ describe("parseArgs", () => {
 
   it("rejects an unknown flag rather than silently ignoring it", () => {
     expect(() => parseArgs(["--symbol", "SPY"])).toThrow(/Unknown argument/);
+  });
+
+  it("defaults productionStop to false and flips it on --productionStop", () => {
+    expect(parseArgs([]).productionStop).toBe(false);
+    expect(parseArgs(["--productionStop"]).productionStop).toBe(true);
+    // A flag, not a value — the next token is the next flag, not consumed as its value.
+    expect(parseArgs(["--productionStop", "--symbols", "SPY"]).symbols).toEqual(["SPY"]);
   });
 });

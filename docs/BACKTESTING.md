@@ -134,7 +134,20 @@ shows up in the next run:
   default; a weight set adopted from a proposal redistributes the same nine.
 - **`lib/strat/patterns.ts`** — which setups arm at all, plus `gapRuleViolated`
   and `riskFloorViolated`.
-- **`lib/strat/levels.ts`** — the trade plan, and `MAX_STOP_ATR_MULTIPLE`.
+- **`lib/strat/levels.ts`** — the trade plan, and `MAX_STOP_ATR_MULTIPLE`. As of
+  2026-08-19, large-cap stocks (`lib/strat/large-cap.ts`) get a wider leeway
+  and ceiling (`LARGE_CAP_LEEWAY_ATR`, `LARGE_CAP_MAX_STOP_ATR_MULTIPLE`) —
+  unmeasured against replay at the time it shipped. **Re-run attribution**,
+  split by large-cap vs. not, before treating it as validated rather than a
+  hypothesis. The mechanism for that: the replay's own P&L walk uses the raw
+  pattern stop by default (`ReplayTrade.stop` has never reflected the leeway
+  or the large-cap widening, only the verdict shown alongside it has) — pass
+  `useProductionStop: true` (`npm run backtest -- --productionStop`) to walk
+  the widened stop instead, and compare the "Large-cap" row of the rendered
+  report's "Large-cap vs. not" section across a run with the flag and one
+  without. Requires live vendor credentials (`ALPACA_API_KEY`/`_SECRET`) —
+  the harness refuses to publish a synthetic-data run, by design (see
+  `scripts/replay-report.mjs`'s own header for why).
 - **`targetR`** on the replay itself.
 
 ## Proximity is measured in ATR, not percent
