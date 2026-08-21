@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { ResultsTable } from "@/components/scan/results-table";
 import { AutoScan } from "@/components/scan/auto-scan";
 import { StaleScanNotice } from "@/components/scan/stale-scan-notice";
+import { LiveExpectancyToggle } from "@/components/guided/live-expectancy-toggle";
 import { EarningsCalendar } from "@/components/macro/earnings-calendar";
 import { MarketNews } from "@/components/macro/market-news";
 import { getDailyScans } from "@/lib/dailyScans";
@@ -54,6 +55,8 @@ export default async function DashboardPage() {
         scanDate={scanDate}
         pricedBeforeSession={pricedBeforeSession}
       />
+
+      <LiveExpectancyToggle />
 
       <Card data-tour="dash-watchlist">
         <CardHeader>

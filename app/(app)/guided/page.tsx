@@ -1,4 +1,5 @@
 import { GuidedMode } from "@/components/guided/guided-mode";
+import { LiveExpectancy } from "@/components/guided/live-expectancy";
 
 export const metadata = { title: "Guided — GSPS" };
 export const dynamic = "force-dynamic";
@@ -13,6 +14,14 @@ export default function GuidedPage() {
           your confirmation — nothing here trades on its own.
         </p>
       </div>
+
+      {/*
+        Ahead of the recommendation itself: a reader should see how the
+        verdict they're about to act on has actually performed before they
+        see the verdict, not after.
+      */}
+      <LiveExpectancy />
+
       {/*
         The tour's anchor sits here rather than inside GuidedMode, because
         GuidedMode returns early while loading, when the API errors, and when
