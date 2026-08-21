@@ -34,6 +34,45 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       const supabase = createClient();
 
       if (mode === "signup") {
+        // Check for an existing account before creating a new one. Without
+        // this, resubmitting the signup form for an email that already has a
+        // profile either silently no-ops (Supabase obscures repeat signups to
+        // avoid leaking which emails are registered) or, worse, lets someone
+        // create a second, unrelated account tied to an email they don't
+        // control — neither confirms the existing account or gets the person
+        // back into it, which is what they actually came here for.
+        const statusRes = await fetch("/api/auth/account-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+        const status = statusRes.ok
+          ? ((await statusRes.json()) as { exists: boolean; confirmed?: boolean })
+          : { exists: false };
+
+        if (status.exists && !status.confirmed) {
+          const { error } = await supabase.auth.resend({ type: "signup", email });
+          if (error) setError(error.message);
+          else setMessage("That email already has an account pending confirmation — we've resent the confirmation link. Check your inbox.");
+          setLoading(false);
+          return;
+        }
+
+        if (status.exists && status.confirmed) {
+          // There is no way to email someone their existing password — it's
+          // hashed the moment it's set, and the app never has the plaintext
+          // again. A reset link is the actual, secure equivalent: it gets
+          // them back into the account without anyone (including us) ever
+          // handling their password in the clear.
+          const { error } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/reset-password")}`,
+          });
+          if (error) setError(error.message);
+          else setMessage("That email already has an account — we've sent a link to reset the password, since we can't email you the existing one.");
+          setLoading(false);
+          return;
+        }
+
         const { data, error } = await supabase.auth.signUp({ email, password });
         if (error) {
           setError(error.message);
@@ -50,12 +89,10 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             router.push(next);
             router.refresh();
           } else {
-            // Supabase returns success here whether the account is brand new or
-            // already exists unconfirmed (it never reveals which, to avoid
-            // leaking which emails are registered). Either way the confirmation
-            // email may not have landed — the built-in mailer is rate-limited
-            // and silently drops sends past its cap — so offer an explicit
-            // resend instead of leaving the user stuck re-submitting the form.
+            // The confirmation email may not land even for this brand-new
+            // account — the built-in mailer is rate-limited and silently
+            // drops sends past its cap — so offer an explicit resend instead
+            // of leaving the user stuck re-submitting the form.
             setMessage("Check your email to confirm your account, then log in.");
             setAwaitingConfirmation(true);
           }
@@ -124,7 +161,14 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         options: { redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}` },
       });
       if (error) {
-        setError(error.message);
+        // Supabase's own message for "the Google provider isn't turned on in
+        // this project" — a Dashboard setting, not something a retry fixes.
+        // See docs/GOOGLE_OAUTH_SETUP.md for what's actually missing.
+        setError(
+          /provider is not enabled|unsupported provider/i.test(error.message)
+            ? "Google sign-in isn't set up on this account yet. Use email/password below instead."
+            : error.message,
+        );
         setLoading(false);
       }
       // On success the browser redirects to Google; no need to reset loading.
