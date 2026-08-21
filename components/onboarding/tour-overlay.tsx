@@ -60,9 +60,14 @@ const HOLE_PAD = 6;
  * anchor exists or the centred fallback is the right answer anyway.
  */
 const ANCHOR_SETTLE_MS = 6000;
-/** Card width, and the room a card needs before it will sit on a given side. */
+/** Card width. */
 const CARD_W = 360;
-const CARD_SPACE = 300;
+/**
+ * Floor on the card's height when neither side has much room, so it never
+ * gets squeezed to something unreadable. The card scrolls internally past
+ * this, so a tight fit costs a scrollbar, not legibility.
+ */
+const MIN_CARD_HEIGHT = 160;
 const GAP = 12;
 
 interface Rect {
@@ -100,9 +105,23 @@ function resolveAnchor(anchor: string | undefined): { el: HTMLElement; rect: Rec
 /** Where the copy card sits relative to the hole, given the room available. */
 type Placement =
   | { kind: "center" }
-  | { kind: "below"; top: number; left: number }
-  | { kind: "above"; bottom: number; left: number };
+  | { kind: "below"; top: number; left: number; maxHeight: number }
+  | { kind: "above"; bottom: number; left: number; maxHeight: number };
 
+/**
+ * Always beside the hole, never on top of it — the card goes wherever there is
+ * more room (below or above) rather than requiring a fixed amount before it
+ * will use a side at all. A phone viewport rarely has 300px clear on either
+ * side of a dashboard section anchored near the top of the page, so requiring
+ * that meant the card fell back to dead centre — directly over the element it
+ * was describing. Sizing the card's max-height to whatever room the chosen
+ * side actually has (floored at `MIN_CARD_HEIGHT`, scrollable past that) keeps
+ * it legible without ever needing to cover the hole to do it.
+ *
+ * `center` survives only for a step with no resolved anchor at all — there is
+ * no hole to protect in that case, so centring is the right answer, not a
+ * fallback for a hole the card could not find room around.
+ */
 function placeCard(rect: Rect | null): Placement {
   if (rect === null || typeof window === "undefined") return { kind: "center" };
   const vw = window.innerWidth;
@@ -112,13 +131,23 @@ function placeCard(rect: Rect | null): Placement {
   // nav item at the far right of a wide header would otherwise hang off-screen.
   const left = Math.max(GAP, Math.min(rect.left + rect.width / 2 - width / 2, vw - width - GAP));
 
-  if (vh - (rect.top + rect.height) >= CARD_SPACE) {
-    return { kind: "below", top: rect.top + rect.height + HOLE_PAD + GAP, left };
+  const spaceBelow = vh - (rect.top + rect.height + HOLE_PAD + GAP) - GAP;
+  const spaceAbove = rect.top - HOLE_PAD - GAP - GAP;
+
+  if (spaceBelow >= spaceAbove) {
+    return {
+      kind: "below",
+      top: rect.top + rect.height + HOLE_PAD + GAP,
+      left,
+      maxHeight: Math.max(spaceBelow, MIN_CARD_HEIGHT),
+    };
   }
-  if (rect.top >= CARD_SPACE) {
-    return { kind: "above", bottom: vh - rect.top + HOLE_PAD + GAP, left };
-  }
-  return { kind: "center" };
+  return {
+    kind: "above",
+    bottom: vh - rect.top + HOLE_PAD + GAP,
+    left,
+    maxHeight: Math.max(spaceAbove, MIN_CARD_HEIGHT),
+  };
 }
 
 export function TourOverlay({ open, onClose }: { open: boolean; onClose: (outcome: TourOutcome) => void }) {
@@ -265,10 +294,23 @@ export function TourOverlay({ open, onClose }: { open: boolean; onClose: (outcom
 
   const cardStyle: React.CSSProperties =
     placement.kind === "below"
-      ? { position: "fixed", top: placement.top, left: placement.left, width }
+      ? { position: "fixed", top: placement.top, left: placement.left, width, maxHeight: placement.maxHeight }
       : placement.kind === "above"
-        ? { position: "fixed", bottom: placement.bottom, left: placement.left, width }
-        : { position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width };
+        ? {
+            position: "fixed",
+            bottom: placement.bottom,
+            left: placement.left,
+            width,
+            maxHeight: placement.maxHeight,
+          }
+        : {
+            position: "fixed",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width,
+            maxHeight: "80vh",
+          };
 
   return createPortal(
     <div
@@ -303,7 +345,7 @@ export function TourOverlay({ open, onClose }: { open: boolean; onClose: (outcom
         ref={cardRef}
         tabIndex={-1}
         style={cardStyle}
-        className="flex max-h-[80vh] flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl outline-none"
+        className="flex flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl outline-none"
       >
         <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
           <div className="min-w-0">
