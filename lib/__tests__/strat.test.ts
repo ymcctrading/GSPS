@@ -96,6 +96,30 @@ describe("detectPatterns (forward-thinking)", () => {
     expect(p).toBeDefined();
     expect(p!.triggerPrice).toBeCloseTo(110.01, 2);
   });
+
+  it("collapses a PMG and a bare 2-2 into one setup when they share the same order", () => {
+    // A run of lower highs (PMG bullish condition) whose final bar also reads
+    // as "2D" (broke low only) — a decisive reversal bar is exactly the kind
+    // that both ends a pivot streak and classifies as directional, so PMG and
+    // the 2-2 family use the identical trigger/stop formula here (last high +
+    // 1¢ / last low − 1¢) and used to arm as two separate trades for the same
+    // stop order. Found via a real duplicate-trade pair in a live backtest run.
+    const bars = [
+      bar(100, 112, 99, 99.5),
+      bar(99.5, 111, 98.5, 99),
+      bar(99, 110, 98, 98.5),
+      bar(98.5, 109, 97.5, 98),
+      bar(98, 108, 97, 97.5),
+      bar(97.5, 107, 96.5, 97),
+      bar(97, 106, 95.5, 96), // 2D relative to the prior bar, and ends a 6-lower-high run
+    ];
+    const patterns = detectPatterns(bars).filter((x) => x.direction === "bullish");
+    // Both PMG and a bare 2-2 would otherwise arm here with identical
+    // direction/trigger/stop; only the more specific label (PMG) should
+    // survive as a single setup.
+    expect(patterns).toHaveLength(1);
+    expect(patterns[0].name).toBe("PMG");
+  });
 });
 
 describe("gap rule", () => {

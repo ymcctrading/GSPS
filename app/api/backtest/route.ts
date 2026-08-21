@@ -107,6 +107,7 @@ export async function GET(req: NextRequest) {
         trades: bucketTrades.map((t) => ({
           symbol: t.symbol,
           openedAt: t.openedAt,
+          pattern: t.pattern,
           direction: t.direction,
           entry: t.entry,
           stop: t.stop,

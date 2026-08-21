@@ -134,7 +134,45 @@ export function detectPatterns(bars: Bar[]): StratPattern[] {
   }
 
   void prev;
-  return patterns;
+  return dedupeByOrder(patterns);
+}
+
+/**
+ * Collapse setups that are the same order at the same risk, just labelled by
+ * different rules that happened to both fire.
+ *
+ * The 2-2/1-2-2/3-2-2 reversal family and PMG use the identical trigger/stop
+ * formula (last bar's high+penny / low-penny), so a bar that both completes a
+ * ≥5-pivot PMG run AND reads as a directional "2" bar — a common combination,
+ * since a decisive reversal candle is exactly the kind of bar that ends a
+ * streak of lower highs or higher lows — used to arm as two separate patterns
+ * with identical direction, triggerPrice and stopPrice. A trader (and the
+ * replay counting trades) can only take that stop order once; keeping both
+ * double-counted every such setup as two trades sharing one outcome.
+ *
+ * Kept name matches lib/scanTicker.ts's own specificity ranking (compound
+ * patterns > PMG > a bare "2-2", which arms on almost every directional bar)
+ * rather than array order, so the single shared detector and the live
+ * scanner's display agree on which label is the more informative one.
+ */
+function dedupeByOrder(patterns: StratPattern[]): StratPattern[] {
+  const specificity: Record<StratPattern["name"], number> = {
+    "2-1-2": 0,
+    "3-1-2": 0,
+    "1-2-2": 0,
+    "3-2-2": 0,
+    PMG: 1,
+    "2-2": 2,
+  };
+  const bestByKey = new Map<string, StratPattern>();
+  for (const p of patterns) {
+    const key = `${p.direction}|${p.triggerPrice}|${p.stopPrice}`;
+    const existing = bestByKey.get(key);
+    if (!existing || specificity[p.name] < specificity[existing.name]) {
+      bestByKey.set(key, p);
+    }
+  }
+  return [...bestByKey.values()];
 }
 
 /**
