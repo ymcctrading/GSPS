@@ -54,9 +54,11 @@ const trend = (direction: TrendReading["direction"]): TrendReading => ({
   resistance: [110],
 });
 
+// direction below is "bullish" (a long), so every level here is a support
+// floor underneath price, the side that actually confirms a long.
 const gann: GannLevels = {
-  fanLines: [{ angle: "1x4 (high)", price: 101, distancePct: 0.4, role: "resistance" }],
-  squareOf9: [{ degree: 45, price: 100.5, distancePct: 0.2, role: "resistance" }],
+  fanLines: [{ angle: "1x4 (high)", price: 101, distancePct: 0.4, role: "support" }],
+  squareOf9: [{ degree: 45, price: 100.5, distancePct: 0.2, role: "support" }],
   timeCycleActive: true,
   timeCycleDates: ["2026-08-06"],
 };
