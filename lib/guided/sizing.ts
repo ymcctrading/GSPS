@@ -8,7 +8,7 @@
  * in dollars is computed from the resulting quantity against the real
  * entry/stop/target prices, never from an advertised R-multiple.
  *
- * Four ceilings apply, in this order, and the smallest wins:
+ * Five ceilings apply, in this order, and the smallest wins:
  *
  *   1. Risk cap        — riskPct of equity ÷ the entry-to-stop distance.
  *   2. Portfolio cap   — what is left under the deployed-capital ceiling.
@@ -19,7 +19,15 @@
  *                        `executeFill` in lib/brokers/simulator.ts). Sizing a
  *                        short against buying power would be arithmetic on a
  *                        number that grows as the position grows.
- *   4. Tradeability    — below MIN_GUIDED_QTY the protocol's staged exit collapses
+ *   4. Per-trade budget — an optional flat dollar ceiling (`lib/guided/config.ts`),
+ *                        on by default, that exists because the other three are
+ *                        all percentages of paper equity: correct arithmetic
+ *                        against a $100k paper account still prices a
+ *                        recommendation in the tens of thousands, which is not a
+ *                        number a novice sizing real trades can act on. Applies
+ *                        to both sides — unlike buying power, a budget bounds
+ *                        exposure taken, not just cash spent.
+ *   5. Tradeability    — below MIN_GUIDED_QTY the protocol's staged exit collapses
  *                        into a single all-or-nothing target, which is not the
  *                        trade the card describes. Below it, there is no trade.
  *
@@ -57,6 +65,8 @@ export interface SizingInputs {
   maxDeployedPct: number;
   /** Capital already tied up in open guided positions, in dollars. */
   deployedUsd: number;
+  /** Flat per-trade dollar ceiling. `null`/`undefined` means no such ceiling applies. */
+  maxNotionalUsd?: number | null;
   /** Whole units only (equities). Crypto can be fractional at the broker, but the
    *  simulator's ledger and the protocol's tranche split are both whole-unit. */
   wholeUnitsOnly?: boolean;
@@ -83,7 +93,7 @@ export interface SizedTrade {
   /** Realised reward-to-risk of the staged plan, for the "why" panel. */
   rewardToRisk: number;
   /** Which ceiling decided the size — named so the card can say so. */
-  boundBy: "risk" | "portfolio" | "buying_power";
+  boundBy: "risk" | "portfolio" | "buying_power" | "budget";
   /** Null when the trade is placeable; otherwise why it is not. */
   blockedReason: string | null;
 }
@@ -91,7 +101,7 @@ export interface SizedTrade {
 export function sizeGuidedTrade(input: SizingInputs): SizedTrade {
   const {
     side, equity, buyingPower, entry, stopLoss, takeProfit1, masterProfit,
-    riskPct, maxDeployedPct, deployedUsd, wholeUnitsOnly = true,
+    riskPct, maxDeployedPct, deployedUsd, maxNotionalUsd = null, wholeUnitsOnly = true,
   } = input;
 
   // +1 long, −1 short. Every price difference below is multiplied by it, so a
@@ -127,17 +137,23 @@ export function sizeGuidedTrade(input: SizingInputs): SizedTrade {
   // it — see the header. The portfolio cap above is what bounds a short's size.
   const byCash = side === "buy" ? Math.max(buyingPower, 0) / entry : Number.POSITIVE_INFINITY;
 
-  const raw = Math.min(byRisk, byPortfolio, byCash);
+  // Unlike buying power, the budget cap bounds exposure taken, not cash spent —
+  // it applies to both sides. See the header for why this ceiling exists.
+  const byBudget = maxNotionalUsd != null ? Math.max(maxNotionalUsd, 0) / entry : Number.POSITIVE_INFINITY;
+
+  const raw = Math.min(byRisk, byPortfolio, byCash, byBudget);
   const qty = wholeUnitsOnly ? Math.floor(raw) : Math.floor(raw * 1e6) / 1e6;
 
   // Which ceiling actually bit. Compared on the pre-rounding numbers, because
   // after flooring several of them can tie at the same integer.
   const boundBy: SizedTrade["boundBy"] =
-    byPortfolio <= byRisk && byPortfolio <= byCash
-      ? "portfolio"
-      : byCash <= byRisk
-        ? "buying_power"
-        : "risk";
+    byBudget <= byRisk && byBudget <= byPortfolio && byBudget <= byCash
+      ? "budget"
+      : byPortfolio <= byRisk && byPortfolio <= byCash
+        ? "portfolio"
+        : byCash <= byRisk
+          ? "buying_power"
+          : "risk";
 
   if (qty < MIN_GUIDED_QTY) {
     return {
@@ -182,11 +198,15 @@ function blockedCopy(boundBy: SizedTrade["boundBy"], qty: number, alreadyDeploye
         ? "Guided Mode has already deployed as much of your paper equity as its cap allows. Close a guided position to free it up."
         : "A single share of this symbol would be more of your paper equity than Guided Mode is allowed to commit at once.";
     }
+    if (boundBy === "budget") {
+      return "A single share of this symbol costs more than your per-trade budget. Raise it in Settings → Guided Mode limits, or wait for a lower-priced setup.";
+    }
     return boundBy === "buying_power"
       ? "There isn't enough cash in the paper account to open a position here."
       : "Your per-trade risk cap doesn't stretch to a single share of this symbol.";
   }
-  return `A trade sized to your risk cap would be ${qty} share${qty === 1 ? "" : "s"}, and the protocol's staged exit needs at least ${MIN_GUIDED_QTY} to scale out of. Skipped rather than placed as an all-or-nothing trade.`;
+  const sizedTo = boundBy === "budget" ? "your per-trade budget" : "your risk cap";
+  return `A trade sized to ${sizedTo} would be ${qty} share${qty === 1 ? "" : "s"}, and the protocol's staged exit needs at least ${MIN_GUIDED_QTY} to scale out of. Skipped rather than placed as an all-or-nothing trade.`;
 }
 
 /** The share of the position that leaves at TP1, for copy that needs to say so. */

@@ -59,14 +59,24 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           }
         }
       } else {
-        // Login accepts either an email address or a username.
+        // Login accepts either an email address or a username. The lookup
+        // goes through our own route rather than calling the
+        // resolve_username_email RPC directly — see
+        // app/api/auth/resolve-username/route.ts for why.
         let loginEmail = identifier;
         if (!identifier.includes("@")) {
-          const { data: resolvedEmail, error: lookupError } = await supabase.rpc(
-            "resolve_username_email",
-            { p_username: identifier },
-          );
-          if (lookupError || !resolvedEmail) {
+          let resolvedEmail: string | null = null;
+          try {
+            const res = await fetch("/api/auth/resolve-username", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ username: identifier }),
+            });
+            ({ email: resolvedEmail } = await res.json());
+          } catch {
+            // Falls through to the generic error below, same as a lookup miss.
+          }
+          if (!resolvedEmail) {
             setError("Invalid login credentials");
             setLoading(false);
             return;

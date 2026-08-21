@@ -25,8 +25,9 @@ import {
   SNAPSHOT_PLAN,
   SNAPSHOT_POSITION,
   SNAPSHOT_RISK_PER_SHARE,
-} from "@/lib/onboarding/spy-snapshot";
+} from "@/lib/onboarding/tour-snapshot";
 import {
+  DEFAULT_GUIDED_BUDGET_USD,
   DEFAULT_MAX_DEPLOYED_PCT,
   DEFAULT_RISK_PCT,
 } from "@/lib/guided/config";
@@ -299,23 +300,27 @@ describe("the frozen snapshot holds together", () => {
     expect(SNAPSHOT_PLAN.stopLoss).toBeLessThan(SNAPSHOT_PLAN.entry);
     expect(SNAPSHOT_PLAN.takeProfit1).toBeGreaterThan(SNAPSHOT_PLAN.entry);
     expect(SNAPSHOT_PLAN.masterProfit).toBeGreaterThan(SNAPSHOT_PLAN.takeProfit1);
-    expect(SNAPSHOT_RISK_PER_SHARE).toBeCloseTo(7.4, 10);
+    expect(SNAPSHOT_RISK_PER_SHARE).toBeCloseTo(0.45, 10);
   });
 
   it("sizes the example by the cap the tour claims sized it", () => {
-    // The tour tells the reader, in words, that the deployed-capital ceiling
-    // produced 36 shares and the risk cap would have allowed 135. Both halves
-    // of that sentence are checked against the caps the app actually ships, so
-    // a change to either cap fails here rather than turning the tour into a
-    // confident description of arithmetic that no longer happens.
+    // The tour tells the reader, in words, that the per-trade dollar budget
+    // produced 10 shares while the risk cap alone would have allowed 2,222 and
+    // the deployed-capital cap alone would have allowed 1,008. All three
+    // halves of that sentence are checked against the caps the app actually
+    // ships, so a change to any of them fails here rather than turning the
+    // tour into a confident description of arithmetic that no longer happens.
     const equity = 100_000;
     const byRisk = Math.floor((equity * (DEFAULT_RISK_PCT / 100)) / SNAPSHOT_RISK_PER_SHARE);
     const byDeployed = Math.floor((equity * (DEFAULT_MAX_DEPLOYED_PCT / 100)) / SNAPSHOT_PLAN.entry);
+    const byBudget = Math.floor(DEFAULT_GUIDED_BUDGET_USD / SNAPSHOT_PLAN.entry);
 
     expect(byRisk).toBe(SNAPSHOT_GUIDED.qtyAllowedByRiskCap);
-    expect(byDeployed).toBe(SNAPSHOT_GUIDED.qty);
-    expect(Math.min(byRisk, byDeployed)).toBe(SNAPSHOT_GUIDED.qty);
-    expect(SNAPSHOT_GUIDED.bindingCap).toBe("deployed");
+    expect(byDeployed).toBe(SNAPSHOT_GUIDED.qtyAllowedByDeployedCap);
+    expect(SNAPSHOT_GUIDED.budgetUsd).toBe(DEFAULT_GUIDED_BUDGET_USD);
+    expect(byBudget).toBe(SNAPSHOT_GUIDED.qty);
+    expect(Math.min(byRisk, byDeployed, byBudget)).toBe(SNAPSHOT_GUIDED.qty);
+    expect(SNAPSHOT_GUIDED.bindingCap).toBe("budget");
   });
 
   it("states a dollar risk that matches the size and the stop", () => {

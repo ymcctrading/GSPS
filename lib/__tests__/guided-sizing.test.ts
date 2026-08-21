@@ -96,6 +96,35 @@ describe("sizeGuidedTrade", () => {
     const sized = sizeGuidedTrade({ ...base, stopLoss: 40 });
     expect(sized.riskUsd).toBeLessThanOrEqual(base.equity * (base.riskPct / 100));
   });
+
+  it("lets the budget cap bind before the risk math ever gets to size the trade", () => {
+    // 100 shares at 1% risk (see the first test), but a $250 budget at a $100
+    // entry only reaches 2 shares — the novice ceiling, not the paper-equity one.
+    const sized = sizeGuidedTrade({ ...base, maxNotionalUsd: 250 });
+    expect(sized.qty).toBe(2);
+    expect(sized.boundBy).toBe("budget");
+    expect(sized.notionalUsd).toBeCloseTo(200, 6);
+  });
+
+  it("is unaffected by a budget cap wider than what the other ceilings would size anyway", () => {
+    const sized = sizeGuidedTrade({ ...base, maxNotionalUsd: 1_000_000 });
+    expect(sized.qty).toBe(100);
+    expect(sized.boundBy).toBe("risk");
+  });
+
+  it("refuses a symbol whose share price alone exceeds the budget", () => {
+    // $250 budget against a $300 entry can't buy even one share.
+    const sized = sizeGuidedTrade({ ...base, entry: 300, maxNotionalUsd: 250 });
+    expect(sized.qty).toBe(0);
+    expect(sized.boundBy).toBe("budget");
+    expect(sized.blockedReason).toContain("per-trade budget");
+  });
+
+  it("ignores the budget ceiling entirely when it is null", () => {
+    const sized = sizeGuidedTrade({ ...base, maxNotionalUsd: null });
+    expect(sized.qty).toBe(100);
+    expect(sized.boundBy).toBe("risk");
+  });
 });
 
 /**

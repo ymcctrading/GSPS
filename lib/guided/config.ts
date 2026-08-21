@@ -43,6 +43,31 @@ export const DEFAULT_MAX_TRADES_PER_WEEK = 10;
 export const DEFAULT_MAX_DEPLOYED_PCT = 25;
 
 /**
+ * Per-trade dollar ceiling, on top of the risk/portfolio/cash ceilings above.
+ *
+ * The other three ceilings are all percentages of paper equity, which defaults
+ * to $100,000 (`STARTING_CASH` in lib/brokers/simulator.ts) — a number nobody
+ * trading with real money in the low hundreds recognises. A 1% risk cap against
+ * that account can still price a recommendation at tens of thousands of dollars
+ * of notional, which is arithmetically correct and useless to a novice sizing
+ * real trades: they cannot act on a number that has nothing to do with what
+ * they actually have to spend.
+ *
+ * This is a fifth ceiling, not a replacement for the risk-based ones — the
+ * structural entry/stop/target levels and the staged-exit reward figure are
+ * untouched. It only caps the dollar amount any one recommendation may ask the
+ * user to commit, so the headline numbers on a card look like what a trader
+ * with a few hundred real dollars would actually risk. Ships on by default at
+ * the top of the range, because the account most likely to hit this ceiling —
+ * a fresh $100k paper account with no other caps yet dialed in — is exactly the
+ * one this exists for; Settings can turn it off for anyone sizing against their
+ * paper equity on purpose.
+ */
+export const MIN_GUIDED_BUDGET_USD = 50;
+export const MAX_GUIDED_BUDGET_USD = 250;
+export const DEFAULT_GUIDED_BUDGET_USD = 250;
+
+/**
  * Minimum shares a guided order may be placed for.
  *
  * The protocol exits in tranches — 60% at TP1, half of the rest at the master
@@ -125,6 +150,8 @@ export interface GuidedCaps {
   maxTradesPerDay: number;
   maxTradesPerWeek: number;
   maxDeployedPct: number;
+  /** Per-trade dollar ceiling. `null` means off — sized on the percentage ceilings alone. */
+  budgetUsd: number | null;
 }
 
 export const DEFAULT_GUIDED_CAPS: GuidedCaps = {
@@ -132,6 +159,7 @@ export const DEFAULT_GUIDED_CAPS: GuidedCaps = {
   maxTradesPerDay: DEFAULT_MAX_TRADES_PER_DAY,
   maxTradesPerWeek: DEFAULT_MAX_TRADES_PER_WEEK,
   maxDeployedPct: DEFAULT_MAX_DEPLOYED_PCT,
+  budgetUsd: DEFAULT_GUIDED_BUDGET_USD,
 };
 
 /**
@@ -151,5 +179,22 @@ export function resolveGuidedCaps(prefs: unknown): GuidedCaps {
     maxTradesPerDay: num("maxTradesPerDay", DEFAULT_MAX_TRADES_PER_DAY, 1, 20),
     maxTradesPerWeek: num("maxTradesPerWeek", DEFAULT_MAX_TRADES_PER_WEEK, 1, 50),
     maxDeployedPct: num("maxDeployedPct", DEFAULT_MAX_DEPLOYED_PCT, 5, 100),
+    budgetUsd: budget(stored),
   };
+}
+
+/**
+ * `budgetUsd` is the one cap with a meaningful "off" state, so it cannot share
+ * `num`'s helper: a stored `null` is a deliberate choice to size on the
+ * percentage ceilings alone, and has to survive round-tripping through this
+ * function rather than being coerced to the default like any other invalid
+ * value. Anything else non-numeric, unset, or outside the permitted range falls
+ * back to the conservative default — on, at the top of the novice range.
+ */
+function budget(stored: Record<string, unknown>): number | null {
+  if (stored.budgetUsd === null) return null;
+  const v = Number(stored.budgetUsd);
+  return Number.isFinite(v) && v >= MIN_GUIDED_BUDGET_USD && v <= MAX_GUIDED_BUDGET_USD
+    ? v
+    : DEFAULT_GUIDED_BUDGET_USD;
 }
