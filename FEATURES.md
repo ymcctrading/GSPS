@@ -14,7 +14,7 @@ GSPS is a comprehensive trading application built with Next.js, Supabase, and Al
 ### 2. Market Scanning & Analysis
 - **Daily Market Scan**: Automated scan of market sectors and stocks
 - **Structural Analysis Engine**:
-  - Harmonic level calculations
+  - Key price level calculations
   - Support line analysis
   - Cyclical turn window detection
 - **Pattern Recognition**:

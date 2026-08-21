@@ -170,12 +170,12 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     },
     {
       key: "harmonicProximity",
-      criterion: "Harmonic level proximity",
+      criterion: "Key price level proximity",
       pillar: "structure",
       passed: nearS9,
       note: s9Match
-        ? `Price within ${s9Match.distancePct.toFixed(2)}% of the ${s9Match.degree}° harmonic ${levelRoleLabel(s9Match.role).toLowerCase()} level at ${s9Match.price.toFixed(2)} — inside the ${harmonicBandPct.toFixed(2)}% band (${bandBasis(HARMONIC_PROXIMITY_ATR, atrPct)}). ${LEVEL_TIMEFRAME_USAGE["1Day"]}.`
-        : `No ${levelRoleLabel(wantedRole).toLowerCase()} harmonic level within ${harmonicBandPct.toFixed(2)}% (${bandBasis(HARMONIC_PROXIMITY_ATR, atrPct)}).`,
+        ? `Price within ${s9Match.distancePct.toFixed(2)}% of the ${s9Match.degree}° key price ${levelRoleLabel(s9Match.role).toLowerCase()} level at ${s9Match.price.toFixed(2)} — inside the ${harmonicBandPct.toFixed(2)}% band (${bandBasis(HARMONIC_PROXIMITY_ATR, atrPct)}). ${LEVEL_TIMEFRAME_USAGE["1Day"]}.`
+        : `No ${levelRoleLabel(wantedRole).toLowerCase()} key price level within ${harmonicBandPct.toFixed(2)}% (${bandBasis(HARMONIC_PROXIMITY_ATR, atrPct)}).`,
     },
     {
       key: "historicalSR",
@@ -223,14 +223,14 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     },
     {
       key: "masterStructural",
-      criterion: "Master target confirmed by a structural level",
+      criterion: "Final target confirmed by a structural level",
       pillar: "riskReward",
       passed: cleanRR,
       note: !levels
         ? "No trade levels computed."
         : cleanRR
-          ? `Master profit at ${levels.masterProfit.toFixed(2)} (${levels.rewardToRiskMaster.toFixed(1)}R) sits on a support or harmonic level, not just a projection from risk.`
-          : `Master profit at ${levels.masterProfit.toFixed(2)} (${levels.rewardToRiskMaster.toFixed(1)}R) is projected from risk — no support or harmonic level in range to confirm it.`,
+          ? `Final target at ${levels.masterProfit.toFixed(2)} (${levels.rewardToRiskMaster.toFixed(1)}R) sits on a support or key price level, not just a projection from risk.`
+          : `Final target at ${levels.masterProfit.toFixed(2)} (${levels.rewardToRiskMaster.toFixed(1)}R) is projected from risk — no support or key price level in range to confirm it.`,
     },
   ];
 
