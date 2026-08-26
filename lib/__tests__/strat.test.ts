@@ -186,6 +186,19 @@ describe("computeTradeLevels", () => {
     expect(levels.masterFromStructure).toBe(false);
   });
 
+  it("states the counter-scenario against the stop actually computed, not the pattern's raw stop", () => {
+    const pattern = {
+      name: "2-2" as const,
+      direction: "bearish" as const,
+      triggerPrice: 100,
+      stopPrice: 115,
+      description: "",
+    };
+    const levels = computeTradeLevels(pattern, { t: "", o: 98, h: 101, l: 96, c: 99, v: 0 }, []);
+    expect(levels.pivotPlan).toContain("bearish 2-2");
+    expect(levels.pivotPlan).toContain(levels.stopLoss.toFixed(2));
+  });
+
   describe("masterFromStructure", () => {
     // This flag is the scored criterion, so both branches have to be reachable
     // and reported honestly. It replaced a test of `rewardToRiskTp1 >= 2`,

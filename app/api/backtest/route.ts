@@ -5,6 +5,8 @@
  *   ?timeframe=15Min       execution timeframe patterns are detected on
  *   ?targetR=2             take-profit distance, in multiples of risk
  *   ?within=Execute        verdict bucket to attribute factors inside
+ *   ?scoreRange=5-6        attribute factors within a score band instead of a
+ *                          verdict bucket — mutually exclusive with `within`
  *   ?since=2026-06-15      replay only bars at or after this instant
  *   ?productionStop=1      walk the leeway/large-cap-widened stop instead of
  *                          the raw pattern one — see ReplayOptions.useProductionStop
@@ -28,7 +30,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { BUCKETS, collectRun, runBacktest, type Bucket } from "@/lib/backtest/run";
-import { byOutputState } from "@/lib/backtest/replay";
+import { byOutputState, byScoreRange } from "@/lib/backtest/replay";
 import { isTimeframe } from "@/lib/timeframe";
 import { verifyAuth } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/server";
@@ -87,9 +89,30 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: `Invalid targetR '${targetRaw}'` }, { status: 400 });
   }
 
-  const within = searchParams.get("within") ?? "Execute";
+  const withinRaw = searchParams.get("within");
+  const scoreRangeRaw = searchParams.get("scoreRange");
+  if (withinRaw !== null && scoreRangeRaw !== null) {
+    return NextResponse.json(
+      { error: "'within' and 'scoreRange' are mutually exclusive — pass one." },
+      { status: 400 },
+    );
+  }
+
+  const within = withinRaw ?? "Execute";
   if (!BUCKETS.includes(within as Bucket)) {
     return NextResponse.json({ error: `Invalid bucket '${within}'` }, { status: 400 });
+  }
+
+  let scoreRange: [number, number] | undefined;
+  if (scoreRangeRaw !== null) {
+    const m = /^(\d+)-(\d+)$/.exec(scoreRangeRaw);
+    if (!m) {
+      return NextResponse.json(
+        { error: `Invalid scoreRange '${scoreRangeRaw}' — expected 'min-max', e.g. '5-6'` },
+        { status: 400 },
+      );
+    }
+    scoreRange = [Number(m[1]), Number(m[2])];
   }
 
   // Rejected rather than ignored. A silently dropped `since` would report a
@@ -112,7 +135,9 @@ export async function GET(req: NextRequest) {
         targetR,
         ...(since !== null ? { since } : {}),
       });
-      const bucketTrades = byOutputState(run.overall)[within as Bucket].trades;
+      const bucketTrades = scoreRange
+        ? byScoreRange(run.overall, scoreRange[0], scoreRange[1]).trades
+        : byOutputState(run.overall)[within as Bucket].trades;
       return NextResponse.json({
         source: run.source,
         live: run.live,
@@ -121,7 +146,7 @@ export async function GET(req: NextRequest) {
         symbols: run.symbols,
         skipped: run.skipped,
         window: run.window,
-        bucket: within,
+        bucket: scoreRange ? `score ${scoreRange[0]}-${scoreRange[1]}` : within,
         trades: bucketTrades.map((t) => ({
           symbol: t.symbol,
           openedAt: t.openedAt,
@@ -140,6 +165,7 @@ export async function GET(req: NextRequest) {
       timeframe,
       targetR,
       attributeWithin: within as Bucket,
+      ...(scoreRange ? { attributeScoreRange: scoreRange } : {}),
       ...(since !== null ? { since } : {}),
       ...(useProductionStop ? { useProductionStop } : {}),
     });

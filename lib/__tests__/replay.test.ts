@@ -4,6 +4,7 @@ import {
   MIN_DAILY_BARS_FOR_SCORE,
   buildMacroContext,
   byOutputState,
+  byScoreRange,
   combine,
   replay,
   rollUp,
@@ -309,5 +310,26 @@ describe("byOutputState", () => {
     const total = (["Execute", "Watch", "Reject", "unscored"] as const)
       .reduce((n, k) => n + split[k].trades.length, 0);
     expect(total).toBe(r.trades.length);
+  });
+});
+
+describe("byScoreRange", () => {
+  it("selects a band narrower than any verdict bucket", () => {
+    // 4, 5, 6 all read as Watch under the score cutoffs, so byOutputState
+    // cannot isolate "one point short of Execute" — this can.
+    const r = summarise([
+      trade({ outputState: "Watch", score: 4, rMultiple: -1 }),
+      trade({ outputState: "Watch", score: 5, rMultiple: 1 }),
+      trade({ outputState: "Watch", score: 6, rMultiple: 2 }),
+      trade({ outputState: "Execute", score: 7, rMultiple: 2 }),
+    ]);
+    const nearMiss = byScoreRange(r, 5, 6);
+    expect(nearMiss.trades).toHaveLength(2);
+    expect(nearMiss.trades.every((t) => t.score === 5 || t.score === 6)).toBe(true);
+  });
+
+  it("excludes unscored trades rather than guessing them into the range", () => {
+    const r = summarise([trade({ rMultiple: 1 })]); // no score at all
+    expect(byScoreRange(r, 5, 6).trades).toHaveLength(0);
   });
 });

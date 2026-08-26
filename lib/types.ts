@@ -94,6 +94,15 @@ export interface TradeLevels {
   /** Warning when the structural stop is outside the recommended 12–18% band. */
   stopPctOfPrice: number;
   stopBandWarning: string | null;
+  /**
+   * The counter-scenario: what invalidates this thesis and what to watch
+   * instead once it does. Optional because fixtures built by hand (tests,
+   * mocks) do not need to construct one — `computeTradeLevels` always sets
+   * it for a real scan. See lib/constants/gspsTerminology.ts's `pivotPlan`
+   * term, which this is the daily-scan counterpart to (the intraday scanner
+   * has its own richer version — lib/scanner/intraday.ts's `pivotPlan`).
+   */
+  pivotPlan?: string;
 }
 
 /**

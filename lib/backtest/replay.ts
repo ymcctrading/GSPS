@@ -575,3 +575,17 @@ export function byLargeCap(result: ReplayResult): { largeCap: ReplayResult; notL
     notLargeCap: summarise(result.trades.filter((t) => t.largeCap !== true)),
   };
 }
+
+/**
+ * Split a run to the trades whose score fell in `[min, max]` (inclusive) —
+ * the band question `byOutputState` cannot answer, because "Watch" spans
+ * every score from 4 to 6 at once. Asking "what's true of a 5–6, one point
+ * short of Execute" needs this, not the Watch bucket.
+ *
+ * A trade with no score (too little daily history to compute one) never
+ * matches any range, same as `byOutputState` puts it in `unscored` rather
+ * than guessing.
+ */
+export function byScoreRange(result: ReplayResult, min: number, max: number): ReplayResult {
+  return summarise(result.trades.filter((t) => t.score !== undefined && t.score >= min && t.score <= max));
+}
