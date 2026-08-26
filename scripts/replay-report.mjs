@@ -16,6 +16,8 @@
  *   npm run backtest -- --from docs/replay-runs/x.json  # render a captured run
  *   npm run backtest -- --timeframe 1Hour --since 2026-06-15  # hold the period still
  *   npm run backtest -- --productionStop                # walk the widened stop, not the raw pattern one
+ *   npm run backtest -- --scoreRange 5-6                 # attribute factors within a score band instead
+ *                                                         # of a verdict bucket — overrides --within
  *
  * `--productionStop` and the "Large-cap vs. not" section exist for one
  * question: does the large-cap stop widening (lib/strat/large-cap.ts,
@@ -58,6 +60,7 @@ export function parseArgs(argv) {
     timeframe: "15Min",
     targetR: 2,
     within: "Execute",
+    scoreRange: null,
     out: DEFAULT_OUT,
     from: null,
     since: null,
@@ -81,6 +84,12 @@ export function parseArgs(argv) {
       case "--timeframe": args.timeframe = value; break;
       case "--targetR": args.targetR = Number(value); break;
       case "--within": args.within = value; break;
+      case "--scoreRange": {
+        const m = /^(\d+)-(\d+)$/.exec(value);
+        if (!m) throw new Error(`--scoreRange must look like '5-6', got '${value}'`);
+        args.scoreRange = [Number(m[1]), Number(m[2])];
+        break;
+      }
       case "--out": args.out = value; break;
       default:
         throw new Error(`Unknown argument '${flag}'. See the header of scripts/replay-report.mjs.`);
@@ -222,12 +231,15 @@ export function markdown(report, args) {
   lines.push("");
   lines.push("---");
   lines.push("");
+  const withinFlag = report.attributeScoreRange
+    ? `--scoreRange ${report.attributeScoreRange[0]}-${report.attributeScoreRange[1]}`
+    : `--within ${report.attributeWithin}`;
   lines.push(
     // Taken from the report rather than the arguments: a rendered payload was
     // not necessarily produced by the flags this process was handed.
     `Reproduce: \`npm run backtest -- --symbols ${report.symbols.join(",")} --timeframe ${
       report.timeframe
-    } --targetR ${report.targetR} --within ${report.attributeWithin}${
+    } --targetR ${report.targetR} ${withinFlag}${
       report.useProductionStop ? " --productionStop" : ""
     }\``,
   );
@@ -283,6 +295,7 @@ async function runHere(args) {
       timeframe: args.timeframe,
       targetR: args.targetR,
       attributeWithin: args.within,
+      ...(args.scoreRange ? { attributeScoreRange: args.scoreRange } : {}),
       ...(args.since ? { since: args.since } : {}),
       ...(args.productionStop ? { useProductionStop: true } : {}),
     });
