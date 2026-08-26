@@ -6,9 +6,11 @@
  * or guided_scan quota. Cron-invoked with the same
  * `Authorization: Bearer CRON_SECRET` pattern as /api/market-scan.
  *
- * Not yet wired to a GitHub Actions/Vercel schedule -- see
- * docs/THIRD_PARTY_LIMITS.md before adding one; both Vercel cron slots are
- * already spent.
+ * Scheduled via .github/workflows/morning-confirmation-scan.yml (GitHub
+ * Actions, not vercel.json -- both Vercel cron slots are already spent; see
+ * docs/THIRD_PARTY_LIMITS.md) at a reduced scan budget -- see
+ * lib/entitlements/scheduled-scan.ts's MORNING_SCAN_UNIVERSE_TOP for why and
+ * how to restore full capacity once a higher-tier plan is in place.
  */
 
 import { NextRequest } from "next/server";

@@ -13,11 +13,16 @@
  *
  * The scan work itself reuses lib/marketScan.ts's runMarketScan() -- the
  * same engine the existing 08:30/17:30 ET `/api/market-scan` crons call --
- * since it's the only system-wide scan implementation that exists. That
- * means two more full-universe scans per day (four total), which increases
- * provider call volume against the daily/per-minute caps in
- * docs/THIRD_PARTY_LIMITS.md. Flagged for review before either schedule is
- * actually enabled in production, not something to wave through silently.
+ * since it's the only system-wide scan implementation that exists. Both
+ * Vercel cron slots are already spent (docs/THIRD_PARTY_LIMITS.md), so these
+ * two jobs are scheduled via GitHub Actions instead --
+ * .github/workflows/morning-preparation-scan.yml and
+ * morning-confirmation-scan.yml, following the existing
+ * premarket-scan.yml pattern. That solves the *cron-slot* limit; it does not
+ * by itself solve the *provider call volume* question two more full-universe
+ * scans a day would raise, which is why the budget below is deliberately
+ * reduced rather than a straight `runMarketScan()` call -- see
+ * MORNING_SCAN_UNIVERSE_TOP below for the restore-to-full-capacity switch.
  */
 
 import { NextResponse } from "next/server";
@@ -26,6 +31,29 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { isTradingDay } from "@/lib/market/calendar";
 
 export type ScheduledScanSource = "scheduled_morning_scan" | "scheduled_morning_confirmation_scan";
+
+/**
+ * Reduced scan budget for these two jobs specifically -- NOT the same as
+ * runMarketScan()'s defaults (universeTop=100, perSide=15), which the
+ * existing 08:30/17:30 ET crons already use twice a day. Running that same
+ * full budget two more times a day (four total) is a real increase in
+ * provider call volume this codebase hasn't independently confirmed stays
+ * under every provider's cap end-to-end (docs/THIRD_PARTY_LIMITS.md) --
+ * the primary path is Alpaca (generous, ~200 req/min, no documented daily
+ * cap), but a full multi-timeframe pass can still touch other providers
+ * per shortlisted symbol. Rather than assume that's fine, these two jobs
+ * scan a smaller universe until that's either confirmed safe or a
+ * higher-tier data-provider plan is in place (expected within ~60 days of
+ * 2026-08-26).
+ *
+ * TO RESTORE FULL CAPACITY: change the `runMarketScan(MORNING_SCAN_UNIVERSE_TOP,
+ * MORNING_SCAN_PER_SIDE)` call below to `runMarketScan()` -- its own
+ * defaults already match the main scan's full budget -- and delete these
+ * two constants. No other change is needed; nothing else in this file
+ * depends on the budget being reduced.
+ */
+export const MORNING_SCAN_UNIVERSE_TOP = 20;
+export const MORNING_SCAN_PER_SIDE = 5;
 
 /**
  * `true` on a Vercel preview deployment. Preview must not trigger a real
@@ -70,7 +98,7 @@ export async function runScheduledScan(
     return NextResponse.json({ skipped: "non_trading_day", source });
   }
 
-  const output = await runMarketScan();
+  const output = await runMarketScan(MORNING_SCAN_UNIVERSE_TOP, MORNING_SCAN_PER_SIDE);
   const eligibleCount = output.bullish.length + output.bearish.length;
 
   const service = createServiceClient();
