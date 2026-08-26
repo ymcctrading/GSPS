@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This forward-only migration removes `anon` and `authenticated` execution rights from seven public `SECURITY DEFINER` helper functions. Trusted server-side workloads may continue to invoke them through the Supabase `service_role`.
+This forward-only migration removes `anon` and `authenticated` execution rights from six public `SECURITY DEFINER` helper functions. Trusted server-side workloads may continue to invoke them through the Supabase `service_role`.
 
 ## Production topology
 
@@ -22,7 +22,17 @@ The migration restricts these public functions:
 - `get_performance_metrics(uuid, date, date)`
 - `get_pnl_by_period(uuid, text, date)`
 - `is_in_quiet_hours(uuid)`
-- `referral_stats()`
+
+### Excluded: `referral_stats()`
+
+Audited and deliberately left callable by `authenticated`. It takes no
+caller-supplied `user_id` — it scopes itself internally via `auth.uid()`
+(`0035_referrals.sql`) — so unlike the other six there is no cross-user read
+for a public grant to expose. `app/api/referral/route.ts` calls it through
+the user-session client, not `service_role`, by design. Revoking its
+`authenticated` grant would silently zero out every user's referral stats
+(the route does not check the RPC error before calling `.single()`) with no
+corresponding security benefit.
 
 ## Preconditions
 
@@ -39,7 +49,7 @@ Before applying the migration to production:
 After an authorized production application:
 
 1. Re-run Supabase Security Advisor and confirm the public execute exposure is removed.
-2. Exercise analytics, notification preferences, quiet-hours behavior, and referral reporting through their intended authenticated server-side paths.
+2. Exercise analytics, notification preferences, and quiet-hours behavior through their intended `service_role` server-side paths; confirm referral reporting (still on the authenticated path) is unaffected.
 3. Review Vercel runtime logs for RPC permission failures.
 4. Record the migration version, deployment identifier, validation evidence, and reviewer in the release log.
 
