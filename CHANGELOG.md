@@ -25,6 +25,20 @@ date.
   for the full writeup, including a known remaining gap (the scan schedule is
   still equity-hours-only, so a weekend/overnight BTC move isn't yet
   covered).
+
+### Added
+- **The intraday scanner now runs automatically outside equity hours too, on
+  crypto alone.** Same-day follow-up to the fix above: closes the
+  weekend/overnight gap it flagged. `.github/workflows/intraday-scan.yml`
+  gained a second `*/15` schedule spanning weekday overnight and the whole
+  weekend, which calls `/api/intraday-scan?universe=crypto` — a new param,
+  honored only for system (`CRON_SECRET`-authorized) scans, that narrows the
+  scan to the watchlist's crypto entries instead of the full list, since
+  equities can't have moved while their market is shut. The existing
+  equity-hours schedule and any manual `workflow_dispatch` run are
+  unaffected and still scan the full watchlist. Direct request, accepted
+  knowingly as roughly 4x this workflow's prior GitHub Actions run count —
+  see `docs/THIRD_PARTY_LIMITS.md`.
 - **The first-run tour's card covered the very element it was describing, on
   phone-sized screens.** `placeCard` (`components/onboarding/tour-overlay.tsx`)
   only placed the card above or below the spotlit hole when that side had

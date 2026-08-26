@@ -107,11 +107,17 @@ both signal discovery and execution.
   dollar-turnover floor `lib/scan/liquidity.ts` already applies correctly.
   This is deliberately narrower than the Q2 "Crypto scanner" item below — it
   wires two large-cap pairs into the existing equity-hours intraday engine,
-  not a separate scan queue or Binance data. One known gap remains open:
-  `.github/workflows/intraday-scan.yml` still only fires Mon–Fri during the
-  equity session, so a weekend or overnight BTC move is still not covered —
-  crypto trades 24/7 and this schedule doesn't yet, which needs its own
-  follow-up given the GitHub Actions run-budget tradeoff.)*
+  not a separate scan queue or Binance data. *(Follow-up, 2026-08-21, same
+  day: the weekend/overnight gap above is now closed. A second, always-on
+  schedule in `.github/workflows/intraday-scan.yml` covers weekday overnight
+  and the whole weekend, scanning crypto only — the equity side of the
+  watchlist can't move while its market is shut, so scanning it there would
+  be wasted runs, not just budget. The equity-hours schedule still scans the
+  full watchlist, and a manual `workflow_dispatch` run always does too,
+  whatever hour it's kicked off at — `?universe=crypto` is only ever set by
+  the off-hours cron itself. Direct request; accepted knowingly as roughly
+  4x this workflow's prior GitHub Actions run count, noted in
+  `docs/THIRD_PARTY_LIMITS.md`.)*
 - **Portfolio analytics dashboard** — win/loss ratio, Sharpe ratio, drawdown
   analysis, monthly/quarterly P&L, performance by pattern type.
 - **Conditional orders** — stop-loss and take-profit on any order; the
