@@ -22,9 +22,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { scanTicker } from "@/lib/scanTicker";
 import { redactScanResult } from "@/lib/scoring/public-summary";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
+import { getUserEntitlementPolicy, type Limit } from "@/lib/entitlements/policy";
 import { finalizeUsageReservation, reserveUsageSlot } from "@/lib/entitlements/quota";
 import { selectVisibleResults, type RankedSetup } from "@/lib/entitlements/result-selection";
+import { evaluateMonitor } from "@/lib/entitlements/monitor-store";
+import { getEnabledChannels, recordNotificationDelivery } from "@/lib/entitlements/delivery";
 import type { ScanResult } from "@/lib/types";
 
 const DEFAULT_WATCHLIST = [
@@ -107,13 +109,33 @@ export async function GET(req: NextRequest) {
       (r) => r.error || r.decision.outputState === "Reject" || visibleSymbols.has(r.symbol),
     );
 
-    await persistScanExecution(service, {
+    const scanExecutionId = await persistScanExecution(service, {
       profileId: user.id,
       policyVersion: null,
       eligibleCount: qualifying.length,
       visibleCount: visible.length,
       visible,
     });
+
+    if (scanExecutionId) {
+      // Only visible results are monitor-eligible ("only visible entitled
+      // results can be monitored") -- a qualifying setup the cap dropped
+      // never reaches evaluateMonitor, so it can't be watched or alerted on
+      // either. Reject/no-direction results for a symbol that already has
+      // an open monitor invalidate it; a Reject with no existing monitor is
+      // simply not evaluated at all -- there's nothing to invalidate.
+      const rejectedSymbols = new Set(
+        results.filter((r) => !r.error && (r.decision.outputState === "Reject" || r.direction === "none")).map((r) => r.symbol),
+      );
+      await evaluateMonitorsForScan(service, {
+        profileId: user.id,
+        source: "manual_dashboard",
+        scanExecutionId,
+        visible,
+        rejectedSymbols,
+        maxActiveWatchMonitors: policy.maxActiveWatchMonitors,
+      });
+    }
 
     await finalizeUsageReservation(service, {
       profileId: user.id,
@@ -156,7 +178,7 @@ async function persistScanExecution(
     visibleCount: number;
     visible: RankedSetup<ScanResult>[];
   },
-): Promise<void> {
+): Promise<string | null> {
   const { data: execution, error: executionError } = await service
     .from("scan_executions")
     .insert({
@@ -174,21 +196,99 @@ async function persistScanExecution(
 
   if (executionError || !execution) {
     console.error(`batch-scan: scan execution not recorded — ${executionError?.message}`);
-    return;
+    return null;
   }
 
-  if (args.visible.length === 0) return;
+  if (args.visible.length > 0) {
+    const rows = args.visible.map((v, i) => ({
+      scan_execution_id: execution.id,
+      profile_id: args.profileId,
+      symbol: v.value.symbol,
+      side: v.side,
+      rank: i + 1,
+    }));
 
-  const rows = args.visible.map((v, i) => ({
-    scan_execution_id: execution.id,
-    profile_id: args.profileId,
-    symbol: v.value.symbol,
-    side: v.side,
-    rank: i + 1,
-  }));
+    const { error: resultsError } = await service.from("visible_scan_results").insert(rows);
+    if (resultsError) {
+      console.error(`batch-scan: visible scan results not recorded — ${resultsError.message}`);
+    }
+  }
 
-  const { error: resultsError } = await service.from("visible_scan_results").insert(rows);
-  if (resultsError) {
-    console.error(`batch-scan: visible scan results not recorded — ${resultsError.message}`);
+  return execution.id as string;
+}
+
+/**
+ * Phase 3E: evaluates a monitor for every visible setup (WATCH/EXECUTE) and
+ * for every scanned-but-rejected symbol that already has an open monitor
+ * (INVALIDATED). Records a notification delivery for each transition that
+ * confirms WATCH -> EXECUTE. Best-effort throughout: a monitor/delivery
+ * failure must not turn an otherwise-successful scan into an error response.
+ */
+async function evaluateMonitorsForScan(
+  service: ReturnType<typeof createServiceClient>,
+  args: {
+    profileId: string;
+    source: string;
+    scanExecutionId: string;
+    visible: RankedSetup<ScanResult>[];
+    rejectedSymbols: Set<string>;
+    maxActiveWatchMonitors: Limit;
+  },
+): Promise<void> {
+  const notifyWorthy: { transitionId: string; symbol: string }[] = [];
+
+  for (const setup of args.visible) {
+    try {
+      const result = await evaluateMonitor(service, {
+        profileId: args.profileId,
+        symbol: setup.value.symbol,
+        source: args.source,
+        candidateState: setup.value.decision.outputState === "Execute" ? "EXECUTE" : "WATCH",
+        evaluationId: args.scanExecutionId,
+        maxActiveWatchMonitors: args.maxActiveWatchMonitors,
+      });
+      if (result.outcome === "applied" && result.notify && result.transitionId) {
+        notifyWorthy.push({ transitionId: result.transitionId, symbol: setup.value.symbol });
+      }
+    } catch (err) {
+      console.error(`batch-scan: monitor evaluation failed for ${setup.value.symbol} — ${String(err)}`);
+    }
+  }
+
+  for (const symbol of args.rejectedSymbols) {
+    try {
+      await evaluateMonitor(service, {
+        profileId: args.profileId,
+        symbol,
+        source: args.source,
+        candidateState: "INVALIDATED",
+        evaluationId: args.scanExecutionId,
+        maxActiveWatchMonitors: args.maxActiveWatchMonitors,
+      });
+    } catch (err) {
+      console.error(`batch-scan: monitor invalidation failed for ${symbol} — ${String(err)}`);
+    }
+  }
+
+  if (notifyWorthy.length === 0) return;
+
+  const channels = await getEnabledChannels(service, args.profileId).catch((err) => {
+    console.error(`batch-scan: enabled channels not resolved — ${String(err)}`);
+    return [];
+  });
+
+  for (const { transitionId, symbol } of notifyWorthy) {
+    for (const channel of channels) {
+      try {
+        await recordNotificationDelivery(service, {
+          transitionId,
+          profileId: args.profileId,
+          channel,
+          idempotencyKey: `${transitionId}:${channel}`,
+        });
+      } catch (err) {
+        console.error(`batch-scan: delivery not recorded for ${symbol}/${channel} — ${String(err)}`);
+      }
+    }
   }
 }
