@@ -191,6 +191,19 @@ export async function runScheduledScan(
   ];
   const eligibleCount = qualifying.length;
 
+  // A symbol this run actually gave a full multi-timeframe pass and found
+  // clean (no armed pattern, or no directional trade plan) is the same
+  // "Reject" signal app/api/batch-scan/route.ts derives from its own scan
+  // results -- so an existing monitor on it invalidates the same way. A
+  // symbol the reduced universe never looked at this run is NOT in
+  // `fullScanResults` and is correctly left alone (see the header comment
+  // above `fanOutToProfiles`).
+  const rejectedSymbols = new Set(
+    output.fullScanResults
+      .filter((r) => !r.error && (r.decision.outputState === "Reject" || r.direction === "none"))
+      .map((r) => r.symbol),
+  );
+
   const { data: inserted, error: insertError } = await service
     .from("scan_executions")
     .insert({
@@ -226,6 +239,7 @@ export async function runScheduledScan(
     scanExecutionId,
     source,
     qualifying,
+    rejectedSymbols,
   });
 
   logRunOutcome({
@@ -263,19 +277,23 @@ export async function runScheduledScan(
  * rest of the run -- a scheduled job serving hundreds of profiles cannot
  * let one bad row take the whole batch down.
  *
- * Deliberately does not build a `rejectedSymbols` set: unlike
- * app/api/batch-scan/route.ts (which scans an explicit ticker list and gets
- * an authoritative Reject verdict for every symbol it touched),
- * runMarketScan() only returns the qualifying bullish/bearish lists -- a
- * symbol a profile is watching that drops out of this run is not
- * distinguishable here from a symbol this run's reduced universe never
- * looked at. Invalidating a stale watch on a scheduled run's silence is a
- * product decision this file doesn't make; documented as a known gap in
- * docs/RUNBOOK.md's Phase 4 section rather than guessed at.
+ * `rejectedSymbols` (built by the caller from `output.fullScanResults`) is
+ * the same profile-independent set for every profile in this loop -- a
+ * symbol either got a full scan and came back clean this run, or it
+ * didn't, regardless of who's watching it. A symbol this run's reduced
+ * universe never looked at at all is correctly *not* in that set and is
+ * left alone -- distinct from "looked at and found nothing," which is what
+ * `fullScanResults` (unlike `bullish`/`bearish` alone) makes possible to
+ * tell apart. See lib/marketScan.ts#MarketScanOutput.fullScanResults.
  */
 async function fanOutToProfiles(
   service: ReturnType<typeof createServiceClient>,
-  args: { scanExecutionId: string; source: ScheduledScanSource; qualifying: RankedSetup<ScanResult>[] },
+  args: {
+    scanExecutionId: string;
+    source: ScheduledScanSource;
+    qualifying: RankedSetup<ScanResult>[];
+    rejectedSymbols: Set<string>;
+  },
 ): Promise<{ profilesFannedOut: number; profilesFailed: number; totalNotified: number }> {
   const { data: profiles, error } = await service.from("profiles").select("id, tier");
   if (error || !profiles) {
@@ -301,7 +319,7 @@ async function fanOutToProfiles(
         scanExecutionId: args.scanExecutionId,
         source: args.source,
         qualifying: args.qualifying,
-        rejectedSymbols: new Set<string>(),
+        rejectedSymbols: args.rejectedSymbols,
         maxDashboardSetupsPerScan: policy.maxDashboardSetupsPerScan,
         maxActiveWatchMonitors: policy.maxActiveWatchMonitors,
       });

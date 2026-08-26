@@ -265,8 +265,21 @@ successful run does real work.
 **Holiday / weekend behavior:** `isTradingDay()` (`lib/market/calendar.ts`)
 skips Saturdays, Sundays, and NYSE/Nasdaq full-day closures. Early-close
 days (e.g. the day after Thanksgiving) are *not* skipped — the module is
-deliberately narrow to full-day closures only; an early-close scan still
-runs at its normal time.
+deliberately narrow to full-day closures only.
+
+**Early close is a non-issue for these two jobs specifically, not an
+unhandled case:** early close only moves the market's *close* from 4:00 PM
+ET to 1:00 PM ET — the open stays 9:30 AM ET on every trading day,
+early-close or not. Morning Preparation (6:00 AM ET) and Confirmation
+(9:15 AM ET) both run before the open regardless, so neither job's
+behavior depends on when the market closes that day; there is nothing
+correct to gate on here. This would need real handling only if a future
+Phase 4/5 job were added that runs *near or after* close (the existing
+17:30 ET `/api/market-scan` post-close cron is the one job in this codebase
+that could be affected by an early close, and it predates and is out of
+scope for this Phase 4/5 work) — at that point a documented product policy
+for what "post-close" means on a 1:00 PM close would actually be needed,
+which is why one hasn't been invented here for a case that doesn't apply.
 
 **Observability:** every invocation emits one structured JSON log line
 (`event: "scheduled_scan_run"`) covering `runId`, `jobType` (the source),
@@ -280,15 +293,20 @@ between the caller's response and the Vercel log stream. `profilesFailed`
 nonzero on a `completed` outcome is the signal to grep logs for
 `fan-out failed for profile <id>` around that `runId`.
 
-**Known gap:** the scheduled fan-out (`fanOutToProfiles` in
-`scheduled-scan.ts`) never invalidates a profile's existing monitor for a
-symbol that silently drops out of this run's reduced-universe result set —
-`runMarketScan()` only returns qualifying bullish/bearish setups, not an
-authoritative Reject verdict for every symbol a profile might be watching
-(unlike `/api/batch-scan`, which scans an explicit ticker list). A stale
-Watch from a scheduled run is not proactively cleared by a later scheduled
-run; it still expires/updates via the user's own manual scans, the 08:30/
-17:30 ET `/api/market-scan` crons, or `active_monitors.expires_at`.
+**Monitor invalidation on a scheduled run:** `runMarketScan()` exposes
+`fullScanResults` — every symbol that received a full multi-timeframe pass
+this run (not just the `bullish`/`bearish` winners), including ones that
+armed nothing. `scheduled-scan.ts` builds `rejectedSymbols` from that set
+exactly the way `/api/batch-scan/route.ts` builds it from its own scan
+results, so a profile's existing Watch/Execute monitor on a symbol this run
+scanned and found clean *does* get invalidated — the same rule as a manual
+scan. The one case this still can't cover: a symbol the run's reduced
+universe (`MORNING_SCAN_UNIVERSE_TOP`/`MORNING_SCAN_PER_SIDE`) never
+selected for a full pass at all — that's "not evaluated," not "evaluated
+and rejected," and correctly stays untouched rather than being guessed at.
+Such a monitor still clears via the user's own manual scans, the 08:30/
+17:30 ET `/api/market-scan` crons (full universe), or
+`active_monitors.expires_at`.
 
 **Rollback / disable:** disable via the GitHub Actions workflow (Actions →
 the workflow → "..." → Disable workflow), or delete/comment out its
