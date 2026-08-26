@@ -12,9 +12,10 @@
  * at /api/guided/execute, which re-verifies everything again.
  */
 
+import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { killSwitchRefusal } from "@/lib/trade/kill-switch";
 import { readCapUsage } from "@/lib/guided/caps";
 import {
@@ -31,6 +32,8 @@ import {
   readGuidedAccount,
   type Recommendation,
 } from "@/lib/guided/service";
+import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
+import { finalizeUsageReservation, reserveUsageSlot } from "@/lib/entitlements/quota";
 
 export const dynamic = "force-dynamic";
 
@@ -83,46 +86,89 @@ export async function GET() {
       });
     }
 
-    // Whatever was on screen before this request is gone the moment this one
-    // answers, so it is resolved as expired rather than left `shown` forever.
-    // That keeps the three outcomes the ledger promises — executed, dismissed,
-    // expired — actually exhaustive, and it keeps a card open in another tab
-    // from staying tappable: a recommendation is single-use.
-    await expireOutstanding(supabase, user.id);
-
-    // The published list leads; `orderedCandidates` appends the wider universe
-    // behind it and applies the scan ceiling once. See lib/guided/universe.ts.
-    const published = await candidateSymbols(supabase);
-    const { recommendations, skipped, nearMiss, scanned } = await buildRecommendations({
-      symbols: orderedCandidates(published, MAX_CANDIDATES_SCANNED),
-      account,
-      caps,
-      deployedUsd: usage.deployedUsd,
+    // Phase 3C: guided_scan quota, metered from here -- after the structural
+    // blocks above (live brokerage, kill switch, Guided Mode's own risk/trade
+    // caps) so a request that never reaches the actual scan doesn't cost the
+    // user a daily unit for it.
+    const service = createServiceClient();
+    const policy = await getUserEntitlementPolicy(service, user.id);
+    const reservation = await reserveUsageSlot(service, {
+      profileId: user.id,
+      usageKey: "guided_scan",
+      limit: policy.guidedScansPerDay,
+      requestId: randomUUID(),
     });
 
-    const logged = await logRecommendations(supabase, user.id, recommendations, caps.riskPct, account.equity);
+    if (reservation.status === "quota_exceeded") {
+      return NextResponse.json({
+        enabled: false,
+        blockedReason: "Daily guided scan limit reached for your plan.",
+        disclosure: GUIDED_DISCLOSURE,
+        caps,
+        usage,
+        recommendations: [],
+        nearMiss: null,
+      });
+    }
+    const reservationId = reservation.reservationId!;
 
-    return NextResponse.json({
-      enabled: true,
-      blockedReason: null,
-      disclosure: GUIDED_DISCLOSURE,
-      caps,
-      usage,
-      recommendations: logged,
-      // Standing aside is a valid output: a scan that found nothing is not an
-      // error, and the UI says so rather than showing an empty list.
-      standAside: logged.length === 0,
-      // The closest candidate, when there was nothing to recommend. Carries no
-      // size, risk or reward and has no execute path — it exists so the screen
-      // explains itself rather than going blank. Deliberately NOT merged into
-      // `recommendations`: nothing downstream should be able to reach the buy
-      // flow with one of these.
-      nearMiss,
-      scanned,
-      // Not shown to the user by default — this is what a maintainer reads when
-      // a symbol they expected on the dashboard did not become a recommendation.
-      skipped,
-    });
+    try {
+      // Whatever was on screen before this request is gone the moment this one
+      // answers, so it is resolved as expired rather than left `shown` forever.
+      // That keeps the three outcomes the ledger promises — executed, dismissed,
+      // expired — actually exhaustive, and it keeps a card open in another tab
+      // from staying tappable: a recommendation is single-use.
+      await expireOutstanding(supabase, user.id);
+
+      // The published list leads; `orderedCandidates` appends the wider universe
+      // behind it and applies the scan ceiling once. See lib/guided/universe.ts.
+      const published = await candidateSymbols(supabase);
+      const { recommendations, skipped, nearMiss, scanned } = await buildRecommendations({
+        symbols: orderedCandidates(published, MAX_CANDIDATES_SCANNED),
+        account,
+        caps,
+        deployedUsd: usage.deployedUsd,
+      });
+
+      const logged = await logRecommendations(supabase, user.id, recommendations, caps.riskPct, account.equity);
+
+      // A completed scan that recommended nothing is still a completed scan --
+      // the reservation is finalized either way, never released for that reason.
+      await finalizeUsageReservation(service, { profileId: user.id, reservationId, status: "finalized" });
+
+      return NextResponse.json({
+        enabled: true,
+        blockedReason: null,
+        disclosure: GUIDED_DISCLOSURE,
+        caps,
+        usage,
+        recommendations: logged,
+        // Standing aside is a valid output: a scan that found nothing is not an
+        // error, and the UI says so rather than showing an empty list.
+        standAside: logged.length === 0,
+        // The closest candidate, when there was nothing to recommend. Carries no
+        // size, risk or reward and has no execute path — it exists so the screen
+        // explains itself rather than going blank. Deliberately NOT merged into
+        // `recommendations`: nothing downstream should be able to reach the buy
+        // flow with one of these.
+        nearMiss,
+        scanned,
+        // Not shown to the user by default — this is what a maintainer reads when
+        // a symbol they expected on the dashboard did not become a recommendation.
+        skipped,
+      });
+    } catch (err) {
+      // The scan itself failed before producing a completed result -- release
+      // the reservation rather than charge the user's daily quota for it.
+      await finalizeUsageReservation(service, {
+        profileId: user.id,
+        reservationId,
+        status: "released",
+      }).catch(() => {
+        // Best-effort: a failure here must not mask the original scan error.
+      });
+      throw err;
+    }
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : String(err) },
