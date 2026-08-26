@@ -10,6 +10,19 @@
  *
  * This route never places an order. Submission is a separate, deliberate step
  * at /api/guided/execute, which re-verifies everything again.
+ *
+ * Deliberately NOT wired to the Phase 3E Watch -> Execute monitor system
+ * (lib/entitlements/monitor-store.ts). Two independent reasons, not an
+ * oversight: GSPS_TIER_ENTITLEMENT_SPEC.md's "Eligible monitor sources" list
+ * excludes guided scans entirely (it names scheduled scans, manual dashboard
+ * scans, single-ticker scans, and Expert/Wall Street intraday -- guided
+ * scans are absent from that list); and a guided recommendation already has
+ * its own complete, deliberately single-use lifecycle (shown -> dismissed /
+ * executed / expired, logged to guided_recommendations, expired on every
+ * fresh load per `expireOutstanding` below) that a lingering WATCH/EXECUTE
+ * monitor would sit awkwardly alongside -- this mode's whole design is "one
+ * clear decision, right now," not something to keep watching after the
+ * user has already moved on. Confirmed 2026-08-26.
  */
 
 import { randomUUID } from "node:crypto";
