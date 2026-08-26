@@ -236,7 +236,7 @@ Or trigger the GitHub Actions workflow directly (Actions tab →
   holiday (`lib/market/calendar.ts`). Expected and correct.
 - `{ "skipped": "already_run", "scanExecutionId": "...", ... }` — a
   `scan_executions` row already exists for this `(source, market_date_et)`
-  pair (migration 0038's partial unique index). This is the idempotency
+  pair (migration 0040's partial unique index). This is the idempotency
   guarantee working as designed: a retry, a duplicate GitHub Actions run, or
   a manual re-invocation after a successful run does **not** re-scan,
   re-persist visible results, re-evaluate monitors, or re-send
@@ -345,7 +345,7 @@ invalidation-precedence rules.
 candidate transition (`cooldown` or `stale_evaluation`), it writes the
 reason and timestamp onto the monitor row itself
 (`active_monitors.last_suppressed_reason` / `last_suppressed_at`, migration
-0039) — a suppressed WATCH→EXECUTE flap is recorded, not silently dropped.
+0041) — a suppressed WATCH→EXECUTE flap is recorded, not silently dropped.
 A later evaluation that actually applies clears both columns, so a nonzero
 value always reflects the *most recent* evaluation's outcome, not stale
 history.
