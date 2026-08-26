@@ -22,11 +22,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { scanTicker } from "@/lib/scanTicker";
 import { redactScanResult } from "@/lib/scoring/public-summary";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { getUserEntitlementPolicy, type Limit } from "@/lib/entitlements/policy";
+import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 import { finalizeUsageReservation, reserveUsageSlot } from "@/lib/entitlements/quota";
 import { selectVisibleResults, type RankedSetup } from "@/lib/entitlements/result-selection";
-import { evaluateMonitor } from "@/lib/entitlements/monitor-store";
-import { getEnabledChannels, recordNotificationDelivery } from "@/lib/entitlements/delivery";
+import { evaluateMonitorsAndNotify } from "@/lib/entitlements/scan-fanout";
 import type { ScanResult } from "@/lib/types";
 
 const DEFAULT_WATCHLIST = [
@@ -127,7 +126,7 @@ export async function GET(req: NextRequest) {
       const rejectedSymbols = new Set(
         results.filter((r) => !r.error && (r.decision.outputState === "Reject" || r.direction === "none")).map((r) => r.symbol),
       );
-      await evaluateMonitorsForScan(service, {
+      await evaluateMonitorsAndNotify(service, {
         profileId: user.id,
         source: "manual_dashboard",
         scanExecutionId,
@@ -215,80 +214,4 @@ async function persistScanExecution(
   }
 
   return execution.id as string;
-}
-
-/**
- * Phase 3E: evaluates a monitor for every visible setup (WATCH/EXECUTE) and
- * for every scanned-but-rejected symbol that already has an open monitor
- * (INVALIDATED). Records a notification delivery for each transition that
- * confirms WATCH -> EXECUTE. Best-effort throughout: a monitor/delivery
- * failure must not turn an otherwise-successful scan into an error response.
- */
-async function evaluateMonitorsForScan(
-  service: ReturnType<typeof createServiceClient>,
-  args: {
-    profileId: string;
-    source: string;
-    scanExecutionId: string;
-    visible: RankedSetup<ScanResult>[];
-    rejectedSymbols: Set<string>;
-    maxActiveWatchMonitors: Limit;
-  },
-): Promise<void> {
-  const notifyWorthy: { transitionId: string; symbol: string }[] = [];
-
-  for (const setup of args.visible) {
-    try {
-      const result = await evaluateMonitor(service, {
-        profileId: args.profileId,
-        symbol: setup.value.symbol,
-        source: args.source,
-        candidateState: setup.value.decision.outputState === "Execute" ? "EXECUTE" : "WATCH",
-        evaluationId: args.scanExecutionId,
-        maxActiveWatchMonitors: args.maxActiveWatchMonitors,
-      });
-      if (result.outcome === "applied" && result.notify && result.transitionId) {
-        notifyWorthy.push({ transitionId: result.transitionId, symbol: setup.value.symbol });
-      }
-    } catch (err) {
-      console.error(`batch-scan: monitor evaluation failed for ${setup.value.symbol} — ${String(err)}`);
-    }
-  }
-
-  for (const symbol of args.rejectedSymbols) {
-    try {
-      await evaluateMonitor(service, {
-        profileId: args.profileId,
-        symbol,
-        source: args.source,
-        candidateState: "INVALIDATED",
-        evaluationId: args.scanExecutionId,
-        maxActiveWatchMonitors: args.maxActiveWatchMonitors,
-      });
-    } catch (err) {
-      console.error(`batch-scan: monitor invalidation failed for ${symbol} — ${String(err)}`);
-    }
-  }
-
-  if (notifyWorthy.length === 0) return;
-
-  const channels = await getEnabledChannels(service, args.profileId).catch((err) => {
-    console.error(`batch-scan: enabled channels not resolved — ${String(err)}`);
-    return [];
-  });
-
-  for (const { transitionId, symbol } of notifyWorthy) {
-    for (const channel of channels) {
-      try {
-        await recordNotificationDelivery(service, {
-          transitionId,
-          profileId: args.profileId,
-          channel,
-          idempotencyKey: `${transitionId}:${channel}`,
-        });
-      } catch (err) {
-        console.error(`batch-scan: delivery not recorded for ${symbol}/${channel} — ${String(err)}`);
-      }
-    }
-  }
 }

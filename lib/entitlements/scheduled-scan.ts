@@ -1,15 +1,23 @@
 /**
- * Phase 3D: shared trusted-job plumbing for the 6:00 AM and 9:15 AM ET
+ * Phase 4: shared trusted-job plumbing for the 6:00 AM and 9:15 AM ET
  * scheduled scans from docs/GSPS_TIER_ENTITLEMENT_SPEC.md. Both routes
  * (app/api/scans/morning-preparation, app/api/scans/morning-confirmation)
  * call this with only their `source` value differing.
  *
- * This intentionally stops at "the job ran, on a real trading day, outside
- * preview, and left an audit row" -- it does not persist per-user visible
- * results or create/update monitors. That fan-out is Phase 3E's job: what a
- * profile is entitled to see from these runs and how a result becomes a
- * monitored Watch/Execute candidate are lifecycle questions this migration's
- * schema (0036) supports but doesn't yet decide.
+ * Beyond the original Phase 3D scope (run the scan, leave one audit row),
+ * this now:
+ *  - is idempotent per (source, market date ET) via `scan_executions`'s
+ *    partial unique index (migration 0038) -- a GitHub Actions retry, a
+ *    manual re-invocation, or two racing workflow runs land the same
+ *    scan_executions row, not a second one.
+ *  - fans the scan's qualifying setups out to every profile via
+ *    lib/entitlements/scan-fanout.ts, applying that profile's tier-specific
+ *    visible-result cap, monitor lifecycle, and notification delivery --
+ *    the same server-authoritative pipeline app/api/batch-scan/route.ts
+ *    uses for a user-initiated scan. Never consumes manual_dashboard_scan
+ *    or guided_scan quota: this is system work, not a user action.
+ *  - fails closed (503) on a market-data provider failure rather than
+ *    persisting a partial/empty run as if it succeeded.
  *
  * The scan work itself reuses lib/marketScan.ts's runMarketScan() -- the
  * same engine the existing 08:30/17:30 ET `/api/market-scan` crons call --
@@ -29,6 +37,12 @@ import { NextResponse } from "next/server";
 import { runMarketScan } from "@/lib/marketScan";
 import { createServiceClient } from "@/lib/supabase/server";
 import { isTradingDay } from "@/lib/market/calendar";
+import { etDateKey } from "@/lib/market/session";
+import { getEntitlementPolicy } from "@/lib/entitlements/policy";
+import { fanOutForProfile } from "@/lib/entitlements/scan-fanout";
+import type { RankedSetup } from "@/lib/entitlements/result-selection";
+import type { ScanResult } from "@/lib/types";
+import type { PlatformTier } from "@/lib/tiers";
 
 export type ScheduledScanSource = "scheduled_morning_scan" | "scheduled_morning_confirmation_scan";
 
@@ -79,6 +93,8 @@ function isAuthorized(authorizationHeader: string | null): boolean {
   return Boolean(process.env.CRON_SECRET) && authorizationHeader === `Bearer ${process.env.CRON_SECRET}`;
 }
 
+const UNIQUE_VIOLATION = "23505";
+
 export async function runScheduledScan(
   authorizationHeader: string | null,
   source: ScheduledScanSource,
@@ -98,32 +114,152 @@ export async function runScheduledScan(
     return NextResponse.json({ skipped: "non_trading_day", source });
   }
 
-  const output = await runMarketScan(MORNING_SCAN_UNIVERSE_TOP, MORNING_SCAN_PER_SIDE);
-  const eligibleCount = output.bullish.length + output.bearish.length;
-
+  const marketDateEt = etDateKey(now);
   const service = createServiceClient();
-  const { error } = await service.from("scan_executions").insert({
-    profile_id: null,
-    source,
-    started_at: now.toISOString(),
-    finished_at: new Date().toISOString(),
-    // No per-user visibility cap applies to a system job with no profile --
-    // eligible and visible are equal here until Phase 3E fans this out per
-    // profile, at which point visible_count reflects each profile's cap.
-    eligible_count: eligibleCount,
-    visible_count: eligibleCount,
-    result_fresh_as_of: new Date().toISOString(),
-  });
-  if (error) {
-    console.error(`${source}: scan execution not recorded — ${error.message}`);
+
+  // Idempotency check-before-write: cheap and covers the common case (a
+  // manual re-invocation after a successful run). The unique index
+  // (migration 0038) is the actual guarantee against a concurrent racing
+  // run -- this lookup just avoids doing the expensive scan work first only
+  // to discard it on a 23505 below.
+  const { data: existingRun } = await service
+    .from("scan_executions")
+    .select("id, eligible_count, visible_count")
+    .eq("source", source)
+    .eq("market_date_et", marketDateEt)
+    .is("profile_id", null)
+    .maybeSingle();
+  if (existingRun) {
+    return NextResponse.json({
+      skipped: "already_run",
+      source,
+      marketDateEt,
+      scanExecutionId: existingRun.id,
+    });
   }
+
+  let output;
+  try {
+    output = await runMarketScan(MORNING_SCAN_UNIVERSE_TOP, MORNING_SCAN_PER_SIDE);
+  } catch (err) {
+    // Fail closed: an upstream provider failure must not grant access to a
+    // stale/partial signal or silently record an empty successful run.
+    console.error(`${source}: market scan failed — ${String(err)}`);
+    return NextResponse.json({ error: "Upstream market data unavailable", source }, { status: 503 });
+  }
+
+  const qualifying: RankedSetup<ScanResult>[] = [
+    ...output.bullish.map((r) => ({ side: "buy" as const, rank: r.decision.score, value: r })),
+    ...output.bearish.map((r) => ({ side: "sell" as const, rank: r.decision.score, value: r })),
+  ];
+  const eligibleCount = qualifying.length;
+
+  const { data: inserted, error: insertError } = await service
+    .from("scan_executions")
+    .insert({
+      profile_id: null,
+      source,
+      market_date_et: marketDateEt,
+      started_at: now.toISOString(),
+      finished_at: new Date().toISOString(),
+      // eligible/visible are equal on the shared system row -- per-profile
+      // visibility is recorded on each profile's own visible_scan_results
+      // rows below, not reflected back onto this row.
+      eligible_count: eligibleCount,
+      visible_count: eligibleCount,
+      result_fresh_as_of: new Date().toISOString(),
+    })
+    .select("id")
+    .single();
+
+  if (insertError) {
+    if (insertError.code === UNIQUE_VIOLATION) {
+      // Lost a race to a concurrent run of the same job/market-date -- the
+      // other run owns this scan; nothing left for this invocation to do.
+      return NextResponse.json({ skipped: "already_run", source, marketDateEt });
+    }
+    console.error(`${source}: scan execution not recorded — ${insertError.message}`);
+    return NextResponse.json({ error: "Failed to record scan execution", source }, { status: 503 });
+  }
+
+  const scanExecutionId = (inserted as { id: string }).id;
+  const fanOut = await fanOutToProfiles(service, {
+    scanExecutionId,
+    source,
+    qualifying,
+  });
 
   return NextResponse.json({
     source,
+    marketDateEt,
     scanDate: output.scanDate,
     universeSize: output.universeSize,
     shortlisted: output.shortlisted,
     scanErrors: output.scanErrors,
     eligibleCount,
+    scanExecutionId,
+    profilesFannedOut: fanOut.profilesFannedOut,
+    profilesFailed: fanOut.profilesFailed,
+    totalNotified: fanOut.totalNotified,
   });
+}
+
+/**
+ * Fans the shared scan's qualifying setups out to every profile, applying
+ * each profile's own tier-derived visible-result cap and monitor capacity.
+ * One profile's failure is logged and skipped, never allowed to abort the
+ * rest of the run -- a scheduled job serving hundreds of profiles cannot
+ * let one bad row take the whole batch down.
+ *
+ * Deliberately does not build a `rejectedSymbols` set: unlike
+ * app/api/batch-scan/route.ts (which scans an explicit ticker list and gets
+ * an authoritative Reject verdict for every symbol it touched),
+ * runMarketScan() only returns the qualifying bullish/bearish lists -- a
+ * symbol a profile is watching that drops out of this run is not
+ * distinguishable here from a symbol this run's reduced universe never
+ * looked at. Invalidating a stale watch on a scheduled run's silence is a
+ * product decision this file doesn't make; documented as a known gap in
+ * docs/RUNBOOK.md's Phase 4 section rather than guessed at.
+ */
+async function fanOutToProfiles(
+  service: ReturnType<typeof createServiceClient>,
+  args: { scanExecutionId: string; source: ScheduledScanSource; qualifying: RankedSetup<ScanResult>[] },
+): Promise<{ profilesFannedOut: number; profilesFailed: number; totalNotified: number }> {
+  const { data: profiles, error } = await service.from("profiles").select("id, tier");
+  if (error || !profiles) {
+    console.error(`${args.source}: could not list profiles for fan-out — ${error?.message}`);
+    return { profilesFannedOut: 0, profilesFailed: 0, totalNotified: 0 };
+  }
+
+  let profilesFannedOut = 0;
+  let profilesFailed = 0;
+  let totalNotified = 0;
+
+  for (const profile of profiles as { id: string; tier: PlatformTier | null }[]) {
+    const policy = getEntitlementPolicy(profile.tier ?? "PRACTICE");
+    const scheduleEnabled =
+      args.source === "scheduled_morning_scan"
+        ? policy.morningPreparationScanEnabled
+        : policy.morningConfirmationScanEnabled;
+    if (!scheduleEnabled) continue;
+
+    try {
+      const outcome = await fanOutForProfile(service, {
+        profileId: profile.id,
+        scanExecutionId: args.scanExecutionId,
+        source: args.source,
+        qualifying: args.qualifying,
+        rejectedSymbols: new Set<string>(),
+        maxDashboardSetupsPerScan: policy.maxDashboardSetupsPerScan,
+        maxActiveWatchMonitors: policy.maxActiveWatchMonitors,
+      });
+      profilesFannedOut += 1;
+      totalNotified += outcome.notifiedCount;
+    } catch (err) {
+      profilesFailed += 1;
+      console.error(`${args.source}: fan-out failed for profile ${profile.id} — ${String(err)}`);
+    }
+  }
+
+  return { profilesFannedOut, profilesFailed, totalNotified };
 }

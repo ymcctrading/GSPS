@@ -207,3 +207,129 @@ git push origin main   # this redeploys production automatically
 
 Do both when the bad commit is staying out: promote first to stop the
 bleeding, then revert so the next merge doesn't carry it back in.
+
+## Phase 4 — Morning Preparation / Confirmation scheduled scans
+
+`/api/scans/morning-preparation` (6:00 AM ET) and
+`/api/scans/morning-confirmation` (9:15 AM ET) are trusted, cron-secret-gated
+jobs (`lib/entitlements/scheduled-scan.ts`), invoked by
+`.github/workflows/morning-preparation-scan.yml` /
+`morning-confirmation-scan.yml` rather than `vercel.json` (both Vercel Hobby
+cron slots are already spent — see `docs/THIRD_PARTY_LIMITS.md`).
+
+**Manual invocation** (safe to run any time — every guard below still
+applies):
+
+```bash
+curl -sS -H "Authorization: Bearer $CRON_SECRET" \
+  https://gsps.vercel.app/api/scans/morning-preparation
+```
+
+Or trigger the GitHub Actions workflow directly (Actions tab →
+"Morning Preparation scan" / "Morning Confirmation scan" → Run workflow).
+
+**Expected response shapes:**
+
+- `{ "skipped": "preview_environment", ... }` — running against a preview
+  deployment; no scan, no writes, no notifications. Expected and correct.
+- `{ "skipped": "non_trading_day", ... }` — weekend or a full-day market
+  holiday (`lib/market/calendar.ts`). Expected and correct.
+- `{ "skipped": "already_run", "scanExecutionId": "...", ... }` — a
+  `scan_executions` row already exists for this `(source, market_date_et)`
+  pair (migration 0038's partial unique index). This is the idempotency
+  guarantee working as designed: a retry, a duplicate GitHub Actions run, or
+  a manual re-invocation after a successful run does **not** re-scan,
+  re-persist visible results, re-evaluate monitors, or re-send
+  notifications. Not an error.
+- `{ "source", "marketDateEt", "eligibleCount", "scanExecutionId",
+  "profilesFannedOut", "profilesFailed", "totalNotified", ... }` — a real
+  run. `profilesFailed` should normally be `0`; a nonzero value means one or
+  more profiles' fan-out (visible results / monitors / notifications)
+  failed and was logged — check application logs for
+  `fan-out failed for profile <id>` around this run's timestamp. The run
+  itself still succeeds even if some profiles fail.
+- `503` with `{ "error": "Upstream market data unavailable" }` — the market
+  scan itself failed (provider outage/timeout). Fails closed: nothing is
+  persisted, no stale signal is served. Safe to retry once the provider
+  recovers; the next successful call still lands under the same market date.
+- `401` — missing/invalid `Authorization` header. Confirms the trusted-job
+  gate is not accepting ordinary browser calls.
+
+**Idempotency / retry:** the job/run key is `(source, market_date_et)` where
+`market_date_et` is the America/New_York calendar date at call time
+(`lib/market/session.ts#etDateKey`), computed correctly across DST since it
+reads the wall-clock date in that IANA zone rather than a fixed UTC offset.
+Safe to re-run any number of times for the same market date; only the first
+successful run does real work.
+
+**Holiday / weekend behavior:** `isTradingDay()` (`lib/market/calendar.ts`)
+skips Saturdays, Sundays, and NYSE/Nasdaq full-day closures. Early-close
+days (e.g. the day after Thanksgiving) are *not* skipped — the module is
+deliberately narrow to full-day closures only; an early-close scan still
+runs at its normal time.
+
+**Known gap:** the scheduled fan-out (`fanOutToProfiles` in
+`scheduled-scan.ts`) never invalidates a profile's existing monitor for a
+symbol that silently drops out of this run's reduced-universe result set —
+`runMarketScan()` only returns qualifying bullish/bearish setups, not an
+authoritative Reject verdict for every symbol a profile might be watching
+(unlike `/api/batch-scan`, which scans an explicit ticker list). A stale
+Watch from a scheduled run is not proactively cleared by a later scheduled
+run; it still expires/updates via the user's own manual scans, the 08:30/
+17:30 ET `/api/market-scan` crons, or `active_monitors.expires_at`.
+
+**Rollback / disable:** disable via the GitHub Actions workflow (Actions →
+the workflow → "..." → Disable workflow), or delete/comment out its
+`schedule:` trigger. This does not touch `CRON_SECRET` or any other
+schedule. No production data needs cleanup — a disabled schedule simply
+stops creating new `scan_executions` rows.
+
+## Phase 5 — Watch → Execute monitor & notification delivery
+
+`lib/entitlements/monitor.ts` (pure state-machine decision),
+`monitor-store.ts` (database-backed evaluation), and `delivery.ts`
+(idempotent delivery ledger + send) implement the WATCH → EXECUTE lifecycle.
+`lib/entitlements/scan-fanout.ts` wires them into every scan path
+(`/api/batch-scan` and the two scheduled jobs above) identically, so a user-
+initiated scan and a scheduled scan apply the same cooldown, re-arm, and
+invalidation-precedence rules.
+
+**Expected behavior:**
+
+- A monitor is created WATCH or born directly EXECUTE only for a *visible*
+  (post-cap) setup — a qualifying setup the tier's result-visibility cap
+  dropped never reaches `evaluateMonitor` and cannot be watched or alerted
+  on.
+- Notification sends only on a confirmed prior-WATCH → candidate-EXECUTE
+  transition (`decideTransition` in `monitor.ts`), never on a monitor born
+  directly into EXECUTE.
+- Re-arm requires leaving EXECUTE, returning to WATCH, and reconfirming
+  EXECUTE before another alert — enforced by `lastExecuteAt` cooldown lookup
+  plus the state machine's transition rules, not by application-side timers.
+- A newer evaluation (`candidateEvaluatedAt`) never regresses a monitor to
+  an older read (`stale_evaluation`), which is what makes out-of-order
+  concurrent evaluations (e.g. the 6:00 and 9:15 jobs racing a manual scan)
+  safe.
+
+**Delivery retry:** `recordNotificationDelivery` inserts a `pending` row
+under a unique `idempotency_key` (`<transitionId>:<channel>`);
+`dispatchNotificationDelivery` re-reads the row immediately before sending
+and only proceeds if it is still `pending`. A delivery already `sent` is
+never re-sent, including by a future retry sweep — check
+`notification_deliveries.status` before assuming a `failed` row needs
+attention; `failed` rows are safe to retry (call
+`dispatchNotificationDelivery` again with the same `deliveryId`), `sent`
+rows are not touched.
+
+**Preview:** `runScheduledScan`'s preview guard means no scheduled-path
+notification is ever sent in preview. `/api/batch-scan`'s manual path is
+gated only by `getEnabledChannels`/user notification preferences — a signed-
+in preview user who has notifications enabled and email configured (i.e.
+`RESEND_API_KEY` set on that deployment) *can* receive a real email from a
+manual scan. Do not set `RESEND_API_KEY` on preview deployments unless that
+is an accepted, explicit exception.
+
+**Rollback / disable:** to stop all outbound sends without touching schema
+or code, unset `RESEND_API_KEY` on the deployment — `sendAlertEmail`
+short-circuits to `{ success: false }` and every delivery lands `failed`
+rather than silently vanishing (the ledger row still records the attempt).
