@@ -446,6 +446,19 @@ export interface MarketScanOutput {
    * fills weren't attempted on a run that was running long.
    */
   continuationSkipped: boolean;
+  /**
+   * Every symbol that received a full multi-timeframe `scanTicker` pass this
+   * run (the reversion shortlist plus any continuation top-up candidates),
+   * regardless of whether it made `bullish`/`bearish` — including symbols
+   * that armed nothing (`Reject`) or armed no directional pattern
+   * (`direction: "none"`). `bullish`/`bearish` only publish the top
+   * `perSide` winners; this is the full graded set behind them, needed by
+   * any caller that has to distinguish "scanned and found clean" from
+   * "never looked at this run" for a symbol it cares about (e.g. deciding
+   * whether to invalidate an existing Watch/Execute monitor — see
+   * lib/entitlements/scheduled-scan.ts).
+   */
+  fullScanResults: ScanResult[];
 }
 
 async function mapWithConcurrency<T, R>(
@@ -731,5 +744,6 @@ export async function runMarketScan(universeTop = 100, perSide = 15): Promise<Ma
     scanErrors,
     coarseTelemetry,
     continuationSkipped,
+    fullScanResults: [...fullScanResults.values()],
   };
 }

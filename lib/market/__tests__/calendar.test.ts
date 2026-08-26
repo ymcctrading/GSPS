@@ -84,6 +84,22 @@ describe("isMarketHoliday / isTradingDay", () => {
     expect(isTradingDay(saturday)).toBe(false);
     expect(isTradingDay(sunday)).toBe(false);
   });
+
+  it("resolves the correct ET calendar date across both EST (UTC-5) and EDT (UTC-4) — not a fixed UTC offset", () => {
+    // 04:30 UTC in January is 23:30 the *previous* ET day under EST
+    // (UTC-5). A fixed UTC-4 offset would misread this as the same UTC
+    // date instead of rolling back a day -- this is exactly the class of
+    // bug a Date-timezone-aware calendar (Intl, not a hardcoded offset)
+    // must not have, since the 6:00/9:15 ET scheduled scans compute their
+    // job idempotency key from this same function.
+    expect(etDateKey(new Date("2026-01-15T04:30:00Z"))).toBe("2026-01-14");
+    // The same wall-clock UTC hour (04:30) in July, under EDT (UTC-4),
+    // stays on the *same* UTC calendar date (00:30 ET) -- a fixed UTC-5
+    // offset would wrongly roll it back a day the way EST correctly does
+    // above. Only a real timezone-aware read (Intl, not a hardcoded
+    // offset) gets both of these right at once.
+    expect(etDateKey(new Date("2026-07-15T04:30:00Z"))).toBe("2026-07-15");
+  });
 });
 
 function weekdayName(date: Date): string {

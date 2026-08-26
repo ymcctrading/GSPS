@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { evaluateMonitor } from "@/lib/entitlements/monitor-store";
+import { evaluateMonitor, FAIR_USE_MAX_ACTIVE_MONITORS } from "@/lib/entitlements/monitor-store";
 
 /**
  * Minimal in-memory fake covering exactly the query shapes
@@ -275,6 +275,91 @@ describe("evaluateMonitor", () => {
       candidateState: "WATCH", evaluationId: "e1", maxActiveWatchMonitors: "unlimited",
     });
     expect(result.outcome).toBe("applied");
+  });
+
+  it("persists the suppression reason on the monitor row for a cooldown-suppressed flap", async () => {
+    const { client, monitors } = fakeStore();
+    const t0 = new Date("2026-08-26T14:00:00Z");
+    await evaluateMonitor(client, {
+      profileId: "p1", symbol: "AAPL", source: "manual_dashboard",
+      candidateState: "WATCH", evaluationId: "e0", maxActiveWatchMonitors: 15, now: t0,
+    });
+    await evaluateMonitor(client, {
+      profileId: "p1", symbol: "AAPL", source: "manual_dashboard",
+      candidateState: "EXECUTE", evaluationId: "e1", maxActiveWatchMonitors: 15,
+      now: new Date(t0.getTime() + 60_000), cooldownMs: 15 * 60_000,
+    });
+    await evaluateMonitor(client, {
+      profileId: "p1", symbol: "AAPL", source: "manual_dashboard",
+      candidateState: "WATCH", evaluationId: "e2", maxActiveWatchMonitors: 15,
+      now: new Date(t0.getTime() + 120_000), cooldownMs: 15 * 60_000,
+    });
+
+    const flap = await evaluateMonitor(client, {
+      profileId: "p1", symbol: "AAPL", source: "manual_dashboard",
+      candidateState: "EXECUTE", evaluationId: "e3", maxActiveWatchMonitors: 15,
+      now: new Date(t0.getTime() + 180_000), cooldownMs: 15 * 60_000,
+    });
+
+    expect(flap).toEqual({ outcome: "skipped", reason: "cooldown" });
+    expect(monitors[0]).toMatchObject({ last_suppressed_reason: "cooldown" });
+    expect(monitors[0].last_suppressed_at).toBeTruthy();
+  });
+
+  it("clears a prior suppression once a later evaluation actually applies", async () => {
+    const { client, monitors } = fakeStore();
+    const t0 = new Date("2026-08-26T14:00:00Z");
+    await evaluateMonitor(client, {
+      profileId: "p1", symbol: "AAPL", source: "manual_dashboard",
+      candidateState: "WATCH", evaluationId: "e0", maxActiveWatchMonitors: 15, now: t0,
+    });
+    await evaluateMonitor(client, {
+      profileId: "p1", symbol: "AAPL", source: "manual_dashboard",
+      candidateState: "EXECUTE", evaluationId: "e1", maxActiveWatchMonitors: 15,
+      now: new Date(t0.getTime() + 60_000), cooldownMs: 15 * 60_000,
+    });
+    await evaluateMonitor(client, {
+      profileId: "p1", symbol: "AAPL", source: "manual_dashboard",
+      candidateState: "WATCH", evaluationId: "e2", maxActiveWatchMonitors: 15,
+      now: new Date(t0.getTime() + 120_000), cooldownMs: 15 * 60_000,
+    });
+    // Suppressed by cooldown -- sets last_suppressed_reason.
+    await evaluateMonitor(client, {
+      profileId: "p1", symbol: "AAPL", source: "manual_dashboard",
+      candidateState: "EXECUTE", evaluationId: "e3", maxActiveWatchMonitors: 15,
+      now: new Date(t0.getTime() + 180_000), cooldownMs: 15 * 60_000,
+    });
+    expect(monitors[0].last_suppressed_reason).toBe("cooldown");
+
+    // Past the cooldown window -- applies, and should clear the suppression.
+    await evaluateMonitor(client, {
+      profileId: "p1", symbol: "AAPL", source: "manual_dashboard",
+      candidateState: "EXECUTE", evaluationId: "e4", maxActiveWatchMonitors: 15,
+      now: new Date(t0.getTime() + 20 * 60_000), cooldownMs: 15 * 60_000,
+    });
+
+    expect(monitors[0].last_suppressed_reason).toBeNull();
+    expect(monitors[0].last_suppressed_at).toBeNull();
+  });
+
+  it("still enforces a fair-use ceiling for a tier with an 'unlimited' monitor limit", async () => {
+    const { client, monitors } = fakeStore();
+    for (let i = 0; i < FAIR_USE_MAX_ACTIVE_MONITORS; i++) {
+      monitors.push({
+        id: randomUUID(),
+        profile_id: "p1",
+        symbol: `SYM${i}`,
+        state: "WATCH",
+        created_at: new Date().toISOString(),
+      });
+    }
+
+    const result = await evaluateMonitor(client, {
+      profileId: "p1", symbol: "NEWSYM", source: "manual_dashboard",
+      candidateState: "WATCH", evaluationId: "e0", maxActiveWatchMonitors: "unlimited",
+    });
+
+    expect(result).toEqual({ outcome: "capacity_exceeded" });
   });
 
   it("invalidates an existing open monitor", async () => {
