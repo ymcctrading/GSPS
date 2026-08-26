@@ -19,7 +19,7 @@ This specification is the server-authoritative product contract for GSPS plans, 
 | Manual ticker scans | Included, fair use | Included, fair use | Included, fair use | Included, fair use |
 | GSPS School | Included | Included | Included | Included |
 | Watch → Execute alerts | Included within capacity | Included within capacity | Included within capacity | Included within fair-use capacity |
-| Automation | No | Yes | Yes | Yes |
+| Automation | No | No | No | Yes |
 | Intraday scans/movement | No | No | Yes | Yes |
 | Backtesting | No | No | No | Yes |
 
@@ -28,7 +28,7 @@ This specification is the server-authoritative product contract for GSPS plans, 
 | Capacity | Novice | Pro | Expert | Wall Street |
 |---|---:|---:|---:|---:|
 | Active Watch → Execute monitors | 15 | 50 | 150 | Unlimited, fair use |
-| Automation workflows | 0 | 5 | 20 | Unlimited, fair use |
+| Automation workflows | 0 | 0 | 0 | Unlimited, fair use |
 | Custom alert rules | 10 | 50 | 200 | Unlimited, fair use |
 | Saved watchlists | 3 | 10 | 25 | Unlimited, fair use |
 | Symbols/watchlist | 25 | 100 | 250 | Unlimited, fair use |
@@ -131,3 +131,7 @@ Implementation should proceed through independently reviewable pull requests in 
 7. Tests, lint, typecheck, build, and preview verification.
 
 No implementation PR may merge, deploy, apply a production migration, change production configuration, expose or write secrets, change plans, or alter Phase 0 PR #116 without separate action-specific approval.
+
+## Correction (2026-08-26)
+
+Automation was originally listed above as available to Pro, Expert, and Wall Street (the Plan entitlements table's Automation row, and the Operational capacities table's Automation-workflows row, read Yes/5/20 for those three tiers). That conflicted with what was already shipped and confirmed as intentional: `/automation`'s gate (`autonomous_portfolio_manager` in `lib/tiers.ts`, from an earlier PR) has always been Wall Street (`SYSTEM_MASTERY`) only. Corrected here to No/No/No/Yes and 0/0/0/Unlimited to match — confirmed by direct product decision rather than widened to meet this document's original draft.
