@@ -4,7 +4,7 @@
  * rules can be tested directly. lib/entitlements/monitor-store.ts is the
  * database-backed wrapper that calls this with real monitor rows.
  *
- * Required state machine (GSPS_TIER_ENTITLEMENT_SPEC.md):
+ * Required state machine (docs/GSPS_TIER_ENTITLEMENT_SPEC.md):
  *   WATCH -> EXECUTE -> (INVALIDATED | EXPIRED | NO_SETUP)
  *   WATCH -> INVALIDATED | EXPIRED | NO_SETUP
  *   INVALIDATED/EXPIRED/NO_SETUP -> WATCH -> EXECUTE (a new valid transition)

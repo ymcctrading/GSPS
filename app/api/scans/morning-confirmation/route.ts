@@ -1,7 +1,7 @@
 /**
  * GSPS — /api/scans/morning-confirmation
  *
- * The 9:15 AM ET confirmation scan from GSPS_TIER_ENTITLEMENT_SPEC.md --
+ * The 9:15 AM ET confirmation scan from docs/GSPS_TIER_ENTITLEMENT_SPEC.md --
  * included on every tier, does not consume any user's manual_dashboard_scan
  * or guided_scan quota. Cron-invoked with the same
  * `Authorization: Bearer CRON_SECRET` pattern as /api/market-scan.

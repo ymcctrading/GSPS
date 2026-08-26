@@ -1,7 +1,7 @@
 /**
  * Phase 3C: server-side dashboard result-visibility cap.
  *
- * Applies GSPS_TIER_ENTITLEMENT_SPEC.md's "Setup-result visibility" rule to
+ * Applies docs/GSPS_TIER_ENTITLEMENT_SPEC.md's "Setup-result visibility" rule to
  * a scanned batch: rank qualifying setups, cap the count at the caller's
  * `maxDashboardSetupsPerScan`, and — for Novice specifically — prefer up to
  * 3 Buy and 3 Sell before backfilling from the other side. Never fabricates

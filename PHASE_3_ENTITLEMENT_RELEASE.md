@@ -2,12 +2,14 @@
 
 Consolidated record for the Phase 3A–3G work on `claude/perplexity-audit-phases-53la8l`
 (PR #118), against the contract in `GSPS_CLAUDE_CODE_IMPLEMENTATION_HANDOFF.md`
-and `GSPS_TIER_ENTITLEMENT_SPEC.md`. Written at the end of Phase 3G per that
+and `docs/GSPS_TIER_ENTITLEMENT_SPEC.md`. Written at the end of Phase 3G per that
 handoff's "G. Full test, preview verification, release documentation" step.
 
-**Nothing described here has been merged, deployed, or applied to any
-database.** Every item under "Remaining actions requiring explicit
-confirmation" is still open.
+**Update (2026-08-26, post-3G):** migrations `0036` and `0037` have since
+been applied directly to production (`vebhpmmzxixlhujlptue`) per explicit
+direct instruction — see "Known risks" and "Remaining actions" below for
+what that means and what's still open. Nothing else described here
+(route/library code, PR #116/#117 merges) had happened as of this writing.
 
 ## What shipped, by phase
 
@@ -47,13 +49,17 @@ path only).
 **Workflows added**: `.github/workflows/morning-preparation-scan.yml`,
 `morning-confirmation-scan.yml`.
 
-**Docs added at repo root** (mirroring in-progress PR docs and the session's
-source PDFs, so a future session has them without checking out other
-branches): `GSPS_CLAUDE_CODE_IMPLEMENTATION_HANDOFF.md`,
+**Docs added at repo root** (mirroring the session's source PDFs so a future
+session has them without hunting them down again):
+`GSPS_CLAUDE_CODE_IMPLEMENTATION_HANDOFF.md`,
 `GSPS_PHASE1_CLAUDE_CODE_IMPLEMENTATION_INSTRUCTIONS.md`,
-`GSPS_DOCTRINE_ALIGNMENT_AUDIT.md`, `PHASE_0_SECURITY_DEFINER_RPC_ROLLOUT.md`,
-`GSPS_TIER_ENTITLEMENT_SPEC.md`. **Docs updated**:
+`GSPS_DOCTRINE_ALIGNMENT_AUDIT.md`. **Docs updated**:
 `docs/THIRD_PARTY_LIMITS.md` (new scheduled jobs + upgrade path).
+(The root-level mirrors of `docs/GSPS_TIER_ENTITLEMENT_SPEC.md` and
+`docs/operations/PHASE_0_SECURITY_DEFINER_RPC_ROLLOUT.md` that existed
+earlier in this branch's history were removed once PR #116/#117 — which
+carry the canonical copies — were confirmed to still be merging, to avoid
+landing two copies of the same doc on `main`.)
 
 **Migrations added**: `0036_entitlement_usage_and_monitors.sql`,
 `0037_grant_all_profiles_wall_street.sql`.
@@ -75,7 +81,8 @@ RPCs: `reserve_usage_slot` and `finalize_usage_reservation`, both
 `SECURITY INVOKER`, both with `EXECUTE` explicitly revoked from
 `anon`/`authenticated` and granted only to `service_role` — applying the
 same lesson this session's Phase 0 audit found missing on
-`referral_stats()` (see `PHASE_0_SECURITY_DEFINER_RPC_ROLLOUT.md`) from the
+`referral_stats()` (see PR #116's rollout doc,
+`docs/operations/PHASE_0_SECURITY_DEFINER_RPC_ROLLOUT.md`) from the
 start rather than retrofitting it.
 
 ### `0037_grant_all_profiles_wall_street.sql`
@@ -135,11 +142,12 @@ $ npm run build
 (exit 0; all routes including the 4 new ones compile)
 ```
 
-No Playwright/e2e run in this session (no live Supabase project available
-in this environment — same limitation noted in PR #85's own verification
-section). Manual preview verification (see below) still needs to happen
-against an actual deployed preview once these migrations are applied to a
-non-production database.
+No Playwright/e2e run in this session (no separate non-production Supabase
+project was available to exercise these migrations against before they
+were applied directly to production — see "Known risks" below; same
+limitation noted in PR #85's own verification section for its own
+end-to-end coverage). Manual preview verification against a live Vercel
+preview deployment of PR #118 still hasn't happened.
 
 ## Rollback
 
@@ -149,7 +157,7 @@ non-production database.
 
 ## Deferred / deliberately excluded (not gaps to silently fill later)
 
-- **Guided scans are not wired to monitors.** `GSPS_TIER_ENTITLEMENT_SPEC.md`'s eligible-monitor-source list excludes them, and Guided Mode's own single-use shown/dismissed/executed/expired lifecycle would conflict with a lingering Watch/Execute monitor. Evaluated explicitly this session (2026-08-26); see `app/api/guided/route.ts`'s header comment.
+- **Guided scans are not wired to monitors.** `docs/GSPS_TIER_ENTITLEMENT_SPEC.md`'s eligible-monitor-source list excludes them, and Guided Mode's own single-use shown/dismissed/executed/expired lifecycle would conflict with a lingering Watch/Execute monitor. Evaluated explicitly this session (2026-08-26); see `app/api/guided/route.ts`'s header comment.
 - **Scheduled-scan (6:00/9:15 ET) output does not fan out into per-user monitors or visible results.** Those jobs have no per-profile entitlement context (`profile_id = null`) — deciding which profiles are "entitled" to a system-wide scan's output is a separate design question this phase didn't answer.
 - **No automatic time-based `EXPIRED` sweep.** The state exists in the type system; nothing currently transitions a monitor into it based on elapsed time.
 - **No actual notification dispatch.** `notification_deliveries` rows are recorded idempotently at `status: 'pending'`; sending the email/SMS/push itself is separate, pre-existing infrastructure (`lib/notifications`) that a future PR would wire to those rows.
@@ -158,18 +166,18 @@ non-production database.
 
 ## Known risks
 
-- **Migration drift** (flagged in the original audit, not re-verified this session): production's applied-migration history was reported as timestamp-based and not cleanly mapped to this repo's numbered files, with `list_branches` showing `MIGRATIONS_FAILED` against an `ACTIVE_HEALTHY` project. Neither 0036 nor 0037 should be applied to production until that reconciliation happens or is confirmed resolved.
-- **0037's blast radius**: it changes every existing user's billing tier to the top paid tier for free. This bypasses whatever revenue the `platform_tier`/Stripe system was otherwise metering for current users. Confirmed as an intentional, direct decision (2026-08-26) — flagged here so it's a documented decision, not a quiet side effect discovered later.
-- **Phase 0 (PR #116) is a separate, still-unmerged prerequisite** for the six locked-down RPCs; this phase's new RPCs (`reserve_usage_slot`, `finalize_usage_reservation`) already ship service-role-only from the start, so they don't carry the same exposure Phase 0 is fixing retroactively — but Phase 0 itself is unrelated open work.
-- **No non-production environment was available this session** to actually apply either migration and exercise it end-to-end (same limitation the original audit and PR #85 both hit). Everything above is verified at the unit-test and static-analysis level, not against a live database.
+- **Migration drift** (flagged in the original audit, not independently re-verified beyond the targeted checks below): production's applied-migration history was reported as timestamp-based and not cleanly mapped to this repo's numbered files, with `list_branches` showing `MIGRATIONS_FAILED` against an `ACTIVE_HEALTHY` project. Before applying 0036/0037, `list_migrations` was checked directly and confirmed production's history runs cleanly through the equivalent of 0035 (`referrals`), and the specific column/type/table dependencies both new migrations need (`platform_tier`'s `SYSTEM_MASTERY` value, `profiles.tier`, `notification_channel`/`notification_status`) were confirmed present beforehand — the broader reconciliation the original audit called for was not redone in full.
+- **0036/0037 are now applied to production**, per direct instruction (2026-08-26). Post-apply verification: all 6 new tables present with RLS enabled, both new RPCs present, all 15 existing profiles confirmed at `SYSTEM_MASTERY`, and the security advisor shows the same 14 pre-existing warnings as the pre-apply baseline (i.e., 0036 introduced zero new exposure).
+- **0037's blast radius**: it changed every existing user's billing tier to the top paid tier for free, immediately. This bypasses whatever revenue the `platform_tier`/Stripe system was otherwise metering for current users. Confirmed as an intentional, direct decision (2026-08-26) — flagged here so it's a documented decision, not a quiet side effect discovered later.
+- **Phase 0 (PR #116) is a separate prerequisite** for the six locked-down RPCs; this phase's new RPCs (`reserve_usage_slot`, `finalize_usage_reservation`) already shipped service-role-only from the start, so they don't carry the same exposure Phase 0 is fixing retroactively — but Phase 0's own migration (the RPC lockdown) is still unapplied to production as of this writing.
+- **No non-production environment was available this session** to exercise either migration end-to-end before applying it to production (same limitation the original audit and PR #85 both hit) — the checks above are schema/advisor-level, not a live application smoke test against the new routes.
 
 ## Remaining actions requiring explicit confirmation
 
-Per the standing rule (and `GSPS_CLAUDE_CODE_IMPLEMENTATION_HANDOFF.md`'s own list), none of the following have been done and none should happen without a separate, specific go-ahead:
+Per the standing rule (and `GSPS_CLAUDE_CODE_IMPLEMENTATION_HANDOFF.md`'s own list):
 
-- Apply `0036_entitlement_usage_and_monitors.sql` to any database (production or otherwise).
-- Apply `0037_grant_all_profiles_wall_street.sql` to any database.
-- Apply Phase 0's RPC lockdown migration (PR #116, separate branch) to production.
-- Merge PR #118 into `main` (which, on this repo, is itself a production deploy).
-- Merge PR #116 or PR #117.
+- ~~Apply `0036_entitlement_usage_and_monitors.sql` to production.~~ Done (2026-08-26).
+- ~~Apply `0037_grant_all_profiles_wall_street.sql` to production.~~ Done (2026-08-26).
+- Apply Phase 0's RPC lockdown migration (PR #116, separate branch) to production — still open.
+- Merge PR #118, #117, and #116 into `main` (which, on this repo, is itself a production deploy) — in progress per direct instruction (2026-08-26); see each PR for final status.
 - Enable the two new GitHub Actions schedules in practice — they start firing automatically once this branch (or its workflow files) reach `main`, since GitHub Actions schedules run off the default branch regardless of which branch introduced them. Flagged again here since it's easy to lose track of amid everything else in this document.

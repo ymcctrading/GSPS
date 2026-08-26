@@ -111,7 +111,7 @@ export async function GET(req: NextRequest) {
     userId = user.id;
 
     // Phase 3F: intraday scans are Expert+ (INVESTOR_MODE/SYSTEM_MASTERY)
-    // per GSPS_TIER_ENTITLEMENT_SPEC.md. This route had no tier gate at all
+    // per docs/GSPS_TIER_ENTITLEMENT_SPEC.md. This route had no tier gate at all
     // before this -- confirmed as an intentional restriction of previously
     // open access, not left unenforced by oversight.
     const policy = await getUserEntitlementPolicy(supabase as Supabase, userId);

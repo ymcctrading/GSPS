@@ -8,7 +8,7 @@
  *   GET /api/batch-scan?tickers=SPY,AAPL,TSLA
  *     -> runs your own custom list
  *
- * Phase 3C: this is the "manual dashboard scan" GSPS_TIER_ENTITLEMENT_SPEC.md
+ * Phase 3C: this is the "manual dashboard scan" docs/GSPS_TIER_ENTITLEMENT_SPEC.md
  * meters and caps -- a multi-symbol scan, as opposed to /api/scan's
  * single-ticker plan, which the spec explicitly excludes from both the
  * quota and the result-visibility cap. Every call here (default watchlist or

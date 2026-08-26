@@ -1,6 +1,6 @@
 /**
  * Phase 3D: shared trusted-job plumbing for the 6:00 AM and 9:15 AM ET
- * scheduled scans from GSPS_TIER_ENTITLEMENT_SPEC.md. Both routes
+ * scheduled scans from docs/GSPS_TIER_ENTITLEMENT_SPEC.md. Both routes
  * (app/api/scans/morning-preparation, app/api/scans/morning-confirmation)
  * call this with only their `source` value differing.
  *

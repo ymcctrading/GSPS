@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
   }
 
   // Phase 3F: backtesting is Wall Street (SYSTEM_MASTERY) only per
-  // GSPS_TIER_ENTITLEMENT_SPEC.md -- this route had no tier gate at all
+  // docs/GSPS_TIER_ENTITLEMENT_SPEC.md -- this route had no tier gate at all
   // before this, so every signed-in user could replay regardless of plan.
   const policy = await getUserEntitlementPolicy(createServiceClient(), userId);
   if (!policy.backtestingEnabled) {

@@ -8,8 +8,7 @@
  * user can do; call `getEntitlementPolicy`/`getUserEntitlementPolicy` instead.
  *
  * Tier naming: the product/spec names for these four tiers are Novice, Pro,
- * Expert, and Wall Street (docs/GSPS_TIER_ENTITLEMENT_SPEC.md /
- * GSPS_TIER_ENTITLEMENT_SPEC.md at repo root). The already-shipped billing
+ * Expert, and Wall Street (docs/GSPS_TIER_ENTITLEMENT_SPEC.md). The already-shipped billing
  * enum (`PlatformTier` in lib/tiers.ts, backing Stripe checkout/webhook code
  * from PR #85) uses PRACTICE/STANDARD/INVESTOR_MODE/SYSTEM_MASTERY. Rather
  * than introduce a second tier concept, this module reuses that enum and
@@ -60,15 +59,14 @@ export type EntitlementPolicy = {
  * the only place these numbers are declared — do not hardcode a tier's
  * quota/cap/capacity anywhere else.
  *
- * Exception: automationEnabled/maxAutomationWorkflows deliberately do NOT
- * match that doc's original "Automation: Pro+" line. The already-shipped
- * `/automation` page (PR #23) gates on `autonomous_portfolio_manager` in
- * lib/tiers.ts, which is Wall Street (SYSTEM_MASTERY) only -- confirmed as
- * the intended behavior (2026-08-26) rather than widened to match the spec
- * draft. automationEnabled here is `true` only for SYSTEM_MASTERY so this
- * module never contradicts what's actually gated; GSPS_TIER_ENTITLEMENT_SPEC.md
- * (root copy) has been corrected to match -- the docs/ copy on PR #117's
- * branch still says Pro+ and needs the same fix before that PR merges.
+ * Exception: automationEnabled/maxAutomationWorkflows deliberately did NOT
+ * originally match that doc's first draft, which said "Automation: Pro+".
+ * The already-shipped `/automation` page (PR #23) gates on
+ * `autonomous_portfolio_manager` in lib/tiers.ts, which is Wall Street
+ * (SYSTEM_MASTERY) only -- confirmed as the intended behavior (2026-08-26)
+ * rather than widened to match that draft. automationEnabled here is
+ * `true` only for SYSTEM_MASTERY, and docs/GSPS_TIER_ENTITLEMENT_SPEC.md
+ * has been corrected to match.
  */
 const ENTITLEMENT_POLICY: Record<PlatformTier, EntitlementPolicy> = {
   PRACTICE: {

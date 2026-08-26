@@ -13,7 +13,7 @@
  *
  * Deliberately NOT wired to the Phase 3E Watch -> Execute monitor system
  * (lib/entitlements/monitor-store.ts). Two independent reasons, not an
- * oversight: GSPS_TIER_ENTITLEMENT_SPEC.md's "Eligible monitor sources" list
+ * oversight: docs/GSPS_TIER_ENTITLEMENT_SPEC.md's "Eligible monitor sources" list
  * excludes guided scans entirely (it names scheduled scans, manual dashboard
  * scans, single-ticker scans, and Expert/Wall Street intraday -- guided
  * scans are absent from that list); and a guided recommendation already has
