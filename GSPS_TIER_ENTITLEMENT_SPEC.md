@@ -21,7 +21,7 @@ This specification is the server-authoritative product contract for GSPS plans, 
 | Manual ticker scans | Included, fair use | Included, fair use | Included, fair use | Included, fair use |
 | GSPS School | Included | Included | Included | Included |
 | Watch → Execute alerts | Included within capacity | Included within capacity | Included within capacity | Included within fair-use capacity |
-| Automation | No | Yes | Yes | Yes |
+| Automation | No | No | No | Yes |
 | Intraday scans/movement | No | No | Yes | Yes |
 | Backtesting | No | No | No | Yes |
 
@@ -30,7 +30,7 @@ This specification is the server-authoritative product contract for GSPS plans, 
 | Capacity | Novice | Pro | Expert | Wall Street |
 |---|---:|---:|---:|---:|
 | Active Watch → Execute monitors | 15 | 50 | 150 | Unlimited, fair use |
-| Automation workflows | 0 | 5 | 20 | Unlimited, fair use |
+| Automation workflows | 0 | 0 | 0 | Unlimited, fair use |
 | Custom alert rules | 10 | 50 | 200 | Unlimited, fair use |
 | Saved watchlists | 3 | 10 | 25 | Unlimited, fair use |
 | Symbols/watchlist | 25 | 100 | 250 | Unlimited, fair use |
@@ -125,3 +125,24 @@ avoid touching Stripe/webhook/checkout code that already keys off them.
 
 Phase 3 implementation against this spec should build on that mapping, not
 introduce Novice/Pro/Expert/Wall Street as new enum values.
+
+**Correction (2026-08-26, Phase 3F): Automation is Wall Street only, not
+Pro+.** This spec originally listed Automation as available to Pro, Expert,
+and Wall Street (the table above and the Operational Capacities table's
+"Automation workflows" row read Yes/5/20 for those tiers). That conflicts
+with what's actually shipped: `/automation`'s gate (PR #23,
+`lib/tiers.ts`'s `autonomous_portfolio_manager` feature) has always been
+Wall Street (`SYSTEM_MASTERY`) only. Confirmed as the intended behavior
+rather than something to widen — the table above and
+`lib/entitlements/policy.ts`'s `automationEnabled`/`maxAutomationWorkflows`
+now both reflect Wall-Street-only. **The `docs/GSPS_TIER_ENTITLEMENT_SPEC.md`
+copy on the `phase1/tier-entitlement-spec` branch (PR #117) still has the
+original Pro+ wording and needs the same correction before that PR merges.**
+
+**Note (2026-08-26, Phase 3F): Intraday scans restrict existing access.**
+`/api/intraday-scan` had no tier gate at all before Phase 3F — any signed-in
+user could call it. Wiring this spec's "Expert+" rule (which the tier
+mapping already matched: `intradayScansEnabled` was true only for
+`INVESTOR_MODE`/`SYSTEM_MASTERY` from the start) means Novice and Pro users
+lose access they previously had. Confirmed as the intended direction — the
+spec was right, the route just hadn't caught up yet.

@@ -41,10 +41,10 @@ describe("getEntitlementPolicy", () => {
     }
   });
 
-  it("gates automation at Pro (STANDARD) and above", () => {
+  it("gates automation at Wall Street (SYSTEM_MASTERY) only, matching the already-shipped /automation gate", () => {
     expect(getEntitlementPolicy("PRACTICE").automationEnabled).toBe(false);
-    expect(getEntitlementPolicy("STANDARD").automationEnabled).toBe(true);
-    expect(getEntitlementPolicy("INVESTOR_MODE").automationEnabled).toBe(true);
+    expect(getEntitlementPolicy("STANDARD").automationEnabled).toBe(false);
+    expect(getEntitlementPolicy("INVESTOR_MODE").automationEnabled).toBe(false);
     expect(getEntitlementPolicy("SYSTEM_MASTERY").automationEnabled).toBe(true);
   });
 

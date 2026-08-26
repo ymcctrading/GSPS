@@ -59,6 +59,16 @@ export type EntitlementPolicy = {
  * entitlements" and "Operational capacities" tables). Keep this object as
  * the only place these numbers are declared — do not hardcode a tier's
  * quota/cap/capacity anywhere else.
+ *
+ * Exception: automationEnabled/maxAutomationWorkflows deliberately do NOT
+ * match that doc's original "Automation: Pro+" line. The already-shipped
+ * `/automation` page (PR #23) gates on `autonomous_portfolio_manager` in
+ * lib/tiers.ts, which is Wall Street (SYSTEM_MASTERY) only -- confirmed as
+ * the intended behavior (2026-08-26) rather than widened to match the spec
+ * draft. automationEnabled here is `true` only for SYSTEM_MASTERY so this
+ * module never contradicts what's actually gated; GSPS_TIER_ENTITLEMENT_SPEC.md
+ * (root copy) has been corrected to match -- the docs/ copy on PR #117's
+ * branch still says Pro+ and needs the same fix before that PR merges.
  */
 const ENTITLEMENT_POLICY: Record<PlatformTier, EntitlementPolicy> = {
   PRACTICE: {
@@ -88,11 +98,11 @@ const ENTITLEMENT_POLICY: Record<PlatformTier, EntitlementPolicy> = {
     maxDashboardSetupsPerScan: 12,
     universeScansEnabled: true,
     manualTickerScansEnabled: true,
-    automationEnabled: true,
+    automationEnabled: false,
     intradayScansEnabled: false,
     backtestingEnabled: false,
     maxActiveWatchMonitors: 50,
-    maxAutomationWorkflows: 5,
+    maxAutomationWorkflows: 0,
     maxCustomAlertRules: 50,
     maxSavedWatchlists: 10,
     maxSymbolsPerWatchlist: 100,
@@ -107,11 +117,11 @@ const ENTITLEMENT_POLICY: Record<PlatformTier, EntitlementPolicy> = {
     maxDashboardSetupsPerScan: 20,
     universeScansEnabled: true,
     manualTickerScansEnabled: true,
-    automationEnabled: true,
+    automationEnabled: false,
     intradayScansEnabled: true,
     backtestingEnabled: false,
     maxActiveWatchMonitors: 150,
-    maxAutomationWorkflows: 20,
+    maxAutomationWorkflows: 0,
     maxCustomAlertRules: 200,
     maxSavedWatchlists: 25,
     maxSymbolsPerWatchlist: 250,
