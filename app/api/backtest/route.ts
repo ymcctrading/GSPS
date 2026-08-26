@@ -31,6 +31,8 @@ import { BUCKETS, collectRun, runBacktest, type Bucket } from "@/lib/backtest/ru
 import { byOutputState } from "@/lib/backtest/replay";
 import { isTimeframe } from "@/lib/timeframe";
 import { verifyAuth } from "@/lib/auth";
+import { createServiceClient } from "@/lib/supabase/server";
+import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 
 const DEFAULT_UNIVERSE = ["SPY", "AAPL", "AMD", "TSLA", "MSFT", "NVDA"];
 
@@ -43,8 +45,20 @@ const DEFAULT_UNIVERSE = ["SPY", "AAPL", "AMD", "TSLA", "MSFT", "NVDA"];
 const MAX_SYMBOLS = 12;
 
 export async function GET(req: NextRequest) {
-  if (!(await verifyAuth())) {
+  const userId = await verifyAuth();
+  if (!userId) {
     return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+  }
+
+  // Phase 3F: backtesting is Wall Street (SYSTEM_MASTERY) only per
+  // docs/GSPS_TIER_ENTITLEMENT_SPEC.md -- this route had no tier gate at all
+  // before this, so every signed-in user could replay regardless of plan.
+  const policy = await getUserEntitlementPolicy(createServiceClient(), userId);
+  if (!policy.backtestingEnabled) {
+    return NextResponse.json(
+      { error: "Backtesting is available on the Wall Street plan." },
+      { status: 403 },
+    );
   }
 
   const { searchParams } = new URL(req.url);

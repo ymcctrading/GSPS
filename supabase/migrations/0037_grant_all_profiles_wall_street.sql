@@ -1,0 +1,23 @@
+-- Grants every currently existing profile Wall Street (SYSTEM_MASTERY) tier
+-- access for free, per direct product decision (2026-08-26): every user
+-- already signed up gets full access to every feature starting now,
+-- regardless of whether a verified email exists for that profile row.
+--
+-- Unconditional -- no WHERE clause excludes any row by email presence,
+-- signup date, or current tier, per "including the users of which I do not
+-- currently have an email address for."
+--
+-- Deliberately does NOT change `profiles.tier`'s column default
+-- ('PRACTICE', set in 0021_billing_tier.sql). This is a one-time grant to
+-- every profile that exists right now, not a change to what tier a brand
+-- new signup starts on after this migration runs -- that is a separate
+-- decision this migration does not make.
+--
+-- Rollback: there is no way to recover each profile's individual prior tier
+-- from this migration alone once applied (it does not record what a row's
+-- tier was before). If reversal is needed, restore from a pre-migration
+-- backup, or run a forward migration setting tier back to 'PRACTICE' for
+-- every row (losing whatever individual tier history existed before this
+-- one applied).
+
+update public.profiles set tier = 'SYSTEM_MASTERY';

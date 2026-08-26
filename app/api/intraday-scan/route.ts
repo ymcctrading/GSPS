@@ -28,6 +28,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 import { getMarketDataProvider } from "@/lib/data/provider";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { atr } from "@/lib/analysis/pivots";
@@ -108,6 +109,18 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Not signed in" }, { status: 401 });
     }
     userId = user.id;
+
+    // Phase 3F: intraday scans are Expert+ (INVESTOR_MODE/SYSTEM_MASTERY)
+    // per docs/GSPS_TIER_ENTITLEMENT_SPEC.md. This route had no tier gate at all
+    // before this -- confirmed as an intentional restriction of previously
+    // open access, not left unenforced by oversight.
+    const policy = await getUserEntitlementPolicy(supabase as Supabase, userId);
+    if (!policy.intradayScansEnabled) {
+      return NextResponse.json(
+        { error: "Intraday scans are available on the Expert plan and above." },
+        { status: 403 },
+      );
+    }
   }
 
   const params = new URL(req.url).searchParams;
