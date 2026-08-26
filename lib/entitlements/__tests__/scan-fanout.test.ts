@@ -67,11 +67,15 @@ describe("evaluateMonitorsAndNotify", () => {
     expect(sentCount).toBe(1);
     expect(recordNotificationDeliveryMock).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ transitionId: "t1", channel: "email" }),
+      expect.objectContaining({
+        transitionId: "t1",
+        channel: "email",
+        payload: expect.objectContaining({ symbol: "AAPL", direction: "bullish" }),
+      }),
     );
     expect(dispatchNotificationDeliveryMock).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ deliveryId: "d1", payload: expect.objectContaining({ symbol: "AAPL", direction: "bullish" }) }),
+      expect.objectContaining({ deliveryId: "d1" }),
     );
   });
 

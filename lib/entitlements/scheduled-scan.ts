@@ -33,6 +33,7 @@
  * MORNING_SCAN_UNIVERSE_TOP below for the restore-to-full-capacity switch.
  */
 
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { runMarketScan } from "@/lib/marketScan";
 import { createServiceClient } from "@/lib/supabase/server";
@@ -43,6 +44,7 @@ import { fanOutForProfile } from "@/lib/entitlements/scan-fanout";
 import type { RankedSetup } from "@/lib/entitlements/result-selection";
 import type { ScanResult } from "@/lib/types";
 import type { PlatformTier } from "@/lib/tiers";
+import { isPreviewEnvironment } from "@/lib/env/preview";
 
 export type ScheduledScanSource = "scheduled_morning_scan" | "scheduled_morning_confirmation_scan";
 
@@ -69,17 +71,6 @@ export type ScheduledScanSource = "scheduled_morning_scan" | "scheduled_morning_
 export const MORNING_SCAN_UNIVERSE_TOP = 20;
 export const MORNING_SCAN_PER_SIDE = 5;
 
-/**
- * `true` on a Vercel preview deployment. Preview must not trigger a real
- * schedule, an external notification, or a cost-amplifying scan -- there is
- * no cron trigger on preview anyway (Vercel Cron only fires in production),
- * but this route can still be hit manually with the right secret on a
- * preview URL, so the guard is enforced here too rather than assumed.
- */
-function isPreviewEnvironment(): boolean {
-  return process.env.VERCEL_ENV === "preview";
-}
-
 function unauthorized(): NextResponse {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 }
@@ -95,23 +86,66 @@ function isAuthorized(authorizationHeader: string | null): boolean {
 
 const UNIQUE_VIOLATION = "23505";
 
+/**
+ * Single structured log line per invocation, emitted at every exit path --
+ * covers the "Add observability" requirement (run identifier, job type,
+ * intended ET market date, branch/environment, outcome, failure reason,
+ * eligible/visible counts, idempotency outcome) without a logging
+ * dependency this project doesn't otherwise have. One JSON object per line
+ * so it's greppable/parseable from Vercel's log stream as-is.
+ */
+function logRunOutcome(args: {
+  runId: string;
+  source: ScheduledScanSource;
+  marketDateEt: string | null;
+  outcome: "unauthorized" | "preview_skip" | "non_trading_day" | "already_run" | "upstream_unavailable" | "persist_failed" | "completed";
+  environment: string;
+  eligibleCount?: number;
+  profilesFannedOut?: number;
+  profilesFailed?: number;
+  totalNotified?: number;
+}): void {
+  console.log(
+    JSON.stringify({
+      event: "scheduled_scan_run",
+      runId: args.runId,
+      jobType: args.source,
+      marketDateEt: args.marketDateEt,
+      environment: args.environment,
+      outcome: args.outcome,
+      eligibleCount: args.eligibleCount,
+      profilesFannedOut: args.profilesFannedOut,
+      profilesFailed: args.profilesFailed,
+      totalNotified: args.totalNotified,
+    }),
+  );
+}
+
 export async function runScheduledScan(
   authorizationHeader: string | null,
   source: ScheduledScanSource,
 ): Promise<NextResponse> {
+  const runId = randomUUID();
+  const environment = process.env.VERCEL_ENV ?? "unknown";
+
   if (!process.env.CRON_SECRET) {
     console.error(`${source}: CRON_SECRET is not set — the scheduled scan cannot run`);
     return NextResponse.json({ error: "CRON_SECRET is not configured on this deployment" }, { status: 503 });
   }
-  if (!isAuthorized(authorizationHeader)) return unauthorized();
+  if (!isAuthorized(authorizationHeader)) {
+    logRunOutcome({ runId, source, marketDateEt: null, outcome: "unauthorized", environment });
+    return unauthorized();
+  }
 
   if (isPreviewEnvironment()) {
-    return NextResponse.json({ skipped: "preview_environment", source });
+    logRunOutcome({ runId, source, marketDateEt: null, outcome: "preview_skip", environment });
+    return NextResponse.json({ skipped: "preview_environment", source, runId });
   }
 
   const now = new Date();
   if (!isTradingDay(now)) {
-    return NextResponse.json({ skipped: "non_trading_day", source });
+    logRunOutcome({ runId, source, marketDateEt: etDateKey(now), outcome: "non_trading_day", environment });
+    return NextResponse.json({ skipped: "non_trading_day", source, runId });
   }
 
   const marketDateEt = etDateKey(now);
@@ -130,9 +164,11 @@ export async function runScheduledScan(
     .is("profile_id", null)
     .maybeSingle();
   if (existingRun) {
+    logRunOutcome({ runId, source, marketDateEt, outcome: "already_run", environment });
     return NextResponse.json({
       skipped: "already_run",
       source,
+      runId,
       marketDateEt,
       scanExecutionId: existingRun.id,
     });
@@ -145,7 +181,8 @@ export async function runScheduledScan(
     // Fail closed: an upstream provider failure must not grant access to a
     // stale/partial signal or silently record an empty successful run.
     console.error(`${source}: market scan failed — ${String(err)}`);
-    return NextResponse.json({ error: "Upstream market data unavailable", source }, { status: 503 });
+    logRunOutcome({ runId, source, marketDateEt, outcome: "upstream_unavailable", environment });
+    return NextResponse.json({ error: "Upstream market data unavailable", source, runId }, { status: 503 });
   }
 
   const qualifying: RankedSetup<ScanResult>[] = [
@@ -176,10 +213,12 @@ export async function runScheduledScan(
     if (insertError.code === UNIQUE_VIOLATION) {
       // Lost a race to a concurrent run of the same job/market-date -- the
       // other run owns this scan; nothing left for this invocation to do.
-      return NextResponse.json({ skipped: "already_run", source, marketDateEt });
+      logRunOutcome({ runId, source, marketDateEt, outcome: "already_run", environment });
+      return NextResponse.json({ skipped: "already_run", source, runId, marketDateEt });
     }
     console.error(`${source}: scan execution not recorded — ${insertError.message}`);
-    return NextResponse.json({ error: "Failed to record scan execution", source }, { status: 503 });
+    logRunOutcome({ runId, source, marketDateEt, outcome: "persist_failed", environment });
+    return NextResponse.json({ error: "Failed to record scan execution", source, runId }, { status: 503 });
   }
 
   const scanExecutionId = (inserted as { id: string }).id;
@@ -189,8 +228,21 @@ export async function runScheduledScan(
     qualifying,
   });
 
+  logRunOutcome({
+    runId,
+    source,
+    marketDateEt,
+    outcome: "completed",
+    environment,
+    eligibleCount,
+    profilesFannedOut: fanOut.profilesFannedOut,
+    profilesFailed: fanOut.profilesFailed,
+    totalNotified: fanOut.totalNotified,
+  });
+
   return NextResponse.json({
     source,
+    runId,
     marketDateEt,
     scanDate: output.scanDate,
     universeSize: output.universeSize,

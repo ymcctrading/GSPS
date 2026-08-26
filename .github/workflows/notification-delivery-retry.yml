@@ -1,0 +1,32 @@
+name: Notification delivery retry sweep
+
+# Phase 5 hardening: periodically retries notification_deliveries rows stuck
+# `pending` or `failed` below the attempt ceiling
+# (lib/entitlements/delivery.ts#MAX_DISPATCH_ATTEMPTS). Not a Vercel cron --
+# both Hobby-plan slots are already spent (docs/THIRD_PARTY_LIMITS.md), and
+# this needs a sub-daily cadence the Hobby cron cap wouldn't allow anyway.
+#
+# Every 30 minutes, 10:00-23:30 UTC on weekdays -- covers US market hours
+# across both EDT and EST with margin on either side, without running
+# overnight when nothing is being evaluated.
+on:
+  schedule:
+    - cron: '0,30 10-23 * * 1-5'
+  workflow_dispatch:
+
+jobs:
+  retry:
+    runs-on: ubuntu-latest
+    name: Trigger /api/notifications/retry-deliveries
+    steps:
+      - name: Call retry-deliveries sweep
+        run: |
+          status=$(curl -sS -o /tmp/response.json -w '%{http_code}' \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ vars.PRODUCTION_URL || 'https://gsps.vercel.app' }}/api/notifications/retry-deliveries")
+          echo "HTTP $status"
+          cat /tmp/response.json
+          if [ "$status" -ge 300 ]; then
+            echo "retry-deliveries sweep returned $status" >&2
+            exit 1
+          fi

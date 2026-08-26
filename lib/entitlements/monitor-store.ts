@@ -24,6 +24,16 @@ function isUniqueViolation(error: { code?: string } | null): boolean {
 }
 
 /**
+ * Safety ceiling applied even for a tier whose policy limit is "unlimited"
+ * (Wall Street) -- the spec calls this out explicitly as "unlimited/
+ * fair-use", not literally unbounded. A single profile accumulating
+ * unbounded open monitors is a real cost (every scheduled/manual scan
+ * re-evaluates every open monitor) regardless of what tier is paying for
+ * it. High enough that no real Wall Street usage pattern should hit it.
+ */
+export const FAIR_USE_MAX_ACTIVE_MONITORS = 1000;
+
+/**
  * Evaluates one profile+symbol against a candidate monitor state and
  * applies whatever lib/entitlements/monitor.ts's `decideTransition` decides
  * -- create, update, or no-op. `evaluationId` should be the same stable
@@ -84,15 +94,25 @@ export async function evaluateMonitor(
     cooldownMs,
   });
 
-  if (!decision.apply) return { outcome: "skipped", reason: decision.reason };
+  if (!decision.apply) {
+    if (existing) {
+      await service
+        .from("active_monitors")
+        .update({ last_suppressed_reason: decision.reason, last_suppressed_at: now.toISOString() })
+        .eq("id", existing.id);
+    }
+    return { outcome: "skipped", reason: decision.reason };
+  }
 
-  if (decision.isNewMonitor && args.maxActiveWatchMonitors !== "unlimited") {
+  if (decision.isNewMonitor) {
+    const effectiveCapacity =
+      args.maxActiveWatchMonitors === "unlimited" ? FAIR_USE_MAX_ACTIVE_MONITORS : args.maxActiveWatchMonitors;
     const { count } = await service
       .from("active_monitors")
       .select("id", { count: "exact", head: true })
       .eq("profile_id", args.profileId)
       .in("state", ["WATCH", "EXECUTE"]);
-    if ((count ?? 0) >= args.maxActiveWatchMonitors) {
+    if ((count ?? 0) >= effectiveCapacity) {
       return { outcome: "capacity_exceeded" };
     }
   }
@@ -123,7 +143,15 @@ export async function evaluateMonitor(
     monitorId = existing!.id;
     await service
       .from("active_monitors")
-      .update({ state: args.candidateState, last_evaluated_at: now.toISOString() })
+      .update({
+        state: args.candidateState,
+        last_evaluated_at: now.toISOString(),
+        // A successful apply clears any suppression left over from an
+        // earlier cooldown/stale-evaluation skip -- that record described a
+        // decision this evaluation has now superseded.
+        last_suppressed_reason: null,
+        last_suppressed_at: null,
+      })
       .eq("id", monitorId);
   }
 

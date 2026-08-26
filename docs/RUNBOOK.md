@@ -268,6 +268,18 @@ days (e.g. the day after Thanksgiving) are *not* skipped — the module is
 deliberately narrow to full-day closures only; an early-close scan still
 runs at its normal time.
 
+**Observability:** every invocation emits one structured JSON log line
+(`event: "scheduled_scan_run"`) covering `runId`, `jobType` (the source),
+`marketDateEt`, `environment`, `outcome` (`unauthorized` /
+`preview_skip` / `non_trading_day` / `already_run` /
+`upstream_unavailable` / `persist_failed` / `completed`), and — on a
+completed run — `eligibleCount`/`profilesFannedOut`/`profilesFailed`/
+`totalNotified`. `runId` is also echoed in the HTTP response body, so a
+support investigation can correlate "what did this specific invocation do"
+between the caller's response and the Vercel log stream. `profilesFailed`
+nonzero on a `completed` outcome is the signal to grep logs for
+`fan-out failed for profile <id>` around that `runId`.
+
 **Known gap:** the scheduled fan-out (`fanOutToProfiles` in
 `scheduled-scan.ts`) never invalidates a profile's existing monitor for a
 symbol that silently drops out of this run's reduced-universe result set —
@@ -311,25 +323,61 @@ invalidation-precedence rules.
   concurrent evaluations (e.g. the 6:00 and 9:15 jobs racing a manual scan)
   safe.
 
-**Delivery retry:** `recordNotificationDelivery` inserts a `pending` row
-under a unique `idempotency_key` (`<transitionId>:<channel>`);
-`dispatchNotificationDelivery` re-reads the row immediately before sending
-and only proceeds if it is still `pending`. A delivery already `sent` is
-never re-sent, including by a future retry sweep — check
-`notification_deliveries.status` before assuming a `failed` row needs
-attention; `failed` rows are safe to retry (call
-`dispatchNotificationDelivery` again with the same `deliveryId`), `sent`
-rows are not touched.
+**Cooldown suppression:** every time `evaluateMonitor` declines to apply a
+candidate transition (`cooldown` or `stale_evaluation`), it writes the
+reason and timestamp onto the monitor row itself
+(`active_monitors.last_suppressed_reason` / `last_suppressed_at`, migration
+0039) — a suppressed WATCH→EXECUTE flap is recorded, not silently dropped.
+A later evaluation that actually applies clears both columns, so a nonzero
+value always reflects the *most recent* evaluation's outcome, not stale
+history.
 
-**Preview:** `runScheduledScan`'s preview guard means no scheduled-path
-notification is ever sent in preview. `/api/batch-scan`'s manual path is
-gated only by `getEnabledChannels`/user notification preferences — a signed-
-in preview user who has notifications enabled and email configured (i.e.
-`RESEND_API_KEY` set on that deployment) *can* receive a real email from a
-manual scan. Do not set `RESEND_API_KEY` on preview deployments unless that
-is an accepted, explicit exception.
+**Monitor capacity / fair use:** a tier whose policy limit is
+`"unlimited"` (Wall Street) is still capped at
+`FAIR_USE_MAX_ACTIVE_MONITORS` (`monitor-store.ts`, currently 1000) — the
+spec's "unlimited/fair-use" wording is enforced as a real ceiling, not a
+literal absence of one.
+
+**Delivery retry:** `recordNotificationDelivery` inserts a `pending` row
+under a unique `idempotency_key` (`<transitionId>:<channel>`), storing the
+exact entitled payload it was recorded with. `dispatchNotificationDelivery`
+re-reads the row immediately before sending and only proceeds if it is
+still `pending` or `failed` (never `sent`), and stops retrying once
+`attempt_count` reaches `MAX_DISPATCH_ATTEMPTS` (5). A delivery already
+`sent` is never re-sent, by any caller, including the retry sweep below.
+
+A GitHub Actions workflow
+(`.github/workflows/notification-delivery-retry.yml`, every 30 minutes on
+weekdays) calls `/api/notifications/retry-deliveries`, which sweeps rows
+stuck `pending` (the inline dispatch right after evaluation never ran, or
+crashed mid-flight) or `failed` (worth another attempt) older than 5
+minutes — that age floor exists so the sweep never races the inline
+dispatch that follows `recordNotificationDelivery` on the original
+evaluation path. Manual invocation:
+
+```bash
+curl -sS -H "Authorization: Bearer $CRON_SECRET" \
+  https://gsps.vercel.app/api/notifications/retry-deliveries
+```
+
+Response: `{ "swept": N, "sent": N, "failed": N, "suppressed": N }` —
+`suppressed` covers preview/no-longer-pending/attempt-ceiling no-ops within
+the swept set, not an error.
+
+**Preview:** `dispatchNotificationDelivery` itself checks
+`VERCEL_ENV === "preview"` and refuses to send — this is enforced at the
+single choke point every send path (the scheduled jobs' inline dispatch,
+`/api/batch-scan`'s inline dispatch, and the retry sweep) goes through, not
+duplicated per call site. A `pending`/`failed` row is left untouched in
+preview rather than mutated, so preview activity never fabricates a
+`sent`/`failed` record. No `RESEND_API_KEY` configuration is needed to
+guarantee this; it is a hard code-level guard, not an operational
+convention to remember.
 
 **Rollback / disable:** to stop all outbound sends without touching schema
 or code, unset `RESEND_API_KEY` on the deployment — `sendAlertEmail`
 short-circuits to `{ success: false }` and every delivery lands `failed`
 rather than silently vanishing (the ledger row still records the attempt).
+To stop the retry sweep specifically without touching the inline dispatch
+path, disable `.github/workflows/notification-delivery-retry.yml` the same
+way as the scan workflows above.

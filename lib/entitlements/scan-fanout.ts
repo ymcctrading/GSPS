@@ -155,12 +155,12 @@ export async function evaluateMonitorsAndNotify(
           profileId: args.profileId,
           channel,
           idempotencyKey: `${transitionId}:${channel}`,
+          payload,
         });
         if (!recorded.recorded || !recorded.deliveryId) continue;
         const outcome = await dispatchNotificationDelivery(service, {
           deliveryId: recorded.deliveryId,
           profileId: args.profileId,
-          payload,
         });
         if (outcome.dispatched && outcome.status === "sent") sentCount += 1;
       } catch (err) {
