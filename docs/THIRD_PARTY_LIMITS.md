@@ -11,7 +11,7 @@ confirm you're still under its limit.
 
 | Service | Current plan | Limit | What happens if exceeded | Notes |
 |---|---|---|---|---|
-| **Vercel** | Hobby (free) | 2 cron jobs per project, each ≤ once/day. Deployments/builds also capped (see Vercel dashboard for current usage). | Deploy fails, or the cron silently isn't created. | `vercel.json` now defines **2** crons — `/api/market-scan` (17:30 ET weekdays) and `/api/trade-journal/daily-email` (18:00 ET weekdays, 2 hours after close) — **both of 2 slots are now spent.** The 08:30 ET run of the market scan moved to GitHub Actions (`.github/workflows/premarket-scan.yml`) to free the slot the journal digest now uses; see below. `/api/intraday-scan` needs to run every ~15 minutes during the session, well past the 1-run/day cap, so it's scheduled the same way: `.github/workflows/intraday-scan.yml` calls it with `CRON_SECRET`, outside `vercel.json` entirely — it still also serves on-demand requests from a signed-in user's Scanner tab, same as before. The Phase 3D entitlement scans (`/api/scans/morning-preparation` 6:00 ET, `/api/scans/morning-confirmation` 9:15 ET) use the same pattern — `.github/workflows/morning-preparation-scan.yml` / `morning-confirmation-scan.yml` — at a **reduced scan budget**, not the main scan's full one; see "Upgrading past current limits" below. **Any future scheduled job must use the GitHub Actions pattern below instead of `vercel.json` — there is no cron slot left.** Git-triggered deploys are **on**: a branch push builds a preview and a merge to `main` releases to production — see `AGENTS.md`. |
+| **Vercel** | Hobby (free) | 2 cron jobs per project, each ≤ once/day. Deployments/builds also capped (see Vercel dashboard for current usage). | Deploy fails, or the cron silently isn't created. | `vercel.json` now defines **2** crons — `/api/market-scan` (17:30 ET weekdays) and `/api/trade-journal/daily-email` (18:00 ET weekdays, 2 hours after close) — **both of 2 slots are now spent.** The 08:30 ET run of the market scan moved to GitHub Actions (`.github/workflows/premarket-scan.yml`) to free the slot the journal digest now uses; see below. `/api/intraday-scan` needs to run every ~15 minutes during the session, well past the 1-run/day cap, so it's scheduled the same way: `.github/workflows/intraday-scan.yml` calls it with `CRON_SECRET`, outside `vercel.json` entirely — it still also serves on-demand requests from a signed-in user's Scanner tab, same as before. The Phase 3D entitlement scans (`/api/scans/morning-preparation` 6:00 ET, `/api/scans/morning-confirmation` 9:15 ET) use the same pattern — `.github/workflows/morning-preparation-scan.yml` / `morning-confirmation-scan.yml` — at full scan capacity (single active user; see "Upgrading past current limits" below for the Vercel-cron-slot question that remains). **Any future scheduled job must use the GitHub Actions pattern below instead of `vercel.json` — there is no cron slot left.** Git-triggered deploys are **on**: a branch push builds a preview and a merge to `main` releases to production — see `AGENTS.md`. |
 | **Supabase** | Free project tier | Row/storage/bandwidth caps per Supabase's Hobby project limits; project pauses after a period of inactivity. | Paused project = the whole app loses its database until manually resumed. | Check the Supabase dashboard for current usage before assuming headroom. |
 | **Binance** (crypto data) | Public API | Effectively unlimited for basic market data (public endpoint, no key). | N/A | No auth required; still subject to Binance's general IP rate limiting under heavy load. |
 | **Oanda** (forex data) | Practice/demo account | ~1200 requests/min | 429s from Oanda; endpoint returns an error to the caller. | `OANDA_API_KEY` required. Practice account, not live. |
@@ -101,33 +101,26 @@ than standing up an unused workflow now.
 
 ## Upgrading past current limits
 
-Two separate ceilings are in play for the Phase 3D scans, and they lift on
-different schedules:
+One ceiling remains for the Phase 3D scans:
 
-1. **Vercel's 2-cron cap** — lifts immediately on upgrading to Vercel Pro
-   (`ROADMAP.md`'s Q1 "Platform & reliability" line already calls this out).
-   Once upgraded, `/api/scans/morning-preparation` and
-   `/api/scans/morning-confirmation` can move from the GitHub Actions
-   workaround to native `vercel.json` crons, for the same punctuality reason
-   the 17:30 ET market-scan run stays native today — see the `crons` array
-   above and add two entries following the existing ones, then remove the
-   two corresponding `.github/workflows/morning-*.yml` files (or leave them
-   disabled as a fallback; a route can safely be called by both a native
-   cron and a stale external one, since `isTradingDay`/preview guards make
-   an extra invocation a no-op, not a double-charge).
-2. **Provider call volume** — the reduced scan budget in
-   `lib/entitlements/scheduled-scan.ts` (`MORNING_SCAN_UNIVERSE_TOP` /
-   `MORNING_SCAN_PER_SIDE`) is independent of the Vercel cron question. It
-   exists because running the main scan's full universe/per-side budget
-   four times a day instead of two was never independently confirmed to
-   stay under every provider's cap end-to-end. Once a higher-tier data
-   plan removes that concern (expected within ~60 days of 2026-08-26, per
-   direct request), delete those two constants and call `runMarketScan()`
-   with no arguments in `runScheduledScan` — its own defaults already match
-   the main scan's full budget. That file's header comment has the same
-   instructions next to the code itself.
+- **Vercel's 2-cron cap** — lifts immediately on upgrading to Vercel Pro
+  (`ROADMAP.md`'s Q1 "Platform & reliability" line already calls this out).
+  Once upgraded, `/api/scans/morning-preparation` and
+  `/api/scans/morning-confirmation` can move from the GitHub Actions
+  workaround to native `vercel.json` crons, for the same punctuality reason
+  the 17:30 ET market-scan run stays native today — see the `crons` array
+  above and add two entries following the existing ones, then remove the
+  two corresponding `.github/workflows/morning-*.yml` files (or leave them
+  disabled as a fallback; a route can safely be called by both a native
+  cron and a stale external one, since `isTradingDay`/preview guards make
+  an extra invocation a no-op, not a double-charge).
 
-These two upgrades are independent: doing (1) without (2) still leaves the
-morning scans running at reduced capacity (just on a punctual native cron);
-doing (2) without (1) still frees no Vercel cron slot. Do both once both
-plans are in place.
+**Provider call volume is no longer throttled.** The morning scans
+originally ran at a reduced universe/per-side budget pending confirmation
+that four full scans/day (the existing two plus these two) stayed under
+every provider's rate limit. Restored to full capacity 2026-08-26: with a
+single active user, the extra request volume is negligible against
+Alpaca's (the primary provider's) limits. If concurrent usage grows enough
+that this becomes a real concern again, reintroduce a reduced budget in
+`lib/entitlements/scheduled-scan.ts` (e.g. `runMarketScan(20, 5)`) — that
+file's header comment has the reasoning inline.
