@@ -10,9 +10,9 @@
  *
  * Scheduled via .github/workflows/morning-preparation-scan.yml (GitHub
  * Actions, not vercel.json -- both Vercel cron slots are already spent; see
- * docs/THIRD_PARTY_LIMITS.md) at a reduced scan budget -- see
- * lib/entitlements/scheduled-scan.ts's MORNING_SCAN_UNIVERSE_TOP for why and
- * how to restore full capacity once a higher-tier plan is in place.
+ * docs/THIRD_PARTY_LIMITS.md). Runs at full scan capacity -- see
+ * lib/entitlements/scheduled-scan.ts's header comment for the
+ * single-active-user reasoning and when to reintroduce a reduced budget.
  */
 
 import { NextRequest } from "next/server";
