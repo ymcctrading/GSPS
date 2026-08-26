@@ -399,3 +399,67 @@ rather than silently vanishing (the ledger row still records the attempt).
 To stop the retry sweep specifically without touching the inline dispatch
 path, disable `.github/workflows/notification-delivery-retry.yml` the same
 way as the scan workflows above.
+
+## Incident response
+
+Everything above is diagnosis for a specific symptom. This section is the
+process wrapper the doctrine set requires around it — ownership,
+escalation, containment, and a record of what happened — for an incident
+that isn't covered by a section above, or that turns out to be bigger than
+one.
+
+**Detect.** An incident surfaces one of three ways: a user report, a
+GitHub Actions workflow failure (`.github/workflows/*.yml` — Actions tab
+shows run history for every scheduled job), or a Vercel deployment/runtime
+error (Vercel → Project → Logs). There is no paging/alerting system yet —
+this repo runs on a single maintainer's attention, so "detection" today
+means checking these three places, not waiting for a page.
+
+**Own it.** The person who notices an incident owns it until they hand it
+off explicitly in writing (a commit message, a PR description, or a note
+wherever the team tracks this). Do not assume someone else has it.
+
+**Contain.** Before root-causing, stop the bleeding if the failure is
+user-visible or data-corrupting:
+- A bad deployment: roll back via Vercel → Deployments → pick the last
+  known-good build → "Promote to Production". This is a UI action, not a
+  git operation — reverting the commit and re-deploying is slower and
+  leaves production broken in the meantime.
+- A bad migration: migrations in this repo are additive-only by
+  convention (see `supabase/AGENTS.md`), so containment is almost always
+  "ship a forward migration that undoes the effect," not a destructive
+  rollback. Never hand-edit the live schema outside a committed
+  migration — that's exactly the drift class `npm run check:migrations`
+  and the migration ledger exist to prevent.
+- A misbehaving scheduled job (runaway cost, bad writes): disable the
+  workflow (`.github/workflows/<name>.yml`, GitHub → Actions → the
+  workflow → "..." → Disable) or the Vercel Cron entry in `vercel.json`,
+  whichever is firing it. Each section above names which mechanism drives
+  which job.
+- A compromised or leaked credential: rotate it immediately
+  (`scripts/rotate-credentials-key.mjs` covers the app's own encryption
+  key; provider keys — Supabase service role, Alpaca, Resend, Alpha
+  Vantage/Polygon/Finnhub — are rotated in that provider's dashboard and
+  then updated in Vercel's environment variables).
+
+**Recover.** Confirm the specific symptom that triggered detection is
+gone (the dashboard shows a fresh scan, the failing workflow run is green,
+the error rate in Vercel Logs has dropped), not just that the immediate
+action succeeded — a rollback that doesn't fix the reported symptom means
+the wrong thing was rolled back.
+
+**Record.** Once the incident is over, write down: what broke, when it
+was detected, what contained it, the root cause, and what changes (code,
+migration, or process) prevent a repeat. `CHANGELOG.md` is where this repo
+already keeps that kind of record — see its entries for prior incidents
+(the duplicate-migration-prefix collision, the Vercel auto-deploy
+regression) for the expected level of detail. A postmortem that only says
+"fixed" without naming the root cause is incomplete.
+
+**Provider outage vs. our bug.** Five external APIs sit in this app's
+critical path (Alpaca/market data, Supabase, Resend, and the scan data
+providers named in `docs/MULTI_PROVIDER_SETUP.md`). Before treating a
+failure as a GSPS bug, check the provider's own status page — an outage
+there is not actionable here beyond making sure the app fails closed
+(a stale-data warning, a held scan) rather than serving wrong data as if
+it were current.
