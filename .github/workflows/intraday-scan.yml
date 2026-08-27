@@ -15,6 +15,19 @@ name: Intraday scan
 # the route reports it as pre-market/after-hours and scans the last closed
 # session's data rather than fabricating anything.
 #
+# A second cron below covers everything outside that window — weekday
+# overnight plus the whole weekend. It exists because the watchlist now
+# includes BTC/USD and ETH/USD (2026-08-21: a live BTC move went unflagged
+# because nothing scanned crypto at all, at any hour), and crypto is the one
+# part of the watchlist still trading when equities are closed. Scanning the
+# full watchlist on that schedule would mean repeatedly evaluating a dozen
+# stocks and ETFs whose market cannot have moved, so this schedule passes
+# `?universe=crypto` and the route scans only the crypto symbols for it.
+# `github.event.schedule` is how the one job below tells the two schedules
+# apart — it holds whichever cron string fired, and is unset for
+# `workflow_dispatch`, which is why a manual run always gets the full
+# watchlist regardless of when someone kicks it off.
+#
 # Authorized the same way as /api/market-scan: CRON_SECRET as a bearer token.
 # The route only fans out email notifications and writes to
 # intraday_system_alerts on this authorized path — a signed-in user's own
@@ -23,6 +36,8 @@ name: Intraday scan
 on:
   schedule:
     - cron: '*/15 13-21 * * 1-5'
+    - cron: '*/15 0-12,22-23 * * 1-5'
+    - cron: '*/15 * * * 0,6'
   workflow_dispatch:
 
 jobs:
@@ -32,9 +47,13 @@ jobs:
     steps:
       - name: Call intraday-scan
         run: |
+          query=""
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "${{ github.event.schedule }}" != "*/15 13-21 * * 1-5" ]; then
+            query="?universe=crypto"
+          fi
           status=$(curl -sS -o /tmp/response.json -w '%{http_code}' \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            "${{ vars.PRODUCTION_URL || 'https://gsps.vercel.app' }}/api/intraday-scan")
+            "${{ vars.PRODUCTION_URL || 'https://gsps.vercel.app' }}/api/intraday-scan${query}")
           echo "HTTP $status"
           cat /tmp/response.json
           if [ "$status" -ge 300 ]; then

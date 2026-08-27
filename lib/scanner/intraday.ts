@@ -111,6 +111,26 @@ export const DEFAULT_CONFIG: ScannerConfig = {
  * app/api/intraday-scan/route.ts) — breadth here trades against per-symbol
  * latency, so this is representative coverage, not exhaustive; a caller that
  * wants a specific sector in full already has the `?symbols=` override.
+ *
+ * BTC/USD and ETH/USD (2026-08-21): the scanner, its provider plumbing, and
+ * its own tests have supported `kind: "crypto"` since this file was written
+ * (see `sessionMetrics`'s crypto-has-no-session-boundary branch), but no
+ * crypto symbol was ever actually placed in this list — so the system scan
+ * that runs every 15 minutes and emails users never once evaluated one. A
+ * ~6% BTC move that a novice user watched happen live went uncaught not
+ * because the detectors couldn't see it, but because nothing pointed them at
+ * it. This is the minimal fix: the two crypto assets large enough to call
+ * "big cap" in the same sense the equity side of this list means it. It is
+ * deliberately narrower than the Q2 "Crypto scanner" roadmap item (a separate
+ * scan queue for BTC/ETH/major alts on adapted 4h/1d timeframes over Binance
+ * data) — this only wires existing large-cap names into the existing
+ * intraday engine, on the same timeframe as everything else here.
+ *
+ * One gap this does not close: `.github/workflows/intraday-scan.yml` only
+ * fires Mon–Fri during the equity session (13-21 UTC), because until now
+ * nothing in this list ever traded outside that window. Crypto trades 24/7,
+ * so a large weekend or overnight BTC move still won't be caught until that
+ * schedule is widened — a follow-up, not part of this change.
  */
 export const WATCHLIST: { symbol: string; kind: AssetKind }[] = [
   { symbol: "SPY", kind: "etf" },
@@ -126,6 +146,8 @@ export const WATCHLIST: { symbol: string; kind: AssetKind }[] = [
   { symbol: "UNH", kind: "equity" },
   { symbol: "LLY", kind: "equity" },
   { symbol: "JNJ", kind: "equity" },
+  { symbol: "BTC/USD", kind: "crypto" },
+  { symbol: "ETH/USD", kind: "crypto" },
 ];
 
 export const ASSET_KIND_LABELS: Record<AssetKind, string> = {
@@ -529,11 +551,24 @@ function scanSymbol(input: SymbolInput, config: ScannerConfig, now: Date): Symbo
     );
   }
 
-  const liquid = metrics.cumulativeVolume >= config.minSessionVolume;
+  // `minSessionVolume` is a share count, and a crypto pair's volume is
+  // denominated in coins — a fraction to a few hundred BTC in a session is
+  // routine and would fail a 50,000-share floor every time despite the pair
+  // being one of the most liquid instruments in this list. The average daily
+  // *dollar* turnover floor below (`meetsLiquidityFloor`, crypto branch)
+  // already does this gate's job in units that mean something for a coin, so
+  // this check is skipped for crypto rather than converted — converting it
+  // would just duplicate that gate with a second, differently-tuned dollar
+  // threshold.
+  const volumeUnit = input.kind === "crypto" ? "coins" : "shares";
+  const liquid = input.kind === "crypto" || metrics.cumulativeVolume >= config.minSessionVolume;
   checks.push({
     name: "Liquidity",
     passed: liquid,
-    detail: `${formatVolume(metrics.cumulativeVolume)} traded today (minimum ${formatVolume(config.minSessionVolume)}).`,
+    detail:
+      input.kind === "crypto"
+        ? `${formatVolume(metrics.cumulativeVolume, volumeUnit)} traded today; session-volume floor is skipped for crypto (see the tradeable-instrument check below).`
+        : `${formatVolume(metrics.cumulativeVolume, volumeUnit)} traded today (minimum ${formatVolume(config.minSessionVolume, volumeUnit)}).`,
   });
   if (!liquid) {
     return bail(
@@ -568,7 +603,7 @@ function scanSymbol(input: SymbolInput, config: ScannerConfig, now: Date): Symbo
     passed: floor.ok,
     detail: floor.ok
       ? avgVolume != null
-        ? `Trades at ${metrics.last.toFixed(2)} on ${formatVolume(avgVolume)} shares a day.`
+        ? `Trades at ${metrics.last.toFixed(2)} on ${formatVolume(avgVolume, volumeUnit)} a day.`
         : `Trades at ${metrics.last.toFixed(2)}; no daily-volume history was supplied, so only the price floor was applied.`
       : floor.reason!,
   });
@@ -909,7 +944,7 @@ function detectUnusualVolume(
     move: dayMove,
     factors,
     invalidation: m.vwap,
-    whyThisAppeared: `${formatVolume(m.cumulativeVolume)} of ${input.symbol} has traded today — ${formatRvol(m.relativeVolume)} what it normally does by this point. Volume like that usually means news or a large participant. It says something is happening; it does not say which way it resolves.`,
+    whyThisAppeared: `${formatVolume(m.cumulativeVolume, input.kind === "crypto" ? "coins" : "shares")} of ${input.symbol} has traded today — ${formatRvol(m.relativeVolume)} what it normally does by this point. Volume like that usually means news or a large participant. It says something is happening; it does not say which way it resolves.`,
   });
 }
 
@@ -1243,10 +1278,10 @@ export function formatAge(seconds: number): string {
   return `${(minutes / 60).toFixed(1)} hr`;
 }
 
-export function formatVolume(volume: number): string {
-  if (volume >= 1_000_000) return `${(volume / 1_000_000).toFixed(1)}M shares`;
-  if (volume >= 1_000) return `${(volume / 1_000).toFixed(0)}K shares`;
-  return `${Math.round(volume)} shares`;
+export function formatVolume(volume: number, unit: "shares" | "coins" = "shares"): string {
+  if (volume >= 1_000_000) return `${(volume / 1_000_000).toFixed(1)}M ${unit}`;
+  if (volume >= 1_000) return `${(volume / 1_000).toFixed(0)}K ${unit}`;
+  return `${volume.toFixed(volume < 10 ? 2 : 0)} ${unit}`;
 }
 
 export function formatRvol(rvol: number | null): string {
