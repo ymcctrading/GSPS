@@ -18,7 +18,7 @@ import { z } from "zod";
 import {
   assetClassOf,
   executeFill,
-  isMarketable,
+  isTriggered,
   logPlainClose,
   quoteOptionPrice,
   quotePrice,
@@ -273,19 +273,18 @@ export async function placeSimulatedOrder(
       filled = true;
     } else {
       const market = await quotePrice(input.symbol, fillAssetClass);
-      if (market != null && isMarketable(input.side, submittedLimitPrice!, market)) {
-        // Marketable means the live price is already at least as good as the
-        // limit (a buy limit's market is <= it, a sell limit's is >=) — a real
-        // broker fills at that better price, not at the stale limit typed into
-        // the ticket. Filling at `submittedLimitPrice` here previously meant an
-        // "advised price" short placed while the market had already rallied
-        // past its entry filled instantly at the stale, worse entry instead of
-        // the price actually on offer — a same-second paper loss with no fill
-        // ever tested against the market.
+      if (market != null && isTriggered(input.side, submittedLimitPrice!, market)) {
+        // "At advised price" is a breakout/reversal trigger (a buy-stop above
+        // the current bar, a sell-stop below it — see lib/strat/patterns.ts),
+        // not a discount limit: a buy only fills once the market rises to or
+        // through it, a sell only once it falls to or through it. Filling at
+        // `market` rather than the stale `submittedLimitPrice` mirrors what a
+        // real stop-entry reports back, especially after a gap carries price
+        // well past the trigger between polls.
         fillPrice = market;
         filled = true;
       }
-      // Not marketable yet (or no quote this instant) — rests as `new` and is
+      // Not triggered yet (or no quote this instant) — rests as `new` and is
       // picked up by evaluateRestingOrders once the market reaches it.
     }
 
