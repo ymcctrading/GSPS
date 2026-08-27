@@ -21,16 +21,26 @@ the code.
 Branches outlive their PRs by default, and this repo has accumulated dozens of
 them. Three rules keep that from recurring; the first is the one that matters.
 
-1. **Delete the branch as soon as its PR merges.** Use GitHub's "Delete
-   branch" button on the merged PR, or from a shell:
+1. **Delete the branch as soon as its PR merges.** As of 2026-08-27, GitHub's
+   "Automatically delete head branches" repo setting is turned on, so this now
+   happens on its own the moment a PR merges — no manual step or agent action
+   required. (It only fires on merge; branches from closed-without-merge PRs,
+   and anything predating this setting, still need manual or scripted
+   cleanup.) If you ever need to delete one by hand — e.g. for a branch whose
+   PR was closed unmerged — use GitHub's "Delete branch" button on the PR, or:
 
    ```sh
    git push origin --delete <branch>
    ```
 
-   Do it in the same sitting as the merge. A merged branch has no remaining
-   purpose — its commits are in `main` — and every one left behind makes the
-   next audit longer.
+   A merged branch has no remaining purpose — its commits are in `main` — and
+   every one left behind makes the next audit longer.
+
+   **Existing backlog:** the branches this repo accumulated before auto-delete
+   was enabled have *not* been cleaned up yet — that cleanup is deferred to a
+   later date, deliberately, rather than being done as part of turning the
+   setting on. Run `scripts/audit-stale-branches.sh` (rule 3 below) when that
+   cleanup happens to see what's safe to remove.
 
 2. **Name the roadmap phase in every PR.** Put `Q1`, `Q2`, `Q3`, `Q4`, or
    `N/A` in the title or body (the PR template has a field for it). The
