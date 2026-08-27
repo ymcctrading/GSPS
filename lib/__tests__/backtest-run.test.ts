@@ -49,6 +49,27 @@ describe("runBacktest", () => {
     }
   });
 
+  it("attributes factors within a score band instead of a bucket, and labels the report accordingly", async () => {
+    const withinWatch = await runBacktest({
+      symbols: ["SPY", "AAPL"],
+      timeframe: "15Min",
+      attributeWithin: "Watch",
+    });
+    const nearMiss = await runBacktest({
+      symbols: ["SPY", "AAPL"],
+      timeframe: "15Min",
+      attributeScoreRange: [5, 6],
+    });
+
+    expect(nearMiss.attributeWithin).toBe("score 5–6");
+    expect(nearMiss.attributeScoreRange).toEqual([5, 6]);
+
+    // The 5–6 band is a subset of Watch (4–6), never a superset of it.
+    const watchBucket = withinWatch.buckets.find((b) => b.bucket === "Watch")!;
+    const nearMissObserved = nearMiss.factors.reduce((n, f) => Math.max(n, f.observed), 0);
+    expect(nearMissObserved).toBeLessThanOrEqual(watchBucket.trades);
+  });
+
   it("records an unfetchable symbol as skipped instead of dropping it silently", async () => {
     // Every symbol resolves under the synthetic generator, so the guarantee
     // worth pinning is the accounting: whatever is not in `symbols` is in

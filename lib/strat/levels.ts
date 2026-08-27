@@ -281,7 +281,28 @@ export function computeTradeLevels(
     masterFromStructure,
     stopPctOfPrice,
     stopBandWarning,
+    pivotPlan: buildPivotPlan(pattern, round(stopLoss)),
   };
+}
+
+/**
+ * The counter-scenario the PRD's Trade Map contract requires: a plain-language
+ * answer to "what if this goes the other way," stated in terms of the stop
+ * this setup already has rather than a second computed plan. A daily/swing
+ * setup does not carry the intraday scanner's session context (VWAP, opening
+ * range) to build a full opposite-direction trade plan from, so this is
+ * deliberately a narrower counter-scenario than lib/scanner/intraday.ts's
+ * `pivotPlan` — what invalidates the thesis and which way to start looking,
+ * not a priced opposite entry.
+ */
+function buildPivotPlan(pattern: StratPattern, stopLoss: number): string {
+  const bullish = pattern.direction === "bullish";
+  const opposite = bullish ? "bearish" : "bullish";
+  return (
+    `This ${pattern.direction} ${pattern.name} thesis is invalidated if price closes back through the ` +
+    `stop at ${stopLoss.toFixed(2)}. That does not itself confirm a ${opposite} trade — it only says the ` +
+    `original setup failed. Treat the next scan on this symbol as a fresh read, not a reversal signal.`
+  );
 }
 
 function round(n: number): number {

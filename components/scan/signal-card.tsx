@@ -81,6 +81,13 @@ export function SignalCard({ result }: { result: ScanResult }) {
           </p>
         )}
 
+        {levels?.pivotPlan && (
+          <div className="rounded-md border border-border bg-background p-3">
+            <p className="text-xs font-medium text-muted">Pivot plan</p>
+            <p className="mt-1 text-sm">{levels.pivotPlan}</p>
+          </div>
+        )}
+
         {decision.summary && <ScoreBreakdown summary={decision.summary} />}
       </CardContent>
     </Card>

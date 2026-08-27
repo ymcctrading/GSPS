@@ -397,21 +397,36 @@ export async function closePositionSim(
   });
 }
 
-/** Whether a limit order at `limitPrice` would fill immediately against `market`. */
-export function isMarketable(side: "buy" | "sell", limitPrice: number, market: number): boolean {
-  return side === "buy" ? market <= limitPrice : market >= limitPrice;
+/**
+ * Whether a protocol "advised price" entry has triggered against `market`.
+ *
+ * Every advised entry submitted through the ticket is a breakout/reversal
+ * trigger from `lib/strat/patterns.ts` (a buy-stop one penny above a bar's
+ * high, or a sell-stop one penny below its low) — not a discount limit. The
+ * setup is only confirmed once price moves *into* that level, so a buy
+ * triggers when the market rises to or through it, and a sell triggers when
+ * the market falls to or through it. Filling these as ordinary limit orders
+ * (a buy fillable once the market is at or *below* its price) filled advised
+ * orders the instant they were armed, since price hasn't crossed the trigger
+ * yet by definition.
+ */
+export function isTriggered(side: "buy" | "sell", triggerPrice: number, market: number): boolean {
+  return side === "buy" ? market >= triggerPrice : market <= triggerPrice;
 }
 
 /**
- * Fill every resting simulated limit order whose price the market has now
- * reached. Filled at the live market price, not the order's own limit — by
- * the time a resting limit is marketable, the market is already at least as
- * good as the limit (a buy's market is <= it, a sell's is >=), and that's the
- * price a real broker would report back, especially after a gap carries price
- * well past the limit between polls. Options are skipped: without a live
- * per-contract quote there's nothing to test marketability against, so an
- * option order only ever fills (or doesn't) at placement time — see the
- * option branch in `POST /api/orders`.
+ * Fill every resting simulated advised-entry order whose trigger the market
+ * has now reached. Filled at the live market price, not the order's own
+ * trigger — by the time a resting entry has triggered, the market has
+ * already moved through the level (a buy's market is >= it, a sell's is <=),
+ * and that's the price a real stop-entry would report back, especially after
+ * a gap carries price well past the trigger between polls. Options are
+ * skipped: without a live per-contract quote there's nothing to test
+ * against, so an option order only ever fills (or doesn't) at placement time
+ * — see the option branch in `POST /api/orders`. Covers both plain advised
+ * entries (`order_type: "limit"`) and advised entries with protocol stop/
+ * target legs attached (`order_type: "bracket"`) — both rest the same way
+ * and trigger on the same breakout level.
  */
 export async function evaluateRestingOrders(
   supabase: Supabase,
@@ -424,7 +439,7 @@ export async function evaluateRestingOrders(
     .eq("user_id", userId)
     .eq("mode", "paper")
     .eq("status", "new")
-    .eq("order_type", "limit");
+    .in("order_type", ["limit", "bracket"]);
   if (error) return { filled: 0, invalidated: 0, error: error.message };
 
   let filled = 0;
@@ -439,7 +454,7 @@ export async function evaluateRestingOrders(
     const market = await quotePrice(symbol, assetClassOf(symbol));
     if (market == null) continue;
 
-    if (isMarketable(side, limitPrice, market)) {
+    if (isTriggered(side, limitPrice, market)) {
       // Claim before executing, same reasoning as the exit manager's tranche
       // claim: a concurrent poll must not fill this same resting order twice.
       const { data: claimed } = await supabase

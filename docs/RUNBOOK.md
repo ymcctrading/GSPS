@@ -207,3 +207,259 @@ git push origin main   # this redeploys production automatically
 
 Do both when the bad commit is staying out: promote first to stop the
 bleeding, then revert so the next merge doesn't carry it back in.
+
+## Phase 4 — Morning Preparation / Confirmation scheduled scans
+
+`/api/scans/morning-preparation` (6:00 AM ET) and
+`/api/scans/morning-confirmation` (9:15 AM ET) are trusted, cron-secret-gated
+jobs (`lib/entitlements/scheduled-scan.ts`), invoked by
+`.github/workflows/morning-preparation-scan.yml` /
+`morning-confirmation-scan.yml` rather than `vercel.json` (both Vercel Hobby
+cron slots are already spent — see `docs/THIRD_PARTY_LIMITS.md`).
+
+**Manual invocation** (safe to run any time — every guard below still
+applies):
+
+```bash
+curl -sS -H "Authorization: Bearer $CRON_SECRET" \
+  https://gsps.vercel.app/api/scans/morning-preparation
+```
+
+Or trigger the GitHub Actions workflow directly (Actions tab →
+"Morning Preparation scan" / "Morning Confirmation scan" → Run workflow).
+
+**Expected response shapes:**
+
+- `{ "skipped": "preview_environment", ... }` — running against a preview
+  deployment; no scan, no writes, no notifications. Expected and correct.
+- `{ "skipped": "non_trading_day", ... }` — weekend or a full-day market
+  holiday (`lib/market/calendar.ts`). Expected and correct.
+- `{ "skipped": "already_run", "scanExecutionId": "...", ... }` — a
+  `scan_executions` row already exists for this `(source, market_date_et)`
+  pair (migration 0040's partial unique index). This is the idempotency
+  guarantee working as designed: a retry, a duplicate GitHub Actions run, or
+  a manual re-invocation after a successful run does **not** re-scan,
+  re-persist visible results, re-evaluate monitors, or re-send
+  notifications. Not an error.
+- `{ "source", "marketDateEt", "eligibleCount", "scanExecutionId",
+  "profilesFannedOut", "profilesFailed", "totalNotified", ... }` — a real
+  run. `profilesFailed` should normally be `0`; a nonzero value means one or
+  more profiles' fan-out (visible results / monitors / notifications)
+  failed and was logged — check application logs for
+  `fan-out failed for profile <id>` around this run's timestamp. The run
+  itself still succeeds even if some profiles fail.
+- `503` with `{ "error": "Upstream market data unavailable" }` — the market
+  scan itself failed (provider outage/timeout). Fails closed: nothing is
+  persisted, no stale signal is served. Safe to retry once the provider
+  recovers; the next successful call still lands under the same market date.
+- `401` — missing/invalid `Authorization` header. Confirms the trusted-job
+  gate is not accepting ordinary browser calls.
+
+**Idempotency / retry:** the job/run key is `(source, market_date_et)` where
+`market_date_et` is the America/New_York calendar date at call time
+(`lib/market/session.ts#etDateKey`), computed correctly across DST since it
+reads the wall-clock date in that IANA zone rather than a fixed UTC offset.
+Safe to re-run any number of times for the same market date; only the first
+successful run does real work.
+
+**Holiday / weekend behavior:** `isTradingDay()` (`lib/market/calendar.ts`)
+skips Saturdays, Sundays, and NYSE/Nasdaq full-day closures. Early-close
+days (e.g. the day after Thanksgiving) are *not* skipped — the module is
+deliberately narrow to full-day closures only.
+
+**Early close is a non-issue for these two jobs specifically, not an
+unhandled case:** early close only moves the market's *close* from 4:00 PM
+ET to 1:00 PM ET — the open stays 9:30 AM ET on every trading day,
+early-close or not. Morning Preparation (6:00 AM ET) and Confirmation
+(9:15 AM ET) both run before the open regardless, so neither job's
+behavior depends on when the market closes that day; there is nothing
+correct to gate on here. This would need real handling only if a future
+Phase 4/5 job were added that runs *near or after* close (the existing
+17:30 ET `/api/market-scan` post-close cron is the one job in this codebase
+that could be affected by an early close, and it predates and is out of
+scope for this Phase 4/5 work) — at that point a documented product policy
+for what "post-close" means on a 1:00 PM close would actually be needed,
+which is why one hasn't been invented here for a case that doesn't apply.
+
+**Observability:** every invocation emits one structured JSON log line
+(`event: "scheduled_scan_run"`) covering `runId`, `jobType` (the source),
+`marketDateEt`, `environment`, `outcome` (`unauthorized` /
+`preview_skip` / `non_trading_day` / `already_run` /
+`upstream_unavailable` / `persist_failed` / `completed`), and — on a
+completed run — `eligibleCount`/`profilesFannedOut`/`profilesFailed`/
+`totalNotified`. `runId` is also echoed in the HTTP response body, so a
+support investigation can correlate "what did this specific invocation do"
+between the caller's response and the Vercel log stream. `profilesFailed`
+nonzero on a `completed` outcome is the signal to grep logs for
+`fan-out failed for profile <id>` around that `runId`.
+
+**Monitor invalidation on a scheduled run:** `runMarketScan()` exposes
+`fullScanResults` — every symbol that received a full multi-timeframe pass
+this run (not just the `bullish`/`bearish` winners), including ones that
+armed nothing. `scheduled-scan.ts` builds `rejectedSymbols` from that set
+exactly the way `/api/batch-scan/route.ts` builds it from its own scan
+results, so a profile's existing Watch/Execute monitor on a symbol this run
+scanned and found clean *does* get invalidated — the same rule as a manual
+scan. The one case this still can't cover: a symbol the run's reduced
+universe (`MORNING_SCAN_UNIVERSE_TOP`/`MORNING_SCAN_PER_SIDE`) never
+selected for a full pass at all — that's "not evaluated," not "evaluated
+and rejected," and correctly stays untouched rather than being guessed at.
+Such a monitor still clears via the user's own manual scans, the 08:30/
+17:30 ET `/api/market-scan` crons (full universe), or
+`active_monitors.expires_at`.
+
+**Rollback / disable:** disable via the GitHub Actions workflow (Actions →
+the workflow → "..." → Disable workflow), or delete/comment out its
+`schedule:` trigger. This does not touch `CRON_SECRET` or any other
+schedule. No production data needs cleanup — a disabled schedule simply
+stops creating new `scan_executions` rows.
+
+## Phase 5 — Watch → Execute monitor & notification delivery
+
+`lib/entitlements/monitor.ts` (pure state-machine decision),
+`monitor-store.ts` (database-backed evaluation), and `delivery.ts`
+(idempotent delivery ledger + send) implement the WATCH → EXECUTE lifecycle.
+`lib/entitlements/scan-fanout.ts` wires them into every scan path
+(`/api/batch-scan` and the two scheduled jobs above) identically, so a user-
+initiated scan and a scheduled scan apply the same cooldown, re-arm, and
+invalidation-precedence rules.
+
+**Expected behavior:**
+
+- A monitor is created WATCH or born directly EXECUTE only for a *visible*
+  (post-cap) setup — a qualifying setup the tier's result-visibility cap
+  dropped never reaches `evaluateMonitor` and cannot be watched or alerted
+  on.
+- Notification sends only on a confirmed prior-WATCH → candidate-EXECUTE
+  transition (`decideTransition` in `monitor.ts`), never on a monitor born
+  directly into EXECUTE.
+- Re-arm requires leaving EXECUTE, returning to WATCH, and reconfirming
+  EXECUTE before another alert — enforced by `lastExecuteAt` cooldown lookup
+  plus the state machine's transition rules, not by application-side timers.
+- A newer evaluation (`candidateEvaluatedAt`) never regresses a monitor to
+  an older read (`stale_evaluation`), which is what makes out-of-order
+  concurrent evaluations (e.g. the 6:00 and 9:15 jobs racing a manual scan)
+  safe.
+
+**Cooldown suppression:** every time `evaluateMonitor` declines to apply a
+candidate transition (`cooldown` or `stale_evaluation`), it writes the
+reason and timestamp onto the monitor row itself
+(`active_monitors.last_suppressed_reason` / `last_suppressed_at`, migration
+0041) — a suppressed WATCH→EXECUTE flap is recorded, not silently dropped.
+A later evaluation that actually applies clears both columns, so a nonzero
+value always reflects the *most recent* evaluation's outcome, not stale
+history.
+
+**Monitor capacity / fair use:** a tier whose policy limit is
+`"unlimited"` (Wall Street) is still capped at
+`FAIR_USE_MAX_ACTIVE_MONITORS` (`monitor-store.ts`, currently 1000) — the
+spec's "unlimited/fair-use" wording is enforced as a real ceiling, not a
+literal absence of one.
+
+**Delivery retry:** `recordNotificationDelivery` inserts a `pending` row
+under a unique `idempotency_key` (`<transitionId>:<channel>`), storing the
+exact entitled payload it was recorded with. `dispatchNotificationDelivery`
+re-reads the row immediately before sending and only proceeds if it is
+still `pending` or `failed` (never `sent`), and stops retrying once
+`attempt_count` reaches `MAX_DISPATCH_ATTEMPTS` (5). A delivery already
+`sent` is never re-sent, by any caller, including the retry sweep below.
+
+A GitHub Actions workflow
+(`.github/workflows/notification-delivery-retry.yml`, every 30 minutes on
+weekdays) calls `/api/notifications/retry-deliveries`, which sweeps rows
+stuck `pending` (the inline dispatch right after evaluation never ran, or
+crashed mid-flight) or `failed` (worth another attempt) older than 5
+minutes — that age floor exists so the sweep never races the inline
+dispatch that follows `recordNotificationDelivery` on the original
+evaluation path. Manual invocation:
+
+```bash
+curl -sS -H "Authorization: Bearer $CRON_SECRET" \
+  https://gsps.vercel.app/api/notifications/retry-deliveries
+```
+
+Response: `{ "swept": N, "sent": N, "failed": N, "suppressed": N }` —
+`suppressed` covers preview/no-longer-pending/attempt-ceiling no-ops within
+the swept set, not an error.
+
+**Preview:** `dispatchNotificationDelivery` itself checks
+`VERCEL_ENV === "preview"` and refuses to send — this is enforced at the
+single choke point every send path (the scheduled jobs' inline dispatch,
+`/api/batch-scan`'s inline dispatch, and the retry sweep) goes through, not
+duplicated per call site. A `pending`/`failed` row is left untouched in
+preview rather than mutated, so preview activity never fabricates a
+`sent`/`failed` record. No `RESEND_API_KEY` configuration is needed to
+guarantee this; it is a hard code-level guard, not an operational
+convention to remember.
+
+**Rollback / disable:** to stop all outbound sends without touching schema
+or code, unset `RESEND_API_KEY` on the deployment — `sendAlertEmail`
+short-circuits to `{ success: false }` and every delivery lands `failed`
+rather than silently vanishing (the ledger row still records the attempt).
+To stop the retry sweep specifically without touching the inline dispatch
+path, disable `.github/workflows/notification-delivery-retry.yml` the same
+way as the scan workflows above.
+
+## Incident response
+
+Everything above is diagnosis for a specific symptom. This section is the
+process wrapper the doctrine set requires around it — ownership,
+escalation, containment, and a record of what happened — for an incident
+that isn't covered by a section above, or that turns out to be bigger than
+one.
+
+**Detect.** An incident surfaces one of three ways: a user report, a
+GitHub Actions workflow failure (`.github/workflows/*.yml` — Actions tab
+shows run history for every scheduled job), or a Vercel deployment/runtime
+error (Vercel → Project → Logs). There is no paging/alerting system yet —
+this repo runs on a single maintainer's attention, so "detection" today
+means checking these three places, not waiting for a page.
+
+**Own it.** The person who notices an incident owns it until they hand it
+off explicitly in writing (a commit message, a PR description, or a note
+wherever the team tracks this). Do not assume someone else has it.
+
+**Contain.** Before root-causing, stop the bleeding if the failure is
+user-visible or data-corrupting:
+- A bad deployment: roll back via Vercel → Deployments → pick the last
+  known-good build → "Promote to Production". This is a UI action, not a
+  git operation — reverting the commit and re-deploying is slower and
+  leaves production broken in the meantime.
+- A bad migration: migrations in this repo are additive-only by
+  convention (see `supabase/AGENTS.md`), so containment is almost always
+  "ship a forward migration that undoes the effect," not a destructive
+  rollback. Never hand-edit the live schema outside a committed
+  migration — that's exactly the drift class `npm run check:migrations`
+  and the migration ledger exist to prevent.
+- A misbehaving scheduled job (runaway cost, bad writes): disable the
+  workflow (`.github/workflows/<name>.yml`, GitHub → Actions → the
+  workflow → "..." → Disable) or the Vercel Cron entry in `vercel.json`,
+  whichever is firing it. Each section above names which mechanism drives
+  which job.
+- A compromised or leaked credential: rotate it immediately
+  (`scripts/rotate-credentials-key.mjs` covers the app's own encryption
+  key; provider keys — Supabase service role, Alpaca, Resend, Alpha
+  Vantage/Polygon/Finnhub — are rotated in that provider's dashboard and
+  then updated in Vercel's environment variables).
+
+**Recover.** Confirm the specific symptom that triggered detection is
+gone (the dashboard shows a fresh scan, the failing workflow run is green,
+the error rate in Vercel Logs has dropped), not just that the immediate
+action succeeded — a rollback that doesn't fix the reported symptom means
+the wrong thing was rolled back.
+
+**Record.** Once the incident is over, write down: what broke, when it
+was detected, what contained it, the root cause, and what changes (code,
+migration, or process) prevent a repeat. `CHANGELOG.md` is where this repo
+already keeps that kind of record — see its entries for prior incidents
+(the duplicate-migration-prefix collision, the Vercel auto-deploy
+regression) for the expected level of detail. A postmortem that only says
+"fixed" without naming the root cause is incomplete.
+
+**Provider outage vs. our bug.** Five external APIs sit in this app's
+critical path (Alpaca/market data, Supabase, Resend, and the scan data
+providers named in `docs/MULTI_PROVIDER_SETUP.md`). Before treating a
+failure as a GSPS bug, check the provider's own status page — an outage
+there is not actionable here beyond making sure the app fails closed
+(a stale-data warning, a held scan) rather than serving wrong data as if
+it were current.
