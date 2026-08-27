@@ -94,7 +94,30 @@ both signal discovery and execution.
 ### Initiatives
 
 - **Notification system** — email, SMS, and browser push for high-confidence
-  alerts. Quiet hours, scheduling, alert history dashboard.
+  alerts. Quiet hours, scheduling, alert history dashboard. *(Gap fixed
+  2026-08-21, out-of-phase/direct report: a live ~6% BTC intraday move went
+  unflagged and un-emailed. Root cause was two-fold — `WATCHLIST` in
+  `lib/scanner/intraday.ts`, the universe the system scan and email fan-out
+  actually cover, had no crypto symbol in it despite the scanner engine
+  already supporting `kind: "crypto"`; and once BTC/USD and ETH/USD were
+  added, the session-volume liquidity gate — tuned in share counts — would
+  have filtered every crypto alert anyway, since a session's coin volume is
+  single/double digits, not tens of thousands. Both fixed: the two symbols
+  added to `WATCHLIST`, and that gate skipped for crypto in favor of the
+  dollar-turnover floor `lib/scan/liquidity.ts` already applies correctly.
+  This is deliberately narrower than the Q2 "Crypto scanner" item below — it
+  wires two large-cap pairs into the existing equity-hours intraday engine,
+  not a separate scan queue or Binance data. *(Follow-up, 2026-08-21, same
+  day: the weekend/overnight gap above is now closed. A second, always-on
+  schedule in `.github/workflows/intraday-scan.yml` covers weekday overnight
+  and the whole weekend, scanning crypto only — the equity side of the
+  watchlist can't move while its market is shut, so scanning it there would
+  be wasted runs, not just budget. The equity-hours schedule still scans the
+  full watchlist, and a manual `workflow_dispatch` run always does too,
+  whatever hour it's kicked off at — `?universe=crypto` is only ever set by
+  the off-hours cron itself. Direct request; accepted knowingly as roughly
+  4x this workflow's prior GitHub Actions run count, noted in
+  `docs/THIRD_PARTY_LIMITS.md`.)*
 - **Portfolio analytics dashboard** — win/loss ratio, Sharpe ratio, drawdown
   analysis, monthly/quarterly P&L, performance by pattern type.
 - **Conditional orders** — stop-loss and take-profit on any order; the

@@ -176,12 +176,24 @@ and reading replay numbers as feedback on `config.py` is not.
 
 ## Fixed: proximity criteria ignored level role
 
-`fanProximity` and `harmonicProximity` asked "is there a structural level near price", full stop
-— they read `gann.fanLines[0]`/`gann.squareOf9[0]`, the single nearest level by distance, without
-checking `role`. A level only confirms confluence when it sits on the side that helps the trade: a
-**support** floor underneath a long, a **resistance** ceiling above a short. The nearest level is
-frequently the wrong one — a long entering right under overhead resistance is not confluence, it
-is a headwind the trade has to punch through — and the criteria were awarding the point either way.
+All three structural criteria — `fanProximity`, `harmonicProximity`, and `historicalSR` — asked "is
+there a structural level near price", full stop. `fanProximity`/`harmonicProximity` read
+`gann.fanLines[0]`/`gann.squareOf9[0]`, the single nearest level by distance; `historicalSR` took
+whatever `nearestLevelMatch` returned. None checked `role`. A level only confirms confluence when
+it sits on the side that helps the trade: a **support** floor underneath a long, a **resistance**
+ceiling above a short. The nearest level is frequently the wrong one — a long entering right under
+overhead resistance is not confluence, it is a headwind the trade has to punch through — and all
+three criteria were awarding the point either way.
+
+The backtest replay was silently exempt from the `historicalSR` half of this defect: it only ever
+passed a boolean (`nearAnyLevel`) into `computeScore`, never the matched level's role, unlike the
+live scan. `lib/backtest/replay.ts` now carries the matched level and its role
+(`nearestLevelMatch` + `levelRole`, mirroring `lib/scanTicker.ts`), so the replay measures the same
+fix the live scanner runs, not a stale approximation of it. `applyReversionConfirmation` also used
+to take a separate raw `nearSupportResistance` boolean for its own "confirmed" check; it now reads
+the score's own (role-aware) `historicalSR` verdict off the breakdown instead, so a bare 2-2
+reversal can no longer be "confirmed" by a wrong-side level even if the caller's raw boolean says
+yes.
 
 Four committed real replay runs (`docs/replay-runs/*.json`, live Alpaca data, two different
 windows and execution timeframes) showed exactly the damage this does:
@@ -200,20 +212,55 @@ showed the same role-blindness in a noisier form: its sign flipped between the 1
 samples, which is what a role-blind criterion mixing real confluence with a headwind looks like
 when the mix ratio shifts between universes.
 
-**The fix**: both criteria now search each level array (already sorted nearest-first, already
-carrying `role`) for the nearest entry whose role matches the trade direction — `support` for a
-long, `resistance` for a short — inside the same ATR band as before. See `wantedRole` in
-`lib/scoring/score.ts` and the `computeScore proximity criteria respect level role` tests in
-`lib/__tests__/score.test.ts`.
+**The fix**: `fanProximity`/`harmonicProximity` now search each level array (already sorted
+nearest-first, already carrying `role`) for the nearest entry whose role matches the trade
+direction — `support` for a long, `resistance` for a short — inside the same ATR band as before,
+rather than only checking whether the single nearest entry happens to match; that finds real
+confluence a farther-but-still-in-band correct-side level would otherwise miss. `historicalSR`
+matches the role of whichever single level `nearestLevelMatch` already returned. Callers that only
+have the boolean and no matched level (older call sites, some existing tests) keep the pre-fix
+behavior for `historicalSR` rather than being silently failed by a check they can't answer. See
+`wantedRole` in `lib/scoring/score.ts` and the `computeScore proximity criteria respect level role`
+tests in `lib/__tests__/score.test.ts`.
 
 This is a role filter, not a re-weight, and it is a different fix from the `masterStructural`
 question below: that one's sign disagreed between timeframes (the disqualifying case
 `propose-weights.ts` calls `disagreed`), so it was left alone. `harmonicProximity`'s sign agreed
 across all four available real samples — the strongest evidence this repo has produced for any of
 the nine criteria — and the mechanism (role-blindness) is a plausible, checkable defect rather than
-a market read. **Re-run the replay after this lands** to confirm Execute's expectancy actually
-moved, the same way the ATR re-basing above asked for a before/after — this change hasn't been
-confirmed against live data from this environment, which has no Alpaca credentials.
+a market read.
+
+### Confirmed against live data (2026-08-27)
+
+`GET /api/backtest?symbols=SPY,AAPL,AMD,TSLA,MSFT,NVDA&timeframe=15Min&targetR=2&within=Execute`,
+run against the deployment (`live: true`, `source: alpaca`), same universe/timeframe/target as the
+pre-fix `docs/replay-runs/2026-08-12-15Min-2R.json` baseline. Payload captured to
+`docs/replay-runs/2026-08-27-15Min-2R-postfix.json` and rendered into `docs/REPLAY_RESULTS.md`:
+
+| | Pre-fix (2026-08-12) | Post-fix (2026-08-27) |
+|---|---:|---:|
+| Execute trades | 126 | 31 |
+| Execute win rate | 34.1% | 38.7% |
+| Execute expectancy | +0.013R | **+0.151R** |
+| Watch expectancy | −0.072R | −0.009R |
+| Reject expectancy | −0.081R (64 trades) | −0.184R (365 trades) |
+| Overall (all buckets) | −0.062R | −0.065R |
+
+Execute's expectancy moved from a barely-positive reading indistinguishable from noise to a solidly
+positive one — over five times larger, on a win rate that cleared break-even (33.3% at 2R) by a
+wider margin. The mechanism matches what the fix predicts: overall expectancy across all buckets
+combined is unchanged (the trades themselves didn't change, only which bucket each landed in), and
+Reject absorbed most of what Execute and Watch shed — 365 trades at −0.184R versus 64 at −0.081R
+pre-fix. Setups that used to score high on a wrong-side "confluence" point now correctly fall
+through to Reject instead of inflating Execute or Watch.
+
+Two honest caveats before treating this as closed: **the Execute sample is now thin** (31 trades,
+down from 126 — the stricter role check is more selective, which is the point, but also means a
+wider confidence interval), so per-criterion factor attribution on this run is mostly `insufficient`
+verdict and shouldn't be read further. And **the window shifted forward two weeks** (trailing
+lookback, not a fixed period — see "Win rate decides nothing on its own" above), so this is not a
+perfectly matched before/after on identical bars. Worth a second confirmation run once more Execute
+trades have accumulated, but the direction and magnitude here are what the fix was built to produce.
 
 ## Criteria that carry no information inside `Execute`
 

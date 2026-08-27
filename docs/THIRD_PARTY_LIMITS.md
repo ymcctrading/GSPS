@@ -11,7 +11,7 @@ confirm you're still under its limit.
 
 | Service | Current plan | Limit | What happens if exceeded | Notes |
 |---|---|---|---|---|
-| **Vercel** | Hobby (free) | 2 cron jobs per project, each ≤ once/day. Deployments/builds also capped (see Vercel dashboard for current usage). | Deploy fails, or the cron silently isn't created. | `vercel.json` now defines **2** crons — `/api/market-scan` (17:30 ET weekdays) and `/api/trade-journal/daily-email` (18:00 ET weekdays, 2 hours after close) — **both of 2 slots are now spent.** The 08:30 ET run of the market scan moved to GitHub Actions (`.github/workflows/premarket-scan.yml`) to free the slot the journal digest now uses; see below. `/api/intraday-scan` needs to run every ~15 minutes during the session, well past the 1-run/day cap, so it's scheduled the same way: `.github/workflows/intraday-scan.yml` calls it with `CRON_SECRET`, outside `vercel.json` entirely — it still also serves on-demand requests from a signed-in user's Scanner tab, same as before. **Any future scheduled job must use the GitHub Actions pattern below instead of `vercel.json` — there is no cron slot left.** Git-triggered deploys are **on**: a branch push builds a preview and a merge to `main` releases to production — see `AGENTS.md`. |
+| **Vercel** | Hobby (free) | 2 cron jobs per project, each ≤ once/day. Deployments/builds also capped (see Vercel dashboard for current usage). | Deploy fails, or the cron silently isn't created. | `vercel.json` now defines **2** crons — `/api/market-scan` (17:30 ET weekdays) and `/api/trade-journal/daily-email` (18:00 ET weekdays, 2 hours after close) — **both of 2 slots are now spent.** The 08:30 ET run of the market scan moved to GitHub Actions (`.github/workflows/premarket-scan.yml`) to free the slot the journal digest now uses; see below. `/api/intraday-scan` needs to run every ~15 minutes during the session, well past the 1-run/day cap, so it's scheduled the same way: `.github/workflows/intraday-scan.yml` calls it with `CRON_SECRET`, outside `vercel.json` entirely — it still also serves on-demand requests from a signed-in user's Scanner tab, same as before. That workflow now carries a second, always-on `*/15` schedule covering weekday overnight and the whole weekend (2026-08-21, alongside adding BTC/USD and ETH/USD to the watchlist) — the equity-hours run scans the full watchlist, the off-hours one passes `?universe=crypto` and scans crypto alone, since equities can't have moved while their market is shut. That's roughly 4x the GitHub Actions minutes this workflow used before; GitHub Actions itself has no row in this table yet because nothing had pushed it close to a real limit until now — worth watching if a private-repo minutes cap becomes a concern. The Phase 3D entitlement scans (`/api/scans/morning-preparation` 6:00 ET, `/api/scans/morning-confirmation` 9:15 ET) use the same GitHub Actions pattern — `.github/workflows/morning-preparation-scan.yml` / `morning-confirmation-scan.yml` — at full scan capacity (single active user; see "Upgrading past current limits" below for the Vercel-cron-slot question that remains). **Any future scheduled job must use the GitHub Actions pattern below instead of `vercel.json` — there is no cron slot left.** Git-triggered deploys are **on**: a branch push builds a preview and a merge to `main` releases to production — see `AGENTS.md`. |
 | **Supabase** | Free project tier | Row/storage/bandwidth caps per Supabase's Hobby project limits; project pauses after a period of inactivity. | Paused project = the whole app loses its database until manually resumed. | Check the Supabase dashboard for current usage before assuming headroom. |
 | **Binance** (crypto data) | Public API | Effectively unlimited for basic market data (public endpoint, no key). | N/A | No auth required; still subject to Binance's general IP rate limiting under heavy load. |
 | **Oanda** (forex data) | Practice/demo account | ~1200 requests/min | 429s from Oanda; endpoint returns an error to the caller. | `OANDA_API_KEY` required. Practice account, not live. |
@@ -93,6 +93,34 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
 ```
 
-No route needs this yet beyond the pre-market scan above — add a job when a
-real one (token refresh, reconciliation) exists, rather than standing up an
-unused workflow now.
+Beyond the pre-market scan, the Phase 3D entitlement scans
+(`.github/workflows/morning-preparation-scan.yml` at 6:00 ET,
+`morning-confirmation-scan.yml` at 9:15 ET) use this same template. Add
+another job when a real need (token refresh, reconciliation) exists, rather
+than standing up an unused workflow now.
+
+## Upgrading past current limits
+
+One ceiling remains for the Phase 3D scans:
+
+- **Vercel's 2-cron cap** — lifts immediately on upgrading to Vercel Pro
+  (`ROADMAP.md`'s Q1 "Platform & reliability" line already calls this out).
+  Once upgraded, `/api/scans/morning-preparation` and
+  `/api/scans/morning-confirmation` can move from the GitHub Actions
+  workaround to native `vercel.json` crons, for the same punctuality reason
+  the 17:30 ET market-scan run stays native today — see the `crons` array
+  above and add two entries following the existing ones, then remove the
+  two corresponding `.github/workflows/morning-*.yml` files (or leave them
+  disabled as a fallback; a route can safely be called by both a native
+  cron and a stale external one, since `isTradingDay`/preview guards make
+  an extra invocation a no-op, not a double-charge).
+
+**Provider call volume is no longer throttled.** The morning scans
+originally ran at a reduced universe/per-side budget pending confirmation
+that four full scans/day (the existing two plus these two) stayed under
+every provider's rate limit. Restored to full capacity 2026-08-26: with a
+single active user, the extra request volume is negligible against
+Alpaca's (the primary provider's) limits. If concurrent usage grows enough
+that this becomes a real concern again, reintroduce a reduced budget in
+`lib/entitlements/scheduled-scan.ts` (e.g. `runMarketScan(20, 5)`) — that
+file's header comment has the reasoning inline.

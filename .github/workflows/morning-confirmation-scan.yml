@@ -1,0 +1,34 @@
+name: Morning confirmation scan
+
+# The 9:15 AM ET confirmation scan from GSPS_TIER_ENTITLEMENT_SPEC.md, timed
+# to land just before the 9:30 ET open. Same rationale as
+# morning-preparation-scan.yml: both Vercel cron slots are spent, so this
+# uses the GitHub-Actions pattern instead of vercel.json.
+#
+# 13:15 UTC = 9:15 AM ET during EDT. During EST this fires at 8:15 AM ET --
+# the same fixed-UTC DST drift premarket-scan.yml and
+# morning-preparation-scan.yml both already accept.
+#
+# Reduced-budget scan -- see lib/entitlements/scheduled-scan.ts's header
+# comment for the full-capacity switch-over once a higher-tier plan lands.
+on:
+  schedule:
+    - cron: '15 13 * * 1-5'
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    name: Trigger /api/scans/morning-confirmation
+    steps:
+      - name: Call morning-confirmation scan
+        run: |
+          status=$(curl -sS -o /tmp/response.json -w '%{http_code}' \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ vars.PRODUCTION_URL || 'https://gsps.vercel.app' }}/api/scans/morning-confirmation")
+          echo "HTTP $status"
+          cat /tmp/response.json
+          if [ "$status" -ge 300 ]; then
+            echo "morning-confirmation scan returned $status" >&2
+            exit 1
+          fi

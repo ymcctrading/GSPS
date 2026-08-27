@@ -10,6 +10,35 @@ date.
 ## 2026-08-21
 
 ### Fixed
+- **A live ~6% BTC intraday move went unflagged and un-emailed by the
+  intraday scanner.** Two bugs, both in `lib/scanner/intraday.ts`: (1)
+  `WATCHLIST` — the universe the system scan (`.github/workflows/intraday-scan.yml`,
+  every 15 min during the equity session) and its email fan-out actually
+  cover — had no crypto symbol in it, even though the scanner engine has
+  supported `kind: "crypto"` since it was written; BTC/USD and ETH/USD are
+  now in it. (2) Even with those added, the session-volume liquidity gate
+  (`minSessionVolume`, tuned in share counts) would have filtered every
+  crypto alert anyway, since a session's coin volume is single/double digits,
+  not the tens of thousands an equity trades — that gate is now skipped for
+  crypto, which is already correctly gated on dollar turnover by
+  `lib/scan/liquidity.ts`. See `ROADMAP.md`'s Q1 notification-system entry
+  for the full writeup, including a known remaining gap (the scan schedule is
+  still equity-hours-only, so a weekend/overnight BTC move isn't yet
+  covered).
+
+### Added
+- **The intraday scanner now runs automatically outside equity hours too, on
+  crypto alone.** Same-day follow-up to the fix above: closes the
+  weekend/overnight gap it flagged. `.github/workflows/intraday-scan.yml`
+  gained a second `*/15` schedule spanning weekday overnight and the whole
+  weekend, which calls `/api/intraday-scan?universe=crypto` — a new param,
+  honored only for system (`CRON_SECRET`-authorized) scans, that narrows the
+  scan to the watchlist's crypto entries instead of the full list, since
+  equities can't have moved while their market is shut. The existing
+  equity-hours schedule and any manual `workflow_dispatch` run are
+  unaffected and still scan the full watchlist. Direct request, accepted
+  knowingly as roughly 4x this workflow's prior GitHub Actions run count —
+  see `docs/THIRD_PARTY_LIMITS.md`.
 - **The first-run tour's card covered the very element it was describing, on
   phone-sized screens.** `placeCard` (`components/onboarding/tour-overlay.tsx`)
   only placed the card above or below the spotlit hole when that side had

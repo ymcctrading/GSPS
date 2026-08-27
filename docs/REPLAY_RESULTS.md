@@ -9,14 +9,15 @@ edit: a hand-edited cell here is exactly the failure this file replaces.
 | | |
 |---|---|
 | Universe | SPY, AAPL, AMD, TSLA, MSFT, NVDA |
-| Window | 2026-06-15 → 2026-08-12 |
+| Window | 2026-06-29 → 2026-08-26 |
 | Execution timeframe | 15Min |
 | Target | 2R |
+| Stop model | raw pattern (original harness behaviour) |
 | Break-even win rate at this target | 33.3% |
 | Data source | alpaca (live feed) |
-| Armed / triggered | 3351 / 1033 |
-| Generated | 2026-08-12T17:26:33.746Z |
-| Run by | `GET /api/backtest` on the deployment; payload `docs/replay-runs/2026-08-12-15Min-2R.json` |
+| Armed / triggered | 3340 / 1045 |
+| Generated | 2026-08-27T04:11:32.773Z |
+| Run by | `GET /api/backtest` on the deployment; payload `docs/replay-runs/2026-08-27-15Min-2R-postfix.json` |
 
 ## Expectancy by verdict
 
@@ -25,11 +26,27 @@ is a losing system at this target however good it looks.
 
 | Bucket | Trades | Win rate | Expectancy | Total | Above break-even |
 |---|---:|---:|---:|---:|---|
-| Execute | 126 | 34.1% | +0.013R | +1.623R | yes |
-| Watch | 843 | 31.2% | -0.072R | -60.958R | no |
-| Reject | 64 | 31.3% | -0.081R | -5.153R | no |
+| Execute | 31 | 38.7% | +0.151R | +4.673R | yes |
+| Watch | 649 | 33.1% | -0.009R | -5.965R | no |
+| Reject | 365 | 27.7% | -0.184R | -67.154R | no |
 | unscored | 0 | — | — | — | — |
-| **All** | 1033 | 31.6% | -0.062R | -64.488R | no |
+| **All** | 1045 | 31.4% | -0.065R | -68.446R | no |
+
+## Large-cap vs. not
+
+Every trade, split by whether its symbol read as large-cap at the time
+(`lib/strat/large-cap.ts`) — independent of verdict, so this partitions the
+whole run rather than one bucket. With `Stop model` above set to "raw
+pattern", both rows are walked against the identical, unwidened stop, so a
+difference between them describes large-cap names generally, not the
+widening. Re-run with `--productionStop` and compare the same two rows
+across both reports to isolate the widening's own effect — that pair is
+the before/after `docs/BACKTESTING.md` calls for on this constant.
+
+| | Trades | Win rate | Expectancy | Total |
+|---|---:|---:|---:|---:|
+| Large-cap | 1045 | 31.4% | -0.065R | -68.446R |
+| Not large-cap | 0 | — | — | — |
 
 ## Factors inside Execute
 
@@ -38,26 +55,26 @@ set from. Marginal, not causal — see docs/BACKTESTING.md.
 
 | Criterion | Passed | E[R] pass | E[R] fail | Δ E[R] | Corr | Verdict |
 |---|---:|---:|---:|---:|---:|---|
-| timeCycle | 107/126 | +0.053R | -0.215R | +0.268R | 0.07 | informative |
-| momentum | 85/126 | +0.048R | -0.061R | +0.109R | 0.04 | informative |
-| fanProximity | 103/126 | +0.008R | +0.033R | -0.024R | -0.01 | informative |
-| hourlyTrend | 92/126 | -0.000R | +0.049R | -0.049R | -0.02 | informative |
-| macroTrend | 86/126 | -0.034R | +0.114R | -0.148R | -0.05 | informative |
-| historicalSR | 97/126 | -0.021R | +0.127R | -0.148R | -0.04 | informative |
-| masterStructural | 108/126 | -0.010R | +0.150R | -0.160R | -0.04 | informative |
-| harmonicProximity | 121/126 | +0.006R | +0.187R | -0.181R | -0.02 | insufficient |
-| patternArmed | 126/126 | +0.013R | — | — | — | constant |
+| timeCycle | 20/31 | +0.336R | -0.187R | +0.523R | 0.17 | informative |
+| harmonicProximity | 30/31 | +0.190R | -1.022R | +1.211R | 0.15 | insufficient |
+| historicalSR | 26/31 | +0.258R | -0.406R | +0.664R | 0.17 | insufficient |
+| hourlyTrend | 28/31 | +0.169R | -0.015R | +0.184R | 0.04 | insufficient |
+| momentum | 26/31 | +0.142R | +0.194R | -0.052R | -0.01 | insufficient |
+| macroTrend | 24/31 | +0.114R | +0.277R | -0.163R | -0.05 | insufficient |
+| masterStructural | 22/31 | +0.083R | +0.316R | -0.233R | -0.07 | insufficient |
+| fanProximity | 23/31 | +0.032R | +0.492R | -0.460R | -0.14 | insufficient |
+| patternArmed | 31/31 | +0.151R | — | — | — | constant |
 
 ## Stop width inside Execute
 
 | Band (×ATR) | Trades | Win rate | Expectancy |
 |---|---:|---:|---:|
 | 0.0–0.5 | 0 | — | — |
-| 0.5–1.0 | 52 | 30.8% | -0.089R |
-| 1.0–1.5 | 55 | 41.8% | +0.243R |
-| 1.5–2.0 | 10 | 10.0% | -0.711R |
-| 2.0–2.5 | 6 | 33.3% | -0.007R |
-| 2.5–∞ | 3 | 33.3% | -0.004R |
+| 0.5–1.0 | 13 | 23.1% | -0.319R |
+| 1.0–1.5 | 14 | 57.1% | +0.704R |
+| 1.5–2.0 | 3 | 33.3% | -0.009R |
+| 2.0–2.5 | 1 | 0.0% | -1.003R |
+| 2.5–∞ | 0 | — | — |
 
 ---
 

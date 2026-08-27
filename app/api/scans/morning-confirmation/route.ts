@@ -1,0 +1,23 @@
+/**
+ * GSPS — /api/scans/morning-confirmation
+ *
+ * The 9:15 AM ET confirmation scan from docs/GSPS_TIER_ENTITLEMENT_SPEC.md --
+ * included on every tier, does not consume any user's manual_dashboard_scan
+ * or guided_scan quota. Cron-invoked with the same
+ * `Authorization: Bearer CRON_SECRET` pattern as /api/market-scan.
+ *
+ * Scheduled via .github/workflows/morning-confirmation-scan.yml (GitHub
+ * Actions, not vercel.json -- both Vercel cron slots are already spent; see
+ * docs/THIRD_PARTY_LIMITS.md). Runs at full scan capacity -- see
+ * lib/entitlements/scheduled-scan.ts's header comment for the
+ * single-active-user reasoning and when to reintroduce a reduced budget.
+ */
+
+import { NextRequest } from "next/server";
+import { runScheduledScan } from "@/lib/entitlements/scheduled-scan";
+
+export const maxDuration = 60;
+
+export async function GET(req: NextRequest) {
+  return runScheduledScan(req.headers.get("authorization"), "scheduled_morning_confirmation_scan");
+}

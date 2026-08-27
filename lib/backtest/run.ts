@@ -29,6 +29,7 @@ import { TF_LOOKBACK_DAYS, TF_MAX_BARS } from "@/lib/timeframe";
 import {
   byLargeCap,
   byOutputState,
+  byScoreRange,
   combine,
   replay,
   type ReplayOptions,
@@ -49,8 +50,15 @@ export interface BacktestRequest {
   /** Take-profit distance as a multiple of risk. Defaults to 2, matching TP1. */
   targetR?: number;
   costPerShare?: number;
-  /** Bucket to attribute factors within. Defaults to Execute. */
+  /** Bucket to attribute factors within. Defaults to Execute. Ignored when `attributeScoreRange` is set. */
   attributeWithin?: Bucket;
+  /**
+   * Attribute factors within a score band instead of a verdict bucket —
+   * `[5, 6]` for "one point short of Execute", say. Takes precedence over
+   * `attributeWithin` when set, because a verdict bucket cannot express a
+   * band narrower than itself (Watch is 4–6 in one bucket).
+   */
+  attributeScoreRange?: [number, number];
   /** Criterion weights to score with. Defaults to one point each. */
   weights?: CriterionWeights;
   /**
@@ -138,7 +146,14 @@ export interface BacktestReport {
   /** Setups armed and triggered across the run, for a fill-rate sanity check. */
   armed: number;
   triggered: number;
-  attributeWithin: Bucket;
+  /**
+   * What `factors`/`atrBands` were computed within — a bucket name
+   * ("Execute") or a score-band label ("score 5–6") when `attributeScoreRange`
+   * was requested. A display label, not a re-parseable value.
+   */
+  attributeWithin: string;
+  /** Echoes the request's score band, when one was given — see `attributeWithin`. */
+  attributeScoreRange?: [number, number];
   factors: FactorAttribution[];
   atrBands: Array<{ from: number; to: number | null; trades: number; winRate: number; expectancyR: number }>;
   generatedAt: string;
@@ -273,11 +288,16 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
 }
 
 export async function runBacktest(request: BacktestRequest): Promise<BacktestReport> {
-  const { attributeWithin = "Execute", useProductionStop = false } = request;
+  const { attributeWithin = "Execute", attributeScoreRange, useProductionStop = false } = request;
 
   const run = await collectRun(request);
   const split = byOutputState(run.overall);
-  const target = split[attributeWithin];
+  const target = attributeScoreRange
+    ? byScoreRange(run.overall, attributeScoreRange[0], attributeScoreRange[1])
+    : split[attributeWithin];
+  const attributedLabel = attributeScoreRange
+    ? `score ${attributeScoreRange[0]}–${attributeScoreRange[1]}`
+    : attributeWithin;
   const capSplit = byLargeCap(run.overall);
 
   return {
@@ -298,7 +318,8 @@ export async function runBacktest(request: BacktestRequest): Promise<BacktestRep
     useProductionStop,
     armed: run.overall.armed,
     triggered: run.overall.triggered,
-    attributeWithin,
+    attributeWithin: attributedLabel,
+    ...(attributeScoreRange ? { attributeScoreRange } : {}),
     factors: attributeFactors(target.trades),
     atrBands: attributeByAtrMultiple(target.trades).map(({ from, to, arm }) => ({
       from,
