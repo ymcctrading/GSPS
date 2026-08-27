@@ -176,12 +176,24 @@ and reading replay numbers as feedback on `config.py` is not.
 
 ## Fixed: proximity criteria ignored level role
 
-`fanProximity` and `harmonicProximity` asked "is there a structural level near price", full stop
-— they read `gann.fanLines[0]`/`gann.squareOf9[0]`, the single nearest level by distance, without
-checking `role`. A level only confirms confluence when it sits on the side that helps the trade: a
-**support** floor underneath a long, a **resistance** ceiling above a short. The nearest level is
-frequently the wrong one — a long entering right under overhead resistance is not confluence, it
-is a headwind the trade has to punch through — and the criteria were awarding the point either way.
+All three structural criteria — `fanProximity`, `harmonicProximity`, and `historicalSR` — asked "is
+there a structural level near price", full stop. `fanProximity`/`harmonicProximity` read
+`gann.fanLines[0]`/`gann.squareOf9[0]`, the single nearest level by distance; `historicalSR` took
+whatever `nearestLevelMatch` returned. None checked `role`. A level only confirms confluence when
+it sits on the side that helps the trade: a **support** floor underneath a long, a **resistance**
+ceiling above a short. The nearest level is frequently the wrong one — a long entering right under
+overhead resistance is not confluence, it is a headwind the trade has to punch through — and all
+three criteria were awarding the point either way.
+
+The backtest replay was silently exempt from the `historicalSR` half of this defect: it only ever
+passed a boolean (`nearAnyLevel`) into `computeScore`, never the matched level's role, unlike the
+live scan. `lib/backtest/replay.ts` now carries the matched level and its role
+(`nearestLevelMatch` + `levelRole`, mirroring `lib/scanTicker.ts`), so the replay measures the same
+fix the live scanner runs, not a stale approximation of it. `applyReversionConfirmation` also used
+to take a separate raw `nearSupportResistance` boolean for its own "confirmed" check; it now reads
+the score's own (role-aware) `historicalSR` verdict off the breakdown instead, so a bare 2-2
+reversal can no longer be "confirmed" by a wrong-side level even if the caller's raw boolean says
+yes.
 
 Four committed real replay runs (`docs/replay-runs/*.json`, live Alpaca data, two different
 windows and execution timeframes) showed exactly the damage this does:
@@ -200,11 +212,16 @@ showed the same role-blindness in a noisier form: its sign flipped between the 1
 samples, which is what a role-blind criterion mixing real confluence with a headwind looks like
 when the mix ratio shifts between universes.
 
-**The fix**: both criteria now search each level array (already sorted nearest-first, already
-carrying `role`) for the nearest entry whose role matches the trade direction — `support` for a
-long, `resistance` for a short — inside the same ATR band as before. See `wantedRole` in
-`lib/scoring/score.ts` and the `computeScore proximity criteria respect level role` tests in
-`lib/__tests__/score.test.ts`.
+**The fix**: `fanProximity`/`harmonicProximity` now search each level array (already sorted
+nearest-first, already carrying `role`) for the nearest entry whose role matches the trade
+direction — `support` for a long, `resistance` for a short — inside the same ATR band as before,
+rather than only checking whether the single nearest entry happens to match; that finds real
+confluence a farther-but-still-in-band correct-side level would otherwise miss. `historicalSR`
+matches the role of whichever single level `nearestLevelMatch` already returned. Callers that only
+have the boolean and no matched level (older call sites, some existing tests) keep the pre-fix
+behavior for `historicalSR` rather than being silently failed by a check they can't answer. See
+`wantedRole` in `lib/scoring/score.ts` and the `computeScore proximity criteria respect level role`
+tests in `lib/__tests__/score.test.ts`.
 
 This is a role filter, not a re-weight, and it is a different fix from the `masterStructural`
 question below: that one's sign disagreed between timeframes (the disqualifying case
