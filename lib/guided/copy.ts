@@ -45,7 +45,7 @@ export function reasonLine(result: ScanResult): string {
   const structure = nearestStructure(result);
   const volume = momentumElevated
     ? "It's moving in a wider daily range than usual, so there's real participation behind it"
-    : "The daily range is ordinary, so this is a structural entry rather than a momentum one";
+    : "The daily range is ordinary, so this is happening at a level rather than during a burst of activity";
 
   return `${capitalise(move)}${structure}. ${volume}.`;
 }

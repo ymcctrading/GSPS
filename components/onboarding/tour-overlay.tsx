@@ -60,6 +60,13 @@ const HOLE_PAD = 6;
  * anchor exists or the centred fallback is the right answer anyway.
  */
 const ANCHOR_SETTLE_MS = 6000;
+/**
+ * Height of the sticky app header, plus a little breathing room. An anchor
+ * whose top sits above this line is hidden behind the header even though its
+ * `getBoundingClientRect().top` reads as a small positive number — "in the
+ * viewport" and "visible" are not the same thing here.
+ */
+const HEADER_OFFSET = 64;
 /** Card width. */
 const CARD_W = 360;
 /**
@@ -154,6 +161,7 @@ export function TourOverlay({ open, onClose }: { open: boolean; onClose: (outcom
   const [index, setIndex] = React.useState(0);
   const [rect, setRect] = React.useState<Rect | null>(null);
   const cardRef = React.useRef<HTMLDivElement>(null);
+  const bodyRef = React.useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const router = useRouter();
 
@@ -215,19 +223,28 @@ export function TourOverlay({ open, onClose }: { open: boolean; onClose: (outcom
       setRect(found?.rect ?? null);
       if (found && !scrolled) {
         scrolled = true;
-        // `center` rather than `nearest`: a section flush against the sticky
-        // header is technically in view and reads as cut off.
+        // The page stays put unless the anchor actually needs help: only the
+        // portion hidden behind the sticky header or below the fold gets
+        // scrolled into view, and only by as much as that requires. Anything
+        // already on screen is left exactly where it is — the previous
+        // `scrollIntoView({ block: "center" })` re-centred the page on every
+        // step even when the target was already fully visible, which reads as
+        // the background jumping around behind a card that is trying to hold
+        // still.
         //
         // Feature-tested rather than called outright. Scrolling is a nicety —
         // the ring and the bubble are already positioned correctly without it —
         // so an environment that lacks it (jsdom under test, and any renderer
         // that stubs layout) should quietly go without rather than throw and
         // take the whole tour down.
-        // The element `resolveAnchor` measured, not a fresh querySelector —
-        // those disagree when a section is rendered twice across breakpoints,
-        // and scrolling the hidden copy moves nothing.
-        if (typeof found.el.scrollIntoView === "function") {
-          found.el.scrollIntoView({ block: "center", behavior: "smooth" });
+        const vh = typeof window === "undefined" ? 0 : window.innerHeight;
+        const hiddenAbove = found.rect.top < HEADER_OFFSET;
+        const hiddenBelow = found.rect.top + found.rect.height > vh;
+        if ((hiddenAbove || hiddenBelow) && typeof window.scrollBy === "function") {
+          const delta = hiddenAbove
+            ? found.rect.top - HEADER_OFFSET - GAP
+            : found.rect.top + found.rect.height - vh + GAP;
+          window.scrollBy({ top: delta, behavior: "smooth" });
         }
       }
     };
@@ -282,9 +299,15 @@ export function TourOverlay({ open, onClose }: { open: boolean; onClose: (outcom
 
   // Move focus onto the card on every step so a screen reader announces the new
   // heading and body rather than leaving the user on a button labelled "Next"
-  // whose surrounding text has silently changed.
+  // whose surrounding text has silently changed. The same DOM node persists
+  // across steps (only its text changes), so its internal scroll position
+  // persists too unless reset here — without this, a reader who scrolled to
+  // the bottom of a long step lands on the next one already scrolled past its
+  // own heading.
   React.useEffect(() => {
-    if (open) cardRef.current?.focus();
+    if (!open) return;
+    if (bodyRef.current) bodyRef.current.scrollTop = 0;
+    cardRef.current?.focus();
   }, [open, index]);
 
   if (!mounted || !open || !step) return null;
@@ -363,7 +386,7 @@ export function TourOverlay({ open, onClose }: { open: boolean; onClose: (outcom
           </button>
         </div>
 
-        <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-3">
+        <div ref={bodyRef} className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-3">
           {step.body.map((paragraph) => (
             <p key={paragraph} className="text-sm leading-relaxed">
               {paragraph}
