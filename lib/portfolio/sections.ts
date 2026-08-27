@@ -30,6 +30,18 @@
  * Open and Closed both depend on the live position list, so callers pass null
  * for it while it's still loading or its fetch failed. In that state a filled
  * order is never called Closed — see `classifyOrder`.
+ *
+ * "The symbol is still held" is necessary but not sufficient once a symbol
+ * round-trips more than once in a window: it says nothing about *which*
+ * filled orders for that symbol belong to the run currently open versus an
+ * earlier one that already closed. Buy AAPL, sell it flat, buy AAPL again —
+ * without more information, the first buy and the first sell would both
+ * reclassify as Open the moment the second buy lands, because AAPL is held
+ * again and that's all the coarse rule can see. `currentRunBoundaries`
+ * resolves that by replaying each held symbol's filled orders and finding
+ * where its current run began; `sectionOrders` computes it once per render
+ * and `classifyOrder` uses it to tell the two runs apart. Only reachable
+ * within a day, since a fully closed run's orders are gone after that.
  */
 
 import type { BlendedPosition } from "./blend";
@@ -45,6 +57,10 @@ export interface SectionableOrder {
   broker_submitted_at?: string | null;
   /** Deterministic tiebreak for rows accepted in the same millisecond. */
   id?: string;
+  /** "buy" | "sell". Optional so a caller not tracking round-trips can omit it. */
+  side?: string | null;
+  /** Shares/contracts actually filled. `numeric` columns arrive as strings over PostgREST. */
+  filled_qty?: number | string | null;
 }
 
 export interface SectionedOrders<T> {
@@ -171,10 +187,21 @@ export function countOpenLegs(blendedPositions: BlendedPosition[]): number {
  * Open in that case. Calling it Closed would assert the position was exited
  * on the strength of a snapshot we never received, and "you're flat" is the
  * more dangerous thing to be wrong about.
+ *
+ * `openBoundary` distinguishes a symbol's *current* open run from an earlier
+ * one that already closed — see `currentRunBoundaries`. Undefined/null means
+ * the boundary couldn't be determined (missing side/qty data, or the caller
+ * didn't compute one at all), which falls back to "every filled order for a
+ * held symbol is open" — the older, coarser rule. That's still correct for a
+ * symbol on its first-ever run; it only under-classifies (marks a closed
+ * round-trip as Open again) for a same-day flatten-and-reopen, and erring
+ * toward Open is the same direction this function already errs in for
+ * `held === null`.
  */
 export function classifyOrder(
   order: SectionableOrder,
   held: ReadonlySet<string> | null,
+  openBoundary?: number | null,
 ): PositionSection {
   const status = normalize(order.status);
   if (status === "rejected") return "rejected";
@@ -182,13 +209,95 @@ export function classifyOrder(
   if (PENDING_STATUSES.has(status)) return "pending";
   if (status === "filled") {
     if (held === null) return "open";
-    // Whether the symbol is still held is the whole answer, on either side. A
-    // filled sell that leaves nothing held closed the position; one that leaves
-    // something held is a partial exit, or a short that is now the position —
-    // both still open. The buy cases fall the same way, so side adds nothing.
-    return held.has(order.symbol?.toUpperCase() ?? "") ? "open" : "closed";
+    if (!held.has(order.symbol?.toUpperCase() ?? "")) return "closed";
+    if (openBoundary == null) return "open";
+    const t = acceptedTime(order);
+    // No usable timestamp on this order: same fallback as no boundary at all.
+    return t === null || t >= openBoundary ? "open" : "closed";
   }
   return "pending";
+}
+
+function parseQty(qty: number | string | null | undefined): number | null {
+  if (qty === null || qty === undefined) return null;
+  const n = typeof qty === "number" ? qty : Number(qty);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Net quantity below this is treated as flat; guards against float drift. */
+const QTY_EPSILON = 1e-6;
+
+/**
+ * When each currently-held symbol's *current* open run began, derived by
+ * replaying its filled orders oldest → newest and tracking signed net
+ * quantity — the same rule `lib/portfolio/opened-at.ts` uses for the broker's
+ * raw fill-activity feed, applied here to order rows instead of individual
+ * executions. That substitution is exact for this purpose: an order is
+ * single-sided by construction, so a flatten-and-reopen always spans at least
+ * two orders and never hides inside one.
+ *
+ * Only symbols in `held` are walked — a flat symbol has no "current run" to
+ * bound, and every one of its filled orders is simply Closed regardless.
+ *
+ * `orders` is whatever window the caller fetched (capped at 200, newest
+ * first, per `/api/orders`), not full history — but closed orders are pruned
+ * after 24 hours (`lib/portfolio/prune.ts`), so the only orders that can
+ * still be in that window are the current run plus, at most, whatever closed
+ * within the last day. Two hundred rows in a day covers that with room to
+ * spare for any account this app supports.
+ *
+ * A symbol is left out of the returned map — rather than given a wrong
+ * boundary — when its fills don't carry usable side/qty data. `classifyOrder`
+ * treats a missing boundary as "every filled order is open", so an
+ * indeterminate replay fails toward the safer answer, not a confident wrong
+ * one.
+ */
+export function currentRunBoundaries(
+  orders: readonly SectionableOrder[],
+  held: ReadonlySet<string>,
+): Map<string, number> {
+  const boundaries = new Map<string, number>();
+  if (held.size === 0) return boundaries;
+
+  const bySymbol = new Map<string, SectionableOrder[]>();
+  for (const order of orders) {
+    if (normalize(order.status) !== "filled" && normalize(order.status) !== "partially_filled") continue;
+    const symbol = order.symbol?.toUpperCase();
+    if (!symbol || !held.has(symbol)) continue;
+    const list = bySymbol.get(symbol);
+    if (list) list.push(order);
+    else bySymbol.set(symbol, [order]);
+  }
+
+  for (const [symbol, symbolOrders] of bySymbol) {
+    const fills = symbolOrders
+      .map((o) => ({ side: normalize(o.side), qty: parseQty(o.filled_qty), t: acceptedTime(o) }))
+      .filter((f): f is { side: string; qty: number; t: number } =>
+        (f.side === "buy" || f.side === "sell") && f.qty !== null && f.qty > 0 && f.t !== null,
+      )
+      .sort((a, b) => a.t - b.t);
+
+    // Fewer usable fills than orders means at least one had no side/qty/time
+    // we could parse — the replay can't be trusted, so leave this symbol out.
+    if (fills.length !== symbolOrders.length || fills.length === 0) continue;
+
+    let net = 0;
+    let boundary: number | null = null;
+    for (const fill of fills) {
+      const signed = fill.side === "buy" ? fill.qty : -fill.qty;
+      const before = net;
+      net += signed;
+      const wasFlat = Math.abs(before) < QTY_EPSILON;
+      const isFlat = Math.abs(net) < QTY_EPSILON;
+      const reversed = !wasFlat && !isFlat && Math.sign(before) !== Math.sign(net);
+      if (isFlat) boundary = null;
+      else if (wasFlat || reversed) boundary = fill.t;
+    }
+
+    if (boundary !== null) boundaries.set(symbol, boundary);
+  }
+
+  return boundaries;
 }
 
 /**
@@ -234,6 +343,7 @@ export function sectionOrders<T extends SectionableOrder>(
   blendedPositions: BlendedPosition[] | null,
 ): SectionedOrders<T> {
   const held = heldSymbols(blendedPositions);
+  const boundaries = held === null ? null : currentRunBoundaries(orders, held);
   const sections: SectionedOrders<T> = {
     open: [],
     pending: [],
@@ -242,7 +352,8 @@ export function sectionOrders<T extends SectionableOrder>(
     unfilled: [],
   };
   for (const order of orders) {
-    sections[classifyOrder(order, held)].push(order);
+    const boundary = boundaries?.get(order.symbol?.toUpperCase() ?? "") ?? null;
+    sections[classifyOrder(order, held, boundary)].push(order);
   }
   for (const bucket of Object.values(sections)) bucket.sort(byNewestFirst);
   return sections;

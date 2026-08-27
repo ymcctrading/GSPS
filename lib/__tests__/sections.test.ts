@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   classifyOrder,
   countOpenLegs,
+  currentRunBoundaries,
   dispositionOf,
   groupByDisposition,
   heldSymbols,
@@ -139,6 +140,115 @@ describe("classifyOrder", () => {
     expect(classifyOrder(order({ status: "some_new_broker_state" }), held)).toBe("pending");
     expect(classifyOrder(order({ status: "" }), held)).toBe("pending");
   });
+
+  describe("with an openBoundary", () => {
+    it("keeps a fill at or after the boundary open", () => {
+      const filled = order({ status: "filled", symbol: "AAPL", created_at: "2026-08-01T12:00:00.000Z" });
+      const boundary = Date.parse("2026-08-01T12:00:00.000Z");
+      expect(classifyOrder(filled, held, boundary)).toBe("open");
+    });
+
+    it("closes a fill that predates the boundary — an earlier, already-closed run", () => {
+      const filled = order({ status: "filled", symbol: "AAPL", created_at: "2026-08-01T09:00:00.000Z" });
+      const boundary = Date.parse("2026-08-01T12:00:00.000Z");
+      expect(classifyOrder(filled, held, boundary)).toBe("closed");
+    });
+
+    it("falls back to open when no boundary was supplied", () => {
+      const filled = order({ status: "filled", symbol: "AAPL", created_at: "2026-08-01T09:00:00.000Z" });
+      expect(classifyOrder(filled, held, null)).toBe("open");
+      expect(classifyOrder(filled, held, undefined)).toBe("open");
+    });
+
+    it("falls back to open when the order itself has no parseable time", () => {
+      const filled = order({ status: "filled", symbol: "AAPL", created_at: "not-a-date", broker_submitted_at: null });
+      const boundary = Date.parse("2026-08-01T12:00:00.000Z");
+      expect(classifyOrder(filled, held, boundary)).toBe("open");
+    });
+
+    it("never applies a boundary to a symbol that isn't held", () => {
+      const filled = order({ status: "filled", symbol: "TSLA", created_at: "2026-08-01T12:00:00.000Z" });
+      const boundary = Date.parse("2026-08-01T09:00:00.000Z"); // would pass, if it were checked
+      expect(classifyOrder(filled, held, boundary)).toBe("closed");
+    });
+  });
+});
+
+describe("currentRunBoundaries", () => {
+  const t = (hhmm: string) => `2026-08-01T${hhmm}:00.000Z`;
+
+  it("returns nothing when nothing is held", () => {
+    const orders = [order({ status: "filled", symbol: "AAPL", side: "buy", filled_qty: 10 })];
+    expect(currentRunBoundaries(orders, new Set())).toEqual(new Map());
+  });
+
+  it("finds no boundary for a symbol with a single uninterrupted run", () => {
+    const orders = [
+      order({ id: "1", status: "filled", symbol: "AAPL", side: "buy", filled_qty: 10, created_at: t("09:30") }),
+      order({ id: "2", status: "filled", symbol: "AAPL", side: "buy", filled_qty: 5, created_at: t("10:00") }),
+    ];
+    // The whole run started at the first fill — and since every order in the
+    // window belongs to that one run, the boundary being "the start of the
+    // only run there is" behaves identically to having no boundary at all.
+    const boundaries = currentRunBoundaries(orders, new Set(["AAPL"]));
+    expect(boundaries.get("AAPL")).toBe(Date.parse(t("09:30")));
+  });
+
+  it("the flatten-and-reopen case: separates a closed morning round-trip from the current one", () => {
+    const morningBuy = order({ id: "1", status: "filled", symbol: "AAPL", side: "buy", filled_qty: 10, created_at: t("09:30") });
+    const morningSell = order({ id: "2", status: "filled", symbol: "AAPL", side: "sell", filled_qty: 10, created_at: t("10:00") });
+    const afternoonBuy = order({ id: "3", status: "filled", symbol: "AAPL", side: "buy", filled_qty: 5, created_at: t("14:00") });
+    const orders = [morningBuy, morningSell, afternoonBuy];
+    const held = new Set(["AAPL"]);
+
+    const boundaries = currentRunBoundaries(orders, held);
+    expect(boundaries.get("AAPL")).toBe(Date.parse(t("14:00")));
+
+    // This is the bug the boundary exists to fix: without it, the morning's
+    // closed round-trip reads as Open again the moment AAPL is bought back.
+    expect(classifyOrder(morningBuy, held, boundaries.get("AAPL"))).toBe("closed");
+    expect(classifyOrder(morningSell, held, boundaries.get("AAPL"))).toBe("closed");
+    expect(classifyOrder(afternoonBuy, held, boundaries.get("AAPL"))).toBe("open");
+  });
+
+  it("treats a position reversal (long -> short) as starting a new run", () => {
+    const buy = order({ id: "1", status: "filled", symbol: "AAPL", side: "buy", filled_qty: 10, created_at: t("09:30") });
+    // Sells through the long and 5 more short in one order.
+    const reversingSell = order({ id: "2", status: "filled", symbol: "AAPL", side: "sell", filled_qty: 15, created_at: t("10:00") });
+    const held = new Set(["AAPL"]);
+
+    const boundaries = currentRunBoundaries([buy, reversingSell], held);
+    expect(boundaries.get("AAPL")).toBe(Date.parse(t("10:00")));
+    expect(classifyOrder(buy, held, boundaries.get("AAPL"))).toBe("closed");
+    expect(classifyOrder(reversingSell, held, boundaries.get("AAPL"))).toBe("open");
+  });
+
+  it("counts a partial fill toward the walk even though it classifies as pending", () => {
+    const partial = order({
+      id: "1", status: "partially_filled", symbol: "AAPL", side: "buy", filled_qty: 4, created_at: t("09:30"),
+    });
+    const rest = order({ id: "2", status: "filled", symbol: "AAPL", side: "buy", filled_qty: 6, created_at: t("09:31") });
+    const boundaries = currentRunBoundaries([partial, rest], new Set(["AAPL"]));
+    // The run began at the partial fill, not the completing one.
+    expect(boundaries.get("AAPL")).toBe(Date.parse(t("09:30")));
+  });
+
+  it("leaves a symbol out when any of its fills has no usable side or quantity", () => {
+    const buy = order({ id: "1", status: "filled", symbol: "AAPL", side: "buy", filled_qty: 10, created_at: t("09:30") });
+    const sell = order({ id: "2", status: "filled", symbol: "AAPL", side: "sell", filled_qty: null, created_at: t("10:00") });
+    const orders = [buy, sell];
+    expect(currentRunBoundaries(orders, new Set(["AAPL"]))).toEqual(new Map());
+  });
+
+  it("accepts filled_qty as a PostgREST-serialized numeric string", () => {
+    const orders = [
+      order({ id: "1", status: "filled", symbol: "AAPL", side: "buy", filled_qty: "10", created_at: t("09:30") }),
+      order({ id: "2", status: "filled", symbol: "AAPL", side: "sell", filled_qty: "10", created_at: t("10:00") }),
+      order({ id: "3", status: "filled", symbol: "AAPL", side: "buy", filled_qty: "5", created_at: t("14:00") }),
+    ];
+    const boundaries = currentRunBoundaries(orders, new Set(["AAPL"]));
+    expect(boundaries.get("AAPL")).toBe(Date.parse(t("14:00")));
+  });
 });
 
 describe("dispositionOf", () => {
@@ -237,6 +347,20 @@ describe("sectionOrders", () => {
     expect(sections.closed.map((o) => o.id)).toEqual(["closed-exited"]);
     expect(sections.unfilled.map((o) => o.id)).toEqual(["unfilled-canceled"]);
     expect(sections.rejected.map((o) => o.id)).toEqual(["rejected-subpenny"]);
+  });
+
+  it("keeps a same-day closed round-trip in Closed even after the symbol is bought again", () => {
+    const positions = live([rawEquity()]); // AAPL currently held
+    const orders = [
+      order({ id: "morning-buy", symbol: "AAPL", status: "filled", side: "buy", filled_qty: 10, created_at: "2026-08-01T13:30:00.000Z" }),
+      order({ id: "morning-sell", symbol: "AAPL", status: "filled", side: "sell", filled_qty: 10, created_at: "2026-08-01T14:00:00.000Z" }),
+      order({ id: "afternoon-buy", symbol: "AAPL", status: "filled", side: "buy", filled_qty: 10, created_at: "2026-08-01T18:00:00.000Z" }),
+    ];
+
+    const sections = sectionOrders(orders, positions);
+
+    expect(sections.open.map((o) => o.id)).toEqual(["afternoon-buy"]);
+    expect(sections.closed.map((o) => o.id)).toEqual(["morning-sell", "morning-buy"]);
   });
 
   it("assigns every order to exactly one section", () => {

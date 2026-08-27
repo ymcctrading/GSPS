@@ -35,12 +35,12 @@ const GROUPS: { heading: string; terms: Term[] }[] = [
       {
         term: "TP1 - Take Profit 1 (green line)",
         plain:
-          "Your first profit goal. It defaults to about 1.5x what you're risking, but can sit further out if the prior candle's high/low gives a better structural target — so the actual multiple varies trade to trade.",
+          "Your first profit goal, set by GSPS's analysis for this specific setup. Where it sits varies trade to trade rather than following one fixed rule.",
       },
       {
-        term: "Master profit (green line)",
+        term: "Final target (green line)",
         plain:
-          "The bigger profit goal — roughly 2.5x your risk on stocks, 3x on crypto by default, then snapped to the nearest support or harmonic level in range. You'd typically take most profit at TP1 and let a small piece run toward this.",
+          "The bigger profit goal — further out than TP1, and adjusted to the nearest key price level GSPS finds in range. You'd typically take most profit at TP1 and let a small piece run toward this.",
       },
       {
         term: "Risk-to-reward (like 2:1)",
@@ -58,19 +58,19 @@ const GROUPS: { heading: string; terms: Term[] }[] = [
           "They mark 'structural levels' - special prices where the market often pauses or turns around. Think of them as hidden floors and ceilings. There are two kinds:",
       },
       {
-        term: "Support line (1x1, 1x2, 1x4...)",
+        term: "Support / resistance line",
         plain:
-          "Diagonal support/resistance angles drawn from a recent high or low. Price tends to react when it reaches one. The numbers are just the steepness of the angle.",
+          "A diagonal price line GSPS projects forward from a recent high or low. Price tends to react when it reaches one.",
       },
       {
-        term: "Harmonic level (45, 90, ...)",
+        term: "Key price level",
         plain:
-          "Price levels derived from mathematical ratios and square roots. Like the support lines, they act as hidden support and resistance.",
+          "A price GSPS's analysis flags as significant. Like the diagonal lines, it acts as hidden support and resistance.",
       },
       {
         term: "Cyclical turn window",
         plain:
-          "Dates when structural math suggests a turn is more likely. When you see 'turn window active,' today is near one of those dates.",
+          "Dates when GSPS's analysis suggests a turn is more likely. When you see 'turn window active,' today is near one of those dates.",
       },
     ],
   },
@@ -158,8 +158,8 @@ export const GLOSSARY_TERMS: ReadonlySet<string> = new Set(
 export function Glossary() {
   return (
     <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
-      {GROUPS.map((g) => (
-        <Card key={g.heading}>
+      {GROUPS.map((g, i) => (
+        <Card key={g.heading} data-tour={i === 0 ? "glossary-terms" : undefined}>
           <CardHeader>
             <CardTitle>{g.heading}</CardTitle>
           </CardHeader>

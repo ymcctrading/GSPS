@@ -27,7 +27,9 @@ import { getMarketDataProvider } from "@/lib/data/provider";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { TF_LOOKBACK_DAYS, TF_MAX_BARS } from "@/lib/timeframe";
 import {
+  byLargeCap,
   byOutputState,
+  byScoreRange,
   combine,
   replay,
   type ReplayOptions,
@@ -48,8 +50,15 @@ export interface BacktestRequest {
   /** Take-profit distance as a multiple of risk. Defaults to 2, matching TP1. */
   targetR?: number;
   costPerShare?: number;
-  /** Bucket to attribute factors within. Defaults to Execute. */
+  /** Bucket to attribute factors within. Defaults to Execute. Ignored when `attributeScoreRange` is set. */
   attributeWithin?: Bucket;
+  /**
+   * Attribute factors within a score band instead of a verdict bucket —
+   * `[5, 6]` for "one point short of Execute", say. Takes precedence over
+   * `attributeWithin` when set, because a verdict bucket cannot express a
+   * band narrower than itself (Watch is 4–6 in one bucket).
+   */
+  attributeScoreRange?: [number, number];
   /** Criterion weights to score with. Defaults to one point each. */
   weights?: CriterionWeights;
   /**
@@ -65,6 +74,14 @@ export interface BacktestRequest {
    * than the window they are measured over.
    */
   since?: string;
+  /**
+   * Walk the P&L simulation against the leeway/large-cap-widened stop instead
+   * of the raw pattern stop. See `ReplayOptions.useProductionStop` — the flag
+   * exists so the same request can be run twice, once per stop model, and the
+   * two `largeCap` bucket rows compared, which is the before/after
+   * `docs/BACKTESTING.md` asks for on an unmeasured constant.
+   */
+  useProductionStop?: boolean;
 }
 
 export interface RunSummary {
@@ -114,10 +131,29 @@ export interface BacktestReport {
   /** Every trade taken, before the verdict split. */
   overall: RunSummary;
   buckets: BucketSummary[];
+  /**
+   * The run split by whether each trade's symbol read as large-cap at the
+   * time — see `lib/strat/large-cap.ts`. Unlike `buckets`, this is computed
+   * over every trade regardless of verdict, since the large-cap read needs no
+   * score. Whether this split reflects the stop-widening itself depends on
+   * `useProductionStop`: with it unset (the default), both rows are walked
+   * against the identical, unwidened stop, and any difference between them is
+   * a property of large-cap names generally — not of the widening.
+   */
+  largeCapSplit: { largeCap: RunSummary; notLargeCap: RunSummary };
+  /** Echoes the request — a report has to say which stop model produced it. */
+  useProductionStop: boolean;
   /** Setups armed and triggered across the run, for a fill-rate sanity check. */
   armed: number;
   triggered: number;
-  attributeWithin: Bucket;
+  /**
+   * What `factors`/`atrBands` were computed within — a bucket name
+   * ("Execute") or a score-band label ("score 5–6") when `attributeScoreRange`
+   * was requested. A display label, not a re-parseable value.
+   */
+  attributeWithin: string;
+  /** Echoes the request's score band, when one was given — see `attributeWithin`. */
+  attributeScoreRange?: [number, number];
   factors: FactorAttribution[];
   atrBands: Array<{ from: number; to: number | null; trades: number; winRate: number; expectancyR: number }>;
   generatedAt: string;
@@ -183,6 +219,7 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
     costPerShare,
     weights,
     since,
+    useProductionStop,
   } = request;
 
   const sinceMs = since === undefined ? null : Date.parse(since);
@@ -195,6 +232,7 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
     targetR,
     ...(costPerShare !== undefined ? { costPerShare } : {}),
     ...(weights ? { weights } : {}),
+    ...(useProductionStop !== undefined ? { useProductionStop } : {}),
   };
 
   const results: ReplayResult[] = [];
@@ -250,11 +288,17 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
 }
 
 export async function runBacktest(request: BacktestRequest): Promise<BacktestReport> {
-  const { attributeWithin = "Execute" } = request;
+  const { attributeWithin = "Execute", attributeScoreRange, useProductionStop = false } = request;
 
   const run = await collectRun(request);
   const split = byOutputState(run.overall);
-  const target = split[attributeWithin];
+  const target = attributeScoreRange
+    ? byScoreRange(run.overall, attributeScoreRange[0], attributeScoreRange[1])
+    : split[attributeWithin];
+  const attributedLabel = attributeScoreRange
+    ? `score ${attributeScoreRange[0]}–${attributeScoreRange[1]}`
+    : attributeWithin;
+  const capSplit = byLargeCap(run.overall);
 
   return {
     source: run.source,
@@ -267,9 +311,15 @@ export async function runBacktest(request: BacktestRequest): Promise<BacktestRep
     window: run.window,
     overall: summarise(run.overall),
     buckets: BUCKETS.map((b) => ({ bucket: b, ...summarise(split[b]) })),
+    largeCapSplit: {
+      largeCap: summarise(capSplit.largeCap),
+      notLargeCap: summarise(capSplit.notLargeCap),
+    },
+    useProductionStop,
     armed: run.overall.armed,
     triggered: run.overall.triggered,
-    attributeWithin,
+    attributeWithin: attributedLabel,
+    ...(attributeScoreRange ? { attributeScoreRange } : {}),
     factors: attributeFactors(target.trades),
     atrBands: attributeByAtrMultiple(target.trades).map(({ from, to, arm }) => ({
       from,

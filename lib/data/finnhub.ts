@@ -16,7 +16,7 @@
  * break" seam every other provider in this app uses.
  */
 
-import { consensusFromBullishness, type AnalystRating } from "./company";
+import { consensusFromBullishness, type AnalystRating, type CompanyProfile } from "./company";
 
 const FINNHUB_BASE = "https://finnhub.io/api/v1";
 const TIMEOUT_MS = 4000;
@@ -82,6 +82,31 @@ export async function fetchFinnhubAnalystRating(symbol: string): Promise<Analyst
     sellPct: Math.round((latest.strongSell / total) * 100),
     consensus: consensusFromBullishness(bullishness),
     bullishness: Math.round(bullishness * 100) / 100,
+  };
+}
+
+interface Profile2Response {
+  name?: string;
+  finnhubIndustry?: string;
+  marketCapitalization?: number; // millions USD
+  exchange?: string;
+  country?: string;
+  weburl?: string;
+}
+
+/** `/stock/profile2` — free-tier. No free-text company description on this plan, so the panel builds one from name/industry. */
+export async function fetchFinnhubCompanyProfile(symbol: string): Promise<CompanyProfile | null> {
+  const data = (await finnhubGet("/stock/profile2", { symbol })) as Profile2Response | null;
+  if (!data || !data.name) return null;
+
+  const industry = data.finnhubIndustry || "Diversified";
+  return {
+    name: data.name,
+    sector: industry,
+    industry,
+    marketCapM: data.marketCapitalization ?? 0,
+    exchange: data.exchange,
+    description: `${data.name} operates in the ${industry} industry${data.exchange ? ` and trades on ${data.exchange}` : ""}.`,
   };
 }
 

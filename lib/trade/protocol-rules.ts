@@ -17,6 +17,8 @@
  */
 
 import {
+  LARGE_CAP_LEEWAY_ATR,
+  LARGE_CAP_MAX_STOP_ATR_MULTIPLE,
   MASTER_CAP_R,
   MAX_STOP_ATR_MULTIPLE,
   TP1_MULTIPLE_BY_ASSET,
@@ -38,13 +40,13 @@ export const TP1_RULE_DETAIL =
 export const MASTER_RULE_LABEL = `${r(TP2_MULTIPLE_BY_ASSET.us_equity)} on stocks, ${r(TP2_MULTIPLE_BY_ASSET.crypto)} on crypto`;
 
 export const MASTER_RULE_DETAIL =
-  `${MASTER_RULE_LABEL} — stepped out to the nearest support or harmonic level when one sits in range, up to a ${r(MASTER_CAP_R)} ceiling.`;
+  `${MASTER_RULE_LABEL} — stepped out to the nearest support or key price level when one sits in range, up to a ${r(MASTER_CAP_R)} ceiling.`;
 
 /** How the stop is placed. The 12–18%-of-price band never applied to equities. */
-export const STOP_RULE_LABEL = `Structural, capped at ${MAX_STOP_ATR_MULTIPLE}× the execution candle`;
+export const STOP_RULE_LABEL = `Structural, capped at ${MAX_STOP_ATR_MULTIPLE}× the execution candle (${LARGE_CAP_MAX_STOP_ATR_MULTIPLE}× on large caps)`;
 
 export const STOP_RULE_DETAIL =
-  `One tick beyond the trigger candle, widened by a tenth of an average execution candle so noise can't take it out, and never wider than ${MAX_STOP_ATR_MULTIPLE}× that candle. The 12–18% band applies to option premium, not to share price.`;
+  `One tick beyond the trigger candle, widened by a tenth of an average execution candle so noise can't take it out, and never wider than ${MAX_STOP_ATR_MULTIPLE}× that candle. On large-cap stocks that leeway widens to ${LARGE_CAP_LEEWAY_ATR}× and the ceiling to ${LARGE_CAP_MAX_STOP_ATR_MULTIPLE}×, so an ordinary large-cap swing doesn't clip the stop before the setup can move. The 12–18% band applies to option premium, not to share price.`;
 
 /**
  * The Execute threshold, stated in full.

@@ -91,10 +91,10 @@ export function SignalOverlayBadge({ signal, onExecute, onIgnore, onExplain, com
         </div>
       )}
 
-      {/* Harmonic root (if applicable) */}
-      {signal.gannRoot && (
+      {/* Setup signal indicator */}
+      {signal.setupSignal && (
         <div className="text-xs text-muted">
-          Harmonic root: <span className="font-semibold">{signal.gannRoot}</span>
+          Setup Signal: <span className="font-semibold">Confirmed</span>
         </div>
       )}
 

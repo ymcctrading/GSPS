@@ -26,6 +26,35 @@ import { readPremiumStop } from "@/lib/trade/premium-stop";
 export const MAX_STOP_ATR_MULTIPLE = 2.5;
 
 /**
+ * The large-cap widening. A structural stop this tight on a mega-cap name
+ * routinely gets clipped by ordinary intraday noise before the setup has had
+ * room to move — the trade was right, the stop was just narrower than the
+ * name's own noise floor. Both numbers below only apply when
+ * `isLargeCapStock` (lib/strat/large-cap.ts) says so:
+ *
+ *   - The noise-leeway buffer more than doubles (0.10x -> 0.25x an average
+ *     execution candle), so the stop sits further behind the structural
+ *     level before the leeway trims it back.
+ *   - The ceiling widens from 2.5x to 3.5x, so a structural stop that would
+ *     otherwise be clipped back to the 2.5x ceiling can stay closer to the
+ *     level that actually invalidates the setup.
+ *
+ * The effect compounds with Guided Mode's per-trade dollar budget
+ * (`DEFAULT_GUIDED_BUDGET_USD`, lib/guided/config.ts): a wider stop means more
+ * risk per share, so the same risk-percent budget buys fewer shares —
+ * addressing the "why is this recommending 100+ shares" complaint from the
+ * same conversation, on top of fixing premature stop-outs.
+ *
+ * This is a deliberate, unmeasured widening — the 2.5x ceiling above and the
+ * 0.10x leeway were derived from an AAPL sample (see their own comments);
+ * this pair has not been separately backtested. Treat it as a hypothesis to
+ * validate once `docs/BACKTESTING.md`'s replay can be run against it, not as
+ * a re-tuned constant with the same evidence behind it.
+ */
+export const LARGE_CAP_LEEWAY_ATR = 0.25;
+export const LARGE_CAP_MAX_STOP_ATR_MULTIPLE = 3.5;
+
+/**
  * Default TP1 R-multiple by asset class. Most strategies hit higher win rates
  * with moderate first targets (1.5R), scaling the runner (TP2) higher to keep
  * upside. Adjusted for market microstructure and typical move distribution.
@@ -63,18 +92,30 @@ type StopSide = "long" | "short";
  * Prevents stops from being too tight (noise whipsaw) while respecting
  * the true structural invalidation level.
  */
-function computeStopWithLeeway(params: {
+/**
+ * Exported so the backtest replay (`lib/backtest/replay.ts`) can measure the
+ * effect of the leeway/large-cap widening on trade outcomes directly. The
+ * replay's own P&L walk uses the raw pattern stop by default, independent of
+ * this function — `computeTradeLevels`'s stop only reaches the live scan, the
+ * ticker page, and Guided Mode's sizing. Without this export there is no way
+ * to ask the replay "what if the stop it actually walked against were the
+ * production one instead", which is exactly the question a claim like "this
+ * reduces premature stop-outs" has to answer with a number, not an assertion.
+ */
+export function computeStopWithLeeway(params: {
   side: StopSide;
   entry: number;
   structuralStop: number;
   atr15: number;
+  /** Large-cap stocks get more noise leeway and a wider ceiling — see the constants' own comments. */
+  largeCap?: boolean;
 }) {
-  const { side, entry, structuralStop, atr15 } = params;
+  const { side, entry, structuralStop, atr15, largeCap = false } = params;
 
-  const leewayAtr = 0.1; // 0.10×ATR leeway
+  const leewayAtr = largeCap ? LARGE_CAP_LEEWAY_ATR : 0.1; // ATR leeway
   const minStopPct = 0.001; // 0.1% of price
   const minStopWidth = Math.max(entry * minStopPct, 0.1 * atr15);
-  const maxStopWidth = MAX_STOP_ATR_MULTIPLE * atr15;
+  const maxStopWidth = (largeCap ? LARGE_CAP_MAX_STOP_ATR_MULTIPLE : MAX_STOP_ATR_MULTIPLE) * atr15;
 
   const leewayCandidate =
     side === "long"
@@ -112,9 +153,12 @@ export function computeTradeLevels(
   optionPremium?: number,
   executionAtr?: number,
   assetClass?: AssetClass,
+  /** Widens the stop's noise leeway and ceiling — see `LARGE_CAP_LEEWAY_ATR`. Stocks only; ignored for crypto. */
+  largeCap = false,
 ): TradeLevels {
   const entry = pattern.triggerPrice;
   const dir = pattern.direction === "bullish" ? 1 : -1;
+  const effectiveLargeCap = largeCap && assetClass !== "crypto";
 
   // Compute stop with ATR leeway (structural boundary + buffer for noise)
   // If no ATR available, fall back to structural stop only.
@@ -125,6 +169,7 @@ export function computeTradeLevels(
       entry,
       structuralStop: pattern.stopPrice,
       atr15: executionAtr,
+      largeCap: effectiveLargeCap,
     });
   }
 
@@ -201,7 +246,8 @@ export function computeTradeLevels(
     // 0.1–1%, which can never reach 12% — so the old fallback warned on every
     // equity scan, and told the reader to increase size while doing it.
     const atrMultiple = structuralRisk / executionAtr;
-    if (atrMultiple > MAX_STOP_ATR_MULTIPLE) {
+    const effectiveMaxStopAtrMultiple = effectiveLargeCap ? LARGE_CAP_MAX_STOP_ATR_MULTIPLE : MAX_STOP_ATR_MULTIPLE;
+    if (atrMultiple > effectiveMaxStopAtrMultiple) {
       stopBandWarning = `Structural stop is ${atrMultiple.toFixed(1)}× the average candle on the execution timeframe — an unusually wide setup. Reduce size, or wait for a tighter trigger.`;
     }
   }
@@ -235,7 +281,28 @@ export function computeTradeLevels(
     masterFromStructure,
     stopPctOfPrice,
     stopBandWarning,
+    pivotPlan: buildPivotPlan(pattern, round(stopLoss)),
   };
+}
+
+/**
+ * The counter-scenario the PRD's Trade Map contract requires: a plain-language
+ * answer to "what if this goes the other way," stated in terms of the stop
+ * this setup already has rather than a second computed plan. A daily/swing
+ * setup does not carry the intraday scanner's session context (VWAP, opening
+ * range) to build a full opposite-direction trade plan from, so this is
+ * deliberately a narrower counter-scenario than lib/scanner/intraday.ts's
+ * `pivotPlan` — what invalidates the thesis and which way to start looking,
+ * not a priced opposite entry.
+ */
+function buildPivotPlan(pattern: StratPattern, stopLoss: number): string {
+  const bullish = pattern.direction === "bullish";
+  const opposite = bullish ? "bearish" : "bullish";
+  return (
+    `This ${pattern.direction} ${pattern.name} thesis is invalidated if price closes back through the ` +
+    `stop at ${stopLoss.toFixed(2)}. That does not itself confirm a ${opposite} trade — it only says the ` +
+    `original setup failed. Treat the next scan on this symbol as a fresh read, not a reversal signal.`
+  );
 }
 
 function round(n: number): number {

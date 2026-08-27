@@ -83,10 +83,17 @@ export const TF_CANDLE_LABEL: Record<Timeframe, string> = {
  *
  * - 1m/5m are read in real time, so a couple of weeks is all that's useful.
  * - 15m bridges the two — enough to see the last few weeks of structure.
- * - 1h–1D are where past support/resistance gets compared, so they carry 2–3
- *   years.
- * - 1W/1M/1Y ask for everything the provider has (Alpaca tops out around six
- *   years on the free feed; the request is simply capped by what exists).
+ * - 1h/1D request the full ~6 years Alpaca's free feed actually carries, since
+ *   that's also the deepest window the backtest replay (lib/backtest/run.ts,
+ *   which reads these same constants) can measure real historical
+ *   performance over — see docs/BACKTESTING.md. The report always states the
+ *   window actually covered from the bars returned, not this request, so
+ *   asking for more than the vendor has back-fills with nothing rather than
+ *   fabricating history.
+ * - 4H/2H stay at their previous, more conservative windows — not the
+ *   validated execution timeframes docs/BACKTESTING.md's runs are on.
+ * - 1W/1M/1Y ask for everything the provider has (same six-year free-feed
+ *   ceiling; the request is simply capped by what exists).
  *
  * This is the *chart's* window. The scan pipeline's windows are fixed by the
  * strategy (10yr monthly / 5yr weekly / 1yr daily) and live in
@@ -96,10 +103,10 @@ export const TF_LOOKBACK_DAYS: Record<Timeframe, number> = {
   "1Year": 18250, // ~50y — take whatever exists
   "1Month": 10950, // ~30y
   "1Week": 7300, // ~20y
-  "1Day": 1095, // 3y
+  "1Day": 2190, // 6y — the deepest window the free feed is claimed to carry
   "4Hour": 1095, // 3y
   "2Hour": 730, // 2y
-  "1Hour": 730, // 2y
+  "1Hour": 2190, // 6y — same ceiling, for the same reason as 1Day
   "15Min": 60,
   "5Min": 15,
   "1Min": 15,
@@ -115,10 +122,15 @@ export const TF_MAX_BARS: Record<Timeframe, number> = {
   "1Year": 100,
   "1Month": 600,
   "1Week": 1200,
-  "1Day": 1200,
+  // 1Day/1Hour raised alongside their TF_LOOKBACK_DAYS above: the old caps
+  // (1200 / 8000) silently truncated a 6-year request to ~4.75y and ~3.3y of
+  // trading sessions respectively — a lower ceiling than the lookback window
+  // implied. ~252 trading days/year and ~6.5 regular-session hours/day, times
+  // 6 years, plus headroom.
+  "1Day": 1600,
   "4Hour": 3600,
   "2Hour": 4500,
-  "1Hour": 8000,
+  "1Hour": 12000,
   "15Min": 3200,
   "5Min": 3000,
   "1Min": 12000,

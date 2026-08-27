@@ -7,7 +7,112 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-08-21
+
+### Fixed
+- **A live ~6% BTC intraday move went unflagged and un-emailed by the
+  intraday scanner.** Two bugs, both in `lib/scanner/intraday.ts`: (1)
+  `WATCHLIST` — the universe the system scan (`.github/workflows/intraday-scan.yml`,
+  every 15 min during the equity session) and its email fan-out actually
+  cover — had no crypto symbol in it, even though the scanner engine has
+  supported `kind: "crypto"` since it was written; BTC/USD and ETH/USD are
+  now in it. (2) Even with those added, the session-volume liquidity gate
+  (`minSessionVolume`, tuned in share counts) would have filtered every
+  crypto alert anyway, since a session's coin volume is single/double digits,
+  not the tens of thousands an equity trades — that gate is now skipped for
+  crypto, which is already correctly gated on dollar turnover by
+  `lib/scan/liquidity.ts`. See `ROADMAP.md`'s Q1 notification-system entry
+  for the full writeup, including a known remaining gap (the scan schedule is
+  still equity-hours-only, so a weekend/overnight BTC move isn't yet
+  covered).
+
+### Added
+- **The intraday scanner now runs automatically outside equity hours too, on
+  crypto alone.** Same-day follow-up to the fix above: closes the
+  weekend/overnight gap it flagged. `.github/workflows/intraday-scan.yml`
+  gained a second `*/15` schedule spanning weekday overnight and the whole
+  weekend, which calls `/api/intraday-scan?universe=crypto` — a new param,
+  honored only for system (`CRON_SECRET`-authorized) scans, that narrows the
+  scan to the watchlist's crypto entries instead of the full list, since
+  equities can't have moved while their market is shut. The existing
+  equity-hours schedule and any manual `workflow_dispatch` run are
+  unaffected and still scan the full watchlist. Direct request, accepted
+  knowingly as roughly 4x this workflow's prior GitHub Actions run count —
+  see `docs/THIRD_PARTY_LIMITS.md`.
+- **The first-run tour's card covered the very element it was describing, on
+  phone-sized screens.** `placeCard` (`components/onboarding/tour-overlay.tsx`)
+  only placed the card above or below the spotlit hole when that side had
+  300px clear — otherwise it fell back to dead-centring the card on the
+  screen. A phone viewport routinely has under 300px clear on *both* sides of
+  a tall anchor (a dashboard section under a sticky header, say), so the
+  fallback fired constantly on mobile, putting the card directly over the
+  thing it was explaining instead of beside it. Fixed by always preferring
+  whichever side — above or below — has more room, and sizing the card's
+  max-height to fit that room (floored at a legible minimum, scrollable past
+  it) rather than requiring a fixed amount before using a side at all. The
+  centred fallback now only fires when a step's anchor isn't on the page at
+  all, which is the case it was actually meant for. Regression test added
+  pinning a scenario where neither side clears 300px but one still clearly
+  has more room than the other.
+
+## 2026-08-20
+
+### Added
+- **Signing up with an email that already has an account no longer creates
+  confusion or a duplicate.** `/api/auth/account-status` (backed by
+  `public.find_auth_user_by_email`, already applied and locked down to
+  service-role-only on the live project) checks before `auth.signUp` runs. An
+  unconfirmed existing account gets the confirmation email resent; a
+  confirmed one gets a password-reset link instead of a new account — there's
+  no way to email someone their existing password (it's hashed the moment
+  it's set and never recoverable in the clear), so a reset link is the actual
+  secure equivalent of "recover my account."
+
+### Fixed
+- **"Continue with Google" doesn't work.** Root-caused: zero `/authorize`
+  requests in `auth_logs` over the trailing 24h, and no Google OAuth
+  credentials referenced anywhere in this repo's env — the code path
+  (`signInWithOAuth` → Supabase → Google → `/auth/callback`) matches
+  Supabase's documented flow exactly, so this is a Supabase Dashboard +
+  Google Cloud Console configuration gap, not a code bug. Exact manual
+  steps in `docs/GOOGLE_OAUTH_SETUP.md`. In the meantime, the button now
+  surfaces a specific, actionable message when the provider itself isn't
+  enabled instead of Supabase's raw error text.
+
 ## 2026-08-19
+
+### Added
+- **Referral program (minimal).** Every user gets a `/r/<username>` link,
+  visible in Settings, that credits an attributed signup back to them and
+  counts clicks before conversion. Attribution runs through
+  `handle_new_user` for email/password signup and through `/auth/callback`
+  for Google OAuth, since Google — not this app — creates the `auth.users`
+  row in that path. No commission or payout model yet; this ships the link
+  and the counts a payout model would need, not the payout itself. Out of
+  phase for Q1 — see `ROADMAP.md`.
+
+### Changed
+- **Guided Decision Mode stock sizing no longer balloons on a tight stop.**
+  Position sizing (`lib/guided/sizing.ts`) previously applied only a risk cap,
+  a deployed-capital cap, and buying power. A structural entry with a very
+  tight stop — the common case for an entry sitting right on a level — could
+  pass all three while still sizing a triple-digit share count and a
+  tens-of-thousands-of-dollars position: correctly risk-managed as a percent
+  of equity, but nothing a first-time user would read as one ordinary trade.
+  Added a fifth ceiling, a per-trade notional cap (8% of paper equity by
+  default, editable in Settings → Guided Mode limits), that applies to stocks
+  only — crypto guided trades are unaffected. See `docs/GUIDED_DECISION_MODE.md`.
+- **Large-cap stocks get a wider stop, platform-wide.** Follow-up to the
+  sizing fix above: `lib/strat/levels.ts`'s stop-placement leeway (0.10x an
+  execution candle) and ceiling (2.5x) were clipping large-cap names before
+  an ordinary swing had room to work — the setup was right, the stop was
+  just narrower than the name's own noise floor. Large-cap stocks (known
+  mega-cap list, or a price-and-turnover proxy for names not on it — see
+  `lib/strat/large-cap.ts`) now get 0.25x leeway and a 3.5x ceiling instead.
+  This is a core-engine change: it affects every scan and the score, not
+  only Guided Mode, since a wider risk-per-share also means fewer shares at
+  the same risk budget. Unlike the notional cap above, this has not been
+  separately measured against the backtest replay — see `docs/BACKTESTING.md`.
 
 ### Fixed
 - **New signups stopped receiving the confirmation email.** Root cause: Auth
@@ -44,6 +149,56 @@ date.
   reasoning (`signal_called`) it was placed under. No new trade-recording
   system was needed: `trade_logs` already captured this. See
   `lib/journal/build-workbook.ts`.
+
+- **A first-run introduction for people who have never traded.** GSPS assumed a
+  user who already knew what an entry, a stop and a position were. Guided
+  Decision Mode removed the need to *calculate* any of that but not the need to
+  recognise it, so a genuine beginner still landed on a dashboard of scores with
+  no way in. This adds one, in two shapes that share a single body of copy
+  (`lib/onboarding/tour.ts`) so they cannot drift apart:
+  - **A spotlight tour**, auto-launched once per account. It dims the app, cuts
+    a hole around the thing being described and puts plain-English copy beside
+    it — 16 steps covering Dashboard, Guided, Scanner, the chart page and its
+    trade plan, Portfolio, Automation, Backtest, Glossary and Settings. It runs
+    over the live app rather than a mock, so what a reader learns is where
+    things are on their own screen at their own size.
+  - **`/welcome`**, the same steps as a scannable page with a contents list and
+    per-step anchors, for the refresher case — which is "find the one thing I
+    have forgotten", not "read all sixteen again". Reachable from Settings and
+    from a permanent line on the Dashboard.
+
+  The copy is written for an adult who has never traded, which is a gap in
+  vocabulary rather than in intelligence — simple words, but no talking down,
+  and the subject named in each sentence ("GSPS calculates the size") rather
+  than referred to ("it works it out"). Pronoun-chained prose reads as childish
+  *and* scans worse, since the reader ends up tracking referents instead of the
+  point. `onboarding-tour.test.ts` enforces a ceiling on that, bans paragraphs
+  opening on a bare pronoun, and rejects cheerleading, because prose has no type
+  system and the habit returns silently otherwise.
+
+  Three decisions worth recording:
+  - **The examples are a frozen SPY snapshot, not live data.** Live figures
+    would contradict the copy describing them the moment the market moved, and a
+    beginner cannot tell stale prose from a broken app. So one after-hours
+    capture (`lib/onboarding/spy-snapshot.ts`) illustrates every step, rendered
+    through components that look like the real ones, and every figure carries a
+    "saved example · not live" label that no prop can switch off. The example's
+    position size is checked in tests against the caps in `lib/guided/config.ts`
+    rather than asserted in prose, so changing a cap fails the build instead of
+    quietly making the tour wrong. The example card's sentences are generated by
+    the same `lib/guided/copy.ts` functions the live card uses, so a copy change
+    there fails a test rather than leaving the tour teaching a card that no
+    longer exists. The step introducing the practice balance renders the real
+    Portfolio screen — cash, holdings, account value — since those balances are
+    the evidence for "none of this is real".
+  - **Completion lives in `settings.prefs.onboarding`, not `localStorage`.** New
+    users are precisely the ones who sign in on a laptop and then a phone;
+    browser-local state would re-interrupt them on each device with a tour they
+    had already finished.
+  - **Auto-launch requires a positive answer.** A failed request, an absent
+    session or an unreachable database all resolve to "already seen". A tour
+    that quietly never appears is still reachable from Settings; one that
+    reopens over an order ticket on every network blip is not recoverable.
 
 ## 2026-08-18
 

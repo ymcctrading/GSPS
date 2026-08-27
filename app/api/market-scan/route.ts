@@ -67,6 +67,7 @@ async function runAndPersist() {
     shortlisted: output.shortlisted,
     scanErrors: output.scanErrors,
     continuationFills: output.continuationFills,
+    continuationSkipped: output.continuationSkipped,
     bullish: output.bullish.map((r) => ({ symbol: r.symbol, score: r.decision.score, state: r.decision.outputState })),
     bearish: output.bearish.map((r) => ({ symbol: r.symbol, score: r.decision.score, state: r.decision.outputState })),
     persisted,

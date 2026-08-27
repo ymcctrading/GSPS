@@ -2,7 +2,7 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-08-17.
+**Last updated:** 2026-08-21.
 
 This document decides *what we build next and in what order*. Proposals and
 implementation work should trace back to a phase below. See
@@ -94,13 +94,41 @@ both signal discovery and execution.
 ### Initiatives
 
 - **Notification system** — email, SMS, and browser push for high-confidence
-  alerts. Quiet hours, scheduling, alert history dashboard.
+  alerts. Quiet hours, scheduling, alert history dashboard. *(Gap fixed
+  2026-08-21, out-of-phase/direct report: a live ~6% BTC intraday move went
+  unflagged and un-emailed. Root cause was two-fold — `WATCHLIST` in
+  `lib/scanner/intraday.ts`, the universe the system scan and email fan-out
+  actually cover, had no crypto symbol in it despite the scanner engine
+  already supporting `kind: "crypto"`; and once BTC/USD and ETH/USD were
+  added, the session-volume liquidity gate — tuned in share counts — would
+  have filtered every crypto alert anyway, since a session's coin volume is
+  single/double digits, not tens of thousands. Both fixed: the two symbols
+  added to `WATCHLIST`, and that gate skipped for crypto in favor of the
+  dollar-turnover floor `lib/scan/liquidity.ts` already applies correctly.
+  This is deliberately narrower than the Q2 "Crypto scanner" item below — it
+  wires two large-cap pairs into the existing equity-hours intraday engine,
+  not a separate scan queue or Binance data. *(Follow-up, 2026-08-21, same
+  day: the weekend/overnight gap above is now closed. A second, always-on
+  schedule in `.github/workflows/intraday-scan.yml` covers weekday overnight
+  and the whole weekend, scanning crypto only — the equity side of the
+  watchlist can't move while its market is shut, so scanning it there would
+  be wasted runs, not just budget. The equity-hours schedule still scans the
+  full watchlist, and a manual `workflow_dispatch` run always does too,
+  whatever hour it's kicked off at — `?universe=crypto` is only ever set by
+  the off-hours cron itself. Direct request; accepted knowingly as roughly
+  4x this workflow's prior GitHub Actions run count, noted in
+  `docs/THIRD_PARTY_LIMITS.md`.)*
 - **Portfolio analytics dashboard** — win/loss ratio, Sharpe ratio, drawdown
   analysis, monthly/quarterly P&L, performance by pattern type.
 - **Conditional orders** — stop-loss and take-profit on any order; the
   foundation for Q2 bracket orders.
 - **Improved onboarding** — glossary integration, pattern education,
-  guided paper-trade walkthrough.
+  guided paper-trade walkthrough. *(First-run tour shipped 2026-08-19: a
+  spotlight walkthrough that auto-launches once per account and covers every
+  destination in plain English, plus `/welcome` as a permanent, re-readable
+  version of the same content. Illustrated throughout by a frozen after-hours
+  SPY snapshot, labelled as saved rather than live on every figure. Glossary
+  integration and pattern education remain open.)*
 - **Guided Decision Mode** *(shipped 2026-08-17)* — one recommended action per
   symbol, sized from a per-trade risk cap, executed through a single
   confirmation. Paper-only, long-only, Execute-verdict only, with daily/weekly
@@ -108,7 +136,31 @@ both signal discovery and execution.
   logged so its expectancy can later be measured against the Backtest tool.
   See `docs/GUIDED_DECISION_MODE.md`. Shipped alongside a platform-wide
   liquidity floor on every scan (price ≥ $5, average volume ≥ 500k shares, or
-  the dollar-turnover equivalent for crypto).
+  the dollar-turnover equivalent for crypto). *(Per-trade dollar budget added
+  2026-08-21: the risk/portfolio ceilings are percentages of the $100k paper
+  account, which sized recommendations correctly but in dollar amounts no one
+  trading real money in the low hundreds could act on. A flat notional cap —
+  $250 default, editable down to $50 or off — now applies alongside them, on
+  by default. Direct response to a novice-friction report against the shipped
+  UI; no separate low-capital tool was built, since the fix is a fifth sizing
+  ceiling on the existing engine, not a different one.)* *(2026-08-19)*
+  Followed up with a core-engine change (not Guided-Mode-only): large-cap
+  stocks now get a wider stop-loss leeway and ceiling (`lib/strat/large-cap.ts`,
+  `lib/strat/levels.ts`), so an ordinary swing on a mega-cap name doesn't clip
+  the stop before the setup can move, and the wider risk-per-share also
+  shrinks the share count needed at a given risk budget — compounding with
+  the dollar budget above. This touches every scan and the score, not only
+  Guided Mode, and is unmeasured against the backtest replay as of this
+  writing — see `docs/BACKTESTING.md`.
+- **Referral program (minimal)** *(2026-08-19, out-of-phase)* — a per-user
+  referral link (`/r/<username>`), click counter, and signup attribution,
+  surfaced in Settings. Not named in this roadmap's Q1 initiatives — it was
+  built ahead of schedule at explicit request, in service of this phase's
+  retention goal (a reason to bring a friend back in) rather than as a
+  reprioritization. No commission or payout model yet: that needs a
+  compliance and payments decision this document doesn't make for it. If a
+  paid referral program becomes a real initiative, it belongs here explicitly
+  rather than continuing to live as a deviation note.
 - **Mobile-responsive dashboard** — not a native app yet, but positions and
   alerts must be usable on phones and tablets.
 - **Technical indicators (phase 1)** — SMA, EMA, RSI, MACD as chart overlays.

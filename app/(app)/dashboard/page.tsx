@@ -3,12 +3,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { ResultsTable } from "@/components/scan/results-table";
 import { AutoScan } from "@/components/scan/auto-scan";
 import { StaleScanNotice } from "@/components/scan/stale-scan-notice";
+import { LiveExpectancyToggle } from "@/components/guided/live-expectancy-toggle";
 import { EarningsCalendar } from "@/components/macro/earnings-calendar";
 import { MarketNews } from "@/components/macro/market-news";
 import { getDailyScans } from "@/lib/dailyScans";
 import { DEFAULTS } from "@/lib/sectors";
 import { tickerHref } from "@/lib/routes";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Compass } from "lucide-react";
 import { tradeSideWord } from "@/lib/scoring/direction-copy";
 import { formatOpenedAt } from "@/lib/portfolio/opened-at";
 
@@ -35,13 +36,29 @@ export default async function DashboardPage() {
         <AutoScan scanDate={scanDate} />
       </div>
 
+      {/*
+        A quiet, permanent way back to the walkthrough. It sits on the Dashboard
+        rather than only in Settings because the moment someone needs it is the
+        moment they land on a screen of scores they cannot read, and that screen
+        is this one.
+      */}
+      <Link
+        href="/welcome"
+        className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-muted hover:border-accent hover:text-accent"
+      >
+        <Compass className="h-4 w-4 shrink-0" />
+        New to this? Read the plain-English walkthrough of every part of GSPS.
+      </Link>
+
       <StaleScanNotice
         freshness={freshness}
         scanDate={scanDate}
         pricedBeforeSession={pricedBeforeSession}
       />
 
-      <Card>
+      <LiveExpectancyToggle />
+
+      <Card data-tour="dash-watchlist">
         <CardHeader>
           <CardTitle>Default watchlist</CardTitle>
           <CardDescription>Magnificent Seven, SPY, and BTC — open any symbol for a full protocol scan.</CardDescription>
@@ -61,7 +78,7 @@ export default async function DashboardPage() {
         </CardContent>
       </Card>
 
-      <div className="grid min-w-0 gap-4 sm:gap-6 lg:grid-cols-2">
+      <div data-tour="dash-setups" className="grid min-w-0 gap-4 sm:gap-6 lg:grid-cols-2">
         <ReversionPreview
           direction="bullish"
           rows={bullish}

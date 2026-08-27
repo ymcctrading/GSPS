@@ -13,13 +13,17 @@
  *
  * `Authorization: Bearer CRON_SECRET` (system scan): the background
  * coverage this project didn't have — see
- * .github/workflows/intraday-scan.yml, which calls this on a timer during
- * market hours without any browser tab open. It always scans the full
- * default watchlist (ignores `?symbols=`, which is a personal override, not
- * a market-wide one), persists to `intraday_system_alerts` (no per-user
- * cooldown to key off), and emails every user whose notification
- * preferences match — this is the path that actually answers "why didn't
- * the scanner notify me."
+ * .github/workflows/intraday-scan.yml, which calls this on a timer both
+ * during market hours and, since equities can't move outside them, on a
+ * second, crypto-only schedule the rest of the week. It ignores `?symbols=`,
+ * which is a personal override, not a market-wide one, but does honor
+ * `?universe=crypto` — the one thing the off-hours cron sets, to scan
+ * crypto alone rather than a watchlist mostly made of instruments whose
+ * market is shut. Every other system scan, including a manual
+ * `workflow_dispatch` run, covers the full default watchlist. This path
+ * persists to `intraday_system_alerts` (no per-user cooldown to key off),
+ * and emails every user whose notification preferences match — this is the
+ * path that actually answers "why didn't the scanner notify me."
  *
  * Market data only. Nothing here touches broker or order state — those are
  * different sources with different trust properties, and the separation is
@@ -28,6 +32,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 import { getMarketDataProvider } from "@/lib/data/provider";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { atr } from "@/lib/analysis/pivots";
@@ -108,13 +113,34 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Not signed in" }, { status: 401 });
     }
     userId = user.id;
+
+    // Phase 3F: intraday scans are Expert+ (INVESTOR_MODE/SYSTEM_MASTERY)
+    // per docs/GSPS_TIER_ENTITLEMENT_SPEC.md. This route had no tier gate at all
+    // before this -- confirmed as an intentional restriction of previously
+    // open access, not left unenforced by oversight.
+    const policy = await getUserEntitlementPolicy(supabase as Supabase, userId);
+    if (!policy.intradayScansEnabled) {
+      return NextResponse.json(
+        { error: "Intraday scans are available on the Expert plan and above." },
+        { status: 403 },
+      );
+    }
   }
 
   const params = new URL(req.url).searchParams;
-  // A system scan always covers the full watchlist — `?symbols=` is a
-  // personal narrowing a signed-in user asked for, not something a
-  // background run driven by GitHub Actions has an opinion about.
-  const universe = systemScan ? WATCHLIST : resolveUniverse(params.get("symbols"));
+  // A system scan ignores `?symbols=` — that's a personal narrowing a
+  // signed-in user asked for, not something a background run driven by
+  // GitHub Actions has an opinion about. It does honor `?universe=crypto`,
+  // but only that one value: the off-hours cron schedule in
+  // .github/workflows/intraday-scan.yml uses it to scan crypto alone
+  // outside the equity session, when the rest of the watchlist can't have
+  // moved because the market it trades on is closed. Every other system
+  // scan — the equity-hours cron, and a manual `workflow_dispatch` run at
+  // any hour — covers the full watchlist, same as before this parameter
+  // existed.
+  const universe = systemScan
+    ? resolveSystemUniverse(params.get("universe"))
+    : resolveUniverse(params.get("symbols"));
   const config = resolveConfig(params);
   const provider = getMarketDataProvider();
 
@@ -175,6 +201,20 @@ export async function GET(req: NextRequest) {
     // quiet", and the caller has to be able to say which.
     unreachable,
   });
+}
+
+/**
+ * System-scan universe: the full watchlist, or crypto alone.
+ *
+ * `"crypto"` is the only recognized value — anything else (including a typo,
+ * or a future value nobody has wired up yet) falls back to the full
+ * watchlist rather than silently scanning nothing, since a scheduled run
+ * that scans zero symbols would look identical to one that ran and found
+ * nothing.
+ */
+function resolveSystemUniverse(universeParam: string | null): { symbol: string; kind: AssetKind }[] {
+  if (universeParam === "crypto") return WATCHLIST.filter((entry) => entry.kind === "crypto");
+  return WATCHLIST;
 }
 
 /** Symbols to scan: the caller's list, or the core watchlist. */

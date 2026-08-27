@@ -49,6 +49,27 @@ describe("runBacktest", () => {
     }
   });
 
+  it("attributes factors within a score band instead of a bucket, and labels the report accordingly", async () => {
+    const withinWatch = await runBacktest({
+      symbols: ["SPY", "AAPL"],
+      timeframe: "15Min",
+      attributeWithin: "Watch",
+    });
+    const nearMiss = await runBacktest({
+      symbols: ["SPY", "AAPL"],
+      timeframe: "15Min",
+      attributeScoreRange: [5, 6],
+    });
+
+    expect(nearMiss.attributeWithin).toBe("score 5–6");
+    expect(nearMiss.attributeScoreRange).toEqual([5, 6]);
+
+    // The 5–6 band is a subset of Watch (4–6), never a superset of it.
+    const watchBucket = withinWatch.buckets.find((b) => b.bucket === "Watch")!;
+    const nearMissObserved = nearMiss.factors.reduce((n, f) => Math.max(n, f.observed), 0);
+    expect(nearMissObserved).toBeLessThanOrEqual(watchBucket.trades);
+  });
+
   it("records an unfetchable symbol as skipped instead of dropping it silently", async () => {
     // Every symbol resolves under the synthetic generator, so the guarantee
     // worth pinning is the accounting: whatever is not in `symbols` is in
@@ -64,6 +85,26 @@ describe("runBacktest", () => {
     const banded = report.atrBands.reduce((n, b) => n + b.trades, 0);
     const execute = report.buckets.find((b) => b.bucket === "Execute")!;
     expect(banded).toBe(execute.trades);
+  });
+
+  it("partitions every trade into the large-cap split, unlike the verdict buckets", async () => {
+    // MSFT is on the known-name list (lib/strat/large-cap.ts) regardless of
+    // the synthetic generator's price/volume, so this exercises both halves
+    // of the split without needing the liquidity proxy to cooperate.
+    const report = await runBacktest({ symbols: ["MSFT", "SPY"], timeframe: "15Min" });
+    const split = report.largeCapSplit.largeCap.trades + report.largeCapSplit.notLargeCap.trades;
+    expect(split).toBe(report.overall.trades);
+    expect(report.useProductionStop).toBe(false);
+  });
+
+  it("echoes useProductionStop, and both stop models still partition the same trade count", async () => {
+    const raw = await runBacktest({ symbols: ["MSFT"], timeframe: "15Min" });
+    const widened = await runBacktest({ symbols: ["MSFT"], timeframe: "15Min", useProductionStop: true });
+    expect(raw.useProductionStop).toBe(false);
+    expect(widened.useProductionStop).toBe(true);
+    // Same setups arm and trigger either way — only the stop distance the P&L
+    // walk checks against differs, never which bars produced a trade.
+    expect(widened.overall.trades).toBe(raw.overall.trades);
   });
 });
 

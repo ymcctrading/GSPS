@@ -4,6 +4,7 @@ import {
   MIN_DAILY_BARS_FOR_SCORE,
   buildMacroContext,
   byOutputState,
+  byScoreRange,
   combine,
   replay,
   rollUp,
@@ -252,6 +253,47 @@ describe("replay scoring", () => {
   });
 });
 
+describe("useProductionStop", () => {
+  // A wide structural stop (well past the default 2.5x-ATR ceiling) so the
+  // default and large-cap ceilings clip it to two different widths, and a
+  // target far enough out that neither stop width is at risk of hitting it
+  // by coincidence within this short series.
+  const wideStop: Bar[] = series([
+    bar(100, 105, 99, 104), // 2U — arms a bearish trigger at 98.99, stop far above
+    bar(99, 100, 90, 92), // triggers, then drifts down without hitting a tight stop
+    bar(92, 93, 91, 92),
+  ]);
+
+  it("uses the raw pattern stop by default, unaffected by the option's absence", () => {
+    const withDefault = replay("TEST", wideStop, { targetR: 2 });
+    const explicitFalse = replay("TEST", wideStop, { targetR: 2, useProductionStop: false });
+    expect(withDefault.trades).toEqual(explicitFalse.trades);
+  });
+
+  it("widens the walked stop when true, changing the realised risk", () => {
+    const raw = replay("TEST", wideStop, { targetR: 2 });
+    const widened = replay("TEST", wideStop, { targetR: 2, useProductionStop: true });
+    expect(raw.trades.length).toBeGreaterThan(0);
+    expect(widened.trades.length).toBe(raw.trades.length);
+    // Same pattern, same bars — only the stop distance the P&L walk checks
+    // against should differ once the leeway/ceiling logic is in the loop.
+    const rawTrade = raw.trades[0];
+    const widenedTrade = widened.trades[0];
+    expect(widenedTrade.stop).not.toBe(rawTrade.stop);
+  });
+
+  it("tags every trade with its large-cap read even with no daily bars supplied", () => {
+    // The large-cap classification only needs the symbol (for the known-name
+    // list) — it must not silently require dailyBars the way score/outputState do.
+    const r = replay("MSFT", wideStop, { targetR: 2 });
+    expect(r.trades.length).toBeGreaterThan(0);
+    expect(r.trades.every((t) => t.largeCap === true)).toBe(true);
+
+    const notLargeCap = replay("TINYCO", wideStop, { targetR: 2 });
+    expect(notLargeCap.trades.every((t) => t.largeCap === false)).toBe(true);
+  });
+});
+
 describe("byOutputState", () => {
   it("keeps unscored trades out of the verdict buckets", () => {
     const r = summarise([
@@ -268,5 +310,26 @@ describe("byOutputState", () => {
     const total = (["Execute", "Watch", "Reject", "unscored"] as const)
       .reduce((n, k) => n + split[k].trades.length, 0);
     expect(total).toBe(r.trades.length);
+  });
+});
+
+describe("byScoreRange", () => {
+  it("selects a band narrower than any verdict bucket", () => {
+    // 4, 5, 6 all read as Watch under the score cutoffs, so byOutputState
+    // cannot isolate "one point short of Execute" — this can.
+    const r = summarise([
+      trade({ outputState: "Watch", score: 4, rMultiple: -1 }),
+      trade({ outputState: "Watch", score: 5, rMultiple: 1 }),
+      trade({ outputState: "Watch", score: 6, rMultiple: 2 }),
+      trade({ outputState: "Execute", score: 7, rMultiple: 2 }),
+    ]);
+    const nearMiss = byScoreRange(r, 5, 6);
+    expect(nearMiss.trades).toHaveLength(2);
+    expect(nearMiss.trades.every((t) => t.score === 5 || t.score === 6)).toBe(true);
+  });
+
+  it("excludes unscored trades rather than guessing them into the range", () => {
+    const r = summarise([trade({ rMultiple: 1 })]); // no score at all
+    expect(byScoreRange(r, 5, 6).trades).toHaveLength(0);
   });
 });

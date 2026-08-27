@@ -5,7 +5,16 @@
  *   ?timeframe=15Min       execution timeframe patterns are detected on
  *   ?targetR=2             take-profit distance, in multiples of risk
  *   ?within=Execute        verdict bucket to attribute factors inside
+ *   ?scoreRange=5-6        attribute factors within a score band instead of a
+ *                          verdict bucket — mutually exclusive with `within`
  *   ?since=2026-06-15      replay only bars at or after this instant
+ *   ?productionStop=1      walk the leeway/large-cap-widened stop instead of
+ *                          the raw pattern one — see ReplayOptions.useProductionStop
+ *   ?trades=1              return the dated, per-trade list for `within`
+ *                          instead of the aggregate report — small on
+ *                          purpose (one bucket, not the whole universe's
+ *                          trades), for building a real trade-by-trade
+ *                          timeline the aggregate numbers can't answer
  *
  * Not on a cron and it must not go on one: a run walks every bar of every
  * symbol and is far too slow for a scheduled hobby-plan invocation. It is
@@ -20,9 +29,12 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { BUCKETS, runBacktest, type Bucket } from "@/lib/backtest/run";
+import { BUCKETS, collectRun, runBacktest, type Bucket } from "@/lib/backtest/run";
+import { byOutputState, byScoreRange } from "@/lib/backtest/replay";
 import { isTimeframe } from "@/lib/timeframe";
 import { verifyAuth } from "@/lib/auth";
+import { createServiceClient } from "@/lib/supabase/server";
+import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 
 const DEFAULT_UNIVERSE = ["SPY", "AAPL", "AMD", "TSLA", "MSFT", "NVDA"];
 
@@ -35,8 +47,20 @@ const DEFAULT_UNIVERSE = ["SPY", "AAPL", "AMD", "TSLA", "MSFT", "NVDA"];
 const MAX_SYMBOLS = 12;
 
 export async function GET(req: NextRequest) {
-  if (!(await verifyAuth())) {
+  const userId = await verifyAuth();
+  if (!userId) {
     return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+  }
+
+  // Phase 3F: backtesting is Wall Street (SYSTEM_MASTERY) only per
+  // docs/GSPS_TIER_ENTITLEMENT_SPEC.md -- this route had no tier gate at all
+  // before this, so every signed-in user could replay regardless of plan.
+  const policy = await getUserEntitlementPolicy(createServiceClient(), userId);
+  if (!policy.backtestingEnabled) {
+    return NextResponse.json(
+      { error: "Backtesting is available on the Wall Street plan." },
+      { status: 403 },
+    );
   }
 
   const { searchParams } = new URL(req.url);
@@ -65,9 +89,30 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: `Invalid targetR '${targetRaw}'` }, { status: 400 });
   }
 
-  const within = searchParams.get("within") ?? "Execute";
+  const withinRaw = searchParams.get("within");
+  const scoreRangeRaw = searchParams.get("scoreRange");
+  if (withinRaw !== null && scoreRangeRaw !== null) {
+    return NextResponse.json(
+      { error: "'within' and 'scoreRange' are mutually exclusive — pass one." },
+      { status: 400 },
+    );
+  }
+
+  const within = withinRaw ?? "Execute";
   if (!BUCKETS.includes(within as Bucket)) {
     return NextResponse.json({ error: `Invalid bucket '${within}'` }, { status: 400 });
+  }
+
+  let scoreRange: [number, number] | undefined;
+  if (scoreRangeRaw !== null) {
+    const m = /^(\d+)-(\d+)$/.exec(scoreRangeRaw);
+    if (!m) {
+      return NextResponse.json(
+        { error: `Invalid scoreRange '${scoreRangeRaw}' — expected 'min-max', e.g. '5-6'` },
+        { status: 400 },
+      );
+    }
+    scoreRange = [Number(m[1]), Number(m[2])];
   }
 
   // Rejected rather than ignored. A silently dropped `since` would report a
@@ -78,13 +123,51 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: `Invalid since '${since}'` }, { status: 400 });
   }
 
+  const productionStopRaw = searchParams.get("productionStop");
+  const useProductionStop = productionStopRaw !== null && productionStopRaw !== "0" && productionStopRaw !== "false";
+  const wantTrades = searchParams.get("trades") === "1";
+
   try {
+    if (wantTrades) {
+      const run = await collectRun({
+        symbols: universe,
+        timeframe,
+        targetR,
+        ...(since !== null ? { since } : {}),
+      });
+      const bucketTrades = scoreRange
+        ? byScoreRange(run.overall, scoreRange[0], scoreRange[1]).trades
+        : byOutputState(run.overall)[within as Bucket].trades;
+      return NextResponse.json({
+        source: run.source,
+        live: run.live,
+        timeframe: run.timeframe,
+        targetR: run.targetR,
+        symbols: run.symbols,
+        skipped: run.skipped,
+        window: run.window,
+        bucket: scoreRange ? `score ${scoreRange[0]}-${scoreRange[1]}` : within,
+        trades: bucketTrades.map((t) => ({
+          symbol: t.symbol,
+          openedAt: t.openedAt,
+          direction: t.direction,
+          entry: t.entry,
+          stop: t.stop,
+          target: t.target,
+          rMultiple: t.rMultiple,
+          outcome: t.outcome,
+        })),
+      });
+    }
+
     const report = await runBacktest({
       symbols: universe,
       timeframe,
       targetR,
       attributeWithin: within as Bucket,
+      ...(scoreRange ? { attributeScoreRange: scoreRange } : {}),
       ...(since !== null ? { since } : {}),
+      ...(useProductionStop ? { useProductionStop } : {}),
     });
     return NextResponse.json(report);
   } catch (err) {

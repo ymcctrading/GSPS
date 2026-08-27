@@ -19,20 +19,23 @@
  * output as an upper bound on a strategy's quality, never a promise.
  */
 
-import type { AssetClass, Bar, GannLevels, ScanDecision, StratPattern, TrendReading } from "@/lib/types";
+import type { AssetClass, Bar, GannLevels, ScanDecision, StratPattern, Timeframe, TrendReading } from "@/lib/types";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { detectPatterns, gapRuleViolated, riskFloorViolated } from "@/lib/strat/patterns";
-import { computeTradeLevels } from "@/lib/strat/levels";
+import { computeStopWithLeeway, computeTradeLevels } from "@/lib/strat/levels";
+import { isLargeCapStock } from "@/lib/strat/large-cap";
+import { readLiquidity } from "@/lib/scan/liquidity";
 import { applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
 import {
   FALLBACK_SR_PCT,
   SR_PROXIMITY_ATR,
   atrPercentOfPrice,
-  nearAnyLevel,
+  nearestLevelMatch,
   proximityBandPct,
 } from "@/lib/scoring/proximity";
 import type { CriterionWeights } from "@/lib/scoring/weights";
 import { readTrend } from "@/lib/analysis/trend";
+import { levelRole, type LevelRole } from "@/lib/analysis/levelRole";
 import { atr } from "@/lib/analysis/pivots";
 import { computeFanLines } from "@/lib/gann/fans";
 import { squareOf9Levels } from "@/lib/gann/squareOf9";
@@ -72,6 +75,23 @@ export interface ReplayOptions {
    * the current weights produced — see lib/backtest/propose-weights.ts.
    */
   weights?: CriterionWeights;
+  /**
+   * Walk the P&L simulation against the leeway/large-cap-widened stop
+   * (`computeStopWithLeeway`) instead of the raw pattern stop. Defaults false,
+   * which is the harness's original, unwidened behaviour and what every
+   * existing result and test describes.
+   *
+   * This is *not* the same thing as the `score`/`outputState` a trade carries
+   * when `dailyBars` is supplied — that has always reflected
+   * `computeTradeLevels`'s widened stop via the verdict, because the scanner's
+   * own decision does. What the verdict never touched is the stop the
+   * outcome walk below actually checks: `stop`/`target` here come from the
+   * raw pattern regardless of the verdict, so the win-rate and expectancy
+   * numbers a report reads have never moved when this widening shipped. Set
+   * this to true to ask the question directly — the same run twice, once
+   * with each stop, is the before/after `docs/BACKTESTING.md` asks for.
+   */
+  useProductionStop?: boolean;
 }
 
 export interface ReplayTrade {
@@ -129,6 +149,14 @@ export interface ReplayTrade {
    * `attribution.ts`.
    */
   criteria?: Record<string, boolean>;
+  /**
+   * Whether this symbol read as large-cap at the time of the trade — see
+   * `lib/strat/large-cap.ts`. Always computed (unlike `score`, which needs
+   * `dailyBars`) since it only needs the symbol and, when available, prior
+   * daily bars for the liquidity proxy. Lets a report bucket trades by it
+   * the same way it already buckets by verdict or stop width.
+   */
+  largeCap?: boolean;
 }
 
 export interface ReplayResult {
@@ -197,6 +225,8 @@ export interface MacroContext {
   macroTrends: TrendReading[];
   gann: GannLevels;
   nearSupportResistance: boolean;
+  /** The matched level and its role, when one is in range — see lib/scanTicker.ts's srMatch. */
+  srMatch: { price: number; timeframe: Timeframe; role: LevelRole } | null;
   momentumElevated: boolean;
   /**
    * Daily ATR as a percentage of price on the day being traded. The structural
@@ -220,13 +250,25 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
   const cycles = timeCycles(daily);
 
   const allLevels = [
-    ...dailyTrend.support, ...dailyTrend.resistance,
-    ...weeklyTrend.support, ...weeklyTrend.resistance,
-    ...monthlyTrend.support, ...monthlyTrend.resistance,
+    ...dailyTrend.support.map((p) => ({ price: p, timeframe: dailyTrend.timeframe })),
+    ...dailyTrend.resistance.map((p) => ({ price: p, timeframe: dailyTrend.timeframe })),
+    ...weeklyTrend.support.map((p) => ({ price: p, timeframe: weeklyTrend.timeframe })),
+    ...weeklyTrend.resistance.map((p) => ({ price: p, timeframe: weeklyTrend.timeframe })),
+    ...monthlyTrend.support.map((p) => ({ price: p, timeframe: monthlyTrend.timeframe })),
+    ...monthlyTrend.resistance.map((p) => ({ price: p, timeframe: monthlyTrend.timeframe })),
   ];
   const recentAtr = atr(daily.slice(-20), 14);
   const baselineAtr = atr(daily.slice(-100, -20), 14);
   const atrPct = atrPercentOfPrice(recentAtr, price);
+
+  // Mirrors lib/scanTicker.ts: keep the matched level (and its role at
+  // current price) rather than just a boolean, so the score can tell whether
+  // it's on the trade's side or not.
+  const srMatch = nearestLevelMatch(
+    price,
+    allLevels,
+    proximityBandPct(SR_PROXIMITY_ATR, FALLBACK_SR_PCT, atrPct),
+  );
 
   return {
     macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
@@ -240,11 +282,8 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
       timeCycleActive: cycles.active,
       timeCycleDates: cycles.dates,
     },
-    nearSupportResistance: nearAnyLevel(
-      price,
-      allLevels,
-      proximityBandPct(SR_PROXIMITY_ATR, FALLBACK_SR_PCT, atrPct),
-    ),
+    nearSupportResistance: srMatch !== null,
+    srMatch: srMatch && { ...srMatch, role: levelRole(price, srMatch.price) },
     momentumElevated: baselineAtr > 0 && recentAtr / baselineAtr >= 1.2,
     atrPct,
   };
@@ -258,6 +297,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     warmupBars = 40,
     dailyBars,
     weights,
+    useProductionStop = false,
   } = options;
 
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
@@ -289,7 +329,32 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       triggered++;
 
       const entry = pattern.triggerPrice;
-      const stop = pattern.stopPrice;
+
+      // Prior sessions only — the same look-ahead guard scoreSetup applies to
+      // macro context, since large-cap status is read off the same daily bars.
+      const priorSessions = dailyBars
+        ? dailyBars.filter((b) => b.t.slice(0, 10) < live.t.slice(0, 10))
+        : undefined;
+      const largeCap = isLargeCapStock(
+        symbol,
+        assetClass,
+        priorSessions ? readLiquidity(priorSessions) : undefined,
+      );
+
+      // The harness's original stop: the raw pattern, untouched by the leeway
+      // or large-cap widening `computeTradeLevels` applies for the live scan
+      // and Guided Mode. `useProductionStop` swaps it for the widened one —
+      // see the option's own comment for why this distinction has to exist.
+      const stop =
+        useProductionStop && executionAtr > 0
+          ? computeStopWithLeeway({
+              side: long ? "long" : "short",
+              entry,
+              structuralStop: pattern.stopPrice,
+              atr15: executionAtr,
+              largeCap,
+            })
+          : pattern.stopPrice;
       const risk = Math.abs(entry - stop);
       if (!(risk > 0)) continue;
       const target = entry + dir * targetR * risk;
@@ -304,6 +369,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
             price: lastClose,
             executionAtr,
             assetClass,
+            largeCap,
             weights,
           })
         : undefined;
@@ -337,6 +403,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           score: decision?.score,
           outputState: decision?.outputState,
           criteria: criteriaOf(decision),
+          largeCap,
         });
         continue;
       }
@@ -351,6 +418,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         score: decision?.score,
         outputState: decision?.outputState,
         criteria: criteriaOf(decision),
+        largeCap,
       });
     }
   }
@@ -416,9 +484,11 @@ function scoreSetup(input: {
   price: number;
   executionAtr: number;
   assetClass: AssetClass;
+  /** Computed once by the caller (it also tags the trade record) rather than re-derived here. */
+  largeCap: boolean;
   weights?: CriterionWeights;
 }): ScanDecision | undefined {
-  const { pattern, dailyBars, contextByDate, date, history, price, executionAtr, assetClass, weights } =
+  const { pattern, dailyBars, contextByDate, date, history, price, executionAtr, assetClass, largeCap, weights } =
     input;
 
   let context = contextByDate.get(date);
@@ -445,6 +515,7 @@ function scoreSetup(input: {
       undefined,
       executionAtr,
       assetClass,
+      largeCap,
     );
   } catch {
     // A setup with no valid plan is scored without one, exactly as the scan
@@ -458,6 +529,7 @@ function scoreSetup(input: {
       hourlyTrend,
       gann: context.gann,
       nearSupportResistance: context.nearSupportResistance,
+      srMatch: context.srMatch,
       pattern,
       momentumElevated: context.momentumElevated,
       levels,
@@ -489,4 +561,31 @@ export function byOutputState(result: ReplayResult): {
     Reject: pick("Reject"),
     unscored: summarise(result.trades.filter((t) => t.outputState === undefined)),
   };
+}
+
+/**
+ * Split a run's trades by whether the symbol read as large-cap at the time —
+ * the comparison this session's stop-widening change asked for. Every trade
+ * carries `largeCap` regardless of whether `dailyBars`/scoring were supplied,
+ * so unlike `byOutputState` there is no "unknown" bucket to report.
+ */
+export function byLargeCap(result: ReplayResult): { largeCap: ReplayResult; notLargeCap: ReplayResult } {
+  return {
+    largeCap: summarise(result.trades.filter((t) => t.largeCap === true)),
+    notLargeCap: summarise(result.trades.filter((t) => t.largeCap !== true)),
+  };
+}
+
+/**
+ * Split a run to the trades whose score fell in `[min, max]` (inclusive) —
+ * the band question `byOutputState` cannot answer, because "Watch" spans
+ * every score from 4 to 6 at once. Asking "what's true of a 5–6, one point
+ * short of Execute" needs this, not the Watch bucket.
+ *
+ * A trade with no score (too little daily history to compute one) never
+ * matches any range, same as `byOutputState` puts it in `unscored` rather
+ * than guessing.
+ */
+export function byScoreRange(result: ReplayResult, min: number, max: number): ReplayResult {
+  return summarise(result.trades.filter((t) => t.score !== undefined && t.score >= min && t.score <= max));
 }

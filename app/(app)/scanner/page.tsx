@@ -83,17 +83,7 @@ export default function ScannerPage() {
         </p>
       </div>
 
-      {/*
-        Two scans, and the difference between them is the point. The panel below
-        is a top-down reversion screen on daily bars — it looks for setups
-        *against* an extended move, and it can only answer once a session's bars
-        have closed. It is structurally unable to notice a symbol running hard
-        right now, which is why the intraday panel exists alongside it rather
-        than as a mode inside it.
-      */}
-      <IntradayAlerts />
-
-      <Card>
+      <Card data-tour="scanner-universe">
         <CardHeader>
           <CardTitle>Universe</CardTitle>
           <CardDescription>Combine industries freely, or scan specific symbols.</CardDescription>
@@ -139,9 +129,19 @@ export default function ScannerPage() {
         </CardContent>
       </Card>
 
+      {/*
+        Two scans, and the difference between them is the point. The Universe
+        panel above is a top-down reversion screen on daily bars — it looks for
+        setups *against* an extended move, and it can only answer once a
+        session's bars have closed. It is structurally unable to notice a
+        symbol running hard right now, which is why the intraday panel exists
+        alongside it rather than as a mode inside it.
+      */}
+      <IntradayAlerts />
+
       {results && (
-        <Card>
-          <CardHeader>
+        <Card data-tour="scanner-results">
+            <CardHeader>
             <CardTitle>Results</CardTitle>
             <CardDescription>
               Sorted by score. Open a symbol for the chart, breakdown, and order ticket.
