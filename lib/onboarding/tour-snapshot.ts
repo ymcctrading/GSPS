@@ -179,7 +179,7 @@ export const SNAPSHOT_GUIDED = {
    * written out, since producing the real thing needs a whole `ScanResult`.
    */
   reason:
-    "F has sold off into a price area that has stopped declines before, and is turning back up through $24.80. The daily range is ordinary, so this is a structural entry rather than a momentum one.",
+    "F has sold off into a price area that has stopped declines before, and is turning back up through $24.80. The daily range is ordinary, so this is happening at a level rather than during a burst of activity.",
   riskRewardSentence:
     "You could lose about $5 if this doesn't work, or make about $9 if it reaches the target.",
   sizeSentence:
