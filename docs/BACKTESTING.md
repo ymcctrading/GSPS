@@ -228,9 +228,39 @@ question below: that one's sign disagreed between timeframes (the disqualifying 
 `propose-weights.ts` calls `disagreed`), so it was left alone. `harmonicProximity`'s sign agreed
 across all four available real samples — the strongest evidence this repo has produced for any of
 the nine criteria — and the mechanism (role-blindness) is a plausible, checkable defect rather than
-a market read. **Re-run the replay after this lands** to confirm Execute's expectancy actually
-moved, the same way the ATR re-basing above asked for a before/after — this change hasn't been
-confirmed against live data from this environment, which has no Alpaca credentials.
+a market read.
+
+### Confirmed against live data (2026-08-27)
+
+`GET /api/backtest?symbols=SPY,AAPL,AMD,TSLA,MSFT,NVDA&timeframe=15Min&targetR=2&within=Execute`,
+run against the deployment (`live: true`, `source: alpaca`), same universe/timeframe/target as the
+pre-fix `docs/replay-runs/2026-08-12-15Min-2R.json` baseline. Payload captured to
+`docs/replay-runs/2026-08-27-15Min-2R-postfix.json` and rendered into `docs/REPLAY_RESULTS.md`:
+
+| | Pre-fix (2026-08-12) | Post-fix (2026-08-27) |
+|---|---:|---:|
+| Execute trades | 126 | 31 |
+| Execute win rate | 34.1% | 38.7% |
+| Execute expectancy | +0.013R | **+0.151R** |
+| Watch expectancy | −0.072R | −0.009R |
+| Reject expectancy | −0.081R (64 trades) | −0.184R (365 trades) |
+| Overall (all buckets) | −0.062R | −0.065R |
+
+Execute's expectancy moved from a barely-positive reading indistinguishable from noise to a solidly
+positive one — over five times larger, on a win rate that cleared break-even (33.3% at 2R) by a
+wider margin. The mechanism matches what the fix predicts: overall expectancy across all buckets
+combined is unchanged (the trades themselves didn't change, only which bucket each landed in), and
+Reject absorbed most of what Execute and Watch shed — 365 trades at −0.184R versus 64 at −0.081R
+pre-fix. Setups that used to score high on a wrong-side "confluence" point now correctly fall
+through to Reject instead of inflating Execute or Watch.
+
+Two honest caveats before treating this as closed: **the Execute sample is now thin** (31 trades,
+down from 126 — the stricter role check is more selective, which is the point, but also means a
+wider confidence interval), so per-criterion factor attribution on this run is mostly `insufficient`
+verdict and shouldn't be read further. And **the window shifted forward two weeks** (trailing
+lookback, not a fixed period — see "Win rate decides nothing on its own" above), so this is not a
+perfectly matched before/after on identical bars. Worth a second confirmation run once more Execute
+trades have accumulated, but the direction and magnitude here are what the fix was built to produce.
 
 ## Criteria that carry no information inside `Execute`
 
