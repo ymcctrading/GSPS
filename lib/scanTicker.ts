@@ -46,7 +46,12 @@ import {
   proximityBandPct,
 } from "@/lib/scoring/proximity";
 import { getActiveCriterionWeights } from "@/lib/scoring/active-weights";
-import { readLiquidity } from "@/lib/scan/liquidity";
+import { meetsLiquidityFloor, readLiquidity } from "@/lib/scan/liquidity";
+import { isBinaryEventInHoldPeriod } from "@/lib/macro/earnings";
+import { classifyRegime } from "@/lib/signals/regime";
+import { evaluateTrendPullback } from "@/lib/signals/states/trendPullback";
+import { buildScanMarketGates } from "@/lib/signals/scanGates";
+import type { SignalVerdict } from "@/lib/signals/types";
 
 /**
  * What the caller is looking for. Left unset, a scan hunts reversions and
@@ -274,6 +279,37 @@ export async function scanTicker(
       dataLag,
     );
 
+    // ---- Signal and Regime Engine (lib/signals) — a separate decision layer
+    // from the Gann/STRAT verdict above, never merged into it. This is a
+    // symbol-only scan with no specific account in scope, so the account-only
+    // gates (sizing, correlation, cooldown, total open risk) are optimistic
+    // placeholders — see `accountContextAssumed` on the returned verdict and
+    // `lib/signals/scanGates.ts`. Callers with a real account (e.g. Guided
+    // Decision Mode) should treat `tradeable` here as informational only.
+    const HOLD_PERIOD_DAYS = 7;
+    const marketGates = buildScanMarketGates({
+      liquidity: liquidity ?? null,
+      liquidityOk: meetsLiquidityFloor(liquidity ?? null, assetClass).ok,
+      binaryEventInHoldPeriod: isBinaryEventInHoldPeriod(
+        symbol.toUpperCase(),
+        new Date(scannedAt),
+        HOLD_PERIOD_DAYS,
+      ),
+      dataLagged: dataLag.holdsExecute,
+    });
+    const regime = classifyRegime({ bars: daily });
+    const trendPullback: SignalVerdict | null =
+      regime.regime === "trend" && regime.direction !== "sideways"
+        ? evaluateTrendPullback({
+            direction: regime.direction,
+            htfBars: daily,
+            executionBars: closedM15,
+            vwapAnchorIndex: Math.max(0, closedM15.length - 20),
+            gates: marketGates,
+            accountContextAssumed: true,
+          })
+        : null;
+
     return {
       symbol: symbol.toUpperCase(),
       assetClass,
@@ -296,6 +332,7 @@ export async function scanTicker(
       // fetch — see lib/scan/liquidity.ts.
       liquidity,
       optionPremium,
+      signals: { regime, trendPullback },
     };
   } catch (err) {
     // Provider failures get user-facing wording and a code the UI can act on;

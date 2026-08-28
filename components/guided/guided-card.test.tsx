@@ -49,6 +49,7 @@ const rec: Recommendation = {
     trend: "monthly rising, weekly rising, daily falling",
     patternName: "2-1-2",
     tickerHref: "/ticker/META",
+    signal: null,
   },
 };
 
