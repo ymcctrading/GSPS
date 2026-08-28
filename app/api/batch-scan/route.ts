@@ -116,6 +116,16 @@ export async function GET(req: NextRequest) {
       visible,
     });
 
+    // What the Scanner page's History tab reads back later — one row per
+    // symbol the user actually saw this run (responseResults, already
+    // filtered to visible + Reject/error), so history never shows a
+    // qualifying setup the entitlement cap hid from them this scan.
+    await persistScanHistory(service, {
+      profileId: user.id,
+      scanExecutionId,
+      results: responseResults,
+    });
+
     if (scanExecutionId) {
       // Only visible results are monitor-eligible ("only visible entitled
       // results can be monitored") -- a qualifying setup the cap dropped
@@ -214,4 +224,45 @@ async function persistScanExecution(
   }
 
   return execution.id as string;
+}
+
+/**
+ * Persists the Scanner page's "History" tab source: one `scan_results` row
+ * per symbol the caller actually saw this run. Redacted the same way the
+ * response is (`redactScanResult`) — a user's own history is still not a
+ * place to store the per-criterion scoring model, only the verdict it
+ * produced. Best-effort: a failure here must not turn an already-returned
+ * scan into an error, so nothing here throws.
+ */
+async function persistScanHistory(
+  service: ReturnType<typeof createServiceClient>,
+  args: {
+    profileId: string;
+    scanExecutionId: string | null;
+    results: ScanResult[];
+  },
+): Promise<void> {
+  const rows = args.results
+    .filter((r) => !r.error)
+    .map((r) => ({
+      user_id: args.profileId,
+      scan_execution_id: args.scanExecutionId,
+      symbol: r.symbol,
+      asset_class: r.assetClass,
+      direction: r.direction,
+      score: r.decision.score,
+      output_state: r.decision.outputState,
+      entry: r.levels?.entry ?? null,
+      stop_loss: r.levels?.stopLoss ?? null,
+      take_profit_1: r.levels?.takeProfit1 ?? null,
+      master_profit: r.levels?.masterProfit ?? null,
+      detail: redactScanResult(r).decision.summary ?? {},
+    }));
+
+  if (rows.length === 0) return;
+
+  const { error } = await service.from("scan_results").insert(rows);
+  if (error) {
+    console.error(`batch-scan: scan history not recorded — ${error.message}`);
+  }
 }

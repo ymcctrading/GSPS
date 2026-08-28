@@ -7,6 +7,27 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-08-27
+
+### Added
+- **Scan history.** The Scanner page's "Universe" and "Intraday" panels
+  gained a third tab, "History", showing every past manual scan's symbols
+  next to their current tracked status — so a user who ran a batch scan can
+  come back later in the day or week and see what's moved between
+  Execute/Watch/Reject. `/api/batch-scan` now writes each scan's results to
+  `public.scan_results` (migration 0001 — the table existed but nothing ever
+  wrote to it), and the new `/api/scan-history` route reads them back
+  grouped by run, joined against `public.active_monitors` (migration 0036)
+  for a live "now" status per symbol rather than re-running a scan to find
+  out. `lib/scanner/history.ts` holds the shared vocabulary between the two
+  routes and the UI. A symbol with no monitor history is shown as untracked,
+  not guessed at. Migration 0042 links `scan_results` to the `scan_executions`
+  row it belongs to.
+- Investigated a request for phone push notifications alongside the above;
+  confirmed there is no push channel today and no PWA scaffolding to build
+  one on top of (see `ROADMAP.md`'s Q1 notification-system entry for detail).
+  Logged as backlog rather than built partially.
+
 ## 2026-08-21
 
 ### Fixed
