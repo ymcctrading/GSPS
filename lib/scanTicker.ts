@@ -50,6 +50,7 @@ import { meetsLiquidityFloor, readLiquidity } from "@/lib/scan/liquidity";
 import { isBinaryEventInHoldPeriod } from "@/lib/macro/earnings";
 import { classifyRegime } from "@/lib/signals/regime";
 import { evaluateTrendPullback } from "@/lib/signals/states/trendPullback";
+import { evaluateTrendBreakout } from "@/lib/signals/states/trendBreakout";
 import { buildScanMarketGates } from "@/lib/signals/scanGates";
 import type { SignalVerdict } from "@/lib/signals/types";
 
@@ -309,6 +310,20 @@ export async function scanTicker(
             accountContextAssumed: true,
           })
         : null;
+    // Trend Breakout does its own base/compression read from price action
+    // rather than gating on the regime label (see requiredRegime's doc
+    // comment in lib/signals/types.ts), so it's evaluated unconditionally,
+    // in the same direction bias the rest of this scan already committed to.
+    const trendBreakout: SignalVerdict | null =
+      closedM15.length >= 17
+        ? evaluateTrendBreakout({
+            direction: scoreDirection,
+            htfBars: daily,
+            executionBars: closedM15,
+            gates: marketGates,
+            accountContextAssumed: true,
+          })
+        : null;
 
     return {
       symbol: symbol.toUpperCase(),
@@ -332,7 +347,7 @@ export async function scanTicker(
       // fetch — see lib/scan/liquidity.ts.
       liquidity,
       optionPremium,
-      signals: { regime, trendPullback },
+      signals: { regime, trendPullback, trendBreakout },
     };
   } catch (err) {
     // Provider failures get user-facing wording and a code the UI can act on;

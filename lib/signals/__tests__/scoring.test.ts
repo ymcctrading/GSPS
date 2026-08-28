@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { computeRulesAlignmentScore } from "../scoring";
 import { evaluateDisqualifiers } from "../disqualifiers";
-import { evaluateConfirmedReversal, evaluateRangeReversion, evaluateTrendBreakout } from "../states/scaffold";
+import { evaluateConfirmedReversal, evaluateRangeReversion } from "../states/scaffold";
 import type { RulesAlignmentBreakdownItem, SignalGates } from "../types";
 
 describe("computeRulesAlignmentScore", () => {
@@ -56,7 +56,6 @@ describe("evaluateDisqualifiers", () => {
 
 describe("scaffolded states", () => {
   it("report notImplemented rather than fabricating undocumented rules", () => {
-    expect(evaluateTrendBreakout().status).toBe("notImplemented");
     expect(evaluateConfirmedReversal().status).toBe("notImplemented");
     expect(evaluateRangeReversion().status).toBe("notImplemented");
   });

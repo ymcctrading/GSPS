@@ -1,16 +1,20 @@
 /**
- * Trend Breakout, Confirmed Reversal, and Range Reversion do not yet have a
- * deterministic v1 specification the way Trend Pullback does — the source
- * spec ("GSPS Signal and Regime Engine", Aug 28 2026) gives the shared
- * regime table and scoring/disqualifier framework for all four states, but
- * only writes out entry/stop/target logic for the bullish pullback case.
+ * Confirmed Reversal and Range Reversion do not yet have a deterministic v1
+ * specification — the source spec ("GSPS Signal and Regime Engine", Aug 28
+ * 2026) gives the shared regime table and scoring/disqualifier framework for
+ * all four states, but only writes out entry/stop/target logic for the
+ * bullish pullback case. Trend Breakout has since been given an
+ * engineering-authored v1 spec (`lib/signals/states/trendBreakout.ts`),
+ * explicitly labeled as such since it isn't spec-pack-sourced either — the
+ * same option remains open for these two.
  *
- * Rather than invent numeric entry/stop/target rules for the other three
- * states that the spec never defined — which would fabricate exactly the
- * kind of undocumented rule this doctrine-driven engine exists to avoid —
- * each is wired into the same architecture (its own module, its own
+ * Rather than invent numeric entry/stop/target rules with no documented
+ * basis and no clear standard technique to lean on the way breakout
+ * methodology provides — which would fabricate exactly the kind of
+ * undocumented rule this doctrine-driven engine exists to avoid — each is
+ * wired into the same architecture (its own module, its own
  * `ScannerStateMeta`, isolated from the other three) but returns
- * `notImplemented` until a deterministic spec lands for it. See
+ * `notImplemented` until a v1 spec lands for it. See
  * `docs/SIGNAL_REGIME_ENGINE.md`.
  */
 
@@ -22,10 +26,6 @@ function notImplemented(state: ScannerStateName): SignalVerdict {
     state,
     reason: `${SCANNER_STATE_META[state].label} has no deterministic v1 specification yet — see docs/SIGNAL_REGIME_ENGINE.md.`,
   };
-}
-
-export function evaluateTrendBreakout(): SignalVerdict {
-  return notImplemented("trendBreakout");
 }
 
 export function evaluateConfirmedReversal(): SignalVerdict {
