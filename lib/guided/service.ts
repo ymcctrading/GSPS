@@ -414,7 +414,11 @@ function toRecommendation(
       trend: trendSummary(result.trends),
       patternName: result.pattern?.name ?? null,
       tickerHref: tickerHref(result.symbol),
-      signal: toPublicSignalSummary(result.signals?.trendPullback, result.signals?.trendBreakout),
+      signal: toPublicSignalSummary(
+        result.signals?.trendPullback,
+        result.signals?.trendBreakout,
+        result.signals?.confirmedReversal,
+      ),
     },
   };
 }

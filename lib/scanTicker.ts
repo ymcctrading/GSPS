@@ -51,6 +51,7 @@ import { isBinaryEventInHoldPeriod } from "@/lib/macro/earnings";
 import { classifyRegime } from "@/lib/signals/regime";
 import { evaluateTrendPullback } from "@/lib/signals/states/trendPullback";
 import { evaluateTrendBreakout } from "@/lib/signals/states/trendBreakout";
+import { evaluateConfirmedReversal } from "@/lib/signals/states/confirmedReversal";
 import { buildScanMarketGates } from "@/lib/signals/scanGates";
 import type { SignalVerdict } from "@/lib/signals/types";
 
@@ -324,6 +325,18 @@ export async function scanTicker(
             accountContextAssumed: true,
           })
         : null;
+    // Confirmed Reversal likewise reads its own exhaustion/break/hold
+    // structure from price action rather than the regime label.
+    const confirmedReversal: SignalVerdict | null =
+      closedM15.length >= 22
+        ? evaluateConfirmedReversal({
+            direction: scoreDirection,
+            htfBars: daily,
+            executionBars: closedM15,
+            gates: marketGates,
+            accountContextAssumed: true,
+          })
+        : null;
 
     return {
       symbol: symbol.toUpperCase(),
@@ -347,7 +360,7 @@ export async function scanTicker(
       // fetch — see lib/scan/liquidity.ts.
       liquidity,
       optionPremium,
-      signals: { regime, trendPullback, trendBreakout },
+      signals: { regime, trendPullback, trendBreakout, confirmedReversal },
     };
   } catch (err) {
     // Provider failures get user-facing wording and a code the UI can act on;
