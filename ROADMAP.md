@@ -2,7 +2,7 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-08-21.
+**Last updated:** 2026-08-28.
 
 This document decides *what we build next and in what order*. Proposals and
 implementation work should trace back to a phase below. See
@@ -152,6 +152,25 @@ both signal discovery and execution.
   the dollar budget above. This touches every scan and the score, not only
   Guided Mode, and is unmeasured against the backtest replay as of this
   writing — see `docs/BACKTESTING.md`.
+- **Novice Risk, Account & Cooldown Engine** *(2026-08-28, out-of-phase,
+  direct request)* — the pure-logic risk engine underneath Guided Mode's
+  fixed caps (`lib/guided/config.ts`): bounded dynamic-risk sizing across a
+  four-band Novice risk ladder (base/A-tier/A+/exceptional A+, 1.00%-1.75%,
+  absolute 2.00% ceiling), a weighted user execution score, an eight-state
+  circuit breaker (normal → entry pause → warning → soft/hard cooldown →
+  critical/emergency lock → severe override) driven by three independent
+  loss metrics (48h loss, start-of-day loss, 30-day rolling high-water
+  drawdown), cooldown action-gating that never blocks a stop/TP/reduce/
+  close/cancel and cannot be overridden by a paid tier, and a reset checklist
+  gate before new entries resume — see `lib/risk/*` and
+  `supabase/migrations/0042_novice_risk_cooldown_engine.sql`. This is the
+  engine this roadmap's Q2 "Risk dashboard" item (line ~320) was scheduled
+  to build; it landed now because it was asked for directly, not as a
+  reprioritization, and Q2 planning should treat sizing/circuit-breaker logic
+  as done and scope that item down to the UI and correlation-detection work
+  still open. Schema and decision logic only in this pass — no route or UI
+  wires a user's live trades into it yet, so no account is actually gated by
+  it today.
 - **Referral program (minimal)** *(2026-08-19, out-of-phase)* — a per-user
   referral link (`/r/<username>`), click counter, and signup attribution,
   surfaced in Settings. Not named in this roadmap's Q1 initiatives — it was
