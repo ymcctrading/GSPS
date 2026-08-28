@@ -37,6 +37,12 @@ export interface ScannerStateMeta {
   label: string;
   purpose: string;
   noviceAvailability: NoviceAvailability;
+  /**
+   * Documentation only — no evaluator gates on this field. Each state does
+   * its own price-action-based read of whether the setup's precondition
+   * (a trend, a base, exhaustion, a range) actually holds, rather than
+   * delegating to the regime classifier's coarser four-way label.
+   */
   requiredRegime: Regime;
 }
 
@@ -53,7 +59,7 @@ export const SCANNER_STATE_META: Record<ScannerStateName, ScannerStateMeta> = {
     label: "Trend Breakout",
     purpose: "Enter accepted expansion from a validated base/compression.",
     noviceAvailability: "secondary",
-    requiredRegime: "trend",
+    requiredRegime: "range",
   },
   confirmedReversal: {
     name: "confirmedReversal",

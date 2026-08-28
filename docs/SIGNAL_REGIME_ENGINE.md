@@ -13,19 +13,24 @@ pulled from the roadmap.
 
 ## Where it's wired in
 
-- **`lib/scanTicker.ts`** — every scan classifies the daily regime and, when
-  it reads Trend, evaluates Trend Pullback and attaches the verdict as
-  `ScanResult.signals`. This is a symbol-only scan with no account in scope,
-  so account-only gates (sizing, correlation, cooldown, total open risk) are
-  optimistic placeholders — see `lib/signals/scanGates.ts` and the
-  `accountContextAssumed` flag on the verdict. `tradeable` here is a
-  market-context reading, not an execution authorization.
+- **`lib/scanTicker.ts`** — every scan classifies the daily regime and
+  evaluates both implemented states: Trend Pullback when the regime reads
+  Trend, and Trend Breakout unconditionally (it does its own base/
+  compression read from price action rather than gating on the regime
+  label — see `requiredRegime`'s doc comment in `lib/signals/types.ts`).
+  Both verdicts attach to `ScanResult.signals`, independently — never
+  merged into each other or into the Gann/STRAT verdict. This is a
+  symbol-only scan with no account in scope, so account-only gates (sizing,
+  correlation, cooldown, total open risk) are optimistic placeholders — see
+  `lib/signals/scanGates.ts` and the `accountContextAssumed` flag on each
+  verdict. `tradeable` here is a market-context reading, not an execution
+  authorization.
 - **Guided Decision Mode** (`lib/guided/service.ts`) — `Recommendation.why.signal`
-  carries the same engine's rollup (regime/tier/tradeable, via
-  `lib/signals/publicSummary.ts`) as informational context alongside the
-  existing Execute/Watch verdict. It does not change eligibility, sizing, or
-  which symbols become recommendations — see `lib/guided/eligibility.ts`,
-  untouched.
+  carries the strongest rollup across both verdicts (tradeable first, then
+  higher tier — see `toPublicSignalSummary` in `lib/signals/publicSummary.ts`)
+  as informational context alongside the existing Execute/Watch verdict. It
+  does not change eligibility, sizing, or which symbols become
+  recommendations — see `lib/guided/eligibility.ts`, untouched.
 - **Backtest** (`lib/backtest/replaySignals.ts`) — a historical walk-forward
   that tallies how often each regime/tier came up, for evidence-gathering
   ahead of any accuracy claim. Deliberately does not simulate trade outcomes
@@ -62,24 +67,32 @@ pulled from the roadmap.
   out the bullish case; the bearish case is its structural mirror — lower
   high/low structure, resistance-side locations, close below the prior
   candle low). Primary Novice setup.
+- **Trend Breakout** (`lib/signals/states/trendBreakout.ts`) — unlike Trend
+  Pullback, the spec gives this state only its regime-table row (purpose,
+  Novice availability), not a deterministic entry/stop/target spec. This is
+  therefore an **engineering-authored v1 spec, not spec-pack-sourced** —
+  standard, publicly known breakout methodology (volatility contraction, a
+  validated horizontal base with repeated boundary touches, a decisive close
+  beyond it confirmed by volume expansion, a measured-move target), built in
+  the same style and rigor as Trend Pullback but with thresholds this
+  codebase chose, not doctrine-derived ones. Said so explicitly in that
+  file's header rather than left implied. Picks the simpler of the two
+  acceptance rules the first version of this doc left open (close-through,
+  not retest-and-hold) — a retest variant is a reasonable v2 addition.
 
 ## What's scaffolded, not implemented
 
-**Trend Breakout, Confirmed Reversal, and Range Reversion**
-(`lib/signals/states/scaffold.ts`) are wired into the same architecture —
-each is its own module and `ScannerStateMeta` entry, never merged into a
-combined indicator — but each currently returns a `notImplemented` verdict.
-The spec gives their regime table row (purpose, required characteristics,
-disqualifiers) but, unlike Trend Pullback, does not give deterministic
-entry/stop/target logic for any of them. Writing that logic in without a
-spec would mean inventing exactly the kind of undocumented numeric rule this
-doctrine-driven engine exists to avoid (see
-`GSPS_DOCTRINE_ALIGNMENT_AUDIT.md` §4 on unvalidated methodology). Before
-implementing them:
+**Confirmed Reversal and Range Reversion** (`lib/signals/states/scaffold.ts`)
+are wired into the same architecture — each is its own module and
+`ScannerStateMeta` entry, never merged into a combined indicator — but each
+currently returns a `notImplemented` verdict. The spec gives their regime
+table row but no deterministic entry/stop/target logic, and — unlike Trend
+Breakout — no obvious, standard, named technique to lean on for an
+engineering-authored spec either. Writing one in on guesswork would mean
+inventing exactly the kind of undocumented numeric rule this doctrine-driven
+engine exists to avoid (see `GSPS_DOCTRINE_ALIGNMENT_AUDIT.md` §4 on
+unvalidated methodology). Before implementing them:
 
-- **Trend Breakout** needs a base/compression definition (e.g. a
-  volatility-contraction pattern and its measured boundaries) and an
-  acceptance rule for the breakout (close-through vs. retest-and-hold).
 - **Confirmed Reversal** needs the exhaustion criteria at a "meaningful
   location" made concrete (e.g. required extension in ATRs, or a specific
   divergence/failure-swing definition) and the structural break/reclaim

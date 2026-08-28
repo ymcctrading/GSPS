@@ -20,8 +20,10 @@ export interface PublicSignalSummary {
   accountContextAssumed: boolean;
 }
 
-export function toPublicSignalSummary(verdict: SignalVerdict | null | undefined): PublicSignalSummary | null {
-  if (!verdict || verdict.status !== "evaluated") return null;
+function toSummary(verdict: SignalVerdict): PublicSignalSummary {
+  if (verdict.status !== "evaluated") {
+    throw new Error("toSummary called on a non-evaluated verdict");
+  }
   return {
     state: verdict.state,
     regime: verdict.regime.regime,
@@ -30,4 +32,32 @@ export function toPublicSignalSummary(verdict: SignalVerdict | null | undefined)
     tradeable: verdict.tradeable,
     accountContextAssumed: verdict.accountContextAssumed,
   };
+}
+
+const TIER_RANK: Record<RulesAlignmentTier, number> = {
+  watchlistOnly: 0,
+  qualified: 1,
+  aTier: 2,
+  aPlusTier: 3,
+};
+
+/**
+ * Picks the strongest rollup across every state a scan evaluated — tradeable
+ * outranks not-tradeable, then higher tier wins. `null`/`undefined` and
+ * non-evaluated verdicts (disqualified, not implemented) are skipped rather
+ * than surfaced, since there's nothing publishable about either.
+ */
+export function toPublicSignalSummary(
+  ...verdicts: (SignalVerdict | null | undefined)[]
+): PublicSignalSummary | null {
+  const evaluated = verdicts.filter(
+    (v): v is Extract<SignalVerdict, { status: "evaluated" }> => v != null && v.status === "evaluated",
+  );
+  if (evaluated.length === 0) return null;
+
+  const best = evaluated.reduce((a, b) => {
+    if (a.tradeable !== b.tradeable) return a.tradeable ? a : b;
+    return TIER_RANK[a.alignment.tier] >= TIER_RANK[b.alignment.tier] ? a : b;
+  });
+  return toSummary(best);
 }
