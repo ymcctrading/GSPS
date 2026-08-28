@@ -2,7 +2,7 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-08-21.
+**Last updated:** 2026-08-28.
 
 This document decides *what we build next and in what order*. Proposals and
 implementation work should trace back to a phase below. See
@@ -152,6 +152,35 @@ both signal discovery and execution.
   the dollar budget above. This touches every scan and the score, not only
   Guided Mode, and is unmeasured against the backtest replay as of this
   writing — see `docs/BACKTESTING.md`.
+- **Novice Risk, Account & Cooldown Engine** *(2026-08-28, out-of-phase,
+  direct request)* — a pure-logic risk engine, independent of Guided Mode's
+  own fixed caps (`lib/guided/config.ts`): bounded dynamic-risk sizing across a
+  four-band Novice risk ladder (base/A-tier/A+/exceptional A+, 1.00%-1.75%,
+  absolute 2.00% ceiling), a weighted user execution score, an eight-state
+  circuit breaker (normal → entry pause → warning → soft/hard cooldown →
+  critical/emergency lock → severe override) driven by three independent
+  loss metrics (48h loss, start-of-day loss, 30-day rolling high-water
+  drawdown), cooldown action-gating that never blocks a stop/TP/reduce/
+  close/cancel and cannot be overridden by a paid tier, and a reset checklist
+  gate before new entries resume — see `lib/risk/*` and
+  `supabase/migrations/0042_novice_risk_cooldown_engine.sql`. This is the
+  engine this roadmap's Q2 "Risk dashboard" item (line ~320) was scheduled
+  to build; it landed now because it was asked for directly, not as a
+  reprioritization, and Q2 planning should treat sizing/circuit-breaker logic
+  as done and scope that item down to the UI and correlation-detection work
+  still open. *(Same day, follow-up: confirmed by direct request that this
+  engine's rules must never apply to paper trading, so it is deliberately
+  NOT wired into Guided Mode or any other simulated-account path. The one
+  seam it is wired to is `lib/trade/place-order.ts`'s `mode: "live"` branch —
+  which still hard-refuses every live order today, since GSPS has no live
+  execution path yet — reading real net liquidation value from a linked
+  SnapTrade account (`lib/risk/live-account.ts`; `alpaca_live` has no
+  per-user balance reader yet and fails closed rather than guessing) and
+  persisting circuit-breaker state against real equity history
+  (`lib/risk/service.ts`, `supabase/migrations/0043_risk_live_equity_snapshots.sql`).
+  No live account is actually gated today because no live order can be
+  placed at all yet, but the gate is real, tested, and will take effect the
+  moment live execution replaces that placeholder refusal.)*
 - **Referral program (minimal)** *(2026-08-19, out-of-phase)* — a per-user
   referral link (`/r/<username>`), click counter, and signup attribution,
   surfaced in Settings. Not named in this roadmap's Q1 initiatives — it was

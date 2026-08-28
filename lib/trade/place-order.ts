@@ -28,6 +28,8 @@ import { planProtocolExit } from "@/lib/trade/protocol-exit";
 import { validateLimitPrice, type RoundingMode } from "@/lib/trade/tick-size";
 import { killSwitchRefusal } from "@/lib/trade/kill-switch";
 import { recordOrderExecution, type RecordExecutionOptions } from "@/lib/learning/record";
+import { readLiveAccountValue } from "@/lib/risk/live-account";
+import { evaluateLiveCircuitBreaker } from "@/lib/risk/service";
 
 type RecordedOrderType = RecordExecutionOptions["orderType"];
 
@@ -102,6 +104,32 @@ export async function placeSimulatedOrder(
   if (halted) return { status: 503, body: { ...halted } };
 
   if (input.mode === "live") {
+    // Live order execution doesn't exist yet (ROADMAP.md: "Live trading is
+    // not enabled ... unscheduled work"), so this always refuses below
+    // regardless of what the gate below decides. The Novice Risk & Cooldown
+    // Engine's rules apply only to real money, never to paper trading (see
+    // lib/risk/service.ts header) — this is the one seam in the app where a
+    // live order is attempted, so the gate is wired here, evaluated and
+    // persisted against real account state, and left ready to actually block
+    // (rather than merely log) the moment live execution replaces the line
+    // below it. See lib/risk/live-account.ts for why only a linked SnapTrade
+    // account can be read today, and why an unreadable one fails closed.
+    const live = await readLiveAccountValue(supabase, userId);
+    if (live.connected) {
+      const gate = await evaluateLiveCircuitBreaker(
+        supabase,
+        userId,
+        live.equity,
+        live.verified,
+        0, // no live order history to count from yet — see lib/risk/service.ts header
+      );
+      if (!gate.decision.newEntriesAllowed) {
+        return {
+          status: 409,
+          body: { error: gate.decision.reason, code: "risk_cooldown", riskState: gate.decision.state },
+        };
+      }
+    }
     return { status: 400, body: { error: "Live trading requires a connected live brokerage in Settings." } };
   }
   const isOption = input.assetClass === "option";
