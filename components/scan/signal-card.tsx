@@ -1,8 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ScoreBadge } from "@/components/scan/score-badge";
 import { Badge } from "@/components/ui/badge";
+import { GlossaryTerm } from "@/components/glossary-term";
+import { PatternEducation } from "@/components/scan/pattern-education";
 import { SCORE_PILLAR_DESCRIPTIONS, SCORE_PILLAR_LABELS } from "@/lib/scoring/public-summary";
 import { tradeSideLabel } from "@/lib/scoring/direction-copy";
+import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 import { formatUsd, cn } from "@/lib/utils";
 import type { PublicScoreSummary, ScanResult } from "@/lib/types";
 
@@ -20,7 +23,7 @@ export function SignalCard({ result }: { result: ScanResult }) {
         </div>
         {pattern ? (
           <CardDescription>
-            {pattern.name}{" "}
+            <GlossaryTerm term={PATTERN_GLOSSARY_TERM[pattern.name]} label={pattern.name} />{" "}
             <span className={pattern.direction === "bullish" ? "text-bull" : "text-bear"}>
               {tradeSideLabel(pattern.direction)}
             </span>{" "}
@@ -31,6 +34,7 @@ export function SignalCard({ result }: { result: ScanResult }) {
         )}
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        {pattern && <PatternEducation name={pattern.name} />}
         {others.length > 0 && (
           <div className="flex flex-wrap items-center gap-1.5 text-xs">
             <span className="text-muted">Also armed:</span>
@@ -46,15 +50,22 @@ export function SignalCard({ result }: { result: ScanResult }) {
         )}
         {levels && (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <LevelStat label="Entry" value={formatUsd(levels.entry)} tone="accent" />
-            <LevelStat label="Stop loss" value={formatUsd(levels.stopLoss)} tone="bear" />
+            <LevelStat label="Entry" glossaryTerm="Entry (blue line)" value={formatUsd(levels.entry)} tone="accent" />
+            <LevelStat
+              label="Stop loss"
+              glossaryTerm="Stop loss (red line)"
+              value={formatUsd(levels.stopLoss)}
+              tone="bear"
+            />
             <LevelStat
               label={`TP1 (${levels.rewardToRiskTp1.toFixed(1)}R)`}
+              glossaryTerm="TP1 - Take Profit 1 (green line)"
               value={formatUsd(levels.takeProfit1)}
               tone="bull"
             />
             <LevelStat
               label={`Master (${levels.rewardToRiskMaster.toFixed(1)}R)`}
+              glossaryTerm="Master profit (green line)"
               value={formatUsd(levels.masterProfit)}
               tone="bull"
             />
@@ -155,11 +166,23 @@ function ScoreBreakdown({ summary }: { summary: PublicScoreSummary }) {
   );
 }
 
-function LevelStat({ label, value, tone }: { label: string; value: string; tone: "accent" | "bull" | "bear" }) {
+function LevelStat({
+  label,
+  glossaryTerm,
+  value,
+  tone,
+}: {
+  label: string;
+  glossaryTerm: string;
+  value: string;
+  tone: "accent" | "bull" | "bear";
+}) {
   const color = tone === "accent" ? "text-accent" : tone === "bull" ? "text-bull" : "text-bear";
   return (
     <div className="rounded-lg border border-border bg-background p-3">
-      <p className="text-xs text-muted">{label}</p>
+      <p className="text-xs text-muted">
+        <GlossaryTerm term={glossaryTerm} label={label} />
+      </p>
       <p className={`mt-0.5 font-mono text-sm font-semibold ${color}`}>{value}</p>
     </div>
   );

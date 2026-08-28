@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { StrikeOrderModal, type StrikeSelection } from "@/components/trade/strike-order-modal";
+import { GlossaryTerm } from "@/components/glossary-term";
 import { classifyMoneyness, strikeStep, type Moneyness } from "@/lib/options/contracts";
 import { CompanyPanel } from "@/components/chart/company-panel";
 import { formatUsd } from "@/lib/utils";
@@ -194,7 +195,11 @@ function ResearchPanel({ symbol, result }: { symbol: string; result?: ScanResult
             {tradeSideLabel(fetched.direction)}
           </Badge>
         )}
-        {fetched.gann.timeCycleActive && <Badge variant="warn">⏱ Cyclical turn window</Badge>}
+        {fetched.gann.timeCycleActive && (
+          <Badge variant="warn">
+            ⏱ <GlossaryTerm term="Cyclical turn window" label="Cyclical turn window" className="decoration-warn/60" />
+          </Badge>
+        )}
       </div>
 
       <section>
@@ -225,12 +230,16 @@ function ResearchPanel({ symbol, result }: { symbol: string; result?: ScanResult
       {fetched.gann.fanLines.length > 0 && (
         <section>
           <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
-            Structural levels near price
+            <GlossaryTerm
+              term="What the grey dashed lines are"
+              label="Structural levels near price"
+            />
           </h4>
           <div className="flex flex-wrap gap-2 text-xs">
             {fetched.gann.fanLines.slice(0, 4).map((f, i) => (
               <span key={`f${i}`} className="rounded-md bg-background px-2 py-1 text-muted">
-                Support {f.angle}: <span className="font-mono text-foreground">{formatUsd(f.price)}</span>
+                <GlossaryTerm term="Support line (1x1, 1x2, 1x4...)" label={`Support ${f.angle}`} />:{" "}
+                <span className="font-mono text-foreground">{formatUsd(f.price)}</span>
               </span>
             ))}
             {fetched.gann.squareOf9.slice(0, 4).map((s, i) => (

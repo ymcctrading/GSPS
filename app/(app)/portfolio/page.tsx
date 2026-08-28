@@ -12,6 +12,7 @@ import { BlendedPositionGroup, type Closable } from "@/components/portfolio/open
 import { RejectedOrders } from "@/components/portfolio/rejected-orders";
 import { SyncBar } from "@/components/portfolio/sync-bar";
 import { ExitActivity } from "@/components/portfolio/exit-activity";
+import { AnalyticsDashboard } from "@/components/portfolio/analytics-dashboard";
 import type { ExitsState, OrderRow, Portfolio, SyncState } from "@/components/portfolio/types";
 import { countOpenLegs, groupByDisposition, sectionOrders } from "@/lib/portfolio/sections";
 import { formatUsd, formatPct, cn } from "@/lib/utils";
@@ -257,6 +258,14 @@ export default function PortfolioPage() {
           </div>
         )}
       </PositionSection>
+
+      <div className="flex flex-col gap-1">
+        <h2 className="text-lg font-semibold">Performance Analytics</h2>
+        <p className="text-sm text-muted">
+          Win/loss, Sharpe, drawdown, and P&L computed from your closed trades.
+        </p>
+      </div>
+      <AnalyticsDashboard />
 
       <ClosePositionModal position={closing} onClose={() => setClosing(null)} onClosed={refresh} />
     </div>

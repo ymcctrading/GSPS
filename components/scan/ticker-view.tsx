@@ -8,6 +8,7 @@ import { ShareButton } from "@/components/chart/share-button";
 import { SignalCard } from "@/components/scan/signal-card";
 import { OrderTicket } from "@/components/trade/order-ticket";
 import { GlossaryDetails } from "@/components/glossary";
+import { GlossaryTerm } from "@/components/glossary-term";
 import { useLiveQuote } from "@/lib/hooks/useLiveQuote";
 import { sessionLabel } from "@/lib/market/session";
 import { formatUsd, formatPct, cn } from "@/lib/utils";
@@ -143,10 +144,10 @@ export function TickerView({ symbol }: { symbol: string }) {
          */}
         {result?.gann.timeCycleActive && (
           <span className="hidden text-xs font-medium text-warn sm:inline">
-            ⏱ Cyclical turn window active
+            ⏱ <GlossaryTerm term="Cyclical turn window" label="Cyclical turn window" className="decoration-warn/60" /> active
           </span>
         )}
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
           <ShareButton symbol={symbol} />
         </div>
       </div>
