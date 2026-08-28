@@ -9,7 +9,7 @@ export { classifyRegime, type RegimeInputs } from "./regime";
 export { evaluateTrendPullback, type TrendPullbackInputs } from "./states/trendPullback";
 export { evaluateTrendBreakout, type TrendBreakoutInputs } from "./states/trendBreakout";
 export { evaluateConfirmedReversal, type ConfirmedReversalInputs } from "./states/confirmedReversal";
-export { evaluateRangeReversion } from "./states/scaffold";
+export { evaluateRangeReversion, type RangeReversionInputs } from "./states/rangeReversion";
 export { computeRulesAlignmentScore, tierQualifies } from "./scoring";
 export { evaluateDisqualifiers, allSafetyGatesPass } from "./disqualifiers";
 export * from "./types";
