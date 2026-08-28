@@ -13,13 +13,15 @@
  * trading by accident, and you cannot re-enable it by accident either — the
  * value has to say `true` and nothing else.
  *
- * Protective actions are exempt by design, not by accident: the product
- * constitution's non-negotiable safety principle is that exits, reductions,
- * stop orders, profit-taking, and cancellation of pending entries remain
- * available no matter what safety state is active. `/api/positions/close`
+ * Protective actions are exempt by design, not by accident: `/api/positions/close`
  * never calls `killSwitchRefusal` at all, and `placeSimulatedOrder` skips it
  * for a sell that closes/reduces an existing long or a buy that covers an
- * existing short — see the callers for the exact carve-out.
+ * existing short — see the callers for the exact carve-out. Nothing today
+ * requires this — every order this switch guards is a paper trade, and the
+ * product constitution's "exits/reductions always available" principle
+ * governs live trading, not the simulator. The exemption is here anyway,
+ * ahead of live trading landing, so the switch doesn't need re-auditing once
+ * a real halt actually has to leave a way out for existing positions.
  *
  * Per-user kill switches need a column and a policy, and they land with the
  * per-user connection work. This is the global one, which is the half that
@@ -43,11 +45,11 @@ export interface KillSwitchRefusal {
 /**
  * True when an order only moves an existing position toward flat — a sell
  * against a long, or a buy against a short. Such an order is a protective
- * action and must be exempt from the kill switch: the product constitution's
- * non-negotiable safety principle is that exits, reductions, stop orders, and
- * profit-taking remain available no matter what safety state is active. An
- * order with no existing position behind it, or one on the same side as the
- * position it would grow, is not protective and stays subject to the halt.
+ * action, exempt from the kill switch on the same reasoning live trading will
+ * eventually require: exits, reductions, and profit-taking should stay
+ * available regardless of what halted new entries. An order with no existing
+ * position behind it, or one on the same side as the position it would grow,
+ * is not protective and stays subject to the halt.
  */
 export function isProtectiveOrder(
   existingPositionSide: "long" | "short" | null,

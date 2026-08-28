@@ -102,10 +102,10 @@ export async function placeSimulatedOrder(
   //
   // The kill switch only ever stands between a user and a *new* position. A
   // sell that reduces or closes an existing long, or a buy that covers an
-  // existing short, is a protective action — the constitution's non-negotiable
-  // is that exits, reductions, and profit-taking remain available no matter
-  // what safety state is active. So the halt is skipped precisely when this
-  // order moves the position toward flat, not away from it.
+  // existing short, is a protective action, so the halt is skipped precisely
+  // when this order moves the position toward flat, not away from it. Every
+  // order here is paper, so nothing requires this yet — it's ahead of live
+  // trading, on the reasoning that will apply once real capital is at risk.
   const existingPosition = await getOpenPosition(supabase, userId, input.symbol);
   const isProtective = isProtectiveOrder(existingPosition?.side ?? null, input.side);
   const halted = isProtective ? null : killSwitchRefusal();

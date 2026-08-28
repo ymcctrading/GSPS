@@ -41,10 +41,10 @@ export async function POST(req: NextRequest) {
   }
 
   // No kill-switch check here, deliberately: this route only ever reduces or
-  // flattens an existing position, and the constitution's non-negotiable is
-  // that protective actions — exits, reductions, stop orders, profit-taking —
-  // are never blocked, including while the global trading kill switch is
-  // halting new entries elsewhere (see lib/trade/kill-switch.ts).
+  // flattens an existing position. Every position here is paper, so the
+  // product constitution's "protective actions always available" rule
+  // doesn't bind yet, but the same reasoning will once live trading ships —
+  // see lib/trade/kill-switch.ts.
   const parsed = CloseSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json(
