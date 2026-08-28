@@ -1,9 +1,9 @@
 /**
  * Global trading kill switch.
  * -----------------------------------------------------------------------------
- * One environment variable that stops every order-placing and position-closing
- * path in the app, without a code change and without pulling the Alpaca keys
- * (which would also break the read-only portfolio and scanner views).
+ * One environment variable that stops every path that opens or grows a
+ * position, without a code change and without pulling the Alpaca keys (which
+ * would also break the read-only portfolio and scanner views).
  *
  *   TRADING_DISABLED=true
  *
@@ -12,6 +12,14 @@
  * The failure direction is deliberate in both senses: you cannot disable
  * trading by accident, and you cannot re-enable it by accident either — the
  * value has to say `true` and nothing else.
+ *
+ * Protective actions are exempt by design, not by accident: the product
+ * constitution's non-negotiable safety principle is that exits, reductions,
+ * stop orders, profit-taking, and cancellation of pending entries remain
+ * available no matter what safety state is active. `/api/positions/close`
+ * never calls `killSwitchRefusal` at all, and `placeSimulatedOrder` skips it
+ * for a sell that closes/reduces an existing long or a buy that covers an
+ * existing short — see the callers for the exact carve-out.
  *
  * Per-user kill switches need a column and a policy, and they land with the
  * per-user connection work. This is the global one, which is the half that
@@ -30,6 +38,25 @@ export const TRADING_DISABLED_MESSAGE =
 export interface KillSwitchRefusal {
   error: string;
   code: "trading_disabled";
+}
+
+/**
+ * True when an order only moves an existing position toward flat — a sell
+ * against a long, or a buy against a short. Such an order is a protective
+ * action and must be exempt from the kill switch: the product constitution's
+ * non-negotiable safety principle is that exits, reductions, stop orders, and
+ * profit-taking remain available no matter what safety state is active. An
+ * order with no existing position behind it, or one on the same side as the
+ * position it would grow, is not protective and stays subject to the halt.
+ */
+export function isProtectiveOrder(
+  existingPositionSide: "long" | "short" | null,
+  orderSide: "buy" | "sell",
+): boolean {
+  return (
+    (existingPositionSide === "long" && orderSide === "sell") ||
+    (existingPositionSide === "short" && orderSide === "buy")
+  );
 }
 
 /**

@@ -2,7 +2,7 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-08-21.
+**Last updated:** 2026-08-28.
 
 This document decides *what we build next and in what order*. Proposals and
 implementation work should trace back to a phase below. See
@@ -161,6 +161,19 @@ both signal discovery and execution.
   compliance and payments decision this document doesn't make for it. If a
   paid referral program becomes a real initiative, it belongs here explicitly
   rather than continuing to live as a deviation note.
+- **Protective actions exempted from the trading kill switch** *(2026-08-28,
+  out-of-phase/safety)* — the global `TRADING_DISABLED` switch
+  (`lib/trade/kill-switch.ts`) previously refused every order-placing *and*
+  position-closing request while set, including the dedicated "Close
+  position" action. That violated the GSPS Product Constitution's
+  non-negotiable safety principle that exits, reductions, stop orders, and
+  profit-taking remain available no matter what safety state is active.
+  Fixed: `/api/positions/close` no longer calls the kill switch at all, and
+  `placeSimulatedOrder` (`lib/trade/place-order.ts`) skips the halt for a
+  sell that reduces/closes an existing long or a buy that covers an existing
+  short, via the new `isProtectiveOrder` helper. New-entry orders are still
+  blocked as before. Not named in this roadmap — a correctness/safety fix
+  against a written constitution, not a reprioritization.
 - **Mobile-responsive dashboard** — not a native app yet, but positions and
   alerts must be usable on phones and tablets.
 - **Technical indicators (phase 1)** — SMA, EMA, RSI, MACD as chart overlays.

@@ -24,7 +24,6 @@ import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { brokerStatusFrom, recordOrderExecution } from "@/lib/learning/record";
 import { buildTradeLogRow } from "@/lib/portfolio/trade-log";
 import { closeSimPlanForSymbol } from "@/lib/trade/exit-manager-sim";
-import { killSwitchRefusal } from "@/lib/trade/kill-switch";
 
 const CloseSchema = z.object({
   symbol: z.string().min(1).max(24),
@@ -41,12 +40,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   }
 
-  // Refuse before anything is written or priced. The simulator fills
-  // synchronously, so there is no "accepted but not yet executed" state to
-  // unwind — a halt has to happen ahead of the fill, not around it.
-  const halted = killSwitchRefusal();
-  if (halted) return NextResponse.json(halted, { status: 503 });
-
+  // No kill-switch check here, deliberately: this route only ever reduces or
+  // flattens an existing position, and the constitution's non-negotiable is
+  // that protective actions — exits, reductions, stop orders, profit-taking —
+  // are never blocked, including while the global trading kill switch is
+  // halting new entries elsewhere (see lib/trade/kill-switch.ts).
   const parsed = CloseSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json(
