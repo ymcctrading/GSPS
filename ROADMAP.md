@@ -153,8 +153,8 @@ both signal discovery and execution.
   Guided Mode, and is unmeasured against the backtest replay as of this
   writing — see `docs/BACKTESTING.md`.
 - **Novice Risk, Account & Cooldown Engine** *(2026-08-28, out-of-phase,
-  direct request)* — the pure-logic risk engine underneath Guided Mode's
-  fixed caps (`lib/guided/config.ts`): bounded dynamic-risk sizing across a
+  direct request)* — a pure-logic risk engine, independent of Guided Mode's
+  own fixed caps (`lib/guided/config.ts`): bounded dynamic-risk sizing across a
   four-band Novice risk ladder (base/A-tier/A+/exceptional A+, 1.00%-1.75%,
   absolute 2.00% ceiling), a weighted user execution score, an eight-state
   circuit breaker (normal → entry pause → warning → soft/hard cooldown →
@@ -168,9 +168,19 @@ both signal discovery and execution.
   to build; it landed now because it was asked for directly, not as a
   reprioritization, and Q2 planning should treat sizing/circuit-breaker logic
   as done and scope that item down to the UI and correlation-detection work
-  still open. Schema and decision logic only in this pass — no route or UI
-  wires a user's live trades into it yet, so no account is actually gated by
-  it today.
+  still open. *(Same day, follow-up: confirmed by direct request that this
+  engine's rules must never apply to paper trading, so it is deliberately
+  NOT wired into Guided Mode or any other simulated-account path. The one
+  seam it is wired to is `lib/trade/place-order.ts`'s `mode: "live"` branch —
+  which still hard-refuses every live order today, since GSPS has no live
+  execution path yet — reading real net liquidation value from a linked
+  SnapTrade account (`lib/risk/live-account.ts`; `alpaca_live` has no
+  per-user balance reader yet and fails closed rather than guessing) and
+  persisting circuit-breaker state against real equity history
+  (`lib/risk/service.ts`, `supabase/migrations/0043_risk_live_equity_snapshots.sql`).
+  No live account is actually gated today because no live order can be
+  placed at all yet, but the gate is real, tested, and will take effect the
+  moment live execution replaces that placeholder refusal.)*
 - **Referral program (minimal)** *(2026-08-19, out-of-phase)* — a per-user
   referral link (`/r/<username>`), click counter, and signup attribution,
   surfaced in Settings. Not named in this roadmap's Q1 initiatives — it was
