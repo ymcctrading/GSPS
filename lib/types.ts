@@ -226,12 +226,17 @@ export interface ScanResult {
    * layer from `decision` above, never merged into it, never combined with
    * each other either: each state gets its own independent verdict.
    * `trendPullback` is `null` whenever the regime isn't a Trend read.
-   * `trendBreakout` is `null` only when there isn't enough execution-bar
-   * history yet. Both are absent entirely on an errored scan. Confirmed
-   * Reversal and Range Reversion aren't implemented yet — see
+   * `trendBreakout`/`confirmedReversal` are `null` only when there isn't
+   * enough execution-bar history yet. All are absent entirely on an errored
+   * scan. Range Reversion isn't implemented yet — see
    * `docs/SIGNAL_REGIME_ENGINE.md`.
    */
-  signals?: { regime: RegimeRead; trendPullback: SignalVerdict | null; trendBreakout: SignalVerdict | null };
+  signals?: {
+    regime: RegimeRead;
+    trendPullback: SignalVerdict | null;
+    trendBreakout: SignalVerdict | null;
+    confirmedReversal: SignalVerdict | null;
+  };
   error?: string;
   /**
    * Why the scan failed, as a stable discriminator. `rate_limited` in
