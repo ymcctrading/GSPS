@@ -16,6 +16,8 @@
 
 import { MEGA_CAPS, type MegaCap } from "./universe";
 
+const MEGA_CAP_SYMBOLS = new Set(MEGA_CAPS.map((c) => c.symbol));
+
 export type EarningsTiming = "BMO" | "AMC"; // before market open / after close
 
 export interface EarningsEvent {
@@ -98,4 +100,30 @@ export function generateEarningsForMonth(monthAnchor: Date): EarningsEvent[] {
   return events
     .filter((e) => (seen.has(`${e.symbol}|${e.date}`) ? false : (seen.add(`${e.symbol}|${e.date}`), true)))
     .sort((a, b) => a.date.localeCompare(b.date) || a.symbol.localeCompare(b.symbol));
+}
+
+/**
+ * Whether `symbol` has a known binary event (earnings) inside the next
+ * `holdPeriodDays` calendar days from `asOf`. Returns `null` — unknown,
+ * never a silent pass — for any symbol outside the mega-cap earnings
+ * universe this calendar covers, since there's no live earnings feed wired
+ * in yet (see this file's header comment) and "no event found" for an
+ * uncovered symbol is not the same claim as "no event exists".
+ */
+export function isBinaryEventInHoldPeriod(
+  symbol: string,
+  asOf: Date,
+  holdPeriodDays: number,
+): boolean | null {
+  if (!MEGA_CAP_SYMBOLS.has(symbol)) return null;
+
+  const windowEnd = new Date(asOf.getTime() + holdPeriodDays * 24 * 3600 * 1000);
+  const months = new Set([toDateInput(asOf).slice(0, 7), toDateInput(windowEnd).slice(0, 7)]);
+  const events = [...months].flatMap((ym) => generateEarningsForMonth(new Date(`${ym}-01T00:00:00Z`)));
+
+  const asOfStr = toDateInput(asOf);
+  const windowEndStr = toDateInput(windowEnd);
+  return events.some(
+    (e) => e.symbol === symbol && e.date >= asOfStr && e.date <= windowEndStr,
+  );
 }

@@ -41,6 +41,16 @@ export interface TrendPullbackInputs {
   regimeOverrides?: Partial<RegimeInputs>;
   approvedZoneToleranceAtr?: number;
   countertrendExpansionAtrMultiple?: number;
+  /**
+   * Pass `true` when one or more fields on `gates` that require a specific
+   * account (position sizing, correlation/concentration, cooldown, total
+   * open risk) are optimistic placeholders rather than a real account read
+   * — e.g. a symbol scan with no account in scope. Propagated onto the
+   * returned verdict so callers never mistake a market-context reading for
+   * an account-authorized one. Defaults to `false` (a full, account-aware
+   * evaluation).
+   */
+  accountContextAssumed?: boolean;
 }
 
 const DEFAULT_EXPIRY_BARS = 5;
@@ -60,6 +70,7 @@ export function evaluateTrendPullback(inputs: TrendPullbackInputs): SignalVerdic
     regimeOverrides,
     approvedZoneToleranceAtr = DEFAULT_ZONE_TOLERANCE_ATR,
     countertrendExpansionAtrMultiple = DEFAULT_COUNTERTREND_ATR_MULTIPLE,
+    accountContextAssumed = false,
   } = inputs;
 
   const disqualifiers = evaluateDisqualifiers(gates);
@@ -267,6 +278,7 @@ export function evaluateTrendPullback(inputs: TrendPullbackInputs): SignalVerdic
     tradeable,
     plan,
     expiresAfterBars: expiryBars,
+    accountContextAssumed,
   };
 }
 

@@ -6,13 +6,35 @@ securities/compliance counsel review before use in live personalized
 recommendations or execution.**
 
 This is a new, separate decision layer from the existing Gann/STRAT scan
-engine (`lib/strat`, `lib/scoring`, `lib/scan`). It is not wired into the
-live scanner, notification, or Guided Decision Mode paths — it is a
-standalone module (`lib/signals/`) that can be integrated once product/
-compliance decide where and how its output should surface. This is
+engine (`lib/strat`, `lib/scoring`, `lib/scan`), never merged into it. It is
 out-of-phase relative to `ROADMAP.md`'s Q1 focus (notifications, analytics,
 conditional orders); it was implemented directly against this spec, not
 pulled from the roadmap.
+
+## Where it's wired in
+
+- **`lib/scanTicker.ts`** — every scan classifies the daily regime and, when
+  it reads Trend, evaluates Trend Pullback and attaches the verdict as
+  `ScanResult.signals`. This is a symbol-only scan with no account in scope,
+  so account-only gates (sizing, correlation, cooldown, total open risk) are
+  optimistic placeholders — see `lib/signals/scanGates.ts` and the
+  `accountContextAssumed` flag on the verdict. `tradeable` here is a
+  market-context reading, not an execution authorization.
+- **Guided Decision Mode** (`lib/guided/service.ts`) — `Recommendation.why.signal`
+  carries the same engine's rollup (regime/tier/tradeable, via
+  `lib/signals/publicSummary.ts`) as informational context alongside the
+  existing Execute/Watch verdict. It does not change eligibility, sizing, or
+  which symbols become recommendations — see `lib/guided/eligibility.ts`,
+  untouched.
+- **Backtest** (`lib/backtest/replaySignals.ts`) — a historical walk-forward
+  that tallies how often each regime/tier came up, for evidence-gathering
+  ahead of any accuracy claim. Deliberately does not simulate trade outcomes
+  (see that file's header for why).
+- **Not yet wired**: chart overlay UI, notification/alert fan-out, and the
+  scanner list UI. `lib/chart/signal-overlay.ts`'s `SignalOverlay` type is
+  built around the existing engine's 0–9 score and shouldn't have this
+  engine's 0–100 score force-fit into it; a proper UI surface for this
+  engine's own verdict is follow-up work, not done here.
 
 ## What's implemented
 
@@ -24,10 +46,11 @@ pulled from the roadmap.
   optional evidence (`trendOverlayFlips`), never as a sole signal, per the
   spec.
 - **Rules Alignment Score** (`lib/signals/scoring.ts`) — 0–100, tallied from
-  a per-state weighted breakdown. Tier bands per spec: <75 watchlist only;
-  75–84 qualified only if all safety gates pass; 85–91 A-tier; 92–100 A+.
-  Never rendered as a probability of profit — nothing in this module
-  computes one.
+  a per-state weighted breakdown, sorted into internal readiness tiers (the
+  weights and cutoffs are defined once in code — `lib/signals/scoring.ts`
+  and each state module — and intentionally not restated here). Never
+  rendered as a probability of profit — nothing in this module computes
+  one.
 - **Required disqualifiers** (`lib/signals/disqualifiers.ts`) — hard gates
   shared by all four states (stale/unclosed data, binary events, target/stop
   infeasibility, correlation/concentration/cooldown/total-open-risk,

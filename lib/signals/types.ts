@@ -150,4 +150,14 @@ export type SignalVerdict =
       tradeable: boolean;
       plan: SignalPlan | null;
       expiresAfterBars: number;
+      /**
+       * True when one or more account-only gates (position sizing,
+       * correlation/concentration, cooldown, total open risk) were supplied
+       * as an optimistic placeholder rather than a real read of the user's
+       * account — e.g. a market-wide scan that doesn't have a specific
+       * account in scope. `tradeable` on such a verdict is a market-context
+       * reading only and must be re-evaluated with real account gates
+       * (`accountContextAssumed: false`) before it authorizes anything.
+       */
+      accountContextAssumed: boolean;
     };
