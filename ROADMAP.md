@@ -120,6 +120,33 @@ both signal discovery and execution.
   `docs/THIRD_PARTY_LIMITS.md`.)*
 - **Portfolio analytics dashboard** — win/loss ratio, Sharpe ratio, drawdown
   analysis, monthly/quarterly P&L, performance by pattern type.
+- **Scan history** *(shipped 2026-08-27, direct request)* — a "History" tab
+  on the Scanner page (alongside Universe and Intraday, which gained a tab
+  switcher to make room) showing every past manual scan's symbols next to
+  their current tracked status, so a user who scanned a batch can come back
+  later and see what's moved between Execute/Watch/Reject. Built on schema
+  that already existed but was never wired up: `public.scan_results`
+  (migration 0001) now actually gets written to from `/api/batch-scan`, and
+  "current status" is read live off `public.active_monitors` (migration
+  0036) — the entitlement notification system's own WATCH/EXECUTE/
+  INVALIDATED tracker, which was already being kept current by every scan
+  for a profile but had no user-facing view. No new scan is run to answer
+  "has this changed"; a symbol with no monitor history (most often a Reject
+  that hasn't since become a real setup) is shown as untracked rather than
+  guessed at. New route `/api/scan-history`; new module `lib/scanner/history.ts`.
+  Distinct from BACKLOG.md's unchecked "Saved scan criteria/watchlists" item,
+  which is about re-running a saved *configuration*, not reviewing past
+  *results* — that item is still open.
+- **Push (phone) notifications — noted as backlog, not built.** Requested
+  alongside the above; investigated and confirmed there is no push channel
+  today (`dispatchNotificationDelivery` in `lib/entitlements/delivery.ts`
+  explicitly rejects every channel but `"email"`, and there is no service
+  worker, manifest, or push SDK anywhere in the repo). Reaching a phone for
+  real needs either a PWA web-push pipeline (service worker + VAPID keys +
+  a subscription table + a real `"push"` branch in `dispatchNotificationDelivery`)
+  or the Q3 native mobile app already on this roadmap (line ~232) — both
+  meaningfully larger than this PR's scope, so left for a dedicated
+  follow-up rather than built partially here.
 - **Conditional orders** — stop-loss and take-profit on any order; the
   foundation for Q2 bracket orders.
 - **Improved onboarding** — glossary integration, pattern education,
