@@ -248,16 +248,44 @@ both signal discovery and execution.
     checklist and upgrade request, shown only to Novice accounts, using the
     neutral "you may be eligible" wording the spec requires and never
     appearing in response to a loss, cooldown, or lock.
-  - **Deferred, out of this PR's scope:** the full Novice-homepage redesign
-    (market-regime card, one best-qualified-plan-or-"No qualified setup"
-    card, education card, existing-position protection status, cooldown
-    status — the dashboard has none of these today) and the bounded Pro
-    intraday module (`lib/promotion/config.ts`'s `ProIntradayPolicy` records
-    the spec's numbers, but nothing enforces them yet — Pro's
-    `intradayScansEnabled` entitlement is still `false`, and wiring a
-    bounded module distinct from Expert's full intraday access is a
-    separate scanner/quota change). Both are real UI/product work, not
-    follow-on polish, and belong as their own initiatives.
+  - **Follow-up (2026-08-29, same day):** built the two items originally
+    deferred above.
+    - The Novice-homepage summary (`components/dashboard/novice-home-summary.tsx`,
+      shown on `/dashboard` only for `PRACTICE` accounts, above the existing
+      scanner output rather than replacing it): market regime (a direct
+      `lib/signals/regime.ts` read on SPY daily bars —
+      `lib/promotion/market-regime.ts` — cheaper than running the full
+      `scanTicker` pipeline for a benchmark the homepage doesn't trade),
+      one best-qualified-plan-or-"No qualified setup" card (the
+      highest-scored row already present in the dashboard's own bullish/
+      bearish scan results — no new scan), an education card linking
+      `/welcome` and `/glossary`, existing-position protection status, and
+      cooldown status (`lib/promotion/novice-home.ts` plus
+      `lib/risk/status.ts`, a new read-only accessor for
+      `risk_circuit_state` — reads the *real* circuit-breaker row rather
+      than inventing a parallel paper-trading cooldown concept; nearly
+      every account reads "No active cooldown" today only because live
+      trading has no execution path yet, per this same entry's earlier
+      live-account gating).
+    - The Pro intraday module's bounded gating logic
+      (`lib/promotion/pro-intraday.ts`, fully tested): setups-displayed
+      ceiling, new-entry/concurrent-position/consecutive-loss-pause/
+      daily-loss-lock gating, and closed-bar (5/15/30-minute) entry
+      confirmation — a genuinely separate module from
+      `lib/scanner/intraday.ts`, not a shortened Novice swing timeframe,
+      matching the spec pack's explicit instruction.
+    - **Still not done, and deliberately not done here:** this logic is not
+      wired to a route or exposed to Pro accounts. `intradayScansEnabled`
+      remains `false` for `STANDARD` — flipping any intraday access on for
+      Pro reverses `app/api/intraday-scan/route.ts`'s explicit, previously
+      confirmed Phase 3F decision ("intraday scans are Expert+ ... confirmed
+      as an intentional restriction of previously open access, not left
+      unenforced by oversight") and `docs/GSPS_TIER_ENTITLEMENT_SPEC.md`'s
+      published entitlement table. That reversal is a product decision, not
+      an implementation detail this pack's arrival settles by itself — it
+      needs an explicit go-ahead (and, per that doc's own precedent for the
+      automation-gate correction, a matching correction note there) before
+      any route change exposes it.
 - **Referral program (minimal)** *(2026-08-19, out-of-phase)* — a per-user
   referral link (`/r/<username>`), click counter, and signup attribution,
   surfaced in Settings. Not named in this roadmap's Q1 initiatives — it was

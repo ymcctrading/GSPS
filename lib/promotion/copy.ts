@@ -45,6 +45,32 @@ export function noviceEntriesAvailableTodayLabel(count: number): string {
 
 export const NOT_OPERATIONALLY_VIABLE_LABEL = "Not operationally viable for this account configuration";
 
+export const NO_QUALIFIED_SETUP_LABEL = "No qualified setup";
+
+/** Plain-language label for a circuit-breaker state, for the Novice homepage's cooldown status card. */
+export function cooldownStatusLabel(state: string): string {
+  switch (state) {
+    case "normal":
+      return "No active cooldown";
+    case "entry_pause":
+      return "Entry pause — new entries briefly held";
+    case "warning":
+      return "Warning — approaching a cooldown threshold";
+    case "soft_cooldown":
+      return "Soft cooldown — new entries paused";
+    case "hard_cooldown":
+      return "Hard cooldown — new entries blocked";
+    case "critical_lock":
+      return "Critical lock — account under review";
+    case "emergency_lock":
+      return "Emergency lock — new entries blocked pending reset";
+    case "severe_override":
+      return "Severe override — manual reset required";
+    default:
+      return "No active cooldown";
+  }
+}
+
 /** Case-insensitive check for a forbidden phrase in a block of promotion-related copy. */
 export function containsForbiddenPromotionPhrase(text: string): string | null {
   const lower = text.toLowerCase();
