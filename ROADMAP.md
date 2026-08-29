@@ -220,7 +220,7 @@ both signal discovery and execution.
   launch: Pro/Standard has no Stripe price (see
   `docs/GSPS_TIER_ENTITLEMENT_SPEC.md`), so this is the actual gate on who
   gets there. Built:
-  - `lib/promotion/config.ts` + `supabase/migrations/0045_tier_promotion_policy.sql`
+  - `lib/promotion/config.ts` + `supabase/migrations/0046_tier_promotion_policy.sql`
     (`promotion_policy_values` / `promotion_policy_change_log`) — every
     threshold from the spec's "Promotion readiness model" table is a
     remotely configurable value with an auditable change log, per the pack's
