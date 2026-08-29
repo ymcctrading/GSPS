@@ -19,6 +19,7 @@ import {
   recordNotificationDelivery,
   type EntitledAlertPayload,
 } from "@/lib/entitlements/delivery";
+import { toPublicSignalSummary } from "@/lib/signals/publicSummary";
 import type { Limit } from "@/lib/entitlements/policy";
 import type { ScanResult } from "@/lib/types";
 
@@ -183,5 +184,13 @@ function buildAlertPayload(setup: RankedSetup<ScanResult>): EntitledAlertPayload
     takeProfit: r.levels?.takeProfit1 ?? entry,
     verdict: r.decision.outputState,
     confidence: r.decision.score / 9,
+    // Informational only — see EntitledAlertPayload's doc comment. Does not
+    // affect whether this alert fires or what triggered it.
+    signal: toPublicSignalSummary(
+      r.signals?.trendPullback,
+      r.signals?.trendBreakout,
+      r.signals?.confirmedReversal,
+      r.signals?.rangeReversion,
+    ),
   };
 }
