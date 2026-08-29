@@ -192,4 +192,64 @@ describe("redaction at the API boundary", () => {
     // backtest replay and the published rows all still read it server-side.
     expect(result.decision.breakdown).toHaveLength(9);
   });
+
+  it("redacts the Signal and Regime Engine's per-criterion breakdown the same way", () => {
+    const secretNote = "Relative volume 1.32x confirms real participation behind the reversal.";
+    const secretThreshold = "ADX 24.3 supports trend strength (>= 20)";
+    const result: ScanResult = {
+      symbol: "AAPL",
+      assetClass: "us_equity",
+      scannedAt: "2026-08-08T00:00:00Z",
+      currentPrice: 100,
+      direction: "bullish",
+      setupKind: "reversion",
+      momentumElevated: true,
+      trends: [trend("bullish")],
+      gann,
+      pattern,
+      armedPatterns: [pattern],
+      levels,
+      decision,
+      signals: {
+        regime: { regime: "trend", direction: "bullish", reasons: [secretThreshold], disqualifiers: [] },
+        trendPullback: {
+          status: "evaluated",
+          state: "trendPullback",
+          regime: { regime: "trend", direction: "bullish", reasons: [secretThreshold], disqualifiers: [] },
+          alignment: {
+            score: 88,
+            tier: "aTier",
+            breakdown: [
+              { key: "volumeResumption", label: "Volume", points: 10, maxPoints: 10, applicable: true, passed: true, note: secretNote },
+            ],
+          },
+          tradeable: true,
+          plan: { direction: "bullish", entryTrigger: 101, entryDescription: "x", stop: 99, target: 105, targetDescription: "y" },
+          expiresAfterBars: 5,
+          accountContextAssumed: true,
+        },
+        trendBreakout: null,
+        confirmedReversal: null,
+        rangeReversion: null,
+      },
+    };
+
+    const redacted = redactScanResult(result);
+    const serialised = JSON.stringify(redacted);
+
+    expect(serialised).not.toContain(secretNote);
+    expect(serialised).not.toContain(secretThreshold);
+    // The rollup a reader needs survives.
+    expect(redacted.signals?.trendPullback?.status).toBe("evaluated");
+    if (redacted.signals?.trendPullback?.status === "evaluated") {
+      expect(redacted.signals.trendPullback.alignment.score).toBe(88);
+      expect(redacted.signals.trendPullback.alignment.tier).toBe("aTier");
+      expect(redacted.signals.trendPullback.tradeable).toBe(true);
+      expect(redacted.signals.trendPullback.plan?.entryTrigger).toBe(101);
+    }
+    // The caller's own copy keeps its breakdown server-side.
+    if (result.signals?.trendPullback?.status === "evaluated") {
+      expect(result.signals.trendPullback.alignment.breakdown).toHaveLength(1);
+    }
+  });
 });
