@@ -24,43 +24,43 @@ export interface PatternEducation {
 
 export const PATTERN_EDUCATION: Record<StratPattern["name"], PatternEducation> = {
   "2-2": {
-    headline: "2-2 reversal",
+    headline: "Failed-push reversal",
     whatItMeans:
       "The last closed bar pushed clearly in one direction. The setup is betting the next bar breaks back through that bar's opposite extreme by a penny — a sign the push failed and the crowd behind it is trapped.",
     whyItMatters:
       "It only exists on a break of that trigger line, so there's nothing to manage until it fires — no chasing a move that hasn't happened. The stop sits one penny beyond the same bar's other extreme, which is what keeps the risk small and mechanical.",
     confidence:
-      "Moderate on its own. It's the base case of the family — 1-2-2 and 3-2-2 are the same idea with a stronger setup bar in front of it, and score higher for it.",
+      "Moderate on its own. It's the base case of the family — the compressed and two-sided variants are the same idea with a stronger setup bar in front of it, and score higher for it.",
   },
   "1-2-2": {
-    headline: "1-2-2 reversal",
+    headline: "Compressed reversal",
     whatItMeans:
-      "A 2-2 reversal that was preceded by an inside bar — the market compressed and paused right before the failed push this pattern reverses.",
+      "A failed-push reversal that was preceded by an inside bar — the market compressed and paused right before the failed push this pattern reverses.",
     whyItMatters:
-      "The prior compression is read as fewer participants caught offside in the wrong direction before the reversal, which tends to make the break cleaner. Entry and stop mechanics are identical to a plain 2-2.",
+      "The prior compression is read as fewer participants caught offside in the wrong direction before the reversal, which tends to make the break cleaner. Entry and stop mechanics are identical to a plain failed-push reversal.",
     confidence:
-      "Somewhat higher than a bare 2-2. Still wants confirmation from the structural levels and score — a clean shape on a weak setup is still a weak setup.",
+      "Somewhat higher than a bare failed-push reversal. Still wants confirmation from the structural levels and score — a clean shape on a weak setup is still a weak setup.",
   },
   "3-2-2": {
-    headline: "3-2-2 reversal",
+    headline: "Two-sided reversal",
     whatItMeans:
-      "A 2-2 reversal preceded by an outside bar — both sides of the market were tested hard immediately before the failed push.",
+      "A failed-push reversal preceded by an outside bar — both sides of the market were tested hard immediately before the failed push.",
     whyItMatters:
-      "That two-sided test right before the reversal is the strongest version of this family's trapped-crowd read. Same entry/stop mechanics as a plain 2-2, but the context behind it is more convincing.",
+      "That two-sided test right before the reversal is the strongest version of this family's trapped-crowd read. Same entry/stop mechanics as a plain failed-push reversal, but the context behind it is more convincing.",
     confidence:
-      "Highest confidence in the 2-2 family. Still not a guarantee — pair it with the score and where it sits relative to structural levels before treating it as a strong setup on its own.",
+      "Highest confidence in the failed-push family. Still not a guarantee — pair it with the score and where it sits relative to structural levels before treating it as a strong setup on its own.",
   },
   "2-1-2": {
-    headline: "2-1-2 continuation",
+    headline: "Pause continuation",
     whatItMeans:
       "A directional bar followed by an inside bar (a pause). The trigger is a break of the inside bar in the direction the trend was already moving.",
     whyItMatters:
-      "This is the opposite job from the 2-2 family: it continues a move rather than reversing one, so it belongs in a trend-following read, not a turn call. Getting the two families mixed up is the most common misread of a STRAT setup.",
+      "This is the opposite job from the failed-push family: it continues a move rather than reversing one, so it belongs in a trend-following read, not a turn call. Getting the two families mixed up is the most common misread of a setup like this.",
     confidence:
       "Treat as trend confirmation — its usefulness depends on the trend already being established on the higher timeframes shown in the trend panel, not on the shape alone.",
   },
   "3-1-2": {
-    headline: "3-1-2 setup",
+    headline: "Undecided breakout",
     whatItMeans:
       "An outside bar (both sides tested, no clear winner) followed by an inside bar (a pause). Because the outside bar didn't resolve a direction, GSPS arms triggers on both the inside bar's high and its low — whichever breaks first is the trade.",
     whyItMatters:
@@ -69,7 +69,7 @@ export const PATTERN_EDUCATION: Record<StratPattern["name"], PatternEducation> =
       "Direction-neutral until it fires; confidence comes from the side that actually breaks and how it aligns with the score and structural levels, not from the pattern shape itself.",
   },
   PMG: {
-    headline: "Momentum reversal (PMG)",
+    headline: "Momentum exhaustion reversal",
     whatItMeans:
       "Five or more bars in a row making lower highs (or higher lows) — a slow, grinding move in one direction. The setup arms a trade on a break of the last bar's high or low, betting the string of trapped opposite-side positions gets stopped out and accelerates the move.",
     whyItMatters:
@@ -85,10 +85,10 @@ export function patternEducation(name: StratPattern["name"]): PatternEducation {
 
 /** The exact glossary term string (`components/glossary.tsx`) for a pattern name. */
 export const PATTERN_GLOSSARY_TERM: Record<StratPattern["name"], string> = {
-  "2-2": "2-2 reversal",
-  "1-2-2": "1-2-2 reversal",
-  "3-2-2": "3-2-2 reversal",
-  "2-1-2": "2-1-2 continuation",
-  "3-1-2": "3-1-2 setup",
-  PMG: "Momentum reversal (PMG)",
+  "2-2": "Failed-push reversal",
+  "1-2-2": "Compressed reversal",
+  "3-2-2": "Two-sided reversal",
+  "2-1-2": "Pause continuation",
+  "3-1-2": "Undecided breakout",
+  PMG: "Momentum exhaustion reversal",
 };

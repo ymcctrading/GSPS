@@ -7,6 +7,48 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-08-29
+
+### Fixed
+- **The glossary, pattern badges and generated scoring copy still rendered the
+  proprietary Gann/Sara Sniper Strat pattern codes** (`2-2`, `1-2-2`, `3-2-2`,
+  `2-1-2`, `3-1-2`, `PMG`) directly to users — in the glossary's "Reversal &
+  continuation patterns" section, the pattern badge on `SignalCard`, and
+  strings generated at runtime in `lib/strat/patterns.ts` and
+  `lib/scoring/score.ts`. Two earlier passes scrubbed the word "Strat"
+  itself, but the numeric pattern codes and the "PMG" abbreviation — which
+  are the actual proprietary vocabulary — kept leaking through untouched.
+  Renamed every pattern to a generic, plain-language name (e.g. "Failed-push
+  reversal", "Pause continuation", "Momentum exhaustion reversal") via
+  `PATTERN_GLOSSARY_TERM` in `lib/education/patterns.ts`, now the single
+  source of truth for pattern display names, used everywhere a pattern name
+  reaches the screen. `lib/strat/`'s internal `StratPattern["name"]` tags are
+  unchanged, matching how `GannLevels`/`StratPattern` identifiers already
+  work — only rendered copy changed. `scripts/check-banned-terms.mjs` now
+  also bans `PMG` and case-insensitive `STRAT` (closing a case-sensitivity
+  gap that let `STRAT` through in prose).
+
+## 2026-08-27
+
+### Added
+- **Scan history.** The Scanner page's "Universe" and "Intraday" panels
+  gained a third tab, "History", showing every past manual scan's symbols
+  next to their current tracked status — so a user who ran a batch scan can
+  come back later in the day or week and see what's moved between
+  Execute/Watch/Reject. `/api/batch-scan` now writes each scan's results to
+  `public.scan_results` (migration 0001 — the table existed but nothing ever
+  wrote to it), and the new `/api/scan-history` route reads them back
+  grouped by run, joined against `public.active_monitors` (migration 0036)
+  for a live "now" status per symbol rather than re-running a scan to find
+  out. `lib/scanner/history.ts` holds the shared vocabulary between the two
+  routes and the UI. A symbol with no monitor history is shown as untracked,
+  not guessed at. Migration 0042 links `scan_results` to the `scan_executions`
+  row it belongs to.
+- Investigated a request for phone push notifications alongside the above;
+  confirmed there is no push channel today and no PWA scaffolding to build
+  one on top of (see `ROADMAP.md`'s Q1 notification-system entry for detail).
+  Logged as backlog rather than built partially.
+
 ## 2026-08-21
 
 ### Fixed

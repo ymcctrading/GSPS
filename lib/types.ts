@@ -3,6 +3,7 @@
 import type { BreakdownKey } from "@/lib/scoring/weights";
 import type { DecisionLag } from "@/lib/data/latency";
 import type { LiquidityRead } from "@/lib/scan/liquidity";
+import type { RegimeRead, SignalVerdict } from "@/lib/signals/types";
 
 export type AssetClass = "us_equity" | "crypto";
 
@@ -220,6 +221,22 @@ export interface ScanResult {
   liquidity?: LiquidityRead;
   /** Optional: option premium supplied by user for the 12–18% stop calc. */
   optionPremium?: number;
+  /**
+   * The Signal and Regime Engine's read (lib/signals) — a separate decision
+   * layer from `decision` above, never merged into it, never combined with
+   * each other either: each state gets its own independent verdict, for all
+   * four states the engine implements. `trendPullback` is `null` whenever
+   * the regime isn't a Trend read. The other three are `null` only when
+   * there isn't enough execution-bar history yet. All are absent entirely
+   * on an errored scan.
+   */
+  signals?: {
+    regime: RegimeRead;
+    trendPullback: SignalVerdict | null;
+    trendBreakout: SignalVerdict | null;
+    confirmedReversal: SignalVerdict | null;
+    rangeReversion: SignalVerdict | null;
+  };
   error?: string;
   /**
    * Why the scan failed, as a stable discriminator. `rate_limited` in

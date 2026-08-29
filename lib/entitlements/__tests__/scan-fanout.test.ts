@@ -79,6 +79,54 @@ describe("evaluateMonitorsAndNotify", () => {
     );
   });
 
+  it("attaches the Signal and Regime Engine's rollup as informational context, without it affecting the trigger", async () => {
+    evaluateMonitorMock.mockResolvedValueOnce({
+      outcome: "applied",
+      monitorId: "m1",
+      transitionId: "t1",
+      notify: true,
+    });
+    getEnabledChannelsMock.mockResolvedValueOnce(["email"]);
+    recordNotificationDeliveryMock.mockResolvedValueOnce({ recorded: true, deliveryId: "d1" });
+    dispatchNotificationDeliveryMock.mockResolvedValueOnce({ dispatched: true, status: "sent" });
+
+    const setup = fakeSetup("AAPL", "Execute");
+    (setup.value as unknown as { signals: unknown }).signals = {
+      regime: { regime: "trend", direction: "bullish", reasons: [], disqualifiers: [] },
+      trendPullback: {
+        status: "evaluated",
+        state: "trendPullback",
+        regime: { regime: "trend", direction: "bullish", reasons: [], disqualifiers: [] },
+        alignment: { score: 88, tier: "aTier", breakdown: [] },
+        tradeable: true,
+        plan: null,
+        expiresAfterBars: 5,
+        accountContextAssumed: true,
+      },
+      trendBreakout: null,
+      confirmedReversal: null,
+      rangeReversion: null,
+    };
+
+    await evaluateMonitorsAndNotify(insertOnlyClient(), {
+      profileId: "p1",
+      source: "scheduled_morning_scan",
+      scanExecutionId: "se1",
+      visible: [setup],
+      rejectedSymbols: new Set(),
+      maxActiveWatchMonitors: 15,
+    });
+
+    expect(recordNotificationDeliveryMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        payload: expect.objectContaining({
+          signal: expect.objectContaining({ state: "trendPullback", tier: "aTier", tradeable: true }),
+        }),
+      }),
+    );
+  });
+
   it("does not notify on a non-transitioning evaluation", async () => {
     evaluateMonitorMock.mockResolvedValueOnce({ outcome: "applied", monitorId: "m1", transitionId: null, notify: false });
 

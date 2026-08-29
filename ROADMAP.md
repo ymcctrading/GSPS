@@ -2,7 +2,7 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-08-28.
+**Last updated:** 2026-08-29.
 
 This document decides *what we build next and in what order*. Proposals and
 implementation work should trace back to a phase below. See
@@ -37,8 +37,11 @@ both signal discovery and execution.
 - **Trading infrastructure (production)** — Per-user simulated paper trading
   (`lib/brokers/simulator.ts`; fills against live quotes, own cash ledger),
   staged protocol exits, portfolio tracking with position grouping, option
-  Greeks, price-increment validation. Live trading is **not** enabled: it needs
-  per-user brokerage credentials, which is unscheduled work.
+  Greeks, price-increment validation, a versioned trade-plan lifecycle
+  state machine with audit trail and post-close structured review
+  (`lib/lifecycle/`, formalizing what `lib/trade/protocol-exit.ts` already
+  executes). Live trading is **not** enabled: it needs per-user brokerage
+  credentials, which is unscheduled work.
 - **Data pipeline (mature)** — Multi-provider architecture (Alpaca, Binance,
   Oanda, Twelve Data, Polygon), intraday momentum scanner, daily market scans,
   per-symbol audit trail for non-alerts, explained alerts with invalidation
@@ -120,6 +123,33 @@ both signal discovery and execution.
   `docs/THIRD_PARTY_LIMITS.md`.)*
 - **Portfolio analytics dashboard** — win/loss ratio, Sharpe ratio, drawdown
   analysis, monthly/quarterly P&L, performance by pattern type.
+- **Scan history** *(shipped 2026-08-27, direct request)* — a "History" tab
+  on the Scanner page (alongside Universe and Intraday, which gained a tab
+  switcher to make room) showing every past manual scan's symbols next to
+  their current tracked status, so a user who scanned a batch can come back
+  later and see what's moved between Execute/Watch/Reject. Built on schema
+  that already existed but was never wired up: `public.scan_results`
+  (migration 0001) now actually gets written to from `/api/batch-scan`, and
+  "current status" is read live off `public.active_monitors` (migration
+  0036) — the entitlement notification system's own WATCH/EXECUTE/
+  INVALIDATED tracker, which was already being kept current by every scan
+  for a profile but had no user-facing view. No new scan is run to answer
+  "has this changed"; a symbol with no monitor history (most often a Reject
+  that hasn't since become a real setup) is shown as untracked rather than
+  guessed at. New route `/api/scan-history`; new module `lib/scanner/history.ts`.
+  Distinct from BACKLOG.md's unchecked "Saved scan criteria/watchlists" item,
+  which is about re-running a saved *configuration*, not reviewing past
+  *results* — that item is still open.
+- **Push (phone) notifications — noted as backlog, not built.** Requested
+  alongside the above; investigated and confirmed there is no push channel
+  today (`dispatchNotificationDelivery` in `lib/entitlements/delivery.ts`
+  explicitly rejects every channel but `"email"`, and there is no service
+  worker, manifest, or push SDK anywhere in the repo). Reaching a phone for
+  real needs either a PWA web-push pipeline (service worker + VAPID keys +
+  a subscription table + a real `"push"` branch in `dispatchNotificationDelivery`)
+  or the Q3 native mobile app already on this roadmap (line ~232) — both
+  meaningfully larger than this PR's scope, so left for a dedicated
+  follow-up rather than built partially here.
 - **Conditional orders** — stop-loss and take-profit on any order; the
   foundation for Q2 bracket orders.
 - **Improved onboarding** — glossary integration, pattern education,
@@ -152,6 +182,35 @@ both signal discovery and execution.
   the dollar budget above. This touches every scan and the score, not only
   Guided Mode, and is unmeasured against the backtest replay as of this
   writing — see `docs/BACKTESTING.md`.
+- **Novice Risk, Account & Cooldown Engine** *(2026-08-28, out-of-phase,
+  direct request)* — a pure-logic risk engine, independent of Guided Mode's
+  own fixed caps (`lib/guided/config.ts`): bounded dynamic-risk sizing across a
+  four-band Novice risk ladder (base/A-tier/A+/exceptional A+, 1.00%-1.75%,
+  absolute 2.00% ceiling), a weighted user execution score, an eight-state
+  circuit breaker (normal → entry pause → warning → soft/hard cooldown →
+  critical/emergency lock → severe override) driven by three independent
+  loss metrics (48h loss, start-of-day loss, 30-day rolling high-water
+  drawdown), cooldown action-gating that never blocks a stop/TP/reduce/
+  close/cancel and cannot be overridden by a paid tier, and a reset checklist
+  gate before new entries resume — see `lib/risk/*` and
+  `supabase/migrations/0042_novice_risk_cooldown_engine.sql`. This is the
+  engine this roadmap's Q2 "Risk dashboard" item (line ~320) was scheduled
+  to build; it landed now because it was asked for directly, not as a
+  reprioritization, and Q2 planning should treat sizing/circuit-breaker logic
+  as done and scope that item down to the UI and correlation-detection work
+  still open. *(Same day, follow-up: confirmed by direct request that this
+  engine's rules must never apply to paper trading, so it is deliberately
+  NOT wired into Guided Mode or any other simulated-account path. The one
+  seam it is wired to is `lib/trade/place-order.ts`'s `mode: "live"` branch —
+  which still hard-refuses every live order today, since GSPS has no live
+  execution path yet — reading real net liquidation value from a linked
+  SnapTrade account (`lib/risk/live-account.ts`; `alpaca_live` has no
+  per-user balance reader yet and fails closed rather than guessing) and
+  persisting circuit-breaker state against real equity history
+  (`lib/risk/service.ts`, `supabase/migrations/0043_risk_live_equity_snapshots.sql`).
+  No live account is actually gated today because no live order can be
+  placed at all yet, but the gate is real, tested, and will take effect the
+  moment live execution replaces that placeholder refusal.)*
 - **Referral program (minimal)** *(2026-08-19, out-of-phase)* — a per-user
   referral link (`/r/<username>`), click counter, and signup attribution,
   surfaced in Settings. Not named in this roadmap's Q1 initiatives — it was

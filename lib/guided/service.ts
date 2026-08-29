@@ -28,6 +28,7 @@ import { exitSentence, reasonLine, riskRewardSentence, trendSummary } from "@/li
 import { pickNearestMiss, type NearMiss } from "@/lib/guided/near-miss";
 import { planProtocolExit } from "@/lib/trade/protocol-exit";
 import { toPublicScoreSummary } from "@/lib/scoring/public-summary";
+import { toPublicSignalSummary, type PublicSignalSummary } from "@/lib/signals/publicSummary";
 import { tickerHref } from "@/lib/routes";
 import { envCreds, getAsset } from "@/lib/brokers/alpaca";
 import {
@@ -205,6 +206,15 @@ export interface Recommendation {
     trend: string;
     patternName: string | null;
     tickerHref: string;
+    /**
+     * The Signal and Regime Engine's rollup for this symbol (lib/signals) —
+     * informational context alongside the Gann/STRAT verdict above, never a
+     * second vote merged into it. `null` when the regime isn't a Trend read
+     * or that state isn't implemented yet. `tradeable` on it reflects only
+     * what a symbol-only scan can check (see `accountContextAssumed`) — the
+     * recommendation's own eligibility/sizing above is unaffected either way.
+     */
+    signal: PublicSignalSummary | null;
   };
 }
 
@@ -404,6 +414,12 @@ function toRecommendation(
       trend: trendSummary(result.trends),
       patternName: result.pattern?.name ?? null,
       tickerHref: tickerHref(result.symbol),
+      signal: toPublicSignalSummary(
+        result.signals?.trendPullback,
+        result.signals?.trendBreakout,
+        result.signals?.confirmedReversal,
+        result.signals?.rangeReversion,
+      ),
     },
   };
 }

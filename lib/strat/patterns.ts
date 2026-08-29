@@ -5,6 +5,7 @@
  */
 
 import type { Bar, StratPattern } from "@/lib/types";
+import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 import { classifySeries } from "./classify";
 
 const PENNY = 0.01;
@@ -40,7 +41,7 @@ export function detectPatterns(bars: Bar[]): StratPattern[] {
         direction: "bullish",
         triggerPrice: last.h + PENNY,
         stopPrice: last.l - PENNY,
-        description: "Bullish 2-1-2 continuation: buy-stop one penny above the inside bar high.",
+        description: `Bullish ${PATTERN_GLOSSARY_TERM["2-1-2"].toLowerCase()}: buy-stop one penny above the inside bar high.`,
       });
     }
     if (prevState === "2D") {
@@ -49,7 +50,7 @@ export function detectPatterns(bars: Bar[]): StratPattern[] {
         direction: "bearish",
         triggerPrice: last.l - PENNY,
         stopPrice: last.h + PENNY,
-        description: "Bearish 2-1-2 continuation: sell-stop one penny below the inside bar low.",
+        description: `Bearish ${PATTERN_GLOSSARY_TERM["2-1-2"].toLowerCase()}: sell-stop one penny below the inside bar low.`,
       });
     }
     // --- 3-1-2: outside bar then inside bar; break of the inside bar either way.
@@ -59,14 +60,14 @@ export function detectPatterns(bars: Bar[]): StratPattern[] {
         direction: "bullish",
         triggerPrice: last.h + PENNY,
         stopPrice: last.l - PENNY,
-        description: "3-1-2 bullish: buy-stop one penny above the inside bar high after an outside bar.",
+        description: `Bullish ${PATTERN_GLOSSARY_TERM["3-1-2"].toLowerCase()}: buy-stop one penny above the inside bar high after an outside bar.`,
       });
       patterns.push({
         name: "3-1-2",
         direction: "bearish",
         triggerPrice: last.l - PENNY,
         stopPrice: last.h + PENNY,
-        description: "3-1-2 bearish: sell-stop one penny below the inside bar low after an outside bar.",
+        description: `Bearish ${PATTERN_GLOSSARY_TERM["3-1-2"].toLowerCase()}: sell-stop one penny below the inside bar low after an outside bar.`,
       });
     }
   }
@@ -77,11 +78,12 @@ export function detectPatterns(bars: Bar[]): StratPattern[] {
   // outside bar first is a 3-2-2 — both higher-conviction than a bare 2-2.
   const revName: StratPattern["name"] =
     prevState === "1" ? "1-2-2" : prevState === "3" ? "3-2-2" : "2-2";
+  const revLabel = PATTERN_GLOSSARY_TERM[revName].toLowerCase();
   const revContext =
     prevState === "1"
-      ? " off a prior inside bar (1-2-2)"
+      ? " off a prior inside bar"
       : prevState === "3"
-        ? " off a prior outside bar (3-2-2)"
+        ? " off a prior outside bar"
         : "";
   if (lastState === "2U") {
     patterns.push({
@@ -89,7 +91,7 @@ export function detectPatterns(bars: Bar[]): StratPattern[] {
       direction: "bearish",
       triggerPrice: last.l - PENNY,
       stopPrice: last.h + PENNY,
-      description: `Bearish ${revName} reversal${revContext}: sell-stop one penny below the low of the up bar.`,
+      description: `Bearish ${revLabel}${revContext}: sell-stop one penny below the low of the up bar.`,
     });
   }
   if (lastState === "2D") {
@@ -98,7 +100,7 @@ export function detectPatterns(bars: Bar[]): StratPattern[] {
       direction: "bullish",
       triggerPrice: last.h + PENNY,
       stopPrice: last.l - PENNY,
-      description: `Bullish ${revName} reversal${revContext}: buy-stop one penny above the high of the down bar.`,
+      description: `Bullish ${revLabel}${revContext}: buy-stop one penny above the high of the down bar.`,
     });
   }
 
@@ -115,7 +117,7 @@ export function detectPatterns(bars: Bar[]): StratPattern[] {
       direction: "bullish",
       triggerPrice: last.h + PENNY,
       stopPrice: last.l - PENNY,
-      description: `Momentum reversal (PMG): ${lowerHighs} consecutive lower highs — a buy-stop above the last high triggers as trapped sellers are stopped out.`,
+      description: `${PATTERN_GLOSSARY_TERM.PMG}: ${lowerHighs} consecutive lower highs — a buy-stop above the last high triggers as trapped sellers are stopped out.`,
     });
   }
   let higherLows = 0;
@@ -129,7 +131,7 @@ export function detectPatterns(bars: Bar[]): StratPattern[] {
       direction: "bearish",
       triggerPrice: last.l - PENNY,
       stopPrice: last.h + PENNY,
-      description: `Momentum reversal (PMG): ${higherLows} consecutive higher lows — a sell-stop below the last low triggers as trapped buyers are stopped out.`,
+      description: `${PATTERN_GLOSSARY_TERM.PMG}: ${higherLows} consecutive higher lows — a sell-stop below the last low triggers as trapped buyers are stopped out.`,
     });
   }
 

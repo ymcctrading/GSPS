@@ -1,8 +1,17 @@
 import { Resend } from "resend";
+import { SCANNER_STATE_META } from "@/lib/signals/types";
+import type { PublicSignalSummary } from "@/lib/signals/publicSummary";
 
 function getResendClient() {
   return new Resend(process.env.RESEND_API_KEY);
 }
+
+const TIER_LABEL: Record<PublicSignalSummary["tier"], string> = {
+  watchlistOnly: "Watchlist only",
+  qualified: "Qualified",
+  aTier: "A-tier",
+  aPlusTier: "A+ tier",
+};
 
 export interface AlertEmailData {
   userEmail: string;
@@ -14,6 +23,12 @@ export interface AlertEmailData {
   takeProfit: number;
   verdict: string;
   confidence: number;
+  /**
+   * The Signal and Regime Engine's own rollup — a separate read from the
+   * Gann/STRAT verdict above, shown as additional context. Never what
+   * decided this alert was sent.
+   */
+  signal?: PublicSignalSummary | null;
 }
 
 export async function sendAlertEmail(data: AlertEmailData) {
@@ -59,6 +74,17 @@ export async function sendAlertEmail(data: AlertEmailData) {
             Target: <strong>$${data.takeProfit.toFixed(2)}</strong>
           </p>
         </div>
+
+        ${
+          data.signal
+            ? `<div style="background: #f0f9ff; padding: 15px; border-left: 4px solid #0ea5e9; border-radius: 4px; margin-bottom: 20px;">
+          <p style="margin: 0; color: #0c4a6e; font-size: 14px; font-weight: 600;">Signal &amp; Regime Engine (separate read)</p>
+          <p style="margin: 8px 0 0; color: #0c4a6e; font-size: 13px;">
+            ${SCANNER_STATE_META[data.signal.state].label} — ${TIER_LABEL[data.signal.tier]}${data.signal.tradeable ? " · Tradeable" : ""}
+          </p>
+        </div>`
+            : ""
+        }
 
         <div style="margin-bottom: 20px;">
           <p style="margin: 0 0 10px; color: #0f172a; font-size: 14px; font-weight: 600;">Next Steps:</p>

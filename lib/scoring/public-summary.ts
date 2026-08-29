@@ -21,6 +21,7 @@ import type {
   ScorePillar,
   ScorePillarSummary,
 } from "@/lib/types";
+import { redactScanSignals } from "@/lib/signals/publicSummary";
 
 /** Display order. Broad to specific: context first, then the trade itself. */
 export const SCORE_PILLARS: ScorePillar[] = [
@@ -111,7 +112,16 @@ export function redactDecision(decision: ScanDecision): ScanDecision {
   };
 }
 
-/** The same, for a whole scan result on its way out of an API route. */
+/**
+ * The same, for a whole scan result on its way out of an API route. Also
+ * redacts `signals` — the Signal and Regime Engine's own verdicts carry the
+ * same kind of per-criterion breakdown `decision` does, and are just as
+ * subject to this file's rule; see `lib/signals/publicSummary.ts`.
+ */
 export function redactScanResult(result: ScanResult): ScanResult {
-  return { ...result, decision: redactDecision(result.decision) };
+  return {
+    ...result,
+    decision: redactDecision(result.decision),
+    signals: redactScanSignals(result.signals),
+  };
 }
