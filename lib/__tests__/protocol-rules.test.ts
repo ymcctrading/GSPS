@@ -49,7 +49,7 @@ describe("the advertised targets match the priced ones", () => {
 
   it("states every condition that can hold a 7-scored setup below Execute", () => {
     expect(EXECUTE_RULE_DETAIL).toMatch(/trade plan/);
-    expect(EXECUTE_RULE_DETAIL).toMatch(/2-2/);
+    expect(EXECUTE_RULE_DETAIL).toMatch(/failed-push reversal/);
     expect(EXECUTE_RULE_DETAIL).toMatch(/behind the market/);
   });
 });
