@@ -9,6 +9,19 @@ date.
 
 ## 2026-08-29
 
+### Added
+- **Intraday tier-promotion gates.** Four entry-only gates — max entries/day,
+  max concurrent positions, a consecutive-loss lock, and a daily-loss lock as
+  a percent of equity — for orders opened via the intraday alerts panel's new
+  "Trade this" action (`lib/promotion/pro-intraday.ts`,
+  `lib/promotion/intraday-gate-query.ts`). Orders are now tagged
+  `intraday_sourced` (migration 0046) only when opened that way; a manual
+  ticket is never subject to these. Wired into `lib/trade/place-order.ts`
+  ahead of pricing, and — like the Novice circuit breaker's cooldown gate —
+  never blocks a stop, target, reduce, close, or cancel, only the entry. See
+  `ROADMAP.md`'s out-of-phase entry for scope notes and known
+  approximations.
+
 ### Fixed
 - **The glossary, pattern badges and generated scoring copy still rendered the
   proprietary Gann/Sara Sniper Strat pattern codes** (`2-2`, `1-2-2`, `3-2-2`,

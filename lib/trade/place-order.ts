@@ -30,6 +30,8 @@ import { killSwitchRefusal } from "@/lib/trade/kill-switch";
 import { recordOrderExecution, type RecordExecutionOptions } from "@/lib/learning/record";
 import { readLiveAccountValue } from "@/lib/risk/live-account";
 import { evaluateLiveCircuitBreaker } from "@/lib/risk/service";
+import { evaluateIntradayEntryGates } from "@/lib/promotion/pro-intraday";
+import { loadIntradayGateInputs } from "@/lib/promotion/intraday-gate-query";
 
 type RecordedOrderType = RecordExecutionOptions["orderType"];
 
@@ -49,6 +51,15 @@ export const OrderSchema = z.object({
     })
     .optional(),
   mode: z.enum(["paper", "live"]).default("paper"),
+  /**
+   * True only when this order was opened through the intraday alerts
+   * panel's "Trade this" action (components/scan/intraday-alerts.tsx) — a
+   * manual ticket opened any other way always omits this. Subjects the
+   * order to the intraday-promotion entry gates (lib/promotion/pro-intraday.ts)
+   * and is persisted on the order row so those gates can evaluate future
+   * entries against today's intraday-sourced history.
+   */
+  intradaySourced: z.boolean().optional().default(false),
   /**
    * How a limit price that falls between two valid increments should be
    * snapped. Omitted means conservative-by-side: a buy rounds down so the user
@@ -132,6 +143,25 @@ export async function placeSimulatedOrder(
     }
     return { status: 400, body: { error: "Live trading requires a connected live brokerage in Settings." } };
   }
+
+  // Intraday-promotion gates (lib/promotion/pro-intraday.ts): entry/day,
+  // concurrent-position, consecutive-loss, and daily-loss-lock. These apply
+  // only to orders tagged `intradaySourced` — opened via the intraday
+  // alerts panel's "Trade this" action — and only gate the entry, the same
+  // way the account-wide circuit breaker never blocks a close (see
+  // lib/risk/cooldown.ts). Evaluated before pricing or any DB write, same as
+  // the kill switch and the live circuit breaker above.
+  if (input.intradaySourced) {
+    const gateInputs = await loadIntradayGateInputs(supabase, userId);
+    const verdict = evaluateIntradayEntryGates(gateInputs);
+    if (!verdict.allowed) {
+      return {
+        status: 409,
+        body: { error: verdict.reason, code: "intraday_promotion_gate", gate: verdict.code },
+      };
+    }
+  }
+
   const isOption = input.assetClass === "option";
   // Equity advised entries route as limits at the protocol price. Options carry
   // no advised limit (the ticket doesn't price the premium), so they go market
@@ -242,6 +272,7 @@ export async function placeSimulatedOrder(
     side: input.side,
     order_type: useBracket ? "bracket" : !isOption && input.entryMode === "advised" ? "limit" : orderType,
     qty: input.qty,
+    intraday_sourced: input.intradaySourced,
     limit_price: submittedLimitPrice ?? null,
     requested_limit_price: input.limitPrice ?? null,
     tick_size: priceCheck?.tick?.size ?? null,

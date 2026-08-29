@@ -211,6 +211,29 @@ both signal discovery and execution.
   No live account is actually gated today because no live order can be
   placed at all yet, but the gate is real, tested, and will take effect the
   moment live execution replaces that placeholder refusal.)*
+- **Intraday tier-promotion gates** *(2026-08-29, out-of-phase, direct
+  request)* — four entry-only gates (`lib/promotion/pro-intraday.ts`: max
+  entries/day, max concurrent positions, consecutive-loss lock, daily-loss
+  lock as a percent of equity) for orders opened from the intraday alerts
+  panel's "Trade this" action specifically, as distinct from the account-wide
+  Novice circuit breaker above. Unlike that engine, this one applies to paper
+  trading — it is not a real-money-only rule — because intraday alert-chasing
+  discipline is exactly what paper accounts need practice with. Wiring
+  required two things that didn't exist before this: a way to tag an order as
+  intraday-sourced at all (`orders.intraday_sourced`,
+  `supabase/migrations/0046_intraday_sourced_orders.sql`, set only by the
+  "Trade this" link — a manual ticket opened any other way is never tagged)
+  and the UI touchpoint that sets it (`intradayTradeHref` in `lib/routes.ts`,
+  read back by `components/scan/ticker-view.tsx` via `?intraday=1&side=`,
+  passed into `components/trade/order-ticket.tsx`). Gates are evaluated in
+  `lib/trade/place-order.ts` before pricing or any DB write, same as the kill
+  switch and live circuit breaker, and — like `lib/risk/cooldown.ts` — never
+  block a stop/target/reduce/close/cancel, only the entry. Applies to every
+  tier; no tier is currently exempted or required for it. `lib/promotion/
+  intraday-gate-query.ts`'s concurrent-position count and equity figure are
+  both approximations (no direct order→position link in the schema, and
+  equity is cash + cost basis rather than a live mark) — documented as such
+  in that file; tightening either is unscheduled follow-up, not a known bug.
 - **Referral program (minimal)** *(2026-08-19, out-of-phase)* — a per-user
   referral link (`/r/<username>`), click counter, and signup attribution,
   surfaced in Settings. Not named in this roadmap's Q1 initiatives — it was

@@ -317,6 +317,7 @@ async function placeRecommendation(
     entryMode: "advised",
     limitPrice: rec.why.entry,
     referencePrice: rec.currentPrice,
+    intradaySourced: false,
     attachLevels: {
       stopLoss: rec.why.stopLoss,
       takeProfit: rec.why.takeProfit1,
@@ -380,6 +381,7 @@ async function runQuietDayDca(
       qty,
       entryMode: "now",
       mode: "paper",
+      intradaySourced: false,
     });
     if (placed.status >= 400) {
       console.error(`demo auto-trade: DCA add for ${position.symbol} refused — ${JSON.stringify(placed.body)}`);
