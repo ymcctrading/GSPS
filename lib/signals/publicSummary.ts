@@ -8,7 +8,7 @@
  */
 
 import type { Regime, RulesAlignmentTier, ScannerStateName, SignalVerdict } from "./types";
-import type { Direction } from "@/lib/types";
+import type { Direction, ScanResult } from "@/lib/types";
 
 export interface PublicSignalSummary {
   state: ScannerStateName;
@@ -60,4 +60,36 @@ export function toPublicSignalSummary(
     return TIER_RANK[a.alignment.tier] >= TIER_RANK[b.alignment.tier] ? a : b;
   });
   return toSummary(best);
+}
+
+/**
+ * Strips a verdict down to what's safe to serialize across an API boundary —
+ * same rule as `lib/scoring/public-summary.ts`'s `redactDecision`. The
+ * per-criterion breakdown (which named condition passed on which computed
+ * value — e.g. "Relative volume 1.32x confirms...") and the regime's own
+ * `reasons`/`disqualifiers` text (which name specific internal thresholds,
+ * e.g. "ADX >= 20") stay server-side. `score`/`tier`/`tradeable`/`plan` are
+ * the rollup a reader needs; a disqualified/notImplemented verdict already
+ * carries no per-criterion breakdown, so it passes through unchanged.
+ */
+export function redactSignalVerdict(verdict: SignalVerdict | null): SignalVerdict | null {
+  if (!verdict) return null;
+  if (verdict.status !== "evaluated") return verdict;
+  return {
+    ...verdict,
+    regime: { ...verdict.regime, reasons: [], disqualifiers: [] },
+    alignment: { ...verdict.alignment, breakdown: [] },
+  };
+}
+
+/** The same, for every state a scan evaluated. */
+export function redactScanSignals(signals: ScanResult["signals"]): ScanResult["signals"] {
+  if (!signals) return signals;
+  return {
+    regime: { ...signals.regime, reasons: [], disqualifiers: [] },
+    trendPullback: redactSignalVerdict(signals.trendPullback),
+    trendBreakout: redactSignalVerdict(signals.trendBreakout),
+    confirmedReversal: redactSignalVerdict(signals.confirmedReversal),
+    rangeReversion: redactSignalVerdict(signals.rangeReversion),
+  };
 }

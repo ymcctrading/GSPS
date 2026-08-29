@@ -22,6 +22,7 @@ import {
   proximityBandPct,
 } from "@/lib/scoring/proximity";
 import { LEVEL_TIMEFRAME_USAGE, levelRoleLabel, type LevelRole } from "@/lib/analysis/levelRole";
+import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 import {
   DEFAULT_CRITERION_WEIGHTS,
   type CriterionKey,
@@ -200,7 +201,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       pillar: "setup",
       passed: patternValid,
       note: patternValid
-        ? `${pattern!.name} ${pattern!.direction} armed — trigger ${pattern!.triggerPrice.toFixed(2)}.`
+        ? `${PATTERN_GLOSSARY_TERM[pattern!.name]} ${pattern!.direction} armed — trigger ${pattern!.triggerPrice.toFixed(2)}.`
         : `No matching ${setupKind === "continuation" ? "continuation" : "reversal"} pattern armed on the execution timeframe.`,
     },
     {
@@ -330,9 +331,9 @@ export function applyReversionConfirmation(
       ...decision.breakdown,
       {
         key: "reversionConfirmation",
-        criterion: "Reversion confirmation (bare 2-2 needs momentum + S/R)",
+        criterion: "Reversion confirmation (bare failed-push reversal needs momentum + S/R)",
         passed: false,
-        note: "Bare 2-2 reversal without both momentum/volatility and support/resistance confirmation — downgraded from Execute to Watch.",
+        note: "Bare failed-push reversal without both momentum/volatility and support/resistance confirmation — downgraded from Execute to Watch.",
       },
     ],
   };

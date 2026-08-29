@@ -7,7 +7,7 @@
  */
 
 import { afterEach, describe, expect, it } from "vitest";
-import { killSwitchRefusal, tradingDisabled } from "@/lib/trade/kill-switch";
+import { isProtectiveOrder, killSwitchRefusal, tradingDisabled } from "@/lib/trade/kill-switch";
 
 const ORIGINAL = process.env.TRADING_DISABLED;
 
@@ -54,5 +54,28 @@ describe("killSwitchRefusal", () => {
     // simulator fills synchronously, so a refusal is genuinely all-or-nothing:
     // there is no accepted-but-unfilled order left in limbo behind it.
     expect(refusal?.error).toMatch(/positions and resting orders .* are untouched/);
+  });
+});
+
+describe("isProtectiveOrder", () => {
+  it("is protective for a sell against an existing long", () => {
+    expect(isProtectiveOrder("long", "sell")).toBe(true);
+  });
+
+  it("is protective for a buy against an existing short", () => {
+    expect(isProtectiveOrder("short", "buy")).toBe(true);
+  });
+
+  it("is not protective for a buy that would grow a long", () => {
+    expect(isProtectiveOrder("long", "buy")).toBe(false);
+  });
+
+  it("is not protective for a sell that would grow a short", () => {
+    expect(isProtectiveOrder("short", "sell")).toBe(false);
+  });
+
+  it("is not protective with no existing position — every order opens a new one", () => {
+    expect(isProtectiveOrder(null, "buy")).toBe(false);
+    expect(isProtectiveOrder(null, "sell")).toBe(false);
   });
 });

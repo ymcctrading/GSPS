@@ -6,6 +6,7 @@ import { CandleChart, type PriceMarker } from "@/components/chart/candles";
 import { MarketTabs } from "@/components/chart/market-tabs";
 import { ShareButton } from "@/components/chart/share-button";
 import { SignalCard } from "@/components/scan/signal-card";
+import { SignalRegimeCard } from "@/components/scan/signal-regime-card";
 import { OrderTicket } from "@/components/trade/order-ticket";
 import { GlossaryDetails } from "@/components/glossary";
 import { GlossaryTerm } from "@/components/glossary-term";
@@ -13,7 +14,37 @@ import { useLiveQuote } from "@/lib/hooks/useLiveQuote";
 import { sessionLabel } from "@/lib/market/session";
 import { formatUsd, formatPct, cn } from "@/lib/utils";
 import type { ScanResult } from "@/lib/types";
+import type { SignalPlan } from "@/lib/signals/types";
 import type { LiveQuote } from "@/app/api/quote/route";
+
+const TIER_RANK = { watchlistOnly: 0, qualified: 1, aTier: 2, aPlusTier: 3 } as const;
+
+/**
+ * The strongest tradeable plan across every state the Signal and Regime
+ * Engine evaluated — same "tradeable first, then higher tier" rule
+ * `lib/signals/publicSummary.ts`'s `toPublicSignalSummary` uses for Guided
+ * Decision Mode, applied here to pick which plan (if any) draws chart
+ * markers. Never combines states into one verdict; just picks one to show.
+ */
+function strongestTradeablePlan(result: ScanResult | null): SignalPlan | null {
+  if (!result?.signals) return null;
+  const candidates = [
+    result.signals.trendPullback,
+    result.signals.trendBreakout,
+    result.signals.confirmedReversal,
+    result.signals.rangeReversion,
+  ].filter((v) => v?.status === "evaluated" && v.tradeable && v.plan);
+
+  if (candidates.length === 0) return null;
+
+  const best = candidates.reduce((a, b) => {
+    const aTier = a!.status === "evaluated" ? TIER_RANK[a!.alignment.tier] : -1;
+    const bTier = b!.status === "evaluated" ? TIER_RANK[b!.alignment.tier] : -1;
+    return bTier > aTier ? b : a;
+  });
+
+  return best!.status === "evaluated" ? best!.plan : null;
+}
 
 export function TickerView({ symbol }: { symbol: string }) {
   // Bumping this re-runs the scan without remounting the page.
@@ -102,6 +133,18 @@ export function TickerView({ symbol }: { symbol: string }) {
       kind: "structural",
     }),
   );
+
+  // The Signal and Regime Engine's own plan, when one state is tradeable —
+  // a separate read from the Protocol levels above, labelled distinctly
+  // ("SRE …") rather than merged into the same Entry/SL/TP markers.
+  const srePlan = strongestTradeablePlan(result);
+  if (srePlan) {
+    markers.push(
+      { price: srePlan.entryTrigger, label: "SRE Entry", kind: "entry" },
+      { price: srePlan.stop, label: "SRE Stop", kind: "stop" },
+      { price: srePlan.target, label: "SRE Target", kind: "target" },
+    );
+  }
 
   // Live price falls back to the scan snapshot until the first poll returns.
   const livePrice = quote?.price ?? (result && result.currentPrice > 0 ? result.currentPrice : null);
@@ -203,6 +246,8 @@ export function TickerView({ symbol }: { symbol: string }) {
       <MarketTabs symbol={symbol} result={result} />
 
       {result && <SignalCard result={result} />}
+
+      {result && <SignalRegimeCard result={result} />}
 
       <GlossaryDetails />
     </div>

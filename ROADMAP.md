@@ -37,8 +37,11 @@ both signal discovery and execution.
 - **Trading infrastructure (production)** — Per-user simulated paper trading
   (`lib/brokers/simulator.ts`; fills against live quotes, own cash ledger),
   staged protocol exits, portfolio tracking with position grouping, option
-  Greeks, price-increment validation. Live trading is **not** enabled: it needs
-  per-user brokerage credentials, which is unscheduled work.
+  Greeks, price-increment validation, a versioned trade-plan lifecycle
+  state machine with audit trail and post-close structured review
+  (`lib/lifecycle/`, formalizing what `lib/trade/protocol-exit.ts` already
+  executes). Live trading is **not** enabled: it needs per-user brokerage
+  credentials, which is unscheduled work.
 - **Data pipeline (mature)** — Multi-provider architecture (Alpaca, Binance,
   Oanda, Twelve Data, Polygon), intraday momentum scanner, daily market scans,
   per-symbol audit trail for non-alerts, explained alerts with invalidation
@@ -307,6 +310,20 @@ both signal discovery and execution.
   compliance and payments decision this document doesn't make for it. If a
   paid referral program becomes a real initiative, it belongs here explicitly
   rather than continuing to live as a deviation note.
+- **Protective actions exempted from the trading kill switch** *(2026-08-28,
+  out-of-phase, forward-looking)* — the global `TRADING_DISABLED` switch
+  (`lib/trade/kill-switch.ts`) previously refused every order-placing *and*
+  position-closing request while set, including the dedicated "Close
+  position" action. Every order this switch guards today is a paper trade, so
+  this was not a live violation of the GSPS Product Constitution's
+  "exits/reductions always available" principle — that principle governs live
+  trading, which isn't enabled yet. Fixed anyway, ahead of live trading
+  landing: `/api/positions/close` no longer calls the kill switch at all, and
+  `placeSimulatedOrder` (`lib/trade/place-order.ts`) skips the halt for a
+  sell that reduces/closes an existing long or a buy that covers an existing
+  short, via the new `isProtectiveOrder` helper. New-entry orders are still
+  blocked as before. Not named in this roadmap — small hardening ahead of an
+  unscheduled dependency (live trading), not a reprioritization.
 - **Mobile-responsive dashboard** — not a native app yet, but positions and
   alerts must be usable on phones and tablets.
 - **Technical indicators (phase 1)** — SMA, EMA, RSI, MACD as chart overlays.

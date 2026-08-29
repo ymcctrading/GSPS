@@ -20,6 +20,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendAlertEmail } from "@/lib/notifications/resend-handler";
 import { isPreviewEnvironment } from "@/lib/env/preview";
+import type { PublicSignalSummary } from "@/lib/signals/publicSummary";
 
 export type DeliveryChannel = "email" | "sms" | "push";
 
@@ -27,6 +28,13 @@ export type DeliveryChannel = "email" | "sms" | "push";
  * Only what an entitled, visible WATCH -> EXECUTE alert may disclose --
  * built by the caller from `visible_scan_results`/monitor state, never from
  * raw scan internals. Deliberately narrower than `ScanResult`.
+ *
+ * `signal` is the Signal and Regime Engine's own rollup (already redacted —
+ * see `lib/signals/publicSummary.ts`), attached as informational context
+ * alongside the Gann/STRAT verdict above. It never decides whether this
+ * alert fires: the WATCH -> EXECUTE transition that triggers a notification
+ * is computed from `verdict`/`score` alone, same as before this field
+ * existed. `null`/absent when no state evaluated as tradeable.
  */
 export type EntitledAlertPayload = {
   symbol: string;
@@ -37,6 +45,7 @@ export type EntitledAlertPayload = {
   takeProfit: number;
   verdict: string;
   confidence: number;
+  signal?: PublicSignalSummary | null;
 };
 
 export type RecordDeliveryResult =

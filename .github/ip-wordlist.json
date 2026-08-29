@@ -14,7 +14,11 @@
     "STRAT",
     "W.D. Gann",
     "w.d. gann",
-    "W.D. gann"
+    "W.D. gann",
+    "PMG",
+    "pmg",
+    "Pivot Machine Gun",
+    "pivot machine gun"
   ],
   "description": "Banned proprietary terminology to protect IP — all instances must be replaced with generic equivalents (Gann → structural analysis, Sara Sniper Strat → pattern-based execution, etc.)",
   "exceptions": {

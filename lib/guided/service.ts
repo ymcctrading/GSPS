@@ -418,6 +418,7 @@ function toRecommendation(
         result.signals?.trendPullback,
         result.signals?.trendBreakout,
         result.signals?.confirmedReversal,
+        result.signals?.rangeReversion,
       ),
     },
   };
