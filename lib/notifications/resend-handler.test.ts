@@ -59,7 +59,7 @@ describe("sendAlertEmail", () => {
     expect(html).not.toContain("Signal &amp; Regime Engine");
   });
 
-  it("never lets the rollup override the Gann/STRAT verdict or score shown above it", async () => {
+  it("never lets the rollup override the protocol verdict or score shown above it", async () => {
     await sendAlertEmail({
       ...BASE,
       signal: { state: "rangeReversion", regime: "range", direction: "sideways", tier: "watchlistOnly", tradeable: false, accountContextAssumed: false },
