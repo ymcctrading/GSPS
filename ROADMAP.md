@@ -2,7 +2,7 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-08-28.
+**Last updated:** 2026-08-29.
 
 This document decides *what we build next and in what order*. Proposals and
 implementation work should trace back to a phase below. See
@@ -208,6 +208,27 @@ both signal discovery and execution.
   No live account is actually gated today because no live order can be
   placed at all yet, but the gate is real, tested, and will take effect the
   moment live execution replaces that placeholder refusal.)*
+- **Market Universe, Data Quality & Account Constraints engine** *(2026-08-29,
+  out-of-phase, direct request)* — a pure-logic engine, `lib/universe/*`,
+  implementing the "Market Universe, Data Quality & Account Constraints"
+  spec pack's exact `novice_eligible`/`trade_qualified` boolean formulas:
+  market-cap ($10B floor), Novice-tier liquidity ($250M average daily
+  dollar volume — stricter than and independent of the platform-wide
+  liquidity floor in `lib/scan/liquidity.ts`), price/fractional
+  accessibility, spread, event-risk, volatility, and data-quality filters,
+  plus a leveraged/inverse-ETF prohibited-class gate and the spec's small-
+  account mechanics (staged-exit feasibility vs. an all-in/all-out
+  fallback, settled-funds/buying-power/cash-vs-margin/T+1/broker-
+  restriction/allocation checks, and account-data-provenance labeling). See
+  `docs/MARKET_UNIVERSE_DATA_QUALITY.md` for what composes with the
+  existing Signal and Regime Engine and Guided eligibility rather than
+  duplicating them, the spec's market-expansion policy (no exporting these
+  thresholds to options/futures/forex/crypto/commodities without each
+  asset class's own engine), and exactly what is deliberately **not** wired
+  in yet — the live scan pipeline (`lib/signals/scanGates.ts`) still reads
+  only the platform liquidity floor, since folding a market-cap/fundamentals
+  read into the scan hot path is a data-pipeline change left for a
+  follow-up, not a logic change made here.
 - **Referral program (minimal)** *(2026-08-19, out-of-phase)* — a per-user
   referral link (`/r/<username>`), click counter, and signup attribution,
   surfaced in Settings. Not named in this roadmap's Q1 initiatives — it was
