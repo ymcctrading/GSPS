@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { GlossaryTerm } from "@/components/glossary-term";
 import { checkBracket } from "@/lib/trade/bracket";
 import { planProtocolExit } from "@/lib/trade/protocol-exit";
+import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 import {
   ROUNDING_MODE_LABELS,
   conservativeMode,
@@ -365,7 +366,7 @@ export function OrderTicket({
           {useProtocolLevels
             ? assetType === "options"
               ? `Trade ${symbol} options — protocol read is ${pattern!.direction}.`
-              : `${side === "buy" ? "Long" : "Short"} ${symbol} — armed ${pattern!.name} setup is ${pattern!.direction}.`
+              : `${side === "buy" ? "Long" : "Short"} ${symbol} — armed ${PATTERN_GLOSSARY_TERM[pattern!.name].toLowerCase()} setup is ${pattern!.direction}.`
             : `Manual ${side === "buy" ? "long" : "short"} execution for ${symbol} ${assetType === "options" ? "options" : ""} — no protocol levels attached${assetType === "shares" ? "; optional custom stop/target below" : ""}.`}
         </CardDescription>
         <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-border pt-3">
