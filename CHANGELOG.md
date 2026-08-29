@@ -7,6 +7,27 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-08-29
+
+### Fixed
+- **The glossary, pattern badges and generated scoring copy still rendered the
+  proprietary Gann/Sara Sniper Strat pattern codes** (`2-2`, `1-2-2`, `3-2-2`,
+  `2-1-2`, `3-1-2`, `PMG`) directly to users — in the glossary's "Reversal &
+  continuation patterns" section, the pattern badge on `SignalCard`, and
+  strings generated at runtime in `lib/strat/patterns.ts` and
+  `lib/scoring/score.ts`. Two earlier passes scrubbed the word "Strat"
+  itself, but the numeric pattern codes and the "PMG" abbreviation — which
+  are the actual proprietary vocabulary — kept leaking through untouched.
+  Renamed every pattern to a generic, plain-language name (e.g. "Failed-push
+  reversal", "Pause continuation", "Momentum exhaustion reversal") via
+  `PATTERN_GLOSSARY_TERM` in `lib/education/patterns.ts`, now the single
+  source of truth for pattern display names, used everywhere a pattern name
+  reaches the screen. `lib/strat/`'s internal `StratPattern["name"]` tags are
+  unchanged, matching how `GannLevels`/`StratPattern` identifiers already
+  work — only rendered copy changed. `scripts/check-banned-terms.mjs` now
+  also bans `PMG` and case-insensitive `STRAT` (closing a case-sensitivity
+  gap that let `STRAT` through in prose).
+
 ## 2026-08-27
 
 ### Added

@@ -93,32 +93,32 @@ const GROUPS: { heading: string; terms: Term[] }[] = [
           "GSPS arms a setup off the shape of the last two or three closed bars, then waits for the next bar to break a trigger price by one penny. Each shape below is one of those setups — expand a pattern card on the scan page for the plain-language version of the one that's currently armed.",
       },
       {
-        term: "2-2 reversal",
+        term: "Failed-push reversal",
         plain:
           "A bar closes clearly up or clearly down, and the very next bar breaks back through its opposite extreme by a penny. That penny break is read as the crowd that pushed the first bar getting trapped and reversing. Moderate confidence on its own — it's the base case the other reversal shapes sharpen.",
       },
       {
-        term: "1-2-2 reversal",
+        term: "Compressed reversal",
         plain:
-          "A 2-2 reversal that was preceded by an inside bar (a bar that closed entirely within the prior bar's range). The inside bar means the market paused and compressed before the failed push, which is read as a cleaner trap than a bare 2-2 — somewhat higher confidence.",
+          "A failed-push reversal that was preceded by an inside bar (a bar that closed entirely within the prior bar's range). The inside bar means the market paused and compressed before the failed push, which is read as a cleaner trap than a bare failed-push reversal — somewhat higher confidence.",
       },
       {
-        term: "3-2-2 reversal",
+        term: "Two-sided reversal",
         plain:
-          "A 2-2 reversal preceded by an outside bar (a bar whose range engulfed the one before it). The outside bar shows both sides were tested hard right before the failed push, which is the highest-confidence version of the 2-2 family.",
+          "A failed-push reversal preceded by an outside bar (a bar whose range engulfed the one before it). The outside bar shows both sides were tested hard right before the failed push, which is the highest-confidence version of the failed-push family.",
       },
       {
-        term: "2-1-2 continuation",
+        term: "Pause continuation",
         plain:
-          "A directional bar (up or down) followed by an inside bar, with the trigger set on a break of the inside bar in the same direction the trend was already going. Unlike the 2-2 family, this pattern continues the move rather than reversing it — treat it as trend confirmation, not a turn signal.",
+          "A directional bar (up or down) followed by an inside bar, with the trigger set on a break of the inside bar in the same direction the trend was already going. Unlike the failed-push family, this pattern continues the move rather than reversing it — treat it as trend confirmation, not a turn signal.",
       },
       {
-        term: "3-1-2 setup",
+        term: "Undecided breakout",
         plain:
           "An outside bar followed by an inside bar. Because the outside bar didn't resolve a direction, the trigger is set both ways (a break of the inside bar's high or its low arms a trade) — the market itself picks the side when one trigger fires. Treat the untriggered side as void once the other fires.",
       },
       {
-        term: "Momentum reversal (PMG)",
+        term: "Momentum exhaustion reversal",
         plain:
           "Five or more bars in a row making lower highs (or higher lows) — a slow grind in one direction that has trapped a string of traders leaning the other way. The setup arms a trade on the break of the last bar's high or low, betting those trapped positions get stopped out and accelerate the reversal. Read it as a momentum-exhaustion signal: the more consecutive bars, the more trapped positions behind it.",
       },

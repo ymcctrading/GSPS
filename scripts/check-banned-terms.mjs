@@ -52,6 +52,22 @@ const SKIPPED_DIRECTORIES = [
   ".next",
 ];
 
+/**
+ * Exact files whose PMG occurrences are the internal pattern-name literal
+ * (`StratPattern["name"]`), not rendered copy — the discriminated-union tag
+ * kept unchanged for the same reason `GannLevels`/`StratPattern` identifiers
+ * are unchanged. Every user-facing string built from it (badges, glossary,
+ * education copy, generated descriptions) goes through
+ * `PATTERN_GLOSSARY_TERM`, which these files are not exempt from — only the
+ * bare `PMG` tag is.
+ */
+const PMG_IDENTIFIER_FILES = [
+  "lib/types.ts",
+  "lib/strat/patterns.ts",
+  "lib/education/patterns.ts",
+  "lib/scanTicker.ts",
+];
+
 /** Product names. Banned everywhere, in any casing, comments included. */
 const PRODUCT_NAMES = [
   { pattern: /Gann Protocol/i, term: "Gann Protocol" },
@@ -69,6 +85,11 @@ const PRODUCT_NAMES = [
 const USER_FACING_TERMS = [
   { pattern: /\bGann\b/, term: "Gann", instead: "structural / support / key price level" },
   { pattern: /\bStrat\b/, term: "Strat", instead: "reversal pattern" },
+  // All-caps "STRAT" only — the case that slips past the identifier-safe
+  // pattern above without also matching lowercase `lib/strat/...` import
+  // paths (case-sensitive on purpose, see the pattern above).
+  { pattern: /\bSTRAT\b/, term: "STRAT", instead: "reversal pattern" },
+  { pattern: /\bPMG\b/i, term: "PMG", instead: "momentum exhaustion reversal" },
   { pattern: /\bSquare[ -]of[ -](9|Nine)\b/i, term: "Square of 9", instead: "key price level" },
   { pattern: /\bS9\b/, term: "S9", instead: "key level" },
   { pattern: /\bHarmonic\b/, term: "Harmonic", instead: "structural / key price level" },
@@ -127,8 +148,11 @@ function scan(file, terms, { skipCommentsAndImports }) {
 const sourceFiles = SOURCE_ROOTS.flatMap((root) => walk(join(ROOT, root)));
 
 for (const file of sourceFiles) {
+  const rel = relative(ROOT, file);
+  const isPmgIdentifierFile = PMG_IDENTIFIER_FILES.some((f) => rel === f || rel.split("\\").join("/") === f);
+  const terms = isPmgIdentifierFile ? USER_FACING_TERMS.filter((t) => t.term !== "PMG") : USER_FACING_TERMS;
   scan(file, PRODUCT_NAMES, { skipCommentsAndImports: false });
-  scan(file, USER_FACING_TERMS, { skipCommentsAndImports: true });
+  scan(file, terms, { skipCommentsAndImports: true });
 }
 for (const doc of PUBLIC_DOCS) {
   scan(join(ROOT, doc), PRODUCT_NAMES, { skipCommentsAndImports: false });

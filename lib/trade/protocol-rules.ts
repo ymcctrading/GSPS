@@ -61,4 +61,4 @@ export const STOP_RULE_DETAIL =
 export const EXECUTE_RULE_LABEL = "Score 7+ of 9, with a priced trade plan";
 
 export const EXECUTE_RULE_DETAIL =
-  "A setup also needs an armed pattern with entry, stop and targets priced from it. Execute is held back to Watch when the trade plan is missing, when a bare 2-2 reversal lacks both momentum and support/resistance confirmation, or when the price feed is a full execution candle or more behind the market.";
+  "A setup also needs an armed pattern with entry, stop and targets priced from it. Execute is held back to Watch when the trade plan is missing, when a bare failed-push reversal lacks both momentum and support/resistance confirmation, or when the price feed is a full execution candle or more behind the market.";
