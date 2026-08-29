@@ -2,7 +2,7 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-08-28.
+**Last updated:** 2026-08-29.
 
 This document decides *what we build next and in what order*. Proposals and
 implementation work should trace back to a phase below. See
@@ -208,6 +208,56 @@ both signal discovery and execution.
   No live account is actually gated today because no live order can be
   placed at all yet, but the gate is real, tested, and will take effect the
   moment live execution replaces that placeholder refusal.)*
+- **Novice → Pro tier promotion** *(2026-08-29)* — behavioral eligibility
+  gate for the Novice-to-Pro (`PRACTICE`→`STANDARD`) tier step, per the
+  "Tier Access, Promotion & User Experience" spec pack (draft implementation
+  directives; still requires securities/compliance counsel review before
+  live personalized recommendations or execution — this PR is server-side
+  policy plumbing, not that review). Directly serves this phase's paid-tier
+  launch: Pro/Standard has no Stripe price (see
+  `docs/GSPS_TIER_ENTITLEMENT_SPEC.md`), so this is the actual gate on who
+  gets there. Built:
+  - `lib/promotion/config.ts` + `supabase/migrations/0045_tier_promotion_policy.sql`
+    (`promotion_policy_values` / `promotion_policy_change_log`) — every
+    threshold from the spec's "Promotion readiness model" table is a
+    remotely configurable value with an auditable change log, per the pack's
+    explicit instruction not to hard-code them into UI components.
+  - `lib/promotion/eligibility.ts` (pure) and `lib/promotion/readiness.ts`
+    (aggregates real paper-trading history — `positions` where
+    `mode = 'paper'` — into the eligibility inputs; reuses
+    `lib/risk/execution-score.ts` for the process score). Two inputs are
+    documented approximations rather than precise: stop adherence reads
+    whether a stop was set at open (GSPS does not yet record whether an
+    exit was the stop firing vs. a coincidental manual close), and the
+    severe-risk-event check is realized closed-trade loss against the fixed
+    paper starting balance, not a true equity-curve drawdown — paper
+    accounts have no snapshot history the way `risk_live_equity_snapshots`
+    gives live accounts. Both are flagged inline for whoever tightens them
+    next.
+  - `lib/promotion/promote.ts` — a promotion never applies immediately: per
+    the spec's "not retroactively to defeat an entry cap," a request
+    schedules `effective_at` at the next market open and only takes effect
+    then. Applied lazily from `/api/promotion/status` on each read rather
+    than a cron, since both of this project's Vercel Hobby cron slots are
+    already spent (`docs/THIRD_PARTY_LIMITS.md`).
+  - `lib/promotion/copy.ts` — the spec's required/forbidden wording as
+    constants plus a targeted test, not a `scripts/check-banned-terms.mjs`
+    entry (several forbidden phrases, e.g. "safe," are ordinary words
+    outside this context).
+  - `components/settings/promotion-settings.tsx` — a Settings-page readiness
+    checklist and upgrade request, shown only to Novice accounts, using the
+    neutral "you may be eligible" wording the spec requires and never
+    appearing in response to a loss, cooldown, or lock.
+  - **Deferred, out of this PR's scope:** the full Novice-homepage redesign
+    (market-regime card, one best-qualified-plan-or-"No qualified setup"
+    card, education card, existing-position protection status, cooldown
+    status — the dashboard has none of these today) and the bounded Pro
+    intraday module (`lib/promotion/config.ts`'s `ProIntradayPolicy` records
+    the spec's numbers, but nothing enforces them yet — Pro's
+    `intradayScansEnabled` entitlement is still `false`, and wiring a
+    bounded module distinct from Expert's full intraday access is a
+    separate scanner/quota change). Both are real UI/product work, not
+    follow-on polish, and belong as their own initiatives.
 - **Referral program (minimal)** *(2026-08-19, out-of-phase)* — a per-user
   referral link (`/r/<username>`), click counter, and signup attribution,
   surfaced in Settings. Not named in this roadmap's Q1 initiatives — it was
