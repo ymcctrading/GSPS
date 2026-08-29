@@ -127,3 +127,31 @@ export function isBinaryEventInHoldPeriod(
     (e) => e.symbol === symbol && e.date >= asOfStr && e.date <= windowEndStr,
   );
 }
+
+/**
+ * The next known earnings date for `symbol` on or after `asOf`, searching up
+ * to 7 calendar months ahead. A quarter is ~3 months, but `asOf` can land
+ * right after this quarter's report and `fiscalOffsetWeeks` can push the
+ * *next* one close to the far edge of its own quarter — 7 months always
+ * crosses two report dates regardless of where in the cycle `asOf` falls.
+ * `null` for the same reason `isBinaryEventInHoldPeriod` returns `null`: no
+ * report date exists in this generated calendar for a symbol outside the
+ * mega-cap coverage it's built from.
+ *
+ * Used by `lib/universe/scanGates.ts` to populate `data_quality_pass`'s
+ * earnings/events freshness check with a real (if generated, not
+ * vendor-confirmed) date rather than a bare coverage flag.
+ */
+export function nextKnownEarningsEvent(symbol: string, asOf: Date): EarningsEvent | null {
+  if (!MEGA_CAP_SYMBOLS.has(symbol)) return null;
+
+  const asOfStr = toDateInput(asOf);
+  for (let i = 0; i < 7; i++) {
+    const monthAnchor = new Date(Date.UTC(asOf.getUTCFullYear(), asOf.getUTCMonth() + i, 1));
+    const events = generateEarningsForMonth(monthAnchor)
+      .filter((e) => e.symbol === symbol && e.date >= asOfStr)
+      .sort((a, b) => a.date.localeCompare(b.date));
+    if (events.length > 0) return events[0];
+  }
+  return null;
+}

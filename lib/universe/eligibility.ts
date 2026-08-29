@@ -18,7 +18,15 @@ import type { NoviceEligibility, TradeQualification, TriState, UniverseFilterRes
 
 export interface NoviceEligibilityInputs {
   symbol: string;
+  /**
+   * Ignored when `marketCapResult` is supplied. Kept as the default path for
+   * any future caller that has a real numeric market-cap read — see
+   * `lib/universe/scanGates.ts` for the one caller that doesn't and supplies
+   * `marketCapResult` from `marketCapPassFromLargeCapCoverage` instead.
+   */
   marketCapUsd: number | null;
+  /** Pre-computed `market_cap_pass`, for a caller whose only real signal is coverage rather than a number. Overrides `marketCapUsd` when set. */
+  marketCapResult?: UniverseFilterResult;
   avgDailyDollarVolume: number | null;
   price: number | null;
   fractionalConfirmed: boolean | null;
@@ -50,7 +58,7 @@ export function assessNoviceEligibility(inputs: NoviceEligibilityInputs): Novice
   const liquidity = liquidityPass(inputs.avgDailyDollarVolume);
 
   const filters: UniverseFilterResult[] = [
-    marketCapPass(inputs.marketCapUsd),
+    inputs.marketCapResult ?? marketCapPass(inputs.marketCapUsd),
     liquidity,
     priceOrFractionalPass(inputs.price, inputs.fractionalConfirmed),
     spreadPass(inputs.spreadQuote, liquidity.pass),

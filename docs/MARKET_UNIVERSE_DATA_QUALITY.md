@@ -9,8 +9,17 @@ This is a new, standalone pure-logic engine (`lib/universe/`), landed the
 same way the Signal and Regime Engine (`docs/SIGNAL_REGIME_ENGINE.md`) and
 the Novice Risk, Account & Cooldown Engine (`lib/risk/`) were: implemented
 directly against the spec pack, out-of-phase relative to `ROADMAP.md`'s Q1
-focus, and **not wired into the live scan pipeline in this change** — see
-"What's not wired" below for exactly why and what wiring it in would take.
+focus.
+
+**It is wired into the live scan pipeline.** Every `lib/scanTicker.ts` call
+now computes `novice_eligible` (`lib/universe/scanGates.ts`'s
+`buildScanNoviceEligibility`, from real, already-in-hand scan data — no
+extra provider fetch) and attaches it to `ScanResult.noviceUniverse`. It is
+**informational, not gating**: by explicit decision, it does not change
+`eligibleUniverse`/`liquiditySpreadPass` on `SignalGates`, so it does not
+change which symbols the Signal and Regime Engine or the existing Gann/STRAT
+verdict already treat as tradeable — see "Why informational, not gating"
+below for the reasoning and the data-coverage gap behind it.
 
 ## What this is
 
@@ -108,18 +117,47 @@ spec's table requires first:
 | Crypto | Venue/custody, 24/7 data, funding, leverage/liquidation, exchange fragmentation, counterparty controls | Furthest along — real data, scanning, and Guided-adjacent liquidity handling exist (see `ROADMAP.md`'s crypto notification fix), but funding/leverage/liquidation and venue fragmentation are unhandled. |
 | Commodities | Contract specs, delivery/roll, report/event calendars, limit-move/seasonality controls | `COMING_SOON` in `lib/sectors.ts` — not built. |
 
-## What's not wired
+## How the live wiring reads real data without a new fetch
 
-- **`lib/signals/scanGates.ts`'s `eligibleUniverse` and `liquiditySpreadPass`
-  fields still read only the platform-wide liquidity floor** (`liquidityOk`
-  from `lib/scan/liquidity.ts`), not this engine's stricter novice_eligible
-  pipeline. Wiring `assessNoviceEligibility` in there needs a market-cap
-  read and a fundamentals as-of date at scan time, neither of which
-  `scanTicker` fetches today (`lib/data/company.ts`'s `CompanySnapshot` is a
-  separate, on-demand fetch for the Company tab, real only when
-  `FINNHUB_API_KEY` is set — folding it into the scan hot path is a data-
-  pipeline change, not a logic change, and deliberately left for a dedicated
-  follow-up rather than risking the existing scan budget here).
+`lib/universe/scanGates.ts`'s `buildScanNoviceEligibility` is the adapter —
+same role `lib/signals/scanGates.ts` plays for `SignalGates` — built
+entirely from what `scanTicker` already has in hand per scan, with no new
+provider request:
+
+| `novice_eligible` component | Live source | Honesty note |
+|---|---|---|
+| `market_cap_pass` | `marketCapPassFromLargeCapCoverage`: membership in `lib/scan/large-cap-universe.ts`'s committed list | Real, sourced signal (a $10B-$200B cap screen), not a fabricated number. Non-membership fails closed — the list's coverage stops at rank 500 of 893, so absence isn't evidence of being under the floor, only of being unverifiable today. |
+| `liquidity_pass` | `liquidity.avgDollarVolume`, already read off daily bars for the platform-wide floor | Real. |
+| `price_or_fractional_pass` | `currentPrice`; `fractionalConfirmed` always `null` (unknown, not assumed false) | No broker in scope for a symbol-only scan. |
+| `spread_pass` | Falls back to the liquidity-proxy branch (see below) | No bid/ask feed exists at scan time — see next section. |
+| `event_risk_pass` | The same `isBinaryEventInHoldPeriod` tri-state `SignalGates.binaryEventInHoldPeriod` already uses | Real (if narrow) — see `lib/macro/earnings.ts`'s own disclosure: generated from reporting cadence for ~40 mega-caps, `null`/unknown (blocks) for everyone else. |
+| `volatility_pass` | ATR(14) off the same daily bars the regime classifier reads | Real. |
+| `data_quality_pass` | Quote timestamp/session/latency from the scan itself; corporate actions `null` (absence isn't a failure); earnings from `lib/macro/earnings.ts`'s new `nextKnownEarningsEvent`; fundamentals as-of date is `LARGE_CAP_SOURCE_CAPTURED` when the large-cap list covers the symbol | The earnings and fundamentals sub-checks inherit the same ~40-mega-cap / rank-500 coverage limits as the two rows above — a real gap, not simulated data standing in for it. |
+
+The net effect: `novice_eligible` is real and meaningful, but today it can
+only ever be `true` for the intersection of "in the $10B-$200B large-cap
+list" and "in the ~40-symbol earnings calendar" — a few dozen names, not the
+hundreds the scanner otherwise covers. That gap is exactly the reason for
+the next section.
+
+## Why informational, not gating
+
+Folding `assessNoviceEligibility`'s result into `SignalGates.eligibleUniverse`
+would have been a two-line change, and was considered and explicitly turned
+down (direct request, 2026-08-29). `evaluateDisqualifiers` treats
+`!gates.eligibleUniverse` as a hard block on Trend Pullback/Breakout/
+Confirmed Reversal, so wiring it in would have narrowed which symbols can
+ever get a tradeable verdict from those three states down to the same few
+dozen names the coverage table above describes — a large, silent behavior
+change to the live scanner and Guided Mode's candidate pool, not something
+that belongs in a "wire the new engine in" change without being called out
+and decided on its own. `ScanResult.noviceUniverse` is real and live either
+way; only its authority over the existing verdict was held back. Revisit
+once a real market-cap/earnings feed closes the coverage gap above — at that
+point the gating change is a data question, not a product-risk one.
+
+## What's still not wired
+
 - **No real bid/ask spread feed exists.** `spread.ts` accepts one when a
   caller has it and otherwise falls back to the liquidity read, the same
   documented proxy `scanGates.ts` already uses for `liquiditySpreadPass`.

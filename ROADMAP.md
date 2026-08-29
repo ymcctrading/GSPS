@@ -222,13 +222,22 @@ both signal discovery and execution.
   restriction/allocation checks, and account-data-provenance labeling). See
   `docs/MARKET_UNIVERSE_DATA_QUALITY.md` for what composes with the
   existing Signal and Regime Engine and Guided eligibility rather than
-  duplicating them, the spec's market-expansion policy (no exporting these
-  thresholds to options/futures/forex/crypto/commodities without each
-  asset class's own engine), and exactly what is deliberately **not** wired
-  in yet — the live scan pipeline (`lib/signals/scanGates.ts`) still reads
-  only the platform liquidity floor, since folding a market-cap/fundamentals
-  read into the scan hot path is a data-pipeline change left for a
-  follow-up, not a logic change made here.
+  duplicating them, and the spec's market-expansion policy (no exporting
+  these thresholds to options/futures/forex/crypto/commodities without each
+  asset class's own engine). *(Same day, follow-up: wired into the live
+  scan pipeline — every `lib/scanTicker.ts` call now computes
+  `novice_eligible` from real, already-in-hand scan data (large-cap-list
+  market-cap coverage, liquidity, price, volatility, and an earnings
+  calendar) and publishes it on `ScanResult.noviceUniverse`, with no new
+  provider fetch. By direct decision it is informational only: it does
+  **not** gate `SignalGates.eligibleUniverse`/`liquiditySpreadPass`, because
+  today's earnings-calendar coverage (~40 mega-caps) and large-cap-list
+  coverage (top 500 of 893 by rank) would otherwise silently collapse which
+  symbols the Signal and Regime Engine's Trend Pullback/Breakout/Confirmed
+  Reversal states can ever call tradeable down to a few dozen names — a
+  scanner-wide behavior change, not a wiring change. See
+  `docs/MARKET_UNIVERSE_DATA_QUALITY.md`'s "Why informational, not gating"
+  for the reasoning and what closing the coverage gap would take.)*
 - **Referral program (minimal)** *(2026-08-19, out-of-phase)* — a per-user
   referral link (`/r/<username>`), click counter, and signup attribution,
   surfaced in Settings. Not named in this roadmap's Q1 initiatives — it was
