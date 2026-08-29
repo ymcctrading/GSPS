@@ -58,7 +58,21 @@ pulled from the roadmap.
   Gann/STRAT engine, just not yet applied to this one. `score`/`tier`/
   `tradeable`/`plan` still cross the boundary; the breakdown and threshold
   text now don't.
-- **Not yet wired**: notification/alert fan-out and the scanner list UI.
+- **Notification/alert fan-out** (`lib/entitlements/scan-fanout.ts`'s
+  `buildAlertPayload`, `lib/entitlements/delivery.ts`'s
+  `EntitledAlertPayload`, `lib/notifications/resend-handler.ts`'s
+  `AlertEmailData`) — a confirmed WATCH → EXECUTE alert email now carries
+  the Signal and Regime Engine's rollup (via the already-safe
+  `toPublicSignalSummary`) as an extra, clearly-labeled section. It is
+  purely informational: the WATCH → EXECUTE transition that decides whether
+  an alert fires at all is still computed from the Gann/STRAT
+  `decision.outputState` alone, unchanged by this. No new monitor state
+  machine or table — `active_monitors` has a partial unique index on
+  `(profile_id, symbol)` for an open state, so a second, independently-keyed
+  monitor for the same symbol would collide with the existing one rather
+  than living alongside it; a genuinely separate SRE alerting pipeline would
+  need its own table and is a larger piece of work than this pass.
+- **Not yet wired**: the scanner list UI.
 
 ## What's implemented
 
