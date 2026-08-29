@@ -18,6 +18,7 @@ import { z } from "zod";
 import {
   assetClassOf,
   executeFill,
+  getOpenPosition,
   isTriggered,
   logPlainClose,
   quoteOptionPrice,
@@ -26,7 +27,7 @@ import {
 import { checkBracket } from "@/lib/trade/bracket";
 import { planProtocolExit } from "@/lib/trade/protocol-exit";
 import { validateLimitPrice, type RoundingMode } from "@/lib/trade/tick-size";
-import { killSwitchRefusal } from "@/lib/trade/kill-switch";
+import { isProtectiveOrder, killSwitchRefusal } from "@/lib/trade/kill-switch";
 import { recordOrderExecution, type RecordExecutionOptions } from "@/lib/learning/record";
 import { readLiveAccountValue } from "@/lib/risk/live-account";
 import { evaluateLiveCircuitBreaker } from "@/lib/risk/service";
@@ -100,7 +101,16 @@ export async function placeSimulatedOrder(
   // The simulator fills synchronously, so there is no "accepted but not yet
   // executed" state to unwind — a halt has to happen ahead of the fill, not
   // around it.
-  const halted = killSwitchRefusal();
+  //
+  // The kill switch only ever stands between a user and a *new* position. A
+  // sell that reduces or closes an existing long, or a buy that covers an
+  // existing short, is a protective action, so the halt is skipped precisely
+  // when this order moves the position toward flat, not away from it. Every
+  // order here is paper, so nothing requires this yet — it's ahead of live
+  // trading, on the reasoning that will apply once real capital is at risk.
+  const existingPosition = await getOpenPosition(supabase, userId, input.symbol);
+  const isProtective = isProtectiveOrder(existingPosition?.side ?? null, input.side);
+  const halted = isProtective ? null : killSwitchRefusal();
   if (halted) return { status: 503, body: { ...halted } };
 
   if (input.mode === "live") {
