@@ -23,7 +23,7 @@ export function SignalCard({ result }: { result: ScanResult }) {
         </div>
         {pattern ? (
           <CardDescription>
-            <GlossaryTerm term={PATTERN_GLOSSARY_TERM[pattern.name]} label={pattern.name} />{" "}
+            <GlossaryTerm term={PATTERN_GLOSSARY_TERM[pattern.name]} label={PATTERN_GLOSSARY_TERM[pattern.name]} />{" "}
             <span className={pattern.direction === "bullish" ? "text-bull" : "text-bear"}>
               {tradeSideLabel(pattern.direction)}
             </span>{" "}
@@ -40,7 +40,7 @@ export function SignalCard({ result }: { result: ScanResult }) {
             <span className="text-muted">Also armed:</span>
             {others.map((p, i) => (
               <Badge key={`${p.name}-${p.direction}-${i}`} variant="muted">
-                {p.name}{" "}
+                {PATTERN_GLOSSARY_TERM[p.name]}{" "}
                 <span className={p.direction === "bullish" ? "text-bull" : "text-bear"}>
                   {tradeSideLabel(p.direction)}
                 </span>

@@ -52,6 +52,7 @@ import { classifyRegime } from "@/lib/signals/regime";
 import { evaluateTrendPullback } from "@/lib/signals/states/trendPullback";
 import { evaluateTrendBreakout } from "@/lib/signals/states/trendBreakout";
 import { evaluateConfirmedReversal } from "@/lib/signals/states/confirmedReversal";
+import { evaluateRangeReversion } from "@/lib/signals/states/rangeReversion";
 import { buildScanMarketGates } from "@/lib/signals/scanGates";
 import type { SignalVerdict } from "@/lib/signals/types";
 import { buildScanNoviceEligibility } from "@/lib/universe/scanGates";
@@ -355,6 +356,18 @@ export async function scanTicker(
             accountContextAssumed: true,
           })
         : null;
+    // Range Reversion likewise reads its own boundaries/rejection from
+    // price action rather than the regime label.
+    const rangeReversion: SignalVerdict | null =
+      closedM15.length >= 26
+        ? evaluateRangeReversion({
+            direction: scoreDirection,
+            htfBars: daily,
+            executionBars: closedM15,
+            gates: marketGates,
+            accountContextAssumed: true,
+          })
+        : null;
 
     return {
       symbol: symbol.toUpperCase(),
@@ -378,7 +391,7 @@ export async function scanTicker(
       // fetch — see lib/scan/liquidity.ts.
       liquidity,
       optionPremium,
-      signals: { regime, trendPullback, trendBreakout, confirmedReversal },
+      signals: { regime, trendPullback, trendBreakout, confirmedReversal, rangeReversion },
       noviceUniverse,
     };
   } catch (err) {

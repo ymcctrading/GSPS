@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { computeRulesAlignmentScore } from "../scoring";
 import { evaluateDisqualifiers } from "../disqualifiers";
-import { evaluateRangeReversion } from "../states/scaffold";
 import type { RulesAlignmentBreakdownItem, SignalGates } from "../types";
 
 describe("computeRulesAlignmentScore", () => {
@@ -51,11 +50,5 @@ describe("evaluateDisqualifiers", () => {
   it("blocks on unknown binary-event status rather than assuming it's clear", () => {
     const dqs = evaluateDisqualifiers({ ...BASE_GATES, binaryEventInHoldPeriod: null });
     expect(dqs.some((d) => d.key === "binaryEvent")).toBe(true);
-  });
-});
-
-describe("scaffolded states", () => {
-  it("report notImplemented rather than fabricating undocumented rules", () => {
-    expect(evaluateRangeReversion().status).toBe("notImplemented");
   });
 });

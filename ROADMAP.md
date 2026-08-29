@@ -37,8 +37,11 @@ both signal discovery and execution.
 - **Trading infrastructure (production)** — Per-user simulated paper trading
   (`lib/brokers/simulator.ts`; fills against live quotes, own cash ledger),
   staged protocol exits, portfolio tracking with position grouping, option
-  Greeks, price-increment validation. Live trading is **not** enabled: it needs
-  per-user brokerage credentials, which is unscheduled work.
+  Greeks, price-increment validation, a versioned trade-plan lifecycle
+  state machine with audit trail and post-close structured review
+  (`lib/lifecycle/`, formalizing what `lib/trade/protocol-exit.ts` already
+  executes). Live trading is **not** enabled: it needs per-user brokerage
+  credentials, which is unscheduled work.
 - **Data pipeline (mature)** — Multi-provider architecture (Alpaca, Binance,
   Oanda, Twelve Data, Polygon), intraday momentum scanner, daily market scans,
   per-symbol audit trail for non-alerts, explained alerts with invalidation

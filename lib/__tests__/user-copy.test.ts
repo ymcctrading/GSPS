@@ -33,7 +33,9 @@ const BANNED = [
   /\bsniper\b/i,
   /\bharmonic\b/i,
   /\bpivot machine gun\b/i,
+  /\bpmg\b/i,
   /\b2-(up|down) bar\b/i,
+  /\b\d-\d(-\d)?\b/, // "2-2", "1-2-2", "3-1-2", etc. — the proprietary pattern codes themselves.
 ];
 
 function expectPlainLanguage(strings: string[]) {
