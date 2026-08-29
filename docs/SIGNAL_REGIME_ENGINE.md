@@ -37,11 +37,28 @@ pulled from the roadmap.
   that tallies how often each regime/tier came up, for evidence-gathering
   ahead of any accuracy claim. Deliberately does not simulate trade outcomes
   (see that file's header for why).
-- **Not yet wired**: chart overlay UI, notification/alert fan-out, and the
-  scanner list UI. `lib/chart/signal-overlay.ts`'s `SignalOverlay` type is
-  built around the existing engine's 0–9 score and shouldn't have this
-  engine's 0–100 score force-fit into it; a proper UI surface for this
-  engine's own verdict is follow-up work, not done here.
+- **Chart/ticker UI** (`components/scan/signal-regime-card.tsx`, wired into
+  `components/scan/ticker-view.tsx`) — a card of its own, separate from
+  `SignalCard`'s Gann/STRAT verdict, showing the regime and each of the
+  four states' tier/tradeable/plan. Deliberately its own component rather
+  than reusing `lib/chart/signal-overlay.ts`'s `SignalOverlay` type, which
+  is built around the existing engine's 0–9 score — force-fitting this
+  engine's 0–100 score into it would misrepresent both. The strongest
+  tradeable state's plan also draws `SRE Entry`/`SRE Stop`/`SRE Target`
+  price markers on the chart itself, alongside (not replacing) the
+  Gann/STRAT plan's own markers.
+- **API redaction** (`lib/signals/publicSummary.ts`'s `redactScanSignals`,
+  called from `lib/scoring/public-summary.ts`'s `redactScanResult`) — fixed
+  as part of wiring the UI: `/api/scan` was serializing every verdict's full
+  `alignment.breakdown` (per-criterion notes with computed values, e.g.
+  "Relative volume 1.32x confirms...") and each `RegimeRead`'s `reasons`/
+  `disqualifiers` (which name specific internal thresholds, e.g. "ADX >=
+  20") straight into the network response — the exact leak
+  `lib/scoring/public-summary.ts` already exists to prevent for the
+  Gann/STRAT engine, just not yet applied to this one. `score`/`tier`/
+  `tradeable`/`plan` still cross the boundary; the breakdown and threshold
+  text now don't.
+- **Not yet wired**: notification/alert fan-out and the scanner list UI.
 
 ## What's implemented
 
