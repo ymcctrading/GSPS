@@ -33,6 +33,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
+import { DEFAULT_PRO_INTRADAY_POLICY } from "@/lib/promotion/config";
+import { isConfirmedIntradayEntry, remainingSetupsDisplayable } from "@/lib/promotion/pro-intraday";
 import { getMarketDataProvider } from "@/lib/data/provider";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { atr } from "@/lib/analysis/pivots";
@@ -105,6 +107,7 @@ export async function GET(req: NextRequest) {
 
   const supabase = systemScan ? createServiceClient() : await createClient();
   let userId: string | null = null;
+  let proBounded = false;
   if (!systemScan) {
     const {
       data: { user },
@@ -117,14 +120,18 @@ export async function GET(req: NextRequest) {
     // Phase 3F: intraday scans are Expert+ (INVESTOR_MODE/SYSTEM_MASTERY)
     // per docs/GSPS_TIER_ENTITLEMENT_SPEC.md. This route had no tier gate at all
     // before this -- confirmed as an intentional restriction of previously
-    // open access, not left unenforced by oversight.
+    // open access, not left unenforced by oversight. Pro (STANDARD) was added
+    // 2026-08-29 (see docs/GSPS_TIER_ENTITLEMENT_SPEC.md's correction note and
+    // ROADMAP.md) as a distinct, separately bounded module rather than a
+    // widening of full intraday access -- see the `proBounded` filtering below.
     const policy = await getUserEntitlementPolicy(supabase as Supabase, userId);
-    if (!policy.intradayScansEnabled) {
+    if (!policy.intradayScansEnabled && !policy.proIntradayModuleEnabled) {
       return NextResponse.json(
-        { error: "Intraday scans are available on the Expert plan and above." },
+        { error: "Intraday scans are available on the Pro plan and above." },
         { status: 403 },
       );
     }
+    proBounded = !policy.intradayScansEnabled && policy.proIntradayModuleEnabled;
   }
 
   const params = new URL(req.url).searchParams;
@@ -164,7 +171,27 @@ export async function GET(req: NextRequest) {
     .filter((u) => !resolved.some((r) => r.symbol === u.symbol))
     .map((u) => u.symbol);
 
-  const output = scanIntraday(resolved, config, now);
+  let output = scanIntraday(resolved, config, now);
+
+  // Pro's bounded module (docs/GSPS_TIER_ENTITLEMENT_SPEC.md correction,
+  // 2026-08-29): a separately defined, more conservative slice of the same
+  // engine Expert+ uses unrestricted, not a shortened swing timeframe.
+  // Confirmation is restricted to the module's allowed closed-bar lengths
+  // (5/15/30 minutes) -- today that means only the scanner's 5-minute-bar
+  // alerts qualify, since it has no native 15/30-minute path yet, which is a
+  // real (if currently narrow) restriction rather than a fabricated one --
+  // and the count still displayable today is capped against what this user
+  // has already been shown, read from their own `intraday_alerts` history
+  // rather than a new counter.
+  if (proBounded) {
+    const intervalBySymbol = new Map(resolved.map((i) => [i.symbol, i.barIntervalMinutes]));
+    const confirmed = output.alerts.filter((alert) =>
+      isConfirmedIntradayEntry(intervalBySymbol.get(alert.symbol) ?? 1, true, DEFAULT_PRO_INTRADAY_POLICY),
+    );
+    const shownToday = await countProIntradaySetupsShownToday(supabase as Supabase, userId!, now);
+    const remaining = remainingSetupsDisplayable({ setupsDisplayedToday: shownToday }, DEFAULT_PRO_INTRADAY_POLICY);
+    output = { ...output, alerts: confirmed.slice(0, remaining) };
+  }
 
   // Persisting the alerts is what makes the cooldown survive across runs, but
   // it is not what the caller asked for. A write failure must not discard a
@@ -314,6 +341,31 @@ async function loadPriorAlerts(
     else bySymbol.set(row.symbol, [prior]);
   }
   return bySymbol;
+}
+
+/**
+ * Distinct symbols already shown to this user today, for the Pro-bounded
+ * module's setups-displayed ceiling. Reads the existing `intraday_alerts`
+ * persistence rather than a new counter -- a read failure counts as zero
+ * shown so far, which under-restricts rather than blocking a user's scan on
+ * a bookkeeping hiccup.
+ */
+async function countProIntradaySetupsShownToday(supabase: Supabase, userId: string, now: Date): Promise<number> {
+  const todayEt = etDateKey(now);
+  // Wide enough UTC window to contain every instant that could map to today's
+  // ET date (ET is always UTC-4 or UTC-5); the exact ET-day match happens per
+  // row below, so this bound only needs to avoid excluding a real row.
+  const since = new Date(now.getTime() - 30 * 3600_000).toISOString();
+  const { data, error } = await supabase
+    .from("intraday_alerts")
+    .select("symbol, poll_cycle_timestamp")
+    .eq("user_id", userId)
+    .gte("poll_cycle_timestamp", since);
+  if (error || !data) return 0;
+  const today = new Set(
+    data.filter((r) => etDateKey(new Date(r.poll_cycle_timestamp)) === todayEt).map((r) => r.symbol),
+  );
+  return today.size;
 }
 
 /**

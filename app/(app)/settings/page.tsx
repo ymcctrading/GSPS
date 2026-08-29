@@ -21,6 +21,7 @@ import { AccountSettings } from "@/components/settings/account-settings";
 import { NotificationSettings } from "@/components/settings/notification-settings";
 import { BillingSettings } from "@/components/settings/billing-settings";
 import { ReferralSettings } from "@/components/settings/referral-settings";
+import { PromotionSettings } from "@/components/settings/promotion-settings";
 import { StartTourButton } from "@/components/onboarding/tour-provider";
 import Link from "next/link";
 import { Link2, Landmark, Compass } from "lucide-react";
@@ -81,6 +82,8 @@ export default function SettingsPage() {
       </Card>
 
       <AccountSettings />
+
+      <PromotionSettings />
 
       <ReferralSettings />
 

@@ -12,6 +12,12 @@ import { tickerHref } from "@/lib/routes";
 import { ArrowRight, Compass } from "lucide-react";
 import { tradeSideWord } from "@/lib/scoring/direction-copy";
 import { formatOpenedAt } from "@/lib/portfolio/opened-at";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { getUserTier } from "@/lib/tiers";
+import { getMarketRegimeSummary } from "@/lib/promotion/market-regime";
+import { getNoviceHomeSummary } from "@/lib/promotion/novice-home";
+import { NoviceHomeSummary } from "@/components/dashboard/novice-home-summary";
+import type { ScanRow } from "@/components/scan/results-table";
 
 export const metadata = { title: "Dashboard — GSPS" };
 export const dynamic = "force-dynamic";
@@ -21,6 +27,8 @@ const PREVIEW = 3;
 export default async function DashboardPage() {
   const { scanDate, freshness, pricedBeforeSession, scannedAt, bullish, bearish } =
     await getDailyScans();
+
+  const noviceSummary = await getNoviceSummaryIfApplicable(bullish, bearish);
 
   return (
     <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
@@ -35,6 +43,10 @@ export default async function DashboardPage() {
         </div>
         <AutoScan scanDate={scanDate} />
       </div>
+
+      {noviceSummary && (
+        <NoviceHomeSummary regime={noviceSummary.regime} bestPlan={noviceSummary.bestPlan} home={noviceSummary.home} />
+      )}
 
       {/*
         A quiet, permanent way back to the walkthrough. It sits on the Dashboard
@@ -99,6 +111,30 @@ export default async function DashboardPage() {
       </div>
     </div>
   );
+}
+
+/**
+ * Only Novice (PRACTICE tier) accounts get the summary card — everyone else
+ * already has the full dashboard below, and the spec pack's "Novice user
+ * experience" section is explicitly about a simplified first view for new
+ * accounts, not a redesign of the whole page.
+ */
+async function getNoviceSummaryIfApplicable(bullish: ScanRow[], bearish: ScanRow[]) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const service = createServiceClient();
+  const tier = await getUserTier(service, user.id);
+  if (tier !== "PRACTICE") return null;
+
+  const [regime, home] = await Promise.all([getMarketRegimeSummary(), getNoviceHomeSummary(service, user.id)]);
+
+  const bestPlan = [...bullish, ...bearish].sort((a, b) => b.score - a.score)[0] ?? null;
+
+  return { regime, home, bestPlan };
 }
 
 function ReversionPreview({
