@@ -274,18 +274,30 @@ both signal discovery and execution.
       confirmation — a genuinely separate module from
       `lib/scanner/intraday.ts`, not a shortened Novice swing timeframe,
       matching the spec pack's explicit instruction.
-    - **Still not done, and deliberately not done here:** this logic is not
-      wired to a route or exposed to Pro accounts. `intradayScansEnabled`
-      remains `false` for `STANDARD` — flipping any intraday access on for
-      Pro reverses `app/api/intraday-scan/route.ts`'s explicit, previously
-      confirmed Phase 3F decision ("intraday scans are Expert+ ... confirmed
-      as an intentional restriction of previously open access, not left
-      unenforced by oversight") and `docs/GSPS_TIER_ENTITLEMENT_SPEC.md`'s
-      published entitlement table. That reversal is a product decision, not
-      an implementation detail this pack's arrival settles by itself — it
-      needs an explicit go-ahead (and, per that doc's own precedent for the
-      automation-gate correction, a matching correction note there) before
-      any route change exposes it.
+    - **Wired (2026-08-29, same day, by direct request):** confirmed with the
+      user before reversing Phase 3F, then shipped. `lib/entitlements/policy.ts`
+      gained `proIntradayModuleEnabled`, `true` only for `STANDARD` and
+      deliberately not the same flag as `intradayScansEnabled` (which stays
+      `false` for Pro, preserving Expert+'s original unrestricted-access
+      decision). `app/api/intraday-scan/route.ts` now admits a Pro-bounded
+      caller and applies the module's scan-side bounds: entry confirmation
+      restricted to the module's allowed closed-bar lengths (5/15/30 minutes
+      — in practice today only the scanner's 5-minute-bar alerts qualify,
+      since it has no native 15/30-minute path), and a setups-displayed
+      ceiling read from the user's own `intraday_alerts` history (no new
+      table). `docs/GSPS_TIER_ENTITLEMENT_SPEC.md` got a matching correction
+      note, same precedent as the automation-gate correction.
+    - **Still not wired, on purpose:** the entry/day, concurrent-position,
+      consecutive-loss-pause, and daily-loss-lock gates in
+      `lib/promotion/pro-intraday.ts` have no live caller. Enforcing them
+      needs an order to be identifiable as "intraday-sourced" at
+      placement time, and nothing in this codebase tags an order that way
+      today — for any tier, not just Pro. Building that (a schema column, a
+      UI touchpoint from the intraday-alerts panel through the order
+      ticket, and a gate in `lib/trade/place-order.ts`, the shared path
+      every order in the app goes through) is a distinct, larger change
+      than extending the already-tested module, and wasn't rushed into the
+      universal order-placement path without being called out on its own.
 - **Referral program (minimal)** *(2026-08-19, out-of-phase)* — a per-user
   referral link (`/r/<username>`), click counter, and signup attribution,
   surfaced in Settings. Not named in this roadmap's Q1 initiatives — it was

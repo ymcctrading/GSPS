@@ -17,12 +17,19 @@
  * smaller slice of the existing full-intraday product. This module is that
  * separate definition.
  *
- * Not yet wired to a route or entitlement flag — see ROADMAP.md. Doing so
- * means adding a capability distinct from `intradayScansEnabled` (which
- * stays `false` for Pro/STANDARD, preserving the existing, deliberately
- * confirmed Phase 3F restriction in `docs/GSPS_TIER_ENTITLEMENT_SPEC.md`
- * that only Expert+ gets full intraday scanning) rather than widening that
- * flag, and is a product decision this PR does not make unilaterally.
+ * Wired into `app/api/intraday-scan/route.ts` (2026-08-29) via the
+ * `proIntradayModuleEnabled` entitlement flag (`lib/entitlements/policy.ts`),
+ * a capability distinct from `intradayScansEnabled` — which stays `false`
+ * for Pro/STANDARD, preserving the existing, deliberately confirmed Phase 3F
+ * restriction in `docs/GSPS_TIER_ENTITLEMENT_SPEC.md` that only Expert+ gets
+ * full, unrestricted intraday scanning. See that doc's 2026-08-29 correction
+ * note and ROADMAP.md for the product decision behind widening Pro this far
+ * and no further: entries/day, concurrent-position, consecutive-loss, and
+ * daily-loss gating live here (pure) but are not yet called from an
+ * order-placement path — nothing in this codebase tags an order as
+ * "intraday-sourced" today, for any tier, so those four gates currently have
+ * no live caller. The route wires only what it can enforce on the scan side:
+ * setups-displayed and entry-confirmation.
  */
 
 import { DEFAULT_PRO_INTRADAY_POLICY, type ProIntradayPolicy } from "@/lib/promotion/config";
