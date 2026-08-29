@@ -2,6 +2,8 @@ import Link from "next/link";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { ScoreBadge } from "@/components/scan/score-badge";
+import { SCANNER_STATE_META, type RulesAlignmentTier } from "@/lib/signals/types";
+import type { PublicSignalSummary } from "@/lib/signals/publicSummary";
 import { formatUsd } from "@/lib/utils";
 import { tickerHref } from "@/lib/routes";
 
@@ -16,7 +18,22 @@ export interface ScanRow {
   masterProfit: number | null;
   patternName?: string | null;
   setupKind?: "reversion" | "continuation";
+  /**
+   * The Signal and Regime Engine's own rollup — a separate read from
+   * `score`/`outputState` above, never merged into them. `undefined` for
+   * rows built from a persisted `daily_scans` row (that table doesn't carry
+   * this engine's verdict yet); `null` when a live scan ran it and no state
+   * qualified.
+   */
+  signal?: PublicSignalSummary | null;
 }
+
+const TIER_LABEL: Record<RulesAlignmentTier, string> = {
+  watchlistOnly: "Watchlist",
+  qualified: "Qualified",
+  aTier: "A-tier",
+  aPlusTier: "A+",
+};
 
 export function ResultsTable({ rows, emptyText }: { rows: ScanRow[]; emptyText?: string }) {
   if (rows.length === 0) {
@@ -36,6 +53,7 @@ export function ResultsTable({ rows, emptyText }: { rows: ScanRow[]; emptyText?:
           <TH className="text-right">Stop</TH>
           <TH className="text-right">TP1</TH>
           <TH className="text-right">Master</TH>
+          <TH>Signal Engine</TH>
         </TR>
       </THead>
       <TBody>
@@ -76,6 +94,18 @@ export function ResultsTable({ rows, emptyText }: { rows: ScanRow[]; emptyText?:
             <TD className="text-right font-mono text-bear">{r.stopLoss != null ? formatUsd(r.stopLoss) : "—"}</TD>
             <TD className="text-right font-mono text-bull">{r.takeProfit1 != null ? formatUsd(r.takeProfit1) : "—"}</TD>
             <TD className="text-right font-mono">{r.masterProfit != null ? formatUsd(r.masterProfit) : "—"}</TD>
+            <TD>
+              {r.signal ? (
+                <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                  <Badge variant={r.signal.tradeable ? "bull" : "muted"}>
+                    {TIER_LABEL[r.signal.tier]}
+                  </Badge>
+                  <span className="text-xs text-muted">{SCANNER_STATE_META[r.signal.state].label}</span>
+                </span>
+              ) : (
+                <span className="text-xs text-muted">—</span>
+              )}
+            </TD>
           </TR>
         ))}
       </TBody>
