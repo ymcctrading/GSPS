@@ -320,17 +320,33 @@ both signal discovery and execution.
       ceiling read from the user's own `intraday_alerts` history (no new
       table). `docs/GSPS_TIER_ENTITLEMENT_SPEC.md` got a matching correction
       note, same precedent as the automation-gate correction.
-    - **Still not wired, on purpose:** the entry/day, concurrent-position,
-      consecutive-loss-pause, and daily-loss-lock gates in
-      `lib/promotion/pro-intraday.ts` have no live caller. Enforcing them
-      needs an order to be identifiable as "intraday-sourced" at
-      placement time, and nothing in this codebase tags an order that way
-      today — for any tier, not just Pro. Building that (a schema column, a
-      UI touchpoint from the intraday-alerts panel through the order
-      ticket, and a gate in `lib/trade/place-order.ts`, the shared path
-      every order in the app goes through) is a distinct, larger change
-      than extending the already-tested module, and wasn't rushed into the
-      universal order-placement path without being called out on its own.
+    - **Wired (2026-08-29, follow-up, direct request):** the entry/day,
+      concurrent-position, consecutive-loss-pause, and daily-loss-lock gates
+      in `lib/promotion/pro-intraday.ts`'s `canEnterNewIntradayPosition` now
+      have a live caller. Building that needed the piece flagged above as
+      missing: a way to identify an order as "intraday-sourced" at
+      placement time. `orders.intraday_sourced`
+      (`supabase/migrations/0047_intraday_sourced_orders.sql`) is set only by
+      a new "Trade this" action on the intraday alerts panel
+      (`intradayTradeHref` in `lib/routes.ts`) — a manual ticket opened any
+      other way is never tagged. `lib/promotion/intraday-gate-usage.ts` loads
+      real `ProIntradayUsage` (today's entries, open positions, consecutive
+      losses, today's realized-loss percent) from `orders`/`trade_logs`,
+      scoped to the America/New_York trading day; a manual estimate (cash +
+      cost basis of open positions, not a live mark) stands in for equity.
+      `lib/trade/place-order.ts` calls the gate ahead of pricing, same as the
+      kill switch and live circuit breaker, and — matching `lib/risk/cooldown.ts`
+      — only ever blocks the entry, never a stop/target/reduce/close/cancel.
+      Deliberately scoped to `STANDARD` (Pro) only, via
+      `proIntradayModuleEnabled`: Expert/Wall Street's intraday access is
+      unrestricted by design (this same entry, above), so gating their
+      intraday-sourced orders through Pro's bounded module would silently
+      narrow a tier that was explicitly decided to stay unbounded. The UI
+      touchpoint (`components/scan/ticker-view.tsx` reads `?intraday=1&side=`,
+      passed into `components/trade/order-ticket.tsx`) is available to every
+      tier that can see the intraday alerts panel; only a Pro account's
+      intraday-sourced order is actually gated by it — an Expert/Wall Street
+      order carrying the same tag places exactly as it would untagged.
 - **Referral program (minimal)** *(2026-08-19, out-of-phase)* — a per-user
   referral link (`/r/<username>`), click counter, and signup attribution,
   surfaced in Settings. Not named in this roadmap's Q1 initiatives — it was

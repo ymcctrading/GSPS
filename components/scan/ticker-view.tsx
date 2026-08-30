@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CandleChart, type PriceMarker } from "@/components/chart/candles";
 import { MarketTabs } from "@/components/chart/market-tabs";
@@ -50,6 +51,15 @@ export function TickerView({ symbol }: { symbol: string }) {
   // Bumping this re-runs the scan without remounting the page.
   const [reloadKey, setReloadKey] = useState(0);
   const quote = useLiveQuote(symbol);
+
+  // Set only by the intraday alerts panel's "Trade this" link (see
+  // components/scan/intraday-alerts.tsx and lib/routes.ts's tickerHref),
+  // never by a manual visit to this page — that's what makes the flag
+  // trustworthy enough to gate an order on.
+  const searchParams = useSearchParams();
+  const intradaySourced = searchParams.get("intraday") === "1";
+  const sideParam = searchParams.get("side");
+  const forceSide = sideParam === "buy" || sideParam === "sell" ? sideParam : undefined;
 
   /**
    * The scan is stored together with the request it answers, and read back
@@ -239,7 +249,14 @@ export function TickerView({ symbol }: { symbol: string }) {
               </CardContent>
             </Card>
           )}
-          {result && <OrderTicket result={result} livePrice={livePrice} />}
+          {result && (
+            <OrderTicket
+              result={result}
+              livePrice={livePrice}
+              intradaySourced={intradaySourced}
+              forceSide={forceSide}
+            />
+          )}
         </div>
       </div>
 

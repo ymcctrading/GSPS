@@ -42,15 +42,26 @@ interface OptionChain {
 export function OrderTicket({
   result,
   livePrice,
+  intradaySourced = false,
+  forceSide,
 }: {
   result: ScanResult;
   livePrice?: number | null;
+  /**
+   * True when this ticket was opened from the intraday alerts panel's
+   * "Trade this" action rather than a signal card or manual entry. Tags the
+   * submitted order so lib/trade/place-order.ts applies the intraday
+   * tier-promotion gates (lib/promotion/pro-intraday.ts) to it.
+   */
+  intradaySourced?: boolean;
+  /** Preselects the side from the alert's direction; the user can still change it. */
+  forceSide?: Side;
 }) {
   const { levels, pattern, symbol } = result;
   const currentPrice = livePrice ?? (result.currentPrice > 0 ? result.currentPrice : null);
 
   const hasProtocolSignal = !!(levels && pattern);
-  const signalSide: Side = pattern?.direction === "bearish" ? "sell" : "buy";
+  const signalSide: Side = forceSide ?? (pattern?.direction === "bearish" ? "sell" : "buy");
 
   const [assetType, setAssetType] = useState<AssetType>("shares");
   const [side, setSide] = useState<Side>(signalSide);
@@ -281,6 +292,7 @@ export function OrderTicket({
               qty: Number(qty),
               entryMode: "now" as const,
               mode: "paper" as const,
+              intradaySourced,
             }
           : {
               symbol,
@@ -308,6 +320,7 @@ export function OrderTicket({
                   : undefined,
               mode: "paper" as const,
               executionMode,
+              intradaySourced,
             };
 
       const res = await fetch("/api/orders", {
@@ -362,6 +375,12 @@ export function OrderTicket({
     <Card>
       <CardHeader>
         <CardTitle>Order ticket · paper</CardTitle>
+        {intradaySourced && (
+          <p className="text-xs font-medium text-warn">
+            Intraday-sourced — subject to the intraday entry/day, concurrent-position,
+            consecutive-loss, and daily-loss-lock gates.
+          </p>
+        )}
         <CardDescription>
           {useProtocolLevels
             ? assetType === "options"

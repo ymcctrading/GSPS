@@ -24,6 +24,25 @@ date.
 
 ## 2026-08-29
 
+### Added
+- **Wired the Pro intraday module's entry gates to a live caller.**
+  `lib/promotion/pro-intraday.ts`'s `canEnterNewIntradayPosition`
+  (entry/day, concurrent-position, consecutive-loss, daily-loss-lock) has
+  existed since the Novice-to-Pro tier promotion work with nothing calling
+  it — no order was identifiable as "intraday-sourced." Orders are now
+  tagged `orders.intraday_sourced` (migration
+  `0047_intraday_sourced_orders.sql`) only when opened via a new "Trade
+  this" action on the intraday alerts panel; a manual ticket opened any
+  other way is never tagged. `lib/promotion/intraday-gate-usage.ts` loads
+  real usage from `orders`/`trade_logs`, and `lib/trade/place-order.ts`
+  evaluates the gate ahead of pricing — scoped to `STANDARD` (Pro) only via
+  `proIntradayModuleEnabled`, since Expert/Wall Street's intraday access is
+  unrestricted by design and was never meant to be narrowed by this. Like
+  the Novice circuit breaker's cooldown gate, it never blocks a stop,
+  target, reduce, close, or cancel — only the entry. See `ROADMAP.md`'s
+  Novice-to-Pro tier promotion entry for the full writeup and known
+  approximations.
+
 ### Fixed
 - **The glossary, pattern badges and generated scoring copy still rendered the
   proprietary Gann/Sara Sniper Strat pattern codes** (`2-2`, `1-2-2`, `3-2-2`,

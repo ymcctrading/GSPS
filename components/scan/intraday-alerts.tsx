@@ -20,7 +20,7 @@ import {
   type SymbolAudit,
 } from "@/lib/scanner/intraday";
 import { formatUsd, cn } from "@/lib/utils";
-import { tickerHref } from "@/lib/routes";
+import { tickerHref, intradayTradeHref } from "@/lib/routes";
 
 /**
  * Intraday momentum panel.
@@ -224,14 +224,25 @@ function AlertCard({ alert }: { alert: Alert }) {
 
       <p className="mt-3 text-sm">{alert.whyThisAppeared}</p>
 
-      <button
-        type="button"
-        onClick={() => setShowDetail((v) => !v)}
-        aria-expanded={showDetail}
-        className="mt-2 min-h-9 cursor-pointer text-xs font-medium text-accent underline underline-offset-2"
-      >
-        {showDetail ? "Hide the plan and the score breakdown" : "Show the plan and the score breakdown"}
-      </button>
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+        <button
+          type="button"
+          onClick={() => setShowDetail((v) => !v)}
+          aria-expanded={showDetail}
+          className="min-h-9 cursor-pointer text-xs font-medium text-accent underline underline-offset-2"
+        >
+          {showDetail ? "Hide the plan and the score breakdown" : "Show the plan and the score breakdown"}
+        </button>
+
+        {!isRisk && (
+          <Link
+            href={intradayTradeHref(alert.symbol, up ? "buy" : "sell")}
+            className="min-h-9 cursor-pointer text-xs font-medium text-accent underline underline-offset-2"
+          >
+            Trade this →
+          </Link>
+        )}
+      </div>
 
       {showDetail && (
         <div className="mt-3 flex flex-col gap-3 border-t border-border pt-3">

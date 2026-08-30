@@ -207,6 +207,9 @@ export async function POST(req: NextRequest) {
     entryMode: "advised",
     limitPrice: agreed.entry,
     referencePrice: fresh.currentPrice,
+    // Guided Decision Mode, never the intraday alerts panel — this is not
+    // subject to the intraday-promotion gates.
+    intradaySourced: false,
     attachLevels: {
       stopLoss: agreed.stopLoss,
       takeProfit: agreed.takeProfit1,
