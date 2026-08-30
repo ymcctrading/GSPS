@@ -211,6 +211,36 @@ both signal discovery and execution.
   No live account is actually gated today because no live order can be
   placed at all yet, but the gate is real, tested, and will take effect the
   moment live execution replaces that placeholder refusal.)*
+- **Market Universe, Data Quality & Account Constraints engine** *(2026-08-29,
+  out-of-phase, direct request)* — a pure-logic engine, `lib/universe/*`,
+  implementing the "Market Universe, Data Quality & Account Constraints"
+  spec pack's exact `novice_eligible`/`trade_qualified` boolean formulas:
+  market-cap ($10B floor), Novice-tier liquidity ($250M average daily
+  dollar volume — stricter than and independent of the platform-wide
+  liquidity floor in `lib/scan/liquidity.ts`), price/fractional
+  accessibility, spread, event-risk, volatility, and data-quality filters,
+  plus a leveraged/inverse-ETF prohibited-class gate and the spec's small-
+  account mechanics (staged-exit feasibility vs. an all-in/all-out
+  fallback, settled-funds/buying-power/cash-vs-margin/T+1/broker-
+  restriction/allocation checks, and account-data-provenance labeling). See
+  `docs/MARKET_UNIVERSE_DATA_QUALITY.md` for what composes with the
+  existing Signal and Regime Engine and Guided eligibility rather than
+  duplicating them, and the spec's market-expansion policy (no exporting
+  these thresholds to options/futures/forex/crypto/commodities without each
+  asset class's own engine). *(Same day, follow-up: wired into the live
+  scan pipeline — every `lib/scanTicker.ts` call now computes
+  `novice_eligible` from real, already-in-hand scan data (large-cap-list
+  market-cap coverage, liquidity, price, volatility, and an earnings
+  calendar) and publishes it on `ScanResult.noviceUniverse`, with no new
+  provider fetch. By direct decision it is informational only: it does
+  **not** gate `SignalGates.eligibleUniverse`/`liquiditySpreadPass`, because
+  today's earnings-calendar coverage (~40 mega-caps) and large-cap-list
+  coverage (top 500 of 893 by rank) would otherwise silently collapse which
+  symbols the Signal and Regime Engine's Trend Pullback/Breakout/Confirmed
+  Reversal states can ever call tradeable down to a few dozen names — a
+  scanner-wide behavior change, not a wiring change. See
+  `docs/MARKET_UNIVERSE_DATA_QUALITY.md`'s "Why informational, not gating"
+  for the reasoning and what closing the coverage gap would take.)*
 - **Novice → Pro tier promotion** *(2026-08-29)* — behavioral eligibility
   gate for the Novice-to-Pro (`PRACTICE`→`STANDARD`) tier step, per the
   "Tier Access, Promotion & User Experience" spec pack (draft implementation

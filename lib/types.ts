@@ -4,6 +4,7 @@ import type { BreakdownKey } from "@/lib/scoring/weights";
 import type { DecisionLag } from "@/lib/data/latency";
 import type { LiquidityRead } from "@/lib/scan/liquidity";
 import type { RegimeRead, SignalVerdict } from "@/lib/signals/types";
+import type { NoviceEligibility } from "@/lib/universe/types";
 
 export type AssetClass = "us_equity" | "crypto";
 
@@ -237,6 +238,17 @@ export interface ScanResult {
     confirmedReversal: SignalVerdict | null;
     rangeReversion: SignalVerdict | null;
   };
+  /**
+   * `novice_eligible`, per the Market Universe, Data Quality & Account
+   * Constraints engine (lib/universe) — whether this symbol belongs in a
+   * novice's universe at all, independent of any specific setup on it.
+   * Informational, same as `signals` above: it does not gate `decision` or
+   * `signals.*` verdicts, and a caller that wants `trade_qualified` composes
+   * it from this plus the relevant `signals` verdict via
+   * `lib/universe/eligibility.ts`'s `assessTradeQualification`. Absent
+   * entirely on an errored scan. See docs/MARKET_UNIVERSE_DATA_QUALITY.md.
+   */
+  noviceUniverse?: NoviceEligibility;
   error?: string;
   /**
    * Why the scan failed, as a stable discriminator. `rate_limited` in

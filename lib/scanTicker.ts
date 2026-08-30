@@ -55,6 +55,7 @@ import { evaluateConfirmedReversal } from "@/lib/signals/states/confirmedReversa
 import { evaluateRangeReversion } from "@/lib/signals/states/rangeReversion";
 import { buildScanMarketGates } from "@/lib/signals/scanGates";
 import type { SignalVerdict } from "@/lib/signals/types";
+import { buildScanNoviceEligibility } from "@/lib/universe/scanGates";
 
 /**
  * What the caller is looking for. Left unset, a scan hunts reversions and
@@ -290,15 +291,32 @@ export async function scanTicker(
     // `lib/signals/scanGates.ts`. Callers with a real account (e.g. Guided
     // Decision Mode) should treat `tradeable` here as informational only.
     const HOLD_PERIOD_DAYS = 7;
+    const binaryEventInHoldPeriod = isBinaryEventInHoldPeriod(
+      symbol.toUpperCase(),
+      new Date(scannedAt),
+      HOLD_PERIOD_DAYS,
+    );
     const marketGates = buildScanMarketGates({
       liquidity: liquidity ?? null,
       liquidityOk: meetsLiquidityFloor(liquidity ?? null, assetClass).ok,
-      binaryEventInHoldPeriod: isBinaryEventInHoldPeriod(
-        symbol.toUpperCase(),
-        new Date(scannedAt),
-        HOLD_PERIOD_DAYS,
-      ),
+      binaryEventInHoldPeriod,
       dataLagged: dataLag.holdsExecute,
+    });
+
+    // ---- Market Universe, Data Quality & Account Constraints (lib/universe)
+    // — a third, independent decision layer: not the Gann/STRAT verdict above,
+    // not the Signal and Regime Engine's `signals`, but the coarser question
+    // of whether this symbol belongs in a novice's universe at all. See
+    // docs/MARKET_UNIVERSE_DATA_QUALITY.md.
+    const noviceUniverse = buildScanNoviceEligibility({
+      symbol,
+      assetClass,
+      currentPrice,
+      liquidity: liquidity ?? null,
+      dailyBars: daily,
+      binaryEventInHoldPeriod,
+      dataLagged: dataLag.holdsExecute,
+      scannedAt,
     });
     const regime = classifyRegime({ bars: daily });
     const trendPullback: SignalVerdict | null =
@@ -374,6 +392,7 @@ export async function scanTicker(
       liquidity,
       optionPremium,
       signals: { regime, trendPullback, trendBreakout, confirmedReversal, rangeReversion },
+      noviceUniverse,
     };
   } catch (err) {
     // Provider failures get user-facing wording and a code the UI can act on;
