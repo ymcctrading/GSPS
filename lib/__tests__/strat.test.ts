@@ -195,7 +195,7 @@ describe("computeTradeLevels", () => {
       description: "",
     };
     const levels = computeTradeLevels(pattern, { t: "", o: 98, h: 101, l: 96, c: 99, v: 0 }, []);
-    expect(levels.pivotPlan).toContain("bearish 2-2");
+    expect(levels.pivotPlan).toContain("bearish failed-push reversal");
     expect(levels.pivotPlan).toContain(levels.stopLoss.toFixed(2));
   });
 

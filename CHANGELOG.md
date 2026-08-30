@@ -7,6 +7,21 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-08-29 (2)
+
+### Fixed
+- **The ticker page's "Pivot plan" counter-scenario and the paper order
+  ticket's confirmation line still interpolated the raw pattern code**
+  (e.g. "This bearish `1-2-2` thesis is invalidated…", "armed `PMG` setup")
+  straight into rendered copy — missed by the same-day pattern-naming
+  cleanup because `buildPivotPlan` (`lib/strat/levels.ts`) and
+  `order-ticket.tsx`'s confirmation string both read `pattern.name`
+  directly instead of going through `PATTERN_GLOSSARY_TERM`. Caught by
+  manual verification of the live glossary/ticker page after that
+  deploy. Added regression coverage in `lib/__tests__/user-copy.test.ts`
+  for the pivot-plan sentence across every pattern name, which the
+  existing corpus didn't reach.
+
 ## 2026-08-29
 
 ### Fixed
