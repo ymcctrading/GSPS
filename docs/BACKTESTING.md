@@ -1,5 +1,12 @@
 # Backtesting the protocol
 
+See `docs/VALIDATION_BACKTESTING_AUDIT_COMPLIANCE.md` for how this harness maps
+onto the "Validation, Backtesting, Audit & Compliance Plan" spec pack —
+required performance metrics (avg/median win and loss, max loss, profit
+factor, max drawdown, slippage sensitivity), strategy versioning, and what of
+that spec pack is not built (stress tests, Monte Carlo, live-scan audit
+persistence, the legal/compliance workstream).
+
 `lib/backtest/replay.ts` is the source of truth for win rate and expectancy. It
 replays the shipped entry logic bar by bar — the same `detectPatterns`, the same
 gap rule, the same risk floor — so a number quoted from it describes the system

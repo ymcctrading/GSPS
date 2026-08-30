@@ -7,6 +7,26 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-08-30
+
+### Added
+- **Required performance metrics, strategy versioning, and slippage
+  sensitivity for the backtest harness** (Q1, out-of-phase, direct request —
+  partial advance on Q2's "Backtesting engine" item), per the "Validation,
+  Backtesting, Audit & Compliance Plan" spec pack. `lib/backtest/metrics.ts`
+  adds average/median win, average/median loss, maximum loss, profit
+  factor, and peak-to-trough max drawdown to every `BacktestReport` bucket
+  (`lib/backtest/run.ts`, `GET /api/backtest`, `npm run backtest`'s
+  rendered table). `--slippageSensitivity` (API: `?slippageSensitivity=1`)
+  reruns a request at 3x cost-per-share and reports the expectancy delta.
+  `lib/backtest/strategyVersion.ts` gives every report a manually bumped
+  `strategyVersion` identifier, freezing which rule set a performance claim
+  describes. See `docs/VALIDATION_BACKTESTING_AUDIT_COMPLIANCE.md` for how
+  this maps onto the spec pack's checklist and what is deliberately not
+  built (stress-test scenarios, Monte Carlo, live-scan audit-trail
+  persistence, the compliance/legal workstream — the last is counsel's call,
+  not code).
+
 ## 2026-08-29 (2)
 
 ### Fixed
