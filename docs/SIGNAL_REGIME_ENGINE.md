@@ -72,7 +72,16 @@ pulled from the roadmap.
   monitor for the same symbol would collide with the existing one rather
   than living alongside it; a genuinely separate SRE alerting pipeline would
   need its own table and is a larger piece of work than this pass.
-- **Not yet wired**: the scanner list UI.
+- **Scanner list UI** (`components/scan/results-table.tsx`, its `ScanRow`
+  type and rendering; wired via `toRow` in `app/(app)/scanner/page.tsx`) —
+  a "Signal Engine" column shows the strongest state's tier and a tradeable
+  indicator, separate from the `score`/`outputState` columns beside it.
+  `ScanRow.signal` is optional and `undefined` (not `null`) for a row built
+  from a persisted `daily_scans` row — the Dashboard's `bullish`/`bearish`
+  lists (`lib/dailyScans.ts`) — since that table doesn't persist this
+  engine's verdict; only a live scan (the Scanner page's own
+  `/api/batch-scan` call) populates it. Persisting it for historical
+  Dashboard rows would need a migration and is out of scope here.
 
 ## What's implemented
 

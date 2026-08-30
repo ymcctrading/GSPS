@@ -43,6 +43,18 @@ export type EntitlementPolicy = {
   manualTickerScansEnabled: boolean;
   automationEnabled: boolean;
   intradayScansEnabled: boolean;
+  /**
+   * A distinct, separately bounded intraday capability for Pro, added
+   * 2026-08-29 per docs/GSPS_TIER_ENTITLEMENT_SPEC.md's correction note and
+   * ROADMAP.md. Deliberately not the same flag as `intradayScansEnabled`
+   * (Expert+'s full, unrestricted intraday scans): Pro's module is capped
+   * (fewer setups displayed, a narrower closed-bar confirmation window, and
+   * entry/day, concurrent-position, consecutive-loss, and daily-loss rules —
+   * see lib/promotion/pro-intraday.ts) rather than a smaller slice of the
+   * same unrestricted product. `intradayScansEnabled` stays `false` for
+   * STANDARD; this flag is the only thing that changes for Pro.
+   */
+  proIntradayModuleEnabled: boolean;
   backtestingEnabled: boolean;
   maxActiveWatchMonitors: Limit;
   maxAutomationWorkflows: Limit;
@@ -79,6 +91,7 @@ const ENTITLEMENT_POLICY: Record<PlatformTier, EntitlementPolicy> = {
     manualTickerScansEnabled: true,
     automationEnabled: false,
     intradayScansEnabled: false,
+    proIntradayModuleEnabled: false,
     backtestingEnabled: false,
     maxActiveWatchMonitors: 15,
     maxAutomationWorkflows: 0,
@@ -98,6 +111,7 @@ const ENTITLEMENT_POLICY: Record<PlatformTier, EntitlementPolicy> = {
     manualTickerScansEnabled: true,
     automationEnabled: false,
     intradayScansEnabled: false,
+    proIntradayModuleEnabled: true,
     backtestingEnabled: false,
     maxActiveWatchMonitors: 50,
     maxAutomationWorkflows: 0,
@@ -117,6 +131,7 @@ const ENTITLEMENT_POLICY: Record<PlatformTier, EntitlementPolicy> = {
     manualTickerScansEnabled: true,
     automationEnabled: false,
     intradayScansEnabled: true,
+    proIntradayModuleEnabled: false,
     backtestingEnabled: false,
     maxActiveWatchMonitors: 150,
     maxAutomationWorkflows: 0,
@@ -136,6 +151,7 @@ const ENTITLEMENT_POLICY: Record<PlatformTier, EntitlementPolicy> = {
     manualTickerScansEnabled: true,
     automationEnabled: true,
     intradayScansEnabled: true,
+    proIntradayModuleEnabled: false,
     backtestingEnabled: true,
     maxActiveWatchMonitors: "unlimited",
     maxAutomationWorkflows: "unlimited",

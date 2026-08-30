@@ -241,6 +241,96 @@ both signal discovery and execution.
   scanner-wide behavior change, not a wiring change. See
   `docs/MARKET_UNIVERSE_DATA_QUALITY.md`'s "Why informational, not gating"
   for the reasoning and what closing the coverage gap would take.)*
+- **Novice → Pro tier promotion** *(2026-08-29)* — behavioral eligibility
+  gate for the Novice-to-Pro (`PRACTICE`→`STANDARD`) tier step, per the
+  "Tier Access, Promotion & User Experience" spec pack (draft implementation
+  directives; still requires securities/compliance counsel review before
+  live personalized recommendations or execution — this PR is server-side
+  policy plumbing, not that review). Directly serves this phase's paid-tier
+  launch: Pro/Standard has no Stripe price (see
+  `docs/GSPS_TIER_ENTITLEMENT_SPEC.md`), so this is the actual gate on who
+  gets there. Built:
+  - `lib/promotion/config.ts` + `supabase/migrations/0046_tier_promotion_policy.sql`
+    (`promotion_policy_values` / `promotion_policy_change_log`) — every
+    threshold from the spec's "Promotion readiness model" table is a
+    remotely configurable value with an auditable change log, per the pack's
+    explicit instruction not to hard-code them into UI components.
+  - `lib/promotion/eligibility.ts` (pure) and `lib/promotion/readiness.ts`
+    (aggregates real paper-trading history — `positions` where
+    `mode = 'paper'` — into the eligibility inputs; reuses
+    `lib/risk/execution-score.ts` for the process score). Two inputs are
+    documented approximations rather than precise: stop adherence reads
+    whether a stop was set at open (GSPS does not yet record whether an
+    exit was the stop firing vs. a coincidental manual close), and the
+    severe-risk-event check is realized closed-trade loss against the fixed
+    paper starting balance, not a true equity-curve drawdown — paper
+    accounts have no snapshot history the way `risk_live_equity_snapshots`
+    gives live accounts. Both are flagged inline for whoever tightens them
+    next.
+  - `lib/promotion/promote.ts` — a promotion never applies immediately: per
+    the spec's "not retroactively to defeat an entry cap," a request
+    schedules `effective_at` at the next market open and only takes effect
+    then. Applied lazily from `/api/promotion/status` on each read rather
+    than a cron, since both of this project's Vercel Hobby cron slots are
+    already spent (`docs/THIRD_PARTY_LIMITS.md`).
+  - `lib/promotion/copy.ts` — the spec's required/forbidden wording as
+    constants plus a targeted test, not a `scripts/check-banned-terms.mjs`
+    entry (several forbidden phrases, e.g. "safe," are ordinary words
+    outside this context).
+  - `components/settings/promotion-settings.tsx` — a Settings-page readiness
+    checklist and upgrade request, shown only to Novice accounts, using the
+    neutral "you may be eligible" wording the spec requires and never
+    appearing in response to a loss, cooldown, or lock.
+  - **Follow-up (2026-08-29, same day):** built the two items originally
+    deferred above.
+    - The Novice-homepage summary (`components/dashboard/novice-home-summary.tsx`,
+      shown on `/dashboard` only for `PRACTICE` accounts, above the existing
+      scanner output rather than replacing it): market regime (a direct
+      `lib/signals/regime.ts` read on SPY daily bars —
+      `lib/promotion/market-regime.ts` — cheaper than running the full
+      `scanTicker` pipeline for a benchmark the homepage doesn't trade),
+      one best-qualified-plan-or-"No qualified setup" card (the
+      highest-scored row already present in the dashboard's own bullish/
+      bearish scan results — no new scan), an education card linking
+      `/welcome` and `/glossary`, existing-position protection status, and
+      cooldown status (`lib/promotion/novice-home.ts` plus
+      `lib/risk/status.ts`, a new read-only accessor for
+      `risk_circuit_state` — reads the *real* circuit-breaker row rather
+      than inventing a parallel paper-trading cooldown concept; nearly
+      every account reads "No active cooldown" today only because live
+      trading has no execution path yet, per this same entry's earlier
+      live-account gating).
+    - The Pro intraday module's bounded gating logic
+      (`lib/promotion/pro-intraday.ts`, fully tested): setups-displayed
+      ceiling, new-entry/concurrent-position/consecutive-loss-pause/
+      daily-loss-lock gating, and closed-bar (5/15/30-minute) entry
+      confirmation — a genuinely separate module from
+      `lib/scanner/intraday.ts`, not a shortened Novice swing timeframe,
+      matching the spec pack's explicit instruction.
+    - **Wired (2026-08-29, same day, by direct request):** confirmed with the
+      user before reversing Phase 3F, then shipped. `lib/entitlements/policy.ts`
+      gained `proIntradayModuleEnabled`, `true` only for `STANDARD` and
+      deliberately not the same flag as `intradayScansEnabled` (which stays
+      `false` for Pro, preserving Expert+'s original unrestricted-access
+      decision). `app/api/intraday-scan/route.ts` now admits a Pro-bounded
+      caller and applies the module's scan-side bounds: entry confirmation
+      restricted to the module's allowed closed-bar lengths (5/15/30 minutes
+      — in practice today only the scanner's 5-minute-bar alerts qualify,
+      since it has no native 15/30-minute path), and a setups-displayed
+      ceiling read from the user's own `intraday_alerts` history (no new
+      table). `docs/GSPS_TIER_ENTITLEMENT_SPEC.md` got a matching correction
+      note, same precedent as the automation-gate correction.
+    - **Still not wired, on purpose:** the entry/day, concurrent-position,
+      consecutive-loss-pause, and daily-loss-lock gates in
+      `lib/promotion/pro-intraday.ts` have no live caller. Enforcing them
+      needs an order to be identifiable as "intraday-sourced" at
+      placement time, and nothing in this codebase tags an order that way
+      today — for any tier, not just Pro. Building that (a schema column, a
+      UI touchpoint from the intraday-alerts panel through the order
+      ticket, and a gate in `lib/trade/place-order.ts`, the shared path
+      every order in the app goes through) is a distinct, larger change
+      than extending the already-tested module, and wasn't rushed into the
+      universal order-placement path without being called out on its own.
 - **Referral program (minimal)** *(2026-08-19, out-of-phase)* — a per-user
   referral link (`/r/<username>`), click counter, and signup attribution,
   surfaced in Settings. Not named in this roadmap's Q1 initiatives — it was
@@ -250,6 +340,20 @@ both signal discovery and execution.
   compliance and payments decision this document doesn't make for it. If a
   paid referral program becomes a real initiative, it belongs here explicitly
   rather than continuing to live as a deviation note.
+- **Protective actions exempted from the trading kill switch** *(2026-08-28,
+  out-of-phase, forward-looking)* — the global `TRADING_DISABLED` switch
+  (`lib/trade/kill-switch.ts`) previously refused every order-placing *and*
+  position-closing request while set, including the dedicated "Close
+  position" action. Every order this switch guards today is a paper trade, so
+  this was not a live violation of the GSPS Product Constitution's
+  "exits/reductions always available" principle — that principle governs live
+  trading, which isn't enabled yet. Fixed anyway, ahead of live trading
+  landing: `/api/positions/close` no longer calls the kill switch at all, and
+  `placeSimulatedOrder` (`lib/trade/place-order.ts`) skips the halt for a
+  sell that reduces/closes an existing long or a buy that covers an existing
+  short, via the new `isProtectiveOrder` helper. New-entry orders are still
+  blocked as before. Not named in this roadmap — small hardening ahead of an
+  unscheduled dependency (live trading), not a reprioritization.
 - **Mobile-responsive dashboard** — not a native app yet, but positions and
   alerts must be usable on phones and tablets.
 - **Technical indicators (phase 1)** — SMA, EMA, RSI, MACD as chart overlays.
