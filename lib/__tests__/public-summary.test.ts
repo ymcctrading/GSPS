@@ -231,6 +231,8 @@ describe("redaction at the API boundary", () => {
         trendBreakout: null,
         confirmedReversal: null,
         rangeReversion: null,
+        gannConfluence: null,
+        saraConfluence: null,
       },
     };
 

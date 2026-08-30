@@ -4,6 +4,7 @@ import type { BreakdownKey } from "@/lib/scoring/weights";
 import type { DecisionLag } from "@/lib/data/latency";
 import type { LiquidityRead } from "@/lib/scan/liquidity";
 import type { RegimeRead, SignalVerdict } from "@/lib/signals/types";
+import type { GannConfluenceResult, SaraConfluenceResult } from "@/lib/signals/confluence/types";
 import type { NoviceEligibility } from "@/lib/universe/types";
 
 export type AssetClass = "us_equity" | "crypto";
@@ -237,6 +238,16 @@ export interface ScanResult {
     trendBreakout: SignalVerdict | null;
     confirmedReversal: SignalVerdict | null;
     rangeReversion: SignalVerdict | null;
+    /**
+     * Gann Confluence Layer / Sara Sniper Strat Confluence Layer — additive,
+     * feature-flagged confluence reads, never merged into the four states
+     * above and never able to override any of their gates or `tradeable`
+     * verdicts. `null` when the module is disabled for this market (see
+     * `lib/signals/confluence/flags.ts`) rather than attempted and failed.
+     * See docs/GANN_SARA_CONFLUENCE.md.
+     */
+    gannConfluence: GannConfluenceResult | null;
+    saraConfluence: SaraConfluenceResult | null;
   };
   /**
    * `novice_eligible`, per the Market Universe, Data Quality & Account
