@@ -13,6 +13,7 @@
 
 import type { AssetClass, Bar, StratPattern, TradeLevels } from "@/lib/types";
 import { readPremiumStop } from "@/lib/trade/premium-stop";
+import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 
 /**
  * Widest structural stop worth taking on the execution timeframe, in average
@@ -299,7 +300,7 @@ function buildPivotPlan(pattern: StratPattern, stopLoss: number): string {
   const bullish = pattern.direction === "bullish";
   const opposite = bullish ? "bearish" : "bullish";
   return (
-    `This ${pattern.direction} ${pattern.name} thesis is invalidated if price closes back through the ` +
+    `This ${pattern.direction} ${PATTERN_GLOSSARY_TERM[pattern.name].toLowerCase()} thesis is invalidated if price closes back through the ` +
     `stop at ${stopLoss.toFixed(2)}. That does not itself confirm a ${opposite} trade — it only says the ` +
     `original setup failed. Treat the next scan on this symbol as a fresh read, not a reversal signal.`
   );

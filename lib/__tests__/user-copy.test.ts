@@ -219,6 +219,20 @@ describe("trade level messages", () => {
     expectPlainLanguage(warnings as string[]);
   });
 
+  it("phrases the pivot plan in plain language for every pattern name", () => {
+    // Regression coverage for a real leak: buildPivotPlan interpolated the raw
+    // pattern.name ("1-2-2", "PMG", ...) straight into the counter-scenario
+    // sentence shown on the ticker page, which none of the coverage above
+    // caught because it only exercises detectPatterns' own description field.
+    const names: StratPattern["name"][] = ["2-1-2", "2-2", "1-2-2", "3-2-2", "3-1-2", "PMG"];
+    const prev = bar(98, 101, 96, 99);
+    const plans = names.map(
+      (name) => computeTradeLevels({ ...pattern, name, triggerPrice: 100, stopPrice: 99 }, prev, []).pivotPlan,
+    );
+    expect(plans.every((p) => typeof p === "string")).toBe(true);
+    expectPlainLanguage(plans as string[]);
+  });
+
   it("phrases the reachable rejection error in plain language", () => {
     // Surfaces verbatim on the ticker page as `levelsError`.
     //

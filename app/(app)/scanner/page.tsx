@@ -10,6 +10,7 @@ import { IntradayAlerts } from "@/components/scan/intraday-alerts";
 import { ScanHistory } from "@/components/scan/scan-history";
 import { SECTORS, COMING_SOON } from "@/lib/sectors";
 import { cn } from "@/lib/utils";
+import { toPublicSignalSummary } from "@/lib/signals/publicSummary";
 import type { ScanResult } from "@/lib/types";
 
 function toRow(r: ScanResult): ScanRow {
@@ -24,6 +25,12 @@ function toRow(r: ScanResult): ScanRow {
     masterProfit: r.levels?.masterProfit ?? null,
     patternName: r.pattern?.name ?? null,
     setupKind: r.setupKind,
+    signal: toPublicSignalSummary(
+      r.signals?.trendPullback,
+      r.signals?.trendBreakout,
+      r.signals?.confirmedReversal,
+      r.signals?.rangeReversion,
+    ),
   };
 }
 

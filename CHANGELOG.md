@@ -7,19 +7,40 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-08-29 (2)
+
+### Fixed
+- **The ticker page's "Pivot plan" counter-scenario and the paper order
+  ticket's confirmation line still interpolated the raw pattern code**
+  (e.g. "This bearish `1-2-2` thesis is invalidated…", "armed `PMG` setup")
+  straight into rendered copy — missed by the same-day pattern-naming
+  cleanup because `buildPivotPlan` (`lib/strat/levels.ts`) and
+  `order-ticket.tsx`'s confirmation string both read `pattern.name`
+  directly instead of going through `PATTERN_GLOSSARY_TERM`. Caught by
+  manual verification of the live glossary/ticker page after that
+  deploy. Added regression coverage in `lib/__tests__/user-copy.test.ts`
+  for the pivot-plan sentence across every pattern name, which the
+  existing corpus didn't reach.
+
 ## 2026-08-29
 
 ### Added
-- **Intraday tier-promotion gates.** Four entry-only gates — max entries/day,
-  max concurrent positions, a consecutive-loss lock, and a daily-loss lock as
-  a percent of equity — for orders opened via the intraday alerts panel's new
-  "Trade this" action (`lib/promotion/pro-intraday.ts`,
-  `lib/promotion/intraday-gate-query.ts`). Orders are now tagged
-  `intraday_sourced` (migration 0046) only when opened that way; a manual
-  ticket is never subject to these. Wired into `lib/trade/place-order.ts`
-  ahead of pricing, and — like the Novice circuit breaker's cooldown gate —
-  never blocks a stop, target, reduce, close, or cancel, only the entry. See
-  `ROADMAP.md`'s out-of-phase entry for scope notes and known
+- **Wired the Pro intraday module's entry gates to a live caller.**
+  `lib/promotion/pro-intraday.ts`'s `canEnterNewIntradayPosition`
+  (entry/day, concurrent-position, consecutive-loss, daily-loss-lock) has
+  existed since the Novice-to-Pro tier promotion work with nothing calling
+  it — no order was identifiable as "intraday-sourced." Orders are now
+  tagged `orders.intraday_sourced` (migration
+  `0047_intraday_sourced_orders.sql`) only when opened via a new "Trade
+  this" action on the intraday alerts panel; a manual ticket opened any
+  other way is never tagged. `lib/promotion/intraday-gate-usage.ts` loads
+  real usage from `orders`/`trade_logs`, and `lib/trade/place-order.ts`
+  evaluates the gate ahead of pricing — scoped to `STANDARD` (Pro) only via
+  `proIntradayModuleEnabled`, since Expert/Wall Street's intraday access is
+  unrestricted by design and was never meant to be narrowed by this. Like
+  the Novice circuit breaker's cooldown gate, it never blocks a stop,
+  target, reduce, close, or cancel — only the entry. See `ROADMAP.md`'s
+  Novice-to-Pro tier promotion entry for the full writeup and known
   approximations.
 
 ### Fixed

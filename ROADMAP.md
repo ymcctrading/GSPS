@@ -211,29 +211,112 @@ both signal discovery and execution.
   No live account is actually gated today because no live order can be
   placed at all yet, but the gate is real, tested, and will take effect the
   moment live execution replaces that placeholder refusal.)*
-- **Intraday tier-promotion gates** *(2026-08-29, out-of-phase, direct
-  request)* — four entry-only gates (`lib/promotion/pro-intraday.ts`: max
-  entries/day, max concurrent positions, consecutive-loss lock, daily-loss
-  lock as a percent of equity) for orders opened from the intraday alerts
-  panel's "Trade this" action specifically, as distinct from the account-wide
-  Novice circuit breaker above. Unlike that engine, this one applies to paper
-  trading — it is not a real-money-only rule — because intraday alert-chasing
-  discipline is exactly what paper accounts need practice with. Wiring
-  required two things that didn't exist before this: a way to tag an order as
-  intraday-sourced at all (`orders.intraday_sourced`,
-  `supabase/migrations/0046_intraday_sourced_orders.sql`, set only by the
-  "Trade this" link — a manual ticket opened any other way is never tagged)
-  and the UI touchpoint that sets it (`intradayTradeHref` in `lib/routes.ts`,
-  read back by `components/scan/ticker-view.tsx` via `?intraday=1&side=`,
-  passed into `components/trade/order-ticket.tsx`). Gates are evaluated in
-  `lib/trade/place-order.ts` before pricing or any DB write, same as the kill
-  switch and live circuit breaker, and — like `lib/risk/cooldown.ts` — never
-  block a stop/target/reduce/close/cancel, only the entry. Applies to every
-  tier; no tier is currently exempted or required for it. `lib/promotion/
-  intraday-gate-query.ts`'s concurrent-position count and equity figure are
-  both approximations (no direct order→position link in the schema, and
-  equity is cash + cost basis rather than a live mark) — documented as such
-  in that file; tightening either is unscheduled follow-up, not a known bug.
+- **Novice → Pro tier promotion** *(2026-08-29)* — behavioral eligibility
+  gate for the Novice-to-Pro (`PRACTICE`→`STANDARD`) tier step, per the
+  "Tier Access, Promotion & User Experience" spec pack (draft implementation
+  directives; still requires securities/compliance counsel review before
+  live personalized recommendations or execution — this PR is server-side
+  policy plumbing, not that review). Directly serves this phase's paid-tier
+  launch: Pro/Standard has no Stripe price (see
+  `docs/GSPS_TIER_ENTITLEMENT_SPEC.md`), so this is the actual gate on who
+  gets there. Built:
+  - `lib/promotion/config.ts` + `supabase/migrations/0046_tier_promotion_policy.sql`
+    (`promotion_policy_values` / `promotion_policy_change_log`) — every
+    threshold from the spec's "Promotion readiness model" table is a
+    remotely configurable value with an auditable change log, per the pack's
+    explicit instruction not to hard-code them into UI components.
+  - `lib/promotion/eligibility.ts` (pure) and `lib/promotion/readiness.ts`
+    (aggregates real paper-trading history — `positions` where
+    `mode = 'paper'` — into the eligibility inputs; reuses
+    `lib/risk/execution-score.ts` for the process score). Two inputs are
+    documented approximations rather than precise: stop adherence reads
+    whether a stop was set at open (GSPS does not yet record whether an
+    exit was the stop firing vs. a coincidental manual close), and the
+    severe-risk-event check is realized closed-trade loss against the fixed
+    paper starting balance, not a true equity-curve drawdown — paper
+    accounts have no snapshot history the way `risk_live_equity_snapshots`
+    gives live accounts. Both are flagged inline for whoever tightens them
+    next.
+  - `lib/promotion/promote.ts` — a promotion never applies immediately: per
+    the spec's "not retroactively to defeat an entry cap," a request
+    schedules `effective_at` at the next market open and only takes effect
+    then. Applied lazily from `/api/promotion/status` on each read rather
+    than a cron, since both of this project's Vercel Hobby cron slots are
+    already spent (`docs/THIRD_PARTY_LIMITS.md`).
+  - `lib/promotion/copy.ts` — the spec's required/forbidden wording as
+    constants plus a targeted test, not a `scripts/check-banned-terms.mjs`
+    entry (several forbidden phrases, e.g. "safe," are ordinary words
+    outside this context).
+  - `components/settings/promotion-settings.tsx` — a Settings-page readiness
+    checklist and upgrade request, shown only to Novice accounts, using the
+    neutral "you may be eligible" wording the spec requires and never
+    appearing in response to a loss, cooldown, or lock.
+  - **Follow-up (2026-08-29, same day):** built the two items originally
+    deferred above.
+    - The Novice-homepage summary (`components/dashboard/novice-home-summary.tsx`,
+      shown on `/dashboard` only for `PRACTICE` accounts, above the existing
+      scanner output rather than replacing it): market regime (a direct
+      `lib/signals/regime.ts` read on SPY daily bars —
+      `lib/promotion/market-regime.ts` — cheaper than running the full
+      `scanTicker` pipeline for a benchmark the homepage doesn't trade),
+      one best-qualified-plan-or-"No qualified setup" card (the
+      highest-scored row already present in the dashboard's own bullish/
+      bearish scan results — no new scan), an education card linking
+      `/welcome` and `/glossary`, existing-position protection status, and
+      cooldown status (`lib/promotion/novice-home.ts` plus
+      `lib/risk/status.ts`, a new read-only accessor for
+      `risk_circuit_state` — reads the *real* circuit-breaker row rather
+      than inventing a parallel paper-trading cooldown concept; nearly
+      every account reads "No active cooldown" today only because live
+      trading has no execution path yet, per this same entry's earlier
+      live-account gating).
+    - The Pro intraday module's bounded gating logic
+      (`lib/promotion/pro-intraday.ts`, fully tested): setups-displayed
+      ceiling, new-entry/concurrent-position/consecutive-loss-pause/
+      daily-loss-lock gating, and closed-bar (5/15/30-minute) entry
+      confirmation — a genuinely separate module from
+      `lib/scanner/intraday.ts`, not a shortened Novice swing timeframe,
+      matching the spec pack's explicit instruction.
+    - **Wired (2026-08-29, same day, by direct request):** confirmed with the
+      user before reversing Phase 3F, then shipped. `lib/entitlements/policy.ts`
+      gained `proIntradayModuleEnabled`, `true` only for `STANDARD` and
+      deliberately not the same flag as `intradayScansEnabled` (which stays
+      `false` for Pro, preserving Expert+'s original unrestricted-access
+      decision). `app/api/intraday-scan/route.ts` now admits a Pro-bounded
+      caller and applies the module's scan-side bounds: entry confirmation
+      restricted to the module's allowed closed-bar lengths (5/15/30 minutes
+      — in practice today only the scanner's 5-minute-bar alerts qualify,
+      since it has no native 15/30-minute path), and a setups-displayed
+      ceiling read from the user's own `intraday_alerts` history (no new
+      table). `docs/GSPS_TIER_ENTITLEMENT_SPEC.md` got a matching correction
+      note, same precedent as the automation-gate correction.
+    - **Wired (2026-08-29, follow-up, direct request):** the entry/day,
+      concurrent-position, consecutive-loss-pause, and daily-loss-lock gates
+      in `lib/promotion/pro-intraday.ts`'s `canEnterNewIntradayPosition` now
+      have a live caller. Building that needed the piece flagged above as
+      missing: a way to identify an order as "intraday-sourced" at
+      placement time. `orders.intraday_sourced`
+      (`supabase/migrations/0047_intraday_sourced_orders.sql`) is set only by
+      a new "Trade this" action on the intraday alerts panel
+      (`intradayTradeHref` in `lib/routes.ts`) — a manual ticket opened any
+      other way is never tagged. `lib/promotion/intraday-gate-usage.ts` loads
+      real `ProIntradayUsage` (today's entries, open positions, consecutive
+      losses, today's realized-loss percent) from `orders`/`trade_logs`,
+      scoped to the America/New_York trading day; a manual estimate (cash +
+      cost basis of open positions, not a live mark) stands in for equity.
+      `lib/trade/place-order.ts` calls the gate ahead of pricing, same as the
+      kill switch and live circuit breaker, and — matching `lib/risk/cooldown.ts`
+      — only ever blocks the entry, never a stop/target/reduce/close/cancel.
+      Deliberately scoped to `STANDARD` (Pro) only, via
+      `proIntradayModuleEnabled`: Expert/Wall Street's intraday access is
+      unrestricted by design (this same entry, above), so gating their
+      intraday-sourced orders through Pro's bounded module would silently
+      narrow a tier that was explicitly decided to stay unbounded. The UI
+      touchpoint (`components/scan/ticker-view.tsx` reads `?intraday=1&side=`,
+      passed into `components/trade/order-ticket.tsx`) is available to every
+      tier that can see the intraday alerts panel; only a Pro account's
+      intraday-sourced order is actually gated by it — an Expert/Wall Street
+      order carrying the same tag places exactly as it would untagged.
 - **Referral program (minimal)** *(2026-08-19, out-of-phase)* — a per-user
   referral link (`/r/<username>`), click counter, and signup attribution,
   surfaced in Settings. Not named in this roadmap's Q1 initiatives — it was
@@ -243,6 +326,20 @@ both signal discovery and execution.
   compliance and payments decision this document doesn't make for it. If a
   paid referral program becomes a real initiative, it belongs here explicitly
   rather than continuing to live as a deviation note.
+- **Protective actions exempted from the trading kill switch** *(2026-08-28,
+  out-of-phase, forward-looking)* — the global `TRADING_DISABLED` switch
+  (`lib/trade/kill-switch.ts`) previously refused every order-placing *and*
+  position-closing request while set, including the dedicated "Close
+  position" action. Every order this switch guards today is a paper trade, so
+  this was not a live violation of the GSPS Product Constitution's
+  "exits/reductions always available" principle — that principle governs live
+  trading, which isn't enabled yet. Fixed anyway, ahead of live trading
+  landing: `/api/positions/close` no longer calls the kill switch at all, and
+  `placeSimulatedOrder` (`lib/trade/place-order.ts`) skips the halt for a
+  sell that reduces/closes an existing long or a buy that covers an existing
+  short, via the new `isProtectiveOrder` helper. New-entry orders are still
+  blocked as before. Not named in this roadmap — small hardening ahead of an
+  unscheduled dependency (live trading), not a reprioritization.
 - **Mobile-responsive dashboard** — not a native app yet, but positions and
   alerts must be usable on phones and tablets.
 - **Technical indicators (phase 1)** — SMA, EMA, RSI, MACD as chart overlays.

@@ -55,6 +55,13 @@ describe("getEntitlementPolicy", () => {
     expect(getEntitlementPolicy("SYSTEM_MASTERY").intradayScansEnabled).toBe(true);
   });
 
+  it("gates the bounded Pro intraday module at Pro (STANDARD) only", () => {
+    expect(getEntitlementPolicy("PRACTICE").proIntradayModuleEnabled).toBe(false);
+    expect(getEntitlementPolicy("STANDARD").proIntradayModuleEnabled).toBe(true);
+    expect(getEntitlementPolicy("INVESTOR_MODE").proIntradayModuleEnabled).toBe(false);
+    expect(getEntitlementPolicy("SYSTEM_MASTERY").proIntradayModuleEnabled).toBe(false);
+  });
+
   it("gates backtesting at Wall Street (SYSTEM_MASTERY) only", () => {
     expect(getEntitlementPolicy("PRACTICE").backtestingEnabled).toBe(false);
     expect(getEntitlementPolicy("STANDARD").backtestingEnabled).toBe(false);

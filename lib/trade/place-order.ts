@@ -18,6 +18,7 @@ import { z } from "zod";
 import {
   assetClassOf,
   executeFill,
+  getOpenPosition,
   isTriggered,
   logPlainClose,
   quoteOptionPrice,
@@ -26,12 +27,13 @@ import {
 import { checkBracket } from "@/lib/trade/bracket";
 import { planProtocolExit } from "@/lib/trade/protocol-exit";
 import { validateLimitPrice, type RoundingMode } from "@/lib/trade/tick-size";
-import { killSwitchRefusal } from "@/lib/trade/kill-switch";
+import { isProtectiveOrder, killSwitchRefusal } from "@/lib/trade/kill-switch";
 import { recordOrderExecution, type RecordExecutionOptions } from "@/lib/learning/record";
 import { readLiveAccountValue } from "@/lib/risk/live-account";
 import { evaluateLiveCircuitBreaker } from "@/lib/risk/service";
-import { evaluateIntradayEntryGates } from "@/lib/promotion/pro-intraday";
-import { loadIntradayGateInputs } from "@/lib/promotion/intraday-gate-query";
+import { canEnterNewIntradayPosition } from "@/lib/promotion/pro-intraday";
+import { loadProIntradayUsage, PRO_INTRADAY_DAILY_LOSS_LOCK_PCT } from "@/lib/promotion/intraday-gate-usage";
+import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 
 type RecordedOrderType = RecordExecutionOptions["orderType"];
 
@@ -111,7 +113,16 @@ export async function placeSimulatedOrder(
   // The simulator fills synchronously, so there is no "accepted but not yet
   // executed" state to unwind — a halt has to happen ahead of the fill, not
   // around it.
-  const halted = killSwitchRefusal();
+  //
+  // The kill switch only ever stands between a user and a *new* position. A
+  // sell that reduces or closes an existing long, or a buy that covers an
+  // existing short, is a protective action, so the halt is skipped precisely
+  // when this order moves the position toward flat, not away from it. Every
+  // order here is paper, so nothing requires this yet — it's ahead of live
+  // trading, on the reasoning that will apply once real capital is at risk.
+  const existingPosition = await getOpenPosition(supabase, userId, input.symbol);
+  const isProtective = isProtectiveOrder(existingPosition?.side ?? null, input.side);
+  const halted = isProtective ? null : killSwitchRefusal();
   if (halted) return { status: 503, body: { ...halted } };
 
   if (input.mode === "live") {
@@ -144,21 +155,35 @@ export async function placeSimulatedOrder(
     return { status: 400, body: { error: "Live trading requires a connected live brokerage in Settings." } };
   }
 
-  // Intraday-promotion gates (lib/promotion/pro-intraday.ts): entry/day,
-  // concurrent-position, consecutive-loss, and daily-loss-lock. These apply
-  // only to orders tagged `intradaySourced` — opened via the intraday
-  // alerts panel's "Trade this" action — and only gate the entry, the same
-  // way the account-wide circuit breaker never blocks a close (see
-  // lib/risk/cooldown.ts). Evaluated before pricing or any DB write, same as
-  // the kill switch and the live circuit breaker above.
+  // Pro intraday module entry gates (lib/promotion/pro-intraday.ts's
+  // `canEnterNewIntradayPosition`): entry/day, concurrent-position,
+  // consecutive-loss, and daily-loss-lock. That function has existed since
+  // the Novice-to-Pro tier promotion work with no caller — nothing tagged an
+  // order as intraday-sourced. `intradaySourced` (set only by the intraday
+  // alerts panel's "Trade this" action) is that missing signal.
+  //
+  // Scoped to `STANDARD` (Pro) only, via `proIntradayModuleEnabled` — Expert/
+  // Wall Street's intraday access is unrestricted by design
+  // (`intradayScansEnabled`, not this module), so applying Pro's bounded
+  // caps to their orders would silently narrow a tier that was explicitly
+  // decided to stay unbounded. Only gates the entry, the same way the
+  // account-wide circuit breaker never blocks a close (lib/risk/cooldown.ts).
+  // Evaluated before pricing or any DB write, same as the kill switch and
+  // the live circuit breaker above.
   if (input.intradaySourced) {
-    const gateInputs = await loadIntradayGateInputs(supabase, userId);
-    const verdict = evaluateIntradayEntryGates(gateInputs);
-    if (!verdict.allowed) {
-      return {
-        status: 409,
-        body: { error: verdict.reason, code: "intraday_promotion_gate", gate: verdict.code },
-      };
+    const policy = await getUserEntitlementPolicy(supabase, userId);
+    if (policy.proIntradayModuleEnabled) {
+      const usage = await loadProIntradayUsage(supabase, userId);
+      const decision = canEnterNewIntradayPosition(
+        { ...usage, setupsDisplayedToday: 0 },
+        PRO_INTRADAY_DAILY_LOSS_LOCK_PCT,
+      );
+      if (!decision.allowed) {
+        return {
+          status: 409,
+          body: { error: decision.reason, code: "pro_intraday_gate" },
+        };
+      }
     }
   }
 

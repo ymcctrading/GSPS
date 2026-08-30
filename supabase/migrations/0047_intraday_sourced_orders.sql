@@ -9,7 +9,7 @@
 -- Deliberately a single boolean on `orders` rather than a copy on
 -- `trade_logs` too: `trade_logs.order_id` already references the order that
 -- opened the trade, so a join is enough to trace a closed trade back to
--- whether it was intraday-sourced (see lib/promotion/intraday-gate-query.ts).
+-- whether it was intraday-sourced (see lib/promotion/intraday-gate-usage.ts).
 
 alter table public.orders
   add column intraday_sourced boolean not null default false;
