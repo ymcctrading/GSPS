@@ -471,7 +471,7 @@ both signal discovery and execution.
   state machine and a hard `entryReady` gate: a touch, break, sweep, or
   indicator flip alone can never arm a plan for entry. `trade_plans` gains
   an `awaiting_entry_confirmation` state
-  (`supabase/migrations/0050_entry_confirmation_lifecycle.sql`); scan-
+  (`supabase/migrations/0053_entry_confirmation_lifecycle.sql`); scan-
   pipeline-created plans (`lib/entitlements/scan-fanout.ts`) now stop
   there instead of jumping straight to `armed`, are idempotent on a new
   `signal_fingerprint` unique index, and record the required

@@ -11,7 +11,7 @@ own format for a prior spec pack.
 
 | Spec requirement | Code |
 |---|---|
-| Mandatory entry confirmation (touch/break/sweep alone can't create an entry) | `lib/lifecycle/entryConfirmation.ts` (the versioned break/retest/confirmation-move rule + `entryReady` gate), wired into `trade_plans`' new `awaiting_entry_confirmation` state (`supabase/migrations/0050_entry_confirmation_lifecycle.sql`) |
+| Mandatory entry confirmation (touch/break/sweep alone can't create an entry) | `lib/lifecycle/entryConfirmation.ts` (the versioned break/retest/confirmation-move rule + `entryReady` gate), wired into `trade_plans`' new `awaiting_entry_confirmation` state (`supabase/migrations/0053_entry_confirmation_lifecycle.sql`) |
 | Idempotent qualifying-signal → candidate-plan creation | `createOrGetIdempotentTradePlan` (`lib/lifecycle/store.ts`) on a new `signal_fingerprint` unique index; `PLAN_AUTO_CREATED_FROM_QUALIFYING_SIGNAL` → `mark_auto_created` audit kind |
 | Plan-scoped, Wall-Street-only Automation, paper/live, immutable mode | `automation_profiles`/`automation_events`/`order_intents` (`0051_gsps_automation_profiles.sql`), `lib/automation/service.ts`, `app/api/automation/profiles/*`, UI section on `/automation` |
 | `authorizeAutomatedOrder(profileId)` resolving every order term server-side | `lib/automation/service.ts` — client sends only `profileId`/`planId`/`automationMode`/`executionMode`/`configuration.allocatedDollarRisk`, never raw ticker/side/price/qty |

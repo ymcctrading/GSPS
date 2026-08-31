@@ -234,7 +234,7 @@ export async function createTradePlan(
  * signal must create exactly one candidate plan, and a rerun (a retried
  * job, a duplicate scan pass) with the same fingerprint must not create a
  * second one. Enforced at the database level by
- * `trade_plans_signal_fingerprint_idx` (0050_entry_confirmation_lifecycle.sql);
+ * `trade_plans_signal_fingerprint_idx` (0053_entry_confirmation_lifecycle.sql);
  * this wrapper just makes the conflict a normal, non-throwing outcome
  * instead of a 23505 error the caller has to know to catch.
  *
