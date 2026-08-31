@@ -9,6 +9,7 @@
 
 import type { Regime, RulesAlignmentTier, ScannerStateName, SignalVerdict } from "./types";
 import type { Direction, ScanResult } from "@/lib/types";
+import type { GannConfluenceResult, SaraConfluenceResult } from "./confluence/types";
 
 export interface PublicSignalSummary {
   state: ScannerStateName;
@@ -82,6 +83,22 @@ export function redactSignalVerdict(verdict: SignalVerdict | null): SignalVerdic
   };
 }
 
+/**
+ * The Gann/Sara confluence modules carry the same kind of internal-threshold
+ * explanation trace `redactSignalVerdict` strips from a state's breakdown —
+ * strip it here too, keeping the alignment/scenario/coordinate rollup a
+ * reader needs.
+ */
+function redactGannConfluence(result: GannConfluenceResult | null): GannConfluenceResult | null {
+  if (!result) return result;
+  return { ...result, evidence: { ...result.evidence, inputs: {}, explanationTrace: [] } };
+}
+
+function redactSaraConfluence(result: SaraConfluenceResult | null): SaraConfluenceResult | null {
+  if (!result) return result;
+  return { ...result, evidence: { ...result.evidence, inputs: {}, explanationTrace: [] } };
+}
+
 /** The same, for every state a scan evaluated. */
 export function redactScanSignals(signals: ScanResult["signals"]): ScanResult["signals"] {
   if (!signals) return signals;
@@ -91,5 +108,7 @@ export function redactScanSignals(signals: ScanResult["signals"]): ScanResult["s
     trendBreakout: redactSignalVerdict(signals.trendBreakout),
     confirmedReversal: redactSignalVerdict(signals.confirmedReversal),
     rangeReversion: redactSignalVerdict(signals.rangeReversion),
+    gannConfluence: redactGannConfluence(signals.gannConfluence),
+    saraConfluence: redactSaraConfluence(signals.saraConfluence),
   };
 }

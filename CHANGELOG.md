@@ -7,6 +7,44 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-08-30
+
+### Added
+- **Gann Confluence Layer and Sara Sniper Strat Confluence Layer**
+  (`lib/signals/confluence/`) — two modular, versioned, feature-flagged
+  confluence modules on the Signal and Regime Engine, per the "GSPS Gann &
+  Sara Cross-Market Integration Addendum" (2026-08-28). Out-of-phase relative
+  to the Q1 roadmap; see `ROADMAP.md`'s Q1 initiatives and
+  `docs/GANN_SARA_CONFLUENCE.md` for the full architecture and provenance.
+  Both wrap existing, already-authorized logic (`lib/gann/`,
+  `lib/strat/patterns.ts`) rather than inventing new numerology or scenario
+  rules; the addendum's net-new Material Number/Harmonic Node classification
+  has no authorized specification yet and stays `notImplemented` throughout.
+  Additive only — never a sole signal, never able to override a safety,
+  account, or eligibility gate. Includes a market-adapter router (equities
+  and crypto supported; options/futures/forex/commodities report
+  `unsupported` rather than approximating unmodeled mechanics), a
+  `components/scan/confluence-card.tsx` UI card, and
+  `supabase/migrations/0048_gann_sara_confluence_modules.sql` (a
+  `strategy_modules` registry, `gann_evaluations`/`sara_evaluations` audit
+  tables, and evidence columns on `trade_plans`).
+- **Required performance metrics, strategy versioning, and slippage
+  sensitivity for the backtest harness** (Q1, out-of-phase, direct request —
+  partial advance on Q2's "Backtesting engine" item), per the "Validation,
+  Backtesting, Audit & Compliance Plan" spec pack. `lib/backtest/metrics.ts`
+  adds average/median win, average/median loss, maximum loss, profit
+  factor, and peak-to-trough max drawdown to every `BacktestReport` bucket
+  (`lib/backtest/run.ts`, `GET /api/backtest`, `npm run backtest`'s
+  rendered table). `--slippageSensitivity` (API: `?slippageSensitivity=1`)
+  reruns a request at 3x cost-per-share and reports the expectancy delta.
+  `lib/backtest/strategyVersion.ts` gives every report a manually bumped
+  `strategyVersion` identifier, freezing which rule set a performance claim
+  describes. See `docs/VALIDATION_BACKTESTING_AUDIT_COMPLIANCE.md` for how
+  this maps onto the spec pack's checklist and what is deliberately not
+  built (stress-test scenarios, Monte Carlo, live-scan audit-trail
+  persistence, the compliance/legal workstream — the last is counsel's call,
+  not code).
+
 ## 2026-08-29 (2)
 
 ### Fixed
