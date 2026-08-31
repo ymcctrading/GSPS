@@ -22,6 +22,9 @@ import {
 import { toPublicSignalSummary } from "@/lib/signals/publicSummary";
 import type { Limit } from "@/lib/entitlements/policy";
 import type { ScanResult } from "@/lib/types";
+import { STRATEGY_VERSION } from "@/lib/backtest/strategyVersion";
+import { buildNewTradePlanFromScanResult } from "@/lib/lifecycle/fromScanResult";
+import { applyEventAndPersist, createTradePlan } from "@/lib/lifecycle/store";
 
 export type FanOutOutcome = {
   visibleCount: number;
@@ -148,6 +151,13 @@ export async function evaluateMonitorsAndNotify(
 
   let sentCount = 0;
   for (const { transitionId, setup } of notifyWorthy) {
+    // Best-effort, same as everything else in this loop: a plan that fails to
+    // create must never hold up the alert itself, which is the reason this
+    // transition confirmed in the first place.
+    await createTradePlanForTransition(service, args.profileId, transitionId, setup).catch((err) => {
+      console.error(`evaluateMonitorsAndNotify: trade plan not created for ${setup.value.symbol} — ${String(err)}`);
+    });
+
     const payload = buildAlertPayload(setup);
     for (const channel of channels) {
       try {
@@ -170,6 +180,44 @@ export async function evaluateMonitorsAndNotify(
     }
   }
   return sentCount;
+}
+
+/**
+ * Auto-creates a trade-plan lifecycle object (`lib/lifecycle/`) for a setup
+ * that just confirmed WATCH -> EXECUTE, and advances it straight to ARMED:
+ * the Rules Alignment gates that made this transition confirm already
+ * qualified it, and the setup's entry trigger is already priced and waiting
+ * for price to reach it. `signalId` keys off `transitionId` — the monitor
+ * transition already uniquely identifies "this setup, this confirmation" —
+ * so a re-notified transition (there isn't one; transitions are one-shot)
+ * would collide rather than silently duplicate the plan.
+ */
+async function createTradePlanForTransition(
+  service: SupabaseClient,
+  profileId: string,
+  transitionId: string,
+  setup: RankedSetup<ScanResult>,
+): Promise<void> {
+  const input = buildNewTradePlanFromScanResult(setup.value, {
+    strategyVersion: STRATEGY_VERSION,
+    signalId: transitionId,
+    generatedAt: setup.value.scannedAt,
+  });
+  if (!input) return;
+
+  const plan = await createTradePlan(service, profileId, input);
+  const at = new Date().toISOString();
+  const qualified = await applyEventAndPersist(service, profileId, plan.planId, {
+    type: "qualify",
+    at,
+    reason: "Monitor confirmed WATCH -> EXECUTE; Rules Alignment gates passed.",
+  });
+  if (!qualified.ok) return;
+  await applyEventAndPersist(service, profileId, plan.planId, {
+    type: "arm",
+    at,
+    reason: "Entry trigger priced from the confirmed setup.",
+  });
 }
 
 function buildAlertPayload(setup: RankedSetup<ScanResult>): EntitledAlertPayload {
