@@ -46,6 +46,7 @@ function scan(overrides: Partial<ScanResult> = {}): ScanResult {
     levels,
     decision: { score: 8, outputState: "Execute", breakdown: [] },
     liquidity: { price: 100, avgVolume: 5_000_000, avgDollarVolume: 500_000_000 },
+    noviceUniverse: { eligible: true, filters: [], reasons: [] },
     ...overrides,
   };
 }
@@ -121,6 +122,26 @@ describe("assessEligibility", () => {
       }),
     );
     expect(verdict.eligible).toBe(false);
+  });
+
+  it("refuses a symbol the Market Universe engine does not certify Novice-eligible", () => {
+    const verdict = assessEligibility(
+      scan({
+        noviceUniverse: {
+          eligible: false,
+          filters: [{ key: "market_cap_pass", pass: false, reason: "Market cap is below the $10B floor." }],
+          reasons: ["Market cap is below the $10B floor."],
+        },
+      }),
+    );
+    expect(verdict.eligible).toBe(false);
+    expect(verdict.reasons.some((r) => r.includes("Not Novice-eligible") && r.includes("$10B floor"))).toBe(true);
+  });
+
+  it("refuses a scan built without a noviceUniverse read rather than assuming it passes", () => {
+    const verdict = assessEligibility(scan({ noviceUniverse: undefined }));
+    expect(verdict.eligible).toBe(false);
+    expect(verdict.reasons.some((r) => r.includes("Novice-eligibility read"))).toBe(true);
   });
 });
 
