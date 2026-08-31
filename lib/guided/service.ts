@@ -20,6 +20,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ScanResult } from "@/lib/types";
 import { scanTicker } from "@/lib/scanTicker";
+import { DEFAULT_UNIVERSE_THRESHOLDS, type UniverseThresholds } from "@/lib/universe/eligibility";
 import { assetClassOf, getOrCreateAccount, listOpenPositions, quotePrice } from "@/lib/brokers/simulator";
 import { parseOccSymbol } from "@/lib/portfolio/occ";
 import { assessEligibility } from "@/lib/guided/eligibility";
@@ -243,8 +244,10 @@ export async function buildRecommendations(params: {
   caps: GuidedCaps;
   deployedUsd: number;
   now?: Date;
+  /** `getUniversePolicy()`-resolved thresholds, resolved once by the caller. Defaults to the code constants. */
+  universeThresholds?: UniverseThresholds;
 }): Promise<BuiltRecommendations> {
-  const { symbols, account, caps, deployedUsd, now = new Date() } = params;
+  const { symbols, account, caps, deployedUsd, now = new Date(), universeThresholds = DEFAULT_UNIVERSE_THRESHOLDS } = params;
 
   const recommendations: Recommendation[] = [];
   const skipped: SkippedCandidate[] = [];
@@ -271,7 +274,9 @@ export async function buildRecommendations(params: {
     const batch = budget.slice(start, start + GUIDED_SCAN_BATCH);
 
     const scans = await Promise.all(
-      batch.map((s) => scanTicker(s).catch((): ScanResult | null => null)),
+      batch.map((s) =>
+        scanTicker(s, undefined, undefined, undefined, universeThresholds).catch((): ScanResult | null => null),
+      ),
     );
     allScans.push(...scans);
 

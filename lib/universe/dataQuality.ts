@@ -16,6 +16,17 @@
 import { MAX_FUNDAMENTALS_STALENESS_DAYS, MAX_QUOTE_STALENESS_SECONDS } from "./config";
 import type { UniverseFilterResult } from "./types";
 
+/** `policy_values`-overridable ceilings — see lib/universe/policy.ts. Defaults are the same constants this file always used. */
+export interface DataQualityThresholds {
+  maxQuoteStalenessSeconds: number;
+  maxFundamentalsStalenessDays: number;
+}
+
+export const DEFAULT_DATA_QUALITY_THRESHOLDS: DataQualityThresholds = {
+  maxQuoteStalenessSeconds: MAX_QUOTE_STALENESS_SECONDS,
+  maxFundamentalsStalenessDays: MAX_FUNDAMENTALS_STALENESS_DAYS,
+};
+
 export interface QuoteQuality {
   timestamp: string | Date;
   /** e.g. "NASDAQ regular", "after-hours" — required so a session-crossing read isn't compared to the wrong bar. */
@@ -58,11 +69,14 @@ export interface DataQualityInputs {
  * caller can show all of them rather than only the first failure — same
  * convention as every other filter in this directory.
  */
-export function dataQualityPass(inputs: DataQualityInputs): UniverseFilterResult {
+export function dataQualityPass(
+  inputs: DataQualityInputs,
+  thresholds: DataQualityThresholds = DEFAULT_DATA_QUALITY_THRESHOLDS,
+): UniverseFilterResult {
   const failures: string[] = [];
   const now = inputs.now ?? new Date();
 
-  const quoteFail = quoteFreshnessFail(inputs.quote, now);
+  const quoteFail = quoteFreshnessFail(inputs.quote, now, thresholds);
   if (quoteFail) failures.push(quoteFail);
 
   const corpFail = corporateActionFail(inputs.corporateActions);
@@ -71,7 +85,7 @@ export function dataQualityPass(inputs: DataQualityInputs): UniverseFilterResult
   const earningsFail = earningsEventFail(inputs.earningsEvent);
   if (earningsFail) failures.push(earningsFail);
 
-  const fundamentalsFail = fundamentalsFail_(inputs.fundamentals, now);
+  const fundamentalsFail = fundamentalsFail_(inputs.fundamentals, now, thresholds);
   if (fundamentalsFail) failures.push(fundamentalsFail);
 
   if (failures.length === 0) {
@@ -80,7 +94,7 @@ export function dataQualityPass(inputs: DataQualityInputs): UniverseFilterResult
   return { key: "data_quality_pass", pass: false, reason: failures.join(" ") };
 }
 
-function quoteFreshnessFail(quote: QuoteQuality | null, now: Date): string | null {
+function quoteFreshnessFail(quote: QuoteQuality | null, now: Date, thresholds: DataQualityThresholds): string | null {
   if (quote === null) {
     return "No quote/OHLCV read available.";
   }
@@ -95,8 +109,8 @@ function quoteFreshnessFail(quote: QuoteQuality | null, now: Date): string | nul
     return "Quote timestamp is unreadable.";
   }
   const ageSeconds = (now.getTime() - ts) / 1000;
-  if (ageSeconds > MAX_QUOTE_STALENESS_SECONDS) {
-    return `Quote is ${Math.round(ageSeconds)}s old, beyond the ${MAX_QUOTE_STALENESS_SECONDS}s freshness policy.`;
+  if (ageSeconds > thresholds.maxQuoteStalenessSeconds) {
+    return `Quote is ${Math.round(ageSeconds)}s old, beyond the ${thresholds.maxQuoteStalenessSeconds}s freshness policy.`;
   }
   return null;
 }
@@ -119,7 +133,7 @@ function earningsEventFail(event: EarningsEventQuality | null): string | null {
   return null;
 }
 
-function fundamentalsFail_(f: FundamentalsQuality | null, now: Date): string | null {
+function fundamentalsFail_(f: FundamentalsQuality | null, now: Date, thresholds: DataQualityThresholds): string | null {
   if (f === null) {
     return "No fundamentals/market-cap as-of date available.";
   }
@@ -131,8 +145,8 @@ function fundamentalsFail_(f: FundamentalsQuality | null, now: Date): string | n
     return "Fundamentals as-of date is unreadable.";
   }
   const ageDays = (now.getTime() - asOf) / (24 * 3600 * 1000);
-  if (ageDays > MAX_FUNDAMENTALS_STALENESS_DAYS) {
-    return `Fundamentals are ${Math.round(ageDays)} days stale, beyond the ${MAX_FUNDAMENTALS_STALENESS_DAYS}-day policy — a stale cap cannot certify eligibility.`;
+  if (ageDays > thresholds.maxFundamentalsStalenessDays) {
+    return `Fundamentals are ${Math.round(ageDays)} days stale, beyond the ${thresholds.maxFundamentalsStalenessDays}-day policy — a stale cap cannot certify eligibility.`;
   }
   return null;
 }

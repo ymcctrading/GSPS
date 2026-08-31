@@ -24,6 +24,26 @@ import {
 } from "@/lib/risk/config";
 import type { CircuitState } from "@/lib/risk/config";
 
+/**
+ * The numeric knobs `resolveRiskBand`/`computePermittedRisk` read, isolated
+ * so a caller can pass a `policy_values`-resolved override (see
+ * lib/risk/policy.ts) without touching this module's other exports.
+ * Defaults are the same module-level constants this file always used.
+ */
+export interface RiskBandThresholds {
+  minTradesForRiskIncrease: number;
+  exceptionalBandMinTrades: number;
+  absoluteTierCapPct: number;
+  riskBandRatePct: Record<RiskBand, number>;
+}
+
+export const DEFAULT_RISK_BAND_THRESHOLDS: RiskBandThresholds = {
+  minTradesForRiskIncrease: MIN_TRADES_FOR_RISK_INCREASE,
+  exceptionalBandMinTrades: EXCEPTIONAL_BAND_MIN_TRADES,
+  absoluteTierCapPct: ABSOLUTE_TIER_CAP_PCT,
+  riskBandRatePct: { ...RISK_BAND_RATE_PCT },
+};
+
 export interface RiskBandInputs {
   completedSwingTrades: number;
   executionScore: number; // 0-100
@@ -42,15 +62,18 @@ export interface RiskBandInputs {
  * market/correlation multipliers and the three rolling budgets on top of
  * whatever band rate this resolves to.
  */
-export function resolveRiskBand(input: RiskBandInputs): RiskBand {
-  if (input.completedSwingTrades < MIN_TRADES_FOR_RISK_INCREASE) return "base";
+export function resolveRiskBand(
+  input: RiskBandInputs,
+  thresholds: RiskBandThresholds = DEFAULT_RISK_BAND_THRESHOLDS,
+): RiskBand {
+  if (input.completedSwingTrades < thresholds.minTradesForRiskIncrease) return "base";
   if (input.hasActiveCooldown) return "base";
 
   // The spec's "40-50 completed trades" names the sample size that
   // demonstrates a discipline record, not a ceiling that expires eligibility
   // at trade 51 — so this is a floor, using the lower end of the range.
   const exceptionalEligible =
-    input.completedSwingTrades >= EXCEPTIONAL_BAND_MIN_TRADES &&
+    input.completedSwingTrades >= thresholds.exceptionalBandMinTrades &&
     input.hasVariedConditionsSample &&
     input.hasNoCautionStates &&
     !input.hasRepeatedRecentDisciplineBreach;
@@ -99,7 +122,10 @@ export interface PermittedRisk {
   boundBy: "absolute_tier_cap" | "band_rate" | "daily_budget" | "48h_budget" | "open_risk_budget" | "circuit_breaker";
 }
 
-export function computePermittedRisk(input: PermittedRiskInputs): PermittedRisk {
+export function computePermittedRisk(
+  input: PermittedRiskInputs,
+  thresholds: RiskBandThresholds = DEFAULT_RISK_BAND_THRESHOLDS,
+): PermittedRisk {
   if (input.circuitState !== "normal" && input.circuitState !== "warning") {
     return { permittedRiskUsd: 0, permittedRiskPct: 0, boundBy: "circuit_breaker" };
   }
@@ -107,11 +133,11 @@ export function computePermittedRisk(input: PermittedRiskInputs): PermittedRisk 
     return { permittedRiskUsd: 0, permittedRiskPct: 0, boundBy: "band_rate" };
   }
 
-  const baseRatePct = RISK_BAND_RATE_PCT[input.band];
+  const baseRatePct = thresholds.riskBandRatePct[input.band];
   const { setup, execution, market, correlation } = input.multipliers;
   const composedPct = baseRatePct * setup * execution * market * correlation;
-  const cappedPct = Math.min(ABSOLUTE_TIER_CAP_PCT, composedPct);
-  const boundByCap = cappedPct === ABSOLUTE_TIER_CAP_PCT && composedPct > ABSOLUTE_TIER_CAP_PCT;
+  const cappedPct = Math.min(thresholds.absoluteTierCapPct, composedPct);
+  const boundByCap = cappedPct === thresholds.absoluteTierCapPct && composedPct > thresholds.absoluteTierCapPct;
 
   const fromRate = input.equity * (cappedPct / 100);
 

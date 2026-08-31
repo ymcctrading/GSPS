@@ -37,6 +37,40 @@ export interface CircuitInputs {
   drawdown30dPct: number;
 }
 
+/**
+ * The numeric knobs `resolveState` reads, isolated from the rest of
+ * lib/risk/config.ts so a caller can pass a `policy_values`-resolved
+ * override (see lib/risk/policy.ts) without touching the state machine's
+ * structural constants (state order, which states restrict existing
+ * positions). Defaults are the same module-level constants this file always
+ * used, so every existing call site is unaffected.
+ */
+export interface CircuitThresholds {
+  maxNewPositionsPerDay: number;
+  warning48hLossPct: number;
+  softCooldown48hLossPct: number;
+  hardCooldown48hLossPct: number;
+  criticalLock30dDrawdownPct: number;
+  emergencyLock30dDrawdownPct: number;
+  severeOverride30dDrawdownPct: number;
+  hardCooldownBlockedDays: number;
+  criticalLockBlockedDays: number;
+  emergencyLockBlockedDays: number;
+}
+
+export const DEFAULT_CIRCUIT_THRESHOLDS: CircuitThresholds = {
+  maxNewPositionsPerDay: MAX_NEW_POSITIONS_PER_DAY,
+  warning48hLossPct: WARNING_48H_LOSS_PCT,
+  softCooldown48hLossPct: SOFT_COOLDOWN_48H_LOSS_PCT,
+  hardCooldown48hLossPct: HARD_COOLDOWN_48H_LOSS_PCT,
+  criticalLock30dDrawdownPct: CRITICAL_LOCK_30D_DRAWDOWN_PCT,
+  emergencyLock30dDrawdownPct: EMERGENCY_LOCK_30D_DRAWDOWN_PCT,
+  severeOverride30dDrawdownPct: SEVERE_OVERRIDE_30D_DRAWDOWN_PCT,
+  hardCooldownBlockedDays: HARD_COOLDOWN_BLOCKED_DAYS,
+  criticalLockBlockedDays: CRITICAL_LOCK_BLOCKED_DAYS,
+  emergencyLockBlockedDays: EMERGENCY_LOCK_BLOCKED_DAYS,
+};
+
 /** A state that already held, so a duration-gated hold can be checked against when it started. */
 export interface PriorState {
   state: CircuitState;
@@ -61,36 +95,38 @@ function severityIndex(state: CircuitState): number {
 }
 
 /** The state a fresh read of the metrics alone (no duration hold) would produce. */
-function stateFromMetrics(inputs: CircuitInputs): { state: CircuitState; reason: string } {
-  if (inputs.drawdown30dPct >= SEVERE_OVERRIDE_30D_DRAWDOWN_PCT) {
-    return { state: "severe_override", reason: `30-day high-water drawdown reached ${inputs.drawdown30dPct.toFixed(1)}% (>= ${SEVERE_OVERRIDE_30D_DRAWDOWN_PCT}%).` };
+function stateFromMetrics(inputs: CircuitInputs, t: CircuitThresholds): { state: CircuitState; reason: string } {
+  if (inputs.drawdown30dPct >= t.severeOverride30dDrawdownPct) {
+    return { state: "severe_override", reason: `30-day high-water drawdown reached ${inputs.drawdown30dPct.toFixed(1)}% (>= ${t.severeOverride30dDrawdownPct}%).` };
   }
-  if (inputs.drawdown30dPct >= EMERGENCY_LOCK_30D_DRAWDOWN_PCT) {
-    return { state: "emergency_lock", reason: `30-day high-water drawdown reached ${inputs.drawdown30dPct.toFixed(1)}% (>= ${EMERGENCY_LOCK_30D_DRAWDOWN_PCT}%).` };
+  if (inputs.drawdown30dPct >= t.emergencyLock30dDrawdownPct) {
+    return { state: "emergency_lock", reason: `30-day high-water drawdown reached ${inputs.drawdown30dPct.toFixed(1)}% (>= ${t.emergencyLock30dDrawdownPct}%).` };
   }
-  if (inputs.drawdown30dPct >= CRITICAL_LOCK_30D_DRAWDOWN_PCT) {
-    return { state: "critical_lock", reason: `30-day high-water drawdown reached ${inputs.drawdown30dPct.toFixed(1)}% (>= ${CRITICAL_LOCK_30D_DRAWDOWN_PCT}%).` };
+  if (inputs.drawdown30dPct >= t.criticalLock30dDrawdownPct) {
+    return { state: "critical_lock", reason: `30-day high-water drawdown reached ${inputs.drawdown30dPct.toFixed(1)}% (>= ${t.criticalLock30dDrawdownPct}%).` };
   }
-  if (inputs.loss48hPct >= HARD_COOLDOWN_48H_LOSS_PCT) {
-    return { state: "hard_cooldown", reason: `48h loss reached ${inputs.loss48hPct.toFixed(1)}% (>= ${HARD_COOLDOWN_48H_LOSS_PCT}%).` };
+  if (inputs.loss48hPct >= t.hardCooldown48hLossPct) {
+    return { state: "hard_cooldown", reason: `48h loss reached ${inputs.loss48hPct.toFixed(1)}% (>= ${t.hardCooldown48hLossPct}%).` };
   }
-  if (inputs.loss48hPct >= SOFT_COOLDOWN_48H_LOSS_PCT) {
-    return { state: "soft_cooldown", reason: `48h loss reached ${inputs.loss48hPct.toFixed(1)}% (>= ${SOFT_COOLDOWN_48H_LOSS_PCT}%).` };
+  if (inputs.loss48hPct >= t.softCooldown48hLossPct) {
+    return { state: "soft_cooldown", reason: `48h loss reached ${inputs.loss48hPct.toFixed(1)}% (>= ${t.softCooldown48hLossPct}%).` };
   }
-  if (inputs.loss48hPct >= WARNING_48H_LOSS_PCT) {
-    return { state: "warning", reason: `48h loss reached ${inputs.loss48hPct.toFixed(1)}% (>= ${WARNING_48H_LOSS_PCT}%).` };
+  if (inputs.loss48hPct >= t.warning48hLossPct) {
+    return { state: "warning", reason: `48h loss reached ${inputs.loss48hPct.toFixed(1)}% (>= ${t.warning48hLossPct}%).` };
   }
-  if (inputs.newPositionsOpenedToday >= MAX_NEW_POSITIONS_PER_DAY) {
-    return { state: "entry_pause", reason: `${inputs.newPositionsOpenedToday} new positions opened today (>= ${MAX_NEW_POSITIONS_PER_DAY}).` };
+  if (inputs.newPositionsOpenedToday >= t.maxNewPositionsPerDay) {
+    return { state: "entry_pause", reason: `${inputs.newPositionsOpenedToday} new positions opened today (>= ${t.maxNewPositionsPerDay}).` };
   }
   return { state: "normal", reason: "No trigger." };
 }
 
-const BLOCKED_DAYS: Partial<Record<CircuitState, number>> = {
-  hard_cooldown: HARD_COOLDOWN_BLOCKED_DAYS,
-  critical_lock: CRITICAL_LOCK_BLOCKED_DAYS,
-  emergency_lock: EMERGENCY_LOCK_BLOCKED_DAYS,
-};
+function blockedDaysByState(t: CircuitThresholds): Partial<Record<CircuitState, number>> {
+  return {
+    hard_cooldown: t.hardCooldownBlockedDays,
+    critical_lock: t.criticalLockBlockedDays,
+    emergency_lock: t.emergencyLockBlockedDays,
+  };
+}
 
 /**
  * Resolves the circuit-breaker state. `prior` and `tradingDaysElapsedSince`
@@ -98,13 +134,18 @@ const BLOCKED_DAYS: Partial<Record<CircuitState, number>> = {
  * blocking through the *next full trading day* even if the loss that
  * triggered it has since fallen below threshold); omit either to get a pure
  * metrics read, which is what a first-ever evaluation for a user is.
+ * `thresholds` defaults to the code-default constants; pass a
+ * `policy_values`-resolved `CircuitThresholds` (lib/risk/policy.ts) to honor
+ * a remotely configured override.
  */
 export function resolveState(
   inputs: CircuitInputs,
   prior?: PriorState,
   tradingDaysElapsedSince?: (from: Date) => number,
+  thresholds: CircuitThresholds = DEFAULT_CIRCUIT_THRESHOLDS,
 ): CircuitDecision {
-  const fresh = stateFromMetrics(inputs);
+  const fresh = stateFromMetrics(inputs, thresholds);
+  const BLOCKED_DAYS = blockedDaysByState(thresholds);
 
   let state = fresh.state;
   let reason = fresh.reason;

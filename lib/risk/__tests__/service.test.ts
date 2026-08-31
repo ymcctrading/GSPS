@@ -62,10 +62,20 @@ function makeSupabase(opts: { snapshots: Snapshot[]; priorState: Prior | null })
     },
   };
 
+  const policyValuesTable = {
+    // No override rows configured — getRiskPolicy falls back to code defaults.
+    select: () => ({
+      eq: () => ({
+        in: () => Promise.resolve({ data: [], error: null }),
+      }),
+    }),
+  };
+
   const tables: Record<string, unknown> = {
     risk_live_equity_snapshots: snapshotsTable,
     risk_circuit_state: circuitStateTable,
     risk_circuit_audit_log: auditTable,
+    policy_values: policyValuesTable,
   };
 
   return {

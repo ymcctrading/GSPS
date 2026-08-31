@@ -12,7 +12,21 @@
 import { MARKET_CAP_CORE_FLOOR_USD, MARKET_CAP_FLOOR_USD } from "./config";
 import type { UniverseFilterResult } from "./types";
 
-export function marketCapPass(marketCapUsd: number | null): UniverseFilterResult {
+/** `policy_values`-overridable floors — see lib/universe/policy.ts. Defaults are the same constants this file always used. */
+export interface MarketCapThresholds {
+  marketCapFloorUsd: number;
+  marketCapCoreFloorUsd: number;
+}
+
+export const DEFAULT_MARKET_CAP_THRESHOLDS: MarketCapThresholds = {
+  marketCapFloorUsd: MARKET_CAP_FLOOR_USD,
+  marketCapCoreFloorUsd: MARKET_CAP_CORE_FLOOR_USD,
+};
+
+export function marketCapPass(
+  marketCapUsd: number | null,
+  thresholds: MarketCapThresholds = DEFAULT_MARKET_CAP_THRESHOLDS,
+): UniverseFilterResult {
   if (marketCapUsd === null || !Number.isFinite(marketCapUsd)) {
     return {
       key: "market_cap_pass",
@@ -20,7 +34,7 @@ export function marketCapPass(marketCapUsd: number | null): UniverseFilterResult
       reason: "Market capitalization is unknown, and an unknown cap cannot be certified above the $10B floor.",
     };
   }
-  if (marketCapUsd < MARKET_CAP_FLOOR_USD) {
+  if (marketCapUsd < thresholds.marketCapFloorUsd) {
     return {
       key: "market_cap_pass",
       pass: false,
@@ -31,8 +45,11 @@ export function marketCapPass(marketCapUsd: number | null): UniverseFilterResult
 }
 
 /** Whether a cap clears the preferred *core* floor, for callers that want to rank rather than just gate. */
-export function isCoreMarketCap(marketCapUsd: number | null): boolean {
-  return marketCapUsd !== null && Number.isFinite(marketCapUsd) && marketCapUsd >= MARKET_CAP_CORE_FLOOR_USD;
+export function isCoreMarketCap(
+  marketCapUsd: number | null,
+  thresholds: MarketCapThresholds = DEFAULT_MARKET_CAP_THRESHOLDS,
+): boolean {
+  return marketCapUsd !== null && Number.isFinite(marketCapUsd) && marketCapUsd >= thresholds.marketCapCoreFloorUsd;
 }
 
 /**

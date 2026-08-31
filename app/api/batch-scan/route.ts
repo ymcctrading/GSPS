@@ -26,6 +26,7 @@ import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 import { finalizeUsageReservation, reserveUsageSlot } from "@/lib/entitlements/quota";
 import { selectVisibleResults, type RankedSetup } from "@/lib/entitlements/result-selection";
 import { evaluateMonitorsAndNotify } from "@/lib/entitlements/scan-fanout";
+import { getUniversePolicy } from "@/lib/universe/policy";
 import type { ScanResult } from "@/lib/types";
 
 const DEFAULT_WATCHLIST = [
@@ -73,9 +74,12 @@ export async function GET(req: NextRequest) {
   const reservationId = reservation.reservationId!;
 
   try {
+    const { universe } = await getUniversePolicy(service);
     // Run all scans in parallel so a 10-stock batch takes roughly as
     // long as a single scan, not 10x as long.
-    const results = await Promise.all(tickers.map((ticker) => scanTicker(ticker)));
+    const results = await Promise.all(
+      tickers.map((ticker) => scanTicker(ticker, undefined, undefined, undefined, universe)),
+    );
 
     const execute = results.filter((r) => r.decision.outputState === "Execute");
     const watch = results.filter((r) => r.decision.outputState === "Watch");

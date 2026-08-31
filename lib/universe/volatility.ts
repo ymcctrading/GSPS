@@ -18,7 +18,22 @@ import type { Bar } from "@/lib/types";
 import { MAX_ATR_PCT_OF_PRICE, MIN_ATR_PCT_OF_PRICE } from "./config";
 import type { UniverseFilterResult } from "./types";
 
-export function volatilityPass(dailyBars: Bar[], atrPeriod = 14): UniverseFilterResult {
+/** `policy_values`-overridable band — see lib/universe/policy.ts. Defaults are the same constants this file always used. */
+export interface VolatilityThresholds {
+  minAtrPctOfPrice: number;
+  maxAtrPctOfPrice: number;
+}
+
+export const DEFAULT_VOLATILITY_THRESHOLDS: VolatilityThresholds = {
+  minAtrPctOfPrice: MIN_ATR_PCT_OF_PRICE,
+  maxAtrPctOfPrice: MAX_ATR_PCT_OF_PRICE,
+};
+
+export function volatilityPass(
+  dailyBars: Bar[],
+  atrPeriod = 14,
+  thresholds: VolatilityThresholds = DEFAULT_VOLATILITY_THRESHOLDS,
+): UniverseFilterResult {
   if (dailyBars.length < atrPeriod + 1) {
     return {
       key: "volatility_pass",
@@ -35,18 +50,18 @@ export function volatilityPass(dailyBars: Bar[], atrPeriod = 14): UniverseFilter
   const atrValue = atr(dailyBars, atrPeriod);
   const atrPctOfPrice = (atrValue / price) * 100;
 
-  if (atrPctOfPrice < MIN_ATR_PCT_OF_PRICE) {
+  if (atrPctOfPrice < thresholds.minAtrPctOfPrice) {
     return {
       key: "volatility_pass",
       pass: false,
-      reason: `ATR is ${atrPctOfPrice.toFixed(2)}% of price, below the ${MIN_ATR_PCT_OF_PRICE}% floor — too little movement to reach a meaningful target inside a normal hold window.`,
+      reason: `ATR is ${atrPctOfPrice.toFixed(2)}% of price, below the ${thresholds.minAtrPctOfPrice}% floor — too little movement to reach a meaningful target inside a normal hold window.`,
     };
   }
-  if (atrPctOfPrice > MAX_ATR_PCT_OF_PRICE) {
+  if (atrPctOfPrice > thresholds.maxAtrPctOfPrice) {
     return {
       key: "volatility_pass",
       pass: false,
-      reason: `ATR is ${atrPctOfPrice.toFixed(2)}% of price, above the ${MAX_ATR_PCT_OF_PRICE}% ceiling — the stop distance required to survive normal noise no longer fits the Novice risk budget.`,
+      reason: `ATR is ${atrPctOfPrice.toFixed(2)}% of price, above the ${thresholds.maxAtrPctOfPrice}% ceiling — the stop distance required to survive normal noise no longer fits the Novice risk budget.`,
     };
   }
 

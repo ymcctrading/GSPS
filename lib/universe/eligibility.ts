@@ -6,15 +6,40 @@
  */
 
 import { checkProhibited } from "./prohibited";
-import { marketCapPass } from "./marketCap";
-import { liquidityPass } from "./liquidity";
-import { priceOrFractionalPass } from "./priceAccessibility";
-import { spreadPass, type SpreadQuote } from "./spread";
+import { marketCapPass, DEFAULT_MARKET_CAP_THRESHOLDS, type MarketCapThresholds } from "./marketCap";
+import { liquidityPass, DEFAULT_LIQUIDITY_THRESHOLDS, type LiquidityThresholds } from "./liquidity";
+import { priceOrFractionalPass, DEFAULT_PRICE_BAND_THRESHOLDS, type PriceBandThresholds } from "./priceAccessibility";
+import { spreadPass, DEFAULT_SPREAD_THRESHOLDS, type SpreadQuote, type SpreadThresholds } from "./spread";
 import { eventRiskPass } from "./eventRisk";
-import { volatilityPass } from "./volatility";
-import { dataQualityPass, type DataQualityInputs } from "./dataQuality";
+import { volatilityPass, DEFAULT_VOLATILITY_THRESHOLDS, type VolatilityThresholds } from "./volatility";
+import { dataQualityPass, DEFAULT_DATA_QUALITY_THRESHOLDS, type DataQualityInputs, type DataQualityThresholds } from "./dataQuality";
 import type { Bar } from "@/lib/types";
 import type { NoviceEligibility, TradeQualification, TriState, UniverseFilterResult } from "./types";
+
+/**
+ * Every `policy_values`-overridable threshold `assessNoviceEligibility`'s
+ * filters read, bundled so a caller can pass one `getUniversePolicy()`
+ * result through instead of five separate parameters — see
+ * lib/universe/policy.ts. Defaults are each filter's own module-level
+ * constants, so every existing call site is unaffected.
+ */
+export interface UniverseThresholds {
+  marketCap: MarketCapThresholds;
+  liquidity: LiquidityThresholds;
+  priceBand: PriceBandThresholds;
+  spread: SpreadThresholds;
+  volatility: VolatilityThresholds;
+  dataQuality: DataQualityThresholds;
+}
+
+export const DEFAULT_UNIVERSE_THRESHOLDS: UniverseThresholds = {
+  marketCap: DEFAULT_MARKET_CAP_THRESHOLDS,
+  liquidity: DEFAULT_LIQUIDITY_THRESHOLDS,
+  priceBand: DEFAULT_PRICE_BAND_THRESHOLDS,
+  spread: DEFAULT_SPREAD_THRESHOLDS,
+  volatility: DEFAULT_VOLATILITY_THRESHOLDS,
+  dataQuality: DEFAULT_DATA_QUALITY_THRESHOLDS,
+};
 
 export interface NoviceEligibilityInputs {
   symbol: string;
@@ -46,7 +71,10 @@ export interface NoviceEligibilityInputs {
  * every other filter reads, and there is no reason to spend the volatility/
  * data-quality reads on a symbol already excluded by class.
  */
-export function assessNoviceEligibility(inputs: NoviceEligibilityInputs): NoviceEligibility {
+export function assessNoviceEligibility(
+  inputs: NoviceEligibilityInputs,
+  thresholds: UniverseThresholds = DEFAULT_UNIVERSE_THRESHOLDS,
+): NoviceEligibility {
   const prohibited = checkProhibited(inputs.symbol);
   if (prohibited.prohibited) {
     const filters: UniverseFilterResult[] = [
@@ -55,16 +83,16 @@ export function assessNoviceEligibility(inputs: NoviceEligibilityInputs): Novice
     return { eligible: false, filters, reasons: [prohibited.reason!] };
   }
 
-  const liquidity = liquidityPass(inputs.avgDailyDollarVolume);
+  const liquidity = liquidityPass(inputs.avgDailyDollarVolume, thresholds.liquidity);
 
   const filters: UniverseFilterResult[] = [
-    inputs.marketCapResult ?? marketCapPass(inputs.marketCapUsd),
+    inputs.marketCapResult ?? marketCapPass(inputs.marketCapUsd, thresholds.marketCap),
     liquidity,
-    priceOrFractionalPass(inputs.price, inputs.fractionalConfirmed),
-    spreadPass(inputs.spreadQuote, liquidity.pass),
+    priceOrFractionalPass(inputs.price, inputs.fractionalConfirmed, thresholds.priceBand),
+    spreadPass(inputs.spreadQuote, liquidity.pass, thresholds.spread),
     eventRiskPass(inputs.binaryEventInHoldWindow),
-    volatilityPass(inputs.dailyBars),
-    dataQualityPass(inputs.dataQuality),
+    volatilityPass(inputs.dailyBars, 14, thresholds.volatility),
+    dataQualityPass(inputs.dataQuality, thresholds.dataQuality),
   ];
 
   const reasons = filters.filter((f) => !f.pass).map((f) => f.reason!).filter((r): r is string => r !== null);

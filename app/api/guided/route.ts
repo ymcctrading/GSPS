@@ -47,6 +47,7 @@ import {
 } from "@/lib/guided/service";
 import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 import { finalizeUsageReservation, reserveUsageSlot } from "@/lib/entitlements/quota";
+import { getUniversePolicy } from "@/lib/universe/policy";
 
 export const dynamic = "force-dynamic";
 
@@ -136,11 +137,13 @@ export async function GET() {
       // The published list leads; `orderedCandidates` appends the wider universe
       // behind it and applies the scan ceiling once. See lib/guided/universe.ts.
       const published = await candidateSymbols(supabase);
+      const { universe: universeThresholds } = await getUniversePolicy(service);
       const { recommendations, skipped, nearMiss, scanned } = await buildRecommendations({
         symbols: orderedCandidates(published, MAX_CANDIDATES_SCANNED),
         account,
         caps,
         deployedUsd: usage.deployedUsd,
+        universeThresholds,
       });
 
       const logged = await logRecommendations(supabase, user.id, recommendations, caps.riskPct, account.equity);

@@ -65,6 +65,10 @@ function fakeService(args: {
       if (table === "profiles") {
         return { select: () => Promise.resolve({ data: args.profiles ?? [], error: null }) };
       }
+      if (table === "policy_values") {
+        // No override rows configured — getUniversePolicy falls back to code defaults.
+        return { select: () => ({ eq: () => ({ in: () => Promise.resolve({ data: [], error: null }) }) }) };
+      }
       throw new Error(`fakeService: unexpected table ${table}`);
     },
   } as unknown as SupabaseClient;

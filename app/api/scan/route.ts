@@ -11,6 +11,8 @@ import { scanTicker } from "@/lib/scanTicker";
 import { redactScanResult } from "@/lib/scoring/public-summary";
 import { verifyAuth } from "@/lib/auth";
 import { recordScanVerdict } from "@/lib/learning/record";
+import { createServiceClient } from "@/lib/supabase/server";
+import { getUniversePolicy } from "@/lib/universe/policy";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -22,7 +24,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Missing required 'ticker' query param" }, { status: 400 });
   }
 
-  const result = await scanTicker(ticker, optionPremium);
+  const { universe } = await getUniversePolicy(createServiceClient());
+  const result = await scanTicker(ticker, optionPremium, undefined, undefined, universe);
 
   // A verdict is the input the learning tables were built to accumulate, and
   // until now nothing ever wrote one. Recorded for signed-in callers only: the

@@ -33,6 +33,7 @@ import { squareOf9Levels } from "@/lib/gann/squareOf9";
 import { CONTINUATION_PATTERNS } from "@/lib/strat/patterns";
 import { MIN_EQUITY_PRICE_USD, meetsLiquidityFloor, readLiquidity } from "@/lib/scan/liquidity";
 import { scanTicker } from "@/lib/scanTicker";
+import { DEFAULT_UNIVERSE_THRESHOLDS, type UniverseThresholds } from "@/lib/universe/eligibility";
 import { MAG7, SECTORS } from "@/lib/sectors";
 import { LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
 import type { CoarseTelemetryRow } from "@/lib/scan/telemetry";
@@ -541,7 +542,17 @@ const CONTINUATION_DEADLINE_MS = 42_000;
  * universe size itself. See `app/api/market-scan/route.ts` for the ceiling
  * this now comfortably fits inside.
  */
-export async function runMarketScan(universeTop = 100, perSide = 15): Promise<MarketScanOutput> {
+export async function runMarketScan(
+  universeTop = 100,
+  perSide = 15,
+  /**
+   * `getUniversePolicy()`-resolved Market Universe thresholds, resolved once
+   * by the caller (e.g. `app/api/market-scan/route.ts`) rather than per
+   * symbol — see lib/universe/policy.ts's module doc. Defaults to the code
+   * constants, so every existing caller is unaffected.
+   */
+  universeThresholds: UniverseThresholds = DEFAULT_UNIVERSE_THRESHOLDS,
+): Promise<MarketScanOutput> {
   const startedAt = Date.now();
   // The trading date the scan describes, not the UTC date it happened to run
   // on. The two diverge between 20:00 ET and midnight — a post-close re-run
@@ -605,7 +616,7 @@ export async function runMarketScan(universeTop = 100, perSide = 15): Promise<Ma
   // just scoring, not a fresh five-request fetch per symbol.
   const shortlistBars = await fetchAllTimeframesBatch(shortlist.map((c) => c.symbol));
   const full = await mapWithConcurrency(shortlist, 5, (c) =>
-    scanTicker(c.symbol, undefined, undefined, shortlistBars.get(c.symbol.toUpperCase())),
+    scanTicker(c.symbol, undefined, undefined, shortlistBars.get(c.symbol.toUpperCase()), universeThresholds),
   );
   const valid = full.filter((r) => !r.error);
   const scanErrors = full.length - valid.length;
@@ -687,7 +698,13 @@ export async function runMarketScan(universeTop = 100, perSide = 15): Promise<Ma
 
     const fillBars = await fetchAllTimeframesBatch(fills.map((c) => c.symbol));
     const scans = await mapWithConcurrency(fills, 5, (c) =>
-      scanTicker(c.symbol, undefined, { direction: c.direction, kind: "continuation" }, fillBars.get(c.symbol.toUpperCase())),
+      scanTicker(
+        c.symbol,
+        undefined,
+        { direction: c.direction, kind: "continuation" },
+        fillBars.get(c.symbol.toUpperCase()),
+        universeThresholds,
+      ),
     );
     continuationScanResults = scans;
 

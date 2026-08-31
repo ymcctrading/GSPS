@@ -14,6 +14,15 @@
 import { MIN_WHOLE_UNITS_FOR_STAGED_EXIT } from "./config";
 import type { DataProvenance, UniverseFilterResult } from "./types";
 
+/** `policy_values`-overridable floor — see lib/universe/policy.ts. Default is the same constant this file always used. */
+export interface SmallAccountThresholds {
+  minWholeUnitsForStagedExit: number;
+}
+
+export const DEFAULT_SMALL_ACCOUNT_THRESHOLDS: SmallAccountThresholds = {
+  minWholeUnitsForStagedExit: MIN_WHOLE_UNITS_FOR_STAGED_EXIT,
+};
+
 /**
  * Whether a staged TP1/TP2/runner exit is feasible at the computed size, or
  * the spec's all-in/all-out fallback applies instead.
@@ -22,7 +31,11 @@ import type { DataProvenance, UniverseFilterResult } from "./types";
  * actually split across (whole shares normally; a broker's fractional
  * increment when fractional support is confirmed) — not the raw notional.
  */
-export function exitMechanics(qty: number, fractionalSupported: boolean): {
+export function exitMechanics(
+  qty: number,
+  fractionalSupported: boolean,
+  thresholds: SmallAccountThresholds = DEFAULT_SMALL_ACCOUNT_THRESHOLDS,
+): {
   stagedExitFeasible: boolean;
   fallback: "staged" | "all_in_all_out";
   reason: string | null;
@@ -39,11 +52,11 @@ export function exitMechanics(qty: number, fractionalSupported: boolean): {
     return { stagedExitFeasible: true, fallback: "staged", reason: null };
   }
 
-  if (qty < MIN_WHOLE_UNITS_FOR_STAGED_EXIT) {
+  if (qty < thresholds.minWholeUnitsForStagedExit) {
     return {
       stagedExitFeasible: false,
       fallback: "all_in_all_out",
-      reason: `${qty} whole-share-equivalent unit(s) is below the ${MIN_WHOLE_UNITS_FOR_STAGED_EXIT} needed for scaled TP1/TP2/runner exits without fractional support — falling back to all-in/all-out.`,
+      reason: `${qty} whole-share-equivalent unit(s) is below the ${thresholds.minWholeUnitsForStagedExit} needed for scaled TP1/TP2/runner exits without fractional support — falling back to all-in/all-out.`,
     };
   }
 
