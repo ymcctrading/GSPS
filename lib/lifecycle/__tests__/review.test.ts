@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { TradePlan } from "@/lib/lifecycle/types";
 import { buildPostCloseReview } from "@/lib/lifecycle/review";
+import { freshEntryConfirmation } from "@/lib/lifecycle/entryConfirmation";
 
 function closedPlan(overrides: Partial<TradePlan> = {}): TradePlan {
   return {
@@ -14,6 +15,8 @@ function closedPlan(overrides: Partial<TradePlan> = {}): TradePlan {
     generatedAt: "2026-08-29T13:00:00.000Z",
     expiresAt: "2026-09-05T13:00:00.000Z",
     direction: "bullish",
+    signalFingerprint: "sig-1",
+    entryConfirmation: freshEntryConfirmation(),
     coordinates: {
       entryTrigger: 100,
       entryLimitTolerance: 0.5,

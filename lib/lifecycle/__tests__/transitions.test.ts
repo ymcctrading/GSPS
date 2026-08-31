@@ -1,6 +1,19 @@
 import { describe, expect, it } from "vitest";
-import type { TradePlan } from "@/lib/lifecycle/types";
+import type { EntryConfirmationEvidence, TradePlan } from "@/lib/lifecycle/types";
 import { applyPlanEvent } from "@/lib/lifecycle/transitions";
+import { freshEntryConfirmation } from "@/lib/lifecycle/entryConfirmation";
+
+const CONFIRMED_EVIDENCE: EntryConfirmationEvidence = {
+  touchedAt: "t1a",
+  touchedPrice: 100,
+  breakOrSweepAt: "t1b",
+  breakOrSweepPrice: 100.5,
+  retestAt: "t1c",
+  retestPrice: 99.9,
+  confirmationMoveAt: "t1d",
+  confirmationMovePrice: 100.6,
+  entryConfirmedAt: "t1d",
+};
 
 function plan(overrides: Partial<TradePlan> = {}): TradePlan {
   return {
@@ -14,6 +27,8 @@ function plan(overrides: Partial<TradePlan> = {}): TradePlan {
     generatedAt: "2026-08-29T13:00:00.000Z",
     expiresAt: "2026-09-05T13:00:00.000Z",
     direction: "bullish",
+    signalFingerprint: "AAPL:1Day:1.0.0:sig-1",
+    entryConfirmation: freshEntryConfirmation(),
     coordinates: {
       entryTrigger: 100,
       entryLimitTolerance: 0.5,
@@ -61,7 +76,24 @@ describe("applyPlanEvent — happy path", () => {
     expect(p.state).toBe("qualified");
     expect(p.version).toBe(1);
 
-    r = applyPlanEvent(p, { type: "arm", at: "t2", reason: "trigger set" });
+    r = applyPlanEvent(p, { type: "await_confirmation", at: "t1b", reason: "watching for entry confirmation" });
+    if (!r.ok) throw new Error();
+    p = r.plan;
+    expect(p.state).toBe("awaiting_entry_confirmation");
+
+    // Arming before the confirmation sequence completes is rejected.
+    const premature = applyPlanEvent(p, { type: "arm", at: "t1c", reason: "too early" });
+    expect(premature.ok).toBe(false);
+
+    r = applyPlanEvent(p, {
+      type: "record_confirmation_evidence",
+      at: "t1d",
+      evidence: CONFIRMED_EVIDENCE,
+    });
+    if (!r.ok) throw new Error();
+    p = r.plan;
+
+    r = applyPlanEvent(p, { type: "arm", at: "t2", reason: "entry confirmed" });
     if (!r.ok) throw new Error();
     p = r.plan;
     expect(p.state).toBe("armed");

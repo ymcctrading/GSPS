@@ -56,9 +56,22 @@ const EvidenceSchema = z.object({
   eventLiquidityStatus: z.string(),
 });
 
+const EntryConfirmationSchema = z.object({
+  touchedAt: z.string().nullable(),
+  touchedPrice: z.number().nullable(),
+  breakOrSweepAt: z.string().nullable(),
+  breakOrSweepPrice: z.number().nullable(),
+  retestAt: z.string().nullable(),
+  retestPrice: z.number().nullable(),
+  confirmationMoveAt: z.string().nullable(),
+  confirmationMovePrice: z.number().nullable(),
+  entryConfirmedAt: z.string().nullable(),
+});
+
 export const NewTradePlanSchema = z.object({
   strategyVersion: z.string().min(1),
   signalId: z.string().min(1),
+  signalFingerprint: z.string().min(1).nullable().default(null),
   instrument: z.string().min(1),
   market: z.string().min(1),
   timeframe: z.string().min(1),
@@ -68,12 +81,30 @@ export const NewTradePlanSchema = z.object({
   coordinates: CoordinatesSchema,
   risk: RiskSchema,
   evidence: EvidenceSchema,
+  entryConfirmation: EntryConfirmationSchema.default({
+    touchedAt: null,
+    touchedPrice: null,
+    breakOrSweepAt: null,
+    breakOrSweepPrice: null,
+    retestAt: null,
+    retestPrice: null,
+    confirmationMoveAt: null,
+    confirmationMovePrice: null,
+    entryConfirmedAt: null,
+  }),
 });
 
 export type NewTradePlanBody = z.infer<typeof NewTradePlanSchema>;
 
 export const PlanEventSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("mark_auto_created"), at: z.string(), reason: z.string() }),
   z.object({ type: z.literal("qualify"), at: z.string(), reason: z.string() }),
+  z.object({ type: z.literal("await_confirmation"), at: z.string(), reason: z.string() }),
+  z.object({
+    type: z.literal("record_confirmation_evidence"),
+    at: z.string(),
+    evidence: EntryConfirmationSchema,
+  }),
   z.object({ type: z.literal("arm"), at: z.string(), reason: z.string() }),
   z.object({
     type: z.literal("enter"),

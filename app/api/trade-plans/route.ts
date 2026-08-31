@@ -12,6 +12,7 @@ import type { PlanState } from "@/lib/lifecycle";
 const VALID_STATES: readonly PlanState[] = [
   "watchlist",
   "qualified",
+  "awaiting_entry_confirmation",
   "armed",
   "entered",
   "tp1_reached",
