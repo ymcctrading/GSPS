@@ -5,20 +5,19 @@
  * equity (`lib/guided/service.ts` `readGuidedAccount`, `lib/brokers/
  * simulator.ts`) must never be passed into `lib/risk/service.ts`.
  *
- * SnapTrade is the only linked-brokerage provider with a working balance
- * read today (`lib/brokers/snaptrade.ts` `listAccounts`) — `alpaca_live` is
- * a recognised `broker_connections.provider` value elsewhere in the app
- * (e.g. `lib/guided/service.ts` `hasLiveBrokerage`) but there is no code
- * path yet that fetches a live Alpaca account's balance per-user. Per the
- * spec's "If broker/account data is unavailable or stale, fail closed",
- * an `alpaca_live` connection with no reader is reported `connected: true,
- * verified: false, equity: 0` rather than guessed at — the caller must
- * treat that as "cannot size", not as "zero equity is the true balance".
+ * Alpaca live is read first and preferred when connected: it is the account
+ * that `lib/trade/place-order.ts`'s live branch actually submits orders
+ * against (via `lib/brokers/live-creds.ts`), so it is the equity the risk
+ * gate must size against. SnapTrade is a fallback for a user who has only
+ * linked a read-only external brokerage — informational, since nothing in
+ * this app submits an order through SnapTrade.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { decryptJson } from "@/lib/crypto";
 import { isSnapTradeEnabled, listAccounts } from "@/lib/brokers/snaptrade";
+import { getAccount } from "@/lib/brokers/alpaca";
+import { readLiveAlpacaConnection } from "@/lib/brokers/live-creds";
 
 export interface LiveAccountRead {
   /** True when any live/linked-brokerage `broker_connections` row exists and is active. */
@@ -41,6 +40,19 @@ export async function readLiveAccountValue(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<LiveAccountRead> {
+  const alpaca = await readLiveAlpacaConnection(supabase, userId);
+  if (alpaca) {
+    try {
+      const account = await getAccount(alpaca.creds);
+      const equity = Number(account.equity);
+      if (!Number.isFinite(equity)) return UNREADABLE;
+      return { connected: true, equity, verified: true };
+    } catch (err) {
+      console.error(`risk: live Alpaca account value not readable — ${err instanceof Error ? err.message : String(err)}`);
+      return UNREADABLE;
+    }
+  }
+
   const { data } = await supabase
     .from("broker_connections")
     .select("provider, credentials")
@@ -52,7 +64,7 @@ export async function readLiveAccountValue(
   if (rows.length === 0) return NOT_CONNECTED;
 
   const snaptrade = rows.find((r) => r.provider === "snaptrade");
-  if (!snaptrade) return UNREADABLE; // only alpaca_live rows present — no reader yet, see header
+  if (!snaptrade) return UNREADABLE; // only an unreadable alpaca_live row present
 
   if (!isSnapTradeEnabled()) return UNREADABLE;
 
