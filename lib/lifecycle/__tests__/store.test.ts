@@ -8,6 +8,7 @@ import {
   listTradePlans,
   type NewTradePlan,
 } from "@/lib/lifecycle/store";
+import { freshEntryConfirmation } from "@/lib/lifecycle/entryConfirmation";
 
 /**
  * Minimal in-memory fake covering exactly the query shapes
@@ -101,6 +102,8 @@ function newPlan(overrides: Partial<NewTradePlan> = {}): NewTradePlan {
     generatedAt: "2026-08-29T13:00:00.000Z",
     expiresAt: "2026-09-05T13:00:00.000Z",
     direction: "bullish",
+    signalFingerprint: "sig-1",
+    entryConfirmation: freshEntryConfirmation(),
     coordinates: {
       entryTrigger: 100,
       entryLimitTolerance: 0.5,

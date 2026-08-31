@@ -17,11 +17,17 @@
  * `userConfirmed: true` on the edit.
  */
 
-import type { PlanAuditEntry, PlanState, TradePlan } from "./types";
+import type { EntryConfirmationEvidence, PlanAuditEntry, PlanState, TradePlan } from "./types";
 import { ACTIVE_STATES, PRE_ENTRY_STATES } from "./types";
+import { entryReady } from "./entryConfirmation";
 
 export type PlanEvent =
+  /** No state change — the required PLAN_AUTO_CREATED_FROM_QUALIFYING_SIGNAL audit marker. */
+  | { type: "mark_auto_created"; at: string; reason: string }
   | { type: "qualify"; at: string; reason: string }
+  | { type: "await_confirmation"; at: string; reason: string }
+  /** No state change on its own — merges new confirmation evidence onto the plan. */
+  | { type: "record_confirmation_evidence"; at: string; evidence: EntryConfirmationEvidence }
   | { type: "arm"; at: string; reason: string }
   | { type: "enter"; at: string; fillPrice: number; cooldownBlocksNewEntry: boolean }
   | { type: "tp1_fill"; at: string }
@@ -61,13 +67,68 @@ function fail(error: string): TransitionResult {
 
 export function applyPlanEvent(plan: TradePlan, event: PlanEvent): TransitionResult {
   switch (event.type) {
+    case "mark_auto_created": {
+      if (plan.state !== "watchlist") {
+        return fail(`Cannot mark auto-created from state "${plan.state}"; expected "watchlist".`);
+      }
+      return {
+        ok: true,
+        plan: audit(plan, {
+          at: event.at,
+          kind: "plan_auto_created",
+          fromState: plan.state,
+          toState: plan.state,
+          reason: event.reason,
+          riskIncreased: false,
+          userConfirmed: true,
+        }),
+      };
+    }
     case "qualify": {
       if (plan.state !== "watchlist") return fail(`Cannot qualify a plan in state "${plan.state}".`);
       return advanceActive(plan, "watchlist", "qualified", event.at, event.reason, "plan_edit");
     }
+    case "await_confirmation": {
+      if (plan.state !== "qualified") {
+        return fail(`Cannot await entry confirmation from state "${plan.state}".`);
+      }
+      return advanceActive(
+        plan,
+        "qualified",
+        "awaiting_entry_confirmation",
+        event.at,
+        event.reason,
+        "plan_edit",
+      );
+    }
+    case "record_confirmation_evidence": {
+      if (plan.state !== "awaiting_entry_confirmation") {
+        return fail(
+          `Cannot record entry-confirmation evidence from state "${plan.state}"; expected "awaiting_entry_confirmation".`,
+        );
+      }
+      return { ok: true, plan: { ...plan, entryConfirmation: event.evidence } };
+    }
     case "arm": {
-      if (plan.state !== "qualified") return fail(`Cannot arm a plan in state "${plan.state}".`);
-      return advanceActive(plan, "qualified", "armed", event.at, event.reason, "plan_edit");
+      if (plan.state !== "awaiting_entry_confirmation") {
+        return fail(`Cannot arm a plan in state "${plan.state}".`);
+      }
+      // The hard gate: an indicator flip, initial touch, initial break, or
+      // initial sweep alone can never arm a plan for entry -- only a fully
+      // confirmed break/retest/confirmation-move sequence can.
+      if (!entryReady(plan.entryConfirmation)) {
+        return fail(
+          "Entry not confirmed: the required break/retest/confirmation-move sequence has not completed.",
+        );
+      }
+      return advanceActive(
+        plan,
+        "awaiting_entry_confirmation",
+        "armed",
+        event.at,
+        event.reason,
+        "plan_edit",
+      );
     }
     default:
       return applyRemainingEvent(plan, event);

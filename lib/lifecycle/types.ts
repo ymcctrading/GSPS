@@ -18,6 +18,7 @@ import type { RegimeRead, RulesAlignmentScore } from "@/lib/signals/types";
 export type PlanState =
   | "watchlist"
   | "qualified"
+  | "awaiting_entry_confirmation"
   | "armed"
   | "entered"
   | "tp1_reached"
@@ -29,7 +30,12 @@ export type PlanState =
   | "invalidated";
 
 /** States in which no trigger has filled yet — the only states EXPIRED can be reached from. */
-export const PRE_ENTRY_STATES: readonly PlanState[] = ["watchlist", "qualified", "armed"];
+export const PRE_ENTRY_STATES: readonly PlanState[] = [
+  "watchlist",
+  "qualified",
+  "awaiting_entry_confirmation",
+  "armed",
+];
 
 /** States in which a position is open — the only states INVALIDATED and CLOSE/REDUCE/PROTECT apply to. */
 export const ACTIVE_STATES: readonly PlanState[] = [
@@ -93,7 +99,8 @@ export interface PlanAuditEntry {
     | "price_event"
     | "notification"
     | "execution"
-    | "imported_fill";
+    | "imported_fill"
+    | "plan_auto_created";
   fromState: PlanState;
   toState: PlanState;
   reason: string;
@@ -103,6 +110,44 @@ export interface PlanAuditEntry {
    * increased without re-evaluation and user confirmation." */
   userConfirmed: boolean;
 }
+
+/**
+ * Evidence for the mandatory break/retest/confirmation sequence a plan must
+ * clear before it can be armed for entry. Per the spec: "Price commonly
+ * breaks above or below an entry level before returning. That initial move
+ * is a setup-state observation — not an executable entry." Every field is
+ * populated incrementally by `lib/lifecycle/entryConfirmation.ts` as new bars
+ * arrive; a null field means that stage hasn't happened yet. See
+ * `entryReady()` in that module for the hard gate this evidence feeds.
+ */
+export interface EntryConfirmationEvidence {
+  /** First bar whose range reached the entry-zone price. */
+  touchedAt: string | null;
+  touchedPrice: number | null;
+  /** First bar that closed beyond the entry trigger in the trade's direction. */
+  breakOrSweepAt: string | null;
+  breakOrSweepPrice: number | null;
+  /** First bar after the break that returned to/through the entry zone. */
+  retestAt: string | null;
+  retestPrice: number | null;
+  /** First closed bar after the retest that resumed beyond the retest extreme. */
+  confirmationMoveAt: string | null;
+  confirmationMovePrice: number | null;
+  /** Set once every prior stage is populated — mirrors `entryReady`'s decision. */
+  entryConfirmedAt: string | null;
+}
+
+export const EMPTY_ENTRY_CONFIRMATION: EntryConfirmationEvidence = {
+  touchedAt: null,
+  touchedPrice: null,
+  breakOrSweepAt: null,
+  breakOrSweepPrice: null,
+  retestAt: null,
+  retestPrice: null,
+  confirmationMoveAt: null,
+  confirmationMovePrice: null,
+  entryConfirmedAt: null,
+};
 
 /** The full versioned trade-plan object. A signal is not tradeable until every field group is populated. */
 export interface TradePlan {
@@ -117,10 +162,18 @@ export interface TradePlan {
   generatedAt: string;
   expiresAt: string;
   direction: Exclude<Direction, "none">;
+  /**
+   * Stable idempotency key for "same ticker/timeframe/strategy version/
+   * signal" — a rerun of the scan that produced this plan must not create a
+   * second one. Null on plans created before this field existed or by a
+   * caller with no fingerprint to offer (e.g. a manually built plan).
+   */
+  signalFingerprint: string | null;
 
   coordinates: PlanCoordinates;
   risk: PlanRisk;
   evidence: PlanEvidence;
+  entryConfirmation: EntryConfirmationEvidence;
 
   state: PlanState;
   version: number;
