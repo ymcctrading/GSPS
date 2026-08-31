@@ -20,8 +20,9 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { scanTicker } from "@/lib/scanTicker";
+import { getUniversePolicy } from "@/lib/universe/policy";
 import { killSwitchRefusal } from "@/lib/trade/kill-switch";
 import { placeSimulatedOrder } from "@/lib/trade/place-order";
 import { readCapUsage } from "@/lib/guided/caps";
@@ -107,7 +108,8 @@ export async function POST(req: NextRequest) {
   };
 
   // ---- Re-verify against the market as it is right now, not as it was.
-  const fresh = await scanTicker(rec.symbol);
+  const { universe } = await getUniversePolicy(createServiceClient());
+  const fresh = await scanTicker(rec.symbol, undefined, undefined, undefined, universe);
   // A short also has to still be borrowable at submission: availability moves
   // during the session, and a recommendation written when it was borrowable is
   // an order that dies at the broker when it is not.

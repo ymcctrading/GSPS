@@ -26,7 +26,7 @@ own instruction._
 | Phase | Deliverable | Status | Code location | Gap |
 |---|---|---|---|---|
 | 0 | Repository discovery and architecture map | Done | This file + `GSPS_CLAUDE_CODE_IMPLEMENTATION_HANDOFF.md` | — |
-| 1 | Policy/config domain | Partial, in progress | `lib/policy/store.ts`, `lib/risk/policy.ts`, `lib/universe/policy.ts`, `supabase/migrations/0048_domain_policy_values.sql`, plus `lib/guided/config.ts`, `supabase/migrations/0046_tier_promotion_policy.sql` | A generic, domain-scoped `policy_values`/`policy_change_log` pair (0048) now extends the versioned-config pattern 0046 established for tier promotion. **Risk domain** is fully wired end to end: `lib/risk/policy.ts` resolves overrides for every circuit-breaker threshold and risk-band rate/cap, and `lib/risk/service.ts`'s live evaluation reads through it. **Universe domain**: every filter module (`marketCap`, `liquidity`, `priceAccessibility`, `spread`, `volatility`, `dataQuality`, `smallAccount`) now accepts an optional resolved-threshold parameter, and `lib/universe/policy.ts` resolves all of them from `policy_values` (domain `"universe"`) — but it is **not yet wired into a live call site**: `buildScanNoviceEligibility` runs once per symbol from `lib/scanTicker.ts`'s hot scan path, which has no Supabase client today and would need a resolve-once-per-batch design to avoid a per-symbol DB fetch (documented in `lib/universe/policy.ts`'s module doc). Every existing call site and test for both domains is unaffected — all new parameters default to the same code constants as before. `lib/guided/config.ts` is the one piece of this gap not yet started. |
+| 1 | Policy/config domain | Partial, in progress | `lib/policy/store.ts`, `lib/risk/policy.ts`, `lib/universe/policy.ts`, `supabase/migrations/0048_domain_policy_values.sql`, plus `lib/guided/config.ts`, `supabase/migrations/0046_tier_promotion_policy.sql` | A generic, domain-scoped `policy_values`/`policy_change_log` pair (0048) now extends the versioned-config pattern 0046 established for tier promotion. **Risk domain** fully wired: `lib/risk/policy.ts` resolves overrides for every circuit-breaker threshold and risk-band rate/cap, and `lib/risk/service.ts`'s live evaluation reads through it. **Universe domain: resolver built and now wired into every live scan entry point** — `lib/scanTicker.ts` takes an optional resolved `UniverseThresholds` parameter (5th arg), and every route that drives it resolves `getUniversePolicy()` once per request/batch (never per symbol) and threads it through: `app/api/scan`, `app/api/batch-scan`, `app/api/guided` + `app/api/guided/execute` (via `lib/guided/service.ts`'s `buildRecommendations`), and both `lib/marketScan.ts`'s `runMarketScan` call sites (`app/api/market-scan` and the 6:00/9:15 ET scheduled scans in `lib/entitlements/scheduled-scan.ts`) — the widest-reaching path, since it's what the daily cron and the manual refresh both run. `lib/demo/auto-trade.ts`'s synthetic demo-account scans are deliberately left on code defaults — not a real user, no policy relevance. Every existing call site and test is unaffected — all new parameters default to the same code constants as before, and every affected route/service now resolves a real `policy_values` (domain `"universe"`) row when one exists via a service-role client (the table has no client select policy, so a user-scoped client would silently see nothing). `lib/guided/config.ts` is the one remaining unstarted piece of this gap. |
 | 2 | Account and risk engine | Done | `lib/risk/{account,circuit-breaker,cooldown,dynamic-risk,execution-score,live-account,metrics,position-limits,service,status}.ts`; `supabase/migrations/0042_novice_risk_cooldown_engine.sql`, `0043_risk_live_equity_snapshots.sql` | Verified/estimated account status, sizing, allocation, correlation-adjacent metrics, daily/48h/30d drawdown, and the 8-state circuit breaker are all implemented and tested (`lib/risk/__tests__`). Live-account gating currently has no live order path to actually gate (documented, expected). |
 | 3 | Universe/data-quality engine | Done (informational, by decision) | `lib/universe/{eligibility,dataQuality,eventRisk,liquidity,marketCap,priceAccessibility,prohibited,scanGates,smallAccount,spread,volatility}.ts` | Eligibility filter, freshness/data-provenance, event gating, and fail-closed behavior all exist and are wired into `lib/scanTicker.ts` as `ScanResult.noviceUniverse`. By deliberate, documented decision (`docs/MARKET_UNIVERSE_DATA_QUALITY.md`, "Why informational, not gating") this does **not** gate `SignalGates.eligibleUniverse` yet, because earnings-calendar and large-cap-list coverage is too thin to gate the whole scanner without collapsing the tradeable universe. This diverges from the spec's implication that the engine gates entries; the divergence is intentional and documented, not an oversight. |
 | 4 | Trend Pullback v1 | Done (as the Signal and Regime Engine) | `lib/signals/{engine,disqualifiers,regime,scoring,scanGates,indicators}.ts`, `lib/signals/states/` | Closed-bar deterministic scan, score explanation, entry/stop/target/expiry all present; wired into scan UI, chart/ticker UI, and notification fan-out. Built as a superset ("Signal and Regime Engine" covering multiple pattern states), not a single named "Trend Pullback v1" module — acceptance criteria are met, naming differs from the spec. |
@@ -39,7 +39,7 @@ own instruction._
 
 | Spec entity | Purpose | Actual table(s) | Status |
 |---|---|---|---|
-| `policy_versions` | Immutable policy config, effective dates, approvals, rollback | `promotion_policy_values`/`promotion_policy_change_log` (0046, tier promotion only); generic `policy_values`/`policy_change_log` (0048, risk domain wired live, universe domain resolver built but not yet called from a live route, guided not started) | Partial — the generic table now covers any domain by design, but only "risk" and "promotion" (with their own table names, pre-dating 0048) are actually read from a live request path today. `policy_values`/`policy_change_log` has no effective-dating or approval workflow, only a change-log trigger, same as 0046. |
+| `policy_versions` | Immutable policy config, effective dates, approvals, rollback | `promotion_policy_values`/`promotion_policy_change_log` (0046, tier promotion only); generic `policy_values`/`policy_change_log` (0048, risk and universe domains both wired into live routes; guided not started) | Partial — "risk", "universe", and "promotion" (the last with its own pre-0048 table name) are all read from a live request path today. `policy_values`/`policy_change_log` has no effective-dating or approval workflow, only a change-log trigger, same as 0046. |
 | `strategy_versions` | Rules, parameters, score schema, data dependencies, status | — | Missing — signal/scoring parameters live in code (`lib/signals/scoring.ts`), not a versioned DB row. Trade plans reference no `strategy_version_id`. |
 | `instrument_eligibility_snapshots` | Universe pass/fail + underlying market/event data | — | Missing — `lib/universe/*` computes eligibility live per scan and publishes it on the scan result; nothing is persisted as a historical snapshot, so past eligibility can't be reconstructed after the fact. |
 | `signal_evaluations` | Every scan result, criteria evidence, score, expiry, source timestamps | `scan_results`, `scan_events`, `visible_scan_results`, `signal_lifecycle_events` | Partial — evaluation data is recorded but split across several tables by concern (entitlement-visible results vs. raw scan events vs. lifecycle transitions) rather than one evidence-complete record per evaluation. |
@@ -70,20 +70,15 @@ own instruction._
    values" and the `policy_versions` entity). **Risk domain done**:
    `lib/risk/policy.ts` + generic `policy_values`/`policy_change_log` (0048),
    wired into `lib/risk/service.ts`'s live circuit-breaker path. **Universe
-   domain: resolver done, wiring open** — `lib/universe/policy.ts` resolves
-   every filter threshold from `policy_values` (domain `"universe"`), and
-   every filter module (`marketCap.ts`, `liquidity.ts`, `priceAccessibility.ts`,
-   `spread.ts`, `volatility.ts`, `dataQuality.ts`, `smallAccount.ts`) takes an
-   optional resolved-threshold parameter, but nothing calls the resolver yet:
-   `buildScanNoviceEligibility` runs per-symbol inside `lib/scanTicker.ts`'s
-   hot scan loop, which has no Supabase client and would take a DB hit per
-   symbol per scan if wired naively — needs a resolve-once-per-batch design
-   (resolve in the route that calls `runMarketScan`/`scanTicker` in a loop —
-   see `lib/marketScan.ts`, `app/api/batch-scan/route.ts`, `app/api/scan/route.ts`
-   — and thread the one resolved `UniverseThresholds` through every
-   `scanTicker` call in that batch) before it's wired in, not a per-symbol
-   fetch. **Still open, not started:** the same pattern for
-   `lib/guided/config.ts`.
+   domain done, resolver and wiring both**: `lib/universe/policy.ts` resolves
+   every filter threshold from `policy_values` (domain `"universe"`);
+   `lib/scanTicker.ts` takes the resolved `UniverseThresholds` as an optional
+   5th argument (resolve-once-per-batch, not per symbol); and every live scan
+   entry point now resolves it via a service-role client and threads it
+   through — `app/api/scan`, `app/api/batch-scan`, `app/api/guided` +
+   `app/api/guided/execute`, and both `runMarketScan` callers
+   (`app/api/market-scan` and the scheduled 6:00/9:15 ET scans). **Still
+   open, not started:** the same pattern for `lib/guided/config.ts`.
 2. **Phase 7 (validation/monitoring) is the real open phase.** Backtesting
    exists; a shadow-mode comparison and a metrics/alerts dashboard do not.
    This is also the spec's own gate for Phase 8 (new strategies/markets),
@@ -95,12 +90,15 @@ own instruction._
 4. Phase 8 stays correctly un-started until Phase 7 lands.
 
 _Update (this revision):_ the universe-domain slice of recommendation 1 is now
-implemented — every filter module in `lib/universe/` takes an optional
-resolved-threshold parameter, and `lib/universe/policy.ts` resolves them all
-from `policy_values`. Not yet wired into a live route (see above) — that
-wiring, plus `lib/guided/config.ts`, and Phase 7 remain open.
+fully wired — `lib/scanTicker.ts` and every route/service that drives it
+(`app/api/scan`, `app/api/batch-scan`, `app/api/guided`,
+`app/api/guided/execute`, `lib/marketScan.ts`'s `runMarketScan` and its two
+callers) resolve `getUniversePolicy()` once per request/batch via a
+service-role client and thread the result through. `lib/guided/config.ts`
+and Phase 7 remain open.
 
-_Update (previous revision):_ the risk-domain slice of recommendation 1 landed
-first — see `lib/risk/policy.ts`,
+_Update (previous revision):_ the universe-domain resolver and per-module
+threshold overrides landed first, not yet wired to a live route. The
+risk-domain slice of recommendation 1 landed before that — see `lib/risk/policy.ts`,
 `supabase/migrations/0048_domain_policy_values.sql`, and the threshold
 overrides added to `lib/risk/circuit-breaker.ts`/`lib/risk/dynamic-risk.ts`.

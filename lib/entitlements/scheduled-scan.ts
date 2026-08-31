@@ -54,6 +54,7 @@ import type { RankedSetup } from "@/lib/entitlements/result-selection";
 import type { ScanResult } from "@/lib/types";
 import type { PlatformTier } from "@/lib/tiers";
 import { isPreviewEnvironment } from "@/lib/env/preview";
+import { getUniversePolicy } from "@/lib/universe/policy";
 
 export type ScheduledScanSource = "scheduled_morning_scan" | "scheduled_morning_confirmation_scan";
 
@@ -162,7 +163,8 @@ export async function runScheduledScan(
 
   let output;
   try {
-    output = await runMarketScan();
+    const { universe } = await getUniversePolicy(service);
+    output = await runMarketScan(undefined, undefined, universe);
   } catch (err) {
     // Fail closed: an upstream provider failure must not grant access to a
     // stale/partial signal or silently record an empty successful run.

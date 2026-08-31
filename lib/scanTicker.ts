@@ -56,6 +56,7 @@ import { evaluateRangeReversion } from "@/lib/signals/states/rangeReversion";
 import { buildScanMarketGates } from "@/lib/signals/scanGates";
 import type { SignalVerdict } from "@/lib/signals/types";
 import { buildScanNoviceEligibility } from "@/lib/universe/scanGates";
+import { DEFAULT_UNIVERSE_THRESHOLDS, type UniverseThresholds } from "@/lib/universe/eligibility";
 
 /**
  * What the caller is looking for. Left unset, a scan hunts reversions and
@@ -86,6 +87,14 @@ export async function scanTicker(
    * Undefined falls back to fetching individually — the pre-batching path.
    */
   prefetched?: AllTimeframeBars,
+  /**
+   * `getUniversePolicy()`-resolved thresholds for the Market Universe engine,
+   * resolved once per batch by the caller (e.g. `runMarketScan`) rather than
+   * per symbol — see lib/universe/policy.ts's module doc for why a per-call
+   * resolve here would mean a DB round trip per symbol per scan. Defaults to
+   * the code constants, so every existing caller is unaffected.
+   */
+  universeThresholds: UniverseThresholds = DEFAULT_UNIVERSE_THRESHOLDS,
 ): Promise<ScanResult> {
   const assetClass: AssetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
   const scannedAt = new Date().toISOString();
@@ -308,16 +317,19 @@ export async function scanTicker(
     // not the Signal and Regime Engine's `signals`, but the coarser question
     // of whether this symbol belongs in a novice's universe at all. See
     // docs/MARKET_UNIVERSE_DATA_QUALITY.md.
-    const noviceUniverse = buildScanNoviceEligibility({
-      symbol,
-      assetClass,
-      currentPrice,
-      liquidity: liquidity ?? null,
-      dailyBars: daily,
-      binaryEventInHoldPeriod,
-      dataLagged: dataLag.holdsExecute,
-      scannedAt,
-    });
+    const noviceUniverse = buildScanNoviceEligibility(
+      {
+        symbol,
+        assetClass,
+        currentPrice,
+        liquidity: liquidity ?? null,
+        dailyBars: daily,
+        binaryEventInHoldPeriod,
+        dataLagged: dataLag.holdsExecute,
+        scannedAt,
+      },
+      universeThresholds,
+    );
     const regime = classifyRegime({ bars: daily });
     const trendPullback: SignalVerdict | null =
       regime.regime === "trend" && regime.direction !== "sideways"

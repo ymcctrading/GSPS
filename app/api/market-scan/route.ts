@@ -13,6 +13,7 @@ import { runMarketScan } from "@/lib/marketScan";
 import { buildScanRows, describeDbError, persistDailyScans } from "@/lib/scan/publish";
 import { persistCoarseTelemetry } from "@/lib/scan/telemetry";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { getUniversePolicy } from "@/lib/universe/policy";
 
 // The Vercel Hobby plan hard-caps function execution at 60s regardless of
 // what this says — a higher value here is silently unenforced, not granted.
@@ -22,7 +23,8 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 export const maxDuration = 60;
 
 async function runAndPersist() {
-  const output = await runMarketScan();
+  const { universe } = await getUniversePolicy(createServiceClient());
+  const output = await runMarketScan(undefined, undefined, universe);
 
   // Persist (best-effort — the scan output is returned either way)
   let persisted = false;
