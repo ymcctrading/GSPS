@@ -239,7 +239,7 @@ export interface ScanResult {
     confirmedReversal: SignalVerdict | null;
     rangeReversion: SignalVerdict | null;
     /**
-     * Gann Confluence Layer / Sara Sniper Strat Confluence Layer — additive,
+     * Gann Confluence Layer / Sara Confluence Layer — additive,
      * feature-flagged confluence reads, never merged into the four states
      * above and never able to override any of their gates or `tradeable`
      * verdicts. `null` when the module is disabled for this market (see

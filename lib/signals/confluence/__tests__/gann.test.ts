@@ -53,7 +53,7 @@ describe("evaluateGannConfluence", () => {
     expect(result.materialNumberClassification).toBe("notImplemented");
   });
 
-  it("never classifies Material Number vs Harmonic Node — pending authorized specification", () => {
+  it("never classifies the Material Number vs structural node field — pending authorized specification", () => {
     const bars = uptrendBars(60);
     const result = evaluateGannConfluence({
       assetClass: "us_equity",

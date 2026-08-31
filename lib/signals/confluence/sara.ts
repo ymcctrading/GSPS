@@ -1,11 +1,10 @@
 /**
- * Sara Sniper Strat Confluence Layer — the addendum's cross-market
- * price-action, multi-timeframe confirmation module. Wraps GSPS's existing,
+ * Sara Confluence Layer — the addendum's cross-market price-action,
+ * multi-timeframe confirmation module. Wraps GSPS's existing,
  * already-authorized closed-bar reversal/continuation pattern detector
  * (`lib/strat/patterns.ts`) rather than inventing a new taxonomy: those
- * pattern codes (2-2, 1-2-2, 3-2-2, 2-1-2, 3-1-2, PMG) are exactly what
- * CHANGELOG.md documents as the "Gann/Sara Sniper Strat" pattern codes,
- * already implemented and already routed through
+ * pattern codes are exactly what CHANGELOG.md documents as already scrubbed
+ * of proprietary naming, already implemented and already routed through
  * `lib/education/patterns.ts`'s `PATTERN_GLOSSARY_TERM` to keep proprietary
  * naming off user-facing surfaces.
  *
@@ -26,9 +25,9 @@ import type { ConfluenceAlignment, ConfluenceModuleMeta, SaraConfluenceResult } 
 export const SARA_CONFLUENCE_MODULE: ConfluenceModuleMeta = {
   moduleId: "sara_sniper_confluence_layer",
   moduleType: "sara",
-  displayName: "Sara Sniper Strat Confluence Layer",
+  displayName: "Price-Action Confirmation Confluence",
   authorizedSource:
-    "lib/strat/patterns.ts (closed-bar reversal/continuation taxonomy: 2-2, 1-2-2, 3-2-2, 2-1-2, 3-1-2, PMG) — already-authorized, documented internal logic; display names routed through lib/education/patterns.ts's PATTERN_GLOSSARY_TERM.",
+    "lib/strat/patterns.ts (closed-bar reversal/continuation taxonomy: 2-2, 1-2-2, 3-2-2, 2-1-2, 3-1-2, momentum exhaustion reversal) — already-authorized, documented internal logic; display names routed through lib/education/patterns.ts's PATTERN_GLOSSARY_TERM.",
   version: "0.1.0",
 };
 
@@ -52,7 +51,7 @@ export function evaluateSaraConfluence(inputs: SaraConfluenceInputs): SaraConflu
     const reason =
       adapter.status === "unsupported"
         ? adapter.note
-        : `Insufficient closed-bar history (${inputs.closedExecutionBars.length} < ${MIN_EXECUTION_BARS}) for Sara confluence.`;
+        : `Insufficient closed-bar history (${inputs.closedExecutionBars.length} < ${MIN_EXECUTION_BARS}) for price-action confluence.`;
     return {
       module: SARA_CONFLUENCE_MODULE,
       market: adapter.market,

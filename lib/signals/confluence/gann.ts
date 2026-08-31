@@ -25,9 +25,9 @@ import type { ConfluenceAlignment, ConfluenceModuleMeta, GannConfluenceResult } 
 export const GANN_CONFLUENCE_MODULE: ConfluenceModuleMeta = {
   moduleId: "gann_confluence_layer",
   moduleType: "gann",
-  displayName: "Gann Confluence Layer",
+  displayName: "Structural Coordinate Confluence",
   authorizedSource:
-    "lib/gann/squareOf9.ts, lib/gann/fans.ts, lib/gann/timeCycles.ts — independently implemented public-domain Gann techniques already in production use in the legacy scan scorer (lib/scanTicker.ts).",
+    "lib/gann/squareOf9.ts, lib/gann/fans.ts, lib/gann/timeCycles.ts — independently implemented public-domain structural coordinate techniques already in production use in the legacy scan scorer (lib/scanTicker.ts).",
   version: "0.1.0",
 };
 
@@ -50,7 +50,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
     const reason =
       adapter.status === "unsupported"
         ? adapter.note
-        : `Insufficient daily bar history (${inputs.dailyBars.length} < ${MIN_DAILY_BARS}) for Gann confluence.`;
+        : `Insufficient daily bar history (${inputs.dailyBars.length} < ${MIN_DAILY_BARS}) for structural confluence.`;
     return {
       module: GANN_CONFLUENCE_MODULE,
       market: adapter.market,
@@ -85,24 +85,25 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
   ];
   if (nearestS9) {
     explanationTrace.push(
-      `Nearest Square of 9 level: ${nearestS9.price.toFixed(2)} (${nearestS9.role}, ${nearestS9.distancePct.toFixed(2)}% away, degree ${nearestS9.degree}, rotation ${nearestS9.rotation}).`,
+      `Nearest key price level: ${nearestS9.price.toFixed(2)} (${nearestS9.role}, ${nearestS9.distancePct.toFixed(2)}% away, degree ${nearestS9.degree}, rotation ${nearestS9.rotation}).`,
     );
   }
   if (nearestFan) {
     explanationTrace.push(
-      `Nearest Gann fan line: ${nearestFan.angle} at ${nearestFan.price.toFixed(2)} (${nearestFan.role}, ${nearestFan.distancePct.toFixed(2)}% away).`,
+      `Nearest structural angle line: ${nearestFan.angle} at ${nearestFan.price.toFixed(2)} (${nearestFan.role}, ${nearestFan.distancePct.toFixed(2)}% away).`,
     );
   }
   explanationTrace.push(
     cycles.active
-      ? `Active Gann time-cycle window (nearby dates: ${cycles.dates.slice(0, 3).join(", ") || "n/a"}).`
-      : "No active Gann time-cycle window.",
+      ? `Active structural time-cycle window (nearby dates: ${cycles.dates.slice(0, 3).join(", ") || "n/a"}).`
+      : "No active structural time-cycle window.",
   );
 
   // Alignment/conflict reads off whichever coordinate is nearer current price
-  // (fan lines are checked first — Square of 9 is the fallback when no fan
-  // anchor is available). Neither can override the caller's direction; this
-  // only says whether the nearest Gann coordinate's role agrees with it.
+  // (fan lines are checked first — the key-price-level read is the fallback
+  // when no fan anchor is available). Neither can override the caller's
+  // direction; this only says whether the nearest structural coordinate's
+  // role agrees with it.
   let alignment: ConfluenceAlignment = "neutral";
   if (inputs.direction) {
     const coordRole = nearestFan?.role ?? nearestS9?.role ?? null;
@@ -139,6 +140,6 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
       explanationTrace,
     },
     note:
-      "Confluence, ranking and coordinate refinement only — not a sole signal. Material Number versus Harmonic Node classification is pending an authorized written specification and is not implemented.",
+      "Confluence, ranking and coordinate refinement only — not a sole signal. The Material Number versus structural node classification is pending an authorized written specification and is not implemented.",
   };
 }

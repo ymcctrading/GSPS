@@ -1,6 +1,6 @@
 /**
- * Shared types for the Gann Confluence Layer and Sara Sniper Strat Confluence
- * Layer — two modular, versioned, feature-flagged confluence modules that
+ * Shared types for the Gann Confluence Layer and Sara Confluence Layer — two
+ * modular, versioned, feature-flagged confluence modules that
  * plug into the Signal and Regime Engine (`lib/signals`) per the "GSPS Gann &
  * Sara Cross-Market Integration Addendum" (2026-08-28).
  *

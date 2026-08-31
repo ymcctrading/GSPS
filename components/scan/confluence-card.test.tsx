@@ -1,7 +1,8 @@
 /**
- * Gann Confluence Layer / Sara Sniper Strat Confluence Layer card — renders
- * the three-way framework identity and each module's alignment read, never a
- * per-criterion explanation-trace note.
+ * Gann Confluence Layer / Sara Confluence Layer card — renders the
+ * three-way framework identity and each module's alignment read, never a
+ * per-criterion explanation-trace note, and never a raw internal scenario
+ * code (routes through the pattern glossary instead).
  */
 
 import { describe, it, expect } from "vitest";
@@ -48,7 +49,7 @@ describe("ConfluenceCard", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("shows the Gann and Sara alignment badges and the framework identity", () => {
+  it("shows the structural and price-action alignment badges and the framework identity", () => {
     const result: ScanResult = {
       ...baseResult,
       signals: {
@@ -57,7 +58,7 @@ describe("ConfluenceCard", () => {
           module: {
             moduleId: "gann_confluence_layer",
             moduleType: "gann",
-            displayName: "Gann Confluence Layer",
+            displayName: "Structural Coordinate Confluence",
             authorizedSource: "lib/gann",
             version: "0.1.0",
           },
@@ -77,7 +78,7 @@ describe("ConfluenceCard", () => {
           module: {
             moduleId: "sara_sniper_confluence_layer",
             moduleType: "sara",
-            displayName: "Sara Sniper Strat Confluence Layer",
+            displayName: "Price-Action Confirmation Confluence",
             authorizedSource: "lib/strat/patterns.ts",
             version: "0.1.0",
           },
@@ -96,11 +97,15 @@ describe("ConfluenceCard", () => {
 
     render(<ConfluenceCard result={result} />);
 
-    expect(screen.getByText("Gann & Sara Confluence")).toBeInTheDocument();
-    expect(screen.getByText("Gann Confluence Layer")).toBeInTheDocument();
-    expect(screen.getByText("Sara Sniper Strat Confluence Layer")).toBeInTheDocument();
+    expect(screen.getByText("Cross-Market Confluence")).toBeInTheDocument();
+    expect(screen.getByText("Structural Coordinate Confluence")).toBeInTheDocument();
+    expect(screen.getByText("Price-Action Confirmation Confluence")).toBeInTheDocument();
     expect(screen.getByText("Aligned")).toBeInTheDocument();
     expect(screen.getByText("Conflict")).toBeInTheDocument();
     expect(screen.queryByText("secret internal trace")).not.toBeInTheDocument();
+    // The raw internal scenario code never reaches the DOM — only the
+    // plain-language glossary term does.
+    expect(screen.queryByText(/2-1-2/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Pause continuation/i)).toBeInTheDocument();
   });
 });

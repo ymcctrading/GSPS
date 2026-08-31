@@ -324,8 +324,8 @@ export async function scanTicker(
     });
     const regime = classifyRegime({ bars: daily });
 
-    // ---- Gann Confluence Layer / Sara Sniper Strat Confluence Layer — the
-    // addendum's cross-market confluence modules (2026-08-28). Additive and
+    // ---- Gann Confluence Layer / Sara Confluence Layer — the addendum's
+    // cross-market confluence modules (2026-08-28). Additive and
     // feature-flagged: disabling either does not affect any signal above.
     // Both route through the market adapter for this scan's asset class
     // before evaluating, and neither may set a gate or a state's tradeable
