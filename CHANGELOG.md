@@ -7,6 +7,29 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-08-31
+
+### Added
+- **Canonical decision record — design PR** (`docs/CANONICAL_DECISION_RECORD_DESIGN.md`),
+  in response to the three uploaded doctrine/PRD/blueprint documents
+  ("read and implement"). This is `docs/DOCTRINE_ALIGNMENT_STATUS.md`'s one
+  remaining open item with real engineering weight, and follows the
+  sequencing `docs/CANONICAL_DECISION_RECORD_HANDOFF.md` already specified:
+  a docs-only design pass before any schema change. Decides the canonical
+  id stays `scan_results.id`/`daily_scans.id` (no sixth schema generation),
+  specifies seven additive columns (`scan_execution_id`, `model_version`,
+  `session`, `timeframe`, `data_freshness_status`, `pivot_plan`,
+  `record_schema_version`) and where each value already exists today but
+  isn't persisted, and surfaces a fourth, previously-undocumented schema
+  generation (`scan_events`/`execution_events`, migration `0005`) that is
+  currently unwired — nothing in the live scan or order path calls it.
+  No migration, backfill, or production change is made in this pass; the
+  Migration PR and the Learning Brain event log's retire-or-wire decision
+  are left for follow-up work, per `AGENTS.md`'s confirmation requirement
+  for production-affecting changes. Doctrine/infrastructure work — N/A
+  roadmap phase (this closes a doctrine gap flagged before any Q1–Q4 phase
+  existed, not a Q1 feature).
+
 ## 2026-08-30
 
 ### Added
