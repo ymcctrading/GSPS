@@ -15,7 +15,21 @@
 import { NOVICE_LIQUIDITY_CORE_FLOOR_USD, NOVICE_LIQUIDITY_FLOOR_USD } from "./config";
 import type { UniverseFilterResult } from "./types";
 
-export function liquidityPass(avgDailyDollarVolume: number | null): UniverseFilterResult {
+/** `policy_values`-overridable floors — see lib/universe/policy.ts. Defaults are the same constants this file always used. */
+export interface LiquidityThresholds {
+  noviceLiquidityFloorUsd: number;
+  noviceLiquidityCoreFloorUsd: number;
+}
+
+export const DEFAULT_LIQUIDITY_THRESHOLDS: LiquidityThresholds = {
+  noviceLiquidityFloorUsd: NOVICE_LIQUIDITY_FLOOR_USD,
+  noviceLiquidityCoreFloorUsd: NOVICE_LIQUIDITY_CORE_FLOOR_USD,
+};
+
+export function liquidityPass(
+  avgDailyDollarVolume: number | null,
+  thresholds: LiquidityThresholds = DEFAULT_LIQUIDITY_THRESHOLDS,
+): UniverseFilterResult {
   if (avgDailyDollarVolume === null || !Number.isFinite(avgDailyDollarVolume)) {
     return {
       key: "liquidity_pass",
@@ -23,7 +37,7 @@ export function liquidityPass(avgDailyDollarVolume: number | null): UniverseFilt
       reason: "Average daily dollar volume is unknown, and an unreadable liquidity history is not a liquid one.",
     };
   }
-  if (avgDailyDollarVolume < NOVICE_LIQUIDITY_FLOOR_USD) {
+  if (avgDailyDollarVolume < thresholds.noviceLiquidityFloorUsd) {
     return {
       key: "liquidity_pass",
       pass: false,
@@ -34,11 +48,14 @@ export function liquidityPass(avgDailyDollarVolume: number | null): UniverseFilt
 }
 
 /** Whether a read clears the preferred *core* liquidity floor, for ranking rather than gating. */
-export function isCoreLiquidity(avgDailyDollarVolume: number | null): boolean {
+export function isCoreLiquidity(
+  avgDailyDollarVolume: number | null,
+  thresholds: LiquidityThresholds = DEFAULT_LIQUIDITY_THRESHOLDS,
+): boolean {
   return (
     avgDailyDollarVolume !== null &&
     Number.isFinite(avgDailyDollarVolume) &&
-    avgDailyDollarVolume >= NOVICE_LIQUIDITY_CORE_FLOOR_USD
+    avgDailyDollarVolume >= thresholds.noviceLiquidityCoreFloorUsd
   );
 }
 

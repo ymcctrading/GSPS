@@ -18,6 +18,17 @@
 import { MAX_SPREAD_FRACTION_OF_STOP, MAX_SPREAD_PCT_OF_PRICE } from "./config";
 import type { UniverseFilterResult } from "./types";
 
+/** `policy_values`-overridable ceilings — see lib/universe/policy.ts. Defaults are the same constants this file always used. */
+export interface SpreadThresholds {
+  maxSpreadPctOfPrice: number;
+  maxSpreadFractionOfStop: number;
+}
+
+export const DEFAULT_SPREAD_THRESHOLDS: SpreadThresholds = {
+  maxSpreadPctOfPrice: MAX_SPREAD_PCT_OF_PRICE,
+  maxSpreadFractionOfStop: MAX_SPREAD_FRACTION_OF_STOP,
+};
+
 export interface SpreadQuote {
   bid: number;
   ask: number;
@@ -26,7 +37,11 @@ export interface SpreadQuote {
   stopDistance?: number | null;
 }
 
-export function spreadPass(quote: SpreadQuote | null, liquidityPassed: boolean): UniverseFilterResult {
+export function spreadPass(
+  quote: SpreadQuote | null,
+  liquidityPassed: boolean,
+  thresholds: SpreadThresholds = DEFAULT_SPREAD_THRESHOLDS,
+): UniverseFilterResult {
   if (quote === null) {
     return liquidityPassed
       ? {
@@ -49,21 +64,21 @@ export function spreadPass(quote: SpreadQuote | null, liquidityPassed: boolean):
 
   const spread = ask - bid;
   const spreadPctOfPrice = (spread / price) * 100;
-  if (spreadPctOfPrice > MAX_SPREAD_PCT_OF_PRICE) {
+  if (spreadPctOfPrice > thresholds.maxSpreadPctOfPrice) {
     return {
       key: "spread_pass",
       pass: false,
-      reason: `Spread is ${spreadPctOfPrice.toFixed(2)}% of price, above the ${MAX_SPREAD_PCT_OF_PRICE}% ceiling.`,
+      reason: `Spread is ${spreadPctOfPrice.toFixed(2)}% of price, above the ${thresholds.maxSpreadPctOfPrice}% ceiling.`,
     };
   }
 
   if (stopDistance !== undefined && stopDistance !== null && stopDistance > 0) {
     const spreadFractionOfStop = spread / stopDistance;
-    if (spreadFractionOfStop > MAX_SPREAD_FRACTION_OF_STOP) {
+    if (spreadFractionOfStop > thresholds.maxSpreadFractionOfStop) {
       return {
         key: "spread_pass",
         pass: false,
-        reason: `Spread eats ${(spreadFractionOfStop * 100).toFixed(0)}% of the planned stop distance, above the ${MAX_SPREAD_FRACTION_OF_STOP * 100}% ceiling.`,
+        reason: `Spread eats ${(spreadFractionOfStop * 100).toFixed(0)}% of the planned stop distance, above the ${thresholds.maxSpreadFractionOfStop * 100}% ceiling.`,
       };
     }
   }

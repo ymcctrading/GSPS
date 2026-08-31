@@ -13,15 +13,27 @@
 import { PRICE_BAND_MAX_USD, PRICE_BAND_MIN_USD } from "./config";
 import type { UniverseFilterResult } from "./types";
 
+/** `policy_values`-overridable band — see lib/universe/policy.ts. Defaults are the same constants this file always used. */
+export interface PriceBandThresholds {
+  priceBandMinUsd: number;
+  priceBandMaxUsd: number;
+}
+
+export const DEFAULT_PRICE_BAND_THRESHOLDS: PriceBandThresholds = {
+  priceBandMinUsd: PRICE_BAND_MIN_USD,
+  priceBandMaxUsd: PRICE_BAND_MAX_USD,
+};
+
 export function priceOrFractionalPass(
   price: number | null,
   fractionalConfirmed: boolean | null,
+  thresholds: PriceBandThresholds = DEFAULT_PRICE_BAND_THRESHOLDS,
 ): UniverseFilterResult {
   if (price === null || !(price > 0)) {
     return { key: "price_or_fractional_pass", pass: false, reason: "No current price available." };
   }
 
-  const inBand = price >= PRICE_BAND_MIN_USD && price <= PRICE_BAND_MAX_USD;
+  const inBand = price >= thresholds.priceBandMinUsd && price <= thresholds.priceBandMaxUsd;
   if (inBand) {
     return { key: "price_or_fractional_pass", pass: true, reason: null };
   }
@@ -31,9 +43,9 @@ export function priceOrFractionalPass(
   }
 
   const priceReason =
-    price < PRICE_BAND_MIN_USD
-      ? `Trades at $${price.toFixed(2)}, below the $${PRICE_BAND_MIN_USD} accessible-price floor`
-      : `Trades at $${price.toFixed(2)}, above the $${PRICE_BAND_MAX_USD} accessible-price ceiling`;
+    price < thresholds.priceBandMinUsd
+      ? `Trades at $${price.toFixed(2)}, below the $${thresholds.priceBandMinUsd} accessible-price floor`
+      : `Trades at $${price.toFixed(2)}, above the $${thresholds.priceBandMaxUsd} accessible-price ceiling`;
 
   return {
     key: "price_or_fractional_pass",

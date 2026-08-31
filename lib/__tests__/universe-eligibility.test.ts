@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
-import { assessNoviceEligibility, assessTradeQualification } from "@/lib/universe/eligibility";
+import { assessNoviceEligibility, assessTradeQualification, DEFAULT_UNIVERSE_THRESHOLDS } from "@/lib/universe/eligibility";
 import { marketCapPass, isCoreMarketCap } from "@/lib/universe/marketCap";
 import { liquidityPass, isCoreLiquidity } from "@/lib/universe/liquidity";
 import { priceOrFractionalPass } from "@/lib/universe/priceAccessibility";
@@ -225,5 +225,43 @@ describe("assessTradeQualification", () => {
         accountRiskPass: false,
       }).qualified,
     ).toBe(false);
+  });
+});
+
+describe("assessNoviceEligibility policy_values threshold overrides", () => {
+  const baseInputs = {
+    symbol: "AAPL",
+    marketCapUsd: 15_000_000_000,
+    avgDailyDollarVolume: 300_000_000,
+    price: 50,
+    fractionalConfirmed: null,
+    spreadQuote: null,
+    binaryEventInHoldWindow: false as const,
+    dailyBars: dailyBars(20, { close: 50, atrPct: 2 }),
+    dataQuality: goodDataQuality(),
+  };
+
+  it("passes with code defaults at these inputs", () => {
+    expect(assessNoviceEligibility(baseInputs).eligible).toBe(true);
+  });
+
+  it("a tighter market-cap floor override blocks a symbol the code default would have passed", () => {
+    const tighter = {
+      ...DEFAULT_UNIVERSE_THRESHOLDS,
+      marketCap: { ...DEFAULT_UNIVERSE_THRESHOLDS.marketCap, marketCapFloorUsd: 20_000_000_000 },
+    };
+    const verdict = assessNoviceEligibility(baseInputs, tighter);
+    expect(verdict.eligible).toBe(false);
+    expect(verdict.reasons.join(" ")).toMatch(/below the \$10B absolute floor/);
+  });
+
+  it("a looser liquidity floor override passes a symbol the code default would have blocked", () => {
+    const looser = {
+      ...DEFAULT_UNIVERSE_THRESHOLDS,
+      liquidity: { ...DEFAULT_UNIVERSE_THRESHOLDS.liquidity, noviceLiquidityFloorUsd: 100_000_000 },
+    };
+    const thin = { ...baseInputs, avgDailyDollarVolume: 150_000_000 };
+    expect(assessNoviceEligibility(thin).eligible).toBe(false);
+    expect(assessNoviceEligibility(thin, looser).eligible).toBe(true);
   });
 });

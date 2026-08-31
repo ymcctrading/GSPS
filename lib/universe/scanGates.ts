@@ -13,7 +13,7 @@ import type { LiquidityRead } from "@/lib/scan/liquidity";
 import { LARGE_CAP_SOURCE_CAPTURED, LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
 import { nextKnownEarningsEvent } from "@/lib/macro/earnings";
 import { marketSession } from "@/lib/market/session";
-import { assessNoviceEligibility } from "./eligibility";
+import { assessNoviceEligibility, DEFAULT_UNIVERSE_THRESHOLDS, type UniverseThresholds } from "./eligibility";
 import { marketCapPassFromLargeCapCoverage } from "./marketCap";
 import type { DataQualityInputs } from "./dataQuality";
 import type { NoviceEligibility, TriState } from "./types";
@@ -39,7 +39,10 @@ export interface ScanUniverseGateInputs {
  * "market-context, not an execution authorization" framing the Signal and
  * Regime Engine's `tradeable` field already carries.
  */
-export function buildScanNoviceEligibility(inputs: ScanUniverseGateInputs): NoviceEligibility {
+export function buildScanNoviceEligibility(
+  inputs: ScanUniverseGateInputs,
+  thresholds: UniverseThresholds = DEFAULT_UNIVERSE_THRESHOLDS,
+): NoviceEligibility {
   const symbol = inputs.symbol.toUpperCase();
   const inLargeCapUniverse = inputs.assetClass === "us_equity" && LARGE_CAP_SET.has(symbol);
   const now = new Date(inputs.scannedAt);
@@ -86,7 +89,7 @@ export function buildScanNoviceEligibility(inputs: ScanUniverseGateInputs): Novi
     binaryEventInHoldWindow: toTriState(inputs.binaryEventInHoldPeriod),
     dailyBars: inputs.dailyBars,
     dataQuality,
-  });
+  }, thresholds);
 }
 
 function toTriState(v: boolean | null): TriState {
