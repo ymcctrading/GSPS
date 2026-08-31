@@ -176,6 +176,6 @@ export function stillMatches(
 }
 
 /** Whether a computed size is large enough for the protocol's staged exit. */
-export function sizeIsTradeable(qty: number): boolean {
-  return Number.isFinite(qty) && qty >= MIN_GUIDED_QTY;
+export function sizeIsTradeable(qty: number, minGuidedQty: number = MIN_GUIDED_QTY): boolean {
+  return Number.isFinite(qty) && qty >= minGuidedQty;
 }

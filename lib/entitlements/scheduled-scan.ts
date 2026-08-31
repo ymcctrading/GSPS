@@ -55,6 +55,9 @@ import type { ScanResult } from "@/lib/types";
 import type { PlatformTier } from "@/lib/tiers";
 import { isPreviewEnvironment } from "@/lib/env/preview";
 import { getUniversePolicy } from "@/lib/universe/policy";
+import { recordShadowSignals } from "@/lib/shadow/record";
+import { evaluatePendingShadowSignals } from "@/lib/shadow/evaluate";
+import { evaluateShadowDrift, EXECUTE_TIER_BACKTEST_BASELINE } from "@/lib/shadow/compare";
 
 export type ScheduledScanSource = "scheduled_morning_scan" | "scheduled_morning_confirmation_scan";
 
@@ -229,6 +232,24 @@ export async function runScheduledScan(
     qualifying,
     rejectedSymbols,
   });
+
+  // Phase 7 ("Validation and monitoring") shadow-mode tracking -- best-effort
+  // and deliberately outside the fan-out's own error handling, so a failure
+  // here can never be mistaken for the actual scan/fan-out failing. Riding
+  // the existing trusted schedule rather than a new cron slot (both of
+  // Vercel Hobby's are spent, see docs/THIRD_PARTY_LIMITS.md): every run
+  // records today's Execute-tier calls, evaluates whichever earlier signals
+  // have now had a full trading day to develop, and checks the trailing
+  // window against the committed backtest baseline for a drift worth
+  // alerting on (email cooldown-suppressed -- see lib/shadow/compare.ts).
+  // See lib/shadow/{record,evaluate,compare}.ts.
+  try {
+    await recordShadowSignals(service, qualifying.map((q) => q.value), source);
+    await evaluatePendingShadowSignals(service, now);
+    await evaluateShadowDrift(service, EXECUTE_TIER_BACKTEST_BASELINE, undefined, now);
+  } catch (err) {
+    console.error(`${source}: shadow-mode tracking failed — ${String(err)}`);
+  }
 
   logRunOutcome({
     runId,

@@ -32,13 +32,7 @@ import { toPublicScoreSummary } from "@/lib/scoring/public-summary";
 import { toPublicSignalSummary, type PublicSignalSummary } from "@/lib/signals/publicSummary";
 import { tickerHref } from "@/lib/routes";
 import { envCreds, getAsset } from "@/lib/brokers/alpaca";
-import {
-  GUIDED_SCAN_BATCH,
-  MAX_CANDIDATES_SCANNED,
-  MAX_RECOMMENDATIONS,
-  RECOMMENDATION_TTL_MINUTES,
-  type GuidedCaps,
-} from "@/lib/guided/config";
+import { DEFAULT_GUIDED_POLICY, type GuidedCaps, type GuidedPolicy } from "@/lib/guided/config";
 import type { PublicScoreSummary } from "@/lib/types";
 
 export interface GuidedAccount {
@@ -246,12 +240,22 @@ export async function buildRecommendations(params: {
   now?: Date;
   /** `getUniversePolicy()`-resolved thresholds, resolved once by the caller. Defaults to the code constants. */
   universeThresholds?: UniverseThresholds;
+  /** `getGuidedPolicy()`-resolved platform thresholds, resolved once by the caller. Defaults to the code constants. */
+  guidedPolicy?: GuidedPolicy;
 }): Promise<BuiltRecommendations> {
-  const { symbols, account, caps, deployedUsd, now = new Date(), universeThresholds = DEFAULT_UNIVERSE_THRESHOLDS } = params;
+  const {
+    symbols,
+    account,
+    caps,
+    deployedUsd,
+    now = new Date(),
+    universeThresholds = DEFAULT_UNIVERSE_THRESHOLDS,
+    guidedPolicy = DEFAULT_GUIDED_POLICY,
+  } = params;
 
   const recommendations: Recommendation[] = [];
   const skipped: SkippedCandidate[] = [];
-  const expiresAt = new Date(now.getTime() + RECOMMENDATION_TTL_MINUTES * 60_000).toISOString();
+  const expiresAt = new Date(now.getTime() + guidedPolicy.recommendationTtlMinutes * 60_000).toISOString();
 
   // Every scan performed, kept so the nearest miss can be chosen from the whole
   // set rather than from whichever batch happened to run last.
@@ -263,15 +267,15 @@ export async function buildRecommendations(params: {
   // that are each inside the portfolio cap breach it together.
   let committed = deployedUsd;
 
-  const budget = symbols.slice(0, MAX_CANDIDATES_SCANNED);
+  const budget = symbols.slice(0, guidedPolicy.maxCandidatesScanned);
 
   // Batched with an early exit rather than one `Promise.all` over the whole
   // budget: the wider universe exists for the rare day that needs it, and
   // making every ordinary day pay forty scans to find the setup sitting at
   // position two would be a poor trade.
-  for (let start = 0; start < budget.length; start += GUIDED_SCAN_BATCH) {
-    if (recommendations.length >= MAX_RECOMMENDATIONS) break;
-    const batch = budget.slice(start, start + GUIDED_SCAN_BATCH);
+  for (let start = 0; start < budget.length; start += guidedPolicy.guidedScanBatch) {
+    if (recommendations.length >= guidedPolicy.maxRecommendations) break;
+    const batch = budget.slice(start, start + guidedPolicy.guidedScanBatch);
 
     const scans = await Promise.all(
       batch.map((s) =>
@@ -296,7 +300,8 @@ export async function buildRecommendations(params: {
       caps,
       committed,
       expiresAt,
-      room: MAX_RECOMMENDATIONS - recommendations.length,
+      room: guidedPolicy.maxRecommendations - recommendations.length,
+      minGuidedQty: guidedPolicy.minGuidedQty,
     });
     recommendations.push(...batchResult.recommendations);
     skipped.push(...batchResult.skipped);
@@ -331,8 +336,9 @@ function collectBatch(params: {
   committed: number;
   expiresAt: string;
   room: number;
+  minGuidedQty: number;
 }): { recommendations: Recommendation[]; skipped: SkippedCandidate[]; committed: number } {
-  const { batch, scans, shortable, account, caps, expiresAt, room } = params;
+  const { batch, scans, shortable, account, caps, expiresAt, room, minGuidedQty } = params;
   const recommendations: Recommendation[] = [];
   const skipped: SkippedCandidate[] = [];
   let committed = params.committed;
@@ -365,6 +371,7 @@ function collectBatch(params: {
       maxDeployedPct: caps.maxDeployedPct,
       deployedUsd: committed,
       maxNotionalUsd: caps.budgetUsd,
+      minGuidedQty,
     });
 
     if (sized.blockedReason) {
