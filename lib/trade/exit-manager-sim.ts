@@ -75,12 +75,22 @@ function reached(side: "long" | "short", best: number | null, level: number | nu
   return side === "long" ? best >= level : best <= level;
 }
 
-/** Advance every working simulated exit plan for this user by one pass. */
+/**
+ * Advance every working simulated exit plan for this user by one pass.
+ *
+ * Scoped to `mode = 'paper'` — now that live plans exist too (written by
+ * `lib/trade/place-order.ts`'s live branch, advanced by the real
+ * `lib/trade/exit-manager.ts` instead), an unscoped read here would pick up a
+ * live plan and try to advance it against nothing (this module has no broker
+ * positions to check it against), misreading a live position as flat and
+ * closing its plan.
+ */
 export async function manageSimulatedExits(supabase: Supabase, userId: string): Promise<SimManageRun> {
   const { data, error } = await supabase
     .from("protocol_exits")
     .select("*")
     .eq("user_id", userId)
+    .eq("mode", "paper")
     .eq("status", "working")
     .limit(50);
 
@@ -352,11 +362,15 @@ export async function closeSimPlanForSymbol(
   symbol: string,
   exitPrice: number,
 ): Promise<SimPlanRow | null> {
+  // Scoped to mode = 'paper' — a live plan for the same symbol (a user can
+  // hold both a paper and a live position in the same name) must not be
+  // matched and closed by a paper close action.
   const { data } = await supabase
     .from("protocol_exits")
     .select("*")
     .eq("user_id", userId)
     .eq("symbol", symbol.toUpperCase())
+    .eq("mode", "paper")
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
