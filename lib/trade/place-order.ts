@@ -35,6 +35,7 @@ import { loadProIntradayUsage, PRO_INTRADAY_DAILY_LOSS_LOCK_PCT } from "@/lib/pr
 import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 import { readLiveAlpacaConnection } from "@/lib/brokers/live-creds";
 import { getAccount, placeOrder } from "@/lib/brokers/alpaca";
+import { isLiveTradingRestricted } from "@/lib/risk/live-trade-loss";
 
 type RecordedOrderType = RecordExecutionOptions["orderType"];
 
@@ -127,7 +128,7 @@ export async function placeSimulatedOrder(
   if (halted) return { status: 503, body: { ...halted } };
 
   if (input.mode === "live") {
-    return placeLiveOrder(supabase, userId, input);
+    return placeLiveOrder(supabase, userId, input, isProtective);
   }
 
   // Pro intraday module entry gates (lib/promotion/pro-intraday.ts's
@@ -502,9 +503,24 @@ async function placeLiveOrder(
   supabase: SupabaseClient,
   userId: string,
   input: OrderInput,
+  isProtective: boolean,
 ): Promise<PlacedOrder> {
   if (input.assetClass === "option") {
     return { status: 400, body: { error: "Live options trading isn't supported yet — options are paper-only.", code: "live_options_unsupported" } };
+  }
+
+  // Live-only trade-loss cascade restriction (lib/risk/live-trade-loss.ts):
+  // a 50% allocated-funds loss on any live position restricts new live
+  // entries until GSPS School re-completion, same "exits always available"
+  // exception the kill switch already follows above.
+  if (!isProtective && (await isLiveTradingRestricted(supabase, userId))) {
+    return {
+      status: 403,
+      body: {
+        error: "Live trading is restricted after a 50% loss event. Complete GSPS School re-verification to resume.",
+        code: "live_trading_restricted",
+      },
+    };
   }
 
   const connection = await readLiveAlpacaConnection(supabase, userId);

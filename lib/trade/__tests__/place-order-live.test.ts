@@ -28,6 +28,9 @@ vi.mock("@/lib/brokers/alpaca", () => ({
 vi.mock("@/lib/risk/service", () => ({
   evaluateLiveCircuitBreaker: (...args: unknown[]) => evaluateLiveCircuitBreaker(...args),
 }));
+vi.mock("@/lib/risk/live-trade-loss", () => ({
+  isLiveTradingRestricted: vi.fn(() => Promise.resolve(false)),
+}));
 vi.mock("@/lib/learning/record", async () => {
   const actual = await vi.importActual<typeof import("@/lib/learning/record")>("@/lib/learning/record");
   return { ...actual, recordOrderExecution: (...args: unknown[]) => recordOrderExecution(...args) };

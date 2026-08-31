@@ -19,6 +19,7 @@ import { readLiveAlpacaConnection } from "@/lib/brokers/live-creds";
 import { manageProtocolExits, type ManageRun } from "@/lib/trade/exit-manager";
 import { reconcilePositions, type LivePosition, type ReconcileOutcome } from "@/lib/portfolio/reconcile";
 import { settlePendingTradeLogs, type SettlementRun } from "@/lib/portfolio/trade-log-settle";
+import { evaluateLiveTradeLoss } from "@/lib/risk/live-trade-loss";
 
 export interface LiveSyncResult {
   connected: boolean;
@@ -85,5 +86,37 @@ export async function syncLiveAccount(supabase: SupabaseClient, userId: string):
     }),
   );
 
+  // Live-only per-trade loss cascade (lib/risk/live-trade-loss.ts) — after
+  // reconciliation, so the local `positions` rows this reads reflect any
+  // opens/closes reconciliation just recorded. Best-effort per position;
+  // never blocks the sync result above.
+  await evaluateLiveLossForOpenPositions(supabase, connection.creds, userId, rawPositions).catch(
+    (err) => console.error(`syncLiveAccount: live-loss evaluation failed — ${String(err)}`),
+  );
+
   return { connected: true, exits, reconcile, settlement, error: null };
+}
+
+async function evaluateLiveLossForOpenPositions(
+  supabase: SupabaseClient,
+  creds: Parameters<typeof evaluateLiveTradeLoss>[1],
+  userId: string,
+  rawPositions: Awaited<ReturnType<typeof getPositions>>,
+): Promise<void> {
+  const { data: openRows } = await supabase
+    .from("positions")
+    .select("id, symbol")
+    .eq("user_id", userId)
+    .eq("mode", "live")
+    .eq("closed", false);
+  if (!openRows || openRows.length === 0) return;
+
+  const bySymbol = new Map(rawPositions.map((p) => [p.symbol.toUpperCase(), p]));
+  for (const row of openRows as { id: string; symbol: string }[]) {
+    const live = bySymbol.get(row.symbol.toUpperCase());
+    if (!live) continue;
+    await evaluateLiveTradeLoss(supabase, creds, userId, { id: row.id, symbol: row.symbol }, live).catch(
+      (err) => console.error(`evaluateLiveLossForOpenPositions: failed for ${row.symbol} — ${String(err)}`),
+    );
+  }
 }

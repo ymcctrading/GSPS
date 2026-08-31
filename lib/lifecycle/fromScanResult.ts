@@ -4,9 +4,11 @@
  * `lib/entitlements/scan-fanout.ts`'s WATCH -> EXECUTE confirmation
  * (`notifyWorthy` in `evaluateMonitorsAndNotify`). A trade plan created here
  * starts at WATCHLIST and is immediately advanced to QUALIFIED (the Rules
- * Alignment gates that produced this alert already passed) and ARMED (the
- * setup's entry trigger is already priced and waiting for price to reach
- * it) — see `lib/lifecycle/transitions.ts`.
+ * Alignment gates that produced this alert already passed) and then
+ * AWAITING_ENTRY_CONFIRMATION — the setup's entry trigger is priced, but per
+ * the mandatory entry-confirmation rule (`lib/lifecycle/entryConfirmation.ts`)
+ * it cannot become ARMED until a full break/retest/confirmation-move
+ * sequence is observed on later bars. See `lib/lifecycle/transitions.ts`.
  *
  * Sizing (`risk.approvedQuantity`, `risk.plannedDollarRisk`, etc.) is left at
  * zero here: this fan-out has no account/position-sizing context, only a
@@ -20,6 +22,7 @@ import { TF_INTERVAL_MS } from "@/lib/timeframe";
 import type { RulesAlignmentScore, SignalVerdict } from "@/lib/signals/types";
 import type { ScanResult } from "@/lib/types";
 import type { NewTradePlan } from "./store";
+import { freshEntryConfirmation } from "./entryConfirmation";
 
 /** The execution timeframe every scan (`lib/scanTicker.ts`'s `EXECUTION_TIMEFRAME`) prices its plan against. */
 const PLAN_TIMEFRAME = "15Min" as const;
@@ -41,7 +44,18 @@ const WATCHLIST_TIER_SCORE: RulesAlignmentScore = {
  */
 export function buildNewTradePlanFromScanResult(
   result: ScanResult,
-  opts: { strategyVersion: string; signalId: string; generatedAt: string },
+  opts: {
+    strategyVersion: string;
+    signalId: string;
+    generatedAt: string;
+    /**
+     * Idempotency key for `createOrGetIdempotentTradePlan` — defaults to
+     * `signalId` (already one-shot per monitor transition) when omitted, so
+     * a retried job that re-derives the same transition can't duplicate the
+     * plan it already created.
+     */
+    signalFingerprint?: string;
+  },
 ): NewTradePlan | null {
   const l = result.levels;
   if (
@@ -77,6 +91,8 @@ export function buildNewTradePlanFromScanResult(
       new Date(opts.generatedAt).getTime() + expiresAfterBars * TF_INTERVAL_MS[PLAN_TIMEFRAME],
     ).toISOString(),
     direction: result.direction,
+    signalFingerprint: opts.signalFingerprint ?? opts.signalId,
+    entryConfirmation: freshEntryConfirmation(),
     coordinates: {
       entryTrigger: l.entry,
       // One tick over the structural stop's own tolerance isn't known here;

@@ -2,7 +2,7 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-08-30.
+**Last updated:** 2026-08-31.
 
 This document decides *what we build next and in what order*. Proposals and
 implementation work should trace back to a phase below. See
@@ -40,8 +40,11 @@ both signal discovery and execution.
   Greeks, price-increment validation, a versioned trade-plan lifecycle
   state machine with audit trail and post-close structured review
   (`lib/lifecycle/`, formalizing what `lib/trade/protocol-exit.ts` already
-  executes). Live trading is **not** enabled: it needs per-user brokerage
-  credentials, which is unscheduled work.
+  executes). Live trading is enabled for equities against a user's own
+  connected Alpaca live account (see "Live order execution (Alpaca)"
+  below), now gated by a mandatory entry-confirmation sequence and a
+  live-only per-trade loss cascade (see "GSPS Automation" below). Live
+  options, and every asset class besides equities, remain unscheduled.
 - **Data pipeline (mature)** — Multi-provider architecture (Alpaca, Binance,
   Oanda, Twelve Data, Polygon), intraday momentum scanner, daily market scans,
   per-symbol audit trail for non-alerts, explained alerts with invalidation
@@ -458,6 +461,55 @@ both signal discovery and execution.
   alerts must be usable on phones and tablets.
 - **Technical indicators (phase 1)** — SMA, EMA, RSI, MACD as chart overlays.
   Visible for analysis; not yet alert factors.
+- **GSPS Automation — entry confirmation, plan-scoped Automation, live-only
+  risk cascade** *(2026-08-31, out-of-phase, direct request: "GSPS
+  Implementation Brief" single-source-of-truth spec pack, superseding two
+  earlier automation briefs uploaded the same session)* — closes the
+  scan-to-automation loop the "Live order execution (Alpaca)" entry above
+  opened without any entry-confirmation gate. `lib/lifecycle/
+  entryConfirmation.ts` adds a versioned break/retest/confirmation-move
+  state machine and a hard `entryReady` gate: a touch, break, sweep, or
+  indicator flip alone can never arm a plan for entry. `trade_plans` gains
+  an `awaiting_entry_confirmation` state
+  (`supabase/migrations/0050_entry_confirmation_lifecycle.sql`); scan-
+  pipeline-created plans (`lib/entitlements/scan-fanout.ts`) now stop
+  there instead of jumping straight to `armed`, are idempotent on a new
+  `signal_fingerprint` unique index, and record the required
+  `PLAN_AUTO_CREATED_FROM_QUALIFYING_SIGNAL` audit event.
+  New Wall-Street-only, plan-scoped Automation
+  (`automation_profiles`/`automation_events`/`order_intents`,
+  `0051_gsps_automation_profiles.sql`; `lib/automation/service.ts`; UI
+  section on `/automation`) — distinct from the pre-existing System
+  Mastery-gated Automated Portfolio Manager, which is fully autonomous and
+  not plan-scoped; both now coexist. A member deliberately activates paper
+  or live automation against one already entry-confirmed candidate plan;
+  the server resolves every order term from the plan, never from raw
+  client input.
+  New live-only per-trade loss cascade — 6/9/15/30% notification
+  thresholds, a 50% pause/flatten/restrict — and stop widen/remove
+  friction requiring a verified-email confirmation link
+  (`lib/risk/live-trade-loss.ts`, `lib/risk/stop-override.ts`,
+  `0052_live_trade_loss_policy.sql`), wired into the existing live-account
+  sync poll (`lib/trade/live-sync.ts`) and gating new live entries
+  (`lib/trade/place-order.ts`) — never paper trading.
+  `lib/backtest/entryConfirmation.ts` gives backtests/forward tests the
+  identical confirmation logic the live pipeline uses.
+  Deliberately not built, documented rather than silently skipped in
+  `docs/GSPS_AUTOMATION.md`: the brief's five named PSAR-alternative
+  indicator modules (no PSAR exists anywhere in this repo to migrate away
+  from, and building five new modules from scratch is a separate
+  multi-week signal-engineering project — existing `lib/signals/states/*`
+  already satisfies the versioned/evidence-gated intent under different
+  names); phone/SMS delivery (no provider anywhere in this codebase, so
+  every "verified email AND verified phone" gate in the brief is
+  implemented as verified-email-only); GSPS School curriculum (a policy
+  hook — a restriction flag plus a completion timestamp — with no course
+  content, since no GSPS School product exists to gate against);
+  options/futures/forex/crypto automation (this pass is `us_equity` only);
+  and automating a plan that hasn't yet cleared entry confirmation (queuing
+  for a later automatic trigger needs a poller, which the Vercel Hobby
+  2-cron/day cap makes a scan-cadence problem rather than a schedule —
+  left as a follow-up).
 
 ### Dependencies
 

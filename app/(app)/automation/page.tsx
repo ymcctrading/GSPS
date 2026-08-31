@@ -1,11 +1,17 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getUserTier, hasFeature } from "@/lib/tiers";
+import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 import { UpgradeCard } from "@/components/app/upgrade-card";
 import {
   AutomationControlPanel,
   type AutomationProfile,
 } from "@/components/automation/control-panel";
+import {
+  GspsPlanAutomation,
+  type AutomationProfileSummary,
+  type EligiblePlanSummary,
+} from "@/components/automation/gsps-plan-automation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 export const metadata = {
@@ -50,8 +56,69 @@ export default async function AutomationPage() {
       ) : (
         <AutomationHub userId={user.id} supabase={supabase} />
       )}
+
+      <GspsAutomationSection userId={user.id} supabase={supabase} />
     </div>
   );
+}
+
+/**
+ * Wall-Street-only, plan-scoped GSPS Automation — gated on
+ * `automationEnabled` (the entitlement policy's own "Wall Street" check,
+ * lib/entitlements/policy.ts), independent of the System Mastery /
+ * `autonomous_portfolio_manager` gate above. A member without this
+ * entitlement sees a short locked note rather than the full UpgradeCard
+ * again, since that card already covers this page once above.
+ */
+async function GspsAutomationSection({
+  userId,
+  supabase,
+}: {
+  userId: string;
+  supabase: Awaited<ReturnType<typeof createClient>>;
+}) {
+  const policy = await getUserEntitlementPolicy(supabase, userId);
+  if (!policy.automationEnabled) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>GSPS Automation</CardTitle>
+          <CardDescription>
+            Activating automation against a specific GSPS candidate plan, in paper or live mode,
+            requires Wall Street entitlement.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
+
+  const [plansResult, profilesResult] = await Promise.all([
+    supabase
+      .from("trade_plans")
+      .select("plan_id, instrument, direction, state, entry_trigger, invalidation, take_profit_1")
+      .eq("user_id", userId)
+      .in("state", ["armed", "entered", "tp1_reached", "tp2_reached", "master_reached", "runner"])
+      .order("generated_at", { ascending: false })
+      .limit(50),
+    supabase
+      .from("automation_profiles")
+      .select("profile_id, plan_id, automation_mode, execution_mode, status, configuration")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false }),
+  ]);
+
+  const eligiblePlans: EligiblePlanSummary[] = (plansResult.data ?? []).map((row) => ({
+    planId: row.plan_id as string,
+    instrument: row.instrument as string,
+    direction: row.direction as "bullish" | "bearish",
+    state: row.state as string,
+    entryTrigger: Number(row.entry_trigger),
+    invalidation: Number(row.invalidation),
+    takeProfit1: Number(row.take_profit_1),
+  }));
+  const profiles = (profilesResult.data ?? []) as AutomationProfileSummary[];
+
+  return <GspsPlanAutomation eligiblePlans={eligiblePlans} profiles={profiles} />;
 }
 
 interface CritiquedTrade {

@@ -15,6 +15,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PlanState, TradePlan } from "./types";
+import { EMPTY_ENTRY_CONFIRMATION } from "./types";
 import { applyPlanEvent, type PlanEvent, type TransitionResult } from "./transitions";
 
 /** Everything the caller must supply to start a plan at WATCHLIST. */
@@ -47,6 +48,7 @@ function rowToPlan(row: Record<string, unknown>, auditRows: Record<string, unkno
     generatedAt: row.generated_at as string,
     expiresAt: row.expires_at as string,
     direction: row.direction as TradePlan["direction"],
+    signalFingerprint: (row.signal_fingerprint as string | null) ?? null,
     coordinates: {
       entryTrigger: Number(row.entry_trigger),
       entryLimitTolerance: Number(row.entry_limit_tolerance),
@@ -69,6 +71,10 @@ function rowToPlan(row: Record<string, unknown>, auditRows: Record<string, unkno
       alignment: row.alignment as TradePlan["evidence"]["alignment"],
       dataTimestamps: (row.data_timestamps ?? {}) as Record<string, string>,
       eventLiquidityStatus: row.event_liquidity_status as string,
+    },
+    entryConfirmation: {
+      ...EMPTY_ENTRY_CONFIRMATION,
+      ...((row.entry_confirmation ?? {}) as Partial<TradePlan["entryConfirmation"]>),
     },
     state: row.state as PlanState,
     version: Number(row.version),
@@ -105,6 +111,7 @@ function newPlanToRow(userId: string, plan: NewTradePlan): Record<string, unknow
     direction: plan.direction,
     generated_at: plan.generatedAt,
     expires_at: plan.expiresAt,
+    signal_fingerprint: plan.signalFingerprint,
     entry_trigger: plan.coordinates.entryTrigger,
     entry_limit_tolerance: plan.coordinates.entryLimitTolerance,
     invalidation: plan.coordinates.invalidation,
@@ -122,6 +129,7 @@ function newPlanToRow(userId: string, plan: NewTradePlan): Record<string, unknow
     alignment: plan.evidence.alignment,
     data_timestamps: plan.evidence.dataTimestamps,
     event_liquidity_status: plan.evidence.eventLiquidityStatus,
+    entry_confirmation: plan.entryConfirmation,
     state: "watchlist",
     version: 0,
   };
@@ -132,6 +140,7 @@ function planToUpdateRow(plan: TradePlan): Record<string, unknown> {
   return {
     state: plan.state,
     version: plan.version,
+    entry_confirmation: plan.entryConfirmation,
     planned_dollar_risk: plan.risk.plannedDollarRisk,
     approved_quantity: plan.risk.approvedQuantity,
     actual_entry_price: plan.actualEntryPrice,
@@ -218,6 +227,49 @@ export async function createTradePlan(
     .single();
   if (error) throw new Error(error.message);
   return rowToPlan(data, []);
+}
+
+/**
+ * `createTradePlan`, but idempotent on `signalFingerprint`: a qualifying
+ * signal must create exactly one candidate plan, and a rerun (a retried
+ * job, a duplicate scan pass) with the same fingerprint must not create a
+ * second one. Enforced at the database level by
+ * `trade_plans_signal_fingerprint_idx` (0050_entry_confirmation_lifecycle.sql);
+ * this wrapper just makes the conflict a normal, non-throwing outcome
+ * instead of a 23505 error the caller has to know to catch.
+ *
+ * `input.signalFingerprint` must be non-null to dedupe — a null
+ * fingerprint always inserts (no uniqueness to enforce), matching the
+ * partial index's `where signal_fingerprint is not null`.
+ */
+export async function createOrGetIdempotentTradePlan(
+  supabase: SupabaseClient,
+  userId: string,
+  input: NewTradePlan,
+): Promise<{ plan: TradePlan; created: boolean }> {
+  const { data, error } = await supabase
+    .from("trade_plans")
+    .insert(newPlanToRow(userId, input))
+    .select("*")
+    .single();
+  if (!error) return { plan: rowToPlan(data, []), created: true };
+
+  const isUniqueViolation = error.code === "23505";
+  if (!isUniqueViolation || input.signalFingerprint == null) {
+    throw new Error(error.message);
+  }
+
+  const { data: existingRow, error: findErr } = await supabase
+    .from("trade_plans")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("instrument", input.instrument)
+    .eq("timeframe", input.timeframe)
+    .eq("strategy_version", input.strategyVersion)
+    .eq("signal_fingerprint", input.signalFingerprint)
+    .single();
+  if (findErr || !existingRow) throw new Error(error.message);
+  return { plan: rowToPlan(existingRow, []), created: false };
 }
 
 /**

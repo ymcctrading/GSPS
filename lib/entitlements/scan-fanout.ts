@@ -24,7 +24,8 @@ import type { Limit } from "@/lib/entitlements/policy";
 import type { ScanResult } from "@/lib/types";
 import { STRATEGY_VERSION } from "@/lib/backtest/strategyVersion";
 import { buildNewTradePlanFromScanResult } from "@/lib/lifecycle/fromScanResult";
-import { applyEventAndPersist, createTradePlan } from "@/lib/lifecycle/store";
+import { applyEventAndPersist, createOrGetIdempotentTradePlan } from "@/lib/lifecycle/store";
+import { advanceEntryConfirmationForSymbol } from "@/lib/lifecycle/advanceConfirmation";
 
 export type FanOutOutcome = {
   visibleCount: number;
@@ -109,6 +110,20 @@ export async function evaluateMonitorsAndNotify(
   const notifyWorthy: { transitionId: string; setup: RankedSetup<ScanResult> }[] = [];
 
   for (const setup of args.visible) {
+    // Advance any already-open AWAITING_ENTRY_CONFIRMATION plan for this
+    // symbol before evaluating the monitor -- confirmation is observed
+    // across scans, independent of whether this pass is itself alert-worthy.
+    if (setup.value.direction !== "none") {
+      await advanceEntryConfirmationForSymbol(service, args.profileId, {
+        symbol: setup.value.symbol,
+        direction: setup.value.direction,
+        currentPrice: setup.value.currentPrice,
+        scannedAt: setup.value.scannedAt,
+      }).catch((err) => {
+        console.error(`evaluateMonitorsAndNotify: confirmation advance failed for ${setup.value.symbol} — ${String(err)}`);
+      });
+    }
+
     try {
       const result = await evaluateMonitor(service, {
         profileId: args.profileId,
@@ -184,13 +199,16 @@ export async function evaluateMonitorsAndNotify(
 
 /**
  * Auto-creates a trade-plan lifecycle object (`lib/lifecycle/`) for a setup
- * that just confirmed WATCH -> EXECUTE, and advances it straight to ARMED:
- * the Rules Alignment gates that made this transition confirm already
- * qualified it, and the setup's entry trigger is already priced and waiting
- * for price to reach it. `signalId` keys off `transitionId` — the monitor
- * transition already uniquely identifies "this setup, this confirmation" —
- * so a re-notified transition (there isn't one; transitions are one-shot)
- * would collide rather than silently duplicate the plan.
+ * that just confirmed WATCH -> EXECUTE: exactly one idempotent candidate
+ * plan per qualifying signal (`createOrGetIdempotentTradePlan`, keyed on
+ * `transitionId` — one-shot per monitor transition, so a retried job can't
+ * duplicate it), advanced QUALIFIED -> AWAITING_ENTRY_CONFIRMATION and no
+ * further. Per the mandatory entry-confirmation rule
+ * (`lib/lifecycle/entryConfirmation.ts`), the setup's entry trigger being
+ * priced is not itself an executable entry — the plan cannot become ARMED
+ * until a later scan observes the full break/retest/confirmation-move
+ * sequence (`lib/lifecycle/advanceEntryConfirmationForPlan`, called from the
+ * scan loop below on every subsequent pass for symbols with an open plan).
  */
 async function createTradePlanForTransition(
   service: SupabaseClient,
@@ -205,8 +223,16 @@ async function createTradePlanForTransition(
   });
   if (!input) return;
 
-  const plan = await createTradePlan(service, profileId, input);
+  const { plan, created } = await createOrGetIdempotentTradePlan(service, profileId, input);
+  if (!created) return;
+
   const at = new Date().toISOString();
+  const marked = await applyEventAndPersist(service, profileId, plan.planId, {
+    type: "mark_auto_created",
+    at,
+    reason: "Auto-created from a qualifying scan signal (gsps_scan_pipeline).",
+  });
+  if (!marked.ok) return;
   const qualified = await applyEventAndPersist(service, profileId, plan.planId, {
     type: "qualify",
     at,
@@ -214,9 +240,9 @@ async function createTradePlanForTransition(
   });
   if (!qualified.ok) return;
   await applyEventAndPersist(service, profileId, plan.planId, {
-    type: "arm",
+    type: "await_confirmation",
     at,
-    reason: "Entry trigger priced from the confirmed setup.",
+    reason: "Entry trigger priced; watching for the required break/retest/confirmation-move sequence.",
   });
 }
 
