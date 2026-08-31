@@ -4,6 +4,15 @@ Machine-oriented handoff for a fresh Claude Code session. Read this file
 first; it is self-contained. Do not assume any memory of the session that
 wrote it.
 
+> **Status update:** the Design PR this document's "Suggested approach"
+> calls for (step 1) is done — see `docs/CANONICAL_DECISION_RECORD_DESIGN.md`.
+> It also corrects this document's "three pieces to reconcile" framing: there
+> is a fourth, `0005_learning_brain.sql`'s `scan_events`/`execution_events`
+> schema, currently unwired. Read the design doc before starting the
+> Migration PR (step 2) — it makes concrete field-level decisions this
+> document deliberately left open (e.g. section 3's "decide whether that
+> stays `scan_result_id`" — the design doc decides: yes).
+
 ## Task
 
 Unify the pieces below into the single versioned "canonical decision
