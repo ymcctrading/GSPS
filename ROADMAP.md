@@ -256,7 +256,18 @@ both signal discovery and execution.
   Reversal states can ever call tradeable down to a few dozen names — a
   scanner-wide behavior change, not a wiring change. See
   `docs/MARKET_UNIVERSE_DATA_QUALITY.md`'s "Why informational, not gating"
-  for the reasoning and what closing the coverage gap would take.)*
+  for the reasoning and what closing the coverage gap would take.)* *(2026-08-30,
+  follow-up, direct request: wired into Guided Decision Mode.
+  `lib/guided/eligibility.ts`'s `assessEligibility` now also requires
+  `result.noviceUniverse?.eligible`, failing closed on a `ScanResult` built
+  outside `scanTicker`. Unlike the scanner-wide gating held back above, this
+  one was decided and accepted on purpose: Guided already narrows hard on
+  its own and already treats "nothing to show" as a correct answer, and
+  showing only a `novice_eligible` symbol is the literal purpose the engine
+  was specified for — so the same ~40-mega-cap/top-500-large-cap coverage
+  gap now also means Guided may recommend nothing on days it previously
+  would have. See `docs/MARKET_UNIVERSE_DATA_QUALITY.md`'s "Guided Decision
+  Mode composition".)*
 - **Novice → Pro tier promotion** *(2026-08-29)* — behavioral eligibility
   gate for the Novice-to-Pro (`PRACTICE`→`STANDARD`) tier step, per the
   "Tier Access, Promotion & User Experience" spec pack (draft implementation

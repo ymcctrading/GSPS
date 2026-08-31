@@ -156,6 +156,34 @@ way; only its authority over the existing verdict was held back. Revisit
 once a real market-cap/earnings feed closes the coverage gap above — at that
 point the gating change is a data question, not a product-risk one.
 
+## Guided Decision Mode composition
+
+`lib/guided/eligibility.ts`'s `assessEligibility` — the gate between "the
+scanner found something" and "a novice is shown a one-tap Buy button with the
+score hidden" — now also requires `result.noviceUniverse?.eligible`
+(2026-08-30, direct request). A symbol failing any `novice_eligible` filter
+is refused the same way a Watch-tier verdict or an unconfirmed short is:
+added to `reasons`, never silently dropped. `ScanResult` built outside
+`scanTicker` (`noviceUniverse` absent) fails closed rather than being treated
+as passing, matching every other "unknown" case in this engine.
+
+This is a deliberately different call from "Why informational, not gating"
+above, not a reversal of it. That section held back gating
+`SignalGates.eligibleUniverse` because doing so would have silently narrowed
+which symbols the *whole scanner* — every user, every verdict, Watch and
+Execute alike — can ever call tradeable, before anyone had decided that
+tradeoff on purpose. Guided Mode is a different surface: it already narrows
+hard on its own (Execute-only, a priced plan, a liquidity floor, a confirmed
+borrow), it already accepts "often nothing to show" as a correct answer on a
+quiet day (see `lib/guided/near-miss.ts`), and gating it on `novice_eligible`
+is not a side effect of some other change — it is the literal thing "a
+novice's eligible universe" was specified for. The same coverage gap applies
+here as everywhere else in this engine (`market_cap_pass` via the large-cap
+list's top-500-of-893 rank, `data_quality_pass` via the ~40-mega-cap earnings
+calendar), so Guided may now recommend nothing on days it previously would
+have — that tradeoff was made explicitly, by direct request, rather than
+discovered after the fact.
+
 ## What's still not wired
 
 - **No real bid/ask spread feed exists.** `spread.ts` accepts one when a
@@ -170,12 +198,7 @@ point the gating change is a data question, not a product-risk one.
   at all and are not filtered by symbol; a biotech's binary-catalyst dates
   are still caught by `event_risk_pass` when known, which is a real but
   partial substitute for filtering the whole category.
-- **Guided Decision Mode (`lib/guided/eligibility.ts`) is untouched.** Its
-  own gates (Execute-only, borrow, priced plan, liquidity floor, live data)
-  are a different, narrower question — "may this become a one-tap Buy
-  button" — from "does this symbol belong in a novice's universe at all".
-  The two should compose (a Guided recommendation ought to also be
-  `novice_eligible`), but wiring that in changes what Guided shows today and
-  is left for a follow-up that can be measured against the Backtest tool
-  first, per this codebase's own precedent for changes that touch what
-  Guided recommends.
+- **Guided Decision Mode is wired** — see "Guided Decision Mode composition"
+  below. Not in this list anymore; kept as a marker of what "wired" means
+  for the rest of this section (a real gate on a real surface, not a field
+  that merely exists).

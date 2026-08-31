@@ -18,10 +18,12 @@
  *
  * It changes how many symbols get *looked at*. It does not touch what qualifies:
  * `assessEligibility` still demands an Execute verdict, a priced plan, the
- * liquidity floor and a confirmed borrow for shorts, and `sizeGuidedTrade` still
- * applies both caps. Looking harder for a setup that clears the bar is a
- * different act from lowering the bar, and only the first one is safe to do on a
- * beginner's behalf.
+ * liquidity floor, a confirmed borrow for shorts, and — since
+ * docs/MARKET_UNIVERSE_DATA_QUALITY.md's Guided Mode wiring — a passing
+ * `novice_eligible` read, and `sizeGuidedTrade` still applies both caps.
+ * Looking harder for a setup that clears the bar is a different act from
+ * lowering the bar, and only the first one is safe to do on a beginner's
+ * behalf.
  */
 
 import { SECTORS } from "@/lib/sectors";
