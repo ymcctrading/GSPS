@@ -163,23 +163,66 @@ export const DEFAULT_GUIDED_CAPS: GuidedCaps = {
 };
 
 /**
- * Read caps from a user's stored preferences, falling back to the defaults for
- * anything unset or out of bounds. A stored value that is not a number, or that
- * sits outside the permitted range, is not a reason to fail the request — it is
- * a reason to use the conservative default.
+ * Every `policy_values`-overridable Guided Mode platform threshold, bundled
+ * so a caller can pass one `getGuidedPolicy()` result through instead of a
+ * dozen separate parameters — see lib/guided/policy.ts. Distinct from
+ * `GuidedCaps`: these are the *platform* ceilings/defaults an operator tunes,
+ * not a user's own per-account risk/trade-count preferences (which still
+ * live in `settings.prefs.guided`, clamped against these bounds).
  */
-export function resolveGuidedCaps(prefs: unknown): GuidedCaps {
+export interface GuidedPolicy {
+  defaultRiskPct: number;
+  minRiskPct: number;
+  maxRiskPct: number;
+  defaultMaxTradesPerDay: number;
+  defaultMaxTradesPerWeek: number;
+  defaultMaxDeployedPct: number;
+  minGuidedBudgetUsd: number;
+  maxGuidedBudgetUsd: number;
+  defaultGuidedBudgetUsd: number;
+  minGuidedQty: number;
+  recommendationTtlMinutes: number;
+  maxCandidatesScanned: number;
+  guidedScanBatch: number;
+  maxRecommendations: number;
+}
+
+export const DEFAULT_GUIDED_POLICY: GuidedPolicy = {
+  defaultRiskPct: DEFAULT_RISK_PCT,
+  minRiskPct: MIN_RISK_PCT,
+  maxRiskPct: MAX_RISK_PCT,
+  defaultMaxTradesPerDay: DEFAULT_MAX_TRADES_PER_DAY,
+  defaultMaxTradesPerWeek: DEFAULT_MAX_TRADES_PER_WEEK,
+  defaultMaxDeployedPct: DEFAULT_MAX_DEPLOYED_PCT,
+  minGuidedBudgetUsd: MIN_GUIDED_BUDGET_USD,
+  maxGuidedBudgetUsd: MAX_GUIDED_BUDGET_USD,
+  defaultGuidedBudgetUsd: DEFAULT_GUIDED_BUDGET_USD,
+  minGuidedQty: MIN_GUIDED_QTY,
+  recommendationTtlMinutes: RECOMMENDATION_TTL_MINUTES,
+  maxCandidatesScanned: MAX_CANDIDATES_SCANNED,
+  guidedScanBatch: GUIDED_SCAN_BATCH,
+  maxRecommendations: MAX_RECOMMENDATIONS,
+};
+
+/**
+ * Read caps from a user's stored preferences, falling back to the policy's
+ * defaults for anything unset or out of bounds. A stored value that is not a
+ * number, or that sits outside the permitted range, is not a reason to fail
+ * the request — it is a reason to use the conservative default. `policy`
+ * defaults to the code constants, so every existing caller is unaffected.
+ */
+export function resolveGuidedCaps(prefs: unknown, policy: GuidedPolicy = DEFAULT_GUIDED_POLICY): GuidedCaps {
   const stored = (prefs as { guided?: Record<string, unknown> } | null)?.guided ?? {};
   const num = (key: string, fallback: number, min: number, max: number): number => {
     const v = Number(stored[key]);
     return Number.isFinite(v) && v >= min && v <= max ? v : fallback;
   };
   return {
-    riskPct: num("riskPct", DEFAULT_RISK_PCT, MIN_RISK_PCT, MAX_RISK_PCT),
-    maxTradesPerDay: num("maxTradesPerDay", DEFAULT_MAX_TRADES_PER_DAY, 1, 20),
-    maxTradesPerWeek: num("maxTradesPerWeek", DEFAULT_MAX_TRADES_PER_WEEK, 1, 50),
-    maxDeployedPct: num("maxDeployedPct", DEFAULT_MAX_DEPLOYED_PCT, 5, 100),
-    budgetUsd: budget(stored),
+    riskPct: num("riskPct", policy.defaultRiskPct, policy.minRiskPct, policy.maxRiskPct),
+    maxTradesPerDay: num("maxTradesPerDay", policy.defaultMaxTradesPerDay, 1, 20),
+    maxTradesPerWeek: num("maxTradesPerWeek", policy.defaultMaxTradesPerWeek, 1, 50),
+    maxDeployedPct: num("maxDeployedPct", policy.defaultMaxDeployedPct, 5, 100),
+    budgetUsd: budget(stored, policy),
   };
 }
 
@@ -191,10 +234,10 @@ export function resolveGuidedCaps(prefs: unknown): GuidedCaps {
  * value. Anything else non-numeric, unset, or outside the permitted range falls
  * back to the conservative default — on, at the top of the novice range.
  */
-function budget(stored: Record<string, unknown>): number | null {
+function budget(stored: Record<string, unknown>, policy: GuidedPolicy): number | null {
   if (stored.budgetUsd === null) return null;
   const v = Number(stored.budgetUsd);
-  return Number.isFinite(v) && v >= MIN_GUIDED_BUDGET_USD && v <= MAX_GUIDED_BUDGET_USD
+  return Number.isFinite(v) && v >= policy.minGuidedBudgetUsd && v <= policy.maxGuidedBudgetUsd
     ? v
-    : DEFAULT_GUIDED_BUDGET_USD;
+    : policy.defaultGuidedBudgetUsd;
 }

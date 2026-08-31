@@ -31,12 +31,8 @@ import { z } from "zod";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { killSwitchRefusal } from "@/lib/trade/kill-switch";
 import { readCapUsage } from "@/lib/guided/caps";
-import {
-  GUIDED_DISCLOSURE,
-  LIVE_BROKERAGE_BLOCK,
-  MAX_CANDIDATES_SCANNED,
-  resolveGuidedCaps,
-} from "@/lib/guided/config";
+import { GUIDED_DISCLOSURE, LIVE_BROKERAGE_BLOCK, resolveGuidedCaps } from "@/lib/guided/config";
+import { getGuidedPolicy } from "@/lib/guided/policy";
 import { orderedCandidates } from "@/lib/guided/universe";
 import {
   buildRecommendations,
@@ -79,12 +75,18 @@ export async function GET() {
   if (halted) return blocked(halted.error);
 
   try {
+    // Created here (rather than at first use, further down) because caps
+    // resolution below needs its guided-policy read before anything else in
+    // this route does.
+    const service = createServiceClient();
+    const guidedPolicy = await getGuidedPolicy(service);
+
     const { data: settings } = await supabase
       .from("settings")
       .select("prefs")
       .eq("user_id", user.id)
       .maybeSingle();
-    const caps = resolveGuidedCaps((settings as { prefs?: unknown } | null)?.prefs ?? null);
+    const caps = resolveGuidedCaps((settings as { prefs?: unknown } | null)?.prefs ?? null, guidedPolicy);
 
     const account = await readGuidedAccount(supabase, user.id);
     const usage = await readCapUsage(supabase, user.id, caps, account.equity, account.openSymbols);
@@ -104,7 +106,6 @@ export async function GET() {
     // blocks above (live brokerage, kill switch, Guided Mode's own risk/trade
     // caps) so a request that never reaches the actual scan doesn't cost the
     // user a daily unit for it.
-    const service = createServiceClient();
     const policy = await getUserEntitlementPolicy(service, user.id);
     const reservation = await reserveUsageSlot(service, {
       profileId: user.id,
@@ -139,11 +140,12 @@ export async function GET() {
       const published = await candidateSymbols(supabase);
       const { universe: universeThresholds } = await getUniversePolicy(service);
       const { recommendations, skipped, nearMiss, scanned } = await buildRecommendations({
-        symbols: orderedCandidates(published, MAX_CANDIDATES_SCANNED),
+        symbols: orderedCandidates(published, guidedPolicy.maxCandidatesScanned),
         account,
         caps,
         deployedUsd: usage.deployedUsd,
         universeThresholds,
+        guidedPolicy,
       });
 
       const logged = await logRecommendations(supabase, user.id, recommendations, caps.riskPct, account.equity);

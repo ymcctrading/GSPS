@@ -70,6 +70,8 @@ export interface SizingInputs {
   /** Whole units only (equities). Crypto can be fractional at the broker, but the
    *  simulator's ledger and the protocol's tranche split are both whole-unit. */
   wholeUnitsOnly?: boolean;
+  /** `getGuidedPolicy()`-resolved floor, defaulting to `MIN_GUIDED_QTY`. */
+  minGuidedQty?: number;
 }
 
 export interface SizedTrade {
@@ -102,6 +104,7 @@ export function sizeGuidedTrade(input: SizingInputs): SizedTrade {
   const {
     side, equity, buyingPower, entry, stopLoss, takeProfit1, masterProfit,
     riskPct, maxDeployedPct, deployedUsd, maxNotionalUsd = null, wholeUnitsOnly = true,
+    minGuidedQty = MIN_GUIDED_QTY,
   } = input;
 
   // +1 long, −1 short. Every price difference below is multiplied by it, so a
@@ -155,9 +158,9 @@ export function sizeGuidedTrade(input: SizingInputs): SizedTrade {
           ? "buying_power"
           : "risk";
 
-  if (qty < MIN_GUIDED_QTY) {
+  if (qty < minGuidedQty) {
     return {
-      ...empty(blockedCopy(boundBy, qty, deployedUsd > 0)),
+      ...empty(blockedCopy(boundBy, qty, deployedUsd > 0, minGuidedQty)),
       boundBy,
     };
   }
@@ -187,7 +190,7 @@ export function sizeGuidedTrade(input: SizingInputs): SizedTrade {
   };
 }
 
-function blockedCopy(boundBy: SizedTrade["boundBy"], qty: number, alreadyDeployed: boolean): string {
+function blockedCopy(boundBy: SizedTrade["boundBy"], qty: number, alreadyDeployed: boolean, minGuidedQty: number): string {
   if (qty <= 0) {
     if (boundBy === "portfolio") {
       // The same ceiling, two different situations: room already spent, versus
@@ -206,7 +209,7 @@ function blockedCopy(boundBy: SizedTrade["boundBy"], qty: number, alreadyDeploye
       : "Your per-trade risk cap doesn't stretch to a single share of this symbol.";
   }
   const sizedTo = boundBy === "budget" ? "your per-trade budget" : "your risk cap";
-  return `A trade sized to ${sizedTo} would be ${qty} share${qty === 1 ? "" : "s"}, and the protocol's staged exit needs at least ${MIN_GUIDED_QTY} to scale out of. Skipped rather than placed as an all-or-nothing trade.`;
+  return `A trade sized to ${sizedTo} would be ${qty} share${qty === 1 ? "" : "s"}, and the protocol's staged exit needs at least ${minGuidedQty} to scale out of. Skipped rather than placed as an all-or-nothing trade.`;
 }
 
 /** The share of the position that leaves at TP1, for copy that needs to say so. */

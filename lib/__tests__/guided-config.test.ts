@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_GUIDED_BUDGET_USD,
   DEFAULT_GUIDED_CAPS,
+  DEFAULT_GUIDED_POLICY,
   MAX_GUIDED_BUDGET_USD,
   MAX_RISK_PCT,
   MIN_GUIDED_BUDGET_USD,
@@ -76,5 +77,13 @@ describe("resolveGuidedCaps", () => {
       DEFAULT_GUIDED_BUDGET_USD,
     );
     expect(resolveGuidedCaps({ guided: { budgetUsd: "lots" } }).budgetUsd).toBe(DEFAULT_GUIDED_BUDGET_USD);
+  });
+
+  it("honors a policy_values-resolved override instead of the code default", () => {
+    const looser = { ...DEFAULT_GUIDED_POLICY, defaultRiskPct: 1.5, maxRiskPct: 3 };
+    const caps = resolveGuidedCaps(null, looser);
+    expect(caps.riskPct).toBe(1.5);
+    // A stored value now clamps against the overridden ceiling, not the code default.
+    expect(resolveGuidedCaps({ guided: { riskPct: 2.5 } }, looser).riskPct).toBe(2.5);
   });
 });

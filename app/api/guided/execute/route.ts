@@ -29,6 +29,7 @@ import { readCapUsage } from "@/lib/guided/caps";
 import { sizeIsTradeable, stillMatches } from "@/lib/guided/eligibility";
 import { sizeGuidedTrade } from "@/lib/guided/sizing";
 import { LIVE_BROKERAGE_BLOCK, resolveGuidedCaps } from "@/lib/guided/config";
+import { getGuidedPolicy } from "@/lib/guided/policy";
 import { hasLiveBrokerage, readGuidedAccount, resolveShortable } from "@/lib/guided/service";
 
 const ExecuteSchema = z.object({ id: z.uuid() });
@@ -108,7 +109,8 @@ export async function POST(req: NextRequest) {
   };
 
   // ---- Re-verify against the market as it is right now, not as it was.
-  const { universe } = await getUniversePolicy(createServiceClient());
+  const service = createServiceClient();
+  const [{ universe }, guidedPolicy] = await Promise.all([getUniversePolicy(service), getGuidedPolicy(service)]);
   const fresh = await scanTicker(rec.symbol, undefined, undefined, undefined, universe);
   // A short also has to still be borrowable at submission: availability moves
   // during the session, and a recommendation written when it was borrowable is
@@ -127,7 +129,7 @@ export async function POST(req: NextRequest) {
     .select("prefs")
     .eq("user_id", user.id)
     .maybeSingle();
-  const caps = resolveGuidedCaps((settings as { prefs?: unknown } | null)?.prefs ?? null);
+  const caps = resolveGuidedCaps((settings as { prefs?: unknown } | null)?.prefs ?? null, guidedPolicy);
 
   const account = await readGuidedAccount(supabase, user.id);
   const usage = await readCapUsage(supabase, user.id, caps, account.equity, account.openSymbols);
@@ -147,8 +149,9 @@ export async function POST(req: NextRequest) {
     maxDeployedPct: caps.maxDeployedPct,
     deployedUsd: usage.deployedUsd,
     maxNotionalUsd: caps.budgetUsd,
+    minGuidedQty: guidedPolicy.minGuidedQty,
   });
-  if (sized.blockedReason || !sizeIsTradeable(sized.qty)) {
+  if (sized.blockedReason || !sizeIsTradeable(sized.qty, guidedPolicy.minGuidedQty)) {
     return NextResponse.json(
       { error: sized.blockedReason ?? "This trade is too small to place under the protocol's staged exit.", code: "unsizeable" },
       { status: 422 },
