@@ -1,10 +1,19 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
+
+const { sendOperatorDriftAlertEmailMock } = vi.hoisted(() => ({
+  sendOperatorDriftAlertEmailMock: vi.fn(),
+}));
+vi.mock("@/lib/notifications/resend-handler", () => ({
+  sendOperatorDriftAlertEmail: sendOperatorDriftAlertEmailMock,
+}));
+
 import {
   compareToBacktest,
   evaluateShadowDrift,
   summarizeShadowRows,
   MIN_SHADOW_SAMPLES,
+  DRIFT_ALERT_COOLDOWN_HOURS,
   type BacktestBaseline,
 } from "@/lib/shadow/compare";
 
@@ -55,17 +64,46 @@ describe("compareToBacktest", () => {
 });
 
 describe("evaluateShadowDrift", () => {
+  /** `recentAlerts` seeds the cooldown-check read; `inserted` collects any new `shadow_drift_alerts` row. */
+  function makeSupabase(rows: { outcome: string; r_multiple: number }[], recentAlerts: unknown[] = []) {
+    const inserted: unknown[] = [];
+    const client = {
+      from(table: string) {
+        if (table === "shadow_signals") {
+          return {
+            select: () => ({
+              not: () => ({
+                gte: () => Promise.resolve({ data: rows, error: null }),
+              }),
+            }),
+          };
+        }
+        if (table === "shadow_drift_alerts") {
+          return {
+            select: () => ({
+              gte: () => ({
+                limit: () => Promise.resolve({ data: recentAlerts, error: null }),
+              }),
+            }),
+            insert: (row: unknown) => {
+              inserted.push(row);
+              return Promise.resolve({ error: null });
+            },
+          };
+        }
+        throw new Error(`unexpected table ${table}`);
+      },
+    } as unknown as SupabaseClient;
+    return { client, inserted };
+  }
+
+  beforeEach(() => {
+    sendOperatorDriftAlertEmailMock.mockReset();
+  });
+
   it("reads evaluated shadow rows and compares against the baseline", async () => {
     const rows = Array.from({ length: MIN_SHADOW_SAMPLES }, () => ({ outcome: "loss" as const, r_multiple: -1 }));
-    const client = {
-      from: () => ({
-        select: () => ({
-          not: () => ({
-            gte: () => Promise.resolve({ data: rows, error: null }),
-          }),
-        }),
-      }),
-    } as unknown as SupabaseClient;
+    const { client } = makeSupabase(rows);
 
     const alert = await evaluateShadowDrift(client, BASELINE, 60, new Date("2026-09-01T00:00:00Z"));
     expect(alert).not.toBeNull();
@@ -83,5 +121,39 @@ describe("evaluateShadowDrift", () => {
       }),
     } as unknown as SupabaseClient;
     expect(await evaluateShadowDrift(client, BASELINE)).toBeNull();
+  });
+
+  it("sends one operator alert email and records it when a drift is confirmed and no recent alert exists", async () => {
+    const rows = Array.from({ length: MIN_SHADOW_SAMPLES }, () => ({ outcome: "loss" as const, r_multiple: -1 }));
+    const { client, inserted } = makeSupabase(rows, []);
+
+    await evaluateShadowDrift(client, BASELINE, 60, new Date("2026-09-01T00:00:00Z"));
+    expect(sendOperatorDriftAlertEmailMock).toHaveBeenCalledTimes(1);
+    expect(inserted).toHaveLength(1);
+  });
+
+  it("skips the email (but still returns the alert) when one was already sent inside the cooldown window", async () => {
+    const rows = Array.from({ length: MIN_SHADOW_SAMPLES }, () => ({ outcome: "loss" as const, r_multiple: -1 }));
+    const { client, inserted } = makeSupabase(rows, [{ id: "existing" }]);
+
+    const alert = await evaluateShadowDrift(client, BASELINE, 60, new Date("2026-09-01T00:00:00Z"));
+    expect(alert).not.toBeNull();
+    expect(sendOperatorDriftAlertEmailMock).not.toHaveBeenCalled();
+    expect(inserted).toHaveLength(0);
+  });
+
+  it("never emails or records when there is no drift", async () => {
+    const rows = Array.from({ length: MIN_SHADOW_SAMPLES }, () => ({ outcome: "win" as const, r_multiple: 1 }));
+    const { client, inserted } = makeSupabase(rows, []);
+
+    const alert = await evaluateShadowDrift(client, BASELINE, 60, new Date("2026-09-01T00:00:00Z"));
+    expect(alert).toBeNull();
+    expect(sendOperatorDriftAlertEmailMock).not.toHaveBeenCalled();
+    expect(inserted).toHaveLength(0);
+  });
+
+  it("has a cooldown measured in hours, positive and less than a week", () => {
+    expect(DRIFT_ALERT_COOLDOWN_HOURS).toBeGreaterThan(0);
+    expect(DRIFT_ALERT_COOLDOWN_HOURS).toBeLessThan(24 * 7);
   });
 });

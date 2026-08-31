@@ -4,15 +4,15 @@
  * backtest harness (lib/backtest/*) predicts for the same strategy version,
  * or has drifted.
  *
- * This module defines the comparison and produces a structured verdict; it
- * does not send anything anywhere. Wiring `DriftAlert` into an actual
- * delivery channel (`lib/notifications/*`) is deliberately left for a
- * follow-up — see docs/CLAUDE_CODE_ROADMAP_TRACKER.md. Emitting a
- * console.warn on a confirmed drift (below) is the one delivery mechanism
- * this PR ships, so a drift is at least visible in server logs today.
+ * This module defines the comparison and, on a confirmed drift, both logs a
+ * `console.warn` and sends one operational email via
+ * `sendOperatorDriftAlertEmail` (best-effort — see that function's doc for
+ * why it is not routed through the per-user `notification_deliveries`
+ * pipeline, and for what happens when `OPERATOR_ALERT_EMAIL` is unset).
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { sendOperatorDriftAlertEmail } from "@/lib/notifications/resend-handler";
 
 export interface ShadowSummary {
   trades: number;
@@ -25,6 +25,24 @@ export interface BacktestBaseline {
   winRate: number;
   expectancyR: number;
 }
+
+/**
+ * The Execute-tier row from the latest committed `docs/REPLAY_RESULTS.md`
+ * (generated 2026-08-27, `npm run backtest`). Hand-transcribed rather than
+ * read from the file at runtime — the report is markdown for humans, not a
+ * machine-readable artifact, and re-parsing it on every scheduled-scan run
+ * would be fragile for no real benefit. Update this constant whenever
+ * `docs/REPLAY_RESULTS.md` is regenerated with a materially different
+ * Execute-tier row, the same manual-bump discipline
+ * `lib/backtest/strategyVersion.ts`'s `STRATEGY_VERSION` already uses for
+ * the same reason (a hash would churn on unrelated changes; a human
+ * decides when the numbers moved enough to matter).
+ */
+export const EXECUTE_TIER_BACKTEST_BASELINE: BacktestBaseline = {
+  trades: 31,
+  winRate: 0.387,
+  expectancyR: 0.151,
+};
 
 export interface DriftAlert {
   reason: string;
@@ -96,10 +114,18 @@ export function compareToBacktest(shadow: ShadowSummary, backtest: BacktestBasel
   };
 }
 
+/** Minimum time between operator alert emails for a persisting drift — see `shadow_drift_alerts` (migration 0054). */
+export const DRIFT_ALERT_COOLDOWN_HOURS = 20;
+
 /**
  * Reads every evaluated shadow signal from the trailing `windowDays` and
- * compares it against `backtest`. Logs a warning (the one delivery
- * mechanism this PR ships — see module doc) when a drift is confirmed.
+ * compares it against `backtest`. On a confirmed drift, always logs a
+ * `console.warn`, and sends one operator alert email via
+ * `sendOperatorDriftAlertEmail` — unless one was already sent within
+ * `DRIFT_ALERT_COOLDOWN_HOURS`, in which case the email is skipped (a
+ * persisting drift stays logged every run, but does not re-email the
+ * operator every run) while the returned `DriftAlert` and its log line are
+ * unaffected either way.
  */
 export async function evaluateShadowDrift(
   supabase: SupabaseClient,
@@ -121,8 +147,44 @@ export async function evaluateShadowDrift(
 
   const shadow = summarizeShadowRows((data ?? []) as EvaluatedShadowRow[]);
   const alert = compareToBacktest(shadow, backtest);
-  if (alert) {
-    console.warn(`shadow: signal-quality drift detected — ${alert.reason}`);
+  if (!alert) return null;
+
+  console.warn(`shadow: signal-quality drift detected — ${alert.reason}`);
+
+  const cooldownCutoff = new Date(now.getTime() - DRIFT_ALERT_COOLDOWN_HOURS * 3600_000).toISOString();
+  const { data: recent, error: recentError } = await supabase
+    .from("shadow_drift_alerts")
+    .select("id")
+    .gte("alerted_at", cooldownCutoff)
+    .limit(1);
+
+  if (recentError) {
+    console.error(`shadow: drift-alert cooldown read failed — ${recentError.message}`);
+    return alert;
   }
+  if ((recent ?? []).length > 0) {
+    return alert;
+  }
+
+  await sendOperatorDriftAlertEmail({
+    reason: alert.reason,
+    shadowTrades: alert.shadow.trades,
+    shadowWinRate: alert.shadow.winRate,
+    shadowExpectancyR: alert.shadow.expectancyR,
+    backtestWinRate: alert.backtest.winRate,
+    backtestExpectancyR: alert.backtest.expectancyR,
+  });
+
+  const { error: insertError } = await supabase.from("shadow_drift_alerts").insert({
+    reason: alert.reason,
+    shadow_trades: alert.shadow.trades,
+    shadow_expectancy_r: alert.shadow.expectancyR,
+    backtest_expectancy_r: alert.backtest.expectancyR,
+    alerted_at: now.toISOString(),
+  });
+  if (insertError) {
+    console.error(`shadow: drift-alert record not written — ${insertError.message}`);
+  }
+
   return alert;
 }

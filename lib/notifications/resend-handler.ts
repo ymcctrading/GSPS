@@ -264,3 +264,87 @@ export async function sendOrderInvalidatedEmail(data: OrderInvalidatedEmailData)
     return { success: false, error: message };
   }
 }
+
+export interface OperatorDriftAlertEmailData {
+  reason: string;
+  shadowTrades: number;
+  shadowWinRate: number;
+  shadowExpectancyR: number;
+  backtestWinRate: number;
+  backtestExpectancyR: number;
+}
+
+/**
+ * Phase 7 ("Validation and monitoring") alert delivery — sent when
+ * `lib/shadow/compare.ts`'s `evaluateShadowDrift` confirms live signal
+ * quality has drifted from the backtest baseline. Deliberately not routed
+ * through `sendAlertEmail`/`notification_deliveries`: those are per-user,
+ * per-symbol trade alerts tied to a WATCH -> EXECUTE transition, and this is
+ * a single platform-wide operational alert with no `profile_id` or
+ * `transition_id` to key it on. Gated on a second env var
+ * (`OPERATOR_ALERT_EMAIL`) beyond `RESEND_API_KEY`, since this has no
+ * per-user recipient to read from `auth.users` — unset, this silently
+ * no-ops (the caller's own `console.warn` is still the record), same
+ * "not configured" posture every send function in this file already has
+ * for a missing `RESEND_API_KEY`.
+ */
+export async function sendOperatorDriftAlertEmail(data: OperatorDriftAlertEmailData) {
+  const to = process.env.OPERATOR_ALERT_EMAIL;
+  if (!to) {
+    console.warn("OPERATOR_ALERT_EMAIL not set; skipping shadow-drift alert email");
+    return { success: false, error: "OPERATOR_ALERT_EMAIL not configured" };
+  }
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("RESEND_API_KEY not set; skipping shadow-drift alert email");
+    return { success: false, error: "RESEND_API_KEY not configured" };
+  }
+
+  try {
+    const subject = "GSPS: live signal quality has drifted from backtest";
+    const html = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h1 style="color: #0f172a; margin: 0 0 20px;">⚠ Shadow-mode drift detected</h1>
+        <div style="background: #fff7ed; padding: 15px; border-left: 4px solid #ea580c; border-radius: 4px; margin-bottom: 20px;">
+          <p style="margin: 0; color: #7c2d12; font-size: 14px;">${data.reason}</p>
+        </div>
+        <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div>
+              <p style="margin: 0; color: #64748b; font-size: 12px; text-transform: uppercase; font-weight: 600;">Live (shadow)</p>
+              <p style="margin: 5px 0 0; color: #0f172a; font-size: 16px; font-weight: 600;">
+                ${(data.shadowWinRate * 100).toFixed(1)}% win rate · ${data.shadowExpectancyR.toFixed(2)}R expectancy
+              </p>
+              <p style="margin: 2px 0 0; color: #64748b; font-size: 12px;">${data.shadowTrades} trades</p>
+            </div>
+            <div>
+              <p style="margin: 0; color: #64748b; font-size: 12px; text-transform: uppercase; font-weight: 600;">Backtest baseline</p>
+              <p style="margin: 5px 0 0; color: #0f172a; font-size: 16px; font-weight: 600;">
+                ${(data.backtestWinRate * 100).toFixed(1)}% win rate · ${data.backtestExpectancyR.toFixed(2)}R expectancy
+              </p>
+            </div>
+          </div>
+        </div>
+        <div style="border-top: 1px solid #e2e8f0; padding-top: 15px; font-size: 12px; color: #64748b;">
+          <p style="margin: 0;">This is an internal operational alert — it was not sent to any user.
+          <a href="https://gsps.app/learning" style="color: #0ea5e9; text-decoration: none;">View shadow summary</a>
+          </p>
+        </div>
+      </div>
+    `;
+    const result = await getResendClient().emails.send({
+      from: "GSPS Ops <onboarding@resend.dev>",
+      to,
+      subject,
+      html,
+    });
+    if (result.error) {
+      console.error("Resend error:", result.error);
+      return { success: false, error: result.error.message };
+    }
+    return { success: true, id: result.data?.id };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("Failed to send shadow-drift operator alert email:", message);
+    return { success: false, error: message };
+  }
+}

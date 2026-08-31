@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,32 @@ import type { WeightProposal } from "@/lib/backtest/propose-weights";
 import { CRITERION_LABELS, type CriterionKey } from "@/lib/scoring/weights";
 
 const DEFAULT_SYMBOLS = "SPY, AAPL, AMD, TSLA, MSFT, NVDA";
+
+/**
+ * The Execute-tier backtest baseline `GET /api/shadow/summary` compares live
+ * shadow-mode performance against — mirrors
+ * `lib/shadow/compare.ts`'s `EXECUTE_TIER_BACKTEST_BASELINE`. Duplicated as
+ * plain values rather than imported: that module pulls in the Resend SDK
+ * (`lib/notifications/resend-handler.ts`, for the operator alert email),
+ * which has no reason to ship in a client bundle. Update both together —
+ * same manual-bump discipline as `STRATEGY_VERSION`.
+ */
+const BACKTEST_BASELINE = { trades: 31, winRate: 0.387, expectancyR: 0.151 };
+/** Mirrors `lib/shadow/compare.ts`'s `MIN_SHADOW_SAMPLES` — below this, a comparison is withheld server-side too. */
+const MIN_SHADOW_SAMPLES_HINT = 15;
+
+interface ShadowSummaryResponse {
+  windowDays: number;
+  maxHoldDays: number;
+  shadow: { trades: number; winRate: number; expectancyR: number };
+  pending: number;
+  baselineSupplied: boolean;
+  drift: {
+    reason: string;
+    expectancyDeltaR: number;
+    winRateDeltaPct: number;
+  } | null;
+}
 
 interface ProposalResponse {
   live: boolean;
@@ -67,6 +93,41 @@ export default function LearningPage() {
   const [proposing, setProposing] = useState(false);
   const [proposalError, setProposalError] = useState<string | null>(null);
   const [proposal, setProposal] = useState<ProposalResponse | null>(null);
+
+  const [shadowSummary, setShadowSummary] = useState<ShadowSummaryResponse | null>(null);
+  const [shadowError, setShadowError] = useState<string | null>(null);
+  const [shadowLoading, setShadowLoading] = useState(true);
+
+  // Independent of the backtest tool below — this is always-on shadow-mode
+  // tracking (lib/shadow/*), not something the user runs on demand, so it
+  // loads once on mount rather than behind a button.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const params = new URLSearchParams({
+          backtestTrades: String(BACKTEST_BASELINE.trades),
+          backtestWinRate: String(BACKTEST_BASELINE.winRate),
+          backtestExpectancyR: String(BACKTEST_BASELINE.expectancyR),
+        });
+        const res = await fetch(`/api/shadow/summary?${params}`);
+        const body = await res.json();
+        if (cancelled) return;
+        if (!res.ok) {
+          setShadowError(body.error ?? `Request failed (${res.status})`);
+          return;
+        }
+        setShadowSummary(body as ShadowSummaryResponse);
+      } catch (err) {
+        if (!cancelled) setShadowError(err instanceof Error ? err.message : String(err));
+      } finally {
+        if (!cancelled) setShadowLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function universe() {
     return symbols
@@ -149,6 +210,80 @@ export default function LearningPage() {
           compare trades of very different dollar sizes on the same scale.
         </p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Live signal quality (shadow mode)</CardTitle>
+          <CardDescription>
+            Every high-confidence (&quot;Execute&quot;) signal the scheduled scan finds is logged and
+            later checked against what actually happened — nothing is traded on it. This shows how
+            those real calls have performed, compared against the backtest baseline above.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {shadowLoading && <p className="text-sm text-muted">Loading…</p>}
+          {shadowError && <p className="text-sm text-bear">{shadowError}</p>}
+          {shadowSummary && (
+            <>
+              <Table>
+                <THead>
+                  <TR>
+                    <TH />
+                    <TH className="text-right">Trades</TH>
+                    <TH className="text-right">Win rate</TH>
+                    <TH className="text-right">Avg. result / trade</TH>
+                  </TR>
+                </THead>
+                <TBody>
+                  <TR>
+                    <TD className="font-medium">
+                      Live, last {shadowSummary.windowDays} days
+                    </TD>
+                    <TD className="text-right tabular-nums">{shadowSummary.shadow.trades}</TD>
+                    <TD className="text-right tabular-nums">
+                      {shadowSummary.shadow.trades === 0 ? "—" : pct(shadowSummary.shadow.winRate)}
+                    </TD>
+                    <TD className={cn("text-right tabular-nums", toneFor(shadowSummary.shadow.expectancyR))}>
+                      {shadowSummary.shadow.trades === 0 ? "—" : r(shadowSummary.shadow.expectancyR)}
+                    </TD>
+                  </TR>
+                  <TR className="border-t-2 border-border">
+                    <TD className="font-medium">Backtest baseline</TD>
+                    <TD className="text-right tabular-nums">{BACKTEST_BASELINE.trades}</TD>
+                    <TD className="text-right tabular-nums">{pct(BACKTEST_BASELINE.winRate)}</TD>
+                    <TD className={cn("text-right tabular-nums", toneFor(BACKTEST_BASELINE.expectancyR))}>
+                      {r(BACKTEST_BASELINE.expectancyR)}
+                    </TD>
+                  </TR>
+                </TBody>
+              </Table>
+
+              <p className="text-xs text-muted">
+                {shadowSummary.pending} signal{shadowSummary.pending === 1 ? "" : "s"} still waiting on
+                an outcome (up to {shadowSummary.maxHoldDays} trading days each) — not counted above yet.
+                {shadowSummary.shadow.trades < MIN_SHADOW_SAMPLES_HINT &&
+                  ` Fewer than ${MIN_SHADOW_SAMPLES_HINT} resolved signals so far — too early to compare against the baseline with any confidence.`}
+              </p>
+
+              {shadowSummary.drift && (
+                <div className="rounded-lg border border-bear/40 bg-bear-soft/30 p-3">
+                  <p className="text-sm font-medium text-bear">
+                    <Badge variant="bear">Drift detected</Badge>{" "}
+                    Live signal quality has fallen short of the backtest baseline
+                  </p>
+                  <p className="mt-2 text-sm text-bear">{shadowSummary.drift.reason}</p>
+                </div>
+              )}
+              {!shadowSummary.drift && shadowSummary.shadow.trades >= MIN_SHADOW_SAMPLES_HINT && (
+                <p className="text-sm text-bull">
+                  <Badge variant="bull">On track</Badge> Live performance is tracking the backtest
+                  baseline — no drift detected.
+                </p>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       <Card data-tour="backtest-run">
         <CardHeader>
