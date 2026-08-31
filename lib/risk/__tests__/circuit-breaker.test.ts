@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveState } from "@/lib/risk/circuit-breaker";
+import { resolveState, DEFAULT_CIRCUIT_THRESHOLDS } from "@/lib/risk/circuit-breaker";
 
 describe("resolveState", () => {
   it("is normal with no triggers", () => {
@@ -82,5 +82,14 @@ describe("resolveState", () => {
       () => 0,
     );
     expect(d.state).toBe("emergency_lock");
+  });
+
+  it("honors a policy_values-resolved threshold override instead of the code default", () => {
+    const tighter = { ...DEFAULT_CIRCUIT_THRESHOLDS, warning48hLossPct: 1 };
+    const d = resolveState({ newPositionsOpenedToday: 0, loss48hPct: 1, drawdown30dPct: 0 }, undefined, undefined, tighter);
+    expect(d.state).toBe("warning");
+    // The code-default threshold (2%) would not have triggered at a 1% loss.
+    const withDefault = resolveState({ newPositionsOpenedToday: 0, loss48hPct: 1, drawdown30dPct: 0 });
+    expect(withDefault.state).toBe("normal");
   });
 });

@@ -33,6 +33,7 @@ import { rolling48hLoss, rollingHighWaterDrawdown, startOfDayLoss, type EquitySa
 import { resolveState, type CircuitDecision, type PriorState } from "@/lib/risk/circuit-breaker";
 import { buildAuditRecord, isTransition, type SourceDataConfidence } from "@/lib/risk/audit";
 import type { CircuitState } from "@/lib/risk/config";
+import { getRiskPolicy } from "@/lib/risk/policy";
 import { etDateKey, etParts } from "@/lib/market/session";
 
 /** Snapshots are throttled to at most one every this many minutes per user. */
@@ -156,6 +157,7 @@ export async function evaluateLiveCircuitBreaker(
 ): Promise<CircuitEvaluation> {
   await recordLiveEquitySnapshot(supabase, userId, equity, equityVerified, now);
 
+  const policy = await getRiskPolicy(supabase);
   const { samples, anyUnverified } = await readEquitySamples(supabase, userId, now);
   // Include the just-recorded (or just-throttled-away) current mark so a
   // brand-new account with one sample still gets a well-defined 0% loss
@@ -180,6 +182,7 @@ export async function evaluateLiveCircuitBreaker(
     { newPositionsOpenedToday, loss48hPct: loss48h.lossPct, drawdown30dPct: drawdown30d.lossPct },
     prior,
     (from) => tradingDaysElapsed(from, now),
+    policy.circuit,
   );
 
   const sourceDataConfidence: SourceDataConfidence = !equityVerified || anyUnverified ? "estimate" : "verified";

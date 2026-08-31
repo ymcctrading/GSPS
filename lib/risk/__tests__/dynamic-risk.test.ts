@@ -4,6 +4,7 @@ import {
   quantityFromPermittedRisk,
   plannedRiskDollars,
   resolveRiskBand,
+  DEFAULT_RISK_BAND_THRESHOLDS,
 } from "@/lib/risk/dynamic-risk";
 
 describe("resolveRiskBand", () => {
@@ -113,6 +114,40 @@ describe("computePermittedRisk", () => {
     });
     expect(r.permittedRiskUsd).toBe(2);
     expect(r.boundBy).toBe("48h_budget");
+  });
+});
+
+describe("policy_values threshold overrides", () => {
+  it("resolveRiskBand honors an overridden minTradesForRiskIncrease", () => {
+    const looser = { ...DEFAULT_RISK_BAND_THRESHOLDS, minTradesForRiskIncrease: 5 };
+    expect(
+      resolveRiskBand(
+        {
+          completedSwingTrades: 10,
+          executionScore: 70,
+          hasActiveCooldown: false,
+          hasRepeatedRecentDisciplineBreach: false,
+          hasVariedConditionsSample: true,
+          hasNoCautionStates: true,
+        },
+        looser,
+      ),
+    ).toBe("a_tier");
+  });
+
+  it("computePermittedRisk honors an overridden band rate and absolute cap", () => {
+    const wider = { ...DEFAULT_RISK_BAND_THRESHOLDS, absoluteTierCapPct: 3, riskBandRatePct: { ...DEFAULT_RISK_BAND_THRESHOLDS.riskBandRatePct, base: 3 } };
+    const r = computePermittedRisk(
+      {
+        equity: 1000,
+        band: "base",
+        multipliers: { setup: 1, execution: 1, market: 1, correlation: 1 },
+        budgets: { remainingDailyBudget: 1000, remaining48hBudget: 1000, remainingOpenRiskBudget: 1000 },
+        circuitState: "normal",
+      },
+      wider,
+    );
+    expect(r.permittedRiskPct).toBeCloseTo(3, 6);
   });
 });
 
