@@ -2,7 +2,7 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-08-29.
+**Last updated:** 2026-08-30.
 
 This document decides *what we build next and in what order*. Proposals and
 implementation work should trace back to a phase below. See
@@ -121,6 +121,22 @@ both signal discovery and execution.
   the off-hours cron itself. Direct request; accepted knowingly as roughly
   4x this workflow's prior GitHub Actions run count, noted in
   `docs/THIRD_PARTY_LIMITS.md`.)*
+- **Gann & Sara Cross-Market Confluence Layers** *(out-of-phase, direct
+  request: "GSPS Gann & Sara Cross-Market Integration Addendum", 2026-08-28.
+  Fits no Q1 strategic goal above — it's a signal-engine addition, not
+  monetization/retention — but was scoped and built as a modular,
+  feature-flagged extension of the existing Signal and Regime Engine rather
+  than deferred, per the addendum's explicit directive. Delivered: Gann
+  Confluence Layer and Sara Sniper Strat Confluence Layer
+  (`lib/signals/confluence/`), wrapping GSPS's existing, already-authorized
+  Gann techniques (`lib/gann/`) and STRAT pattern taxonomy
+  (`lib/strat/patterns.ts`) rather than inventing new numerology or scenario
+  rules — the addendum explicitly forbids inferring undocumented "personally
+  sourced" logic, so the addendum's own net-new Material Number/Harmonic Node
+  classification stays `notImplemented`, pending an authorized written
+  specification. Both modules are additive confluence factors only: never a
+  sole signal, never able to override a safety/account/eligibility gate. See
+  `docs/GANN_SARA_CONFLUENCE.md`.)*
 - **Portfolio analytics dashboard** — win/loss ratio, Sharpe ratio, drawdown
   analysis, monthly/quarterly P&L, performance by pattern type.
 - **Scan history** *(shipped 2026-08-27, direct request)* — a "History" tab
@@ -347,6 +363,25 @@ both signal discovery and execution.
       tier that can see the intraday alerts panel; only a Pro account's
       intraday-sourced order is actually gated by it — an Expert/Wall Street
       order carrying the same tag places exactly as it would untagged.
+- **Validation, backtesting & audit metrics** *(2026-08-30, out-of-phase,
+  direct request)* — required-performance-metric and versioning additions to
+  the existing walk-forward backtest harness (`lib/backtest/*`), against the
+  "Validation, Backtesting, Audit & Compliance Plan" spec pack (draft
+  implementation directives; requires securities/compliance counsel review
+  before live personalized recommendations or execution). This is a partial
+  advance on this roadmap's Q2 "Backtesting engine" item, not a
+  reprioritization of it: `lib/backtest/metrics.ts` adds average/median
+  win, average/median loss, maximum loss, profit factor, and peak-to-trough
+  max drawdown to every `BacktestReport` bucket; a `--slippageSensitivity`
+  flag reruns a request at 3x cost-per-share and reports the expectancy
+  delta; and `lib/backtest/strategyVersion.ts` gives every report a
+  manually bumped version identifier per the spec's "freeze a strategy
+  version" requirement. Monte Carlo simulation, a dedicated stress-test
+  runner (earnings gaps, broad-selloff, volatility-spike, degraded-
+  liquidity scenarios), full live-scan audit-trail persistence, and the
+  compliance/legal workstream are explicitly **not** built here — see
+  `docs/VALIDATION_BACKTESTING_AUDIT_COMPLIANCE.md` for what maps onto
+  which existing engine and what Q2 planning should still scope in.
 - **Referral program (minimal)** *(2026-08-19, out-of-phase)* — a per-user
   referral link (`/r/<username>`), click counter, and signup attribution,
   surfaced in Settings. Not named in this roadmap's Q1 initiatives — it was

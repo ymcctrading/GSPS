@@ -158,6 +158,56 @@ describe("markdown", () => {
     expect(out).toContain("raw pattern (original harness behaviour)");
     expect(out).not.toContain("--productionStop");
   });
+
+  it("renders no required-metrics section for an older payload that lacks the field", () => {
+    const out = markdown(report, { within: "Execute" });
+    expect(out).not.toContain("## Required performance metrics");
+  });
+
+  it("renders the required performance metrics when present", () => {
+    const required = {
+      sampleSize: 60,
+      avgWinR: 0.5,
+      medianWinR: 0.4,
+      avgLossR: -0.3,
+      medianLossR: -0.25,
+      maxLossR: -1.1,
+      profitFactor: 1.8,
+      maxDrawdownR: 2.3,
+      avgBarsHeld: 5,
+      medianBarsHeld: 4,
+    };
+    const withMetrics = {
+      ...report,
+      overall: { ...report.overall, required },
+      buckets: report.buckets.map((b) => ({ ...b, required })),
+      strategyVersion: "2026-08-27-role-aware-proximity",
+    };
+    const out = markdown(withMetrics, { within: "Execute" });
+
+    expect(out).toContain("## Required performance metrics");
+    expect(out).toContain("| Strategy version | 2026-08-27-role-aware-proximity |");
+    const executeRows = out.split("\n").filter((l) => l.startsWith("| Execute | 60 |"));
+    expect(executeRows.some((l) => l.includes("+0.500R") && l.includes("1.80"))).toBe(true);
+  });
+
+  it("renders the slippage-sensitivity section only when present", () => {
+    expect(markdown(report, { within: "Execute" })).not.toContain("Slippage sensitivity");
+
+    const withSensitivity = {
+      ...report,
+      slippageSensitivity: {
+        costPerShare: 0.02,
+        elevatedCostPerShare: 0.06,
+        baseExpectancyR: 0.2,
+        elevatedExpectancyR: 0.05,
+        expectancyDeltaR: -0.15,
+      },
+    };
+    const out = markdown(withSensitivity, { within: "Execute" });
+    expect(out).toContain("### Slippage sensitivity");
+    expect(out).toContain("-0.150R");
+  });
 });
 
 describe("parseArgs", () => {

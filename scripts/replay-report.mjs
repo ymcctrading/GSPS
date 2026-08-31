@@ -18,7 +18,10 @@
  *   npm run backtest -- --productionStop                # walk the widened stop, not the raw pattern one
  *   npm run backtest -- --scoreRange 5-6                 # attribute factors within a score band instead
  *                                                         # of a verdict bucket — overrides --within
+ *   npm run backtest -- --slippageSensitivity            # also run at 3x cost-per-share and report
+ *                                                         # the expectancy delta (a second full run)
  *
+
  * `--productionStop` and the "Large-cap vs. not" section exist for one
  * question: does the large-cap stop widening (lib/strat/large-cap.ts,
  * lib/strat/levels.ts) actually help? Run the same universe twice, with and
@@ -65,6 +68,7 @@ export function parseArgs(argv) {
     from: null,
     since: null,
     productionStop: false,
+    slippageSensitivity: false,
   };
   for (let i = 0; i < argv.length; i++) {
     const [flag, inline] = argv[i].split("=");
@@ -74,6 +78,10 @@ export function parseArgs(argv) {
     }
     if (flag === "--productionStop") {
       args.productionStop = true;
+      continue;
+    }
+    if (flag === "--slippageSensitivity") {
+      args.slippageSensitivity = true;
       continue;
     }
     const value = inline ?? argv[++i];
@@ -131,6 +139,7 @@ export function markdown(report, args) {
   lines.push(`| Break-even win rate at this target | ${pct(report.breakEvenWinRate)} |`);
   lines.push(`| Data source | ${report.source} (${report.live ? "live feed" : "SYNTHETIC"}) |`);
   lines.push(`| Armed / triggered | ${report.armed} / ${report.triggered} |`);
+  lines.push(`| Strategy version | ${report.strategyVersion ?? "unknown"} |`);
   lines.push(`| Generated | ${report.generatedAt} |`);
   // Where the replay ran. Only stated when it was not this checkout, because
   // that is the case a reader has to be able to audit — hence the payload path.
@@ -167,6 +176,56 @@ export function markdown(report, args) {
     } | ${o.trades === 0 ? "—" : r(o.totalR)} | ${o.trades === 0 ? "—" : o.profitable ? "yes" : "no"} |`,
   );
   lines.push("");
+
+  // `required` is absent from an older captured payload (--from a report
+  // rendered before this metric set existed) — skip the section rather than
+  // throwing on it, the same treatment `largeCapSplit` below already gets.
+  if (report.overall?.required) {
+    lines.push("## Required performance metrics");
+    lines.push("");
+    lines.push(
+      "Per the Validation, Backtesting, Audit & Compliance spec pack: average/median win and loss,",
+      "maximum loss (severity), profit factor (gross profit ÷ gross loss), and peak-to-trough max",
+      "drawdown over the cumulative-R curve, each bucket's own sample size restated alongside them so",
+      "none of this is read apart from how many trades it came from.",
+    );
+    lines.push("");
+    lines.push(
+      "| Bucket | n | Avg win | Median win | Avg loss | Median loss | Max loss | Profit factor | Max drawdown |",
+    );
+    lines.push("|---|---:|---:|---:|---:|---:|---:|---:|---:|");
+    const reqRow = (label, s) => {
+      const m = s.required;
+      const cell = (v) => (v === null || v === undefined ? "—" : r(v));
+      lines.push(
+        `| ${label} | ${m.sampleSize} | ${cell(m.avgWinR)} | ${cell(m.medianWinR)} | ${cell(m.avgLossR)} | ${cell(
+          m.medianLossR,
+        )} | ${cell(m.maxLossR)} | ${m.profitFactor === null ? "—" : m.profitFactor.toFixed(2)} | ${r(
+          m.maxDrawdownR,
+        )} |`,
+      );
+    };
+    for (const b of report.buckets) if (b.required) reqRow(b.bucket, b);
+    reqRow("**All**", report.overall);
+    lines.push("");
+  }
+
+  if (report.slippageSensitivity) {
+    const s = report.slippageSensitivity;
+    lines.push("### Slippage sensitivity");
+    lines.push("");
+    lines.push(
+      `Overall expectancy at \`${s.costPerShare}\`/share cost-per-share vs. \`${s.elevatedCostPerShare}\`/share —`,
+      "how much of the edge above depends on near-ideal execution.",
+    );
+    lines.push("");
+    lines.push("| Cost/share | Expectancy |");
+    lines.push("|---:|---:|");
+    lines.push(`| ${s.costPerShare} | ${r(s.baseExpectancyR)} |`);
+    lines.push(`| ${s.elevatedCostPerShare} | ${r(s.elevatedExpectancyR)} |`);
+    lines.push(`| Δ | ${r(s.expectancyDeltaR)} |`);
+    lines.push("");
+  }
 
   if (report.largeCapSplit) {
     lines.push("## Large-cap vs. not");
@@ -298,6 +357,7 @@ async function runHere(args) {
       ...(args.scoreRange ? { attributeScoreRange: args.scoreRange } : {}),
       ...(args.since ? { since: args.since } : {}),
       ...(args.productionStop ? { useProductionStop: true } : {}),
+      ...(args.slippageSensitivity ? { includeSlippageSensitivity: true } : {}),
     });
   } finally {
     await server.close();

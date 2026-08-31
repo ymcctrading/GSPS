@@ -57,6 +57,10 @@ import { buildScanMarketGates } from "@/lib/signals/scanGates";
 import type { SignalVerdict } from "@/lib/signals/types";
 import { buildScanNoviceEligibility } from "@/lib/universe/scanGates";
 import { DEFAULT_UNIVERSE_THRESHOLDS, type UniverseThresholds } from "@/lib/universe/eligibility";
+import { evaluateGannConfluence } from "@/lib/signals/confluence/gann";
+import { evaluateSaraConfluence } from "@/lib/signals/confluence/sara";
+import { routeMarketAdapter } from "@/lib/signals/confluence/marketAdapters";
+import { isConfluenceModuleEnabled } from "@/lib/signals/confluence/flags";
 
 /**
  * What the caller is looking for. Left unset, a scan hunts reversions and
@@ -331,6 +335,36 @@ export async function scanTicker(
       universeThresholds,
     );
     const regime = classifyRegime({ bars: daily });
+
+    // ---- Gann Confluence Layer / Sara Confluence Layer — the addendum's
+    // cross-market confluence modules (2026-08-28). Additive and
+    // feature-flagged: disabling either does not affect any signal above.
+    // Both route through the market adapter for this scan's asset class
+    // before evaluating, and neither may set a gate or a state's tradeable
+    // verdict — see docs/GANN_SARA_CONFLUENCE.md.
+    const confluenceMarket = routeMarketAdapter(assetClass).market;
+    const gannConfluence = isConfluenceModuleEnabled("gann_confluence_layer", confluenceMarket)
+      ? evaluateGannConfluence({
+          assetClass,
+          symbol,
+          dailyBars: daily,
+          currentPrice,
+          direction: scoreDirection,
+        })
+      : null;
+    const saraConfluence = isConfluenceModuleEnabled(
+      "sara_sniper_confluence_layer",
+      confluenceMarket,
+    )
+      ? evaluateSaraConfluence({
+          assetClass,
+          symbol,
+          closedExecutionBars: closedM15,
+          currentPrice,
+          htfDirection: regime.direction !== "sideways" ? regime.direction : null,
+        })
+      : null;
+
     const trendPullback: SignalVerdict | null =
       regime.regime === "trend" && regime.direction !== "sideways"
         ? evaluateTrendPullback({
@@ -403,7 +437,15 @@ export async function scanTicker(
       // fetch — see lib/scan/liquidity.ts.
       liquidity,
       optionPremium,
-      signals: { regime, trendPullback, trendBreakout, confirmedReversal, rangeReversion },
+      signals: {
+        regime,
+        trendPullback,
+        trendBreakout,
+        confirmedReversal,
+        rangeReversion,
+        gannConfluence,
+        saraConfluence,
+      },
       noviceUniverse,
     };
   } catch (err) {

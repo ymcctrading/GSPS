@@ -36,6 +36,8 @@ import {
   type ReplayResult,
 } from "./replay";
 import { attributeByAtrMultiple, attributeFactors, type FactorAttribution } from "./attribution";
+import { computeRequiredMetrics, type RequiredMetrics } from "./metrics";
+import { STRATEGY_VERSION } from "./strategyVersion";
 import type { CriterionWeights } from "@/lib/scoring/weights";
 
 /** Verdict buckets, plus the trades the score could not reach. */
@@ -82,6 +84,16 @@ export interface BacktestRequest {
    * `docs/BACKTESTING.md` asks for on an unmeasured constant.
    */
   useProductionStop?: boolean;
+  /**
+   * Also run the same request a second time at `slippageMultiplier` times the
+   * cost-per-share and report the expectancy delta — the spec pack's
+   * "slippage sensitivity" metric, showing how much of a bucket's edge is a
+   * bet on near-ideal execution. Off by default: it doubles the fetch/replay
+   * work of the request, which matters against a rate-limited vendor.
+   */
+  includeSlippageSensitivity?: boolean;
+  /** Multiplier applied to `costPerShare` for the slippage-sensitivity run. Defaults to 3. */
+  slippageMultiplier?: number;
 }
 
 export interface RunSummary {
@@ -95,6 +107,19 @@ export interface RunSummary {
    * it off a signed decimal is exactly where a summary gets misquoted.
    */
   profitable: boolean;
+  /** Sample size, average/median win and loss, max loss, profit factor, max
+   * drawdown, and time-in-trade — the metric set the Validation, Backtesting,
+   * Audit & Compliance spec pack requires alongside win rate/expectancy. */
+  required: RequiredMetrics;
+}
+
+/** Expectancy at the base cost vs. at an elevated one, and how much of the edge that ate. */
+export interface SlippageSensitivity {
+  costPerShare: number;
+  elevatedCostPerShare: number;
+  baseExpectancyR: number;
+  elevatedExpectancyR: number;
+  expectancyDeltaR: number;
 }
 
 export interface BucketSummary extends RunSummary {
@@ -156,6 +181,16 @@ export interface BacktestReport {
   attributeScoreRange?: [number, number];
   factors: FactorAttribution[];
   atrBands: Array<{ from: number; to: number | null; trades: number; winRate: number; expectancyR: number }>;
+  /**
+   * The rule-set identifier this run describes — see `strategyVersion.ts`.
+   * Every report carries one so a performance claim stays traceable to the
+   * exact scoring/pattern logic in force when it was produced, per the
+   * Validation, Backtesting, Audit & Compliance spec pack's "freeze a
+   * strategy version" requirement.
+   */
+  strategyVersion: string;
+  /** Present only when `includeSlippageSensitivity` was requested. */
+  slippageSensitivity?: SlippageSensitivity;
   generatedAt: string;
 }
 
@@ -171,6 +206,7 @@ function summarise(r: ReplayResult): RunSummary {
     expectancyR: r.expectancyR,
     totalR: r.totalR,
     profitable: r.trades.length > 0 && r.expectancyR > 0,
+    required: computeRequiredMetrics(r.trades),
   };
 }
 
@@ -287,6 +323,29 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
   };
 }
 
+/**
+ * Rerun the same request at an elevated cost-per-share and report the
+ * expectancy delta on the overall (unbucketed) run — the spec pack's
+ * "slippage sensitivity" metric. A second full fetch/replay, so callers opt
+ * in via `includeSlippageSensitivity` rather than paying it on every request.
+ */
+async function computeSlippageSensitivity(
+  request: BacktestRequest,
+  baseExpectancyR: number,
+): Promise<SlippageSensitivity> {
+  const costPerShare = request.costPerShare ?? 0.02;
+  const multiplier = request.slippageMultiplier ?? 3;
+  const elevatedCostPerShare = costPerShare * multiplier;
+  const elevated = await collectRun({ ...request, costPerShare: elevatedCostPerShare });
+  return {
+    costPerShare,
+    elevatedCostPerShare,
+    baseExpectancyR,
+    elevatedExpectancyR: elevated.overall.expectancyR,
+    expectancyDeltaR: elevated.overall.expectancyR - baseExpectancyR,
+  };
+}
+
 export async function runBacktest(request: BacktestRequest): Promise<BacktestReport> {
   const { attributeWithin = "Execute", attributeScoreRange, useProductionStop = false } = request;
 
@@ -299,6 +358,9 @@ export async function runBacktest(request: BacktestRequest): Promise<BacktestRep
     ? `score ${attributeScoreRange[0]}–${attributeScoreRange[1]}`
     : attributeWithin;
   const capSplit = byLargeCap(run.overall);
+  const slippageSensitivity = request.includeSlippageSensitivity
+    ? await computeSlippageSensitivity(request, run.overall.expectancyR)
+    : undefined;
 
   return {
     source: run.source,
@@ -328,6 +390,8 @@ export async function runBacktest(request: BacktestRequest): Promise<BacktestRep
       winRate: arm.winRate,
       expectancyR: arm.expectancyR,
     })),
+    strategyVersion: STRATEGY_VERSION,
+    ...(slippageSensitivity ? { slippageSensitivity } : {}),
     generatedAt: new Date().toISOString(),
   };
 }

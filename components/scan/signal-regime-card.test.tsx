@@ -60,6 +60,8 @@ describe("SignalRegimeCard", () => {
           disqualifiers: [{ key: "staleData", reason: "Market data is stale." }],
         },
         rangeReversion: { status: "notImplemented", state: "rangeReversion", reason: "n/a" },
+        gannConfluence: null,
+        saraConfluence: null,
       },
     };
 
@@ -104,6 +106,8 @@ describe("SignalRegimeCard", () => {
         trendBreakout: null,
         confirmedReversal: null,
         rangeReversion: null,
+        gannConfluence: null,
+        saraConfluence: null,
       },
     };
 

@@ -10,6 +10,9 @@
  *   ?since=2026-06-15      replay only bars at or after this instant
  *   ?productionStop=1      walk the leeway/large-cap-widened stop instead of
  *                          the raw pattern one — see ReplayOptions.useProductionStop
+ *   ?slippageSensitivity=1 also run the request at 3x cost-per-share and report
+ *                          the expectancy delta — a second full fetch/replay,
+ *                          off by default. See BacktestRequest.includeSlippageSensitivity
  *   ?trades=1              return the dated, per-trade list for `within`
  *                          instead of the aggregate report — small on
  *                          purpose (one bucket, not the whole universe's
@@ -126,6 +129,7 @@ export async function GET(req: NextRequest) {
   const productionStopRaw = searchParams.get("productionStop");
   const useProductionStop = productionStopRaw !== null && productionStopRaw !== "0" && productionStopRaw !== "false";
   const wantTrades = searchParams.get("trades") === "1";
+  const includeSlippageSensitivity = searchParams.get("slippageSensitivity") === "1";
 
   try {
     if (wantTrades) {
@@ -168,6 +172,7 @@ export async function GET(req: NextRequest) {
       ...(scoreRange ? { attributeScoreRange: scoreRange } : {}),
       ...(since !== null ? { since } : {}),
       ...(useProductionStop ? { useProductionStop } : {}),
+      ...(includeSlippageSensitivity ? { includeSlippageSensitivity } : {}),
     });
     return NextResponse.json(report);
   } catch (err) {
