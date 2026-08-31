@@ -114,7 +114,7 @@ export function compareToBacktest(shadow: ShadowSummary, backtest: BacktestBasel
   };
 }
 
-/** Minimum time between operator alert emails for a persisting drift — see `shadow_drift_alerts` (migration 0054). */
+/** Minimum time between operator alert emails for a persisting drift — see `shadow_drift_alerts` (migration 0055). */
 export const DRIFT_ALERT_COOLDOWN_HOURS = 20;
 
 /**
