@@ -32,7 +32,7 @@ own instruction._
 | 4 | Trend Pullback v1 | Done (as the Signal and Regime Engine) | `lib/signals/{engine,disqualifiers,regime,scoring,scanGates,indicators}.ts`, `lib/signals/states/` | Closed-bar deterministic scan, score explanation, entry/stop/target/expiry all present; wired into scan UI, chart/ticker UI, and notification fan-out. Built as a superset ("Signal and Regime Engine" covering multiple pattern states), not a single named "Trend Pullback v1" module — acceptance criteria are met, naming differs from the spec. |
 | 5 | Trade lifecycle | Done | `lib/lifecycle/{expiry,review,schema,store,transitions,types}.ts`; `supabase/migrations/0045_trade_plan_lifecycle.sql` (`trade_plans`, `trade_plan_audit`) | Plan states, TP/runner/Master-Profit floor model, post-close structured review, and audit trail implemented and tested. Kill switch confirmed exempted for protective/closing actions (`lib/trade/kill-switch.ts`, `isProtectiveOrder`), matching "no blocked exits." |
 | 6 | Tier UX/promotion | Done | `lib/promotion/*`; `lib/entitlements/*`; `supabase/migrations/0036_entitlement_usage_and_monitors.sql`, `0046_tier_promotion_policy.sql`, `0047_intraday_sourced_orders.sql` | Entitlements, scan limits, readiness/promotion score, and education flow (`components/settings/promotion-settings.tsx`, `novice-home-summary.tsx`) implemented. No Stripe/billing yet (`docs/GSPS_TIER_ENTITLEMENT_SPEC.md` scopes that out deliberately), so "upgrade" is a readiness gate, not a paid transaction — no bypass path exists either way. |
-| 7 | Validation and monitoring | Partial | `lib/backtest/{replay,run,attribution,propose-weights,replaySignals}.ts`, `app/api/backtest`, `/learning` page | Backtest replay exists and is real (bar-by-bar replay of shipped entry logic, not a re-implementation), with committable reports (`docs/REPLAY_RESULTS*.md`). What's missing against the spec: no **shadow** module (running the live strategy in parallel against real-time data without executing, to compare live vs. backtest drift), no metrics/alerts dashboard surfacing backtest or live signal-quality trends over time, and no rollback controls beyond normal git/migration revert. This is the one phase with no real home yet. |
+| 7 | Validation and monitoring | Partial | `lib/backtest/{replay,run,attribution,propose-weights,replaySignals,metrics,strategyVersion}.ts`, `app/api/backtest`, `/learning` page, `lib/shadow/{record,evaluate,compare}.ts`, `supabase/migrations/0050_shadow_signals.sql`, `app/api/shadow/summary` | Backtest replay exists and is real (bar-by-bar replay of shipped entry logic, not a re-implementation), with committable reports (`docs/REPLAY_RESULTS*.md`) and, as of a separate concurrent PR, the spec's full required-metrics table (profit factor, max drawdown, time-in-trade, etc. — `lib/backtest/metrics.ts`) and a frozen `STRATEGY_VERSION` identifier every report and shadow signal carries. **Shadow module now exists**: every Execute-tier signal from the trusted scheduled scan is recorded (`lib/shadow/record.ts`) and later evaluated against real subsequent bars (`lib/shadow/evaluate.ts`, riding the existing schedule rather than a new cron slot), and `lib/shadow/compare.ts` flags drift against a supplied backtest baseline, exposed read-only via `GET /api/shadow/summary`. What's still missing against the spec: no dashboard UI surfacing this over time (the API/data layer exists; no chart or page reads it yet), no automated alert *delivery* — a confirmed drift only `console.warn`s today, there is no notification-channel wiring — and no rollback controls beyond normal git/migration revert. Stress tests (earnings gaps, selloffs, volatility spikes) and Monte Carlo simulation remain explicitly out of scope per the concurrent backtest PR's own scoping note, deferred to `ROADMAP.md`'s Q2 "Backtesting engine" item. |
 | 8 | Additional strategies/markets | Missing (correctly — gated) | — | Spec requires this only after v1 validation gates pass, one at a time. Since Phase 7's validation/monitoring layer isn't built, Phase 8 correctly has not started. Matches `ROADMAP.md` Q2 items (crypto scanner, forex scanner) which are scheduled, not started. |
 
 ## Database/domain model additions — spec vs. actual
@@ -42,7 +42,7 @@ own instruction._
 | `policy_versions` | Immutable policy config, effective dates, approvals, rollback | `promotion_policy_values`/`promotion_policy_change_log` (0046, tier promotion only); generic `policy_values`/`policy_change_log` (0049, risk, universe, and guided domains all wired into live routes) | Partial — "risk", "universe", "guided", and "promotion" (the last with its own pre-0049 table name) are all read from a live request path today. `policy_values`/`policy_change_log` has no effective-dating or approval workflow, only a change-log trigger, same as 0046. |
 | `strategy_versions` | Rules, parameters, score schema, data dependencies, status | — | Missing — signal/scoring parameters live in code (`lib/signals/scoring.ts`), not a versioned DB row. Trade plans reference no `strategy_version_id`. |
 | `instrument_eligibility_snapshots` | Universe pass/fail + underlying market/event data | — | Missing — `lib/universe/*` computes eligibility live per scan and publishes it on the scan result; nothing is persisted as a historical snapshot, so past eligibility can't be reconstructed after the fact. |
-| `signal_evaluations` | Every scan result, criteria evidence, score, expiry, source timestamps | `scan_results`, `scan_events`, `visible_scan_results`, `signal_lifecycle_events` | Partial — evaluation data is recorded but split across several tables by concern (entitlement-visible results vs. raw scan events vs. lifecycle transitions) rather than one evidence-complete record per evaluation. |
+| `signal_evaluations` | Every scan result, criteria evidence, score, expiry, source timestamps | `scan_results`, `scan_events`, `visible_scan_results`, `signal_lifecycle_events`; `shadow_signals` (0050) for Execute-tier only | Partial — evaluation data is recorded but split across several tables by concern (entitlement-visible results vs. raw scan events vs. lifecycle transitions vs. shadow outcome tracking) rather than one evidence-complete record per evaluation. `shadow_signals` deliberately does not try to be this entity — it exists only to score Execute-tier calls against their own outcome, not to record every scan's full criteria evidence. |
 | `trade_plans` | Versioned plan coordinates, sizing, lifecycle state, strategy/policy links | `trade_plans`, `trade_plan_audit` (0045) | Done, except no `strategy_version`/`policy_version` foreign key (follows from the two gaps above) |
 | `account_snapshots` | Verified/estimated equity, buying power, holdings, data freshness | `risk_live_equity_snapshots` (0043) | Partial — live-account only; no equivalent snapshot table for paper accounts (paper equity is read live from `paper_accounts`/`positions`, not snapshotted) |
 | `risk_snapshots` | Open risk, allocation, correlation, daily/48h/30d drawdown values | `risk_circuit_state`, `risk_circuit_audit_log` | Partial — circuit-breaker state and its audit log exist; metrics (`lib/risk/metrics.ts`) are computed on read, not persisted as periodic snapshots |
@@ -73,17 +73,32 @@ own instruction._
    "immutable ... with approvals" is met only partway (versioned-and-logged,
    not gated behind approval). Worth a follow-up if the spec's approval
    requirement is load-bearing; not blocking anything else.
-2. **Phase 7 (validation/monitoring) is the real open phase.** Backtesting
-   exists; a shadow-mode comparison and a metrics/alerts dashboard do not.
-   This is also the spec's own gate for Phase 8 (new strategies/markets),
-   so it blocks that expansion regardless of `ROADMAP.md` Q2 timing.
+2. **Phase 7 (validation/monitoring) — data/logic layer now built, UI layer
+   still open.** Backtesting has the spec's full metrics table; shadow-mode
+   recording, evaluation, and drift comparison all exist and run off the
+   existing trusted schedule (no new cron slot). Still missing: a dashboard
+   surfacing any of this visually over time, and real alert *delivery* (a
+   drift is detected and logged, never sent anywhere). Building the
+   dashboard is now mostly wiring `GET /api/shadow/summary` (and a similar
+   read for backtest history) into a page — the hard part, the data model
+   and comparison logic, is done. Wiring `DriftAlert` into
+   `lib/notifications/*` is the smaller of the two remaining pieces.
 3. **`audit_events` unification** is lower priority — the underlying data
    already exists in five domain-scoped logs — but worth a follow-up decision
    on whether to consolidate into one table/view or formally document why five
    is intentional (defense in depth / smaller blast radius per domain).
-4. Phase 8 stays correctly un-started until Phase 7 lands.
+4. **Phase 8 stays correctly un-started.** The spec gates it on Phase 7's
+   validation layer; that layer now has real data flowing (shadow signals
+   accumulate from every scheduled scan) but no dashboard/alerts to act as
+   the actual gate-keeping mechanism yet, so Phase 8 should still wait.
 
-_Update (this revision):_ the guided domain closes out the Phase 1 gap.
+_Update (this revision):_ Phase 7's shadow module is built — see
+`lib/shadow/{record,evaluate,compare}.ts`,
+`supabase/migrations/0050_shadow_signals.sql`, and `app/api/shadow/summary`.
+Dashboard UI and alert delivery are the two pieces left in Phase 7; see
+recommendation 2 above.
+
+_Update (previous revision):_ the guided domain closes out the Phase 1 gap.
 `lib/guided/policy.ts` resolves `GuidedPolicy` from `policy_values` (domain
 `"guided"`, no new migration — reuses 0049), covering the platform ceilings
 `resolveGuidedCaps` clamps a user's own preferences against, plus the minimum

@@ -69,6 +69,17 @@ function fakeService(args: {
         // No override rows configured — getUniversePolicy falls back to code defaults.
         return { select: () => ({ eq: () => ({ in: () => Promise.resolve({ data: [], error: null }) }) }) };
       }
+      if (table === "shadow_signals") {
+        // No shadow-mode signals to record or evaluate in these fixtures.
+        return {
+          upsert: () => Promise.resolve({ error: null }),
+          select: () => ({
+            is: () => ({
+              lte: () => Promise.resolve({ data: [], error: null }),
+            }),
+          }),
+        };
+      }
       throw new Error(`fakeService: unexpected table ${table}`);
     },
   } as unknown as SupabaseClient;
