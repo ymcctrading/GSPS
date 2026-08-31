@@ -121,6 +121,22 @@ both signal discovery and execution.
   the off-hours cron itself. Direct request; accepted knowingly as roughly
   4x this workflow's prior GitHub Actions run count, noted in
   `docs/THIRD_PARTY_LIMITS.md`.)*
+- **Gann & Sara Cross-Market Confluence Layers** *(out-of-phase, direct
+  request: "GSPS Gann & Sara Cross-Market Integration Addendum", 2026-08-28.
+  Fits no Q1 strategic goal above — it's a signal-engine addition, not
+  monetization/retention — but was scoped and built as a modular,
+  feature-flagged extension of the existing Signal and Regime Engine rather
+  than deferred, per the addendum's explicit directive. Delivered: Gann
+  Confluence Layer and Sara Sniper Strat Confluence Layer
+  (`lib/signals/confluence/`), wrapping GSPS's existing, already-authorized
+  Gann techniques (`lib/gann/`) and STRAT pattern taxonomy
+  (`lib/strat/patterns.ts`) rather than inventing new numerology or scenario
+  rules — the addendum explicitly forbids inferring undocumented "personally
+  sourced" logic, so the addendum's own net-new Material Number/Harmonic Node
+  classification stays `notImplemented`, pending an authorized written
+  specification. Both modules are additive confluence factors only: never a
+  sole signal, never able to override a safety/account/eligibility gate. See
+  `docs/GANN_SARA_CONFLUENCE.md`.)*
 - **Portfolio analytics dashboard** — win/loss ratio, Sharpe ratio, drawdown
   analysis, monthly/quarterly P&L, performance by pattern type.
 - **Scan history** *(shipped 2026-08-27, direct request)* — a "History" tab
