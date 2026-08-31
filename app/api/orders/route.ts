@@ -17,6 +17,7 @@ import { manageSimulatedExits } from "@/lib/trade/exit-manager-sim";
 import { OrderSchema, placeSimulatedOrder } from "@/lib/trade/place-order";
 import { pruneClosedOrders } from "@/lib/portfolio/prune";
 import { parseOccSymbol } from "@/lib/portfolio/occ";
+import { syncLiveAccount } from "@/lib/trade/live-sync";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -86,6 +87,21 @@ export async function GET() {
     }),
   );
   if (exits.error) console.error(`orders: exit management — ${exits.error}`);
+
+  // The real-broker counterpart to the two passes above: advances live
+  // protocol exits, reconciles live positions into this app's own ledger,
+  // and settles any pending live trade logs. A no-op for the common case
+  // (no live connection) — see lib/trade/live-sync.ts.
+  const liveSync = await syncLiveAccount(supabase, user.id).catch(
+    (err): Awaited<ReturnType<typeof syncLiveAccount>> => ({
+      connected: true,
+      exits: null,
+      reconcile: null,
+      settlement: null,
+      error: err instanceof Error ? err.message : String(err),
+    }),
+  );
+  if (liveSync.error) console.error(`orders: live account sync — ${liveSync.error}`);
 
   const { data, error } = await supabase
     .from("orders")
@@ -166,6 +182,11 @@ export async function GET() {
       notes: exits.notes,
       error: exits.error,
     },
+    // Separate from `sync`/`exits` above deliberately — those are the paper
+    // ledger's own pass, this is the real-broker one, and conflating a
+    // simulated fill count with a live one would misreport what actually
+    // happened to real money.
+    liveSync,
   });
 }
 

@@ -27,6 +27,20 @@
  *                     market is not a plan to act on; `scanTicker` already holds
  *                     those at Watch, so this is belt and braces rather than a
  *                     second opinion.
+ *   Novice universe — `result.noviceUniverse`, the Market Universe, Data
+ *                     Quality & Account Constraints engine's `novice_eligible`
+ *                     read (lib/universe/eligibility.ts), computed by
+ *                     `scanTicker` for every scan Guided runs. This is the
+ *                     one gate here checking something other than "can this
+ *                     trade be placed" — market cap, Novice-tier liquidity,
+ *                     price/fractional accessibility, spread, event risk,
+ *                     volatility, and data quality all have to clear before
+ *                     a symbol is shown as a one-tap Buy, on top of every
+ *                     gate above. `undefined` (a `ScanResult` built outside
+ *                     `scanTicker`, e.g. a hand-built test fixture) fails
+ *                     closed, matching this whole engine's "unknown data
+ *                     defaults to block" rule rather than silently skipping
+ *                     the gate. See docs/MARKET_UNIVERSE_DATA_QUALITY.md.
  *
  * Pure, and deliberately so: the reasons it produces are what the API logs and
  * what a maintainer reads when a symbol they expected did not appear.
@@ -95,6 +109,14 @@ export function assessEligibility(
 
   if (result.dataLag?.holdsExecute) {
     reasons.push("The price data behind this plan is a full execution candle or more behind the market.");
+  }
+
+  if (!result.noviceUniverse?.eligible) {
+    reasons.push(
+      result.noviceUniverse
+        ? `Not Novice-eligible: ${result.noviceUniverse.reasons[0] ?? "does not pass the Market Universe engine's filters."}`
+        : `${result.symbol} has no Novice-eligibility read, and Guided Mode does not show a symbol it can't certify.`,
+    );
   }
 
   return { eligible: reasons.length === 0, reasons };

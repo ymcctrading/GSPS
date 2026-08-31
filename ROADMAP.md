@@ -227,6 +227,44 @@ both signal discovery and execution.
   No live account is actually gated today because no live order can be
   placed at all yet, but the gate is real, tested, and will take effect the
   moment live execution replaces that placeholder refusal.)*
+- **Live order execution (Alpaca)** *(2026-08-28, out-of-phase, direct
+  request; compliance/counsel review confirmed cleared by the requester)* —
+  `lib/trade/place-order.ts`'s `mode: "live"` branch now actually submits to
+  a user's own connected Alpaca live account rather than hard-refusing.
+  Equity only (no live options — that infrastructure doesn't exist);
+  the entry carries a single full-size stop rather than a full bracket, with
+  profit tranches placed once it fills — this mirrors, rather than
+  duplicates, the design `lib/trade/exit-manager.ts` already committed to
+  (see its header, "Why the exits aren't a bracket on the entry").
+  New: `app/api/alpaca/connect-live` (stores a user's own API key/secret,
+  verified against `/v2/account` before saving, encrypted at rest — the
+  credential seam `lib/risk/live-account.ts` and `lib/trade/place-order.ts`
+  were both already built expecting but nothing populated) and
+  `lib/brokers/live-creds.ts` (the per-user reader). `lib/risk/live-account.ts`
+  now prefers a connected live Alpaca account's real equity over SnapTrade's
+  (SnapTrade has no order-placement integration in this app — informational
+  only). The Novice Risk & Cooldown Engine gate runs before every live
+  submission, using that real equity.
+  Also wired three real-broker modules that existed fully built and tested
+  but had never been called by any route — `lib/trade/exit-manager.ts`
+  (`manageProtocolExits`), `lib/portfolio/reconcile.ts`
+  (`reconcilePositions`), `lib/portfolio/trade-log-settle.ts`
+  (`settlePendingTradeLogs`) — via a new `lib/trade/live-sync.ts`, called
+  from `GET /api/orders` alongside the existing paper-simulator sync pass
+  (reported separately, as `liveSync`, never merged into the paper
+  `sync`/`exits` fields). Fixed a latent bug this surfaced: `protocol_exits`
+  reads in both exit managers were unscoped by `mode`, which was harmless
+  while only paper rows existed and would have cross-matched a live plan
+  against a paper close (or vice versa) the moment both existed for the same
+  user — both now filter on `mode`.
+  Scope not covered by this pass, called out rather than silently gapped:
+  live options trading; counting live entries toward the circuit breaker's
+  `entry_pause` state (no live order history to count from yet, so only the
+  loss/drawdown-driven states can trigger on a live account today); a
+  portfolio/orders UI that visually distinguishes live rows from paper ones
+  (both already carry a `mode` column and render together); a per-user kill
+  switch specific to live trading (the existing global `TRADING_DISABLED`
+  env var still covers every order, live included).
 - **Market Universe, Data Quality & Account Constraints engine** *(2026-08-29,
   out-of-phase, direct request)* — a pure-logic engine, `lib/universe/*`,
   implementing the "Market Universe, Data Quality & Account Constraints"
@@ -256,7 +294,18 @@ both signal discovery and execution.
   Reversal states can ever call tradeable down to a few dozen names — a
   scanner-wide behavior change, not a wiring change. See
   `docs/MARKET_UNIVERSE_DATA_QUALITY.md`'s "Why informational, not gating"
-  for the reasoning and what closing the coverage gap would take.)*
+  for the reasoning and what closing the coverage gap would take.)* *(2026-08-30,
+  follow-up, direct request: wired into Guided Decision Mode.
+  `lib/guided/eligibility.ts`'s `assessEligibility` now also requires
+  `result.noviceUniverse?.eligible`, failing closed on a `ScanResult` built
+  outside `scanTicker`. Unlike the scanner-wide gating held back above, this
+  one was decided and accepted on purpose: Guided already narrows hard on
+  its own and already treats "nothing to show" as a correct answer, and
+  showing only a `novice_eligible` symbol is the literal purpose the engine
+  was specified for — so the same ~40-mega-cap/top-500-large-cap coverage
+  gap now also means Guided may recommend nothing on days it previously
+  would have. See `docs/MARKET_UNIVERSE_DATA_QUALITY.md`'s "Guided Decision
+  Mode composition".)*
 - **Novice → Pro tier promotion** *(2026-08-29)* — behavioral eligibility
   gate for the Novice-to-Pro (`PRACTICE`→`STANDARD`) tier step, per the
   "Tier Access, Promotion & User Experience" spec pack (draft implementation

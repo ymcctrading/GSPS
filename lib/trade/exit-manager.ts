@@ -171,10 +171,15 @@ export async function manageProtocolExits(
     };
   }
 
+  // Scoped to mode = 'live' — a paper plan for the same user (advanced
+  // separately by lib/trade/exit-manager-sim.ts) must not be picked up here
+  // and mismanaged against the broker's real position list, which has
+  // nothing to say about a paper trade.
   const { data, error } = await supabase
     .from("protocol_exits")
     .select("*")
     .eq("user_id", userId)
+    .eq("mode", "live")
     .eq("status", "working")
     .limit(50);
 
@@ -666,11 +671,14 @@ export async function closePlanForSymbol(
   userId: string,
   symbol: string,
 ): Promise<PlanRow | null> {
+  // Scoped to mode = 'live' — see the header on `manageProtocolExits` for why
+  // a paper plan for the same symbol must not be matched here.
   const { data } = await supabase
     .from("protocol_exits")
     .select("*")
     .eq("user_id", userId)
     .eq("symbol", symbol.toUpperCase())
+    .eq("mode", "live")
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
