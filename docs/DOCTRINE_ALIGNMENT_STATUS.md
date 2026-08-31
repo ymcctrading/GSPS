@@ -43,6 +43,38 @@ re-deriving this from scratch each time.
 | **Formal, single versioned "canonical decision record"** spanning Signal Context → Structure Zone → Trade Map → Order/Trade → Learning Record as one explicit contract with a shared record-version field. | The pieces all exist and are individually provenance-tracked (`ScanResult`, `scan_executions`, `positions`/`orders`, `learning_models`), but they are not yet threaded together under one explicit versioned envelope the way the PRD's "Required entities and contracts" table describes. Unifying them is a cross-cutting schema and API change touching the scan pipeline, the entitlement tables, and every consumer of a scan result — a Phase 1/2 blueprint item worth its own design pass and PR, not something to bolt on speculatively here. | Next dedicated PR; scope it against `lib/types.ts` (`ScanResult`) and `scan_executions`/`visible_scan_results` (migration `0036`) as the two halves to reconcile. |
 | **Everything on the doctrine's "do not add" list** — one-click live automated trading, social leaderboards/copy-trading, exposing Gann roots/vectors/formulas publicly, unrestricted asset-class expansion, adaptive live weighting from user behavior. | Deliberately excluded by the doctrine itself, not a gap. Automation stays demo/paper-only (`docs/RUNBOOK.md` notes the demo-auto-trade workflow is separate from user-facing automation); scoring changes stay in the draft→approved→live registry path above. | N/A — correctly deferred. |
 
+## PR-level mapping to the seven operations (since 2026-08-28)
+
+The Foundational Doctrine's "Creation lifecycle" (p.1–2) defines seven
+alchemical operations — Calcination, Dissolution, Separation, Conjunction,
+Fermentation, Distillation, Coagulation — as the discipline behind every
+change, not a public-facing theme. This section maps the 20 PRs merged to
+`main` between 2026-08-28 and 2026-08-31 (#84, #129–#147) against those
+operations, as a snapshot of which parts of the discipline this window's
+work actually exercised. Update this table (don't re-derive it) the next
+time a mapping pass is worth doing.
+
+| Operation | Doctrine question | PRs this window |
+|---|---|---|
+| Calcination | What assumption/excess must be challenged? | #130 exempts protective exits from the kill switch; #131 adds hard risk/cooldown caps; #140 gates novice→pro promotion; #145 wires Pro intraday entry gates |
+| Dissolution | What uncertainty must remain honest? | #132 adds a regime classifier (conditional, not deterministic); #138 adds Market Universe/Data Quality/Account Constraints; #146 adds validation/backtest/audit metrics |
+| Separation | What must not be conflated? | #139 and #144 scrub Gann/Sara pattern codes and raw pattern-name leaks out of public copy — public output vs. private logic, directly |
+| Conjunction | What compatible evidence belongs together? | #133/#135/#136 complete all four scanner states as one confluence set; #141/#142/#143 wire the Signal & Regime Engine into chart, notifications, and scanner UI as one consistent surface |
+| Fermentation | What has demonstrated life or utility? | #137 adds the trade-plan lifecycle state machine with post-close review (the critique/feedback loop); #146's audit metrics also close this loop |
+| Distillation | What is the smallest trustworthy expression? | #129 surfaces scan history plainly on the Scanner page; #139/#144 double as distillation (public wording stays plain) |
+| Coagulation | What becomes a stable asset? | #134 fixes migration-prefix collisions (canonical ledger hygiene); #84 stabilizes portfolio analytics/notifications/onboarding into the shipped suite |
+
+**Reading:** this window skews toward Calcination (risk-boundary work — kill
+switch, cooldowns, tier gates) and Conjunction (the scanner-state buildout
+and its UI wiring). Fermentation and Coagulation are thin by comparison —
+#146 is the only PR doing real evidence-closure work, and #134/#84 are the
+only pure stabilization PRs. This matches the still-open "unified canonical
+decision record" gap above: this window added more pieces to integrate, not
+the Coagulation-level artifact that ties them together. Separation is the
+strongest showing — #139/#144 are a direct enactment of the Strategic
+Blueprint's "no internal methodology names or calculation clues reach public
+copy" rule (p.2, "Continuous IP/terminology checks").
+
 ## Reading this against the roadmap
 
 `AGENTS.md` derives the current roadmap phase from today's date and defers
