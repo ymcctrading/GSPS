@@ -8,6 +8,7 @@ import { MarketTabs } from "@/components/chart/market-tabs";
 import { ShareButton } from "@/components/chart/share-button";
 import { SignalCard } from "@/components/scan/signal-card";
 import { SignalRegimeCard } from "@/components/scan/signal-regime-card";
+import { ConfluenceCard } from "@/components/scan/confluence-card";
 import { OrderTicket } from "@/components/trade/order-ticket";
 import { GlossaryDetails } from "@/components/glossary";
 import { GlossaryTerm } from "@/components/glossary-term";
@@ -265,6 +266,8 @@ export function TickerView({ symbol }: { symbol: string }) {
       {result && <SignalCard result={result} />}
 
       {result && <SignalRegimeCard result={result} />}
+
+      {result && <ConfluenceCard result={result} />}
 
       <GlossaryDetails />
     </div>

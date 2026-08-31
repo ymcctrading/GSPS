@@ -7,6 +7,28 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-08-30
+
+### Added
+- **Gann Confluence Layer and Sara Sniper Strat Confluence Layer**
+  (`lib/signals/confluence/`) — two modular, versioned, feature-flagged
+  confluence modules on the Signal and Regime Engine, per the "GSPS Gann &
+  Sara Cross-Market Integration Addendum" (2026-08-28). Out-of-phase relative
+  to the Q1 roadmap; see `ROADMAP.md`'s Q1 initiatives and
+  `docs/GANN_SARA_CONFLUENCE.md` for the full architecture and provenance.
+  Both wrap existing, already-authorized logic (`lib/gann/`,
+  `lib/strat/patterns.ts`) rather than inventing new numerology or scenario
+  rules; the addendum's net-new Material Number/Harmonic Node classification
+  has no authorized specification yet and stays `notImplemented` throughout.
+  Additive only — never a sole signal, never able to override a safety,
+  account, or eligibility gate. Includes a market-adapter router (equities
+  and crypto supported; options/futures/forex/commodities report
+  `unsupported` rather than approximating unmodeled mechanics), a
+  `components/scan/confluence-card.tsx` UI card, and
+  `supabase/migrations/0048_gann_sara_confluence_modules.sql` (a
+  `strategy_modules` registry, `gann_evaluations`/`sara_evaluations` audit
+  tables, and evidence columns on `trade_plans`).
+
 ## 2026-08-29 (2)
 
 ### Fixed
