@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getPublishedLessons } from "@/lib/school/content";
+import { LIVE_TRADING_RECERTIFICATION_PROGRAM_ID, getPublishedLessons } from "@/lib/school/content";
 import { getProgramProgress } from "@/lib/school/service";
 
 /** Lesson list (no answer keys) plus this member's pass/fail state per lesson. */
@@ -14,7 +14,8 @@ export async function GET() {
   const { data: progressRows } = await supabase
     .from("school_lesson_progress")
     .select("lesson_id, status, attempt_count")
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .eq("program_id", LIVE_TRADING_RECERTIFICATION_PROGRAM_ID);
   const progressByLesson = new Map((progressRows ?? []).map((r) => [r.lesson_id as string, r]));
 
   const lessons = getPublishedLessons().map((lesson) => ({

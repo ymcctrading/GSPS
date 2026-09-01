@@ -30,24 +30,26 @@ export function SchoolFlow() {
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 
-  async function load() {
+  async function fetchProgress(): Promise<{ lessons: LessonView[]; progress: ProgressSummary } | null> {
     const res = await fetch("/api/school/progress");
-    if (!res.ok) return;
-    const data = await res.json();
+    if (!res.ok) return null;
+    return res.json();
+  }
+
+  async function load() {
+    const data = await fetchProgress();
+    if (!data) return;
     setLessons(data.lessons);
     setProgress(data.progress);
   }
 
   useEffect(() => {
     let active = true;
-    (async () => {
-      const res = await fetch("/api/school/progress");
-      if (!res.ok || !active) return;
-      const data = await res.json();
-      if (!active) return;
+    fetchProgress().then((data) => {
+      if (!data || !active) return;
       setLessons(data.lessons);
       setProgress(data.progress);
-    })();
+    });
     return () => {
       active = false;
     };
@@ -59,6 +61,18 @@ export function SchoolFlow() {
 
   const unmetPrereqs = (lesson: LessonView) =>
     lesson.prerequisites.filter((id) => lessons.find((l) => l.id === id)?.progress.status !== "passed");
+
+  function openLesson(lessonId: string) {
+    setOpenLessonId(lessonId);
+    setAnswers({});
+    setFeedback(null);
+  }
+
+  function closeLesson() {
+    setOpenLessonId(null);
+    setAnswers({});
+    setFeedback(null);
+  }
 
   async function submitQuiz(lesson: LessonView) {
     setSubmitting(true);
@@ -116,7 +130,7 @@ export function SchoolFlow() {
             {!locked && (
               <CardContent className="flex flex-col gap-3">
                 {!isOpen && (
-                  <Button variant="outline" onClick={() => setOpenLessonId(lesson.id)}>
+                  <Button variant="outline" onClick={() => openLesson(lesson.id)}>
                     {passed ? "Review" : "Start"}
                   </Button>
                 )}
@@ -154,7 +168,7 @@ export function SchoolFlow() {
                       >
                         Submit
                       </Button>
-                      <Button variant="outline" onClick={() => setOpenLessonId(null)}>
+                      <Button variant="outline" onClick={closeLesson}>
                         Close
                       </Button>
                     </div>
