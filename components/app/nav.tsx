@@ -15,6 +15,7 @@ const LINKS = [
   { href: "/dashboard", label: "Dashboard", short: "Home", icon: LayoutDashboard, tabBar: true },
   { href: "/guided", label: "Guided", short: "Guided", icon: Compass, tabBar: true },
   { href: "/scanner", label: "Scanner", short: "Scan", icon: Radar, tabBar: true },
+  { href: "/school", label: "School", short: "School", icon: GraduationCap, tabBar: false },
   { href: "/portfolio", label: "Portfolio", short: "Book", icon: Briefcase, tabBar: true },
   { href: "/automation", label: "Automation", short: "Auto", icon: Bot, tabBar: true },
   { href: "/learning", label: "Backtest", short: "Test", icon: FlaskConical, tabBar: true },
@@ -22,7 +23,6 @@ const LINKS = [
   // and it is linked from the copy that uses its terms — so it is the one that
   // gives up its tab-bar slot to Guided, which is the novice's primary path.
   { href: "/glossary", label: "Glossary", short: "Terms", icon: BookOpen, tabBar: false },
-  { href: "/school", label: "GSPS School", short: "School", icon: GraduationCap, tabBar: false },
   { href: "/settings", label: "Settings", short: "Setup", icon: Settings, tabBar: true },
 ];
 

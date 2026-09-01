@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isStripeEnabled, stripeClient, priceIdFor, type BillableTier, type BillingInterval } from "@/lib/billing/stripe";
+import { isWallStreetSchoolCompleted } from "@/lib/school/curriculum-service";
 
 function appUrl(req: NextRequest): string {
   return process.env.NEXT_PUBLIC_APP_URL ?? new URL(req.url).origin;
@@ -32,6 +33,21 @@ export async function POST(req: NextRequest) {
   if (tier !== "INVESTOR_MODE" && tier !== "SYSTEM_MASTERY") {
     return NextResponse.json({ error: "Unknown tier" }, { status: 400 });
   }
+
+  // Wall Street (SYSTEM_MASTERY) checkout requires the GSPS School capstone
+  // (Academy 8, not Course W2) completed first — server-side, unbypassable
+  // from the client. Pro/Expert purchase is never gated on School; see
+  // lib/school/curriculum-service.ts and the product spec section 8/15.
+  if (tier === "SYSTEM_MASTERY") {
+    const completed = await isWallStreetSchoolCompleted(supabase, user.id);
+    if (!completed) {
+      return NextResponse.json(
+        { error: "Complete the GSPS School Wall Street capstone before purchasing System Mastery.", code: "wall_street_school_incomplete" },
+        { status: 403 },
+      );
+    }
+  }
+
   const priceId = priceIdFor(tier, interval);
   if (!priceId) {
     return NextResponse.json(
