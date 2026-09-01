@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Radar, Briefcase, Bot, FlaskConical, BookOpen, Settings, LogOut, TrendingUp, Compass, UserCircle } from "lucide-react";
+import { LayoutDashboard, Radar, Briefcase, Bot, FlaskConical, BookOpen, GraduationCap, Settings, LogOut, TrendingUp, Compass, UserCircle } from "lucide-react";
 import { SymbolSearch } from "@/components/search/symbol-search";
 
 /**
@@ -22,6 +22,7 @@ const LINKS = [
   // and it is linked from the copy that uses its terms — so it is the one that
   // gives up its tab-bar slot to Guided, which is the novice's primary path.
   { href: "/glossary", label: "Glossary", short: "Terms", icon: BookOpen, tabBar: false },
+  { href: "/school", label: "GSPS School", short: "School", icon: GraduationCap, tabBar: false },
   { href: "/settings", label: "Settings", short: "Setup", icon: Settings, tabBar: true },
 ];
 

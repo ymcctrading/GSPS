@@ -2,7 +2,7 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-08-31.
+**Last updated:** 2026-09-01.
 
 This document decides *what we build next and in what order*. Proposals and
 implementation work should trace back to a phase below. See
@@ -504,7 +504,15 @@ both signal discovery and execution.
   every "verified email AND verified phone" gate in the brief is
   implemented as verified-email-only); GSPS School curriculum (a policy
   hook — a restriction flag plus a completion timestamp — with no course
-  content, since no GSPS School product exists to gate against);
+  content, since no GSPS School product exists to gate against) *(2026-09-01,
+  follow-up, direct request: `school_completed_at` now has a writer.
+  `/school` (`lib/school/`) is a four-lesson, quiz-gated pilot — Live-
+  Trading Risk Re-Certification, scoped to exactly this restriction-lift
+  requirement, content versioned as code per `lib/education/patterns.ts`'s
+  existing precedent rather than a new CMS schema. The broader GSPS School
+  product — identity, audience beyond a restricted member, additional
+  subjects, credentials, compliance, enrollment/payments — is unchanged and
+  unestablished; see `docs/GSPS_SCHOOL.md`.)*;
   options/futures/forex/crypto automation (this pass is `us_equity` only);
   and automating a plan that hasn't yet cleared entry confirmation (queuing
   for a later automatic trigger needs a poller, which the Vercel Hobby

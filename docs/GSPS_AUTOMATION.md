@@ -52,13 +52,16 @@ phone" is implemented here as verified-email-only, documented at each site
 (migration header, `lib/risk/stop-override.ts` header) rather than silently
 dropping the requirement.
 
-**GSPS School: policy hook, no curriculum.** `live_trading_restrictions`
-has a `school_completed_at` column and `isLiveTradingRestricted` checks it,
-but there is no GSPS School product, course content, or completion flow in
-this repository to gate against. Inventing curriculum content wasn't in
-scope for an infrastructure brief. A restricted account today has no path
-to self-serve completion; that's the honest state until GSPS School exists
-as a real feature.
+**GSPS School: pilot re-certification module shipped; the broader product
+is still undecided.** `live_trading_restrictions.school_completed_at`
+(`isLiveTradingRestricted`'s check) now has a writer: `/school`
+(`lib/school/`) is a four-lesson, quiz-gated pilot — Live-Trading Risk
+Re-Certification — scoped to the one requirement this repo already
+specifies, and completing it lifts the restriction. See
+`docs/GSPS_SCHOOL.md` for what was and wasn't decided; the wider GSPS
+School product (identity, audience beyond a restricted member, additional
+subjects, credentials, compliance, enrollment/payments) remains
+unestablished and requires an owner decision before it's built.
 
 **Automating a plan still `awaiting_entry_confirmation` isn't supported.**
 `activateAutomationProfile` requires the linked plan to already be `armed`
