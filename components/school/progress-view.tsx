@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, Circle } from "lucide-react";
+import { TraderOsPanel } from "@/components/school/trader-os-panel";
+import { CADENCE_ITEMS } from "@/lib/school/cadence";
 
 interface ProgressResponse {
   programs: { id: string; label: string; gateStatus: string; consequence: string }[];
@@ -82,6 +84,25 @@ export function ProgressView() {
           ))}
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Cadence Reference</CardTitle>
+          <CardDescription>
+            Review routines by moment, not a trade-frequency target — a quiet week with strong reviews is exactly as valuable as an active one.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {CADENCE_ITEMS.map((item) => (
+            <div key={item.key} className="rounded-lg border border-border p-3 text-sm">
+              <p className="font-medium">{item.label}</p>
+              <p className="text-xs text-muted">{item.focus.join(" · ")}</p>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      <TraderOsPanel />
 
       <Card>
         <CardHeader>
