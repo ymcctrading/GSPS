@@ -61,8 +61,10 @@ const TAB_BAR_LINKS = LINKS.filter((l) => l.tabBar);
  * the tab bar renders the seven marked `tabBar` and the top bar renders all
  * nine — adding a destination means deciding which one leaves the tab bar, not
  * quietly shrinking every target. Settings and Glossary are the two currently
- * off the tab bar; both stay reachable on phones (Settings via the header's
- * account icon, Glossary via the Settings page and inline copy links).
+ * off the tab bar. Settings stays reachable on phones via the header's
+ * account icon. Glossary has no dedicated phone entry point — by design, per
+ * the comment on its `LINKS` entry above — reachable only from inline copy
+ * that links its terms, or the tablet/desktop top bar.
  */
 export function AppNav() {
   const pathname = usePathname();
