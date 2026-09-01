@@ -9,7 +9,7 @@ import { MarketNews } from "@/components/macro/market-news";
 import { getDailyScans } from "@/lib/dailyScans";
 import { DEFAULTS } from "@/lib/sectors";
 import { tickerHref } from "@/lib/routes";
-import { ArrowRight, Compass } from "lucide-react";
+import { ArrowRight, Compass, Bookmark } from "lucide-react";
 import { tradeSideWord } from "@/lib/scoring/direction-copy";
 import { formatOpenedAt } from "@/lib/portfolio/opened-at";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
@@ -17,6 +17,7 @@ import { getUserTier } from "@/lib/tiers";
 import { getMarketRegimeSummary } from "@/lib/promotion/market-regime";
 import { getNoviceHomeSummary } from "@/lib/promotion/novice-home";
 import { NoviceHomeSummary } from "@/components/dashboard/novice-home-summary";
+import { WelcomeBanner } from "@/components/dashboard/welcome-banner";
 import type { ScanRow } from "@/components/scan/results-table";
 
 export const metadata = { title: "Dashboard — GSPS" };
@@ -44,6 +45,8 @@ export default async function DashboardPage() {
         <AutoScan scanDate={scanDate} />
       </div>
 
+      <WelcomeBanner />
+
       {noviceSummary && (
         <NoviceHomeSummary regime={noviceSummary.regime} bestPlan={noviceSummary.bestPlan} home={noviceSummary.home} />
       )}
@@ -60,6 +63,14 @@ export default async function DashboardPage() {
       >
         <Compass className="h-4 w-4 shrink-0" />
         New to this? Read the plain-English walkthrough of every part of GSPS.
+      </Link>
+
+      <Link
+        href="/dashboard/saved"
+        className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-muted hover:border-accent hover:text-accent"
+      >
+        <Bookmark className="h-4 w-4 shrink-0" />
+        View your saved setups
       </Link>
 
       <StaleScanNotice

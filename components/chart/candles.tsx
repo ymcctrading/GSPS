@@ -174,6 +174,7 @@ export function CandleChart({
   const [pending, setPending] = useState<Point | null>(null);
   const [alertPrice, setAlertPrice] = useState<number | null>(null);
   const [alertHit, setAlertHit] = useState<string | null>(null);
+  const [alertInput, setAlertInput] = useState("");
 
   // Refs mirror state for use inside imperative chart event handlers.
   const toolRef = useRef<Tool>(tool);
@@ -728,6 +729,24 @@ export function CandleChart({
     }
   }
 
+  // Lets someone key in the exact tick they want rather than drag the line —
+  // the drag gesture is imprecise on a phone, and some traders just know the
+  // number they want.
+  function setAlertAt(price: number) {
+    if (!(price > 0)) return;
+    const rounded = roundPrice(price);
+    setAlertHit(null);
+    setAlertPrice(rounded);
+    try {
+      if (typeof Notification !== "undefined" && Notification.permission === "default") {
+        Notification.requestPermission();
+      }
+      localStorage.setItem(`gsps.alert.${symbol.toUpperCase()}`, String(rounded));
+    } catch {
+      /* ignore */
+    }
+  }
+
   function clearDrawings() {
     setHlines([]);
     setTrendlines([]);
@@ -786,10 +805,33 @@ export function CandleChart({
           <ToolButton
             active={alertPrice != null}
             onClick={toggleAlert}
-            title={alertPrice != null ? "Remove price alert" : "Add price alert (drag the line)"}
+            title={alertPrice != null ? "Remove price alert" : "Add price alert (drag the line, or type an exact price)"}
           >
             {alertPrice != null ? <BellOff className="h-3.5 w-3.5" /> : <Bell className="h-3.5 w-3.5" />}
           </ToolButton>
+          {alertPrice != null && (
+            <form
+              className="flex items-center gap-1"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const v = Number(alertInput);
+                if (Number.isFinite(v) && v > 0) setAlertAt(v);
+                setAlertInput("");
+              }}
+            >
+              <input
+                type="number"
+                inputMode="decimal"
+                step="any"
+                min={0}
+                placeholder={String(alertPrice)}
+                value={alertInput}
+                onChange={(e) => setAlertInput(e.target.value)}
+                title="Type the exact price to trigger the alert at"
+                className="h-7 w-20 rounded-md border border-border bg-background px-1.5 text-xs"
+              />
+            </form>
+          )}
           {hasDrawings && (
             <ToolButton active={false} onClick={clearDrawings} title="Clear drawings">
               <Trash2 className="h-3.5 w-3.5" />
@@ -947,6 +989,18 @@ export function CandleChart({
         )}
       </div>
 
+      {/* Plain-English glossary for the toggles above — a first-time viewer
+          shouldn't need to leave the chart to know what a switch does. */}
+      <div className="grid grid-cols-1 gap-x-4 gap-y-1 text-xs text-muted/90 sm:grid-cols-2 lg:grid-cols-3">
+        <p><span className="font-medium text-foreground/70">Trade levels</span> — the entry, stop-loss, and profit-target lines from the current trade plan.</p>
+        <p><span className="font-medium text-foreground/70">Candle stats</span> — a small readout of the OHLC and volume for whichever candle you&rsquo;re hovering (or the latest one).</p>
+        <p><span className="font-medium text-foreground/70">Structure levels</span> — support/resistance zones the engine detected from prior price structure, not a live trade plan.</p>
+        <p><span className="font-medium text-foreground/70">Volume pane</span> — a bar chart of shares/contracts traded per candle, shown below the price chart.</p>
+        {extendedApplies && (
+          <p><span className="font-medium text-foreground/70">Extended hours</span> — includes pre-market and after-hours candles, dimmed so they&rsquo;re easy to tell apart from regular-session trading.</p>
+        )}
+      </div>
+
       {/* Legend — explains the lines cluttering the right edge. */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
         <span className="font-medium text-foreground/70">
@@ -957,7 +1011,7 @@ export function CandleChart({
         <LegendItem color="#059669" dashed label="TP1 & MP (profit targets)" />
         <LegendItem color="#94a3b8" dashed label="Structural levels (support/resistance zones)" />
         {extendedApplies && <LegendItem color="rgba(5,150,105,0.40)" label="Extended-hours candles (dimmed)" solidBlock />}
-        {alertPrice != null && <LegendItem color={ALERT_COLOR} dashed label="Price alert (drag to move)" />}
+        {alertPrice != null && <LegendItem color={ALERT_COLOR} dashed label="Price alert (drag the line, or type a price above)" />}
         {hasDrawings && <LegendItem color={DRAW_COLOR} label="Your drawings" />}
         <span className="text-muted/80">
           {crypto

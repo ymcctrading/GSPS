@@ -2,7 +2,7 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-09-01 (GSPS School out-of-phase note added).
+**Last updated:** 2026-09-01 (dashboard welcome banner, saved setups, chart glossary, typed price alerts out-of-phase note added).
 
 This document decides *what we build next and in what order*. Proposals and
 implementation work should trace back to a phase below. See
@@ -525,6 +525,29 @@ both signal discovery and execution.
   gate writes into `promotion_progress` and a new server-side Wall Street
   checkout gate. This is not a Q1 initiative — it was requested directly
   and implemented out of sequence; no other Q1 item was displaced.)*.
+- **Dashboard welcome banner, saved setups, chart pane glossary, typed price
+  alerts** *(2026-09-01, direct request)* — four small UX items fitting this
+  phase's "reduce friction"/"improved onboarding" goals, not a
+  reprioritization:
+  - `components/dashboard/welcome-banner.tsx` — a daily rotating message plus
+    the current date/time in the viewer's own browser timezone (`Intl`,
+    client-rendered; no new profile field).
+  - Save a ranked buy/sell setup from the dashboard into a folder for later
+    reference: `supabase/migrations/0058_saved_setups.sql` adds
+    `setup_folders`/`saved_setups` (distinct from the existing `watchlists`
+    table, which only tracks bare symbols, not a scored trade-plan snapshot),
+    `app/api/saved-setups/*`, a bookmark button on every `ResultsTable` row,
+    and `/dashboard/saved` to view/delete them.
+  - A brief plain-English explanation of Trade levels/Candle stats/Structure
+    levels/Volume pane/Extended hours, added above the existing "bars are ~15
+    min delayed" disclaimer in `components/chart/candles.tsx`.
+  - The existing drag-to-set chart price alert (`components/chart/candles.tsx`,
+    client-side/localStorage only — no backend table) now also accepts a
+    typed exact price next to the bell toggle, for a tick point chosen rather
+    than dragged. Still not persisted server-side or delivered when the tab
+    is closed; a durable, cross-device custom price-alert table remains
+    unbuilt (see `maxCustomAlertRules` in `lib/entitlements/policy.ts`, an
+    already-reserved entitlement limit with no table or UI behind it yet).
 
 ### Dependencies
 

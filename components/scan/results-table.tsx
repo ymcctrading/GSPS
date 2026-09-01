@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { ScoreBadge } from "@/components/scan/score-badge";
+import { SaveSetupButton } from "@/components/scan/save-setup-button";
 import { SCANNER_STATE_META, type RulesAlignmentTier } from "@/lib/signals/types";
 import type { PublicSignalSummary } from "@/lib/signals/publicSummary";
 import { formatUsd } from "@/lib/utils";
@@ -54,6 +55,7 @@ export function ResultsTable({ rows, emptyText }: { rows: ScanRow[]; emptyText?:
           <TH className="text-right">TP1</TH>
           <TH className="text-right">Master</TH>
           <TH>Signal Engine</TH>
+          <TH className="w-8" aria-label="Save" />
         </TR>
       </THead>
       <TBody>
@@ -105,6 +107,9 @@ export function ResultsTable({ rows, emptyText }: { rows: ScanRow[]; emptyText?:
               ) : (
                 <span className="text-xs text-muted">—</span>
               )}
+            </TD>
+            <TD>
+              <SaveSetupButton row={r} />
             </TD>
           </TR>
         ))}
