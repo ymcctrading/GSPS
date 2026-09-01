@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { CheckCircle2 } from "lucide-react";
 import { SchoolBreadcrumbs } from "@/components/school/breadcrumbs";
+import { SchoolSubNav } from "@/components/school/sub-nav";
 import { SchoolDisclaimer } from "@/components/school/disclaimer";
 import { ProvenanceBadge, type Provenance } from "@/components/school/provenance-badge";
 import { ThreeElementForm, type ThreeElementFormValue } from "@/components/school/three-element-form";
@@ -118,6 +119,7 @@ export function LessonPlayer({ lessonId }: { lessonId: string }) {
         <Card className="border-warn/40">
           <CardContent className="pt-4 text-sm text-muted">This lesson is locked until its prerequisite academies are complete.</CardContent>
         </Card>
+        <SchoolSubNav />
       </div>
     );
   }
@@ -245,6 +247,8 @@ export function LessonPlayer({ lessonId }: { lessonId: string }) {
           ← Back to course
         </Link>
       </div>
+
+      <SchoolSubNav />
     </div>
   );
 }

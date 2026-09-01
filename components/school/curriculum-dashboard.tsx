@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Lock, CheckCircle2 } from "lucide-react";
 import { SchoolDisclaimer } from "@/components/school/disclaimer";
+import { SchoolSubNav } from "@/components/school/sub-nav";
 
 interface AcademySummary {
   id: string;
@@ -124,17 +125,7 @@ export function CurriculumDashboard() {
         </CardContent>
       </Card>
 
-      <div className="flex flex-wrap gap-4 text-sm">
-        <Link href="/school/progress" className="text-accent hover:underline">
-          Progress &amp; gate status
-        </Link>
-        <Link href="/school/labs" className="text-accent hover:underline">
-          Labs
-        </Link>
-        <Link href="/school/resources" className="text-accent hover:underline">
-          Resources
-        </Link>
-      </div>
+      <SchoolSubNav />
     </div>
   );
 }

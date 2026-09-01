@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SchoolDisclaimer } from "@/components/school/disclaimer";
+import { SchoolSubNav } from "@/components/school/sub-nav";
 
 interface LabEntry {
   academyTitle: string;
@@ -50,7 +51,13 @@ export function LabsView() {
   if (state === "loading") return <p className="text-sm text-muted">Loading labs…</p>;
   if (state === "unauthorized") return <p className="text-sm text-muted">Sign in to see your labs.</p>;
   if (state === "error") return <p className="text-sm text-bear">Couldn&apos;t load labs. Try refreshing.</p>;
-  if (state === "empty") return <p className="text-sm text-muted">No labs are published yet.</p>;
+  if (state === "empty")
+    return (
+      <div className="space-y-4">
+        <p className="text-sm text-muted">No labs are published yet.</p>
+        <SchoolSubNav />
+      </div>
+    );
 
   return (
     <div className="space-y-4">
@@ -77,6 +84,8 @@ export function LabsView() {
           </Card>
         ))}
       </div>
+
+      <SchoolSubNav />
     </div>
   );
 }

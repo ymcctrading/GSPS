@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, Circle } from "lucide-react";
 import { TraderOsPanel } from "@/components/school/trader-os-panel";
+import { SchoolSubNav } from "@/components/school/sub-nav";
 import { CADENCE_ITEMS } from "@/lib/school/cadence";
 
 interface ProgressResponse {
@@ -124,6 +125,8 @@ export function ProgressView() {
           ))}
         </CardContent>
       </Card>
+
+      <SchoolSubNav />
     </div>
   );
 }

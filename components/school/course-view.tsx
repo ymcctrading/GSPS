@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle2, Lock } from "lucide-react";
 import { SchoolBreadcrumbs } from "@/components/school/breadcrumbs";
+import { SchoolSubNav } from "@/components/school/sub-nav";
 
 interface CourseDetail {
   academy: { id: string; slug: string; title: string; number: number; unlocked: boolean };
@@ -97,6 +98,8 @@ export function CourseView({ courseSlug }: { courseSlug: string }) {
           );
         })}
       </div>
+
+      <SchoolSubNav />
     </div>
   );
 }

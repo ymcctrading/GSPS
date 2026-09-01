@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SchoolBreadcrumbs } from "@/components/school/breadcrumbs";
+import { SchoolSubNav } from "@/components/school/sub-nav";
 
 interface AcademyDetail {
   id: string;
@@ -99,6 +100,8 @@ export function AcademyView({ academySlug }: { academySlug: string }) {
           </Card>
         ))}
       </div>
+
+      <SchoolSubNav />
     </div>
   );
 }

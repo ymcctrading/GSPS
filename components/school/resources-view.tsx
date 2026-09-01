@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SCHOOL_RESOURCES } from "@/lib/school/resources";
+import { SchoolSubNav } from "@/components/school/sub-nav";
 
 export function ResourcesView() {
   return (
@@ -28,6 +29,8 @@ export function ResourcesView() {
           </Card>
         ))}
       </div>
+
+      <SchoolSubNav />
     </div>
   );
 }

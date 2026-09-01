@@ -15,15 +15,19 @@ const LINKS = [
   { href: "/dashboard", label: "Dashboard", short: "Home", icon: LayoutDashboard, tabBar: true },
   { href: "/guided", label: "Guided", short: "Guided", icon: Compass, tabBar: true },
   { href: "/scanner", label: "Scanner", short: "Scan", icon: Radar, tabBar: true },
-  { href: "/school", label: "School", short: "School", icon: GraduationCap, tabBar: false },
+  { href: "/school", label: "School", short: "School", icon: GraduationCap, tabBar: true },
   { href: "/portfolio", label: "Portfolio", short: "Book", icon: Briefcase, tabBar: true },
   { href: "/automation", label: "Automation", short: "Auto", icon: Bot, tabBar: true },
   { href: "/learning", label: "Backtest", short: "Test", icon: FlaskConical, tabBar: true },
   // Reference material rather than a destination you navigate to on purpose,
-  // and it is linked from the copy that uses its terms — so it is the one that
-  // gives up its tab-bar slot to Guided, which is the novice's primary path.
+  // and it is linked from the copy that uses its terms — so it gives up its
+  // tab-bar slot to Guided, which is the novice's primary path.
   { href: "/glossary", label: "Glossary", short: "Terms", icon: BookOpen, tabBar: false },
-  { href: "/settings", label: "Settings", short: "Setup", icon: Settings, tabBar: true },
+  // Settings gives up its tab-bar slot to School: the account icon in the
+  // header (rendered at every breakpoint, phones included) already links to
+  // /settings, so this is the one destination with a standing duplicate
+  // affordance to spare.
+  { href: "/settings", label: "Settings", short: "Setup", icon: Settings, tabBar: false },
 ];
 
 /**
@@ -55,8 +59,10 @@ const TAB_BAR_LINKS = LINKS.filter((l) => l.tabBar);
  * tab is ~51px wide, still clear of the 44px minimum target; an eighth
  * destination would cross it and needs a different shape, not another tab. So
  * the tab bar renders the seven marked `tabBar` and the top bar renders all
- * eight — adding a destination means deciding which one leaves the tab bar, not
- * quietly shrinking every target.
+ * nine — adding a destination means deciding which one leaves the tab bar, not
+ * quietly shrinking every target. Settings and Glossary are the two currently
+ * off the tab bar; both stay reachable on phones (Settings via the header's
+ * account icon, Glossary via the Settings page and inline copy links).
  */
 export function AppNav() {
   const pathname = usePathname();
