@@ -2,7 +2,7 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-09-01.
+**Last updated:** 2026-09-01 (GSPS School out-of-phase note added).
 
 This document decides *what we build next and in what order*. Proposals and
 implementation work should trace back to a phase below. See
@@ -517,7 +517,14 @@ both signal discovery and execution.
   and automating a plan that hasn't yet cleared entry confirmation (queuing
   for a later automatic trigger needs a poller, which the Vercel Hobby
   2-cron/day cap makes a scan-cadence problem rather than a schedule —
-  left as a follow-up).
+  left as a follow-up) *(2026-09-01, out-of-phase, direct request: GSPS
+  School — The Philosopher's Stone, a full eight-academy curriculum
+  product (Foundations/Sharpening the Edge/Professional Toolkit/
+  Systemization & Capital Stewardship, mapped to the existing Novice/Pro/
+  Expert/Wall Street tiers) built on top of the pilot above, with its own
+  gate writes into `promotion_progress` and a new server-side Wall Street
+  checkout gate. This is not a Q1 initiative — it was requested directly
+  and implemented out of sequence; no other Q1 item was displaced.)*.
 
 ### Dependencies
 
