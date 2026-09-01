@@ -92,6 +92,19 @@ Trade Map, Entry Zone, First Target, Final Target, Risk Level, Pivot Plan,
 Setup Strength, Trend Check, Watchlist, Opportunity List, Daily Plan, Price
 Path, Key Level, Confirmation.
 
+The same rule applies to GSPS School specifically: its Three-Element Method
+(Signal / Bull Case / Bear Challenge / Operator's Decision) traces its design
+rationale to Hermetic/alchemical source material, which is fine to document
+in code comments and internal docs (`docs/GSPS_SCHOOL.md`) but must never
+surface as product copy. Avoid: Philosopher's Stone, Mr. Bull / Mrs. Bear (use
+Bull Case / Bear Challenge), Hermetic, alchemical, or any of the seven
+principle names (Mentalism, Correspondence, Vibration, Polarity, Rhythm,
+Cause and Effect, Gender) — each has a plain product-control name already
+(Trader Operating System, Learning-to-Behavior Trace, Market-Regime
+Checkpoint, Bull/Bear Contradiction Rubric, Cadence Engine, Metric
+Provenance, Complementary Decision Functions) and only that name should ever
+reach the learner.
+
 ## Module naming
 
 | Internal purpose | Approved customer-facing name |

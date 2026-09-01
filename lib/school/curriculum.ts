@@ -1,5 +1,5 @@
 /**
- * GSPS School — full curriculum ("The Philosopher's Stone").
+ * GSPS School — full curriculum.
  *
  * Extends the pilot's conventions (`lib/school/content.ts`: typed content,
  * versioned as code, `validateLessonPublishable`-style gating, the
@@ -439,7 +439,7 @@ const ACADEMY_3: Academy = {
           estimatedMinutes: 20,
           instruction: [
             "A risk constitution is a small set of limits you write down before you need them, specifically so a losing streak or an exciting setup can't talk you out of them in the moment: maximum risk per trade (as a percent of account), maximum daily loss before you stop trading for the day, maximum number of concurrent open positions, and explicit pause conditions (e.g. 'three losing trades in a row: stop and review, don't take a fourth').",
-            "This lab is where the Three-Element Method becomes concrete for the first time: Signal (what you observe), Mr. Bull's Case (the opportunity, if any), Mrs. Bear's Challenge (what would prove it wrong, and what the loss costs against your own constitution), and the Operator's Decision (the actual choice — No Trade / Watchlist / Conditional Entry / Reduced-Risk Entry / Standard-Risk Entry / Exit / Review Required).",
+            "This lab is where the Three-Element Method becomes concrete for the first time: Signal (what you observe), Bull Case (the opportunity, if any), Bear Challenge (what would prove it wrong, and what the loss costs against your own constitution), and the Operator's Decision (the actual choice — No Trade / Watchlist / Conditional Entry / Reduced-Risk Entry / Standard-Risk Entry / Exit / Review Required).",
             "A well-reasoned 'No Trade' is scored identically to a well-reasoned entry — this lab never rewards trading activity for its own sake.",
           ],
           application:
@@ -573,7 +573,7 @@ const ACADEMY_4: Academy = {
           ],
           estimatedMinutes: 20,
           instruction: [
-            "This lab applies the Three-Element Method to a real or hypothetical chart: identify the Signal (instrument, timeframe, structure, evidence, uncertainty), write Mr. Bull's evidence-based case, write Mrs. Bear's falsifying challenge (it must reference something specific from the Bull case or Signal — a generic disclaimer does not pass), and submit an Operator's Decision.",
+            "This lab applies the Three-Element Method to a real or hypothetical chart: identify the Signal (instrument, timeframe, structure, evidence, uncertainty), write the evidence-based Bull Case, write the falsifying Bear Challenge (it must reference something specific from the Bull case or Signal — a generic disclaimer does not pass), and submit an Operator's Decision.",
             "This activity is advisory for Pro/Expert — it is saved and shown in your progress, but it never blocks a purchase or promotion decision.",
           ],
           application: "Complete the chart-annotation activity in the lesson player.",

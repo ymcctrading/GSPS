@@ -1,13 +1,11 @@
 /**
- * The Three-Element Method — Signal / Mr. Bull's Case / Mrs. Bear's
- * Challenge / The Operator's Decision — as a reusable submission shape and
- * server-side scoring rubric, per the GSPS School product spec.
+ * The Three-Element Method — Signal / Bull Case / Bear Challenge /
+ * Operator's Decision — as a reusable submission shape and server-side
+ * scoring rubric, per the GSPS School product spec.
  *
- * "Mr. Bull" and "Mrs. Bear" are the spec's fixed character names for two
- * complementary decision *functions* — initiative-hypothesis and
- * discernment-falsification — not a claim about gender. The synthesis step
- * (`OperatorDecision`) is deliberately neutral and carries no character
- * name.
+ * Bull and Bear name two complementary decision *functions* —
+ * initiative-hypothesis and discernment-falsification. The synthesis step
+ * (`OperatorDecision`) is deliberately neutral.
  *
  * Scoring here is intentionally conservative and heuristic: it checks for
  * non-trivial, specific content rather than attempting real natural-

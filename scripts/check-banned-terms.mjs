@@ -95,6 +95,14 @@ const USER_FACING_TERMS = [
   { pattern: /\bHarmonic\b/, term: "Harmonic", instead: "structural / key price level" },
   { pattern: /\bPivot Machine Gun\b/i, term: "Pivot Machine Gun", instead: "Momentum reversal (PMG)" },
   { pattern: /\b2-(up|down) bar\b/i, term: "2-up/2-down bar", instead: "the up bar / the down bar" },
+  // GSPS School's spec traces its Three-Element Method to Hermetic/alchemical
+  // source material (see docs/GSPS_SCHOOL.md); that lineage is fine as design
+  // rationale in comments and internal docs, but the product itself must read
+  // as plain trading education, not insider/esoteric framing.
+  { pattern: /Philosopher's Stone/i, term: "Philosopher's Stone", instead: "GSPS School" },
+  { pattern: /\bMr\. Bull\b/, term: "Mr. Bull", instead: "Bull Case" },
+  { pattern: /\bMrs\. Bear\b/, term: "Mrs. Bear", instead: "Bear Challenge" },
+  { pattern: /\bHermetic\b/i, term: "Hermetic", instead: "(omit — plain educational-governance language)" },
 ];
 
 function walk(directory, files = []) {

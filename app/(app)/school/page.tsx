@@ -8,7 +8,7 @@ export default function SchoolPage() {
       <div>
         <h1 className="text-xl font-semibold sm:text-2xl">GSPS School</h1>
         <p className="text-sm text-muted">
-          The Philosopher&apos;s Stone — capability-verification education built on Signal + Bull Thesis + Bear Challenge → Risk-Defined Operator Decision.
+          Evidence-based trading education built on Signal + Bull Case + Bear Challenge → Risk-Defined Operator Decision.
         </p>
       </div>
       <CurriculumDashboard />
