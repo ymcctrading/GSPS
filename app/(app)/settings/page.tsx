@@ -24,7 +24,7 @@ import { ReferralSettings } from "@/components/settings/referral-settings";
 import { PromotionSettings } from "@/components/settings/promotion-settings";
 import { StartTourButton } from "@/components/onboarding/tour-provider";
 import Link from "next/link";
-import { Link2, Landmark, Compass } from "lucide-react";
+import { Link2, Landmark, Compass, BookOpen } from "lucide-react";
 
 interface SnapAccounts {
   enabled: boolean;
@@ -77,6 +77,9 @@ export default function SettingsPage() {
           </StartTourButton>
           <Link href="/welcome" className="text-sm font-medium text-accent hover:underline">
             Or read it as a page
+          </Link>
+          <Link href="/glossary" className="flex items-center gap-1.5 text-sm font-medium text-accent hover:underline">
+            <BookOpen className="h-4 w-4" /> Glossary
           </Link>
         </CardContent>
       </Card>
