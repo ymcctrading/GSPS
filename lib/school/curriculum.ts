@@ -496,7 +496,7 @@ const ACADEMY_4: Academy = {
   slug: "technical-analysis",
   number: 4,
   title: "Technical Analysis",
-  outcome: "Read price structure, multi-timeframe context, and STRAT fundamentals well enough to annotate a chart with a defensible thesis.",
+  outcome: "Read price structure, multi-timeframe context, and GSPS's reversal/continuation pattern family well enough to annotate a chart with a defensible thesis.",
   programIds: ["sharpening-the-edge"],
   gateStatus: "advisory",
   prerequisiteAcademyIds: ["academy-3"],
@@ -504,8 +504,8 @@ const ACADEMY_4: Academy = {
     {
       id: "academy-4/structure",
       slug: "price-structure",
-      title: "Price Structure and STRAT Fundamentals",
-      outcome: "Identify trend, range, transition, and the STRAT bar-sequence patterns GSPS already detects.",
+      title: "Price Structure and Reversal/Continuation Patterns",
+      outcome: "Identify trend, range, transition, and the bar-sequence reversal/continuation patterns GSPS already detects.",
       lessons: [
         {
           id: "academy-4/structure/trend-range-transition",
@@ -538,14 +538,14 @@ const ACADEMY_4: Academy = {
         },
         {
           id: "academy-4/structure/strat-fundamentals",
-          title: "STRAT Fundamentals",
+          title: "Reversal and Continuation Pattern Fundamentals",
           objectives: [
-            "Name the six STRAT bar-sequence patterns GSPS detects and what each one bets on.",
+            "Name the six bar-sequence reversal/continuation patterns GSPS detects and what each one bets on.",
             "Explain the difference between the failed-push reversal family and the continuation family.",
           ],
           estimatedMinutes: 15,
           instruction: [
-            "GSPS's own pattern detector (lib/strat/patterns.ts) implements six named STRAT setups, and this lesson reuses their real, already-shipped explanations rather than inventing new ones: 2-2 (failed-push reversal), 1-2-2 (compressed reversal), 3-2-2 (two-sided reversal), 2-1-2 (pause continuation), 3-1-2 (undecided breakout — direction-neutral until one side fires), and PMG (momentum-exhaustion reversal after five or more consecutive same-direction bars).",
+            "GSPS's own pattern detector implements six named bar-sequence setups, and this lesson reuses their real, already-shipped explanations rather than inventing new ones: the failed-push reversal, the compressed reversal, the two-sided reversal, the pause continuation, the undecided breakout (direction-neutral until one side fires), and the momentum-exhaustion reversal (after five or more consecutive same-direction bars).",
             "The 2-2 family (2-2, 1-2-2, 3-2-2) all bet on a reversal: the last bar's push failed and the crowd behind it is trapped, so price is expected to break back through the bar's opposite extreme. The 2-1-2 pattern is the opposite job — a continuation, not a reversal — so confusing the two families is the most common misread.",
             "None of these patterns are a guarantee. Confidence scales with the setup bar context (compressed vs. two-sided vs. plain) and with GSPS's own score and structural-level context — never from the bar shape alone.",
           ],
@@ -553,7 +553,7 @@ const ACADEMY_4: Academy = {
             "Explain in one sentence why mixing up the 2-1-2 pattern with the 2-2 family would produce the opposite trading decision from what's intended.",
           quiz: [
             q(
-              "Which STRAT pattern is a continuation setup, not a reversal setup?",
+              "Which bar-sequence pattern is a continuation setup, not a reversal setup?",
               ["2-2", "1-2-2", "2-1-2", "3-2-2"],
               2,
             ),

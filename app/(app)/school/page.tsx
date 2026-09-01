@@ -1,4 +1,4 @@
-import { SchoolFlow } from "@/components/school/school-flow";
+import { CurriculumDashboard } from "@/components/school/curriculum-dashboard";
 
 export const metadata = { title: "GSPS School — GSPS" };
 
@@ -8,10 +8,10 @@ export default function SchoolPage() {
       <div>
         <h1 className="text-xl font-semibold sm:text-2xl">GSPS School</h1>
         <p className="text-sm text-muted">
-          Live-Trading Risk Re-Certification — required after a 50% live-loss restriction, open to any member.
+          The Philosopher&apos;s Stone — capability-verification education built on Signal + Bull Thesis + Bear Challenge → Risk-Defined Operator Decision.
         </p>
       </div>
-      <SchoolFlow />
+      <CurriculumDashboard />
     </div>
   );
 }

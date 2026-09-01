@@ -113,9 +113,20 @@ const BOILERPLATE_PHRASES = [
   "asdf",
 ];
 
-function isNonTrivial(text: string): boolean {
+// Fields that legitimately hold a short, specific value (a ticker, a
+// timeframe label, a price level) rather than a sentence — these use a
+// much lower floor; the field just needs to be present and not boilerplate.
+const SHORT_VALUE_FIELDS = new Set([
+  "signal.instrument",
+  "signal.timeframe",
+  "bull.target",
+  "bear.hardStop",
+  "regime.controllingTimeframe",
+]);
+
+function isNonTrivial(text: string, minLength = MIN_FIELD_LENGTH): boolean {
   const trimmed = text.trim();
-  if (trimmed.length < MIN_FIELD_LENGTH) return false;
+  if (trimmed.length < minLength) return false;
   const lower = trimmed.toLowerCase();
   if (BOILERPLATE_PHRASES.some((phrase) => lower === phrase)) return false;
   // Reject strings that are just one repeated character/word ("aaaaaaaa").
@@ -126,7 +137,8 @@ function isNonTrivial(text: string): boolean {
 }
 
 function requireField(errors: string[], path: string, value: string): void {
-  if (!isNonTrivial(value)) {
+  const minLength = SHORT_VALUE_FIELDS.has(path) ? 1 : MIN_FIELD_LENGTH;
+  if (!isNonTrivial(value, minLength)) {
     errors.push(`${path}: required and must be a specific, non-trivial statement`);
   }
 }

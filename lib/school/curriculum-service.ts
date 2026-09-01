@@ -119,15 +119,22 @@ export interface AttemptLessonResult {
   error?: string;
   passed?: boolean;
   score?: number;
-  wroteEducationCompleted?: boolean;
-  wrotePracticeValidationCompleted?: boolean;
+  /** True when this attempt newly passed the paper-validation lesson specifically — the caller should then call `maybeWritePracticeValidationCompleted` with a service-role client. */
+  shouldCheckPracticeValidation?: boolean;
+  /** True when this attempt newly passed a Foundations lesson other than paper-validation — the caller should then call `maybeWriteEducationCompleted` with a service-role client. */
+  shouldCheckEducationCompleted?: boolean;
 }
 
 /**
- * Records one quiz attempt for a curriculum lesson, enforcing academy-level
- * prerequisite locking (not just in-course prerequisites — a locked
- * academy's lessons cannot be attempted regardless of client state) and, on
- * a newly-passing attempt, triggering any gate writes that lesson unlocks.
+ * Records one quiz attempt for a curriculum lesson on the caller-supplied
+ * user-scoped client (RLS restricts `school_lesson_progress` writes to the
+ * caller's own row, same as the pilot's `recordLessonAttempt`). Enforces
+ * academy-level prerequisite locking — a locked academy's lessons cannot be
+ * attempted regardless of client state. Does not itself write any
+ * promotion/restriction field; see `maybeWriteEducationCompleted` /
+ * `maybeWritePracticeValidationCompleted`, which require a service-role
+ * client and must be called separately by the route handler, matching the
+ * pilot's own two-client split in `app/api/school/lessons/[lessonId]/complete/route.ts`.
  */
 export async function recordCurriculumLessonAttempt(
   supabase: SupabaseClient,
@@ -166,48 +173,43 @@ export async function recordCurriculumLessonAttempt(
   if (error) return { ok: false, error: error.message };
 
   const nowPassed = alreadyPassed || passed;
-  let wroteEducationCompleted = false;
-  let wrotePracticeValidationCompleted = false;
-
-  if (nowPassed) {
-    const updatedPassedIds = new Set(passedIds);
-    updatedPassedIds.add(lesson.id);
-
-    if (lesson.id === PAPER_VALIDATION_LESSON_ID) {
-      wrotePracticeValidationCompleted = await writePracticeValidationCompletedIfDue(supabase, userId);
-    } else {
-      wroteEducationCompleted = await writeEducationCompletedIfDue(supabase, userId, updatedPassedIds);
-    }
-  }
-
-  return { ok: true, passed: nowPassed, score, wroteEducationCompleted, wrotePracticeValidationCompleted };
+  return {
+    ok: true,
+    passed: nowPassed,
+    score,
+    shouldCheckPracticeValidation: nowPassed && lesson.id === PAPER_VALIDATION_LESSON_ID,
+    shouldCheckEducationCompleted: nowPassed && lesson.id !== PAPER_VALIDATION_LESSON_ID,
+  };
 }
 
 /**
  * Writes `promotion_progress.education_completed_at` once every Academy
  * 1-3 lesson except the paper-validation lesson has passed. Idempotent —
- * never overwrites an existing timestamp. `supabase` must be a
- * service-role client, matching the pilot's posture for the one
- * account-wide field it writes (RLS on promotion_progress has no client
- * insert/update policy per 0046).
+ * never overwrites an existing timestamp. `service` must be a service-role
+ * client — `promotion_progress` has no client write policy (0046), the
+ * same posture the pilot uses for its one account-wide write.
  */
-async function writeEducationCompletedIfDue(
-  supabase: SupabaseClient,
-  userId: string,
-  passedLessonIds: ReadonlySet<string>,
-): Promise<boolean> {
+export async function maybeWriteEducationCompleted(service: SupabaseClient, userId: string): Promise<boolean> {
+  const { data: progressRows } = await service
+    .from("school_lesson_progress")
+    .select("lesson_id")
+    .eq("user_id", userId)
+    .eq("program_id", SCHOOL_CURRICULUM_PROGRAM_ID)
+    .eq("status", "passed");
+  const passedIds = new Set((progressRows ?? []).map((r) => r.lesson_id as string));
+
   const required = foundationsEducationLessons();
-  const allPassed = required.every((l) => passedLessonIds.has(l.id));
+  const allPassed = required.every((l) => passedIds.has(l.id));
   if (!allPassed) return false;
 
-  const { data: existing } = await supabase
+  const { data: existing } = await service
     .from("promotion_progress")
     .select("education_completed_at")
     .eq("profile_id", userId)
     .maybeSingle();
   if (existing?.education_completed_at) return false;
 
-  const { error } = await supabase.from("promotion_progress").upsert(
+  const { error } = await service.from("promotion_progress").upsert(
     { profile_id: userId, education_completed_at: new Date().toISOString(), updated_at: new Date().toISOString() },
     { onConflict: "profile_id" },
   );
@@ -218,15 +220,24 @@ async function writeEducationCompletedIfDue(
   return true;
 }
 
-async function writePracticeValidationCompletedIfDue(supabase: SupabaseClient, userId: string): Promise<boolean> {
-  const { data: existing } = await supabase
+export async function maybeWritePracticeValidationCompleted(service: SupabaseClient, userId: string): Promise<boolean> {
+  const { data: lessonRow } = await service
+    .from("school_lesson_progress")
+    .select("status")
+    .eq("user_id", userId)
+    .eq("program_id", SCHOOL_CURRICULUM_PROGRAM_ID)
+    .eq("lesson_id", PAPER_VALIDATION_LESSON_ID)
+    .maybeSingle();
+  if (lessonRow?.status !== "passed") return false;
+
+  const { data: existing } = await service
     .from("promotion_progress")
     .select("practice_validation_completed_at")
     .eq("profile_id", userId)
     .maybeSingle();
   if (existing?.practice_validation_completed_at) return false;
 
-  const { error } = await supabase.from("promotion_progress").upsert(
+  const { error } = await service.from("promotion_progress").upsert(
     { profile_id: userId, practice_validation_completed_at: new Date().toISOString(), updated_at: new Date().toISOString() },
     { onConflict: "profile_id" },
   );
@@ -242,17 +253,21 @@ export interface SubmitLabResult {
   error?: string;
   errors?: readonly string[];
   passed?: boolean;
-  wroteWallStreetSchoolCompleted?: boolean;
+  /** True when this submission newly passed the capstone dossier lab — the caller should then call `maybeWriteWallStreetSchoolCompleted` with a service-role client. */
+  shouldCheckWallStreetSchoolCompleted?: boolean;
 }
 
-const CAPSTONE_LAB_ID = "academy-8/capstone/capstone-dossier";
+export const CAPSTONE_LAB_ID = "academy-8/capstone/capstone-dossier";
 
 /**
- * Validates and persists a Three-Element Method lab submission. Every
- * field is validated server-side (never trusts a client "complete" flag) —
- * an invalid submission is stored as `needs_revision` with its errors, a
- * valid one as `passed`. Only the capstone dossier lab, once passed,
- * triggers the Wall Street pre-purchase gate write.
+ * Validates and persists a Three-Element Method lab submission on the
+ * caller-supplied user-scoped client (`school_learning_labs` has own-row
+ * RLS, same as `school_lesson_progress`). Every field is validated
+ * server-side (never trusts a client "complete" flag) — an invalid
+ * submission is stored as `needs_revision` with its errors, a valid one as
+ * `passed`. Does not itself write `wall_street_school_completed_at` — see
+ * `maybeWriteWallStreetSchoolCompleted`, which requires a service-role
+ * client.
  */
 export async function submitLearningLab(
   supabase: SupabaseClient,
@@ -296,24 +311,19 @@ export async function submitLearningLab(
   if (error) return { ok: false, error: error.message };
   if (!validation.ok) return { ok: true, passed: false, errors: validation.errors };
 
-  let wroteWallStreetSchoolCompleted = false;
-  if (labId === CAPSTONE_LAB_ID) {
-    wroteWallStreetSchoolCompleted = await writeWallStreetSchoolCompletedIfDue(supabase, userId);
-  }
-
-  return { ok: true, passed: true, wroteWallStreetSchoolCompleted };
+  return { ok: true, passed: true, shouldCheckWallStreetSchoolCompleted: labId === CAPSTONE_LAB_ID };
 }
 
 /**
  * Writes `live_trading_restrictions.wall_street_school_completed_at` once
  * every Academy 8 capstone lesson (not W2) has passed AND the capstone
- * dossier lab has passed. `supabase` must be a service-role client — same
+ * dossier lab has passed. `service` must be a service-role client — same
  * posture as `completeSchoolReverification` in lib/school/service.ts for
  * the sibling `school_completed_at` field on the same table.
  */
-async function writeWallStreetSchoolCompletedIfDue(supabase: SupabaseClient, userId: string): Promise<boolean> {
+export async function maybeWriteWallStreetSchoolCompleted(service: SupabaseClient, userId: string): Promise<boolean> {
   const capstoneLessons = wallStreetCapstoneLessons();
-  const { data: progressRows } = await supabase
+  const { data: progressRows } = await service
     .from("school_lesson_progress")
     .select("lesson_id")
     .eq("user_id", userId)
@@ -323,7 +333,7 @@ async function writeWallStreetSchoolCompletedIfDue(supabase: SupabaseClient, use
   const allLessonsPassed = capstoneLessons.every((l) => passedIds.has(l.id));
   if (!allLessonsPassed) return false;
 
-  const { data: lab } = await supabase
+  const { data: lab } = await service
     .from("school_learning_labs")
     .select("status")
     .eq("user_id", userId)
@@ -332,14 +342,14 @@ async function writeWallStreetSchoolCompletedIfDue(supabase: SupabaseClient, use
     .maybeSingle();
   if (lab?.status !== "passed") return false;
 
-  const { data: existing } = await supabase
+  const { data: existing } = await service
     .from("live_trading_restrictions")
     .select("wall_street_school_completed_at")
     .eq("user_id", userId)
     .maybeSingle();
   if (existing?.wall_street_school_completed_at) return false;
 
-  const { error } = await supabase.from("live_trading_restrictions").upsert({
+  const { error } = await service.from("live_trading_restrictions").upsert({
     user_id: userId,
     wall_street_school_completed_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
