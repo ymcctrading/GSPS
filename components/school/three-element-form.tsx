@@ -88,11 +88,11 @@ function Field({ label, value, onChange, textarea }: { label: string; value: str
 }
 
 /**
- * The reusable Signal / Mr. Bull's Case / Mrs. Bear's Challenge / The
- * Operator's Decision activity, used by the lesson player and /school/labs.
- * "Mr. Bull" and "Mrs. Bear" name two complementary decision functions —
- * initiative-hypothesis and discernment-falsification — not a claim about
- * gender; the Operator's Decision synthesis stays neutral.
+ * The reusable Signal / Bull Case / Bear Challenge / Operator's Decision
+ * activity, used by the lesson player and /school/labs. Bull and Bear name
+ * two complementary decision functions — initiative-hypothesis and
+ * discernment-falsification — and the Operator's Decision synthesis stays
+ * neutral.
  */
 export function ThreeElementForm({
   requiresRegimeCheckpoint,
@@ -175,7 +175,7 @@ export function ThreeElementForm({
 
       <Card className="border-bull/40">
         <CardHeader>
-          <CardTitle className="text-bull">Mr. Bull&apos;s Case</CardTitle>
+          <CardTitle className="text-bull">Bull Case</CardTitle>
           <CardDescription>Evidence-based opportunity hypothesis — no hype.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
@@ -191,7 +191,7 @@ export function ThreeElementForm({
 
       <Card className="border-bear/40">
         <CardHeader>
-          <CardTitle className="text-bear">Mrs. Bear&apos;s Challenge</CardTitle>
+          <CardTitle className="text-bear">Bear Challenge</CardTitle>
           <CardDescription>Falsify, constrain, protect capital. Must engage with something specific from the Bull case or Signal — a generic disclaimer will not pass.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
