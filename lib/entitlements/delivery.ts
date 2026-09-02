@@ -1,6 +1,8 @@
 /**
  * Phase 3E/Phase 5: idempotent notification-delivery recording for a
- * confirmed WATCH -> EXECUTE transition, plus (Phase 5) the actual send.
+ * notify-worthy monitor transition -- a confirmed WATCH -> EXECUTE, or a
+ * tracked setup breaking (WATCH/EXECUTE -> INVALIDATED) -- plus (Phase 5)
+ * the actual send.
  *
  * `recordNotificationDelivery` inserts the ledger row *and* the entitled
  * payload it was recorded with -- the unique constraint on
@@ -18,7 +20,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { sendAlertEmail } from "@/lib/notifications/resend-handler";
+import { sendAlertEmail, sendSetupInvalidatedEmail } from "@/lib/notifications/resend-handler";
 import { isPreviewEnvironment } from "@/lib/env/preview";
 import type { PublicSignalSummary } from "@/lib/signals/publicSummary";
 
@@ -43,10 +45,29 @@ export type EntitledAlertPayload = {
   entry: number;
   stopLoss: number;
   takeProfit: number;
-  verdict: string;
+  // Narrower than `ScanDecision["outputState"]`'s own type only in that it
+  // excludes "INVALIDATED" -- which is never a scan verdict, only a monitor
+  // state -- so this stays disjoint from `EntitledInvalidationPayload.verdict`
+  // and `payload.verdict === "INVALIDATED"` actually narrows the union below.
+  verdict: "Execute" | "Watch" | "Reject";
   confidence: number;
   signal?: PublicSignalSummary | null;
 };
+
+/**
+ * A tracked setup breaking (WATCH/EXECUTE -> INVALIDATED). Deliberately
+ * narrower than `EntitledAlertPayload` -- the evaluation that produces this
+ * (a symbol that dropped out of a scan's qualifying results) has no fresh
+ * entry/stop/target/score to disclose, only that the setup the user was
+ * being tracked on no longer holds. `verdict` is the discriminant `payload`
+ * consumers (`dispatchNotificationDelivery`) switch on to pick a template.
+ */
+export type EntitledInvalidationPayload = {
+  symbol: string;
+  verdict: "INVALIDATED";
+};
+
+export type NotificationPayload = EntitledAlertPayload | EntitledInvalidationPayload;
 
 export type RecordDeliveryResult =
   | { recorded: true; deliveryId: string }
@@ -68,7 +89,7 @@ export async function recordNotificationDelivery(
     profileId: string;
     channel: DeliveryChannel;
     idempotencyKey: string;
-    payload: EntitledAlertPayload;
+    payload: NotificationPayload;
   },
 ): Promise<RecordDeliveryResult> {
   const { data, error } = await service
@@ -154,8 +175,11 @@ export async function dispatchNotificationDelivery(
   const email = userRecord?.user?.email;
   if (!email) return { dispatched: false, reason: "no_email" };
 
-  const payload = current.payload as EntitledAlertPayload;
-  const result = await sendAlertEmail({ userEmail: email, ...payload });
+  const payload = current.payload as NotificationPayload;
+  const result =
+    payload.verdict === "INVALIDATED"
+      ? await sendSetupInvalidatedEmail({ userEmail: email, symbol: payload.symbol })
+      : await sendAlertEmail({ userEmail: email, ...payload });
   const status: "sent" | "failed" = result.success ? "sent" : "failed";
 
   await service

@@ -18,6 +18,7 @@ import {
   getEnabledChannels,
   recordNotificationDelivery,
   type EntitledAlertPayload,
+  type EntitledInvalidationPayload,
 } from "@/lib/entitlements/delivery";
 import { toPublicSignalSummary } from "@/lib/signals/publicSummary";
 import type { Limit } from "@/lib/entitlements/policy";
@@ -92,8 +93,9 @@ export async function fanOutForProfile(
  * Evaluates a monitor for every visible setup (WATCH/EXECUTE) and for every
  * scanned-but-rejected symbol that already has an open monitor
  * (INVALIDATED). Records and immediately dispatches a notification delivery
- * for each transition that confirms WATCH -> EXECUTE. Returns the number of
- * deliveries this call actually sent (not merely recorded), for callers
+ * for each transition that confirms WATCH -> EXECUTE, and for each tracked
+ * setup that just broke (WATCH/EXECUTE -> INVALIDATED). Returns the number
+ * of deliveries this call actually sent (not merely recorded), for callers
  * that want it in a summary/log line.
  */
 export async function evaluateMonitorsAndNotify(
@@ -141,9 +143,11 @@ export async function evaluateMonitorsAndNotify(
     }
   }
 
+  const invalidatedWorthy: { transitionId: string; symbol: string }[] = [];
+
   for (const symbol of args.rejectedSymbols) {
     try {
-      await evaluateMonitor(service, {
+      const result = await evaluateMonitor(service, {
         profileId: args.profileId,
         symbol,
         source: args.source,
@@ -151,12 +155,15 @@ export async function evaluateMonitorsAndNotify(
         evaluationId: args.scanExecutionId,
         maxActiveWatchMonitors: args.maxActiveWatchMonitors,
       });
+      if (result.outcome === "applied" && result.notify && result.transitionId) {
+        invalidatedWorthy.push({ transitionId: result.transitionId, symbol });
+      }
     } catch (err) {
       console.error(`evaluateMonitorsAndNotify: monitor invalidation failed for ${symbol} — ${String(err)}`);
     }
   }
 
-  if (notifyWorthy.length === 0) return 0;
+  if (notifyWorthy.length === 0 && invalidatedWorthy.length === 0) return 0;
 
   const channels = await getEnabledChannels(service, args.profileId).catch((err) => {
     console.error(`evaluateMonitorsAndNotify: enabled channels not resolved — ${String(err)}`);
@@ -194,6 +201,30 @@ export async function evaluateMonitorsAndNotify(
       }
     }
   }
+
+  for (const { transitionId, symbol } of invalidatedWorthy) {
+    const payload: EntitledInvalidationPayload = { symbol, verdict: "INVALIDATED" };
+    for (const channel of channels) {
+      try {
+        const recorded = await recordNotificationDelivery(service, {
+          transitionId,
+          profileId: args.profileId,
+          channel,
+          idempotencyKey: `${transitionId}:${channel}`,
+          payload,
+        });
+        if (!recorded.recorded || !recorded.deliveryId) continue;
+        const outcome = await dispatchNotificationDelivery(service, {
+          deliveryId: recorded.deliveryId,
+          profileId: args.profileId,
+        });
+        if (outcome.dispatched && outcome.status === "sent") sentCount += 1;
+      } catch (err) {
+        console.error(`evaluateMonitorsAndNotify: invalidation delivery failed for ${symbol}/${channel} — ${String(err)}`);
+      }
+    }
+  }
+
   return sentCount;
 }
 

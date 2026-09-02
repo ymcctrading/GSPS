@@ -21,7 +21,7 @@ export interface AlertEmailData {
   entry: number;
   stopLoss: number;
   takeProfit: number;
-  verdict: string;
+  verdict: "Execute" | "Watch" | "Reject";
   confidence: number;
   /**
    * The Signal and Regime Engine's own rollup — a separate read from the
@@ -122,6 +122,65 @@ export async function sendAlertEmail(data: AlertEmailData) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("Failed to send alert email:", message);
+    return { success: false, error: message };
+  }
+}
+
+export interface SetupInvalidatedEmailData {
+  userEmail: string;
+  symbol: string;
+}
+
+/**
+ * Sent when a tracked setup's Watch -> Execute monitor confirms
+ * WATCH/EXECUTE -> INVALIDATED (`lib/entitlements/monitor.ts`) -- the setup
+ * a user was being watched on, or already holding, no longer holds. Kept
+ * separate from `sendAlertEmail`: an invalidation has no fresh entry/stop/
+ * target to disclose (the evaluation that produces it is a symbol dropping
+ * out of a scan's qualifying results, not a new signal), so there is
+ * nothing to fill that template's price fields with.
+ */
+export async function sendSetupInvalidatedEmail(data: SetupInvalidatedEmailData) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("RESEND_API_KEY not set; skipping setup-invalidated email");
+    return { success: false, error: "RESEND_API_KEY not configured" };
+  }
+
+  try {
+    const subject = `${data.symbol} setup invalidated`;
+    const html = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h1 style="color: #0f172a; margin: 0 0 20px;">⚠ ${data.symbol} setup invalidated</h1>
+        <div style="background: #fff7ed; padding: 15px; border-left: 4px solid #ea580c; border-radius: 4px; margin-bottom: 20px;">
+          <p style="margin: 0; color: #7c2d12; font-size: 14px;">
+            Price action broke the structure that qualified this setup — GSPS no longer considers it valid.
+            If you're in this trade, review it against your risk plan; if you were watching it, treat it as closed.
+          </p>
+        </div>
+        <div style="border-top: 1px solid #e2e8f0; padding-top: 15px; font-size: 12px; color: #64748b;">
+          <p style="margin: 0;">This is an automated alert from GSPS.
+          <a href="https://gsps.app" style="color: #0ea5e9; text-decoration: none;">View in app</a>
+          </p>
+        </div>
+      </div>
+    `;
+
+    const result = await getResendClient().emails.send({
+      from: "GSPS Alerts <onboarding@resend.dev>",
+      to: data.userEmail,
+      subject,
+      html,
+    });
+
+    if (result.error) {
+      console.error("Resend error:", result.error);
+      return { success: false, error: result.error.message };
+    }
+
+    return { success: true, id: result.data?.id };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("Failed to send setup-invalidated email:", message);
     return { success: false, error: message };
   }
 }
