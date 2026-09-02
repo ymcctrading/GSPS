@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Trash2 } from "lucide-react";
+import { ArrowRight, TriangleAlert, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScoreBadge } from "@/components/scan/score-badge";
-import { formatUsd } from "@/lib/utils";
+import { cn, formatUsd } from "@/lib/utils";
 import { tickerHref } from "@/lib/routes";
 
 export interface SavedSetupRow {
@@ -25,6 +25,14 @@ export interface SavedSetupRow {
   /** The same symbol/direction's score in today's scan, null if it dropped out or hasn't scanned since. */
   currentScore: number | null;
   currentOutputState: string | null;
+  /**
+   * The Watch -> Execute monitor's live read on this symbol (WATCH, EXECUTE,
+   * INVALIDATED, NO_SETUP, EXPIRED), independent of when the last scan ran —
+   * the monitor re-evaluates on every scheduled scan, so this can catch a
+   * setup breaking well before this page happens to be reloaded. Null when
+   * no monitor has ever tracked this symbol.
+   */
+  monitorState: string | null;
 }
 
 export function SavedSetupsList({ initialRows }: { initialRows: SavedSetupRow[] }) {
@@ -63,7 +71,13 @@ export function SavedSetupsList({ initialRows }: { initialRows: SavedSetupRow[] 
           <h2 className="text-sm font-semibold text-muted">{folderName}</h2>
           <div className="flex flex-col divide-y divide-border rounded-lg border border-border">
             {items.map((row) => (
-              <div key={row.id} className="flex items-center gap-3 px-3 py-2.5">
+              <div
+                key={row.id}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2.5",
+                  row.monitorState === "INVALIDATED" && "bg-bear-soft/40",
+                )}
+              >
                 <Link href={tickerHref(row.symbol)} className="font-medium text-accent hover:underline">
                   {row.symbol}
                 </Link>
@@ -72,6 +86,7 @@ export function SavedSetupsList({ initialRows }: { initialRows: SavedSetupRow[] 
                 </span>
                 {row.pattern_name && <span className="text-xs text-muted">{row.pattern_name}</span>}
                 {row.setup_kind === "continuation" && <Badge variant="muted">continuation</Badge>}
+                <MonitorStatus state={row.monitorState} />
                 <ScoreChange row={row} />
                 <span className="ml-auto flex items-center gap-3 text-xs font-mono text-muted">
                   {row.entry != null && <span>Entry {formatUsd(row.entry)}</span>}
@@ -91,6 +106,29 @@ export function SavedSetupsList({ initialRows }: { initialRows: SavedSetupRow[] 
         </div>
       ))}
     </div>
+  );
+}
+
+/**
+ * The monitor's live state for this symbol — most importantly INVALIDATED,
+ * which the monitor can catch mid-session, well before the next scan
+ * refreshes this page's `score`/`currentScore` columns. WATCH/EXECUTE render
+ * quietly (the score badges already say that); only a broken setup needs to
+ * interrupt.
+ */
+function MonitorStatus({ state }: { state: string | null }) {
+  if (state !== "INVALIDATED" && state !== "EXPIRED" && state !== "NO_SETUP") return null;
+
+  const label = state === "INVALIDATED" ? "Invalidated" : state === "EXPIRED" ? "Expired" : "No longer set up";
+
+  return (
+    <span
+      className="flex items-center gap-1 text-xs font-medium text-bear"
+      title="The Watch → Execute monitor no longer considers this setup valid — price action broke the structure that qualified it."
+    >
+      <TriangleAlert className="h-3.5 w-3.5" />
+      {label}
+    </span>
   );
 }
 
