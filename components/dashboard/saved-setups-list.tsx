@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Trash2 } from "lucide-react";
+import { ArrowRight, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { ScoreBadge } from "@/components/scan/score-badge";
 import { formatUsd } from "@/lib/utils";
 import { tickerHref } from "@/lib/routes";
 
@@ -21,6 +22,9 @@ export interface SavedSetupRow {
   setup_kind: string | null;
   saved_at: string;
   folderName: string;
+  /** The same symbol/direction's score in today's scan, null if it dropped out or hasn't scanned since. */
+  currentScore: number | null;
+  currentOutputState: string | null;
 }
 
 export function SavedSetupsList({ initialRows }: { initialRows: SavedSetupRow[] }) {
@@ -68,6 +72,7 @@ export function SavedSetupsList({ initialRows }: { initialRows: SavedSetupRow[] 
                 </span>
                 {row.pattern_name && <span className="text-xs text-muted">{row.pattern_name}</span>}
                 {row.setup_kind === "continuation" && <Badge variant="muted">continuation</Badge>}
+                <ScoreChange row={row} />
                 <span className="ml-auto flex items-center gap-3 text-xs font-mono text-muted">
                   {row.entry != null && <span>Entry {formatUsd(row.entry)}</span>}
                   {row.stop_loss != null && <span className="text-bear">Stop {formatUsd(row.stop_loss)}</span>}
@@ -86,5 +91,33 @@ export function SavedSetupsList({ initialRows }: { initialRows: SavedSetupRow[] 
         </div>
       ))}
     </div>
+  );
+}
+
+/**
+ * Score at save time vs. today's scan for the same symbol + direction. A
+ * saved setup is a snapshot — the next scan re-ranks everything, so the two
+ * numbers commonly diverge, and the whole reason someone bookmarks a setup
+ * is to be able to see how it moved.
+ */
+function ScoreChange({ row }: { row: SavedSetupRow }) {
+  if (row.score == null) return null;
+
+  return (
+    <span className="flex items-center gap-1.5 text-xs">
+      <span title="Score when saved">
+        <ScoreBadge score={row.score} state={row.output_state ?? "Reject"} />
+      </span>
+      {row.currentScore != null ? (
+        <>
+          <ArrowRight className="h-3.5 w-3.5 text-muted" />
+          <span title="Score in today's scan">
+            <ScoreBadge score={row.currentScore} state={row.currentOutputState ?? "Reject"} />
+          </span>
+        </>
+      ) : (
+        <span className="text-muted">Not in today&apos;s scan</span>
+      )}
+    </span>
   );
 }
