@@ -57,8 +57,32 @@ describe("decideTransition", () => {
     expect(decision).toEqual({ apply: true, isNewMonitor: false, isTransition: true, notify: false });
   });
 
-  it("applies but does not notify on WATCH -> INVALIDATED / NO_SETUP / EXPIRED", () => {
-    for (const target of ["INVALIDATED", "NO_SETUP", "EXPIRED"] as MonitorState[]) {
+  it("notifies on a tracked setup breaking (WATCH -> INVALIDATED)", () => {
+    const decision = decideTransition({
+      priorState: "WATCH",
+      priorEvaluatedAt: T0,
+      candidateState: "INVALIDATED",
+      candidateEvaluatedAt: at(MIN),
+      lastExecuteAt: null,
+      cooldownMs: 15 * MIN,
+    });
+    expect(decision).toEqual({ apply: true, isNewMonitor: false, isTransition: true, notify: true });
+  });
+
+  it("notifies on a held setup breaking (EXECUTE -> INVALIDATED)", () => {
+    const decision = decideTransition({
+      priorState: "EXECUTE",
+      priorEvaluatedAt: T0,
+      candidateState: "INVALIDATED",
+      candidateEvaluatedAt: at(MIN),
+      lastExecuteAt: T0,
+      cooldownMs: 15 * MIN,
+    });
+    expect(decision).toEqual({ apply: true, isNewMonitor: false, isTransition: true, notify: true });
+  });
+
+  it("applies but does not notify on WATCH -> NO_SETUP / EXPIRED (the setup didn't break, it just wasn't reconfirmed)", () => {
+    for (const target of ["NO_SETUP", "EXPIRED"] as MonitorState[]) {
       const decision = decideTransition({
         priorState: "WATCH",
         priorEvaluatedAt: T0,

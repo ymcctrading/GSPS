@@ -9,11 +9,16 @@
  *   WATCH -> INVALIDATED | EXPIRED | NO_SETUP
  *   INVALIDATED/EXPIRED/NO_SETUP -> WATCH -> EXECUTE (a new valid transition)
  *
- * Notify only on a confirmed WATCH -> EXECUTE transition; never re-alert an
- * EXECUTE until the setup leaves EXECUTE, returns to WATCH, and reconfirms
- * EXECUTE; a newer (out-of-order) evaluation must not overwrite a fresher
- * one; a WATCH -> EXECUTE flap within the cooldown window is suppressed
- * rather than applied.
+ * Notify on a confirmed WATCH -> EXECUTE transition, and on a tracked setup
+ * breaking (WATCH or EXECUTE -> INVALIDATED) -- the two events a user acting
+ * on this monitor actually needs to hear about: a setup becoming actionable,
+ * and a setup they were already watching or holding no longer being one.
+ * NO_SETUP/EXPIRED never notify -- neither means the setup broke, just that
+ * a later scan didn't re-confirm it, which is not itself alert-worthy. Never
+ * re-alert an EXECUTE until the setup leaves EXECUTE, returns to WATCH, and
+ * reconfirms EXECUTE; a newer (out-of-order) evaluation must not overwrite a
+ * fresher one; a WATCH -> EXECUTE flap within the cooldown window is
+ * suppressed rather than applied.
  */
 
 export type MonitorState = "WATCH" | "EXECUTE" | "INVALIDATED" | "NO_SETUP" | "EXPIRED";
@@ -67,12 +72,11 @@ export function decideTransition(args: {
     }
   }
 
-  return {
-    apply: true,
-    isNewMonitor: false,
-    isTransition: true,
-    notify: priorState === "WATCH" && candidateState === "EXECUTE",
-  };
+  const notify =
+    (priorState === "WATCH" && candidateState === "EXECUTE") ||
+    ((priorState === "WATCH" || priorState === "EXECUTE") && candidateState === "INVALIDATED");
+
+  return { apply: true, isNewMonitor: false, isTransition: true, notify };
 }
 
 /**

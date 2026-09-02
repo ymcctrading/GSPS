@@ -161,6 +161,41 @@ describe("evaluateMonitorsAndNotify", () => {
     );
   });
 
+  it("records and dispatches a notification for a tracked setup breaking (WATCH/EXECUTE -> INVALIDATED)", async () => {
+    evaluateMonitorMock.mockResolvedValueOnce({
+      outcome: "applied",
+      monitorId: "m2",
+      transitionId: "t2",
+      notify: true,
+    });
+    getEnabledChannelsMock.mockResolvedValueOnce(["email"]);
+    recordNotificationDeliveryMock.mockResolvedValueOnce({ recorded: true, deliveryId: "d2" });
+    dispatchNotificationDeliveryMock.mockResolvedValueOnce({ dispatched: true, status: "sent" });
+
+    const sentCount = await evaluateMonitorsAndNotify(insertOnlyClient(), {
+      profileId: "p1",
+      source: "manual_dashboard",
+      scanExecutionId: "se1",
+      visible: [],
+      rejectedSymbols: new Set(["TSLA"]),
+      maxActiveWatchMonitors: 15,
+    });
+
+    expect(sentCount).toBe(1);
+    expect(recordNotificationDeliveryMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        transitionId: "t2",
+        channel: "email",
+        payload: { symbol: "TSLA", verdict: "INVALIDATED" },
+      }),
+    );
+    expect(dispatchNotificationDeliveryMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ deliveryId: "d2" }),
+    );
+  });
+
   it("does not throw when a single profile's monitor evaluation fails", async () => {
     evaluateMonitorMock.mockRejectedValueOnce(new Error("db down"));
 

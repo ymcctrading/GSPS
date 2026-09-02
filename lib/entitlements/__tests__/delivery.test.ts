@@ -2,11 +2,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { dispatchNotificationDelivery, getEnabledChannels, recordNotificationDelivery, sweepStuckDeliveries } from "@/lib/entitlements/delivery";
 
-const { sendAlertEmailMock } = vi.hoisted(() => ({ sendAlertEmailMock: vi.fn() }));
-vi.mock("@/lib/notifications/resend-handler", () => ({ sendAlertEmail: sendAlertEmailMock }));
+const { sendAlertEmailMock, sendSetupInvalidatedEmailMock } = vi.hoisted(() => ({
+  sendAlertEmailMock: vi.fn(),
+  sendSetupInvalidatedEmailMock: vi.fn(),
+}));
+vi.mock("@/lib/notifications/resend-handler", () => ({
+  sendAlertEmail: sendAlertEmailMock,
+  sendSetupInvalidatedEmail: sendSetupInvalidatedEmailMock,
+}));
 
 beforeEach(() => {
   sendAlertEmailMock.mockReset();
+  sendSetupInvalidatedEmailMock.mockReset();
 });
 
 function fakeInsertClient(result: { data: unknown; error: { code?: string; message: string } | null }) {
@@ -31,7 +38,7 @@ const PAYLOAD = {
   entry: 100,
   stopLoss: 95,
   takeProfit: 110,
-  verdict: "Execute",
+  verdict: "Execute" as const,
   confidence: 0.89,
 };
 
@@ -202,6 +209,21 @@ describe("dispatchNotificationDelivery", () => {
 
     expect(result).toEqual({ dispatched: false, reason: "max_attempts" });
     expect(sendAlertEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("sends the invalidation template, not the alert template, for an INVALIDATED payload", async () => {
+    sendSetupInvalidatedEmailMock.mockResolvedValueOnce({ success: true, id: "resend-456" });
+    const invalidationPayload = { symbol: "AAPL", verdict: "INVALIDATED" as const };
+    const { client, updates } = fakeDeliveryClient({
+      row: { id: "d1", status: "pending", channel: "email", payload: invalidationPayload, attempt_count: 0 },
+    });
+
+    const result = await dispatchNotificationDelivery(client, { deliveryId: "d1", profileId: "p1" });
+
+    expect(result).toEqual({ dispatched: true, status: "sent" });
+    expect(sendSetupInvalidatedEmailMock).toHaveBeenCalledWith({ userEmail: "user@example.com", symbol: "AAPL" });
+    expect(sendAlertEmailMock).not.toHaveBeenCalled();
+    expect(updates[0]).toMatchObject({ status: "sent", provider_ref: "resend-456", attempt_count: 1 });
   });
 
   it("never sends a real notification in preview, and leaves the row untouched", async () => {

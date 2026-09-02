@@ -21,7 +21,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
 
-    const body = await req.json();
+    // The "Send test alert" button posts with no body at all — every field
+    // below already falls back to a default, so an empty/missing body is a
+    // normal call, not an error. `req.json()` throws on an empty body, which
+    // this route's own catch turned into a raw "Unexpected end of JSON
+    // input" 500 shown verbatim in the UI.
+    const body = await req.json().catch(() => ({}));
 
     // Get user's email from auth
     const userEmail = user.email || body.email;
