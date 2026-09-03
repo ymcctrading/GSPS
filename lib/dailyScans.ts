@@ -6,6 +6,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { pricedBeforeSession, scanFreshness, type ScanFreshness } from "@/lib/scan/freshness";
 import type { ScanRow } from "@/components/scan/results-table";
+import { toPublicScoreSummary } from "@/lib/scoring/public-summary";
+import type { ScoreBreakdownItem } from "@/lib/types";
 
 export type Direction = "bullish" | "bearish";
 
@@ -24,6 +26,11 @@ interface DailyScanRow {
     pattern?: { name?: string } | null;
     setupKind?: string | null;
     scannedAt?: string | null;
+    // Stored by lib/scan/publish.ts straight from `decision.breakdown` — see
+    // that file. Server-side only: this reader never sends the row's raw
+    // detail to the browser, just the redacted stateNote below, same as the
+    // /api/scan boundary in lib/scoring/public-summary.ts.
+    breakdown?: ScoreBreakdownItem[] | null;
   } | null;
 }
 
@@ -42,6 +49,15 @@ function isComplete(r: DailyScanRow): boolean {
 }
 
 function toRow(r: DailyScanRow): ScanRow {
+  const breakdown = r.detail?.breakdown;
+  // Rows written before the breakdown was stored (or a state that isn't one
+  // of the three the scorer emits) get no note rather than a wrong one.
+  const outputState = r.output_state as "Execute" | "Watch" | "Reject";
+  const stateNote =
+    breakdown && (outputState === "Execute" || outputState === "Watch" || outputState === "Reject")
+      ? toPublicScoreSummary({ score: r.score, outputState, breakdown }).stateNote
+      : null;
+
   return {
     symbol: r.symbol,
     score: r.score,
@@ -55,6 +71,7 @@ function toRow(r: DailyScanRow): ScanRow {
     // Rows written before continuations existed carry no kind; they were all
     // reversions, which is also what the column defaults to reading as.
     setupKind: r.detail?.setupKind === "continuation" ? "continuation" : "reversion",
+    stateNote,
   };
 }
 
