@@ -2,7 +2,7 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-09-01 (dashboard welcome banner, saved setups, chart glossary, typed price alerts out-of-phase note added).
+**Last updated:** 2026-09-03 (Automated Portfolio Manager wired to a real, scheduled execution engine — paper mode only — out-of-phase note added).
 
 This document decides *what we build next and in what order*. Proposals and
 implementation work should trace back to a phase below. See
@@ -548,6 +548,44 @@ both signal discovery and execution.
     is closed; a durable, cross-device custom price-alert table remains
     unbuilt (see `maxCustomAlertRules` in `lib/entitlements/policy.ts`, an
     already-reserved entitlement limit with no table or UI behind it yet).
+- **Automated Portfolio Manager — wired the engine up** *(2026-09-03,
+  out-of-phase, production-integrity fix)* — `/automation`'s "Automated
+  Portfolio Manager" toggle (`user_automation_profiles`, System Mastery
+  only, shipped in PR #23) told every member who enabled it "Running
+  hands-free — the engine manages entries, trailing stops, and exits," but
+  no scan, cron, or worker anywhere in the codebase read
+  `is_automation_enabled`/`risk_profile`/`directional_bias`/
+  `volatility_trigger_value` to act on anything — flipping the switch wrote
+  a database row nothing else consumed. A member could believe their
+  account was being traded autonomously while nothing executed. Fixed by
+  giving that profile a real, scheduled consumer:
+  `lib/automation/portfolio-manager.ts` scans each enabled member's armed,
+  entry-confirmed `trade_plans` not already automated, filters by
+  directional bias and a volatility-trigger proxy (entry-to-stop distance,
+  since this batch loop has no live tick feed to measure realized move
+  against), sizes risk as a fixed percentage of paper equity per the risk
+  dial (Passive 0.5% / Moderate 1% / Aggressive 2%), and activates each
+  match through the existing plan-scoped `activateAutomationProfile`
+  (`lib/automation/service.ts`) — the identical path a member's own
+  deliberate click on `/automation` already takes, so every safety rail
+  there (entry-confirmation gate, Wall Street entitlement re-checked live,
+  server-resolved order terms, `automation_events` audit trail) applies for
+  free. Scheduled via `.github/workflows/autonomous-portfolio-manager.yml`
+  calling `/api/automation/portfolio-manager/run` (both Vercel Hobby cron
+  slots are already spent; see `docs/THIRD_PARTY_LIMITS.md`). The
+  "Active algorithmic deployments" card on the same page, previously
+  hardcoded to always read "No active deployments yet" regardless of real
+  state, now queries `automation_profiles` for real.
+  Deliberately scoped to **paper mode only**: this loop enters positions
+  with no per-trade human click, a materially different risk profile from
+  the plan-scoped flow's live mode (where a member opts into one specific,
+  already-priced plan by hand). Autonomous live execution needs its own
+  safety review — a dedicated kill switch for this loop, sizing caps beyond
+  the existing per-order ceiling, and the kind of compliance sign-off
+  `docs/SIGNAL_REGIME_ENGINE.md` already flags for automated
+  recommendations — so `execution_mode` is not exposed on this profile at
+  all yet, and the control panel's copy says so. Tracked as a named
+  follow-up, not a silent gap.
 
 ### Dependencies
 

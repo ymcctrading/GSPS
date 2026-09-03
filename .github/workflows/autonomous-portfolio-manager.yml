@@ -1,0 +1,44 @@
+name: Autonomous Portfolio Manager
+
+# Runs the Automated Portfolio Manager loop (lib/automation/portfolio-manager.ts,
+# app/api/automation/portfolio-manager/run/route.ts) for every member with the
+# "/automation" page's Portfolio Manager toggle switched on. Same reason this
+# lives in GitHub Actions rather than vercel.json as premarket-scan.yml and
+# demo-auto-trade.yml: the Vercel Hobby plan caps scheduled jobs at 2/project,
+# and both slots are already spent on the daily market scan and the trade-
+# journal email.
+#
+# Runs are idempotent and re-derive everything from the database each time
+# (entitlement, plan eligibility, which plans are already automated), so a
+# run with nothing new to do is a correct, cheap no-op — safe to run several
+# times through the session rather than once a day.
+#
+# 13:35 UTC: shortly after premarket-scan.yml (12:30 UTC) and
+# morning-confirmation-scan.yml (13:15 UTC) have had a chance to arm plans.
+# 15:00 UTC / 17:00 UTC / 19:30 UTC: three more looks through the session,
+# wide enough to tolerate GitHub Actions' looser cron timing under both EST
+# and EDT.
+on:
+  schedule:
+    - cron: '35 13 * * 1-5'
+    - cron: '0 15 * * 1-5'
+    - cron: '0 17 * * 1-5'
+    - cron: '30 19 * * 1-5'
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    name: Trigger /api/automation/portfolio-manager/run
+    steps:
+      - name: Call portfolio manager run
+        run: |
+          status=$(curl -sS -o /tmp/response.json -w '%{http_code}' \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ vars.PRODUCTION_URL || 'https://gsps.vercel.app' }}/api/automation/portfolio-manager/run")
+          echo "HTTP $status"
+          cat /tmp/response.json
+          if [ "$status" -ge 300 ]; then
+            echo "automation/portfolio-manager/run returned $status" >&2
+            exit 1
+          fi

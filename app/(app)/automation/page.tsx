@@ -169,6 +169,62 @@ async function recentCritiquedTrades(
     .filter((t): t is CritiquedTrade => t !== null);
 }
 
+interface ActiveDeployment {
+  profileId: string;
+  instrument: string;
+  direction: "bullish" | "bearish";
+  executionMode: "paper" | "live";
+  allocatedDollarRisk: number;
+}
+
+/**
+ * Positions the Automated Portfolio Manager (or a member's own manual GSPS
+ * Automation activation on `/automation`'s lower section — both write to the
+ * same `automation_profiles` table, see lib/automation/portfolio-manager.ts)
+ * is actively managing. Previously hardcoded to always say "No active
+ * deployments yet" regardless of real state.
+ */
+async function activeDeployments(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+): Promise<ActiveDeployment[]> {
+  const { data: profiles } = await supabase
+    .from("automation_profiles")
+    .select("profile_id, plan_id, execution_mode, configuration")
+    .eq("user_id", userId)
+    .eq("status", "active");
+  const rows = (profiles ?? []) as {
+    profile_id: string;
+    plan_id: string;
+    execution_mode: "paper" | "live";
+    configuration: { allocatedDollarRisk: number };
+  }[];
+  if (rows.length === 0) return [];
+
+  const { data: plans } = await supabase
+    .from("trade_plans")
+    .select("plan_id, instrument, direction")
+    .in(
+      "plan_id",
+      rows.map((r) => r.plan_id),
+    );
+  const byPlanId = new Map((plans ?? []).map((p) => [p.plan_id as string, p]));
+
+  return rows
+    .map((r) => {
+      const plan = byPlanId.get(r.plan_id);
+      if (!plan) return null;
+      return {
+        profileId: r.profile_id,
+        instrument: plan.instrument as string,
+        direction: plan.direction as "bullish" | "bearish",
+        executionMode: r.execution_mode,
+        allocatedDollarRisk: Number(r.configuration.allocatedDollarRisk),
+      };
+    })
+    .filter((d): d is ActiveDeployment => d !== null);
+}
+
 async function AutomationHub({
   userId,
   supabase,
@@ -176,7 +232,7 @@ async function AutomationHub({
   userId: string;
   supabase: Awaited<ReturnType<typeof createClient>>;
 }) {
-  const [{ data }, trades] = await Promise.all([
+  const [{ data }, trades, deployments] = await Promise.all([
     supabase
       .from("user_automation_profiles")
       .select(
@@ -185,6 +241,7 @@ async function AutomationHub({
       .eq("user_id", userId)
       .maybeSingle(),
     recentCritiquedTrades(supabase, userId),
+    activeDeployments(supabase, userId),
   ]);
 
   const initial: AutomationProfile = { ...DEFAULT_PROFILE, ...(data ?? {}) };
@@ -202,9 +259,27 @@ async function AutomationHub({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="rounded-lg border border-dashed border-border py-10 text-center text-sm text-muted">
-              No active deployments yet.
-            </div>
+            {deployments.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-border py-10 text-center text-sm text-muted">
+                No active deployments yet.
+              </div>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {deployments.map((d) => (
+                  <li
+                    key={d.profileId}
+                    className="flex items-center justify-between rounded-lg border border-border px-4 py-3 text-sm"
+                  >
+                    <span className="font-medium">
+                      {d.instrument} · {d.direction === "bullish" ? "Long" : "Short"}
+                    </span>
+                    <span className="text-muted">
+                      {d.executionMode} · ${d.allocatedDollarRisk} risk
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </CardContent>
         </Card>
 

@@ -64,8 +64,8 @@ export function AutomationControlPanel({
           <CardTitle>Automated Portfolio Manager</CardTitle>
           <CardDescription>
             {profile.is_automation_enabled
-              ? "Running hands-free — the engine manages entries, trailing stops, and exits."
-              : "Manual execution only. Flip the switch to hand control to the engine."}
+              ? "Running hands-free in paper trading — the engine scans for armed plans matching your dials and manages entries, stops, and exits automatically. Autonomous live execution is not available yet."
+              : "Manual execution only. Flip the switch to hand paper-trading control to the engine."}
           </CardDescription>
         </CardHeader>
         <CardContent>
