@@ -23,22 +23,28 @@
  * server-side only, `automation_events` audit trail) applies here for free,
  * and the two engines can never drift out of sync on what "eligible" means.
  *
- * Scope cut, deliberate: this only ever activates in **paper mode**. Live
- * autonomous order submission with no per-trade human click is a materially
- * different risk profile from the plan-scoped flow's live mode (where a
- * member deliberately opts into one specific, already-priced plan) and
- * needs its own safety review — sizing caps, a kill switch specific to this
- * loop, and the same kind of compliance sign-off the Signal & Regime Engine
- * doc already flags for automated recommendations. Until that review
- * happens, `execution_mode` is not exposed on this profile at all and every
- * activation this module performs is hardcoded to `"paper"`. See
- * ROADMAP.md for this as a named follow-up rather than a silent gap.
+ * The route to live is pre-established, not built-then-blocked: a member
+ * can pick `execution_mode: "live"` on `user_automation_profiles`
+ * (`components/automation/control-panel.tsx`) the same way they already
+ * pick paper/live on the plan-scoped flow, and this loop honors it — but
+ * only once `checkAutonomousLiveTradingAuthorized`
+ * (`lib/automation/autonomous-live-gate.ts`) actually authorizes it, which
+ * fails closed by default (dedicated kill switch defaults on, no sign-off
+ * exists yet). Until a live broker connection and that authorization both
+ * exist, a member who picks "live" here simply has their candidates skipped
+ * each run with a clear reason, rather than the loop silently trading paper
+ * on their behalf instead. See docs/AUTOMATED_PORTFOLIO_MANAGER_LIVE_REVIEW.md.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 import { getOrCreateAccount } from "@/lib/brokers/simulator";
 import { activateAutomationProfile } from "@/lib/automation/service";
+import {
+  checkAutonomousLiveTradingAuthorized,
+  AUTONOMOUS_LIVE_MAX_DOLLAR_RISK_PER_TRADE,
+  AUTONOMOUS_LIVE_MAX_DAILY_DOLLAR_RISK,
+} from "@/lib/automation/autonomous-live-gate";
 
 type RiskProfile = "PASSIVE" | "MODERATE" | "AGGRESSIVE";
 type DirectionalBias = "BULLISH_ONLY" | "BEARISH_ONLY" | "BOTH";
@@ -51,6 +57,7 @@ interface AutonomousProfileRow {
   directional_bias: DirectionalBias;
   volatility_trigger_type: TriggerType;
   volatility_trigger_value: number;
+  execution_mode: "paper" | "live";
 }
 
 interface CandidatePlanRow {
@@ -104,7 +111,7 @@ export async function runAutonomousPortfolioManager(
   const { data: profiles, error: profilesError } = await supabase
     .from("user_automation_profiles")
     .select(
-      "user_id, is_automation_enabled, risk_profile, directional_bias, volatility_trigger_type, volatility_trigger_value",
+      "user_id, is_automation_enabled, risk_profile, directional_bias, volatility_trigger_type, volatility_trigger_value, execution_mode",
     )
     .eq("is_automation_enabled", true);
   if (profilesError) {
@@ -168,6 +175,36 @@ async function runForProfile(
     Math.round(account.cash * RISK_PCT[profile.risk_profile]),
   );
 
+  // A member's choice of "live" only ever becomes a live order once the
+  // dedicated kill switch is off AND a sign-off is on record
+  // (checkAutonomousLiveTradingAuthorized, lib/automation/
+  // autonomous-live-gate.ts) — see
+  // docs/AUTOMATED_PORTFOLIO_MANAGER_LIVE_REVIEW.md. Absent that, the loop
+  // does not silently substitute paper for a member who asked for live: it
+  // skips their candidates for this run and says why, so "no active
+  // deployments" reads as "not authorized yet," not as an unexplained no-op.
+  let executionMode: "paper" | "live" = "paper";
+  let liveDollarRiskSpentToday = 0;
+  if (profile.execution_mode === "live") {
+    const authorization = await checkAutonomousLiveTradingAuthorized(supabase);
+    if (!authorization.authorized) {
+      result.plansSkipped += candidates.length;
+      if (candidates.length > 0) {
+        result.errors.push({
+          userId: profile.user_id,
+          reason: `Live execution requested but not yet authorized: ${authorization.reason}`,
+        });
+      }
+      return;
+    }
+    executionMode = "live";
+    liveDollarRiskSpentToday = await sumLiveDollarRiskActivatedSince(
+      supabase,
+      profile.user_id,
+      new Date(Date.now() - 24 * 60 * 60 * 1000),
+    );
+  }
+
   for (const plan of candidates) {
     if (!matchesDirectionalBias(plan.direction, profile.directional_bias)) {
       result.plansSkipped++;
@@ -178,14 +215,29 @@ async function runForProfile(
       continue;
     }
 
+    let tradeDollarRisk = allocatedDollarRisk;
+    if (executionMode === "live") {
+      tradeDollarRisk = Math.min(tradeDollarRisk, AUTONOMOUS_LIVE_MAX_DOLLAR_RISK_PER_TRADE);
+      if (liveDollarRiskSpentToday + tradeDollarRisk > AUTONOMOUS_LIVE_MAX_DAILY_DOLLAR_RISK) {
+        result.plansSkipped++;
+        result.errors.push({
+          userId: profile.user_id,
+          planId: plan.plan_id,
+          reason: `Skipped — would exceed the $${AUTONOMOUS_LIVE_MAX_DAILY_DOLLAR_RISK} autonomous live daily risk cap.`,
+        });
+        continue;
+      }
+    }
+
     const activation = await activateAutomationProfile(supabase, profile.user_id, {
       planId: plan.plan_id,
       automationMode: "system_plan",
-      executionMode: "paper",
-      configuration: { allocatedDollarRisk },
+      executionMode,
+      configuration: { allocatedDollarRisk: tradeDollarRisk },
     });
     if (activation.ok) {
       result.plansActivated++;
+      if (executionMode === "live") liveDollarRiskSpentToday += tradeDollarRisk;
     } else {
       result.plansSkipped++;
       result.errors.push({
@@ -195,6 +247,40 @@ async function runForProfile(
       });
     }
   }
+}
+
+/**
+ * Sums `allocatedDollarRisk` across this member's autonomous-loop live
+ * activations (`automation_mode = 'system_plan'`, `execution_mode = 'live'`)
+ * created since `since`, to enforce `AUTONOMOUS_LIVE_MAX_DAILY_DOLLAR_RISK`
+ * as a real rolling window rather than a per-run counter that forgets
+ * everything between invocations. Deliberately does not include the
+ * plan-scoped flow's member-clicked live activations — those are a
+ * separately reviewed, separately capped risk (`MAX_ALLOCATED_DOLLAR_RISK`
+ * in `lib/automation/service.ts`), not this loop's budget to spend.
+ */
+async function sumLiveDollarRiskActivatedSince(
+  supabase: SupabaseClient,
+  userId: string,
+  since: Date,
+): Promise<number> {
+  const { data, error } = await supabase
+    .from("automation_profiles")
+    .select("configuration")
+    .eq("user_id", userId)
+    .eq("automation_mode", "system_plan")
+    .eq("execution_mode", "live")
+    .gte("created_at", since.toISOString());
+  if (error) {
+    console.error(`sumLiveDollarRiskActivatedSince: query failed for ${userId} — ${error.message}`);
+    // Fails closed: an unreadable spend history is treated as "budget
+    // already spent," never as room to spend more.
+    return AUTONOMOUS_LIVE_MAX_DAILY_DOLLAR_RISK;
+  }
+  return ((data ?? []) as { configuration: { allocatedDollarRisk: number } }[]).reduce(
+    (sum, row) => sum + Number(row.configuration.allocatedDollarRisk ?? 0),
+    0,
+  );
 }
 
 export function matchesDirectionalBias(direction: "bullish" | "bearish", bias: DirectionalBias): boolean {

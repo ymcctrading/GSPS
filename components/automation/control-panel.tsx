@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 type RiskProfile = "PASSIVE" | "MODERATE" | "AGGRESSIVE";
 type DirectionalBias = "BULLISH_ONLY" | "BEARISH_ONLY" | "BOTH";
 type TriggerType = "PERCENTAGE" | "DOLLAR_AMOUNT";
+type ExecutionMode = "paper" | "live";
 
 export interface AutomationProfile {
   is_automation_enabled: boolean;
@@ -16,6 +17,7 @@ export interface AutomationProfile {
   directional_bias: DirectionalBias;
   volatility_trigger_type: TriggerType;
   volatility_trigger_value: number;
+  execution_mode: ExecutionMode;
 }
 
 const RISK: RiskProfile[] = ["PASSIVE", "MODERATE", "AGGRESSIVE"];
@@ -64,8 +66,8 @@ export function AutomationControlPanel({
           <CardTitle>Automated Portfolio Manager</CardTitle>
           <CardDescription>
             {profile.is_automation_enabled
-              ? "Running hands-free in paper trading — the engine scans for armed plans matching your dials and manages entries, stops, and exits automatically. Autonomous live execution is not available yet."
-              : "Manual execution only. Flip the switch to hand paper-trading control to the engine."}
+              ? `Running hands-free in ${profile.execution_mode} trading — the engine scans for armed plans matching your dials and manages entries, stops, and exits automatically.`
+              : "Manual execution only. Flip the switch to hand control to the engine."}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -88,6 +90,36 @@ export function AutomationControlPanel({
               )}
             />
           </button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Execution mode</CardTitle>
+          <CardDescription>
+            Live requires a connected live broker account and is not yet authorized on this
+            deployment — see the note below. Selecting it now saves the preference; the engine
+            keeps trading paper on your behalf until both are in place.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <Segmented
+            options={[
+              { key: "paper", label: "Paper" },
+              { key: "live", label: "Live" },
+            ]}
+            selected={profile.execution_mode}
+            onSelect={(execution_mode) => persist({ ...profile, execution_mode })}
+          />
+          {profile.execution_mode === "live" && (
+            <p className="rounded border border-warn/40 bg-warn-soft px-3 py-2 text-xs text-warn">
+              Live autonomous execution is gated behind a dedicated kill switch and an explicit
+              authorization record on this deployment (see docs/
+              AUTOMATED_PORTFOLIO_MANAGER_LIVE_REVIEW.md). Until both are in place, the engine
+              continues placing paper trades even with Live selected here — nothing changes about
+              your real account.
+            </p>
+          )}
         </CardContent>
       </Card>
 

@@ -2,7 +2,7 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-09-03 (Automated Portfolio Manager wired to a real, scheduled execution engine — paper mode only — out-of-phase note added).
+**Last updated:** 2026-09-03 (Automated Portfolio Manager wired to a real, scheduled execution engine, plus a pre-established, off-by-default route to live execution — out-of-phase note added).
 
 This document decides *what we build next and in what order*. Proposals and
 implementation work should trace back to a phase below. See
@@ -576,16 +576,27 @@ both signal discovery and execution.
   "Active algorithmic deployments" card on the same page, previously
   hardcoded to always read "No active deployments yet" regardless of real
   state, now queries `automation_profiles` for real.
-  Deliberately scoped to **paper mode only**: this loop enters positions
-  with no per-trade human click, a materially different risk profile from
-  the plan-scoped flow's live mode (where a member opts into one specific,
-  already-priced plan by hand). Autonomous live execution needs its own
-  safety review — a dedicated kill switch for this loop, sizing caps beyond
-  the existing per-order ceiling, and the kind of compliance sign-off
-  `docs/SIGNAL_REGIME_ENGINE.md` already flags for automated
-  recommendations — so `execution_mode` is not exposed on this profile at
-  all yet, and the control panel's copy says so. Tracked as a named
-  follow-up, not a silent gap.
+  Initially scoped to **paper mode only**, since this loop enters positions
+  with no per-trade human click — a materially different risk profile from
+  the plan-scoped flow's live mode, where a member opts into one specific,
+  already-priced plan by hand *(2026-09-03, same day, direct request: "pre-
+  establish the route" for live rather than block on a full review)* —
+  `user_automation_profiles.execution_mode` (`'paper'`/`'live'`,
+  `0060_autonomous_portfolio_manager_execution_mode.sql`) lets a member pick
+  live the same way they already do on the plan-scoped flow, and
+  `portfolio-manager.ts` honors it once
+  `checkAutonomousLiveTradingAuthorized` (`lib/automation/
+  autonomous-live-gate.ts`) actually authorizes it — a dedicated kill switch
+  (`AUTONOMOUS_LIVE_TRADING_HALTED`, defaults halted) plus a
+  `compliance_signoffs` ledger row (`0059_compliance_signoffs.sql`) that no
+  code path inserts on its own, both required before a single live order
+  goes out, with per-trade ($500) and rolling-24h ($1,500) caps specific to
+  this loop enforced independently of the plan-scoped flow's own $50,000
+  ceiling. See `docs/AUTOMATED_PORTFOLIO_MANAGER_LIVE_REVIEW.md` for exactly
+  what flips the switch. Picking "live" today changes nothing about a
+  member's real account — the loop keeps trading paper and says why in its
+  run logs — until a live broker connection, the kill switch, and the
+  sign-off record all exist.
 
 ### Dependencies
 
