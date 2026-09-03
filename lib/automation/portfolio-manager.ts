@@ -39,6 +39,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 import { getOrCreateAccount } from "@/lib/brokers/simulator";
+import { readLiveAccountValue } from "@/lib/risk/live-account";
 import { activateAutomationProfile } from "@/lib/automation/service";
 import {
   checkAutonomousLiveTradingAuthorized,
@@ -169,12 +170,6 @@ async function runForProfile(
     (plan) => !alreadyAutomated.has(plan.plan_id),
   );
 
-  const account = await getOrCreateAccount(supabase, profile.user_id);
-  const allocatedDollarRisk = Math.max(
-    MIN_ALLOCATED_DOLLAR_RISK,
-    Math.round(account.cash * RISK_PCT[profile.risk_profile]),
-  );
-
   // A member's choice of "live" only ever becomes a live order once the
   // dedicated kill switch is off AND a sign-off is on record
   // (checkAutonomousLiveTradingAuthorized, lib/automation/
@@ -204,6 +199,35 @@ async function runForProfile(
       new Date(Date.now() - 24 * 60 * 60 * 1000),
     );
   }
+
+  // Sizing has to read the account this loop is actually about to trade
+  // against — a live activation sized off the $100k paper balance instead
+  // of the member's real, possibly much smaller (or larger) live equity
+  // would either wildly over- or under-risk the account. Fails closed: an
+  // authorized "live" profile with no readable live equity skips this run
+  // rather than falling back to the paper balance as a stand-in.
+  let equityBasis: number;
+  if (executionMode === "live") {
+    const live = await readLiveAccountValue(supabase, profile.user_id);
+    if (!live.verified) {
+      result.plansSkipped += candidates.length;
+      if (candidates.length > 0) {
+        result.errors.push({
+          userId: profile.user_id,
+          reason: "Live execution authorized but no verified live account equity to size against — skipping this run.",
+        });
+      }
+      return;
+    }
+    equityBasis = live.equity;
+  } else {
+    equityBasis = (await getOrCreateAccount(supabase, profile.user_id)).cash;
+  }
+
+  const allocatedDollarRisk = Math.max(
+    MIN_ALLOCATED_DOLLAR_RISK,
+    Math.round(equityBasis * RISK_PCT[profile.risk_profile]),
+  );
 
   for (const plan of candidates) {
     if (!matchesDirectionalBias(plan.direction, profile.directional_bias)) {
