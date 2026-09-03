@@ -74,7 +74,7 @@ export function SavedSetupsList({ initialRows }: { initialRows: SavedSetupRow[] 
               <div
                 key={row.id}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5",
+                  "flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2.5",
                   row.monitorState === "INVALIDATED" && "bg-bear-soft/40",
                 )}
               >
@@ -88,7 +88,7 @@ export function SavedSetupsList({ initialRows }: { initialRows: SavedSetupRow[] 
                 {row.setup_kind === "continuation" && <Badge variant="muted">continuation</Badge>}
                 <MonitorStatus state={row.monitorState} />
                 <ScoreChange row={row} />
-                <span className="ml-auto flex items-center gap-3 text-xs font-mono text-muted">
+                <span className="flex flex-wrap items-center gap-3 text-xs font-mono text-muted sm:ml-auto">
                   {row.entry != null && <span>Entry {formatUsd(row.entry)}</span>}
                   {row.stop_loss != null && <span className="text-bear">Stop {formatUsd(row.stop_loss)}</span>}
                   {row.take_profit1 != null && <span className="text-bull">TP1 {formatUsd(row.take_profit1)}</span>}
