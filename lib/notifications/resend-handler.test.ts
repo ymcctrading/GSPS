@@ -31,12 +31,17 @@ const BASE: AlertEmailData = {
 describe("sendAlertEmail", () => {
   beforeEach(() => {
     process.env.RESEND_API_KEY = "test-key";
+    // sendAlertEmail's sandbox guard (Resend's onboarding@resend.dev sender
+    // can only deliver to this account's verified address) would otherwise
+    // skip BASE's userEmail before these tests ever reach sendMock.
+    process.env.RESEND_SANDBOX_RECIPIENTS = BASE.userEmail;
     sendMock.mockReset();
     sendMock.mockResolvedValue({ data: { id: "email-1" }, error: null });
   });
 
   afterEach(() => {
     delete process.env.RESEND_API_KEY;
+    delete process.env.RESEND_SANDBOX_RECIPIENTS;
   });
 
   it("includes the Signal and Regime Engine rollup when the payload carries one", async () => {
