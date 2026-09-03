@@ -6,6 +6,37 @@ function getResendClient() {
   return new Resend(process.env.RESEND_API_KEY);
 }
 
+/**
+ * Every send in this file goes out from Resend's shared sandbox sender
+ * ("onboarding@resend.dev" — see the `from` on each `.emails.send()` call
+ * below), and Resend hard-rejects that sender for any recipient except the
+ * account's own verified address until a custom domain is verified at
+ * resend.com/domains (docs/NOTIFICATIONS_SETUP.md). Before that happens,
+ * every other recipient fails identically — so skip them here, with a clear
+ * reason, instead of letting each one surface as an unexplained Resend 403.
+ *
+ * `RESEND_SANDBOX_RECIPIENTS` (comma-separated) overrides the default; unset,
+ * it falls back to the address Resend's own error already names as this
+ * account's verified owner. Once a domain is verified and the `from`
+ * addresses below move off `onboarding@resend.dev`, this check should be
+ * removed rather than reconfigured.
+ */
+function sandboxRecipients(): string[] {
+  return (process.env.RESEND_SANDBOX_RECIPIENTS ?? "ymcctrading@gmail.com")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function sandboxBlockReason(toEmail: string): string | null {
+  const recipients = sandboxRecipients();
+  if (recipients.includes(toEmail.trim().toLowerCase())) return null;
+  return (
+    `Resend sandbox sender (onboarding@resend.dev) can only deliver to ` +
+    `${recipients.join(", ")} until a domain is verified at resend.com/domains — skipped ${toEmail}.`
+  );
+}
+
 const TIER_LABEL: Record<PublicSignalSummary["tier"], string> = {
   watchlistOnly: "Watchlist only",
   qualified: "Qualified",
@@ -35,6 +66,11 @@ export async function sendAlertEmail(data: AlertEmailData) {
   if (!process.env.RESEND_API_KEY) {
     console.warn("RESEND_API_KEY not set; skipping email");
     return { success: false, error: "RESEND_API_KEY not configured" };
+  }
+  const blocked = sandboxBlockReason(data.userEmail);
+  if (blocked) {
+    console.warn(blocked);
+    return { success: false, error: blocked };
   }
 
   try {
@@ -145,6 +181,11 @@ export async function sendSetupInvalidatedEmail(data: SetupInvalidatedEmailData)
     console.warn("RESEND_API_KEY not set; skipping setup-invalidated email");
     return { success: false, error: "RESEND_API_KEY not configured" };
   }
+  const blocked = sandboxBlockReason(data.userEmail);
+  if (blocked) {
+    console.warn(blocked);
+    return { success: false, error: blocked };
+  }
 
   try {
     const subject = `${data.symbol} setup invalidated`;
@@ -202,6 +243,11 @@ export async function sendJournalEmail(data: JournalEmailData) {
   if (!process.env.RESEND_API_KEY) {
     console.warn("RESEND_API_KEY not set; skipping journal email");
     return { success: false, error: "RESEND_API_KEY not configured" };
+  }
+  const blocked = sandboxBlockReason(data.userEmail);
+  if (blocked) {
+    console.warn(blocked);
+    return { success: false, error: blocked };
   }
 
   try {
@@ -285,6 +331,11 @@ export async function sendOrderInvalidatedEmail(data: OrderInvalidatedEmailData)
     console.warn("RESEND_API_KEY not set; skipping invalidation email");
     return { success: false, error: "RESEND_API_KEY not configured" };
   }
+  const blocked = sandboxBlockReason(data.userEmail);
+  if (blocked) {
+    console.warn(blocked);
+    return { success: false, error: blocked };
+  }
 
   try {
     const subject = `Order canceled: ${data.symbol} invalidated before entry`;
@@ -356,6 +407,11 @@ export async function sendOperatorDriftAlertEmail(data: OperatorDriftAlertEmailD
   if (!process.env.RESEND_API_KEY) {
     console.warn("RESEND_API_KEY not set; skipping shadow-drift alert email");
     return { success: false, error: "RESEND_API_KEY not configured" };
+  }
+  const blocked = sandboxBlockReason(to);
+  if (blocked) {
+    console.warn(blocked);
+    return { success: false, error: blocked };
   }
 
   try {

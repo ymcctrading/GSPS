@@ -49,6 +49,12 @@ async function sendDailyJournals(): Promise<NextResponse> {
   let sent = 0;
   let skipped = 0;
   const failures: string[] = [];
+  // Resend's sandbox sender (onboarding@resend.dev) can only deliver to this
+  // account's own verified address until a domain is verified — see the
+  // guard in lib/notifications/resend-handler.ts. Recording these separately
+  // from `failures` keeps "Resend rejected the send" distinct from "expected,
+  // pending domain verification".
+  const sandboxBlocked: string[] = [];
 
   for (const user of users) {
     const { data: rows, error } = await supabase
@@ -93,6 +99,7 @@ async function sendDailyJournals(): Promise<NextResponse> {
     });
 
     if (result.success) sent++;
+    else if (result.error?.startsWith("Resend sandbox sender")) sandboxBlocked.push(user.email);
     else failures.push(`${user.email}: ${result.error}`);
   }
 
@@ -101,6 +108,8 @@ async function sendDailyJournals(): Promise<NextResponse> {
     usersChecked: users.length,
     sent,
     skipped,
+    sandboxBlocked: sandboxBlocked.length,
+    sandboxBlockedUsers: sandboxBlocked,
     failed: failures.length,
     failures,
   });

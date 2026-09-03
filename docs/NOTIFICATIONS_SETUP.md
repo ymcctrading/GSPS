@@ -122,6 +122,7 @@ Email digest of daily signals (morning wrap-up):
 |---|---|
 | Email not received | Check spam folder; verify email address in auth |
 | "RESEND_API_KEY not set" | Ensure `.env.local` has `RESEND_API_KEY=re_...` |
+| Resend 403 "can only send testing emails to your own email address" | Every send still uses Resend's sandbox sender (`onboarding@resend.dev`), which only delivers to `RESEND_SANDBOX_RECIPIENTS` (defaults to this account's verified address). Anyone else is skipped with a logged reason rather than erroring — see the guard in `lib/notifications/resend-handler.ts`. Fixed permanently by verifying a domain at resend.com/domains and moving the `from` addresses off `onboarding@resend.dev`, at which point this env var and its guard should be removed. |
 | Sentry not capturing errors | Check `NEXT_PUBLIC_SENTRY_DSN` is set; errors only sent to prod/staging |
 | Rate limit (100/day) | Resend free tier cap; upgrade plan if needed. Shared across alert emails, auth confirmation emails (see `docs/AUTH_EMAIL_SETUP.md`), order-invalidation emails, and the daily trade-journal digest (`/api/trade-journal/daily-email`, one email per user with a closed trade, 2 hours after close) — all draw from the same 100/day cap. |
 
@@ -148,6 +149,7 @@ User receives email in <10s
 ## Environment Variables
 
 - `RESEND_API_KEY` — required for email sends
+- `RESEND_SANDBOX_RECIPIENTS` — comma-separated allowlist for Resend's sandbox sender (see Troubleshooting); defaults to this account's verified address if unset
 - `NEXT_PUBLIC_SENTRY_DSN` — client-side error tracking
 - `SENTRY_DSN` — server-side error tracking
 
