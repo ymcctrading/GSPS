@@ -25,6 +25,7 @@ function toRow(r: ScanResult): ScanRow {
     masterProfit: r.levels?.masterProfit ?? null,
     patternName: r.pattern?.name ?? null,
     setupKind: r.setupKind,
+    stateNote: r.decision.summary?.stateNote ?? null,
     signal: toPublicSignalSummary(
       r.signals?.trendPullback,
       r.signals?.trendBreakout,
