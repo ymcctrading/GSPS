@@ -72,4 +72,28 @@ describe("ResultsTable", () => {
     expect(screen.getByText("Watchlist")).toBeInTheDocument();
     expect(screen.getByText("Range Reversion")).toBeInTheDocument();
   });
+
+  it("explains a score held below Execute instead of leaving the gap unexplained", () => {
+    render(
+      <ResultsTable
+        rows={[
+          {
+            ...BASE_ROW,
+            score: 7,
+            outputState: "Watch",
+            stateNote:
+              "This setup scores well on context, but the state is held lower because the trade plan has not met every condition for a live signal.",
+          },
+        ]}
+      />,
+    );
+    expect(
+      screen.getByText(/the state is held lower because the trade plan/),
+    ).toBeInTheDocument();
+  });
+
+  it("shows no note for a row that isn't held back", () => {
+    render(<ResultsTable rows={[BASE_ROW]} />);
+    expect(screen.queryByText(/held lower/)).not.toBeInTheDocument();
+  });
 });
