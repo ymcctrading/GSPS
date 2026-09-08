@@ -32,7 +32,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
+import { getUserEntitlementPolicy, type EntitlementPolicy } from "@/lib/entitlements/policy";
+import { evaluateMonitor } from "@/lib/entitlements/monitor-store";
 import { DEFAULT_PRO_INTRADAY_POLICY } from "@/lib/promotion/config";
 import { isConfirmedIntradayEntry, remainingSetupsDisplayable } from "@/lib/promotion/pro-intraday";
 import { getMarketDataProvider } from "@/lib/data/provider";
@@ -64,7 +65,8 @@ const BASELINE_DAYS = 12;
 const DAILY_ATR_DAYS = 45;
 
 /**
- * `intraday_alerts` (migration 0008) was shaped for the confluence scan, so
+ * `intraday_alerts` (migration 0016, renumbered from 0008 — see that file's
+ * header) was shaped for the confluence scan, so
  * three of its columns carry intraday values under names that don't say so.
  * The mapping is stated once, here, and used by both the read and the write —
  * a round trip that disagrees with itself would silently disable the cooldown.
@@ -108,6 +110,10 @@ export async function GET(req: NextRequest) {
   const supabase = systemScan ? createServiceClient() : await createClient();
   let userId: string | null = null;
   let proBounded = false;
+  // Hoisted out of the `!systemScan` block below so the monitor-wiring step
+  // near the end of this handler (on-demand path only) can read the same
+  // policy's `maxActiveWatchMonitors` without re-fetching it.
+  let policy: EntitlementPolicy | null = null;
   if (!systemScan) {
     const {
       data: { user },
@@ -124,7 +130,7 @@ export async function GET(req: NextRequest) {
     // 2026-08-29 (see docs/GSPS_TIER_ENTITLEMENT_SPEC.md's correction note and
     // ROADMAP.md) as a distinct, separately bounded module rather than a
     // widening of full intraday access -- see the `proBounded` filtering below.
-    const policy = await getUserEntitlementPolicy(supabase as Supabase, userId);
+    policy = await getUserEntitlementPolicy(supabase as Supabase, userId);
     if (!policy.intradayScansEnabled && !policy.proIntradayModuleEnabled) {
       return NextResponse.json(
         { error: "Intraday scans are available on the Pro plan and above." },
@@ -200,6 +206,36 @@ export async function GET(req: NextRequest) {
   const alertsPersisted = systemScan
     ? await persistSystemAlerts(supabase as ServiceSupabase, output.alerts, resolved)
     : await persistAlerts(supabase as Supabase, userId!, output.alerts, resolved);
+
+  // Feed this user's own `active_monitors` — the same WATCH/EXECUTE tracker
+  // `manual_dashboard` scans (app/api/batch-scan/route.ts) and the scheduled
+  // system scans already keep current via evaluateMonitor. Before this, an
+  // intraday-only mover never touched a profile's monitor state at all, so
+  // the Scanner page's History tab (app/api/scan-history/route.ts, which
+  // reads "current status" straight off active_monitors) and the dashboard
+  // could both go on showing a symbol as untracked, or stuck on a stale
+  // daily-scan state, after intraday had already confirmed a real move on
+  // it — the exact gap that made app/api/scan-history/route.ts's "kept
+  // current by every scan of any source... including intraday" claim false
+  // when it was written. System-scan runs are deliberately excluded: that
+  // path has no single profile to attribute a monitor to, and fanning a
+  // per-alert monitor write out to every entitled user on a job that polls
+  // every few minutes is a materially different cost/architecture decision
+  // left open rather than made silently here (see ROADMAP.md).
+  //
+  // Every intraday alert maps to EXECUTE, never WATCH: unlike the four-state
+  // Signal & Regime Engine's Watch tier, an intraday alert is not a pending
+  // setup awaiting confirmation — per this module's own header, "every
+  // output is a *confirmation* of a move that has already happened," so
+  // there is no earlier, unconfirmed state for it to occupy.
+  // Best-effort and isolated per alert: one symbol's monitor write failing
+  // must not discard alerts that already scanned, persisted, and are about
+  // to be returned to the caller.
+  if (!systemScan && policy && output.alerts.length > 0) {
+    await applyMonitorsForUser(userId!, output.alerts, policy.maxActiveWatchMonitors).catch((err) => {
+      console.error("[intraday-scan] monitor wiring failed:", err);
+    });
+  }
 
   // The email fan-out is what actually answers "why wasn't I notified" — it
   // only runs for the system scan. A signed-in user's own on-demand check is
@@ -481,6 +517,69 @@ async function persistAlerts(
     return false;
   }
   return true;
+}
+
+/**
+ * Records this on-demand scan as a `scan_executions` row (source:
+ * `"intraday"` — a value the check constraint in migration 0036 has always
+ * allowed, but nothing wrote until now) and evaluates an `active_monitors`
+ * transition for every alert's symbol against this profile, exactly as
+ * `evaluateMonitor` already does for `manual_dashboard` scans
+ * (app/api/batch-scan/route.ts). Deliberately does not call
+ * `evaluateMonitorsAndNotify` / dispatch a notification: an on-demand scan
+ * is the user looking, not the market moving, and intraday alerts already
+ * have their own, separate email path for actual market-driven moves
+ * (`notifySubscribedUsers`, system-scan only) — reusing the WATCH -> EXECUTE
+ * notification trigger here would double-fire on every manual check.
+ */
+async function applyMonitorsForUser(
+  profileId: string,
+  alerts: Alert[],
+  maxActiveWatchMonitors: EntitlementPolicy["maxActiveWatchMonitors"],
+): Promise<void> {
+  const service = createServiceClient();
+
+  const { data: execution, error: executionError } = await service
+    .from("scan_executions")
+    .insert({
+      profile_id: profileId,
+      source: "intraday",
+      started_at: new Date().toISOString(),
+      finished_at: new Date().toISOString(),
+      eligible_count: alerts.length,
+      visible_count: alerts.length,
+      result_fresh_as_of: new Date().toISOString(),
+    })
+    .select("id")
+    .single();
+
+  if (executionError || !execution) {
+    console.error(`[intraday-scan] scan execution not recorded — ${executionError?.message}`);
+    return;
+  }
+
+  // One alert can name a symbol more than once across signal types in the
+  // same run; a monitor is per profile+symbol, not per alert, so evaluate
+  // each symbol at most once here.
+  const bySymbol = new Map<string, Alert>();
+  for (const alert of alerts) {
+    if (!bySymbol.has(alert.symbol)) bySymbol.set(alert.symbol, alert);
+  }
+
+  for (const alert of bySymbol.values()) {
+    try {
+      await evaluateMonitor(service, {
+        profileId,
+        symbol: alert.symbol,
+        source: "intraday",
+        candidateState: "EXECUTE",
+        evaluationId: execution.id as string,
+        maxActiveWatchMonitors,
+      });
+    } catch (err) {
+      console.error(`[intraday-scan] monitor evaluation failed for ${alert.symbol}:`, err);
+    }
+  }
 }
 
 /**

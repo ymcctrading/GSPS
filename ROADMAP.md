@@ -198,6 +198,37 @@ both signal discovery and execution.
   "has this changed"; a symbol with no monitor history (most often a Reject
   that hasn't since become a real setup) is shown as untracked rather than
   guessed at. New route `/api/scan-history`; new module `lib/scanner/history.ts`.
+  *(Correction, 2026-09-08: "kept current by every scan for a profile" was
+  never actually true. `docs/GSPS_TIER_ENTITLEMENT_SPEC.md`'s "Eligible
+  monitor sources" names six sources; only `manual_dashboard` and the two
+  scheduled morning-scan sources ever called `evaluateMonitor` as of this
+  entry's original 2026-08-27 ship date — single-ticker scans (`/api/scan`)
+  and Expert/Wall Street intraday scans (`/api/intraday-scan`) were both
+  spec-eligible and both silently absent, so a symbol seen only through
+  either one could sit on this tab as permanently "untracked" even after
+  becoming a real Execute setup. Direct report traced this back from a
+  mismatch between this doc's own claim and `app/api/intraday-scan/route.ts`
+  never calling `evaluateMonitor`/`fanOutForProfile` anywhere in the file.
+  Closed both: `/api/scan` now records a `scan_executions` row (source
+  `single_ticker`, migration `0062` — the check constraint never allowed
+  that value before) and calls `evaluateMonitorsAndNotify`, same as
+  `/api/batch-scan`. `/api/intraday-scan` now does the same for a signed-in
+  user's own on-demand scan only (source `intraday`, candidate state always
+  `EXECUTE` — an intraday alert is a confirmation of a move already made,
+  not a pending setup, so it has no earlier WATCH state to occupy), via
+  `evaluateMonitor` directly rather than the full notify path, since an
+  on-demand check is the user looking, not the market moving, and intraday
+  already has its own separate email pipeline for real moves
+  (`notifySubscribedUsers`, system-scan only). The system-scan (cron) path
+  is deliberately still not wired: it has no single profile to attribute a
+  monitor write to, and fanning a per-alert monitor evaluation out to every
+  entitled user on a job that polls every few minutes on GitHub Actions is a
+  real cost/architecture decision (how many users, what it does to the
+  route's `maxDuration` budget) left open rather than made silently inside
+  a doc-comment fix — a candidate for a dedicated Q1 follow-up. `guided` and
+  `automation` remain intentionally unwired, per `app/api/guided/route.ts`'s
+  header and this file's own "Deliberately NOT wired" note elsewhere; they
+  were never part of this correction's scope.)*
   Distinct from BACKLOG.md's unchecked "Saved scan criteria/watchlists" item,
   which is about re-running a saved *configuration*, not reviewing past
   *results* — that item is still open.

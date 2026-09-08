@@ -9,8 +9,11 @@
  * results to `public.scan_results`) and the read side
  * (`app/api/scan-history/route.ts`, which joins those against
  * `public.active_monitors` — the entitlement notification system's own
- * live WATCH/EXECUTE/INVALIDATED tracker, kept current by every scan that
- * touches a symbol, of any source, for that profile).
+ * live WATCH/EXECUTE/INVALIDATED tracker. As of 2026-09-08 that's kept
+ * current by manual dashboard scans, single-ticker scans, the scheduled
+ * morning scans, and a signed-in user's own on-demand intraday scans — see
+ * `app/api/scan-history/route.ts`'s header for the full, sourced list and
+ * the sources deliberately left out).
  *
  * The comparison this module exists to support is deliberately asymmetric:
  * `scannedState` is a snapshot ("what the scan said that day"), `currentState`
