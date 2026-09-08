@@ -146,7 +146,7 @@ export async function GET(req: NextRequest) {
   // any hour — covers the full watchlist, same as before this parameter
   // existed.
   const universe = systemScan
-    ? resolveSystemUniverse(params.get("universe"))
+    ? await resolveSystemUniverse(params.get("universe"), supabase as ServiceSupabase)
     : resolveUniverse(params.get("symbols"));
   const config = resolveConfig(params);
   const provider = getMarketDataProvider();
@@ -231,17 +231,81 @@ export async function GET(req: NextRequest) {
 }
 
 /**
- * System-scan universe: the full watchlist, or crypto alone.
- *
- * `"crypto"` is the only recognized value — anything else (including a typo,
- * or a future value nobody has wired up yet) falls back to the full
- * watchlist rather than silently scanning nothing, since a scheduled run
- * that scans zero symbols would look identical to one that ran and found
- * nothing.
+ * Symbols added to this cap beyond the curated `WATCHLIST` come from users'
+ * own GSPS watchlists (below). Bounded so a popular-symbol tail can't turn a
+ * ~20-name scan into one large enough to blow the route's duration budget —
+ * see the `maxDuration` comment at the top of this file.
  */
-function resolveSystemUniverse(universeParam: string | null): { symbol: string; kind: AssetKind }[] {
+const MAX_SYSTEM_UNIVERSE = 50;
+
+/**
+ * System-scan universe: the curated watchlist plus whatever symbols users
+ * have actually added to their own GSPS watchlists, or crypto alone.
+ *
+ * The curated `WATCHLIST` was hand-picked before GSPS had its own
+ * watchlist feature (`watchlist_items`, migration 0001) and was never
+ * revisited after — so a symbol a user actually tracks (WFC, UAL, PG, GM,
+ * PLTR, GE, BA, RCL, NOC, TXN, SNDK, LMT, …) could move double digits in a
+ * session and this scan would never fetch a single bar for it, because
+ * nothing here ever looked past the hardcoded 21 names. Merging in the
+ * real watchlists closes that for anything the data providers can actually
+ * quote. It does not close it for index or futures symbols (SPX, /ESU25,
+ * /VXU25): `watchlist_items.asset_class` only allows `us_equity`/`crypto`,
+ * and `kindFor` below has no index/futures branch because the approved
+ * market-data sources carry no such quotes — that gap needs a new data
+ * source, not a bigger universe, and is left open rather than silently
+ * "fixed" here.
+ *
+ * `"crypto"` is the only recognized `universeParam` value — anything else
+ * (including a typo, or a future value nobody has wired up yet) falls back
+ * to the full universe rather than silently scanning nothing, since a
+ * scheduled run that scans zero symbols would look identical to one that
+ * ran and found nothing.
+ */
+async function resolveSystemUniverse(
+  universeParam: string | null,
+  supabase: ServiceSupabase,
+): Promise<{ symbol: string; kind: AssetKind }[]> {
   if (universeParam === "crypto") return WATCHLIST.filter((entry) => entry.kind === "crypto");
-  return WATCHLIST;
+
+  const watched = await loadWatchedSymbols(supabase);
+  const known = new Set(WATCHLIST.map((w) => w.symbol));
+  const additional = watched
+    .filter((w) => !known.has(w.symbol))
+    .slice(0, Math.max(0, MAX_SYSTEM_UNIVERSE - WATCHLIST.length));
+  return [...WATCHLIST, ...additional];
+}
+
+/**
+ * Every distinct symbol any user has added to a GSPS watchlist, ranked by how
+ * many users track it (so a capped universe keeps the most-watched additions
+ * first rather than an arbitrary slice). `asset_class` only ever holds
+ * `us_equity` or `crypto` (migration 0001's check constraint), which maps
+ * directly onto this scanner's `equity`/`crypto` kinds — a symbol already in
+ * `WATCHLIST` keeps its hand-picked kind there (e.g. ETF) instead of being
+ * counted a second time as a plain equity.
+ *
+ * A read failure returns no additions rather than throwing: this is a
+ * widening of the scan, not its foundation, and losing it for one run should
+ * degrade to "the curated list only", not fail the whole scan.
+ */
+async function loadWatchedSymbols(supabase: ServiceSupabase): Promise<{ symbol: string; kind: AssetKind }[]> {
+  const { data, error } = await supabase.from("watchlist_items").select("symbol, asset_class").limit(20_000);
+  if (error || !data) return [];
+
+  const counts = new Map<string, { kind: AssetKind; count: number }>();
+  for (const row of data) {
+    const symbol = row.symbol?.trim().toUpperCase();
+    if (!symbol) continue;
+    const kind: AssetKind = row.asset_class === "crypto" ? "crypto" : "equity";
+    const existing = counts.get(symbol);
+    if (existing) existing.count += 1;
+    else counts.set(symbol, { kind, count: 1 });
+  }
+
+  return [...counts.entries()]
+    .sort((a, b) => b[1].count - a[1].count)
+    .map(([symbol, v]) => ({ symbol, kind: v.kind }));
 }
 
 /** Symbols to scan: the caller's list, or the core watchlist. */
@@ -494,8 +558,39 @@ async function persistSystemAlerts(
   return true;
 }
 
+/**
+ * Every user's id, paginating through the admin API rather than trusting a
+ * single page — `notifySubscribedUsers` treats a user with no saved
+ * preferences row as opted in by default, so missing a page here would
+ * silently drop real recipients, not just extend a list that already had
+ * everyone.
+ */
+async function listAllUserIds(supabase: ServiceSupabase): Promise<string[]> {
+  const ids: string[] = [];
+  const perPage = 200;
+  for (let page = 1; ; page++) {
+    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
+    if (error || !data?.users?.length) break;
+    ids.push(...data.users.map((u) => u.id));
+    if (data.users.length < perPage) break;
+  }
+  return ids;
+}
+
 /** How far back a notification_log row still counts as "already sent this". */
 const NOTIFICATION_DEDUP_HOURS = 24;
+
+/**
+ * The default `app/api/notifications/preferences` (GET) itself promises to a
+ * user who has never saved a row: email on, score floor 5, no quiet hours.
+ */
+const DEFAULT_NOTIFICATION_PREFS = { min_score: 5, quiet_hours_enabled: false };
+
+interface EffectiveNotificationPrefs {
+  user_id: string;
+  min_score: number;
+  quiet_hours_enabled: boolean;
+}
 
 /**
  * Email every user whose notification preferences match a system-scan
@@ -504,15 +599,45 @@ const NOTIFICATION_DEDUP_HOURS = 24;
  * actual scan. Best-effort per user: one user's bad email address or a
  * `notification_log` write failure must not stop the rest of the list from
  * being notified.
+ *
+ * Fixed here: this used to query `notification_preferences` filtered to
+ * `email_enabled = true`, which only matches users who have explicitly
+ * opened Settings and saved a row. `app/api/notifications/preferences`'s own
+ * GET handler answers a user with no saved row as `email_enabled: true` by
+ * default — so "never visited Settings" was being read as "opted out",
+ * silently dropping every user from this list who hadn't. That is the
+ * "alerts exist but cannot reach users" gap in ROADMAP.md's critical-gaps
+ * table: alerts were firing and persisting to `intraday_system_alerts` the
+ * whole time, just never reaching an inbox. Now every user is a recipient
+ * unless a saved row explicitly sets `email_enabled: false`.
  */
 async function notifySubscribedUsers(supabase: ServiceSupabase, alerts: Alert[]): Promise<void> {
   if (!process.env.RESEND_API_KEY) return; // sendAlertEmail would no-op anyway; skip the query entirely
 
-  const { data: prefs, error } = await supabase
+  const { data: saved, error } = await supabase
     .from("notification_preferences")
-    .select("user_id, min_score, quiet_hours_enabled")
-    .eq("email_enabled", true);
-  if (error || !prefs || prefs.length === 0) return;
+    .select("user_id, email_enabled, min_score, quiet_hours_enabled");
+  if (error) return;
+
+  interface SavedRow {
+    user_id: string;
+    email_enabled: boolean | null;
+    min_score: number | null;
+    quiet_hours_enabled: boolean | null;
+  }
+
+  const savedByUser = new Map<string, SavedRow>(((saved ?? []) as SavedRow[]).map((p) => [p.user_id, p]));
+  const userIds = await listAllUserIds(supabase);
+
+  const prefs: EffectiveNotificationPrefs[] = userIds
+    .map((user_id): SavedRow => savedByUser.get(user_id) ?? { user_id, email_enabled: true, ...DEFAULT_NOTIFICATION_PREFS })
+    .filter((p): p is SavedRow & { email_enabled: true } => p.email_enabled === true)
+    .map((p) => ({
+      user_id: p.user_id,
+      min_score: p.min_score ?? DEFAULT_NOTIFICATION_PREFS.min_score,
+      quiet_hours_enabled: p.quiet_hours_enabled ?? DEFAULT_NOTIFICATION_PREFS.quiet_hours_enabled,
+    }));
+  if (prefs.length === 0) return;
 
   for (const alert of alerts) {
     const direction = DIRECTION_TO_SIGNAL_TYPE[alert.direction] as "bullish" | "bearish";
