@@ -14,6 +14,14 @@
  * plan that doesn't cover the endpoint) rather than throwing — the caller
  * falls back to simulated data for that section, the same "degrade, don't
  * break" seam every other provider in this app uses.
+ *
+ * Index ETFs (SPY, QQQ, IWM, DIA — see lib/sectors.ts's `isEtfSymbol`) hit
+ * this same `null` fallback on a correctly configured key: `/stock/profile2`
+ * has no SEC-style company profile for a fund and `/stock/recommendation`
+ * has no sell-side coverage for one, so both come back empty. That's a
+ * vendor-coverage gap, not a broken key — components/chart/company-panel.tsx
+ * and lib/data/company.ts's simulated description branch on `isEtfSymbol` so
+ * the UI says so instead of telling the user to (re-)set FINNHUB_API_KEY.
  */
 
 import { consensusFromBullishness, type AnalystRating, type CompanyProfile } from "./company";

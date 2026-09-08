@@ -21,6 +21,7 @@ import { PanelError, Skeleton } from "@/components/chart/market-tabs";
 import { formatUsd, cn } from "@/lib/utils";
 import type { ScanResult } from "@/lib/types";
 import type { CompanySnapshot } from "@/lib/data/company";
+import { isEtfSymbol } from "@/lib/sectors";
 
 export function CompanyPanel({
   symbol,
@@ -214,7 +215,9 @@ export function CompanyPanel({
       <p className="text-xs text-muted/80">
         {snapshot.sources.analystRating === "finnhub" || snapshot.sources.priceTarget === "finnhub"
           ? "Analyst rating and price target are live (Finnhub). Short interest, institutional flow and margin terms are still modelled — no vendor for those is wired up yet."
-          : "Simulated fundamentals — analyst coverage, short interest, institutional flow and margin terms are all modelled, not vendor data. Set FINNHUB_API_KEY to bring analyst rating and price target live."}
+          : isEtfSymbol(symbol)
+            ? `Simulated fundamentals — ${symbol.toUpperCase()} is an ETF, so Finnhub has no company profile or analyst coverage for it on any tier; only short interest, institutional flow and margin terms would ever be modelled here either way.`
+            : "Simulated fundamentals — analyst coverage, short interest, institutional flow and margin terms are all modelled, not vendor data. Set FINNHUB_API_KEY to bring analyst rating and price target live."}
       </p>
     </div>
   );
