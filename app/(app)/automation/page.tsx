@@ -13,6 +13,7 @@ import {
   type EligiblePlanSummary,
 } from "@/components/automation/gsps-plan-automation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { matchesDirectionalBias } from "@/lib/automation/portfolio-manager";
 
 export const metadata = {
   title: "Automation — GSPS",
@@ -226,6 +227,72 @@ async function activeDeployments(
     .filter((d): d is ActiveDeployment => d !== null);
 }
 
+interface WatchingSetup {
+  planId: string;
+  symbol: string;
+  direction: "bullish" | "bearish";
+  checklistSteps: number;
+  generatedAt: string;
+}
+
+/**
+ * The four stages `lib/lifecycle/entryConfirmation.ts` populates in order on
+ * `trade_plans.entry_confirmation` before `entryReady()` allows a plan to
+ * arm. Counting how many are non-null gives an honest 0-4 "how close is this
+ * to executing" readout without inventing a separate progress heuristic.
+ */
+const ENTRY_CONFIRMATION_STAGES = ["touchedAt", "breakOrSweepAt", "retestAt", "confirmationMoveAt"] as const;
+const MAX_WATCHING = 9;
+
+function countChecklistSteps(entryConfirmation: unknown): number {
+  if (!entryConfirmation || typeof entryConfirmation !== "object") return 0;
+  const evidence = entryConfirmation as Record<string, unknown>;
+  return ENTRY_CONFIRMATION_STAGES.filter((key) => evidence[key] != null).length;
+}
+
+/**
+ * Setups the engine has already flagged tradeable (EXECUTE) and is now
+ * tracking through the mandatory break/retest/confirmation-move sequence
+ * before it will arm and place a trade — this is the "not idle, here's what
+ * it's watching" surface for the Automated Portfolio Manager. Only plans in
+ * `awaiting_entry_confirmation` are shown: `watchlist`/`qualified` are
+ * pre-EXECUTE or momentary states with no real checklist progress yet, and
+ * `armed`+ already appear under "Active algorithmic deployments" once taken.
+ */
+async function watchingSetups(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  directionalBias: AutomationProfile["directional_bias"],
+): Promise<WatchingSetup[]> {
+  const { data } = await supabase
+    .from("trade_plans")
+    .select("plan_id, instrument, direction, entry_confirmation, generated_at")
+    .eq("user_id", userId)
+    .eq("state", "awaiting_entry_confirmation")
+    .order("generated_at", { ascending: false })
+    .limit(50);
+
+  const rows = (data ?? []) as {
+    plan_id: string;
+    instrument: string;
+    direction: "bullish" | "bearish";
+    entry_confirmation: unknown;
+    generated_at: string;
+  }[];
+
+  return rows
+    .filter((r) => matchesDirectionalBias(r.direction, directionalBias))
+    .map((r) => ({
+      planId: r.plan_id,
+      symbol: r.instrument,
+      direction: r.direction,
+      checklistSteps: countChecklistSteps(r.entry_confirmation),
+      generatedAt: r.generated_at,
+    }))
+    .sort((a, b) => b.checklistSteps - a.checklistSteps || b.generatedAt.localeCompare(a.generatedAt))
+    .slice(0, MAX_WATCHING);
+}
+
 async function AutomationHub({
   userId,
   supabase,
@@ -246,11 +313,54 @@ async function AutomationHub({
   ]);
 
   const initial: AutomationProfile = { ...DEFAULT_PROFILE, ...(data ?? {}) };
+  const watching = await watchingSetups(supabase, userId, initial.directional_bias);
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
       <AutomationControlPanel userId={userId} initial={initial} />
       <div className="flex flex-col gap-4">
+        <Card data-tour="automation-watching">
+          <CardHeader>
+            <CardTitle>Watching</CardTitle>
+            <CardDescription>
+              {watching.length > 0
+                ? `${watching.length} setup${watching.length === 1 ? "" : "s"} the engine has flagged tradeable and is tracking through the entry checklist — nothing executes until each one clears it.`
+                : "The engine scans on a schedule and flags a setup here the moment one is strong enough to track toward entry."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {watching.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-border py-10 text-center text-sm text-muted">
+                Nothing is currently confirming toward entry. Check back after the next scan.
+              </div>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {watching.map((w) => (
+                  <li
+                    key={w.planId}
+                    className="flex items-center justify-between rounded-lg border border-border px-4 py-3 text-sm"
+                  >
+                    <span className="font-medium">
+                      {w.symbol} · {w.direction === "bullish" ? "Long" : "Short"}
+                    </span>
+                    <span className="flex items-center gap-2 text-muted">
+                      <span className="flex gap-1" aria-hidden="true">
+                        {ENTRY_CONFIRMATION_STAGES.map((stage, i) => (
+                          <span
+                            key={stage}
+                            className={`h-1.5 w-4 rounded-full ${i < w.checklistSteps ? "bg-accent" : "bg-border"}`}
+                          />
+                        ))}
+                      </span>
+                      <span>{w.checklistSteps}/4 checklist</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
         <Card data-tour="automation-deployments">
           <CardHeader>
             <CardTitle>Active algorithmic deployments</CardTitle>
