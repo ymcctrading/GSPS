@@ -319,10 +319,15 @@ stops creating new `scan_executions` rows.
 `lib/entitlements/monitor.ts` (pure state-machine decision),
 `monitor-store.ts` (database-backed evaluation), and `delivery.ts`
 (idempotent delivery ledger + send) implement the WATCH → EXECUTE lifecycle.
-`lib/entitlements/scan-fanout.ts` wires them into every scan path
-(`/api/batch-scan` and the two scheduled jobs above) identically, so a user-
-initiated scan and a scheduled scan apply the same cooldown, re-arm, and
-invalidation-precedence rules.
+`lib/entitlements/scan-fanout.ts` wires them into `/api/batch-scan` and the
+two scheduled jobs above identically, so a user-initiated scan and a
+scheduled scan apply the same cooldown, re-arm, and invalidation-precedence
+rules. `/api/scan` (single-ticker) calls the same `evaluateMonitorsAndNotify`
+directly, and `/api/intraday-scan` calls `evaluateMonitor` on its own for a
+signed-in user's on-demand scan only — see that route's header (2026-09-08)
+for why the system (cron) intraday scan is deliberately not included. `guided`
+and `automation` remain intentionally unwired; see `app/api/guided/route.ts`'s
+header for guided's rationale.
 
 **Expected behavior:**
 
