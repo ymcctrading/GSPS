@@ -26,7 +26,7 @@ export default async function DirectionListPage({
   const isBull = dir === "bullish";
   const side = tradeSideWord(dir);
 
-  const { scanDate, freshness, pricedBeforeSession, bullish, bearish } = await getDailyScans();
+  const { scanDate, freshness, pricedBeforeSession, scannedAt, bullish, bearish } = await getDailyScans();
   const rows = isBull ? bullish : bearish;
   const continuations = rows.filter((r) => r.setupKind === "continuation").length;
 
@@ -57,6 +57,7 @@ export default async function DirectionListPage({
         freshness={freshness}
         scanDate={scanDate}
         pricedBeforeSession={pricedBeforeSession}
+        scannedAt={scannedAt}
       />
 
       <Card>

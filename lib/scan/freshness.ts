@@ -17,7 +17,7 @@
  * be wrong about whether a price is current.
  */
 
-import { etDateKey, etParts } from "@/lib/market/session";
+import { equitySession, etDateKey, etParts } from "@/lib/market/session";
 
 export type ScanSeverity = "current" | "previous-session" | "stale";
 
@@ -118,4 +118,42 @@ export function pricedBeforeSession(
   const { minutes, weekday } = etParts(at);
   if (weekday === 0 || weekday === 6) return true; // no session that day to be inside of
   return minutes < REGULAR_OPEN;
+}
+
+/**
+ * Same-session staleness the day-level model above can't see at all: it only
+ * distinguishes today's scan from a prior session's, so a list scored at
+ * 9:15am reads exactly as "current" at 9:16 and at 3:55pm alike, with the
+ * market having done anything in between (see the 2026-09-08 AVGO/IREN
+ * incident — a Sell setup priced ~8% through its own stop still read as an
+ * untouched, same-session "current" list).
+ *
+ * `intraday-scan` targets a ~15-minute refresh (`.github/workflows/intraday-scan.yml`),
+ * but that scheduler "is routinely a few minutes late" by its own admission,
+ * and a run can be skipped outright. Twice the target interval is the
+ * threshold for a note here: one missed cycle is the ordinary jitter that
+ * workflow already accepts, two is worth surfacing rather than silently
+ * trusting a stale snapshot as current.
+ */
+export const INTRADAY_REFRESH_TARGET_MINUTES = 15;
+export const INTRADAY_STALE_MINUTES = INTRADAY_REFRESH_TARGET_MINUTES * 2;
+
+/** Minutes elapsed since a scan ran, from its recorded `scannedAt`. Null when unknown. */
+export function minutesSinceScan(scannedAt: string | null | undefined, now: Date): number | null {
+  if (!scannedAt) return null;
+  const at = new Date(scannedAt);
+  if (Number.isNaN(at.getTime())) return null;
+  return Math.max(0, Math.round((now.getTime() - at.getTime()) / 60_000));
+}
+
+/**
+ * True when a same-session scan is old enough, with the market open, that it
+ * has likely missed at least one intraday refresh cycle. Distinct from
+ * `ScanFreshness.stale`, which only fires across session boundaries — this is
+ * the intraday case that model was never built to catch.
+ */
+export function intradayAging(scannedAt: string | null | undefined, now: Date): boolean {
+  if (equitySession(now) !== "regular") return false;
+  const minutes = minutesSinceScan(scannedAt, now);
+  return minutes != null && minutes >= INTRADAY_STALE_MINUTES;
 }

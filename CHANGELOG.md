@@ -7,7 +7,44 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
-## 2026-08-31
+## 2026-09-08
+
+### Fixed
+- **Stale setups presented as live after a fast market move** — the
+  2026-09-08 AVGO/IREN incident: IREN's 9:15am scan armed a Sell setup at a
+  $43.95 entry / $44.31 stop; by 9:37am, 22 minutes into the session, price
+  had already run to ~$47 — through the setup's own invalidation level —
+  while the dashboard, order ticket, and scan-freshness notice all still
+  read it as an untouched, current setup. Root cause: the correct
+  invalidation check already existed (`lib/trade/invalidate-pending.ts`'s
+  `isInvalidatedByStop`) but was wired only into the paper-broker order
+  simulator for orders already placed, never into the scan-display/order-ticket
+  read path, and the only staleness model wired to the UI
+  (`lib/scan/freshness.ts`) worked at session granularity ("today vs. a
+  prior session"), with no concept of intraday decay. Three fixes, same
+  root cause:
+  1. `components/trade/order-ticket.tsx` — Protocol Recommended mode now
+     runs the setup's own stop against the live quote already in the
+     component and blocks submission with an explicit "This setup is
+     invalidated" notice once price has traded through it, pointing to
+     Manual Override for anyone who wants to trade anyway.
+  2. `components/scan/results-table.tsx` — each ranked-setup row now polls
+     its own live quote (30s cadence, well under the free-tier request
+     budget — see `docs/THIRD_PARTY_LIMITS.md`) and badges/dims/strikes
+     itself "Invalidated" the same way, so the list itself stops
+     recommending a dead setup rather than relying on the user to open it
+     first.
+  3. `lib/scan/freshness.ts` — new `intradayAging`/`minutesSinceScan`,
+     surfaced via `StaleScanNotice`, flag a same-session scan more than
+     ~30 minutes old (2x `intraday-scan`'s own ~15-minute refresh target)
+     during market hours — the gap the day-level freshness model could
+     never see, and the plainest read of why the list can lag: GitHub
+     Actions' cron scheduler is `.github/workflows/intraday-scan.yml`'s
+     own documented "routinely a few minutes late," on top of which a run
+     can be skipped outright.
+  Production bug fix — N/A roadmap phase (out-of-phase per `AGENTS.md`:
+  a live setup recommending a trade against an already-invalidated thesis
+  is a money-risk defect, not scheduled feature work).
 
 ### Added
 - **Canonical decision record — design PR** (`docs/CANONICAL_DECISION_RECORD_DESIGN.md`),

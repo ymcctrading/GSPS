@@ -292,3 +292,57 @@ describe("OrderTicket — switching to a put", () => {
     expect(contract.textContent).toMatch(/P00220000$/);
   });
 });
+
+/**
+ * The AVGO/IREN 2026-09-08 incident: price had already traded through the
+ * setup's own stop by the time the ticket was opened, yet Protocol
+ * Recommended mode still quoted the dead advised entry with no warning.
+ * These lock in the fix — a bearish setup's stop sits above entry, so a
+ * *rise* through it invalidates a short; a bullish setup's sits below, so a
+ * *fall* through it invalidates a long.
+ */
+describe("OrderTicket protocol-level invalidation", () => {
+  it("blocks a Protocol Recommended short once price has risen through the stop", async () => {
+    mockFetch();
+    const scan = scanWithEntry(43.95, "bearish"); // stop = 43.95 * 0.88 = 38.676
+    render(<OrderTicket result={scan} livePrice={47.06} />);
+
+    expect(await screen.findByText(/This setup is invalidated/)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Sell short DRAM/ }),
+    ).toBeDisabled();
+  });
+
+  it("stays clear when price is still on the live side of the stop", async () => {
+    mockFetch();
+    // scanWithEntry's fixture stop is entry * 0.88 regardless of direction
+    // (38.676 here) — below that is "not yet through the stop" for this short.
+    const scan = scanWithEntry(43.95, "bearish");
+    render(<OrderTicket result={scan} livePrice={30} />);
+
+    expect(screen.queryByText(/This setup is invalidated/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Sell short DRAM/ })).not.toBeDisabled();
+  });
+
+  it("blocks a Protocol Recommended long once price has fallen through the stop", async () => {
+    mockFetch();
+    const scan = scanWithEntry(100, "bullish"); // stop = 100 * 0.88 = 88
+    render(<OrderTicket result={scan} livePrice={85} />);
+
+    expect(await screen.findByText(/This setup is invalidated/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Buy DRAM/ })).toBeDisabled();
+  });
+
+  it("lets Manual Override past the block", async () => {
+    const user = userEvent.setup();
+    mockFetch();
+    const scan = scanWithEntry(43.95, "bearish");
+    render(<OrderTicket result={scan} livePrice={47.06} />);
+
+    await screen.findByText(/This setup is invalidated/);
+    await user.click(screen.getByRole("button", { name: "Manual Override" }));
+
+    expect(screen.queryByText(/This setup is invalidated/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Sell short DRAM/ })).not.toBeDisabled();
+  });
+});
