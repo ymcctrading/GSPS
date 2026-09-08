@@ -5,7 +5,8 @@
 **Last updated:** 2026-09-08 (Portfolio analytics dashboard corrected to
 reflect that it shipped 2026-08-18 and was never marked done; Conditional
 orders closed — attaching a stop-loss/take-profit to a position already open,
-not just at order submission).
+not just at order submission; intraday-scan coverage and email-delivery gaps
+fixed — see the Notification system initiative note under Q1).
 
 This document decides *what we build next and in what order*. Proposals and
 implementation work should trace back to a phase below. See
@@ -126,7 +127,35 @@ both signal discovery and execution.
   whatever hour it's kicked off at — `?universe=crypto` is only ever set by
   the off-hours cron itself. Direct request; accepted knowingly as roughly
   4x this workflow's prior GitHub Actions run count, noted in
-  `docs/THIRD_PARTY_LIMITS.md`.)*
+  `docs/THIRD_PARTY_LIMITS.md`.)* *(Two more gaps fixed 2026-09-08, direct
+  report: a user's broker watchlist showed several $15+ intraday movers
+  (WFC, UAL, PG, GM, PLTR, GE, BA, RCL, NOC, TXN, SNDK, LMT, and others) that
+  GSPS never alerted on. First, a coverage gap: the system scan's universe
+  was still the ~21-name curated `WATCHLIST` in `lib/scanner/intraday.ts`,
+  never revisited after GSPS grew its own watchlist feature
+  (`watchlist_items`, migration 0001) — a symbol a user actually tracks
+  could move double digits and never have a single bar fetched for it.
+  Fixed: `resolveSystemUniverse` in `app/api/intraday-scan/route.ts` now
+  merges in every distinct symbol from `watchlist_items` across all users,
+  ranked by how many users track it and capped at `MAX_SYSTEM_UNIVERSE` (50)
+  to stay inside the route's duration budget. This does not, and cannot,
+  cover index or futures symbols (SPX, `/ESU25`, `/VXU25`— also seen in the
+  same report): `watchlist_items.asset_class` only allows
+  `us_equity`/`crypto`, and the approved market-data providers carry no
+  index/futures quotes at all — closing that needs a new data source, left
+  open rather than papered over. Second, a delivery gap, independent of the
+  first: `notifySubscribedUsers` queried `notification_preferences` filtered
+  to `email_enabled = true`, which only matches users who explicitly opened
+  Settings and saved a row — while `app/api/notifications/preferences`'s own
+  GET handler answers a user with no saved row as `email_enabled: true` by
+  default. Every user who had never visited Settings was silently read as
+  opted out, so alerts were firing and persisting to
+  `intraday_system_alerts` correctly but reaching no inbox. This is the
+  exact "alerts exist but cannot reach users" critical gap listed above.
+  Fixed: the email fan-out now defaults every user without a saved row to
+  the same on/score-5/no-quiet-hours default the settings API already
+  promises, via a full `auth.admin.listUsers()` pass rather than the
+  preferences table alone.)*
 - **Gann & Sara Cross-Market Confluence Layers** *(out-of-phase, direct
   request: "GSPS Gann & Sara Cross-Market Integration Addendum", 2026-08-28.
   Fits no Q1 strategic goal above — it's a signal-engine addition, not
