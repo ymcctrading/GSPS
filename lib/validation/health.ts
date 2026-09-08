@@ -205,6 +205,7 @@ export interface AuditFinding {
     | "sign-inverted"
     | "no-measured-effect"
     | "quarantine-liftable"
+    | "retired-criterion"
     | "coverage-gap"
     | "saturation-not-assessable";
   message: string;
@@ -247,6 +248,19 @@ export function auditCriteria(
         message:
           `"${observation.id}" was measured but is not declared in lib/validation/criteria-registry.ts. ` +
           "Add it with the sign you expect it to work in.",
+      });
+      continue;
+    }
+
+    // A retired criterion is history, not a live gate: historical payloads
+    // measured it, and gating on something the code no longer scores would
+    // block merges over the past.
+    if (criterion.evidence === "retired") {
+      findings.push({
+        severity: "info",
+        id: criterion.id,
+        kind: "retired-criterion",
+        message: `${criterion.id} is retired and no longer scored; ${population.label} predates the change.`,
       });
       continue;
     }

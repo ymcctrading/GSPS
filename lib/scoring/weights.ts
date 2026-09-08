@@ -30,7 +30,7 @@ export const CRITERION_KEYS = [
   "harmonicProximity",
   "historicalSR",
   "patternArmed",
-  "momentum",
+  "stopRoom",
   "timeCycle",
   "masterStructural",
 ] as const;
@@ -54,7 +54,7 @@ export const CRITERION_LABELS: Record<CriterionKey, string> = {
   harmonicProximity: "Key price level proximity",
   historicalSR: "Historical support/resistance",
   patternArmed: "Pattern armed",
-  momentum: "Momentum / volatility elevated",
+  stopRoom: "Stop room (>= 1.5x ATR)",
   timeCycle: "Cyclical turn window active",
   masterStructural: "Final target confirmed by structure",
 };

@@ -73,6 +73,7 @@ const allPass: ScoreInputs = {
   nearSupportResistance: true,
   pattern,
   momentumElevated: true,
+  stopAtrMultiple: 2,
   levels,
 };
 
@@ -84,6 +85,7 @@ const allFail: ScoreInputs = {
   nearSupportResistance: false,
   pattern: null,
   momentumElevated: false,
+  stopAtrMultiple: 0.8,
   levels: null,
 };
 

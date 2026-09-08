@@ -90,6 +90,8 @@ describe("criteria registry completeness", () => {
     const scoreKeys = new Set<string>(CRITERION_KEYS);
 
     const stale = CRITERIA_REGISTRY.filter((c) => {
+      // Retired entries are deliberately absent from source — see EvidenceStatus.
+      if (c.evidence === "retired") return false;
       if (c.family === "rulesAlignment") return !alignmentKeys.has(c.id);
       if (c.family === "disqualifier") return !disqualifierKeys.has(c.id);
       if (c.family === "scanScore") return !scoreKeys.has(c.id);
@@ -119,7 +121,12 @@ describe("criteria registry hygiene", () => {
   });
 
   it("keeps the scored family aligned with the weight set that scores it", () => {
-    expect(criteriaByFamily("scanScore").map((c) => c.id).sort()).toEqual([...CRITERION_KEYS].sort());
+    expect(
+      criteriaByFamily("scanScore")
+        .filter((c) => c.evidence !== "retired")
+        .map((c) => c.id)
+        .sort(),
+    ).toEqual([...CRITERION_KEYS].sort());
   });
 });
 

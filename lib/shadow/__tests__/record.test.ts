@@ -13,6 +13,7 @@ function baseResult(overrides: Partial<ScanResult> = {}): ScanResult {
     direction: "bullish",
     setupKind: "reversion",
     momentumElevated: false,
+    stopAtrMultiple: 0.8,
     trends: [],
     gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleDates: [] },
     pattern: { name: "2-2", direction: "bullish", triggerPrice: 200, stopPrice: 195 } as ScanResult["pattern"],

@@ -64,7 +64,14 @@ export type EvidenceStatus =
   /** Measured *against* its declared sign. Known-bad, deliberately not blocking — see `quarantineReason`. */
   | "quarantined"
   /** No outcome has ever been measured against this criterion. */
-  | "unmeasured";
+  | "unmeasured"
+  /**
+   * Scored once, no longer scored. Kept so historical payloads under
+   * docs/replay-runs/ stay readable: they measured it, and a validity ledger
+   * that forgets what it used to score cannot explain its own past. Exempt
+   * from the completeness and stale-entry checks, and never gated on.
+   */
+  | "retired";
 
 export interface RegisteredCriterion {
   /** Stable id. Namespaced by state for `rulesAlignment`, where keys repeat across states. */
@@ -174,15 +181,29 @@ const SCAN_SCORE: RegisteredCriterion[] = [
     saturation: { minPassRate: 0, maxPassRate: 1 },
   },
   {
-    id: "momentum",
+    id: "stopRoom",
     family: "scanScore",
     source: "lib/scoring/score.ts",
-    label: "Momentum / volatility elevated",
+    label: "Stop room (>= 1.5x ATR)",
     expectedSign: "positive",
     evidence: "hypothesis",
     note:
-      "The only criterion to clear the sample floor in the declared direction (+0.30R, informative, " +
-      "15Min 2026-09-08) — but it inverts at 1Hour (−1.43R) on a sample too small to trust. Unstable, not validated.",
+      "Replaced `momentum` on 2026-09-08. Momentum was the deadest criterion in the app: on 1,005 " +
+      "unconditioned live trades it measured r=−0.0003, t=−0.01, Δ=−0.002R — three ten-thousandths " +
+      "of a correlation, a point contributed for no information. It survives as an input to " +
+      "applyReversionConfirmation's bare-2-2 gate, which is a different job; it is simply no longer " +
+      "scored.\n" +
+      "\n" +
+      "Stop room is the strongest effect in that same run and the reason for the swap: split at " +
+      "1.5x ATR it is +0.217R against −0.072R, Δ=+0.289R at t=2.40, with a 40.0% win rate against a " +
+      "33.3% break-even. Larger than historicalSR, the best of the nine it joins. Expectancy is " +
+      "monotonic across the boundary and 1.5x is the only point where the sign flips.\n" +
+      "\n" +
+      "Registered as hypothesis, not validated, and deliberately so: one window, six large caps, " +
+      "15Min, reversion-only, and measured on the raw pattern stop rather than the leeway-widened " +
+      "stop production actually places. `?within=all&productionStop=1` is the confirming run. It " +
+      "reaches validated when that agrees. See MIN_STOP_ROOM_ATR for why this is a selection rule " +
+      "and never an instruction to widen a stop.",
   },
   {
     id: "timeCycle",
@@ -228,6 +249,24 @@ const SCAN_SCORE: RegisteredCriterion[] = [
  * points, so they cannot be re-weighted — but each one can still change the
  * output state, which makes them worth declaring.
  */
+/** Scored in the past, kept for the historical record. See `EvidenceStatus`. */
+const RETIRED: RegisteredCriterion[] = [
+  {
+    id: "momentum",
+    family: "scanScore",
+    source: "lib/scoring/score.ts (scored until 2026-09-08)",
+    label: "Momentum / volatility elevated",
+    expectedSign: "positive",
+    evidence: "retired",
+    note:
+      "Replaced by `stopRoom`. On 1,005 unconditioned live trades it measured r=−0.0003, t=−0.01, " +
+      "Δ=−0.002R: three ten-thousandths of a correlation, contributing a point of the nine for no " +
+      "information at all. Every payload committed before 2026-09-08 measured it, which is why the " +
+      "entry stays. `momentumElevated` itself is still computed and still gates the bare-2-2 check " +
+      "in applyReversionConfirmation — that job was never the scored point.",
+  },
+];
+
 const SCORE_HOLDS: RegisteredCriterion[] = [
   {
     id: "tradePlanPriced",
@@ -366,6 +405,7 @@ const DISQUALIFIERS: RegisteredCriterion[] = [
 
 export const CRITERIA_REGISTRY: RegisteredCriterion[] = [
   ...SCAN_SCORE,
+  ...RETIRED,
   ...SCORE_HOLDS,
   ...RULES_ALIGNMENT,
   ...DISQUALIFIERS,

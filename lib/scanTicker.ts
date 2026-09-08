@@ -285,6 +285,8 @@ export async function scanTicker(
           pattern,
           momentumElevated,
           levels,
+          stopAtrMultiple:
+            levels && executionAtr > 0 ? levels.riskPerShare / executionAtr : null,
           setupKind,
           atrPct,
           weights: await getActiveCriterionWeights(),
