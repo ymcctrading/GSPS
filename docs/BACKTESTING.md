@@ -32,6 +32,24 @@ project stores them under the names `ALPACAP_API` (key ID) and `ALPACA_API_SECRE
 `lib/data/alpaca.ts`'s `alpacaKeyId()`/`alpacaSecret()` already accept those exact spellings as
 fallbacks alongside `ALPACA_API_KEY`/`ALPACA_API_SECRET`, so no rename is needed.
 
+**Check `source` and `live` on every captured payload before you trust a number in it.** On
+2026-09-08 a run captured from a *preview* deployment came back `"source":"synthetic"`,
+`"live":false` — the credentials above did not reach it, despite the Production-and-Preview
+scoping this section claims. `getMarketDataProvider()` (lib/data/provider.ts) falls back to the
+seeded random walk silently whenever `alpacaConfigured()` is false, or whenever
+`MARKET_DATA_PROVIDER` is set to `synthetic`/`demo`/`mock`, so a credential-less deployment
+answers with a full, confident-looking report rather than an error. At `?within=all` that report
+is *large* — thousands of trades, every criterion clearing the sample floor, and in that instance
+an Execute bucket reading `"profitable":true` — which makes it the most convincing worthless
+result the harness can produce. `lib/validation/` now refuses to reason from such a payload, and
+`scripts/replay-report.mjs` has always refused to render one, but neither can help if a number is
+read straight out of the JSON by hand.
+
+The key-id names accepted are `ALPACA_API_KEY`, `ALPACAP_API`, `ALPACA_KEY_ID`; the secret names
+are `ALPACA_API_SECRET`, `ALPACA_API_SECRET_KEY`, `ALPACA_SECRET_KEY` (lib/data/alpaca.ts). A
+preview that returns synthetic is missing all of the first three, all of the second three, or is
+pinning `MARKET_DATA_PROVIDER`.
+
 This repo does not store the key values anywhere, including here — only that they exist and where.
 Because the keys live on the deployment and not on a local machine, the way to produce a
 credentialed run is the `--from` flow: hit `GET /api/backtest` while signed in on that deployment,
@@ -39,6 +57,44 @@ save the returned JSON under `docs/replay-runs/`, then run
 `npm run backtest -- --from docs/replay-runs/<file>.json` locally to render and commit
 `docs/REPLAY_RESULTS.md`. `/api/backtest` requires a signed-in session (`verifyAuth()`), so it
 can't be curled anonymously.
+
+## Validity is now a merge gate, not a habit
+
+Everything below this line is a measurement someone has to remember to take. That is how a
+criterion stayed inverted for months: every audit this repo has had asked *"does the code do what
+it says?"* — a **correctness** question, which the scoring criteria pass — and none asked *"does
+what the code does correlate with making money?"* — a **validity** question, which several fail.
+The harness could always answer the second one. Nothing required anyone to ask it.
+
+`lib/validation/` closes that. `criteria-registry.ts` declares every pass/fail gate in the app —
+the nine scored criteria, the four states' Rules Alignment components, the disqualifiers — each
+with the sign it is expected to work in and the evidence actually behind it.
+`__tests__/criteria-gate.test.ts` runs under `npm test`, which CI already runs on every push and
+PR, so three things now fail a build:
+
+- **An undeclared gate.** Add a scored criterion, an alignment component, or a disqualifier
+  without registering it and the build breaks. You cannot ship a gate without stating what you
+  expect it to do — the "catch it before it reaches `main`" half.
+- **A stale entry.** The registry cannot rot into a list of things that used to be true.
+- **A criterion measured saturated or inverted** on any committed payload under
+  `docs/replay-runs/`, unless it is explicitly `quarantined` with a stated reason *and* exit
+  condition.
+
+Two calibration decisions are worth knowing before you read a finding:
+
+- **Saturation is only assessed on an unconditioned population.** Inside a bucket the score
+  itself selected — an `Execute`-only attribution — criteria saturate by construction, because
+  the bucket was *defined* by them passing. Those samples report `not-assessable` rather than
+  guessing. Every payload committed so far is `Execute`-conditioned, so **saturation is currently
+  unmeasured across the whole app**; closing that needs an unconditioned run.
+- **A sign inside ±0.1 correlation is `negligible`, not inverted.** The committed runs are full
+  of criteria measuring −0.003 or −0.015. Blocking on those would train everyone to quarantine
+  reflexively, which is how a gate stops meaning anything. Applying that band turns 12 raw
+  "inversions" across the committed payloads into **one** real one.
+
+Quarantine is deliberately not a mute button: the finding still appears, downgraded to a warning,
+and a quarantined criterion that starts measuring correctly again raises `quarantine-liftable` so
+the quarantine cannot outlive its reason.
 
 ## Win rate decides nothing on its own
 

@@ -45,6 +45,27 @@ export type Bucket = "Execute" | "Watch" | "Reject" | "unscored";
 
 export const BUCKETS: Bucket[] = ["Execute", "Watch", "Reject", "unscored"];
 
+/**
+ * Attribute over every trade instead of one verdict bucket.
+ *
+ * Every `Bucket` is a slice the score itself selected, which makes all four
+ * useless for one specific question: whether a criterion is *saturated* — true
+ * for so many setups that it carries no information while still contributing
+ * its weight. Inside a bucket defined by those criteria passing, saturation is
+ * the bucket's definition rather than a defect, so measuring it there would
+ * flag correct criteria and, worse, launder real saturation as expected
+ * selection. Only an unconditioned population can answer it, and until this
+ * existed the API could not produce one — see `lib/validation/health.ts`.
+ */
+export const UNCONDITIONED_ATTRIBUTION = "all";
+
+/** Where factor attribution is computed: one verdict bucket, or every trade. */
+export type AttributionScope = Bucket | typeof UNCONDITIONED_ATTRIBUTION;
+
+export function isAttributionScope(value: string): value is AttributionScope {
+  return value === UNCONDITIONED_ATTRIBUTION || BUCKETS.includes(value as Bucket);
+}
+
 export interface BacktestRequest {
   symbols: string[];
   /** Execution timeframe the patterns are detected on. Defaults to 15Min. */
@@ -52,8 +73,12 @@ export interface BacktestRequest {
   /** Take-profit distance as a multiple of risk. Defaults to 2, matching TP1. */
   targetR?: number;
   costPerShare?: number;
-  /** Bucket to attribute factors within. Defaults to Execute. Ignored when `attributeScoreRange` is set. */
-  attributeWithin?: Bucket;
+  /**
+   * Where to attribute factors: one verdict bucket, or `"all"` for every trade
+   * (see `UNCONDITIONED_ATTRIBUTION` — the only scope saturation can be read
+   * from). Defaults to Execute. Ignored when `attributeScoreRange` is set.
+   */
+  attributeWithin?: AttributionScope;
   /**
    * Attribute factors within a score band instead of a verdict bucket —
    * `[5, 6]` for "one point short of Execute", say. Takes precedence over
@@ -353,7 +378,9 @@ export async function runBacktest(request: BacktestRequest): Promise<BacktestRep
   const split = byOutputState(run.overall);
   const target = attributeScoreRange
     ? byScoreRange(run.overall, attributeScoreRange[0], attributeScoreRange[1])
-    : split[attributeWithin];
+    : attributeWithin === UNCONDITIONED_ATTRIBUTION
+      ? run.overall
+      : split[attributeWithin];
   const attributedLabel = attributeScoreRange
     ? `score ${attributeScoreRange[0]}–${attributeScoreRange[1]}`
     : attributeWithin;

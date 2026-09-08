@@ -4,7 +4,12 @@
  *   ?symbols=SPY,AAPL      universe to replay (defaults to the batch-scan list)
  *   ?timeframe=15Min       execution timeframe patterns are detected on
  *   ?targetR=2             take-profit distance, in multiples of risk
- *   ?within=Execute        verdict bucket to attribute factors inside
+ *   ?within=Execute        verdict bucket to attribute factors inside, or
+ *                          `all` for every trade — the unconditioned scope,
+ *                          and the only one saturation can be read from (a
+ *                          bucket is a slice the score itself selected, so
+ *                          criteria saturate inside it by construction).
+ *                          See UNCONDITIONED_ATTRIBUTION in lib/backtest/run.ts.
  *   ?scoreRange=5-6        attribute factors within a score band instead of a
  *                          verdict bucket — mutually exclusive with `within`
  *   ?since=2026-06-15      replay only bars at or after this instant
@@ -32,7 +37,14 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { BUCKETS, collectRun, runBacktest, type Bucket } from "@/lib/backtest/run";
+import {
+  BUCKETS,
+  UNCONDITIONED_ATTRIBUTION,
+  collectRun,
+  isAttributionScope,
+  runBacktest,
+  type Bucket,
+} from "@/lib/backtest/run";
 import { byOutputState, byScoreRange } from "@/lib/backtest/replay";
 import { isTimeframe } from "@/lib/timeframe";
 import { verifyAuth } from "@/lib/auth";
@@ -102,8 +114,11 @@ export async function GET(req: NextRequest) {
   }
 
   const within = withinRaw ?? "Execute";
-  if (!BUCKETS.includes(within as Bucket)) {
-    return NextResponse.json({ error: `Invalid bucket '${within}'` }, { status: 400 });
+  if (!isAttributionScope(within)) {
+    return NextResponse.json(
+      { error: `Invalid bucket '${within}' — expected one of ${BUCKETS.join(", ")}, or 'all'` },
+      { status: 400 },
+    );
   }
 
   let scoreRange: [number, number] | undefined;
@@ -141,7 +156,9 @@ export async function GET(req: NextRequest) {
       });
       const bucketTrades = scoreRange
         ? byScoreRange(run.overall, scoreRange[0], scoreRange[1]).trades
-        : byOutputState(run.overall)[within as Bucket].trades;
+        : within === UNCONDITIONED_ATTRIBUTION
+          ? run.overall.trades
+          : byOutputState(run.overall)[within as Bucket].trades;
       return NextResponse.json({
         source: run.source,
         live: run.live,
@@ -168,7 +185,7 @@ export async function GET(req: NextRequest) {
       symbols: universe,
       timeframe,
       targetR,
-      attributeWithin: within as Bucket,
+      attributeWithin: within,
       ...(scoreRange ? { attributeScoreRange: scoreRange } : {}),
       ...(since !== null ? { since } : {}),
       ...(useProductionStop ? { useProductionStop } : {}),
