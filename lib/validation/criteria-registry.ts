@@ -98,14 +98,21 @@ const SCAN_SCORE: RegisteredCriterion[] = [
     source: "lib/scoring/score.ts",
     label: "Macro trend context (10yr/5yr/1yr)",
     expectedSign: "positive",
-    evidence: "quarantined",
-    quarantineReason:
-      "Measured negative on both runs of 2026-09-08 (−0.17R at 15Min, −1.42R at 1Hour) — the two " +
-      "agree in direction across different timeframes and windows, though each arm sits below the " +
-      "attribution sample floor on its own. The code is not defective: for a reversion setup it " +
-      "deliberately rewards the macro running AGAINST the trade, so what the data disputes is the " +
-      "counter-trend premise itself, not the implementation. Settled by a strategy decision on that " +
-      "premise, not by a code fix — do not 'correct' the sign here to make this green.",
+    evidence: "hypothesis",
+    note:
+      "The counter-trend premise, measured properly and NOT confirmed either way. This criterion " +
+      "deliberately rewards the macro running AGAINST a reversion setup, so it encodes the thesis " +
+      "the whole reversion scanner rests on. The first unconditioned production run — 1,005 trades, " +
+      "every one scored as a reversion (lib/backtest/replay.ts calls computeScore without setupKind, " +
+      "so it defaults to 'reversion'), making this a clean read of the premise — gives −0.124R delta " +
+      "but r=−0.044, t=−1.39: not distinguishable from zero. Passing arm −0.091R, failing +0.033R.\n" +
+      "\n" +
+      "So: the premise is not vindicated and not refuted. Every real run has leaned negative, which " +
+      "is worth watching, but no sample has yet cleared significance. Do NOT flip the sign to chase " +
+      "the negative delta — a flip would score reversion setups by a trend-following rule while the " +
+      "setups themselves keep fading, which is incoherent (see docs/BACKTESTING.md). The decision " +
+      "this criterion actually needs is a strategy one about the reversion/continuation mix, and it " +
+      "cannot be made until the continuation scanner grades separately, which it currently does not.",
   },
   {
     id: "hourlyTrend",
@@ -131,15 +138,13 @@ const SCAN_SCORE: RegisteredCriterion[] = [
     source: "lib/scoring/score.ts",
     label: "Key price level proximity",
     expectedSign: "positive",
-    evidence: "quarantined",
-    quarantineReason:
-      "The one criterion measuring against its claim on a sufficient sample and outside the noise " +
-      "band: −0.134 on 2026-08-12-1Hour-3R with both arms above the attribution floor. Its sign also " +
-      "still flips between timeframes on 2026-09-08 (+0.46R at 15Min, −0.68R at 1Hour). " +
-      "docs/BACKTESTING.md records this instability and attributes it to role-blindness; the " +
-      "role-aware proximity fix (strategy 2026-08-27) was meant to end it and demonstrably has not. " +
-      "Exits quarantine when a run measures it positive, outside the noise band, on two consecutive " +
-      "committed payloads across different timeframes.",
+    evidence: "hypothesis",
+    note:
+      "Quarantine lifted 2026-09-08 on better evidence. It was quarantined for measuring −0.134 on " +
+      "2026-08-12-1Hour-3R; the first unconditioned production run (1,005 reversion trades) measures " +
+      "it +0.078, t=2.48 — significant and in its declared direction, on a sample an order of " +
+      "magnitude larger. Passing arm +0.100R vs failing −0.122R. The larger sample supersedes the " +
+      "smaller. Reaches 'validated' on a second confirming unconditioned run.",
   },
   {
     id: "historicalSR",
@@ -147,8 +152,13 @@ const SCAN_SCORE: RegisteredCriterion[] = [
     source: "lib/scoring/score.ts",
     label: "Historical support/resistance",
     expectedSign: "positive",
-    evidence: "hypothesis",
-    note: "Positive on both 2026-09-08 runs (+0.56R, +1.50R) — the most consistent of the nine, still below the per-arm floor.",
+    evidence: "validated",
+    note:
+      "The strongest criterion in the app, and the only one whose passing arm is outright profitable. " +
+      "First unconditioned production run (1,005 reversion trades): +0.323R delta, r=+0.088, t=2.78 — " +
+      "significant. Passing arm wins 41.7% at 2R against a 33.3% break-even, for +0.240R expectancy; " +
+      "failing arm −0.082R. Positive in the declared direction on all three real runs to date " +
+      "(+0.56R and +1.50R on the 2026-09-08 Execute-conditioned pair, before this one).",
   },
   {
     id: "patternArmed",
@@ -180,16 +190,25 @@ const SCAN_SCORE: RegisteredCriterion[] = [
     source: "lib/gann/timeCycles.ts",
     label: "Cyclical turn window active",
     expectedSign: "positive",
-    evidence: "quarantined",
-    quarantineReason:
-      "Measured informative and inverted at 15Min on 2026-09-08 (−0.83R, correlation −0.30 — the " +
-      "strongest verified effect in either run, pointing the wrong way), and constant at 1Hour " +
-      "(13/13). Unlike macroTrend this one has real implementation defects behind it: ~108 projected " +
-      "dates per symbol each carrying a ±2-day window (near-total near-term coverage); no directional " +
-      "check, so a projected turn argues for a bullish and a bearish setup identically — the same " +
-      "role-blindness already fixed in harmonicProximity; and an anchor comment claiming 'top quartile " +
-      "by prominence' that findPivots() does not implement, so noise pivots seed cycles like major " +
-      "ones. Exits quarantine when those are fixed and a run measures it informative and positive.",
+    evidence: "hypothesis",
+    note:
+      "Two earlier claims about this criterion did NOT survive the first unconditioned run, and both " +
+      "corrections belong here rather than buried in a session log.\n" +
+      "\n" +
+      "1. SATURATION: not confirmed. It was measured at 13/13 inside a 1Hour Execute bucket and called " +
+      "saturated — but a verdict bucket is conditioned on these very criteria, so that number described " +
+      "the bucket, not the criterion. Unconditioned it passes 810/1,005 = 80.6%: high, and it does mean " +
+      "the criterion discriminates on only ~1 trade in 5, but comfortably inside the 5–95% bound.\n" +
+      "2. INVERSION: did not replicate. The −0.30 correlation came from a 28-trade Execute slice. On " +
+      "1,005 trades it is r=−0.040, t=−1.27 — not distinguishable from zero (delta −0.142R).\n" +
+      "\n" +
+      "What remains true is the code, independent of any measurement: ~108 projected dates per symbol " +
+      "each carrying a ±2-day window; no directional check, so a projected turn argues for a bullish " +
+      "and a bearish setup identically (the same role-blindness already fixed in harmonicProximity); " +
+      "and an anchor comment claiming 'top quartile by prominence' that findPivots() does not " +
+      "implement, so noise pivots seed cycles exactly like major ones. Those are worth fixing on their " +
+      "own merits — a criterion that cannot tell up from down is not measuring what it claims — but " +
+      "they are not currently backed by a measured inversion.",
   },
   {
     id: "masterStructural",
