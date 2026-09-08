@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { GlossaryTerm } from "@/components/glossary-term";
 import { checkBracket } from "@/lib/trade/bracket";
+import { isInvalidatedByStop } from "@/lib/trade/invalidate-pending";
 import { planProtocolExit } from "@/lib/trade/protocol-exit";
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 import {
@@ -194,6 +195,18 @@ export function OrderTicket({
   const activeExpiry = chain?.expirations.find((e) => e.expiration === expiration);
   const useProtocolLevels = executionMode === "protocol" && hasProtocolSignal;
 
+  // The setup's own invalidation rule, checked against the live quote rather
+  // than the price it was scored at. A stop is the line the pattern's thesis
+  // was staked on — once the market has traded through it, the advised entry
+  // is a dead level dressed up as a live one, and letting the ticket route an
+  // order at it (see the AVGO/IREN 9/8 incident) is the exact failure this
+  // guards against. Read off signalSide (the protocol's own direction), not
+  // the currently selected side, since the levels were computed for that
+  // direction regardless of which button the user has toggled.
+  const protocolInvalidated =
+    useProtocolLevels && !!levels && currentPrice != null &&
+    isInvalidatedByStop({ side: signalSide, limit_price: null, stop_price: levels.stopLoss }, currentPrice);
+
   // The price Alpaca measures the bracket legs against: the limit on an advised
   // entry, the live quote on a market entry. Choosing "buy now" below the
   // advised entry is what puts the protocol stop on the wrong side of the fill.
@@ -364,6 +377,7 @@ export function OrderTicket({
     (assetType === "options" && !canSubmitOptions) ||
     (shortBlocked && side === "sell") ||
     priceBlocked ||
+    protocolInvalidated ||
     (executionMode === "manual" && manualLevelsEntered && (!manualLevelsComplete || manualLevelsBlocked));
 
   const actionLabel = (() => {
@@ -417,6 +431,26 @@ export function OrderTicket({
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        {/* Caught before submit — price has already traded through the setup's
+            own stop, so the advised entry no longer reflects a live thesis. */}
+        {protocolInvalidated && levels && currentPrice != null && (
+          <div className="rounded-lg border border-bear/40 bg-bear-soft p-3 text-xs text-bear">
+            <p className="font-medium">This setup is invalidated.</p>
+            <p className="mt-1">
+              Price has {signalSide === "sell" ? "risen to" : "fallen to"} {formatUsd(currentPrice)},
+              through the {formatUsd(levels.stopLoss)} stop the {pattern ? PATTERN_GLOSSARY_TERM[pattern.name].toLowerCase() : "setup"}{" "}
+              thesis was staked on. The advised entry at {formatUsd(advised)} is a dead level —
+              placing this order at Protocol Recommended pricing is disabled.
+            </p>
+            <button
+              onClick={() => setExecutionMode("manual")}
+              className="mt-2 min-h-9 cursor-pointer font-medium underline underline-offset-2"
+            >
+              Switch to Manual Override to trade anyway →
+            </button>
+          </div>
+        )}
+
         {/* Shares vs Options */}
         <div className="grid grid-cols-2 gap-2">
           <TabButton active={assetType === "shares"} onClick={() => setAssetType("shares")} label="Shares" />

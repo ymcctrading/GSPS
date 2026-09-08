@@ -77,6 +77,7 @@ export default async function DashboardPage() {
         freshness={freshness}
         scanDate={scanDate}
         pricedBeforeSession={pricedBeforeSession}
+        scannedAt={scannedAt}
       />
 
       <LiveExpectancyToggle />

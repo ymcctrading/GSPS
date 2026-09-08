@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pricedBeforeSession, scanFreshness } from "@/lib/scan/freshness";
+import { intradayAging, minutesSinceScan, pricedBeforeSession, scanFreshness } from "@/lib/scan/freshness";
 
 /** 2026-08-05 is a Wednesday; 08-07 Friday, 08-08 Saturday, 08-10 Monday. */
 const at = (iso: string) => new Date(`${iso}T14:00:00.000Z`);
@@ -108,5 +108,49 @@ describe("pricedBeforeSession", () => {
     expect(pricedBeforeSession("2026-08-05", null)).toBe(false);
     expect(pricedBeforeSession("2026-08-05", undefined)).toBe(false);
     expect(pricedBeforeSession("2026-08-05", "nonsense")).toBe(false);
+  });
+});
+
+describe("minutesSinceScan", () => {
+  it("rounds the elapsed minutes since scannedAt", () => {
+    const scannedAt = "2026-08-05T13:15:00.000Z";
+    expect(minutesSinceScan(scannedAt, new Date("2026-08-05T13:37:00.000Z"))).toBe(22);
+  });
+
+  it("never goes negative on clock skew", () => {
+    const scannedAt = "2026-08-05T13:15:00.000Z";
+    expect(minutesSinceScan(scannedAt, new Date("2026-08-05T13:10:00.000Z"))).toBe(0);
+  });
+
+  it("is null without a usable timestamp", () => {
+    expect(minutesSinceScan(null, at("2026-08-05"))).toBeNull();
+    expect(minutesSinceScan("nonsense", at("2026-08-05"))).toBeNull();
+  });
+});
+
+describe("intradayAging — the same-session gap the day-level model can't see", () => {
+  // 2026-08-05 is a Wednesday. 9:15 ET = 13:15 UTC.
+  const scannedAt = "2026-08-05T13:15:00.000Z";
+
+  it("is quiet just after the scan — this is the AVGO/IREN incident's window", () => {
+    // 9:37 ET, 22 minutes after a 9:15 scan: still under the 30-minute threshold,
+    // which is exactly why the per-row live check (not this notice) had to carry
+    // the fix — a same-session list reads as fine here well past the point a
+    // fast-moving name can have blown through its stop.
+    expect(intradayAging(scannedAt, new Date("2026-08-05T13:37:00.000Z"))).toBe(false);
+  });
+
+  it("flags once the scan is stale enough to have likely missed a refresh cycle", () => {
+    // 9:15 + 31 minutes = past 2x the 15-minute intraday-scan target.
+    expect(intradayAging(scannedAt, new Date("2026-08-05T13:46:00.000Z"))).toBe(true);
+  });
+
+  it("stays quiet outside regular market hours — nothing to have moved past yet", () => {
+    // Same 31-minute gap, but landing at 4:46 AM ET, before the session opens.
+    expect(intradayAging(scannedAt, new Date("2026-08-05T08:46:00.000Z"))).toBe(false);
+  });
+
+  it("is quiet without a recorded scannedAt", () => {
+    expect(intradayAging(null, new Date("2026-08-05T15:00:00.000Z"))).toBe(false);
   });
 });

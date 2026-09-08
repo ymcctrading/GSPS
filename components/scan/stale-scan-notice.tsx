@@ -1,6 +1,6 @@
 import { AlertTriangle, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { ScanFreshness } from "@/lib/scan/freshness";
+import { intradayAging, minutesSinceScan, type ScanFreshness } from "@/lib/scan/freshness";
 
 /**
  * Says out loud that a list belongs to a session that has closed.
@@ -20,11 +20,14 @@ export function StaleScanNotice({
   freshness,
   scanDate,
   pricedBeforeSession = false,
+  scannedAt = null,
 }: {
   freshness: ScanFreshness;
   scanDate: string | null;
   /** The run happened before its own session opened — see lib/scan/freshness. */
   pricedBeforeSession?: boolean;
+  /** ISO timestamp the scan actually ran at — drives the intraday-aging note below. */
+  scannedAt?: string | null;
 }) {
   if (!scanDate) return null;
 
@@ -32,20 +35,45 @@ export function StaleScanNotice({
   // date says current, the bars behind it are yesterday's. Staleness takes
   // precedence when both apply — being days old is the larger problem.
   if (!freshness.stale) {
-    if (!pricedBeforeSession) return null;
-    return (
-      <div
-        role="status"
-        className="flex min-w-0 items-start gap-2.5 rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-muted"
-      >
-        <Clock className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-        <p className="min-w-0">
-          Priced before the {scanDate} session opened, so the 15-minute bars behind these
-          levels are the previous session&apos;s. Re-run the scan once the market has been
-          open a while for levels drawn on today&apos;s tape.
-        </p>
-      </div>
-    );
+    if (pricedBeforeSession) {
+      return (
+        <div
+          role="status"
+          className="flex min-w-0 items-start gap-2.5 rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-muted"
+        >
+          <Clock className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          <p className="min-w-0">
+            Priced before the {scanDate} session opened, so the 15-minute bars behind these
+            levels are the previous session&apos;s. Re-run the scan once the market has been
+            open a while for levels drawn on today&apos;s tape.
+          </p>
+        </div>
+      );
+    }
+
+    // Same session, market open, and old enough that the ~15-minute intraday
+    // refresh has likely slipped a cycle (see lib/scan/freshness.ts). The
+    // day-level model above reads this list as unconditionally "current" —
+    // this is the note that catches the gap it can't see.
+    if (intradayAging(scannedAt, new Date())) {
+      const minutes = minutesSinceScan(scannedAt, new Date());
+      return (
+        <div
+          role="status"
+          className="flex min-w-0 items-start gap-2.5 rounded-lg border border-warn/40 bg-warn-soft px-3 py-2.5 text-sm text-warn"
+        >
+          <Clock className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          <p className="min-w-0">
+            <span className="font-semibold">Scanned {minutes} minutes ago.</span> The market
+            has been open since, and these levels haven&apos;t been rechecked against it — a
+            setup here can already be invalidated by price the scan hasn&apos;t seen. Each row
+            checks its own live quote against its stop, but confirm before acting on anything
+            not flagged.
+          </p>
+        </div>
+      );
+    }
+    return null;
   }
 
   const hard = freshness.severity === "stale";
