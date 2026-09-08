@@ -27,6 +27,7 @@ const DEFAULT_PROFILE: AutomationProfile = {
   volatility_trigger_type: "PERCENTAGE",
   volatility_trigger_value: 2.0,
   execution_mode: "paper",
+  pivot_on_stop_out: false,
 };
 
 export default async function AutomationPage() {
@@ -304,7 +305,7 @@ async function AutomationHub({
     supabase
       .from("user_automation_profiles")
       .select(
-        "is_automation_enabled, risk_profile, directional_bias, volatility_trigger_type, volatility_trigger_value, execution_mode",
+        "is_automation_enabled, risk_profile, directional_bias, volatility_trigger_type, volatility_trigger_value, execution_mode, pivot_on_stop_out",
       )
       .eq("user_id", userId)
       .maybeSingle(),

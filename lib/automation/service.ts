@@ -289,6 +289,7 @@ function deriveOrderInputFromPlan(
       qty,
       entryMode: "now",
       referencePrice: plan.coordinates.entryTrigger,
+      sourcePlanId: plan.planId,
       attachLevels: {
         stopLoss: plan.coordinates.invalidation,
         takeProfit: plan.coordinates.takeProfit1,

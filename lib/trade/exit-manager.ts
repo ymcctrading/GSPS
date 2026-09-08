@@ -75,6 +75,7 @@ import {
 } from "@/lib/trade/protocol-exit";
 import { describeProtocolSignal, recordPendingExit } from "@/lib/portfolio/trade-log-record";
 import { isWorking, normalizeOrderStatus } from "@/lib/portfolio/order-status";
+import { handleAutomatedStopOut } from "@/lib/automation/stop-out";
 import type { createClient } from "@/lib/supabase/server";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
@@ -291,7 +292,14 @@ async function advance(
 
   if (action.kind === "close_all") {
     await closePosition(creds, plan.symbol);
-    await finish(supabase, userId, plan, "reversal", run, { highWater, entryPrice });
+    // `action.reason` is the real classification (trailing/break_even/
+    // protocol vs master_reversal) — passed through explicitly because the
+    // `applied_stop_reason` this write stores below is hardcoded to
+    // "master_reversal" for every close_all regardless of cause, and finish()
+    // needs the true reason to decide whether this was an actual stop-loss
+    // (lib/automation/stop-out.ts only fires on one of those, never a
+    // master-target close).
+    await finish(supabase, userId, plan, "reversal", run, { highWater, entryPrice, stopReason: action.reason });
     run.closed++;
     run.notes.push(`${plan.symbol}: ${action.explanation}`);
     return;
@@ -592,7 +600,7 @@ async function finish(
   plan: PlanRow,
   cause: "flat" | "reversal",
   run: ManageRun,
-  ctx?: { highWater: number | null; entryPrice: number },
+  ctx?: { highWater: number | null; entryPrice: number; stopReason?: StopReason },
 ): Promise<void> {
   const result = await recordPendingExit(supabase, userId, {
     symbol: plan.symbol,
@@ -618,6 +626,35 @@ async function finish(
     entry_price: ctx?.entryPrice ?? plan.entry_price,
     ...(cause === "reversal" ? { applied_stop_reason: "master_reversal" as const } : {}),
   });
+
+  // A real stop-loss closing an automated position — never a master-target
+  // close, and never the ambiguous "flat" cause (a broker-side close this
+  // module can't itself classify as a stop vs. a target). See
+  // lib/automation/stop-out.ts.
+  const isRealStopLoss =
+    ctx?.stopReason === "protocol" || ctx?.stopReason === "trailing" || ctx?.stopReason === "break_even";
+  if (isRealStopLoss && plan.entry_order_id) {
+    const { data: orderRow } = await supabase
+      .from("orders")
+      .select("source_plan_id")
+      .eq("broker_order_id", plan.entry_order_id)
+      .maybeSingle();
+    const sourcePlanId = (orderRow?.source_plan_id as string | null) ?? null;
+    if (sourcePlanId) {
+      await handleAutomatedStopOut(supabase, userId, {
+        planId: sourcePlanId,
+        entryFillPrice: ctx?.entryPrice ?? plan.entry_price,
+        stoppedAt: new Date().toISOString(),
+        // The real fill isn't known synchronously here — the broker settles
+        // it asynchronously (see the module header on `recordPendingExit`).
+        // `plan.stop_loss` is the actual, known level whose breach triggered
+        // this close, used only for the invalidation audit reason's wording.
+        exitPrice: plan.stop_loss,
+      }).catch((err) => {
+        console.error(`exit-manager: stop-out handling for plan ${sourcePlanId} failed — ${String(err)}`);
+      });
+    }
+  }
 }
 
 async function closePlan(

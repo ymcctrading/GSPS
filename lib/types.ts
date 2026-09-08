@@ -98,14 +98,33 @@ export interface TradeLevels {
   stopPctOfPrice: number;
   stopBandWarning: string | null;
   /**
-   * The counter-scenario: what invalidates this thesis and what to watch
-   * instead once it does. Optional because fixtures built by hand (tests,
-   * mocks) do not need to construct one — `computeTradeLevels` always sets
-   * it for a real scan. See lib/constants/gspsTerminology.ts's `pivotPlan`
-   * term, which this is the daily-scan counterpart to (the intraday scanner
-   * has its own richer version — lib/scanner/intraday.ts's `pivotPlan`).
+   * The counter-scenario: what invalidates this thesis and what a trade in
+   * the opposite direction would need before it's worth considering.
+   * Optional because fixtures built by hand (tests, mocks) do not need to
+   * construct one — `computeTradeLevels` always sets it for a real scan.
+   * See lib/constants/gspsTerminology.ts's `pivotPlan` term. Same shape as
+   * lib/scanner/intraday.ts's own (richer, session-aware) `TradePlan` — see
+   * `PivotPlan` below.
    */
-  pivotPlan?: string;
+  pivotPlan?: PivotPlan;
+}
+
+/**
+ * The pivot scenario shown alongside a trade plan: the counter-direction
+ * setup, described concretely enough to watch — or, if the automated
+ * portfolio manager's opt-in "pivot on stop-out" dial allows it
+ * (lib/automation/stop-out.ts), to later seed a real trade plan from — not
+ * merely a note that the original thesis failed.
+ */
+export interface PivotPlan {
+  /** What has to happen before the opposite-direction thesis is even worth evaluating. */
+  confirmation: string;
+  /** The level that would invalidate the pivot trade itself, if one were taken. Null when no structural extreme exists to derive it from at this timeframe. */
+  invalidation: number | null;
+  /** The first reasonable target for the pivot trade, if taken. */
+  firstTarget: number | null;
+  /** Conditions under which neither the original nor the pivot direction is worth trading. */
+  cancelIf: string;
 }
 
 /**
