@@ -65,6 +65,16 @@ export const OrderSchema = z.object({
    */
   intradaySourced: z.boolean().optional().default(false),
   /**
+   * The `trade_plans` row this order was authorized against, when there is
+   * one — set only by lib/automation/service.ts's `deriveOrderInputFromPlan`
+   * (both the plan-scoped GSPS Automation and the fully-autonomous Portfolio
+   * Manager go through it), never by a manual ticket. Persisted on the
+   * `orders` row so the exit managers (lib/trade/exit-manager-sim.ts,
+   * lib/trade/exit-manager.ts) can trace an actual stop-loss fill back to
+   * the plan that needs invalidating — see lib/automation/stop-out.ts.
+   */
+  sourcePlanId: z.string().uuid().optional(),
+  /**
    * How a limit price that falls between two valid increments should be
    * snapped. Omitted means conservative-by-side: a buy rounds down so the user
    * never pays more than they asked, a sell rounds up so they never receive
@@ -274,6 +284,7 @@ export async function placeSimulatedOrder(
     order_type: useBracket ? "bracket" : !isOption && input.entryMode === "advised" ? "limit" : orderType,
     qty: input.qty,
     intraday_sourced: input.intradaySourced,
+    source_plan_id: input.sourcePlanId ?? null,
     limit_price: submittedLimitPrice ?? null,
     requested_limit_price: input.limitPrice ?? null,
     tick_size: priceCheck?.tick?.size ?? null,
@@ -670,6 +681,7 @@ async function placeLiveOrder(
       side: input.side,
       order_type: useBracket ? "bracket" : orderType,
       qty: input.qty,
+      source_plan_id: input.sourcePlanId ?? null,
       limit_price: submittedLimitPrice ?? null,
       stop_price: stopLoss ?? null,
       take_profit: useBracket ? input.attachLevels!.takeProfit : null,

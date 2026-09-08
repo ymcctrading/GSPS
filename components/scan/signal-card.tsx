@@ -95,13 +95,33 @@ export function SignalCard({ result }: { result: ScanResult }) {
         {levels?.pivotPlan && (
           <div className="rounded-md border border-border bg-background p-3">
             <p className="text-xs font-medium text-muted">Pivot plan</p>
-            <p className="mt-1 text-sm">{levels.pivotPlan}</p>
+            <dl className="mt-1 flex flex-col gap-1 text-sm">
+              <PivotPlanLine label="Confirmation" value={levels.pivotPlan.confirmation} />
+              <PivotPlanLine
+                label="Invalidation"
+                value={levels.pivotPlan.invalidation != null ? formatUsd(levels.pivotPlan.invalidation) : "Not defined"}
+              />
+              <PivotPlanLine
+                label="First target"
+                value={levels.pivotPlan.firstTarget != null ? formatUsd(levels.pivotPlan.firstTarget) : "Not defined"}
+              />
+              <PivotPlanLine label="Cancel if" value={levels.pivotPlan.cancelIf} />
+            </dl>
           </div>
         )}
 
         {decision.summary && <ScoreBreakdown summary={decision.summary} />}
       </CardContent>
     </Card>
+  );
+}
+
+function PivotPlanLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col gap-0.5 sm:flex-row sm:gap-2">
+      <dt className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted sm:w-24">{label}</dt>
+      <dd>{value}</dd>
+    </div>
   );
 }
 

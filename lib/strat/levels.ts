@@ -11,7 +11,7 @@
  *    is known (see the warning block below).
  */
 
-import type { AssetClass, Bar, StratPattern, TradeLevels } from "@/lib/types";
+import type { AssetClass, Bar, PivotPlan, StratPattern, TradeLevels } from "@/lib/types";
 import { readPremiumStop } from "@/lib/trade/premium-stop";
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 
@@ -282,28 +282,39 @@ export function computeTradeLevels(
     masterFromStructure,
     stopPctOfPrice,
     stopBandWarning,
-    pivotPlan: buildPivotPlan(pattern, round(stopLoss)),
+    pivotPlan: buildPivotPlan(pattern, round(stopLoss), round(entry)),
   };
 }
 
 /**
- * The counter-scenario the PRD's Trade Map contract requires: a plain-language
- * answer to "what if this goes the other way," stated in terms of the stop
- * this setup already has rather than a second computed plan. A daily/swing
- * setup does not carry the intraday scanner's session context (VWAP, opening
- * range) to build a full opposite-direction trade plan from, so this is
- * deliberately a narrower counter-scenario than lib/scanner/intraday.ts's
- * `pivotPlan` — what invalidates the thesis and which way to start looking,
- * not a priced opposite entry.
+ * The counter-scenario the PRD's Trade Map contract requires: what invalidates
+ * this thesis and what a trade in the opposite direction would need before
+ * it's worth considering — the same philosophy as lib/scanner/intraday.ts's
+ * own `pivotPlan`, described concretely enough to watch or (via the
+ * automated portfolio manager's opt-in dial, lib/automation/stop-out.ts) to
+ * seed a real trade plan from, rather than a plain note that the original
+ * setup failed.
+ *
+ * Narrower than the intraday version in one respect: a daily/swing setup
+ * has no session context (VWAP, opening range, intraday high/low) to derive
+ * the pivot trade's *own* stop from, so `invalidation` stays null here —
+ * honest about what this timeframe actually knows, rather than fabricating
+ * a level nothing in the pattern supports.
  */
-function buildPivotPlan(pattern: StratPattern, stopLoss: number): string {
+function buildPivotPlan(pattern: StratPattern, stopLoss: number, entry: number): PivotPlan {
   const bullish = pattern.direction === "bullish";
   const opposite = bullish ? "bearish" : "bullish";
-  return (
-    `This ${pattern.direction} ${PATTERN_GLOSSARY_TERM[pattern.name].toLowerCase()} thesis is invalidated if price closes back through the ` +
-    `stop at ${stopLoss.toFixed(2)}. That does not itself confirm a ${opposite} trade — it only says the ` +
-    `original setup failed. Treat the next scan on this symbol as a fresh read, not a reversal signal.`
-  );
+  return {
+    confirmation:
+      `This ${pattern.direction} ${PATTERN_GLOSSARY_TERM[pattern.name].toLowerCase()} thesis is invalidated if price closes back through the stop at ${stopLoss.toFixed(2)}. ` +
+      `Even then, a ${opposite} trade needs its own evidence: a fresh pattern confirming in the ${opposite} direction, not just this one stopping out.`,
+    invalidation: null,
+    // Mirrors intraday's choice of VWAP (the level a reversal is expected to
+    // retest first): here, that's the level the original thesis entered at.
+    firstTarget: entry,
+    cancelIf:
+      "Price chops between the stop and the entry level without holding either side. Neither direction is worth trading in that state — standing aside is a position.",
+  };
 }
 
 function round(n: number): number {

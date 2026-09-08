@@ -29,6 +29,7 @@ import {
   planStopAdjustment,
   type StopReason,
 } from "@/lib/trade/protocol-exit";
+import { handleAutomatedStopOut } from "@/lib/automation/stop-out";
 import type { createClient } from "@/lib/supabase/server";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
@@ -51,6 +52,8 @@ export interface SimPlanRow {
   scale_out_fill_price: number | null;
   master_fill_price: number | null;
   runner_fill_price: number | null;
+  /** The `orders` row this exit plan's entry came from — used to trace a stop-out back to its `trade_plans` row. See lib/automation/stop-out.ts. */
+  entry_order_id: string | null;
   high_water: number | null;
   applied_stop: number | null;
   applied_stop_reason: StopReason | null;
@@ -132,6 +135,7 @@ function normalizePlan(row: Record<string, unknown>): SimPlanRow {
     scale_out_fill_price: numOrNull(row.scale_out_fill_price),
     master_fill_price: numOrNull(row.master_fill_price),
     runner_fill_price: numOrNull(row.runner_fill_price),
+    entry_order_id: (row.entry_order_id as string | null) ?? null,
     high_water: numOrNull(row.high_water),
     applied_stop: numOrNull(row.applied_stop),
     applied_stop_reason: (row.applied_stop_reason as StopReason | null) ?? null,
@@ -336,6 +340,29 @@ async function finish(supabase: Supabase, userId: string, plan: SimPlanRow, run:
     .eq("id", plan.id)
     .eq("user_id", userId)
     .eq("status", "working");
+
+  // A real stop-loss (not TP1, not the master target) closing an automated
+  // position is the only trigger for lib/automation/stop-out.ts — never a
+  // pre-entry rejection, and never a manual ticket's exit (those have no
+  // `orders.source_plan_id` to find here).
+  if (exitCondition === "stop_loss" && plan.entry_order_id) {
+    const { data: orderRow } = await supabase
+      .from("orders")
+      .select("source_plan_id")
+      .eq("id", plan.entry_order_id)
+      .maybeSingle();
+    const sourcePlanId = (orderRow?.source_plan_id as string | null) ?? null;
+    if (sourcePlanId) {
+      await handleAutomatedStopOut(supabase, userId, {
+        planId: sourcePlanId,
+        entryFillPrice: plan.entry_price,
+        stoppedAt: new Date().toISOString(),
+        exitPrice,
+      }).catch((err) => {
+        console.error(`exit-manager-sim: stop-out handling for plan ${sourcePlanId} failed — ${String(err)}`);
+      });
+    }
+  }
 
   run.closed++;
   run.notes.push(`${plan.symbol}: exit plan finished — logged at ${exitPrice.toFixed(2)}.`);

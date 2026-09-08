@@ -229,8 +229,9 @@ describe("trade level messages", () => {
     const plans = names.map(
       (name) => computeTradeLevels({ ...pattern, name, triggerPrice: 100, stopPrice: 99 }, prev, []).pivotPlan,
     );
-    expect(plans.every((p) => typeof p === "string")).toBe(true);
-    expectPlainLanguage(plans as string[]);
+    const confirmations = plans.map((p) => p?.confirmation);
+    expect(confirmations.every((c) => typeof c === "string")).toBe(true);
+    expectPlainLanguage(confirmations as string[]);
   });
 
   it("phrases the reachable rejection error in plain language", () => {

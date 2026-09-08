@@ -18,6 +18,7 @@ export interface AutomationProfile {
   volatility_trigger_type: TriggerType;
   volatility_trigger_value: number;
   execution_mode: ExecutionMode;
+  pivot_on_stop_out: boolean;
 }
 
 const RISK: RiskProfile[] = ["PASSIVE", "MODERATE", "AGGRESSIVE"];
@@ -178,6 +179,36 @@ export function AutomationControlPanel({
               persist({ ...profile, volatility_trigger_type })
             }
           />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Pivot on stop-out</CardTitle>
+          <CardDescription>
+            When one of the engine&apos;s own trades is stopped out, seed that instrument&apos;s
+            Pivot Plan — the opposite-direction contingency — as a fresh candidate. It still has to
+            independently confirm before it can arm; a stop-out never fires a trade by itself.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={profile.pivot_on_stop_out}
+            onClick={() => persist({ ...profile, pivot_on_stop_out: !profile.pivot_on_stop_out })}
+            className={cn(
+              "relative h-8 w-14 rounded-full transition-colors",
+              profile.pivot_on_stop_out ? "bg-bull" : "bg-border",
+            )}
+          >
+            <span
+              className={cn(
+                "absolute top-1 h-6 w-6 rounded-full bg-white transition-transform",
+                profile.pivot_on_stop_out ? "translate-x-7" : "translate-x-1",
+              )}
+            />
+          </button>
         </CardContent>
       </Card>
 
