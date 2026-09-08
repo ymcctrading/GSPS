@@ -32,6 +32,24 @@ project stores them under the names `ALPACAP_API` (key ID) and `ALPACA_API_SECRE
 `lib/data/alpaca.ts`'s `alpacaKeyId()`/`alpacaSecret()` already accept those exact spellings as
 fallbacks alongside `ALPACA_API_KEY`/`ALPACA_API_SECRET`, so no rename is needed.
 
+**Check `source` and `live` on every captured payload before you trust a number in it.** On
+2026-09-08 a run captured from a *preview* deployment came back `"source":"synthetic"`,
+`"live":false` — the credentials above did not reach it, despite the Production-and-Preview
+scoping this section claims. `getMarketDataProvider()` (lib/data/provider.ts) falls back to the
+seeded random walk silently whenever `alpacaConfigured()` is false, or whenever
+`MARKET_DATA_PROVIDER` is set to `synthetic`/`demo`/`mock`, so a credential-less deployment
+answers with a full, confident-looking report rather than an error. At `?within=all` that report
+is *large* — thousands of trades, every criterion clearing the sample floor, and in that instance
+an Execute bucket reading `"profitable":true` — which makes it the most convincing worthless
+result the harness can produce. `lib/validation/` now refuses to reason from such a payload, and
+`scripts/replay-report.mjs` has always refused to render one, but neither can help if a number is
+read straight out of the JSON by hand.
+
+The key-id names accepted are `ALPACA_API_KEY`, `ALPACAP_API`, `ALPACA_KEY_ID`; the secret names
+are `ALPACA_API_SECRET`, `ALPACA_API_SECRET_KEY`, `ALPACA_SECRET_KEY` (lib/data/alpaca.ts). A
+preview that returns synthetic is missing all of the first three, all of the second three, or is
+pinning `MARKET_DATA_PROVIDER`.
+
 This repo does not store the key values anywhere, including here — only that they exist and where.
 Because the keys live on the deployment and not on a local machine, the way to produce a
 credentialed run is the `--from` flow: hit `GET /api/backtest` while signed in on that deployment,
