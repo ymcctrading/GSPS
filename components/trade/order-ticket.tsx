@@ -205,7 +205,7 @@ export function OrderTicket({
   // direction regardless of which button the user has toggled.
   const protocolInvalidated =
     useProtocolLevels && !!levels && currentPrice != null &&
-    isInvalidatedByStop({ side: signalSide, limit_price: null, stop_price: levels.stopLoss }, currentPrice);
+    isInvalidatedByStop({ side: signalSide, stop_price: levels.stopLoss }, currentPrice);
 
   // The price Alpaca measures the bracket legs against: the limit on an advised
   // entry, the live quote on a market entry. Choosing "buy now" below the

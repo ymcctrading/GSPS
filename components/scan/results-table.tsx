@@ -100,7 +100,7 @@ function ResultsRow({ row: r }: { row: ScanRow }) {
     r.stopLoss != null &&
     quote != null &&
     isInvalidatedByStop(
-      { side: r.direction === "bearish" ? "sell" : "buy", limit_price: null, stop_price: r.stopLoss },
+      { side: r.direction === "bearish" ? "sell" : "buy", stop_price: r.stopLoss },
       quote.price,
     );
 

@@ -20,6 +20,15 @@ describe("isInvalidatedByStop", () => {
     const order = { side: "buy" as const, limit_price: 100, stop_price: null };
     expect(isInvalidatedByStop(order, 1)).toBe(false);
   });
+
+  it("takes a bare StopCheck — no limit_price required", () => {
+    // A scan setup or an order-ticket draft has a side and a stop before it
+    // ever has a resting order to attach a limit_price to (see StopCheck's
+    // doc comment) — this is what components/scan/results-table.tsx and
+    // components/trade/order-ticket.tsx actually call.
+    expect(isInvalidatedByStop({ side: "sell", stop_price: 44.31 }, 47.06)).toBe(true);
+    expect(isInvalidatedByStop({ side: "sell", stop_price: 44.31 }, 43.95)).toBe(false);
+  });
 });
 
 describe("invalidationReason", () => {
