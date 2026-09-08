@@ -127,6 +127,24 @@ interface ReplayPayload {
   timeframe: string;
   attributeWithin?: string | null;
   factors?: FactorAttribution[];
+  source?: string;
+  live?: boolean;
+}
+
+/**
+ * A synthetic run is a seeded random walk. It produces a full, confident-looking
+ * factor table describing nothing, and with `?within=all` it produces a *large*
+ * one — thousands of trades, every criterion clearing the sample floor. That is
+ * the most dangerous shape a fake result can take, because it looks like the
+ * best evidence in the repo.
+ *
+ * `scripts/replay-report.mjs` already refuses to render one. This gate has to
+ * refuse to *reason* from one, or a committed synthetic payload would quietly
+ * become the thing that clears or condemns a criterion. Captured 2026-09-08,
+ * when a preview deployment without vendor credentials returned exactly this.
+ */
+function isRealRun(payload: ReplayPayload): boolean {
+  return payload.live === true && payload.source !== "synthetic";
 }
 
 function committedPayloads(): Array<{ file: string; payload: ReplayPayload }> {
@@ -140,11 +158,32 @@ function committedPayloads(): Array<{ file: string; payload: ReplayPayload }> {
     .filter(({ payload }) => Array.isArray(payload.factors) && payload.factors.length > 0);
 }
 
-describe("committed replay runs", () => {
-  const payloads = committedPayloads();
+function auditablePayloads(): ReturnType<typeof committedPayloads> {
+  return committedPayloads().filter(({ payload }) => isRealRun(payload));
+}
 
-  it("has runs to audit", () => {
+describe("committed replay runs", () => {
+  const payloads = auditablePayloads();
+
+  it("has real runs to audit", () => {
     expect(payloads.length).toBeGreaterThan(0);
+  });
+
+  it("refuses to reason from a synthetic run, however large its sample", () => {
+    // The failure this guards against, observed 2026-09-08: a preview
+    // deployment without vendor credentials silently fell back to the seeded
+    // random walk and returned a 2,619-trade table in which every criterion
+    // was "informative" and Execute showed +0.033R as *profitable*. Bigger and
+    // cleaner-looking than any real run in the repo, and describing nothing.
+    const synthetic: ReplayPayload = { timeframe: "1Hour", source: "synthetic", live: false };
+    expect(isRealRun(synthetic)).toBe(false);
+    expect(isRealRun({ timeframe: "1Hour", source: "alpaca", live: true })).toBe(true);
+    // A payload that simply omits the provenance fields is not trusted either.
+    expect(isRealRun({ timeframe: "1Hour" })).toBe(false);
+
+    for (const { file, payload } of committedPayloads()) {
+      expect(payloads.some((p) => p.file === file) || !isRealRun(payload)).toBe(true);
+    }
   });
 
   it.each(payloads.map(({ file }) => file))(
