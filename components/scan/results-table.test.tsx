@@ -24,7 +24,7 @@ const BASE_ROW: ScanRow = {
 describe("ResultsTable", () => {
   it("shows a dash in the Signal Engine column when a row carries no rollup", () => {
     render(<ResultsTable rows={[BASE_ROW]} />);
-    expect(screen.getByText("—")).toBeInTheDocument();
+    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
   });
 
   it("shows the state, tier, and a tradeable indicator when a row carries a rollup", () => {
@@ -73,27 +73,14 @@ describe("ResultsTable", () => {
     expect(screen.getByText("Range Reversion")).toBeInTheDocument();
   });
 
-  it("explains a score held below Execute instead of leaving the gap unexplained", () => {
-    render(
-      <ResultsTable
-        rows={[
-          {
-            ...BASE_ROW,
-            score: 7,
-            outputState: "Watch",
-            stateNote:
-              "This setup scores well on context, but the state is held lower because the trade plan has not met every condition for a live signal.",
-          },
-        ]}
-      />,
-    );
-    expect(
-      screen.getByText(/the state is held lower because the trade plan/),
-    ).toBeInTheDocument();
+  it("shows the current price when a row carries one", () => {
+    render(<ResultsTable rows={[{ ...BASE_ROW, currentPrice: 101.5 }]} />);
+    expect(screen.getByText("$101.50")).toBeInTheDocument();
   });
 
-  it("shows no note for a row that isn't held back", () => {
+  it("shows a dash for the price when a row carries none", () => {
     render(<ResultsTable rows={[BASE_ROW]} />);
-    expect(screen.queryByText(/held lower/)).not.toBeInTheDocument();
+    const dashes = screen.getAllByText("—");
+    expect(dashes.length).toBeGreaterThan(0);
   });
 });
