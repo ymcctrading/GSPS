@@ -2,7 +2,10 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-09-03 (Automated Portfolio Manager wired to a real, scheduled execution engine, plus a pre-established, off-by-default route to live execution — out-of-phase note added).
+**Last updated:** 2026-09-08 (Portfolio analytics dashboard corrected to
+reflect that it shipped 2026-08-18 and was never marked done; Conditional
+orders closed — attaching a stop-loss/take-profit to a position already open,
+not just at order submission).
 
 This document decides *what we build next and in what order*. Proposals and
 implementation work should trace back to a phase below. See
@@ -140,8 +143,18 @@ both signal discovery and execution.
   specification. Both modules are additive confluence factors only: never a
   sole signal, never able to override a safety/account/eligibility gate. See
   `docs/GANN_SARA_CONFLUENCE.md`.)*
-- **Portfolio analytics dashboard** — win/loss ratio, Sharpe ratio, drawdown
-  analysis, monthly/quarterly P&L, performance by pattern type.
+- **Portfolio analytics dashboard** *(shipped 2026-08-18, PR #83 — carried
+  no roadmap update at the time, corrected here 2026-09-08)* — win/loss ratio,
+  Sharpe ratio, max drawdown, monthly/quarterly P&L, and performance by
+  pattern type, on the Portfolio page (`components/portfolio/analytics-dashboard.tsx`,
+  mounted at the bottom of `app/(app)/portfolio/page.tsx`) against four SQL
+  functions from migration `0023_portfolio_analytics.sql`
+  (`get_performance_metrics`, `get_pnl_by_period`, `get_performance_by_pattern`,
+  `get_equity_curve`, locked down to `security invoker` in `0025`/`0028`/`0031`)
+  behind `GET /api/portfolio/analytics`. Pattern type is `trade_logs.signal_called`.
+  Sharpe ratio and max drawdown are computed client-side
+  (`lib/portfolio/equity-metrics.ts`) from the equity-curve rows, since the SQL
+  function returns them `null` by design ("calculated separately for now").
 - **Scan history** *(shipped 2026-08-27, direct request)* — a "History" tab
   on the Scanner page (alongside Universe and Intraday, which gained a tab
   switcher to make room) showing every past manual scan's symbols next to
@@ -170,7 +183,26 @@ both signal discovery and execution.
   meaningfully larger than this PR's scope, so left for a dedicated
   follow-up rather than built partially here.
 - **Conditional orders** — stop-loss and take-profit on any order; the
-  foundation for Q2 bracket orders.
+  foundation for Q2 bracket orders. *(2026-09-08: most of this was already
+  built — `lib/trade/place-order.ts`'s `attachLevels` has staged a
+  stop-loss/take-profit pair at order submission since the protocol-exit work
+  (migration `0009`), executed by the same poll-driven exit managers
+  (`lib/trade/exit-manager-sim.ts` paper, `lib/trade/exit-manager.ts` live)
+  that drive every other staged exit. The gap was that a position opened
+  *without* levels attached at entry — a plain market order, a Guided fill
+  with none to attach — had no way to get protected afterward. Closed:
+  `lib/trade/attach-protocol-exit.ts` + `POST /api/positions/protect` attach
+  a stop-loss/take-profit pair to an already-open equity position, reusing
+  the same `planProtocolExit`/`checkBracket`/`protocol_exits` plumbing
+  `attachLevels` uses, so the position is picked up by the existing exit
+  managers with no new poll or cron. Surfaced on the Portfolio page as a
+  "Protect" action on an unprotected equity leg, and a "Stop $X · Target $Y"
+  / "Unprotected" line on every leg (`components/portfolio/open-positions.tsx`,
+  `lib/portfolio/blend.ts`). Paper-only and equity-only, same scope as
+  `attachLevels`; no schema change needed, since `orders`/`positions`/
+  `protocol_exits` already carried every column this needed. One working
+  plan per symbol at a time — attaching again while a plan is working is
+  refused rather than replacing it.)*
 - **Improved onboarding** — glossary integration, pattern education,
   guided paper-trade walkthrough. *(First-run tour shipped 2026-08-19: a
   spotlight walkthrough that auto-launches once per account and covers every

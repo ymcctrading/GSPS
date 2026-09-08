@@ -39,12 +39,22 @@ export interface Closable {
   plPct: number;
 }
 
+/** An equity leg that has no working conditional-order plan yet. */
+export interface Protectable {
+  symbol: string;
+  qty: number;
+  side: "long" | "short";
+  currentPrice: number;
+}
+
 export function BlendedPositionGroup({
   group,
   onClose,
+  onProtect,
 }: {
   group: BlendedPosition;
   onClose: (c: Closable) => void;
+  onProtect?: (p: Protectable) => void;
 }) {
   const [showGreeks, setShowGreeks] = useState(false);
   const legCount = (group.equity ? 1 : 0) + group.options.length;
@@ -73,7 +83,7 @@ export function BlendedPositionGroup({
         </div>
       </div>
 
-      {group.equity && <EquityLegs legs={[group.equity]} onClose={onClose} />}
+      {group.equity && <EquityLegs legs={[group.equity]} onClose={onClose} onProtect={onProtect} />}
 
       {group.options.length > 0 && (
         <OptionLegs
@@ -96,7 +106,15 @@ function SubHeading({ children, action }: { children: React.ReactNode; action?: 
   );
 }
 
-function EquityLegs({ legs, onClose }: { legs: EquityLeg[]; onClose: (c: Closable) => void }) {
+function EquityLegs({
+  legs,
+  onClose,
+  onProtect,
+}: {
+  legs: EquityLeg[];
+  onClose: (c: Closable) => void;
+  onProtect?: (p: Protectable) => void;
+}) {
   return (
     <>
       <SubHeading>Shares</SubHeading>
@@ -113,6 +131,7 @@ function EquityLegs({ legs, onClose }: { legs: EquityLeg[]; onClose: (c: Closabl
               <TH className="text-right">Unrealized P/L</TH>
               <TH className="text-right">Today</TH>
               <TH>Opened</TH>
+              <TH>Protection</TH>
               <TH className="text-center">Action</TH>
             </TR>
           </THead>
@@ -143,8 +162,14 @@ function EquityLegs({ legs, onClose }: { legs: EquityLeg[]; onClose: (c: Closabl
                   {formatPct(leg.todayPlPct)}
                 </TD>
                 <OpenedCell opened={leg.opened} />
+                <ProtectionCell leg={leg} />
                 <TD className="text-center">
-                  <CloseButton onClick={() => onClose(closableEquity(leg))} />
+                  <div className="flex items-center justify-center gap-1.5">
+                    {onProtect && leg.stopLoss == null && (
+                      <ProtectButton onClick={() => onProtect(protectableEquity(leg))} />
+                    )}
+                    <CloseButton onClick={() => onClose(closableEquity(leg))} />
+                  </div>
                 </TD>
               </TR>
             ))}
@@ -171,13 +196,49 @@ function EquityLegs({ legs, onClose }: { legs: EquityLeg[]; onClose: (c: Closabl
               <Field label="Today" value={formatPct(leg.todayPlPct)} />
             </dl>
             <OpenedLine opened={leg.opened} />
-            <div className="mt-2">
+            <ProtectionLine leg={leg} />
+            <div className="mt-2 flex gap-2">
+              {onProtect && leg.stopLoss == null && (
+                <ProtectButton onClick={() => onProtect(protectableEquity(leg))} />
+              )}
               <CloseButton onClick={() => onClose(closableEquity(leg))} />
             </div>
           </div>
         ))}
       </div>
     </>
+  );
+}
+
+/**
+ * The conditional-order levels attached to a leg, or a hint that none are.
+ * `leg.stopLoss` and `leg.takeProfit` are mirrored from the working
+ * `protocol_exits` plan (see lib/trade/attach-protocol-exit.ts) — both null
+ * means nothing has been attached yet.
+ */
+function ProtectionCell({ leg }: { leg: EquityLeg }) {
+  if (leg.stopLoss == null && leg.takeProfit == null) {
+    return <TD className="text-muted">Unprotected</TD>;
+  }
+  return (
+    <TD className="whitespace-nowrap text-xs text-muted">
+      {leg.stopLoss != null && <>Stop {formatUsd(leg.stopLoss)}</>}
+      {leg.stopLoss != null && leg.takeProfit != null && " · "}
+      {leg.takeProfit != null && <>Target {formatUsd(leg.takeProfit)}</>}
+    </TD>
+  );
+}
+
+function ProtectionLine({ leg }: { leg: EquityLeg }) {
+  if (leg.stopLoss == null && leg.takeProfit == null) {
+    return <p className="mt-1 text-xs text-muted">Unprotected — no stop or target attached.</p>;
+  }
+  return (
+    <p className="mt-1 text-xs text-muted">
+      {leg.stopLoss != null && <>Stop {formatUsd(leg.stopLoss)}</>}
+      {leg.stopLoss != null && leg.takeProfit != null && " · "}
+      {leg.takeProfit != null && <>Target {formatUsd(leg.takeProfit)}</>}
+    </p>
   );
 }
 
@@ -377,6 +438,26 @@ function CloseButton({ onClick }: { onClick: () => void }) {
       Close
     </button>
   );
+}
+
+function ProtectButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="min-h-9 cursor-pointer rounded-md border border-border px-2 py-1 text-xs font-medium text-muted transition-colors hover:border-accent hover:text-accent"
+    >
+      Protect
+    </button>
+  );
+}
+
+function protectableEquity(leg: EquityLeg): Protectable {
+  return {
+    symbol: leg.symbol,
+    qty: leg.totalShares < 0 ? -leg.totalShares : leg.totalShares,
+    side: leg.totalShares < 0 ? "short" : "long",
+    currentPrice: leg.currentPrice,
+  };
 }
 
 function closableEquity(leg: EquityLeg): Closable {

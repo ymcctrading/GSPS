@@ -7,8 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
+import { Input } from "@/components/ui/input";
 import { OrderLedger } from "@/components/portfolio/order-rows";
-import { BlendedPositionGroup, type Closable } from "@/components/portfolio/open-positions";
+import { BlendedPositionGroup, type Closable, type Protectable } from "@/components/portfolio/open-positions";
 import { RejectedOrders } from "@/components/portfolio/rejected-orders";
 import { SyncBar } from "@/components/portfolio/sync-bar";
 import { ExitActivity } from "@/components/portfolio/exit-activity";
@@ -27,6 +28,7 @@ export default function PortfolioPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [closing, setClosing] = useState<Closable | null>(null);
+  const [protecting, setProtecting] = useState<Protectable | null>(null);
 
   // Both loaders are promise chains rather than async functions on purpose:
   // every state write sits behind the fetch, so nothing can be set during the
@@ -164,7 +166,12 @@ export default function PortfolioPage() {
         ) : (
           <div className="flex flex-col gap-3">
             {blendedPositions.map((group) => (
-              <BlendedPositionGroup key={group.underlying} group={group} onClose={setClosing} />
+              <BlendedPositionGroup
+                key={group.underlying}
+                group={group}
+                onClose={setClosing}
+                onProtect={setProtecting}
+              />
             ))}
           </div>
         )}
@@ -268,6 +275,11 @@ export default function PortfolioPage() {
       <AnalyticsDashboard />
 
       <ClosePositionModal position={closing} onClose={() => setClosing(null)} onClosed={refresh} />
+      <ProtectPositionModal
+        position={protecting}
+        onClose={() => setProtecting(null)}
+        onProtected={refresh}
+      />
     </div>
   );
 }
@@ -428,6 +440,117 @@ function ClosePositionModal({
             tone={active.pl >= 0 ? "bull" : "bear"}
           />
         </dl>
+      )}
+    </Modal>
+  );
+}
+
+/**
+ * Attach a stop-loss and take-profit to a position that's already open — the
+ * conditional-order primitive place-order.ts's `attachLevels` only offers at
+ * order submission. See lib/trade/attach-protocol-exit.ts / /api/positions/protect.
+ * Both levels are required, same as attachLevels: a staged exit needs both a
+ * floor and a target to mean anything (see lib/trade/protocol-exit.ts).
+ */
+function ProtectPositionModal({
+  position,
+  onClose,
+  onProtected,
+}: {
+  position: Protectable | null;
+  onClose: () => void;
+  onProtected: () => void;
+}) {
+  const [stopLoss, setStopLoss] = useState("");
+  const [takeProfit, setTakeProfit] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const [activeSymbol, setActiveSymbol] = useState(position?.symbol ?? null);
+  if ((position?.symbol ?? null) !== activeSymbol) {
+    setActiveSymbol(position?.symbol ?? null);
+    setStopLoss("");
+    setTakeProfit("");
+    setErr(null);
+  }
+
+  async function submit() {
+    if (!position) return;
+    const stop = Number(stopLoss);
+    const target = Number(takeProfit);
+    if (!Number.isFinite(stop) || stop <= 0 || !Number.isFinite(target) || target <= 0) {
+      setErr("Enter a stop-loss and a take-profit, both above zero.");
+      return;
+    }
+    setSubmitting(true);
+    setErr(null);
+    try {
+      const res = await fetch("/api/positions/protect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol: position.symbol, stopLoss: stop, takeProfit: target }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+      onProtected();
+      onClose();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Modal
+      open={Boolean(position)}
+      onClose={onClose}
+      title={position ? `Protect ${position.symbol}` : ""}
+      description={
+        position
+          ? `${position.qty} shares, ${position.side}. Sets a staged stop-loss/take-profit exit, managed automatically the same way an order placed with protocol levels attached is.`
+          : ""
+      }
+      footer={
+        <div className="flex flex-col gap-2">
+          <div className="flex gap-2">
+            <Button variant="outline" className="flex-1" onClick={onClose} disabled={submitting}>
+              Cancel
+            </Button>
+            <Button className="flex-1" onClick={submit} disabled={submitting}>
+              {submitting ? "Saving…" : "Attach levels"}
+            </Button>
+          </div>
+          {err && <p className="text-sm text-bear">{err}</p>}
+        </div>
+      }
+    >
+      {position && (
+        <div className="flex flex-col gap-3 text-sm">
+          <p className="text-muted">Current price: {formatUsd(position.currentPrice)}</p>
+          <label className="flex flex-col gap-1">
+            <span className="text-muted">Stop-loss</span>
+            <Input
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={stopLoss}
+              onChange={(e) => setStopLoss(e.target.value)}
+              placeholder={position.side === "long" ? "below current price" : "above current price"}
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-muted">Take-profit</span>
+            <Input
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={takeProfit}
+              onChange={(e) => setTakeProfit(e.target.value)}
+              placeholder={position.side === "long" ? "above current price" : "below current price"}
+            />
+          </label>
+        </div>
       )}
     </Modal>
   );

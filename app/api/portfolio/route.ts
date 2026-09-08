@@ -103,6 +103,9 @@ export async function GET() {
         // number.
         todayPlPct: 0,
         assetClassHint: occ ? "us_option" : "us_equity",
+        stopLoss: occ ? null : p.stop_loss,
+        takeProfit: occ ? null : p.take_profit,
+        masterProfit: occ ? null : p.master_profit,
       };
     });
 

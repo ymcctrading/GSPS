@@ -32,6 +32,9 @@ const aaplShares: EquityLeg = {
   equityPlPct: 6.35,
   todayPlPct: 0.82,
   opened: { openedAt: "2026-08-07T14:14:00.000Z", reason: "derived" },
+  stopLoss: null,
+  takeProfit: null,
+  masterProfit: null,
 };
 
 const aaplCall: OptionLeg = {
