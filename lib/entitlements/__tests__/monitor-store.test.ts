@@ -152,6 +152,25 @@ describe("evaluateMonitor", () => {
     expect(transitions).toHaveLength(0);
   });
 
+  it("creates a new monitor born directly into EXECUTE, logs a transition, and notifies", async () => {
+    const { client, monitors, transitions } = fakeStore();
+    const result = await evaluateMonitor(client, {
+      profileId: "p1",
+      symbol: "nflx",
+      source: "scheduled_morning_scan",
+      candidateState: "EXECUTE",
+      evaluationId: "exec-1",
+      maxActiveWatchMonitors: 15,
+    });
+
+    expect(result).toMatchObject({ outcome: "applied", notify: true });
+    expect(result.outcome === "applied" && result.transitionId).toBeTruthy();
+    expect(monitors).toHaveLength(1);
+    expect(monitors[0]).toMatchObject({ symbol: "NFLX", state: "EXECUTE" });
+    expect(transitions).toHaveLength(1);
+    expect(transitions[0]).toMatchObject({ prior_state: null, new_state: "EXECUTE" });
+  });
+
   it("transitions an existing WATCH monitor to EXECUTE and reports notify:true", async () => {
     const { client, transitions } = fakeStore();
     await evaluateMonitor(client, {

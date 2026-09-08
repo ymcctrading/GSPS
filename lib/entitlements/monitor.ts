@@ -9,16 +9,20 @@
  *   WATCH -> INVALIDATED | EXPIRED | NO_SETUP
  *   INVALIDATED/EXPIRED/NO_SETUP -> WATCH -> EXECUTE (a new valid transition)
  *
- * Notify on a confirmed WATCH -> EXECUTE transition, and on a tracked setup
- * breaking (WATCH or EXECUTE -> INVALIDATED) -- the two events a user acting
- * on this monitor actually needs to hear about: a setup becoming actionable,
- * and a setup they were already watching or holding no longer being one.
- * NO_SETUP/EXPIRED never notify -- neither means the setup broke, just that
- * a later scan didn't re-confirm it, which is not itself alert-worthy. Never
- * re-alert an EXECUTE until the setup leaves EXECUTE, returns to WATCH, and
- * reconfirms EXECUTE; a newer (out-of-order) evaluation must not overwrite a
- * fresher one; a WATCH -> EXECUTE flap within the cooldown window is
- * suppressed rather than applied.
+ * Notify on a confirmed WATCH -> EXECUTE transition, on a brand-new monitor
+ * that is born directly into EXECUTE (a setup strong enough to be tradeable
+ * the first time a scan ever sees it -- there is no prior WATCH to have
+ * reconfirmed out of, but it is exactly as actionable as one that arrived
+ * there via WATCH, so it must notify and produce a trade plan the same way),
+ * and on a tracked setup breaking (WATCH or EXECUTE -> INVALIDATED) -- the
+ * events a user acting on this monitor actually needs to hear about: a setup
+ * becoming actionable, and a setup they were already watching or holding no
+ * longer being one. NO_SETUP/EXPIRED never notify -- neither means the setup
+ * broke, just that a later scan didn't re-confirm it, which is not itself
+ * alert-worthy. Never re-alert an EXECUTE until the setup leaves EXECUTE,
+ * returns to WATCH, and reconfirms EXECUTE; a newer (out-of-order) evaluation
+ * must not overwrite a fresher one; a WATCH -> EXECUTE flap within the
+ * cooldown window is suppressed rather than applied.
  */
 
 export type MonitorState = "WATCH" | "EXECUTE" | "INVALIDATED" | "NO_SETUP" | "EXPIRED";
@@ -49,10 +53,13 @@ export function decideTransition(args: {
   }
 
   if (priorState === null) {
-    // A brand-new monitor. Not a "transition" -- there is no prior WATCH to
-    // have reconfirmed out of, so this never notifies even if it is born
-    // directly into EXECUTE.
-    return { apply: true, isNewMonitor: true, isTransition: false, notify: false };
+    // A brand-new monitor. There is no prior WATCH to have reconfirmed out
+    // of, but a monitor born directly into EXECUTE is just as tradeable as
+    // one that arrived there via WATCH -- log it as a transition (prior
+    // state null) and notify, so it produces a trade plan like any other
+    // WATCH -> EXECUTE. Born into any other state is not alert-worthy.
+    const notify = candidateState === "EXECUTE";
+    return { apply: true, isNewMonitor: true, isTransition: notify, notify };
   }
 
   if (priorState === candidateState) {
