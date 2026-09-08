@@ -13,7 +13,7 @@
  * structural score alongside this fundamental/flow read.
  */
 
-import { sectorForSymbol } from "@/lib/sectors";
+import { sectorForSymbol, isEtfSymbol } from "@/lib/sectors";
 
 function hashStr(s: string): number {
   let h = 2166136261;
@@ -144,12 +144,15 @@ export function simulateCompanySnapshot(symbol: string, price: number): CompanyS
   // least in the right ballpark rather than pure noise.
   const sector = sectorForSymbol(up) ?? "Diversified";
   const shareOutstandingM = 50 + rnd() * 4950; // 50M–5B shares, seeded
+  const isEtf = isEtfSymbol(up);
   const profile: CompanyProfile = {
     name: up,
     sector,
     industry: sector,
     marketCapM: round2(price * shareOutstandingM),
-    description: `${up} is a publicly traded company. Sector and industry detail is simulated — set FINNHUB_API_KEY to bring in real company profile data.`,
+    description: isEtf
+      ? `${up} is an index ETF, not a company — Finnhub's free tier has no company profile or analyst coverage for funds, so this section stays modelled regardless of API key.`
+      : `${up} is a publicly traded company. Sector and industry detail is simulated — set FINNHUB_API_KEY to bring in real company profile data.`,
   };
 
   // Margin/shortable rates cluster around a broker-typical 8–11%, nudged by a

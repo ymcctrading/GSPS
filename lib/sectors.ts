@@ -62,3 +62,15 @@ export function sectorForSymbol(symbol: string): string | undefined {
   }
   return undefined;
 }
+
+/**
+ * Index ETFs have no SEC-style company profile and no sell-side analyst
+ * coverage, so Finnhub's free-tier `/stock/profile2` and
+ * `/stock/recommendation` endpoints come back empty for them regardless of
+ * whether `FINNHUB_API_KEY` is configured (see lib/data/finnhub.ts). The
+ * Company tab uses this to give an accurate reason for staying on simulated
+ * data instead of implying a missing/broken key.
+ */
+export function isEtfSymbol(symbol: string): boolean {
+  return SECTORS.etfs.symbols.includes(symbol.toUpperCase());
+}
