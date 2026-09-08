@@ -11,7 +11,7 @@
  */
 
 import { beforeAll, describe, expect, it } from "vitest";
-import { runBacktest } from "@/lib/backtest/run";
+import { UNCONDITIONED_ATTRIBUTION, isAttributionScope, runBacktest } from "@/lib/backtest/run";
 import { getMarketDataProvider } from "@/lib/data/provider";
 
 beforeAll(() => {
@@ -47,6 +47,44 @@ describe("runBacktest", () => {
       expect(factor.observed).toBeLessThanOrEqual(watch.trades);
       expect(factor.passed.n + factor.failed.n).toBe(factor.observed);
     }
+  });
+
+  it("accepts every bucket plus the unconditioned scope, and nothing else", () => {
+    // The route validates `?within=` through this, so a typo must 400 rather
+    // than silently fall back to a bucket nobody asked for.
+    expect(isAttributionScope("Execute")).toBe(true);
+    expect(isAttributionScope("unscored")).toBe(true);
+    expect(isAttributionScope(UNCONDITIONED_ATTRIBUTION)).toBe(true);
+    expect(isAttributionScope("everything")).toBe(false);
+    expect(isAttributionScope("")).toBe(false);
+  });
+
+  it("attributes over every trade when asked for the unconditioned scope", async () => {
+    // The scope saturation is read from. Every Bucket is a slice the score
+    // itself selected, so a criterion's pass rate inside one describes the
+    // bucket's definition rather than the criterion — see
+    // UNCONDITIONED_ATTRIBUTION and lib/validation/health.ts.
+    const all = await runBacktest({
+      symbols: ["SPY", "AAPL"],
+      timeframe: "15Min",
+      attributeWithin: UNCONDITIONED_ATTRIBUTION,
+    });
+    const execute = await runBacktest({
+      symbols: ["SPY", "AAPL"],
+      timeframe: "15Min",
+      attributeWithin: "Execute",
+    });
+
+    expect(all.attributeWithin).toBe("all");
+    expect(all.overall.trades).toBeGreaterThan(0);
+    for (const factor of all.factors) {
+      expect(factor.observed).toBeLessThanOrEqual(all.overall.trades);
+      expect(factor.passed.n + factor.failed.n).toBe(factor.observed);
+    }
+
+    // The whole point: a strictly wider sample than any single bucket gives.
+    const widest = (r: typeof all) => Math.max(0, ...r.factors.map((f) => f.observed));
+    expect(widest(all)).toBeGreaterThanOrEqual(widest(execute));
   });
 
   it("attributes factors within a score band instead of a bucket, and labels the report accordingly", async () => {

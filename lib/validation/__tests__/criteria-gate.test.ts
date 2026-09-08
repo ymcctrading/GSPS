@@ -24,6 +24,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { CRITERION_KEYS } from "@/lib/scoring/weights";
+import { UNCONDITIONED_ATTRIBUTION } from "@/lib/backtest/run";
 import { CRITERIA_REGISTRY, criteriaByFamily } from "@/lib/validation/criteria-registry";
 import {
   auditCriteria,
@@ -151,9 +152,13 @@ describe("committed replay runs", () => {
     (file) => {
       const { payload } = payloads.find((p) => p.file === file)!;
       const observations: CriterionObservation[] = observationsFromFactors(payload.factors ?? []);
+      // An "all" payload is the unconditioned population, so it is the only
+      // kind saturation can actually be assessed on — everything else names
+      // the bucket the score selected and reports not-assessable.
+      const scope = payload.attributeWithin ?? null;
       const report = auditCriteria(observations, {
         label: `${file} (${payload.timeframe})`,
-        conditionedOn: payload.attributeWithin ?? null,
+        conditionedOn: scope === UNCONDITIONED_ATTRIBUTION ? null : scope,
       });
 
       expect(errors(report), `\n${formatFindings(errors(report))}\n`).toEqual([]);
