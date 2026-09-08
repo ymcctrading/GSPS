@@ -70,6 +70,7 @@ describe("ConfluenceCard", () => {
           nearestFanLine: null,
           timeCycleActive: false,
           timeCycleDates: [],
+          digitalRoot: { input: 25, root: 7, rootClass: "vortexFlow" },
           materialNumberClassification: "notImplemented",
           evidence: { calculationVersion: "0.1.0", inputs: { secretNote: "internal threshold" }, sourceTimestamp: "x", explanationTrace: ["secret internal trace"] },
           note: "Confluence only.",

@@ -6,9 +6,13 @@
  * addendum requires "independently designed public concepts" with
  * provenance metadata, and forbids inferring any personally sourced
  * numerical logic that hasn't been supplied in an authorized written
- * specification. The one addendum-specific field that has no such
- * specification yet — Material Number versus Harmonic Node classification —
- * stays `notImplemented` rather than guessed at.
+ * specification. Material Number versus Harmonic Node classification still
+ * has no such specification and stays `notImplemented`. The Digital
+ * Root / Vortex 1-9 classification (`digitalRoot`, via
+ * `lib/gann/digitalRoot.ts`) does now have one — the "GSPS Gann-Centered
+ * Foundation" report (2026-09-08, project owner) — and is wired in below,
+ * computed from a normalized integer distance rather than a raw price, per
+ * that spec.
  *
  * Role: confluence, ranking, and coordinate refinement only. Never a sole
  * signal, never able to override a safety/account/eligibility gate — see
@@ -19,6 +23,7 @@ import type { AssetClass, Bar, Direction } from "@/lib/types";
 import { computeFanLines, nearestFanLine } from "@/lib/gann/fans";
 import { nearestS9Level, squareOf9Levels } from "@/lib/gann/squareOf9";
 import { timeCycles } from "@/lib/gann/timeCycles";
+import { classifyDigitalRoot, type DigitalRootReading } from "@/lib/gann/digitalRoot";
 import { routeMarketAdapter } from "./marketAdapters";
 import type { ConfluenceAlignment, ConfluenceModuleMeta, GannConfluenceResult } from "./types";
 
@@ -61,6 +66,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
       nearestFanLine: null,
       timeCycleActive: false,
       timeCycleDates: [],
+      digitalRoot: null,
       materialNumberClassification: "notImplemented",
       evidence: {
         calculationVersion: GANN_CONFLUENCE_MODULE.version,
@@ -80,9 +86,23 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
   const nearestS9 = nearestS9Level(s9Levels);
   const nearestFan = nearestFanLine(fanLines);
 
+  // Digital Root / Vortex classification (the active 1-9 system) is computed
+  // from a normalized positive integer — distance in cents from current
+  // price to the nearest key price level — never from the raw price itself.
+  // No nearby level means no normalized input, so no root: absence, not a
+  // guessed node.
+  const digitalRoot: DigitalRootReading | null = nearestS9
+    ? classifyDigitalRoot(Math.round(Math.abs(inputs.currentPrice - nearestS9.price) * 100))
+    : null;
+
   const explanationTrace: string[] = [
     `Root: sqrt(major low ${majorLow.toFixed(2)}) = ${root.toFixed(4)}.`,
   ];
+  if (digitalRoot) {
+    explanationTrace.push(
+      `GSPS signal calculation ${digitalRoot.root} (class: ${digitalRoot.rootClass}) from ${digitalRoot.input} cents to the nearest key price level — context only, not a directional signal.`,
+    );
+  }
   if (nearestS9) {
     explanationTrace.push(
       `Nearest key price level: ${nearestS9.price.toFixed(2)} (${nearestS9.role}, ${nearestS9.distancePct.toFixed(2)}% away, degree ${nearestS9.degree}, rotation ${nearestS9.rotation}).`,
@@ -125,6 +145,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
     nearestFanLine: nearestFan,
     timeCycleActive: cycles.active,
     timeCycleDates: cycles.dates,
+    digitalRoot,
     materialNumberClassification: "notImplemented",
     evidence: {
       calculationVersion: GANN_CONFLUENCE_MODULE.version,

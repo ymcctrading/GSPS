@@ -72,6 +72,32 @@ the single value `"notImplemented"` and will stay that way until a user
 supplies an authorized written specification for it. Nothing in this
 codebase fabricates that classification.
 
+### Digital Root / Vortex 1–9 classification — now implemented
+
+Unlike Material Number/Harmonic Node, the active 1–9 Digital Root/Vortex
+system *does* have an authorized written specification: the "GSPS
+Gann-Centered Foundation" report (2026-09-08, uploaded by the project
+owner). It supplies the exact formula (`DR(n) = 1 + ((n − 1) mod 9)`), the
+zero/null/invalid = absence rule, and the root-class table (1 = initiation,
+2-4-8-7-5 = vortex-flow loop, 3-6 = polarity axis, 9 = completion) —
+explicitly as a "GSPS symbolic convention," not a proven causal law, and
+explicitly forbidding root 8/9 from being read as automatically
+bearish/bullish.
+
+`lib/gann/digitalRoot.ts` implements `digitalRoot(n)` and
+`classifyDigitalRoot(n)` exactly per that formula, and
+`evaluateGannConfluence` (`lib/signals/confluence/gann.ts`) wires it in as
+`GannConfluenceResult.digitalRoot`. Per the spec's ban on computing a root
+from a raw price quote, the input is a normalized positive integer — the
+distance, in cents, from current price to the nearest Square-of-9 level —
+not the price itself; no nearby level means no root (absence, not a
+guessed node). This is confluence/context only, same as every other field
+on this result: it never sets alignment on its own, never overrides a
+safety/account/eligibility gate, and is not (yet) rendered in
+`components/scan/confluence-card.tsx` — surfacing it in the UI, behind the
+approved "GSPS Signal Calculation" / "Signal Flow" labels in
+`lib/constants/gspsTerminology.ts`, is unscheduled follow-up work.
+
 Similarly, the addendum's four unsupported markets (options, futures, forex,
 commodities — see below) are reported as `unsupported` rather than having
 their required adapter mechanics (Greeks, contract roll, pip conversion,

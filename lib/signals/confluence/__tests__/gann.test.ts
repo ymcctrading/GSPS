@@ -53,6 +53,35 @@ describe("evaluateGannConfluence", () => {
     expect(result.materialNumberClassification).toBe("notImplemented");
   });
 
+  it("classifies the normalized cents-distance to the nearest key price level, not the raw price", () => {
+    const bars = uptrendBars(60);
+    const result = evaluateGannConfluence({
+      assetClass: "us_equity",
+      symbol: "TEST",
+      dailyBars: bars,
+      currentPrice: bars[bars.length - 1].c,
+      direction: "bullish",
+    });
+    if (result.nearestSquareOf9) {
+      expect(result.digitalRoot).not.toBeNull();
+      expect(result.digitalRoot!.root).toBeGreaterThanOrEqual(1);
+      expect(result.digitalRoot!.root).toBeLessThanOrEqual(9);
+    } else {
+      expect(result.digitalRoot).toBeNull();
+    }
+  });
+
+  it("has no signal-calculation root when there is no nearby key price level to measure from", () => {
+    const result = evaluateGannConfluence({
+      assetClass: "us_equity",
+      symbol: "TEST",
+      dailyBars: [],
+      currentPrice: 100,
+      direction: "bullish",
+    });
+    expect(result.digitalRoot).toBeNull();
+  });
+
   it("never classifies the Material Number vs structural node field — pending authorized specification", () => {
     const bars = uptrendBars(60);
     const result = evaluateGannConfluence({

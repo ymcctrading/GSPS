@@ -14,6 +14,7 @@
 import type { StratPattern } from "@/lib/types";
 import type { S9Level } from "@/lib/gann/squareOf9";
 import type { FanLine } from "@/lib/gann/fans";
+import type { DigitalRootReading } from "@/lib/gann/digitalRoot";
 import type { MarketAdapterStatus, SupportedMarket } from "./marketAdapters";
 
 /**
@@ -52,6 +53,14 @@ export interface GannConfluenceResult {
   nearestFanLine: FanLine | null;
   timeCycleActive: boolean;
   timeCycleDates: string[];
+  /**
+   * The active 1–9 Digital Root / Vortex classification of the distance (in
+   * ticks) from current price to the nearest Square-of-9 level — a
+   * normalized positive integer, per the spec's ban on computing roots from
+   * a raw price quote. Null when there is no nearby level to measure from.
+   * Context/confluence only; see `lib/gann/digitalRoot.ts`.
+   */
+  digitalRoot: DigitalRootReading | null;
   /**
    * The addendum's "Material Number versus Harmonic Node classification" is
    * personally sourced numerical logic that has not been supplied in an

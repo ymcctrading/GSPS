@@ -9,6 +9,19 @@ date.
 
 ## 2026-09-08
 
+### Added
+- **Active 1–9 Digital Root/Vortex classification** (`lib/gann/digitalRoot.ts`),
+  implementing the authorized "GSPS Gann-Centered Foundation" specification
+  uploaded by the project owner this session. Wired into the Gann Confluence
+  Layer as `GannConfluenceResult.digitalRoot` (`lib/signals/confluence/gann.ts`),
+  computed from a normalized-integer distance (cents to the nearest key price
+  level) rather than a raw price, per the spec — zero/invalid input is
+  absence, never a guessed node, and the reading is confluence/context only
+  (it never sets alignment or overrides a gate). Internal-only vocabulary:
+  `scripts/check-banned-terms.mjs` and `lib/constants/gspsTerminology.ts` now
+  map "Digital Root"/"Vortex" to the approved public labels "GSPS Signal
+  Calculation"/"Signal Flow". See `docs/GANN_SARA_CONFLUENCE.md`.
+
 ### Fixed
 - **Stale setups presented as live after a fast market move** — the
   2026-09-08 AVGO/IREN incident: IREN's 9:15am scan armed a Sell setup at a
