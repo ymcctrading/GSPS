@@ -1,0 +1,39 @@
+name: Trade-plan lifecycle reaper
+
+# Dispatches the pre-entry EXPIRED transition lib/lifecycle/transitions.ts
+# has always specified but nothing ever ran (see lib/lifecycle/reaper.ts's
+# header for the full story). Same reason every other frequent job lives
+# here instead of vercel.json: Vercel Hobby caps scheduled jobs at 2/project,
+# both already spent (docs/THIRD_PARTY_LIMITS.md).
+#
+# Every 30 minutes, all day: this is pre-entry expiry against a wall-clock
+# `expiresAt`, not a live-price check, so it doesn't need market-hours-only
+# coverage the way the price-sensitive scans do — a plan generated near the
+# close can still cross its expiry window overnight. 30 minutes is generous
+# slack against the shortest `expiresAt` window in the codebase (20 bars on
+# a 15-minute timeframe, ~5 hours) while keeping this cheap relative to the
+# 15-minute scans.
+#
+# Authorized the same way as /api/market-scan and
+# /api/automation/portfolio-manager/run: CRON_SECRET as a bearer token.
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+jobs:
+  reap:
+    runs-on: ubuntu-latest
+    name: Trigger /api/lifecycle/reaper
+    steps:
+      - name: Call lifecycle reaper
+        run: |
+          status=$(curl -sS -o /tmp/response.json -w '%{http_code}' \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ vars.PRODUCTION_URL || 'https://gsps.vercel.app' }}/api/lifecycle/reaper")
+          echo "HTTP $status"
+          cat /tmp/response.json
+          if [ "$status" -ge 300 ]; then
+            echo "lifecycle reaper returned $status" >&2
+            exit 1
+          fi

@@ -99,6 +99,13 @@ Beyond the pre-market scan, the Phase 3D entitlement scans
 another job when a real need (token refresh, reconciliation) exists, rather
 than standing up an unused workflow now.
 
+The trade-plan lifecycle reaper (2026-09-08, `lib/lifecycle/reaper.ts`) is
+the same pattern again, at a much lighter cadence: `.github/workflows/lifecycle-reaper.yml`
+calls `/api/lifecycle/reaper` with `CRON_SECRET` every 30 minutes, all day —
+it dispatches a wall-clock expiry check against `trade_plans`, not a
+price-sensitive scan, so it doesn't need market-hours-only coverage the way
+the scans above do.
+
 ## Upgrading past current limits
 
 One ceiling remains for the Phase 3D scans:
