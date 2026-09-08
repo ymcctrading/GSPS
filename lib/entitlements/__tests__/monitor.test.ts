@@ -9,7 +9,7 @@ function at(offsetMs: number): Date {
 }
 
 describe("decideTransition", () => {
-  it("creates a brand-new monitor without notifying, even if born directly into EXECUTE", () => {
+  it("creates and notifies on a brand-new monitor born directly into EXECUTE", () => {
     const decision = decideTransition({
       priorState: null,
       priorEvaluatedAt: null,
@@ -18,7 +18,21 @@ describe("decideTransition", () => {
       lastExecuteAt: null,
       cooldownMs: 15 * MIN,
     });
-    expect(decision).toEqual({ apply: true, isNewMonitor: true, isTransition: false, notify: false });
+    expect(decision).toEqual({ apply: true, isNewMonitor: true, isTransition: true, notify: true });
+  });
+
+  it("creates a brand-new monitor without notifying when born into a non-EXECUTE state", () => {
+    for (const target of ["WATCH", "NO_SETUP", "EXPIRED", "INVALIDATED"] as MonitorState[]) {
+      const decision = decideTransition({
+        priorState: null,
+        priorEvaluatedAt: null,
+        candidateState: target,
+        candidateEvaluatedAt: T0,
+        lastExecuteAt: null,
+        cooldownMs: 15 * MIN,
+      });
+      expect(decision).toEqual({ apply: true, isNewMonitor: true, isTransition: false, notify: false });
+    }
   });
 
   it("refreshes without a transition when the state hasn't changed", () => {
