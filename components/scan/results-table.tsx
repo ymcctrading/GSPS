@@ -20,14 +20,11 @@ export interface ScanRow {
   patternName?: string | null;
   setupKind?: "reversion" | "continuation";
   /**
-   * Set only when the state sits below what the score alone implies — e.g. a
-   * 7/9 held at Watch because the trade plan hasn't cleared every condition
-   * for a live signal. Without this, a novice reads "7" next to "Watch" as
-   * either a mistake or a hidden rule, since 7+ is the number Settings and
-   * the glossary teach as the Execute threshold. Phrased the same way the
-   * symbol detail page already does — see lib/scoring/public-summary.ts.
+   * The instrument's price at scan time — stocks, equities, futures, forex,
+   * whatever the symbol is. `null`/`undefined` for rows priced before this
+   * field existed.
    */
-  stateNote?: string | null;
+  currentPrice?: number | null;
   /**
    * The Signal and Regime Engine's own rollup — a separate read from
    * `score`/`outputState` above, never merged into them. `undefined` for
@@ -57,6 +54,7 @@ export function ResultsTable({ rows, emptyText }: { rows: ScanRow[]; emptyText?:
           {/* The symbol pins while the price columns scroll — otherwise a phone
               user scrolling right loses track of which row they're reading. */}
           <TH className="sticky left-0 z-10 bg-surface">Symbol</TH>
+          <TH className="text-right">Price</TH>
           <TH>Score</TH>
           <TH>Setup</TH>
           <TH className="text-right">Entry</TH>
@@ -78,13 +76,11 @@ export function ResultsTable({ rows, emptyText }: { rows: ScanRow[]; emptyText?:
                 {r.symbol}
               </Link>
             </TD>
+            <TD className="text-right font-mono">
+              {r.currentPrice != null && r.currentPrice > 0 ? formatUsd(r.currentPrice) : "—"}
+            </TD>
             <TD>
               <ScoreBadge score={r.score} state={r.outputState} />
-              {r.stateNote && (
-                <p className="mt-1 max-w-[14rem] whitespace-normal text-xs text-warn">
-                  {r.stateNote}
-                </p>
-              )}
             </TD>
             {/* Four empty price columns need a reason on the row itself —
                 otherwise a scored symbol reads as a setup whose numbers failed
