@@ -40,6 +40,44 @@ save the returned JSON under `docs/replay-runs/`, then run
 `docs/REPLAY_RESULTS.md`. `/api/backtest` requires a signed-in session (`verifyAuth()`), so it
 can't be curled anonymously.
 
+## Validity is now a merge gate, not a habit
+
+Everything below this line is a measurement someone has to remember to take. That is how a
+criterion stayed inverted for months: every audit this repo has had asked *"does the code do what
+it says?"* — a **correctness** question, which the scoring criteria pass — and none asked *"does
+what the code does correlate with making money?"* — a **validity** question, which several fail.
+The harness could always answer the second one. Nothing required anyone to ask it.
+
+`lib/validation/` closes that. `criteria-registry.ts` declares every pass/fail gate in the app —
+the nine scored criteria, the four states' Rules Alignment components, the disqualifiers — each
+with the sign it is expected to work in and the evidence actually behind it.
+`__tests__/criteria-gate.test.ts` runs under `npm test`, which CI already runs on every push and
+PR, so three things now fail a build:
+
+- **An undeclared gate.** Add a scored criterion, an alignment component, or a disqualifier
+  without registering it and the build breaks. You cannot ship a gate without stating what you
+  expect it to do — the "catch it before it reaches `main`" half.
+- **A stale entry.** The registry cannot rot into a list of things that used to be true.
+- **A criterion measured saturated or inverted** on any committed payload under
+  `docs/replay-runs/`, unless it is explicitly `quarantined` with a stated reason *and* exit
+  condition.
+
+Two calibration decisions are worth knowing before you read a finding:
+
+- **Saturation is only assessed on an unconditioned population.** Inside a bucket the score
+  itself selected — an `Execute`-only attribution — criteria saturate by construction, because
+  the bucket was *defined* by them passing. Those samples report `not-assessable` rather than
+  guessing. Every payload committed so far is `Execute`-conditioned, so **saturation is currently
+  unmeasured across the whole app**; closing that needs an unconditioned run.
+- **A sign inside ±0.1 correlation is `negligible`, not inverted.** The committed runs are full
+  of criteria measuring −0.003 or −0.015. Blocking on those would train everyone to quarantine
+  reflexively, which is how a gate stops meaning anything. Applying that band turns 12 raw
+  "inversions" across the committed payloads into **one** real one.
+
+Quarantine is deliberately not a mute button: the finding still appears, downgraded to a warning,
+and a quarantined criterion that starts measuring correctly again raises `quarantine-liftable` so
+the quarantine cannot outlive its reason.
+
 ## Win rate decides nothing on its own
 
 A run reports `breakEvenWinRate` — `1 / (1 + targetR)` — beside the win rate, and every bucket
