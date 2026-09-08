@@ -41,6 +41,14 @@ export interface RawPosition {
   todayPlPct: number;
   /** Alpaca's own classification when available ('us_equity' | 'us_option'). */
   assetClassHint?: string;
+  /**
+   * Conditional-order levels currently attached to this position, mirrored
+   * from `positions.stop_loss`/`take_profit`/`master_profit` — null when
+   * nothing has been attached. See lib/trade/attach-protocol-exit.ts.
+   */
+  stopLoss?: number | null;
+  takeProfit?: number | null;
+  masterProfit?: number | null;
 }
 
 export interface EquityLeg {
@@ -55,6 +63,10 @@ export interface EquityLeg {
   todayPlPct: number;
   /** First fill of the current open run. See lib/portfolio/opened-at.ts. */
   opened: LegOpenedAt;
+  /** Conditional-order levels currently attached, or null if unprotected. */
+  stopLoss: number | null;
+  takeProfit: number | null;
+  masterProfit: number | null;
 }
 
 export interface OptionLeg {
@@ -144,6 +156,9 @@ export function buildBlendedPositions(
         equityPlPct: p.unrealizedPlPct,
         todayPlPct: p.todayPlPct,
         opened: openedFor(p.symbol),
+        stopLoss: p.stopLoss ?? null,
+        takeProfit: p.takeProfit ?? null,
+        masterProfit: p.masterProfit ?? null,
       };
       continue;
     }
