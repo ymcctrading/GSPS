@@ -7,6 +7,22 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-09-09 (third follow-up)
+
+### Added
+- **`docs/GANN_BLUEPRINT_BACKTEST_BIAS_AUDIT.md`** — control-by-control audit
+  of the "GSPS Implementation Blueprint" §15.4 (14 bias controls) and §15.5
+  (9 validation requirements) against `lib/backtest/*`/`lib/validation/*`.
+  7/14 bias controls and 2/9 validation requirements are existing; the rest
+  are partial, absent, or (for ablation) not yet applicable since no
+  Digital Root/Vortex feature is wired into scoring. Real gaps — a
+  survivorship-safe universe, permutation tests, block bootstrap,
+  multiple-testing correction, confidence intervals, true multi-era
+  walk-forward — are named as a coherent statistical-methodology scope for
+  a future initiative rather than implemented shallow in this pass.
+  `docs/GANN_BLUEPRINT_TRACEABILITY.md`'s "Backtest bias controls" row
+  updated to point to it.
+
 ## 2026-09-09 (second follow-up)
 
 ### Added
