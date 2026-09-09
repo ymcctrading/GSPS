@@ -155,7 +155,7 @@ export async function POST(req: NextRequest) {
             }
           } catch (err) {
             console.error(
-              `learning: digital root feature for ${scanData.symbol} not recorded — ${err instanceof Error ? err.message : String(err)}`,
+              `learning: GSPS Signal Calculation feature for ${scanData.symbol} not recorded — ${err instanceof Error ? err.message : String(err)}`,
             );
           }
         }

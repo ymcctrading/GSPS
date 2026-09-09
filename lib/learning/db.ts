@@ -114,7 +114,7 @@ export async function recordDigitalRootFeature(
     .select()
     .single();
 
-  if (error) throw new Error(`Failed to record digital root feature: ${error.message}`);
+  if (error) throw new Error(`Failed to record GSPS Signal Calculation feature: ${error.message}`);
   return data;
 }
 
