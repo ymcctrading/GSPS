@@ -359,6 +359,48 @@ export async function placeSimulatedOrder(
       // picked up by evaluateRestingOrders once the market reaches it.
     }
 
+    // `checkBracket` above only ever validated against the price known *before*
+    // the fill — the submitted limit, or the plan's stale `referencePrice` for
+    // an automation-sourced "now" entry. Between that check and this line the
+    // market can have moved a long way: an advised order fills at whatever
+    // price the market crossed the trigger at (by design — see the comment
+    // above), and a "now" market order fills at whatever the live quote is,
+    // with no proximity check to the plan's entry at all.
+    //
+    // Observed in production 2026-09-01 through 2026-09-08: four bracket
+    // orders (AMD, TSLA, DRAM, BAC) filled far enough from their planned entry
+    // that the take-profit target ended up on the wrong side of the real fill
+    // — AMD's plan priced a 459.48 entry and 464.15 target, but the order
+    // didn't actually fill until the market had already reached 476.08, past
+    // both. The resulting bracket was nonsensical (a long whose target sits
+    // below its own entry), and all four filled with `exit_plan_id` left null
+    // — unprotected, indistinguishable in the UI from a normal open position.
+    //
+    // Re-running the same check against the real fill price closes this
+    // before a single row is written, for both the manual ticket and the
+    // (not yet live) automated path — deriveOrderInputFromPlan calls this
+    // same function, so this guard is already in place for it.
+    if (filled && useBracket && fillPrice != null) {
+      const postFillCheck = checkBracket({
+        side: input.side,
+        basePrice: fillPrice,
+        stopLoss: bracketLevels!.stopLoss,
+        takeProfit: bracketLevels!.takeProfit,
+      });
+      if (!postFillCheck.ok) {
+        return {
+          status: 409,
+          body: {
+            error:
+              `The market moved before this order could fill — it filled at ${fillPrice}, past ` +
+              `the plan's own stop or target. ${postFillCheck.reason ?? ""} Refresh the setup and ` +
+              `resubmit at current prices rather than the stale ones.`,
+            code: "fill_outran_bracket",
+          },
+        };
+      }
+    }
+
     const { data: inserted, error: dbError } = await supabase
       .from("orders")
       .insert({
