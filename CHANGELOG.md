@@ -7,6 +7,28 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-09-09
+
+### Changed
+- **Digital Root/Vortex engine rewritten to match the authoritative "GSPS
+  Implementation Blueprint"** (v1.0, 2026-09-08, project owner) — a full
+  engineering spec uploaded after the earlier "GSPS Gann-Centered
+  Foundation" plain-English report, and the source of truth for exact
+  formulas/API where the two differ. `lib/gann/digitalRoot.ts` is now a
+  direct port of the blueprint's reference functions
+  (`digitalRoot1to9`/`calculateGannDr`/`gannComplement`/`resolvesToCompletion`/
+  `vortexClass`/`classifyConfluence`), each DR value carrying full
+  provenance (`DigitalRootFeature`). Notably corrects root 1's
+  classification: the blueprint's `vortex_class` puts root 1 in
+  `VORTEX_FLOW` (not a separate "initiation" bucket, which the first
+  report's wording had suggested). `GannConfluenceResult.vortexContext`
+  replaces the prior single-root `digitalRoot` field with the blueprint
+  §18 `gann_context` shape — `price_dr`/`time_dr` (normalized ticks/bars
+  off the anchor low, never the raw price) plus their `relationship`.
+- Added `docs/GANN_BLUEPRINT_TRACEABILITY.md` — the blueprint's Milestone-0
+  "traceability matrix" deliverable, auditing what's existing/partial/absent
+  in this codebase against the blueprint's 21 sections.
+
 ## 2026-09-08 (follow-up audit)
 
 ### Fixed
@@ -59,6 +81,21 @@ date.
     behind it) if wired up later without one.
   N/A roadmap phase — continuation of the same production bug-fix pass as
   the entry below.
+
+## 2026-09-08
+
+### Added
+- **Active 1–9 Digital Root/Vortex classification** (`lib/gann/digitalRoot.ts`),
+  implementing the authorized "GSPS Gann-Centered Foundation" specification
+  uploaded by the project owner this session. Wired into the Gann Confluence
+  Layer as `GannConfluenceResult.digitalRoot` (`lib/signals/confluence/gann.ts`),
+  computed from a normalized-integer distance (cents to the nearest key price
+  level) rather than a raw price, per the spec — zero/invalid input is
+  absence, never a guessed node, and the reading is confluence/context only
+  (it never sets alignment or overrides a gate). Internal-only vocabulary:
+  `scripts/check-banned-terms.mjs` and `lib/constants/gspsTerminology.ts` now
+  map "Digital Root"/"Vortex" to the approved public labels "GSPS Signal
+  Calculation"/"Signal Flow". See `docs/GANN_SARA_CONFLUENCE.md`.
 
 ### Fixed
 - **Stale setups presented as live after a fast market move** — the

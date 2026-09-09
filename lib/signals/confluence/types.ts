@@ -14,6 +14,7 @@
 import type { StratPattern } from "@/lib/types";
 import type { S9Level } from "@/lib/gann/squareOf9";
 import type { FanLine } from "@/lib/gann/fans";
+import type { ConfluenceType, DigitalRootFeature, VortexClass } from "@/lib/gann/digitalRoot";
 import type { MarketAdapterStatus, SupportedMarket } from "./marketAdapters";
 
 /**
@@ -41,6 +42,22 @@ export interface ConfluenceEvidence {
   explanationTrace: string[];
 }
 
+/**
+ * Blueprint section 18's `gann_context` shape: `price_dr`/`time_dr` plus
+ * their `relationship`. `vortexFlowTransition`/`oneRenewalTransition`
+ * confluence types need a prior reading to detect a change between
+ * successive roots — nothing persists that yet (blueprint's
+ * `digital_root_feature` table is Milestone 3), so `relationship` never
+ * reports either; see `classifyConfluence` in `lib/gann/digitalRoot.ts`.
+ */
+export interface GannVortexContext {
+  priceDisplacement: DigitalRootFeature | null;
+  timeDisplacement: DigitalRootFeature | null;
+  priceVortexClass: VortexClass | null;
+  timeVortexClass: VortexClass | null;
+  relationship: ConfluenceType | null;
+}
+
 export interface GannConfluenceResult {
   module: ConfluenceModuleMeta;
   market: SupportedMarket;
@@ -52,6 +69,16 @@ export interface GannConfluenceResult {
   nearestFanLine: FanLine | null;
   timeCycleActive: boolean;
   timeCycleDates: string[];
+  /**
+   * The active 1–9 Digital Root/Vortex context, per the "GSPS Implementation
+   * Blueprint" (2026-09-08) sections 2 and 7 — `price_dr`/`time_dr` and
+   * their relationship, computed from normalized positive integers (never a
+   * raw price), with full provenance on each feature. Context/confluence
+   * only, per the blueprint's section 7.4 safety rule: never a sole signal,
+   * never able to create/override an entry, stop, or gate. See
+   * `lib/gann/digitalRoot.ts`.
+   */
+  vortexContext: GannVortexContext;
   /**
    * The addendum's "Material Number versus Harmonic Node classification" is
    * personally sourced numerical logic that has not been supplied in an

@@ -80,6 +80,8 @@ this table — import from there rather than hardcoding these strings.
 | Master Target | Final Target |
 | Minor Node | First Target |
 | Decimal-Strip Modulo-9 Reduction | GSPS Signal Calculation |
+| Digital Root | GSPS Signal Calculation |
+| Vortex | Signal Flow |
 | Bullish Momentum | Upward Setup |
 | Bearish Mean Reversion | Downward Setup |
 | Reversal Vector | Pivot Scenario |
