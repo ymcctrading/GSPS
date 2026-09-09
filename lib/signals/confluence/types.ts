@@ -16,6 +16,7 @@ import type { S9Level } from "@/lib/gann/squareOf9";
 import type { FanLine } from "@/lib/gann/fans";
 import type { ConfluenceType, DigitalRootFeature, VortexClass } from "@/lib/gann/digitalRoot";
 import type { NearestGannAngle } from "@/lib/gann/normalizedSlope";
+import type { CoordinateLedger, NearestLedgerLevel } from "@/lib/gann/coordinateLedger";
 import type { MarketAdapterStatus, SupportedMarket } from "./marketAdapters";
 
 /**
@@ -78,6 +79,16 @@ export interface GannConfluenceResult {
   nearestFanLine: FanLine | null;
   timeCycleActive: boolean;
   timeCycleDates: string[];
+  /**
+   * Prior Day/Week/Month high-low ranges and their eighths (range-fraction)
+   * subdivisions — blueprint §8's "prior D/W/M high-low, range fractions"
+   * candidate coordinates, as a single unified structure. `null` per period
+   * when there isn't yet a completed prior bucket for it (e.g. under a week
+   * of daily history for the week/month entries). See
+   * `lib/gann/coordinateLedger.ts`.
+   */
+  coordinateLedger: CoordinateLedger;
+  nearestLedgerLevel: NearestLedgerLevel | null;
   /**
    * The active 1–9 Digital Root/Vortex context, per the "GSPS Implementation
    * Blueprint" (2026-09-08) sections 2 and 7 — `price_dr`/`time_dr` and

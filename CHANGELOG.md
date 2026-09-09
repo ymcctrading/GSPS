@@ -7,6 +7,41 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-09-09 (fourth follow-up)
+
+### Added
+- **Gann coordinate ledger** (`lib/gann/coordinateLedger.ts`) — prior
+  Day/Week/Month high-low ranges plus their eighths (range-fraction)
+  subdivisions, as a single unified module. Closes the one remaining
+  "not deep-audited" candidate coordinate in the "GSPS Implementation
+  Blueprint" §8 traceability row. Groups daily bars into calendar
+  day/week/month buckets and reads the most recently *completed* bucket's
+  high/low (never the in-progress one), then divides that range into
+  classic Gann eighths (1/8…7/8) — a coarser, distinct convention from
+  Fibonacci retracement ratios, which this module doesn't compute. Wired
+  additively into `GannConfluenceResult.coordinateLedger`/
+  `.nearestLedgerLevel` (`lib/signals/confluence/gann.ts`) and its
+  explanation trace — context/confluence only, same non-authoritative role
+  as every other coordinate in `lib/gann/`, never a gate. See
+  `docs/GANN_BLUEPRINT_TRACEABILITY.md`'s "Third follow-up pass" note.
+
+### Deferred (same request, out of this pass's scope)
+- **§17.1 signal-explanation checklist verification** — needs the
+  blueprint document's exact 12-item checklist text, which isn't reproduced
+  anywhere in this repo; can't be verified item-by-item without it.
+- **Scoring-band comparison** (blueprint §12's 0–24/…/85–100 bands vs.
+  GSPS's own `RulesAlignmentTier`) — needs a decision on whether/how to
+  reconcile the two, not a unilateral fix.
+- **Module pipeline reorganization** (blueprint §5's named pipeline) —
+  cosmetic renaming of already-equivalent modules with no behavior change;
+  large effort, low value, left undone.
+- **Literal DB table alignment** (blueprint §5's named tables) — a schema
+  change; needs explicit confirmation before touching migrations, per this
+  doc's own §5 row.
+- **Futures/forex/options adapters** — out of scope without a dedicated
+  scoping conversation; `lib/signals/confluence/marketAdapters.ts` still
+  reports both `unsupported`.
+
 ## 2026-09-09 (third follow-up)
 
 ### Added

@@ -34,6 +34,20 @@ per-instrument "habits" concept exists anywhere in this codebase. Marked
 **Existing (verified this pass)** / **Existing (follow-up PR)** / **Absent**
 below accordingly.
 
+**Third follow-up pass (2026-09-09):** closed the coordinate ledger gap in
+§8 — prior Day/Week/Month high-low ranges plus their eighths (range-fraction)
+subdivisions, as a single unified module (`lib/gann/coordinateLedger.ts`),
+wired additively into `GannConfluenceResult`. The other five items raised in
+the same request are deliberately not addressed here: the §17.1 signal-
+explanation checklist item needs the blueprint document's exact item list
+(not reproduced in this repo — see that row below); the scoring-band
+comparison needs a decision on which bands GSPS should adopt, not a
+unilateral fix; the module-pipeline reorganization is cosmetic renaming with
+no behavior change, left out as low-value; literal DB table alignment is a
+schema change requiring explicit confirmation per this doc's own §5 row; and
+futures/forex/options adapters are out of scope pending a dedicated scoping
+conversation, per §6/§17's own rows below.
+
 ## 1–2. Mission, doctrine, terminology
 
 | Blueprint requirement | Status | Where |
@@ -90,7 +104,7 @@ below accordingly.
 |---|---|---|
 | Objective N-bars-before/after pivot rule, usable only after confirmation bars close | Existing | `lib/analysis/pivots.ts`'s `findPivots` — a pivot is only ever returned once its confirming bars exist in the input array |
 | Explicit `pivot_occurrence_timestamp`/`pivot_confirmation_timestamp` fields | **Existing (follow-up PR)** | `Pivot.occurrenceTimestamp`/`.confirmationTimestamp` in `lib/analysis/pivots.ts` |
-| Candidate coordinates (swing high/low, prior D/W/M high-low, range fractions, measured move, anchored VWAP, Square-of-9, ATR bands) | Partial | Square-of-9 (`lib/gann/squareOf9.ts`), fans (`lib/gann/fans.ts`), time cycles (`lib/gann/timeCycles.ts`), anchored VWAP (`lib/signals/indicators.ts`), and measured move (`lib/signals/states/{confirmedReversal,rangeReversion,trendBreakout}.ts`) all exist — verified this pass; prior D/W/M high-low and range-fraction coordinates as a unified Gann "coordinate ledger" object are not deep-audited |
+| Candidate coordinates (swing high/low, prior D/W/M high-low, range fractions, measured move, anchored VWAP, Square-of-9, ATR bands) | Existing | Square-of-9 (`lib/gann/squareOf9.ts`), fans (`lib/gann/fans.ts`), time cycles (`lib/gann/timeCycles.ts`), anchored VWAP (`lib/signals/indicators.ts`), and measured move (`lib/signals/states/{confirmedReversal,rangeReversion,trendBreakout}.ts`) all exist — verified this pass; prior D/W/M high-low and range-fraction coordinates now exist as a unified "coordinate ledger" object, **Existing (follow-up PR)**: `lib/gann/coordinateLedger.ts` groups daily bars into the most recently completed calendar day/week/month and reads that bucket's high/low plus its eighths (range-fraction) subdivisions, wired into `GannConfluenceResult.coordinateLedger`/`.nearestLedgerLevel` (`lib/signals/confluence/gann.ts`) as an additive context field — same non-authoritative role as every other coordinate here, never a gate |
 | Normalized Gann-angle slope (price/ATR/bar, not screen pixels) | **Existing (follow-up PR)** | `lib/gann/normalizedSlope.ts` (`normalizedSlope`/`nearestGannAngle`), wired into `GannConfluenceResult.angleSlope` |
 
 ## 9–10. Supply-demand/volume/volatility engine & strategy engines
