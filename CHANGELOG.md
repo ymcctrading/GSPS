@@ -9,6 +9,28 @@ date.
 
 ## 2026-09-09
 
+### Added
+- **Closed the top three priority items from `docs/GANN_BLUEPRINT_TRACEABILITY.md`'s
+  follow-up list**, all well-specified and needing no DB migration:
+  1. `classifyRootTransition` (`lib/gann/digitalRoot.ts`) — the two
+     confluence types the blueprint names but never gives a formula for,
+     `VORTEX_FLOW_TRANSITION`/`ONE_RENEWAL_TRANSITION`, now implemented
+     against a documented interpretation (9→1 completion-to-renewal; the
+     next root along the 1-2-4-8-7-5 loop). Takes a prior reading as an
+     explicit optional argument — nothing persists one yet — so
+     `GannConfluenceInputs.previousVortexRoots` lets a caller with one in
+     memory opt in; `vortexContext.transition` stays `null` otherwise.
+  2. `Pivot.occurrenceTimestamp`/`.confirmationTimestamp`
+     (`lib/analysis/pivots.ts`) — the blueprint §8.2 audit fields, always
+     populated since `findPivots` never returns an unconfirmed pivot.
+  3. `lib/gann/normalizedSlope.ts` (`normalizedSlope`/`nearestGannAngle`) —
+     blueprint §8.5's realized ATR-units-per-bar slope since the anchor,
+     classified against the same fixed ratio set `lib/gann/fans.ts`
+     projects forward from. Wired into `GannConfluenceResult.angleSlope`.
+  The remaining gaps (DB table alignment, futures/forex/options adapters,
+  and the other Partial/Not-deep-audited rows) are left for a separate
+  scoping conversation, not attempted here.
+
 ### Changed
 - **Digital Root/Vortex engine rewritten to match the authoritative "GSPS
   Implementation Blueprint"** (v1.0, 2026-09-08, project owner) — a full

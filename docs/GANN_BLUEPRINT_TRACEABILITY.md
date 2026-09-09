@@ -14,6 +14,15 @@ Status legend: **Existing** (built, semantically equivalent even if named
 differently) · **Partial** (some of the requirement is met) · **Absent**
 (not built) · **Not deep-audited** (out of this pass's scope).
 
+**Follow-up pass (2026-09-09):** three of the "Partial"/"Not deep-audited"
+rows this matrix originally flagged — confluence transition types, pivot
+confirmation timestamps, and the normalized Gann-angle slope — were closed
+out as the top-priority, low-risk items (well-specified, no DB migration
+needed). Marked **Existing (follow-up PR)** below. The two remaining hard
+gaps (literal DB table alignment, futures/forex/options adapters) and the
+still-open Partial/Not-deep-audited rows were deliberately left for a
+separate scoping conversation, per this doc's own closing section.
+
 ## 1–2. Mission, doctrine, terminology
 
 | Blueprint requirement | Status | Where |
@@ -22,7 +31,7 @@ differently) · **Partial** (some of the requirement is met) · **Absent**
 | Digital root 1–9 only, 0 = absence, never guessed as root 9 | **Existing (this PR)** | `lib/gann/digitalRoot.ts` |
 | `digital_root_1_to_9`, `calculate_gann_dr`, `gann_complement`, `resolves_to_completion`, `vortex_class` | **Existing (this PR)** | `lib/gann/digitalRoot.ts` — direct ports, same formulas/tables |
 | Full DR provenance (`raw_value`, `normalization_method`, `integer_value`, `mod9_residue`, `active_digital_root`, `input_timestamp`, `source_timeframe`, `feature_version`) | **Existing (this PR)**, not yet persisted | `DigitalRootFeature` in `lib/gann/digitalRoot.ts`; no DB table writes it yet (see §5 below) |
-| Confluence types (`NO_CONFLUENCE` … `MULTI_FACTOR_CONFLUENCE`) | **Partial (this PR)** | `classifyConfluence` implements the single-snapshot types; `VORTEX_FLOW_TRANSITION`/`ONE_RENEWAL_TRANSITION` need a prior stored reading, which nothing persists yet — documented as deferred, not guessed |
+| Confluence types (`NO_CONFLUENCE` … `MULTI_FACTOR_CONFLUENCE`) | **Existing (follow-up PR)** | `classifyConfluence` (single-snapshot) + `classifyRootTransition` (`VORTEX_FLOW_TRANSITION`/`ONE_RENEWAL_TRANSITION`, taking a prior reading as an explicit optional argument rather than reading persisted state — nothing stores one yet, so a caller with one in memory can now supply it via `GannConfluenceInputs.previousVortexRoots`). The two transition types' exact trigger condition is a documented interpretation (the blueprint names them without a formula) — see `lib/gann/digitalRoot.ts` |
 
 ## 3. Gann-derived requirements table
 
@@ -69,9 +78,9 @@ differently) · **Partial** (some of the requirement is met) · **Absent**
 | Blueprint requirement | Status | Where |
 |---|---|---|
 | Objective N-bars-before/after pivot rule, usable only after confirmation bars close | Existing | `lib/analysis/pivots.ts`'s `findPivots` — a pivot is only ever returned once its confirming bars exist in the input array |
-| Explicit `pivot_occurrence_timestamp`/`pivot_confirmation_timestamp` fields | Partial | Confirmation is structural (array-index based), not stored as two separate named timestamp fields |
+| Explicit `pivot_occurrence_timestamp`/`pivot_confirmation_timestamp` fields | **Existing (follow-up PR)** | `Pivot.occurrenceTimestamp`/`.confirmationTimestamp` in `lib/analysis/pivots.ts` |
 | Candidate coordinates (swing high/low, prior D/W/M high-low, range fractions, measured move, anchored VWAP, Square-of-9, ATR bands) | Partial | Square-of-9 (`lib/gann/squareOf9.ts`), fans (`lib/gann/fans.ts`), time cycles (`lib/gann/timeCycles.ts`) exist; anchored VWAP, measured-move, and range-fraction coordinates as a unified "coordinate ledger" are not deep-audited |
-| Normalized Gann-angle slope (price/ATR/bar, not screen pixels) | Not deep-audited | — |
+| Normalized Gann-angle slope (price/ATR/bar, not screen pixels) | **Existing (follow-up PR)** | `lib/gann/normalizedSlope.ts` (`normalizedSlope`/`nearestGannAngle`), wired into `GannConfluenceResult.angleSlope` |
 
 ## 9–10. Supply-demand/volume/volatility engine & strategy engines
 
