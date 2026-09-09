@@ -13,7 +13,8 @@ import type {
   TrendReading,
 } from "@/lib/types";
 import { computeScore, type ScoreInputs } from "@/lib/scoring/score";
-import { hasTradePlan, isMomentumContinuation } from "@/lib/marketScan";
+import { hasTradePlan, isMomentumContinuation, qualifiesAsContinuationFill } from "@/lib/marketScan";
+import { EXECUTE_SCORE_THRESHOLD } from "@/lib/scoring/weights";
 
 function trend(
   timeframe: TrendReading["timeframe"],
@@ -215,6 +216,47 @@ describe("isMomentumContinuation", () => {
 
   it("rejects a continuation with no priced plan", () => {
     expect(isMomentumContinuation(continuation({ levels: null }), "bullish")).toBe(false);
+  });
+});
+
+/**
+ * The continuation top-up pass's actual gate: shape alone (isMomentumContinuation)
+ * is necessary but not sufficient — a candidate must also clear the same
+ * Execute-tier bar a reversion earns on its own merits. Six 7/9s over
+ * eighteen setups trailing off through 6, 5, 4 — a weak-but-shaped
+ * continuation must not fill a slot just because it's the best one left.
+ */
+describe("qualifiesAsContinuationFill", () => {
+  it("accepts a shaped continuation that clears the Execute bar", () => {
+    expect(
+      qualifiesAsContinuationFill(
+        continuation({ decision: { score: EXECUTE_SCORE_THRESHOLD, outputState: "Execute", breakdown: [] } }),
+        "bullish",
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects a shaped continuation one point under the bar", () => {
+    expect(
+      qualifiesAsContinuationFill(
+        continuation({
+          decision: { score: EXECUTE_SCORE_THRESHOLD - 1, outputState: "Watch", breakdown: [] },
+        }),
+        "bullish",
+      ),
+    ).toBe(false);
+  });
+
+  it("rejects a high score that never armed the right shape", () => {
+    expect(
+      qualifiesAsContinuationFill(
+        continuation({
+          pattern: { ...pattern, name: "2-2" },
+          decision: { score: 9, outputState: "Execute", breakdown: [] },
+        }),
+        "bullish",
+      ),
+    ).toBe(false);
   });
 });
 

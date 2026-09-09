@@ -7,6 +7,29 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-09-09 (continuation quality floor)
+
+### Changed
+- **Continuation top-up no longer pads the scan list with weak setups** —
+  product decision made explicit after investigating an intermittent 60s
+  timeout on `/api/scans/morning-preparation` / `morning-confirmation`
+  (`lib/entitlements/scheduled-scan.ts`'s unbudgeted post-scan fan-out/shadow
+  work stacked on top of the scan's own time-budgeted pass). The 60s ceiling
+  itself is a deliberate UX choice, not a Vercel platform mandate — a novice
+  waiting past about a minute reads the scan as broken — so the fix is to
+  make the scan converge faster and more selectively, not to chase a bigger
+  time budget. `lib/marketScan.ts`'s continuation pass previously topped up
+  a short direction with whatever scored best among the remaining
+  candidates, with no floor — a setup scoring 6, 5, or 4 could fill a slot
+  purely for being the best one left. New `qualifiesAsContinuationFill`
+  requires the same Execute-tier score (`EXECUTE_SCORE_THRESHOLD`, extracted
+  from `lib/scoring/score.ts`'s previously-inline `7`/`4` literals into
+  `lib/scoring/weights.ts`) that a reversion has to clear on its own merits.
+  Six 7/9 setups now beat eighteen trailing off through 6, 5, 4 — a short or
+  empty continuation fill is the correct, faster-arriving answer on a day
+  nothing clears the bar, not a shortfall to paper over.
+  N/A roadmap phase — direct product decision, not scheduled roadmap work.
+
 ## 2026-09-09 (third follow-up)
 
 ### Added

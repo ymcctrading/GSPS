@@ -25,6 +25,8 @@ import { LEVEL_TIMEFRAME_USAGE, levelRoleLabel, type LevelRole } from "@/lib/ana
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 import {
   DEFAULT_CRITERION_WEIGHTS,
+  EXECUTE_SCORE_THRESHOLD,
+  WATCH_SCORE_THRESHOLD,
   type CriterionKey,
   type CriterionWeights,
 } from "@/lib/scoring/weights";
@@ -253,7 +255,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // exactly the 7/9 that would otherwise read as Execute with no entry, stop or
   // targets. Without a plan the strongest honest reading is Watch.
   const tradePlanReady = patternValid && levels !== null;
-  if (score >= 7 && !tradePlanReady) {
+  if (score >= EXECUTE_SCORE_THRESHOLD && !tradePlanReady) {
     breakdown.push({
       key: "tradePlanPriced",
       criterion: "Trade plan priced (entry / stop / TP1 / master)",
@@ -265,7 +267,11 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   }
 
   const outputState: ScanDecision["outputState"] =
-    score >= 7 && tradePlanReady ? "Execute" : score >= 4 ? "Watch" : "Reject";
+    score >= EXECUTE_SCORE_THRESHOLD && tradePlanReady
+      ? "Execute"
+      : score >= WATCH_SCORE_THRESHOLD
+        ? "Watch"
+        : "Reject";
 
   return { score, outputState, breakdown };
 }
