@@ -7,6 +7,8 @@ import {
   recordSignalLifecycleEvent,
   recordExecutionEvent,
   recordUserAction,
+  recordDigitalRootFeature,
+  upsertInstrument,
 } from '@/lib/learning/db';
 import type { GannRoot } from '@/lib/learning/types';
 
@@ -126,12 +128,37 @@ export async function POST(req: NextRequest) {
     switch (event.type) {
       case 'scan': {
         const { ...scanData } = event;
+        const gannRoot = scanData.gann_root ? GANN_ROOTS[scanData.gann_root] : undefined;
         result = await recordScanEvent(userId, {
           ...scanData,
-          gann_root: scanData.gann_root ? GANN_ROOTS[scanData.gann_root] : undefined,
+          gann_root: gannRoot,
           higher_tf_context: scanData.higher_tf_context || [],
           detail: scanData.detail || {},
         });
+
+        // Blueprint tables (migration 0063). Best-effort: a scan event this
+        // client already supplied a Gann root for has done its job recording
+        // that; a failure recording the digital-root feature row alongside it
+        // must not turn the scan-event write this call already succeeded at
+        // into an error response.
+        if (gannRoot) {
+          try {
+            const instrumentId = await upsertInstrument(scanData.symbol, scanData.asset_class);
+            if (instrumentId) {
+              await recordDigitalRootFeature(userId, {
+                instrument_id: instrumentId,
+                scan_event_id: (result as { id?: string } | null)?.id,
+                root_type: 'price',
+                root_value: gannRoot,
+                source_value: scanData.price,
+              });
+            }
+          } catch (err) {
+            console.error(
+              `learning: digital root feature for ${scanData.symbol} not recorded — ${err instanceof Error ? err.message : String(err)}`,
+            );
+          }
+        }
         break;
       }
 

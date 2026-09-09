@@ -7,6 +7,10 @@ import type {
   UserAction,
   LearningModel,
   LearningCoefficient,
+  AssetClass,
+  PivotFeature,
+  TrendStateFeature,
+  DigitalRootFeature,
 } from './types';
 
 export function createLearningClient() {
@@ -52,6 +56,65 @@ export async function recordExecutionEvent(userId: string, event: Omit<Execution
     .single();
 
   if (error) throw new Error(`Failed to record execution event: ${error.message}`);
+  return data;
+}
+
+/**
+ * The `instrument` dimension table (migration 0063) is global reference
+ * data, not per-user, so this returns just the row's id rather than a
+ * user-scoped record. `upsert` on the (symbol, asset_class) unique
+ * constraint makes this idempotent — repeat scans of the same symbol never
+ * duplicate the row, and a second call with the same pair is a no-op merge
+ * rather than a conflict.
+ */
+export async function upsertInstrument(symbol: string, assetClass: AssetClass): Promise<string | undefined> {
+  const client = createLearningClient();
+  const { data, error } = await client
+    .from('instrument')
+    .upsert([{ symbol, asset_class: assetClass }], { onConflict: 'symbol,asset_class' })
+    .select('id')
+    .single();
+
+  if (error) throw new Error(`Failed to upsert instrument: ${error.message}`);
+  return (data as { id?: string } | null)?.id;
+}
+
+export async function recordPivot(userId: string, pivot: Omit<PivotFeature, 'user_id'>) {
+  const client = createLearningClient();
+  const { data, error } = await client
+    .from('pivot')
+    .insert([{ user_id: userId, ...pivot }])
+    .select()
+    .single();
+
+  if (error) throw new Error(`Failed to record pivot: ${error.message}`);
+  return data;
+}
+
+export async function recordTrendState(userId: string, state: Omit<TrendStateFeature, 'user_id'>) {
+  const client = createLearningClient();
+  const { data, error } = await client
+    .from('trend_state')
+    .insert([{ user_id: userId, ...state }])
+    .select()
+    .single();
+
+  if (error) throw new Error(`Failed to record trend state: ${error.message}`);
+  return data;
+}
+
+export async function recordDigitalRootFeature(
+  userId: string,
+  feature: Omit<DigitalRootFeature, 'user_id'>,
+) {
+  const client = createLearningClient();
+  const { data, error } = await client
+    .from('digital_root_feature')
+    .insert([{ user_id: userId, ...feature }])
+    .select()
+    .single();
+
+  if (error) throw new Error(`Failed to record digital root feature: ${error.message}`);
   return data;
 }
 

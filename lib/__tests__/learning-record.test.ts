@@ -10,11 +10,17 @@ import type { ScanResult } from "@/lib/types";
 const recordScanEvent = vi.fn();
 const recordSignalLifecycleEvent = vi.fn();
 const recordExecutionEvent = vi.fn();
+const upsertInstrument = vi.fn();
+const recordPivot = vi.fn();
+const recordTrendState = vi.fn();
 
 vi.mock("@/lib/learning/db", () => ({
   recordScanEvent: (...args: unknown[]) => recordScanEvent(...args),
   recordSignalLifecycleEvent: (...args: unknown[]) => recordSignalLifecycleEvent(...args),
   recordExecutionEvent: (...args: unknown[]) => recordExecutionEvent(...args),
+  upsertInstrument: (...args: unknown[]) => upsertInstrument(...args),
+  recordPivot: (...args: unknown[]) => recordPivot(...args),
+  recordTrendState: (...args: unknown[]) => recordTrendState(...args),
 }));
 
 import {
@@ -149,6 +155,106 @@ describe("recordScanVerdict", () => {
     await expect(
       recordScanVerdict("user-1", scan(), { timeframe: "15Min" }),
     ).resolves.toBeNull();
+  });
+});
+
+describe("recordScanVerdict — blueprint tables (migration 0063)", () => {
+  it("upserts the instrument once the scan event lands", async () => {
+    recordScanEvent.mockResolvedValue({ id: "scan-row" });
+    upsertInstrument.mockResolvedValue("instrument-1");
+    await recordScanVerdict("user-1", scan(), { timeframe: "15Min" });
+
+    expect(upsertInstrument).toHaveBeenCalledWith("AAPL", "us_equity");
+  });
+
+  it("records a pivot row per clustered support/resistance level", async () => {
+    recordScanEvent.mockResolvedValue({ id: "scan-row" });
+    upsertInstrument.mockResolvedValue("instrument-1");
+    await recordScanVerdict(
+      "user-1",
+      scan({
+        trends: [
+          { timeframe: "1Day", direction: "bearish", support: [190], resistance: [210, 215] },
+        ],
+      }),
+      { timeframe: "15Min" },
+    );
+
+    expect(recordPivot).toHaveBeenCalledTimes(3);
+    const [, support] = recordPivot.mock.calls[0];
+    expect(support).toMatchObject({
+      instrument_id: "instrument-1",
+      scan_event_id: "scan-row",
+      timeframe: "1d",
+      kind: "low",
+      price: 190,
+      role: "support",
+    });
+    const [, resistance] = recordPivot.mock.calls[1];
+    expect(resistance).toMatchObject({ kind: "high", price: 210, role: "resistance" });
+  });
+
+  it("records nothing pivot-shaped when a timeframe found no clustered levels", async () => {
+    recordScanEvent.mockResolvedValue({ id: "scan-row" });
+    upsertInstrument.mockResolvedValue("instrument-1");
+    await recordScanVerdict("user-1", scan(), { timeframe: "15Min" });
+
+    expect(recordPivot).not.toHaveBeenCalled();
+  });
+
+  it("records the regime engine's read as a trend_state row", async () => {
+    recordScanEvent.mockResolvedValue({ id: "scan-row" });
+    upsertInstrument.mockResolvedValue("instrument-1");
+    await recordScanVerdict(
+      "user-1",
+      scan({
+        signals: {
+          regime: { regime: "trend", direction: "bullish", reasons: ["MA aligned"], disqualifiers: [] },
+          trendPullback: null,
+          trendBreakout: null,
+          confirmedReversal: null,
+          rangeReversion: null,
+          gannConfluence: null,
+          saraConfluence: null,
+        },
+      }),
+      { timeframe: "15Min" },
+    );
+
+    expect(recordTrendState).toHaveBeenCalledTimes(1);
+    const [userId, event] = recordTrendState.mock.calls[0];
+    expect(userId).toBe("user-1");
+    expect(event).toMatchObject({
+      instrument_id: "instrument-1",
+      scan_event_id: "scan-row",
+      regime: "trend",
+      direction: "bullish",
+      reasons: ["MA aligned"],
+      disqualifiers: [],
+    });
+  });
+
+  it("records no trend_state when the scan carried no regime read", async () => {
+    recordScanEvent.mockResolvedValue({ id: "scan-row" });
+    upsertInstrument.mockResolvedValue("instrument-1");
+    await recordScanVerdict("user-1", scan(), { timeframe: "15Min" });
+
+    expect(recordTrendState).not.toHaveBeenCalled();
+  });
+
+  it("skips pivot and trend_state writes when the instrument upsert fails", async () => {
+    recordScanEvent.mockResolvedValue({ id: "scan-row" });
+    upsertInstrument.mockRejectedValue(new Error("relation does not exist"));
+    await recordScanVerdict(
+      "user-1",
+      scan({
+        trends: [{ timeframe: "1Day", direction: "bearish", support: [190], resistance: [] }],
+      }),
+      { timeframe: "15Min" },
+    );
+
+    expect(recordPivot).not.toHaveBeenCalled();
+    expect(recordTrendState).not.toHaveBeenCalled();
   });
 });
 
