@@ -5,6 +5,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { pricedBeforeSession, scanFreshness, type ScanFreshness } from "@/lib/scan/freshness";
+import { isInvalidatedByStop } from "@/lib/trade/invalidate-pending";
 import type { ScanRow } from "@/components/scan/results-table";
 import type { ScoreBreakdownItem } from "@/lib/types";
 
@@ -42,6 +43,20 @@ function isComplete(r: DailyScanRow): boolean {
     // as a string must not empty the whole dashboard.
     (v) => v !== null && v !== undefined && Number.isFinite(Number(v)),
   );
+}
+
+/**
+ * A setup whose price already broke the stop before the scan ever ran is not
+ * a "Watch" candidate — it's dead structure, same as the ticker page's
+ * invalidation banner (`isInvalidatedByStop`). Checked against the scan-time
+ * price, since that's all this reader has; a setup that breaks its stop
+ * intraday after the scan runs is still caught on the next run.
+ */
+function isInvalidated(r: DailyScanRow): boolean {
+  const price = r.detail?.currentPrice;
+  if (price == null || !Number.isFinite(price)) return false;
+  const side = r.direction === "bullish" ? "buy" : "sell";
+  return isInvalidatedByStop({ side, stop_price: r.stop_loss }, price);
 }
 
 function toRow(r: DailyScanRow): ScanRow {
@@ -120,7 +135,7 @@ export async function getDailyScans(): Promise<DailyScans> {
     .select("*")
     .eq("scan_date", scanDate)
     .order("rank");
-  const rows = ((data ?? []) as DailyScanRow[]).filter(isComplete);
+  const rows = ((data ?? []) as DailyScanRow[]).filter(isComplete).filter((r) => !isInvalidated(r));
 
   // The most recent write wins: a day can be scanned twice, and it is the run
   // that produced the rows now on screen whose timing matters.
