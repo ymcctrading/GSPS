@@ -22,7 +22,7 @@ re-deriving this from scratch each time.
 | Replay/backtest evidence, honestly disclosed (including negative-expectancy results) | `lib/backtest/*`, `docs/REPLAY_RESULTS*.md` |
 | Live/replay rule-path consistency | Shared scoring path noted in `docs/BACKTESTING.md` |
 | IP/terminology separation — proprietary calculations server-side, neutral public labels | `docs/GSPS_BRAND_GUIDE.md`, `lib/constants/gspsTerminology.ts`, `scripts/check-banned-terms.mjs` (CI gate) |
-| Active 1–9 Digital Root/Vortex classification, per the authorized "GSPS Gann-Centered Foundation" spec (2026-09-08) — normalized-integer input only, zero/invalid = absence, confluence-only | `lib/gann/digitalRoot.ts`, wired into `GannConfluenceResult.digitalRoot` (`lib/signals/confluence/gann.ts`) — see `docs/GANN_SARA_CONFLUENCE.md` |
+| Active 1–9 Digital Root/Vortex engine, per the authorized "GSPS Implementation Blueprint" (2026-09-08) — canonical formulas/tables, normalized-integer input only, zero/invalid = absence, confluence-only | `lib/gann/digitalRoot.ts`, wired into `GannConfluenceResult.vortexContext` (`lib/signals/confluence/gann.ts`) — see `docs/GANN_SARA_CONFLUENCE.md`, `docs/GANN_BLUEPRINT_TRACEABILITY.md` |
 | Suitability / permission matrix by tier | `lib/entitlements/policy.ts` (Phase 3A) |
 | Monitor lifecycle — Watch→Execute, cooldown/re-arm, invalidation precedence, idempotent delivery | `lib/entitlements/monitor.ts`, `monitor-store.ts`, `delivery.ts` (Phase 3E) |
 | Trusted scheduled jobs, market calendar | `lib/market/calendar.ts`, `lib/entitlements/scheduled-scan.ts` (Phase 3D) |

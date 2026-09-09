@@ -8,11 +8,11 @@
  * numerical logic that hasn't been supplied in an authorized written
  * specification. Material Number versus Harmonic Node classification still
  * has no such specification and stays `notImplemented`. The Digital
- * Root / Vortex 1-9 classification (`digitalRoot`, via
- * `lib/gann/digitalRoot.ts`) does now have one — the "GSPS Gann-Centered
- * Foundation" report (2026-09-08, project owner) — and is wired in below,
- * computed from a normalized integer distance rather than a raw price, per
- * that spec.
+ * Root / Vortex 1-9 engine (`lib/gann/digitalRoot.ts`) now has one — the
+ * "GSPS Implementation Blueprint" (v1.0, 2026-09-08, project owner) — and
+ * is wired in below as `vortexContext`: `price_dr`/`time_dr` computed from
+ * normalized positive integers (ticks/bars), never a raw price, per that
+ * spec's section 2.2.
  *
  * Role: confluence, ranking, and coordinate refinement only. Never a sole
  * signal, never able to override a safety/account/eligibility gate — see
@@ -23,9 +23,18 @@ import type { AssetClass, Bar, Direction } from "@/lib/types";
 import { computeFanLines, nearestFanLine } from "@/lib/gann/fans";
 import { nearestS9Level, squareOf9Levels } from "@/lib/gann/squareOf9";
 import { timeCycles } from "@/lib/gann/timeCycles";
-import { classifyDigitalRoot, type DigitalRootReading } from "@/lib/gann/digitalRoot";
+import { buildDigitalRootFeature, classifyConfluence, vortexClass } from "@/lib/gann/digitalRoot";
 import { routeMarketAdapter } from "./marketAdapters";
-import type { ConfluenceAlignment, ConfluenceModuleMeta, GannConfluenceResult } from "./types";
+import type { ConfluenceAlignment, ConfluenceModuleMeta, GannConfluenceResult, GannVortexContext } from "./types";
+
+/**
+ * The blueprint's `price_displacement_ticks`/`atr_ticks`/etc. all divide by
+ * an instrument's real tick size. This module has no per-instrument tick
+ * metadata (that lives in `lib/trade/tick-size.ts`, keyed to order pricing,
+ * not confluence context), so it normalizes in cents — a fixed, documented
+ * convention, not a guess — consistent with equities/crypto quoting.
+ */
+const NORMALIZATION_TICK_SIZE_CENTS = 0.01;
 
 export const GANN_CONFLUENCE_MODULE: ConfluenceModuleMeta = {
   moduleId: "gann_confluence_layer",
@@ -66,7 +75,13 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
       nearestFanLine: null,
       timeCycleActive: false,
       timeCycleDates: [],
-      digitalRoot: null,
+      vortexContext: {
+        priceDisplacement: null,
+        timeDisplacement: null,
+        priceVortexClass: null,
+        timeVortexClass: null,
+        relationship: null,
+      },
       materialNumberClassification: "notImplemented",
       evidence: {
         calculationVersion: GANN_CONFLUENCE_MODULE.version,
@@ -86,21 +101,45 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
   const nearestS9 = nearestS9Level(s9Levels);
   const nearestFan = nearestFanLine(fanLines);
 
-  // Digital Root / Vortex classification (the active 1-9 system) is computed
-  // from a normalized positive integer — distance in cents from current
-  // price to the nearest key price level — never from the raw price itself.
-  // No nearby level means no normalized input, so no root: absence, not a
-  // guessed node.
-  const digitalRoot: DigitalRootReading | null = nearestS9
-    ? classifyDigitalRoot(Math.round(Math.abs(inputs.currentPrice - nearestS9.price) * 100))
-    : null;
+  // Digital Root/Vortex context (blueprint sections 2, 7, 18): price_dr from
+  // the normalized tick displacement off the anchor low, time_dr from bars
+  // since that anchor. Never computed from the raw price/date themselves.
+  const majorLowIndex = inputs.dailyBars.findIndex((b) => b.l === majorLow);
+  const priceDisplacementTicks = Math.round(
+    Math.abs(inputs.currentPrice - majorLow) / NORMALIZATION_TICK_SIZE_CENTS,
+  );
+  const timeDisplacementBars = Math.max(1, inputs.dailyBars.length - 1 - Math.max(majorLowIndex, 0));
+
+  const priceDisplacement = buildDigitalRootFeature(priceDisplacementTicks, {
+    normalizationMethod: "price_displacement_ticks: round(|current - anchor low| / tick)",
+    sourceTimeframe: "1d",
+    featureVersion: GANN_CONFLUENCE_MODULE.version,
+    asOf: sourceTimestamp,
+  });
+  const timeDisplacement = buildDigitalRootFeature(timeDisplacementBars, {
+    normalizationMethod: "time_displacement_bars: bars since confirmed anchor low",
+    sourceTimeframe: "1d",
+    featureVersion: GANN_CONFLUENCE_MODULE.version,
+    asOf: sourceTimestamp,
+  });
+
+  const vortexContext: GannVortexContext = {
+    priceDisplacement,
+    timeDisplacement,
+    priceVortexClass: priceDisplacement ? vortexClass(priceDisplacement.activeDigitalRoot) : null,
+    timeVortexClass: timeDisplacement ? vortexClass(timeDisplacement.activeDigitalRoot) : null,
+    relationship:
+      priceDisplacement && timeDisplacement
+        ? classifyConfluence(priceDisplacement.activeDigitalRoot, timeDisplacement.activeDigitalRoot)
+        : null,
+  };
 
   const explanationTrace: string[] = [
     `Root: sqrt(major low ${majorLow.toFixed(2)}) = ${root.toFixed(4)}.`,
   ];
-  if (digitalRoot) {
+  if (priceDisplacement && timeDisplacement) {
     explanationTrace.push(
-      `GSPS signal calculation ${digitalRoot.root} (class: ${digitalRoot.rootClass}) from ${digitalRoot.input} cents to the nearest key price level — context only, not a directional signal.`,
+      `GSPS signal calculation: price root ${priceDisplacement.activeDigitalRoot} (${vortexContext.priceVortexClass}) vs time root ${timeDisplacement.activeDigitalRoot} (${vortexContext.timeVortexClass}) — relationship ${vortexContext.relationship}. Context only, not a directional signal.`,
     );
   }
   if (nearestS9) {
@@ -145,7 +184,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
     nearestFanLine: nearestFan,
     timeCycleActive: cycles.active,
     timeCycleDates: cycles.dates,
-    digitalRoot,
+    vortexContext,
     materialNumberClassification: "notImplemented",
     evidence: {
       calculationVersion: GANN_CONFLUENCE_MODULE.version,

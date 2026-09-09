@@ -7,6 +7,28 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-09-09
+
+### Changed
+- **Digital Root/Vortex engine rewritten to match the authoritative "GSPS
+  Implementation Blueprint"** (v1.0, 2026-09-08, project owner) — a full
+  engineering spec uploaded after the earlier "GSPS Gann-Centered
+  Foundation" plain-English report, and the source of truth for exact
+  formulas/API where the two differ. `lib/gann/digitalRoot.ts` is now a
+  direct port of the blueprint's reference functions
+  (`digitalRoot1to9`/`calculateGannDr`/`gannComplement`/`resolvesToCompletion`/
+  `vortexClass`/`classifyConfluence`), each DR value carrying full
+  provenance (`DigitalRootFeature`). Notably corrects root 1's
+  classification: the blueprint's `vortex_class` puts root 1 in
+  `VORTEX_FLOW` (not a separate "initiation" bucket, which the first
+  report's wording had suggested). `GannConfluenceResult.vortexContext`
+  replaces the prior single-root `digitalRoot` field with the blueprint
+  §18 `gann_context` shape — `price_dr`/`time_dr` (normalized ticks/bars
+  off the anchor low, never the raw price) plus their `relationship`.
+- Added `docs/GANN_BLUEPRINT_TRACEABILITY.md` — the blueprint's Milestone-0
+  "traceability matrix" deliverable, auditing what's existing/partial/absent
+  in this codebase against the blueprint's 21 sections.
+
 ## 2026-09-08
 
 ### Added

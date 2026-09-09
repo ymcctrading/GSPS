@@ -1,59 +1,172 @@
 /**
- * Digital Root / Vortex coordinate classification — the 1–9 active system
- * from the authorized "GSPS Gann-Centered Foundation" specification
- * (2026-09-08, uploaded by the project owner; see
- * `docs/GANN_SARA_CONFLUENCE.md` on why this stayed unimplemented until an
- * authorized written specification existed).
+ * Digital Root / Vortex 1–9 engine — canonical implementation of section 2
+ * and 7 of the "GSPS Implementation Blueprint" (v1.0, 2026-09-08, project
+ * owner). This is the authorized written specification; every function name,
+ * formula, and classification below is a direct port of the blueprint's
+ * Python reference implementation, not an inference.
  *
- * DR(n) = 1 + ((n − 1) mod 9) for a positive integer n. The recurring
- * 1..9 structure is established modular arithmetic; the role assigned to
- * each root is a GSPS symbolic convention, not a proven causal law — see
- * the "operational use" column this module's classes are drawn from.
+ * Zero/null/invalid input is absence — never a guessed root, never root 9.
+ * A digital root must never be computed from a raw/formatted price quote
+ * (blueprint section 2.2): callers pass a normalized positive integer —
+ * ticks, bars, ATR-in-ticks, relative-volume index, or distance-to-level.
  *
- * Per the spec, a digital root must never be computed from a casually
- * formatted price quote (splits/decimals distort digits without an
- * economic change). Callers must pass a normalized positive integer —
- * ticks from a confirmed anchor, bars since a pivot, ATR in ticks,
- * relative-volume index, or distance to a mapped price level — never a
- * raw price. Zero, non-finite, non-integer, or non-positive input is
- * absence: no root, no node, no derived signal.
+ * Confluence/context only (blueprint section 7.4 "safety rule" and section
+ * 21's decision law): these functions may tag, rank, or score a candidate.
+ * They may never by themselves create a live entry, override a stop, or
+ * override a trend/risk gate.
  */
 
-export type DigitalRootClass = "initiation" | "vortexFlow" | "polarity" | "completion";
-
-export interface DigitalRootReading {
-  /** The normalized positive integer the root was computed from. */
-  input: number;
-  /** 1-9. */
-  root: number;
-  rootClass: DigitalRootClass;
-}
-
-const VORTEX_FLOW_ROOTS = new Set([2, 4, 8, 7, 5]);
-const POLARITY_ROOTS = new Set([3, 6]);
-
-/** Pure DR(n) = 1 + ((n − 1) mod 9). Returns null for anything that isn't a normalized positive integer. */
-export function digitalRoot(n: number): number | null {
-  if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) return null;
+/** DR(n) = 1 + ((n − 1) mod 9). Throws for non-positive input — callers must validate first (blueprint 2.1). */
+export function digitalRoot1to9(n: number): number {
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) {
+    throw new RangeError("GSPS signal calculations require a positive integer");
+  }
   return 1 + ((n - 1) % 9);
 }
 
 /**
- * Classifies a normalized positive integer into the active 1–9 system's
- * root classes. Confluence/context only — never a sole signal, never able
- * to imply direction on its own (root 8/9 is not automatically bearish or
- * bullish; see the spec's continuation-vs-reversion distinction).
+ * Legacy decimal-strip compatibility path (blueprint 2.1's
+ * `calculate_gann_dr`): strips non-digit characters from a formatted value
+ * and reduces what's left. Context-only display feature — never the sole
+ * basis for a trade (blueprint 2.2). Returns null (absence) rather than
+ * throwing, since the input here is untrusted display data, not an
+ * already-validated normalized integer.
  */
-export function classifyDigitalRoot(n: number): DigitalRootReading | null {
-  const root = digitalRoot(n);
-  if (root === null) return null;
+export function calculateGannDr(value: string | number): number | null {
+  const clean = String(value)
+    .split("")
+    .filter((ch) => ch >= "0" && ch <= "9")
+    .join("");
+  if (!clean) return null;
+  const integerValue = Number(clean);
+  if (integerValue === 0) return null;
+  return digitalRoot1to9(integerValue);
+}
 
-  let rootClass: DigitalRootClass;
-  if (root === 9) rootClass = "completion";
-  else if (root === 1) rootClass = "initiation";
-  else if (POLARITY_ROOTS.has(root)) rootClass = "polarity";
-  else if (VORTEX_FLOW_ROOTS.has(root)) rootClass = "vortexFlow";
-  else rootClass = "vortexFlow"; // unreachable for 1-9, kept for exhaustiveness
+/** Sums to 9 (or 18 for 9:9) — the blueprint's fixed polarity-pair table. */
+const POLARITY_PAIRS: Record<number, number> = {
+  1: 8,
+  8: 1,
+  2: 7,
+  7: 2,
+  3: 6,
+  6: 3,
+  4: 5,
+  5: 4,
+  9: 9,
+};
 
-  return { input: n, root, rootClass };
+function assertRoot(root: number): void {
+  if (!Number.isInteger(root) || root < 1 || root > 9) {
+    throw new RangeError("root must be 1 through 9");
+  }
+}
+
+/** The root that resolves with `root` to a 9-completion pair. */
+export function gannComplement(root: number): number {
+  assertRoot(root);
+  return POLARITY_PAIRS[root];
+}
+
+/** Whether two roots' sum reduces to the completion root, 9. */
+export function resolvesToCompletion(rootA: number, rootB: number): boolean {
+  assertRoot(rootA);
+  assertRoot(rootB);
+  return digitalRoot1to9(rootA + rootB) === 9;
+}
+
+export type VortexClass = "VORTEX_FLOW" | "POLARITY_AXIS" | "COMPLETION_NODE";
+
+const VORTEX_FLOW = new Set([1, 2, 4, 8, 7, 5]);
+
+/**
+ * Blueprint 7.1's three-way classification. Root 1 is in `VORTEX_FLOW`
+ * here — its "Renewal / Initiation Node" label (blueprint 2.3) is display
+ * text, not a fourth classification bucket.
+ */
+export function vortexClass(root: number): VortexClass {
+  assertRoot(root);
+  if (VORTEX_FLOW.has(root)) return "VORTEX_FLOW";
+  if (root === 3 || root === 6) return "POLARITY_AXIS";
+  return "COMPLETION_NODE"; // root === 9, the only remaining case
+}
+
+/**
+ * Blueprint 7.3's confluence types. `VORTEX_FLOW_TRANSITION` and
+ * `ONE_RENEWAL_TRANSITION` describe a root *changing* between successive
+ * readings (e.g. advancing along the 1-2-4-8-7-5 loop, or transitioning
+ * into the root-1 renewal node) — that needs a stored prior reading, which
+ * nothing in this codebase persists yet (blueprint's `digital_root_feature`
+ * table, Milestone 3). Left unproduced here rather than guessed from a
+ * single snapshot; `classifyConfluence` never returns either.
+ */
+export type ConfluenceType =
+  | "NO_CONFLUENCE"
+  | "COMPLEMENTARY_PAIR"
+  | "COMPLETION_PAIR"
+  | "THREE_SIX_POLARITY"
+  | "NINE_COMPLETION"
+  | "VORTEX_FLOW_TRANSITION"
+  | "ONE_RENEWAL_TRANSITION"
+  | "MULTI_FACTOR_CONFLUENCE";
+
+/**
+ * Classifies the relationship between two simultaneous root readings (e.g.
+ * `price_dr` vs `time_dr` in the blueprint's section 18 API example).
+ *
+ * `COMPLETION_PAIR` and `COMPLEMENTARY_PAIR` are the same condition for a
+ * two-root comparison — `resolvesToCompletion(a, b)` is true exactly when
+ * `gannComplement(a) === b`, per the fixed table above. The blueprint
+ * distinguishes them without a two-vs-many-root example; this reports
+ * `COMPLEMENTARY_PAIR` (the named-pair table) for that shared case and
+ * reserves `COMPLETION_PAIR` for a future multi-root sum, rather than
+ * emitting two labels for one formula.
+ */
+export function classifyConfluence(rootA: number, rootB: number): ConfluenceType {
+  assertRoot(rootA);
+  assertRoot(rootB);
+
+  const matched: ConfluenceType[] = [];
+  if (rootA === 9 || rootB === 9) matched.push("NINE_COMPLETION");
+  if (gannComplement(rootA) === rootB) matched.push("COMPLEMENTARY_PAIR");
+  if ((rootA === 3 || rootA === 6) && (rootB === 3 || rootB === 6)) matched.push("THREE_SIX_POLARITY");
+
+  if (matched.length > 1) return "MULTI_FACTOR_CONFLUENCE";
+  if (matched.length === 1) return matched[0];
+  return "NO_CONFLUENCE";
+}
+
+/** One of the blueprint 5.2 `digital_root_feature` records — every DR must carry this provenance (blueprint 2.2). */
+export interface DigitalRootFeature {
+  rawValue: number;
+  normalizationMethod: string;
+  integerValue: number;
+  mod9Residue: number;
+  activeDigitalRoot: number;
+  inputTimestamp: string;
+  sourceTimeframe: string;
+  featureVersion: string;
+}
+
+/**
+ * Builds a fully-provenanced digital-root feature from an already-normalized
+ * positive integer. Returns null (absence) for anything that isn't one,
+ * rather than a guessed root — per blueprint 2.1's "never convert
+ * missing/null/invalid data to root 9."
+ */
+export function buildDigitalRootFeature(
+  integerValue: number,
+  context: { normalizationMethod: string; sourceTimeframe: string; featureVersion: string; asOf?: string },
+): DigitalRootFeature | null {
+  if (!Number.isFinite(integerValue) || !Number.isInteger(integerValue) || integerValue <= 0) return null;
+  return {
+    rawValue: integerValue,
+    normalizationMethod: context.normalizationMethod,
+    integerValue,
+    mod9Residue: integerValue % 9,
+    activeDigitalRoot: digitalRoot1to9(integerValue),
+    inputTimestamp: context.asOf ?? new Date().toISOString(),
+    sourceTimeframe: context.sourceTimeframe,
+    featureVersion: context.featureVersion,
+  };
 }
