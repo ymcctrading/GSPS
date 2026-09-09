@@ -199,11 +199,18 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "33.3% break-even. Larger than historicalSR, the best of the nine it joins. Expectancy is " +
       "monotonic across the boundary and 1.5x is the only point where the sign flips.\n" +
       "\n" +
-      "Registered as hypothesis, not validated, and deliberately so: one window, six large caps, " +
-      "15Min, reversion-only, and measured on the raw pattern stop rather than the leeway-widened " +
-      "stop production actually places. `?within=all&productionStop=1` is the confirming run. It " +
-      "reaches validated when that agrees. See MIN_STOP_ROOM_ATR for why this is a selection rule " +
-      "and never an instruction to widen a stop.",
+      "Stays hypothesis. The `?productionStop=1` run was captured 2026-09-09 and confirmed nothing, " +
+      "because it turned out not to be a different measurement: every ATR band came back with " +
+      "identical trade counts and identical win rates, four of five with a literally zero expectancy " +
+      "difference, and the overall expectancy moved by 2e-6. computeStopWithLeeway takes whichever " +
+      "stop is FURTHER from entry (levels.ts `Math.min(structuralStop, leewayCandidate)`), the " +
+      "large-cap leeway is 0.25x ATR, and this sample has zero trades under 0.5x ATR — so the " +
+      "leeway cannot bind on any trade, and only the 3.5x cap moved a handful in the 2.5x+ band.\n" +
+      "\n" +
+      "So the stop-width effect is still measured on exactly one sample. What it needs is not a " +
+      "different stop model but a different WINDOW — genuinely independent data. Until then: one " +
+      "window, six large caps, 15Min, reversion-only. See MIN_STOP_ROOM_ATR for why this is a " +
+      "selection rule and never an instruction to widen a stop.",
   },
   {
     id: "timeCycle",

@@ -96,6 +96,41 @@ Quarantine is deliberately not a mute button: the finding still appears, downgra
 and a quarantined criterion that starts measuring correctly again raises `quarantine-liftable` so
 the quarantine cannot outlive its reason.
 
+## `--productionStop` cannot validate the large-cap widening (2026-09-09)
+
+The bullet below on `lib/strat/levels.ts` prescribes a specific experiment: run the same universe
+with and without `--productionStop`, then compare the "Large-cap" row across both reports. **That
+comparison is degenerate, and the run proving it is committed.**
+
+`docs/replay-runs/2026-09-08-15Min-since0615-all.json` and its `-productionStop` twin are the same
+1,005 trades, same window, differing only in the flag. The result:
+
+| | raw pattern stop | production stop |
+|---|---:|---:|
+| Trades | 1,005 | 1,005 |
+| Win rate | 32.8358…% | 32.8358…% (identical) |
+| Expectancy | −0.0245850R | −0.0245872R |
+| ATR band counts | 442 / 398 / 100 / 38 / 27 | 442 / 398 / 100 / 38 / 27 (identical) |
+
+Four of the five populated bands differ by *exactly zero*. The whole-run expectancy moves by
+2×10⁻⁶.
+
+The cause is in `computeStopWithLeeway`, which takes whichever stop is **further** from entry
+(`Math.min(structuralStop, leewayCandidate)` for a long). `LARGE_CAP_LEEWAY_ATR` is 0.25x ATR, and
+this sample contains **no trade whose structural stop is under 0.5x ATR** — the 0–0.5x band is
+empty. So the leeway candidate is never the further stop, and never binds. Only
+`LARGE_CAP_MAX_STOP_ATR_MULTIPLE` (3.5x) can bite, which is why the 2.5x+ band alone moved, by
+8×10⁻⁵.
+
+Two consequences:
+
+- **The widening is not validated and cannot be validated this way.** It is a no-op on large-cap
+  15Min setups. Testing it needs a population whose structural stops are actually tighter than
+  0.25x ATR — a different universe or timeframe — not a flag on this one.
+- **A confirming run has to change the sample, not the stop model.** `stopRoom`
+  (`MIN_STOP_ROOM_ATR`) was registered pending this run and stays a hypothesis, because the run
+  re-measured the same trades rather than new ones.
+
 ## Win rate decides nothing on its own
 
 A run reports `breakEvenWinRate` — `1 / (1 + targetR)` — beside the win rate, and every bucket
