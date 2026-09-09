@@ -7,6 +7,28 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-09-09 (second follow-up)
+
+### Added
+- **Sara Confluence Layer `StrategyResult` adapter** (`lib/signals/confluence/strategyResult.ts`,
+  `toSaraStrategyResult`) — blueprint §11.2's required strategy interface,
+  reshaping the existing `SaraConfluenceResult` into the blueprint's exact
+  `status: WATCH/DEVELOPING/ACTIONABLE/NO_TRADE` vocabulary and field set.
+  `targets`/`timeStopBars`/`featureSnapshotId` stay `null`/`[]` rather than
+  fabricated — Sara's module doesn't compute a target, time stop, or
+  persisted snapshot id today, and `DEVELOPING` status isn't reachable since
+  Sara's own confirmation read is binary, not graduated.
+- **Verified five more `docs/GANN_BLUEPRINT_TRACEABILITY.md` rows** that
+  were only "Not deep-audited" for lack of a targeted look: anchored VWAP
+  (`lib/signals/indicators.ts`), measured move (the state modules), the
+  manual-dashboard-scans-per-day table (`lib/entitlements/policy.ts`, exact
+  1/3/6/unlimited match), the Wall-Street-only stop-override gate
+  (`lib/risk/stop-override.ts`), and event-aware/news-risk state
+  (`lib/universe/eventRisk.ts`) were all already built. One row flipped the
+  other way: instrument behavior profiles were checked and are genuinely
+  **absent** — no per-instrument "habits" concept exists anywhere in this
+  codebase, left unscoped rather than guessed at.
+
 ## 2026-09-09
 
 ### Added
