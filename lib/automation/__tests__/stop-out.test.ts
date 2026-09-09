@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
+
+vi.mock("@/lib/learning/record", () => ({
+  recordTradePlanRegime: vi.fn(),
+}));
+
 import { createTradePlan, getTradePlan, applyEventAndPersist, type NewTradePlan } from "@/lib/lifecycle/store";
 import { freshEntryConfirmation } from "@/lib/lifecycle/entryConfirmation";
 import { handleAutomatedStopOut } from "@/lib/automation/stop-out";
