@@ -53,6 +53,93 @@ describe("evaluateGannConfluence", () => {
     expect(result.materialNumberClassification).toBe("notImplemented");
   });
 
+  it("computes price/time digital-root features (normalized ticks/bars, not the raw price) with a relationship", () => {
+    const bars = uptrendBars(60);
+    const result = evaluateGannConfluence({
+      assetClass: "us_equity",
+      symbol: "TEST",
+      dailyBars: bars,
+      currentPrice: bars[bars.length - 1].c,
+      direction: "bullish",
+    });
+    expect(result.vortexContext.priceDisplacement).not.toBeNull();
+    expect(result.vortexContext.timeDisplacement).not.toBeNull();
+    expect(result.vortexContext.priceDisplacement!.activeDigitalRoot).toBeGreaterThanOrEqual(1);
+    expect(result.vortexContext.priceDisplacement!.activeDigitalRoot).toBeLessThanOrEqual(9);
+    expect(result.vortexContext.timeDisplacement!.activeDigitalRoot).toBeGreaterThanOrEqual(1);
+    expect(result.vortexContext.timeDisplacement!.activeDigitalRoot).toBeLessThanOrEqual(9);
+    expect(result.vortexContext.priceVortexClass).not.toBeNull();
+    expect(result.vortexContext.timeVortexClass).not.toBeNull();
+    expect(result.vortexContext.relationship).not.toBeNull();
+  });
+
+  it("has no vortexContext readings when there is insufficient bar history to compute them", () => {
+    const result = evaluateGannConfluence({
+      assetClass: "us_equity",
+      symbol: "TEST",
+      dailyBars: [],
+      currentPrice: 100,
+      direction: "bullish",
+    });
+    expect(result.vortexContext.priceDisplacement).toBeNull();
+    expect(result.vortexContext.timeDisplacement).toBeNull();
+    expect(result.vortexContext.relationship).toBeNull();
+    expect(result.vortexContext.transition).toBeNull();
+    expect(result.angleSlope).toBeNull();
+  });
+
+  it("has no transition when the caller supplies no prior reading", () => {
+    const bars = uptrendBars(60);
+    const result = evaluateGannConfluence({
+      assetClass: "us_equity",
+      symbol: "TEST",
+      dailyBars: bars,
+      currentPrice: bars[bars.length - 1].c,
+      direction: "bullish",
+    });
+    expect(result.vortexContext.transition).toBeNull();
+  });
+
+  it("classifies a root transition when the caller supplies a prior reading", () => {
+    const bars = uptrendBars(60);
+    const currentPrice = bars[bars.length - 1].c;
+    const withoutPrior = evaluateGannConfluence({
+      assetClass: "us_equity",
+      symbol: "TEST",
+      dailyBars: bars,
+      currentPrice,
+      direction: "bullish",
+    });
+    const currentPriceRoot = withoutPrior.vortexContext.priceDisplacement!.activeDigitalRoot;
+    // Force a genuine transition: pick a previous root different from the current one.
+    const previousRoot = currentPriceRoot === 1 ? 2 : 1;
+
+    const result = evaluateGannConfluence({
+      assetClass: "us_equity",
+      symbol: "TEST",
+      dailyBars: bars,
+      currentPrice,
+      direction: "bullish",
+      previousVortexRoots: { price: previousRoot, time: null },
+    });
+    expect(result.vortexContext.transition).not.toBeNull();
+    // Either a named transition, or null (a real change matching neither pattern) -- never undefined/absent-shaped.
+    expect(result.vortexContext.transition!.time).toBeNull();
+  });
+
+  it("computes a normalized angle slope for a supported market with enough history", () => {
+    const bars = uptrendBars(60);
+    const result = evaluateGannConfluence({
+      assetClass: "us_equity",
+      symbol: "TEST",
+      dailyBars: bars,
+      currentPrice: bars[bars.length - 1].c,
+      direction: "bullish",
+    });
+    expect(result.angleSlope).not.toBeNull();
+    expect(Number.isFinite(result.angleSlope!.slope)).toBe(true);
+  });
+
   it("never classifies the Material Number vs structural node field — pending authorized specification", () => {
     const bars = uptrendBars(60);
     const result = evaluateGannConfluence({

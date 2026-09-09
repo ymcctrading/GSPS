@@ -19,7 +19,8 @@ export interface FanLine {
   role: LevelRole;
 }
 
-const ANGLES: { label: string; ratio: number }[] = [
+/** Exported for `lib/gann/normalizedSlope.ts`, which classifies an already-realized slope against this same ratio set. */
+export const ANGLES: { label: string; ratio: number }[] = [
   { label: "1x4", ratio: 0.25 },
   { label: "1x2", ratio: 0.5 },
   { label: "1x1", ratio: 1 },

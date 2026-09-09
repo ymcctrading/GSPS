@@ -5,6 +5,16 @@ export interface Pivot {
   bar: Bar;
   price: number;
   kind: "high" | "low";
+  /**
+   * Blueprint ("GSPS Implementation Blueprint" §8.2) audit fields: when the
+   * pivot bar itself printed, and when it became usable — the timestamp of
+   * the `strength`-th confirming bar on the far side, the same bar whose
+   * close is what makes `findPivots` emit this pivot at all. A pivot is
+   * never returned before its confirming bars exist in `bars`, so these are
+   * always both populated; there is no "occurred but unconfirmed" state.
+   */
+  occurrenceTimestamp: string;
+  confirmationTimestamp: string;
 }
 
 /** Swing pivots: a bar whose high/low exceeds `strength` neighbors on each side. */
@@ -19,8 +29,14 @@ export function findPivots(bars: Bar[], strength = 3): Pivot[] {
       if (bars[j].l <= bars[i].l) isLow = false;
       if (!isHigh && !isLow) break;
     }
-    if (isHigh) pivots.push({ index: i, bar: bars[i], price: bars[i].h, kind: "high" });
-    if (isLow) pivots.push({ index: i, bar: bars[i], price: bars[i].l, kind: "low" });
+    const occurrenceTimestamp = bars[i].t;
+    const confirmationTimestamp = bars[i + strength].t;
+    if (isHigh) {
+      pivots.push({ index: i, bar: bars[i], price: bars[i].h, kind: "high", occurrenceTimestamp, confirmationTimestamp });
+    }
+    if (isLow) {
+      pivots.push({ index: i, bar: bars[i], price: bars[i].l, kind: "low", occurrenceTimestamp, confirmationTimestamp });
+    }
   }
   return pivots;
 }

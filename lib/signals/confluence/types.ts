@@ -14,6 +14,8 @@
 import type { StratPattern } from "@/lib/types";
 import type { S9Level } from "@/lib/gann/squareOf9";
 import type { FanLine } from "@/lib/gann/fans";
+import type { ConfluenceType, DigitalRootFeature, VortexClass } from "@/lib/gann/digitalRoot";
+import type { NearestGannAngle } from "@/lib/gann/normalizedSlope";
 import type { MarketAdapterStatus, SupportedMarket } from "./marketAdapters";
 
 /**
@@ -41,6 +43,30 @@ export interface ConfluenceEvidence {
   explanationTrace: string[];
 }
 
+/**
+ * Blueprint section 18's `gann_context` shape: `price_dr`/`time_dr` plus
+ * their `relationship`. `VORTEX_FLOW_TRANSITION`/`ONE_RENEWAL_TRANSITION`
+ * need a prior reading to detect a change between successive roots —
+ * nothing persists one yet (blueprint's `digital_root_feature` table is
+ * Milestone 3), so `relationship` never reports either. `transition`
+ * carries the same two types when the caller supplies a prior reading
+ * in-memory (e.g. from an earlier scan of the same symbol this session);
+ * it's `null` whenever no prior reading was supplied, not just when the
+ * confirming bars are missing. See `classifyRootTransition` in
+ * `lib/gann/digitalRoot.ts`.
+ */
+export interface GannVortexContext {
+  priceDisplacement: DigitalRootFeature | null;
+  timeDisplacement: DigitalRootFeature | null;
+  priceVortexClass: VortexClass | null;
+  timeVortexClass: VortexClass | null;
+  relationship: ConfluenceType | null;
+  transition: {
+    price: ConfluenceType | null;
+    time: ConfluenceType | null;
+  } | null;
+}
+
 export interface GannConfluenceResult {
   module: ConfluenceModuleMeta;
   market: SupportedMarket;
@@ -52,6 +78,24 @@ export interface GannConfluenceResult {
   nearestFanLine: FanLine | null;
   timeCycleActive: boolean;
   timeCycleDates: string[];
+  /**
+   * The active 1–9 Digital Root/Vortex context, per the "GSPS Implementation
+   * Blueprint" (2026-09-08) sections 2 and 7 — `price_dr`/`time_dr` and
+   * their relationship, computed from normalized positive integers (never a
+   * raw price), with full provenance on each feature. Context/confluence
+   * only, per the blueprint's section 7.4 safety rule: never a sole signal,
+   * never able to create/override an entry, stop, or gate. See
+   * `lib/gann/digitalRoot.ts`.
+   */
+  vortexContext: GannVortexContext;
+  /**
+   * Blueprint §8.5's normalized Gann-angle slope — realized ATR-units-per-bar
+   * since the anchor, and which fixed angle ratio (1x4…4x1) that's closest
+   * to. Diagnostic only, same non-authoritative role as every other field
+   * here. Null when there's no ATR/anchor to compute it from. See
+   * `lib/gann/normalizedSlope.ts`.
+   */
+  angleSlope: { slope: number; nearestAngle: NearestGannAngle | null } | null;
   /**
    * The addendum's "Material Number versus Harmonic Node classification" is
    * personally sourced numerical logic that has not been supplied in an

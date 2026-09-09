@@ -94,6 +94,8 @@ export const GSPS_TERM_REPLACEMENTS: Record<string, string> = {
   "Master Target": "Final Target",
   "Minor Node": "First Target",
   "Decimal-Strip Modulo-9 Reduction": "GSPS Signal Calculation",
+  "Digital Root": "GSPS Signal Calculation",
+  Vortex: "Signal Flow",
   "Bullish Momentum": "Upward Setup",
   "Bearish Mean Reversion": "Downward Setup",
   "Reversal Vector": "Pivot Scenario",

@@ -93,6 +93,8 @@ const USER_FACING_TERMS = [
   { pattern: /\bSquare[ -]of[ -](9|Nine)\b/i, term: "Square of 9", instead: "key price level" },
   { pattern: /\bS9\b/, term: "S9", instead: "key level" },
   { pattern: /\bHarmonic\b/, term: "Harmonic", instead: "structural / key price level" },
+  { pattern: /\bDigital Root(s)?\b/i, term: "Digital Root", instead: "GSPS Signal Calculation" },
+  { pattern: /\bVortex\b/i, term: "Vortex", instead: "signal flow" },
   { pattern: /\bPivot Machine Gun\b/i, term: "Pivot Machine Gun", instead: "Momentum reversal (PMG)" },
   { pattern: /\b2-(up|down) bar\b/i, term: "2-up/2-down bar", instead: "the up bar / the down bar" },
   // GSPS School's spec traces its Three-Element Method to Hermetic/alchemical
