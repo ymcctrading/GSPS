@@ -25,7 +25,7 @@ import { readTrend } from "@/lib/analysis/trend";
 import { atr } from "@/lib/analysis/pivots";
 import { levelRole } from "@/lib/analysis/levelRole";
 import { computeFanLines } from "@/lib/gann/fans";
-import { squareOf9Levels } from "@/lib/gann/squareOf9";
+import { recentSquareOf9Levels } from "@/lib/gann/squareOf9";
 import { timeCycles } from "@/lib/gann/timeCycles";
 import {
   CONTINUATION_PATTERNS,
@@ -125,8 +125,7 @@ export async function scanTicker(
 
     // ---- Gann structures (anchored on the daily chart)
     const fanLines = computeFanLines(daily, currentPrice);
-    const majorLow = Math.min(...daily.map((b) => b.l));
-    const s9 = squareOf9Levels(majorLow, currentPrice).slice(0, 12);
+    const s9 = recentSquareOf9Levels(daily, currentPrice).slice(0, 12);
     const cycles = timeCycles(daily);
 
     const gann: GannLevels = {
@@ -143,6 +142,8 @@ export async function scanTicker(
         role,
       })),
       timeCycleActive: cycles.active,
+      timeCycleBullishActive: cycles.bullishActive,
+      timeCycleBearishActive: cycles.bearishActive,
       timeCycleDates: cycles.dates,
     };
 
@@ -461,7 +462,14 @@ export async function scanTicker(
       setupKind,
       momentumElevated: false,
       trends: [],
-      gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleDates: [] },
+      gann: {
+        fanLines: [],
+        squareOf9: [],
+        timeCycleActive: false,
+        timeCycleBullishActive: false,
+        timeCycleBearishActive: false,
+        timeCycleDates: [],
+      },
       pattern: null,
       armedPatterns: [],
       levels: null,

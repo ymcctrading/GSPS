@@ -36,6 +36,8 @@ const inputs: ScoreInputs = {
     fanLines: [{ angle: "1x4 (high)", price: 101, distancePct: 0.4, role: "support" }],
     squareOf9: [],
     timeCycleActive: false,
+    timeCycleBullishActive: false,
+    timeCycleBearishActive: false,
     timeCycleDates: [],
   },
   nearSupportResistance: true,

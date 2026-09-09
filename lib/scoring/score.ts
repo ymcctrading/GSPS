@@ -76,15 +76,14 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     weights = DEFAULT_CRITERION_WEIGHTS,
   } = inputs;
 
-  // The macro criterion is the one place the two setup kinds read the same
-  // evidence in opposite directions. A reversion wants an extended move
-  // AGAINST it (price stretched into the level it will bounce off); a
-  // continuation wants the macro running WITH it (a trend still intact).
-  // Scoring a continuation on the reversion question would fail it for the
-  // very condition that makes it a continuation.
-  const opposite = direction === "bullish" ? "bearish" : "bullish";
-  const macroWanted = setupKind === "continuation" ? direction : opposite;
-  const macroSupports = macroTrends.filter((t) => t.direction === macroWanted).length >= 2;
+  // Previously scored a reversion on the macro running AGAINST the trade
+  // (price stretched into a level it would bounce off) — the classic
+  // counter-trend-snapback premise. Measured evidence (2026-09-08, both
+  // 15Min and 1Hour) said that premise loses money: -0.17R and -1.42R.
+  // Trend agreement is now scored identically for both setup kinds — the
+  // macro timeframes should read the same direction as the trade, whether
+  // it's a reversion bouncing off a level or a trend it's continuing.
+  const macroSupports = macroTrends.filter((t) => t.direction === direction).length >= 2;
 
   const hourlyAgrees = hourlyTrend.direction === direction || hourlyTrend.direction === "sideways";
 
@@ -150,10 +149,10 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       note: macroSupports
         ? setupKind === "continuation"
           ? `Macro timeframes read ${direction} — the trend this setup continues is intact.`
-          : `Extended ${opposite} move into the level — primed for ${direction} reversion.`
+          : `Macro timeframes read ${direction} — in agreement with this reversion.`
         : setupKind === "continuation"
           ? "Macro timeframes do not confirm the trend this setup would continue."
-          : "Macro timeframes are not extended against the setup direction.",
+          : "Macro timeframes do not agree with this reversion's direction.",
     },
     {
       key: "hourlyTrend",
@@ -219,10 +218,14 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       key: "timeCycle",
       criterion: "Cyclical turn window active",
       pillar: "timing",
-      passed: gann.timeCycleActive,
-      note: gann.timeCycleActive
-        ? `Scan date falls inside a projected turn window${upcomingCycles ? ` — next dates of interest ${upcomingCycles}.` : "."}`
-        : `Not inside a projected turn window${upcomingCycles ? `; next dates of interest ${upcomingCycles}.` : " — none projected in the next two weeks."}`,
+      // Direction-matched: a low-anchored window argues bullish, a
+      // high-anchored one bearish — timeCycleActive (either direction) used
+      // to be scored identically for both, which is what let a projected
+      // turn argue for a bullish and a bearish setup at once.
+      passed: direction === "bullish" ? gann.timeCycleBullishActive : gann.timeCycleBearishActive,
+      note: (direction === "bullish" ? gann.timeCycleBullishActive : gann.timeCycleBearishActive)
+        ? `Scan date falls inside a ${direction}-anchored turn window${upcomingCycles ? ` — next dates of interest ${upcomingCycles}.` : "."}`
+        : `Not inside a ${direction}-anchored turn window${upcomingCycles ? `; next dates of interest ${upcomingCycles}.` : " — none projected in the next two weeks."}`,
     },
     {
       key: "masterStructural",
