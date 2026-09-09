@@ -1,6 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
+
+const recordTradePlanRegime = vi.fn();
+vi.mock("@/lib/learning/record", () => ({
+  recordTradePlanRegime: (...args: unknown[]) => recordTradePlanRegime(...args),
+}));
+
 import {
   applyEventAndPersist,
   createTradePlan,
@@ -9,6 +15,10 @@ import {
   type NewTradePlan,
 } from "@/lib/lifecycle/store";
 import { freshEntryConfirmation } from "@/lib/lifecycle/entryConfirmation";
+
+afterEach(() => {
+  vi.clearAllMocks();
+});
 
 /**
  * Minimal in-memory fake covering exactly the query shapes
@@ -143,6 +153,14 @@ describe("createTradePlan / getTradePlan", () => {
     expect(fetched).not.toBeNull();
     expect(fetched?.instrument).toBe("AAPL");
     expect(fetched?.coordinates.masterProfit).toBe(110);
+  });
+
+  it("gives the new plan's regime a second home in trend_state", async () => {
+    const { client } = fakeSupabase();
+    const created = await createTradePlan(client, "user-1", newPlan());
+
+    expect(recordTradePlanRegime).toHaveBeenCalledTimes(1);
+    expect(recordTradePlanRegime).toHaveBeenCalledWith("user-1", expect.objectContaining({ planId: created.planId }));
   });
 
   it("returns null for a plan belonging to another user", async () => {

@@ -24,6 +24,8 @@
  */
 
 import type { AssetClass, Bar, ScanResult, Timeframe } from "@/lib/types";
+import type { TradePlan } from "@/lib/lifecycle/types";
+import { isTimeframe } from "@/lib/timeframe";
 import {
   recordExecutionEvent,
   recordPivot,
@@ -243,6 +245,43 @@ export async function recordScanVerdict(
   }
 
   return { scanId };
+}
+
+/**
+ * `trade_plans.regime` (migration 0045) is written exactly once, at plan
+ * creation, and never updated afterward — see `lib/lifecycle/store.ts`'s
+ * `createTradePlan`/`createOrGetIdempotentTradePlan`, the only two places a
+ * `trade_plans` row is inserted. This gives that same regime read (a
+ * `RegimeRead` already attached to `plan.evidence.regime` by whichever
+ * builder produced the plan — `lib/lifecycle/fromScanResult.ts` or
+ * `lib/lifecycle/fromPivot.ts`) a second, queryable home in `trend_state`
+ * (migration 0063), joined to the plan it came from via `trade_plan_id`.
+ *
+ * Called from `store.ts` itself, once, right after the insert succeeds —
+ * not from each plan builder — so every creation path gets this for free
+ * without having to remember to call it.
+ */
+export async function recordTradePlanRegime(userId: string, plan: TradePlan): Promise<void> {
+  if (!isTimeframe(plan.timeframe)) return;
+
+  const instrumentId = await safeRecord(`instrument for ${plan.instrument}`, () =>
+    upsertInstrument(plan.instrument, toLearningAssetClass(plan.market as AssetClass)),
+  );
+  if (!instrumentId) return;
+
+  const regime = plan.evidence.regime;
+  await safeRecord(`trend state for trade plan ${plan.planId}`, () =>
+    recordTrendState(userId, {
+      instrument_id: instrumentId,
+      trade_plan_id: plan.planId,
+      timeframe: toLearningTimeframe(plan.timeframe as Timeframe),
+      regime: regime.regime,
+      direction: regime.direction,
+      reasons: regime.reasons,
+      disqualifiers: regime.disqualifiers,
+      as_of: new Date(plan.generatedAt),
+    }),
+  );
 }
 
 /**

@@ -11,12 +11,21 @@
  * caught by a unique constraint (`trade_plan_audit(plan_id, version)`) rather
  * than serialized. A concurrent writer that loses the race gets a duplicate-
  * key error back rather than a torn write.
+ *
+ * Every successful creation (`createTradePlan`, and
+ * `createOrGetIdempotentTradePlan` only on its `created: true` branch — a
+ * call that found an existing plan wrote nothing new to mirror) also calls
+ * `recordTradePlanRegime` (`lib/learning/record.ts`), which gives the plan's
+ * `evidence.regime` a second, queryable home in `trend_state`
+ * (migration 0063). Failures there are swallowed internally and can never
+ * fail the plan creation itself.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PlanState, TradePlan } from "./types";
 import { EMPTY_ENTRY_CONFIRMATION, PRE_ENTRY_STATES } from "./types";
 import { applyPlanEvent, type PlanEvent, type TransitionResult } from "./transitions";
+import { recordTradePlanRegime } from "@/lib/learning/record";
 
 /** Everything the caller must supply to start a plan at WATCHLIST. */
 export type NewTradePlan = Omit<
@@ -260,7 +269,9 @@ export async function createTradePlan(
     .select("*")
     .single();
   if (error) throw new Error(error.message);
-  return rowToPlan(data, []);
+  const plan = rowToPlan(data, []);
+  await recordTradePlanRegime(userId, plan);
+  return plan;
 }
 
 /**
@@ -286,7 +297,11 @@ export async function createOrGetIdempotentTradePlan(
     .insert(newPlanToRow(userId, input))
     .select("*")
     .single();
-  if (!error) return { plan: rowToPlan(data, []), created: true };
+  if (!error) {
+    const plan = rowToPlan(data, []);
+    await recordTradePlanRegime(userId, plan);
+    return { plan, created: true };
+  }
 
   const isUniqueViolation = error.code === "23505";
   if (!isUniqueViolation || input.signalFingerprint == null) {

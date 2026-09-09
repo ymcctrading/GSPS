@@ -30,7 +30,12 @@ started empty because swing pivots were never persisted before this.
 `app/api/scan/route.ts`) now writes `instrument`, `pivot` (from
 `result.trends`' clustered support/resistance levels), and `trend_state`
 (from `result.signals.regime`) alongside every `scan_events` row it already
-wrote. `digital_root_feature` is populated only via
+wrote. `lib/lifecycle/store.ts`'s `createTradePlan`/
+`createOrGetIdempotentTradePlan` also call `recordTradePlanRegime`
+(`lib/learning/record.ts`) right after every trade-plan creation, giving
+`trade_plans.regime` — written once, at creation, and never updated — a
+second, queryable `trend_state` row joined to the plan via `trade_plan_id`.
+`digital_root_feature` is populated only via
 `app/api/learning/record-event`'s `scan` case, when a caller supplies
 `gann_root` — nothing in the live scan pipeline computes a Gann digital-root
 value yet, so `recordScanVerdict` deliberately leaves that table alone
