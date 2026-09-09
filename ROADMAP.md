@@ -2,11 +2,14 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-09-08 (Portfolio analytics dashboard corrected to
-reflect that it shipped 2026-08-18 and was never marked done; Conditional
-orders closed — attaching a stop-loss/take-profit to a position already open,
-not just at order submission; intraday-scan coverage and email-delivery gaps
-fixed — see the Notification system initiative note under Q1).
+**Last updated:** 2026-09-09 (Improved onboarding: corrected the stale claim
+that glossary integration was still open — it shipped and is linked
+throughout the app; pattern education remains open). Previously: 2026-09-08
+(Portfolio analytics dashboard corrected to reflect that it shipped
+2026-08-18 and was never marked done; Conditional orders closed — attaching
+a stop-loss/take-profit to a position already open, not just at order
+submission; intraday-scan coverage and email-delivery gaps fixed — see the
+Notification system initiative note under Q1).
 
 This document decides *what we build next and in what order*. Proposals and
 implementation work should trace back to a phase below. See
@@ -269,7 +272,12 @@ both signal discovery and execution.
   destination in plain English, plus `/welcome` as a permanent, re-readable
   version of the same content. Illustrated throughout by a frozen after-hours
   SPY snapshot, labelled as saved rather than live on every figure. Glossary
-  integration and pattern education remain open.)*
+  integration shipped — corrected 2026-09-09, this bullet previously read it
+  as open after it was already built: a dedicated `/glossary` page
+  (`components/glossary.tsx`, `components/glossary-term.tsx`) linked from
+  nav, Settings, the onboarding tour, the dashboard novice-home summary, the
+  chart pane, the order ticket, and scan cards. Pattern education remains
+  open.)*
 - **Guided Decision Mode** *(shipped 2026-08-17)* — one recommended action per
   symbol, sized from a per-trade risk cap, executed through a single
   confirmation. Paper-only, long-only, Execute-verdict only, with daily/weekly
