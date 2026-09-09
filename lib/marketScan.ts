@@ -33,6 +33,7 @@ import { squareOf9Levels } from "@/lib/gann/squareOf9";
 import { CONTINUATION_PATTERNS } from "@/lib/strat/patterns";
 import { MIN_EQUITY_PRICE_USD, meetsLiquidityFloor, readLiquidity } from "@/lib/scan/liquidity";
 import { scanTicker } from "@/lib/scanTicker";
+import { EXECUTION_TIMEFRAME } from "@/lib/timeframe";
 import { DEFAULT_UNIVERSE_THRESHOLDS, type UniverseThresholds } from "@/lib/universe/eligibility";
 import { MAG7, SECTORS } from "@/lib/sectors";
 import { LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
@@ -614,7 +615,7 @@ export async function runMarketScan(
   // Full multi-timeframe pass — batch-fetch all five timeframes for the whole
   // shortlist up front (five requests total) so each scanTicker call below is
   // just scoring, not a fresh five-request fetch per symbol.
-  const shortlistBars = await fetchAllTimeframesBatch(shortlist.map((c) => c.symbol));
+  const shortlistBars = await fetchAllTimeframesBatch(shortlist.map((c) => c.symbol), EXECUTION_TIMEFRAME);
   const full = await mapWithConcurrency(shortlist, 5, (c) =>
     scanTicker(c.symbol, undefined, undefined, shortlistBars.get(c.symbol.toUpperCase()), universeThresholds),
   );
@@ -696,7 +697,7 @@ export async function runMarketScan(
         .slice(0, Math.min(target[dir] * 3, perSideBudget)),
     );
 
-    const fillBars = await fetchAllTimeframesBatch(fills.map((c) => c.symbol));
+    const fillBars = await fetchAllTimeframesBatch(fills.map((c) => c.symbol), EXECUTION_TIMEFRAME);
     const scans = await mapWithConcurrency(fills, 5, (c) =>
       scanTicker(
         c.symbol,
