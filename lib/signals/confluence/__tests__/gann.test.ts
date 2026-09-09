@@ -84,6 +84,60 @@ describe("evaluateGannConfluence", () => {
     expect(result.vortexContext.priceDisplacement).toBeNull();
     expect(result.vortexContext.timeDisplacement).toBeNull();
     expect(result.vortexContext.relationship).toBeNull();
+    expect(result.vortexContext.transition).toBeNull();
+    expect(result.angleSlope).toBeNull();
+  });
+
+  it("has no transition when the caller supplies no prior reading", () => {
+    const bars = uptrendBars(60);
+    const result = evaluateGannConfluence({
+      assetClass: "us_equity",
+      symbol: "TEST",
+      dailyBars: bars,
+      currentPrice: bars[bars.length - 1].c,
+      direction: "bullish",
+    });
+    expect(result.vortexContext.transition).toBeNull();
+  });
+
+  it("classifies a root transition when the caller supplies a prior reading", () => {
+    const bars = uptrendBars(60);
+    const currentPrice = bars[bars.length - 1].c;
+    const withoutPrior = evaluateGannConfluence({
+      assetClass: "us_equity",
+      symbol: "TEST",
+      dailyBars: bars,
+      currentPrice,
+      direction: "bullish",
+    });
+    const currentPriceRoot = withoutPrior.vortexContext.priceDisplacement!.activeDigitalRoot;
+    // Force a genuine transition: pick a previous root different from the current one.
+    const previousRoot = currentPriceRoot === 1 ? 2 : 1;
+
+    const result = evaluateGannConfluence({
+      assetClass: "us_equity",
+      symbol: "TEST",
+      dailyBars: bars,
+      currentPrice,
+      direction: "bullish",
+      previousVortexRoots: { price: previousRoot, time: null },
+    });
+    expect(result.vortexContext.transition).not.toBeNull();
+    // Either a named transition, or null (a real change matching neither pattern) -- never undefined/absent-shaped.
+    expect(result.vortexContext.transition!.time).toBeNull();
+  });
+
+  it("computes a normalized angle slope for a supported market with enough history", () => {
+    const bars = uptrendBars(60);
+    const result = evaluateGannConfluence({
+      assetClass: "us_equity",
+      symbol: "TEST",
+      dailyBars: bars,
+      currentPrice: bars[bars.length - 1].c,
+      direction: "bullish",
+    });
+    expect(result.angleSlope).not.toBeNull();
+    expect(Number.isFinite(result.angleSlope!.slope)).toBe(true);
   });
 
   it("never classifies the Material Number vs structural node field — pending authorized specification", () => {

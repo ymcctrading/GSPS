@@ -20,10 +20,17 @@
  */
 
 import type { AssetClass, Bar, Direction } from "@/lib/types";
+import { atr } from "@/lib/analysis/pivots";
 import { computeFanLines, nearestFanLine } from "@/lib/gann/fans";
 import { nearestS9Level, squareOf9Levels } from "@/lib/gann/squareOf9";
 import { timeCycles } from "@/lib/gann/timeCycles";
-import { buildDigitalRootFeature, classifyConfluence, vortexClass } from "@/lib/gann/digitalRoot";
+import {
+  buildDigitalRootFeature,
+  classifyConfluence,
+  classifyRootTransition,
+  vortexClass,
+} from "@/lib/gann/digitalRoot";
+import { nearestGannAngle, normalizedSlope } from "@/lib/gann/normalizedSlope";
 import { routeMarketAdapter } from "./marketAdapters";
 import type { ConfluenceAlignment, ConfluenceModuleMeta, GannConfluenceResult, GannVortexContext } from "./types";
 
@@ -52,6 +59,14 @@ export interface GannConfluenceInputs {
   currentPrice: number;
   /** The direction to score alignment/conflict against — the scan's currently confirmed bias, not this module's own opinion. */
   direction: Exclude<Direction, "none"> | null;
+  /**
+   * A prior scan's `vortexContext.priceDisplacement`/`.timeDisplacement`
+   * active roots for this same symbol, when the caller has one in memory.
+   * Nothing in this codebase persists a prior reading yet, so this is
+   * optional and additive — omit it and `vortexContext.transition` is
+   * simply `null`, same as always.
+   */
+  previousVortexRoots?: { price: number | null; time: number | null } | null;
 }
 
 const MIN_DAILY_BARS = 30;
@@ -81,7 +96,9 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
         priceVortexClass: null,
         timeVortexClass: null,
         relationship: null,
+        transition: null,
       },
+      angleSlope: null,
       materialNumberClassification: "notImplemented",
       evidence: {
         calculationVersion: GANN_CONFLUENCE_MODULE.version,
@@ -123,6 +140,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
     asOf: sourceTimestamp,
   });
 
+  const previousRoots = inputs.previousVortexRoots ?? null;
   const vortexContext: GannVortexContext = {
     priceDisplacement,
     timeDisplacement,
@@ -132,7 +150,26 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
       priceDisplacement && timeDisplacement
         ? classifyConfluence(priceDisplacement.activeDigitalRoot, timeDisplacement.activeDigitalRoot)
         : null,
+    transition: previousRoots
+      ? {
+          price: priceDisplacement
+            ? classifyRootTransition(previousRoots.price, priceDisplacement.activeDigitalRoot)
+            : null,
+          time: timeDisplacement
+            ? classifyRootTransition(previousRoots.time, timeDisplacement.activeDigitalRoot)
+            : null,
+        }
+      : null,
   };
+
+  // Blueprint §8.5's normalized Gann-angle slope: realized ATR-units-per-bar
+  // since the anchor low, and which fixed angle ratio that's nearest to.
+  // `atr()` needs at least 2 bars; when the anchor sits at (or near) the
+  // start of the window, widen the slice forward rather than reporting no
+  // slope at all — MIN_DAILY_BARS guarantees enough bars exist to do so.
+  const atrAtAnchor = atr(inputs.dailyBars.slice(0, Math.max(majorLowIndex + 1, 2)), 14);
+  const slope = normalizedSlope(inputs.currentPrice, majorLow, atrAtAnchor, timeDisplacementBars);
+  const angleSlope = slope !== null ? { slope, nearestAngle: nearestGannAngle(slope) } : null;
 
   const explanationTrace: string[] = [
     `Root: sqrt(major low ${majorLow.toFixed(2)}) = ${root.toFixed(4)}.`,
@@ -140,6 +177,16 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
   if (priceDisplacement && timeDisplacement) {
     explanationTrace.push(
       `GSPS signal calculation: price root ${priceDisplacement.activeDigitalRoot} (${vortexContext.priceVortexClass}) vs time root ${timeDisplacement.activeDigitalRoot} (${vortexContext.timeVortexClass}) — relationship ${vortexContext.relationship}. Context only, not a directional signal.`,
+    );
+  }
+  if (vortexContext.transition) {
+    explanationTrace.push(
+      `Root transition vs prior reading: price ${vortexContext.transition.price ?? "none"}, time ${vortexContext.transition.time ?? "none"}.`,
+    );
+  }
+  if (angleSlope) {
+    explanationTrace.push(
+      `Normalized angle slope ${angleSlope.slope.toFixed(3)} ATR/bar${angleSlope.nearestAngle ? ` — nearest to ${angleSlope.nearestAngle.label} (${angleSlope.nearestAngle.direction})` : ""}.`,
     );
   }
   if (nearestS9) {
@@ -185,6 +232,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
     timeCycleActive: cycles.active,
     timeCycleDates: cycles.dates,
     vortexContext,
+    angleSlope,
     materialNumberClassification: "notImplemented",
     evidence: {
       calculationVersion: GANN_CONFLUENCE_MODULE.version,

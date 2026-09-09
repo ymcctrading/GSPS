@@ -3,6 +3,7 @@ import {
   buildDigitalRootFeature,
   calculateGannDr,
   classifyConfluence,
+  classifyRootTransition,
   digitalRoot1to9,
   gannComplement,
   resolvesToCompletion,
@@ -104,6 +105,40 @@ describe("classifyConfluence", () => {
 
   it("reports NO_CONFLUENCE when no relationship matches", () => {
     expect(classifyConfluence(2, 4)).toBe("NO_CONFLUENCE");
+  });
+});
+
+describe("classifyRootTransition", () => {
+  it("returns null when no previous reading is supplied", () => {
+    expect(classifyRootTransition(null, 5)).toBeNull();
+  });
+
+  it("returns null when the root hasn't changed", () => {
+    expect(classifyRootTransition(4, 4)).toBeNull();
+  });
+
+  it("reports ONE_RENEWAL_TRANSITION for completion (9) resolving into renewal (1)", () => {
+    expect(classifyRootTransition(9, 1)).toBe("ONE_RENEWAL_TRANSITION");
+  });
+
+  it("reports VORTEX_FLOW_TRANSITION for the next root along 1-2-4-8-7-5", () => {
+    expect(classifyRootTransition(1, 2)).toBe("VORTEX_FLOW_TRANSITION");
+    expect(classifyRootTransition(2, 4)).toBe("VORTEX_FLOW_TRANSITION");
+    expect(classifyRootTransition(4, 8)).toBe("VORTEX_FLOW_TRANSITION");
+    expect(classifyRootTransition(8, 7)).toBe("VORTEX_FLOW_TRANSITION");
+    expect(classifyRootTransition(7, 5)).toBe("VORTEX_FLOW_TRANSITION");
+    // The loop closes 5 -> 1, distinct from the 9 -> 1 renewal transition.
+    expect(classifyRootTransition(5, 1)).toBe("VORTEX_FLOW_TRANSITION");
+  });
+
+  it("returns null for a real change that matches neither named transition", () => {
+    expect(classifyRootTransition(2, 8)).toBeNull(); // skips ahead in the flow loop
+    expect(classifyRootTransition(3, 9)).toBeNull();
+  });
+
+  it("throws for a root outside 1-9 on either side", () => {
+    expect(() => classifyRootTransition(0, 5)).toThrow(RangeError);
+    expect(() => classifyRootTransition(5, 10)).toThrow(RangeError);
   });
 });
 

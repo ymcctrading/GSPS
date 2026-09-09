@@ -136,6 +136,49 @@ export function classifyConfluence(rootA: number, rootB: number): ConfluenceType
   return "NO_CONFLUENCE";
 }
 
+/**
+ * `VORTEX_FLOW_TRANSITION`/`ONE_RENEWAL_TRANSITION` describe a root
+ * *changing* between successive readings rather than a snapshot
+ * relationship. The blueprint names both but gives no formula for either,
+ * unlike `classifyConfluence`'s other six types — this is a documented
+ * interpretation, not a literal spec port:
+ *
+ *   - `ONE_RENEWAL_TRANSITION`: the completion node (9) resolving into the
+ *     renewal node (1) — blueprint 2.3's "Root 9: Completion" followed by
+ *     "Root 1: Renewal" read as a sequence.
+ *   - `VORTEX_FLOW_TRANSITION`: moving to the next root along the fixed
+ *     1-2-4-8-7-5 loop (including the loop closing 5 back to 1).
+ *
+ * Takes the previous reading explicitly rather than reading any stored
+ * state — nothing in this codebase persists a prior digital-root reading
+ * yet, so callers that have one (e.g. from an in-memory prior-scan cache)
+ * can supply it; callers that don't simply omit it and get `null`.
+ */
+const VORTEX_FLOW_SEQUENCE = [1, 2, 4, 8, 7, 5] as const;
+
+export function classifyRootTransition(
+  previousRoot: number | null,
+  currentRoot: number,
+): ConfluenceType | null {
+  assertRoot(currentRoot);
+  if (previousRoot === null) return null;
+  assertRoot(previousRoot);
+  if (previousRoot === currentRoot) return null; // no change, nothing to classify
+
+  const matched: ConfluenceType[] = [];
+  if (previousRoot === 9 && currentRoot === 1) matched.push("ONE_RENEWAL_TRANSITION");
+
+  const flowIndex = VORTEX_FLOW_SEQUENCE.indexOf(previousRoot as (typeof VORTEX_FLOW_SEQUENCE)[number]);
+  if (flowIndex !== -1) {
+    const nextInFlow = VORTEX_FLOW_SEQUENCE[(flowIndex + 1) % VORTEX_FLOW_SEQUENCE.length];
+    if (nextInFlow === currentRoot) matched.push("VORTEX_FLOW_TRANSITION");
+  }
+
+  if (matched.length > 1) return "MULTI_FACTOR_CONFLUENCE";
+  if (matched.length === 1) return matched[0];
+  return null; // a real change occurred, but it doesn't match either named transition
+}
+
 /** One of the blueprint 5.2 `digital_root_feature` records — every DR must carry this provenance (blueprint 2.2). */
 export interface DigitalRootFeature {
   rawValue: number;
