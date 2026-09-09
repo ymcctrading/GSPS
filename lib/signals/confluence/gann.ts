@@ -2,8 +2,7 @@
  * Gann Confluence Layer — the addendum's "North Star" numerical/coordinate
  * context module. Wraps GSPS's existing, already-implemented public-domain
  * Gann techniques (`lib/gann/squareOf9.ts`, `lib/gann/fans.ts`,
- * `lib/gann/timeCycles.ts`, `lib/gann/coordinateLedger.ts`) rather than
- * inventing new numerology: the
+ * `lib/gann/timeCycles.ts`) rather than inventing new numerology: the
  * addendum requires "independently designed public concepts" with
  * provenance metadata, and forbids inferring any personally sourced
  * numerical logic that hasn't been supplied in an authorized written
@@ -92,8 +91,6 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
       nearestFanLine: null,
       timeCycleActive: false,
       timeCycleDates: [],
-      coordinateLedger: { day: null, week: null, month: null },
-      nearestLedgerLevel: null,
       vortexContext: {
         priceDisplacement: null,
         timeDisplacement: null,
@@ -122,8 +119,6 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
   const cycles = timeCycles(inputs.dailyBars);
   const nearestS9 = nearestS9Level(s9Levels);
   const nearestFan = nearestFanLine(fanLines);
-  const coordinateLedger = buildCoordinateLedger(inputs.dailyBars, inputs.currentPrice);
-  const nearestLedger = nearestLedgerLevel(coordinateLedger, inputs.currentPrice);
 
   // Digital Root/Vortex context (blueprint sections 2, 7, 18): price_dr from
   // the normalized tick displacement off the anchor low, time_dr from bars
@@ -207,12 +202,6 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
       `Nearest structural angle line: ${nearestFan.angle} at ${nearestFan.price.toFixed(2)} (${nearestFan.role}, ${nearestFan.distancePct.toFixed(2)}% away).`,
     );
   }
-  if (nearestLedger) {
-    const fractionLabel = nearestLedger.fraction !== null ? `${nearestLedger.fraction} range fraction` : "range endpoint";
-    explanationTrace.push(
-      `Nearest coordinate ledger level: prior ${nearestLedger.period} ${fractionLabel} at ${nearestLedger.price.toFixed(2)} (${nearestLedger.role}, ${nearestLedger.distancePct.toFixed(2)}% away).`,
-    );
-  }
   explanationTrace.push(
     cycles.active
       ? `Active structural time-cycle window (nearby dates: ${cycles.dates.slice(0, 3).join(", ") || "n/a"}).`
@@ -250,8 +239,6 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
     nearestFanLine: nearestFan,
     timeCycleActive: cycles.active,
     timeCycleDates: cycles.dates,
-    coordinateLedger,
-    nearestLedgerLevel: nearestLedger,
     vortexContext,
     angleSlope,
     coordinateLedger,

@@ -70,8 +70,6 @@ describe("ConfluenceCard", () => {
           nearestFanLine: null,
           timeCycleActive: false,
           timeCycleDates: [],
-          coordinateLedger: { day: null, week: null, month: null },
-          nearestLedgerLevel: null,
           vortexContext: {
             priceDisplacement: {
               rawValue: 25,
