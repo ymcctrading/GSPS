@@ -474,6 +474,24 @@ Nobody has run that check yet — this repo has no local Alpaca credentials (see
 keys live" above), so producing it requires the `--from` flow against a signed-in deployment.
 Until it exists, `cleanRR`'s polarity in `lib/scoring/score.ts` stays as it is.
 
+## Known bias-control gap: survivorship
+
+The default replay universe — `DEFAULT_UNIVERSE` in `app/api/backtest/route.ts`
+and the default `symbols` in `scripts/replay-report.mjs` — is a fixed six-symbol
+list of currently-listed mega-caps (`SPY, AAPL, AMD, TSLA, MSFT, NVDA`), and a
+custom `--symbols`/`?symbols=` run inherits the same problem: nothing in
+`lib/backtest/*` or `lib/data/*` sources a delisted/halted/acquired-out ticker.
+Every report in `docs/replay-runs/` is implicitly conditioned on "survived to
+today," which silently favors whatever the score correlates with survival
+rather than with the setup itself. Look-ahead bias, data-snooping, and
+walk-forward are all handled (see above); survivorship is not, and there is no
+small fix available today — the data vendors this app integrates with don't
+expose point-in-time delisted-symbol history. See "Backtest bias-control
+audit" in `docs/GANN_BLUEPRINT_TRACEABILITY.md` for the full control-by-control
+read, including permutation tests and block bootstrap (both absent, both
+already scoped to Q2 alongside Monte Carlo per
+`docs/VALIDATION_BACKTESTING_AUDIT_COMPLIANCE.md`).
+
 ## Sample-size floor
 
 `attributeFactors` withholds a recommendation when either arm of a split has

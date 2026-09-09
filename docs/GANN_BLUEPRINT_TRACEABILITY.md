@@ -34,6 +34,16 @@ per-instrument "habits" concept exists anywhere in this codebase. Marked
 **Existing (verified this pass)** / **Existing (follow-up PR)** / **Absent**
 below accordingly.
 
+**Third follow-up pass (2026-09-09):** performed the control-by-control
+backtest bias audit this doc's §12–17 row previously deferred — see "Backtest
+bias-control audit" below. Three of the six named controls (look-ahead,
+data-snooping, walk-forward) were already solidly built; this pass surfaced
+one new real gap (survivorship bias in the default replay universe, not
+previously flagged anywhere) and confirmed two already-scoped gaps
+(permutation tests, block bootstrap) are correctly parked for Q2. No code
+changed — the survivorship finding needs a decision, not a fix, and the other
+two are already tracked.
+
 ## 1–2. Mission, doctrine, terminology
 
 | Blueprint requirement | Status | Where |
@@ -121,9 +131,33 @@ below accordingly.
 | Tier max setups/scan: Novice 6, Pro 12, Expert 20, Wall Street 30 | Existing, exact match | `lib/entitlements/policy.ts` |
 | Manual dashboard scans/day: 1/3/6/unlimited | **Existing (verified this pass)**, exact match | `lib/entitlements/policy.ts`'s `manualDashboardScansPerDay` |
 | Scoring bands (0–24 NO_TRADE … 85–100 HIGH_CONFLUENCE) | Not deep-audited | GSPS has its own tier/score system (`lib/signals/types.ts` `RulesAlignmentTier`); not compared band-for-band against the blueprint's exact thresholds |
-| Backtest bias controls (look-ahead, survivorship, data-snooping, walk-forward, permutation tests, block bootstrap) | Partial | `lib/backtest/*`, `docs/VALIDATION_BACKTESTING_AUDIT_COMPLIANCE.md` cover some of this; a control-by-control audit against the blueprint's full list was not performed this pass |
+| Backtest bias controls (look-ahead, survivorship, data-snooping, walk-forward, permutation tests, block bootstrap) | Partial — **control-by-control audit done this pass** | See "Backtest bias-control audit" below |
 | Futures/forex/options execution constraints (tick value, roll, pip, Greeks, assignment) | Absent | No futures/forex data path exists in GSPS yet; options adapter is not built (`lib/signals/confluence/marketAdapters.ts` reports both `unsupported`) |
 | Required plain-English signal explanation + warning language | Partial | `GSPS_LABELS`/`GSPS_TOOLTIPS`/`GSPS_DISCLAIMER` (`lib/constants/gspsTerminology.ts`) cover the general case; not verified against this blueprint's specific explanation checklist item-by-item |
+
+## Backtest bias-control audit (third follow-up pass, 2026-09-09)
+
+Control-by-control read of `lib/backtest/*` against the blueprint's six named
+bias controls (§17). Verification only — no code changed in this pass, since
+none of the findings below are a small fix; two are real, unbuilt gaps.
+
+| Control | Status | Where / finding |
+|---|---|---|
+| Look-ahead bias | **Existing** | `replay()` in `lib/backtest/replay.ts` slices `history = bars.slice(0, i)` for every setup and derives `priorSessions` by filtering daily bars strictly before the live bar's date (`b.t.slice(0, 10) < live.t.slice(0, 10)`) before computing large-cap status or macro context off them. Entry itself is a stop order that only "fires" if the *next* bar's high/low reaches the trigger — no same-bar fill assumption. |
+| Data-snooping / repeated parameter selection | **Existing** | `lib/backtest/propose-weights.ts` splits chronologically (not shuffled) into train/check halves, requires a criterion to be `informative` and agree in sign on **both** halves before it can move a weight, and sizes the step off the *weaker* half — see `docs/BACKTESTING.md` § "From attribution to weights." |
+| Walk-forward testing | **Existing** | Same mechanism as above — this *is* GSPS's walk-forward implementation (chronological train/check, no re-fit on the same sample). `docs/BACKTESTING.md`'s "verdict ladder" section also documents an out-of-sample regime-vs-timeframe check (`--since`) used to keep from re-weighting on an unconfirmed inversion. |
+| Survivorship bias | **Absent — real gap, not previously flagged** | Every replay entry point (`app/api/backtest/route.ts`'s `DEFAULT_UNIVERSE`, `scripts/replay-report.mjs`'s default `symbols`) defaults to a fixed six-symbol list — `SPY, AAPL, AMD, TSLA, MSFT, NVDA` — all currently-listed, currently-liquid mega-caps. A custom `--symbols`/`?symbols=` run inherits the same problem: nothing in `lib/backtest/*` or `lib/data/*` sources a delisted/halted/acquired-out ticker, so every committed report in `docs/replay-runs/` is implicitly conditioned on "survived to today." This silently favors whatever pattern/criterion correlates with surviving, and none of the existing docs (`docs/BACKTESTING.md`, `docs/VALIDATION_BACKTESTING_AUDIT_COMPLIANCE.md`) name it. No data vendor integration here currently exposes a delisted-symbol history, so there is no small fix — this needs either a point-in-time universe feed or an explicit, documented acceptance of the bias for a mega-cap-only product surface. |
+| Permutation tests | **Absent** | No permutation/label-shuffling significance test exists anywhere under `lib/backtest/` or `lib/validation/`. `attributeFactors`' `deltaExpectancyR` reports a correlation with no significance test attached — `docs/BACKTESTING.md` already flags this informally ("Attribution is marginal, not causal... treat a strong reading as a hypothesis to re-run, not a result") but that is a caveat, not a test. |
+| Block bootstrap | **Absent** | No bootstrap resampling (block or otherwise) exists; `docs/VALIDATION_BACKTESTING_AUDIT_COMPLIANCE.md` already scopes "Monte Carlo simulation and formal parameter-sensitivity sweeps" to Q2 and block bootstrap for confidence intervals on `RequiredMetrics` (win rate, expectancy, drawdown) would land in the same bucket — not started. |
+
+**Net**: 3 of 6 controls are solidly built (look-ahead, data-snooping, walk-forward)
+and were the ones this repo's own docs already emphasized. Survivorship bias is
+a newly-identified gap this pass — worth a decision (accept it as a documented
+limitation of the mega-cap-only default universe, or scope a point-in-time data
+source) rather than a silent fix. Permutation tests and block bootstrap are
+confirmed absent and already correctly scoped to Q2 statistical-rigor work per
+`docs/VALIDATION_BACKTESTING_AUDIT_COMPLIANCE.md` — this pass adds nothing new
+there beyond confirming the scoping is accurate.
 
 ## 18–21. API contract, milestones, acceptance criteria, decision law
 
