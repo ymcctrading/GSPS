@@ -16,6 +16,18 @@ global model table, only server-side access.
 
 Intraday scanning (`0016`): `intraday_alerts`.
 
+Blueprint-aligned literal tables (`0063`): `instrument`, `pivot`,
+`trend_state`, `digital_root_feature` — additive, table-for-table homes for
+concepts the doctrine blueprint names directly but GSPS previously only
+modeled under other names or computed transiently without persisting (see
+the migration's header comment for the exact mapping). `instrument` is
+global reference data (readable by any signed-in user, written by the
+service role, like `daily_scans`); the other three are per-user and
+RLS-scoped like everything else. Backfilled from existing data where
+possible (`instrument`, `digital_root_feature`, `trend_state`); `pivot`
+starts empty because swing pivots were never persisted before this. No
+application code writes to these yet — that's separate follow-up work.
+
 Protocol exits and paper trading (`0009`–`0012`): `protocol_exits`,
 `paper_accounts`, plus the `increment_paper_cash` and `execute_position_fill`
 RPC functions.
