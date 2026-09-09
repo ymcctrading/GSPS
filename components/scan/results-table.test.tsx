@@ -4,9 +4,16 @@
  * rows that don't carry one (a persisted daily_scans row).
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { ResultsTable, type ScanRow } from "./results-table";
+
+vi.mock("@/lib/hooks/useLiveQuote", () => ({
+  useLiveQuote: (symbol: string | null) => {
+    if (symbol === "DEAD") return { price: 90, symbol: "DEAD" };
+    return null;
+  },
+}));
 
 const BASE_ROW: ScanRow = {
   symbol: "AAPL",
@@ -82,5 +89,26 @@ describe("ResultsTable", () => {
     render(<ResultsTable rows={[BASE_ROW]} />);
     const dashes = screen.getAllByText("—");
     expect(dashes.length).toBeGreaterThan(0);
+  });
+
+  it("drops a setup whose stop has already been broken into a separate group below the live ones", async () => {
+    render(
+      <ResultsTable
+        rows={[
+          { ...BASE_ROW, symbol: "LIVE", entry: 100, stopLoss: 95 },
+          { ...BASE_ROW, symbol: "DEAD", entry: 100, stopLoss: 95 },
+        ]}
+      />,
+    );
+
+    // DEAD's mocked live quote (90) has already fallen through its 95 stop.
+    expect(await screen.findByText("No longer valid — price already broke the stop")).toBeInTheDocument();
+
+    const rows = screen.getAllByRole("row");
+    const liveIndex = rows.findIndex((r) => r.textContent?.includes("LIVE"));
+    const dividerIndex = rows.findIndex((r) => r.textContent?.includes("No longer valid"));
+    const deadIndex = rows.findIndex((r) => r.textContent?.includes("DEAD"));
+    expect(liveIndex).toBeLessThan(dividerIndex);
+    expect(dividerIndex).toBeLessThan(deadIndex);
   });
 });
