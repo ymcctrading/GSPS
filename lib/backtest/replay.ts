@@ -38,7 +38,7 @@ import { readTrend } from "@/lib/analysis/trend";
 import { levelRole, type LevelRole } from "@/lib/analysis/levelRole";
 import { atr } from "@/lib/analysis/pivots";
 import { computeFanLines } from "@/lib/gann/fans";
-import { squareOf9Levels } from "@/lib/gann/squareOf9";
+import { recentSquareOf9Levels } from "@/lib/gann/squareOf9";
 import { timeCycles } from "@/lib/gann/timeCycles";
 import { DEFAULT_COST_PER_SHARE_USD } from "@/lib/trade/friction";
 
@@ -246,8 +246,7 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
   const dailyTrend = readTrend(daily, "1Day");
 
   const fanLines = computeFanLines(daily, price);
-  const majorLow = Math.min(...daily.map((b) => b.l));
-  const s9 = squareOf9Levels(majorLow, price).slice(0, 12);
+  const s9 = recentSquareOf9Levels(daily, price).slice(0, 12);
   const cycles = timeCycles(daily);
 
   const allLevels = [
@@ -281,6 +280,8 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
         degree, price: Math.round(p * 100) / 100, distancePct, role,
       })),
       timeCycleActive: cycles.active,
+      timeCycleBullishActive: cycles.bullishActive,
+      timeCycleBearishActive: cycles.bearishActive,
       timeCycleDates: cycles.dates,
     },
     nearSupportResistance: srMatch !== null,

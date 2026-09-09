@@ -100,12 +100,14 @@ const SCAN_SCORE: RegisteredCriterion[] = [
     expectedSign: "positive",
     evidence: "quarantined",
     quarantineReason:
-      "Measured negative on both runs of 2026-09-08 (−0.17R at 15Min, −1.42R at 1Hour) — the two " +
-      "agree in direction across different timeframes and windows, though each arm sits below the " +
-      "attribution sample floor on its own. The code is not defective: for a reversion setup it " +
-      "deliberately rewards the macro running AGAINST the trade, so what the data disputes is the " +
-      "counter-trend premise itself, not the implementation. Settled by a strategy decision on that " +
-      "premise, not by a code fix — do not 'correct' the sign here to make this green.",
+      "Measured negative on both runs of 2026-09-08 (−0.17R at 15Min, −1.42R at 1Hour) under the old " +
+      "counter-trend premise (a reversion wanted the macro running AGAINST the trade). That premise " +
+      "was a strategy question, not a code defect, and was settled 2026-09-09: computeScore now scores " +
+      "trend agreement for both setup kinds instead — macro timeframes should read the same direction " +
+      "as the trade. Carried under quarantine rather than promoted straight to 'hypothesis', because " +
+      "the prior committed payloads describe the old logic's outcomes, not this one's — they cannot " +
+      "vindicate or condemn the new rule either way. Exits quarantine when a fresh committed run, under " +
+      "the new logic, measures it informative and positive twice.",
   },
   {
     id: "hourlyTrend",
@@ -133,13 +135,20 @@ const SCAN_SCORE: RegisteredCriterion[] = [
     expectedSign: "positive",
     evidence: "quarantined",
     quarantineReason:
-      "The one criterion measuring against its claim on a sufficient sample and outside the noise " +
-      "band: −0.134 on 2026-08-12-1Hour-3R with both arms above the attribution floor. Its sign also " +
-      "still flips between timeframes on 2026-09-08 (+0.46R at 15Min, −0.68R at 1Hour). " +
-      "docs/BACKTESTING.md records this instability and attributes it to role-blindness; the " +
-      "role-aware proximity fix (strategy 2026-08-27) was meant to end it and demonstrably has not. " +
-      "Exits quarantine when a run measures it positive, outside the noise band, on two consecutive " +
-      "committed payloads across different timeframes.",
+      "−0.134 on 2026-08-12-1Hour-3R (both arms above the attribution floor), sign also flipping " +
+      "between timeframes on 2026-09-08. docs/BACKTESTING.md attributed the instability to " +
+      "role-blindness, and the 2026-08-27 role-aware match fix (score.ts's wantedRole filter) " +
+      "verifiably did not end it — because role-blindness wasn't the only defect. lib/gann/squareOf9.ts " +
+      "spiraled every level from Math.min() of the whole daily window — the single lowest low over the " +
+      "lookback, however stale, used identically for bullish and bearish setups alike — rather than the " +
+      "pivot that actually anchors the current move; a stale/irrelevant anchor, distinct from the " +
+      "role-matching bug already fixed. 2026-09-09: replaced with recentSquareOf9Levels(), which anchors " +
+      "from the most recent significant high AND low (the same 'anchor from the two most recent pivots' " +
+      "rule lib/gann/fans.ts already used for the stable fanProximity sibling), merged before the " +
+      "existing role-aware match runs. Carried under quarantine rather than promoted straight to " +
+      "'hypothesis': the committed payloads above measured the old anchor, not this one, so they cannot " +
+      "vindicate or condemn it either way. Exits quarantine when a fresh committed run measures it " +
+      "positive, outside the noise band, twice across different timeframes.",
   },
   {
     id: "historicalSR",
@@ -182,14 +191,19 @@ const SCAN_SCORE: RegisteredCriterion[] = [
     expectedSign: "positive",
     evidence: "quarantined",
     quarantineReason:
-      "Measured informative and inverted at 15Min on 2026-09-08 (−0.83R, correlation −0.30 — the " +
-      "strongest verified effect in either run, pointing the wrong way), and constant at 1Hour " +
-      "(13/13). Unlike macroTrend this one has real implementation defects behind it: ~108 projected " +
-      "dates per symbol each carrying a ±2-day window (near-total near-term coverage); no directional " +
-      "check, so a projected turn argues for a bullish and a bearish setup identically — the same " +
-      "role-blindness already fixed in harmonicProximity; and an anchor comment claiming 'top quartile " +
-      "by prominence' that findPivots() does not implement, so noise pivots seed cycles like major " +
-      "ones. Exits quarantine when those are fixed and a run measures it informative and positive.",
+      "Measured informative and inverted at 15Min on 2026-09-08 (−0.83R, correlation −0.30), constant " +
+      "at 1Hour (13/13). Three implementation defects fixed 2026-09-09: (1) the 'top quartile by " +
+      "prominence' anchor filter the old code claimed in a comment but never ran — it took the last 12 " +
+      "pivots by chronological index, not by prominence — is now real (lib/analysis/pivots.ts's " +
+      "majorPivots(), ranked by swing distance to the nearest opposite-kind pivot); (2) no directional " +
+      "check, so a projected turn argued for a bullish and a bearish setup identically — timeCycles() " +
+      "now tags each date by its anchor's kind (low anchors bullish, high anchors bearish) and returns " +
+      "bullishActive/bearishActive separately, and computeScore matches the criterion against the " +
+      "setup's own direction instead of either; (3) both fixes together also cut the near-total " +
+      "~108-dates-per-symbol coverage down to the top-quartile anchors only. Carried under quarantine " +
+      "rather than promoted straight to 'hypothesis': the committed payload above measured the old, " +
+      "undirected, unfiltered logic, not this one, so it cannot vindicate or condemn the fix either way. " +
+      "Exits quarantine when a fresh committed run measures it informative and positive.",
   },
   {
     id: "masterStructural",

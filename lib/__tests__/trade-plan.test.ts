@@ -28,6 +28,8 @@ const gann: GannLevels = {
   fanLines: [{ angle: "1x1", price: 100, distancePct: 0.2, role: "support" }],
   squareOf9: [{ degree: 90, price: 100, distancePct: 0.1, role: "support" }],
   timeCycleActive: true,
+  timeCycleBullishActive: true,
+  timeCycleBearishActive: false,
   timeCycleDates: ["2026-08-05"],
 };
 
@@ -57,10 +59,13 @@ const levels: TradeLevels = {
 function inputs(overrides: Partial<ScoreInputs> = {}): ScoreInputs {
   return {
     direction: "bullish",
+    // Macro trend now scores agreement with the trade, not the old
+    // counter-trend-into-a-level premise, so the "everything passes"
+    // baseline wants bullish macro trends for a bullish trade.
     macroTrends: [
-      trend("1Month", "bearish"),
-      trend("1Week", "bearish"),
-      trend("1Day", "bearish"),
+      trend("1Month", "bullish"),
+      trend("1Week", "bullish"),
+      trend("1Day", "bullish"),
     ],
     hourlyTrend: trend("1Hour", "bullish"),
     gann,
@@ -101,7 +106,7 @@ describe("computeScore output state", () => {
     const decision = computeScore(inputs({
       pattern: null,
       levels: null,
-      gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleDates: [] },
+      gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [] },
       nearSupportResistance: false,
       momentumElevated: false,
     }));
@@ -275,7 +280,12 @@ describe("continuation scoring", () => {
   });
 
   it("fails a continuation whose trend the macro timeframes contradict", () => {
-    const decision = computeScore(inputs({ setupKind: "continuation" }));
+    const macroBearish = [
+      trend("1Month", "bearish"),
+      trend("1Week", "bearish"),
+      trend("1Day", "bearish"),
+    ];
+    const decision = computeScore(inputs({ setupKind: "continuation", macroTrends: macroBearish }));
     expect(decision.breakdown[0].passed).toBe(false);
   });
 
@@ -291,8 +301,21 @@ describe("continuation scoring", () => {
     expect(decision.outputState).toBe("Execute");
   });
 
-  it("still scores a reversion on the extended-move question", () => {
-    expect(computeScore(inputs({ macroTrends: macroBullish })).breakdown[0].passed).toBe(false);
-    expect(computeScore(inputs()).breakdown[0].passed).toBe(true);
+  it("scores macro trend identically for reversion and continuation now (agreement, not counter-trend)", () => {
+    const macroBearish = [
+      trend("1Month", "bearish"),
+      trend("1Week", "bearish"),
+      trend("1Day", "bearish"),
+    ];
+    expect(computeScore(inputs({ macroTrends: macroBullish })).breakdown[0].passed).toBe(true);
+    expect(
+      computeScore(inputs({ setupKind: "continuation", macroTrends: macroBullish })).breakdown[0]
+        .passed,
+    ).toBe(true);
+    expect(computeScore(inputs({ macroTrends: macroBearish })).breakdown[0].passed).toBe(false);
+    expect(
+      computeScore(inputs({ setupKind: "continuation", macroTrends: macroBearish })).breakdown[0]
+        .passed,
+    ).toBe(false);
   });
 });

@@ -34,7 +34,7 @@ function scan(overrides: Partial<ScanResult> = {}): ScanResult {
     setupKind: "reversion",
     momentumElevated: true,
     trends: [],
-    gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleDates: [] },
+    gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [] },
     pattern: {
       name: "2-1-2",
       direction: "bullish",

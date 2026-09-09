@@ -49,7 +49,7 @@ const scan = (over: Partial<ScanResult> = {}): ScanResult => ({
     { timeframe: "1Day", direction: "bearish", support: [], resistance: [] },
     { timeframe: "1Hour", direction: "sideways", support: [], resistance: [] },
   ],
-  gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleDates: [] },
+  gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [] },
   pattern: {
     name: "2-1-2",
     direction: "bullish",
