@@ -49,6 +49,52 @@ export interface ScanEvent {
   detail: Record<string, unknown>;
 }
 
+/**
+ * migration 0063's literal blueprint-named tables. `Instrument` has no
+ * interface of its own here — every write site only ever needs the id back
+ * from `upsertInstrument`, never the row.
+ */
+export interface PivotFeature {
+  id?: string;
+  user_id: string;
+  instrument_id: string;
+  scan_event_id?: string;
+  timeframe: Timeframe;
+  kind: 'high' | 'low';
+  price: number;
+  bar_time?: Date;
+  strength?: number;
+  cluster_price?: number;
+  role?: 'support' | 'resistance';
+  detail?: Record<string, unknown>;
+}
+
+export interface TrendStateFeature {
+  id?: string;
+  user_id: string;
+  instrument_id: string;
+  trade_plan_id?: string;
+  scan_event_id?: string;
+  timeframe: Timeframe;
+  regime: 'trend' | 'range' | 'transition' | 'event';
+  direction: 'bullish' | 'bearish' | 'sideways';
+  reasons: string[];
+  disqualifiers: string[];
+  detail?: Record<string, unknown>;
+  as_of?: Date;
+}
+
+export interface DigitalRootFeature {
+  id?: string;
+  user_id: string;
+  instrument_id: string;
+  scan_event_id?: string;
+  root_type: 'price' | 'time';
+  root_value: GannRoot;
+  source_value?: number;
+  detail?: Record<string, unknown>;
+}
+
 export interface SignalLifecycleEvent {
   id?: string;
   user_id: string;

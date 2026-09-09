@@ -16,6 +16,31 @@ global model table, only server-side access.
 
 Intraday scanning (`0016`): `intraday_alerts`.
 
+Blueprint-aligned literal tables (`0063`): `instrument`, `pivot`,
+`trend_state`, `digital_root_feature` — additive, table-for-table homes for
+concepts the doctrine blueprint names directly but GSPS previously only
+modeled under other names or computed transiently without persisting (see
+the migration's header comment for the exact mapping). `instrument` is
+global reference data (readable by any signed-in user, written by the
+service role, like `daily_scans`); the other three are per-user and
+RLS-scoped like everything else. Backfilled from existing data where
+possible (`instrument`, `digital_root_feature`, `trend_state`); `pivot`
+started empty because swing pivots were never persisted before this.
+`lib/learning/record.ts`'s `recordScanVerdict` (the live per-user scan path,
+`app/api/scan/route.ts`) now writes `instrument`, `pivot` (from
+`result.trends`' clustered support/resistance levels), and `trend_state`
+(from `result.signals.regime`) alongside every `scan_events` row it already
+wrote. `lib/lifecycle/store.ts`'s `createTradePlan`/
+`createOrGetIdempotentTradePlan` also call `recordTradePlanRegime`
+(`lib/learning/record.ts`) right after every trade-plan creation, giving
+`trade_plans.regime` — written once, at creation, and never updated — a
+second, queryable `trend_state` row joined to the plan via `trade_plan_id`.
+`digital_root_feature` is populated only via
+`app/api/learning/record-event`'s `scan` case, when a caller supplies
+`gann_root` — nothing in the live scan pipeline computes a Gann digital-root
+value yet, so `recordScanVerdict` deliberately leaves that table alone
+rather than inventing one.
+
 Protocol exits and paper trading (`0009`–`0012`): `protocol_exits`,
 `paper_accounts`, plus the `increment_paper_cash` and `execute_position_fill`
 RPC functions.

@@ -10,11 +10,17 @@ import type { ScanResult } from "@/lib/types";
 const recordScanEvent = vi.fn();
 const recordSignalLifecycleEvent = vi.fn();
 const recordExecutionEvent = vi.fn();
+const upsertInstrument = vi.fn();
+const recordPivot = vi.fn();
+const recordTrendState = vi.fn();
 
 vi.mock("@/lib/learning/db", () => ({
   recordScanEvent: (...args: unknown[]) => recordScanEvent(...args),
   recordSignalLifecycleEvent: (...args: unknown[]) => recordSignalLifecycleEvent(...args),
   recordExecutionEvent: (...args: unknown[]) => recordExecutionEvent(...args),
+  upsertInstrument: (...args: unknown[]) => upsertInstrument(...args),
+  recordPivot: (...args: unknown[]) => recordPivot(...args),
+  recordTrendState: (...args: unknown[]) => recordTrendState(...args),
 }));
 
 import {
@@ -22,9 +28,11 @@ import {
   numericOrUndefined,
   recordOrderExecution,
   recordScanVerdict,
+  recordTradePlanRegime,
   toBias,
   toLearningTimeframe,
 } from "@/lib/learning/record";
+import type { TradePlan } from "@/lib/lifecycle/types";
 
 process.env.NEXT_PUBLIC_SUPABASE_URL ??= "https://example.supabase.co";
 process.env.SUPABASE_SERVICE_ROLE_KEY ??= "service-role-key";
@@ -149,6 +157,200 @@ describe("recordScanVerdict", () => {
     await expect(
       recordScanVerdict("user-1", scan(), { timeframe: "15Min" }),
     ).resolves.toBeNull();
+  });
+});
+
+describe("recordScanVerdict — blueprint tables (migration 0063)", () => {
+  it("upserts the instrument once the scan event lands", async () => {
+    recordScanEvent.mockResolvedValue({ id: "scan-row" });
+    upsertInstrument.mockResolvedValue("instrument-1");
+    await recordScanVerdict("user-1", scan(), { timeframe: "15Min" });
+
+    expect(upsertInstrument).toHaveBeenCalledWith("AAPL", "us_equity");
+  });
+
+  it("records a pivot row per clustered support/resistance level", async () => {
+    recordScanEvent.mockResolvedValue({ id: "scan-row" });
+    upsertInstrument.mockResolvedValue("instrument-1");
+    await recordScanVerdict(
+      "user-1",
+      scan({
+        trends: [
+          { timeframe: "1Day", direction: "bearish", support: [190], resistance: [210, 215] },
+        ],
+      }),
+      { timeframe: "15Min" },
+    );
+
+    expect(recordPivot).toHaveBeenCalledTimes(3);
+    const [, support] = recordPivot.mock.calls[0];
+    expect(support).toMatchObject({
+      instrument_id: "instrument-1",
+      scan_event_id: "scan-row",
+      timeframe: "1d",
+      kind: "low",
+      price: 190,
+      role: "support",
+    });
+    const [, resistance] = recordPivot.mock.calls[1];
+    expect(resistance).toMatchObject({ kind: "high", price: 210, role: "resistance" });
+  });
+
+  it("records nothing pivot-shaped when a timeframe found no clustered levels", async () => {
+    recordScanEvent.mockResolvedValue({ id: "scan-row" });
+    upsertInstrument.mockResolvedValue("instrument-1");
+    await recordScanVerdict("user-1", scan(), { timeframe: "15Min" });
+
+    expect(recordPivot).not.toHaveBeenCalled();
+  });
+
+  it("records the regime engine's read as a trend_state row", async () => {
+    recordScanEvent.mockResolvedValue({ id: "scan-row" });
+    upsertInstrument.mockResolvedValue("instrument-1");
+    await recordScanVerdict(
+      "user-1",
+      scan({
+        signals: {
+          regime: { regime: "trend", direction: "bullish", reasons: ["MA aligned"], disqualifiers: [] },
+          trendPullback: null,
+          trendBreakout: null,
+          confirmedReversal: null,
+          rangeReversion: null,
+          gannConfluence: null,
+          saraConfluence: null,
+        },
+      }),
+      { timeframe: "15Min" },
+    );
+
+    expect(recordTrendState).toHaveBeenCalledTimes(1);
+    const [userId, event] = recordTrendState.mock.calls[0];
+    expect(userId).toBe("user-1");
+    expect(event).toMatchObject({
+      instrument_id: "instrument-1",
+      scan_event_id: "scan-row",
+      regime: "trend",
+      direction: "bullish",
+      reasons: ["MA aligned"],
+      disqualifiers: [],
+    });
+  });
+
+  it("records no trend_state when the scan carried no regime read", async () => {
+    recordScanEvent.mockResolvedValue({ id: "scan-row" });
+    upsertInstrument.mockResolvedValue("instrument-1");
+    await recordScanVerdict("user-1", scan(), { timeframe: "15Min" });
+
+    expect(recordTrendState).not.toHaveBeenCalled();
+  });
+
+  it("skips pivot and trend_state writes when the instrument upsert fails", async () => {
+    recordScanEvent.mockResolvedValue({ id: "scan-row" });
+    upsertInstrument.mockRejectedValue(new Error("relation does not exist"));
+    await recordScanVerdict(
+      "user-1",
+      scan({
+        trends: [{ timeframe: "1Day", direction: "bearish", support: [190], resistance: [] }],
+      }),
+      { timeframe: "15Min" },
+    );
+
+    expect(recordPivot).not.toHaveBeenCalled();
+    expect(recordTrendState).not.toHaveBeenCalled();
+  });
+});
+
+const tradePlan = (over: Partial<TradePlan> = {}): TradePlan => ({
+  planId: "plan-1",
+  strategyVersion: "1.0.0",
+  signalId: "sig-1",
+  userId: "user-1",
+  instrument: "AAPL",
+  market: "us_equity",
+  timeframe: "1Day",
+  generatedAt: "2026-08-29T13:00:00.000Z",
+  expiresAt: "2026-09-05T13:00:00.000Z",
+  direction: "bullish",
+  signalFingerprint: "sig-1",
+  coordinates: {
+    entryTrigger: 100,
+    entryLimitTolerance: 0.5,
+    invalidation: 97,
+    stopType: "stop_market",
+    takeProfit1: 105,
+    takeProfit2: 108,
+    masterProfit: 110,
+    runnerRule: { enabled: true, description: "Trail without lowering the Master Profit floor." },
+  },
+  risk: {
+    approvedQuantity: 10,
+    fractionalCapability: false,
+    plannedDollarRisk: 30,
+    allocationPct: 2,
+    totalOpenRiskSnapshot: 500,
+  },
+  evidence: {
+    regime: { regime: "trend", direction: "bullish", reasons: ["MA aligned"], disqualifiers: [] },
+    alignment: { score: 82, tier: "aTier", breakdown: [] },
+    dataTimestamps: {},
+    eventLiquidityStatus: "clear",
+  },
+  entryConfirmation: {
+    touchedAt: null,
+    touchedPrice: null,
+    breakOrSweepAt: null,
+    breakOrSweepPrice: null,
+    retestAt: null,
+    retestPrice: null,
+    confirmationMoveAt: null,
+    confirmationMovePrice: null,
+    entryConfirmedAt: null,
+  },
+  state: "watchlist",
+  version: 0,
+  audit: [],
+  actualEntryPrice: null,
+  actualEntryAt: null,
+  highWater: null,
+  masterProfitFloor: null,
+  closedAt: null,
+  closeReason: null,
+  ...over,
+});
+
+describe("recordTradePlanRegime", () => {
+  it("gives trade_plans.regime a second home in trend_state, joined to the plan", async () => {
+    upsertInstrument.mockResolvedValue("instrument-1");
+    await recordTradePlanRegime("user-1", tradePlan());
+
+    expect(upsertInstrument).toHaveBeenCalledWith("AAPL", "us_equity");
+    expect(recordTrendState).toHaveBeenCalledTimes(1);
+    const [userId, event] = recordTrendState.mock.calls[0];
+    expect(userId).toBe("user-1");
+    expect(event).toMatchObject({
+      instrument_id: "instrument-1",
+      trade_plan_id: "plan-1",
+      timeframe: "1d",
+      regime: "trend",
+      direction: "bullish",
+      reasons: ["MA aligned"],
+      disqualifiers: [],
+    });
+  });
+
+  it("skips the trend_state write when the instrument upsert fails", async () => {
+    upsertInstrument.mockRejectedValue(new Error("relation does not exist"));
+    await recordTradePlanRegime("user-1", tradePlan());
+
+    expect(recordTrendState).not.toHaveBeenCalled();
+  });
+
+  it("skips entirely for a plan whose timeframe isn't a recognized one", async () => {
+    upsertInstrument.mockResolvedValue("instrument-1");
+    await recordTradePlanRegime("user-1", tradePlan({ timeframe: "not-a-timeframe" }));
+
+    expect(upsertInstrument).not.toHaveBeenCalled();
+    expect(recordTrendState).not.toHaveBeenCalled();
   });
 });
 

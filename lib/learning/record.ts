@@ -24,10 +24,15 @@
  */
 
 import type { AssetClass, Bar, ScanResult, Timeframe } from "@/lib/types";
+import type { TradePlan } from "@/lib/lifecycle/types";
+import { isTimeframe } from "@/lib/timeframe";
 import {
   recordExecutionEvent,
+  recordPivot,
   recordScanEvent,
   recordSignalLifecycleEvent,
+  recordTrendState,
+  upsertInstrument,
 } from "@/lib/learning/db";
 import type {
   AssetClass as LearningAssetClass,
@@ -103,6 +108,17 @@ export interface RecordScanOptions {
  * Also emits the signal's first lifecycle row when a pattern is armed, so the
  * lifecycle table starts from the same moment the scan table does and the two
  * can be joined on `signal_id` later.
+ *
+ * Also backs the blueprint-named tables from migration 0063 with the same
+ * data, once the scan event itself lands: an `instrument` row for
+ * `result.symbol`/`assetClass`, a `trend_state` row from the Signal & Regime
+ * Engine's read (`result.signals.regime`) when the scan carried one, and a
+ * `pivot` row per clustered support/resistance level already computed in
+ * `result.trends` (`lib/analysis/trend.ts`'s `readTrend`). There is
+ * deliberately no `digital_root_feature` write here: nothing in the scan
+ * pipeline computes a Gann digital-root (3/6/9) value today — inventing one
+ * would be exactly the "plausible number nobody computed" this module exists
+ * to avoid recording.
  */
 export async function recordScanVerdict(
   userId: string,
@@ -165,12 +181,57 @@ export async function recordScanVerdict(
 
   if (!scanEvent) return null;
 
+  const scanEventId = (scanEvent as { id?: string }).id;
+
+  const instrumentId = await safeRecord(`instrument for ${result.symbol}`, () =>
+    upsertInstrument(result.symbol, toLearningAssetClass(result.assetClass)),
+  );
+
+  if (instrumentId) {
+    const regime = result.signals?.regime;
+    if (regime) {
+      await safeRecord(`trend state for ${result.symbol}`, () =>
+        recordTrendState(userId, {
+          instrument_id: instrumentId,
+          scan_event_id: scanEventId,
+          timeframe: toLearningTimeframe(options.timeframe),
+          regime: regime.regime,
+          direction: regime.direction,
+          reasons: regime.reasons,
+          disqualifiers: regime.disqualifiers,
+          as_of: timestamp,
+        }),
+      );
+    }
+
+    for (const trend of result.trends) {
+      const timeframe = toLearningTimeframe(trend.timeframe);
+      const levels: { price: number; kind: "low" | "high"; role: "support" | "resistance" }[] = [
+        ...trend.support.map((price) => ({ price, kind: "low" as const, role: "support" as const })),
+        ...trend.resistance.map((price) => ({ price, kind: "high" as const, role: "resistance" as const })),
+      ];
+      for (const level of levels) {
+        await safeRecord(`pivot for ${result.symbol}`, () =>
+          recordPivot(userId, {
+            instrument_id: instrumentId,
+            scan_event_id: scanEventId,
+            timeframe,
+            kind: level.kind,
+            price: level.price,
+            cluster_price: level.price,
+            role: level.role,
+          }),
+        );
+      }
+    }
+  }
+
   const armed = result.pattern;
   if (armed) {
     await safeRecord(`signal lifecycle for ${result.symbol}`, () =>
       recordSignalLifecycleEvent(userId, {
         signal_id: scanId,
-        scan_event_id: (scanEvent as { id?: string }).id,
+        scan_event_id: scanEventId,
         state: "armed",
         state_transition_reason: `${armed.name} armed — verdict ${result.decision.outputState}`,
         timestamp,
@@ -184,6 +245,43 @@ export async function recordScanVerdict(
   }
 
   return { scanId };
+}
+
+/**
+ * `trade_plans.regime` (migration 0045) is written exactly once, at plan
+ * creation, and never updated afterward — see `lib/lifecycle/store.ts`'s
+ * `createTradePlan`/`createOrGetIdempotentTradePlan`, the only two places a
+ * `trade_plans` row is inserted. This gives that same regime read (a
+ * `RegimeRead` already attached to `plan.evidence.regime` by whichever
+ * builder produced the plan — `lib/lifecycle/fromScanResult.ts` or
+ * `lib/lifecycle/fromPivot.ts`) a second, queryable home in `trend_state`
+ * (migration 0063), joined to the plan it came from via `trade_plan_id`.
+ *
+ * Called from `store.ts` itself, once, right after the insert succeeds —
+ * not from each plan builder — so every creation path gets this for free
+ * without having to remember to call it.
+ */
+export async function recordTradePlanRegime(userId: string, plan: TradePlan): Promise<void> {
+  if (!isTimeframe(plan.timeframe)) return;
+
+  const instrumentId = await safeRecord(`instrument for ${plan.instrument}`, () =>
+    upsertInstrument(plan.instrument, toLearningAssetClass(plan.market as AssetClass)),
+  );
+  if (!instrumentId) return;
+
+  const regime = plan.evidence.regime;
+  await safeRecord(`trend state for trade plan ${plan.planId}`, () =>
+    recordTrendState(userId, {
+      instrument_id: instrumentId,
+      trade_plan_id: plan.planId,
+      timeframe: toLearningTimeframe(plan.timeframe as Timeframe),
+      regime: regime.regime,
+      direction: regime.direction,
+      reasons: regime.reasons,
+      disqualifiers: regime.disqualifiers,
+      as_of: new Date(plan.generatedAt),
+    }),
+  );
 }
 
 /**
