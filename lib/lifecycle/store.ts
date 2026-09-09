@@ -15,7 +15,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PlanState, TradePlan } from "./types";
-import { EMPTY_ENTRY_CONFIRMATION } from "./types";
+import { EMPTY_ENTRY_CONFIRMATION, PRE_ENTRY_STATES } from "./types";
 import { applyPlanEvent, type PlanEvent, type TransitionResult } from "./transitions";
 
 /** Everything the caller must supply to start a plan at WATCHLIST. */
@@ -211,6 +211,40 @@ export async function listTradePlans(
   }
 
   return planRows.map((row) => rowToPlan(row, auditByPlan.get(row.plan_id as string) ?? []));
+}
+
+/**
+ * Every pre-entry plan whose trigger window has closed (`expiresAt <= now`),
+ * across every user — the read side of the reaper (`lib/lifecycle/reaper.ts`)
+ * that walks these and dispatches `expire` on each. Deliberately not scoped
+ * to one user (unlike `listTradePlans` above): the reaper is a scheduled,
+ * service-role sweep, not something a signed-in user's own session ever
+ * calls, and RLS would block a cross-user read from any other caller anyway.
+ *
+ * Just enough columns to dispatch the event and log which plan it hit —
+ * `applyEventAndPersist` re-reads the full row itself before transitioning,
+ * so this doesn't need to (and one over-fetched wide row per candidate would
+ * only get discarded).
+ */
+export async function listExpirablePlans(
+  supabase: SupabaseClient,
+  now: Date,
+): Promise<{ userId: string; planId: string; instrument: string; state: PlanState; expiresAt: string }[]> {
+  const { data, error } = await supabase
+    .from("trade_plans")
+    .select("user_id, plan_id, instrument, state, expires_at")
+    .in("state", PRE_ENTRY_STATES)
+    .lte("expires_at", now.toISOString())
+    .limit(500);
+  if (error) throw new Error(error.message);
+
+  return (data ?? []).map((row) => ({
+    userId: row.user_id as string,
+    planId: row.plan_id as string,
+    instrument: row.instrument as string,
+    state: row.state as PlanState,
+    expiresAt: row.expires_at as string,
+  }));
 }
 
 // ---- writes --------------------------------------------------------------

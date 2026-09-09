@@ -201,6 +201,18 @@ export interface FillOutcome {
  * fill itself — a `buy` fill against a `long` existing position adds to it at
  * a quantity-weighted average price; a `buy` against a `short` position
  * reduces (or flips) it.
+ *
+ * Fills at the exact quote — no spread, no slippage, no commission — by
+ * design: paper trading here isolates "did the plan work" from "what would
+ * execution have cost," and a real cost would be a per-fill dollar amount
+ * whose distribution (better/worse than mid, order-type-dependent) has no
+ * single honest value to hardcode into a deterministic simulator. That means
+ * a paper P&L is *not* directly comparable to a backtested one: the backtest
+ * already nets out an assumed round-trip cost
+ * (`lib/trade/friction.ts`'s `DEFAULT_COST_PER_SHARE_USD`, currently 2¢/share),
+ * a paper fill doesn't. Folding that cost into fills here would change every
+ * paper account's realized P&L, so it's a deliberate product decision to make
+ * explicitly, not a bug to silently patch over.
  */
 export function applyFill(
   existing: { side: "long" | "short"; qty: number; avgEntryPrice: number } | null,

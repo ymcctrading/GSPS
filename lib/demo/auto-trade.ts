@@ -38,6 +38,7 @@ import { etDateKey } from "@/lib/market/session";
 import { assetClassOf, listOpenPositions, quotePrice } from "@/lib/brokers/simulator";
 import { parseOccSymbol } from "@/lib/portfolio/occ";
 import { killSwitchRefusal } from "@/lib/trade/kill-switch";
+import { isInvalidatedByStop } from "@/lib/trade/invalidate-pending";
 import { placeSimulatedOrder } from "@/lib/trade/place-order";
 import {
   buildRecommendations,
@@ -363,7 +364,8 @@ async function runQuietDayDca(
 
     const price = await quotePrice(position.symbol, assetClassOf(position.symbol));
     if (price == null) continue;
-    if (position.stop_loss != null && price <= position.stop_loss) continue;
+    // side is always "buy" here — shorts are filtered out above (line 361).
+    if (isInvalidatedByStop({ side: "buy", stop_price: position.stop_loss }, price)) continue;
     if (position.master_profit != null && price >= position.master_profit) continue;
 
     // A budget-off account (caps.budgetUsd === null) still needs a sane

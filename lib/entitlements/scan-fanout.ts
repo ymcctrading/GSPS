@@ -97,6 +97,19 @@ export async function fanOutForProfile(
  * setup that just broke (WATCH/EXECUTE -> INVALIDATED). Returns the number
  * of deliveries this call actually sent (not merely recorded), for callers
  * that want it in a summary/log line.
+ *
+ * A different, scan-cadence-bound signal from `lib/trade/invalidate-pending.ts`'s
+ * `isInvalidatedByStop`: this INVALIDATED only fires when the *next full
+ * rescan* rejects a previously-visible symbol, so it can lag a live-price
+ * stop-cross by up to a scan cycle — the same gap class as the 2026-09-08
+ * incident (see CHANGELOG.md), just on the monitor/notification side rather
+ * than the setup-list/order-ticket side already fixed there. Nothing today
+ * cross-checks the two: a resting order can already be stop-invalidated
+ * (`lib/brokers/simulator.ts`'s `evaluateRestingOrders`) while this monitor
+ * still reads WATCH/EXECUTE for the same symbol, until the next scan catches
+ * up. Left as a known, documented gap rather than merged here — reconciling
+ * a live-price signal into a scan-cadence one is a real design decision
+ * (which one should win, and when), not a wiring fix.
  */
 export async function evaluateMonitorsAndNotify(
   service: SupabaseClient,

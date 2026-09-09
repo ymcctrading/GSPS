@@ -40,6 +40,7 @@ import { atr } from "@/lib/analysis/pivots";
 import { computeFanLines } from "@/lib/gann/fans";
 import { squareOf9Levels } from "@/lib/gann/squareOf9";
 import { timeCycles } from "@/lib/gann/timeCycles";
+import { DEFAULT_COST_PER_SHARE_USD } from "@/lib/trade/friction";
 
 /** 6.5 hours of 15-minute candles. */
 export const BARS_PER_SESSION = 26;
@@ -292,7 +293,7 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
 export function replay(symbol: string, bars: Bar[], options: ReplayOptions): ReplayResult {
   const {
     targetR,
-    costPerShare = 0.02,
+    costPerShare = DEFAULT_COST_PER_SHARE_USD,
     maxBarsHeld = BARS_PER_SESSION * 10,
     warmupBars = 40,
     dailyBars,
