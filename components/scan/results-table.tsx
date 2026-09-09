@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -46,10 +47,31 @@ const TIER_LABEL: Record<RulesAlignmentTier, string> = {
   aPlusTier: "A+",
 };
 
+function rowKey(r: ScanRow): string {
+  return `${r.symbol}-${r.direction}`;
+}
+
 export function ResultsTable({ rows, emptyText }: { rows: ScanRow[]; emptyText?: string }) {
+  /**
+   * Whether price has already broken a row's stop is only known once its
+   * live quote has loaded — client-side, after mount. Ranking above stays a
+   * static snapshot from scan time, so an invalidated setup would otherwise
+   * sit right where the scan scored it, styled a little differently but
+   * still read as a suggestion. Tracking it here instead of only inside
+   * `ResultsRow` lets a dead setup drop out of the ranked group the moment
+   * it's detected, rather than staying mixed in among live picks forever.
+   */
+  const [invalidated, setInvalidated] = useState<Record<string, boolean>>({});
+  const handleInvalidatedChange = useCallback((key: string, value: boolean) => {
+    setInvalidated((prev) => (prev[key] === value ? prev : { ...prev, [key]: value }));
+  }, []);
+
   if (rows.length === 0) {
     return <p className="py-8 text-center text-sm text-muted">{emptyText ?? "No results yet."}</p>;
   }
+
+  const live = rows.filter((r) => !invalidated[rowKey(r)]);
+  const dead = rows.filter((r) => invalidated[rowKey(r)]);
 
   return (
     <Table>
@@ -70,8 +92,18 @@ export function ResultsTable({ rows, emptyText }: { rows: ScanRow[]; emptyText?:
         </TR>
       </THead>
       <TBody>
-        {rows.map((r) => (
-          <ResultsRow key={`${r.symbol}-${r.direction}`} row={r} />
+        {live.map((r) => (
+          <ResultsRow key={rowKey(r)} row={r} onInvalidatedChange={handleInvalidatedChange} />
+        ))}
+        {dead.length > 0 && (
+          <TR className="hover:bg-transparent">
+            <TD colSpan={10} className="sticky left-0 z-10 bg-surface py-2 text-xs font-medium uppercase tracking-wide text-muted">
+              No longer valid — price already broke the stop
+            </TD>
+          </TR>
+        )}
+        {dead.map((r) => (
+          <ResultsRow key={rowKey(r)} row={r} onInvalidatedChange={handleInvalidatedChange} />
         ))}
       </TBody>
     </Table>
@@ -91,7 +123,13 @@ export function ResultsTable({ rows, emptyText }: { rows: ScanRow[]; emptyText?:
  * not an execution price, so it doesn't need to compete for the same
  * request budget (see docs/THIRD_PARTY_LIMITS.md).
  */
-function ResultsRow({ row: r }: { row: ScanRow }) {
+function ResultsRow({
+  row: r,
+  onInvalidatedChange,
+}: {
+  row: ScanRow;
+  onInvalidatedChange?: (key: string, value: boolean) => void;
+}) {
   const quote = useLiveQuote(r.entry != null && r.stopLoss != null ? r.symbol : null, {
     intervalMs: 30_000,
   });
@@ -103,6 +141,10 @@ function ResultsRow({ row: r }: { row: ScanRow }) {
       { side: r.direction === "bearish" ? "sell" : "buy", stop_price: r.stopLoss },
       quote.price,
     );
+
+  useEffect(() => {
+    onInvalidatedChange?.(rowKey(r), invalidated);
+  }, [invalidated, onInvalidatedChange, r]);
 
   return (
     <TR className={cn(invalidated && "opacity-60")}>
