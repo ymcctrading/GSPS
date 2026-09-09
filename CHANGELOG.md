@@ -7,6 +7,39 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-09-09 (fourth follow-up)
+
+### Added
+- **`docs/doctrine/GSPS_Claude_Implementation_Blueprint_Gann_Centered.pdf`** —
+  the "GSPS Implementation Blueprint" (v1.0, 2026-09-08) source document,
+  checked into the repo alongside the other doctrine PDFs. Prior traceability
+  passes worked from the blueprint's content handed to a session out-of-band;
+  this is the first with the literal text committed, so future verification
+  no longer depends on that.
+- **`lib/gann/coordinateLedger.ts`** — the one real gap in blueprint §8.3's
+  candidate-coordinate list: prior daily/weekly/monthly high-low and
+  range-fraction coordinates, in the blueprint's exact storage shape
+  (`coordinate_type`, `anchor_id`, `formula_description`, `parameter_values`,
+  `price_level`, `side`, `confidence_basis`, `research_status`). Wired into
+  `GannConfluenceResult.coordinateLedger`, confluence-only like every other
+  field on that result.
+
+### Changed
+- `docs/GANN_BLUEPRINT_TRACEABILITY.md` — audited §17.1's 12-item
+  signal-explanation checklist item-by-item (2/12 existing, 1/12
+  deliberately not surfaced by brand-guide policy, 9/12 partial) and
+  surfaced a real architectural tension: the data mostly exists in
+  `GannConfluenceResult.evidence.explanationTrace`, but
+  `lib/signals/publicSummary.ts` deliberately strips it at the API boundary
+  to protect the scoring model, and `GSPS_TERM_REPLACEMENTS` deliberately
+  hides "Digital Root"/"Vortex" from customer-facing copy — both by design,
+  both in direct tension with the blueprint's ask. Also compared GSPS's
+  actual scoring system against blueprint §14's 0–100/5-band spec: GSPS runs
+  two different, already-calibrated scales (a 9-criterion/3-band replay
+  score and an independent 4-tier `RulesAlignmentTier`), not an unfinished
+  version of the blueprint's shape — a product decision if it's ever worth
+  changing, not a code gap.
+
 ## 2026-09-09 (continuation quality floor)
 
 ### Changed
