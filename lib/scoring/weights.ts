@@ -65,6 +65,16 @@ export type CriterionWeights = Record<CriterionKey, number>;
 export const TOTAL_POINTS = CRITERION_KEYS.length;
 
 /**
+ * The Execute and Watch score cutoffs, named rather than left as the bare
+ * `7`/`4` literals `lib/scoring/score.ts` computed `outputState` from — every
+ * other caller that needs to ask "is this actually good, not just the best
+ * of what's left" (e.g. `lib/marketScan.ts`'s continuation top-up pass)
+ * reuses these instead of re-deriving its own notion of "good enough."
+ */
+export const EXECUTE_SCORE_THRESHOLD = 7;
+export const WATCH_SCORE_THRESHOLD = 4;
+
+/**
  * Floor and ceiling for one criterion's weight. A criterion may end up worth
  * half a point or two points, never zero (which would delete it without anyone
  * deciding to) and never more than two (which would let it out-vote four

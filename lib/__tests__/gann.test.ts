@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { squareOf9Levels, nearestS9Level } from "@/lib/gann/squareOf9";
+import { squareOf9Levels, nearestS9Level, recentSquareOf9Levels } from "@/lib/gann/squareOf9";
 import { computeFanLines } from "@/lib/gann/fans";
+import { timeCycles } from "@/lib/gann/timeCycles";
 import { computeScore } from "@/lib/scoring/score";
 import type { Bar, TrendReading } from "@/lib/types";
+
+function bar(t: string, h: number, l: number): Bar {
+  return { t, o: (h + l) / 2, h, l, c: (h + l) / 2, v: 1000 };
+}
 
 describe("squareOf9Levels", () => {
   it("produces the classic 360° doubling relationship", () => {
@@ -24,6 +29,62 @@ describe("squareOf9Levels", () => {
     // nearest may still exist but must be within 1% to pass the gate
     const gate = nearestS9Level(far, 0.0001);
     expect(gate).toBeNull();
+  });
+});
+
+describe("recentSquareOf9Levels", () => {
+  it("anchors from the most recent high AND low, not a single stale window-wide low", () => {
+    // A deep low early in the window (bar 0, low 50) that's long since
+    // irrelevant, then a recent, shallower low (bar 8) and a recent high
+    // (bar 5) that actually govern the current move.
+    const bars: Bar[] = [
+      bar("2026-01-01", 55, 50), // stale window-wide low — must NOT anchor
+      bar("2026-01-02", 65, 60),
+      bar("2026-01-03", 75, 70),
+      bar("2026-01-04", 85, 80),
+      bar("2026-01-05", 95, 90),
+      bar("2026-01-06", 105, 100), // recent pivot high
+      bar("2026-01-07", 95, 90),
+      bar("2026-01-08", 85, 80),
+      bar("2026-01-09", 75, 70), // recent pivot low
+      bar("2026-01-10", 85, 80),
+      bar("2026-01-11", 95, 90),
+    ];
+    const stale = squareOf9Levels(50, 90);
+    const recent = recentSquareOf9Levels(bars, 90);
+    // A level unique to spiraling off the stale low should not appear.
+    const staleOnlyPrice = stale.find((l) => l.rotation === 3)?.price;
+    expect(staleOnlyPrice).toBeDefined();
+    expect(recent.some((l) => Math.abs(l.price - staleOnlyPrice!) < 0.01)).toBe(false);
+  });
+
+  it("returns nothing below the minimum bar count", () => {
+    expect(recentSquareOf9Levels([bar("2026-01-01", 105, 100)], 100)).toEqual([]);
+  });
+});
+
+describe("timeCycles", () => {
+  it("tags a low-anchored window bullish and a high-anchored window bearish", () => {
+    const dayMs = 24 * 3600 * 1000;
+    const bars: Bar[] = [];
+    const start = new Date("2025-01-01T00:00:00Z");
+    for (let i = 0; i < 40; i++) {
+      const t = new Date(start.getTime() + i * dayMs).toISOString();
+      // A pivot low at i=20, flanked by a deep swing either side.
+      const l = i === 20 ? 50 : 100 - Math.abs(i - 20);
+      bars.push(bar(t, l + 10, l));
+    }
+    const asOf = new Date(bars[20].t.slice(0, 10) + "T00:00:00Z");
+    asOf.setDate(asOf.getDate() + 90); // one of the fixed wheel counts
+    const result = timeCycles(bars, asOf);
+    expect(result.bullishActive).toBe(true);
+    expect(result.bearishActive).toBe(false);
+    expect(result.active).toBe(true);
+  });
+
+  it("reports inactive with too little daily history", () => {
+    const result = timeCycles([bar("2026-01-01", 101, 100)]);
+    expect(result).toEqual({ active: false, bullishActive: false, bearishActive: false, dates: [] });
   });
 });
 
@@ -51,12 +112,17 @@ describe("computeScore", () => {
   it("maps a full-confluence setup to Execute", () => {
     const decision = computeScore({
       direction: "bullish",
-      macroTrends: [trend("1Month", "bearish"), trend("1Week", "bearish"), trend("1Day", "bearish")],
+      // Macro trend now scores agreement with the trade, not the old
+      // counter-trend-into-a-level premise, so a full-confluence bullish
+      // setup wants bullish macro too.
+      macroTrends: [trend("1Month", "bullish"), trend("1Week", "bullish"), trend("1Day", "bullish")],
       hourlyTrend: trend("1Hour", "bullish"),
       gann: {
         fanLines: [{ angle: "1x1 (low)", price: 100, distancePct: 0.5, role: "support" }],
         squareOf9: [{ degree: 90, price: 100.2, distancePct: 0.3, role: "support" }],
         timeCycleActive: true,
+        timeCycleBullishActive: true,
+        timeCycleBearishActive: false,
         timeCycleDates: [],
       },
       nearSupportResistance: true,
@@ -96,12 +162,17 @@ describe("computeScore", () => {
     // gate it.
     const decision = computeScore({
       direction: "bullish",
-      macroTrends: [trend("1Month", "bearish"), trend("1Week", "bearish"), trend("1Day", "bearish")],
+      // Macro trend now scores agreement with the trade, not the old
+      // counter-trend-into-a-level premise, so a full-confluence bullish
+      // setup wants bullish macro too.
+      macroTrends: [trend("1Month", "bullish"), trend("1Week", "bullish"), trend("1Day", "bullish")],
       hourlyTrend: trend("1Hour", "bullish"),
       gann: {
         fanLines: [{ angle: "1x1 (low)", price: 100, distancePct: 0.5, role: "resistance" }],
         squareOf9: [{ degree: 90, price: 100.2, distancePct: 0.3, role: "resistance" }],
         timeCycleActive: true,
+        timeCycleBullishActive: true,
+        timeCycleBearishActive: false,
         timeCycleDates: [],
       },
       nearSupportResistance: true,
@@ -144,7 +215,7 @@ describe("computeScore", () => {
       direction: "bullish",
       macroTrends: [trend("1Month", "bullish"), trend("1Week", "bullish"), trend("1Day", "sideways")],
       hourlyTrend: trend("1Hour", "bearish"),
-      gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleDates: [] },
+      gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [] },
       nearSupportResistance: false,
       pattern: null,
       momentumElevated: false,
@@ -160,7 +231,7 @@ describe("computeScore", () => {
         direction: "bullish",
         macroTrends: [trend("1Month", "bullish"), trend("1Week", "bullish"), trend("1Day", "bullish")],
         hourlyTrend: trend("1Hour", "bearish"),
-        gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleDates: [] },
+        gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [] },
         nearSupportResistance: false,
         pattern: null,
         momentumElevated: false,
@@ -190,7 +261,10 @@ describe("computeScore", () => {
   it("scores the cyclical turn window and no longer scores earnings", () => {
     const base = {
       direction: "bullish" as const,
-      macroTrends: [trend("1Month", "bearish"), trend("1Week", "bearish"), trend("1Day", "bearish")],
+      // Macro trend now scores agreement with the trade, not the old
+      // counter-trend-into-a-level premise, so a full-confluence bullish
+      // setup wants bullish macro too.
+      macroTrends: [trend("1Month", "bullish"), trend("1Week", "bullish"), trend("1Day", "bullish")],
       hourlyTrend: trend("1Hour", "bullish"),
       nearSupportResistance: false,
       pattern: null,
@@ -199,11 +273,11 @@ describe("computeScore", () => {
     };
     const active = computeScore({
       ...base,
-      gann: { fanLines: [], squareOf9: [], timeCycleActive: true, timeCycleDates: ["2026-08-05"] },
+      gann: { fanLines: [], squareOf9: [], timeCycleActive: true, timeCycleBullishActive: true, timeCycleBearishActive: true, timeCycleDates: ["2026-08-05"] },
     });
     const inactive = computeScore({
       ...base,
-      gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleDates: [] },
+      gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [] },
     });
 
     expect(active.score).toBe(inactive.score + 1);

@@ -41,6 +41,42 @@ export function findPivots(bars: Bar[], strength = 3): Pivot[] {
   return pivots;
 }
 
+/**
+ * How far a pivot swings from its neighbors, in price terms: the distance to
+ * the nearer of the closest preceding and following pivot of the *opposite*
+ * kind. A pivot immediately flanked by a shallow opposite pivot is noise —
+ * `findPivots`' strength window only guarantees local extremity, not that the
+ * swing meant anything.
+ */
+function swingProminence(pivots: Pivot[], i: number): number {
+  let prev: Pivot | undefined;
+  for (let j = i - 1; j >= 0; j--) {
+    if (pivots[j].kind !== pivots[i].kind) { prev = pivots[j]; break; }
+  }
+  let next: Pivot | undefined;
+  for (let j = i + 1; j < pivots.length; j++) {
+    if (pivots[j].kind !== pivots[i].kind) { next = pivots[j]; break; }
+  }
+  const distances = [prev, next]
+    .filter((p): p is Pivot => p !== undefined)
+    .map((p) => Math.abs(pivots[i].price - p.price));
+  return distances.length ? Math.min(...distances) : 0;
+}
+
+/**
+ * The top quartile of `pivots` by swing prominence — "major" pivots, filtered
+ * from the noise pivots that only barely cleared `findPivots`' strength
+ * window. Order is preserved (chronological), so callers that want "most
+ * recent major pivots" can still `.slice(-n)` the result.
+ */
+export function majorPivots(pivots: Pivot[], quantile = 0.75): Pivot[] {
+  if (pivots.length === 0) return [];
+  const scores = pivots.map((_, i) => swingProminence(pivots, i));
+  const sorted = [...scores].sort((a, b) => a - b);
+  const cutoff = sorted[Math.min(Math.floor(sorted.length * quantile), sorted.length - 1)];
+  return pivots.filter((_, i) => scores[i] >= cutoff);
+}
+
 /** Cluster pivot prices into support/resistance zones within `tolerancePct` of each other. */
 export function clusterLevels(prices: number[], tolerancePct = 1.0): number[] {
   if (prices.length === 0) return [];

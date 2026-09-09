@@ -63,6 +63,8 @@ const gann: GannLevels = {
   fanLines: [{ angle: "1x4 (high)", price: 101, distancePct: 0.4, role: "support" }],
   squareOf9: [{ degree: 45, price: 100.5, distancePct: 0.2, role: "support" }],
   timeCycleActive: true,
+  timeCycleBullishActive: true,
+  timeCycleBearishActive: false,
   timeCycleDates: ["2026-08-06"],
 };
 
@@ -92,7 +94,9 @@ const pattern: StratPattern = {
 /** Every criterion passing — exercises the affirmative half of each note. */
 const allPass: ScoreInputs = {
   direction: "bullish",
-  macroTrends: [trend("bearish"), trend("bearish"), trend("bearish")],
+  // Macro trend now scores agreement with the trade, not the old
+  // counter-trend-into-a-level premise.
+  macroTrends: [trend("bullish"), trend("bullish"), trend("bullish")],
   hourlyTrend: trend("bullish"),
   gann,
   nearSupportResistance: true,
@@ -104,9 +108,9 @@ const allPass: ScoreInputs = {
 /** Every criterion failing — exercises the negative half. */
 const allFail: ScoreInputs = {
   direction: "bullish",
-  macroTrends: [trend("bullish"), trend("bullish"), trend("bullish")],
+  macroTrends: [trend("bearish"), trend("bearish"), trend("bearish")],
   hourlyTrend: trend("bearish"),
-  gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleDates: [] },
+  gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [] },
   nearSupportResistance: false,
   pattern: null,
   momentumElevated: false,

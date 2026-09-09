@@ -80,7 +80,7 @@ describe("computeScore proximity criteria respect level role", () => {
       direction,
       macroTrends: [trend("sideways"), trend("sideways"), trend("sideways")],
       hourlyTrend: trend("sideways"),
-      gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleDates: [] },
+      gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [] },
       nearSupportResistance: false,
       pattern: null,
       momentumElevated: false,
@@ -95,6 +95,8 @@ describe("computeScore proximity criteria respect level role", () => {
         fanLines: [{ angle: "1x1", price: 100, distancePct: 0.1, role }],
         squareOf9: [],
         timeCycleActive: false,
+        timeCycleBullishActive: false,
+        timeCycleBearishActive: false,
         timeCycleDates: [],
       },
     });
@@ -108,6 +110,8 @@ describe("computeScore proximity criteria respect level role", () => {
         fanLines: [],
         squareOf9: [{ degree: 90, price: 100, distancePct: 0.1, role }],
         timeCycleActive: false,
+        timeCycleBullishActive: false,
+        timeCycleBearishActive: false,
         timeCycleDates: [],
       },
     });
@@ -147,6 +151,8 @@ describe("computeScore proximity criteria respect level role", () => {
         ],
         squareOf9: [],
         timeCycleActive: false,
+        timeCycleBullishActive: false,
+        timeCycleBearishActive: false,
         timeCycleDates: [],
       },
     });

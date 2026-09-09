@@ -16,7 +16,7 @@ import type { S9Level } from "@/lib/gann/squareOf9";
 import type { FanLine } from "@/lib/gann/fans";
 import type { ConfluenceType, DigitalRootFeature, VortexClass } from "@/lib/gann/digitalRoot";
 import type { NearestGannAngle } from "@/lib/gann/normalizedSlope";
-import type { CoordinateLedger, NearestLedgerLevel } from "@/lib/gann/coordinateLedger";
+import type { LedgerCoordinate } from "@/lib/gann/coordinateLedger";
 import type { MarketAdapterStatus, SupportedMarket } from "./marketAdapters";
 
 /**
@@ -107,6 +107,12 @@ export interface GannConfluenceResult {
    * `lib/gann/normalizedSlope.ts`.
    */
   angleSlope: { slope: number; nearestAngle: NearestGannAngle | null } | null;
+  /**
+   * Blueprint §8.3's prior daily/weekly/monthly high-low and range-fraction
+   * candidate coordinates — context/confluence only, same non-authoritative
+   * role as every other field here. See `lib/gann/coordinateLedger.ts`.
+   */
+  coordinateLedger: LedgerCoordinate[];
   /**
    * The addendum's "Material Number versus Harmonic Node classification" is
    * personally sourced numerical logic that has not been supplied in an

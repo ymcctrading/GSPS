@@ -10,37 +10,58 @@ date.
 ## 2026-09-09 (fourth follow-up)
 
 ### Added
-- **Gann coordinate ledger** (`lib/gann/coordinateLedger.ts`) — prior
-  Day/Week/Month high-low ranges plus their eighths (range-fraction)
-  subdivisions, as a single unified module. Closes the one remaining
-  "not deep-audited" candidate coordinate in the "GSPS Implementation
-  Blueprint" §8 traceability row. Groups daily bars into calendar
-  day/week/month buckets and reads the most recently *completed* bucket's
-  high/low (never the in-progress one), then divides that range into
-  classic Gann eighths (1/8…7/8) — a coarser, distinct convention from
-  Fibonacci retracement ratios, which this module doesn't compute. Wired
-  additively into `GannConfluenceResult.coordinateLedger`/
-  `.nearestLedgerLevel` (`lib/signals/confluence/gann.ts`) and its
-  explanation trace — context/confluence only, same non-authoritative role
-  as every other coordinate in `lib/gann/`, never a gate. See
-  `docs/GANN_BLUEPRINT_TRACEABILITY.md`'s "Third follow-up pass" note.
+- **`docs/doctrine/GSPS_Claude_Implementation_Blueprint_Gann_Centered.pdf`** —
+  the "GSPS Implementation Blueprint" (v1.0, 2026-09-08) source document,
+  checked into the repo alongside the other doctrine PDFs. Prior traceability
+  passes worked from the blueprint's content handed to a session out-of-band;
+  this is the first with the literal text committed, so future verification
+  no longer depends on that.
+- **`lib/gann/coordinateLedger.ts`** — the one real gap in blueprint §8.3's
+  candidate-coordinate list: prior daily/weekly/monthly high-low and
+  range-fraction coordinates, in the blueprint's exact storage shape
+  (`coordinate_type`, `anchor_id`, `formula_description`, `parameter_values`,
+  `price_level`, `side`, `confidence_basis`, `research_status`). Wired into
+  `GannConfluenceResult.coordinateLedger`, confluence-only like every other
+  field on that result.
 
-### Deferred (same request, out of this pass's scope)
-- **§17.1 signal-explanation checklist verification** — needs the
-  blueprint document's exact 12-item checklist text, which isn't reproduced
-  anywhere in this repo; can't be verified item-by-item without it.
-- **Scoring-band comparison** (blueprint §12's 0–24/…/85–100 bands vs.
-  GSPS's own `RulesAlignmentTier`) — needs a decision on whether/how to
-  reconcile the two, not a unilateral fix.
-- **Module pipeline reorganization** (blueprint §5's named pipeline) —
-  cosmetic renaming of already-equivalent modules with no behavior change;
-  large effort, low value, left undone.
-- **Literal DB table alignment** (blueprint §5's named tables) — a schema
-  change; needs explicit confirmation before touching migrations, per this
-  doc's own §5 row.
-- **Futures/forex/options adapters** — out of scope without a dedicated
-  scoping conversation; `lib/signals/confluence/marketAdapters.ts` still
-  reports both `unsupported`.
+### Changed
+- `docs/GANN_BLUEPRINT_TRACEABILITY.md` — audited §17.1's 12-item
+  signal-explanation checklist item-by-item (2/12 existing, 1/12
+  deliberately not surfaced by brand-guide policy, 9/12 partial) and
+  surfaced a real architectural tension: the data mostly exists in
+  `GannConfluenceResult.evidence.explanationTrace`, but
+  `lib/signals/publicSummary.ts` deliberately strips it at the API boundary
+  to protect the scoring model, and `GSPS_TERM_REPLACEMENTS` deliberately
+  hides "Digital Root"/"Vortex" from customer-facing copy — both by design,
+  both in direct tension with the blueprint's ask. Also compared GSPS's
+  actual scoring system against blueprint §14's 0–100/5-band spec: GSPS runs
+  two different, already-calibrated scales (a 9-criterion/3-band replay
+  score and an independent 4-tier `RulesAlignmentTier`), not an unfinished
+  version of the blueprint's shape — a product decision if it's ever worth
+  changing, not a code gap.
+
+## 2026-09-09 (continuation quality floor)
+
+### Changed
+- **Continuation top-up no longer pads the scan list with weak setups** —
+  product decision made explicit after investigating an intermittent 60s
+  timeout on `/api/scans/morning-preparation` / `morning-confirmation`
+  (`lib/entitlements/scheduled-scan.ts`'s unbudgeted post-scan fan-out/shadow
+  work stacked on top of the scan's own time-budgeted pass). The 60s ceiling
+  itself is a deliberate UX choice, not a Vercel platform mandate — a novice
+  waiting past about a minute reads the scan as broken — so the fix is to
+  make the scan converge faster and more selectively, not to chase a bigger
+  time budget. `lib/marketScan.ts`'s continuation pass previously topped up
+  a short direction with whatever scored best among the remaining
+  candidates, with no floor — a setup scoring 6, 5, or 4 could fill a slot
+  purely for being the best one left. New `qualifiesAsContinuationFill`
+  requires the same Execute-tier score (`EXECUTE_SCORE_THRESHOLD`, extracted
+  from `lib/scoring/score.ts`'s previously-inline `7`/`4` literals into
+  `lib/scoring/weights.ts`) that a reversion has to clear on its own merits.
+  Six 7/9 setups now beat eighteen trailing off through 6, 5, 4 — a short or
+  empty continuation fill is the correct, faster-arriving answer on a day
+  nothing clears the bar, not a shortfall to paper over.
+  N/A roadmap phase — direct product decision, not scheduled roadmap work.
 
 ## 2026-09-09 (third follow-up)
 

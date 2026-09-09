@@ -32,7 +32,7 @@ import {
   vortexClass,
 } from "@/lib/gann/digitalRoot";
 import { nearestGannAngle, normalizedSlope } from "@/lib/gann/normalizedSlope";
-import { buildCoordinateLedger, nearestLedgerLevel } from "@/lib/gann/coordinateLedger";
+import { buildCoordinateLedger } from "@/lib/gann/coordinateLedger";
 import { routeMarketAdapter } from "./marketAdapters";
 import type { ConfluenceAlignment, ConfluenceModuleMeta, GannConfluenceResult, GannVortexContext } from "./types";
 
@@ -103,6 +103,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
         transition: null,
       },
       angleSlope: null,
+      coordinateLedger: [],
       materialNumberClassification: "notImplemented",
       evidence: {
         calculationVersion: GANN_CONFLUENCE_MODULE.version,
@@ -176,6 +177,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
   const atrAtAnchor = atr(inputs.dailyBars.slice(0, Math.max(majorLowIndex + 1, 2)), 14);
   const slope = normalizedSlope(inputs.currentPrice, majorLow, atrAtAnchor, timeDisplacementBars);
   const angleSlope = slope !== null ? { slope, nearestAngle: nearestGannAngle(slope) } : null;
+  const coordinateLedger = buildCoordinateLedger(inputs.dailyBars, inputs.currentPrice);
 
   const explanationTrace: string[] = [
     `Root: sqrt(major low ${majorLow.toFixed(2)}) = ${root.toFixed(4)}.`,
@@ -216,6 +218,11 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
       ? `Active structural time-cycle window (nearby dates: ${cycles.dates.slice(0, 3).join(", ") || "n/a"}).`
       : "No active structural time-cycle window.",
   );
+  if (coordinateLedger.length > 0) {
+    explanationTrace.push(
+      `Coordinate ledger: ${coordinateLedger.length} prior D/W/M high-low and range-fraction candidates computed.`,
+    );
+  }
 
   // Alignment/conflict reads off whichever coordinate is nearer current price
   // (fan lines are checked first — the key-price-level read is the fallback
@@ -247,6 +254,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
     nearestLedgerLevel: nearestLedger,
     vortexContext,
     angleSlope,
+    coordinateLedger,
     materialNumberClassification: "notImplemented",
     evidence: {
       calculationVersion: GANN_CONFLUENCE_MODULE.version,
