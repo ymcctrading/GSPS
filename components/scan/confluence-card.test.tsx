@@ -88,6 +88,7 @@ describe("ConfluenceCard", () => {
             transition: null,
           },
           angleSlope: null,
+          coordinateLedger: [],
           materialNumberClassification: "notImplemented",
           evidence: { calculationVersion: "0.1.0", inputs: { secretNote: "internal threshold" }, sourceTimestamp: "x", explanationTrace: ["secret internal trace"] },
           note: "Confluence only.",
