@@ -7,14 +7,21 @@
  *
  * "Now" is not computed here — it is read straight off `active_monitors`
  * (migration 0036), the entitlement notification system's own live
- * WATCH/EXECUTE/INVALIDATED tracker for this profile, kept current by every
- * scan of any source that touches a symbol (manual dashboard, guided,
- * automation, intraday, the scheduled morning scans). This route never
- * re-scans a symbol to answer "has this changed" — doing so would mean two
- * different code paths could disagree about a symbol's live state. A symbol
- * with no monitor row (most often a Reject that has never since become a
- * real setup for this profile) has no current state to report, and the
- * response says so rather than guessing.
+ * WATCH/EXECUTE/INVALIDATED tracker for this profile. As of 2026-09-08 that
+ * covers manual dashboard scans, single-ticker scans (`/api/scan`), the
+ * scheduled morning scans, and a signed-in user's own on-demand intraday
+ * scans — the sources docs/GSPS_TIER_ENTITLEMENT_SPEC.md's "Eligible
+ * monitor sources" actually names, minus the system (cron) intraday scan,
+ * which is intentionally not wired here (see app/api/intraday-scan/route.ts
+ * for why). "Guided" and "automation" are NOT among them — both are
+ * deliberately excluded (see app/api/guided/route.ts's header for guided's
+ * rationale); a symbol seen only through one of those still reports as
+ * untracked below. This route never re-scans a symbol to answer "has this
+ * changed" — doing so would mean two different code paths could disagree
+ * about a symbol's live state. A symbol with no monitor row (most often a
+ * Reject that has never since become a real setup for this profile, or one
+ * seen only via a source not listed above) has no current state to report,
+ * and the response says so rather than guessing.
  *
  * Signed-in users only, and always scoped to their own rows — RLS ("own
  * scan results" / "own active monitors") is the backstop, but the query

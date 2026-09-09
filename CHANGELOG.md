@@ -29,6 +29,59 @@ date.
   "traceability matrix" deliverable, auditing what's existing/partial/absent
   in this codebase against the blueprint's 21 sections.
 
+## 2026-09-08 (follow-up audit)
+
+### Fixed
+- **The same "correct rule, never wired to run" pattern, found and fixed in
+  four more places** — a follow-up sweep after the AVGO/IREN incident below,
+  looking for every other spot in the app where a trade idea's validity is
+  tracked and checked whether it actually gets checked automatically:
+  1. **`lib/lifecycle/reaper.ts`** (new) — `lib/lifecycle/transitions.ts` has
+     always specified "any pre-entry state -> EXPIRED when the trigger
+     doesn't occur by `expiresAt`," unit-tested since the state machine
+     shipped, and never once dispatched by anything in production — no cron,
+     no worker. A `trade_plans` row (feeding the Automated Portfolio
+     Manager's own candidate query) could sit ARMED indefinitely past its own
+     expiry. Wired via `/api/lifecycle/reaper` and
+     `.github/workflows/lifecycle-reaper.yml` (every 30 min — see
+     `docs/THIRD_PARTY_LIMITS.md`), reusing `lib/lifecycle/expiry.ts`'s
+     equally-unwired `isExpiredByClock` rather than re-deriving the check.
+     Deliberately does **not** add a new pre-entry price-based invalidation
+     rule (extending INVALIDATED before entry) — that would go beyond what
+     the "Trade Lifecycle, Exit & Runner Engine" spec defines and that
+     module's own header flags as needing compliance review; left as an
+     explicit open decision, not made silently.
+  2. **`lib/demo/auto-trade.ts`** — the demo account's quiet-day DCA add
+     reimplemented the exact `isInvalidatedByStop` comparison by hand
+     (`price <= position.stop_loss`) instead of importing it; swapped to the
+     shared primitive so the two can't drift.
+  3. **`lib/trade/friction.ts`** (new) — the backtest's round-trip cost
+     assumption (2¢/share) was an inline literal with no name; extracted to
+     one exported constant. Documented, not changed: the paper broker
+     simulator applies zero execution friction to any fill, by design (see
+     the new comment on `lib/brokers/simulator.ts`'s `applyFill`), so a
+     backtested edge is still not directly comparable to the same edge's
+     paper P&L. Making paper fills apply this cost is a deliberate product
+     decision — it would change every paper account's realized P&L — so it's
+     flagged, not folded in here.
+  4. **`lib/entitlements/scan-fanout.ts`** — documented, not merged: the
+     entitlement monitor's INVALIDATED state only fires on the next full
+     rescan (scan-cadence-bound), independently of
+     `isInvalidatedByStop`'s live-price check, with nothing cross-checking
+     the two. A resting order can already be stop-invalidated while the
+     monitor still reads WATCH/EXECUTE for the same symbol until the next
+     scan catches up. Reconciling a live-price signal into a scan-cadence
+     one is a design decision (which should win, and when), not a wiring
+     fix, so it's left as a documented, known gap.
+  - Also removed `lib/chart/signal-overlay.ts` /
+    `components/chart/signal-overlay-badge.tsx`: a `SignalState` type
+    including `'invalidated'` with zero callers anywhere in the app — dead
+    code that duplicated the same concept this sweep was chasing, and would
+    have been a landmine (an "invalidated" state with no invalidation check
+    behind it) if wired up later without one.
+  N/A roadmap phase — continuation of the same production bug-fix pass as
+  the entry below.
+
 ## 2026-09-08
 
 ### Added
