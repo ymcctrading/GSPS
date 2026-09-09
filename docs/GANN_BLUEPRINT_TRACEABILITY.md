@@ -23,6 +23,17 @@ gaps (literal DB table alignment, futures/forex/options adapters) and the
 still-open Partial/Not-deep-audited rows were deliberately left for a
 separate scoping conversation, per this doc's own closing section.
 
+**Second follow-up pass (2026-09-09):** closed the Sara Sniper
+`StrategyResult` interface (a real Partial row) and verified five more rows
+that were only "Not deep-audited" for lack of a targeted look — anchored
+VWAP, measured move, the manual-scans-per-day table, and the Wall-Street
+stop-override gate were all already built; event-aware/news state
+(`lib/universe/eventRisk.ts`) likewise. One row flipped the other way:
+instrument behavior profiles were checked and are genuinely **Absent** — no
+per-instrument "habits" concept exists anywhere in this codebase. Marked
+**Existing (verified this pass)** / **Existing (follow-up PR)** / **Absent**
+below accordingly.
+
 ## 1–2. Mission, doctrine, terminology
 
 | Blueprint requirement | Status | Where |
@@ -43,8 +54,8 @@ separate scoping conversation, per this doc's own closing section.
 | Multi-timeframe trend/swing structure | Existing | `lib/signals/regime.ts`, `lib/signals/states/*` |
 | No-trade / cooldown / fixed invalidation | Existing | `lib/signals/disqualifiers.ts`, novice cooldown rules |
 | Deterministic stop required for every trade plan | Existing | `lib/trade/protocol-exit.ts`, `lib/guided/sizing.ts` |
-| Instrument behavior profiles | Not deep-audited | — |
-| Event-aware state / news discounting | Not deep-audited | — |
+| Instrument behavior profiles | Absent | No per-instrument "habits" behavioral-profile concept exists in the codebase (checked this pass); a real gap, not yet scoped |
+| Event-aware state / news discounting | **Existing (verified this pass)** | `lib/universe/eventRisk.ts`, wired through `lib/universe/eligibility.ts` |
 
 ## 4. Winning formula & condition hierarchy
 
@@ -79,7 +90,7 @@ separate scoping conversation, per this doc's own closing section.
 |---|---|---|
 | Objective N-bars-before/after pivot rule, usable only after confirmation bars close | Existing | `lib/analysis/pivots.ts`'s `findPivots` — a pivot is only ever returned once its confirming bars exist in the input array |
 | Explicit `pivot_occurrence_timestamp`/`pivot_confirmation_timestamp` fields | **Existing (follow-up PR)** | `Pivot.occurrenceTimestamp`/`.confirmationTimestamp` in `lib/analysis/pivots.ts` |
-| Candidate coordinates (swing high/low, prior D/W/M high-low, range fractions, measured move, anchored VWAP, Square-of-9, ATR bands) | Partial | Square-of-9 (`lib/gann/squareOf9.ts`), fans (`lib/gann/fans.ts`), time cycles (`lib/gann/timeCycles.ts`) exist; anchored VWAP, measured-move, and range-fraction coordinates as a unified "coordinate ledger" are not deep-audited |
+| Candidate coordinates (swing high/low, prior D/W/M high-low, range fractions, measured move, anchored VWAP, Square-of-9, ATR bands) | Partial | Square-of-9 (`lib/gann/squareOf9.ts`), fans (`lib/gann/fans.ts`), time cycles (`lib/gann/timeCycles.ts`), anchored VWAP (`lib/signals/indicators.ts`), and measured move (`lib/signals/states/{confirmedReversal,rangeReversion,trendBreakout}.ts`) all exist — verified this pass; prior D/W/M high-low and range-fraction coordinates as a unified Gann "coordinate ledger" object are not deep-audited |
 | Normalized Gann-angle slope (price/ATR/bar, not screen pixels) | **Existing (follow-up PR)** | `lib/gann/normalizedSlope.ts` (`normalizedSlope`/`nearestGannAngle`), wired into `GannConfluenceResult.angleSlope` |
 
 ## 9–10. Supply-demand/volume/volatility engine & strategy engines
@@ -96,7 +107,7 @@ separate scoping conversation, per this doc's own closing section.
 | Blueprint requirement | Status | Where |
 |---|---|---|
 | Locate/inventory existing rules rather than inventing them | Already done (prior PR) | `lib/signals/confluence/sara.ts` wraps `lib/strat/patterns.ts`'s existing closed-bar pattern taxonomy — see `docs/GANN_SARA_CONFLUENCE.md` |
-| `StrategyResult` interface (`strategy_id`, `status: WATCH/DEVELOPING/ACTIONABLE/NO_TRADE`, `entry_trigger`, `conditions_met/failed`, …) | Partial | `SaraConfluenceResult` (`lib/signals/confluence/types.ts`) covers alignment/scenario/direction/confirmation but not this exact field set or status vocabulary |
+| `StrategyResult` interface (`strategy_id`, `status: WATCH/DEVELOPING/ACTIONABLE/NO_TRADE`, `entry_trigger`, `conditions_met/failed`, …) | **Existing (follow-up PR)** | `toSaraStrategyResult` (`lib/signals/confluence/strategyResult.ts`) reshapes `SaraConfluenceResult` into the blueprint's exact field set. `DEVELOPING` status, real `targets`/`timeStopBars`, and `featureSnapshotId` are honestly `null`/unreachable rather than fabricated — Sara's module doesn't compute a graduated confirmation state, targets, or a persisted snapshot id today |
 
 ## 12–17. Indicators, risk/targets, scoring/tiers, backtesting, asset classes, UX
 
@@ -106,9 +117,9 @@ separate scoping conversation, per this doc's own closing section.
 | Position sizing (`risk_per_share`, `max_dollar_risk`, floor division) | Existing, superset | `lib/guided/sizing.ts` implements five ceilings (risk/portfolio/buying-power/budget/tradeability), a superset of the blueprint's basic formula |
 | Novice: swing-only, 3 trades/day, cooldown at 3 trades or 18%/48h loss | Existing | `lib/promotion/`, `lib/universe/eligibility.ts` — confirmed present in an earlier pass this session |
 | Loss notifications 6/9/15%, hard warning 30%, auto-close 50% | Existing, exact match | `lib/risk/live-trade-loss.ts` |
-| Stop-loss expansion Wall-Street-only, post-warning, verified enrollment | Not deep-audited this pass | Referenced in `docs/DOCTRINE_ALIGNMENT_STATUS.md` as implemented |
+| Stop-loss expansion Wall-Street-only, post-warning, verified enrollment | **Existing (verified this pass)** | `lib/risk/stop-override.ts` — high-friction warning acknowledgement required before a verification email is even sent, plus a token-gated confirm step |
 | Tier max setups/scan: Novice 6, Pro 12, Expert 20, Wall Street 30 | Existing, exact match | `lib/entitlements/policy.ts` |
-| Manual dashboard scans/day: 1/3/6/unlimited | Not deep-audited this pass | — |
+| Manual dashboard scans/day: 1/3/6/unlimited | **Existing (verified this pass)**, exact match | `lib/entitlements/policy.ts`'s `manualDashboardScansPerDay` |
 | Scoring bands (0–24 NO_TRADE … 85–100 HIGH_CONFLUENCE) | Not deep-audited | GSPS has its own tier/score system (`lib/signals/types.ts` `RulesAlignmentTier`); not compared band-for-band against the blueprint's exact thresholds |
 | Backtest bias controls (look-ahead, survivorship, data-snooping, walk-forward, permutation tests, block bootstrap) | Partial | `lib/backtest/*`, `docs/VALIDATION_BACKTESTING_AUDIT_COMPLIANCE.md` cover some of this; a control-by-control audit against the blueprint's full list was not performed this pass |
 | Futures/forex/options execution constraints (tick value, roll, pip, Greeks, assignment) | Absent | No futures/forex data path exists in GSPS yet; options adapter is not built (`lib/signals/confluence/marketAdapters.ts` reports both `unsupported`) |
