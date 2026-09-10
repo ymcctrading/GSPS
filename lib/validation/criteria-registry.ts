@@ -152,7 +152,13 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "role-matching bug already fixed. 2026-09-09: replaced with recentSquareOf9Levels(), which anchors " +
       "from the most recent significant high AND low (the same 'anchor from the two most recent pivots' " +
       "rule lib/gann/fans.ts already used for the stable fanProximity sibling), merged before the " +
-      "existing role-aware match runs. 2026-09-09/10: six fresh live/Alpaca runs measured the new " +
+      "existing role-aware match runs. Two other live callers still spiraled from the stale Math.min() " +
+      "anchor after that fix — lib/marketScan.ts's coarseReversion() pre-filter and lib/signals/" +
+      "confluence/gann.ts's evaluateGannConfluence() — fixed 2026-09-10 the same way; neither sits on " +
+      "the backtest replay path (lib/backtest/replay.ts never calls either), so this does not confound " +
+      "the runs below, but it did mean the live scan's pre-filter and the Structural Coordinate " +
+      "Confluence card were still reading a stale level while this criterion had already moved on. " +
+      "2026-09-09/10: six fresh live/Alpaca runs measured the new " +
       "anchor (docs/replay-runs/2026-09-09-15Min-2R.json, -3R.json, -score5-6.json; " +
       "2026-09-10-15Min-2R-within-all.json, -1Hour-2R.json, -1Hour-3R.json). The Execute-bucket-" +
       "conditioned runs are too small on the failing arm to trust (13 passed / 3 failed at 15Min, " +

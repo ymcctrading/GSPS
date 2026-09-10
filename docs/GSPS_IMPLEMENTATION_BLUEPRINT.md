@@ -10,14 +10,19 @@ Coordinates, and Evidence-Gated Signals
 **Audience:** Claude implementation agent, engineers, product architects, quant
 researchers, and QA reviewers
 
-> Committed here 2026-09-10 because the document previously existed only as a
-> file the project owner uploaded directly into a prior Claude Code chat
-> session (see commit `70e1731`) — unfindable by any later session, including
-> this one, until re-supplied. Code comments elsewhere in this repo cite this
-> document's section numbers (e.g. `lib/gann/digitalRoot.ts`, `lib/signals/
-> confluence/gann.ts`); this file is now the authoritative, checked-in copy
-> those citations refer to. Transcribed from the source PDF; formatting
-> (headings, code fences) adapted for Markdown, content unchanged.
+> Added 2026-09-10 as a plain-text mirror of `docs/doctrine/
+> GSPS_Claude_Implementation_Blueprint_Gann_Centered.pdf` — the actual source
+> PDF, already committed by PR #198 (merged 2026-09-09) — so section text is
+> grep-able and diffable instead of requiring a PDF reader. An earlier version
+> of this note wrongly claimed the document had never been committed anywhere
+> and existed only as a prior chat upload; that was this session's own local
+> checkout being 61 commits behind `origin/main` at the time, not a real gap —
+> PR #198 had already added it before this session started. Code comments
+> elsewhere in this repo cite this document's section numbers (e.g.
+> `lib/gann/digitalRoot.ts`, `lib/signals/confluence/gann.ts`); this file and
+> the PDF it mirrors are the source those citations refer to. Transcribed from
+> the source PDF; formatting (headings, code fences) adapted for Markdown,
+> content unchanged.
 
 ## 1. Mission and governing doctrine
 
