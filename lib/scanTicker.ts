@@ -30,6 +30,7 @@ import { timeCycles } from "@/lib/gann/timeCycles";
 import { computeAngleSlopes } from "@/lib/gann/normalizedSlope";
 import { computeRetracementLevels } from "@/lib/gann/retracement";
 import { priceTimeConfluence } from "@/lib/gann/digitalRoot";
+import { computeSwingChart } from "@/lib/gann/swingChart";
 import { adx } from "@/lib/signals/indicators";
 import {
   CONTINUATION_PATTERNS,
@@ -124,6 +125,10 @@ export async function scanTicker(
     const monthlyTrend = readTrend(monthly, "1Month");
     const weeklyTrend = readTrend(weekly, "1Week");
     const dailyTrend = readTrend(daily, "1Day");
+    // Gann's 3-day/9-day swing charts, replacing the monthly/weekly/daily
+    // macroTrend agreement check — same daily bars, a different (reversal-
+    // count) construction. See lib/gann/swingChart.ts.
+    const swingChart = computeSwingChart(daily);
 
     // ---- Level 2: 1hr refinement
     const hourlyTrend = readTrend(hourly, "1Hour");
@@ -310,6 +315,7 @@ export async function scanTicker(
           macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
           hourlyTrend,
           hourlyAdx,
+          swingChart,
           gann,
           nearSupportResistance,
           srMatch: srMatch && { ...srMatch, role: levelRole(currentPrice, srMatch.price) },

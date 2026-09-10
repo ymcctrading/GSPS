@@ -171,12 +171,12 @@ describe("proposeWeights", () => {
 
 describe("normalizeWeights", () => {
   it("holds the total at nine points", () => {
-    const w = normalizeWeights({ stopRoom: 2, macroTrend: 0.5 });
+    const w = normalizeWeights({ stopRoom: 2, swingChartTrend: 0.5 });
     expect(CRITERION_KEYS.reduce((s, k) => s + w[k], 0)).toBeCloseTo(TOTAL_POINTS, 1);
   });
 
   it("keeps every weight inside its band", () => {
-    const w = normalizeWeights({ stopRoom: 99, macroTrend: 0.001 });
+    const w = normalizeWeights({ stopRoom: 99, swingChartTrend: 0.001 });
     for (const k of CRITERION_KEYS) {
       expect(w[k]).toBeLessThanOrEqual(2);
       expect(w[k]).toBeGreaterThanOrEqual(0.5);
@@ -184,8 +184,8 @@ describe("normalizeWeights", () => {
   });
 
   it("treats an unusable value as one point rather than throwing", () => {
-    const w = normalizeWeights({ stopRoom: Number.NaN, macroTrend: -3 });
+    const w = normalizeWeights({ stopRoom: Number.NaN, swingChartTrend: -3 });
     expect(w.stopRoom).toBeGreaterThan(0);
-    expect(w.macroTrend).toBeGreaterThan(0);
+    expect(w.swingChartTrend).toBeGreaterThan(0);
   });
 });

@@ -43,6 +43,7 @@ import { timeCycles } from "@/lib/gann/timeCycles";
 import { computeAngleSlopes } from "@/lib/gann/normalizedSlope";
 import { computeRetracementLevels } from "@/lib/gann/retracement";
 import { priceTimeConfluence } from "@/lib/gann/digitalRoot";
+import { computeSwingChart, type SwingChartReading } from "@/lib/gann/swingChart";
 import { adx } from "@/lib/signals/indicators";
 import { DEFAULT_COST_PER_SHARE_USD } from "@/lib/trade/friction";
 
@@ -228,6 +229,7 @@ const weekKey = (b: Bar) => {
  */
 export interface MacroContext {
   macroTrends: TrendReading[];
+  swingChart: SwingChartReading;
   gann: GannLevels;
   nearSupportResistance: boolean;
   /** The matched level and its role, when one is in range — see lib/scanTicker.ts's srMatch. */
@@ -248,6 +250,7 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
   const monthlyTrend = readTrend(monthly, "1Month");
   const weeklyTrend = readTrend(weekly, "1Week");
   const dailyTrend = readTrend(daily, "1Day");
+  const swingChart = computeSwingChart(daily);
 
   const fanLines = computeFanLines(daily, price);
   const s9 = recentSquareOf9Levels(daily, price).slice(0, 12);
@@ -284,6 +287,7 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
 
   return {
     macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
+    swingChart,
     gann: {
       fanLines: fanLines.slice(0, 6).map(({ angle, price: p, distancePct, role }) => ({
         angle, price: Math.round(p * 100) / 100, distancePct, role,
@@ -551,6 +555,7 @@ function scoreSetup(input: {
       macroTrends: context.macroTrends,
       hourlyTrend,
       hourlyAdx,
+      swingChart: context.swingChart,
       gann: context.gann,
       nearSupportResistance: context.nearSupportResistance,
       srMatch: context.srMatch,

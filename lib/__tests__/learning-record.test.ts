@@ -63,7 +63,7 @@ const scan = (over: Partial<ScanResult> = {}): ScanResult => ({
     score: 7.4,
     outputState: "Watch",
     breakdown: [
-      { key: "macroTrend", criterion: "Macro", pillar: "trend", passed: true, note: "" },
+      { key: "swingChartTrend", criterion: "Macro", pillar: "trend", passed: true, note: "" },
       { key: "stopRoom", criterion: "Momentum", pillar: "setup", passed: false, note: "" },
     ],
   },

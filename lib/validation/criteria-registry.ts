@@ -100,28 +100,21 @@ export interface RegisteredCriterion {
 /** The nine scored criteria. Every one is claimed to help when it passes. */
 const SCAN_SCORE: RegisteredCriterion[] = [
   {
-    id: "macroTrend",
+    id: "swingChartTrend",
     family: "scanScore",
-    source: "lib/scoring/score.ts",
-    label: "Macro trend context (10yr/5yr/1yr)",
+    source: "lib/scoring/score.ts, lib/gann/swingChart.ts",
+    label: "3-day/9-day swing chart trend",
     expectedSign: "positive",
-    evidence: "quarantined",
-    quarantineReason:
-      "Measured negative on both runs of 2026-09-08 (−0.17R at 15Min, −1.42R at 1Hour) under the old " +
-      "counter-trend premise (a reversion wanted the macro running AGAINST the trade). That premise " +
-      "was a strategy question, not a code defect, and was settled 2026-09-09: computeScore now scores " +
-      "trend agreement for both setup kinds instead — macro timeframes should read the same direction " +
-      "as the trade. 2026-09-09/10: six fresh live/Alpaca runs measured the new logic (docs/replay-runs/" +
-      "2026-09-09-15Min-2R.json, -3R.json, -score5-6.json; 2026-09-10-15Min-2R-within-all.json, " +
-      "-1Hour-2R.json, -1Hour-3R.json). Every Execute-bucket-conditioned run is too small on the failing " +
-      "arm to read (16 trades at 15Min, 7 at 1Hour — both well under MIN_SAMPLES_PER_ARM). The one " +
-      "population large enough on both arms — the unconditioned 15Min population, 491 passed / 538 " +
-      "failed — reads +0.033; the 1Hour Execute bucket (91/31, also adequately sampled) reads −0.090. " +
-      "Both are inside the ±0.1 noise band: no longer the clearly inverted counter-trend signal the old " +
-      "logic measured, but not yet measuring positive either. Negligible, not validated — the fix ended " +
-      "an active harm without (yet) establishing a benefit. Exits quarantine when a fresh committed run " +
-      "measures it informative and positive, outside the noise band, on an adequately sampled arm, " +
-      "twice.",
+    evidence: "unmeasured",
+    note:
+      "Replaces `macroTrend` (retired 2026-09-10; see RETIRED) — its monthly/weekly/daily 2-of-3 " +
+      "agreement measured negligible (inside the ±0.1R noise band on both adequately sampled arms) " +
+      "after its counter-trend premise was already corrected once, on 2026-09-09. The 3-day and 9-day " +
+      "swing charts (lib/gann/swingChart.ts#computeSwingChart) read the same daily bars through a " +
+      "different construction — a fixed-count reversal run instead of a moving-average/pivot read — and " +
+      "require both the 3-day and 9-day swing to agree with the trade's own direction, not merely with " +
+      "each other. Needs a real replay run to read its pass rate for the first time — no payload has " +
+      "ever measured it.",
   },
   {
     id: "adxTrendStrength",
@@ -367,6 +360,29 @@ const RETIRED: RegisteredCriterion[] = [
       "Its own pass rule was lenient (an ambiguous \"sideways\" hourly read counted as agreement), which " +
       "is plausibly why the failing arm was always so thin. Replaced with a stricter ADX/DMI " +
       "trend-strength-and-direction test rather than a re-tuned trend-agreement rule.",
+  },
+  {
+    id: "macroTrend",
+    family: "scanScore",
+    source: "lib/scoring/score.ts (scored until 2026-09-10)",
+    label: "Macro trend context (10yr/5yr/1yr)",
+    expectedSign: "positive",
+    evidence: "retired",
+    note:
+      "Replaced by `swingChartTrend`. Originally scored a reversion on the macro running AGAINST the " +
+      "trade (the counter-trend-snapback premise); that premise measured negative on both runs of " +
+      "2026-09-08 (−0.17R at 15Min, −1.42R at 1Hour) and was corrected 2026-09-09 to score trend " +
+      "agreement for both setup kinds instead. 2026-09-09/10: six fresh live/Alpaca runs measured the " +
+      "corrected logic (docs/replay-runs/2026-09-09-15Min-2R.json, -3R.json, -score5-6.json; " +
+      "2026-09-10-15Min-2R-within-all.json, -1Hour-2R.json, -1Hour-3R.json). Every Execute-bucket-" +
+      "conditioned run was too small on the failing arm to read (16 trades at 15Min, 7 at 1Hour — both " +
+      "well under MIN_SAMPLES_PER_ARM). The one population large enough on both arms — the unconditioned " +
+      "15Min population, 491 passed / 538 failed — read +0.033; the 1Hour Execute bucket (91/31, also " +
+      "adequately sampled) read −0.090. Both inside the ±0.1 noise band: no longer the clearly inverted " +
+      "counter-trend signal the old logic measured, but never established a benefit either — negligible, " +
+      "not validated, even after the active-harm fix. Replaced with a different construction on the same " +
+      "daily bars (the 3-day/9-day swing charts) rather than a third attempt at tuning a " +
+      "monthly/weekly/daily agreement rule.",
   },
 ];
 
