@@ -133,7 +133,7 @@ function newPlan(overrides: Partial<NewTradePlan> = {}): NewTradePlan {
     },
     evidence: {
       regime: { regime: "trend", direction: "bullish", reasons: [], disqualifiers: [] },
-      alignment: { score: 82, tier: "aTier", breakdown: [] },
+      alignment: { score: 82, tier: "aTier", blueprintScoreBand: "ACTIONABLE", breakdown: [] },
       dataTimestamps: {},
       eventLiquidityStatus: "clear",
     },

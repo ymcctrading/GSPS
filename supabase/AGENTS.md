@@ -41,6 +41,21 @@ second, queryable `trend_state` row joined to the plan via `trade_plan_id`.
 value yet, so `recordScanVerdict` deliberately leaves that table alone
 rather than inventing one.
 
+More blueprint-aligned literal tables (`0064`): `bar`, `corporate_action`,
+`instrument_profile`, `volume_state`, `volatility_state`, `feature_registry`,
+`experiment_registry`, `backtest_run` — the 8 of the blueprint's 20 named
+tables (§5.2) that had no existing GSPS home under any name (the other 8
+already overlap an existing table — see the migration's header comment for
+the full mapping and why each was skipped). Schema only, same posture 0063
+took for `pivot`: nothing in the app writes or reads any of these 8 yet.
+`bar`/`corporate_action`/`instrument_profile`/`feature_registry`/
+`experiment_registry` are global reference data (readable by any signed-in
+user, written by the service role, like `instrument`); `volume_state`/
+`volatility_state` are per-user and RLS-scoped like `pivot`/`trend_state`;
+`backtest_run` has RLS on with no client-facing policy (service-role only),
+same posture as `learning_models` — there's no per-user ownership concept
+for a global research artifact.
+
 Protocol exits and paper trading (`0009`–`0012`): `protocol_exits`,
 `paper_accounts`, plus the `increment_paper_cash` and `execute_position_fill`
 RPC functions.

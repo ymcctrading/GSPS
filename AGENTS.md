@@ -35,6 +35,44 @@ defaulting to the last phase.
 - When a change invalidates part of the roadmap, update `ROADMAP.md` in the
   same PR and move its "Last updated" date.
 
+## Temporary overrides — mandatory, check on every session
+
+These are explicit, user-directed departures from the protocol's real design, made for a stated
+reason and with a stated revert trigger. Read this section every session. When a trigger fires,
+raise it with the user before doing anything else with the affected code — don't silently carry an
+override past the point it was supposed to end.
+
+### Execution timeframe forced to 1Hour (since 2026-09-09)
+
+**What:** `EXECUTION_TIMEFRAME` in `lib/timeframe.ts` (the single source of truth — every consumer
+imports it from there) is set to `"1Hour"`, not the protocol's real design of `"15Min"`.
+
+**Why:** The free Alpaca feed delays equities ~15 minutes. On a 15-minute execution bar that's a
+lag ratio of exactly 1.0, which trips `applyDataLagHold` (`lib/data/latency.ts`) and holds *every*
+equity Execute verdict to Watch whenever the market is open — so a `trade_plan` can never reach
+`armed`, and the Automated Portfolio Manager can never place a trade. At 1Hour the same delay is
+25% of a candle, comfortably under the hold. The user asked for this explicitly, to verify the
+automation *pipeline* (plan created → armed → picked up → order placed) works end to end on paper
+money, while real-time data is not yet purchased.
+
+**What this is NOT:** validation that the strategy works at 1Hour. `docs/BACKTESTING.md` records
+that 1Hour has historically inverted the scoring model's own verdict ranking (Execute measuring as
+the *worst* bucket, not the best) — untouched by this override. Never cite a paper trade produced
+under this override as evidence the strategy is sound; it's only evidence the plumbing fired.
+
+**Mandatory revert trigger:** the moment `MARKET_DATA_REALTIME=true` is set for a paid real-time
+feed (removing the 15-minute delay entirely — `feedDelayMs` then returns 0 regardless of bar size),
+this override must be reverted to `"15Min"` in the same change. Reminder text for that moment:
+*"You asked to be reminded — real-time data is live now, so the temporary 1Hour execution-timeframe
+override should come out."* Don't wait to be asked twice; raise it as soon as you see
+`MARKET_DATA_REALTIME` being turned on, or see it already on, in the same session.
+
+**To revert:** change `EXECUTION_TIMEFRAME` in `lib/timeframe.ts` back to `"15Min"`, delete this
+section, and re-run `lib/data/__tests__/provider-execution-timeframe.test.ts` plus a fresh
+`?within=all` backtest capture to confirm 15Min's criteria evidence still holds (data ages between
+now and the revert). `PLAN_TIMEFRAME` (lib/lifecycle/fromScanResult.ts) and the copy in
+`lib/analysis/levelRole.ts` both derive from `EXECUTION_TIMEFRAME` and need no separate edit.
+
 ## Deployment (Vercel)
 
 - The project runs on the **Vercel Hobby (free) plan**. Cron jobs are capped at **2 per project**, each running **no more than once a day**. Before adding a new scheduled job, confirm the total stays at or under that cap — see `docs/THIRD_PARTY_LIMITS.md`. If something needs to run more often than daily, it does not belong in `vercel.json` crons; trigger it from an external scheduler instead.

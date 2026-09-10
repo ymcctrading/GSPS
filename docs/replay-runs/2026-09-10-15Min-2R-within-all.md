@@ -17,8 +17,8 @@ edit: a hand-edited cell here is exactly the failure this file replaces.
 | Data source | alpaca (live feed) |
 | Armed / triggered | 3283 / 1029 |
 | Strategy version | 2026-08-27-role-aware-proximity |
-| Generated | 2026-09-09T23:35:53.720Z |
-| Run by | `GET /api/backtest` on the deployment; payload `docs/replay-runs/2026-09-09-15Min-2R.json` |
+| Generated | 2026-09-10T03:08:21.011Z |
+| Run by | `GET /api/backtest` on the deployment; payload `docs/replay-runs/2026-09-10-15Min-2R-within-all.json` |
 
 ## Expectancy by verdict
 
@@ -64,37 +64,38 @@ the before/after `docs/BACKTESTING.md` calls for on this constant.
 | Large-cap | 1029 | 32.4% | -0.028R | -28.797R |
 | Not large-cap | 0 | — | — | — |
 
-## Factors inside Execute
+## Factors inside all
 
 Expectancy when each criterion passed versus when it failed. Δ is the lever a weight would be
 set from. Marginal, not causal — see docs/BACKTESTING.md.
 
 | Criterion | Passed | E[R] pass | E[R] fail | Δ E[R] | Corr | Verdict |
 |---|---:|---:|---:|---:|---:|---|
-| historicalSR | 14/16 | +0.274R | -1.016R | +1.291R | 0.29 | insufficient |
-| macroTrend | 14/16 | +0.273R | -1.009R | +1.283R | 0.29 | insufficient |
-| hourlyTrend | 15/16 | +0.188R | -1.013R | +1.201R | 0.20 | insufficient |
-| momentum | 8/16 | +0.113R | +0.113R | +0.001R | 0.00 | insufficient |
-| fanProximity | 9/16 | -0.010R | +0.272R | -0.282R | -0.10 | insufficient |
-| timeCycle | 9/16 | -0.012R | +0.275R | -0.287R | -0.10 | insufficient |
-| harmonicProximity | 13/16 | -0.090R | +0.992R | -1.082R | -0.29 | insufficient |
-| patternArmed | 16/16 | +0.113R | — | — | — | constant |
-| masterStructural | 16/16 | +0.113R | — | — | — | constant |
+| historicalSR | 188/1029 | +0.253R | -0.091R | +0.344R | 0.09 | informative |
+| masterStructural | 657/1029 | +0.028R | -0.127R | +0.155R | 0.05 | informative |
+| hourlyTrend | 584/1029 | +0.021R | -0.092R | +0.113R | 0.04 | informative |
+| macroTrend | 491/1029 | +0.021R | -0.072R | +0.093R | 0.03 | informative |
+| fanProximity | 296/1029 | -0.023R | -0.030R | +0.007R | 0.00 | informative |
+| momentum | 100/1029 | -0.026R | -0.028R | +0.002R | 0.00 | informative |
+| timeCycle | 305/1029 | -0.095R | +0.000R | -0.095R | -0.03 | informative |
+| harmonicProximity | 660/1029 | -0.075R | +0.056R | -0.131R | -0.04 | informative |
+| patternArmed | 1029/1029 | -0.028R | — | — | — | constant |
+| reversionConfirmation | 0/15 | — | -0.011R | — | — | constant |
 
-## Stop width inside Execute
+## Stop width inside all
 
 | Band (×ATR) | Trades | Win rate | Expectancy |
 |---|---:|---:|---:|
 | 0.0–0.5 | 0 | — | — |
-| 0.5–1.0 | 9 | 33.3% | -0.016R |
-| 1.0–1.5 | 4 | 50.0% | +0.492R |
-| 1.5–2.0 | 2 | 0.0% | -1.006R |
-| 2.0–2.5 | 0 | — | — |
-| 2.5–∞ | 1 | 100.0% | +1.995R |
+| 0.5–1.0 | 447 | 32.2% | -0.045R |
+| 1.0–1.5 | 407 | 30.0% | -0.097R |
+| 1.5–2.0 | 106 | 35.8% | +0.085R |
+| 2.0–2.5 | 42 | 40.5% | +0.304R |
+| 2.5–∞ | 27 | 44.4% | +0.328R |
 
 ---
 
-Reproduce: `npm run backtest -- --symbols SPY,AAPL,AMD,TSLA,MSFT,NVDA --timeframe 15Min --targetR 2 --within Execute`
+Reproduce: `npm run backtest -- --symbols SPY,AAPL,AMD,TSLA,MSFT,NVDA --timeframe 15Min --targetR 2 --within all`
 
 The harness is deliberately pessimistic — a setup may only trigger on the very next bar, a bar
 covering both stop and target counts as a loss, and round-trip friction is charged against every

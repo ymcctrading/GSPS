@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { scanTicker } from "@/lib/scanTicker";
+import { EXECUTION_TIMEFRAME } from "@/lib/timeframe";
 import { redactScanResult } from "@/lib/scoring/public-summary";
 import { verifyAuth } from "@/lib/auth";
 import { recordScanVerdict } from "@/lib/learning/record";
@@ -39,7 +40,10 @@ export async function GET(req: NextRequest) {
   const userId = await verifyAuth();
   if (userId) {
     await recordScanVerdict(userId, result, {
-      timeframe: "15Min",
+      // The bar this scan actually ran on — `EXECUTION_TIMEFRAME`
+      // (lib/timeframe.ts), not a hardcoded "15Min" that would mislabel
+      // learning-table rows the moment the 2026-09-09 override is in effect.
+      timeframe: EXECUTION_TIMEFRAME,
       bar: result.executionBar,
     });
 

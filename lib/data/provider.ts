@@ -15,6 +15,7 @@
  */
 
 import type { AssetClass, Bar, Timeframe } from "@/lib/types";
+import { TF_INTERVAL_MS } from "@/lib/timeframe";
 
 export interface MarketDataProvider {
   /** Stable identifier, surfaced to the UI (e.g. "alpaca", "synthetic"). */
@@ -124,10 +125,33 @@ export function getMarketDataProvider(): MarketDataProvider {
 }
 
 /**
+ * Bar count the execution series carries at "15Min", the baseline every
+ * caller was tuned against (`detectPatterns`, `atr(...slice(-30), 14)`, entry
+ * confirmation). Scaled by how much coarser `executionTimeframe` is, so
+ * switching it still delivers roughly the same number of execution bars
+ * rather than starving pattern detection when the bar widens.
+ */
+const EXECUTION_LOOKBACK_DAYS_AT_15MIN = 7;
+
+function executionLookbackDays(executionTimeframe: Timeframe): number {
+  const scale = TF_INTERVAL_MS[executionTimeframe] / TF_INTERVAL_MS["15Min"];
+  return EXECUTION_LOOKBACK_DAYS_AT_15MIN * scale;
+}
+
+/**
  * All timeframes the top-down GSPS pipeline consumes, fetched through whichever
  * provider is active. Lives at the seam so callers never import a vendor module.
+ *
+ * `executionTimeframe` — defaults to "15Min", the pipeline's normal bar. Pass
+ * `lib/scanTicker.ts`'s `EXECUTION_TIMEFRAME` explicitly so a caller can never
+ * fetch a different bar than the one patterns will actually be detected on;
+ * see that constant's own comment for why the two must always agree.
  */
-export async function fetchAllTimeframes(symbol: string, assetClass: AssetClass) {
+export async function fetchAllTimeframes(
+  symbol: string,
+  assetClass: AssetClass,
+  executionTimeframe: Timeframe = "15Min",
+) {
   const provider = getMarketDataProvider();
   const now = Date.now();
   const yearsAgo = (n: number) => new Date(now - n * 365.25 * 24 * 3600 * 1000);
@@ -140,15 +164,15 @@ export async function fetchAllTimeframes(symbol: string, assetClass: AssetClass)
       ? null
       : new Date(now - 16 * 60 * 1000);
 
-  const [monthly, weekly, daily, hourly, m15] = await Promise.all([
+  const [monthly, weekly, daily, hourly, execution] = await Promise.all([
     provider.fetchBars(symbol, "1Month", yearsAgo(10), end, assetClass),
     provider.fetchBars(symbol, "1Week", yearsAgo(5), end, assetClass),
     provider.fetchBars(symbol, "1Day", yearsAgo(1), end, assetClass),
     provider.fetchBars(symbol, "1Hour", daysAgo(30), end, assetClass),
-    provider.fetchBars(symbol, "15Min", daysAgo(7), end, assetClass),
+    provider.fetchBars(symbol, executionTimeframe, daysAgo(executionLookbackDays(executionTimeframe)), end, assetClass),
   ]);
 
-  return { monthly, weekly, daily, hourly, m15 };
+  return { monthly, weekly, daily, hourly, execution };
 }
 
 export interface AllTimeframeBars {
@@ -156,7 +180,8 @@ export interface AllTimeframeBars {
   weekly: Bar[];
   daily: Bar[];
   hourly: Bar[];
-  m15: Bar[];
+  /** Bars on whatever `executionTimeframe` the fetch was called with — see that param's own comment. */
+  execution: Bar[];
 }
 
 /**
@@ -166,10 +191,13 @@ export interface AllTimeframeBars {
  * no batch support (e.g. the synthetic demo provider); callers should treat
  * a missing entry as "fetch this symbol individually" rather than an error.
  * Scoped to equities, matching the only current caller (`runMarketScan`'s
- * equities-only universe).
+ * equities-only universe). `executionTimeframe` — see `fetchAllTimeframes`'s
+ * own comment; the caller must pass the same value it will detect patterns
+ * against, or this prefetch silently hands `scanTicker` the wrong bar.
  */
 export async function fetchAllTimeframesBatch(
   symbols: string[],
+  executionTimeframe: Timeframe = "15Min",
 ): Promise<Map<string, AllTimeframeBars>> {
   const provider = getMarketDataProvider();
   const out = new Map<string, AllTimeframeBars>();
@@ -180,12 +208,18 @@ export async function fetchAllTimeframesBatch(
   const daysAgo = (n: number) => new Date(now - n * 24 * 3600 * 1000);
   const end = provider.isLive ? new Date(now - 16 * 60 * 1000) : null;
 
-  const [monthly, weekly, daily, hourly, m15] = await Promise.all([
+  const [monthly, weekly, daily, hourly, execution] = await Promise.all([
     provider.fetchBarsBatch(symbols, "1Month", yearsAgo(10), end, "us_equity"),
     provider.fetchBarsBatch(symbols, "1Week", yearsAgo(5), end, "us_equity"),
     provider.fetchBarsBatch(symbols, "1Day", yearsAgo(1), end, "us_equity"),
     provider.fetchBarsBatch(symbols, "1Hour", daysAgo(30), end, "us_equity"),
-    provider.fetchBarsBatch(symbols, "15Min", daysAgo(7), end, "us_equity"),
+    provider.fetchBarsBatch(
+      symbols,
+      executionTimeframe,
+      daysAgo(executionLookbackDays(executionTimeframe)),
+      end,
+      "us_equity",
+    ),
   ]);
 
   for (const symbol of symbols) {
@@ -195,7 +229,7 @@ export async function fetchAllTimeframesBatch(
       weekly: weekly.get(sym) ?? [],
       daily: daily.get(sym) ?? [],
       hourly: hourly.get(sym) ?? [],
-      m15: m15.get(sym) ?? [],
+      execution: execution.get(sym) ?? [],
     });
   }
   return out;

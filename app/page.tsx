@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, Radar, Target, ShieldCheck } from "lucide-react";
+import { EXECUTION_TIMEFRAME, TF_CANDLE_LABEL } from "@/lib/timeframe";
 
 export const metadata = {
   title: "GSPS — Guided Stock Projection System",
@@ -8,11 +9,20 @@ export const metadata = {
     "GSPS helps traders see the setup, plan the trade, and manage risk before entering a position. Multi-timeframe scanning, clear entries, defined stops, and setups scored out of 9.",
 };
 
+/**
+ * "Ten years down to X" reads off the live execution timeframe rather than a
+ * hardcoded "fifteen minutes" so this claim can't go stale the moment
+ * EXECUTION_TIMEFRAME changes — as it did for the 2026-09-09 temporary
+ * override (see AGENTS.md → "Temporary overrides", lib/timeframe.ts). Revert
+ * that override and this copy reverts with it, automatically.
+ */
+const EXECUTION_TF_LABEL = TF_CANDLE_LABEL[EXECUTION_TIMEFRAME];
+
 const FEATURES = [
   {
     icon: Radar,
     title: "Top-down scanning",
-    body: "Ten years down to fifteen minutes. The scanner reads macro trend and support, then narrows to triggered entries on the execution timeframe.",
+    body: `Ten years down to ${EXECUTION_TF_LABEL}. The scanner reads macro trend and support, then narrows to triggered entries on the execution timeframe.`,
   },
   {
     icon: Target,
