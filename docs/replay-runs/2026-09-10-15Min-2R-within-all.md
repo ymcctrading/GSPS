@@ -8,18 +8,17 @@ edit: a hand-edited cell here is exactly the failure this file replaces.
 
 | | |
 |---|---|
-| Universe | SPY, AAPL, AMD, MSFT, NVDA |
+| Universe | SPY, AAPL, AMD, TSLA, MSFT, NVDA |
 | Window | 2026-07-13 → 2026-09-09 |
 | Execution timeframe | 15Min |
 | Target | 2R |
 | Stop model | raw pattern (original harness behaviour) |
 | Break-even win rate at this target | 33.3% |
 | Data source | alpaca (live feed) |
-| Armed / triggered | 2737 / 845 |
+| Armed / triggered | 3283 / 1029 |
 | Strategy version | 2026-08-27-role-aware-proximity |
-| Generated | 2026-09-09T23:37:04.210Z |
-| Run by | `GET /api/backtest` on the deployment; payload `docs/replay-runs/2026-09-09-15Min-2R-within-all.json` |
-| Skipped | TSLA (Alpaca market data is rate-limiting requests right now (free data tier). Prices will refresh automatically in a moment.) |
+| Generated | 2026-09-10T03:08:21.011Z |
+| Run by | `GET /api/backtest` on the deployment; payload `docs/replay-runs/2026-09-10-15Min-2R-within-all.json` |
 
 ## Expectancy by verdict
 
@@ -28,11 +27,11 @@ is a losing system at this target however good it looks.
 
 | Bucket | Trades | Win rate | Expectancy | Total | Above break-even |
 |---|---:|---:|---:|---:|---|
-| Execute | 8 | 37.5% | +0.113R | +0.908R | yes |
-| Watch | 558 | 35.1% | +0.050R | +27.687R | yes |
-| Reject | 279 | 29.0% | -0.135R | -37.649R | no |
+| Execute | 16 | 37.5% | +0.113R | +1.810R | yes |
+| Watch | 724 | 33.3% | +0.003R | +2.171R | yes |
+| Reject | 289 | 29.8% | -0.113R | -32.778R | no |
 | unscored | 0 | — | — | — | — |
-| **All** | 845 | 33.1% | -0.011R | -9.054R | no |
+| **All** | 1029 | 32.4% | -0.028R | -28.797R | no |
 
 ## Required performance metrics
 
@@ -43,11 +42,11 @@ none of this is read apart from how many trades it came from.
 
 | Bucket | n | Avg win | Median win | Avg loss | Median loss | Max loss | Profit factor | Max drawdown |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| Execute | 8 | +1.987R | +1.986R | -1.011R | -1.009R | -1.016R | 1.18 | +3.033R |
-| Watch | 558 | +1.985R | +1.987R | -1.015R | -1.014R | -1.042R | 1.08 | +36.783R |
-| Reject | 279 | +1.982R | +1.984R | -1.019R | -1.018R | -1.053R | 0.81 | +46.409R |
+| Execute | 16 | +1.989R | +1.990R | -1.012R | -1.013R | -1.024R | 1.18 | +4.046R |
+| Watch | 724 | +1.986R | +1.988R | -1.014R | -1.013R | -1.042R | 1.00 | +39.999R |
+| Reject | 289 | +1.982R | +1.985R | -1.019R | -1.018R | -1.053R | 0.84 | +45.409R |
 | unscored | 0 | — | — | — | — | — | — | +0.000R |
-| **All** | 845 | +1.984R | +1.986R | -1.016R | -1.016R | -1.053R | 0.98 | +43.197R |
+| **All** | 1029 | +1.985R | +1.986R | -1.015R | -1.015R | -1.053R | 0.95 | +57.225R |
 
 ## Large-cap vs. not
 
@@ -62,7 +61,7 @@ the before/after `docs/BACKTESTING.md` calls for on this constant.
 
 | | Trades | Win rate | Expectancy | Total |
 |---|---:|---:|---:|---:|
-| Large-cap | 845 | 33.1% | -0.011R | -9.054R |
+| Large-cap | 1029 | 32.4% | -0.028R | -28.797R |
 | Not large-cap | 0 | — | — | — |
 
 ## Factors inside all
@@ -72,30 +71,31 @@ set from. Marginal, not causal — see docs/BACKTESTING.md.
 
 | Criterion | Passed | E[R] pass | E[R] fail | Δ E[R] | Corr | Verdict |
 |---|---:|---:|---:|---:|---:|---|
-| historicalSR | 136/845 | +0.308R | -0.072R | +0.379R | 0.10 | informative |
-| masterStructural | 511/845 | +0.077R | -0.145R | +0.222R | 0.08 | informative |
-| macroTrend | 431/845 | +0.053R | -0.077R | +0.130R | 0.05 | informative |
-| fanProximity | 251/845 | +0.059R | -0.040R | +0.098R | 0.03 | informative |
-| hourlyTrend | 477/845 | +0.022R | -0.053R | +0.076R | 0.03 | informative |
-| momentum | 100/845 | -0.026R | -0.009R | -0.017R | -0.00 | informative |
-| timeCycle | 121/845 | -0.075R | +0.000R | -0.075R | -0.02 | informative |
-| harmonicProximity | 511/845 | -0.069R | +0.078R | -0.146R | -0.05 | informative |
-| patternArmed | 845/845 | -0.011R | — | — | — | constant |
+| historicalSR | 188/1029 | +0.253R | -0.091R | +0.344R | 0.09 | informative |
+| masterStructural | 657/1029 | +0.028R | -0.127R | +0.155R | 0.05 | informative |
+| hourlyTrend | 584/1029 | +0.021R | -0.092R | +0.113R | 0.04 | informative |
+| macroTrend | 491/1029 | +0.021R | -0.072R | +0.093R | 0.03 | informative |
+| fanProximity | 296/1029 | -0.023R | -0.030R | +0.007R | 0.00 | informative |
+| momentum | 100/1029 | -0.026R | -0.028R | +0.002R | 0.00 | informative |
+| timeCycle | 305/1029 | -0.095R | +0.000R | -0.095R | -0.03 | informative |
+| harmonicProximity | 660/1029 | -0.075R | +0.056R | -0.131R | -0.04 | informative |
+| patternArmed | 1029/1029 | -0.028R | — | — | — | constant |
+| reversionConfirmation | 0/15 | — | -0.011R | — | — | constant |
 
 ## Stop width inside all
 
 | Band (×ATR) | Trades | Win rate | Expectancy |
 |---|---:|---:|---:|
 | 0.0–0.5 | 0 | — | — |
-| 0.5–1.0 | 372 | 33.1% | -0.028R |
-| 1.0–1.5 | 335 | 30.1% | -0.100R |
-| 1.5–2.0 | 86 | 37.2% | +0.130R |
-| 2.0–2.5 | 30 | 50.0% | +0.628R |
-| 2.5–∞ | 22 | 40.9% | +0.222R |
+| 0.5–1.0 | 447 | 32.2% | -0.045R |
+| 1.0–1.5 | 407 | 30.0% | -0.097R |
+| 1.5–2.0 | 106 | 35.8% | +0.085R |
+| 2.0–2.5 | 42 | 40.5% | +0.304R |
+| 2.5–∞ | 27 | 44.4% | +0.328R |
 
 ---
 
-Reproduce: `npm run backtest -- --symbols SPY,AAPL,AMD,MSFT,NVDA --timeframe 15Min --targetR 2 --within all`
+Reproduce: `npm run backtest -- --symbols SPY,AAPL,AMD,TSLA,MSFT,NVDA --timeframe 15Min --targetR 2 --within all`
 
 The harness is deliberately pessimistic — a setup may only trigger on the very next bar, a bar
 covering both stop and target counts as a loss, and round-trip friction is charged against every
