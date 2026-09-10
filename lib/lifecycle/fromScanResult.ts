@@ -18,14 +18,20 @@
  * just not yet an approved position.
  */
 
-import { TF_INTERVAL_MS } from "@/lib/timeframe";
+import { EXECUTION_TIMEFRAME, TF_INTERVAL_MS } from "@/lib/timeframe";
 import type { RulesAlignmentScore, SignalVerdict } from "@/lib/signals/types";
 import type { ScanResult } from "@/lib/types";
 import type { NewTradePlan } from "./store";
 import { freshEntryConfirmation } from "./entryConfirmation";
 
-/** The execution timeframe every scan (`lib/scanTicker.ts`'s `EXECUTION_TIMEFRAME`) prices its plan against. */
-const PLAN_TIMEFRAME = "15Min" as const;
+/**
+ * The execution timeframe every scan prices its plan against — re-exported
+ * from `lib/scanTicker.ts`'s `EXECUTION_TIMEFRAME` rather than restated as its
+ * own literal. The two drifting apart is exactly the bug class the 2026-09-09
+ * temporary override (see that constant's own comment, and AGENTS.md) exists
+ * to never reintroduce: a plan priced on one bar while patterns arm on another.
+ */
+const PLAN_TIMEFRAME = EXECUTION_TIMEFRAME;
 
 /** Used when no `SignalVerdict` on the result carries its own `expiresAfterBars`. */
 const DEFAULT_EXPIRES_AFTER_BARS = 20;
