@@ -278,7 +278,10 @@ export function coarseReversion(symbol: string, daily: Bar[]): CoarseCandidate |
   if (fans.length > 0 && fans[0].distancePct <= fanBandPct) score += 2;
   // Same anchor and role-match rule as the full scan's harmonicProximity
   // criterion (lib/scoring/score.ts) — a support level only helps a bullish
-  // reversion, a resistance level only a bearish one.
+  // reversion, a resistance level only a bearish one. This pre-filter had
+  // neither: it anchored off Math.min() of the whole window (stale) and
+  // took the nearest level regardless of role, so it could admit or reject
+  // symbols the real criterion, downstream, would score the opposite way.
   const wantedRole: LevelRole = direction === "bullish" ? "support" : "resistance";
   const s9 = recentSquareOf9Levels(daily, price);
   const s9Match = s9.find((s) => s.role === wantedRole && s.distancePct <= harmonicBandPct) ?? null;
