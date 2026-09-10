@@ -8,17 +8,18 @@ edit: a hand-edited cell here is exactly the failure this file replaces.
 
 | | |
 |---|---|
-| Universe | SPY, AAPL, AMD, TSLA, MSFT, NVDA |
-| Window | 2026-07-13 → 2026-09-09 |
-| Execution timeframe | 15Min |
-| Target | 2R |
+| Universe | SPY |
+| Window | 2020-12-21 → 2026-09-09 |
+| Execution timeframe | 1Hour |
+| Target | 3R |
 | Stop model | raw pattern (original harness behaviour) |
-| Break-even win rate at this target | 33.3% |
+| Break-even win rate at this target | 25.0% |
 | Data source | alpaca (live feed) |
-| Armed / triggered | 3283 / 1029 |
+| Armed / triggered | 6315 / 2090 |
 | Strategy version | 2026-08-27-role-aware-proximity |
-| Generated | 2026-09-09T23:35:53.720Z |
-| Run by | `GET /api/backtest` on the deployment; payload `docs/replay-runs/2026-09-09-15Min-2R.json` |
+| Generated | 2026-09-09T23:36:59.058Z |
+| Run by | `GET /api/backtest` on the deployment; payload `docs/replay-runs/2026-09-09-1Hour-3R-partial.json` |
+| Skipped | AAPL (Alpaca market data is rate-limiting requests right now (free data tier). Prices will refresh automatically in a moment.); AMD (Alpaca market data is rate-limiting requests right now (free data tier). Prices will refresh automatically in a moment.); TSLA (Alpaca market data is rate-limiting requests right now (free data tier). Prices will refresh automatically in a moment.); MSFT (Alpaca market data is rate-limiting requests right now (free data tier). Prices will refresh automatically in a moment.); NVDA (Alpaca market data is rate-limiting requests right now (free data tier). Prices will refresh automatically in a moment.) |
 
 ## Expectancy by verdict
 
@@ -27,11 +28,11 @@ is a losing system at this target however good it looks.
 
 | Bucket | Trades | Win rate | Expectancy | Total | Above break-even |
 |---|---:|---:|---:|---:|---|
-| Execute | 16 | 37.5% | +0.113R | +1.810R | yes |
-| Watch | 724 | 33.3% | +0.003R | +2.171R | yes |
-| Reject | 289 | 29.8% | -0.113R | -32.778R | no |
-| unscored | 0 | — | — | — | — |
-| **All** | 1029 | 32.4% | -0.028R | -28.797R | no |
+| Execute | 13 | 30.8% | +0.222R | +2.883R | yes |
+| Watch | 1129 | 24.4% | -0.033R | -37.023R | no |
+| Reject | 868 | 25.9% | +0.026R | +22.302R | yes |
+| unscored | 80 | 23.8% | -0.066R | -5.282R | no |
+| **All** | 2090 | 25.1% | -0.008R | -17.120R | no |
 
 ## Required performance metrics
 
@@ -42,11 +43,11 @@ none of this is read apart from how many trades it came from.
 
 | Bucket | n | Avg win | Median win | Avg loss | Median loss | Max loss | Profit factor | Max drawdown |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| Execute | 16 | +1.989R | +1.990R | -1.012R | -1.013R | -1.024R | 1.18 | +4.046R |
-| Watch | 724 | +1.986R | +1.988R | -1.014R | -1.013R | -1.042R | 1.00 | +39.999R |
-| Reject | 289 | +1.982R | +1.985R | -1.019R | -1.018R | -1.053R | 0.84 | +45.409R |
-| unscored | 0 | — | — | — | — | — | — | +0.000R |
-| **All** | 1029 | +1.985R | +1.986R | -1.015R | -1.015R | -1.053R | 0.95 | +57.225R |
+| Execute | 13 | +2.991R | +2.990R | -1.009R | -1.009R | -1.012R | 1.32 | +3.062R |
+| Watch | 1129 | +2.988R | +2.989R | -1.011R | -1.010R | -1.037R | 0.96 | +82.599R |
+| Reject | 868 | +2.985R | +2.987R | -1.015R | -1.013R | -1.043R | 1.03 | +43.156R |
+| unscored | 80 | +2.980R | +2.983R | -1.015R | -1.014R | -1.035R | 0.91 | +24.518R |
+| **All** | 2090 | +2.987R | +2.988R | -1.013R | -1.011R | -1.043R | 0.99 | +65.863R |
 
 ## Large-cap vs. not
 
@@ -61,7 +62,7 @@ the before/after `docs/BACKTESTING.md` calls for on this constant.
 
 | | Trades | Win rate | Expectancy | Total |
 |---|---:|---:|---:|---:|
-| Large-cap | 1029 | 32.4% | -0.028R | -28.797R |
+| Large-cap | 2090 | 25.1% | -0.008R | -17.120R |
 | Not large-cap | 0 | — | — | — |
 
 ## Factors inside Execute
@@ -71,30 +72,30 @@ set from. Marginal, not causal — see docs/BACKTESTING.md.
 
 | Criterion | Passed | E[R] pass | E[R] fail | Δ E[R] | Corr | Verdict |
 |---|---:|---:|---:|---:|---:|---|
-| historicalSR | 14/16 | +0.274R | -1.016R | +1.291R | 0.29 | insufficient |
-| macroTrend | 14/16 | +0.273R | -1.009R | +1.283R | 0.29 | insufficient |
-| hourlyTrend | 15/16 | +0.188R | -1.013R | +1.201R | 0.20 | insufficient |
-| momentum | 8/16 | +0.113R | +0.113R | +0.001R | 0.00 | insufficient |
-| fanProximity | 9/16 | -0.010R | +0.272R | -0.282R | -0.10 | insufficient |
-| timeCycle | 9/16 | -0.012R | +0.275R | -0.287R | -0.10 | insufficient |
-| harmonicProximity | 13/16 | -0.090R | +0.992R | -1.082R | -0.29 | insufficient |
-| patternArmed | 16/16 | +0.113R | — | — | — | constant |
-| masterStructural | 16/16 | +0.113R | — | — | — | constant |
+| fanProximity | 10/13 | +0.591R | -1.009R | +1.599R | 0.37 | insufficient |
+| hourlyTrend | 12/13 | +0.325R | -1.012R | +1.336R | 0.19 | insufficient |
+| historicalSR | 7/13 | +0.134R | +0.325R | -0.191R | -0.05 | insufficient |
+| macroTrend | 10/13 | -0.209R | +1.657R | -1.866R | -0.43 | insufficient |
+| harmonicProximity | 13/13 | +0.222R | — | — | — | constant |
+| patternArmed | 13/13 | +0.222R | — | — | — | constant |
+| momentum | 13/13 | +0.222R | — | — | — | constant |
+| timeCycle | 0/13 | — | +0.222R | — | — | constant |
+| masterStructural | 13/13 | +0.222R | — | — | — | constant |
 
 ## Stop width inside Execute
 
 | Band (×ATR) | Trades | Win rate | Expectancy |
 |---|---:|---:|---:|
 | 0.0–0.5 | 0 | — | — |
-| 0.5–1.0 | 9 | 33.3% | -0.016R |
-| 1.0–1.5 | 4 | 50.0% | +0.492R |
-| 1.5–2.0 | 2 | 0.0% | -1.006R |
+| 0.5–1.0 | 9 | 33.3% | +0.324R |
+| 1.0–1.5 | 4 | 25.0% | -0.007R |
+| 1.5–2.0 | 0 | — | — |
 | 2.0–2.5 | 0 | — | — |
-| 2.5–∞ | 1 | 100.0% | +1.995R |
+| 2.5–∞ | 0 | — | — |
 
 ---
 
-Reproduce: `npm run backtest -- --symbols SPY,AAPL,AMD,TSLA,MSFT,NVDA --timeframe 15Min --targetR 2 --within Execute`
+Reproduce: `npm run backtest -- --symbols SPY --timeframe 1Hour --targetR 3 --within Execute`
 
 The harness is deliberately pessimistic — a setup may only trigger on the very next bar, a bar
 covering both stop and target counts as a loss, and round-trip friction is charged against every
