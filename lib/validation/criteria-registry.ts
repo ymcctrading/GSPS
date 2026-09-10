@@ -368,12 +368,12 @@ const CANDIDATES: RegisteredCriterion[] = [
     id: "gannAngleTrendHolding",
     family: "candidate",
     source: "lib/scoring/score.ts (candidateCriteria), lib/gann/normalizedSlope.ts",
-    label: "Gann 1x1 angle trend-holding (candidate)",
+    label: "Structural angle (1x1) trend-holding (candidate)",
     expectedSign: "positive",
     evidence: "unmeasured",
     note:
-      "Gann's classic angle rule: the trend is structurally intact only while price holds at or beyond " +
-      "its own 1x1 angle since the anchor pivot (most recent significant low for a bullish setup, high " +
+      "The classic 1x1 structural-angle rule: the trend is structurally intact only while price holds " +
+      "at or beyond its own 1x1 angle since the anchor pivot (most recent significant low for a bullish setup, high " +
       "for bearish — the same anchor rule fanProximity's fan lines and the fixed harmonicProximity " +
       "already use). Wraps lib/gann/normalizedSlope.ts, which existed only as display/confluence " +
       "context (lib/signals/confluence/gann.ts's angleSlope field) before this. Needs a real replay run " +
