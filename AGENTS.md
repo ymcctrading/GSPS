@@ -35,6 +35,45 @@ defaulting to the last phase.
 - When a change invalidates part of the roadmap, update `ROADMAP.md` in the
   same PR and move its "Last updated" date.
 
+## Cross-platform consistency — standing principle
+
+If a concept exists anywhere in this codebase — an indicator, an anchor
+convention, a fixed constant, a computed field — and it applies to another
+surface, it must exist there too. **Not existing everywhere it applies is
+equal to not existing anywhere.** A concept built once and left stranded in
+the module that introduced it is not "partially done" — treat it as not
+done, and finish rolling it out before calling the work complete.
+
+This is not hypothetical caution; it is the exact shape of two real defects
+found in this codebase on 2026-09-10:
+
+- **`harmonicProximity`'s stale Square-of-9 anchor.** The fix landed in the
+  two callers feeding the scored criterion (`lib/scanTicker.ts`,
+  `lib/backtest/replay.ts`), but `lib/marketScan.ts`'s coarse pre-filter and
+  `lib/signals/confluence/gann.ts`'s confluence card kept the old, buggy
+  anchor for another full day — quietly undermining every backtest run
+  measured against the "fixed" criterion in between (see
+  `lib/validation/criteria-registry.ts`'s `harmonicProximity` entry for the
+  full history).
+- **ADX/DMI**, built and validated for `lib/signals/regime.ts` (the Signal &
+  Regime Engine) specifically to avoid leaning on PSAR/Supertrend as a sole
+  signal, never reached the separate 9-point scanner score
+  (`lib/scoring/score.ts`) at all — a second subsystem with the exact same
+  "which indicator confirms a trend" problem, solved once and never
+  propagated.
+
+Before considering any indicator, anchor rule, fixed threshold, or computed
+field "in place," check every surface it plausibly applies to — other
+scoring paths, the live scan vs. the backtest replay, confluence/display
+modules, coarse pre-filters — and either wire it in everywhere applicable or
+say explicitly why a given surface is an intentional exception (e.g. a
+module whose spec genuinely calls for different behavior, not just an
+oversight). "When appropriate" is the only carve-out: a concept that
+*shouldn't* apply somewhere (different timeframe, different asset class,
+different governing spec) is a real exception, not a violation of this
+rule — but the default assumption is that it applies, and silence is not
+an exception.
+
 ## Temporary overrides — mandatory, check on every session
 
 These are explicit, user-directed departures from the protocol's real design, made for a stated
