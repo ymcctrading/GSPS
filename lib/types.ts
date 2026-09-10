@@ -2,6 +2,8 @@
 
 import type { BreakdownKey } from "@/lib/scoring/weights";
 import type { GannAngleReading } from "@/lib/gann/normalizedSlope";
+import type { VortexConfluenceReading } from "@/lib/gann/digitalRoot";
+import type { RetracementLevel } from "@/lib/gann/retracements";
 import type { DecisionLag } from "@/lib/data/latency";
 import type { LiquidityRead } from "@/lib/scan/liquidity";
 import type { RegimeRead, SignalVerdict } from "@/lib/signals/types";
@@ -89,6 +91,22 @@ export interface GannLevels {
   angleSlopeBullish?: GannAngleReading | null;
   /** Same, anchored off the most recent significant high — a bearish setup's reading. Optional for the same reason. */
   angleSlopeBearish?: GannAngleReading | null;
+  /**
+   * Digital-root price/time confluence since the most recent significant
+   * low — the reading a bullish setup would be scored on. Candidate-criterion
+   * support only (see `docs/PROPOSAL_NEW_GANN_CRITERIA.md`) — not scored
+   * yet. Optional for the same reason as the angle-slope fields above.
+   */
+  vortexConfluenceBullish?: VortexConfluenceReading | null;
+  /** Same, anchored off the most recent significant high — a bearish setup's reading. */
+  vortexConfluenceBearish?: VortexConfluenceReading | null;
+  /**
+   * Percentage-retracement zones of the most recent significant swing,
+   * nearest-first. Candidate-criterion support only (see
+   * `docs/PROPOSAL_NEW_GANN_CRITERIA.md`) — not scored yet. Optional for the
+   * same reason as the fields above.
+   */
+  retracementLevels?: RetracementLevel[];
 }
 
 export interface TradeLevels {

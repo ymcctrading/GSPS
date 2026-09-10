@@ -16,8 +16,10 @@ import type {
 import {
   FALLBACK_FAN_PCT,
   FALLBACK_HARMONIC_PCT,
+  FALLBACK_RETRACEMENT_PCT,
   FAN_PROXIMITY_ATR,
   HARMONIC_PROXIMITY_ATR,
+  RETRACEMENT_PROXIMITY_ATR,
   bandBasis,
   proximityBandPct,
 } from "@/lib/scoring/proximity";
@@ -349,11 +351,39 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     angleReading != null &&
     (direction === "bullish" ? angleReading.slope >= 1 : angleReading.slope <= -1);
 
+  // Candidate criterion 2 — see docs/PROPOSAL_NEW_GANN_CRITERIA.md. Digital
+  // root/vortex price-time confluence: price and time displacement since the
+  // anchor pivot both reduce to a 1-9 root, and a recognised relationship
+  // between the two roots (anything classifyConfluence resolves beyond
+  // NO_CONFLUENCE) is read as the criterion passing.
+  const vortexReading =
+    direction === "bullish" ? gann.vortexConfluenceBullish : gann.vortexConfluenceBearish;
+  const digitalRootVortexConfluence =
+    vortexReading != null && vortexReading.confluence !== "NO_CONFLUENCE";
+
+  // Candidate criterion 3 — see docs/PROPOSAL_NEW_GANN_CRITERIA.md. Same
+  // shape as fanProximity/harmonicProximity: is price within an ATR-relative
+  // band of a percentage-retracement level on the wanted role/side.
+  const retracementBandPct = proximityBandPct(
+    RETRACEMENT_PROXIMITY_ATR,
+    FALLBACK_RETRACEMENT_PCT,
+    atrPct,
+  );
+  const retracementMatch =
+    gann.retracementLevels?.find(
+      (r) => r.role === wantedRole && r.distancePct <= retracementBandPct,
+    ) ?? null;
+  const gannRetracementProximity = retracementMatch !== null;
+
   return {
     score,
     outputState,
     breakdown,
-    candidateCriteria: { gannAngleTrendHolding },
+    candidateCriteria: {
+      gannAngleTrendHolding,
+      digitalRootVortexConfluence,
+      gannRetracementProximity,
+    },
   };
 }
 

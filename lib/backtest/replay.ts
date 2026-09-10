@@ -41,6 +41,8 @@ import { computeFanLines } from "@/lib/gann/fans";
 import { recentSquareOf9Levels } from "@/lib/gann/squareOf9";
 import { timeCycles } from "@/lib/gann/timeCycles";
 import { angleSlopeFromBars } from "@/lib/gann/normalizedSlope";
+import { vortexConfluenceFromBars } from "@/lib/gann/digitalRoot";
+import { retracementLevels } from "@/lib/gann/retracements";
 import { DEFAULT_COST_PER_SHARE_USD } from "@/lib/trade/friction";
 
 /** 6.5 hours of 15-minute candles. */
@@ -251,6 +253,9 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
   const cycles = timeCycles(daily);
   const angleSlopeBullish = angleSlopeFromBars(daily, price, "low");
   const angleSlopeBearish = angleSlopeFromBars(daily, price, "high");
+  const vortexConfluenceBullish = vortexConfluenceFromBars(daily, price, "low");
+  const vortexConfluenceBearish = vortexConfluenceFromBars(daily, price, "high");
+  const retracements = retracementLevels(daily, price);
 
   const allLevels = [
     ...dailyTrend.support.map((p) => ({ price: p, timeframe: dailyTrend.timeframe })),
@@ -288,6 +293,15 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
       timeCycleDates: cycles.dates,
       angleSlopeBullish,
       angleSlopeBearish,
+      vortexConfluenceBullish,
+      vortexConfluenceBearish,
+      retracementLevels: retracements.slice(0, 12).map(({ label, fraction, price: p, distancePct, role }) => ({
+        label,
+        fraction,
+        price: Math.round(p * 100) / 100,
+        distancePct,
+        role,
+      })),
     },
     nearSupportResistance: srMatch !== null,
     srMatch: srMatch && { ...srMatch, role: levelRole(price, srMatch.price) },

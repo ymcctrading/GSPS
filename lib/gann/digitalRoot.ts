@@ -16,6 +16,9 @@
  * override a trend/risk gate.
  */
 
+import type { Bar } from "@/lib/types";
+import { findPivots } from "@/lib/analysis/pivots";
+
 /** DR(n) = 1 + ((n − 1) mod 9). Throws for non-positive input — callers must validate first (blueprint 2.1). */
 export function digitalRoot1to9(n: number): number {
   if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) {
@@ -177,6 +180,66 @@ export function classifyRootTransition(
   if (matched.length > 1) return "MULTI_FACTOR_CONFLUENCE";
   if (matched.length === 1) return matched[0];
   return null; // a real change occurred, but it doesn't match either named transition
+}
+
+/**
+ * Tick size the price displacement below is normalized against. Mirrors
+ * `evaluateGannConfluence`'s own `NORMALIZATION_TICK_SIZE_CENTS`: this module
+ * has no per-instrument tick metadata (that lives in `lib/trade/tick-size.ts`,
+ * keyed to order pricing, not this candidate), so it uses the same fixed,
+ * documented cents convention rather than a guess.
+ */
+const CANDIDATE_TICK_SIZE = 0.01;
+
+export interface VortexConfluenceReading {
+  priceDigitalRoot: number;
+  timeDigitalRoot: number;
+  confluence: ConfluenceType;
+  anchor: { price: number; kind: "high" | "low" };
+}
+
+/**
+ * Price/time digital-root confluence since the most recent significant pivot
+ * of `anchorKind`, anchored the same "most recent significant high/low" way
+ * `lib/gann/fans.ts`, `lib/gann/squareOf9.ts`'s `recentSquareOf9Levels`, and
+ * `lib/gann/normalizedSlope.ts`'s `angleSlopeFromBars` already are.
+ *
+ * Deliberately independent of `evaluateGannConfluence`
+ * (`lib/signals/confluence/gann.ts`), which anchors its own vortex context
+ * off the blueprint's "objective, configurable pivot rule" using confirmed
+ * (not just printed) pivots — this candidate does not need that distinction
+ * and reuses the simpler anchor already established for the other two
+ * candidates, for consistency across all three rather than because the two
+ * must agree.
+ *
+ * Candidate criterion support only (see
+ * `docs/PROPOSAL_NEW_GANN_CRITERIA.md`) — not wired into any scored
+ * criterion yet.
+ */
+export function vortexConfluenceFromBars(
+  bars: Bar[],
+  currentPrice: number,
+  anchorKind: "high" | "low",
+): VortexConfluenceReading | null {
+  if (bars.length < 20) return null;
+  const pivots = findPivots(bars, 4);
+  const reversed = [...pivots].reverse();
+  const anchor = reversed.find((p) => p.kind === anchorKind) ?? reversed.find((p) => p.kind !== anchorKind);
+  if (!anchor) return null;
+
+  const priceTicks = Math.round(Math.abs(currentPrice - anchor.price) / CANDIDATE_TICK_SIZE);
+  const barsSinceAnchor = bars.length - 1 - anchor.index;
+  if (!(priceTicks > 0) || !(barsSinceAnchor > 0)) return null;
+
+  const priceDigitalRoot = digitalRoot1to9(priceTicks);
+  const timeDigitalRoot = digitalRoot1to9(barsSinceAnchor);
+
+  return {
+    priceDigitalRoot,
+    timeDigitalRoot,
+    confluence: classifyConfluence(priceDigitalRoot, timeDigitalRoot),
+    anchor: { price: anchor.price, kind: anchor.kind },
+  };
 }
 
 /** One of the blueprint 5.2 `digital_root_feature` records — every DR must carry this provenance (blueprint 2.2). */

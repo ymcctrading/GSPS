@@ -51,6 +51,16 @@ export const HARMONIC_PROXIMITY_ATR =
 export const SR_PROXIMITY_ATR = 0.5;
 
 /**
+ * Percentage-retracement-zone proximity — candidate criterion support only
+ * (see `docs/PROPOSAL_NEW_GANN_CRITERIA.md`), same band as the fan lines:
+ * both describe a swing's own geometry rather than a fixed numerological
+ * ladder, so there's no existing fixed-percent pair to re-derive from the
+ * way `HARMONIC_PROXIMITY_ATR` is.
+ */
+export const FALLBACK_RETRACEMENT_PCT = 1.5;
+export const RETRACEMENT_PROXIMITY_ATR = FAN_PROXIMITY_ATR;
+
+/**
  * Daily ATR as a percentage of the reference price — a day's range in the same
  * unit `distancePct` is already reported in. Undefined when it cannot be
  * computed (no history, zero price), which is the signal to fall back.

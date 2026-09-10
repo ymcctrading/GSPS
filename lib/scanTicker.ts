@@ -28,6 +28,8 @@ import { computeFanLines } from "@/lib/gann/fans";
 import { recentSquareOf9Levels } from "@/lib/gann/squareOf9";
 import { timeCycles } from "@/lib/gann/timeCycles";
 import { angleSlopeFromBars } from "@/lib/gann/normalizedSlope";
+import { vortexConfluenceFromBars } from "@/lib/gann/digitalRoot";
+import { retracementLevels } from "@/lib/gann/retracements";
 import {
   CONTINUATION_PATTERNS,
   detectPatterns,
@@ -131,6 +133,9 @@ export async function scanTicker(
     const cycles = timeCycles(daily);
     const angleSlopeBullish = angleSlopeFromBars(daily, currentPrice, "low");
     const angleSlopeBearish = angleSlopeFromBars(daily, currentPrice, "high");
+    const vortexConfluenceBullish = vortexConfluenceFromBars(daily, currentPrice, "low");
+    const vortexConfluenceBearish = vortexConfluenceFromBars(daily, currentPrice, "high");
+    const retracements = retracementLevels(daily, currentPrice);
 
     const gann: GannLevels = {
       fanLines: fanLines.slice(0, 6).map(({ angle, price, distancePct, role }) => ({
@@ -151,6 +156,15 @@ export async function scanTicker(
       timeCycleDates: cycles.dates,
       angleSlopeBullish,
       angleSlopeBearish,
+      vortexConfluenceBullish,
+      vortexConfluenceBearish,
+      retracementLevels: retracements.slice(0, 12).map(({ label, fraction, price, distancePct, role }) => ({
+        label,
+        fraction,
+        price: Math.round(price * 100) / 100,
+        distancePct,
+        role,
+      })),
     };
 
     // ---- Level 3: 15min precision entry via reversal patterns (closed bars only)

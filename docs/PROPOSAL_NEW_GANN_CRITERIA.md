@@ -210,11 +210,40 @@ assuming it.
    `lib/validation/criteria-registry.ts` under a new `"candidate"` family
    (exempt from the completeness/staleness checks the same way `scoreHold`
    already is), `evidence: "unmeasured"` — nothing has measured it yet.
-2. **Next:** run `lib/backtest/attribution.ts` against a real replay (`npm
+2. ~~Repeat scaffolding for Candidates 2 and 3.~~ **Done** (2026-09-10), same
+   pattern as Candidate 1:
+   - **Candidate 2** (price/time confluence): new
+     `lib/gann/digitalRoot.ts#vortexConfluenceFromBars()`, anchored the same
+     way. `GannLevels.vortexConfluenceBullish`/`vortexConfluenceBearish`.
+     Pass rule: `classifyConfluence(priceRoot, timeRoot) !== "NO_CONFLUENCE"`
+     — deliberately coarser than this doc's original "MULTI_FACTOR_CONFLUENCE
+     only" suggestion, so the first measurement has a passing arm large
+     enough to read at all; tightening it is a decision for whoever reads
+     the first real run. Collected as
+     `candidateCriteria.digitalRootVortexConfluence`.
+   - **Candidate 3** (percentage retracement): new
+     `lib/gann/retracements.ts#retracementLevels()` — the one genuine
+     implementation gap, now built. Anchors off the most recent significant
+     high AND low (same convention as the other two), projects eighths and
+     thirds of that swing, and gates on the same role-matched,
+     ATR-relative-band shape `fanProximity`/`harmonicProximity` already use
+     (`RETRACEMENT_PROXIMITY_ATR` in `lib/scoring/proximity.ts`). Collected
+     as `candidateCriteria.gannRetracementProximity`.
+   - Both registered in `lib/validation/criteria-registry.ts` under the
+     `"candidate"` family, `evidence: "unmeasured"`.
+   - One thing this pass caught: `check-banned-terms.mjs` rejects "Gann" and
+     "Digital Root" in rendered strings — the registry's `label`/`note`
+     fields count as rendered copy, same as any other user-facing text in
+     this codebase, so all three candidates' registry entries use the
+     approved vocabulary ("structural angle," "GSPS Signal Calculation,"
+     "key price level") instead. Keep that in mind for any *fourth*
+     candidate someone adds later.
+3. **Next:** run `lib/backtest/attribution.ts` against a real replay (`npm
    run backtest -- --within all` or similar — see `docs/BACKTESTING.md`) to
-   see whether `gannAngleTrendHolding` clears `informative` at all before
-   investing further. It will show up in the factor table automatically.
-3. Repeat scaffolding + measurement for Candidates 2 and 3.
+   see whether any of the three candidates clears `informative` at all
+   before investing further. All three show up in the factor table
+   automatically, keyed by `gannAngleTrendHolding`,
+   `digitalRootVortexConfluence`, and `gannRetracementProximity`.
 4. Only after at least one clears the four-point validation bar above,
    propose which quarantined criterion it would replace, and route that
    decision through a human before touching `CRITERION_KEYS`.

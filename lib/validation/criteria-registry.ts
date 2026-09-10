@@ -379,6 +379,40 @@ const CANDIDATES: RegisteredCriterion[] = [
       "context (lib/signals/confluence/gann.ts's angleSlope field) before this. Needs a real replay run " +
       "to even read its pass rate for the first time — no payload has ever measured it.",
   },
+  {
+    id: "digitalRootVortexConfluence",
+    family: "candidate",
+    source: "lib/scoring/score.ts (candidateCriteria), lib/gann/digitalRoot.ts",
+    label: "Structural price/time confluence (candidate)",
+    expectedSign: "positive",
+    evidence: "unmeasured",
+    note:
+      "The GSPS Signal Calculation premise: price displacement and time displacement since the anchor " +
+      "pivot both reduce to a 1-9 signal-calculation value, and a recognised relationship between the " +
+      "two values is read as a confluence signal distinct from pure geometry (the angle and " +
+      "key-price-level candidates). Passes on any classifyConfluence() result beyond NO_CONFLUENCE — a " +
+      "coarser bar than the proposal doc's suggested MULTI_FACTOR_CONFLUENCE-only reading, chosen so the " +
+      "first measurement has enough of a passing arm to read at all; tightening it is one of the things " +
+      "a real run should settle. Its own blueprint doc comment (lib/gann/digitalRoot.ts) calls this " +
+      "premise a GSPS hypothesis, not a proven law — consistent with carrying it as unmeasured here, not " +
+      "hypothesis. Needs a real replay run to even read its pass rate for the first time — no payload " +
+      "has ever measured it.",
+  },
+  {
+    id: "gannRetracementProximity",
+    family: "candidate",
+    source: "lib/scoring/score.ts (candidateCriteria), lib/gann/retracements.ts",
+    label: "Percentage retracement zone proximity (candidate)",
+    expectedSign: "positive",
+    evidence: "unmeasured",
+    note:
+      "Percentage retracement rule: a swing's most significant retracement levels sit at eighths and " +
+      "thirds of its range. The one genuine implementation gap the proposal doc named — no retracement " +
+      "code existed anywhere in this codebase before lib/gann/retracements.ts. Same role-matched, " +
+      "ATR-relative-band shape as fanProximity/harmonicProximity (RETRACEMENT_PROXIMITY_ATR in " +
+      "lib/scoring/proximity.ts). Needs a real replay run to even read its pass rate for the first " +
+      "time — no payload has ever measured it.",
+  },
 ];
 
 const ALIGNMENT_STATES: Record<string, string[]> = {
