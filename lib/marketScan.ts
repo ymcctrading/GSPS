@@ -578,6 +578,15 @@ export async function runMarketScan(
   universeThresholds: UniverseThresholds = DEFAULT_UNIVERSE_THRESHOLDS,
 ): Promise<MarketScanOutput> {
   const startedAt = Date.now();
+  // Temporary stage-timing breadcrumbs (2026-09-10) while the widened
+  // universeTop default (see this function's own doc comment above) is
+  // unverified against Vercel's 60s ceiling — a 504 kills the response
+  // before any JSON gets returned, so these are logged as each stage
+  // finishes rather than only reported at the end. Remove once the budget
+  // is confirmed safe on a live run, or replace with real telemetry.
+  const mark = (stage: string, extra?: string) =>
+    console.log(`[market-scan] ${stage} at +${Date.now() - startedAt}ms${extra ? ` (${extra})` : ""}`);
+
   // The trading date the scan describes, not the UTC date it happened to run
   // on. The two diverge between 20:00 ET and midnight — a post-close re-run
   // would otherwise be filed under tomorrow, and tomorrow would open showing
@@ -586,6 +595,7 @@ export async function runMarketScan(
   const provider = getMarketDataProvider();
 
   const actives = await resolveUniverse(universeTop);
+  mark("resolveUniverse done", `${actives.length} symbols`);
 
   // Coarse pass — daily bars for trend/level context, plus a short window of
   // 4-hour bars so the continuation gate can judge the last 4 hours on their
@@ -604,6 +614,7 @@ export async function runMarketScan(
     provider.fetchBarsBatch?.(actives, "1Day", yearAgo, end, "us_equity") ?? null,
     provider.fetchBarsBatch?.(actives, "4Hour", recentWeeks, end, "us_equity") ?? null,
   ]);
+  mark("coarse batch bar fetch done", `daily=${dailyBatch?.size ?? "n/a"} 4h=${bars4hBatch?.size ?? "n/a"}`);
 
   const coarse = await mapWithConcurrency(actives, 8, async (symbol) => {
     try {
@@ -623,6 +634,7 @@ export async function runMarketScan(
       return { reversion: null, continuation: null, diagnostics: null };
     }
   });
+  mark("coarse scoring done");
 
   const byCoarseScore = (a: CoarseCandidate, b: CoarseCandidate) => b.coarseScore - a.coarseScore;
   const shortlist = coarse
@@ -639,9 +651,11 @@ export async function runMarketScan(
   // shortlist up front (five requests total) so each scanTicker call below is
   // just scoring, not a fresh five-request fetch per symbol.
   const shortlistBars = await fetchAllTimeframesBatch(shortlist.map((c) => c.symbol));
+  mark("full-pass batch bar fetch done", `shortlist=${shortlist.length}`);
   const full = await mapWithConcurrency(shortlist, 5, (c) =>
     scanTicker(c.symbol, undefined, undefined, shortlistBars.get(c.symbol.toUpperCase()), universeThresholds),
   );
+  mark("full-pass scanTicker scoring done");
   const valid = full.filter((r) => !r.error);
   const scanErrors = full.length - valid.length;
 
