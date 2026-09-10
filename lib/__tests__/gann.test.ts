@@ -2,9 +2,6 @@ import { describe, expect, it } from "vitest";
 import { squareOf9Levels, nearestS9Level, recentSquareOf9Levels } from "@/lib/gann/squareOf9";
 import { computeFanLines } from "@/lib/gann/fans";
 import { timeCycles } from "@/lib/gann/timeCycles";
-import { angleSlopeFromBars } from "@/lib/gann/normalizedSlope";
-import { vortexConfluenceFromBars } from "@/lib/gann/digitalRoot";
-import { retracementLevels } from "@/lib/gann/retracements";
 import { computeScore } from "@/lib/scoring/score";
 import type { Bar, TrendReading } from "@/lib/types";
 
@@ -106,119 +103,6 @@ describe("computeFanLines", () => {
   });
 });
 
-// A V-shape: decline into a trough at index 10, then a steady climb — a
-// clear low pivot to anchor on, and no interior high pivot at all. Shared by
-// the three candidate-criterion "*FromBars" helpers, which all anchor the
-// same way.
-function vShapeBars(): Bar[] {
-  const bars: Bar[] = [];
-  for (let i = 0; i < 30; i++) {
-    const level = i <= 10 ? 100 - i * 2 : 80 + (i - 10) * 3;
-    bars.push(bar(`2026-01-${String((i % 28) + 1).padStart(2, "0")}`, level + 2, level));
-  }
-  return bars;
-}
-
-describe("angleSlopeFromBars", () => {
-  it("returns null below the minimum bar count", () => {
-    expect(angleSlopeFromBars([bar("2026-01-01", 101, 100)], 100, "low")).toBeNull();
-  });
-
-  it("anchors a rising move off its low pivot with a positive, 'up' slope", () => {
-    const bars = vShapeBars();
-    const currentPrice = bars[bars.length - 1].c;
-    const reading = angleSlopeFromBars(bars, currentPrice, "low");
-    expect(reading).not.toBeNull();
-    expect(reading!.anchor.kind).toBe("low");
-    expect(reading!.anchor.price).toBeCloseTo(80, 0);
-    expect(reading!.slope).toBeGreaterThan(0);
-    expect(reading!.nearestAngle.direction).toBe("up");
-  });
-
-  it("falls back to the other pivot kind when the requested one hasn't printed", () => {
-    // This series has no interior high pivot at all (monotonic decline then
-    // climb), so asking for a "high" anchor must fall back to the low.
-    const bars = vShapeBars();
-    const currentPrice = bars[bars.length - 1].c;
-    const reading = angleSlopeFromBars(bars, currentPrice, "high");
-    expect(reading).not.toBeNull();
-    expect(reading!.anchor.kind).toBe("low");
-  });
-});
-
-describe("vortexConfluenceFromBars", () => {
-  it("returns null below the minimum bar count", () => {
-    expect(vortexConfluenceFromBars([bar("2026-01-01", 101, 100)], 100, "low")).toBeNull();
-  });
-
-  it("anchors off the requested pivot kind and classifies the two roots", () => {
-    const bars = vShapeBars();
-    const currentPrice = bars[bars.length - 1].c;
-    const reading = vortexConfluenceFromBars(bars, currentPrice, "low");
-    expect(reading).not.toBeNull();
-    expect(reading!.anchor.kind).toBe("low");
-    expect(reading!.priceDigitalRoot).toBeGreaterThanOrEqual(1);
-    expect(reading!.priceDigitalRoot).toBeLessThanOrEqual(9);
-    expect(reading!.timeDigitalRoot).toBeGreaterThanOrEqual(1);
-    expect(reading!.timeDigitalRoot).toBeLessThanOrEqual(9);
-    // Same trade, same price/time displacement — deterministic, not random.
-    const again = vortexConfluenceFromBars(bars, currentPrice, "low");
-    expect(again).toEqual(reading);
-  });
-
-  it("returns null when price hasn't moved off the anchor at all", () => {
-    const bars = vShapeBars();
-    // Anchor price for a "low" read is the trough itself (80); asking with
-    // that exact price as "current" gives a zero price displacement.
-    expect(vortexConfluenceFromBars(bars, 80, "low")).toBeNull();
-  });
-});
-
-describe("retracementLevels", () => {
-  // A rise to a peak at index 10 (140), then a decline to a trough at index
-  // 20 (80), then a little chop — a clear high AND low pivot, unlike the
-  // pure V-shape above which deliberately has no interior high.
-  function swingBars(): Bar[] {
-    const bars: Bar[] = [];
-    for (let i = 0; i < 30; i++) {
-      const level = i <= 10 ? 100 + i * 4 : i <= 20 ? 140 - (i - 10) * 6 : 80 + (i - 20) * 2;
-      bars.push(bar(`2026-01-${String((i % 28) + 1).padStart(2, "0")}`, level + 1, level));
-    }
-    return bars;
-  }
-
-  it("returns nothing below the minimum bar count", () => {
-    expect(retracementLevels([bar("2026-01-01", 101, 100)], 100)).toEqual([]);
-  });
-
-  it("returns nothing when the series has no high-low swing to retrace", () => {
-    // vShapeBars has no interior high pivot at all.
-    expect(retracementLevels(vShapeBars(), vShapeBars()[29].c)).toEqual([]);
-  });
-
-  it("projects eighths and thirds of the most recent high-low swing, sorted by proximity", () => {
-    const bars = swingBars();
-    // Swing range is 80 (low) to 140 (high); a current price inside it.
-    const currentPrice = 110;
-    const levels = retracementLevels(bars, currentPrice);
-    expect(levels.length).toBeGreaterThan(0);
-    expect(levels.map((l) => l.label)).toEqual(
-      expect.arrayContaining(["1/2", "3/8", "5/8"]),
-    );
-    // Pivot price is the bar's high/low, not its midpoint level, so the
-    // actual swing is 141 (high) to 80 (low), not 140/80.
-    const half = levels.find((l) => l.label === "1/2")!;
-    expect(half.price).toBeCloseTo(110.5, 5); // 141 - 61 * 0.5
-    for (let i = 1; i < levels.length; i++) {
-      expect(levels[i].distancePct).toBeGreaterThanOrEqual(levels[i - 1].distancePct);
-    }
-    // Every level's role must agree with its position relative to current price.
-    for (const level of levels) {
-      expect(level.role).toBe(level.price <= currentPrice ? "support" : "resistance");
-    }
-  });
-});
-
 describe("computeScore", () => {
   const trend = (
     timeframe: TrendReading["timeframe"],
@@ -234,12 +118,17 @@ describe("computeScore", () => {
       macroTrends: [trend("1Month", "bullish"), trend("1Week", "bullish"), trend("1Day", "bullish")],
       hourlyTrend: trend("1Hour", "bullish"),
       gann: {
-        fanLines: [{ angle: "1x1 (low)", price: 100, distancePct: 0.5, role: "support" }],
+        fanLines: [],
         squareOf9: [{ degree: 90, price: 100.2, distancePct: 0.3, role: "support" }],
         timeCycleActive: true,
         timeCycleBullishActive: true,
         timeCycleBearishActive: false,
         timeCycleDates: [],
+        angleSlopes: [
+          { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, slope: 1.1, nearestAngle: { label: "1x1", ratio: 1, direction: "up" } },
+        ],
+        retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100, distancePct: 0.5, role: "support" }],
+        digitalRootConfluences: [{ anchorKind: "low", priceRoot: 1, timeRoot: 8, type: "COMPLEMENTARY_PAIR" }],
       },
       nearSupportResistance: true,
       srMatch: { price: 99.8, timeframe: "1Day", role: "support" },
@@ -285,12 +174,17 @@ describe("computeScore", () => {
       macroTrends: [trend("1Month", "bullish"), trend("1Week", "bullish"), trend("1Day", "bullish")],
       hourlyTrend: trend("1Hour", "bullish"),
       gann: {
-        fanLines: [{ angle: "1x1 (low)", price: 100, distancePct: 0.5, role: "resistance" }],
+        fanLines: [],
         squareOf9: [{ degree: 90, price: 100.2, distancePct: 0.3, role: "resistance" }],
         timeCycleActive: true,
         timeCycleBullishActive: true,
         timeCycleBearishActive: false,
         timeCycleDates: [],
+        angleSlopes: [
+          { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, slope: 1.1, nearestAngle: { label: "1x1", ratio: 1, direction: "up" } },
+        ],
+        retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100, distancePct: 0.5, role: "resistance" }],
+        digitalRootConfluences: [{ anchorKind: "low", priceRoot: 1, timeRoot: 8, type: "COMPLEMENTARY_PAIR" }],
       },
       nearSupportResistance: true,
       srMatch: { price: 100.4, timeframe: "1Day", role: "resistance" },
@@ -319,11 +213,13 @@ describe("computeScore", () => {
       },
     });
     const byKey = Object.fromEntries(decision.breakdown.map((b) => [b.key, b.passed]));
-    expect(byKey.fanProximity).toBe(false);
+    expect(byKey.gannRetracementConfluence).toBe(false);
     expect(byKey.harmonicProximity).toBe(false);
     expect(byKey.historicalSR).toBe(false);
-    // The three structural criteria lose their point; everything else in the
-    // full-confluence fixture still passes, so score drops by exactly 3.
+    // gannAngleSlope isn't a level-role check (it reads realized slope, not a
+    // structural level), so it still passes here — only the three role-gated
+    // criteria lose their point, and score drops by exactly 3.
+    expect(byKey.gannAngleSlope).toBe(true);
     expect(decision.score).toBe(6);
     expect(decision.outputState).toBe("Watch");
   });
@@ -333,7 +229,7 @@ describe("computeScore", () => {
       direction: "bullish",
       macroTrends: [trend("1Month", "bullish"), trend("1Week", "bullish"), trend("1Day", "sideways")],
       hourlyTrend: trend("1Hour", "bearish"),
-      gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [] },
+      gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [], angleSlopes: [], retracementLevels: [], digitalRootConfluences: [] },
       nearSupportResistance: false,
       pattern: null,
       momentumElevated: false,
@@ -344,13 +240,23 @@ describe("computeScore", () => {
     expect(decision.outputState).toBe("Reject");
   });
 
-  it("awards the structural-confirmation point regardless of the stop's share of price", () => {
+  it("awards the retracement-confluence point regardless of the stop's share of price", () => {
     const item = (stopPctOfPrice: number) =>
       computeScore({
         direction: "bullish",
         macroTrends: [trend("1Month", "bullish"), trend("1Week", "bullish"), trend("1Day", "bullish")],
         hourlyTrend: trend("1Hour", "bearish"),
-        gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [] },
+        gann: {
+          fanLines: [],
+          squareOf9: [],
+          timeCycleActive: false,
+          timeCycleBullishActive: false,
+          timeCycleBearishActive: false,
+          timeCycleDates: [],
+          angleSlopes: [],
+          retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100, distancePct: 0.5, role: "support" }],
+          digitalRootConfluences: [{ anchorKind: "low", priceRoot: 1, timeRoot: 8, type: "COMPLEMENTARY_PAIR" }],
+        },
         nearSupportResistance: false,
         pattern: null,
         momentumElevated: false,
@@ -369,10 +275,10 @@ describe("computeScore", () => {
           stopPctOfPrice,
           stopBandWarning: null,
         },
-      }).breakdown.find((b) => b.criterion.startsWith("Final target"));
+      }).breakdown.find((b) => b.key === "gannRetracementConfluence");
 
-    // 5% and 30% both sit outside the old 12–18% band; only whether a
-    // structural level confirms the master target matters now.
+    // 5% and 30% both sit outside the old 12–18% band; only whether the
+    // retracement zone + digital-root confluence holds matters now.
     expect(item(5)?.passed).toBe(true);
     expect(item(30)?.passed).toBe(true);
     expect(item(14.4)?.passed).toBe(true);
@@ -394,11 +300,11 @@ describe("computeScore", () => {
     };
     const active = computeScore({
       ...base,
-      gann: { fanLines: [], squareOf9: [], timeCycleActive: true, timeCycleBullishActive: true, timeCycleBearishActive: true, timeCycleDates: ["2026-08-05"] },
+      gann: { fanLines: [], squareOf9: [], timeCycleActive: true, timeCycleBullishActive: true, timeCycleBearishActive: true, timeCycleDates: ["2026-08-05"], angleSlopes: [], retracementLevels: [], digitalRootConfluences: [] },
     });
     const inactive = computeScore({
       ...base,
-      gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [] },
+      gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [], angleSlopes: [], retracementLevels: [], digitalRootConfluences: [] },
     });
 
     expect(active.score).toBe(inactive.score + 1);
@@ -407,131 +313,4 @@ describe("computeScore", () => {
     expect(active.breakdown.some((b) => /earnings/i.test(b.criterion))).toBe(false);
   });
 
-  describe("candidateCriteria (docs/PROPOSAL_NEW_GANN_CRITERIA.md)", () => {
-    const base = {
-      direction: "bullish" as const,
-      macroTrends: [trend("1Month", "bullish"), trend("1Week", "bullish"), trend("1Day", "bullish")],
-      hourlyTrend: trend("1Hour", "bullish"),
-      nearSupportResistance: false,
-      pattern: null,
-      momentumElevated: false,
-      stopAtrMultiple: 0.8,
-      levels: null,
-    };
-    const gannBase = {
-      fanLines: [],
-      squareOf9: [],
-      timeCycleActive: false,
-      timeCycleBullishActive: false,
-      timeCycleBearishActive: false,
-      timeCycleDates: [],
-    };
-
-    it("collects the structural-angle candidate without scoring it", () => {
-      const holding = computeScore({
-        ...base,
-        gann: {
-          ...gannBase,
-          angleSlopeBullish: {
-            slope: 1.5,
-            nearestAngle: { label: "2x1", ratio: 2, direction: "up" },
-            anchor: { price: 90, kind: "low" },
-          },
-        },
-      });
-      const notHolding = computeScore({
-        ...base,
-        gann: {
-          ...gannBase,
-          angleSlopeBullish: {
-            slope: 0.3,
-            nearestAngle: { label: "1x4", ratio: 0.25, direction: "up" },
-            anchor: { price: 90, kind: "low" },
-          },
-        },
-      });
-      const noReading = computeScore({ ...base, gann: gannBase });
-
-      expect(holding.candidateCriteria?.gannAngleTrendHolding).toBe(true);
-      expect(notHolding.candidateCriteria?.gannAngleTrendHolding).toBe(false);
-      expect(noReading.candidateCriteria?.gannAngleTrendHolding).toBe(false);
-
-      // Same score and breakdown either way — the candidate carries no
-      // points and is not one of the nine scored criteria.
-      expect(holding.score).toBe(notHolding.score);
-      expect(holding.score).toBe(noReading.score);
-      expect(holding.breakdown).toHaveLength(9);
-      expect(holding.breakdown.map((b) => b.key)).not.toContain("gannAngleTrendHolding");
-    });
-
-    it("collects the price/time confluence candidate without scoring it", () => {
-      const confluent = computeScore({
-        ...base,
-        gann: {
-          ...gannBase,
-          vortexConfluenceBullish: {
-            priceDigitalRoot: 1,
-            timeDigitalRoot: 8,
-            confluence: "COMPLEMENTARY_PAIR",
-            anchor: { price: 90, kind: "low" },
-          },
-        },
-      });
-      const notConfluent = computeScore({
-        ...base,
-        gann: {
-          ...gannBase,
-          vortexConfluenceBullish: {
-            priceDigitalRoot: 2,
-            timeDigitalRoot: 4,
-            confluence: "NO_CONFLUENCE",
-            anchor: { price: 90, kind: "low" },
-          },
-        },
-      });
-      const noReading = computeScore({ ...base, gann: gannBase });
-
-      expect(confluent.candidateCriteria?.digitalRootVortexConfluence).toBe(true);
-      expect(notConfluent.candidateCriteria?.digitalRootVortexConfluence).toBe(false);
-      expect(noReading.candidateCriteria?.digitalRootVortexConfluence).toBe(false);
-      expect(confluent.score).toBe(notConfluent.score);
-      expect(confluent.breakdown).toHaveLength(9);
-    });
-
-    it("collects the retracement-proximity candidate without scoring it", () => {
-      const near = computeScore({
-        ...base,
-        gann: {
-          ...gannBase,
-          retracementLevels: [
-            { label: "1/2", fraction: 0.5, price: 100, distancePct: 0.1, role: "support" },
-          ],
-        },
-      });
-      const wrongSide = computeScore({
-        ...base,
-        gann: {
-          ...gannBase,
-          retracementLevels: [
-            { label: "1/2", fraction: 0.5, price: 100, distancePct: 0.1, role: "resistance" },
-          ],
-        },
-      });
-      const tooFar = computeScore({
-        ...base,
-        gann: {
-          ...gannBase,
-          retracementLevels: [
-            { label: "1/2", fraction: 0.5, price: 100, distancePct: 50, role: "support" },
-          ],
-        },
-      });
-
-      expect(near.candidateCriteria?.gannRetracementProximity).toBe(true);
-      expect(wrongSide.candidateCriteria?.gannRetracementProximity).toBe(false);
-      expect(tooFar.candidateCriteria?.gannRetracementProximity).toBe(false);
-      expect(near.score).toBe(wrongSide.score);
-      expect(near.breakdown).toHaveLength(9);
-    });
-  });
 });

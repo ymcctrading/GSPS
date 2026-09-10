@@ -40,9 +40,9 @@ import { atr } from "@/lib/analysis/pivots";
 import { computeFanLines } from "@/lib/gann/fans";
 import { recentSquareOf9Levels } from "@/lib/gann/squareOf9";
 import { timeCycles } from "@/lib/gann/timeCycles";
-import { angleSlopeFromBars } from "@/lib/gann/normalizedSlope";
-import { vortexConfluenceFromBars } from "@/lib/gann/digitalRoot";
-import { retracementLevels } from "@/lib/gann/retracements";
+import { computeAngleSlopes } from "@/lib/gann/normalizedSlope";
+import { computeRetracementLevels } from "@/lib/gann/retracement";
+import { priceTimeConfluence } from "@/lib/gann/digitalRoot";
 import { DEFAULT_COST_PER_SHARE_USD } from "@/lib/trade/friction";
 
 /** 6.5 hours of 15-minute candles. */
@@ -251,11 +251,14 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
   const fanLines = computeFanLines(daily, price);
   const s9 = recentSquareOf9Levels(daily, price).slice(0, 12);
   const cycles = timeCycles(daily);
-  const angleSlopeBullish = angleSlopeFromBars(daily, price, "low");
-  const angleSlopeBearish = angleSlopeFromBars(daily, price, "high");
-  const vortexConfluenceBullish = vortexConfluenceFromBars(daily, price, "low");
-  const vortexConfluenceBearish = vortexConfluenceFromBars(daily, price, "high");
-  const retracements = retracementLevels(daily, price);
+  const angleSlopes = computeAngleSlopes(daily, price);
+  const retracementLevels = computeRetracementLevels(daily, price);
+  const digitalRootConfluences = angleSlopes
+    .map((r) => {
+      const confluence = priceTimeConfluence(price, r.anchorPrice, r.barsSinceAnchor);
+      return confluence && { anchorKind: r.anchorKind, ...confluence };
+    })
+    .filter((v): v is NonNullable<typeof v> => v !== null);
 
   const allLevels = [
     ...dailyTrend.support.map((p) => ({ price: p, timeframe: dailyTrend.timeframe })),
@@ -291,17 +294,11 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
       timeCycleBullishActive: cycles.bullishActive,
       timeCycleBearishActive: cycles.bearishActive,
       timeCycleDates: cycles.dates,
-      angleSlopeBullish,
-      angleSlopeBearish,
-      vortexConfluenceBullish,
-      vortexConfluenceBearish,
-      retracementLevels: retracements.slice(0, 12).map(({ label, fraction, price: p, distancePct, role }) => ({
-        label,
-        fraction,
-        price: Math.round(p * 100) / 100,
-        distancePct,
-        role,
+      angleSlopes,
+      retracementLevels: retracementLevels.slice(0, 7).map(({ fraction, label, price: p, distancePct, role }) => ({
+        fraction, label, price: Math.round(p * 100) / 100, distancePct, role,
       })),
+      digitalRootConfluences,
     },
     nearSupportResistance: srMatch !== null,
     srMatch: srMatch && { ...srMatch, role: levelRole(price, srMatch.price) },
@@ -456,11 +453,6 @@ function criteriaOf(decision: ScanDecision | undefined): Record<string, boolean>
   if (!decision) return undefined;
   const out: Record<string, boolean> = {};
   for (const item of decision.breakdown) out[item.key ?? item.criterion] = item.passed;
-  // Candidate criteria under evaluation (docs/PROPOSAL_NEW_GANN_CRITERIA.md)
-  // are collected outside `breakdown` — see ScanDecision.candidateCriteria —
-  // so they don't affect scoring, but still need to reach attribution.ts the
-  // same way the nine scored criteria do.
-  if (decision.candidateCriteria) Object.assign(out, decision.candidateCriteria);
   return out;
 }
 

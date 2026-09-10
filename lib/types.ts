@@ -1,14 +1,12 @@
 /** Shared types for the GSPS scan engine. */
 
 import type { BreakdownKey } from "@/lib/scoring/weights";
-import type { GannAngleReading } from "@/lib/gann/normalizedSlope";
-import type { VortexConfluenceReading } from "@/lib/gann/digitalRoot";
-import type { RetracementLevel } from "@/lib/gann/retracements";
 import type { DecisionLag } from "@/lib/data/latency";
 import type { LiquidityRead } from "@/lib/scan/liquidity";
 import type { RegimeRead, SignalVerdict } from "@/lib/signals/types";
 import type { GannConfluenceResult, SaraConfluenceResult } from "@/lib/signals/confluence/types";
 import type { NoviceEligibility } from "@/lib/universe/types";
+import type { ConfluenceType } from "@/lib/gann/digitalRoot";
 
 export type AssetClass = "us_equity" | "crypto";
 
@@ -79,34 +77,30 @@ export interface GannLevels {
   timeCycleBearishActive: boolean;
   timeCycleDates: string[];
   /**
-   * Realized Gann-angle slope since the most recent significant low, and
-   * which fixed angle ratio it's nearest to — the reading a bullish setup
-   * would be scored on. Null when there's no low pivot or insufficient bars;
-   * optional (as opposed to the required timeCycle fields above) so the
-   * existing fixtures/callers that construct a `GannLevels` by hand don't
-   * all need updating for a field only one, unscored candidate reads.
-   * Candidate-criterion support only (see
-   * `docs/PROPOSAL_NEW_GANN_CRITERIA.md`) — not scored yet.
+   * Realized Gann-angle (1x1, etc.) slope since the most recent significant
+   * low (bullish reading) and high (bearish reading) — lib/gann/normalizedSlope.ts.
    */
-  angleSlopeBullish?: GannAngleReading | null;
-  /** Same, anchored off the most recent significant high — a bearish setup's reading. Optional for the same reason. */
-  angleSlopeBearish?: GannAngleReading | null;
+  angleSlopes: {
+    anchorKind: "high" | "low";
+    anchorPrice: number;
+    barsSinceAnchor: number;
+    slope: number;
+    nearestAngle: { label: string; ratio: number; direction: "up" | "down" } | null;
+  }[];
+  /** Gann percentage retracement zones (eighths) off the last swing — lib/gann/retracement.ts. */
+  retracementLevels: { fraction: number; label: string; price: number; distancePct: number; role: "support" | "resistance" }[];
   /**
-   * Digital-root price/time confluence since the most recent significant
-   * low — the reading a bullish setup would be scored on. Candidate-criterion
-   * support only (see `docs/PROPOSAL_NEW_GANN_CRITERIA.md`) — not scored
-   * yet. Optional for the same reason as the angle-slope fields above.
+   * Digital-root/vortex price-time confluence off the same anchors as
+   * `angleSlopes`. Confluence/context only, per blueprint 7.4 — never a
+   * scored criterion's sole basis, only ANDed with an independent structural
+   * check. See `lib/gann/digitalRoot.ts`'s `priceTimeConfluence`.
    */
-  vortexConfluenceBullish?: VortexConfluenceReading | null;
-  /** Same, anchored off the most recent significant high — a bearish setup's reading. */
-  vortexConfluenceBearish?: VortexConfluenceReading | null;
-  /**
-   * Percentage-retracement zones of the most recent significant swing,
-   * nearest-first. Candidate-criterion support only (see
-   * `docs/PROPOSAL_NEW_GANN_CRITERIA.md`) — not scored yet. Optional for the
-   * same reason as the fields above.
-   */
-  retracementLevels?: RetracementLevel[];
+  digitalRootConfluences: {
+    anchorKind: "high" | "low";
+    priceRoot: number;
+    timeRoot: number;
+    type: ConfluenceType;
+  }[];
 }
 
 export interface TradeLevels {
@@ -226,18 +220,6 @@ export interface ScanDecision {
   breakdown: ScoreBreakdownItem[];
   /** The publishable rollup of `breakdown`, attached in place of it. */
   summary?: PublicScoreSummary;
-  /**
-   * Candidate criteria collected for attribution only — see
-   * `docs/PROPOSAL_NEW_GANN_CRITERIA.md`. Deliberately separate from
-   * `breakdown`: an entry here carries no `pillar`, so folding it into
-   * `breakdown` would make `toPublicScoreSummary` read a failing one as a
-   * capped-state hold (see `lib/scoring/public-summary.ts`), and it is not
-   * one of `CRITERION_KEYS`, so it must never affect `score` or
-   * `outputState`. `lib/backtest/replay.ts`'s `criteriaOf` merges this into
-   * a trade's `criteria` snapshot so `lib/backtest/attribution.ts` can read
-   * it the same way it reads the nine scored criteria.
-   */
-  candidateCriteria?: Record<string, boolean>;
 }
 
 /**

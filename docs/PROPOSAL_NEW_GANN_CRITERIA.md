@@ -189,61 +189,53 @@ stated goal of "an accurate signal engine with explainable logic and tuned
 scoring" (`ROADMAP.md` line ~64) — flag this to the project owner rather than
 assuming it.
 
-## Suggested order of work for the new session
+## What actually happened (superseded — read this before the numbered plan below)
 
-1. ~~Pick Candidate 1 (Gann angle) first — lowest implementation risk, code
-   already exists.~~ **Done** (2026-09-10): scaffolded, not yet measured.
-   `lib/gann/normalizedSlope.ts` gained `angleSlopeFromBars()`, anchored the
-   same "most recent significant high/low" way as `fans.ts`/`squareOf9.ts`.
-   `GannLevels` carries `angleSlopeBullish`/`angleSlopeBearish` (both
-   computed in `lib/scanTicker.ts` and `lib/backtest/replay.ts`'s
-   `buildMacroContext`). `computeScore()` collects the pass/fail rule —
-   `direction === "bullish" ? slope >= 1 : slope <= -1` (price at or beyond
-   its own 1×1 angle, in the setup's direction) — as
-   `ScanDecision.candidateCriteria.gannAngleTrendHolding`, deliberately
-   **not** in `breakdown`: an unpilared `breakdown` item reads as a
-   verdict-capping hold in `lib/scoring/public-summary.ts`'s
-   `toPublicScoreSummary`, which this candidate must not trigger.
-   `lib/backtest/replay.ts`'s `criteriaOf()` merges `candidateCriteria` into
-   each trade's `criteria` map so `lib/backtest/attribution.ts` reads it
-   exactly like the nine scored criteria. Registered in
-   `lib/validation/criteria-registry.ts` under a new `"candidate"` family
-   (exempt from the completeness/staleness checks the same way `scoreHold`
-   already is), `evidence: "unmeasured"` — nothing has measured it yet.
-2. ~~Repeat scaffolding for Candidates 2 and 3.~~ **Done** (2026-09-10), same
-   pattern as Candidate 1:
-   - **Candidate 2** (price/time confluence): new
-     `lib/gann/digitalRoot.ts#vortexConfluenceFromBars()`, anchored the same
-     way. `GannLevels.vortexConfluenceBullish`/`vortexConfluenceBearish`.
-     Pass rule: `classifyConfluence(priceRoot, timeRoot) !== "NO_CONFLUENCE"`
-     — deliberately coarser than this doc's original "MULTI_FACTOR_CONFLUENCE
-     only" suggestion, so the first measurement has a passing arm large
-     enough to read at all; tightening it is a decision for whoever reads
-     the first real run. Collected as
-     `candidateCriteria.digitalRootVortexConfluence`.
-   - **Candidate 3** (percentage retracement): new
-     `lib/gann/retracements.ts#retracementLevels()` — the one genuine
-     implementation gap, now built. Anchors off the most recent significant
-     high AND low (same convention as the other two), projects eighths and
-     thirds of that swing, and gates on the same role-matched,
-     ATR-relative-band shape `fanProximity`/`harmonicProximity` already use
-     (`RETRACEMENT_PROXIMITY_ATR` in `lib/scoring/proximity.ts`). Collected
-     as `candidateCriteria.gannRetracementProximity`.
-   - Both registered in `lib/validation/criteria-registry.ts` under the
-     `"candidate"` family, `evidence: "unmeasured"`.
-   - One thing this pass caught: `check-banned-terms.mjs` rejects "Gann" and
-     "Digital Root" in rendered strings — the registry's `label`/`note`
-     fields count as rendered copy, same as any other user-facing text in
-     this codebase, so all three candidates' registry entries use the
-     approved vocabulary ("structural angle," "GSPS Signal Calculation,"
-     "key price level") instead. Keep that in mind for any *fourth*
-     candidate someone adds later.
-3. **Next:** run `lib/backtest/attribution.ts` against a real replay (`npm
-   run backtest -- --within all` or similar — see `docs/BACKTESTING.md`) to
-   see whether any of the three candidates clears `informative` at all
-   before investing further. All three show up in the factor table
-   automatically, keyed by `gannAngleTrendHolding`,
-   `digitalRootVortexConfluence`, and `gannRetracementProximity`.
-4. Only after at least one clears the four-point validation bar above,
-   propose which quarantined criterion it would replace, and route that
-   decision through a human before touching `CRITERION_KEYS`.
+This section's original plan (build all three as unweighted diagnostics,
+measure via a real replay, only then propose a swap) was scaffolded in full
+on 2026-09-10 — and then reverted the same day. In parallel, a second session
+took the direct-swap path this document explicitly warned against, but aimed
+at a *different* pair of criteria: rather than the three quarantined ones
+(`macroTrend`, `harmonicProximity`, `timeCycle`), it retired `fanProximity`
+and `masterStructural` — the two of the remaining six with the weakest
+measured effect (|t| well under significance) — and replaced them with
+`gannAngleSlope` and a composite `gannRetracementConfluence`, live in
+`CRITERION_KEYS` immediately, `evidence: "unmeasured"`.
+
+Presented with both in-flight efforts, the project owner chose the second:
+retire `fanProximity`/`masterStructural`, keep the three quarantined
+criteria in place (still quarantined, still scored, still unproven either
+way). Consequently, the scaffolding this section originally documented —
+`angleSlopeFromBars`, `vortexConfluenceFromBars`, `lib/gann/retracements.ts`,
+`ScanDecision.candidateCriteria`, and the `"candidate"` registry family — was
+removed as redundant with the promoted branch's own (differently anchored,
+differently shaped) `computeAngleSlopes`/`computeRetracementLevels`/
+`priceTimeConfluence` implementations, to avoid two parallel, competing
+versions of the same idea living in the codebase at once.
+
+**Net effect on `CRITERION_KEYS` today:** `fanProximity` and
+`masterStructural` are retired; `gannAngleSlope` and
+`gannRetracementConfluence` are scored in their place. `macroTrend`,
+`harmonicProximity`, and `timeCycle` — this document's original three
+targets — are untouched, still quarantined, still carrying a live point
+each. If someone wants to revisit *those* three, the plan below is still the
+right shape for it; it just didn't end up being how the first two "dead
+criteria" got resolved.
+
+## Suggested order of work (as originally written, for the quarantined three)
+
+1. Pick a candidate (the Gann angle is the lowest-risk starting point, since
+   equivalent code already exists post-#208) and give it a concrete pass/fail
+   rule.
+2. Add it to `lib/scoring/score.ts` as a *new, unweighted* diagnostic field
+   first (not one of the nine points) so it appears in every replay's
+   `criteria` snapshot without affecting any verdict.
+3. Run `lib/backtest/attribution.ts` against a real replay to see whether it
+   clears `informative` at all before investing further.
+4. Repeat for however many candidates are worth trying.
+5. Only after one clears the in/out-of-sample validation bar above, propose
+   which quarantined criterion it would replace, and route that decision
+   through the project owner before touching `CRITERION_KEYS` — or, per the
+   precedent this document now also records, get an explicit direct
+   instruction to skip straight to the swap and do that instead, flagged as
+   the deviation it is.

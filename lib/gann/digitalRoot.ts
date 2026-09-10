@@ -16,9 +16,6 @@
  * override a trend/risk gate.
  */
 
-import type { Bar } from "@/lib/types";
-import { findPivots } from "@/lib/analysis/pivots";
-
 /** DR(n) = 1 + ((n − 1) mod 9). Throws for non-positive input — callers must validate first (blueprint 2.1). */
 export function digitalRoot1to9(n: number): number {
   if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) {
@@ -182,66 +179,6 @@ export function classifyRootTransition(
   return null; // a real change occurred, but it doesn't match either named transition
 }
 
-/**
- * Tick size the price displacement below is normalized against. Mirrors
- * `evaluateGannConfluence`'s own `NORMALIZATION_TICK_SIZE_CENTS`: this module
- * has no per-instrument tick metadata (that lives in `lib/trade/tick-size.ts`,
- * keyed to order pricing, not this candidate), so it uses the same fixed,
- * documented cents convention rather than a guess.
- */
-const CANDIDATE_TICK_SIZE = 0.01;
-
-export interface VortexConfluenceReading {
-  priceDigitalRoot: number;
-  timeDigitalRoot: number;
-  confluence: ConfluenceType;
-  anchor: { price: number; kind: "high" | "low" };
-}
-
-/**
- * Price/time digital-root confluence since the most recent significant pivot
- * of `anchorKind`, anchored the same "most recent significant high/low" way
- * `lib/gann/fans.ts`, `lib/gann/squareOf9.ts`'s `recentSquareOf9Levels`, and
- * `lib/gann/normalizedSlope.ts`'s `angleSlopeFromBars` already are.
- *
- * Deliberately independent of `evaluateGannConfluence`
- * (`lib/signals/confluence/gann.ts`), which anchors its own vortex context
- * off the blueprint's "objective, configurable pivot rule" using confirmed
- * (not just printed) pivots — this candidate does not need that distinction
- * and reuses the simpler anchor already established for the other two
- * candidates, for consistency across all three rather than because the two
- * must agree.
- *
- * Candidate criterion support only (see
- * `docs/PROPOSAL_NEW_GANN_CRITERIA.md`) — not wired into any scored
- * criterion yet.
- */
-export function vortexConfluenceFromBars(
-  bars: Bar[],
-  currentPrice: number,
-  anchorKind: "high" | "low",
-): VortexConfluenceReading | null {
-  if (bars.length < 20) return null;
-  const pivots = findPivots(bars, 4);
-  const reversed = [...pivots].reverse();
-  const anchor = reversed.find((p) => p.kind === anchorKind) ?? reversed.find((p) => p.kind !== anchorKind);
-  if (!anchor) return null;
-
-  const priceTicks = Math.round(Math.abs(currentPrice - anchor.price) / CANDIDATE_TICK_SIZE);
-  const barsSinceAnchor = bars.length - 1 - anchor.index;
-  if (!(priceTicks > 0) || !(barsSinceAnchor > 0)) return null;
-
-  const priceDigitalRoot = digitalRoot1to9(priceTicks);
-  const timeDigitalRoot = digitalRoot1to9(barsSinceAnchor);
-
-  return {
-    priceDigitalRoot,
-    timeDigitalRoot,
-    confluence: classifyConfluence(priceDigitalRoot, timeDigitalRoot),
-    anchor: { price: anchor.price, kind: anchor.kind },
-  };
-}
-
 /** One of the blueprint 5.2 `digital_root_feature` records — every DR must carry this provenance (blueprint 2.2). */
 export interface DigitalRootFeature {
   rawValue: number;
@@ -260,6 +197,48 @@ export interface DigitalRootFeature {
  * rather than a guessed root — per blueprint 2.1's "never convert
  * missing/null/invalid data to root 9."
  */
+/**
+ * Same fixed cents-normalization convention `lib/signals/confluence/gann.ts`
+ * uses for price displacement — not per-instrument tick metadata (that lives
+ * in `lib/trade/tick-size.ts`), a documented simplification shared by both
+ * callers.
+ */
+const NORMALIZATION_TICK_SIZE_CENTS = 0.01;
+
+export interface PriceTimeConfluence {
+  priceRoot: number;
+  timeRoot: number;
+  type: ConfluenceType;
+}
+
+/**
+ * Price-displacement root vs time-displacement root confluence off a single
+ * anchor — the lightweight form of what `lib/signals/confluence/gann.ts`'s
+ * `vortexContext` computes, for a caller that only needs the classification.
+ *
+ * **Confluence/context only** (blueprint 7.4's safety rule, same as every
+ * other function in this module): the type this returns must never by
+ * itself gate a scored criterion. A caller may only fold it into a scored
+ * check ANDed with an independent, non-DR Gann structural condition (e.g. a
+ * retracement-zone or Square-of-9 match) — never as the sole basis for a
+ * pass/fail. `lib/scoring/score.ts`'s `gannRetracementConfluence` criterion
+ * is the one place this is wired into scoring, and it is wired that way.
+ */
+export function priceTimeConfluence(
+  currentPrice: number,
+  anchorPrice: number,
+  barsSinceAnchor: number,
+): PriceTimeConfluence | null {
+  if (!Number.isFinite(currentPrice) || !Number.isFinite(anchorPrice)) return null;
+  if (!Number.isFinite(barsSinceAnchor) || barsSinceAnchor <= 0) return null;
+  const priceTicks = Math.round(Math.abs(currentPrice - anchorPrice) / NORMALIZATION_TICK_SIZE_CENTS);
+  if (priceTicks <= 0) return null;
+
+  const priceRoot = digitalRoot1to9(priceTicks);
+  const timeRoot = digitalRoot1to9(Math.round(barsSinceAnchor));
+  return { priceRoot, timeRoot, type: classifyConfluence(priceRoot, timeRoot) };
+}
+
 export function buildDigitalRootFeature(
   integerValue: number,
   context: { normalizationMethod: string; sourceTimeframe: string; featureVersion: string; asOf?: string },

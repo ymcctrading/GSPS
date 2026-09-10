@@ -44,16 +44,7 @@ export type CriterionFamily =
   /** Rules Alignment components inside a signal state — `lib/signals/states/*`. */
   | "rulesAlignment"
   /** Pre-trade blocks — `lib/signals/disqualifiers.ts`. */
-  | "disqualifier"
-  /**
-   * A new criterion under evaluation, not one of `CRITERION_KEYS` — see
-   * `docs/PROPOSAL_NEW_GANN_CRITERIA.md`. Collected via
-   * `ScanDecision.candidateCriteria` for attribution only; carries no points
-   * and never affects `score` or `outputState`. Like `scoreHold`, exempt from
-   * the automatic staleness check (no static source list to check it
-   * against) — see `lib/validation/__tests__/criteria-gate.test.ts`.
-   */
-  | "candidate";
+  | "disqualifier";
 
 /**
  * The direction the criterion claims to work in, stated as the sign of the
@@ -142,13 +133,17 @@ const SCAN_SCORE: RegisteredCriterion[] = [
     note: "Positive on both 2026-09-08 runs (+0.89R, +1.00R), but the failing arm was 1 trade in each — direction agrees, sample does not carry it.",
   },
   {
-    id: "fanProximity",
+    id: "gannAngleSlope",
     family: "scanScore",
     source: "lib/scoring/score.ts",
-    label: "Support line proximity",
+    label: "Structural trend-angle strength (1x1)",
     expectedSign: "positive",
-    evidence: "hypothesis",
-    note: "Positive on both 2026-09-08 runs (+0.31R, +1.20R); both below the per-arm floor.",
+    evidence: "unmeasured",
+    note:
+      "Replaces `fanProximity` (retired 2026-09-10; see RETIRED). Wraps lib/gann/normalizedSlope.ts's " +
+      "realized ATR-per-bar slope since the direction-matched swing anchor, judged against the 1x1 " +
+      "angle ratio — a literal angle-of-ascent/descent check, unlike the generic fan-line-distance " +
+      "proximity it replaces. Never scored before; needs a fresh committed replay before any sign claim.",
   },
   {
     id: "harmonicProximity",
@@ -285,15 +280,21 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "it informative and positive, outside the noise band, on an adequately sampled arm.",
   },
   {
-    id: "masterStructural",
+    id: "gannRetracementConfluence",
     family: "scanScore",
     source: "lib/scoring/score.ts",
-    label: "Final target confirmed by structure",
+    label: "Retracement + signal-flow confluence",
     expectedSign: "positive",
-    evidence: "hypothesis",
+    evidence: "unmeasured",
     note:
-      "Sign disagrees between timeframes (−0.56R at 15Min, +1.00R at 1Hour, 2026-09-08), reproducing " +
-      "the disagreement docs/BACKTESTING.md already records for this criterion and deliberately left alone.",
+      "Replaces `masterStructural` (retired 2026-09-10; see RETIRED). A composite: passes only when a " +
+      "percentage-retracement zone (lib/gann/retracement.ts, the genuinely new structural mechanism this " +
+      "codebase was missing) matches in the trade's role AND the price-time signal-flow confluence off " +
+      "the same anchor (lib/gann/digitalRoot.ts's priceTimeConfluence) is not NO_CONFLUENCE. The AND is " +
+      "deliberate, not incidental: blueprint 7.4's safety rule forbids that signal-flow reading from " +
+      "ever gating a verdict by itself, so it is wired in only as a confirming second factor on top of " +
+      "an independent structural check, never as the sole basis for the point. Never scored before; " +
+      "needs a fresh committed replay before any sign claim.",
   },
 ];
 
@@ -312,6 +313,37 @@ const RETIRED: RegisteredCriterion[] = [
       "information at all. Every payload committed before 2026-09-08 measured it, which is why the " +
       "entry stays. `momentumElevated` itself is still computed and still gates the bare-2-2 check " +
       "in applyReversionConfirmation — that job was never the scored point.",
+  },
+  {
+    id: "fanProximity",
+    family: "scanScore",
+    source: "lib/scoring/score.ts (scored until 2026-09-10)",
+    label: "Support/resistance line proximity",
+    expectedSign: "positive",
+    evidence: "retired",
+    note:
+      "Replaced by `gannAngleSlope`. Alongside `masterStructural`, one of the three dead criteria: " +
+      "Δ=−0.002R, r=−0.0003, t=−0.01, 10.0% pass rate — statistically indistinguishable from noise " +
+      "(t well under 2), the same t=−0.01 already on record for `momentum` above. Earlier readings " +
+      "(+0.31R, +1.20R on 2026-09-08) were both below the per-arm sample floor and never confirmed on a " +
+      "larger population. Replaced with a literal angle-of-ascent/descent check rather than a " +
+      "re-tuned proximity band.",
+  },
+  {
+    id: "masterStructural",
+    family: "scanScore",
+    source: "lib/scoring/score.ts (scored until 2026-09-10)",
+    label: "Final target confirmed by a structural level",
+    expectedSign: "positive",
+    evidence: "retired",
+    note:
+      "Replaced by `gannRetracementConfluence`. One of the three dead criteria: Δ=+0.052R, r=+0.019, " +
+      "t=0.59, 54.4% pass rate — the sign is positive but t=0.59 clears no significance bar, consistent " +
+      "with the sign disagreement between timeframes already on record here (−0.56R at 15Min vs +1.00R " +
+      "at 1Hour, 2026-09-08) and with docs/BACKTESTING.md's note that 1Hour has historically inverted " +
+      "the scoring model's own verdict ranking — see lib/timeframe.ts's EXECUTION_TIMEFRAME override for " +
+      "why any 1Hour-influenced reading here needs discounting until real-time data lands. Replaced with " +
+      "a composite retracement-zone + signal-flow confluence check rather than a re-tuned target rule.",
   },
 ];
 
@@ -350,68 +382,6 @@ const SCORE_HOLDS: RegisteredCriterion[] = [
       "feed (15 min) against the 15Min execution timeframe the ratio is exactly 1.0, so this fires for " +
       "every US equity whenever the market is open — the reason no Execute verdict has ever reached " +
       "the live monitor pipeline. Structural, not a scoring defect; see docs/BACKTESTING.md.",
-  },
-];
-
-/**
- * New criteria under evaluation per docs/PROPOSAL_NEW_GANN_CRITERIA.md.
- * Collected via `ScanDecision.candidateCriteria`, not `breakdown` — see that
- * field's doc comment in lib/types.ts for why. None of these are one of
- * `CRITERION_KEYS`; they carry no points and cannot move `score` or
- * `outputState`. A candidate is promoted into `CRITERION_KEYS` only after
- * clearing the same in/out-of-sample validation bar
- * `lib/backtest/propose-weights.ts` already enforces for the existing nine —
- * see that proposal doc's "Validation discipline" section.
- */
-const CANDIDATES: RegisteredCriterion[] = [
-  {
-    id: "gannAngleTrendHolding",
-    family: "candidate",
-    source: "lib/scoring/score.ts (candidateCriteria), lib/gann/normalizedSlope.ts",
-    label: "Structural angle (1x1) trend-holding (candidate)",
-    expectedSign: "positive",
-    evidence: "unmeasured",
-    note:
-      "The classic 1x1 structural-angle rule: the trend is structurally intact only while price holds " +
-      "at or beyond its own 1x1 angle since the anchor pivot (most recent significant low for a bullish setup, high " +
-      "for bearish — the same anchor rule fanProximity's fan lines and the fixed harmonicProximity " +
-      "already use). Wraps lib/gann/normalizedSlope.ts, which existed only as display/confluence " +
-      "context (lib/signals/confluence/gann.ts's angleSlope field) before this. Needs a real replay run " +
-      "to even read its pass rate for the first time — no payload has ever measured it.",
-  },
-  {
-    id: "digitalRootVortexConfluence",
-    family: "candidate",
-    source: "lib/scoring/score.ts (candidateCriteria), lib/gann/digitalRoot.ts",
-    label: "Structural price/time confluence (candidate)",
-    expectedSign: "positive",
-    evidence: "unmeasured",
-    note:
-      "The GSPS Signal Calculation premise: price displacement and time displacement since the anchor " +
-      "pivot both reduce to a 1-9 signal-calculation value, and a recognised relationship between the " +
-      "two values is read as a confluence signal distinct from pure geometry (the angle and " +
-      "key-price-level candidates). Passes on any classifyConfluence() result beyond NO_CONFLUENCE — a " +
-      "coarser bar than the proposal doc's suggested MULTI_FACTOR_CONFLUENCE-only reading, chosen so the " +
-      "first measurement has enough of a passing arm to read at all; tightening it is one of the things " +
-      "a real run should settle. Its own blueprint doc comment (lib/gann/digitalRoot.ts) calls this " +
-      "premise a GSPS hypothesis, not a proven law — consistent with carrying it as unmeasured here, not " +
-      "hypothesis. Needs a real replay run to even read its pass rate for the first time — no payload " +
-      "has ever measured it.",
-  },
-  {
-    id: "gannRetracementProximity",
-    family: "candidate",
-    source: "lib/scoring/score.ts (candidateCriteria), lib/gann/retracements.ts",
-    label: "Percentage retracement zone proximity (candidate)",
-    expectedSign: "positive",
-    evidence: "unmeasured",
-    note:
-      "Percentage retracement rule: a swing's most significant retracement levels sit at eighths and " +
-      "thirds of its range. The one genuine implementation gap the proposal doc named — no retracement " +
-      "code existed anywhere in this codebase before lib/gann/retracements.ts. Same role-matched, " +
-      "ATR-relative-band shape as fanProximity/harmonicProximity (RETRACEMENT_PROXIMITY_ATR in " +
-      "lib/scoring/proximity.ts). Needs a real replay run to even read its pass rate for the first " +
-      "time — no payload has ever measured it.",
   },
 ];
 
@@ -522,7 +492,6 @@ export const CRITERIA_REGISTRY: RegisteredCriterion[] = [
   ...SCAN_SCORE,
   ...RETIRED,
   ...SCORE_HOLDS,
-  ...CANDIDATES,
   ...RULES_ALIGNMENT,
   ...DISQUALIFIERS,
 ];

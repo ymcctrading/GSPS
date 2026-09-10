@@ -39,6 +39,9 @@ const inputs: ScoreInputs = {
     timeCycleBullishActive: false,
     timeCycleBearishActive: false,
     timeCycleDates: [],
+    angleSlopes: [],
+    retracementLevels: [],
+    digitalRootConfluences: [],
   },
   nearSupportResistance: true,
   pattern: {
@@ -106,8 +109,10 @@ describe("SignalCard score breakdown", () => {
     for (const label of ["Trend", "Structure", "Setup", "Timing", "Risk/reward"]) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
-    // Structure is the three-point pillar; two of its three pass in this fixture.
-    expect(screen.getByText("2/3")).toBeInTheDocument();
+    // Trend is the three-point pillar (macro, hourly, structural angle); only
+    // the hourly reading passes in this fixture — macro is 1-of-3 timeframes
+    // and no angle-slope data is supplied.
+    expect(screen.getByText("1/3")).toBeInTheDocument();
   });
 
   it("says nothing about the score when no summary was attached", () => {

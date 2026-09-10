@@ -10,8 +10,8 @@
  * and ATR-per-bar is that unit here (matching `fans.ts`'s own `unit`).
  */
 
+import { findPivots, atr } from "@/lib/analysis/pivots";
 import type { Bar } from "@/lib/types";
-import { atr, findPivots } from "@/lib/analysis/pivots";
 import { ANGLES } from "./fans";
 
 /**
@@ -55,45 +55,45 @@ export function nearestGannAngle(slope: number): NearestGannAngle | null {
   return best ? { label: best.label, ratio: best.ratio, direction } : null;
 }
 
-export interface GannAngleReading {
+export interface AngleSlopeReading {
+  anchorKind: "high" | "low";
+  anchorPrice: number;
+  barsSinceAnchor: number;
   slope: number;
-  nearestAngle: NearestGannAngle;
-  anchor: { price: number; kind: "high" | "low" };
+  nearestAngle: NearestGannAngle | null;
 }
 
 /**
- * The realized Gann-angle slope since the most recent significant pivot of
- * `anchorKind`, anchored the same way `lib/gann/fans.ts` and
- * `lib/gann/squareOf9.ts`'s `recentSquareOf9Levels` already are (most recent
- * significant high/low) — so all three structural coordinate techniques
- * describe the same move. Falls back to the other pivot kind if the
- * preferred one hasn't printed yet, same as `evaluateGannConfluence`'s own
- * anchor selection.
- *
- * Candidate criterion support only (see
- * `docs/PROPOSAL_NEW_GANN_CRITERIA.md`) — not wired into any scored
- * criterion yet.
+ * Realized Gann-angle slope since the most recent significant low (the
+ * bullish reading, a rising 1x1 under the trade) and since the most recent
+ * significant high (the bearish reading, a falling 1x1 above it) — the same
+ * dual-anchor convention `computeFanLines` uses, so each reading is judged
+ * against the angle that actually bears on its own direction.
  */
-export function angleSlopeFromBars(
-  bars: Bar[],
-  currentPrice: number,
-  anchorKind: "high" | "low",
-): GannAngleReading | null {
-  if (bars.length < 20) return null;
-  const pivots = findPivots(bars, 4);
-  const reversed = [...pivots].reverse();
-  const anchor =
-    reversed.find((p) => p.kind === anchorKind) ??
-    reversed.find((p) => p.kind !== anchorKind);
-  if (!anchor) return null;
-
+export function computeAngleSlopes(bars: Bar[], currentPrice: number): AngleSlopeReading[] {
+  if (bars.length < 20) return [];
   const unit = atr(bars, 14);
-  const barsSinceAnchor = bars.length - 1 - anchor.index;
-  const slope = normalizedSlope(currentPrice, anchor.price, unit, barsSinceAnchor);
-  if (slope === null) return null;
+  if (unit <= 0) return [];
 
-  const nearestAngle = nearestGannAngle(slope);
-  if (!nearestAngle) return null;
+  const pivots = findPivots(bars, 4);
+  const lastHigh = [...pivots].reverse().find((p) => p.kind === "high");
+  const lastLow = [...pivots].reverse().find((p) => p.kind === "low");
+  const lastIndex = bars.length - 1;
 
-  return { slope, nearestAngle, anchor: { price: anchor.price, kind: anchor.kind } };
+  const readings: AngleSlopeReading[] = [];
+  for (const anchor of [lastLow, lastHigh]) {
+    if (!anchor) continue;
+    const elapsed = lastIndex - anchor.index;
+    if (elapsed <= 0) continue;
+    const slope = normalizedSlope(currentPrice, anchor.price, unit, elapsed);
+    if (slope === null) continue;
+    readings.push({
+      anchorKind: anchor.kind,
+      anchorPrice: anchor.price,
+      barsSinceAnchor: elapsed,
+      slope,
+      nearestAngle: nearestGannAngle(slope),
+    });
+  }
+  return readings;
 }

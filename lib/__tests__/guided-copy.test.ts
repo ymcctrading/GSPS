@@ -25,7 +25,7 @@ function scan(overrides: Partial<ScanResult> = {}): ScanResult {
     setupKind: "reversion",
     momentumElevated: true,
     trends: [],
-    gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [] },
+    gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [], angleSlopes: [], retracementLevels: [], digitalRootConfluences: [] },
     pattern: { name: "2-1-2", direction: "bullish", triggerPrice: 100, stopPrice: 98, description: "" },
     armedPatterns: [],
     levels: longLevels,

@@ -23,14 +23,25 @@ function trend(
   return { timeframe, direction, support: [99], resistance: [101] };
 }
 
-/** Every structural criterion passing — 7 of 9 without a pattern or levels. */
+/**
+ * Every structural criterion passing — 8 of 9 without a pattern or levels.
+ * gannAngleSlope and gannRetracementConfluence both read off `gann` alone
+ * (not the computed trade `levels`), so only `patternArmed` needs an armed
+ * pattern to pass — unlike the old `masterStructural` it replaced, which
+ * needed `levels.masterFromStructure`.
+ */
 const gann: GannLevels = {
-  fanLines: [{ angle: "1x1", price: 100, distancePct: 0.2, role: "support" }],
+  fanLines: [],
   squareOf9: [{ degree: 90, price: 100, distancePct: 0.1, role: "support" }],
   timeCycleActive: true,
   timeCycleBullishActive: true,
   timeCycleBearishActive: false,
   timeCycleDates: ["2026-08-05"],
+  angleSlopes: [
+    { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, slope: 1.1, nearestAngle: { label: "1x1", ratio: 1, direction: "up" } },
+  ],
+  retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100, distancePct: 0.1, role: "support" }],
+  digitalRootConfluences: [{ anchorKind: "low", priceRoot: 1, timeRoot: 8, type: "COMPLEMENTARY_PAIR" }],
 };
 
 const pattern: StratPattern = {
@@ -87,7 +98,7 @@ describe("computeScore output state", () => {
 
   it("holds at Watch when the context scores 7+ but no pattern is armed", () => {
     const decision = computeScore(inputs({ pattern: null, levels: null }));
-    expect(decision.score).toBe(7);
+    expect(decision.score).toBe(8);
     expect(decision.outputState).toBe("Watch");
     expect(decision.breakdown.at(-1)?.criterion).toMatch(/Trade plan priced/);
   });
@@ -107,7 +118,7 @@ describe("computeScore output state", () => {
     const decision = computeScore(inputs({
       pattern: null,
       levels: null,
-      gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [] },
+      gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [], angleSlopes: [], retracementLevels: [], digitalRootConfluences: [] },
       nearSupportResistance: false,
       momentumElevated: false,
       stopAtrMultiple: 0.8,
