@@ -32,7 +32,8 @@ import { readTrend } from "@/lib/analysis/trend";
 import { etDateKey } from "@/lib/market/session";
 import { atr } from "@/lib/analysis/pivots";
 import { computeFanLines } from "@/lib/gann/fans";
-import { squareOf9Levels } from "@/lib/gann/squareOf9";
+import { recentSquareOf9Levels } from "@/lib/gann/squareOf9";
+import type { LevelRole } from "@/lib/analysis/levelRole";
 import { CONTINUATION_PATTERNS } from "@/lib/strat/patterns";
 import { MIN_EQUITY_PRICE_USD, meetsLiquidityFloor, readLiquidity } from "@/lib/scan/liquidity";
 import { scanTicker } from "@/lib/scanTicker";
@@ -274,9 +275,13 @@ export function coarseReversion(symbol: string, daily: Bar[]): CoarseCandidate |
   const harmonicBandPct = proximityBandPct(HARMONIC_PROXIMITY_ATR, FALLBACK_HARMONIC_PCT, atrPct);
   const fans = computeFanLines(daily, price);
   if (fans.length > 0 && fans[0].distancePct <= fanBandPct) score += 2;
-  const majorLow = Math.min(...daily.map((b) => b.l));
-  const s9 = squareOf9Levels(majorLow, price);
-  if (s9.length > 0 && s9[0].distancePct <= harmonicBandPct) score += 2;
+  // Same anchor and role-match rule as the full scan's harmonicProximity
+  // criterion (lib/scoring/score.ts) — a support level only helps a bullish
+  // reversion, a resistance level only a bearish one.
+  const wantedRole: LevelRole = direction === "bullish" ? "support" : "resistance";
+  const s9 = recentSquareOf9Levels(daily, price);
+  const s9Match = s9.find((s) => s.role === wantedRole && s.distancePct <= harmonicBandPct) ?? null;
+  if (s9Match) score += 2;
 
   // Proximity to a clustered S/R level in the reversion direction
   const srBandPct = proximityBandPct(SR_PROXIMITY_ATR, FALLBACK_SR_PCT, atrPct);

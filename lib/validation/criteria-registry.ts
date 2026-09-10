@@ -147,8 +147,16 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "rule lib/gann/fans.ts already used for the stable fanProximity sibling), merged before the " +
       "existing role-aware match runs. Carried under quarantine rather than promoted straight to " +
       "'hypothesis': the committed payloads above measured the old anchor, not this one, so they cannot " +
-      "vindicate or condemn it either way. Exits quarantine when a fresh committed run measures it " +
-      "positive, outside the noise band, twice across different timeframes.",
+      "vindicate or condemn it either way. The 2026-09-09 fix, however, only touched the two callers " +
+      "feeding this scored criterion (lib/scanTicker.ts, lib/backtest/replay.ts) — two other live callers " +
+      "still spiraled from the stale Math.min() anchor: lib/marketScan.ts's coarseReversion() pre-filter " +
+      "(which also had no role/direction check at all, unlike this criterion) and " +
+      "lib/signals/confluence/gann.ts's evaluateGannConfluence(), rendered on the Structural Coordinate " +
+      "Confluence card. If the pre-filter was admitting or rejecting the wrong symbols before this " +
+      "criterion's scorer ever ran, that is a confound the runs above can't rule out. 2026-09-10: both " +
+      "switched to recentSquareOf9Levels() too, and coarseReversion() gained the same wantedRole match " +
+      "this criterion already uses. Exits quarantine when a fresh committed run, downstream of both fixes, " +
+      "measures it positive, outside the noise band, twice across different timeframes.",
   },
   {
     id: "historicalSR",

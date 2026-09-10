@@ -22,7 +22,7 @@
 import type { AssetClass, Bar, Direction } from "@/lib/types";
 import { atr } from "@/lib/analysis/pivots";
 import { computeFanLines, nearestFanLine } from "@/lib/gann/fans";
-import { nearestS9Level, squareOf9Levels } from "@/lib/gann/squareOf9";
+import { nearestS9Level, recentSquareOf9Levels } from "@/lib/gann/squareOf9";
 import { timeCycles } from "@/lib/gann/timeCycles";
 import {
   buildDigitalRootFeature,
@@ -114,7 +114,12 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
 
   const majorLow = Math.min(...inputs.dailyBars.map((b) => b.l));
   const root = Math.sqrt(majorLow);
-  const s9Levels = squareOf9Levels(majorLow, inputs.currentPrice);
+  // Anchored the same way score.ts's harmonicProximity criterion is: off the
+  // most recent significant high AND low, not the stale all-window low — see
+  // lib/gann/squareOf9.ts's recentSquareOf9Levels doc comment. `majorLow`
+  // itself stays the anchor for the digital-root/vortex context below, which
+  // the blueprint spec ties to the anchor low specifically, not to this.
+  const s9Levels = recentSquareOf9Levels(inputs.dailyBars, inputs.currentPrice);
   const fanLines = computeFanLines(inputs.dailyBars, inputs.currentPrice);
   const cycles = timeCycles(inputs.dailyBars);
   const nearestS9 = nearestS9Level(s9Levels);
