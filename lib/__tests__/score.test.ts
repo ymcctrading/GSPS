@@ -80,7 +80,7 @@ const EMPTY_GANN: GannLevels = {
  * consistent with a role-blind criterion mixing genuine confluence with a
  * headwind. See the comment on `wantedRole` in lib/scoring/score.ts.
  */
-describe("computeScore structural criteria respect level role", () => {
+describe("computeScore volumeClimax", () => {
   const trend = (direction: TrendReading["direction"]): TrendReading => ({
     timeframe: "1Day",
     direction,
@@ -102,27 +102,34 @@ describe("computeScore structural criteria respect level role", () => {
     };
   }
 
-  function s9Breakdown(direction: "bullish" | "bearish", role: "support" | "resistance") {
+  function climaxBreakdown(
+    direction: "bullish" | "bearish",
+    anchorKind: "low" | "high",
+    climax: boolean,
+  ) {
     const decision = computeScore({
       ...baseInputs(direction),
-      gann: {
-        ...EMPTY_GANN,
-        squareOf9: [{ degree: 90, price: 100, distancePct: 0.1, role }],
-      },
+      volumeClimax: [{ anchorKind, anchorPrice: 100, relativeVolume: climax ? 2 : 1, climax }],
     });
-    return decision.breakdown.find((b) => b.key === "harmonicProximity")!;
+    return decision.breakdown.find((b) => b.key === "volumeClimax")!;
   }
 
-  it("applies the role rule to the harmonic (Square of 9) criterion", () => {
-    expect(s9Breakdown("bullish", "support").passed).toBe(true);
-    expect(s9Breakdown("bullish", "resistance").passed).toBe(false);
-    expect(s9Breakdown("bearish", "resistance").passed).toBe(true);
-    expect(s9Breakdown("bearish", "support").passed).toBe(false);
+  it("reads the low anchor for a bullish setup and the high anchor for a bearish one", () => {
+    // A high-anchored climax reading shouldn't confirm a bullish setup, and
+    // vice versa — only the direction-matched anchor counts.
+    expect(climaxBreakdown("bullish", "low", true).passed).toBe(true);
+    expect(climaxBreakdown("bullish", "high", true).passed).toBe(false);
+    expect(climaxBreakdown("bearish", "high", true).passed).toBe(true);
+    expect(climaxBreakdown("bearish", "low", true).passed).toBe(false);
   });
 
-  it("harmonicProximity still fails when no level of any role is within the band", () => {
+  it("fails when the direction-matched anchor didn't print on a climax", () => {
+    expect(climaxBreakdown("bullish", "low", false).passed).toBe(false);
+  });
+
+  it("fails when there is no measurable reading at all", () => {
     const decision = computeScore(baseInputs("bullish"));
-    expect(decision.breakdown.find((b) => b.key === "harmonicProximity")?.passed).toBe(false);
+    expect(decision.breakdown.find((b) => b.key === "volumeClimax")?.passed).toBe(false);
   });
 });
 

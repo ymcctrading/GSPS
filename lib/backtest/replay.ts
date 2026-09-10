@@ -45,6 +45,7 @@ import { computeRetracementLevels } from "@/lib/gann/retracement";
 import { priceTimeConfluence } from "@/lib/gann/digitalRoot";
 import { computeSwingChart, type SwingChartReading } from "@/lib/gann/swingChart";
 import { computeTimePriceSquare, type TimePriceSquareReading } from "@/lib/gann/timePriceSquare";
+import { computeVolumeClimax, type VolumeClimaxReading } from "@/lib/gann/volumeClimax";
 import { adx } from "@/lib/signals/indicators";
 import { DEFAULT_COST_PER_SHARE_USD } from "@/lib/trade/friction";
 
@@ -232,6 +233,7 @@ export interface MacroContext {
   macroTrends: TrendReading[];
   swingChart: SwingChartReading;
   timePriceSquare: TimePriceSquareReading[];
+  volumeClimax: VolumeClimaxReading[];
   gann: GannLevels;
   nearSupportResistance: boolean;
   /** The matched level and its role, when one is in range — see lib/scanTicker.ts's srMatch. */
@@ -259,6 +261,7 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
   const cycles = timeCycles(daily);
   const angleSlopes = computeAngleSlopes(daily, price);
   const timePriceSquare = computeTimePriceSquare(daily, price);
+  const volumeClimax = computeVolumeClimax(daily);
   const retracementLevels = computeRetracementLevels(daily, price);
   const digitalRootConfluences = angleSlopes
     .map((r) => {
@@ -292,6 +295,7 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
     macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
     swingChart,
     timePriceSquare,
+    volumeClimax,
     gann: {
       fanLines: fanLines.slice(0, 6).map(({ angle, price: p, distancePct, role }) => ({
         angle, price: Math.round(p * 100) / 100, distancePct, role,
@@ -561,6 +565,7 @@ function scoreSetup(input: {
       hourlyAdx,
       swingChart: context.swingChart,
       timePriceSquare: context.timePriceSquare,
+      volumeClimax: context.volumeClimax,
       gann: context.gann,
       nearSupportResistance: context.nearSupportResistance,
       srMatch: context.srMatch,

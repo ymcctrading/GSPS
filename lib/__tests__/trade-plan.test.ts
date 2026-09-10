@@ -84,6 +84,9 @@ function inputs(overrides: Partial<ScoreInputs> = {}): ScoreInputs {
     timePriceSquare: [
       { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, squared: true },
     ],
+    volumeClimax: [
+      { anchorKind: "low", anchorPrice: 90, relativeVolume: 2, climax: true },
+    ],
     gann,
     nearSupportResistance: true,
     pattern,
@@ -124,6 +127,7 @@ describe("computeScore output state", () => {
       pattern: null,
       levels: null,
       gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [], angleSlopes: [], retracementLevels: [], digitalRootConfluences: [] },
+      volumeClimax: [],
       nearSupportResistance: false,
       momentumElevated: false,
       stopAtrMultiple: 0.8,

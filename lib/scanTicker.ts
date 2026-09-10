@@ -32,6 +32,7 @@ import { computeRetracementLevels } from "@/lib/gann/retracement";
 import { priceTimeConfluence } from "@/lib/gann/digitalRoot";
 import { computeSwingChart } from "@/lib/gann/swingChart";
 import { computeTimePriceSquare } from "@/lib/gann/timePriceSquare";
+import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
 import { adx } from "@/lib/signals/indicators";
 import {
   CONTINUATION_PATTERNS,
@@ -145,6 +146,8 @@ export async function scanTicker(
     // Gann's squaring of price and time, replacing timeCycle — same anchors
     // as angleSlopes, a different (raw count-for-count) construction.
     const timePriceSquare = computeTimePriceSquare(daily, currentPrice);
+    // Volume climax at the same pivots, replacing harmonicProximity.
+    const volumeClimax = computeVolumeClimax(daily);
     const retracementLevels = computeRetracementLevels(daily, currentPrice);
     // Digital-root/vortex confluence off the same anchors angleSlopes reads —
     // confluence/context only (blueprint 7.4); score.ts's gannRetracementConfluence
@@ -321,6 +324,7 @@ export async function scanTicker(
           hourlyAdx,
           swingChart,
           timePriceSquare,
+          volumeClimax,
           gann,
           nearSupportResistance,
           srMatch: srMatch && { ...srMatch, role: levelRole(currentPrice, srMatch.price) },

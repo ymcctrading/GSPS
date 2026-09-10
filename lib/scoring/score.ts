@@ -15,9 +15,7 @@ import type {
 } from "@/lib/types";
 import {
   FALLBACK_FAN_PCT,
-  FALLBACK_HARMONIC_PCT,
   FAN_PROXIMITY_ATR,
-  HARMONIC_PROXIMITY_ATR,
   bandBasis,
   proximityBandPct,
 } from "@/lib/scoring/proximity";
@@ -26,6 +24,7 @@ import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 import type { AdxReading } from "@/lib/signals/indicators";
 import type { SwingChartReading } from "@/lib/gann/swingChart";
 import type { TimePriceSquareReading } from "@/lib/gann/timePriceSquare";
+import { VOLUME_CLIMAX_THRESHOLD, type VolumeClimaxReading } from "@/lib/gann/volumeClimax";
 import {
   DEFAULT_CRITERION_WEIGHTS,
   EXECUTE_SCORE_THRESHOLD,
@@ -57,6 +56,16 @@ export interface ScoreInputs {
    * pivot, which scores as a fail.
    */
   timePriceSquare?: TimePriceSquareReading[];
+  /**
+   * Volume climax at the direction-matched swing pivot off the daily bars
+   * (`lib/gann/volumeClimax.ts#computeVolumeClimax`) — the pivot's own
+   * relative volume against its trailing lookback, reusing
+   * `lib/signals/indicators.ts`'s `relativeVolume()` and the `>1.5x`
+   * "unusual volume" threshold `lib/signals/regime.ts` already validated.
+   * Empty when there isn't enough daily history to find a pivot or price
+   * its volume, which scores as a fail.
+   */
+  volumeClimax?: VolumeClimaxReading[];
   /**
    * Wilder's ADX/DMI over the hourly bars (`lib/signals/indicators.ts#adx`),
    * the same implementation and 20-ADX trend-strength threshold
@@ -151,7 +160,7 @@ export const MIN_STOP_ROOM_ATR = 1.5;
 
 export function computeScore(inputs: ScoreInputs): ScanDecision {
   const {
-    direction, hourlyAdx, swingChart, timePriceSquare, gann,
+    direction, hourlyAdx, swingChart, timePriceSquare, volumeClimax, gann,
     nearSupportResistance, srMatch, pattern, levels, stopAtrMultiple,
     setupKind = "reversion",
     atrPct,
@@ -196,11 +205,6 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // fixed percentage of price — see lib/scoring/proximity.ts for why a fixed
   // band made a 7/9 mean different things on different names.
   const fanBandPct = proximityBandPct(FAN_PROXIMITY_ATR, FALLBACK_FAN_PCT, atrPct);
-  const harmonicBandPct = proximityBandPct(
-    HARMONIC_PROXIMITY_ATR,
-    FALLBACK_HARMONIC_PCT,
-    atrPct,
-  );
 
   // A structural level only confirms a trade when it's on the *right side* of
   // it — a long wants a support floor underneath, a short wants a resistance
@@ -217,8 +221,6 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // criterion just because the literal closest line happens to be on the
   // wrong side.
   const wantedRole: LevelRole = direction === "bullish" ? "support" : "resistance";
-  const s9Match = gann.squareOf9.find((s) => s.role === wantedRole && s.distancePct <= harmonicBandPct) ?? null;
-  const nearS9 = s9Match !== null;
 
   // Which anchor bears on this trade's own direction: a bullish setup reads
   // the angle rising from the most recent low underneath it, a bearish
@@ -243,6 +245,16 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   const squareReading =
     (timePriceSquare ?? []).find((r) => r.anchorKind === angleAnchorKind) ?? null;
   const timePriceSquareHolding = squareReading?.squared === true;
+
+  // 2026-09-10: replaces harmonicProximity. harmonicProximity's Square-of-9
+  // price proximity measured negligible even after fixing its stale-anchor
+  // defect twice (see lib/validation/criteria-registry.ts's
+  // `harmonicProximity` RETIRED entry). A genuinely different signal off the
+  // same direction-matched anchor: whether that pivot itself printed on a
+  // volume climax, not another price-distance check.
+  const climaxReading =
+    (volumeClimax ?? []).find((r) => r.anchorKind === angleAnchorKind) ?? null;
+  const volumeClimaxHolding = climaxReading?.climax === true;
 
   // Gann's percentage-retracement zone (eighths), reusing the same band the
   // (now retired) fan-line criterion used.
@@ -312,13 +324,15 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
         : `No measurable structural angle slope since the last significant ${angleAnchorKind}.`,
     },
     {
-      key: "harmonicProximity",
-      criterion: "Key price level proximity",
+      key: "volumeClimax",
+      criterion: "Volume climax at the anchor pivot",
       pillar: "structure",
-      passed: nearS9,
-      note: s9Match
-        ? `Price within ${s9Match.distancePct.toFixed(2)}% of the ${s9Match.degree}° key price ${levelRoleLabel(s9Match.role).toLowerCase()} level at ${s9Match.price.toFixed(2)} — inside the ${harmonicBandPct.toFixed(2)}% band (${bandBasis(HARMONIC_PROXIMITY_ATR, atrPct)}). ${LEVEL_TIMEFRAME_USAGE["1Day"]}.`
-        : `No ${levelRoleLabel(wantedRole).toLowerCase()} key price level within ${harmonicBandPct.toFixed(2)}% (${bandBasis(HARMONIC_PROXIMITY_ATR, atrPct)}).`,
+      passed: volumeClimaxHolding,
+      note: climaxReading
+        ? volumeClimaxHolding
+          ? `The ${climaxReading.anchorKind} anchor at ${climaxReading.anchorPrice.toFixed(2)} printed on ${climaxReading.relativeVolume.toFixed(2)}x its trailing volume — above the ${VOLUME_CLIMAX_THRESHOLD}x climax floor.`
+          : `The ${climaxReading.anchorKind} anchor at ${climaxReading.anchorPrice.toFixed(2)} printed on only ${climaxReading.relativeVolume.toFixed(2)}x its trailing volume — below the ${VOLUME_CLIMAX_THRESHOLD}x climax floor.`
+        : `No measurable volume climax since the last significant ${angleAnchorKind}.`,
     },
     {
       key: "historicalSR",
