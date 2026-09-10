@@ -223,6 +223,7 @@ describe("redaction at the API boundary", () => {
           alignment: {
             score: 88,
             tier: "aTier",
+            blueprintScoreBand: "HIGH_CONFLUENCE",
             breakdown: [
               { key: "volumeResumption", label: "Volume", points: 10, maxPoints: 10, applicable: true, passed: true, note: secretNote },
             ],

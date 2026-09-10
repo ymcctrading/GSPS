@@ -46,6 +46,7 @@ const RulesAlignmentBreakdownItemSchema = z.object({
 const RulesAlignmentScoreSchema = z.object({
   score: z.number(),
   tier: z.enum(["watchlistOnly", "qualified", "aTier", "aPlusTier"]),
+  blueprintScoreBand: z.enum(["NO_TRADE", "WATCH", "DEVELOPING", "ACTIONABLE", "HIGH_CONFLUENCE"]),
   breakdown: z.array(RulesAlignmentBreakdownItemSchema),
 });
 

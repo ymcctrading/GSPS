@@ -7,6 +7,40 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-09-10 (fifth follow-up)
+
+### Added
+- **`BlueprintScoreBand`** (`lib/signals/types.ts`, `lib/signals/scoring.ts`) —
+  direct decision to adopt the "GSPS Implementation Blueprint" §14.2's
+  literal band cut points (0–24 NO_TRADE, 25–49 WATCH, 50–69 DEVELOPING,
+  70–84 ACTIONABLE, 85–100 HIGH_CONFLUENCE), applied to the existing
+  `RulesAlignmentScore.score` (0–100) via `classifyBlueprintScoreBand` and
+  exposed as the new `RulesAlignmentScore.blueprintScoreBand` field.
+  Additive/informational only: `tier`/`tierQualifies` remain the actual
+  qualification gate — the blueprint's own §14.2 text calls its thresholds
+  "placeholders" that "must be calibrated through research," so this is a
+  relabeling of an already-calibrated score, not a new gate or a
+  replacement for one. Every direct constructor of `RulesAlignmentScore`
+  (production and test fixtures) and its Zod schema
+  (`lib/lifecycle/schema.ts`) updated for the new required field.
+- **`supabase/migrations/0064_blueprint_named_tables_batch2.sql`** — direct
+  confirmation given to extend `0063`'s literal blueprint-named tables,
+  scoped to (a) tables with no existing GSPS home under any other name and
+  (b) no banned Tier A/B terminology. Adds `bar`, `corporate_action`,
+  `instrument_profile`, `volume_state`, `volatility_state`,
+  `feature_registry`, `experiment_registry`, `backtest_run` — the 8 of the
+  blueprint's 20 §5.2-named tables not yet covered. The other 8
+  (`market_regime`, `gann_coordinate`, `vortex_state`, `strategy_signal`,
+  `trade_plan`, `risk_plan`, `signal_outcome`, `model_version`) already
+  overlap a real, non-empty GSPS table under a different name and were
+  deliberately not duplicated — see the migration's header comment and
+  `docs/GANN_BLUEPRINT_TRACEABILITY.md`'s updated §5 row for the full
+  mapping. Schema only, same posture `0063` took for `pivot`: no
+  application code writes or reads any of these 8 yet. Applied to the
+  Supabase project; `get_advisors` shows only the same "RLS enabled, no
+  policy" INFO-level note `backtest_run` shares with `learning_models` and
+  several other existing global tables — no new WARN/ERROR findings.
+
 ## 2026-09-09 (fourth follow-up)
 
 ### Added
