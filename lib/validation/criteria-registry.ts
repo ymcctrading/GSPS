@@ -124,13 +124,22 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "twice.",
   },
   {
-    id: "hourlyTrend",
+    id: "adxTrendStrength",
     family: "scanScore",
-    source: "lib/scoring/score.ts",
-    label: "1-hour trend agreement",
+    source: "lib/scoring/score.ts, lib/signals/indicators.ts",
+    label: "1-hour trend strength (ADX/DMI)",
     expectedSign: "positive",
-    evidence: "hypothesis",
-    note: "Positive on both 2026-09-08 runs (+0.89R, +1.00R), but the failing arm was 1 trade in each — direction agrees, sample does not carry it.",
+    evidence: "unmeasured",
+    note:
+      "Replaces `hourlyTrend` (retired 2026-09-10; see RETIRED) — its own leniency (an ambiguous " +
+      "\"sideways\" hourly read counted as agreement) never cleared the sample floor as anything more " +
+      "than hypothesis. Reuses lib/signals/indicators.ts's adx() and the 20-ADX trend-strength " +
+      "threshold lib/signals/regime.ts already validated for the Signal & Regime Engine's own " +
+      "\"which indicator confirms a trend\" question, rather than re-deriving a new one — per AGENTS.md's " +
+      "cross-platform consistency principle. Stricter than hourlyTrend: both ADX >= 20 (trend " +
+      "established) and +DI/-DI direction agreement with the setup are required, no lenient " +
+      "ambiguous-still-passes branch. Needs a real replay run to even read its pass rate for the " +
+      "first time — no payload has ever measured it.",
   },
   {
     id: "gannAngleSlope",
@@ -344,6 +353,20 @@ const RETIRED: RegisteredCriterion[] = [
       "the scoring model's own verdict ranking — see lib/timeframe.ts's EXECUTION_TIMEFRAME override for " +
       "why any 1Hour-influenced reading here needs discounting until real-time data lands. Replaced with " +
       "a composite retracement-zone + signal-flow confluence check rather than a re-tuned target rule.",
+  },
+  {
+    id: "hourlyTrend",
+    family: "scanScore",
+    source: "lib/scoring/score.ts (scored until 2026-09-10)",
+    label: "1-hour trend agreement",
+    expectedSign: "positive",
+    evidence: "retired",
+    note:
+      "Replaced by `adxTrendStrength`. Positive on both 2026-09-08 runs (+0.89R, +1.00R), but the " +
+      "failing arm was 1 trade in each — direction agreed, sample never carried it past hypothesis. " +
+      "Its own pass rule was lenient (an ambiguous \"sideways\" hourly read counted as agreement), which " +
+      "is plausibly why the failing arm was always so thin. Replaced with a stricter ADX/DMI " +
+      "trend-strength-and-direction test rather than a re-tuned trend-agreement rule.",
   },
 ];
 

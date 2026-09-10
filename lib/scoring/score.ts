@@ -23,6 +23,7 @@ import {
 } from "@/lib/scoring/proximity";
 import { LEVEL_TIMEFRAME_USAGE, levelRoleLabel, type LevelRole } from "@/lib/analysis/levelRole";
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
+import type { AdxReading } from "@/lib/signals/indicators";
 import {
   DEFAULT_CRITERION_WEIGHTS,
   EXECUTE_SCORE_THRESHOLD,
@@ -36,6 +37,16 @@ export interface ScoreInputs {
   direction: "bullish" | "bearish";
   macroTrends: TrendReading[]; // monthly/weekly/daily
   hourlyTrend: TrendReading;
+  /**
+   * Wilder's ADX/DMI over the hourly bars (`lib/signals/indicators.ts#adx`),
+   * the same implementation and 20-ADX trend-strength threshold
+   * `lib/signals/regime.ts` already uses for the Signal & Regime Engine —
+   * reused here rather than re-derived, per AGENTS.md's cross-platform
+   * consistency principle. Null when there isn't enough hourly history to
+   * seed Wilder's smoothing, which scores as a fail the same way a missing
+   * stop-room reading does.
+   */
+  hourlyAdx?: AdxReading | null;
   gann: GannLevels;
   nearSupportResistance: boolean;
   /**
@@ -120,7 +131,7 @@ export const MIN_STOP_ROOM_ATR = 1.5;
 
 export function computeScore(inputs: ScoreInputs): ScanDecision {
   const {
-    direction, macroTrends, hourlyTrend, gann,
+    direction, macroTrends, hourlyAdx, gann,
     nearSupportResistance, srMatch, pattern, levels, stopAtrMultiple,
     setupKind = "reversion",
     atrPct,
@@ -136,7 +147,21 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // it's a reversion bouncing off a level or a trend it's continuing.
   const macroSupports = macroTrends.filter((t) => t.direction === direction).length >= 2;
 
-  const hourlyAgrees = hourlyTrend.direction === direction || hourlyTrend.direction === "sideways";
+  // 2026-09-10: replaces hourlyTrend. hourlyTrend's own leniency (an
+  // ambiguous "sideways" hourly read counted as agreement) never cleared the
+  // sample floor as anything more than "hypothesis." ADX/DMI is a stricter,
+  // two-part trend-strength-and-direction test, and it's the same
+  // implementation and 20-ADX threshold lib/signals/regime.ts already
+  // validated for exactly this "which indicator confirms a trend" question —
+  // reused, not reinvented (AGENTS.md's cross-platform consistency
+  // principle). Both parts must hold: the hourly trend must be strong enough
+  // to trust (ADX >= 20) and running the trade's own way (+DI/-DI agree with
+  // direction) — no lenient "ambiguous still passes" branch this time.
+  const ADX_TREND_THRESHOLD = 20;
+  const adxDirection: "bullish" | "bearish" | null =
+    hourlyAdx == null ? null : hourlyAdx.plusDI > hourlyAdx.minusDI ? "bullish" : "bearish";
+  const adxTrendHolding =
+    hourlyAdx != null && hourlyAdx.adx >= ADX_TREND_THRESHOLD && adxDirection === direction;
 
   // Null (no priced plan) fails: a setup with no stop has no room to measure,
   // and the alternative — treating "unknown" as a pass — would hand a free
@@ -228,11 +253,18 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
           : "Macro timeframes do not agree with this reversion's direction.",
     },
     {
-      key: "hourlyTrend",
-      criterion: "1-hour trend agreement",
+      key: "adxTrendStrength",
+      criterion: "1-hour trend strength (ADX/DMI)",
       pillar: "trend",
-      passed: hourlyAgrees,
-      note: `1hr trend reads ${hourlyTrend.direction}.`,
+      passed: adxTrendHolding,
+      note:
+        hourlyAdx == null
+          ? "Not enough hourly history to read ADX/DMI."
+          : adxTrendHolding
+            ? `Hourly ADX ${hourlyAdx.adx.toFixed(1)} clears the ${ADX_TREND_THRESHOLD} trend-strength floor, running ${adxDirection} — agrees with this ${direction} setup.`
+            : hourlyAdx.adx < ADX_TREND_THRESHOLD
+              ? `Hourly ADX ${hourlyAdx.adx.toFixed(1)} is below the ${ADX_TREND_THRESHOLD} trend-strength floor — no established hourly trend to agree or disagree with.`
+              : `Hourly ADX ${hourlyAdx.adx.toFixed(1)} shows an established trend, but it's running ${adxDirection}, not ${direction}.`,
     },
     {
       key: "gannAngleSlope",

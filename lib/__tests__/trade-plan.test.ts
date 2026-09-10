@@ -79,6 +79,7 @@ function inputs(overrides: Partial<ScoreInputs> = {}): ScoreInputs {
       trend("1Day", "bullish"),
     ],
     hourlyTrend: trend("1Hour", "bullish"),
+    hourlyAdx: { adx: 25, plusDI: 20, minusDI: 10 },
     gann,
     nearSupportResistance: true,
     pattern,

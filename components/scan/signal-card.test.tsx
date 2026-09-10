@@ -30,6 +30,7 @@ const inputs: ScoreInputs = {
   direction: "bullish",
   macroTrends: [trend("bearish"), trend("bearish"), trend("bullish")],
   hourlyTrend: trend("bullish"),
+  hourlyAdx: { adx: 25, plusDI: 20, minusDI: 10 },
   gann: {
     // direction is "bullish" (a long), so this is a support floor underneath
     // price — the side that actually confirms a long.
@@ -109,9 +110,9 @@ describe("SignalCard score breakdown", () => {
     for (const label of ["Trend", "Structure", "Setup", "Timing", "Risk/reward"]) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
-    // Trend is the three-point pillar (macro, hourly, structural angle); only
-    // the hourly reading passes in this fixture — macro is 1-of-3 timeframes
-    // and no angle-slope data is supplied.
+    // Trend is the three-point pillar (macro, hourly ADX/DMI, structural
+    // angle); only the ADX/DMI reading passes in this fixture — macro is
+    // 1-of-3 timeframes and no angle-slope data is supplied.
     expect(screen.getByText("1/3")).toBeInTheDocument();
   });
 

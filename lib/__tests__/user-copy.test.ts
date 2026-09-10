@@ -103,6 +103,7 @@ const allPass: ScoreInputs = {
   // counter-trend-into-a-level premise.
   macroTrends: [trend("bullish"), trend("bullish"), trend("bullish")],
   hourlyTrend: trend("bullish"),
+  hourlyAdx: { adx: 25, plusDI: 20, minusDI: 10 },
   gann,
   nearSupportResistance: true,
   pattern,

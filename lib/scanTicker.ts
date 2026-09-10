@@ -30,6 +30,7 @@ import { timeCycles } from "@/lib/gann/timeCycles";
 import { computeAngleSlopes } from "@/lib/gann/normalizedSlope";
 import { computeRetracementLevels } from "@/lib/gann/retracement";
 import { priceTimeConfluence } from "@/lib/gann/digitalRoot";
+import { adx } from "@/lib/signals/indicators";
 import {
   CONTINUATION_PATTERNS,
   detectPatterns,
@@ -126,6 +127,9 @@ export async function scanTicker(
 
     // ---- Level 2: 1hr refinement
     const hourlyTrend = readTrend(hourly, "1Hour");
+    // Same implementation and 20-ADX threshold lib/signals/regime.ts already
+    // validated for trend-strength confirmation — reused, not reinvented.
+    const hourlyAdx = adx(hourly);
 
     // ---- Gann structures (anchored on the daily chart)
     const fanLines = computeFanLines(daily, currentPrice);
@@ -305,6 +309,7 @@ export async function scanTicker(
           direction: scoreDirection,
           macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
           hourlyTrend,
+          hourlyAdx,
           gann,
           nearSupportResistance,
           srMatch: srMatch && { ...srMatch, role: levelRole(currentPrice, srMatch.price) },

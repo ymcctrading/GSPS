@@ -25,7 +25,7 @@
 /** Stable ids for the nine scored criteria. */
 export const CRITERION_KEYS = [
   "macroTrend",
-  "hourlyTrend",
+  "adxTrendStrength",
   "gannAngleSlope",
   "harmonicProximity",
   "historicalSR",
@@ -49,7 +49,7 @@ export type BreakdownKey = CriterionKey | HoldKey;
 /** Short labels for the factor tables, where the full criterion text is too wide. */
 export const CRITERION_LABELS: Record<CriterionKey, string> = {
   macroTrend: "Macro trend context",
-  hourlyTrend: "1-hour trend agreement",
+  adxTrendStrength: "1-hour trend strength (ADX/DMI)",
   gannAngleSlope: "Structural trend-angle strength (1x1)",
   harmonicProximity: "Key price level proximity",
   historicalSR: "Historical support/resistance",
