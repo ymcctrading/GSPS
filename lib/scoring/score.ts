@@ -24,6 +24,7 @@ import {
 import { LEVEL_TIMEFRAME_USAGE, levelRoleLabel, type LevelRole } from "@/lib/analysis/levelRole";
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 import type { AdxReading } from "@/lib/signals/indicators";
+import type { SwingChartReading } from "@/lib/gann/swingChart";
 import {
   DEFAULT_CRITERION_WEIGHTS,
   EXECUTE_SCORE_THRESHOLD,
@@ -37,6 +38,14 @@ export interface ScoreInputs {
   direction: "bullish" | "bearish";
   macroTrends: TrendReading[]; // monthly/weekly/daily
   hourlyTrend: TrendReading;
+  /**
+   * Gann's 3-day and 9-day swing charts off the daily close
+   * (`lib/gann/swingChart.ts#computeSwingChart`). Null on either leg when
+   * there isn't enough daily history to establish an initial swing
+   * direction, which scores as a fail the same way a missing ADX reading
+   * does.
+   */
+  swingChart?: SwingChartReading | null;
   /**
    * Wilder's ADX/DMI over the hourly bars (`lib/signals/indicators.ts#adx`),
    * the same implementation and 20-ADX trend-strength threshold
@@ -131,21 +140,25 @@ export const MIN_STOP_ROOM_ATR = 1.5;
 
 export function computeScore(inputs: ScoreInputs): ScanDecision {
   const {
-    direction, macroTrends, hourlyAdx, gann,
+    direction, hourlyAdx, swingChart, gann,
     nearSupportResistance, srMatch, pattern, levels, stopAtrMultiple,
     setupKind = "reversion",
     atrPct,
     weights = DEFAULT_CRITERION_WEIGHTS,
   } = inputs;
 
-  // Previously scored a reversion on the macro running AGAINST the trade
-  // (price stretched into a level it would bounce off) — the classic
-  // counter-trend-snapback premise. Measured evidence (2026-09-08, both
-  // 15Min and 1Hour) said that premise loses money: -0.17R and -1.42R.
-  // Trend agreement is now scored identically for both setup kinds — the
-  // macro timeframes should read the same direction as the trade, whether
-  // it's a reversion bouncing off a level or a trend it's continuing.
-  const macroSupports = macroTrends.filter((t) => t.direction === direction).length >= 2;
+  // 2026-09-10: replaces macroTrend. macroTrend's monthly/weekly/daily
+  // 2-of-3 agreement measured negligible (inside the ±0.1R noise band on
+  // both adequately sampled arms — see lib/validation/criteria-registry.ts's
+  // `macroTrend` RETIRED entry) after its counter-trend premise was already
+  // corrected once. Gann's 3-day/9-day swing charts are a different
+  // construction on the same daily bars — a reversal count instead of a
+  // moving-average/pivot read — so both legs must agree with the trade's own
+  // direction, not just with each other.
+  const swingChartAligned =
+    swingChart != null &&
+    swingChart.threeDay === direction &&
+    swingChart.nineDay === direction;
 
   // 2026-09-10: replaces hourlyTrend. hourlyTrend's own leniency (an
   // ambiguous "sideways" hourly read counted as agreement) never cleared the
@@ -240,17 +253,20 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
 
   const breakdown: ScoreBreakdownItem[] = [
     {
-      key: "macroTrend",
-      criterion: "Macro trend context (10yr/5yr/1yr)",
+      key: "swingChartTrend",
+      criterion: "3-day/9-day swing chart trend",
       pillar: "trend",
-      passed: macroSupports,
-      note: macroSupports
-        ? setupKind === "continuation"
-          ? `Macro timeframes read ${direction} — the trend this setup continues is intact.`
-          : `Macro timeframes read ${direction} — in agreement with this reversion.`
-        : setupKind === "continuation"
-          ? "Macro timeframes do not confirm the trend this setup would continue."
-          : "Macro timeframes do not agree with this reversion's direction.",
+      passed: swingChartAligned,
+      note:
+        swingChart == null || swingChart.threeDay == null || swingChart.nineDay == null
+          ? "Not enough daily history to read the 3-day/9-day swing charts."
+          : swingChartAligned
+            ? setupKind === "continuation"
+              ? `Both the 3-day and 9-day swing charts read ${direction} — the trend this setup continues is intact.`
+              : `Both the 3-day and 9-day swing charts read ${direction} — in agreement with this reversion.`
+            : swingChart.threeDay === swingChart.nineDay
+              ? `Both swing charts read ${swingChart.threeDay}, not ${direction} — they agree with each other but not with this setup.`
+              : `The 3-day (${swingChart.threeDay}) and 9-day (${swingChart.nineDay}) swing charts disagree with each other.`,
     },
     {
       key: "adxTrendStrength",

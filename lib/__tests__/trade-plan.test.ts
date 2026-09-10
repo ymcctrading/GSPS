@@ -80,6 +80,7 @@ function inputs(overrides: Partial<ScoreInputs> = {}): ScoreInputs {
     ],
     hourlyTrend: trend("1Hour", "bullish"),
     hourlyAdx: { adx: 25, plusDI: 20, minusDI: 10 },
+    swingChart: { threeDay: "bullish", nineDay: "bullish" },
     gann,
     nearSupportResistance: true,
     pattern,
@@ -280,26 +281,18 @@ describe("qualifiesAsContinuationFill", () => {
 });
 
 describe("continuation scoring", () => {
-  const macroBullish = [
-    trend("1Month", "bullish"),
-    trend("1Week", "bullish"),
-    trend("1Day", "bullish"),
-  ];
+  const swingBullish = { threeDay: "bullish" as const, nineDay: "bullish" as const };
+  const swingBearish = { threeDay: "bearish" as const, nineDay: "bearish" as const };
 
-  it("credits a continuation for a macro trend running WITH it", () => {
-    const decision = computeScore(inputs({ setupKind: "continuation", macroTrends: macroBullish }));
-    const macro = decision.breakdown[0];
-    expect(macro.passed).toBe(true);
-    expect(macro.note).toMatch(/intact/);
+  it("credits a continuation for swing charts running WITH it", () => {
+    const decision = computeScore(inputs({ setupKind: "continuation", swingChart: swingBullish }));
+    const swing = decision.breakdown[0];
+    expect(swing.passed).toBe(true);
+    expect(swing.note).toMatch(/intact/);
   });
 
-  it("fails a continuation whose trend the macro timeframes contradict", () => {
-    const macroBearish = [
-      trend("1Month", "bearish"),
-      trend("1Week", "bearish"),
-      trend("1Day", "bearish"),
-    ];
-    const decision = computeScore(inputs({ setupKind: "continuation", macroTrends: macroBearish }));
+  it("fails a continuation whose trend the swing charts contradict", () => {
+    const decision = computeScore(inputs({ setupKind: "continuation", swingChart: swingBearish }));
     expect(decision.breakdown[0].passed).toBe(false);
   });
 
@@ -310,25 +303,20 @@ describe("continuation scoring", () => {
   });
 
   it("can still reach 9/9 as a continuation — nothing structurally caps it", () => {
-    const decision = computeScore(inputs({ setupKind: "continuation", macroTrends: macroBullish }));
+    const decision = computeScore(inputs({ setupKind: "continuation", swingChart: swingBullish }));
     expect(decision.score).toBe(9);
     expect(decision.outputState).toBe("Execute");
   });
 
-  it("scores macro trend identically for reversion and continuation now (agreement, not counter-trend)", () => {
-    const macroBearish = [
-      trend("1Month", "bearish"),
-      trend("1Week", "bearish"),
-      trend("1Day", "bearish"),
-    ];
-    expect(computeScore(inputs({ macroTrends: macroBullish })).breakdown[0].passed).toBe(true);
+  it("scores the swing chart criterion identically for reversion and continuation now (agreement, not counter-trend)", () => {
+    expect(computeScore(inputs({ swingChart: swingBullish })).breakdown[0].passed).toBe(true);
     expect(
-      computeScore(inputs({ setupKind: "continuation", macroTrends: macroBullish })).breakdown[0]
+      computeScore(inputs({ setupKind: "continuation", swingChart: swingBullish })).breakdown[0]
         .passed,
     ).toBe(true);
-    expect(computeScore(inputs({ macroTrends: macroBearish })).breakdown[0].passed).toBe(false);
+    expect(computeScore(inputs({ swingChart: swingBearish })).breakdown[0].passed).toBe(false);
     expect(
-      computeScore(inputs({ setupKind: "continuation", macroTrends: macroBearish })).breakdown[0]
+      computeScore(inputs({ setupKind: "continuation", swingChart: swingBearish })).breakdown[0]
         .passed,
     ).toBe(false);
   });

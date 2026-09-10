@@ -104,6 +104,7 @@ const allPass: ScoreInputs = {
   macroTrends: [trend("bullish"), trend("bullish"), trend("bullish")],
   hourlyTrend: trend("bullish"),
   hourlyAdx: { adx: 25, plusDI: 20, minusDI: 10 },
+  swingChart: { threeDay: "bullish", nineDay: "bullish" },
   gann,
   nearSupportResistance: true,
   pattern,
