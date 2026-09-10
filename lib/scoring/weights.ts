@@ -31,7 +31,7 @@ export const CRITERION_KEYS = [
   "historicalSR",
   "patternArmed",
   "stopRoom",
-  "timeCycle",
+  "timePriceSquare",
   "gannRetracementConfluence",
 ] as const;
 
@@ -55,7 +55,7 @@ export const CRITERION_LABELS: Record<CriterionKey, string> = {
   historicalSR: "Historical support/resistance",
   patternArmed: "Pattern armed",
   stopRoom: "Stop room (>= 1.5x ATR)",
-  timeCycle: "Cyclical turn window active",
+  timePriceSquare: "Price and time squared",
   gannRetracementConfluence: "Retracement + signal-flow confluence",
 };
 

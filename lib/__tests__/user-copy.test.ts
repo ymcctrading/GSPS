@@ -105,6 +105,9 @@ const allPass: ScoreInputs = {
   hourlyTrend: trend("bullish"),
   hourlyAdx: { adx: 25, plusDI: 20, minusDI: 10 },
   swingChart: { threeDay: "bullish", nineDay: "bullish" },
+  timePriceSquare: [
+    { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, squared: true },
+  ],
   gann,
   nearSupportResistance: true,
   pattern,
@@ -139,16 +142,13 @@ describe("confluence checklist copy", () => {
     expectPlainLanguage(checklistStrings(allFail));
   });
 
-  it("reads in plain language on every turn-window phrasing", () => {
-    // The note branches on both whether a window is active and whether any
-    // dates were projected, so all four combinations carry distinct copy.
-    const dated = gann.timeCycleDates;
-    for (const timeCycleActive of [true, false]) {
-      for (const timeCycleDates of [dated, []]) {
-        expectPlainLanguage(
-          checklistStrings({ ...allPass, gann: { ...gann, timeCycleActive, timeCycleDates } }),
-        );
-      }
+  it("reads in plain language on every price/time-square phrasing", () => {
+    // The note branches on whether a reading exists at all, and whether it
+    // squares or not — three distinct branches of copy.
+    const squared = { anchorKind: "low" as const, anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, squared: true };
+    const notSquared = { ...squared, priceMove: 40, squared: false };
+    for (const timePriceSquare of [[squared], [notSquared], []]) {
+      expectPlainLanguage(checklistStrings({ ...allPass, timePriceSquare }));
     }
   });
 

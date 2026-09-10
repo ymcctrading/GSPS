@@ -80,6 +80,9 @@ const allPass: ScoreInputs = {
   hourlyTrend: trend("bullish"),
   hourlyAdx: { adx: 25, plusDI: 20, minusDI: 10 },
   swingChart: { threeDay: "bullish", nineDay: "bullish" },
+  timePriceSquare: [
+    { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, squared: true },
+  ],
   gann,
   nearSupportResistance: true,
   pattern,

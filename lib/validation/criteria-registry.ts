@@ -254,32 +254,20 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "rule and never an instruction to widen a stop.",
   },
   {
-    id: "timeCycle",
+    id: "timePriceSquare",
     family: "scanScore",
-    source: "lib/gann/timeCycles.ts",
-    label: "Cyclical turn window active",
+    source: "lib/scoring/score.ts, lib/gann/timePriceSquare.ts",
+    label: "Price and time squared",
     expectedSign: "positive",
-    evidence: "quarantined",
-    quarantineReason:
-      "Measured informative and inverted at 15Min on 2026-09-08 (−0.83R, correlation −0.30), constant " +
-      "at 1Hour (13/13). Three implementation defects fixed 2026-09-09: (1) the 'top quartile by " +
-      "prominence' anchor filter the old code claimed in a comment but never ran — it took the last 12 " +
-      "pivots by chronological index, not by prominence — is now real (lib/analysis/pivots.ts's " +
-      "majorPivots(), ranked by swing distance to the nearest opposite-kind pivot); (2) no directional " +
-      "check, so a projected turn argued for a bullish and a bearish setup identically — timeCycles() " +
-      "now tags each date by its anchor's kind (low anchors bullish, high anchors bearish) and returns " +
-      "bullishActive/bearishActive separately, and computeScore matches the criterion against the " +
-      "setup's own direction instead of either; (3) both fixes together also cut the near-total " +
-      "~108-dates-per-symbol coverage down to the top-quartile anchors only. 2026-09-09/10: six fresh " +
-      "live/Alpaca runs measured the new logic (docs/replay-runs/2026-09-09-15Min-2R.json, -3R.json, " +
-      "-score5-6.json; 2026-09-10-15Min-2R-within-all.json, -1Hour-2R.json, -1Hour-3R.json). The " +
-      "Execute-bucket-conditioned runs are too small on the failing arm to trust (9 passed / 7 failed " +
-      "at 15Min; 8/114 at 1Hour — under MIN_SAMPLES_PER_ARM on one side each time). The unconditioned " +
-      "15Min population — 305 passed / 724 failed, comfortably sampled both ways — reads −0.031: " +
-      "inside the ±0.1 noise band, no longer the clearly inverted −0.30 the old, undirected/unfiltered " +
-      "logic measured, but not positive either. Negligible, not validated — the fix ended an active " +
-      "harm without (yet) establishing a benefit. Exits quarantine when a fresh committed run measures " +
-      "it informative and positive, outside the noise band, on an adequately sampled arm.",
+    evidence: "unmeasured",
+    note:
+      "Replaces `timeCycle` (retired 2026-09-10; see RETIRED) — its projected-anniversary-date " +
+      "approach measured negligible even after fixing the two implementation defects that had made it " +
+      "look inverted. This is a different construction on the same daily bars: bars elapsed since the " +
+      "direction-matched swing pivot (low for bullish, high for bearish — the same anchor convention " +
+      "`gannAngleSlope` uses) checked one-for-one against the raw price move since that pivot, with no " +
+      "ATR normalization — a distinct question from `gannAngleSlope`'s ATR-normalized rate of change. " +
+      "Never scored before; needs a fresh committed replay before any sign claim.",
   },
   {
     id: "gannRetracementConfluence",
@@ -383,6 +371,37 @@ const RETIRED: RegisteredCriterion[] = [
       "not validated, even after the active-harm fix. Replaced with a different construction on the same " +
       "daily bars (the 3-day/9-day swing charts) rather than a third attempt at tuning a " +
       "monthly/weekly/daily agreement rule.",
+  },
+  {
+    id: "timeCycle",
+    family: "scanScore",
+    source: "lib/gann/timeCycles.ts (scored until 2026-09-10)",
+    label: "Cyclical turn window active",
+    expectedSign: "positive",
+    evidence: "retired",
+    note:
+      "Replaced by `timePriceSquare`. Measured informative and inverted at 15Min on 2026-09-08 " +
+      "(−0.83R, correlation −0.30), constant at 1Hour (13/13). Three implementation defects fixed " +
+      "2026-09-09: (1) the 'top quartile by prominence' anchor filter the old code claimed in a " +
+      "comment but never ran — it took the last 12 pivots by chronological index, not by prominence " +
+      "— is now real (lib/analysis/pivots.ts's majorPivots(), ranked by swing distance to the nearest " +
+      "opposite-kind pivot); (2) no directional check, so a projected turn argued for a bullish and a " +
+      "bearish setup identically — timeCycles() now tags each date by its anchor's kind (low anchors " +
+      "bullish, high anchors bearish) and returned bullishActive/bearishActive separately, matched " +
+      "against the setup's own direction instead of either; (3) both fixes together also cut the " +
+      "near-total ~108-dates-per-symbol coverage down to the top-quartile anchors only. 2026-09-09/10: " +
+      "six fresh live/Alpaca runs measured the new logic (docs/replay-runs/2026-09-09-15Min-2R.json, " +
+      "-3R.json, -score5-6.json; 2026-09-10-15Min-2R-within-all.json, -1Hour-2R.json, -1Hour-3R.json). " +
+      "The Execute-bucket-conditioned runs were too small on the failing arm to trust (9 passed / 7 " +
+      "failed at 15Min; 8/114 at 1Hour — under MIN_SAMPLES_PER_ARM on one side each time). The " +
+      "unconditioned 15Min population — 305 passed / 724 failed, comfortably sampled both ways — read " +
+      "−0.031: inside the ±0.1 noise band, no longer the clearly inverted −0.30 the old, " +
+      "undirected/unfiltered logic measured, but never positive either — negligible, not validated, " +
+      "even after the active-harm fix. `timeCycleActive`/`timeCycleBullishActive`/" +
+      "`timeCycleBearishActive` are still computed and still drive the display-only turn-window " +
+      "callouts on the ticker and chart pages — only the scored point moved. Replaced with a different " +
+      "construction on the same daily bars (squaring price and time against the swing pivot rather " +
+      "than projecting anniversary dates) rather than a third attempt at tuning an anniversary-date rule.",
   },
 ];
 
