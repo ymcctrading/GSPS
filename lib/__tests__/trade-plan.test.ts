@@ -72,6 +72,7 @@ function inputs(overrides: Partial<ScoreInputs> = {}): ScoreInputs {
     nearSupportResistance: true,
     pattern,
     momentumElevated: true,
+    stopAtrMultiple: 2,
     levels,
     ...overrides,
   };
@@ -109,6 +110,7 @@ describe("computeScore output state", () => {
       gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [] },
       nearSupportResistance: false,
       momentumElevated: false,
+      stopAtrMultiple: 0.8,
     }));
     expect(decision.breakdown).toHaveLength(9);
     expect(decision.outputState).toBe("Reject");

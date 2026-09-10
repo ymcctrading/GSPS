@@ -64,7 +64,14 @@ export type EvidenceStatus =
   /** Measured *against* its declared sign. Known-bad, deliberately not blocking — see `quarantineReason`. */
   | "quarantined"
   /** No outcome has ever been measured against this criterion. */
-  | "unmeasured";
+  | "unmeasured"
+  /**
+   * Scored once, no longer scored. Kept so historical payloads under
+   * docs/replay-runs/ stay readable: they measured it, and a validity ledger
+   * that forgets what it used to score cannot explain its own past. Exempt
+   * from the completeness and stale-entry checks, and never gated on.
+   */
+  | "retired";
 
 export interface RegisteredCriterion {
   /** Stable id. Namespaced by state for `rulesAlignment`, where keys repeat across states. */
@@ -176,7 +183,16 @@ const SCAN_SCORE: RegisteredCriterion[] = [
     label: "Historical support/resistance",
     expectedSign: "positive",
     evidence: "hypothesis",
-    note: "Positive on both 2026-09-08 runs (+0.56R, +1.50R) — the most consistent of the nine, still below the per-arm floor.",
+    note:
+      "Strongest single result in the app on the one genuinely unconditioned population measured so " +
+      "far: docs/replay-runs/2026-09-10-15Min-2R-within-all.json (1,029 trades, the clean full-universe " +
+      "re-run replacing an earlier rate-limited capture) gives +0.344R delta, r=+0.09, t≈2.88 — " +
+      "significant, in the declared direction, 188/1029 passing. Held at 'hypothesis' rather than " +
+      "'validated' on purpose: the registry's own bar is two committed runs, and every earlier reading " +
+      "(+0.56R, +1.50R on 2026-09-08) was inside an Execute-conditioned bucket — exactly the collider " +
+      "this module's own sign-check guard now refuses to read a sign from, so it cannot count as a " +
+      "second confirming run. Promotes to 'validated' on the next unconditioned capture that measures " +
+      "it informative and positive again.",
   },
   {
     id: "patternArmed",
@@ -192,15 +208,44 @@ const SCAN_SCORE: RegisteredCriterion[] = [
     saturation: { minPassRate: 0, maxPassRate: 1 },
   },
   {
-    id: "momentum",
+    id: "stopRoom",
     family: "scanScore",
     source: "lib/scoring/score.ts",
-    label: "Momentum / volatility elevated",
+    label: "Stop room (>= 1.5x ATR)",
     expectedSign: "positive",
     evidence: "hypothesis",
     note:
-      "The only criterion to clear the sample floor in the declared direction (+0.30R, informative, " +
-      "15Min 2026-09-08) — but it inverts at 1Hour (−1.43R) on a sample too small to trust. Unstable, not validated.",
+      "Replaced `momentum` on 2026-09-08. Momentum was the deadest criterion in the app: on 1,005 " +
+      "unconditioned live trades it measured r=−0.0003, t=−0.01, Δ=−0.002R — three ten-thousandths " +
+      "of a correlation, a point contributed for no information. It survives as an input to " +
+      "applyReversionConfirmation's bare-2-2 gate, which is a different job; it is simply no longer " +
+      "scored. Corroborated on the fresher, larger 2026-09-10 unconditioned run (1,029 trades): still " +
+      "r≈0.00 (100/1029 passing, Δ=+0.002R) — dead on a second, independent population too.\n" +
+      "\n" +
+      "Stop room is the strongest effect in that same 2026-09-08 run and the reason for the swap: split " +
+      "at 1.5x ATR it is +0.217R against −0.072R, Δ=+0.289R at t=2.40, with a 40.0% win rate against a " +
+      "33.3% break-even. Larger than historicalSR, the best of the nine it joins. Expectancy is " +
+      "monotonic across the boundary and 1.5x is the only point where the sign flips.\n" +
+      "\n" +
+      "The same split direction and shape reproduces on the fresher 2026-09-10 run (1,029 trades, " +
+      "docs/replay-runs/2026-09-10-15Min-2R-within-all.json's atrBands): below 1.5x ATR, 854 trades at " +
+      "31.2% win rate; at/above 1.5x, 175 trades at 38.3% — the same side of the 33.3% break-even line " +
+      "flips the same way. That table only carries per-band win rate and mean expectancy, not per-trade " +
+      "values, so no independent t-statistic is reported for it — the t=2.40 above is the one on record, " +
+      "from real per-trade data.\n" +
+      "\n" +
+      "Stays hypothesis. The `?productionStop=1` run was captured 2026-09-09 and confirmed nothing, " +
+      "because it turned out not to be a different measurement: every ATR band came back with " +
+      "identical trade counts and identical win rates, four of five with a literally zero expectancy " +
+      "difference, and the overall expectancy moved by 2e-6. computeStopWithLeeway takes whichever " +
+      "stop is FURTHER from entry (levels.ts `Math.min(structuralStop, leewayCandidate)`), the " +
+      "large-cap leeway is 0.25x ATR, and this sample has zero trades under 0.5x ATR — so the " +
+      "leeway cannot bind on any trade, and only the 3.5x cap moved a handful in the 2.5x+ band.\n" +
+      "\n" +
+      "So the stop-width effect is measured on two overlapping-universe samples (same six large caps, " +
+      "different windows), not yet a genuinely independent one. What it needs is a different WINDOW or " +
+      "universe. Until then: reversion-only, 15Min. See MIN_STOP_ROOM_ATR for why this is a selection " +
+      "rule and never an instruction to widen a stop.",
   },
   {
     id: "timeCycle",
@@ -240,6 +285,24 @@ const SCAN_SCORE: RegisteredCriterion[] = [
     note:
       "Sign disagrees between timeframes (−0.56R at 15Min, +1.00R at 1Hour, 2026-09-08), reproducing " +
       "the disagreement docs/BACKTESTING.md already records for this criterion and deliberately left alone.",
+  },
+];
+
+/** Scored in the past, kept for the historical record. See `EvidenceStatus`. */
+const RETIRED: RegisteredCriterion[] = [
+  {
+    id: "momentum",
+    family: "scanScore",
+    source: "lib/scoring/score.ts (scored until 2026-09-08)",
+    label: "Momentum / volatility elevated",
+    expectedSign: "positive",
+    evidence: "retired",
+    note:
+      "Replaced by `stopRoom`. On 1,005 unconditioned live trades it measured r=−0.0003, t=−0.01, " +
+      "Δ=−0.002R: three ten-thousandths of a correlation, contributing a point of the nine for no " +
+      "information at all. Every payload committed before 2026-09-08 measured it, which is why the " +
+      "entry stays. `momentumElevated` itself is still computed and still gates the bare-2-2 check " +
+      "in applyReversionConfirmation — that job was never the scored point.",
   },
 ];
 
@@ -386,6 +449,7 @@ const DISQUALIFIERS: RegisteredCriterion[] = [
 
 export const CRITERIA_REGISTRY: RegisteredCriterion[] = [
   ...SCAN_SCORE,
+  ...RETIRED,
   ...SCORE_HOLDS,
   ...RULES_ALIGNMENT,
   ...DISQUALIFIERS,
