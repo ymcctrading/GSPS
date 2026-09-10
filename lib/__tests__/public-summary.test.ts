@@ -199,6 +199,29 @@ describe("redaction at the API boundary", () => {
     expect(result.decision.breakdown).toHaveLength(9);
   });
 
+  it("strips dailyBars — bulk internal data, not a public response field", () => {
+    const result: ScanResult = {
+      symbol: "AAPL",
+      assetClass: "us_equity",
+      scannedAt: "2026-08-08T00:00:00Z",
+      currentPrice: 100,
+      direction: "bullish",
+      setupKind: "reversion",
+      momentumElevated: true,
+      trends: [trend("bullish")],
+      gann,
+      pattern,
+      armedPatterns: [pattern],
+      levels,
+      decision,
+      dailyBars: [{ t: "2026-08-08T00:00:00Z", o: 100, h: 101, l: 99, c: 100, v: 1000 }],
+    };
+
+    expect(redactScanResult(result).dailyBars).toBeUndefined();
+    // The caller's own copy is untouched — lib/learning/record.ts still reads it server-side.
+    expect(result.dailyBars).toHaveLength(1);
+  });
+
   it("redacts the Signal and Regime Engine's per-criterion breakdown the same way", () => {
     const secretNote = "Relative volume 1.32x confirms real participation behind the reversal.";
     const secretThreshold = "ADX 24.3 supports trend strength (>= 20)";

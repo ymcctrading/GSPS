@@ -23,6 +23,7 @@ import {
 import { EXECUTION_TIMEFRAME } from "@/lib/timeframe";
 import { readTrend } from "@/lib/analysis/trend";
 import { atr } from "@/lib/analysis/pivots";
+import { relativeVolume } from "@/lib/signals/indicators";
 import { levelRole } from "@/lib/analysis/levelRole";
 import { computeFanLines } from "@/lib/gann/fans";
 import { recentSquareOf9Levels } from "@/lib/gann/squareOf9";
@@ -81,6 +82,19 @@ export interface ScanPreference {
 // type-checked cleanly under `tsc --noEmit` and then broke Next.js's actual
 // build (`Failed to collect page data for /api/batch-scan`), which is why the
 // definition lives in a leaf module instead.
+
+/**
+ * Buckets the same recent-ATR / baseline-ATR expansion ratio
+ * `momentumElevated` is computed from into the `volatility_state` table's
+ * (migration 0064) four labels. A ratio, not a distributional percentile —
+ * see `ScanResult.volatilityRead`'s doc comment.
+ */
+function volatilityRegimeFromAtrRatio(ratio: number): "low" | "normal" | "elevated" | "extreme" {
+  if (ratio >= 2.0) return "extreme";
+  if (ratio >= 1.2) return "elevated";
+  if (ratio >= 0.8) return "normal";
+  return "low";
+}
 
 export async function scanTicker(
   symbol: string,
@@ -440,6 +454,13 @@ export async function scanTicker(
       // consumer can apply the platform-wide liquidity floor without a second
       // fetch — see lib/scan/liquidity.ts.
       liquidity,
+      // Internal only — stripped at the API boundary by redactScanResult.
+      // See lib/learning/record.ts for the `bar`/`volatility_state`/
+      // `volume_state` tables this backs.
+      dailyBars: daily,
+      volatilityRead:
+        baselineAtr > 0 ? { atr: recentAtr, regime: volatilityRegimeFromAtrRatio(recentAtr / baselineAtr) } : undefined,
+      volumeRead: { relativeVolumeIndex: relativeVolume(daily, 20) },
       optionPremium,
       signals: {
         regime,

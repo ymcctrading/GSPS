@@ -244,6 +244,30 @@ export interface ScanResult {
    * history to average, which the floor treats as a failure rather than a pass.
    */
   liquidity?: LiquidityRead;
+  /**
+   * The daily bars this scan's structure was computed from — internal only,
+   * stripped at the API boundary by `redactScanResult` the same way
+   * `decision.breakdown` is: full OHLCV history is bulk internal data, not a
+   * public response field. Carried so a recorded scan can persist it to the
+   * `bar` table (migration 0064) without a second fetch — see
+   * `lib/learning/record.ts`.
+   */
+  dailyBars?: Bar[];
+  /**
+   * Realized volatility off the same daily bars, expressed as the recent-ATR
+   * / prior-baseline-ATR ratio `momentumElevated` is already computed from —
+   * a real expansion/contraction read, not a formal statistical percentile.
+   * Backs the `volatility_state` table (migration 0064). Absent on an
+   * errored scan or when there isn't enough daily history.
+   */
+  volatilityRead?: { atr: number; regime: "low" | "normal" | "elevated" | "extreme" };
+  /**
+   * Latest daily bar's volume relative to its own trailing 20-bar average
+   * (`lib/signals/indicators.ts`'s `relativeVolume`). Backs the
+   * `volume_state` table (migration 0064). `null` when there isn't enough
+   * daily history to average.
+   */
+  volumeRead?: { relativeVolumeIndex: number | null };
   /** Optional: option premium supplied by user for the 12–18% stop calc. */
   optionPremium?: number;
   /**
