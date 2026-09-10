@@ -25,6 +25,7 @@ import { LEVEL_TIMEFRAME_USAGE, levelRoleLabel, type LevelRole } from "@/lib/ana
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 import type { AdxReading } from "@/lib/signals/indicators";
 import type { SwingChartReading } from "@/lib/gann/swingChart";
+import type { TimePriceSquareReading } from "@/lib/gann/timePriceSquare";
 import {
   DEFAULT_CRITERION_WEIGHTS,
   EXECUTE_SCORE_THRESHOLD,
@@ -46,6 +47,16 @@ export interface ScoreInputs {
    * does.
    */
   swingChart?: SwingChartReading | null;
+  /**
+   * Gann's squaring of price and time off the daily bars
+   * (`lib/gann/timePriceSquare.ts#computeTimePriceSquare`) — bars elapsed
+   * since the direction-matched swing pivot (low for bullish, high for
+   * bearish) checked against the raw price move since that pivot, one point
+   * per day. A different question from `gannAngleSlope`'s ATR-normalized
+   * rate of change. Empty when there isn't enough daily history to find a
+   * pivot, which scores as a fail.
+   */
+  timePriceSquare?: TimePriceSquareReading[];
   /**
    * Wilder's ADX/DMI over the hourly bars (`lib/signals/indicators.ts#adx`),
    * the same implementation and 20-ADX trend-strength threshold
@@ -140,7 +151,7 @@ export const MIN_STOP_ROOM_ATR = 1.5;
 
 export function computeScore(inputs: ScoreInputs): ScanDecision {
   const {
-    direction, hourlyAdx, swingChart, gann,
+    direction, hourlyAdx, swingChart, timePriceSquare, gann,
     nearSupportResistance, srMatch, pattern, levels, stopAtrMultiple,
     setupKind = "reversion",
     atrPct,
@@ -222,6 +233,17 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     angleReading.nearestAngle.ratio >= 1 &&
     angleReading.nearestAngle.direction === (direction === "bullish" ? "up" : "down");
 
+  // 2026-09-10: replaces timeCycle. timeCycle's projected-anniversary-date
+  // approach measured negligible even after fixing its two implementation
+  // defects (see lib/validation/criteria-registry.ts's `timeCycle` RETIRED
+  // entry). Gann's squaring of price and time is a different construction —
+  // bars elapsed since the same direction-matched anchor angleHolding reads,
+  // checked one-for-one against the raw price move since it, not the
+  // ATR-normalized rate angleHolding tests.
+  const squareReading =
+    (timePriceSquare ?? []).find((r) => r.anchorKind === angleAnchorKind) ?? null;
+  const timePriceSquareHolding = squareReading?.squared === true;
+
   // Gann's percentage-retracement zone (eighths), reusing the same band the
   // (now retired) fan-line criterion used.
   const retracementMatch =
@@ -249,8 +271,6 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // practice (zero of 6,362 armed setups) and only mirrors the defect, turning
   // a point nobody could lose into one nobody could win.
   //
-  const upcomingCycles = gann.timeCycleDates.slice(0, 3).join(", ");
-
   const breakdown: ScoreBreakdownItem[] = [
     {
       key: "swingChartTrend",
@@ -339,17 +359,15 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
             : `Stop sits only ${stopAtrMultiple.toFixed(2)}x the execution ATR from entry; setups this tight are inside the range ordinary noise covers.`,
     },
     {
-      key: "timeCycle",
-      criterion: "Cyclical turn window active",
+      key: "timePriceSquare",
+      criterion: "Price and time squared",
       pillar: "timing",
-      // Direction-matched: a low-anchored window argues bullish, a
-      // high-anchored one bearish — timeCycleActive (either direction) used
-      // to be scored identically for both, which is what let a projected
-      // turn argue for a bullish and a bearish setup at once.
-      passed: direction === "bullish" ? gann.timeCycleBullishActive : gann.timeCycleBearishActive,
-      note: (direction === "bullish" ? gann.timeCycleBullishActive : gann.timeCycleBearishActive)
-        ? `Scan date falls inside a ${direction}-anchored turn window${upcomingCycles ? ` — next dates of interest ${upcomingCycles}.` : "."}`
-        : `Not inside a ${direction}-anchored turn window${upcomingCycles ? `; next dates of interest ${upcomingCycles}.` : " — none projected in the next two weeks."}`,
+      passed: timePriceSquareHolding,
+      note: squareReading
+        ? timePriceSquareHolding
+          ? `${squareReading.barsSinceAnchor} bars since the ${squareReading.anchorKind} anchor at ${squareReading.anchorPrice.toFixed(2)} squares with the ${squareReading.priceMove.toFixed(2)}-point move since it.`
+          : `${squareReading.barsSinceAnchor} bars since the ${squareReading.anchorKind} anchor at ${squareReading.anchorPrice.toFixed(2)} does not square with the ${squareReading.priceMove.toFixed(2)}-point move since it.`
+        : `No measurable price/time square since the last significant ${angleAnchorKind}.`,
     },
     {
       key: "gannRetracementConfluence",

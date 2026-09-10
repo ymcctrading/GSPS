@@ -119,6 +119,9 @@ describe("computeScore", () => {
       hourlyTrend: trend("1Hour", "bullish"),
       hourlyAdx: { adx: 25, plusDI: 20, minusDI: 10 },
       swingChart: { threeDay: "bullish", nineDay: "bullish" },
+      timePriceSquare: [
+        { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, squared: true },
+      ],
       gann: {
         fanLines: [],
         squareOf9: [{ degree: 90, price: 100.2, distancePct: 0.3, role: "support" }],
@@ -177,6 +180,9 @@ describe("computeScore", () => {
       hourlyTrend: trend("1Hour", "bullish"),
       hourlyAdx: { adx: 25, plusDI: 20, minusDI: 10 },
       swingChart: { threeDay: "bullish", nineDay: "bullish" },
+      timePriceSquare: [
+        { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, squared: true },
+      ],
       gann: {
         fanLines: [],
         squareOf9: [{ degree: 90, price: 100.2, distancePct: 0.3, role: "resistance" }],
@@ -288,7 +294,7 @@ describe("computeScore", () => {
     expect(item(14.4)?.passed).toBe(true);
   });
 
-  it("scores the cyclical turn window and no longer scores earnings", () => {
+  it("scores price/time squaring and no longer scores earnings", () => {
     const base = {
       direction: "bullish" as const,
       // Macro trend now scores agreement with the trade, not the old
@@ -296,25 +302,30 @@ describe("computeScore", () => {
       // setup wants bullish macro too.
       macroTrends: [trend("1Month", "bullish"), trend("1Week", "bullish"), trend("1Day", "bullish")],
       hourlyTrend: trend("1Hour", "bullish"),
+      gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [], angleSlopes: [], retracementLevels: [], digitalRootConfluences: [] },
       nearSupportResistance: false,
       pattern: null,
       momentumElevated: false,
       stopAtrMultiple: 0.8,
       levels: null,
     };
-    const active = computeScore({
+    const squared = computeScore({
       ...base,
-      gann: { fanLines: [], squareOf9: [], timeCycleActive: true, timeCycleBullishActive: true, timeCycleBearishActive: true, timeCycleDates: ["2026-08-05"], angleSlopes: [], retracementLevels: [], digitalRootConfluences: [] },
+      timePriceSquare: [
+        { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, squared: true },
+      ],
     });
-    const inactive = computeScore({
+    const notSquared = computeScore({
       ...base,
-      gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [], angleSlopes: [], retracementLevels: [], digitalRootConfluences: [] },
+      timePriceSquare: [
+        { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 40, squared: false },
+      ],
     });
 
-    expect(active.score).toBe(inactive.score + 1);
-    expect(active.breakdown.find((b) => b.criterion === "Cyclical turn window active")?.passed).toBe(true);
-    expect(active.breakdown.map((b) => b.criterion)).toHaveLength(9);
-    expect(active.breakdown.some((b) => /earnings/i.test(b.criterion))).toBe(false);
+    expect(squared.score).toBe(notSquared.score + 1);
+    expect(squared.breakdown.find((b) => b.criterion === "Price and time squared")?.passed).toBe(true);
+    expect(squared.breakdown.map((b) => b.criterion)).toHaveLength(9);
+    expect(squared.breakdown.some((b) => /earnings/i.test(b.criterion))).toBe(false);
   });
 
 });

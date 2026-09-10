@@ -71,9 +71,13 @@ export interface GannLevels {
   squareOf9: { degree: number; price: number; distancePct: number; role: "support" | "resistance" }[];
   /** Whether today falls in a Gann time-cycle window, either direction. Display only. */
   timeCycleActive: boolean;
-  /** A low-anchored turn window is active — the reading a bullish setup is scored on. */
+  /**
+   * A low-anchored turn window is active. Display only since 2026-09-10 —
+   * `timeCycle` (the scored criterion this fed) was replaced by
+   * `timePriceSquare`; see lib/validation/criteria-registry.ts's RETIRED entry.
+   */
   timeCycleBullishActive: boolean;
-  /** A high-anchored turn window is active — the reading a bearish setup is scored on. */
+  /** A high-anchored turn window is active. Display only — see `timeCycleBullishActive`. */
   timeCycleBearishActive: boolean;
   timeCycleDates: string[];
   /**
