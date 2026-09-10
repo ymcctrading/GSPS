@@ -46,9 +46,19 @@
  * coarse pass, costing one wasted slot rather than a wrong answer — see "A note
  * on the symbols themselves" below.
  *
+ * Validated 2026-09-10 against Alpaca's live `/v2/assets` (see
+ * scripts/validate-large-cap-universe.mjs and
+ * app/api/admin/large-cap-universe-check/route.ts): of 771 symbols, 766 were
+ * active/tradable and 5 were not carried by Alpaca at all —
+ * `WBS`, `PSHD.L`, `DAY`, `CFLT`, `APGE` — and have been removed. `PSHD.L`
+ * was the expected foreign-fund false positive (Pershing Square Holdings,
+ * London/Amsterdam-listed, no US ADR); the other four are real US tickers
+ * Alpaca's active-asset catalog simply didn't resolve at check time. None
+ * were non-tradable/halted — every symbol Alpaca did recognize was tradable.
+ *
  * To refresh: re-export the source list, re-run the $10B–$200B band filter,
- * and replace the array below wholesale, updating LARGE_CAP_SOURCE_CAPTURED to
- * match.
+ * replace the array below wholesale, update LARGE_CAP_SOURCE_CAPTURED, and
+ * re-run the Alpaca validation before committing.
  */
 
 /** Where this list came from, so a future reader can tell what it covers. */
@@ -141,15 +151,15 @@ export const LARGE_CAP_UNIVERSE: string[] = [
   "CSL", "AA", "TRMB", "BWA", "DTM", "AMH", "QXO", "SJM", "TTMI", "CHYM",
   "GL", "AUR", "UDR", "QNT", "LII", "IESC", "AVY", "SEIC", "CNA", "WSO",
   "AMKR", "ERIE", "RPM", "ALLY", "NXT", "MDGL", "BAX", "PEN", "COKE", "MAIR",
-  "WBS", "HAS", "CORT", "BMRN", "AGNC", "TOL", "UHAL", "GLPI", "COO", "GGG",
-  "BTSG", "ELS", "PSHD.L", "HALO", "BF.A", "SF", "CCK", "CPT", "DOCU", "AR",
+  "HAS", "CORT", "BMRN", "AGNC", "TOL", "UHAL", "GLPI", "COO", "GGG",
+  "BTSG", "ELS", "HALO", "BF.A", "SF", "CCK", "CPT", "DOCU", "AR",
   "MANH", "EHC", "CSGP", "FNF", "AIT", "WTRG", "WTS", "DKS", "GDDY", "GWRE",
   "HUBS", "PNW", "TXRH", "ELAN", "DKNG", "FIG", "AHR", "DVA", "ARWR", "AFG",
   "CR", "FHN", "BXP", "HRL", "SWKS", "PSKY", "AEIS", "TECH", "JEF", "KNX",
-  "BJ", "DAY", "CFLT", "JKHY", "EVR", "HII", "TEM", "SANM", "AXSM", "GNRC",
+  "BJ", "JKHY", "EVR", "HII", "TEM", "SANM", "AXSM", "GNRC",
   "ARW", "DECK", "ALGN", "SCI", "AM", "CLX", "CART", "FROG", "NYT", "UMBF",
   "LFUS", "IT", "DAR", "EGP", "DPZ", "RRX", "GKOS", "GSAT", "ALSN", "AES",
-  "BPOP", "CGNX", "MGM", "DCI", "UHS", "PINS", "KRYS", "CYTK", "APGE", "SSB",
+  "BPOP", "CGNX", "MGM", "DCI", "UHS", "PINS", "KRYS", "CYTK", "SSB",
   "OC", "WTFC", "MOH", "RYAN", "BIO", "FRT", "AVTR", "CFR", "SOLS", "ENSG",
   "GMED",
 ];
