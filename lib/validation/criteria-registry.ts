@@ -133,13 +133,17 @@ const SCAN_SCORE: RegisteredCriterion[] = [
     note: "Positive on both 2026-09-08 runs (+0.89R, +1.00R), but the failing arm was 1 trade in each — direction agrees, sample does not carry it.",
   },
   {
-    id: "fanProximity",
+    id: "gannAngleSlope",
     family: "scanScore",
     source: "lib/scoring/score.ts",
-    label: "Support line proximity",
+    label: "Structural trend-angle strength (1x1)",
     expectedSign: "positive",
-    evidence: "hypothesis",
-    note: "Positive on both 2026-09-08 runs (+0.31R, +1.20R); both below the per-arm floor.",
+    evidence: "unmeasured",
+    note:
+      "Replaces `fanProximity` (retired 2026-09-10; see RETIRED). Wraps lib/gann/normalizedSlope.ts's " +
+      "realized ATR-per-bar slope since the direction-matched swing anchor, judged against the 1x1 " +
+      "angle ratio — a literal angle-of-ascent/descent check, unlike the generic fan-line-distance " +
+      "proximity it replaces. Never scored before; needs a fresh committed replay before any sign claim.",
   },
   {
     id: "harmonicProximity",
@@ -276,15 +280,21 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "it informative and positive, outside the noise band, on an adequately sampled arm.",
   },
   {
-    id: "masterStructural",
+    id: "gannRetracementConfluence",
     family: "scanScore",
     source: "lib/scoring/score.ts",
-    label: "Final target confirmed by structure",
+    label: "Retracement + signal-flow confluence",
     expectedSign: "positive",
-    evidence: "hypothesis",
+    evidence: "unmeasured",
     note:
-      "Sign disagrees between timeframes (−0.56R at 15Min, +1.00R at 1Hour, 2026-09-08), reproducing " +
-      "the disagreement docs/BACKTESTING.md already records for this criterion and deliberately left alone.",
+      "Replaces `masterStructural` (retired 2026-09-10; see RETIRED). A composite: passes only when a " +
+      "percentage-retracement zone (lib/gann/retracement.ts, the genuinely new structural mechanism this " +
+      "codebase was missing) matches in the trade's role AND the price-time signal-flow confluence off " +
+      "the same anchor (lib/gann/digitalRoot.ts's priceTimeConfluence) is not NO_CONFLUENCE. The AND is " +
+      "deliberate, not incidental: blueprint 7.4's safety rule forbids that signal-flow reading from " +
+      "ever gating a verdict by itself, so it is wired in only as a confirming second factor on top of " +
+      "an independent structural check, never as the sole basis for the point. Never scored before; " +
+      "needs a fresh committed replay before any sign claim.",
   },
 ];
 
@@ -303,6 +313,37 @@ const RETIRED: RegisteredCriterion[] = [
       "information at all. Every payload committed before 2026-09-08 measured it, which is why the " +
       "entry stays. `momentumElevated` itself is still computed and still gates the bare-2-2 check " +
       "in applyReversionConfirmation — that job was never the scored point.",
+  },
+  {
+    id: "fanProximity",
+    family: "scanScore",
+    source: "lib/scoring/score.ts (scored until 2026-09-10)",
+    label: "Support/resistance line proximity",
+    expectedSign: "positive",
+    evidence: "retired",
+    note:
+      "Replaced by `gannAngleSlope`. Alongside `masterStructural`, one of the three dead criteria: " +
+      "Δ=−0.002R, r=−0.0003, t=−0.01, 10.0% pass rate — statistically indistinguishable from noise " +
+      "(t well under 2), the same t=−0.01 already on record for `momentum` above. Earlier readings " +
+      "(+0.31R, +1.20R on 2026-09-08) were both below the per-arm sample floor and never confirmed on a " +
+      "larger population. Replaced with a literal angle-of-ascent/descent check rather than a " +
+      "re-tuned proximity band.",
+  },
+  {
+    id: "masterStructural",
+    family: "scanScore",
+    source: "lib/scoring/score.ts (scored until 2026-09-10)",
+    label: "Final target confirmed by a structural level",
+    expectedSign: "positive",
+    evidence: "retired",
+    note:
+      "Replaced by `gannRetracementConfluence`. One of the three dead criteria: Δ=+0.052R, r=+0.019, " +
+      "t=0.59, 54.4% pass rate — the sign is positive but t=0.59 clears no significance bar, consistent " +
+      "with the sign disagreement between timeframes already on record here (−0.56R at 15Min vs +1.00R " +
+      "at 1Hour, 2026-09-08) and with docs/BACKTESTING.md's note that 1Hour has historically inverted " +
+      "the scoring model's own verdict ranking — see lib/timeframe.ts's EXECUTION_TIMEFRAME override for " +
+      "why any 1Hour-influenced reading here needs discounting until real-time data lands. Replaced with " +
+      "a composite retracement-zone + signal-flow confluence check rather than a re-tuned target rule.",
   },
 ];
 

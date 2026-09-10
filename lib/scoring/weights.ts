@@ -26,13 +26,13 @@
 export const CRITERION_KEYS = [
   "macroTrend",
   "hourlyTrend",
-  "fanProximity",
+  "gannAngleSlope",
   "harmonicProximity",
   "historicalSR",
   "patternArmed",
   "stopRoom",
   "timeCycle",
-  "masterStructural",
+  "gannRetracementConfluence",
 ] as const;
 
 export type CriterionKey = (typeof CRITERION_KEYS)[number];
@@ -50,13 +50,13 @@ export type BreakdownKey = CriterionKey | HoldKey;
 export const CRITERION_LABELS: Record<CriterionKey, string> = {
   macroTrend: "Macro trend context",
   hourlyTrend: "1-hour trend agreement",
-  fanProximity: "Support line proximity",
+  gannAngleSlope: "Structural trend-angle strength (1x1)",
   harmonicProximity: "Key price level proximity",
   historicalSR: "Historical support/resistance",
   patternArmed: "Pattern armed",
   stopRoom: "Stop room (>= 1.5x ATR)",
   timeCycle: "Cyclical turn window active",
-  masterStructural: "Final target confirmed by structure",
+  gannRetracementConfluence: "Retracement + signal-flow confluence",
 };
 
 export type CriterionWeights = Record<CriterionKey, number>;

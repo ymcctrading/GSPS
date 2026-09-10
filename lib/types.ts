@@ -6,6 +6,7 @@ import type { LiquidityRead } from "@/lib/scan/liquidity";
 import type { RegimeRead, SignalVerdict } from "@/lib/signals/types";
 import type { GannConfluenceResult, SaraConfluenceResult } from "@/lib/signals/confluence/types";
 import type { NoviceEligibility } from "@/lib/universe/types";
+import type { ConfluenceType } from "@/lib/gann/digitalRoot";
 
 export type AssetClass = "us_equity" | "crypto";
 
@@ -75,6 +76,31 @@ export interface GannLevels {
   /** A high-anchored turn window is active — the reading a bearish setup is scored on. */
   timeCycleBearishActive: boolean;
   timeCycleDates: string[];
+  /**
+   * Realized Gann-angle (1x1, etc.) slope since the most recent significant
+   * low (bullish reading) and high (bearish reading) — lib/gann/normalizedSlope.ts.
+   */
+  angleSlopes: {
+    anchorKind: "high" | "low";
+    anchorPrice: number;
+    barsSinceAnchor: number;
+    slope: number;
+    nearestAngle: { label: string; ratio: number; direction: "up" | "down" } | null;
+  }[];
+  /** Gann percentage retracement zones (eighths) off the last swing — lib/gann/retracement.ts. */
+  retracementLevels: { fraction: number; label: string; price: number; distancePct: number; role: "support" | "resistance" }[];
+  /**
+   * Digital-root/vortex price-time confluence off the same anchors as
+   * `angleSlopes`. Confluence/context only, per blueprint 7.4 — never a
+   * scored criterion's sole basis, only ANDed with an independent structural
+   * check. See `lib/gann/digitalRoot.ts`'s `priceTimeConfluence`.
+   */
+  digitalRootConfluences: {
+    anchorKind: "high" | "low";
+    priceRoot: number;
+    timeRoot: number;
+    type: ConfluenceType;
+  }[];
 }
 
 export interface TradeLevels {

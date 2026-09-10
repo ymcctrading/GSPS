@@ -56,12 +56,15 @@ const levels: TradeLevels = {
 /** Both structural levels sit 1.2% away — inside the old fixed fan band. */
 function gannAt(distancePct: number): GannLevels {
   return {
-    fanLines: [{ angle: "1x1", price: 100, distancePct, role: "support" }],
+    fanLines: [],
     squareOf9: [{ degree: 90, price: 100, distancePct, role: "support" }],
     timeCycleActive: false,
     timeCycleBullishActive: false,
     timeCycleBearishActive: false,
     timeCycleDates: [],
+    angleSlopes: [],
+    retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100, distancePct, role: "support" }],
+    digitalRootConfluences: [{ anchorKind: "low", priceRoot: 1, timeRoot: 8, type: "COMPLEMENTARY_PAIR" }],
   };
 }
 
@@ -139,19 +142,19 @@ describe("structural criteria across the universe", () => {
     const quiet = inputs({ atrPct: 1 }); // band 0.5% — 1.2% away is not near
     const volatile = inputs({ atrPct: 5 }); // band 2.5% — 1.2% away is near
 
-    expect(passed(quiet, "fanProximity")).toBe(false);
-    expect(passed(volatile, "fanProximity")).toBe(true);
+    expect(passed(quiet, "gannRetracementConfluence")).toBe(false);
+    expect(passed(volatile, "gannRetracementConfluence")).toBe(true);
   });
 
   it("stops handing a free point to a 5%-ATR name that the old band gave away", () => {
     // 1.2% cleared the old 1.5% fan band on every symbol regardless of range.
-    expect(passed(inputs(), "fanProximity")).toBe(true);
-    expect(passed(inputs({ atrPct: 1 }), "fanProximity")).toBe(false);
+    expect(passed(inputs(), "gannRetracementConfluence")).toBe(true);
+    expect(passed(inputs({ atrPct: 1 }), "gannRetracementConfluence")).toBe(false);
   });
 
   it("says which band a criterion was measured against", () => {
     const item = computeScore(inputs({ atrPct: 2 })).breakdown.find(
-      (b) => b.key === "fanProximity",
+      (b) => b.key === "gannRetracementConfluence",
     );
     expect(item?.note).toContain("1.00%");
     expect(item?.note).toContain("daily average range");

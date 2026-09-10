@@ -29,7 +29,7 @@ function scanWithEntry(entry: number, direction: "bullish" | "bearish" = "bullis
     setupKind: "reversion",
     momentumElevated: false,
     trends: [],
-    gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [] },
+    gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [], angleSlopes: [], retracementLevels: [], digitalRootConfluences: [] },
     pattern: {
       name: "2-2",
       direction,

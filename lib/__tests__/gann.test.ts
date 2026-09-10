@@ -118,12 +118,17 @@ describe("computeScore", () => {
       macroTrends: [trend("1Month", "bullish"), trend("1Week", "bullish"), trend("1Day", "bullish")],
       hourlyTrend: trend("1Hour", "bullish"),
       gann: {
-        fanLines: [{ angle: "1x1 (low)", price: 100, distancePct: 0.5, role: "support" }],
+        fanLines: [],
         squareOf9: [{ degree: 90, price: 100.2, distancePct: 0.3, role: "support" }],
         timeCycleActive: true,
         timeCycleBullishActive: true,
         timeCycleBearishActive: false,
         timeCycleDates: [],
+        angleSlopes: [
+          { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, slope: 1.1, nearestAngle: { label: "1x1", ratio: 1, direction: "up" } },
+        ],
+        retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100, distancePct: 0.5, role: "support" }],
+        digitalRootConfluences: [{ anchorKind: "low", priceRoot: 1, timeRoot: 8, type: "COMPLEMENTARY_PAIR" }],
       },
       nearSupportResistance: true,
       srMatch: { price: 99.8, timeframe: "1Day", role: "support" },
@@ -169,12 +174,17 @@ describe("computeScore", () => {
       macroTrends: [trend("1Month", "bullish"), trend("1Week", "bullish"), trend("1Day", "bullish")],
       hourlyTrend: trend("1Hour", "bullish"),
       gann: {
-        fanLines: [{ angle: "1x1 (low)", price: 100, distancePct: 0.5, role: "resistance" }],
+        fanLines: [],
         squareOf9: [{ degree: 90, price: 100.2, distancePct: 0.3, role: "resistance" }],
         timeCycleActive: true,
         timeCycleBullishActive: true,
         timeCycleBearishActive: false,
         timeCycleDates: [],
+        angleSlopes: [
+          { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, slope: 1.1, nearestAngle: { label: "1x1", ratio: 1, direction: "up" } },
+        ],
+        retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100, distancePct: 0.5, role: "resistance" }],
+        digitalRootConfluences: [{ anchorKind: "low", priceRoot: 1, timeRoot: 8, type: "COMPLEMENTARY_PAIR" }],
       },
       nearSupportResistance: true,
       srMatch: { price: 100.4, timeframe: "1Day", role: "resistance" },
@@ -203,11 +213,13 @@ describe("computeScore", () => {
       },
     });
     const byKey = Object.fromEntries(decision.breakdown.map((b) => [b.key, b.passed]));
-    expect(byKey.fanProximity).toBe(false);
+    expect(byKey.gannRetracementConfluence).toBe(false);
     expect(byKey.harmonicProximity).toBe(false);
     expect(byKey.historicalSR).toBe(false);
-    // The three structural criteria lose their point; everything else in the
-    // full-confluence fixture still passes, so score drops by exactly 3.
+    // gannAngleSlope isn't a level-role check (it reads realized slope, not a
+    // structural level), so it still passes here — only the three role-gated
+    // criteria lose their point, and score drops by exactly 3.
+    expect(byKey.gannAngleSlope).toBe(true);
     expect(decision.score).toBe(6);
     expect(decision.outputState).toBe("Watch");
   });
@@ -217,7 +229,7 @@ describe("computeScore", () => {
       direction: "bullish",
       macroTrends: [trend("1Month", "bullish"), trend("1Week", "bullish"), trend("1Day", "sideways")],
       hourlyTrend: trend("1Hour", "bearish"),
-      gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [] },
+      gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [], angleSlopes: [], retracementLevels: [], digitalRootConfluences: [] },
       nearSupportResistance: false,
       pattern: null,
       momentumElevated: false,
@@ -228,13 +240,23 @@ describe("computeScore", () => {
     expect(decision.outputState).toBe("Reject");
   });
 
-  it("awards the structural-confirmation point regardless of the stop's share of price", () => {
+  it("awards the retracement-confluence point regardless of the stop's share of price", () => {
     const item = (stopPctOfPrice: number) =>
       computeScore({
         direction: "bullish",
         macroTrends: [trend("1Month", "bullish"), trend("1Week", "bullish"), trend("1Day", "bullish")],
         hourlyTrend: trend("1Hour", "bearish"),
-        gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [] },
+        gann: {
+          fanLines: [],
+          squareOf9: [],
+          timeCycleActive: false,
+          timeCycleBullishActive: false,
+          timeCycleBearishActive: false,
+          timeCycleDates: [],
+          angleSlopes: [],
+          retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100, distancePct: 0.5, role: "support" }],
+          digitalRootConfluences: [{ anchorKind: "low", priceRoot: 1, timeRoot: 8, type: "COMPLEMENTARY_PAIR" }],
+        },
         nearSupportResistance: false,
         pattern: null,
         momentumElevated: false,
@@ -253,10 +275,10 @@ describe("computeScore", () => {
           stopPctOfPrice,
           stopBandWarning: null,
         },
-      }).breakdown.find((b) => b.criterion.startsWith("Final target"));
+      }).breakdown.find((b) => b.key === "gannRetracementConfluence");
 
-    // 5% and 30% both sit outside the old 12–18% band; only whether a
-    // structural level confirms the master target matters now.
+    // 5% and 30% both sit outside the old 12–18% band; only whether the
+    // retracement zone + digital-root confluence holds matters now.
     expect(item(5)?.passed).toBe(true);
     expect(item(30)?.passed).toBe(true);
     expect(item(14.4)?.passed).toBe(true);
@@ -278,11 +300,11 @@ describe("computeScore", () => {
     };
     const active = computeScore({
       ...base,
-      gann: { fanLines: [], squareOf9: [], timeCycleActive: true, timeCycleBullishActive: true, timeCycleBearishActive: true, timeCycleDates: ["2026-08-05"] },
+      gann: { fanLines: [], squareOf9: [], timeCycleActive: true, timeCycleBullishActive: true, timeCycleBearishActive: true, timeCycleDates: ["2026-08-05"], angleSlopes: [], retracementLevels: [], digitalRootConfluences: [] },
     });
     const inactive = computeScore({
       ...base,
-      gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [] },
+      gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [], angleSlopes: [], retracementLevels: [], digitalRootConfluences: [] },
     });
 
     expect(active.score).toBe(inactive.score + 1);

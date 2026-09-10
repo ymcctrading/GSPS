@@ -18,7 +18,7 @@ const baseResult: Omit<ScanResult, "signals"> = {
   setupKind: "reversion",
   momentumElevated: true,
   trends: [],
-  gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [] },
+  gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [], angleSlopes: [], retracementLevels: [], digitalRootConfluences: [] },
   pattern: null,
   armedPatterns: [],
   levels: null,

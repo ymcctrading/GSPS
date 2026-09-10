@@ -36,12 +36,17 @@ const trend = (direction: TrendReading["direction"]): TrendReading => ({
 // floor underneath price — the side that actually confirms a long — not a
 // resistance ceiling overhead.
 const gann: GannLevels = {
-  fanLines: [{ angle: "1x4 (high)", price: 101, distancePct: 0.4, role: "support" }],
+  fanLines: [],
   squareOf9: [{ degree: 45, price: 100.5, distancePct: 0.2, role: "support" }],
   timeCycleActive: true,
   timeCycleBullishActive: true,
   timeCycleBearishActive: false,
   timeCycleDates: ["2026-08-06"],
+  angleSlopes: [
+    { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, slope: 1.1, nearestAngle: { label: "1x1", ratio: 1, direction: "up" } },
+  ],
+  retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100.5, distancePct: 0.2, role: "support" }],
+  digitalRootConfluences: [{ anchorKind: "low", priceRoot: 1, timeRoot: 8, type: "COMPLEMENTARY_PAIR" }],
 };
 
 const levels: TradeLevels = {
@@ -85,7 +90,7 @@ const allFail: ScoreInputs = {
   direction: "bullish",
   macroTrends: [trend("bearish"), trend("bearish"), trend("bearish")],
   hourlyTrend: trend("bearish"),
-  gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [] },
+  gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [], angleSlopes: [], retracementLevels: [], digitalRootConfluences: [] },
   nearSupportResistance: false,
   pattern: null,
   momentumElevated: false,

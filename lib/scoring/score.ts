@@ -168,10 +168,33 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // criterion just because the literal closest line happens to be on the
   // wrong side.
   const wantedRole: LevelRole = direction === "bullish" ? "support" : "resistance";
-  const fanMatch = gann.fanLines.find((f) => f.role === wantedRole && f.distancePct <= fanBandPct) ?? null;
   const s9Match = gann.squareOf9.find((s) => s.role === wantedRole && s.distancePct <= harmonicBandPct) ?? null;
-  const nearFan = fanMatch !== null;
   const nearS9 = s9Match !== null;
+
+  // Which anchor bears on this trade's own direction: a bullish setup reads
+  // the angle rising from the most recent low underneath it, a bearish
+  // setup the angle falling from the most recent high above it — same
+  // convention `wantedRole` already uses for fan/S9 matches.
+  const angleAnchorKind: "low" | "high" = direction === "bullish" ? "low" : "high";
+  const angleReading = gann.angleSlopes.find((r) => r.anchorKind === angleAnchorKind) ?? null;
+  // "Holding the 1x1" (Gann's baseline trend-intact angle): realized slope at
+  // or steeper than the 1x1 ratio, moving the way the trade needs it to.
+  const angleHolding =
+    angleReading?.nearestAngle != null &&
+    angleReading.nearestAngle.ratio >= 1 &&
+    angleReading.nearestAngle.direction === (direction === "bullish" ? "up" : "down");
+
+  // Gann's percentage-retracement zone (eighths), reusing the same band the
+  // (now retired) fan-line criterion used.
+  const retracementMatch =
+    gann.retracementLevels.find((r) => r.role === wantedRole && r.distancePct <= fanBandPct) ?? null;
+  // Digital-root/vortex confluence off the same direction-matched anchor —
+  // never the sole basis for this criterion, only ANDed with the structural
+  // retracement match above. See lib/gann/digitalRoot.ts's priceTimeConfluence
+  // and its blueprint-7.4 confluence-only rule.
+  const drReading = gann.digitalRootConfluences.find((r) => r.anchorKind === angleAnchorKind) ?? null;
+  const drConfluenceHolds = drReading !== null && drReading.type !== "NO_CONFLUENCE";
+  const gannConfluenceStackPassed = retracementMatch !== null && drConfluenceHolds;
   // srMatch carries the role of the matched level; older callers that only
   // pass the boolean (no srMatch) keep the pre-fix behavior for this
   // criterion rather than being silently failed by a check they can't answer.
@@ -188,12 +211,6 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // practice (zero of 6,362 armed setups) and only mirrors the defect, turning
   // a point nobody could lose into one nobody could win.
   //
-  // The master target is where structure actually shows up. It snaps to a Gann
-  // or harmonic level when one sits in range and falls back to a plain 3R
-  // projection when none does — roughly a 29/71 split, so both arms carry
-  // enough trades to separate a winner from a loser.
-  const cleanRR = levels !== null && levels.masterFromStructure;
-
   const upcomingCycles = gann.timeCycleDates.slice(0, 3).join(", ");
 
   const breakdown: ScoreBreakdownItem[] = [
@@ -218,13 +235,13 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       note: `1hr trend reads ${hourlyTrend.direction}.`,
     },
     {
-      key: "fanProximity",
-      criterion: "Support/resistance line proximity",
-      pillar: "structure",
-      passed: nearFan,
-      note: fanMatch
-        ? `Price within ${fanMatch.distancePct.toFixed(2)}% of the ${fanMatch.angle} ${levelRoleLabel(fanMatch.role).toLowerCase()} line at ${fanMatch.price.toFixed(2)} — inside the ${fanBandPct.toFixed(2)}% band (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}). ${LEVEL_TIMEFRAME_USAGE["1Day"]}.`
-        : `No ${levelRoleLabel(wantedRole).toLowerCase()} line within ${fanBandPct.toFixed(2)}% (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}).`,
+      key: "gannAngleSlope",
+      criterion: "Structural trend-angle strength (1x1)",
+      pillar: "trend",
+      passed: angleHolding,
+      note: angleReading?.nearestAngle
+        ? `Realized slope ${angleReading.slope.toFixed(2)} ATR/bar since the ${angleReading.anchorKind} anchor at ${angleReading.anchorPrice.toFixed(2)} (${angleReading.barsSinceAnchor} bars) — nearest to the ${angleReading.nearestAngle.label} structural angle, moving ${angleReading.nearestAngle.direction}.`
+        : `No measurable structural angle slope since the last significant ${angleAnchorKind}.`,
     },
     {
       key: "harmonicProximity",
@@ -287,15 +304,15 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
         : `Not inside a ${direction}-anchored turn window${upcomingCycles ? `; next dates of interest ${upcomingCycles}.` : " — none projected in the next two weeks."}`,
     },
     {
-      key: "masterStructural",
-      criterion: "Final target confirmed by a structural level",
+      key: "gannRetracementConfluence",
+      criterion: "Retracement zone + signal-flow confluence",
       pillar: "riskReward",
-      passed: cleanRR,
-      note: !levels
-        ? "No trade levels computed."
-        : cleanRR
-          ? `Final target at ${levels.masterProfit.toFixed(2)} (${levels.rewardToRiskMaster.toFixed(1)}R) sits on a support or key price level, not just a projection from risk.`
-          : `Final target at ${levels.masterProfit.toFixed(2)} (${levels.rewardToRiskMaster.toFixed(1)}R) is projected from risk — no support or key price level in range to confirm it.`,
+      passed: gannConfluenceStackPassed,
+      note: retracementMatch
+        ? drConfluenceHolds
+          ? `Price within ${retracementMatch.distancePct.toFixed(2)}% of the ${retracementMatch.label} retracement ${levelRoleLabel(retracementMatch.role).toLowerCase()} at ${retracementMatch.price.toFixed(2)} — inside the ${fanBandPct.toFixed(2)}% band (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}), confirmed by a matching GSPS signal-flow reading off the same anchor.`
+          : `Price within ${retracementMatch.distancePct.toFixed(2)}% of the ${retracementMatch.label} retracement ${levelRoleLabel(retracementMatch.role).toLowerCase()} at ${retracementMatch.price.toFixed(2)}, but no signal-flow confluence off the same anchor — the zone alone isn't enough.`
+        : `No ${levelRoleLabel(wantedRole).toLowerCase()} retracement zone within ${fanBandPct.toFixed(2)}% (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}).`,
     },
   ];
 
