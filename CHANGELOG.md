@@ -7,6 +7,44 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-09-10 (sixth follow-up)
+
+### Added
+- **Live scan pipeline wiring for four of `0064`'s blueprint-named tables**
+  (`bar`, `instrument_profile`, `volume_state`, `volatility_state`) — direct
+  follow-up request. `lib/learning/record.ts`'s `recordScanVerdict` now
+  writes all four from values `lib/scanTicker.ts` already computes, nothing
+  fetched or derived just to fill a column:
+  - `bar` — the last 5 of `ScanResult.dailyBars`, upserted with
+    `ignoreDuplicates` so a repeat scan of the same symbol is a cheap no-op
+    rather than a resend of the whole fetched window (`upsertBars`,
+    `lib/learning/db.ts`).
+  - `instrument_profile` — `avg_dollar_volume` only, from
+    `ScanResult.liquidity`. Sector/industry/market cap/float stay unset — no
+    data source for any of them exists anywhere in this pipeline.
+  - `volume_state` — `relative_volume_index`, from
+    `lib/signals/indicators.ts`'s existing `relativeVolume` against the same
+    daily bars (`ScanResult.volumeRead`).
+  - `volatility_state` — `atr` plus a `volatility_regime` bucketed from the
+    recent-ATR/baseline-ATR expansion ratio `momentumElevated` is already
+    computed from (`ScanResult.volatilityRead`). `atr_percentile` stays
+    unset — the ratio is a real expansion/contraction read, not a formal
+    statistical percentile, and labeling it as one would be dishonest.
+  - `ScanResult` gained `dailyBars`/`volatilityRead`/`volumeRead`
+    (`lib/types.ts`), populated in `lib/scanTicker.ts`. `dailyBars` is
+    internal-only — `redactScanResult` (`lib/scoring/public-summary.ts`)
+    strips it at the API boundary, same treatment as `decision.breakdown`;
+    it's bulk data carried only so the recorder can persist it without a
+    second fetch, not a public response field. `volatilityRead`/`volumeRead`
+    are small derived numbers and stay public, same as `liquidity` already
+    is.
+  - `corporate_action` (no splits/dividends data source exists anywhere in
+    this codebase), `feature_registry`/`experiment_registry` (governance/
+    research catalogs, not per-scan writes) and `backtest_run` (belongs to
+    the `lib/backtest/*` CLI tool, which has no per-user-scoped concept, not
+    the live scan pipeline) are deliberately not wired from here — see
+    `supabase/AGENTS.md`'s updated table inventory.
+
 ## 2026-09-10 (fifth follow-up)
 
 ### Added

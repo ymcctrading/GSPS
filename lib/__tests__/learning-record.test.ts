@@ -13,6 +13,10 @@ const recordExecutionEvent = vi.fn();
 const upsertInstrument = vi.fn();
 const recordPivot = vi.fn();
 const recordTrendState = vi.fn();
+const upsertBars = vi.fn();
+const upsertInstrumentProfile = vi.fn();
+const recordVolumeState = vi.fn();
+const recordVolatilityState = vi.fn();
 
 vi.mock("@/lib/learning/db", () => ({
   recordScanEvent: (...args: unknown[]) => recordScanEvent(...args),
@@ -21,6 +25,10 @@ vi.mock("@/lib/learning/db", () => ({
   upsertInstrument: (...args: unknown[]) => upsertInstrument(...args),
   recordPivot: (...args: unknown[]) => recordPivot(...args),
   recordTrendState: (...args: unknown[]) => recordTrendState(...args),
+  upsertBars: (...args: unknown[]) => upsertBars(...args),
+  upsertInstrumentProfile: (...args: unknown[]) => upsertInstrumentProfile(...args),
+  recordVolumeState: (...args: unknown[]) => recordVolumeState(...args),
+  recordVolatilityState: (...args: unknown[]) => recordVolatilityState(...args),
 }));
 
 import {
@@ -257,6 +265,129 @@ describe("recordScanVerdict — blueprint tables (migration 0063)", () => {
 
     expect(recordPivot).not.toHaveBeenCalled();
     expect(recordTrendState).not.toHaveBeenCalled();
+  });
+});
+
+describe("recordScanVerdict — blueprint tables (migration 0064)", () => {
+  const bar = (t: string, o: number, h: number, l: number, c: number, v: number) => ({ t, o, h, l, c, v });
+
+  it("upserts the last 5 daily bars, bounded rather than the whole fetched window", async () => {
+    recordScanEvent.mockResolvedValue({ id: "scan-row" });
+    upsertInstrument.mockResolvedValue("instrument-1");
+    const dailyBars = Array.from({ length: 30 }, (_, i) =>
+      bar(`2026-08-${String(i + 1).padStart(2, "0")}`, 100, 101, 99, 100, 1000),
+    );
+    await recordScanVerdict("user-1", scan({ dailyBars }), { timeframe: "15Min" });
+
+    expect(upsertBars).toHaveBeenCalledTimes(1);
+    const [rows] = upsertBars.mock.calls[0];
+    expect(rows).toHaveLength(5);
+    expect(rows[0]).toMatchObject({ instrument_id: "instrument-1", timeframe: "1d" });
+  });
+
+  it("does not write bar/instrument_profile/volume_state/volatility_state without daily bars", async () => {
+    recordScanEvent.mockResolvedValue({ id: "scan-row" });
+    upsertInstrument.mockResolvedValue("instrument-1");
+    await recordScanVerdict("user-1", scan(), { timeframe: "15Min" });
+
+    expect(upsertBars).not.toHaveBeenCalled();
+    expect(upsertInstrumentProfile).not.toHaveBeenCalled();
+    expect(recordVolumeState).not.toHaveBeenCalled();
+    expect(recordVolatilityState).not.toHaveBeenCalled();
+  });
+
+  it("upserts instrument_profile from the already-computed average dollar volume only", async () => {
+    recordScanEvent.mockResolvedValue({ id: "scan-row" });
+    upsertInstrument.mockResolvedValue("instrument-1");
+    await recordScanVerdict(
+      "user-1",
+      scan({
+        dailyBars: [bar("2026-08-01", 100, 101, 99, 100, 1000)],
+        liquidity: { price: 100, avgVolume: 5_000_000, avgDollarVolume: 500_000_000 },
+      }),
+      { timeframe: "15Min" },
+    );
+
+    expect(upsertInstrumentProfile).toHaveBeenCalledWith({
+      instrument_id: "instrument-1",
+      avg_dollar_volume: 500_000_000,
+    });
+  });
+
+  it("records relative volume into volume_state", async () => {
+    recordScanEvent.mockResolvedValue({ id: "scan-row" });
+    upsertInstrument.mockResolvedValue("instrument-1");
+    await recordScanVerdict(
+      "user-1",
+      scan({
+        dailyBars: [bar("2026-08-01", 100, 101, 99, 100, 1000)],
+        volumeRead: { relativeVolumeIndex: 1.32 },
+      }),
+      { timeframe: "15Min" },
+    );
+
+    expect(recordVolumeState).toHaveBeenCalledWith("user-1", {
+      instrument_id: "instrument-1",
+      scan_event_id: "scan-row",
+      timeframe: "1d",
+      relative_volume_index: 1.32,
+    });
+  });
+
+  it("skips volume_state when relative volume could not be computed", async () => {
+    recordScanEvent.mockResolvedValue({ id: "scan-row" });
+    upsertInstrument.mockResolvedValue("instrument-1");
+    await recordScanVerdict(
+      "user-1",
+      scan({
+        dailyBars: [bar("2026-08-01", 100, 101, 99, 100, 1000)],
+        volumeRead: { relativeVolumeIndex: null },
+      }),
+      { timeframe: "15Min" },
+    );
+
+    expect(recordVolumeState).not.toHaveBeenCalled();
+  });
+
+  it("records ATR and the volatility regime into volatility_state", async () => {
+    recordScanEvent.mockResolvedValue({ id: "scan-row" });
+    upsertInstrument.mockResolvedValue("instrument-1");
+    await recordScanVerdict(
+      "user-1",
+      scan({
+        dailyBars: [bar("2026-08-01", 100, 101, 99, 100, 1000)],
+        volatilityRead: { atr: 3.5, regime: "elevated" },
+      }),
+      { timeframe: "15Min" },
+    );
+
+    expect(recordVolatilityState).toHaveBeenCalledWith("user-1", {
+      instrument_id: "instrument-1",
+      scan_event_id: "scan-row",
+      timeframe: "1d",
+      atr: 3.5,
+      volatility_regime: "elevated",
+    });
+  });
+
+  it("skips these four writes when the instrument upsert fails", async () => {
+    recordScanEvent.mockResolvedValue({ id: "scan-row" });
+    upsertInstrument.mockRejectedValue(new Error("relation does not exist"));
+    await recordScanVerdict(
+      "user-1",
+      scan({
+        dailyBars: [bar("2026-08-01", 100, 101, 99, 100, 1000)],
+        liquidity: { price: 100, avgVolume: 5_000_000, avgDollarVolume: 500_000_000 },
+        volumeRead: { relativeVolumeIndex: 1.1 },
+        volatilityRead: { atr: 3.5, regime: "normal" },
+      }),
+      { timeframe: "15Min" },
+    );
+
+    expect(upsertBars).not.toHaveBeenCalled();
+    expect(upsertInstrumentProfile).not.toHaveBeenCalled();
+    expect(recordVolumeState).not.toHaveBeenCalled();
+    expect(recordVolatilityState).not.toHaveBeenCalled();
   });
 });
 

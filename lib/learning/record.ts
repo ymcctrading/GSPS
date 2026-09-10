@@ -32,7 +32,11 @@ import {
   recordScanEvent,
   recordSignalLifecycleEvent,
   recordTrendState,
+  recordVolatilityState,
+  recordVolumeState,
+  upsertBars,
   upsertInstrument,
+  upsertInstrumentProfile,
 } from "@/lib/learning/db";
 import type {
   AssetClass as LearningAssetClass,
@@ -119,6 +123,20 @@ export interface RecordScanOptions {
  * pipeline computes a Gann digital-root (3/6/9) value today — inventing one
  * would be exactly the "plausible number nobody computed" this module exists
  * to avoid recording.
+ *
+ * Also backs four of migration 0064's tables, all from values the scan
+ * pipeline already computes — nothing fetched or derived just to fill a
+ * column: the last 5 of `result.dailyBars` into `bar` (bounded rather than
+ * the whole fetched window, since `upsertBars`'s `ignoreDuplicates` makes a
+ * repeat scan of the same symbol a cheap no-op, not a reason to resend
+ * hundreds of rows every time); `result.liquidity.avgDollarVolume` into
+ * `instrument_profile` (sector/industry/market cap/float stay unset — no
+ * data source for any of them exists in this pipeline, so they are left
+ * `null` rather than guessed); `result.volumeRead`/`.volatilityRead` into
+ * `volume_state`/`volatility_state`. `corporate_action`,
+ * `feature_registry`, `experiment_registry` and `backtest_run` are
+ * deliberately not written from here — see `supabase/AGENTS.md`'s table
+ * inventory for why each doesn't fit the live scan pipeline.
  */
 export async function recordScanVerdict(
   userId: string,
@@ -220,6 +238,60 @@ export async function recordScanVerdict(
             price: level.price,
             cluster_price: level.price,
             role: level.role,
+          }),
+        );
+      }
+    }
+
+    if (result.dailyBars && result.dailyBars.length > 0) {
+      // All three reads below (bars, relative volume, ATR/regime) are
+      // derived from `result.dailyBars`, not the execution-timeframe bar —
+      // "1d" labels them correctly regardless of what timeframe this scan
+      // was recorded on.
+      const DAILY_TIMEFRAME = "1d" as const;
+      await safeRecord(`bars for ${result.symbol}`, () =>
+        upsertBars(
+          result.dailyBars!.slice(-5).map((b) => ({
+            instrument_id: instrumentId,
+            timeframe: "1d" as const,
+            bar_time: new Date(b.t),
+            open: b.o,
+            high: b.h,
+            low: b.l,
+            close: b.c,
+            volume: b.v,
+          })),
+        ),
+      );
+
+      if (result.liquidity) {
+        await safeRecord(`instrument profile for ${result.symbol}`, () =>
+          upsertInstrumentProfile({
+            instrument_id: instrumentId,
+            avg_dollar_volume: result.liquidity!.avgDollarVolume,
+          }),
+        );
+      }
+
+      if (result.volumeRead?.relativeVolumeIndex != null) {
+        await safeRecord(`volume state for ${result.symbol}`, () =>
+          recordVolumeState(userId, {
+            instrument_id: instrumentId,
+            scan_event_id: scanEventId,
+            timeframe: DAILY_TIMEFRAME,
+            relative_volume_index: result.volumeRead!.relativeVolumeIndex!,
+          }),
+        );
+      }
+
+      if (result.volatilityRead) {
+        await safeRecord(`volatility state for ${result.symbol}`, () =>
+          recordVolatilityState(userId, {
+            instrument_id: instrumentId,
+            scan_event_id: scanEventId,
+            timeframe: DAILY_TIMEFRAME,
+            atr: result.volatilityRead!.atr,
+            volatility_regime: result.volatilityRead!.regime,
           }),
         );
       }
