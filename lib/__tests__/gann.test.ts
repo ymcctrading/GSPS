@@ -312,4 +312,5 @@ describe("computeScore", () => {
     expect(active.breakdown.map((b) => b.criterion)).toHaveLength(9);
     expect(active.breakdown.some((b) => /earnings/i.test(b.criterion))).toBe(false);
   });
+
 });

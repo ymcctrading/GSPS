@@ -189,17 +189,53 @@ stated goal of "an accurate signal engine with explainable logic and tuned
 scoring" (`ROADMAP.md` line ~64) — flag this to the project owner rather than
 assuming it.
 
-## Suggested order of work for the new session
+## What actually happened (superseded — read this before the numbered plan below)
 
-1. Pick Candidate 1 (Gann angle) first — lowest implementation risk, code
-   already exists.
-2. Define its exact pass/fail rule, add it to `lib/scoring/score.ts` as a
-   *new, unweighted* diagnostic field first (not one of the nine points) so
-   it appears in every replay's `criteria` snapshot without affecting any
-   verdict.
+This section's original plan (build all three as unweighted diagnostics,
+measure via a real replay, only then propose a swap) was scaffolded in full
+on 2026-09-10 — and then reverted the same day. In parallel, a second session
+took the direct-swap path this document explicitly warned against, but aimed
+at a *different* pair of criteria: rather than the three quarantined ones
+(`macroTrend`, `harmonicProximity`, `timeCycle`), it retired `fanProximity`
+and `masterStructural` — the two of the remaining six with the weakest
+measured effect (|t| well under significance) — and replaced them with
+`gannAngleSlope` and a composite `gannRetracementConfluence`, live in
+`CRITERION_KEYS` immediately, `evidence: "unmeasured"`.
+
+Presented with both in-flight efforts, the project owner chose the second:
+retire `fanProximity`/`masterStructural`, keep the three quarantined
+criteria in place (still quarantined, still scored, still unproven either
+way). Consequently, the scaffolding this section originally documented —
+`angleSlopeFromBars`, `vortexConfluenceFromBars`, `lib/gann/retracements.ts`,
+`ScanDecision.candidateCriteria`, and the `"candidate"` registry family — was
+removed as redundant with the promoted branch's own (differently anchored,
+differently shaped) `computeAngleSlopes`/`computeRetracementLevels`/
+`priceTimeConfluence` implementations, to avoid two parallel, competing
+versions of the same idea living in the codebase at once.
+
+**Net effect on `CRITERION_KEYS` today:** `fanProximity` and
+`masterStructural` are retired; `gannAngleSlope` and
+`gannRetracementConfluence` are scored in their place. `macroTrend`,
+`harmonicProximity`, and `timeCycle` — this document's original three
+targets — are untouched, still quarantined, still carrying a live point
+each. If someone wants to revisit *those* three, the plan below is still the
+right shape for it; it just didn't end up being how the first two "dead
+criteria" got resolved.
+
+## Suggested order of work (as originally written, for the quarantined three)
+
+1. Pick a candidate (the Gann angle is the lowest-risk starting point, since
+   equivalent code already exists post-#208) and give it a concrete pass/fail
+   rule.
+2. Add it to `lib/scoring/score.ts` as a *new, unweighted* diagnostic field
+   first (not one of the nine points) so it appears in every replay's
+   `criteria` snapshot without affecting any verdict.
 3. Run `lib/backtest/attribution.ts` against a real replay to see whether it
    clears `informative` at all before investing further.
-4. Repeat for Candidates 2 and 3.
-5. Only after at least one clears the four-point validation bar above,
-   propose which quarantined criterion it would replace, and route that
-   decision through a human before touching `CRITERION_KEYS`.
+4. Repeat for however many candidates are worth trying.
+5. Only after one clears the in/out-of-sample validation bar above, propose
+   which quarantined criterion it would replace, and route that decision
+   through the project owner before touching `CRITERION_KEYS` — or, per the
+   precedent this document now also records, get an explicit direct
+   instruction to skip straight to the swap and do that instead, flagged as
+   the deviation it is.
