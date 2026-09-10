@@ -19,7 +19,10 @@
  * the bar — reversions are scanned first and keep priority, but continuations
  * are no longer something the market only looks for when reversions come up
  * short. A short list is an acceptable outcome; a list padded with symbols
- * that have no trade plan is not.
+ * that have no trade plan, or with a trade plan too weak to have earned a
+ * slot on its own merits, is not — `qualifiesAsContinuationFill` requires
+ * both the right shape and an Execute-tier score, never just "the best of
+ * what's left." Six 7/9s beat eighteen setups trailing off through 6, 5, 4.
  */
 
 import type { Bar, ScanResult, SetupKind } from "@/lib/types";
@@ -34,6 +37,7 @@ import { CONTINUATION_PATTERNS } from "@/lib/strat/patterns";
 import { MIN_EQUITY_PRICE_USD, meetsLiquidityFloor, readLiquidity } from "@/lib/scan/liquidity";
 import { scanTicker } from "@/lib/scanTicker";
 import { EXECUTION_TIMEFRAME } from "@/lib/timeframe";
+import { EXECUTE_SCORE_THRESHOLD } from "@/lib/scoring/weights";
 import { DEFAULT_UNIVERSE_THRESHOLDS, type UniverseThresholds } from "@/lib/universe/eligibility";
 import { MAG7, SECTORS } from "@/lib/sectors";
 import { LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
@@ -424,6 +428,23 @@ export function isMomentumContinuation(
   return macro.filter((t) => t.direction === direction).length >= 2;
 }
 
+/**
+ * The continuation top-up pass's actual admission test: a genuine momentum
+ * continuation shape (`isMomentumContinuation`) that also clears the same
+ * Execute-tier bar a reversion has to clear on its own merits
+ * (`EXECUTE_SCORE_THRESHOLD`). A candidate that arms the right pattern but
+ * scores a 6, 5, or 4 is not "the best of what's left" here — it's excluded,
+ * same as a symbol with no trade plan at all. A short continuation fill (or
+ * none) is the correct answer on a day nothing clears the bar, not a
+ * shortfall to paper over with a weaker setup.
+ */
+export function qualifiesAsContinuationFill(
+  r: ScanResult,
+  direction: "bullish" | "bearish",
+): boolean {
+  return isMomentumContinuation(r, direction) && r.decision.score >= EXECUTE_SCORE_THRESHOLD;
+}
+
 export interface MarketScanOutput {
   scanDate: string;
   bullish: ScanResult[];
@@ -712,7 +733,7 @@ export async function runMarketScan(
     for (const dir of ["bullish", "bearish"] as const) {
       if (target[dir] <= 0) continue;
       const additions = scans
-        .filter((r) => !r.error && isMomentumContinuation(r, dir))
+        .filter((r) => !r.error && qualifiesAsContinuationFill(r, dir))
         .sort((a, b) => b.decision.score - a.decision.score)
         .slice(0, target[dir]);
       lists[dir] = [...lists[dir], ...additions];

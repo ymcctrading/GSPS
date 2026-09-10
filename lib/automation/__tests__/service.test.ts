@@ -36,7 +36,7 @@ function plan(overrides: Partial<TradePlan> = {}): TradePlan {
     },
     evidence: {
       regime: { regime: "trend", direction: "bullish", reasons: [], disqualifiers: [] },
-      alignment: { score: 0, tier: "watchlistOnly", breakdown: [] },
+      alignment: { score: 0, tier: "watchlistOnly", blueprintScoreBand: "NO_TRADE", breakdown: [] },
       dataTimestamps: {},
       eventLiquidityStatus: "clear",
     },

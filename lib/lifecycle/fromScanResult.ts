@@ -39,6 +39,7 @@ const DEFAULT_EXPIRES_AFTER_BARS = 20;
 const WATCHLIST_TIER_SCORE: RulesAlignmentScore = {
   score: 0,
   tier: "watchlistOnly",
+  blueprintScoreBand: "NO_TRADE",
   breakdown: [],
 };
 

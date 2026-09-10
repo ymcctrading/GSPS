@@ -59,6 +59,8 @@ function gannAt(distancePct: number): GannLevels {
     fanLines: [{ angle: "1x1", price: 100, distancePct, role: "support" }],
     squareOf9: [{ degree: 90, price: 100, distancePct, role: "support" }],
     timeCycleActive: false,
+    timeCycleBullishActive: false,
+    timeCycleBearishActive: false,
     timeCycleDates: [],
   };
 }

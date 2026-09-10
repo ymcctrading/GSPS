@@ -7,6 +7,96 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-09-10 (fifth follow-up)
+
+### Added
+- **`BlueprintScoreBand`** (`lib/signals/types.ts`, `lib/signals/scoring.ts`) —
+  direct decision to adopt the "GSPS Implementation Blueprint" §14.2's
+  literal band cut points (0–24 NO_TRADE, 25–49 WATCH, 50–69 DEVELOPING,
+  70–84 ACTIONABLE, 85–100 HIGH_CONFLUENCE), applied to the existing
+  `RulesAlignmentScore.score` (0–100) via `classifyBlueprintScoreBand` and
+  exposed as the new `RulesAlignmentScore.blueprintScoreBand` field.
+  Additive/informational only: `tier`/`tierQualifies` remain the actual
+  qualification gate — the blueprint's own §14.2 text calls its thresholds
+  "placeholders" that "must be calibrated through research," so this is a
+  relabeling of an already-calibrated score, not a new gate or a
+  replacement for one. Every direct constructor of `RulesAlignmentScore`
+  (production and test fixtures) and its Zod schema
+  (`lib/lifecycle/schema.ts`) updated for the new required field.
+- **`supabase/migrations/0064_blueprint_named_tables_batch2.sql`** — direct
+  confirmation given to extend `0063`'s literal blueprint-named tables,
+  scoped to (a) tables with no existing GSPS home under any other name and
+  (b) no banned Tier A/B terminology. Adds `bar`, `corporate_action`,
+  `instrument_profile`, `volume_state`, `volatility_state`,
+  `feature_registry`, `experiment_registry`, `backtest_run` — the 8 of the
+  blueprint's 20 §5.2-named tables not yet covered. The other 8
+  (`market_regime`, `gann_coordinate`, `vortex_state`, `strategy_signal`,
+  `trade_plan`, `risk_plan`, `signal_outcome`, `model_version`) already
+  overlap a real, non-empty GSPS table under a different name and were
+  deliberately not duplicated — see the migration's header comment and
+  `docs/GANN_BLUEPRINT_TRACEABILITY.md`'s updated §5 row for the full
+  mapping. Schema only, same posture `0063` took for `pivot`: no
+  application code writes or reads any of these 8 yet. Applied to the
+  Supabase project; `get_advisors` shows only the same "RLS enabled, no
+  policy" INFO-level note `backtest_run` shares with `learning_models` and
+  several other existing global tables — no new WARN/ERROR findings.
+
+## 2026-09-09 (fourth follow-up)
+
+### Added
+- **`docs/doctrine/GSPS_Claude_Implementation_Blueprint_Gann_Centered.pdf`** —
+  the "GSPS Implementation Blueprint" (v1.0, 2026-09-08) source document,
+  checked into the repo alongside the other doctrine PDFs. Prior traceability
+  passes worked from the blueprint's content handed to a session out-of-band;
+  this is the first with the literal text committed, so future verification
+  no longer depends on that.
+- **`lib/gann/coordinateLedger.ts`** — the one real gap in blueprint §8.3's
+  candidate-coordinate list: prior daily/weekly/monthly high-low and
+  range-fraction coordinates, in the blueprint's exact storage shape
+  (`coordinate_type`, `anchor_id`, `formula_description`, `parameter_values`,
+  `price_level`, `side`, `confidence_basis`, `research_status`). Wired into
+  `GannConfluenceResult.coordinateLedger`, confluence-only like every other
+  field on that result.
+
+### Changed
+- `docs/GANN_BLUEPRINT_TRACEABILITY.md` — audited §17.1's 12-item
+  signal-explanation checklist item-by-item (2/12 existing, 1/12
+  deliberately not surfaced by brand-guide policy, 9/12 partial) and
+  surfaced a real architectural tension: the data mostly exists in
+  `GannConfluenceResult.evidence.explanationTrace`, but
+  `lib/signals/publicSummary.ts` deliberately strips it at the API boundary
+  to protect the scoring model, and `GSPS_TERM_REPLACEMENTS` deliberately
+  hides "Digital Root"/"Vortex" from customer-facing copy — both by design,
+  both in direct tension with the blueprint's ask. Also compared GSPS's
+  actual scoring system against blueprint §14's 0–100/5-band spec: GSPS runs
+  two different, already-calibrated scales (a 9-criterion/3-band replay
+  score and an independent 4-tier `RulesAlignmentTier`), not an unfinished
+  version of the blueprint's shape — a product decision if it's ever worth
+  changing, not a code gap.
+
+## 2026-09-09 (continuation quality floor)
+
+### Changed
+- **Continuation top-up no longer pads the scan list with weak setups** —
+  product decision made explicit after investigating an intermittent 60s
+  timeout on `/api/scans/morning-preparation` / `morning-confirmation`
+  (`lib/entitlements/scheduled-scan.ts`'s unbudgeted post-scan fan-out/shadow
+  work stacked on top of the scan's own time-budgeted pass). The 60s ceiling
+  itself is a deliberate UX choice, not a Vercel platform mandate — a novice
+  waiting past about a minute reads the scan as broken — so the fix is to
+  make the scan converge faster and more selectively, not to chase a bigger
+  time budget. `lib/marketScan.ts`'s continuation pass previously topped up
+  a short direction with whatever scored best among the remaining
+  candidates, with no floor — a setup scoring 6, 5, or 4 could fill a slot
+  purely for being the best one left. New `qualifiesAsContinuationFill`
+  requires the same Execute-tier score (`EXECUTE_SCORE_THRESHOLD`, extracted
+  from `lib/scoring/score.ts`'s previously-inline `7`/`4` literals into
+  `lib/scoring/weights.ts`) that a reversion has to clear on its own merits.
+  Six 7/9 setups now beat eighteen trailing off through 6, 5, 4 — a short or
+  empty continuation fill is the correct, faster-arriving answer on a day
+  nothing clears the bar, not a shortfall to paper over.
+  N/A roadmap phase — direct product decision, not scheduled roadmap work.
+
 ## 2026-09-09 (third follow-up)
 
 ### Added

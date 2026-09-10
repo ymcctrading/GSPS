@@ -68,8 +68,12 @@ export interface GannLevels {
   fanLines: { angle: string; price: number; distancePct: number; role: "support" | "resistance" }[];
   /** Square of 9 cardinal/ordinal levels near current price. Same role rule as fanLines. */
   squareOf9: { degree: number; price: number; distancePct: number; role: "support" | "resistance" }[];
-  /** Whether today falls in a Gann time-cycle window. */
+  /** Whether today falls in a Gann time-cycle window, either direction. Display only. */
   timeCycleActive: boolean;
+  /** A low-anchored turn window is active — the reading a bullish setup is scored on. */
+  timeCycleBullishActive: boolean;
+  /** A high-anchored turn window is active — the reading a bearish setup is scored on. */
+  timeCycleBearishActive: boolean;
   timeCycleDates: string[];
 }
 

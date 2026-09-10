@@ -18,7 +18,7 @@ const baseResult: Omit<ScanResult, "signals"> = {
   setupKind: "reversion",
   momentumElevated: true,
   trends: [],
-  gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleDates: [] },
+  gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [] },
   pattern: null,
   armedPatterns: [],
   levels: null,
@@ -40,7 +40,7 @@ describe("SignalRegimeCard", () => {
           status: "evaluated",
           state: "trendPullback",
           regime: { regime: "trend", direction: "bullish", reasons: [], disqualifiers: [] },
-          alignment: { score: 88, tier: "aTier", breakdown: [] },
+          alignment: { score: 88, tier: "aTier", blueprintScoreBand: "HIGH_CONFLUENCE", breakdown: [] },
           tradeable: true,
           plan: {
             direction: "bullish",
@@ -92,6 +92,7 @@ describe("SignalRegimeCard", () => {
           alignment: {
             score: 60,
             tier: "watchlistOnly",
+            blueprintScoreBand: "DEVELOPING",
             // A real /api/scan response never carries this — redactScanResult
             // strips it — but the card must not depend on that having happened.
             breakdown: [
