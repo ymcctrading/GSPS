@@ -9,30 +9,11 @@
  */
 
 import { describe, expect, it } from "vitest";
-import {
-  LARGE_CAP_SOURCE_RANKS,
-  LARGE_CAP_UNIVERSE,
-} from "@/lib/scan/large-cap-universe";
+import { LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
 import { fallbackUniverse } from "@/lib/guided/universe";
 import { GUIDED_SCAN_BATCH, MAX_CANDIDATES_SCANNED } from "@/lib/guided/config";
 
 describe("the large-cap universe", () => {
-  it("holds exactly the ranks it claims to hold", () => {
-    // The header documents which slice of the source list is present. If the
-    // array and that claim disagree, the comment is the thing people will
-    // believe, so they must not be able to disagree.
-    const claimed = LARGE_CAP_SOURCE_RANKS.to - LARGE_CAP_SOURCE_RANKS.from + 1;
-    expect(LARGE_CAP_UNIVERSE).toHaveLength(claimed);
-  });
-
-  it("is honest that it does not yet cover the whole source list", () => {
-    // Not a bug being asserted into permanence — a fact being kept visible.
-    // When ranks 501-893 are appended this expectation flips, and having to
-    // change it is the reminder to update the header comment too.
-    expect(LARGE_CAP_SOURCE_RANKS.sourceTotal).toBe(893);
-    expect(LARGE_CAP_SOURCE_RANKS.to).toBeLessThan(LARGE_CAP_SOURCE_RANKS.sourceTotal);
-  });
-
   it("contains no duplicates", () => {
     // A duplicate wastes a slot in a budgeted scan and can publish the same
     // symbol twice on one side of the dashboard.
@@ -56,7 +37,14 @@ describe("the large-cap universe", () => {
   it("leads with the largest names", () => {
     // Order is load-bearing: a reduced budget takes from the front, so the
     // front has to be the most liquid end of the list.
-    expect(LARGE_CAP_UNIVERSE.slice(0, 5)).toEqual(["TTE", "APH", "TMUS", "ABT", "SCHW"]);
+    expect(LARGE_CAP_UNIVERSE.slice(0, 5)).toEqual(["TMUS", "QCOM", "PEP", "SCHW", "DE"]);
+  });
+
+  it("covers substantially more names than the old 500-symbol capture", () => {
+    // The whole point of the refresh: the old list stopped at rank 500 of a
+    // reported 893 and had drifted with the market since. This one is a fresh
+    // pull re-filtered to the same $10B-$200B band, not a fixed page of ranks.
+    expect(LARGE_CAP_UNIVERSE.length).toBeGreaterThan(700);
   });
 });
 
