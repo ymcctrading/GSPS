@@ -10,6 +10,8 @@
  * and ATR-per-bar is that unit here (matching `fans.ts`'s own `unit`).
  */
 
+import type { Bar } from "@/lib/types";
+import { atr, findPivots } from "@/lib/analysis/pivots";
 import { ANGLES } from "./fans";
 
 /**
@@ -51,4 +53,47 @@ export function nearestGannAngle(slope: number): NearestGannAngle | null {
     }
   }
   return best ? { label: best.label, ratio: best.ratio, direction } : null;
+}
+
+export interface GannAngleReading {
+  slope: number;
+  nearestAngle: NearestGannAngle;
+  anchor: { price: number; kind: "high" | "low" };
+}
+
+/**
+ * The realized Gann-angle slope since the most recent significant pivot of
+ * `anchorKind`, anchored the same way `lib/gann/fans.ts` and
+ * `lib/gann/squareOf9.ts`'s `recentSquareOf9Levels` already are (most recent
+ * significant high/low) — so all three structural coordinate techniques
+ * describe the same move. Falls back to the other pivot kind if the
+ * preferred one hasn't printed yet, same as `evaluateGannConfluence`'s own
+ * anchor selection.
+ *
+ * Candidate criterion support only (see
+ * `docs/PROPOSAL_NEW_GANN_CRITERIA.md`) — not wired into any scored
+ * criterion yet.
+ */
+export function angleSlopeFromBars(
+  bars: Bar[],
+  currentPrice: number,
+  anchorKind: "high" | "low",
+): GannAngleReading | null {
+  if (bars.length < 20) return null;
+  const pivots = findPivots(bars, 4);
+  const reversed = [...pivots].reverse();
+  const anchor =
+    reversed.find((p) => p.kind === anchorKind) ??
+    reversed.find((p) => p.kind !== anchorKind);
+  if (!anchor) return null;
+
+  const unit = atr(bars, 14);
+  const barsSinceAnchor = bars.length - 1 - anchor.index;
+  const slope = normalizedSlope(currentPrice, anchor.price, unit, barsSinceAnchor);
+  if (slope === null) return null;
+
+  const nearestAngle = nearestGannAngle(slope);
+  if (!nearestAngle) return null;
+
+  return { slope, nearestAngle, anchor: { price: anchor.price, kind: anchor.kind } };
 }

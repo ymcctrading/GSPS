@@ -16,8 +16,10 @@ import type {
 import {
   FALLBACK_FAN_PCT,
   FALLBACK_HARMONIC_PCT,
+  FALLBACK_RETRACEMENT_PCT,
   FAN_PROXIMITY_ATR,
   HARMONIC_PROXIMITY_ATR,
+  RETRACEMENT_PROXIMITY_ATR,
   bandBasis,
   proximityBandPct,
 } from "@/lib/scoring/proximity";
@@ -335,7 +337,54 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
         ? "Watch"
         : "Reject";
 
-  return { score, outputState, breakdown };
+  // Candidate criterion, not one of the nine scored — see
+  // docs/PROPOSAL_NEW_GANN_CRITERIA.md. Gann's 1x1 angle rule: the trend is
+  // structurally intact only while price holds at or beyond its own 1x1
+  // angle since the anchor pivot, in the setup's own direction — a shallower
+  // slope, or one running the wrong way, is the first warning the move is
+  // over. `angleSlopeFromBars` and its callers already anchor the bullish
+  // reading off the most recent low and the bearish reading off the most
+  // recent high, the same "two most recent pivots" rule `fanProximity`'s
+  // fan lines already use.
+  const angleReading = direction === "bullish" ? gann.angleSlopeBullish : gann.angleSlopeBearish;
+  const gannAngleTrendHolding =
+    angleReading != null &&
+    (direction === "bullish" ? angleReading.slope >= 1 : angleReading.slope <= -1);
+
+  // Candidate criterion 2 — see docs/PROPOSAL_NEW_GANN_CRITERIA.md. Digital
+  // root/vortex price-time confluence: price and time displacement since the
+  // anchor pivot both reduce to a 1-9 root, and a recognised relationship
+  // between the two roots (anything classifyConfluence resolves beyond
+  // NO_CONFLUENCE) is read as the criterion passing.
+  const vortexReading =
+    direction === "bullish" ? gann.vortexConfluenceBullish : gann.vortexConfluenceBearish;
+  const digitalRootVortexConfluence =
+    vortexReading != null && vortexReading.confluence !== "NO_CONFLUENCE";
+
+  // Candidate criterion 3 — see docs/PROPOSAL_NEW_GANN_CRITERIA.md. Same
+  // shape as fanProximity/harmonicProximity: is price within an ATR-relative
+  // band of a percentage-retracement level on the wanted role/side.
+  const retracementBandPct = proximityBandPct(
+    RETRACEMENT_PROXIMITY_ATR,
+    FALLBACK_RETRACEMENT_PCT,
+    atrPct,
+  );
+  const retracementMatch =
+    gann.retracementLevels?.find(
+      (r) => r.role === wantedRole && r.distancePct <= retracementBandPct,
+    ) ?? null;
+  const gannRetracementProximity = retracementMatch !== null;
+
+  return {
+    score,
+    outputState,
+    breakdown,
+    candidateCriteria: {
+      gannAngleTrendHolding,
+      digitalRootVortexConfluence,
+      gannRetracementProximity,
+    },
+  };
 }
 
 /**

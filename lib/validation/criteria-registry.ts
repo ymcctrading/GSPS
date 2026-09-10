@@ -44,7 +44,16 @@ export type CriterionFamily =
   /** Rules Alignment components inside a signal state — `lib/signals/states/*`. */
   | "rulesAlignment"
   /** Pre-trade blocks — `lib/signals/disqualifiers.ts`. */
-  | "disqualifier";
+  | "disqualifier"
+  /**
+   * A new criterion under evaluation, not one of `CRITERION_KEYS` — see
+   * `docs/PROPOSAL_NEW_GANN_CRITERIA.md`. Collected via
+   * `ScanDecision.candidateCriteria` for attribution only; carries no points
+   * and never affects `score` or `outputState`. Like `scoreHold`, exempt from
+   * the automatic staleness check (no static source list to check it
+   * against) — see `lib/validation/__tests__/criteria-gate.test.ts`.
+   */
+  | "candidate";
 
 /**
  * The direction the criterion claims to work in, stated as the sign of the
@@ -344,6 +353,68 @@ const SCORE_HOLDS: RegisteredCriterion[] = [
   },
 ];
 
+/**
+ * New criteria under evaluation per docs/PROPOSAL_NEW_GANN_CRITERIA.md.
+ * Collected via `ScanDecision.candidateCriteria`, not `breakdown` — see that
+ * field's doc comment in lib/types.ts for why. None of these are one of
+ * `CRITERION_KEYS`; they carry no points and cannot move `score` or
+ * `outputState`. A candidate is promoted into `CRITERION_KEYS` only after
+ * clearing the same in/out-of-sample validation bar
+ * `lib/backtest/propose-weights.ts` already enforces for the existing nine —
+ * see that proposal doc's "Validation discipline" section.
+ */
+const CANDIDATES: RegisteredCriterion[] = [
+  {
+    id: "gannAngleTrendHolding",
+    family: "candidate",
+    source: "lib/scoring/score.ts (candidateCriteria), lib/gann/normalizedSlope.ts",
+    label: "Structural angle (1x1) trend-holding (candidate)",
+    expectedSign: "positive",
+    evidence: "unmeasured",
+    note:
+      "The classic 1x1 structural-angle rule: the trend is structurally intact only while price holds " +
+      "at or beyond its own 1x1 angle since the anchor pivot (most recent significant low for a bullish setup, high " +
+      "for bearish — the same anchor rule fanProximity's fan lines and the fixed harmonicProximity " +
+      "already use). Wraps lib/gann/normalizedSlope.ts, which existed only as display/confluence " +
+      "context (lib/signals/confluence/gann.ts's angleSlope field) before this. Needs a real replay run " +
+      "to even read its pass rate for the first time — no payload has ever measured it.",
+  },
+  {
+    id: "digitalRootVortexConfluence",
+    family: "candidate",
+    source: "lib/scoring/score.ts (candidateCriteria), lib/gann/digitalRoot.ts",
+    label: "Structural price/time confluence (candidate)",
+    expectedSign: "positive",
+    evidence: "unmeasured",
+    note:
+      "The GSPS Signal Calculation premise: price displacement and time displacement since the anchor " +
+      "pivot both reduce to a 1-9 signal-calculation value, and a recognised relationship between the " +
+      "two values is read as a confluence signal distinct from pure geometry (the angle and " +
+      "key-price-level candidates). Passes on any classifyConfluence() result beyond NO_CONFLUENCE — a " +
+      "coarser bar than the proposal doc's suggested MULTI_FACTOR_CONFLUENCE-only reading, chosen so the " +
+      "first measurement has enough of a passing arm to read at all; tightening it is one of the things " +
+      "a real run should settle. Its own blueprint doc comment (lib/gann/digitalRoot.ts) calls this " +
+      "premise a GSPS hypothesis, not a proven law — consistent with carrying it as unmeasured here, not " +
+      "hypothesis. Needs a real replay run to even read its pass rate for the first time — no payload " +
+      "has ever measured it.",
+  },
+  {
+    id: "gannRetracementProximity",
+    family: "candidate",
+    source: "lib/scoring/score.ts (candidateCriteria), lib/gann/retracements.ts",
+    label: "Percentage retracement zone proximity (candidate)",
+    expectedSign: "positive",
+    evidence: "unmeasured",
+    note:
+      "Percentage retracement rule: a swing's most significant retracement levels sit at eighths and " +
+      "thirds of its range. The one genuine implementation gap the proposal doc named — no retracement " +
+      "code existed anywhere in this codebase before lib/gann/retracements.ts. Same role-matched, " +
+      "ATR-relative-band shape as fanProximity/harmonicProximity (RETRACEMENT_PROXIMITY_ATR in " +
+      "lib/scoring/proximity.ts). Needs a real replay run to even read its pass rate for the first " +
+      "time — no payload has ever measured it.",
+  },
+];
+
 const ALIGNMENT_STATES: Record<string, string[]> = {
   trendPullback: [
     "higherTimeframeDirection",
@@ -451,6 +522,7 @@ export const CRITERIA_REGISTRY: RegisteredCriterion[] = [
   ...SCAN_SCORE,
   ...RETIRED,
   ...SCORE_HOLDS,
+  ...CANDIDATES,
   ...RULES_ALIGNMENT,
   ...DISQUALIFIERS,
 ];
