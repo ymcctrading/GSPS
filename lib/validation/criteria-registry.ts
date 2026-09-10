@@ -104,10 +104,17 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "counter-trend premise (a reversion wanted the macro running AGAINST the trade). That premise " +
       "was a strategy question, not a code defect, and was settled 2026-09-09: computeScore now scores " +
       "trend agreement for both setup kinds instead — macro timeframes should read the same direction " +
-      "as the trade. Carried under quarantine rather than promoted straight to 'hypothesis', because " +
-      "the prior committed payloads describe the old logic's outcomes, not this one's — they cannot " +
-      "vindicate or condemn the new rule either way. Exits quarantine when a fresh committed run, under " +
-      "the new logic, measures it informative and positive twice.",
+      "as the trade. 2026-09-09/10: six fresh live/Alpaca runs measured the new logic (docs/replay-runs/" +
+      "2026-09-09-15Min-2R.json, -3R.json, -score5-6.json; 2026-09-10-15Min-2R-within-all.json, " +
+      "-1Hour-2R.json, -1Hour-3R.json). Every Execute-bucket-conditioned run is too small on the failing " +
+      "arm to read (16 trades at 15Min, 7 at 1Hour — both well under MIN_SAMPLES_PER_ARM). The one " +
+      "population large enough on both arms — the unconditioned 15Min population, 491 passed / 538 " +
+      "failed — reads +0.033; the 1Hour Execute bucket (91/31, also adequately sampled) reads −0.090. " +
+      "Both are inside the ±0.1 noise band: no longer the clearly inverted counter-trend signal the old " +
+      "logic measured, but not yet measuring positive either. Negligible, not validated — the fix ended " +
+      "an active harm without (yet) establishing a benefit. Exits quarantine when a fresh committed run " +
+      "measures it informative and positive, outside the noise band, on an adequately sampled arm, " +
+      "twice.",
   },
   {
     id: "hourlyTrend",
@@ -145,10 +152,16 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "role-matching bug already fixed. 2026-09-09: replaced with recentSquareOf9Levels(), which anchors " +
       "from the most recent significant high AND low (the same 'anchor from the two most recent pivots' " +
       "rule lib/gann/fans.ts already used for the stable fanProximity sibling), merged before the " +
-      "existing role-aware match runs. Carried under quarantine rather than promoted straight to " +
-      "'hypothesis': the committed payloads above measured the old anchor, not this one, so they cannot " +
-      "vindicate or condemn it either way. Exits quarantine when a fresh committed run measures it " +
-      "positive, outside the noise band, twice across different timeframes.",
+      "existing role-aware match runs. 2026-09-09/10: six fresh live/Alpaca runs measured the new " +
+      "anchor (docs/replay-runs/2026-09-09-15Min-2R.json, -3R.json, -score5-6.json; " +
+      "2026-09-10-15Min-2R-within-all.json, -1Hour-2R.json, -1Hour-3R.json). The Execute-bucket-" +
+      "conditioned runs are too small on the failing arm to trust (13 passed / 3 failed at 15Min, " +
+      "119/3 at 1Hour — both under MIN_SAMPLES_PER_ARM on one side, and a bucket the score itself " +
+      "selected can't be read for saturation anyway). The unconditioned 15Min population — 660 passed " +
+      "/ 369 failed, comfortably sampled both ways — reads −0.045: inside the ±0.1 noise band, not the " +
+      "clear −0.29-to−0.13 inversion the old anchor measured, but not positive either. Negligible, not " +
+      "validated. Exits quarantine when a fresh committed run measures it positive, outside the noise " +
+      "band, on an adequately sampled arm, twice across different timeframes.",
   },
   {
     id: "historicalSR",
@@ -200,10 +213,16 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "now tags each date by its anchor's kind (low anchors bullish, high anchors bearish) and returns " +
       "bullishActive/bearishActive separately, and computeScore matches the criterion against the " +
       "setup's own direction instead of either; (3) both fixes together also cut the near-total " +
-      "~108-dates-per-symbol coverage down to the top-quartile anchors only. Carried under quarantine " +
-      "rather than promoted straight to 'hypothesis': the committed payload above measured the old, " +
-      "undirected, unfiltered logic, not this one, so it cannot vindicate or condemn the fix either way. " +
-      "Exits quarantine when a fresh committed run measures it informative and positive.",
+      "~108-dates-per-symbol coverage down to the top-quartile anchors only. 2026-09-09/10: six fresh " +
+      "live/Alpaca runs measured the new logic (docs/replay-runs/2026-09-09-15Min-2R.json, -3R.json, " +
+      "-score5-6.json; 2026-09-10-15Min-2R-within-all.json, -1Hour-2R.json, -1Hour-3R.json). The " +
+      "Execute-bucket-conditioned runs are too small on the failing arm to trust (9 passed / 7 failed " +
+      "at 15Min; 8/114 at 1Hour — under MIN_SAMPLES_PER_ARM on one side each time). The unconditioned " +
+      "15Min population — 305 passed / 724 failed, comfortably sampled both ways — reads −0.031: " +
+      "inside the ±0.1 noise band, no longer the clearly inverted −0.30 the old, undirected/unfiltered " +
+      "logic measured, but not positive either. Negligible, not validated — the fix ended an active " +
+      "harm without (yet) establishing a benefit. Exits quarantine when a fresh committed run measures " +
+      "it informative and positive, outside the noise band, on an adequately sampled arm.",
   },
   {
     id: "masterStructural",
