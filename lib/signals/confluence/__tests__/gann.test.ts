@@ -6,6 +6,32 @@ function bar(o: number, h: number, l: number, c: number, v = 1000): Bar {
   return { t: "2026-01-01T00:00:00Z", o, h, l, c, v };
 }
 
+/**
+ * A path with a genuine global-minimum spike near the start (index 5, price
+ * 80) that is stale by the time the window ends, a confirmed pivot low later
+ * on (index 52, price 244) that is not the global min, and a confirmed pivot
+ * high after that (index 60, price 320) — enough structure to tell "anchor
+ * from the most recent confirmed pivot" (blueprint §8.2) apart from
+ * "Math.min() of the whole window".
+ */
+function swingBars(n: number): Bar[] {
+  const bars: Bar[] = [];
+  for (let i = 0; i < n; i++) {
+    let mid: number;
+    if (i < 10) {
+      mid = 100 - Math.abs(i - 5) * 4; // V-shaped dip bottoming at i=5, mid=80
+    } else if (i === 52) {
+      mid = 100 + 4 * (51 - 10) - 20; // shallow local low, well above the i=5 spike
+    } else if (i === 60) {
+      mid = 100 + 4 * (60 - 10) + 20; // local high spike
+    } else {
+      mid = 100 + 4 * (i - 10);
+    }
+    bars.push(bar(mid - 0.4, mid + 0.5, mid - 0.5, mid + 0.4));
+  }
+  return bars;
+}
+
 function uptrendBars(n: number): Bar[] {
   const bars: Bar[] = [];
   let price = 100;
@@ -163,6 +189,33 @@ describe("evaluateGannConfluence", () => {
     // crypto is supported today; assert the adapter identity is reported correctly.
     expect(result.market).toBe("crypto");
     expect(result.marketAdapterStatus).toBe("supported");
+  });
+
+  it("anchors on the most recent confirmed pivot low for a bullish read, not Math.min() of the whole window (blueprint §8.2)", () => {
+    const bars = swingBars(80);
+    const result = evaluateGannConfluence({
+      assetClass: "us_equity",
+      symbol: "TEST",
+      dailyBars: bars,
+      currentPrice: bars[bars.length - 1].c,
+      direction: "bullish",
+    });
+    const globalMin = Math.min(...bars.map((b) => b.l));
+    expect(result.evidence.inputs.anchorKind).toBe("low");
+    expect(result.evidence.inputs.anchorPrice).not.toBeCloseTo(globalMin, 0);
+    expect(result.evidence.inputs.anchorPrice as number).toBeGreaterThan(globalMin + 50);
+  });
+
+  it("anchors on the most recent confirmed pivot high for a bearish read", () => {
+    const bars = swingBars(80);
+    const result = evaluateGannConfluence({
+      assetClass: "us_equity",
+      symbol: "TEST",
+      dailyBars: bars,
+      currentPrice: bars[bars.length - 1].c,
+      direction: "bearish",
+    });
+    expect(result.evidence.inputs.anchorKind).toBe("high");
   });
 
   it("returns neutral alignment when no direction is supplied", () => {

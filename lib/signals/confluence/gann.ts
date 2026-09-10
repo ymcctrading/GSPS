@@ -9,10 +9,20 @@
  * specification. Material Number versus Harmonic Node classification still
  * has no such specification and stays `notImplemented`. The Digital
  * Root / Vortex 1-9 engine (`lib/gann/digitalRoot.ts`) now has one — the
- * "GSPS Implementation Blueprint" (v1.0, 2026-09-08, project owner) — and
- * is wired in below as `vortexContext`: `price_dr`/`time_dr` computed from
- * normalized positive integers (ticks/bars), never a raw price, per that
- * spec's section 2.2.
+ * "GSPS Implementation Blueprint" (v1.0, 2026-09-08, project owner,
+ * `docs/GSPS_IMPLEMENTATION_BLUEPRINT.md`) — and is wired in below as
+ * `vortexContext`: `price_dr`/`time_dr` computed from normalized positive
+ * integers (ticks/bars), never a raw price, per that spec's section 2.2.
+ *
+ * The anchor those displacements are measured from is governed by section
+ * 8.2, not 2.2: "objective, configurable pivot rules" — a confirmed swing
+ * pivot, usable only once its confirmation bars close — not a fixed literal
+ * all-window low. That is the same "anchor from the two most recent
+ * pivots" rule already applied for `recentSquareOf9Levels()` (the
+ * `harmonicProximity` fix) and for `timeCycles()` (low anchors bullish, high
+ * anchors bearish), so this module anchors the same way: most recent
+ * confirmed pivot low for a bullish/undirected read, most recent confirmed
+ * pivot high for a bearish one.
  *
  * Role: confluence, ranking, and coordinate refinement only. Never a sole
  * signal, never able to override a safety/account/eligibility gate — see
@@ -20,9 +30,9 @@
  */
 
 import type { AssetClass, Bar, Direction } from "@/lib/types";
-import { atr } from "@/lib/analysis/pivots";
+import { atr, findPivots } from "@/lib/analysis/pivots";
 import { computeFanLines, nearestFanLine } from "@/lib/gann/fans";
-import { nearestS9Level, squareOf9Levels } from "@/lib/gann/squareOf9";
+import { nearestS9Level, recentSquareOf9Levels } from "@/lib/gann/squareOf9";
 import { timeCycles } from "@/lib/gann/timeCycles";
 import {
   buildDigitalRootFeature,
@@ -112,18 +122,28 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
     };
   }
 
-  const majorLow = Math.min(...inputs.dailyBars.map((b) => b.l));
+  // Anchor per blueprint section 8.2: the most recent *confirmed* pivot, not
+  // Math.min() of the whole window. Direction-matched the same way
+  // timeCycles() tags its own anchors — a low anchors a bullish/undirected
+  // read, a high anchors a bearish one — falling back to whichever pivot
+  // exists if the preferred kind hasn't printed yet.
+  const pivots = findPivots(inputs.dailyBars, 4);
+  const lastLow = [...pivots].reverse().find((p) => p.kind === "low");
+  const lastHigh = [...pivots].reverse().find((p) => p.kind === "high");
+  const anchorPivot =
+    inputs.direction === "bearish" ? lastHigh ?? lastLow : lastLow ?? lastHigh;
+  const majorLow = anchorPivot?.price ?? Math.min(...inputs.dailyBars.map((b) => b.l));
+  const majorLowIndex = anchorPivot?.index ?? inputs.dailyBars.findIndex((b) => b.l === majorLow);
   const root = Math.sqrt(majorLow);
-  const s9Levels = squareOf9Levels(majorLow, inputs.currentPrice);
+  const s9Levels = recentSquareOf9Levels(inputs.dailyBars, inputs.currentPrice);
   const fanLines = computeFanLines(inputs.dailyBars, inputs.currentPrice);
   const cycles = timeCycles(inputs.dailyBars);
   const nearestS9 = nearestS9Level(s9Levels);
   const nearestFan = nearestFanLine(fanLines);
 
   // Digital Root/Vortex context (blueprint sections 2, 7, 18): price_dr from
-  // the normalized tick displacement off the anchor low, time_dr from bars
+  // the normalized tick displacement off the anchor, time_dr from bars
   // since that anchor. Never computed from the raw price/date themselves.
-  const majorLowIndex = inputs.dailyBars.findIndex((b) => b.l === majorLow);
   const priceDisplacementTicks = Math.round(
     Math.abs(inputs.currentPrice - majorLow) / NORMALIZATION_TICK_SIZE_CENTS,
   );
@@ -165,7 +185,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
   };
 
   // Blueprint §8.5's normalized Gann-angle slope: realized ATR-units-per-bar
-  // since the anchor low, and which fixed angle ratio that's nearest to.
+  // since the anchor pivot, and which fixed angle ratio that's nearest to.
   // `atr()` needs at least 2 bars; when the anchor sits at (or near) the
   // start of the window, widen the slice forward rather than reporting no
   // slope at all — MIN_DAILY_BARS guarantees enough bars exist to do so.
@@ -175,7 +195,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
   const coordinateLedger = buildCoordinateLedger(inputs.dailyBars, inputs.currentPrice);
 
   const explanationTrace: string[] = [
-    `Root: sqrt(major low ${majorLow.toFixed(2)}) = ${root.toFixed(4)}.`,
+    `Root: sqrt(anchor ${anchorPivot?.kind === "high" ? "high" : "low"} ${majorLow.toFixed(2)}) = ${root.toFixed(4)}.`,
   ];
   if (priceDisplacement && timeDisplacement) {
     explanationTrace.push(
@@ -248,7 +268,8 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
       inputs: {
         symbol: inputs.symbol,
         assetClass: inputs.assetClass,
-        majorLow,
+        anchorPrice: majorLow,
+        anchorKind: anchorPivot?.kind ?? "low",
         currentPrice: inputs.currentPrice,
         direction: inputs.direction,
         roundingConvention: "root to 4 decimals; price levels to 2 decimals",
