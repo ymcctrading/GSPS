@@ -12,3 +12,4 @@ next-env.d.ts
 /test-results
 /blob-report
 /playwright/.cache
+scripts/.large-cap-validation-report.json
