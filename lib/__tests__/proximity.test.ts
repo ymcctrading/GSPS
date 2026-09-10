@@ -161,7 +161,7 @@ describe("structural criteria across the universe", () => {
   });
 
   it("names the fallback when no volatility read is available", () => {
-    const item = computeScore(inputs()).breakdown.find((b) => b.key === "harmonicProximity");
+    const item = computeScore(inputs()).breakdown.find((b) => b.key === "gannRetracementConfluence");
     expect(item?.note).toContain("fixed fallback band");
   });
 });

@@ -32,8 +32,7 @@ import { readTrend } from "@/lib/analysis/trend";
 import { etDateKey } from "@/lib/market/session";
 import { atr } from "@/lib/analysis/pivots";
 import { computeFanLines } from "@/lib/gann/fans";
-import { recentSquareOf9Levels } from "@/lib/gann/squareOf9";
-import type { LevelRole } from "@/lib/analysis/levelRole";
+import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
 import { CONTINUATION_PATTERNS } from "@/lib/strat/patterns";
 import { MIN_EQUITY_PRICE_USD, meetsLiquidityFloor, readLiquidity } from "@/lib/scan/liquidity";
 import { scanTicker } from "@/lib/scanTicker";
@@ -45,10 +44,8 @@ import { LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
 import type { CoarseTelemetryRow } from "@/lib/scan/telemetry";
 import {
   FALLBACK_FAN_PCT,
-  FALLBACK_HARMONIC_PCT,
   FALLBACK_SR_PCT,
   FAN_PROXIMITY_ATR,
-  HARMONIC_PROXIMITY_ATR,
   SR_PROXIMITY_ATR,
   atrPercentOfPrice,
   proximityBandPct,
@@ -269,23 +266,19 @@ export function coarseReversion(symbol: string, daily: Bar[]): CoarseCandidate |
   if (extensionPct > tier1Pct) score += 1;
   if (extensionPct > tier2Pct) score += 1;
 
-  // Proximity to a Gann fan line or Square-of-9 level — the same ATR-relative
-  // bands the full scan's proximity criteria use, so a symbol that clears
-  // this coarse gate is likely to clear the real one too.
+  // Proximity to a Gann fan line — the same ATR-relative band the full
+  // scan's gannAngleSlope-adjacent proximity criteria use, so a symbol that
+  // clears this coarse gate is likely to clear the real one too.
   const fanBandPct = proximityBandPct(FAN_PROXIMITY_ATR, FALLBACK_FAN_PCT, atrPct);
-  const harmonicBandPct = proximityBandPct(HARMONIC_PROXIMITY_ATR, FALLBACK_HARMONIC_PCT, atrPct);
   const fans = computeFanLines(daily, price);
   if (fans.length > 0 && fans[0].distancePct <= fanBandPct) score += 2;
-  // Same anchor and role-match rule as the full scan's harmonicProximity
-  // criterion (lib/scoring/score.ts) — a support level only helps a bullish
-  // reversion, a resistance level only a bearish one. This pre-filter had
-  // neither: it anchored off Math.min() of the whole window (stale) and
-  // took the nearest level regardless of role, so it could admit or reject
-  // symbols the real criterion, downstream, would score the opposite way.
-  const wantedRole: LevelRole = direction === "bullish" ? "support" : "resistance";
-  const s9 = recentSquareOf9Levels(daily, price);
-  const s9Match = s9.find((s) => s.role === wantedRole && s.distancePct <= harmonicBandPct) ?? null;
-  if (s9Match) score += 2;
+  // Same anchor convention and threshold as the full scan's volumeClimax
+  // criterion (lib/scoring/score.ts) — replaces this pre-filter's old
+  // Square-of-9 proximity check, which tracked harmonicProximity before that
+  // criterion was itself replaced by volumeClimax.
+  const climaxAnchorKind = direction === "bullish" ? "low" : "high";
+  const climax = computeVolumeClimax(daily).find((r) => r.anchorKind === climaxAnchorKind);
+  if (climax?.climax) score += 2;
 
   // Proximity to a clustered S/R level in the reversion direction
   const srBandPct = proximityBandPct(SR_PROXIMITY_ATR, FALLBACK_SR_PCT, atrPct);

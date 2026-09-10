@@ -108,6 +108,9 @@ const allPass: ScoreInputs = {
   timePriceSquare: [
     { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, squared: true },
   ],
+  volumeClimax: [
+    { anchorKind: "low", anchorPrice: 90, relativeVolume: 2, climax: true },
+  ],
   gann,
   nearSupportResistance: true,
   pattern,

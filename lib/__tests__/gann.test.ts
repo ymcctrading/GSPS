@@ -122,6 +122,9 @@ describe("computeScore", () => {
       timePriceSquare: [
         { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, squared: true },
       ],
+      volumeClimax: [
+        { anchorKind: "low", anchorPrice: 90, relativeVolume: 2, climax: true },
+      ],
       gann: {
         fanLines: [],
         squareOf9: [{ degree: 90, price: 100.2, distancePct: 0.3, role: "support" }],
@@ -183,6 +186,9 @@ describe("computeScore", () => {
       timePriceSquare: [
         { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, squared: true },
       ],
+      volumeClimax: [
+        { anchorKind: "low", anchorPrice: 90, relativeVolume: 2, climax: true },
+      ],
       gann: {
         fanLines: [],
         squareOf9: [{ degree: 90, price: 100.2, distancePct: 0.3, role: "resistance" }],
@@ -224,14 +230,15 @@ describe("computeScore", () => {
     });
     const byKey = Object.fromEntries(decision.breakdown.map((b) => [b.key, b.passed]));
     expect(byKey.gannRetracementConfluence).toBe(false);
-    expect(byKey.harmonicProximity).toBe(false);
     expect(byKey.historicalSR).toBe(false);
-    // gannAngleSlope isn't a level-role check (it reads realized slope, not a
-    // structural level), so it still passes here — only the three role-gated
-    // criteria lose their point, and score drops by exactly 3.
+    // Neither gannAngleSlope nor volumeClimax is a level-role check (they
+    // read realized slope and pivot volume, not a structural level's role),
+    // so both still pass here — only the two role-gated criteria lose their
+    // point, and score drops by exactly 2.
     expect(byKey.gannAngleSlope).toBe(true);
-    expect(decision.score).toBe(6);
-    expect(decision.outputState).toBe("Watch");
+    expect(byKey.volumeClimax).toBe(true);
+    expect(decision.score).toBe(7);
+    expect(decision.outputState).toBe("Execute");
   });
 
   it("maps a weak setup to Reject", () => {

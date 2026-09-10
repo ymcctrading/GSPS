@@ -148,39 +148,24 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "proximity it replaces. Never scored before; needs a fresh committed replay before any sign claim.",
   },
   {
-    id: "harmonicProximity",
+    id: "volumeClimax",
     family: "scanScore",
-    source: "lib/scoring/score.ts",
-    label: "Key price level proximity",
+    source: "lib/scoring/score.ts, lib/gann/volumeClimax.ts",
+    label: "Volume climax at the anchor pivot",
     expectedSign: "positive",
-    evidence: "quarantined",
-    quarantineReason:
-      "−0.134 on 2026-08-12-1Hour-3R (both arms above the attribution floor), sign also flipping " +
-      "between timeframes on 2026-09-08. docs/BACKTESTING.md attributed the instability to " +
-      "role-blindness, and the 2026-08-27 role-aware match fix (score.ts's wantedRole filter) " +
-      "verifiably did not end it — because role-blindness wasn't the only defect. lib/gann/squareOf9.ts " +
-      "spiraled every level from Math.min() of the whole daily window — the single lowest low over the " +
-      "lookback, however stale, used identically for bullish and bearish setups alike — rather than the " +
-      "pivot that actually anchors the current move; a stale/irrelevant anchor, distinct from the " +
-      "role-matching bug already fixed. 2026-09-09: replaced with recentSquareOf9Levels(), which anchors " +
-      "from the most recent significant high AND low (the same 'anchor from the two most recent pivots' " +
-      "rule lib/gann/fans.ts already used for the stable fanProximity sibling), merged before the " +
-      "existing role-aware match runs. Two other live callers still spiraled from the stale Math.min() " +
-      "anchor after that fix — lib/marketScan.ts's coarseReversion() pre-filter and lib/signals/" +
-      "confluence/gann.ts's evaluateGannConfluence() — fixed 2026-09-10 the same way; neither sits on " +
-      "the backtest replay path (lib/backtest/replay.ts never calls either), so this does not confound " +
-      "the runs below, but it did mean the live scan's pre-filter and the Structural Coordinate " +
-      "Confluence card were still reading a stale level while this criterion had already moved on. " +
-      "2026-09-09/10: six fresh live/Alpaca runs measured the new " +
-      "anchor (docs/replay-runs/2026-09-09-15Min-2R.json, -3R.json, -score5-6.json; " +
-      "2026-09-10-15Min-2R-within-all.json, -1Hour-2R.json, -1Hour-3R.json). The Execute-bucket-" +
-      "conditioned runs are too small on the failing arm to trust (13 passed / 3 failed at 15Min, " +
-      "119/3 at 1Hour — both under MIN_SAMPLES_PER_ARM on one side, and a bucket the score itself " +
-      "selected can't be read for saturation anyway). The unconditioned 15Min population — 660 passed " +
-      "/ 369 failed, comfortably sampled both ways — reads −0.045: inside the ±0.1 noise band, not the " +
-      "clear −0.29-to−0.13 inversion the old anchor measured, but not positive either. Negligible, not " +
-      "validated. Exits quarantine when a fresh committed run measures it positive, outside the noise " +
-      "band, on an adequately sampled arm, twice across different timeframes.",
+    evidence: "unmeasured",
+    note:
+      "Replaces `harmonicProximity` (retired 2026-09-10; see RETIRED) — its key-price-level-proximity " +
+      "approach measured negligible even after fixing its stale-anchor defect twice. This is a " +
+      "genuinely different signal off the same direction-matched anchor (the same pivot detection " +
+      "`gannAngleSlope`/`timePriceSquare` use, not a new anchor rule): whether that pivot itself " +
+      "printed on unusually heavy volume, reusing lib/signals/indicators.ts's relativeVolume() and the " +
+      "same >1.5x 'unusual volume' threshold lib/signals/regime.ts already validated for its own " +
+      "accepted-breakout check, per AGENTS.md's cross-platform consistency principle — rather than " +
+      "another price-distance check. Also replaces the key-price-level proximity term in " +
+      "lib/marketScan.ts's coarseReversion() pre-filter with the same volume-climax check, so the " +
+      "coarse gate still tracks the criterion it is meant to approximate. Never scored before; needs a " +
+      "fresh committed replay before any sign claim.",
   },
   {
     id: "historicalSR",
@@ -402,6 +387,43 @@ const RETIRED: RegisteredCriterion[] = [
       "callouts on the ticker and chart pages — only the scored point moved. Replaced with a different " +
       "construction on the same daily bars (squaring price and time against the swing pivot rather " +
       "than projecting anniversary dates) rather than a third attempt at tuning an anniversary-date rule.",
+  },
+  {
+    id: "harmonicProximity",
+    family: "scanScore",
+    source: "lib/scoring/score.ts (scored until 2026-09-10)",
+    label: "Key price level proximity",
+    expectedSign: "positive",
+    evidence: "retired",
+    note:
+      "Replaced by `volumeClimax`. −0.134 on 2026-08-12-1Hour-3R (both arms above the attribution " +
+      "floor), sign also flipping between timeframes on 2026-09-08. docs/BACKTESTING.md attributed " +
+      "the instability to role-blindness, and the 2026-08-27 role-aware match fix (score.ts's " +
+      "wantedRole filter) verifiably did not end it — because role-blindness wasn't the only defect. " +
+      "lib/gann/squareOf9.ts spiraled every level from Math.min() of the whole daily window — the " +
+      "single lowest low over the lookback, however stale, used identically for bullish and bearish " +
+      "setups alike — rather than the pivot that actually anchors the current move; a stale/irrelevant " +
+      "anchor, distinct from the role-matching bug already fixed. 2026-09-09: replaced with " +
+      "recentSquareOf9Levels(), which anchors from the most recent significant high AND low (the same " +
+      "'anchor from the two most recent pivots' rule lib/gann/fans.ts already used for the stable " +
+      "fanProximity sibling), merged before the existing role-aware match runs. Two other live callers " +
+      "still spiraled from the stale Math.min() anchor after that fix — lib/marketScan.ts's " +
+      "coarseReversion() pre-filter and lib/signals/confluence/gann.ts's evaluateGannConfluence() — " +
+      "fixed 2026-09-10 the same way; neither sits on the backtest replay path (lib/backtest/replay.ts " +
+      "never calls either), so this did not confound the runs below, but it did mean the live scan's " +
+      "pre-filter and the Structural Coordinate Confluence card were still reading a stale level while " +
+      "this criterion had already moved on. 2026-09-09/10: six fresh live/Alpaca runs measured the new " +
+      "anchor (docs/replay-runs/2026-09-09-15Min-2R.json, -3R.json, -score5-6.json; " +
+      "2026-09-10-15Min-2R-within-all.json, -1Hour-2R.json, -1Hour-3R.json). The Execute-bucket-" +
+      "conditioned runs were too small on the failing arm to trust (13 passed / 3 failed at 15Min, " +
+      "119/3 at 1Hour — both under MIN_SAMPLES_PER_ARM on one side, and a bucket the score itself " +
+      "selected can't be read for saturation anyway). The unconditioned 15Min population — 660 passed " +
+      "/ 369 failed, comfortably sampled both ways — read −0.045: inside the ±0.1 noise band, not the " +
+      "clear −0.29-to−0.13 inversion the old anchor measured, but never positive either — negligible, " +
+      "not validated, even after two anchor fixes. lib/marketScan.ts's coarseReversion() pre-filter now " +
+      "reads volumeClimax's anchor/threshold instead, so the coarse gate keeps tracking whichever " +
+      "criterion it approximates. Replaced with a different signal off the same anchor (volume climax) " +
+      "rather than a third attempt at tuning a price-proximity band.",
   },
 ];
 
