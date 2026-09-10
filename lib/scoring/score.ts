@@ -335,7 +335,26 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
         ? "Watch"
         : "Reject";
 
-  return { score, outputState, breakdown };
+  // Candidate criterion, not one of the nine scored — see
+  // docs/PROPOSAL_NEW_GANN_CRITERIA.md. Gann's 1x1 angle rule: the trend is
+  // structurally intact only while price holds at or beyond its own 1x1
+  // angle since the anchor pivot, in the setup's own direction — a shallower
+  // slope, or one running the wrong way, is the first warning the move is
+  // over. `angleSlopeFromBars` and its callers already anchor the bullish
+  // reading off the most recent low and the bearish reading off the most
+  // recent high, the same "two most recent pivots" rule `fanProximity`'s
+  // fan lines already use.
+  const angleReading = direction === "bullish" ? gann.angleSlopeBullish : gann.angleSlopeBearish;
+  const gannAngleTrendHolding =
+    angleReading != null &&
+    (direction === "bullish" ? angleReading.slope >= 1 : angleReading.slope <= -1);
+
+  return {
+    score,
+    outputState,
+    breakdown,
+    candidateCriteria: { gannAngleTrendHolding },
+  };
 }
 
 /**

@@ -27,6 +27,7 @@ import { levelRole } from "@/lib/analysis/levelRole";
 import { computeFanLines } from "@/lib/gann/fans";
 import { recentSquareOf9Levels } from "@/lib/gann/squareOf9";
 import { timeCycles } from "@/lib/gann/timeCycles";
+import { angleSlopeFromBars } from "@/lib/gann/normalizedSlope";
 import {
   CONTINUATION_PATTERNS,
   detectPatterns,
@@ -128,6 +129,8 @@ export async function scanTicker(
     const fanLines = computeFanLines(daily, currentPrice);
     const s9 = recentSquareOf9Levels(daily, currentPrice).slice(0, 12);
     const cycles = timeCycles(daily);
+    const angleSlopeBullish = angleSlopeFromBars(daily, currentPrice, "low");
+    const angleSlopeBearish = angleSlopeFromBars(daily, currentPrice, "high");
 
     const gann: GannLevels = {
       fanLines: fanLines.slice(0, 6).map(({ angle, price, distancePct, role }) => ({
@@ -146,6 +149,8 @@ export async function scanTicker(
       timeCycleBullishActive: cycles.bullishActive,
       timeCycleBearishActive: cycles.bearishActive,
       timeCycleDates: cycles.dates,
+      angleSlopeBullish,
+      angleSlopeBearish,
     };
 
     // ---- Level 3: 15min precision entry via reversal patterns (closed bars only)

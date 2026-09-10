@@ -44,7 +44,16 @@ export type CriterionFamily =
   /** Rules Alignment components inside a signal state — `lib/signals/states/*`. */
   | "rulesAlignment"
   /** Pre-trade blocks — `lib/signals/disqualifiers.ts`. */
-  | "disqualifier";
+  | "disqualifier"
+  /**
+   * A new criterion under evaluation, not one of `CRITERION_KEYS` — see
+   * `docs/PROPOSAL_NEW_GANN_CRITERIA.md`. Collected via
+   * `ScanDecision.candidateCriteria` for attribution only; carries no points
+   * and never affects `score` or `outputState`. Like `scoreHold`, exempt from
+   * the automatic staleness check (no static source list to check it
+   * against) — see `lib/validation/__tests__/criteria-gate.test.ts`.
+   */
+  | "candidate";
 
 /**
  * The direction the criterion claims to work in, stated as the sign of the
@@ -344,6 +353,34 @@ const SCORE_HOLDS: RegisteredCriterion[] = [
   },
 ];
 
+/**
+ * New criteria under evaluation per docs/PROPOSAL_NEW_GANN_CRITERIA.md.
+ * Collected via `ScanDecision.candidateCriteria`, not `breakdown` — see that
+ * field's doc comment in lib/types.ts for why. None of these are one of
+ * `CRITERION_KEYS`; they carry no points and cannot move `score` or
+ * `outputState`. A candidate is promoted into `CRITERION_KEYS` only after
+ * clearing the same in/out-of-sample validation bar
+ * `lib/backtest/propose-weights.ts` already enforces for the existing nine —
+ * see that proposal doc's "Validation discipline" section.
+ */
+const CANDIDATES: RegisteredCriterion[] = [
+  {
+    id: "gannAngleTrendHolding",
+    family: "candidate",
+    source: "lib/scoring/score.ts (candidateCriteria), lib/gann/normalizedSlope.ts",
+    label: "Gann 1x1 angle trend-holding (candidate)",
+    expectedSign: "positive",
+    evidence: "unmeasured",
+    note:
+      "Gann's classic angle rule: the trend is structurally intact only while price holds at or beyond " +
+      "its own 1x1 angle since the anchor pivot (most recent significant low for a bullish setup, high " +
+      "for bearish — the same anchor rule fanProximity's fan lines and the fixed harmonicProximity " +
+      "already use). Wraps lib/gann/normalizedSlope.ts, which existed only as display/confluence " +
+      "context (lib/signals/confluence/gann.ts's angleSlope field) before this. Needs a real replay run " +
+      "to even read its pass rate for the first time — no payload has ever measured it.",
+  },
+];
+
 const ALIGNMENT_STATES: Record<string, string[]> = {
   trendPullback: [
     "higherTimeframeDirection",
@@ -451,6 +488,7 @@ export const CRITERIA_REGISTRY: RegisteredCriterion[] = [
   ...SCAN_SCORE,
   ...RETIRED,
   ...SCORE_HOLDS,
+  ...CANDIDATES,
   ...RULES_ALIGNMENT,
   ...DISQUALIFIERS,
 ];

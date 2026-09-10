@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { squareOf9Levels, nearestS9Level, recentSquareOf9Levels } from "@/lib/gann/squareOf9";
 import { computeFanLines } from "@/lib/gann/fans";
 import { timeCycles } from "@/lib/gann/timeCycles";
+import { angleSlopeFromBars } from "@/lib/gann/normalizedSlope";
 import { computeScore } from "@/lib/scoring/score";
 import type { Bar, TrendReading } from "@/lib/types";
 
@@ -100,6 +101,44 @@ describe("computeFanLines", () => {
     for (let i = 1; i < lines.length; i++) {
       expect(lines[i].distancePct).toBeGreaterThanOrEqual(lines[i - 1].distancePct);
     }
+  });
+});
+
+describe("angleSlopeFromBars", () => {
+  // A V-shape: decline into a trough at index 10, then a steady climb — a
+  // clear low pivot to anchor on, and no interior high pivot at all.
+  function vShapeBars(): Bar[] {
+    const bars: Bar[] = [];
+    for (let i = 0; i < 30; i++) {
+      const level = i <= 10 ? 100 - i * 2 : 80 + (i - 10) * 3;
+      bars.push(bar(`2026-01-${String((i % 28) + 1).padStart(2, "0")}`, level + 2, level));
+    }
+    return bars;
+  }
+
+  it("returns null below the minimum bar count", () => {
+    expect(angleSlopeFromBars([bar("2026-01-01", 101, 100)], 100, "low")).toBeNull();
+  });
+
+  it("anchors a rising move off its low pivot with a positive, 'up' slope", () => {
+    const bars = vShapeBars();
+    const currentPrice = bars[bars.length - 1].c;
+    const reading = angleSlopeFromBars(bars, currentPrice, "low");
+    expect(reading).not.toBeNull();
+    expect(reading!.anchor.kind).toBe("low");
+    expect(reading!.anchor.price).toBeCloseTo(80, 0);
+    expect(reading!.slope).toBeGreaterThan(0);
+    expect(reading!.nearestAngle.direction).toBe("up");
+  });
+
+  it("falls back to the other pivot kind when the requested one hasn't printed", () => {
+    // This series has no interior high pivot at all (monotonic decline then
+    // climb), so asking for a "high" anchor must fall back to the low.
+    const bars = vShapeBars();
+    const currentPrice = bars[bars.length - 1].c;
+    const reading = angleSlopeFromBars(bars, currentPrice, "high");
+    expect(reading).not.toBeNull();
+    expect(reading!.anchor.kind).toBe("low");
   });
 });
 
@@ -289,5 +328,61 @@ describe("computeScore", () => {
     expect(active.breakdown.find((b) => b.criterion === "Cyclical turn window active")?.passed).toBe(true);
     expect(active.breakdown.map((b) => b.criterion)).toHaveLength(9);
     expect(active.breakdown.some((b) => /earnings/i.test(b.criterion))).toBe(false);
+  });
+
+  it("collects the Gann-angle candidate criterion without scoring it", () => {
+    const base = {
+      direction: "bullish" as const,
+      macroTrends: [trend("1Month", "bullish"), trend("1Week", "bullish"), trend("1Day", "bullish")],
+      hourlyTrend: trend("1Hour", "bullish"),
+      nearSupportResistance: false,
+      pattern: null,
+      momentumElevated: false,
+      stopAtrMultiple: 0.8,
+      levels: null,
+    };
+    const gannBase = {
+      fanLines: [],
+      squareOf9: [],
+      timeCycleActive: false,
+      timeCycleBullishActive: false,
+      timeCycleBearishActive: false,
+      timeCycleDates: [],
+    };
+
+    const holding = computeScore({
+      ...base,
+      gann: {
+        ...gannBase,
+        angleSlopeBullish: {
+          slope: 1.5,
+          nearestAngle: { label: "2x1", ratio: 2, direction: "up" },
+          anchor: { price: 90, kind: "low" },
+        },
+      },
+    });
+    const notHolding = computeScore({
+      ...base,
+      gann: {
+        ...gannBase,
+        angleSlopeBullish: {
+          slope: 0.3,
+          nearestAngle: { label: "1x4", ratio: 0.25, direction: "up" },
+          anchor: { price: 90, kind: "low" },
+        },
+      },
+    });
+    const noReading = computeScore({ ...base, gann: gannBase });
+
+    expect(holding.candidateCriteria).toEqual({ gannAngleTrendHolding: true });
+    expect(notHolding.candidateCriteria).toEqual({ gannAngleTrendHolding: false });
+    expect(noReading.candidateCriteria).toEqual({ gannAngleTrendHolding: false });
+
+    // Same score and breakdown either way — the candidate carries no points
+    // and is not one of the nine scored criteria.
+    expect(holding.score).toBe(notHolding.score);
+    expect(holding.score).toBe(noReading.score);
+    expect(holding.breakdown).toHaveLength(9);
+    expect(holding.breakdown.map((b) => b.key)).not.toContain("gannAngleTrendHolding");
   });
 });

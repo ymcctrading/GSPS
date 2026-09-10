@@ -40,6 +40,7 @@ import { atr } from "@/lib/analysis/pivots";
 import { computeFanLines } from "@/lib/gann/fans";
 import { recentSquareOf9Levels } from "@/lib/gann/squareOf9";
 import { timeCycles } from "@/lib/gann/timeCycles";
+import { angleSlopeFromBars } from "@/lib/gann/normalizedSlope";
 import { DEFAULT_COST_PER_SHARE_USD } from "@/lib/trade/friction";
 
 /** 6.5 hours of 15-minute candles. */
@@ -248,6 +249,8 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
   const fanLines = computeFanLines(daily, price);
   const s9 = recentSquareOf9Levels(daily, price).slice(0, 12);
   const cycles = timeCycles(daily);
+  const angleSlopeBullish = angleSlopeFromBars(daily, price, "low");
+  const angleSlopeBearish = angleSlopeFromBars(daily, price, "high");
 
   const allLevels = [
     ...dailyTrend.support.map((p) => ({ price: p, timeframe: dailyTrend.timeframe })),
@@ -283,6 +286,8 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
       timeCycleBullishActive: cycles.bullishActive,
       timeCycleBearishActive: cycles.bearishActive,
       timeCycleDates: cycles.dates,
+      angleSlopeBullish,
+      angleSlopeBearish,
     },
     nearSupportResistance: srMatch !== null,
     srMatch: srMatch && { ...srMatch, role: levelRole(price, srMatch.price) },
@@ -437,6 +442,11 @@ function criteriaOf(decision: ScanDecision | undefined): Record<string, boolean>
   if (!decision) return undefined;
   const out: Record<string, boolean> = {};
   for (const item of decision.breakdown) out[item.key ?? item.criterion] = item.passed;
+  // Candidate criteria under evaluation (docs/PROPOSAL_NEW_GANN_CRITERIA.md)
+  // are collected outside `breakdown` — see ScanDecision.candidateCriteria —
+  // so they don't affect scoring, but still need to reach attribution.ts the
+  // same way the nine scored criteria do.
+  if (decision.candidateCriteria) Object.assign(out, decision.candidateCriteria);
   return out;
 }
 

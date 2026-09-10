@@ -191,15 +191,30 @@ assuming it.
 
 ## Suggested order of work for the new session
 
-1. Pick Candidate 1 (Gann angle) first — lowest implementation risk, code
-   already exists.
-2. Define its exact pass/fail rule, add it to `lib/scoring/score.ts` as a
-   *new, unweighted* diagnostic field first (not one of the nine points) so
-   it appears in every replay's `criteria` snapshot without affecting any
-   verdict.
-3. Run `lib/backtest/attribution.ts` against a real replay to see whether it
-   clears `informative` at all before investing further.
-4. Repeat for Candidates 2 and 3.
-5. Only after at least one clears the four-point validation bar above,
+1. ~~Pick Candidate 1 (Gann angle) first — lowest implementation risk, code
+   already exists.~~ **Done** (2026-09-10): scaffolded, not yet measured.
+   `lib/gann/normalizedSlope.ts` gained `angleSlopeFromBars()`, anchored the
+   same "most recent significant high/low" way as `fans.ts`/`squareOf9.ts`.
+   `GannLevels` carries `angleSlopeBullish`/`angleSlopeBearish` (both
+   computed in `lib/scanTicker.ts` and `lib/backtest/replay.ts`'s
+   `buildMacroContext`). `computeScore()` collects the pass/fail rule —
+   `direction === "bullish" ? slope >= 1 : slope <= -1` (price at or beyond
+   its own 1×1 angle, in the setup's direction) — as
+   `ScanDecision.candidateCriteria.gannAngleTrendHolding`, deliberately
+   **not** in `breakdown`: an unpilared `breakdown` item reads as a
+   verdict-capping hold in `lib/scoring/public-summary.ts`'s
+   `toPublicScoreSummary`, which this candidate must not trigger.
+   `lib/backtest/replay.ts`'s `criteriaOf()` merges `candidateCriteria` into
+   each trade's `criteria` map so `lib/backtest/attribution.ts` reads it
+   exactly like the nine scored criteria. Registered in
+   `lib/validation/criteria-registry.ts` under a new `"candidate"` family
+   (exempt from the completeness/staleness checks the same way `scoreHold`
+   already is), `evidence: "unmeasured"` — nothing has measured it yet.
+2. **Next:** run `lib/backtest/attribution.ts` against a real replay (`npm
+   run backtest -- --within all` or similar — see `docs/BACKTESTING.md`) to
+   see whether `gannAngleTrendHolding` clears `informative` at all before
+   investing further. It will show up in the factor table automatically.
+3. Repeat scaffolding + measurement for Candidates 2 and 3.
+4. Only after at least one clears the four-point validation bar above,
    propose which quarantined criterion it would replace, and route that
    decision through a human before touching `CRITERION_KEYS`.
