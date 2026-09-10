@@ -29,7 +29,7 @@
  * premarket-scan.yml pattern. That's the cron-slot question; it's separate
  * from provider call volume (below).
  *
- * Runs at runMarketScan()'s full default budget (universeTop=100,
+ * Runs at runMarketScan()'s full default budget (universeTop=900,
  * perSide=15), the same as the existing 08:30/17:30 ET crons -- these two
  * jobs were originally throttled to a smaller universe pending confirmation
  * that four full scans/day stays under every provider's rate limit

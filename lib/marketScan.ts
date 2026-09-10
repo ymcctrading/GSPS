@@ -123,8 +123,18 @@ async function resolveUniverse(universeTop: number): Promise<string[]> {
  * growth is fine, silent unbounded growth is not. Raising it means re-checking
  * the scan's wall-clock time against the ceiling in
  * `app/api/market-scan/route.ts` first.
+ *
+ * Raised from 750 to 1000 alongside the large-cap universe refresh that took
+ * `LARGE_CAP_UNIVERSE` from ~500 to ~770 names (see
+ * lib/scan/large-cap-universe.ts) — the combined fallback pool (MAG7 + sector
+ * watchlists + the large-cap list) now sits around 800-820 unique symbols, and
+ * 750 would have silently clipped it. The coarse pass batches bars in chunks of
+ * 100 symbols fired concurrently (`fetchBarsBatch`), so wall-clock cost scales
+ * with the slowest chunk's latency, not the chunk count — but that is an
+ * architectural expectation, not a measurement. Confirm actual run time on a
+ * live deploy against the 60s ceiling before trusting this in the daily cron.
  */
-export const MAX_COARSE_UNIVERSE = 750;
+export const MAX_COARSE_UNIVERSE = 1000;
 
 /**
  * Apply the caller's budget, then the hard ceiling.
@@ -571,9 +581,23 @@ const CONTINUATION_DEADLINE_MS = 42_000;
  * scan was what blew through Vercel Hobby's 60s function ceiling, not the
  * universe size itself. See `app/api/market-scan/route.ts` for the ceiling
  * this now comfortably fits inside.
+ *
+ * `universeTop` default raised from 100 to 900 so a run actually reaches the
+ * whole combined fallback pool (MAG7 + sector watchlists + the ~770-symbol
+ * `LARGE_CAP_UNIVERSE`, roughly 800-820 unique names after de-duping) instead
+ * of coarse-filtering only the first 100 of it — see
+ * lib/scan/large-cap-universe.ts for that list's own refresh. The coarse pass
+ * cost scales with request *chunks* (100 symbols each, all fired
+ * concurrently), not with `universeTop` directly, so this is 2 timeframes x
+ * ~9 chunks = ~18 parallel requests instead of ~2, still well under Alpaca's
+ * ~200 req/min (docs/THIRD_PARTY_LIMITS.md) for a single run. Every caller
+ * that takes this default — the 08:30/17:30 ET crons
+ * (app/api/market-scan/route.ts) and the 06:00/09:15 ET GitHub Actions scans
+ * (lib/entitlements/scheduled-scan.ts) — widens together; none of the four
+ * runs overlap in time, so their per-minute budgets don't stack.
  */
 export async function runMarketScan(
-  universeTop = 100,
+  universeTop = 900,
   perSide = 15,
   /**
    * `getUniversePolicy()`-resolved Market Universe thresholds, resolved once

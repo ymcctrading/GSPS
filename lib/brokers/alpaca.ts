@@ -110,6 +110,28 @@ export interface AlpacaAssetSummary {
 let assetsCache: { at: number; assets: AlpacaAssetSummary[] } | null = null;
 const ASSETS_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
+/**
+ * The full active us_equity catalog, unfiltered — every symbol Alpaca lists
+ * as `status=active`, tradable or not, with the fields needed to tell the two
+ * apart. Deliberately not cached like `loadTradableAssets` below: this exists
+ * for one-off validation of a committed symbol list (see
+ * app/api/admin/large-cap-universe-check/route.ts), not a hot path, so a
+ * fresh call each time is worth the simplicity.
+ */
+export async function listActiveUsEquityAssets(creds: AlpacaCreds): Promise<AlpacaAsset[]> {
+  const raw = await alpacaFetch(creds, `/v2/assets?status=active&asset_class=us_equity`);
+  return (Array.isArray(raw) ? raw : []).map((a) => ({
+    symbol: String(a.symbol ?? "").toUpperCase(),
+    name: a.name,
+    tradable: Boolean(a.tradable),
+    shortable: Boolean(a.shortable),
+    easy_to_borrow: Boolean(a.easy_to_borrow),
+    fractionable: a.fractionable,
+    status: a.status,
+    exchange: a.exchange,
+  }));
+}
+
 async function loadTradableAssets(creds: AlpacaCreds): Promise<AlpacaAssetSummary[]> {
   if (assetsCache && Date.now() - assetsCache.at < ASSETS_CACHE_TTL_MS) {
     return assetsCache.assets;
