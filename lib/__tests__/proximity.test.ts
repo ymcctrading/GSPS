@@ -78,6 +78,7 @@ function inputs(overrides: Partial<ScoreInputs> = {}): ScoreInputs {
     nearSupportResistance: true,
     pattern,
     momentumElevated: true,
+    stopAtrMultiple: 2,
     levels,
     ...overrides,
   };

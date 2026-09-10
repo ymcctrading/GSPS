@@ -84,6 +84,7 @@ describe("computeScore proximity criteria respect level role", () => {
       nearSupportResistance: false,
       pattern: null,
       momentumElevated: false,
+      stopAtrMultiple: 0.8,
       levels: null,
     };
   }

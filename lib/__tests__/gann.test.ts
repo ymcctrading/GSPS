@@ -135,6 +135,7 @@ describe("computeScore", () => {
         description: "",
       },
       momentumElevated: true,
+      stopAtrMultiple: 2,
       levels: {
         entry: 100.5,
         stopLoss: 86,
@@ -185,6 +186,7 @@ describe("computeScore", () => {
         description: "",
       },
       momentumElevated: true,
+      stopAtrMultiple: 2,
       levels: {
         entry: 100.5,
         stopLoss: 86,
@@ -219,6 +221,7 @@ describe("computeScore", () => {
       nearSupportResistance: false,
       pattern: null,
       momentumElevated: false,
+      stopAtrMultiple: 0.8,
       levels: null,
     });
     expect(decision.score).toBeLessThanOrEqual(3);
@@ -235,6 +238,7 @@ describe("computeScore", () => {
         nearSupportResistance: false,
         pattern: null,
         momentumElevated: false,
+        stopAtrMultiple: 0.8,
         levels: {
           entry: 100,
           stopLoss: 95,
@@ -269,6 +273,7 @@ describe("computeScore", () => {
       nearSupportResistance: false,
       pattern: null,
       momentumElevated: false,
+      stopAtrMultiple: 0.8,
       levels: null,
     };
     const active = computeScore({

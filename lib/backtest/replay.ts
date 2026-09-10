@@ -535,6 +535,7 @@ function scoreSetup(input: {
       pattern,
       momentumElevated: context.momentumElevated,
       levels,
+      stopAtrMultiple: levels && executionAtr > 0 ? levels.riskPerShare / executionAtr : null,
       atrPct: context.atrPct,
       ...(weights ? { weights } : {}),
     }),

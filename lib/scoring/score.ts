@@ -46,7 +46,20 @@ export interface ScoreInputs {
    */
   srMatch?: { price: number; timeframe: Timeframe; role: LevelRole } | null;
   pattern: StratPattern | null;
+  /**
+   * Accepted but no longer read here: `momentum` stopped being a scored
+   * criterion on 2026-09-08 (see the `stopRoom` swap in
+   * `lib/scoring/weights.ts`). The field stays because the same value still
+   * gates the bare-2-2 check in `applyReversionConfirmation`, so a caller
+   * assembling one inputs object can feed both without recomputing it.
+   */
   momentumElevated: boolean;
+  /**
+   * The setup's stop distance as a multiple of the execution ATR
+   * (`riskPerShare / executionAtr`). Null when no plan priced, which scores as
+   * a fail — a setup with no stop has no room to be measured.
+   */
+  stopAtrMultiple?: number | null;
   levels: TradeLevels | null;
   /** Defaults to "reversion" — the protocol's primary setup. */
   setupKind?: SetupKind;
@@ -67,10 +80,48 @@ export interface ScoreInputs {
   weights?: CriterionWeights;
 }
 
+/**
+ * Stop distance, in multiples of the execution ATR, at or above which a setup
+ * has room to work. Replaces the `momentum` criterion, which measured nothing.
+ *
+ * Set from the first unconditioned replay (1,005 live-data reversion trades,
+ * `docs/replay-runs/2026-09-08-15Min-since0615-all.json`), which is the only
+ * population that can answer this without the score's own selection confounding
+ * it. Expectancy by stop width there is monotonic across the boundary:
+ *
+ *   0.5–1.0x  n=442  win 32.6%  E[R] −0.038
+ *   1.0–1.5x  n=398  win 30.2%  E[R] −0.110
+ *   1.5–2.0x  n=100  win 38.0%  E[R] +0.151
+ *   2.0–2.5x  n= 38  win 42.1%  E[R] +0.312
+ *   2.5x+     n= 27  win 44.4%  E[R] +0.328
+ *
+ * Split at 1.5x: +0.217R against −0.072R, a +0.289R difference at t=2.40 — a
+ * larger effect than any of the nine criteria this replaces one of, and the
+ * only band boundary where the sign changes. Corroborated on a fresher, larger
+ * unconditioned run (1,029 trades, `docs/replay-runs/2026-09-10-15Min-2R-
+ * within-all.json`): the same side of the 33.3% break-even line flips the same
+ * way (854 trades below 1.5x at 31.2% win rate; 175 at/above at 38.3%) — see
+ * lib/validation/criteria-registry.ts's `stopRoom` entry for the caveat that
+ * that table only carries per-band aggregates, not a second per-trade t-stat.
+ *
+ * **This is a selection rule, not an instruction to widen stops.** The bands
+ * compare setups whose *structure* implied a wide stop against ones that did
+ * not. They say nothing about what happens if you take a tight-stop setup and
+ * move its stop out — that is a different trade, with a different R and a
+ * different 2R target, and it is unmeasured. Read as a reason to prefer setups
+ * with room, never as a reason to manufacture room.
+ *
+ * Two caveats travel with the number: the replay walked the raw pattern stop
+ * (`useProductionStop: false`), not the leeway-widened stop production places,
+ * and the sample is one window of six large caps on 15Min. `?productionStop=1`
+ * confirmed nothing new — see the registry entry for why.
+ */
+export const MIN_STOP_ROOM_ATR = 1.5;
+
 export function computeScore(inputs: ScoreInputs): ScanDecision {
   const {
     direction, macroTrends, hourlyTrend, gann,
-    nearSupportResistance, srMatch, pattern, momentumElevated, levels,
+    nearSupportResistance, srMatch, pattern, levels, stopAtrMultiple,
     setupKind = "reversion",
     atrPct,
     weights = DEFAULT_CRITERION_WEIGHTS,
@@ -86,6 +137,11 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   const macroSupports = macroTrends.filter((t) => t.direction === direction).length >= 2;
 
   const hourlyAgrees = hourlyTrend.direction === direction || hourlyTrend.direction === "sideways";
+
+  // Null (no priced plan) fails: a setup with no stop has no room to measure,
+  // and the alternative — treating "unknown" as a pass — would hand a free
+  // point to exactly the setups that are least ready to trade.
+  const hasStopRoom = stopAtrMultiple != null && stopAtrMultiple >= MIN_STOP_ROOM_ATR;
 
   // "Near a level" is a multiple of the instrument's own daily range, not a
   // fixed percentage of price — see lib/scoring/proximity.ts for why a fixed
@@ -206,13 +262,16 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
         : `No matching ${setupKind === "continuation" ? "continuation" : "reversal"} pattern armed on the execution timeframe.`,
     },
     {
-      key: "momentum",
-      criterion: "Momentum / volatility elevated",
+      key: "stopRoom",
+      criterion: `Stop room (>= ${MIN_STOP_ROOM_ATR}x ATR)`,
       pillar: "setup",
-      passed: momentumElevated,
-      note: momentumElevated
-        ? "Range expansion above average — high-velocity conditions."
-        : "Volatility is below the threshold for a high-velocity reversion.",
+      passed: hasStopRoom,
+      note:
+        stopAtrMultiple == null
+          ? "No trade plan priced, so the setup has no stop distance to measure."
+          : hasStopRoom
+            ? `Stop sits ${stopAtrMultiple.toFixed(2)}x the execution ATR from entry — far enough that ordinary noise should not reach it before the setup resolves.`
+            : `Stop sits only ${stopAtrMultiple.toFixed(2)}x the execution ATR from entry; setups this tight are inside the range ordinary noise covers.`,
     },
     {
       key: "timeCycle",
