@@ -43,6 +43,7 @@ import { timeCycles } from "@/lib/gann/timeCycles";
 import { computeAngleSlopes } from "@/lib/gann/normalizedSlope";
 import { computeRetracementLevels } from "@/lib/gann/retracement";
 import { priceTimeConfluence } from "@/lib/gann/digitalRoot";
+import { adx } from "@/lib/signals/indicators";
 import { DEFAULT_COST_PER_SHARE_USD } from "@/lib/trade/friction";
 
 /** 6.5 hours of 15-minute candles. */
@@ -522,7 +523,11 @@ function scoreSetup(input: {
 
   // The last 400 candles is ~15 sessions of hourly context, which is more than
   // readTrend looks back over and keeps the roll-up cheap.
-  const hourlyTrend = readTrend(rollUp(history.slice(-400), (b) => b.t.slice(0, 13)), "1Hour");
+  const hourlyBars = rollUp(history.slice(-400), (b) => b.t.slice(0, 13));
+  const hourlyTrend = readTrend(hourlyBars, "1Hour");
+  // Same implementation and 20-ADX threshold lib/signals/regime.ts already
+  // validated for trend-strength confirmation — reused, not reinvented.
+  const hourlyAdx = adx(hourlyBars);
 
   let levels = null;
   try {
@@ -545,6 +550,7 @@ function scoreSetup(input: {
       direction: pattern.direction,
       macroTrends: context.macroTrends,
       hourlyTrend,
+      hourlyAdx,
       gann: context.gann,
       nearSupportResistance: context.nearSupportResistance,
       srMatch: context.srMatch,

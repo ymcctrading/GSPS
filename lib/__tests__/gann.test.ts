@@ -117,6 +117,7 @@ describe("computeScore", () => {
       // setup wants bullish macro too.
       macroTrends: [trend("1Month", "bullish"), trend("1Week", "bullish"), trend("1Day", "bullish")],
       hourlyTrend: trend("1Hour", "bullish"),
+      hourlyAdx: { adx: 25, plusDI: 20, minusDI: 10 },
       gann: {
         fanLines: [],
         squareOf9: [{ degree: 90, price: 100.2, distancePct: 0.3, role: "support" }],
@@ -173,6 +174,7 @@ describe("computeScore", () => {
       // setup wants bullish macro too.
       macroTrends: [trend("1Month", "bullish"), trend("1Week", "bullish"), trend("1Day", "bullish")],
       hourlyTrend: trend("1Hour", "bullish"),
+      hourlyAdx: { adx: 25, plusDI: 20, minusDI: 10 },
       gann: {
         fanLines: [],
         squareOf9: [{ degree: 90, price: 100.2, distancePct: 0.3, role: "resistance" }],
