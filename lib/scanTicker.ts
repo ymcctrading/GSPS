@@ -8,6 +8,7 @@
 import type {
   AssetClass,
   GannLevels,
+  ScanDecision,
   ScanResult,
   SetupKind,
   StratPattern,
@@ -70,11 +71,24 @@ import { routeMarketAdapter } from "@/lib/signals/confluence/marketAdapters";
 import { isConfluenceModuleEnabled } from "@/lib/signals/confluence/flags";
 
 /**
- * What the caller is looking for. Left unset, a scan hunts reversions and
- * prefers the armed pattern that trades against the macro move — the protocol's
- * default. The market scan sets it when it is deliberately looking for a
- * momentum continuation instead, so the pattern chosen, the trade plan priced
- * from it, and the macro criterion it is scored on all describe the same trade.
+ * What the caller is looking for. Left unset, a scan has no direction opinion
+ * of its own: it prices and scores the best-armed pattern in *each* direction
+ * that has one armed, and reports whichever direction's evidence actually
+ * wins (see `evaluateCandidate`/`pickWinner` below) — reversion and
+ * continuation are two hypotheses judged on their own merits, not a default
+ * and an exception. The market scan's continuation top-up pass sets this when
+ * it has already independently coarse-scored a symbol as a continuation
+ * candidate and wants that specific direction re-scanned, so the pattern
+ * chosen, the trade plan priced from it, and the macro criterion it is scored
+ * on all describe the same trade.
+ *
+ * 2026-09-11: this replaces a default that assumed every setup was a
+ * reversion against the macro trend and used that assumption to pick which
+ * armed pattern got scored — see AGENTS.md's cross-platform consistency
+ * section for the incident this produced (a short surfaced and traded on
+ * IBIT purely because the macro trend read bullish, not because a bearish
+ * setup had better evidence than the bullish continuation also armed at the
+ * time).
  */
 export interface ScanPreference {
   direction: "bullish" | "bearish";
@@ -131,6 +145,11 @@ export async function scanTicker(
     // macroTrend agreement check — same daily bars, a different (reversal-
     // count) construction. See lib/gann/swingChart.ts.
     const swingChart = computeSwingChart(daily);
+    // Computed here (rather than down with the rest of the Signal & Regime
+    // Engine block) because it doubles as the neutral, evidence-based
+    // fallback direction below when no STRAT pattern is armed in either
+    // direction — an ADX/DMI trend read, not an assumed mean reversion.
+    const regime = classifyRegime({ bars: daily });
 
     // ---- Level 2: 1hr refinement
     const hourlyTrend = readTrend(hourly, "1Hour");
@@ -197,16 +216,6 @@ export async function scanTicker(
       (p) => !gapRuleViolated(p, currentPrice) && !riskFloorViolated(p, executionAtr),
     );
 
-    // Prefer the pattern aligned with a reversion of the macro move; then by
-    // trigger proximity to current price. A caller hunting a continuation
-    // supplies its own direction instead — the trend's, not the reversion of it.
-    const macroDir =
-      [monthlyTrend, weeklyTrend, dailyTrend].filter((t) => t.direction === "bearish").length >= 2
-        ? "bearish"
-        : "bullish";
-    const reversionDirection = macroDir === "bearish" ? "bullish" : "bearish";
-    const preferredDirection = preference?.direction ?? reversionDirection;
-
     // Three-bar compound setups carry more context than a bare 2-2 (which arms
     // on almost every directional bar), so rank them ahead of it.
     const specificity = (name: StratPattern["name"]): number => {
@@ -224,63 +233,47 @@ export async function scanTicker(
     };
 
     // A continuation is carried by the compound patterns that break in the
-    // direction of the bar sequence; the 2-2 family reverses it. Within the
-    // preferred direction, rank the continuation shapes first when that is what
-    // was asked for, so the trade plan priced below is the continuation's.
+    // direction of the bar sequence; the 2-2 family reverses it. Rank the
+    // continuation shapes first only when one was explicitly asked for, so
+    // the trade plan priced below is the continuation's.
     const kindRank = (p: StratPattern): number =>
       setupKind === "continuation" && !CONTINUATION_PATTERNS.has(p.name) ? 1 : 0;
 
-    const armedPatterns = [...armed].sort((a, b) => {
-      const aRev = a.direction === preferredDirection ? 0 : 1;
-      const bRev = b.direction === preferredDirection ? 0 : 1;
-      if (aRev !== bRev) return aRev - bRev;
-      const kind = kindRank(a) - kindRank(b);
-      if (kind !== 0) return kind;
-      const spec = specificity(a.name) - specificity(b.name);
-      if (spec !== 0) return spec;
-      return Math.abs(a.triggerPrice - currentPrice) - Math.abs(b.triggerPrice - currentPrice);
-    });
+    /**
+     * The strongest-armed candidate *within one direction*: shape first (only
+     * when a continuation was explicitly asked for), then specificity, then
+     * trigger proximity to current price. Direction is never a tie-break
+     * input here — see the bullish/bearish evaluation below for how the two
+     * directions are actually adjudicated against each other.
+     */
+    const bestArmedPattern = (dir: "bullish" | "bearish"): StratPattern | null => {
+      const candidates = armed.filter((p) => p.direction === dir);
+      if (candidates.length === 0) return null;
+      return [...candidates].sort((a, b) => {
+        const kind = kindRank(a) - kindRank(b);
+        if (kind !== 0) return kind;
+        const spec = specificity(a.name) - specificity(b.name);
+        if (spec !== 0) return spec;
+        return Math.abs(a.triggerPrice - currentPrice) - Math.abs(b.triggerPrice - currentPrice);
+      })[0];
+    };
 
-    const pattern: StratPattern | null = armedPatterns[0] ?? null;
-
-    const direction: "bullish" | "bearish" | "none" = pattern?.direction ?? "none";
-    const scoreDirection = pattern?.direction ?? preferredDirection;
-
-    // ---- Trade levels
+    // ---- Trade levels — direction-agnostic inputs, shared by every candidate
+    // evaluated below (reversion and continuation alike).
     const previousBar = closedExecutionBars[closedExecutionBars.length - 2] ?? closedExecutionBars[closedExecutionBars.length - 1];
     const gannTargets = [
       ...gann.fanLines.map((f) => f.price),
       ...gann.squareOf9.map((s) => s.price),
     ];
-    // A trade-plan failure is confined to the trade plan. The rest of the scan
-    // — price, trends, structural levels, checklist — is still valid and worth
-    // showing, so it degrades to "no levels" with a note instead of collapsing
-    // the whole scan into an error and leaving the ticker page blank.
     // Read once, shared by the large-cap check below and the `liquidity` field
     // on the returned result — same daily bars either way, no reason to read
     // them twice.
     const liquidity = readLiquidity(daily) ?? undefined;
     const largeCap = isLargeCapStock(symbol, assetClass, liquidity);
 
-    let levels: TradeLevels | null = null;
-    let levelsError: string | undefined;
-    if (pattern) {
-      try {
-        levels = computeTradeLevels(
-          pattern,
-          previousBar,
-          gannTargets,
-          optionPremium,
-          executionAtr,
-          assetClass,
-          largeCap,
-        );
-      } catch (err) {
-        levelsError = err instanceof Error ? err.message : String(err);
-      }
-    }
-
-    // ---- Supporting signals
+    // ---- Supporting signals — also direction-agnostic; role-awareness for
+    // S/R (which side of a level a trade needs) happens inside computeScore
+    // via the direction it's called with, not here.
     //
     // Each level keeps the timeframe it was read off — the flat number-only
     // list this used to be threw that away, so the "near S/R" criterion could
@@ -315,34 +308,138 @@ export async function scanTicker(
       marketSession(assetClass) === "regular",
     );
 
-    const decision = applyDataLagHold(
-      applyReversionConfirmation(
-        computeScore({
-          direction: scoreDirection,
-          macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
-          hourlyTrend,
-          hourlyAdx,
-          swingChart,
-          timePriceSquare,
-          volumeClimax,
-          gann,
-          nearSupportResistance,
-          srMatch: srMatch && { ...srMatch, role: levelRole(currentPrice, srMatch.price) },
-          pattern,
+    const criterionWeights = await getActiveCriterionWeights();
+
+    interface Candidate {
+      pattern: StratPattern | null;
+      direction: "bullish" | "bearish";
+      levels: TradeLevels | null;
+      levelsError: string | undefined;
+      decision: ScanDecision;
+    }
+
+    /**
+     * Price and score one direction's candidate — a specific armed pattern,
+     * or `null` with a fallback direction when nothing is armed. Reversion
+     * and continuation are two hypotheses, not a default and an exception:
+     * this runs identically either way, off the same shared context above,
+     * so whichever direction actually clears the bar wins on its own
+     * evidence rather than on an assumption about which one "should" apply.
+     */
+    const evaluateCandidate = (
+      candidatePattern: StratPattern | null,
+      candidateDirection: "bullish" | "bearish",
+    ): Candidate => {
+      let candidateLevels: TradeLevels | null = null;
+      let candidateLevelsError: string | undefined;
+      // A trade-plan failure is confined to the trade plan. The rest of the
+      // scan — price, trends, structural levels, checklist — is still valid
+      // and worth showing, so it degrades to "no levels" with a note instead
+      // of collapsing the whole scan into an error and leaving the ticker
+      // page blank.
+      if (candidatePattern) {
+        try {
+          candidateLevels = computeTradeLevels(
+            candidatePattern,
+            previousBar,
+            gannTargets,
+            optionPremium,
+            executionAtr,
+            assetClass,
+            largeCap,
+          );
+        } catch (err) {
+          candidateLevelsError = err instanceof Error ? err.message : String(err);
+        }
+      }
+
+      const candidateDecision = applyDataLagHold(
+        applyReversionConfirmation(
+          computeScore({
+            direction: candidateDirection,
+            macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
+            hourlyTrend,
+            hourlyAdx,
+            swingChart,
+            timePriceSquare,
+            volumeClimax,
+            gann,
+            nearSupportResistance,
+            srMatch: srMatch && { ...srMatch, role: levelRole(currentPrice, srMatch.price) },
+            pattern: candidatePattern,
+            momentumElevated,
+            levels: candidateLevels,
+            stopAtrMultiple:
+              candidateLevels && executionAtr > 0 ? candidateLevels.riskPerShare / executionAtr : null,
+            setupKind,
+            atrPct,
+            weights: criterionWeights,
+          }),
+          candidatePattern,
           momentumElevated,
-          levels,
-          stopAtrMultiple:
-            levels && executionAtr > 0 ? levels.riskPerShare / executionAtr : null,
-          setupKind,
-          atrPct,
-          weights: await getActiveCriterionWeights(),
-        }),
-        pattern,
-        momentumElevated,
-        nearSupportResistance,
-      ),
-      dataLag,
-    );
+          nearSupportResistance,
+        ),
+        dataLag,
+      );
+
+      return {
+        pattern: candidatePattern,
+        direction: candidateDirection,
+        levels: candidateLevels,
+        levelsError: candidateLevelsError,
+        decision: candidateDecision,
+      };
+    };
+
+    // Execute beats Watch beats Reject; within a tier, higher score wins;
+    // remaining ties fall back to the same specificity/proximity tie-break
+    // `bestArmedPattern` uses within a single direction. Only ever called
+    // with candidates carrying a real armed pattern (never the null-pattern
+    // fallback), so the non-null pattern access below is safe.
+    const tierRank = (d: ScanDecision): number =>
+      d.outputState === "Execute" ? 2 : d.outputState === "Watch" ? 1 : 0;
+    const pickWinner = (candidates: Candidate[]): Candidate | null => {
+      if (candidates.length === 0) return null;
+      return [...candidates].sort((a, b) => {
+        const tier = tierRank(b.decision) - tierRank(a.decision);
+        if (tier !== 0) return tier;
+        if (b.decision.score !== a.decision.score) return b.decision.score - a.decision.score;
+        const spec = specificity(a.pattern!.name) - specificity(b.pattern!.name);
+        if (spec !== 0) return spec;
+        return Math.abs(a.pattern!.triggerPrice - currentPrice) - Math.abs(b.pattern!.triggerPrice - currentPrice);
+      })[0];
+    };
+
+    // A caller with no direction opinion has no pattern armed to fall back
+    // to either, so it reads the regime engine's own ADX/DMI trend read
+    // instead of assuming a reversion against the macro trend — "bullish" is
+    // an arbitrary, inert placeholder for the rare case regime is sideways
+    // too (no pattern anywhere means no trade plan either way).
+    const noOpinionFallbackDirection: "bullish" | "bearish" =
+      regime.direction !== "sideways" ? regime.direction : "bullish";
+
+    const winner: Candidate = preference
+      ? // An explicit ask (e.g. marketScan's continuation top-up) already
+        // decided, from its own independent coarse score, which direction it
+        // wants re-scanned — honor it rather than re-adjudicating here.
+        evaluateCandidate(bestArmedPattern(preference.direction), preference.direction)
+      : // No caller opinion: reversion and continuation are two hypotheses,
+        // not a default and an exception (see the `ScanPreference` doc
+        // comment above and AGENTS.md's cross-platform consistency section
+        // for the incident this replaces). Score whichever pattern each
+        // direction actually armed and let the evidence decide.
+        pickWinner(
+          ([bestArmedPattern("bullish"), bestArmedPattern("bearish")] as (StratPattern | null)[])
+            .filter((p): p is StratPattern => p !== null)
+            .map((p) => evaluateCandidate(p, p.direction)),
+        ) ?? evaluateCandidate(null, noOpinionFallbackDirection);
+
+    const pattern: StratPattern | null = winner.pattern;
+    const levels: TradeLevels | null = winner.levels;
+    const levelsError: string | undefined = winner.levelsError;
+    const direction: "bullish" | "bearish" | "none" = pattern?.direction ?? "none";
+    const scoreDirection = winner.direction;
+    const decision = winner.decision;
 
     // ---- Signal and Regime Engine (lib/signals) — a separate decision layer
     // from the Gann/STRAT verdict above, never merged into it. This is a
@@ -382,7 +479,8 @@ export async function scanTicker(
       },
       universeThresholds,
     );
-    const regime = classifyRegime({ bars: daily });
+    // `regime` is computed earlier (see the comment by its declaration) —
+    // it's also this scan's fallback direction when nothing armed.
 
     // ---- Gann Confluence Layer / Sara Confluence Layer — the addendum's
     // cross-market confluence modules (2026-08-28). Additive and
@@ -474,7 +572,12 @@ export async function scanTicker(
       trends: [monthlyTrend, weeklyTrend, dailyTrend, hourlyTrend],
       gann,
       pattern,
-      armedPatterns,
+      // Every setup armed on the execution timeframe, in both directions,
+      // regardless of which one `pattern` ended up being — see
+      // `lib/types.ts`'s doc comment on this field. Unsorted: consumers
+      // (`SignalCard`'s "other setups armed" list, `marketScan.ts`'s
+      // continuation-shape check) don't care about order, only membership.
+      armedPatterns: armed,
       levels,
       levelsError,
       dataLag,

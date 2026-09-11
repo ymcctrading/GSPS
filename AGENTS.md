@@ -44,8 +44,8 @@ equal to not existing anywhere.** A concept built once and left stranded in
 the module that introduced it is not "partially done" — treat it as not
 done, and finish rolling it out before calling the work complete.
 
-This is not hypothetical caution; it is the exact shape of two real defects
-found in this codebase on 2026-09-10:
+This is not hypothetical caution; it is the exact shape of three real defects
+found in this codebase, on 2026-09-10 and 2026-09-11:
 
 - **`harmonicProximity`'s stale Square-of-9 anchor.** The fix landed in the
   two callers feeding the scored criterion (`lib/scanTicker.ts`,
@@ -61,6 +61,24 @@ found in this codebase on 2026-09-10:
   (`lib/scoring/score.ts`) at all — a second subsystem with the exact same
   "which indicator confirms a trend" problem, solved once and never
   propagated.
+- **Reversion-against-macro-trend as a silent default direction.**
+  `lib/scanTicker.ts` used to compute a `reversionDirection` (the opposite of
+  the 2-of-3 monthly/weekly/daily trend read) and use it as the tie-break for
+  *which armed STRAT pattern got scored and traded* whenever a caller didn't
+  supply an explicit direction — every caller except `lib/marketScan.ts`'s
+  continuation top-up pass. So when both a bearish reversal pattern and a
+  bullish continuation pattern were armed on the same closed bars, the
+  bearish one always won the tie-break if the macro trend read bullish, not
+  because it had better evidence, but purely because it agreed with an
+  assumed mean-reversion premise. `lib/marketScan.ts` had already solved this
+  correctly for its own batch pipeline — `coarseReversion`/`coarseContinuation`
+  as two independently scored candidate pools, neither the assumed default —
+  but that design never reached `scanTicker.ts`'s own no-preference behavior,
+  which is what powers the single-ticker scan, Guided Decision Mode, and the
+  batch scan's own reversion pass. Fixed 2026-09-11: `scanTicker.ts` now
+  prices and scores the best-armed pattern in *each* direction that has one
+  armed and reports whichever direction's evidence actually wins, everywhere
+  a caller doesn't supply an explicit direction.
 
 Before considering any indicator, anchor rule, fixed threshold, or computed
 field "in place," check every surface it plausibly applies to — other
