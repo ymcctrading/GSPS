@@ -16,6 +16,7 @@
 import { describe, expect, it } from "vitest";
 import type { Bar, GannLevels, StratPattern, TradeLevels, TrendReading } from "@/lib/types";
 import { applyReversionConfirmation, computeScore, type ScoreInputs } from "@/lib/scoring/score";
+import { DEFAULT_CRITERION_WEIGHTS } from "@/lib/scoring/weights";
 import { detectPatterns } from "@/lib/strat/patterns";
 import { computeTradeLevels } from "@/lib/strat/levels";
 
@@ -174,8 +175,13 @@ describe("confluence checklist copy", () => {
 
   it("covers every criterion in both directions", () => {
     // Guards the two fixtures above: if a criterion stops flipping, one of the
-    // branches silently drops out of the corpus.
-    expect(computeScore(allPass).score).toBe(9);
+    // branches silently drops out of the corpus. The all-pass total is the sum
+    // of the current default weights, not a hardcoded 9 — two criteria are
+    // down-weighted (see DEFAULT_CRITERION_WEIGHTS's own doc comment), so a
+    // clean sweep no longer totals an even 9.
+    const totalDefaultWeight =
+      Math.round(Object.values(DEFAULT_CRITERION_WEIGHTS).reduce((sum, w) => sum + w, 0) * 100) / 100;
+    expect(computeScore(allPass).score).toBe(totalDefaultWeight);
     expect(computeScore(allFail).score).toBe(0);
   });
 });

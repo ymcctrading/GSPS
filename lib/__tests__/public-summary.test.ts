@@ -18,6 +18,7 @@ import type {
   TrendReading,
 } from "@/lib/types";
 import { applyReversionConfirmation, computeScore, type ScoreInputs } from "@/lib/scoring/score";
+import { DEFAULT_CRITERION_WEIGHTS } from "@/lib/scoring/weights";
 import {
   redactDecision,
   redactScanResult,
@@ -110,10 +111,23 @@ describe("toPublicScoreSummary", () => {
   it("accounts for every scored criterion exactly once", () => {
     const summary = toPublicScoreSummary(computeScore(allPass));
 
+    // Pillar `met`/`total` are raw criterion counts (a checklist: how many of
+    // this pillar's conditions held), not weighted points — see this file's
+    // header and the dot-indicator UI (SignalCard/GuidedCard) that renders
+    // them as small fixed slot counts. That count is a property of the model
+    // (nine criteria, always) and does not move when a criterion's weight
+    // does, so it stays 9 regardless of DEFAULT_CRITERION_WEIGHTS.
     expect(summary.max).toBe(9);
     expect(summary.pillars.reduce((n, p) => n + p.total, 0)).toBe(9);
-    expect(summary.pillars.reduce((n, p) => n + p.met, 0)).toBe(summary.score);
-    expect(summary.score).toBe(9);
+    // A full pass means every pillar fully held, not that the met-count sum
+    // equals the headline score — those are different scales once weights
+    // aren't uniform (two criteria are down-weighted; see
+    // DEFAULT_CRITERION_WEIGHTS's own doc comment), and equating them was
+    // only ever an accident of every weight being 1.
+    expect(summary.pillars.every((p) => p.met === p.total)).toBe(true);
+    const totalDefaultWeight =
+      Math.round(Object.values(DEFAULT_CRITERION_WEIGHTS).reduce((sum, w) => sum + w, 0) * 100) / 100;
+    expect(summary.score).toBe(totalDefaultWeight);
   });
 
   it("reports every pillar in a fixed order, whatever the score", () => {

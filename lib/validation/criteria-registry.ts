@@ -175,7 +175,14 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "from timeframe the way BACKTESTING.md's 'What would settle it' section describes for exactly this " +
       "kind of disagreement), or a preponderance of further non-inverted runs strong enough to outweigh " +
       "one committed inversion — a threshold this project has not formalized. Until then: real signal on " +
-      "one population, absent on a ten-times-larger one: don't treat as either validated or confirmed-bad.",
+      "one population, absent on a ten-times-larger one: don't treat as either validated or confirmed-bad." +
+      "\n\n" +
+      "Mitigated 2026-09-11: still scored (not retired — the evidence above doesn't clear the bar for " +
+      "that, only for distrust), but held at MIN_WEIGHT (0.5, down from 1) in " +
+      "lib/scoring/weights.ts's DEFAULT_CRITERION_WEIGHTS, so a single significant inversion on one " +
+      "population no longer carries the same weight as the seven criteria with no adverse finding " +
+      "against them. Revert to 1 (or lift the quarantine) once the `--since`-windowed tie-breaking run " +
+      "this entry describes actually settles the disagreement.",
     note:
       "Replaces `hourlyTrend` (retired 2026-09-10; see RETIRED) — its own leniency (an ambiguous " +
       "\"sideways\" hourly read counted as agreement) never cleared the sample floor as anything more " +
@@ -218,7 +225,15 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "confirmed too strict a bar for this universe on both timeframes tried. Recommend either loosening " +
       "the ratio threshold and re-measuring, or treating this the way `momentum`/`macroTrend`/`timeCycle` " +
       "/`harmonicProximity` were eventually treated — as a candidate for retirement — rather than leaving " +
-      "it quarantined indefinitely waiting for a result two large, independent samples have already given.",
+      "it quarantined indefinitely waiting for a result two large, independent samples have already given." +
+      "\n\n" +
+      "Mitigated 2026-09-11, pending that call: held at MIN_WEIGHT (0.5, down from 1) in " +
+      "lib/scoring/weights.ts's DEFAULT_CRITERION_WEIGHTS rather than retired outright — retiring without " +
+      "a replacement would drop TOTAL_POINTS to eight and silently move the Execute/Watch cutoffs' real " +
+      "meaning, which this fix deliberately does not do. This is explicitly interim: the registry's own " +
+      "recommendation above is retirement (with a replacement criterion, per this file's own established " +
+      "practice), not a permanent down-weight. Revert to 1 only alongside loosening the 1x1 ratio " +
+      "threshold and re-measuring — nothing in the evidence above supports simply restoring the weight.",
     note:
       "Replaces `fanProximity` (retired 2026-09-10; see RETIRED). Wraps lib/gann/normalizedSlope.ts's " +
       "realized ATR-per-bar slope since the direction-matched swing anchor, judged against the 1x1 " +

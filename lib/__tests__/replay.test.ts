@@ -11,6 +11,7 @@ import {
   summarise,
   type ReplayTrade,
 } from "@/lib/backtest/replay";
+import { DEFAULT_CRITERION_WEIGHTS, type CriterionKey } from "@/lib/scoring/weights";
 
 function bar(o: number, h: number, l: number, c: number): Bar {
   return { t: "2026-01-01T00:00:00Z", o, h, l, c, v: 1000 };
@@ -220,10 +221,18 @@ describe("replay scoring", () => {
     });
     expect(r.trades.length).toBeGreaterThan(0);
     for (const t of r.trades) {
-      const passed = Object.values(t.criteria!).filter(Boolean).length;
       // The recorded map has to agree with the headline score, or the factor
       // study and the verdict split would be describing different trades.
-      expect(passed).toBe(t.score);
+      // Summed by weight, not counted: this call leaves `weights` unset, so
+      // replay() scores against DEFAULT_CRITERION_WEIGHTS, and two of the
+      // nine criteria there are no longer worth a flat 1 point each.
+      const passedWeight = Math.round(
+        Object.entries(t.criteria!).reduce(
+          (sum, [key, passed]) => sum + (passed ? DEFAULT_CRITERION_WEIGHTS[key as CriterionKey] : 0),
+          0,
+        ) * 100,
+      ) / 100;
+      expect(passedWeight).toBe(t.score);
     }
   });
 

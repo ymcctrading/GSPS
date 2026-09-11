@@ -3,7 +3,14 @@ import { squareOf9Levels, nearestS9Level, recentSquareOf9Levels } from "@/lib/ga
 import { computeFanLines } from "@/lib/gann/fans";
 import { timeCycles } from "@/lib/gann/timeCycles";
 import { computeScore } from "@/lib/scoring/score";
+import { DEFAULT_CRITERION_WEIGHTS } from "@/lib/scoring/weights";
 import type { Bar, TrendReading } from "@/lib/types";
+
+/** Sum of the current default weights — the all-pass ceiling, no longer a
+ * flat 9 now that two criteria are down-weighted (see
+ * DEFAULT_CRITERION_WEIGHTS's own doc comment). */
+const TOTAL_DEFAULT_WEIGHT =
+  Math.round(Object.values(DEFAULT_CRITERION_WEIGHTS).reduce((sum, w) => sum + w, 0) * 100) / 100;
 
 function bar(t: string, h: number, l: number): Bar {
   return { t, o: (h + l) / 2, h, l, c: (h + l) / 2, v: 1000 };
@@ -164,7 +171,7 @@ describe("computeScore", () => {
         stopBandWarning: null,
       },
     });
-    expect(decision.score).toBe(9);
+    expect(decision.score).toBe(TOTAL_DEFAULT_WEIGHT);
     expect(decision.outputState).toBe("Execute");
   });
 
@@ -233,12 +240,26 @@ describe("computeScore", () => {
     expect(byKey.historicalSR).toBe(false);
     // Neither gannAngleSlope nor volumeClimax is a level-role check (they
     // read realized slope and pivot volume, not a structural level's role),
-    // so both still pass here — only the two role-gated criteria lose their
-    // point, and score drops by exactly 2.
+    // so both still pass here — only the two role-gated criteria
+    // (historicalSR, gannRetracementConfluence) lose their weight.
     expect(byKey.gannAngleSlope).toBe(true);
     expect(byKey.volumeClimax).toBe(true);
-    expect(decision.score).toBe(7);
-    expect(decision.outputState).toBe("Execute");
+    expect(decision.score).toBe(
+      Math.round(
+        (TOTAL_DEFAULT_WEIGHT -
+          DEFAULT_CRITERION_WEIGHTS.historicalSR -
+          DEFAULT_CRITERION_WEIGHTS.gannRetracementConfluence) *
+          100,
+      ) / 100,
+    );
+    // 6.77 — under EXECUTE_SCORE_THRESHOLD (7), so this now holds at Watch.
+    // Under the old flat weights losing these two criteria cost exactly 2
+    // points (9 → 7), clearing Execute by exactly zero margin; with
+    // historicalSR and gannRetracementConfluence at their current weight
+    // (1.13 each, both above 1), the same two losses now cost 2.26 — this
+    // scenario's Execute/Watch boundary was never the point of the test, only
+    // an incidental fact about the old uniform weighting.
+    expect(decision.outputState).toBe("Watch");
   });
 
   it("maps a weak setup to Reject", () => {
@@ -329,7 +350,7 @@ describe("computeScore", () => {
       ],
     });
 
-    expect(squared.score).toBe(notSquared.score + 1);
+    expect(squared.score).toBe(notSquared.score + DEFAULT_CRITERION_WEIGHTS.timePriceSquare);
     expect(squared.breakdown.find((b) => b.criterion === "Price and time squared")?.passed).toBe(true);
     expect(squared.breakdown.map((b) => b.criterion)).toHaveLength(9);
     expect(squared.breakdown.some((b) => /earnings/i.test(b.criterion))).toBe(false);

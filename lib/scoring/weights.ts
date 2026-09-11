@@ -83,13 +83,52 @@ export const WATCH_SCORE_THRESHOLD = 4;
 export const MIN_WEIGHT = 0.5;
 export const MAX_WEIGHT = 2;
 
-/** One point each — the score as it has always been computed. */
-export const DEFAULT_CRITERION_WEIGHTS: CriterionWeights = Object.fromEntries(
-  CRITERION_KEYS.map((k) => [k, 1]),
-) as CriterionWeights;
+/**
+ * One point each, except two down-weighted to the floor — the weight set the
+ * app falls back to whenever no `propose-weights.ts` proposal has been
+ * promoted live (see `lib/scoring/active-weights.ts`).
+ *
+ * `adxTrendStrength` and `gannAngleSlope` are held at `MIN_WEIGHT` rather
+ * than the default 1, per `lib/validation/criteria-registry.ts`'s own
+ * measured findings (2026-09-10/11):
+ *
+ *   - `adxTrendStrength` measured a significant inversion on a 1,049-trade
+ *     15Min sample (t≈-2.09) — passing it correlated with a *worse* outcome.
+ *     A ten-times-larger 1Hour sample found no significant effect either way
+ *     (t≈0.70, sign flipped positive), so the registry treats this as
+ *     unresolved rather than confirmed-bad — not a case for retiring the
+ *     criterion outright, but not one for trusting it at full weight either.
+ *   - `gannAngleSlope` measured *starved* on two independent large samples
+ *     (1.9-2.2% pass rate, both under the 5% floor `lib/validation/health.ts`
+ *     enforces) *and* a significant inversion on the larger one (t≈-2.36).
+ *     The registry's own text calls this "past the point where a third run
+ *     is the obvious next step" and names retirement as the honest next
+ *     step — down-weighting to the floor here is the interim, reversible
+ *     move pending that call, not a substitute for it.
+ *
+ * This is a hand-written weight set, which `normalizeWeights` (below —
+ * hoisted, so calling it here from this earlier declaration is safe) is
+ * explicitly built to accept: "every weight set, proposed or hand-written"
+ * must keep the same two invariants (sums to `TOTAL_POINTS`, every weight
+ * inside `[MIN_WEIGHT, MAX_WEIGHT]`), so the other seven criteria are
+ * rescaled up slightly (to 1.13) rather than left at 1 while the total
+ * silently drifts to 8.
+ *
+ * Revert once either finding is properly settled: the tie-breaking run
+ * `lib/validation/criteria-registry.ts`'s `adxTrendStrength` entry describes
+ * for the sign disagreement, or a maintainer's call to retire
+ * `gannAngleSlope` outright (replacing it, per this codebase's established
+ * practice — see the `RETIRED` list in the same file — rather than leaving
+ * the scale at eight points).
+ */
+export const DEFAULT_CRITERION_WEIGHTS: CriterionWeights = normalizeWeights({
+  adxTrendStrength: MIN_WEIGHT,
+  gannAngleSlope: MIN_WEIGHT,
+});
 
+/** True when every weight matches this app's current default set exactly. */
 export function isDefaultWeights(weights: CriterionWeights): boolean {
-  return CRITERION_KEYS.every((k) => weights[k] === 1);
+  return CRITERION_KEYS.every((k) => weights[k] === DEFAULT_CRITERION_WEIGHTS[k]);
 }
 
 /**

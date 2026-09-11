@@ -14,7 +14,13 @@ import type {
 } from "@/lib/types";
 import { computeScore, type ScoreInputs } from "@/lib/scoring/score";
 import { hasTradePlan, isMomentumContinuation, qualifiesAsContinuationFill } from "@/lib/marketScan";
-import { EXECUTE_SCORE_THRESHOLD } from "@/lib/scoring/weights";
+import { DEFAULT_CRITERION_WEIGHTS, EXECUTE_SCORE_THRESHOLD } from "@/lib/scoring/weights";
+
+/** Sum of the current default weights — the all-pass ceiling, no longer a
+ * flat 9 now that two criteria are down-weighted (see
+ * DEFAULT_CRITERION_WEIGHTS's own doc comment). */
+const TOTAL_DEFAULT_WEIGHT =
+  Math.round(Object.values(DEFAULT_CRITERION_WEIGHTS).reduce((sum, w) => sum + w, 0) * 100) / 100;
 
 function trend(
   timeframe: TrendReading["timeframe"],
@@ -100,13 +106,16 @@ function inputs(overrides: Partial<ScoreInputs> = {}): ScoreInputs {
 describe("computeScore output state", () => {
   it("reaches Execute when the plan is priced", () => {
     const decision = computeScore(inputs());
-    expect(decision.score).toBe(9);
+    expect(decision.score).toBe(TOTAL_DEFAULT_WEIGHT);
     expect(decision.outputState).toBe("Execute");
   });
 
   it("holds at Watch when the context scores 7+ but no pattern is armed", () => {
     const decision = computeScore(inputs({ pattern: null, levels: null }));
-    expect(decision.score).toBe(8);
+    // Every criterion but patternArmed passes.
+    expect(decision.score).toBe(
+      Math.round((TOTAL_DEFAULT_WEIGHT - DEFAULT_CRITERION_WEIGHTS.patternArmed) * 100) / 100,
+    );
     expect(decision.outputState).toBe("Watch");
     expect(decision.breakdown.at(-1)?.criterion).toMatch(/Trade plan priced/);
   });
@@ -118,7 +127,10 @@ describe("computeScore output state", () => {
 
   it("holds at Watch when the armed pattern opposes the scored direction", () => {
     const decision = computeScore(inputs({ pattern: { ...pattern, direction: "bearish" } }));
-    expect(decision.score).toBe(8);
+    // patternArmed fails (wrong direction) same as above; every other criterion passes.
+    expect(decision.score).toBe(
+      Math.round((TOTAL_DEFAULT_WEIGHT - DEFAULT_CRITERION_WEIGHTS.patternArmed) * 100) / 100,
+    );
     expect(decision.outputState).toBe("Watch");
   });
 
@@ -311,7 +323,7 @@ describe("continuation scoring", () => {
 
   it("can still reach 9/9 as a continuation — nothing structurally caps it", () => {
     const decision = computeScore(inputs({ setupKind: "continuation", swingChart: swingBullish }));
-    expect(decision.score).toBe(9);
+    expect(decision.score).toBe(TOTAL_DEFAULT_WEIGHT);
     expect(decision.outputState).toBe("Execute");
   });
 
