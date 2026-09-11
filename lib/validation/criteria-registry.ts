@@ -124,9 +124,17 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "score-5-6 near-miss band (27 trades, docs/replay-runs/2026-09-10-15Min-2R-score5-6.json) read the " +
       "opposite sign (−0.171) but was `insufficient` (failing arm n=7, under MIN_SAMPLES_PER_ARM=10) — " +
       "resolved as noise by the larger sample, a clean illustration of why a thin split can't be trusted " +
-      "on its own. Only 15Min has a factor reading so far; needs a 1Hour `within=all` run to check the " +
-      "sign holds across timeframes, plus a second, independently-timed confirming run, before this can " +
-      "move past hypothesis.",
+      "on its own.\n" +
+      "\n" +
+      "1Hour unconditioned population, captured as the cross-timeframe follow-up " +
+      "(docs/replay-runs/2026-09-10-1Hour-2R-within-all.json, 10472 observed — 10x the 15Min sample): " +
+      "3081/10472 passed (29%, essentially identical pass rate to 15Min): Δ E[R] +0.032R, correlation " +
+      "+0.010, t≈1.04 — still under the significance bar, still negligible, but the SAME sign as 15Min " +
+      "this time. Two independent populations, same direction, neither individually significant — the " +
+      "most consistent of the four new criteria so far, but 'consistent negligible' is still not " +
+      "'validated'. Needs an effect that actually clears |t|>=1.96 on some population before this can " +
+      "move past hypothesis; the direction agreement across timeframes is a mild positive sign but not " +
+      "itself sufficient.",
   },
   {
     id: "adxTrendStrength",
@@ -136,24 +144,38 @@ const SCAN_SCORE: RegisteredCriterion[] = [
     expectedSign: "positive",
     evidence: "quarantined",
     quarantineReason:
-      "First and only real population measured (2026-09-10, docs/replay-runs/2026-09-10-15Min-2R-" +
-      "within-all.json, the unconditioned 15Min population — the only population a sign can be read " +
-      "from at all, per this file's own collider guard): 292/1049 passed (28%), correlation −0.065. Per " +
-      "lib/validation/health.ts's significance test (|r|·√(n-3) ≥ 1.96, not the flat ±0.1 cutoff the " +
-      "RETIRED entries below describe — that cutoff was superseded specifically because it misjudges " +
-      "significance at different sample sizes, see MIN_SIGNIFICANCE_T's comment), t ≈ −2.09 clears the " +
-      "bar: this is a measured, significant inversion against the declared positive sign, not noise. " +
-      "The thin score-5-6 near-miss band (27 trades) also read negative (−0.237, but `insufficient` — " +
-      "failing arm n=6, under MIN_SAMPLES_PER_ARM) — consistent direction, though that sample alone " +
-      "can't confirm anything. Quarantined rather than treated as settled because it is a single real " +
-      "run and this project's standing practice is not to act past hypothesis on one. Exit condition: " +
-      "a second, independently-timed unconditioned run — starting with the still-missing 1Hour " +
-      "`within=all` (no 1Hour factor data exists yet at all; every 1Hour payload captured 2026-09-10 " +
-      "read 0 Execute trades, same as 15Min) to check whether the sign holds across timeframes — that " +
-      "measures `ok` or `negligible` lifts the quarantine. A second run that also measures significant " +
-      "and negative should be treated as confirmed-inverted: revisit whether both ADX>=20-and-direction " +
-      "agreement is too strict a compound condition, or whether ADX trend-strength itself argues against " +
-      "this setup kind (a reversion) rather than for it.",
+      "15Min unconditioned population (2026-09-10, docs/replay-runs/2026-09-10-15Min-2R-within-all.json, " +
+      "1049 trades): 292 passed (28%), correlation −0.065, t≈−2.09 — clears " +
+      "lib/validation/health.ts's significance bar (|r|·√(n-3)≥1.96, not the flat ±0.1 cutoff the " +
+      "RETIRED entries below describe — superseded because it misjudges significance across sample " +
+      "sizes, see MIN_SIGNIFICANCE_T's comment), a real, significant inversion against the declared " +
+      "positive sign.\n" +
+      "\n" +
+      "1Hour unconditioned population, captured as the direct follow-up (2026-09-10, " +
+      "docs/replay-runs/2026-09-10-1Hour-2R-within-all.json, 10472 observed trades — over 10x the " +
+      "15Min sample): 2645 passed (25%), correlation +0.0069, t≈0.70 — not significant, and the sign " +
+      "flipped positive. The inversion did NOT replicate on a much larger, independent population.\n" +
+      "\n" +
+      "This is the same shape BACKTESTING.md's masterStructural entry describes for a sign that " +
+      "disagreed between timeframes: 'the disqualifying case propose-weights.ts calls disagreed... left " +
+      "alone' rather than acted on either way. Structurally, though, this criterion cannot mechanically " +
+      "return to `hypothesis`: docs/replay-runs/2026-09-10-15Min-2R-within-all.json stays committed (this " +
+      "project does not delete or overwrite historical payloads — they are the evidentiary record), and " +
+      "criteria-gate.test.ts re-audits every committed payload against the CURRENT registry on every " +
+      "run. As long as that payload sits in the repo, lib/validation/health.ts's checkSign will keep " +
+      "reporting its −2.09 as a significant inversion — un-quarantining would re-fail the same payload's " +
+      "audit forever, not just today. So the disagreement argues the 15Min reading is plausibly a " +
+      "regime/timeframe artifact rather than a real defect (matching masterStructural's precedent), but " +
+      "the registry's own mechanics keep this quarantined regardless of that judgment.\n" +
+      "\n" +
+      "Exit condition, revised: no single additional run can lift this the way the original exit " +
+      "condition assumed, because the 15Min payload's significant reading is now permanent evidence in " +
+      "the repo. Lifting this needs either a maintainer's explicit call that the 15Min run is " +
+      "non-representative (e.g. a `--since` window matched to the 1Hour run's period, isolating regime " +
+      "from timeframe the way BACKTESTING.md's 'What would settle it' section describes for exactly this " +
+      "kind of disagreement), or a preponderance of further non-inverted runs strong enough to outweigh " +
+      "one committed inversion — a threshold this project has not formalized. Until then: real signal on " +
+      "one population, absent on a ten-times-larger one: don't treat as either validated or confirmed-bad.",
     note:
       "Replaces `hourlyTrend` (retired 2026-09-10; see RETIRED) — its own leniency (an ambiguous " +
       "\"sideways\" hourly read counted as agreement) never cleared the sample floor as anything more " +
@@ -173,27 +195,36 @@ const SCAN_SCORE: RegisteredCriterion[] = [
     expectedSign: "positive",
     evidence: "quarantined",
     quarantineReason:
-      "Starved on the only unconditioned population ever run for it: passed 23/1049 (2.2%) in " +
-      "docs/replay-runs/2026-09-10-15Min-2R-within-all.json, well under the 5% floor " +
-      "(DEFAULT_SATURATION_BOUNDS, lib/validation/health.ts) at a sample (n=1049) far above " +
-      "MIN_OBSERVATIONS_FOR_SATURATION (30) — not a small-sample fluke. A criterion this rarely true " +
-      "contributes its point on almost no setup, which is the same saturated-in-the-low-direction " +
-      "defect this file exists to catch, just at the opposite end from the usual near-constant case. " +
-      "Never assessed before this run — `gannAngleSlope` replaced `fanProximity` on 2026-09-09 and this " +
-      "is the first unconditioned population captured since. Quarantined rather than left open pending a " +
-      "second run because, unlike a sign reading, a 2.2% pass rate at this sample size is not the kind " +
-      "of result a single additional run would plausibly overturn — but still a single measurement, so " +
-      "carried as quarantine rather than declared settled. Exit condition: a second unconditioned run (a " +
-      "fresh window, or the still-missing 1Hour `within=all`) that reads inside [5%, 95%] lifts the " +
-      "quarantine; if it stays starved, revisit whether requiring the realized slope to be AT OR STEEPER " +
-      "than the literal 1x1 ratio (nearestAngle.ratio >= 1 in lib/scoring/score.ts) is too strict a bar " +
-      "for this universe — the same class of threshold-calibration question AGENTS.md's cross-platform " +
-      "consistency section asks to check before calling a concept validated anywhere.",
+      "Confirmed starved on two independent unconditioned populations. 15Min " +
+      "(docs/replay-runs/2026-09-10-15Min-2R-within-all.json): 23/1049 passed (2.2%). 1Hour, captured " +
+      "as the direct follow-up (docs/replay-runs/2026-09-10-1Hour-2R-within-all.json, 10472 observed — " +
+      "10x the 15Min sample): 200/10472 passed (1.9%) — if anything slightly worse. Both well under the " +
+      "5% floor (DEFAULT_SATURATION_BOUNDS, lib/validation/health.ts) at samples far above " +
+      "MIN_OBSERVATIONS_FOR_SATURATION (30); not a small-sample fluke on either timeframe. A criterion " +
+      "this rarely true contributes its point on almost no setup — the same saturated defect this file " +
+      "exists to catch, at the opposite end from the usual near-constant case.\n" +
+      "\n" +
+      "The 1Hour run also adds a second, independent finding: correlation −0.023, t≈−2.36 — a " +
+      "significant inversion against the declared positive sign (the 15Min reading, +0.0056, t≈0.18, " +
+      "was not significant either way). So this criterion is now confirmed starved on two populations " +
+      "AND significantly inverted on one of them — strictly more evidence against it than " +
+      "adxTrendStrength has, which is quarantined on a single-population inversion alone.\n" +
+      "\n" +
+      "`gannAngleSlope` replaced `fanProximity` on 2026-09-09; these are the first two unconditioned " +
+      "populations captured since. Given two independent, large-sample confirmations of the same defect, " +
+      "this is past the point where a third run is the obvious next step. Exit condition, revised: " +
+      "lifting this needs a design change, not another measurement — requiring the realized slope to be " +
+      "AT OR STEEPER than the literal 1x1 ratio (nearestAngle.ratio >= 1 in lib/scoring/score.ts) is " +
+      "confirmed too strict a bar for this universe on both timeframes tried. Recommend either loosening " +
+      "the ratio threshold and re-measuring, or treating this the way `momentum`/`macroTrend`/`timeCycle` " +
+      "/`harmonicProximity` were eventually treated — as a candidate for retirement — rather than leaving " +
+      "it quarantined indefinitely waiting for a result two large, independent samples have already given.",
     note:
       "Replaces `fanProximity` (retired 2026-09-10; see RETIRED). Wraps lib/gann/normalizedSlope.ts's " +
       "realized ATR-per-bar slope since the direction-matched swing anchor, judged against the 1x1 " +
       "angle ratio — a literal angle-of-ascent/descent check, unlike the generic fan-line-distance " +
-      "proximity it replaces. See quarantineReason for the 2026-09-10 saturation finding.",
+      "proximity it replaces. See quarantineReason for the 2026-09-10 saturation findings (15Min and " +
+      "1Hour, both confirming).",
   },
   {
     id: "volumeClimax",
@@ -222,9 +253,16 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "among the four where the near-miss sample also cleared MIN_SAMPLES_PER_ARM on both arms " +
       "(11 passed / 16 failed) and read `informative` there too: Δ E[R] +0.336R, correlation +0.121 — " +
       "consistent direction, larger effect, but a single higher reading from a 27-trade band doesn't " +
-      "override the 1049-trade unconditioned read. Needs a 1Hour `within=all` run (not yet captured) to " +
-      "check the sign holds across timeframes, plus a second confirming 15Min run, before this can move " +
-      "past hypothesis.",
+      "override the 1049-trade unconditioned read.\n" +
+      "\n" +
+      "1Hour unconditioned population, captured as the cross-timeframe follow-up " +
+      "(docs/replay-runs/2026-09-10-1Hour-2R-within-all.json, 10472 observed): 2036/10472 passed (19% — " +
+      "notably higher pass rate than 15Min's 6%, worth noting though not itself diagnostic): Δ E[R] " +
+      "+0.014R, correlation +0.0038, t≈0.39 — same sign as every reading so far (15Min unconditioned, " +
+      "15Min score5-6, and now 1Hour unconditioned all read positive), but still well under the " +
+      "significance bar. Three consistent-direction readings across two timeframes and a near-miss band " +
+      "is the strongest directional consistency of the four new criteria, but none individually " +
+      "significant — stays hypothesis until one population actually clears |t|>=1.96.",
   },
   {
     id: "historicalSR",
@@ -326,9 +364,25 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "it passes a real, non-trivial 11% of the time. The thin score-5-6 band (27 trades) read the " +
       "OPPOSITE sign (+0.105, `insufficient`, passing arm n=5) from the unconditioned population — sign " +
       "instability between a thin split and a large one is itself consistent with a true effect near " +
-      "zero, not two disagreeing measurements. Needs a 1Hour `within=all` run (not yet captured) to check " +
-      "the sign holds across timeframes, plus a second confirming 15Min run, before this can move past " +
-      "hypothesis.",
+      "zero, not two disagreeing measurements.\n" +
+      "\n" +
+      "1Hour unconditioned population, captured as the cross-timeframe follow-up " +
+      "(docs/replay-runs/2026-09-10-1Hour-2R-within-all.json, 10472 observed): 1398/10472 passed (13%, " +
+      "similar rate to 15Min's 11%): Δ E[R] +0.088R, correlation +0.021, t≈2.15 — this CLEARS " +
+      "lib/validation/health.ts's significance bar (|t|>=1.96), in the declared positive direction. On " +
+      "its own this is `status: ok` — a genuine, significant, correctly-signed result, the first any of " +
+      "the four new criteria has produced.\n" +
+      "\n" +
+      "Not promoted to `validated` despite that, because the registry's bar is agreement across more " +
+      "than one run, and the 15Min unconditioned reading pointed the other way (−0.060, non-significant " +
+      "but still negative). This is the same 'sign disagreed between timeframes' shape BACKTESTING.md " +
+      "documents for masterStructural — one real positive reading and one non-significant negative one " +
+      "is not two agreeing confirmations, even though the positive one individually clears significance. " +
+      "Unlike adxTrendStrength/gannAngleSlope, nothing here forces quarantine (the disagreeing 15Min " +
+      "reading was never itself significant, so it never produced an `inverted` finding) — this stays " +
+      "`hypothesis`, one real result and one contradicting near-zero result, needing a tie-breaking run " +
+      "(a third population, or the `--since`-windowed timeframe/regime split BACKTESTING.md's 'What " +
+      "would settle it' section describes) before it can move either direction.",
   },
   {
     id: "gannRetracementConfluence",
