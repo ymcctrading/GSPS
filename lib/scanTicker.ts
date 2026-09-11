@@ -262,30 +262,17 @@ export async function scanTicker(
     const liquidity = readLiquidity(daily) ?? undefined;
     const largeCap = isLargeCapStock(symbol, assetClass, liquidity);
 
-    let levels: TradeLevels | null = null;
-    let levelsError: string | undefined;
-    if (pattern) {
-      try {
-        levels = computeTradeLevels(
-          pattern,
-          previousBar,
-          gannTargets,
-          optionPremium,
-          executionAtr,
-          assetClass,
-          largeCap,
-        );
-      } catch (err) {
-        levelsError = err instanceof Error ? err.message : String(err);
-      }
-    }
-
     // ---- Supporting signals
     //
     // Each level keeps the timeframe it was read off — the flat number-only
     // list this used to be threw that away, so the "near S/R" criterion could
     // never say more than yes/no. See lib/analysis/levelRole.ts for why the
     // originating timeframe is what tells a trader how to use the level.
+    //
+    // Computed ahead of the trade-plan block below (moved 2026-09-11):
+    // computeTradeLevels's equities path needs both the full level list and
+    // atrPct to anchor a percent-based stop/runner — see
+    // lib/strat/levels.ts#computeEquityTradeLevels.
     const allLevels = [
       ...dailyTrend.support.map((price) => ({ price, timeframe: dailyTrend.timeframe })),
       ...dailyTrend.resistance.map((price) => ({ price, timeframe: dailyTrend.timeframe })),
@@ -302,6 +289,26 @@ export async function scanTicker(
     // symbol's own daily range, so "near a level" is the same fraction of a
     // day's move on a utility as on a high-beta name.
     const atrPct = atrPercentOfPrice(recentAtr, currentPrice);
+
+    let levels: TradeLevels | null = null;
+    let levelsError: string | undefined;
+    if (pattern) {
+      try {
+        levels = computeTradeLevels(
+          pattern,
+          previousBar,
+          gannTargets,
+          optionPremium,
+          executionAtr,
+          assetClass,
+          largeCap,
+          allLevels.map((l) => l.price),
+          atrPct,
+        );
+      } catch (err) {
+        levelsError = err instanceof Error ? err.message : String(err);
+      }
+    }
     const srBandPct = proximityBandPct(SR_PROXIMITY_ATR, FALLBACK_SR_PCT, atrPct);
     const srMatch = nearestLevelMatch(currentPrice, allLevels, srBandPct);
     const nearSupportResistance = srMatch !== null;
@@ -333,6 +340,7 @@ export async function scanTicker(
           levels,
           stopAtrMultiple:
             levels && executionAtr > 0 ? levels.riskPerShare / executionAtr : null,
+          assetClass,
           setupKind,
           atrPct,
           weights: await getActiveCriterionWeights(),

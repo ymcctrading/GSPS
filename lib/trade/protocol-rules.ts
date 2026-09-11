@@ -3,50 +3,80 @@
  *
  * Settings and the marketing page both used to state "TP1: 2:1 reward-to-risk"
  * and "Master profit: 3:1". Neither number was ever what the engine computed.
- * `computeTradeLevels` prices TP1 at 1.5R (or the previous candle's extreme when
- * that is further) and the master target at the asset class's runner multiple —
- * 2.5R on equities, 3R on crypto — snapping to a Gann or harmonic level when one
- * sits in range, which puts the realised master anywhere from 2.5R to the 5R cap.
  *
- * A number on the Settings page that the engine does not use is not a rounding
- * error, it is a false statement about the user's risk, and Guided Decision Mode
- * makes it load-bearing: there the user is shown a dollar figure instead of the
- * levels, so a wrong ratio is invisible rather than merely wrong. Every piece of
- * copy that describes the targets is now generated from the same constants the
- * engine prices against, so the two cannot drift apart again.
+ * As of 2026-09-11 the two asset classes run genuinely different models, not
+ * just different multiples of the same one — see lib/strat/levels.ts's own
+ * comment for why. **Crypto** (and any other non-equity class) still prices
+ * TP1 at 1.5R and the master target at the class's runner multiple (3R),
+ * snapping to a Gann or harmonic level in range, up to the 5R cap — a
+ * leveraged instrument's 1:1-payoff problem does not apply, so R:R stays the
+ * model there. **US equities** price both targets and the stop as a
+ * percentage of purchase price instead: an unlevered stock is a 1:1 payoff,
+ * which makes demanding a 2:1 move structurally harder than on a levered
+ * instrument, and R:R does not describe what a novice swing trader actually
+ * experiences ("the stock is up 8%", not "I am up 1.6R").
+ *
+ * A number on the Settings page that the engine does not use is not a
+ * rounding error, it is a false statement about the user's risk, and Guided
+ * Decision Mode makes it load-bearing: there the user is shown a dollar
+ * figure instead of the levels, so a wrong ratio is invisible rather than
+ * merely wrong. Every piece of copy below is generated from the same
+ * constants each model prices against, so the two cannot drift apart again.
  */
 
 import {
-  LARGE_CAP_LEEWAY_ATR,
-  LARGE_CAP_MAX_STOP_ATR_MULTIPLE,
+  EQUITY_FALLBACK_STOP_PCT,
+  EQUITY_MASTER_CAP_PCT,
+  EQUITY_STOP_BUFFER_PCT,
+  EQUITY_STOP_MAX_PCT,
+  EQUITY_STOP_MIN_PCT,
+  EQUITY_TP1_MAX_PCT,
+  EQUITY_TP1_MIN_PCT,
+  EQUITY_TP2_MAX_PCT,
+  EQUITY_TP2_MIN_PCT,
   MASTER_CAP_R,
   MAX_STOP_ATR_MULTIPLE,
   TP1_MULTIPLE_BY_ASSET,
   TP2_MULTIPLE_BY_ASSET,
 } from "@/lib/strat/levels";
 
-const r = (n: number): string => `${n}R`;
+// LARGE_CAP_LEEWAY_ATR / LARGE_CAP_MAX_STOP_ATR_MULTIPLE are deliberately not
+// imported here: that widening only ever applied to a non-crypto assetClass
+// (i.e. us_equity), which now short-circuits to the percent model before
+// this ATR-leeway logic runs at all, and crypto always disabled it
+// explicitly — so neither asset class's copy can describe it truthfully
+// anymore. Flagged to the user as a decision still needed (does the new
+// model need its own large-cap-aware widening, or does its already-loose
+// percentage band make that unnecessary?) — see lib/__tests__/strat.test.ts's
+// "large-cap widening" describe block — rather than silently deciding either
+// way.
 
-/** "1.5R" — TP1 is the same multiple on both asset classes today. */
-export const TP1_RULE_LABEL: string =
-  TP1_MULTIPLE_BY_ASSET.us_equity === TP1_MULTIPLE_BY_ASSET.crypto
-    ? r(TP1_MULTIPLE_BY_ASSET.us_equity)
-    : `${r(TP1_MULTIPLE_BY_ASSET.us_equity)} on stocks, ${r(TP1_MULTIPLE_BY_ASSET.crypto)} on crypto`;
+const r = (n: number): string => `${n}R`;
+const pctRange = (min: number, max: number): string => `${min}–${max}%`;
+
+/** "3-15% on stocks, 1.5R on crypto". */
+export const TP1_RULE_LABEL =
+  `${pctRange(EQUITY_TP1_MIN_PCT, EQUITY_TP1_MAX_PCT)} on stocks, ${r(TP1_MULTIPLE_BY_ASSET.crypto)} on crypto`;
 
 export const TP1_RULE_DETAIL =
-  `${TP1_RULE_LABEL} from entry, or the previous candle's high/low when that structural target is further away.`;
+  `Stocks: ${pctRange(EQUITY_TP1_MIN_PCT, EQUITY_TP1_MAX_PCT)} of entry price, scaled by the stock's own average daily range so a volatile name aims further than a quiet one. ` +
+  `Crypto: ${r(TP1_MULTIPLE_BY_ASSET.crypto)} from entry, or the previous candle's high/low when that structural target is further away.`;
 
-/** "2.5R on stocks, 3R on crypto". */
-export const MASTER_RULE_LABEL = `${r(TP2_MULTIPLE_BY_ASSET.us_equity)} on stocks, ${r(TP2_MULTIPLE_BY_ASSET.crypto)} on crypto`;
+/** "6-25% on stocks, 3R on crypto". */
+export const MASTER_RULE_LABEL =
+  `${pctRange(EQUITY_TP2_MIN_PCT, EQUITY_TP2_MAX_PCT)} on stocks, ${r(TP2_MULTIPLE_BY_ASSET.crypto)} on crypto`;
 
 export const MASTER_RULE_DETAIL =
-  `${MASTER_RULE_LABEL} — stepped out to the nearest support or key price level when one sits in range, up to a ${r(MASTER_CAP_R)} ceiling.`;
+  `Stocks: ${pctRange(EQUITY_TP2_MIN_PCT, EQUITY_TP2_MAX_PCT)} of entry price, stepped out to the nearest support or key price level when one sits in range, up to a ${EQUITY_MASTER_CAP_PCT}% ceiling. ` +
+  `Crypto: ${r(TP2_MULTIPLE_BY_ASSET.crypto)} — stepped out to the nearest support or key price level when one sits in range, up to a ${r(MASTER_CAP_R)} ceiling.`;
 
-/** How the stop is placed. The 12–18%-of-price band never applied to equities. */
-export const STOP_RULE_LABEL = `Structural, capped at ${MAX_STOP_ATR_MULTIPLE}× the execution candle (${LARGE_CAP_MAX_STOP_ATR_MULTIPLE}× on large caps)`;
+/** How the stop is placed on each asset class. */
+export const STOP_RULE_LABEL =
+  `Nearest support/resistance level, ${pctRange(EQUITY_STOP_MIN_PCT, EQUITY_STOP_MAX_PCT)} away (stocks); structural, capped at ${MAX_STOP_ATR_MULTIPLE}× the execution candle (crypto)`;
 
 export const STOP_RULE_DETAIL =
-  `One tick beyond the trigger candle, widened by a tenth of an average execution candle so noise can't take it out, and never wider than ${MAX_STOP_ATR_MULTIPLE}× that candle. On large-cap stocks that leeway widens to ${LARGE_CAP_LEEWAY_ATR}× and the ceiling to ${LARGE_CAP_MAX_STOP_ATR_MULTIPLE}×, so an ordinary large-cap swing doesn't clip the stop before the setup can move. The 12–18% band applies to option premium, not to share price.`;
+  `Stocks: the nearest support (long) or resistance (short) level between ${EQUITY_STOP_MIN_PCT}% and ${EQUITY_STOP_MAX_PCT}% of entry price, placed ${EQUITY_STOP_BUFFER_PCT}% beyond it — loose enough that ordinary day-to-day moves shouldn't trigger it. When no level lands in that band, the stop falls back to a fixed ${EQUITY_FALLBACK_STOP_PCT}% of purchase price. ` +
+  `Crypto: one tick beyond the trigger candle, widened by a tenth of an average execution candle so noise can't take it out, and never wider than ${MAX_STOP_ATR_MULTIPLE}× that candle. The 12–18% band applies to option premium, not to share price.`;
 
 /**
  * The Execute threshold, stated in full.

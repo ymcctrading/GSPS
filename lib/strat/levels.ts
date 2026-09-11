@@ -89,6 +89,185 @@ const DEFAULT_TP2_MULTIPLE = 3.0;
 type StopSide = "long" | "short";
 
 /**
+ * Equities' own exit model — percentage of purchase price, not a multiple of
+ * risk. Added 2026-09-11 per direct request: an unlevered stock is a 1:1
+ * payoff (a $1 move is a $1 gain or loss per share), which makes demanding a
+ * 2:1 reward:risk ratio a structurally harder bar than it is on a levered
+ * instrument (futures, crypto, options, forex), where the same underlying
+ * move is amplified relative to capital at risk. R:R stays the model for
+ * those; this block is `us_equity` only.
+ *
+ * These are starting defaults, not measured constants — flagged explicitly
+ * because nothing in this codebase has backtested them yet (unlike
+ * MAX_STOP_ATR_MULTIPLE above, which traces to a real sample). The first
+ * thing a validation pass on this model should do is challenge every number
+ * here against real outcomes, the same way docs/BACKTESTING.md already does
+ * for the R-based constants.
+ */
+
+/**
+ * TP1 (first partial) and TP2/master (runner) sizing, as a multiple of the
+ * stock's own daily-ATR-as-percent-of-price (`atrPercentOfPrice`,
+ * lib/scoring/proximity.ts) — a volatile name aims further in % terms than a
+ * quiet one, the same spirit as the R-based system's risk-relative sizing,
+ * just anchored to price instead of a computed risk distance. Runners/TP2
+ * are kept deliberately (not collapsed to one flat target) to build the same
+ * scale-out habit the R-based model already teaches novice traders.
+ */
+export const EQUITY_TP1_ATR_MULTIPLE = 2.0;
+export const EQUITY_TP2_ATR_MULTIPLE = 3.5;
+
+/** Clamp bounds so an extreme-ATR name can't produce an absurd (near-0% or 60%) target. */
+export const EQUITY_TP1_MIN_PCT = 3;
+export const EQUITY_TP1_MAX_PCT = 15;
+export const EQUITY_TP2_MIN_PCT = 6;
+export const EQUITY_TP2_MAX_PCT = 25;
+
+/**
+ * Ceiling on how far a structural level may sit and still extend the runner
+ * to it, mirroring `MASTER_CAP_R`'s job in the R-based model — real structure
+ * beyond this is too far to describe as this trade's target.
+ */
+export const EQUITY_MASTER_CAP_PCT = 30;
+
+/**
+ * The stop-placement band: a nearby support (long) / resistance (short)
+ * level is accepted as the stop only if it lands inside this range of entry
+ * price. This is also the min/max guardrail — a level tighter than the floor
+ * would get clipped by ordinary noise (defeating the "loose enough not to
+ * worry about" requirement this whole model was built around); a level past
+ * the ceiling is not really this trade's risk anymore. A level outside the
+ * band is treated as "none found," the same as no level existing at all.
+ */
+export const EQUITY_STOP_MIN_PCT = 3;
+export const EQUITY_STOP_MAX_PCT = 15;
+
+/** How far beyond the accepted level the stop actually sits — never exactly on it. */
+export const EQUITY_STOP_BUFFER_PCT = 0.5;
+
+/**
+ * The fallback stop when no structural level lands inside the accepted band
+ * — true for the large majority of setups (historicalSR, the criterion
+ * reading the same underlying level data, passes on roughly 18-19% of real
+ * setups measured so far). Deliberately a fixed percentage rather than an
+ * ATR-derived one: an ATR fallback would quietly reintroduce the volatility-
+ * relative reasoning this model exists to move away from for equities.
+ * 8% is a well-known retail swing-trading convention (close to the classic
+ * "sell if down 7-8%" rule), not a number this codebase has measured.
+ */
+export const EQUITY_FALLBACK_STOP_PCT = 8;
+
+export interface EquityTradeLevels {
+  stopLoss: number;
+  takeProfit1: number;
+  takeProfit2: number;
+  stopFromStructure: boolean;
+  masterFromStructure: boolean;
+}
+
+/**
+ * Nearest structural level on the trade's favorable side (support under a
+ * long, resistance above a short) that lands inside [minPct, maxPct] of
+ * entry — accepting any level in `structuralLevels`, since for stop-anchoring
+ * purposes a clustered historical S/R level, a fan line, or a Square-of-9
+ * price are all "real structure" in the same sense; scoring criteria that
+ * care about which kind matched (historicalSR vs. the Gann-specific ones)
+ * read the underlying level data separately, upstream of this function.
+ */
+function nearestStructuralStop(
+  entry: number,
+  side: StopSide,
+  structuralLevels: number[],
+  minPct: number,
+  maxPct: number,
+): number | null {
+  let best: number | null = null;
+  let bestDist = Infinity;
+  for (const level of structuralLevels) {
+    const onFavorableSide = side === "long" ? level < entry : level > entry;
+    if (!onFavorableSide) continue;
+    const distPct = (Math.abs(entry - level) / entry) * 100;
+    if (distPct < minPct || distPct > maxPct) continue;
+    if (distPct < bestDist) {
+      best = level;
+      bestDist = distPct;
+    }
+  }
+  return best;
+}
+
+function clampPct(pct: number, minPct: number, maxPct: number): number {
+  return Math.min(maxPct, Math.max(minPct, pct));
+}
+
+/**
+ * Equities' stop and targets, all expressed as (clamped) percentages of
+ * entry price rather than multiples of a computed risk distance. Kept as a
+ * standalone function rather than folded into `computeTradeLevels`'s single
+ * flow: the two models don't share intermediate values (there is no "risk"
+ * this stop is a multiple of — targets and the stop are each derived
+ * independently from price and structure), so branching mid-function would
+ * only tangle two unrelated derivations together.
+ */
+export function computeEquityTradeLevels(params: {
+  direction: "bullish" | "bearish";
+  entry: number;
+  /** Support and resistance prices from any source (clustered S/R, fan lines, Square-of-9) — see nearestStructuralStop. */
+  structuralLevels: number[];
+  /** Daily ATR as % of price (lib/scoring/proximity.ts#atrPercentOfPrice). Undefined falls back to the min target %. */
+  atrPct?: number;
+}): EquityTradeLevels {
+  const { direction, entry, structuralLevels, atrPct } = params;
+  const side: StopSide = direction === "bullish" ? "long" : "short";
+  const dir = direction === "bullish" ? 1 : -1;
+
+  const structuralStop = nearestStructuralStop(
+    entry,
+    side,
+    structuralLevels,
+    EQUITY_STOP_MIN_PCT,
+    EQUITY_STOP_MAX_PCT,
+  );
+  const stopFromStructure = structuralStop !== null;
+  const stopPct = stopFromStructure
+    ? (Math.abs(entry - structuralStop) / entry) * 100 + EQUITY_STOP_BUFFER_PCT
+    : EQUITY_FALLBACK_STOP_PCT;
+  const stopLoss = entry - dir * (stopPct / 100) * entry;
+
+  const tp1Pct = clampPct(
+    EQUITY_TP1_ATR_MULTIPLE * (atrPct ?? EQUITY_TP1_MIN_PCT),
+    EQUITY_TP1_MIN_PCT,
+    EQUITY_TP1_MAX_PCT,
+  );
+  const takeProfit1 = entry + dir * (tp1Pct / 100) * entry;
+
+  const tp2Pct = clampPct(
+    EQUITY_TP2_ATR_MULTIPLE * (atrPct ?? EQUITY_TP2_MIN_PCT),
+    EQUITY_TP2_MIN_PCT,
+    EQUITY_TP2_MAX_PCT,
+  );
+  const tp2Target = entry + dir * (tp2Pct / 100) * entry;
+
+  // Runner extension: a real structural level beyond TP2 but inside the cap
+  // becomes the target instead of the raw multiple — same idea as
+  // `masterFromStructure` in the R-based model.
+  const capTarget = entry + dir * (EQUITY_MASTER_CAP_PCT / 100) * entry;
+  const structuralExtension = structuralLevels
+    .filter((l) => dir * (l - tp2Target) > 0 && dir * (l - capTarget) <= 0)
+    .sort((a, b) => dir * (a - b))[0];
+  const masterFromStructure = structuralExtension !== undefined;
+  const takeProfit2 = structuralExtension ?? tp2Target;
+
+  return {
+    stopLoss: round(stopLoss),
+    takeProfit1: round(takeProfit1),
+    takeProfit2: round(takeProfit2),
+    stopFromStructure,
+    masterFromStructure,
+  };
+}
+
+/**
  * Compute stop-loss with structural boundary + ATR leeway buffer.
  * Prevents stops from being too tight (noise whipsaw) while respecting
  * the true structural invalidation level.
@@ -156,10 +335,44 @@ export function computeTradeLevels(
   assetClass?: AssetClass,
   /** Widens the stop's noise leeway and ceiling — see `LARGE_CAP_LEEWAY_ATR`. Stocks only; ignored for crypto. */
   largeCap = false,
+  /**
+   * `us_equity` only: support/resistance prices to anchor the stop to and
+   * extend the runner toward — see `computeEquityTradeLevels`. Ignored for
+   * every other asset class, which keep the R-based model below unchanged.
+   */
+  structuralLevels: number[] = [],
+  /** `us_equity` only: daily ATR as % of price, for ATR-scaled target sizing. Undefined falls back to the minimum target %. */
+  dailyAtrPct?: number,
 ): TradeLevels {
   const entry = pattern.triggerPrice;
   const dir = pattern.direction === "bullish" ? 1 : -1;
   const effectiveLargeCap = largeCap && assetClass !== "crypto";
+
+  if (assetClass === "us_equity") {
+    const equity = computeEquityTradeLevels({
+      direction: pattern.direction,
+      entry,
+      structuralLevels: [...gannTargets, ...structuralLevels],
+      atrPct: dailyAtrPct,
+    });
+    const equityRisk = Math.abs(entry - equity.stopLoss);
+    return {
+      entry: round(entry),
+      stopLoss: equity.stopLoss,
+      takeProfit1: equity.takeProfit1,
+      takeProfit2: equity.takeProfit2,
+      masterProfit: equity.takeProfit2,
+      riskPerShare: round(equityRisk),
+      rewardToRiskTp1: equityRisk > 0 ? Math.abs(equity.takeProfit1 - entry) / equityRisk : 0,
+      rewardToRiskTp2: equityRisk > 0 ? Math.abs(equity.takeProfit2 - entry) / equityRisk : 0,
+      rewardToRiskMaster: equityRisk > 0 ? Math.abs(equity.takeProfit2 - entry) / equityRisk : 0,
+      masterFromStructure: equity.masterFromStructure,
+      stopFromStructure: equity.stopFromStructure,
+      stopPctOfPrice: (Math.abs(entry - equity.stopLoss) / entry) * 100,
+      stopBandWarning: null,
+      pivotPlan: buildPivotPlan(pattern, equity.stopLoss, round(entry)),
+    };
+  }
 
   // Compute stop with ATR leeway (structural boundary + buffer for noise)
   // If no ATR available, fall back to structural stop only.
@@ -280,6 +493,10 @@ export function computeTradeLevels(
     rewardToRiskTp2: risk > 0 ? Math.abs(masterProfit - entry) / risk : 0,
     rewardToRiskMaster: risk > 0 ? Math.abs(masterProfit - entry) / risk : 0,
     masterFromStructure,
+    // Only meaningful for the equities percent-model above — the R-based
+    // model here has no notion of "structural vs. fallback" stop, so this is
+    // always false rather than a claim about this stop's own quality.
+    stopFromStructure: false,
     stopPctOfPrice,
     stopBandWarning,
     pivotPlan: buildPivotPlan(pattern, round(stopLoss), round(entry)),

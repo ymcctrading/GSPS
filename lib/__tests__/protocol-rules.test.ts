@@ -7,7 +7,15 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { computeTradeLevels, TP1_MULTIPLE_BY_ASSET, TP2_MULTIPLE_BY_ASSET } from "@/lib/strat/levels";
+import {
+  computeTradeLevels,
+  EQUITY_TP1_MAX_PCT,
+  EQUITY_TP1_MIN_PCT,
+  EQUITY_TP2_MAX_PCT,
+  EQUITY_TP2_MIN_PCT,
+  TP1_MULTIPLE_BY_ASSET,
+  TP2_MULTIPLE_BY_ASSET,
+} from "@/lib/strat/levels";
 import {
   EXECUTE_RULE_DETAIL,
   MASTER_RULE_LABEL,
@@ -28,18 +36,31 @@ const pattern: StratPattern = {
 const previousBar: Bar = { t: "2026-08-17T00:00:00Z", o: 99, h: 99.5, l: 98.5, c: 99, v: 1_000 };
 
 describe("the advertised targets match the priced ones", () => {
-  it("prices TP1 at the multiple the copy names", () => {
+  // 2026-09-11: equities moved to a percent-of-price model (no computed risk
+  // to express an R-multiple against — see lib/strat/levels.ts's own
+  // comment), so these two now check the equity model's own claim against
+  // the constants it's generated from, rather than an R-multiple. Crypto
+  // still prices a fixed R-multiple; that half of each label is unchanged.
+  it("prices the stock TP1 inside the percentage range the copy names", () => {
     const levels = computeTradeLevels(pattern, previousBar, [], undefined, undefined, "us_equity");
-    expect(levels.rewardToRiskTp1).toBeCloseTo(TP1_MULTIPLE_BY_ASSET.us_equity, 6);
-    expect(TP1_RULE_LABEL).toContain(String(TP1_MULTIPLE_BY_ASSET.us_equity));
-    // The claim that was on the Settings page for a year.
+    const targetPct = (Math.abs(levels.takeProfit1 - levels.entry) / levels.entry) * 100;
+    expect(targetPct).toBeGreaterThanOrEqual(EQUITY_TP1_MIN_PCT);
+    expect(targetPct).toBeLessThanOrEqual(EQUITY_TP1_MAX_PCT);
+    expect(TP1_RULE_LABEL).toContain(`${EQUITY_TP1_MIN_PCT}`);
+    expect(TP1_RULE_LABEL).toContain(`${EQUITY_TP1_MAX_PCT}`);
+    expect(TP1_RULE_LABEL).toContain(String(TP1_MULTIPLE_BY_ASSET.crypto));
+    // The fixed-R claim that was on the Settings page for a year, now wrong
+    // for a different reason (equities don't price an R-multiple at all).
     expect(levels.rewardToRiskTp1).not.toBe(2);
   });
 
-  it("prices the master target at the runner multiple the copy names", () => {
+  it("prices the stock master target inside the percentage range the copy names", () => {
     const levels = computeTradeLevels(pattern, previousBar, [], undefined, undefined, "us_equity");
-    expect(levels.rewardToRiskMaster).toBeCloseTo(TP2_MULTIPLE_BY_ASSET.us_equity, 6);
-    expect(MASTER_RULE_LABEL).toContain(String(TP2_MULTIPLE_BY_ASSET.us_equity));
+    const targetPct = (Math.abs(levels.takeProfit2 - levels.entry) / levels.entry) * 100;
+    expect(targetPct).toBeGreaterThanOrEqual(EQUITY_TP2_MIN_PCT);
+    expect(targetPct).toBeLessThanOrEqual(EQUITY_TP2_MAX_PCT);
+    expect(MASTER_RULE_LABEL).toContain(`${EQUITY_TP2_MIN_PCT}`);
+    expect(MASTER_RULE_LABEL).toContain(`${EQUITY_TP2_MAX_PCT}`);
     expect(MASTER_RULE_LABEL).toContain(String(TP2_MULTIPLE_BY_ASSET.crypto));
   });
 

@@ -315,39 +315,38 @@ describe("computeTradeLevels", () => {
     };
     const prev = { t: "", o: 98, h: 101, l: 96, c: 99, v: 0 };
 
-    it("widens the stop's noise leeway for a large-cap stock", () => {
-      const ordinary = computeTradeLevels(pattern, prev, [], undefined, 1, "us_equity", false);
-      const largeCap = computeTradeLevels(pattern, prev, [], undefined, 1, "us_equity", true);
-      // Both are clipped to their respective ceilings (2.5x vs 3.5x an
-      // execution candle of 1), so the large-cap stop sits further from entry.
-      expect(ordinary.stopLoss).toBe(100 - MAX_STOP_ATR_MULTIPLE);
-      expect(largeCap.stopLoss).toBe(100 - LARGE_CAP_MAX_STOP_ATR_MULTIPLE);
-      expect(largeCap.riskPerShare).toBeGreaterThan(ordinary.riskPerShare);
+    // 2026-09-11: superseded for `us_equity` by the percent-of-price model
+    // (computeEquityTradeLevels) — every `us_equity` call now short-circuits
+    // to that branch before this ATR-leeway logic ever runs, and `crypto`
+    // already disabled it (`effectiveLargeCap = largeCap && assetClass !==
+    // "crypto"`). Both real call sites (lib/scanTicker.ts,
+    // lib/backtest/replay.ts) always pass an explicit assetClass, so this
+    // mechanism cannot execute for any live caller anymore — flagged to the
+    // user as an open question (does the new model's [3%,15%] stop band
+    // already give large-caps enough room, or does that concept need its own
+    // equivalent in the percent model?) rather than silently deciding either
+    // way. These two tests now document that supersession directly instead
+    // of asserting behavior that can no longer be reached.
+    it("no longer applies to us_equity — computeTradeLevels routes it to the percent model instead", () => {
+      const levels = computeTradeLevels(pattern, prev, [], undefined, 1, "us_equity", true);
+      // The percent model ignores stopPrice/executionAtr/largeCap entirely;
+      // with no structural levels supplied it falls back to the fixed 8% stop.
+      expect(levels.stopFromStructure).toBe(false);
+      expect(levels.stopLoss).toBeCloseTo(100 * 0.92, 5);
     });
 
-    it("raises the stop-band warning threshold for a large-cap stock", () => {
-      // 3x an average candle clears the default 2.5x ceiling but not the
-      // large-cap 3.5x one.
-      const ordinary = computeTradeLevels(pattern, prev, [], undefined, 1, "us_equity", false);
-      const largeCap = computeTradeLevels(pattern, prev, [], undefined, 1, "us_equity", true);
-      expect(ordinary.stopBandWarning).toContain("average candle");
-      expect(largeCap.stopBandWarning).toBeNull();
-    });
-
-    it("ignores the large-cap flag for crypto", () => {
+    it("ignores the large-cap flag for crypto (crypto still uses the R-based model)", () => {
       const flaggedCrypto = computeTradeLevels(pattern, prev, [], undefined, 1, "crypto", true);
       const ordinaryCrypto = computeTradeLevels(pattern, prev, [], undefined, 1, "crypto", false);
       expect(flaggedCrypto.stopLoss).toBe(ordinaryCrypto.stopLoss);
     });
 
-    it("a wider large-cap risk-per-share means fewer shares for the same risk budget", () => {
-      // The point of the change: at a fixed dollar risk budget, more risk per
-      // share means fewer shares — directly addressing the oversized guided
-      // recommendations this session started with.
-      const ordinary = computeTradeLevels(pattern, prev, [], undefined, 1, "us_equity", false);
-      const largeCap = computeTradeLevels(pattern, prev, [], undefined, 1, "us_equity", true);
-      const riskBudget = 1_000;
-      expect(riskBudget / largeCap.riskPerShare).toBeLessThan(riskBudget / ordinary.riskPerShare);
+    it("still widens the stop for a caller with no assetClass (the one path where this logic remains reachable)", () => {
+      const ordinary = computeTradeLevels(pattern, prev, [], undefined, 1, undefined, false);
+      const largeCap = computeTradeLevels(pattern, prev, [], undefined, 1, undefined, true);
+      expect(ordinary.stopLoss).toBe(100 - MAX_STOP_ATR_MULTIPLE);
+      expect(largeCap.stopLoss).toBe(100 - LARGE_CAP_MAX_STOP_ATR_MULTIPLE);
+      expect(largeCap.riskPerShare).toBeGreaterThan(ordinary.riskPerShare);
     });
   });
 
