@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   computeEquityTradeLevels,
   EQUITY_FALLBACK_STOP_PCT,
+  EQUITY_LARGE_CAP_FALLBACK_STOP_PCT,
+  EQUITY_LARGE_CAP_STOP_MAX_PCT,
   EQUITY_STOP_BUFFER_PCT,
   EQUITY_STOP_MAX_PCT,
   EQUITY_STOP_MIN_PCT,
@@ -121,5 +123,46 @@ describe("computeEquityTradeLevels", () => {
     expect(EQUITY_TP1_MIN_PCT).toBeLessThan(EQUITY_TP1_MAX_PCT);
     expect(EQUITY_TP2_MIN_PCT).toBeLessThan(EQUITY_TP2_MAX_PCT);
     expect(EQUITY_TP1_MAX_PCT).toBeLessThan(EQUITY_TP2_MAX_PCT);
+  });
+
+  // 2026-09-11: the percent model's own equivalent of the R-based large-cap
+  // widening (LARGE_CAP_LEEWAY_ATR/LARGE_CAP_MAX_STOP_ATR_MULTIPLE), which
+  // became dead code the moment `us_equity` started routing here — see
+  // EQUITY_LARGE_CAP_STOP_MAX_PCT's own comment for why the same underlying
+  // reasoning ("a stop this tight on a mega-cap gets clipped by ordinary
+  // noise") still needed a home.
+  describe("large-cap widening", () => {
+    it("accepts a structural level for a large-cap stock that an ordinary stock would reject", () => {
+      const entry = 100;
+      // 18% away: inside the large-cap ceiling (20%), outside the ordinary one (15%).
+      const structuralLevels = [82];
+      const ordinary = computeEquityTradeLevels({ direction: "bullish", entry, structuralLevels });
+      const largeCap = computeEquityTradeLevels({ direction: "bullish", entry, structuralLevels, largeCap: true });
+      expect(ordinary.stopFromStructure).toBe(false);
+      expect(largeCap.stopFromStructure).toBe(true);
+    });
+
+    it("widens the fallback stop for a large-cap stock with no structural level in range", () => {
+      const entry = 100;
+      const ordinary = computeEquityTradeLevels({ direction: "bullish", entry, structuralLevels: [] });
+      const largeCap = computeEquityTradeLevels({ direction: "bullish", entry, structuralLevels: [], largeCap: true });
+      expect(ordinary.stopLoss).toBeCloseTo(entry * (1 - EQUITY_FALLBACK_STOP_PCT / 100), 5);
+      expect(largeCap.stopLoss).toBeCloseTo(entry * (1 - EQUITY_LARGE_CAP_FALLBACK_STOP_PCT / 100), 5);
+      expect(largeCap.stopLoss).toBeLessThan(ordinary.stopLoss);
+    });
+
+    it("does not widen the floor — a level too close is rejected the same way for both", () => {
+      const entry = 100;
+      const structuralLevels = [99]; // 1% away — under even the ordinary 3% floor
+      const ordinary = computeEquityTradeLevels({ direction: "bullish", entry, structuralLevels });
+      const largeCap = computeEquityTradeLevels({ direction: "bullish", entry, structuralLevels, largeCap: true });
+      expect(ordinary.stopFromStructure).toBe(false);
+      expect(largeCap.stopFromStructure).toBe(false);
+    });
+
+    it("keeps the large-cap band wider than the ordinary one", () => {
+      expect(EQUITY_LARGE_CAP_STOP_MAX_PCT).toBeGreaterThan(EQUITY_STOP_MAX_PCT);
+      expect(EQUITY_LARGE_CAP_FALLBACK_STOP_PCT).toBeGreaterThan(EQUITY_FALLBACK_STOP_PCT);
+    });
   });
 });

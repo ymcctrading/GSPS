@@ -315,24 +315,25 @@ describe("computeTradeLevels", () => {
     };
     const prev = { t: "", o: 98, h: 101, l: 96, c: 99, v: 0 };
 
-    // 2026-09-11: superseded for `us_equity` by the percent-of-price model
-    // (computeEquityTradeLevels) — every `us_equity` call now short-circuits
-    // to that branch before this ATR-leeway logic ever runs, and `crypto`
-    // already disabled it (`effectiveLargeCap = largeCap && assetClass !==
-    // "crypto"`). Both real call sites (lib/scanTicker.ts,
-    // lib/backtest/replay.ts) always pass an explicit assetClass, so this
-    // mechanism cannot execute for any live caller anymore — flagged to the
-    // user as an open question (does the new model's [3%,15%] stop band
-    // already give large-caps enough room, or does that concept need its own
-    // equivalent in the percent model?) rather than silently deciding either
-    // way. These two tests now document that supersession directly instead
-    // of asserting behavior that can no longer be reached.
-    it("no longer applies to us_equity — computeTradeLevels routes it to the percent model instead", () => {
-      const levels = computeTradeLevels(pattern, prev, [], undefined, 1, "us_equity", true);
-      // The percent model ignores stopPrice/executionAtr/largeCap entirely;
-      // with no structural levels supplied it falls back to the fixed 8% stop.
-      expect(levels.stopFromStructure).toBe(false);
-      expect(levels.stopLoss).toBeCloseTo(100 * 0.92, 5);
+    // 2026-09-11: this ATR-leeway version is superseded for `us_equity` by
+    // the percent-of-price model (computeEquityTradeLevels) — every
+    // `us_equity` call now short-circuits to that branch before this logic
+    // ever runs, and `crypto` already disabled it (`effectiveLargeCap =
+    // largeCap && assetClass !== "crypto"`). The underlying reasoning ("a
+    // stop this tight on a mega-cap name gets clipped by ordinary noise")
+    // still applies, though — see EQUITY_LARGE_CAP_STOP_MAX_PCT/
+    // EQUITY_LARGE_CAP_FALLBACK_STOP_PCT (lib/strat/levels.ts), the percent
+    // model's own equivalent, exercised directly here.
+    it("widens the equity stop's fallback percentage for a large-cap stock", () => {
+      const ordinary = computeTradeLevels(pattern, prev, [], undefined, 1, "us_equity", false);
+      const largeCap = computeTradeLevels(pattern, prev, [], undefined, 1, "us_equity", true);
+      // No structural levels supplied, so both fall back to a fixed
+      // percentage — the large-cap one just widens which fixed percentage.
+      expect(ordinary.stopFromStructure).toBe(false);
+      expect(largeCap.stopFromStructure).toBe(false);
+      expect(ordinary.stopLoss).toBeCloseTo(100 * 0.92, 5); // EQUITY_FALLBACK_STOP_PCT = 8%
+      expect(largeCap.stopLoss).toBeCloseTo(100 * 0.88, 5); // EQUITY_LARGE_CAP_FALLBACK_STOP_PCT = 12%
+      expect(largeCap.riskPerShare).toBeGreaterThan(ordinary.riskPerShare);
     });
 
     it("ignores the large-cap flag for crypto (crypto still uses the R-based model)", () => {

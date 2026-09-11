@@ -26,6 +26,8 @@
 
 import {
   EQUITY_FALLBACK_STOP_PCT,
+  EQUITY_LARGE_CAP_FALLBACK_STOP_PCT,
+  EQUITY_LARGE_CAP_STOP_MAX_PCT,
   EQUITY_MASTER_CAP_PCT,
   EQUITY_STOP_BUFFER_PCT,
   EQUITY_STOP_MAX_PCT,
@@ -40,16 +42,14 @@ import {
   TP2_MULTIPLE_BY_ASSET,
 } from "@/lib/strat/levels";
 
-// LARGE_CAP_LEEWAY_ATR / LARGE_CAP_MAX_STOP_ATR_MULTIPLE are deliberately not
-// imported here: that widening only ever applied to a non-crypto assetClass
-// (i.e. us_equity), which now short-circuits to the percent model before
-// this ATR-leeway logic runs at all, and crypto always disabled it
-// explicitly — so neither asset class's copy can describe it truthfully
-// anymore. Flagged to the user as a decision still needed (does the new
-// model need its own large-cap-aware widening, or does its already-loose
-// percentage band make that unnecessary?) — see lib/__tests__/strat.test.ts's
-// "large-cap widening" describe block — rather than silently deciding either
-// way.
+// LARGE_CAP_LEEWAY_ATR / LARGE_CAP_MAX_STOP_ATR_MULTIPLE (the R-based
+// widening) are deliberately not imported here: that mechanism only ever
+// applied to a non-crypto assetClass (i.e. us_equity), which now
+// short-circuits to the percent model before that ATR-leeway logic runs at
+// all, and crypto always disabled it explicitly — so it cannot describe real
+// behavior for either asset class anymore. Its replacement,
+// EQUITY_LARGE_CAP_STOP_MAX_PCT/EQUITY_LARGE_CAP_FALLBACK_STOP_PCT, is what
+// STOP_RULE_DETAIL below actually describes for stocks.
 
 const r = (n: number): string => `${n}R`;
 const pctRange = (min: number, max: number): string => `${min}–${max}%`;
@@ -75,7 +75,7 @@ export const STOP_RULE_LABEL =
   `Nearest support/resistance level, ${pctRange(EQUITY_STOP_MIN_PCT, EQUITY_STOP_MAX_PCT)} away (stocks); structural, capped at ${MAX_STOP_ATR_MULTIPLE}× the execution candle (crypto)`;
 
 export const STOP_RULE_DETAIL =
-  `Stocks: the nearest support (long) or resistance (short) level between ${EQUITY_STOP_MIN_PCT}% and ${EQUITY_STOP_MAX_PCT}% of entry price, placed ${EQUITY_STOP_BUFFER_PCT}% beyond it — loose enough that ordinary day-to-day moves shouldn't trigger it. When no level lands in that band, the stop falls back to a fixed ${EQUITY_FALLBACK_STOP_PCT}% of purchase price. ` +
+  `Stocks: the nearest support (long) or resistance (short) level between ${EQUITY_STOP_MIN_PCT}% and ${EQUITY_STOP_MAX_PCT}% of entry price, placed ${EQUITY_STOP_BUFFER_PCT}% beyond it — loose enough that ordinary day-to-day moves shouldn't trigger it. When no level lands in that band, the stop falls back to a fixed ${EQUITY_FALLBACK_STOP_PCT}% of purchase price. Large-cap stocks get more room on both: the accepted band widens to ${EQUITY_LARGE_CAP_STOP_MAX_PCT}% and the fallback to ${EQUITY_LARGE_CAP_FALLBACK_STOP_PCT}%, so an ordinary swing in a mega-cap name isn't mistaken for a stop-out. ` +
   `Crypto: one tick beyond the trigger candle, widened by a tenth of an average execution candle so noise can't take it out, and never wider than ${MAX_STOP_ATR_MULTIPLE}× that candle. The 12–18% band applies to option premium, not to share price.`;
 
 /**

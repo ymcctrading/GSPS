@@ -130,4 +130,27 @@ describe("SignalCard score breakdown", () => {
     expect(screen.getByText("Entry")).toBeInTheDocument();
     expect(screen.getByText("Stop loss")).toBeInTheDocument();
   });
+
+  // 2026-09-11: us_equity prices targets as a percentage of purchase price,
+  // not an R-multiple (lib/strat/levels.ts) — rewardToRiskTp1/Master are
+  // still computed (a ratio always falls out of two independently-derived
+  // prices), but labeling it "R" would claim a designed multiple the engine
+  // never priced, the exact copy-drift class lib/trade/protocol-rules.ts
+  // exists to prevent. See lib/__tests__/protocol-rules.test.ts for that
+  // file's own version of this same guard.
+  it("labels equity targets by percentage of entry, not by R-multiple", () => {
+    render(<SignalCard result={resultWithFullBreakdown()} />);
+    // entry 100, takeProfit1 124 -> 24.0%; masterProfit 136 -> 36.0%.
+    expect(screen.getByText("TP1 (24.0%)")).toBeInTheDocument();
+    expect(screen.getByText("Master (36.0%)")).toBeInTheDocument();
+    expect(screen.queryByText(/TP1 \(.*R\)/)).not.toBeInTheDocument();
+  });
+
+  it("keeps the R-multiple label for a non-equity asset class", () => {
+    const result = resultWithFullBreakdown();
+    result.assetClass = "crypto";
+    render(<SignalCard result={result} />);
+    expect(screen.getByText("TP1 (2.0R)")).toBeInTheDocument();
+    expect(screen.getByText("Master (3.0R)")).toBeInTheDocument();
+  });
 });

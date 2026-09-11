@@ -157,6 +157,29 @@ export const EQUITY_STOP_BUFFER_PCT = 0.5;
  */
 export const EQUITY_FALLBACK_STOP_PCT = 8;
 
+/**
+ * The large-cap widening's own equivalent under the percent model — added
+ * 2026-09-11, same day as the model itself, because the R-based version's
+ * large-cap widening (`LARGE_CAP_LEEWAY_ATR`/`LARGE_CAP_MAX_STOP_ATR_MULTIPLE`
+ * above) became unreachable dead code the moment `us_equity` started
+ * short-circuiting to this branch: it only ever applied to stocks, and now
+ * stocks never reach it. Same underlying reasoning as the original — "a
+ * structural stop this tight on a mega-cap name routinely gets clipped by
+ * ordinary intraday noise" — carried over into percentage terms rather than
+ * left to quietly disappear.
+ *
+ * Both numbers widen by roughly the same ratio the original large-cap
+ * constants did (ceiling 2.5x -> 3.5x is 1.4x; fallback here goes 8% -> 12%,
+ * 1.5x, deliberately rounded to a number a novice reads as clean rather than
+ * matched to the ratio to the decimal). The floor (`EQUITY_STOP_MIN_PCT`)
+ * does not widen: a level 3% away is not "clipped by noise" on a large-cap
+ * name any more than on a small one, so there is nothing there for large-cap
+ * status to loosen. Starting defaults, not measured — same caveat as every
+ * other constant in this block.
+ */
+export const EQUITY_LARGE_CAP_STOP_MAX_PCT = 20;
+export const EQUITY_LARGE_CAP_FALLBACK_STOP_PCT = 12;
+
 export interface EquityTradeLevels {
   stopLoss: number;
   takeProfit1: number;
@@ -216,22 +239,27 @@ export function computeEquityTradeLevels(params: {
   structuralLevels: number[];
   /** Daily ATR as % of price (lib/scoring/proximity.ts#atrPercentOfPrice). Undefined falls back to the min target %. */
   atrPct?: number;
+  /** Widens the stop-placement ceiling and fallback — see EQUITY_LARGE_CAP_STOP_MAX_PCT/EQUITY_LARGE_CAP_FALLBACK_STOP_PCT. */
+  largeCap?: boolean;
 }): EquityTradeLevels {
-  const { direction, entry, structuralLevels, atrPct } = params;
+  const { direction, entry, structuralLevels, atrPct, largeCap = false } = params;
   const side: StopSide = direction === "bullish" ? "long" : "short";
   const dir = direction === "bullish" ? 1 : -1;
+
+  const stopMaxPct = largeCap ? EQUITY_LARGE_CAP_STOP_MAX_PCT : EQUITY_STOP_MAX_PCT;
+  const fallbackStopPct = largeCap ? EQUITY_LARGE_CAP_FALLBACK_STOP_PCT : EQUITY_FALLBACK_STOP_PCT;
 
   const structuralStop = nearestStructuralStop(
     entry,
     side,
     structuralLevels,
     EQUITY_STOP_MIN_PCT,
-    EQUITY_STOP_MAX_PCT,
+    stopMaxPct,
   );
   const stopFromStructure = structuralStop !== null;
   const stopPct = stopFromStructure
     ? (Math.abs(entry - structuralStop) / entry) * 100 + EQUITY_STOP_BUFFER_PCT
-    : EQUITY_FALLBACK_STOP_PCT;
+    : fallbackStopPct;
   const stopLoss = entry - dir * (stopPct / 100) * entry;
 
   const tp1Pct = clampPct(
@@ -354,6 +382,7 @@ export function computeTradeLevels(
       entry,
       structuralLevels: [...gannTargets, ...structuralLevels],
       atrPct: dailyAtrPct,
+      largeCap: effectiveLargeCap,
     });
     const equityRisk = Math.abs(entry - equity.stopLoss);
     return {
