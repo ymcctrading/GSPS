@@ -228,11 +228,23 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // convention `wantedRole` already uses for fan/S9 matches.
   const angleAnchorKind: "low" | "high" = direction === "bullish" ? "low" : "high";
   const angleReading = gann.angleSlopes.find((r) => r.anchorKind === angleAnchorKind) ?? null;
-  // "Holding the 1x1" (Gann's baseline trend-intact angle): realized slope at
-  // or steeper than the 1x1 ratio, moving the way the trade needs it to.
+  // Loosened 2026-09-11: requiring the realized slope's nearest angle to be at
+  // or steeper than the literal 1x1 (ratio >= 1) was confirmed starved on two
+  // independent, large-sample unconditioned runs (2.2% of 1049 trades at
+  // 15Min, 1.9% of 10472 at 1Hour — see lib/validation/criteria-registry.ts's
+  // gannAngleSlope entry) and, on the larger sample, also measured a
+  // significant inversion when it did fire. ANGLES (lib/gann/fans.ts) already
+  // defines a full family of Gann angles down to 1x2 (ratio 0.5); requiring
+  // 1x1-or-steeper picked the single steepest "trend-confirming" rung of that
+  // ladder for no measured reason. Now accepts 1x2-or-steeper — the next rung
+  // down — as "holding a Gann angle", moving the way the trade needs it to.
+  // This is a design change made on the strength of two confirming runs, not
+  // a hypothesis pending a third: see the registry entry for why a further
+  // measurement was not the next step. Needs its own fresh replay once
+  // committed, same as any other scoring change.
   const angleHolding =
     angleReading?.nearestAngle != null &&
-    angleReading.nearestAngle.ratio >= 1 &&
+    angleReading.nearestAngle.ratio >= 0.5 &&
     angleReading.nearestAngle.direction === (direction === "bullish" ? "up" : "down");
 
   // 2026-09-10: replaces timeCycle. timeCycle's projected-anniversary-date
@@ -316,7 +328,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     },
     {
       key: "gannAngleSlope",
-      criterion: "Structural trend-angle strength (1x1)",
+      criterion: "Structural trend-angle strength (1x2+)",
       pillar: "trend",
       passed: angleHolding,
       note: angleReading?.nearestAngle

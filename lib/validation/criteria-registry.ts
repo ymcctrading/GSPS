@@ -191,40 +191,44 @@ const SCAN_SCORE: RegisteredCriterion[] = [
     id: "gannAngleSlope",
     family: "scanScore",
     source: "lib/scoring/score.ts",
-    label: "Structural trend-angle strength (1x1)",
+    label: "Structural trend-angle strength (1x2+)",
     expectedSign: "positive",
     evidence: "quarantined",
     quarantineReason:
-      "Confirmed starved on two independent unconditioned populations. 15Min " +
-      "(docs/replay-runs/2026-09-10-15Min-2R-within-all.json): 23/1049 passed (2.2%). 1Hour, captured " +
-      "as the direct follow-up (docs/replay-runs/2026-09-10-1Hour-2R-within-all.json, 10472 observed — " +
-      "10x the 15Min sample): 200/10472 passed (1.9%) — if anything slightly worse. Both well under the " +
-      "5% floor (DEFAULT_SATURATION_BOUNDS, lib/validation/health.ts) at samples far above " +
-      "MIN_OBSERVATIONS_FOR_SATURATION (30); not a small-sample fluke on either timeframe. A criterion " +
-      "this rarely true contributes its point on almost no setup — the same saturated defect this file " +
-      "exists to catch, at the opposite end from the usual near-constant case.\n" +
+      "Confirmed starved on two independent unconditioned populations under the ORIGINAL (ratio >= 1, " +
+      "\"1x1 or steeper\") threshold. 15Min (docs/replay-runs/2026-09-10-15Min-2R-within-all.json): " +
+      "23/1049 passed (2.2%). 1Hour (docs/replay-runs/2026-09-10-1Hour-2R-within-all.json, 10472 " +
+      "observed — 10x the 15Min sample): 200/10472 passed (1.9%). Both well under the 5% floor " +
+      "(DEFAULT_SATURATION_BOUNDS, lib/validation/health.ts) at samples far above " +
+      "MIN_OBSERVATIONS_FOR_SATURATION (30). The 1Hour run also measured a significant inversion " +
+      "(correlation −0.023, t≈−2.36) against the declared positive sign.\n" +
       "\n" +
-      "The 1Hour run also adds a second, independent finding: correlation −0.023, t≈−2.36 — a " +
-      "significant inversion against the declared positive sign (the 15Min reading, +0.0056, t≈0.18, " +
-      "was not significant either way). So this criterion is now confirmed starved on two populations " +
-      "AND significantly inverted on one of them — strictly more evidence against it than " +
-      "adxTrendStrength has, which is quarantined on a single-population inversion alone.\n" +
+      "**2026-09-11: acted on rather than re-measured a third time.** `lib/scoring/score.ts`'s " +
+      "`angleHolding` now accepts `nearestAngle.ratio >= 0.5` (1x2-or-steeper) instead of `>= 1` " +
+      "(1x1-or-steeper) — ANGLES (lib/gann/fans.ts) already defines the full ladder down to 1x2 " +
+      "(ratio 0.5); requiring the single steepest rung had no measured justification, and two " +
+      "independent large-sample confirmations of the same starvation-plus-inversion defect were judged " +
+      "enough to act on without a third run repeating the same measurement against the same broken " +
+      "threshold.\n" +
       "\n" +
-      "`gannAngleSlope` replaced `fanProximity` on 2026-09-09; these are the first two unconditioned " +
-      "populations captured since. Given two independent, large-sample confirmations of the same defect, " +
-      "this is past the point where a third run is the obvious next step. Exit condition, revised: " +
-      "lifting this needs a design change, not another measurement — requiring the realized slope to be " +
-      "AT OR STEEPER than the literal 1x1 ratio (nearestAngle.ratio >= 1 in lib/scoring/score.ts) is " +
-      "confirmed too strict a bar for this universe on both timeframes tried. Recommend either loosening " +
-      "the ratio threshold and re-measuring, or treating this the way `momentum`/`macroTrend`/`timeCycle` " +
-      "/`harmonicProximity` were eventually treated — as a candidate for retirement — rather than leaving " +
-      "it quarantined indefinitely waiting for a result two large, independent samples have already given.",
+      "**Still quarantined, not yet unmeasured or lifted.** Both committed payloads above measured the " +
+      "OLD (ratio >= 1) logic — `lib/validation/health.ts`'s audit checks by criterion id against " +
+      "whatever the CURRENT registry says, regardless of which code version produced a payload, so " +
+      "those two committed readings will keep reporting starved/inverted findings for `gannAngleSlope` " +
+      "forever. Only `quarantined` (or `retired`) downgrades that to a warning; `unmeasured` would " +
+      "reopen the same build-breaking error this file exists to prevent, for evidence that is now " +
+      "stale. Exit condition: a fresh replay under the new `>= 0.5` threshold — this changes what the " +
+      "criterion measures, so it needs its own first reading, not a continuation of the old one. If the " +
+      "new threshold clears saturation and reads `ok` or `negligible` (not inverted), that reading " +
+      "replaces this reasoning and the evidence can move to `hypothesis`; if it stays starved even at " +
+      "1x2, the next step is retirement rather than a third threshold guess.",
     note:
       "Replaces `fanProximity` (retired 2026-09-10; see RETIRED). Wraps lib/gann/normalizedSlope.ts's " +
-      "realized ATR-per-bar slope since the direction-matched swing anchor, judged against the 1x1 " +
-      "angle ratio — a literal angle-of-ascent/descent check, unlike the generic fan-line-distance " +
-      "proximity it replaces. See quarantineReason for the 2026-09-10 saturation findings (15Min and " +
-      "1Hour, both confirming).",
+      "realized ATR-per-bar slope since the direction-matched swing anchor, judged against a Gann angle " +
+      "ratio — a literal angle-of-ascent/descent check, unlike the generic fan-line-distance proximity " +
+      "it replaces. Loosened 2026-09-11 from requiring 1x1-or-steeper to 1x2-or-steeper; see " +
+      "quarantineReason for the 2026-09-10 saturation findings that drove the change and why the " +
+      "criterion stays quarantined pending a fresh reading of the new threshold.",
   },
   {
     id: "volumeClimax",

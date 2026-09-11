@@ -50,7 +50,7 @@ export type BreakdownKey = CriterionKey | HoldKey;
 export const CRITERION_LABELS: Record<CriterionKey, string> = {
   swingChartTrend: "3-day/9-day swing chart trend",
   adxTrendStrength: "1-hour trend strength (ADX/DMI)",
-  gannAngleSlope: "Structural trend-angle strength (1x1)",
+  gannAngleSlope: "Structural trend-angle strength (1x2+)",
   volumeClimax: "Volume climax at the anchor pivot",
   historicalSR: "Historical support/resistance",
   patternArmed: "Pattern armed",
