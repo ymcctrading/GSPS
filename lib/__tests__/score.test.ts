@@ -169,13 +169,32 @@ describe("computeScore gannAngleSlope", () => {
     expect(decision.breakdown.find((b) => b.key === "gannAngleSlope")?.passed).toBe(true);
   });
 
-  it("fails a bullish setup below the low-anchor 1x1 angle", () => {
+  // Loosened 2026-09-11: confirmed starved (2.2%/1.9% pass rate on two
+  // independent large-sample unconditioned runs, one also significantly
+  // inverted) when it required 1x1-or-steeper — see
+  // lib/validation/criteria-registry.ts's gannAngleSlope entry. Now accepts
+  // 1x2-or-steeper, the next rung down on the same ANGLES ladder
+  // (lib/gann/fans.ts).
+  it("passes a bullish setup holding at/above the (looser) 1x2 angle off the low anchor", () => {
     const decision = computeScore({
       ...baseInputs("bullish"),
       gann: {
         ...EMPTY_GANN,
         angleSlopes: [
-          { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, slope: 0.4, nearestAngle: { label: "1x2", ratio: 0.5, direction: "up" } },
+          { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, slope: 0.6, nearestAngle: { label: "1x2", ratio: 0.5, direction: "up" } },
+        ],
+      },
+    });
+    expect(decision.breakdown.find((b) => b.key === "gannAngleSlope")?.passed).toBe(true);
+  });
+
+  it("fails a bullish setup below the low-anchor 1x2 angle", () => {
+    const decision = computeScore({
+      ...baseInputs("bullish"),
+      gann: {
+        ...EMPTY_GANN,
+        angleSlopes: [
+          { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, slope: 0.2, nearestAngle: { label: "1x4", ratio: 0.25, direction: "up" } },
         ],
       },
     });
