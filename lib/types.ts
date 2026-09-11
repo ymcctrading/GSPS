@@ -132,6 +132,17 @@ export interface TradeLevels {
   stopPctOfPrice: number;
   stopBandWarning: string | null;
   /**
+   * Equities only (`assetClass: "us_equity"`): true when the stop was anchored
+   * to a real nearby support/resistance level rather than the fixed fallback
+   * percentage — see EQUITY_FALLBACK_STOP_PCT in lib/strat/levels.ts. False for
+   * every non-equity asset class, where the concept does not apply, and for
+   * equity setups where no structural level was found within the accepted
+   * band. Optional for the same reason `pivotPlan` is: fixtures built by hand
+   * (tests, mocks) do not need to construct one — `computeTradeLevels` always
+   * sets it for a real scan.
+   */
+  stopFromStructure?: boolean;
+  /**
    * The counter-scenario: what invalidates this thesis and what a trade in
    * the opposite direction would need before it's worth considering.
    * Optional because fixtures built by hand (tests, mocks) do not need to

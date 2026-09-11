@@ -315,39 +315,39 @@ describe("computeTradeLevels", () => {
     };
     const prev = { t: "", o: 98, h: 101, l: 96, c: 99, v: 0 };
 
-    it("widens the stop's noise leeway for a large-cap stock", () => {
+    // 2026-09-11: this ATR-leeway version is superseded for `us_equity` by
+    // the percent-of-price model (computeEquityTradeLevels) — every
+    // `us_equity` call now short-circuits to that branch before this logic
+    // ever runs, and `crypto` already disabled it (`effectiveLargeCap =
+    // largeCap && assetClass !== "crypto"`). The underlying reasoning ("a
+    // stop this tight on a mega-cap name gets clipped by ordinary noise")
+    // still applies, though — see EQUITY_LARGE_CAP_STOP_MAX_PCT/
+    // EQUITY_LARGE_CAP_FALLBACK_STOP_PCT (lib/strat/levels.ts), the percent
+    // model's own equivalent, exercised directly here.
+    it("widens the equity stop's fallback percentage for a large-cap stock", () => {
       const ordinary = computeTradeLevels(pattern, prev, [], undefined, 1, "us_equity", false);
       const largeCap = computeTradeLevels(pattern, prev, [], undefined, 1, "us_equity", true);
-      // Both are clipped to their respective ceilings (2.5x vs 3.5x an
-      // execution candle of 1), so the large-cap stop sits further from entry.
-      expect(ordinary.stopLoss).toBe(100 - MAX_STOP_ATR_MULTIPLE);
-      expect(largeCap.stopLoss).toBe(100 - LARGE_CAP_MAX_STOP_ATR_MULTIPLE);
+      // No structural levels supplied, so both fall back to a fixed
+      // percentage — the large-cap one just widens which fixed percentage.
+      expect(ordinary.stopFromStructure).toBe(false);
+      expect(largeCap.stopFromStructure).toBe(false);
+      expect(ordinary.stopLoss).toBeCloseTo(100 * 0.92, 5); // EQUITY_FALLBACK_STOP_PCT = 8%
+      expect(largeCap.stopLoss).toBeCloseTo(100 * 0.88, 5); // EQUITY_LARGE_CAP_FALLBACK_STOP_PCT = 12%
       expect(largeCap.riskPerShare).toBeGreaterThan(ordinary.riskPerShare);
     });
 
-    it("raises the stop-band warning threshold for a large-cap stock", () => {
-      // 3x an average candle clears the default 2.5x ceiling but not the
-      // large-cap 3.5x one.
-      const ordinary = computeTradeLevels(pattern, prev, [], undefined, 1, "us_equity", false);
-      const largeCap = computeTradeLevels(pattern, prev, [], undefined, 1, "us_equity", true);
-      expect(ordinary.stopBandWarning).toContain("average candle");
-      expect(largeCap.stopBandWarning).toBeNull();
-    });
-
-    it("ignores the large-cap flag for crypto", () => {
+    it("ignores the large-cap flag for crypto (crypto still uses the R-based model)", () => {
       const flaggedCrypto = computeTradeLevels(pattern, prev, [], undefined, 1, "crypto", true);
       const ordinaryCrypto = computeTradeLevels(pattern, prev, [], undefined, 1, "crypto", false);
       expect(flaggedCrypto.stopLoss).toBe(ordinaryCrypto.stopLoss);
     });
 
-    it("a wider large-cap risk-per-share means fewer shares for the same risk budget", () => {
-      // The point of the change: at a fixed dollar risk budget, more risk per
-      // share means fewer shares — directly addressing the oversized guided
-      // recommendations this session started with.
-      const ordinary = computeTradeLevels(pattern, prev, [], undefined, 1, "us_equity", false);
-      const largeCap = computeTradeLevels(pattern, prev, [], undefined, 1, "us_equity", true);
-      const riskBudget = 1_000;
-      expect(riskBudget / largeCap.riskPerShare).toBeLessThan(riskBudget / ordinary.riskPerShare);
+    it("still widens the stop for a caller with no assetClass (the one path where this logic remains reachable)", () => {
+      const ordinary = computeTradeLevels(pattern, prev, [], undefined, 1, undefined, false);
+      const largeCap = computeTradeLevels(pattern, prev, [], undefined, 1, undefined, true);
+      expect(ordinary.stopLoss).toBe(100 - MAX_STOP_ATR_MULTIPLE);
+      expect(largeCap.stopLoss).toBe(100 - LARGE_CAP_MAX_STOP_ATR_MULTIPLE);
+      expect(largeCap.riskPerShare).toBeGreaterThan(ordinary.riskPerShare);
     });
   });
 

@@ -286,3 +286,59 @@ describe("computeScore gannRetracementConfluence", () => {
     expect(decision.breakdown.find((b) => b.key === "gannRetracementConfluence")?.passed).toBe(false);
   });
 });
+
+// 2026-09-11: us_equity's stopRoom asks "did this stop come from a real
+// structural level, not the fallback" instead of "is the stop >= 1.5x ATR" —
+// see hasStopRoom's own comment in lib/scoring/score.ts for why the R/ATR
+// question stopped meaning anything once equities moved to the percent model.
+describe("computeScore stopRoom (equities)", () => {
+  function baseInputs(direction: "bullish" | "bearish", stopFromStructure: boolean | undefined): ScoreInputs {
+    return {
+      direction,
+      macroTrends: [],
+      hourlyTrend: { timeframe: "1Day", direction: "sideways", support: [], resistance: [] },
+      gann: EMPTY_GANN,
+      nearSupportResistance: false,
+      pattern: null,
+      momentumElevated: false,
+      assetClass: "us_equity",
+      levels:
+        stopFromStructure === undefined
+          ? null
+          : ({ stopFromStructure } as unknown as ScoreInputs["levels"]),
+    };
+  }
+
+  it("passes when the equity stop is anchored to real structure", () => {
+    const decision = computeScore(baseInputs("bullish", true));
+    expect(decision.breakdown.find((b) => b.key === "stopRoom")?.passed).toBe(true);
+    expect(decision.breakdown.find((b) => b.key === "stopRoom")?.criterion).toBe("Stop backed by real structure");
+  });
+
+  it("fails when the equity stop fell back to the fixed percentage", () => {
+    const decision = computeScore(baseInputs("bullish", false));
+    expect(decision.breakdown.find((b) => b.key === "stopRoom")?.passed).toBe(false);
+  });
+
+  it("fails when no equity trade plan was priced at all", () => {
+    const decision = computeScore(baseInputs("bullish", undefined));
+    expect(decision.breakdown.find((b) => b.key === "stopRoom")?.passed).toBe(false);
+  });
+
+  it("ignores stopAtrMultiple entirely for equities, even when supplied", () => {
+    // A caller that still computes stopAtrMultiple (both real call sites do,
+    // for every asset class) must not let it leak into the equity verdict.
+    const decision = computeScore({ ...baseInputs("bullish", false), stopAtrMultiple: 5 });
+    expect(decision.breakdown.find((b) => b.key === "stopRoom")?.passed).toBe(false);
+  });
+
+  it("keeps the ATR-multiple question for non-equity asset classes", () => {
+    const decision = computeScore({
+      ...baseInputs("bullish", false),
+      assetClass: "crypto",
+      stopAtrMultiple: 2,
+    });
+    expect(decision.breakdown.find((b) => b.key === "stopRoom")?.passed).toBe(true);
+    expect(decision.breakdown.find((b) => b.key === "stopRoom")?.criterion).toMatch(/ATR/);
+  });
+});

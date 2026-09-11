@@ -4,6 +4,7 @@
  */
 
 import type {
+  AssetClass,
   GannLevels,
   ScanDecision,
   ScoreBreakdownItem,
@@ -97,10 +98,20 @@ export interface ScoreInputs {
   /**
    * The setup's stop distance as a multiple of the execution ATR
    * (`riskPerShare / executionAtr`). Null when no plan priced, which scores as
-   * a fail — a setup with no stop has no room to be measured.
+   * a fail — a setup with no stop has no room to be measured. Read for every
+   * asset class except `us_equity`, whose `stopRoom` criterion asks a
+   * different question — see `hasStopRoom` below.
    */
   stopAtrMultiple?: number | null;
   levels: TradeLevels | null;
+  /**
+   * Which `stopRoom` question to ask. `us_equity` reads `levels.stopFromStructure`
+   * instead of `stopAtrMultiple` — see `hasStopRoom` below and
+   * lib/strat/levels.ts's `computeEquityTradeLevels`. Every other asset class
+   * (including undefined, for backward compatibility) keeps the ATR-multiple
+   * check.
+   */
+  assetClass?: AssetClass;
   /** Defaults to "reversion" — the protocol's primary setup. */
   setupKind?: SetupKind;
   /**
@@ -161,7 +172,7 @@ export const MIN_STOP_ROOM_ATR = 1.5;
 export function computeScore(inputs: ScoreInputs): ScanDecision {
   const {
     direction, hourlyAdx, swingChart, timePriceSquare, volumeClimax, gann,
-    nearSupportResistance, srMatch, pattern, levels, stopAtrMultiple,
+    nearSupportResistance, srMatch, pattern, levels, stopAtrMultiple, assetClass,
     setupKind = "reversion",
     atrPct,
     weights = DEFAULT_CRITERION_WEIGHTS,
@@ -199,7 +210,22 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // Null (no priced plan) fails: a setup with no stop has no room to measure,
   // and the alternative — treating "unknown" as a pass — would hand a free
   // point to exactly the setups that are least ready to trade.
-  const hasStopRoom = stopAtrMultiple != null && stopAtrMultiple >= MIN_STOP_ROOM_ATR;
+  //
+  // us_equity asks a different question, resolved 2026-09-11 alongside the
+  // percent-of-price model replacing R:R for equities (lib/strat/levels.ts):
+  // the stop is no longer an ATR-relative distance, it's anchored to a real
+  // structural level or a fixed fallback percentage, so "is there room" no
+  // longer means anything measurable here — the question that translates is
+  // "did this trade get a real structural stop, or the arbitrary fallback."
+  // `stopFromStructure` already answers exactly that (`computeTradeLevels`'s
+  // equities branch), so this reads it directly rather than re-deriving
+  // anything from `stopAtrMultiple`, which for equities now measures the
+  // percent-based stop against intraday ATR — a number, but not the one this
+  // criterion has ever asked about.
+  const hasStopRoom =
+    assetClass === "us_equity"
+      ? levels?.stopFromStructure === true
+      : stopAtrMultiple != null && stopAtrMultiple >= MIN_STOP_ROOM_ATR;
 
   // "Near a level" is a multiple of the instrument's own daily range, not a
   // fixed percentage of price — see lib/scoring/proximity.ts for why a fixed
@@ -374,15 +400,22 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     },
     {
       key: "stopRoom",
-      criterion: `Stop room (>= ${MIN_STOP_ROOM_ATR}x ATR)`,
+      criterion:
+        assetClass === "us_equity" ? "Stop backed by real structure" : `Stop room (>= ${MIN_STOP_ROOM_ATR}x ATR)`,
       pillar: "setup",
       passed: hasStopRoom,
       note:
-        stopAtrMultiple == null
-          ? "No trade plan priced, so the setup has no stop distance to measure."
-          : hasStopRoom
-            ? `Stop sits ${stopAtrMultiple.toFixed(2)}x the execution ATR from entry — far enough that ordinary noise should not reach it before the setup resolves.`
-            : `Stop sits only ${stopAtrMultiple.toFixed(2)}x the execution ATR from entry; setups this tight are inside the range ordinary noise covers.`,
+        assetClass === "us_equity"
+          ? levels == null
+            ? "No trade plan priced, so the setup has no stop to check."
+            : hasStopRoom
+              ? "Stop is anchored to a real nearby support/resistance level, not the fixed fallback percentage."
+              : "No structural level sat close enough to anchor the stop, so it fell back to a fixed percentage of price."
+          : stopAtrMultiple == null
+            ? "No trade plan priced, so the setup has no stop distance to measure."
+            : hasStopRoom
+              ? `Stop sits ${stopAtrMultiple.toFixed(2)}x the execution ATR from entry — far enough that ordinary noise should not reach it before the setup resolves.`
+              : `Stop sits only ${stopAtrMultiple.toFixed(2)}x the execution ATR from entry; setups this tight are inside the range ordinary noise covers.`,
     },
     {
       key: "timePriceSquare",

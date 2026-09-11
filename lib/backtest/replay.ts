@@ -246,6 +246,15 @@ export interface MacroContext {
    * lib/scoring/proximity.ts.
    */
   atrPct?: number;
+  /**
+   * Every clustered daily/weekly/monthly support and resistance price
+   * `srMatch` was matched against — not just the single nearest one. Feeds
+   * `computeTradeLevels`'s equities stop/runner anchoring
+   * (`computeEquityTradeLevels`, lib/strat/levels.ts), which needs the whole
+   * set to search for the nearest one on the trade's own favorable side, not
+   * only whichever is closest to price in either direction.
+   */
+  structuralLevels: number[];
 }
 
 export function buildMacroContext(daily: Bar[], price: number): MacroContext {
@@ -317,6 +326,7 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
     srMatch: srMatch && { ...srMatch, role: levelRole(price, srMatch.price) },
     momentumElevated: baselineAtr > 0 && recentAtr / baselineAtr >= 1.2,
     atrPct,
+    structuralLevels: allLevels.map((l) => l.price),
   };
 }
 
@@ -551,6 +561,8 @@ function scoreSetup(input: {
       executionAtr,
       assetClass,
       largeCap,
+      context.structuralLevels,
+      context.atrPct,
     );
   } catch {
     // A setup with no valid plan is scored without one, exactly as the scan
@@ -573,6 +585,7 @@ function scoreSetup(input: {
       momentumElevated: context.momentumElevated,
       levels,
       stopAtrMultiple: levels && executionAtr > 0 ? levels.riskPerShare / executionAtr : null,
+      assetClass,
       atrPct: context.atrPct,
       ...(weights ? { weights } : {}),
     }),
