@@ -21,8 +21,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { collectRun, type Bucket } from "@/lib/backtest/run";
-import { byOutputState } from "@/lib/backtest/replay";
+import { BUCKETS, UNCONDITIONED_ATTRIBUTION, collectRun, isAttributionScope } from "@/lib/backtest/run";
+import { byOutputState, byScoreRange, type ReplayTrade } from "@/lib/backtest/replay";
 import { proposeWeights } from "@/lib/backtest/propose-weights";
 import { auditLogEntry, createModel, createLearningClient } from "@/lib/learning/db";
 import { SCORE_WEIGHT_MODEL_TYPE } from "@/lib/scoring/active-weights";
@@ -73,15 +73,57 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Invalid targetR '${targetRaw}'` }, { status: 400 });
   }
 
-  const within = (searchParams.get("within") ?? "Execute") as Bucket;
+  const withinRaw = searchParams.get("within");
+  const scoreRangeRaw = searchParams.get("scoreRange");
+  if (withinRaw !== null && scoreRangeRaw !== null) {
+    return NextResponse.json(
+      { error: "'within' and 'scoreRange' are mutually exclusive — pass one." },
+      { status: 400 },
+    );
+  }
+
+  const within = withinRaw ?? "Execute";
+  if (!isAttributionScope(within)) {
+    return NextResponse.json(
+      { error: `Invalid bucket '${within}' — expected one of ${BUCKETS.join(", ")}, or 'all'` },
+      { status: 400 },
+    );
+  }
+
+  let scoreRange: [number, number] | undefined;
+  if (scoreRangeRaw !== null) {
+    const m = /^(\d+)-(\d+)$/.exec(scoreRangeRaw);
+    if (!m) {
+      return NextResponse.json(
+        { error: `Invalid scoreRange '${scoreRangeRaw}' — expected 'min-max', e.g. '5-6'` },
+        { status: 400 },
+      );
+    }
+    scoreRange = [Number(m[1]), Number(m[2])];
+  }
+
   const persist = searchParams.get("persist") !== "false";
 
   try {
     const run = await collectRun({ symbols: universe, timeframe, targetR });
-    const trades = byOutputState(run.overall)[within].trades;
+    // Fitting weights from an Execute-conditioned sample has the same
+    // collider-bias problem lib/validation/health.ts already refuses for sign
+    // and saturation checks: Execute is selected BY the very weights being
+    // refit, so its factor attribution can't be read as an unbiased estimate
+    // of what those weights should be. `within=all` — the unconditioned
+    // population — is the only scope this can be done from without that
+    // circularity; a verdict bucket or score band is offered for parity with
+    // /api/backtest and for deliberately narrower studies, not as the default
+    // recommendation.
+    const trades: ReplayTrade[] = scoreRange
+      ? byScoreRange(run.overall, scoreRange[0], scoreRange[1]).trades
+      : within === UNCONDITIONED_ATTRIBUTION
+        ? run.overall.trades
+        : byOutputState(run.overall)[within].trades;
     const proposal = proposeWeights(trades);
 
-    const slice = `${run.symbols.join(",")}|${run.window.from ?? "?"}:${run.window.to ?? "?"}|${within}`;
+    const label = scoreRange ? `score ${scoreRange[0]}-${scoreRange[1]}` : within;
+    const slice = `${run.symbols.join(",")}|${run.window.from ?? "?"}:${run.window.to ?? "?"}|${label}`;
 
     // A proposal computed from synthetic bars describes a seeded random walk.
     // It is still returned — seeing the shape of the output is useful — but it
