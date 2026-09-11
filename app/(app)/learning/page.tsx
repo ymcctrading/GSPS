@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import type { BacktestReport, Bucket } from "@/lib/backtest/run";
+import type { AttributionScope, BacktestReport } from "@/lib/backtest/run";
+import { UNCONDITIONED_ATTRIBUTION } from "@/lib/backtest/run";
 import type { WeightProposal } from "@/lib/backtest/propose-weights";
 import { CRITERION_LABELS, type CriterionKey } from "@/lib/scoring/weights";
 
@@ -74,7 +75,7 @@ function toneFor(value: number) {
 
 export default function LearningPage() {
   const [symbols, setSymbols] = useState(DEFAULT_SYMBOLS);
-  const [within, setWithin] = useState<Bucket>("Execute");
+  const [within, setWithin] = useState<AttributionScope>("Execute");
   const [targetR, setTargetR] = useState("2");
   // Walks the leeway/large-cap-widened stop instead of the raw pattern one —
   // see ReplayOptions.useProductionStop. Off by default so a first run shows
@@ -164,7 +165,7 @@ export default function LearningPage() {
     }
   }
 
-  async function run(bucket: Bucket = within) {
+  async function run(bucket: AttributionScope = within) {
     setLoading(true);
     setError(null);
     try {
@@ -416,7 +417,19 @@ export default function LearningPage() {
                     <TD className={cn("text-right tabular-nums", toneFor(report.overall.totalR))}>
                       {r(report.overall.totalR)}
                     </TD>
-                    <TD />
+                    <TD className="text-right">
+                      <button
+                        onClick={() => run(UNCONDITIONED_ATTRIBUTION)}
+                        disabled={loading || report.overall.trades === 0}
+                        title="The unconditioned population — the only one saturation (and an unbiased weight proposal) can be read from, since every verdict bucket is a slice the score itself already selected."
+                        className={cn(
+                          "cursor-pointer text-xs text-accent hover:underline disabled:cursor-default disabled:text-muted disabled:no-underline",
+                          report.attributeWithin === UNCONDITIONED_ATTRIBUTION && "font-semibold",
+                        )}
+                      >
+                        {report.attributeWithin === UNCONDITIONED_ATTRIBUTION ? "attributed" : "attribute"}
+                      </button>
+                    </TD>
                   </TR>
                 </TBody>
               </Table>
