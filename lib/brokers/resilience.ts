@@ -1,5 +1,4 @@
 // §9: Retry strategy and error recovery patterns
-import type { BrokerProvider } from './health';
 
 export type ErrorCategory = 'transient' | 'hard_failure' | 'rate_limit' | 'network';
 

@@ -25,34 +25,34 @@ function executeDecision(srPassed: boolean): ScanDecision {
 
 describe("applyReversionConfirmation", () => {
   it("downgrades a bare 2-2 Execute to Watch when unconfirmed", () => {
-    const result = applyReversionConfirmation(executeDecision(false), pattern("2-2"), false, false);
+    const result = applyReversionConfirmation(executeDecision(false), pattern("2-2"), false);
     expect(result.outputState).toBe("Watch");
     expect(result.breakdown.at(-1)?.criterion).toMatch(/Reversion confirmation/);
   });
 
   it("downgrades a bare 2-2 when only one of momentum/S-R confirms", () => {
-    expect(applyReversionConfirmation(executeDecision(false), pattern("2-2"), true, false).outputState).toBe("Watch");
-    expect(applyReversionConfirmation(executeDecision(true), pattern("2-2"), false, true).outputState).toBe("Watch");
+    expect(applyReversionConfirmation(executeDecision(false), pattern("2-2"), true).outputState).toBe("Watch");
+    expect(applyReversionConfirmation(executeDecision(true), pattern("2-2"), false).outputState).toBe("Watch");
   });
 
   it("leaves a bare 2-2 as Execute when both momentum and S/R confirm", () => {
-    const result = applyReversionConfirmation(executeDecision(true), pattern("2-2"), true, true);
+    const result = applyReversionConfirmation(executeDecision(true), pattern("2-2"), true);
     expect(result.outputState).toBe("Execute");
     expect(result.breakdown).toHaveLength(1);
   });
 
   it("does not touch a compound pattern (1-2-2) even when unconfirmed", () => {
-    const result = applyReversionConfirmation(executeDecision(false), pattern("1-2-2"), false, false);
+    const result = applyReversionConfirmation(executeDecision(false), pattern("1-2-2"), false);
     expect(result.outputState).toBe("Execute");
   });
 
   it("does not upgrade a 2-2 that is already Watch/Reject", () => {
     const watch: ScanDecision = { score: 5, outputState: "Watch", breakdown: [] };
-    expect(applyReversionConfirmation(watch, pattern("2-2"), false, false).outputState).toBe("Watch");
+    expect(applyReversionConfirmation(watch, pattern("2-2"), false).outputState).toBe("Watch");
   });
 
   it("passes through a null pattern unchanged", () => {
-    const result = applyReversionConfirmation(executeDecision(false), null, false, false);
+    const result = applyReversionConfirmation(executeDecision(false), null, false);
     expect(result.outputState).toBe("Execute");
   });
 });

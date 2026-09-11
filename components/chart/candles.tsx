@@ -331,6 +331,7 @@ export function CandleChart({
   );
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadBars();
   }, [loadBars]);
 
@@ -344,6 +345,7 @@ export function CandleChart({
 
   // Reset drawings + load the persisted alert when the symbol changes.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setHlines([]);
     setTrendlines([]);
     setPending(null);

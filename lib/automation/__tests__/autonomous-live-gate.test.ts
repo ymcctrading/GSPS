@@ -7,7 +7,7 @@ import {
 
 function fakeSignoffClient(row: { id: string } | null) {
   const client = {
-    from(_table: string) {
+    from() {
       return {
         select() {
           return {

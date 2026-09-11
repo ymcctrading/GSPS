@@ -4,7 +4,7 @@ import { isFeatureAuthorized } from "@/lib/compliance/signoff";
 
 function fakeClient(result: { data: { id: string } | null; error: { message: string } | null }) {
   return {
-    from(_table: string) {
+    from() {
       return {
         select() {
           return {

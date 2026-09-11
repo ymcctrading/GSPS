@@ -199,7 +199,7 @@ export function getAllBrokerHealthStatus(): BrokerHealthStatus[] {
 // Determine primary and secondary brokers for failover
 export function getBrokerFailoverOrder(): BrokerProvider[] {
   const brokers = Array.from(brokerHealthCache.entries())
-    .sort(([_, a], [__, b]) => {
+    .sort(([, a], [, b]) => {
       const aScore = a.health === 'healthy' ? 0 : a.health === 'degraded' ? 1 : 2;
       const bScore = b.health === 'healthy' ? 0 : b.health === 'degraded' ? 1 : 2;
       return aScore - bScore;

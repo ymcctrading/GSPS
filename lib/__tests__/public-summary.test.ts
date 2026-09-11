@@ -138,7 +138,7 @@ describe("toPublicScoreSummary", () => {
   });
 
   it("notes the downgrade of an unconfirmed reversal", () => {
-    const decision = applyReversionConfirmation(computeScore(allPass), pattern, false, false);
+    const decision = applyReversionConfirmation(computeScore(allPass), pattern, false);
     expect(toPublicScoreSummary(decision).stateNote).not.toBeNull();
   });
 

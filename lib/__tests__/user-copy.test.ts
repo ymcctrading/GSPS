@@ -164,7 +164,7 @@ describe("confluence checklist copy", () => {
   });
 
   it("reads in plain language on the downgrade note", () => {
-    const decision = applyReversionConfirmation(computeScore(allPass), pattern, false, false);
+    const decision = applyReversionConfirmation(computeScore(allPass), pattern, false);
     expectPlainLanguage(decision.breakdown.flatMap((item) => [item.criterion, item.note]));
   });
 

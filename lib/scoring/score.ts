@@ -429,10 +429,6 @@ export function applyReversionConfirmation(
   decision: ScanDecision,
   pattern: StratPattern | null,
   momentumElevated: boolean,
-  // Kept for signature stability; the confirmation itself now reads the
-  // score's own (role-aware) historicalSR verdict below so this can never
-  // disagree with what the breakdown actually shows.
-  _nearSupportResistance: boolean,
 ): ScanDecision {
   const isBareReversal = pattern?.name === "2-2";
   const srConfirmed = decision.breakdown.some((b) => b.key === "historicalSR" && b.passed);

@@ -8,14 +8,6 @@ import { getCachedData, setCachedData, getCacheKey } from "./market-data";
 
 const POLYGON_BASE = "https://api.polygon.io";
 
-interface PolygonTicker {
-  ticker: string;
-  name: string;
-  market: string;
-  type: string;
-  updated: number;
-}
-
 interface PolygonSnapshot {
   status: string;
   results: {

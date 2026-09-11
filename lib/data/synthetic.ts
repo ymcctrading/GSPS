@@ -10,7 +10,7 @@
  * always produces the same chart shape — only the trailing live price jitters.
  */
 
-import type { AssetClass, Bar, Timeframe } from "@/lib/types";
+import type { Bar, Timeframe } from "@/lib/types";
 import { TF_INTERVAL_MS, TF_MAX_BARS, candleOpens } from "@/lib/timeframe";
 import { computeGreeks } from "@/lib/options/greeks";
 import type {

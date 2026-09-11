@@ -16,17 +16,10 @@ export function getHigherTimeframes(tf: Timeframe): Timeframe[] {
 // Distance to Gann root nodes (3, 6, 9)
 export function distanceToGannRoot(price: number, root: number): number {
   // Gann believed in harmonic relationships at 3, 6, 9 ratios
-  // Simplified: calculate deviation as percentage from nearest node
-  const nodes = [3, 6, 9];
-  let minDistance = Infinity;
-
-  for (const node of nodes) {
-    const nodePrice = price * (node / 9);
-    const distance = Math.abs(price - nodePrice) / price;
-    minDistance = Math.min(minDistance, distance);
-  }
-
-  return minDistance;
+  // Simplified: calculate deviation as percentage from the specified root node
+  const nodePrice = price * (root / 9);
+  const distance = Math.abs(price - nodePrice) / price;
+  return distance;
 }
 
 // Extended-hours gap analysis

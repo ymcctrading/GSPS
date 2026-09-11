@@ -563,7 +563,6 @@ function scoreSetup(input: {
     }),
     pattern,
     context.momentumElevated,
-    context.nearSupportResistance,
   );
 }
 

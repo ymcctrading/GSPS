@@ -324,7 +324,6 @@ export async function scanTicker(
         }),
         pattern,
         momentumElevated,
-        nearSupportResistance,
       ),
       dataLag,
     );

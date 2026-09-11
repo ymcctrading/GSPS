@@ -19,7 +19,7 @@ beforeEach(() => {
 function fakeInsertClient(result: { data: unknown; error: { code?: string; message: string } | null }) {
   const calls: unknown[] = [];
   const client = {
-    from(_table: string) {
+    from() {
       return {
         insert(row: unknown) {
           calls.push(row);
@@ -97,7 +97,7 @@ describe("recordNotificationDelivery", () => {
 describe("getEnabledChannels", () => {
   it("returns the RPC's channel list", async () => {
     const client = {
-      rpc: (_name: string, _args: unknown) => Promise.resolve({ data: ["email", "push"], error: null }),
+      rpc: () => Promise.resolve({ data: ["email", "push"], error: null }),
     } as unknown as SupabaseClient;
 
     await expect(getEnabledChannels(client, "p1")).resolves.toEqual(["email", "push"]);
@@ -105,7 +105,7 @@ describe("getEnabledChannels", () => {
 
   it("returns an empty list rather than null", async () => {
     const client = {
-      rpc: (_name: string, _args: unknown) => Promise.resolve({ data: null, error: null }),
+      rpc: () => Promise.resolve({ data: null, error: null }),
     } as unknown as SupabaseClient;
 
     await expect(getEnabledChannels(client, "p1")).resolves.toEqual([]);
@@ -113,7 +113,7 @@ describe("getEnabledChannels", () => {
 
   it("throws with the underlying message on an RPC error", async () => {
     const client = {
-      rpc: (_name: string, _args: unknown) => Promise.resolve({ data: null, error: { message: "permission denied" } }),
+      rpc: () => Promise.resolve({ data: null, error: { message: "permission denied" } }),
     } as unknown as SupabaseClient;
 
     await expect(getEnabledChannels(client, "p1")).rejects.toThrow("permission denied");
@@ -125,7 +125,7 @@ type FakeRow = { id: string; status: string; channel: string; payload?: unknown;
 function fakeDeliveryClient(args: { row: FakeRow | null; email?: string | null }) {
   const updates: unknown[] = [];
   const client = {
-    from(_table: string) {
+    from() {
       return {
         select() {
           return { eq: () => ({ single: () => Promise.resolve({ data: args.row, error: args.row ? null : { message: "not found" } }) }) };
@@ -139,7 +139,7 @@ function fakeDeliveryClient(args: { row: FakeRow | null; email?: string | null }
     },
     auth: {
       admin: {
-        getUserById: (_id: string) =>
+        getUserById: () =>
           Promise.resolve({ data: { user: args.email === undefined ? { email: "user@example.com" } : args.email ? { email: args.email } : null } }),
       },
     },
@@ -247,7 +247,7 @@ describe("dispatchNotificationDelivery", () => {
 function fakeSweepClient(rows: FakeRow[]) {
   const store = rows.map((r) => ({ ...r, profile_id: "p1" }));
   const client = {
-    from(_table: string) {
+    from() {
       const chain = {
         _filters: [] as ((r: Record<string, unknown>) => boolean)[],
         select() {

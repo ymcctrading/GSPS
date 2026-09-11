@@ -178,19 +178,20 @@ export function OrderTicket({
   );
 
   // Switching to the Options tab lazily loads the chain once.
-  const openOptions = (wanted?: OptionType) => {
+  const openOptions = useCallback((wanted?: OptionType) => {
     setAssetType("options");
     if (chainStatus === "idle") loadChain(wanted);
-  };
+  }, [chainStatus, loadChain]);
 
-  const changeExpiration = (exp: string) => {
+  const changeExpiration = useCallback((exp: string) => {
     setExpiration(exp);
     setContractSymbol(pickAtm(chain, exp, optionType));
-  };
-  const changeOptionType = (type: OptionType) => {
+  }, [pickAtm, chain, optionType]);
+
+  const changeOptionType = useCallback((type: OptionType) => {
     setOptionType(type);
     setContractSymbol(pickAtm(chain, expiration, type));
-  };
+  }, [pickAtm, chain, expiration]);
 
   const activeExpiry = chain?.expirations.find((e) => e.expiration === expiration);
   const useProtocolLevels = executionMode === "protocol" && hasProtocolSignal;
