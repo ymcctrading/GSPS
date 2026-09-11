@@ -87,8 +87,15 @@ export function AppNav() {
             GSPS
           </Link>
 
-          {/* Tablet and up: inline destinations. Phones use the tab bar below. */}
-          <nav className="hidden min-w-0 flex-1 items-center gap-1 md:flex">
+          {/* Tablet and up: inline destinations. Phones use the tab bar below.
+              Nine destinations plus labels can outgrow the space between the
+              logo and the search/account/sign-out cluster before 2xl — every
+              sibling here is `shrink-0` (the logo, the right-hand group) or a
+              nav item with `whitespace-nowrap`, so the row cannot squeeze
+              individual labels into overlapping each other. It scrolls
+              instead, the same `scroll-x no-scrollbar` pattern
+              market-tabs.tsx uses for the same shape of problem. */}
+          <nav className="scroll-x no-scrollbar hidden min-w-0 flex-1 items-center gap-1 md:flex">
             {LINKS.map(({ href, label, icon: Icon }) => (
               <Link
                 key={href}
@@ -96,7 +103,7 @@ export function AppNav() {
                 data-tour={tourAnchor(href)}
                 aria-current={isActive(href) ? "page" : undefined}
                 className={cn(
-                  "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-muted transition-colors hover:text-foreground lg:px-3",
+                  "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-sm font-medium text-muted transition-colors hover:text-foreground lg:px-3",
                   isActive(href) && "bg-accent-soft text-accent hover:text-accent",
                 )}
               >
