@@ -6,11 +6,37 @@
 import { describe, expect, it } from "vitest";
 import {
   MIN_EFFECT_R,
-  proposeWeights,
+  proposeWeights as rawProposeWeights,
   splitChronologically,
 } from "@/lib/backtest/propose-weights";
 import type { ReplayTrade } from "@/lib/backtest/replay";
-import { CRITERION_KEYS, TOTAL_POINTS, normalizeWeights } from "@/lib/scoring/weights";
+import {
+  CRITERION_KEYS,
+  TOTAL_POINTS,
+  normalizeWeights,
+  type CriterionWeights,
+} from "@/lib/scoring/weights";
+
+/**
+ * These tests are about the proposal algorithm's direction and shape (does it
+ * up-weight a winner, down-weight a loser, hold on disagreement), not about
+ * whatever `DEFAULT_CRITERION_WEIGHTS` currently is — that constant is a
+ * hand-set, evidence-based rebalance as of 2026-09-14 (see its own doc
+ * comment), not a neutral 1-per-criterion starting point anymore. Every call
+ * below supplies this uniform baseline explicitly so a future change to the
+ * live default can't silently break an assertion like `toBeLessThan(1)` that
+ * only makes sense starting from 1.
+ */
+const UNIFORM_WEIGHTS: CriterionWeights = Object.fromEntries(
+  CRITERION_KEYS.map((k) => [k, 1]),
+) as CriterionWeights;
+
+function proposeWeights(
+  trades: Parameters<typeof rawProposeWeights>[0],
+  options: Parameters<typeof rawProposeWeights>[1] = {},
+): ReturnType<typeof rawProposeWeights> {
+  return rawProposeWeights(trades, { current: UNIFORM_WEIGHTS, ...options });
+}
 
 let clock = 0;
 

@@ -24,6 +24,19 @@ import {
   toPublicScoreSummary,
   SCORE_PILLARS,
 } from "@/lib/scoring/public-summary";
+import { CRITERION_KEYS, type CriterionWeights } from "@/lib/scoring/weights";
+
+/**
+ * These fixtures check raw pass/fail arithmetic against fixed score values
+ * (9, 0...) — only meaningful when every criterion is worth one point.
+ * `DEFAULT_CRITERION_WEIGHTS` (what `computeScore` falls back to when no
+ * `weights` is supplied) is a hand-set, evidence-based rebalance as of
+ * 2026-09-14, not one point each — see its own doc comment in
+ * lib/scoring/weights.ts.
+ */
+const UNIFORM_WEIGHTS: CriterionWeights = Object.fromEntries(
+  CRITERION_KEYS.map((k) => [k, 1]),
+) as CriterionWeights;
 
 const trend = (direction: TrendReading["direction"]): TrendReading => ({
   timeframe: "1Day",
@@ -92,6 +105,7 @@ const allPass: ScoreInputs = {
   momentumElevated: true,
   stopAtrMultiple: 2,
   levels,
+  weights: UNIFORM_WEIGHTS,
 };
 
 const allFail: ScoreInputs = {

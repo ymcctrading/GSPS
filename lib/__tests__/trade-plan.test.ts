@@ -14,7 +14,19 @@ import type {
 } from "@/lib/types";
 import { computeScore, type ScoreInputs } from "@/lib/scoring/score";
 import { hasTradePlan, isMomentumContinuation, qualifiesAsContinuationFill } from "@/lib/marketScan";
-import { EXECUTE_SCORE_THRESHOLD } from "@/lib/scoring/weights";
+import { CRITERION_KEYS, EXECUTE_SCORE_THRESHOLD, type CriterionWeights } from "@/lib/scoring/weights";
+
+/**
+ * These fixtures check raw pass/fail arithmetic against fixed score values
+ * (9, 8, 7...) — only meaningful when every criterion is worth one point.
+ * `DEFAULT_CRITERION_WEIGHTS` (what `computeScore` falls back to when no
+ * `weights` is supplied) is a hand-set, evidence-based rebalance as of
+ * 2026-09-14, not one point each — see its own doc comment in
+ * lib/scoring/weights.ts.
+ */
+const UNIFORM_WEIGHTS: CriterionWeights = Object.fromEntries(
+  CRITERION_KEYS.map((k) => [k, 1]),
+) as CriterionWeights;
 
 function trend(
   timeframe: TrendReading["timeframe"],
@@ -93,6 +105,7 @@ function inputs(overrides: Partial<ScoreInputs> = {}): ScoreInputs {
     momentumElevated: true,
     stopAtrMultiple: 2,
     levels,
+    weights: UNIFORM_WEIGHTS,
     ...overrides,
   };
 }

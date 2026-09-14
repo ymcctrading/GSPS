@@ -3,6 +3,21 @@ import { squareOf9Levels, nearestS9Level, recentSquareOf9Levels } from "@/lib/ga
 import { computeFanLines } from "@/lib/gann/fans";
 import { timeCycles } from "@/lib/gann/timeCycles";
 import { computeScore } from "@/lib/scoring/score";
+import { CRITERION_KEYS, type CriterionWeights } from "@/lib/scoring/weights";
+
+/**
+ * These `computeScore` tests check raw pass/fail arithmetic (does a
+ * full-confluence setup reach 9, does losing one criterion drop the score by
+ * exactly 1) — only true when every criterion is worth one point.
+ * `DEFAULT_CRITERION_WEIGHTS` (the fallback `computeScore` uses when no
+ * `weights` is supplied) is a hand-set, evidence-based rebalance as of
+ * 2026-09-14, not one point each — see its own doc comment in
+ * lib/scoring/weights.ts. Pass this explicitly so the arithmetic below stays
+ * meaningful regardless of what the live default currently is.
+ */
+const UNIFORM_WEIGHTS: CriterionWeights = Object.fromEntries(
+  CRITERION_KEYS.map((k) => [k, 1]),
+) as CriterionWeights;
 import type { Bar, TrendReading } from "@/lib/types";
 
 function bar(t: string, h: number, l: number): Bar {
@@ -163,6 +178,7 @@ describe("computeScore", () => {
         stopPctOfPrice: 14.4,
         stopBandWarning: null,
       },
+      weights: UNIFORM_WEIGHTS,
     });
     expect(decision.score).toBe(9);
     expect(decision.outputState).toBe("Execute");
@@ -227,6 +243,7 @@ describe("computeScore", () => {
         stopPctOfPrice: 14.4,
         stopBandWarning: null,
       },
+      weights: UNIFORM_WEIGHTS,
     });
     const byKey = Object.fromEntries(decision.breakdown.map((b) => [b.key, b.passed]));
     expect(byKey.gannRetracementConfluence).toBe(false);
@@ -315,6 +332,7 @@ describe("computeScore", () => {
       momentumElevated: false,
       stopAtrMultiple: 0.8,
       levels: null,
+      weights: UNIFORM_WEIGHTS,
     };
     const squared = computeScore({
       ...base,

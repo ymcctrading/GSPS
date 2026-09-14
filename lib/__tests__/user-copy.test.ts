@@ -18,6 +18,18 @@ import type { Bar, GannLevels, StratPattern, TradeLevels, TrendReading } from "@
 import { applyReversionConfirmation, computeScore, type ScoreInputs } from "@/lib/scoring/score";
 import { detectPatterns } from "@/lib/strat/patterns";
 import { computeTradeLevels } from "@/lib/strat/levels";
+import { CRITERION_KEYS, type CriterionWeights } from "@/lib/scoring/weights";
+
+/**
+ * `computeScore(allPass).score` is asserted to be exactly 9 below — only
+ * true when every criterion is worth one point. `DEFAULT_CRITERION_WEIGHTS`
+ * (what `computeScore` falls back to when no `weights` is supplied) is a
+ * hand-set, evidence-based rebalance as of 2026-09-14, not one point each —
+ * see its own doc comment in lib/scoring/weights.ts.
+ */
+const UNIFORM_WEIGHTS: CriterionWeights = Object.fromEntries(
+  CRITERION_KEYS.map((k) => [k, 1]),
+) as CriterionWeights;
 
 /**
  * How the terms read in prose. Matching is case-insensitive here — unlike the
@@ -117,6 +129,7 @@ const allPass: ScoreInputs = {
   momentumElevated: true,
   stopAtrMultiple: 2,
   levels,
+  weights: UNIFORM_WEIGHTS,
 };
 
 /** Every criterion failing — exercises the negative half. */

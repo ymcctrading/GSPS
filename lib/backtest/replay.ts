@@ -78,9 +78,11 @@ export interface ReplayOptions {
    */
   dailyBars?: Bar[];
   /**
-   * Criterion weights to score with. Defaults to one point each. Supplying a
-   * candidate set is how a weight proposal is checked against the same trades
-   * the current weights produced — see lib/backtest/propose-weights.ts.
+   * Criterion weights to score with. Defaults to `DEFAULT_CRITERION_WEIGHTS`
+   * (`lib/scoring/weights.ts`) — no longer one point each as of 2026-09-14,
+   * see that constant's own doc comment. Supplying a candidate set is how a
+   * weight proposal is checked against the same trades the current weights
+   * produced — see lib/backtest/propose-weights.ts.
    */
   weights?: CriterionWeights;
   /**

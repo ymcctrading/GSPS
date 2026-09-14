@@ -112,6 +112,61 @@ section, and re-run `lib/data/__tests__/provider-execution-timeframe.test.ts` pl
 now and the revert). `PLAN_TIMEFRAME` (lib/lifecycle/fromScanResult.ts) and the copy in
 `lib/analysis/levelRole.ts` both derive from `EXECUTION_TIMEFRAME` and need no separate edit.
 
+### Execute collapse stopgap: lowered thresholds, rebalanced weights, loosened two criteria (since 2026-09-14)
+
+**What:** Four coordinated changes, all in `lib/scoring/weights.ts` unless noted, made together as one
+fix:
+
+- `EXECUTE_SCORE_THRESHOLD` 7 → 6, `WATCH_SCORE_THRESHOLD` 4 → 3.5.
+- `DEFAULT_CRITERION_WEIGHTS` — the score's actual live fallback (see that constant's own doc comment)
+  — moved from one point each to a hand-set, evidence-based distribution favoring `historicalSR`,
+  `stopRoom`, `swingChartTrend`, `volumeClimax` and minimizing `adxTrendStrength`, `gannAngleSlope`,
+  `gannRetracementConfluence`, `timePriceSquare`.
+- `VOLUME_CLIMAX_THRESHOLD` (`lib/gann/volumeClimax.ts`) 1.5x → 1.25x relative volume.
+- `SQUARE_TOLERANCE_BARS` (`lib/gann/timePriceSquare.ts`) 2 → 4 bars.
+
+**Why:** Between 2026-09-10 and -11, all nine scored criteria were replaced with specific Gann
+technical events (see the `CRITERION_KEYS` history in `lib/validation/criteria-registry.ts`) —
+individually rare (5.7%-29% pass rate each on the committed
+`docs/replay-runs/2026-09-11-15Min-2R-within-all.json`, 1061 unconditioned trades), where the
+criteria they replaced had been common, lenient checks (2-of-3 trend agreement, ~1.5%-of-price
+proximity). Reaching the old 7-of-9 points bar needs most of nine independent-ish rare events to
+co-occur, which essentially never happens: that committed run reads 0/1061 Execute, and the live
+deployment produced 0 executable trades under the same model before this change — reported directly
+by the project owner, along with a fresh backtest showing 1 executable trade out of 1069 at a widely
+negative expectancy. Separately, that same run's factor table shows four of the nine criteria reading
+*negative* Δ E[R] (`adxTrendStrength` −0.245R, `timePriceSquare` −0.221R, `gannAngleSlope` −0.153R,
+`gannRetracementConfluence` −0.090R) — `adxTrendStrength` twice independently quarantined for a
+significant inversion. The threshold drop alone would mostly just admit more of those four; the
+weight rebalance and the two band loosenings are sized to shift what a lower bar actually admits
+toward the four criteria with real, reproducing positive evidence
+(`historicalSR` validated, `stopRoom`/`swingChartTrend`/`volumeClimax` consistently positive across
+multiple runs).
+
+**What this is NOT:** a proper `lib/backtest/propose-weights.ts` proposal. That function requires a
+chronological in-sample/out-of-sample split from real per-trade data; only one committed run existed
+to work from, so the weight numbers are a judgment call sized in the same direction that function's
+step formula would move, not its actual output. The new `6`/`3.5` thresholds are sized off an
+independence approximation over that one run's per-criterion pass rates (a Monte Carlo simulation, not
+a measurement of the real joint distribution — criteria plausibly correlate more than independence
+assumes on a genuinely trending stock, which would make the real Execute rate somewhat higher than the
+approximation predicted). None of this is a claim that the four down-weighted criteria are wrong for
+good, or that the four up-weighted ones are fully validated (only `historicalSR` is) — it is a stopgap
+to stop the live model from admitting either zero trades or trades selected mostly by criteria already
+showing a negative or inverted signal.
+
+**Mandatory revert trigger:** the next fresh, committed backtest run with a non-trivial Execute bucket
+(n≥30) under this rebalance. At that point, re-derive the thresholds and weights from that run's actual
+Execute-bucket attribution — via `lib/backtest/propose-weights.ts`'s proper in/out-of-sample split once
+enough trades exist to support it — rather than carrying this hand-set stopgap forward. Don't wait to
+be asked twice; raise it as soon as such a run is captured in `docs/replay-runs/`.
+
+**To revert (once superseded, not merely to "undo"):** replace the four constants above with whatever
+the fresh run's `propose-weights.ts` output and threshold re-derivation actually say, delete this
+section and the four `TEMPORARY OVERRIDE` code comments that point to it, and run
+`lib/validation/__tests__/criteria-gate.test.ts` plus the full test suite to confirm the new numbers
+are internally consistent.
+
 ## Deployment (Vercel)
 
 - The project runs on the **Vercel Hobby (free) plan**. Cron jobs are capped at **2 per project**, each running **no more than once a day**. Before adding a new scheduled job, confirm the total stays at or under that cap — see `docs/THIRD_PARTY_LIMITS.md`. If something needs to run more often than daily, it does not belong in `vercel.json` crons; trigger it from an external scheduler instead.

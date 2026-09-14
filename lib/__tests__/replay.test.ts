@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
+import { CRITERION_KEYS, type CriterionWeights } from "@/lib/scoring/weights";
 import {
   MIN_DAILY_BARS_FOR_SCORE,
   buildMacroContext,
@@ -214,9 +215,17 @@ describe("replay scoring", () => {
   });
 
   it("records which criteria passed, so the factors can be attributed later", () => {
+    // Explicit uniform weights: this test checks that the criteria map agrees
+    // with the headline score (no criterion silently missing or double
+    // counted), which is only a raw pass-count comparison when every
+    // criterion is worth the same one point — DEFAULT_CRITERION_WEIGHTS
+    // itself is a hand-set, evidence-based rebalance as of 2026-09-14 (see
+    // its own doc comment), not one point each.
+    const uniformWeights = Object.fromEntries(CRITERION_KEYS.map((k) => [k, 1])) as CriterionWeights;
     const r = replay("TEST", intraday, {
       targetR: 2,
       dailyBars: dailyHistory(300, "2026-06-15"),
+      weights: uniformWeights,
     });
     expect(r.trades.length).toBeGreaterThan(0);
     for (const t of r.trades) {

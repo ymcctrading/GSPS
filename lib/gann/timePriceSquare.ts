@@ -18,8 +18,23 @@
 import { findPivots } from "@/lib/analysis/pivots";
 import type { Bar } from "@/lib/types";
 
-/** How close the bar count and the price move have to land to call the square holding. */
-export const SQUARE_TOLERANCE_BARS = 2;
+/**
+ * How close the bar count and the price move have to land to call the square
+ * holding.
+ *
+ * TEMPORARY OVERRIDE (since 2026-09-14) — see AGENTS.md's "Temporary
+ * overrides" section, `SQUARE_TOLERANCE_BARS` entry. Widened from 2: on the
+ * committed 2026-09-11 unconditioned run
+ * (docs/replay-runs/2026-09-11-15Min-2R-within-all.json) this passed only
+ * 118/1061 (11%) and read Δ−0.221R — negative, close to but short of a
+ * significant inversion (t≈−1.60), one of several contributors to the
+ * Execute bucket collapsing to 0 trades. A tight 2-bar tolerance on a raw,
+ * un-normalized bar-count-vs-dollar-move match is a stricter bar than any
+ * other proximity-style criterion in the model uses; widening it is the
+ * same move `gannAngleSlope`'s 1x1→1x2 loosening already made for an
+ * analogous starvation problem.
+ */
+export const SQUARE_TOLERANCE_BARS = 4;
 
 export interface TimePriceSquareReading {
   anchorKind: "high" | "low";
