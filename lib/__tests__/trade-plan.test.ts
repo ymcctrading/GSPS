@@ -94,10 +94,10 @@ function inputs(overrides: Partial<ScoreInputs> = {}): ScoreInputs {
     hourlyAdx: { adx: 25, plusDI: 20, minusDI: 10 },
     swingChart: { threeDay: "bullish", nineDay: "bullish" },
     timePriceSquare: [
-      { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, squared: true },
+      { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMoveAtrUnits: 10, squared: true },
     ],
     volumeClimax: [
-      { anchorKind: "low", anchorPrice: 90, relativeVolume: 2, climax: true },
+      { anchorKind: "low", anchorPrice: 90, relativeVolume: 2, bestRecentRelativeVolume: 2, climax: true },
     ],
     gann,
     nearSupportResistance: true,

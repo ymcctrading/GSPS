@@ -368,8 +368,8 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       passed: volumeClimaxHolding,
       note: climaxReading
         ? volumeClimaxHolding
-          ? `The ${climaxReading.anchorKind} anchor at ${climaxReading.anchorPrice.toFixed(2)} printed on ${climaxReading.relativeVolume.toFixed(2)}x its trailing volume — above the ${VOLUME_CLIMAX_THRESHOLD}x climax floor.`
-          : `The ${climaxReading.anchorKind} anchor at ${climaxReading.anchorPrice.toFixed(2)} printed on only ${climaxReading.relativeVolume.toFixed(2)}x its trailing volume — below the ${VOLUME_CLIMAX_THRESHOLD}x climax floor.`
+          ? `The ${climaxReading.anchorKind} anchor at ${climaxReading.anchorPrice.toFixed(2)} or one of the pivots just before it printed on ${climaxReading.bestRecentRelativeVolume.toFixed(2)}x trailing volume — above the ${VOLUME_CLIMAX_THRESHOLD}x climax floor.`
+          : `The ${climaxReading.anchorKind} anchor at ${climaxReading.anchorPrice.toFixed(2)} and the pivots just before it printed on only ${climaxReading.bestRecentRelativeVolume.toFixed(2)}x trailing volume at best — below the ${VOLUME_CLIMAX_THRESHOLD}x climax floor.`
         : `No measurable volume climax since the last significant ${angleAnchorKind}.`,
     },
     {
