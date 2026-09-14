@@ -21,8 +21,18 @@ import { findPivots } from "@/lib/analysis/pivots";
 import { relativeVolume } from "@/lib/signals/indicators";
 import type { Bar } from "@/lib/types";
 
-/** Same "unusual volume" cutoff `lib/signals/regime.ts` already validated. */
-export const VOLUME_CLIMAX_THRESHOLD = 1.5;
+/**
+ * TEMPORARY OVERRIDE (since 2026-09-14) — see AGENTS.md's "Temporary
+ * overrides" section, `VOLUME_CLIMAX_THRESHOLD` entry. Loosened from the
+ * `lib/signals/regime.ts`-matched 1.5x: on the committed 2026-09-11
+ * unconditioned run (docs/replay-runs/2026-09-11-15Min-2R-within-all.json)
+ * this was the rarest of the new scored criteria at 60/1061 (5.7%) passing,
+ * one of several contributors to the Execute bucket collapsing to 0 trades.
+ * The underlying signal (Δ+0.111R, consistently positive across four
+ * readings) stays worth scoring; 1.5x was just too strict a bar to ever
+ * co-occur with the other eight criteria at once.
+ */
+export const VOLUME_CLIMAX_THRESHOLD = 1.25;
 
 export interface VolumeClimaxReading {
   anchorKind: "high" | "low";
