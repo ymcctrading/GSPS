@@ -321,12 +321,20 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "correlation +0.0014, t≈0.15 — sign held positive but the effect is now negligible to the point " +
       "of carrying no information, down from the pre-loosening +0.014R/t≈0.39 on a similarly-sized " +
       "1Hour sample. Both readings agree on one thing the stopgap did not intend: the wider band did " +
-      "not just admit more of the same signal, it diluted it toward noise. Stays `hypothesis` — the " +
-      "loosening has not produced evidence this criterion should carry more scoring weight, and the " +
-      "15Min sign inversion (even at t≈−0.02) means it should not be assumed safe either. A future " +
-      "weight re-derivation (`propose-weights.ts`) should treat this criterion's current near-zero " +
-      "reading as the operative one, not the pre-loosening +0.111R this entry's earlier paragraphs " +
-      "describe — that reading no longer describes the code as shipped.",
+      "not just admit more of the same signal, it diluted it toward noise.\n" +
+      "\n" +
+      "**2026-09-14, follow-up: reverted the threshold, widened the anchor pool instead.** " +
+      "`VOLUME_CLIMAX_THRESHOLD` moved back to 1.5x (the `lib/signals/regime.ts`-matched value) and " +
+      "`computeVolumeClimax` (lib/gann/volumeClimax.ts) now checks the last `RECENT_PIVOTS_CHECKED` " +
+      "(3) pivots of the anchor's kind for climax volume, not only the single most recent one — " +
+      "`anchorPrice`/`anchorKind` still always name the single latest pivot, matching " +
+      "`gannAngleSlope`/`timePriceSquare`'s shared anchor convention exactly, so this doesn't desync " +
+      "the direction-matched anchor the way giving this criterion its own lower `findPivots` strength " +
+      "would have. This targets the actual starvation mechanism (too few candidate anchors ever " +
+      "cleared 1.5x) instead of loosening the bar every candidate is judged against, which is what " +
+      "diluted the signal above. Not yet measured — needs its own fresh committed run before any sign " +
+      "claim; the 6%/17%/31.5% pass rates and the deltas throughout this entry all describe prior code " +
+      "versions, none of them this one.",
   },
   {
     id: "historicalSR",

@@ -138,7 +138,7 @@ describe("computeScore", () => {
         { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMoveAtrUnits: 10, squared: true },
       ],
       volumeClimax: [
-        { anchorKind: "low", anchorPrice: 90, relativeVolume: 2, climax: true },
+        { anchorKind: "low", anchorPrice: 90, relativeVolume: 2, bestRecentRelativeVolume: 2, climax: true },
       ],
       gann: {
         fanLines: [],
@@ -203,7 +203,7 @@ describe("computeScore", () => {
         { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMoveAtrUnits: 10, squared: true },
       ],
       volumeClimax: [
-        { anchorKind: "low", anchorPrice: 90, relativeVolume: 2, climax: true },
+        { anchorKind: "low", anchorPrice: 90, relativeVolume: 2, bestRecentRelativeVolume: 2, climax: true },
       ],
       gann: {
         fanLines: [],

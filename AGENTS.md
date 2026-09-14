@@ -122,8 +122,17 @@ fix:
   — moved from one point each to a hand-set, evidence-based distribution favoring `historicalSR`,
   `stopRoom`, `swingChartTrend`, `volumeClimax` and minimizing `adxTrendStrength`, `gannAngleSlope`,
   `gannRetracementConfluence`, `timePriceSquare`.
-- `VOLUME_CLIMAX_THRESHOLD` (`lib/gann/volumeClimax.ts`) 1.5x → 1.25x relative volume.
-- `SQUARE_TOLERANCE_BARS` (`lib/gann/timePriceSquare.ts`) 2 → 4 bars.
+- `VOLUME_CLIMAX_THRESHOLD` (`lib/gann/volumeClimax.ts`) 1.5x → 1.25x relative volume. **Reverted to
+  1.5x on 2026-09-14**, same day: a fresh committed run showed the 1.25x threshold diluted the signal
+  toward noise/inversion rather than just widening it (see `lib/validation/criteria-registry.ts`'s
+  `volumeClimax` entry). The starvation problem is now addressed a different way —
+  `RECENT_PIVOTS_CHECKED` widens the *pool* of candidate anchors checked against the original 1.5x bar,
+  instead of lowering the bar itself. Not yet measured against a fresh run.
+- `SQUARE_TOLERANCE_BARS` (`lib/gann/timePriceSquare.ts`) 2 → 4 bars. **Superseded (not reverted) on
+  2026-09-14:** the criterion now compares elapsed bars against the price move in ATR units instead of
+  raw dollars (see `lib/gann/timePriceSquare.ts`'s header), which was the actual scale-dependence bug
+  behind the starvation this loosening patched over. `4` carries forward unchanged but now bounds a
+  different quantity — not yet measured against a fresh run either.
 
 **Why:** Between 2026-09-10 and -11, all nine scored criteria were replaced with specific Gann
 technical events (see the `CRITERION_KEYS` history in `lib/validation/criteria-registry.ts`) —
