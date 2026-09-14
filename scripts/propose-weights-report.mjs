@@ -67,7 +67,7 @@ async function main() {
     const { proposeWeights, MIN_TRADES_PER_HALF } = await server.ssrLoadModule(
       "/lib/backtest/propose-weights.ts",
     );
-    const { DEFAULT_CRITERION_WEIGHTS, CRITERION_KEYS, EXECUTE_SCORE_THRESHOLD, WATCH_SCORE_THRESHOLD } =
+    const { DEFAULT_CRITERION_WEIGHTS, EXECUTE_SCORE_THRESHOLD, WATCH_SCORE_THRESHOLD } =
       await server.ssrLoadModule("/lib/scoring/weights.ts");
 
     process.stderr.write(

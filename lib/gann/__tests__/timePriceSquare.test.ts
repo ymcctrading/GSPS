@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
+import { atr } from "@/lib/analysis/pivots";
 import { computeTimePriceSquare, SQUARE_TOLERANCE_BARS } from "../timePriceSquare";
 
 function bar(t: string, price: number): Bar {
@@ -26,25 +27,27 @@ describe("computeTimePriceSquare", () => {
     expect(kinds).toEqual(["high", "low"]);
   });
 
-  it("squares when the bar count and the raw price move land within tolerance", () => {
+  it("squares when the bar count and the ATR-normalized price move land within tolerance", () => {
     // Low anchor at index 5 (price 90); last bar is index 24, so 19 bars
-    // elapsed. A current price 19 (or within SQUARE_TOLERANCE_BARS of it)
-    // above 90 squares.
-    const readings = computeTimePriceSquare(bars(), 90 + 19);
+    // elapsed. A price move of 19 ATR-units above 90 squares.
+    const unit = atr(bars(), 14);
+    const readings = computeTimePriceSquare(bars(), 90 + 19 * unit);
     const low = readings.find((r) => r.anchorKind === "low");
     expect(low?.barsSinceAnchor).toBe(19);
-    expect(low?.priceMove).toBe(19);
+    expect(low?.priceMoveAtrUnits).toBeCloseTo(19, 5);
     expect(low?.squared).toBe(true);
   });
 
   it("does not square when the price move sits far outside the bar-count tolerance", () => {
-    const readings = computeTimePriceSquare(bars(), 90 + 19 + SQUARE_TOLERANCE_BARS + 5);
+    const unit = atr(bars(), 14);
+    const readings = computeTimePriceSquare(bars(), 90 + (19 + SQUARE_TOLERANCE_BARS + 5) * unit);
     const low = readings.find((r) => r.anchorKind === "low");
     expect(low?.squared).toBe(false);
   });
 
-  it("tolerates a small mismatch between bars and price move", () => {
-    const readings = computeTimePriceSquare(bars(), 90 + 19 + SQUARE_TOLERANCE_BARS);
+  it("tolerates a small mismatch between bars and the ATR-normalized price move", () => {
+    const unit = atr(bars(), 14);
+    const readings = computeTimePriceSquare(bars(), 90 + (19 + SQUARE_TOLERANCE_BARS) * unit);
     const low = readings.find((r) => r.anchorKind === "low");
     expect(low?.squared).toBe(true);
   });

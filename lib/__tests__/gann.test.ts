@@ -135,7 +135,7 @@ describe("computeScore", () => {
       hourlyAdx: { adx: 25, plusDI: 20, minusDI: 10 },
       swingChart: { threeDay: "bullish", nineDay: "bullish" },
       timePriceSquare: [
-        { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, squared: true },
+        { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMoveAtrUnits: 10, squared: true },
       ],
       volumeClimax: [
         { anchorKind: "low", anchorPrice: 90, relativeVolume: 2, climax: true },
@@ -200,7 +200,7 @@ describe("computeScore", () => {
       hourlyAdx: { adx: 25, plusDI: 20, minusDI: 10 },
       swingChart: { threeDay: "bullish", nineDay: "bullish" },
       timePriceSquare: [
-        { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, squared: true },
+        { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMoveAtrUnits: 10, squared: true },
       ],
       volumeClimax: [
         { anchorKind: "low", anchorPrice: 90, relativeVolume: 2, climax: true },
@@ -337,13 +337,13 @@ describe("computeScore", () => {
     const squared = computeScore({
       ...base,
       timePriceSquare: [
-        { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, squared: true },
+        { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMoveAtrUnits: 10, squared: true },
       ],
     });
     const notSquared = computeScore({
       ...base,
       timePriceSquare: [
-        { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 40, squared: false },
+        { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 40, priceMoveAtrUnits: 40, squared: false },
       ],
     });
 
