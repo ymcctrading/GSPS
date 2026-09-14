@@ -49,8 +49,14 @@ export default async function SavedSetupsPage() {
     // is frozen at save time and never knows this happened. `active_monitors`
     // has no `direction` column (at most one open monitor per symbol), so
     // this is keyed by symbol alone; ordering by `last_evaluated_at desc`
-    // and keeping the first hit per symbol picks up whichever monitor row —
-    // open or since-invalidated — was evaluated most recently.
+    // and keeping the first hit per symbol picks up the most-recently-
+    // evaluated monitor row. lib/entitlements/monitor-store.ts's
+    // `evaluateMonitor` re-arms a terminal (INVALIDATED/EXPIRED/NO_SETUP) row
+    // in place on requalification rather than orphaning a new one, so in
+    // steady state there is exactly one row per symbol here and this is
+    // mostly a defensive tiebreak — it still matters for rows created before
+    // that fix, or if a future caller ever inserts a second row for the same
+    // symbol.
     const symbols = [...new Set(savedRows.map((r) => r.symbol))];
     const monitorStateBySymbol = new Map<string, string>();
     if (symbols.length > 0) {

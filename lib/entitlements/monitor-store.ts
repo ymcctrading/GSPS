@@ -85,12 +85,22 @@ export async function evaluateMonitor(
   const cooldownMs = args.cooldownMs ?? DEFAULT_COOLDOWN_MS;
   const symbol = args.symbol.toUpperCase();
 
+  // Not filtered to open states: a monitor that already reached a terminal
+  // state (INVALIDATED/EXPIRED/NO_SETUP) is still *this* monitor, and
+  // lib/entitlements/monitor.ts's own contract documents
+  // INVALIDATED/EXPIRED/NO_SETUP -> WATCH -> EXECUTE as a valid re-arm
+  // transition. Filtering this lookup to WATCH/EXECUTE meant decideTransition
+  // never actually saw that prior terminal state -- it always saw
+  // `priorState: null` instead, so a requalifying symbol got a brand-new row
+  // rather than the existing one transitioning, leaving stale terminal rows
+  // (and their frozen `last_evaluated_at`) to potentially outrank the real
+  // current state wherever a caller (e.g. the saved-setups page) reads "most
+  // recently evaluated monitor for this symbol".
   const { data: existing } = await service
     .from("active_monitors")
     .select("id, state, last_evaluated_at")
     .eq("profile_id", args.profileId)
     .eq("symbol", symbol)
-    .in("state", ["WATCH", "EXECUTE"])
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();

@@ -395,4 +395,35 @@ describe("evaluateMonitor", () => {
     expect(result.outcome).toBe("applied");
     expect(monitors[0].state).toBe("INVALIDATED");
   });
+
+  it("re-arms an INVALIDATED monitor in place on requalification, rather than orphaning a second row", async () => {
+    // Regression test for the SOXL saved-setups bug: a symbol that requalified
+    // to WATCH after being INVALIDATED used to be invisible to the "existing
+    // monitor" lookup (filtered to WATCH/EXECUTE only), so decideTransition
+    // saw `priorState: null` and created a brand-new row. The saved-setups
+    // page reads "most recently evaluated monitor per symbol", so whichever
+    // of the two rows happened to have a later `last_evaluated_at` could win
+    // -- including a stale INVALIDATED row outliving a fresher WATCH read.
+    const { client, monitors } = fakeStore();
+    const t0 = new Date("2026-09-10T13:00:00Z");
+    await evaluateMonitor(client, {
+      profileId: "p1", symbol: "SOXL", source: "scheduled_morning_scan",
+      candidateState: "WATCH", evaluationId: "e0", maxActiveWatchMonitors: 15, now: t0,
+    });
+    await evaluateMonitor(client, {
+      profileId: "p1", symbol: "SOXL", source: "scheduled_morning_scan",
+      candidateState: "INVALIDATED", evaluationId: "e1", maxActiveWatchMonitors: 15,
+      now: new Date(t0.getTime() + 60_000),
+    });
+
+    const result = await evaluateMonitor(client, {
+      profileId: "p1", symbol: "SOXL", source: "scheduled_morning_scan",
+      candidateState: "WATCH", evaluationId: "e2", maxActiveWatchMonitors: 15,
+      now: new Date(t0.getTime() + 120_000),
+    });
+
+    expect(result.outcome).toBe("applied");
+    expect(monitors).toHaveLength(1);
+    expect(monitors[0]).toMatchObject({ symbol: "SOXL", state: "WATCH" });
+  });
 });
