@@ -389,9 +389,9 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "Root cause traced, not guessed: `computeEquityTradeLevels`'s stop-anchoring acceptance band " +
       "(`nearestStructuralStop`, EQUITY_STOP_MIN_PCT=3 to EQUITY_STOP_MAX_PCT=15, 20 for large-cap) is a " +
       "wide, FIXED percentage-of-price band that accepts ANY level from the pooled set of structural " +
-      "systems (clustered historical S/R, fan lines, Square-of-9 — 'a clustered historical S/R level, a " +
-      "fan line, or a Square-of-9 price are all real structure in the same sense,' per that function's " +
-      "own comment). That is a much wider net than the `historicalSR` scoring criterion casts for its " +
+      "systems (clustered historical S/R, fan lines, `squareOf9.ts` key levels — 'a clustered historical " +
+      "S/R level, a fan line, or a squareOf9 price are all real structure in the same sense,' per that " +
+      "function's own comment). That is a much wider net than the `historicalSR` scoring criterion casts for its " +
       "own, unrelated 'is price near A level right now' question — SR_PROXIMITY_ATR=0.5, half a day's " +
       "ATR range, and only one level system. A stock with several structural levels scattered across " +
       "price will almost always have SOME level somewhere in the wide 3-20% band even when none sits " +
