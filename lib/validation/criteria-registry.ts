@@ -307,7 +307,26 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "Δ+0.111R, r=+0.018, t≈0.59 — still positive, still nowhere near significant. Four consistent-" +
       "direction readings across two timeframes and a near-miss band is the strongest directional " +
       "consistency of the four new criteria, but none individually significant — stays hypothesis " +
-      "until one population actually clears |t|>=1.96.",
+      "until one population actually clears |t|>=1.96.\n" +
+      "\n" +
+      "`VOLUME_CLIMAX_THRESHOLD` was loosened 1.5x → 1.25x relative volume on 2026-09-14 as part of the " +
+      "AGENTS.md 'Execute collapse stopgap' (lib/gann/volumeClimax.ts) — intended to widen a criterion " +
+      "that was rare (6%) but positively signed into a more common one without losing the sign. Two " +
+      "fresh unconditioned readings against the loosened threshold: 15Min " +
+      "(docs/replay-runs/2026-09-14-15Min-2R-within-all.json, 985 trades) passed 168/985 (17% — well " +
+      "above the ~10-12% expected from the threshold math, and nearly 3x the pre-loosening 6%): Δ E[R] " +
+      "−0.0018R, correlation −0.0005, t≈−0.02 — the sign flipped negative and the effect collapsed to " +
+      "indistinguishable from zero. 1Hour (docs/replay-runs/2026-09-14-1Hour-2R-within-all.json, 10480 " +
+      "observed) passed 3301/10480 (31.5% — over 10x the pre-loosening 19%): Δ E[R] +0.0044R, " +
+      "correlation +0.0014, t≈0.15 — sign held positive but the effect is now negligible to the point " +
+      "of carrying no information, down from the pre-loosening +0.014R/t≈0.39 on a similarly-sized " +
+      "1Hour sample. Both readings agree on one thing the stopgap did not intend: the wider band did " +
+      "not just admit more of the same signal, it diluted it toward noise. Stays `hypothesis` — the " +
+      "loosening has not produced evidence this criterion should carry more scoring weight, and the " +
+      "15Min sign inversion (even at t≈−0.02) means it should not be assumed safe either. A future " +
+      "weight re-derivation (`propose-weights.ts`) should treat this criterion's current near-zero " +
+      "reading as the operative one, not the pre-loosening +0.111R this entry's earlier paragraphs " +
+      "describe — that reading no longer describes the code as shipped.",
   },
   {
     id: "historicalSR",
@@ -444,7 +463,27 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "reading has itself been significant, so neither produced an `inverted` finding) — this stays " +
       "`hypothesis`, needing a tie-breaking run (a third *independent* population — not another same-" +
       "universe capture — or the `--since`-windowed timeframe/regime split BACKTESTING.md's 'What would " +
-      "settle it' section describes) before it can move either direction.",
+      "settle it' section describes) before it can move either direction.\n" +
+      "\n" +
+      "`SQUARE_TOLERANCE_BARS` was loosened 2 → 4 bars on 2026-09-14 as part of the AGENTS.md 'Execute " +
+      "collapse stopgap' (lib/gann/timePriceSquare.ts) — the disagreement above (negative-leaning " +
+      "15Min, significant-positive 1Hour) is exactly the shape the loosening was aimed at resolving, " +
+      "not just widening pass rate. Two fresh unconditioned readings against the loosened tolerance: " +
+      "15Min (docs/replay-runs/2026-09-14-15Min-2R-within-all.json, 985 trades) passed 240/985 (24% — " +
+      "above the ~20% expected, roughly double the pre-loosening 11%): Δ E[R] +0.112R, correlation " +
+      "+0.034, t≈1.07 — the sign FLIPPED from negative to positive, resolving the prior 15Min-vs-1Hour " +
+      "disagreement in the direction the declared `expectedSign: positive` calls for, though still " +
+      "short of significance. 1Hour (docs/replay-runs/2026-09-14-1Hour-2R-within-all.json, 10480 " +
+      "observed) passed 2851/10480 (27%, up from the pre-loosening 13%): Δ E[R] +0.051R, correlation " +
+      "+0.016, t≈1.62 — sign held positive but the effect weakened from the pre-loosening +0.088R/" +
+      "t≈2.15 down below the significance bar it used to clear. Net effect of the loosening: both " +
+      "timeframes now agree on sign for the first time (previously they disagreed), but neither clears " +
+      "|t|>=1.96 any longer — the 1Hour reading traded a significant positive result for a merely " +
+      "directionally-consistent one. That is progress on the cross-timeframe disagreement this entry " +
+      "flagged as needing a tie-breaker, but it is not itself a validation: stays `hypothesis`, and a " +
+      "future weight re-derivation should use these post-loosening deltas (+0.112R/+0.051R), not the " +
+      "pre-loosening −0.221R this entry's earlier paragraphs describe — that reading no longer " +
+      "describes the code as shipped.",
   },
   {
     id: "gannRetracementConfluence",
