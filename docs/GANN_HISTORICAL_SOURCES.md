@@ -11,6 +11,22 @@ still under active copyright (1936 onward, and all nine secondary sources)
 is paraphrased throughout, with only short, load-bearing phrases quoted
 directly — never full paragraphs, never committed to this repo verbatim.
 
+**Third 2026-09-15 research session:** two new Drive folders ("WD Gann
+(books)" additions, "Observation of Cycles") were reviewed. Cross-checking
+titles first found that almost the entire top-level "WD Gann (books)"
+folder — all ten primary books and all seven secondary works above — was
+already indexed as A1–A11/B1–B7; those were not re-processed. A genuinely
+new subfolder and a genuinely new folder were: three new primary Gann
+sources (A12–A14, including his actual private paid course — a real find,
+see the cross-source synthesis update below), six new secondary sources
+(B8–B13), and seven general (non-Gann) cycle-theory sources filed as a new
+Part C, since Gann's own stated technique ("cycle theory, or harmonic
+analysis," A3) sits in the same intellectual tradition without being
+Gann-specific. One item, `Gann-Master-Chart.rar`, is an image archive of
+chart diagrams from the same course material and was not text-processed —
+noted, not indexed, consistent with how other diagram material in this
+file is logged as lost to OCR rather than skipped silently.
+
 Organizing note: the seven Hermetic principles (Mentalism, Correspondence,
 Vibration, Polarity, Rhythm, Cause and Effect, Gender — the framework
 popularized in *The Kybalion* and carried forward in Dennis William Hauck's
@@ -428,6 +444,99 @@ more openly astrological in his final years, at least in this specific
 9, 12 tied to his "Master Calculator" device and to his own stated
 Masonic membership), not zodiacal.
 
+### A12. *The W.D. Gann Master Stock Market Course* (lesson material dated
+internally through at least 1954; this scan reproduced by a "Wheels In The
+Sky" study group)
+
+**Not** public domain — dated worked examples run through 1953–1954,
+placing the material under the 95-year term (~2049). This is Gann's own
+**paid private course**, not one of his publicly sold books, and it is the
+most important single find of this session: it shows the Square of
+9/hexagon apparatus was never a later outside reconstruction (contrast the
+"reconstructed by B3/B5" framing below, now superseded) — Gann taught it
+himself, to paying students, and simply never published it. Genuinely new
+content:
+
+- An explicit **Square of Nine** section with real mechanics, not just a
+  name: dividing 360° by 9 gives 40; four successive "squares" complete at
+  81/162/243/324; specific number sequences radiate from center along each
+  45° spoke (e.g. 1→7→21→43→75→111→157→211→273→343 on one line, with three
+  more parallel sequences on the other spokes). This matches
+  `lib/gann/squareOf9.ts`'s spiral construction directly — the first
+  primary-source text found, across 23 documents now reviewed, that
+  discloses the actual arithmetic rather than a secondary reconstruction
+  of it.
+- A second, distinct **"Master Square of Twelve"** geometry (144, then
+  288, 432, 576) with its own named "minor" and "major" resistance
+  centers — not previously logged anywhere in this file, and not the same
+  system as Square of Nine.
+- A dedicated **Hexagon Chart** chapter (ch. 15B, p. 418 per the table of
+  contents) — confirmed to exist, but this extraction pass cut off before
+  reaching its body content; a future targeted re-read should go straight
+  to that chapter if the mechanics ever matter.
+- **Numerology framed explicitly as Biblical**: a "Law of Three" derived
+  from head anatomy; "seven times seven equals 49, the fatal evil year";
+  9×9=81 "referred to in the Bible."
+- **Astrology stated directly as a causal mechanism**, not veiled at all: a
+  "THE HUMAN BODY" section maps human anatomy onto the Zodiac (a woman's
+  12 bodily openings ↔ the 12 zodiac signs) as claimed "astrological
+  proof" underlying the geometric angles; a 30-year Saturn cycle is named
+  as ruling "the products of the earth."
+- Also repeats material already known from A1–A11 in the same voice: the
+  "nine mathematical proofs of resistance" list, the day/week/month/year
+  count bands, and worked real-money trade ledgers in the same style as
+  A2/A5/A8.
+
+Extraction was front-loaded: roughly the first 15–16 of 20+ chapters were
+captured cleanly before the tool's text layer cut off. The Hexagon Chart
+chapter and everything past ch. 18 remain unread — a standing gap, not a
+contradiction of what's found so far.
+
+### A13. 1919–1922 Annual Forecasts (early-edition excerpt from *Truth of
+the Stock Tape*, free "Gann Study Group" reprint)
+
+Public domain — pre-1931 Gann text, reprinted from an early edition of A2.
+Adds dated 1919–1922 forecast specifics not otherwise logged here, but is
+substantively the same source as A2, not an independent new work — filed
+as a supplement to A2. Past the forecast reprint, the same PDF concatenates
+a different, modern, unattributed document (see B9 below); do not
+attribute B9's content to Gann himself even though it shares a file.
+
+### A14. "May Coffee Santos D" confidential course letter (dated March 20
+and Nov. 6, 1954; signed W.D. Gann)
+
+Copyright status uncertain — signed, dated, explicitly NDA-bound private
+course correspondence, not a published book; if never formally published a
+different (and potentially longer) protection term may apply regardless of
+the 95-year public-book rule. A single source — corroborate before
+treating any one constant below as a general rule rather than one dated
+instance. This is the most concrete primary evidence of Gann's astrology
+technique found across every research session to date; earlier entries
+(B5's reconstruction, B3's ephemeris description) were secondary or
+circumstantial, while this is Gann's own signed worked example:
+
+- Several simultaneous **price-to-zodiac-degree conversion scales** stated
+  for the same price (8729): 1 point = 1°; 30 points = 1°; "the Jupiter
+  scale" of 12 points = 1°; 1 cent = 1°.
+- Heliocentric and geocentric longitudes for Jupiter, Saturn, Uranus,
+  Neptune, Pluto, and Mars, each run through those scales and checked
+  against the price-derived degree for conjunction/opposition.
+- A time-count technique converting elapsed months into degrees via a
+  stated points-per-month rate (e.g. 50 points/month), tied explicitly to
+  the 45° angle — a literal time/price-square mechanism with a disclosed
+  conversion constant.
+- Named hard/soft aspects (60°/90°/120°/135°/180°) between specific planet
+  pairs, each keyed to a specific forecast calendar date.
+- Mars "round trips" — whole and quarter (90°) synodic cycles counted
+  forward from a historical price low to flag anniversary reversal dates.
+- A composite/averaging technique: the mean of six heliocentric planetary
+  longitudes, plus explicit half-sum midpoints between planet pairs.
+- Explicitly withholds further material ("the CE AVERAGE," "the MOF
+  FORMULA") for higher-tier paying students and reminds the reader of a
+  signed non-disclosure agreement — the same withholding pattern already
+  documented in A1 and A3, now shown operating inside paid private
+  material too, not just toward the general public.
+
 ## Part B — Secondary and interpretive sources
 
 ### B1. Awodele, *W.D. Gann: Divination by Mathematics II — Harmonic
@@ -519,20 +628,193 @@ significance testing), credits Evangeline Adams and Donald Bradley as the
 field's early figures, never mentions Gann. Included here only to record
 that it was checked and ruled out, not as a Gann source.
 
+### B8. Vera (forwarding Dan Ferrera's "Square of Nine — First Method"),
+astrofin mailing-list email (Oct. 2003)
+
+Low-authority, informal (a 2003 mailing-list post, not a professional
+publication) — but embeds a short block explicitly attributed to Gann's
+own "Master Egg Course" (an obscure but genuine Gann course), which, if
+accurate, is itself a primary-source fragment distinct from A1–A14: circle
+-based time-by-degree checkpoints (45°=1/8 year through 360°=full year)
+and a "5th [period] is... Ascension" rule. The poster's own applied
+date-clustering method is unverified amateur interpretation, not validated
+technique — useful only as a real-world example of how retail Gann traders
+operationalize the disclosed circle-division rule.
+
+### B9. Unattributed "Summary of W.D. Gann's Techniques of Analysis and
+Trading" (Cycles Research Institute, undated)
+
+A modern, anonymous secondary compilation appearing three times across the
+new material (as its own file, appended to A13's PDF, and embedded in B12
+below) — treated as one source. Paraphrase only; no confirmed author to
+attribute quotes to. The most rule-dense of the new secondary sources: the
+"nine mathematical proofs of resistance" list (angles from tops/bottoms,
+horizontal angles, time cycles, angle-crossings, past S/R, volume,
+squaring of time/price); calendar/trading-day/week/month count bands; a
+**Square of 144** (144×144=20,736) fractional division table; a full
+year-by-year "Cycle of Years" decade narrative; and an unexplained
+planetary-orbital-period table. A12 partially corroborates the
+resistance-proofs list and the day-count bands directly — cross-check the
+rest against a primary Gann source before treating it as Gann's own words.
+
+### B10. Jason Sidney (Market Insight Pty Ltd), "Analyst Insight"
+newsletter trilogy — *Balancing Time Frames*, *Forecasting Time Frames
+Using Gann Angles*, *Aligning Time and Price* (2002)
+
+Explicitly, unambiguously copyrighted — one file carries the actual
+reproduction-restriction notice. Modern named author, paraphrase only, no
+extended quotes. A real-money worked-example trilogy applying disclosed
+Gann-angle technique to 2001–2002 index data: equal
+high-low/low-high/high-high/low-low time-frame counting (S&P/DJIA, 17–20
+week matches around the 2001–02 lows); the standard Gann angle set (1×1
+through 8×1, 1×8 through 1×2) mapped explicitly onto eighths/thirds
+retracement percentages (12.5/25/33.3/37.5/50/62.5/66.6/75/87.5%), with
+50% named "the Gann retracement" and 37.5%/62.5% called "the Gann
+equivalents of Fibonacci... retracement levels" — directly relevant to
+`lib/gann/retracement.ts`'s eighths/thirds construction, worth citing here
+if that module's documentation ever needs a named external source for the
+percentage set.
+
+### B11. Gregory L. Meadors (tradesforaliving.com), "Gann's Law of Price
+Movement Applied to Today's Market(s)," Parts 1–3 (c. 1994)
+
+Modern named author — paraphrase Meadors' own analysis and
+forecast-track-record claims; the Gann material he quotes (a 1909 Ticker
+Magazine/Wyckoff interview line, and an unsourced "Law of Vibration
+interview" passage) is old enough to cite briefly with attribution. The
+strongest of the new sources for the **astrology + "Law of Vibration"**
+pillar outside A14: names "Law of Vibration" directly and repeatedly, ties
+it explicitly to Pythagorean harmonics ("Music of the Spheres"), and gives
+dated, checkable forecast claims keyed to planetary alignments and
+lunar/solar eclipses (an Oct. 1987 crash-low call tied to an 84-year Uranus
+cycle; a June 1990 "Dow 3000 by July 16" call that landed within days).
+Flags a citation trail worth chasing separately: the 1909 Ticker
+Magazine/Wyckoff interview it quotes is itself a distinct historical
+primary Gann source not yet logged here by name (A1 above is a different
+1909 Ticker/Wyckoff piece — confirm whether these are the same interview
+or two separate ones before treating them as identical).
+
+### B12. "Additonal Cycle Findings" — Cycles Research Institute compiled
+cycle-theory survey
+
+Not Gann-specific; profiles Kitchin (~40mo), Juglar (9–11yr), Kondratieff
+(~54yr K-wave, including a Ray Tomes causal essay forecasting the next
+trough "centred on 2040"), Kuznets (16.5–18yr), and Elliott, plus an
+embedded copy of B9's Gann-technique summary. Filed as general
+cycle-theory background (see Part C), not a Gann source in its own right
+beyond the B9 duplication already logged.
+
+### B13. Ric Ingram, "Proposed Mathematical Basis for the Elliott Wave"
+(Cycles Research Institute, March 1994) — checked and ruled out
+
+Confirmed non-Gann (Elliott Wave, not Gann), consistent with how B6/B7
+were treated. Extraction only surfaced the title page — actual
+mathematical content unread; re-extract only if a future task specifically
+needs Elliott Wave math, not for Gann research.
+
+## Part C — General cycle-theory sources (non-Gann), from "Observation of
+Cycles"
+
+Relevant because Gann himself named "cycle theory, or harmonic analysis"
+as his operative technique (A3) — these are the non-Gann-specific
+scholarly/technical tradition (Edward Dewey's Foundation for the Study of
+Cycles and its successor, Ray Tomes' Cycles Research Institute) that uses
+the same vocabulary and, in Tomes' case, the same planetary-alignment
+reasoning Gann's own astrology material relies on (A14, B11). **None of
+these are Gann sources; none should be cited as Gann's own claims.**
+
+### C1. Ray Tomes, "Towards a Unified Theory of Cycles" (Foundation for the
+Study of Cycles, 1990; republished 2005 with a correction)
+
+Central claim: non-linear "response functions" mathematically force any
+driven system toward integer-ratio harmonics, reproducing musical-scale
+ratios (4:5:6:8) in measured economic cycle lengths (4.45/5.9/7.15/9.0yr
+as fractions of a 35.7yr fundamental, itself a fraction of the 54yr
+Kondratieff wave). Gives specific planetary-alignment periods
+(Jupiter-Venus-Earth ≈11.07yr; outer-planet realignment ≈171.4yr) as a
+candidate physical driver, rejecting tidal/center-of-mass explanations for
+a relativistic-gravity mechanism instead. The theoretical ancestor of any
+"cycle synchrony" or "harmonic ratio" scoring logic, and the same
+planetary-alignment-as-cause reasoning underlying Gann's disclosed
+astrology technique (A14) — argued independently, by a non-Gann author.
+
+### C2. Ray Tomes, "A 5.54 Year Cycle in Oil Prices" (2005)
+
+A concrete, dated, falsifiable forecast: predicted oil peaks in 2008,
+2013, and 2019, and a ~$300/bbl level by 2013–14 — oil did not reach that
+level. Useful primarily as a documented track-record data point for how
+this cycle-fitting method performs out of sample, not as a technique to
+adopt.
+
+### C3. Ray Tomes, "Solar Variations of 154 Days and Related Periods"
+(2005)
+
+A peer-reviewed-astrophysics-literature survey of a ~154-day solar
+periodicity (flares, solar wind, sunspot area), presented as a harmonic of
+the ~26–28 day solar rotation. General solar-physics background for
+C1/C4's harmonic claims; no direct trading application.
+
+### C4. Ray Tomes, "Harmonics Theory — The Physics and Maths" (undated,
+latest calculation March 2004)
+
+Tomes' fullest theoretical statement — argues General Relativity forces
+any standing wave (up to a hypothesized universe-scale wave) into integer
+harmonics, and fits Dewey's entire cycle catalogue (25.8 days to 586
+million years) into one harmonic table anchored to a conjectured
+cosmological "fundamental" period. Fringe-physics/cosmology speculation,
+not finance-specific; the load-bearing theoretical justification behind
+C1/C2's market-cycle claims, useful as provenance/background only.
+
+### C5. Edward R. Dewey, "Definitions and Concepts Used in Cycle Study"
+(*Cycles* magazine, May 1965)
+
+Pure taxonomy, no numbers: precisely distinguishes randomness-of-amplitude
+from randomness-of-period, and "rhythm" (reasonably regular recurrence)
+from true periodicity. Useful only as terminology hygiene if GSPS
+documentation ever needs to state these distinctions precisely.
+
+### C6. Edward R. Dewey, "The Case for Cycles" (*Cycles* magazine, July
+1967)
+
+The most load-bearing general-cycle-theory document in this batch —
+Dewey's methodological manifesto for distinguishing a real cycle from
+noise: dominance, regularity of timing, repetition count, constancy of
+period, phase-resumption after distortion, wave-shape identity,
+cross-series clustering, and cycle synchrony. A rigorous, citable standard,
+independent of Gann or Tomes, for validating any cyclical indicator GSPS
+might build — the strongest candidate in this whole batch for actual
+methodological reuse, should a future cycle-validation criterion ever be
+proposed.
+
+### C7. Franz Halberg et al., "Transdisciplinary unifying implications of
+circadian findings in the 1950s" (*Journal of Circadian Rhythms*, 2003) —
+tangential
+
+A genuine, freely-licensed (Open Access) peer-reviewed chronobiology
+review, not misplaced junk, but human-physiology research
+(circadian/circaseptan/circannual rhythms), not market cycles. Its one
+point of contact: a ~10-year "circadecadal" rhythm in human hormone
+excretion attributed to the solar (sunspot) cycle — the same
+solar-cycle-synchrony logic Tomes applies to commodity prices (C1),
+independently observed in a different (medical) literature. No trading
+application; included for completeness since it was in the source folder.
+
 ## Cross-source synthesis
 
 | Technique | Disclosed where (primary) | Corroborated/extended by | Implemented in GSPS? |
 |---|---|---|---|
 | Risk/money management (stops, no averaging, pyramid winners, 10%-of-capital risk ceiling) | A2, A4, A5, A6, A8; the 10% ceiling independently in A3 (fiction) and A5 | — | Yes — `lib/guided/sizing.ts`, `lib/risk/*` (differently structured: % of account/multi-ceiling, not Gann's dollar/point tiers) |
 | Support/resistance via old-level crossing, with explicit numeric stop buffers ("lost motion," 3¢/3-point rule) | A2 (worked cases), A5 (3-point rule), A8 (resistance-level eighths/thirds + lost motion) | B4 | Yes — `historicalSR`, GSPS's most consistently positive-evidence criterion |
-| Square of 9 spiral / hexagon geometry | **Absent from every disclosed book through 1941** (A2, A4, A5, A6, and the readable ~15% of A8) | Reconstructed by B3's "D Levels" table and B5's "Circle Chart" (planetary-longitude version); A10's hexagon construction is a spiritual, not market, precursor | Yes, algorithmically — `lib/gann/squareOf9.ts` — but **not scored** (harmonicProximity retired for measuring negligible) |
-| Gann angles (1×1 etc.) | not found in any of A1–A8, A10–A11 | standard in later course/secondary material | Yes — `lib/gann/fans.ts`, scored as `gannAngleSlope` |
-| Percentage retracement (eighths/thirds) | A8, explicit and central | B4 | Yes — `lib/gann/retracement.ts`, scored inside `gannRetracementConfluence` |
+| Square of 9 spiral / hexagon geometry | Absent from every **publicly sold** book through 1941 (A2, A4, A5, A6, and the readable ~15% of A8) — but disclosed directly, with worked arithmetic, in his **private paid course** (A12, dated material through 1954) | B3's "D Levels" table and B5's "Circle Chart" no longer read as pure reconstructions — A12 confirms Gann taught the actual spiral/hexagon mechanics himself, just never published them; A10's hexagon construction remains a spiritual, not market, precursor | Yes, algorithmically — `lib/gann/squareOf9.ts` — but **not scored** (harmonicProximity retired for measuring negligible) |
+| "Master Square of Twelve" (144-based geometry, distinct from Square of 9) | Disclosed in A12 (private course) only | B9's Square of 144 fractional table corroborates the numbers | **No** — no separate implementation from `squareOf9.ts` |
+| Gann angles (1×1 etc.) | not found in any of A1–A8, A10–A11; disclosed with mechanics in A12 (private course) | standard in later course/secondary material; B10's trilogy maps the full angle set onto retracement % | Yes — `lib/gann/fans.ts`, scored as `gannAngleSlope` |
+| Percentage retracement (eighths/thirds) | A8, explicit and central | B4, B10 (explicit angle-to-% mapping table) | Yes — `lib/gann/retracement.ts`, scored inside `gannRetracementConfluence` |
 | Fixed annual/anniversary time cycles | A4 (permanent calendar-date cycle), A3 (age/anniversary timing), A7 (WWI-anchor cycle projection) | — | Yes, as a documented interpretation — `lib/gann/timeCycles.ts` (context-only) |
 | "Sections of a campaign" (3–4 legs, later sections weighted more) | A5, A8 | — | Partial overlap with `lib/gann/swingChart.ts`'s 3-day/9-day construction; not a literal port |
-| Fourier/harmonic (spectral) cycle analysis | Named directly by Gann in A3 ("cycle theory, or harmonic analysis") | B1's full demonstration | **No** — nothing in GSPS does spectral/dominant-cycle decomposition |
-| Digital root / "Law of Vibration" numerology | A1 names "vibration"; no specific formula disclosed in any primary text | B2 (weak), A10's sacred numbers (3/7/9/12), A3's letter/Daniel numerology | Yes, as GSPS's own hypothesis — `lib/gann/digitalRoot.ts`, explicitly not a literal historical port |
-| Astrology / planetary ephemeris | Extensive and explicit in A3 (fiction) and B5's decoding of private letters; **absent from every published book** (A2, A4, A5, A6, A9, A11 all checked directly, plus A8's readable portion) | B3's ephemeris description, B5 (private letters only) | **No** — no ephemeris/astrology path exists in GSPS, by explicit policy |
+| Fourier/harmonic (spectral) cycle analysis | Named directly by Gann in A3 ("cycle theory, or harmonic analysis") | B1's full demonstration; C1/C4 (Tomes) argue a general physical mechanism for integer-harmonic cycles, non-Gann-specific | **No** — nothing in GSPS does spectral/dominant-cycle decomposition |
+| Cycle-is-real-vs-noise validation criteria (dominance, regularity, phase-resumption, synchrony) | Not a Gann concept | C6 (Dewey) — general methodology, non-Gann | **No** — closest existing brush is `harmonicProximity`'s retirement from the criteria registry for measuring negligible |
+| Digital root / "Law of Vibration" numerology | A1 names "vibration"; no specific formula disclosed in any primary text | B2 (weak), A10's sacred numbers (3/7/9/12), A3's letter/Daniel numerology, A12's Biblical numerology, B11's Pythagorean framing | Yes, as GSPS's own hypothesis — `lib/gann/digitalRoot.ts`, explicitly not a literal historical port |
+| Astrology / planetary ephemeris | Extensive and explicit in A3 (fiction), and **now confirmed with worked mechanics in A14** (a signed 1954 private course letter with explicit price-to-degree conversion constants) and A12 (private course); **absent from every published book** (A2, A4, A5, A6, A9, A11 all checked directly, plus A8's readable portion) | B3's ephemeris description, B5 (private letters), B11 (dated forecast track record), C1 (Tomes' independent planetary-alignment cycle theory) | **No** — no ephemeris/astrology path exists in GSPS, by explicit policy |
 | Name/letter/election numerology | A3 (1928 election forecast), B3's 1923 newspaper article | — | **No** — not applicable to GSPS's market scope |
 
 **A genuinely load-bearing finding from this pass**: the technique with
@@ -547,6 +829,20 @@ Gann technique appears nowhere in his major disclosed writing through
 1941; it is a later reconstruction from course material, private letters,
 and secondary research (B5), not something he ever published for general
 sale.
+
+**2026-09-15 update (third research session):** A12 (Gann's own private
+course, read directly) and A14 (his own signed 1954 astrology letter) now
+show this apparatus wasn't a later *outside* reconstruction at all — Gann
+taught the Square of Nine, a second "Master Square of Twelve" geometry,
+and explicit astrology directly to his paying course students; he simply
+never sold any of it in his public books. The disclosed/undisclosed split
+runs along public-book vs. private-course lines, not along
+historical-vs.-modern-researcher lines as the paragraph above originally
+framed it. This doesn't change the backtest evidence — `historicalSR` is
+still the strongest-performing criterion and `harmonicProximity` is still
+retired for measuring negligible — it changes only the historical
+attribution: the technique is authentically Gann's own, just never
+publicly disclosed by him, rather than a modern secondary reconstruction.
 
 See `docs/GANN_METHOD_COMPLETENESS_AUDIT.md` for the full implementation
 audit this table summarizes.

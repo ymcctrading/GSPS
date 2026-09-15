@@ -85,9 +85,12 @@ later legs weighted more heavily for trend-change confirmation). What is
 (prices mapped onto a square-root spiral) and **Gann angles** (fixed
 price-per-time-unit lines like 1×1, 2×1) — both are absent from every
 disclosed book checked for this audit. They are real techniques from his
-later, unpublished course material and private letters (per a modern
-researcher's decoding — see `GANN_HISTORICAL_SOURCES.md` B5), not
-something he ever sold to the general public in book form.
+own later, unpublished course material and private letters — confirmed
+directly, not just via a modern researcher's decoding, once his actual
+private course text and a signed 1954 astrology letter were read (see
+`GANN_HISTORICAL_SOURCES.md` A12, A14; B5's earlier decoding is
+corroborated, not superseded) — not something he ever sold to the general
+public in book form.
 
 **Layer 3 — Timing (the part Gann kept secret in every one of his ten
 books).** Gann insisted price and time are symmetric — a move is "square"
