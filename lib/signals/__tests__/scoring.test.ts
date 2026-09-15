@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeRulesAlignmentScore } from "../scoring";
+import { classifyBlueprintScoreBand, computeRulesAlignmentScore } from "../scoring";
 import { evaluateDisqualifiers } from "../disqualifiers";
 import type { RulesAlignmentBreakdownItem, SignalGates } from "../types";
 
@@ -23,6 +23,28 @@ describe("computeRulesAlignmentScore", () => {
     expect(at(75)).toBe("qualified");
     expect(at(85)).toBe("aTier");
     expect(at(92)).toBe("aPlusTier");
+  });
+
+  it("also attaches the blueprint's own band classification, independent of tier", () => {
+    const breakdown: RulesAlignmentBreakdownItem[] = [
+      { key: "a", label: "a", points: 60, maxPoints: 100, applicable: true, passed: true, note: "" },
+    ];
+    expect(computeRulesAlignmentScore(breakdown).blueprintScoreBand).toBe("DEVELOPING");
+  });
+});
+
+describe("classifyBlueprintScoreBand", () => {
+  it("matches the Implementation Blueprint's §14.2 literal cut points", () => {
+    expect(classifyBlueprintScoreBand(0)).toBe("NO_TRADE");
+    expect(classifyBlueprintScoreBand(24)).toBe("NO_TRADE");
+    expect(classifyBlueprintScoreBand(25)).toBe("WATCH");
+    expect(classifyBlueprintScoreBand(49)).toBe("WATCH");
+    expect(classifyBlueprintScoreBand(50)).toBe("DEVELOPING");
+    expect(classifyBlueprintScoreBand(69)).toBe("DEVELOPING");
+    expect(classifyBlueprintScoreBand(70)).toBe("ACTIONABLE");
+    expect(classifyBlueprintScoreBand(84)).toBe("ACTIONABLE");
+    expect(classifyBlueprintScoreBand(85)).toBe("HIGH_CONFLUENCE");
+    expect(classifyBlueprintScoreBand(100)).toBe("HIGH_CONFLUENCE");
   });
 });
 

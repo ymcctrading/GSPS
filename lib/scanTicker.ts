@@ -11,7 +11,6 @@ import type {
   ScanResult,
   SetupKind,
   StratPattern,
-  Timeframe,
   TradeLevels,
 } from "@/lib/types";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
@@ -21,12 +20,20 @@ import {
   fetchAllTimeframes,
   getMarketDataProvider,
 } from "@/lib/data/provider";
+import { EXECUTION_TIMEFRAME } from "@/lib/timeframe";
 import { readTrend } from "@/lib/analysis/trend";
 import { atr } from "@/lib/analysis/pivots";
 import { levelRole } from "@/lib/analysis/levelRole";
 import { computeFanLines } from "@/lib/gann/fans";
-import { squareOf9Levels } from "@/lib/gann/squareOf9";
+import { recentSquareOf9Levels } from "@/lib/gann/squareOf9";
 import { timeCycles } from "@/lib/gann/timeCycles";
+import { computeAngleSlopes } from "@/lib/gann/normalizedSlope";
+import { computeRetracementLevels } from "@/lib/gann/retracement";
+import { priceTimeConfluence } from "@/lib/gann/digitalRoot";
+import { computeSwingChart } from "@/lib/gann/swingChart";
+import { computeTimePriceSquare } from "@/lib/gann/timePriceSquare";
+import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
+import { adx } from "@/lib/signals/indicators";
 import {
   CONTINUATION_PATTERNS,
   detectPatterns,
@@ -74,12 +81,13 @@ export interface ScanPreference {
   kind: SetupKind;
 }
 
-/**
- * The timeframe precision entries are detected on. Named here because the feed
- * delay only means something measured against it — 15 minutes is a whole candle
- * on this timeframe and 6% of one on a 4-hour chart.
- */
-const EXECUTION_TIMEFRAME: Timeframe = "15Min";
+// EXECUTION_TIMEFRAME is imported below from lib/timeframe.ts, not defined
+// here — see that constant's own comment for the full temporary-override
+// rule. This file imports levelRole.ts, so defining the constant here and
+// importing it back into levelRole.ts would be a circular value import: it
+// type-checked cleanly under `tsc --noEmit` and then broke Next.js's actual
+// build (`Failed to collect page data for /api/batch-scan`), which is why the
+// definition lives in a leaf module instead.
 
 export async function scanTicker(
   symbol: string,
@@ -106,12 +114,12 @@ export async function scanTicker(
 
   try {
     const provider = getMarketDataProvider();
-    const [{ monthly, weekly, daily, hourly, m15 }, currentPrice] = await Promise.all([
-      prefetched ?? fetchAllTimeframes(symbol, assetClass),
+    const [{ monthly, weekly, daily, hourly, execution }, currentPrice] = await Promise.all([
+      prefetched ?? fetchAllTimeframes(symbol, assetClass, EXECUTION_TIMEFRAME),
       provider.fetchLatestPrice(symbol, assetClass),
     ]);
 
-    if (daily.length < 30 || m15.length < 10) {
+    if (daily.length < 30 || execution.length < 10) {
       throw new Error(`Insufficient bar data for ${symbol}`);
     }
 
@@ -119,15 +127,38 @@ export async function scanTicker(
     const monthlyTrend = readTrend(monthly, "1Month");
     const weeklyTrend = readTrend(weekly, "1Week");
     const dailyTrend = readTrend(daily, "1Day");
+    // Gann's 3-day/9-day swing charts, replacing the monthly/weekly/daily
+    // macroTrend agreement check — same daily bars, a different (reversal-
+    // count) construction. See lib/gann/swingChart.ts.
+    const swingChart = computeSwingChart(daily);
 
     // ---- Level 2: 1hr refinement
     const hourlyTrend = readTrend(hourly, "1Hour");
+    // Same implementation and 20-ADX threshold lib/signals/regime.ts already
+    // validated for trend-strength confirmation — reused, not reinvented.
+    const hourlyAdx = adx(hourly);
 
     // ---- Gann structures (anchored on the daily chart)
     const fanLines = computeFanLines(daily, currentPrice);
-    const majorLow = Math.min(...daily.map((b) => b.l));
-    const s9 = squareOf9Levels(majorLow, currentPrice).slice(0, 12);
+    const s9 = recentSquareOf9Levels(daily, currentPrice).slice(0, 12);
     const cycles = timeCycles(daily);
+    const angleSlopes = computeAngleSlopes(daily, currentPrice);
+    // Gann's squaring of price and time, replacing timeCycle — same anchors
+    // as angleSlopes, a different (raw count-for-count) construction.
+    const timePriceSquare = computeTimePriceSquare(daily, currentPrice);
+    // Volume climax at the same pivots, replacing harmonicProximity.
+    const volumeClimax = computeVolumeClimax(daily);
+    const retracementLevels = computeRetracementLevels(daily, currentPrice);
+    // Digital-root/vortex confluence off the same anchors angleSlopes reads —
+    // confluence/context only (blueprint 7.4); score.ts's gannRetracementConfluence
+    // criterion ANDs this with the retracement match above rather than gating on
+    // it alone. See lib/gann/digitalRoot.ts's priceTimeConfluence.
+    const digitalRootConfluences = angleSlopes
+      .map((r) => {
+        const confluence = priceTimeConfluence(currentPrice, r.anchorPrice, r.barsSinceAnchor);
+        return confluence && { anchorKind: r.anchorKind, ...confluence };
+      })
+      .filter((v): v is NonNullable<typeof v> => v !== null);
 
     const gann: GannLevels = {
       fanLines: fanLines.slice(0, 6).map(({ angle, price, distancePct, role }) => ({
@@ -143,15 +174,26 @@ export async function scanTicker(
         role,
       })),
       timeCycleActive: cycles.active,
+      timeCycleBullishActive: cycles.bullishActive,
+      timeCycleBearishActive: cycles.bearishActive,
       timeCycleDates: cycles.dates,
+      angleSlopes,
+      retracementLevels: retracementLevels.slice(0, 7).map(({ fraction, label, price, distancePct, role }) => ({
+        fraction,
+        label,
+        price: Math.round(price * 100) / 100,
+        distancePct,
+        role,
+      })),
+      digitalRootConfluences,
     };
 
     // ---- Level 3: 15min precision entry via reversal patterns (closed bars only)
-    const closedM15 = m15.slice(0, -1); // treat the final bar as potentially live
+    const closedExecutionBars = execution.slice(0, -1); // treat the final bar as potentially live
     // The execution-timeframe ATR sets the noise floor a setup's stop has to
     // clear; without it a narrow bar arms a pattern no one could actually hold.
-    const executionAtr = atr(closedM15.slice(-30), 14);
-    const armed = detectPatterns(closedM15).filter(
+    const executionAtr = atr(closedExecutionBars.slice(-30), 14);
+    const armed = detectPatterns(closedExecutionBars).filter(
       (p) => !gapRuleViolated(p, currentPrice) && !riskFloorViolated(p, executionAtr),
     );
 
@@ -205,7 +247,7 @@ export async function scanTicker(
     const scoreDirection = pattern?.direction ?? preferredDirection;
 
     // ---- Trade levels
-    const previousBar = closedM15[closedM15.length - 2] ?? closedM15[closedM15.length - 1];
+    const previousBar = closedExecutionBars[closedExecutionBars.length - 2] ?? closedExecutionBars[closedExecutionBars.length - 1];
     const gannTargets = [
       ...gann.fanLines.map((f) => f.price),
       ...gann.squareOf9.map((s) => s.price),
@@ -220,30 +262,17 @@ export async function scanTicker(
     const liquidity = readLiquidity(daily) ?? undefined;
     const largeCap = isLargeCapStock(symbol, assetClass, liquidity);
 
-    let levels: TradeLevels | null = null;
-    let levelsError: string | undefined;
-    if (pattern) {
-      try {
-        levels = computeTradeLevels(
-          pattern,
-          previousBar,
-          gannTargets,
-          optionPremium,
-          executionAtr,
-          assetClass,
-          largeCap,
-        );
-      } catch (err) {
-        levelsError = err instanceof Error ? err.message : String(err);
-      }
-    }
-
     // ---- Supporting signals
     //
     // Each level keeps the timeframe it was read off — the flat number-only
     // list this used to be threw that away, so the "near S/R" criterion could
     // never say more than yes/no. See lib/analysis/levelRole.ts for why the
     // originating timeframe is what tells a trader how to use the level.
+    //
+    // Computed ahead of the trade-plan block below (moved 2026-09-11):
+    // computeTradeLevels's equities path needs both the full level list and
+    // atrPct to anchor a percent-based stop/runner — see
+    // lib/strat/levels.ts#computeEquityTradeLevels.
     const allLevels = [
       ...dailyTrend.support.map((price) => ({ price, timeframe: dailyTrend.timeframe })),
       ...dailyTrend.resistance.map((price) => ({ price, timeframe: dailyTrend.timeframe })),
@@ -260,6 +289,26 @@ export async function scanTicker(
     // symbol's own daily range, so "near a level" is the same fraction of a
     // day's move on a utility as on a high-beta name.
     const atrPct = atrPercentOfPrice(recentAtr, currentPrice);
+
+    let levels: TradeLevels | null = null;
+    let levelsError: string | undefined;
+    if (pattern) {
+      try {
+        levels = computeTradeLevels(
+          pattern,
+          previousBar,
+          gannTargets,
+          optionPremium,
+          executionAtr,
+          assetClass,
+          largeCap,
+          allLevels.map((l) => l.price),
+          atrPct,
+        );
+      } catch (err) {
+        levelsError = err instanceof Error ? err.message : String(err);
+      }
+    }
     const srBandPct = proximityBandPct(SR_PROXIMITY_ATR, FALLBACK_SR_PCT, atrPct);
     const srMatch = nearestLevelMatch(currentPrice, allLevels, srBandPct);
     const nearSupportResistance = srMatch !== null;
@@ -279,12 +328,19 @@ export async function scanTicker(
           direction: scoreDirection,
           macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
           hourlyTrend,
+          hourlyAdx,
+          swingChart,
+          timePriceSquare,
+          volumeClimax,
           gann,
           nearSupportResistance,
           srMatch: srMatch && { ...srMatch, role: levelRole(currentPrice, srMatch.price) },
           pattern,
           momentumElevated,
           levels,
+          stopAtrMultiple:
+            levels && executionAtr > 0 ? levels.riskPerShare / executionAtr : null,
+          assetClass,
           setupKind,
           atrPct,
           weights: await getActiveCriterionWeights(),
@@ -359,7 +415,7 @@ export async function scanTicker(
       ? evaluateSaraConfluence({
           assetClass,
           symbol,
-          closedExecutionBars: closedM15,
+          closedExecutionBars,
           currentPrice,
           htfDirection: regime.direction !== "sideways" ? regime.direction : null,
         })
@@ -370,8 +426,8 @@ export async function scanTicker(
         ? evaluateTrendPullback({
             direction: regime.direction,
             htfBars: daily,
-            executionBars: closedM15,
-            vwapAnchorIndex: Math.max(0, closedM15.length - 20),
+            executionBars: closedExecutionBars,
+            vwapAnchorIndex: Math.max(0, closedExecutionBars.length - 20),
             gates: marketGates,
             accountContextAssumed: true,
           })
@@ -381,11 +437,11 @@ export async function scanTicker(
     // comment in lib/signals/types.ts), so it's evaluated unconditionally,
     // in the same direction bias the rest of this scan already committed to.
     const trendBreakout: SignalVerdict | null =
-      closedM15.length >= 17
+      closedExecutionBars.length >= 17
         ? evaluateTrendBreakout({
             direction: scoreDirection,
             htfBars: daily,
-            executionBars: closedM15,
+            executionBars: closedExecutionBars,
             gates: marketGates,
             accountContextAssumed: true,
           })
@@ -393,11 +449,11 @@ export async function scanTicker(
     // Confirmed Reversal likewise reads its own exhaustion/break/hold
     // structure from price action rather than the regime label.
     const confirmedReversal: SignalVerdict | null =
-      closedM15.length >= 22
+      closedExecutionBars.length >= 22
         ? evaluateConfirmedReversal({
             direction: scoreDirection,
             htfBars: daily,
-            executionBars: closedM15,
+            executionBars: closedExecutionBars,
             gates: marketGates,
             accountContextAssumed: true,
           })
@@ -405,11 +461,11 @@ export async function scanTicker(
     // Range Reversion likewise reads its own boundaries/rejection from
     // price action rather than the regime label.
     const rangeReversion: SignalVerdict | null =
-      closedM15.length >= 26
+      closedExecutionBars.length >= 26
         ? evaluateRangeReversion({
             direction: scoreDirection,
             htfBars: daily,
-            executionBars: closedM15,
+            executionBars: closedExecutionBars,
             gates: marketGates,
             accountContextAssumed: true,
           })
@@ -430,7 +486,7 @@ export async function scanTicker(
       levels,
       levelsError,
       dataLag,
-      executionBar: closedM15[closedM15.length - 1],
+      executionBar: closedExecutionBars[closedExecutionBars.length - 1],
       decision,
       // Read off the same daily bars the structure was computed from, so any
       // consumer can apply the platform-wide liquidity floor without a second
@@ -461,7 +517,17 @@ export async function scanTicker(
       setupKind,
       momentumElevated: false,
       trends: [],
-      gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleDates: [] },
+      gann: {
+        fanLines: [],
+        squareOf9: [],
+        timeCycleActive: false,
+        timeCycleBullishActive: false,
+        timeCycleBearishActive: false,
+        timeCycleDates: [],
+        angleSlopes: [],
+        retracementLevels: [],
+        digitalRootConfluences: [],
+      },
       pattern: null,
       armedPatterns: [],
       levels: null,

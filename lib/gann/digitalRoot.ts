@@ -197,6 +197,48 @@ export interface DigitalRootFeature {
  * rather than a guessed root — per blueprint 2.1's "never convert
  * missing/null/invalid data to root 9."
  */
+/**
+ * Same fixed cents-normalization convention `lib/signals/confluence/gann.ts`
+ * uses for price displacement — not per-instrument tick metadata (that lives
+ * in `lib/trade/tick-size.ts`), a documented simplification shared by both
+ * callers.
+ */
+const NORMALIZATION_TICK_SIZE_CENTS = 0.01;
+
+export interface PriceTimeConfluence {
+  priceRoot: number;
+  timeRoot: number;
+  type: ConfluenceType;
+}
+
+/**
+ * Price-displacement root vs time-displacement root confluence off a single
+ * anchor — the lightweight form of what `lib/signals/confluence/gann.ts`'s
+ * `vortexContext` computes, for a caller that only needs the classification.
+ *
+ * **Confluence/context only** (blueprint 7.4's safety rule, same as every
+ * other function in this module): the type this returns must never by
+ * itself gate a scored criterion. A caller may only fold it into a scored
+ * check ANDed with an independent, non-DR Gann structural condition (e.g. a
+ * retracement-zone or Square-of-9 match) — never as the sole basis for a
+ * pass/fail. `lib/scoring/score.ts`'s `gannRetracementConfluence` criterion
+ * is the one place this is wired into scoring, and it is wired that way.
+ */
+export function priceTimeConfluence(
+  currentPrice: number,
+  anchorPrice: number,
+  barsSinceAnchor: number,
+): PriceTimeConfluence | null {
+  if (!Number.isFinite(currentPrice) || !Number.isFinite(anchorPrice)) return null;
+  if (!Number.isFinite(barsSinceAnchor) || barsSinceAnchor <= 0) return null;
+  const priceTicks = Math.round(Math.abs(currentPrice - anchorPrice) / NORMALIZATION_TICK_SIZE_CENTS);
+  if (priceTicks <= 0) return null;
+
+  const priceRoot = digitalRoot1to9(priceTicks);
+  const timeRoot = digitalRoot1to9(Math.round(barsSinceAnchor));
+  return { priceRoot, timeRoot, type: classifyConfluence(priceRoot, timeRoot) };
+}
+
 export function buildDigitalRootFeature(
   integerValue: number,
   context: { normalizationMethod: string; sourceTimeframe: string; featureVersion: string; asOf?: string },

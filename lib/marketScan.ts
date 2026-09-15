@@ -19,7 +19,10 @@
  * the bar — reversions are scanned first and keep priority, but continuations
  * are no longer something the market only looks for when reversions come up
  * short. A short list is an acceptable outcome; a list padded with symbols
- * that have no trade plan is not.
+ * that have no trade plan, or with a trade plan too weak to have earned a
+ * slot on its own merits, is not — `qualifiesAsContinuationFill` requires
+ * both the right shape and an Execute-tier score, never just "the best of
+ * what's left." Six 7/9s beat eighteen setups trailing off through 6, 5, 4.
  */
 
 import type { Bar, ScanResult, SetupKind } from "@/lib/types";
@@ -29,20 +32,20 @@ import { readTrend } from "@/lib/analysis/trend";
 import { etDateKey } from "@/lib/market/session";
 import { atr } from "@/lib/analysis/pivots";
 import { computeFanLines } from "@/lib/gann/fans";
-import { squareOf9Levels } from "@/lib/gann/squareOf9";
+import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
 import { CONTINUATION_PATTERNS } from "@/lib/strat/patterns";
 import { MIN_EQUITY_PRICE_USD, meetsLiquidityFloor, readLiquidity } from "@/lib/scan/liquidity";
 import { scanTicker } from "@/lib/scanTicker";
+import { EXECUTION_TIMEFRAME } from "@/lib/timeframe";
+import { EXECUTE_SCORE_THRESHOLD } from "@/lib/scoring/weights";
 import { DEFAULT_UNIVERSE_THRESHOLDS, type UniverseThresholds } from "@/lib/universe/eligibility";
 import { MAG7, SECTORS } from "@/lib/sectors";
 import { LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
 import type { CoarseTelemetryRow } from "@/lib/scan/telemetry";
 import {
   FALLBACK_FAN_PCT,
-  FALLBACK_HARMONIC_PCT,
   FALLBACK_SR_PCT,
   FAN_PROXIMITY_ATR,
-  HARMONIC_PROXIMITY_ATR,
   SR_PROXIMITY_ATR,
   atrPercentOfPrice,
   proximityBandPct,
@@ -273,16 +276,19 @@ export function coarseReversion(symbol: string, daily: Bar[]): CoarseCandidate |
   if (extensionPct > tier1Pct) score += 1;
   if (extensionPct > tier2Pct) score += 1;
 
-  // Proximity to a Gann fan line or Square-of-9 level — the same ATR-relative
-  // bands the full scan's proximity criteria use, so a symbol that clears
-  // this coarse gate is likely to clear the real one too.
+  // Proximity to a Gann fan line — the same ATR-relative band the full
+  // scan's gannAngleSlope-adjacent proximity criteria use, so a symbol that
+  // clears this coarse gate is likely to clear the real one too.
   const fanBandPct = proximityBandPct(FAN_PROXIMITY_ATR, FALLBACK_FAN_PCT, atrPct);
-  const harmonicBandPct = proximityBandPct(HARMONIC_PROXIMITY_ATR, FALLBACK_HARMONIC_PCT, atrPct);
   const fans = computeFanLines(daily, price);
   if (fans.length > 0 && fans[0].distancePct <= fanBandPct) score += 2;
-  const majorLow = Math.min(...daily.map((b) => b.l));
-  const s9 = squareOf9Levels(majorLow, price);
-  if (s9.length > 0 && s9[0].distancePct <= harmonicBandPct) score += 2;
+  // Same anchor convention and threshold as the full scan's volumeClimax
+  // criterion (lib/scoring/score.ts) — replaces this pre-filter's old
+  // Square-of-9 proximity check, which tracked harmonicProximity before that
+  // criterion was itself replaced by volumeClimax.
+  const climaxAnchorKind = direction === "bullish" ? "low" : "high";
+  const climax = computeVolumeClimax(daily).find((r) => r.anchorKind === climaxAnchorKind);
+  if (climax?.climax) score += 2;
 
   // Proximity to a clustered S/R level in the reversion direction
   const srBandPct = proximityBandPct(SR_PROXIMITY_ATR, FALLBACK_SR_PCT, atrPct);
@@ -431,6 +437,23 @@ export function isMomentumContinuation(
   if (r.pattern === null || !CONTINUATION_PATTERNS.has(r.pattern.name)) return false;
   const macro = r.trends.filter((t) => t.timeframe !== "1Hour");
   return macro.filter((t) => t.direction === direction).length >= 2;
+}
+
+/**
+ * The continuation top-up pass's actual admission test: a genuine momentum
+ * continuation shape (`isMomentumContinuation`) that also clears the same
+ * Execute-tier bar a reversion has to clear on its own merits
+ * (`EXECUTE_SCORE_THRESHOLD`). A candidate that arms the right pattern but
+ * scores a 6, 5, or 4 is not "the best of what's left" here — it's excluded,
+ * same as a symbol with no trade plan at all. A short continuation fill (or
+ * none) is the correct answer on a day nothing clears the bar, not a
+ * shortfall to paper over with a weaker setup.
+ */
+export function qualifiesAsContinuationFill(
+  r: ScanResult,
+  direction: "bullish" | "bearish",
+): boolean {
+  return isMomentumContinuation(r, direction) && r.decision.score >= EXECUTE_SCORE_THRESHOLD;
 }
 
 export interface MarketScanOutput {
@@ -650,7 +673,7 @@ export async function runMarketScan(
   // Full multi-timeframe pass — batch-fetch all five timeframes for the whole
   // shortlist up front (five requests total) so each scanTicker call below is
   // just scoring, not a fresh five-request fetch per symbol.
-  const shortlistBars = await fetchAllTimeframesBatch(shortlist.map((c) => c.symbol));
+  const shortlistBars = await fetchAllTimeframesBatch(shortlist.map((c) => c.symbol), EXECUTION_TIMEFRAME);
   mark("full-pass batch bar fetch done", `shortlist=${shortlist.length}`);
   const full = await mapWithConcurrency(shortlist, 5, (c) =>
     scanTicker(c.symbol, undefined, undefined, shortlistBars.get(c.symbol.toUpperCase()), universeThresholds),
@@ -734,7 +757,7 @@ export async function runMarketScan(
         .slice(0, Math.min(target[dir] * 3, perSideBudget)),
     );
 
-    const fillBars = await fetchAllTimeframesBatch(fills.map((c) => c.symbol));
+    const fillBars = await fetchAllTimeframesBatch(fills.map((c) => c.symbol), EXECUTION_TIMEFRAME);
     const scans = await mapWithConcurrency(fills, 5, (c) =>
       scanTicker(
         c.symbol,
@@ -749,7 +772,7 @@ export async function runMarketScan(
     for (const dir of ["bullish", "bearish"] as const) {
       if (target[dir] <= 0) continue;
       const additions = scans
-        .filter((r) => !r.error && isMomentumContinuation(r, dir))
+        .filter((r) => !r.error && qualifiesAsContinuationFill(r, dir))
         .sort((a, b) => b.decision.score - a.decision.score)
         .slice(0, target[dir]);
       lists[dir] = [...lists[dir], ...additions];

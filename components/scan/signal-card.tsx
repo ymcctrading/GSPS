@@ -7,10 +7,34 @@ import { SCORE_PILLAR_DESCRIPTIONS, SCORE_PILLAR_LABELS } from "@/lib/scoring/pu
 import { tradeSideLabel } from "@/lib/scoring/direction-copy";
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 import { formatUsd, cn } from "@/lib/utils";
-import type { PublicScoreSummary, ScanResult } from "@/lib/types";
+import type { AssetClass, PublicScoreSummary, ScanResult } from "@/lib/types";
+
+/**
+ * TP1/master labels: an R-multiple for every asset class except `us_equity`,
+ * which prices targets as a percentage of purchase price and has no
+ * risk-relative ratio to name — see lib/strat/levels.ts's own comment for
+ * why. `rewardToRiskTp1`/`rewardToRiskMaster` are still computed for
+ * equities (stop and target are independently derived, so a ratio always
+ * falls out of the two prices), but showing it as "R" would claim a designed
+ * multiple that was never priced, the exact copy-drift class
+ * lib/trade/protocol-rules.ts already exists to prevent.
+ */
+function targetLabel(
+  base: string,
+  entry: number,
+  targetPrice: number,
+  rMultiple: number,
+  assetClass: AssetClass,
+): string {
+  if (assetClass === "us_equity") {
+    const pct = (Math.abs(targetPrice - entry) / entry) * 100;
+    return `${base} (${pct.toFixed(1)}%)`;
+  }
+  return `${base} (${rMultiple.toFixed(1)}R)`;
+}
 
 export function SignalCard({ result }: { result: ScanResult }) {
-  const { decision, levels, levelsError, pattern, dataLag } = result;
+  const { decision, levels, levelsError, pattern, dataLag, assetClass } = result;
   const armed = result.armedPatterns ?? (pattern ? [pattern] : []);
   const others = armed.filter((p) => p !== pattern);
 
@@ -58,13 +82,19 @@ export function SignalCard({ result }: { result: ScanResult }) {
               tone="bear"
             />
             <LevelStat
-              label={`TP1 (${levels.rewardToRiskTp1.toFixed(1)}R)`}
+              label={targetLabel("TP1", levels.entry, levels.takeProfit1, levels.rewardToRiskTp1, assetClass)}
               glossaryTerm="TP1 - Take Profit 1 (green line)"
               value={formatUsd(levels.takeProfit1)}
               tone="bull"
             />
             <LevelStat
-              label={`Master (${levels.rewardToRiskMaster.toFixed(1)}R)`}
+              label={targetLabel(
+                "Master",
+                levels.entry,
+                levels.masterProfit,
+                levels.rewardToRiskMaster,
+                assetClass,
+              )}
               glossaryTerm="Master profit (green line)"
               value={formatUsd(levels.masterProfit)}
               tone="bull"

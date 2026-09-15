@@ -49,7 +49,7 @@ const scan = (over: Partial<ScanResult> = {}): ScanResult => ({
     { timeframe: "1Day", direction: "bearish", support: [], resistance: [] },
     { timeframe: "1Hour", direction: "sideways", support: [], resistance: [] },
   ],
-  gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleDates: [] },
+  gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [], angleSlopes: [], retracementLevels: [], digitalRootConfluences: [] },
   pattern: {
     name: "2-1-2",
     direction: "bullish",
@@ -63,8 +63,8 @@ const scan = (over: Partial<ScanResult> = {}): ScanResult => ({
     score: 7.4,
     outputState: "Watch",
     breakdown: [
-      { key: "macroTrend", criterion: "Macro", pillar: "trend", passed: true, note: "" },
-      { key: "momentum", criterion: "Momentum", pillar: "setup", passed: false, note: "" },
+      { key: "swingChartTrend", criterion: "Macro", pillar: "trend", passed: true, note: "" },
+      { key: "stopRoom", criterion: "Momentum", pillar: "setup", passed: false, note: "" },
     ],
   },
   ...over,
@@ -291,7 +291,7 @@ const tradePlan = (over: Partial<TradePlan> = {}): TradePlan => ({
   },
   evidence: {
     regime: { regime: "trend", direction: "bullish", reasons: ["MA aligned"], disqualifiers: [] },
-    alignment: { score: 82, tier: "aTier", breakdown: [] },
+    alignment: { score: 82, tier: "aTier", blueprintScoreBand: "ACTIONABLE", breakdown: [] },
     dataTimestamps: {},
     eventLiquidityStatus: "clear",
   },

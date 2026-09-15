@@ -24,6 +24,19 @@ import {
   toPublicScoreSummary,
   SCORE_PILLARS,
 } from "@/lib/scoring/public-summary";
+import { CRITERION_KEYS, type CriterionWeights } from "@/lib/scoring/weights";
+
+/**
+ * These fixtures check raw pass/fail arithmetic against fixed score values
+ * (9, 0...) — only meaningful when every criterion is worth one point.
+ * `DEFAULT_CRITERION_WEIGHTS` (what `computeScore` falls back to when no
+ * `weights` is supplied) is a hand-set, evidence-based rebalance as of
+ * 2026-09-14, not one point each — see its own doc comment in
+ * lib/scoring/weights.ts.
+ */
+const UNIFORM_WEIGHTS: CriterionWeights = Object.fromEntries(
+  CRITERION_KEYS.map((k) => [k, 1]),
+) as CriterionWeights;
 
 const trend = (direction: TrendReading["direction"]): TrendReading => ({
   timeframe: "1Day",
@@ -36,10 +49,17 @@ const trend = (direction: TrendReading["direction"]): TrendReading => ({
 // floor underneath price — the side that actually confirms a long — not a
 // resistance ceiling overhead.
 const gann: GannLevels = {
-  fanLines: [{ angle: "1x4 (high)", price: 101, distancePct: 0.4, role: "support" }],
+  fanLines: [],
   squareOf9: [{ degree: 45, price: 100.5, distancePct: 0.2, role: "support" }],
   timeCycleActive: true,
+  timeCycleBullishActive: true,
+  timeCycleBearishActive: false,
   timeCycleDates: ["2026-08-06"],
+  angleSlopes: [
+    { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, slope: 1.1, nearestAngle: { label: "1x1", ratio: 1, direction: "up" } },
+  ],
+  retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100.5, distancePct: 0.2, role: "support" }],
+  digitalRootConfluences: [{ anchorKind: "low", priceRoot: 1, timeRoot: 8, type: "COMPLEMENTARY_PAIR" }],
 };
 
 const levels: TradeLevels = {
@@ -67,23 +87,36 @@ const pattern: StratPattern = {
 
 const allPass: ScoreInputs = {
   direction: "bullish",
-  macroTrends: [trend("bearish"), trend("bearish"), trend("bearish")],
+  // Macro trend now scores agreement with the trade, not the old
+  // counter-trend-into-a-level premise.
+  macroTrends: [trend("bullish"), trend("bullish"), trend("bullish")],
   hourlyTrend: trend("bullish"),
+  hourlyAdx: { adx: 25, plusDI: 20, minusDI: 10 },
+  swingChart: { threeDay: "bullish", nineDay: "bullish" },
+  timePriceSquare: [
+    { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMoveAtrUnits: 10, squared: true },
+  ],
+  volumeClimax: [
+    { anchorKind: "low", anchorPrice: 90, relativeVolume: 2, bestRecentRelativeVolume: 2, climax: true },
+  ],
   gann,
   nearSupportResistance: true,
   pattern,
   momentumElevated: true,
+  stopAtrMultiple: 2,
   levels,
+  weights: UNIFORM_WEIGHTS,
 };
 
 const allFail: ScoreInputs = {
   direction: "bullish",
-  macroTrends: [trend("bullish"), trend("bullish"), trend("bullish")],
+  macroTrends: [trend("bearish"), trend("bearish"), trend("bearish")],
   hourlyTrend: trend("bearish"),
-  gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleDates: [] },
+  gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [], angleSlopes: [], retracementLevels: [], digitalRootConfluences: [] },
   nearSupportResistance: false,
   pattern: null,
   momentumElevated: false,
+  stopAtrMultiple: 0.8,
   levels: null,
 };
 
@@ -219,6 +252,7 @@ describe("redaction at the API boundary", () => {
           alignment: {
             score: 88,
             tier: "aTier",
+            blueprintScoreBand: "HIGH_CONFLUENCE",
             breakdown: [
               { key: "volumeResumption", label: "Volume", points: 10, maxPoints: 10, applicable: true, passed: true, note: secretNote },
             ],

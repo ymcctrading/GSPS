@@ -10,6 +10,8 @@
  * and ATR-per-bar is that unit here (matching `fans.ts`'s own `unit`).
  */
 
+import { findPivots, atr } from "@/lib/analysis/pivots";
+import type { Bar } from "@/lib/types";
 import { ANGLES } from "./fans";
 
 /**
@@ -51,4 +53,47 @@ export function nearestGannAngle(slope: number): NearestGannAngle | null {
     }
   }
   return best ? { label: best.label, ratio: best.ratio, direction } : null;
+}
+
+export interface AngleSlopeReading {
+  anchorKind: "high" | "low";
+  anchorPrice: number;
+  barsSinceAnchor: number;
+  slope: number;
+  nearestAngle: NearestGannAngle | null;
+}
+
+/**
+ * Realized Gann-angle slope since the most recent significant low (the
+ * bullish reading, a rising 1x1 under the trade) and since the most recent
+ * significant high (the bearish reading, a falling 1x1 above it) — the same
+ * dual-anchor convention `computeFanLines` uses, so each reading is judged
+ * against the angle that actually bears on its own direction.
+ */
+export function computeAngleSlopes(bars: Bar[], currentPrice: number): AngleSlopeReading[] {
+  if (bars.length < 20) return [];
+  const unit = atr(bars, 14);
+  if (unit <= 0) return [];
+
+  const pivots = findPivots(bars, 4);
+  const lastHigh = [...pivots].reverse().find((p) => p.kind === "high");
+  const lastLow = [...pivots].reverse().find((p) => p.kind === "low");
+  const lastIndex = bars.length - 1;
+
+  const readings: AngleSlopeReading[] = [];
+  for (const anchor of [lastLow, lastHigh]) {
+    if (!anchor) continue;
+    const elapsed = lastIndex - anchor.index;
+    if (elapsed <= 0) continue;
+    const slope = normalizedSlope(currentPrice, anchor.price, unit, elapsed);
+    if (slope === null) continue;
+    readings.push({
+      anchorKind: anchor.kind,
+      anchorPrice: anchor.price,
+      barsSinceAnchor: elapsed,
+      slope,
+      nearestAngle: nearestGannAngle(slope),
+    });
+  }
+  return readings;
 }

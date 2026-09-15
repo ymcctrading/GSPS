@@ -382,6 +382,9 @@ export async function placeSimulatedOrder(
         side: input.side,
         qty: input.qty,
         price: fillPrice!,
+        stopLoss: bracketLevels?.stopLoss ?? null,
+        takeProfit: bracketLevels?.takeProfit ?? null,
+        masterProfit: bracketLevels ? input.attachLevels!.masterProfit ?? null : null,
       });
 
       // A plain sell placed through the ticket (not the dedicated "Close

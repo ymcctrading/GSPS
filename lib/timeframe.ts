@@ -14,6 +14,53 @@
 
 import type { Timeframe } from "@/lib/types";
 
+/**
+ * The timeframe GSPS's scan pipeline detects patterns on and prices trade
+ * plans against — `lib/scanTicker.ts`'s pattern arming, `lib/lifecycle/
+ * fromScanResult.ts`'s `PLAN_TIMEFRAME`, and `lib/analysis/levelRole.ts`'s
+ * user-facing copy all read this one constant rather than each stating their
+ * own literal, specifically so they cannot drift apart. It lives in this leaf
+ * module (no imports of its own beyond the `Timeframe` type) rather than in
+ * `scanTicker.ts` itself, because `scanTicker.ts` imports `levelRole.ts` —
+ * defining it there and importing it back into `levelRole.ts` is a circular
+ * value import that built cleanly under `tsc --noEmit` (which only checks
+ * types) and then failed at Next.js's actual module-evaluation order
+ * (`Failed to collect page data for /api/batch-scan`). Import this constant
+ * from here, never from `lib/scanTicker.ts`'s re-export, so that mistake
+ * can't recur.
+ *
+ * Named here because the feed delay only means something measured against
+ * this bar — 15 minutes is a whole candle on a 15-minute timeframe and 6% of
+ * one on a 4-hour chart. See `lib/data/latency.ts`'s `decisionLag`.
+ *
+ * ============================================================================
+ * TEMPORARY MANDATORY OVERRIDE — set to "1Hour", not the protocol's normal
+ * "15Min", effective 2026-09-09. See AGENTS.md → "Temporary overrides" for the
+ * full rule. Summary: the free Alpaca feed delays equities ~15 minutes
+ * (`FREE_EQUITY_FEED_DELAY_MS`, lib/data/latency.ts), which on a 15-minute
+ * execution bar makes the lag ratio exactly 1.0 — `applyDataLagHold` then
+ * holds *every* equity Execute verdict to Watch whenever the market is open,
+ * so a `trade_plan` can never reach `armed` and the Automated Portfolio
+ * Manager can never place a trade. This override widens the bar so the same
+ * 15-minute delay is only 25% of a candle (comfortably under the hold's 1.0
+ * threshold), purely so the automation *pipeline* — plan created → armed →
+ * picked up → order placed — can be verified end to end on paper money.
+ *
+ * This is NOT a validated strategy change. The backtest evidence in
+ * docs/BACKTESTING.md shows 1Hour has historically inverted the scoring
+ * model's own verdict ranking (Execute measuring as the *worst* bucket, not
+ * the best) — that question is untouched by this override and remains open.
+ * Do not read a trade this override produces as evidence the strategy works
+ * at 1Hour; read it only as evidence the plumbing does.
+ *
+ * MUST revert to "15Min" once `MARKET_DATA_REALTIME` is turned on for a paid
+ * real-time feed — at that point `feedDelayMs` returns 0 regardless of bar
+ * size, and 15Min is both the protocol's real design and the only bar size
+ * docs/BACKTESTING.md has any positive evidence for.
+ * ============================================================================
+ */
+export const EXECUTION_TIMEFRAME: Timeframe = "1Hour";
+
 /** Selector order, longest candle first (matches the chart toolbar). */
 export const TIMEFRAMES: Timeframe[] = [
   "1Year",

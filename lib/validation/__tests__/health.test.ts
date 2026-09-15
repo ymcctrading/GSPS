@@ -91,13 +91,36 @@ describe("checkSign", () => {
     expect(result.status).toBe("negligible");
   });
 
-  it("still flags an inversion once it clears the noise band", () => {
-    expect(checkSign(observation({ correlation: -0.134 }), criterion()).status).toBe("inverted");
+  it("weighs a correlation against the sample it came from, not a flat cutoff", () => {
+    // The same |r| is noise on a small sample and a real effect on a large one.
+    // A flat magnitude cutoff got this exactly backwards on the first real
+    // unconditioned run: it called r=0.3 at n=13 meaningful and r=0.078 at
+    // n=1005 (t≈2.5) negligible.
+    const small = observation({ passed: 15, failed: 15, correlation: -0.3 });
+    expect(checkSign(small, criterion()).status).toBe("negligible");
+
+    const large = observation({ passed: 442, failed: 563, correlation: 0.0784 });
+    expect(checkSign(large, criterion()).status).toBe("ok");
+  });
+
+  it("still flags an inversion when the sample can carry it", () => {
+    const inverted = observation({ passed: 500, failed: 500, correlation: -0.134 });
+    expect(checkSign(inverted, criterion()).status).toBe("inverted");
   });
 
   it("will not read a sign off an arm below the attribution floor", () => {
     const thin = observation({ passed: 3, failed: 97, correlation: -0.9 });
     expect(checkSign(thin, criterion()).status).toBe("insufficient");
+  });
+
+  it("will not read a sign off a sample the score already selected", () => {
+    // Conditioning on the score conditions on a collider of all nine criteria,
+    // so a marginal correlation inside a bucket is confounded. Observed live:
+    // harmonicProximity reads a significant -0.134 inside an Execute slice and
+    // a significant +0.078 unconditioned.
+    const inside = observation({ passed: 275, failed: 15, correlation: -0.134 });
+    expect(checkSign(inside, criterion(), CONDITIONED).status).toBe("not-assessable");
+    expect(checkSign(inside, criterion(), UNCONDITIONED).status).toBe("inverted");
   });
 
   it("does not judge a gate whose effect outcome data cannot see", () => {

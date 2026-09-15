@@ -13,7 +13,20 @@ import type {
   TrendReading,
 } from "@/lib/types";
 import { computeScore, type ScoreInputs } from "@/lib/scoring/score";
-import { hasTradePlan, isMomentumContinuation } from "@/lib/marketScan";
+import { hasTradePlan, isMomentumContinuation, qualifiesAsContinuationFill } from "@/lib/marketScan";
+import { CRITERION_KEYS, EXECUTE_SCORE_THRESHOLD, type CriterionWeights } from "@/lib/scoring/weights";
+
+/**
+ * These fixtures check raw pass/fail arithmetic against fixed score values
+ * (9, 8, 7...) — only meaningful when every criterion is worth one point.
+ * `DEFAULT_CRITERION_WEIGHTS` (what `computeScore` falls back to when no
+ * `weights` is supplied) is a hand-set, evidence-based rebalance as of
+ * 2026-09-14, not one point each — see its own doc comment in
+ * lib/scoring/weights.ts.
+ */
+const UNIFORM_WEIGHTS: CriterionWeights = Object.fromEntries(
+  CRITERION_KEYS.map((k) => [k, 1]),
+) as CriterionWeights;
 
 function trend(
   timeframe: TrendReading["timeframe"],
@@ -22,12 +35,25 @@ function trend(
   return { timeframe, direction, support: [99], resistance: [101] };
 }
 
-/** Every structural criterion passing — 7 of 9 without a pattern or levels. */
+/**
+ * Every structural criterion passing — 8 of 9 without a pattern or levels.
+ * gannAngleSlope and gannRetracementConfluence both read off `gann` alone
+ * (not the computed trade `levels`), so only `patternArmed` needs an armed
+ * pattern to pass — unlike the old `masterStructural` it replaced, which
+ * needed `levels.masterFromStructure`.
+ */
 const gann: GannLevels = {
-  fanLines: [{ angle: "1x1", price: 100, distancePct: 0.2, role: "support" }],
+  fanLines: [],
   squareOf9: [{ degree: 90, price: 100, distancePct: 0.1, role: "support" }],
   timeCycleActive: true,
+  timeCycleBullishActive: true,
+  timeCycleBearishActive: false,
   timeCycleDates: ["2026-08-05"],
+  angleSlopes: [
+    { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, slope: 1.1, nearestAngle: { label: "1x1", ratio: 1, direction: "up" } },
+  ],
+  retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100, distancePct: 0.1, role: "support" }],
+  digitalRootConfluences: [{ anchorKind: "low", priceRoot: 1, timeRoot: 8, type: "COMPLEMENTARY_PAIR" }],
 };
 
 const pattern: StratPattern = {
@@ -56,17 +82,30 @@ const levels: TradeLevels = {
 function inputs(overrides: Partial<ScoreInputs> = {}): ScoreInputs {
   return {
     direction: "bullish",
+    // Macro trend now scores agreement with the trade, not the old
+    // counter-trend-into-a-level premise, so the "everything passes"
+    // baseline wants bullish macro trends for a bullish trade.
     macroTrends: [
-      trend("1Month", "bearish"),
-      trend("1Week", "bearish"),
-      trend("1Day", "bearish"),
+      trend("1Month", "bullish"),
+      trend("1Week", "bullish"),
+      trend("1Day", "bullish"),
     ],
     hourlyTrend: trend("1Hour", "bullish"),
+    hourlyAdx: { adx: 25, plusDI: 20, minusDI: 10 },
+    swingChart: { threeDay: "bullish", nineDay: "bullish" },
+    timePriceSquare: [
+      { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMoveAtrUnits: 10, squared: true },
+    ],
+    volumeClimax: [
+      { anchorKind: "low", anchorPrice: 90, relativeVolume: 2, bestRecentRelativeVolume: 2, climax: true },
+    ],
     gann,
     nearSupportResistance: true,
     pattern,
     momentumElevated: true,
+    stopAtrMultiple: 2,
     levels,
+    weights: UNIFORM_WEIGHTS,
     ...overrides,
   };
 }
@@ -80,7 +119,7 @@ describe("computeScore output state", () => {
 
   it("holds at Watch when the context scores 7+ but no pattern is armed", () => {
     const decision = computeScore(inputs({ pattern: null, levels: null }));
-    expect(decision.score).toBe(7);
+    expect(decision.score).toBe(8);
     expect(decision.outputState).toBe("Watch");
     expect(decision.breakdown.at(-1)?.criterion).toMatch(/Trade plan priced/);
   });
@@ -100,9 +139,11 @@ describe("computeScore output state", () => {
     const decision = computeScore(inputs({
       pattern: null,
       levels: null,
-      gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleDates: [] },
+      gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [], angleSlopes: [], retracementLevels: [], digitalRootConfluences: [] },
+      volumeClimax: [],
       nearSupportResistance: false,
       momentumElevated: false,
+      stopAtrMultiple: 0.8,
     }));
     expect(decision.breakdown).toHaveLength(9);
     expect(decision.outputState).toBe("Reject");
@@ -218,22 +259,60 @@ describe("isMomentumContinuation", () => {
   });
 });
 
-describe("continuation scoring", () => {
-  const macroBullish = [
-    trend("1Month", "bullish"),
-    trend("1Week", "bullish"),
-    trend("1Day", "bullish"),
-  ];
-
-  it("credits a continuation for a macro trend running WITH it", () => {
-    const decision = computeScore(inputs({ setupKind: "continuation", macroTrends: macroBullish }));
-    const macro = decision.breakdown[0];
-    expect(macro.passed).toBe(true);
-    expect(macro.note).toMatch(/intact/);
+/**
+ * The continuation top-up pass's actual gate: shape alone (isMomentumContinuation)
+ * is necessary but not sufficient — a candidate must also clear the same
+ * Execute-tier bar a reversion earns on its own merits. Six 7/9s over
+ * eighteen setups trailing off through 6, 5, 4 — a weak-but-shaped
+ * continuation must not fill a slot just because it's the best one left.
+ */
+describe("qualifiesAsContinuationFill", () => {
+  it("accepts a shaped continuation that clears the Execute bar", () => {
+    expect(
+      qualifiesAsContinuationFill(
+        continuation({ decision: { score: EXECUTE_SCORE_THRESHOLD, outputState: "Execute", breakdown: [] } }),
+        "bullish",
+      ),
+    ).toBe(true);
   });
 
-  it("fails a continuation whose trend the macro timeframes contradict", () => {
-    const decision = computeScore(inputs({ setupKind: "continuation" }));
+  it("rejects a shaped continuation one point under the bar", () => {
+    expect(
+      qualifiesAsContinuationFill(
+        continuation({
+          decision: { score: EXECUTE_SCORE_THRESHOLD - 1, outputState: "Watch", breakdown: [] },
+        }),
+        "bullish",
+      ),
+    ).toBe(false);
+  });
+
+  it("rejects a high score that never armed the right shape", () => {
+    expect(
+      qualifiesAsContinuationFill(
+        continuation({
+          pattern: { ...pattern, name: "2-2" },
+          decision: { score: 9, outputState: "Execute", breakdown: [] },
+        }),
+        "bullish",
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("continuation scoring", () => {
+  const swingBullish = { threeDay: "bullish" as const, nineDay: "bullish" as const };
+  const swingBearish = { threeDay: "bearish" as const, nineDay: "bearish" as const };
+
+  it("credits a continuation for swing charts running WITH it", () => {
+    const decision = computeScore(inputs({ setupKind: "continuation", swingChart: swingBullish }));
+    const swing = decision.breakdown[0];
+    expect(swing.passed).toBe(true);
+    expect(swing.note).toMatch(/intact/);
+  });
+
+  it("fails a continuation whose trend the swing charts contradict", () => {
+    const decision = computeScore(inputs({ setupKind: "continuation", swingChart: swingBearish }));
     expect(decision.breakdown[0].passed).toBe(false);
   });
 
@@ -244,13 +323,21 @@ describe("continuation scoring", () => {
   });
 
   it("can still reach 9/9 as a continuation — nothing structurally caps it", () => {
-    const decision = computeScore(inputs({ setupKind: "continuation", macroTrends: macroBullish }));
+    const decision = computeScore(inputs({ setupKind: "continuation", swingChart: swingBullish }));
     expect(decision.score).toBe(9);
     expect(decision.outputState).toBe("Execute");
   });
 
-  it("still scores a reversion on the extended-move question", () => {
-    expect(computeScore(inputs({ macroTrends: macroBullish })).breakdown[0].passed).toBe(false);
-    expect(computeScore(inputs()).breakdown[0].passed).toBe(true);
+  it("scores the swing chart criterion identically for reversion and continuation now (agreement, not counter-trend)", () => {
+    expect(computeScore(inputs({ swingChart: swingBullish })).breakdown[0].passed).toBe(true);
+    expect(
+      computeScore(inputs({ setupKind: "continuation", swingChart: swingBullish })).breakdown[0]
+        .passed,
+    ).toBe(true);
+    expect(computeScore(inputs({ swingChart: swingBearish })).breakdown[0].passed).toBe(false);
+    expect(
+      computeScore(inputs({ setupKind: "continuation", swingChart: swingBearish })).breakdown[0]
+        .passed,
+    ).toBe(false);
   });
 });

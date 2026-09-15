@@ -18,7 +18,7 @@ const execute = (): ScanDecision => ({
   score: 8,
   outputState: "Execute",
   breakdown: [
-    { key: "macroTrend", criterion: "Macro trend context (10yr/5yr/1yr)", pillar: "trend", passed: true, note: "" },
+    { key: "swingChartTrend", criterion: "3-day/9-day swing chart trend", pillar: "trend", passed: true, note: "" },
   ],
 });
 

@@ -80,6 +80,22 @@ export const SCANNER_STATE_META: Record<ScannerStateName, ScannerStateMeta> = {
 /** Rules Alignment Score bands — never rendered as a probability of profit. */
 export type RulesAlignmentTier = "watchlistOnly" | "qualified" | "aTier" | "aPlusTier";
 
+/**
+ * The "GSPS Implementation Blueprint" (2026-09-08) §14.2's five-band
+ * classification of a 0–100 score: `0–24 NO_TRADE, 25–49 WATCH, 50–69
+ * DEVELOPING, 70–84 ACTIONABLE, 85–100 HIGH_CONFLUENCE`. GSPS has no single
+ * composite score matching §14.1's exact component list (trend/gann-
+ * coordinate/digital-root-vortex/sara-trigger/etc. combined) — this is the
+ * blueprint's literal band cut points applied to the existing Rules
+ * Alignment Score (`RulesAlignmentScore.score`, 0–100, per the "GSPS Signal
+ * and Regime Engine" spec), the closest existing GSPS number on the same
+ * scale. Additive/informational only: `tier`/`tierQualifies` — not this
+ * band — remain the actual qualification gate, since the blueprint's own
+ * §14.2 text calls its thresholds "placeholders" that "must be calibrated
+ * through research," not a ready replacement for an already-calibrated gate.
+ */
+export type BlueprintScoreBand = "NO_TRADE" | "WATCH" | "DEVELOPING" | "ACTIONABLE" | "HIGH_CONFLUENCE";
+
 export interface RulesAlignmentBreakdownItem {
   key: string;
   label: string;
@@ -95,6 +111,8 @@ export interface RulesAlignmentScore {
   /** 0–100, rescaled for any inapplicable (data-unavailable) components. */
   score: number;
   tier: RulesAlignmentTier;
+  /** See `BlueprintScoreBand` — informational relabeling of `score`, never a gate. */
+  blueprintScoreBand: BlueprintScoreBand;
   breakdown: RulesAlignmentBreakdownItem[];
 }
 

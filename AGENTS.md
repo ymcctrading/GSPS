@@ -35,6 +35,147 @@ defaulting to the last phase.
 - When a change invalidates part of the roadmap, update `ROADMAP.md` in the
   same PR and move its "Last updated" date.
 
+## Cross-platform consistency — standing principle
+
+If a concept exists anywhere in this codebase — an indicator, an anchor
+convention, a fixed constant, a computed field — and it applies to another
+surface, it must exist there too. **Not existing everywhere it applies is
+equal to not existing anywhere.** A concept built once and left stranded in
+the module that introduced it is not "partially done" — treat it as not
+done, and finish rolling it out before calling the work complete.
+
+This is not hypothetical caution; it is the exact shape of two real defects
+found in this codebase on 2026-09-10:
+
+- **`harmonicProximity`'s stale Square-of-9 anchor.** The fix landed in the
+  two callers feeding the scored criterion (`lib/scanTicker.ts`,
+  `lib/backtest/replay.ts`), but `lib/marketScan.ts`'s coarse pre-filter and
+  `lib/signals/confluence/gann.ts`'s confluence card kept the old, buggy
+  anchor for another full day — quietly undermining every backtest run
+  measured against the "fixed" criterion in between (see
+  `lib/validation/criteria-registry.ts`'s `harmonicProximity` entry for the
+  full history).
+- **ADX/DMI**, built and validated for `lib/signals/regime.ts` (the Signal &
+  Regime Engine) specifically to avoid leaning on PSAR/Supertrend as a sole
+  signal, never reached the separate 9-point scanner score
+  (`lib/scoring/score.ts`) at all — a second subsystem with the exact same
+  "which indicator confirms a trend" problem, solved once and never
+  propagated.
+
+Before considering any indicator, anchor rule, fixed threshold, or computed
+field "in place," check every surface it plausibly applies to — other
+scoring paths, the live scan vs. the backtest replay, confluence/display
+modules, coarse pre-filters — and either wire it in everywhere applicable or
+say explicitly why a given surface is an intentional exception (e.g. a
+module whose spec genuinely calls for different behavior, not just an
+oversight). "When appropriate" is the only carve-out: a concept that
+*shouldn't* apply somewhere (different timeframe, different asset class,
+different governing spec) is a real exception, not a violation of this
+rule — but the default assumption is that it applies, and silence is not
+an exception.
+
+## Temporary overrides — mandatory, check on every session
+
+These are explicit, user-directed departures from the protocol's real design, made for a stated
+reason and with a stated revert trigger. Read this section every session. When a trigger fires,
+raise it with the user before doing anything else with the affected code — don't silently carry an
+override past the point it was supposed to end.
+
+### Execution timeframe forced to 1Hour (since 2026-09-09)
+
+**What:** `EXECUTION_TIMEFRAME` in `lib/timeframe.ts` (the single source of truth — every consumer
+imports it from there) is set to `"1Hour"`, not the protocol's real design of `"15Min"`.
+
+**Why:** The free Alpaca feed delays equities ~15 minutes. On a 15-minute execution bar that's a
+lag ratio of exactly 1.0, which trips `applyDataLagHold` (`lib/data/latency.ts`) and holds *every*
+equity Execute verdict to Watch whenever the market is open — so a `trade_plan` can never reach
+`armed`, and the Automated Portfolio Manager can never place a trade. At 1Hour the same delay is
+25% of a candle, comfortably under the hold. The user asked for this explicitly, to verify the
+automation *pipeline* (plan created → armed → picked up → order placed) works end to end on paper
+money, while real-time data is not yet purchased.
+
+**What this is NOT:** validation that the strategy works at 1Hour. `docs/BACKTESTING.md` records
+that 1Hour has historically inverted the scoring model's own verdict ranking (Execute measuring as
+the *worst* bucket, not the best) — untouched by this override. Never cite a paper trade produced
+under this override as evidence the strategy is sound; it's only evidence the plumbing fired.
+
+**Mandatory revert trigger:** the moment `MARKET_DATA_REALTIME=true` is set for a paid real-time
+feed (removing the 15-minute delay entirely — `feedDelayMs` then returns 0 regardless of bar size),
+this override must be reverted to `"15Min"` in the same change. Reminder text for that moment:
+*"You asked to be reminded — real-time data is live now, so the temporary 1Hour execution-timeframe
+override should come out."* Don't wait to be asked twice; raise it as soon as you see
+`MARKET_DATA_REALTIME` being turned on, or see it already on, in the same session.
+
+**To revert:** change `EXECUTION_TIMEFRAME` in `lib/timeframe.ts` back to `"15Min"`, delete this
+section, and re-run `lib/data/__tests__/provider-execution-timeframe.test.ts` plus a fresh
+`?within=all` backtest capture to confirm 15Min's criteria evidence still holds (data ages between
+now and the revert). `PLAN_TIMEFRAME` (lib/lifecycle/fromScanResult.ts) and the copy in
+`lib/analysis/levelRole.ts` both derive from `EXECUTION_TIMEFRAME` and need no separate edit.
+
+### Execute collapse stopgap: lowered thresholds, rebalanced weights, loosened two criteria (since 2026-09-14)
+
+**What:** Four coordinated changes, all in `lib/scoring/weights.ts` unless noted, made together as one
+fix:
+
+- `EXECUTE_SCORE_THRESHOLD` 7 → 6, `WATCH_SCORE_THRESHOLD` 4 → 3.5.
+- `DEFAULT_CRITERION_WEIGHTS` — the score's actual live fallback (see that constant's own doc comment)
+  — moved from one point each to a hand-set, evidence-based distribution favoring `historicalSR`,
+  `stopRoom`, `swingChartTrend`, `volumeClimax` and minimizing `adxTrendStrength`, `gannAngleSlope`,
+  `gannRetracementConfluence`, `timePriceSquare`.
+- `VOLUME_CLIMAX_THRESHOLD` (`lib/gann/volumeClimax.ts`) 1.5x → 1.25x relative volume. **Reverted to
+  1.5x on 2026-09-14**, same day: a fresh committed run showed the 1.25x threshold diluted the signal
+  toward noise/inversion rather than just widening it (see `lib/validation/criteria-registry.ts`'s
+  `volumeClimax` entry). The starvation problem is now addressed a different way —
+  `RECENT_PIVOTS_CHECKED` widens the *pool* of candidate anchors checked against the original 1.5x bar,
+  instead of lowering the bar itself. Not yet measured against a fresh run.
+- `SQUARE_TOLERANCE_BARS` (`lib/gann/timePriceSquare.ts`) 2 → 4 bars. **Superseded (not reverted) on
+  2026-09-14:** the criterion now compares elapsed bars against the price move in ATR units instead of
+  raw dollars (see `lib/gann/timePriceSquare.ts`'s header), which was the actual scale-dependence bug
+  behind the starvation this loosening patched over. `4` carries forward unchanged but now bounds a
+  different quantity — not yet measured against a fresh run either.
+
+**Why:** Between 2026-09-10 and -11, all nine scored criteria were replaced with specific Gann
+technical events (see the `CRITERION_KEYS` history in `lib/validation/criteria-registry.ts`) —
+individually rare (5.7%-29% pass rate each on the committed
+`docs/replay-runs/2026-09-11-15Min-2R-within-all.json`, 1061 unconditioned trades), where the
+criteria they replaced had been common, lenient checks (2-of-3 trend agreement, ~1.5%-of-price
+proximity). Reaching the old 7-of-9 points bar needs most of nine independent-ish rare events to
+co-occur, which essentially never happens: that committed run reads 0/1061 Execute, and the live
+deployment produced 0 executable trades under the same model before this change — reported directly
+by the project owner, along with a fresh backtest showing 1 executable trade out of 1069 at a widely
+negative expectancy. Separately, that same run's factor table shows four of the nine criteria reading
+*negative* Δ E[R] (`adxTrendStrength` −0.245R, `timePriceSquare` −0.221R, `gannAngleSlope` −0.153R,
+`gannRetracementConfluence` −0.090R) — `adxTrendStrength` twice independently quarantined for a
+significant inversion. The threshold drop alone would mostly just admit more of those four; the
+weight rebalance and the two band loosenings are sized to shift what a lower bar actually admits
+toward the four criteria with real, reproducing positive evidence
+(`historicalSR` validated, `stopRoom`/`swingChartTrend`/`volumeClimax` consistently positive across
+multiple runs).
+
+**What this is NOT:** a proper `lib/backtest/propose-weights.ts` proposal. That function requires a
+chronological in-sample/out-of-sample split from real per-trade data; only one committed run existed
+to work from, so the weight numbers are a judgment call sized in the same direction that function's
+step formula would move, not its actual output. The new `6`/`3.5` thresholds are sized off an
+independence approximation over that one run's per-criterion pass rates (a Monte Carlo simulation, not
+a measurement of the real joint distribution — criteria plausibly correlate more than independence
+assumes on a genuinely trending stock, which would make the real Execute rate somewhat higher than the
+approximation predicted). None of this is a claim that the four down-weighted criteria are wrong for
+good, or that the four up-weighted ones are fully validated (only `historicalSR` is) — it is a stopgap
+to stop the live model from admitting either zero trades or trades selected mostly by criteria already
+showing a negative or inverted signal.
+
+**Mandatory revert trigger:** the next fresh, committed backtest run with a non-trivial Execute bucket
+(n≥30) under this rebalance. At that point, re-derive the thresholds and weights from that run's actual
+Execute-bucket attribution — via `lib/backtest/propose-weights.ts`'s proper in/out-of-sample split once
+enough trades exist to support it — rather than carrying this hand-set stopgap forward. Don't wait to
+be asked twice; raise it as soon as such a run is captured in `docs/replay-runs/`.
+
+**To revert (once superseded, not merely to "undo"):** replace the four constants above with whatever
+the fresh run's `propose-weights.ts` output and threshold re-derivation actually say, delete this
+section and the four `TEMPORARY OVERRIDE` code comments that point to it, and run
+`lib/validation/__tests__/criteria-gate.test.ts` plus the full test suite to confirm the new numbers
+are internally consistent.
+
 ## Deployment (Vercel)
 
 - The project runs on the **Vercel Hobby (free) plan**. Cron jobs are capped at **2 per project**, each running **no more than once a day**. Before adding a new scheduled job, confirm the total stays at or under that cap — see `docs/THIRD_PARTY_LIMITS.md`. If something needs to run more often than daily, it does not belong in `vercel.json` crons; trigger it from an external scheduler instead.

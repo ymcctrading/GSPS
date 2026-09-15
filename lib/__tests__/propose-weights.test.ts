@@ -6,11 +6,37 @@
 import { describe, expect, it } from "vitest";
 import {
   MIN_EFFECT_R,
-  proposeWeights,
+  proposeWeights as rawProposeWeights,
   splitChronologically,
 } from "@/lib/backtest/propose-weights";
 import type { ReplayTrade } from "@/lib/backtest/replay";
-import { CRITERION_KEYS, TOTAL_POINTS, normalizeWeights } from "@/lib/scoring/weights";
+import {
+  CRITERION_KEYS,
+  TOTAL_POINTS,
+  normalizeWeights,
+  type CriterionWeights,
+} from "@/lib/scoring/weights";
+
+/**
+ * These tests are about the proposal algorithm's direction and shape (does it
+ * up-weight a winner, down-weight a loser, hold on disagreement), not about
+ * whatever `DEFAULT_CRITERION_WEIGHTS` currently is — that constant is a
+ * hand-set, evidence-based rebalance as of 2026-09-14 (see its own doc
+ * comment), not a neutral 1-per-criterion starting point anymore. Every call
+ * below supplies this uniform baseline explicitly so a future change to the
+ * live default can't silently break an assertion like `toBeLessThan(1)` that
+ * only makes sense starting from 1.
+ */
+const UNIFORM_WEIGHTS: CriterionWeights = Object.fromEntries(
+  CRITERION_KEYS.map((k) => [k, 1]),
+) as CriterionWeights;
+
+function proposeWeights(
+  trades: Parameters<typeof rawProposeWeights>[0],
+  options: Parameters<typeof rawProposeWeights>[1] = {},
+): ReturnType<typeof rawProposeWeights> {
+  return rawProposeWeights(trades, { current: UNIFORM_WEIGHTS, ...options });
+}
 
 let clock = 0;
 
@@ -42,7 +68,7 @@ function block(n: number, criteria: Record<string, boolean>, over: Partial<Repla
  * A run where `momentum` separates winners from losers in both halves. Each half
  * carries 30 passing winners and 30 failing losers, clearing every arm floor.
  */
-function separatingRun(key = "momentum") {
+function separatingRun(key = "stopRoom") {
   clock = 0;
   const half = () => [
     ...block(30, { [key]: true }, winner),
@@ -74,7 +100,7 @@ describe("splitChronologically", () => {
 describe("proposeWeights", () => {
   it("refuses to propose anything on too few trades", () => {
     clock = 0;
-    const proposal = proposeWeights([...block(20, { momentum: true }, winner)]);
+    const proposal = proposeWeights([...block(20, { stopRoom: true }, winner)]);
 
     expect(proposal.weights).toBeNull();
     expect(proposal.changed).toBe(false);
@@ -83,7 +109,7 @@ describe("proposeWeights", () => {
 
   it("up-weights a criterion that separates winners in both halves", () => {
     const proposal = proposeWeights(separatingRun(), { inSampleFraction: 0.5 });
-    const momentum = proposal.proposals.find((p) => p.criterion === "momentum")!;
+    const momentum = proposal.proposals.find((p) => p.criterion === "stopRoom")!;
 
     expect(momentum.outcome).toBe("adopted");
     expect(momentum.proposedWeight).toBeGreaterThan(1);
@@ -93,11 +119,11 @@ describe("proposeWeights", () => {
   it("down-weights a criterion whose passes lose money in both halves", () => {
     clock = 0;
     const half = () => [
-      ...block(30, { momentum: true }, loser),
-      ...block(30, { momentum: false }, winner),
+      ...block(30, { stopRoom: true }, loser),
+      ...block(30, { stopRoom: false }, winner),
     ];
     const proposal = proposeWeights([...half(), ...half()], { inSampleFraction: 0.5 });
-    const momentum = proposal.proposals.find((p) => p.criterion === "momentum")!;
+    const momentum = proposal.proposals.find((p) => p.criterion === "stopRoom")!;
 
     expect(momentum.outcome).toBe("adopted");
     expect(momentum.proposedWeight).toBeLessThan(1);
@@ -107,14 +133,14 @@ describe("proposeWeights", () => {
     clock = 0;
     const trades = [
       // First half: passing wins.
-      ...block(30, { momentum: true }, winner),
-      ...block(30, { momentum: false }, loser),
+      ...block(30, { stopRoom: true }, winner),
+      ...block(30, { stopRoom: false }, loser),
       // Second half: passing loses. Noise wearing a result's clothes.
-      ...block(30, { momentum: true }, loser),
-      ...block(30, { momentum: false }, winner),
+      ...block(30, { stopRoom: true }, loser),
+      ...block(30, { stopRoom: false }, winner),
     ];
     const proposal = proposeWeights(trades, { inSampleFraction: 0.5 });
-    const momentum = proposal.proposals.find((p) => p.criterion === "momentum")!;
+    const momentum = proposal.proposals.find((p) => p.criterion === "stopRoom")!;
 
     expect(momentum.outcome).toBe("disagreed");
     expect(momentum.rationale).toContain("disagree");
@@ -123,11 +149,11 @@ describe("proposeWeights", () => {
   it("holds a criterion that never varied", () => {
     clock = 0;
     const trades = [
-      ...block(60, { momentum: true }, winner),
-      ...block(60, { momentum: true }, winner),
+      ...block(60, { stopRoom: true }, winner),
+      ...block(60, { stopRoom: true }, winner),
     ];
     const proposal = proposeWeights(trades, { inSampleFraction: 0.5 });
-    const momentum = proposal.proposals.find((p) => p.criterion === "momentum")!;
+    const momentum = proposal.proposals.find((p) => p.criterion === "stopRoom")!;
 
     expect(momentum.outcome).toBe("unreadable");
     expect(momentum.rationale).toContain("never varied");
@@ -138,11 +164,11 @@ describe("proposeWeights", () => {
     const tiny = { outcome: "win" as const, rMultiple: 2 };
     const barelyLess = { outcome: "win" as const, rMultiple: 2 - MIN_EFFECT_R / 2 };
     const half = () => [
-      ...block(30, { momentum: true }, tiny),
-      ...block(30, { momentum: false }, barelyLess),
+      ...block(30, { stopRoom: true }, tiny),
+      ...block(30, { stopRoom: false }, barelyLess),
     ];
     const proposal = proposeWeights([...half(), ...half()], { inSampleFraction: 0.5 });
-    const momentum = proposal.proposals.find((p) => p.criterion === "momentum")!;
+    const momentum = proposal.proposals.find((p) => p.criterion === "stopRoom")!;
 
     expect(momentum.outcome).toBe("too-small");
   });
@@ -171,12 +197,12 @@ describe("proposeWeights", () => {
 
 describe("normalizeWeights", () => {
   it("holds the total at nine points", () => {
-    const w = normalizeWeights({ momentum: 2, macroTrend: 0.5 });
+    const w = normalizeWeights({ stopRoom: 2, swingChartTrend: 0.5 });
     expect(CRITERION_KEYS.reduce((s, k) => s + w[k], 0)).toBeCloseTo(TOTAL_POINTS, 1);
   });
 
   it("keeps every weight inside its band", () => {
-    const w = normalizeWeights({ momentum: 99, macroTrend: 0.001 });
+    const w = normalizeWeights({ stopRoom: 99, swingChartTrend: 0.001 });
     for (const k of CRITERION_KEYS) {
       expect(w[k]).toBeLessThanOrEqual(2);
       expect(w[k]).toBeGreaterThanOrEqual(0.5);
@@ -184,8 +210,8 @@ describe("normalizeWeights", () => {
   });
 
   it("treats an unusable value as one point rather than throwing", () => {
-    const w = normalizeWeights({ momentum: Number.NaN, macroTrend: -3 });
-    expect(w.momentum).toBeGreaterThan(0);
-    expect(w.macroTrend).toBeGreaterThan(0);
+    const w = normalizeWeights({ stopRoom: Number.NaN, swingChartTrend: -3 });
+    expect(w.stopRoom).toBeGreaterThan(0);
+    expect(w.swingChartTrend).toBeGreaterThan(0);
   });
 });

@@ -38,8 +38,15 @@ import { readTrend } from "@/lib/analysis/trend";
 import { levelRole, type LevelRole } from "@/lib/analysis/levelRole";
 import { atr } from "@/lib/analysis/pivots";
 import { computeFanLines } from "@/lib/gann/fans";
-import { squareOf9Levels } from "@/lib/gann/squareOf9";
+import { recentSquareOf9Levels } from "@/lib/gann/squareOf9";
 import { timeCycles } from "@/lib/gann/timeCycles";
+import { computeAngleSlopes } from "@/lib/gann/normalizedSlope";
+import { computeRetracementLevels } from "@/lib/gann/retracement";
+import { priceTimeConfluence } from "@/lib/gann/digitalRoot";
+import { computeSwingChart, type SwingChartReading } from "@/lib/gann/swingChart";
+import { computeTimePriceSquare, type TimePriceSquareReading } from "@/lib/gann/timePriceSquare";
+import { computeVolumeClimax, type VolumeClimaxReading } from "@/lib/gann/volumeClimax";
+import { adx } from "@/lib/signals/indicators";
 import { DEFAULT_COST_PER_SHARE_USD } from "@/lib/trade/friction";
 
 /** 6.5 hours of 15-minute candles. */
@@ -71,9 +78,11 @@ export interface ReplayOptions {
    */
   dailyBars?: Bar[];
   /**
-   * Criterion weights to score with. Defaults to one point each. Supplying a
-   * candidate set is how a weight proposal is checked against the same trades
-   * the current weights produced — see lib/backtest/propose-weights.ts.
+   * Criterion weights to score with. Defaults to `DEFAULT_CRITERION_WEIGHTS`
+   * (`lib/scoring/weights.ts`) — no longer one point each as of 2026-09-14,
+   * see that constant's own doc comment. Supplying a candidate set is how a
+   * weight proposal is checked against the same trades the current weights
+   * produced — see lib/backtest/propose-weights.ts.
    */
   weights?: CriterionWeights;
   /**
@@ -224,6 +233,9 @@ const weekKey = (b: Bar) => {
  */
 export interface MacroContext {
   macroTrends: TrendReading[];
+  swingChart: SwingChartReading;
+  timePriceSquare: TimePriceSquareReading[];
+  volumeClimax: VolumeClimaxReading[];
   gann: GannLevels;
   nearSupportResistance: boolean;
   /** The matched level and its role, when one is in range — see lib/scanTicker.ts's srMatch. */
@@ -236,6 +248,15 @@ export interface MacroContext {
    * lib/scoring/proximity.ts.
    */
   atrPct?: number;
+  /**
+   * Every clustered daily/weekly/monthly support and resistance price
+   * `srMatch` was matched against — not just the single nearest one. Feeds
+   * `computeTradeLevels`'s equities stop/runner anchoring
+   * (`computeEquityTradeLevels`, lib/strat/levels.ts), which needs the whole
+   * set to search for the nearest one on the trade's own favorable side, not
+   * only whichever is closest to price in either direction.
+   */
+  structuralLevels: number[];
 }
 
 export function buildMacroContext(daily: Bar[], price: number): MacroContext {
@@ -244,11 +265,21 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
   const monthlyTrend = readTrend(monthly, "1Month");
   const weeklyTrend = readTrend(weekly, "1Week");
   const dailyTrend = readTrend(daily, "1Day");
+  const swingChart = computeSwingChart(daily);
 
   const fanLines = computeFanLines(daily, price);
-  const majorLow = Math.min(...daily.map((b) => b.l));
-  const s9 = squareOf9Levels(majorLow, price).slice(0, 12);
+  const s9 = recentSquareOf9Levels(daily, price).slice(0, 12);
   const cycles = timeCycles(daily);
+  const angleSlopes = computeAngleSlopes(daily, price);
+  const timePriceSquare = computeTimePriceSquare(daily, price);
+  const volumeClimax = computeVolumeClimax(daily);
+  const retracementLevels = computeRetracementLevels(daily, price);
+  const digitalRootConfluences = angleSlopes
+    .map((r) => {
+      const confluence = priceTimeConfluence(price, r.anchorPrice, r.barsSinceAnchor);
+      return confluence && { anchorKind: r.anchorKind, ...confluence };
+    })
+    .filter((v): v is NonNullable<typeof v> => v !== null);
 
   const allLevels = [
     ...dailyTrend.support.map((p) => ({ price: p, timeframe: dailyTrend.timeframe })),
@@ -273,6 +304,9 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
 
   return {
     macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
+    swingChart,
+    timePriceSquare,
+    volumeClimax,
     gann: {
       fanLines: fanLines.slice(0, 6).map(({ angle, price: p, distancePct, role }) => ({
         angle, price: Math.round(p * 100) / 100, distancePct, role,
@@ -281,12 +315,20 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
         degree, price: Math.round(p * 100) / 100, distancePct, role,
       })),
       timeCycleActive: cycles.active,
+      timeCycleBullishActive: cycles.bullishActive,
+      timeCycleBearishActive: cycles.bearishActive,
       timeCycleDates: cycles.dates,
+      angleSlopes,
+      retracementLevels: retracementLevels.slice(0, 7).map(({ fraction, label, price: p, distancePct, role }) => ({
+        fraction, label, price: Math.round(p * 100) / 100, distancePct, role,
+      })),
+      digitalRootConfluences,
     },
     nearSupportResistance: srMatch !== null,
     srMatch: srMatch && { ...srMatch, role: levelRole(price, srMatch.price) },
     momentumElevated: baselineAtr > 0 && recentAtr / baselineAtr >= 1.2,
     atrPct,
+    structuralLevels: allLevels.map((l) => l.price),
   };
 }
 
@@ -505,7 +547,11 @@ function scoreSetup(input: {
 
   // The last 400 candles is ~15 sessions of hourly context, which is more than
   // readTrend looks back over and keeps the roll-up cheap.
-  const hourlyTrend = readTrend(rollUp(history.slice(-400), (b) => b.t.slice(0, 13)), "1Hour");
+  const hourlyBars = rollUp(history.slice(-400), (b) => b.t.slice(0, 13));
+  const hourlyTrend = readTrend(hourlyBars, "1Hour");
+  // Same implementation and 20-ADX threshold lib/signals/regime.ts already
+  // validated for trend-strength confirmation — reused, not reinvented.
+  const hourlyAdx = adx(hourlyBars);
 
   let levels = null;
   try {
@@ -517,6 +563,8 @@ function scoreSetup(input: {
       executionAtr,
       assetClass,
       largeCap,
+      context.structuralLevels,
+      context.atrPct,
     );
   } catch {
     // A setup with no valid plan is scored without one, exactly as the scan
@@ -528,12 +576,18 @@ function scoreSetup(input: {
       direction: pattern.direction,
       macroTrends: context.macroTrends,
       hourlyTrend,
+      hourlyAdx,
+      swingChart: context.swingChart,
+      timePriceSquare: context.timePriceSquare,
+      volumeClimax: context.volumeClimax,
       gann: context.gann,
       nearSupportResistance: context.nearSupportResistance,
       srMatch: context.srMatch,
       pattern,
       momentumElevated: context.momentumElevated,
       levels,
+      stopAtrMultiple: levels && executionAtr > 0 ? levels.riskPerShare / executionAtr : null,
+      assetClass,
       atrPct: context.atrPct,
       ...(weights ? { weights } : {}),
     }),

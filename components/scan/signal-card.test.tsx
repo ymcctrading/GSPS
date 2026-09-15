@@ -30,13 +30,19 @@ const inputs: ScoreInputs = {
   direction: "bullish",
   macroTrends: [trend("bearish"), trend("bearish"), trend("bullish")],
   hourlyTrend: trend("bullish"),
+  hourlyAdx: { adx: 25, plusDI: 20, minusDI: 10 },
   gann: {
     // direction is "bullish" (a long), so this is a support floor underneath
     // price — the side that actually confirms a long.
     fanLines: [{ angle: "1x4 (high)", price: 101, distancePct: 0.4, role: "support" }],
     squareOf9: [],
     timeCycleActive: false,
+    timeCycleBullishActive: false,
+    timeCycleBearishActive: false,
     timeCycleDates: [],
+    angleSlopes: [],
+    retracementLevels: [],
+    digitalRootConfluences: [],
   },
   nearSupportResistance: true,
   pattern: {
@@ -104,8 +110,10 @@ describe("SignalCard score breakdown", () => {
     for (const label of ["Trend", "Structure", "Setup", "Timing", "Risk/reward"]) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
-    // Structure is the three-point pillar; two of its three pass in this fixture.
-    expect(screen.getByText("2/3")).toBeInTheDocument();
+    // Trend is the three-point pillar (macro, hourly ADX/DMI, structural
+    // angle); only the ADX/DMI reading passes in this fixture — macro is
+    // 1-of-3 timeframes and no angle-slope data is supplied.
+    expect(screen.getByText("1/3")).toBeInTheDocument();
   });
 
   it("says nothing about the score when no summary was attached", () => {
@@ -121,5 +129,28 @@ describe("SignalCard score breakdown", () => {
 
     expect(screen.getByText("Entry")).toBeInTheDocument();
     expect(screen.getByText("Stop loss")).toBeInTheDocument();
+  });
+
+  // 2026-09-11: us_equity prices targets as a percentage of purchase price,
+  // not an R-multiple (lib/strat/levels.ts) — rewardToRiskTp1/Master are
+  // still computed (a ratio always falls out of two independently-derived
+  // prices), but labeling it "R" would claim a designed multiple the engine
+  // never priced, the exact copy-drift class lib/trade/protocol-rules.ts
+  // exists to prevent. See lib/__tests__/protocol-rules.test.ts for that
+  // file's own version of this same guard.
+  it("labels equity targets by percentage of entry, not by R-multiple", () => {
+    render(<SignalCard result={resultWithFullBreakdown()} />);
+    // entry 100, takeProfit1 124 -> 24.0%; masterProfit 136 -> 36.0%.
+    expect(screen.getByText("TP1 (24.0%)")).toBeInTheDocument();
+    expect(screen.getByText("Master (36.0%)")).toBeInTheDocument();
+    expect(screen.queryByText(/TP1 \(.*R\)/)).not.toBeInTheDocument();
+  });
+
+  it("keeps the R-multiple label for a non-equity asset class", () => {
+    const result = resultWithFullBreakdown();
+    result.assetClass = "crypto";
+    render(<SignalCard result={result} />);
+    expect(screen.getByText("TP1 (2.0R)")).toBeInTheDocument();
+    expect(screen.getByText("Master (3.0R)")).toBeInTheDocument();
   });
 });

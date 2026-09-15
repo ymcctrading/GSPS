@@ -49,6 +49,7 @@ const FALLBACK_TIMEFRAME = "15Min" as const;
 const WATCHLIST_TIER_SCORE: RulesAlignmentScore = {
   score: 0,
   tier: "watchlistOnly",
+  blueprintScoreBand: "NO_TRADE",
   breakdown: [],
 };
 

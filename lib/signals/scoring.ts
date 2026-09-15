@@ -10,7 +10,26 @@
  * outright would penalize instruments this engine has no real read on.
  */
 
-import type { RulesAlignmentBreakdownItem, RulesAlignmentScore, RulesAlignmentTier } from "./types";
+import type {
+  BlueprintScoreBand,
+  RulesAlignmentBreakdownItem,
+  RulesAlignmentScore,
+  RulesAlignmentTier,
+} from "./types";
+
+/**
+ * Blueprint §14.2's literal band cut points, applied to the same 0–100
+ * score `tier` above already classifies. Informational only — see
+ * `BlueprintScoreBand`'s doc comment in `./types` for why this never
+ * replaces `tier`/`tierQualifies` as the actual gate.
+ */
+export function classifyBlueprintScoreBand(score: number): BlueprintScoreBand {
+  if (score >= 85) return "HIGH_CONFLUENCE";
+  if (score >= 70) return "ACTIONABLE";
+  if (score >= 50) return "DEVELOPING";
+  if (score >= 25) return "WATCH";
+  return "NO_TRADE";
+}
 
 export function computeRulesAlignmentScore(
   breakdown: RulesAlignmentBreakdownItem[],
@@ -26,7 +45,7 @@ export function computeRulesAlignmentScore(
   else if (score >= 75) tier = "qualified";
   else tier = "watchlistOnly";
 
-  return { score, tier, breakdown };
+  return { score, tier, blueprintScoreBand: classifyBlueprintScoreBand(score), breakdown };
 }
 
 /** "Qualified" and above require every safety gate to pass, not just the score band. */
