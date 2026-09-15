@@ -164,7 +164,16 @@ rules in the retrieved portion), and Gann himself subordinates it in the
 same document ("anything that can be proved... is not correct unless it
 can be proved by numbers and by geometry"). Still absent from every one
 of his ten *public* books, confirming the same public/private split as
-Square of 9 and Gann angles above.
+Square of 9 and Gann angles above. A second private source found in the
+same 2026-09-15 window, a signed 1954 client letter
+(`GANN_HISTORICAL_SOURCES.md` A2.3), supplies the worked ephemeris system
+A2.1 only gestures at: real heliocentric/geocentric planetary longitudes
+run through an explicit price-to-degree conversion constant, checked
+against an actual traded price for conjunction/opposition. Astrology's
+evidentiary status is now "one worked primary example in hand," not just
+"cosmological justification without a shown mechanism" — still a single
+dated source, not a general rule, and still outside GSPS's scope by
+policy.
 
 **Layer 6 — Tape reading.** Underneath all of the above, the 1923 book is
 explicit that the tape itself — real order flow, volume, how a level
