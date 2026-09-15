@@ -47,6 +47,24 @@ section-by-section detail:
    concrete candidates for §5, distinct from the three quarantined
    criteria this codebase has already tried and measured.
 
+**Second update (same day, after new private-course material was found):**
+finding #1 above needs one correction, not a reversal. `GANN_HISTORICAL_SOURCES.md`
+now includes A2.1, a 2004 transcription of Gann's own private paid
+correspondence course (distinct from his ten *public* books), read
+directly in his own first-person voice, containing a dedicated Square of
+Nine construction chapter and a named, defined Gann-angle system (1×1
+through 8×1+). **Square of 9 and Gann angles are not later researchers'
+inventions retroactively credited to Gann — he taught both himself, to
+paying students.** What finding #1 got right and still holds: neither
+technique appears in anything he sold at a bookstore, across ten books
+and forty-five years, while old-level-crossing/resistance logic appears
+repeatedly in exactly those public books. The corrected framing
+throughout this document is: **disclosed, but only to paying private
+students — never disclosed to the public** — not "undisclosed" or "a
+later reconstruction." This changes the wording in §1 Layer 2/Layer 5
+and §4 below, not the underlying implementation conclusions (Square of
+9 is still unscored, for the same backtest-evidence reasons).
+
 ## 1. The Gann method, in plain English
 
 Strip away the mystique and the disclosed material (1909, 1923) describes
@@ -81,13 +99,23 @@ resistance-level method** (divide a swing's range by 8 and by 3; the 50%
 midpoint is the single most significant level, then 75%); and **"sections
 of a campaign"** (a bull or bear move typically runs 3–4 legs, with the
 later legs weighted more heavily for trend-change confirmation). What is
-*not* in any of his ten books through at least 1941: the **Square of 9**
-(prices mapped onto a square-root spiral) and **Gann angles** (fixed
-price-per-time-unit lines like 1×1, 2×1) — both are absent from every
-disclosed book checked for this audit. They are real techniques from his
-later, unpublished course material and private letters (per a modern
-researcher's decoding — see `GANN_HISTORICAL_SOURCES.md` B5), not
-something he ever sold to the general public in book form.
+absent from all ten of his *public* books: the **Square of 9** (prices
+mapped onto a square-root spiral) and **Gann angles** (fixed
+price-per-time-unit lines like 1×1, 2×1). Both are real techniques Gann
+personally taught — but only to paying students of his private
+correspondence course, never in a book sold at a bookstore. A 2004
+transcription of that course material (`GANN_HISTORICAL_SOURCES.md`
+A2.1) shows both in his own first-person voice, with construction detail
+he gave directly: the Square of 9's spiral-and-45°-radial-line
+resistance points, and named angles from 1×1 through 8×1+ as fixed
+price-per-time-unit rates. So the accurate framing is **disclosed, but
+only to a paying private audience — never disclosed to the general
+public** — not "undisclosed" and not "a later researcher's
+reconstruction." A separate secondary source (`GANN_HISTORICAL_SOURCES.md`
+B10) also describes using Gann angles for *time* projection (each angle
+mapped to a percentage of the base interval's elapsed time, e.g. 1×1 =
+100%, 1×8 = 12.5%) — a layer not present in the retrieved portion of
+A2.1 itself, and with no GSPS implementation today.
 
 **Layer 3 — Timing (the part Gann kept secret in every one of his ten
 books).** Gann insisted price and time are symmetric — a move is "square"
@@ -126,9 +154,26 @@ base-10 arithmetic, not a market discovery); **Fourier/spectral cycle
 analysis** (decomposing a price series into its dominant periodic cycles —
 the best-evidenced reconstruction, backed by a real 1926 Gann letter
 naming Moore, Schuster, and Fourier by name); and **astrology**
-(planetary-cycle timing — confirmed as something Gann genuinely used, by
-the company holding his actual working papers, but never disclosed in
-either primary text).
+(planetary-cycle timing). Astrology's evidentiary status upgraded this
+session from "inferred from private letters via a secondary source" to
+"directly present in Gann's own private-course voice": A2.1 invokes
+Saturn's 30-year orbital cycle for market timing and equates the human
+body's 12 openings to the 12 zodiac signs — real content, but limited
+and non-ephemeris (no planetary-longitude tables or aspect-based trading
+rules in the retrieved portion), and Gann himself subordinates it in the
+same document ("anything that can be proved... is not correct unless it
+can be proved by numbers and by geometry"). Still absent from every one
+of his ten *public* books, confirming the same public/private split as
+Square of 9 and Gann angles above. A second private source found in the
+same 2026-09-15 window, a signed 1954 client letter
+(`GANN_HISTORICAL_SOURCES.md` A2.3), supplies the worked ephemeris system
+A2.1 only gestures at: real heliocentric/geocentric planetary longitudes
+run through an explicit price-to-degree conversion constant, checked
+against an actual traded price for conjunction/opposition. Astrology's
+evidentiary status is now "one worked primary example in hand," not just
+"cosmological justification without a shown mechanism" — still a single
+dated source, not a general rule, and still outside GSPS's scope by
+policy.
 
 **Layer 6 — Tape reading.** Underneath all of the above, the 1923 book is
 explicit that the tape itself — real order flow, volume, how a level
@@ -244,34 +289,42 @@ is, today, the least consequential thing in the entire stack.
 Deviation is not automatically a defect — several of these are defensible
 modernizations. Named here so they're explicit rather than assumed:
 
-- **Astrology is entirely absent**, despite real evidence (the WD Gann
-  Inc. blog's description of his annotated private ephemeris, and a
-  modern researcher's detailed decoding of planetary-longitude references
-  in his 1948 soybean chart and 1954 personal letters — see
-  `GANN_HISTORICAL_SOURCES.md` B5) that Gann genuinely used planetary
-  timing, and his 1927 novel discusses it openly and at length. Every one
-  of his *published* books, checked directly and including both of his
-  last two (1949, 1954), is completely silent on it — no planets, no
-  zodiac, no "vibration." The best-fitting explanation across all ten
-  books: a stable public/private split held for his entire 45-year
-  career, not a late-career shift either toward or away from openness —
-  he disclosed risk management and tape-reading freely in print and
-  reserved astrology (like the rest of "the time factor") for private
-  client correspondence and paid courses, consistently, start to finish.
-  Excluding astrology is very likely the right call for a retail
-  platform, but it is a real, deliberate deviation from a technique the
-  primary evidence says he actually relied on — a product/brand decision,
+- **Astrology is entirely absent**, despite real evidence — now direct,
+  not just inferred — that Gann genuinely used planetary timing: a 2004
+  transcription of his own private correspondence course
+  (`GANN_HISTORICAL_SOURCES.md` A2.1) has him invoking Saturn's 30-year
+  cycle and the zodiac in his own first-person voice, on top of the WD
+  Gann Inc. blog's description of his annotated private ephemeris and a
+  modern researcher's decoding of planetary-longitude references in his
+  1948 soybean chart and 1954 personal letters (B5), and his 1927 novel
+  discusses it openly and at length. Every one of his *published* books,
+  checked directly and including both of his last two (1949, 1954), is
+  completely silent on it — no planets, no zodiac, no "vibration." The
+  best-fitting explanation across all ten books plus the course material:
+  a stable public/private split held for his entire 45-year career, not a
+  late-career shift either toward or away from openness — he disclosed
+  risk management and tape-reading freely in print and reserved astrology
+  (like the rest of "the time factor") for private client correspondence
+  and paid courses, consistently, start to finish. Excluding astrology is
+  very likely the right call for a retail platform, but it is a real,
+  deliberate deviation from a technique the primary evidence says he
+  actually relied on and personally taught — a product/brand decision,
   not something this audit resolves on its own.
-- **Square of 9 and Gann angles are implemented as if they were his
-  disclosed method, when they were not.** GSPS's `lib/gann/squareOf9.ts`
-  and `lib/gann/fans.ts` are correct, working implementations of real
-  techniques — but techniques that, per the source review, never appear
-  in any book Gann sold to the general public through at least 1941. They
-  surface only in later course material, private letters, and modern
-  researchers' reconstructions. This isn't a defect (the geometry is
+- **Square of 9 and Gann angles are implemented without being labeled
+  what they actually are: material Gann taught only to paying private
+  students, never sold to the general public.** GSPS's
+  `lib/gann/squareOf9.ts` and `lib/gann/fans.ts` are correct, working
+  implementations of real techniques Gann personally taught — a 2004
+  transcription of his private course (A2.1) shows both in his own voice,
+  with construction detail he gave directly (the spiral/45°-radial-line
+  Square of 9, and named 1×1-through-8×1+ angles). So this is not a
+  reconstruction dressed up as canon; it's real Gann material, just from
+  the wrong tier of his own curriculum for a platform marketed as
+  teaching his *published* method. This isn't a defect (the geometry is
   real, and GSPS is honest elsewhere that `gannAngleSlope` is
-  "unmeasured"/weighted at the floor), but the *framing* — that these are
-  "the" Gann technique — inverts the actual weight of evidence in his own
+  "unmeasured"/weighted at the floor), but the *framing* — presenting
+  either technique as "the" Gann technique without noting it's private-
+  course-only — still inverts the actual weight of evidence in his own
   published writing, where old-level-crossing and resistance-level
   arithmetic dominate overwhelmingly instead.
 - **The "time factor" is reconstructed three different ways across the
@@ -392,3 +445,27 @@ tuned scoring," except where flagged otherwise.
     looser eighths/thirds) and "Anniversary Dates" (a pivot's own
     month/day watched every subsequent year) — both cheap to test against
     existing pivot-detection code.
+11. **New candidate: Gann angles as a *time* projection, not just price
+    support/resistance** (`GANN_HISTORICAL_SOURCES.md` B10, secondary —
+    not found in the retrieved portion of Gann's own course material,
+    A2.1, so weight this below #9's four literal-book rules). Each angle
+    maps to a percentage of the base interval's elapsed time (1×1=100%,
+    1×2=50%, 2×1=200%, 1×3=33.3%, 1×4=25%, 1×8=12.5%): given a swing's
+    start date and the angle a price target sits on, project when that
+    target should be *reached in time*, not just what price it implies.
+    `lib/gann/fans.ts`/`gannAngleSlope` currently only use angles for
+    price slope — this would be new code (a time-target field), not a
+    swap-in, and per §4's corrected framing it's still private-course-tier
+    material (not something Gann sold to the public), so the same
+    "label it honestly" caveat applies as to Square of 9/angles generally.
+12. **Finish reading A2.1, Gann's private course material** (`GANN_
+    HISTORICAL_SOURCES.md` A2.1) — only the first ~100 of ~460 pages came
+    through before an extraction limit cut the read off mid-chapter.
+    Confirmed present in the unread ~360 pages, per the table of
+    contents: "Master Time Factor," "Master Mathematical Price Time And
+    Trend Calculator," "Hexagon Chart," an "Overnight Chart" mechanical
+    system, and options lessons. The Master Time Factor chapter in
+    particular is a direct candidate to finally answer what Layer 3's
+    "withheld mechanism" actually was, since everything found so far
+    (§1 Layer 3) is only the outer shell Gann disclosed in his *public*
+    books.

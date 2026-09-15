@@ -74,6 +74,20 @@ different governing spec) is a real exception, not a violation of this
 rule — but the default assumption is that it applies, and silence is not
 an exception.
 
+## Gann & cycles research memory
+
+`docs/GANN_HISTORICAL_SOURCES.md` is a running index of every Gann primary
+book, Gann-adjacent secondary/interpretive work, and general cycle-theory
+source reviewed to date, cross-referenced against what this codebase
+actually implements (`lib/gann/`, `lib/scoring/`). **Read it before
+proposing a new Gann-derived criterion, auditing an existing one, or
+researching additional Gann/cycle-theory source material** — it exists so
+a future session works from prior findings instead of re-reading source
+PDFs from scratch, and it records which techniques are historically
+disclosed-by-Gann-himself versus later reconstruction versus unrelated.
+`docs/GANN_METHOD_COMPLETENESS_AUDIT.md` is the implementation audit built
+from it.
+
 ## Temporary overrides — mandatory, check on every session
 
 These are explicit, user-directed departures from the protocol's real design, made for a stated
