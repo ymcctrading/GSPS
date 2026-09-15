@@ -120,8 +120,18 @@ async function resolveUniverse(universeTop: number): Promise<string[]> {
  * growth is fine, silent unbounded growth is not. Raising it means re-checking
  * the scan's wall-clock time against the ceiling in
  * `app/api/market-scan/route.ts` first.
+ *
+ * Raised from 750 to 1000 alongside the large-cap universe refresh that took
+ * `LARGE_CAP_UNIVERSE` from ~500 to ~770 names (see
+ * lib/scan/large-cap-universe.ts) — the combined fallback pool (MAG7 + sector
+ * watchlists + the large-cap list) now sits around 800-820 unique symbols, and
+ * 750 would have silently clipped it. The coarse pass batches bars in chunks of
+ * 100 symbols fired concurrently (`fetchBarsBatch`), so wall-clock cost scales
+ * with the slowest chunk's latency, not the chunk count — but that is an
+ * architectural expectation, not a measurement. Confirm actual run time on a
+ * live deploy against the 60s ceiling before trusting this in the daily cron.
  */
-export const MAX_COARSE_UNIVERSE = 750;
+export const MAX_COARSE_UNIVERSE = 1000;
 
 /**
  * Apply the caller's budget, then the hard ceiling.
@@ -564,9 +574,23 @@ const CONTINUATION_DEADLINE_MS = 42_000;
  * scan was what blew through Vercel Hobby's 60s function ceiling, not the
  * universe size itself. See `app/api/market-scan/route.ts` for the ceiling
  * this now comfortably fits inside.
+ *
+ * `universeTop` default raised from 100 to 900 so a run actually reaches the
+ * whole combined fallback pool (MAG7 + sector watchlists + the ~770-symbol
+ * `LARGE_CAP_UNIVERSE`, roughly 800-820 unique names after de-duping) instead
+ * of coarse-filtering only the first 100 of it — see
+ * lib/scan/large-cap-universe.ts for that list's own refresh. The coarse pass
+ * cost scales with request *chunks* (100 symbols each, all fired
+ * concurrently), not with `universeTop` directly, so this is 2 timeframes x
+ * ~9 chunks = ~18 parallel requests instead of ~2, still well under Alpaca's
+ * ~200 req/min (docs/THIRD_PARTY_LIMITS.md) for a single run. Every caller
+ * that takes this default — the 08:30/17:30 ET crons
+ * (app/api/market-scan/route.ts) and the 06:00/09:15 ET GitHub Actions scans
+ * (lib/entitlements/scheduled-scan.ts) — widens together; none of the four
+ * runs overlap in time, so their per-minute budgets don't stack.
  */
 export async function runMarketScan(
-  universeTop = 100,
+  universeTop = 900,
   perSide = 15,
   /**
    * `getUniversePolicy()`-resolved Market Universe thresholds, resolved once
@@ -577,6 +601,15 @@ export async function runMarketScan(
   universeThresholds: UniverseThresholds = DEFAULT_UNIVERSE_THRESHOLDS,
 ): Promise<MarketScanOutput> {
   const startedAt = Date.now();
+  // Temporary stage-timing breadcrumbs (2026-09-10) while the widened
+  // universeTop default (see this function's own doc comment above) is
+  // unverified against Vercel's 60s ceiling — a 504 kills the response
+  // before any JSON gets returned, so these are logged as each stage
+  // finishes rather than only reported at the end. Remove once the budget
+  // is confirmed safe on a live run, or replace with real telemetry.
+  const mark = (stage: string, extra?: string) =>
+    console.log(`[market-scan] ${stage} at +${Date.now() - startedAt}ms${extra ? ` (${extra})` : ""}`);
+
   // The trading date the scan describes, not the UTC date it happened to run
   // on. The two diverge between 20:00 ET and midnight — a post-close re-run
   // would otherwise be filed under tomorrow, and tomorrow would open showing
@@ -585,6 +618,7 @@ export async function runMarketScan(
   const provider = getMarketDataProvider();
 
   const actives = await resolveUniverse(universeTop);
+  mark("resolveUniverse done", `${actives.length} symbols`);
 
   // Coarse pass — daily bars for trend/level context, plus a short window of
   // 4-hour bars so the continuation gate can judge the last 4 hours on their
@@ -603,6 +637,7 @@ export async function runMarketScan(
     provider.fetchBarsBatch?.(actives, "1Day", yearAgo, end, "us_equity") ?? null,
     provider.fetchBarsBatch?.(actives, "4Hour", recentWeeks, end, "us_equity") ?? null,
   ]);
+  mark("coarse batch bar fetch done", `daily=${dailyBatch?.size ?? "n/a"} 4h=${bars4hBatch?.size ?? "n/a"}`);
 
   const coarse = await mapWithConcurrency(actives, 8, async (symbol) => {
     try {
@@ -622,6 +657,7 @@ export async function runMarketScan(
       return { reversion: null, continuation: null, diagnostics: null };
     }
   });
+  mark("coarse scoring done");
 
   const byCoarseScore = (a: CoarseCandidate, b: CoarseCandidate) => b.coarseScore - a.coarseScore;
   const shortlist = coarse
@@ -638,9 +674,11 @@ export async function runMarketScan(
   // shortlist up front (five requests total) so each scanTicker call below is
   // just scoring, not a fresh five-request fetch per symbol.
   const shortlistBars = await fetchAllTimeframesBatch(shortlist.map((c) => c.symbol), EXECUTION_TIMEFRAME);
+  mark("full-pass batch bar fetch done", `shortlist=${shortlist.length}`);
   const full = await mapWithConcurrency(shortlist, 5, (c) =>
     scanTicker(c.symbol, undefined, undefined, shortlistBars.get(c.symbol.toUpperCase()), universeThresholds),
   );
+  mark("full-pass scanTicker scoring done");
   const valid = full.filter((r) => !r.error);
   const scanErrors = full.length - valid.length;
 
