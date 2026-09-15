@@ -345,10 +345,55 @@ const SCAN_SCORE: RegisteredCriterion[] = [
     id: "stopRoom",
     family: "scanScore",
     source: "lib/scoring/score.ts",
-    label: "Stop room (>= 1.5x ATR)",
+    label: "Stop room (>= 1.5x ATR) / Stop backed by real structure (us_equity)",
     expectedSign: "positive",
-    evidence: "hypothesis",
+    evidence: "quarantined",
+    quarantineReason:
+      "us_equity branch only (assetClass === \"us_equity\" reads `levels.stopFromStructure` instead of " +
+      "the ATR-multiple check below — see hasStopRoom in lib/scoring/score.ts). First real measurement " +
+      "of the percent-of-purchase-price model (PR #217, 2026-09-11): 6 unconditioned (`within=all`) " +
+      "live runs captured 2026-09-15 (docs/replay-runs/2026-09-15-{15Min,1Hour}-within-all-productionStop" +
+      "{,-since90d,-since30d}.json — 15Min/1Hour x full-history/90d/30d, default universe SPY/AAPL/AMD/" +
+      "TSLA/MSFT/NVDA, all large-cap, `productionStop=1`). Pass rate on every single one of the 6: " +
+      "985 trades 98.2%, 438 trades 98.6%, 10,480 observed 99.5%, 367 trades 99.2%, 100 trades 98.0% " +
+      "(the 90d-15Min run duplicates the full-history one — 15Min's ~60-day natural lookback is already " +
+      "under the 90-day cutoff, so it trims nothing; treat it as the same reading, not a 6th independent " +
+      "one). Every reading clears MIN_OBSERVATIONS_FOR_SATURATION (30) and sits well past " +
+      "DEFAULT_SATURATION_BOUNDS.maxPassRate (0.95) in lib/validation/health.ts — this is not a borderline " +
+      "call, it fires on all 6/6.\n" +
+      "\n" +
+      "Mechanism, traced to computeEquityTradeLevels's nearestStructuralStop (lib/strat/levels.ts): it " +
+      "searches `[...gannTargets, ...structuralLevels]` — the projected key-price-level targets " +
+      "(lib/gann/fans.ts, lib/gann/squareOf9.ts) pooled together with clustered S/R, not S/R alone — " +
+      "for any favorable-side level inside [EQUITY_STOP_MIN_PCT 3%, EQUITY_LARGE_CAP_STOP_MAX_PCT 20%] " +
+      "of entry (the default universe is entirely large-cap, so the wider band always applies). Those " +
+      "projected levels are dense enough across a 17-point-wide band that one is almost always found, " +
+      "so the EQUITY_FALLBACK_STOP_PCT/EQUITY_LARGE_CAP_FALLBACK_STOP_PCT branch essentially never " +
+      "fires (18/985, 6/438, 53/10,480, 3/367, 2/100 across the 6 runs) even though lib/strat/levels.ts's " +
+      "own comment on EQUITY_FALLBACK_STOP_PCT cites historicalSR — the S/R-only criterion reading the " +
+      "same underlying level data — passing only ~18-19% of the time. Pooling the projected targets into " +
+      "the search turns 'is there real structure near this stop' into 'is there almost always real " +
+      "structure', which is not the question the criterion is named for. The point is a near-automatic " +
+      "freebie the same way patternArmed is, except here that was never the intent.\n" +
+      "\n" +
+      "Sign, on the two runs large enough to read (985 and 10,480 trades — the other four have failed " +
+      "arms of 6, 3, and 2, under MIN_SAMPLES_PER_ARM=10, so attributeFactors correctly marks them " +
+      "`insufficient`): correlation is negative but negligible — r=-0.016 (t=-0.51) and r=-0.005 " +
+      "(t=-0.55), both far short of |t|>=1.96. Not inverted, just uninformative, which is exactly what a " +
+      "criterion this saturated would produce either way.\n" +
+      "\n" +
+      "Not silently changed. A candidate fix — drop the projected key-price-level targets from the equity " +
+      "stop's structural pool " +
+      "and search clustered S/R only (the same source historicalSR reads), or tighten " +
+      "EQUITY_STOP_MAX_PCT/EQUITY_LARGE_CAP_STOP_MAX_PCT — is a real change to lib/strat/levels.ts and " +
+      "needs explicit confirmation before it ships, not a quiet constant tweak riding in on this finding. " +
+      "Exit condition: quarantine lifts once a re-measured unconditioned equity run lands the pass rate " +
+      "back inside [0.05, 0.95].",
     note:
+      "Below documents the pre-equity-model history: the ATR-multiple branch (`stopAtrMultiple >= " +
+      "MIN_STOP_ROOM_ATR`), which every non-us_equity asset class still uses and which us_equity used " +
+      "too before PR #217. See quarantineReason above for the us_equity structural-stop branch that " +
+      "replaced it.\n\n" +
       "Replaced `momentum` on 2026-09-08. Momentum was the deadest criterion in the app: on 1,005 " +
       "unconditioned live trades it measured r=−0.0003, t=−0.01, Δ=−0.002R — three ten-thousandths " +
       "of a correlation, a point contributed for no information. It survives as an input to " +
@@ -641,6 +686,17 @@ const SCORE_HOLDS: RegisteredCriterion[] = [
     label: "Bare reversal confirmation",
     expectedSign: "unknown",
     evidence: "unmeasured",
+    note:
+      "Starved by construction, the mirror image of patternArmed being saturated by construction: " +
+      "applyReversionConfirmation only ever appends this key on its downgrade branch " +
+      "(`passed: false`, when a bare 2-2 reversal lacks both momentum and S/R confirmation) — there " +
+      "is no code path that appends it `passed: true`. Every committed payload has measured 0 " +
+      "passes (0/608+ across all runs to date), which is exactly what the code guarantees, not a " +
+      "market finding. First exposed as a saturation error 2026-09-15 when committed within=all " +
+      "payloads crossed MIN_OBSERVATIONS_FOR_SATURATION (30) for this criterion for the first time " +
+      "(docs/replay-runs/2026-09-15-*-within-all-productionStop*.json) — unrelated to what those " +
+      "payloads were captured to measure (the equities percent-of-purchase-price stop model).",
+    saturation: { minPassRate: 0, maxPassRate: 1 },
   },
   {
     id: "dataLag",
