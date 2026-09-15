@@ -228,11 +228,23 @@ nothing new to trading technique itself.
 this scan is a 1951 revision reprinted 1976)
 
 **Not** public domain. His most-cited book — and the source a modern
-secondary work (B4 below) is built around. Only the first ~15% was
-extractable in this pass (a hard OCR/extraction-pipeline limit on the
-large scan; the swing-chart-construction section, all commodity-specific
-seasonal chapters, and 32 referenced charts were **not reached** — a real,
-flagged gap, not a "nothing there" finding). What was captured, in full:
+secondary work (B4 below) is built around. Re-attempted on 2026-09-15
+with two additional, larger Drive scans (a 76MB copy and a second 20MB
+copy) after the user re-uploaded them. Result: **still only ~64 of 414
+pages (~15%) extractable** — this is a hard ceiling in Google Drive's own
+document-conversion pipeline for this scan (confirmed by re-querying with
+`fullText contains` search against a swing-chart-specific term, which
+returned the identical ~197K-character snippet, not more; and the 76MB
+copy returned *zero* extractable text at all, i.e. worse, not better).
+The swing-chart-construction section, all commodity-specific seasonal
+chapters (Wheat/Corn/Cotton/Soy Beans/Rye/Oats/Cocoa/Coffee/Eggs/Hides/
+Rubber/Silk/Sugar/Wool — TOC pp. 68–305), the "New Rules for Trading"
+chapter (Swing Charts/Gaps/Reverse Signal Day, pp. 308–329), and all 32
+referenced charts (pp. 329–414) remain **genuinely unreached** — this is
+now a confirmed data-access limit, not an unattempted gap. Closing it
+would require a different extraction path entirely (e.g. direct
+page-image `Read`, the method that worked for A9's 79-page scan) rather
+than another Drive re-upload. What was captured, across both passes:
 
 - **The 28 "Valuable" Rules**, verbatim (capital divided into 10 parts,
   risk ≤1/10 per trade; mandatory stops sized 1–3¢/max 5¢; never average a
@@ -248,10 +260,47 @@ flagged gap, not a "nothing there" finding). What was captured, in full:
   called the single most important level, then 75%. A **"lost motion"**
   concept — price typically overshoots a level by up to ~1⅞¢ but rarely a
   full 3¢ — given as the explicit reason stops are set exactly 3¢ (or 60
-  points for cotton) beyond a level.
+  points for cotton) beyond a level. The second pass added finer-grained
+  mechanics: explicit 5/8 and 3/8-point rules for narrow-market
+  oscillation around the halfway point, and a "resistance points near
+  same levels" technique — when two nearby resistance levels cluster,
+  average them into one combined support/resistance point.
 - **"Sections of a campaign"**: a bull or bear market normally runs 3–4
   legs, with later sections (3rd, 4th) weighted more heavily than the
   2nd for trend-change confirmation.
+- **Capital-sizing table** (new in the second pass): concrete dollar
+  figures behind the "divide capital into 10 parts" rule — e.g. $3,000
+  capital per 10,000-bushel wheat position (stop ≤3¢), $300 capital per
+  1,000-bushel "job lot" (stop ≤3¢), scaled figures for $0.40–$0.60 and
+  $1.75–$2.50 wheat.
+- **"Quarterly Chart"** (new): a fourth chart timeframe alongside
+  daily/weekly/monthly — one bar per calendar quarter, used the same way
+  for trend confirmation. Not mentioned in the first pass.
+- **Major vs. Minor trend**, formalized as a named distinction (new): a
+  rule to trade minor-trend reversals only at a rule-defined top/bottom
+  with a tight stop, kept separate from major-trend positioning.
+- **Volume/open-interest culmination rules** (new): four numbered rules
+  for spotting a top/bottom by volume of sales, plus a fifth on open
+  interest — rising open interest into a low read as accumulation,
+  falling open interest into a high on rising price read as distribution
+  near a top.
+- Two new dated worked examples (Feb 1917 wheat/cotton break on the
+  German U-boat declaration; the Jul 1933 Wheat break following a
+  brokerage failure) and a day-by-day 1938–1940 wheat volume-of-sales
+  table illustrating the culmination rules above — concrete data points
+  for already-documented rules, not new techniques.
+- **No trace of Square of Nine, Gann angles, astrology, or any
+  geometric/planetary vocabulary** anywhere in either pass (confirmed by
+  an exhaustive keyword search of the second-pass text: "square of
+  nine/9," "astrology," "horoscope," "zodiac," "planet," "master chart,"
+  "hexagon," "geometric," "45-degree," "fan," "vibration," "cardinal,"
+  "Pythagor" all return zero matches). Read as **weak-to-moderate**
+  confirming evidence for the existing conclusion that these are absent
+  from Gann's disclosed books — weak because the unreached 85% (including
+  the "New Rules for Trading" chapter, the likeliest place a late
+  additional technique would appear) could in principle still contain
+  something; moderate because two independent passes over the same
+  readable portion, searched exhaustively, found nothing.
 
 ### A9. *45 Years in Wall Street* (1949)
 
