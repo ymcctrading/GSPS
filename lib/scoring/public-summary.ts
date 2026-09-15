@@ -116,12 +116,16 @@ export function redactDecision(decision: ScanDecision): ScanDecision {
  * The same, for a whole scan result on its way out of an API route. Also
  * redacts `signals` — the Signal and Regime Engine's own verdicts carry the
  * same kind of per-criterion breakdown `decision` does, and are just as
- * subject to this file's rule; see `lib/signals/publicSummary.ts`.
+ * subject to this file's rule; see `lib/signals/publicSummary.ts`. Also
+ * drops `dailyBars` — full OHLCV history is bulk internal data carried only
+ * so `lib/learning/record.ts` can persist it without a second fetch, not a
+ * public response field.
  */
 export function redactScanResult(result: ScanResult): ScanResult {
   return {
     ...result,
     decision: redactDecision(result.decision),
     signals: redactScanSignals(result.signals),
+    dailyBars: undefined,
   };
 }

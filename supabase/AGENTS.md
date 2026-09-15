@@ -56,6 +56,28 @@ user, written by the service role, like `instrument`); `volume_state`/
 same posture as `learning_models` — there's no per-user ownership concept
 for a global research artifact.
 
+**Wired into the live scan path (follow-up):** `lib/learning/record.ts`'s
+`recordScanVerdict` now also writes `bar` (the last 5 of
+`ScanResult.dailyBars`, upserted with `ignoreDuplicates` so a repeat scan of
+the same symbol is a cheap no-op rather than a resend of the whole fetched
+window), `instrument_profile` (`avg_dollar_volume` only, from
+`ScanResult.liquidity` — sector/industry/market cap/float stay unset, since
+no data source for any of them exists in this pipeline), `volume_state`
+(`relative_volume_index`, `lib/signals/indicators.ts`'s `relativeVolume`
+against the same daily bars) and `volatility_state` (`atr` plus a
+`volatility_regime` bucketed from the recent-ATR/baseline-ATR expansion
+ratio `momentumElevated` already used — a real ratio, not a formal
+statistical percentile, so `atr_percentile` stays unset). All four read off
+`ScanResult.dailyBars`/`.volatilityRead`/`.volumeRead` (`lib/scanTicker.ts`,
+`lib/types.ts`) — new fields carried for exactly this purpose and stripped
+at the API boundary by `redactScanResult` (`dailyBars` is bulk internal
+data, same treatment as `decision.breakdown`).
+`corporate_action` (no splits/dividends data source exists anywhere in this
+codebase), `feature_registry`/`experiment_registry` (governance/research
+catalogs, not per-scan writes) and `backtest_run` (belongs to the
+`lib/backtest/*` CLI tool, not the live scan pipeline, which has no
+per-user-scoped backtest concept) are deliberately not written from here.
+
 Protocol exits and paper trading (`0009`–`0012`): `protocol_exits`,
 `paper_accounts`, plus the `increment_paper_cash` and `execute_position_fill`
 RPC functions.

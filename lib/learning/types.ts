@@ -95,6 +95,50 @@ export interface DigitalRootFeature {
   detail?: Record<string, unknown>;
 }
 
+/** `bar` (migration 0064) — global OHLCV cache, not per-user. */
+export interface BarRow {
+  instrument_id: string;
+  timeframe: Timeframe;
+  bar_time: Date;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  data_vendor?: string;
+}
+
+/** `instrument_profile` (migration 0064) — global, one row per instrument. */
+export interface InstrumentProfileRow {
+  instrument_id: string;
+  avg_dollar_volume?: number;
+}
+
+/** `volume_state` (migration 0064) — per-user, per-scan reads. */
+export interface VolumeStateFeature {
+  id?: string;
+  user_id: string;
+  instrument_id: string;
+  scan_event_id?: string;
+  timeframe: Timeframe;
+  relative_volume_index?: number;
+  dollar_volume_index?: number;
+  detail?: Record<string, unknown>;
+}
+
+/** `volatility_state` (migration 0064) — per-user, per-scan reads. */
+export interface VolatilityStateFeature {
+  id?: string;
+  user_id: string;
+  instrument_id: string;
+  scan_event_id?: string;
+  timeframe: Timeframe;
+  atr?: number;
+  atr_percentile?: number;
+  volatility_regime?: 'low' | 'normal' | 'elevated' | 'extreme';
+  detail?: Record<string, unknown>;
+}
+
 export interface SignalLifecycleEvent {
   id?: string;
   user_id: string;
