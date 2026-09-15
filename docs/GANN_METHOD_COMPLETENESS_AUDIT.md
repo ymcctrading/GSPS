@@ -15,6 +15,38 @@ This is an audit, cross-referencing existing docs
 `BACKTESTING.md`) and the current `lib/gann/`, `lib/scoring/`,
 `lib/signals/confluence/` source — not a new implementation pass.
 
+**Update (same day, after reading all ten of Gann's own books):** the
+original version of this audit was written from five sources — the 1909
+interview, the 1923 book, and three secondary/interpretive works. Every
+one of Gann's ten books has since been read (nine in full or
+substantially; *45 Years in Wall Street* was still being processed as of
+this revision — see `GANN_HISTORICAL_SOURCES.md` A9). Two findings from
+that pass change the picture enough to call out here before the
+section-by-section detail:
+
+1. **Square of 9 and Gann angles do not appear in any of Gann's disclosed
+   books through 1941** — not in *Truth of the Stock Tape*, *Wall Street
+   Stock Selector*, *New Stock Trend Detector*, *How to Make Profits
+   Trading in Puts and Calls*, or the readable portion of *How to Make
+   Profits Trading in Commodities*. Meanwhile, old-level-crossing/
+   resistance-level logic — the ancestor of `historicalSR` — is the single
+   most repeated, most concretely operationalized technique across every
+   one of those books, right down to specific stop-placement math. That
+   lines up exactly with GSPS's own backtest evidence: `historicalSR` is
+   the most consistently positive criterion in the registry, while
+   `harmonicProximity` (Square of 9) was retired for measuring negligible.
+   See the new table row in §2 and the expanded §4.
+2. **Several concrete, disclosed Gann rules with real numeric thresholds
+   are not implemented in GSPS at all** — not reconstructions, not
+   hypotheses, but literal rules from his own books with no code
+   equivalent today: the "Rule of Three" (three consecutive closes against
+   a trend signal reversal), the "3-point rule" (a breakout must clear an
+   old level by 3 full points/cents before it's trusted), the "lost
+   motion" stop-buffer concept, and a fixed annual calendar cycle of
+   specific dates called out as a "permanent cycle." These are new,
+   concrete candidates for §5, distinct from the three quarantined
+   criteria this codebase has already tried and measured.
+
 ## 1. The Gann method, in plain English
 
 Strip away the mystique and the disclosed material (1909, 1923) describes
@@ -32,25 +64,48 @@ bull market. Never fix a profit target in your head and hold past a trend
 change hoping to reach it.
 
 **Layer 2 — Structure (price geometry).** From a real, confirmed swing
-high or low, a handful of arithmetic/geometric rules generate specific
-candidate price levels where the market is more likely to pause, reverse,
-or accelerate: the **Square of 9** (prices mapped onto a square-root
-spiral — rotating 360° around it doubles the square root), **Gann angles**
-(fixed price-per-time-unit lines like 1×1, 2×1 radiating from the anchor —
-holding above the rising 1×1 means the trend is structurally intact),
-**percentage retracement** (eighths of the prior swing — 3/8, 1/2, 5/8 most
-significant), and **old-level crossing** (a price level that held multiple
-times, then finally breaks, tends to keep going — and is safer to trade the
-*second* time it's tested than the first).
+high or low, a handful of arithmetic rules generate specific candidate
+price levels where the market is more likely to pause, reverse, or
+accelerate — and it's worth being precise about which of these he
+actually published versus which are later reconstructions. What he
+*actually* discloses, repeatedly and with worked numeric examples across
+five of his own books: **old-level crossing** (a level that held multiple
+times, then finally breaks by a specific buffer — 3 cents/points in his
+own stated rule, justified by a "lost motion" concept that price
+typically overshoots a level by less than that but rarely more — tends to
+keep going, and is safer to trade the *second* time it's tested than the
+first); the **"Rule of Three"** (a stock in a confirmed uptrend won't
+close three consecutive days lower without signaling at least a temporary
+reversal, and the mirror for downtrends); the **eighths/thirds
+resistance-level method** (divide a swing's range by 8 and by 3; the 50%
+midpoint is the single most significant level, then 75%); and **"sections
+of a campaign"** (a bull or bear move typically runs 3–4 legs, with the
+later legs weighted more heavily for trend-change confirmation). What is
+*not* in any of his ten books through at least 1941: the **Square of 9**
+(prices mapped onto a square-root spiral) and **Gann angles** (fixed
+price-per-time-unit lines like 1×1, 2×1) — both are absent from every
+disclosed book checked for this audit. They are real techniques from his
+later, unpublished course material and private letters (per a modern
+researcher's decoding — see `GANN_HISTORICAL_SOURCES.md` B5), not
+something he ever sold to the general public in book form.
 
-**Layer 3 — Timing (the part Gann kept secret in both 1909 and 1923).**
-Gann insisted price and time are symmetric — a move is "square" when the
-number of bars elapsed matches the size of the price move — and that
-specific calendar dates (not just prices) are where trend changes cluster.
-He states outright, twice, in the only two primary documents we have, that
-this is the one part of his method he will not disclose. Everything written
-about "the time factor" since — including in this codebase — is
-reconstruction, not transcription.
+**Layer 3 — Timing (the part Gann kept secret in every one of his ten
+books).** Gann insisted price and time are symmetric — a move is "square"
+when the number of bars elapsed matches the size of the price move — and
+that specific dates (not just prices) are where trend changes cluster. He
+states this refusal outright and explicitly in at least three separate
+books spanning 1909 to 1927, including one all-capitalized sentence in
+his 1927 novel refusing to explain "the cause of cycles." What he *does*
+disclose, short of the mechanism itself: a **fixed annual calendar
+cycle** of specific recurring dates he calls "a permanent cycle which
+does not change" (independent of anniversary-of-a-pivot timing); using a
+stock or company's own founding-date anniversary as a timing trigger; and
+comparing the elapsed time of a rally/reaction against the largest/
+longest prior rally or reaction in the same campaign as a trend-change
+signal. None of this is the withheld mechanism itself — it's the outer
+shell of a timing system whose actual engine he never published.
+Everything written about "the time factor" since — including in this
+codebase — is reconstruction, not transcription.
 
 **Layer 4 — Confluence.** No single layer is trusted alone. A price
 sitting at a Square-of-9 level *and* an old resistance level *and* a
@@ -106,11 +161,26 @@ turning point) confirms or denies them.
 directly, literally Gann structural techniques (`gannAngleSlope`,
 `timePriceSquare`, `gannRetracementConfluence`, and `volumeClimax` per the
 1923 book's climax-at-the-turn rule); `historicalSR` is Gann's crossing-old-
-levels principle under a generic name; `swingChartTrend` is Gann's own
-3-day/9-day swing-chart construction (`lib/gann/swingChart.ts`);
+levels principle under a generic name; `swingChartTrend` is a near-literal
+port of Gann's own 3-Day Chart and 9-Point Swing Chart methods from his
+1949 capstone book *45 Years in Wall Street* (`lib/gann/swingChart.ts`) —
+one of the closest 1:1 matches between any GSPS module and something Gann
+explicitly, directly taught his subscribers;
 `adxTrendStrength` and `stopRoom` are general technical-analysis/risk
 criteria, not Gann-specific; `patternArmed` is Sara Sniper Strat, an
 authorized but separate framework, not Gann.
+
+Worth stating plainly: the evidentiary ranking inside this codebase's own
+backtests now matches the evidentiary ranking across Gann's own published
+books. `historicalSR` — old-level crossing — is both the single most
+repeated, most concretely worked-example-backed technique across five of
+his ten books, and the most consistently positive-evidence criterion
+GSPS has measured. `harmonicProximity` (Square of 9) — a technique absent
+from every one of those same books — was retired from scoring for
+measuring negligible. That is not proof the geometry is wrong (it may
+simply need a different implementation, a different anchor, or more
+data), but it is a real convergence between what Gann actually taught
+paying subscribers and what this codebase's live data says works.
 
 ## 3. Where GSPS's own logic conflicts with or hinders the Gann method
 
@@ -175,11 +245,35 @@ Deviation is not automatically a defect — several of these are defensible
 modernizations. Named here so they're explicit rather than assumed:
 
 - **Astrology is entirely absent**, despite real evidence (the WD Gann
-  Inc. blog's description of his annotated private ephemeris) that Gann
-  genuinely used planetary timing. This is very likely the right call for
-  a retail platform, but it is a real, deliberate deviation from a
-  technique the primary evidence says he actually relied on — a product/
-  brand decision, not something this audit resolves on its own.
+  Inc. blog's description of his annotated private ephemeris, and a
+  modern researcher's detailed decoding of planetary-longitude references
+  in his 1948 soybean chart and 1954 personal letters — see
+  `GANN_HISTORICAL_SOURCES.md` B5) that Gann genuinely used planetary
+  timing, and his 1927 novel discusses it openly and at length. Every one
+  of his *published* books, checked directly and including both of his
+  last two (1949, 1954), is completely silent on it — no planets, no
+  zodiac, no "vibration." The best-fitting explanation across all ten
+  books: a stable public/private split held for his entire 45-year
+  career, not a late-career shift either toward or away from openness —
+  he disclosed risk management and tape-reading freely in print and
+  reserved astrology (like the rest of "the time factor") for private
+  client correspondence and paid courses, consistently, start to finish.
+  Excluding astrology is very likely the right call for a retail
+  platform, but it is a real, deliberate deviation from a technique the
+  primary evidence says he actually relied on — a product/brand decision,
+  not something this audit resolves on its own.
+- **Square of 9 and Gann angles are implemented as if they were his
+  disclosed method, when they were not.** GSPS's `lib/gann/squareOf9.ts`
+  and `lib/gann/fans.ts` are correct, working implementations of real
+  techniques — but techniques that, per the source review, never appear
+  in any book Gann sold to the general public through at least 1941. They
+  surface only in later course material, private letters, and modern
+  researchers' reconstructions. This isn't a defect (the geometry is
+  real, and GSPS is honest elsewhere that `gannAngleSlope` is
+  "unmeasured"/weighted at the floor), but the *framing* — that these are
+  "the" Gann technique — inverts the actual weight of evidence in his own
+  published writing, where old-level-crossing and resistance-level
+  arithmetic dominate overwhelmingly instead.
 - **The "time factor" is reconstructed three different ways across the
   five sources (fixed wheel counts, price/time squaring, Fourier cycles),
   and GSPS implements two of the three (`timeCycles.ts`,
@@ -259,3 +353,42 @@ tuned scoring," except where flagged otherwise.
    policy currently excludes it entirely. This is a brand/product/
    liability decision for the project owner, not a technical gap — named
    here so it's a conscious choice rather than a silent omission.
+9. **New candidate criteria worth evaluating — literal Gann rules with no
+   code equivalent today**, distinct from `harmonicProximity`/`macroTrend`/
+   `timeCycle` (already tried, already quarantined) and distinct from
+   `gannAngleSlope`/Square of 9 (real techniques, just not disclosed ones —
+   see §4). All four need the same unmeasured → attribution →
+   in/out-of-sample discipline `PROPOSAL_NEW_GANN_CRITERIA.md` lays out
+   before touching `CRITERION_KEYS`:
+   - The **"Rule of Three"** (`Wall Street Stock Selector`, 1930): three
+     consecutive closes against the prevailing trend as a reversal
+     signal. Cheap to build (`lib/gann/swingChart.ts` already tracks
+     consecutive opposing closes for its 3-day/9-day construction — this
+     is a narrower, more literal version of the same idea) and
+     historically Gann's own highest-conviction claim ("traders paid me
+     $1,000 for this rule").
+   - The **"3-point rule"** (`New Stock Trend Detector`, 1936): a
+     breakout must clear an old level by a fixed numeric buffer (3
+     points/cents, or an ATR-normalized equivalent) before it's trusted —
+     a stricter, threshold-based variant of `historicalSR` rather than a
+     replacement for it.
+   - The **"lost motion" stop-placement concept** (`How to Make Profits
+     Trading in Commodities`): not a new scored criterion, but a
+     candidate improvement to how `stopRoom`/trade-plan stop distances
+     are chosen — his stated reasoning (price overshoots a level by a
+     bounded, typically-small amount) is directly testable against
+     GSPS's own stop-hit data.
+   - The **fixed annual calendar cycle** (`Wall Street Stock Selector`):
+     a short, explicit list of recurring dates, independent of any
+     per-symbol anchor — the cheapest of the four to test since it needs
+     no pivot detection, just a date lookup.
+10. ~~Fold in *45 Years in Wall Street*~~ — **done**, see
+    `GANN_HISTORICAL_SOURCES.md` A9. It resolved the astrology question in
+    §4 (public/private split, not late-career openness) and confirmed
+    `swingChartTrend` as one of the closest literal ports of a disclosed
+    Gann technique anywhere in this codebase. It also surfaced two more
+    candidates for #9's list: a refined percentage-resistance hierarchy
+    (50% > 100% > 25% > 12.5% > 6.25% > 33⅓%/66⅔%, sharper than A8's
+    looser eighths/thirds) and "Anniversary Dates" (a pivot's own
+    month/day watched every subsequent year) — both cheap to test against
+    existing pivot-detection code.
