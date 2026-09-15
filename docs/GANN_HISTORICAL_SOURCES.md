@@ -244,7 +244,14 @@ referenced charts (pp. 329–414) remain **genuinely unreached** — this is
 now a confirmed data-access limit, not an unattempted gap. Closing it
 would require a different extraction path entirely (e.g. direct
 page-image `Read`, the method that worked for A9's 79-page scan) rather
-than another Drive re-upload. What was captured, across both passes:
+than another Drive re-upload — attempted via a direct-upload-of-split-
+pages route on 2026-09-15, but the user judged it not worth the effort
+(the file is a large, image-heavy scan not readily splittable/compressible
+on hand) given the volume of corroborating material already gathered
+across the other nine books. **Accepted as a standing, intentional gap —
+not a task for a future session to re-attempt** unless a cleaner copy of
+this specific book becomes available. What was captured, across both
+passes:
 
 - **The 28 "Valuable" Rules**, verbatim (capital divided into 10 parts,
   risk ≤1/10 per trade; mandatory stops sized 1–3¢/max 5¢; never average a
