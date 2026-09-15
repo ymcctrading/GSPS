@@ -509,6 +509,83 @@ Nobody has run that check yet — this repo has no local Alpaca credentials (see
 keys live" above), so producing it requires the `--from` flow against a signed-in deployment.
 Until it exists, `cleanRR`'s polarity in `lib/scoring/score.ts` stays as it is.
 
+## Open question: are `adxTrendStrength`/`gannAngleSlope` regime-inverted at 1Hour? (2026-09-15)
+
+Six `GET /api/backtest?timeframe=1Hour&within=all&productionStop=1`-shaped payloads were captured
+against the deployment to validate the new equities percent-of-purchase-price model (#217
+follow-up): full-history and `since=90d` at both 15Min and 1Hour, plus a 15Min `since=30d`. A
+1Hour `since=30d` capture is still pending. All are committed under `docs/replay-runs/` as
+`2026-09-15-*-within-all-productionStop*.json`, all unconditioned (`attributeWithin: "all"`,
+required for a saturation/sign read per this file's own calibration note above), all `live: true,
+source: "alpaca"`.
+
+Comparing the 1Hour full-history run (11,363 trades, 2020-09-16 → 2026-09-14) against the 1Hour
+`since=90d` run (367 trades, 2026-06-17 → 2026-09-14, a strict subset of the same trades):
+
+| Criterion | Window | n passed | Δ E[R] | correlation | t (`r·√(n-3)`) | significant? |
+|---|---|---:|---:|---:|---:|---|
+| `adxTrendStrength` | full history | 2,647 | +0.020R | +0.0062 | +0.63 | no |
+| `adxTrendStrength` | since 90d | 85 | **−0.388R** | **−0.117** | **−2.23** | **yes** |
+| `gannAngleSlope` | full history | 2,436 | +0.004R | +0.0013 | +0.13 | no |
+| `gannAngleSlope` | since 90d | 69 | **−0.430R** | **−0.120** | **−2.29** | **yes** |
+
+Both t-values are computed the same way `lib/validation/health.ts#correlationSignificance` does
+and both clear `MIN_SIGNIFICANCE_T` (1.96) on the 90-day window while reading nowhere near it on
+the six-year one. The Execute bucket (score ≥7/9) shows the same shape one level up: **best**
+bucket over full history (+0.047R, n=622) and **worst** over the 90-day window (−0.479R, n=19).
+
+**This is not a new defect — it is the same two criteria this file already quarantines, on a run
+shaped exactly like the one their own exit conditions ask for.** Both `adxTrendStrength` and
+`gannAngleSlope` are already `evidence: "quarantined"` in `lib/validation/criteria-registry.ts`,
+each for a significant inversion found on 15Min data on 2026-09-10/11. Each entry's exit condition
+explicitly names "a `--since` window matched to the 1Hour run's period, isolating regime from
+timeframe" as the kind of run that could resolve the disagreement between the inverted 15Min
+reading and the earlier non-significant-positive 1Hour reading. This is that run — and it does not
+resolve it in the direction that would lift the quarantine. It reproduces a significant inversion,
+on 1Hour, isolated to the last 90 days specifically, layered on top of a genuinely
+non-significant full-history reading on the same symbols and criteria. Read together with the
+15Min findings already on file, the shape now looks less like "15Min is inverted, 1Hour is fine"
+and more like **the inversion is regime-dependent, not timeframe-dependent**: both timeframes read
+clean over a long, quiet-and-mixed history and both flip negative once the sample is restricted to
+the current ~90-day window.
+
+**Hypothesis, not yet confirmed.** n=19 in the Execute bucket is thin — a 3/19 win rate is not
+wildly improbable on its own against the population's ~34% base rate — and this project's standing
+rule (see "From attribution to weights" and the `masterStructural` question above) is not to
+re-weight or change code until an effect clears `lib/backtest/propose-weights.ts`'s out-of-sample
+guardrail: split chronologically, both halves agree on sign, effect clears `MIN_EFFECT_R` (0.1R).
+A single-window in-sample reading — even a statistically significant one — is exactly the shape of
+result that check exists to catch before it reaches the score, and neither
+`adxTrendStrength` nor `gannAngleSlope` has been run through it on a window that actually spans
+both regimes.
+
+What would settle it, in order:
+
+1. **`propose-weights` over a spanning window.** `POST /api/learning/propose-weights` (or the
+   **Proposed weights** panel on `/learning`) run over a window wide enough that the chronological
+   train/check split straddles the flip — e.g. anchored so the in-sample half falls mostly before
+   2026-06-17 and the out-of-sample half falls mostly after. If both `adxTrendStrength` and
+   `gannAngleSlope` come back `disagreed` (opposite-signed across the two halves), that itself is
+   the finding: these criteria are regime-unstable on the current sample and not safe to weight
+   either direction, which is a *different* conclusion from "the sign is negative" — it means the
+   two committed windows above are describing two different populations, not one criterion with one
+   true sign. If both halves agree negative and clear `MIN_EFFECT_R`, that is the first real
+   evidence toward inversion this file has for either criterion at 1Hour. **Not yet run.**
+2. **A `trades=1` pull for the 19 Execute trades themselves** —
+   `?trades=1&within=Execute&timeframe=1Hour&since=<90d-ago-ISO>&productionStop=1` — to see their
+   dates and symbols. A cluster around one or two volatile events (an earnings gap, one symbol's
+   regime change) would point to idiosyncratic noise dominating a thin bucket rather than a broad
+   market condition; a spread across symbols and dates would support a genuine regime effect worth
+   taking seriously even before it clears the out-of-sample check. **Not yet pulled.**
+
+**Do not act on this until both of the above exist**, and even then, per this project's standing
+practice, a passing out-of-sample result is a proposal to confirm with the user before touching
+`lib/scoring/score.ts`, `lib/scoring/weights.ts`, or flipping either registry entry's `evidence` —
+not something to ship on the strength of one dated write-up. Until then: `adxTrendStrength` and
+`gannAngleSlope` stay `quarantined` exactly as they are, no weight or threshold in
+`lib/scoring/weights.ts` changes, and this section is the record of why the two-window comparison
+above is suggestive rather than settled.
+
 ## Sample-size floor
 
 `attributeFactors` withholds a recommendation when either arm of a split has
