@@ -382,13 +382,14 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "(t=-0.55), both far short of |t|>=1.96. Not inverted, just uninformative, which is exactly what a " +
       "criterion this saturated would produce either way.\n" +
       "\n" +
-      "Not silently changed. A candidate fix — drop the projected key-price-level targets from the equity " +
-      "stop's structural pool " +
-      "and search clustered S/R only (the same source historicalSR reads), or tighten " +
-      "EQUITY_STOP_MAX_PCT/EQUITY_LARGE_CAP_STOP_MAX_PCT — is a real change to lib/strat/levels.ts and " +
-      "needs explicit confirmation before it ships, not a quiet constant tweak riding in on this finding. " +
-      "Exit condition: quarantine lifts once a re-measured unconditioned equity run lands the pass rate " +
-      "back inside [0.05, 0.95].",
+      "**Fix applied 2026-09-15, confirmed by user.** nearestStructuralStop's input split in two: " +
+      "`structuralLevels` (S/R only, feeds the stop) and a new `extensionLevels` param (defaults to " +
+      "`structuralLevels`; the production call site passes the old combined S/R+projected-level pool " +
+      "here instead) that feeds only the runner extension, which was never measured saturated — only the " +
+      "stop was. See computeEquityTradeLevels's own doc comments in lib/strat/levels.ts. " +
+      "**Quarantine stays in place** — a code fix is not a measurement. Exit condition unchanged: " +
+      "lifts once a re-measured unconditioned equity run (post-fix, live data) lands the pass rate " +
+      "back inside [0.05, 0.95]. That run has not happened yet.",
     note:
       "Below documents the pre-equity-model history: the ATR-multiple branch (`stopAtrMultiple >= " +
       "MIN_STOP_ROOM_ATR`), which every non-us_equity asset class still uses and which us_equity used " +

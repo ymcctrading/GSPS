@@ -587,11 +587,16 @@ failed arms of 6, 3, and 2, all under `MIN_SAMPLES_PER_ARM`): correlation is neg
 negligible (r=−0.016, t=−0.51; r=−0.005, t=−0.55 — both short of the ±1.96 significance bar). Not
 inverted, just uninformative, which is what a criterion this saturated produces either way.
 
-**Not silently changed.** A candidate fix — drop Gann targets from the equity stop's structural
-pool and search clustered S/R only (the same source `historicalSR` already reads), or tighten
-`EQUITY_STOP_MAX_PCT`/`EQUITY_LARGE_CAP_STOP_MAX_PCT` — needs explicit confirmation before it
-ships. Quarantine lifts once a re-measured unconditioned run lands the pass rate back inside
-[0.05, 0.95].
+**Fix applied 2026-09-15, confirmed by user.** `nearestStructuralStop`'s input is now split:
+`computeEquityTradeLevels`'s `structuralLevels` param feeds the stop alone (S/R only, same source
+`historicalSR` reads); a new `extensionLevels` param (defaults to `structuralLevels`) carries the
+old combined S/R+Gann pool for the runner extension only, which was never measured saturated —
+only the stop was. See `lib/strat/levels.ts`'s own doc comments.
+
+**Quarantine stays in place regardless — a code fix is not a measurement.** The exit condition is
+unchanged: it lifts once a re-measured unconditioned equity run against live data, post-fix, lands
+the pass rate back inside [0.05, 0.95]. That confirming run has not happened yet — it needs a
+fresh `?within=all&productionStop=1` capture the same way the original 6 runs were obtained.
 
 ### TP1/TP2/master clamp boundaries — not measurable from this data
 
