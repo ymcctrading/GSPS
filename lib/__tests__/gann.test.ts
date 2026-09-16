@@ -391,7 +391,7 @@ describe("computeScore", () => {
 
     expect(squared.score).toBe(notSquared.score + 1);
     expect(squared.breakdown.find((b) => b.criterion === "Price and time squared")?.passed).toBe(true);
-    expect(squared.breakdown.map((b) => b.criterion)).toHaveLength(10);
+    expect(squared.breakdown.map((b) => b.criterion)).toHaveLength(11);
     expect(squared.breakdown.some((b) => /earnings/i.test(b.criterion))).toBe(false);
   });
 

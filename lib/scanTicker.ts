@@ -35,6 +35,7 @@ import { computeRetracementLevels } from "@/lib/gann/retracement";
 import { priceTimeConfluence } from "@/lib/gann/digitalRoot";
 import { computeSwingChart } from "@/lib/gann/swingChart";
 import { computeRuleOfThree } from "@/lib/gann/ruleOfThree";
+import { computeOvernightChart } from "@/lib/gann/overnightChart";
 import { computeTimePriceSquare } from "@/lib/gann/timePriceSquare";
 import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
 import { adx } from "@/lib/signals/indicators";
@@ -167,6 +168,8 @@ export async function scanTicker(
     const swingChart = computeSwingChart(daily);
     // Gann's Rule of Three, added 2026-09-16 — see lib/gann/ruleOfThree.ts.
     const ruleOfThree = computeRuleOfThree(daily);
+    // Gann's Overnight Chart, added 2026-09-16 — see lib/gann/overnightChart.ts.
+    const overnightChart = computeOvernightChart(daily);
 
     // ---- Level 2: 1hr refinement
     const hourlyTrend = readTrend(hourly, "1Hour");
@@ -380,6 +383,7 @@ export async function scanTicker(
           hourlyAdx,
           swingChart,
           ruleOfThree,
+          overnightChart,
           timePriceSquare,
           volumeClimax,
           gann,

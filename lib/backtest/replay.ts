@@ -45,6 +45,7 @@ import { computeRetracementLevels } from "@/lib/gann/retracement";
 import { priceTimeConfluence } from "@/lib/gann/digitalRoot";
 import { computeSwingChart, type SwingChartReading } from "@/lib/gann/swingChart";
 import { computeRuleOfThree, type RuleOfThreeReading } from "@/lib/gann/ruleOfThree";
+import { computeOvernightChart, type OvernightChartReading } from "@/lib/gann/overnightChart";
 import { computeTimePriceSquare, type TimePriceSquareReading } from "@/lib/gann/timePriceSquare";
 import { computeVolumeClimax, type VolumeClimaxReading } from "@/lib/gann/volumeClimax";
 import { adx } from "@/lib/signals/indicators";
@@ -236,6 +237,7 @@ export interface MacroContext {
   macroTrends: TrendReading[];
   swingChart: SwingChartReading;
   ruleOfThree: RuleOfThreeReading;
+  overnightChart: OvernightChartReading;
   timePriceSquare: TimePriceSquareReading[];
   volumeClimax: VolumeClimaxReading[];
   gann: GannLevels;
@@ -269,6 +271,7 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
   const dailyTrend = readTrend(daily, "1Day");
   const swingChart = computeSwingChart(daily);
   const ruleOfThree = computeRuleOfThree(daily);
+  const overnightChart = computeOvernightChart(daily);
 
   const fanLines = computeFanLines(daily, price);
   const s9 = recentSquareOf9Levels(daily, price).slice(0, 12);
@@ -309,6 +312,7 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
     macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
     swingChart,
     ruleOfThree,
+    overnightChart,
     timePriceSquare,
     volumeClimax,
     gann: {
@@ -585,6 +589,7 @@ function scoreSetup(input: {
       hourlyAdx,
       swingChart: context.swingChart,
       ruleOfThree: context.ruleOfThree,
+      overnightChart: context.overnightChart,
       timePriceSquare: context.timePriceSquare,
       volumeClimax: context.volumeClimax,
       gann: context.gann,

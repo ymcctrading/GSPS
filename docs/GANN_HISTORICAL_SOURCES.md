@@ -500,21 +500,65 @@ second extraction pass): this gap is now substantially closed** — see
 the dedicated subsection after the astrology bullet below, sourced from
 a fuller text extraction of the same course the project owner supplied
 directly (tables/prose intact; illustrations necessarily dropped, since
-the source was a text extraction, not a re-scan). **Still open after that
-pass: the "Overnight Chart" mechanical system specifically** — Master Time
-Factor and the Hexagon Chart were recovered (see the Chapter 7 and Chapter
-15B subsections below), but nothing in the second extraction named or
-described "Overnight Chart" content, so its actual construction and rules
-remain unknown. A same-named live feature shipped 2026-09-16
-(`lib/analysis/extendedHours.ts`, pre-market/after-hours session extremes
-folded into the S/R pool every scoring criterion reads) is deliberately
-**not** presented as an implementation of this chapter — it is licensed
-instead by the already-fully-documented, session-agnostic "old tops and
-bottoms are resistance points" rule (the 1936 course chapter below, and the
-Square of Nine chapter's resistance-point definition). If a future
-extraction recovers "Overnight Chart" and it prescribes something more
-specific or different, that supersedes the current implementation — treat
-this as an open citation gap, not a closed one.
+the source was a text extraction, not a re-scan).
+
+**Update (2026-09-16, third pass): "Overnight Chart" — Chapter 3, now read
+in full.** The project owner's own Drive holds the actual extracted text
+(`wdgannbook stock market course.pdf`, and a synthesis doc built from it) —
+a prior session in this catalog had access only to a partial extraction and
+had flagged this chapter as unread; that was corrected by reading the
+source directly rather than continuing to describe it as an open gap.
+Despite the name, this chapter has **nothing to do with a pre/post-market
+trading session** — a live feature shipped earlier the same day under a
+similar name (`lib/analysis/extendedHours.ts`, real session-based
+pre-market/after-hours highs and lows) is a different, unrelated concept
+and is **not** an implementation of this chapter; that feature remains
+licensed by the separate, already-documented "old tops and bottoms are
+resistance points" rule instead (the 1936 course chapter below, and the
+Square of Nine chapter's resistance-point definition).
+
+"Overnight Chart," in Gann's own words, is **a mechanical trailing-reversal
+chart built purely from the daily high/low chart** — a name he chose,
+not a description of session timing. Full construction rule (Chapter 3,
+"Method for Trading with the Overnight Chart — Mechanical Stock Trading
+Method"): as long as a stock makes higher daily bottoms, the chart trails
+up to each new bottom; the first day it makes 1/4 point or more under a
+previous day's bottom, the chart drops to that level, but the highest top
+reached before it turns is always recorded first (the value it jumps to on
+the next reversal) — mirrored for a downtrend trailing tops. Two named
+refinements: a day making both a higher bottom and a lower top moves the
+chart to that day's top instead ("the Overnight Chart is based on
+bottoms"); a wide/outside day (new high and new low the same session)
+touches the chart up to the top before settling it at the low. Nine
+numbered trading rules follow: double/triple-top-or-bottom entries with a
+stop 1 point beyond (Rule 1); a 4th touch at the same level "nearly always
+goes through" (Rule 2); Resistance-Level-anchored entries at the
+1/2-2/3-3/4 points (Rule 3); reverse AND double up every time a stop is
+caught (Rule 4) — the chapter's central mechanical instruction; a
+scale-down pyramiding schedule, half-sized every 3-5 points (Rule 5); wait
+for a confirmed trend change on very active/fast stocks near highs before
+reversing (Rule 6); after any big advance/decline, reverse and go with the
+new trend (Rule 7); a 3-day/week/month same-price close signaling a
+trend change (Rule 8, explicitly non-binding — "not necessary... at all in
+connection with the Overnight Chart"); and the first 3-full-point move from
+a low/high as a minor-trend reversal tell (Rule 9) — the same point-
+magnitude idea already live as the "3-point rule" in
+`lib/lifecycle/entryConfirmation.ts`, not a new citation. Money management:
+never risk more than 3 points on an initial trade, $3,000 capital per
+100-share lot, total pyramid risk capped at 10% of capital.
+
+**Implemented 2026-09-16** as the eleventh scored criterion,
+`overnightChartReversal` (`lib/gann/overnightChart.ts`,
+`lib/scoring/weights.ts`, `lib/validation/criteria-registry.ts`'s own
+entry) — the trailing-chart construction and its two stated refinements,
+faithfully. **Deliberately not implemented**, and stated as an intentional
+exception rather than a silent gap: Rules 1-3's specific stop-loss
+placement (a different subsystem's job — `lib/strat/levels.ts` already
+anchors stops to structural levels), and Rules 4-5's reverse-and-
+double-up/pyramiding money management, which needs live account and
+position state a per-symbol scan reading does not have. A future session
+wiring Gann-style pyramiding into the Automated Portfolio Manager should
+start from this chapter, not re-derive it.
 
 This is the single most significant addition from this session, because
 it directly confirms, in Gann's own voice, several techniques the rest

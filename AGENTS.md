@@ -135,8 +135,12 @@ diff. `docs/GANN_PLATFORM_AUDIT.md`'s Part 4 items, wired in live on
 2026-09-16 (a new tenth scored criterion, `ruleOfThree`; the "3-point rule"
 buffer in `lib/lifecycle/entryConfirmation.ts`; the "resistance points near
 same levels" clustering in `lib/strat/levels.ts`; the fixed annual calendar
-cycle in `lib/gann/timeCycles.ts`), plus the extended-hours S/R levels added
-the same day (see the standing principle above this one and its own entry
+cycle in `lib/gann/timeCycles.ts`), plus an eleventh scored criterion,
+`overnightChartReversal` (`lib/gann/overnightChart.ts`), added the same day
+once the Master Stock Market Course's "Overnight Chart" chapter — previously
+logged as unread in `docs/GANN_HISTORICAL_SOURCES.md` — was actually read in
+full from the project owner's own source extraction, and the extended-hours
+S/R levels also added the same day (see the standing principle above this one and its own entry
 below), are the standing worked example of this
 principle in practice — each carries an inline comment pointing back here
 and to that document's Part 4.

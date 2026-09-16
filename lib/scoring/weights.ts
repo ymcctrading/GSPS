@@ -26,15 +26,23 @@
  */
 
 /**
- * Stable ids for the ten scored criteria.
+ * Stable ids for the eleven scored criteria.
  *
- * `ruleOfThree` added 2026-09-16 — the tenth, per AGENTS.md's "WD Gann
+ * `ruleOfThree` added 2026-09-16 as the tenth, per AGENTS.md's "WD Gann
  * precedence" principle and `docs/GANN_PLATFORM_AUDIT.md` Part 4 item 1:
  * Gann's own highest-conviction disclosed rule (`Wall Street Stock
  * Selector`, 1930), wired live ahead of this codebase's normal
  * unmeasured -> attribution -> in/out-of-sample gate. See
  * `lib/gann/ruleOfThree.ts` and `lib/validation/criteria-registry.ts`'s
  * `ruleOfThree` entry.
+ *
+ * `overnightChartReversal` added 2026-09-16, same day and same precedence
+ * rule: the Master Stock Market Course's "Overnight Chart" chapter (see
+ * `lib/gann/overnightChart.ts`'s own doc comment) had been flagged as
+ * unread in `docs/GANN_HISTORICAL_SOURCES.md` — it has now actually been
+ * read in full from the project owner's own extraction, and its mechanical
+ * trend-reading rule is wired in the same day it was found rather than left
+ * queued.
  */
 export const CRITERION_KEYS = [
   "swingChartTrend",
@@ -47,6 +55,7 @@ export const CRITERION_KEYS = [
   "timePriceSquare",
   "gannRetracementConfluence",
   "ruleOfThree",
+  "overnightChartReversal",
 ] as const;
 
 export type CriterionKey = (typeof CRITERION_KEYS)[number];
@@ -72,11 +81,12 @@ export const CRITERION_LABELS: Record<CriterionKey, string> = {
   timePriceSquare: "Price and time squared",
   gannRetracementConfluence: "Retracement + signal-flow confluence",
   ruleOfThree: "Rule of Three (consecutive closes confirm direction)",
+  overnightChartReversal: "Overnight Chart trend (Gann's trailing reversal chart)",
 };
 
 export type CriterionWeights = Record<CriterionKey, number>;
 
-/** Total points a full weight set distributes. Ten criteria, ten points. */
+/** Total points a full weight set distributes. Eleven criteria, eleven points. */
 export const TOTAL_POINTS = CRITERION_KEYS.length;
 
 /**
@@ -108,9 +118,13 @@ export const TOTAL_POINTS = CRITERION_KEYS.length;
  * clear are two different questions; this preserves the existing stopgap's
  * answer to the second one exactly, rather than quietly changing it as a
  * side effect of the first.
+ *
+ * Rescaled again the same day, 6.67/3.89 (out of 10) to 7.33/4.28 (out of
+ * 11), when `overnightChartReversal` became the eleventh criterion — same
+ * reasoning, same 66.7%/38.9% relative bar carried forward exactly.
  */
-export const EXECUTE_SCORE_THRESHOLD = 6.67;
-export const WATCH_SCORE_THRESHOLD = 3.89;
+export const EXECUTE_SCORE_THRESHOLD = 7.33;
+export const WATCH_SCORE_THRESHOLD = 4.28;
 
 /**
  * Floor and ceiling for one criterion's weight. A criterion may end up worth
@@ -161,6 +175,10 @@ export const MAX_WEIGHT = 2;
  * sum to the new `TOTAL_POINTS` (10) is why the other nine shift by a small,
  * uniform amount relative to their pre-2026-09-16 values — not a re-judgment
  * of any of them.
+ *
+ * `overnightChartReversal: 1.0` added the same day, same neutral treatment —
+ * see `lib/gann/overnightChart.ts` and `lib/validation/criteria-registry.ts`'s
+ * `overnightChartReversal` entry.
  */
 export const DEFAULT_CRITERION_WEIGHTS: CriterionWeights = normalizeWeights({
   historicalSR: 1.99,
@@ -169,6 +187,7 @@ export const DEFAULT_CRITERION_WEIGHTS: CriterionWeights = normalizeWeights({
   volumeClimax: 1.3,
   patternArmed: 1.0,
   ruleOfThree: 1.0,
+  overnightChartReversal: 1.0,
   timePriceSquare: 0.6,
   gannAngleSlope: 0.5,
   gannRetracementConfluence: 0.5,

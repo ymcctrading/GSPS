@@ -1,7 +1,8 @@
 /**
- * The Score out of `TOTAL_POINTS` (10, since `ruleOfThree` joined 2026-09-16
- * — see `lib/scoring/weights.ts`) — one point per confirmed confluence
- * condition, weighted by `CriterionWeights`. Execute at
+ * The Score out of `TOTAL_POINTS` (11, since `overnightChartReversal` joined
+ * 2026-09-16, the same day as `ruleOfThree` — see `lib/scoring/weights.ts`)
+ * — one point per confirmed confluence condition, weighted by
+ * `CriterionWeights`. Execute at
  * `EXECUTE_SCORE_THRESHOLD`+, Watch at `WATCH_SCORE_THRESHOLD`+, Reject
  * below — see those constants' own comments for the current values and why;
  * this header stopped restating the literal numbers after they drifted from
@@ -30,6 +31,7 @@ import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 import type { AdxReading } from "@/lib/signals/indicators";
 import type { SwingChartReading } from "@/lib/gann/swingChart";
 import type { RuleOfThreeReading } from "@/lib/gann/ruleOfThree";
+import type { OvernightChartReading } from "@/lib/gann/overnightChart";
 import type { TimePriceSquareReading } from "@/lib/gann/timePriceSquare";
 import { VOLUME_CLIMAX_THRESHOLD, type VolumeClimaxReading } from "@/lib/gann/volumeClimax";
 import {
@@ -61,6 +63,14 @@ export interface ScoreInputs {
    * fail the same way a missing swing-chart reading does.
    */
   ruleOfThree?: RuleOfThreeReading | null;
+  /**
+   * Gann's "Overnight Chart" trailing reversal chart off the daily highs/lows
+   * (`lib/gann/overnightChart.ts#computeOvernightChart`) — see that module's
+   * header for the full construction rule and what it deliberately excludes
+   * (stop sizing, pyramiding). `mode` null (not enough history yet) scores as
+   * a fail the same way a missing swing-chart reading does.
+   */
+  overnightChart?: OvernightChartReading | null;
   /**
    * Gann's squaring of price and time off the daily bars
    * (`lib/gann/timePriceSquare.ts#computeTimePriceSquare`) — bars elapsed
@@ -185,7 +195,7 @@ export const MIN_STOP_ROOM_ATR = 1.5;
 
 export function computeScore(inputs: ScoreInputs): ScanDecision {
   const {
-    direction, hourlyAdx, swingChart, ruleOfThree, timePriceSquare, volumeClimax, gann,
+    direction, hourlyAdx, swingChart, ruleOfThree, overnightChart, timePriceSquare, volumeClimax, gann,
     nearSupportResistance, srMatch, pattern, levels, stopAtrMultiple, assetClass,
     setupKind = "reversion",
     atrPct,
@@ -214,6 +224,18 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   const ruleOfThreeHolding =
     ruleOfThree != null &&
     (direction === "bullish" ? ruleOfThree.bullishSignal : ruleOfThree.bearishSignal);
+
+  // Added 2026-09-16: Gann's "Overnight Chart" (see lib/gann/overnightChart.ts's
+  // header for the full construction rule, read from the Master Stock Market
+  // Course's Chapter 3). Passes when the chart's current trailing direction —
+  // "up" tracking rising bottoms, "down" tracking falling tops — agrees with
+  // the trade's own direction, the same "is this reading pointed the way the
+  // trade is" test swingChartTrend and ruleOfThree already apply to their own
+  // constructions.
+  const overnightChartAligned =
+    overnightChart != null &&
+    overnightChart.mode != null &&
+    (direction === "bullish" ? overnightChart.mode === "up" : overnightChart.mode === "down");
 
   // 2026-09-10: replaces hourlyTrend. hourlyTrend's own leniency (an
   // ambiguous "sideways" hourly read counted as agreement) never cleared the
@@ -478,6 +500,18 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
             : direction === "bullish"
               ? `Only ${ruleOfThree.consecutiveHigherCloses} consecutive higher close(s) — the Rule of Three needs 2 to confirm an upturn.`
               : `Only ${ruleOfThree.consecutiveLowerCloses} consecutive lower close(s) — the Rule of Three needs 3 to confirm a downturn.`,
+    },
+    {
+      key: "overnightChartReversal",
+      criterion: "Overnight Chart trend (Gann's trailing reversal chart)",
+      pillar: "trend",
+      passed: overnightChartAligned,
+      note:
+        overnightChart == null || overnightChart.mode == null
+          ? "Not enough daily history to establish the Overnight Chart's trailing direction."
+          : overnightChartAligned
+            ? `Overnight Chart trailing ${overnightChart.mode === "up" ? "rising bottoms" : "falling tops"} at ${overnightChart.level?.toFixed(2)}, agreeing with the ${direction} call${overnightChart.justFlipped ? " — just reversed onto this side." : "."}`
+            : `Overnight Chart is trailing ${overnightChart.mode === "up" ? "rising bottoms" : "falling tops"} at ${overnightChart.level?.toFixed(2)} — the opposite side from the ${direction} call.`,
     },
   ];
 
