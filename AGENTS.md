@@ -122,12 +122,80 @@ This principle does not override AGENTS.md's other explicit, user-directed
 overrides above and below (the 1Hour execution timeframe, the Execute-
 collapse weight stopgap) — those have their own stated reasons and revert
 triggers and are not "GSPS's current approach vs. Gann" conflicts in the
-sense this section addresses. It also does not license inventing Gann lore
-that no source actually documents — `GANN_SARA_CONFLUENCE.md`'s "no new
-numerology without an authorized specification" rule still holds; this
-section is about *disclosed* Gann material losing out to GSPS's own
-un-Gann-derived design choices, not about license to guess at what Gann
-"would have wanted."
+sense this section addresses.
+
+**On `GANN_SARA_CONFLUENCE.md`'s numerology rule and `lib/gann/digitalRoot.ts`'s
+conservative treatment (updated 2026-09-16, project owner direction):**
+both are superseded specifically by principles genuinely tied to Gann and
+his methodology — not weakened in general. The "no new numerology without
+an authorized specification" rule still holds as the guard against
+*inventing* Gann lore nobody ever documented; what changed is what counts
+as authorized. `docs/GANN_HISTORICAL_SOURCES.md` (the 25-document catalog)
+and `docs/GANN_METHODOLOGY_FULL_REPORT.md` (§18.5, which states this
+explicitly: "this report itself is the authorized specification" for the
+techniques it documents, each traced to a cited primary source — A2.1,
+A2.3 — not an inference) together are that authorization. So: a numerology
+or astrology technique with no citable Gann source is still off-limits,
+full stop. A technique citably his own — even one GSPS previously treated
+as conservatively as `digitalRoot.ts` does today (confluence-only, never
+independently gating) — can be built out further when Gann's own
+methodology calls for it, per this same precedence rule.
+
+## Hermetic principles & cycle theory — standing background lens
+
+Per the project owner's explicit, standing direction (2026-09-16): the
+seven Hermetic principles (Mentalism, Correspondence, Vibration, Polarity,
+Rhythm, Cause and Effect, Gender) and the general cycle-theory material in
+`docs/GANN_HISTORICAL_SOURCES.md` Part C (Dewey's Foundation for the Study
+of Cycles, Tomes' harmonic-resonance cycle theory) are a standing design
+lens for this codebase going forward — considered by default in every
+session's Gann-adjacent work, not opted into case by case.
+
+**What this means concretely.** Read these as a background frame that
+shapes what gets prioritized and how a candidate is framed — not as
+settled fact that can, on its own, move a threshold, a weight, or an
+architectural decision. The load-bearing distinction, carried over
+unchanged from the "WD Gann precedence" section above: a technique
+citably tied to Gann's own methodology (or to the cycle-theory literature's
+own rigorous validation standard) gets built and takes precedence over
+GSPS's prior, more conservative treatment. A belief about numbers, cycles,
+or vibration with no citable source, or that hasn't cleared **Dewey's own
+cycle-validation checklist** — dominance, regularity of timing, repetition
+count, constancy of period, phase-resumption after distortion, wave-shape
+identity, cross-series clustering — stays exactly where `lib/gann/
+digitalRoot.ts` already sits today: real, running, clearly labeled as a
+hypothesis, confluence-only, never able to independently gate a live
+verdict. Building this out is real work for future sessions
+(`docs/GANN_METHODOLOGY_FULL_REPORT.md` §18.4 sequences it explicitly:
+cheapest/most literal Gann rules first, the astrology/numerology module
+family last, after the rest of the system is re-tested) — this section
+establishes the mindset and the citation discipline, not a mandate to
+build the whole layer in one session.
+
+**Two things this section does NOT do, stated precisely so neither drifts
+into becoming assumed history:**
+
+- It does not establish, and no document in this repo establishes, that
+  any existing GSPS constant (`TOTAL_POINTS`'s historical value of 9
+  scored criteria included) was chosen for Hermetic, vibrational, or
+  numerological reasons. That was a live question raised in this session;
+  the honest answer, checked against `lib/scoring/weights.ts`'s own doc
+  comments and every commit history available, is that it wasn't — the
+  criteria count changed repeatedly over time as checks were added,
+  retired, and replaced, tracking `CRITERION_KEYS.length` mechanically,
+  not a numerological target. Going forward, a Hermetic/cycle-theory
+  framing may legitimately *shape new design decisions* (per this
+  section); it does not retroactively become the reason past ones were
+  made.
+- It does not resolve, in either direction, the specific tension between
+  `GANN_HISTORICAL_SOURCES.md` B2 (digital-root reduction — "casting out
+  nines" — is arithmetic mod 9, true of any multiple of 9 by construction,
+  not a market discovery) and Part C's Tomes material (cycle *lengths*
+  settling into small integer ratios, a physical-resonance claim). These
+  are different claims about different things; Part C provides real,
+  separately-testable evidence for the second claim, and doesn't overturn
+  the first one's narrower arithmetic point. Cite each for what it actually
+  says, not for a combined claim neither source makes on its own.
 
 ## Temporary overrides — mandatory, check on every session
 
