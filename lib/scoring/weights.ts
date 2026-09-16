@@ -33,7 +33,16 @@
  */
 
 /**
- * Stable ids for the ten scored criteria.
+ * Stable ids for the nine scored criteria.
+ *
+ * `adxTrendStrength` removed 2026-09-16 (project owner direction) — see
+ * `lib/validation/criteria-registry.ts`'s RETIRED entry for it. It was the
+ * one scored criterion with no Gann lineage at all: Wilder's ADX/DMI,
+ * adopted into `lib/signals/regime.ts` as the trend-confirmation overlay
+ * this codebase uses *instead of* PSAR/Supertrend, then propagated into
+ * this scorecard for consistency. The Signal & Regime Engine still wants
+ * that indicator and still calls `adx()`; the scorecard does not, so the
+ * criterion comes out and is deliberately NOT replaced with anything.
  *
  * `ruleOfThree` added 2026-09-16 — the tenth, per AGENTS.md's "WD Gann
  * precedence" principle and `docs/GANN_PLATFORM_AUDIT.md` Part 4 item 1:
@@ -45,7 +54,6 @@
  */
 export const CRITERION_KEYS = [
   "swingChartTrend",
-  "adxTrendStrength",
   "gannAngleSlope",
   "volumeClimax",
   "historicalSR",
@@ -70,7 +78,6 @@ export type BreakdownKey = CriterionKey | HoldKey;
 /** Short labels for the factor tables, where the full criterion text is too wide. */
 export const CRITERION_LABELS: Record<CriterionKey, string> = {
   swingChartTrend: "3-day/9-day swing chart trend",
-  adxTrendStrength: "1-hour trend strength (ADX/DMI)",
   gannAngleSlope: "Structural trend-angle strength (1x2+)",
   volumeClimax: "Volume climax at the anchor pivot",
   historicalSR: "Historical support/resistance",
@@ -83,7 +90,7 @@ export const CRITERION_LABELS: Record<CriterionKey, string> = {
 
 export type CriterionWeights = Record<CriterionKey, number>;
 
-/** Total points a full weight set distributes. Ten criteria, ten points. */
+/** Total points a full weight set distributes. Nine criteria, nine points. */
 export const TOTAL_POINTS = CRITERION_KEYS.length;
 
 /**
@@ -117,9 +124,24 @@ export const TOTAL_POINTS = CRITERION_KEYS.length;
  * clear are two different questions; this preserves the existing stopgap's
  * answer to the second one exactly, rather than quietly changing it as a
  * side effect of the first.
+ *
+ * Rescaled back to 6/3.5 later the same day when `adxTrendStrength` was
+ * removed and `TOTAL_POINTS` returned to 9 — the identical arithmetic in the
+ * other direction (66.7% and 38.9% of 9 are 6.00 and 3.50), and for the
+ * identical reason: changing the criteria count is not a decision about how
+ * hard the bar should be. The stopgap's own answer to that question is
+ * untouched, and its revert trigger below still stands.
+ *
+ * Note this removal should, if anything, *widen* the Execute bucket rather
+ * than starve it further: `adxTrendStrength` passed on only ~28% of trades
+ * and measured negative (−0.245R on
+ * `docs/replay-runs/2026-09-11-15Min-2R-within-all.json`), so the setups it
+ * was costing a point were disproportionately the ones this scorecard is
+ * trying to find. That is the opposite direction from the starvation problem
+ * the override below exists to patch.
  */
-export const EXECUTE_SCORE_THRESHOLD = 6.67;
-export const WATCH_SCORE_THRESHOLD = 3.89;
+export const EXECUTE_SCORE_THRESHOLD = 6;
+export const WATCH_SCORE_THRESHOLD = 3.5;
 
 /**
  * Floor and ceiling for one criterion's weight. A criterion may end up worth
@@ -143,11 +165,14 @@ export const MAX_WEIGHT = 2;
  * set, not a placeholder.
  *
  * **Restored to uniform 2026-09-16**, replacing the hand-set distribution
- * that stood from 2026-09-14 (historicalSR 1.99, stopRoom 1.8,
+ * that stood from 2026-09-14: historicalSR 1.99, stopRoom 1.8,
  * swingChartTrend/volumeClimax 1.3, patternArmed/ruleOfThree 1.0,
- * timePriceSquare 0.6, and gannAngleSlope/gannRetracementConfluence/
- * adxTrendStrength at `MIN_WEIGHT`). Two standing principles in AGENTS.md
- * decide this, and neither is about those numbers measuring badly:
+ * timePriceSquare 0.6, gannAngleSlope/gannRetracementConfluence at
+ * `MIN_WEIGHT` (plus `adxTrendStrength` at `MIN_WEIGHT` until the criterion
+ * was discarded entirely earlier the same day — see `CRITERION_KEYS`).
+ *
+ * Two standing principles in AGENTS.md decide this, and neither is about
+ * those numbers measuring badly:
  *
  *   - "Gann-derived AND measured" — the old distribution was built by
  *     treating attribution as a verdict on the criteria themselves,
