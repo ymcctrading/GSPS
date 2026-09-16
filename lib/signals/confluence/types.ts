@@ -21,6 +21,7 @@ import type { DecadeCycleReading } from "@/lib/gann/decadeCycle";
 import type { MasterTwelveLevel } from "@/lib/gann/masterTwelve";
 import type { SquareOf52Result } from "@/lib/gann/squareOf52";
 import type { AngleMonthCountResult } from "@/lib/gann/angleMonthCounts";
+import type { SpectralCycleReading } from "@/lib/gann/spectralCycle";
 import type { MarketAdapterStatus, SupportedMarket } from "./marketAdapters";
 
 /**
@@ -139,6 +140,16 @@ export interface GannConfluenceResult {
    * pivots, no lost-illustration dependency. See `lib/gann/angleMonthCounts.ts`.
    */
   angleMonthCounts: AngleMonthCountResult;
+  /**
+   * Fourier/spectral dominant-cycle detection (`docs/GANN_HISTORICAL_SOURCES.md`
+   * A3, B1) — Gann's own "harmonic analysis"/"Law of Vibration" claim,
+   * reconstructed as a real periodogram-style detector. Confluence/context
+   * only, gated through Dewey's cycle-validation checklist per AGENTS.md's
+   * "Hermetic principles & cycle theory" standing principle — a labeled
+   * hypothesis, never a scored criterion, same treatment as `decadeCycle`
+   * above. See `lib/gann/spectralCycle.ts`.
+   */
+  spectralCycle: SpectralCycleReading;
   /**
    * Blueprint §8.5's normalized Gann-angle slope — realized ATR-units-per-bar
    * since the anchor, and which fixed angle ratio (1x4…4x1) that's closest

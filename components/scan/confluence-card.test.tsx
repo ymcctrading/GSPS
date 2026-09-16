@@ -76,6 +76,15 @@ describe("ConfluenceCard", () => {
           nearestMasterTwelve: null,
           squareOf52: { active: false, dates: [] },
           angleMonthCounts: { active: false, dates: [] },
+          spectralCycle: {
+            active: false,
+            dominantPeriodBars: null,
+            dominancePower: null,
+            repetitionCount: null,
+            periodConsistent: null,
+            hypothesisOnly: true,
+            note: "",
+          },
           vortexContext: {
             priceDisplacement: {
               rawValue: 25,

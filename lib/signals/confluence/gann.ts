@@ -45,6 +45,7 @@ import { computeDecadeCycle } from "@/lib/gann/decadeCycle";
 import { masterTwelveLevels, nearestMasterTwelveLevel } from "@/lib/gann/masterTwelve";
 import { squareOf52Windows } from "@/lib/gann/squareOf52";
 import { angleMonthCounts as computeAngleMonthCounts } from "@/lib/gann/angleMonthCounts";
+import { detectSpectralCycle } from "@/lib/gann/spectralCycle";
 import {
   buildDigitalRootFeature,
   classifyConfluence,
@@ -118,6 +119,15 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
       nearestMasterTwelve: null,
       squareOf52: { active: false, dates: [] },
       angleMonthCounts: { active: false, dates: [] },
+      spectralCycle: {
+        active: false,
+        dominantPeriodBars: null,
+        dominancePower: null,
+        repetitionCount: null,
+        periodConsistent: null,
+        hypothesisOnly: true,
+        note: reason,
+      },
       vortexContext: {
         priceDisplacement: null,
         timeDisplacement: null,
@@ -160,6 +170,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
   const nearestMasterTwelve = nearestMasterTwelveLevel(masterTwelveLevels(majorLow, inputs.currentPrice));
   const squareOf52 = squareOf52Windows(inputs.dailyBars);
   const angleMonthCountsResult = computeAngleMonthCounts(inputs.dailyBars);
+  const spectralCycle = detectSpectralCycle(inputs.dailyBars);
 
   // Digital Root/Vortex context (blueprint sections 2, 7, 18): price_dr from
   // the normalized tick displacement off the anchor, time_dr from bars
@@ -255,6 +266,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
       `Active 36-angle month-count window (nearby dates: ${angleMonthCountsResult.dates.slice(0, 3).join(", ") || "n/a"}).`,
     );
   }
+  explanationTrace.push(`Spectral cycle: ${spectralCycle.note}`);
   explanationTrace.push(
     cycles.active
       ? `Active structural time-cycle window (nearby dates: ${cycles.dates.slice(0, 3).join(", ") || "n/a"}).`
@@ -298,6 +310,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
     nearestMasterTwelve,
     squareOf52,
     angleMonthCounts: angleMonthCountsResult,
+    spectralCycle,
     vortexContext,
     angleSlope,
     coordinateLedger,

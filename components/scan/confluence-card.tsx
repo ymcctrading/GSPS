@@ -107,6 +107,12 @@ function GannRow({ result }: { result: NonNullable<ScanResult["signals"]>["gannC
             <p className="text-muted">36-angle month-count</p>
             <p className="font-mono font-semibold">{result.angleMonthCounts.active ? "Active" : "None"}</p>
           </div>
+          <div className="rounded-md border border-border bg-surface p-2">
+            <p className="text-muted">Spectral cycle (hypothesis)</p>
+            <p className="font-mono font-semibold">
+              {result.spectralCycle.active ? `~${result.spectralCycle.dominantPeriodBars} bars` : "None"}
+            </p>
+          </div>
         </div>
       )}
     </div>
