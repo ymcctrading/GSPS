@@ -122,54 +122,63 @@ export const MIN_WEIGHT = 0.5;
 export const MAX_WEIGHT = 2;
 
 /**
- * TEMPORARY OVERRIDE (since 2026-09-14) — see AGENTS.md's "Temporary
- * overrides" section, `DEFAULT_CRITERION_WEIGHTS` entry, for the full
- * reasoning and the mandatory revert trigger.
+ * Fallback weight set — used only when `learning_models` has no `live`
+ * `score_adjustment` row to read (`lib/scoring/active-weights.ts`), or when
+ * no explicit weights are supplied to `lib/scoring/score.ts` directly (a
+ * unit test, a script). It is not what a configured deployment actually
+ * scores with any more — see below.
  *
- * No longer "one point each." This is the fallback every real caller
- * actually scores with today: `lib/scoring/score.ts` falls back to it when
- * no explicit weights are supplied, and `lib/scoring/active-weights.ts`
- * falls back to it whenever no weight set has been promoted to `live` in
- * `learning_models` — which, as of this change, is every deployment, so
- * this constant *is* production's live weight set, not a placeholder.
+ * SUPERSEDED (2026-09-16, migration `0065_promote_score_adjustment_v1.sql`):
+ * this constant previously carried the 2026-09-14 "Execute collapse"
+ * stopgap values by hand (see AGENTS.md's "Temporary overrides" section,
+ * `DEFAULT_CRITERION_WEIGHTS` entry, for that history). It has now been
+ * replaced with the values from the first real, measured proposal:
+ * `lib/backtest/propose-weights.ts` run against 991 real Alpaca-sourced
+ * 15Min/2R trades (SPY, AAPL, AMD, TSLA, MSFT, NVDA, 2026-07-20 to
+ * 2026-09-16), attributed `within=all` — the unconditioned population,
+ * the only scope the proposal endpoint's own design avoids Execute-
+ * selection collider bias from (see `app/api/learning/propose-weights/
+ * route.ts`'s comment) — and split chronologically at 2026-08-27 (693
+ * in-sample / 298 out-of-sample, both clearing `MIN_TRADES_PER_HALF`).
+ * That proposal was written as `learning_models` draft v1 and promoted to
+ * `live` by the project owner the same day; this constant is kept in sync
+ * with that row's `coefficients.criterion_weights` so a deployment with no
+ * reachable `learning_models` table (or a test) still scores with the last
+ * real measurement rather than silently reverting to the 2026-09-14
+ * hand-set numbers.
  *
- * Hand-set from `docs/replay-runs/2026-09-11-15Min-2R-within-all.json`'s
- * factors table (1061 unconditioned trades) rather than run through
- * `lib/backtest/propose-weights.ts`'s proper in/out-of-sample split — there
- * was only one committed run to work from, not the two chronological halves
- * that function requires, so this is a judgment call sized in the same
- * direction its step formula would move, not that function's own output.
- * Four criteria measured positive and either validated or consistently
- * reproducing (historicalSR, stopRoom, swingChartTrend, volumeClimax) are
- * moved up; four measured negative on this run, two of them independently
- * quarantined for a significant inversion (adxTrendStrength, gannAngleSlope,
- * gannRetracementConfluence, timePriceSquare) are dropped to `MIN_WEIGHT`;
- * `patternArmed` (structurally necessary, unmeasurable by construction)
- * stays near 1. Values before `normalizeWeights()`'s clamp-and-rescale:
- * historicalSR 1.99 (nudged 0.01 off the intended 2.0 so the rounded,
- * renormalized set lands on exactly 9.00 rather than 9.01 — `round()`
- * rounds each weight to 2 decimals after rescaling, which can drift the sum
- * by a cent), stopRoom 1.8, swingChartTrend 1.3, volumeClimax 1.3,
- * patternArmed 1.0, timePriceSquare 0.6, gannAngleSlope 0.5,
- * gannRetracementConfluence 0.5, adxTrendStrength 0.5.
+ * Only `historicalSR` actually moved on real, agreeing, out-of-sample
+ * evidence (+0.283R in-sample, +0.109R out-of-sample — 1.88 → 1.97).
+ * `adxTrendStrength`/`gannAngleSlope` were already pinned at `MIN_WEIGHT`
+ * and stayed there. Every other criterion — including `ruleOfThree`, the
+ * Gann-precedence criterion added 2026-09-16 — either disagreed in sign
+ * between the two halves (`swingChartTrend`, `gannRetracementConfluence`,
+ * `ruleOfThree`: +0.301R in-sample, -0.221R out-of-sample), was too small
+ * to clear `MIN_EFFECT_R` (`volumeClimax`, `timePriceSquare`), or was
+ * unreadable (`patternArmed` structurally constant; `stopRoom`'s
+ * out-of-sample half too thin to trust despite a large raw number), so per
+ * `propose-weights.ts`'s own guardrails those weights correctly held.
  *
- * `ruleOfThree: 1.0` added 2026-09-16, same treatment `patternArmed` got
- * when it was new and unmeasured — neutral, not thumbed toward either
- * validated or quarantined, since nothing has scored it yet (see
- * `lib/validation/criteria-registry.ts`'s `ruleOfThree` entry). Its raw
- * weight joining the set before `normalizeWeights()` rescales everything to
- * sum to the new `TOTAL_POINTS` (10) is why the other nine shift by a small,
- * uniform amount relative to their pre-2026-09-16 values — not a re-judgment
- * of any of them.
+ * NOT superseded by this promotion: `EXECUTE_SCORE_THRESHOLD` and
+ * `WATCH_SCORE_THRESHOLD` above — `propose-weights.ts` only ever proposes
+ * *weights*, nothing in this codebase re-derives the thresholds
+ * automatically, so they remain the 2026-09-14 hand-set stopgap values
+ * until a separate, deliberate pass re-derives them. Also not (yet) fully
+ * satisfied: AGENTS.md's stopgap-revert wording calls for "the run's
+ * actual Execute-bucket attribution" at n≥30 Execute trades — this
+ * promotion used the statistically valid `within=all` scope instead (the
+ * Execute-bucket scope has the collider-bias problem cited above), and the
+ * 15Min Execute bucket itself is still only 25 trades. See AGENTS.md's
+ * "Temporary overrides" section for the reconciled note.
  */
 export const DEFAULT_CRITERION_WEIGHTS: CriterionWeights = normalizeWeights({
-  historicalSR: 1.99,
-  stopRoom: 1.8,
-  swingChartTrend: 1.3,
-  volumeClimax: 1.3,
-  patternArmed: 1.0,
-  ruleOfThree: 1.0,
-  timePriceSquare: 0.6,
+  historicalSR: 1.97,
+  stopRoom: 1.67,
+  swingChartTrend: 1.21,
+  volumeClimax: 1.21,
+  patternArmed: 0.94,
+  ruleOfThree: 0.94,
+  timePriceSquare: 0.56,
   gannAngleSlope: 0.5,
   gannRetracementConfluence: 0.5,
   adxTrendStrength: 0.5,

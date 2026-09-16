@@ -297,6 +297,42 @@ be asked twice; raise it as soon as such a run is captured in `docs/replay-runs/
 the fresh run's `propose-weights.ts` output and threshold re-derivation actually say, delete this
 section and the four `TEMPORARY OVERRIDE` code comments that point to it, and run
 `lib/validation/__tests__/criteria-gate.test.ts` plus the full test suite to confirm the new numbers
+
+**Status update (2026-09-16) — `DEFAULT_CRITERION_WEIGHTS` partially superseded, the rest of this
+section still stands:** a fresh, committed batch of nine real Alpaca-sourced backtest runs landed the
+same day (`docs/replay-runs/2026-09-16-*.json`), and `lib/backtest/propose-weights.ts` was run for real
+against 991 15Min/2R trades (`within=all`, chronological split at 2026-08-27, 693 in-sample / 298
+out-of-sample). The project owner reviewed the proposal and promoted it — migration
+`0065_promote_score_adjustment_v1.sql`, `learning_models` draft v1 → `live`. `DEFAULT_CRITERION_WEIGHTS`
+in `lib/scoring/weights.ts` is now kept in sync with that promoted row rather than the 2026-09-14 hand-set
+numbers — see that constant's own doc comment for the full before/after and which criteria actually
+moved (only `historicalSR`, on real agreeing out-of-sample evidence; everything else, including
+`ruleOfThree`, held).
+
+This is a genuine, mechanism-produced replacement of the weights — not the informal judgment call this
+section originally flagged — but it does not fully close this section, for two reasons stated plainly
+rather than glossed over:
+
+- **The thresholds (`EXECUTE_SCORE_THRESHOLD`/`WATCH_SCORE_THRESHOLD`, still 6.67/3.89) are untouched.**
+  `propose-weights.ts` only ever proposes *weights*; nothing in this codebase re-derives the thresholds
+  automatically, so "re-derive the thresholds and weights" above is only half done. They remain the
+  2026-09-14 hand-set stopgap values until a separate, deliberate pass addresses them.
+- **The trigger's literal wording — "the run's actual Execute-bucket attribution" at n≥30 Execute
+  trades — was not what this promotion used.** The 15Min Execute bucket is still only 25 trades
+  (`docs/replay-runs/2026-09-16-15Min-2R-within-Execute.json`), short of both `n≥30` and
+  `propose-weights.ts`'s own `MIN_TRADES_PER_HALF=40`-per-half floor. The promotion instead used
+  `within=all` (the unconditioned population, 991 trades) — the scope `app/api/learning/propose-weights/
+  route.ts`'s own comment identifies as the only one free of Execute-selection collider bias (Execute is
+  selected *by* the weights being refit, so attributing from inside it can't read as unbiased). That is
+  the statistically correct choice, not a workaround, but it means this section's original trigger
+  wording should be read as satisfied in spirit (a real `propose-weights.ts` proposal, reviewed and
+  promoted) rather than to the letter. The `VOLUME_CLIMAX_THRESHOLD` and `SQUARE_TOLERANCE_BARS` items
+  above are unaffected by any of this and remain exactly as they were.
+
+The two-remaining-items and the loosened-criteria history above stay in this file until *those* are
+substantively revisited — a threshold re-derivation and/or an Execute-bucket sample that actually clears
+`n≥30` (and, more to the point, `propose-weights.ts`'s 40-per-half floor). Don't delete this section on
+the strength of the weights change alone.
 are internally consistent.
 
 ## Deployment (Vercel)
