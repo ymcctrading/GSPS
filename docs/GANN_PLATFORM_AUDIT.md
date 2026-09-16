@@ -97,9 +97,12 @@ of 52) plus a fully-specified Hexagon Chart. This revision updates §1's
 classification table note, §4's "what to add" list (new items 12–14,
 item 8 promoted from research-todo to build candidate), and adds a status
 note on the two §3a/§5 mislabeling findings and the §4 items 1–4 Part-4
-candidates this document previously flagged, all four of which a sibling,
-not-yet-merged branch (`claude/vigilant-pasteur-e5bhk9`, commit `1cba6e0`)
-has since built live. Full source detail lives in
+candidates this document previously flagged, all four of which a sibling
+branch (`claude/vigilant-pasteur-e5bhk9`, commit `1cba6e0`) had already
+built live. **Update (2026-09-16, later same day): that branch merged to
+`main` as #228**, shortly after this document's own PR (#229) — both
+status notes below are corrected in place to reflect that, not left
+"pending merge." Full source detail lives in
 `docs/GANN_HISTORICAL_SOURCES.md`'s A2.1 entry.
 
 **One correction to how this audit classifies things, carried over from the
@@ -248,11 +251,10 @@ Concepts that reach every surface they plausibly should, cited by file:
 
 ### 3a. The PRIVATE-GANN framing gap now reaches beyond `lib/gann/`
 
-**Status (2026-09-16): both findings below are fixed on a sibling,
-not-yet-merged branch** (`claude/vigilant-pasteur-e5bhk9`, commit
-`1cba6e0`) — see §5's restated list for what changed. Left as originally
-written here for citation purposes; verify the branch has merged before
-treating either as still open.
+**Status (2026-09-16, updated): both findings below are fixed — merged to
+`main` as #228** (`claude/vigilant-pasteur-e5bhk9`, commit `1cba6e0`) —
+see §5's restated list for what changed. Left as originally written here
+for citation purposes; no longer open.
 
 The module-scoped audit already flagged (§4) that `lib/gann/squareOf9.ts`
 and `lib/gann/fans.ts` are correct implementations of real Gann material
@@ -390,13 +392,13 @@ Re-evaluating `GANN_METHOD_COMPLETENESS_AUDIT.md`'s §5 candidates (and the
 two new ones its later revisions added) at full-platform scope, plus new
 candidates this sweep's broader source base surfaced:
 
-**Status note (2026-09-16) on items 1–4 below**: a sibling, not-yet-merged
-branch (`claude/vigilant-pasteur-e5bhk9`, commit `1cba6e0`) has already
-built all four live, ahead of the unmeasured-first sequencing these items
-were originally scoped under, per that branch's own `AGENTS.md` "WD Gann
-precedence" standing principle. Check whether that branch has merged
-before re-building any of them; each item below is left as originally
-written for citation purposes.
+**Status note (2026-09-16, updated) on items 1–4 below**: a sibling branch
+(`claude/vigilant-pasteur-e5bhk9`, commit `1cba6e0`) built all four live,
+ahead of the unmeasured-first sequencing these items were originally
+scoped under, per that branch's own `AGENTS.md` "WD Gann precedence"
+standing principle — **merged to `main` as #228**. Do not re-build any of
+them; each item below is left as originally written for citation purposes
+only.
 
 1. **The "Rule of Three"** (A4, PUBLIC — Gann's own highest-conviction
    claim, "traders paid me $1,000 for it"): three consecutive closes
@@ -547,14 +549,13 @@ private-course status either.
 
 Two concrete mislabeling items, both already named in Part 3, restated
 here as the "what to fix" list (findings, not changes made — no code or
-copy was edited as part of this audit). **Status update (2026-09-16): both
-have since been fixed on a sibling, not-yet-merged branch**
+copy was edited as part of this audit). **Status update (2026-09-16,
+updated): both are fixed — merged to `main` as #228**
 (`claude/vigilant-pasteur-e5bhk9`, commit `1cba6e0`) — `authorizedSource`
 no longer calls Square of 9/angles "public-domain," and `nearestStructure()`
 now reads swing-clustered levels first, falling back to Gann-geometry
 coordinates with non-historical-claim wording only when no clustered level
-exists. Check whether that branch has merged before treating either as
-still open:
+exists. Neither is open anymore:
 
 1. **`lib/signals/confluence/gann.ts`'s `GANN_CONFLUENCE_MODULE.authorizedSource`
    string** calls Square of 9/Gann angles/time cycles "public-domain
