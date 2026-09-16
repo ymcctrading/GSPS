@@ -119,10 +119,13 @@ principle in practice — each carries an inline comment pointing back here
 and to that document's Part 4.
 
 This principle does not override AGENTS.md's other explicit, user-directed
-overrides above and below (the 1Hour execution timeframe, the Execute-
-collapse weight stopgap) — those have their own stated reasons and revert
-triggers and are not "GSPS's current approach vs. Gann" conflicts in the
-sense this section addresses.
+overrides above and below (the 1Hour execution timeframe, and the threshold
+half of the Execute-collapse stopgap) — those have their own stated reasons
+and revert triggers and are not "GSPS's current approach vs. Gann" conflicts
+in the sense this section addresses. The *weight* half of that stopgap is no
+longer among them: it was resolved on 2026-09-16 under "Gann-derived AND
+measured" below, which supersedes it on principle rather than on a revert
+trigger.
 
 **On `GANN_SARA_CONFLUENCE.md`'s numerology rule and `lib/gann/digitalRoot.ts`'s
 conservative treatment (updated 2026-09-16, project owner direction):**
@@ -140,6 +143,107 @@ full stop. A technique citably his own — even one GSPS previously treated
 as conservatively as `digitalRoot.ts` does today (confluence-only, never
 independently gating) — can be built out further when Gann's own
 methodology calls for it, per this same precedence rule.
+
+## Gann-grounded platform — standing principle
+
+Gann's methodology is the substance of this platform, not one input among
+several. This holds on **every** surface, not just the scored criteria:
+scanning, level construction, trade lifecycle, exits, risk, education copy,
+and UI. Project owner direction, 2026-09-16.
+
+The "WD Gann precedence" principle above governs **conflicts** — whose
+answer wins when GSPS and the sources disagree. This one governs **scope**:
+a component with no Gann grounding is a defect to be justified or replaced,
+not a neutral default.
+
+**Audit obligation.** The platform contains non-Gann substance that predates
+this principle. The list below was verified against code on 2026-09-16 — it
+is a starting point, not an exhaustive one, and a future session should
+re-check rather than trust it:
+
+- **STRAT pattern detection** (`lib/strat/patterns.ts`) — `2-2`, `1-2-2`,
+  `3-2-2`, `3-1-2`, `PMG`. Rob Smith's STRAT, not Gann. It feeds the
+  `patternArmed` scored criterion, so this is non-Gann substance sitting
+  inside the scorecard itself, not merely adjacent to it.
+- **Wilder's ADX/DMI** (`lib/signals/indicators.ts#adx`) — feeds
+  `adxTrendStrength`.
+- **PSAR/Supertrend** — narrower than it first appears, so scope the work to
+  what is actually there. Nothing in this codebase *computes* either one.
+  `lib/signals/regime.ts` accepts an optional `trendOverlayFlips` count and
+  uses it solely to disqualify a Trend read on repeated flips;
+  `lib/signals/states/trendPullback.ts` threads the same optional value
+  through. Both default to `0` and no caller supplies a value, so this is a
+  dormant hook for a non-Gann overlay rather than live non-Gann substance.
+  Either close the hook or ground it.
+
+For each: establish a Gann grounding, replace it with the Gann technique
+that serves the same purpose, or document explicitly why it is a justified
+exception.
+
+**Start with `adxTrendStrength`.** It is simultaneously the clearest
+non-Gann scored criterion and the worst measured performer —
+`lib/validation/criteria-registry.ts` carries it as `quarantined` for a
+significant measured inversion against its declared sign. Treat that
+convergence as a lead rather than a coincidence: an indicator that was never
+Gann's, measuring backwards, is the first place to look for a criterion that
+wants replacing rather than repairing.
+
+## Gann-derived AND measured — standing principle
+
+Every scored criterion must clear two independent gates. Neither substitutes
+for the other. Project owner direction, 2026-09-16.
+
+1. **Gann-derived** — traces to a citable source in
+   `docs/GANN_HISTORICAL_SOURCES.md`, with the tier recorded.
+2. **Measured** — has outcome evidence in
+   `lib/validation/criteria-registry.ts`.
+
+**What measurement is FOR.** It verifies that *our translation* of a Gann
+rule into code is faithful. A criterion measuring negative or inverted is
+presumed a porting defect on our side — wrong anchor, wrong scale, wrong
+timeframe — **not** evidence against Gann. `harmonicProximity`'s stale
+Square-of-9 anchor is the worked example: the criterion was not wrong, the
+anchor was, and measurement is what exposed it. Attribution is a debugging
+instrument pointed at our own code. It is never a jury on the methodology.
+
+**What measurement is NOT.** It does not confer legitimacy on a threshold.
+Legitimacy lives in the criteria being counted, which are Gann's. A cutoff
+on a count of Gann conditions is a ranking and display decision, not a claim
+about the market.
+
+**Criteria currently failing gate 1** (recorded 2026-09-16, unresolved):
+`patternArmed` (STRAT) and `adxTrendStrength` (Wilder). Both are scored
+today. Resolving them is the audit obligation above, and doing so changes
+`CRITERION_KEYS.length` — which moves `TOTAL_POINTS` and both thresholds —
+so it is deliberately not a drive-by edit.
+
+## The scorecard's role — recorded so it is not re-litigated
+
+The scorecard supplies **no substance of its own**. It counts and ranks how
+many of *Gann's* confirming conditions a setup satisfies, so the best
+opportunities are identifiable — especially for a novice who cannot yet
+weigh ten conditions by feel. It is a legibility layer over Gann's criteria,
+not a competing method.
+
+It earns its keep a second way: the factor table
+(`lib/backtest/attribution.ts`) is the instrument that makes a mistranslated
+criterion visible at all. Without it a wrong anchor stays invisible
+indefinitely, which is exactly what happened to `harmonicProximity`.
+
+Two consequences follow, and together they are why
+`DEFAULT_CRITERION_WEIGHTS` is uniform as of 2026-09-16:
+
+- **Weighting is substance.** A non-equal weight asserts that one of Gann's
+  conditions outranks another. Nothing in the source catalog ranks the
+  confirming conditions against each other — every "most important" in
+  `docs/GANN_HISTORICAL_SOURCES.md` sits *within* a technique (50% among
+  retracement levels, the 20-year Master Time Period among cycles, 1/2 = 26
+  weeks among the 52-week fractions), never across them. A weighted sum is
+  therefore the scorecard injecting a ranking claim Gann never made. If a
+  citable cross-criterion ranking is ever found, that changes this.
+- **Thresholds are not substance.** A cutoff is where the ranked list gets
+  split for display. It can be set or moved from measurement without
+  claiming anything about the market.
 
 ## Hermetic principles & cycle theory — standing background lens
 
@@ -235,16 +339,29 @@ section, and re-run `lib/data/__tests__/provider-execution-timeframe.test.ts` pl
 now and the revert). `PLAN_TIMEFRAME` (lib/lifecycle/fromScanResult.ts) and the copy in
 `lib/analysis/levelRole.ts` both derive from `EXECUTION_TIMEFRAME` and need no separate edit.
 
-### Execute collapse stopgap: lowered thresholds, rebalanced weights, loosened two criteria (since 2026-09-14)
+### Execute collapse stopgap: lowered thresholds, loosened two criteria (since 2026-09-14; weight half resolved 2026-09-16)
 
 **What:** Four coordinated changes, all in `lib/scoring/weights.ts` unless noted, made together as one
 fix:
 
-- `EXECUTE_SCORE_THRESHOLD` 7 → 6, `WATCH_SCORE_THRESHOLD` 4 → 3.5.
-- `DEFAULT_CRITERION_WEIGHTS` — the score's actual live fallback (see that constant's own doc comment)
-  — moved from one point each to a hand-set, evidence-based distribution favoring `historicalSR`,
-  `stopRoom`, `swingChartTrend`, `volumeClimax` and minimizing `adxTrendStrength`, `gannAngleSlope`,
-  `gannRetracementConfluence`, `timePriceSquare`.
+- `EXECUTE_SCORE_THRESHOLD` 7 → 6, `WATCH_SCORE_THRESHOLD` 4 → 3.5. **Both numbers are stale as
+  written — corrected here 2026-09-16 after checking the constants rather than this paragraph.** The
+  live values are `6.67` and `3.89`. They were rescaled proportionally when `ruleOfThree` became the
+  tenth criterion and `TOTAL_POINTS` went 9 → 10 (6/9 → 6.67/10, 3.5/9 → 3.89/10), so the *bar* never
+  moved — only its denominator. A future session quoting "6 / 3.5" from this document would be wrong;
+  read `lib/scoring/weights.ts`.
+- ~~`DEFAULT_CRITERION_WEIGHTS` — moved from one point each to a hand-set, evidence-based distribution
+  favoring `historicalSR`, `stopRoom`, `swingChartTrend`, `volumeClimax` and minimizing
+  `adxTrendStrength`, `gannAngleSlope`, `gannRetracementConfluence`, `timePriceSquare`.~~
+  **Superseded 2026-09-16 — reverted to uniform (one point each).** Not because the hand-set numbers
+  measured badly, but because "Gann-derived AND measured" rules them out on principle: the
+  distribution was built by treating measurement as a verdict on the criteria (up-weight the
+  measured-positive, down-weight the measured-negative), which is precisely the jury role that
+  principle denies measurement. A criterion measuring negative is a suspected porting defect to fix,
+  not a criterion to quietly discount. Uniform is also the only distribution that keeps the scorecard
+  free of substance it cannot source — see "The scorecard's role" above. Note that `normalizeWeights()`
+  rescales any set to sum to `TOTAL_POINTS`, so this changed which setups reach the cutoffs **without**
+  moving the point scale the cutoffs are expressed in.
 - `VOLUME_CLIMAX_THRESHOLD` (`lib/gann/volumeClimax.ts`) 1.5x → 1.25x relative volume. **Reverted to
   1.5x on 2026-09-14**, same day: a fresh committed run showed the 1.25x threshold diluted the signal
   toward noise/inversion rather than just widening it (see `lib/validation/criteria-registry.ts`'s
@@ -287,17 +404,45 @@ good, or that the four up-weighted ones are fully validated (only `historicalSR`
 to stop the live model from admitting either zero trades or trades selected mostly by criteria already
 showing a negative or inverted signal.
 
-**Mandatory revert trigger:** the next fresh, committed backtest run with a non-trivial Execute bucket
-(n≥30) under this rebalance. At that point, re-derive the thresholds and weights from that run's actual
-Execute-bucket attribution — via `lib/backtest/propose-weights.ts`'s proper in/out-of-sample split once
-enough trades exist to support it — rather than carrying this hand-set stopgap forward. Don't wait to
-be asked twice; raise it as soon as such a run is captured in `docs/replay-runs/`.
+**Mandatory revert trigger — CONDITIONAL, and it has NOT fired (checked 2026-09-16):** the next
+fresh, committed backtest run with a non-trivial Execute bucket (n≥30). No such run exists in
+`docs/replay-runs/`. The trigger now covers the **thresholds only** — the weights half was settled on
+principle above and is no longer waiting on data. When such a run is captured, re-derive the
+thresholds from its actual Execute-bucket attribution rather than carrying the stopgap forward. Don't
+wait to be asked twice; raise it as soon as the run lands.
 
-**To revert (once superseded, not merely to "undo"):** replace the four constants above with whatever
-the fresh run's `propose-weights.ts` output and threshold re-derivation actually say, delete this
-section and the four `TEMPORARY OVERRIDE` code comments that point to it, and run
-`lib/validation/__tests__/criteria-gate.test.ts` plus the full test suite to confirm the new numbers
-are internally consistent.
+Two things this trigger does **not** license. Nothing expires by waiting — it is conditional, not a
+deadline, so pausing the backtest costs nothing. And **never loosen thresholds to manufacture a
+qualifying Execute bucket**: that inverts the trigger into a mechanism for justifying itself.
+
+**To revert (once superseded, not merely to "undo"):** replace the constants above with whatever the
+fresh run's threshold re-derivation actually says, delete this section and the `TEMPORARY OVERRIDE`
+code comments that point to it, and run `lib/validation/__tests__/criteria-gate.test.ts` plus the full
+test suite to confirm the new numbers are internally consistent.
+
+**Backtest status — ON HOLD (2026-09-16).** Three prompts exist from the PR #234 session (capture /
+attribute / re-derive) and they are deliberately parked, not forgotten. Prompt 3 re-derives scorecard
+thresholds, and the "Gann-grounded platform" audit above may change what the scorecard *is* —
+`patternArmed` and `adxTrendStrength` both fail gate 1, and resolving either moves
+`CRITERION_KEYS.length`, `TOTAL_POINTS`, and both cutoffs. Calibrating a scorecard that is about to
+change shape wastes the run. Do the audit first.
+
+Traps for whoever eventually runs it:
+
+- **The new refinements all tighten criteria**, which shrinks the very Execute bucket the threshold
+  calibration needs. Derive criterion evidence from the **unconditioned** population (`--within all`)
+  and thresholds from the **Execute bucket** — same run, different slices. Do not loosen anything to
+  grow the bucket.
+- **Derive thresholds from 15Min, not 1Hour.** `docs/BACKTESTING.md` records 1Hour historically
+  inverting the scoring model's own verdict ranking (Execute measuring as the *worst* bucket). Capture
+  1Hour for the override check if useful, but do not calibrate on it.
+- **The `Gann` word is banned in user-facing criterion notes**, which are generated at runtime.
+  `scripts/check-banned-terms.mjs` catches it and PR #234 tripped this exact gate. Comments are exempt;
+  generated copy is not.
+
+**Platform state carried forward (2026-09-16).** PR #234 merged to `main` (`45038da`), production
+deploy READY. It added eight Gann-derived refinements, **all confluence-only** — no scored verdict
+changed by that release. The 1Hour execution-timeframe override above remains live in production.
 
 ## Deployment (Vercel)
 
