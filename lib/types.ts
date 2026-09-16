@@ -92,6 +92,24 @@ export interface GannLevels {
   /** Upcoming fixed-calendar dates of interest (ISO date strings). See `timeCycleFixedCalendarActive`. */
   timeCycleFixedCalendarDates?: string[];
   /**
+   * A Natural Seasonal Time Period window (Master Stock Market Course,
+   * equinox-anchored eighths/thirds of the year) is active — a second,
+   * distinct non-anchored fixed calendar from `timeCycleFixedCalendarActive`
+   * above. See `lib/gann/timeCycles.ts`'s `SEASONAL_DATES`.
+   */
+  timeCycleSeasonalActive?: boolean;
+  /** Upcoming seasonal dates of interest (ISO date strings). See `timeCycleSeasonalActive`. */
+  timeCycleSeasonalDates?: string[];
+  /**
+   * A holiday-anchored window (Master Stock Market Course, Chapter 10A,
+   * "Changes In Trend Around Holidays") is active — a third, distinct
+   * non-anchored fixed calendar. See `lib/gann/timeCycles.ts`'s
+   * `holidayWindows`.
+   */
+  timeCycleHolidayActive?: boolean;
+  /** Upcoming holiday-anchored dates of interest (ISO date strings). See `timeCycleHolidayActive`. */
+  timeCycleHolidayDates?: string[];
+  /**
    * Realized Gann-angle (1x1, etc.) slope since the most recent significant
    * low (bullish reading) and high (bearish reading) — lib/gann/normalizedSlope.ts.
    */

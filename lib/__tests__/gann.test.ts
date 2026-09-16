@@ -128,6 +128,10 @@ describe("timeCycles", () => {
       dates: [],
       fixedCalendarActive: false,
       fixedCalendarDates: [],
+      seasonalActive: false,
+      seasonalDates: [],
+      holidayActive: false,
+      holidayDates: [],
     });
   });
 

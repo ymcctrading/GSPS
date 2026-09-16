@@ -218,6 +218,10 @@ export async function scanTicker(
       timeCycleDates: cycles.dates,
       timeCycleFixedCalendarActive: cycles.fixedCalendarActive,
       timeCycleFixedCalendarDates: cycles.fixedCalendarDates,
+      timeCycleSeasonalActive: cycles.seasonalActive,
+      timeCycleSeasonalDates: cycles.seasonalDates,
+      timeCycleHolidayActive: cycles.holidayActive,
+      timeCycleHolidayDates: cycles.holidayDates,
       angleSlopes,
       retracementLevels: retracementLevels.slice(0, 7).map(({ fraction, label, price, distancePct, role }) => ({
         fraction,

@@ -8,6 +8,18 @@
  * convention `computeFanLines`/`recentSquareOf9Levels` already use): a
  * low-then-high swing retraces down from the high, a high-then-low swing
  * retraces up from the low.
+ *
+ * **1/3 and 2/3 added 2026-09-16** (Master Stock Market Course, Chapter 9,
+ * "Resistance Levels" — docs/GANN_HISTORICAL_SOURCES.md A2.1): "After
+ * dividing a stock by 8 to get the 1/8 points, the next important thing to
+ * do is to divide the range of fluctuation by 3 to get the 1/3 and 2/3
+ * points. These 1/3 and 2/3 points are very strong." Gann's own stated
+ * mandatory second step, immediately after the eighths this module already
+ * had — the same swing anchors, no new construction, so this is a
+ * data-completeness fix to an already-scored mechanism
+ * (`gannRetracementConfluence`, lib/scoring/score.ts), the exact class of
+ * gap AGENTS.md's cross-platform-consistency section warns against leaving
+ * half-done.
  */
 
 import type { Bar } from "@/lib/types";
@@ -22,13 +34,15 @@ export interface RetracementLevel {
   role: LevelRole;
 }
 
-/** Gann's eighths — the classic percentage-retracement set. */
+/** Gann's eighths plus the 1/3 and 2/3 points (see this module's header). */
 const FRACTIONS: { fraction: number; label: string }[] = [
   { fraction: 0.125, label: "1/8" },
   { fraction: 0.25, label: "1/4" },
+  { fraction: 1 / 3, label: "1/3" },
   { fraction: 0.375, label: "3/8" },
   { fraction: 0.5, label: "1/2" },
   { fraction: 0.625, label: "5/8" },
+  { fraction: 2 / 3, label: "2/3" },
   { fraction: 0.75, label: "3/4" },
   { fraction: 0.875, label: "7/8" },
 ];
