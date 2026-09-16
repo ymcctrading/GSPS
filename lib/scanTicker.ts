@@ -28,6 +28,7 @@ import { levelRole } from "@/lib/analysis/levelRole";
 import { computeFanLines } from "@/lib/gann/fans";
 import { recentSquareOf9Levels } from "@/lib/gann/squareOf9";
 import { timeCycles } from "@/lib/gann/timeCycles";
+import { weightedTrendAgreement } from "@/lib/gann/timeframeWeight";
 import { computeAngleSlopes } from "@/lib/gann/normalizedSlope";
 import { computeRetracementLevels } from "@/lib/gann/retracement";
 import { priceTimeConfluence } from "@/lib/gann/digitalRoot";
@@ -219,10 +220,15 @@ export async function scanTicker(
     // Prefer the pattern aligned with a reversion of the macro move; then by
     // trigger proximity to current price. A caller hunting a continuation
     // supplies its own direction instead — the trend's, not the reversion of it.
-    const macroDir =
-      [monthlyTrend, weeklyTrend, dailyTrend].filter((t) => t.direction === "bearish").length >= 2
-        ? "bearish"
-        : "bullish";
+    //
+    // Weighted by Gann's chart-timeframe power ratio (lib/gann/timeframeWeight.ts)
+    // rather than a flat 2-of-3 vote — a single monthly trend outweighs
+    // weekly+daily disagreeing with it, per Wall Street Stock Selector (1930).
+    // This only changes which of several simultaneously-armed patterns the
+    // live scan prefers showing; it is not a scored criterion.
+    const macroDir = weightedTrendAgreement([monthlyTrend, weeklyTrend, dailyTrend], "bearish").agrees
+      ? "bearish"
+      : "bullish";
     const reversionDirection = macroDir === "bearish" ? "bullish" : "bearish";
     const preferredDirection = preference?.direction ?? reversionDirection;
 
