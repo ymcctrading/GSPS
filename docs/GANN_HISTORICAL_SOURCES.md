@@ -29,6 +29,17 @@ astrology evidence than A2.1's), and **Part C**, a set of general
 folder that this session's pass hadn't touched — plus two more
 secondary sources (B13, B14) from the same folder as A2.3.
 
+**2026-09-16 session (fifth pass):** the project owner supplied a much
+fuller text extraction of A2.1 (the same private course), closing what
+had been the largest remaining gap in this whole catalog — Chapter 7,
+"Master Time Factor and Forecasting by Mathematical Rules," previously
+entirely unread. See A2.1's own entry below for the full detail (a
+complete disclosed cycle hierarchy with numbered forecasting rules, a
+worked 1896-1935 case study, two new Master constructions — Square of 20
+and Square of 52 — a fully specified Hexagon Chart, and the Square of
+144's own explicit "Master Numbers" chapter) and the updated cross-source
+synthesis table.
+
 Organizing note: the seven Hermetic principles (Mentalism, Correspondence,
 Vibration, Polarity, Rhythm, Cause and Effect, Gender — the framework
 popularized in *The Kybalion* and carried forward in Dennis William Hauck's
@@ -484,7 +495,12 @@ confirmed present, but
 later chapters ("Master Time Factor," "Master Mathematical Price Time
 And Trend Calculator," "Hexagon Chart," an "Overnight Chart" mechanical
 system, and options lessons) remain unread — a real, flagged gap for a
-future session, not a "nothing there" finding.
+future session, not a "nothing there" finding. **Update (2026-09-16,
+second extraction pass): this gap is now substantially closed** — see
+the dedicated subsection after the astrology bullet below, sourced from
+a fuller text extraction of the same course the project owner supplied
+directly (tables/prose intact; illustrations necessarily dropped, since
+the source was a text extraction, not a re-scan).
 
 This is the single most significant addition from this session, because
 it directly confirms, in Gann's own voice, several techniques the rest
@@ -523,6 +539,154 @@ later researchers":
   geometry/number as the load-bearing layer, which is consistent with
   (not a contradiction of) his choice to keep astrology out of anything
   he sold to the general public.
+
+**Second extraction pass (2026-09-16) — Chapters 7, 13, 14, and 15B now
+read.** The project owner supplied a fuller text extraction of the same
+course (titled "Gann master-course & synthesis," also saved to Google
+Drive), reaching roughly 33,000 lines / 460 pages of prose and tables —
+essentially the whole book, minus its charts/illustrations, which the
+extraction method (text only, not a re-scan) could not carry over.
+Confidence tier unchanged from the note above (high on genuine Gann
+content, medium on verbatim numeric accuracy — a hobbyist transcription,
+not a photographed original; a handful of OCR-ambiguous digits are
+bracket-flagged below exactly as found, e.g. "\[37?\]"). This closes the
+single largest remaining primary-source gap in the whole 25-document
+catalog: Chapter 7, "Master Time Factor and Forecasting by Mathematical
+Rules" — the chapter title itself names the thing every other source in
+this catalog could only gesture at as withheld.
+
+- **Chapter 7 — Master Time Factor: major/minor cycles, named and dated.**
+  A full cycle hierarchy with exact lengths: 60 years ("Great Cycle —
+  Master Time Period," the single most important, "at the end of the
+  third 20-year cycle"), 50 years (a "jubilee" of extreme prices lasting
+  5-7 years, tied to 7×7=49 as "a fatal number"), 30, 20 ("most stocks...
+  work closer to this cycle than any other"), 15, 10, 7, 5-year cycles,
+  and minor 3/2/1-year cycles. Eight numbered "Rules for Future Cycles"
+  give exact forecasting arithmetic (e.g. Rule 4/5: add 10 years to any
+  top or bottom to get the next 10-year cycle's top/bottom; Rule 7: add 3
+  years to a major top, then 3 more, then 4, to get the 10-year cycle's
+  final top). Separate, explicit rules scale the same logic down to
+  monthly, weekly, and daily moves (e.g. "7 weeks... marks an important
+  turning point... watch for top or bottom around the 49th to 52nd day");
+  a table of specific days-of-month for "natural changes in trend" (6th-
+  7th, 9th-10th, 14th-15th, 19th-20th, 23rd-24th, 29th-31st); and two
+  named recurring calendar windows, "January 2nd to 7th and 15th to 21st"
+  and "July 3rd to 7th and 20th to 27th," watched every year regardless
+  of the symbol — a second, independent primary-source citation for the
+  same "fixed annual calendar cycle" concept `Wall Street Stock Selector`
+  (A4) discloses, now with exact day-ranges rather than named months.
+- **The bull/bear "decade digit" cycle — upgraded from low-reliability
+  secondary source to Gann's own private-course voice.** A dedicated
+  section ("BULL AND BEAR CALENDAR YEARS") assigns a market character to
+  each digit 1-10 of a calendar decade ("No. 1... a bear market ends and
+  a bull market begins," "No. 5... the year of Ascension, and a very
+  strong year for a bull market," "No. 9 the highest digit... the
+  strongest of all for bull markets... Bear markets usually start in
+  September to November," "No. 10 is a bear year"), with named historical
+  years for each (1901/1911/1921 for "No. 1"; 1869/1879/.../1929 for "No.
+  9"; etc.). `GANN_HISTORICAL_SOURCES.md` previously had this exact claim
+  only from **B9**, an anonymous, no-citation secondary source explicitly
+  flagged as unverifiable ("no way to verify any 'Gann says' attribution
+  ... cross-checked against a credentialed source before being treated as
+  established"). It is now directly confirmed in Gann's own private-course
+  voice — B9's specific claim about this technique was correct, even
+  though B9 itself remains an unreliable general source for everything
+  else it asserts.
+- **36 geometric-angle month-counts, with a full worked 1896-1935 DJIA
+  case study.** The 1/32 divisions of 360° (11¼°, 22½°, 33¾°, 45°, 56¼°,
+  67½°, ... through 360°, "very important" ones starred: 45, 60, 90, 120,
+  135, 180, 225, 240, 270, 300, 315, 360) are read as month-counts from
+  any major top or bottom. The chapter then works this against real
+  Dow-Jones Industrial Average history bottom-to-top from August 1896 to
+  1935, month by month, naming the exact elapsed-month count (against
+  multiple prior anchors simultaneously) at every major turn — e.g. the
+  November 1907 low at "135 months from 1896 bottom, 127 months from 1897
+  low"; September 1929's top at "240 months from 1909 top... 30 years
+  from 1896 low," with the note "the strong time angles on the Monthly
+  Chart running out in October and November, 1929... are 32, 40, 67½, 75,
+  120, 180." This is the fullest, most concrete disclosed illustration of
+  "the withheld timing mechanism" found anywhere in this 25-document
+  catalog — not the mechanism's ultimate justification (Gann never states
+  *why* these specific fractions of 360° govern time), but by far the
+  most complete worked example of *how* he actually applied it.
+- **A third Master Square, previously uncatalogued: the "Square of 20" /
+  New York Stock Exchange Permanent Chart.** A 20×20=400 grid, applied to
+  real dates (the NYSE's May 17, 1792 founding, and separately October
+  12, 1492) the same way the Square of 9 and Master Twelve are applied to
+  price — e.g. "1932 on 140... at the top of the 7th zone... indicated
+  1932 was the ending of a bear campaign," "1929 was on the 137th number
+  ... and hit an angle of 45°." Distinct from Square of 9 (9²=81) and
+  Master Twelve/Square of 144 (12²=144) — a third base, same underlying
+  method (an integer square used as a spiral/grid coordinate system for
+  both price and elapsed time).
+- **Chapter 13 — the Master Mathematical Price, Time and Trend
+  Calculator: the Square of 144 fully specified, including its own
+  numerology chapter.** States the "Master Numbers" explicitly: **"The
+  Master Numbers are 3, 5, 7, 9 and 12"** — with Gann's own stated
+  reasoning for each (9: "9 digits added together equal 45"; 7: "the
+  number mentioned more times in the Bible than any other," its square 49
+  "a very important time period"; 5: "the balancing number between 1 and
+  9"; 3: "the first o\[d\]d number that forms a square greater than
+  itself"; 12: Biblical/zodiacal, and the base of the 144 square itself).
+  Gives the complete fractional structure of the Square of 144 (its
+  "Great Cycle" is 20,736 days/weeks/months — halving down through
+  10,368 / 5,184 / 2,592 / 1,296 / 648 / 324 / 162 / **81, "the square of
+  9"** — the Square of 9 and Square of 144 are stated as literally nested,
+  not independent systems) and a full worked commodity example: wheat's
+  all-time low (28¢, March 1852) and the May-option's own high/low (325¢
+  / 44¢) are each squared against elapsed months using exactly this
+  arithmetic, concluding "you would watch for a change in trend between
+  281 and 288" months.
+- **Chapter 14 — Master Calculator for Weekly Time Periods: a fourth
+  Master construction, the Square of 52.** 52²=2,704 (~7 years 5 months
+  in days), built from 7-day weeks; explicit fractional divisions of the
+  52-week year (1/8=6½wk, 1/4=13wk, 1/3=17wk, 1/2=26wk "a most important
+  time and resistance level," 5/8=32½wk, 3/4=39wk "very important," etc.)
+  — a second, independently-constructed disclosed fraction table
+  alongside Chapter 13's, both converging on the same
+  quarters/eighths/thirds structure `lib/gann/retracement.ts` already
+  implements for price, now confirmed disclosed for time as well.
+- **Chapter 15B — the Hexagon Chart, fully specified.** A hexagonal
+  (not square-root) spiral: center "1," each successive ring adding a
+  constant increment of 6 more than the last (7, 19, 37, 61, 91, 127,
+  169, 217, 271, 331, 397 — the mathematically standard "centered
+  hexagonal numbers," 3n²+3n+1) sit on the same 0°/direct radial line and
+  are named as important time counts (e.g. "169... 14 years and one
+  month, or double our Cycle of 7 years"). Explicitly cross-validated
+  against the Master Twelve Chart and the Square of Nine in the same
+  paragraph ("Note the number 66 on the Master Twelve Chart... on the
+  Square of Nine... 66 occurs on an angle of 180° on the Hexagon Chart,
+  all of which confirms the strong angle at this point") — Gann's own
+  stated methodology is multi-construction confluence, not any single
+  square taken alone, which is the historical precedent for
+  `lib/signals/confluence/gann.ts`'s whole design, not just an analogy to
+  it.
+- **What this changes about existing entries in this catalog.** The
+  cross-source synthesis table's Square of 9/Gann-angle row already
+  correctly tagged both as **PRIVATE-GANN, confirmed via A2.1** — that
+  conclusion is unchanged and now far better evidenced. What's new: (1)
+  the Square of 12/Master Twelve and the Hexagon Chart move from
+  "mentioned, not yet detailed" to fully specified, with exact numbers;
+  (2) a third and fourth Master construction (Square of 20, Square of 52)
+  are newly catalogued entirely; (3) B9's decade-digit cycle claim is
+  reclassified from unverifiable-secondary to primary-confirmed; (4) the
+  "fixed annual calendar cycle" (previously sourced only to A4) now has a
+  second, independent primary citation with more granular dates; (5) the
+  "withheld timing mechanism" (Layer 3) has, for the first time in this
+  research, a complete worked numerical example rather than only the
+  repeated statement that one exists. None of this changes the standing
+  finding that Gann's ten *public* books never disclose Square of
+  Nine/angles/Hexagon/Master Twelve — this material is still, exactly as
+  before, private-course-only.
+- **Not yet reached even in this pass**: Chapter 15A ("Master Charts,"
+  read only in part — a general-purpose companion to 13/14/15B, not
+  independently load-bearing based on what was sampled), the options
+  lessons (Ch. 19A/19B — likely redundant with the already-catalogued A6,
+  since both are Gann's own puts/calls material), and the illustrations
+  for every chapter (genuinely lost — this was a text extraction, not a
+  re-scan, so no future session should expect to recover them from this
+  source; a cleaner image-bearing copy would be a separate, real gap to
+  flag if one ever surfaces).
 
 ### A2.2. *Annual Forecasts 1919-1922* (Gann's own subscriber bulletins,
 reprinted from "an early edition of *Truth of the Stock Tape*" by the
@@ -905,8 +1069,14 @@ application; included for completeness since it was in the source folder.
 | Square of 9 spiral / hexagon geometry | **Absent from all ten public books** (A2, A4, A5, A6, and the readable ~15% of A8, plus A1/A3/A7/A9-A11); **directly disclosed by Gann himself in A2.1** (his private paid course), construction method described in his own words | B3's "D Levels" table, B5's "Circle Chart," B9's construction mechanic all corroborate; A10's hexagon is a spiritual, not market, precursor | Yes, algorithmically — `lib/gann/squareOf9.ts` — but **not scored** (harmonicProximity retired for measuring negligible) |
 | Gann angles (1×1, 2×1, etc.) | **Absent from all ten public books; directly disclosed by Gann himself in A2.1**, named and defined (1×1, 2×1, 3×1, 4×1, 8×1) as fixed price-per-time-unit rates | B10 extends with an angle-to-time-percentage projection table not found in A2.1's retrieved portion | Yes — `lib/gann/fans.ts`, scored as `gannAngleSlope`; the time-percentage layer B10 describes has no GSPS counterpart |
 | Percentage retracement (eighths/thirds) | A8, explicit and central | B4 | Yes — `lib/gann/retracement.ts`, scored inside `gannRetracementConfluence` |
-| Fixed annual/anniversary time cycles | A4 (permanent calendar-date cycle), A3 (age/anniversary timing), A7 (WWI-anchor cycle projection) | — | Yes, as a documented interpretation — `lib/gann/timeCycles.ts` (context-only) |
+| Fixed annual/anniversary time cycles | A4 (permanent calendar-date cycle), A3 (age/anniversary timing), A7 (WWI-anchor cycle projection), **A2.1 (independent second citation, with exact day-ranges: Jan 2-7/15-21, Jul 3-7/20-27)** | — | Yes, as a documented interpretation — `lib/gann/timeCycles.ts` (context-only), extended 2026-09-16 with the literal A4 calendar windows |
 | "Sections of a campaign" (3–4 legs, later sections weighted more) | A5, A8 | — | Partial overlap with `lib/gann/swingChart.ts`'s 3-day/9-day construction; not a literal port |
+| Multi-cycle major/minor time hierarchy (60/50/30/20/15/10/7/5/3/2/1-year cycles, numbered forecasting rules, monthly/weekly/daily scaled-down versions) | **A2.1 Ch. 7, "Master Time Factor"** — the fullest disclosed statement of the withheld timing mechanism's outer shell in this catalog, including a complete worked 1896-1935 DJIA case study against the 1/32-of-360° month-count angles | — | **No** — `lib/gann/timeCycles.ts`'s fixed wheel counts (45/90/120/180/270/360 days) are a small subset of the full disclosed hierarchy; not yet extended to match |
+| "Decade digit" bull/bear year cycle (each 1-10 year of a calendar decade assigned a market character) | **A2.1 Ch. 7** — now primary-confirmed | Previously only B9 (unverifiable secondary, now corroborated) | **No** — unimplemented, and per B9's original caution should still clear its own attribution pass before being treated as more than a hypothesis, notwithstanding the upgraded source tier |
+| Master Square of Twelve / Square of 144 ("Master Numbers" 3, 5, 7, 9, 12; nested inside Square of 9 at nine full cycles) | **Absent from all ten public books; directly disclosed by Gann himself in A2.1 Ch. 13**, with full fractional structure and a worked wheat-commodity example | B9's 144×144=20,736 table (independently corroborates the same construction from a low-reliability source) | **No** — `lib/gann/squareOf9.ts` implements only the base-9 spiral; the 144-based construction is entirely unimplemented |
+| Square of 52 (weekly time-period calculator, 7-day weeks) | **Absent from all ten public books; directly disclosed by Gann himself in A2.1 Ch. 14** | — | **No** — unimplemented |
+| Square of 20 / NYSE Permanent Chart (400-grid applied to real historical dates) | **Absent from all ten public books; directly disclosed by Gann himself in A2.1 Ch. 7**, newly catalogued this session | — | **No** — unimplemented; not previously known to exist as a distinct construction |
+| Hexagon Chart (centered-hexagonal-number spiral: 1, 7, 19, 37, 61, 91, 127...) | **Absent from all ten public books; directly disclosed by Gann himself in A2.1 Ch. 15B**, fully specified this session (previously only a name and a spiritual precursor in A10) | A10's devotional hexagon construction is a real precursor/parallel, not a market source | **No** — unimplemented |
 | Fourier/harmonic (spectral) cycle analysis | Named directly by Gann in A3 ("cycle theory, or harmonic analysis") | B1's full demonstration; C1/C4 (Tomes) argue a general physical mechanism for integer-harmonic cycles, non-Gann-specific | **No** — nothing in GSPS does spectral/dominant-cycle decomposition |
 | Cycle-is-real-vs-noise validation criteria (dominance, regularity, phase-resumption, synchrony) | Not a Gann concept | C6 (Dewey) — general methodology, non-Gann | **No** — closest existing brush is `harmonicProximity`'s retirement from the criteria registry for measuring negligible |
 | Digital root / "Law of Vibration" numerology | A1 names "vibration"; no specific formula disclosed in any primary text | B2 (weak), A10's sacred numbers (3/7/9/12), A3's letter/Daniel numerology | Yes, as GSPS's own hypothesis — `lib/gann/digitalRoot.ts`, explicitly not a literal historical port |
