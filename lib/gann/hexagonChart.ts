@@ -1,8 +1,16 @@
 /**
  * Gann's Hexagon Chart (PRIVATE-GANN — Chapter 15B,
- * `docs/GANN_HISTORICAL_SOURCES.md` A2.1). Internal/research use only — see
- * `angleMonthCounts.ts`'s header for the never-wire-into-the-public-scan
- * rule; it applies identically here.
+ * `docs/GANN_HISTORICAL_SOURCES.md` A2.1). Internal/research use only —
+ * **never** wire this into `lib/signals/confluence/gann.ts` /
+ * `GannConfluenceResult` / `components/scan/confluence-card.tsx` or any
+ * `app/api/*` route a logged-in user's scan request reaches. Unlike
+ * `masterTwelve.ts`/`squareOf52.ts`/`angleMonthCounts.ts` (wired into the
+ * live confluence layer 2026-09-16), this module keeps its exception for a
+ * genuine, technical reason: the cross-construction citation below (the
+ * number 66) cannot be independently re-derived without the original
+ * hand-drawn chart's own numbering convention, which is lost to this
+ * text-only extraction — see `squareOf20.ts`'s header for the identical
+ * situation.
  *
  * Not a square-root spiral like `lib/gann/squareOf9.ts`/`masterTwelve.ts` —
  * a *hexagonal* spiral. Center "1"; each successive ring's increment grows

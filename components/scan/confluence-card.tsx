@@ -93,6 +93,20 @@ function GannRow({ result }: { result: NonNullable<ScanResult["signals"]>["gannC
             <p className="text-muted">Time cycle</p>
             <p className="font-mono font-semibold">{result.timeCycleActive ? "Active" : "None"}</p>
           </div>
+          {result.nearestMasterTwelve && (
+            <div className="rounded-md border border-border bg-surface p-2">
+              <p className="text-muted">Nearest Master Twelve level</p>
+              <p className="font-mono font-semibold">{result.nearestMasterTwelve.price.toFixed(2)}</p>
+            </div>
+          )}
+          <div className="rounded-md border border-border bg-surface p-2">
+            <p className="text-muted">Square of 52 window</p>
+            <p className="font-mono font-semibold">{result.squareOf52.active ? "Active" : "None"}</p>
+          </div>
+          <div className="rounded-md border border-border bg-surface p-2">
+            <p className="text-muted">36-angle month-count</p>
+            <p className="font-mono font-semibold">{result.angleMonthCounts.active ? "Active" : "None"}</p>
+          </div>
         </div>
       )}
     </div>

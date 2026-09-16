@@ -18,6 +18,9 @@ import type { ConfluenceType, DigitalRootFeature, VortexClass } from "@/lib/gann
 import type { NearestGannAngle } from "@/lib/gann/normalizedSlope";
 import type { LedgerCoordinate } from "@/lib/gann/coordinateLedger";
 import type { DecadeCycleReading } from "@/lib/gann/decadeCycle";
+import type { MasterTwelveLevel } from "@/lib/gann/masterTwelve";
+import type { SquareOf52Result } from "@/lib/gann/squareOf52";
+import type { AngleMonthCountResult } from "@/lib/gann/angleMonthCounts";
 import type { MarketAdapterStatus, SupportedMarket } from "./marketAdapters";
 
 /**
@@ -103,6 +106,39 @@ export interface GannConfluenceResult {
    * `lib/gann/decadeCycle.ts`.
    */
   decadeCycle: DecadeCycleReading;
+  /**
+   * Square of 144/"Master Twelve" nearest level (`docs/GANN_HISTORICAL_SOURCES.md`
+   * A2.1 Ch. 13) — the base-12 analog of `nearestSquareOf9`, same spiral
+   * construction generalized to 12-fold angular resolution, nested inside
+   * the Square of Nine's own grid (20,736 halves down to 81 = 9²). Wired in
+   * 2026-09-16 per AGENTS.md's cross-platform-consistency rule: it was built
+   * the same session as `nearestSquareOf9`/`nearestFanLine` but had been left
+   * stranded, unlike squareOf20/hexagonChart which stay research-only for a
+   * documented, technical reason (lost original chart illustrations mean
+   * their ring/angle placement can't be verified — see those modules'
+   * headers). Confluence/ranking only, same non-authoritative role as
+   * `nearestSquareOf9`. See `lib/gann/masterTwelve.ts`.
+   */
+  nearestMasterTwelve: MasterTwelveLevel | null;
+  /**
+   * Square of 52 / Master Calculator for Weekly Time Periods
+   * (`docs/GANN_HISTORICAL_SOURCES.md` A2.1 Ch. 14) — disclosed fractional
+   * divisions of a 52-week cycle projected from major swing pivots, same
+   * `{active, dates}` shape as `timeCycleActive`/`timeCycleDates`. Wired in
+   * 2026-09-16 for the same reason as `nearestMasterTwelve` above — no
+   * bull/bear polarity, never independently scored. See
+   * `lib/gann/squareOf52.ts`.
+   */
+  squareOf52: SquareOf52Result;
+  /**
+   * Gann's 36-angle month-counts (`docs/GANN_HISTORICAL_SOURCES.md` A2.1
+   * Ch. 7) — the 11.25°-step/32-way division of 360° read as month-counts
+   * from a major swing, restricted by default to the 12 "very important"
+   * starred angles. Wired in 2026-09-16 for the same reason as
+   * `nearestMasterTwelve` above — pure date arithmetic against confirmed
+   * pivots, no lost-illustration dependency. See `lib/gann/angleMonthCounts.ts`.
+   */
+  angleMonthCounts: AngleMonthCountResult;
   /**
    * Blueprint §8.5's normalized Gann-angle slope — realized ATR-units-per-bar
    * since the anchor, and which fixed angle ratio (1x4…4x1) that's closest

@@ -42,6 +42,9 @@ import { computeFanLines, nearestFanLine } from "@/lib/gann/fans";
 import { nearestS9Level, recentSquareOf9Levels } from "@/lib/gann/squareOf9";
 import { timeCycles } from "@/lib/gann/timeCycles";
 import { computeDecadeCycle } from "@/lib/gann/decadeCycle";
+import { masterTwelveLevels, nearestMasterTwelveLevel } from "@/lib/gann/masterTwelve";
+import { squareOf52Windows } from "@/lib/gann/squareOf52";
+import { angleMonthCounts as computeAngleMonthCounts } from "@/lib/gann/angleMonthCounts";
 import {
   buildDigitalRootFeature,
   classifyConfluence,
@@ -112,6 +115,9 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
       timeCycleFixedCalendarActive: false,
       timeCycleFixedCalendarDates: [],
       decadeCycle: computeDecadeCycle(),
+      nearestMasterTwelve: null,
+      squareOf52: { active: false, dates: [] },
+      angleMonthCounts: { active: false, dates: [] },
       vortexContext: {
         priceDisplacement: null,
         timeDisplacement: null,
@@ -151,6 +157,9 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
   const cycles = timeCycles(inputs.dailyBars);
   const nearestS9 = nearestS9Level(s9Levels);
   const nearestFan = nearestFanLine(fanLines);
+  const nearestMasterTwelve = nearestMasterTwelveLevel(masterTwelveLevels(majorLow, inputs.currentPrice));
+  const squareOf52 = squareOf52Windows(inputs.dailyBars);
+  const angleMonthCountsResult = computeAngleMonthCounts(inputs.dailyBars);
 
   // Digital Root/Vortex context (blueprint sections 2, 7, 18): price_dr from
   // the normalized tick displacement off the anchor, time_dr from bars
@@ -233,6 +242,19 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
       `Nearest structural angle line: ${nearestFan.angle} at ${nearestFan.price.toFixed(2)} (${nearestFan.role}, ${nearestFan.distancePct.toFixed(2)}% away).`,
     );
   }
+  if (nearestMasterTwelve) {
+    explanationTrace.push(
+      `Nearest Master Twelve level: ${nearestMasterTwelve.price.toFixed(2)} (${nearestMasterTwelve.role}, ${nearestMasterTwelve.distancePct.toFixed(2)}% away, degree ${nearestMasterTwelve.degree}, rotation ${nearestMasterTwelve.rotation}).`,
+    );
+  }
+  if (squareOf52.active) {
+    explanationTrace.push(`Active Square of 52 weekly window (nearby dates: ${squareOf52.dates.slice(0, 3).join(", ") || "n/a"}).`);
+  }
+  if (angleMonthCountsResult.active) {
+    explanationTrace.push(
+      `Active 36-angle month-count window (nearby dates: ${angleMonthCountsResult.dates.slice(0, 3).join(", ") || "n/a"}).`,
+    );
+  }
   explanationTrace.push(
     cycles.active
       ? `Active structural time-cycle window (nearby dates: ${cycles.dates.slice(0, 3).join(", ") || "n/a"}).`
@@ -273,6 +295,9 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
     timeCycleFixedCalendarActive: cycles.fixedCalendarActive,
     timeCycleFixedCalendarDates: cycles.fixedCalendarDates,
     decadeCycle: computeDecadeCycle(),
+    nearestMasterTwelve,
+    squareOf52,
+    angleMonthCounts: angleMonthCountsResult,
     vortexContext,
     angleSlope,
     coordinateLedger,

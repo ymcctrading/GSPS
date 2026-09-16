@@ -1,9 +1,16 @@
 /**
  * Gann's Square of 20 / New York Stock Exchange Permanent Chart
  * (PRIVATE-GANN — Chapter 7, `docs/GANN_HISTORICAL_SOURCES.md` A2.1, second
- * extraction pass 2026-09-16). Internal/research use only — see
- * `angleMonthCounts.ts`'s header for the never-wire-into-the-public-scan
- * rule; it applies identically here.
+ * extraction pass 2026-09-16). Internal/research use only — **never** wire
+ * this into `lib/signals/confluence/gann.ts` / `GannConfluenceResult` /
+ * `components/scan/confluence-card.tsx` or any `app/api/*` route a
+ * logged-in user's scan request reaches. Unlike `masterTwelve.ts`/
+ * `squareOf52.ts`/`angleMonthCounts.ts` (wired into the live confluence
+ * layer 2026-09-16 once their own headers no longer had a real justification
+ * to stay stranded), this module keeps its exception for a genuine,
+ * technical reason stated below: `ringAndAngleOf()`'s ring/angle placement
+ * cannot be checked against Gann's original hand-drawn wheel, which is lost
+ * to this text-only extraction.
  *
  * A third Master construction distinct from the Square of Nine (9²=81) and
  * the Square of 144/Master Twelve (12²=144): a 20×20=400 grid, applied to
