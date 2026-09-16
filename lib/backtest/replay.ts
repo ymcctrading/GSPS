@@ -48,7 +48,6 @@ import { computeRuleOfThree, type RuleOfThreeReading } from "@/lib/gann/ruleOfTh
 import { computeTimePriceSquare, type TimePriceSquareReading } from "@/lib/gann/timePriceSquare";
 import { computeVolumeClimax, type VolumeClimaxReading } from "@/lib/gann/volumeClimax";
 import { computeBoilingPoint, type BoilingPointReading } from "@/lib/gann/boilingPoint";
-import { adx } from "@/lib/signals/indicators";
 import { DEFAULT_COST_PER_SHARE_USD } from "@/lib/trade/friction";
 
 /** 6.5 hours of 15-minute candles. */
@@ -564,9 +563,6 @@ function scoreSetup(input: {
   // readTrend looks back over and keeps the roll-up cheap.
   const hourlyBars = rollUp(history.slice(-400), (b) => b.t.slice(0, 13));
   const hourlyTrend = readTrend(hourlyBars, "1Hour");
-  // Same implementation and 20-ADX threshold lib/signals/regime.ts already
-  // validated for trend-strength confirmation — reused, not reinvented.
-  const hourlyAdx = adx(hourlyBars);
 
   let levels = null;
   try {
@@ -591,7 +587,6 @@ function scoreSetup(input: {
       direction: pattern.direction,
       macroTrends: context.macroTrends,
       hourlyTrend,
-      hourlyAdx,
       swingChart: context.swingChart,
       campaignLeg: context.campaignLeg,
       ruleOfThree: context.ruleOfThree,

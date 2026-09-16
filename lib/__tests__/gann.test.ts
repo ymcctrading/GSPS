@@ -203,7 +203,6 @@ describe("computeScore", () => {
       // setup wants bullish macro too.
       macroTrends: [trend("1Month", "bullish"), trend("1Week", "bullish"), trend("1Day", "bullish")],
       hourlyTrend: trend("1Hour", "bullish"),
-      hourlyAdx: { adx: 25, plusDI: 20, minusDI: 10 },
       swingChart: { threeDay: "bullish", nineDay: "bullish" },
       timePriceSquare: [
         { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMoveAtrUnits: 10, squared: true },
@@ -251,7 +250,7 @@ describe("computeScore", () => {
       },
       weights: UNIFORM_WEIGHTS,
     });
-    expect(decision.score).toBe(9);
+    expect(decision.score).toBe(8);
     expect(decision.outputState).toBe("Execute");
   });
 
@@ -268,7 +267,6 @@ describe("computeScore", () => {
       // setup wants bullish macro too.
       macroTrends: [trend("1Month", "bullish"), trend("1Week", "bullish"), trend("1Day", "bullish")],
       hourlyTrend: trend("1Hour", "bullish"),
-      hourlyAdx: { adx: 25, plusDI: 20, minusDI: 10 },
       swingChart: { threeDay: "bullish", nineDay: "bullish" },
       timePriceSquare: [
         { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMoveAtrUnits: 10, squared: true },
@@ -325,7 +323,7 @@ describe("computeScore", () => {
     // point, and score drops by exactly 2.
     expect(byKey.gannAngleSlope).toBe(true);
     expect(byKey.volumeClimax).toBe(true);
-    expect(decision.score).toBe(7);
+    expect(decision.score).toBe(6);
     expect(decision.outputState).toBe("Execute");
   });
 
@@ -420,7 +418,7 @@ describe("computeScore", () => {
 
     expect(squared.score).toBe(notSquared.score + 1);
     expect(squared.breakdown.find((b) => b.criterion === "Price and time squared")?.passed).toBe(true);
-    expect(squared.breakdown.map((b) => b.criterion)).toHaveLength(10);
+    expect(squared.breakdown.map((b) => b.criterion)).toHaveLength(9);
     expect(squared.breakdown.some((b) => /earnings/i.test(b.criterion))).toBe(false);
   });
 

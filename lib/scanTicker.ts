@@ -37,7 +37,6 @@ import { computeRuleOfThree } from "@/lib/gann/ruleOfThree";
 import { computeTimePriceSquare } from "@/lib/gann/timePriceSquare";
 import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
 import { computeBoilingPoint } from "@/lib/gann/boilingPoint";
-import { adx } from "@/lib/signals/indicators";
 import {
   CONTINUATION_PATTERNS,
   detectPatterns,
@@ -156,9 +155,6 @@ export async function scanTicker(
 
     // ---- Level 2: 1hr refinement
     const hourlyTrend = readTrend(hourly, "1Hour");
-    // Same implementation and 20-ADX threshold lib/signals/regime.ts already
-    // validated for trend-strength confirmation — reused, not reinvented.
-    const hourlyAdx = adx(hourly);
 
     // ---- Gann structures (anchored on the daily chart)
     const fanLines = computeFanLines(daily, currentPrice);
@@ -361,7 +357,6 @@ export async function scanTicker(
           direction: scoreDirection,
           macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
           hourlyTrend,
-          hourlyAdx,
           swingChart,
           campaignLeg,
           ruleOfThree,

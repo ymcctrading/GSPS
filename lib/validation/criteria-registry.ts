@@ -140,71 +140,6 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "before this can move past hypothesis.",
   },
   {
-    id: "adxTrendStrength",
-    family: "scanScore",
-    source: "lib/scoring/score.ts, lib/signals/indicators.ts",
-    label: "1-hour trend strength (ADX/DMI)",
-    expectedSign: "positive",
-    evidence: "quarantined",
-    quarantineReason:
-      "15Min unconditioned population (2026-09-10, docs/replay-runs/2026-09-10-15Min-2R-within-all.json, " +
-      "1049 trades): 292 passed (28%), correlation −0.065, t≈−2.09 — clears " +
-      "lib/validation/health.ts's significance bar (|r|·√(n-3)≥1.96, not the flat ±0.1 cutoff the " +
-      "RETIRED entries below describe — superseded because it misjudges significance across sample " +
-      "sizes, see MIN_SIGNIFICANCE_T's comment), a real, significant inversion against the declared " +
-      "positive sign.\n" +
-      "\n" +
-      "1Hour unconditioned population, captured as the direct follow-up (2026-09-10, " +
-      "docs/replay-runs/2026-09-10-1Hour-2R-within-all.json, 10472 observed trades — over 10x the " +
-      "15Min sample): 2645 passed (25%), correlation +0.0069, t≈0.70 — not significant, and the sign " +
-      "flipped positive. The inversion did NOT replicate on a much larger, independent population.\n" +
-      "\n" +
-      "This is the same shape BACKTESTING.md's masterStructural entry describes for a sign that " +
-      "disagreed between timeframes: 'the disqualifying case propose-weights.ts calls disagreed... left " +
-      "alone' rather than acted on either way. Structurally, though, this criterion cannot mechanically " +
-      "return to `hypothesis`: docs/replay-runs/2026-09-10-15Min-2R-within-all.json stays committed (this " +
-      "project does not delete or overwrite historical payloads — they are the evidentiary record), and " +
-      "criteria-gate.test.ts re-audits every committed payload against the CURRENT registry on every " +
-      "run. As long as that payload sits in the repo, lib/validation/health.ts's checkSign will keep " +
-      "reporting its −2.09 as a significant inversion — un-quarantining would re-fail the same payload's " +
-      "audit forever, not just today. So the disagreement argues the 15Min reading is plausibly a " +
-      "regime/timeframe artifact rather than a real defect (matching masterStructural's precedent), but " +
-      "the registry's own mechanics keep this quarantined regardless of that judgment.\n" +
-      "\n" +
-      "Exit condition, revised: no single additional run can lift this the way the original exit " +
-      "condition assumed, because the 15Min payload's significant reading is now permanent evidence in " +
-      "the repo. Lifting this needs either a maintainer's explicit call that the 15Min run is " +
-      "non-representative (e.g. a `--since` window matched to the 1Hour run's period, isolating regime " +
-      "from timeframe the way BACKTESTING.md's 'What would settle it' section describes for exactly this " +
-      "kind of disagreement), or a preponderance of further non-inverted runs strong enough to outweigh " +
-      "one committed inversion — a threshold this project has not formalized.\n" +
-      "\n" +
-      "**2026-09-11 update: the weight of evidence has moved, not resolved.** A second 15Min " +
-      "unconditioned capture (docs/replay-runs/2026-09-11-15Min-2R-within-all.json, 1061 trades, one " +
-      "day's rolling window forward) read 297 passed (28%), correlation −0.078, t≈−2.54 — significant " +
-      "again, and a larger magnitude than the first 15Min reading (t≈−2.09). That is now **two " +
-      "independent-in-time significant inversions at 15Min**, against **one** non-significant positive " +
-      "reading at 1Hour. This no longer reads as a coin-flip disagreement between timeframes — it reads " +
-      "as a real, reproducing effect specific to 15Min that a single larger 1Hour sample hasn't (yet) " +
-      "overturned. Caveat carried over from stopRoom's own entry: a one-day-later capture on the " +
-      "identical six-symbol universe is not a genuinely independent population, so this is not yet the " +
-      "\"preponderance of further runs\" the exit condition above asks for — but it is materially " +
-      "stronger evidence than existed yesterday, and the direction to bet on if forced to guess now is " +
-      "that adxTrendStrength is genuinely inverted at 15Min specifically, not that the 15Min reading is " +
-      "noise. Still quarantined, still not acted on beyond that — the next genuinely useful run is a " +
-      "different universe or a `--since`-isolated window, not a third same-universe 15Min capture.",
-    note:
-      "Replaces `hourlyTrend` (retired 2026-09-10; see RETIRED) — its own leniency (an ambiguous " +
-      "\"sideways\" hourly read counted as agreement) never cleared the sample floor as anything more " +
-      "than hypothesis. Reuses lib/signals/indicators.ts's adx() and the 20-ADX trend-strength " +
-      "threshold lib/signals/regime.ts already validated for the Signal & Regime Engine's own " +
-      "\"which indicator confirms a trend\" question, rather than re-deriving a new one — per AGENTS.md's " +
-      "cross-platform consistency principle. Stricter than hourlyTrend: both ADX >= 20 (trend " +
-      "established) and +DI/-DI direction agreement with the setup are required, no lenient " +
-      "ambiguous-still-passes branch. See quarantineReason for the 2026-09-10 measurement that put this " +
-      "under quarantine on its first real run.",
-  },
-  {
     id: "gannAngleSlope",
     family: "scanScore",
     source: "lib/scoring/score.ts",
@@ -598,6 +533,65 @@ const SCAN_SCORE: RegisteredCriterion[] = [
 
 /** Scored in the past, kept for the historical record. See `EvidenceStatus`. */
 const RETIRED: RegisteredCriterion[] = [
+  {
+    id: "adxTrendStrength",
+    family: "scanScore",
+    source: "lib/scoring/score.ts (scored until 2026-09-16), lib/signals/indicators.ts",
+    label: "1-hour trend strength (ADX/DMI)",
+    expectedSign: "positive",
+    evidence: "retired",
+    note:
+      "Removed from the scorecard 2026-09-16 on the project owner's direct instruction, and " +
+      "deliberately **not replaced with anything** — unlike every other entry in this list, which was " +
+      "swapped for a successor criterion. The scored criteria went from ten back to nine; " +
+      "EXECUTE_SCORE_THRESHOLD/WATCH_SCORE_THRESHOLD were rescaled 6.67/3.89 -> 6/3.5 to hold the same " +
+      "relative bar (66.7%/38.9% of TOTAL_POINTS), and DEFAULT_CRITERION_WEIGHTS lost its 0.5 entry.\n" +
+      "\n" +
+      "**The reason is provenance, not the measurement — and the reason generalizes even though the " +
+      "number does not.** adxTrendStrength was the one scored criterion with no Gann lineage at all: " +
+      "Wilder's ADX/DMI (1978) postdates Gann's death by more than two decades (docs/" +
+      "GANN_PLATFORM_AUDIT.md's Part 1 table classifies it GSPS-ORIGINAL for exactly this reason). It " +
+      "entered this codebase in lib/signals/regime.ts, as the trend-confirmation overlay the Signal & " +
+      "Regime Engine uses *instead of* leaning on a PSAR/Supertrend-style indicator alone (AGENTS.md's " +
+      "cross-platform-consistency section cites it as the standing example), and reached the scorecard " +
+      "by propagation from there rather than by any independent claim that it belonged in a " +
+      "Gann-selected setup's score. With no PSAR anywhere in this repo (docs/GSPS_AUTOMATION.md " +
+      "confirms: zero matches repo-wide), the thing it substituted for does not exist here, so there is " +
+      "nothing to keep substituting for.\n" +
+      "\n" +
+      "That settles a hypothesis raised while auditing the negative readings below: the -0.245R was " +
+      "**not** a mistranslation of a Gann rule into code, because there was no Gann rule to " +
+      "mistranslate. A general-purpose trend filter measuring inverted against Gann-selected setups is " +
+      "the expected result, not a porting defect to hunt for. Generalize the reason, not the number: " +
+      "when a non-Gann criterion measures against its declared sign on this scorecard, ask first " +
+      "whether it was ever grounded in the methodology the setups are selected by, before treating the " +
+      "inversion as a bug in the implementation.\n" +
+      "\n" +
+      "**The indicator is not removed; only the scored criterion is.** lib/signals/indicators.ts's " +
+      "adx() stays exported and stays in live use by lib/signals/regime.ts (classifyRegime's " +
+      "trend-strength support) and lib/signals/states/rangeReversion.ts (its MAX_ADX_FOR_RANGE gate). " +
+      "That is a deliberate call, not an oversight of AGENTS.md's cross-platform consistency principle: " +
+      "the Signal & Regime Engine's spec genuinely asks a different question (is this market trending " +
+      "or ranging, at all?) than this scorecard does (does an independent trend filter agree with a " +
+      "Gann setup?), which is the \"different governing spec\" carve-out that section names. " +
+      "ScoreInputs.hourlyAdx, score.ts's adxTrendHolding/ADX_TREND_THRESHOLD, and the adx() calls in " +
+      "lib/scanTicker.ts and lib/backtest/replay.ts all went with the criterion.\n" +
+      "\n" +
+      "Measurement history, kept because every payload committed before 2026-09-16 measured this and a " +
+      "validity ledger that forgets what it used to score cannot explain its own past. It replaced " +
+      "`hourlyTrend` on 2026-09-10 (see that entry) with a stricter two-part test — ADX >= 20 AND " +
+      "+DI/-DI agreeing with the setup's direction, no lenient ambiguous-still-passes branch — and was " +
+      "quarantined on its first real run. 15Min unconditioned populations inverted significantly and " +
+      "reproducibly: 2026-09-10-15Min-2R-within-all.json, 292/1049 passed (28%), r=-0.065, t~-2.09; " +
+      "2026-09-11-15Min-2R-within-all.json, 297/1061 (28%), r=-0.078, t~-2.54, Delta=-0.245R; " +
+      "2026-09-14-15Min-2R-within-all.json, 289/985, Delta=-0.261R. The much larger 1Hour populations " +
+      "read flat-positive and not significant (2026-09-10-1Hour-2R-within-all.json, 2645/10472, " +
+      "r=+0.0069, t~0.70; 2026-09-14-1Hour, 2647/10480, Delta=+0.020R), which is the timeframe " +
+      "disagreement masterStructural's entry describes. That disagreement was never resolved either " +
+      "way and no longer needs to be — the criterion is gone for a reason that does not depend on it, " +
+      "and the quarantine's stated exit condition (a maintainer's call that the 15Min runs are " +
+      "non-representative, or a preponderance of non-inverted runs) is moot.",
+  },
   {
     id: "momentum",
     family: "scanScore",

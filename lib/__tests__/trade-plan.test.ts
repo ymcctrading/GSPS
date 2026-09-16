@@ -36,15 +36,16 @@ function trend(
 }
 
 /**
- * Every original structural criterion passing — 8 of 9 without a pattern or
+ * Every original structural criterion passing — 7 of 8 without a pattern or
  * levels. gannAngleSlope and gannRetracementConfluence both read off `gann`
  * alone (not the computed trade `levels`), so only `patternArmed` needs an
  * armed pattern to pass — unlike the old `masterStructural` it replaced,
  * which needed `levels.masterFromStructure`. `ruleOfThree` (added
  * 2026-09-16) is deliberately left unsupplied in `inputs()` below — it
  * always fails here, so every score in this file is one point lower than a
- * literal "all ten pass" run would read; the exact numbers below already
- * account for that.
+ * literal "all nine pass" run would read; the exact numbers below already
+ * account for that. `adxTrendStrength` (removed 2026-09-16) no longer
+ * exists to supply or count.
  */
 const gann: GannLevels = {
   fanLines: [],
@@ -95,7 +96,6 @@ function inputs(overrides: Partial<ScoreInputs> = {}): ScoreInputs {
       trend("1Day", "bullish"),
     ],
     hourlyTrend: trend("1Hour", "bullish"),
-    hourlyAdx: { adx: 25, plusDI: 20, minusDI: 10 },
     swingChart: { threeDay: "bullish", nineDay: "bullish" },
     timePriceSquare: [
       { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMoveAtrUnits: 10, squared: true },
@@ -117,13 +117,13 @@ function inputs(overrides: Partial<ScoreInputs> = {}): ScoreInputs {
 describe("computeScore output state", () => {
   it("reaches Execute when the plan is priced", () => {
     const decision = computeScore(inputs());
-    expect(decision.score).toBe(9);
+    expect(decision.score).toBe(8);
     expect(decision.outputState).toBe("Execute");
   });
 
   it("holds at Watch when the context scores 7+ but no pattern is armed", () => {
     const decision = computeScore(inputs({ pattern: null, levels: null }));
-    expect(decision.score).toBe(8);
+    expect(decision.score).toBe(7);
     expect(decision.outputState).toBe("Watch");
     expect(decision.breakdown.at(-1)?.criterion).toMatch(/Trade plan priced/);
   });
@@ -135,7 +135,7 @@ describe("computeScore output state", () => {
 
   it("holds at Watch when the armed pattern opposes the scored direction", () => {
     const decision = computeScore(inputs({ pattern: { ...pattern, direction: "bearish" } }));
-    expect(decision.score).toBe(8);
+    expect(decision.score).toBe(7);
     expect(decision.outputState).toBe("Watch");
   });
 
@@ -149,7 +149,7 @@ describe("computeScore output state", () => {
       momentumElevated: false,
       stopAtrMultiple: 0.8,
     }));
-    expect(decision.breakdown).toHaveLength(10);
+    expect(decision.breakdown).toHaveLength(9);
     expect(decision.outputState).toBe("Reject");
   });
 });
@@ -322,13 +322,13 @@ describe("continuation scoring", () => {
 
   it("names the pattern criterion after the trade it describes", () => {
     const asContinuation = computeScore(inputs({ setupKind: "continuation" }));
-    expect(asContinuation.breakdown[5].criterion).toBe("Continuation pattern armed");
-    expect(computeScore(inputs()).breakdown[5].criterion).toBe("Reversal pattern armed");
+    expect(asContinuation.breakdown[4].criterion).toBe("Continuation pattern armed");
+    expect(computeScore(inputs()).breakdown[4].criterion).toBe("Reversal pattern armed");
   });
 
-  it("can still reach 9/9 as a continuation — nothing structurally caps it", () => {
+  it("can still reach 8/9 as a continuation — nothing structurally caps it", () => {
     const decision = computeScore(inputs({ setupKind: "continuation", swingChart: swingBullish }));
-    expect(decision.score).toBe(9);
+    expect(decision.score).toBe(8);
     expect(decision.outputState).toBe("Execute");
   });
 

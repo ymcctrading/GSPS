@@ -141,6 +141,83 @@ as conservatively as `digitalRoot.ts` does today (confluence-only, never
 independently gating) — can be built out further when Gann's own
 methodology calls for it, per this same precedence rule.
 
+**Worked example: `adxTrendStrength` discarded entirely (2026-09-16,
+project owner direction).** Not replaced with anything — the first worked
+example of this principle's audit obligation running the other way, toward
+removal rather than a swap. `adxTrendStrength` (Wilder's ADX/DMI,
+`lib/signals/indicators.ts#adx`) was the one scored criterion with no Gann
+lineage at all (postdates Gann's death by more than two decades). It
+entered `lib/signals/regime.ts` as the Signal & Regime Engine's
+trend-confirmation overlay specifically so that engine would not lean on a
+PSAR/Supertrend-style indicator alone (this section's own opening example),
+then propagated from there into this scorecard by the cross-platform
+consistency principle above — never on an independent claim that it
+belonged in a Gann-selected setup's score. With no PSAR anywhere in this
+repo (`docs/GSPS_AUTOMATION.md` confirms zero matches), the thing it
+substituted for does not exist here, so there is nothing left to keep
+substituting for; the criterion comes out, full stop, not "quarantined
+pending a replacement." The measured inversion (−0.245R, see
+`lib/validation/criteria-registry.ts`'s RETIRED entry) was **consistent
+with that absence of lineage, not the cause of the removal** — a
+non-Gann trend filter measuring against Gann-selected setups is the
+expected result of never having belonged, not a porting defect to hunt
+down. Generalize the reason, not the number: when a non-Gann criterion on
+this scorecard measures against its declared sign, ask first whether it
+was ever grounded in the methodology the setups are selected by, before
+spending effort hunting a translation bug that may not exist. The
+indicator itself (`adx()`) was not removed — `lib/signals/regime.ts` and
+`lib/signals/states/rangeReversion.ts` still use it for the different
+question the Signal & Regime Engine's own spec asks (is this market
+trending or ranging, at all?), which is the "different governing spec"
+carve-out the cross-platform consistency principle above names. Only the
+scorecard's independent claim that this indicator agreeing with a
+Gann-selected setup meant something came out.
+
+**Investigated and kept, not removed: Sara Sniper's bar-sequence taxonomy
+(`lib/strat/patterns.ts`, wrapped by `lib/signals/confluence/sara.ts`)
+— an explicit, justified exception, by project-owner direction
+(2026-09-16), never gating.** The open question was whether this
+"candle-counting" presentation already restates a Gann technique this
+codebase implements elsewhere, which would upgrade it from tolerated
+foreign method to a second display of something Gann-grounded. It does
+not. `lib/strat/patterns.ts` classifies each closed bar's high/low against
+the prior bar into a shape (`1` inside, `2U`/`2D` directional, `3`
+outside), then pattern-matches short, fixed 2–3-bar *sequences* of those
+shapes (`2-1-2`, `3-1-2`, `2-2`, `1-2-2`, `3-2-2`, PMG) to arm a trigger and
+stop — this is "The Strat" (Rob Smith), a publicly known, non-Gann
+methodology; `docs/GANN_SARA_CONFLUENCE.md`'s own "Controlling
+clarification" already treats Gann Protocol and Sara Sniper Strat as two
+separate, independently-authorized frameworks, neither substituting for
+the other. That is a different mechanism from every Gann-grounded
+bar-counting rule this codebase does implement: `lib/gann/swingChart.ts`'s
+3-day/9-day swing charts count a *run* of closes against the prevailing
+trend and flip only once that run reaches a fixed length (3 or 9,
+Ch. VII, per `docs/GANN_HISTORICAL_SOURCES.md`); `lib/gann/ruleOfThree.ts`
+counts a *run* of same-direction closes (2 or 3, `Wall Street Stock
+Selector`, 1930). Both are streak-length counters over a single scalar
+(the close's direction). Sara/Strat counts nothing and keeps no running
+total — it classifies each bar's shape and looks up a short fixed sequence
+of those classifications, a categorically different operation. Checked
+against `docs/GANN_HISTORICAL_SOURCES.md` directly: no inside/outside-bar
+sequence taxonomy appears anywhere in the Gann primary or secondary
+catalog. So this is not "the same rule in different clothes" — it is a
+genuine variant with no citable Gann source, which under the numerology
+carve-out just above would normally stay off-limits as a scored or
+confluence-gating criterion. It already doesn't gate: `sara.ts` is
+additive-only, feature-flagged, and (per the decision hierarchy in
+`docs/GANN_SARA_CONFLUENCE.md`) can never set `SignalGates` or a state's
+`tradeable`. Kept anyway, by direct project-owner instruction, in the same
+tolerated-exception category `digitalRoot.ts` and the research-only
+`squareOf20.ts`/`hexagonChart.ts` already occupy: counting candles is
+intuitive to read directly off a chart, and other traders may find that
+presentation simpler to follow too. Do not remove it on a future audit,
+and do not treat it as unjustified foreign substance — the provenance
+question has been asked and answered here. If a future session finds an
+actual Gann-sourced inside/outside-bar sequence rule this analysis missed,
+that would change the classification from "documented exception" to
+"Gann-grounded alternative display" — but nothing found so far supports
+that.
+
 ## Hermetic principles & cycle theory — standing background lens
 
 Per the project owner's explicit, standing direction (2026-09-16): the
