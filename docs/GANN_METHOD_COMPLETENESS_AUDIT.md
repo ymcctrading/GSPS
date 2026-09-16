@@ -89,17 +89,18 @@ positive-evidence criterion, while Square of 9 remains retired from
 scoring for measuring negligible, irrespective of how much more of the
 private course has now been read.
 
-**Also note (2026-09-16):** a sibling, not-yet-merged branch
-(`claude/vigilant-pasteur-e5bhk9`, commit `1cba6e0`) has already built four
-of this document's own §5 item 9 candidates — the Rule of Three, the
+**Also note (2026-09-16, updated): merged to `main` as #228.** The
+sibling branch (`claude/vigilant-pasteur-e5bhk9`, commit `1cba6e0`) built
+four of this document's own §5 item 9 candidates — the Rule of Three, the
 3-point rule (as a buffer in `lib/lifecycle/entryConfirmation.ts`), a
 resistance-point clustering refinement in `lib/strat/levels.ts`, and the
 A4-level fixed annual calendar cycle in `lib/gann/timeCycles.ts` — plus the
 two mislabeling fixes this document's §4 doesn't itself flag but
 `GANN_PLATFORM_AUDIT.md`'s §3a does. That work is not reflected in this
-document's tables below, which describe the state as of this writing;
-check whether that branch has merged before treating those specific §5
-items as still open.
+document's tables below, which still describe the pre-#228 state; those
+specific §5 items are no longer open, but the tables themselves need their
+own refresh against the merged code — out of scope for this correction
+pass, flagged rather than left silently stale.
 
 ## 1. The Gann method, in plain English
 
@@ -503,16 +504,16 @@ tuned scoring," except where flagged otherwise.
    `gannAngleSlope`/Square of 9 (real techniques, just not disclosed ones —
    see §4). All four need the same unmeasured → attribution →
    in/out-of-sample discipline `PROPOSAL_NEW_GANN_CRITERIA.md` lays out
-   before touching `CRITERION_KEYS`. **Status update (2026-09-16): a
-   sibling, not-yet-merged branch (`claude/vigilant-pasteur-e5bhk9`, commit
-   `1cba6e0`) has already built all four of the items below live** (Rule of
-   Three as a new tenth scored criterion, the 3-point rule as a buffer in
-   `lib/lifecycle/entryConfirmation.ts`, lost-motion-adjacent clustering in
-   `lib/strat/levels.ts`, and the fixed annual calendar cycle in
-   `lib/gann/timeCycles.ts`), per its own documented `AGENTS.md` "WD Gann
-   precedence" standing principle rather than this document's
-   unmeasured-first sequencing. Check whether that branch has merged before
-   re-building any of these:
+   before touching `CRITERION_KEYS`. **Status update (2026-09-16, updated):
+   merged to `main` as #228.** The sibling branch
+   (`claude/vigilant-pasteur-e5bhk9`, commit `1cba6e0`) built all four of
+   the items below live (Rule of Three as a new tenth scored criterion, the
+   3-point rule as a buffer in `lib/lifecycle/entryConfirmation.ts`,
+   lost-motion-adjacent clustering in `lib/strat/levels.ts`, and the fixed
+   annual calendar cycle in `lib/gann/timeCycles.ts`), per its own
+   documented `AGENTS.md` "WD Gann precedence" standing principle rather
+   than this document's unmeasured-first sequencing. Do not re-build any of
+   these:
    - The **"Rule of Three"** (`Wall Street Stock Selector`, 1930): three
      consecutive closes against the prevailing trend as a reversal
      signal. Cheap to build (`lib/gann/swingChart.ts` already tracks

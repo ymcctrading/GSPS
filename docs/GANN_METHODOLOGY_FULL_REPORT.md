@@ -1015,8 +1015,8 @@ Part I:
 | Tape reading | Volume climax at anchor pivot | `lib/gann/volumeClimax.ts` | **Implemented and scored** |
 | Tape reading (non-Gann) | Sara Sniper Strat pattern recognition | `lib/strat/patterns.ts`, `lib/signals/confluence/sara.ts` | Implemented and scored — `patternArmed` (see §17) |
 
-**Branch note (2026-09-16):** a sibling, not-yet-merged branch
-(`claude/vigilant-pasteur-e5bhk9`, commit `1cba6e0`) has already built a
+**Branch note (2026-09-16, updated): merged to `main` as #228.** The
+sibling branch (`claude/vigilant-pasteur-e5bhk9`, commit `1cba6e0`) built a
 tenth scored criterion (`ruleOfThree`), extended `lib/gann/timeCycles.ts`
 with A4's fixed annual calendar windows, added a 3-point breakout buffer to
 `lib/lifecycle/entryConfirmation.ts`, added resistance-point clustering to
@@ -1024,12 +1024,12 @@ with A4's fixed annual calendar windows, added a 3-point breakout buffer to
 predecessor audits flagged (Square of 9/angles no longer called
 "public-domain"; `lib/guided/copy.ts` no longer asserts unvalidated
 Square-of-9/fan coordinates are "a level this symbol has repeatedly turned
-at") — full detail in that branch's own updated `GANN_PLATFORM_AUDIT.md`.
-None of that work is reflected in the table above, which describes the
-mainline state as of this writing; check whether that branch has merged
-before treating any of it as still open, and expect a documentation merge
-conflict in `GANN_PLATFORM_AUDIT.md` and `AGENTS.md` between that branch
-and this report's own updates below, since both touch the same sections.
+at") — full detail in `GANN_PLATFORM_AUDIT.md`'s own dated record. **None
+of that is reflected in the table above yet**, which still describes the
+pre-#228 nine-criterion state; the table itself (row count, `ruleOfThree`'s
+entry, the "headline alignment finding" paragraph below it) needs its own
+refresh against the now-merged code — out of scope for this correction
+pass, flagged here rather than left silently stale.
 
 **The headline alignment finding, stated plainly:** four of the nine live
 scored criteria are directly, literally Gann structural techniques
