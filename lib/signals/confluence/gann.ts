@@ -41,6 +41,7 @@ import { atr, findPivots } from "@/lib/analysis/pivots";
 import { computeFanLines, nearestFanLine } from "@/lib/gann/fans";
 import { nearestS9Level, recentSquareOf9Levels } from "@/lib/gann/squareOf9";
 import { timeCycles } from "@/lib/gann/timeCycles";
+import { computeDecadeCycle } from "@/lib/gann/decadeCycle";
 import {
   buildDigitalRootFeature,
   classifyConfluence,
@@ -110,6 +111,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
       timeCycleDates: [],
       timeCycleFixedCalendarActive: false,
       timeCycleFixedCalendarDates: [],
+      decadeCycle: computeDecadeCycle(),
       vortexContext: {
         priceDisplacement: null,
         timeDisplacement: null,
@@ -270,6 +272,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
     timeCycleDates: cycles.dates,
     timeCycleFixedCalendarActive: cycles.fixedCalendarActive,
     timeCycleFixedCalendarDates: cycles.fixedCalendarDates,
+    decadeCycle: computeDecadeCycle(),
     vortexContext,
     angleSlope,
     coordinateLedger,

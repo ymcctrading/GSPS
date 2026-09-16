@@ -1,7 +1,8 @@
 /**
- * Gann time cycles: anniversary dates of major pivots and fixed wheel counts
- * (45/90/180/360 calendar days) projected forward. A scan date falling within
- * `windowDays` of any projected date marks an active "date of interest".
+ * Gann time cycles: major/minor cycle-year anniversaries of major pivots (see
+ * `MAJOR_CYCLE_YEARS`) and fixed wheel counts (45/90/180/360 calendar days)
+ * projected forward. A scan date falling within `windowDays` of any projected
+ * date marks an active "date of interest".
  *
  * Directional: a low pivot projects turn windows a bullish reversal argues
  * from (the low resuming up); a high pivot projects the mirror for bearish.
@@ -29,6 +30,21 @@ import type { Bar } from "@/lib/types";
 import { findPivots, majorPivots } from "@/lib/analysis/pivots";
 
 const WHEEL_COUNTS = [45, 90, 120, 180, 270, 360];
+
+/**
+ * The full disclosed major/minor time-cycle hierarchy, in years, projected
+ * forward from each anchor pivot — added 2026-09-16 per a fuller extraction
+ * of `docs/GANN_HISTORICAL_SOURCES.md` A2.1's Chapter 7, "Master Time Factor
+ * and Forecasting by Mathematical Rules." Replaces the previous 1-3-year-only
+ * anniversary loop: Gann's own text names 60 years ("Great Cycle... the
+ * greatest and most important cycle of all"), 50, 30, 20 ("most stocks...
+ * work closer to this cycle than any other"), 15, 10, 7, and 5-year cycles,
+ * plus minor 3- and 2-year cycles and "the smallest cycle... one year." Per
+ * AGENTS.md's "WD Gann precedence" principle — this is a literal, disclosed
+ * rule, not a reconstruction, so it replaces the narrower 1-3-year window
+ * rather than sitting alongside it as a separate hypothesis.
+ */
+const MAJOR_CYCLE_YEARS = [1, 2, 3, 5, 7, 10, 15, 20, 30, 50, 60];
 
 /**
  * "Early February/March/May/June/August/September/November/December" per A4
@@ -101,8 +117,8 @@ export function timeCycles(dailyBars: Bar[], asOf: Date = new Date(), windowDays
     for (const count of WHEEL_COUNTS) {
       dates.push({ date: new Date(anchorDate.getTime() + count * dayMs), bullish });
     }
-    // Anniversary dates (1–3 years out)
-    for (let y = 1; y <= 3; y++) {
+    // Major/minor cycle years (see MAJOR_CYCLE_YEARS's own comment)
+    for (const y of MAJOR_CYCLE_YEARS) {
       const anniversary = new Date(anchorDate);
       anniversary.setFullYear(anniversary.getFullYear() + y);
       dates.push({ date: anniversary, bullish });

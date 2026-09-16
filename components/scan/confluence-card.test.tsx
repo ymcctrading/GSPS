@@ -72,6 +72,7 @@ describe("ConfluenceCard", () => {
           timeCycleDates: [],
           timeCycleFixedCalendarActive: false,
           timeCycleFixedCalendarDates: [],
+          decadeCycle: { yearDigit: 5, bias: "bullish", label: "Year of Ascension", note: "" },
           vortexContext: {
             priceDisplacement: {
               rawValue: 25,
