@@ -22,6 +22,7 @@ import type { MasterTwelveLevel } from "@/lib/gann/masterTwelve";
 import type { SquareOf52Result } from "@/lib/gann/squareOf52";
 import type { AngleMonthCountResult } from "@/lib/gann/angleMonthCounts";
 import type { SpectralCycleReading } from "@/lib/gann/spectralCycle";
+import type { CampaignLegReading } from "@/lib/gann/swingChart";
 import type { MarketAdapterStatus, SupportedMarket } from "./marketAdapters";
 
 /**
@@ -150,6 +151,15 @@ export interface GannConfluenceResult {
    * above. See `lib/gann/spectralCycle.ts`.
    */
   spectralCycle: SpectralCycleReading;
+  /**
+   * Gann's "sections of a campaign" leg count (`docs/GANN_HISTORICAL_SOURCES.md`
+   * A5/A8/A9) — how many 3-day swing-chart legs have printed since the last
+   * 9-day trend change, classified against his disclosed 3-4-leg reversal
+   * pattern. Confluence/context only, same non-authoritative role as every
+   * other field here — never changes `swingChartAligned`'s scored pass/fail
+   * in `lib/scoring/score.ts`. See `lib/gann/swingChart.ts#computeCampaignLeg`.
+   */
+  campaignLeg: CampaignLegReading;
   /**
    * Blueprint §8.5's normalized Gann-angle slope — realized ATR-units-per-bar
    * since the anchor, and which fixed angle ratio (1x4…4x1) that's closest

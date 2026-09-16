@@ -85,6 +85,7 @@ describe("ConfluenceCard", () => {
             hypothesisOnly: true,
             note: "",
           },
+          campaignLeg: { legNumber: null, confidence: null },
           vortexContext: {
             priceDisplacement: {
               rawValue: 25,

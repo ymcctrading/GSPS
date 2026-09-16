@@ -113,6 +113,14 @@ function GannRow({ result }: { result: NonNullable<ScanResult["signals"]>["gannC
               {result.spectralCycle.active ? `~${result.spectralCycle.dominantPeriodBars} bars` : "None"}
             </p>
           </div>
+          {result.campaignLeg.legNumber != null && (
+            <div className="rounded-md border border-border bg-surface p-2">
+              <p className="text-muted">Campaign leg</p>
+              <p className="font-mono font-semibold">
+                {result.campaignLeg.legNumber} ({result.campaignLeg.confidence})
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>

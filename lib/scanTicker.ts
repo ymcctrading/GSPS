@@ -32,7 +32,7 @@ import { weightedTrendAgreement } from "@/lib/gann/timeframeWeight";
 import { computeAngleSlopes } from "@/lib/gann/normalizedSlope";
 import { computeRetracementLevels } from "@/lib/gann/retracement";
 import { priceTimeConfluence } from "@/lib/gann/digitalRoot";
-import { computeSwingChart } from "@/lib/gann/swingChart";
+import { computeCampaignLeg, computeSwingChart } from "@/lib/gann/swingChart";
 import { computeRuleOfThree } from "@/lib/gann/ruleOfThree";
 import { computeTimePriceSquare } from "@/lib/gann/timePriceSquare";
 import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
@@ -147,6 +147,9 @@ export async function scanTicker(
     // macroTrend agreement check — same daily bars, a different (reversal-
     // count) construction. See lib/gann/swingChart.ts.
     const swingChart = computeSwingChart(daily);
+    // Gann's "sections of a campaign" leg count, added 2026-09-16 — confluence/
+    // context only, see lib/gann/swingChart.ts#computeCampaignLeg.
+    const campaignLeg = computeCampaignLeg(daily);
     // Gann's Rule of Three, added 2026-09-16 — see lib/gann/ruleOfThree.ts.
     const ruleOfThree = computeRuleOfThree(daily);
 
@@ -355,6 +358,7 @@ export async function scanTicker(
           hourlyTrend,
           hourlyAdx,
           swingChart,
+          campaignLeg,
           ruleOfThree,
           timePriceSquare,
           volumeClimax,

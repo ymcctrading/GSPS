@@ -43,7 +43,7 @@ import { timeCycles } from "@/lib/gann/timeCycles";
 import { computeAngleSlopes } from "@/lib/gann/normalizedSlope";
 import { computeRetracementLevels } from "@/lib/gann/retracement";
 import { priceTimeConfluence } from "@/lib/gann/digitalRoot";
-import { computeSwingChart, type SwingChartReading } from "@/lib/gann/swingChart";
+import { computeCampaignLeg, computeSwingChart, type CampaignLegReading, type SwingChartReading } from "@/lib/gann/swingChart";
 import { computeRuleOfThree, type RuleOfThreeReading } from "@/lib/gann/ruleOfThree";
 import { computeTimePriceSquare, type TimePriceSquareReading } from "@/lib/gann/timePriceSquare";
 import { computeVolumeClimax, type VolumeClimaxReading } from "@/lib/gann/volumeClimax";
@@ -235,6 +235,8 @@ const weekKey = (b: Bar) => {
 export interface MacroContext {
   macroTrends: TrendReading[];
   swingChart: SwingChartReading;
+  /** How many 3-day swing-chart legs since the last 9-day trend change, and Gann's "sections of a campaign" confidence read on that count. Confluence/context only — see lib/gann/swingChart.ts#computeCampaignLeg. */
+  campaignLeg: CampaignLegReading;
   ruleOfThree: RuleOfThreeReading;
   timePriceSquare: TimePriceSquareReading[];
   volumeClimax: VolumeClimaxReading[];
@@ -268,6 +270,7 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
   const weeklyTrend = readTrend(weekly, "1Week");
   const dailyTrend = readTrend(daily, "1Day");
   const swingChart = computeSwingChart(daily);
+  const campaignLeg = computeCampaignLeg(daily);
   const ruleOfThree = computeRuleOfThree(daily);
 
   const fanLines = computeFanLines(daily, price);
@@ -308,6 +311,7 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
   return {
     macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
     swingChart,
+    campaignLeg,
     ruleOfThree,
     timePriceSquare,
     volumeClimax,
@@ -584,6 +588,7 @@ function scoreSetup(input: {
       hourlyTrend,
       hourlyAdx,
       swingChart: context.swingChart,
+      campaignLeg: context.campaignLeg,
       ruleOfThree: context.ruleOfThree,
       timePriceSquare: context.timePriceSquare,
       volumeClimax: context.volumeClimax,

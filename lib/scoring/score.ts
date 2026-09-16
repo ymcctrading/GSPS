@@ -28,7 +28,7 @@ import {
 import { LEVEL_TIMEFRAME_USAGE, levelRoleLabel, type LevelRole } from "@/lib/analysis/levelRole";
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 import type { AdxReading } from "@/lib/signals/indicators";
-import type { SwingChartReading } from "@/lib/gann/swingChart";
+import type { CampaignLegReading, SwingChartReading } from "@/lib/gann/swingChart";
 import type { RuleOfThreeReading } from "@/lib/gann/ruleOfThree";
 import type { TimePriceSquareReading } from "@/lib/gann/timePriceSquare";
 import { VOLUME_CLIMAX_THRESHOLD, type VolumeClimaxReading } from "@/lib/gann/volumeClimax";
@@ -53,6 +53,18 @@ export interface ScoreInputs {
    * does.
    */
   swingChart?: SwingChartReading | null;
+  /**
+   * Gann's "sections of a campaign" leg count off the same daily bars
+   * (`lib/gann/swingChart.ts#computeCampaignLeg`) — how many 3-day
+   * swing-chart legs have printed since the last 9-day trend change, and
+   * whether that count falls in his disclosed 3-4-leg reversal zone.
+   * Confluence/context only: appended to `swingChartTrend`'s explanation
+   * note, never affecting `passed` — a materially different construction
+   * from `swingChartAligned` itself, so it stays out of the scored boolean
+   * until backtested on its own, per this codebase's evidence-gating
+   * discipline.
+   */
+  campaignLeg?: CampaignLegReading | null;
   /**
    * Gann's "Rule of Three" off the daily closes
    * (`lib/gann/ruleOfThree.ts#computeRuleOfThree`) — see that module's
@@ -185,7 +197,7 @@ export const MIN_STOP_ROOM_ATR = 1.5;
 
 export function computeScore(inputs: ScoreInputs): ScanDecision {
   const {
-    direction, hourlyAdx, swingChart, ruleOfThree, timePriceSquare, volumeClimax, gann,
+    direction, hourlyAdx, swingChart, campaignLeg, ruleOfThree, timePriceSquare, volumeClimax, gann,
     nearSupportResistance, srMatch, pattern, levels, stopAtrMultiple, assetClass,
     setupKind = "reversion",
     atrPct,
@@ -336,6 +348,14 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
 
   const patternValid = pattern !== null && pattern.direction === direction;
 
+  // Confluence/context only — never changes swingChartAligned itself. See
+  // ScoreInputs.campaignLeg's own doc comment for why this stays out of the
+  // scored boolean.
+  const campaignLegNote =
+    campaignLeg?.legNumber != null && campaignLeg.confidence != null
+      ? ` Leg ${campaignLeg.legNumber} of the current campaign since the last major (9-day) trend change (${campaignLeg.confidence} confidence per Gann's 3-4-leg pattern).`
+      : "";
+
   // "TP1 ≥ 2R" could never fail, and so was never a criterion. computeTradeLevels
   // sets TP1 to max(2R, previous candle's extreme), which puts the ratio at 2 or
   // better on every well-formed pattern — a free point on all nine-criteria
@@ -354,13 +374,14 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       note:
         swingChart == null || swingChart.threeDay == null || swingChart.nineDay == null
           ? "Not enough daily history to read the 3-day/9-day swing charts."
-          : swingChartAligned
-            ? setupKind === "continuation"
-              ? `Both the 3-day and 9-day swing charts read ${direction} — the trend this setup continues is intact.`
-              : `Both the 3-day and 9-day swing charts read ${direction} — in agreement with this reversion.`
-            : swingChart.threeDay === swingChart.nineDay
-              ? `Both swing charts read ${swingChart.threeDay}, not ${direction} — they agree with each other but not with this setup.`
-              : `The 3-day (${swingChart.threeDay}) and 9-day (${swingChart.nineDay}) swing charts disagree with each other.`,
+          : (swingChartAligned
+              ? setupKind === "continuation"
+                ? `Both the 3-day and 9-day swing charts read ${direction} — the trend this setup continues is intact.`
+                : `Both the 3-day and 9-day swing charts read ${direction} — in agreement with this reversion.`
+              : swingChart.threeDay === swingChart.nineDay
+                ? `Both swing charts read ${swingChart.threeDay}, not ${direction} — they agree with each other but not with this setup.`
+                : `The 3-day (${swingChart.threeDay}) and 9-day (${swingChart.nineDay}) swing charts disagree with each other.`) +
+            campaignLegNote,
     },
     {
       key: "adxTrendStrength",

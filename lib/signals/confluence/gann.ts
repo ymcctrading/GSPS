@@ -46,6 +46,7 @@ import { masterTwelveLevels, nearestMasterTwelveLevel } from "@/lib/gann/masterT
 import { squareOf52Windows } from "@/lib/gann/squareOf52";
 import { angleMonthCounts as computeAngleMonthCounts } from "@/lib/gann/angleMonthCounts";
 import { detectSpectralCycle } from "@/lib/gann/spectralCycle";
+import { computeCampaignLeg } from "@/lib/gann/swingChart";
 import {
   buildDigitalRootFeature,
   classifyConfluence,
@@ -128,6 +129,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
         hypothesisOnly: true,
         note: reason,
       },
+      campaignLeg: { legNumber: null, confidence: null },
       vortexContext: {
         priceDisplacement: null,
         timeDisplacement: null,
@@ -171,6 +173,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
   const squareOf52 = squareOf52Windows(inputs.dailyBars);
   const angleMonthCountsResult = computeAngleMonthCounts(inputs.dailyBars);
   const spectralCycle = detectSpectralCycle(inputs.dailyBars);
+  const campaignLeg = computeCampaignLeg(inputs.dailyBars);
 
   // Digital Root/Vortex context (blueprint sections 2, 7, 18): price_dr from
   // the normalized tick displacement off the anchor, time_dr from bars
@@ -267,6 +270,11 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
     );
   }
   explanationTrace.push(`Spectral cycle: ${spectralCycle.note}`);
+  if (campaignLeg.legNumber != null) {
+    explanationTrace.push(
+      `Campaign leg ${campaignLeg.legNumber} since the last major (9-day) trend change (${campaignLeg.confidence} confidence per Gann's 3-4-leg pattern).`,
+    );
+  }
   explanationTrace.push(
     cycles.active
       ? `Active structural time-cycle window (nearby dates: ${cycles.dates.slice(0, 3).join(", ") || "n/a"}).`
@@ -311,6 +319,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
     squareOf52,
     angleMonthCounts: angleMonthCountsResult,
     spectralCycle,
+    campaignLeg,
     vortexContext,
     angleSlope,
     coordinateLedger,
