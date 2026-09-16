@@ -109,7 +109,18 @@ export interface ScoreInputs {
    * callers that only have the boolean (the backtest replay, existing tests)
    * keep working — the note just falls back to the generic wording.
    */
-  srMatch?: { price: number; timeframe: Timeframe; role: LevelRole } | null;
+  srMatch?: {
+    price: number;
+    timeframe: Timeframe;
+    role: LevelRole;
+    /**
+     * How many separate times price has already tested this level
+     * (`lib/analysis/pivots.ts#countLevelTouches`) — informational only, see
+     * the historicalSR breakdown note below. Undefined when the caller
+     * didn't compute it (existing tests, older callers).
+     */
+    touchCount?: number;
+  } | null;
   pattern: StratPattern | null;
   /**
    * Accepted but no longer read here: `momentum` stopped being a scored
@@ -192,6 +203,36 @@ export interface ScoreInputs {
  * confirmed nothing new — see the registry entry for why.
  */
 export const MIN_STOP_ROOM_ATR = 1.5;
+
+/**
+ * Gann's Chapter 8 caution (Master Stock Market Course — see
+ * `lib/analysis/pivots.ts#countLevelTouches`'s doc comment for the full
+ * citation): "it is safe to buy... the first, second, or third time, but
+ * when it declines to the same level the fourth time, it is dangerous...
+ * as it nearly always goes lower." Appended to the `historicalSR` note as a
+ * caveat on an otherwise-passing level — it never flips `passed`, since
+ * Gann's own framing is a caution about a level that has already confirmed,
+ * not a new test of its own.
+ */
+function fourthTouchCaution(touchCount: number | undefined): string {
+  if (touchCount === undefined || touchCount < 4) return ".";
+  return ` This is the ${touchCount}th time price has tested this level — Gann's own caution is that a 4th test of the same level nearly always breaks through rather than holding again.`;
+}
+
+/**
+ * Gann's volume-sequence rules (see `VolumeClimaxReading.volumeSequence`'s
+ * own doc comment for the full citation) — appended to the `volumeClimax`
+ * note as extra context, never changing `passed`.
+ */
+function volumeSequenceNote(sequence: "fading" | "rising" | null | undefined): string {
+  if (sequence === "fading") {
+    return " Volume faded on the secondary leg since — Gann's own reversal-confirming sequence.";
+  }
+  if (sequence === "rising") {
+    return " Volume rose again on the secondary leg since — Gann's own continuation-confirming sequence, not a reversal signature.";
+  }
+  return "";
+}
 
 export function computeScore(inputs: ScoreInputs): ScanDecision {
   const {
@@ -414,7 +455,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       passed: volumeClimaxHolding,
       note: climaxReading
         ? volumeClimaxHolding
-          ? `The ${climaxReading.anchorKind} anchor at ${climaxReading.anchorPrice.toFixed(2)} or one of the pivots just before it printed on ${climaxReading.bestRecentRelativeVolume.toFixed(2)}x trailing volume — above the ${VOLUME_CLIMAX_THRESHOLD}x climax floor.`
+          ? `The ${climaxReading.anchorKind} anchor at ${climaxReading.anchorPrice.toFixed(2)} or one of the pivots just before it printed on ${climaxReading.bestRecentRelativeVolume.toFixed(2)}x trailing volume — above the ${VOLUME_CLIMAX_THRESHOLD}x climax floor.${volumeSequenceNote(climaxReading.volumeSequence)}`
           : `The ${climaxReading.anchorKind} anchor at ${climaxReading.anchorPrice.toFixed(2)} and the pivots just before it printed on only ${climaxReading.bestRecentRelativeVolume.toFixed(2)}x trailing volume at best — below the ${VOLUME_CLIMAX_THRESHOLD}x climax floor.`
         : `No measurable volume climax since the last significant ${angleAnchorKind}.`,
     },
@@ -425,7 +466,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       passed: historicalSRPassed,
       note: historicalSRPassed
         ? srMatch
-          ? `Price sits at a clustered ${srMatch.timeframe} ${levelRoleLabel(srMatch.role).toLowerCase()} level at ${srMatch.price.toFixed(2)}. ${LEVEL_TIMEFRAME_USAGE[srMatch.timeframe]}.`
+          ? `Price sits at a clustered ${srMatch.timeframe} ${levelRoleLabel(srMatch.role).toLowerCase()} level at ${srMatch.price.toFixed(2)}. ${LEVEL_TIMEFRAME_USAGE[srMatch.timeframe]}${fourthTouchCaution(srMatch.touchCount)}`
           : "Price sits at a clustered macro S/R level."
         : nearSupportResistance && srMatch
           ? `Nearest clustered level at ${srMatch.price.toFixed(2)} is ${levelRoleLabel(srMatch.role).toLowerCase()} — wrong side for a ${direction} setup, so it doesn't confirm.`

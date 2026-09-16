@@ -24,7 +24,7 @@ import {
 } from "@/lib/data/provider";
 import { EXECUTION_TIMEFRAME } from "@/lib/timeframe";
 import { readTrend } from "@/lib/analysis/trend";
-import { atr } from "@/lib/analysis/pivots";
+import { atr, countLevelTouches } from "@/lib/analysis/pivots";
 import { relativeVolume } from "@/lib/signals/indicators";
 import { levelRole } from "@/lib/analysis/levelRole";
 import { computeFanLines } from "@/lib/gann/fans";
@@ -293,9 +293,22 @@ export async function scanTicker(
 
     // ---- Trade levels
     const previousBar = closedExecutionBars[closedExecutionBars.length - 2] ?? closedExecutionBars[closedExecutionBars.length - 1];
+    // Retracement prices (added 2026-09-16) close a real gap: Gann's own stop-
+    // buffer rules (Master Stock Market Course Ch. 1/4/9 — "buy or sell at the
+    // half-way point... with a stop loss order 1 to 3 points" beyond it, and
+    // the same buffer keyed to a 45° angle line) already have a live,
+    // asset-scaled implementation — `nearestStructuralStop`/
+    // `EQUITY_STOP_BUFFER_PCT` in lib/strat/levels.ts, which places the stop a
+    // fixed percent beyond WHATEVER structural level anchors it. Fan lines and
+    // Square-of-9 prices were already in this candidate pool; retracement
+    // levels (the half-way point among them) were computed two lines above but
+    // never actually fed in, so they could never be selected as the anchor
+    // that buffer applies to. This is a data-completeness fix to that existing
+    // mechanism, not new stop logic.
     const gannTargets = [
       ...gann.fanLines.map((f) => f.price),
       ...gann.squareOf9.map((s) => s.price),
+      ...retracementLevels.map((r) => r.price),
     ];
     // A trade-plan failure is confined to the trade plan. The rest of the scan
     // — price, trends, structural levels, checklist — is still valid and worth
@@ -368,6 +381,12 @@ export async function scanTicker(
     const srBandPct = proximityBandPct(SR_PROXIMITY_ATR, FALLBACK_SR_PCT, atrPct);
     const srMatch = nearestLevelMatch(currentPrice, allLevels, srBandPct);
     const nearSupportResistance = srMatch !== null;
+    // How many separate times price has already tested the matched level —
+    // see lib/analysis/pivots.ts#countLevelTouches for the Gann citation.
+    // Informational only, folded into srMatch below purely for the
+    // historicalSR breakdown note; it does not change nearSupportResistance
+    // or historicalSR's pass/fail.
+    const srTouchCount = srMatch ? countLevelTouches(daily, srMatch.price, srBandPct) : undefined;
 
     // The bars above are what the verdict is computed on, and on the free feed
     // they are ~15 minutes old — a full candle on the 15-minute execution
@@ -392,7 +411,7 @@ export async function scanTicker(
           volumeClimax,
           gann,
           nearSupportResistance,
-          srMatch: srMatch && { ...srMatch, role: levelRole(currentPrice, srMatch.price) },
+          srMatch: srMatch && { ...srMatch, role: levelRole(currentPrice, srMatch.price), touchCount: srTouchCount },
           pattern,
           momentumElevated,
           levels,

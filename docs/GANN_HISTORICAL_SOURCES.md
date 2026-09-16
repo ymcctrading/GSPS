@@ -600,26 +600,47 @@ source, no live account/position state), in rough priority order:
    reaction of the current campaign, by size or by duration, signals a
    main-trend change — the highest-value single finding across all four
    passes, cleanly mechanical over existing pivot infrastructure
-   (`lib/analysis/pivots.ts`), not yet built anywhere.
+   (`lib/analysis/pivots.ts`), not yet built anywhere. **Deliberately held
+   back** (2026-09-16, project owner direction): everything else in this
+   list is a non-scoring extension of an existing mechanism; this one and
+   item 2 below would each add a new scored criterion (growing
+   `TOTAL_POINTS` again) with zero test/backtest evidence behind the ones
+   already added the same day — held until a real test run and ideally a
+   fresh backtest capture exist to check against, not declined.
 2. Chapter 8's Green/Red weekly Trend Line (higher-high-and-higher-low /
    lower-high-and-lower-low weekly flip) — distinct from `swingChart.ts`'s
-   fixed-day-count construction.
-3. Chapter 12's volume-sequence rule (a climax on the primary leg followed
-   by fading volume on the secondary leg confirms reversal; the mirror
-   confirms continuation) — already logged as a known gap from a different
-   book (A8) before this session; now triple-cited (A8 + two Master Course
-   chapters), strengthening the case it's genuinely disclosed, not
-   reconstructed. Extends `lib/gann/volumeClimax.ts`'s existing
-   single-pivot spike check into a two-leg sequence read.
-4. A "4th touch of the same level is dangerous" caution (Chapter 8) and a
-   "resistance points near the same level get averaged together" citation
-   upgrade for `lib/strat/levels.ts`'s `combineNearbyLevels` (Chapter 9
-   states the identical rule Gann's *How to Make Profits Trading in
-   Commodities* — A8 — was previously the sole citation for).
-5. Chapter 4's angle-anchored stop-loss buffer (1-3 points beyond the
-   nearest 1x1 line) and Chapter 1/9's half-way-point-anchored version of
-   the same buffer — both extend `lib/strat/levels.ts`'s existing stop
-   logic, not a new mechanism.
+   fixed-day-count construction. **Held back for the same reason as item 1.**
+3. **Implemented 2026-09-16.** Chapter 12's volume-sequence rule (a climax
+   on the primary leg followed by fading volume on the secondary leg
+   confirms reversal; the mirror confirms continuation) — already logged as
+   a known gap from a different book (A8) before this session; now
+   triple-cited (A8 + two Master Course chapters). `lib/gann/
+   volumeClimax.ts`'s `VolumeClimaxReading` gained `secondaryLegRelative
+   Volume`/`volumeSequence`, surfaced in the `volumeClimax` criterion's
+   breakdown note — informational only, does not change `passed`, so no
+   threshold rescale was needed.
+4. **Implemented 2026-09-16.** A "4th touch of the same level is dangerous"
+   caution (Chapter 8) — `lib/analysis/pivots.ts#countLevelTouches`, surfaced
+   in the `historicalSR` breakdown note, informational only. The
+   `combineNearbyLevels` citation upgrade (Chapter 9 states the identical
+   "resistance points near the same level get averaged together" rule
+   Gann's *How to Make Profits Trading in Commodities* — A8 — was previously
+   the sole citation for) is recorded here rather than as a separate code
+   comment edit.
+5. **Half-way-point half implemented 2026-09-16; angle half already was.**
+   Chapter 4's angle-anchored stop-loss buffer (1-3 points beyond the
+   nearest 1x1 line) turned out to already be live — fan lines (angles)
+   were already in `lib/strat/levels.ts`'s stop-anchor candidate pool via
+   `gannTargets`, and that pool's generic `EQUITY_STOP_BUFFER_PCT` already
+   implements Gann's "1-3 points beyond a resistance point" rule for
+   whatever level anchors the stop. What was actually missing — Chapter
+   1/9's half-way-point (retracement) version of the same buffer — is fixed
+   now: `retracementLevels` prices (including the newly-added 1/3 and 2/3
+   points) are folded into `gannTargets` in both `lib/scanTicker.ts` and
+   `lib/backtest/replay.ts`, so they're eligible stop/target anchors for the
+   first time. No new stop logic was written — this reuses the existing
+   mechanism, which is why it carries no separate threshold or weight
+   change.
 6. Chapter 1's 50%-of-all-time-extreme buy/sell level — a second, all-time-
    history fraction ladder alongside `retracement.ts`'s existing swing-range
    one.

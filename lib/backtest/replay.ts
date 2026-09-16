@@ -36,7 +36,7 @@ import {
 import type { CriterionWeights } from "@/lib/scoring/weights";
 import { readTrend } from "@/lib/analysis/trend";
 import { levelRole, type LevelRole } from "@/lib/analysis/levelRole";
-import { atr } from "@/lib/analysis/pivots";
+import { atr, countLevelTouches } from "@/lib/analysis/pivots";
 import { computeFanLines } from "@/lib/gann/fans";
 import { recentSquareOf9Levels } from "@/lib/gann/squareOf9";
 import { timeCycles } from "@/lib/gann/timeCycles";
@@ -243,7 +243,7 @@ export interface MacroContext {
   gann: GannLevels;
   nearSupportResistance: boolean;
   /** The matched level and its role, when one is in range — see lib/scanTicker.ts's srMatch. */
-  srMatch: { price: number; timeframe: Timeframe; role: LevelRole } | null;
+  srMatch: { price: number; timeframe: Timeframe; role: LevelRole; touchCount?: number } | null;
   momentumElevated: boolean;
   /**
    * Daily ATR as a percentage of price on the day being traded. The structural
@@ -302,11 +302,11 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
   // Mirrors lib/scanTicker.ts: keep the matched level (and its role at
   // current price) rather than just a boolean, so the score can tell whether
   // it's on the trade's side or not.
-  const srMatch = nearestLevelMatch(
-    price,
-    allLevels,
-    proximityBandPct(SR_PROXIMITY_ATR, FALLBACK_SR_PCT, atrPct),
-  );
+  const srBandPct = proximityBandPct(SR_PROXIMITY_ATR, FALLBACK_SR_PCT, atrPct);
+  const srMatch = nearestLevelMatch(price, allLevels, srBandPct);
+  // Mirrors lib/scanTicker.ts's srTouchCount — see lib/analysis/pivots.ts's
+  // countLevelTouches doc comment for the Gann citation.
+  const srTouchCount = srMatch ? countLevelTouches(daily, srMatch.price, srBandPct) : undefined;
 
   return {
     macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
@@ -339,7 +339,7 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
       digitalRootConfluences,
     },
     nearSupportResistance: srMatch !== null,
-    srMatch: srMatch && { ...srMatch, role: levelRole(price, srMatch.price) },
+    srMatch: srMatch && { ...srMatch, role: levelRole(price, srMatch.price), touchCount: srTouchCount },
     momentumElevated: baselineAtr > 0 && recentAtr / baselineAtr >= 1.2,
     atrPct,
     structuralLevels: allLevels.map((l) => l.price),
@@ -572,7 +572,16 @@ function scoreSetup(input: {
     levels = computeTradeLevels(
       pattern,
       history[history.length - 2] ?? history[history.length - 1],
-      [...context.gann.fanLines.map((f) => f.price), ...context.gann.squareOf9.map((s) => s.price)],
+      // Retracement prices added 2026-09-16 — mirrors lib/scanTicker.ts's
+      // identical fix (see that file's own comment): the half-way point and
+      // other retracement fractions are real stop-anchor candidates under
+      // Gann's own disclosed stop-buffer rule (Master Stock Market Course
+      // Ch. 1/4/9) and were being computed but never fed into this pool.
+      [
+        ...context.gann.fanLines.map((f) => f.price),
+        ...context.gann.squareOf9.map((s) => s.price),
+        ...context.gann.retracementLevels.map((r) => r.price),
+      ],
       undefined,
       executionAtr,
       assetClass,
