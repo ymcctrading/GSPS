@@ -253,7 +253,10 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
   }
   if (nearestFan) {
     explanationTrace.push(
-      `Nearest structural angle line: ${nearestFan.angle} at ${nearestFan.price.toFixed(2)} (${nearestFan.role}, ${nearestFan.distancePct.toFixed(2)}% away).`,
+      `Nearest structural angle line: ${nearestFan.angle} at ${nearestFan.price.toFixed(2)} (${nearestFan.role}, ${nearestFan.distancePct.toFixed(2)}% away)` +
+        (nearestFan.timeProjectionDate
+          ? `, time-projected target date ${nearestFan.timeProjectionDate}.`
+          : "."),
     );
   }
   if (nearestMasterTwelve) {

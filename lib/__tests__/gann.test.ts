@@ -158,6 +158,35 @@ describe("computeFanLines", () => {
       expect(lines[i].distancePct).toBeGreaterThanOrEqual(lines[i - 1].distancePct);
     }
   });
+
+  it("projects the 1x1 angle's time target as exactly one base-swing interval forward, and 2x1 as double", () => {
+    // A confirmed low pivot at i=19, then a confirmed high pivot at i=39 --
+    // the down-swing into the low (20 calendar days) is the "base interval"
+    // B10's rule projects forward from the high anchor.
+    const price = (i: number) => (i <= 19 ? 140 - i : i <= 39 ? 122 + (i - 20) : 140 - (i - 40));
+    const bars: Bar[] = Array.from({ length: 50 }, (_, i) => ({
+      t: new Date(Date.UTC(2026, 0, 1 + i)).toISOString(),
+      o: price(i),
+      h: price(i) + 1,
+      l: price(i) - 1,
+      c: price(i),
+      v: 1000,
+    }));
+
+    const lines = computeFanLines(bars, bars[bars.length - 1].c);
+    const highAnchorLines = lines.filter((l) => l.angle.includes("(high)"));
+    expect(highAnchorLines.length).toBeGreaterThan(0);
+    const oneByOne = highAnchorLines.find((l) => l.angle.startsWith("1x1"));
+    const twoByOne = highAnchorLines.find((l) => l.angle.startsWith("2x1"));
+    expect(oneByOne?.timeProjectionDate).not.toBeNull();
+    expect(twoByOne?.timeProjectionDate).not.toBeNull();
+    const anchorMs = new Date("2026-02-09T00:00:00Z").getTime(); // day index 39
+    const oneByOneMs = new Date(oneByOne!.timeProjectionDate!).getTime();
+    const twoByOneMs = new Date(twoByOne!.timeProjectionDate!).getTime();
+    // 2x1's projected interval forward from the anchor should be exactly
+    // double 1x1's (ratio 2 vs ratio 1, same base interval).
+    expect(twoByOneMs - anchorMs).toBe(2 * (oneByOneMs - anchorMs));
+  });
 });
 
 describe("computeScore", () => {

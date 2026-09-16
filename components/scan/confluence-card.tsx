@@ -87,6 +87,9 @@ function GannRow({ result }: { result: NonNullable<ScanResult["signals"]>["gannC
             <div className="rounded-md border border-border bg-surface p-2">
               <p className="text-muted">Nearest fan line</p>
               <p className="font-mono font-semibold">{result.nearestFanLine.angle}</p>
+              {result.nearestFanLine.timeProjectionDate && (
+                <p className="text-[10px] text-muted">Time target: {result.nearestFanLine.timeProjectionDate}</p>
+              )}
             </div>
           )}
           <div className="rounded-md border border-border bg-surface p-2">
