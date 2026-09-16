@@ -7,12 +7,14 @@
 
 import type {
   AssetClass,
+  Bar,
   GannLevels,
   ScanResult,
   SetupKind,
   StratPattern,
   TradeLevels,
 } from "@/lib/types";
+import { computeExtendedHoursLevels, extendedHoursLevelPrices } from "@/lib/analysis/extendedHours";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { describeDataError } from "@/lib/data/http";
 import {
@@ -129,9 +131,26 @@ export async function scanTicker(
 
   try {
     const provider = getMarketDataProvider();
-    const [{ monthly, weekly, daily, hourly, execution }, currentPrice] = await Promise.all([
+    // Extended-hours bars only for equities — crypto has no session boundary
+    // and therefore no overnight gap for a pre-market/after-hours level to
+    // describe (lib/market/session.ts's `marketSession` already treats
+    // crypto as always "regular"). Best-effort: a failed fetch here degrades
+    // to no extended-hours levels rather than failing the whole scan, same
+    // pattern as the trade-plan block below.
+    const [{ monthly, weekly, daily, hourly, execution }, currentPrice, extendedHoursBars] = await Promise.all([
       prefetched ?? fetchAllTimeframes(symbol, assetClass, EXECUTION_TIMEFRAME),
       provider.fetchLatestPrice(symbol, assetClass),
+      assetClass === "us_equity"
+        ? provider
+            .fetchBars(
+              symbol,
+              "1Min",
+              new Date(Date.now() - 2 * 24 * 3600 * 1000),
+              provider.isLive ? new Date(Date.now() - 16 * 60 * 1000) : null,
+              assetClass,
+            )
+            .catch(() => [] as Bar[])
+        : Promise.resolve([] as Bar[]),
     ]);
 
     if (daily.length < 30 || execution.length < 10) {
@@ -292,6 +311,16 @@ export async function scanTicker(
     // computeTradeLevels's equities path needs both the full level list and
     // atrPct to anchor a percent-based stop/runner — see
     // lib/strat/levels.ts#computeEquityTradeLevels.
+    // Pre-market/after-hours session extremes as structural levels — see
+    // lib/analysis/extendedHours.ts for why these belong in the same pool as
+    // any other old top/bottom rather than as a separate criterion. Tagged
+    // "1Day" rather than a new Timeframe value: an overnight extreme is part
+    // of the current daily bar's structure, and levelRole.ts's per-timeframe
+    // usage copy for "1Day" ("primary swing level... entries confirm and
+    // trigger on the execution timeframe") already describes it correctly.
+    const extendedHours = computeExtendedHoursLevels(extendedHoursBars);
+    const extendedHoursPrices = extendedHoursLevelPrices(extendedHours);
+
     const allLevels = [
       ...dailyTrend.support.map((price) => ({ price, timeframe: dailyTrend.timeframe })),
       ...dailyTrend.resistance.map((price) => ({ price, timeframe: dailyTrend.timeframe })),
@@ -299,6 +328,7 @@ export async function scanTicker(
       ...weeklyTrend.resistance.map((price) => ({ price, timeframe: weeklyTrend.timeframe })),
       ...monthlyTrend.support.map((price) => ({ price, timeframe: monthlyTrend.timeframe })),
       ...monthlyTrend.resistance.map((price) => ({ price, timeframe: monthlyTrend.timeframe })),
+      ...extendedHoursPrices.map((price) => ({ price, timeframe: "1Day" as const })),
     ];
     const recentAtr = atr(daily.slice(-20), 14);
     const baselineAtr = atr(daily.slice(-100, -20), 14);
@@ -520,6 +550,7 @@ export async function scanTicker(
         baselineAtr > 0 ? { atr: recentAtr, regime: volatilityRegimeFromAtrRatio(recentAtr / baselineAtr) } : undefined,
       volumeRead: { relativeVolumeIndex: relativeVolume(daily, 20) },
       optionPremium,
+      extendedHours: assetClass === "us_equity" ? extendedHours : undefined,
       signals: {
         regime,
         trendPullback,

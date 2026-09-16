@@ -500,7 +500,21 @@ second extraction pass): this gap is now substantially closed** — see
 the dedicated subsection after the astrology bullet below, sourced from
 a fuller text extraction of the same course the project owner supplied
 directly (tables/prose intact; illustrations necessarily dropped, since
-the source was a text extraction, not a re-scan).
+the source was a text extraction, not a re-scan). **Still open after that
+pass: the "Overnight Chart" mechanical system specifically** — Master Time
+Factor and the Hexagon Chart were recovered (see the Chapter 7 and Chapter
+15B subsections below), but nothing in the second extraction named or
+described "Overnight Chart" content, so its actual construction and rules
+remain unknown. A same-named live feature shipped 2026-09-16
+(`lib/analysis/extendedHours.ts`, pre-market/after-hours session extremes
+folded into the S/R pool every scoring criterion reads) is deliberately
+**not** presented as an implementation of this chapter — it is licensed
+instead by the already-fully-documented, session-agnostic "old tops and
+bottoms are resistance points" rule (the 1936 course chapter below, and the
+Square of Nine chapter's resistance-point definition). If a future
+extraction recovers "Overnight Chart" and it prescribes something more
+specific or different, that supersedes the current implementation — treat
+this as an open citation gap, not a closed one.
 
 This is the single most significant addition from this session, because
 it directly confirms, in Gann's own voice, several techniques the rest

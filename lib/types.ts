@@ -323,6 +323,21 @@ export interface ScanResult {
   /** Optional: option premium supplied by user for the 12–18% stop calc. */
   optionPremium?: number;
   /**
+   * Pre-market/after-hours session extremes for this scan's symbol — see
+   * lib/analysis/extendedHours.ts. Already folded into `levels`/`decision`
+   * (an old top or bottom is an old top or bottom regardless of session, so
+   * it feeds the same S/R pool every criterion reads); carried here too so a
+   * consumer can show *which* level was overnight structure without
+   * re-deriving it. `undefined` for crypto (no session boundary) or when the
+   * extended-hours bar fetch failed — absence means "not read", not "none".
+   */
+  extendedHours?: {
+    preMarketHigh: number | null;
+    preMarketLow: number | null;
+    afterHoursHigh: number | null;
+    afterHoursLow: number | null;
+  };
+  /**
    * The Signal and Regime Engine's read (lib/signals) — a separate decision
    * layer from `decision` above, never merged into it, never combined with
    * each other either: each state gets its own independent verdict, for all

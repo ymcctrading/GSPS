@@ -74,6 +74,27 @@ different governing spec) is a real exception, not a violation of this
 rule — but the default assumption is that it applies, and silence is not
 an exception.
 
+**Extended-hours S/R levels (added 2026-09-16, project owner direction).**
+Pre-market and after-hours session extremes are old tops/bottoms like any
+other under Gann's resistance-point theory (see "WD Gann precedence" below)
+and a real, frequently-cited gap: price gaps against overnight levels the
+regular session never showed. `lib/analysis/extendedHours.ts` computes them
+from 1-minute bars and `lib/scanTicker.ts` folds them into `allLevels` — the
+one pool `historicalSR`/`nearSupportResistance` (lib/scoring/score.ts),
+`computeTradeLevels`'s stop/target anchoring (lib/strat/levels.ts), and
+level display all already read from, so wiring it in there was wiring it in
+everywhere those consumers reach. Two surfaces do **not** get it, both
+documented in place as intentional exceptions rather than left silently
+stranded: `lib/marketScan.ts`'s coarse pre-filter (a fresh 1Min-bar fetch
+across the ~750-symbol coarse universe is a materially different cost than
+one per shortlisted symbol in the full pass — see the inline comment at its
+S/R proximity check) and `lib/signals/confluence/gann.ts`'s confluence card
+(a different kind of analysis — fan/retracement geometry, not raw S/R — so
+not a natural fit for the same level pool). If either changes, revisit both.
+`ScanResult.extendedHours` on `lib/types.ts` carries the raw
+pre-market/after-hours high/low for any consumer that wants to show which
+level was overnight structure specifically.
+
 ## Gann & cycles research memory
 
 `docs/GANN_HISTORICAL_SOURCES.md` is a running index of every Gann primary
@@ -114,7 +135,9 @@ diff. `docs/GANN_PLATFORM_AUDIT.md`'s Part 4 items, wired in live on
 2026-09-16 (a new tenth scored criterion, `ruleOfThree`; the "3-point rule"
 buffer in `lib/lifecycle/entryConfirmation.ts`; the "resistance points near
 same levels" clustering in `lib/strat/levels.ts`; the fixed annual calendar
-cycle in `lib/gann/timeCycles.ts`), are the standing worked example of this
+cycle in `lib/gann/timeCycles.ts`), plus the extended-hours S/R levels added
+the same day (see the standing principle above this one and its own entry
+below), are the standing worked example of this
 principle in practice — each carries an inline comment pointing back here
 and to that document's Part 4.
 
