@@ -35,7 +35,7 @@ import {
 } from "@/lib/scoring/proximity";
 import type { CriterionWeights } from "@/lib/scoring/weights";
 import { readTrend } from "@/lib/analysis/trend";
-import { levelRole, type LevelRole } from "@/lib/analysis/levelRole";
+import { countLevelTests, levelRole, type LevelRole } from "@/lib/analysis/levelRole";
 import { atr } from "@/lib/analysis/pivots";
 import { computeFanLines } from "@/lib/gann/fans";
 import { recentSquareOf9Levels } from "@/lib/gann/squareOf9";
@@ -43,10 +43,11 @@ import { timeCycles } from "@/lib/gann/timeCycles";
 import { computeAngleSlopes } from "@/lib/gann/normalizedSlope";
 import { computeRetracementLevels } from "@/lib/gann/retracement";
 import { priceTimeConfluence } from "@/lib/gann/digitalRoot";
-import { computeSwingChart, type SwingChartReading } from "@/lib/gann/swingChart";
+import { computeCampaignLeg, computeSwingChart, type CampaignLegReading, type SwingChartReading } from "@/lib/gann/swingChart";
 import { computeRuleOfThree, type RuleOfThreeReading } from "@/lib/gann/ruleOfThree";
 import { computeTimePriceSquare, type TimePriceSquareReading } from "@/lib/gann/timePriceSquare";
 import { computeVolumeClimax, type VolumeClimaxReading } from "@/lib/gann/volumeClimax";
+import { computeBoilingPoint, type BoilingPointReading } from "@/lib/gann/boilingPoint";
 import { adx } from "@/lib/signals/indicators";
 import { DEFAULT_COST_PER_SHARE_USD } from "@/lib/trade/friction";
 
@@ -235,13 +236,16 @@ const weekKey = (b: Bar) => {
 export interface MacroContext {
   macroTrends: TrendReading[];
   swingChart: SwingChartReading;
+  /** How many 3-day swing-chart legs since the last 9-day trend change, and Gann's "sections of a campaign" confidence read on that count. Confluence/context only — see lib/gann/swingChart.ts#computeCampaignLeg. */
+  campaignLeg: CampaignLegReading;
   ruleOfThree: RuleOfThreeReading;
   timePriceSquare: TimePriceSquareReading[];
   volumeClimax: VolumeClimaxReading[];
+  boilingPoint: BoilingPointReading[];
   gann: GannLevels;
   nearSupportResistance: boolean;
   /** The matched level and its role, when one is in range — see lib/scanTicker.ts's srMatch. */
-  srMatch: { price: number; timeframe: Timeframe; role: LevelRole } | null;
+  srMatch: { price: number; timeframe: Timeframe; role: LevelRole; testCount: number } | null;
   momentumElevated: boolean;
   /**
    * Daily ATR as a percentage of price on the day being traded. The structural
@@ -268,6 +272,7 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
   const weeklyTrend = readTrend(weekly, "1Week");
   const dailyTrend = readTrend(daily, "1Day");
   const swingChart = computeSwingChart(daily);
+  const campaignLeg = computeCampaignLeg(daily);
   const ruleOfThree = computeRuleOfThree(daily);
 
   const fanLines = computeFanLines(daily, price);
@@ -276,6 +281,7 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
   const angleSlopes = computeAngleSlopes(daily, price);
   const timePriceSquare = computeTimePriceSquare(daily, price);
   const volumeClimax = computeVolumeClimax(daily);
+  const boilingPoint = computeBoilingPoint(daily, volumeClimax);
   const retracementLevels = computeRetracementLevels(daily, price);
   const digitalRootConfluences = angleSlopes
     .map((r) => {
@@ -299,18 +305,17 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
   // Mirrors lib/scanTicker.ts: keep the matched level (and its role at
   // current price) rather than just a boolean, so the score can tell whether
   // it's on the trade's side or not.
-  const srMatch = nearestLevelMatch(
-    price,
-    allLevels,
-    proximityBandPct(SR_PROXIMITY_ATR, FALLBACK_SR_PCT, atrPct),
-  );
+  const srBandPct = proximityBandPct(SR_PROXIMITY_ATR, FALLBACK_SR_PCT, atrPct);
+  const srMatch = nearestLevelMatch(price, allLevels, srBandPct);
 
   return {
     macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
     swingChart,
+    campaignLeg,
     ruleOfThree,
     timePriceSquare,
     volumeClimax,
+    boilingPoint,
     gann: {
       fanLines: fanLines.slice(0, 6).map(({ angle, price: p, distancePct, role }) => ({
         angle, price: Math.round(p * 100) / 100, distancePct, role,
@@ -325,13 +330,17 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
       timeCycleFixedCalendarActive: cycles.fixedCalendarActive,
       timeCycleFixedCalendarDates: cycles.fixedCalendarDates,
       angleSlopes,
-      retracementLevels: retracementLevels.slice(0, 7).map(({ fraction, label, price: p, distancePct, role }) => ({
-        fraction, label, price: Math.round(p * 100) / 100, distancePct, role,
+      retracementLevels: retracementLevels.slice(0, 7).map(({ fraction, label, price: p, distancePct, role, importance }) => ({
+        fraction, label, price: Math.round(p * 100) / 100, distancePct, role, importance,
       })),
       digitalRootConfluences,
     },
     nearSupportResistance: srMatch !== null,
-    srMatch: srMatch && { ...srMatch, role: levelRole(price, srMatch.price) },
+    srMatch: srMatch && {
+      ...srMatch,
+      role: levelRole(price, srMatch.price),
+      testCount: countLevelTests(daily, srMatch.price, srBandPct),
+    },
     momentumElevated: baselineAtr > 0 && recentAtr / baselineAtr >= 1.2,
     atrPct,
     structuralLevels: allLevels.map((l) => l.price),
@@ -584,9 +593,11 @@ function scoreSetup(input: {
       hourlyTrend,
       hourlyAdx,
       swingChart: context.swingChart,
+      campaignLeg: context.campaignLeg,
       ruleOfThree: context.ruleOfThree,
       timePriceSquare: context.timePriceSquare,
       volumeClimax: context.volumeClimax,
+      boilingPoint: context.boilingPoint,
       gann: context.gann,
       nearSupportResistance: context.nearSupportResistance,
       srMatch: context.srMatch,

@@ -56,7 +56,7 @@ const gann: GannLevels = {
   angleSlopes: [
     { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, slope: 1.1, nearestAngle: { label: "1x1", ratio: 1, direction: "up" } },
   ],
-  retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100, distancePct: 0.1, role: "support" }],
+  retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100, distancePct: 0.1, role: "support", importance: 1 }],
   digitalRootConfluences: [{ anchorKind: "low", priceRoot: 1, timeRoot: 8, type: "COMPLEMENTARY_PAIR" }],
 };
 
@@ -101,7 +101,7 @@ function inputs(overrides: Partial<ScoreInputs> = {}): ScoreInputs {
       { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMoveAtrUnits: 10, squared: true },
     ],
     volumeClimax: [
-      { anchorKind: "low", anchorPrice: 90, relativeVolume: 2, bestRecentRelativeVolume: 2, climax: true },
+      { anchorKind: "low", anchorPrice: 90, anchorIndex: 0, relativeVolume: 2, bestRecentRelativeVolume: 2, climax: true },
     ],
     gann,
     nearSupportResistance: true,

@@ -1,9 +1,16 @@
 /**
  * Gann's Square of 144 / "Master Twelve" (PRIVATE-GANN — Chapter 13, "The
  * Master Mathematical Price, Time and Trend Calculator,"
- * `docs/GANN_HISTORICAL_SOURCES.md` A2.1). Internal/research use only — see
- * `angleMonthCounts.ts`'s header for the same never-wire-into-the-public-scan
- * rule; it applies identically here.
+ * `docs/GANN_HISTORICAL_SOURCES.md` A2.1).
+ *
+ * **Wired into the live confluence layer 2026-09-16** (`lib/signals/confluence/gann.ts`'s
+ * `GannConfluenceResult.nearestMasterTwelve`) — see `angleMonthCounts.ts`'s
+ * header for why this corrects an earlier "internal-research use only"
+ * restriction rather than leaving it in place: this module's spiral formula
+ * is exactly `squareOf9.ts`'s, generalized to base 12, with no
+ * lost-illustration dependency the way `squareOf20.ts`/`hexagonChart.ts`
+ * genuinely have. Confluence/ranking only, same non-authoritative role as
+ * `nearestSquareOf9`.
  *
  * `lib/gann/squareOf9.ts` generalizes the square-root spiral to base 9; this
  * module is the base-12 analog Chapter 13 itself describes as *literally

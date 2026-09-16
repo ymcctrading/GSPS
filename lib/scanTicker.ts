@@ -24,17 +24,19 @@ import { EXECUTION_TIMEFRAME } from "@/lib/timeframe";
 import { readTrend } from "@/lib/analysis/trend";
 import { atr } from "@/lib/analysis/pivots";
 import { relativeVolume } from "@/lib/signals/indicators";
-import { levelRole } from "@/lib/analysis/levelRole";
+import { countLevelTests, levelRole } from "@/lib/analysis/levelRole";
 import { computeFanLines } from "@/lib/gann/fans";
 import { recentSquareOf9Levels } from "@/lib/gann/squareOf9";
 import { timeCycles } from "@/lib/gann/timeCycles";
+import { weightedTrendAgreement } from "@/lib/gann/timeframeWeight";
 import { computeAngleSlopes } from "@/lib/gann/normalizedSlope";
 import { computeRetracementLevels } from "@/lib/gann/retracement";
 import { priceTimeConfluence } from "@/lib/gann/digitalRoot";
-import { computeSwingChart } from "@/lib/gann/swingChart";
+import { computeCampaignLeg, computeSwingChart } from "@/lib/gann/swingChart";
 import { computeRuleOfThree } from "@/lib/gann/ruleOfThree";
 import { computeTimePriceSquare } from "@/lib/gann/timePriceSquare";
 import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
+import { computeBoilingPoint } from "@/lib/gann/boilingPoint";
 import { adx } from "@/lib/signals/indicators";
 import {
   CONTINUATION_PATTERNS,
@@ -146,6 +148,9 @@ export async function scanTicker(
     // macroTrend agreement check — same daily bars, a different (reversal-
     // count) construction. See lib/gann/swingChart.ts.
     const swingChart = computeSwingChart(daily);
+    // Gann's "sections of a campaign" leg count, added 2026-09-16 — confluence/
+    // context only, see lib/gann/swingChart.ts#computeCampaignLeg.
+    const campaignLeg = computeCampaignLeg(daily);
     // Gann's Rule of Three, added 2026-09-16 — see lib/gann/ruleOfThree.ts.
     const ruleOfThree = computeRuleOfThree(daily);
 
@@ -165,6 +170,9 @@ export async function scanTicker(
     const timePriceSquare = computeTimePriceSquare(daily, currentPrice);
     // Volume climax at the same pivots, replacing harmonicProximity.
     const volumeClimax = computeVolumeClimax(daily);
+    // Gann's "boiling point" blow-off duration off the same climax anchors,
+    // added 2026-09-16 — confluence/context only, see lib/gann/boilingPoint.ts.
+    const boilingPoint = computeBoilingPoint(daily, volumeClimax);
     const retracementLevels = computeRetracementLevels(daily, currentPrice);
     // Digital-root/vortex confluence off the same anchors angleSlopes reads —
     // confluence/context only (blueprint 7.4); score.ts's gannRetracementConfluence
@@ -197,12 +205,13 @@ export async function scanTicker(
       timeCycleFixedCalendarActive: cycles.fixedCalendarActive,
       timeCycleFixedCalendarDates: cycles.fixedCalendarDates,
       angleSlopes,
-      retracementLevels: retracementLevels.slice(0, 7).map(({ fraction, label, price, distancePct, role }) => ({
+      retracementLevels: retracementLevels.slice(0, 7).map(({ fraction, label, price, distancePct, role, importance }) => ({
         fraction,
         label,
         price: Math.round(price * 100) / 100,
         distancePct,
         role,
+        importance,
       })),
       digitalRootConfluences,
     };
@@ -219,10 +228,15 @@ export async function scanTicker(
     // Prefer the pattern aligned with a reversion of the macro move; then by
     // trigger proximity to current price. A caller hunting a continuation
     // supplies its own direction instead — the trend's, not the reversion of it.
-    const macroDir =
-      [monthlyTrend, weeklyTrend, dailyTrend].filter((t) => t.direction === "bearish").length >= 2
-        ? "bearish"
-        : "bullish";
+    //
+    // Weighted by Gann's chart-timeframe power ratio (lib/gann/timeframeWeight.ts)
+    // rather than a flat 2-of-3 vote — a single monthly trend outweighs
+    // weekly+daily disagreeing with it, per Wall Street Stock Selector (1930).
+    // This only changes which of several simultaneously-armed patterns the
+    // live scan prefers showing; it is not a scored criterion.
+    const macroDir = weightedTrendAgreement([monthlyTrend, weeklyTrend, dailyTrend], "bearish").agrees
+      ? "bearish"
+      : "bullish";
     const reversionDirection = macroDir === "bearish" ? "bullish" : "bearish";
     const preferredDirection = preference?.direction ?? reversionDirection;
 
@@ -349,12 +363,18 @@ export async function scanTicker(
           hourlyTrend,
           hourlyAdx,
           swingChart,
+          campaignLeg,
           ruleOfThree,
           timePriceSquare,
           volumeClimax,
+          boilingPoint,
           gann,
           nearSupportResistance,
-          srMatch: srMatch && { ...srMatch, role: levelRole(currentPrice, srMatch.price) },
+          srMatch: srMatch && {
+            ...srMatch,
+            role: levelRole(currentPrice, srMatch.price),
+            testCount: countLevelTests(daily, srMatch.price, srBandPct),
+          },
           pattern,
           momentumElevated,
           levels,

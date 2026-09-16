@@ -1,8 +1,14 @@
 /**
  * Gann's Square of 52 / Master Calculator for Weekly Time Periods
  * (PRIVATE-GANN — Chapter 14, `docs/GANN_HISTORICAL_SOURCES.md` A2.1).
- * Internal/research use only — see `angleMonthCounts.ts`'s header for the
- * never-wire-into-the-public-scan rule; it applies identically here.
+ *
+ * **Wired into the live confluence layer 2026-09-16** (`lib/signals/confluence/gann.ts`'s
+ * `GannConfluenceResult.squareOf52`) — see `angleMonthCounts.ts`'s header for
+ * why this corrects an earlier "internal-research use only" restriction:
+ * this module's output is a disclosed fraction table projected from
+ * confirmed pivots, the same `{active, dates}` shape `timeCycles.ts`
+ * already surfaces live, with no lost-illustration dependency. No bull/bear
+ * polarity, never independently scored, same treatment as `timeCycles.ts`.
  *
  * 52² = 2,704 (~7 years 5 months in days), built from 7-day weeks: a fourth
  * Master construction, alongside the Square of Nine (base 9, price),

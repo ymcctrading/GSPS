@@ -265,6 +265,18 @@ function fakeSupabase(automationProfileRow: Record<string, unknown> | null) {
   return { client, plans, audit, automationProfiles, automationEvents, orders, protocolExits };
 }
 
+/**
+ * Anchored to the real clock, not fixed calendar dates. The reducer checks
+ * `expiresAt` against `Date.now()`, so a hardcoded expiry is a time bomb: the
+ * original `2026-09-16T13:00:00.000Z` silently turned this suite red on every
+ * branch the moment that timestamp passed. Ordering is preserved — the plan is
+ * generated an hour ago, walked through its events half an hour ago, and
+ * expires a week out — so the test asserts the same pipeline it always did.
+ */
+const PLAN_GENERATED_AT = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+const PLAN_EVENT_AT = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+const PLAN_EXPIRES_AT = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
 function armedCandidatePlan(overrides: Partial<NewTradePlan> = {}): NewTradePlan {
   return {
     strategyVersion: "1.0.0",
@@ -274,8 +286,8 @@ function armedCandidatePlan(overrides: Partial<NewTradePlan> = {}): NewTradePlan
     // Priced on whatever EXECUTION_TIMEFRAME actually is right now — proving
     // this test tracks the live override rather than assuming "15Min".
     timeframe: EXECUTION_TIMEFRAME,
-    generatedAt: "2026-09-09T13:00:00.000Z",
-    expiresAt: "2026-09-16T13:00:00.000Z",
+    generatedAt: PLAN_GENERATED_AT,
+    expiresAt: PLAN_EXPIRES_AT,
     direction: "bullish",
     signalFingerprint: "sig-1",
     entryConfirmation: freshEntryConfirmation(),
@@ -309,7 +321,7 @@ function armedCandidatePlan(overrides: Partial<NewTradePlan> = {}): NewTradePlan
 /** Walks a freshly created plan through the real reducer to `armed` — the state the Portfolio Manager queries for. */
 async function createArmedPlan(client: SupabaseClient, userId: string, overrides: Partial<NewTradePlan> = {}) {
   const created = await createTradePlan(client, userId, armedCandidatePlan(overrides));
-  const at = "2026-09-09T14:00:00.000Z";
+  const at = PLAN_EVENT_AT;
   await applyEventAndPersist(client, userId, created.planId, { type: "mark_auto_created", at, reason: "r" });
   await applyEventAndPersist(client, userId, created.planId, { type: "qualify", at, reason: "r" });
   await applyEventAndPersist(client, userId, created.planId, { type: "await_confirmation", at, reason: "r" });
