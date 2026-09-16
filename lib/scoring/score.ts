@@ -473,8 +473,8 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
           ? "Not enough daily history to read the Rule of Three."
           : ruleOfThreeHolding
             ? direction === "bullish"
-              ? `${ruleOfThree.consecutiveHigherCloses} consecutive higher closes — Gann's Rule of Three reversal signal for an upturn.`
-              : `${ruleOfThree.consecutiveLowerCloses} consecutive lower closes — Gann's Rule of Three reversal signal for a downturn.`
+              ? `${ruleOfThree.consecutiveHigherCloses} consecutive higher closes — Rule of Three reversal signal for an upturn.`
+              : `${ruleOfThree.consecutiveLowerCloses} consecutive lower closes — Rule of Three reversal signal for a downturn.`
             : direction === "bullish"
               ? `Only ${ruleOfThree.consecutiveHigherCloses} consecutive higher close(s) — the Rule of Three needs 2 to confirm an upturn.`
               : `Only ${ruleOfThree.consecutiveLowerCloses} consecutive lower close(s) — the Rule of Three needs 3 to confirm a downturn.`,

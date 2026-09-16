@@ -16,7 +16,7 @@ describe("computeDecadeCycle", () => {
     });
   });
 
-  it("reads a year ending in 0 as digit 10, per Gann's own numbering", () => {
+  it("reads a year ending in 0 as digit 10, per the source's own numbering convention", () => {
     expect(computeDecadeCycle(new Date("2030-06-01T00:00:00Z"))).toMatchObject({
       yearDigit: 10,
       bias: "bearish",

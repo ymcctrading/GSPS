@@ -67,7 +67,7 @@ export const GANN_CONFLUENCE_MODULE: ConfluenceModuleMeta = {
   moduleType: "gann",
   displayName: "Structural Coordinate Confluence",
   authorizedSource:
-    "lib/gann/squareOf9.ts, lib/gann/fans.ts, lib/gann/timeCycles.ts — independently implemented structural coordinate techniques Gann personally taught in his private paid correspondence course (docs/GANN_HISTORICAL_SOURCES.md A2.1), never sold in his ten public books; already in production use in the legacy scan scorer (lib/scanTicker.ts).",
+    "lib/gann/squareOf9.ts, lib/gann/fans.ts, lib/gann/timeCycles.ts — independently implemented structural coordinate techniques disclosed only in the private paid correspondence course this platform is built from (docs/GANN_HISTORICAL_SOURCES.md A2.1), never sold in the ten public books; already in production use in the legacy scan scorer (lib/scanTicker.ts).",
   version: "0.1.0",
 };
 

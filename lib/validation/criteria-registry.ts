@@ -578,8 +578,9 @@ const SCAN_SCORE: RegisteredCriterion[] = [
     expectedSign: "positive",
     evidence: "unmeasured",
     note:
-      "Added 2026-09-16 per docs/GANN_PLATFORM_AUDIT.md Part 4 item 1 and AGENTS.md's 'WD Gann " +
-      "precedence' principle — a direct request to wire Gann's own highest-conviction disclosed rule " +
+      "Added 2026-09-16 per docs/GANN_PLATFORM_AUDIT.md Part 4 item 1 and AGENTS.md's standing " +
+      "precedence-for-the-disclosed-methodology principle — a direct request to wire the source's own " +
+      "highest-conviction disclosed rule " +
       "(`Wall Street Stock Selector`, 1930, docs/GANN_HISTORICAL_SOURCES.md A4: 'traders paid me $1,000 " +
       "for this rule') into the live scorer immediately, overriding this codebase's normal unmeasured " +
       "-> attribution -> in/out-of-sample discipline (PROPOSAL_NEW_GANN_CRITERIA.md) rather than " +
@@ -589,7 +590,7 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "closes) and is about a REVERSAL forming, not a trade's own direction generically — " +
       "lib/gann/ruleOfThree.ts's docblock states exactly how this criterion generalizes that to 'the " +
       "immediate closes support this trade's own direction' for both reversion and continuation setups, " +
-      "which is a broader reading than Gann's literal text. Needs a fresh committed replay before any " +
+      "which is a broader reading than the source's literal text. Needs a fresh committed replay before any " +
       "sign claim, same as every other never-scored criterion above — the override applies to whether " +
       "it scores live today, not to whether its evidence claim is settled.",
   },
