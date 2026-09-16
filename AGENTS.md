@@ -60,7 +60,11 @@ found in this codebase on 2026-09-10:
   signal, never reached the separate 9-point scanner score
   (`lib/scoring/score.ts`) at all — a second subsystem with the exact same
   "which indicator confirms a trend" problem, solved once and never
-  propagated.
+  propagated. (**Historical example, still valid as an illustration of this
+  rule** — but as of 2026-09-16 ADX is no longer the scanner's answer to that
+  problem: `adxTrendStrength` was discarded for failing the Gann-grounding
+  gate. See "Audit outcomes" below. `lib/signals/regime.ts` still uses
+  `adx()`.)
 
 Before considering any indicator, anchor rule, fixed threshold, or computed
 field "in place," check every surface it plausibly applies to — other
@@ -162,11 +166,17 @@ is a starting point, not an exhaustive one, and a future session should
 re-check rather than trust it:
 
 - **STRAT pattern detection** (`lib/strat/patterns.ts`) — `2-2`, `1-2-2`,
-  `3-2-2`, `3-1-2`, `PMG`. Rob Smith's STRAT, not Gann. It feeds the
-  `patternArmed` scored criterion, so this is non-Gann substance sitting
-  inside the scorecard itself, not merely adjacent to it.
-- **Wilder's ADX/DMI** (`lib/signals/indicators.ts#adx`) — feeds
-  `adxTrendStrength`.
+  `3-2-2`, `3-1-2`, `PMG`. Rob Smith's STRAT, not Gann. **This taxonomy has
+  two distinct uses and they have different verdicts — do not collapse
+  them.** It feeds the `patternArmed` scored criterion (non-Gann substance
+  sitting inside the scorecard itself, **still open**), and it is separately
+  wrapped by the non-gating confluence layer in
+  `lib/signals/confluence/sara.ts` (**deliberately kept** — see "Audit
+  outcomes" below).
+- **Wilder's ADX/DMI** (`lib/signals/indicators.ts#adx`) — fed
+  `adxTrendStrength`. **Resolved 2026-09-16: discarded** — see "Audit
+  outcomes" below. The `adx()` function itself stays; `lib/signals/regime.ts`
+  is a separate consumer and was not part of that decision.
 - **PSAR/Supertrend** — narrower than it first appears, so scope the work to
   what is actually there. Nothing in this codebase *computes* either one.
   `lib/signals/regime.ts` accepts an optional `trendOverlayFlips` count and
@@ -180,13 +190,73 @@ For each: establish a Gann grounding, replace it with the Gann technique
 that serves the same purpose, or document explicitly why it is a justified
 exception.
 
-**Start with `adxTrendStrength`.** It is simultaneously the clearest
-non-Gann scored criterion and the worst measured performer —
-`lib/validation/criteria-registry.ts` carries it as `quarantined` for a
-significant measured inversion against its declared sign. Treat that
-convergence as a lead rather than a coincidence: an indicator that was never
-Gann's, measuring backwards, is the first place to look for a criterion that
-wants replacing rather than repairing.
+### Audit outcomes
+
+Worked examples of this obligation applied. Both are project-owner decisions
+of 2026-09-16. Add to this list as the audit proceeds — an item resolved
+without a record here will be re-litigated by the next session.
+
+**1. `adxTrendStrength` — DISCARDED.** The first worked example of this
+principle in practice. It was discarded because **it was never
+Gann-derived**, full stop. The specific history: it was built to replicate
+PSAR, and PSAR is no longer used anywhere — so it was a non-Gann stand-in for
+a non-Gann indicator the platform had already stopped using.
+
+The ordering of the reasoning matters and should not be inverted by a future
+reader. `lib/validation/criteria-registry.ts` had it `quarantined` for a
+significant measured inversion, and that measurement is **consistent with**
+the discard rather than the cause of it. Gate 1 decided this. Had it measured
+beautifully, it would still have been discarded, because a criterion that
+cannot be traced to a Gann source does not belong in a scorecard whose whole
+claim is that it counts Gann's conditions. Reading this as "we removed it
+because it measured badly" would quietly re-install measurement as a jury
+over the criteria — exactly what "Gann-derived AND measured" denies.
+
+Scope notes: `adx()` in `lib/signals/indicators.ts` is **not** deleted —
+`lib/signals/regime.ts` is a separate consumer and was not part of this
+decision. Removing the criterion moves `CRITERION_KEYS.length` → `TOTAL_POINTS`
+→ both cutoffs; at nine criteria the same relative bar is `6.00`/`3.50`
+(66.7%/38.9% of 9), which is where the pre-`ruleOfThree` numbers came from.
+Note also that the "Cross-platform consistency" section above still cites
+ADX/DMI as one of its two worked examples — that account is *historical* and
+stays accurate about what happened in September; it is no longer a live
+description of the scanner.
+
+**2. Candle-counting price-action read — KEPT, deliberately.** Project-owner
+direction: this is a documented exception, not unjustified foreign substance,
+and a future audit **must not** remove it on Gann-grounding alone.
+
+What it is: `lib/signals/confluence/sara.ts` (moduleId
+`sara_sniper_confluence_layer`, the "Sara Sniper Strat Confluence Layer" of
+`docs/GANN_SARA_CONFLUENCE.md`), which wraps `lib/strat/patterns.ts`'s
+bar-sequence taxonomy — `2-2`, `1-2-2`, `3-2-2`, `2-1-2`, `3-1-2`, `PMG` —
+into a directional read. Those codes are literally counted and classified
+consecutive candles. It is wired into the live scan (`lib/scanTicker.ts`) and
+feature-flagged (`GSPS_DISABLE_SARA_CONFLUENCE`, `lib/signals/confluence/flags.ts`).
+
+Why it is kept: counting candles is intuitive to read straight off a chart,
+and other traders may simply prefer that format. It is retained as a
+**non-gating alternative presentation** — by construction it cannot override
+eligibility, data freshness, event risk, account risk, or cooldown (see
+`docs/GANN_SARA_CONFLUENCE.md`'s decision hierarchy). An alternative *display*
+of a setup carries none of the "the scorecard must count only Gann's
+conditions" burden, because it decides nothing.
+
+**Upgrade path, left open on purpose:** if it turns out to restate Gann's own
+swing-chart bar-counting rule (`lib/gann/swingChart.ts` counts consecutive
+closes against the prevailing swing; `lib/gann/ruleOfThree.ts` counts
+consecutive closes with Gann's stated 3-versus-2 asymmetry), then promote it
+from "documented exception" to **"Gann-grounded alternative display"** and say
+so here. That is a real question worth someone's time, not a formality.
+
+**Two things this keep does NOT do.** It does not resolve `patternArmed`: the
+same `lib/strat/patterns.ts` taxonomy also feeds a **scored** criterion, and
+scoring is gating, so that use gets no shelter from this entry and remains a
+gate-1 item. And it does not license the name: "Sniper" is internal only.
+`docs/GSPS_BRAND_GUIDE.md`, `scripts/check-banned-terms.mjs`, and the
+assertions in `lib/__tests__/user-copy.test.ts` and
+`lib/__tests__/onboarding-tour.test.ts` all keep it off user-facing copy,
+where the module presents as "Price-Action Confirmation Confluence".
 
 ## Gann-derived AND measured — standing principle
 
@@ -211,11 +281,21 @@ Legitimacy lives in the criteria being counted, which are Gann's. A cutoff
 on a count of Gann conditions is a ranking and display decision, not a claim
 about the market.
 
-**Criteria currently failing gate 1** (recorded 2026-09-16, unresolved):
-`patternArmed` (STRAT) and `adxTrendStrength` (Wilder). Both are scored
-today. Resolving them is the audit obligation above, and doing so changes
-`CRITERION_KEYS.length` — which moves `TOTAL_POINTS` and both thresholds —
-so it is deliberately not a drive-by edit.
+**Gate 1 status** (2026-09-16):
+
+- `adxTrendStrength` (Wilder) — **resolved: discarded.** See "Audit outcomes"
+  above for the reasoning and its scope notes. The decision is recorded here;
+  the code change removing it from `CRITERION_KEYS` lands in its own change,
+  so a session reading this while the key is still present is seeing work in
+  flight, not a contradiction.
+- `patternArmed` (STRAT) — **still open.** Note that the same
+  `lib/strat/patterns.ts` taxonomy has a second, non-gating use that *is*
+  deliberately kept (audit outcome 2). The keep covers that display use only;
+  it does not settle this scored one.
+
+Resolving a gate-1 item changes `CRITERION_KEYS.length` — which moves
+`TOTAL_POINTS` and both thresholds — so it is deliberately not a drive-by
+edit.
 
 ## The scorecard's role — recorded so it is not re-litigated
 
