@@ -95,7 +95,10 @@ describe("SignalCard score breakdown", () => {
     const { container } = render(<SignalCard result={result} />);
     const text = container.textContent ?? "";
 
-    expect(result.decision.breakdown).toHaveLength(9);
+    // The nine scored criteria plus the one unscored candidate diagnostic
+    // (`annualCycleActive`, lib/scoring/score.ts) that's now appended to every
+    // decision — see lib/validation/criteria-registry.ts's "candidate" family.
+    expect(result.decision.breakdown).toHaveLength(10);
     for (const item of result.decision.breakdown) {
       expect(text).not.toContain(item.criterion);
       expect(text).not.toContain(item.note);

@@ -44,7 +44,16 @@ export type CriterionFamily =
   /** Rules Alignment components inside a signal state — `lib/signals/states/*`. */
   | "rulesAlignment"
   /** Pre-trade blocks — `lib/signals/disqualifiers.ts`. */
-  | "disqualifier";
+  | "disqualifier"
+  /**
+   * A candidate under the unmeasured -> hypothesis -> in/out-of-sample
+   * discipline in docs/PROPOSAL_NEW_GANN_CRITERIA.md — computed and recorded
+   * on every decision, per docs/GANN_METHODOLOGY_FULL_REPORT.md §18's
+   * proposed rebuild, but never one of the nine scored points and never a
+   * held-state explanation. Promotion to `scanScore` (replacing a quarantined
+   * criterion, per the existing discipline) is a separate, later decision.
+   */
+  | "candidate";
 
 /**
  * The direction the criterion claims to work in, stated as the sign of the
@@ -727,6 +736,42 @@ const RETIRED: RegisteredCriterion[] = [
 ];
 
 /**
+ * Candidates under the unmeasured -> hypothesis -> in/out-of-sample
+ * discipline docs/PROPOSAL_NEW_GANN_CRITERIA.md already lays out for the nine
+ * scored criteria, applied here to the first module built from
+ * docs/GANN_METHODOLOGY_FULL_REPORT.md §18's proposed rebuild. Each is
+ * computed and recorded on every decision (`lib/scoring/score.ts`) so
+ * `lib/backtest/attribution.ts` can measure it exactly like the nine scored
+ * criteria, but none carries a `pillar`, none is in `CRITERION_KEYS`, and
+ * none has a weight — a candidate only reaches `scanScore` by replacing a
+ * quarantined criterion once a fresh committed replay clears the same bar
+ * (chronological in/out-of-sample split, agreement on sign, effect above
+ * `MIN_EFFECT_R` on the weaker half — see that document).
+ */
+const CANDIDATES: RegisteredCriterion[] = [
+  {
+    id: "annualCycleActive",
+    family: "candidate",
+    source: "lib/scoring/score.ts, lib/gann/annualCycle.ts",
+    label: "Fixed annual calendar cycle",
+    // Gann's own description ("watching for a trend change") is not
+    // directional, so there is no principled reason to expect passing
+    // trades to skew toward one sign versus the other before measurement —
+    // recorded as "unknown" rather than guessing "positive", the same
+    // reasoning the disqualifier family already uses for a gate with no
+    // prior directional claim.
+    expectedSign: "unknown",
+    evidence: "unmeasured",
+    note:
+      "First candidate built from docs/GANN_METHODOLOGY_FULL_REPORT.md's proposed rebuild (§18.2, " +
+      "Layer 2, item 5 in the sequencing at §18.4) — the fixed annual calendar cycle (Wall Street " +
+      "Stock Selector, 1930), distinct from the per-symbol anniversary projections " +
+      "lib/gann/timeCycles.ts already computes. Never scored; needs a fresh committed replay before " +
+      "any sign claim, per docs/PROPOSAL_NEW_GANN_CRITERIA.md's validation discipline.",
+  },
+];
+
+/**
  * Checks appended after scoring to explain a held verdict. They carry no
  * points, so they cannot be re-weighted — but each one can still change the
  * output state, which makes them worth declaring.
@@ -880,6 +925,7 @@ const DISQUALIFIERS: RegisteredCriterion[] = [
 export const CRITERIA_REGISTRY: RegisteredCriterion[] = [
   ...SCAN_SCORE,
   ...RETIRED,
+  ...CANDIDATES,
   ...SCORE_HOLDS,
   ...RULES_ALIGNMENT,
   ...DISQUALIFIERS,

@@ -344,3 +344,49 @@ describe("computeScore stopRoom (equities)", () => {
     expect(decision.breakdown.find((b) => b.key === "stopRoom")?.criterion).toMatch(/ATR/);
   });
 });
+
+// First candidate criterion under docs/PROPOSAL_NEW_GANN_CRITERIA.md's
+// discipline (docs/GANN_METHODOLOGY_FULL_REPORT.md §18.2/§18.4) — recorded on
+// every decision, but never one of the nine scored points.
+describe("computeScore annualCycleActive (candidate, unscored)", () => {
+  function baseInputs(): ScoreInputs {
+    return {
+      direction: "bullish",
+      macroTrends: [],
+      hourlyTrend: { timeframe: "1Day", direction: "sideways", support: [], resistance: [] },
+      gann: EMPTY_GANN,
+      nearSupportResistance: false,
+      pattern: null,
+      momentumElevated: false,
+      stopAtrMultiple: 0.8,
+      levels: null,
+    };
+  }
+
+  it("is recorded on the breakdown with no pillar, so it never contributes to the score", () => {
+    const decision = computeScore({
+      ...baseInputs(),
+      annualCycle: { active: true, window: "2026-02", nearestWindowStart: "2026-02-01" },
+    });
+    const item = decision.breakdown.find((b) => b.key === "annualCycleActive");
+    expect(item?.passed).toBe(true);
+    expect(item?.pillar).toBeUndefined();
+  });
+
+  it("does not move the score whether active or not", () => {
+    const active = computeScore({
+      ...baseInputs(),
+      annualCycle: { active: true, window: "2026-02", nearestWindowStart: "2026-02-01" },
+    });
+    const inactive = computeScore({
+      ...baseInputs(),
+      annualCycle: { active: false, window: null, nearestWindowStart: "2026-02-01" },
+    });
+    expect(active.score).toBe(inactive.score);
+  });
+
+  it("defaults to computing today's reading when the caller doesn't supply one", () => {
+    const decision = computeScore(baseInputs());
+    expect(decision.breakdown.find((b) => b.key === "annualCycleActive")).toBeDefined();
+  });
+});

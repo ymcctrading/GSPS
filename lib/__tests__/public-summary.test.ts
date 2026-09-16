@@ -168,6 +168,18 @@ describe("toPublicScoreSummary", () => {
     expect(toPublicScoreSummary(computeScore(allFail)).stateNote).toBeNull();
   });
 
+  it("does not read a failed candidate diagnostic as a capped state", () => {
+    // annualCycleActive (lib/scoring/score.ts) carries no pillar and is often
+    // false, exactly the shape a real hold (tradePlanPriced, dataLag,
+    // reversionConfirmation) has — but it explains nothing about the verdict,
+    // so it must not set stateNote on its own.
+    const decision = computeScore({
+      ...allPass,
+      annualCycle: { active: false, window: null, nearestWindowStart: "2026-02-01" },
+    });
+    expect(toPublicScoreSummary(decision).stateNote).toBeNull();
+  });
+
   it("survives a decision with no breakdown at all", () => {
     const empty: ScanDecision = { score: 0, outputState: "Reject", breakdown: [] };
     const summary = toPublicScoreSummary(empty);
@@ -223,7 +235,9 @@ describe("redaction at the API boundary", () => {
     expect(redacted.decision.breakdown).toEqual([]);
     // The caller's own copy keeps its breakdown — the scan pipeline, the
     // backtest replay and the published rows all still read it server-side.
-    expect(result.decision.breakdown).toHaveLength(9);
+    // Nine scored criteria plus the one unscored candidate diagnostic
+    // (`annualCycleActive`) appended to every decision.
+    expect(result.decision.breakdown).toHaveLength(10);
   });
 
   it("strips dailyBars — bulk internal data, not a public response field", () => {

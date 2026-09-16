@@ -47,7 +47,27 @@ export type CriterionKey = (typeof CRITERION_KEYS)[number];
  */
 export type HoldKey = "tradePlanPriced" | "reversionConfirmation" | "dataLag";
 
-export type BreakdownKey = CriterionKey | HoldKey;
+/**
+ * Runtime list of `HoldKey`, for a caller that needs to test membership
+ * rather than just the type — `lib/scoring/public-summary.ts` uses this to
+ * tell an actual held-verdict explanation apart from a `CandidateKey`
+ * diagnostic, now that both are unpillared breakdown items. Keeping this next
+ * to `HoldKey` means the two cannot drift apart the way a second, hand-copied
+ * list would risk.
+ */
+export const HOLD_KEYS: readonly HoldKey[] = ["tradePlanPriced", "reversionConfirmation", "dataLag"];
+
+/**
+ * Ids for candidate criteria under the unmeasured -> hypothesis ->
+ * in/out-of-sample discipline in docs/PROPOSAL_NEW_GANN_CRITERIA.md — recorded
+ * on every decision's breakdown (unlike `HoldKey`, which is conditional) so
+ * `lib/backtest/attribution.ts` can measure them, but never one of the nine
+ * scored points: no `pillar`, no entry in `CRITERION_KEYS`, no weight. See
+ * `lib/validation/criteria-registry.ts`'s "candidate" family.
+ */
+export type CandidateKey = "annualCycleActive";
+
+export type BreakdownKey = CriterionKey | HoldKey | CandidateKey;
 
 /** Short labels for the factor tables, where the full criterion text is too wide. */
 export const CRITERION_LABELS: Record<CriterionKey, string> = {

@@ -145,7 +145,9 @@ describe("computeScore output state", () => {
       momentumElevated: false,
       stopAtrMultiple: 0.8,
     }));
-    expect(decision.breakdown).toHaveLength(9);
+    // The nine scored criteria plus the one unscored candidate diagnostic
+    // (`annualCycleActive`) now appended to every decision.
+    expect(decision.breakdown).toHaveLength(10);
     expect(decision.outputState).toBe("Reject");
   });
 });

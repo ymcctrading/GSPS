@@ -26,6 +26,7 @@ import type { AdxReading } from "@/lib/signals/indicators";
 import type { SwingChartReading } from "@/lib/gann/swingChart";
 import type { TimePriceSquareReading } from "@/lib/gann/timePriceSquare";
 import { VOLUME_CLIMAX_THRESHOLD, type VolumeClimaxReading } from "@/lib/gann/volumeClimax";
+import { computeAnnualCycle, type AnnualCycleReading } from "@/lib/gann/annualCycle";
 import {
   DEFAULT_CRITERION_WEIGHTS,
   EXECUTE_SCORE_THRESHOLD,
@@ -129,6 +130,15 @@ export interface ScoreInputs {
    * so the Execute/Watch cutoffs keep their meaning.
    */
   weights?: CriterionWeights;
+  /**
+   * Gann's fixed annual calendar cycle (`lib/gann/annualCycle.ts`) as of the
+   * scan date — a candidate criterion, not one of the nine scored points (see
+   * the breakdown item below, which carries no `pillar`). Defaults to
+   * computing it fresh from `new Date()` so existing callers keep working
+   * without passing it; a caller replaying a historical date should pass its
+   * own reading so the diagnostic reflects the replayed date, not today.
+   */
+  annualCycle?: AnnualCycleReading;
 }
 
 /**
@@ -176,6 +186,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     setupKind = "reversion",
     atrPct,
     weights = DEFAULT_CRITERION_WEIGHTS,
+    annualCycle = computeAnnualCycle(),
   } = inputs;
 
   // 2026-09-10: replaces macroTrend. macroTrend's monthly/weekly/daily
@@ -438,6 +449,21 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
           ? `Price within ${retracementMatch.distancePct.toFixed(2)}% of the ${retracementMatch.label} retracement ${levelRoleLabel(retracementMatch.role).toLowerCase()} at ${retracementMatch.price.toFixed(2)} — inside the ${fanBandPct.toFixed(2)}% band (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}), confirmed by a matching GSPS signal-flow reading off the same anchor.`
           : `Price within ${retracementMatch.distancePct.toFixed(2)}% of the ${retracementMatch.label} retracement ${levelRoleLabel(retracementMatch.role).toLowerCase()} at ${retracementMatch.price.toFixed(2)}, but no signal-flow confluence off the same anchor — the zone alone isn't enough.`
         : `No ${levelRoleLabel(wantedRole).toLowerCase()} retracement zone within ${fanBandPct.toFixed(2)}% (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}).`,
+    },
+    {
+      // Candidate criterion, not one of the nine scored points — no `pillar`,
+      // so it is excluded from the score filter below by construction. Recorded
+      // in every decision's breakdown so `lib/backtest/attribution.ts` can
+      // measure it the same way the nine scored criteria are measured, per
+      // the unmeasured -> hypothesis -> in/out-of-sample discipline in
+      // docs/PROPOSAL_NEW_GANN_CRITERIA.md. See
+      // lib/validation/criteria-registry.ts's `annualCycleActive` entry.
+      key: "annualCycleActive",
+      criterion: "Fixed annual calendar cycle",
+      passed: annualCycle.active,
+      note: annualCycle.active
+        ? `Today falls inside the ${annualCycle.window} window of the fixed annual calendar cycle.`
+        : `Not inside a window of the fixed annual calendar cycle (nearest window starts ${annualCycle.nearestWindowStart}).`,
     },
   ];
 

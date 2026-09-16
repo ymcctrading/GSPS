@@ -22,6 +22,9 @@ import type {
   ScorePillarSummary,
 } from "@/lib/types";
 import { redactScanSignals } from "@/lib/signals/publicSummary";
+import { HOLD_KEYS } from "@/lib/scoring/weights";
+
+const HOLD_KEY_SET: ReadonlySet<string> = new Set(HOLD_KEYS);
 
 /** Display order. Broad to specific: context first, then the trade itself. */
 export const SCORE_PILLARS: ScorePillar[] = [
@@ -87,7 +90,14 @@ export function toPublicScoreSummary(decision: ScanDecision): PublicScoreSummary
     (p): p is ScorePillarSummary => p !== undefined,
   );
 
-  const holds = decision.breakdown.filter((item) => !item.pillar && !item.passed);
+  // Unpillared no longer means "explains a hold" on its own: a candidate
+  // criterion under docs/PROPOSAL_NEW_GANN_CRITERIA.md's discipline (see
+  // lib/scoring/weights.ts's CandidateKey) is also unpillared, appended to
+  // every decision, and often false — none of which caps a verdict. Only the
+  // three known `HoldKey`s do.
+  const holds = decision.breakdown.filter(
+    (item) => !item.pillar && !item.passed && item.key !== undefined && HOLD_KEY_SET.has(item.key),
+  );
   const laggedOnly = holds.length > 0 && holds.every((item) => item.key === "dataLag");
 
   return {
