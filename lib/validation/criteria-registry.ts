@@ -548,24 +548,26 @@ const RETIRED: RegisteredCriterion[] = [
       "relative bar (66.7%/38.9% of TOTAL_POINTS), and DEFAULT_CRITERION_WEIGHTS lost its 0.5 entry.\n" +
       "\n" +
       "**The reason is provenance, not the measurement — and the reason generalizes even though the " +
-      "number does not.** adxTrendStrength was the one scored criterion with no Gann lineage at all: " +
-      "Wilder's ADX/DMI (1978) postdates Gann's death by more than two decades (docs/" +
+      "number does not.** adxTrendStrength was the one scored criterion with no lineage in the " +
+      "platform's own founding methodology at all: Wilder's ADX/DMI (1978) postdates that " +
+      "methodology's own historical source material by more than two decades (docs/" +
       "GANN_PLATFORM_AUDIT.md's Part 1 table classifies it GSPS-ORIGINAL for exactly this reason). It " +
       "entered this codebase in lib/signals/regime.ts, as the trend-confirmation overlay the Signal & " +
       "Regime Engine uses *instead of* leaning on a PSAR/Supertrend-style indicator alone (AGENTS.md's " +
       "cross-platform-consistency section cites it as the standing example), and reached the scorecard " +
-      "by propagation from there rather than by any independent claim that it belonged in a " +
-      "Gann-selected setup's score. With no PSAR anywhere in this repo (docs/GSPS_AUTOMATION.md " +
-      "confirms: zero matches repo-wide), the thing it substituted for does not exist here, so there is " +
-      "nothing to keep substituting for.\n" +
+      "by propagation from there rather than by any independent claim that it belonged in a setup " +
+      "selected by that methodology's score. With no PSAR anywhere in this repo (docs/" +
+      "GSPS_AUTOMATION.md confirms: zero matches repo-wide), the thing it substituted for does not " +
+      "exist here, so there is nothing to keep substituting for.\n" +
       "\n" +
       "That settles a hypothesis raised while auditing the negative readings below: the -0.245R was " +
-      "**not** a mistranslation of a Gann rule into code, because there was no Gann rule to " +
-      "mistranslate. A general-purpose trend filter measuring inverted against Gann-selected setups is " +
-      "the expected result, not a porting defect to hunt for. Generalize the reason, not the number: " +
-      "when a non-Gann criterion measures against its declared sign on this scorecard, ask first " +
-      "whether it was ever grounded in the methodology the setups are selected by, before treating the " +
-      "inversion as a bug in the implementation.\n" +
+      "**not** a mistranslation of a founding-methodology rule into code, because there was no such " +
+      "rule to mistranslate. A general-purpose trend filter measuring inverted against setups selected " +
+      "by that methodology is the expected result, not a porting defect to hunt for. Generalize the " +
+      "reason, not the number: when a criterion with no connection to that methodology measures " +
+      "against its declared sign on this scorecard, ask first whether it was ever grounded in the " +
+      "methodology the setups are selected by, before treating the inversion as a bug in the " +
+      "implementation.\n" +
       "\n" +
       "**The indicator is not removed; only the scored criterion is.** lib/signals/indicators.ts's " +
       "adx() stays exported and stays in live use by lib/signals/regime.ts (classifyRegime's " +
@@ -573,7 +575,8 @@ const RETIRED: RegisteredCriterion[] = [
       "That is a deliberate call, not an oversight of AGENTS.md's cross-platform consistency principle: " +
       "the Signal & Regime Engine's spec genuinely asks a different question (is this market trending " +
       "or ranging, at all?) than this scorecard does (does an independent trend filter agree with a " +
-      "Gann setup?), which is the \"different governing spec\" carve-out that section names. " +
+      "setup this platform's core methodology selected?), which is the \"different governing spec\" " +
+      "carve-out that section names. " +
       "ScoreInputs.hourlyAdx, score.ts's adxTrendHolding/ADX_TREND_THRESHOLD, and the adx() calls in " +
       "lib/scanTicker.ts and lib/backtest/replay.ts all went with the criterion.\n" +
       "\n" +
