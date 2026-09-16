@@ -7,11 +7,25 @@ source-by-source memory bank this report is built from) or
 audit this report supersedes in scope but not in citation — both stay in the
 repo as the underlying evidence trail).
 
-**Date:** 2026-09-15. **Scope:** all 25 Gann-related documents/artifacts
-reviewed to date (ten books W.D. Gann wrote himself, his private
-correspondence course, subscriber bulletins, a signed private client letter,
-thirteen secondary/interpretive sources, and seven general cycle-theory
-sources), cross-referenced against the live GSPS codebase.
+**Date:** 2026-09-15, updated 2026-09-16. **Scope:** all 25 Gann-related
+documents/artifacts reviewed to date (ten books W.D. Gann wrote himself, his
+private correspondence course, subscriber bulletins, a signed private client
+letter, thirteen secondary/interpretive sources, and seven general
+cycle-theory sources), cross-referenced against the live GSPS codebase.
+
+**2026-09-16 update note:** a much fuller text extraction of A2.1 (the
+private course) closed the largest remaining gap in the whole 25-document
+catalog — Chapter 7, "Master Time Factor and Forecasting by Mathematical
+Rules," previously entirely unread. This revision updates §3 (new §3.6:
+Square of 144/20/52, Hexagon Chart), §4 (revised intro plus new §4.5/§4.6:
+the full cycle hierarchy, a worked 1896–1935 case study, and the
+decade-digit cycle's source-tier upgrade), §9's synthesis table, §12's A2.1
+row, §15's alignment table, §16's deviation list (now seven items), and
+§18.2/§18.4's rebuild architecture and sequencing. Source detail lives in
+`docs/GANN_HISTORICAL_SOURCES.md`'s A2.1 entry, which this revision is
+built from. `docs/GANN_METHOD_COMPLETENESS_AUDIT.md` and
+`docs/GANN_PLATFORM_AUDIT.md` were updated in the same pass — see each
+document's own dated update note.
 
 **Confidentiality note:** Part III, §16 of this report (the astrology/
 numerology proprietary-layer discussion) describes material the project
@@ -399,6 +413,77 @@ GSPS's `volumeClimax` criterion, though GSPS's specific implementation
 (relative-volume-at-the-anchor-pivot) is a modern reconstruction of the
 underlying idea, not a literal transcription of Gann's four rules.
 
+### 3.6 The other Master constructions: Square of Twelve/144, Square of 20, Square of 52, and the Hexagon Chart
+
+**Added 2026-09-16**, when the project owner supplied a much fuller text
+extraction of A2.1 reaching chapters previously entirely unread (see Part
+II, §12 for the extraction's own confidence caveats). Four more geometric
+constructions, all **private-course-tier — absent from all ten public
+books, disclosed by Gann himself in his own voice, never sold to the
+general public** — join the Square of Nine and Gann angles documented in
+§3.2–3.3 above:
+
+- **The Master Square of Twelve / Square of 144, fully specified** (A2.1
+  Ch. 13, "the Master Mathematical Price, Time and Trend Calculator").
+  §3.2 above already named this construction from the first extraction
+  pass; the fuller text confirms it is not a loose parallel to the Square
+  of Nine but **literally nested inside it** — 144 is nine full cycles of
+  the 81-number Square-of-Nine spiral, stated as such in Gann's own text.
+  The chapter also contains its own explicit numerology: **"The Master
+  Numbers are 3, 5, 7, 9 and 12,"** each with Gann's own stated reasoning
+  (9, because its digits sum to 45; 7, because it is the most-cited number
+  in the Bible and 7²=49 "a very important time period"; 5, "the balancing
+  number between 1 and 9"; 3, "the first odd number that forms a square
+  greater than itself"; 12, Biblical/zodiacal and the base of 144 itself).
+  A full fractional structure runs from a 20,736-day/week/month "Great
+  Cycle" down through halvings to 81 ("the square of 9"), and a worked
+  wheat-commodity example squares the crop's all-time low against a
+  specific option's high/low using this exact arithmetic. This is a
+  materially more concrete and literal price/time-squaring mechanism than
+  anything previously catalogued — see §4.4's discussion of
+  `timePriceSquare.ts` below for what this changes.
+- **The Square of 20 / New York Stock Exchange Permanent Chart** (A2.1
+  Ch. 7) — newly catalogued this session, not previously known to exist as
+  a distinct construction. A 20×20=400 grid, built and read the same
+  spiral/angle way as the Square of Nine, but anchored to real historical
+  dates (the NYSE's own founding, and separately 1492) rather than a
+  price. A third base (alongside 9²=81 and 12²=144) for the same
+  underlying method: an integer square used as a coordinate spiral for
+  both price and elapsed time.
+- **The Square of 52 — a weekly time-period calculator** (A2.1 Ch. 14,
+  "Master Calculator for Weekly Time Periods") — also newly catalogued.
+  52²=2,704 (roughly seven years five months in days), built from 7-day
+  weeks, with its own explicit eighths/thirds/halves fractional table
+  (1/2 = 26 weeks, called "a most important time and resistance level")
+  that independently converges on the same quarters/eighths/thirds
+  structure `lib/gann/retracement.ts` already implements for price —
+  now confirmed disclosed for time as a parallel, separately-constructed
+  system, not an inference from the price-side grid.
+- **The Hexagon Chart, fully specified** (A2.1 Ch. 15B). Where §6.1 below
+  and *The Magic Word* (A10) previously supplied only a devotional,
+  non-market hexagon precursor, this chapter gives the actual market
+  construction: a hexagonal (not square-root) spiral — center "1," each
+  ring adding a constant 6 more than the last (7, 19, 37, 61, 91, 127,
+  169...) — with numbers on the same radial line read as important time
+  counts. Gann explicitly cross-validates this chart against the Master
+  Twelve Chart and the Square of Nine **in the same passage**, pointing at
+  the same number landing on all three constructions and treating that
+  agreement as the operative proof. This is not just consistent with §5's
+  confluence principle — it is a **primary-source demonstration of
+  multi-construction confluence specifically**, the direct historical
+  precedent for `lib/signals/confluence/gann.ts`'s design, not merely an
+  analogy to it.
+
+None of this changes the standing finding that Gann's ten *public* books
+never disclose any of these four constructions — all are private-course
+material, exactly like the Square of Nine and Gann angles already
+documented above. What changes is the evidentiary completeness: before
+2026-09-16, the Master Twelve Chart and Hexagon Chart were known to exist
+only by name; they are now fully specified, with exact numbers, worked
+examples, and — in the Hexagon Chart's case — Gann's own explicit
+cross-validation methodology. See §9's synthesis table and Part III §18.2
+for what, if anything, this changes about build priority.
+
 ## 4. Layer 3 — Timing: the withheld mechanism and its disclosed shell
 
 Every source in this research pass agrees on one thing: **Gann never
@@ -406,9 +491,31 @@ publicly disclosed the actual mechanism behind his timing claims, in any
 book, at any point across a forty-five-year career.** He states this
 outright, in first person, in at least three separate books spanning 1909
 to 1927, culminating in the all-capitalized refusal in *Tunnel Thru the
-Air* quoted in §1. What follows here is not that mechanism — it is the
-outer shell Gann was willing to disclose around it, plus what his private
-course material (still only partially recovered — see Part II) adds.
+Air* quoted in §1. That finding is unchanged and, per A9's and A11's
+silence and A2.1's own withheld-material line (§6.3), applies to
+everything he ever sold or taught, private course included.
+
+**What changed 2026-09-16, and what didn't.** A fuller text extraction of
+A2.1 reached Chapter 7, "Master Time Factor and Forecasting by
+Mathematical Rules" — previously the single largest unread gap in this
+entire 25-document catalog, and named directly in this report's own §4.5
+as "the most direct remaining lead toward whatever mechanism Gann actually
+used." That chapter is now read (§4.5 below), and it is a real, substantial
+upgrade to how much of the *shell* is on file: a complete, named cycle
+hierarchy with numbered forecasting rules, and — for the first time in
+this whole research pass — a fully worked numerical example spanning
+nearly forty real years of market history (1896–1935 DJIA), rather than
+only the repeated statement that such a system existed. It would be a
+mistake to read this as the mechanism itself, though: Gann shows *that*
+specific fractions of 360° projected forward from a prior high or low
+reliably line up with real subsequent turns, applied consistently across
+dozens of dated examples — but he never once states *why* 360°, or *why*
+those particular fractions, are the governing unit. The withholding
+pattern §1 documents is fully intact; what is new is that the outer shell
+around it is now thick enough to actually build something testable from,
+which was not true before this pass (compare §4.3–4.4, both of which are
+this codebase's own guesses at a mechanism with no comparably detailed
+primary-source shell to build from).
 
 ### 4.1 The fixed annual calendar cycle
 
@@ -452,16 +559,84 @@ explicitly-labeled reconstruction (ATR-normalized price move compared
 against elapsed bars) rather than a literal historical formula, because no
 such formula survives in any recovered source.
 
-### 4.5 What the still-unread private course material may contain
+### 4.5 The Master Time Factor chapter, now read: a full cycle hierarchy and a worked 1896–1935 case study
 
-A2.1's table of contents lists a **"Master Time Factor"** chapter and a
-**"Master Mathematical Price Time And Trend Calculator"** chapter in its
-still-unread final ~360 of ~460 pages (only the first ~100 pages were
-retrieved before an extraction limit cut the read off mid-chapter — see
-Part II, §12). These are the most direct remaining lead toward whatever
-mechanism Gann actually used, and closing this gap is named explicitly as
-future work in both `GANN_HISTORICAL_SOURCES.md` and the implementation
-blueprint proposed in Part III, §15.
+**Added 2026-09-16.** A2.1 Chapter 7, "Master Time Factor and Forecasting
+by Mathematical Rules," is the fullest disclosed statement of the timing
+shell found anywhere in this 25-document catalog:
+
+- **A complete named cycle hierarchy**: 60 years ("Great Cycle — Master
+  Time Period," the single most important, falling "at the end of the
+  third 20-year cycle"), 50 years (a "jubilee" of extreme prices lasting
+  5–7 years, tied to 7×7=49 as "a fatal number"), 30, 20 ("most stocks...
+  work closer to this cycle than any other"), 15, 10, 7, 5-year cycles,
+  and minor 3/2/1-year cycles.
+- **Eight numbered "Rules for Future Cycles"** giving exact forecasting
+  arithmetic — e.g., add 10 years to any top or bottom to project the next
+  10-year cycle's top/bottom; add 3 years to a major top, then 3 more,
+  then 4, to project the 10-year cycle's final top. The same logic is
+  explicitly scaled down to monthly, weekly, and daily moves (e.g., "7
+  weeks... marks an important turning point... watch for top or bottom
+  around the 49th to 52nd day"), plus a table of specific days-of-month
+  read as "natural changes in trend" and two named recurring calendar
+  windows ("January 2nd to 7th and 15th to 21st," "July 3rd to 7th and
+  20th to 27th") — a second, independent primary citation for the fixed
+  annual calendar cycle already documented in §4.1 from A4, now with exact
+  day-ranges rather than named months.
+- **36 geometric-angle month-counts, with a full worked 1896–1935 DJIA
+  case study.** The 1/32 divisions of 360° (11¼°, 22½°, 33¾°, 45°... through
+  360°, with 45/60/90/120/135/180/225/240/270/300/315/360 starred as "very
+  important") are read as month-counts projected from any major top or
+  bottom. The chapter works this against real Dow Jones Industrial Average
+  history from the August 1896 low through 1935, naming the exact
+  elapsed-month count — against multiple prior anchors simultaneously — at
+  every major turn: e.g., the November 1907 low sits at "135 months from
+  1896 bottom, 127 months from 1897 low"; September 1929's top sits at
+  "240 months from 1909 top... 30 years from 1896 low," with the note that
+  "the strong time angles on the Monthly Chart running out in October and
+  November, 1929... are 32, 40, 67½, 75, 120, 180." This is, by a wide
+  margin, the most complete worked illustration of *how* Gann actually
+  applied his timing claims found in this entire research pass — not the
+  mechanism's justification (§4's revised intro above), but its fullest
+  demonstrated application.
+
+This directly supersedes this section's prior framing (through
+2026-09-15): rather than a table of contents entry naming an unread
+chapter as "the most direct remaining lead," the lead has been followed to
+a real, citable, arithmetically complete system. `lib/gann/timeCycles.ts`'s
+existing fixed wheel counts (45/90/120/180/270/360 days, §16 deviation 5)
+are now confirmed to be a narrow subset of this fuller disclosed hierarchy,
+not an independent guess running in parallel to it — see Part III §18.2
+and §18.4 for what this changes about build priority.
+
+### 4.6 The "decade digit" cycle: upgraded from unverifiable secondary source to Gann's own voice
+
+**Added 2026-09-16.** The same Chapter 7 contains a dedicated section,
+"BULL AND BEAR CALENDAR YEARS," assigning a specific market character to
+each digit 1–10 of a calendar decade — e.g., "No. 1... a bear market ends
+and a bull market begins," "No. 5... the year of Ascension, and a very
+strong year for a bull market," "No. 9 the highest digit... the strongest
+of all for bull markets... Bear markets usually start in September to
+November," "No. 10 is a bear year" — each with named historical years
+(1901/1911/1921 for "No. 1"; 1869/1879/.../1929 for "No. 9"; etc.).
+
+This is a genuine reclassification, not just new detail. Before this pass,
+this exact claim existed in this report's source base only via B9, an
+anonymous secondary source explicitly flagged throughout
+`GANN_HISTORICAL_SOURCES.md` as unverifiable ("no way to verify any 'Gann
+says' attribution... cross-checked against a credentialed source before
+being treated as established"). It is now directly confirmed in Gann's own
+private-course voice. **This does not, on its own, make the decade-digit
+cycle a validated trading signal** — it still needs to clear the same
+unmeasured → attribution → in/out-of-sample discipline as any other
+candidate, and per Layer 6's cycle-validation standard (§8's citation of
+Dewey), a ten-year repeating character claim needs real repetition-count
+and phase-resumption evidence, not just a source-tier upgrade. What
+changes is standing: it moves from "worth checking, low confidence in the
+attribution itself" to "a real Gann-taught claim, unproven as a signal" —
+the same evidentiary status Square of Nine and Gann angles already carry
+elsewhere in this report. See §9's synthesis table and Part III §18.4 for
+its build-priority implications.
 
 ## 5. Layer 4 — Confluence: the organizing principle behind everything else
 
@@ -705,14 +880,19 @@ file in `GANN_HISTORICAL_SOURCES.md`:
 | Sections of a campaign / Major vs. Minor trend | **Public** | A5, A8, A9 | — |
 | Swing charts (3-day / 9-point) | **Public** — closest 1:1 GSPS match | A9 | — |
 | Volume/open-interest culmination rules | **Public** | A8 | — |
-| Fixed annual calendar cycle | **Public**, disclosed shell only | A4 | — |
+| Fixed annual calendar cycle | **Public** (A4) + **private course** (A2.1 Ch. 7, independent second citation with exact day-ranges) | A4, A2.1 | — |
 | Anniversary dates | **Public**, disclosed shell only | A9; A3 (fiction, company-anniversary variant) | — |
 | Duration-based "time square" bands | **Public**, disclosed shell only | A9 | — |
 | Price/time squaring (no disclosed formula) | **Withheld** — public books state the principle, never the formula | A1, A3, A7 (withholding stated directly) | — |
+| Multi-cycle major/minor time hierarchy (60/50/30/20/15/10/7/5/3/2/1-year cycles, numbered forecasting rules) with worked 1896–1935 DJIA case study | **Private course only**, added 2026-09-16 — the fullest disclosed statement of the timing shell in this catalog | A2.1 Ch. 7 | — |
+| "Decade digit" bull/bear year cycle | **Private course only**, added 2026-09-16 — upgraded from unverifiable secondary source | A2.1 Ch. 7 | B9 (previously the sole, unverifiable source; now corroborated) |
 | Square of Nine | **Private course only** | A2.1 | B3, B5, B9, B12 |
 | Gann angles (1×1…8×1+) | **Private course only** | A2.1 | B10 (adds time-projection layer) |
-| Master "12" Chart / Square of Twelve | **Private course only** | A2.1 | — |
-| Confluence (multi-coordinate agreement) | **Public**, demonstrated on real data | A9 (1929 top example) | — |
+| Master "12" Chart / Square of Twelve (Square of 144, nested 9 cycles inside Square of Nine, "Master Numbers" 3/5/7/9/12) | **Private course only**, fully specified 2026-09-16 | A2.1 Ch. 13 | B9 (144×144 table, independent corroboration) |
+| Square of 20 / NYSE Permanent Chart | **Private course only**, newly catalogued 2026-09-16 | A2.1 Ch. 7 | — |
+| Square of 52 (weekly time-period calculator) | **Private course only**, newly catalogued 2026-09-16 | A2.1 Ch. 14 | — |
+| Hexagon Chart (centered-hexagonal-number spiral) | **Private course only**, fully specified 2026-09-16 | A2.1 Ch. 15B | A10 (devotional precursor, non-market) |
+| Confluence (multi-coordinate agreement) | **Public**, demonstrated on real data (A9); also **private course**, Gann's own cross-validation of Hexagon/Twelve/Nine (A2.1 Ch. 15B) | A9 (1929 top example), A2.1 (Hexagon/Twelve/Nine cross-check) | — |
 | Fourier/harmonic (spectral) cycle analysis | **Named directly by Gann** (A3), mechanism not disclosed | A3 | B1 (full demonstration), 1922/1926 Moore/Schuster/Fourier citations |
 | Digit-based numerology ("vibration") | **No disclosed formula anywhere** | A1 (names "vibration") | B2 (weak), B8 (Master Egg Course time technique) |
 | Sacred numbers (3, 7, 9, 12, 21) and hexagon geometry | **Public**, but non-market context | A10 | — |
@@ -770,7 +950,7 @@ this is a navigation aid, not a replacement.
 
 | # | Title | Confidence | What it's the primary source for |
 |---|---|---|---|
-| A2.1 | Master Stock Market Course (2004 transcription) | High (genuine content), medium (verbatim accuracy) | Square of 9, Gann angles, Master 12 Chart, Saturn-cycle astrology — **only first ~100 of ~460 pages recovered**; Master Time Factor and Hexagon Chart chapters remain unread |
+| A2.1 | Master Stock Market Course (2004 transcription) | High (genuine content), medium (verbatim accuracy) | Square of 9, Gann angles, Master Time Factor cycle hierarchy and decade-digit cycle, Square of 144/20/52, Hexagon Chart, Saturn-cycle astrology — **substantially recovered as of 2026-09-16** (a second, fuller extraction reached Chapters 7/13/14/15B, ~460 of ~460 pages of text; illustrations for every chapter remain lost, and Chapter 15A and the options lessons are the only sampled-but-not-fully-read remainder — see `GANN_HISTORICAL_SOURCES.md` A2.1) |
 | A2.2 | Annual Forecasts 1919–1922 | Medium-high | Earliest-known Gann forecasts; confirms no Square 9/angles/astrology in subscriber mail |
 | A2.3 | "May Coffee Santos D" 1954 client letter | Single dated source — corroborate before generalizing | The one worked astrological ephemeris mechanism in the entire corpus |
 
@@ -826,7 +1006,7 @@ Part I:
 | Structure | Swing charts (3-day/9-point) | `lib/gann/swingChart.ts` | **Implemented and scored** — `swingChartTrend`, the closest literal port of a disclosed Gann technique in the codebase |
 | Structure | Square of 9 | `lib/gann/squareOf9.ts` | Implemented algorithmically; **not scored** (retired, measured negligible pre-role-aware-anchor) |
 | Structure | Gann angles (1×1…4×1) | `lib/gann/fans.ts`, `lib/gann/normalizedSlope.ts` | **Implemented and scored** — `gannAngleSlope`, but currently weighted at the floor (see §16) |
-| Timing (reconstructed) | Fixed wheel counts + anniversaries | `lib/gann/timeCycles.ts` | Implemented; **context/display only** |
+| Timing (reconstructed → partially disclosed, 2026-09-16) | Fixed wheel counts + anniversaries | `lib/gann/timeCycles.ts` | Implemented; **context/display only** — its 45/90/120/180/270/360-day wheel is now confirmed a narrow subset of A2.1 Ch. 7's fuller disclosed 60/50/30/20/15/10/7/5/3/2/1-year hierarchy (§4.5), not yet extended to match |
 | Timing (reconstructed) | Price/time squaring | `lib/gann/timePriceSquare.ts` | **Implemented and scored**, currently weighted at the floor |
 | Confluence | Multi-coordinate agreement | `lib/signals/confluence/gann.ts` | **Implemented** — display/audit only, never gates a trade, by design |
 | "Vibration" (numerology) | Digital root / Vortex classification | `lib/gann/digitalRoot.ts` | Implemented as an explicit GSPS hypothesis, not a literal port; confluence-only |
@@ -834,6 +1014,22 @@ Part I:
 | "Vibration" (astrology) | Planetary ephemeris timing | — | **Not implemented anywhere** |
 | Tape reading | Volume climax at anchor pivot | `lib/gann/volumeClimax.ts` | **Implemented and scored** |
 | Tape reading (non-Gann) | Sara Sniper Strat pattern recognition | `lib/strat/patterns.ts`, `lib/signals/confluence/sara.ts` | Implemented and scored — `patternArmed` (see §17) |
+
+**Branch note (2026-09-16):** a sibling, not-yet-merged branch
+(`claude/vigilant-pasteur-e5bhk9`, commit `1cba6e0`) has already built a
+tenth scored criterion (`ruleOfThree`), extended `lib/gann/timeCycles.ts`
+with A4's fixed annual calendar windows, added a 3-point breakout buffer to
+`lib/lifecycle/entryConfirmation.ts`, added resistance-point clustering to
+`lib/strat/levels.ts`, and fixed the two mislabeling findings this report's
+predecessor audits flagged (Square of 9/angles no longer called
+"public-domain"; `lib/guided/copy.ts` no longer asserts unvalidated
+Square-of-9/fan coordinates are "a level this symbol has repeatedly turned
+at") — full detail in that branch's own updated `GANN_PLATFORM_AUDIT.md`.
+None of that work is reflected in the table above, which describes the
+mainline state as of this writing; check whether that branch has merged
+before treating any of it as still open, and expect a documentation merge
+conflict in `GANN_PLATFORM_AUDIT.md` and `AGENTS.md` between that branch
+and this report's own updates below, since both touch the same sections.
 
 **The headline alignment finding, stated plainly:** four of the nine live
 scored criteria are directly, literally Gann structural techniques
@@ -850,7 +1046,8 @@ terms in §17.
 
 ## 16. Where GSPS deviates from the historical method
 
-Six concrete deviations, distinguishing genuine defects from defensible
+Seven concrete deviations (originally six; §16 item 6 below is new as of
+2026-09-16), distinguishing genuine defects from defensible
 modernizations:
 
 1. **Astrology is entirely absent from the live product**, despite real,
@@ -891,12 +1088,33 @@ modernizations:
    generic support/resistance and risk criteria, on thin evidence.
 5. **The "time factor" is reconstructed two different, not-fully-
    reconciled ways** (`timeCycles.ts`'s fixed wheel counts,
-   `timePriceSquare.ts`'s ATR-normalized squaring), neither of which is
-   what either primary text actually discloses, since both explicitly
-   withhold the real mechanism. The best-evidenced reconstruction —
+   `timePriceSquare.ts`'s ATR-normalized squaring) — but as of 2026-09-16
+   this deviation is sharper, not softer, than when originally written.
+   `timeCycles.ts`'s 45/90/120/180/270/360-day wheel is now confirmed a
+   narrow subset of A2.1 Ch. 7's fuller disclosed 60/50/30/20/15/10/7/5/3/
+   2/1-year hierarchy (§4.5) — a real, citable, disclosed system GSPS's own
+   code doesn't fully implement, not just a gap next to an equally
+   undisclosed reconstruction. `timePriceSquare.ts`'s ATR-normalized
+   squaring remains this codebase's own guess at Gann's price/time-equating
+   formula, but A2.1 Ch. 13's Square of 144 worked wheat example (§3.6) is
+   a materially more literal disclosed price/time-squaring mechanism than
+   was on file when `timePriceSquare.ts` was built — worth re-examining
+   against that example specifically, not just noted as another
+   reconstruction among several. The best-evidenced reconstruction —
    Fourier/spectral cycle analysis, the one technique Gann actually named
-   directly — is the one GSPS does not implement at all.
-6. **Money management is philosophically aligned but structurally
+   directly — is still the one GSPS does not implement at all.
+6. **Four newly-catalogued private-course constructions (Square of 144's
+   full specification, Square of 20, Square of 52, and the Hexagon Chart,
+   §3.6) have zero code presence anywhere in GSPS**, and the "decade digit"
+   bull/bear cycle (§4.6) has none either. This is not a defect — these
+   were only fully specified or reclassified to primary-sourced on
+   2026-09-16, and per §16 deviation 2's own logic, building any of them
+   without labeling their actual tier would repeat exactly the mislabeling
+   this report already flags for Square of 9 and Gann angles. Named here as
+   a real, current gap rather than folded into deviation 2, since deviation
+   2 is about mislabeling what's already built, and this is about nothing
+   being built yet — see §18.2/§18.4 for sequencing.
+7. **Money management is philosophically aligned but structurally
    different**: Gann's rules size risk in fixed dollar/point tiers by
    share-price bracket; GSPS uses a percentage-of-account, multi-ceiling
    model. This is a defensible, arguably necessary modernization for a
@@ -1048,12 +1266,61 @@ equivalent today:
   (or its ATR-normalized equivalent) before being trusted.
 - A new `lib/gann/annualCycle.ts` (§4.1) — the fixed annual calendar cycle,
   the cheapest of the new candidates to test since it needs no pivot
-  detection, only a date lookup.
+  detection, only a date lookup. **Update 2026-09-16:** A2.1 Ch. 7 supplies
+  a second, independent citation for this exact concept with finer
+  day-range granularity (§4.5) than A4's month-level windows; if the
+  sibling branch noted in §15's branch note has already built the A4
+  version, extending it to A2.1's exact day-ranges is a small follow-on,
+  not a new module.
 - A new `lib/gann/anniversaryDates.ts` (§4.2) — a pivot's own month/day
   watched every subsequent year, cheap to test against existing
   pivot-detection code.
+- **New, added 2026-09-16 — four private-course geometric constructions
+  with zero code presence today (§3.6, §16 deviation 6):**
+  - `lib/gann/squareOf144.ts` — the Master Twelve/Square of 144
+    construction, including its "Master Numbers" (3, 5, 7, 9, 12)
+    fractional structure and its explicit nesting inside the Square of
+    Nine at nine full cycles. Meaningfully heavier than the other Layer-2
+    items above (a genuinely new spiral construction, not an extension of
+    an existing one), but directly reuses `squareOf9.ts`'s existing
+    spiral-generation logic given the two are now confirmed mathematically
+    nested, not independent.
+  - `lib/gann/squareOf20.ts` and `lib/gann/squareOf52.ts` — the NYSE
+    Permanent Chart and the weekly time calculator, both newly catalogued
+    2026-09-16 (§3.6). Structurally the same spiral/grid construction as
+    Square of 9/144 at a different base, so cheap once `squareOf144.ts`'s
+    generalized spiral generator (if built that way) exists.
+  - `lib/gann/hexagonChart.ts` — the centered-hexagonal-number spiral
+    (§3.6), distinguished from the three square constructions above by
+    shape (hexagonal rings, not a square-root spiral) and by Gann's own
+    explicit use of it as a cross-validation check against the Square of
+    Nine and Master Twelve in the same passage — the strongest primary-
+    source precedent for `lib/signals/confluence/gann.ts`'s whole design
+    found anywhere in this catalog (§5). Worth building specifically to
+    feed Layer 4 Confluence a second, Gann-endorsed multi-construction
+    agreement check, not just as a fourth isolated coordinate.
 
-**Layer 3 — Timing.** *Add the missing best-evidenced reconstruction.*
+**Layer 3 — Timing.** *Add the missing best-evidenced reconstruction, and
+the newly-disclosed literal cycle hierarchy.*
+- **New, added 2026-09-16 — `lib/gann/masterTimeFactor.ts`** (§4.5): the
+  disclosed 60/50/30/20/15/10/7/5/3/2/1-year cycle hierarchy and its eight
+  numbered forecasting rules, plus the 36 angle-derived month-count system
+  (1/32 divisions of 360°) demonstrated against real DJIA history. Unlike
+  every other Layer-3 candidate in this report, this is not GSPS's own
+  guess at a mechanism — it is date/angle arithmetic transcribed directly
+  from a disclosed source, comparably cheap to `annualCycle.ts` above (no
+  new statistical machinery, just year-offset and month-count lookups
+  against known pivots). This should supersede, not sit beside,
+  `timeCycles.ts`'s existing narrower wheel-count subset once built. See
+  §18.4 for why this changes the sequencing.
+- **New, added 2026-09-16 — `lib/gann/decadeDigitCycle.ts`** (§4.6): the
+  bull/bear decade-digit cycle, now primary-confirmed rather than
+  B9-only. Comparably cheap to `annualCycle.ts` (a calendar-year-digit
+  lookup, no pivot detection) — its upgraded source tier doesn't reduce
+  the validation bar (§4.6), but per `AGENTS.md`'s "WD Gann precedence"
+  principle a citably-Gann-sourced candidate this cheap to build and test
+  belongs in the same early tier as the other literal-rule candidates
+  above, not deferred behind heavier statistical work.
 - A new `lib/gann/spectralCycle.ts` — Fourier/dominant-cycle decomposition
   (§6.2), the reconstruction with the strongest historical citation
   (Moore/Schuster/Fourier) and the one glaring gap in GSPS's current time
@@ -1138,27 +1405,67 @@ committed to production weighting.
 ### 18.4 Sequencing
 
 This is a multi-session, multi-phase build, not a single PR. Suggested
-order, front-loading the cheapest, most independently-testable pieces:
+order, front-loading the cheapest, most independently-testable pieces.
+
+**Revised 2026-09-16 in light of §4.5/§4.6/§3.6's fuller material — both
+questions this revision was asked to settle have the same answer, "yes,
+move it into the cheap tier," for the same underlying reason: neither the
+fuller cycle hierarchy nor the decade-digit cycle need new statistical
+machinery, only date/angle arithmetic against already-known pivots, which
+is exactly what made step 1 "cheapest" in the first place.**
 
 1. Fixed annual calendar cycle and anniversary dates (§18.2, Layer 2) —
-   cheapest to build and test, no new statistical machinery.
+   cheapest to build and test, no new statistical machinery. **Now also
+   includes the Master Time Factor cycle hierarchy and numbered forecasting
+   rules (`masterTimeFactor.ts`, §4.5) and the decade-digit cycle
+   (`decadeDigitCycle.ts`, §4.6)**, moved up from where an earlier version
+   of this sequencing would have placed them (behind Square of 9/angle
+   work, or not sequenced at all, since neither existed as a scoped
+   candidate before 2026-09-16): both are pure date/digit lookups against
+   known pivots or the calendar, no pivot-detection or statistical
+   machinery beyond what `annualCycle.ts`/`anniversaryDates.ts` already
+   need. The decade-digit cycle's upgraded evidence tier (B9-only →
+   primary-confirmed, §4.6) doesn't change how rigorously it must be
+   validated once built — Dewey's checklist still applies in full — but it
+   does mean `AGENTS.md`'s "WD Gann precedence" principle now covers it,
+   which is what earns it a seat in this tier rather than a lower one. The
+   36-angle-month-count worked example (§4.5) is more involved than a plain
+   date lookup — closer in cost to the Gann-angle time-projection layer in
+   step 4 below — so build the cycle-hierarchy/decade-digit lookups first
+   and treat the angle-month-count system as an extension once step 4's
+   angle-projection work is underway, not as part of this cheapest tier.
 2. Rule of Three, 3-point rule, lost-motion stop refinement — literal,
-   narrow, already have adjacent code to build from.
+   narrow, already have adjacent code to build from. (Per §15's branch
+   note, a sibling branch has already built these three plus the A4-level
+   annual calendar cycle — check whether it has merged before re-building.)
 3. Refined percentage-resistance hierarchy — extends existing
    `retracement.ts` rather than adding a new module.
-4. Square of 9 re-test (role-aware, fresh anchor) and Gann-angle
-   time-projection layer.
-5. Digital Root persistence (unlocks the two dead transition-type code
+4. Square of 9 re-test (role-aware, fresh anchor), Gann-angle
+   time-projection layer, and the 36-angle-month-count extension to
+   `masterTimeFactor.ts` from step 1 above (same underlying
+   fractions-of-360°-as-time-projection mechanism, so cheapest to build
+   once the angle-projection code from this step already exists).
+5. **New tier, added 2026-09-16**: `squareOf144.ts`, `squareOf20.ts`,
+   `squareOf52.ts`, and `hexagonChart.ts` (§3.6, §18.2 Layer 2) — four
+   newly-specified private-course constructions, meaningfully heavier than
+   steps 1–4 (new spiral/grid generation, not extensions of existing
+   modules) but lighter than the Fourier or astrology work below, and
+   `squareOf144.ts` reuses `squareOf9.ts`'s spiral logic directly given the
+   two are now confirmed nested. Sequenced after the Square of 9 re-test in
+   step 4 so that re-test's result (does the base construction carry real
+   signal at all, post-anchor-fix) is known before investing in three more
+   constructions built on the same underlying method.
+6. Digital Root persistence (unlocks the two dead transition-type code
    paths).
-6. Fourier/spectral cycle module — the largest net-new statistical
+7. Fourier/spectral cycle module — the largest net-new statistical
    investment, validated against Dewey's own rigor standard.
-7. The astrology module family — the largest net-new build overall,
+8. The astrology module family — the largest net-new build overall,
    sequenced last both because it is the most complex to get right and
    because by this point the platform will have a complete, freshly
    re-weighted geometric/timing layer to test any astrological confluence
    *against*, which is a more honest test than building it first in
    isolation.
-8. A full `propose-weights.ts` re-run against the complete rebuilt
+9. A full `propose-weights.ts` re-run against the complete rebuilt
    criteria set, retiring the two temporary overrides in `AGENTS.md` as
    part of adopting its output.
 
@@ -1180,6 +1487,30 @@ cite this report and its underlying `GANN_HISTORICAL_SOURCES.md` entries
 the same way `digitalRoot.ts` already cites the GSPS Implementation
 Blueprint — the precedent for "an authorized spec supersedes the default
 no-new-numerology rule" already exists in this codebase's own history.
+
+**Note on `AGENTS.md`'s "WD Gann precedence" and "Hermetic principles &
+cycle theory" sections (checked 2026-09-16 against this update; sections
+themselves live on the sibling branch in §15's branch note, not yet
+merged).** Neither needs weakening, and both remain accurate as written.
+One sharpening worth carrying into that branch's own next revision: the
+"WD Gann precedence" section cites four already-built items (Rule of
+Three, 3-point rule, resistance clustering, the A4-level annual calendar
+cycle) as "the standing worked example of this principle in practice" —
+that citation was written roughly nine minutes before the Master Time
+Factor material in §4.5/§4.6/§3.6 above was found, so it doesn't yet
+reflect the much larger set of citably-Gann-sourced candidates this update
+surfaces (the full cycle hierarchy, the decade-digit cycle, three new
+Master squares, the Hexagon Chart). This doesn't make the section wrong —
+its principle applies to the new material exactly as written — but a
+future revision should extend its worked-example list once any of §18.2's
+new candidates are built, the same way it already does for the first four.
+The "Hermetic principles & cycle theory" section's two explicit
+non-claims (it doesn't retroactively justify the historical "nine
+criteria" count on numerological grounds; it doesn't resolve B2 vs. Part
+C's cycle-ratio claim) are both unaffected by this update and need no
+change — the decade-digit cycle's source-tier upgrade (§4.6) is exactly
+the kind of case that section's Dewey-checklist gate was already built to
+handle, not a case it failed to anticipate.
 
 ## 19. Sara Sniper Strat and the platform's other non-Gann indicators
 
