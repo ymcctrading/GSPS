@@ -9,16 +9,16 @@ edit: a hand-edited cell here is exactly the failure this file replaces.
 | | |
 |---|---|
 | Universe | SPY, AAPL, AMD, TSLA, MSFT, NVDA |
-| Window | 2026-07-20 → 2026-09-15 |
-| Execution timeframe | 15Min |
+| Window | 2020-09-17 → 2026-09-15 |
+| Execution timeframe | 1Hour |
 | Target | 2R |
 | Stop model | raw pattern (original harness behaviour) |
 | Break-even win rate at this target | 33.3% |
 | Data source | alpaca (live feed) |
-| Armed / triggered | 3148 / 984 |
+| Armed / triggered | 36071 / 11361 |
 | Strategy version | 2026-08-27-role-aware-proximity |
-| Generated | 2026-09-16T05:12:56.633Z |
-| Run by | `GET /api/backtest` on the deployment; payload `docs/replay-runs/2026-09-16-15Min-2R-within-all.json` |
+| Generated | 2026-09-16T05:15:58.324Z |
+| Run by | `GET /api/backtest` on the deployment; payload `docs/replay-runs/2026-09-16-1Hour-2R-within-all.json` |
 
 ## Expectancy by verdict
 
@@ -27,11 +27,11 @@ is a losing system at this target however good it looks.
 
 | Bucket | Trades | Win rate | Expectancy | Total | Above break-even |
 |---|---:|---:|---:|---:|---|
-| Execute | 25 | 28.0% | -0.052R | -1.310R | no |
-| Watch | 464 | 35.1% | +0.049R | +22.909R | yes |
-| Reject | 495 | 30.5% | -0.082R | -40.529R | no |
-| unscored | 0 | — | — | — | — |
-| **All** | 984 | 32.6% | -0.019R | -18.929R | no |
+| Execute | 472 | 31.8% | -0.067R | -31.442R | no |
+| Watch | 5675 | 34.3% | +0.012R | +69.449R | yes |
+| Reject | 4313 | 34.6% | +0.021R | +92.537R | yes |
+| unscored | 901 | 34.4% | -0.006R | -5.268R | no |
+| **All** | 11361 | 34.3% | +0.011R | +125.277R | yes |
 
 ## Required performance metrics
 
@@ -42,11 +42,11 @@ none of this is read apart from how many trades it came from.
 
 | Bucket | n | Avg win | Median win | Avg loss | Median loss | Max loss | Profit factor | Max drawdown |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| Execute | 25 | +1.988R | +1.986R | -1.012R | -1.012R | -1.023R | 0.92 | +6.132R |
-| Watch | 464 | +1.984R | +1.987R | -1.016R | -1.015R | -1.051R | 1.07 | +35.940R |
-| Reject | 495 | +1.985R | +1.986R | -1.016R | -1.015R | -1.053R | 0.87 | +46.776R |
-| unscored | 0 | — | — | — | — | — | — | +0.000R |
-| **All** | 984 | +1.985R | +1.986R | -1.016R | -1.015R | -1.053R | 0.96 | +57.225R |
+| Execute | 472 | +1.979R | +1.989R | -1.020R | -1.011R | -1.182R | 0.90 | +60.898R |
+| Watch | 5675 | +1.983R | +1.989R | -1.017R | -1.011R | -1.200R | 1.02 | +165.249R |
+| Reject | 4313 | +1.982R | +1.989R | -1.017R | -1.011R | -1.200R | 1.03 | +107.850R |
+| unscored | 901 | +1.959R | +1.984R | -1.042R | -1.016R | -1.333R | 0.99 | +53.353R |
+| **All** | 11361 | +1.981R | +1.989R | -1.019R | -1.011R | -1.333R | 1.02 | +159.024R |
 
 ## Large-cap vs. not
 
@@ -61,7 +61,7 @@ the before/after `docs/BACKTESTING.md` calls for on this constant.
 
 | | Trades | Win rate | Expectancy | Total |
 |---|---:|---:|---:|---:|
-| Large-cap | 984 | 32.6% | -0.019R | -18.929R |
+| Large-cap | 11361 | 34.3% | +0.011R | +125.277R |
 | Not large-cap | 0 | — | — | — |
 
 ## Factors inside all
@@ -71,32 +71,32 @@ set from. Marginal, not causal — see docs/BACKTESTING.md.
 
 | Criterion | Passed | E[R] pass | E[R] fail | Δ E[R] | Corr | Verdict |
 |---|---:|---:|---:|---:|---:|---|
-| historicalSR | 176/984 | +0.196R | -0.066R | +0.262R | 0.07 | informative |
-| volumeClimax | 260/984 | +0.100R | -0.062R | +0.161R | 0.05 | informative |
-| ruleOfThree | 195/984 | +0.104R | -0.050R | +0.154R | 0.04 | informative |
-| swingChartTrend | 269/984 | +0.063R | -0.050R | +0.113R | 0.04 | informative |
-| gannRetracementConfluence | 154/984 | -0.002R | -0.022R | +0.020R | 0.01 | informative |
-| timePriceSquare | 180/984 | -0.050R | -0.012R | -0.037R | -0.01 | informative |
-| stopRoom | 965/984 | -0.021R | +0.088R | -0.109R | -0.01 | informative |
-| gannAngleSlope | 199/984 | -0.142R | +0.012R | -0.154R | -0.04 | informative |
-| adxTrendStrength | 296/984 | -0.176R | +0.048R | -0.225R | -0.07 | informative |
-| patternArmed | 984/984 | -0.019R | — | — | — | constant |
-| reversionConfirmation | 0/23 | — | -0.104R | — | — | constant |
+| volumeClimax | 5005/10460 | +0.026R | +0.000R | +0.025R | 0.01 | informative |
+| adxTrendStrength | 2643/10460 | +0.026R | +0.008R | +0.018R | 0.01 | informative |
+| stopRoom | 10386/10460 | +0.013R | +0.002R | +0.011R | 0.00 | informative |
+| swingChartTrend | 2758/10460 | +0.017R | +0.011R | +0.007R | 0.00 | informative |
+| gannAngleSlope | 2437/10460 | +0.017R | +0.011R | +0.006R | 0.00 | informative |
+| timePriceSquare | 2036/10460 | +0.017R | +0.011R | +0.005R | 0.00 | informative |
+| gannRetracementConfluence | 1507/10460 | +0.012R | +0.013R | -0.001R | -0.00 | informative |
+| ruleOfThree | 1964/10460 | +0.003R | +0.015R | -0.012R | -0.00 | informative |
+| historicalSR | 2365/10460 | -0.013R | +0.020R | -0.032R | -0.01 | informative |
+| patternArmed | 10460/10460 | +0.012R | — | — | — | constant |
+| reversionConfirmation | 0/425 | — | -0.033R | — | — | constant |
 
 ## Stop width inside all
 
 | Band (×ATR) | Trades | Win rate | Expectancy |
 |---|---:|---:|---:|
 | 0.0–0.5 | 0 | — | — |
-| 0.5–1.0 | 424 | 32.1% | -0.040R |
-| 1.0–1.5 | 379 | 30.6% | -0.085R |
-| 1.5–2.0 | 110 | 38.2% | +0.170R |
-| 2.0–2.5 | 40 | 37.5% | +0.149R |
-| 2.5–∞ | 31 | 38.7% | +0.188R |
+| 0.5–1.0 | 5660 | 34.4% | +0.011R |
+| 1.0–1.5 | 4470 | 34.2% | +0.009R |
+| 1.5–2.0 | 949 | 33.5% | -0.003R |
+| 2.0–2.5 | 214 | 40.2% | +0.202R |
+| 2.5–∞ | 68 | 25.0% | -0.257R |
 
 ---
 
-Reproduce: `npm run backtest -- --symbols SPY,AAPL,AMD,TSLA,MSFT,NVDA --timeframe 15Min --targetR 2 --within all`
+Reproduce: `npm run backtest -- --symbols SPY,AAPL,AMD,TSLA,MSFT,NVDA --timeframe 1Hour --targetR 2 --within all`
 
 The harness is deliberately pessimistic — a setup may only trigger on the very next bar, a bar
 covering both stop and target counts as a loss, and round-trip friction is charged against every
