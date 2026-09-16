@@ -10,10 +10,10 @@ import { CRITERION_KEYS, type CriterionWeights } from "@/lib/scoring/weights";
  * full-confluence setup reach 9, does losing one criterion drop the score by
  * exactly 1) — only true when every criterion is worth one point.
  * `DEFAULT_CRITERION_WEIGHTS` (the fallback `computeScore` uses when no
- * `weights` is supplied) is a hand-set, evidence-based rebalance as of
- * 2026-09-14, not one point each — see its own doc comment in
- * lib/scoring/weights.ts. Pass this explicitly so the arithmetic below stays
- * meaningful regardless of what the live default currently is.
+ * `weights` is supplied) is uniform again as of 2026-09-16, so it matches
+ * this today — see its own doc comment in lib/scoring/weights.ts. Pass this
+ * explicitly anyway, so the arithmetic below stays meaningful regardless of
+ * what the live default becomes later.
  */
 const UNIFORM_WEIGHTS: CriterionWeights = Object.fromEntries(
   CRITERION_KEYS.map((k) => [k, 1]),

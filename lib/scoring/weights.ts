@@ -1,15 +1,22 @@
 /**
  * What each criterion is worth.
  *
- * All nine criteria were worth exactly one point until 2026-09-14, which was
- * never a measured choice — it was the placeholder you start with before you
- * can measure anything. `lib/backtest/attribution.ts` produces the number a
- * weight should actually be set from (`deltaExpectancyR`: how much better a
- * trade did when the criterion passed), and `lib/backtest/propose-weights.ts`
- * turns that into a proposal. `DEFAULT_CRITERION_WEIGHTS` below is now a
- * hand-set, evidence-based rebalance rather than that uniform placeholder —
- * see its own doc comment and AGENTS.md's "Temporary overrides" section for
- * why and what would revert it.
+ * Every criterion is worth exactly one point. That was the original state, a
+ * hand-set distribution replaced it on 2026-09-14, and 2026-09-16 restored
+ * it — but for a different reason than it originally held, and the
+ * difference matters. Uniform is not the placeholder you start with before
+ * you can measure anything; it is the only distribution that keeps the
+ * scorecard a count of Gann's conditions rather than a ranking of them. See
+ * `DEFAULT_CRITERION_WEIGHTS`'s own doc comment and AGENTS.md's
+ * "Gann-derived AND measured" and "The scorecard's role" principles.
+ *
+ * `lib/backtest/attribution.ts` still produces `deltaExpectancyR` (how much
+ * better a trade did when the criterion passed) and
+ * `lib/backtest/propose-weights.ts` still turns it into a proposal. Under
+ * those principles that machinery points at *our translation* of a Gann rule
+ * — a criterion measuring backwards is a porting defect to find — rather
+ * than serving as a verdict on which of Gann's conditions deserves more
+ * weight.
  *
  * Two invariants hold for every weight set, proposed or hand-written:
  *
@@ -105,8 +112,10 @@ export const TOTAL_POINTS = CRITERION_KEYS.length;
  * bar — the committed run shows 0/1061 Execute, and the live deployment
  * produced 0 executable trades before this change. Lowered from 7/4 to 6/3.5
  * as a stopgap sized off that same run under an independence approximation
- * (not a joint-distribution guarantee) — see the weight rebalance below for
- * the other half of this fix.
+ * (not a joint-distribution guarantee). The weight rebalance that was the
+ * other half of this fix has since been undone on principle (see
+ * `DEFAULT_CRITERION_WEIGHTS` below); this threshold stopgap stands on its
+ * own and still carries its original revert trigger.
  *
  * Rescaled 2026-09-16 from 6/3.5 (out of 9) to 6.67/3.89 (out of 10) when
  * `ruleOfThree` became the tenth criterion (see `CRITERION_KEYS`) — the same
@@ -144,63 +153,54 @@ export const MIN_WEIGHT = 0.5;
 export const MAX_WEIGHT = 2;
 
 /**
- * TEMPORARY OVERRIDE (since 2026-09-14) — see AGENTS.md's "Temporary
- * overrides" section, `DEFAULT_CRITERION_WEIGHTS` entry, for the full
- * reasoning and the mandatory revert trigger.
+ * One point each — the count of how many of Gann's confirming conditions a
+ * setup satisfies, with no claim layered on top about which of them matters
+ * more.
  *
- * No longer "one point each." This is the fallback every real caller
- * actually scores with today: `lib/scoring/score.ts` falls back to it when
- * no explicit weights are supplied, and `lib/scoring/active-weights.ts`
- * falls back to it whenever no weight set has been promoted to `live` in
- * `learning_models` — which, as of this change, is every deployment, so
- * this constant *is* production's live weight set, not a placeholder.
+ * This is the fallback every real caller actually scores with:
+ * `lib/scoring/score.ts` falls back to it when no explicit weights are
+ * supplied, and `lib/scoring/active-weights.ts` falls back to it whenever no
+ * weight set has been promoted to `live` in `learning_models` — which is
+ * every deployment today, so this constant *is* production's live weight
+ * set, not a placeholder.
  *
- * Hand-set from `docs/replay-runs/2026-09-11-15Min-2R-within-all.json`'s
- * factors table (1061 unconditioned trades) rather than run through
- * `lib/backtest/propose-weights.ts`'s proper in/out-of-sample split — there
- * was only one committed run to work from, not the two chronological halves
- * that function requires, so this is a judgment call sized in the same
- * direction its step formula would move, not that function's own output.
- * Four criteria measured positive and either validated or consistently
- * reproducing (historicalSR, stopRoom, swingChartTrend, volumeClimax) are
- * moved up; four measured negative on this run, two of them independently
- * quarantined for a significant inversion (adxTrendStrength, gannAngleSlope,
- * gannRetracementConfluence, timePriceSquare) are dropped to `MIN_WEIGHT`
- * — `adxTrendStrength` has since been removed from the scorecard entirely
- * (2026-09-16, see `CRITERION_KEYS`), so only three of those four remain;
- * `patternArmed` (structurally necessary, unmeasurable by construction)
- * stays near 1. Values before `normalizeWeights()`'s clamp-and-rescale:
- * historicalSR 1.99 (nudged 0.01 off the intended 2.0 so the rounded,
- * renormalized set lands on exactly 9.00 rather than 9.01 — `round()`
- * rounds each weight to 2 decimals after rescaling, which can drift the sum
- * by a cent), stopRoom 1.8, swingChartTrend 1.3, volumeClimax 1.3,
- * patternArmed 1.0, timePriceSquare 0.6, gannAngleSlope 0.5,
- * gannRetracementConfluence 0.5. (`adxTrendStrength 0.5` was in this set
- * until 2026-09-16; dropping it removes the entry rather than
- * redistributing it by hand — `normalizeWeights()` rescales the remaining
- * nine to sum to the new `TOTAL_POINTS`, which is also not a re-judgment of
- * any of them.)
+ * **Restored to uniform 2026-09-16**, replacing the hand-set distribution
+ * that stood from 2026-09-14: historicalSR 1.99, stopRoom 1.8,
+ * swingChartTrend/volumeClimax 1.3, patternArmed/ruleOfThree 1.0,
+ * timePriceSquare 0.6, gannAngleSlope/gannRetracementConfluence at
+ * `MIN_WEIGHT` (plus `adxTrendStrength` at `MIN_WEIGHT` until the criterion
+ * was discarded entirely earlier the same day — see `CRITERION_KEYS`).
  *
- * `ruleOfThree: 1.0` added 2026-09-16, same treatment `patternArmed` got
- * when it was new and unmeasured — neutral, not thumbed toward either
- * validated or quarantined, since nothing has scored it yet (see
- * `lib/validation/criteria-registry.ts`'s `ruleOfThree` entry). Its raw
- * weight joining the set before `normalizeWeights()` rescales everything to
- * sum to the new `TOTAL_POINTS` (10) is why the other nine shift by a small,
- * uniform amount relative to their pre-2026-09-16 values — not a re-judgment
- * of any of them.
+ * Two standing principles in AGENTS.md decide this, and neither is about
+ * those numbers measuring badly:
+ *
+ *   - "Gann-derived AND measured" — the old distribution was built by
+ *     treating attribution as a verdict on the criteria themselves,
+ *     up-weighting the measured-positive and down-weighting the
+ *     measured-negative. That is exactly the jury role that principle denies
+ *     measurement. A criterion measuring negative is a suspected porting
+ *     defect on our side (wrong anchor, wrong scale, wrong timeframe) to be
+ *     found and fixed, not a criterion to quietly discount.
+ *   - "The scorecard's role" — the scorecard contributes no substance of its
+ *     own. A non-equal weight asserts that one of Gann's conditions outranks
+ *     another, and nothing in `docs/GANN_HISTORICAL_SOURCES.md` ranks the
+ *     confirming conditions against each other. Every "most important" in
+ *     that catalog sits *within* a technique (50% among retracement levels,
+ *     the 20-year Master Time Period among cycles, 1/2 = 26 weeks among the
+ *     52-week fractions), never across them.
+ *
+ * What would legitimately move it off uniform: a citable Gann statement of
+ * cross-criterion importance (none found as of 2026-09-16), or
+ * `lib/backtest/propose-weights.ts`'s real in/out-of-sample output used to
+ * correct a translation rather than to rank Gann's conditions.
+ *
+ * `normalizeWeights()` rescales any set to sum to `TOTAL_POINTS`, so this
+ * change moved *which* setups reach `EXECUTE_SCORE_THRESHOLD` without moving
+ * the point scale that threshold is expressed in.
  */
-export const DEFAULT_CRITERION_WEIGHTS: CriterionWeights = normalizeWeights({
-  historicalSR: 1.99,
-  stopRoom: 1.8,
-  swingChartTrend: 1.3,
-  volumeClimax: 1.3,
-  patternArmed: 1.0,
-  ruleOfThree: 1.0,
-  timePriceSquare: 0.6,
-  gannAngleSlope: 0.5,
-  gannRetracementConfluence: 0.5,
-});
+export const DEFAULT_CRITERION_WEIGHTS: CriterionWeights = normalizeWeights(
+  Object.fromEntries(CRITERION_KEYS.map((k) => [k, 1])) as Record<CriterionKey, number>,
+);
 
 export function isDefaultWeights(weights: CriterionWeights): boolean {
   return CRITERION_KEYS.every((k) => weights[k] === DEFAULT_CRITERION_WEIGHTS[k]);

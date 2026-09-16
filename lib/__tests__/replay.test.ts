@@ -218,9 +218,10 @@ describe("replay scoring", () => {
     // Explicit uniform weights: this test checks that the criteria map agrees
     // with the headline score (no criterion silently missing or double
     // counted), which is only a raw pass-count comparison when every
-    // criterion is worth the same one point — DEFAULT_CRITERION_WEIGHTS
-    // itself is a hand-set, evidence-based rebalance as of 2026-09-14 (see
-    // its own doc comment), not one point each.
+    // criterion is worth the same one point. DEFAULT_CRITERION_WEIGHTS is
+    // uniform again as of 2026-09-16 (see its own doc comment), so it
+    // matches today — set explicitly anyway so a later change to the live
+    // default cannot turn this into a weighted comparison unnoticed.
     const uniformWeights = Object.fromEntries(CRITERION_KEYS.map((k) => [k, 1])) as CriterionWeights;
     const r = replay("TEST", intraday, {
       targetR: 2,
