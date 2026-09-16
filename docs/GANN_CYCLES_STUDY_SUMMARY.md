@@ -74,12 +74,30 @@ metaphor — but whether it actually *works* is a separate question (see
 "What actually holds up," below).
 
 **The Master Square of Twelve.** A second, separate version of the same
-idea, built around 12×12=144 instead of 9. Newly found this session — not
-previously known to be a distinct system.
+idea, built around 12×12=144 instead of 9 — and, per a fuller read of the
+same course chapter (2026-09-16), genuinely nested inside the Square of
+Nine, not just a look-alike: 144 is 9 full trips around the Square of
+Nine's spiral. Gann calls 3, 5, 7, 9 and 12 his "Master Numbers" outright,
+in a dedicated passage, and gives his own reasoning for each (7 because
+it's the most-cited number in the Bible and 7²=49 is "a very important
+time period"; 9 because its digits sum to 45; and so on) — read this as
+his own stated numerology, not a modern gloss on him.
 
-**The Hexagon Chart.** A chapter of the private course is dedicated to
-this, but we haven't read its contents yet (the file cut off before we got
-there) — a loose end for a future pass, not urgent.
+**Two more Master constructions, found this session.** A "Square of 20"
+(20×20=400), applied the same spiral/grid way but anchored to real
+calendar dates (the year the New York Stock Exchange was founded, and
+separately 1492); and a "Square of 52" (7-day weeks, 52²=2,704), used the
+same way for weekly time counts. Neither was previously known to exist.
+
+**The Hexagon Chart.** Now fully read. A different spiral shape from the
+Square of Nine — instead of squares, it's rings of a hexagon, and the
+numbers that land on the same spoke as the center are 1, 7, 19, 37, 61,
+91, 127, 169... (each ring adds a constant 6 more than the last). Gann
+explicitly cross-checks this chart against the Square of Nine and the
+Master Twelve in the same paragraph, pointing at the same number (66) on
+all three and treating that agreement as the actual proof — confluence
+across multiple constructions, not any one taken alone, is presented as
+the method itself working correctly.
 
 **Retracement levels (eighths and thirds).** After a big move, price often
 pulls back to a specific fraction of that move before continuing: 1/2 (the
@@ -94,7 +112,7 @@ sacred, mostly drawn from the Bible: 3, 7, 9, 12, 21. He used them to build
 recurring time-count "watch dates" (every 45 days, every 90 days, every 7
 weeks — "the death zone" — and so on).
 
-## Layer 3: Timing — the part that's genuinely still secret
+## Layer 3: Timing — the outer shell, now much more visible
 
 Gann insisted, in his own words, across a 45-year career: price and time
 are symmetric. A move is "square" when the number of days/weeks elapsed
@@ -104,14 +122,25 @@ harmonic analysis."** He stated flatly, in one of his own books, in
 capital letters: *"IT IS NOT MY AIM TO EXPLAIN THE CAUSE OF CYCLES. The
 general public is not yet ready for it."*
 
-He never explained it. Not in his public books, not (as far as this
-research has found) even fully in his private course. What survives is
-the *outer shell*: fixed annual calendar dates he called "a permanent
-cycle," using a stock's own anniversary as a timing trigger, and comparing
-how long the current move has run against the longest prior move in the
-same trend. The actual engine — whatever made him confident enough to
-publish exact forecast dates decades in advance — was never written down
-anywhere we've found.
+He never explained *why* cycles work — that stayed secret to the end.
+But a fuller read of his private course (2026-09-16) found a chapter
+literally titled "Master Time Factor and Forecasting by Mathematical
+Rules" that gives, in concrete numbers, by far the most complete picture
+of *how* he actually used it: a full stack of named cycles (60, 50, 30,
+20, 15, 10, 7, 5, 3, 2, and 1 years, each with its own numbered
+forecasting rules — "add 10 years to any top to get the next 10-year
+top" is a literal quoted rule), scaled down the same way to months,
+weeks, and even specific days of the month, plus a real worked example
+walking the Dow Jones Industrial Average from 1896 to 1935 month by
+month, naming the exact elapsed-time count at every major turn against a
+set of 36 fixed angles (fractions of 360°, from 11¼° up to 360°). That's
+a real, disclosed, arithmetic system — not a metaphor. What's still
+missing is the deeper *why*: he never states what makes 360° the right
+unit to divide, or why those particular fractions matter more than
+others — he just shows, over and over, that they did. The comparison to
+the longest prior move in the same trend, and a stock's own anniversary
+as a timing trigger, are both real pieces of this same system, not
+separate ideas.
 
 ## The astrology, made concrete
 
