@@ -326,8 +326,8 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
       timeCycleFixedCalendarActive: cycles.fixedCalendarActive,
       timeCycleFixedCalendarDates: cycles.fixedCalendarDates,
       angleSlopes,
-      retracementLevels: retracementLevels.slice(0, 7).map(({ fraction, label, price: p, distancePct, role }) => ({
-        fraction, label, price: Math.round(p * 100) / 100, distancePct, role,
+      retracementLevels: retracementLevels.slice(0, 7).map(({ fraction, label, price: p, distancePct, role, importance }) => ({
+        fraction, label, price: Math.round(p * 100) / 100, distancePct, role, importance,
       })),
       digitalRootConfluences,
     },

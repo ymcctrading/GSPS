@@ -257,7 +257,7 @@ describe("computeScore gannRetracementConfluence", () => {
       ...baseInputs("bullish"),
       gann: {
         ...EMPTY_GANN,
-        retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100, distancePct: 0.1, role: "support" }],
+        retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100, distancePct: 0.1, role: "support", importance: 1 }],
         digitalRootConfluences: [{ anchorKind: "low", priceRoot: 2, timeRoot: 5, type: "NO_CONFLUENCE" }],
       },
     });
@@ -269,7 +269,7 @@ describe("computeScore gannRetracementConfluence", () => {
       ...baseInputs("bullish"),
       gann: {
         ...EMPTY_GANN,
-        retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100, distancePct: 0.1, role: "support" }],
+        retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100, distancePct: 0.1, role: "support", importance: 1 }],
         digitalRootConfluences: [{ anchorKind: "low", priceRoot: 1, timeRoot: 8, type: "COMPLEMENTARY_PAIR" }],
       },
     });
@@ -281,7 +281,7 @@ describe("computeScore gannRetracementConfluence", () => {
       ...baseInputs("bullish"),
       gann: {
         ...EMPTY_GANN,
-        retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100, distancePct: 0.1, role: "resistance" }],
+        retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100, distancePct: 0.1, role: "resistance", importance: 1 }],
         digitalRootConfluences: [{ anchorKind: "low", priceRoot: 1, timeRoot: 8, type: "COMPLEMENTARY_PAIR" }],
       },
     });

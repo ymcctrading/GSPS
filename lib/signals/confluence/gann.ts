@@ -275,7 +275,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
   explanationTrace.push(`Spectral cycle: ${spectralCycle.note}`);
   if (campaignLeg.legNumber != null) {
     explanationTrace.push(
-      `Campaign leg ${campaignLeg.legNumber} since the last major (9-day) trend change (${campaignLeg.confidence} confidence per Gann's 3-4-leg pattern).`,
+      `Campaign leg ${campaignLeg.legNumber} since the last major (9-day) trend change (${campaignLeg.confidence} confidence — reversals on the 3rd/4th leg are trusted more than the 2nd).`,
     );
   }
   explanationTrace.push(

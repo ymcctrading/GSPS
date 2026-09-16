@@ -353,7 +353,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // scored boolean.
   const campaignLegNote =
     campaignLeg?.legNumber != null && campaignLeg.confidence != null
-      ? ` Leg ${campaignLeg.legNumber} of the current campaign since the last major (9-day) trend change (${campaignLeg.confidence} confidence per Gann's 3-4-leg pattern).`
+      ? ` Leg ${campaignLeg.legNumber} of the current campaign since the last major (9-day) trend change (${campaignLeg.confidence} confidence — reversals on the 3rd/4th leg are trusted more than the 2nd).`
       : "";
 
   // Confluence/context only, same treatment as campaignLegNote above — never
@@ -364,7 +364,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     srMatch?.testCount != null && srMatch.testCount > 0
       ? ` This is test #${srMatch.testCount} of this level${
           levelTestConfidence(srMatch.testCount) === "caution"
-            ? " — the 4th+ test is historically less safe (Gann's own rule: it nearly always goes through)."
+            ? " — the 4th+ test of the same level is historically less safe; it nearly always goes through."
             : "."
         }`
       : "";
@@ -493,9 +493,12 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       pillar: "riskReward",
       passed: gannConfluenceStackPassed,
       note: retracementMatch
-        ? drConfluenceHolds
-          ? `Price within ${retracementMatch.distancePct.toFixed(2)}% of the ${retracementMatch.label} retracement ${levelRoleLabel(retracementMatch.role).toLowerCase()} at ${retracementMatch.price.toFixed(2)} — inside the ${fanBandPct.toFixed(2)}% band (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}), confirmed by a matching GSPS signal-flow reading off the same anchor.`
-          : `Price within ${retracementMatch.distancePct.toFixed(2)}% of the ${retracementMatch.label} retracement ${levelRoleLabel(retracementMatch.role).toLowerCase()} at ${retracementMatch.price.toFixed(2)}, but no signal-flow confluence off the same anchor — the zone alone isn't enough.`
+        ? (drConfluenceHolds
+            ? `Price within ${retracementMatch.distancePct.toFixed(2)}% of the ${retracementMatch.label} retracement ${levelRoleLabel(retracementMatch.role).toLowerCase()} at ${retracementMatch.price.toFixed(2)} — inside the ${fanBandPct.toFixed(2)}% band (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}), confirmed by a matching GSPS signal-flow reading off the same anchor.`
+            : `Price within ${retracementMatch.distancePct.toFixed(2)}% of the ${retracementMatch.label} retracement ${levelRoleLabel(retracementMatch.role).toLowerCase()} at ${retracementMatch.price.toFixed(2)}, but no signal-flow confluence off the same anchor — the zone alone isn't enough.`) +
+          (retracementMatch.importance != null
+            ? ` Importance rank ${retracementMatch.importance} of 6 (1 = 50%, the most important).`
+            : " Not one of the explicitly ranked fractions.")
         : `No ${levelRoleLabel(wantedRole).toLowerCase()} retracement zone within ${fanBandPct.toFixed(2)}% (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}).`,
     },
     {

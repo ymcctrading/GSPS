@@ -201,12 +201,13 @@ export async function scanTicker(
       timeCycleFixedCalendarActive: cycles.fixedCalendarActive,
       timeCycleFixedCalendarDates: cycles.fixedCalendarDates,
       angleSlopes,
-      retracementLevels: retracementLevels.slice(0, 7).map(({ fraction, label, price, distancePct, role }) => ({
+      retracementLevels: retracementLevels.slice(0, 7).map(({ fraction, label, price, distancePct, role, importance }) => ({
         fraction,
         label,
         price: Math.round(price * 100) / 100,
         distancePct,
         role,
+        importance,
       })),
       digitalRootConfluences,
     };

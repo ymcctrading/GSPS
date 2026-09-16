@@ -39,7 +39,7 @@ describe("levelTestConfidence", () => {
     expect(levelTestConfidence(3)).toBe("reliable");
   });
 
-  it("reads the 4th test onward as caution, per Gann's own rule", () => {
+  it("reads the 4th test onward as caution, per the disclosed rule", () => {
     expect(levelTestConfidence(4)).toBe("caution");
     expect(levelTestConfidence(9)).toBe("caution");
   });
