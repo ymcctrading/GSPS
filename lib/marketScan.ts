@@ -426,6 +426,14 @@ export function isMomentumContinuation(
   if (!hasTradePlan(r) || r.direction !== direction || !r.momentumElevated) return false;
   if (r.pattern === null || !CONTINUATION_PATTERNS.has(r.pattern.name)) return false;
   const macro = r.trends.filter((t) => t.timeframe !== "1Hour");
+  // Considered switching to lib/gann/timeframeWeight.ts's power-ratio
+  // weighting here too (the same fix applied to lib/scanTicker.ts's
+  // macro-direction pattern preference) — reverted: this gate needs a
+  // *breadth* requirement (at least 2 of 3 macro timeframes actually
+  // confirming), which a pure weighted score doesn't provide, since one
+  // strongly-weighted timeframe alone would then satisfy it. Confirmed by
+  // lib/__tests__/trade-plan.test.ts's "does not count the hourly trend
+  // toward macro confirmation" case, which the weighted version broke.
   return macro.filter((t) => t.direction === direction).length >= 2;
 }
 

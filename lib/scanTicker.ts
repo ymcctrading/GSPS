@@ -24,7 +24,7 @@ import { EXECUTION_TIMEFRAME } from "@/lib/timeframe";
 import { readTrend } from "@/lib/analysis/trend";
 import { atr } from "@/lib/analysis/pivots";
 import { relativeVolume } from "@/lib/signals/indicators";
-import { levelRole } from "@/lib/analysis/levelRole";
+import { countLevelTests, levelRole } from "@/lib/analysis/levelRole";
 import { computeFanLines } from "@/lib/gann/fans";
 import { recentSquareOf9Levels } from "@/lib/gann/squareOf9";
 import { timeCycles } from "@/lib/gann/timeCycles";
@@ -364,7 +364,11 @@ export async function scanTicker(
           volumeClimax,
           gann,
           nearSupportResistance,
-          srMatch: srMatch && { ...srMatch, role: levelRole(currentPrice, srMatch.price) },
+          srMatch: srMatch && {
+            ...srMatch,
+            role: levelRole(currentPrice, srMatch.price),
+            testCount: countLevelTests(daily, srMatch.price, srBandPct),
+          },
           pattern,
           momentumElevated,
           levels,

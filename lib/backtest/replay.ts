@@ -35,7 +35,7 @@ import {
 } from "@/lib/scoring/proximity";
 import type { CriterionWeights } from "@/lib/scoring/weights";
 import { readTrend } from "@/lib/analysis/trend";
-import { levelRole, type LevelRole } from "@/lib/analysis/levelRole";
+import { countLevelTests, levelRole, type LevelRole } from "@/lib/analysis/levelRole";
 import { atr } from "@/lib/analysis/pivots";
 import { computeFanLines } from "@/lib/gann/fans";
 import { recentSquareOf9Levels } from "@/lib/gann/squareOf9";
@@ -243,7 +243,7 @@ export interface MacroContext {
   gann: GannLevels;
   nearSupportResistance: boolean;
   /** The matched level and its role, when one is in range — see lib/scanTicker.ts's srMatch. */
-  srMatch: { price: number; timeframe: Timeframe; role: LevelRole } | null;
+  srMatch: { price: number; timeframe: Timeframe; role: LevelRole; testCount: number } | null;
   momentumElevated: boolean;
   /**
    * Daily ATR as a percentage of price on the day being traded. The structural
@@ -302,11 +302,8 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
   // Mirrors lib/scanTicker.ts: keep the matched level (and its role at
   // current price) rather than just a boolean, so the score can tell whether
   // it's on the trade's side or not.
-  const srMatch = nearestLevelMatch(
-    price,
-    allLevels,
-    proximityBandPct(SR_PROXIMITY_ATR, FALLBACK_SR_PCT, atrPct),
-  );
+  const srBandPct = proximityBandPct(SR_PROXIMITY_ATR, FALLBACK_SR_PCT, atrPct);
+  const srMatch = nearestLevelMatch(price, allLevels, srBandPct);
 
   return {
     macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
@@ -335,7 +332,11 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
       digitalRootConfluences,
     },
     nearSupportResistance: srMatch !== null,
-    srMatch: srMatch && { ...srMatch, role: levelRole(price, srMatch.price) },
+    srMatch: srMatch && {
+      ...srMatch,
+      role: levelRole(price, srMatch.price),
+      testCount: countLevelTests(daily, srMatch.price, srBandPct),
+    },
     momentumElevated: baselineAtr > 0 && recentAtr / baselineAtr >= 1.2,
     atrPct,
     structuralLevels: allLevels.map((l) => l.price),

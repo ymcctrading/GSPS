@@ -25,7 +25,7 @@ import {
   bandBasis,
   proximityBandPct,
 } from "@/lib/scoring/proximity";
-import { LEVEL_TIMEFRAME_USAGE, levelRoleLabel, type LevelRole } from "@/lib/analysis/levelRole";
+import { LEVEL_TIMEFRAME_USAGE, levelRoleLabel, levelTestConfidence, type LevelRole } from "@/lib/analysis/levelRole";
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 import type { AdxReading } from "@/lib/signals/indicators";
 import type { CampaignLegReading, SwingChartReading } from "@/lib/gann/swingChart";
@@ -111,7 +111,7 @@ export interface ScoreInputs {
    * callers that only have the boolean (the backtest replay, existing tests)
    * keep working — the note just falls back to the generic wording.
    */
-  srMatch?: { price: number; timeframe: Timeframe; role: LevelRole } | null;
+  srMatch?: { price: number; timeframe: Timeframe; role: LevelRole; testCount?: number } | null;
   pattern: StratPattern | null;
   /**
    * Accepted but no longer read here: `momentum` stopped being a scored
@@ -356,6 +356,19 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       ? ` Leg ${campaignLeg.legNumber} of the current campaign since the last major (9-day) trend change (${campaignLeg.confidence} confidence per Gann's 3-4-leg pattern).`
       : "";
 
+  // Confluence/context only, same treatment as campaignLegNote above — never
+  // changes historicalSRPassed itself. Gann's own rule (45 Years in Wall
+  // Street, 1949): a level's 4th+ test is markedly less safe than the first
+  // three. See lib/analysis/levelRole.ts#levelTestConfidence.
+  const levelTestNote =
+    srMatch?.testCount != null && srMatch.testCount > 0
+      ? ` This is test #${srMatch.testCount} of this level${
+          levelTestConfidence(srMatch.testCount) === "caution"
+            ? " — the 4th+ test is historically less safe (Gann's own rule: it nearly always goes through)."
+            : "."
+        }`
+      : "";
+
   // "TP1 ≥ 2R" could never fail, and so was never a criterion. computeTradeLevels
   // sets TP1 to max(2R, previous candle's extreme), which puts the ratio at 2 or
   // better on every well-formed pattern — a free point on all nine-criteria
@@ -422,13 +435,14 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       criterion: "Historical support/resistance",
       pillar: "structure",
       passed: historicalSRPassed,
-      note: historicalSRPassed
-        ? srMatch
-          ? `Price sits at a clustered ${srMatch.timeframe} ${levelRoleLabel(srMatch.role).toLowerCase()} level at ${srMatch.price.toFixed(2)}. ${LEVEL_TIMEFRAME_USAGE[srMatch.timeframe]}.`
-          : "Price sits at a clustered macro S/R level."
-        : nearSupportResistance && srMatch
-          ? `Nearest clustered level at ${srMatch.price.toFixed(2)} is ${levelRoleLabel(srMatch.role).toLowerCase()} — wrong side for a ${direction} setup, so it doesn't confirm.`
-          : "Not at a significant historical S/R level.",
+      note:
+        (historicalSRPassed
+          ? srMatch
+            ? `Price sits at a clustered ${srMatch.timeframe} ${levelRoleLabel(srMatch.role).toLowerCase()} level at ${srMatch.price.toFixed(2)}. ${LEVEL_TIMEFRAME_USAGE[srMatch.timeframe]}.`
+            : "Price sits at a clustered macro S/R level."
+          : nearSupportResistance && srMatch
+            ? `Nearest clustered level at ${srMatch.price.toFixed(2)} is ${levelRoleLabel(srMatch.role).toLowerCase()} — wrong side for a ${direction} setup, so it doesn't confirm.`
+            : "Not at a significant historical S/R level.") + levelTestNote,
     },
     {
       key: "patternArmed",
