@@ -26,7 +26,16 @@
  */
 
 /**
- * Stable ids for the ten scored criteria.
+ * Stable ids for the nine scored criteria.
+ *
+ * `adxTrendStrength` removed 2026-09-16 (project owner direction) — see
+ * `lib/validation/criteria-registry.ts`'s RETIRED entry for it. It was the
+ * one scored criterion with no Gann lineage at all: Wilder's ADX/DMI,
+ * adopted into `lib/signals/regime.ts` as the trend-confirmation overlay
+ * this codebase uses *instead of* PSAR/Supertrend, then propagated into
+ * this scorecard for consistency. The Signal & Regime Engine still wants
+ * that indicator and still calls `adx()`; the scorecard does not, so the
+ * criterion comes out and is deliberately NOT replaced with anything.
  *
  * `ruleOfThree` added 2026-09-16 — the tenth, per AGENTS.md's "WD Gann
  * precedence" principle and `docs/GANN_PLATFORM_AUDIT.md` Part 4 item 1:
@@ -38,7 +47,6 @@
  */
 export const CRITERION_KEYS = [
   "swingChartTrend",
-  "adxTrendStrength",
   "gannAngleSlope",
   "volumeClimax",
   "historicalSR",
@@ -63,7 +71,6 @@ export type BreakdownKey = CriterionKey | HoldKey;
 /** Short labels for the factor tables, where the full criterion text is too wide. */
 export const CRITERION_LABELS: Record<CriterionKey, string> = {
   swingChartTrend: "3-day/9-day swing chart trend",
-  adxTrendStrength: "1-hour trend strength (ADX/DMI)",
   gannAngleSlope: "Structural trend-angle strength (1x2+)",
   volumeClimax: "Volume climax at the anchor pivot",
   historicalSR: "Historical support/resistance",
@@ -76,7 +83,7 @@ export const CRITERION_LABELS: Record<CriterionKey, string> = {
 
 export type CriterionWeights = Record<CriterionKey, number>;
 
-/** Total points a full weight set distributes. Ten criteria, ten points. */
+/** Total points a full weight set distributes. Nine criteria, nine points. */
 export const TOTAL_POINTS = CRITERION_KEYS.length;
 
 /**
@@ -108,9 +115,24 @@ export const TOTAL_POINTS = CRITERION_KEYS.length;
  * clear are two different questions; this preserves the existing stopgap's
  * answer to the second one exactly, rather than quietly changing it as a
  * side effect of the first.
+ *
+ * Rescaled back to 6/3.5 later the same day when `adxTrendStrength` was
+ * removed and `TOTAL_POINTS` returned to 9 — the identical arithmetic in the
+ * other direction (66.7% and 38.9% of 9 are 6.00 and 3.50), and for the
+ * identical reason: changing the criteria count is not a decision about how
+ * hard the bar should be. The stopgap's own answer to that question is
+ * untouched, and its revert trigger below still stands.
+ *
+ * Note this removal should, if anything, *widen* the Execute bucket rather
+ * than starve it further: `adxTrendStrength` passed on only ~28% of trades
+ * and measured negative (−0.245R on
+ * `docs/replay-runs/2026-09-11-15Min-2R-within-all.json`), so the setups it
+ * was costing a point were disproportionately the ones this scorecard is
+ * trying to find. That is the opposite direction from the starvation problem
+ * the override below exists to patch.
  */
-export const EXECUTE_SCORE_THRESHOLD = 6.67;
-export const WATCH_SCORE_THRESHOLD = 3.89;
+export const EXECUTE_SCORE_THRESHOLD = 6;
+export const WATCH_SCORE_THRESHOLD = 3.5;
 
 /**
  * Floor and ceiling for one criterion's weight. A criterion may end up worth
@@ -143,7 +165,9 @@ export const MAX_WEIGHT = 2;
  * reproducing (historicalSR, stopRoom, swingChartTrend, volumeClimax) are
  * moved up; four measured negative on this run, two of them independently
  * quarantined for a significant inversion (adxTrendStrength, gannAngleSlope,
- * gannRetracementConfluence, timePriceSquare) are dropped to `MIN_WEIGHT`;
+ * gannRetracementConfluence, timePriceSquare) are dropped to `MIN_WEIGHT`
+ * — `adxTrendStrength` has since been removed from the scorecard entirely
+ * (2026-09-16, see `CRITERION_KEYS`), so only three of those four remain;
  * `patternArmed` (structurally necessary, unmeasurable by construction)
  * stays near 1. Values before `normalizeWeights()`'s clamp-and-rescale:
  * historicalSR 1.99 (nudged 0.01 off the intended 2.0 so the rounded,
@@ -151,7 +175,11 @@ export const MAX_WEIGHT = 2;
  * rounds each weight to 2 decimals after rescaling, which can drift the sum
  * by a cent), stopRoom 1.8, swingChartTrend 1.3, volumeClimax 1.3,
  * patternArmed 1.0, timePriceSquare 0.6, gannAngleSlope 0.5,
- * gannRetracementConfluence 0.5, adxTrendStrength 0.5.
+ * gannRetracementConfluence 0.5. (`adxTrendStrength 0.5` was in this set
+ * until 2026-09-16; dropping it removes the entry rather than
+ * redistributing it by hand — `normalizeWeights()` rescales the remaining
+ * nine to sum to the new `TOTAL_POINTS`, which is also not a re-judgment of
+ * any of them.)
  *
  * `ruleOfThree: 1.0` added 2026-09-16, same treatment `patternArmed` got
  * when it was new and unmeasured — neutral, not thumbed toward either
@@ -172,7 +200,6 @@ export const DEFAULT_CRITERION_WEIGHTS: CriterionWeights = normalizeWeights({
   timePriceSquare: 0.6,
   gannAngleSlope: 0.5,
   gannRetracementConfluence: 0.5,
-  adxTrendStrength: 0.5,
 });
 
 export function isDefaultWeights(weights: CriterionWeights): boolean {
