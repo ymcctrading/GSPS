@@ -26,6 +26,21 @@ plain-English digest) and `docs/GANN_METHOD_COMPLETENESS_AUDIT.md`'s own
 module-scoped findings, which this document treats as already-established
 background rather than re-deriving.
 
+**Update (2026-09-16):** a much fuller text extraction of A2.1 closed the
+largest remaining gap in the source catalog — Chapter 7, "Master Time
+Factor and Forecasting by Mathematical Rules" — surfacing a complete
+disclosed cycle hierarchy with a worked 1896–1935 case study, the
+"decade digit" cycle upgraded to primary-confirmed, and three new
+Master constructions (Square of 144 fully specified, Square of 20, Square
+of 52) plus a fully-specified Hexagon Chart. This revision updates §1's
+classification table note, §4's "what to add" list (new items 12–14,
+item 8 promoted from research-todo to build candidate), and adds a status
+note on the two §3a/§5 mislabeling findings and the §4 items 1–4 Part-4
+candidates this document previously flagged, all four of which a sibling,
+not-yet-merged branch (`claude/vigilant-pasteur-e5bhk9`, commit `1cba6e0`)
+has since built live. Full source detail lives in
+`docs/GANN_HISTORICAL_SOURCES.md`'s A2.1 entry.
+
 **One correction to how this audit classifies things, carried over from the
 module-scoped audit's own "second update":** the original three-way split a
 prior version of this task used — (a) disclosed in Gann's own books, (b) a
@@ -68,7 +83,7 @@ as of this session) and the coarse pre-filter in `lib/marketScan.ts`:
 | 5 | `historicalSR` | **PUBLIC** | Old-level-crossing / "Crossing Old Levels" — the single most repeated, most concretely worked technique across A2, A4, A5, A8 (worked case studies with real prices and dates in A2 alone). |
 | 6 | `patternArmed` | **GSPS-ORIGINAL** | Sara Sniper Strat, an authorized but explicitly separate framework (`docs/GANN_SARA_CONFLUENCE.md`) — not Gann in any tier. |
 | 7 | `stopRoom` | **GSPS-ORIGINAL**, discipline-aligned | The literal ATR-multiple mechanism is GSPS's own; the underlying *idea* — a setup needs real room for a stop to matter — is philosophically continuous with Gann's disclosed, PUBLIC stop discipline (mandatory stops, sized risk) across every book, but the mechanism itself isn't his. |
-| 8 | `timePriceSquare` | **RECONSTRUCTION** | Gann explicitly withholds "the Time factor" in every one of his ten books (a capitalized refusal in A3: "IT IS NOT MY AIM TO EXPLAIN THE CAUSE OF CYCLES"), and the retrieved ~100 pages of his own private course (A2.1) don't show the withheld mechanism either — its unread chapters ("Master Time Factor") are the most direct remaining lead. GSPS's bars-vs-price-move construction is this codebase's own interpretation of an unstated mechanism, not a transcription of anything Gann is shown to have used, publicly or privately. |
+| 8 | `timePriceSquare` | **RECONSTRUCTION** — status re-examined 2026-09-16, tag unchanged but weaker justification | Gann explicitly withholds "the Time factor" in every one of his ten books (a capitalized refusal in A3: "IT IS NOT MY AIM TO EXPLAIN THE CAUSE OF CYCLES"). A2.1's Chapter 7 ("Master Time Factor") is now fully read and still doesn't disclose *why* time and price equate — the refusal itself stands. But A2.1 Ch. 13's Square of 144 worked wheat example *does* disclose a full, literal price/time-squaring arithmetic (halving a 20,736-unit "Great Cycle" down to specific day/week/month bands), materially more concrete than anything on file when `timePriceSquare.ts` was built. GSPS's ATR-normalized bars-vs-price-move construction is still this codebase's own invention, not a transcription — RECONSTRUCTION remains the correct tag — but it is no longer the only, or the most textually faithful, candidate mechanism available; worth a direct comparison test, not a re-tag. |
 | 9 | `gannRetracementConfluence` | **Mixed: PUBLIC** (retracement) **+ GSPS-ORIGINAL** (digital-root AND) | The eighths/thirds retracement-zone piece is PUBLIC and central (A8, refined further in A9's 50%>100%>25%>12.5%>6.25%>33⅓%/66⅔% hierarchy). The digital-root/vortex confluence ANDed into the same criterion (`lib/gann/digitalRoot.ts`) is GSPS-ORIGINAL, explicitly self-labeled a hypothesis, not a literal port of anything in the 25-source catalog. |
 
 **Coarse pre-filter** (`lib/marketScan.ts`'s `coarseReversion`/`coarseContinuation`):
@@ -171,6 +186,12 @@ Concepts that reach every surface they plausibly should, cited by file:
 ## 3. Platform-wide deviation
 
 ### 3a. The PRIVATE-GANN framing gap now reaches beyond `lib/gann/`
+
+**Status (2026-09-16): both findings below are fixed on a sibling,
+not-yet-merged branch** (`claude/vigilant-pasteur-e5bhk9`, commit
+`1cba6e0`) — see §5's restated list for what changed. Left as originally
+written here for citation purposes; verify the branch has merged before
+treating either as still open.
 
 The module-scoped audit already flagged (§4) that `lib/gann/squareOf9.ts`
 and `lib/gann/fans.ts` are correct implementations of real Gann material
@@ -308,6 +329,14 @@ Re-evaluating `GANN_METHOD_COMPLETENESS_AUDIT.md`'s §5 candidates (and the
 two new ones its later revisions added) at full-platform scope, plus new
 candidates this sweep's broader source base surfaced:
 
+**Status note (2026-09-16) on items 1–4 below**: a sibling, not-yet-merged
+branch (`claude/vigilant-pasteur-e5bhk9`, commit `1cba6e0`) has already
+built all four live, ahead of the unmeasured-first sequencing these items
+were originally scoped under, per that branch's own `AGENTS.md` "WD Gann
+precedence" standing principle. Check whether that branch has merged
+before re-building any of them; each item below is left as originally
+written for citation purposes.
+
 1. **The "Rule of Three"** (A4, PUBLIC — Gann's own highest-conviction
    claim, "traders paid me $1,000 for it"): three consecutive closes
    against the prevailing trend as a reversal signal. **Scope beyond
@@ -370,15 +399,31 @@ candidates this sweep's broader source base surfaced:
    (not found in the retrieved ~100 pages of A2.1 itself), so the same
    "label it honestly" requirement applies as to Square of 9/angles
    generally.
-8. **Master Square of Twelve and the Hexagon Chart** (A2.1/A10/B12, new
-   findings from this session, PRIVATE-GANN): a second geometric framework
-   (built around 12×12=144 rather than 9²=81) and an unread hexagon
-   construction. Confirmed via this sweep to have **zero code presence
-   anywhere in `lib/gann/`** — not a candidate to build yet (A2.1's own
-   Hexagon Chart chapter is still unread, per the source doc's own
-   flagged gap), but worth naming as a research todo before a build
-   candidate: finish reading A2.1's remaining ~360 pages (module audit §5
-   item 12) before scoping either into `lib/gann/`.
+8. **Master Square of Twelve/144, the Hexagon Chart, and two more newly-
+   catalogued constructions — promoted from research-todo to build
+   candidate, 2026-09-16.** A2.1's remaining chapters are now read (item 11
+   below, done), so the caveat that previously blocked this item no longer
+   applies. Four private-course constructions, all **PRIVATE-GANN**, all
+   with **zero code presence anywhere in `lib/gann/`**:
+   - **Square of 144 (Master Twelve)**, fully specified: not just a second
+     geometric framework alongside the Square of Nine, but literally nested
+     inside it (144 = nine full spiral cycles of the 81-number Square of
+     Nine), with its own explicit "Master Numbers" (3, 5, 7, 9, 12)
+     numerology and a full fractional structure worked against a real
+     wheat-commodity example.
+   - **The Hexagon Chart**, fully specified: a hexagonal (not square-root)
+     spiral, cross-validated by Gann himself against the Square of Nine and
+     Master Twelve in the same passage — a primary-source precedent for
+     `lib/signals/confluence/gann.ts`'s multi-coordinate design specifically,
+     making this the highest-priority of the four for Layer 4/Confluence
+     purposes, not just a fourth isolated coordinate.
+   - **Square of 20 (NYSE Permanent Chart)** and **Square of 52** (weekly
+     time-period calculator) — two constructions newly catalogued this
+     session, not previously known to exist as distinct systems.
+   All four need the same unmeasured → attribution → in/out-of-sample
+   discipline as any other candidate before touching a live verdict; `git
+   log`/`lib/gann/` confirms none have landed on any branch as of this
+   writing.
 9. **Evaluate Fourier/dominant-cycle decomposition** (A3, PUBLIC —
    Gann names "cycle theory, or harmonic analysis" directly in his own
    voice; B1 demonstrates it correctly) as a new candidate criterion — the
@@ -397,12 +442,33 @@ candidates this sweep's broader source base surfaced:
     cycle-based criterion is ever proposed, as an external check against
     exactly the kind of "144 always reduces to 9" false-pattern trap
     `GANN_HISTORICAL_SOURCES.md` B2 already flagged once.
-11. **Finish reading A2.1** (module audit §5 item 12, restated at platform
-    scope): the unread ~360 pages include "Master Time Factor" — a direct
-    candidate to finally answer what Layer 3's withheld timing mechanism
-    actually was. This is the single highest-value remaining research
-    action in the whole catalog, since everything else in Layer 3 (Part 1,
-    `timePriceSquare`) is confirmed reconstruction, not transcription.
+11. ~~Finish reading A2.1~~ (module audit §5 item 12, restated at platform
+    scope) — **done, 2026-09-16**: Chapters 7, 13, 14, and 15B are now
+    read. Surfaces items 12–13 below. `timePriceSquare` (Part 1, #8) is
+    still fairly tagged RECONSTRUCTION for what GSPS actually built, but no
+    longer the only literal price/time-squaring mechanism on file — see
+    that table entry's revised note.
+12. **New: `lib/gann/masterTimeFactor.ts`** (A2.1 Ch. 7, PRIVATE-GANN) —
+    the full 60/50/30/20/15/10/7/5/3/2/1-year cycle hierarchy with eight
+    numbered forecasting rules, plus the 36 angle-derived month-count
+    system demonstrated against a complete worked 1896–1935 DJIA case
+    study. **Scope beyond scoring**: this is the fullest disclosed
+    statement of Layer 3's withheld-mechanism shell in the whole catalog —
+    date/angle arithmetic against known pivots, no new statistical
+    machinery, comparably cheap to item 4's annual calendar cycle. Should
+    supersede, not sit beside, `lib/gann/timeCycles.ts`'s existing narrower
+    45/90/120/180/270/360-day wheel once built; also a natural input to
+    `lib/backtest/attribution.ts` as a factor independent of
+    `timePriceSquare`.
+13. **New: `lib/gann/decadeDigitCycle.ts`** (A2.1 Ch. 7, PRIVATE-GANN,
+    reclassified this session) — the bull/bear decade-digit cycle,
+    upgraded from the unverifiable secondary source B9 to Gann's own
+    private-course voice. The source-tier upgrade doesn't reduce the
+    validation bar (item 10's Dewey checklist still applies in full before
+    trusting it as more than a hypothesis), but it does mean the technique
+    now qualifies for the same "citably Gann's own, build it live" standing
+    that items 1–4 above already received — comparably cheap to build (a
+    calendar-year-digit lookup, no pivot detection needed).
 
 ---
 
@@ -420,7 +486,14 @@ private-course status either.
 
 Two concrete mislabeling items, both already named in Part 3, restated
 here as the "what to fix" list (findings, not changes made — no code or
-copy was edited as part of this audit):
+copy was edited as part of this audit). **Status update (2026-09-16): both
+have since been fixed on a sibling, not-yet-merged branch**
+(`claude/vigilant-pasteur-e5bhk9`, commit `1cba6e0`) — `authorizedSource`
+no longer calls Square of 9/angles "public-domain," and `nearestStructure()`
+now reads swing-clustered levels first, falling back to Gann-geometry
+coordinates with non-historical-claim wording only when no clustered level
+exists. Check whether that branch has merged before treating either as
+still open:
 
 1. **`lib/signals/confluence/gann.ts`'s `GANN_CONFLUENCE_MODULE.authorizedSource`
    string** calls Square of 9/Gann angles/time cycles "public-domain
