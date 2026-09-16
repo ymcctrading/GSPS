@@ -281,6 +281,16 @@ export function coarseReversion(symbol: string, daily: Bar[]): CoarseCandidate |
   if (climax?.climax) score += 2;
 
   // Proximity to a clustered S/R level in the reversion direction
+  //
+  // Intentional exception to lib/scanTicker.ts's `allLevels` pool, which does
+  // fold in pre-market/after-hours extremes (lib/analysis/extendedHours.ts) —
+  // this coarse gate runs against the whole ~750-symbol universe on every
+  // scan, and that pool needs a fresh 1Min-bar fetch per symbol. Batching that
+  // fetch for the full coarse universe is a materially different cost (see
+  // MAX_COARSE_UNIVERSE's own comment on the 60s Vercel ceiling this scan
+  // already runs close to), not a smaller version of the same change, so it's
+  // left for the ~60-symbol full-pass shortlist scanTicker actually runs
+  // rather than silently applied here too.
   const srBandPct = proximityBandPct(SR_PROXIMITY_ATR, FALLBACK_SR_PCT, atrPct);
   const levels = direction === "bullish" ? trend.support : trend.resistance;
   if (levels.some((l) => (Math.abs(price - l) / price) * 100 <= srBandPct)) score += 2;

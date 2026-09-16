@@ -36,7 +36,7 @@ import {
 import type { CriterionWeights } from "@/lib/scoring/weights";
 import { readTrend } from "@/lib/analysis/trend";
 import { levelRole, type LevelRole } from "@/lib/analysis/levelRole";
-import { atr } from "@/lib/analysis/pivots";
+import { atr, countLevelTouches } from "@/lib/analysis/pivots";
 import { computeFanLines } from "@/lib/gann/fans";
 import { recentSquareOf9Levels } from "@/lib/gann/squareOf9";
 import { timeCycles } from "@/lib/gann/timeCycles";
@@ -45,6 +45,7 @@ import { computeRetracementLevels } from "@/lib/gann/retracement";
 import { priceTimeConfluence } from "@/lib/gann/digitalRoot";
 import { computeSwingChart, type SwingChartReading } from "@/lib/gann/swingChart";
 import { computeRuleOfThree, type RuleOfThreeReading } from "@/lib/gann/ruleOfThree";
+import { computeOvernightChart, type OvernightChartReading } from "@/lib/gann/overnightChart";
 import { computeTimePriceSquare, type TimePriceSquareReading } from "@/lib/gann/timePriceSquare";
 import { computeVolumeClimax, type VolumeClimaxReading } from "@/lib/gann/volumeClimax";
 import { adx } from "@/lib/signals/indicators";
@@ -236,12 +237,13 @@ export interface MacroContext {
   macroTrends: TrendReading[];
   swingChart: SwingChartReading;
   ruleOfThree: RuleOfThreeReading;
+  overnightChart: OvernightChartReading;
   timePriceSquare: TimePriceSquareReading[];
   volumeClimax: VolumeClimaxReading[];
   gann: GannLevels;
   nearSupportResistance: boolean;
   /** The matched level and its role, when one is in range — see lib/scanTicker.ts's srMatch. */
-  srMatch: { price: number; timeframe: Timeframe; role: LevelRole } | null;
+  srMatch: { price: number; timeframe: Timeframe; role: LevelRole; touchCount?: number } | null;
   momentumElevated: boolean;
   /**
    * Daily ATR as a percentage of price on the day being traded. The structural
@@ -269,6 +271,7 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
   const dailyTrend = readTrend(daily, "1Day");
   const swingChart = computeSwingChart(daily);
   const ruleOfThree = computeRuleOfThree(daily);
+  const overnightChart = computeOvernightChart(daily);
 
   const fanLines = computeFanLines(daily, price);
   const s9 = recentSquareOf9Levels(daily, price).slice(0, 12);
@@ -299,16 +302,17 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
   // Mirrors lib/scanTicker.ts: keep the matched level (and its role at
   // current price) rather than just a boolean, so the score can tell whether
   // it's on the trade's side or not.
-  const srMatch = nearestLevelMatch(
-    price,
-    allLevels,
-    proximityBandPct(SR_PROXIMITY_ATR, FALLBACK_SR_PCT, atrPct),
-  );
+  const srBandPct = proximityBandPct(SR_PROXIMITY_ATR, FALLBACK_SR_PCT, atrPct);
+  const srMatch = nearestLevelMatch(price, allLevels, srBandPct);
+  // Mirrors lib/scanTicker.ts's srTouchCount — see lib/analysis/pivots.ts's
+  // countLevelTouches doc comment for the Gann citation.
+  const srTouchCount = srMatch ? countLevelTouches(daily, srMatch.price, srBandPct) : undefined;
 
   return {
     macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
     swingChart,
     ruleOfThree,
+    overnightChart,
     timePriceSquare,
     volumeClimax,
     gann: {
@@ -324,6 +328,10 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
       timeCycleDates: cycles.dates,
       timeCycleFixedCalendarActive: cycles.fixedCalendarActive,
       timeCycleFixedCalendarDates: cycles.fixedCalendarDates,
+      timeCycleSeasonalActive: cycles.seasonalActive,
+      timeCycleSeasonalDates: cycles.seasonalDates,
+      timeCycleHolidayActive: cycles.holidayActive,
+      timeCycleHolidayDates: cycles.holidayDates,
       angleSlopes,
       retracementLevels: retracementLevels.slice(0, 7).map(({ fraction, label, price: p, distancePct, role }) => ({
         fraction, label, price: Math.round(p * 100) / 100, distancePct, role,
@@ -331,7 +339,7 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
       digitalRootConfluences,
     },
     nearSupportResistance: srMatch !== null,
-    srMatch: srMatch && { ...srMatch, role: levelRole(price, srMatch.price) },
+    srMatch: srMatch && { ...srMatch, role: levelRole(price, srMatch.price), touchCount: srTouchCount },
     momentumElevated: baselineAtr > 0 && recentAtr / baselineAtr >= 1.2,
     atrPct,
     structuralLevels: allLevels.map((l) => l.price),
@@ -564,7 +572,16 @@ function scoreSetup(input: {
     levels = computeTradeLevels(
       pattern,
       history[history.length - 2] ?? history[history.length - 1],
-      [...context.gann.fanLines.map((f) => f.price), ...context.gann.squareOf9.map((s) => s.price)],
+      // Retracement prices added 2026-09-16 — mirrors lib/scanTicker.ts's
+      // identical fix (see that file's own comment): the half-way point and
+      // other retracement fractions are real stop-anchor candidates under
+      // Gann's own disclosed stop-buffer rule (Master Stock Market Course
+      // Ch. 1/4/9) and were being computed but never fed into this pool.
+      [
+        ...context.gann.fanLines.map((f) => f.price),
+        ...context.gann.squareOf9.map((s) => s.price),
+        ...context.gann.retracementLevels.map((r) => r.price),
+      ],
       undefined,
       executionAtr,
       assetClass,
@@ -585,6 +602,7 @@ function scoreSetup(input: {
       hourlyAdx,
       swingChart: context.swingChart,
       ruleOfThree: context.ruleOfThree,
+      overnightChart: context.overnightChart,
       timePriceSquare: context.timePriceSquare,
       volumeClimax: context.volumeClimax,
       gann: context.gann,

@@ -1,7 +1,8 @@
 /**
- * The Score out of `TOTAL_POINTS` (10, since `ruleOfThree` joined 2026-09-16
- * — see `lib/scoring/weights.ts`) — one point per confirmed confluence
- * condition, weighted by `CriterionWeights`. Execute at
+ * The Score out of `TOTAL_POINTS` (11, since `overnightChartReversal` joined
+ * 2026-09-16, the same day as `ruleOfThree` — see `lib/scoring/weights.ts`)
+ * — one point per confirmed confluence condition, weighted by
+ * `CriterionWeights`. Execute at
  * `EXECUTE_SCORE_THRESHOLD`+, Watch at `WATCH_SCORE_THRESHOLD`+, Reject
  * below — see those constants' own comments for the current values and why;
  * this header stopped restating the literal numbers after they drifted from
@@ -30,6 +31,7 @@ import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 import type { AdxReading } from "@/lib/signals/indicators";
 import type { SwingChartReading } from "@/lib/gann/swingChart";
 import type { RuleOfThreeReading } from "@/lib/gann/ruleOfThree";
+import type { OvernightChartReading } from "@/lib/gann/overnightChart";
 import type { TimePriceSquareReading } from "@/lib/gann/timePriceSquare";
 import { VOLUME_CLIMAX_THRESHOLD, type VolumeClimaxReading } from "@/lib/gann/volumeClimax";
 import {
@@ -61,6 +63,14 @@ export interface ScoreInputs {
    * fail the same way a missing swing-chart reading does.
    */
   ruleOfThree?: RuleOfThreeReading | null;
+  /**
+   * Gann's "Overnight Chart" trailing reversal chart off the daily highs/lows
+   * (`lib/gann/overnightChart.ts#computeOvernightChart`) — see that module's
+   * header for the full construction rule and what it deliberately excludes
+   * (stop sizing, pyramiding). `mode` null (not enough history yet) scores as
+   * a fail the same way a missing swing-chart reading does.
+   */
+  overnightChart?: OvernightChartReading | null;
   /**
    * Gann's squaring of price and time off the daily bars
    * (`lib/gann/timePriceSquare.ts#computeTimePriceSquare`) — bars elapsed
@@ -99,7 +109,18 @@ export interface ScoreInputs {
    * callers that only have the boolean (the backtest replay, existing tests)
    * keep working — the note just falls back to the generic wording.
    */
-  srMatch?: { price: number; timeframe: Timeframe; role: LevelRole } | null;
+  srMatch?: {
+    price: number;
+    timeframe: Timeframe;
+    role: LevelRole;
+    /**
+     * How many separate times price has already tested this level
+     * (`lib/analysis/pivots.ts#countLevelTouches`) — informational only, see
+     * the historicalSR breakdown note below. Undefined when the caller
+     * didn't compute it (existing tests, older callers).
+     */
+    touchCount?: number;
+  } | null;
   pattern: StratPattern | null;
   /**
    * Accepted but no longer read here: `momentum` stopped being a scored
@@ -183,9 +204,39 @@ export interface ScoreInputs {
  */
 export const MIN_STOP_ROOM_ATR = 1.5;
 
+/**
+ * Gann's Chapter 8 caution (Master Stock Market Course — see
+ * `lib/analysis/pivots.ts#countLevelTouches`'s doc comment for the full
+ * citation): "it is safe to buy... the first, second, or third time, but
+ * when it declines to the same level the fourth time, it is dangerous...
+ * as it nearly always goes lower." Appended to the `historicalSR` note as a
+ * caveat on an otherwise-passing level — it never flips `passed`, since
+ * Gann's own framing is a caution about a level that has already confirmed,
+ * not a new test of its own.
+ */
+function fourthTouchCaution(touchCount: number | undefined): string {
+  if (touchCount === undefined || touchCount < 4) return ".";
+  return ` This is the ${touchCount}th time price has tested this level — Gann's own caution is that a 4th test of the same level nearly always breaks through rather than holding again.`;
+}
+
+/**
+ * Gann's volume-sequence rules (see `VolumeClimaxReading.volumeSequence`'s
+ * own doc comment for the full citation) — appended to the `volumeClimax`
+ * note as extra context, never changing `passed`.
+ */
+function volumeSequenceNote(sequence: "fading" | "rising" | null | undefined): string {
+  if (sequence === "fading") {
+    return " Volume faded on the secondary leg since — Gann's own reversal-confirming sequence.";
+  }
+  if (sequence === "rising") {
+    return " Volume rose again on the secondary leg since — Gann's own continuation-confirming sequence, not a reversal signature.";
+  }
+  return "";
+}
+
 export function computeScore(inputs: ScoreInputs): ScanDecision {
   const {
-    direction, hourlyAdx, swingChart, ruleOfThree, timePriceSquare, volumeClimax, gann,
+    direction, hourlyAdx, swingChart, ruleOfThree, overnightChart, timePriceSquare, volumeClimax, gann,
     nearSupportResistance, srMatch, pattern, levels, stopAtrMultiple, assetClass,
     setupKind = "reversion",
     atrPct,
@@ -214,6 +265,18 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   const ruleOfThreeHolding =
     ruleOfThree != null &&
     (direction === "bullish" ? ruleOfThree.bullishSignal : ruleOfThree.bearishSignal);
+
+  // Added 2026-09-16: Gann's "Overnight Chart" (see lib/gann/overnightChart.ts's
+  // header for the full construction rule, read from the Master Stock Market
+  // Course's Chapter 3). Passes when the chart's current trailing direction —
+  // "up" tracking rising bottoms, "down" tracking falling tops — agrees with
+  // the trade's own direction, the same "is this reading pointed the way the
+  // trade is" test swingChartTrend and ruleOfThree already apply to their own
+  // constructions.
+  const overnightChartAligned =
+    overnightChart != null &&
+    overnightChart.mode != null &&
+    (direction === "bullish" ? overnightChart.mode === "up" : overnightChart.mode === "down");
 
   // 2026-09-10: replaces hourlyTrend. hourlyTrend's own leniency (an
   // ambiguous "sideways" hourly read counted as agreement) never cleared the
@@ -392,7 +455,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       passed: volumeClimaxHolding,
       note: climaxReading
         ? volumeClimaxHolding
-          ? `The ${climaxReading.anchorKind} anchor at ${climaxReading.anchorPrice.toFixed(2)} or one of the pivots just before it printed on ${climaxReading.bestRecentRelativeVolume.toFixed(2)}x trailing volume — above the ${VOLUME_CLIMAX_THRESHOLD}x climax floor.`
+          ? `The ${climaxReading.anchorKind} anchor at ${climaxReading.anchorPrice.toFixed(2)} or one of the pivots just before it printed on ${climaxReading.bestRecentRelativeVolume.toFixed(2)}x trailing volume — above the ${VOLUME_CLIMAX_THRESHOLD}x climax floor.${volumeSequenceNote(climaxReading.volumeSequence)}`
           : `The ${climaxReading.anchorKind} anchor at ${climaxReading.anchorPrice.toFixed(2)} and the pivots just before it printed on only ${climaxReading.bestRecentRelativeVolume.toFixed(2)}x trailing volume at best — below the ${VOLUME_CLIMAX_THRESHOLD}x climax floor.`
         : `No measurable volume climax since the last significant ${angleAnchorKind}.`,
     },
@@ -403,7 +466,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       passed: historicalSRPassed,
       note: historicalSRPassed
         ? srMatch
-          ? `Price sits at a clustered ${srMatch.timeframe} ${levelRoleLabel(srMatch.role).toLowerCase()} level at ${srMatch.price.toFixed(2)}. ${LEVEL_TIMEFRAME_USAGE[srMatch.timeframe]}.`
+          ? `Price sits at a clustered ${srMatch.timeframe} ${levelRoleLabel(srMatch.role).toLowerCase()} level at ${srMatch.price.toFixed(2)}. ${LEVEL_TIMEFRAME_USAGE[srMatch.timeframe]}${fourthTouchCaution(srMatch.touchCount)}`
           : "Price sits at a clustered macro S/R level."
         : nearSupportResistance && srMatch
           ? `Nearest clustered level at ${srMatch.price.toFixed(2)} is ${levelRoleLabel(srMatch.role).toLowerCase()} — wrong side for a ${direction} setup, so it doesn't confirm.`
@@ -478,6 +541,18 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
             : direction === "bullish"
               ? `Only ${ruleOfThree.consecutiveHigherCloses} consecutive higher close(s) — the Rule of Three needs 2 to confirm an upturn.`
               : `Only ${ruleOfThree.consecutiveLowerCloses} consecutive lower close(s) — the Rule of Three needs 3 to confirm a downturn.`,
+    },
+    {
+      key: "overnightChartReversal",
+      criterion: "Overnight Chart trend (Gann's trailing reversal chart)",
+      pillar: "trend",
+      passed: overnightChartAligned,
+      note:
+        overnightChart == null || overnightChart.mode == null
+          ? "Not enough daily history to establish the Overnight Chart's trailing direction."
+          : overnightChartAligned
+            ? `Overnight Chart trailing ${overnightChart.mode === "up" ? "rising bottoms" : "falling tops"} at ${overnightChart.level?.toFixed(2)}, agreeing with the ${direction} call${overnightChart.justFlipped ? " — just reversed onto this side." : "."}`
+            : `Overnight Chart is trailing ${overnightChart.mode === "up" ? "rising bottoms" : "falling tops"} at ${overnightChart.level?.toFixed(2)} — the opposite side from the ${direction} call.`,
     },
   ];
 

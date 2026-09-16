@@ -7,12 +7,14 @@
 
 import type {
   AssetClass,
+  Bar,
   GannLevels,
   ScanResult,
   SetupKind,
   StratPattern,
   TradeLevels,
 } from "@/lib/types";
+import { computeExtendedHoursLevels, extendedHoursLevelPrices } from "@/lib/analysis/extendedHours";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { describeDataError } from "@/lib/data/http";
 import {
@@ -22,7 +24,7 @@ import {
 } from "@/lib/data/provider";
 import { EXECUTION_TIMEFRAME } from "@/lib/timeframe";
 import { readTrend } from "@/lib/analysis/trend";
-import { atr } from "@/lib/analysis/pivots";
+import { atr, countLevelTouches } from "@/lib/analysis/pivots";
 import { relativeVolume } from "@/lib/signals/indicators";
 import { levelRole } from "@/lib/analysis/levelRole";
 import { computeFanLines } from "@/lib/gann/fans";
@@ -33,6 +35,7 @@ import { computeRetracementLevels } from "@/lib/gann/retracement";
 import { priceTimeConfluence } from "@/lib/gann/digitalRoot";
 import { computeSwingChart } from "@/lib/gann/swingChart";
 import { computeRuleOfThree } from "@/lib/gann/ruleOfThree";
+import { computeOvernightChart } from "@/lib/gann/overnightChart";
 import { computeTimePriceSquare } from "@/lib/gann/timePriceSquare";
 import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
 import { adx } from "@/lib/signals/indicators";
@@ -129,9 +132,26 @@ export async function scanTicker(
 
   try {
     const provider = getMarketDataProvider();
-    const [{ monthly, weekly, daily, hourly, execution }, currentPrice] = await Promise.all([
+    // Extended-hours bars only for equities — crypto has no session boundary
+    // and therefore no overnight gap for a pre-market/after-hours level to
+    // describe (lib/market/session.ts's `marketSession` already treats
+    // crypto as always "regular"). Best-effort: a failed fetch here degrades
+    // to no extended-hours levels rather than failing the whole scan, same
+    // pattern as the trade-plan block below.
+    const [{ monthly, weekly, daily, hourly, execution }, currentPrice, extendedHoursBars] = await Promise.all([
       prefetched ?? fetchAllTimeframes(symbol, assetClass, EXECUTION_TIMEFRAME),
       provider.fetchLatestPrice(symbol, assetClass),
+      assetClass === "us_equity"
+        ? provider
+            .fetchBars(
+              symbol,
+              "1Min",
+              new Date(Date.now() - 2 * 24 * 3600 * 1000),
+              provider.isLive ? new Date(Date.now() - 16 * 60 * 1000) : null,
+              assetClass,
+            )
+            .catch(() => [] as Bar[])
+        : Promise.resolve([] as Bar[]),
     ]);
 
     if (daily.length < 30 || execution.length < 10) {
@@ -148,6 +168,8 @@ export async function scanTicker(
     const swingChart = computeSwingChart(daily);
     // Gann's Rule of Three, added 2026-09-16 — see lib/gann/ruleOfThree.ts.
     const ruleOfThree = computeRuleOfThree(daily);
+    // Gann's Overnight Chart, added 2026-09-16 — see lib/gann/overnightChart.ts.
+    const overnightChart = computeOvernightChart(daily);
 
     // ---- Level 2: 1hr refinement
     const hourlyTrend = readTrend(hourly, "1Hour");
@@ -196,6 +218,10 @@ export async function scanTicker(
       timeCycleDates: cycles.dates,
       timeCycleFixedCalendarActive: cycles.fixedCalendarActive,
       timeCycleFixedCalendarDates: cycles.fixedCalendarDates,
+      timeCycleSeasonalActive: cycles.seasonalActive,
+      timeCycleSeasonalDates: cycles.seasonalDates,
+      timeCycleHolidayActive: cycles.holidayActive,
+      timeCycleHolidayDates: cycles.holidayDates,
       angleSlopes,
       retracementLevels: retracementLevels.slice(0, 7).map(({ fraction, label, price, distancePct, role }) => ({
         fraction,
@@ -267,9 +293,22 @@ export async function scanTicker(
 
     // ---- Trade levels
     const previousBar = closedExecutionBars[closedExecutionBars.length - 2] ?? closedExecutionBars[closedExecutionBars.length - 1];
+    // Retracement prices (added 2026-09-16) close a real gap: Gann's own stop-
+    // buffer rules (Master Stock Market Course Ch. 1/4/9 — "buy or sell at the
+    // half-way point... with a stop loss order 1 to 3 points" beyond it, and
+    // the same buffer keyed to a 45° angle line) already have a live,
+    // asset-scaled implementation — `nearestStructuralStop`/
+    // `EQUITY_STOP_BUFFER_PCT` in lib/strat/levels.ts, which places the stop a
+    // fixed percent beyond WHATEVER structural level anchors it. Fan lines and
+    // Square-of-9 prices were already in this candidate pool; retracement
+    // levels (the half-way point among them) were computed two lines above but
+    // never actually fed in, so they could never be selected as the anchor
+    // that buffer applies to. This is a data-completeness fix to that existing
+    // mechanism, not new stop logic.
     const gannTargets = [
       ...gann.fanLines.map((f) => f.price),
       ...gann.squareOf9.map((s) => s.price),
+      ...retracementLevels.map((r) => r.price),
     ];
     // A trade-plan failure is confined to the trade plan. The rest of the scan
     // — price, trends, structural levels, checklist — is still valid and worth
@@ -292,6 +331,16 @@ export async function scanTicker(
     // computeTradeLevels's equities path needs both the full level list and
     // atrPct to anchor a percent-based stop/runner — see
     // lib/strat/levels.ts#computeEquityTradeLevels.
+    // Pre-market/after-hours session extremes as structural levels — see
+    // lib/analysis/extendedHours.ts for why these belong in the same pool as
+    // any other old top/bottom rather than as a separate criterion. Tagged
+    // "1Day" rather than a new Timeframe value: an overnight extreme is part
+    // of the current daily bar's structure, and levelRole.ts's per-timeframe
+    // usage copy for "1Day" ("primary swing level... entries confirm and
+    // trigger on the execution timeframe") already describes it correctly.
+    const extendedHours = computeExtendedHoursLevels(extendedHoursBars);
+    const extendedHoursPrices = extendedHoursLevelPrices(extendedHours);
+
     const allLevels = [
       ...dailyTrend.support.map((price) => ({ price, timeframe: dailyTrend.timeframe })),
       ...dailyTrend.resistance.map((price) => ({ price, timeframe: dailyTrend.timeframe })),
@@ -299,6 +348,7 @@ export async function scanTicker(
       ...weeklyTrend.resistance.map((price) => ({ price, timeframe: weeklyTrend.timeframe })),
       ...monthlyTrend.support.map((price) => ({ price, timeframe: monthlyTrend.timeframe })),
       ...monthlyTrend.resistance.map((price) => ({ price, timeframe: monthlyTrend.timeframe })),
+      ...extendedHoursPrices.map((price) => ({ price, timeframe: "1Day" as const })),
     ];
     const recentAtr = atr(daily.slice(-20), 14);
     const baselineAtr = atr(daily.slice(-100, -20), 14);
@@ -331,6 +381,12 @@ export async function scanTicker(
     const srBandPct = proximityBandPct(SR_PROXIMITY_ATR, FALLBACK_SR_PCT, atrPct);
     const srMatch = nearestLevelMatch(currentPrice, allLevels, srBandPct);
     const nearSupportResistance = srMatch !== null;
+    // How many separate times price has already tested the matched level —
+    // see lib/analysis/pivots.ts#countLevelTouches for the Gann citation.
+    // Informational only, folded into srMatch below purely for the
+    // historicalSR breakdown note; it does not change nearSupportResistance
+    // or historicalSR's pass/fail.
+    const srTouchCount = srMatch ? countLevelTouches(daily, srMatch.price, srBandPct) : undefined;
 
     // The bars above are what the verdict is computed on, and on the free feed
     // they are ~15 minutes old — a full candle on the 15-minute execution
@@ -350,11 +406,12 @@ export async function scanTicker(
           hourlyAdx,
           swingChart,
           ruleOfThree,
+          overnightChart,
           timePriceSquare,
           volumeClimax,
           gann,
           nearSupportResistance,
-          srMatch: srMatch && { ...srMatch, role: levelRole(currentPrice, srMatch.price) },
+          srMatch: srMatch && { ...srMatch, role: levelRole(currentPrice, srMatch.price), touchCount: srTouchCount },
           pattern,
           momentumElevated,
           levels,
@@ -520,6 +577,7 @@ export async function scanTicker(
         baselineAtr > 0 ? { atr: recentAtr, regime: volatilityRegimeFromAtrRatio(recentAtr / baselineAtr) } : undefined,
       volumeRead: { relativeVolumeIndex: relativeVolume(daily, 20) },
       optionPremium,
+      extendedHours: assetClass === "us_equity" ? extendedHours : undefined,
       signals: {
         regime,
         trendPullback,

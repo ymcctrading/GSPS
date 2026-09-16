@@ -19,13 +19,31 @@ export interface FanLine {
   role: LevelRole;
 }
 
-/** Exported for `lib/gann/normalizedSlope.ts`, which classifies an already-realized slope against this same ratio set. */
+/**
+ * Exported for `lib/gann/normalizedSlope.ts`, which classifies an already-realized
+ * slope against this same ratio set.
+ *
+ * **3x2, 3x1, 8x1, 16x1 added 2026-09-16** (Master Stock Market Course,
+ * Chapter 4, "The Basis Of My Forecasting Method — Geometric Angles" —
+ * docs/GANN_HISTORICAL_SOURCES.md A2.1): four of Gann's own named angle
+ * ratios were missing from this list — 8x1 (82.5°) and 16x1 (86.25°, his own
+ * example: "fast advancing markets like 1929"), 3x1 (71.25°), and 3x2 (used
+ * "when other important angles... have spread far apart"). Adding them is a
+ * data-completeness fix to an already-scored mechanism (`gannAngleSlope`),
+ * not a new criterion — the exact "an existing array missing part of its own
+ * disclosed set" gap AGENTS.md's cross-platform-consistency section warns
+ * against leaving half-done.
+ */
 export const ANGLES: { label: string; ratio: number }[] = [
   { label: "1x4", ratio: 0.25 },
   { label: "1x2", ratio: 0.5 },
+  { label: "3x2", ratio: 1.5 },
   { label: "1x1", ratio: 1 },
+  { label: "3x1", ratio: 3 },
   { label: "2x1", ratio: 2 },
   { label: "4x1", ratio: 4 },
+  { label: "8x1", ratio: 8 },
+  { label: "16x1", ratio: 16 },
 ];
 
 export function computeFanLines(bars: Bar[], currentPrice: number): FanLine[] {

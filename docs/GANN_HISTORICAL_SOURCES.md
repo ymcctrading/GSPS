@@ -502,6 +502,193 @@ a fuller text extraction of the same course the project owner supplied
 directly (tables/prose intact; illustrations necessarily dropped, since
 the source was a text extraction, not a re-scan).
 
+**Update (2026-09-16, third pass): "Overnight Chart" — Chapter 3, now read
+in full.** The project owner's own Drive holds the actual extracted text
+(`wdgannbook stock market course.pdf`, and a synthesis doc built from it) —
+a prior session in this catalog had access only to a partial extraction and
+had flagged this chapter as unread; that was corrected by reading the
+source directly rather than continuing to describe it as an open gap.
+Despite the name, this chapter has **nothing to do with a pre/post-market
+trading session** — a live feature shipped earlier the same day under a
+similar name (`lib/analysis/extendedHours.ts`, real session-based
+pre-market/after-hours highs and lows) is a different, unrelated concept
+and is **not** an implementation of this chapter; that feature remains
+licensed by the separate, already-documented "old tops and bottoms are
+resistance points" rule instead (the 1936 course chapter below, and the
+Square of Nine chapter's resistance-point definition).
+
+"Overnight Chart," in Gann's own words, is **a mechanical trailing-reversal
+chart built purely from the daily high/low chart** — a name he chose,
+not a description of session timing. Full construction rule (Chapter 3,
+"Method for Trading with the Overnight Chart — Mechanical Stock Trading
+Method"): as long as a stock makes higher daily bottoms, the chart trails
+up to each new bottom; the first day it makes 1/4 point or more under a
+previous day's bottom, the chart drops to that level, but the highest top
+reached before it turns is always recorded first (the value it jumps to on
+the next reversal) — mirrored for a downtrend trailing tops. Two named
+refinements: a day making both a higher bottom and a lower top moves the
+chart to that day's top instead ("the Overnight Chart is based on
+bottoms"); a wide/outside day (new high and new low the same session)
+touches the chart up to the top before settling it at the low. Nine
+numbered trading rules follow: double/triple-top-or-bottom entries with a
+stop 1 point beyond (Rule 1); a 4th touch at the same level "nearly always
+goes through" (Rule 2); Resistance-Level-anchored entries at the
+1/2-2/3-3/4 points (Rule 3); reverse AND double up every time a stop is
+caught (Rule 4) — the chapter's central mechanical instruction; a
+scale-down pyramiding schedule, half-sized every 3-5 points (Rule 5); wait
+for a confirmed trend change on very active/fast stocks near highs before
+reversing (Rule 6); after any big advance/decline, reverse and go with the
+new trend (Rule 7); a 3-day/week/month same-price close signaling a
+trend change (Rule 8, explicitly non-binding — "not necessary... at all in
+connection with the Overnight Chart"); and the first 3-full-point move from
+a low/high as a minor-trend reversal tell (Rule 9) — the same point-
+magnitude idea already live as the "3-point rule" in
+`lib/lifecycle/entryConfirmation.ts`, not a new citation. Money management:
+never risk more than 3 points on an initial trade, $3,000 capital per
+100-share lot, total pyramid risk capped at 10% of capital.
+
+**Implemented 2026-09-16** as the eleventh scored criterion,
+`overnightChartReversal` (`lib/gann/overnightChart.ts`,
+`lib/scoring/weights.ts`, `lib/validation/criteria-registry.ts`'s own
+entry) — the trailing-chart construction and its two stated refinements,
+faithfully. **Deliberately not implemented**, and stated as an intentional
+exception rather than a silent gap: Rules 1-3's specific stop-loss
+placement (a different subsystem's job — `lib/strat/levels.ts` already
+anchors stops to structural levels), and Rules 4-5's reverse-and-
+double-up/pyramiding money management, which needs live account and
+position state a per-symbol scan reading does not have. A future session
+wiring Gann-style pyramiding into the Automated Portfolio Manager should
+start from this chapter, not re-derive it.
+
+**Update (2026-09-16, full-course audit):** every chapter of the Master
+Stock Market Course was read in full this session (four parallel passes
+covering all 19 chapters against the project owner's own Drive extraction),
+specifically to check for disclosed rules this catalog had missed — the
+"scanning instead of reading" gap the project owner called out directly.
+Findings below; **implemented this session**:
+
+- `lib/gann/retracement.ts`: added the 1/3 and 2/3 fractions (Chapter 9,
+  "Resistance Levels" — Gann's own stated mandatory second step right after
+  the eighths this module already had: "divide the range of fluctuation by
+  3 to get the 1/3 and 2/3 points... very strong").
+- `lib/gann/fans.ts`: added four of Gann's own named angle ratios that were
+  missing from `ANGLES` — 8x1, 16x1 ("fast advancing markets like 1929"),
+  3x1, and 3x2 (Chapter 4, "The Basis Of My Forecasting Method — Geometric
+  Angles").
+- `lib/gann/timeCycles.ts`: widened `WHEEL_COUNTS` with day-counts disclosed
+  in Chapters 5, 14, and 17 that the original six-value list (sourced from
+  one pass through Chapter 7) never covered — 3, 4, 7, 14, 21, 23, 30, 63,
+  81, 150, 210, 240, 300, 330. Added two further non-anchored fixed
+  calendars, each kept as its own flag for the same reason
+  `FIXED_CALENDAR_MONTHS` already is (a distinct disclosed source, not a
+  variant): `SEASONAL_DATES` (Natural Seasonal Time Periods, equinox-
+  anchored eighths/thirds of the year — corroborated independently in
+  Chapters 5, 14, 17, and 18) and `holidayWindows` (Chapter 10A, "Changes
+  In Trend Around Holidays" — fixed dates plus computed floating holidays:
+  Easter, Labor Day, Election Day, Thanksgiving). Wired into all three
+  places that already read `timeCycles()`'s output
+  (`lib/scanTicker.ts`, `lib/backtest/replay.ts`,
+  `lib/signals/confluence/gann.ts`) — the same cross-platform-consistency
+  discipline this document's own header case study (`harmonicProximity`)
+  exists to enforce.
+
+**Found and NOT yet implemented** — a substantial backlog, ranked by the
+four audit passes as cheaply actionable from OHLCV bars alone (no new data
+source, no live account/position state), in rough priority order:
+
+1. Chapter 8's SPACE/TIME rule: a reaction that exceeds the largest prior
+   reaction of the current campaign, by size or by duration, signals a
+   main-trend change — the highest-value single finding across all four
+   passes, cleanly mechanical over existing pivot infrastructure
+   (`lib/analysis/pivots.ts`), not yet built anywhere. **Deliberately held
+   back** (2026-09-16, project owner direction): everything else in this
+   list is a non-scoring extension of an existing mechanism; this one and
+   item 2 below would each add a new scored criterion (growing
+   `TOTAL_POINTS` again) with zero test/backtest evidence behind the ones
+   already added the same day — held until a real test run and ideally a
+   fresh backtest capture exist to check against, not declined.
+2. Chapter 8's Green/Red weekly Trend Line (higher-high-and-higher-low /
+   lower-high-and-lower-low weekly flip) — distinct from `swingChart.ts`'s
+   fixed-day-count construction. **Held back for the same reason as item 1.**
+3. **Implemented 2026-09-16.** Chapter 12's volume-sequence rule (a climax
+   on the primary leg followed by fading volume on the secondary leg
+   confirms reversal; the mirror confirms continuation) — already logged as
+   a known gap from a different book (A8) before this session; now
+   triple-cited (A8 + two Master Course chapters). `lib/gann/
+   volumeClimax.ts`'s `VolumeClimaxReading` gained `secondaryLegRelative
+   Volume`/`volumeSequence`, surfaced in the `volumeClimax` criterion's
+   breakdown note — informational only, does not change `passed`, so no
+   threshold rescale was needed.
+4. **Implemented 2026-09-16.** A "4th touch of the same level is dangerous"
+   caution (Chapter 8) — `lib/analysis/pivots.ts#countLevelTouches`, surfaced
+   in the `historicalSR` breakdown note, informational only. The
+   `combineNearbyLevels` citation upgrade (Chapter 9 states the identical
+   "resistance points near the same level get averaged together" rule
+   Gann's *How to Make Profits Trading in Commodities* — A8 — was previously
+   the sole citation for) is recorded here rather than as a separate code
+   comment edit.
+5. **Half-way-point half implemented 2026-09-16; angle half already was.**
+   Chapter 4's angle-anchored stop-loss buffer (1-3 points beyond the
+   nearest 1x1 line) turned out to already be live — fan lines (angles)
+   were already in `lib/strat/levels.ts`'s stop-anchor candidate pool via
+   `gannTargets`, and that pool's generic `EQUITY_STOP_BUFFER_PCT` already
+   implements Gann's "1-3 points beyond a resistance point" rule for
+   whatever level anchors the stop. What was actually missing — Chapter
+   1/9's half-way-point (retracement) version of the same buffer — is fixed
+   now: `retracementLevels` prices (including the newly-added 1/3 and 2/3
+   points) are folded into `gannTargets` in both `lib/scanTicker.ts` and
+   `lib/backtest/replay.ts`, so they're eligible stop/target anchors for the
+   first time. No new stop logic was written — this reuses the existing
+   mechanism, which is why it carries no separate threshold or weight
+   change.
+6. Chapter 1's 50%-of-all-time-extreme buy/sell level — a second, all-time-
+   history fraction ladder alongside `retracement.ts`'s existing swing-range
+   one.
+7. A cluster of `lib/gann/fans.ts`/`normalizedSlope.ts` extensions from
+   Chapter 4: angle-break cascade to the next rung, double-bottom angle-
+   line intersection, parallel-angle channels, a joint strong/weak matrix
+   from both the last top and last bottom simultaneously, and re-cross
+   tracking — all mechanical over data those modules already compute, none
+   built yet.
+8. Chapter 6's circle-division and annotated "always watch these numbers"
+   price-resistance tables, and Chapter 9's all-time-high fraction ladder
+   and square-of-numbers half-way table — new static lookup modules, same
+   pattern `lib/gann/masterTwelve.ts`'s `MASTER_NUMBERS` already uses.
+9. Higher-effort pattern-detection builds needing real design decisions,
+   not one-line additions: Chapter 8's W/M/WV/MA bottom-and-top formation
+   catalog with numbered "breakaway points" (distinct from `lib/strat/
+   patterns.ts`'s unrelated Strat bar-classification patterns); Chapter 4's
+   and Chapter 8's "sections of a campaign" wave counter (a third
+   independent citation of a rule already logged as an unresolved gap from
+   two other books); Chapter 9's shrinking-advance-legs exhaustion pattern
+   and secondary-bottom half-way point.
+
+**Found and explicitly out of scope** — needs data or infrastructure GSPS
+does not have, not a design choice to decline:
+
+- Chapter 1's per-symbol seasonal cycle anchored to a stock's own
+  incorporation/listing date, and Chapter 12's shares-outstanding/float-
+  turnover confirmation — both need a reference-data field
+  (`lib/types.ts` and every data provider carry OHLCV only) GSPS has no
+  source for today.
+- Chapter 1's NYSE total-market-value/sector-group-value regime gauges —
+  needs an aggregate market-value data feed GSPS doesn't have.
+- Chapter 2's volume-as-a-spatial-axis charting (a weekly volume series
+  drawn with its own 45° angle and "square of distance") — a genuinely
+  different Gann construction, comparable in scope to building `fans.ts`
+  again for a different axis; not a quick addition.
+- Chapter 4's zero-anchored angle and Chapter 2's par-$100-to-degrees price
+  mapping, Chapter 1's price-tier-scaled stop buffers, and Chapter 11A's
+  round-number resistance levels: each carries a literal 1930s unit
+  (dollars, a fixed $100 par) that doesn't transfer to modern decimalized
+  equities without a documented judgment call — the same category of
+  decision already made explicitly for `combineNearbyLevels`'s "lost
+  motion" cents figure. Flagged, not silently declined.
+- Chapter 1/8's position-sizing rules (10%-of-capital ceiling, reduce unit
+  after 3 consecutive losses, multiple pyramiding schedules) — same
+  verdict as the Overnight Chart's own money-management rules above: this
+  is Automated Portfolio Manager territory, not a per-symbol scan reading.
+
 This is the single most significant addition from this session, because
 it directly confirms, in Gann's own voice, several techniques the rest
 of this catalog had only ever been able to describe as "reconstructed by

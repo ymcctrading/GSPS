@@ -594,6 +594,32 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "sign claim, same as every other never-scored criterion above — the override applies to whether " +
       "it scores live today, not to whether its evidence claim is settled.",
   },
+  {
+    id: "overnightChartReversal",
+    family: "scanScore",
+    source: "lib/scoring/score.ts, lib/gann/overnightChart.ts",
+    label: "Overnight Chart trend (Gann's trailing reversal chart)",
+    expectedSign: "positive",
+    evidence: "unmeasured",
+    note:
+      "Added 2026-09-16, same day as ruleOfThree and under the same AGENTS.md 'WD Gann precedence' " +
+      "override — the Master Stock Market Course's 'Method for Trading with the Overnight Chart' " +
+      "chapter (docs/GANN_HISTORICAL_SOURCES.md A2.1), read in full from the project owner's own " +
+      "extraction after a prior session had flagged it as unread. Despite the name, the source " +
+      "construction has nothing to do with an actual pre/post-market trading session — it is a " +
+      "mechanical trailing-reversal chart built from daily highs/lows (higher bottoms trail the chart " +
+      "up; a break of 1/4 point or more flips it down to the highest recorded top, and mirrored on the " +
+      "way back up). This criterion scores whether that chart's current trailing direction agrees with " +
+      "the trade's own direction — the same 'is this reading pointed the way the trade is' test " +
+      "swingChartTrend and ruleOfThree already apply to their own constructions on the same daily bars, " +
+      "so some correlation between the three is expected and not evidence against any one of them on " +
+      "its own. Deliberately does NOT implement Gann's stop-loss sizing, pyramiding/doubling-up, or " +
+      "capital-allocation rules from the same chapter — those are position-sizing/order rules for a " +
+      "different subsystem (lib/portfolio, lib/lifecycle), not a smaller version of this criterion; see " +
+      "lib/gann/overnightChart.ts's own header for the full list of what is and isn't implemented. No " +
+      "replay has ever measured it — needs a fresh committed replay before any sign claim, same as every " +
+      "other never-scored criterion above.",
+  },
 ];
 
 /** Scored in the past, kept for the historical record. See `EvidenceStatus`. */

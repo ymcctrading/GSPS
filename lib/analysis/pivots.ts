@@ -94,6 +94,37 @@ export function clusterLevels(prices: number[], tolerancePct = 1.0): number[] {
     .map((c) => c.reduce((s, p) => s + p, 0) / c.length);
 }
 
+/**
+ * How many separate times price has come within `tolerancePct` of `level`.
+ *
+ * Gann's Chapter 8 ("Form Reading and Rules for Determining Trend of
+ * Stocks," Master Stock Market Course, docs/GANN_HISTORICAL_SOURCES.md
+ * A2.1 — added 2026-09-16): "it is safe to buy when a stock reacts to old
+ * tops the first, second, or third time, but when it declines to the same
+ * level the fourth time, it is dangerous to buy as it nearly always goes
+ * lower." A visit is counted once per approach — consecutive bars sitting
+ * inside the band are one touch, not one per bar, so a level price lingers
+ * near without inflating the count; price has to leave the band and come
+ * back to register a second touch.
+ *
+ * Informational only: this counts touches for display (see `historicalSR`'s
+ * breakdown note in lib/scoring/score.ts), it does not gate any verdict —
+ * Gann's rule is a caution about a level that has already been confirmed,
+ * not a new pass/fail test of its own.
+ */
+export function countLevelTouches(bars: Bar[], level: number, tolerancePct: number): number {
+  if (!(level > 0) || bars.length === 0) return 0;
+  let touches = 0;
+  let inBand = false;
+  for (const bar of bars) {
+    const distPct = (Math.min(Math.abs(bar.h - level), Math.abs(bar.l - level)) / level) * 100;
+    const within = bar.l <= level && bar.h >= level ? true : distPct <= tolerancePct;
+    if (within && !inBand) touches++;
+    inBand = within;
+  }
+  return touches;
+}
+
 export function atr(bars: Bar[], period = 14): number {
   if (bars.length < 2) return 0;
   const trs: number[] = [];

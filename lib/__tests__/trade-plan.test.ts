@@ -149,7 +149,7 @@ describe("computeScore output state", () => {
       momentumElevated: false,
       stopAtrMultiple: 0.8,
     }));
-    expect(decision.breakdown).toHaveLength(10);
+    expect(decision.breakdown).toHaveLength(11);
     expect(decision.outputState).toBe("Reject");
   });
 });

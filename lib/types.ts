@@ -92,6 +92,24 @@ export interface GannLevels {
   /** Upcoming fixed-calendar dates of interest (ISO date strings). See `timeCycleFixedCalendarActive`. */
   timeCycleFixedCalendarDates?: string[];
   /**
+   * A Natural Seasonal Time Period window (Master Stock Market Course,
+   * equinox-anchored eighths/thirds of the year) is active — a second,
+   * distinct non-anchored fixed calendar from `timeCycleFixedCalendarActive`
+   * above. See `lib/gann/timeCycles.ts`'s `SEASONAL_DATES`.
+   */
+  timeCycleSeasonalActive?: boolean;
+  /** Upcoming seasonal dates of interest (ISO date strings). See `timeCycleSeasonalActive`. */
+  timeCycleSeasonalDates?: string[];
+  /**
+   * A holiday-anchored window (Master Stock Market Course, Chapter 10A,
+   * "Changes In Trend Around Holidays") is active — a third, distinct
+   * non-anchored fixed calendar. See `lib/gann/timeCycles.ts`'s
+   * `holidayWindows`.
+   */
+  timeCycleHolidayActive?: boolean;
+  /** Upcoming holiday-anchored dates of interest (ISO date strings). See `timeCycleHolidayActive`. */
+  timeCycleHolidayDates?: string[];
+  /**
    * Realized Gann-angle (1x1, etc.) slope since the most recent significant
    * low (bullish reading) and high (bearish reading) — lib/gann/normalizedSlope.ts.
    */
@@ -322,6 +340,21 @@ export interface ScanResult {
   volumeRead?: { relativeVolumeIndex: number | null };
   /** Optional: option premium supplied by user for the 12–18% stop calc. */
   optionPremium?: number;
+  /**
+   * Pre-market/after-hours session extremes for this scan's symbol — see
+   * lib/analysis/extendedHours.ts. Already folded into `levels`/`decision`
+   * (an old top or bottom is an old top or bottom regardless of session, so
+   * it feeds the same S/R pool every criterion reads); carried here too so a
+   * consumer can show *which* level was overnight structure without
+   * re-deriving it. `undefined` for crypto (no session boundary) or when the
+   * extended-hours bar fetch failed — absence means "not read", not "none".
+   */
+  extendedHours?: {
+    preMarketHigh: number | null;
+    preMarketLow: number | null;
+    afterHoursHigh: number | null;
+    afterHoursLow: number | null;
+  };
   /**
    * The Signal and Regime Engine's read (lib/signals) — a separate decision
    * layer from `decision` above, never merged into it, never combined with

@@ -76,6 +76,34 @@ export interface VolumeClimaxReading {
   bestRecentRelativeVolume: number;
   /** Whether the anchor pivot or one of the last few pivots of its kind printed on climax volume. */
   climax: boolean;
+  /**
+   * Relative volume at the next pivot after the anchor (the secondary
+   * rally/reaction leg) — null when no later pivot exists yet, or its
+   * volume can't be read. See `volumeSequence`. Optional so existing
+   * fixtures/tests built before this field keep working; every real scan
+   * (`lib/gann/volumeClimax.ts#computeVolumeClimax`) populates it.
+   */
+  secondaryLegRelativeVolume?: number | null;
+  /**
+   * Gann's four numbered volume-culmination rules (Master Stock Market
+   * Course, Chapter 12, "Volume Of Sales" — docs/GANN_HISTORICAL_SOURCES.md
+   * A2.1, corroborating the same rules already logged from `How to Make
+   * Profits Trading in Commodities`, A8; added 2026-09-16): climax volume on
+   * the primary move followed by *decreasing* volume on the secondary
+   * leg confirms the reversal ("a secondary rally takes place and the
+   * volume of sales decreases, it is an indication that the stock has made
+   * final top" — Rule 1, mirrored for a bottom by Rule 3); *decreasing*
+   * volume into a pullback followed by a fresh advance on *rising* volume
+   * instead confirms the prior trend is continuing, not reversing ("the
+   * stock will have a secondary reaction... if the volume of sales
+   * decreases on the reaction and then the stock moves up, advancing on
+   * heavier volume, it will be an indication of an advance to higher
+   * levels" — Rule 4). `"fading"` reads as the former (reversal-confirming),
+   * `"rising"` as the latter (continuation-confirming) — informational
+   * only, alongside `climax` rather than replacing it; this does not gate
+   * the scored `volumeClimax` criterion.
+   */
+  volumeSequence?: "fading" | "rising" | null;
 }
 
 export function computeVolumeClimax(bars: Bar[], lookback = 20): VolumeClimaxReading[] {
@@ -96,12 +124,28 @@ export function computeVolumeClimax(bars: Bar[], lookback = 20): VolumeClimaxRea
       if (rvol !== null && rvol > best) best = rvol;
     }
 
+    // The secondary leg: the next pivot (of either kind) chronologically
+    // after the anchor — the rally off a low anchor, or the reaction off a
+    // high anchor.
+    const secondaryPivot = pivots.find((p) => p.index > anchor.index) ?? null;
+    const secondaryLegRelativeVolume = secondaryPivot
+      ? relativeVolume(bars.slice(0, secondaryPivot.index + 1), lookback)
+      : null;
+    const volumeSequence: "fading" | "rising" | null =
+      secondaryLegRelativeVolume === null
+        ? null
+        : secondaryLegRelativeVolume < anchorRvol
+          ? "fading"
+          : "rising";
+
     readings.push({
       anchorKind: anchor.kind,
       anchorPrice: anchor.price,
       relativeVolume: anchorRvol,
       bestRecentRelativeVolume: best,
       climax: best > VOLUME_CLIMAX_THRESHOLD,
+      secondaryLegRelativeVolume,
+      volumeSequence,
     });
   }
   return readings;

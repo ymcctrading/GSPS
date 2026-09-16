@@ -94,6 +94,7 @@ const allPass: ScoreInputs = {
   hourlyAdx: { adx: 25, plusDI: 20, minusDI: 10 },
   swingChart: { threeDay: "bullish", nineDay: "bullish" },
   ruleOfThree: { consecutiveLowerCloses: 0, consecutiveHigherCloses: 2, bullishSignal: true, bearishSignal: false },
+  overnightChart: { mode: "up", level: 90, justFlipped: false },
   timePriceSquare: [
     { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMoveAtrUnits: 10, squared: true },
   ],
@@ -114,6 +115,7 @@ const allFail: ScoreInputs = {
   macroTrends: [trend("bearish"), trend("bearish"), trend("bearish")],
   hourlyTrend: trend("bearish"),
   ruleOfThree: { consecutiveLowerCloses: 0, consecutiveHigherCloses: 0, bullishSignal: false, bearishSignal: false },
+  overnightChart: { mode: "down", level: 110, justFlipped: false },
   gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [], angleSlopes: [], retracementLevels: [], digitalRootConfluences: [] },
   nearSupportResistance: false,
   pattern: null,
@@ -126,10 +128,10 @@ describe("toPublicScoreSummary", () => {
   it("accounts for every scored criterion exactly once", () => {
     const summary = toPublicScoreSummary(computeScore(allPass));
 
-    expect(summary.max).toBe(10);
-    expect(summary.pillars.reduce((n, p) => n + p.total, 0)).toBe(10);
+    expect(summary.max).toBe(11);
+    expect(summary.pillars.reduce((n, p) => n + p.total, 0)).toBe(11);
     expect(summary.pillars.reduce((n, p) => n + p.met, 0)).toBe(summary.score);
-    expect(summary.score).toBe(10);
+    expect(summary.score).toBe(11);
   });
 
   it("reports every pillar in a fixed order, whatever the score", () => {
@@ -146,7 +148,7 @@ describe("toPublicScoreSummary", () => {
     expect(summary.pillars.every((p) => p.met === 0)).toBe(true);
     // The totals are a property of the model, not of the result: an empty
     // score still says how many points were available in each pillar.
-    expect(summary.pillars.reduce((n, p) => n + p.total, 0)).toBe(10);
+    expect(summary.pillars.reduce((n, p) => n + p.total, 0)).toBe(11);
   });
 
   it("notes a capped state without inflating a pillar", () => {
@@ -155,8 +157,8 @@ describe("toPublicScoreSummary", () => {
     const decision = computeScore({ ...allPass, pattern: null });
     const summary = toPublicScoreSummary(decision);
 
-    expect(decision.breakdown.length).toBeGreaterThan(10);
-    expect(summary.max).toBe(10);
+    expect(decision.breakdown.length).toBeGreaterThan(11);
+    expect(summary.max).toBe(11);
     expect(summary.stateNote).not.toBeNull();
   });
 
@@ -225,7 +227,7 @@ describe("redaction at the API boundary", () => {
     expect(redacted.decision.breakdown).toEqual([]);
     // The caller's own copy keeps its breakdown — the scan pipeline, the
     // backtest replay and the published rows all still read it server-side.
-    expect(result.decision.breakdown).toHaveLength(10);
+    expect(result.decision.breakdown).toHaveLength(11);
   });
 
   it("strips dailyBars — bulk internal data, not a public response field", () => {
