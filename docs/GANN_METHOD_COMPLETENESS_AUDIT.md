@@ -662,3 +662,13 @@ tuned scoring," except where flagged otherwise.
     price-domain eighths table (different anchor convention, different
     disclosed fraction set — a real exception, not an oversight, per
     AGENTS.md's cross-platform consistency principle).
+16. **Open-interest culmination rule** (`GANN_HISTORICAL_SOURCES.md` A8, the
+    fifth of the volume/open-interest culmination rules) — reviewed 2026-09-16,
+    intentionally not built. Open interest is a derivatives-contract concept
+    with no counterpart for a share of stock or a spot crypto holding, and
+    `AssetClass`/`Bar` (`lib/types.ts`) carry no such field for either of
+    GSPS's two supported asset classes (`"us_equity" | "crypto"`). Documented
+    as a real asset-class exception in `lib/gann/volumeClimax.ts`'s own header
+    rather than silently omitted, per AGENTS.md's cross-platform-consistency
+    carve-out. Revisit only if GSPS ever adds a futures/options asset class
+    with a real open-interest feed.
