@@ -47,6 +47,8 @@ import { squareOf52Windows } from "@/lib/gann/squareOf52";
 import { angleMonthCounts as computeAngleMonthCounts } from "@/lib/gann/angleMonthCounts";
 import { detectSpectralCycle } from "@/lib/gann/spectralCycle";
 import { computeCampaignLeg } from "@/lib/gann/swingChart";
+import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
+import { computeBoilingPoint } from "@/lib/gann/boilingPoint";
 import {
   buildDigitalRootFeature,
   classifyConfluence,
@@ -130,6 +132,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
         note: reason,
       },
       campaignLeg: { legNumber: null, confidence: null },
+      boilingPoint: [],
       vortexContext: {
         priceDisplacement: null,
         timeDisplacement: null,
@@ -174,6 +177,8 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
   const angleMonthCountsResult = computeAngleMonthCounts(inputs.dailyBars);
   const spectralCycle = detectSpectralCycle(inputs.dailyBars);
   const campaignLeg = computeCampaignLeg(inputs.dailyBars);
+  const volumeClimaxReadings = computeVolumeClimax(inputs.dailyBars);
+  const boilingPoint = computeBoilingPoint(inputs.dailyBars, volumeClimaxReadings);
 
   // Digital Root/Vortex context (blueprint sections 2, 7, 18): price_dr from
   // the normalized tick displacement off the anchor, time_dr from bars
@@ -278,6 +283,11 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
       `Campaign leg ${campaignLeg.legNumber} since the last major (9-day) trend change (${campaignLeg.confidence} confidence — reversals on the 3rd/4th leg are trusted more than the 2nd).`,
     );
   }
+  for (const bp of boilingPoint) {
+    explanationTrace.push(
+      `${bp.weeksSinceClimax} weeks since the ${bp.anchorKind} volume-climax anchor (${bp.phase} — the disclosed exhaustion window is 6-7 weeks, rarely past 10).`,
+    );
+  }
   explanationTrace.push(
     cycles.active
       ? `Active structural time-cycle window (nearby dates: ${cycles.dates.slice(0, 3).join(", ") || "n/a"}).`
@@ -323,6 +333,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
     angleMonthCounts: angleMonthCountsResult,
     spectralCycle,
     campaignLeg,
+    boilingPoint,
     vortexContext,
     angleSlope,
     coordinateLedger,

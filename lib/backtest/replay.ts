@@ -47,6 +47,7 @@ import { computeCampaignLeg, computeSwingChart, type CampaignLegReading, type Sw
 import { computeRuleOfThree, type RuleOfThreeReading } from "@/lib/gann/ruleOfThree";
 import { computeTimePriceSquare, type TimePriceSquareReading } from "@/lib/gann/timePriceSquare";
 import { computeVolumeClimax, type VolumeClimaxReading } from "@/lib/gann/volumeClimax";
+import { computeBoilingPoint, type BoilingPointReading } from "@/lib/gann/boilingPoint";
 import { adx } from "@/lib/signals/indicators";
 import { DEFAULT_COST_PER_SHARE_USD } from "@/lib/trade/friction";
 
@@ -240,6 +241,7 @@ export interface MacroContext {
   ruleOfThree: RuleOfThreeReading;
   timePriceSquare: TimePriceSquareReading[];
   volumeClimax: VolumeClimaxReading[];
+  boilingPoint: BoilingPointReading[];
   gann: GannLevels;
   nearSupportResistance: boolean;
   /** The matched level and its role, when one is in range — see lib/scanTicker.ts's srMatch. */
@@ -279,6 +281,7 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
   const angleSlopes = computeAngleSlopes(daily, price);
   const timePriceSquare = computeTimePriceSquare(daily, price);
   const volumeClimax = computeVolumeClimax(daily);
+  const boilingPoint = computeBoilingPoint(daily, volumeClimax);
   const retracementLevels = computeRetracementLevels(daily, price);
   const digitalRootConfluences = angleSlopes
     .map((r) => {
@@ -312,6 +315,7 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
     ruleOfThree,
     timePriceSquare,
     volumeClimax,
+    boilingPoint,
     gann: {
       fanLines: fanLines.slice(0, 6).map(({ angle, price: p, distancePct, role }) => ({
         angle, price: Math.round(p * 100) / 100, distancePct, role,
@@ -593,6 +597,7 @@ function scoreSetup(input: {
       ruleOfThree: context.ruleOfThree,
       timePriceSquare: context.timePriceSquare,
       volumeClimax: context.volumeClimax,
+      boilingPoint: context.boilingPoint,
       gann: context.gann,
       nearSupportResistance: context.nearSupportResistance,
       srMatch: context.srMatch,

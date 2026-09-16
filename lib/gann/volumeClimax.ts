@@ -70,6 +70,8 @@ export const RECENT_PIVOTS_CHECKED = 3;
 export interface VolumeClimaxReading {
   anchorKind: "high" | "low";
   anchorPrice: number;
+  /** Bar index of the anchor pivot — lets a caller (e.g. lib/gann/boilingPoint.ts) measure elapsed time from it without re-detecting pivots. */
+  anchorIndex: number;
   /** Relative volume at the anchor pivot itself — kept for display/debugging. */
   relativeVolume: number;
   /** Highest relative volume among the last `RECENT_PIVOTS_CHECKED` pivots of this kind. */
@@ -99,6 +101,7 @@ export function computeVolumeClimax(bars: Bar[], lookback = 20): VolumeClimaxRea
     readings.push({
       anchorKind: anchor.kind,
       anchorPrice: anchor.price,
+      anchorIndex: anchor.index,
       relativeVolume: anchorRvol,
       bestRecentRelativeVolume: best,
       climax: best > VOLUME_CLIMAX_THRESHOLD,

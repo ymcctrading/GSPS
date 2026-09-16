@@ -32,6 +32,7 @@ import type { CampaignLegReading, SwingChartReading } from "@/lib/gann/swingChar
 import type { RuleOfThreeReading } from "@/lib/gann/ruleOfThree";
 import type { TimePriceSquareReading } from "@/lib/gann/timePriceSquare";
 import { VOLUME_CLIMAX_THRESHOLD, type VolumeClimaxReading } from "@/lib/gann/volumeClimax";
+import type { BoilingPointReading } from "@/lib/gann/boilingPoint";
 import {
   DEFAULT_CRITERION_WEIGHTS,
   EXECUTE_SCORE_THRESHOLD,
@@ -93,6 +94,16 @@ export interface ScoreInputs {
    * its volume, which scores as a fail.
    */
   volumeClimax?: VolumeClimaxReading[];
+  /**
+   * "Boiling point" blow-off duration off the same climax anchors
+   * (`lib/gann/boilingPoint.ts#computeBoilingPoint`) — how many weeks have
+   * elapsed since a detected climax, classified against the disclosed
+   * 6-7-week (rarely past 10) exhaustion window. Confluence/context only:
+   * appended to `volumeClimax`'s explanation note, never affecting
+   * `passed` — stays out of the scored boolean until backtested on its
+   * own, per this codebase's evidence-gating discipline.
+   */
+  boilingPoint?: BoilingPointReading[] | null;
   /**
    * Wilder's ADX/DMI over the hourly bars (`lib/signals/indicators.ts#adx`),
    * the same implementation and 20-ADX trend-strength threshold
@@ -197,7 +208,7 @@ export const MIN_STOP_ROOM_ATR = 1.5;
 
 export function computeScore(inputs: ScoreInputs): ScanDecision {
   const {
-    direction, hourlyAdx, swingChart, campaignLeg, ruleOfThree, timePriceSquare, volumeClimax, gann,
+    direction, hourlyAdx, swingChart, campaignLeg, ruleOfThree, timePriceSquare, volumeClimax, boilingPoint, gann,
     nearSupportResistance, srMatch, pattern, levels, stopAtrMultiple, assetClass,
     setupKind = "reversion",
     atrPct,
@@ -329,6 +340,14 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   const climaxReading =
     (volumeClimax ?? []).find((r) => r.anchorKind === angleAnchorKind) ?? null;
   const volumeClimaxHolding = climaxReading?.climax === true;
+  // Confluence/context only — never changes volumeClimaxHolding itself. See
+  // ScoreInputs.boilingPoint's own doc comment for why this stays out of
+  // the scored boolean.
+  const boilingPointReading =
+    (boilingPoint ?? []).find((r) => r.anchorKind === angleAnchorKind) ?? null;
+  const boilingPointNote = boilingPointReading
+    ? ` ${boilingPointReading.weeksSinceClimax} weeks since that climax (${boilingPointReading.phase} — the disclosed exhaustion window is 6-7 weeks, rarely past 10).`
+    : "";
 
   // Gann's percentage-retracement zone (eighths), reusing the same band the
   // (now retired) fan-line criterion used.
@@ -425,9 +444,10 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       pillar: "structure",
       passed: volumeClimaxHolding,
       note: climaxReading
-        ? volumeClimaxHolding
-          ? `The ${climaxReading.anchorKind} anchor at ${climaxReading.anchorPrice.toFixed(2)} or one of the pivots just before it printed on ${climaxReading.bestRecentRelativeVolume.toFixed(2)}x trailing volume — above the ${VOLUME_CLIMAX_THRESHOLD}x climax floor.`
-          : `The ${climaxReading.anchorKind} anchor at ${climaxReading.anchorPrice.toFixed(2)} and the pivots just before it printed on only ${climaxReading.bestRecentRelativeVolume.toFixed(2)}x trailing volume at best — below the ${VOLUME_CLIMAX_THRESHOLD}x climax floor.`
+        ? (volumeClimaxHolding
+            ? `The ${climaxReading.anchorKind} anchor at ${climaxReading.anchorPrice.toFixed(2)} or one of the pivots just before it printed on ${climaxReading.bestRecentRelativeVolume.toFixed(2)}x trailing volume — above the ${VOLUME_CLIMAX_THRESHOLD}x climax floor.`
+            : `The ${climaxReading.anchorKind} anchor at ${climaxReading.anchorPrice.toFixed(2)} and the pivots just before it printed on only ${climaxReading.bestRecentRelativeVolume.toFixed(2)}x trailing volume at best — below the ${VOLUME_CLIMAX_THRESHOLD}x climax floor.`) +
+          boilingPointNote
         : `No measurable volume climax since the last significant ${angleAnchorKind}.`,
     },
     {

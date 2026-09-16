@@ -36,6 +36,7 @@ import { computeCampaignLeg, computeSwingChart } from "@/lib/gann/swingChart";
 import { computeRuleOfThree } from "@/lib/gann/ruleOfThree";
 import { computeTimePriceSquare } from "@/lib/gann/timePriceSquare";
 import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
+import { computeBoilingPoint } from "@/lib/gann/boilingPoint";
 import { adx } from "@/lib/signals/indicators";
 import {
   CONTINUATION_PATTERNS,
@@ -169,6 +170,9 @@ export async function scanTicker(
     const timePriceSquare = computeTimePriceSquare(daily, currentPrice);
     // Volume climax at the same pivots, replacing harmonicProximity.
     const volumeClimax = computeVolumeClimax(daily);
+    // Gann's "boiling point" blow-off duration off the same climax anchors,
+    // added 2026-09-16 — confluence/context only, see lib/gann/boilingPoint.ts.
+    const boilingPoint = computeBoilingPoint(daily, volumeClimax);
     const retracementLevels = computeRetracementLevels(daily, currentPrice);
     // Digital-root/vortex confluence off the same anchors angleSlopes reads —
     // confluence/context only (blueprint 7.4); score.ts's gannRetracementConfluence
@@ -363,6 +367,7 @@ export async function scanTicker(
           ruleOfThree,
           timePriceSquare,
           volumeClimax,
+          boilingPoint,
           gann,
           nearSupportResistance,
           srMatch: srMatch && {

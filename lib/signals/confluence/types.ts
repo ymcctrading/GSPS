@@ -23,6 +23,7 @@ import type { SquareOf52Result } from "@/lib/gann/squareOf52";
 import type { AngleMonthCountResult } from "@/lib/gann/angleMonthCounts";
 import type { SpectralCycleReading } from "@/lib/gann/spectralCycle";
 import type { CampaignLegReading } from "@/lib/gann/swingChart";
+import type { BoilingPointReading } from "@/lib/gann/boilingPoint";
 import type { MarketAdapterStatus, SupportedMarket } from "./marketAdapters";
 
 /**
@@ -160,6 +161,15 @@ export interface GannConfluenceResult {
    * in `lib/scoring/score.ts`. See `lib/gann/swingChart.ts#computeCampaignLeg`.
    */
   campaignLeg: CampaignLegReading;
+  /**
+   * "Boiling point" blow-off duration off the same volume-climax anchors
+   * used elsewhere in this platform (`docs/GANN_HISTORICAL_SOURCES.md` A4)
+   * — how many weeks have elapsed since a detected climax, classified
+   * against the disclosed 6-7-week (rarely past 10) exhaustion window.
+   * Confluence/context only, same non-authoritative role as every other
+   * field here. See `lib/gann/boilingPoint.ts`.
+   */
+  boilingPoint: BoilingPointReading[];
   /**
    * Blueprint §8.5's normalized Gann-angle slope — realized ATR-units-per-bar
    * since the anchor, and which fixed angle ratio (1x4…4x1) that's closest

@@ -124,6 +124,14 @@ function GannRow({ result }: { result: NonNullable<ScanResult["signals"]>["gannC
               </p>
             </div>
           )}
+          {result.boilingPoint.length > 0 && (
+            <div className="rounded-md border border-border bg-surface p-2">
+              <p className="text-muted">Blow-off duration</p>
+              <p className="font-mono font-semibold">
+                {result.boilingPoint[0].weeksSinceClimax}wk ({result.boilingPoint[0].phase})
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>

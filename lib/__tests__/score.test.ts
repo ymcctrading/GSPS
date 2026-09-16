@@ -110,7 +110,7 @@ describe("computeScore volumeClimax", () => {
     const decision = computeScore({
       ...baseInputs(direction),
       volumeClimax: [
-        { anchorKind, anchorPrice: 100, relativeVolume: climax ? 2 : 1, bestRecentRelativeVolume: climax ? 2 : 1, climax },
+        { anchorKind, anchorPrice: 100, anchorIndex: 0, relativeVolume: climax ? 2 : 1, bestRecentRelativeVolume: climax ? 2 : 1, climax },
       ],
     });
     return decision.breakdown.find((b) => b.key === "volumeClimax")!;
