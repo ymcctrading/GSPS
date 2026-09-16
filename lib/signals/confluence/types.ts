@@ -17,6 +17,7 @@ import type { FanLine } from "@/lib/gann/fans";
 import type { ConfluenceType, DigitalRootFeature, VortexClass } from "@/lib/gann/digitalRoot";
 import type { NearestGannAngle } from "@/lib/gann/normalizedSlope";
 import type { LedgerCoordinate } from "@/lib/gann/coordinateLedger";
+import type { DecadeCycleReading } from "@/lib/gann/decadeCycle";
 import type { MarketAdapterStatus, SupportedMarket } from "./marketAdapters";
 
 /**
@@ -79,6 +80,9 @@ export interface GannConfluenceResult {
   nearestFanLine: FanLine | null;
   timeCycleActive: boolean;
   timeCycleDates: string[];
+  /** A4's fixed annual calendar window — see `lib/gann/timeCycles.ts`'s header. */
+  timeCycleFixedCalendarActive: boolean;
+  timeCycleFixedCalendarDates: string[];
   /**
    * The active 1–9 Digital Root/Vortex context, per the "GSPS Implementation
    * Blueprint" (2026-09-08) sections 2 and 7 — `price_dr`/`time_dr` and
@@ -89,6 +93,16 @@ export interface GannConfluenceResult {
    * `lib/gann/digitalRoot.ts`.
    */
   vortexContext: GannVortexContext;
+  /**
+   * Gann's "decade digit" bull/bear cycle (`docs/GANN_HISTORICAL_SOURCES.md`
+   * A2.1 Ch. 7) — which year of the current calendar decade this is, and the
+   * market character Gann assigned to it. Calendar-only (no per-symbol
+   * anchor), confluence/context only per AGENTS.md's "Hermetic principles &
+   * cycle theory" standing principle — a labeled hypothesis, never a scored
+   * criterion, same treatment as `vortexContext` above. See
+   * `lib/gann/decadeCycle.ts`.
+   */
+  decadeCycle: DecadeCycleReading;
   /**
    * Blueprint §8.5's normalized Gann-angle slope — realized ATR-units-per-bar
    * since the anchor, and which fixed angle ratio (1x4…4x1) that's closest

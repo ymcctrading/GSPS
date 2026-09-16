@@ -1,6 +1,11 @@
 /**
- * The Score out of 9 — one point per confirmed confluence condition.
- * 7–9 Execute · 4–6 Watch · 0–3 Reject.
+ * The Score out of `TOTAL_POINTS` (10, since `ruleOfThree` joined 2026-09-16
+ * — see `lib/scoring/weights.ts`) — one point per confirmed confluence
+ * condition, weighted by `CriterionWeights`. Execute at
+ * `EXECUTE_SCORE_THRESHOLD`+, Watch at `WATCH_SCORE_THRESHOLD`+, Reject
+ * below — see those constants' own comments for the current values and why;
+ * this header stopped restating the literal numbers after they drifted from
+ * a stale "7–9/4–6/0–3" copy left behind by the 2026-09-14 stopgap.
  */
 
 import type {
@@ -24,6 +29,7 @@ import { LEVEL_TIMEFRAME_USAGE, levelRoleLabel, type LevelRole } from "@/lib/ana
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 import type { AdxReading } from "@/lib/signals/indicators";
 import type { SwingChartReading } from "@/lib/gann/swingChart";
+import type { RuleOfThreeReading } from "@/lib/gann/ruleOfThree";
 import type { TimePriceSquareReading } from "@/lib/gann/timePriceSquare";
 import { VOLUME_CLIMAX_THRESHOLD, type VolumeClimaxReading } from "@/lib/gann/volumeClimax";
 import {
@@ -47,6 +53,14 @@ export interface ScoreInputs {
    * does.
    */
   swingChart?: SwingChartReading | null;
+  /**
+   * Gann's "Rule of Three" off the daily closes
+   * (`lib/gann/ruleOfThree.ts#computeRuleOfThree`) — see that module's
+   * header for the generalization from his literal reversal-only rule to
+   * both reversion and continuation setups. Undefined/empty scores as a
+   * fail the same way a missing swing-chart reading does.
+   */
+  ruleOfThree?: RuleOfThreeReading | null;
   /**
    * Gann's squaring of price and time off the daily bars
    * (`lib/gann/timePriceSquare.ts#computeTimePriceSquare`) — bars elapsed
@@ -171,7 +185,7 @@ export const MIN_STOP_ROOM_ATR = 1.5;
 
 export function computeScore(inputs: ScoreInputs): ScanDecision {
   const {
-    direction, hourlyAdx, swingChart, timePriceSquare, volumeClimax, gann,
+    direction, hourlyAdx, swingChart, ruleOfThree, timePriceSquare, volumeClimax, gann,
     nearSupportResistance, srMatch, pattern, levels, stopAtrMultiple, assetClass,
     setupKind = "reversion",
     atrPct,
@@ -190,6 +204,16 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     swingChart != null &&
     swingChart.threeDay === direction &&
     swingChart.nineDay === direction;
+
+  // Added 2026-09-16: Gann's "Rule of Three" (see lib/gann/ruleOfThree.ts's
+  // header for the exact rule and its generalization to both reversion and
+  // continuation setups). A bullish call reads the downtrend-reversal mirror
+  // (>= 2 consecutive higher closes); a bearish call reads the uptrend rule
+  // (>= 3 consecutive lower closes) — Gann's own stated asymmetry, not
+  // symmetrized here.
+  const ruleOfThreeHolding =
+    ruleOfThree != null &&
+    (direction === "bullish" ? ruleOfThree.bullishSignal : ruleOfThree.bearishSignal);
 
   // 2026-09-10: replaces hourlyTrend. hourlyTrend's own leniency (an
   // ambiguous "sideways" hourly read counted as agreement) never cleared the
@@ -438,6 +462,22 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
           ? `Price within ${retracementMatch.distancePct.toFixed(2)}% of the ${retracementMatch.label} retracement ${levelRoleLabel(retracementMatch.role).toLowerCase()} at ${retracementMatch.price.toFixed(2)} — inside the ${fanBandPct.toFixed(2)}% band (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}), confirmed by a matching GSPS signal-flow reading off the same anchor.`
           : `Price within ${retracementMatch.distancePct.toFixed(2)}% of the ${retracementMatch.label} retracement ${levelRoleLabel(retracementMatch.role).toLowerCase()} at ${retracementMatch.price.toFixed(2)}, but no signal-flow confluence off the same anchor — the zone alone isn't enough.`
         : `No ${levelRoleLabel(wantedRole).toLowerCase()} retracement zone within ${fanBandPct.toFixed(2)}% (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}).`,
+    },
+    {
+      key: "ruleOfThree",
+      criterion: "Rule of Three (consecutive closes confirm direction)",
+      pillar: "trend",
+      passed: ruleOfThreeHolding,
+      note:
+        ruleOfThree == null
+          ? "Not enough daily history to read the Rule of Three."
+          : ruleOfThreeHolding
+            ? direction === "bullish"
+              ? `${ruleOfThree.consecutiveHigherCloses} consecutive higher closes — Rule of Three reversal signal for an upturn.`
+              : `${ruleOfThree.consecutiveLowerCloses} consecutive lower closes — Rule of Three reversal signal for a downturn.`
+            : direction === "bullish"
+              ? `Only ${ruleOfThree.consecutiveHigherCloses} consecutive higher close(s) — the Rule of Three needs 2 to confirm an upturn.`
+              : `Only ${ruleOfThree.consecutiveLowerCloses} consecutive lower close(s) — the Rule of Three needs 3 to confirm a downturn.`,
     },
   ];
 

@@ -18,6 +18,67 @@ another must be checked there too. **This document does not supersede or
 replace the module-scoped audit; both stand, side by side, until a
 consolidation decision is made separately.**
 
+**Update (2026-09-16) — findings acted on, not just documented.** The
+project owner reviewed the findings below and gave two direct instructions
+that go beyond this document's original analysis-only scope: (1) both
+mislabeling findings in Part 3/5 are fixed in code, not just flagged; (2)
+"when a choice must be made between GSPS's current implementation and a
+Gann principle, always default to Gann" is now a standing rule
+(AGENTS.md's "WD Gann precedence" section) — several Part 4 candidates are
+wired in **live**, ahead of this codebase's normal unmeasured -> attribution
+-> in/out-of-sample gate, per that explicit instruction. What changed,
+concretely:
+
+- **Part 3a fix**: `lib/signals/confluence/gann.ts`'s header comment and
+  `GANN_CONFLUENCE_MODULE.authorizedSource` no longer call Square of
+  9/Gann angles "public-domain" — both now state the real provenance
+  (Gann's private paid correspondence course, sourced by the project owner
+  through public-domain-accessible archives).
+- **Part 3b/5 fix (the top finding in this document)**: `lib/guided/copy.ts`'s
+  `nearestStructure()` no longer tells novice users a Square-of-9/fan-line
+  coordinate is "a level this symbol has repeatedly turned at." It now
+  reads `result.trends`' real swing-clustered support/resistance first (the
+  genuine historical-repetition claim Gann's own "Crossing Old Levels" rule
+  supports) and only falls back to a Gann-geometry coordinate with
+  different, honest wording ("a structural price level from this symbol's
+  own chart geometry") when no swing level is nearer.
+- **Part 4 item 1 (Rule of Three) — built live**: a new, tenth scored
+  criterion, `ruleOfThree` (`lib/gann/ruleOfThree.ts`,
+  `lib/scoring/weights.ts`, `lib/scoring/score.ts`). `EXECUTE_SCORE_THRESHOLD`/
+  `WATCH_SCORE_THRESHOLD` rescaled proportionally (6/3.5 out of 9 ->
+  6.67/3.89 out of 10) to preserve the existing stopgap's relative bar
+  rather than silently loosening it. Registered in
+  `lib/validation/criteria-registry.ts` as `unmeasured` — the override
+  applies to whether it scores live today, not to whether it has evidence.
+- **Part 4 item 2 (3-point rule) — built live**: `lib/lifecycle/
+  entryConfirmation.ts`'s break stage now requires a close to clear the
+  entry trigger by `DEFAULT_CONFIRMATION_BUFFER_PCT` (0.3%), not any close a
+  penny beyond it — gates real entries across scan, backtest and live
+  automation, since all three share this one state machine.
+- **Part 4 item 3 (lost motion) — built live, but not as a literal port**:
+  `lib/strat/levels.ts`'s `combineNearbyLevels` implements the *other* half
+  of the same disclosed passage (A8's "resistance points near same levels"
+  clustering) — porting the literal cents-based lost-motion magnitude
+  itself was declined as a cross-era/cross-asset-class guess; see that
+  function's own comment.
+- **Part 4 item 4 (fixed annual calendar cycle) — built live**:
+  `lib/gann/timeCycles.ts` now computes A4's fixed calendar windows
+  (early Feb/Mar/May/Jun/Aug/Sep/Nov/Dec) independent of any pivot anchor,
+  surfaced as `timeCycleFixedCalendarActive`/`timeCycleFixedCalendarDates`
+  on `GannLevels` and `GannConfluenceResult`. Context/display only — Gann's
+  own rule has no per-direction pass/fail to gate scoring with.
+- **Not built this pass**: the 4th-time-at-a-level invalidation
+  (`clusterLevels`, shared by the whole Signal & Regime Engine — deferred
+  given its blast radius beyond Gann-specific code), the refined
+  percentage-resistance hierarchy, Anniversary Dates' A9 refinement, Gann
+  angles as a time projection, Fourier/dominant-cycle decomposition, and
+  the Master Square of Twelve/Hexagon Chart (A2.1's own chapter on it is
+  still unread). These remain open per Part 4 below.
+
+All ten previous `npm test`/typecheck/lint runs pass with these changes
+(1645 tests, 162 files, 0 new lint warnings) — see the commit history for
+this file's own repo for the verification trail.
+
 **Source base.** Grounded in the now-complete
 `docs/GANN_HISTORICAL_SOURCES.md` (25 documents: all ten of Gann's own public
 books, two items of his private paid-course/bulletin material, thirteen

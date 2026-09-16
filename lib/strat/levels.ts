@@ -189,6 +189,44 @@ export interface EquityTradeLevels {
 }
 
 /**
+ * How close two structural levels must sit (as a percent of their own
+ * average) before they're treated as "the same" resistance point rather than
+ * two separate ones.
+ */
+const NEARBY_LEVEL_TOLERANCE_PCT = 1.0;
+
+/**
+ * Combine structural levels that sit within `NEARBY_LEVEL_TOLERANCE_PCT` of
+ * each other into a single averaged level — `How to Make Profits Trading in
+ * Commodities` (A8, `docs/GANN_HISTORICAL_SOURCES.md`)'s disclosed
+ * "resistance points near same levels" technique: "when two nearby
+ * resistance levels cluster, average them into one combined support/
+ * resistance point," rather than treating a clustered S/R level, a fan line,
+ * and a Square-of-9 price that all happen to sit within a percent of each
+ * other as three separate, competing candidates. Added 2026-09-16 per
+ * `docs/GANN_PLATFORM_AUDIT.md` Part 4 item 3 / AGENTS.md's "WD Gann
+ * precedence" principle — his literal cents-based "lost motion" stop-buffer
+ * number (the same A8 passage) is deliberately NOT ported here: that figure
+ * is dimensionally a 1930s-commodity number (cents per bushel), not an
+ * equity percentage, and porting its raw magnitude across asset class and
+ * era would be a guess dressed up as a derivation. This clustering rule is
+ * the one part of the same disclosed passage that transfers cleanly with no
+ * unit conversion required.
+ */
+function combineNearbyLevels(levels: number[]): number[] {
+  if (levels.length === 0) return [];
+  const sorted = [...levels].sort((a, b) => a - b);
+  const clusters: number[][] = [[sorted[0]]];
+  for (let i = 1; i < sorted.length; i++) {
+    const current = clusters[clusters.length - 1];
+    const mean = current.reduce((s, p) => s + p, 0) / current.length;
+    if ((Math.abs(sorted[i] - mean) / mean) * 100 <= NEARBY_LEVEL_TOLERANCE_PCT) current.push(sorted[i]);
+    else clusters.push([sorted[i]]);
+  }
+  return clusters.map((c) => c.reduce((s, p) => s + p, 0) / c.length);
+}
+
+/**
  * Nearest structural level on the trade's favorable side (support under a
  * long, resistance above a short) that lands inside [minPct, maxPct] of
  * entry — accepting any level in `structuralLevels`, since for stop-anchoring
@@ -196,6 +234,7 @@ export interface EquityTradeLevels {
  * price are all "real structure" in the same sense; scoring criteria that
  * care about which kind matched (historicalSR vs. the Gann-specific ones)
  * read the underlying level data separately, upstream of this function.
+ * Nearby levels are combined first — see `combineNearbyLevels`.
  */
 function nearestStructuralStop(
   entry: number,
@@ -206,7 +245,7 @@ function nearestStructuralStop(
 ): number | null {
   let best: number | null = null;
   let bestDist = Infinity;
-  for (const level of structuralLevels) {
+  for (const level of combineNearbyLevels(structuralLevels)) {
     const onFavorableSide = side === "long" ? level < entry : level > entry;
     if (!onFavorableSide) continue;
     const distPct = (Math.abs(entry - level) / entry) * 100;

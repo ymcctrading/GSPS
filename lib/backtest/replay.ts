@@ -44,6 +44,7 @@ import { computeAngleSlopes } from "@/lib/gann/normalizedSlope";
 import { computeRetracementLevels } from "@/lib/gann/retracement";
 import { priceTimeConfluence } from "@/lib/gann/digitalRoot";
 import { computeSwingChart, type SwingChartReading } from "@/lib/gann/swingChart";
+import { computeRuleOfThree, type RuleOfThreeReading } from "@/lib/gann/ruleOfThree";
 import { computeTimePriceSquare, type TimePriceSquareReading } from "@/lib/gann/timePriceSquare";
 import { computeVolumeClimax, type VolumeClimaxReading } from "@/lib/gann/volumeClimax";
 import { adx } from "@/lib/signals/indicators";
@@ -234,6 +235,7 @@ const weekKey = (b: Bar) => {
 export interface MacroContext {
   macroTrends: TrendReading[];
   swingChart: SwingChartReading;
+  ruleOfThree: RuleOfThreeReading;
   timePriceSquare: TimePriceSquareReading[];
   volumeClimax: VolumeClimaxReading[];
   gann: GannLevels;
@@ -266,6 +268,7 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
   const weeklyTrend = readTrend(weekly, "1Week");
   const dailyTrend = readTrend(daily, "1Day");
   const swingChart = computeSwingChart(daily);
+  const ruleOfThree = computeRuleOfThree(daily);
 
   const fanLines = computeFanLines(daily, price);
   const s9 = recentSquareOf9Levels(daily, price).slice(0, 12);
@@ -305,6 +308,7 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
   return {
     macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
     swingChart,
+    ruleOfThree,
     timePriceSquare,
     volumeClimax,
     gann: {
@@ -318,6 +322,8 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
       timeCycleBullishActive: cycles.bullishActive,
       timeCycleBearishActive: cycles.bearishActive,
       timeCycleDates: cycles.dates,
+      timeCycleFixedCalendarActive: cycles.fixedCalendarActive,
+      timeCycleFixedCalendarDates: cycles.fixedCalendarDates,
       angleSlopes,
       retracementLevels: retracementLevels.slice(0, 7).map(({ fraction, label, price: p, distancePct, role }) => ({
         fraction, label, price: Math.round(p * 100) / 100, distancePct, role,
@@ -578,6 +584,7 @@ function scoreSetup(input: {
       hourlyTrend,
       hourlyAdx,
       swingChart: context.swingChart,
+      ruleOfThree: context.ruleOfThree,
       timePriceSquare: context.timePriceSquare,
       volumeClimax: context.volumeClimax,
       gann: context.gann,

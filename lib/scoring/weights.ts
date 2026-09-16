@@ -25,7 +25,17 @@
  * rewording a criterion cannot silently detach its weight.
  */
 
-/** Stable ids for the nine scored criteria. */
+/**
+ * Stable ids for the ten scored criteria.
+ *
+ * `ruleOfThree` added 2026-09-16 — the tenth, per AGENTS.md's "WD Gann
+ * precedence" principle and `docs/GANN_PLATFORM_AUDIT.md` Part 4 item 1:
+ * Gann's own highest-conviction disclosed rule (`Wall Street Stock
+ * Selector`, 1930), wired live ahead of this codebase's normal
+ * unmeasured -> attribution -> in/out-of-sample gate. See
+ * `lib/gann/ruleOfThree.ts` and `lib/validation/criteria-registry.ts`'s
+ * `ruleOfThree` entry.
+ */
 export const CRITERION_KEYS = [
   "swingChartTrend",
   "adxTrendStrength",
@@ -36,6 +46,7 @@ export const CRITERION_KEYS = [
   "stopRoom",
   "timePriceSquare",
   "gannRetracementConfluence",
+  "ruleOfThree",
 ] as const;
 
 export type CriterionKey = (typeof CRITERION_KEYS)[number];
@@ -60,11 +71,12 @@ export const CRITERION_LABELS: Record<CriterionKey, string> = {
   stopRoom: "Stop room (>= 1.5x ATR)",
   timePriceSquare: "Price and time squared",
   gannRetracementConfluence: "Retracement + signal-flow confluence",
+  ruleOfThree: "Rule of Three (consecutive closes confirm direction)",
 };
 
 export type CriterionWeights = Record<CriterionKey, number>;
 
-/** Total points a full weight set distributes. Nine criteria, nine points. */
+/** Total points a full weight set distributes. Ten criteria, ten points. */
 export const TOTAL_POINTS = CRITERION_KEYS.length;
 
 /**
@@ -88,9 +100,17 @@ export const TOTAL_POINTS = CRITERION_KEYS.length;
  * as a stopgap sized off that same run under an independence approximation
  * (not a joint-distribution guarantee) — see the weight rebalance below for
  * the other half of this fix.
+ *
+ * Rescaled 2026-09-16 from 6/3.5 (out of 9) to 6.67/3.89 (out of 10) when
+ * `ruleOfThree` became the tenth criterion (see `CRITERION_KEYS`) — the same
+ * 66.7%/38.9% relative bar, not a new, separate loosening or tightening
+ * decision. Adding a criterion and re-judging how hard the bar should be to
+ * clear are two different questions; this preserves the existing stopgap's
+ * answer to the second one exactly, rather than quietly changing it as a
+ * side effect of the first.
  */
-export const EXECUTE_SCORE_THRESHOLD = 6;
-export const WATCH_SCORE_THRESHOLD = 3.5;
+export const EXECUTE_SCORE_THRESHOLD = 6.67;
+export const WATCH_SCORE_THRESHOLD = 3.89;
 
 /**
  * Floor and ceiling for one criterion's weight. A criterion may end up worth
@@ -132,6 +152,15 @@ export const MAX_WEIGHT = 2;
  * by a cent), stopRoom 1.8, swingChartTrend 1.3, volumeClimax 1.3,
  * patternArmed 1.0, timePriceSquare 0.6, gannAngleSlope 0.5,
  * gannRetracementConfluence 0.5, adxTrendStrength 0.5.
+ *
+ * `ruleOfThree: 1.0` added 2026-09-16, same treatment `patternArmed` got
+ * when it was new and unmeasured — neutral, not thumbed toward either
+ * validated or quarantined, since nothing has scored it yet (see
+ * `lib/validation/criteria-registry.ts`'s `ruleOfThree` entry). Its raw
+ * weight joining the set before `normalizeWeights()` rescales everything to
+ * sum to the new `TOTAL_POINTS` (10) is why the other nine shift by a small,
+ * uniform amount relative to their pre-2026-09-16 values — not a re-judgment
+ * of any of them.
  */
 export const DEFAULT_CRITERION_WEIGHTS: CriterionWeights = normalizeWeights({
   historicalSR: 1.99,
@@ -139,6 +168,7 @@ export const DEFAULT_CRITERION_WEIGHTS: CriterionWeights = normalizeWeights({
   swingChartTrend: 1.3,
   volumeClimax: 1.3,
   patternArmed: 1.0,
+  ruleOfThree: 1.0,
   timePriceSquare: 0.6,
   gannAngleSlope: 0.5,
   gannRetracementConfluence: 0.5,

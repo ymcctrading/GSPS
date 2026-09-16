@@ -81,6 +81,17 @@ export interface GannLevels {
   timeCycleBearishActive: boolean;
   timeCycleDates: string[];
   /**
+   * A fixed annual calendar window (`Wall Street Stock Selector`, 1930,
+   * `docs/GANN_HISTORICAL_SOURCES.md` A4) is active — no per-symbol anchor,
+   * no directional bias, unlike the pivot-anchored fields above. Optional so
+   * existing fixtures/tests that predate this field keep working; every real
+   * scan (`lib/scanTicker.ts`) populates it. See
+   * `lib/gann/timeCycles.ts`'s header and `docs/GANN_PLATFORM_AUDIT.md` Part 4.
+   */
+  timeCycleFixedCalendarActive?: boolean;
+  /** Upcoming fixed-calendar dates of interest (ISO date strings). See `timeCycleFixedCalendarActive`. */
+  timeCycleFixedCalendarDates?: string[];
+  /**
    * Realized Gann-angle (1x1, etc.) slope since the most recent significant
    * low (bullish reading) and high (bearish reading) — lib/gann/normalizedSlope.ts.
    */

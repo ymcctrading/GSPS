@@ -97,9 +97,51 @@ describe("timeCycles", () => {
     expect(result.active).toBe(true);
   });
 
+  it("catches a major cycle-year anniversary (10 years), not just 1-3 years out", () => {
+    // A2.1 Ch. 7's full disclosed cycle hierarchy (2026-09-16) replaced the
+    // old 1-3-year-only anniversary loop with MAJOR_CYCLE_YEARS
+    // (1,2,3,5,7,10,15,20,30,50,60) — this pins the 10-year case.
+    const dayMs = 24 * 3600 * 1000;
+    const bars: Bar[] = [];
+    const start = new Date("2025-01-01T00:00:00Z");
+    for (let i = 0; i < 40; i++) {
+      const t = new Date(start.getTime() + i * dayMs).toISOString();
+      const l = i === 20 ? 50 : 100 - Math.abs(i - 20);
+      bars.push(bar(t, l + 10, l));
+    }
+    const asOf = new Date(bars[20].t.slice(0, 10) + "T00:00:00Z");
+    asOf.setFullYear(asOf.getFullYear() + 10);
+    const result = timeCycles(bars, asOf);
+    expect(result.bullishActive).toBe(true);
+    expect(result.active).toBe(true);
+  });
+
   it("reports inactive with too little daily history", () => {
-    const result = timeCycles([bar("2026-01-01", 101, 100)]);
-    expect(result).toEqual({ active: false, bullishActive: false, bearishActive: false, dates: [] });
+    // Fixed asOf, safely between fixed-calendar windows (A4), so this
+    // assertion doesn't flake near one of them (Feb/Mar/May/Jun/Aug/Sep/Nov/Dec 5th).
+    const asOf = new Date("2026-01-20T00:00:00Z");
+    const result = timeCycles([bar("2026-01-01", 101, 100)], asOf);
+    expect(result).toEqual({
+      active: false,
+      bullishActive: false,
+      bearishActive: false,
+      dates: [],
+      fixedCalendarActive: false,
+      fixedCalendarDates: [],
+    });
+  });
+
+  describe("fixed annual calendar cycle (A4)", () => {
+    it("marks the window active within windowDays of a named fixed-calendar date", () => {
+      const result = timeCycles([], new Date("2026-02-05T00:00:00Z"));
+      expect(result.fixedCalendarActive).toBe(true);
+      expect(result.fixedCalendarDates[0]).toBe("2026-02-05");
+    });
+
+    it("does not mark the window active far from any named date", () => {
+      const result = timeCycles([], new Date("2026-01-20T00:00:00Z"));
+      expect(result.fixedCalendarActive).toBe(false);
+    });
   });
 });
 
@@ -349,7 +391,7 @@ describe("computeScore", () => {
 
     expect(squared.score).toBe(notSquared.score + 1);
     expect(squared.breakdown.find((b) => b.criterion === "Price and time squared")?.passed).toBe(true);
-    expect(squared.breakdown.map((b) => b.criterion)).toHaveLength(9);
+    expect(squared.breakdown.map((b) => b.criterion)).toHaveLength(10);
     expect(squared.breakdown.some((b) => /earnings/i.test(b.criterion))).toBe(false);
   });
 
