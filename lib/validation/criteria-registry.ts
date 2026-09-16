@@ -570,6 +570,29 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "an independent structural check, never as the sole basis for the point. Never scored before; " +
       "needs a fresh committed replay before any sign claim.",
   },
+  {
+    id: "ruleOfThree",
+    family: "scanScore",
+    source: "lib/scoring/score.ts, lib/gann/ruleOfThree.ts",
+    label: "Rule of Three (consecutive closes confirm the direction)",
+    expectedSign: "positive",
+    evidence: "unmeasured",
+    note:
+      "Added 2026-09-16 per docs/GANN_PLATFORM_AUDIT.md Part 4 item 1 and AGENTS.md's 'WD Gann " +
+      "precedence' principle — a direct request to wire Gann's own highest-conviction disclosed rule " +
+      "(`Wall Street Stock Selector`, 1930, docs/GANN_HISTORICAL_SOURCES.md A4: 'traders paid me $1,000 " +
+      "for this rule') into the live scorer immediately, overriding this codebase's normal unmeasured " +
+      "-> attribution -> in/out-of-sample discipline (PROPOSAL_NEW_GANN_CRITERIA.md) rather than " +
+      "quarantining it as a hypothesis first. No replay has ever measured it — this entry exists so " +
+      "that gap is visible, not hidden. The literal book rule is directional and asymmetric (an uptrend " +
+      "needs 3 consecutive lower closes to signal reversal; a downtrend needs only 2 consecutive higher " +
+      "closes) and is about a REVERSAL forming, not a trade's own direction generically — " +
+      "lib/gann/ruleOfThree.ts's docblock states exactly how this criterion generalizes that to 'the " +
+      "immediate closes support this trade's own direction' for both reversion and continuation setups, " +
+      "which is a broader reading than Gann's literal text. Needs a fresh committed replay before any " +
+      "sign claim, same as every other never-scored criterion above — the override applies to whether " +
+      "it scores live today, not to whether its evidence claim is settled.",
+  },
 ];
 
 /** Scored in the past, kept for the historical record. See `EvidenceStatus`. */

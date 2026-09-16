@@ -36,11 +36,15 @@ function trend(
 }
 
 /**
- * Every structural criterion passing — 8 of 9 without a pattern or levels.
- * gannAngleSlope and gannRetracementConfluence both read off `gann` alone
- * (not the computed trade `levels`), so only `patternArmed` needs an armed
- * pattern to pass — unlike the old `masterStructural` it replaced, which
- * needed `levels.masterFromStructure`.
+ * Every original structural criterion passing — 8 of 9 without a pattern or
+ * levels. gannAngleSlope and gannRetracementConfluence both read off `gann`
+ * alone (not the computed trade `levels`), so only `patternArmed` needs an
+ * armed pattern to pass — unlike the old `masterStructural` it replaced,
+ * which needed `levels.masterFromStructure`. `ruleOfThree` (added
+ * 2026-09-16) is deliberately left unsupplied in `inputs()` below — it
+ * always fails here, so every score in this file is one point lower than a
+ * literal "all ten pass" run would read; the exact numbers below already
+ * account for that.
  */
 const gann: GannLevels = {
   fanLines: [],
@@ -145,7 +149,7 @@ describe("computeScore output state", () => {
       momentumElevated: false,
       stopAtrMultiple: 0.8,
     }));
-    expect(decision.breakdown).toHaveLength(9);
+    expect(decision.breakdown).toHaveLength(10);
     expect(decision.outputState).toBe("Reject");
   });
 });

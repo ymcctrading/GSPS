@@ -79,6 +79,9 @@ export interface GannConfluenceResult {
   nearestFanLine: FanLine | null;
   timeCycleActive: boolean;
   timeCycleDates: string[];
+  /** A4's fixed annual calendar window — see `lib/gann/timeCycles.ts`'s header. */
+  timeCycleFixedCalendarActive: boolean;
+  timeCycleFixedCalendarDates: string[];
   /**
    * The active 1–9 Digital Root/Vortex context, per the "GSPS Implementation
    * Blueprint" (2026-09-08) sections 2 and 7 — `price_dr`/`time_dr` and

@@ -98,8 +98,31 @@ describe("timeCycles", () => {
   });
 
   it("reports inactive with too little daily history", () => {
-    const result = timeCycles([bar("2026-01-01", 101, 100)]);
-    expect(result).toEqual({ active: false, bullishActive: false, bearishActive: false, dates: [] });
+    // Fixed asOf, safely between fixed-calendar windows (A4), so this
+    // assertion doesn't flake near one of them (Feb/Mar/May/Jun/Aug/Sep/Nov/Dec 5th).
+    const asOf = new Date("2026-01-20T00:00:00Z");
+    const result = timeCycles([bar("2026-01-01", 101, 100)], asOf);
+    expect(result).toEqual({
+      active: false,
+      bullishActive: false,
+      bearishActive: false,
+      dates: [],
+      fixedCalendarActive: false,
+      fixedCalendarDates: [],
+    });
+  });
+
+  describe("fixed annual calendar cycle (A4)", () => {
+    it("marks the window active within windowDays of a named fixed-calendar date", () => {
+      const result = timeCycles([], new Date("2026-02-05T00:00:00Z"));
+      expect(result.fixedCalendarActive).toBe(true);
+      expect(result.fixedCalendarDates[0]).toBe("2026-02-05");
+    });
+
+    it("does not mark the window active far from any named date", () => {
+      const result = timeCycles([], new Date("2026-01-20T00:00:00Z"));
+      expect(result.fixedCalendarActive).toBe(false);
+    });
   });
 });
 
@@ -349,7 +372,7 @@ describe("computeScore", () => {
 
     expect(squared.score).toBe(notSquared.score + 1);
     expect(squared.breakdown.find((b) => b.criterion === "Price and time squared")?.passed).toBe(true);
-    expect(squared.breakdown.map((b) => b.criterion)).toHaveLength(9);
+    expect(squared.breakdown.map((b) => b.criterion)).toHaveLength(10);
     expect(squared.breakdown.some((b) => /earnings/i.test(b.criterion))).toBe(false);
   });
 

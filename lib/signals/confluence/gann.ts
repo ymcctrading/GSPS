@@ -1,9 +1,16 @@
 /**
  * Gann Confluence Layer — the addendum's "North Star" numerical/coordinate
- * context module. Wraps GSPS's existing, already-implemented public-domain
- * Gann techniques (`lib/gann/squareOf9.ts`, `lib/gann/fans.ts`,
- * `lib/gann/timeCycles.ts`) rather than inventing new numerology: the
- * addendum requires "independently designed public concepts" with
+ * context module. Wraps GSPS's existing, already-implemented Square of 9 and
+ * Gann angles (`lib/gann/squareOf9.ts`, `lib/gann/fans.ts`,
+ * `lib/gann/timeCycles.ts`) rather than inventing new numerology. These are
+ * genuinely Gann's own techniques, in his own voice, from his private paid
+ * correspondence course — never sold in any of the ten books he published for
+ * the general public — per `docs/GANN_HISTORICAL_SOURCES.md` A2.1, sourced
+ * from public-domain-accessible archives. See `docs/GANN_PLATFORM_AUDIT.md`
+ * Part 3a/5 (2026-09-16) for the finding this comment and the metadata below
+ * correct: an earlier version called this "public-domain Gann techniques,"
+ * which blurred private-course material with his publicly disclosed method.
+ * The addendum requires "independently designed public concepts" with
  * provenance metadata, and forbids inferring any personally sourced
  * numerical logic that hasn't been supplied in an authorized written
  * specification. Material Number versus Harmonic Node classification still
@@ -59,7 +66,7 @@ export const GANN_CONFLUENCE_MODULE: ConfluenceModuleMeta = {
   moduleType: "gann",
   displayName: "Structural Coordinate Confluence",
   authorizedSource:
-    "lib/gann/squareOf9.ts, lib/gann/fans.ts, lib/gann/timeCycles.ts — independently implemented public-domain structural coordinate techniques already in production use in the legacy scan scorer (lib/scanTicker.ts).",
+    "lib/gann/squareOf9.ts, lib/gann/fans.ts, lib/gann/timeCycles.ts — independently implemented structural coordinate techniques Gann personally taught in his private paid correspondence course (docs/GANN_HISTORICAL_SOURCES.md A2.1), never sold in his ten public books; already in production use in the legacy scan scorer (lib/scanTicker.ts).",
   version: "0.1.0",
 };
 
@@ -101,6 +108,8 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
       nearestFanLine: null,
       timeCycleActive: false,
       timeCycleDates: [],
+      timeCycleFixedCalendarActive: false,
+      timeCycleFixedCalendarDates: [],
       vortexContext: {
         priceDisplacement: null,
         timeDisplacement: null,
@@ -259,6 +268,8 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
     nearestFanLine: nearestFan,
     timeCycleActive: cycles.active,
     timeCycleDates: cycles.dates,
+    timeCycleFixedCalendarActive: cycles.fixedCalendarActive,
+    timeCycleFixedCalendarDates: cycles.fixedCalendarDates,
     vortexContext,
     angleSlope,
     coordinateLedger,

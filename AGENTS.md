@@ -88,6 +88,47 @@ disclosed-by-Gann-himself versus later reconstruction versus unrelated.
 `docs/GANN_METHOD_COMPLETENESS_AUDIT.md` is the implementation audit built
 from it.
 
+## WD Gann precedence — standing principle
+
+When GSPS's current implementation, a design choice, or a piece of copy
+conflicts with something W.D. Gann actually taught (his own published books,
+or his private paid-course material and letters per
+`docs/GANN_HISTORICAL_SOURCES.md`'s tiers), **default to Gann's own
+methodology**, not GSPS's existing approach. This is a direct, standing
+instruction from the project owner (2026-09-16), not a case-by-case
+judgment call: where a real choice exists between "what GSPS currently
+does" and "what Gann's own sources say," the sources win.
+
+This does not mean bypassing engineering judgment about *how* to translate
+a disclosed rule into working code, and it does not mean porting a raw
+historical number (a 1930s dollar/cents figure, a commodity-specific unit)
+across asset class and era without saying so — see `lib/strat/levels.ts`'s
+`combineNearbyLevels` for a worked example of implementing the disclosed
+*rule* while declining to port its literal magnitude, documented inline for
+exactly this reason. It does mean: when a Gann-derived candidate is ready to
+build, build it live rather than leaving it queued behind a validation
+process that would otherwise gate it indefinitely, and document the change
+in place (what changed, when, and why) so a future reader — human or
+another session — can see the decision rather than archaeology it from a
+diff. `docs/GANN_PLATFORM_AUDIT.md`'s Part 4 items, wired in live on
+2026-09-16 (a new tenth scored criterion, `ruleOfThree`; the "3-point rule"
+buffer in `lib/lifecycle/entryConfirmation.ts`; the "resistance points near
+same levels" clustering in `lib/strat/levels.ts`; the fixed annual calendar
+cycle in `lib/gann/timeCycles.ts`), are the standing worked example of this
+principle in practice — each carries an inline comment pointing back here
+and to that document's Part 4.
+
+This principle does not override AGENTS.md's other explicit, user-directed
+overrides above and below (the 1Hour execution timeframe, the Execute-
+collapse weight stopgap) — those have their own stated reasons and revert
+triggers and are not "GSPS's current approach vs. Gann" conflicts in the
+sense this section addresses. It also does not license inventing Gann lore
+that no source actually documents — `GANN_SARA_CONFLUENCE.md`'s "no new
+numerology without an authorized specification" rule still holds; this
+section is about *disclosed* Gann material losing out to GSPS's own
+un-Gann-derived design choices, not about license to guess at what Gann
+"would have wanted."
+
 ## Temporary overrides — mandatory, check on every session
 
 These are explicit, user-directed departures from the protocol's real design, made for a stated

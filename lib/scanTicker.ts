@@ -32,6 +32,7 @@ import { computeAngleSlopes } from "@/lib/gann/normalizedSlope";
 import { computeRetracementLevels } from "@/lib/gann/retracement";
 import { priceTimeConfluence } from "@/lib/gann/digitalRoot";
 import { computeSwingChart } from "@/lib/gann/swingChart";
+import { computeRuleOfThree } from "@/lib/gann/ruleOfThree";
 import { computeTimePriceSquare } from "@/lib/gann/timePriceSquare";
 import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
 import { adx } from "@/lib/signals/indicators";
@@ -145,6 +146,8 @@ export async function scanTicker(
     // macroTrend agreement check — same daily bars, a different (reversal-
     // count) construction. See lib/gann/swingChart.ts.
     const swingChart = computeSwingChart(daily);
+    // Gann's Rule of Three, added 2026-09-16 — see lib/gann/ruleOfThree.ts.
+    const ruleOfThree = computeRuleOfThree(daily);
 
     // ---- Level 2: 1hr refinement
     const hourlyTrend = readTrend(hourly, "1Hour");
@@ -191,6 +194,8 @@ export async function scanTicker(
       timeCycleBullishActive: cycles.bullishActive,
       timeCycleBearishActive: cycles.bearishActive,
       timeCycleDates: cycles.dates,
+      timeCycleFixedCalendarActive: cycles.fixedCalendarActive,
+      timeCycleFixedCalendarDates: cycles.fixedCalendarDates,
       angleSlopes,
       retracementLevels: retracementLevels.slice(0, 7).map(({ fraction, label, price, distancePct, role }) => ({
         fraction,
@@ -344,6 +349,7 @@ export async function scanTicker(
           hourlyTrend,
           hourlyAdx,
           swingChart,
+          ruleOfThree,
           timePriceSquare,
           volumeClimax,
           gann,

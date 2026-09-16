@@ -70,6 +70,8 @@ describe("ConfluenceCard", () => {
           nearestFanLine: null,
           timeCycleActive: false,
           timeCycleDates: [],
+          timeCycleFixedCalendarActive: false,
+          timeCycleFixedCalendarDates: [],
           vortexContext: {
             priceDisplacement: {
               rawValue: 25,
