@@ -102,6 +102,22 @@ specific §5 items are no longer open, but the tables themselves need their
 own refresh against the merged code — out of scope for this correction
 pass, flagged rather than left silently stale.
 
+**Fourth update (2026-09-16, same day):** the "real, citable, entirely
+unbuilt" candidates named in the third update above are unbuilt no longer.
+`lib/gann/masterTwelve.ts` (Square of 144), `lib/gann/squareOf20.ts`,
+`lib/gann/squareOf52.ts`, `lib/gann/hexagonChart.ts`, and
+`lib/gann/angleMonthCounts.ts` (the 36 angle-derived month-count half of
+the Master Time Factor material) now exist, each with a
+`lib/gann/__tests__/` file reproducing the source's own worked historical
+examples as passing assertions — see §5 items 13 and 15 below for the
+per-module detail. All five are confluence/display or internal-research
+use only: none reach `GannConfluenceResult`, the public scan confluence
+card, or any `app/api/*` scan route, and none are scored or gated in
+`lib/scoring/`, per AGENTS.md's explicit instruction for this class of
+material. The broader 60/50/30/20/15/10/7/5/3/2/1-year Master Time Factor
+cycle hierarchy and `lib/gann/decadeDigitCycle.ts` (item 14) remain open —
+out of this pass's scope, not forgotten.
+
 ## 1. The Gann method, in plain English
 
 Strip away the mystique and the disclosed material (1909, 1923) describes
@@ -166,9 +182,11 @@ founding, rather than a price); and the **Square of 52** (a weekly
 time-period calculator, 7-day weeks, its own eighths/thirds/halves
 fraction table). All three are **absent from every public book, disclosed
 by Gann himself, never sold publicly** — the identical evidentiary tier as
-Square of 9 and Gann angles, not a lesser or different one. None have any
-code presence in GSPS today (`lib/gann/squareOf9.ts` implements only the
-base-9 construction).
+Square of 9 and Gann angles, not a lesser or different one. **Built
+2026-09-16** (`lib/gann/masterTwelve.ts`, `lib/gann/squareOf20.ts`,
+`lib/gann/squareOf52.ts`; `lib/gann/hexagonChart.ts` for the Hexagon Chart
+mentioned above), confluence/display or internal-research use only — see
+§5 item 15.
 
 **Layer 3 — Timing (the part Gann kept secret in every one of his ten
 books — outer shell now substantially thicker).** Gann insisted price and
@@ -565,17 +583,25 @@ tuned scoring," except where flagged otherwise.
     `GANN_HISTORICAL_SOURCES.md` A2.1 for full detail. This closes what had
     been the single largest remaining gap in the whole 25-document catalog
     and surfaces items 13–15 below.
-13. **New candidate: `lib/gann/masterTimeFactor.ts`** (A2.1 Ch. 7, the
-    newly-read "Master Time Factor and Forecasting by Mathematical Rules"
-    chapter) — the full 60/50/30/20/15/10/7/5/3/2/1-year cycle hierarchy
-    with its eight numbered forecasting rules, plus the 36 angle-derived
-    month-count system demonstrated against a complete worked 1896–1935
-    DJIA case study. This is the fullest disclosed statement of "the
+13. **`lib/gann/angleMonthCounts.ts` — built 2026-09-16, confluence/display
+    only, never scored.** Covers the 36 angle-derived month-count half of
+    A2.1 Ch. 7's disclosed material: the 11.25°-step/32-way division of
+    360°, read as month-counts from a major swing, Gann's 12 "very
+    important" starred angles surfaced with their own `starred` field and
+    used as the default projection set. Its unit tests reproduce the exact
+    calendar-month arithmetic behind the 1896-1935 DJIA case study's two
+    round numbers (Aug 1896 → Nov 1907 = 135 months; a 1909 top → Sept
+    1929 = 240 months). **Still open**: the broader
+    60/50/30/20/15/10/7/5/3/2/1-year cycle hierarchy with its eight
+    numbered forecasting rules — a separate, larger construction from the
+    same chapter, not built this session (would still warrant its own
+    `lib/gann/masterTimeFactor.ts`, or a rename of this module if scope is
+    merged later). This is the fullest disclosed statement of "the
     withheld timing mechanism"'s outer shell found in this whole catalog —
     date/angle arithmetic against known pivots, no new statistical
-    machinery, comparably cheap to build as item 9's fixed annual calendar
-    cycle. Should supersede, not sit beside, `lib/gann/timeCycles.ts`'s
-    existing narrower 45/90/120/180/270/360-day wheel once built.
+    machinery. Should supersede, not sit beside, `lib/gann/timeCycles.ts`'s
+    existing narrower 45/90/120/180/270/360-day wheel, if/when the
+    cycle-hierarchy half is also built.
 14. **New candidate: `lib/gann/decadeDigitCycle.ts`** (A2.1 Ch. 7) — the
     bull/bear decade-digit cycle, upgraded this session from the
     unverifiable secondary source B9 to Gann's own private-course voice.
@@ -585,17 +611,34 @@ tuned scoring," except where flagged otherwise.
     now qualifies for the same "citably Gann's own" treatment item 9's four
     candidates already received — comparably cheap to build (a
     calendar-year-digit lookup, no pivot detection).
-15. **New candidates: `lib/gann/squareOf144.ts`, `squareOf20.ts`,
-    `squareOf52.ts`, `hexagonChart.ts`** (A2.1 Ch. 13/7/14/15B) — four
-    private-course geometric constructions, same disclosure tier as Square
-    of 9/Gann angles (§4), fully specified for the first time this session
-    and with zero code presence anywhere in `lib/gann/` today. Heavier to
-    build than items 13–14 (new spiral/grid generation, not date
-    arithmetic) but `squareOf144.ts` can reuse `squareOf9.ts`'s existing
-    spiral logic given the two are now confirmed mathematically nested.
-    The Hexagon Chart in particular is worth prioritizing within this group
-    for Layer 4 Confluence specifically: Gann's own text cross-validates it
-    against the Square of Nine and Master Twelve in the same passage,
-    naming the same number on all three — a primary-source precedent for
-    `lib/signals/confluence/gann.ts`'s whole multi-coordinate design, not
-    just an analogous modern idea.
+15. **`lib/gann/masterTwelve.ts` (Square of 144), `squareOf20.ts`,
+    `squareOf52.ts`, `hexagonChart.ts`** (A2.1 Ch. 13/7/14/15B) — built
+    2026-09-16, all four confluence/display or internal-research use only,
+    never wired into `GannConfluenceResult`/`components/scan/confluence-
+    card.tsx`/any `app/api/*` scan route, never scored or gated in
+    `lib/scoring/`. `masterTwelve.ts` generalizes `squareOf9.ts`'s spiral
+    formula to base 12 and encodes the two systems' confirmed nesting
+    (`HALVING_CHAIN` from the 20,736 Great Cycle down to 81 = 9² = the
+    Square of Nine's own grid) plus the wheat 1852/325/44¢ worked example
+    (281 months reproduced exactly as high-minus-low; 288 carried as
+    Gann's stated bound, its own derivation not spelled out in the
+    retrieved text — documented as an open gap, not force-fit). `hexagonChart.ts`
+    implements the centered-hexagonal-number sequence (1, 7, 19, 37, ...,
+    397) and the 169 = 14y1m = double-the-7-year-cycle claim as a real,
+    passing arithmetic test; the Hexagon/Square-of-Nine/Master-Twelve
+    cross-validation example (the number 66) is carried as a documented
+    citation rather than an independently re-derived geometric proof, since
+    the source's own chapter illustrations are lost to this text-only
+    extraction (`GANN_HISTORICAL_SOURCES.md` A2.1 says so explicitly).
+    `squareOf20.ts` reproduces the two disclosed date/cell facts exactly
+    (1929 and 1932 are 137 and 140 years after the NYSE's 1792 founding)
+    but, for the same lost-illustration reason, does not claim to
+    reproduce the original wheel's exact "45°"/"7th zone" graphical
+    placement — its own header documents this limitation rather than
+    asserting an unverifiable match. `squareOf52.ts` implements the
+    disclosed 52-week fraction table (1/2 = 26wk "most important", 3/4 =
+    39wk "very important", etc.) as its own fixed table; its header
+    documents why this wasn't folded into `retracement.ts`'s existing
+    price-domain eighths table (different anchor convention, different
+    disclosed fraction set — a real exception, not an oversight, per
+    AGENTS.md's cross-platform consistency principle).

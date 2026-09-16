@@ -71,9 +71,12 @@ concretely:
   (`clusterLevels`, shared by the whole Signal & Regime Engine — deferred
   given its blast radius beyond Gann-specific code), the refined
   percentage-resistance hierarchy, Anniversary Dates' A9 refinement, Gann
-  angles as a time projection, Fourier/dominant-cycle decomposition, and
-  the Master Square of Twelve/Hexagon Chart (A2.1's own chapter on it is
-  still unread). These remain open per Part 4 below.
+  angles as a time projection, and Fourier/dominant-cycle decomposition.
+  These remain open per Part 4 below. **Update (same day, later pass):**
+  the Master Square of Twelve/Hexagon Chart item above is stale — A2.1's
+  remaining chapters were read later the same day and all four Master
+  constructions plus the 36-angle month-count system were built; see Part
+  4 item 8/12 below for the current, accurate state.
 
 All ten previous `npm test`/typecheck/lint runs pass with these changes
 (1645 tests, 162 files, 0 new lint warnings) — see the commit history for
@@ -463,30 +466,49 @@ only.
    "label it honestly" requirement applies as to Square of 9/angles
    generally.
 8. **Master Square of Twelve/144, the Hexagon Chart, and two more newly-
-   catalogued constructions — promoted from research-todo to build
-   candidate, 2026-09-16.** A2.1's remaining chapters are now read (item 11
-   below, done), so the caveat that previously blocked this item no longer
-   applies. Four private-course constructions, all **PRIVATE-GANN**, all
-   with **zero code presence anywhere in `lib/gann/`**:
-   - **Square of 144 (Master Twelve)**, fully specified: not just a second
-     geometric framework alongside the Square of Nine, but literally nested
-     inside it (144 = nine full spiral cycles of the 81-number Square of
-     Nine), with its own explicit "Master Numbers" (3, 5, 7, 9, 12)
-     numerology and a full fractional structure worked against a real
-     wheat-commodity example.
-   - **The Hexagon Chart**, fully specified: a hexagonal (not square-root)
-     spiral, cross-validated by Gann himself against the Square of Nine and
-     Master Twelve in the same passage — a primary-source precedent for
-     `lib/signals/confluence/gann.ts`'s multi-coordinate design specifically,
-     making this the highest-priority of the four for Layer 4/Confluence
-     purposes, not just a fourth isolated coordinate.
-   - **Square of 20 (NYSE Permanent Chart)** and **Square of 52** (weekly
-     time-period calculator) — two constructions newly catalogued this
-     session, not previously known to exist as distinct systems.
-   All four need the same unmeasured → attribution → in/out-of-sample
-   discipline as any other candidate before touching a live verdict; `git
-   log`/`lib/gann/` confirms none have landed on any branch as of this
-   writing.
+   catalogued constructions — built 2026-09-16, internal/research use only.**
+   A2.1's remaining chapters are now read (item 11 below, done). All four
+   private-course constructions, **PRIVATE-GANN**, now have code:
+   `lib/gann/masterTwelve.ts` (Square of 144), `lib/gann/hexagonChart.ts`,
+   `lib/gann/squareOf20.ts`, and `lib/gann/squareOf52.ts` — plus a related
+   fifth module, `lib/gann/angleMonthCounts.ts`, for the Chapter 7 36-angle
+   month-count timing rule this item's original scope didn't separately
+   list. Each has a unit test file under `lib/gann/__tests__/` reproducing
+   the source's own worked historical examples as real assertions (the
+   wheat 1852/325/44 → 281-288 month window, the 20,736→...→81 = 9² Great
+   Cycle halving chain, the 1929/1932 → 137/140-years-from-1792 NYSE dates,
+   the 169 = 14y1m = double-7-year-cycle Hexagon claim, and the
+   1896-1935 DJIA case study's 135/240-month arithmetic).
+   - **Square of 144 (Master Twelve)** (`lib/gann/masterTwelve.ts`): not
+     just a second geometric framework alongside the Square of Nine, but
+     literally nested inside it (144 = nine full spiral cycles of the
+     81-number Square of Nine), with its own explicit "Master Numbers"
+     (3, 5, 7, 9, 12) numerology and a full fractional structure worked
+     against a real wheat-commodity example.
+   - **The Hexagon Chart** (`lib/gann/hexagonChart.ts`): a hexagonal (not
+     square-root) spiral, cross-validated by Gann himself against the
+     Square of Nine and Master Twelve in the same passage — a
+     primary-source precedent for `lib/signals/confluence/gann.ts`'s
+     multi-coordinate design specifically. That cross-construction example
+     (the number 66) is carried as documented citation data, not an
+     independently re-derived geometric proof — the original chart image is
+     lost to this text-only extraction, so the module says so rather than
+     forcing a match.
+   - **Square of 20 (NYSE Permanent Chart)** (`lib/gann/squareOf20.ts`) and
+     **Square of 52** (`lib/gann/squareOf52.ts`, weekly time-period
+     calculator) — two constructions newly catalogued this session, not
+     previously known to exist as distinct systems. Square of 52's own
+     eighths/thirds fraction table was evaluated against
+     `lib/gann/retracement.ts`'s existing price-domain eighths table and
+     kept separate (documented in the module header): different anchor
+     convention (fixed 52-week constant vs. a dynamic swing range) and a
+     different disclosed fraction set (adds thirds).
+   All five are wired for **confluence/display or internal-research use
+   only** — none are added to `GannConfluenceResult`,
+   `components/scan/confluence-card.tsx`, or any `app/api/*` route a scan
+   request reaches, and none are scored or gated in `lib/scoring/`. They
+   still need the same unmeasured → attribution → in/out-of-sample
+   discipline as any other candidate before ever touching a live verdict.
 9. **Evaluate Fourier/dominant-cycle decomposition** (A3, PUBLIC —
    Gann names "cycle theory, or harmonic analysis" directly in his own
    voice; B1 demonstrates it correctly) as a new candidate criterion — the
@@ -511,18 +533,27 @@ only.
     still fairly tagged RECONSTRUCTION for what GSPS actually built, but no
     longer the only literal price/time-squaring mechanism on file — see
     that table entry's revised note.
-12. **New: `lib/gann/masterTimeFactor.ts`** (A2.1 Ch. 7, PRIVATE-GANN) —
-    the full 60/50/30/20/15/10/7/5/3/2/1-year cycle hierarchy with eight
-    numbered forecasting rules, plus the 36 angle-derived month-count
-    system demonstrated against a complete worked 1896–1935 DJIA case
-    study. **Scope beyond scoring**: this is the fullest disclosed
-    statement of Layer 3's withheld-mechanism shell in the whole catalog —
-    date/angle arithmetic against known pivots, no new statistical
-    machinery, comparably cheap to item 4's annual calendar cycle. Should
-    supersede, not sit beside, `lib/gann/timeCycles.ts`'s existing narrower
-    45/90/120/180/270/360-day wheel once built; also a natural input to
-    `lib/backtest/attribution.ts` as a factor independent of
-    `timePriceSquare`.
+12. **`lib/gann/angleMonthCounts.ts` — the 36 angle-derived month-count
+    system, built 2026-09-16, confluence/display only.** The
+    11.25°-step/1-32 division of 360°, read as month-counts from a major
+    swing, with Gann's own 12 "very important" starred angles surfaced
+    distinctly and used as the default projection set; the module's own
+    header documents the source's title/content mismatch ("36 geometric
+    angles" heading vs. an actual 32-way division list) rather than forcing
+    a count of 36. Its unit tests reproduce the exact calendar-month
+    arithmetic behind the 1896-1935 DJIA case study's two round numbers
+    (Aug 1896 → Nov 1907 = 135 months; a 1909 top → Sept 1929 = 240 months).
+    **Still open, out of this pass's scope**: `lib/gann/masterTimeFactor.ts`
+    for the broader 60/50/30/20/15/10/7/5/3/2/1-year cycle hierarchy and its
+    eight numbered forecasting rules — a separate, larger construction from
+    the same chapter that this session did not build. **Scope beyond
+    scoring** once it exists: the fullest disclosed statement of Layer 3's
+    withheld-mechanism shell in the whole catalog — date/angle arithmetic
+    against known pivots, no new statistical machinery, comparably cheap to
+    item 4's annual calendar cycle. Should supersede, not sit beside,
+    `lib/gann/timeCycles.ts`'s existing narrower 45/90/120/180/270/360-day
+    wheel once built; also a natural input to `lib/backtest/attribution.ts`
+    as a factor independent of `timePriceSquare`.
 13. **New: `lib/gann/decadeDigitCycle.ts`** (A2.1 Ch. 7, PRIVATE-GANN,
     reclassified this session) — the bull/bear decade-digit cycle,
     upgraded from the unverifiable secondary source B9 to Gann's own
