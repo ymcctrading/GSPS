@@ -45,6 +45,7 @@ vi.mock("@/lib/brokers/simulator", () => ({
   assetClassOf: () => "us_equity",
   getOrCreateAccount: vi.fn().mockResolvedValue({ cash: 100_000 }),
   getOpenPosition: vi.fn().mockResolvedValue(null),
+  listOpenPositions: vi.fn().mockResolvedValue([]),
   quotePrice: vi.fn().mockResolvedValue(100.5),
   quoteOptionPrice: vi.fn(),
   executeFill: vi.fn().mockResolvedValue({ price: 100.5, qty: 10, positionId: "pos-1", closed: null }),
@@ -349,7 +350,15 @@ describe("Automated Portfolio Manager — real end-to-end pipeline (paper)", () 
     const { client, plans, automationProfiles, orders } = fakeSupabase({
       user_id: "user-1",
       is_automation_enabled: true,
-      risk_profile: "MODERATE",
+      // PASSIVE (0.5% of equity), not MODERATE (1%): at this fixture's $100
+      // entry / $3 stop, MODERATE's 1% sizing would put ~33% of paper equity
+      // into a single position — over lib/risk/config.ts's
+      // MAX_SINGLE_POSITION_ALLOCATION_PCT (25%), which lib/trade/place-
+      // order.ts now enforces (checkPositionLimits, wired 2026-09-17
+      // orphan-module audit). PASSIVE sizes to ~16.6%, comfortably under the
+      // ceiling, without changing what this test is actually checking (the
+      // pipeline reaches a filled order), so no other fixture value moves.
+      risk_profile: "PASSIVE",
       directional_bias: "BOTH",
       volatility_trigger_type: "DOLLAR_AMOUNT",
       volatility_trigger_value: 1, // this plan's $3 entry-to-stop distance clears it

@@ -414,6 +414,110 @@ sharpens the question for the scored one, since it establishes there is no
 Gann source behind the taxonomy at all. Do not read "Sara's candle counting
 is kept" as "STRAT is settled."
 
+**Worked example: eight-item orphan-module audit (2026-09-17, project owner
+direction).** A platform-wide sweep for modules that exist but never reach
+production. Two of the eight named items turned out, on re-verification, to
+already be fully wired — the standing lesson (generalize, don't just record
+the two instances): *always re-verify a "no consumer" claim against the
+actual current `main`, not against a stale checkout or an earlier session's
+notes* — `lib/rate-limit.ts#checkRateLimit` is called from `proxy.ts` (this
+fictional Next version's renamed middleware entry point, `export const
+config = { matcher: ... }`), and `lib/validation/health.ts#MIN_SIGNIFICANCE_T`/
+`correlationSignificance` are called from `checkSign`, itself called by
+`auditCriteria`, wired into `lib/backtest/run.ts` and
+`app/api/learning/propose-weights/route.ts`. Full verdicts:
+
+1. **`lib/risk/position-limits.ts#checkPositionLimits`** — REQUIRED AND
+   ALIGNED, genuinely orphaned, now wired. Gann-grounded:
+   `docs/GANN_HISTORICAL_SOURCES.md`'s risk/money-management row (A2, A4,
+   A5, A6, A8; the 10%-of-capital ceiling independently in A3/A5) already
+   lists `lib/risk/*` as the disclosed rule "differently structured: % of
+   account/multi-ceiling, not Gann's dollar/point tiers" — the same
+   literal-magnitude carve-out `lib/strat/levels.ts#combineNearbyLevels`
+   documents. The function enforces exactly that structure (single-position/
+   aggregate/open-risk/correlated-group ceilings from `lib/risk/config.ts`)
+   but had never been called from the one place a real order gets placed
+   (`lib/trade/place-order.ts#placeSimulatedOrder`) — a Novice paper account
+   had no live enforcement of any of the four ceilings before this. Wired
+   there, before pricing, skipped only for a protective (risk-reducing)
+   order. Correlated-group membership uses same-symbol as a documented,
+   conservative proxy — no sector/instrument-correlation table exists
+   anywhere in this codebase to do better, and that gap is called out
+   inline rather than silently assumed away.
+2. **`lib/rate-limit.ts#checkRateLimit`** — already wired (`proxy.ts`). Not
+   an orphan; no action taken.
+3. **`lib/validation/health.ts#MIN_SIGNIFICANCE_T`/`correlationSignificance`**
+   — already wired (see above). Not an orphan; no action taken.
+4. **`lib/risk/cooldown.ts`** — REQUIRED AND ALIGNED, but not a "superseded
+   duplicate" as originally suspected: re-verification found the live
+   circuit-breaker call site (`lib/trade/place-order.ts`'s live-order path)
+   checked `gate.decision.newEntriesAllowed` directly, which would have
+   **blocked a protective stop-loss/take-profit/close order during an
+   active cooldown or lock** — contradicting the disclosed spec rule this
+   file's own comments already claimed was true ("the account-wide circuit
+   breaker never blocks a close"). `cooldown.ts`'s
+   `ALWAYS_PERMITTED_ACTIONS`/`gateAction` exist specifically to encode that
+   rule and had no caller anywhere, so nothing enforced it at the one
+   live-relevant site. Fixed by splitting `gateAction` into
+   `gateResolvedAction` (takes an already-resolved `CircuitDecision`, so the
+   live call site doesn't have to re-resolve circuit state a second,
+   potentially inconsistent way) and wiring that into
+   `placeLiveOrder`. `validateResetChecklist`/`requiresResetChecklist`
+   remain unwired — the reset-checklist submission flow needs real UI/API
+   work this pass did not build, and is flagged here explicitly rather than
+   silently left; a future session should not treat `cooldown.ts` as
+   "handled" until that lands too.
+5. **`lib/signals/confluence/registry.ts#CONFLUENCE_MODULES`** — REQUIRED
+   AND ALIGNED, wired: it is now read by
+   `lib/signals/confluence/__tests__/registry-db-alignment.test.ts`, which
+   is also the fix for item 8's `strategy_modules` drift claim — see there.
+   Not a standalone item; the same fix closes both.
+6. **`lib/backtest/replaySignals.ts#replaySignalEngine`** — REQUIRED AND
+   ALIGNED (infrastructure: an existing, tested evidence-gathering tool for
+   the Signal & Regime Engine, parallel to `lib/backtest/replay.ts`'s
+   already-wired walk-forward over the Gann/STRAT score — the exact
+   "built once and left stranded" shape the cross-platform-consistency
+   principle above names). Wired into `GET /api/backtest` as
+   `?engine=signal`, reusing `lib/backtest/run.ts`'s existing daily-bar
+   fetch (`fetchSeries`, now exported) rather than a second data path.
+7. **`lib/gann/squareOf20.ts`/`hexagonChart.ts`** — re-verified, exception
+   upheld, no code change. `docs/GANN_METHODOLOGY_FULL_REPORT.md` (§3.6,
+   the source-tier table) states plainly that "illustrations for every
+   chapter remain lost" even after the fuller A2.1 extraction pass that
+   fully specified these two constructions' *numeric* content — so the
+   specific blocker (`ringAndAngleOf`'s ring/angle placement can't be
+   checked against Gann's lost hand-drawn wheel) has not changed since the
+   2026-09-16 exception was recorded, and nothing in either source document
+   supports reconstructing it from text alone. Do not re-litigate this
+   without new source material.
+8. **Migration 0048's `strategy_modules`/`gann_evaluations`/`sara_evaluations`**
+   — split verdict. `strategy_modules`: REQUIRED AND ALIGNED, kept — has a
+   real (if thin) purpose, module identity queryable independent of a
+   deploy — but its "can never drift" claim was, until this audit, an
+   unenforced comment (migration 0065 already had to hand-correct one real
+   drift). `lib/signals/confluence/__tests__/registry-db-alignment.test.ts`
+   now parses the seed literals straight out of 0048's insert and 0065's
+   updates and fails CI if they disagree with `CONFLUENCE_MODULES`,
+   `moduleType`, or `lib/signals/confluence/flags.ts`'s per-market
+   enablement — the first real consumer either side of that claim has ever
+   had. `gann_evaluations`/`sara_evaluations` (plus the six now-unused
+   `trade_plans` reference columns 0048 added): NOT REQUIRED — dropped, in
+   `0066_drop_unwired_confluence_evaluation_audit_trail.sql` (not applied to
+   any live database by this session — see PR notes). Zero rows were ever
+   written in the three-plus weeks since 0048 shipped; 0048's own comment
+   already called the write path "unscheduled follow-up work," and
+   migration 0065's header reconfirmed the gap was still open. The
+   "versioned and reconstructible from stored inputs" requirement
+   (`docs/GANN_SARA_CONFLUENCE.md`'s acceptance table) is already met
+   in-process by `ConfluenceEvidence.explanationTrace`, attached to
+   `ScanResult.signals` on every scan — persisting a second, never-written
+   copy was never load-bearing for anything that requirement actually
+   needed. If a real requirement for a persisted per-scan audit trail shows
+   up later, re-derive the schema against that concrete requirement rather
+   than reviving 0048's tables verbatim; speccing the schema before any
+   consumer existed is what let it sit unwired in the first place.
+
+
 ## Gann-derived AND measured — standing principle
 
 Every scored criterion must clear two independent gates. Neither substitutes

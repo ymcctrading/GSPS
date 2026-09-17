@@ -22,10 +22,11 @@
  * verdict reflects that.
  */
 
-import type { Bar } from "@/lib/types";
+import type { Bar, Timeframe } from "@/lib/types";
 import { classifyRegime } from "@/lib/signals/regime";
 import { evaluateTrendPullback } from "@/lib/signals/states/trendPullback";
 import type { Regime, RulesAlignmentTier, SignalGates } from "@/lib/signals/types";
+import { fetchSeries } from "@/lib/backtest/run";
 
 const ALL_GATES_PASS: SignalGates = {
   eligibleUniverse: true,
@@ -99,4 +100,59 @@ export function replaySignalEngine(symbol: string, dailyBars: Bar[]): SignalRepl
   }
 
   return { symbol, barsEvaluated: dailyBars.length, events, tierCounts, tradeableCount };
+}
+
+export interface SignalReplayUniverseResult {
+  results: SignalReplayResult[];
+  skipped: Array<{ symbol: string; reason: string }>;
+  aggregateTierCounts: Record<RulesAlignmentTier, number>;
+  aggregateTradeableCount: number;
+  aggregateEventCount: number;
+}
+
+/**
+ * Fetches daily bars for each symbol and runs `replaySignalEngine` over each
+ * — the wiring `replaySignalEngine` had none of before this (2026-09-17
+ * orphan-module audit): the function existed, was tested, and had no caller
+ * anywhere in the codebase. Reuses `lib/backtest/run.ts`'s own daily-bar
+ * fetch (`fetchSeries`) rather than a second data-fetch path, same source
+ * `lib/backtest/replay.ts`'s walk-forward already reads its `dailyBars` from.
+ */
+export async function replaySignalEngineForUniverse(
+  symbols: string[],
+  timeframe: Timeframe,
+): Promise<SignalReplayUniverseResult> {
+  const results: SignalReplayResult[] = [];
+  const skipped: Array<{ symbol: string; reason: string }> = [];
+
+  for (const symbol of symbols) {
+    try {
+      const { daily } = await fetchSeries(symbol, timeframe);
+      if (daily.length === 0) {
+        skipped.push({ symbol, reason: "no daily bars returned" });
+        continue;
+      }
+      results.push(replaySignalEngine(symbol, daily));
+    } catch (err) {
+      skipped.push({ symbol, reason: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
+  const aggregateTierCounts: Record<RulesAlignmentTier, number> = {
+    watchlistOnly: 0,
+    qualified: 0,
+    aTier: 0,
+    aPlusTier: 0,
+  };
+  let aggregateTradeableCount = 0;
+  let aggregateEventCount = 0;
+  for (const r of results) {
+    for (const tier of Object.keys(aggregateTierCounts) as RulesAlignmentTier[]) {
+      aggregateTierCounts[tier] += r.tierCounts[tier];
+    }
+    aggregateTradeableCount += r.tradeableCount;
+    aggregateEventCount += r.events.length;
+  }
+
+  return { results, skipped, aggregateTierCounts, aggregateTradeableCount, aggregateEventCount };
 }
