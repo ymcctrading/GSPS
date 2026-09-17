@@ -200,11 +200,14 @@ future session should re-check rather than trust it:
   `lib/signals/confluence/sara.ts` (**investigated and deliberately kept** —
   see "Audit outcomes" below, which also records why the keep does not
   settle `patternArmed`).
-- **Wilder's ADX/DMI** (`lib/signals/indicators.ts#adx`) — fed
-  `adxTrendStrength`. **Resolved 2026-09-16: discarded** — see "Audit
-  outcomes" below. The `adx()` function itself stays: `lib/signals/regime.ts`
-  and `lib/signals/states/rangeReversion.ts` are separate consumers asking a
-  different question, and were not part of that decision.
+- **Wilder's ADX/DMI** (`lib/signals/indicators.ts#adx`) — **fully resolved
+  2026-09-17.** The scored criterion was discarded 2026-09-16 (see "Audit
+  outcomes"); the two remaining consumers, `lib/signals/regime.ts` and
+  `lib/signals/states/rangeReversion.ts`, were then replaced by
+  `lib/gann/trendStrength.ts`. The "different governing spec" carve-out that
+  kept them was a stay of execution, not an acquittal — the question they ask
+  ("is this trending or ranging") is one Gann's own swing charts answer. No
+  caller of `adx()` remains.
 - **PSAR/Supertrend** — narrower than it first appears, so scope the work to
   what is actually there. Nothing in this codebase *computes* either one.
   `lib/signals/regime.ts` accepts an optional `trendOverlayFlips` count and
@@ -351,6 +354,42 @@ Check that boundary rather than the indicator list.
 "display only is not an exemption" rule above as overriding this — that rule
 says display is not exempt *by category*, which is exactly why this exception
 had to be examined and written down rather than assumed. It was, and it is.
+
+**ADX's last two consumers replaced by Gann's swing structure (2026-09-17).**
+`lib/gann/trendStrength.ts` now answers "is this market trending, and which
+way" for the regime engine and the range states. The **9-day** chart gives the
+direction; the trend is confirmed only when the **3-day** chart's swings are
+stepping that way — rising tops AND rising bottoms for a bullish read, falling
+for a bearish one. `isGannRangeBound` is defined as the exact negation, so a
+market can no longer be judged trending and ranging at once (the old
+arrangement had two independently-tuned thresholds on one ADX scale with no
+guarantee they partitioned it).
+
+**Two wrong answers were built first, and both are worth knowing because each
+looks right in the abstract:**
+
+- **Requiring the 3-day and 9-day charts to agree.** This is what the scored
+  `swingChartTrend` criterion does, so it looks like the consistent choice. It
+  makes a trend unreachable during any pullback — the 3-day chart flips on
+  three closes against the swing, which is what a pullback *is* — and
+  `lib/signals/states/trendPullback.ts` exists precisely to evaluate a market
+  in one. The two charts answer different questions: the scored criterion asks
+  "confirmed at two granularities", the regime engine asks "what is the
+  prevailing trend", and that is the 9-day chart's job alone.
+- **Counting 9-day reversals as a churn proxy.** A tight oscillation rarely
+  strings nine closes together, so it completes almost no swings and scores as
+  *low* churn — reading a textbook range as a strong trend. Frequency measures
+  how often the chart flips, not whether price is getting anywhere.
+
+The existing regime and state tests caught both without being modified, which
+is the argument for fixing the rule rather than the fixtures. Dedicated
+coverage is in `lib/gann/__tests__/trendStrength.test.ts`, including a
+pulling-back-but-still-trending case that fails under the first wrong answer.
+
+Two constants there are **engineering choices, labelled as such** rather than
+dressed up as sourced: which chart supplies the structure pivots, and the
+strictness of the rising/falling comparison. Gann gives the chart
+construction, not a lookback or tolerance for reading it.
 
 **Entry pricing moved off STRAT onto Gann's own rule (2026-09-17, project-owner
 direction) — the largest single Gann-grounding change to date, and the one a
