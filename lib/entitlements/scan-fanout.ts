@@ -148,6 +148,7 @@ export async function evaluateMonitorsAndNotify(
         candidateState: setup.value.decision.outputState === "Execute" ? "EXECUTE" : "WATCH",
         evaluationId: args.scanExecutionId,
         maxActiveWatchMonitors: args.maxActiveWatchMonitors,
+        score: setup.value.decision.score,
       });
       if (result.outcome === "applied" && result.notify && result.transitionId) {
         notifyWorthy.push({ transitionId: result.transitionId, setup });

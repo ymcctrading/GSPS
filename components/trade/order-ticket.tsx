@@ -61,20 +61,23 @@ export function OrderTicket({
   const { levels, pattern, symbol } = result;
   const currentPrice = livePrice ?? (result.currentPrice > 0 ? result.currentPrice : null);
 
-  const hasProtocolSignal = !!(levels && pattern);
-  // Since 2026-09-17 the trade plan's entry/stop/TP1/master (`levels`) are
-  // built from the Gann swing-crossing trigger's own direction
-  // (`result.direction` — see scanTicker.ts's `gannTrigger`/`entrySource`),
-  // not from the STRAT bar-sequence pattern's direction. `pattern` keeps its
-  // separate display/confluence role and can legitimately read the opposite
-  // side for an ambiguous shape like a two-sided (3-2-2) reversal. Reading
-  // `signalSide` off `pattern.direction` let the ticket highlight "Buy/Long"
-  // for levels that were actually priced short (stop above entry, targets
-  // below) -- internally contradictory, and read as invalidated almost by
-  // construction since the buy-side stop check assumes the stop sits below
-  // entry. `result.direction` is the one field that actually agrees with
-  // `levels`; fall back to `pattern` only when there's no armed direction at
-  // all (nothing to trade either way, so the fallback is display-only).
+  // `levels`/`result.direction` are Gann's swing-crossing entry trigger
+  // (lib/scanTicker.ts, lib/gann/entryTrigger.ts) — the trade plan's actual
+  // entry, direction, stop, and targets since 2026-09-17. `pattern` is the
+  // separate STRAT bar-sequence taxonomy, kept for display/confluence only
+  // (AGENTS.md "Gann-grounded platform" audit outcomes) and can be null or
+  // point the opposite way from a Gann-armed setup — it must never decide
+  // whether a protocol signal exists (that's `levels`/`result.direction`
+  // alone) or, when a direction is actually armed, which side it's on.
+  const hasProtocolSignal = !!(levels && result.direction !== "none");
+  // Reading `signalSide` off `pattern.direction` let the ticket highlight
+  // "Buy/Long" for levels that were actually priced short (stop above entry,
+  // targets below) -- internally contradictory, and read as invalidated
+  // almost by construction since the buy-side stop check assumes the stop
+  // sits below entry. `result.direction` is the one field that actually
+  // agrees with `levels`; fall back to `pattern` only when there's no armed
+  // direction at all (nothing to trade either way, so the fallback is
+  // display-only and `hasProtocolSignal` above is already false).
   const signalSide: Side =
     forceSide ??
     (result.direction !== "none"

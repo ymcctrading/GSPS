@@ -31,6 +31,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { buildHistorySymbol, type MonitorState, type ScanHistoryRun, type ScannedState } from "@/lib/scanner/history";
+import { fetchLatestPrice, isCryptoSymbol } from "@/lib/data/alpaca";
 
 const DEFAULT_DAYS = 7;
 const MAX_DAYS = 30;
@@ -66,7 +67,7 @@ export async function GET(req: NextRequest) {
   const symbols = [...new Set(resultRows.map((r) => r.symbol))];
   const { data: monitorRows, error: monitorsError } = await supabase
     .from("active_monitors")
-    .select("symbol, state, last_evaluated_at")
+    .select("symbol, state, score, last_evaluated_at")
     .eq("profile_id", user.id)
     .in("symbol", symbols)
     .order("last_evaluated_at", { ascending: false });
@@ -79,15 +80,36 @@ export async function GET(req: NextRequest) {
   }
 
   // First row per symbol wins (rows arrived newest-first).
-  const latestMonitorBySymbol = new Map<string, { state: MonitorState; last_evaluated_at: string }>();
+  const latestMonitorBySymbol = new Map<
+    string,
+    { state: MonitorState; score: number | null; last_evaluated_at: string }
+  >();
   for (const row of monitorRows ?? []) {
     if (!latestMonitorBySymbol.has(row.symbol)) {
       latestMonitorBySymbol.set(row.symbol, {
         state: row.state as MonitorState,
+        score: row.score,
         last_evaluated_at: row.last_evaluated_at,
       });
     }
   }
+
+  // Best-effort live price per symbol, so a ranked "which of these is
+  // executable right now" view has something to compare TP1/MP/stop
+  // against. A quote failure for one symbol shouldn't fail the whole
+  // response — it just leaves that symbol's price null, same treatment as
+  // a missing monitor row above.
+  const currentPriceBySymbol = new Map<string, number>();
+  await Promise.all(
+    symbols.map(async (symbol) => {
+      try {
+        const price = await fetchLatestPrice(symbol, isCryptoSymbol(symbol) ? "crypto" : "us_equity");
+        currentPriceBySymbol.set(symbol, price);
+      } catch {
+        // Left unset — reported as null below.
+      }
+    }),
+  );
 
   // Group by the run that produced each row. A row from before this
   // migration (no scan_execution_id) groups alone rather than with anything
@@ -114,6 +136,8 @@ export async function GET(req: NextRequest) {
         masterProfit: row.master_profit,
         currentState: monitor?.state ?? null,
         currentStateAsOf: monitor?.last_evaluated_at ?? null,
+        currentScore: monitor?.score ?? null,
+        currentPrice: currentPriceBySymbol.get(row.symbol) ?? null,
       }),
     );
   }
