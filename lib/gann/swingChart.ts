@@ -116,6 +116,73 @@ function swingReversalIndices(bars: Bar[], days: number): number[] {
   return indices;
 }
 
+/**
+ * A completed swing's extreme — the "old top" or "old bottom" Gann's numbered
+ * Buying and Selling Points are stated against (`docs/GANN_HISTORICAL_SOURCES.md`
+ * A8: "crossing old tops/bottoms").
+ */
+export interface SwingPivot {
+  /** Bar index where the extreme printed. */
+  index: number;
+  price: number;
+  kind: "top" | "bottom";
+}
+
+/**
+ * Every completed swing's extreme, oldest first.
+ *
+ * `swingReversalIndices` above records *where* the swing chart flipped; this
+ * records *what price the swing reached* before it flipped, which is the
+ * quantity Gann's entry rules are written against. A bullish swing's pivot is
+ * the highest high it printed; a bearish swing's is the lowest low.
+ *
+ * Only completed swings are returned. The swing still in progress has no
+ * settled extreme — price may still extend it — and an entry rule written
+ * against a moving level is not the rule Gann stated.
+ */
+export function swingPivots(bars: Bar[], days: number): SwingPivot[] {
+  const reversals = swingReversalIndices(bars, days);
+  if (reversals.length === 0) return [];
+
+  // Direction of the swing that ENDS at reversals[0]. A reversal flips the
+  // swing, so the segment before the first recorded flip ran in the opposite
+  // direction to the one the flip produced. Recovering it from the closes
+  // around that flip keeps this consistent with the walk above rather than
+  // re-deriving a direction from scratch.
+  let direction: SwingDirection = null;
+  for (let i = 1; i <= reversals[0]; i++) {
+    const up = bars[i].c > bars[i - 1].c;
+    const down = bars[i].c < bars[i - 1].c;
+    if (!up && !down) continue;
+    direction = up ? "bullish" : "bearish";
+    break;
+  }
+  if (direction === null) return [];
+
+  const pivots: SwingPivot[] = [];
+  let start = 0;
+
+  for (const end of reversals) {
+    let bestIndex = start;
+    for (let i = start; i <= end && i < bars.length; i++) {
+      if (direction === "bullish") {
+        if (bars[i].h > bars[bestIndex].h) bestIndex = i;
+      } else if (bars[i].l < bars[bestIndex].l) {
+        bestIndex = i;
+      }
+    }
+    pivots.push({
+      index: bestIndex,
+      price: direction === "bullish" ? bars[bestIndex].h : bars[bestIndex].l,
+      kind: direction === "bullish" ? "top" : "bottom",
+    });
+    direction = direction === "bullish" ? "bearish" : "bullish";
+    start = end;
+  }
+
+  return pivots;
+}
+
 export type CampaignLegConfidence = "low" | "high" | "extended";
 
 export interface CampaignLegReading {

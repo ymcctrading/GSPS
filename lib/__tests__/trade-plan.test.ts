@@ -70,6 +70,13 @@ const pattern: StratPattern = {
   description: "",
 };
 
+/**
+ * What actually arms the trade since 2026-09-17 — the swing-level crossing
+ * (`lib/gann/entryTrigger.ts`), not the bar sequence above. Same prices, so
+ * each fixture's intent is unchanged; `pattern` stays for the display role.
+ */
+const gannTrigger = { direction: "bullish" as const, triggerPrice: 100, stopPrice: 99 };
+
 const levels: TradeLevels = {
   entry: 100,
   stopLoss: 99,
@@ -107,6 +114,7 @@ function inputs(overrides: Partial<ScoreInputs> = {}): ScoreInputs {
     gann,
     nearSupportResistance: true,
     pattern,
+    gannTrigger,
     momentumElevated: true,
     stopAtrMultiple: 2,
     levels,
@@ -122,8 +130,9 @@ describe("computeScore output state", () => {
     expect(decision.outputState).toBe("Execute");
   });
 
-  it("holds at Watch when the context scores 7+ but no pattern is armed", () => {
-    const decision = computeScore(inputs({ pattern: null, levels: null }));
+  it("holds at Watch when the context scores 7+ but no trigger is armed", () => {
+    // `gannTrigger` is what arms the trade now; `pattern` no longer does.
+    const decision = computeScore(inputs({ pattern: null, gannTrigger: null, levels: null }));
     expect(decision.score).toBe(7);
     expect(decision.outputState).toBe("Watch");
     expect(decision.breakdown.at(-1)?.criterion).toMatch(/Trade plan priced/);
@@ -134,8 +143,10 @@ describe("computeScore output state", () => {
     expect(decision.outputState).toBe("Watch");
   });
 
-  it("holds at Watch when the armed pattern opposes the scored direction", () => {
-    const decision = computeScore(inputs({ pattern: { ...pattern, direction: "bearish" } }));
+  it("holds at Watch when the armed trigger opposes the scored direction", () => {
+    const decision = computeScore(
+      inputs({ gannTrigger: { ...gannTrigger, direction: "bearish" as const } }),
+    );
     expect(decision.score).toBe(7);
     expect(decision.outputState).toBe("Watch");
   });
@@ -321,10 +332,10 @@ describe("continuation scoring", () => {
     expect(decision.breakdown[0].passed).toBe(false);
   });
 
-  it("names the pattern criterion after the trade it describes", () => {
+  it("names the trigger criterion after the trade it describes", () => {
     const asContinuation = computeScore(inputs({ setupKind: "continuation" }));
-    expect(asContinuation.breakdown[4].criterion).toBe("Continuation pattern armed");
-    expect(computeScore(inputs()).breakdown[4].criterion).toBe("Reversal pattern armed");
+    expect(asContinuation.breakdown[4].criterion).toBe("Continuation entry trigger armed");
+    expect(computeScore(inputs()).breakdown[4].criterion).toBe("Reversal entry trigger armed");
   });
 
   it("can still reach 8/9 as a continuation — nothing structurally caps it", () => {

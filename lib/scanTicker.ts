@@ -43,7 +43,8 @@ import {
   gapRuleViolated,
   riskFloorViolated,
 } from "@/lib/strat/patterns";
-import { computeTradeLevels } from "@/lib/strat/levels";
+import { computeTradeLevels, type EntrySource } from "@/lib/strat/levels";
+import { computeGannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
 import { applyDataLagHold, applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
 import { decisionLag, feedDelayMs } from "@/lib/data/latency";
@@ -272,8 +273,41 @@ export async function scanTicker(
 
     const pattern: StratPattern | null = armedPatterns[0] ?? null;
 
-    const direction: "bullish" | "bearish" | "none" = pattern?.direction ?? "none";
-    const scoreDirection = pattern?.direction ?? preferredDirection;
+    // ---- What arms and prices the trade (changed 2026-09-17)
+    //
+    // The trade plan used to be armed and priced by the bar-sequence pattern
+    // above: `direction` was the pattern's, and `computeTradeLevels` read its
+    // `triggerPrice`/`stopPrice`. That made Rob Smith's STRAT the source of
+    // every entry price and, through `riskPerShare`, every position size —
+    // the single most load-bearing non-Gann component on the platform.
+    //
+    // It is now Gann's own rule: crossing an old swing top or bottom plus the
+    // "lost motion" allowance (`lib/gann/entryTrigger.ts`, sourced to the nine
+    // Buying Points and nine Selling Points). Direction comes from
+    // `preferredDirection`, which is already Gann-derived — `weightedTrendAgreement`
+    // over monthly/weekly/daily using his chart-timeframe power ratio.
+    //
+    // The bar-sequence pattern is NOT removed. It keeps its display and
+    // confluence role (`armedPatterns`, the price-action confluence layer),
+    // which the project owner examined and deliberately kept — see AGENTS.md's
+    // "Audit outcomes". What it no longer does is decide where an order goes.
+    const gannTrigger = computeGannEntryTrigger(daily, preferredDirection);
+
+    const direction: "bullish" | "bearish" | "none" = gannTrigger?.direction ?? "none";
+    const scoreDirection = gannTrigger?.direction ?? preferredDirection;
+
+    // The label is what the invalidation copy calls this setup. It describes
+    // what was crossed rather than naming a bar sequence, because that is what
+    // actually armed the trade now.
+    const entrySource: EntrySource | null = gannTrigger
+      ? {
+          direction: gannTrigger.direction,
+          triggerPrice: gannTrigger.triggerPrice,
+          stopPrice: gannTrigger.stopPrice,
+          setupLabel:
+            gannTrigger.direction === "bullish" ? "swing-top crossing" : "swing-bottom break",
+        }
+      : null;
 
     // ---- Trade levels
     const previousBar = closedExecutionBars[closedExecutionBars.length - 2] ?? closedExecutionBars[closedExecutionBars.length - 1];
@@ -321,10 +355,10 @@ export async function scanTicker(
 
     let levels: TradeLevels | null = null;
     let levelsError: string | undefined;
-    if (pattern) {
+    if (entrySource) {
       try {
         levels = computeTradeLevels(
-          pattern,
+          entrySource,
           previousBar,
           gannTargets,
           optionPremium,
@@ -371,6 +405,7 @@ export async function scanTicker(
             testCount: countLevelTests(daily, srMatch.price, srBandPct),
           },
           pattern,
+          gannTrigger,
           momentumElevated,
           levels,
           stopAtrMultiple:

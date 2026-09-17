@@ -34,6 +34,7 @@ import {
   proximityBandPct,
 } from "@/lib/scoring/proximity";
 import type { CriterionWeights } from "@/lib/scoring/weights";
+import { computeGannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { readTrend } from "@/lib/analysis/trend";
 import { countLevelTests, levelRole, type LevelRole } from "@/lib/analysis/levelRole";
 import { atr } from "@/lib/analysis/pivots";
@@ -382,7 +383,26 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     const executionAtr = atr(history.slice(-30), 14);
     const lastClose = history[history.length - 1].c;
 
-    for (const pattern of detectPatterns(history)) {
+    for (const detected of detectPatterns(history)) {
+      // The replay must arm and fill on the SAME rule the live scan prices
+      // from, or every number it produces is measuring a strategy nobody
+      // runs. Since 2026-09-17 that rule is the swing-level crossing
+      // (`lib/gann/entryTrigger.ts`), not the bar-sequence pattern's trigger.
+      // The detected pattern still selects the direction to test, keeping the
+      // candidate population comparable with prior committed runs.
+      const trigger = computeGannEntryTrigger(history, detected.direction);
+      if (!trigger) continue;
+      // Prices come from the swing-crossing trigger; the detected pattern's
+      // name and description are kept so the factor table and per-pattern
+      // attribution still group the way earlier committed runs did. The label
+      // is reporting metadata here, not the thing being traded.
+      const pattern: StratPattern = {
+        ...detected,
+        direction: trigger.direction,
+        triggerPrice: trigger.triggerPrice,
+        stopPrice: trigger.stopPrice,
+      };
+
       if (gapRuleViolated(pattern, lastClose)) continue;
       if (riskFloorViolated(pattern, executionAtr)) continue;
       armed++;

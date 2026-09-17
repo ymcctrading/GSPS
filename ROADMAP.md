@@ -2,7 +2,7 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-09-09 (Improved onboarding: corrected the stale claim
+**Last updated:** 2026-09-17 (Improved onboarding: corrected the stale claim
 that glossary integration was still open — it shipped and is linked
 throughout the app; pattern education remains open). Previously: 2026-09-08
 (Portfolio analytics dashboard corrected to reflect that it shipped
@@ -721,7 +721,8 @@ Portfolio analytics drives retention and trust.
 - **Expand market coverage** — crypto, forex, and futures as separate scanners.
 - **Scale safely** — infrastructure hardening, caching, and query optimization
   for 100+ concurrent users.
-- **Deepen engagement** — advanced order types, strategy templates, and the
+- **Deepen engagement** — advanced order types, strategy templates, an
+  expanded indicator library for self-directed strategy testing, and the
   risk dashboard drive feature adoption.
 
 ### Initiatives
@@ -739,6 +740,22 @@ Portfolio analytics drives retention and trust.
   correlation-based position warnings, VIX tracking.
 - **Performance replay UI** — replay past scans, compare alerts across dates,
   see what would have been caught.
+- **Expanded indicator library for self-directed strategy testing** — broaden
+  the charting indicator set well beyond today's SMA/EMA/Bollinger/RSI/MACD
+  (`lib/indicators.ts`, `/api/indicators`, `components/chart/candles.tsx`) so
+  experienced traders can build and test *their own* strategies rather than
+  being confined to the platform's. Project-owner direction, 2026-09-17.
+  Candidates: Stochastic, ATR bands, Keltner, Donchian, OBV, VWAP variants,
+  volume profile, configurable periods, and user-saved indicator presets.
+  Squarely a differentiation play — it converts the scanner from a single
+  opinionated method into a platform a sophisticated user will stay on.
+  **Deliberately non-Gann, and that is the point.** This is the one place the
+  "Gann-grounded platform" principle in AGENTS.md yields by explicit design:
+  these are analysis tools the user drives, not substance the platform asserts.
+  The boundary that keeps both true — no indicator added here may feed a
+  scored criterion, a signal gate, a trade plan, or any verdict GSPS itself
+  issues. See AGENTS.md's "Audit outcomes" entry for the full reasoning, and
+  do not let a future Gann-grounding audit strip these out.
 - **Database optimization** — indexing for scan queries, caching for frequent
   chart requests, query-plan review.
 

@@ -160,10 +160,36 @@ answer wins when GSPS and the sources disagree. This one governs **scope**:
 a component with no Gann grounding is a defect to be justified or replaced,
 not a neutral default.
 
+**This is the platform's governing substance, not one of its features.**
+Project-owner direction, restated 2026-09-17: Gann's methodology runs the
+entire platform. Scanning, scoring, level construction, entry triggers, stops,
+targets, risk, lifecycle, charting, education copy and UI. Any component that
+is not Gann-grounded is a defect to be replaced, grounded, or explicitly
+justified — never a neutral default, and never "fine because it's only
+display."
+
+**MANDATORY, EVERY SESSION: verify platform-wide, do not trust this list.**
+Every prior list in this file has turned out to be incomplete, and each time
+the gap was found by sweeping rather than by reading. The verification is
+cheap and it is not optional:
+
+```
+# Non-Gann techniques. Use word boundaries — unanchored "RSI" matches
+# "reve<RSI>on" and will hand you a false count.
+grep -rnE '\b(RSI|MACD|Bollinger|Wilder|adx|Supertrend|PSAR|Ichimoku|Elliott|Wyckoff|Keltner|Donchian|Fibonacci)\b' \
+  --include=*.ts --include=*.tsx lib/ app/ components/ | grep -v __tests__
+```
+
+Then confirm each hit is dead, documented, or gone. **A component is only
+"not live" once you have traced it to zero consumers** — an exported symbol,
+an API route, a chart overlay and a database row are all live surfaces, and
+three of those are invisible in a code diff. See "Live weights incident"
+below for what trusting a diff cost.
+
 **Audit obligation.** The platform contains non-Gann substance that predates
-this principle. The list below was verified against code on 2026-09-16 — it
-is a starting point, not an exhaustive one, and a future session should
-re-check rather than trust it:
+this principle. The list below was verified against code on 2026-09-16 and
+extended on 2026-09-17 — it is a starting point, not an exhaustive one, and a
+future session should re-check rather than trust it:
 
 - **STRAT pattern detection** (`lib/strat/patterns.ts`) — `2-2`, `1-2-2`,
   `3-2-2`, `3-1-2`, `PMG`. Rob Smith's STRAT, not Gann. **This taxonomy has
@@ -188,9 +214,23 @@ re-check rather than trust it:
   dormant hook for a non-Gann overlay rather than live non-Gann substance.
   Either close the hook or ground it.
 
+- **Classic charting indicators** (`lib/indicators.ts`, `lib/analysis/indicators.ts`)
+  — `sma`, `ema`, `bollinger`, `rsi`, `macd`. Found by the sweep above on
+  2026-09-17 and absent from every prior version of this list, which is worth
+  remembering when deciding whether to run that sweep again. **Not an open item
+  — investigated and resolved the same day as a justified exception. See
+  "Charting indicators" under Audit outcomes below before touching any of
+  it.**
+
 For each: establish a Gann grounding, replace it with the Gann technique
 that serves the same purpose, or document explicitly why it is a justified
 exception.
+
+**Scope note — "display only" is not an exemption.** A chart overlay or an
+education page teaches a method as surely as a scored criterion applies one.
+The Sara/STRAT keep below is an exception because the project owner examined
+it and decided it, on the record — not because display is categorically
+exempt. Nothing is exempt by category.
 
 ### Audit outcomes
 
@@ -275,6 +315,95 @@ actual Gann-sourced inside/outside-bar sequence rule this analysis missed,
 that would change the classification from "documented exception" to
 "Gann-grounded alternative display" — but nothing found so far supports
 that.
+
+**Investigated and kept, by project-owner direction (2026-09-17): the
+classic charting indicators — and the reason generalises.** The sweep flagged
+`lib/indicators.ts`/`lib/analysis/indicators.ts` (`sma`, `ema`, `bollinger`,
+`rsi`, `macd`), the live `/api/indicators` route, and the SMA 20 / SMA 50 /
+EMA 9 / RSI 14 / MACD 12/26/9 overlays in `components/chart/candles.tsx` as
+unexamined non-Gann substance on a user-facing surface. That framing was
+wrong, and the correction matters more than the item: **the project owner
+asked for these specifically.** They are a deliberate feature, not drift.
+
+The distinction that makes this an exception rather than a hole in the
+"Gann-grounded platform" principle: these indicators are **tools the user
+drives, not substance the platform asserts.** GSPS's own verdict — what it
+scans for, scores, gates, and places orders from — remains entirely Gann. A
+chart overlay a trader switches on to examine their own idea makes no claim
+on the platform's behalf. The platform is not saying RSI means anything; it is
+declining to prevent a competent adult from looking at one.
+
+The intent is explicitly to widen this, not contain it: the roadmap's Q2
+"Expanded indicator library for self-directed strategy testing" adds Stochastic,
+Keltner, Donchian, OBV, volume profile, configurable periods and saved presets,
+so that experienced traders can test their own strategies instead of being
+confined to this one. A platform that forces its single method on a
+sophisticated user loses that user.
+
+**The boundary that keeps both things true, and the only line that must not
+move:** no indicator in this family may feed a scored criterion, a signal
+gate, a trade plan, an entry, a stop, a target, or any verdict GSPS itself
+issues. The moment one does, it stops being a user's tool and becomes the
+platform's substance, and the Gann-grounding principle applies to it in full.
+Check that boundary rather than the indicator list.
+
+**Do not remove these on a future Gann-grounding audit**, and do not read the
+"display only is not an exemption" rule above as overriding this — that rule
+says display is not exempt *by category*, which is exactly why this exception
+had to be examined and written down rather than assumed. It was, and it is.
+
+**Entry pricing moved off STRAT onto Gann's own rule (2026-09-17, project-owner
+direction) — the largest single Gann-grounding change to date, and the one a
+prior audit most badly understated.** `patternArmed` had been described as "one
+of nine scored criteria." Tracing it properly found the bar-sequence pattern
+also supplied `tradePlanReady` (a hard Execute gate independent of the scored
+point), `lib/strat/levels.ts`'s `const entry = pattern.triggerPrice` — **every
+trade plan's entry price** — and through `riskPerShare`, **every position
+size**. The autonomous portfolio manager was placing orders at STRAT-derived
+prices. Stops and targets were already Gann/structural; it was specifically the
+entry trigger that was foreign.
+
+Replaced by `lib/gann/entryTrigger.ts`: crossing an old completed swing top or
+bottom, plus the "lost motion" allowance — both disclosed in
+`docs/GANN_HISTORICAL_SOURCES.md` A8 (the nine Buying Points and nine Selling
+Points; the Resistance Level method's overshoot observation). The mechanism is
+unchanged — a breakout past a level plus a buffer — but the level is now a
+swing extreme rather than the prior bar's high, and the buffer has a citation
+rather than being an arbitrary penny. `patternArmed` was **renamed** to
+`entryTriggerArmed` rather than retired, so `TOTAL_POINTS` stays 9 and neither
+cutoff moved: the substance behind a criterion changed, not how many conditions
+the scorecard counts. This closed the last gate-1 failure.
+
+**The accepted trade-off, decided explicitly rather than absorbed silently.**
+Gann's trigger needs materially more history than STRAT's: a bar sequence arms
+on 2–3 bars, a swing crossing needs *two completed swings* — roughly 10+ bars
+containing real reversals, and flat closes advance the swing walk not at all.
+So the candidate population shrinks in both the live scan and the replay, and
+the Execute bucket was already starved (0/1061 on the last committed run).
+The project owner chose to accept this rather than fall back to the
+bar-sequence trigger where history is short (which would have reintroduced
+exactly what was removed) or shorten the swing count (which has no source).
+The reasoning: starvation is a **threshold** problem, and thresholds are
+display decisions measurement may legitimately move — fewer sourced setups
+beat more unsourced ones. **Do not "fix" a thin Execute bucket by reverting
+this.** Re-derive the cutoffs from a fresh run instead; the backtest hold that
+was waiting on `patternArmed` is now lifted.
+
+Two traps this left behind, both already hit once:
+
+- **Flat fixtures arm nothing.** `lib/__tests__/replay.test.ts`'s warm-up was
+  45 identical bars, which was harmless under the old trigger and yields zero
+  trades under this one. It now oscillates. Any new fixture needs real
+  reversals.
+- **`patternArmed`'s measurements do not transfer.** It is kept in
+  `criteria-registry.ts` as RETIRED so the 31 committed runs in
+  `docs/replay-runs/` still validate, but its numbers describe a different rule
+  on a different reference level. Treat `entryTriggerArmed` as unmeasured.
+
+The bar-sequence taxonomy itself is **not** removed — it keeps the display and
+confluence role the project owner deliberately kept (next entry), and in the
+replay it still names the candidate for attribution grouping. What it no longer
+does is decide where an order goes.
 
 **What that keep does not cover.** It settles the *display* use only. The
 same `lib/strat/patterns.ts` taxonomy also feeds `patternArmed`, a **scored**
@@ -477,10 +606,41 @@ of Cycles, Tomes' harmonic-resonance cycle theory) are a standing design
 lens for this codebase going forward — considered by default in every
 session's Gann-adjacent work, not opted into case by case.
 
-**What this means concretely.** Read these as a background frame that
-shapes what gets prioritized and how a candidate is framed — not as
-settled fact that can, on its own, move a threshold, a weight, or an
-architectural decision. The load-bearing distinction, carried over
+**Elevated 2026-09-17 from passive lens to active design input, by project-
+owner direction.** These are not background reading to be noted and set
+aside. Every Gann-adjacent piece of work — a new criterion, a rebuilt module,
+an entry rule, a chart overlay — is to be *designed through* them, and the
+design is to say so. Concretely, before building, answer all three in writing
+(a module header is the right place, and `lib/gann/entryTrigger.ts` is the
+worked example):
+
+1. **Which Gann source discloses this, and at which tier** (`docs/GANN_HISTORICAL_SOURCES.md`).
+2. **What the cycle-theory literature says about it** — Part C, Dewey's
+   Foundation for the Study of Cycles and Tomes' harmonic-resonance work. Where
+   the component makes any claim about periodicity or recurrence, run **Dewey's
+   seven-item checklist** explicitly: dominance, regularity of timing,
+   repetition count, constancy of period, phase-resumption after distortion,
+   wave-shape identity, cross-series clustering. `lib/gann/spectralCycle.ts`
+   evaluates three of the seven and says which — that is the standard: state
+   which you cleared and which you did not.
+3. **Which Hermetic principle it expresses** — Mentalism, Correspondence,
+   Vibration, Polarity, Rhythm, Cause and Effect, Gender. Correspondence ("as
+   above, so below") is why a technique proven on one timeframe or asset class
+   is expected to hold on another, and is the reasoning behind the
+   cross-platform consistency principle at the top of this file. Rhythm and
+   Vibration are why cycle and swing work is load-bearing rather than
+   decorative. Polarity is why every rule here has a symmetric short form —
+   see `computeGannEntryTrigger`'s mirror.
+
+**What this elevation does NOT change: the citation discipline.** Framing a
+design through these principles is required; using them as *evidence* is still
+not allowed. They shape what gets built and how it is reasoned about. They
+cannot, on their own, move a threshold, a weight, or an architectural
+decision — only a citable Gann source or a measured result can do that. A
+belief with no citable source, or one that has not cleared Dewey's checklist,
+stays where `lib/gann/digitalRoot.ts` sits: real, running, labelled a
+hypothesis, confluence-only, never independently gating. Infusing the
+literature means reasoning with it, not promoting it to proof. The load-bearing distinction, carried over
 unchanged from the "WD Gann precedence" section above: a technique
 citably tied to Gann's own methodology (or to the cycle-theory literature's
 own rigorous validation standard) gets built and takes precedence over

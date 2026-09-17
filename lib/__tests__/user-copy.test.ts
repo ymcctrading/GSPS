@@ -17,6 +17,7 @@ import { describe, expect, it } from "vitest";
 import type { Bar, GannLevels, StratPattern, TradeLevels, TrendReading } from "@/lib/types";
 import { applyReversionConfirmation, computeScore, type ScoreInputs } from "@/lib/scoring/score";
 import { detectPatterns } from "@/lib/strat/patterns";
+import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 import { computeTradeLevels } from "@/lib/strat/levels";
 import { CRITERION_KEYS, type CriterionWeights } from "@/lib/scoring/weights";
 
@@ -110,6 +111,13 @@ const pattern: StratPattern = {
   description: "",
 };
 
+/**
+ * What actually arms the trade since 2026-09-17 — the swing-level crossing
+ * (`lib/gann/entryTrigger.ts`), not the bar sequence above. Same prices, so
+ * each fixture's intent is unchanged; `pattern` stays for the display role.
+ */
+const gannTrigger = { direction: "bullish" as const, triggerPrice: 100, stopPrice: 95 };
+
 /** Every criterion passing — exercises the affirmative half of each note. */
 const allPass: ScoreInputs = {
   direction: "bullish",
@@ -128,6 +136,7 @@ const allPass: ScoreInputs = {
   gann,
   nearSupportResistance: true,
   pattern,
+  gannTrigger,
   momentumElevated: true,
   stopAtrMultiple: 2,
   levels,
@@ -257,8 +266,19 @@ describe("trade level messages", () => {
     // caught because it only exercises detectPatterns' own description field.
     const names: StratPattern["name"][] = ["2-1-2", "2-2", "1-2-2", "3-2-2", "3-1-2", "PMG"];
     const prev = bar(98, 101, 96, 99);
+    // The setup label is now passed explicitly (`EntrySource.setupLabel`)
+    // rather than looked up from `pattern.name` inside `buildPivotPlan`, since
+    // the trade plan is priced from a swing-crossing trigger that has no
+    // bar-sequence name. The leak this test guards against is unchanged: a raw
+    // code like "1-2-2" must never reach the sentence, so feed each one
+    // through the glossary exactly as the live caller does.
     const plans = names.map(
-      (name) => computeTradeLevels({ ...pattern, name, triggerPrice: 100, stopPrice: 99 }, prev, []).pivotPlan,
+      (name) =>
+        computeTradeLevels(
+          { ...pattern, setupLabel: PATTERN_GLOSSARY_TERM[name], triggerPrice: 100, stopPrice: 99 },
+          prev,
+          [],
+        ).pivotPlan,
     );
     const confirmations = plans.map((p) => p?.confirmation);
     expect(confirmations.every((c) => typeof c === "string")).toBe(true);
