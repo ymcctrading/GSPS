@@ -19,6 +19,7 @@ import { etDateKey } from "@/lib/market/session";
  */
 
 let inFlight: Promise<void> | null = null;
+let autoRunInProgress = false;
 
 function autoRunKey(today: string): string {
   return `gsps.autoscan.${today}`;
@@ -77,8 +78,12 @@ export function AutoScan({ scanDate }: { scanDate: string | null }) {
                 ? `Scan complete — ${data.persistedCount ?? found} setups found.`
                 : `Scan ran but nothing was saved: ${data.persistError ?? "unknown reason"}.`,
             });
+            // Only refresh if scan persisted successfully — prevents
+            // re-triggering auto-scan in a loop when results failed to save
+            if (data.persisted) {
+              router.refresh();
+            }
           }
-          router.refresh();
         } catch (err) {
           if (mounted.current) {
             setMsg({
@@ -91,6 +96,7 @@ export function AutoScan({ scanDate }: { scanDate: string | null }) {
         } finally {
           if (mounted.current) setRunning(false);
           inFlight = null;
+          autoRunInProgress = false;
         }
       })();
 
@@ -109,6 +115,8 @@ export function AutoScan({ scanDate }: { scanDate: string | null }) {
     const today = etDateKey(new Date());
     if (scanDate === today) return;
     if (alreadyAutoRan(today)) return;
+    if (autoRunInProgress) return; // Prevent concurrent auto-runs
+    autoRunInProgress = true;
     markAutoRan(today);
     queueMicrotask(() => void run({ auto: true }));
   }, [scanDate, run]);
