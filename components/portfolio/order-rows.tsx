@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { TargetStatusCells } from "@/components/trade/target-status";
@@ -13,7 +14,19 @@ import {
   type NormalizedStatus,
 } from "@/lib/portfolio/order-status";
 import { formatUsd, formatPct, cn } from "@/lib/utils";
+import { tickerHref } from "@/lib/routes";
 import type { OrderRow } from "./types";
+
+/** Every symbol on this ledger links back to its chart -- open-positions.tsx
+ * and rejected-orders.tsx already do this; the Entry Orders table (this
+ * file) was the one place on the portfolio page a symbol was plain text. */
+function SymbolLink({ symbol, className }: { symbol: string; className?: string }) {
+  return (
+    <Link href={tickerHref(symbol)} className={cn("text-accent hover:underline", className)}>
+      {symbol}
+    </Link>
+  );
+}
 
 /**
  * The order ledger, rendered per asset type.
@@ -81,7 +94,7 @@ function EquityOrders({ orders, labeled }: { orders: OrderRow[]; labeled: boolea
             {orders.map((o) => (
               <TR key={o.id}>
                 <PlacedCell order={o} />
-                <TD className="font-medium">{o.symbol}</TD>
+                <TD className="font-medium"><SymbolLink symbol={o.symbol} /></TD>
                 <SideCell order={o} />
                 <TD className="text-muted">{o.order_type}</TD>
                 <TD className="text-right font-mono">{o.qty}</TD>
@@ -155,7 +168,7 @@ function OptionOrders({ orders, labeled }: { orders: OrderRow[]; labeled: boolea
               <TR key={o.id}>
                 <PlacedCell order={o} />
                 <TD className="font-medium">
-                  {o.symbol}
+                  <SymbolLink symbol={o.symbol} />
                   <span className="ml-1 text-xs font-normal text-muted">
                     {contractDescription(o)}
                   </span>
@@ -366,7 +379,13 @@ function OrderCard({
     <div className="rounded-lg border border-border p-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate font-medium">{title}</p>
+          {/* `title` is always order.symbol at both call sites below; linking
+              off `order` directly rather than re-parsing `title` keeps this
+              from silently breaking if a future caller passes something else. */}
+          <p className="truncate font-medium">
+            <SymbolLink symbol={order.symbol} />
+            {title !== order.symbol && <span className="ml-1 font-normal text-muted">{title}</span>}
+          </p>
           <p className="truncate text-xs text-muted">{subtitle}</p>
         </div>
         <StatusBadge order={order} />
