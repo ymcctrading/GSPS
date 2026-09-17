@@ -7,6 +7,7 @@ import { LiveExpectancyToggle } from "@/components/guided/live-expectancy-toggle
 import { EarningsCalendar } from "@/components/macro/earnings-calendar";
 import { MarketNews } from "@/components/macro/market-news";
 import { getDailyScans } from "@/lib/dailyScans";
+import { getTrackedExecuteSetups } from "@/lib/dashboard/trackedExecute";
 import { DEFAULTS } from "@/lib/sectors";
 import { tickerHref } from "@/lib/routes";
 import { ArrowRight, Compass, Bookmark } from "lucide-react";
@@ -30,6 +31,7 @@ export default async function DashboardPage() {
     await getDailyScans();
 
   const noviceSummary = await getNoviceSummaryIfApplicable(bullish, bearish);
+  const trackedExecute = await getTrackedExecuteSetupsIfSignedIn();
 
   return (
     <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
@@ -82,6 +84,25 @@ export default async function DashboardPage() {
 
       <LiveExpectancyToggle />
 
+      {trackedExecute.length > 0 && (
+        <Card data-tour="dash-tracked-execute">
+          <CardHeader>
+            <CardTitle className="text-bull">Your tracked Execute setups</CardTitle>
+            <CardDescription>
+              Symbols you scanned individually that currently read Execute — not part of the
+              market-wide daily scan below, so they wouldn&apos;t otherwise show up here. See{" "}
+              <Link href="/scanner" className="underline hover:text-accent">
+                Scan History
+              </Link>{" "}
+              for the full live status of everything you&apos;ve scanned.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResultsTable rows={trackedExecute} emptyText="" />
+          </CardContent>
+        </Card>
+      )}
+
       <Card data-tour="dash-watchlist">
         <CardHeader>
           <CardTitle>Default watchlist</CardTitle>
@@ -123,6 +144,15 @@ export default async function DashboardPage() {
       </div>
     </div>
   );
+}
+
+async function getTrackedExecuteSetupsIfSignedIn() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+  return getTrackedExecuteSetups(supabase, user.id);
 }
 
 /**

@@ -61,8 +61,15 @@ export function OrderTicket({
   const { levels, pattern, symbol } = result;
   const currentPrice = livePrice ?? (result.currentPrice > 0 ? result.currentPrice : null);
 
-  const hasProtocolSignal = !!(levels && pattern);
-  const signalSide: Side = forceSide ?? (pattern?.direction === "bearish" ? "sell" : "buy");
+  // `levels`/`result.direction` are Gann's swing-crossing entry trigger
+  // (lib/scanTicker.ts, lib/gann/entryTrigger.ts) — the trade plan's actual
+  // entry, direction, stop, and targets since 2026-09-17. `pattern` is the
+  // separate STRAT bar-sequence taxonomy, kept for display/confluence only
+  // (AGENTS.md "Gann-grounded platform" audit outcomes) and can be null or
+  // point the opposite way from a Gann-armed setup — it must never decide
+  // whether a protocol signal exists or which side it's on.
+  const hasProtocolSignal = !!(levels && result.direction !== "none");
+  const signalSide: Side = forceSide ?? (result.direction === "bearish" ? "sell" : "buy");
 
   const [assetType, setAssetType] = useState<AssetType>("shares");
   const [side, setSide] = useState<Side>(signalSide);
