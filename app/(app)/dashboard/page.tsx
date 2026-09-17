@@ -18,6 +18,7 @@ import { getMarketRegimeSummary } from "@/lib/promotion/market-regime";
 import { getNoviceHomeSummary } from "@/lib/promotion/novice-home";
 import { NoviceHomeSummary } from "@/components/dashboard/novice-home-summary";
 import { WelcomeBanner } from "@/components/dashboard/welcome-banner";
+import { IntradayAlerts } from "@/components/scan/intraday-alerts";
 import type { ScanRow } from "@/components/scan/results-table";
 
 export const metadata = { title: "Dashboard — GSPS" };
@@ -116,6 +117,24 @@ export default async function DashboardPage() {
           scannedAt={scannedAt}
         />
       </div>
+
+      {/*
+        The Buy/Sell setups above read from daily_scans, refreshed only by
+        the 6:00/9:15/9:45 scheduled scans and the evening post-close run --
+        up to hours stale between them. IntradayAlerts runs its own live scan
+        on mount and refreshes every few minutes, so it's what actually
+        answers "what's moved since the last full scan" -- see the freshness
+        gap this session traced through several reports of the dashboard
+        reading thinner/staler than a manual scan.
+
+        Deliberately its own card, not merged into the Buy/Sell setups above:
+        its "confidence" is a different momentum model's score, not the
+        platform's own structural 0-9 scorecard those setups are ranked on.
+        Blending the two into one list would misrepresent one methodology's
+        read as the other's, the same reason the Signal & Regime Engine's
+        tier is shown alongside a setup's score and never folded into it.
+      */}
+      <IntradayAlerts />
 
       <div className="grid min-w-0 gap-4 sm:gap-6 lg:grid-cols-2">
         <EarningsCalendar />
