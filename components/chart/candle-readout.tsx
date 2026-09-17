@@ -95,12 +95,16 @@ export function CandleReadoutPanel({
         </span>
       </div>
 
-      {/* Open/close on the top line, high/low beneath — see the note above. */}
+      {/* Open/close on the top line, high/low beneath — see the note above.
+          Single-letter labels stay for the compact layout, but each one
+          carries its full word as a title so "OHLC" is never assumed
+          knowledge — a first-time viewer can hover (or long-press on
+          touch) any of the four to see what it stands for. */}
       <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 px-2 py-1.5">
-        <Field label="O" value={formatPrice(open, digits)} />
-        <Field label="C" value={formatPrice(close, digits)} tone={tone} />
-        <Field label="H" value={formatPrice(high, digits)} />
-        <Field label="L" value={formatPrice(low, digits)} />
+        <Field label="O" title="Open — the first traded price this candle" value={formatPrice(open, digits)} />
+        <Field label="C" title="Close — the last traded price this candle" value={formatPrice(close, digits)} tone={tone} />
+        <Field label="H" title="High — the highest traded price this candle" value={formatPrice(high, digits)} />
+        <Field label="L" title="Low — the lowest traded price this candle" value={formatPrice(low, digits)} />
       </div>
 
       <div className="space-y-1.5 border-t border-border/60 px-2 py-1.5">
@@ -124,9 +128,9 @@ export function CandleReadoutPanel({
   );
 }
 
-function Field({ label, value, tone }: { label: string; value: string; tone?: string }) {
+function Field({ label, value, tone, title }: { label: string; value: string; tone?: string; title?: string }) {
   return (
-    <div className="flex items-baseline gap-1.5">
+    <div className="flex items-baseline gap-1.5" title={title}>
       <span className="w-2 shrink-0 font-mono text-[10px] font-semibold uppercase text-muted">
         {label}
       </span>
