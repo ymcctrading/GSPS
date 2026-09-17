@@ -21,7 +21,8 @@
 
 import type { Bar, Direction } from "@/lib/types";
 import { atr } from "@/lib/analysis/pivots";
-import { adx, relativeVolume, slope, smaSeries } from "../indicators";
+import { relativeVolume, slope, smaSeries } from "../indicators";
+import { isGannRangeBound } from "@/lib/gann/trendStrength";
 import { classifyRegime, type RegimeInputs } from "../regime";
 import { computeRulesAlignmentScore } from "../scoring";
 import { allSafetyGatesPass, evaluateDisqualifiers } from "../disqualifiers";
@@ -51,7 +52,6 @@ export interface RangeReversionInputs {
 
 const DEFAULT_RANGE_WINDOW_BARS = 20;
 const DEFAULT_EXPIRY_BARS = 4;
-const MAX_ADX_FOR_RANGE = 20;
 // Looser than the regime classifier's own flat-MA epsilon (0.0005): a
 // boundary test naturally pulls the short MA a little as price approaches
 // it, and this check only has to rule out a MA that's clearly still
@@ -115,8 +115,12 @@ export function evaluateRangeReversion(inputs: RangeReversionInputs): SignalVerd
   const atrValue = atr(rangeWindow, Math.min(14, rangeWindow.length));
 
   // --- Verified range: weak trend strength, flat MAs, both boundaries touched repeatedly. ---
-  const dmi = adx(htfBars, regimeOverrides?.adxPeriod ?? 14);
-  const weakTrendStrength = dmi === null || dmi.adx < MAX_ADX_FOR_RANGE;
+  // The Gann read, not ADX (replaced 2026-09-17). Deliberately the exact
+  // negation of the regime engine's trend-confirmed test rather than its own
+  // threshold on a shared scale — see `lib/gann/trendStrength.ts`, which
+  // explains why two independently-tuned ADX cutoffs could not be guaranteed
+  // to partition the same market into "trending" and "ranging".
+  const weakTrendStrength = isGannRangeBound(htfBars);
   const fastMa = smaSeries(htfBars, regimeOverrides?.fastMaPeriod ?? 20);
   const slowMa = smaSeries(htfBars, regimeOverrides?.slowMaPeriod ?? 50);
   const flatMas =

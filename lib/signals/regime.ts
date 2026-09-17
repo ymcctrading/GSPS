@@ -20,7 +20,9 @@
 
 import type { Bar } from "@/lib/types";
 import { atr, clusterLevels, findPivots } from "@/lib/analysis/pivots";
-import { adx, relativeVolume, slope, smaSeries } from "./indicators";
+import { relativeVolume, slope, smaSeries } from "./indicators";
+import { readGannTrend } from "@/lib/gann/trendStrength";
+import { SWING_CHART_DAYS } from "@/lib/gann/swingChart";
 import type { RegimeRead } from "./types";
 
 export interface RegimeInputs {
@@ -28,9 +30,7 @@ export interface RegimeInputs {
   bars: Bar[];
   fastMaPeriod?: number;
   slowMaPeriod?: number;
-  adxPeriod?: number;
   atrPeriod?: number;
-  adxTrendThreshold?: number;
   maFlatSlopeEpsilon?: number;
   /** Explicit event-risk flags — these short-circuit to the "event" regime. */
   scheduledBinaryEvent?: boolean;
@@ -42,9 +42,7 @@ export interface RegimeInputs {
 const DEFAULTS = {
   fastMaPeriod: 20,
   slowMaPeriod: 50,
-  adxPeriod: 14,
   atrPeriod: 14,
-  adxTrendThreshold: 20,
   maFlatSlopeEpsilon: 0.0005,
 };
 
@@ -53,9 +51,7 @@ export function classifyRegime(inputs: RegimeInputs): RegimeRead {
     bars,
     fastMaPeriod = DEFAULTS.fastMaPeriod,
     slowMaPeriod = DEFAULTS.slowMaPeriod,
-    adxPeriod = DEFAULTS.adxPeriod,
     atrPeriod = DEFAULTS.atrPeriod,
-    adxTrendThreshold = DEFAULTS.adxTrendThreshold,
     maFlatSlopeEpsilon = DEFAULTS.maFlatSlopeEpsilon,
     scheduledBinaryEvent = false,
     staleData = false,
@@ -74,7 +70,11 @@ export function classifyRegime(inputs: RegimeInputs): RegimeRead {
     return { regime: "event", direction: "sideways", reasons: eventReasons, disqualifiers: [] };
   }
 
-  const minBars = Math.max(slowMaPeriod, adxPeriod * 2 + 1) + 10;
+  // Was `adxPeriod * 2 + 1` for Wilder's smoothing seed. The 9-day swing
+  // chart that replaced it needs `days + 2` bars to establish a direction
+  // (see `swingChartDirection`), and a confirmed read needs a completed swing
+  // on top of that, so this keeps a comfortable margin over both.
+  const minBars = Math.max(slowMaPeriod, SWING_CHART_DAYS.nineDay + 2) + 10;
   if (bars.length < minBars) {
     return {
       regime: "event",
@@ -91,10 +91,13 @@ export function classifyRegime(inputs: RegimeInputs): RegimeRead {
   const fastAboveSlow = fastMa[fastMa.length - 1] > slowMa[slowMa.length - 1];
   const flatMas = Math.abs(fastSlope) < maFlatSlopeEpsilon && Math.abs(slowSlope) < maFlatSlopeEpsilon;
 
-  const dmi = adx(bars, adxPeriod);
-  const trendStrengthSupport = dmi !== null && dmi.adx >= adxTrendThreshold;
-  const adxDirection: "bullish" | "bearish" | null =
-    dmi === null ? null : dmi.plusDI > dmi.minusDI ? "bullish" : "bearish";
+  // Trend strength and direction come from Gann's own 3-day/9-day swing
+  // charts, not Wilder's ADX/DMI (replaced 2026-09-17 — see
+  // `lib/gann/trendStrength.ts` for the rule and its sourcing). A trend is
+  // confirmed when both charts agree; the agreed direction is the read.
+  const gannTrend = readGannTrend(bars);
+  const trendStrengthSupport = gannTrend.confirmed;
+  const adxDirection: "bullish" | "bearish" | null = gannTrend.direction;
 
   const pivots = findPivots(bars, 3);
   const highs = pivots.filter((p) => p.kind === "high").slice(-4).map((p) => p.price);
@@ -154,7 +157,7 @@ export function classifyRegime(inputs: RegimeInputs): RegimeRead {
       reasons: [
         bullishTrend ? "Higher highs and higher lows." : "Lower highs and lower lows.",
         "Fast/slow MA aligned and sloping with the trend.",
-        `ADX ${dmi?.adx.toFixed(1)} supports trend strength (>= ${adxTrendThreshold}).`,
+        `3-day and 9-day swing charts agree ${gannTrend.direction} — trend confirmed at both granularities.`,
       ],
       disqualifiers: [],
     };
@@ -174,7 +177,7 @@ export function classifyRegime(inputs: RegimeInputs): RegimeRead {
       regime: "range",
       direction: "sideways",
       reasons: [
-        `ADX ${dmi?.adx.toFixed(1)} below the trend threshold (${adxTrendThreshold}).`,
+        `3-day and 9-day swing charts do not agree (${gannTrend.threeDay ?? "unset"} vs ${gannTrend.nineDay ?? "unset"}) — no confirmed trend.`,
         "Flat moving averages.",
         "Repeatable horizontal boundaries above and below price.",
       ],
