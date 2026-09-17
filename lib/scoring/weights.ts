@@ -40,9 +40,13 @@
  * one scored criterion with no Gann lineage at all: Wilder's ADX/DMI,
  * adopted into `lib/signals/regime.ts` as the trend-confirmation overlay
  * this codebase uses *instead of* PSAR/Supertrend, then propagated into
- * this scorecard for consistency. The Signal & Regime Engine still wants
- * that indicator and still calls `adx()`; the scorecard does not, so the
- * criterion comes out and is deliberately NOT replaced with anything.
+ * this scorecard for consistency. The scorecard does not want it, so the
+ * criterion came out and was deliberately NOT replaced with anything.
+ *
+ * The Signal & Regime Engine did still call `adx()` at that point, which an
+ * earlier version of this comment recorded. That stopped being true on
+ * 2026-09-17: `lib/gann/trendStrength.ts` replaced both remaining consumers
+ * and nothing calls `adx()` now.
  *
  * `patternArmed` renamed to `entryTriggerArmed` 2026-09-17 and regrounded.
  * The criterion itself — "is there an armed trigger to enter on?" — was never

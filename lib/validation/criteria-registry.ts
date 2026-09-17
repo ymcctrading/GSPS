@@ -604,14 +604,14 @@ const RETIRED: RegisteredCriterion[] = [
       "methodology the setups are selected by, before treating the inversion as a bug in the " +
       "implementation.\n" +
       "\n" +
-      "**The indicator is not removed; only the scored criterion is.** lib/signals/indicators.ts's " +
-      "adx() stays exported and stays in live use by lib/signals/regime.ts (classifyRegime's " +
-      "trend-strength support) and lib/signals/states/rangeReversion.ts (its MAX_ADX_FOR_RANGE gate). " +
-      "That is a deliberate call, not an oversight of AGENTS.md's cross-platform consistency principle: " +
-      "the Signal & Regime Engine's spec genuinely asks a different question (is this market trending " +
-      "or ranging, at all?) than this scorecard does (does an independent trend filter agree with a " +
-      "setup this platform's core methodology selected?), which is the \"different governing spec\" " +
-      "carve-out that section names. " +
+      "**Superseded 2026-09-17: the indicator now has no callers at all.** When this criterion was " +
+      "retired on 2026-09-16 the underlying adx() stayed in live use by lib/signals/regime.ts and " +
+      "lib/signals/states/rangeReversion.ts, under the \"different governing spec\" carve-out — those " +
+      "ask whether a market is trending or ranging at all, which is a different question from whether " +
+      "an independent filter agrees with a setup this platform selected. That carve-out was a stay of " +
+      "execution, not an acquittal: both consumers were replaced by lib/gann/trendStrength.ts, which " +
+      "answers the same question from the 3-day/9-day swing charts. adx() remains exported but is " +
+      "called by nothing. " +
       "ScoreInputs.hourlyAdx, score.ts's adxTrendHolding/ADX_TREND_THRESHOLD, and the adx() calls in " +
       "lib/scanTicker.ts and lib/backtest/replay.ts all went with the criterion.\n" +
       "\n" +

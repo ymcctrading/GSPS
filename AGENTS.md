@@ -201,7 +201,14 @@ future session should re-check rather than trust it:
   see "Audit outcomes" below, which also records why the keep does not
   settle `patternArmed`).
 - **Wilder's ADX/DMI** (`lib/signals/indicators.ts#adx`) — **fully resolved
-  2026-09-17.** The scored criterion was discarded 2026-09-16 (see "Audit
+  2026-09-17. `adx()` is still exported but is now called by nothing.** Left in
+  place rather than deleted because it is a natural candidate for the roadmap's
+  Q2 "Expanded indicator library for self-directed strategy testing", where it
+  would sit under the charting-indicator exception below — a tool the user
+  drives, not substance the platform asserts. Until then it is an unused export,
+  and the boundary that governs it is the same one: it may never feed a scored
+  criterion, gate, trade plan, entry, stop, target, or any verdict GSPS issues.
+  ** The scored criterion was discarded 2026-09-16 (see "Audit
   outcomes"); the two remaining consumers, `lib/signals/regime.ts` and
   `lib/signals/states/rangeReversion.ts`, were then replaced by
   `lib/gann/trendStrength.ts`. The "different governing spec" carve-out that
