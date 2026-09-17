@@ -4,9 +4,18 @@
  * Built entirely from independently designed public components — MA slope/
  * alignment, price structure (swing pivots), ATR-based volatility state,
  * ADX/DMI, anchored VWAP, volume behavior, and horizontal support/
- * resistance — per the spec. Any trend overlay (PSAR/Supertrend) is accepted
- * only as optional evidence via `trendOverlayFlips`, never as a sole signal,
- * and is used solely to disqualify a Trend read on repeated flips.
+ * resistance — per the spec.
+ *
+ * **The PSAR/Supertrend hook was removed 2026-09-17.** This module used to
+ * accept a `trendOverlayFlips` count and disqualify a Trend read on repeated
+ * flips. Nothing in this repository ever computed PSAR or Supertrend, no
+ * caller ever supplied the value, and it defaulted to 0 — so the branch it
+ * guarded could never fire. AGENTS.md's "Gann-grounded platform" principle
+ * gave the choice as "either close the hook or ground it"; with no overlay to
+ * ground it against, closing it is the honest option. Removing it changes no
+ * behaviour, which is exactly what made it worth removing: a dormant
+ * extension point for a non-Gann indicator reads to a future session as a
+ * design intention this platform does not hold.
  */
 
 import type { Bar } from "@/lib/types";
@@ -23,9 +32,6 @@ export interface RegimeInputs {
   atrPeriod?: number;
   adxTrendThreshold?: number;
   maFlatSlopeEpsilon?: number;
-  /** Count of PSAR/Supertrend flips in the recent lookback window — optional evidence only. */
-  trendOverlayFlips?: number;
-  trendOverlayFlipThreshold?: number;
   /** Explicit event-risk flags — these short-circuit to the "event" regime. */
   scheduledBinaryEvent?: boolean;
   staleData?: boolean;
@@ -40,7 +46,6 @@ const DEFAULTS = {
   atrPeriod: 14,
   adxTrendThreshold: 20,
   maFlatSlopeEpsilon: 0.0005,
-  trendOverlayFlipThreshold: 3,
 };
 
 export function classifyRegime(inputs: RegimeInputs): RegimeRead {
@@ -52,8 +57,6 @@ export function classifyRegime(inputs: RegimeInputs): RegimeRead {
     atrPeriod = DEFAULTS.atrPeriod,
     adxTrendThreshold = DEFAULTS.adxTrendThreshold,
     maFlatSlopeEpsilon = DEFAULTS.maFlatSlopeEpsilon,
-    trendOverlayFlips = 0,
-    trendOverlayFlipThreshold = DEFAULTS.trendOverlayFlipThreshold,
     scheduledBinaryEvent = false,
     staleData = false,
     abnormalSpread = false,
@@ -110,8 +113,6 @@ export function classifyRegime(inputs: RegimeInputs): RegimeRead {
   const boundaryBelow = clusters.filter((c) => c < price).length > 0;
   const repeatableBoundaries = clusters.length >= 2 && boundaryAbove && boundaryBelow;
 
-  const flippingOverlay = trendOverlayFlips >= trendOverlayFlipThreshold;
-
   // --- Transition: exhaustion at a meaningful level plus a structural break/reclaim. ---
   const nearestClusterDistance = clusters.length
     ? Math.min(...clusters.map((c) => Math.abs(c - price))) / price
@@ -136,7 +137,6 @@ export function classifyRegime(inputs: RegimeInputs): RegimeRead {
 
   // --- Trend: clear HH/HL or LH/LL, MA slope/alignment agreement, ADX support. ---
   const trendDisqualifiers: string[] = [];
-  if (flippingOverlay) trendDisqualifiers.push("Repeated trend-overlay flips.");
   if (flatMas) trendDisqualifiers.push("Flat/crossing moving averages.");
   if (!higherHighsLows && !lowerHighsLows) trendDisqualifiers.push("No directional swing structure.");
 
