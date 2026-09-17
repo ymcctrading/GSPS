@@ -62,7 +62,28 @@ export function OrderTicket({
   const currentPrice = livePrice ?? (result.currentPrice > 0 ? result.currentPrice : null);
 
   const hasProtocolSignal = !!(levels && pattern);
-  const signalSide: Side = forceSide ?? (pattern?.direction === "bearish" ? "sell" : "buy");
+  // Since 2026-09-17 the trade plan's entry/stop/TP1/master (`levels`) are
+  // built from the Gann swing-crossing trigger's own direction
+  // (`result.direction` — see scanTicker.ts's `gannTrigger`/`entrySource`),
+  // not from the STRAT bar-sequence pattern's direction. `pattern` keeps its
+  // separate display/confluence role and can legitimately read the opposite
+  // side for an ambiguous shape like a two-sided (3-2-2) reversal. Reading
+  // `signalSide` off `pattern.direction` let the ticket highlight "Buy/Long"
+  // for levels that were actually priced short (stop above entry, targets
+  // below) -- internally contradictory, and read as invalidated almost by
+  // construction since the buy-side stop check assumes the stop sits below
+  // entry. `result.direction` is the one field that actually agrees with
+  // `levels`; fall back to `pattern` only when there's no armed direction at
+  // all (nothing to trade either way, so the fallback is display-only).
+  const signalSide: Side =
+    forceSide ??
+    (result.direction !== "none"
+      ? result.direction === "bearish"
+        ? "sell"
+        : "buy"
+      : pattern?.direction === "bearish"
+        ? "sell"
+        : "buy");
 
   const [assetType, setAssetType] = useState<AssetType>("shares");
   const [side, setSide] = useState<Side>(signalSide);
