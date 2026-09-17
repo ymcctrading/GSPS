@@ -86,6 +86,13 @@ const pattern: StratPattern = {
   description: "",
 };
 
+/**
+ * What actually arms the trade since 2026-09-17 — the swing-level crossing
+ * (`lib/gann/entryTrigger.ts`), not the bar sequence above. Same prices, so
+ * each fixture's intent is unchanged; `pattern` stays for the display role.
+ */
+const gannTrigger = { direction: "bullish" as const, triggerPrice: 100, stopPrice: 95 };
+
 const allPass: ScoreInputs = {
   direction: "bullish",
   // Macro trend now scores agreement with the trade, not the old
@@ -103,6 +110,7 @@ const allPass: ScoreInputs = {
   gann,
   nearSupportResistance: true,
   pattern,
+  gannTrigger,
   momentumElevated: true,
   stopAtrMultiple: 2,
   levels,
@@ -150,9 +158,11 @@ describe("toPublicScoreSummary", () => {
   });
 
   it("notes a capped state without inflating a pillar", () => {
-    // Seven context criteria pass with no armed pattern, which holds the state
-    // at Watch and appends an unscored item explaining it.
-    const decision = computeScore({ ...allPass, pattern: null });
+    // Context criteria pass with no armed TRIGGER, which holds the state at
+    // Watch and appends an unscored item explaining it. Clearing `pattern`
+    // alone no longer does this — the trade is armed by the swing-level
+    // crossing since 2026-09-17, so that is what has to be absent.
+    const decision = computeScore({ ...allPass, pattern: null, gannTrigger: null });
     const summary = toPublicScoreSummary(decision);
 
     expect(decision.breakdown.length).toBeGreaterThan(9);

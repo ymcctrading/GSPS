@@ -111,6 +111,13 @@ const pattern: StratPattern = {
   description: "",
 };
 
+/**
+ * What actually arms the trade since 2026-09-17 — the swing-level crossing
+ * (`lib/gann/entryTrigger.ts`), not the bar sequence above. Same prices, so
+ * each fixture's intent is unchanged; `pattern` stays for the display role.
+ */
+const gannTrigger = { direction: "bullish" as const, triggerPrice: 100, stopPrice: 95 };
+
 /** Every criterion passing — exercises the affirmative half of each note. */
 const allPass: ScoreInputs = {
   direction: "bullish",
@@ -129,6 +136,7 @@ const allPass: ScoreInputs = {
   gann,
   nearSupportResistance: true,
   pattern,
+  gannTrigger,
   momentumElevated: true,
   stopAtrMultiple: 2,
   levels,

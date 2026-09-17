@@ -352,6 +352,59 @@ Check that boundary rather than the indicator list.
 says display is not exempt *by category*, which is exactly why this exception
 had to be examined and written down rather than assumed. It was, and it is.
 
+**Entry pricing moved off STRAT onto Gann's own rule (2026-09-17, project-owner
+direction) — the largest single Gann-grounding change to date, and the one a
+prior audit most badly understated.** `patternArmed` had been described as "one
+of nine scored criteria." Tracing it properly found the bar-sequence pattern
+also supplied `tradePlanReady` (a hard Execute gate independent of the scored
+point), `lib/strat/levels.ts`'s `const entry = pattern.triggerPrice` — **every
+trade plan's entry price** — and through `riskPerShare`, **every position
+size**. The autonomous portfolio manager was placing orders at STRAT-derived
+prices. Stops and targets were already Gann/structural; it was specifically the
+entry trigger that was foreign.
+
+Replaced by `lib/gann/entryTrigger.ts`: crossing an old completed swing top or
+bottom, plus the "lost motion" allowance — both disclosed in
+`docs/GANN_HISTORICAL_SOURCES.md` A8 (the nine Buying Points and nine Selling
+Points; the Resistance Level method's overshoot observation). The mechanism is
+unchanged — a breakout past a level plus a buffer — but the level is now a
+swing extreme rather than the prior bar's high, and the buffer has a citation
+rather than being an arbitrary penny. `patternArmed` was **renamed** to
+`entryTriggerArmed` rather than retired, so `TOTAL_POINTS` stays 9 and neither
+cutoff moved: the substance behind a criterion changed, not how many conditions
+the scorecard counts. This closed the last gate-1 failure.
+
+**The accepted trade-off, decided explicitly rather than absorbed silently.**
+Gann's trigger needs materially more history than STRAT's: a bar sequence arms
+on 2–3 bars, a swing crossing needs *two completed swings* — roughly 10+ bars
+containing real reversals, and flat closes advance the swing walk not at all.
+So the candidate population shrinks in both the live scan and the replay, and
+the Execute bucket was already starved (0/1061 on the last committed run).
+The project owner chose to accept this rather than fall back to the
+bar-sequence trigger where history is short (which would have reintroduced
+exactly what was removed) or shorten the swing count (which has no source).
+The reasoning: starvation is a **threshold** problem, and thresholds are
+display decisions measurement may legitimately move — fewer sourced setups
+beat more unsourced ones. **Do not "fix" a thin Execute bucket by reverting
+this.** Re-derive the cutoffs from a fresh run instead; the backtest hold that
+was waiting on `patternArmed` is now lifted.
+
+Two traps this left behind, both already hit once:
+
+- **Flat fixtures arm nothing.** `lib/__tests__/replay.test.ts`'s warm-up was
+  45 identical bars, which was harmless under the old trigger and yields zero
+  trades under this one. It now oscillates. Any new fixture needs real
+  reversals.
+- **`patternArmed`'s measurements do not transfer.** It is kept in
+  `criteria-registry.ts` as RETIRED so the 31 committed runs in
+  `docs/replay-runs/` still validate, but its numbers describe a different rule
+  on a different reference level. Treat `entryTriggerArmed` as unmeasured.
+
+The bar-sequence taxonomy itself is **not** removed — it keeps the display and
+confluence role the project owner deliberately kept (next entry), and in the
+replay it still names the candidate for attribution grouping. What it no longer
+does is decide where an order goes.
+
 **What that keep does not cover.** It settles the *display* use only. The
 same `lib/strat/patterns.ts` taxonomy also feeds `patternArmed`, a **scored**
 criterion — and scoring gates, where `sara.ts` cannot. So `patternArmed`
