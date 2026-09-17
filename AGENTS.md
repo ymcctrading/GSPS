@@ -215,20 +215,12 @@ future session should re-check rather than trust it:
   Either close the hook or ground it.
 
 - **Classic charting indicators** (`lib/indicators.ts`, `lib/analysis/indicators.ts`)
-  — `sma`, `ema`, `bollinger`, `rsi`, `macd`, plus `calculateMACD`/`calculateRSI`.
-  **Found 2026-09-17 by the sweep above, and absent from every prior version of
-  this list** — which is the entry to remember when deciding whether to run that
-  sweep again. This is not dead code: `/api/indicators` is a live route,
-  `components/chart/market-tabs.tsx` fetches it, and
-  `components/chart/candles.tsx` renders user-facing overlays for SMA 20,
-  SMA 50, EMA 9, RSI 14 and MACD 12/26/9. None has any Gann lineage — RSI,
-  MACD and Bollinger Bands all postdate Gann's death. **Still open.** The
-  Gann-grounded alternatives already exist in this repo (fan angles,
-  Square of 9 / Square of 144 levels, swing charts, retracement eighths), so
-  "replace" is a real option rather than "remove and leave the chart bare."
-  Note the shape of the miss: previous audits looked at the scoring path and
-  the signal engine, and a whole user-facing surface sat outside where anyone
-  was looking.
+  — `sma`, `ema`, `bollinger`, `rsi`, `macd`. Found by the sweep above on
+  2026-09-17 and absent from every prior version of this list, which is worth
+  remembering when deciding whether to run that sweep again. **Not an open item
+  — investigated and resolved the same day as a justified exception. See
+  "Charting indicators" under Audit outcomes below before touching any of
+  it.**
 
 For each: establish a Gann grounding, replace it with the Gann technique
 that serves the same purpose, or document explicitly why it is a justified
@@ -323,6 +315,42 @@ actual Gann-sourced inside/outside-bar sequence rule this analysis missed,
 that would change the classification from "documented exception" to
 "Gann-grounded alternative display" — but nothing found so far supports
 that.
+
+**Investigated and kept, by project-owner direction (2026-09-17): the
+classic charting indicators — and the reason generalises.** The sweep flagged
+`lib/indicators.ts`/`lib/analysis/indicators.ts` (`sma`, `ema`, `bollinger`,
+`rsi`, `macd`), the live `/api/indicators` route, and the SMA 20 / SMA 50 /
+EMA 9 / RSI 14 / MACD 12/26/9 overlays in `components/chart/candles.tsx` as
+unexamined non-Gann substance on a user-facing surface. That framing was
+wrong, and the correction matters more than the item: **the project owner
+asked for these specifically.** They are a deliberate feature, not drift.
+
+The distinction that makes this an exception rather than a hole in the
+"Gann-grounded platform" principle: these indicators are **tools the user
+drives, not substance the platform asserts.** GSPS's own verdict — what it
+scans for, scores, gates, and places orders from — remains entirely Gann. A
+chart overlay a trader switches on to examine their own idea makes no claim
+on the platform's behalf. The platform is not saying RSI means anything; it is
+declining to prevent a competent adult from looking at one.
+
+The intent is explicitly to widen this, not contain it: the roadmap's Q2
+"Expanded indicator library for self-directed strategy testing" adds Stochastic,
+Keltner, Donchian, OBV, volume profile, configurable periods and saved presets,
+so that experienced traders can test their own strategies instead of being
+confined to this one. A platform that forces its single method on a
+sophisticated user loses that user.
+
+**The boundary that keeps both things true, and the only line that must not
+move:** no indicator in this family may feed a scored criterion, a signal
+gate, a trade plan, an entry, a stop, a target, or any verdict GSPS itself
+issues. The moment one does, it stops being a user's tool and becomes the
+platform's substance, and the Gann-grounding principle applies to it in full.
+Check that boundary rather than the indicator list.
+
+**Do not remove these on a future Gann-grounding audit**, and do not read the
+"display only is not an exemption" rule above as overriding this — that rule
+says display is not exempt *by category*, which is exactly why this exception
+had to be examined and written down rather than assumed. It was, and it is.
 
 **What that keep does not cover.** It settles the *display* use only. The
 same `lib/strat/patterns.ts` taxonomy also feeds `patternArmed`, a **scored**
