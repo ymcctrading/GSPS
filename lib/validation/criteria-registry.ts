@@ -300,8 +300,8 @@ const SCAN_SCORE: RegisteredCriterion[] = [
     note:
       "Renamed from `patternArmed` and regrounded 2026-09-17, closing the last gate-1 failure on " +
       "this scorecard. The criterion was never the problem — 'is there an armed trigger to enter " +
-      "on?' is a real question — but its implementation read a bar-sequence pattern from Rob " +
-      "Smith's STRAT, which has no source in this platform's methodology. It now reads " +
+      "on?' is a real question — but its implementation read a bar-sequence reversal pattern " +
+      "taxonomy with no source in this platform's methodology. It now reads " +
       "lib/gann/entryTrigger.ts: crossing an old swing top or bottom plus the 'lost motion' " +
       "allowance, both disclosed in docs/GANN_HISTORICAL_SOURCES.md A8 (the nine Buying Points " +
       "and nine Selling Points, and the Resistance Level method). Renamed rather than retired, so " +
@@ -556,7 +556,7 @@ const RETIRED: RegisteredCriterion[] = [
     note:
       "Retired 2026-09-17 — superseded in place by `entryTriggerArmed`, not deleted. It asked a " +
       "legitimate question ('is there an armed trigger to enter on?') and answered it with a " +
-      "bar-sequence pattern from Rob Smith's STRAT, which has no source in this platform's " +
+      "bar-sequence reversal pattern taxonomy with no source in this platform's " +
       "methodology. That made it the last gate-1 failure on the scorecard, and — more " +
       "consequentially than its single scored point — the source of every trade plan's entry " +
       "price and, through riskPerShare, every position size. See `entryTriggerArmed` for the " +
