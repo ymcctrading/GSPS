@@ -729,36 +729,28 @@ reason and with a stated revert trigger. Read this section every session. When a
 raise it with the user before doing anything else with the affected code — don't silently carry an
 override past the point it was supposed to end.
 
-### Execution timeframe forced to 1Hour (since 2026-09-09)
+### Execution timeframe — reverted to 15Min early (2026-09-09 through 2026-09-17)
 
-**What:** `EXECUTION_TIMEFRAME` in `lib/timeframe.ts` (the single source of truth — every consumer
-imports it from there) is set to `"1Hour"`, not the protocol's real design of `"15Min"`.
+**Resolved 2026-09-17, project owner direction — reverted early, not via its own trigger.**
+`EXECUTION_TIMEFRAME` in `lib/timeframe.ts` was temporarily forced to `"1Hour"` (2026-09-09) instead
+of the protocol's real design of `"15Min"`, specifically because the free Alpaca feed's ~15-minute
+equity delay makes a 15-minute bar's lag ratio exactly 1.0 — tripping `applyDataLagHold`
+(`lib/data/latency.ts`) and holding *every* equity Execute verdict to Watch whenever the market is
+open, so a `trade_plan` could never reach `armed` and the Automated Portfolio Manager could never
+place a trade. That override's own stated revert trigger was `MARKET_DATA_REALTIME=true` (a paid
+real-time feed). **That trigger never fired.** The override was reverted anyway, on the free delayed
+feed, because its cost turned out to be worse than the starvation it was solving: setups armed on a
+stale 1-hour-delayed bar were arriving with the move already largely played out — see the
+2026-09-17 HBAN case (entry $16.77, price already at $15.66, through TP1, by the time the setup
+rendered). The project owner's call: a thin-to-empty equity Execute bucket on 15Min (crypto
+unaffected — `feedDelayMs` is always 0 for crypto) is an acceptable, understood cost; systematically
+stale triggers are not, especially on a novice-facing platform. See `lib/timeframe.ts`'s own header
+comment on `EXECUTION_TIMEFRAME` for the full detail — this entry is the historical record, that one
+is the live rule.
 
-**Why:** The free Alpaca feed delays equities ~15 minutes. On a 15-minute execution bar that's a
-lag ratio of exactly 1.0, which trips `applyDataLagHold` (`lib/data/latency.ts`) and holds *every*
-equity Execute verdict to Watch whenever the market is open — so a `trade_plan` can never reach
-`armed`, and the Automated Portfolio Manager can never place a trade. At 1Hour the same delay is
-25% of a candle, comfortably under the hold. The user asked for this explicitly, to verify the
-automation *pipeline* (plan created → armed → picked up → order placed) works end to end on paper
-money, while real-time data is not yet purchased.
-
-**What this is NOT:** validation that the strategy works at 1Hour. `docs/BACKTESTING.md` records
-that 1Hour has historically inverted the scoring model's own verdict ranking (Execute measuring as
-the *worst* bucket, not the best) — untouched by this override. Never cite a paper trade produced
-under this override as evidence the strategy is sound; it's only evidence the plumbing fired.
-
-**Mandatory revert trigger:** the moment `MARKET_DATA_REALTIME=true` is set for a paid real-time
-feed (removing the 15-minute delay entirely — `feedDelayMs` then returns 0 regardless of bar size),
-this override must be reverted to `"15Min"` in the same change. Reminder text for that moment:
-*"You asked to be reminded — real-time data is live now, so the temporary 1Hour execution-timeframe
-override should come out."* Don't wait to be asked twice; raise it as soon as you see
-`MARKET_DATA_REALTIME` being turned on, or see it already on, in the same session.
-
-**To revert:** change `EXECUTION_TIMEFRAME` in `lib/timeframe.ts` back to `"15Min"`, delete this
-section, and re-run `lib/data/__tests__/provider-execution-timeframe.test.ts` plus a fresh
-`?within=all` backtest capture to confirm 15Min's criteria evidence still holds (data ages between
-now and the revert). `PLAN_TIMEFRAME` (lib/lifecycle/fromScanResult.ts) and the copy in
-`lib/analysis/levelRole.ts` both derive from `EXECUTION_TIMEFRAME` and need no separate edit.
+No new override or revert trigger is standing in its place. If the equity Execute bucket proves too
+thin to be useful before real-time data lands, that is a discussion to have with the project owner,
+not a reason to silently re-widen `EXECUTION_TIMEFRAME` again — that was tried once already.
 
 ### Execute collapse stopgap: lowered thresholds, loosened two criteria (since 2026-09-14; weight half resolved 2026-09-16)
 
