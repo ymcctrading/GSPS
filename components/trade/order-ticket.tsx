@@ -67,9 +67,26 @@ export function OrderTicket({
   // separate STRAT bar-sequence taxonomy, kept for display/confluence only
   // (AGENTS.md "Gann-grounded platform" audit outcomes) and can be null or
   // point the opposite way from a Gann-armed setup — it must never decide
-  // whether a protocol signal exists or which side it's on.
+  // whether a protocol signal exists (that's `levels`/`result.direction`
+  // alone) or, when a direction is actually armed, which side it's on.
   const hasProtocolSignal = !!(levels && result.direction !== "none");
-  const signalSide: Side = forceSide ?? (result.direction === "bearish" ? "sell" : "buy");
+  // Reading `signalSide` off `pattern.direction` let the ticket highlight
+  // "Buy/Long" for levels that were actually priced short (stop above entry,
+  // targets below) -- internally contradictory, and read as invalidated
+  // almost by construction since the buy-side stop check assumes the stop
+  // sits below entry. `result.direction` is the one field that actually
+  // agrees with `levels`; fall back to `pattern` only when there's no armed
+  // direction at all (nothing to trade either way, so the fallback is
+  // display-only and `hasProtocolSignal` above is already false).
+  const signalSide: Side =
+    forceSide ??
+    (result.direction !== "none"
+      ? result.direction === "bearish"
+        ? "sell"
+        : "buy"
+      : pattern?.direction === "bearish"
+        ? "sell"
+        : "buy");
 
   const [assetType, setAssetType] = useState<AssetType>("shares");
   const [side, setSide] = useState<Side>(signalSide);

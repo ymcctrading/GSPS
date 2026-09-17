@@ -993,7 +993,7 @@ export function CandleChart({
           shouldn't need to leave the chart to know what a switch does. */}
       <div className="grid grid-cols-1 gap-x-4 gap-y-1 text-xs text-muted/90 sm:grid-cols-2 lg:grid-cols-3">
         <p><span className="font-medium text-foreground/70">Trade levels</span> — the entry, stop-loss, and profit-target lines from the current trade plan.</p>
-        <p><span className="font-medium text-foreground/70">Candle stats</span> — a small readout of the OHLC and volume for whichever candle you&rsquo;re hovering (or the latest one).</p>
+        <p><span className="font-medium text-foreground/70">Candle stats</span> — a small readout of the OHLC (Open, High, Low, Close — the four prices that make up one candle) and volume for whichever candle you&rsquo;re hovering (or the latest one).</p>
         <p><span className="font-medium text-foreground/70">Structure levels</span> — support/resistance zones the engine detected from prior price structure, not a live trade plan.</p>
         <p><span className="font-medium text-foreground/70">Volume pane</span> — a bar chart of shares/contracts traded per candle, shown below the price chart.</p>
         {extendedApplies && (

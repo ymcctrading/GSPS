@@ -64,6 +64,13 @@ export type TourFigure =
   | "backtest"
   | "caps";
 
+/**
+ * Which track the overlay is running. `null` (handled at the call sites, not
+ * as a member of this type) means no track has been chosen yet — see the
+ * mode chooser in `tour-overlay.tsx`.
+ */
+export type TourMode = "quick" | "full";
+
 export interface TourStep {
   /** Stable id — used for the URL hash on /welcome and as the React key. */
   id: string;
@@ -89,6 +96,22 @@ export interface TourStep {
   hrefLabel?: string;
   /** Which part of the frozen snapshot to draw beside the copy. */
   figure: TourFigure;
+  /**
+   * Included in the quick tour (`TOUR_STEPS_SHORT`) as well as the full one.
+   *
+   * Most visitors do not sit through a 16-step walkthrough — see the mode
+   * chooser in `tour-overlay.tsx` for where that reality is acted on rather
+   * than just noted. The quick set is the minimum a first-time reader needs
+   * to place a trade without hurting themselves: it is practice money, the
+   * three verdict words, where a recommendation comes from, that nothing
+   * trades without approval, what the four plan prices are, where the
+   * account/history lives, and the same four-point close as the full tour.
+   * Everything else (Scanner, the grey S/R bands, Automation's exit ladder,
+   * Backtest, the Glossary, Settings) is real and worth reading, just not
+   * required before a first trade — the full tour and the `/welcome` page
+   * remain the complete reference.
+   */
+  short?: boolean;
 }
 
 /**
@@ -117,6 +140,7 @@ export const TOUR_STEPS: TourStep[] = [
     figure: "portfolio",
     route: "/portfolio",
     anchor: "portfolio-account",
+    short: true,
     body: [
       "Your account opens with $100,000 that does not exist. No bank details, no deposit, nothing real at stake.",
       "The industry calls this paper trading. Real prices, real results, imaginary money \u2014 a flight simulator for the stock market. Crash as often as you like.",
@@ -140,6 +164,7 @@ export const TOUR_STEPS: TourStep[] = [
     figure: "scan",
     route: "/dashboard",
     anchor: "dash-setups",
+    short: true,
     body: [
       "Your home screen. Once a day GSPS reviews the market and posts the findings here, so ten seconds gives you the state of play.",
       "Findings split two ways: symbols expected to rise, and symbols expected to fall. Each row carries a score out of 9 and a one-word verdict.",
@@ -153,6 +178,7 @@ export const TOUR_STEPS: TourStep[] = [
     figure: "guided",
     route: "/guided",
     anchor: "guided-card",
+    short: true,
     body: [
       "Guided is the simplest route through GSPS, and the right place to begin.",
       "Rather than a screen of figures, Guided presents one recommendation at a time in full sentences: the action, the reasoning behind it, the cost, and the downside.",
@@ -179,6 +205,7 @@ export const TOUR_STEPS: TourStep[] = [
     figure: "none",
     route: "/guided",
     anchor: "guided-card",
+    short: true,
     body: [
       "The button on a recommendation places no order. Tapping opens a summary \u2014 symbol, buy or sell, share count, both dollar figures \u2014 and a second, separate approval.",
       "Declining costs nothing. Skip a recommendation and Guided moves to the next one.",
@@ -206,6 +233,7 @@ export const TOUR_STEPS: TourStep[] = [
     anchor: "dash-watchlist",
     href: "/dashboard",
     hrefLabel: "Pick a symbol from the Dashboard",
+    short: true,
     body: [
       "Tapping any symbol opens a dedicated page: a full chart with GSPS's analysis drawn directly onto the price.",
       "The trade plan is the centrepiece \u2014 four prices fixed before a single dollar moves. Those four prices are what separate a plan from a hunch.",
@@ -232,6 +260,7 @@ export const TOUR_STEPS: TourStep[] = [
     figure: "portfolio",
     route: "/portfolio",
     anchor: "portfolio-account",
+    short: true,
     body: [
       "Your account and your history in one place: practice balance, current holdings, and the outcome of every trade closed so far.",
       "Holdings sort into five lists. Open covers what you hold now. Pending covers orders waiting for a price. Rejected covers orders the broker refused, with the reason attached. Closed covers finished trades. Canceled or Expired covers the remainder.",
@@ -296,6 +325,7 @@ export const TOUR_STEPS: TourStep[] = [
     figure: "none",
     href: "/guided",
     hrefLabel: "Start with Guided",
+    short: true,
     body: [
       "Four things worth carrying forward.",
       "The money is practice money, so nothing real is at stake. No order goes out without your approval. Every trade has an exit planned before the entry. And losing trades are a normal part of the process.",
@@ -307,6 +337,14 @@ export const TOUR_STEPS: TourStep[] = [
 
 /** Total steps, for "Step 3 of 15" counters that must not drift from the list. */
 export const TOUR_STEP_COUNT = TOUR_STEPS.length;
+
+/**
+ * The quick tour: the `short: true` subset, in the same order they appear in
+ * `TOUR_STEPS`. Deliberately not a hand-maintained second array — a step
+ * marked `short` here is a step included there, one flag to keep in sync
+ * rather than two lists that can silently drift apart.
+ */
+export const TOUR_STEPS_SHORT: TourStep[] = TOUR_STEPS.filter((s) => s.short);
 
 /**
  * Where a step's "take me there" link should point on the reading page.

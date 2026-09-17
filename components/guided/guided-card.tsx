@@ -5,9 +5,28 @@ import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { SaveSetupButton } from "@/components/scan/save-setup-button";
 import { formatUsd, cn } from "@/lib/utils";
 import { GUIDED_DISCLOSURE } from "@/lib/guided/config";
 import type { Recommendation } from "@/lib/guided/service";
+
+/** Recommendation -> the shape SaveSetupButton already knows how to save
+ * (it was previously only reachable from ResultsTable's rows). */
+function toSavedSetupRow(rec: Recommendation) {
+  return {
+    symbol: rec.symbol,
+    score: rec.why.score.score,
+    outputState: rec.why.verdict,
+    direction: rec.action === "buy" ? "bullish" : "bearish",
+    entry: rec.why.entry,
+    stopLoss: rec.why.stopLoss,
+    takeProfit1: rec.why.takeProfit1,
+    masterProfit: rec.why.masterProfit,
+    patternName: rec.why.patternName,
+    setupKind: undefined,
+    currentPrice: rec.currentPrice,
+  };
+}
 
 /**
  * One recommendation, as a card rather than a row of numbers.
@@ -44,14 +63,17 @@ export function GuidedCard({
             <span className="text-lg font-semibold">{rec.symbol}</span>
             <span className="font-mono text-sm text-muted">{formatUsd(rec.currentPrice)}</span>
           </div>
-          <span
-            className={cn(
-              "rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide",
-              short ? "bg-bear/10 text-bear" : "bg-bull/10 text-bull",
-            )}
-          >
-            {short ? "Sell short" : "Buy"}
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span
+              className={cn(
+                "rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide",
+                short ? "bg-bear/10 text-bear" : "bg-bull/10 text-bull",
+              )}
+            >
+              {short ? "Sell short" : "Buy"}
+            </span>
+            <SaveSetupButton row={toSavedSetupRow(rec)} />
+          </div>
         </div>
 
         <p className="text-sm leading-relaxed">{rec.reason}</p>

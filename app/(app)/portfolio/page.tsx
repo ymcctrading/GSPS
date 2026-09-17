@@ -209,7 +209,7 @@ export default function PortfolioPage() {
                 : "No pending positions. Orders you place appear here the moment they're submitted."}
           </EmptyState>
         ) : (
-          <OrderLedger orders={sections.pending} />
+          <OrderLedger orders={sections.pending} onCanceled={refresh} />
         )}
       </PositionSection>
 

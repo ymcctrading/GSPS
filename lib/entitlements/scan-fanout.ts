@@ -16,6 +16,7 @@ import { evaluateMonitor } from "@/lib/entitlements/monitor-store";
 import {
   dispatchNotificationDelivery,
   getEnabledChannels,
+  recordInAppNotification,
   recordNotificationDelivery,
   type EntitledAlertPayload,
   type EntitledInvalidationPayload,
@@ -179,11 +180,15 @@ export async function evaluateMonitorsAndNotify(
 
   if (notifyWorthy.length === 0 && invalidatedWorthy.length === 0) return 0;
 
+  // Email/sms/push are opt-in per profile (notification_preferences); the
+  // in-app ("on the platform itself") notification below is not -- it has no
+  // send cost and no spam risk, so it always fires for a notify-worthy
+  // transition regardless of what this returns. An empty `channels` here
+  // just means the per-channel loops below run zero times each.
   const channels = await getEnabledChannels(service, args.profileId).catch((err) => {
     console.error(`evaluateMonitorsAndNotify: enabled channels not resolved — ${String(err)}`);
     return [];
   });
-  if (channels.length === 0) return 0;
 
   let sentCount = 0;
   for (const { transitionId, setup } of notifyWorthy) {
@@ -195,6 +200,9 @@ export async function evaluateMonitorsAndNotify(
     });
 
     const payload = buildAlertPayload(setup);
+    await recordInAppNotification(service, { transitionId, profileId: args.profileId, payload }).catch((err) => {
+      console.error(`evaluateMonitorsAndNotify: in-app notification not recorded for ${setup.value.symbol} — ${String(err)}`);
+    });
     for (const channel of channels) {
       try {
         const recorded = await recordNotificationDelivery(service, {
@@ -218,6 +226,9 @@ export async function evaluateMonitorsAndNotify(
 
   for (const { transitionId, symbol } of invalidatedWorthy) {
     const payload: EntitledInvalidationPayload = { symbol, verdict: "INVALIDATED" };
+    await recordInAppNotification(service, { transitionId, profileId: args.profileId, payload }).catch((err) => {
+      console.error(`evaluateMonitorsAndNotify: in-app invalidation notification not recorded for ${symbol} — ${String(err)}`);
+    });
     for (const channel of channels) {
       try {
         const recorded = await recordNotificationDelivery(service, {
