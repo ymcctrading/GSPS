@@ -65,15 +65,45 @@ export function ResultsTable({ rows, emptyText }: { rows: ScanRow[]; emptyText?:
   const handleInvalidatedChange = useCallback((key: string, value: boolean) => {
     setInvalidated((prev) => (prev[key] === value ? prev : { ...prev, [key]: value }));
   }, []);
+  // A Gann-score Reject row is not a "populated setup" -- the platform's whole
+  // point is surfacing the setups closest to 9, and a 0-3/9 row sitting in the
+  // same ranked list reads as though it earned a slot next to a Watch/Execute
+  // row. Kept out of the primary table and collapsed under an explicit count
+  // instead, mirroring the audit-trail pattern IntradayAlerts already uses for
+  // "everything else that was scanned and didn't qualify" -- available on
+  // request, never competing for the ranked list's attention.
+  //
+  // Exception: the Signal and Regime Engine is a separate, non-merged read
+  // (see the column's own doc comment above) -- a row can score low on the
+  // Gann/STRAT criteria and still carry a real Watch/Qualified/tradeable
+  // rollup from that engine. That is a second, independent opportunity, not
+  // noise, so any row with a `signal` at all stays in the primary list
+  // regardless of its Gann score. Only a Reject row with nothing else going
+  // for it -- no signal rollup either -- gets collapsed.
+  const [showRejected, setShowRejected] = useState(false);
 
   if (rows.length === 0) {
     return <p className="py-8 text-center text-sm text-muted">{emptyText ?? "No results yet."}</p>;
   }
 
-  const live = rows.filter((r) => !invalidated[rowKey(r)]);
-  const dead = rows.filter((r) => invalidated[rowKey(r)]);
+  const qualifying = rows.filter((r) => r.outputState !== "Reject" || r.signal != null);
+  const rejected = rows.filter((r) => r.outputState === "Reject" && r.signal == null);
+
+  if (qualifying.length === 0 && rejected.length > 0) {
+    return (
+      <div className="py-8 text-center text-sm text-muted">
+        <p>{emptyText ?? "No symbols qualified as a setup."}</p>
+        <RejectedToggle count={rejected.length} open={showRejected} onToggle={() => setShowRejected((v) => !v)} />
+        {showRejected && <RejectedTable rows={rejected} />}
+      </div>
+    );
+  }
+
+  const live = qualifying.filter((r) => !invalidated[rowKey(r)]);
+  const dead = qualifying.filter((r) => invalidated[rowKey(r)]);
 
   return (
+    <>
     <Table>
       <THead>
         <TR>
@@ -104,6 +134,63 @@ export function ResultsTable({ rows, emptyText }: { rows: ScanRow[]; emptyText?:
         )}
         {dead.map((r) => (
           <ResultsRow key={rowKey(r)} row={r} onInvalidatedChange={handleInvalidatedChange} />
+        ))}
+      </TBody>
+    </Table>
+    {rejected.length > 0 && (
+      <div className="mt-2">
+        <RejectedToggle count={rejected.length} open={showRejected} onToggle={() => setShowRejected((v) => !v)} />
+        {showRejected && <RejectedTable rows={rejected} />}
+      </div>
+    )}
+    </>
+  );
+}
+
+function RejectedToggle({ count, open, onToggle }: { count: number; open: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="text-xs text-muted hover:text-foreground hover:underline"
+    >
+      {open ? "Hide" : "Show"} {count} scanned but not qualified (score too low)
+    </button>
+  );
+}
+
+/** Minimal, symbol/score/setup only — these didn't earn a trade plan, so the
+ * full price-column table would just be four dashes per row. */
+function RejectedTable({ rows }: { rows: ScanRow[] }) {
+  return (
+    <Table>
+      <THead>
+        <TR>
+          <TH className="sticky left-0 z-10 bg-surface">Symbol</TH>
+          <TH className="text-right">Price</TH>
+          <TH>Score</TH>
+          <TH>Setup</TH>
+        </TR>
+      </THead>
+      <TBody>
+        {rows.map((r) => (
+          <TR key={rowKey(r)}>
+            <TD className="sticky left-0 z-10 bg-surface">
+              <Link href={tickerHref(r.symbol)} className="font-medium text-accent hover:underline">
+                {r.symbol}
+              </Link>
+            </TD>
+            <TD className="text-right font-mono">{r.currentPrice != null && r.currentPrice > 0 ? formatUsd(r.currentPrice) : "—"}</TD>
+            <TD>
+              <ScoreBadge score={r.score} state={r.outputState} />
+            </TD>
+            <TD className="text-muted">
+              {r.patternName ? `${r.patternName} ` : ""}
+              <span className={r.direction === "bullish" ? "text-bull" : r.direction === "bearish" ? "text-bear" : ""}>
+                {r.direction === "bullish" ? "Buy" : r.direction === "bearish" ? "Sell" : "—"}
+              </span>
+            </TD>
+          </TR>
         ))}
       </TBody>
     </Table>
