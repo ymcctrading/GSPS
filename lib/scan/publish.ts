@@ -14,6 +14,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { hasTradePlan } from "@/lib/marketScan";
+import { toPublicSignalSummary } from "@/lib/signals/publicSummary";
 import type { ScanResult } from "@/lib/types";
 
 export type Direction = "bullish" | "bearish";
@@ -96,6 +97,20 @@ export function buildScanRows(
       gann: r.gann,
       breakdown: r.decision.breakdown,
       trends: r.trends.map((t) => ({ timeframe: t.timeframe, direction: t.direction })),
+      // The Signal and Regime Engine's rollup — computed by every scan
+      // (scanTicker), but until now dropped on the daily/cron persistence
+      // path while the manual scanner (app/(app)/scanner/page.tsx's own
+      // toRow) kept it. That gap is exactly the "not existing everywhere it
+      // applies is equal to not existing anywhere" case AGENTS.md's
+      // cross-platform-consistency principle names: the dashboard and any
+      // other view fed by `daily_scans` never showed Watchlist/Qualified/
+      // A-tier or the regime state, only a manually-run scan did.
+      signal: toPublicSignalSummary(
+        r.signals?.trendPullback,
+        r.signals?.trendBreakout,
+        r.signals?.confirmedReversal,
+        r.signals?.rangeReversion,
+      ),
     },
   }));
 }

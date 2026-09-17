@@ -32,10 +32,10 @@ export interface ScanRow {
   currentPrice?: number | null;
   /**
    * The Signal and Regime Engine's own rollup — a separate read from
-   * `score`/`outputState` above, never merged into them. `undefined` for
-   * rows built from a persisted `daily_scans` row (that table doesn't carry
-   * this engine's verdict yet); `null` when a live scan ran it and no state
-   * qualified.
+   * `score`/`outputState` above, never merged into them. `null` when no
+   * state qualified (true of both a live scan and a persisted `daily_scans`
+   * row — see `lib/dailyScans.ts#toRow`); `undefined` only for a row shape
+   * that never asked the question at all.
    */
   signal?: PublicSignalSummary | null;
 }
