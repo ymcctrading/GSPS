@@ -240,7 +240,7 @@ function summarise(r: ReplayResult): RunSummary {
  * Daily bars are what switch the score on inside the replay; without them
  * every trade comes back unscored and there is nothing to attribute.
  */
-async function fetchSeries(symbol: string, timeframe: Timeframe): Promise<{ bars: Bar[]; daily: Bar[] }> {
+export async function fetchSeries(symbol: string, timeframe: Timeframe): Promise<{ bars: Bar[]; daily: Bar[] }> {
   const provider = getMarketDataProvider();
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
   const now = Date.now();

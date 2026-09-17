@@ -13,7 +13,12 @@ import type { SupportedMarket } from "./marketAdapters";
 
 export type ConfluenceModuleId = "gann_confluence_layer" | "sara_sniper_confluence_layer";
 
-const DEFAULT_ENABLED_MARKETS: Record<ConfluenceModuleId, ReadonlySet<SupportedMarket>> = {
+/**
+ * Exported so `lib/signals/confluence/__tests__/registry-db-alignment.test.ts`
+ * can check `strategy_modules.enabled_by_market`'s seed value against the one
+ * place this is actually decided, rather than a second hardcoded copy.
+ */
+export const DEFAULT_ENABLED_MARKETS: Record<ConfluenceModuleId, ReadonlySet<SupportedMarket>> = {
   gann_confluence_layer: new Set(["equities", "crypto"]),
   sara_sniper_confluence_layer: new Set(["equities", "crypto"]),
 };
