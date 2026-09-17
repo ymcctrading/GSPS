@@ -213,4 +213,32 @@ describe("runScheduledScan", () => {
       expect(args.rejectedSymbols).toEqual(new Set(["TSLA"]));
     }
   });
+
+  it("runs and fans out under the new scheduled_first_90min_scan source, distinct from the 9:15 job", async () => {
+    const { client, inserted } = fakeService({
+      existingRun: null,
+      insertedId: "se-945",
+      profiles: [{ id: "p1", tier: "PRACTICE" }],
+    });
+    createServiceClientMock.mockReturnValue(client);
+    runMarketScanMock.mockResolvedValueOnce({
+      scanDate: "2026-08-26",
+      bullish: [],
+      bearish: [],
+      universeSize: 20,
+      shortlisted: 0,
+      scanErrors: 0,
+      fullScanResults: [],
+    });
+
+    const res = await runScheduledScan(AUTH, "scheduled_first_90min_scan");
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.scanExecutionId).toBe("se-945");
+    // Its own source string, not the 9:15 job's -- the idempotency index
+    // (migration 0040/0068) keys on this, so the two must never collide.
+    expect(inserted[0]).toMatchObject({ source: "scheduled_first_90min_scan", market_date_et: "2026-08-26" });
+    expect(fanOutForProfileMock).toHaveBeenCalledTimes(1);
+  });
 });
