@@ -2,7 +2,12 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-09-17 (Improved onboarding: corrected the stale claim
+**Last updated:** 2026-09-17 (Home dashboard universe coverage + intraday
+tracking: widened every scheduled/cron scan to the full big-cap universe,
+added two intraday full-universe checkpoints and a twice-hourly live
+invalidation sweep, and fixed a pre-existing `active_monitors` source-check
+bug found in the same pass — see the Scan history initiative note under
+Q1). Previously same day (Improved onboarding: corrected the stale claim
 that glossary integration was still open — it shipped and is linked
 throughout the app; pattern education remains open). Previously: 2026-09-08
 (Portfolio analytics dashboard corrected to reflect that it shipped
@@ -235,6 +240,56 @@ both signal discovery and execution.
   Distinct from BACKLOG.md's unchecked "Saved scan criteria/watchlists" item,
   which is about re-running a saved *configuration*, not reviewing past
   *results* — that item is still open.
+- **Home dashboard universe coverage + intraday tracking — continuation of
+  this same coverage-gap thread, 2026-09-17, direct report.** The Home
+  dashboard's Buy/Sell setups cards were consistently thinner than a manual
+  Universe-tab scan over the same big-cap population, despite both paths
+  sharing the identical scoring engine and thresholds. Root cause: every
+  scheduled/cron scan call site (`app/api/market-scan/route.ts`'s two
+  crons, and the three `lib/entitlements/scheduled-scan.ts`-based jobs) had
+  been left at `runMarketScan()`'s bare default (`universeTop=100`) instead
+  of anything wider — and per `resolveUniverse` in `lib/marketScan.ts`, that
+  100-symbol budget is filled by a same-day "most actives" pool (often
+  small, volatile names) *before* the curated ~600-symbol large-cap universe
+  is ever reached, so the scheduled runs feeding the dashboard were drawing
+  from a narrower, less relevant pool than a user's own manual scan. Fixed:
+  a new `FULL_UNIVERSE_TOP` constant (700, under `MAX_COARSE_UNIVERSE`'s 750
+  ceiling) is now passed explicitly at every full-universe scan call site,
+  so the dashboard draws from the same big-cap population a manual scan
+  does — `rank()`'s existing sort-by-score-then-slice-to-`perSide` logic
+  needed no change to surface only the highest-scored setups from the wider
+  pool.
+  Two further, related gaps closed in the same pass, per direct follow-up
+  direction: first, the 9:45 AM first-90min scan left a roughly 7.75-hour
+  gap (9:45 AM -> 5:30 PM ET) with no full-universe scan at all during the
+  regular session — two new scheduled scans, `/api/scans/midday` (~11:00 AM
+  ET) and `/api/scans/afternoon` (~2:00 PM ET), close it, reusing the same
+  `runScheduledScan` plumbing (migration `0070` widens `scan_executions`'
+  and `active_monitors`' source check constraints for the two new source
+  values). Every scheduled scan — not only the two new ones — now also
+  persists its top-`perSide` results to `daily_scans` (previously only the
+  two `/api/market-scan` crons did), so the dashboard's primary cards
+  actually refresh at every scheduled checkpoint rather than the historical
+  2x/day cadence a stale code comment in `app/(app)/dashboard/page.tsx` had
+  been describing as already true. Second, a tracked `active_monitors` row
+  could previously only be invalidated by a later full scan happening to
+  re-evaluate that exact symbol and read back Reject — with hours between
+  scans, a setup that had already broken its stop could sit on the
+  dashboard as Execute long after it stopped being one. `/api/monitors/
+  invalidation-sweep`, on its own twice-hourly (:15/:45 past the hour,
+  market hours only) GitHub Actions schedule
+  (`monitor-invalidation-sweep.yml`), closes this with one live price fetch
+  per distinct tracked symbol — never a full rescan — checked against that
+  monitor's own stop via the same `isInvalidatedByStop` check
+  `lib/dailyScans.ts` already applies at read time.
+  *(Same pass also fixed a pre-existing, unrelated bug found while widening
+  `active_monitors_source_check` for the two new sources: that constraint
+  had never actually been widened when migration `0062` added
+  `'single_ticker'` to `scan_executions` — despite this doc's own
+  2026-09-08 correction above describing that fix as closing the gap for
+  `/api/scan` — nor when `0068` added `'scheduled_first_90min_scan'`. Both
+  values have been silently failing their `active_monitors` insert/update
+  since. Migration `0070` adds both alongside the two new sources.)*
 - **Push (phone) notifications — noted as backlog, not built.** Requested
   alongside the above; investigated and confirmed there is no push channel
   today (`dispatchNotificationDelivery` in `lib/entitlements/delivery.ts`

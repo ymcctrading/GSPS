@@ -1,0 +1,36 @@
+name: Midday scan
+
+# The ~11:00 AM ET scheduled scan from app/api/scans/midday's header comment
+# -- added to close the coverage gap between the 9:45 AM first-90min scan
+# and the 5:30 PM post-close run, during which no full-universe scan ran at
+# all. Both Vercel cron slots are already spent (see
+# docs/THIRD_PARTY_LIMITS.md), so this follows the same GitHub-Actions
+# pattern as premarket-scan.yml and the other scheduled-scan workflows
+# rather than vercel.json.
+#
+# 15:00 UTC = 11:00 AM ET during EDT (UTC-4, roughly mid-March to early
+# November). During EST (UTC-5) this actually fires at 10:00 AM ET -- the
+# same DST drift every other fixed-UTC scheduled-scan workflow in this repo
+# already accepts, for the same reason: the route's output doesn't depend
+# on being called at exactly its nominal minute.
+on:
+  schedule:
+    - cron: '0 15 * * 1-5'
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    name: Trigger /api/scans/midday
+    steps:
+      - name: Call midday scan
+        run: |
+          status=$(curl -sS -o /tmp/response.json -w '%{http_code}' \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ vars.PRODUCTION_URL || 'https://gsps.vercel.app' }}/api/scans/midday")
+          echo "HTTP $status"
+          cat /tmp/response.json
+          if [ "$status" -ge 300 ]; then
+            echo "midday scan returned $status" >&2
+            exit 1
+          fi

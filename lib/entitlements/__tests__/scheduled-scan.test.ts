@@ -13,7 +13,7 @@ const {
   createServiceClientMock: vi.fn(),
 }));
 
-vi.mock("@/lib/marketScan", () => ({ runMarketScan: runMarketScanMock }));
+vi.mock("@/lib/marketScan", () => ({ runMarketScan: runMarketScanMock, FULL_UNIVERSE_TOP: 700 }));
 vi.mock("@/lib/market/calendar", () => ({ isTradingDay: isTradingDayMock }));
 vi.mock("@/lib/market/session", () => ({ etDateKey: () => "2026-08-26" }));
 vi.mock("@/lib/entitlements/scan-fanout", () => ({ fanOutForProfile: fanOutForProfileMock }));

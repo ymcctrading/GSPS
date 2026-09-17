@@ -9,7 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { runMarketScan } from "@/lib/marketScan";
+import { FULL_UNIVERSE_TOP, runMarketScan } from "@/lib/marketScan";
 import { buildScanRows, describeDbError, persistDailyScans } from "@/lib/scan/publish";
 import { persistCoarseTelemetry } from "@/lib/scan/telemetry";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
@@ -17,14 +17,14 @@ import { getUniversePolicy } from "@/lib/universe/policy";
 
 // The Vercel Hobby plan hard-caps function execution at 60s regardless of
 // what this says — a higher value here is silently unenforced, not granted.
-// runMarketScan's defaults are sized to finish well inside this ceiling; see
-// the budget comment on `runMarketScan` in lib/marketScan.ts before raising
-// either number.
+// This route calls runMarketScan with FULL_UNIVERSE_TOP (lib/marketScan.ts),
+// sized to finish well inside this ceiling per that constant's own budget
+// comment — re-check wall-clock time before raising it further.
 export const maxDuration = 60;
 
 async function runAndPersist() {
   const { universe } = await getUniversePolicy(createServiceClient());
-  const output = await runMarketScan(undefined, undefined, universe);
+  const output = await runMarketScan(FULL_UNIVERSE_TOP, undefined, universe);
 
   // Persist (best-effort — the scan output is returned either way)
   let persisted = false;
