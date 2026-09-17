@@ -157,12 +157,23 @@ export const MAX_WEIGHT = 2;
  * setup satisfies, with no claim layered on top about which of them matters
  * more.
  *
- * This is the fallback every real caller actually scores with:
+ * This is the fallback, **not automatically what production scores with.**
  * `lib/scoring/score.ts` falls back to it when no explicit weights are
- * supplied, and `lib/scoring/active-weights.ts` falls back to it whenever no
- * weight set has been promoted to `live` in `learning_models` — which is
- * every deployment today, so this constant *is* production's live weight
- * set, not a placeholder.
+ * supplied, and `lib/scoring/active-weights.ts` falls back to it only when no
+ * weight set is promoted to `live` in `learning_models`. A promoted row wins
+ * over this constant, silently and without a deploy.
+ *
+ * That distinction is load-bearing and was got wrong here before. Between
+ * 2026-09-14 and 2026-09-17 this comment asserted that no deployment had a
+ * live row and therefore this constant *was* production's weight set. One
+ * had been promoted on 2026-09-16, so restoring uniform here changed nothing
+ * a user could see — the live scan went on scoring with the hand-set
+ * distribution this file had just repudiated, and fractional scores kept
+ * appearing in the product. The row was demoted to `deprecated` on
+ * 2026-09-17 and there is no live row today, but **do not re-derive the old
+ * claim from that fact**: query `learning_models` before asserting anything
+ * about what production scores with. `getActiveWeightSet()` returns the
+ * version alongside the weights for exactly this reason.
  *
  * **Restored to uniform 2026-09-16**, replacing the hand-set distribution
  * that stood from 2026-09-14: historicalSR 1.99, stopRoom 1.8,

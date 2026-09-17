@@ -80,10 +80,19 @@ export interface ReplayOptions {
   dailyBars?: Bar[];
   /**
    * Criterion weights to score with. Defaults to `DEFAULT_CRITERION_WEIGHTS`
-   * (`lib/scoring/weights.ts`) — no longer one point each as of 2026-09-14,
-   * see that constant's own doc comment. Supplying a candidate set is how a
-   * weight proposal is checked against the same trades the current weights
-   * produced — see lib/backtest/propose-weights.ts.
+   * (`lib/scoring/weights.ts`) — one point each, restored on principle
+   * 2026-09-16 after a hand-set distribution held from 2026-09-14; see that
+   * constant's own doc comment. Supplying a candidate set is how a weight
+   * proposal is checked against the same trades the current weights produced
+   * — see lib/backtest/propose-weights.ts.
+   *
+   * Note this defaults to the *code* constant, deliberately — unlike the live
+   * scan, which resolves weights through `lib/scoring/active-weights.ts` and
+   * may be scoring with a promoted `learning_models` row instead. A replay
+   * must be reproducible from the repo alone, so it does not read that table;
+   * the cost is that a replay and the live scan can disagree while a model is
+   * promoted. Pass `weights` explicitly to reproduce what production actually
+   * scored with.
    */
   weights?: CriterionWeights;
   /**

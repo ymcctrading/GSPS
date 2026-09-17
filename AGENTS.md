@@ -566,6 +566,49 @@ Traps for whoever eventually runs it:
 deploy READY. It added eight Gann-derived refinements, **all confluence-only** — no scored verdict
 changed by that release. The 1Hour execution-timeframe override above remains live in production.
 
+**Live weights incident (2026-09-17) — merging is not shipping.** PR #235 merged the uniform
+`DEFAULT_CRITERION_WEIGHTS` decision to `main` and deployed clean, and the change was still
+**inert in production**. The project owner reported a score of `4.48` on the live site, which is
+impossible under uniform weights — every scored criterion is worth exactly one point, so a score
+can only be a whole number. `lib/scoring/active-weights.ts` prefers a `learning_models` row
+promoted to `status = 'live'` over the code constant, and one had been promoted on 2026-09-16
+carrying the very hand-set distribution PR #235 existed to repudiate. `4.48` reconciles exactly
+against that row's ten-criterion parse. Three separate things went wrong and each is worth naming:
+
+- **A database row silently outranked the repo.** The decision was merged, deployed and guarded
+  by a test, and none of that reached the scan. Code review cannot see this surface.
+- **The guard test only covered the constant.** `lib/__tests__/default-weights.test.ts` asserted
+  the code default was uniform, which was true and irrelevant. A green test was read as evidence
+  about production.
+- **The row was already stale, and was being reshaped rather than rejected.** It was proposed
+  against ten criteria including `adxTrendStrength`; when that criterion was discarded hours
+  later, `parseCriterionWeights` dropped the unknown key and renormalised the remaining nine into
+  a distribution nobody had proposed, measured or approved — well-formed, and indistinguishable
+  at the call site from one that had been.
+
+Fixed 2026-09-17: the row was demoted to `deprecated` (no live `score_adjustment` row exists
+today), `isWeightSetAddressedToCurrentCriteria` in `lib/scoring/active-weights.ts` now rejects and
+warns on any stored set whose key set does not match `CRITERION_KEYS` exactly, and
+`lib/scoring/__tests__/active-weights.test.ts` guards that path with the real offending row as a
+fixture.
+
+**The general rule this yields — check the configuration surface, not just the code.** The
+"Cross-platform consistency" principle at the top of this file says a concept must exist on every
+surface it applies to. Runtime configuration is one of those surfaces, and it is the one a diff
+cannot show you. Before reporting any constant, threshold, weight or flag as live, check whether
+something outside the repo overrides it. Known override surfaces as of 2026-09-17:
+
+- `learning_models` (`status = 'live'`) — overrides `DEFAULT_CRITERION_WEIGHTS` via
+  `lib/scoring/active-weights.ts`. Guarded as above.
+- `lib/risk/policy.ts` — `getRiskPolicy(supabase)` / `setRiskPolicyValue()` resolve risk policy
+  from the database over `DEFAULT_RISK_POLICY_VALUES`. **Not yet audited for the same class of
+  drift.**
+- Environment variables — the confluence modules read `GSPS_DISABLE_GANN_CONFLUENCE` /
+  `GSPS_DISABLE_SARA_CONFLUENCE` (`lib/signals/confluence/flags.ts`), and `MARKET_DATA_REALTIME`
+  carries a mandatory revert trigger above. **Production values not yet verified.**
+
+The list is a starting point, not an inventory. Re-derive it rather than trusting it.
+
 ## Deployment (Vercel)
 
 - The project runs on the **Vercel Hobby (free) plan**. Cron jobs are capped at **2 per project**, each running **no more than once a day**. Before adding a new scheduled job, confirm the total stays at or under that cap — see `docs/THIRD_PARTY_LIMITS.md`. If something needs to run more often than daily, it does not belong in `vercel.json` crons; trigger it from an external scheduler instead.
