@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { TargetStatusCells } from "@/components/trade/target-status";
@@ -13,7 +14,20 @@ import {
   type NormalizedStatus,
 } from "@/lib/portfolio/order-status";
 import { formatUsd, formatPct, cn } from "@/lib/utils";
+import { tickerHref } from "@/lib/routes";
+import { isInvalidatedByStop } from "@/lib/trade/invalidate-pending";
 import type { OrderRow } from "./types";
+
+/** Every symbol on this ledger links back to its chart -- open-positions.tsx
+ * and rejected-orders.tsx already do this; the Entry Orders table (this
+ * file) was the one place on the portfolio page a symbol was plain text. */
+function SymbolLink({ symbol, className }: { symbol: string; className?: string }) {
+  return (
+    <Link href={tickerHref(symbol)} className={cn("text-accent hover:underline", className)}>
+      {symbol}
+    </Link>
+  );
+}
 
 /**
  * The order ledger, rendered per asset type.
@@ -36,14 +50,29 @@ import type { OrderRow } from "./types";
  * sideways.
  */
 
-export function OrderLedger({ orders }: { orders: OrderRow[] }) {
+export function OrderLedger({
+  orders,
+  onCanceled,
+}: {
+  orders: OrderRow[];
+  /** Called after a pending order is successfully canceled, so the caller can
+   * refetch — see app/(app)/portfolio/page.tsx's `refresh`. Optional: a
+   * ledger rendered somewhere with no live refresh loop (if one exists)
+   * still lets the cancel happen, it just won't visibly update until the
+   * next natural reload. */
+  onCanceled?: () => void;
+}) {
   const shares = orders.filter((o) => o.asset_type !== "OPTION");
   const contracts = orders.filter((o) => o.asset_type === "OPTION");
 
   return (
     <div className="flex flex-col gap-5">
-      {shares.length > 0 && <EquityOrders orders={shares} labeled={contracts.length > 0} />}
-      {contracts.length > 0 && <OptionOrders orders={contracts} labeled={shares.length > 0} />}
+      {shares.length > 0 && (
+        <EquityOrders orders={shares} labeled={contracts.length > 0} onCanceled={onCanceled} />
+      )}
+      {contracts.length > 0 && (
+        <OptionOrders orders={contracts} labeled={shares.length > 0} onCanceled={onCanceled} />
+      )}
     </div>
   );
 }
@@ -52,7 +81,15 @@ function GroupLabel({ children }: { children: React.ReactNode }) {
   return <p className="text-xs font-medium uppercase tracking-wide text-muted">{children}</p>;
 }
 
-function EquityOrders({ orders, labeled }: { orders: OrderRow[]; labeled: boolean }) {
+function EquityOrders({
+  orders,
+  labeled,
+  onCanceled,
+}: {
+  orders: OrderRow[];
+  labeled: boolean;
+  onCanceled?: () => void;
+}) {
   return (
     <div className="flex flex-col gap-2">
       {labeled && <GroupLabel>Shares ({orders.length})</GroupLabel>}
@@ -81,7 +118,7 @@ function EquityOrders({ orders, labeled }: { orders: OrderRow[]; labeled: boolea
             {orders.map((o) => (
               <TR key={o.id}>
                 <PlacedCell order={o} />
-                <TD className="font-medium">{o.symbol}</TD>
+                <TD className="font-medium"><SymbolLink symbol={o.symbol} /></TD>
                 <SideCell order={o} />
                 <TD className="text-muted">{o.order_type}</TD>
                 <TD className="text-right font-mono">{o.qty}</TD>
@@ -96,7 +133,7 @@ function EquityOrders({ orders, labeled }: { orders: OrderRow[]; labeled: boolea
                   <TargetStatusCells status={o.targets} />
                 </TD>
                 <TD>
-                  <StatusBadge order={o} />
+                  <StatusCell order={o} onCanceled={onCanceled} />
                 </TD>
               </TR>
             ))}
@@ -106,14 +143,22 @@ function EquityOrders({ orders, labeled }: { orders: OrderRow[]; labeled: boolea
 
       <div className="flex flex-col gap-2 sm:hidden">
         {orders.map((o) => (
-          <OrderCard key={o.id} order={o} title={o.symbol} subtitle="Shares" />
+          <OrderCard key={o.id} order={o} title={o.symbol} subtitle="Shares" onCanceled={onCanceled} />
         ))}
       </div>
     </div>
   );
 }
 
-function OptionOrders({ orders, labeled }: { orders: OrderRow[]; labeled: boolean }) {
+function OptionOrders({
+  orders,
+  labeled,
+  onCanceled,
+}: {
+  orders: OrderRow[];
+  labeled: boolean;
+  onCanceled?: () => void;
+}) {
   const [showGreeks, setShowGreeks] = useState(false);
 
   return (
@@ -155,7 +200,7 @@ function OptionOrders({ orders, labeled }: { orders: OrderRow[]; labeled: boolea
               <TR key={o.id}>
                 <PlacedCell order={o} />
                 <TD className="font-medium">
-                  {o.symbol}
+                  <SymbolLink symbol={o.symbol} />
                   <span className="ml-1 text-xs font-normal text-muted">
                     {contractDescription(o)}
                   </span>
@@ -181,7 +226,7 @@ function OptionOrders({ orders, labeled }: { orders: OrderRow[]; labeled: boolea
                   <TargetStatusCells status={o.targets} />
                 </TD>
                 <TD>
-                  <StatusBadge order={o} />
+                  <StatusCell order={o} onCanceled={onCanceled} />
                 </TD>
               </TR>
             ))}
@@ -197,6 +242,7 @@ function OptionOrders({ orders, labeled }: { orders: OrderRow[]; labeled: boolea
             title={o.symbol}
             subtitle={contractDescription(o) || "Option contract"}
             greeks={showGreeks}
+            onCanceled={onCanceled}
           />
         ))}
       </div>
@@ -322,6 +368,108 @@ function statusTone(state: NormalizedStatus): "bull" | "bear" | "warn" | "muted"
   return "muted";
 }
 
+/**
+ * Whether GSPS itself would already call this pending order's thesis dead --
+ * same check the ticker page's order ticket runs before submission
+ * (isInvalidatedByStop), applied here to a resting order that already sits
+ * on the ledger. Paper orders this true for are auto-canceled by the next
+ * lib/brokers/simulator.ts#evaluateRestingOrders pass (every /api/orders
+ * GET) before a user could even see this -- so seeing it here at all is
+ * mostly the live-order case, where nothing does that automatically (see
+ * this file's own cancel-route header comment). Shown regardless of mode
+ * anyway: the automatic paper check runs on a poll cycle, not instantly, so
+ * there's a real window where a paper order can read this way too.
+ */
+function orderClearlyInvalidated(order: OrderRow): boolean {
+  if (order.stop_price == null || order.currentPrice == null) return false;
+  const side = order.side === "sell" ? "sell" : "buy";
+  return isInvalidatedByStop({ side, stop_price: order.stop_price }, order.currentPrice);
+}
+
+/** Manual cancel for a still-pending order -- the gap named directly: "There
+ * should be an option to manually close pending positions." Self-contained,
+ * same pattern as SaveSetupButton: owns its own request state, calls the
+ * optional onCanceled to let the parent refetch. */
+function CancelButton({
+  order,
+  onCanceled,
+  recommend,
+}: {
+  order: OrderRow;
+  onCanceled?: () => void;
+  recommend?: boolean;
+}) {
+  const [state, setState] = useState<"idle" | "canceling" | "canceled" | "error">("idle");
+  const [error, setError] = useState<string | null>(null);
+
+  async function cancel() {
+    if (state === "canceling" || state === "canceled") return;
+    if (
+      !window.confirm(
+        recommend
+          ? `Cancel this ${order.symbol} order? GSPS already reads its stop as broken -- this thesis no longer holds.`
+          : `Cancel this pending ${order.symbol} order?`,
+      )
+    ) {
+      return;
+    }
+    setState("canceling");
+    setError(null);
+    try {
+      const res = await fetch(`/api/orders/${order.id}/cancel`, { method: "POST" });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
+      setState("canceled");
+      onCanceled?.();
+    } catch (err) {
+      setState("error");
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  if (state === "canceled") {
+    return <span className="text-xs text-muted">Canceled</span>;
+  }
+
+  return (
+    <div className="flex flex-col items-start gap-0.5">
+      <button
+        type="button"
+        onClick={cancel}
+        disabled={state === "canceling"}
+        className={cn(
+          "min-h-7 cursor-pointer rounded-md border px-2 py-0.5 text-xs font-medium transition-colors disabled:cursor-default",
+          recommend
+            ? "border-bear/50 text-bear hover:bg-bear/10"
+            : "border-border text-muted hover:border-bear hover:text-bear",
+        )}
+      >
+        {state === "canceling" ? "Canceling…" : "Cancel"}
+      </button>
+      {error && <span className="text-xs text-bear">{error}</span>}
+    </div>
+  );
+}
+
+/** Status badge plus, for a pending order, the cancel action -- and, when
+ * GSPS's own invalidation check already reads the thesis as broken, a
+ * recommendation to use it. */
+function StatusCell({ order, onCanceled }: { order: OrderRow; onCanceled?: () => void }) {
+  const pending = normalizeOrderStatus(order.status) === "pending";
+  const invalidated = pending && orderClearlyInvalidated(order);
+  return (
+    <div className="flex flex-col items-start gap-1">
+      <StatusBadge order={order} />
+      {invalidated && order.stop_price != null && (
+        <p className="max-w-[12rem] text-xs text-bear">
+          Price already broke the {formatUsd(order.stop_price)} stop -- GSPS recommends canceling.
+        </p>
+      )}
+      {pending && <CancelButton order={order} onCanceled={onCanceled} recommend={invalidated} />}
+    </div>
+  );
+}
+
 /** Fill progress line for a partially-filled order. */
 export function FillProgressLine({ order }: { order: OrderRow }) {
   if (normalizeOrderStatus(order.status) !== "partially_filled") return null;
@@ -355,21 +503,29 @@ function OrderCard({
   title,
   subtitle,
   greeks,
+  onCanceled,
 }: {
   order: OrderRow;
   title: string;
   subtitle: string;
   greeks?: boolean;
+  onCanceled?: () => void;
 }) {
   const isOption = order.asset_type === "OPTION";
   return (
     <div className="rounded-lg border border-border p-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate font-medium">{title}</p>
+          {/* `title` is always order.symbol at both call sites below; linking
+              off `order` directly rather than re-parsing `title` keeps this
+              from silently breaking if a future caller passes something else. */}
+          <p className="truncate font-medium">
+            <SymbolLink symbol={order.symbol} />
+            {title !== order.symbol && <span className="ml-1 font-normal text-muted">{title}</span>}
+          </p>
           <p className="truncate text-xs text-muted">{subtitle}</p>
         </div>
-        <StatusBadge order={order} />
+        <StatusCell order={order} onCanceled={onCanceled} />
       </div>
 
       <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">

@@ -3,11 +3,33 @@ import { ScoreBadge } from "@/components/scan/score-badge";
 import { Badge } from "@/components/ui/badge";
 import { GlossaryTerm } from "@/components/glossary-term";
 import { PatternEducation } from "@/components/scan/pattern-education";
+import { SaveSetupButton } from "@/components/scan/save-setup-button";
 import { SCORE_PILLAR_DESCRIPTIONS, SCORE_PILLAR_LABELS } from "@/lib/scoring/public-summary";
 import { tradeSideLabel } from "@/lib/scoring/direction-copy";
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 import { formatUsd, cn } from "@/lib/utils";
 import type { AssetClass, PublicScoreSummary, ScanResult } from "@/lib/types";
+
+/**
+ * ScanResult -> the shape SaveSetupButton already knows how to save. Before
+ * this, the button only existed inside ResultsTable (Dashboard preview,
+ * Scanner Universe results) -- a symbol looked up directly by search, or a
+ * ticker page opened from a link elsewhere, had no save affordance at all.
+ */
+function toSavedSetupRow(result: ScanResult) {
+  return {
+    symbol: result.symbol,
+    score: result.decision.score,
+    outputState: result.decision.outputState,
+    direction: result.direction,
+    entry: result.levels?.entry ?? null,
+    stopLoss: result.levels?.stopLoss ?? null,
+    takeProfit1: result.levels?.takeProfit1 ?? null,
+    masterProfit: result.levels?.masterProfit ?? null,
+    patternName: result.pattern?.name ?? null,
+    setupKind: result.setupKind,
+  };
+}
 
 /**
  * TP1/master labels: an R-multiple for every asset class except `us_equity`,
@@ -43,7 +65,10 @@ export function SignalCard({ result }: { result: ScanResult }) {
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>Protocol signal</CardTitle>
-          <ScoreBadge score={decision.score} state={decision.outputState} />
+          <div className="flex items-center gap-1.5">
+            <ScoreBadge score={decision.score} state={decision.outputState} />
+            <SaveSetupButton row={toSavedSetupRow(result)} />
+          </div>
         </div>
         {pattern ? (
           <CardDescription>

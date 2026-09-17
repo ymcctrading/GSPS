@@ -59,7 +59,10 @@ import { recordShadowSignals } from "@/lib/shadow/record";
 import { evaluatePendingShadowSignals } from "@/lib/shadow/evaluate";
 import { evaluateShadowDrift, EXECUTE_TIER_BACKTEST_BASELINE } from "@/lib/shadow/compare";
 
-export type ScheduledScanSource = "scheduled_morning_scan" | "scheduled_morning_confirmation_scan";
+export type ScheduledScanSource =
+  | "scheduled_morning_scan"
+  | "scheduled_morning_confirmation_scan"
+  | "scheduled_first_90min_scan";
 
 function unauthorized(): NextResponse {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -316,10 +319,18 @@ async function fanOutToProfiles(
 
   for (const profile of profiles as { id: string; tier: PlatformTier | null }[]) {
     const policy = getEntitlementPolicy(profile.tier ?? "PRACTICE");
+    // The 9:45 AM job shares morningConfirmationScanEnabled with the 9:15 AM
+    // one rather than getting its own policy field -- both flags are `true`
+    // for every tier today (see policy.ts), so a third field would carry no
+    // behavioral difference from the second. Written as an explicit branch,
+    // not folded into the ternary above, so a fourth source added later
+    // can't silently fall through to whichever arm happens to be `else`.
     const scheduleEnabled =
       args.source === "scheduled_morning_scan"
         ? policy.morningPreparationScanEnabled
-        : policy.morningConfirmationScanEnabled;
+        : args.source === "scheduled_morning_confirmation_scan" || args.source === "scheduled_first_90min_scan"
+          ? policy.morningConfirmationScanEnabled
+          : false;
     if (!scheduleEnabled) continue;
 
     try {

@@ -196,6 +196,65 @@ export async function dispatchNotificationDelivery(
   return { dispatched: true, status };
 }
 
+/** Idempotency guard for `recordInAppNotification` -- a unique index on
+ * (transition_id, profile_id) would need a schema change this table doesn't
+ * have (transition_id is nullable, for future non-transition notifications),
+ * so dedup is a pre-check instead: a retry or duplicate evaluation must not
+ * leave two bell entries for the one transition. */
+async function inAppNotificationAlreadyRecorded(
+  service: SupabaseClient,
+  args: { transitionId: string; profileId: string },
+): Promise<boolean> {
+  const { data } = await service
+    .from("in_app_notifications")
+    .select("id")
+    .eq("transition_id", args.transitionId)
+    .eq("profile_id", args.profileId)
+    .limit(1)
+    .maybeSingle();
+  return data != null;
+}
+
+/**
+ * Writes the in-app ("on the platform itself") notification for a
+ * notify-worthy monitor transition -- always, independent of a profile's
+ * email/sms/push channel preferences (see `in_app_notifications`'s own
+ * migration comment for why this isn't a `DeliveryChannel`). No dispatch
+ * step: unlike email, there is no external provider and no failure mode
+ * short of the insert itself failing, so this is the whole lifecycle.
+ * Best-effort from the caller's point of view -- a thrown error here must
+ * never hold up the email path already handled by the same evaluation.
+ */
+export async function recordInAppNotification(
+  service: SupabaseClient,
+  args: { transitionId: string; profileId: string; payload: NotificationPayload },
+): Promise<void> {
+  if (await inAppNotificationAlreadyRecorded(service, args)) return;
+
+  const { payload } = args;
+  const row =
+    payload.verdict === "INVALIDATED"
+      ? {
+          symbol: payload.symbol,
+          verdict: "INVALIDATED" as const,
+          title: `${payload.symbol} invalidated`,
+          body: `The setup you were tracking on ${payload.symbol} no longer holds -- price broke the level it was staked on.`,
+        }
+      : {
+          symbol: payload.symbol,
+          verdict: "Execute" as const,
+          title: `${payload.symbol} — Execute (${payload.score}/9)`,
+          body: `${payload.direction === "bullish" ? "Buy" : "Sell"} setup confirmed at ${payload.score}/9. Entry ${payload.entry}, stop ${payload.stopLoss}, target ${payload.takeProfit}.`,
+        };
+
+  const { error } = await service.from("in_app_notifications").insert({
+    profile_id: args.profileId,
+    transition_id: args.transitionId,
+    ...row,
+  });
+  if (error) throw new Error(`recordInAppNotification: ${error.message}`);
+}
+
 /**
  * Retry sweep: picks up deliveries stuck `pending` (an inline dispatch that
  * never ran or crashed mid-flight) or `failed` (a transport error worth
