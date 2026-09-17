@@ -291,16 +291,29 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "from hypothesis to validated on the second confirming run, per this file's own stated bar.",
   },
   {
-    id: "patternArmed",
+    id: "entryTriggerArmed",
     family: "scanScore",
-    source: "lib/scoring/score.ts",
-    label: "Pattern armed",
+    source: "lib/scoring/score.ts, lib/gann/entryTrigger.ts",
+    label: "Entry trigger armed (old-level crossing)",
     expectedSign: "positive",
     evidence: "unmeasured",
     note:
-      "Constant by construction inside any triggered sample — a trade cannot exist without an armed " +
-      "pattern — so a bucket-conditioned run can never measure it. Only an unconditioned population " +
-      "(armed setups that did and did not trigger) can.",
+      "Renamed from `patternArmed` and regrounded 2026-09-17, closing the last gate-1 failure on " +
+      "this scorecard. The criterion was never the problem — 'is there an armed trigger to enter " +
+      "on?' is a real question — but its implementation read a bar-sequence pattern from Rob " +
+      "Smith's STRAT, which has no source in this platform's methodology. It now reads " +
+      "lib/gann/entryTrigger.ts: crossing an old swing top or bottom plus the 'lost motion' " +
+      "allowance, both disclosed in docs/GANN_HISTORICAL_SOURCES.md A8 (the nine Buying Points " +
+      "and nine Selling Points, and the Resistance Level method). Renamed rather than retired, so " +
+      "CRITERION_KEYS.length and both cutoffs are unchanged.\n\n" +
+      "Still constant by construction inside any triggered sample — a trade cannot exist without " +
+      "an armed trigger — so a bucket-conditioned run can never measure it. Only an unconditioned " +
+      "population (armed setups that did and did not trigger) can. That limitation carried over " +
+      "unchanged from the old implementation and is a property of what the criterion asks, not of " +
+      "which rule answers it.\n\n" +
+      "**Its prior measurements do not transfer.** Any attribution captured against `patternArmed` " +
+      "measured a different rule on a different reference level (the prior BAR's extreme, not the " +
+      "prior SWING's). Treat this as a fresh criterion for evidence purposes.",
     saturation: { minPassRate: 0, maxPassRate: 1 },
   },
   {
@@ -533,6 +546,28 @@ const SCAN_SCORE: RegisteredCriterion[] = [
 
 /** Scored in the past, kept for the historical record. See `EvidenceStatus`. */
 const RETIRED: RegisteredCriterion[] = [
+  {
+    id: "patternArmed",
+    family: "scanScore",
+    source: "lib/scoring/score.ts (scored until 2026-09-17), lib/strat/patterns.ts",
+    label: "Pattern armed",
+    expectedSign: "positive",
+    evidence: "retired",
+    note:
+      "Retired 2026-09-17 — superseded in place by `entryTriggerArmed`, not deleted. It asked a " +
+      "legitimate question ('is there an armed trigger to enter on?') and answered it with a " +
+      "bar-sequence pattern from Rob Smith's STRAT, which has no source in this platform's " +
+      "methodology. That made it the last gate-1 failure on the scorecard, and — more " +
+      "consequentially than its single scored point — the source of every trade plan's entry " +
+      "price and, through riskPerShare, every position size. See `entryTriggerArmed` for the " +
+      "replacement and `lib/gann/entryTrigger.ts` for the rule.\n\n" +
+      "**Kept here, retired rather than removed, so the committed runs in docs/replay-runs/ " +
+      "still validate.** Every run captured before 2026-09-17 measured this criterion by this " +
+      "name, and `criteria-gate.test.ts` fails any measured id it cannot find declared. Deleting " +
+      "the entry would have made those runs unreadable rather than historical. Its numbers " +
+      "describe the old rule on the old reference level (the prior BAR's extreme, not the prior " +
+      "SWING's) and do not transfer to the replacement.",
+  },
   {
     id: "adxTrendStrength",
     family: "scanScore",

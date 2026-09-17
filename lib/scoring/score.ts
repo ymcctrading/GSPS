@@ -126,6 +126,13 @@ export interface ScoreInputs {
   srMatch?: { price: number; timeframe: Timeframe; role: LevelRole; testCount?: number } | null;
   pattern: StratPattern | null;
   /**
+   * The armed entry trigger, from `lib/gann/entryTrigger.ts` — crossing an old
+   * swing top/bottom plus the "lost motion" allowance. Replaced `pattern` as
+   * what arms and prices a trade on 2026-09-17; `pattern` stays for the
+   * display/confluence role only. Null means nothing is armed.
+   */
+  gannTrigger?: { triggerPrice: number; stopPrice: number; direction: "bullish" | "bearish" } | null;
+  /**
    * Accepted but no longer read here: `momentum` stopped being a scored
    * criterion on 2026-09-08 (see the `stopRoom` swap in
    * `lib/scoring/weights.ts`). The field stays because the same value still
@@ -210,7 +217,7 @@ export const MIN_STOP_ROOM_ATR = 1.5;
 export function computeScore(inputs: ScoreInputs): ScanDecision {
   const {
     direction, swingChart, campaignLeg, ruleOfThree, timePriceSquare, volumeClimax, boilingPoint, gann,
-    nearSupportResistance, srMatch, pattern, levels, stopAtrMultiple, assetClass,
+    nearSupportResistance, srMatch, pattern, gannTrigger = null, levels, stopAtrMultiple, assetClass,
     setupKind = "reversion",
     atrPct,
     weights = DEFAULT_CRITERION_WEIGHTS,
@@ -350,7 +357,10 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // criterion rather than being silently failed by a check they can't answer.
   const historicalSRPassed = srMatch ? srMatch.role === wantedRole : nearSupportResistance;
 
-  const patternValid = pattern !== null && pattern.direction === direction;
+  // What arms the trade. Was `pattern.direction === direction` off the
+  // bar-sequence pattern until 2026-09-17; now the swing-crossing trigger.
+  // See `lib/gann/entryTrigger.ts` and AGENTS.md's gate-1 status.
+  const patternValid = gannTrigger !== null && gannTrigger.direction === direction;
 
   // Confluence/context only — never changes swingChartAligned itself. See
   // ScoreInputs.campaignLeg's own doc comment for why this stays out of the
@@ -436,17 +446,17 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
             : "Not at a significant historical S/R level.") + levelTestNote,
     },
     {
-      key: "patternArmed",
-      // The criterion is "a pattern armed in the setup's own direction", which
-      // is a reversal for a reversion and a continuation for a continuation.
-      // Labelling a 2-1-2 that carries a trend "Reversal pattern armed" would
-      // describe the opposite trade.
-      criterion: `${setupKind === "continuation" ? "Continuation" : "Reversal"} pattern armed`,
+      key: "entryTriggerArmed",
+      // The criterion is "a trigger armed in the setup's own direction" — a
+      // reversal for a reversion, a continuation for a continuation. The
+      // wording stays outcome-shaped rather than naming the construction,
+      // because the user-facing vocabulary gate applies to generated copy.
+      criterion: `${setupKind === "continuation" ? "Continuation" : "Reversal"} entry trigger armed`,
       pillar: "setup",
       passed: patternValid,
       note: patternValid
-        ? `${PATTERN_GLOSSARY_TERM[pattern!.name]} ${pattern!.direction} armed — trigger ${pattern!.triggerPrice.toFixed(2)}.`
-        : `No matching ${setupKind === "continuation" ? "continuation" : "reversal"} pattern armed on the execution timeframe.`,
+        ? `Trigger armed ${gannTrigger!.direction} at ${gannTrigger!.triggerPrice.toFixed(2)} — a crossing of the last completed swing level, with the stop beyond the opposing swing at ${gannTrigger!.stopPrice.toFixed(2)}.`
+        : `No ${setupKind === "continuation" ? "continuation" : "reversal"} trigger armed — the swing chart has not completed a level to cross.`,
     },
     {
       key: "stopRoom",

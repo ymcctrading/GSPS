@@ -232,6 +232,9 @@ describe("computeScore", () => {
         stopPrice: 86,
         description: "",
       },
+      // The trade is armed by the swing-level crossing now, not by this
+      // bar sequence. Same values, so the fixture's intent is unchanged.
+      gannTrigger: { direction: "bullish", triggerPrice: 100.5, stopPrice: 86 },
       momentumElevated: true,
       stopAtrMultiple: 2,
       levels: {
@@ -296,6 +299,9 @@ describe("computeScore", () => {
         stopPrice: 86,
         description: "",
       },
+      // The trade is armed by the swing-level crossing now, not by this
+      // bar sequence. Same values, so the fixture's intent is unchanged.
+      gannTrigger: { direction: "bullish", triggerPrice: 100.5, stopPrice: 86 },
       momentumElevated: true,
       stopAtrMultiple: 2,
       levels: {

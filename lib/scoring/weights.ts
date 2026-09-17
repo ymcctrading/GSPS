@@ -44,6 +44,18 @@
  * that indicator and still calls `adx()`; the scorecard does not, so the
  * criterion comes out and is deliberately NOT replaced with anything.
  *
+ * `patternArmed` renamed to `entryTriggerArmed` 2026-09-17 and regrounded.
+ * The criterion itself — "is there an armed trigger to enter on?" — was never
+ * the problem; its implementation was. It read a bar-sequence pattern from
+ * Rob Smith's STRAT, which has no source in this platform's methodology, and
+ * it was the last gate-1 failure on this scorecard. It now reads
+ * `lib/gann/entryTrigger.ts`: crossing an old swing top or bottom plus the
+ * "lost motion" allowance, both disclosed by Gann himself
+ * (`docs/GANN_HISTORICAL_SOURCES.md` A8, the nine Buying Points and nine
+ * Selling Points). Renamed rather than removed, so `TOTAL_POINTS` stays 9 and
+ * neither cutoff moves — this is a change of substance behind a criterion,
+ * not a change to how many conditions the scorecard counts.
+ *
  * `ruleOfThree` added 2026-09-16 — the tenth, per AGENTS.md's "WD Gann
  * precedence" principle and `docs/GANN_PLATFORM_AUDIT.md` Part 4 item 1:
  * Gann's own highest-conviction disclosed rule (`Wall Street Stock
@@ -57,7 +69,7 @@ export const CRITERION_KEYS = [
   "gannAngleSlope",
   "volumeClimax",
   "historicalSR",
-  "patternArmed",
+  "entryTriggerArmed",
   "stopRoom",
   "timePriceSquare",
   "gannRetracementConfluence",
@@ -81,7 +93,7 @@ export const CRITERION_LABELS: Record<CriterionKey, string> = {
   gannAngleSlope: "Structural trend-angle strength (1x2+)",
   volumeClimax: "Volume climax at the anchor pivot",
   historicalSR: "Historical support/resistance",
-  patternArmed: "Pattern armed",
+  entryTriggerArmed: "Entry trigger armed (old-level crossing)",
   stopRoom: "Stop room (>= 1.5x ATR)",
   timePriceSquare: "Price and time squared",
   gannRetracementConfluence: "Retracement + signal-flow confluence",
