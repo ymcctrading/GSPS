@@ -31,3 +31,19 @@ export function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit, t
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   return fetch(input, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer));
 }
+
+/**
+ * Wrap a promise with a timeout. If the promise doesn't resolve within
+ * `timeoutMs`, it rejects with a timeout error.
+ */
+export function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label?: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => {
+        const msg = label ? `Timeout after ${timeoutMs}ms: ${label}` : `Timeout after ${timeoutMs}ms`;
+        reject(new Error(msg));
+      }, timeoutMs)
+    ),
+  ]);
+}
