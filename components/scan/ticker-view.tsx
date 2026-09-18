@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CandleChart, type PriceMarker } from "@/components/chart/candles";
@@ -64,7 +64,7 @@ export function TickerView({ symbol }: { symbol: string }) {
   const forceSide = sideParam === "buy" || sideParam === "sell" ? sideParam : undefined;
 
   // Suppress render until hydrated to prevent client/server mismatch flicker
-  useEffect(() => {
+  useLayoutEffect(() => {
     setMounted(true);
   }, []);
 
