@@ -64,8 +64,8 @@ export function TickerView({ symbol }: { symbol: string }) {
   const forceSide = sideParam === "buy" || sideParam === "sell" ? sideParam : undefined;
 
   // Suppress render until hydrated to prevent client/server mismatch flicker
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useLayoutEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 
