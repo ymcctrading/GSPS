@@ -51,6 +51,7 @@ function strongestTradeablePlan(result: ScanResult | null): SignalPlan | null {
 export function TickerView({ symbol }: { symbol: string }) {
   // Bumping this re-runs the scan without remounting the page.
   const [reloadKey, setReloadKey] = useState(0);
+  const [mounted, setMounted] = useState(false);
   const quote = useLiveQuote(symbol);
 
   // Set only by the intraday alerts panel's "Trade this" link (see
@@ -58,9 +59,14 @@ export function TickerView({ symbol }: { symbol: string }) {
   // never by a manual visit to this page — that's what makes the flag
   // trustworthy enough to gate an order on.
   const searchParams = useSearchParams();
-  const intradaySourced = searchParams.get("intraday") === "1";
-  const sideParam = searchParams.get("side");
+  const intradaySourced = mounted && searchParams.get("intraday") === "1";
+  const sideParam = mounted ? searchParams.get("side") : null;
   const forceSide = sideParam === "buy" || sideParam === "sell" ? sideParam : undefined;
+
+  // Suppress render until hydrated to prevent client/server mismatch flicker
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   /**
    * The scan is stored together with the request it answers, and read back
