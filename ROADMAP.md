@@ -2,7 +2,11 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-09-17 (Home dashboard universe coverage + intraday
+**Last updated:** 2026-09-20 (Documented the 2026-09-16/17 Gann-grounding
+audit here for the first time — see the Gann & Sara Cross-Market Confluence
+Layers initiative note under Q1; that work was recorded only in AGENTS.md
+until now, which is stale against AGENTS.md's own "update ROADMAP.md in the
+same PR" rule). Previously: 2026-09-17 (Home dashboard universe coverage + intraday
 tracking: widened every scheduled/cron scan to the full big-cap universe,
 added two intraday full-universe checkpoints and a twice-hourly live
 invalidation sweep, and fixed a pre-existing `active_monitors` source-check
@@ -179,7 +183,27 @@ both signal discovery and execution.
   classification stays `notImplemented`, pending an authorized written
   specification. Both modules are additive confluence factors only: never a
   sole signal, never able to override a safety/account/eligibility gate. See
-  `docs/GANN_SARA_CONFLUENCE.md`.)*
+  `docs/GANN_SARA_CONFLUENCE.md`.)* *(Follow-up, 2026-09-16/17, out-of-phase
+  project-owner direction, documented here 2026-09-20: the "Gann-grounded
+  platform" and "WD Gann precedence" standing principles were adopted
+  (AGENTS.md), driving a platform-wide audit of non-Gann substance. Outcomes:
+  `adxTrendStrength` (Wilder's ADX) discarded outright as a scored criterion
+  with no Gann lineage (PR #236); its two remaining regime/range-state
+  consumers replaced by `lib/gann/trendStrength.ts`'s 3-day/9-day swing-chart
+  read; trade-plan entry pricing moved off the STRAT bar-sequence trigger
+  onto Gann's own swing-crossing + lost-motion rule
+  (`lib/gann/entryTrigger.ts`), the largest single Gann-grounding change to
+  date since it drove every trade plan's entry price and position size, not
+  just one scored point; an eight-item orphan-module audit wired up
+  `lib/risk/position-limits.ts` and `lib/risk/cooldown.ts`'s
+  always-permitted-actions rule, among others; and a live-weights incident
+  was found and fixed where a stale, superseded `learning_models` database
+  row was silently overriding the uniform `DEFAULT_CRITERION_WEIGHTS`
+  decision in production. `patternArmed` (the STRAT taxonomy's remaining
+  scored-criterion use) is the one open item from this audit — see AGENTS.md
+  "Gann-derived AND measured" for its status. This entry exists specifically
+  because AGENTS.md's "update ROADMAP.md in the same PR" rule was not
+  followed at the time; nothing here reflects new work done today.)*
 - **Portfolio analytics dashboard** *(shipped 2026-08-18, PR #83 — carried
   no roadmap update at the time, corrected here 2026-09-08)* — win/loss ratio,
   Sharpe ratio, max drawdown, monthly/quarterly P&L, and performance by
