@@ -210,6 +210,34 @@ function chunk<T>(items: T[], size: number): T[][] {
 const BATCH_CHUNK = 100;
 
 /**
+ * How many chunk requests (and their page-token follow-ups) run at once.
+ * Unbounded `Promise.all` across every chunk was fine at the ~500-symbol
+ * universe this was built for, but the 2026-09-20 large-cap refresh (~765
+ * symbols, ~8 chunks per timeframe, 2 timeframes per scan) turned that into
+ * a burst of a dozen-plus simultaneous requests — each daily-bar chunk also
+ * paginating (100 symbols x ~252 trading days exceeds the 10,000-row
+ * PAGE_LIMIT) — and started tripping Alpaca's free-tier rate limit
+ * mid-scan, which the market-scan route had no handling for (see that
+ * route's own comment). Capped rather than removed: the batching's whole
+ * point is fewer requests than one-per-symbol, this just stops firing all
+ * of them at once.
+ */
+const CHUNK_CONCURRENCY = 3;
+
+async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = [];
+  let i = 0;
+  async function worker() {
+    while (i < items.length) {
+      const idx = i++;
+      results[idx] = await fn(items[idx]);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+}
+
+/**
  * Bars for many symbols, one timeframe, in a handful of requests instead of
  * one per symbol. Alpaca's `/v2/stocks/bars` accepts a comma-separated symbol
  * list and returns each symbol's bars keyed by symbol — a market scan asking
@@ -241,29 +269,27 @@ export async function fetchBarsBatch(
   const result = new Map<string, Bar[]>();
   if (syms.length === 0) return result;
 
-  await Promise.all(
-    chunk(syms, BATCH_CHUNK).map(async (group) => {
-      const collected = new Map<string, Bar[]>(group.map((s) => [s, []]));
-      let pageToken: string | undefined;
+  await mapWithConcurrency(chunk(syms, BATCH_CHUNK), CHUNK_CONCURRENCY, async (group) => {
+    const collected = new Map<string, Bar[]>(group.map((s) => [s, []]));
+    let pageToken: string | undefined;
 
-      do {
-        const { path, params } = barsRequest(group.join(","), timeframe, start, end, assetClass, limit, pageToken);
-        const data = await get(path, params);
+    do {
+      const { path, params } = barsRequest(group.join(","), timeframe, start, end, assetClass, limit, pageToken);
+      const data = await get(path, params);
 
-        let pageBarCount = 0;
-        for (const sym of group) {
-          const page = toBars(data.bars?.[sym]);
-          if (page.length > 0) collected.get(sym)!.push(...page);
-          pageBarCount += page.length;
-        }
-        pageToken = data.next_page_token ?? undefined;
-        // An empty page means the window is exhausted even if a token came back.
-        if (pageBarCount === 0) break;
-      } while (pageToken);
+      let pageBarCount = 0;
+      for (const sym of group) {
+        const page = toBars(data.bars?.[sym]);
+        if (page.length > 0) collected.get(sym)!.push(...page);
+        pageBarCount += page.length;
+      }
+      pageToken = data.next_page_token ?? undefined;
+      // An empty page means the window is exhausted even if a token came back.
+      if (pageBarCount === 0) break;
+    } while (pageToken);
 
-      for (const sym of group) result.set(sym, collected.get(sym)!.reverse());
-    }),
-  );
+    for (const sym of group) result.set(sym, collected.get(sym)!.reverse());
+  });
 
   return result;
 }
