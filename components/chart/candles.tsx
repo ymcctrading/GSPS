@@ -3,12 +3,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   createChart,
+  createSeriesMarkers,
   CandlestickSeries,
   LineSeries,
   HistogramSeries,
   type IChartApi,
   type IPriceLine,
   type ISeriesApi,
+  type ISeriesMarkersPluginApi,
+  type SeriesMarker,
   type Time,
 } from "lightweight-charts";
 import { MousePointer2, Minus, TrendingUp, Bell, BellOff, Trash2 } from "lucide-react";
@@ -26,6 +29,7 @@ import {
 } from "@/lib/timeframe";
 import { barSession, isExtended } from "@/lib/market/session";
 import { sma, ema, bollinger, rsi, macd, volumeBars, type Candle as CalcCandle } from "@/lib/indicators";
+import { classifySeries } from "@/lib/strat/classify";
 import { cn } from "@/lib/utils";
 
 export interface PriceMarker {
@@ -127,6 +131,7 @@ export function CandleChart({
   livePrice,
   initialTimeframe = "1Day",
   enableTrading = false,
+  saraMarkersUnlocked = false,
 }: {
   symbol: string;
   markers: PriceMarker[];
@@ -134,10 +139,18 @@ export function CandleChart({
   initialTimeframe?: Timeframe;
   /** Show the Buy/Sell overlay + live P/L drawer. Off on the public chart. */
   enableTrading?: boolean;
+  /**
+   * `hasFeature(tier, "sara_sniper_chart_markers")` from the caller — the
+   * System Mastery-tier opt-in for Sara Sniper Strat's per-bar (1/2U/2D/3)
+   * labels on the chart itself. Off by default so a caller that doesn't pass
+   * a tier (the public chart, the onboarding snapshot) never shows it.
+   */
+  saraMarkersUnlocked?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const seriesMarkersRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
   const lastBarRef = useRef<Candle | null>(null);
   const allBarsRef = useRef<Candle[]>([]);
   const [timeframe, setTimeframe] = useState<Timeframe>(initialTimeframe);
@@ -148,6 +161,10 @@ export function CandleChart({
   // chart, so they start off and are opt-in rather than opt-out.
   const [showGann, setShowGann] = useState(false);
   const [showLevels, setShowLevels] = useState(false);
+  // Sara Sniper Strat's per-bar labels — System Mastery-tier opt-in, off by
+  // default even when unlocked (same reasoning as showGann/showLevels above:
+  // a label on every bar covers the candles unless someone asks for it).
+  const [showSara, setShowSara] = useState(false);
   const [showExtended, setShowExtended] = useState(true);
   // The docked per-candle stat panel. It is how you read a bar you cannot
   // hover on a phone, but it is painted over the price pane, so it defaults
@@ -266,6 +283,7 @@ export function CandleChart({
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
+      seriesMarkersRef.current = null;
     };
   }, []);
 
@@ -595,6 +613,60 @@ export function CandleChart({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [overlayKey, candleData, status]);
 
+  /**
+   * Sara Sniper Strat's per-bar labels — `1` (inside), `2U`/`2D` (directional),
+   * `3` (outside), from `lib/strat/classify.ts`'s `classifySeries`. The same
+   * classifier `lib/strat/patterns.ts` runs to arm a bar-sequence pattern, so
+   * a candle labeled `2D` here is exactly the bar a "failed-push reversal"
+   * pattern description elsewhere on the page would call "the down bar" — one
+   * classifier, two presentations, per AGENTS.md's cross-platform consistency
+   * principle. This is the reference-only display Sara Sniper Strat keeps
+   * (see AGENTS.md's "Audit outcomes"); it never decides the trade plan drawn
+   * by the Trade levels / structural-level overlays above.
+   */
+  useEffect(() => {
+    const series = seriesRef.current;
+    if (!series || status !== "ready") return;
+    if (!showSara || !saraMarkersUnlocked || calcCandles.length < 2) {
+      seriesMarkersRef.current?.setMarkers([]);
+      return;
+    }
+
+    const bars: Bar[] = calcCandles.map((c) => ({
+      t: new Date((c.time as number) * 1000).toISOString(),
+      o: c.open,
+      h: c.high,
+      l: c.low,
+      c: c.close,
+      v: c.volume ?? 0,
+    }));
+    const states = classifySeries(bars); // states[i] classifies bars[i + 1]
+
+    const stratMarkers: SeriesMarker<Time>[] = states.map((s, i) => {
+      const above = s === "2U" || s === "3";
+      const marker: SeriesMarker<Time> = {
+        time: candleData[i + 1].time,
+        position: above ? "aboveBar" : "belowBar",
+        color: s === "1" ? "#94a3b8" : s === "3" ? "#a855f7" : s === "2U" ? "#059669" : "#dc2626",
+        shape: "circle",
+        text: s,
+        size: 0,
+      };
+      return marker;
+    });
+
+    if (!seriesMarkersRef.current) {
+      seriesMarkersRef.current = createSeriesMarkers(series, stratMarkers);
+    } else {
+      seriesMarkersRef.current.setMarkers(stratMarkers);
+    }
+
+    return () => {
+      seriesMarkersRef.current?.setMarkers([]);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showSara, saraMarkersUnlocked, candleData, status]);
+
   // Study panes below price (Volume, RSI) — each in its own pane.
   const studyKey = [...studies].sort().join(",");
   useEffect(() => {
@@ -903,6 +975,18 @@ export function CandleChart({
                 className="h-3.5 w-3.5 accent-[var(--accent)]"
               />
               Show structural levels
+            </label>
+          )}
+          {saraMarkersUnlocked && (
+            <label className="flex items-center gap-1.5 text-xs text-muted cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showSara}
+                onChange={(e) => setShowSara(e.target.checked)}
+                className="h-3.5 w-3.5 accent-[var(--accent)]"
+              />
+              Sara Sniper Strat labels
+              <span className="text-[10px] text-muted/70">(reference only)</span>
             </label>
           )}
         </div>

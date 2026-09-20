@@ -15,6 +15,7 @@ import { GlossaryTerm } from "@/components/glossary-term";
 import { useLiveQuote } from "@/lib/hooks/useLiveQuote";
 import { sessionLabel } from "@/lib/market/session";
 import { formatUsd, formatPct, cn } from "@/lib/utils";
+import { hasFeature, type PlatformTier } from "@/lib/tiers";
 import type { ScanResult } from "@/lib/types";
 import type { SignalPlan } from "@/lib/signals/types";
 import type { LiveQuote } from "@/app/api/quote/route";
@@ -53,6 +54,24 @@ export function TickerView({ symbol }: { symbol: string }) {
   const [reloadKey, setReloadKey] = useState(0);
   const [mounted, setMounted] = useState(false);
   const quote = useLiveQuote(symbol);
+
+  // Gates the chart's Sara Sniper Strat marker overlay (System Mastery only).
+  // Fetched client-side rather than threaded through from a server component,
+  // since this page has none upstream of it (see app/(app)/ticker/[...symbol]/page.tsx).
+  const [tier, setTier] = useState<PlatformTier | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/billing/status")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { tier?: PlatformTier } | null) => {
+        if (!cancelled && data?.tier) setTier(data.tier);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const saraMarkersUnlocked = tier !== null && hasFeature(tier, "sara_sniper_chart_markers");
 
   // Set only by the intraday alerts panel's "Trade this" link (see
   // components/scan/intraday-alerts.tsx and lib/routes.ts's tickerHref),
@@ -230,6 +249,7 @@ export function TickerView({ symbol }: { symbol: string }) {
               markers={markers}
               livePrice={quote?.price ?? null}
               enableTrading
+              saraMarkersUnlocked={saraMarkersUnlocked}
             />
           </CardContent>
         </Card>

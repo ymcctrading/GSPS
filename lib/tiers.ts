@@ -18,7 +18,8 @@ export type Feature =
   | "drawing_tools"
   | "oscillators"
   | "mean_reversion_scanner"
-  | "autonomous_portfolio_manager";
+  | "autonomous_portfolio_manager"
+  | "sara_sniper_chart_markers";
 
 export const TIER_ORDER: PlatformTier[] = [
   "PRACTICE",
@@ -45,6 +46,11 @@ const FEATURE_MIN_TIER: Record<Feature, PlatformTier> = {
   oscillators: "INVESTOR_MODE",
   mean_reversion_scanner: "INVESTOR_MODE",
   autonomous_portfolio_manager: "SYSTEM_MASTERY",
+  // Sara Sniper Strat's per-bar (1/2U/2D/3) chart labels. The bar-sequence
+  // pattern chips on the Protocol signal card stay visible at every tier
+  // (see components/scan/signal-card.tsx); only the on-chart marker overlay
+  // is gated, since it is the System Mastery-tier opt-in surface.
+  sara_sniper_chart_markers: "SYSTEM_MASTERY",
 };
 
 export function tierRank(tier: PlatformTier): number {
