@@ -10,10 +10,10 @@ import { CRITERION_KEYS, type CriterionWeights } from "@/lib/scoring/weights";
  * full-confluence setup reach 9, does losing one criterion drop the score by
  * exactly 1) — only true when every criterion is worth one point.
  * `DEFAULT_CRITERION_WEIGHTS` (the fallback `computeScore` uses when no
- * `weights` is supplied) is a hand-set, evidence-based rebalance as of
- * 2026-09-14, not one point each — see its own doc comment in
- * lib/scoring/weights.ts. Pass this explicitly so the arithmetic below stays
- * meaningful regardless of what the live default currently is.
+ * `weights` is supplied) is uniform again as of 2026-09-16, so it matches
+ * this today — see its own doc comment in lib/scoring/weights.ts. Pass this
+ * explicitly anyway, so the arithmetic below stays meaningful regardless of
+ * what the live default becomes later.
  */
 const UNIFORM_WEIGHTS: CriterionWeights = Object.fromEntries(
   CRITERION_KEYS.map((k) => [k, 1]),
@@ -97,9 +97,51 @@ describe("timeCycles", () => {
     expect(result.active).toBe(true);
   });
 
+  it("catches a major cycle-year anniversary (10 years), not just 1-3 years out", () => {
+    // A2.1 Ch. 7's full disclosed cycle hierarchy (2026-09-16) replaced the
+    // old 1-3-year-only anniversary loop with MAJOR_CYCLE_YEARS
+    // (1,2,3,5,7,10,15,20,30,50,60) — this pins the 10-year case.
+    const dayMs = 24 * 3600 * 1000;
+    const bars: Bar[] = [];
+    const start = new Date("2025-01-01T00:00:00Z");
+    for (let i = 0; i < 40; i++) {
+      const t = new Date(start.getTime() + i * dayMs).toISOString();
+      const l = i === 20 ? 50 : 100 - Math.abs(i - 20);
+      bars.push(bar(t, l + 10, l));
+    }
+    const asOf = new Date(bars[20].t.slice(0, 10) + "T00:00:00Z");
+    asOf.setFullYear(asOf.getFullYear() + 10);
+    const result = timeCycles(bars, asOf);
+    expect(result.bullishActive).toBe(true);
+    expect(result.active).toBe(true);
+  });
+
   it("reports inactive with too little daily history", () => {
-    const result = timeCycles([bar("2026-01-01", 101, 100)]);
-    expect(result).toEqual({ active: false, bullishActive: false, bearishActive: false, dates: [] });
+    // Fixed asOf, safely between fixed-calendar windows (A4), so this
+    // assertion doesn't flake near one of them (Feb/Mar/May/Jun/Aug/Sep/Nov/Dec 5th).
+    const asOf = new Date("2026-01-20T00:00:00Z");
+    const result = timeCycles([bar("2026-01-01", 101, 100)], asOf);
+    expect(result).toEqual({
+      active: false,
+      bullishActive: false,
+      bearishActive: false,
+      dates: [],
+      fixedCalendarActive: false,
+      fixedCalendarDates: [],
+    });
+  });
+
+  describe("fixed annual calendar cycle (A4)", () => {
+    it("marks the window active within windowDays of a named fixed-calendar date", () => {
+      const result = timeCycles([], new Date("2026-02-05T00:00:00Z"));
+      expect(result.fixedCalendarActive).toBe(true);
+      expect(result.fixedCalendarDates[0]).toBe("2026-02-05");
+    });
+
+    it("does not mark the window active far from any named date", () => {
+      const result = timeCycles([], new Date("2026-01-20T00:00:00Z"));
+      expect(result.fixedCalendarActive).toBe(false);
+    });
   });
 });
 
@@ -115,6 +157,35 @@ describe("computeFanLines", () => {
     for (let i = 1; i < lines.length; i++) {
       expect(lines[i].distancePct).toBeGreaterThanOrEqual(lines[i - 1].distancePct);
     }
+  });
+
+  it("projects the 1x1 angle's time target as exactly one base-swing interval forward, and 2x1 as double", () => {
+    // A confirmed low pivot at i=19, then a confirmed high pivot at i=39 --
+    // the down-swing into the low (20 calendar days) is the "base interval"
+    // B10's rule projects forward from the high anchor.
+    const price = (i: number) => (i <= 19 ? 140 - i : i <= 39 ? 122 + (i - 20) : 140 - (i - 40));
+    const bars: Bar[] = Array.from({ length: 50 }, (_, i) => ({
+      t: new Date(Date.UTC(2026, 0, 1 + i)).toISOString(),
+      o: price(i),
+      h: price(i) + 1,
+      l: price(i) - 1,
+      c: price(i),
+      v: 1000,
+    }));
+
+    const lines = computeFanLines(bars, bars[bars.length - 1].c);
+    const highAnchorLines = lines.filter((l) => l.angle.includes("(high)"));
+    expect(highAnchorLines.length).toBeGreaterThan(0);
+    const oneByOne = highAnchorLines.find((l) => l.angle.startsWith("1x1"));
+    const twoByOne = highAnchorLines.find((l) => l.angle.startsWith("2x1"));
+    expect(oneByOne?.timeProjectionDate).not.toBeNull();
+    expect(twoByOne?.timeProjectionDate).not.toBeNull();
+    const anchorMs = new Date("2026-02-09T00:00:00Z").getTime(); // day index 39
+    const oneByOneMs = new Date(oneByOne!.timeProjectionDate!).getTime();
+    const twoByOneMs = new Date(twoByOne!.timeProjectionDate!).getTime();
+    // 2x1's projected interval forward from the anchor should be exactly
+    // double 1x1's (ratio 2 vs ratio 1, same base interval).
+    expect(twoByOneMs - anchorMs).toBe(2 * (oneByOneMs - anchorMs));
   });
 });
 
@@ -132,13 +203,12 @@ describe("computeScore", () => {
       // setup wants bullish macro too.
       macroTrends: [trend("1Month", "bullish"), trend("1Week", "bullish"), trend("1Day", "bullish")],
       hourlyTrend: trend("1Hour", "bullish"),
-      hourlyAdx: { adx: 25, plusDI: 20, minusDI: 10 },
       swingChart: { threeDay: "bullish", nineDay: "bullish" },
       timePriceSquare: [
         { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMoveAtrUnits: 10, squared: true },
       ],
       volumeClimax: [
-        { anchorKind: "low", anchorPrice: 90, relativeVolume: 2, bestRecentRelativeVolume: 2, climax: true },
+        { anchorKind: "low", anchorPrice: 90, anchorIndex: 0, relativeVolume: 2, bestRecentRelativeVolume: 2, climax: true },
       ],
       gann: {
         fanLines: [],
@@ -150,7 +220,7 @@ describe("computeScore", () => {
         angleSlopes: [
           { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, slope: 1.1, nearestAngle: { label: "1x1", ratio: 1, direction: "up" } },
         ],
-        retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100, distancePct: 0.5, role: "support" }],
+        retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100, distancePct: 0.5, role: "support", importance: 1 }],
         digitalRootConfluences: [{ anchorKind: "low", priceRoot: 1, timeRoot: 8, type: "COMPLEMENTARY_PAIR" }],
       },
       nearSupportResistance: true,
@@ -162,6 +232,9 @@ describe("computeScore", () => {
         stopPrice: 86,
         description: "",
       },
+      // The trade is armed by the swing-level crossing now, not by this
+      // bar sequence. Same values, so the fixture's intent is unchanged.
+      gannTrigger: { direction: "bullish", triggerPrice: 100.5, stopPrice: 86 },
       momentumElevated: true,
       stopAtrMultiple: 2,
       levels: {
@@ -180,7 +253,7 @@ describe("computeScore", () => {
       },
       weights: UNIFORM_WEIGHTS,
     });
-    expect(decision.score).toBe(9);
+    expect(decision.score).toBe(8);
     expect(decision.outputState).toBe("Execute");
   });
 
@@ -197,13 +270,12 @@ describe("computeScore", () => {
       // setup wants bullish macro too.
       macroTrends: [trend("1Month", "bullish"), trend("1Week", "bullish"), trend("1Day", "bullish")],
       hourlyTrend: trend("1Hour", "bullish"),
-      hourlyAdx: { adx: 25, plusDI: 20, minusDI: 10 },
       swingChart: { threeDay: "bullish", nineDay: "bullish" },
       timePriceSquare: [
         { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMoveAtrUnits: 10, squared: true },
       ],
       volumeClimax: [
-        { anchorKind: "low", anchorPrice: 90, relativeVolume: 2, bestRecentRelativeVolume: 2, climax: true },
+        { anchorKind: "low", anchorPrice: 90, anchorIndex: 0, relativeVolume: 2, bestRecentRelativeVolume: 2, climax: true },
       ],
       gann: {
         fanLines: [],
@@ -215,7 +287,7 @@ describe("computeScore", () => {
         angleSlopes: [
           { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, slope: 1.1, nearestAngle: { label: "1x1", ratio: 1, direction: "up" } },
         ],
-        retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100, distancePct: 0.5, role: "resistance" }],
+        retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100, distancePct: 0.5, role: "resistance", importance: 1 }],
         digitalRootConfluences: [{ anchorKind: "low", priceRoot: 1, timeRoot: 8, type: "COMPLEMENTARY_PAIR" }],
       },
       nearSupportResistance: true,
@@ -227,6 +299,9 @@ describe("computeScore", () => {
         stopPrice: 86,
         description: "",
       },
+      // The trade is armed by the swing-level crossing now, not by this
+      // bar sequence. Same values, so the fixture's intent is unchanged.
+      gannTrigger: { direction: "bullish", triggerPrice: 100.5, stopPrice: 86 },
       momentumElevated: true,
       stopAtrMultiple: 2,
       levels: {
@@ -254,7 +329,7 @@ describe("computeScore", () => {
     // point, and score drops by exactly 2.
     expect(byKey.gannAngleSlope).toBe(true);
     expect(byKey.volumeClimax).toBe(true);
-    expect(decision.score).toBe(7);
+    expect(decision.score).toBe(6);
     expect(decision.outputState).toBe("Execute");
   });
 
@@ -288,7 +363,7 @@ describe("computeScore", () => {
           timeCycleBearishActive: false,
           timeCycleDates: [],
           angleSlopes: [],
-          retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100, distancePct: 0.5, role: "support" }],
+          retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100, distancePct: 0.5, role: "support", importance: 1 }],
           digitalRootConfluences: [{ anchorKind: "low", priceRoot: 1, timeRoot: 8, type: "COMPLEMENTARY_PAIR" }],
         },
         nearSupportResistance: false,

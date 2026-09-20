@@ -134,6 +134,30 @@ async function resolveUniverse(universeTop: number): Promise<string[]> {
 export const MAX_COARSE_UNIVERSE = 1000;
 
 /**
+ * The `universeTop` every full-universe scheduled/cron scan should pass —
+ * every call site that exists to cover the whole big-cap universe (not a
+ * narrower on-demand or intraday one) uses this constant rather than its own
+ * number, so "how wide is a full scan" is answered in one place.
+ *
+ * Previously every one of these call sites left `universeTop` at
+ * `runMarketScan`'s bare default of 100 — which, per `resolveUniverse`
+ * below, is a pool of same-day "most actives" (often small, volatile names)
+ * unioned with the ~600-symbol `FALLBACK_UNIVERSE` and then capped to 100
+ * *before* the union is even sorted by relevance — so on a busy day the
+ * actives alone could fill the entire budget and the curated large-cap list
+ * was never reached at all. That is the dashboard-vs-manual-scan gap
+ * (Buy/Sell setups reading thinner than a manual Scan-tab run over the same
+ * universe): both paths score identically, but the scheduled scan was
+ * drawing from a much smaller, actives-biased pool.
+ *
+ * Set well under `MAX_COARSE_UNIVERSE` (750) — see that constant's own
+ * comment on why the coarse pass is affordable at this size (batched
+ * fetches, not one request per symbol) and what re-checking a further raise
+ * would require.
+ */
+export const FULL_UNIVERSE_TOP = 700;
+
+/**
  * Apply the caller's budget, then the hard ceiling.
  *
  * `universeTop` was being ignored, which is how a change meant to widen the
@@ -436,6 +460,14 @@ export function isMomentumContinuation(
   if (!hasTradePlan(r) || r.direction !== direction || !r.momentumElevated) return false;
   if (r.pattern === null || !CONTINUATION_PATTERNS.has(r.pattern.name)) return false;
   const macro = r.trends.filter((t) => t.timeframe !== "1Hour");
+  // Considered switching to lib/gann/timeframeWeight.ts's power-ratio
+  // weighting here too (the same fix applied to lib/scanTicker.ts's
+  // macro-direction pattern preference) — reverted: this gate needs a
+  // *breadth* requirement (at least 2 of 3 macro timeframes actually
+  // confirming), which a pure weighted score doesn't provide, since one
+  // strongly-weighted timeframe alone would then satisfy it. Confirmed by
+  // lib/__tests__/trade-plan.test.ts's "does not count the hourly trend
+  // toward macro confirmation" case, which the weighted version broke.
   return macro.filter((t) => t.direction === direction).length >= 2;
 }
 

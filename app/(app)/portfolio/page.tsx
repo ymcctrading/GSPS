@@ -39,7 +39,10 @@ export default function PortfolioPage() {
         .then(async (res) => {
           const data = await res.json();
           if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
-          setPortfolio(data);
+          setPortfolio((prev) => {
+            if (JSON.stringify(prev) === JSON.stringify(data)) return prev;
+            return data;
+          });
           setError(null);
         })
         .catch((err) => setError(err instanceof Error ? err.message : String(err))),
@@ -59,9 +62,20 @@ export default function PortfolioPage() {
         .then(async (res) => {
           const data = await res.json();
           if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
-          setOrders(data.orders ?? []);
-          setSync(data.sync ?? null);
-          setExits(data.exits ?? null);
+          setOrders((prev) => {
+            if (JSON.stringify(prev) === JSON.stringify(data.orders ?? [])) return prev;
+            return data.orders ?? [];
+          });
+          setSync((prev) => {
+            const newSync = data.sync ?? null;
+            if (JSON.stringify(prev) === JSON.stringify(newSync)) return prev;
+            return newSync;
+          });
+          setExits((prev) => {
+            const newExits = data.exits ?? null;
+            if (JSON.stringify(prev) === JSON.stringify(newExits)) return prev;
+            return newExits;
+          });
           setOrdersError(null);
         })
         .catch((err) => {
@@ -209,7 +223,7 @@ export default function PortfolioPage() {
                 : "No pending positions. Orders you place appear here the moment they're submitted."}
           </EmptyState>
         ) : (
-          <OrderLedger orders={sections.pending} />
+          <OrderLedger orders={sections.pending} onCanceled={refresh} />
         )}
       </PositionSection>
 

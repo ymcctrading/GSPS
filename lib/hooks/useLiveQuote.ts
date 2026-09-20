@@ -37,6 +37,46 @@ interface Poller {
 
 const pollers = new Map<string, Poller>();
 
+/**
+ * A poller is deleted the moment its last subscriber unsubscribes (see
+ * `subscribe`'s cleanup below) -- deliberately, so a symbol nobody's looking
+ * at any more stops polling. But a *new* subscriber for the same symbol
+ * moments later (a remount, a second interval variant, the ticker page and
+ * the Dashboard both wanting the same price) started a brand-new poller with
+ * `quote: null`, throwing away a perfectly good price and showing "--" until
+ * the next tick landed -- up to a full interval later. That's what turned
+ * into the Dashboard's ResultsTable rows flashing their price to "--" and
+ * back, which combined with results-table.tsx's own invalidated-flag bug to
+ * read as the table flickering. Keyed on the bare symbol (not
+ * symbol@interval) since the price doesn't depend on how often it's polled,
+ * this lets a fresh poller start from the last real value instead of
+ * nothing.
+ */
+const lastKnownQuotes = new Map<string, LiveQuote>();
+
+/**
+ * Every tick's `at` timestamp differs even when nothing else has, and nothing
+ * in the UI reads `at` directly -- so a naive replace-and-notify on every
+ * successful poll re-rendered every subscribed row (the Dashboard's
+ * ResultsTable, the ticker header, the chart) every 5-30s regardless of
+ * whether price had actually moved, which read as constant flickering.
+ * Comparing the fields the UI actually shows keeps identity (and therefore
+ * downstream re-renders) stable across a poll that returned the same quote.
+ */
+function quoteEquals(prev: LiveQuote | null, next: LiveQuote): boolean {
+  if (!prev) return false;
+  return (
+    prev.price === next.price &&
+    prev.regularClose === next.regularClose &&
+    prev.prevClose === next.prevClose &&
+    prev.session === next.session &&
+    prev.changeAbs === next.changeAbs &&
+    prev.changePct === next.changePct &&
+    prev.extendedAbs === next.extendedAbs &&
+    prev.extendedPct === next.extendedPct
+  );
+}
+
 function isCrypto(symbol: string): boolean {
   return symbol.includes("/") || /^(BTC|ETH|SOL|DOGE|LTC|AVAX|LINK|XRP|BCH|UNI)/i.test(symbol);
 }
@@ -61,8 +101,11 @@ async function tick(key: string, symbol: string) {
     if (res.ok) {
       const data: LiveQuote = await res.json();
       if (typeof data.price === "number") {
-        poller.quote = data;
-        poller.listeners.forEach((notify) => notify());
+        lastKnownQuotes.set(symbol.toUpperCase(), data);
+        if (!quoteEquals(poller.quote, data)) {
+          poller.quote = data;
+          poller.listeners.forEach((notify) => notify());
+        }
       }
       poller.delay = poller.interval;
     } else {
@@ -114,7 +157,14 @@ export function useLiveQuote(symbol: string | null, opts?: { intervalMs?: number
 
       let poller = pollers.get(key);
       if (!poller) {
-        poller = { quote: null, listeners: new Set(), timer: null, interval, delay: interval, stopped: false };
+        poller = {
+          quote: lastKnownQuotes.get(symbol.toUpperCase()) ?? null,
+          listeners: new Set(),
+          timer: null,
+          interval,
+          delay: interval,
+          stopped: false,
+        };
         pollers.set(key, poller);
       }
       poller.stopped = false;

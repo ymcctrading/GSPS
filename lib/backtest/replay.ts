@@ -34,8 +34,9 @@ import {
   proximityBandPct,
 } from "@/lib/scoring/proximity";
 import type { CriterionWeights } from "@/lib/scoring/weights";
+import { computeGannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { readTrend } from "@/lib/analysis/trend";
-import { levelRole, type LevelRole } from "@/lib/analysis/levelRole";
+import { countLevelTests, levelRole, type LevelRole } from "@/lib/analysis/levelRole";
 import { atr } from "@/lib/analysis/pivots";
 import { computeFanLines } from "@/lib/gann/fans";
 import { recentSquareOf9Levels } from "@/lib/gann/squareOf9";
@@ -43,10 +44,11 @@ import { timeCycles } from "@/lib/gann/timeCycles";
 import { computeAngleSlopes } from "@/lib/gann/normalizedSlope";
 import { computeRetracementLevels } from "@/lib/gann/retracement";
 import { priceTimeConfluence } from "@/lib/gann/digitalRoot";
-import { computeSwingChart, type SwingChartReading } from "@/lib/gann/swingChart";
+import { computeCampaignLeg, computeSwingChart, type CampaignLegReading, type SwingChartReading } from "@/lib/gann/swingChart";
+import { computeRuleOfThree, type RuleOfThreeReading } from "@/lib/gann/ruleOfThree";
 import { computeTimePriceSquare, type TimePriceSquareReading } from "@/lib/gann/timePriceSquare";
 import { computeVolumeClimax, type VolumeClimaxReading } from "@/lib/gann/volumeClimax";
-import { adx } from "@/lib/signals/indicators";
+import { computeBoilingPoint, type BoilingPointReading } from "@/lib/gann/boilingPoint";
 import { DEFAULT_COST_PER_SHARE_USD } from "@/lib/trade/friction";
 
 /** 6.5 hours of 15-minute candles. */
@@ -79,10 +81,19 @@ export interface ReplayOptions {
   dailyBars?: Bar[];
   /**
    * Criterion weights to score with. Defaults to `DEFAULT_CRITERION_WEIGHTS`
-   * (`lib/scoring/weights.ts`) — no longer one point each as of 2026-09-14,
-   * see that constant's own doc comment. Supplying a candidate set is how a
-   * weight proposal is checked against the same trades the current weights
-   * produced — see lib/backtest/propose-weights.ts.
+   * (`lib/scoring/weights.ts`) — one point each, restored on principle
+   * 2026-09-16 after a hand-set distribution held from 2026-09-14; see that
+   * constant's own doc comment. Supplying a candidate set is how a weight
+   * proposal is checked against the same trades the current weights produced
+   * — see lib/backtest/propose-weights.ts.
+   *
+   * Note this defaults to the *code* constant, deliberately — unlike the live
+   * scan, which resolves weights through `lib/scoring/active-weights.ts` and
+   * may be scoring with a promoted `learning_models` row instead. A replay
+   * must be reproducible from the repo alone, so it does not read that table;
+   * the cost is that a replay and the live scan can disagree while a model is
+   * promoted. Pass `weights` explicitly to reproduce what production actually
+   * scored with.
    */
   weights?: CriterionWeights;
   /**
@@ -234,12 +245,16 @@ const weekKey = (b: Bar) => {
 export interface MacroContext {
   macroTrends: TrendReading[];
   swingChart: SwingChartReading;
+  /** How many 3-day swing-chart legs since the last 9-day trend change, and Gann's "sections of a campaign" confidence read on that count. Confluence/context only — see lib/gann/swingChart.ts#computeCampaignLeg. */
+  campaignLeg: CampaignLegReading;
+  ruleOfThree: RuleOfThreeReading;
   timePriceSquare: TimePriceSquareReading[];
   volumeClimax: VolumeClimaxReading[];
+  boilingPoint: BoilingPointReading[];
   gann: GannLevels;
   nearSupportResistance: boolean;
   /** The matched level and its role, when one is in range — see lib/scanTicker.ts's srMatch. */
-  srMatch: { price: number; timeframe: Timeframe; role: LevelRole } | null;
+  srMatch: { price: number; timeframe: Timeframe; role: LevelRole; testCount: number } | null;
   momentumElevated: boolean;
   /**
    * Daily ATR as a percentage of price on the day being traded. The structural
@@ -266,6 +281,8 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
   const weeklyTrend = readTrend(weekly, "1Week");
   const dailyTrend = readTrend(daily, "1Day");
   const swingChart = computeSwingChart(daily);
+  const campaignLeg = computeCampaignLeg(daily);
+  const ruleOfThree = computeRuleOfThree(daily);
 
   const fanLines = computeFanLines(daily, price);
   const s9 = recentSquareOf9Levels(daily, price).slice(0, 12);
@@ -273,6 +290,7 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
   const angleSlopes = computeAngleSlopes(daily, price);
   const timePriceSquare = computeTimePriceSquare(daily, price);
   const volumeClimax = computeVolumeClimax(daily);
+  const boilingPoint = computeBoilingPoint(daily, volumeClimax);
   const retracementLevels = computeRetracementLevels(daily, price);
   const digitalRootConfluences = angleSlopes
     .map((r) => {
@@ -296,17 +314,17 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
   // Mirrors lib/scanTicker.ts: keep the matched level (and its role at
   // current price) rather than just a boolean, so the score can tell whether
   // it's on the trade's side or not.
-  const srMatch = nearestLevelMatch(
-    price,
-    allLevels,
-    proximityBandPct(SR_PROXIMITY_ATR, FALLBACK_SR_PCT, atrPct),
-  );
+  const srBandPct = proximityBandPct(SR_PROXIMITY_ATR, FALLBACK_SR_PCT, atrPct);
+  const srMatch = nearestLevelMatch(price, allLevels, srBandPct);
 
   return {
     macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
     swingChart,
+    campaignLeg,
+    ruleOfThree,
     timePriceSquare,
     volumeClimax,
+    boilingPoint,
     gann: {
       fanLines: fanLines.slice(0, 6).map(({ angle, price: p, distancePct, role }) => ({
         angle, price: Math.round(p * 100) / 100, distancePct, role,
@@ -318,14 +336,20 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
       timeCycleBullishActive: cycles.bullishActive,
       timeCycleBearishActive: cycles.bearishActive,
       timeCycleDates: cycles.dates,
+      timeCycleFixedCalendarActive: cycles.fixedCalendarActive,
+      timeCycleFixedCalendarDates: cycles.fixedCalendarDates,
       angleSlopes,
-      retracementLevels: retracementLevels.slice(0, 7).map(({ fraction, label, price: p, distancePct, role }) => ({
-        fraction, label, price: Math.round(p * 100) / 100, distancePct, role,
+      retracementLevels: retracementLevels.slice(0, 7).map(({ fraction, label, price: p, distancePct, role, importance }) => ({
+        fraction, label, price: Math.round(p * 100) / 100, distancePct, role, importance,
       })),
       digitalRootConfluences,
     },
     nearSupportResistance: srMatch !== null,
-    srMatch: srMatch && { ...srMatch, role: levelRole(price, srMatch.price) },
+    srMatch: srMatch && {
+      ...srMatch,
+      role: levelRole(price, srMatch.price),
+      testCount: countLevelTests(daily, srMatch.price, srBandPct),
+    },
     momentumElevated: baselineAtr > 0 && recentAtr / baselineAtr >= 1.2,
     atrPct,
     structuralLevels: allLevels.map((l) => l.price),
@@ -359,7 +383,26 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     const executionAtr = atr(history.slice(-30), 14);
     const lastClose = history[history.length - 1].c;
 
-    for (const pattern of detectPatterns(history)) {
+    for (const detected of detectPatterns(history)) {
+      // The replay must arm and fill on the SAME rule the live scan prices
+      // from, or every number it produces is measuring a strategy nobody
+      // runs. Since 2026-09-17 that rule is the swing-level crossing
+      // (`lib/gann/entryTrigger.ts`), not the bar-sequence pattern's trigger.
+      // The detected pattern still selects the direction to test, keeping the
+      // candidate population comparable with prior committed runs.
+      const trigger = computeGannEntryTrigger(history, detected.direction);
+      if (!trigger) continue;
+      // Prices come from the swing-crossing trigger; the detected pattern's
+      // name and description are kept so the factor table and per-pattern
+      // attribution still group the way earlier committed runs did. The label
+      // is reporting metadata here, not the thing being traded.
+      const pattern: StratPattern = {
+        ...detected,
+        direction: trigger.direction,
+        triggerPrice: trigger.triggerPrice,
+        stopPrice: trigger.stopPrice,
+      };
+
       if (gapRuleViolated(pattern, lastClose)) continue;
       if (riskFloorViolated(pattern, executionAtr)) continue;
       armed++;
@@ -549,9 +592,6 @@ function scoreSetup(input: {
   // readTrend looks back over and keeps the roll-up cheap.
   const hourlyBars = rollUp(history.slice(-400), (b) => b.t.slice(0, 13));
   const hourlyTrend = readTrend(hourlyBars, "1Hour");
-  // Same implementation and 20-ADX threshold lib/signals/regime.ts already
-  // validated for trend-strength confirmation — reused, not reinvented.
-  const hourlyAdx = adx(hourlyBars);
 
   let levels = null;
   try {
@@ -576,10 +616,12 @@ function scoreSetup(input: {
       direction: pattern.direction,
       macroTrends: context.macroTrends,
       hourlyTrend,
-      hourlyAdx,
       swingChart: context.swingChart,
+      campaignLeg: context.campaignLeg,
+      ruleOfThree: context.ruleOfThree,
       timePriceSquare: context.timePriceSquare,
       volumeClimax: context.volumeClimax,
+      boilingPoint: context.boilingPoint,
       gann: context.gann,
       nearSupportResistance: context.nearSupportResistance,
       srMatch: context.srMatch,

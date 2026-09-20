@@ -159,6 +159,132 @@ export function macd(candles: Candle[], fast = 12, slow = 26, signalPeriod = 9):
   return { macd: macdLine, signal: signalLine, histogram };
 }
 
+export interface PsarPoint {
+  time: number;
+  value: number;
+  trend: "up" | "down";
+}
+
+/**
+ * Wilder's Parabolic SAR (stop-and-reverse). A chart overlay only, like every
+ * other function in this file — see AGENTS.md's "Gann-grounded platform"
+ * section, "Charting indicators" under Audit outcomes: this family is a
+ * user-driven tool a trader can switch on to test their own idea, never
+ * substance GSPS asserts. It must never feed a scored criterion, a signal
+ * gate, a trade plan, or any verdict this platform issues — if that changes,
+ * this comment is wrong and the boundary has been crossed.
+ */
+export function psar(candles: Candle[], step = 0.02, max = 0.2): PsarPoint[] {
+  if (candles.length < 2) return [];
+  const out: PsarPoint[] = [];
+
+  let trend: "up" | "down" = candles[1].close >= candles[0].close ? "up" : "down";
+  let af = step;
+  let ep = trend === "up" ? candles[0].high : candles[0].low;
+  let sar = trend === "up" ? candles[0].low : candles[0].high;
+
+  for (let i = 1; i < candles.length; i++) {
+    const prevLow1 = candles[i - 1].low;
+    const prevHigh1 = candles[i - 1].high;
+    const prevLow2 = i >= 2 ? candles[i - 2].low : prevLow1;
+    const prevHigh2 = i >= 2 ? candles[i - 2].high : prevHigh1;
+
+    let next = sar + af * (ep - sar);
+
+    if (trend === "up") {
+      next = Math.min(next, prevLow1, prevLow2);
+      if (candles[i].low < next) {
+        trend = "down";
+        next = ep;
+        ep = candles[i].low;
+        af = step;
+      } else if (candles[i].high > ep) {
+        ep = candles[i].high;
+        af = Math.min(af + step, max);
+      }
+    } else {
+      next = Math.max(next, prevHigh1, prevHigh2);
+      if (candles[i].high > next) {
+        trend = "up";
+        next = ep;
+        ep = candles[i].high;
+        af = step;
+      } else if (candles[i].low < ep) {
+        ep = candles[i].low;
+        af = Math.min(af + step, max);
+      }
+    }
+
+    sar = next;
+    out.push({ time: candles[i].time, value: sar, trend });
+  }
+
+  return out;
+}
+
+/** Wilder-smoothed Average True Range, scoped to this file's own overlays. */
+function trueRangeAtr(candles: Candle[], period: number): number[] {
+  const tr: number[] = candles.map((c, i) => {
+    if (i === 0) return c.high - c.low;
+    const prevClose = candles[i - 1].close;
+    return Math.max(c.high - c.low, Math.abs(c.high - prevClose), Math.abs(c.low - prevClose));
+  });
+  const out: number[] = new Array(candles.length).fill(NaN);
+  if (candles.length < period) return out;
+  let avg = tr.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  out[period - 1] = avg;
+  for (let i = period; i < candles.length; i++) {
+    avg = (avg * (period - 1) + tr[i]) / period;
+    out[i] = avg;
+  }
+  return out;
+}
+
+export interface SupertrendPoint {
+  time: number;
+  value: number;
+  trend: "up" | "down";
+}
+
+/**
+ * Supertrend (ATR bands with a stop-and-reverse flip rule). Same boundary as
+ * `psar()` above: a display-only overlay, never wired into scoring, gates, or
+ * the trade plan.
+ */
+export function supertrend(candles: Candle[], period = 10, multiplier = 3): SupertrendPoint[] {
+  if (candles.length <= period) return [];
+  const atr = trueRangeAtr(candles, period);
+  const out: SupertrendPoint[] = [];
+
+  let finalUpper = 0;
+  let finalLower = 0;
+  let trend: "up" | "down" = "up";
+
+  for (let i = period - 1; i < candles.length; i++) {
+    if (Number.isNaN(atr[i])) continue;
+    const mid = (candles[i].high + candles[i].low) / 2;
+    const basicUpper = mid + multiplier * atr[i];
+    const basicLower = mid - multiplier * atr[i];
+
+    if (out.length === 0) {
+      finalUpper = basicUpper;
+      finalLower = basicLower;
+      trend = candles[i].close <= finalUpper ? "down" : "up";
+    } else {
+      const prevClose = candles[i - 1].close;
+      finalUpper = basicUpper < finalUpper || prevClose > finalUpper ? basicUpper : finalUpper;
+      finalLower = basicLower > finalLower || prevClose < finalLower ? basicLower : finalLower;
+
+      if (trend === "down" && candles[i].close > finalUpper) trend = "up";
+      else if (trend === "up" && candles[i].close < finalLower) trend = "down";
+    }
+
+    out.push({ time: candles[i].time, value: trend === "up" ? finalLower : finalUpper, trend });
+  }
+
+  return out;
+}
+
 /** Volume histogram data colored by candle direction. */
 export function volumeBars(candles: Candle[]): { time: number; value: number; color: string }[] {
   return candles

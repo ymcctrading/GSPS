@@ -11,6 +11,10 @@ import type {
   PivotFeature,
   TrendStateFeature,
   DigitalRootFeature,
+  BarRow,
+  InstrumentProfileRow,
+  VolumeStateFeature,
+  VolatilityStateFeature,
 } from './types';
 
 export function createLearningClient() {
@@ -115,6 +119,64 @@ export async function recordDigitalRootFeature(
     .single();
 
   if (error) throw new Error(`Failed to record GSPS Signal Calculation feature: ${error.message}`);
+  return data;
+}
+
+/**
+ * `bar` (migration 0064) — global OHLCV cache, not per-user. Upsert on the
+ * (instrument_id, timeframe, bar_time) unique constraint with
+ * `ignoreDuplicates` so a symbol scanned by many users, or repeatedly by the
+ * same one, only ever inserts a bar's row once — never re-writes it. This
+ * batch never trims what a scan already fetched; a large `dailyBars` window
+ * is bounded by the same MIN_DAILY_BARS-to-lookback range the scan itself
+ * already reads.
+ */
+export async function upsertBars(bars: Omit<BarRow, never>[]): Promise<void> {
+  if (bars.length === 0) return;
+  const client = createLearningClient();
+  const { error } = await client
+    .from('bar')
+    .upsert(bars, { onConflict: 'instrument_id,timeframe,bar_time', ignoreDuplicates: true });
+
+  if (error) throw new Error(`Failed to upsert bars: ${error.message}`);
+}
+
+/**
+ * `instrument_profile` (migration 0064) — global, one row per instrument.
+ * Upsert-merge on `instrument_id` so a later scan's fresher read (e.g. a
+ * recomputed average dollar volume) replaces the prior one rather than
+ * being refused as a duplicate.
+ */
+export async function upsertInstrumentProfile(profile: InstrumentProfileRow): Promise<void> {
+  const client = createLearningClient();
+  const { error } = await client
+    .from('instrument_profile')
+    .upsert([{ ...profile, updated_at: new Date() }], { onConflict: 'instrument_id' });
+
+  if (error) throw new Error(`Failed to upsert instrument profile: ${error.message}`);
+}
+
+export async function recordVolumeState(userId: string, state: Omit<VolumeStateFeature, 'user_id'>) {
+  const client = createLearningClient();
+  const { data, error } = await client
+    .from('volume_state')
+    .insert([{ user_id: userId, ...state }])
+    .select()
+    .single();
+
+  if (error) throw new Error(`Failed to record volume state: ${error.message}`);
+  return data;
+}
+
+export async function recordVolatilityState(userId: string, state: Omit<VolatilityStateFeature, 'user_id'>) {
+  const client = createLearningClient();
+  const { data, error } = await client
+    .from('volatility_state')
+    .insert([{ user_id: userId, ...state }])
+    .select()
+    .single();
+
+  if (error) throw new Error(`Failed to record volatility state: ${error.message}`);
   return data;
 }
 

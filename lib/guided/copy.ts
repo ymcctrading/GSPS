@@ -81,13 +81,52 @@ export function trendSummary(trends: TrendReading[]): string {
   return named.length > 0 ? named.join(", ") : "No trend readings available.";
 }
 
+/**
+ * Gann's own books draw a hard line between two kinds of "structure," and this
+ * function has to honor it rather than blur it: a swing-clustered support/
+ * resistance level earns "repeatedly turned at" because that is literally what
+ * his disclosed "Crossing Old Levels" rule measures — real prior turns. A Gann
+ * fan line or Square-of-9 coordinate is a *computed* geometric point (real Gann
+ * material, per `GANN_HISTORICAL_SOURCES.md` A2.1, but never justified by him
+ * as a place price has actually turned before) — GSPS's own data agrees
+ * (`harmonicProximity`, the Square-of-9 criterion, was retired from scoring
+ * for measuring negligible), so it gets separate, honest wording instead of
+ * borrowing the historical-repetition claim that only the swing level earns.
+ * 2026-09-16: fixed after `docs/GANN_PLATFORM_AUDIT.md` flagged this as
+ * presenting an unvalidated geometric coordinate as an empirically-observed
+ * turning point to novice users — see that doc's Part 3a/5 for the finding.
+ */
 function nearestStructure(result: ScanResult): string {
+  const price = result.currentPrice;
+  const daily = result.trends.find((t) => t.timeframe === "1Day");
+  const swingLevel = daily ? nearestPrice(price, [...daily.support, ...daily.resistance]) : null;
+
   const fan = result.gann.fanLines[0];
-  const harmonic = result.gann.squareOf9[0];
-  const nearest =
-    fan && harmonic ? (fan.distancePct <= harmonic.distancePct ? fan : harmonic) : fan ?? harmonic;
-  if (!nearest) return "";
-  return ` right at ${formatUsd(nearest.price)}, a level this symbol has repeatedly turned at`;
+  const geometric = result.gann.squareOf9[0];
+  const geometricNearest =
+    fan && geometric ? (fan.distancePct <= geometric.distancePct ? fan : geometric) : fan ?? geometric;
+
+  const swingDistancePct = swingLevel != null ? (Math.abs(price - swingLevel) / price) * 100 : null;
+
+  const useSwing =
+    swingDistancePct != null &&
+    (geometricNearest == null || swingDistancePct <= geometricNearest.distancePct);
+
+  if (useSwing && swingLevel != null) {
+    return ` right at ${formatUsd(swingLevel)}, a level this symbol has repeatedly turned at`;
+  }
+  if (geometricNearest) {
+    return ` right at ${formatUsd(geometricNearest.price)}, a structural price level from this symbol's own chart geometry`;
+  }
+  return "";
+}
+
+/** Nearest of a set of candidate prices to the current price, or null if empty. */
+function nearestPrice(current: number, candidates: number[]): number | null {
+  if (candidates.length === 0) return null;
+  return candidates.reduce((best, p) =>
+    Math.abs(p - current) < Math.abs(best - current) ? p : best,
+  );
 }
 
 function timeframeWord(tf: string): string {

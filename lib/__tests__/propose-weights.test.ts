@@ -20,12 +20,12 @@ import {
 /**
  * These tests are about the proposal algorithm's direction and shape (does it
  * up-weight a winner, down-weight a loser, hold on disagreement), not about
- * whatever `DEFAULT_CRITERION_WEIGHTS` currently is — that constant is a
- * hand-set, evidence-based rebalance as of 2026-09-14 (see its own doc
- * comment), not a neutral 1-per-criterion starting point anymore. Every call
- * below supplies this uniform baseline explicitly so a future change to the
- * live default can't silently break an assertion like `toBeLessThan(1)` that
- * only makes sense starting from 1.
+ * whatever `DEFAULT_CRITERION_WEIGHTS` currently is — that constant is
+ * uniform again as of 2026-09-16 (see its own doc comment), so it happens to
+ * match this baseline today. Every call below supplies the uniform baseline
+ * explicitly regardless, so a future change to the live default can't
+ * silently break an assertion like `toBeLessThan(1)` that only makes sense
+ * starting from 1.
  */
 const UNIFORM_WEIGHTS: CriterionWeights = Object.fromEntries(
   CRITERION_KEYS.map((k) => [k, 1]),

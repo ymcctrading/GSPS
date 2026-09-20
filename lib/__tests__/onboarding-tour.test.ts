@@ -14,7 +14,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { TOUR_STEPS, TOUR_STEP_COUNT, TOUR_VERSION, stepById, stepLink } from "@/lib/onboarding/tour";
+import { TOUR_STEPS, TOUR_STEPS_SHORT, TOUR_STEP_COUNT, TOUR_VERSION, stepById, stepLink } from "@/lib/onboarding/tour";
 import {
   SNAPSHOT_ACCOUNT,
   SNAPSHOT_BARS,
@@ -166,6 +166,49 @@ describe("tour structure", () => {
       expect(Boolean(step.href)).toBe(Boolean(step.hrefLabel));
       if (step.href) expect(step.href.startsWith("/")).toBe(true);
     }
+  });
+});
+
+describe("the quick tour", () => {
+  // Most visitors don't take the full 16-step walkthrough. The quick track
+  // exists so "shorter" is an actual offer rather than an acknowledgement
+  // with nothing behind it — these guard that it stays a real, sourced
+  // subset rather than drifting into its own hand-maintained copy.
+
+  it("is a genuine subset of the full tour, same relative order, none missing", () => {
+    const fullIds = TOUR_STEPS.map((s) => s.id);
+    const shortIds = TOUR_STEPS_SHORT.map((s) => s.id);
+    expect(shortIds.length).toBeGreaterThan(0);
+    expect(shortIds.length).toBeLessThan(fullIds.length);
+    expect(new Set(shortIds).size).toBe(shortIds.length);
+    const positions = shortIds.map((id) => fullIds.indexOf(id));
+    expect(positions.every((p) => p >= 0)).toBe(true);
+    expect(positions).toEqual([...positions].sort((a, b) => a - b));
+  });
+
+  it("is short enough to actually be quick", () => {
+    // The chooser promises "about 90 seconds" — a claim that stops being true
+    // if this list quietly grows back toward the full tour's length.
+    expect(TOUR_STEPS_SHORT.length).toBeLessThanOrEqual(8);
+  });
+
+  it("still carries the practice-money warning before Guided", () => {
+    const practiceIndex = TOUR_STEPS_SHORT.findIndex((s) =>
+      s.body.some((p) => /practice money|pretend money|paper trading/i.test(p)),
+    );
+    const guidedIndex = TOUR_STEPS_SHORT.findIndex((s) => s.id === "guided");
+    expect(practiceIndex).toBeGreaterThanOrEqual(0);
+    expect(guidedIndex).toBeGreaterThanOrEqual(0);
+    expect(practiceIndex).toBeLessThan(guidedIndex);
+  });
+
+  it("still says nothing trades without a person confirming it", () => {
+    const shortCopy = TOUR_STEPS_SHORT.flatMap((s) => [s.title, ...s.body]);
+    expect(shortCopy.some((p) => /confirm/i.test(p) && /nothing|never|every/i.test(p))).toBe(true);
+  });
+
+  it("still shows the trade plan, not just the idea of one", () => {
+    expect(TOUR_STEPS_SHORT.some((s) => s.id === "chart")).toBe(true);
   });
 });
 

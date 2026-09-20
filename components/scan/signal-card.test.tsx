@@ -30,7 +30,6 @@ const inputs: ScoreInputs = {
   direction: "bullish",
   macroTrends: [trend("bearish"), trend("bearish"), trend("bullish")],
   hourlyTrend: trend("bullish"),
-  hourlyAdx: { adx: 25, plusDI: 20, minusDI: 10 },
   gann: {
     // direction is "bullish" (a long), so this is a support floor underneath
     // price — the side that actually confirms a long.
@@ -110,10 +109,13 @@ describe("SignalCard score breakdown", () => {
     for (const label of ["Trend", "Structure", "Setup", "Timing", "Risk/reward"]) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
-    // Trend is the three-point pillar (macro, hourly ADX/DMI, structural
-    // angle); only the ADX/DMI reading passes in this fixture — macro is
-    // 1-of-3 timeframes and no angle-slope data is supplied.
-    expect(screen.getByText("1/3")).toBeInTheDocument();
+    // Trend is the three-point pillar (swing chart, structural angle, Rule
+    // of Three) now that adxTrendStrength has been removed (2026-09-16, no
+    // Gann lineage — see lib/validation/criteria-registry.ts's RETIRED
+    // entry). None of the three passes in this fixture: no swing-chart data
+    // is supplied, no angle-slope data is supplied, and no ruleOfThree
+    // reading is supplied either.
+    expect(screen.getByText("0/3")).toBeInTheDocument();
   });
 
   it("says nothing about the score when no summary was attached", () => {

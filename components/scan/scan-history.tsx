@@ -6,7 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { ScoreBadge } from "@/components/scan/score-badge";
 import { formatOpenedAt } from "@/lib/portfolio/opened-at";
-import { MONITOR_STATE_LABELS, type MonitorState, type ScanHistoryRun } from "@/lib/scanner/history";
+import {
+  executabilityRank,
+  MONITOR_STATE_LABELS,
+  type MonitorState,
+  type ScanHistoryRun,
+  type ScanHistorySymbol,
+} from "@/lib/scanner/history";
 import { formatUsd, cn } from "@/lib/utils";
 import { tickerHref } from "@/lib/routes";
 
@@ -82,6 +88,7 @@ export function ScanHistory() {
             No scans in this window yet. Run one above and it will show up here.
           </p>
         )}
+        {runs && runs.length > 0 && <RankedByExecutability runs={runs} />}
         {runs?.map((run, i) => (
           <div key={run.scanExecutionId ?? i} className="rounded-lg border border-border">
             <div className="border-b border-border bg-background/50 px-3 py-2 text-xs text-muted">
@@ -104,6 +111,8 @@ export function ScanHistory() {
                     <span className="text-muted">now:</span>
                     {s.currentState === null ? (
                       <Badge variant="muted">Not tracked since</Badge>
+                    ) : s.currentScore !== null ? (
+                      <ScoreBadge score={s.currentScore} state={monitorStateAsScannedLabel(s.currentState)} />
                     ) : (
                       <MonitorBadge state={s.currentState} />
                     )}
@@ -123,6 +132,8 @@ export function ScanHistory() {
                       Entry {formatUsd(s.entry)}
                       {s.stopLoss != null && ` · Stop ${formatUsd(s.stopLoss)}`}
                       {s.takeProfit1 != null && ` · TP1 ${formatUsd(s.takeProfit1)}`}
+                      {s.masterProfit != null && ` · MP ${formatUsd(s.masterProfit)}`}
+                      {s.currentPrice != null && ` · Now ${formatUsd(s.currentPrice)}`}
                     </div>
                   )}
                 </div>
@@ -138,4 +149,70 @@ export function ScanHistory() {
 function MonitorBadge({ state }: { state: MonitorState }) {
   const variant = state === "EXECUTE" ? "bull" : state === "WATCH" ? "warn" : "muted";
   return <Badge variant={variant}>{MONITOR_STATE_LABELS[state]}</Badge>;
+}
+
+/** `MonitorState`, in `ScoreBadge`'s vocabulary, purely for its styling switch. */
+function monitorStateAsScannedLabel(state: MonitorState): "Execute" | "Watch" | "Reject" {
+  if (state === "EXECUTE") return "Execute";
+  if (state === "WATCH") return "Watch";
+  return "Reject";
+}
+
+/**
+ * One row per symbol scanned in this window, deduped to its most recent
+ * scan (runs arrive newest-first) and ordered by how executable it reads
+ * right now — `active_monitors`' live verdict first, its live score
+ * (migration 0067) as the tiebreaker within a verdict, falling back to the
+ * originally scanned score only when no live score exists at all (see
+ * lib/scanner/history.ts#executabilityRank).
+ */
+function RankedByExecutability({ runs }: { runs: ScanHistoryRun[] }) {
+  const bySymbol = new Map<string, ScanHistorySymbol>();
+  for (const run of runs) {
+    for (const s of run.symbols) {
+      if (!bySymbol.has(s.symbol)) bySymbol.set(s.symbol, s);
+    }
+  }
+  const ranked = [...bySymbol.values()].sort((a, b) => {
+    const rankDiff = executabilityRank(a.currentState, a.currentScore) - executabilityRank(b.currentState, b.currentScore);
+    // Tie-break on the originally scanned score only when neither side has a
+    // live score to rank by — a live score (however tied) already decided it.
+    if (rankDiff !== 0) return rankDiff;
+    if (a.currentScore != null || b.currentScore != null) return 0;
+    return b.score - a.score;
+  });
+
+  return (
+    <div className="rounded-lg border border-border">
+      <div className="border-b border-border bg-background/50 px-3 py-2 text-xs font-medium text-muted">
+        Ranked by executability right now
+      </div>
+      <div className="divide-y divide-border">
+        {ranked.map((s, i) => (
+          <div key={s.symbol} className="flex flex-wrap items-center gap-3 px-3 py-2.5 text-sm">
+            <span className="w-5 shrink-0 text-xs text-muted">{i + 1}</span>
+            <Link href={tickerHref(s.symbol)} className="font-medium text-accent hover:underline">
+              {s.symbol}
+            </Link>
+            {s.currentState === null ? (
+              <Badge variant="muted">Not tracked</Badge>
+            ) : s.currentScore !== null ? (
+              <ScoreBadge score={s.currentScore} state={monitorStateAsScannedLabel(s.currentState)} />
+            ) : (
+              <MonitorBadge state={s.currentState} />
+            )}
+            <span className="flex items-center gap-1 text-xs text-muted">
+              scanned <ScoreBadge score={s.score} state={s.scannedState} />
+            </span>
+            <div className="ml-auto flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted">
+              <span>Price {s.currentPrice != null ? formatUsd(s.currentPrice) : "—"}</span>
+              <span>TP1 {s.takeProfit1 != null ? formatUsd(s.takeProfit1) : "—"}</span>
+              <span>MP {s.masterProfit != null ? formatUsd(s.masterProfit) : "—"}</span>
+              <span>S/L {s.stopLoss != null ? formatUsd(s.stopLoss) : "—"}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }

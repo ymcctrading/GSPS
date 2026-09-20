@@ -1,0 +1,37 @@
+name: First-90-minutes scan
+
+# The 9:45 AM ET scan added alongside morning-preparation-scan.yml (6:00 AM)
+# and morning-confirmation-scan.yml (9:15 AM) -- project owner direction:
+# "we have a 15 min[ute] delay... run a fresh scan at 9:45 to catch the
+# larger moves that occur within the first 90 min[utes] of the market
+# opening." Both Vercel cron slots are already spent (/api/market-scan at
+# 17:30 ET, /api/trade-journal/daily-email at 18:00 ET -- see
+# docs/THIRD_PARTY_LIMITS.md), so this follows the same GitHub-Actions
+# pattern as its two siblings rather than vercel.json.
+#
+# 13:45 UTC = 9:45 AM ET during EDT. During EST (UTC-5) this actually fires
+# at 8:45 AM ET -- the same fixed-UTC DST drift premarket-scan.yml,
+# morning-preparation-scan.yml, and morning-confirmation-scan.yml already
+# accept for their own schedules, for the same reason: the route's output
+# doesn't depend on being called at exactly its nominal minute.
+on:
+  schedule:
+    - cron: '45 13 * * 1-5'
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    name: Trigger /api/scans/first-90min-confirmation
+    steps:
+      - name: Call first-90min-confirmation scan
+        run: |
+          status=$(curl -sS -o /tmp/response.json -w '%{http_code}' \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ vars.PRODUCTION_URL || 'https://gsps.vercel.app' }}/api/scans/first-90min-confirmation")
+          echo "HTTP $status"
+          cat /tmp/response.json
+          if [ "$status" -ge 300 ]; then
+            echo "first-90min-confirmation scan returned $status" >&2
+            exit 1
+          fi

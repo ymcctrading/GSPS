@@ -70,6 +70,23 @@ describe("ConfluenceCard", () => {
           nearestFanLine: null,
           timeCycleActive: false,
           timeCycleDates: [],
+          timeCycleFixedCalendarActive: false,
+          timeCycleFixedCalendarDates: [],
+          decadeCycle: { yearDigit: 5, bias: "bullish", label: "Year of Ascension", note: "" },
+          nearestMasterTwelve: null,
+          squareOf52: { active: false, dates: [] },
+          angleMonthCounts: { active: false, dates: [] },
+          spectralCycle: {
+            active: false,
+            dominantPeriodBars: null,
+            dominancePower: null,
+            repetitionCount: null,
+            periodConsistent: null,
+            hypothesisOnly: true,
+            note: "",
+          },
+          campaignLeg: { legNumber: null, confidence: null },
+          boilingPoint: [],
           vortexContext: {
             priceDisplacement: {
               rawValue: 25,

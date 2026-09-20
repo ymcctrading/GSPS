@@ -87,12 +87,51 @@ function GannRow({ result }: { result: NonNullable<ScanResult["signals"]>["gannC
             <div className="rounded-md border border-border bg-surface p-2">
               <p className="text-muted">Nearest fan line</p>
               <p className="font-mono font-semibold">{result.nearestFanLine.angle}</p>
+              {result.nearestFanLine.timeProjectionDate && (
+                <p className="text-[10px] text-muted">Time target: {result.nearestFanLine.timeProjectionDate}</p>
+              )}
             </div>
           )}
           <div className="rounded-md border border-border bg-surface p-2">
             <p className="text-muted">Time cycle</p>
             <p className="font-mono font-semibold">{result.timeCycleActive ? "Active" : "None"}</p>
           </div>
+          {result.nearestMasterTwelve && (
+            <div className="rounded-md border border-border bg-surface p-2">
+              <p className="text-muted">Nearest Master Twelve level</p>
+              <p className="font-mono font-semibold">{result.nearestMasterTwelve.price.toFixed(2)}</p>
+            </div>
+          )}
+          <div className="rounded-md border border-border bg-surface p-2">
+            <p className="text-muted">Square of 52 window</p>
+            <p className="font-mono font-semibold">{result.squareOf52.active ? "Active" : "None"}</p>
+          </div>
+          <div className="rounded-md border border-border bg-surface p-2">
+            <p className="text-muted">36-angle month-count</p>
+            <p className="font-mono font-semibold">{result.angleMonthCounts.active ? "Active" : "None"}</p>
+          </div>
+          <div className="rounded-md border border-border bg-surface p-2">
+            <p className="text-muted">Spectral cycle (hypothesis)</p>
+            <p className="font-mono font-semibold">
+              {result.spectralCycle.active ? `~${result.spectralCycle.dominantPeriodBars} bars` : "None"}
+            </p>
+          </div>
+          {result.campaignLeg.legNumber != null && (
+            <div className="rounded-md border border-border bg-surface p-2">
+              <p className="text-muted">Campaign leg</p>
+              <p className="font-mono font-semibold">
+                {result.campaignLeg.legNumber} ({result.campaignLeg.confidence})
+              </p>
+            </div>
+          )}
+          {result.boilingPoint.length > 0 && (
+            <div className="rounded-md border border-border bg-surface p-2">
+              <p className="text-muted">Blow-off duration</p>
+              <p className="font-mono font-semibold">
+                {result.boilingPoint[0].weeksSinceClimax}wk ({result.boilingPoint[0].phase})
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>

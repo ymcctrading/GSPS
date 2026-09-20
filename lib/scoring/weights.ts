@@ -1,15 +1,22 @@
 /**
  * What each criterion is worth.
  *
- * All nine criteria were worth exactly one point until 2026-09-14, which was
- * never a measured choice — it was the placeholder you start with before you
- * can measure anything. `lib/backtest/attribution.ts` produces the number a
- * weight should actually be set from (`deltaExpectancyR`: how much better a
- * trade did when the criterion passed), and `lib/backtest/propose-weights.ts`
- * turns that into a proposal. `DEFAULT_CRITERION_WEIGHTS` below is now a
- * hand-set, evidence-based rebalance rather than that uniform placeholder —
- * see its own doc comment and AGENTS.md's "Temporary overrides" section for
- * why and what would revert it.
+ * Every criterion is worth exactly one point. That was the original state, a
+ * hand-set distribution replaced it on 2026-09-14, and 2026-09-16 restored
+ * it — but for a different reason than it originally held, and the
+ * difference matters. Uniform is not the placeholder you start with before
+ * you can measure anything; it is the only distribution that keeps the
+ * scorecard a count of Gann's conditions rather than a ranking of them. See
+ * `DEFAULT_CRITERION_WEIGHTS`'s own doc comment and AGENTS.md's
+ * "Gann-derived AND measured" and "The scorecard's role" principles.
+ *
+ * `lib/backtest/attribution.ts` still produces `deltaExpectancyR` (how much
+ * better a trade did when the criterion passed) and
+ * `lib/backtest/propose-weights.ts` still turns it into a proposal. Under
+ * those principles that machinery points at *our translation* of a Gann rule
+ * — a criterion measuring backwards is a porting defect to find — rather
+ * than serving as a verdict on which of Gann's conditions deserves more
+ * weight.
  *
  * Two invariants hold for every weight set, proposed or hand-written:
  *
@@ -25,17 +32,48 @@
  * rewording a criterion cannot silently detach its weight.
  */
 
-/** Stable ids for the nine scored criteria. */
+/**
+ * Stable ids for the nine scored criteria.
+ *
+ * `adxTrendStrength` removed 2026-09-16 (project owner direction) — see
+ * `lib/validation/criteria-registry.ts`'s RETIRED entry for it. It was the
+ * one scored criterion with no Gann lineage at all: Wilder's ADX/DMI,
+ * adopted into `lib/signals/regime.ts` as the trend-confirmation overlay
+ * this codebase uses *instead of* PSAR/Supertrend, then propagated into
+ * this scorecard for consistency. The Signal & Regime Engine still wants
+ * that indicator and still calls `adx()`; the scorecard does not, so the
+ * criterion comes out and is deliberately NOT replaced with anything.
+ *
+ * `patternArmed` renamed to `entryTriggerArmed` 2026-09-17 and regrounded.
+ * The criterion itself — "is there an armed trigger to enter on?" — was never
+ * the problem; its implementation was. It read a bar-sequence pattern from
+ * Rob Smith's STRAT, which has no source in this platform's methodology, and
+ * it was the last gate-1 failure on this scorecard. It now reads
+ * `lib/gann/entryTrigger.ts`: crossing an old swing top or bottom plus the
+ * "lost motion" allowance, both disclosed by Gann himself
+ * (`docs/GANN_HISTORICAL_SOURCES.md` A8, the nine Buying Points and nine
+ * Selling Points). Renamed rather than removed, so `TOTAL_POINTS` stays 9 and
+ * neither cutoff moves — this is a change of substance behind a criterion,
+ * not a change to how many conditions the scorecard counts.
+ *
+ * `ruleOfThree` added 2026-09-16 — the tenth, per AGENTS.md's "WD Gann
+ * precedence" principle and `docs/GANN_PLATFORM_AUDIT.md` Part 4 item 1:
+ * Gann's own highest-conviction disclosed rule (`Wall Street Stock
+ * Selector`, 1930), wired live ahead of this codebase's normal
+ * unmeasured -> attribution -> in/out-of-sample gate. See
+ * `lib/gann/ruleOfThree.ts` and `lib/validation/criteria-registry.ts`'s
+ * `ruleOfThree` entry.
+ */
 export const CRITERION_KEYS = [
   "swingChartTrend",
-  "adxTrendStrength",
   "gannAngleSlope",
   "volumeClimax",
   "historicalSR",
-  "patternArmed",
+  "entryTriggerArmed",
   "stopRoom",
   "timePriceSquare",
   "gannRetracementConfluence",
+  "ruleOfThree",
 ] as const;
 
 export type CriterionKey = (typeof CRITERION_KEYS)[number];
@@ -52,14 +90,14 @@ export type BreakdownKey = CriterionKey | HoldKey;
 /** Short labels for the factor tables, where the full criterion text is too wide. */
 export const CRITERION_LABELS: Record<CriterionKey, string> = {
   swingChartTrend: "3-day/9-day swing chart trend",
-  adxTrendStrength: "1-hour trend strength (ADX/DMI)",
   gannAngleSlope: "Structural trend-angle strength (1x2+)",
   volumeClimax: "Volume climax at the anchor pivot",
   historicalSR: "Historical support/resistance",
-  patternArmed: "Pattern armed",
+  entryTriggerArmed: "Entry trigger armed (old-level crossing)",
   stopRoom: "Stop room (>= 1.5x ATR)",
   timePriceSquare: "Price and time squared",
   gannRetracementConfluence: "Retracement + signal-flow confluence",
+  ruleOfThree: "Rule of Three (consecutive closes confirm direction)",
 };
 
 export type CriterionWeights = Record<CriterionKey, number>;
@@ -86,8 +124,33 @@ export const TOTAL_POINTS = CRITERION_KEYS.length;
  * bar — the committed run shows 0/1061 Execute, and the live deployment
  * produced 0 executable trades before this change. Lowered from 7/4 to 6/3.5
  * as a stopgap sized off that same run under an independence approximation
- * (not a joint-distribution guarantee) — see the weight rebalance below for
- * the other half of this fix.
+ * (not a joint-distribution guarantee). The weight rebalance that was the
+ * other half of this fix has since been undone on principle (see
+ * `DEFAULT_CRITERION_WEIGHTS` below); this threshold stopgap stands on its
+ * own and still carries its original revert trigger.
+ *
+ * Rescaled 2026-09-16 from 6/3.5 (out of 9) to 6.67/3.89 (out of 10) when
+ * `ruleOfThree` became the tenth criterion (see `CRITERION_KEYS`) — the same
+ * 66.7%/38.9% relative bar, not a new, separate loosening or tightening
+ * decision. Adding a criterion and re-judging how hard the bar should be to
+ * clear are two different questions; this preserves the existing stopgap's
+ * answer to the second one exactly, rather than quietly changing it as a
+ * side effect of the first.
+ *
+ * Rescaled back to 6/3.5 later the same day when `adxTrendStrength` was
+ * removed and `TOTAL_POINTS` returned to 9 — the identical arithmetic in the
+ * other direction (66.7% and 38.9% of 9 are 6.00 and 3.50), and for the
+ * identical reason: changing the criteria count is not a decision about how
+ * hard the bar should be. The stopgap's own answer to that question is
+ * untouched, and its revert trigger below still stands.
+ *
+ * Note this removal should, if anything, *widen* the Execute bucket rather
+ * than starve it further: `adxTrendStrength` passed on only ~28% of trades
+ * and measured negative (−0.245R on
+ * `docs/replay-runs/2026-09-11-15Min-2R-within-all.json`), so the setups it
+ * was costing a point were disproportionately the ones this scorecard is
+ * trying to find. That is the opposite direction from the starvation problem
+ * the override below exists to patch.
  */
 export const EXECUTE_SCORE_THRESHOLD = 6;
 export const WATCH_SCORE_THRESHOLD = 3.5;
@@ -102,48 +165,65 @@ export const MIN_WEIGHT = 0.5;
 export const MAX_WEIGHT = 2;
 
 /**
- * TEMPORARY OVERRIDE (since 2026-09-14) — see AGENTS.md's "Temporary
- * overrides" section, `DEFAULT_CRITERION_WEIGHTS` entry, for the full
- * reasoning and the mandatory revert trigger.
+ * One point each — the count of how many of Gann's confirming conditions a
+ * setup satisfies, with no claim layered on top about which of them matters
+ * more.
  *
- * No longer "one point each." This is the fallback every real caller
- * actually scores with today: `lib/scoring/score.ts` falls back to it when
- * no explicit weights are supplied, and `lib/scoring/active-weights.ts`
- * falls back to it whenever no weight set has been promoted to `live` in
- * `learning_models` — which, as of this change, is every deployment, so
- * this constant *is* production's live weight set, not a placeholder.
+ * This is the fallback, **not automatically what production scores with.**
+ * `lib/scoring/score.ts` falls back to it when no explicit weights are
+ * supplied, and `lib/scoring/active-weights.ts` falls back to it only when no
+ * weight set is promoted to `live` in `learning_models`. A promoted row wins
+ * over this constant, silently and without a deploy.
  *
- * Hand-set from `docs/replay-runs/2026-09-11-15Min-2R-within-all.json`'s
- * factors table (1061 unconditioned trades) rather than run through
- * `lib/backtest/propose-weights.ts`'s proper in/out-of-sample split — there
- * was only one committed run to work from, not the two chronological halves
- * that function requires, so this is a judgment call sized in the same
- * direction its step formula would move, not that function's own output.
- * Four criteria measured positive and either validated or consistently
- * reproducing (historicalSR, stopRoom, swingChartTrend, volumeClimax) are
- * moved up; four measured negative on this run, two of them independently
- * quarantined for a significant inversion (adxTrendStrength, gannAngleSlope,
- * gannRetracementConfluence, timePriceSquare) are dropped to `MIN_WEIGHT`;
- * `patternArmed` (structurally necessary, unmeasurable by construction)
- * stays near 1. Values before `normalizeWeights()`'s clamp-and-rescale:
- * historicalSR 1.99 (nudged 0.01 off the intended 2.0 so the rounded,
- * renormalized set lands on exactly 9.00 rather than 9.01 — `round()`
- * rounds each weight to 2 decimals after rescaling, which can drift the sum
- * by a cent), stopRoom 1.8, swingChartTrend 1.3, volumeClimax 1.3,
- * patternArmed 1.0, timePriceSquare 0.6, gannAngleSlope 0.5,
- * gannRetracementConfluence 0.5, adxTrendStrength 0.5.
+ * That distinction is load-bearing and was got wrong here before. Between
+ * 2026-09-14 and 2026-09-17 this comment asserted that no deployment had a
+ * live row and therefore this constant *was* production's weight set. One
+ * had been promoted on 2026-09-16, so restoring uniform here changed nothing
+ * a user could see — the live scan went on scoring with the hand-set
+ * distribution this file had just repudiated, and fractional scores kept
+ * appearing in the product. The row was demoted to `deprecated` on
+ * 2026-09-17 and there is no live row today, but **do not re-derive the old
+ * claim from that fact**: query `learning_models` before asserting anything
+ * about what production scores with. `getActiveWeightSet()` returns the
+ * version alongside the weights for exactly this reason.
+ *
+ * **Restored to uniform 2026-09-16**, replacing the hand-set distribution
+ * that stood from 2026-09-14: historicalSR 1.99, stopRoom 1.8,
+ * swingChartTrend/volumeClimax 1.3, patternArmed/ruleOfThree 1.0,
+ * timePriceSquare 0.6, gannAngleSlope/gannRetracementConfluence at
+ * `MIN_WEIGHT` (plus `adxTrendStrength` at `MIN_WEIGHT` until the criterion
+ * was discarded entirely earlier the same day — see `CRITERION_KEYS`).
+ *
+ * Two standing principles in AGENTS.md decide this, and neither is about
+ * those numbers measuring badly:
+ *
+ *   - "Gann-derived AND measured" — the old distribution was built by
+ *     treating attribution as a verdict on the criteria themselves,
+ *     up-weighting the measured-positive and down-weighting the
+ *     measured-negative. That is exactly the jury role that principle denies
+ *     measurement. A criterion measuring negative is a suspected porting
+ *     defect on our side (wrong anchor, wrong scale, wrong timeframe) to be
+ *     found and fixed, not a criterion to quietly discount.
+ *   - "The scorecard's role" — the scorecard contributes no substance of its
+ *     own. A non-equal weight asserts that one of Gann's conditions outranks
+ *     another, and nothing in `docs/GANN_HISTORICAL_SOURCES.md` ranks the
+ *     confirming conditions against each other. Every "most important" in
+ *     that catalog sits *within* a technique (50% among retracement levels,
+ *     the 20-year Master Time Period among cycles, 1/2 = 26 weeks among the
+ *     52-week fractions), never across them.
+ *
+ * What would legitimately move it off uniform: a citable Gann statement of
+ * cross-criterion importance (none found as of 2026-09-16), or
+ * `lib/backtest/propose-weights.ts`'s real in/out-of-sample output used to
+ * correct a translation rather than to rank Gann's conditions.
+ *
+ * `normalizeWeights()` rescales any set to sum to `TOTAL_POINTS`, so this
+ * change moved *which* setups reach `EXECUTE_SCORE_THRESHOLD` without moving
+ * the point scale that threshold is expressed in.
  */
-export const DEFAULT_CRITERION_WEIGHTS: CriterionWeights = normalizeWeights({
-  historicalSR: 1.99,
-  stopRoom: 1.8,
-  swingChartTrend: 1.3,
-  volumeClimax: 1.3,
-  patternArmed: 1.0,
-  timePriceSquare: 0.6,
-  gannAngleSlope: 0.5,
-  gannRetracementConfluence: 0.5,
-  adxTrendStrength: 0.5,
-});
+export const DEFAULT_CRITERION_WEIGHTS: CriterionWeights = normalizeWeights(
+  Object.fromEntries(CRITERION_KEYS.map((k) => [k, 1])) as Record<CriterionKey, number>,
+);
 
 export function isDefaultWeights(weights: CriterionWeights): boolean {
   return CRITERION_KEYS.every((k) => weights[k] === DEFAULT_CRITERION_WEIGHTS[k]);
