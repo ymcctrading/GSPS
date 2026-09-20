@@ -24,7 +24,23 @@ export const maxDuration = 60;
 
 async function runAndPersist() {
   const { universe } = await getUniversePolicy(createServiceClient());
-  const output = await runMarketScan(FULL_UNIVERSE_TOP, undefined, universe);
+
+  // `runMarketScan` itself was previously uncaught here: a thrown
+  // MarketDataError (e.g. Alpaca's free-tier rate limit, hit more easily now
+  // that the large-cap universe covers ~765 symbols — see fetchBarsBatch's
+  // CHUNK_CONCURRENCY comment) crashed this route with no response body. The
+  // client's `res.json()` then failed with "Unexpected end of JSON input" —
+  // a confusing symptom of the real error being invisible to the caller.
+  // Caught here so a scan failure always reports as JSON, same as every
+  // other failure mode this route already handles below.
+  let output: Awaited<ReturnType<typeof runMarketScan>>;
+  try {
+    output = await runMarketScan(FULL_UNIVERSE_TOP, undefined, universe);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`market-scan: scan itself failed — ${message}`);
+    return NextResponse.json({ error: message, persisted: false }, { status: 502 });
+  }
 
   // Persist (best-effort — the scan output is returned either way)
   let persisted = false;
