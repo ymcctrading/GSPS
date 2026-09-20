@@ -4,13 +4,16 @@
  * rows that don't carry one (a persisted daily_scans row).
  */
 
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { ResultsTable, type ScanRow } from "./results-table";
+
+let flappyPrice: number | null = null;
 
 vi.mock("@/lib/hooks/useLiveQuote", () => ({
   useLiveQuote: (symbol: string | null) => {
     if (symbol === "DEAD") return { price: 90, symbol: "DEAD" };
+    if (symbol === "FLAPPY") return flappyPrice == null ? null : { price: flappyPrice, symbol: "FLAPPY" };
     return null;
   },
 }));
@@ -29,6 +32,10 @@ const BASE_ROW: ScanRow = {
 };
 
 describe("ResultsTable", () => {
+  beforeEach(() => {
+    flappyPrice = null;
+  });
+
   it("shows a dash in the Signal Engine column when a row carries no rollup", () => {
     render(<ResultsTable rows={[BASE_ROW]} />);
     expect(screen.getAllByText("—").length).toBeGreaterThan(0);
@@ -110,5 +117,26 @@ describe("ResultsTable", () => {
     const deadIndex = rows.findIndex((r) => r.textContent?.includes("DEAD"));
     expect(liveIndex).toBeLessThan(dividerIndex);
     expect(dividerIndex).toBeLessThan(deadIndex);
+  });
+
+  it("keeps a row invalidated once its live quote breaks the stop, even after the quote goes back to unknown", async () => {
+    flappyPrice = null;
+    const { rerender } = render(
+      <ResultsTable rows={[{ ...BASE_ROW, symbol: "FLAPPY", entry: 100, stopLoss: 95 }]} />,
+    );
+
+    // No quote yet — nothing invalidated.
+    expect(screen.queryByText("No longer valid — price already broke the stop")).not.toBeInTheDocument();
+
+    // Quote lands, breaks the stop.
+    flappyPrice = 90;
+    rerender(<ResultsTable rows={[{ ...BASE_ROW, symbol: "FLAPPY", entry: 100, stopLoss: 95 }]} />);
+    expect(await screen.findByText("No longer valid — price already broke the stop")).toBeInTheDocument();
+
+    // The shared poller drops back to unknown (a resubscribe, a rate-limit
+    // backoff) — this must not un-invalidate the row.
+    flappyPrice = null;
+    rerender(<ResultsTable rows={[{ ...BASE_ROW, symbol: "FLAPPY", entry: 100, stopLoss: 95 }]} />);
+    expect(screen.getByText("No longer valid — price already broke the stop")).toBeInTheDocument();
   });
 });

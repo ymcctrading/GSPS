@@ -252,6 +252,21 @@ interface TrackedPosition {
   todayPlPct: number;
 }
 
+function positionEquals(a: TrackedPosition | null, b: TrackedPosition | null): boolean {
+  if (a === b) return true;
+  if (a == null || b == null) return false;
+  return (
+    a.symbol === b.symbol &&
+    a.qty === b.qty &&
+    a.avgEntry === b.avgEntry &&
+    a.currentPrice === b.currentPrice &&
+    a.marketValue === b.marketValue &&
+    a.unrealizedPl === b.unrealizedPl &&
+    a.unrealizedPlPct === b.unrealizedPlPct &&
+    a.todayPlPct === b.todayPlPct
+  );
+}
+
 /**
  * Floating P/L panel tethered to the chart. Polls the portfolio on the same
  * 10-second cadence the portfolio page uses and shows the position for this
@@ -270,7 +285,12 @@ function LivePlDrawer({ symbol, onDismiss }: { symbol: string; onDismiss: () => 
         const match = data.positions.find(
           (p) => p.symbol.toUpperCase() === symbol.toUpperCase(),
         );
-        setPosition(match ?? null);
+        // Same fix as the portfolio page's own poll (app/(app)/portfolio/page.tsx)
+        // and the shared quote poller (lib/hooks/useLiveQuote.ts): `.find()`
+        // returns a new object every 10s even when every field is identical,
+        // which re-rendered this drawer on a timer regardless of whether the
+        // position had actually changed.
+        setPosition((prev) => (positionEquals(prev, match ?? null) ? prev : match ?? null));
         setPending(false);
       })
       .catch(() => {});
