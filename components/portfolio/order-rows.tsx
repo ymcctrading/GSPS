@@ -456,7 +456,25 @@ function CancelButton({
  * recommendation to use it. */
 function StatusCell({ order, onCanceled }: { order: OrderRow; onCanceled?: () => void }) {
   const pending = normalizeOrderStatus(order.status) === "pending";
-  const invalidated = pending && orderClearlyInvalidated(order);
+  const freshlyInvalidated = pending && orderClearlyInvalidated(order);
+
+  /**
+   * A one-way ratchet, not a toggle -- same fix and same reasoning as
+   * ResultsTable's own invalidated flag (components/scan/results-table.tsx):
+   * `order.currentPrice` is a fresh value from the portfolio poll each time,
+   * and if the server-side quote lookup ever comes back empty for one poll
+   * (rate limiting, a transient provider error) `orderClearlyInvalidated`
+   * would read false again even though the stop had genuinely already
+   * broken -- flipping this badge and the cancel recommendation off, then
+   * back on next poll. "Price already broke the stop" is a fact about what
+   * happened, not a live reading that un-happens because one poll came back
+   * empty. Once observed true for this order, it stays true.
+   */
+  const [invalidated, setInvalidated] = useState(false);
+  if (freshlyInvalidated && !invalidated) {
+    setInvalidated(true);
+  }
+
   return (
     <div className="flex flex-col items-start gap-1">
       <StatusBadge order={order} />

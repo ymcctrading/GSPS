@@ -19,6 +19,15 @@ interface InboxNotification {
 
 const POLL_MS = 30_000;
 
+function inboxEquals(a: InboxNotification[], b: InboxNotification[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  return a.every((n, i) => {
+    const o = b[i];
+    return n.id === o.id && n.read_at === o.read_at && n.verdict === o.verdict;
+  });
+}
+
 /**
  * The "on the platform itself" notification channel — alongside email, per
  * the project owner's direct request. Polls /api/notifications/inbox on a
@@ -38,8 +47,12 @@ export function NotificationBell() {
       const res = await fetch("/api/notifications/inbox?limit=20");
       if (!res.ok) return;
       const data = (await res.json()) as { notifications: InboxNotification[]; unreadCount: number };
-      setNotifications(data.notifications);
-      setUnreadCount(data.unreadCount);
+      // Same fix as the shared quote poller and the portfolio/chart-widget
+      // polls: this bell sits in the nav on every page and was replacing its
+      // arrays with new-but-identical ones every 30s, re-rendering on a timer
+      // regardless of whether the inbox had actually changed.
+      setNotifications((prev) => (inboxEquals(prev, data.notifications) ? prev : data.notifications));
+      setUnreadCount((prev) => (prev === data.unreadCount ? prev : data.unreadCount));
     } catch {
       // Best-effort — a failed poll just leaves the last-known state on screen.
     }

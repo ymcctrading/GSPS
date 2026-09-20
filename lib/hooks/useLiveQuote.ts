@@ -38,6 +38,23 @@ interface Poller {
 const pollers = new Map<string, Poller>();
 
 /**
+ * A poller is deleted the moment its last subscriber unsubscribes (see
+ * `subscribe`'s cleanup below) -- deliberately, so a symbol nobody's looking
+ * at any more stops polling. But a *new* subscriber for the same symbol
+ * moments later (a remount, a second interval variant, the ticker page and
+ * the Dashboard both wanting the same price) started a brand-new poller with
+ * `quote: null`, throwing away a perfectly good price and showing "--" until
+ * the next tick landed -- up to a full interval later. That's what turned
+ * into the Dashboard's ResultsTable rows flashing their price to "--" and
+ * back, which combined with results-table.tsx's own invalidated-flag bug to
+ * read as the table flickering. Keyed on the bare symbol (not
+ * symbol@interval) since the price doesn't depend on how often it's polled,
+ * this lets a fresh poller start from the last real value instead of
+ * nothing.
+ */
+const lastKnownQuotes = new Map<string, LiveQuote>();
+
+/**
  * Every tick's `at` timestamp differs even when nothing else has, and nothing
  * in the UI reads `at` directly -- so a naive replace-and-notify on every
  * successful poll re-rendered every subscribed row (the Dashboard's
@@ -83,9 +100,12 @@ async function tick(key: string, symbol: string) {
     const res = await fetch(`/api/quote?symbol=${encodeURIComponent(symbol)}`);
     if (res.ok) {
       const data: LiveQuote = await res.json();
-      if (typeof data.price === "number" && !quoteEquals(poller.quote, data)) {
-        poller.quote = data;
-        poller.listeners.forEach((notify) => notify());
+      if (typeof data.price === "number") {
+        lastKnownQuotes.set(symbol.toUpperCase(), data);
+        if (!quoteEquals(poller.quote, data)) {
+          poller.quote = data;
+          poller.listeners.forEach((notify) => notify());
+        }
       }
       poller.delay = poller.interval;
     } else {
@@ -137,7 +157,14 @@ export function useLiveQuote(symbol: string | null, opts?: { intervalMs?: number
 
       let poller = pollers.get(key);
       if (!poller) {
-        poller = { quote: null, listeners: new Set(), timer: null, interval, delay: interval, stopped: false };
+        poller = {
+          quote: lastKnownQuotes.get(symbol.toUpperCase()) ?? null,
+          listeners: new Set(),
+          timer: null,
+          interval,
+          delay: interval,
+          stopped: false,
+        };
         pollers.set(key, poller);
       }
       poller.stopped = false;

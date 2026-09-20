@@ -220,7 +220,7 @@ function ResultsRow({
   const quote = useLiveQuote(r.entry != null && r.stopLoss != null ? r.symbol : null, {
     intervalMs: 30_000,
   });
-  const invalidated =
+  const freshlyInvalidated =
     r.entry != null &&
     r.stopLoss != null &&
     quote != null &&
@@ -228,6 +228,26 @@ function ResultsRow({
       { side: r.direction === "bearish" ? "sell" : "buy", stop_price: r.stopLoss },
       quote.price,
     );
+
+  /**
+   * A one-way ratchet, not a toggle. The shared quote poller can drop back to
+   * `null` between polls -- rate-limit backoff, a resubscribe when the
+   * listener count briefly hits zero -- and recomputing `invalidated` fresh
+   * from whatever `quote` happens to be right now turned every one of those
+   * gaps into "un-invalidated," then re-invalidated again once a fresh quote
+   * landed. That's what read as the row flickering in/out of the dead
+   * section on the Dashboard. It's also wrong on the merits: "price broke
+   * the stop" is a fact about what already happened, not a live reading that
+   * un-happens because the feed hiccuped or price ticked back over the line.
+   * Once observed true, it stays true for this row's lifetime.
+   */
+  const [invalidated, setInvalidated] = useState(false);
+  if (freshlyInvalidated && !invalidated) {
+    // Adjusting state during render (React's documented pattern for this,
+    // not an effect) -- guarded so it only fires the render where the ratchet
+    // actually flips, never looping.
+    setInvalidated(true);
+  }
 
   useEffect(() => {
     onInvalidatedChange?.(rowKey(r), invalidated);
