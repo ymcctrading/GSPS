@@ -37,6 +37,29 @@ interface Poller {
 
 const pollers = new Map<string, Poller>();
 
+/**
+ * Every tick's `at` timestamp differs even when nothing else has, and nothing
+ * in the UI reads `at` directly -- so a naive replace-and-notify on every
+ * successful poll re-rendered every subscribed row (the Dashboard's
+ * ResultsTable, the ticker header, the chart) every 5-30s regardless of
+ * whether price had actually moved, which read as constant flickering.
+ * Comparing the fields the UI actually shows keeps identity (and therefore
+ * downstream re-renders) stable across a poll that returned the same quote.
+ */
+function quoteEquals(prev: LiveQuote | null, next: LiveQuote): boolean {
+  if (!prev) return false;
+  return (
+    prev.price === next.price &&
+    prev.regularClose === next.regularClose &&
+    prev.prevClose === next.prevClose &&
+    prev.session === next.session &&
+    prev.changeAbs === next.changeAbs &&
+    prev.changePct === next.changePct &&
+    prev.extendedAbs === next.extendedAbs &&
+    prev.extendedPct === next.extendedPct
+  );
+}
+
 function isCrypto(symbol: string): boolean {
   return symbol.includes("/") || /^(BTC|ETH|SOL|DOGE|LTC|AVAX|LINK|XRP|BCH|UNI)/i.test(symbol);
 }
@@ -60,7 +83,7 @@ async function tick(key: string, symbol: string) {
     const res = await fetch(`/api/quote?symbol=${encodeURIComponent(symbol)}`);
     if (res.ok) {
       const data: LiveQuote = await res.json();
-      if (typeof data.price === "number") {
+      if (typeof data.price === "number" && !quoteEquals(poller.quote, data)) {
         poller.quote = data;
         poller.listeners.forEach((notify) => notify());
       }
