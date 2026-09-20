@@ -118,7 +118,12 @@ function EquityOrders({
             {orders.map((o) => (
               <TR key={o.id}>
                 <PlacedCell order={o} />
-                <TD className="font-medium"><SymbolLink symbol={o.symbol} /></TD>
+                <TD className="font-medium">
+                  <span className="inline-flex items-center gap-1.5">
+                    <SymbolLink symbol={o.symbol} />
+                    <LiveBadge order={o} />
+                  </span>
+                </TD>
                 <SideCell order={o} />
                 <TD className="text-muted">{o.order_type}</TD>
                 <TD className="text-right font-mono">{o.qty}</TD>
@@ -200,9 +205,12 @@ function OptionOrders({
               <TR key={o.id}>
                 <PlacedCell order={o} />
                 <TD className="font-medium">
-                  <SymbolLink symbol={o.symbol} />
-                  <span className="ml-1 text-xs font-normal text-muted">
-                    {contractDescription(o)}
+                  <span className="inline-flex items-center gap-1.5">
+                    <SymbolLink symbol={o.symbol} />
+                    <span className="text-xs font-normal text-muted">
+                      {contractDescription(o)}
+                    </span>
+                    <LiveBadge order={o} />
                   </span>
                 </TD>
                 <SideCell order={o} />
@@ -286,6 +294,22 @@ function placedTitle(order: OrderRow): string {
   return order.broker_submitted_at
     ? "When the broker accepted this order"
     : "When this order was placed — the broker hasn't confirmed an acceptance time";
+}
+
+/**
+ * Live and paper orders render in the same ledger (`/api/orders` returns
+ * both), so a live order needs to be visually distinguishable from the
+ * paper orders around it — real money is at stake. Paper carries no badge
+ * since it's the default/majority case; only the exception is flagged, same
+ * as `SideCell`'s "No stop".
+ */
+function LiveBadge({ order }: { order: OrderRow }) {
+  if (order.mode !== "live") return null;
+  return (
+    <Badge variant="warn" title="This order was placed on your connected live broker account, not paper.">
+      Live
+    </Badge>
+  );
 }
 
 function SideCell({ order }: { order: OrderRow }) {
@@ -540,6 +564,9 @@ function OrderCard({
           <p className="truncate font-medium">
             <SymbolLink symbol={order.symbol} />
             {title !== order.symbol && <span className="ml-1 font-normal text-muted">{title}</span>}
+            <span className="ml-1.5 inline-block align-middle">
+              <LiveBadge order={order} />
+            </span>
           </p>
           <p className="truncate text-xs text-muted">{subtitle}</p>
         </div>
