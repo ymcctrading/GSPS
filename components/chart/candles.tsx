@@ -28,7 +28,7 @@ import {
   TIMEFRAMES,
 } from "@/lib/timeframe";
 import { barSession, isExtended } from "@/lib/market/session";
-import { sma, ema, bollinger, rsi, macd, volumeBars, type Candle as CalcCandle } from "@/lib/indicators";
+import { sma, ema, bollinger, rsi, macd, psar, supertrend, volumeBars, type Candle as CalcCandle } from "@/lib/indicators";
 import { classifySeries } from "@/lib/strat/classify";
 import { cn } from "@/lib/utils";
 
@@ -64,7 +64,7 @@ type Point = { time: Time; price: number };
 type Trendline = { a: Point; b: Point };
 
 // Overlay indicators drawn in the main price pane.
-type Overlay = "sma20" | "sma50" | "ema9" | "bb";
+type Overlay = "sma20" | "sma50" | "ema9" | "bb" | "psar" | "supertrend";
 // Study indicators drawn in their own pane below price.
 type Study = "volume" | "rsi" | "macd";
 
@@ -73,6 +73,17 @@ const OVERLAY_META: Record<Overlay, { label: string; color: string }> = {
   sma50: { label: "SMA 50", color: "#8b5cf6" },
   ema9: { label: "EMA 9", color: "#06b6d4" },
   bb: { label: "Boll (20,2)", color: "#94a3b8" },
+  // Neither is computed anywhere else in this codebase (AGENTS.md's
+  // "PSAR/Supertrend" bullet — previously just a dormant optional-flip-count
+  // hook in the Signal & Regime Engine). Same user-driven, display-only
+  // carve-out as the rest of this chip strip: never wired into scoring, a
+  // signal gate, or the trade plan — see the boundary comment on psar()/
+  // supertrend() in lib/indicators.ts. Ungated for now by explicit project-
+  // owner direction; the stated intent is to gate this behind the higher
+  // tiers once it's confirmed working, so don't read "ungated" here as
+  // settled the way the always-free SMA/EMA/RSI/MACD family is.
+  psar: { label: "PSAR", color: "#eab308" },
+  supertrend: { label: "Supertrend", color: "#14b8a6" },
 };
 const STUDY_META: Record<Study, { label: string }> = {
   volume: { label: "Volume" },
@@ -607,6 +618,46 @@ export function CandleChart({
       addLine(bb.upper, OVERLAY_META.bb.color, 1, true);
       addLine(bb.middle, OVERLAY_META.bb.color, 1, false);
       addLine(bb.lower, OVERLAY_META.bb.color, 1, true);
+    }
+
+    // PSAR renders as dots (no connecting line) — the standard presentation,
+    // and the one that actually reads as "stop level," not a trend line.
+    if (overlays.has("psar")) {
+      const points = psar(calcCandles);
+      if (points.length > 0) {
+        const s = chart.addSeries(LineSeries, {
+          color: OVERLAY_META.psar.color,
+          lineVisible: false,
+          pointMarkersVisible: true,
+          pointMarkersRadius: 2,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false,
+        });
+        s.setData(points.map((p) => ({ time: p.time as Time, value: p.value })));
+        created.push(s);
+      }
+    }
+
+    // Supertrend flips between acting as support (uptrend) and resistance
+    // (downtrend), so it's drawn as separate green/red runs rather than one
+    // line — a single color would hide the flip the indicator exists to show.
+    if (overlays.has("supertrend")) {
+      const points = supertrend(calcCandles);
+      let run: { time: number; value: number }[] = [];
+      let runTrend: "up" | "down" | null = null;
+      const flushRun = () => {
+        if (run.length > 0) addLine(run, runTrend === "up" ? "#059669" : "#dc2626");
+        run = [];
+      };
+      for (const p of points) {
+        if (p.trend !== runTrend) {
+          flushRun();
+          runTrend = p.trend;
+        }
+        run.push({ time: p.time, value: p.value });
+      }
+      flushRun();
     }
 
     return () => created.forEach((s) => chart.removeSeries(s));
