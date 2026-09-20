@@ -55,7 +55,7 @@ export function TickerView({ symbol }: { symbol: string }) {
   const [mounted, setMounted] = useState(false);
   const quote = useLiveQuote(symbol);
 
-  // Gates the chart's Sara Sniper Strat marker overlay (System Mastery only).
+  // Gates the chart's STRAT reversal-pattern marker overlay (System Mastery only).
   // Fetched client-side rather than threaded through from a server component,
   // since this page has none upstream of it (see app/(app)/ticker/[...symbol]/page.tsx).
   const [tier, setTier] = useState<PlatformTier | null>(null);

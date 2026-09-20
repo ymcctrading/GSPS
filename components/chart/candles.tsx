@@ -152,9 +152,10 @@ export function CandleChart({
   enableTrading?: boolean;
   /**
    * `hasFeature(tier, "sara_sniper_chart_markers")` from the caller — the
-   * System Mastery-tier opt-in for Sara Sniper Strat's per-bar (1/2U/2D/3)
-   * labels on the chart itself. Off by default so a caller that doesn't pass
-   * a tier (the public chart, the onboarding snapshot) never shows it.
+   * System Mastery-tier opt-in for the STRAT reversal-pattern taxonomy's
+   * per-bar (1/2U/2D/3) labels on the chart itself. Off by default so a
+   * caller that doesn't pass a tier (the public chart, the onboarding
+   * snapshot) never shows it.
    */
   saraMarkersUnlocked?: boolean;
 }) {
@@ -172,9 +173,10 @@ export function CandleChart({
   // chart, so they start off and are opt-in rather than opt-out.
   const [showGann, setShowGann] = useState(false);
   const [showLevels, setShowLevels] = useState(false);
-  // Sara Sniper Strat's per-bar labels — System Mastery-tier opt-in, off by
-  // default even when unlocked (same reasoning as showGann/showLevels above:
-  // a label on every bar covers the candles unless someone asks for it).
+  // The STRAT reversal-pattern taxonomy's per-bar labels — System
+  // Mastery-tier opt-in, off by default even when unlocked (same reasoning
+  // as showGann/showLevels above: a label on every bar covers the candles
+  // unless someone asks for it).
   const [showSara, setShowSara] = useState(false);
   const [showExtended, setShowExtended] = useState(true);
   // The docked per-candle stat panel. It is how you read a bar you cannot
@@ -665,15 +667,16 @@ export function CandleChart({
   }, [overlayKey, candleData, status]);
 
   /**
-   * Sara Sniper Strat's per-bar labels — `1` (inside), `2U`/`2D` (directional),
-   * `3` (outside), from `lib/strat/classify.ts`'s `classifySeries`. The same
-   * classifier `lib/strat/patterns.ts` runs to arm a bar-sequence pattern, so
-   * a candle labeled `2D` here is exactly the bar a "failed-push reversal"
-   * pattern description elsewhere on the page would call "the down bar" — one
-   * classifier, two presentations, per AGENTS.md's cross-platform consistency
-   * principle. This is the reference-only display Sara Sniper Strat keeps
-   * (see AGENTS.md's "Audit outcomes"); it never decides the trade plan drawn
-   * by the Trade levels / structural-level overlays above.
+   * The STRAT reversal-pattern taxonomy's per-bar labels — `1` (inside),
+   * `2U`/`2D` (directional), `3` (outside), from `lib/strat/classify.ts`'s
+   * `classifySeries`. The same classifier `lib/strat/patterns.ts` runs to arm
+   * a bar-sequence pattern, so a candle labeled `2D` here is exactly the bar
+   * a "failed-push reversal" pattern description elsewhere on the page would
+   * call "the down bar" — one classifier, two presentations, per AGENTS.md's
+   * cross-platform consistency principle. This is the reference-only display
+   * this taxonomy keeps (see AGENTS.md's "Audit outcomes"); it never decides
+   * the trade plan drawn by the Trade levels / structural-level overlays
+   * above.
    */
   useEffect(() => {
     const series = seriesRef.current;
@@ -1036,7 +1039,7 @@ export function CandleChart({
                 onChange={(e) => setShowSara(e.target.checked)}
                 className="h-3.5 w-3.5 accent-[var(--accent)]"
               />
-              Sara Sniper Strat labels
+              Reversal-pattern bar labels
               <span className="text-[10px] text-muted/70">(reference only)</span>
             </label>
           )}

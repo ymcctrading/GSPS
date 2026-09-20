@@ -11,22 +11,24 @@ import { formatUsd, cn } from "@/lib/utils";
 import type { AssetClass, PublicScoreSummary, ScanResult } from "@/lib/types";
 
 /**
- * The Protocol signal's own rationale, in Gann's terms — not Sara Sniper
- * Strat's. Since 2026-09-17 (see AGENTS.md, "Entry pricing moved off STRAT
- * onto Gann's own rule") the trade plan is armed and priced by crossing the
- * prior completed swing's top/bottom plus Gann's "lost motion" buffer
- * (`lib/gann/entryTrigger.ts`), not by a bar-sequence pattern's penny-above-
- * the-high trigger. This headline used to render `pattern.description`,
- * which is Sara Sniper Strat's language and can name a different bar — even
- * a different direction — than the one that actually armed and priced this
- * trade plan. `result.direction` is the direction the trade plan itself was
- * computed against (`lib/scanTicker.ts`'s `scoreDirection`), so that is what
- * this card's headline describes.
+ * The Protocol signal's own rationale, in the structural-trigger's own terms —
+ * not the STRAT bar-sequence pattern's. Since 2026-09-17 (see AGENTS.md,
+ * "Entry pricing moved off STRAT onto Gann's own rule") the trade plan is
+ * armed and priced by crossing the prior completed swing's top/bottom plus a
+ * "lost motion" overshoot allowance (`lib/gann/entryTrigger.ts`), not by a
+ * bar-sequence pattern's penny-above-the-high trigger. This headline used to
+ * render `pattern.description`, which is the bar-sequence pattern's own
+ * language and can name a different bar — even a different direction — than
+ * the one that actually armed and priced this trade plan. `result.direction`
+ * is the direction the trade plan itself was computed against
+ * (`lib/scanTicker.ts`'s `scoreDirection`), so that is what this card's
+ * headline describes. Kept free of internal-methodology vocabulary per
+ * `scripts/check-banned-terms.mjs` — see `docs/GSPS_BRAND_GUIDE.md`.
  */
-function gannTriggerHeadline(direction: "bullish" | "bearish"): string {
+function structuralTriggerHeadline(direction: "bullish" | "bearish"): string {
   return direction === "bullish"
-    ? "Crossing the prior completed swing high, confirmed past Gann's lost-motion buffer."
-    : "Breaking the prior completed swing low, confirmed past Gann's lost-motion buffer.";
+    ? "Crossing the prior confirmed swing high, past the key level's lost-motion allowance."
+    : "Breaking the prior confirmed swing low, past the key level's lost-motion allowance.";
 }
 
 /**
@@ -94,10 +96,10 @@ export function SignalCard({ result }: { result: ScanResult }) {
             <span className={result.direction === "bullish" ? "text-bull" : "text-bear"}>
               {tradeSideLabel(result.direction)}
             </span>{" "}
-            — {gannTriggerHeadline(result.direction)}
+            — {structuralTriggerHeadline(result.direction)}
           </CardDescription>
         ) : (
-          <CardDescription>No Gann entry trigger is currently armed on the execution timeframe.</CardDescription>
+          <CardDescription>No structural entry trigger is currently armed on the execution timeframe.</CardDescription>
         )}
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -105,7 +107,7 @@ export function SignalCard({ result }: { result: ScanResult }) {
           <div className="rounded-md border border-border bg-background p-3">
             <div className="flex flex-wrap items-center justify-between gap-1.5">
               <p className="text-xs font-medium text-muted">
-                Sara Sniper Strat <span className="font-normal">— reference only, not this trade&apos;s entry rule</span>
+                Reversal pattern <span className="font-normal">— reference only, not this trade&apos;s entry rule</span>
               </p>
               <Badge variant="muted">
                 <GlossaryTerm term={PATTERN_GLOSSARY_TERM[pattern.name]} label={PATTERN_GLOSSARY_TERM[pattern.name]} />{" "}
@@ -116,7 +118,7 @@ export function SignalCard({ result }: { result: ScanResult }) {
             </div>
             <p className="mt-1.5 text-xs text-muted">
               {pattern.direction !== result.direction && result.direction !== "none"
-                ? `This bar-sequence read is ${pattern.direction}, the opposite side from the Gann trigger above — they're independent methods and are expected to disagree sometimes. `
+                ? `This bar-sequence read is ${pattern.direction}, the opposite side from the structural trigger above — they're independent methods and are expected to disagree sometimes. `
                 : ""}
               {pattern.description}
             </p>
