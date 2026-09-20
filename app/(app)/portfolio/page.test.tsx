@@ -97,6 +97,7 @@ function order(o: {
     limit_price: null,
     requested_limit_price: null,
     status: o.status,
+    mode: "paper",
     created_at: o.created_at ?? "2026-08-01T14:30:00.000Z",
     broker_submitted_at: o.broker_submitted_at ?? null,
     reject_reason: o.reject_reason ?? null,
