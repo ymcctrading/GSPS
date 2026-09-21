@@ -20,6 +20,16 @@ import { withTimeout } from "@/lib/utils";
 import type { RankedSetup } from "@/lib/entitlements/result-selection";
 import type { ScanResult } from "@/lib/types";
 
+// Without this, the route falls back to Vercel's default function duration
+// (10s on Hobby), which is shorter than the 30s `withTimeout` below —
+// meaning the platform was killing the function and returning a non-JSON
+// gateway error page well before the route's own timeout could ever fire.
+// Every other route in this app that does real market-data work already
+// sets this explicitly (see app/api/market-scan/route.ts's own comment on
+// the 60s Hobby ceiling); this route — hit on every ticker/chart page
+// load — was the one exception.
+export const maxDuration = 60;
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const ticker = searchParams.get("ticker");
