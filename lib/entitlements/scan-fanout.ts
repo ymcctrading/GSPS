@@ -149,6 +149,15 @@ export async function evaluateMonitorsAndNotify(
         evaluationId: args.scanExecutionId,
         maxActiveWatchMonitors: args.maxActiveWatchMonitors,
         score: setup.value.decision.score,
+        levels: {
+          direction: setup.value.direction,
+          entry: setup.value.levels?.entry ?? null,
+          stopLoss: setup.value.levels?.stopLoss ?? null,
+          takeProfit1: setup.value.levels?.takeProfit1 ?? null,
+          masterProfit: setup.value.levels?.masterProfit ?? null,
+          patternName: setup.value.pattern?.name ?? null,
+          outputState: setup.value.decision.outputState,
+        },
       });
       if (result.outcome === "applied" && result.notify && result.transitionId) {
         notifyWorthy.push({ transitionId: result.transitionId, setup });

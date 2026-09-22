@@ -199,7 +199,9 @@ export type StopReason =
   /** Trailing the best price seen by one unit of the original risk. */
   | "trailing"
   /** Price pushed through the master target; a fall back through it exits. */
-  | "master_reversal";
+  | "master_reversal"
+  /** The user manually tightened the stop via /api/positions/update-exit. */
+  | "manual";
 
 export interface ExitState {
   /** Only long entries are bracketed by this app, but the maths is sided. */
