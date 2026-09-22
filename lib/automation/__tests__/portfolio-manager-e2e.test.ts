@@ -274,8 +274,12 @@ function armedCandidatePlan(overrides: Partial<NewTradePlan> = {}): NewTradePlan
     // Priced on whatever EXECUTION_TIMEFRAME actually is right now — proving
     // this test tracks the live override rather than assuming "15Min".
     timeframe: EXECUTION_TIMEFRAME,
-    generatedAt: "2026-09-09T13:00:00.000Z",
-    expiresAt: "2026-09-16T13:00:00.000Z",
+    // Relative to the actual test-run clock, not a hardcoded calendar date —
+    // a fixed past/future ISO string here makes the fixture (and the "Plan
+    // has expired" assertion below) silently start failing the moment wall-
+    // clock time crosses the hardcoded expiresAt, unrelated to any real bug.
+    generatedAt: new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString(),
+    expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString(),
     direction: "bullish",
     signalFingerprint: "sig-1",
     entryConfirmation: freshEntryConfirmation(),
