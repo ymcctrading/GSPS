@@ -8,7 +8,19 @@ import type { GannConfluenceResult, SaraConfluenceResult } from "@/lib/signals/c
 import type { NoviceEligibility } from "@/lib/universe/types";
 import type { ConfluenceType } from "@/lib/gann/digitalRoot";
 
-export type AssetClass = "us_equity" | "crypto";
+/**
+ * `"commodity"` is a recognized value with no live market-data connection
+ * yet — see `lib/data/commodity.ts`. It exists so the scan/scoring/Gann
+ * pipeline's types are ready for a future data source without a breaking
+ * change to this union later. Until that provider is actually registered in
+ * `lib/data/provider.ts`'s `getMarketDataProvider()`, nothing in the
+ * universe/scan layer should produce a symbol tagged `"commodity"` — every
+ * `assetClass === "crypto" ? ... : ...` binary check elsewhere in this
+ * codebase (liquidity floors, market sessions, learning-event mapping, etc.)
+ * silently treats it like `"us_equity"`, which is only safe while no such
+ * symbol exists to flow through them.
+ */
+export type AssetClass = "us_equity" | "crypto" | "commodity";
 
 export interface Bar {
   t: string; // ISO timestamp

@@ -15,6 +15,21 @@ import { cachedFetch, fetchWithRetry, MarketDataError } from "./http";
 const DATA_BASE = "https://data.alpaca.markets";
 
 /**
+ * Alpaca has no commodities/futures endpoint. Without this guard, `"commodity"`
+ * would silently fall through every `assetClass === "crypto" ? ... : ...`
+ * branch below into the *stocks* path and return wrong-market data with no
+ * error — see `lib/data/commodity.ts` for the actual (unconnected) home for
+ * this asset class.
+ */
+function assertAlpacaSupports(assetClass: AssetClass): void {
+  if (assetClass === "commodity") {
+    throw new Error(
+      "Alpaca has no commodities data — this asset class isn't connected yet (see lib/data/commodity.ts).",
+    );
+  }
+}
+
+/**
  * How long a response stays reusable, by endpoint. Quotes and latest trades get
  * a sub-poll-interval window: long enough that the ticker header, the chart, and
  * the order ticket share one upstream call, short enough that the price still
@@ -144,6 +159,7 @@ function barsRequest(
   limit: number,
   pageToken?: string,
 ): { path: string; params: Record<string, string> } {
+  assertAlpacaSupports(assetClass);
   const crypto = assetClass === "crypto";
   const path = crypto ? `/v1beta3/crypto/us/bars` : `/v2/stocks/bars`;
 
@@ -269,6 +285,7 @@ export async function fetchBarsBatch(
 }
 
 export async function fetchLatestPrice(symbol: string, assetClass: AssetClass): Promise<number> {
+  assertAlpacaSupports(assetClass);
   if (assetClass === "crypto") {
     const sym = normalizeCryptoSymbol(symbol);
     const data = await get(`/v1beta3/crypto/us/latest/trades`, { symbols: sym });
@@ -296,6 +313,7 @@ export interface Snapshot {
  * separate the live (possibly extended-hours) print from the regular close.
  */
 export async function fetchSnapshot(symbol: string, assetClass: AssetClass): Promise<Snapshot> {
+  assertAlpacaSupports(assetClass);
   if (assetClass === "crypto") {
     const sym = normalizeCryptoSymbol(symbol);
     const data = await get(`/v1beta3/crypto/us/snapshots`, { symbols: sym });

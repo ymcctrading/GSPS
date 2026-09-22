@@ -197,6 +197,32 @@ into becoming assumed history:**
   the first one's narrower arithmetic point. Cite each for what it actually
   says, not for a combined claim neither source makes on its own.
 
+## Astrology — standing decision (2026-09-16, project owner direction)
+
+Real historical evidence says Gann himself used astrology (`docs/
+GANN_HISTORICAL_SOURCES.md` A2.3's signed 1954 client letter — worked
+planetary-degree conversions, dated aspect-based forecasts). GSPS's policy
+is nonetheless settled, not open:
+
+**Astrology must never gate a live verdict.** It is not a scored criterion,
+not a pass/fail check, and never independently decides Execute/Watch/Avoid.
+
+**It may exist only as a labeled, non-gating confluence signal** — the same
+`confluence/context only` treatment `lib/gann/digitalRoot.ts` and
+`lib/gann/decadeCycle.ts` already carry — and only if a legitimate, citable
+technique can be encoded without inventing numerology GSPS has no authorized
+specification for. The existing "no new numerology without an authorized
+spec" rule (`docs/GANN_SARA_CONFLUENCE.md`) applies in full to any astrology
+candidate: a real planetary-longitude/aspect calculation traceable to a
+cited source is admissible as a confluence field; an invented price-to-degree
+conversion constant is not, however Gann-flavored it sounds.
+
+**Until such a technique and its citable specification exist, disregard
+astrology entirely** — no code, no confluence field, nothing built. This is
+the resolution of `docs/GANN_METHOD_COMPLETENESS_AUDIT.md`'s open item on
+whether astrology has any place in GSPS at all; check that document's
+"Astrology" addendum section if this ever needs revisiting.
+
 ## Temporary overrides — mandatory, check on every session
 
 These are explicit, user-directed departures from the protocol's real design, made for a stated

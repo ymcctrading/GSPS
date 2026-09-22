@@ -642,3 +642,104 @@ tuned scoring," except where flagged otherwise.
     price-domain eighths table (different anchor convention, different
     disclosed fraction set — a real exception, not an oversight, per
     AGENTS.md's cross-platform consistency principle).
+
+## Addendum (2026-09-16): "Observation of Cycles" folder audit — Dewey/Tomes findings
+
+Written after a full (not sampled) read of all 8 documents in the project
+owner's "Observation of Cycles" Google Drive folder — 4 Ray Tomes papers, 2
+Edward Dewey papers already indexed as `GANN_HISTORICAL_SOURCES.md` C1-C6, a
+2003 *Journal of Circadian Rhythms* review (C7, confirmed on this full read
+to be biomedical/autobiographical with no market-relevant content beyond
+what C7 already records), and the A2.3 astrology letter (already fully
+decoded in a prior session, nothing new). This addendum reports what a full
+understanding of the Dewey/Tomes half of that folder implies for GSPS,
+resolves the astrology open question (item 8 above), and records new
+plumbing added the same session.
+
+### Finding 1: Fourier/dominant-cycle decomposition -- recommendation #5 above, now better-grounded
+
+Recommendation #5 already named this as unbuilt. Having now read Tomes'
+*Harmonics Theory* paper in full, the concrete method is clearer: non-linear
+response functions generate harmonics concentrated at small-integer ratios
+(his "2s and 3s" families, matching Dewey's own cycle-length catalogue), and
+his actual technique -- spectral analysis to find a series' dominant
+period(s), then cross-check the result against known common-cycle lengths --
+is a real, well-specified algorithm, not a metaphor. This remains **not
+implemented anywhere in this codebase** (confirmed by grep: no `Fourier`,
+`spectral`, or dominant-period detection exists in `lib/`). It is the
+natural successor to the quarantined `timeCycle` criterion, which only
+projects fixed anchor-based wheel counts and never asks what period a
+symbol's own price series actually exhibits. **Status: still open,** not
+built this session -- recommend evaluating it as a new candidate criterion
+through `PROPOSAL_NEW_GANN_CRITERIA.md`'s unmeasured -> attribution ->
+in/out-of-sample pipeline, explicitly framed as a `timeCycle` replacement
+candidate rather than a tenth criterion.
+
+### Finding 2: Dewey's cycle-validation checklist was cited, never executable -- now built
+
+`lib/gann/decadeCycle.ts` and `lib/gann/digitalRoot.ts`'s headers both cite
+"Dewey's cycle-validation checklist (dominance, regularity, repetition
+count, constancy of period, phase-resumption, cross-series synchrony)" as
+the bar a cycle hypothesis must clear before promotion out of
+confluence-only status -- but nothing in the codebase could actually run that
+check against real data; it was prose in two comment blocks, not code.
+**Built this session:** `lib/validation/cycleRigor.ts` operationalizes
+Dewey's single-series criteria (dominance, regularity, repetition count,
+constancy of period, phase-resumption) plus a two-series synchrony check, as
+plain arithmetic over an event-date list -- see that file's own header for
+the exact formulas and their honest limits (these are engineering
+approximations of Dewey's descriptive criteria, not a claim of statistical
+rigor equivalent to Bartels' test). `decadeCycle`, `timeCycles`, and any
+future Fourier-based criterion (Finding 1) now have something real to be
+run against instead of an uncheckable citation.
+
+### Finding 3: `timeCycles.ts` doesn't weight cycle convergence
+
+Dewey's "Synchrony of Cycle Phase" and "Significance of Related Cycles"
+criteria (`case_for_cycles.pdf`, criteria #11-13), and Tomes' whole harmonics
+argument, hold that multiple independently-derived cycles landing on the
+same date is far more significant than any single cycle alone -- exactly the
+logic GSPS already applies when the Square of Nine, Hexagon Chart, and
+Master Twelve all land on the same number (66) and that agreement, not any
+one construction alone, is treated as the actual evidence
+(`GANN_CYCLES_STUDY_SUMMARY.md`'s Hexagon Chart section). `lib/gann/
+timeCycles.ts`'s `timeCycles()` does not do this today: an isolated 45-day
+wheel-count hit and five different cycle lengths (a wheel count plus several
+`MAJOR_CYCLE_YEARS` anniversaries) converging on the same date are weighted
+identically -- both just set `active: true`. **Status: open, not built this
+session.** Recommend adding a convergence count to `TimeCycleResult` (how
+many distinct cycle sources land within the window, not just whether any
+did) as a cheap, in-style enhancement -- display/confluence-only at first,
+same treatment every other cycle hypothesis in this file gets, until it's
+run through `cycleRigor.ts`'s synchrony check against real turning-point
+data.
+
+### Astrology -- resolved (project owner direction, 2026-09-16)
+
+Item 8 above ("whether astrology has any place in GSPS at all") is
+resolved: **astrology must never gate a live verdict.** It may exist only as
+a labeled, non-gating confluence signal (the same "confluence/context only"
+treatment `digitalRoot.ts` and `decadeCycle.ts` already carry) -- and only if
+a legitimate, citable technique can be encoded without inventing numerology
+GSPS has no authorized specification for (the existing "no new numerology
+without an authorized spec" rule, `GANN_SARA_CONFLUENCE.md`, still applies
+in full to any astrology candidate). Until such a technique and its
+specification exist, astrology stays disregarded -- no code, no confluence
+field, nothing built. This is a standing decision, not a one-time answer;
+see AGENTS.md's new "Astrology" section for the durable record.
+
+### Commodities: a data-layer extension point, not a Gann-methodology finding
+
+Both Tomes' oil-price cycle paper (C2) and the A2.3 astrology letter concern
+commodity markets (crude oil; coffee futures) that GSPS currently has no way
+to run any criterion against -- `lib/types.ts`'s `AssetClass` had only
+`"us_equity" | "crypto"`, and the existing `/api/futures` route
+(`docs/MULTI_PROVIDER_SETUP.md`) is a read-through quote display, never
+connected to `MarketDataProvider`/the scan pipeline. Added this session,
+scoped strictly as plumbing (no live data, nothing changes for existing
+symbols): `AssetClass` now includes `"commodity"`; `lib/data/commodity.ts`
+is the reserved, clearly-labeled "not connected yet" extension point;
+`lib/data/alpaca.ts` now rejects `"commodity"` explicitly rather than
+silently querying the wrong market. This is infrastructure, not a
+cycle-theory or Gann-methodology gap -- recorded here only because it's the
+prerequisite for ever testing Findings 1-3 against a commodity symbol.
