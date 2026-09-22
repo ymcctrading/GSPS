@@ -1,5 +1,6 @@
 import { sendAlertEmail } from "@/lib/notifications/resend-handler";
 import { createServiceClient } from "@/lib/supabase/server";
+import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
@@ -38,12 +39,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const { exactScoreDisplayEnabled } = await getUserEntitlementPolicy(supabase, user.id);
+
     // Send test alert
     const result = await sendAlertEmail({
       userEmail,
       symbol: body.symbol || "AAPL",
       direction: body.direction || "bullish",
       score: body.score || 7,
+      exactScoreDisplayEnabled,
       entry: body.entry || 150.25,
       stopLoss: body.stopLoss || 148.5,
       takeProfit: body.takeProfit || 155.0,

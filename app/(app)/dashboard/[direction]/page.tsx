@@ -5,6 +5,7 @@ import { ResultsTable } from "@/components/scan/results-table";
 import { StaleScanNotice } from "@/components/scan/stale-scan-notice";
 import { getDailyScans, type Direction } from "@/lib/dailyScans";
 import { tradeSideWord } from "@/lib/scoring/direction-copy";
+import { resolveExactScoreDisplayEnabled } from "@/lib/scoring/tier-display";
 import { ArrowLeft } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +30,7 @@ export default async function DirectionListPage({
   const { scanDate, freshness, pricedBeforeSession, scannedAt, bullish, bearish } = await getDailyScans();
   const rows = isBull ? bullish : bearish;
   const continuations = rows.filter((r) => r.setupKind === "continuation").length;
+  const exactScoreDisplayEnabled = await resolveExactScoreDisplayEnabled();
 
   return (
     <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
@@ -77,6 +79,7 @@ export default async function DirectionListPage({
           <ResultsTable
             rows={rows}
             emptyText={`No ${side} list yet. Run the market scan or wait for the daily cron.`}
+            exactScoreDisplayEnabled={exactScoreDisplayEnabled}
           />
         </CardContent>
       </Card>

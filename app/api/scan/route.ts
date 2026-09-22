@@ -18,6 +18,7 @@ import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 import { evaluateMonitorsAndNotify } from "@/lib/entitlements/scan-fanout";
 import { withTimeout } from "@/lib/utils";
 import type { RankedSetup } from "@/lib/entitlements/result-selection";
+import { resolveExactScoreDisplayEnabled } from "@/lib/scoring/tier-display";
 import type { ScanResult } from "@/lib/types";
 
 // Without this, the route falls back to Vercel's default function duration
@@ -80,7 +81,13 @@ export async function GET(req: NextRequest) {
     }
 
     // The per-criterion breakdown is the scoring model; only its rollup ships.
-    return NextResponse.json(redactScanResult(result));
+    // `exactScoreDisplayEnabled` rides alongside it, not inside it — see
+    // lib/scoring/display.ts. The score in the redacted result itself stays
+    // exact; only the UI's rendered number should be formatted through it.
+    return NextResponse.json({
+      ...redactScanResult(result),
+      exactScoreDisplayEnabled: await resolveExactScoreDisplayEnabled(),
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[scan] request failed:", message);

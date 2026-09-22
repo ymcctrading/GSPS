@@ -5,6 +5,7 @@ import { GlossaryTerm } from "@/components/glossary-term";
 import { PatternEducation } from "@/components/scan/pattern-education";
 import { SaveSetupButton } from "@/components/scan/save-setup-button";
 import { SCORE_PILLAR_DESCRIPTIONS, SCORE_PILLAR_LABELS } from "@/lib/scoring/public-summary";
+import { formatScore } from "@/lib/scoring/display";
 import { tradeSideLabel } from "@/lib/scoring/direction-copy";
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 import { formatUsd, cn } from "@/lib/utils";
@@ -76,7 +77,13 @@ function targetLabel(
   return `${base} (${rMultiple.toFixed(1)}R)`;
 }
 
-export function SignalCard({ result }: { result: ScanResult }) {
+export function SignalCard({
+  result,
+  exactScoreDisplayEnabled = false,
+}: {
+  result: ScanResult;
+  exactScoreDisplayEnabled?: boolean;
+}) {
   const { decision, levels, levelsError, pattern, dataLag, assetClass } = result;
   const armed = result.armedPatterns ?? (pattern ? [pattern] : []);
   const others = armed.filter((p) => p !== pattern);
@@ -87,7 +94,11 @@ export function SignalCard({ result }: { result: ScanResult }) {
         <div className="flex items-center justify-between">
           <CardTitle>Protocol signal</CardTitle>
           <div className="flex items-center gap-1.5">
-            <ScoreBadge score={decision.score} state={decision.outputState} />
+            <ScoreBadge
+              score={decision.score}
+              state={decision.outputState}
+              exactScoreDisplayEnabled={exactScoreDisplayEnabled}
+            />
             <SaveSetupButton row={toSavedSetupRow(result)} />
           </div>
         </div>
@@ -208,7 +219,9 @@ export function SignalCard({ result }: { result: ScanResult }) {
           </div>
         )}
 
-        {decision.summary && <ScoreBreakdown summary={decision.summary} />}
+        {decision.summary && (
+          <ScoreBreakdown summary={decision.summary} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
+        )}
       </CardContent>
     </Card>
   );
@@ -233,7 +246,13 @@ function PivotPlanLine({ label, value }: { label: string; value: string }) {
  * lib/scoring/public-summary.ts), so there is nothing here to read back out of
  * a network response either.
  */
-function ScoreBreakdown({ summary }: { summary: PublicScoreSummary }) {
+function ScoreBreakdown({
+  summary,
+  exactScoreDisplayEnabled,
+}: {
+  summary: PublicScoreSummary;
+  exactScoreDisplayEnabled: boolean;
+}) {
   if (summary.pillars.length === 0) return null;
 
   return (
@@ -241,7 +260,7 @@ function ScoreBreakdown({ summary }: { summary: PublicScoreSummary }) {
       <div className="mb-2 flex items-baseline justify-between gap-3">
         <h4 className="text-sm font-medium">Score breakdown</h4>
         <span className="font-mono text-xs text-muted tabular-nums">
-          {summary.score}/{summary.max} points
+          {formatScore(summary.score, exactScoreDisplayEnabled)}/{summary.max} points
         </span>
       </div>
 

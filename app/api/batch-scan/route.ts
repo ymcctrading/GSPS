@@ -167,6 +167,11 @@ export async function GET(req: NextRequest) {
       resultVisibility: metadata,
       // The per-criterion breakdown is the scoring model; only its rollup ships.
       results: responseResults.map(redactScanResult),
+      // Whether this tier sees the exact weighted score or the value rounded
+      // to the nearest half point -- see lib/scoring/display.ts. `results[].
+      // decision.score` itself stays exact (the client sorts by it); only the
+      // UI's rendered number should be formatted through this flag.
+      exactScoreDisplayEnabled: policy.exactScoreDisplayEnabled,
     });
   } catch (err) {
     // The scan attempt itself failed before producing anything -- release
