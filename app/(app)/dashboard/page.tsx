@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ResultsTable } from "@/components/scan/results-table";
+import { TrackedExecuteList } from "@/components/dashboard/tracked-execute-list";
 import { AutoScan } from "@/components/scan/auto-scan";
 import { StaleScanNotice } from "@/components/scan/stale-scan-notice";
 import { LiveExpectancyToggle } from "@/components/guided/live-expectancy-toggle";
@@ -99,7 +100,7 @@ export default async function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ResultsTable rows={trackedExecute} emptyText="" />
+            <TrackedExecuteList initialRows={trackedExecute} />
           </CardContent>
         </Card>
       )}
@@ -236,7 +237,10 @@ function ReversionPreview({
               {scannedAt && (
                 <>
                   {" "}
-                  <span className="text-muted">Scanned {formatOpenedAt(scannedAt)}.</span>
+                  <span className="text-muted">
+                    Scanned {formatOpenedAt(scannedAt)} — a symbol&apos;s own page recomputes live and can read
+                    differently (even a different side) if price has moved since.
+                  </span>
                 </>
               )}
             </CardDescription>

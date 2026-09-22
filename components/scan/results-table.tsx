@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { Trash2 } from "lucide-react";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { ScoreBadge } from "@/components/scan/score-badge";
@@ -51,7 +52,16 @@ function rowKey(r: ScanRow): string {
   return `${r.symbol}-${r.direction}`;
 }
 
-export function ResultsTable({ rows, emptyText }: { rows: ScanRow[]; emptyText?: string }) {
+export function ResultsTable({
+  rows,
+  emptyText,
+  onRemove,
+}: {
+  rows: ScanRow[];
+  emptyText?: string;
+  /** When provided, each row gets a manual remove control that calls this. */
+  onRemove?: (symbol: string) => void;
+}) {
   /**
    * Whether price has already broken a row's stop is only known once its
    * live quote has loaded — client-side, after mount. Ranking above stays a
@@ -119,21 +129,22 @@ export function ResultsTable({ rows, emptyText }: { rows: ScanRow[]; emptyText?:
           <TH className="text-right">Master</TH>
           <TH>Signal Engine</TH>
           <TH className="w-8" aria-label="Save" />
+          {onRemove && <TH className="w-8" aria-label="Remove" />}
         </TR>
       </THead>
       <TBody>
         {live.map((r) => (
-          <ResultsRow key={rowKey(r)} row={r} onInvalidatedChange={handleInvalidatedChange} />
+          <ResultsRow key={rowKey(r)} row={r} onInvalidatedChange={handleInvalidatedChange} onRemove={onRemove} />
         ))}
         {dead.length > 0 && (
           <TR className="hover:bg-transparent">
-            <TD colSpan={10} className="sticky left-0 z-10 bg-surface py-2 text-xs font-medium uppercase tracking-wide text-muted">
+            <TD colSpan={onRemove ? 11 : 10} className="sticky left-0 z-10 bg-surface py-2 text-xs font-medium uppercase tracking-wide text-muted">
               No longer valid — price already broke the stop
             </TD>
           </TR>
         )}
         {dead.map((r) => (
-          <ResultsRow key={rowKey(r)} row={r} onInvalidatedChange={handleInvalidatedChange} />
+          <ResultsRow key={rowKey(r)} row={r} onInvalidatedChange={handleInvalidatedChange} onRemove={onRemove} />
         ))}
       </TBody>
     </Table>
@@ -213,9 +224,11 @@ function RejectedTable({ rows }: { rows: ScanRow[] }) {
 function ResultsRow({
   row: r,
   onInvalidatedChange,
+  onRemove,
 }: {
   row: ScanRow;
   onInvalidatedChange?: (key: string, value: boolean) => void;
+  onRemove?: (symbol: string) => void;
 }) {
   const quote = useLiveQuote(r.entry != null && r.stopLoss != null ? r.symbol : null, {
     intervalMs: 30_000,
@@ -324,6 +337,17 @@ function ResultsRow({
       <TD>
         <SaveSetupButton row={r} />
       </TD>
+      {onRemove && (
+        <TD>
+          <button
+            onClick={() => onRemove(r.symbol)}
+            title="Stop tracking this setup"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted hover:bg-background hover:text-bear"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </TD>
+      )}
     </TR>
   );
 }
