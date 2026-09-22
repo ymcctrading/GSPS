@@ -30,7 +30,7 @@ import {
 import { barSession, isExtended } from "@/lib/market/session";
 import { sma, ema, bollinger, rsi, macd, psar, supertrend, volumeBars, type Candle as CalcCandle } from "@/lib/indicators";
 import { classifySeries } from "@/lib/strat/classify";
-import { cn } from "@/lib/utils";
+import { cn, parseJsonResponse } from "@/lib/utils";
 
 export interface PriceMarker {
   price: number;
@@ -331,8 +331,7 @@ export function CandleChart({
       if (!opts?.keepView) setStatus("loading");
       try {
         const res = await fetch(`/api/bars?symbol=${encodeURIComponent(symbol)}&timeframe=${timeframe}`);
-        if (!res.ok) throw new Error((await res.json()).error ?? `HTTP ${res.status}`);
-        const data: { bars: Bar[] } = await res.json();
+        const data = await parseJsonResponse<{ bars: Bar[] }>(res);
         if (!seriesRef.current) return;
         const candles = data.bars.map((b) =>
           paint({
