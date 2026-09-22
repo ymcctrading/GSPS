@@ -53,6 +53,34 @@ export function monitorMatchesScannedState(monitor: MonitorState, scanned: Scann
   return scanned === "Reject";
 }
 
+/**
+ * "How executable is this right now", lowest number first. The verdict
+ * (`currentState`) is the primary ordering — a live EXECUTE always outranks
+ * a live WATCH regardless of score. `currentScore` (migration 0067's column
+ * on `active_monitors`) breaks ties within a verdict; it's null for a
+ * monitor sourced from a non-scorecard engine (intraday's Signal & Regime
+ * Engine) or one evaluated before this column existed, in which case ties
+ * within that verdict are left in whatever order they arrived. `null`
+ * (never tracked) sits between a live WATCH and a confirmed dead state:
+ * it's genuinely unknown, not a rejection.
+ */
+export function executabilityRank(currentState: MonitorState | null, currentScore?: number | null): number {
+  const bucket = (() => {
+    switch (currentState) {
+      case "EXECUTE":
+        return 0;
+      case "WATCH":
+        return 1;
+      case null:
+        return 2;
+      default:
+        // INVALIDATED / NO_SETUP / EXPIRED — no longer a live setup.
+        return 3;
+    }
+  })();
+  return bucket * 10 - (currentScore ?? 0);
+}
+
 export interface ScanHistorySymbol {
   symbol: string;
   assetClass: string;
@@ -66,6 +94,15 @@ export interface ScanHistorySymbol {
   /** Null when no monitor has ever tracked this symbol for this profile. */
   currentState: MonitorState | null;
   currentStateAsOf: string | null;
+  /**
+   * The scorecard score behind `currentState`, as of the monitor's last
+   * evaluation (migration 0067). Null when never tracked, or when the
+   * monitor was last evaluated by a non-scorecard source (intraday) or
+   * before this column existed.
+   */
+  currentScore: number | null;
+  /** Best-effort live quote fetched alongside the read; null if unavailable. */
+  currentPrice: number | null;
   /**
    * True only when a current state exists and disagrees with the scanned
    * one. Null (not false) when there's nothing to compare against, so the UI
@@ -92,6 +129,8 @@ export function buildHistorySymbol(args: {
   masterProfit: number | null;
   currentState: MonitorState | null;
   currentStateAsOf: string | null;
+  currentScore: number | null;
+  currentPrice: number | null;
 }): ScanHistorySymbol {
   const { currentState, scannedState } = args;
   return {

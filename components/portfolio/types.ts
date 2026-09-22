@@ -13,6 +13,8 @@ export interface OrderRow {
   requested_limit_price: number | null;
   status: string;
   created_at: string;
+  /** 'paper' or 'live' — /api/orders returns both modes in one ledger. */
+  mode: string;
   /** When the broker accepted it. Null until reconciliation records one. */
   broker_submitted_at: string | null;
   /** The broker's own words when it refused the order. */

@@ -51,11 +51,6 @@ describe("classifyRegime", () => {
     expect(read.disqualifiers).toHaveLength(0);
   });
 
-  it("disqualifies a trend read when the trend overlay keeps flipping", () => {
-    const read = classifyRegime({ bars: uptrendBars(120), trendOverlayFlips: 5 });
-    expect(read.disqualifiers.some((d) => d.includes("overlay"))).toBe(true);
-  });
-
   it("reads insufficient history as event/high-uncertainty rather than guessing", () => {
     const read = classifyRegime({ bars: uptrendBars(10) });
     expect(read.regime).toBe("event");

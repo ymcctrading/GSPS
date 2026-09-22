@@ -46,6 +46,9 @@ import {
   AUTONOMOUS_LIVE_MAX_DOLLAR_RISK_PER_TRADE,
   AUTONOMOUS_LIVE_MAX_DAILY_DOLLAR_RISK,
 } from "@/lib/automation/autonomous-live-gate";
+import { MAX_NEW_POSITIONS_PER_DAY } from "@/lib/risk/config";
+import { etDateKey } from "@/lib/market/session";
+import type { RulesAlignmentTier } from "@/lib/signals/types";
 
 type RiskProfile = "PASSIVE" | "MODERATE" | "AGGRESSIVE";
 type DirectionalBias = "BULLISH_ONLY" | "BEARISH_ONLY" | "BOTH";
@@ -68,6 +71,28 @@ interface CandidatePlanRow {
   market: string;
   entry_trigger: number;
   invalidation: number;
+  /** Signal & Regime Engine rollup recorded at plan-creation time (see
+   * lib/lifecycle/fromScanResult.ts). trade_plans carries no Gann 0-9 score
+   * column of its own -- every plan here already cleared the Gann Execute
+   * gate before a trade_plan was ever created (buildNewTradePlanFromScanResult
+   * runs only on a confirmed WATCH -> EXECUTE transition), so this tier is
+   * the one ranking signal actually available to pick the best of several
+   * armed candidates from. */
+  alignment: { tier: RulesAlignmentTier } | null;
+}
+
+/** Same ordinal lib/signals/publicSummary.ts#toPublicSignalSummary uses to
+ * pick the strongest verdict across states -- kept in the same order here so
+ * "best" means the same thing on every surface that ranks by tier. */
+const TIER_RANK: Record<RulesAlignmentTier, number> = {
+  watchlistOnly: 0,
+  qualified: 1,
+  aTier: 2,
+  aPlusTier: 3,
+};
+
+function tierRank(alignment: { tier: RulesAlignmentTier } | null): number {
+  return alignment ? TIER_RANK[alignment.tier] : -1;
 }
 
 /** Fraction of paper equity risked per trade, by dial position. */
@@ -157,7 +182,7 @@ async function runForProfile(
 
   const { data: plans, error: plansError } = await supabase
     .from("trade_plans")
-    .select("plan_id, instrument, direction, market, entry_trigger, invalidation")
+    .select("plan_id, instrument, direction, market, entry_trigger, invalidation, alignment")
     .eq("user_id", profile.user_id)
     .eq("market", "us_equity")
     .eq("state", "armed");
@@ -166,9 +191,14 @@ async function runForProfile(
     return;
   }
 
-  const candidates = ((plans ?? []) as CandidatePlanRow[]).filter(
-    (plan) => !alreadyAutomated.has(plan.plan_id),
-  );
+  // Best tier first, so a capacity-limited run (the daily cap below, or a
+  // partial activation failure) spends its slots on the strongest candidates
+  // rather than whichever happened to sort first out of Postgres. Ties (same
+  // tier) keep the query's own order, which is insertion order -- the older,
+  // longer-armed plan first.
+  const candidates = ((plans ?? []) as CandidatePlanRow[])
+    .filter((plan) => !alreadyAutomated.has(plan.plan_id))
+    .sort((a, b) => tierRank(b.alignment) - tierRank(a.alignment));
 
   // A member's choice of "live" only ever becomes a live order once the
   // dedicated kill switch is off AND a sign-off is on record
@@ -229,7 +259,32 @@ async function runForProfile(
     Math.round(equityBasis * RISK_PCT[profile.risk_profile]),
   );
 
+  // "Take the top three setups" — MAX_NEW_POSITIONS_PER_DAY (lib/risk/config.ts,
+  // = 3) is the platform's existing per-day new-position ceiling, enforced for
+  // live trading by the Novice Risk & Cooldown Engine's circuit breaker
+  // (lib/risk/circuit-breaker.ts) — but that engine only ever gates real money
+  // (see lib/risk/service.ts's own header), so nothing capped this loop's
+  // paper activations, which is the mode it runs in almost exclusively today.
+  // Re-derived from automation_profiles on every run rather than tracked in
+  // memory, same reasoning as everything else here: a run that already spent
+  // the day's budget on an earlier pass must see that, not just this pass's
+  // own activations.
+  const activatedToday = await countActivatedToday(supabase, profile.user_id);
+  let remainingToday = Math.max(0, MAX_NEW_POSITIONS_PER_DAY - activatedToday);
+  if (remainingToday === 0 && candidates.length > 0) {
+    result.plansSkipped += candidates.length;
+    result.errors.push({
+      userId: profile.user_id,
+      reason: `Skipped ${candidates.length} candidate(s) — already activated ${activatedToday} new position(s) today (cap ${MAX_NEW_POSITIONS_PER_DAY}).`,
+    });
+    return;
+  }
+
   for (const plan of candidates) {
+    if (remainingToday <= 0) {
+      result.plansSkipped++;
+      continue;
+    }
     if (!matchesDirectionalBias(plan.direction, profile.directional_bias)) {
       result.plansSkipped++;
       continue;
@@ -261,6 +316,7 @@ async function runForProfile(
     });
     if (activation.ok) {
       result.plansActivated++;
+      remainingToday--;
       if (executionMode === "live") liveDollarRiskSpentToday += tradeDollarRisk;
     } else {
       result.plansSkipped++;
@@ -283,6 +339,33 @@ async function runForProfile(
  * separately reviewed, separately capped risk (`MAX_ALLOCATED_DOLLAR_RISK`
  * in `lib/automation/service.ts`), not this loop's budget to spend.
  */
+/**
+ * Counts this member's autonomous-loop activations (any execution mode --
+ * paper counts against the same daily headline as live) whose `activated_at`
+ * falls on today's US/Eastern trading date. Bounded to the last two days by
+ * `created_at` before the precise ET-day filter, same pattern
+ * lib/promotion/novice-home.ts uses for "positions opened today" -- cheap to
+ * fetch, exact to filter, no server-side timezone arithmetic to get wrong.
+ */
+async function countActivatedToday(supabase: SupabaseClient, userId: string): Promise<number> {
+  const { data, error } = await supabase
+    .from("automation_profiles")
+    .select("activated_at")
+    .eq("user_id", userId)
+    .eq("automation_mode", "system_plan")
+    .gte("created_at", new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString());
+  if (error) {
+    console.error(`countActivatedToday: query failed for ${userId} — ${error.message}`);
+    // Fails closed: an unreadable activation history reads as the day's cap
+    // already spent, never as room to activate more.
+    return MAX_NEW_POSITIONS_PER_DAY;
+  }
+  const today = etDateKey(new Date());
+  return ((data ?? []) as { activated_at: string }[]).filter(
+    (row) => etDateKey(new Date(row.activated_at)) === today,
+  ).length;
+}
+
 async function sumLiveDollarRiskActivatedSince(
   supabase: SupabaseClient,
   userId: string,

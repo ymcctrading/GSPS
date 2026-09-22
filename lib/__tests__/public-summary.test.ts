@@ -30,9 +30,10 @@ import { CRITERION_KEYS, type CriterionWeights } from "@/lib/scoring/weights";
  * These fixtures check raw pass/fail arithmetic against fixed score values
  * (9, 0...) — only meaningful when every criterion is worth one point.
  * `DEFAULT_CRITERION_WEIGHTS` (what `computeScore` falls back to when no
- * `weights` is supplied) is a hand-set, evidence-based rebalance as of
- * 2026-09-14, not one point each — see its own doc comment in
- * lib/scoring/weights.ts.
+ * `weights` is supplied) is uniform again as of 2026-09-16, so it matches
+ * this today — but it is still supplied explicitly, so a future change to
+ * the live default cannot silently break these fixtures. See that constant's
+ * own doc comment in lib/scoring/weights.ts.
  */
 const UNIFORM_WEIGHTS: CriterionWeights = Object.fromEntries(
   CRITERION_KEYS.map((k) => [k, 1]),
@@ -58,7 +59,7 @@ const gann: GannLevels = {
   angleSlopes: [
     { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, slope: 1.1, nearestAngle: { label: "1x1", ratio: 1, direction: "up" } },
   ],
-  retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100.5, distancePct: 0.2, role: "support" }],
+  retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100.5, distancePct: 0.2, role: "support", importance: 1 }],
   digitalRootConfluences: [{ anchorKind: "low", priceRoot: 1, timeRoot: 8, type: "COMPLEMENTARY_PAIR" }],
 };
 
@@ -85,24 +86,31 @@ const pattern: StratPattern = {
   description: "",
 };
 
+/**
+ * What actually arms the trade since 2026-09-17 — the swing-level crossing
+ * (`lib/gann/entryTrigger.ts`), not the bar sequence above. Same prices, so
+ * each fixture's intent is unchanged; `pattern` stays for the display role.
+ */
+const gannTrigger = { direction: "bullish" as const, triggerPrice: 100, stopPrice: 95 };
+
 const allPass: ScoreInputs = {
   direction: "bullish",
   // Macro trend now scores agreement with the trade, not the old
   // counter-trend-into-a-level premise.
   macroTrends: [trend("bullish"), trend("bullish"), trend("bullish")],
   hourlyTrend: trend("bullish"),
-  hourlyAdx: { adx: 25, plusDI: 20, minusDI: 10 },
   swingChart: { threeDay: "bullish", nineDay: "bullish" },
   ruleOfThree: { consecutiveLowerCloses: 0, consecutiveHigherCloses: 2, bullishSignal: true, bearishSignal: false },
   timePriceSquare: [
     { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMoveAtrUnits: 10, squared: true },
   ],
   volumeClimax: [
-    { anchorKind: "low", anchorPrice: 90, relativeVolume: 2, bestRecentRelativeVolume: 2, climax: true },
+    { anchorKind: "low", anchorPrice: 90, anchorIndex: 0, relativeVolume: 2, bestRecentRelativeVolume: 2, climax: true },
   ],
   gann,
   nearSupportResistance: true,
   pattern,
+  gannTrigger,
   momentumElevated: true,
   stopAtrMultiple: 2,
   levels,
@@ -126,10 +134,10 @@ describe("toPublicScoreSummary", () => {
   it("accounts for every scored criterion exactly once", () => {
     const summary = toPublicScoreSummary(computeScore(allPass));
 
-    expect(summary.max).toBe(10);
-    expect(summary.pillars.reduce((n, p) => n + p.total, 0)).toBe(10);
+    expect(summary.max).toBe(9);
+    expect(summary.pillars.reduce((n, p) => n + p.total, 0)).toBe(9);
     expect(summary.pillars.reduce((n, p) => n + p.met, 0)).toBe(summary.score);
-    expect(summary.score).toBe(10);
+    expect(summary.score).toBe(9);
   });
 
   it("reports every pillar in a fixed order, whatever the score", () => {
@@ -146,17 +154,19 @@ describe("toPublicScoreSummary", () => {
     expect(summary.pillars.every((p) => p.met === 0)).toBe(true);
     // The totals are a property of the model, not of the result: an empty
     // score still says how many points were available in each pillar.
-    expect(summary.pillars.reduce((n, p) => n + p.total, 0)).toBe(10);
+    expect(summary.pillars.reduce((n, p) => n + p.total, 0)).toBe(9);
   });
 
   it("notes a capped state without inflating a pillar", () => {
-    // Seven context criteria pass with no armed pattern, which holds the state
-    // at Watch and appends an unscored item explaining it.
-    const decision = computeScore({ ...allPass, pattern: null });
+    // Context criteria pass with no armed TRIGGER, which holds the state at
+    // Watch and appends an unscored item explaining it. Clearing `pattern`
+    // alone no longer does this — the trade is armed by the swing-level
+    // crossing since 2026-09-17, so that is what has to be absent.
+    const decision = computeScore({ ...allPass, pattern: null, gannTrigger: null });
     const summary = toPublicScoreSummary(decision);
 
-    expect(decision.breakdown.length).toBeGreaterThan(10);
-    expect(summary.max).toBe(10);
+    expect(decision.breakdown.length).toBeGreaterThan(9);
+    expect(summary.max).toBe(9);
     expect(summary.stateNote).not.toBeNull();
   });
 
@@ -225,7 +235,7 @@ describe("redaction at the API boundary", () => {
     expect(redacted.decision.breakdown).toEqual([]);
     // The caller's own copy keeps its breakdown — the scan pipeline, the
     // backtest replay and the published rows all still read it server-side.
-    expect(result.decision.breakdown).toHaveLength(10);
+    expect(result.decision.breakdown).toHaveLength(9);
   });
 
   it("strips dailyBars — bulk internal data, not a public response field", () => {

@@ -103,7 +103,7 @@ export interface GannLevels {
     nearestAngle: { label: string; ratio: number; direction: "up" | "down" } | null;
   }[];
   /** Gann percentage retracement zones (eighths) off the last swing — lib/gann/retracement.ts. */
-  retracementLevels: { fraction: number; label: string; price: number; distancePct: number; role: "support" | "resistance" }[];
+  retracementLevels: { fraction: number; label: string; price: number; distancePct: number; role: "support" | "resistance"; importance: number | null }[];
   /**
    * Digital-root/vortex price-time confluence off the same anchors as
    * `angleSlopes`. Confluence/context only, per blueprint 7.4 — never a

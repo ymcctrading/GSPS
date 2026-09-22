@@ -6,7 +6,7 @@ import { TrendingUp } from "lucide-react";
 import { CandleChart, type PriceMarker } from "@/components/chart/candles";
 import { MarketTabs } from "@/components/chart/market-tabs";
 import { ShareButton } from "@/components/chart/share-button";
-import { formatUsd } from "@/lib/utils";
+import { formatUsd, parseJsonResponse } from "@/lib/utils";
 import type { ScanResult } from "@/lib/types";
 
 /**
@@ -30,10 +30,7 @@ export function PublicChart({ symbol }: { symbol: string }) {
   useEffect(() => {
     let cancelled = false;
     fetch(`/api/scan?ticker=${encodeURIComponent(symbol)}`)
-      .then(async (res) => {
-        if (!res.ok) throw new Error((await res.json()).error ?? `HTTP ${res.status}`);
-        return res.json();
-      })
+      .then((res) => parseJsonResponse<ScanResult>(res))
       .then((data: ScanResult) => {
         if (cancelled) return;
         setScan({

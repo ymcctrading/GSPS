@@ -1,11 +1,12 @@
 /**
- * The Score out of `TOTAL_POINTS` (10, since `ruleOfThree` joined 2026-09-16
- * — see `lib/scoring/weights.ts`) — one point per confirmed confluence
- * condition, weighted by `CriterionWeights`. Execute at
- * `EXECUTE_SCORE_THRESHOLD`+, Watch at `WATCH_SCORE_THRESHOLD`+, Reject
- * below — see those constants' own comments for the current values and why;
- * this header stopped restating the literal numbers after they drifted from
- * a stale "7–9/4–6/0–3" copy left behind by the 2026-09-14 stopgap.
+ * The Score out of `TOTAL_POINTS` (9 — `ruleOfThree` joined 2026-09-16 and
+ * `adxTrendStrength` left the same day, see `lib/scoring/weights.ts`) — one
+ * point per confirmed confluence condition, weighted by `CriterionWeights`.
+ * Execute at `EXECUTE_SCORE_THRESHOLD`+, Watch at `WATCH_SCORE_THRESHOLD`+,
+ * Reject below — see those constants' own comments for the current values
+ * and why; this header stopped restating the literal numbers after they
+ * drifted from a stale "7–9/4–6/0–3" copy left behind by the 2026-09-14
+ * stopgap.
  */
 
 import type {
@@ -25,13 +26,13 @@ import {
   bandBasis,
   proximityBandPct,
 } from "@/lib/scoring/proximity";
-import { LEVEL_TIMEFRAME_USAGE, levelRoleLabel, type LevelRole } from "@/lib/analysis/levelRole";
+import { LEVEL_TIMEFRAME_USAGE, levelRoleLabel, levelTestConfidence, type LevelRole } from "@/lib/analysis/levelRole";
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
-import type { AdxReading } from "@/lib/signals/indicators";
-import type { SwingChartReading } from "@/lib/gann/swingChart";
+import type { CampaignLegReading, SwingChartReading } from "@/lib/gann/swingChart";
 import type { RuleOfThreeReading } from "@/lib/gann/ruleOfThree";
 import type { TimePriceSquareReading } from "@/lib/gann/timePriceSquare";
 import { VOLUME_CLIMAX_THRESHOLD, type VolumeClimaxReading } from "@/lib/gann/volumeClimax";
+import type { BoilingPointReading } from "@/lib/gann/boilingPoint";
 import {
   DEFAULT_CRITERION_WEIGHTS,
   EXECUTE_SCORE_THRESHOLD,
@@ -53,6 +54,18 @@ export interface ScoreInputs {
    * does.
    */
   swingChart?: SwingChartReading | null;
+  /**
+   * Gann's "sections of a campaign" leg count off the same daily bars
+   * (`lib/gann/swingChart.ts#computeCampaignLeg`) — how many 3-day
+   * swing-chart legs have printed since the last 9-day trend change, and
+   * whether that count falls in his disclosed 3-4-leg reversal zone.
+   * Confluence/context only: appended to `swingChartTrend`'s explanation
+   * note, never affecting `passed` — a materially different construction
+   * from `swingChartAligned` itself, so it stays out of the scored boolean
+   * until backtested on its own, per this codebase's evidence-gating
+   * discipline.
+   */
+  campaignLeg?: CampaignLegReading | null;
   /**
    * Gann's "Rule of Three" off the daily closes
    * (`lib/gann/ruleOfThree.ts#computeRuleOfThree`) — see that module's
@@ -82,15 +95,26 @@ export interface ScoreInputs {
    */
   volumeClimax?: VolumeClimaxReading[];
   /**
-   * Wilder's ADX/DMI over the hourly bars (`lib/signals/indicators.ts#adx`),
-   * the same implementation and 20-ADX trend-strength threshold
-   * `lib/signals/regime.ts` already uses for the Signal & Regime Engine —
-   * reused here rather than re-derived, per AGENTS.md's cross-platform
-   * consistency principle. Null when there isn't enough hourly history to
-   * seed Wilder's smoothing, which scores as a fail the same way a missing
-   * stop-room reading does.
+   * "Boiling point" blow-off duration off the same climax anchors
+   * (`lib/gann/boilingPoint.ts#computeBoilingPoint`) — how many weeks have
+   * elapsed since a detected climax, classified against the disclosed
+   * 6-7-week (rarely past 10) exhaustion window. Confluence/context only:
+   * appended to `volumeClimax`'s explanation note, never affecting
+   * `passed` — stays out of the scored boolean until backtested on its
+   * own, per this codebase's evidence-gating discipline.
    */
-  hourlyAdx?: AdxReading | null;
+  boilingPoint?: BoilingPointReading[] | null;
+  /**
+   * `hourlyAdx` was accepted here until 2026-09-16, when `adxTrendStrength`
+   * was removed from the scorecard entirely (project owner direction — see
+   * `lib/scoring/weights.ts`'s `CRITERION_KEYS` and the RETIRED entry in
+   * `lib/validation/criteria-registry.ts`). Unlike `momentum` below, the
+   * field is gone rather than kept-but-unread: nothing else in this module
+   * reads ADX, and `lib/signals/indicators.ts#adx` remains exported and in
+   * live use by `lib/signals/regime.ts` and
+   * `lib/signals/states/rangeReversion.ts`, so the indicator itself is not
+   * what was removed.
+   */
   gann: GannLevels;
   nearSupportResistance: boolean;
   /**
@@ -99,8 +123,15 @@ export interface ScoreInputs {
    * callers that only have the boolean (the backtest replay, existing tests)
    * keep working — the note just falls back to the generic wording.
    */
-  srMatch?: { price: number; timeframe: Timeframe; role: LevelRole } | null;
+  srMatch?: { price: number; timeframe: Timeframe; role: LevelRole; testCount?: number } | null;
   pattern: StratPattern | null;
+  /**
+   * The armed entry trigger, from `lib/gann/entryTrigger.ts` — crossing an old
+   * swing top/bottom plus the "lost motion" allowance. Replaced `pattern` as
+   * what arms and prices a trade on 2026-09-17; `pattern` stays for the
+   * display/confluence role only. Null means nothing is armed.
+   */
+  gannTrigger?: { triggerPrice: number; stopPrice: number; direction: "bullish" | "bearish" } | null;
   /**
    * Accepted but no longer read here: `momentum` stopped being a scored
    * criterion on 2026-09-08 (see the `stopRoom` swap in
@@ -185,8 +216,8 @@ export const MIN_STOP_ROOM_ATR = 1.5;
 
 export function computeScore(inputs: ScoreInputs): ScanDecision {
   const {
-    direction, hourlyAdx, swingChart, ruleOfThree, timePriceSquare, volumeClimax, gann,
-    nearSupportResistance, srMatch, pattern, levels, stopAtrMultiple, assetClass,
+    direction, swingChart, campaignLeg, ruleOfThree, timePriceSquare, volumeClimax, boilingPoint, gann,
+    nearSupportResistance, srMatch, pattern, gannTrigger = null, levels, stopAtrMultiple, assetClass,
     setupKind = "reversion",
     atrPct,
     weights = DEFAULT_CRITERION_WEIGHTS,
@@ -214,22 +245,6 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   const ruleOfThreeHolding =
     ruleOfThree != null &&
     (direction === "bullish" ? ruleOfThree.bullishSignal : ruleOfThree.bearishSignal);
-
-  // 2026-09-10: replaces hourlyTrend. hourlyTrend's own leniency (an
-  // ambiguous "sideways" hourly read counted as agreement) never cleared the
-  // sample floor as anything more than "hypothesis." ADX/DMI is a stricter,
-  // two-part trend-strength-and-direction test, and it's the same
-  // implementation and 20-ADX threshold lib/signals/regime.ts already
-  // validated for exactly this "which indicator confirms a trend" question —
-  // reused, not reinvented (AGENTS.md's cross-platform consistency
-  // principle). Both parts must hold: the hourly trend must be strong enough
-  // to trust (ADX >= 20) and running the trade's own way (+DI/-DI agree with
-  // direction) — no lenient "ambiguous still passes" branch this time.
-  const ADX_TREND_THRESHOLD = 20;
-  const adxDirection: "bullish" | "bearish" | null =
-    hourlyAdx == null ? null : hourlyAdx.plusDI > hourlyAdx.minusDI ? "bullish" : "bearish";
-  const adxTrendHolding =
-    hourlyAdx != null && hourlyAdx.adx >= ADX_TREND_THRESHOLD && adxDirection === direction;
 
   // Null (no priced plan) fails: a setup with no stop has no room to measure,
   // and the alternative — treating "unknown" as a pass — would hand a free
@@ -317,6 +332,14 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   const climaxReading =
     (volumeClimax ?? []).find((r) => r.anchorKind === angleAnchorKind) ?? null;
   const volumeClimaxHolding = climaxReading?.climax === true;
+  // Confluence/context only — never changes volumeClimaxHolding itself. See
+  // ScoreInputs.boilingPoint's own doc comment for why this stays out of
+  // the scored boolean.
+  const boilingPointReading =
+    (boilingPoint ?? []).find((r) => r.anchorKind === angleAnchorKind) ?? null;
+  const boilingPointNote = boilingPointReading
+    ? ` ${boilingPointReading.weeksSinceClimax} weeks since that climax (${boilingPointReading.phase} — the disclosed exhaustion window is 6-7 weeks, rarely past 10).`
+    : "";
 
   // Gann's percentage-retracement zone (eighths), reusing the same band the
   // (now retired) fan-line criterion used.
@@ -334,7 +357,31 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // criterion rather than being silently failed by a check they can't answer.
   const historicalSRPassed = srMatch ? srMatch.role === wantedRole : nearSupportResistance;
 
-  const patternValid = pattern !== null && pattern.direction === direction;
+  // What arms the trade. Was `pattern.direction === direction` off the
+  // bar-sequence pattern until 2026-09-17; now the swing-crossing trigger.
+  // See `lib/gann/entryTrigger.ts` and AGENTS.md's gate-1 status.
+  const patternValid = gannTrigger !== null && gannTrigger.direction === direction;
+
+  // Confluence/context only — never changes swingChartAligned itself. See
+  // ScoreInputs.campaignLeg's own doc comment for why this stays out of the
+  // scored boolean.
+  const campaignLegNote =
+    campaignLeg?.legNumber != null && campaignLeg.confidence != null
+      ? ` Leg ${campaignLeg.legNumber} of the current campaign since the last major (9-day) trend change (${campaignLeg.confidence} confidence — reversals on the 3rd/4th leg are trusted more than the 2nd).`
+      : "";
+
+  // Confluence/context only, same treatment as campaignLegNote above — never
+  // changes historicalSRPassed itself. Gann's own rule (45 Years in Wall
+  // Street, 1949): a level's 4th+ test is markedly less safe than the first
+  // three. See lib/analysis/levelRole.ts#levelTestConfidence.
+  const levelTestNote =
+    srMatch?.testCount != null && srMatch.testCount > 0
+      ? ` This is test #${srMatch.testCount} of this level${
+          levelTestConfidence(srMatch.testCount) === "caution"
+            ? " — the 4th+ test of the same level is historically less safe; it nearly always goes through."
+            : "."
+        }`
+      : "";
 
   // "TP1 ≥ 2R" could never fail, and so was never a criterion. computeTradeLevels
   // sets TP1 to max(2R, previous candle's extreme), which puts the ratio at 2 or
@@ -354,27 +401,14 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       note:
         swingChart == null || swingChart.threeDay == null || swingChart.nineDay == null
           ? "Not enough daily history to read the 3-day/9-day swing charts."
-          : swingChartAligned
-            ? setupKind === "continuation"
-              ? `Both the 3-day and 9-day swing charts read ${direction} — the trend this setup continues is intact.`
-              : `Both the 3-day and 9-day swing charts read ${direction} — in agreement with this reversion.`
-            : swingChart.threeDay === swingChart.nineDay
-              ? `Both swing charts read ${swingChart.threeDay}, not ${direction} — they agree with each other but not with this setup.`
-              : `The 3-day (${swingChart.threeDay}) and 9-day (${swingChart.nineDay}) swing charts disagree with each other.`,
-    },
-    {
-      key: "adxTrendStrength",
-      criterion: "1-hour trend strength (ADX/DMI)",
-      pillar: "trend",
-      passed: adxTrendHolding,
-      note:
-        hourlyAdx == null
-          ? "Not enough hourly history to read ADX/DMI."
-          : adxTrendHolding
-            ? `Hourly ADX ${hourlyAdx.adx.toFixed(1)} clears the ${ADX_TREND_THRESHOLD} trend-strength floor, running ${adxDirection} — agrees with this ${direction} setup.`
-            : hourlyAdx.adx < ADX_TREND_THRESHOLD
-              ? `Hourly ADX ${hourlyAdx.adx.toFixed(1)} is below the ${ADX_TREND_THRESHOLD} trend-strength floor — no established hourly trend to agree or disagree with.`
-              : `Hourly ADX ${hourlyAdx.adx.toFixed(1)} shows an established trend, but it's running ${adxDirection}, not ${direction}.`,
+          : (swingChartAligned
+              ? setupKind === "continuation"
+                ? `Both the 3-day and 9-day swing charts read ${direction} — the trend this setup continues is intact.`
+                : `Both the 3-day and 9-day swing charts read ${direction} — in agreement with this reversion.`
+              : swingChart.threeDay === swingChart.nineDay
+                ? `Both swing charts read ${swingChart.threeDay}, not ${direction} — they agree with each other but not with this setup.`
+                : `The 3-day (${swingChart.threeDay}) and 9-day (${swingChart.nineDay}) swing charts disagree with each other.`) +
+            campaignLegNote,
     },
     {
       key: "gannAngleSlope",
@@ -391,9 +425,10 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       pillar: "structure",
       passed: volumeClimaxHolding,
       note: climaxReading
-        ? volumeClimaxHolding
-          ? `The ${climaxReading.anchorKind} anchor at ${climaxReading.anchorPrice.toFixed(2)} or one of the pivots just before it printed on ${climaxReading.bestRecentRelativeVolume.toFixed(2)}x trailing volume — above the ${VOLUME_CLIMAX_THRESHOLD}x climax floor.`
-          : `The ${climaxReading.anchorKind} anchor at ${climaxReading.anchorPrice.toFixed(2)} and the pivots just before it printed on only ${climaxReading.bestRecentRelativeVolume.toFixed(2)}x trailing volume at best — below the ${VOLUME_CLIMAX_THRESHOLD}x climax floor.`
+        ? (volumeClimaxHolding
+            ? `The ${climaxReading.anchorKind} anchor at ${climaxReading.anchorPrice.toFixed(2)} or one of the pivots just before it printed on ${climaxReading.bestRecentRelativeVolume.toFixed(2)}x trailing volume — above the ${VOLUME_CLIMAX_THRESHOLD}x climax floor.`
+            : `The ${climaxReading.anchorKind} anchor at ${climaxReading.anchorPrice.toFixed(2)} and the pivots just before it printed on only ${climaxReading.bestRecentRelativeVolume.toFixed(2)}x trailing volume at best — below the ${VOLUME_CLIMAX_THRESHOLD}x climax floor.`) +
+          boilingPointNote
         : `No measurable volume climax since the last significant ${angleAnchorKind}.`,
     },
     {
@@ -401,26 +436,27 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       criterion: "Historical support/resistance",
       pillar: "structure",
       passed: historicalSRPassed,
-      note: historicalSRPassed
-        ? srMatch
-          ? `Price sits at a clustered ${srMatch.timeframe} ${levelRoleLabel(srMatch.role).toLowerCase()} level at ${srMatch.price.toFixed(2)}. ${LEVEL_TIMEFRAME_USAGE[srMatch.timeframe]}.`
-          : "Price sits at a clustered macro S/R level."
-        : nearSupportResistance && srMatch
-          ? `Nearest clustered level at ${srMatch.price.toFixed(2)} is ${levelRoleLabel(srMatch.role).toLowerCase()} — wrong side for a ${direction} setup, so it doesn't confirm.`
-          : "Not at a significant historical S/R level.",
+      note:
+        (historicalSRPassed
+          ? srMatch
+            ? `Price sits at a clustered ${srMatch.timeframe} ${levelRoleLabel(srMatch.role).toLowerCase()} level at ${srMatch.price.toFixed(2)}. ${LEVEL_TIMEFRAME_USAGE[srMatch.timeframe]}.`
+            : "Price sits at a clustered macro S/R level."
+          : nearSupportResistance && srMatch
+            ? `Nearest clustered level at ${srMatch.price.toFixed(2)} is ${levelRoleLabel(srMatch.role).toLowerCase()} — wrong side for a ${direction} setup, so it doesn't confirm.`
+            : "Not at a significant historical S/R level.") + levelTestNote,
     },
     {
-      key: "patternArmed",
-      // The criterion is "a pattern armed in the setup's own direction", which
-      // is a reversal for a reversion and a continuation for a continuation.
-      // Labelling a 2-1-2 that carries a trend "Reversal pattern armed" would
-      // describe the opposite trade.
-      criterion: `${setupKind === "continuation" ? "Continuation" : "Reversal"} pattern armed`,
+      key: "entryTriggerArmed",
+      // The criterion is "a trigger armed in the setup's own direction" — a
+      // reversal for a reversion, a continuation for a continuation. The
+      // wording stays outcome-shaped rather than naming the construction,
+      // because the user-facing vocabulary gate applies to generated copy.
+      criterion: `${setupKind === "continuation" ? "Continuation" : "Reversal"} entry trigger armed`,
       pillar: "setup",
       passed: patternValid,
       note: patternValid
-        ? `${PATTERN_GLOSSARY_TERM[pattern!.name]} ${pattern!.direction} armed — trigger ${pattern!.triggerPrice.toFixed(2)}.`
-        : `No matching ${setupKind === "continuation" ? "continuation" : "reversal"} pattern armed on the execution timeframe.`,
+        ? `Trigger armed ${gannTrigger!.direction} at ${gannTrigger!.triggerPrice.toFixed(2)} — a crossing of the last completed swing level, with the stop beyond the opposing swing at ${gannTrigger!.stopPrice.toFixed(2)}.`
+        : `No ${setupKind === "continuation" ? "continuation" : "reversal"} trigger armed — the swing chart has not completed a level to cross.`,
     },
     {
       key: "stopRoom",
@@ -458,9 +494,12 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       pillar: "riskReward",
       passed: gannConfluenceStackPassed,
       note: retracementMatch
-        ? drConfluenceHolds
-          ? `Price within ${retracementMatch.distancePct.toFixed(2)}% of the ${retracementMatch.label} retracement ${levelRoleLabel(retracementMatch.role).toLowerCase()} at ${retracementMatch.price.toFixed(2)} — inside the ${fanBandPct.toFixed(2)}% band (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}), confirmed by a matching GSPS signal-flow reading off the same anchor.`
-          : `Price within ${retracementMatch.distancePct.toFixed(2)}% of the ${retracementMatch.label} retracement ${levelRoleLabel(retracementMatch.role).toLowerCase()} at ${retracementMatch.price.toFixed(2)}, but no signal-flow confluence off the same anchor — the zone alone isn't enough.`
+        ? (drConfluenceHolds
+            ? `Price within ${retracementMatch.distancePct.toFixed(2)}% of the ${retracementMatch.label} retracement ${levelRoleLabel(retracementMatch.role).toLowerCase()} at ${retracementMatch.price.toFixed(2)} — inside the ${fanBandPct.toFixed(2)}% band (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}), confirmed by a matching GSPS signal-flow reading off the same anchor.`
+            : `Price within ${retracementMatch.distancePct.toFixed(2)}% of the ${retracementMatch.label} retracement ${levelRoleLabel(retracementMatch.role).toLowerCase()} at ${retracementMatch.price.toFixed(2)}, but no signal-flow confluence off the same anchor — the zone alone isn't enough.`) +
+          (retracementMatch.importance != null
+            ? ` Importance rank ${retracementMatch.importance} of 6 (1 = 50%, the most important).`
+            : " Not one of the explicitly ranked fractions.")
         : `No ${levelRoleLabel(wantedRole).toLowerCase()} retracement zone within ${fanBandPct.toFixed(2)}% (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}).`,
     },
     {

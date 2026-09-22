@@ -18,6 +18,12 @@ import type { ConfluenceType, DigitalRootFeature, VortexClass } from "@/lib/gann
 import type { NearestGannAngle } from "@/lib/gann/normalizedSlope";
 import type { LedgerCoordinate } from "@/lib/gann/coordinateLedger";
 import type { DecadeCycleReading } from "@/lib/gann/decadeCycle";
+import type { MasterTwelveLevel } from "@/lib/gann/masterTwelve";
+import type { SquareOf52Result } from "@/lib/gann/squareOf52";
+import type { AngleMonthCountResult } from "@/lib/gann/angleMonthCounts";
+import type { SpectralCycleReading } from "@/lib/gann/spectralCycle";
+import type { CampaignLegReading } from "@/lib/gann/swingChart";
+import type { BoilingPointReading } from "@/lib/gann/boilingPoint";
 import type { MarketAdapterStatus, SupportedMarket } from "./marketAdapters";
 
 /**
@@ -103,6 +109,67 @@ export interface GannConfluenceResult {
    * `lib/gann/decadeCycle.ts`.
    */
   decadeCycle: DecadeCycleReading;
+  /**
+   * Square of 144/"Master Twelve" nearest level (`docs/GANN_HISTORICAL_SOURCES.md`
+   * A2.1 Ch. 13) — the base-12 analog of `nearestSquareOf9`, same spiral
+   * construction generalized to 12-fold angular resolution, nested inside
+   * the Square of Nine's own grid (20,736 halves down to 81 = 9²). Wired in
+   * 2026-09-16 per AGENTS.md's cross-platform-consistency rule: it was built
+   * the same session as `nearestSquareOf9`/`nearestFanLine` but had been left
+   * stranded, unlike squareOf20/hexagonChart which stay research-only for a
+   * documented, technical reason (lost original chart illustrations mean
+   * their ring/angle placement can't be verified — see those modules'
+   * headers). Confluence/ranking only, same non-authoritative role as
+   * `nearestSquareOf9`. See `lib/gann/masterTwelve.ts`.
+   */
+  nearestMasterTwelve: MasterTwelveLevel | null;
+  /**
+   * Square of 52 / Master Calculator for Weekly Time Periods
+   * (`docs/GANN_HISTORICAL_SOURCES.md` A2.1 Ch. 14) — disclosed fractional
+   * divisions of a 52-week cycle projected from major swing pivots, same
+   * `{active, dates}` shape as `timeCycleActive`/`timeCycleDates`. Wired in
+   * 2026-09-16 for the same reason as `nearestMasterTwelve` above — no
+   * bull/bear polarity, never independently scored. See
+   * `lib/gann/squareOf52.ts`.
+   */
+  squareOf52: SquareOf52Result;
+  /**
+   * Gann's 36-angle month-counts (`docs/GANN_HISTORICAL_SOURCES.md` A2.1
+   * Ch. 7) — the 11.25°-step/32-way division of 360° read as month-counts
+   * from a major swing, restricted by default to the 12 "very important"
+   * starred angles. Wired in 2026-09-16 for the same reason as
+   * `nearestMasterTwelve` above — pure date arithmetic against confirmed
+   * pivots, no lost-illustration dependency. See `lib/gann/angleMonthCounts.ts`.
+   */
+  angleMonthCounts: AngleMonthCountResult;
+  /**
+   * Fourier/spectral dominant-cycle detection (`docs/GANN_HISTORICAL_SOURCES.md`
+   * A3, B1) — Gann's own "harmonic analysis"/"Law of Vibration" claim,
+   * reconstructed as a real periodogram-style detector. Confluence/context
+   * only, gated through Dewey's cycle-validation checklist per AGENTS.md's
+   * "Hermetic principles & cycle theory" standing principle — a labeled
+   * hypothesis, never a scored criterion, same treatment as `decadeCycle`
+   * above. See `lib/gann/spectralCycle.ts`.
+   */
+  spectralCycle: SpectralCycleReading;
+  /**
+   * Gann's "sections of a campaign" leg count (`docs/GANN_HISTORICAL_SOURCES.md`
+   * A5/A8/A9) — how many 3-day swing-chart legs have printed since the last
+   * 9-day trend change, classified against his disclosed 3-4-leg reversal
+   * pattern. Confluence/context only, same non-authoritative role as every
+   * other field here — never changes `swingChartAligned`'s scored pass/fail
+   * in `lib/scoring/score.ts`. See `lib/gann/swingChart.ts#computeCampaignLeg`.
+   */
+  campaignLeg: CampaignLegReading;
+  /**
+   * "Boiling point" blow-off duration off the same volume-climax anchors
+   * used elsewhere in this platform (`docs/GANN_HISTORICAL_SOURCES.md` A4)
+   * — how many weeks have elapsed since a detected climax, classified
+   * against the disclosed 6-7-week (rarely past 10) exhaustion window.
+   * Confluence/context only, same non-authoritative role as every other
+   * field here. See `lib/gann/boilingPoint.ts`.
+   */
+  boilingPoint: BoilingPointReading[];
   /**
    * Blueprint §8.5's normalized Gann-angle slope — realized ATR-units-per-bar
    * since the anchor, and which fixed angle ratio (1x4…4x1) that's closest

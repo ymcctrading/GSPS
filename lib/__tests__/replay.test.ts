@@ -17,10 +17,32 @@ function bar(o: number, h: number, l: number, c: number): Bar {
   return { t: "2026-01-01T00:00:00Z", o, h, l, c, v: 1000 };
 }
 
-/** A flat run long enough to clear the warm-up, then whatever is appended. */
+/**
+ * A warm-up run long enough to clear `MIN_DAILY_BARS_FOR_SCORE`, then whatever
+ * is appended.
+ *
+ * **This head oscillates; it used to be flat (every close 100).** A flat run
+ * cannot arm anything since 2026-09-17: the trade is triggered by crossing a
+ * completed swing extreme (`lib/gann/entryTrigger.ts`), the swing walk skips
+ * flat closes entirely, and with no completed swing on each side there is no
+ * old level to cross and no protective swing to stop beyond. Under the
+ * previous bar-sequence trigger two or three bars were enough, so the flat
+ * head was harmless; it now produces zero trades.
+ *
+ * Runs of four in each direction so the 3-day swing chart actually flips and
+ * both a top and a bottom complete. The oscillation is symmetric around 100 to
+ * keep the warm-up directionally neutral, which is all these fixtures ever
+ * wanted from it.
+ */
 function series(tail: Bar[]): Bar[] {
   const head: Bar[] = [];
-  for (let i = 0; i < 45; i++) head.push(bar(100, 101, 99, 100));
+  for (let i = 0; i < 48; i++) {
+    // 8-bar cycle: four rising closes, four falling.
+    const phase = i % 8;
+    const step = phase < 4 ? phase : 7 - phase;
+    const c = 96 + step * 2;
+    head.push(bar(c, c + 1, c - 1, c));
+  }
   return [...head, ...tail];
 }
 
@@ -31,8 +53,14 @@ function series(tail: Bar[]): Bar[] {
  * the run is silently empty.
  */
 const ARMS_AND_TRIGGERS: Bar[] = series([
-  bar(100, 105, 99, 104), // 2U — arms a bearish trigger at 98.99, stop 105.01
-  bar(104, 106, 85, 95), //  spans both the stop (105.01) and the target (86.95)
+  bar(100, 105, 99, 104),
+  // Spans the whole range in one candle. Against the warm-up's completed
+  // swings the bearish trigger is ~94.72 and the stop ~103.31, so risk is
+  // ~8.6 and the 2R target is ~77.5 — this bar reaches all three, which is
+  // exactly the ambiguity the test is about. The numbers are larger than the
+  // old fixture's because the swing-derived stop sits at the opposing swing
+  // rather than one cent off the trigger candle, so R is wider.
+  bar(104, 106, 77, 95),
   bar(95, 96, 94, 95),
 ]);
 
@@ -88,9 +116,14 @@ describe("replay", () => {
   it("takes no trade when the trigger is never reached", () => {
     // A 2-2 arms off the last bar, but the following candle never trades up to
     // the trigger, and the protocol does not carry a setup forward.
+    // The warm-up's completed swings sit at roughly 103 (top) and 95 (bottom),
+    // so the triggers are ~103.31 and ~94.72 once the lost-motion allowance is
+    // applied. This follow-up candle stays inside both, so nothing fires.
+    // (It used to read 103/104/102/103, which was clear of the old
+    // bar-sequence trigger at 98.99 but now crosses the upper one.)
     const bars = series([
-      bar(100, 105, 99, 104), // 2U — arms a bearish reversal below its low
-      bar(103, 104, 102, 103), // never reaches the trigger below 98.99
+      bar(100, 103, 99, 102), // arms, but its own high stays under 103.31
+      bar(100, 103, 99, 100), // inside both triggers — reaches neither
     ]);
     const r = replay("TEST", bars, { targetR: 2 });
     expect(r.triggered).toBe(0);
@@ -218,9 +251,10 @@ describe("replay scoring", () => {
     // Explicit uniform weights: this test checks that the criteria map agrees
     // with the headline score (no criterion silently missing or double
     // counted), which is only a raw pass-count comparison when every
-    // criterion is worth the same one point — DEFAULT_CRITERION_WEIGHTS
-    // itself is a hand-set, evidence-based rebalance as of 2026-09-14 (see
-    // its own doc comment), not one point each.
+    // criterion is worth the same one point. DEFAULT_CRITERION_WEIGHTS is
+    // uniform again as of 2026-09-16 (see its own doc comment), so it
+    // matches today — set explicitly anyway so a later change to the live
+    // default cannot turn this into a weighted comparison unnoticed.
     const uniformWeights = Object.fromEntries(CRITERION_KEYS.map((k) => [k, 1])) as CriterionWeights;
     const r = replay("TEST", intraday, {
       targetR: 2,

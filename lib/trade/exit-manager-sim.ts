@@ -306,7 +306,8 @@ async function finish(supabase: Supabase, userId: string, plan: SimPlanRow, run:
       ? "master_target"
       : plan.applied_stop_reason === "trailing" ||
           plan.applied_stop_reason === "break_even" ||
-          plan.applied_stop_reason === "protocol"
+          plan.applied_stop_reason === "protocol" ||
+          plan.applied_stop_reason === "manual"
         ? "stop_loss"
         : plan.master_order_id
           ? "master_target"

@@ -45,6 +45,7 @@ vi.mock("@/lib/brokers/simulator", () => ({
   assetClassOf: () => "us_equity",
   getOrCreateAccount: vi.fn().mockResolvedValue({ cash: 100_000 }),
   getOpenPosition: vi.fn().mockResolvedValue(null),
+  listOpenPositions: vi.fn().mockResolvedValue([]),
   quotePrice: vi.fn().mockResolvedValue(100.5),
   quoteOptionPrice: vi.fn(),
   executeFill: vi.fn().mockResolvedValue({ price: 100.5, qty: 10, positionId: "pos-1", closed: null }),
@@ -84,6 +85,10 @@ function fakeSupabase(automationProfileRow: Record<string, unknown> | null) {
           },
           in(col: string, vals: unknown[]) {
             filters.push((r) => vals.includes(r[col]));
+            return chain;
+          },
+          gte(col: string, val: unknown) {
+            filters.push((r) => (r[col] as string) >= (val as string));
             return chain;
           },
           order() {
@@ -171,7 +176,13 @@ function fakeSupabase(automationProfileRow: Record<string, unknown> | null) {
     return {
       ...listTable(automationProfiles),
       insert(row: Record<string, unknown>) {
-        const withId = { profile_id: randomUUID(), created_at: new Date().toISOString(), status: "active", ...row };
+        const withId = {
+          profile_id: randomUUID(),
+          created_at: new Date().toISOString(),
+          activated_at: new Date().toISOString(),
+          status: "active",
+          ...row,
+        };
         return {
           select() {
             return {
@@ -265,6 +276,18 @@ function fakeSupabase(automationProfileRow: Record<string, unknown> | null) {
   return { client, plans, audit, automationProfiles, automationEvents, orders, protocolExits };
 }
 
+/**
+ * Anchored to the real clock, not fixed calendar dates. The reducer checks
+ * `expiresAt` against `Date.now()`, so a hardcoded expiry is a time bomb: the
+ * original `2026-09-16T13:00:00.000Z` silently turned this suite red on every
+ * branch the moment that timestamp passed. Ordering is preserved — the plan is
+ * generated an hour ago, walked through its events half an hour ago, and
+ * expires a week out — so the test asserts the same pipeline it always did.
+ */
+const PLAN_GENERATED_AT = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+const PLAN_EVENT_AT = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+const PLAN_EXPIRES_AT = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
 function armedCandidatePlan(overrides: Partial<NewTradePlan> = {}): NewTradePlan {
   return {
     strategyVersion: "1.0.0",
@@ -274,8 +297,8 @@ function armedCandidatePlan(overrides: Partial<NewTradePlan> = {}): NewTradePlan
     // Priced on whatever EXECUTION_TIMEFRAME actually is right now — proving
     // this test tracks the live override rather than assuming "15Min".
     timeframe: EXECUTION_TIMEFRAME,
-    generatedAt: "2026-09-09T13:00:00.000Z",
-    expiresAt: "2026-09-16T13:00:00.000Z",
+    generatedAt: PLAN_GENERATED_AT,
+    expiresAt: PLAN_EXPIRES_AT,
     direction: "bullish",
     signalFingerprint: "sig-1",
     entryConfirmation: freshEntryConfirmation(),
@@ -309,7 +332,7 @@ function armedCandidatePlan(overrides: Partial<NewTradePlan> = {}): NewTradePlan
 /** Walks a freshly created plan through the real reducer to `armed` — the state the Portfolio Manager queries for. */
 async function createArmedPlan(client: SupabaseClient, userId: string, overrides: Partial<NewTradePlan> = {}) {
   const created = await createTradePlan(client, userId, armedCandidatePlan(overrides));
-  const at = "2026-09-09T14:00:00.000Z";
+  const at = PLAN_EVENT_AT;
   await applyEventAndPersist(client, userId, created.planId, { type: "mark_auto_created", at, reason: "r" });
   await applyEventAndPersist(client, userId, created.planId, { type: "qualify", at, reason: "r" });
   await applyEventAndPersist(client, userId, created.planId, { type: "await_confirmation", at, reason: "r" });
@@ -337,7 +360,15 @@ describe("Automated Portfolio Manager — real end-to-end pipeline (paper)", () 
     const { client, plans, automationProfiles, orders } = fakeSupabase({
       user_id: "user-1",
       is_automation_enabled: true,
-      risk_profile: "MODERATE",
+      // PASSIVE (0.5% of equity), not MODERATE (1%): at this fixture's $100
+      // entry / $3 stop, MODERATE's 1% sizing would put ~33% of paper equity
+      // into a single position — over lib/risk/config.ts's
+      // MAX_SINGLE_POSITION_ALLOCATION_PCT (25%), which lib/trade/place-
+      // order.ts now enforces (checkPositionLimits, wired 2026-09-17
+      // orphan-module audit). PASSIVE sizes to ~16.6%, comfortably under the
+      // ceiling, without changing what this test is actually checking (the
+      // pipeline reaches a filled order), so no other fixture value moves.
+      risk_profile: "PASSIVE",
       directional_bias: "BOTH",
       volatility_trigger_type: "DOLLAR_AMOUNT",
       volatility_trigger_value: 1, // this plan's $3 entry-to-stop distance clears it
@@ -408,5 +439,110 @@ describe("Automated Portfolio Manager — real end-to-end pipeline (paper)", () 
     expect(result.profilesEnabled).toBe(0);
     expect(result.plansActivated).toBe(0);
     expect(orders).toHaveLength(0);
+  });
+
+  it("activates the top three armed candidates by Signal Engine tier, best first, and skips the rest", async () => {
+    const { client, automationProfiles } = fakeSupabase({
+      user_id: "user-1",
+      is_automation_enabled: true,
+      risk_profile: "PASSIVE",
+      directional_bias: "BOTH",
+      volatility_trigger_type: "DOLLAR_AMOUNT",
+      volatility_trigger_value: 1,
+      execution_mode: "paper",
+    });
+
+    // Inserted worst-tier-first, on purpose -- the manager must re-rank by
+    // tier rather than trust query/insertion order. Four candidates against
+    // MAX_NEW_POSITIONS_PER_DAY (3) means exactly one -- the worst one --
+    // must be left behind.
+    const watchlistPlan = await createArmedPlan(client, "user-1", {
+      instrument: "AAA",
+      signalId: "sig-watchlist",
+      signalFingerprint: "sig-watchlist",
+      evidence: {
+        regime: { regime: "trend", direction: "bullish", reasons: [], disqualifiers: [] },
+        alignment: { score: 40, tier: "watchlistOnly", blueprintScoreBand: "WATCH", breakdown: [] },
+        dataTimestamps: {},
+        eventLiquidityStatus: "clear",
+      },
+    });
+    const qualifiedPlan = await createArmedPlan(client, "user-1", {
+      instrument: "BBB",
+      signalId: "sig-qualified",
+      signalFingerprint: "sig-qualified",
+      evidence: {
+        regime: { regime: "trend", direction: "bullish", reasons: [], disqualifiers: [] },
+        alignment: { score: 60, tier: "qualified", blueprintScoreBand: "ACTIONABLE", breakdown: [] },
+        dataTimestamps: {},
+        eventLiquidityStatus: "clear",
+      },
+    });
+    const aTierPlan = await createArmedPlan(client, "user-1", {
+      instrument: "CCC",
+      signalId: "sig-atier",
+      signalFingerprint: "sig-atier",
+      // armedCandidatePlan's default evidence.alignment.tier is already "aTier".
+    });
+    const aPlusPlan = await createArmedPlan(client, "user-1", {
+      instrument: "DDD",
+      signalId: "sig-aplus",
+      signalFingerprint: "sig-aplus",
+      evidence: {
+        regime: { regime: "trend", direction: "bullish", reasons: [], disqualifiers: [] },
+        alignment: { score: 95, tier: "aPlusTier", blueprintScoreBand: "ACTIONABLE", breakdown: [] },
+        dataTimestamps: {},
+        eventLiquidityStatus: "clear",
+      },
+    });
+
+    const result = await runAutonomousPortfolioManager(client);
+
+    expect(result.plansActivated).toBe(3);
+    expect(result.plansSkipped).toBe(1);
+
+    const activatedPlanIds = automationProfiles.map((p) => p.plan_id);
+    expect(activatedPlanIds).toContain(aPlusPlan);
+    expect(activatedPlanIds).toContain(aTierPlan);
+    expect(activatedPlanIds).toContain(qualifiedPlan);
+    expect(activatedPlanIds).not.toContain(watchlistPlan);
+  });
+
+  it("stops activating once MAX_NEW_POSITIONS_PER_DAY new positions were already activated today", async () => {
+    const { client, automationProfiles } = fakeSupabase({
+      user_id: "user-1",
+      is_automation_enabled: true,
+      risk_profile: "PASSIVE",
+      directional_bias: "BOTH",
+      volatility_trigger_type: "DOLLAR_AMOUNT",
+      volatility_trigger_value: 1,
+      execution_mode: "paper",
+    });
+
+    // Three prior activations today, from an earlier run -- not this run's
+    // own candidate. plan_id doesn't need to match a real trade_plans row for
+    // this count; countActivatedToday only reads automation_profiles.
+    for (let i = 0; i < 3; i++) {
+      automationProfiles.push({
+        profile_id: `existing-${i}`,
+        user_id: "user-1",
+        plan_id: `existing-plan-${i}`,
+        automation_mode: "system_plan",
+        execution_mode: "paper",
+        status: "active",
+        created_at: new Date().toISOString(),
+        activated_at: new Date().toISOString(),
+      });
+    }
+
+    await createArmedPlan(client, "user-1");
+
+    const result = await runAutonomousPortfolioManager(client);
+
+    expect(result.plansActivated).toBe(0);
+    expect(result.plansSkipped).toBe(1);
+    expect(result.errors[0]?.reason).toMatch(/already activated 3 new position\(s\) today/);
+    // Only the three pre-seeded rows -- nothing new got activated.
+    expect(automationProfiles).toHaveLength(3);
   });
 });

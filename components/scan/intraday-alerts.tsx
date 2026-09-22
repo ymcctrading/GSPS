@@ -117,8 +117,8 @@ export function IntradayAlerts({ symbols }: { symbols?: string[] }) {
           </p>
         )}
 
-        {output?.alerts.map((alert) => (
-          <AlertCard key={`${alert.symbol}-${alert.type}`} alert={alert} />
+        {output && consolidateBySymbol(output.alerts).map(({ alert, otherSignals }) => (
+          <AlertCard key={alert.symbol} alert={alert} otherSignals={otherSignals} />
         ))}
 
         {output && (
@@ -142,6 +142,43 @@ export function IntradayAlerts({ symbols }: { symbols?: string[] }) {
       </CardContent>
     </Card>
   );
+}
+
+/**
+ * One card per equity, not one per signal type.
+ * -----------------------------------------------------------------------------
+ * `evaluateSymbol` (lib/scanner/intraday.ts) can return several `Alert`s for
+ * the same symbol from a single poll cycle -- opening momentum, trend
+ * continuation, and unusual volume can all legitimately fire together on
+ * the same pass, since each tests a different condition. Rendering one card
+ * per alert meant a stock that qualified three ways showed up three times,
+ * which read as three separate opportunities rather than one setup with
+ * three confirming signals.
+ *
+ * The highest-confidence alert becomes the card; every other signal type
+ * that also fired for the same symbol this pass is kept, not discarded --
+ * several signals agreeing is stronger information than one, so it's shown
+ * as a compact "also: X, Y" line on the one card rather than dropped or
+ * split back out into its own card.
+ *
+ * All alerts here share one poll cycle's `triggerTime` (this component
+ * always shows the latest scan, replacing rather than accumulating past
+ * ones -- see the `run`/`setOutput` callback above), so "most recent"
+ * doesn't distinguish them; confidence does the same job "most recent
+ * carries the most weight" was asking for when the candidates are
+ * simultaneous rather than sequential.
+ */
+function consolidateBySymbol(alerts: Alert[]): { alert: Alert; otherSignals: Alert[] }[] {
+  const bySymbol = new Map<string, Alert[]>();
+  for (const alert of alerts) {
+    const existing = bySymbol.get(alert.symbol);
+    if (existing) existing.push(alert);
+    else bySymbol.set(alert.symbol, [alert]);
+  }
+  return Array.from(bySymbol.values()).map((group) => {
+    const sorted = [...group].sort((a, b) => b.confidence - a.confidence);
+    return { alert: sorted[0], otherSignals: sorted.slice(1) };
+  });
 }
 
 function FreshnessLine({
@@ -175,7 +212,7 @@ function FreshnessLine({
   );
 }
 
-function AlertCard({ alert }: { alert: Alert }) {
+function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: Alert[] }) {
   const [showDetail, setShowDetail] = useState(false);
   const up = alert.direction === "up";
   const isRisk = alert.type === "reversal_risk";
@@ -197,6 +234,18 @@ function AlertCard({ alert }: { alert: Alert }) {
             </Badge>
           </div>
           <p className="mt-1 text-xs text-muted">{SIGNAL_DESCRIPTIONS[alert.type]}</p>
+          {otherSignals.length > 0 && (
+            <p className="mt-1 text-xs text-muted">
+              Also qualified this pass:{" "}
+              {otherSignals.map((s, i) => (
+                <span key={s.type}>
+                  {i > 0 && ", "}
+                  {SIGNAL_LABELS[s.type]} ({s.direction === "up" ? "↑" : "↓"})
+                </span>
+              ))}
+              {" — shown here as confirming signals, not separate setups."}
+            </p>
+          )}
         </div>
 
         <div className="shrink-0 text-right">
