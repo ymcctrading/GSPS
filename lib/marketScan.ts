@@ -157,23 +157,32 @@ export const MAX_COARSE_UNIVERSE = 1000;
  *
  * 2026-09-22 CORRECTION: this was set to 700 on the architectural belief that
  * the coarse pass's cost scales with request *chunks*, not `universeTop`
- * directly — untested, and wrong. A live production run at 700 timed out:
- * `POST /api/market-scan` 504'd at Vercel's 60s ceiling. The `[market-scan]`
- * stage breadcrumbs (lib/marketScan.ts's `mark()` calls) from that run:
- * universe resolution 10ms, coarse batch bar fetch **23.1s**, coarse scoring
- * 75ms, full-pass batch bar fetch (only 50 shortlisted symbols) a further
- * **25.9s** — ~49s spent fetching before a single full score was computed,
- * then the timeout with no results persisted. Two compounding causes: the
- * coarse fetch scales with `universeTop` after all (~33ms/symbol observed),
- * and the full pass's own fetch was independently expensive — partly
- * `fetchAllTimeframesBatch` fetching `1Hour` bars twice under the temporary
- * `EXECUTION_TIMEFRAME=1Hour` override (see AGENTS.md), fixed in
- * lib/data/provider.ts, but that fix alone is unproven sufficient.
+ * directly — untested, and wrong, for a reason findable in the code: chunk
+ * requests aren't actually all fired at once. `fetchBarsBatch`'s
+ * `CHUNK_CONCURRENCY = 3` (lib/data/alpaca.ts, added the same week to stop
+ * an unrelated rate-limit crash) throttles chunks to 3 at a time, and each
+ * 100-symbol daily-bar chunk needs multiple sequential pages of its own
+ * (100 symbols x ~252 trading days exceeds Alpaca's 10,000-row page limit —
+ * see `BATCH_CHUNK`'s comment). 700 symbols is ~7 chunks, i.e. 3 waves; 250
+ * is ~3 chunks, one wave — so this doesn't just reduce total work, it
+ * removes whole serialized waves.
  *
- * Pulled back to 250 as a conservative, data-informed interim value —
- * extrapolating the observed coarse-fetch rate, 250 symbols leaves real
- * margin under the ceiling even before crediting the dedup fix's savings.
- * Still 2.5x the original 100-symbol default that motivated introducing this
+ * A live production run at 700 confirmed the cost: `POST /api/market-scan`
+ * 504'd at Vercel's 60s ceiling. The `[market-scan]` stage breadcrumbs
+ * (lib/marketScan.ts's `mark()` calls) from that run: universe resolution
+ * 10ms, coarse batch bar fetch **23.1s**, coarse scoring 75ms, full-pass
+ * batch bar fetch (only 50 shortlisted symbols) a further **25.9s** — ~49s
+ * spent fetching before a single full score was computed, then the timeout
+ * with no results persisted. The full pass's own fetch was independently
+ * expensive too — partly `fetchAllTimeframesBatch` fetching `1Hour` bars
+ * twice under the temporary `EXECUTION_TIMEFRAME=1Hour` override (see
+ * AGENTS.md), fixed in lib/data/provider.ts, but that fix alone is unproven
+ * sufficient on its own.
+ *
+ * Pulled back to 250 as a conservative, data-informed interim value — one
+ * coarse-fetch wave instead of three, with real margin left even before
+ * crediting the dedup fix's savings. Still 2.5x the original 100-symbol
+ * default that motivated introducing this
  * constant. **Do not raise this again on architectural reasoning alone** —
  * that produced both this outage and the 700 value it replaced. Raising it
  * needs a fresh live-timed run (the `mark()` breadcrumbs above) confirming
