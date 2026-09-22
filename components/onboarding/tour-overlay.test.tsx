@@ -16,7 +16,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TourOverlay } from "./tour-overlay";
-import { TOUR_STEPS } from "@/lib/onboarding/tour";
+import { TOUR_STEPS, TOUR_STEPS_SHORT } from "@/lib/onboarding/tour";
 
 // The overlay navigates to each step's page, so the router is part of the
 // contract now rather than incidental. `push` is captured so a test can assert
@@ -58,28 +58,28 @@ async function advanceTo(user: ReturnType<typeof userEvent.setup>, anchor: strin
 describe("leaving the tour", () => {
   it("records a skip when the Skip button is used", async () => {
     const user = userEvent.setup();
-    render(<TourOverlay open onClose={onClose} />);
+    render(<TourOverlay open initialMode="full" onClose={onClose} />);
     await user.click(screen.getByRole("button", { name: "Skip" }));
     expect(onClose).toHaveBeenCalledWith("skipped");
   });
 
   it("records a skip when the close button is used", async () => {
     const user = userEvent.setup();
-    render(<TourOverlay open onClose={onClose} />);
+    render(<TourOverlay open initialMode="full" onClose={onClose} />);
     await user.click(screen.getByRole("button", { name: "Leave the tour" }));
     expect(onClose).toHaveBeenCalledWith("skipped");
   });
 
   it("records a skip on Escape", async () => {
     const user = userEvent.setup();
-    render(<TourOverlay open onClose={onClose} />);
+    render(<TourOverlay open initialMode="full" onClose={onClose} />);
     await user.keyboard("{Escape}");
     expect(onClose).toHaveBeenCalledWith("skipped");
   });
 
   it("records a completion only after the last step", async () => {
     const user = userEvent.setup();
-    render(<TourOverlay open onClose={onClose} />);
+    render(<TourOverlay open initialMode="full" onClose={onClose} />);
     for (let i = 0; i < TOUR_STEPS.length - 1; i++) {
       await user.click(screen.getByRole("button", { name: /Next/ }));
     }
@@ -97,19 +97,19 @@ describe("leaving the tour", () => {
 
 describe("moving through the steps", () => {
   it("opens on the first step and counts honestly", () => {
-    render(<TourOverlay open onClose={onClose} />);
+    render(<TourOverlay open initialMode="full" onClose={onClose} />);
     expect(screen.getByText(`Step 1 of ${TOUR_STEPS.length}`)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: TOUR_STEPS[0].title })).toBeInTheDocument();
   });
 
   it("cannot go back from the first step", () => {
-    render(<TourOverlay open onClose={onClose} />);
+    render(<TourOverlay open initialMode="full" onClose={onClose} />);
     expect(screen.getByRole("button", { name: /Back/ })).toBeDisabled();
   });
 
   it("goes forward and back", async () => {
     const user = userEvent.setup();
-    render(<TourOverlay open onClose={onClose} />);
+    render(<TourOverlay open initialMode="full" onClose={onClose} />);
     await user.click(screen.getByRole("button", { name: /Next/ }));
     expect(screen.getByRole("heading", { name: TOUR_STEPS[1].title })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Back/ }));
@@ -118,7 +118,7 @@ describe("moving through the steps", () => {
 
   it("moves on the arrow keys, for anyone not using a mouse", async () => {
     const user = userEvent.setup();
-    render(<TourOverlay open onClose={onClose} />);
+    render(<TourOverlay open initialMode="full" onClose={onClose} />);
     await user.keyboard("{ArrowRight}");
     expect(screen.getByRole("heading", { name: TOUR_STEPS[1].title })).toBeInTheDocument();
     await user.keyboard("{ArrowLeft}");
@@ -127,12 +127,12 @@ describe("moving through the steps", () => {
 
   it("restarts from the beginning rather than resuming", async () => {
     const user = userEvent.setup();
-    const { rerender } = render(<TourOverlay open onClose={onClose} />);
+    const { rerender } = render(<TourOverlay open initialMode="full" onClose={onClose} />);
     await user.click(screen.getByRole("button", { name: /Next/ }));
     expect(screen.getByRole("heading", { name: TOUR_STEPS[1].title })).toBeInTheDocument();
 
     rerender(<TourOverlay open={false} onClose={onClose} />);
-    rerender(<TourOverlay open onClose={onClose} />);
+    rerender(<TourOverlay open initialMode="full" onClose={onClose} />);
     expect(screen.getByRole("heading", { name: TOUR_STEPS[0].title })).toBeInTheDocument();
   });
 });
@@ -147,7 +147,7 @@ describe("pointing at things", () => {
     const glossaryIndex = TOUR_STEPS.findIndex((s) => s.anchor === "glossary-terms");
     expect(glossaryIndex).toBeGreaterThan(0);
 
-    render(<TourOverlay open onClose={onClose} />);
+    render(<TourOverlay open initialMode="full" onClose={onClose} />);
     for (let i = 0; i < glossaryIndex; i++) {
       await user.click(screen.getByRole("button", { name: /Next/ }));
     }
@@ -165,7 +165,7 @@ describe("pointing at things", () => {
 
     const user = userEvent.setup();
     const dashboardIndex = TOUR_STEPS.findIndex((s) => s.anchor === "dash-setups");
-    render(<TourOverlay open onClose={onClose} />);
+    render(<TourOverlay open initialMode="full" onClose={onClose} />);
     for (let i = 0; i < dashboardIndex; i++) {
       await user.click(screen.getByRole("button", { name: /Next/ }));
     }
@@ -204,7 +204,7 @@ describe("staying beside the hole on a small screen", () => {
 
     const user = userEvent.setup();
     const dashboardIndex = TOUR_STEPS.findIndex((s) => s.anchor === "dash-setups");
-    render(<TourOverlay open onClose={onClose} />);
+    render(<TourOverlay open initialMode="full" onClose={onClose} />);
     for (let i = 0; i < dashboardIndex; i++) {
       await user.click(screen.getByRole("button", { name: /Next/ }));
     }
@@ -233,7 +233,7 @@ describe("taking the reader to the page", () => {
     const settingsIndex = TOUR_STEPS.findIndex((s) => s.route === "/settings");
     expect(settingsIndex).toBeGreaterThan(0);
 
-    render(<TourOverlay open onClose={onClose} />);
+    render(<TourOverlay open initialMode="full" onClose={onClose} />);
     for (let i = 0; i < settingsIndex; i++) {
       await user.click(screen.getByRole("button", { name: /Next/ }));
     }
@@ -244,7 +244,7 @@ describe("taking the reader to the page", () => {
     // usePathname is mocked to /dashboard, and the opening step has no route,
     // so nothing should move. A tour that re-pushes the current route on every
     // render would fight the user's own scrolling.
-    render(<TourOverlay open onClose={onClose} />);
+    render(<TourOverlay open initialMode="full" onClose={onClose} />);
     expect(push).not.toHaveBeenCalled();
   });
 
@@ -270,7 +270,7 @@ describe("anchors below the fold", () => {
     const el = layOutAnchor("settings-caps", 4000);
     const scrollBy = vi.spyOn(window, "scrollBy").mockImplementation(() => {});
 
-    render(<TourOverlay open onClose={onClose} />);
+    render(<TourOverlay open initialMode="full" onClose={onClose} />);
     await advanceTo(user, "settings-caps");
 
     expect(scrollBy).toHaveBeenCalled();
@@ -288,7 +288,7 @@ describe("anchors below the fold", () => {
     const el = layOutAnchor("settings-caps", 100);
     const scrollBy = vi.spyOn(window, "scrollBy").mockImplementation(() => {});
 
-    render(<TourOverlay open onClose={onClose} />);
+    render(<TourOverlay open initialMode="full" onClose={onClose} />);
     await advanceTo(user, "settings-caps");
 
     expect(scrollBy).not.toHaveBeenCalled();
@@ -306,7 +306,7 @@ describe("anchors below the fold", () => {
     document.body.appendChild(hidden);
     const visible = layOutAnchor("settings-caps", 3000);
 
-    render(<TourOverlay open onClose={onClose} />);
+    render(<TourOverlay open initialMode="full" onClose={onClose} />);
     await advanceTo(user, "settings-caps");
 
     const ring = document.querySelector<HTMLElement>(".ring-accent");
@@ -319,9 +319,85 @@ describe("anchors below the fold", () => {
 
 describe("what it tells a screen reader", () => {
   it("is a labelled modal dialog", () => {
-    render(<TourOverlay open onClose={onClose} />);
+    render(<TourOverlay open initialMode="full" onClose={onClose} />);
     const dialog = screen.getByRole("dialog");
     expect(dialog).toHaveAttribute("aria-modal", "true");
     expect(dialog).toHaveAccessibleName("Introduction to GSPS");
+  });
+});
+
+describe("the mode chooser", () => {
+  // Most visitors don't read all 16 steps. Rather than assume everyone wants
+  // the full walkthrough, an open with no requested track lands here first.
+
+  it("opens on the chooser when no track was requested", () => {
+    render(<TourOverlay open onClose={onClose} />);
+    expect(screen.getByRole("dialog", { name: "How would you like to learn GSPS?" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: TOUR_STEPS[0].title })).toBeNull();
+  });
+
+  it("does not show the chooser when a track was requested up front", () => {
+    render(<TourOverlay open initialMode="full" onClose={onClose} />);
+    expect(screen.queryByRole("dialog", { name: "How would you like to learn GSPS?" })).toBeNull();
+    expect(screen.getByRole("heading", { name: TOUR_STEPS[0].title })).toBeInTheDocument();
+  });
+
+  it("starts the quick track at its own first step, correctly counted", async () => {
+    const user = userEvent.setup();
+    render(<TourOverlay open onClose={onClose} />);
+    await user.click(screen.getByRole("button", { name: /Quick tour/ }));
+
+    expect(screen.getByRole("heading", { name: TOUR_STEPS_SHORT[0].title })).toBeInTheDocument();
+    expect(screen.getByText(`Step 1 of ${TOUR_STEPS_SHORT.length}`, { exact: false })).toBeInTheDocument();
+  });
+
+  it("starts the full track at its own first step when chosen from the chooser", async () => {
+    const user = userEvent.setup();
+    render(<TourOverlay open onClose={onClose} />);
+    await user.click(screen.getByRole("button", { name: /Full tour/ }));
+
+    expect(screen.getByRole("heading", { name: TOUR_STEPS[0].title })).toBeInTheDocument();
+    expect(screen.getByText(`Step 1 of ${TOUR_STEPS.length}`)).toBeInTheDocument();
+  });
+
+  it("completes the quick track after its own last step, not the full one's", async () => {
+    const user = userEvent.setup();
+    render(<TourOverlay open onClose={onClose} />);
+    await user.click(screen.getByRole("button", { name: /Quick tour/ }));
+
+    for (let i = 0; i < TOUR_STEPS_SHORT.length - 1; i++) {
+      await user.click(screen.getByRole("button", { name: /Next/ }));
+    }
+    expect(onClose).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Done" }));
+    expect(onClose).toHaveBeenCalledWith("completed");
+  });
+
+  it("records a skip when the chooser itself is dismissed", async () => {
+    const user = userEvent.setup();
+    render(<TourOverlay open onClose={onClose} />);
+    await user.click(screen.getByRole("button", { name: "Skip for now" }));
+    expect(onClose).toHaveBeenCalledWith("skipped");
+  });
+
+  it("reopens on the chooser rather than resuming whichever track was run last", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<TourOverlay open onClose={onClose} />);
+    await user.click(screen.getByRole("button", { name: /Quick tour/ }));
+    expect(screen.getByRole("heading", { name: TOUR_STEPS_SHORT[0].title })).toBeInTheDocument();
+
+    rerender(<TourOverlay open={false} onClose={onClose} />);
+    rerender(<TourOverlay open onClose={onClose} />);
+    expect(screen.getByRole("dialog", { name: "How would you like to learn GSPS?" })).toBeInTheDocument();
+  });
+
+  it("every quick-tour step is also a full-tour step, in the same relative order", () => {
+    // TOUR_STEPS_SHORT is derived by filtering TOUR_STEPS, not a hand-kept
+    // second list — this guards against the two ever silently diverging.
+    const fullIds = TOUR_STEPS.map((s) => s.id);
+    const shortIds = TOUR_STEPS_SHORT.map((s) => s.id);
+    const positions = shortIds.map((id) => fullIds.indexOf(id));
+    expect(positions.every((p) => p >= 0)).toBe(true);
+    expect(positions).toEqual([...positions].sort((a, b) => a - b));
   });
 });

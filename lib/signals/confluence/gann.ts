@@ -42,6 +42,13 @@ import { computeFanLines, nearestFanLine } from "@/lib/gann/fans";
 import { nearestS9Level, recentSquareOf9Levels } from "@/lib/gann/squareOf9";
 import { timeCycles } from "@/lib/gann/timeCycles";
 import { computeDecadeCycle } from "@/lib/gann/decadeCycle";
+import { masterTwelveLevels, nearestMasterTwelveLevel } from "@/lib/gann/masterTwelve";
+import { squareOf52Windows } from "@/lib/gann/squareOf52";
+import { angleMonthCounts as computeAngleMonthCounts } from "@/lib/gann/angleMonthCounts";
+import { detectSpectralCycle } from "@/lib/gann/spectralCycle";
+import { computeCampaignLeg } from "@/lib/gann/swingChart";
+import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
+import { computeBoilingPoint } from "@/lib/gann/boilingPoint";
 import {
   buildDigitalRootFeature,
   classifyConfluence,
@@ -112,6 +119,20 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
       timeCycleFixedCalendarActive: false,
       timeCycleFixedCalendarDates: [],
       decadeCycle: computeDecadeCycle(),
+      nearestMasterTwelve: null,
+      squareOf52: { active: false, dates: [] },
+      angleMonthCounts: { active: false, dates: [] },
+      spectralCycle: {
+        active: false,
+        dominantPeriodBars: null,
+        dominancePower: null,
+        repetitionCount: null,
+        periodConsistent: null,
+        hypothesisOnly: true,
+        note: reason,
+      },
+      campaignLeg: { legNumber: null, confidence: null },
+      boilingPoint: [],
       vortexContext: {
         priceDisplacement: null,
         timeDisplacement: null,
@@ -151,6 +172,13 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
   const cycles = timeCycles(inputs.dailyBars);
   const nearestS9 = nearestS9Level(s9Levels);
   const nearestFan = nearestFanLine(fanLines);
+  const nearestMasterTwelve = nearestMasterTwelveLevel(masterTwelveLevels(majorLow, inputs.currentPrice));
+  const squareOf52 = squareOf52Windows(inputs.dailyBars);
+  const angleMonthCountsResult = computeAngleMonthCounts(inputs.dailyBars);
+  const spectralCycle = detectSpectralCycle(inputs.dailyBars);
+  const campaignLeg = computeCampaignLeg(inputs.dailyBars);
+  const volumeClimaxReadings = computeVolumeClimax(inputs.dailyBars);
+  const boilingPoint = computeBoilingPoint(inputs.dailyBars, volumeClimaxReadings);
 
   // Digital Root/Vortex context (blueprint sections 2, 7, 18): price_dr from
   // the normalized tick displacement off the anchor, time_dr from bars
@@ -230,7 +258,34 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
   }
   if (nearestFan) {
     explanationTrace.push(
-      `Nearest structural angle line: ${nearestFan.angle} at ${nearestFan.price.toFixed(2)} (${nearestFan.role}, ${nearestFan.distancePct.toFixed(2)}% away).`,
+      `Nearest structural angle line: ${nearestFan.angle} at ${nearestFan.price.toFixed(2)} (${nearestFan.role}, ${nearestFan.distancePct.toFixed(2)}% away)` +
+        (nearestFan.timeProjectionDate
+          ? `, time-projected target date ${nearestFan.timeProjectionDate}.`
+          : "."),
+    );
+  }
+  if (nearestMasterTwelve) {
+    explanationTrace.push(
+      `Nearest Master Twelve level: ${nearestMasterTwelve.price.toFixed(2)} (${nearestMasterTwelve.role}, ${nearestMasterTwelve.distancePct.toFixed(2)}% away, degree ${nearestMasterTwelve.degree}, rotation ${nearestMasterTwelve.rotation}).`,
+    );
+  }
+  if (squareOf52.active) {
+    explanationTrace.push(`Active Square of 52 weekly window (nearby dates: ${squareOf52.dates.slice(0, 3).join(", ") || "n/a"}).`);
+  }
+  if (angleMonthCountsResult.active) {
+    explanationTrace.push(
+      `Active 36-angle month-count window (nearby dates: ${angleMonthCountsResult.dates.slice(0, 3).join(", ") || "n/a"}).`,
+    );
+  }
+  explanationTrace.push(`Spectral cycle: ${spectralCycle.note}`);
+  if (campaignLeg.legNumber != null) {
+    explanationTrace.push(
+      `Campaign leg ${campaignLeg.legNumber} since the last major (9-day) trend change (${campaignLeg.confidence} confidence — reversals on the 3rd/4th leg are trusted more than the 2nd).`,
+    );
+  }
+  for (const bp of boilingPoint) {
+    explanationTrace.push(
+      `${bp.weeksSinceClimax} weeks since the ${bp.anchorKind} volume-climax anchor (${bp.phase} — the disclosed exhaustion window is 6-7 weeks, rarely past 10).`,
     );
   }
   explanationTrace.push(
@@ -273,6 +328,12 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
     timeCycleFixedCalendarActive: cycles.fixedCalendarActive,
     timeCycleFixedCalendarDates: cycles.fixedCalendarDates,
     decadeCycle: computeDecadeCycle(),
+    nearestMasterTwelve,
+    squareOf52,
+    angleMonthCounts: angleMonthCountsResult,
+    spectralCycle,
+    campaignLeg,
+    boilingPoint,
     vortexContext,
     angleSlope,
     coordinateLedger,

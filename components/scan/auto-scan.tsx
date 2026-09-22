@@ -64,8 +64,25 @@ export function AutoScan({ scanDate }: { scanDate: string | null }) {
       inFlight = (async () => {
         try {
           const res = await fetch("/api/market-scan", { method: "POST" });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+
+          // A platform-level failure (Vercel killing the function on a 60s
+          // timeout, or a 502/504 from the gateway) returns a plain-text or
+          // HTML error page, not the route's own JSON body. Parsing that as
+          // JSON throws a cryptic native error ("The string did not match
+          // the expected pattern." on Safari, "Unexpected token" elsewhere)
+          // that has nothing to do with the actual scan failure — check
+          // res.ok and the content type before trusting res.json().
+          const isJson = res.headers.get("content-type")?.includes("application/json");
+          const data = isJson ? await res.json() : null;
+          if (!res.ok) {
+            throw new Error(
+              data?.error ??
+                (res.status === 504 || res.status === 502
+                  ? "The scan is taking too long and timed out server-side. Try again in a moment."
+                  : `HTTP ${res.status}`),
+            );
+          }
+          if (!data) throw new Error("Scan response was not valid JSON.");
           const found = (data.bullish?.length ?? 0) + (data.bearish?.length ?? 0);
           if (mounted.current) {
             setMsg({

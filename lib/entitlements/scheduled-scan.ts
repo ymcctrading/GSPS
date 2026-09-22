@@ -29,22 +29,38 @@
  * premarket-scan.yml pattern. That's the cron-slot question; it's separate
  * from provider call volume (below).
  *
- * Runs at runMarketScan()'s full default budget (universeTop=100,
- * perSide=15), the same as the existing 08:30/17:30 ET crons -- these two
- * jobs were originally throttled to a smaller universe pending confirmation
- * that four full scans/day stays under every provider's rate limit
- * end-to-end. Restored to full capacity 2026-08-26: with a single active
- * user, the extra two scans/day add negligible request volume against
- * Alpaca's (the primary provider's) ~200 req/min, no-documented-daily-cap
- * limit. Revisit -- reintroduce a reduced budget, e.g. via an explicit
- * `runMarketScan(20, 5)` call -- once concurrent usage grows enough that
- * four full scans/day could plausibly approach a real provider ceiling
+ * Runs at `FULL_UNIVERSE_TOP` (lib/marketScan.ts) / perSide=15 -- the same
+ * full big-cap universe budget as the 08:30/17:30 ET `/api/market-scan`
+ * crons, not the bare `runMarketScan()` default of 100 these jobs used to
+ * fall back to. See `FULL_UNIVERSE_TOP`'s own comment for why leaving this
+ * at the default silently under-covered the universe (a same-day "most
+ * actives" pool could fill the whole 100-symbol budget before the curated
+ * large-cap list was ever reached) -- the dashboard-vs-manual-scan gap this
+ * widening exists to close. These jobs were originally throttled to a
+ * smaller universe pending confirmation that multiple full scans/day stays
+ * under every provider's rate limit end-to-end; restored to full capacity
+ * 2026-08-26, and widened again 2026-09-17 to actually cover the full
+ * universe rather than just the pre-widening default. With a single active
+ * user, the extra scans/day add negligible request volume against Alpaca's
+ * (the primary provider's) ~200 req/min, no-documented-daily-cap limit.
+ * Revisit -- reintroduce a reduced budget -- once concurrent usage grows
+ * enough that these scans could plausibly approach a real provider ceiling
  * (docs/THIRD_PARTY_LIMITS.md has the actual per-provider numbers).
+ *
+ * Every run here also persists its top-`perSide` bullish/bearish results to
+ * `daily_scans` (lib/scan/publish.ts), the same table `/api/market-scan`
+ * writes -- so the Home dashboard's Buy/Sell setups cards refresh at every
+ * scheduled checkpoint in the day, not only the 08:30/17:30 ET runs. A
+ * same-day rerun overwrites the prior run's rank slots (daily_scans' own
+ * `(scan_date, direction, rank)` unique key), which is the desired
+ * behavior: the cards always show the latest run's highest-scored setups,
+ * and a setup that no longer ranks simply drops off on the next write.
  */
 
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
-import { runMarketScan } from "@/lib/marketScan";
+import { FULL_UNIVERSE_TOP, runMarketScan } from "@/lib/marketScan";
+import { buildScanRows, describeDbError, persistDailyScans } from "@/lib/scan/publish";
 import { createServiceClient } from "@/lib/supabase/server";
 import { isTradingDay } from "@/lib/market/calendar";
 import { etDateKey } from "@/lib/market/session";
@@ -59,7 +75,12 @@ import { recordShadowSignals } from "@/lib/shadow/record";
 import { evaluatePendingShadowSignals } from "@/lib/shadow/evaluate";
 import { evaluateShadowDrift, EXECUTE_TIER_BACKTEST_BASELINE } from "@/lib/shadow/compare";
 
-export type ScheduledScanSource = "scheduled_morning_scan" | "scheduled_morning_confirmation_scan";
+export type ScheduledScanSource =
+  | "scheduled_morning_scan"
+  | "scheduled_morning_confirmation_scan"
+  | "scheduled_first_90min_scan"
+  | "scheduled_midday_scan"
+  | "scheduled_afternoon_scan";
 
 function unauthorized(): NextResponse {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -167,7 +188,7 @@ export async function runScheduledScan(
   let output;
   try {
     const { universe } = await getUniversePolicy(service);
-    output = await runMarketScan(undefined, undefined, universe);
+    output = await runMarketScan(FULL_UNIVERSE_TOP, undefined, universe);
   } catch (err) {
     // Fail closed: an upstream provider failure must not grant access to a
     // stale/partial signal or silently record an empty successful run.
@@ -181,6 +202,24 @@ export async function runScheduledScan(
     ...output.bearish.map((r) => ({ side: "sell" as const, rank: r.decision.score, value: r })),
   ];
   const eligibleCount = qualifying.length;
+
+  // Best-effort, outside every other try/catch here: a `daily_scans` write
+  // failure must never be mistaken for the scan/fan-out itself failing, and
+  // must never block either. Refreshes the Home dashboard's Buy/Sell setups
+  // cards with this run's top-`perSide` results, same as `/api/market-scan`
+  // -- see this function's header comment above.
+  try {
+    const rows = [
+      ...buildScanRows(output.scanDate, "bullish", output.bullish),
+      ...buildScanRows(output.scanDate, "bearish", output.bearish),
+    ];
+    const outcome = await persistDailyScans(service, output.scanDate, rows);
+    if (outcome.error) {
+      console.error(`${source}: daily_scans not saved — ${outcome.error}`);
+    }
+  } catch (err) {
+    console.error(`${source}: daily_scans not saved — ${describeDbError(err)}`);
+  }
 
   // A symbol this run actually gave a full multi-timeframe pass and found
   // clean (no armed pattern, or no directional trade plan) is the same
@@ -316,10 +355,22 @@ async function fanOutToProfiles(
 
   for (const profile of profiles as { id: string; tier: PlatformTier | null }[]) {
     const policy = getEntitlementPolicy(profile.tier ?? "PRACTICE");
+    // The 9:45 AM, ~11:00 AM, and ~2:00 PM jobs all share
+    // morningConfirmationScanEnabled with the 9:15 AM one rather than each
+    // getting their own policy field -- every flag here is `true` for every
+    // tier today (see policy.ts), so a fourth/fifth field would carry no
+    // behavioral difference from the second. Written as an explicit branch,
+    // not folded into the ternary above, so a source added later can't
+    // silently fall through to whichever arm happens to be `else`.
     const scheduleEnabled =
       args.source === "scheduled_morning_scan"
         ? policy.morningPreparationScanEnabled
-        : policy.morningConfirmationScanEnabled;
+        : args.source === "scheduled_morning_confirmation_scan" ||
+            args.source === "scheduled_first_90min_scan" ||
+            args.source === "scheduled_midday_scan" ||
+            args.source === "scheduled_afternoon_scan"
+          ? policy.morningConfirmationScanEnabled
+          : false;
     if (!scheduleEnabled) continue;
 
     try {

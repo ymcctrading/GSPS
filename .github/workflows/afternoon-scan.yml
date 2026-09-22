@@ -1,0 +1,35 @@
+name: Afternoon scan
+
+# The ~2:00 PM ET scheduled scan from app/api/scans/afternoon's header
+# comment -- added alongside midday-scan.yml to close the coverage gap
+# between the 9:45 AM first-90min scan and the 5:30 PM post-close run. Both
+# Vercel cron slots are already spent (see docs/THIRD_PARTY_LIMITS.md), so
+# this follows the same GitHub-Actions pattern as premarket-scan.yml and the
+# other scheduled-scan workflows rather than vercel.json.
+#
+# 18:00 UTC = 2:00 PM ET during EDT (UTC-4, roughly mid-March to early
+# November). During EST (UTC-5) this actually fires at 1:00 PM ET -- the
+# same DST drift every other fixed-UTC scheduled-scan workflow in this repo
+# already accepts, for the same reason: the route's output doesn't depend
+# on being called at exactly its nominal minute.
+on:
+  schedule:
+    - cron: '0 18 * * 1-5'
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    name: Trigger /api/scans/afternoon
+    steps:
+      - name: Call afternoon scan
+        run: |
+          status=$(curl -sS -o /tmp/response.json -w '%{http_code}' \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ vars.PRODUCTION_URL || 'https://gsps.vercel.app' }}/api/scans/afternoon")
+          echo "HTTP $status"
+          cat /tmp/response.json
+          if [ "$status" -ge 300 ]; then
+            echo "afternoon scan returned $status" >&2
+            exit 1
+          fi

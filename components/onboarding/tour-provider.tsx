@@ -27,10 +27,19 @@
 import * as React from "react";
 import { TourOverlay } from "@/components/onboarding/tour-overlay";
 import type { OnboardingStatus, TourOutcome } from "@/lib/onboarding/status";
+import type { TourMode } from "@/lib/onboarding/tour";
 
 interface TourControls {
-  /** Open the tour from the beginning. Used by the replay buttons. */
-  startTour: () => void;
+  /**
+   * Open the tour from the beginning. Used by the replay buttons.
+   *
+   * `mode` is optional on purpose: passing "quick" or "full" skips straight
+   * into that track (a reader who already picked one on /welcome or Settings
+   * should not be asked again), while leaving it out opens the mode chooser
+   * instead — the path every first-run auto-launch takes, since nobody has
+   * expressed a preference yet.
+   */
+  startTour: (mode?: TourMode) => void;
 }
 
 const TourContext = React.createContext<TourControls | null>(null);
@@ -46,6 +55,7 @@ export function useTour(): TourControls {
 
 export function TourProvider({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = React.useState(false);
+  const [initialMode, setInitialMode] = React.useState<TourMode | null>(null);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -53,6 +63,7 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
       .then((res) => (res.ok ? (res.json() as Promise<OnboardingStatus>) : null))
       .then((status) => {
         if (cancelled || !status || status.seen) return;
+        setInitialMode(null);
         setOpen(true);
       })
       .catch(() => {
@@ -78,13 +89,16 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const startTour = React.useCallback(() => setOpen(true), []);
+  const startTour = React.useCallback((mode?: TourMode) => {
+    setInitialMode(mode ?? null);
+    setOpen(true);
+  }, []);
   const controls = React.useMemo(() => ({ startTour }), [startTour]);
 
   return (
     <TourContext.Provider value={controls}>
       {children}
-      <TourOverlay open={open} onClose={close} />
+      <TourOverlay open={open} initialMode={initialMode} onClose={close} />
     </TourContext.Provider>
   );
 }
@@ -95,17 +109,24 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
  * Styling is passed in rather than fixed, because the two callers want
  * different weights: Settings wants a quiet secondary control among other
  * settings, `/welcome` wants the primary action on the page.
+ *
+ * `mode` mirrors `TourControls.startTour`: omit it for a button that opens
+ * the mode chooser, or fix it to "quick"/"full" for a button that commits to
+ * one track directly (a page that already offers both as separate buttons
+ * shouldn't make the reader choose twice).
  */
 export function StartTourButton({
   children,
   className,
+  mode,
 }: {
   children: React.ReactNode;
   className?: string;
+  mode?: TourMode;
 }) {
   const { startTour } = useTour();
   return (
-    <button type="button" onClick={startTour} className={className}>
+    <button type="button" onClick={() => startTour(mode)} className={className}>
       {children}
     </button>
   );

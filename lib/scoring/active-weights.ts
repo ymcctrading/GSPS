@@ -4,8 +4,20 @@
  * `lib/backtest/propose-weights.ts` writes proposals as **draft** rows in
  * `learning_models`. A draft changes nothing. Only when a human promotes one to
  * `live` — the governance path the learning schema was built for — does this
- * function start returning it, and from then on the score is one the market
- * voted on rather than one somebody assumed.
+ * function start returning it.
+ *
+ * **A promoted row silently outranks `DEFAULT_CRITERION_WEIGHTS`, with no
+ * deploy and no diff.** That is the whole point of the governance path, and
+ * also its hazard: a change to the default in the repo is invisible in
+ * production while a live row exists. Check `learning_models` before
+ * concluding anything about what the live scan scores with.
+ *
+ * What a promotion is *not*: a verdict from the market on which of Gann's
+ * conditions matter more. AGENTS.md's "Gann-derived AND measured" gives
+ * measurement a narrower job — verifying that our translation of a Gann rule
+ * into code is faithful — and "The scorecard's role" explains why a non-equal
+ * weight is a substantive claim the scorecard has no source for. A promoted
+ * weight set should be correcting a translation, not ranking the criteria.
  *
  * Three properties this has to hold, because it sits in the path of every scan:
  *
@@ -19,6 +31,7 @@
  */
 
 import {
+  CRITERION_KEYS,
   DEFAULT_CRITERION_WEIGHTS,
   parseCriterionWeights,
   type CriterionWeights,
@@ -56,6 +69,40 @@ export async function getActiveWeightSet(
 ): Promise<{ weights: CriterionWeights; version: number | null }> {
   const { weights, version } = await load(now);
   return { weights, version };
+}
+
+/**
+ * Is this stored weight set addressed to the scorecard we actually run?
+ *
+ * A promoted row is a statement about a specific set of criteria. Change
+ * `CRITERION_KEYS` — retire one, add one — and the row is no longer about
+ * this scorecard, but `parseCriterionWeights` cannot tell: it reads the keys
+ * it recognises, ignores the ones it does not, and renormalises the remainder
+ * to `TOTAL_POINTS`. The result is a well-formed weight set that nobody
+ * proposed and nobody approved, and it is indistinguishable at the call site
+ * from one that was.
+ *
+ * That is not hypothetical. The v1 `score_adjustment` row promoted on
+ * 2026-09-16 was proposed against ten criteria including `adxTrendStrength`.
+ * When that criterion was discarded hours later, the row kept being adopted —
+ * its nine surviving weights silently rescaled into a distribution that had
+ * never been measured or reviewed in that shape, still outranking the uniform
+ * default the repo had just committed to. See AGENTS.md's "Gann-derived AND
+ * measured" and `DEFAULT_CRITERION_WEIGHTS`'s doc comment.
+ *
+ * So the key set must match exactly. A row that does not is stale by
+ * construction, and the safe reading of a stale proposal is no proposal:
+ * re-run `lib/backtest/propose-weights.ts` against the current criteria and
+ * promote the result deliberately.
+ */
+export function isWeightSetAddressedToCurrentCriteria(stored: unknown): boolean {
+  if (!stored || typeof stored !== "object" || Array.isArray(stored)) return false;
+  const storedKeys = Object.keys(stored as Record<string, unknown>).sort();
+  const currentKeys = [...CRITERION_KEYS].sort();
+  return (
+    storedKeys.length === currentKeys.length &&
+    storedKeys.every((k, i) => k === currentKeys[i])
+  );
 }
 
 async function load(now: number): Promise<Cached> {
@@ -102,6 +149,20 @@ async function fetchLiveWeights(now: number): Promise<Cached> {
     const row = data as { version: number; coefficients: Record<string, unknown> | null };
     const stored = row.coefficients?.criterion_weights;
     if (!stored) return fallback;
+
+    // A row proposed against a different criteria set is not a proposal about
+    // this one — see `isWeightSetAddressedToCurrentCriteria` above. Fall back
+    // rather than silently rescaling somebody's stale arithmetic into a
+    // distribution they never approved, and say so loudly enough that the
+    // promoted row gets re-derived rather than quietly ignored forever.
+    if (!isWeightSetAddressedToCurrentCriteria(stored)) {
+      console.warn(
+        `[active-weights] Ignoring live ${SCORE_WEIGHT_MODEL_TYPE} v${row.version}: ` +
+          `its criteria set does not match the current one. Re-run propose-weights ` +
+          `and promote a fresh model. Scoring with the uniform default meanwhile.`,
+      );
+      return fallback;
+    }
 
     return { weights: parseCriterionWeights(stored), version: row.version, at: now };
   } catch {

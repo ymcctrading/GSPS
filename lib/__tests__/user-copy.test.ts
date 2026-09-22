@@ -17,15 +17,18 @@ import { describe, expect, it } from "vitest";
 import type { Bar, GannLevels, StratPattern, TradeLevels, TrendReading } from "@/lib/types";
 import { applyReversionConfirmation, computeScore, type ScoreInputs } from "@/lib/scoring/score";
 import { detectPatterns } from "@/lib/strat/patterns";
+import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 import { computeTradeLevels } from "@/lib/strat/levels";
 import { CRITERION_KEYS, type CriterionWeights } from "@/lib/scoring/weights";
 
 /**
  * `computeScore(allPass).score` is asserted to be exactly 9 below — only
  * true when every criterion is worth one point. `DEFAULT_CRITERION_WEIGHTS`
- * (what `computeScore` falls back to when no `weights` is supplied) is a
- * hand-set, evidence-based rebalance as of 2026-09-14, not one point each —
- * see its own doc comment in lib/scoring/weights.ts.
+ * (what `computeScore` falls back to when no `weights` is supplied) is
+ * uniform again as of 2026-09-16, so it matches this today — but it is still
+ * supplied explicitly, so a future change to the live default cannot
+ * silently break the arithmetic below. See that constant's own doc comment
+ * in lib/scoring/weights.ts.
  */
 const UNIFORM_WEIGHTS: CriterionWeights = Object.fromEntries(
   CRITERION_KEYS.map((k) => [k, 1]),
@@ -81,7 +84,7 @@ const gann: GannLevels = {
   angleSlopes: [
     { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, slope: 1.1, nearestAngle: { label: "1x1", ratio: 1, direction: "up" } },
   ],
-  retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100.5, distancePct: 0.2, role: "support" }],
+  retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100.5, distancePct: 0.2, role: "support", importance: 1 }],
   digitalRootConfluences: [{ anchorKind: "low", priceRoot: 1, timeRoot: 8, type: "COMPLEMENTARY_PAIR" }],
 };
 
@@ -108,6 +111,13 @@ const pattern: StratPattern = {
   description: "",
 };
 
+/**
+ * What actually arms the trade since 2026-09-17 — the swing-level crossing
+ * (`lib/gann/entryTrigger.ts`), not the bar sequence above. Same prices, so
+ * each fixture's intent is unchanged; `pattern` stays for the display role.
+ */
+const gannTrigger = { direction: "bullish" as const, triggerPrice: 100, stopPrice: 95 };
+
 /** Every criterion passing — exercises the affirmative half of each note. */
 const allPass: ScoreInputs = {
   direction: "bullish",
@@ -115,17 +125,18 @@ const allPass: ScoreInputs = {
   // counter-trend-into-a-level premise.
   macroTrends: [trend("bullish"), trend("bullish"), trend("bullish")],
   hourlyTrend: trend("bullish"),
-  hourlyAdx: { adx: 25, plusDI: 20, minusDI: 10 },
   swingChart: { threeDay: "bullish", nineDay: "bullish" },
+  ruleOfThree: { consecutiveLowerCloses: 0, consecutiveHigherCloses: 2, bullishSignal: true, bearishSignal: false },
   timePriceSquare: [
     { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMoveAtrUnits: 10, squared: true },
   ],
   volumeClimax: [
-    { anchorKind: "low", anchorPrice: 90, relativeVolume: 2, bestRecentRelativeVolume: 2, climax: true },
+    { anchorKind: "low", anchorPrice: 90, anchorIndex: 0, relativeVolume: 2, bestRecentRelativeVolume: 2, climax: true },
   ],
   gann,
   nearSupportResistance: true,
   pattern,
+  gannTrigger,
   momentumElevated: true,
   stopAtrMultiple: 2,
   levels,
@@ -255,8 +266,19 @@ describe("trade level messages", () => {
     // caught because it only exercises detectPatterns' own description field.
     const names: StratPattern["name"][] = ["2-1-2", "2-2", "1-2-2", "3-2-2", "3-1-2", "PMG"];
     const prev = bar(98, 101, 96, 99);
+    // The setup label is now passed explicitly (`EntrySource.setupLabel`)
+    // rather than looked up from `pattern.name` inside `buildPivotPlan`, since
+    // the trade plan is priced from a swing-crossing trigger that has no
+    // bar-sequence name. The leak this test guards against is unchanged: a raw
+    // code like "1-2-2" must never reach the sentence, so feed each one
+    // through the glossary exactly as the live caller does.
     const plans = names.map(
-      (name) => computeTradeLevels({ ...pattern, name, triggerPrice: 100, stopPrice: 99 }, prev, []).pivotPlan,
+      (name) =>
+        computeTradeLevels(
+          { ...pattern, setupLabel: PATTERN_GLOSSARY_TERM[name], triggerPrice: 100, stopPrice: 99 },
+          prev,
+          [],
+        ).pivotPlan,
     );
     const confirmations = plans.map((p) => p?.confirmation);
     expect(confirmations.every((c) => typeof c === "string")).toBe(true);

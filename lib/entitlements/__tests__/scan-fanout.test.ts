@@ -3,11 +3,18 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { RankedSetup } from "@/lib/entitlements/result-selection";
 import type { ScanResult } from "@/lib/types";
 
-const { evaluateMonitorMock, recordNotificationDeliveryMock, dispatchNotificationDeliveryMock, getEnabledChannelsMock } = vi.hoisted(() => ({
+const {
+  evaluateMonitorMock,
+  recordNotificationDeliveryMock,
+  dispatchNotificationDeliveryMock,
+  getEnabledChannelsMock,
+  recordInAppNotificationMock,
+} = vi.hoisted(() => ({
   evaluateMonitorMock: vi.fn(),
   recordNotificationDeliveryMock: vi.fn(),
   dispatchNotificationDeliveryMock: vi.fn(),
   getEnabledChannelsMock: vi.fn(),
+  recordInAppNotificationMock: vi.fn(),
 }));
 
 vi.mock("@/lib/entitlements/monitor-store", () => ({ evaluateMonitor: evaluateMonitorMock }));
@@ -15,6 +22,7 @@ vi.mock("@/lib/entitlements/delivery", () => ({
   recordNotificationDelivery: recordNotificationDeliveryMock,
   dispatchNotificationDelivery: dispatchNotificationDeliveryMock,
   getEnabledChannels: getEnabledChannelsMock,
+  recordInAppNotification: recordInAppNotificationMock,
 }));
 
 import { evaluateMonitorsAndNotify } from "@/lib/entitlements/scan-fanout";
@@ -41,6 +49,8 @@ beforeEach(() => {
   recordNotificationDeliveryMock.mockReset();
   dispatchNotificationDeliveryMock.mockReset();
   getEnabledChannelsMock.mockReset();
+  recordInAppNotificationMock.mockReset();
+  recordInAppNotificationMock.mockResolvedValue(undefined);
 });
 
 describe("evaluateMonitorsAndNotify", () => {

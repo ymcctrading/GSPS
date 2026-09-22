@@ -13,11 +13,9 @@ name: Morning Preparation scan
 # schedule, for the same reason: the route's output doesn't depend on being
 # called at exactly its nominal minute. Revisit if that stops being true.
 #
-# lib/entitlements/scheduled-scan.ts runs this at a deliberately reduced
-# universe/per-side budget (MORNING_SCAN_UNIVERSE_TOP / MORNING_SCAN_PER_SIDE)
-# rather than the main scan's full budget -- see that file's header comment
-# for why, and for exactly what to change once a higher-tier plan is in
-# place (expected within ~60 days of 2026-08-26).
+# lib/entitlements/scheduled-scan.ts runs this at the full big-cap universe
+# budget (FULL_UNIVERSE_TOP in lib/marketScan.ts) -- see that file's header
+# comment for the current budget and when to reintroduce a reduced one.
 on:
   schedule:
     - cron: '0 10 * * 1-5'

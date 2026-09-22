@@ -110,11 +110,19 @@ unbuilt" candidates named in the third update above are unbuilt no longer.
 the Master Time Factor material) now exist, each with a
 `lib/gann/__tests__/` file reproducing the source's own worked historical
 examples as passing assertions — see §5 items 13 and 15 below for the
-per-module detail. All five are confluence/display or internal-research
-use only: none reach `GannConfluenceResult`, the public scan confluence
-card, or any `app/api/*` scan route, and none are scored or gated in
-`lib/scoring/`, per AGENTS.md's explicit instruction for this class of
-material. The broader 60/50/30/20/15/10/7/5/3/2/1-year Master Time Factor
+per-module detail. **Fifth update (2026-09-16, third pass, same day):**
+this paragraph's "all five are confluence/display or internal-research use
+only, none reach `GannConfluenceResult`" claim was itself stale within
+hours — a fresh audit (per AGENTS.md's own cross-platform-consistency
+worked examples: a fix "quietly undermining" runs for "another full day"
+is exactly this shape of defect) found three of the five
+(`masterTwelve.ts`, `squareOf52.ts`, `angleMonthCounts.ts`) had no genuine
+technical reason to stay stranded and are now wired into
+`GannConfluenceResult`/`components/scan/confluence-card.tsx`, confluence
+only, never scored. `squareOf20.ts` and `hexagonChart.ts` keep the
+research-only exception — a real one, since their ring/angle output can't
+be checked against lost original chart illustrations. See §5 item 15 for
+full detail. The broader 60/50/30/20/15/10/7/5/3/2/1-year Master Time Factor
 cycle hierarchy and `lib/gann/decadeDigitCycle.ts` (item 14) remain open —
 out of this pass's scope, not forgotten.
 
@@ -591,17 +599,17 @@ tuned scoring," except where flagged otherwise.
     used as the default projection set. Its unit tests reproduce the exact
     calendar-month arithmetic behind the 1896-1935 DJIA case study's two
     round numbers (Aug 1896 → Nov 1907 = 135 months; a 1909 top → Sept
-    1929 = 240 months). **Still open**: the broader
-    60/50/30/20/15/10/7/5/3/2/1-year cycle hierarchy with its eight
-    numbered forecasting rules — a separate, larger construction from the
-    same chapter, not built this session (would still warrant its own
-    `lib/gann/masterTimeFactor.ts`, or a rename of this module if scope is
-    merged later). This is the fullest disclosed statement of "the
-    withheld timing mechanism"'s outer shell found in this whole catalog —
-    date/angle arithmetic against known pivots, no new statistical
-    machinery. Should supersede, not sit beside, `lib/gann/timeCycles.ts`'s
-    existing narrower 45/90/120/180/270/360-day wheel, if/when the
-    cycle-hierarchy half is also built.
+    1929 = 240 months). **"Still open" note stale as of 2026-09-16,
+    corrected here**: the broader 60/50/30/20/15/10/7/5/3/2/1-year cycle
+    hierarchy this item previously described as unbuilt is already
+    implemented — `lib/gann/timeCycles.ts`'s `MAJOR_CYCLE_YEARS` constant
+    (`[1, 2, 3, 5, 7, 10, 15, 20, 30, 50, 60]`) is exactly this list and is
+    wired into `scanTicker.ts`, `lib/backtest/replay.ts`, and the
+    confluence layer, sitting alongside that module's narrower
+    45/90/120/180/270/360-day wheel rather than a separate module. This is
+    the fullest disclosed statement of "the withheld timing mechanism"'s
+    outer shell found in this whole catalog — date/angle arithmetic against
+    known pivots, no new statistical machinery.
 14. **New candidate: `lib/gann/decadeDigitCycle.ts`** (A2.1 Ch. 7) — the
     bull/bear decade-digit cycle, upgraded this session from the
     unverifiable secondary source B9 to Gann's own private-course voice.
@@ -613,10 +621,22 @@ tuned scoring," except where flagged otherwise.
     calendar-year-digit lookup, no pivot detection).
 15. **`lib/gann/masterTwelve.ts` (Square of 144), `squareOf20.ts`,
     `squareOf52.ts`, `hexagonChart.ts`** (A2.1 Ch. 13/7/14/15B) — built
-    2026-09-16, all four confluence/display or internal-research use only,
-    never wired into `GannConfluenceResult`/`components/scan/confluence-
-    card.tsx`/any `app/api/*` scan route, never scored or gated in
-    `lib/scoring/`. `masterTwelve.ts` generalizes `squareOf9.ts`'s spiral
+    2026-09-16. **Correction, same day, second pass:** all four had been
+    left "internal-research use only, never wired into `GannConfluenceResult`"
+    with no per-module technical justification beyond that blanket label —
+    itself a violation of AGENTS.md's cross-platform-consistency rule
+    ("built once and left stranded... is not partially done — treat it as
+    not done"). Re-audited: `masterTwelve.ts` (nearest-level lookup) and
+    `squareOf52.ts`/`angleMonthCounts.ts` (both `{active, dates}`, the same
+    shape `timeCycles.ts` already surfaces live) have no dependency on the
+    original chart illustrations and are now wired into
+    `GannConfluenceResult.nearestMasterTwelve`/`.squareOf52`/
+    `.angleMonthCounts` and rendered in `components/scan/confluence-card.tsx`,
+    confluence/ranking only, never scored in `lib/scoring/`. `squareOf20.ts`
+    and `hexagonChart.ts` keep their exception — a real, technical one:
+    their ring/angle placement can't be checked against the original
+    hand-drawn wheel/chart, lost to this text-only extraction — see each
+    module's own header. `masterTwelve.ts` generalizes `squareOf9.ts`'s spiral
     formula to base 12 and encodes the two systems' confirmed nesting
     (`HALVING_CHAIN` from the 20,736 Great Cycle down to 81 = 9² = the
     Square of Nine's own grid) plus the wheat 1852/325/44¢ worked example
@@ -642,6 +662,19 @@ tuned scoring," except where flagged otherwise.
     price-domain eighths table (different anchor convention, different
     disclosed fraction set — a real exception, not an oversight, per
     AGENTS.md's cross-platform consistency principle).
+16. **Open-interest culmination rule** (`GANN_HISTORICAL_SOURCES.md` A8, the
+    fifth of the volume/open-interest culmination rules) — reviewed 2026-09-16,
+    intentionally not built. Open interest is a derivatives-contract concept
+    with no counterpart for a share of stock or a spot crypto holding, and
+    `AssetClass`/`Bar` (`lib/types.ts`) carried no such field for either of
+    GSPS's two supported asset classes at the time this was written
+    (`"us_equity" | "crypto"`; a third, `"commodity"`, was added the same day
+    per the addendum below, but as an unconnected data-path stub with no real
+    feed — this item's reasoning is unchanged until that changes). Documented
+    as a real asset-class exception in `lib/gann/volumeClimax.ts`'s own header
+    rather than silently omitted, per AGENTS.md's cross-platform-consistency
+    carve-out. Revisit only if GSPS ever adds a futures/options asset class
+    with a real open-interest feed.
 
 ## Addendum (2026-09-16): "Observation of Cycles" folder audit — Dewey/Tomes findings
 

@@ -188,14 +188,19 @@ describe("computeTradeLevels", () => {
 
   it("states the counter-scenario against the stop actually computed, not the pattern's raw stop", () => {
     const pattern = {
-      name: "2-2" as const,
       direction: "bearish" as const,
       triggerPrice: 100,
       stopPrice: 115,
-      description: "",
+      // The setup label is now supplied by the caller (`EntrySource.setupLabel`)
+      // rather than derived from a bar-sequence name inside buildPivotPlan —
+      // the live scan prices from a swing-crossing trigger that has no such
+      // name. Passing one here keeps this test exercising the real contract.
+      setupLabel: "failed-push reversal",
     };
     const levels = computeTradeLevels(pattern, { t: "", o: 98, h: 101, l: 96, c: 99, v: 0 }, []);
     expect(levels.pivotPlan?.confirmation).toContain("bearish failed-push reversal");
+    // The assertion this test is actually named for: the copy quotes the stop
+    // that was COMPUTED (115 is the raw input; levels.stopLoss may differ).
     expect(levels.pivotPlan?.confirmation).toContain(levels.stopLoss.toFixed(2));
     // No session context exists at this timeframe to derive the pivot
     // trade's own stop from — deliberately left null rather than fabricated.

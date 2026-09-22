@@ -400,8 +400,40 @@ export function computeStopWithLeeway(params: {
   return sl;
 }
 
+/**
+ * The minimum an entry rule must supply to price a trade: a direction, the
+ * price that arms it, and the structural stop behind it.
+ *
+ * Widened from `StratPattern` to this on 2026-09-17 so the trade plan is
+ * priced from Gann's own entry rule (`lib/gann/entryTrigger.ts` — crossing an
+ * old swing top/bottom plus the "lost motion" allowance) rather than from the
+ * bar-sequence pattern's trigger. `StratPattern` still satisfies this shape
+ * structurally, which is what keeps the existing tests meaningful, but the
+ * live scan and the replay now both pass a `GannEntryTrigger`.
+ *
+ * Nothing else in this function changed: it only ever read `direction`,
+ * `triggerPrice` and `stopPrice` off its first argument. Naming that
+ * explicitly is the point — the dependency was on three numbers, not on
+ * STRAT, and the old signature hid that.
+ */
+export interface EntrySource {
+  direction: "bullish" | "bearish";
+  /** The price that must be exceeded for the trade to trigger. */
+  triggerPrice: number;
+  /** Structural stop behind the trigger. */
+  stopPrice: number;
+  /**
+   * Short, user-facing name for the setup, used in the invalidation copy.
+   * Optional because the two sources name themselves differently: a
+   * bar-sequence pattern has a glossary term keyed by `name`, while a
+   * swing-crossing trigger is described by what it crossed. When absent,
+   * `buildPivotPlan` falls back to a neutral phrase rather than inventing one.
+   */
+  setupLabel?: string;
+}
+
 export function computeTradeLevels(
-  pattern: StratPattern,
+  pattern: EntrySource,
   previousBar: Bar,
   gannTargets: number[],
   optionPremium?: number,
@@ -593,13 +625,17 @@ export function computeTradeLevels(
  * honest about what this timeframe actually knows, rather than fabricating
  * a level nothing in the pattern supports.
  */
-function buildPivotPlan(pattern: StratPattern, stopLoss: number, entry: number): PivotPlan {
+function buildPivotPlan(pattern: EntrySource, stopLoss: number, entry: number): PivotPlan {
   const bullish = pattern.direction === "bullish";
   const opposite = bullish ? "bearish" : "bullish";
+  // "setup" is the neutral fallback: a trigger that isn't a named bar sequence
+  // still has a thesis to invalidate, and naming it something it isn't would
+  // be worse than naming it generically.
+  const label = pattern.setupLabel ?? "setup";
   return {
     confirmation:
-      `This ${pattern.direction} ${PATTERN_GLOSSARY_TERM[pattern.name].toLowerCase()} thesis is invalidated if price closes back through the stop at ${stopLoss.toFixed(2)}. ` +
-      `Even then, a ${opposite} trade needs its own evidence: a fresh pattern confirming in the ${opposite} direction, not just this one stopping out.`,
+      `This ${pattern.direction} ${label.toLowerCase()} thesis is invalidated if price closes back through the stop at ${stopLoss.toFixed(2)}. ` +
+      `Even then, a ${opposite} trade needs its own evidence: a fresh setup confirming in the ${opposite} direction, not just this one stopping out.`,
     invalidation: null,
     // Mirrors intraday's choice of VWAP (the level a reversal is expected to
     // retest first): here, that's the level the original thesis entered at.

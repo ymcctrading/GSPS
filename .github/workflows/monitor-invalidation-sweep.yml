@@ -1,0 +1,45 @@
+name: Monitor invalidation sweep
+
+# Twice an hour, market hours only, per project owner direction
+# (2026-09-17): a cheap live stop-check against every open active_monitors
+# row (WATCH/EXECUTE, across every profile), so a tracked setup that already
+# broke its stop drops off the dashboard well before the next full
+# scheduled scan happens to rescan that exact symbol. See
+# app/api/monitors/invalidation-sweep/route.ts's header for what this does
+# and, just as importantly, what it does NOT do -- it is one live price
+# fetch per distinct tracked symbol, never a full universe rescan.
+#
+# `:15` and `:45` past the hour, the "15 & 45 mark of every hour" option the
+# project owner offered. `13-21 UTC` is wider than the actual 09:30-16:00 ET
+# session on purpose -- same reasoning as intraday-scan.yml's equity-hours
+# schedule: it has to cover the session under both EST (UTC-5) and EDT
+# (UTC-4) without a DST-aware cron, and GitHub Actions' scheduler is
+# routinely a few minutes late anyway. A run that lands before the open or
+# after the close is cheap and safe: the route just finds nothing to
+# invalidate outside real trading hours' price moves, or is skipped
+# entirely on a non-trading day (see the route's own isTradingDay check).
+#
+# Both Vercel cron slots are already spent (see docs/THIRD_PARTY_LIMITS.md),
+# so this follows the same GitHub-Actions-external-scheduler pattern as
+# intraday-scan.yml rather than vercel.json.
+on:
+  schedule:
+    - cron: '15,45 13-21 * * 1-5'
+  workflow_dispatch:
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    name: Trigger /api/monitors/invalidation-sweep
+    steps:
+      - name: Call invalidation sweep
+        run: |
+          status=$(curl -sS -o /tmp/response.json -w '%{http_code}' \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ vars.PRODUCTION_URL || 'https://gsps.vercel.app' }}/api/monitors/invalidation-sweep")
+          echo "HTTP $status"
+          cat /tmp/response.json
+          if [ "$status" -ge 300 ]; then
+            echo "invalidation sweep returned $status" >&2
+            exit 1
+          fi

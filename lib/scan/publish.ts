@@ -14,6 +14,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { hasTradePlan } from "@/lib/marketScan";
+import { toPublicSignalSummary } from "@/lib/signals/publicSummary";
 import type { ScanResult } from "@/lib/types";
 
 export type Direction = "bullish" | "bearish";
@@ -32,6 +33,13 @@ export interface DailyScanRow {
   take_profit_1: number;
   master_profit: number;
   detail: Record<string, unknown>;
+  /**
+   * Set explicitly on every write (migration 0072) — a Postgres
+   * ON CONFLICT DO UPDATE only refreshes columns present in the payload, so
+   * this has to travel with every row rather than relying on the column's
+   * own `default now()`, which only fires on first insert.
+   */
+  updated_at: string;
 }
 
 /**
@@ -68,6 +76,7 @@ export function buildScanRows(
   direction: Direction,
   results: ScanResult[],
 ): DailyScanRow[] {
+  const writtenAt = new Date().toISOString();
   return results.filter(hasTradePlan).map((r, i) => ({
     scan_date: scanDate,
     direction,
@@ -75,6 +84,7 @@ export function buildScanRows(
     symbol: r.symbol,
     score: r.decision.score,
     output_state: r.decision.outputState,
+    updated_at: writtenAt,
     // hasTradePlan has already established these four are finite numbers.
     entry: r.levels!.entry,
     stop_loss: r.levels!.stopLoss,
@@ -96,6 +106,20 @@ export function buildScanRows(
       gann: r.gann,
       breakdown: r.decision.breakdown,
       trends: r.trends.map((t) => ({ timeframe: t.timeframe, direction: t.direction })),
+      // The Signal and Regime Engine's rollup — computed by every scan
+      // (scanTicker), but until now dropped on the daily/cron persistence
+      // path while the manual scanner (app/(app)/scanner/page.tsx's own
+      // toRow) kept it. That gap is exactly the "not existing everywhere it
+      // applies is equal to not existing anywhere" case AGENTS.md's
+      // cross-platform-consistency principle names: the dashboard and any
+      // other view fed by `daily_scans` never showed Watchlist/Qualified/
+      // A-tier or the regime state, only a manually-run scan did.
+      signal: toPublicSignalSummary(
+        r.signals?.trendPullback,
+        r.signals?.trendBreakout,
+        r.signals?.confirmedReversal,
+        r.signals?.rangeReversion,
+      ),
     },
   }));
 }

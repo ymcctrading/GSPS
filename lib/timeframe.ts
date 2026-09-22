@@ -34,32 +34,39 @@ import type { Timeframe } from "@/lib/types";
  * one on a 4-hour chart. See `lib/data/latency.ts`'s `decisionLag`.
  *
  * ============================================================================
- * TEMPORARY MANDATORY OVERRIDE — set to "1Hour", not the protocol's normal
- * "15Min", effective 2026-09-09. See AGENTS.md → "Temporary overrides" for the
- * full rule. Summary: the free Alpaca feed delays equities ~15 minutes
- * (`FREE_EQUITY_FEED_DELAY_MS`, lib/data/latency.ts), which on a 15-minute
- * execution bar makes the lag ratio exactly 1.0 — `applyDataLagHold` then
- * holds *every* equity Execute verdict to Watch whenever the market is open,
- * so a `trade_plan` can never reach `armed` and the Automated Portfolio
- * Manager can never place a trade. This override widens the bar so the same
- * 15-minute delay is only 25% of a candle (comfortably under the hold's 1.0
- * threshold), purely so the automation *pipeline* — plan created → armed →
- * picked up → order placed — can be verified end to end on paper money.
+ * Reverted to "15Min" (2026-09-17, project owner direction) from the
+ * temporary "1Hour" override that lived here 2026-09-09 through 2026-09-17.
+ * That override's own stated revert trigger was `MARKET_DATA_REALTIME=true`
+ * (a paid real-time feed removing the 15-minute delay entirely) — that has
+ * NOT happened. This is a deliberate early reversion, on the free delayed
+ * feed, made with the consequence fully understood and accepted: on a
+ * 15-minute execution bar, the free feed's ~15-minute delay makes the lag
+ * ratio exactly 1.0 (`lib/data/latency.ts#MAX_EXECUTE_LAG_RATIO`), so
+ * `applyDataLagHold` will again hold most/all equity Execute verdicts to
+ * Watch whenever the market is open — the same starvation the 1Hour override
+ * existed to avoid. The project owner's reasoning: 1Hour's own delay-adjusted
+ * setups were arriving with the move already largely played out (see the
+ * 2026-09-17 HBAN case — entry priced at $16.77, price already at $15.66,
+ * through TP1, by the time the setup rendered), which is a worse failure
+ * mode for a novice-facing platform than an equity Execute bucket that runs
+ * thin until real-time data lands. Crypto is unaffected either way —
+ * `feedDelayMs` is always 0 for crypto, live or not.
  *
- * This is NOT a validated strategy change. The backtest evidence in
- * docs/BACKTESTING.md shows 1Hour has historically inverted the scoring
- * model's own verdict ranking (Execute measuring as the *worst* bucket, not
- * the best) — that question is untouched by this override and remains open.
- * Do not read a trade this override produces as evidence the strategy works
- * at 1Hour; read it only as evidence the plumbing does.
+ * This is still NOT a validated strategy change in the sense the old
+ * comment meant — it does not newly prove 15Min performs well, it returns
+ * to the protocol's actual designed timeframe, which is also the only bar
+ * size docs/BACKTESTING.md has positive evidence for (1Hour, the interim
+ * override, is what historically inverted the scoring model's own verdict
+ * ranking there).
  *
- * MUST revert to "15Min" once `MARKET_DATA_REALTIME` is turned on for a paid
- * real-time feed — at that point `feedDelayMs` returns 0 regardless of bar
- * size, and 15Min is both the protocol's real design and the only bar size
- * docs/BACKTESTING.md has any positive evidence for.
+ * Revert-of-the-revert trigger: none scheduled. If the equity Execute bucket
+ * proves too thin to be useful even for testing before real-time data lands,
+ * raise it with the project owner rather than silently re-widening this
+ * constant — that was tried once already and the cost (stale triggers) is
+ * exactly what prompted this reversion.
  * ============================================================================
  */
-export const EXECUTION_TIMEFRAME: Timeframe = "1Hour";
+export const EXECUTION_TIMEFRAME: Timeframe = "15Min";
 
 /** Selector order, longest candle first (matches the chart toolbar). */
 export const TIMEFRAMES: Timeframe[] = [

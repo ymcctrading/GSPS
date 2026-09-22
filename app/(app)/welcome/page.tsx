@@ -16,11 +16,11 @@
  */
 
 import Link from "next/link";
-import { Compass } from "lucide-react";
+import { Compass, Zap } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SnapshotDisclosure, SnapshotFigure } from "@/components/onboarding/snapshot-figure";
 import { StartTourButton } from "@/components/onboarding/tour-provider";
-import { TOUR_STEPS, stepLink } from "@/lib/onboarding/tour";
+import { TOUR_STEPS, TOUR_STEPS_SHORT, stepLink } from "@/lib/onboarding/tour";
 
 export const metadata = { title: "Getting started — GSPS" };
 
@@ -40,14 +40,26 @@ export default function WelcomePage() {
           <div className="min-w-0">
             <p className="text-sm font-medium">Prefer to be shown around?</p>
             <p className="text-sm text-muted">
-              The guided version highlights each part of the app as it describes it. {TOUR_STEPS.length} steps,
-              about five minutes, and you can leave whenever you like.
+              Most people don&apos;t read all {TOUR_STEPS.length} sections below, and that&apos;s fine — the
+              guided version highlights each part of the app as it describes it, and comes in two lengths.
             </p>
           </div>
-          <StartTourButton className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-accent">
-            <Compass className="h-4 w-4" />
-            Start the tour
-          </StartTourButton>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <StartTourButton
+              mode="quick"
+              className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-accent"
+            >
+              <Zap className="h-4 w-4" />
+              Quick tour ({TOUR_STEPS_SHORT.length} steps, ~90s)
+            </StartTourButton>
+            <StartTourButton
+              mode="full"
+              className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm font-medium transition-colors hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
+            >
+              <Compass className="h-4 w-4" />
+              Full tour ({TOUR_STEPS.length} steps, ~5 min)
+            </StartTourButton>
+          </div>
         </CardContent>
       </Card>
 

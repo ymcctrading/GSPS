@@ -43,10 +43,10 @@ import * as React from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, X, Zap, ListChecks } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SnapshotFigure } from "@/components/onboarding/snapshot-figure";
-import { TOUR_STEPS } from "@/lib/onboarding/tour";
+import { TOUR_STEPS, TOUR_STEPS_SHORT, type TourMode } from "@/lib/onboarding/tour";
 import type { TourOutcome } from "@/lib/onboarding/status";
 
 /** Padding around the spotlit element, so the ring does not sit on its edge. */
@@ -157,8 +157,23 @@ function placeCard(rect: Rect | null): Placement {
   };
 }
 
-export function TourOverlay({ open, onClose }: { open: boolean; onClose: (outcome: TourOutcome) => void }) {
+export function TourOverlay({
+  open,
+  initialMode = null,
+  onClose,
+}: {
+  open: boolean;
+  /**
+   * Set when the caller already knows which track to run (a dedicated
+   * "Quick tour" / "Full tour" button). Left `null` (the default) to open on
+   * the mode chooser instead — the state every first-run auto-launch starts
+   * from, since nobody has expressed a preference yet.
+   */
+  initialMode?: TourMode | null;
+  onClose: (outcome: TourOutcome) => void;
+}) {
   const [index, setIndex] = React.useState(0);
+  const [mode, setMode] = React.useState<TourMode | null>(initialMode);
   const [rect, setRect] = React.useState<Rect | null>(null);
   const cardRef = React.useRef<HTMLDivElement>(null);
   const bodyRef = React.useRef<HTMLDivElement>(null);
@@ -171,14 +186,17 @@ export function TourOverlay({ open, onClose }: { open: boolean; onClose: (outcom
     () => false,
   );
 
-  const step = TOUR_STEPS[index];
+  const steps = mode === "quick" ? TOUR_STEPS_SHORT : TOUR_STEPS;
+  const step = mode ? steps[index] : null;
   const isFirst = index === 0;
-  const isLast = index === TOUR_STEPS.length - 1;
+  const isLast = mode ? index === steps.length - 1 : false;
 
   // Restart from the top each time the tour is opened. Resuming where someone
   // left off sounds friendlier than it is: the person most likely to reopen
   // this is one who wants the part they have forgotten, and dropping them into
-  // step 9 of 15 with no context is not that.
+  // step 9 of 15 with no context is not that. Same reasoning extends to the
+  // track: an open with no `initialMode` reopens on the chooser rather than
+  // silently reusing whichever track was run last.
   //
   // Adjusted during render off a remembered previous value rather than in an
   // effect. An effect would paint the stale step for one frame before
@@ -187,7 +205,10 @@ export function TourOverlay({ open, onClose }: { open: boolean; onClose: (outcom
   const [wasOpen, setWasOpen] = React.useState(open);
   if (open !== wasOpen) {
     setWasOpen(open);
-    if (open) setIndex(0);
+    if (open) {
+      setIndex(0);
+      setMode(initialMode ?? null);
+    }
   }
 
   // Take the reader to the page the step is about, so the screen behind the
@@ -272,13 +293,13 @@ export function TourOverlay({ open, onClose }: { open: boolean; onClose: (outcom
 
   const next = React.useCallback(() => {
     setIndex((i) => {
-      if (i >= TOUR_STEPS.length - 1) {
+      if (i >= steps.length - 1) {
         onClose("completed");
         return i;
       }
       return i + 1;
     });
-  }, [onClose]);
+  }, [onClose, steps.length]);
 
   const back = React.useCallback(() => setIndex((i) => Math.max(0, i - 1)), []);
 
@@ -290,12 +311,14 @@ export function TourOverlay({ open, onClose }: { open: boolean; onClose: (outcom
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose("skipped");
-      else if (e.key === "ArrowRight") next();
-      else if (e.key === "ArrowLeft") back();
+      // Arrow-key paging only applies once a track is chosen — on the
+      // chooser screen there is no step to advance.
+      else if (mode && e.key === "ArrowRight") next();
+      else if (mode && e.key === "ArrowLeft") back();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose, next, back]);
+  }, [open, onClose, next, back, mode]);
 
   // Move focus onto the card on every step so a screen reader announces the new
   // heading and body rather than leaving the user on a button labelled "Next"
@@ -310,7 +333,27 @@ export function TourOverlay({ open, onClose }: { open: boolean; onClose: (outcom
     cardRef.current?.focus();
   }, [open, index]);
 
-  if (!mounted || !open || !step) return null;
+  if (!mounted || !open) return null;
+
+  // Most visitors do not sit through a 16-step walkthrough — the honest
+  // response to that is to offer a shorter one rather than pretend everyone
+  // wants the long version. This chooser is what a first-run auto-launch
+  // opens on, and what any "Start the tour" control opens on unless it was
+  // given an explicit `mode` (see StartTourButton / TourControls.startTour).
+  if (mode === null) {
+    return createPortal(
+      <ModeChooser
+        onPick={(picked) => {
+          setMode(picked);
+          setIndex(0);
+        }}
+        onSkip={() => onClose("skipped")}
+      />,
+      document.body,
+    );
+  }
+
+  if (!step) return null;
 
   const placement = placeCard(rect);
   const width = Math.min(CARD_W, (typeof window === "undefined" ? CARD_W : window.innerWidth) - GAP * 2);
@@ -373,7 +416,8 @@ export function TourOverlay({ open, onClose }: { open: boolean; onClose: (outcom
         <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
           <div className="min-w-0">
             <p className="text-xs font-medium uppercase tracking-wide text-muted">
-              Step {index + 1} of {TOUR_STEPS.length}
+              Step {index + 1} of {steps.length}
+              {mode === "quick" && " · quick tour"}
             </p>
             <h2 className="text-base font-semibold text-balance">{step.title}</h2>
           </div>
@@ -421,5 +465,91 @@ export function TourOverlay({ open, onClose }: { open: boolean; onClose: (outcom
       </div>
     </div>,
     document.body,
+  );
+}
+
+/**
+ * The very first thing anyone sees, before a single tour step: a choice
+ * between the 90-second version and the full 16-step walkthrough.
+ *
+ * Not a step in `TOUR_STEPS` because it isn't content about the app — it's a
+ * decision about how much of the content to see, so it has no `data-tour`
+ * anchor and nothing to spotlight. Centred, dimmed background, same card
+ * chrome as a normal step for visual continuity.
+ */
+function ModeChooser({
+  onPick,
+  onSkip,
+}: {
+  onPick: (mode: TourMode) => void;
+  onSkip: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50"
+      role="dialog"
+      aria-modal="true"
+      aria-label="How would you like to learn GSPS?"
+    >
+      <div aria-hidden="true" className="absolute inset-0 bg-[rgba(2,6,23,0.72)]" />
+
+      <div
+        className="fixed left-1/2 top-1/2 flex max-h-[80vh] w-[min(360px,calc(100vw-24px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl"
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
+          <h2 className="text-base font-semibold text-balance">How would you like to learn GSPS?</h2>
+          <button
+            onClick={onSkip}
+            aria-label="Leave the tour"
+            className="-mr-1 flex min-h-9 min-w-9 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-background hover:text-foreground cursor-pointer"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-3">
+          <p className="text-sm leading-relaxed">
+            Most people don&apos;t sit through a full walkthrough, and that&apos;s a reasonable thing to want.
+            Take the short version, the complete one, or skip this and read the Glossary and Settings pages as
+            questions come up.
+          </p>
+
+          <button
+            type="button"
+            onClick={() => onPick("quick")}
+            className="flex items-start gap-3 rounded-xl border border-border bg-background px-3 py-3 text-left transition-colors hover:border-accent"
+          >
+            <Zap className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+            <span>
+              <span className="block text-sm font-medium">Quick tour — about 90 seconds</span>
+              <span className="block text-sm text-muted">
+                Just the essentials: practice money, where recommendations come from, the trade plan, and your
+                Portfolio.
+              </span>
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onPick("full")}
+            className="flex items-start gap-3 rounded-xl border border-border bg-background px-3 py-3 text-left transition-colors hover:border-accent"
+          >
+            <ListChecks className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+            <span>
+              <span className="block text-sm font-medium">Full tour — about 5 minutes</span>
+              <span className="block text-sm text-muted">
+                Every screen in the app: Scanner, Automation&apos;s exit ladder, Backtest, and the rest.
+              </span>
+            </span>
+          </button>
+        </div>
+
+        <div className="flex items-center border-t border-border px-4 py-3">
+          <Button variant="ghost" size="sm" onClick={onSkip} className="text-muted">
+            Skip for now
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }

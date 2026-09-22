@@ -19,7 +19,9 @@ import {
   assetClassOf,
   executeFill,
   getOpenPosition,
+  getOrCreateAccount,
   isTriggered,
+  listOpenPositions,
   logPlainClose,
   quoteOptionPrice,
   quotePrice,
@@ -36,6 +38,8 @@ import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 import { readLiveAlpacaConnection } from "@/lib/brokers/live-creds";
 import { getAccount, placeOrder } from "@/lib/brokers/alpaca";
 import { isLiveTradingRestricted } from "@/lib/risk/live-trade-loss";
+import { checkPositionLimits } from "@/lib/risk/position-limits";
+import { gateResolvedAction } from "@/lib/risk/cooldown";
 
 type RecordedOrderType = RecordExecutionOptions["orderType"];
 
@@ -168,6 +172,70 @@ export async function placeSimulatedOrder(
         return {
           status: 409,
           body: { error: decision.reason, code: "pro_intraday_gate" },
+        };
+      }
+    }
+  }
+
+  // Novice Risk, Account & Cooldown Engine's allocation/correlation ceilings
+  // (lib/risk/config.ts, Gann's disclosed 10%-of-capital risk ceiling and
+  // diversification caution — docs/GANN_HISTORICAL_SOURCES.md tier A2/A4/
+  // A5/A6/A8, restructured as % of account rather than Gann's dollar/point
+  // tiers, same carve-out lib/strat/levels.ts's combineNearbyLevels
+  // documents). `checkPositionLimits` (lib/risk/position-limits.ts) existed
+  // with no caller anywhere in the codebase — a Novice account had no
+  // enforced ceiling on single-position size, aggregate deployment, total
+  // open risk, or correlated concentration before an order actually placed
+  // (2026-09-17 orphan-module audit). Wired here, in the same
+  // before-any-write position as the kill switch and the Pro intraday gate
+  // above, and skipped for the same reason: a protective order only ever
+  // reduces exposure, so it can't violate a ceiling that exists to bound how
+  // much new exposure is opened.
+  //
+  // Correlated-group membership: no sector/instrument-correlation mapping
+  // exists anywhere in this codebase yet, so this uses the same symbol as a
+  // conservative proxy for "the same correlated group" — a new order in a
+  // symbol with no open position always counts as a new group, one in a
+  // symbol already held joins the existing one. That undercounts real
+  // cross-symbol correlation (e.g. two different oil producers), which is a
+  // known, documented limitation of this wiring, not a silent gap: the
+  // notional/aggregate/open-risk ceilings below do not depend on this proxy
+  // and are enforced fully.
+  if (!isProtective) {
+    const [account, openPositions] = await Promise.all([
+      getOrCreateAccount(supabase, userId),
+      listOpenPositions(supabase, userId),
+    ]);
+    const deployedUsd = openPositions.reduce((sum, p) => sum + p.qty * p.avg_entry_price, 0);
+    const openRiskUsd = openPositions.reduce(
+      (sum, p) => sum + (p.stop_loss == null ? 0 : Math.abs(p.avg_entry_price - p.stop_loss) * p.qty),
+      0,
+    );
+    const equity = account.cash + deployedUsd;
+    const candidateSymbol = input.symbol.toUpperCase();
+    const candidateJoinsExistingGroup = openPositions.some((p) => p.symbol === candidateSymbol);
+    const correlatedGroups = new Set(openPositions.map((p) => p.symbol)).size;
+    const referencePrice = input.limitPrice ?? input.referencePrice ?? null;
+    if (equity > 0 && referencePrice != null) {
+      const newPositionNotionalUsd = referencePrice * input.qty;
+      const newPositionRiskUsd = input.attachLevels
+        ? Math.abs(referencePrice - input.attachLevels.stopLoss) * input.qty
+        : 0;
+      const verdict = checkPositionLimits({
+        equity,
+        newPositionNotionalUsd,
+        currentlyDeployedUsd: deployedUsd,
+        currentOpenRiskUsd: openRiskUsd,
+        newPositionRiskUsd,
+        openCorrelatedGroupsExcludingThis: candidateJoinsExistingGroup
+          ? correlatedGroups - 1
+          : correlatedGroups,
+        candidateJoinsExistingGroup,
+      });
+      if (!verdict.ok) {
+        return {
+          status: 409,
+          body: { error: verdict.violations.join(" "), code: "position_limit", violations: verdict.violations },
         };
       }
     }
@@ -567,10 +635,21 @@ async function placeLiveOrder(
     true,
     0, // no live order history to count from yet — see lib/risk/service.ts header
   );
-  if (!gate.decision.newEntriesAllowed) {
+  // `gateResolvedAction` (lib/risk/cooldown.ts) applies the disclosed
+  // "cooldown never blocks a stop loss/take profit/reduce/close" rule to the
+  // already-resolved decision above, without a second, potentially
+  // inconsistent state resolution. Before this fix (2026-09-17
+  // orphan-module audit), a live protective order hitting during an active
+  // cooldown or lock would have been refused here — this file already
+  // claimed elsewhere that "the account-wide circuit breaker never blocks a
+  // close," but `lib/risk/cooldown.ts` had no caller anywhere in the
+  // codebase, so nothing actually enforced that at this, the one live call
+  // site it applies to.
+  const cooldownGate = gateResolvedAction(isProtective ? "position_reduce" : "new_entry", gate.decision);
+  if (!cooldownGate.allowed) {
     return {
       status: 409,
-      body: { error: gate.decision.reason, code: "risk_cooldown", riskState: gate.decision.state },
+      body: { error: cooldownGate.reason, code: "risk_cooldown", riskState: gate.decision.state },
     };
   }
 

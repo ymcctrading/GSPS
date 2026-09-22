@@ -147,3 +147,185 @@ export async function attachProtocolExit(
     },
   };
 }
+
+export interface UpdateProtocolExitInput {
+  symbol: string;
+  /** Any subset — a field left out keeps that level unchanged. */
+  stopLoss?: number;
+  takeProfit1?: number;
+  masterProfit?: number | null;
+}
+
+/**
+ * Manual increase/decrease of a working staged exit's stop-loss, TP1, and/or
+ * master-profit levels, for a position already protected via
+ * `attachProtocolExit` above.
+ * -----------------------------------------------------------------------------
+ * TP1 and master profit can move either direction — the user is retargeting,
+ * not touching risk already taken. The stop-loss is different: per project
+ * direction, it can only be *tightened*, and only once the position is
+ * already in profit. Concretely:
+ *
+ *   - Refused outright while the position isn't in profit yet (current price
+ *     hasn't crossed the entry in the favorable direction) — moving a stop
+ *     before there's any cushion is exactly the risk-loosening the live-only
+ *     `lib/risk/stop-override.ts` high-friction path exists to gate; this
+ *     paper-only edit path doesn't carry that friction, so it simply refuses
+ *     rather than allow an equivalent loosening informally.
+ *   - Once in profit, the new stop must move in the risk-reducing direction
+ *     only: up (toward/through entry) for a long, down for a short. A request
+ *     that would loosen the stop — even one that's still technically on the
+ *     correct side of entry — is refused with the same reasoning.
+ *
+ * This mirrors `attachProtocolExit`'s validation (bracket/tick checks) but
+ * against the *existing* working plan rather than requiring none exist.
+ */
+export async function updateProtocolExit(
+  supabase: SupabaseClient,
+  userId: string,
+  input: UpdateProtocolExitInput,
+): Promise<AttachProtocolExitResult> {
+  const symbol = input.symbol.toUpperCase();
+
+  if (input.stopLoss == null && input.takeProfit1 == null && input.masterProfit === undefined) {
+    return { status: 400, body: { error: "Nothing to update — pass a new stop loss, TP1, and/or master profit." } };
+  }
+
+  const position = await getOpenPosition(supabase, userId, symbol);
+  if (!position) {
+    return { status: 404, body: { error: `No open position in ${symbol} to edit.` } };
+  }
+
+  const { data: existing } = await supabase
+    .from("protocol_exits")
+    .select("id, stop_loss, take_profit_1, master_profit, qty")
+    .eq("user_id", userId)
+    .eq("symbol", symbol)
+    .eq("mode", "paper")
+    .eq("status", "working")
+    .limit(1)
+    .maybeSingle();
+  if (!existing) {
+    return {
+      status: 404,
+      body: { error: `${symbol} has no working staged exit to edit — attach levels first.` },
+    };
+  }
+
+  const price = await quotePrice(symbol, assetClassOf(symbol));
+  if (price == null) {
+    return { status: 422, body: { error: `No live price available for ${symbol} right now — try again in a moment.` } };
+  }
+
+  const isLong = position.side === "long";
+  const entrySide = isLong ? "buy" : "sell";
+  const closingSide = isLong ? "sell" : "buy";
+  const stopMode: RoundingMode = isLong ? "down" : "up";
+  const targetMode: RoundingMode = isLong ? "up" : "down";
+  const equity = { assetType: "EQUITY" as const };
+
+  let newStop = existing.stop_loss as number | null;
+  if (input.stopLoss != null) {
+    const inProfit = isLong ? price > position.avg_entry_price : price < position.avg_entry_price;
+    if (!inProfit) {
+      return {
+        status: 422,
+        body: { error: "The stop-loss can only be adjusted once the trade is in profit." },
+      };
+    }
+    const currentStop = existing.stop_loss as number | null;
+    if (currentStop != null) {
+      const tightened = isLong ? input.stopLoss >= currentStop : input.stopLoss <= currentStop;
+      if (!tightened) {
+        return {
+          status: 422,
+          body: {
+            error: isLong
+              ? "The stop-loss can only be moved up (toward or past entry), never back down — that would loosen risk already reduced."
+              : "The stop-loss can only be moved down (toward or past entry), never back up — that would loosen risk already reduced.",
+          },
+        };
+      }
+    }
+    const validated = validateLimitPrice({ price: input.stopLoss, side: closingSide, instrument: equity, mode: stopMode });
+    if (!validated.ok || validated.price == null) {
+      return { status: 422, body: { error: "The stop can't be expressed at a price this instrument accepts." } };
+    }
+    newStop = validated.price;
+  }
+
+  let newTarget = existing.take_profit_1 as number;
+  if (input.takeProfit1 != null) {
+    const validated = validateLimitPrice({ price: input.takeProfit1, side: closingSide, instrument: equity, mode: targetMode });
+    if (!validated.ok || validated.price == null) {
+      return { status: 422, body: { error: "TP1 can't be expressed at a price this instrument accepts." } };
+    }
+    newTarget = validated.price;
+  }
+
+  let newMaster: number | null = existing.master_profit as number | null;
+  if (input.masterProfit !== undefined) {
+    if (input.masterProfit == null) {
+      newMaster = null;
+    } else {
+      const validated = validateLimitPrice({ price: input.masterProfit, side: closingSide, instrument: equity, mode: targetMode });
+      if (!validated.ok || validated.price == null) {
+        return { status: 422, body: { error: "Master profit can't be expressed at a price this instrument accepts." } };
+      }
+      newMaster = validated.price;
+    }
+  }
+
+  if (newStop != null) {
+    const check = checkBracket({ side: entrySide, basePrice: price, stopLoss: newStop, takeProfit: newTarget });
+    if (!check.ok) {
+      return { status: 422, body: { error: check.reason } };
+    }
+  }
+  if (newMaster != null) {
+    const masterPastTp1 = isLong ? newMaster > newTarget : newMaster < newTarget;
+    if (!masterPastTp1) {
+      return {
+        status: 422,
+        body: { error: "Master profit has to sit beyond TP1 in the trade's favor, not before it." },
+      };
+    }
+  }
+
+  const exitPlan = planProtocolExit(existing.qty, {
+    stopLoss: newStop ?? position.avg_entry_price,
+    takeProfit1: newTarget,
+    masterProfit: newMaster,
+  });
+
+  const { error } = await supabase
+    .from("protocol_exits")
+    .update({
+      stop_loss: newStop,
+      take_profit_1: newTarget,
+      master_profit: newMaster,
+      scale_out_qty: exitPlan.scaleOutQty,
+      master_qty: exitPlan.masterQty,
+      runner_qty: exitPlan.runnerQty,
+      applied_stop: newStop,
+      applied_stop_reason: input.stopLoss != null ? "manual" : undefined,
+    })
+    .eq("id", existing.id);
+  if (error) {
+    return { status: 502, body: { error: `Couldn't save the updated levels — ${error.message}.` } };
+  }
+
+  await supabase
+    .from("positions")
+    .update({ stop_loss: newStop, take_profit: newTarget, master_profit: newMaster })
+    .eq("id", position.id);
+
+  return {
+    status: 200,
+    body: {
+      ok: true,
+      planId: existing.id,
+      exitPlan: { summary: exitPlan.summary, splittable: exitPlan.splittable, tranches: exitPlan.tranches },
+    },
+  };
+}

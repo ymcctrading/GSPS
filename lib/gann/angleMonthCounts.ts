@@ -1,11 +1,21 @@
 /**
  * Gann's 36-angle month-counts (PRIVATE-GANN — Chapter 7, "Master Time
  * Factor and Forecasting by Mathematical Rules," `docs/GANN_HISTORICAL_SOURCES.md`
- * A2.1, second extraction pass 2026-09-16). Internal/research use only — see
- * that module-level rule enforced by every export here: **never** import
- * this into `lib/signals/confluence/gann.ts` / `GannConfluenceResult` /
- * `components/scan/confluence-card.tsx` or any `app/api/*` route a logged-in
- * user's scan request reaches.
+ * A2.1, second extraction pass 2026-09-16).
+ *
+ * **Wired into the live confluence layer 2026-09-16** (`lib/signals/confluence/gann.ts`'s
+ * `GannConfluenceResult.angleMonthCounts`), correcting an earlier "internal/
+ * research use only, never wire into the public scan" restriction this
+ * header carried. That restriction made sense for `squareOf20.ts`/
+ * `hexagonChart.ts`, whose ring/angle output can't be checked against the
+ * original hand-drawn charts (lost to this text-only extraction) — a real,
+ * documented exception. This module has no such dependency: it is pure
+ * calendar-month arithmetic against confirmed swing pivots, the same shape
+ * as `timeCycles.ts`'s already-wired 45/90/120/180/270/360-day wheel. Per
+ * AGENTS.md's cross-platform-consistency rule, leaving it stranded once
+ * built was itself the violation. Confluence/display only, same treatment
+ * as `timeCycles.ts`: no bull/bear polarity, never independently scored or
+ * gated in `lib/scoring/`.
  *
  * The chapter divides the 360° circle into 1/32 steps (11.25°, 22.5°,
  * 33.75°, 45°, ... 360°) and reads each division as a *month*-count
@@ -30,11 +40,6 @@
  * 1897 low," and September 1929's top read as "240 months from 1909 top."
  * `monthsElapsed` below is the exact calendar-month arithmetic that produces
  * those two round numbers; see `__tests__/angleMonthCounts.test.ts`.
- *
- * Confluence/display only, same treatment as `timeCycles.ts`: no bull/bear
- * polarity is attached (the source states this as a pure elapsed-count
- * timing rule, not a directional one), and it is never independently scored
- * or gated in `lib/scoring/`.
  */
 
 import type { Bar } from "@/lib/types";

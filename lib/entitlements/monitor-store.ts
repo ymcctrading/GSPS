@@ -53,6 +53,32 @@ export async function evaluateMonitor(
     now?: Date;
     cooldownMs?: number;
     expiresAt?: string | null;
+    /**
+     * The 9-point scorecard score behind `candidateState`, when this
+     * evaluation came from that scorecard. Null for sources scored by a
+     * different engine entirely (e.g. intraday's Signal & Regime Engine) —
+     * there's no comparable number to store, not a missing one.
+     */
+    score?: number | null;
+    /**
+     * The trade-plan numbers behind this evaluation, stored directly on the
+     * monitor row so `lib/dashboard/trackedExecute.ts` (and anything else
+     * that needs "what does this open monitor's setup actually look like")
+     * can read them without depending on a `scan_results` row that only
+     * app/api/batch-scan/route.ts writes. Omit entirely (rather than pass
+     * `null`) to leave the row's existing levels untouched on an update —
+     * relevant for a same-state refresh where the caller has nothing new to
+     * report and shouldn't blank out what's already stored.
+     */
+    levels?: {
+      direction: "bullish" | "bearish" | "none";
+      entry: number | null;
+      stopLoss: number | null;
+      takeProfit1: number | null;
+      masterProfit: number | null;
+      patternName: string | null;
+      outputState: "Execute" | "Watch" | "Reject" | null;
+    } | null;
   },
 ): Promise<MonitorEvaluationResult> {
   const now = args.now ?? new Date();
@@ -117,6 +143,18 @@ export async function evaluateMonitor(
     }
   }
 
+  const levelsColumns = args.levels
+    ? {
+        direction: args.levels.direction,
+        entry: args.levels.entry,
+        stop_loss: args.levels.stopLoss,
+        take_profit_1: args.levels.takeProfit1,
+        master_profit: args.levels.masterProfit,
+        pattern_name: args.levels.patternName,
+        output_state: args.levels.outputState,
+      }
+    : {};
+
   let monitorId: string;
   if (decision.isNewMonitor) {
     const { data: inserted, error } = await service
@@ -126,8 +164,10 @@ export async function evaluateMonitor(
         symbol,
         source: args.source,
         state: args.candidateState,
+        score: args.score ?? null,
         last_evaluated_at: now.toISOString(),
         expires_at: args.expiresAt ?? null,
+        ...levelsColumns,
       })
       .select("id")
       .single();
@@ -145,12 +185,14 @@ export async function evaluateMonitor(
       .from("active_monitors")
       .update({
         state: args.candidateState,
+        score: args.score ?? null,
         last_evaluated_at: now.toISOString(),
         // A successful apply clears any suppression left over from an
         // earlier cooldown/stale-evaluation skip -- that record described a
         // decision this evaluation has now superseded.
         last_suppressed_reason: null,
         last_suppressed_at: null,
+        ...levelsColumns,
       })
       .eq("id", monitorId);
   }
