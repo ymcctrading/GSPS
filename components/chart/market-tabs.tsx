@@ -7,7 +7,7 @@ import { StrikeOrderModal, type StrikeSelection } from "@/components/trade/strik
 import { GlossaryTerm } from "@/components/glossary-term";
 import { classifyMoneyness, strikeStep, type Moneyness } from "@/lib/options/contracts";
 import { CompanyPanel } from "@/components/chart/company-panel";
-import { formatUsd } from "@/lib/utils";
+import { formatUsd, parseJsonResponse } from "@/lib/utils";
 import type { ScanResult, TradeLevels } from "@/lib/types";
 import { tradeSideLabel } from "@/lib/scoring/direction-copy";
 import type { OptionChain, OptionContract, Level2Book } from "@/lib/data/provider";
@@ -103,10 +103,7 @@ function ResearchPanel({ symbol, result }: { symbol: string; result?: ScanResult
     let cancelled = false;
     const key = `${symbol}:${reloadKey}`;
     fetch(`/api/scan?ticker=${encodeURIComponent(symbol)}`)
-      .then(async (r) => {
-        if (!r.ok) throw new Error((await r.json()).error ?? `HTTP ${r.status}`);
-        return r.json();
-      })
+      .then((r) => parseJsonResponse<ScanResult>(r))
       .then((d: ScanResult) => {
         if (cancelled) return;
         setScan(

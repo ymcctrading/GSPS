@@ -14,7 +14,7 @@ import { GlossaryDetails } from "@/components/glossary";
 import { GlossaryTerm } from "@/components/glossary-term";
 import { useLiveQuote } from "@/lib/hooks/useLiveQuote";
 import { sessionLabel } from "@/lib/market/session";
-import { formatUsd, formatPct, cn } from "@/lib/utils";
+import { formatUsd, formatPct, cn, parseJsonResponse } from "@/lib/utils";
 import { hasFeature, type PlatformTier } from "@/lib/tiers";
 import type { ScanResult } from "@/lib/types";
 import type { SignalPlan } from "@/lib/signals/types";
@@ -115,10 +115,7 @@ export function TickerView({ symbol }: { symbol: string }) {
     let cancelled = false;
     const key = `${symbol}:${reloadKey}`;
     fetch(`/api/scan?ticker=${encodeURIComponent(symbol)}`)
-      .then(async (res) => {
-        if (!res.ok) throw new Error((await res.json()).error ?? `HTTP ${res.status}`);
-        return res.json();
-      })
+      .then((res) => parseJsonResponse<ScanResult>(res))
       .then((data: ScanResult) => {
         if (cancelled) return;
         setScan(
