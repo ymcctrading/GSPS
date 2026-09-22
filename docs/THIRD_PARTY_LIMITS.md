@@ -106,6 +106,44 @@ it dispatches a wall-clock expiry check against `trade_plans`, not a
 price-sensitive scan, so it doesn't need market-hours-only coverage the way
 the scans above do.
 
+### The 700-symbol market scan now runs on a 15-minute cadence, not just twice a day
+
+2026-09-22, project-owner direction: `.github/workflows/full-market-scan.yml`
+calls `/api/market-scan` every 15 minutes from 09:30 ET through the day's
+final 18:00 ET run, on top of the existing 08:30 ET (`premarket-scan.yml`)
+and 17:30 ET (native `vercel.json` cron) runs — same CRON_SECRET-bearer
+pattern as every other externally-scheduled route in this table. This is
+what makes `daily_scans` continuously fresh throughout the session instead
+of sitting on a stale snapshot for hours between the two prior runs; see
+that workflow's own header comment for the full reasoning, and
+`app/api/market-scan/route.ts`'s manual-refresh debounce (below) for the
+companion fix on the on-demand side.
+
+This roughly quadruples-plus how often the full-universe scan runs (twice a
+day → ~34 runs across the session). The "Provider call volume is no longer
+throttled" note above was sized against two runs a day with a single active
+user; re-check it if either concurrent usage or this cadence grows further —
+Alpaca's free-tier data API is the most exposed of the providers this scan
+touches (`fetchBarsBatch`'s `CHUNK_CONCURRENCY` already exists specifically
+to keep one run's own burst under that limit; this is about the aggregate
+across many runs, a different axis).
+
+### Manual "Refresh scan" no longer always re-runs the full scan
+
+Same date, same direction. `POST /api/market-scan` (the dashboard's
+"Refresh scan" button) used to always re-run the entire ~700-symbol scan
+synchronously in front of the clicking user — racing the same 60s Vercel
+Hobby function ceiling as the cron, and visibly slow on a feature the
+project owner wants read as the platform's fast, trustworthy centerpiece,
+not its bottleneck. Now that the scan above keeps `daily_scans` fresh on its
+own, a manual click that lands within 60 seconds of the autonomous scan's
+last write reuses those rows instead of recomputing them
+(`REUSE_RECENT_SCAN_MS` in `app/api/market-scan/route.ts`) — an unrelated
+schema addition, `daily_scans.updated_at` (migration `0071`), is what makes
+"within 60 seconds" answerable at all, since the upsert's own `created_at`
+column never advances past a row's first insert. A click that lands outside
+that window still gets a genuinely fresh scan, same as before.
+
 ## Upgrading past current limits
 
 One ceiling remains for the Phase 3D scans:
