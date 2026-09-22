@@ -47,14 +47,27 @@ export interface Protectable {
   currentPrice: number;
 }
 
+/** An equity leg that already has a working staged exit, editable in place. */
+export interface Editable {
+  symbol: string;
+  side: "long" | "short";
+  currentPrice: number;
+  entryPrice: number;
+  stopLoss: number | null;
+  takeProfit: number | null;
+  masterProfit: number | null;
+}
+
 export function BlendedPositionGroup({
   group,
   onClose,
   onProtect,
+  onEdit,
 }: {
   group: BlendedPosition;
   onClose: (c: Closable) => void;
   onProtect?: (p: Protectable) => void;
+  onEdit?: (e: Editable) => void;
 }) {
   const [showGreeks, setShowGreeks] = useState(false);
   const legCount = (group.equity ? 1 : 0) + group.options.length;
@@ -83,7 +96,9 @@ export function BlendedPositionGroup({
         </div>
       </div>
 
-      {group.equity && <EquityLegs legs={[group.equity]} onClose={onClose} onProtect={onProtect} />}
+      {group.equity && (
+        <EquityLegs legs={[group.equity]} onClose={onClose} onProtect={onProtect} onEdit={onEdit} />
+      )}
 
       {group.options.length > 0 && (
         <OptionLegs
@@ -110,10 +125,12 @@ function EquityLegs({
   legs,
   onClose,
   onProtect,
+  onEdit,
 }: {
   legs: EquityLeg[];
   onClose: (c: Closable) => void;
   onProtect?: (p: Protectable) => void;
+  onEdit?: (e: Editable) => void;
 }) {
   return (
     <>
@@ -168,6 +185,9 @@ function EquityLegs({
                     {onProtect && leg.stopLoss == null && (
                       <ProtectButton onClick={() => onProtect(protectableEquity(leg))} />
                     )}
+                    {onEdit && leg.stopLoss != null && (
+                      <EditButton onClick={() => onEdit(editableEquity(leg))} />
+                    )}
                     <CloseButton onClick={() => onClose(closableEquity(leg))} />
                   </div>
                 </TD>
@@ -212,6 +232,9 @@ function EquityLegs({
             <div className="mt-2 flex gap-2">
               {onProtect && leg.stopLoss == null && (
                 <ProtectButton onClick={() => onProtect(protectableEquity(leg))} />
+              )}
+              {onEdit && leg.stopLoss != null && (
+                <EditButton onClick={() => onEdit(editableEquity(leg))} />
               )}
               <CloseButton onClick={() => onClose(closableEquity(leg))} />
             </div>
@@ -541,12 +564,35 @@ function ProtectButton({ onClick }: { onClick: () => void }) {
   );
 }
 
+function EditButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="min-h-9 cursor-pointer rounded-md border border-border px-2 py-1 text-xs font-medium text-muted transition-colors hover:border-accent hover:text-accent"
+    >
+      Edit
+    </button>
+  );
+}
+
 function protectableEquity(leg: EquityLeg): Protectable {
   return {
     symbol: leg.symbol,
     qty: leg.totalShares < 0 ? -leg.totalShares : leg.totalShares,
     side: leg.totalShares < 0 ? "short" : "long",
     currentPrice: leg.currentPrice,
+  };
+}
+
+function editableEquity(leg: EquityLeg): Editable {
+  return {
+    symbol: leg.symbol,
+    side: leg.totalShares < 0 ? "short" : "long",
+    currentPrice: leg.currentPrice,
+    entryPrice: leg.avgFillPrice,
+    stopLoss: leg.stopLoss,
+    takeProfit: leg.takeProfit,
+    masterProfit: leg.masterProfit,
   };
 }
 

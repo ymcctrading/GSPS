@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { OrderLedger } from "@/components/portfolio/order-rows";
-import { BlendedPositionGroup, type Closable, type Protectable } from "@/components/portfolio/open-positions";
+import { BlendedPositionGroup, type Closable, type Protectable, type Editable } from "@/components/portfolio/open-positions";
 import { RejectedOrders } from "@/components/portfolio/rejected-orders";
 import { SyncBar } from "@/components/portfolio/sync-bar";
 import { ExitActivity } from "@/components/portfolio/exit-activity";
@@ -29,6 +29,7 @@ export default function PortfolioPage() {
   const [error, setError] = useState<string | null>(null);
   const [closing, setClosing] = useState<Closable | null>(null);
   const [protecting, setProtecting] = useState<Protectable | null>(null);
+  const [editing, setEditing] = useState<Editable | null>(null);
 
   // Both loaders are promise chains rather than async functions on purpose:
   // every state write sits behind the fetch, so nothing can be set during the
@@ -185,6 +186,7 @@ export default function PortfolioPage() {
                 group={group}
                 onClose={setClosing}
                 onProtect={setProtecting}
+                onEdit={setEditing}
               />
             ))}
           </div>
@@ -293,6 +295,11 @@ export default function PortfolioPage() {
         position={protecting}
         onClose={() => setProtecting(null)}
         onProtected={refresh}
+      />
+      <EditExitLevelsModal
+        position={editing}
+        onClose={() => setEditing(null)}
+        onUpdated={refresh}
       />
     </div>
   );
@@ -562,6 +569,169 @@ function ProtectPositionModal({
               value={takeProfit}
               onChange={(e) => setTakeProfit(e.target.value)}
               placeholder={position.side === "long" ? "above current price" : "below current price"}
+            />
+          </label>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+/**
+ * Manual increase/decrease of an already-working staged exit's stop-loss,
+ * TP1, and/or master profit. See lib/trade/attach-protocol-exit.ts's
+ * `updateProtocolExit` for the rules enforced server-side — most
+ * importantly, the stop-loss field here is disabled until the position is
+ * in profit, and once enabled only accepts a tightened value (the server is
+ * the actual source of truth; this is a courtesy so the rejection isn't the
+ * first the user hears of it).
+ */
+function EditExitLevelsModal({
+  position,
+  onClose,
+  onUpdated,
+}: {
+  position: Editable | null;
+  onClose: () => void;
+  onUpdated: () => void;
+}) {
+  const [stopLoss, setStopLoss] = useState("");
+  const [takeProfit, setTakeProfit] = useState("");
+  const [masterProfit, setMasterProfit] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const [activeSymbol, setActiveSymbol] = useState(position?.symbol ?? null);
+  if ((position?.symbol ?? null) !== activeSymbol) {
+    setActiveSymbol(position?.symbol ?? null);
+    setStopLoss(position?.stopLoss != null ? String(position.stopLoss) : "");
+    setTakeProfit(position?.takeProfit != null ? String(position.takeProfit) : "");
+    setMasterProfit(position?.masterProfit != null ? String(position.masterProfit) : "");
+    setErr(null);
+  }
+
+  const inProfit = position
+    ? position.side === "long"
+      ? position.currentPrice > position.entryPrice
+      : position.currentPrice < position.entryPrice
+    : false;
+
+  async function submit() {
+    if (!position) return;
+    const body: { symbol: string; stopLoss?: number; takeProfit1?: number; masterProfit?: number | null } = {
+      symbol: position.symbol,
+    };
+
+    if (inProfit && stopLoss.trim() !== "") {
+      const stop = Number(stopLoss);
+      if (!Number.isFinite(stop) || stop <= 0) {
+        setErr("Enter a valid stop-loss above zero.");
+        return;
+      }
+      if (position.stopLoss != null && stop !== position.stopLoss) body.stopLoss = stop;
+    }
+    if (takeProfit.trim() !== "") {
+      const target = Number(takeProfit);
+      if (!Number.isFinite(target) || target <= 0) {
+        setErr("Enter a valid TP1 above zero.");
+        return;
+      }
+      if (target !== position.takeProfit) body.takeProfit1 = target;
+    }
+    if (masterProfit.trim() !== "") {
+      const master = Number(masterProfit);
+      if (!Number.isFinite(master) || master <= 0) {
+        setErr("Enter a valid master profit above zero.");
+        return;
+      }
+      if (master !== position.masterProfit) body.masterProfit = master;
+    } else if (position.masterProfit != null) {
+      body.masterProfit = null;
+    }
+
+    if (body.stopLoss == null && body.takeProfit1 == null && body.masterProfit === undefined) {
+      onClose();
+      return;
+    }
+
+    setSubmitting(true);
+    setErr(null);
+    try {
+      const res = await fetch("/api/positions/update-exit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+      onUpdated();
+      onClose();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Modal
+      open={Boolean(position)}
+      onClose={onClose}
+      title={position ? `Edit ${position.symbol} exit levels` : ""}
+      description={position ? `Entry ${formatUsd(position.entryPrice)} · Current ${formatUsd(position.currentPrice)}` : ""}
+      footer={
+        <div className="flex flex-col gap-2">
+          <div className="flex gap-2">
+            <Button variant="outline" className="flex-1" onClick={onClose} disabled={submitting}>
+              Cancel
+            </Button>
+            <Button className="flex-1" onClick={submit} disabled={submitting}>
+              {submitting ? "Saving…" : "Save changes"}
+            </Button>
+          </div>
+          {err && <p className="text-sm text-bear">{err}</p>}
+        </div>
+      }
+    >
+      {position && (
+        <div className="flex flex-col gap-3 text-sm">
+          <label className="flex flex-col gap-1">
+            <span className="text-muted">Stop-loss</span>
+            <Input
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={stopLoss}
+              onChange={(e) => setStopLoss(e.target.value)}
+              disabled={!inProfit}
+            />
+            <span className="text-xs text-muted">
+              {inProfit
+                ? position.side === "long"
+                  ? "Can only be raised (tightened) from here — never lowered."
+                  : "Can only be lowered (tightened) from here — never raised."
+                : "Locked until the trade is in profit — moving a stop before then would only loosen risk already taken."}
+            </span>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-muted">TP1</span>
+            <Input
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={takeProfit}
+              onChange={(e) => setTakeProfit(e.target.value)}
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-muted">Master profit</span>
+            <Input
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={masterProfit}
+              onChange={(e) => setMasterProfit(e.target.value)}
+              placeholder="optional"
             />
           </label>
         </div>
