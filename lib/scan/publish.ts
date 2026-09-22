@@ -34,7 +34,7 @@ export interface DailyScanRow {
   master_profit: number;
   detail: Record<string, unknown>;
   /**
-   * Set explicitly on every write (migration 0071) — a Postgres
+   * Set explicitly on every write (migration 0072) — a Postgres
    * ON CONFLICT DO UPDATE only refreshes columns present in the payload, so
    * this has to travel with every row rather than relying on the column's
    * own `default now()`, which only fires on first insert.

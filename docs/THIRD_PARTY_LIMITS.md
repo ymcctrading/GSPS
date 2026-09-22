@@ -139,7 +139,7 @@ not its bottleneck. Now that the scan above keeps `daily_scans` fresh on its
 own, a manual click that lands within 60 seconds of the autonomous scan's
 last write reuses those rows instead of recomputing them
 (`REUSE_RECENT_SCAN_MS` in `app/api/market-scan/route.ts`) — an unrelated
-schema addition, `daily_scans.updated_at` (migration `0071`), is what makes
+schema addition, `daily_scans.updated_at` (migration `0072`), is what makes
 "within 60 seconds" answerable at all, since the upsert's own `created_at`
 column never advances past a row's first insert. A click that lands outside
 that window still gets a genuinely fresh scan, same as before.
