@@ -146,6 +146,7 @@ const row = (direction: "bullish" | "bearish", rank: number): DailyScanRow => ({
   take_profit_1: 103,
   master_profit: 106,
   detail: {},
+  updated_at: "2026-08-05T20:00:00.000Z",
 });
 
 describe("persistDailyScans", () => {

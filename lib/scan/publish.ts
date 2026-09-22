@@ -33,6 +33,13 @@ export interface DailyScanRow {
   take_profit_1: number;
   master_profit: number;
   detail: Record<string, unknown>;
+  /**
+   * Set explicitly on every write (migration 0072) — a Postgres
+   * ON CONFLICT DO UPDATE only refreshes columns present in the payload, so
+   * this has to travel with every row rather than relying on the column's
+   * own `default now()`, which only fires on first insert.
+   */
+  updated_at: string;
 }
 
 /**
@@ -69,6 +76,7 @@ export function buildScanRows(
   direction: Direction,
   results: ScanResult[],
 ): DailyScanRow[] {
+  const writtenAt = new Date().toISOString();
   return results.filter(hasTradePlan).map((r, i) => ({
     scan_date: scanDate,
     direction,
@@ -76,6 +84,7 @@ export function buildScanRows(
     symbol: r.symbol,
     score: r.decision.score,
     output_state: r.decision.outputState,
+    updated_at: writtenAt,
     // hasTradePlan has already established these four are finite numbers.
     entry: r.levels!.entry,
     stop_loss: r.levels!.stopLoss,
