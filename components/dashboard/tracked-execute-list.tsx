@@ -10,7 +10,13 @@ import { ResultsTable, type ScanRow } from "@/components/scan/results-table";
  * page itself a client component. Optimistic removal, reverted if the
  * request fails — same pattern as `SavedSetupsList`'s delete.
  */
-export function TrackedExecuteList({ initialRows }: { initialRows: ScanRow[] }) {
+export function TrackedExecuteList({
+  initialRows,
+  exactScoreDisplayEnabled = false,
+}: {
+  initialRows: ScanRow[];
+  exactScoreDisplayEnabled?: boolean;
+}) {
   const [rows, setRows] = useState(initialRows);
 
   async function remove(symbol: string) {
@@ -31,5 +37,12 @@ export function TrackedExecuteList({ initialRows }: { initialRows: ScanRow[] }) 
     return <p className="py-8 text-center text-sm text-muted">Nothing tracked right now.</p>;
   }
 
-  return <ResultsTable rows={rows} emptyText="" onRemove={remove} />;
+  return (
+    <ResultsTable
+      rows={rows}
+      emptyText=""
+      onRemove={remove}
+      exactScoreDisplayEnabled={exactScoreDisplayEnabled}
+    />
+  );
 }

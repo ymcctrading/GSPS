@@ -23,6 +23,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendAlertEmail, sendSetupInvalidatedEmail } from "@/lib/notifications/resend-handler";
 import { isPreviewEnvironment } from "@/lib/env/preview";
 import type { PublicSignalSummary } from "@/lib/signals/publicSummary";
+import { formatScore, SCORE_MAX } from "@/lib/scoring/display";
 
 export type DeliveryChannel = "email" | "sms" | "push";
 
@@ -245,8 +246,8 @@ export async function recordInAppNotification(
       : {
           symbol: payload.symbol,
           verdict: "Execute" as const,
-          title: `${payload.symbol} — Execute (${payload.score}/9)`,
-          body: `${payload.direction === "bullish" ? "Buy" : "Sell"} setup confirmed at ${payload.score}/9. Entry ${payload.entry}, stop ${payload.stopLoss}, target ${payload.takeProfit}.`,
+          title: `${payload.symbol} — Execute (${formatScore(payload.score, payload.exactScoreDisplayEnabled)}/${SCORE_MAX})`,
+          body: `${payload.direction === "bullish" ? "Buy" : "Sell"} setup confirmed at ${formatScore(payload.score, payload.exactScoreDisplayEnabled)}/${SCORE_MAX}. Entry ${payload.entry}, stop ${payload.stopLoss}, target ${payload.takeProfit}.`,
         };
 
   const { error } = await service.from("in_app_notifications").insert({
