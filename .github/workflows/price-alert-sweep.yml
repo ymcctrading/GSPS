@@ -1,0 +1,39 @@
+name: Price alert sweep
+
+# Delivery half of durable custom price alerts (supabase/migrations/
+# 0077_custom_price_alerts.sql, app/api/price-alerts/sweep/route.ts). A
+# price alert set on the chart is only useful cross-device/tab-closed if
+# something checks it without the browser open.
+#
+# Same cadence and reasoning as monitor-invalidation-sweep.yml: one live
+# price fetch per distinct alerted symbol, cheap enough to run often;
+# `13-21 UTC` covers the 09:30-16:00 ET session under both EST and EDT
+# without a DST-aware cron. Unlike that sweep, this one is not gated to
+# equity trading days — a crypto alert can fire any day, and an equity
+# alert simply finds nothing to fire on a day its market is shut, so
+# running on weekends is cheap and correct rather than wasted.
+#
+# Both Vercel cron slots are already spent (docs/THIRD_PARTY_LIMITS.md), so
+# this follows the same GitHub-Actions-external-scheduler pattern as every
+# other sweep/scan job in this repo.
+on:
+  schedule:
+    - cron: '15,45 13-21 * * *'
+  workflow_dispatch:
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    name: Trigger /api/price-alerts/sweep
+    steps:
+      - name: Call price alert sweep
+        run: |
+          status=$(curl -sS -o /tmp/response.json -w '%{http_code}' \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ vars.PRODUCTION_URL || 'https://gsps.vercel.app' }}/api/price-alerts/sweep")
+          echo "HTTP $status"
+          cat /tmp/response.json
+          if [ "$status" -ge 300 ]; then
+            echo "price alert sweep returned $status" >&2
+            exit 1
+          fi

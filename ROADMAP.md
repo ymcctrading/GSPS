@@ -2,8 +2,11 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-09-23 (Closed the portfolio/orders live-vs-paper UI
-gap under the Live order execution initiative note, fixing a real
+**Last updated:** 2026-09-23 (Closed the durable, cross-device custom
+price-alert table under the "Dashboard welcome banner, saved setups, chart
+pane glossary, typed price alerts" note.) Previously same day (Closed the
+portfolio/orders live-vs-paper UI gap under the Live order execution
+initiative note, fixing a real
 mode-filtering bug found in the same pass — see that note under Q1.)
 Previously same day (Closed two open BACKLOG.md/Q1 items under the
 Scan history initiative note: saved scan criteria/watchlists, and the
@@ -862,6 +865,28 @@ both signal discovery and execution.
     is closed; a durable, cross-device custom price-alert table remains
     unbuilt (see `maxCustomAlertRules` in `lib/entitlements/policy.ts`, an
     already-reserved entitlement limit with no table or UI behind it yet).
+    *(Closed 2026-09-23, direct request. New `custom_price_alerts` table
+    (migration `0077`, RLS owner-only), `/api/price-alerts` (GET/POST,
+    enforcing `maxCustomAlertRules` for the first time), `/api/price-alerts/
+    [id]`, and `/api/price-alerts?symbol=` (DELETE by symbol — the chart's
+    toggle only knows the symbol, not an alert id). `direction` (`"above"`/
+    `"below"`) is resolved once at creation from the live price then, so the
+    delivery sweep has a stable crossing rule regardless of how price moves
+    around before finally crossing it. `components/chart/candles.tsx`'s
+    existing drag/typed-input alert UX is untouched and still works purely
+    client-side; every one of its four write points (drag release, typed
+    submit, bell-toggle create/clear) now also fire-and-forget syncs to the
+    server, and the symbol-change load effect falls back to the server copy
+    when local storage has nothing (a different device, or a cleared
+    browser). Delivery: `/api/price-alerts/sweep`, cron-secret protected,
+    one live price fetch per distinct alerted symbol (same shape as
+    `/api/monitors/invalidation-sweep`), emailing
+    `lib/notifications/resend-handler.ts`'s new `sendPriceAlertEmail` once
+    per alert and marking it triggered so it never re-fires. Scheduled via
+    `.github/workflows/price-alert-sweep.yml` (GitHub Actions — both Vercel
+    cron slots are already spent), same `:15`/`:45` cadence as the
+    invalidation sweep, not gated to trading days since a crypto alert can
+    fire any day.)*
 - **Automated Portfolio Manager — wired the engine up** *(2026-09-03,
   out-of-phase, production-integrity fix)* — `/automation`'s "Automated
   Portfolio Manager" toggle (`user_automation_profiles`, System Mastery

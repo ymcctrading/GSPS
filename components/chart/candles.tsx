@@ -59,6 +59,30 @@ const DOWN = "#dc2626";
 const UP_EXT = "rgba(5,150,105,0.40)";
 const DOWN_EXT = "rgba(220,38,38,0.40)";
 
+/**
+ * Best-effort, fire-and-forget sync of the chart's price alert to
+ * /api/price-alerts (migration 0077) — durable, cross-device storage
+ * alongside the existing localStorage copy this file already keeps for the
+ * in-tab drag/crossing-detection experience. Never awaited by a caller and
+ * never throws: a signed-out viewer, an offline tab, or a transient 5xx
+ * must not disturb the local, already-working alert UX this augments.
+ */
+function syncPriceAlert(symbol: string, targetPrice: number): void {
+  fetch("/api/price-alerts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ symbol, targetPrice }),
+  }).catch(() => {
+    /* best-effort — the local alert still works even if this fails */
+  });
+}
+
+function clearPersistedPriceAlert(symbol: string): void {
+  fetch(`/api/price-alerts?symbol=${encodeURIComponent(symbol)}`, { method: "DELETE" }).catch(() => {
+    /* best-effort */
+  });
+}
+
 type Tool = "none" | "hline" | "trend";
 type Point = { time: Time; price: number };
 type Trendline = { a: Point; b: Point };
@@ -387,6 +411,36 @@ export function CandleChart({
       /* localStorage unavailable */
     }
     setAlertPrice(stored && Number.isFinite(stored) ? stored : null);
+
+    // No local copy (a different device/browser set this alert, or this
+    // one's localStorage was cleared) — fall back to the durable,
+    // cross-device copy. Best-effort and cancellable: a fast symbol switch
+    // must not let a stale response for the previous symbol land after this
+    // effect has already moved on.
+    if (stored == null) {
+      let cancelled = false;
+      const thisSymbol = symbol.toUpperCase();
+      fetch(`/api/price-alerts?symbol=${encodeURIComponent(thisSymbol)}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((body: { alerts?: { target_price: number }[] } | null) => {
+          if (cancelled || !body?.alerts?.length) return;
+          const price = body.alerts[0].target_price;
+          if (Number.isFinite(price)) {
+            setAlertPrice(price);
+            try {
+              localStorage.setItem(`gsps.alert.${thisSymbol}`, String(price));
+            } catch {
+              /* ignore */
+            }
+          }
+        })
+        .catch(() => {
+          /* signed out, offline, or transient — local-only alert experience stands */
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
   }, [symbol]);
 
   // Re-render (without refetch) when the extended-hours toggle flips.
@@ -489,6 +543,7 @@ export function CandleChart({
       } catch {
         /* ignore */
       }
+      if (a != null) syncPriceAlert(symbol.toUpperCase(), a);
     };
 
     el.addEventListener("pointermove", onHover);
@@ -839,6 +894,7 @@ export function CandleChart({
       } catch {
         /* ignore */
       }
+      clearPersistedPriceAlert(symbol.toUpperCase());
       return;
     }
     const seed = lastBarRef.current?.close ?? markers[0]?.price ?? 0;
@@ -852,6 +908,7 @@ export function CandleChart({
     } catch {
       /* ignore */
     }
+    syncPriceAlert(symbol.toUpperCase(), price);
   }
 
   // Lets someone key in the exact tick they want rather than drag the line —
@@ -870,6 +927,7 @@ export function CandleChart({
     } catch {
       /* ignore */
     }
+    syncPriceAlert(symbol.toUpperCase(), rounded);
   }
 
   function clearDrawings() {
