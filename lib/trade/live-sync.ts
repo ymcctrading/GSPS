@@ -1,12 +1,15 @@
 /**
- * One pass of live-account sync: the three previously-unwired real-broker
- * modules (`lib/trade/exit-manager.ts`, `lib/portfolio/reconcile.ts`,
- * `lib/portfolio/trade-log-settle.ts`) all took `(supabase, creds, userId,
- * ...)` and had no caller — this is that caller. Mirrors what
- * `GET /api/orders`'s paper path already does every poll (advance exits,
- * reconcile what's open, settle what's pending), fetching the broker's
- * position list once and feeding it to all three rather than three separate
- * round trips.
+ * One pass of live-account sync: the real-broker modules
+ * (`lib/trade/exit-manager.ts`, `lib/portfolio/reconcile.ts`,
+ * `lib/portfolio/trade-log-settle.ts`, `lib/portfolio/order-status.ts`) all
+ * took `(supabase, creds, userId, ...)` and had no caller — this is that
+ * caller. Mirrors what `GET /api/orders`'s paper path already does every
+ * poll (advance exits, reconcile what's open, settle what's pending),
+ * fetching the broker's position list once and feeding it to all four
+ * rather than four separate round trips. `order-status.ts`'s
+ * `syncLiveOrderStatuses` was added later than the other three (2026-09-23)
+ * — it existed fully built, including the DB columns it writes, but had no
+ * caller either; see its own header for why that went unnoticed.
  *
  * A no-op — not an error — when the user has no active live connection:
  * most accounts, since live order placement is new (see
@@ -19,6 +22,7 @@ import { readLiveAlpacaConnection } from "@/lib/brokers/live-creds";
 import { manageProtocolExits, type ManageRun } from "@/lib/trade/exit-manager";
 import { reconcilePositions, type LivePosition, type ReconcileOutcome } from "@/lib/portfolio/reconcile";
 import { settlePendingTradeLogs, type SettlementRun } from "@/lib/portfolio/trade-log-settle";
+import { syncLiveOrderStatuses, type OrderSyncRun } from "@/lib/portfolio/order-status";
 import { evaluateLiveTradeLoss } from "@/lib/risk/live-trade-loss";
 
 export interface LiveSyncResult {
@@ -26,11 +30,19 @@ export interface LiveSyncResult {
   exits: ManageRun | null;
   reconcile: ReconcileOutcome | null;
   settlement: SettlementRun | null;
+  orderSync: OrderSyncRun | null;
   /** Set when the broker's position list itself couldn't be read — nothing below ran. */
   error: string | null;
 }
 
-const NOT_CONNECTED: LiveSyncResult = { connected: false, exits: null, reconcile: null, settlement: null, error: null };
+const NOT_CONNECTED: LiveSyncResult = {
+  connected: false,
+  exits: null,
+  reconcile: null,
+  settlement: null,
+  orderSync: null,
+  error: null,
+};
 
 export async function syncLiveAccount(supabase: SupabaseClient, userId: string): Promise<LiveSyncResult> {
   const connection = await readLiveAlpacaConnection(supabase, userId);
@@ -52,6 +64,7 @@ export async function syncLiveAccount(supabase: SupabaseClient, userId: string):
       exits: null,
       reconcile: null,
       settlement: null,
+      orderSync: null,
       error: `Couldn't read live positions from Alpaca — ${err instanceof Error ? err.message : String(err)}`,
     };
   }
@@ -86,6 +99,18 @@ export async function syncLiveAccount(supabase: SupabaseClient, userId: string):
     }),
   );
 
+  // Order-status sync: the Pending list's counterpart to `reconcile` above —
+  // reconcile tracks whether a *position* opened or closed; this tracks
+  // whether an individual *order* has since filled, been rejected, or been
+  // cancelled at the broker. See lib/portfolio/order-status.ts's header.
+  const orderSync = await syncLiveOrderStatuses(supabase, connection.creds, userId).catch(
+    (err): OrderSyncRun => ({
+      updated: 0,
+      orphaned: 0,
+      error: err instanceof Error ? err.message : String(err),
+    }),
+  );
+
   // Live-only per-trade loss cascade (lib/risk/live-trade-loss.ts) — after
   // reconciliation, so the local `positions` rows this reads reflect any
   // opens/closes reconciliation just recorded. Best-effort per position;
@@ -94,7 +119,7 @@ export async function syncLiveAccount(supabase: SupabaseClient, userId: string):
     (err) => console.error(`syncLiveAccount: live-loss evaluation failed — ${String(err)}`),
   );
 
-  return { connected: true, exits, reconcile, settlement, error: null };
+  return { connected: true, exits, reconcile, settlement, orderSync, error: null };
 }
 
 async function evaluateLiveLossForOpenPositions(
