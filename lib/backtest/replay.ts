@@ -34,7 +34,7 @@ import {
   proximityBandPct,
 } from "@/lib/scoring/proximity";
 import type { CriterionWeights } from "@/lib/scoring/weights";
-import { computeGannEntryTrigger } from "@/lib/gann/entryTrigger";
+import { computeGannEntryTrigger, type GannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { readTrend } from "@/lib/analysis/trend";
 import { countLevelTests, levelRole, type LevelRole } from "@/lib/analysis/levelRole";
 import { atr } from "@/lib/analysis/pivots";
@@ -448,6 +448,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       const decision = dailyBars
         ? scoreSetup({
             pattern,
+            gannTrigger: trigger,
             dailyBars,
             contextByDate,
             date: live.t.slice(0, 10),
@@ -563,6 +564,7 @@ export function combine(results: ReplayResult[]): ReplayResult {
  */
 function scoreSetup(input: {
   pattern: StratPattern;
+  gannTrigger: GannEntryTrigger;
   dailyBars: Bar[];
   contextByDate: Map<string, MacroContext | null>;
   date: string;
@@ -574,8 +576,19 @@ function scoreSetup(input: {
   largeCap: boolean;
   weights?: CriterionWeights;
 }): ScanDecision | undefined {
-  const { pattern, dailyBars, contextByDate, date, history, price, executionAtr, assetClass, largeCap, weights } =
-    input;
+  const {
+    pattern,
+    gannTrigger,
+    dailyBars,
+    contextByDate,
+    date,
+    history,
+    price,
+    executionAtr,
+    assetClass,
+    largeCap,
+    weights,
+  } = input;
 
   let context = contextByDate.get(date);
   if (context === undefined) {
@@ -626,6 +639,7 @@ function scoreSetup(input: {
       nearSupportResistance: context.nearSupportResistance,
       srMatch: context.srMatch,
       pattern,
+      gannTrigger,
       momentumElevated: context.momentumElevated,
       levels,
       stopAtrMultiple: levels && executionAtr > 0 ? levels.riskPerShare / executionAtr : null,
