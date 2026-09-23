@@ -15,8 +15,19 @@ import { persistCoarseTelemetry } from "@/lib/scan/telemetry";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getUniversePolicy } from "@/lib/universe/policy";
 import { etDateKey } from "@/lib/market/session";
+import { fanOutToAllProfiles } from "@/lib/entitlements/scan-fanout";
+import type { RankedSetup } from "@/lib/entitlements/result-selection";
+import type { ScanResult } from "@/lib/types";
 import { LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
 import { resolveDiscoveryAndTrackingSymbols } from "@/lib/scan/universe-rotation";
+
+/**
+ * scan_executions.source for this route's own per-profile monitor fan-out.
+ * See supabase/migrations/0076_scheduled_full_universe_scan_source.sql for
+ * why this needs its own value rather than reusing one of the five
+ * scheduled_* sources in lib/entitlements/scheduled-scan.ts.
+ */
+const FAN_OUT_SOURCE = "scheduled_full_universe_scan";
 
 /**
  * How recently the autonomous full-universe scan (see
@@ -59,19 +70,32 @@ export const maxDuration = 60;
  * ~56s under this route's 60s budget — see `DISCOVERY_CHUNK_SIZE`'s own
  * comment (lib/scan/universe-rotation.ts) for the full breadcrumb figures.
  */
-async function resolveExtraSymbols(scanDate: string): Promise<string[]> {
+async function resolveExtraSymbols(service: ReturnType<typeof createServiceClient>, scanDate: string): Promise<string[]> {
   try {
-    return await resolveDiscoveryAndTrackingSymbols(createServiceClient(), scanDate, LARGE_CAP_UNIVERSE);
+    return await resolveDiscoveryAndTrackingSymbols(service, scanDate, LARGE_CAP_UNIVERSE);
   } catch (err) {
     console.warn(`market-scan: discovery/tracking symbols not resolved — ${describeDbError(err)}`);
     return [];
   }
 }
 
-async function runAndPersist() {
-  const { universe } = await getUniversePolicy(createServiceClient());
+/**
+ * `fanOutToProfiles`: true only for the authenticated cron invocation (see
+ * the GET handler below), never for a signed-in user's own manual "Refresh
+ * scan" click (POST) — a single user's click must never fan monitor
+ * transitions and notifications out to every other profile in the system.
+ * This is the fix for ROADMAP.md's "Scan history" note: this route's cron
+ * path previously wrote only `daily_scans` and never touched
+ * `active_monitors` at all, so a symbol only ever seen through this route
+ * (as opposed to the five lib/entitlements/scheduled-scan.ts jobs, which
+ * already fan out) could sit on a user's Scan History tab as permanently
+ * "untracked" even after becoming a real Execute setup.
+ */
+async function runAndPersist(options: { fanOutToProfiles: boolean } = { fanOutToProfiles: false }) {
+  const service = createServiceClient();
+  const { universe } = await getUniversePolicy(service);
   const scanDate = etDateKey(new Date());
-  const extraSymbols = await resolveExtraSymbols(scanDate);
+  const extraSymbols = await resolveExtraSymbols(service, scanDate);
 
   // `runMarketScan` itself was previously uncaught here: a thrown
   // MarketDataError (e.g. Alpaca's free-tier rate limit, hit more easily now
@@ -99,7 +123,7 @@ async function runAndPersist() {
       ...buildScanRows(output.scanDate, "bullish", output.bullish),
       ...buildScanRows(output.scanDate, "bearish", output.bearish),
     ];
-    const outcome = await persistDailyScans(createServiceClient(), output.scanDate, rows);
+    const outcome = await persistDailyScans(service, output.scanDate, rows);
     persisted = outcome.persisted;
     persistedCount = outcome.count;
     persistError = outcome.error;
@@ -122,9 +146,62 @@ async function runAndPersist() {
   // try/catch above so a telemetry write failure can never be mistaken for
   // the actual scan results failing to save.
   try {
-    await persistCoarseTelemetry(createServiceClient(), output.coarseTelemetry);
+    await persistCoarseTelemetry(service, output.coarseTelemetry);
   } catch (err) {
     console.warn(`market-scan: coarse telemetry not saved — ${describeDbError(err)}`);
+  }
+
+  // Per-profile monitor evaluation + notification fan-out — cron path only
+  // (see this function's own header comment above). Best-effort and
+  // deliberately outside every try/catch above: a fan-out failure must
+  // never be mistaken for the scan or the daily_scans publish itself
+  // failing, and must never block either.
+  let profilesFannedOut: number | null = null;
+  if (options.fanOutToProfiles) {
+    try {
+      const qualifying: RankedSetup<ScanResult>[] = [
+        ...output.bullish.map((r) => ({ side: "buy" as const, rank: r.decision.score, value: r })),
+        ...output.bearish.map((r) => ({ side: "sell" as const, rank: r.decision.score, value: r })),
+      ];
+      // Same "looked at and found nothing" distinction scheduled-scan.ts's
+      // fanOutToProfiles documents: a symbol this run's reduced universe
+      // never scanned at all is correctly left alone, not treated as a
+      // rejection.
+      const rejectedSymbols = new Set(
+        output.fullScanResults
+          .filter((r) => !r.error && (r.decision.outputState === "Reject" || r.direction === "none"))
+          .map((r) => r.symbol),
+      );
+
+      const { data: inserted, error: insertError } = await service
+        .from("scan_executions")
+        .insert({
+          profile_id: null,
+          source: FAN_OUT_SOURCE,
+          market_date_et: output.scanDate,
+          started_at: new Date().toISOString(),
+          finished_at: new Date().toISOString(),
+          eligible_count: qualifying.length,
+          visible_count: qualifying.length,
+          result_fresh_as_of: new Date().toISOString(),
+        })
+        .select("id")
+        .single();
+
+      if (insertError || !inserted) {
+        console.error(`market-scan: scan execution not recorded for fan-out — ${insertError?.message}`);
+      } else {
+        const fanOut = await fanOutToAllProfiles(service, {
+          scanExecutionId: (inserted as { id: string }).id,
+          source: FAN_OUT_SOURCE,
+          qualifying,
+          rejectedSymbols,
+        });
+        profilesFannedOut = fanOut.profilesFannedOut;
+      }
+    } catch (err) {
+      console.error(`market-scan: profile fan-out failed — ${String(err)}`);
+    }
   }
 
   return NextResponse.json({
@@ -139,6 +216,7 @@ async function runAndPersist() {
     persisted,
     persistedCount,
     persistError,
+    profilesFannedOut,
   });
 }
 
@@ -201,7 +279,7 @@ export async function GET(req: NextRequest) {
   if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  return runAndPersist();
+  return runAndPersist({ fanOutToProfiles: true });
 }
 
 /**

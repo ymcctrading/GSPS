@@ -1,6 +1,22 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
+/**
+ * Historical performance query optimization/caching (BACKLOG.md). A user's
+ * own analytics response — never a public/shared cache, which would leak
+ * one user's trade history into another's via a CDN or proxy. `max-age=30`
+ * lets a browser reuse the response across a quick re-render (e.g. the
+ * dashboard mounting several metric cards in a row) without a redundant
+ * round trip for data that only changes on a new closed trade, not on
+ * every poll; `stale-while-revalidate` lets a slightly-stale response serve
+ * instantly while a fresh one loads in the background rather than blocking.
+ */
+function cachedJson(data: unknown) {
+  return NextResponse.json(data, {
+    headers: { "Cache-Control": "private, max-age=30, stale-while-revalidate=60" },
+  });
+}
+
 export async function GET(req: NextRequest) {
   try {
     const authHeader = req.headers.get("authorization");
@@ -43,7 +59,7 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
 
-      return NextResponse.json(data);
+      return cachedJson(data);
     }
 
     if (metric === "pnl") {
@@ -58,7 +74,7 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
 
-      return NextResponse.json(data);
+      return cachedJson(data);
     }
 
     if (metric === "patterns") {
@@ -74,7 +90,7 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
 
-      return NextResponse.json(data);
+      return cachedJson(data);
     }
 
     if (metric === "equity") {
@@ -88,7 +104,7 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
 
-      return NextResponse.json(data);
+      return cachedJson(data);
     }
 
     return NextResponse.json(

@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { SCANNER_STATE_META } from "@/lib/signals/types";
 
 interface Term {
   term: string;
@@ -147,6 +148,24 @@ const GROUPS: { heading: string; terms: Term[] }[] = [
           "'At advised price' waits to buy exactly at the entry line. 'Buy now' buys at the current market price right away.",
       },
     ],
+  },
+  {
+    // BACKLOG.md's "Pattern education" item, the remaining piece of it:
+    // the five STRAT reversal/continuation patterns already have their own
+    // glossary entries above ("Failed-push reversal" through "Momentum
+    // exhaustion reversal") — this was double-checked before adding
+    // anything, since duplicating them would collide on `glossarySlug`'s
+    // anchor ids. What genuinely had no home anywhere a novice could browse
+    // without an active scan result in front of them: the Signal and Regime
+    // Engine's four states (`lib/signals/types.ts`'s `SCANNER_STATE_META`),
+    // which had only a one-line `purpose` used inline in the score
+    // breakdown UI. Copy below is that same existing `purpose` text, not
+    // newly written here.
+    heading: "Signal states (what regime GSPS thinks a symbol is in)",
+    terms: Object.values(SCANNER_STATE_META).map((meta) => ({
+      term: meta.label,
+      plain: meta.purpose,
+    })),
   },
 ];
 

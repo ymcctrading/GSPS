@@ -2,7 +2,21 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-09-20 (Documented the 2026-09-16/17 Gann-grounding
+**Last updated:** 2026-09-23 (Closed "Pattern education" under the Improved
+onboarding note — the Signal and Regime Engine's four states now have
+glossary entries.) Previously same day (Annotated the Feature Priority
+Matrix's Q1 "Platform & reliability"/"Security & compliance" lines: Sentry error
+capture closed, API key encryption rotation verified already done.)
+Previously same day (Closed the durable, cross-device custom
+price-alert table under the "Dashboard welcome banner, saved setups, chart
+pane glossary, typed price alerts" note.) Previously same day (Closed the
+portfolio/orders live-vs-paper UI gap under the Live order execution
+initiative note, fixing a real
+mode-filtering bug found in the same pass — see that note under Q1.)
+Previously same day (Closed two open BACKLOG.md/Q1 items under the
+Scan history initiative note: saved scan criteria/watchlists, and the
+system-scan cron path's monitor fan-out gap. See that note under Q1.)
+Previously: 2026-09-20 (Documented the 2026-09-16/17 Gann-grounding
 audit here for the first time — see the Gann & Sara Cross-Market Confluence
 Layers initiative note under Q1; that work was recorded only in AGENTS.md
 until now, which is stale against AGENTS.md's own "update ROADMAP.md in the
@@ -260,10 +274,43 @@ both signal discovery and execution.
   a doc-comment fix — a candidate for a dedicated Q1 follow-up. `guided` and
   `automation` remain intentionally unwired, per `app/api/guided/route.ts`'s
   header and this file's own "Deliberately NOT wired" note elsewhere; they
-  were never part of this correction's scope.)*
+  were never part of this correction's scope.)* *(Follow-up, 2026-09-23,
+  direct request: this system-scan cron gap is now closed.
+  `app/api/market-scan/route.ts`'s cron path (`.github/workflows/full-market-scan.yml`,
+  every 15 minutes through the session) now fans its qualifying setups out
+  to every entitled profile the same way the five `lib/entitlements/
+  scheduled-scan.ts` jobs already did — `lib/entitlements/scan-fanout.ts`'s
+  `fanOutToAllProfiles`, factored out of that file's own per-profile loop so
+  both callers apply identical entitlement/monitor/notification rules. This
+  route needed its own `scan_executions.source`
+  (`scheduled_full_universe_scan`, migration `0076`) rather than reusing one
+  of the five existing sources: those are idempotent once per market date
+  via a partial unique index, correct for a job that runs once a day, but
+  wrong for this route's 15-minute cadence — each cron invocation gets its
+  own `scan_executions` row instead, relying on `evaluateMonitor`'s existing
+  cooldown to prevent flapping/over-notifying on repeated same-state
+  re-evaluations, the same protection every other repeated-scan path here
+  already leans on. Deliberately scoped to the authenticated cron
+  invocation (`GET`) only, never the signed-in user's manual "Refresh scan"
+  click (`POST`) — a single user's click must never fan monitor transitions
+  and notifications out to every other profile in the system. The
+  cost/architecture question this note originally raised ("how many users,
+  what it does to the route's `maxDuration` budget") is resolved by
+  precedent, not new analysis: the five `scheduled-scan.ts` jobs already run
+  a full scan *and* a full profile fan-out inside the same 60s ceiling in
+  production today, at current usage scale — see that file's own comment
+  ("With a single active user, the extra scans/day add negligible request
+  volume"). Revisit if concurrent usage grows enough that per-profile
+  fan-out cost becomes the binding constraint rather than the scan itself.)*
   Distinct from BACKLOG.md's unchecked "Saved scan criteria/watchlists" item,
   which is about re-running a saved *configuration*, not reviewing past
-  *results* — that item is still open.
+  *results*. *(Closed 2026-09-23, direct request: `scan_criteria_presets`
+  (migration `0075`) lets a user name and reload a Universe-tab search —
+  selected industries plus custom symbols — via `/api/scan-criteria` and
+  `components/scan/saved-searches.tsx` on the Scanner page's Universe tab.
+  Distinct from `watchlists` (bare symbols) and `saved_setups`/
+  `setup_folders` (migration 0058, a scored trade-plan snapshot): this saves
+  the scan configuration itself.)*
 - **Home dashboard universe coverage + intraday tracking — continuation of
   this same coverage-gap thread, 2026-09-17, direct report.** The Home
   dashboard's Buy/Sell setups cards were consistently thinner than a manual
@@ -356,7 +403,25 @@ both signal discovery and execution.
   (`components/glossary.tsx`, `components/glossary-term.tsx`) linked from
   nav, Settings, the onboarding tour, the dashboard novice-home summary, the
   chart pane, the order ticket, and scan cards. Pattern education remains
-  open.)*
+  open.)* *(Closed 2026-09-23, direct request. Checked what already existed
+  before writing anything new: the five STRAT reversal/continuation
+  patterns already had glossary entries (the "Reversal & continuation
+  patterns" group), and `components/scan/pattern-education.tsx` already
+  gave a per-signal explainer once a pattern armed — so "pattern education"
+  wasn't actually absent, just incomplete one level up. The Signal and
+  Regime Engine's four states (`lib/signals/types.ts`'s
+  `SCANNER_STATE_META` — Trend Pullback, Trend Breakout, Confirmed
+  Reversal, Range Reversion) had only a one-line `purpose` string used
+  inline in the score breakdown UI, with nowhere a novice could browse what
+  they mean independent of an active scan result. New glossary group
+  surfaces that same existing `purpose` copy — no new claims written, just
+  made findable. Also added `components/glossary.test.tsx`, asserting
+  every `<GlossaryTerm>` cross-reference used elsewhere in the app
+  (`PATTERN_GLOSSARY_TERM`'s pattern names, now also the four state labels)
+  resolves to a real glossary entry — nothing enforced that before, and the
+  near-miss while building this (almost re-adding the five pattern terms a
+  second time, which would have collided on their shared anchor id) is
+  exactly the class of drift it now guards against.)*
 - **Guided Decision Mode** *(shipped 2026-08-17)* — one recommended action per
   symbol, sized from a per-trade risk cap, executed through a single
   confirmation. Paper-only, long-only, Execute-verdict only, with daily/weekly
@@ -446,7 +511,66 @@ both signal discovery and execution.
   portfolio/orders UI that visually distinguishes live rows from paper ones
   (both already carry a `mode` column and render together); a per-user kill
   switch specific to live trading (the existing global `TRADING_DISABLED`
-  env var still covers every order, live included).
+  env var still covers every order, live included). *(Follow-up, 2026-09-23,
+  direct request: the orders half of this was already done by PR #252's
+  `components/portfolio/order-rows.tsx` `LiveBadge`. The
+  positions half is now done too, and in the same PR fixed a real bug this
+  gap had been masking: `lib/brokers/simulator.ts`'s
+  `getOpenPosition`/`listOpenPositions` — the paper-trading simulator's own
+  position readers — never filtered by `positions.mode`, so a user who also
+  held a live position would have had it silently swept into every one of
+  their reads: `/api/portfolio`'s paper equity calculation, and
+  `/api/positions/close`'s "which position am I closing" lookup, despite
+  that route's own comment asserting "every position here is paper." A live
+  position could in principle have had its database row flattened by the
+  paper simulator's `closePositionSim` without ever placing a real closing
+  order at the broker — a data-integrity risk, not merely a missing badge.
+  Fixed: both functions now filter `.eq("mode", "paper")` explicitly (every
+  current caller is paper-only already, so this changes no legitimate
+  behavior — see the functions' own updated header comment); a new
+  `listLiveOpenPositions` reads the live-mode rows separately, merged into
+  `/api/portfolio`'s `blendedPositions` for read-only display via a `mode`
+  field now threaded through `RawPosition`/`EquityLeg`/`OptionLeg`
+  (`lib/portfolio/blend.ts`) — never into the paper `equity`/`cash`/
+  `buyingPower` numbers, which are computed from the paper-only rows exactly
+  as before. `components/portfolio/open-positions.tsx` renders the same
+  `LiveBadge` treatment as orders, and hides the Protect/Edit/Close action
+  buttons on a live leg (none of those routes are live-wired here yet)
+  rather than showing them wired to nothing.)* *(Follow-up, 2026-09-23,
+  direct request: `entry_pause` now counts live entries. Live order
+  placement shipped in this same initiative months before this fix — see
+  above — so `lib/risk/service.ts`'s header comment claiming "no live order
+  history to count from yet" was already stale at the time it was written;
+  `entry_pause` could never trigger from live trading as a result, only from
+  the loss/drawdown-driven states. Fixed: a new
+  `countLiveEntriesOpenedToday` (`lib/risk/service.ts`) counts this user's
+  `positions` rows with `mode = 'live'` and `opened_at` since midnight ET —
+  a position row, not an order row, since a position is only created on an
+  actual fill (rejected/canceled orders correctly don't count).
+  `lib/trade/place-order.ts`'s live branch now calls it and passes the real
+  count into `evaluateLiveCircuitBreaker` instead of a hardcoded `0`.)*
+  *(Follow-up, 2026-09-23, direct request: the per-user kill switch now has
+  a UI. The mechanism already existed —
+  `broker_connections.status`/`lib/brokers/live-creds.ts`'s
+  `readLiveAlpacaConnection` already required `status = 'active'` before
+  every live order, and `/api/alpaca/connect-live`'s `POST`/`DELETE` already
+  implemented connect and soft-disable (`status = 'disabled'`) — but nothing
+  in the app ever called that route: no Settings section, no button,
+  nothing. `lib/trade/kill-switch.ts`'s own header already named this gap
+  ("Per-user kill switches need a column and a policy, and they land with
+  the per-user connection work"). New `components/settings/
+  live-trading-settings.tsx`, on the Settings page: shows connection status,
+  a minimal connect form (API key/secret, verified against Alpaca before
+  saving — the existing `POST` behavior), and a confirm-gated "Pause live
+  trading" button that calls the existing `DELETE`. Pausing disables the
+  connection, so every subsequent live order is refused the same way as
+  before connecting — it does not cancel a resting broker order or close an
+  open position, the same carve-out the global `TRADING_DISABLED` switch's
+  own docs already state for protective actions. Also added a `GET` to that
+  route (connection status was previously unreadable by any caller) and
+  fixed the settings page to have a live-account section at all — before
+  this, a live-connected user had no way to see their live-trading state
+  anywhere in Settings.)*
 - **Market Universe, Data Quality & Account Constraints engine** *(2026-08-29,
   out-of-phase, direct request)* — a pure-logic engine, `lib/universe/*`,
   implementing the "Market Universe, Data Quality & Account Constraints"
@@ -637,7 +761,44 @@ both signal discovery and execution.
   blocked as before. Not named in this roadmap — small hardening ahead of an
   unscheduled dependency (live trading), not a reprioritization.
 - **Mobile-responsive dashboard** — not a native app yet, but positions and
-  alerts must be usable on phones and tablets.
+  alerts must be usable on phones and tablets. *(Verified 2026-09-23, direct
+  request — "unconfirmed shipped" going in, since `docs/Q1_DAILY_PLAN.md`'s
+  Sprint 4 schedules this for Sep 28–Oct 9, which hadn't started as of
+  today, yet the codebase already had it built with no roadmap entry to
+  show for it — a documentation gap, the same shape as the Portfolio
+  analytics dashboard correction above.* Audited every major surface
+  (`components/app/nav.tsx`, `app/(app)/dashboard/page.tsx`,
+  `app/(app)/portfolio/page.tsx` + `open-positions.tsx`,
+  `app/(app)/scanner/page.tsx` + `results-table.tsx`,
+  `components/scan/ticker-view.tsx` + `candles.tsx` + `order-ticket.tsx`,
+  `components/portfolio/analytics-dashboard.tsx`) rather than trusting the
+  "unconfirmed" framing either way. Found comprehensive, consistently-applied
+  responsive design already in place: `components/app/nav.tsx` gives phones
+  (`< md`) a dedicated fixed bottom tab bar instead of the desktop top nav;
+  `components/ui/table.tsx` — the shared primitive every dense table in the
+  app uses — wraps every table in its own horizontal-scroll box
+  (`scroll-x w-full min-w-0 max-w-full`) with a `sticky left-0` first column,
+  specifically so a wide grid scrolls inside its own box instead of widening
+  the page body (its own header comment states this explicitly); the same
+  scroll-in-a-box pattern is independently applied to
+  `analytics-dashboard.tsx`'s SVG charts and pattern table
+  (`min-w-[480px]`/`min-w-[520px]` each wrapped in `overflow-x-auto`);
+  `open-positions.tsx` goes further and renders genuinely different markup
+  per breakpoint — a desktop table plus a separate `sm:hidden` mobile card
+  layout; the dashboard, scanner, and ticker/chart+order-ticket pages all
+  use mobile-first responsive grids that stack to one column below `sm`/`lg`
+  and widen above it, with `flex-wrap` and `scroll-x no-scrollbar` toolbars
+  where controls could otherwise overflow. `app/layout.tsx` sets a real
+  `viewport` export (`viewportFit: "cover"` for notch/safe-area handling),
+  without which none of the above would engage correctly on a real device.
+  No fix was needed — searched specifically for the failure modes that would
+  need one (unwrapped fixed pixel widths, missing viewport meta, dense grids
+  with no mobile alternative) and found none outside an already-scrolled
+  container. Not visually verified on a real device or browser at a mobile
+  viewport in this pass — this environment has no authenticated Supabase
+  session to render the signed-in app behind (same limitation Phase 7's
+  entry above documents) — so treat this as a thorough static/structural
+  audit, not a pixel-level QA pass.)*
 - **Technical indicators (phase 1)** — SMA, EMA, RSI, MACD as chart overlays.
   Visible for analysis; not yet alert factors.
 - **GSPS Automation — entry confirmation, plan-scoped Automation, live-only
@@ -727,6 +888,28 @@ both signal discovery and execution.
     is closed; a durable, cross-device custom price-alert table remains
     unbuilt (see `maxCustomAlertRules` in `lib/entitlements/policy.ts`, an
     already-reserved entitlement limit with no table or UI behind it yet).
+    *(Closed 2026-09-23, direct request. New `custom_price_alerts` table
+    (migration `0077`, RLS owner-only), `/api/price-alerts` (GET/POST,
+    enforcing `maxCustomAlertRules` for the first time), `/api/price-alerts/
+    [id]`, and `/api/price-alerts?symbol=` (DELETE by symbol — the chart's
+    toggle only knows the symbol, not an alert id). `direction` (`"above"`/
+    `"below"`) is resolved once at creation from the live price then, so the
+    delivery sweep has a stable crossing rule regardless of how price moves
+    around before finally crossing it. `components/chart/candles.tsx`'s
+    existing drag/typed-input alert UX is untouched and still works purely
+    client-side; every one of its four write points (drag release, typed
+    submit, bell-toggle create/clear) now also fire-and-forget syncs to the
+    server, and the symbol-change load effect falls back to the server copy
+    when local storage has nothing (a different device, or a cleared
+    browser). Delivery: `/api/price-alerts/sweep`, cron-secret protected,
+    one live price fetch per distinct alerted symbol (same shape as
+    `/api/monitors/invalidation-sweep`), emailing
+    `lib/notifications/resend-handler.ts`'s new `sendPriceAlertEmail` once
+    per alert and marking it triggered so it never re-fires. Scheduled via
+    `.github/workflows/price-alert-sweep.yml` (GitHub Actions — both Vercel
+    cron slots are already spent), same `:15`/`:45` cadence as the
+    invalidation sweep, not gated to trading days since a crypto alert can
+    fire any day.)*
 - **Automated Portfolio Manager — wired the engine up** *(2026-09-03,
   out-of-phase, production-integrity fix)* — `/automation`'s "Automated
   Portfolio Manager" toggle (`user_automation_profiles`, System Mastery
@@ -969,8 +1152,13 @@ ecosystem. 300+ paying users, $50k+ MRR.
 
 ### Platform & reliability
 
-- **Q1** — Upgrade Vercel to Pro (removes the 2-cron/day cap); structured error
-  logging (Sentry).
+- **Q1** — Upgrade Vercel to Pro (removes the 2-cron/day cap; still open —
+  every cron slot workaround in `docs/THIRD_PARTY_LIMITS.md` is downstream
+  of this staying unresourced); structured error logging (Sentry) — **done,
+  2026-09-23**: `@sentry/nextjs` was already initialized in both
+  `instrumentation.ts`/`instrumentation-client.ts` but never actually
+  caught an error (no `onRequestError` hook, no `app/global-error.tsx`);
+  both added. Inert until `SENTRY_DSN` is set on the deployment.
 - **Q2** — Database indexing audit; query performance baselines; Redis cache
   for order and portfolio data.
 - **Q3** — Horizontal scaling investigation; load-balancing design.
@@ -979,7 +1167,29 @@ ecosystem. 300+ paying users, $50k+ MRR.
 
 ### Security & compliance
 
-- **Q1** — API key encryption rotation; rate-limit hardening.
+- **Q1** — API key encryption rotation — **verified 2026-09-23, already
+  done**: `lib/crypto.ts` (AES-256-GCM, dual-key `CREDENTIALS_ENCRYPTION_KEY`/
+  `_PREVIOUS` fallback), `scripts/rotate-credentials-key.mjs` (idempotent
+  re-encryption sweep of every `broker_connections` row), and the exact
+  procedure in `SECURITY.md`, all already existed and are tested
+  (`lib/__tests__/crypto.test.ts`). Deliberately a documented manual
+  procedure, not a scheduled job: the first step (moving the Vercel env var)
+  can't be automated from inside the app, so a human has to drive rotation
+  regardless — the same reasoning key rotation of this kind generally
+  follows. No code changed for this item. Rate-limit hardening — **partial,
+  2026-09-23**: every `/api` route already sat behind `proxy.ts`'s blanket
+  limiter (120/min default, 20/min for market-data-hitting scan routes) —
+  broader coverage than "still open" implied. The real gap: no tier below
+  that blanket default for the one class of route it's genuinely too loose
+  for — `POST /api/alpaca/connect-live` (submits a broker API key/secret to
+  be verified against Alpaca), exactly the shape an attacker would hammer to
+  test stolen/guessed credentials or abuse Alpaca's API quota from GSPS's
+  own IP. New tighter tier (5/min) for that route and `/api/snaptrade/
+  connect`. Left "partial" rather than "done": this is still `lib/
+  rate-limit.ts`'s documented Hobby-tier stopgap (in-memory, per serverless
+  instance — the shared Redis store is the same Q2 dependency as the
+  caching work above), and a broader audit of which other routes deserve
+  their own tier wasn't attempted here.
 - **Q2** — Penetration testing; SOC 2 Type I kickoff.
 - **Q3** — SOC 2 Type I completion; compliance dashboard and audit log exports.
 - **Q4** — SOC 2 Type II; GDPR and privacy controls; best-execution docs.
@@ -987,7 +1197,17 @@ ecosystem. 300+ paying users, $50k+ MRR.
 ### Developer experience & testing
 
 - **Q1** — E2E framework (Playwright) covering login, trade execution, alert
-  delivery.
+  delivery. **Verified 2026-09-23** (BACKLOG.md already marked this done;
+  re-confirmed rather than trusted): `e2e/{login,scan,trade}.spec.ts`, 6
+  tests total (`npx playwright test --list` enumerates cleanly in this
+  session). Login and paper-trade execution are covered as scoped; alert
+  delivery has no dedicated spec — narrower than this line's original
+  scope, not previously called out as a gap. Still not wired into CI (needs
+  a live Supabase project — `login.spec.ts`/`trade.spec.ts` persist real
+  signups/trades, which the synthetic-data fallback can't stand in for);
+  this session's own sandbox has the same limitation, so that gap couldn't
+  be closed here either. Run locally or against a preview with
+  `npm run test:e2e`.
 - **Q2** — Integration tests for all data providers; broker API mocking.
 - **Q3** — Load testing and capacity planning; performance benchmarking in CI.
 - **Q4** — Chaos engineering; disaster recovery drills.

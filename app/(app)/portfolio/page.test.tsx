@@ -35,6 +35,7 @@ const aaplShares: EquityLeg = {
   stopLoss: null,
   takeProfit: null,
   masterProfit: null,
+  mode: "paper",
 };
 
 const aaplCall: OptionLeg = {
@@ -57,6 +58,7 @@ const aaplCall: OptionLeg = {
   greeksModeled: true,
   greeksAvailable: true,
   opened: { openedAt: "2026-08-07T18:02:00.000Z", reason: "derived" },
+  mode: "paper",
 };
 
 const blendedPositions = [

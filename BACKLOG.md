@@ -93,7 +93,10 @@
 
 ### Advanced Search & Filtering
 - [ ] Advanced scan filters (price range, volume, volatility)
-- [ ] Saved scan criteria/watchlists
+- [x] ~~Saved scan criteria/watchlists~~ — done: `scan_criteria_presets`
+      (migration 0075, RLS owner-only, same shape as `saved_setups`/0058),
+      `/api/scan-criteria`, `components/scan/saved-searches.tsx` on the
+      Scanner page's Universe tab. See `ROADMAP.md`'s Q1 "Scan history" note.
 - [ ] Scan scheduling (daily, weekly, intraday)
 - [ ] Scan result exports (CSV, Excel, PDF)
 - [ ] Scan result comparisons
@@ -169,8 +172,18 @@
 ## Priority 6: Infrastructure & Operations
 
 ### Performance Optimization
-- [ ] Database query optimization
-- [ ] Cache layer implementation (Redis)
+- [ ] Database query optimization — partial: `trade_logs_user_exit_idx`
+      (migration 0078) closes a real missing-index gap on the portfolio
+      analytics queries (`(user_id, entry_timestamp)` existed;
+      `(user_id, exit_timestamp)`, what every analytics query actually
+      filters/orders by, didn't). Left open as a general item — this was
+      one targeted fix, not an exhaustive pass over every table.
+- [ ] Cache layer implementation (Redis) — still open; genuinely needs the
+      Q2 Redis dependency (`ROADMAP.md`). `GET /api/portfolio/analytics`
+      now sends `Cache-Control: private, max-age=30,
+      stale-while-revalidate=60` (browser-level, no server infra needed),
+      which is a distinct, smaller thing from a shared server-side cache —
+      don't read this as satisfying the Redis item.
 - [ ] CDN for static assets
 - [ ] Code splitting and lazy loading
 - [ ] Image optimization
@@ -185,8 +198,21 @@
 
 ### Monitoring & Observability
 - [ ] Application performance monitoring
-- [ ] Error tracking and alerting
-- [ ] User session recording
+- [x] ~~Error tracking and alerting~~ — done: `@sentry/nextjs` was already a
+      dependency and `Sentry.init` already ran in both
+      `instrumentation.ts` (server, both `nodejs`/`edge` runtimes) and
+      `instrumentation-client.ts` (browser), but neither actually caught an
+      error — no `onRequestError` export (the file convention's own hook
+      for a server-side error; see `instrumentation.ts`'s updated comment)
+      and no `app/global-error.tsx` (the client-side root error boundary).
+      Both added. Inert until `SENTRY_DSN`/`NEXT_PUBLIC_SENTRY_DSN` are set
+      on the deployment (by design — see each init call's `enabled` flag);
+      not verified against a live Sentry project in this pass.
+- [ ] User session recording — partially covered as a side effect:
+      `instrumentation-client.ts` already runs `Sentry.replayIntegration`
+      (10% sampled sessions, 100% on error), which is session replay
+      *around an error*, not a general session-recording product. Left
+      open rather than checked off.
 - [ ] Performance metrics dashboard
 - [ ] Log aggregation and analysis
 - [ ] Synthetic monitoring

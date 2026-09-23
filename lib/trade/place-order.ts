@@ -31,7 +31,7 @@ import { planProtocolExit } from "@/lib/trade/protocol-exit";
 import { validateLimitPrice, type RoundingMode } from "@/lib/trade/tick-size";
 import { isProtectiveOrder, killSwitchRefusal } from "@/lib/trade/kill-switch";
 import { recordOrderExecution, brokerStatusFrom, type RecordExecutionOptions } from "@/lib/learning/record";
-import { evaluateLiveCircuitBreaker } from "@/lib/risk/service";
+import { evaluateLiveCircuitBreaker, countLiveEntriesOpenedToday } from "@/lib/risk/service";
 import { canEnterNewIntradayPosition } from "@/lib/promotion/pro-intraday";
 import { loadProIntradayUsage, PRO_INTRADAY_DAILY_LOSS_LOCK_PCT } from "@/lib/promotion/intraday-gate-usage";
 import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
@@ -628,12 +628,13 @@ async function placeLiveOrder(
     };
   }
 
+  const newPositionsOpenedToday = await countLiveEntriesOpenedToday(supabase, userId);
   const gate = await evaluateLiveCircuitBreaker(
     supabase,
     userId,
     equity,
     true,
-    0, // no live order history to count from yet — see lib/risk/service.ts header
+    newPositionsOpenedToday,
   );
   // `gateResolvedAction` (lib/risk/cooldown.ts) applies the disclosed
   // "cooldown never blocks a stop loss/take profit/reduce/close" rule to the

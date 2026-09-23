@@ -467,3 +467,73 @@ export async function sendOperatorDriftAlertEmail(data: OperatorDriftAlertEmailD
     return { success: false, error: message };
   }
 }
+
+export interface PriceAlertEmailData {
+  userEmail: string;
+  symbol: string;
+  targetPrice: number;
+  direction: "above" | "below";
+  /** The price that confirmed the crossing, at sweep time. */
+  currentPrice: number;
+}
+
+/**
+ * Sent when a durable custom price alert (migration 0077,
+ * app/api/price-alerts/sweep/route.ts) fires. Deliberately its own
+ * template rather than reusing `sendAlertEmail`: a price alert carries no
+ * score/verdict/entry-stop-target — a user set a bare price level on the
+ * chart, not a GSPS-scored setup.
+ */
+export async function sendPriceAlertEmail(data: PriceAlertEmailData) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("RESEND_API_KEY not set; skipping price-alert email");
+    return { success: false, error: "RESEND_API_KEY not configured" };
+  }
+  const blocked = sandboxBlockReason(data.userEmail);
+  if (blocked) {
+    console.warn(blocked);
+    return { success: false, error: blocked };
+  }
+
+  try {
+    const verb = data.direction === "above" ? "rose above" : "fell below";
+    const subject = `${data.symbol} ${verb} $${data.targetPrice.toFixed(2)}`;
+
+    const html = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h1 style="color: #0f172a; margin: 0 0 20px;">🔔 ${data.symbol} price alert</h1>
+        <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+          <p style="margin: 0; color: #0f172a; font-size: 16px;">
+            ${data.symbol} ${verb} your alert level of <strong>$${data.targetPrice.toFixed(2)}</strong>.
+          </p>
+          <p style="margin: 10px 0 0; color: #64748b; font-size: 13px;">
+            Last price checked: $${data.currentPrice.toFixed(2)}
+          </p>
+        </div>
+        <div style="border-top: 1px solid #e2e8f0; padding-top: 15px; font-size: 12px; color: #64748b;">
+          <p style="margin: 0;">This alert has now fired and won't repeat. Set a new one from the chart if you want another.
+          <a href="https://gsps.app/ticker/${encodeURIComponent(data.symbol)}" style="color: #0ea5e9; text-decoration: none;">View chart</a>
+          </p>
+        </div>
+      </div>
+    `;
+
+    const result = await getResendClient().emails.send({
+      from: "GSPS Alerts <onboarding@resend.dev>",
+      to: data.userEmail,
+      subject,
+      html,
+    });
+
+    if (result.error) {
+      console.error("Resend error:", result.error);
+      return { success: false, error: result.error.message };
+    }
+
+    return { success: true, id: result.data?.id };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("Failed to send price-alert email:", message);
+    return { success: false, error: message };
+  }
+}
