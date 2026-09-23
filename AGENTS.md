@@ -722,6 +722,55 @@ into becoming assumed history:**
   the first one's narrower arithmetic point. Cite each for what it actually
   says, not for a combined claim neither source makes on its own.
 
+## Three-question mandate — ask before every task, every session
+
+Project owner direction, 2026-09-23, standing indefinitely. Before
+starting, executing, implementing, migrating, pushing, or reasoning about
+any Gann-adjacent piece of work on this platform, ask and answer — in
+writing, where the work lands (module header, PR description, or the
+session's reply) — these three questions, in this order:
+
+1. **How does Gann's own methodology best ground or improve this?** Cite
+   the source and tier in `docs/GANN_HISTORICAL_SOURCES.md`.
+2. **How does Dewey's and Tomes' work on cycles best inform this?** Where
+   the component makes any claim about periodicity or recurrence, run
+   Dewey's seven-item checklist explicitly (dominance, regularity of
+   timing, repetition count, constancy of period, phase-resumption after
+   distortion, wave-shape identity, cross-series clustering) and state
+   which items were cleared and which were not.
+3. **Which Hermetic principle does this best express** — Mentalism,
+   Correspondence, Vibration, Polarity, Rhythm, Cause and Effect, or
+   Gender — and does that framing change the design?
+
+This is a **reasoning and design discipline**, not a new evidentiary
+standard, and it does not relax the citation discipline set out under
+"Hermetic principles & cycle theory" above: Hermetic framing and
+cycle-theory literature shape *how* a component is designed and reasoned
+about; they cannot, on their own, move a threshold, a weight, or a gate.
+Only a citable Gann source (per "WD Gann precedence" and "Gann-derived AND
+measured" above) or a measured result (`lib/validation/criteria-registry.ts`)
+can do that. Applying this mandate must not be read as license to smuggle
+in unsourced numerology, astrology, or cycle claims that haven't cleared
+Dewey's checklist — those still stay confluence-only and non-gating, per
+the existing rule.
+
+Scope: this applies to Gann-adjacent work — new or audited criteria,
+scoring, level construction, entry/exit/risk logic, lifecycle, charting,
+and education copy — the same surfaces the "Gann-grounded platform"
+principle above already covers. For work with no Gann adjacency (pure
+infra, build tooling, a typo fix, a dependency bump), forcing the three
+questions produces no signal; say so plainly instead of padding an answer
+to appear compliant.
+
+This section is what makes the mandate durable across sessions: it is
+checked into the repository and loaded by every session via
+`CLAUDE.md` → `AGENTS.md`, the same mechanism that already carries every
+other standing principle in this file. A session has no means to reach
+into a different, already-completed session and retroactively change what
+it did; a request to audit specific past work should name the PRs or
+commits, and that audit should be run — and recorded here or in the
+relevant doc — going forward, not assumed to have happened automatically.
+
 ## Temporary overrides — mandatory, check on every session
 
 These are explicit, user-directed departures from the protocol's real design, made for a stated
