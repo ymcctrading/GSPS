@@ -22,29 +22,44 @@ name: Full market scan (intraday cadence)
 # this repo uses (see docs/THIRD_PARTY_LIMITS.md; both of Vercel Hobby's 2
 # native cron slots are already spent, so anything else has to live here).
 #
-# Every 15 minutes, 09:30 ET through the final 18:00 ET run of the day —
-# `13-23 UTC` is wider than that on purpose, the same way premarket-scan.yml
+# Every 15 minutes, 09:30 ET through the 16:00 ET regular-session close —
+# `13-21 UTC` is wider than that on purpose, the same way premarket-scan.yml
 # and intraday-scan.yml already are, so one range covers both EST (UTC-5)
 # and EDT (UTC-4) without a DST-aware cron: 9:30am ET is 13:30 UTC (EDT) or
-# 14:30 UTC (EST), 6:00pm ET is 22:00 UTC (EDT) or 23:00 UTC (EST). A run
+# 14:30 UTC (EST), 4:00pm ET is 20:00 UTC (EDT) or 21:00 UTC (EST). A run
 # that lands a little outside the real session (pre-open or post-close) is
 # cheap and not wrong: /api/market-scan reads bars as of the last closed
 # session regardless of exactly when it's called, same as premarket-scan.yml
 # already relies on.
 #
+# Trimmed from a 09:30-18:00 ET window to 09:30-16:00 ET, 2026-09-23,
+# project-owner direction: this 15-minute cadence exists to keep the
+# dashboard fresh while the market can actually move, and equities are
+# closed after the 16:00 ET regular-session close (see
+# lib/market/session.ts's own CLOSE constant) — there is no new bar for a
+# re-scan to react to in the 16:00-18:00 ET window this used to cover. The
+# after-hours/extended-trading window (16:00-20:00 ET) is covered instead by
+# a single final run — see the native `vercel.json` cron below, retimed to
+# 20:00 ET the same day.
+#
 # This substantially raises how often the full-universe scan runs (roughly
-# every 15 minutes across an ~8.5 hour window vs. twice a day before) — see
+# every 15 minutes across the regular session vs. twice a day before) — see
 # docs/THIRD_PARTY_LIMITS.md's "Provider call volume" note for the
 # single-active-user headroom this was sized against; re-check that
-# reasoning if concurrent usage grows.
+# reasoning if concurrent usage grows. It also shares the same per-provider
+# rate limiter every other market-data caller uses
+# (`lib/data/http.ts`'s `RateLimiter`) — see that file's `acquire` doc
+# comment for the production bug this caused (a concurrent chart load
+# queuing behind this scan's burst with no wait ceiling, hard-timing out
+# with no HTTP response) and the fix.
 #
-# Deliberately does NOT touch the existing 08:30 ET (premarket-scan.yml) or
-# 17:30 ET (native vercel.json cron) runs — this schedule overlaps both, and
-# the extra invocations are harmless no-ops-in-substance (a fresh scan just
-# overwrites the same day's rows again), not a reason to remove either.
+# Deliberately does NOT touch the existing 08:30 ET (premarket-scan.yml) run
+# — this schedule overlaps it, and the extra invocation is a harmless
+# no-op-in-substance (a fresh scan just overwrites the same day's rows
+# again), not a reason to remove it.
 on:
   schedule:
-    - cron: '*/15 13-23 * * 1-5'
+    - cron: '*/15 13-21 * * 1-5'
   workflow_dispatch:
 
 jobs:

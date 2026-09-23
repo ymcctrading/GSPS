@@ -20,6 +20,39 @@ date.
   and documented, inline, why it must not come back a third time; the chart's
   "Extended hours" checkbox already works by filtering client-side, so no
   opt-in query param was ever needed for the free IEX feed's intraday bars.
+- **A chart could fail to load with no message at all** ("This page couldn't
+  load" in the browser chrome, not an app-rendered error), intermittent and
+  hard to reproduce. Root cause: `lib/data/http.ts`'s shared per-provider
+  `RateLimiter.acquire()` had no deadline. Since the prior day's change to
+  run the market scan every 15 minutes throughout market hours
+  (`.github/workflows/full-market-scan.yml`), that shared bucket can be
+  drained for extended stretches, and a concurrent chart load queuing for a
+  token could wait past Vercel's 60s function `maxDuration` and get
+  hard-killed with no HTTP response — which a phone browser reports as a
+  bare connection failure rather than this app's own graceful
+  rate-limit message. Bounded the wait (`queueTimeoutMs`, 12s default) so a
+  queued request always fails fast with the existing `MarketDataError(429)`
+  message instead of hanging silently.
+
+### Changed
+- **Scheduled-scan cadence corrected to match actual market hours**,
+  project-owner direction: `morning-preparation-scan.yml` moved from 6:00 AM
+  to 6:30 AM ET (more real time to react to pre-market moves before the
+  8:30 AM run); `full-market-scan.yml`'s 15-minute cadence trimmed from a
+  09:30 AM–6:00 PM ET window to 09:30 AM–4:00 PM ET, since equities cannot
+  move once the regular session closes (`lib/market/session.ts`'s `CLOSE`
+  constant); the native `vercel.json` `/api/market-scan` cron moved from
+  17:30 ET to 20:00 ET to cover the close of the after-hours/extended-trading
+  window instead of an arbitrary post-close time. The existing 9:15 AM,
+  11:00 AM, and 2:00 PM scheduled scans are unchanged — despite also falling
+  within (or near) the 15-minute cadence's window, they run through a
+  separate entitlement fan-out pipeline (`lib/entitlements/scheduled-scan.ts`)
+  that delivers notifications per user tier, which the plain dashboard-refresh
+  cadence never does; conflating the two would have silently dropped three
+  scheduled notification checkpoints. `intraday-scan.yml`'s weekend/off-hours
+  schedule is also unchanged — it exists specifically to scan BTC/USD and
+  ETH/USD, which already trade 24/7, not to re-run the equity scan outside
+  market hours.
 
 ## 2026-09-10 (sixth follow-up)
 

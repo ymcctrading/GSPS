@@ -1,5 +1,5 @@
 /**
- * Phase 4: shared trusted-job plumbing for the 6:00 AM and 9:15 AM ET
+ * Phase 4: shared trusted-job plumbing for the 6:30 AM and 9:15 AM ET
  * scheduled scans from docs/GSPS_TIER_ENTITLEMENT_SPEC.md. Both routes
  * (app/api/scans/morning-preparation, app/api/scans/morning-confirmation)
  * call this with only their `source` value differing.
@@ -20,7 +20,7 @@
  *    persisting a partial/empty run as if it succeeded.
  *
  * The scan work itself reuses lib/marketScan.ts's runMarketScan() -- the
- * same engine the existing 08:30/17:30 ET `/api/market-scan` crons call --
+ * same engine the existing 08:30/20:00 ET `/api/market-scan` crons call --
  * since it's the only system-wide scan implementation that exists. Both
  * Vercel cron slots are already spent (docs/THIRD_PARTY_LIMITS.md), so these
  * two jobs are scheduled via GitHub Actions instead --
@@ -30,7 +30,7 @@
  * from provider call volume (below).
  *
  * Runs at `FULL_UNIVERSE_TOP` (lib/marketScan.ts) / perSide=15 -- the same
- * full big-cap universe budget as the 08:30/17:30 ET `/api/market-scan`
+ * full big-cap universe budget as the 08:30/20:00 ET `/api/market-scan`
  * crons, not the bare `runMarketScan()` default of 100 these jobs used to
  * fall back to. See `FULL_UNIVERSE_TOP`'s own comment for the full history,
  * including the 2026-09-22 production timeout that corrected it from an
@@ -48,7 +48,7 @@
  * Every run here also persists its top-`perSide` bullish/bearish results to
  * `daily_scans` (lib/scan/publish.ts), the same table `/api/market-scan`
  * writes -- so the Home dashboard's Buy/Sell setups cards refresh at every
- * scheduled checkpoint in the day, not only the 08:30/17:30 ET runs. A
+ * scheduled checkpoint in the day, not only the 08:30/20:00 ET runs. A
  * same-day rerun overwrites the prior run's rank slots (daily_scans' own
  * `(scan_date, direction, rank)` unique key), which is the desired
  * behavior: the cards always show the latest run's highest-scored setups,

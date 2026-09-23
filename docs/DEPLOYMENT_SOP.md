@@ -224,7 +224,7 @@ current production deployment:
 ```json
 {
   "crons": [
-    { "path": "/api/market-scan", "schedule": "30 21 * * 1-5" }
+    { "path": "/api/market-scan", "schedule": "0 0 * * 2-6" }
   ]
 }
 ```

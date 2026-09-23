@@ -69,7 +69,7 @@ describe("getEntitlementPolicy", () => {
     expect(getEntitlementPolicy("SYSTEM_MASTERY").backtestingEnabled).toBe(true);
   });
 
-  it("includes the 6:00 AM and 9:15 AM scheduled scans on every tier", () => {
+  it("includes the 6:30 AM and 9:15 AM scheduled scans on every tier", () => {
     for (const tier of TIER_ORDER) {
       const policy = getEntitlementPolicy(tier);
       expect(policy.morningPreparationScanEnabled).toBe(true);
