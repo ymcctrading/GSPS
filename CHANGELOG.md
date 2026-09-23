@@ -7,6 +7,20 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-09-23
+
+### Fixed
+- **Chart bar fetches were failing with a 400 on every sub-daily timeframe
+  again** (`Alpaca market data request failed (400): {"message":"unexpected
+  query parameter(s): extended_hours"}`, visible directly on the ticker page).
+  `lib/data/alpaca.ts`'s `barsRequest` had regained an `extended_hours=true`
+  query param on Alpaca's `/v2/stocks/bars` call — the exact regression
+  already diagnosed and removed on 2026-08-17 ("it's an order-placement
+  field, not a bars-query one"), reintroduced since. Removed the param again
+  and documented, inline, why it must not come back a third time; the chart's
+  "Extended hours" checkbox already works by filtering client-side, so no
+  opt-in query param was ever needed for the free IEX feed's intraday bars.
+
 ## 2026-09-10 (sixth follow-up)
 
 ### Added
