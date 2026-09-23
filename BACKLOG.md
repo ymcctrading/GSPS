@@ -198,8 +198,21 @@
 
 ### Monitoring & Observability
 - [ ] Application performance monitoring
-- [ ] Error tracking and alerting
-- [ ] User session recording
+- [x] ~~Error tracking and alerting~~ — done: `@sentry/nextjs` was already a
+      dependency and `Sentry.init` already ran in both
+      `instrumentation.ts` (server, both `nodejs`/`edge` runtimes) and
+      `instrumentation-client.ts` (browser), but neither actually caught an
+      error — no `onRequestError` export (the file convention's own hook
+      for a server-side error; see `instrumentation.ts`'s updated comment)
+      and no `app/global-error.tsx` (the client-side root error boundary).
+      Both added. Inert until `SENTRY_DSN`/`NEXT_PUBLIC_SENTRY_DSN` are set
+      on the deployment (by design — see each init call's `enabled` flag);
+      not verified against a live Sentry project in this pass.
+- [ ] User session recording — partially covered as a side effect:
+      `instrumentation-client.ts` already runs `Sentry.replayIntegration`
+      (10% sampled sessions, 100% on error), which is session replay
+      *around an error*, not a general session-recording product. Left
+      open rather than checked off.
 - [ ] Performance metrics dashboard
 - [ ] Log aggregation and analysis
 - [ ] Synthetic monitoring
