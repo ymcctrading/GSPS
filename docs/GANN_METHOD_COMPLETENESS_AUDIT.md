@@ -293,26 +293,34 @@ turning point) confirms or denies them.
 | Timing (reconstructed) | Price/time squaring (bars-since-anchor vs. ATR-normalized move) | `lib/gann/timePriceSquare.ts` | Implemented and **scored** — `timePriceSquare` criterion |
 | Confluence | Multi-coordinate agreement | `lib/signals/confluence/gann.ts` (`GannConfluenceResult`) | Implemented — display/audit only, never gates a trade (by design, see `GANN_SARA_CONFLUENCE.md`) |
 | "Vibration" (numerology reconstruction) | Digital root / Vortex classification | `lib/gann/digitalRoot.ts` | Implemented as GSPS's own explicit **hypothesis**; confluence-only, ANDed inside `gannRetracementConfluence` |
-| "Vibration" (Fourier reconstruction) | Spectral/dominant-cycle decomposition | — | **Not implemented anywhere** |
+| "Vibration" (Fourier reconstruction) | Spectral/dominant-cycle decomposition | `lib/gann/spectralCycle.ts` | **Corrected — this row was stale.** Implemented 2026-09-16; confluence/context only (`GannConfluenceResult`), never scored. Clears 3 of Dewey's 7 cycle-validation checklist items honestly (dominance, repetition count, constancy of period via split-half re-estimate) and reports the other 4 as unmet rather than glossing over them. |
 | "Vibration" (astrology) | Planetary ephemeris timing | — | **Not implemented anywhere**, by explicit policy (see `GANN_SARA_CONFLUENCE.md`'s "no numerology without an authorized spec" rule, extended in practice to astrology) |
 | Tape reading | Volume climax at anchor pivot | `lib/gann/volumeClimax.ts` | Implemented and **scored** — replaced the retired `harmonicProximity` |
-| Tape reading | Pattern recognition (Sara Sniper Strat, not Gann per se) | `lib/strat/patterns.ts`, `lib/signals/confluence/sara.ts` | Implemented and scored — `patternArmed` |
+| Tape reading (superseded) | Pattern recognition (Sara Sniper Strat, not Gann per se) | `lib/strat/patterns.ts`, `lib/signals/confluence/sara.ts` | **Corrected — this row was stale.** `patternArmed` no longer exists as a scored criterion. Renamed to `entryTriggerArmed` 2026-09-17 and re-grounded on Gann's own swing-crossing + "lost motion" rule (`lib/gann/entryTrigger.ts`, A8) — the scored criterion is Gann-sourced now, not STRAT. The STRAT bar-sequence taxonomy itself is still live, but only in the **confluence/display** role (`lib/signals/confluence/sara.ts`), a separate, deliberately-kept, project-owner-authorized exception (see AGENTS.md's "Investigated and kept" entry) — it does not gate or score anything. |
 
 **Today's live nine scored criteria** (`lib/scoring/weights.ts`
-`CRITERION_KEYS`): `swingChartTrend`, `adxTrendStrength`, `gannAngleSlope`,
-`volumeClimax`, `historicalSR`, `patternArmed`, `stopRoom`,
-`timePriceSquare`, `gannRetracementConfluence`. Of these nine, four are
-directly, literally Gann structural techniques (`gannAngleSlope`,
-`timePriceSquare`, `gannRetracementConfluence`, and `volumeClimax` per the
-1923 book's climax-at-the-turn rule); `historicalSR` is Gann's crossing-old-
-levels principle under a generic name; `swingChartTrend` is a near-literal
-port of Gann's own 3-Day Chart and 9-Point Swing Chart methods from his
-1949 capstone book *45 Years in Wall Street* (`lib/gann/swingChart.ts`) —
-one of the closest 1:1 matches between any GSPS module and something Gann
-explicitly, directly taught his subscribers;
-`adxTrendStrength` and `stopRoom` are general technical-analysis/risk
-criteria, not Gann-specific; `patternArmed` is Sara Sniper Strat, an
-authorized but separate framework, not Gann.
+`CRITERION_KEYS`, re-checked against the file directly — the list above had
+drifted from it): `swingChartTrend`, `gannAngleSlope`, `volumeClimax`,
+`historicalSR`, `entryTriggerArmed`, `stopRoom`, `timePriceSquare`,
+`gannRetracementConfluence`, `ruleOfThree`. `adxTrendStrength` was removed
+from this list — the previous version of this sentence still named it as
+live, which was also stale; it was discarded outright 2026-09-16 (no Gann
+lineage — see AGENTS.md's "Audit outcomes"), not replaced. Of today's
+actual nine, five are directly,
+literally Gann structural techniques (`gannAngleSlope`, `timePriceSquare`,
+`gannRetracementConfluence`, `volumeClimax` per the 1923 book's
+climax-at-the-turn rule, and `ruleOfThree` per *Wall Street Stock Selector*
+1930's three-consecutive-closes rule); `historicalSR` is Gann's
+crossing-old-levels principle under a generic name; `swingChartTrend` is a
+near-literal port of Gann's own 3-Day Chart and 9-Point Swing Chart methods
+from his 1949 capstone book *45 Years in Wall Street*
+(`lib/gann/swingChart.ts`) — one of the closest 1:1 matches between any
+GSPS module and something Gann explicitly, directly taught his
+subscribers; `entryTriggerArmed` is also Gann-grounded as of 2026-09-17 (see
+above); `stopRoom` is a general risk criterion, not Gann-specific. **As of
+2026-09-17, every scored criterion but one (`stopRoom`) traces to a citable
+Gann source** — a materially stronger position than this document's
+previous, stale version described.
 
 Worth stating plainly: the evidentiary ranking inside this codebase's own
 backtests now matches the evidentiary ranking across Gann's own published
@@ -500,13 +508,17 @@ tuned scoring," except where flagged otherwise.
    digital-root explanation should reach the user, given it currently
    computes server-side and is redacted at the API boundary. A product/IP
    decision, not a code fix.
-5. **Evaluate Fourier/dominant-cycle decomposition as a new candidate
-   criterion** — the best-evidenced reconstruction of Gann's actual
-   "vibration"/time-factor basis (per the 1926 letter), and something
-   nothing in this codebase does today. New code, so it needs the full
-   unmeasured → attribution → in/out-of-sample process
-   `PROPOSAL_NEW_GANN_CRITERIA.md` already lays out for any new criterion
-   — not a swap-in.
+5. **Corrected — partially done.** `lib/gann/spectralCycle.ts` implements
+   Fourier/dominant-cycle decomposition, the best-evidenced reconstruction
+   of Gann's actual "vibration"/time-factor basis (per the 1926 letter);
+   this item's earlier wording ("nothing in this codebase does today") was
+   stale. What's still open: it lives confluence-only
+   (`GannConfluenceResult`), the same hypothesis-only treatment as
+   `digitalRoot.ts`, and has never gone through the full unmeasured →
+   attribution → in/out-of-sample promotion process
+   `PROPOSAL_NEW_GANN_CRITERIA.md` lays out for any *scored* criterion.
+   Evaluating it as a scored-criterion candidate — not building it, since
+   it already exists — is the remaining step.
 6. **Persist a prior Digital Root reading** so `classifyRootTransition`'s
    `VORTEX_FLOW_TRANSITION`/`ONE_RENEWAL_TRANSITION` types can ever fire —
    currently dead code paths (blueprint's `digital_root_feature` table,

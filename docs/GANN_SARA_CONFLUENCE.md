@@ -72,6 +72,78 @@ the single value `"notImplemented"` and will stay that way until a user
 supplies an authorized written specification for it. Nothing in this
 codebase fabricates that classification.
 
+**Re-checked directly, 2026-09-23, against every uploaded source document —
+project-owner direction, on the premise that the concept might be present
+in material that was scanned but never fully read.** All 19 PDFs in
+`docs/doctrine/` and `docs/gann-explainer/` were OCR'd to text
+(`pdftotext`, not previously possible in this environment — `poppler-utils`
+wasn't installed until this pass) and read in full, not sampled. Findings:
+
+- `docs/doctrine/09_Gann_Sara_Cross_Market_Integration_Addendum.pdf` itself
+  (the document that names the term) requires "Material Number versus
+  Harmonic Node classification" as an *output* of the Gann confluence
+  module, but supplies no formula, no inputs, no worked example — and says
+  so itself, in the very next clause: "Any personally sourced numerical
+  logic must be supplied by the user in an authorized written specification
+  before code implementation. Claude Code must not infer missing rules."
+  The addendum is asking for the concept to be built, not disclosing what
+  it is.
+- `docs/doctrine/WD_Gann_GSPS_Foundation_and_Implementation_Audit.pdf` — an
+  independent, contemporaneous third-party audit of this same protocol —
+  reaches the identical conclusion on its own: *"The protocol then asks for
+  'nearest 3, 6, and 9 Harmonic Vectors,' material-number/harmonic-node
+  classification, and precise entry, take-profit, master-target, and
+  stop-loss coordinates. Those outputs are currently under-specified: no
+  formulas establish how price roots translate into a distance, node,
+  target, or hard stop."* Its coverage table scores the whole "3/6/9 node
+  taxonomy" at ~25% ("defined conceptually; not computationally complete").
+- `docs/gann-explainer/The_Gann_Method_Explained.pdf` — compiled, by its own
+  stated methodology, from a direct read of **all ten books Gann published
+  in his own lifetime** plus seven interpretive secondary works, organized
+  into an explicit six-layer evidence map (fully disclosed → speculative).
+  It is specific enough to state plainly that Square of 9 and Gann angles
+  are "completely absent from every one of Gann's ten published books" and
+  attributes them instead to his private course material. It discusses
+  Layer 5 ("Vibration") — Gann's own "rate of vibration" claim, named but
+  never formularized in any of his ten books, later filled three
+  incompatible ways (digit-numerology, Fourier/spectral, astrology) — in
+  detail. Neither "Material Number" nor "Harmonic Node" appears anywhere in
+  this document, despite its explicit purpose being a comprehensive map of
+  everything disclosed and everything reconstructed.
+- `docs/doctrine/GSPS_Claude_Implementation_Blueprint_Gann_Centered.pdf`
+  (the fullest engineering spec in the doctrine set, read in full) uses
+  "harmonic node" exactly once, informally, inside a data-integrity rule —
+  *"Never display 0 as a Gann node, harmonic node, signal root, or market
+  state"* — grouped alongside "Gann node," "signal root," and "market
+  state" as a general synonym for the Digital Root/Vortex completion-node
+  concept already implemented (`lib/gann/digitalRoot.ts`'s Root 9 =
+  "Completion/Culmination Node"). It is not a distinct, separately-defined
+  entity there either.
+- `docs/GANN_HISTORICAL_SOURCES.md`'s own 25-document primary/secondary
+  catalog — the most thorough Gann-source review this codebase has ever
+  compiled, including his private paid-course material (A2.1) that
+  disclosed Square of 9, Gann angles, Square of 144, Square of 52, Square
+  of 20, and the Hexagon Chart, none of which appear in any of his ten
+  public books — has never once turned up "Material Number" or "Harmonic
+  Node" as Gann's own term, across every prior extraction pass.
+
+**Conclusion: this is not a reading gap.** Three independent
+documents — the addendum that coined the term, an outside contemporaneous
+audit, and a from-scratch compilation of all ten of Gann's own books —
+converge on the same fact: no formula for this classification exists
+anywhere in the source material this project has access to. The addendum's
+own language ("personally sourced... must be supplied by the user") is the
+tell: whoever wrote it intended "Material Number" and "Harmonic Node" to
+come from material beyond what was ever uploaded here — most plausibly
+Gann's unpublished private-course teaching (the same tier A2.1's other,
+successfully-implemented constructions came from) or a later researcher's
+private notes, not from anything in this repository. Closing this
+requires new source material, not more reading of what's already here. If
+that material surfaces, build it the same way Square of 144/52/20 and the
+Hexagon Chart were: cite the exact chapter, extract the construction
+method in Gann's own words, and implement it confluence-only until
+measured.
+
 ### Digital Root / Vortex 1–9 engine — now implemented
 
 Unlike Material Number/Harmonic Node, the active 1–9 Digital Root/Vortex
