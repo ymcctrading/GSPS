@@ -54,13 +54,10 @@ export const maxDuration = 60;
  * curated fallback alone," same as `resolveUniverse` already does when the
  * screener itself fails, rather than aborting the scan over it.
  *
- * NOT YET LIVE-TIMING-VERIFIED. `DISCOVERY_CHUNK_SIZE`
- * (lib/scan/universe-rotation.ts) is explicitly provisional — sharing this
- * route's 60s budget with a tracking-pass re-scan of every already-published
- * symbol is new cost `FULL_UNIVERSE_TOP`'s own measured timing never
- * accounted for. Confirm against a live `mark()`-breadcrumb run before
- * treating this as safe at the current chunk size, the same discipline
- * `FULL_UNIVERSE_TOP` itself went through after the 2026-09-22 timeout.
+ * Live-timing verified 2026-09-23 on a preview deployment (PR #270): the
+ * full coarse+full pipeline with both passes wired in completed in ~4.1s,
+ * ~56s under this route's 60s budget — see `DISCOVERY_CHUNK_SIZE`'s own
+ * comment (lib/scan/universe-rotation.ts) for the full breadcrumb figures.
  */
 async function resolveExtraSymbols(scanDate: string): Promise<string[]> {
   try {

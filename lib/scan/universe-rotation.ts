@@ -34,10 +34,19 @@
  * earns. The *numbers* below (chunk size, rotation interval) are ordinary
  * engineering choices sized against the Vercel Hobby 60-second function
  * budget and `FULL_UNIVERSE_TOP`'s measured per-symbol scan cost
- * (lib/marketScan.ts) — not derived from any source, and not final until
- * confirmed against a live timed run the same way `FULL_UNIVERSE_TOP`
- * itself was. Treat `DISCOVERY_CHUNK_SIZE` as provisional until that
- * measurement exists.
+ * (lib/marketScan.ts) — not derived from any source.
+ *
+ * LIVE-TIMING VERIFIED 2026-09-23 (preview deployment, PR #270, both passes
+ * wired in): `[market-scan] resolveUniverse done at +22ms (250 symbols)`,
+ * `coarse batch bar fetch done at +2101ms`, `coarse scoring done at
+ * +2146ms`, `full-pass batch bar fetch done at +3700ms (shortlist=29)`,
+ * `full-pass scanTicker scoring done at +4083ms` — total ~4.1s against the
+ * 60s budget, ~56s of headroom, with the tracking + discovery passes live
+ * in the universe resolution. Consistent with `FULL_UNIVERSE_TOP`'s own
+ * documented reasoning: 250 symbols is one coarse-fetch wave rather than
+ * three (`CHUNK_CONCURRENCY=3`), which is most of why this measures far
+ * faster than the old 700-symbol run's 23.1s, not merely proportionally
+ * faster.
  *
  * What this solves: `FULL_UNIVERSE_TOP` bounds every scan to the top 250
  * *same-day most-active* symbols (`resolveUniverse` in lib/marketScan.ts) --
@@ -87,26 +96,27 @@ import { etParts } from "@/lib/market/session";
 export const ROTATION_INTERVAL_MINUTES = 15;
 
 /**
- * Symbols scanned per discovery chunk. Provisional -- but not, as an earlier
- * draft of this module framed it, "some margin held back under
- * `FULL_UNIVERSE_TOP`." That framing assumed rotation ran *alongside* the
- * top-250-most-active scan, leaving headroom under its number. It doesn't --
- * rotation replaces that approach, so `FULL_UNIVERSE_TOP` is not this
- * constant's reference point at all.
+ * Symbols scanned per discovery chunk. Not, as an earlier draft of this
+ * module framed it, "some margin held back under `FULL_UNIVERSE_TOP`" --
+ * that framing assumed rotation ran *alongside* the top-250-most-active
+ * scan, leaving headroom under its number. It doesn't -- rotation replaces
+ * that approach, so `FULL_UNIVERSE_TOP` is not this constant's reference
+ * point at all.
  *
  * What actually bounds this: `fetchBarsBatch`'s chunk mechanics
  * (`lib/data/alpaca.ts` -- 100-symbol request chunks, `CHUNK_CONCURRENCY=3`,
  * so up to ~300 symbols fetch in one serialized wave before a second wave
- * adds real wall-clock time) and the measured cost of one such wave --
- * `FULL_UNIVERSE_TOP`'s own doc comment (lib/marketScan.ts) records a
- * 250-symbol coarse batch fetch at 23.1s on a live run. This chunk also has
- * to share the same 60-second invocation with the tracking pass, which that
- * 23.1s figure did not. Still needs its own live-timed run (the same
- * `mark()`-breadcrumb discipline that number came from) before it is
- * trusted rather than merely plausible -- not deferred as a matter of
- * caution, but because the last two times a number here was set from
- * architectural reasoning alone (`FULL_UNIVERSE_TOP` at 700, then again
- * before that at 100) it was wrong both times.
+ * adds real wall-clock time). Live-timing verified 2026-09-23 (see this
+ * module's own header) at a combined tracked+chunk+actives universe of 250
+ * symbols -- the coarse+full pipeline completed in ~4.1s total, ~56s under
+ * the 60s budget, with real margin even after the tracking pass's added
+ * cost. That is not, on its own, evidence this exact chunk size is
+ * optimal -- only that it, combined with the rest of the universe cap, is
+ * safe. Raising this needs its own fresh live-timed run, the same
+ * discipline that applies to every number in this file: the last two times
+ * a universe-width number here was set from architectural reasoning alone
+ * (`FULL_UNIVERSE_TOP` at 700, then again before that at 100) it was wrong
+ * both times.
  */
 export const DISCOVERY_CHUNK_SIZE = 150;
 
