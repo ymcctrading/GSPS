@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { AssetTypeBadge } from "@/components/trade/asset-type-badge";
 import { GreeksToggle } from "./order-rows";
 import { formatOpenedAt } from "@/lib/portfolio/opened-at";
@@ -56,6 +57,25 @@ export interface Editable {
   stopLoss: number | null;
   takeProfit: number | null;
   masterProfit: number | null;
+}
+
+/**
+ * Live and paper positions render in the same grid (`/api/portfolio` merges
+ * a connected live account's legs in for display), so a live leg needs to be
+ * visually distinguishable — real money is at stake. Same treatment as
+ * `components/portfolio/order-rows.tsx`'s `LiveBadge` for orders: paper
+ * carries no badge since it's the default/majority case, only the exception
+ * is flagged. Live legs also have no Protect/Edit/Close action wired here
+ * yet (this page's actions all call paper-only routes) — action buttons are
+ * hidden rather than shown wired to nothing, per `ActionsCell` below.
+ */
+function LiveBadge({ mode }: { mode: "paper" | "live" }) {
+  if (mode !== "live") return null;
+  return (
+    <Badge variant="warn" title="This position is on your connected live broker account, not paper.">
+      Live
+    </Badge>
+  );
 }
 
 export function BlendedPositionGroup({
@@ -156,7 +176,10 @@ function EquityLegs({
             {legs.map((leg) => (
               <TR key={leg.symbol}>
                 <TD>
-                  <AssetTypeBadge assetType="EQUITY" />
+                  <span className="inline-flex items-center gap-1.5">
+                    <AssetTypeBadge assetType="EQUITY" />
+                    <LiveBadge mode={leg.mode} />
+                  </span>
                 </TD>
                 <TD className="text-right font-mono">{leg.totalShares}</TD>
                 <TD className="text-right font-mono">{formatUsd(leg.avgFillPrice)}</TD>
@@ -181,15 +204,21 @@ function EquityLegs({
                 <OpenedCell opened={leg.opened} />
                 <ProtectionCell leg={leg} />
                 <TD className="text-center">
-                  <div className="flex items-center justify-center gap-1.5">
-                    {onProtect && leg.stopLoss == null && (
-                      <ProtectButton onClick={() => onProtect(protectableEquity(leg))} />
-                    )}
-                    {onEdit && leg.stopLoss != null && (
-                      <EditButton onClick={() => onEdit(editableEquity(leg))} />
-                    )}
-                    <CloseButton onClick={() => onClose(closableEquity(leg))} />
-                  </div>
+                  {leg.mode === "live" ? (
+                    <span className="text-xs text-muted" title="Live-position actions aren't wired here yet — manage this position through your broker.">
+                      —
+                    </span>
+                  ) : (
+                    <div className="flex items-center justify-center gap-1.5">
+                      {onProtect && leg.stopLoss == null && (
+                        <ProtectButton onClick={() => onProtect(protectableEquity(leg))} />
+                      )}
+                      {onEdit && leg.stopLoss != null && (
+                        <EditButton onClick={() => onEdit(editableEquity(leg))} />
+                      )}
+                      <CloseButton onClick={() => onClose(closableEquity(leg))} />
+                    </div>
+                  )}
                 </TD>
               </TR>
             ))}
@@ -212,7 +241,10 @@ function EquityLegs({
         {legs.map((leg) => (
           <div key={leg.symbol} className="rounded-lg border border-border p-3">
             <div className="flex items-center justify-between gap-2">
-              <AssetTypeBadge assetType="EQUITY" />
+              <span className="inline-flex items-center gap-1.5">
+                <AssetTypeBadge assetType="EQUITY" />
+                <LiveBadge mode={leg.mode} />
+              </span>
               <span
                 className={cn("font-mono text-sm", leg.equityPl >= 0 ? "text-bull" : "text-bear")}
               >
@@ -229,15 +261,17 @@ function EquityLegs({
             <OpenedLine opened={leg.opened} />
             <ProtectionLine leg={leg} />
             <ProximityBar leg={leg} />
-            <div className="mt-2 flex gap-2">
-              {onProtect && leg.stopLoss == null && (
-                <ProtectButton onClick={() => onProtect(protectableEquity(leg))} />
-              )}
-              {onEdit && leg.stopLoss != null && (
-                <EditButton onClick={() => onEdit(editableEquity(leg))} />
-              )}
-              <CloseButton onClick={() => onClose(closableEquity(leg))} />
-            </div>
+            {leg.mode !== "live" && (
+              <div className="mt-2 flex gap-2">
+                {onProtect && leg.stopLoss == null && (
+                  <ProtectButton onClick={() => onProtect(protectableEquity(leg))} />
+                )}
+                {onEdit && leg.stopLoss != null && (
+                  <EditButton onClick={() => onEdit(editableEquity(leg))} />
+                )}
+                <CloseButton onClick={() => onClose(closableEquity(leg))} />
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -401,7 +435,10 @@ function OptionLegs({
             {legs.map((leg) => (
               <TR key={leg.symbol}>
                 <TD>
-                  <AssetTypeBadge assetType="OPTION" />
+                  <span className="inline-flex items-center gap-1.5">
+                    <AssetTypeBadge assetType="OPTION" />
+                    <LiveBadge mode={leg.mode} />
+                  </span>
                 </TD>
                 <TD className="text-muted">{leg.type.toUpperCase()}</TD>
                 <TD className="text-muted">{leg.expiration}</TD>
@@ -428,7 +465,13 @@ function OptionLegs({
                 </TD>
                 <OpenedCell opened={leg.opened} />
                 <TD className="text-center">
-                  <CloseButton onClick={() => onClose(closableOption(leg))} />
+                  {leg.mode === "live" ? (
+                    <span className="text-xs text-muted" title="Live-position actions aren't wired here yet — manage this position through your broker.">
+                      —
+                    </span>
+                  ) : (
+                    <CloseButton onClick={() => onClose(closableOption(leg))} />
+                  )}
                 </TD>
               </TR>
             ))}
@@ -442,6 +485,7 @@ function OptionLegs({
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <AssetTypeBadge assetType="OPTION" />
+                <LiveBadge mode={leg.mode} />
                 <span className="text-xs text-muted">
                   {formatUsd(leg.strike)} {leg.type.toUpperCase()}
                 </span>
@@ -468,9 +512,11 @@ function OptionLegs({
               )}
             </dl>
             <OpenedLine opened={leg.opened} />
-            <div className="mt-2">
-              <CloseButton onClick={() => onClose(closableOption(leg))} />
-            </div>
+            {leg.mode !== "live" && (
+              <div className="mt-2">
+                <CloseButton onClick={() => onClose(closableOption(leg))} />
+              </div>
+            )}
           </div>
         ))}
       </div>

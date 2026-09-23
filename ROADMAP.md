@@ -2,7 +2,10 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-09-23 (Closed two open BACKLOG.md/Q1 items under the
+**Last updated:** 2026-09-23 (Closed the portfolio/orders live-vs-paper UI
+gap under the Live order execution initiative note, fixing a real
+mode-filtering bug found in the same pass — see that note under Q1.)
+Previously same day (Closed two open BACKLOG.md/Q1 items under the
 Scan history initiative note: saved scan criteria/watchlists, and the
 system-scan cron path's monitor fan-out gap. See that note under Q1.)
 Previously: 2026-09-20 (Documented the 2026-09-16/17 Gann-grounding
@@ -482,7 +485,32 @@ both signal discovery and execution.
   portfolio/orders UI that visually distinguishes live rows from paper ones
   (both already carry a `mode` column and render together); a per-user kill
   switch specific to live trading (the existing global `TRADING_DISABLED`
-  env var still covers every order, live included).
+  env var still covers every order, live included). *(Follow-up, 2026-09-23,
+  direct request: the orders half of this was already done by
+  `mcp#252`/`components/portfolio/order-rows.tsx`'s `LiveBadge`. The
+  positions half is now done too, and in the same PR fixed a real bug this
+  gap had been masking: `lib/brokers/simulator.ts`'s
+  `getOpenPosition`/`listOpenPositions` — the paper-trading simulator's own
+  position readers — never filtered by `positions.mode`, so a user who also
+  held a live position would have had it silently swept into every one of
+  their reads: `/api/portfolio`'s paper equity calculation, and
+  `/api/positions/close`'s "which position am I closing" lookup, despite
+  that route's own comment asserting "every position here is paper." A live
+  position could in principle have had its database row flattened by the
+  paper simulator's `closePositionSim` without ever placing a real closing
+  order at the broker — a data-integrity risk, not merely a missing badge.
+  Fixed: both functions now filter `.eq("mode", "paper")` explicitly (every
+  current caller is paper-only already, so this changes no legitimate
+  behavior — see the functions' own updated header comment); a new
+  `listLiveOpenPositions` reads the live-mode rows separately, merged into
+  `/api/portfolio`'s `blendedPositions` for read-only display via a `mode`
+  field now threaded through `RawPosition`/`EquityLeg`/`OptionLeg`
+  (`lib/portfolio/blend.ts`) — never into the paper `equity`/`cash`/
+  `buyingPower` numbers, which are computed from the paper-only rows exactly
+  as before. `components/portfolio/open-positions.tsx` renders the same
+  `LiveBadge` treatment as orders, and hides the Protect/Edit/Close action
+  buttons on a live leg (none of those routes are live-wired here yet)
+  rather than showing them wired to nothing.)*
 - **Market Universe, Data Quality & Account Constraints engine** *(2026-08-29,
   out-of-phase, direct request)* — a pure-logic engine, `lib/universe/*`,
   implementing the "Market Universe, Data Quality & Account Constraints"

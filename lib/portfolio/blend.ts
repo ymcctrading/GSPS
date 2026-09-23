@@ -49,6 +49,14 @@ export interface RawPosition {
   stopLoss?: number | null;
   takeProfit?: number | null;
   masterProfit?: number | null;
+  /**
+   * Paper (the default, omitted by most callers) or a connected live broker
+   * account. Threaded through to each leg so the UI can flag a live leg the
+   * same way `components/portfolio/order-rows.tsx`'s `LiveBadge` already
+   * flags a live order — real money is at stake, and live/paper legs render
+   * in the same grid.
+   */
+  mode?: "paper" | "live";
 }
 
 export interface EquityLeg {
@@ -67,6 +75,8 @@ export interface EquityLeg {
   stopLoss: number | null;
   takeProfit: number | null;
   masterProfit: number | null;
+  /** See RawPosition.mode. */
+  mode: "paper" | "live";
 }
 
 export interface OptionLeg {
@@ -97,6 +107,8 @@ export interface OptionLeg {
   greeksAvailable: boolean;
   /** First fill of the current open run. See lib/portfolio/opened-at.ts. */
   opened: LegOpenedAt;
+  /** See RawPosition.mode. */
+  mode: "paper" | "live";
 }
 
 export interface BlendedPosition {
@@ -159,6 +171,7 @@ export function buildBlendedPositions(
         stopLoss: p.stopLoss ?? null,
         takeProfit: p.takeProfit ?? null,
         masterProfit: p.masterProfit ?? null,
+        mode: p.mode ?? "paper",
       };
       continue;
     }
@@ -200,6 +213,7 @@ export function buildBlendedPositions(
       greeksModeled: true,
       greeksAvailable,
       opened: openedFor(p.symbol),
+      mode: p.mode ?? "paper",
     });
   }
 

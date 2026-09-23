@@ -100,6 +100,22 @@ export interface SimPosition {
   scan_result_id: string | null;
 }
 
+/**
+ * Both functions below are scoped to `mode = 'paper'` explicitly. This file
+ * is the paper-trading simulator specifically (see the module header); a
+ * live position lives in this same `positions` table (`lib/trade/
+ * place-order.ts`'s `mode: "live"` insert branch) but must never be found,
+ * priced, or closed by simulator logic — doing so would silently flatten a
+ * real broker position's *database record* without ever placing a real
+ * closing order at the broker, desyncing GSPS's view of the account from
+ * what actually happened. Every caller of these two functions today
+ * (`/api/portfolio`, `/api/positions/close`, `/api/orders`,
+ * `lib/trade/place-order.ts`'s own paper branch, `lib/trade/
+ * attach-protocol-exit.ts`, `lib/guided/service.ts`, `lib/demo/auto-trade.ts`)
+ * is paper-only already; before this fix the missing filter meant a user who
+ * also held a live position would have had it silently swept into every one
+ * of those reads unfiltered by mode.
+ */
 export async function getOpenPosition(
   supabase: Supabase,
   userId: string,
@@ -109,6 +125,7 @@ export async function getOpenPosition(
     .from("positions")
     .select("*")
     .eq("user_id", userId)
+    .eq("mode", "paper")
     .eq("symbol", symbol.toUpperCase())
     .eq("closed", false)
     .order("opened_at", { ascending: false })
@@ -122,6 +139,26 @@ export async function listOpenPositions(supabase: Supabase, userId: string): Pro
     .from("positions")
     .select("*")
     .eq("user_id", userId)
+    .eq("mode", "paper")
+    .eq("closed", false)
+    .order("opened_at", { ascending: false });
+  return (data ?? []).map(normalizePosition);
+}
+
+/**
+ * The live counterpart of `listOpenPositions` — read-only, and used only to
+ * merge a connected live account's positions into the Portfolio page's
+ * display alongside paper ones (see app/api/portfolio/route.ts). Never used
+ * to price, size, or close anything: a live position's close goes through
+ * the broker via `lib/trade/live-sync.ts`/`lib/portfolio/reconcile.ts`, not
+ * through this module.
+ */
+export async function listLiveOpenPositions(supabase: Supabase, userId: string): Promise<SimPosition[]> {
+  const { data } = await supabase
+    .from("positions")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("mode", "live")
     .eq("closed", false)
     .order("opened_at", { ascending: false });
   return (data ?? []).map(normalizePosition);
