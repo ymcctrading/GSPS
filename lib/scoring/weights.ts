@@ -112,45 +112,32 @@ export const TOTAL_POINTS = CRITERION_KEYS.length;
  * of what's left" (e.g. `lib/marketScan.ts`'s continuation top-up pass)
  * reuses these instead of re-deriving its own notion of "good enough."
  *
- * TEMPORARY OVERRIDE (since 2026-09-14) — see AGENTS.md's "Temporary
- * overrides" section, `EXECUTE_SCORE_THRESHOLD` entry, for the full
- * reasoning and the mandatory revert trigger. Short version: the original
- * `7`/`4` pair was set when the nine criteria were lenient, commonly-passing
- * checks (2-of-3 trend agreement, ~1.5%-of-price proximity bands). Between
- * 2026-09-10 and -11 every one of them was replaced with a specific,
- * individually rare Gann technical event (pass rates 6%-29% each, see
- * `docs/replay-runs/2026-09-11-15Min-2R-within-all.json`'s factors table).
- * Nine independent-ish rare events essentially never co-occur at the old 7/9
- * bar — the committed run shows 0/1061 Execute, and the live deployment
- * produced 0 executable trades before this change. Lowered from 7/4 to 6/3.5
- * as a stopgap sized off that same run under an independence approximation
- * (not a joint-distribution guarantee). The weight rebalance that was the
- * other half of this fix has since been undone on principle (see
- * `DEFAULT_CRITERION_WEIGHTS` below); this threshold stopgap stands on its
- * own and still carries its original revert trigger.
- *
- * Rescaled 2026-09-16 from 6/3.5 (out of 9) to 6.67/3.89 (out of 10) when
- * `ruleOfThree` became the tenth criterion (see `CRITERION_KEYS`) — the same
- * 66.7%/38.9% relative bar, not a new, separate loosening or tightening
- * decision. Adding a criterion and re-judging how hard the bar should be to
- * clear are two different questions; this preserves the existing stopgap's
- * answer to the second one exactly, rather than quietly changing it as a
- * side effect of the first.
- *
- * Rescaled back to 6/3.5 later the same day when `adxTrendStrength` was
- * removed and `TOTAL_POINTS` returned to 9 — the identical arithmetic in the
- * other direction (66.7% and 38.9% of 9 are 6.00 and 3.50), and for the
- * identical reason: changing the criteria count is not a decision about how
- * hard the bar should be. The stopgap's own answer to that question is
- * untouched, and its revert trigger below still stands.
- *
- * Note this removal should, if anything, *widen* the Execute bucket rather
- * than starve it further: `adxTrendStrength` passed on only ~28% of trades
- * and measured negative (−0.245R on
- * `docs/replay-runs/2026-09-11-15Min-2R-within-all.json`), so the setups it
- * was costing a point were disproportionately the ones this scorecard is
- * trying to find. That is the opposite direction from the starvation problem
- * the override below exists to patch.
+ * Re-derived and confirmed, not just carried forward, 2026-09-23. Between
+ * 2026-09-14 and 2026-09-23 these two numbers (6/3.5, the same 66.7%/38.9%
+ * relative bar they've held since the Execute-collapse stopgap first set
+ * them — see git history on this file and `docs/replay-runs/` for that
+ * period's readings) were a deliberate stopgap: the original `7`/`4` pair
+ * dated to when the nine criteria were lenient, commonly-passing checks, and
+ * after 2026-09-10/-11 replaced every one with a specific, individually rare
+ * Gann technical event, the old bar admitted 0/1061 Execute trades on the
+ * committed run and 0 in production. The stopgap's own revert trigger — the
+ * next fresh, committed run with a non-trivial (n>=30) Execute bucket —
+ * fired 2026-09-23 on `docs/replay-runs/2026-09-23-15Min-2R-within-all-
+ * 12sym.json` (12-symbol universe, 615 unconditioned trades, generated
+ * after PR #274 fixed a replay wiring bug that had been silently zeroing
+ * `entryTriggerArmed`). That run's Execute bucket (score >= 6): 41 trades,
+ * +0.362R expectancy, 36.6% win rate, profit factor 1.87 — clearly
+ * profitable and, at n=41, past the stopgap's own bar for treating the
+ * result as real. A supplementary per-score-band sweep of the same
+ * unconditioned population (six separate `?scoreRange=` captures, same
+ * date) confirmed the shape rather than just the endpoint: expectancy is
+ * negative through score 4 (-0.29R), climbs through score 5 (-0.06R), and
+ * turns solidly positive at score 6 (+0.53R) and 7 (+0.32R, n=13) — the
+ * real zero-crossing sits almost exactly at the existing 6-point cutoff.
+ * Re-deriving from this data does not move either number; it confirms them
+ * as the platform's actual thresholds rather than a stopgap standing in for
+ * one. See AGENTS.md's git history for the retired "Execute collapse
+ * stopgap" section this closes out.
  */
 export const EXECUTE_SCORE_THRESHOLD = 6;
 export const WATCH_SCORE_THRESHOLD = 3.5;
