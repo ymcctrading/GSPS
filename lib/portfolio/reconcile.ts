@@ -9,8 +9,9 @@
  * — `/api/positions/close` records those itself, since this function will
  * never see them (see the comment on `isFullClose` in trade-log.ts).
  *
- * Called from `GET /api/portfolio`, which the Portfolio page polls every
- * 10 seconds — that poll is what makes this run at all. It has no other
+ * Called from `syncLiveAccount` (`lib/trade/live-sync.ts`), which
+ * `GET /api/orders` runs on every poll — the Portfolio page polls that
+ * route too, so that's what makes this run in practice. It has no other
  * caller, so a broken import here silently stops trade_logs from ever
  * gaining an exit price, exactly as it did before anything called this file.
  *
