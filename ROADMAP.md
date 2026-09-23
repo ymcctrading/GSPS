@@ -2,7 +2,10 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-09-20 (Documented the 2026-09-16/17 Gann-grounding
+**Last updated:** 2026-09-23 (Closed two open BACKLOG.md/Q1 items under the
+Scan history initiative note: saved scan criteria/watchlists, and the
+system-scan cron path's monitor fan-out gap. See that note under Q1.)
+Previously: 2026-09-20 (Documented the 2026-09-16/17 Gann-grounding
 audit here for the first time — see the Gann & Sara Cross-Market Confluence
 Layers initiative note under Q1; that work was recorded only in AGENTS.md
 until now, which is stale against AGENTS.md's own "update ROADMAP.md in the
@@ -260,10 +263,43 @@ both signal discovery and execution.
   a doc-comment fix — a candidate for a dedicated Q1 follow-up. `guided` and
   `automation` remain intentionally unwired, per `app/api/guided/route.ts`'s
   header and this file's own "Deliberately NOT wired" note elsewhere; they
-  were never part of this correction's scope.)*
+  were never part of this correction's scope.)* *(Follow-up, 2026-09-23,
+  direct request: this system-scan cron gap is now closed.
+  `app/api/market-scan/route.ts`'s cron path (`.github/workflows/full-market-scan.yml`,
+  every 15 minutes through the session) now fans its qualifying setups out
+  to every entitled profile the same way the five `lib/entitlements/
+  scheduled-scan.ts` jobs already did — `lib/entitlements/scan-fanout.ts`'s
+  `fanOutToAllProfiles`, factored out of that file's own per-profile loop so
+  both callers apply identical entitlement/monitor/notification rules. This
+  route needed its own `scan_executions.source`
+  (`scheduled_full_universe_scan`, migration `0076`) rather than reusing one
+  of the five existing sources: those are idempotent once per market date
+  via a partial unique index, correct for a job that runs once a day, but
+  wrong for this route's 15-minute cadence — each cron invocation gets its
+  own `scan_executions` row instead, relying on `evaluateMonitor`'s existing
+  cooldown to prevent flapping/over-notifying on repeated same-state
+  re-evaluations, the same protection every other repeated-scan path here
+  already leans on. Deliberately scoped to the authenticated cron
+  invocation (`GET`) only, never the signed-in user's manual "Refresh scan"
+  click (`POST`) — a single user's click must never fan monitor transitions
+  and notifications out to every other profile in the system. The
+  cost/architecture question this note originally raised ("how many users,
+  what it does to the route's `maxDuration` budget") is resolved by
+  precedent, not new analysis: the five `scheduled-scan.ts` jobs already run
+  a full scan *and* a full profile fan-out inside the same 60s ceiling in
+  production today, at current usage scale — see that file's own comment
+  ("With a single active user, the extra scans/day add negligible request
+  volume"). Revisit if concurrent usage grows enough that per-profile
+  fan-out cost becomes the binding constraint rather than the scan itself.)*
   Distinct from BACKLOG.md's unchecked "Saved scan criteria/watchlists" item,
   which is about re-running a saved *configuration*, not reviewing past
-  *results* — that item is still open.
+  *results*. *(Closed 2026-09-23, direct request: `scan_criteria_presets`
+  (migration `0075`) lets a user name and reload a Universe-tab search —
+  selected industries plus custom symbols — via `/api/scan-criteria` and
+  `components/scan/saved-searches.tsx` on the Scanner page's Universe tab.
+  Distinct from `watchlists` (bare symbols) and `saved_setups`/
+  `setup_folders` (migration 0058, a scored trade-plan snapshot): this saves
+  the scan configuration itself.)*
 - **Home dashboard universe coverage + intraday tracking — continuation of
   this same coverage-gap thread, 2026-09-17, direct report.** The Home
   dashboard's Buy/Sell setups cards were consistently thinner than a manual

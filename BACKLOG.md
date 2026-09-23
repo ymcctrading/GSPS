@@ -93,7 +93,10 @@
 
 ### Advanced Search & Filtering
 - [ ] Advanced scan filters (price range, volume, volatility)
-- [ ] Saved scan criteria/watchlists
+- [x] ~~Saved scan criteria/watchlists~~ — done: `scan_criteria_presets`
+      (migration 0075, RLS owner-only, same shape as `saved_setups`/0058),
+      `/api/scan-criteria`, `components/scan/saved-searches.tsx` on the
+      Scanner page's Universe tab. See `ROADMAP.md`'s Q1 "Scan history" note.
 - [ ] Scan scheduling (daily, weekly, intraday)
 - [ ] Scan result exports (CSV, Excel, PDF)
 - [ ] Scan result comparisons
