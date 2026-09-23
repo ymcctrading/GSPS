@@ -43,7 +43,11 @@ export function SavedSearches({
   }
 
   useEffect(() => {
-    load();
+    // Scheduled rather than called inline — see components/scan/scan-history.tsx's
+    // identical comment: `load` sets state, and calling it directly in the
+    // effect body would do that during the same commit that mounted this.
+    const kickoff = setTimeout(load, 0);
+    return () => clearTimeout(kickoff);
   }, []);
 
   async function saveCurrent() {
