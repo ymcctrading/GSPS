@@ -1177,7 +1177,17 @@ ecosystem. 300+ paying users, $50k+ MRR.
 ### Developer experience & testing
 
 - **Q1** — E2E framework (Playwright) covering login, trade execution, alert
-  delivery.
+  delivery. **Verified 2026-09-23** (BACKLOG.md already marked this done;
+  re-confirmed rather than trusted): `e2e/{login,scan,trade}.spec.ts`, 6
+  tests total (`npx playwright test --list` enumerates cleanly in this
+  session). Login and paper-trade execution are covered as scoped; alert
+  delivery has no dedicated spec — narrower than this line's original
+  scope, not previously called out as a gap. Still not wired into CI (needs
+  a live Supabase project — `login.spec.ts`/`trade.spec.ts` persist real
+  signups/trades, which the synthetic-data fallback can't stand in for);
+  this session's own sandbox has the same limitation, so that gap couldn't
+  be closed here either. Run locally or against a preview with
+  `npm run test:e2e`.
 - **Q2** — Integration tests for all data providers; broker API mocking.
 - **Q3** — Load testing and capacity planning; performance benchmarking in CI.
 - **Q4** — Chaos engineering; disaster recovery drills.
