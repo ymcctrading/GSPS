@@ -63,6 +63,14 @@ export const LARGE_CAP_MAX_STOP_ATR_MULTIPLE = 3.5;
 export const TP1_MULTIPLE_BY_ASSET: Record<AssetClass, number> = {
   us_equity: 1.5,
   crypto: 1.5,
+  // Placeholder pending a real commodities feed (lib/data/commodity.ts) — no
+  // trade has ever been placed against this asset class, so there's nothing
+  // to derive a commodity-specific multiple from yet. Mirrors us_equity
+  // rather than inventing a number; revisit once real data/trades exist.
+  // Three-question mandate (AGENTS.md): a type-completeness filler with zero
+  // supporting data is not a design decision to reason through yet — the
+  // mandate applies once a real commodity multiple is actually chosen.
+  commodity: 1.5,
 };
 
 /**
@@ -72,6 +80,8 @@ export const TP1_MULTIPLE_BY_ASSET: Record<AssetClass, number> = {
 export const TP2_MULTIPLE_BY_ASSET: Record<AssetClass, number> = {
   us_equity: 2.5,
   crypto: 3.0,
+  // Same placeholder rationale as TP1_MULTIPLE_BY_ASSET above.
+  commodity: 2.5,
 };
 
 /**
