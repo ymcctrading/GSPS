@@ -22,13 +22,16 @@ import { formatUsd, cn } from "@/lib/utils";
 import type { ScanResult } from "@/lib/types";
 import type { CompanySnapshot } from "@/lib/data/company";
 import { isEtfSymbol } from "@/lib/sectors";
+import { formatScore, SCORE_MAX } from "@/lib/scoring/display";
 
 export function CompanyPanel({
   symbol,
   result,
+  exactScoreDisplayEnabled = false,
 }: {
   symbol: string;
   result?: ScanResult | null;
+  exactScoreDisplayEnabled?: boolean;
 }) {
   const [reloadKey, setReloadKey] = useState(0);
   const [state, setState] = useState<{
@@ -64,7 +67,7 @@ export function CompanyPanel({
   if (error) return <PanelError message={error} onRetry={() => setReloadKey((k) => k + 1)} />;
   if (!snapshot) return <Skeleton label="Loading company snapshot…" />;
 
-  const conviction = blendConviction(result ?? null, snapshot);
+  const conviction = blendConviction(result ?? null, snapshot, exactScoreDisplayEnabled);
 
   return (
     <div className="flex flex-col gap-5">
@@ -282,7 +285,11 @@ interface Conviction {
  * high-score structural setup that consensus and money flow both confirm
  * reads very differently from the same setup fighting both.
  */
-function blendConviction(result: ScanResult | null, snapshot: CompanySnapshot): Conviction {
+function blendConviction(
+  result: ScanResult | null,
+  snapshot: CompanySnapshot,
+  exactScoreDisplayEnabled: boolean,
+): Conviction {
   const fundamentalBull = snapshot.analystRating.bullishness;
   const flowBull = snapshot.institutionalOwnership.buyPercent / 100;
 
@@ -299,7 +306,7 @@ function blendConviction(result: ScanResult | null, snapshot: CompanySnapshot): 
     };
   }
 
-  const structuralConfidence = result.decision.score / 9; // 0–1
+  const structuralConfidence = result.decision.score / SCORE_MAX; // 0–1
   const bullish = result.direction === "bullish";
   const structuralLean = bullish
     ? 0.5 + structuralConfidence * 0.5
@@ -319,7 +326,7 @@ function blendConviction(result: ScanResult | null, snapshot: CompanySnapshot): 
   return {
     label,
     blended,
-    structuralNote: `${result.decision.outputState} · ${result.decision.score}/9 ${bullish ? "bullish" : "bearish"}`,
+    structuralNote: `${result.decision.outputState} · ${formatScore(result.decision.score, exactScoreDisplayEnabled)}/${SCORE_MAX} ${bullish ? "bullish" : "bearish"}`,
     fundamentalNote: `${snapshot.analystRating.consensus} (${snapshot.analystRating.totalAnalysts} analysts) — ${fundamentalAgrees ? "agrees" : "disagrees"}`,
     flowNote: `${snapshot.institutionalOwnership.buyPercent.toFixed(0)}% institutions buying — ${flowAgrees ? "agrees" : "disagrees"}`,
   };

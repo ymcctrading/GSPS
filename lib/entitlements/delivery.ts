@@ -42,6 +42,8 @@ export type EntitledAlertPayload = {
   symbol: string;
   direction: "bullish" | "bearish";
   score: number;
+  /** See lib/scoring/display.ts — the recipient's own tier, resolved once. */
+  exactScoreDisplayEnabled: boolean;
   entry: number;
   stopLoss: number;
   takeProfit: number;

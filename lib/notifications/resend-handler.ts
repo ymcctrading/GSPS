@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 import { SCANNER_STATE_META } from "@/lib/signals/types";
 import type { PublicSignalSummary } from "@/lib/signals/publicSummary";
+import { formatScore, SCORE_MAX } from "@/lib/scoring/display";
 
 function getResendClient() {
   return new Resend(process.env.RESEND_API_KEY);
@@ -49,6 +50,8 @@ export interface AlertEmailData {
   symbol: string;
   direction: "bullish" | "bearish";
   score: number;
+  /** See lib/scoring/display.ts. */
+  exactScoreDisplayEnabled: boolean;
   entry: number;
   stopLoss: number;
   takeProfit: number;
@@ -74,7 +77,8 @@ export async function sendAlertEmail(data: AlertEmailData) {
   }
 
   try {
-    const subject = `${data.direction.toUpperCase()} Alert: ${data.symbol} (Score: ${data.score}/9)`;
+    const scoreLabel = formatScore(data.score, data.exactScoreDisplayEnabled);
+    const subject = `${data.direction.toUpperCase()} Alert: ${data.symbol} (Score: ${scoreLabel}/${SCORE_MAX})`;
 
     const html = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -90,7 +94,7 @@ export async function sendAlertEmail(data: AlertEmailData) {
             </div>
             <div>
               <p style="margin: 0; color: #64748b; font-size: 12px; text-transform: uppercase; font-weight: 600;">Score</p>
-              <p style="margin: 5px 0 0; color: #0f172a; font-size: 18px; font-weight: 700;">${data.score}/9</p>
+              <p style="margin: 5px 0 0; color: #0f172a; font-size: 18px; font-weight: 700;">${scoreLabel}/${SCORE_MAX}</p>
             </div>
             <div>
               <p style="margin: 0; color: #64748b; font-size: 12px; text-transform: uppercase; font-weight: 600;">Entry</p>

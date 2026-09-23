@@ -103,21 +103,26 @@ export function TickerView({ symbol }: { symbol: string }) {
     // Set when the failure is temporary (a throttled data feed), which is the
     // difference between offering a retry and calling the symbol unscannable.
     retryable: boolean;
-  }>({ key: "", result: null, error: null, retryable: false });
+    // See lib/scoring/display.ts — whether this viewer's tier sees the exact
+    // weighted score or one rounded to the nearest half point.
+    exactScoreDisplayEnabled: boolean;
+  }>({ key: "", result: null, error: null, retryable: false, exactScoreDisplayEnabled: false });
 
   const scanKey = `${symbol}:${reloadKey}`;
   const current = scan.key === scanKey ? scan : null;
   const result = current?.result ?? null;
   const error = current?.error ?? null;
   const retryable = current?.retryable ?? false;
+  const exactScoreDisplayEnabled = current?.exactScoreDisplayEnabled ?? false;
 
   useEffect(() => {
     let cancelled = false;
     const key = `${symbol}:${reloadKey}`;
     fetch(`/api/scan?ticker=${encodeURIComponent(symbol)}`)
-      .then((res) => parseJsonResponse<ScanResult>(res))
-      .then((data: ScanResult) => {
+      .then((res) => parseJsonResponse<ScanResult & { exactScoreDisplayEnabled?: boolean }>(res))
+      .then((data) => {
         if (cancelled) return;
+        const exactScoreDisplayEnabled = Boolean(data.exactScoreDisplayEnabled);
         setScan(
           data.error
             ? {
@@ -125,8 +130,9 @@ export function TickerView({ symbol }: { symbol: string }) {
                 result: null,
                 error: data.error,
                 retryable: data.errorCode === "rate_limited" || data.errorCode === "upstream",
+                exactScoreDisplayEnabled,
               }
-            : { key, result: data, error: null, retryable: false },
+            : { key, result: data, error: null, retryable: false, exactScoreDisplayEnabled },
         );
       })
       .catch(
@@ -137,6 +143,7 @@ export function TickerView({ symbol }: { symbol: string }) {
             result: null,
             error: err instanceof Error ? err.message : String(err),
             retryable: false,
+            exactScoreDisplayEnabled: false,
           }),
       );
     return () => {
@@ -285,9 +292,9 @@ export function TickerView({ symbol }: { symbol: string }) {
         </div>
       </div>
 
-      <MarketTabs symbol={symbol} result={result} />
+      <MarketTabs symbol={symbol} result={result} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
 
-      {result && <SignalCard result={result} />}
+      {result && <SignalCard result={result} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />}
 
       {result && <SignalRegimeCard result={result} />}
 

@@ -11,6 +11,7 @@ import { formatUsd, parseJsonResponse } from "@/lib/utils";
 import type { ScanResult, TradeLevels } from "@/lib/types";
 import { tradeSideLabel } from "@/lib/scoring/direction-copy";
 import type { OptionChain, OptionContract, Level2Book } from "@/lib/data/provider";
+import { formatScore, SCORE_MAX } from "@/lib/scoring/display";
 
 type Tab = "research" | "options" | "levelii" | "company";
 
@@ -21,7 +22,15 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "company", label: "Company" },
 ];
 
-export function MarketTabs({ symbol, result }: { symbol: string; result?: ScanResult | null }) {
+export function MarketTabs({
+  symbol,
+  result,
+  exactScoreDisplayEnabled = false,
+}: {
+  symbol: string;
+  result?: ScanResult | null;
+  exactScoreDisplayEnabled?: boolean;
+}) {
   const [tab, setTab] = useState<Tab>("research");
 
   return (
@@ -43,12 +52,16 @@ export function MarketTabs({ symbol, result }: { symbol: string; result?: ScanRe
         ))}
       </div>
       <div className="min-w-0 p-3 sm:p-4">
-        {tab === "research" && <ResearchPanel symbol={symbol} result={result} />}
+        {tab === "research" && (
+          <ResearchPanel symbol={symbol} result={result} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
+        )}
         {tab === "options" && (
           <OptionsPanel symbol={symbol} levels={result?.levels ?? null} />
         )}
         {tab === "levelii" && <Level2Panel symbol={symbol} />}
-        {tab === "company" && <CompanyPanel symbol={symbol} result={result} />}
+        {tab === "company" && (
+          <CompanyPanel symbol={symbol} result={result} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
+        )}
       </div>
     </div>
   );
@@ -79,7 +92,15 @@ interface IndicatorsData {
   rsi: { current: number | null };
 }
 
-function ResearchPanel({ symbol, result }: { symbol: string; result?: ScanResult | null }) {
+function ResearchPanel({
+  symbol,
+  result,
+  exactScoreDisplayEnabled: exactScoreDisplayEnabledProp = false,
+}: {
+  symbol: string;
+  result?: ScanResult | null;
+  exactScoreDisplayEnabled?: boolean;
+}) {
   const [reloadKey, setReloadKey] = useState(0);
 
   // Each fetch is stored against the request it answers and read back only
@@ -90,22 +111,30 @@ function ResearchPanel({ symbol, result }: { symbol: string; result?: ScanResult
     data: ScanResult | null;
     error: string | null;
     retryable: boolean;
-  }>({ key: "", data: null, error: null, retryable: false });
+    exactScoreDisplayEnabled: boolean;
+  }>({ key: "", data: null, error: null, retryable: false, exactScoreDisplayEnabled: false });
 
   const scanKey = `${symbol}:${reloadKey}`;
   const own = scan.key === scanKey ? scan : null;
   const fetched = result ?? own?.data ?? null;
   const error = result ? null : (own?.error ?? null);
   const retryable = result ? false : (own?.retryable ?? false);
+  // When this panel does its own fetch (no `result` prop — reached outside
+  // TickerView), the tier flag rides the same response rather than the
+  // caller's prop, which wouldn't apply.
+  const exactScoreDisplayEnabled = result
+    ? exactScoreDisplayEnabledProp
+    : (own?.exactScoreDisplayEnabled ?? false);
 
   useEffect(() => {
     if (result) return; // The parent already scanned; don't duplicate it.
     let cancelled = false;
     const key = `${symbol}:${reloadKey}`;
     fetch(`/api/scan?ticker=${encodeURIComponent(symbol)}`)
-      .then((r) => parseJsonResponse<ScanResult>(r))
-      .then((d: ScanResult) => {
+      .then((r) => parseJsonResponse<ScanResult & { exactScoreDisplayEnabled?: boolean }>(r))
+      .then((d) => {
         if (cancelled) return;
+        const exactScoreDisplayEnabled = Boolean(d.exactScoreDisplayEnabled);
         setScan(
           d.error
             ? {
@@ -113,8 +142,9 @@ function ResearchPanel({ symbol, result }: { symbol: string; result?: ScanResult
                 data: null,
                 error: d.error,
                 retryable: d.errorCode === "rate_limited" || d.errorCode === "upstream",
+                exactScoreDisplayEnabled,
               }
-            : { key, data: d, error: null, retryable: false },
+            : { key, data: d, error: null, retryable: false, exactScoreDisplayEnabled },
         );
       })
       .catch(
@@ -125,6 +155,7 @@ function ResearchPanel({ symbol, result }: { symbol: string; result?: ScanResult
             data: null,
             error: e instanceof Error ? e.message : String(e),
             retryable: false,
+            exactScoreDisplayEnabled: false,
           }),
       );
     return () => {
@@ -185,7 +216,11 @@ function ResearchPanel({ symbol, result }: { symbol: string; result?: ScanResult
       <div className="flex flex-wrap items-center gap-3">
         <Badge variant={dirVariant}>{fetched.decision.outputState}</Badge>
         <span className="text-sm text-muted">
-          Score <span className="font-semibold text-foreground">{fetched.decision.score}</span>/9
+          Score{" "}
+          <span className="font-semibold text-foreground">
+            {formatScore(fetched.decision.score, exactScoreDisplayEnabled)}
+          </span>
+          /{SCORE_MAX}
         </span>
         {fetched.direction !== "none" && (
           <Badge variant={fetched.direction === "bullish" ? "bull" : "bear"}>

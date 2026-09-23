@@ -56,11 +56,18 @@ export function ResultsTable({
   rows,
   emptyText,
   onRemove,
+  /**
+   * Defaults to `false` (rounded to the nearest half point) — the safe,
+   * Novice-tier-equivalent default when a caller hasn't resolved the
+   * viewer's tier. See `lib/scoring/tier-display.ts`.
+   */
+  exactScoreDisplayEnabled = false,
 }: {
   rows: ScanRow[];
   emptyText?: string;
   /** When provided, each row gets a manual remove control that calls this. */
   onRemove?: (symbol: string) => void;
+  exactScoreDisplayEnabled?: boolean;
 }) {
   /**
    * Whether price has already broken a row's stop is only known once its
@@ -104,7 +111,7 @@ export function ResultsTable({
       <div className="py-8 text-center text-sm text-muted">
         <p>{emptyText ?? "No symbols qualified as a setup."}</p>
         <RejectedToggle count={rejected.length} open={showRejected} onToggle={() => setShowRejected((v) => !v)} />
-        {showRejected && <RejectedTable rows={rejected} />}
+        {showRejected && <RejectedTable rows={rejected} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />}
       </div>
     );
   }
@@ -134,7 +141,13 @@ export function ResultsTable({
       </THead>
       <TBody>
         {live.map((r) => (
-          <ResultsRow key={rowKey(r)} row={r} onInvalidatedChange={handleInvalidatedChange} onRemove={onRemove} />
+          <ResultsRow
+            key={rowKey(r)}
+            row={r}
+            onInvalidatedChange={handleInvalidatedChange}
+            onRemove={onRemove}
+            exactScoreDisplayEnabled={exactScoreDisplayEnabled}
+          />
         ))}
         {dead.length > 0 && (
           <TR className="hover:bg-transparent">
@@ -144,14 +157,20 @@ export function ResultsTable({
           </TR>
         )}
         {dead.map((r) => (
-          <ResultsRow key={rowKey(r)} row={r} onInvalidatedChange={handleInvalidatedChange} onRemove={onRemove} />
+          <ResultsRow
+            key={rowKey(r)}
+            row={r}
+            onInvalidatedChange={handleInvalidatedChange}
+            onRemove={onRemove}
+            exactScoreDisplayEnabled={exactScoreDisplayEnabled}
+          />
         ))}
       </TBody>
     </Table>
     {rejected.length > 0 && (
       <div className="mt-2">
         <RejectedToggle count={rejected.length} open={showRejected} onToggle={() => setShowRejected((v) => !v)} />
-        {showRejected && <RejectedTable rows={rejected} />}
+        {showRejected && <RejectedTable rows={rejected} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />}
       </div>
     )}
     </>
@@ -172,7 +191,13 @@ function RejectedToggle({ count, open, onToggle }: { count: number; open: boolea
 
 /** Minimal, symbol/score/setup only — these didn't earn a trade plan, so the
  * full price-column table would just be four dashes per row. */
-function RejectedTable({ rows }: { rows: ScanRow[] }) {
+function RejectedTable({
+  rows,
+  exactScoreDisplayEnabled,
+}: {
+  rows: ScanRow[];
+  exactScoreDisplayEnabled: boolean;
+}) {
   return (
     <Table>
       <THead>
@@ -193,7 +218,7 @@ function RejectedTable({ rows }: { rows: ScanRow[] }) {
             </TD>
             <TD className="text-right font-mono">{r.currentPrice != null && r.currentPrice > 0 ? formatUsd(r.currentPrice) : "—"}</TD>
             <TD>
-              <ScoreBadge score={r.score} state={r.outputState} />
+              <ScoreBadge score={r.score} state={r.outputState} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
             </TD>
             <TD className="text-muted">
               {r.patternName ? `${r.patternName} ` : ""}
@@ -225,10 +250,12 @@ function ResultsRow({
   row: r,
   onInvalidatedChange,
   onRemove,
+  exactScoreDisplayEnabled,
 }: {
   row: ScanRow;
   onInvalidatedChange?: (key: string, value: boolean) => void;
   onRemove?: (symbol: string) => void;
+  exactScoreDisplayEnabled: boolean;
 }) {
   const quote = useLiveQuote(r.entry != null && r.stopLoss != null ? r.symbol : null, {
     intervalMs: 30_000,
@@ -282,7 +309,7 @@ function ResultsRow({
       </TD>
       <TD>
         <div className="flex flex-col items-start gap-1">
-          <ScoreBadge score={r.score} state={r.outputState} />
+          <ScoreBadge score={r.score} state={r.outputState} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
           {invalidated && <Badge variant="bear">Invalidated</Badge>}
         </div>
       </TD>

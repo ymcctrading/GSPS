@@ -35,7 +35,13 @@ export interface SavedSetupRow {
   monitorState: string | null;
 }
 
-export function SavedSetupsList({ initialRows }: { initialRows: SavedSetupRow[] }) {
+export function SavedSetupsList({
+  initialRows,
+  exactScoreDisplayEnabled = false,
+}: {
+  initialRows: SavedSetupRow[];
+  exactScoreDisplayEnabled?: boolean;
+}) {
   const [rows, setRows] = useState(initialRows);
 
   async function remove(id: string) {
@@ -87,7 +93,7 @@ export function SavedSetupsList({ initialRows }: { initialRows: SavedSetupRow[] 
                 {row.pattern_name && <span className="text-xs text-muted">{row.pattern_name}</span>}
                 {row.setup_kind === "continuation" && <Badge variant="muted">continuation</Badge>}
                 <MonitorStatus state={row.monitorState} />
-                <ScoreChange row={row} />
+                <ScoreChange row={row} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
                 <span className="flex flex-wrap items-center gap-3 text-xs font-mono text-muted sm:ml-auto">
                   {row.entry != null && <span>Entry {formatUsd(row.entry)}</span>}
                   {row.stop_loss != null && <span className="text-bear">Stop {formatUsd(row.stop_loss)}</span>}
@@ -138,19 +144,33 @@ function MonitorStatus({ state }: { state: string | null }) {
  * numbers commonly diverge, and the whole reason someone bookmarks a setup
  * is to be able to see how it moved.
  */
-function ScoreChange({ row }: { row: SavedSetupRow }) {
+function ScoreChange({
+  row,
+  exactScoreDisplayEnabled,
+}: {
+  row: SavedSetupRow;
+  exactScoreDisplayEnabled: boolean;
+}) {
   if (row.score == null) return null;
 
   return (
     <span className="flex items-center gap-1.5 text-xs">
       <span title="Score when saved">
-        <ScoreBadge score={row.score} state={row.output_state ?? "Reject"} />
+        <ScoreBadge
+          score={row.score}
+          state={row.output_state ?? "Reject"}
+          exactScoreDisplayEnabled={exactScoreDisplayEnabled}
+        />
       </span>
       {row.currentScore != null ? (
         <>
           <ArrowRight className="h-3.5 w-3.5 text-muted" />
           <span title="Score in today's scan">
-            <ScoreBadge score={row.currentScore} state={row.currentOutputState ?? "Reject"} />
+            <ScoreBadge
+              score={row.currentScore}
+              state={row.currentOutputState ?? "Reject"}
+              exactScoreDisplayEnabled={exactScoreDisplayEnabled}
+            />
           </span>
         </>
       ) : (
