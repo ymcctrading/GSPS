@@ -42,7 +42,7 @@ function fakeClient(rows: FakeRow[]) {
       then: undefined as undefined,
       maybeSingle: vi.fn(async () => {
         const matches = rows.filter((r) =>
-          Object.entries(applied).every(([k, v]) => (r as Record<string, unknown>)[k] === v),
+          Object.entries(applied).every(([k, v]) => (r as unknown as Record<string, unknown>)[k] === v),
         );
         return { data: matches[0] ?? null, error: null };
       }),
@@ -51,7 +51,7 @@ function fakeClient(rows: FakeRow[]) {
       // thenable, matching the real supabase-js client's shape.
       async resolveList() {
         const matches = rows.filter((r) =>
-          Object.entries(applied).every(([k, v]) => (r as Record<string, unknown>)[k] === v),
+          Object.entries(applied).every(([k, v]) => (r as unknown as Record<string, unknown>)[k] === v),
         );
         return { data: matches, error: null };
       },

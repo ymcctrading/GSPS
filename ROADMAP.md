@@ -486,8 +486,8 @@ both signal discovery and execution.
   (both already carry a `mode` column and render together); a per-user kill
   switch specific to live trading (the existing global `TRADING_DISABLED`
   env var still covers every order, live included). *(Follow-up, 2026-09-23,
-  direct request: the orders half of this was already done by
-  `mcp#252`/`components/portfolio/order-rows.tsx`'s `LiveBadge`. The
+  direct request: the orders half of this was already done by PR #252's
+  `components/portfolio/order-rows.tsx` `LiveBadge`. The
   positions half is now done too, and in the same PR fixed a real bug this
   gap had been masking: `lib/brokers/simulator.ts`'s
   `getOpenPosition`/`listOpenPositions` — the paper-trading simulator's own
@@ -510,7 +510,19 @@ both signal discovery and execution.
   as before. `components/portfolio/open-positions.tsx` renders the same
   `LiveBadge` treatment as orders, and hides the Protect/Edit/Close action
   buttons on a live leg (none of those routes are live-wired here yet)
-  rather than showing them wired to nothing.)*
+  rather than showing them wired to nothing.)* *(Follow-up, 2026-09-23,
+  direct request: `entry_pause` now counts live entries. Live order
+  placement shipped in this same initiative months before this fix — see
+  above — so `lib/risk/service.ts`'s header comment claiming "no live order
+  history to count from yet" was already stale at the time it was written;
+  `entry_pause` could never trigger from live trading as a result, only from
+  the loss/drawdown-driven states. Fixed: a new
+  `countLiveEntriesOpenedToday` (`lib/risk/service.ts`) counts this user's
+  `positions` rows with `mode = 'live'` and `opened_at` since midnight ET —
+  a position row, not an order row, since a position is only created on an
+  actual fill (rejected/canceled orders correctly don't count).
+  `lib/trade/place-order.ts`'s live branch now calls it and passes the real
+  count into `evaluateLiveCircuitBreaker` instead of a hardcoded `0`.)*
 - **Market Universe, Data Quality & Account Constraints engine** *(2026-08-29,
   out-of-phase, direct request)* — a pure-logic engine, `lib/universe/*`,
   implementing the "Market Universe, Data Quality & Account Constraints"
