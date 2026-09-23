@@ -3,7 +3,7 @@
 ## Cron-invoked endpoints
 
 Only `/api/market-scan` is cron-invoked, but not by a single scheduler: the
-17:30 ET run is a native Vercel Cron entry in `vercel.json`, and the 08:30 ET
+20:00 ET run is a native Vercel Cron entry in `vercel.json`, and the 08:30 ET
 run is a GitHub Actions schedule (`.github/workflows/premarket-scan.yml`)
 calling the same route over HTTPS with the same secret. Both checks a bearer
 secret before doing anything:

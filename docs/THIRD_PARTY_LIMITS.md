@@ -11,7 +11,7 @@ confirm you're still under its limit.
 
 | Service | Current plan | Limit | What happens if exceeded | Notes |
 |---|---|---|---|---|
-| **Vercel** | Hobby (free) | 2 cron jobs per project, each ≤ once/day. Deployments/builds also capped (see Vercel dashboard for current usage). | Deploy fails, or the cron silently isn't created. | `vercel.json` now defines **2** crons — `/api/market-scan` (17:30 ET weekdays) and `/api/trade-journal/daily-email` (18:00 ET weekdays, 2 hours after close) — **both of 2 slots are now spent.** The 08:30 ET run of the market scan moved to GitHub Actions (`.github/workflows/premarket-scan.yml`) to free the slot the journal digest now uses; see below. `/api/intraday-scan` needs to run every ~15 minutes during the session, well past the 1-run/day cap, so it's scheduled the same way: `.github/workflows/intraday-scan.yml` calls it with `CRON_SECRET`, outside `vercel.json` entirely — it still also serves on-demand requests from a signed-in user's Scanner tab, same as before. That workflow now carries a second, always-on `*/15` schedule covering weekday overnight and the whole weekend (2026-08-21, alongside adding BTC/USD and ETH/USD to the watchlist) — the equity-hours run scans the full watchlist, the off-hours one passes `?universe=crypto` and scans crypto alone, since equities can't have moved while their market is shut. That's roughly 4x the GitHub Actions minutes this workflow used before; GitHub Actions itself has no row in this table yet because nothing had pushed it close to a real limit until now — worth watching if a private-repo minutes cap becomes a concern. The Phase 3D entitlement scans (`/api/scans/morning-preparation` 6:00 ET, `/api/scans/morning-confirmation` 9:15 ET) use the same GitHub Actions pattern — `.github/workflows/morning-preparation-scan.yml` / `morning-confirmation-scan.yml` — at full scan capacity (single active user; see "Upgrading past current limits" below for the Vercel-cron-slot question that remains). The Automated Portfolio Manager loop (2026-09-03, `lib/automation/portfolio-manager.ts`) is the same pattern again: `.github/workflows/autonomous-portfolio-manager.yml` calls `/api/automation/portfolio-manager/run` with `CRON_SECRET` four times through the weekday session (13:35/15:00/17:00/19:30 UTC), mirroring `demo-auto-trade.yml`'s multi-run-per-day cadence. **Any future scheduled job must use the GitHub Actions pattern below instead of `vercel.json` — there is no cron slot left.** Git-triggered deploys are **on**: a branch push builds a preview and a merge to `main` releases to production — see `AGENTS.md`. |
+| **Vercel** | Hobby (free) | 2 cron jobs per project, each ≤ once/day. Deployments/builds also capped (see Vercel dashboard for current usage). | Deploy fails, or the cron silently isn't created. | `vercel.json` now defines **2** crons — `/api/market-scan` (20:00 ET weekdays) and `/api/trade-journal/daily-email` (18:00 ET weekdays, 2 hours after close) — **both of 2 slots are now spent.** The 08:30 ET run of the market scan moved to GitHub Actions (`.github/workflows/premarket-scan.yml`) to free the slot the journal digest now uses; see below. `/api/intraday-scan` needs to run every ~15 minutes during the session, well past the 1-run/day cap, so it's scheduled the same way: `.github/workflows/intraday-scan.yml` calls it with `CRON_SECRET`, outside `vercel.json` entirely — it still also serves on-demand requests from a signed-in user's Scanner tab, same as before. That workflow now carries a second, always-on `*/15` schedule covering weekday overnight and the whole weekend (2026-08-21, alongside adding BTC/USD and ETH/USD to the watchlist) — the equity-hours run scans the full watchlist, the off-hours one passes `?universe=crypto` and scans crypto alone, since equities can't have moved while their market is shut. That's roughly 4x the GitHub Actions minutes this workflow used before; GitHub Actions itself has no row in this table yet because nothing had pushed it close to a real limit until now — worth watching if a private-repo minutes cap becomes a concern. The Phase 3D entitlement scans (`/api/scans/morning-preparation` 6:30 ET, `/api/scans/morning-confirmation` 9:15 ET) use the same GitHub Actions pattern — `.github/workflows/morning-preparation-scan.yml` / `morning-confirmation-scan.yml` — at full scan capacity (single active user; see "Upgrading past current limits" below for the Vercel-cron-slot question that remains). The Automated Portfolio Manager loop (2026-09-03, `lib/automation/portfolio-manager.ts`) is the same pattern again: `.github/workflows/autonomous-portfolio-manager.yml` calls `/api/automation/portfolio-manager/run` with `CRON_SECRET` four times through the weekday session (13:35/15:00/17:00/19:30 UTC), mirroring `demo-auto-trade.yml`'s multi-run-per-day cadence. **Any future scheduled job must use the GitHub Actions pattern below instead of `vercel.json` — there is no cron slot left.** Git-triggered deploys are **on**: a branch push builds a preview and a merge to `main` releases to production — see `AGENTS.md`. |
 | **Supabase** | Free project tier | Row/storage/bandwidth caps per Supabase's Hobby project limits; project pauses after a period of inactivity. | Paused project = the whole app loses its database until manually resumed. | Check the Supabase dashboard for current usage before assuming headroom. |
 | **Binance** (crypto data) | Public API | Effectively unlimited for basic market data (public endpoint, no key). | N/A | No auth required; still subject to Binance's general IP rate limiting under heavy load. |
 | **Oanda** (forex data) | Practice/demo account | ~1200 requests/min | 429s from Oanda; endpoint returns an error to the caller. | `OANDA_API_KEY` required. Practice account, not live. |
@@ -47,7 +47,7 @@ meant moving one run off Vercel Cron entirely rather than dropping it.
 The 08:30 ET / 12:30 UTC pre-market run now fires from
 `.github/workflows/premarket-scan.yml` (GitHub Actions schedule), calling
 `/api/market-scan` over HTTPS with the same `CRON_SECRET` bearer auth the
-route already checks for the native Vercel cron. The 17:30 ET / 21:30 UTC
+route already checks for the native Vercel cron. The 20:00 ET / 00:00 UTC
 post-close run — the more time-sensitive of the two, since it feeds the next
 session's list — stays a native `vercel.json` cron, since Vercel's scheduler
 is more punctual than GitHub Actions' (which can run several minutes late
@@ -94,7 +94,7 @@ jobs:
 ```
 
 Beyond the pre-market scan, the Phase 3D entitlement scans
-(`.github/workflows/morning-preparation-scan.yml` at 6:00 ET,
+(`.github/workflows/morning-preparation-scan.yml` at 6:30 ET,
 `morning-confirmation-scan.yml` at 9:15 ET) use this same template. Add
 another job when a real need (token refresh, reconciliation) exists, rather
 than standing up an unused workflow now.
@@ -109,9 +109,12 @@ the scans above do.
 ### The full-universe market scan now runs on a 15-minute cadence, not just twice a day
 
 2026-09-22, project-owner direction: `.github/workflows/full-market-scan.yml`
-calls `/api/market-scan` every 15 minutes from 09:30 ET through the day's
-final 18:00 ET run, on top of the existing 08:30 ET (`premarket-scan.yml`)
-and 17:30 ET (native `vercel.json` cron) runs — same CRON_SECRET-bearer
+calls `/api/market-scan` every 15 minutes from 09:30 ET through the
+16:00 ET regular-session close (trimmed from an original 18:00 ET run,
+2026-09-23, once equities can no longer have moved), on top of the existing
+08:30 ET (`premarket-scan.yml`) and 20:00 ET (native `vercel.json` cron,
+covering the after-hours/extended-trading close) runs — same
+CRON_SECRET-bearer
 pattern as every other externally-scheduled route in this table. This is
 what makes `daily_scans` continuously fresh throughout the session instead
 of sitting on a stale snapshot for hours between the two prior runs; see
@@ -168,7 +171,7 @@ One ceiling remains for the Phase 3D scans:
   Once upgraded, `/api/scans/morning-preparation` and
   `/api/scans/morning-confirmation` can move from the GitHub Actions
   workaround to native `vercel.json` crons, for the same punctuality reason
-  the 17:30 ET market-scan run stays native today — see the `crons` array
+  the 20:00 ET market-scan run stays native today — see the `crons` array
   above and add two entries following the existing ones, then remove the
   two corresponding `.github/workflows/morning-*.yml` files (or leave them
   disabled as a fallback; a route can safely be called by both a native

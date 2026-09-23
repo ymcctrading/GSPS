@@ -1,7 +1,7 @@
 /**
  * GSPS — /api/scans/first-90min-confirmation
  *
- * The 9:45 AM ET scan added alongside the existing 6:00 AM
+ * The 9:45 AM ET scan added alongside the existing 6:30 AM
  * (scheduled_morning_scan) and 9:15 AM (scheduled_morning_confirmation_scan)
  * jobs -- project owner direction: "we have a 15 min[ute] delay... run a
  * fresh scan at 9:45 to catch the larger moves that occur within the first

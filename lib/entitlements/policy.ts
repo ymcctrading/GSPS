@@ -32,7 +32,7 @@ export type Limit = number | "unlimited";
 export type ProcessingPriority = "standard" | "elevated" | "high" | "highest";
 
 export type EntitlementPolicy = {
-  /** 6:00 AM ET Morning Preparation scan — included on every tier. */
+  /** 6:30 AM ET Morning Preparation scan — included on every tier. */
   morningPreparationScanEnabled: boolean;
   /** 9:15 AM ET confirmation scan — included on every tier. */
   morningConfirmationScanEnabled: boolean;

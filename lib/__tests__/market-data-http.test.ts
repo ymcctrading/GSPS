@@ -94,6 +94,32 @@ describe("fetchWithRetry", () => {
     await expect(run(fetchWithRetry("https://x.test/q", {}, { provider: "Alpaca" }))).rejects.toThrow();
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+
+  it("fails fast with a rate-limit error instead of hanging when a concurrent scan has drained the shared bucket", async () => {
+    // A dedicated provider name — the module-level limiter map keys by name
+    // only, so reusing "Alpaca" here would inherit whatever capacity an
+    // earlier test already created it with.
+    const fetchMock = vi.fn().mockResolvedValue(res(200, "{}"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    // Drain the one-token-per-minute bucket with a first call.
+    await run(fetchWithRetry("https://x.test/q", {}, { provider: "QueueDrainTest", ratePerMinute: 1 }));
+    fetchMock.mockClear();
+
+    // A second caller queuing for the same bucket would need to wait ~60s
+    // for a refill — far longer than the 500ms budget given here — so it
+    // must give up with the standard rate-limit error rather than hang.
+    await expect(
+      run(
+        fetchWithRetry(
+          "https://x.test/q",
+          {},
+          { provider: "QueueDrainTest", ratePerMinute: 1, queueTimeoutMs: 500 },
+        ),
+      ),
+    ).rejects.toMatchObject({ name: "MarketDataError", status: 429 });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });
 
 describe("cachedFetch", () => {

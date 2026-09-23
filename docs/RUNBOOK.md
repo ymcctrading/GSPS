@@ -94,7 +94,7 @@ them, and they look just as precise either way.
   before the open. The scan reads *closed* 15-minute bars, so at that hour the
   most recent one belongs to the previous session. The levels are real, they are
   just drawn on yesterday's tape and have not seen the overnight session or the
-  opening auction. Re-run once the market has been open a while. (The 17:30 ET
+  opening auction. Re-run once the market has been open a while. (The 20:00 ET
   run is also outside market hours but reads that day's bars, so it is not
   flagged.) The check is `pricedBeforeSession`, off `detail.scannedAt`.
 
@@ -210,7 +210,7 @@ bleeding, then revert so the next merge doesn't carry it back in.
 
 ## Phase 4 — Morning Preparation / Confirmation scheduled scans
 
-`/api/scans/morning-preparation` (6:00 AM ET) and
+`/api/scans/morning-preparation` (6:30 AM ET) and
 `/api/scans/morning-confirmation` (9:15 AM ET) are trusted, cron-secret-gated
 jobs (`lib/entitlements/scheduled-scan.ts`), invoked by
 `.github/workflows/morning-preparation-scan.yml` /
@@ -270,12 +270,12 @@ deliberately narrow to full-day closures only.
 **Early close is a non-issue for these two jobs specifically, not an
 unhandled case:** early close only moves the market's *close* from 4:00 PM
 ET to 1:00 PM ET — the open stays 9:30 AM ET on every trading day,
-early-close or not. Morning Preparation (6:00 AM ET) and Confirmation
+early-close or not. Morning Preparation (6:30 AM ET) and Confirmation
 (9:15 AM ET) both run before the open regardless, so neither job's
 behavior depends on when the market closes that day; there is nothing
 correct to gate on here. This would need real handling only if a future
 Phase 4/5 job were added that runs *near or after* close (the existing
-17:30 ET `/api/market-scan` post-close cron is the one job in this codebase
+20:00 ET `/api/market-scan` post-close cron is the one job in this codebase
 that could be affected by an early close, and it predates and is out of
 scope for this Phase 4/5 work) — at that point a documented product policy
 for what "post-close" means on a 1:00 PM close would actually be needed,
@@ -305,7 +305,7 @@ universe (`MORNING_SCAN_UNIVERSE_TOP`/`MORNING_SCAN_PER_SIDE`) never
 selected for a full pass at all — that's "not evaluated," not "evaluated
 and rejected," and correctly stays untouched rather than being guessed at.
 Such a monitor still clears via the user's own manual scans, the 08:30/
-17:30 ET `/api/market-scan` crons (full universe), or
+20:00 ET `/api/market-scan` crons (full universe), or
 `active_monitors.expires_at`.
 
 **Rollback / disable:** disable via the GitHub Actions workflow (Actions →
