@@ -2,7 +2,13 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-09-23 (Closed "Pattern education" under the Improved
+**Last updated:** 2026-09-23 (Added "Strategy Modes" under Q1, out-of-phase
+direct request: opt-in, non-default entry/exit level generation off PSAR+
+Supertrend and Sara Strat bar patterns, plus four more swing/intraday
+indicator strategies, with the custom-script/plugin system scoped
+design-only under the existing Q2 "Expanded indicator library" initiative.
+See AGENTS.md's "Strategy Modes" section and `docs/STRATEGY_MODES.md`.)
+Previously same day (Closed "Pattern education" under the Improved
 onboarding note — the Signal and Regime Engine's four states now have
 glossary entries.) Previously same day (Annotated the Feature Priority
 Matrix's Q1 "Platform & reliability"/"Security & compliance" lines: Sentry error
@@ -182,6 +188,30 @@ both signal discovery and execution.
   the same on/score-5/no-quiet-hours default the settings API already
   promises, via a full `auth.admin.listUsers()` pass rather than the
   preferences table alone.)*
+- **Strategy Modes** *(2026-09-23, out-of-phase, direct request)* — fits no
+  Q1 strategic goal above (it's a signal-engine addition serving an
+  individual trader's own execution style, not monetization/retention), but
+  built now at direct request, the same precedent this document's other
+  out-of-phase Q1 entries already set. An opt-in, non-default,
+  one-at-a-time system (`lib/strategies/`, `docs/STRATEGY_MODES.md`) that
+  generates entry/stop-loss/TP1/master-target levels from a named, real,
+  non-Gann trading technique — Gann's own trade plan (`ScanResult.levels`,
+  the scorecard, `SignalGates`, Automation) is untouched and remains the
+  default and the only substance behind GSPS's own verdict. This required a
+  scoped, explicit, project-owner-authorized exception to AGENTS.md's
+  "Gann-grounded platform" non-Gann boundary — see AGENTS.md's "Strategy
+  Modes" section for that amendment and why it doesn't loosen the boundary
+  anywhere else. Six modes shipped: PSAR+Supertrend intraday reversal
+  agreement-flip, Sara Strat bar-pattern precision entry (reusing
+  `lib/strat/patterns.ts`'s own trigger/stop), EMA9/SMA20 crossover,
+  Bollinger Band reversion, RSI(14) overbought/oversold reversal, and MACD
+  momentum crossover — chosen as the most standard, citably-real swing/
+  intraday strategies buildable directly on indicators GSPS already
+  computes. A TradingView-style custom-script/plugin system (user-authored
+  strategies, sandboxed) was also requested; scoped design-only this pass
+  (`docs/STRATEGY_MODES.md`'s own section) given its sandboxing/security
+  scope, and placed under the existing Q2 "Expanded indicator library"
+  initiative below rather than built here.
 - **Gann & Sara Cross-Market Confluence Layers** *(out-of-phase, direct
   request: "GSPS Gann & Sara Cross-Market Integration Addendum", 2026-08-28.
   Fits no Q1 strategic goal above — it's a signal-engine addition, not
@@ -1017,7 +1047,13 @@ Portfolio analytics drives retention and trust.
   The boundary that keeps both true — no indicator added here may feed a
   scored criterion, a signal gate, a trade plan, or any verdict GSPS itself
   issues. See AGENTS.md's "Audit outcomes" entry for the full reasoning, and
-  do not let a future Gann-grounding audit strip these out.
+  do not let a future Gann-grounding audit strip these out. *(Note,
+  2026-09-23: the TradingView-style custom-script/plugin system requested
+  alongside "Strategy Modes" (Q1, out-of-phase, see that entry above) is
+  scoped to land here rather than as its own initiative — see
+  `docs/STRATEGY_MODES.md`'s "Custom-script / plugin system" section for the
+  sandboxed-execution/plugin-registry/chart-hook design sketch. Not started;
+  design only as of this note.)*
 - **Database optimization** — indexing for scan queries, caching for frequent
   chart requests, query-plan review.
 

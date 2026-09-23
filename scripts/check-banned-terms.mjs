@@ -66,6 +66,9 @@ const PMG_IDENTIFIER_FILES = [
   "lib/strat/patterns.ts",
   "lib/education/patterns.ts",
   "lib/scanTicker.ts",
+  // Strategy Modes (docs/STRATEGY_MODES.md): ranks patterns by the same bare
+  // tag, and renders only PATTERN_GLOSSARY_TERM's approved label.
+  "lib/strategies/saraStrat.ts",
 ];
 
 /** Product names. Banned everywhere, in any casing, comments included. */

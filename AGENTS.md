@@ -350,6 +350,13 @@ issues. The moment one does, it stops being a user's tool and becomes the
 platform's substance, and the Gann-grounding principle applies to it in full.
 Check that boundary rather than the indicator list.
 
+**Narrow, explicit, later exception:** see "Strategy Modes" below
+(2026-09-23) for the one deliberate, project-owner-authorized carve-out from
+this line — a separate, clearly-labeled, opt-in system that a human
+selects one-at-a-time, never substituted for GSPS's own Gann-grounded
+verdict. It does not loosen this boundary for the display-only indicator
+family itself, which this section still governs in full.
+
 **Do not remove these on a future Gann-grounding audit**, and do not read the
 "display only is not an exemption" rule above as overriding this — that rule
 says display is not exempt *by category*, which is exactly why this exception
@@ -747,6 +754,80 @@ astrology entirely** — no code, no confluence field, nothing built. This is
 the resolution of `docs/GANN_METHOD_COMPLETENESS_AUDIT.md`'s open item on
 whether astrology has any place in GSPS at all; check that document's
 "Astrology" addendum section if this ever needs revisiting.
+
+## Strategy Modes — scoped exception to the non-Gann boundary (2026-09-23, project owner direction)
+
+The "Gann-grounded platform" section above states a boundary "that must not
+move": no non-Gann indicator (PSAR, Supertrend, RSI, MACD, Bollinger, the
+STRAT bar-sequence taxonomy, etc.) may feed a scored criterion, a signal
+gate, a trade plan, an entry, a stop, a target, or any verdict GSPS itself
+issues. **This section is a deliberate, narrow, explicit exception to that
+line, not a repeal of it** — the project owner asked directly for entry/
+stop/target generation off PSAR+Supertrend and off Sara Strat bar patterns
+(and, by the same reasoning, a small family of other well-known indicator
+strategies), for a user's own opt-in intraday/swing trading. Per this file's
+own established pattern (see "WD Gann precedence" and "Astrology" above),
+the project owner is the one party who can amend a standing principle here,
+and does so by writing the amendment down rather than silently patching
+around it — this is that write-down.
+
+**What is exempted, precisely, and what is not.** A new, separate system —
+`lib/strategies/*`, "Strategy Modes" — may generate its own entry, stop
+loss, first target, and master target from a named, real, citably-existing
+(non-Gann) trading technique. Nothing about the core Gann-grounded verdict
+engine changes:
+
+- **Gann remains the default and the only substance behind GSPS's own
+  verdict.** `ScanResult.levels`, the scored criteria, `SignalGates`, the
+  scorecard, the Automated Portfolio Manager, and plan-scoped Automation are
+  all untouched and continue to read only the Gann pipeline
+  (`lib/gann/entryTrigger.ts`, `lib/strat/levels.ts`). A Strategy Mode result
+  is never substituted into any of those.
+- **Opt-in and one-at-a-time.** A human explicitly selects exactly one
+  non-Gann mode for a given chart/order ticket (defaulting to Gann); modes
+  are never combined, averaged, or auto-selected, and never persist as a
+  silent account-wide override of the scored verdict.
+- **A Strategy Mode result is the same kind of thing as a human typing a
+  manual stop/target into the order ticket** — a computed suggestion a human
+  chooses to act on — not a new GSPS-issued verdict. It carries its own
+  label (which mode produced it) at every point it's displayed, so it is
+  never presented as, or confused with, the Gann trade plan.
+- **The underlying indicator math still must not leak into the display-only
+  family.** `lib/indicators.ts` (the chart-overlay module, per the
+  "Charting indicators" audit outcome above) keeps its own guarantee intact
+  — Strategy Modes compute their own copy of any shared formula
+  (`lib/strategies/math.ts`) rather than importing the display module, so
+  that module's header comment ("must never feed... a trade plan") stays
+  literally true.
+
+**Modes built under this exception** (2026-09-23): PSAR+Supertrend
+agreement-flip reversal, Sara Strat bar-pattern precision entry (reusing
+`lib/strat/patterns.ts#detectPatterns`'s own trigger/stop, the same taxonomy
+the "Gann-grounded platform" audit already investigated and kept for
+display/confluence use), EMA9/SMA20 crossover, Bollinger Band reversion,
+RSI(14) overbought/oversold reversal, and MACD(12/26/9) momentum crossover —
+see `lib/strategies/` and `docs/STRATEGY_MODES.md` for the architecture and
+each mode's three-question design rationale (required by the mandate below
+even though gate 1, Gann sourcing, is answered "none, deliberately" for
+every mode here).
+
+**What this does not open the door to.** This is not a general license to
+weaken the non-Gann boundary elsewhere. The scored criteria, signal gates,
+and the Gann trade plan are exactly as off-limits to these indicators as
+before; `patternArmed`'s open gate-1 status is unaffected; the "Expanded
+indicator library" Q2 roadmap item's own boundary ("no indicator added there
+may feed a scored criterion...") is unaffected. This exception is scoped to
+one new, clearly-labeled, opt-in system and nothing else.
+
+**Future custom-script/plugin system.** The project owner also asked about a
+TradingView-style system where a user (or GSPS) can author and plot a new
+indicator/strategy that generates its own levels the same way. That is a
+substantially larger, security-sensitive (sandboxed execution) project of
+its own — scoped as a design-only Q2/Q3 roadmap initiative in
+`docs/STRATEGY_MODES.md` and ROADMAP.md rather than built this session. Any
+strategy plugin built under that future system would need to satisfy the
+same rules this section states: opt-in, one-at-a-time, never touching the
+Gann verdict, and clearly labeled.
 
 ## Three-question mandate — the lens work is reasoned through, every session
 
