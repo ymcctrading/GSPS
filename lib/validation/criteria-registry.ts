@@ -320,61 +320,56 @@ const SCAN_SCORE: RegisteredCriterion[] = [
     id: "stopRoom",
     family: "scanScore",
     source: "lib/scoring/score.ts",
-    label: "Stop room (>= 1.5x ATR)",
+    label: "Stop room (>= 1.5x ATR) / Stop backed by real structure (us_equity)",
     expectedSign: "positive",
     evidence: "quarantined",
     quarantineReason:
-      "Both fresh runs captured 2026-09-14 (docs/replay-runs/2026-09-14-15Min-2R-within-all.json, 985 " +
-      "trades; docs/replay-runs/2026-09-14-1Hour-2R-within-all.json, 10480 observed) measure this " +
-      "saturated: 967/985 (98.2%) at 15Min, 10427/10480 (99.5%) at 1Hour — both far past " +
-      "DEFAULT_SATURATION_BOUNDS' 95% ceiling, and the first committed evidence to reflect what this " +
-      "criterion actually asks post-2026-09-11: for `us_equity` it no longer reads the ATR-multiple " +
-      "question this entry's note below describes, it reads `levels.stopFromStructure` — whether the " +
-      "stop anchored to a real nearby level instead of the fixed fallback percentage (score.ts's " +
-      "`hasStopRoom`, lib/strat/levels.ts's `computeEquityTradeLevels`). No run existed against that " +
-      "branch until now, so this is a genuinely new finding, not a re-measurement.\n" +
+      "us_equity branch only (assetClass === \"us_equity\" reads `levels.stopFromStructure` instead of " +
+      "the ATR-multiple check below — see hasStopRoom in lib/scoring/score.ts). First real measurement " +
+      "of the percent-of-purchase-price model (PR #217, 2026-09-11): 6 unconditioned (`within=all`) " +
+      "live runs captured 2026-09-15 (docs/replay-runs/2026-09-15-{15Min,1Hour}-within-all-productionStop" +
+      "{,-since90d,-since30d}.json — 15Min/1Hour x full-history/90d/30d, default universe SPY/AAPL/AMD/" +
+      "TSLA/MSFT/NVDA, all large-cap, `productionStop=1`). Pass rate on every single one of the 6: " +
+      "985 trades 98.2%, 438 trades 98.6%, 10,480 observed 99.5%, 367 trades 99.2%, 100 trades 98.0% " +
+      "(the 90d-15Min run duplicates the full-history one — 15Min's ~60-day natural lookback is already " +
+      "under the 90-day cutoff, so it trims nothing; treat it as the same reading, not a 6th independent " +
+      "one). Every reading clears MIN_OBSERVATIONS_FOR_SATURATION (30) and sits well past " +
+      "DEFAULT_SATURATION_BOUNDS.maxPassRate (0.95) in lib/validation/health.ts — this is not a borderline " +
+      "call, it fires on all 6/6.\n" +
       "\n" +
-      "Root cause traced, not guessed: `computeEquityTradeLevels`'s stop-anchoring acceptance band " +
-      "(`nearestStructuralStop`, EQUITY_STOP_MIN_PCT=3 to EQUITY_STOP_MAX_PCT=15, 20 for large-cap) is a " +
-      "wide, FIXED percentage-of-price band that accepts ANY level from the pooled set of structural " +
-      "systems (clustered historical S/R, fan lines, `squareOf9.ts` key levels — 'a clustered historical " +
-      "S/R level, a fan line, or a squareOf9 price are all real structure in the same sense,' per that " +
-      "function's own comment). That is a much wider net than the `historicalSR` scoring criterion casts for its " +
-      "own, unrelated 'is price near A level right now' question — SR_PROXIMITY_ATR=0.5, half a day's " +
-      "ATR range, and only one level system. A stock with several structural levels scattered across " +
-      "price will almost always have SOME level somewhere in the wide 3-20% band even when none sits " +
-      "close enough to matter by the tighter ATR-relative standard the codebase already uses elsewhere " +
-      "— which is exactly why this criterion's own comment ('true for the large majority of setups... " +
-      "historicalSR passes on roughly 18-19%') guessed a rate that turned out wrong: it assumed the " +
-      "same pool of near-price levels would produce a similar hit rate, when the acceptance band and " +
-      "the level pool are both far wider here.\n" +
+      "Mechanism, traced to computeEquityTradeLevels's nearestStructuralStop (lib/strat/levels.ts): it " +
+      "searches `[...gannTargets, ...structuralLevels]` — the projected key-price-level targets " +
+      "(lib/gann/fans.ts, lib/gann/squareOf9.ts) pooled together with clustered S/R, not S/R alone — " +
+      "for any favorable-side level inside [EQUITY_STOP_MIN_PCT 3%, EQUITY_LARGE_CAP_STOP_MAX_PCT 20%] " +
+      "of entry (the default universe is entirely large-cap, so the wider band always applies). Those " +
+      "projected levels are dense enough across a 17-point-wide band that one is almost always found, " +
+      "so the EQUITY_FALLBACK_STOP_PCT/EQUITY_LARGE_CAP_FALLBACK_STOP_PCT branch essentially never " +
+      "fires (18/985, 6/438, 53/10,480, 3/367, 2/100 across the 6 runs) even though lib/strat/levels.ts's " +
+      "own comment on EQUITY_FALLBACK_STOP_PCT cites historicalSR — the S/R-only criterion reading the " +
+      "same underlying level data — passing only ~18-19% of the time. Pooling the projected targets into " +
+      "the search turns 'is there real structure near this stop' into 'is there almost always real " +
+      "structure', which is not the question the criterion is named for. The point is a near-automatic " +
+      "freebie the same way patternArmed is, except here that was never the intent.\n" +
       "\n" +
-      "Potential fixes, not yet chosen or implemented — the acceptance band drives real stop placement " +
-      "as well as this score, so tightening it is a live-behavior change, not only a scoring one:\n" +
-      "1. Narrow `nearestStructuralStop`'s band to be ATR-relative (mirroring SR_PROXIMITY_ATR) instead " +
-      "of a fixed percentage — consistent with AGENTS.md's cross-platform principle, but changes where " +
-      "real stops get placed, not only the score, and needs its own fresh run to size.\n" +
-      "2. Decouple the scoring question from the placement band: keep the wide 3-20% net for deciding " +
-      "where to actually anchor a stop (a legitimate reason to cast wide when placing risk), but score " +
-      "a narrower, separate ATR-relative check as `hasStopRoom` instead of the placement band's own " +
-      "`stopFromStructure` flag. Lower blast radius — no live stop placement changes — but still needs " +
-      "a fresh run to confirm the narrower band doesn't just starve instead.\n" +
-      "3. Retire/replace the criterion for `us_equity`, the same fate `momentum` had when the original " +
-      "ATR-multiple version of this same criterion first measured dead in 2026-09-08 (see the note " +
-      "below) — if a narrower band can't be found that both discriminates and matches real placement " +
-      "logic, the provenance question ('was this anchored to structure') may simply not be a useful " +
-      "*scored* criterion for the percent-of-price model, whatever it's worth for stop placement itself.\n" +
+      "Sign, on the two runs large enough to read (985 and 10,480 trades — the other four have failed " +
+      "arms of 6, 3, and 2, under MIN_SAMPLES_PER_ARM=10, so attributeFactors correctly marks them " +
+      "`insufficient`): correlation is negative but negligible — r=-0.016 (t=-0.51) and r=-0.005 " +
+      "(t=-0.55), both far short of |t|>=1.96. Not inverted, just uninformative, which is exactly what a " +
+      "criterion this saturated would produce either way.\n" +
       "\n" +
-      "Exit condition: whichever fix ships, plus a fresh committed run reading this criterion back " +
-      "inside DEFAULT_SATURATION_BOUNDS (5%-95%) — not a code change alone, since the two payloads above " +
-      "stay committed as the evidentiary record and criteria-gate.test.ts re-audits them against " +
-      "whatever the registry currently says on every run, the same structural bind documented on " +
-      "adxTrendStrength/gannAngleSlope above.\n" +
-      "\n" +
-      "Pre-2026-09-11 history below describes the ORIGINAL ATR-multiple version of this criterion, still " +
-      "the live question for every asset class except `us_equity` — kept as the evidentiary record for " +
-      "that branch, not a description of the equity saturation above.",
+      "**Fix applied 2026-09-15, confirmed by user.** nearestStructuralStop's input split in two: " +
+      "`structuralLevels` (S/R only, feeds the stop) and a new `extensionLevels` param (defaults to " +
+      "`structuralLevels`; the production call site passes the old combined S/R+projected-level pool " +
+      "here instead) that feeds only the runner extension, which was never measured saturated — only the " +
+      "stop was. See computeEquityTradeLevels's own doc comments in lib/strat/levels.ts. " +
+      "**Quarantine stays in place** — a code fix is not a measurement. Exit condition unchanged: " +
+      "lifts once a re-measured unconditioned equity run (post-fix, live data) lands the pass rate " +
+      "back inside [0.05, 0.95]. That run has not happened yet.",
     note:
+      "Below documents the pre-equity-model history: the ATR-multiple branch (`stopAtrMultiple >= " +
+      "MIN_STOP_ROOM_ATR`), which every non-us_equity asset class still uses and which us_equity used " +
+      "too before PR #217. See quarantineReason above for the us_equity structural-stop branch that " +
+      "replaced it.\n\n" +
       "Replaced `momentum` on 2026-09-08. Momentum was the deadest criterion in the app: on 1,005 " +
       "unconditioned live trades it measured r=−0.0003, t=−0.01, Δ=−0.002R — three ten-thousandths " +
       "of a correlation, a point contributed for no information. It survives as an input to " +

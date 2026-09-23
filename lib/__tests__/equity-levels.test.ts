@@ -118,6 +118,48 @@ describe("computeEquityTradeLevels", () => {
     expect(result.stopLoss).toBeGreaterThan(entry);
   });
 
+  // 2026-09-15: stopRoom's us_equity branch measured 98-99.5% saturated on
+  // every real unconditioned run (lib/validation/criteria-registry.ts's
+  // `stopRoom` entry) because nearestStructuralStop was searching Gann
+  // targets pooled in with S/R. structuralLevels now feeds the stop alone;
+  // extensionLevels (defaulting to structuralLevels) feeds the runner.
+  it("does not anchor the stop to a level that is only in extensionLevels", () => {
+    const entry = 100;
+    // 95 is 5% away (inside the stop band) but only offered via extensionLevels.
+    const result = computeEquityTradeLevels({
+      direction: "bullish",
+      entry,
+      structuralLevels: [],
+      extensionLevels: [95],
+    });
+    expect(result.stopFromStructure).toBe(false);
+  });
+
+  it("still extends the runner to a level offered only via extensionLevels", () => {
+    const entry = 100;
+    const atrPct = 3; // TP2 raw target lands at 110.5
+    const result = computeEquityTradeLevels({
+      direction: "bullish",
+      entry,
+      structuralLevels: [], // no S/R for the stop
+      extensionLevels: [115], // Gann-only target beyond TP2, inside the 30% cap
+      atrPct,
+    });
+    expect(result.stopFromStructure).toBe(false);
+    expect(result.masterFromStructure).toBe(true);
+    expect(result.takeProfit2).toBe(115);
+  });
+
+  it("defaults extensionLevels to structuralLevels when omitted, unchanged from before the split", () => {
+    const entry = 100;
+    const atrPct = 3;
+    const structuralLevels = [95, 115];
+    const result = computeEquityTradeLevels({ direction: "bullish", entry, structuralLevels, atrPct });
+    expect(result.stopFromStructure).toBe(true);
+    expect(result.masterFromStructure).toBe(true);
+    expect(result.takeProfit2).toBe(115);
+  });
+
   it("keeps the stop-placement band consistent with the exported min/max constants", () => {
     expect(EQUITY_STOP_MIN_PCT).toBeLessThan(EQUITY_STOP_MAX_PCT);
     expect(EQUITY_TP1_MIN_PCT).toBeLessThan(EQUITY_TP1_MAX_PCT);
