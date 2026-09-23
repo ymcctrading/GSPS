@@ -7,7 +7,14 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { chunkUniverse, resolveRotationChunk, ROTATION_INTERVAL_MINUTES } from "@/lib/scan/universe-rotation";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  chunkUniverse,
+  resolveDiscoveryAndTrackingSymbols,
+  resolveRotationChunk,
+  resolveTrackedSymbols,
+  ROTATION_INTERVAL_MINUTES,
+} from "@/lib/scan/universe-rotation";
 
 const UNIVERSE = Array.from({ length: 10 }, (_, i) => `SYM${i}`);
 
@@ -88,5 +95,51 @@ describe("resolveRotationChunk", () => {
     const resolved = resolveRotationChunk(UNIVERSE, 4, etDate(9 * 60 + 30));
     expect(resolved?.symbols.length).toBeGreaterThan(0);
     expect(resolved?.symbols.every((s) => UNIVERSE.includes(s))).toBe(true);
+  });
+});
+
+function fakeClient(result: { data: { symbol: string }[] | null; error: { message: string } | null }) {
+  return {
+    from(_table: string) {
+      return {
+        select() {
+          return {
+            eq: () => Promise.resolve(result),
+          };
+        },
+      };
+    },
+  } as unknown as SupabaseClient;
+}
+
+describe("resolveTrackedSymbols", () => {
+  it("reads today's published daily_scans symbols, deduped and uppercased", async () => {
+    const client = fakeClient({ data: [{ symbol: "aapl" }, { symbol: "MSFT" }, { symbol: "aapl" }], error: null });
+    const tracked = await resolveTrackedSymbols(client, "2026-09-23");
+    expect(tracked.sort()).toEqual(["AAPL", "MSFT"]);
+  });
+
+  it("degrades to an empty list on a read error, rather than throwing", async () => {
+    const client = fakeClient({ data: null, error: { message: "boom" } });
+    await expect(resolveTrackedSymbols(client, "2026-09-23")).resolves.toEqual([]);
+  });
+});
+
+describe("resolveDiscoveryAndTrackingSymbols", () => {
+  it("unions the tracked shortlist with the current rotation chunk", async () => {
+    const client = fakeClient({ data: [{ symbol: "AAPL" }], error: null });
+    const combined = await resolveDiscoveryAndTrackingSymbols(client, "2026-09-23", UNIVERSE, 4, etDate(9 * 60 + 30));
+    expect(combined).toContain("AAPL");
+    const chunk = resolveRotationChunk(UNIVERSE, 4, etDate(9 * 60 + 30));
+    for (const s of chunk?.symbols ?? []) {
+      expect(combined).toContain(s);
+    }
+  });
+
+  it("still returns the discovery chunk when the tracked read fails", async () => {
+    const client = fakeClient({ data: null, error: { message: "boom" } });
+    const combined = await resolveDiscoveryAndTrackingSymbols(client, "2026-09-23", UNIVERSE, 4, etDate(9 * 60 + 30));
+    const chunk = resolveRotationChunk(UNIVERSE, 4, etDate(9 * 60 + 30));
+    expect(combined).toEqual(chunk?.symbols);
   });
 });
