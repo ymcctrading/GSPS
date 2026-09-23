@@ -1130,13 +1130,35 @@ fresh run's threshold re-derivation actually says, delete this section and the `
 code comments that point to it, and run `lib/validation/__tests__/criteria-gate.test.ts` plus the full
 test suite to confirm the new numbers are internally consistent.
 
-**Backtest status — ON HOLD (2026-09-16).** Three prompts exist from the PR #234 session (capture /
-attribute / re-derive) and they are deliberately parked, not forgotten. Prompt 3 re-derives scorecard
-thresholds, and the "Gann-grounded platform" audit above may change what the scorecard *is*.
+**Backtest status — ON HOLD (2026-09-16), unblocked 2026-09-17, one real measurement in hand
+(2026-09-23), still short of the trigger.** Three prompts exist from the PR #234 session (capture /
+attribute / re-derive) and they were deliberately parked, not forgotten. Prompt 3 re-derives scorecard
+thresholds, and the "Gann-grounded platform" audit above could have changed what the scorecard *is*.
 `adxTrendStrength` already came out this way (PR #236), which moved `CRITERION_KEYS.length`,
-`TOTAL_POINTS` and both cutoffs — and `patternArmed` is still an open gate-1 item that would move
-them again. Calibrating a scorecard that is about to change shape wastes the run. Settle
-`patternArmed` first.
+`TOTAL_POINTS` and both cutoffs; `patternArmed`/`entryTriggerArmed` was the other open gate-1 item that
+would have moved them again, and it settled 2026-09-17 (see "Entry pricing moved off STRAT" above) —
+so the scorecard's shape is no longer in flux and prompt 3 is unblocked on that count.
+
+**2026-09-23: a real capture exists, and it surfaced a second bug before it could mislead anyone.**
+The first attempt (`docs/replay-runs/2026-09-23-15Min-2R-within-all.json`'s generation) measured
+`entryTriggerArmed` at a hard 0/338 — not rare, never once true. Root cause: `lib/backtest/replay.ts`
+computed the real Gann entry trigger to decide whether to open every trade, but never threaded that
+same trigger into the `ScoreInputs` it scores the trade with, so the scored criterion always read
+`gannTrigger: null` and failed — a replay-only wiring gap, fixed in PR #274. Re-run after that fix
+landed (same file, generated `2026-09-23T21:09:08Z`, committed): **Execute bucket is 22 trades,
++0.526R expectancy, 36.4% win rate, profit factor 3.98 — clearly profitable, the strongest Execute
+read this stopgap has ever produced.** `entryTriggerArmed` now reads a correct, constant 338/338 (a
+trade cannot exist in the replay without the trigger having fired — the same structural property
+`patternArmed` always had, not a defect).
+
+**The trigger has still NOT fired, by its own stated bar.** 22 < 30. This is close and directionally
+very encouraging, but re-deriving thresholds from a 22-trade Execute bucket would be exactly the kind
+of premature move the "does not license" paragraph below warns against in spirit, even though nothing
+was loosened to get here. Two honest paths from here, neither taken yet: widen the universe (up to
+`MAX_SYMBOLS`=12) or the date window in one more `within=all` capture and see if the same population
+clears n≥30 Execute trades organically, or accept a documented judgment call to act on n=22 given how
+clean the read is (profitable, no down-side band) — that call is the project owner's to make, not a
+session's to assume.
 
 Traps for whoever eventually runs it:
 
