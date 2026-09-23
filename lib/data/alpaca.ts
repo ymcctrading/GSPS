@@ -135,15 +135,18 @@ const ALPACA_TIMEFRAME: Record<Timeframe, string> = {
 const PAGE_LIMIT = 10000;
 
 /**
- * Sub-daily timeframes only — Alpaca's `extended_hours` param has no effect on
- * `1Day`+ bars (a daily bar is already the regular session's OHLC), and crypto
- * never closes, so there's no pre/post session to include.
+ * `includeExtendedHours` (see the `MarketDataProvider` interface doc) is
+ * accepted here but deliberately never turned into a query param. Alpaca's
+ * `/v2/stocks/bars` endpoint has no `extended_hours` parameter — that field
+ * belongs to order placement, not bars queries — and rejects it with a 400.
+ * This was already diagnosed and fixed once (CHANGELOG.md, 2026-08-17: "it's
+ * an order-placement field, not a bars-query one") after the same 400 had
+ * been silently swallowing every intraday bar fetch for ~36 hours. Do not
+ * re-add it a third time. The free IEX feed already includes pre/post-market
+ * prints in intraday bars with no opt-in required; `EXTENDED_HOURS_TFS` /
+ * the chart's "Extended hours" checkbox (`components/chart/candles.tsx`)
+ * filters them client-side after the fact.
  */
-function supportsExtendedHours(timeframe: Timeframe): boolean {
-  return timeframe === "1Min" || timeframe === "5Min" || timeframe === "15Min" ||
-    timeframe === "1Hour" || timeframe === "2Hour" || timeframe === "4Hour";
-}
-
 /** Shared param-building for the bars endpoint — one or many symbols. */
 function barsRequest(
   symbols: string,
@@ -153,7 +156,6 @@ function barsRequest(
   assetClass: AssetClass,
   limit: number,
   pageToken?: string,
-  includeExtendedHours = false,
 ): { path: string; params: Record<string, string> } {
   const crypto = assetClass === "crypto";
   const path = crypto ? `/v1beta3/crypto/us/bars` : `/v2/stocks/bars`;
@@ -168,9 +170,6 @@ function barsRequest(
   if (!crypto) {
     params.adjustment = "split";
     params.feed = "iex";
-    if (includeExtendedHours && supportsExtendedHours(timeframe)) {
-      params.extended_hours = "true";
-    }
   }
   params.limit = String(Math.min(limit, PAGE_LIMIT));
   if (pageToken) params.page_token = pageToken;
@@ -192,7 +191,9 @@ export async function fetchBars(
   end: Date | null,
   assetClass: AssetClass,
   limit = 10000,
-  includeExtendedHours = false,
+  // Accepted for MarketDataProvider interface compatibility; see barsRequest's
+  // doc comment for why it's not turned into a query param.
+  _includeExtendedHours = false,
 ): Promise<Bar[]> {
   const crypto = assetClass === "crypto";
   const sym = crypto ? normalizeCryptoSymbol(symbol) : symbol.toUpperCase();
@@ -203,7 +204,7 @@ export async function fetchBars(
   do {
     const remaining = limit - collected.length;
     const { path, params } = barsRequest(
-      sym, timeframe, start, end, assetClass, remaining, pageToken, includeExtendedHours,
+      sym, timeframe, start, end, assetClass, remaining, pageToken,
     );
 
     const data = await get(path, params);
