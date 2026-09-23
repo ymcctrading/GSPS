@@ -1,7 +1,11 @@
 name: Full market scan (intraday cadence)
 
-# 2026-09-22, project-owner direction: the flagship 700-big-cap market scan
-# (lib/marketScan.ts's FULL_UNIVERSE_TOP) previously only ran twice a day —
+# 2026-09-22, project-owner direction: the flagship big-cap market scan
+# (lib/marketScan.ts's FULL_UNIVERSE_TOP -- read that constant for the
+# current live value; it moved from 700 to 250 later the same day after a
+# live 700-symbol run 504'd at Vercel's 60s ceiling, so don't restate a
+# number here that can drift out of sync with it again) previously only ran
+# twice a day —
 # the 08:30 ET pre-market run (premarket-scan.yml) and the 17:30 ET
 # post-close run (native vercel.json cron). Between those two runs the
 # dashboard's "Daily market scan" sat on a stale snapshot for hours in a
@@ -28,7 +32,7 @@ name: Full market scan (intraday cadence)
 # session regardless of exactly when it's called, same as premarket-scan.yml
 # already relies on.
 #
-# This substantially raises how often the 700-symbol scan runs (roughly
+# This substantially raises how often the full-universe scan runs (roughly
 # every 15 minutes across an ~8.5 hour window vs. twice a day before) — see
 # docs/THIRD_PARTY_LIMITS.md's "Provider call volume" note for the
 # single-active-user headroom this was sized against; re-check that

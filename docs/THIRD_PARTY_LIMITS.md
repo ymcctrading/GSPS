@@ -106,7 +106,7 @@ it dispatches a wall-clock expiry check against `trade_plans`, not a
 price-sensitive scan, so it doesn't need market-hours-only coverage the way
 the scans above do.
 
-### The 700-symbol market scan now runs on a 15-minute cadence, not just twice a day
+### The full-universe market scan now runs on a 15-minute cadence, not just twice a day
 
 2026-09-22, project-owner direction: `.github/workflows/full-market-scan.yml`
 calls `/api/market-scan` every 15 minutes from 09:30 ET through the day's
@@ -119,6 +119,18 @@ that workflow's own header comment for the full reasoning, and
 `app/api/market-scan/route.ts`'s manual-refresh debounce (below) for the
 companion fix on the on-demand side.
 
+**Correction, same day:** this section originally said "700-symbol" —
+`FULL_UNIVERSE_TOP` (`lib/marketScan.ts`) at the time this cadence change was
+written. That number was itself wrong: a live run at 700 symbols 504'd at
+Vercel's 60s ceiling (confirmed via runtime logs), meaning every one of the
+~34 runs/day this cadence adds would very likely have failed the same way —
+this change would have gone from "the scan is stale for hours" to "the scan
+fails silently 34 times a day" without ever fixing the underlying timeout.
+`FULL_UNIVERSE_TOP` was corrected to 250 the same day (see its own doc
+comment in `lib/marketScan.ts` for the measured timing behind that number).
+Read the constant for the live value rather than trusting a number restated
+here — this file already drifted out of sync with it once.
+
 This roughly quadruples-plus how often the full-universe scan runs (twice a
 day → ~34 runs across the session). The "Provider call volume is no longer
 throttled" note above was sized against two runs a day with a single active
@@ -126,12 +138,15 @@ user; re-check it if either concurrent usage or this cadence grows further —
 Alpaca's free-tier data API is the most exposed of the providers this scan
 touches (`fetchBarsBatch`'s `CHUNK_CONCURRENCY` already exists specifically
 to keep one run's own burst under that limit; this is about the aggregate
-across many runs, a different axis).
+across many runs, a different axis). The 700→250 correction above only
+*lowers* per-run volume, so it doesn't add new risk on this axis — but the
+"sized against two runs a day" framing was already due for a re-check at
+~34 runs/day regardless of that correction.
 
 ### Manual "Refresh scan" no longer always re-runs the full scan
 
 Same date, same direction. `POST /api/market-scan` (the dashboard's
-"Refresh scan" button) used to always re-run the entire ~700-symbol scan
+"Refresh scan" button) used to always re-run the entire full-universe scan
 synchronously in front of the clicking user — racing the same 60s Vercel
 Hobby function ceiling as the cron, and visibly slow on a feature the
 project owner wants read as the platform's fast, trustworthy centerpiece,
