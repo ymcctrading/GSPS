@@ -102,7 +102,7 @@ export default async function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <TrackedExecuteList initialRows={trackedExecute} />
+            <TrackedExecuteList initialRows={trackedExecute} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
           </CardContent>
         </Card>
       )}
