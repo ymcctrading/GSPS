@@ -1046,114 +1046,40 @@ No new override or revert trigger is standing in its place. If the equity Execut
 thin to be useful before real-time data lands, that is a discussion to have with the project owner,
 not a reason to silently re-widen `EXECUTION_TIMEFRAME` again — that was tried once already.
 
-### Execute collapse stopgap: lowered thresholds, loosened two criteria (since 2026-09-14; weight half resolved 2026-09-16)
+### Execute collapse stopgap — RESOLVED 2026-09-23
 
-**What:** Four coordinated changes, all in `lib/scoring/weights.ts` unless noted, made together as one
-fix:
+**Closed, not merely reverted.** The threshold half of this stopgap (`EXECUTE_SCORE_THRESHOLD`
+6, `WATCH_SCORE_THRESHOLD` 3.5, `lib/scoring/weights.ts`) was a deliberate, temporary loosening
+from the protocol's original 7/4 pair, made 2026-09-14 after all nine scored criteria were
+replaced with specific, individually rare Gann technical events and the old bar admitted 0/1061
+Execute trades on the committed run and 0 in production. Its own stated revert trigger — the next
+fresh, committed backtest run with a non-trivial Execute bucket (n≥30) — fired 2026-09-23 on
+`docs/replay-runs/2026-09-23-15Min-2R-within-all-12sym.json` (12-symbol universe, 615
+unconditioned trades, captured after PR #274 fixed a replay-only wiring bug that had been zeroing
+`entryTriggerArmed`). Execute bucket: 41 trades, +0.362R expectancy, 36.6% win rate, PF 1.87. A
+supplementary per-score-band sweep of the same population confirmed the real zero-crossing sits
+almost exactly at the existing 6-point cutoff (negative through score 4, turning positive at 5–6).
+Re-deriving from this data does not move either number — it confirms them as the platform's actual
+thresholds, not a stopgap. `lib/scoring/weights.ts`'s own comment on `EXECUTE_SCORE_THRESHOLD`
+carries the full detail now; this entry is the historical record.
 
-- `EXECUTE_SCORE_THRESHOLD` 7 → 6, `WATCH_SCORE_THRESHOLD` 4 → 3.5. **Do not quote these numbers from
-  this paragraph — read `lib/scoring/weights.ts`.** They are denominator-dependent and moved twice on
-  2026-09-16 alone: to `6.67`/`3.89` when `ruleOfThree` made it ten criteria, then back to `6`/`3.5`
-  hours later when `adxTrendStrength` was discarded and `TOTAL_POINTS` returned to nine. Both moves
-  were the same arithmetic holding the same relative bar (66.7% and 38.9%), not decisions about how
-  hard the bar should be. The round trip is the point: a criterion-count change silently restates
-  these constants, so a session that trusts a prose copy of them will be wrong roughly as often as it
-  is right. The live pair happens to match the literals above again today; that is coincidence, not
-  confirmation.
-- ~~`DEFAULT_CRITERION_WEIGHTS` — moved from one point each to a hand-set, evidence-based distribution
-  favoring `historicalSR`, `stopRoom`, `swingChartTrend`, `volumeClimax` and minimizing
-  `adxTrendStrength`, `gannAngleSlope`, `gannRetracementConfluence`, `timePriceSquare`.~~
-  **Superseded 2026-09-16 — reverted to uniform (one point each).** Not because the hand-set numbers
-  measured badly, but because "Gann-derived AND measured" rules them out on principle: the
-  distribution was built by treating measurement as a verdict on the criteria (up-weight the
-  measured-positive, down-weight the measured-negative), which is precisely the jury role that
-  principle denies measurement. A criterion measuring negative is a suspected porting defect to fix,
-  not a criterion to quietly discount. Uniform is also the only distribution that keeps the scorecard
-  free of substance it cannot source — see "The scorecard's role" above. Note that `normalizeWeights()`
-  rescales any set to sum to `TOTAL_POINTS`, so this changed which setups reach the cutoffs **without**
-  moving the point scale the cutoffs are expressed in.
-- `VOLUME_CLIMAX_THRESHOLD` (`lib/gann/volumeClimax.ts`) 1.5x → 1.25x relative volume. **Reverted to
-  1.5x on 2026-09-14**, same day: a fresh committed run showed the 1.25x threshold diluted the signal
-  toward noise/inversion rather than just widening it (see `lib/validation/criteria-registry.ts`'s
-  `volumeClimax` entry). The starvation problem is now addressed a different way —
-  `RECENT_PIVOTS_CHECKED` widens the *pool* of candidate anchors checked against the original 1.5x bar,
-  instead of lowering the bar itself. Not yet measured against a fresh run.
-- `SQUARE_TOLERANCE_BARS` (`lib/gann/timePriceSquare.ts`) 2 → 4 bars. **Superseded (not reverted) on
-  2026-09-14:** the criterion now compares elapsed bars against the price move in ATR units instead of
-  raw dollars (see `lib/gann/timePriceSquare.ts`'s header), which was the actual scale-dependence bug
-  behind the starvation this loosening patched over. `4` carries forward unchanged but now bounds a
-  different quantity — not yet measured against a fresh run either.
+The two band loosenings (`VOLUME_CLIMAX_THRESHOLD`, `SQUARE_TOLERANCE_BARS`) were already resolved
+earlier (reverted and superseded respectively, both same-day 2026-09-14) and the weight-rebalance
+half was settled on principle 2026-09-16 (see `DEFAULT_CRITERION_WEIGHTS`'s own doc comment) — all
+now confirmed rather than merely carried forward, per the 2026-09-23 run above: `volumeClimax`
+273/615 (44.4%) passing, Δ+0.645R; `timePriceSquare` 130/615 (21.1%) passing, Δ+0.111R (positive
+for the first time since the ATR-normalization fix). See `lib/gann/volumeClimax.ts` and
+`lib/gann/timePriceSquare.ts`'s own header comments.
 
-**Why:** Between 2026-09-10 and -11, all nine scored criteria were replaced with specific Gann
-technical events (see the `CRITERION_KEYS` history in `lib/validation/criteria-registry.ts`) —
-individually rare (5.7%-29% pass rate each on the committed
-`docs/replay-runs/2026-09-11-15Min-2R-within-all.json`, 1061 unconditioned trades), where the
-criteria they replaced had been common, lenient checks (2-of-3 trend agreement, ~1.5%-of-price
-proximity). Reaching the old 7-of-9 points bar needs most of nine independent-ish rare events to
-co-occur, which essentially never happens: that committed run reads 0/1061 Execute, and the live
-deployment produced 0 executable trades under the same model before this change — reported directly
-by the project owner, along with a fresh backtest showing 1 executable trade out of 1069 at a widely
-negative expectancy. Separately, that same run's factor table shows four of the nine criteria reading
-*negative* Δ E[R] (`adxTrendStrength` −0.245R, `timePriceSquare` −0.221R, `gannAngleSlope` −0.153R,
-`gannRetracementConfluence` −0.090R) — `adxTrendStrength` twice independently quarantined for a
-significant inversion. The threshold drop alone would mostly just admit more of those four; the
-weight rebalance and the two band loosenings are sized to shift what a lower bar actually admits
-toward the four criteria with real, reproducing positive evidence
-(`historicalSR` validated, `stopRoom`/`swingChartTrend`/`volumeClimax` consistently positive across
-multiple runs).
-
-**What this is NOT:** a proper `lib/backtest/propose-weights.ts` proposal. That function requires a
-chronological in-sample/out-of-sample split from real per-trade data; only one committed run existed
-to work from, so the weight numbers are a judgment call sized in the same direction that function's
-step formula would move, not its actual output. The new `6`/`3.5` thresholds are sized off an
-independence approximation over that one run's per-criterion pass rates (a Monte Carlo simulation, not
-a measurement of the real joint distribution — criteria plausibly correlate more than independence
-assumes on a genuinely trending stock, which would make the real Execute rate somewhat higher than the
-approximation predicted). None of this is a claim that the four down-weighted criteria are wrong for
-good, or that the four up-weighted ones are fully validated (only `historicalSR` is) — it is a stopgap
-to stop the live model from admitting either zero trades or trades selected mostly by criteria already
-showing a negative or inverted signal.
-
-**Mandatory revert trigger — CONDITIONAL, and it has NOT fired (checked 2026-09-16):** the next
-fresh, committed backtest run with a non-trivial Execute bucket (n≥30). No such run exists in
-`docs/replay-runs/`. The trigger now covers the **thresholds only** — the weights half was settled on
-principle above and is no longer waiting on data. When such a run is captured, re-derive the
-thresholds from its actual Execute-bucket attribution rather than carrying the stopgap forward. Don't
-wait to be asked twice; raise it as soon as the run lands.
-
-Two things this trigger does **not** license. Nothing expires by waiting — it is conditional, not a
-deadline, so pausing the backtest costs nothing. And **never loosen thresholds to manufacture a
-qualifying Execute bucket**: that inverts the trigger into a mechanism for justifying itself.
-
-**To revert (once superseded, not merely to "undo"):** replace the constants above with whatever the
-fresh run's threshold re-derivation actually says, delete this section and the `TEMPORARY OVERRIDE`
-code comments that point to it, and run `lib/validation/__tests__/criteria-gate.test.ts` plus the full
-test suite to confirm the new numbers are internally consistent.
-
-**Backtest status — ON HOLD (2026-09-16).** Three prompts exist from the PR #234 session (capture /
-attribute / re-derive) and they are deliberately parked, not forgotten. Prompt 3 re-derives scorecard
-thresholds, and the "Gann-grounded platform" audit above may change what the scorecard *is*.
-`adxTrendStrength` already came out this way (PR #236), which moved `CRITERION_KEYS.length`,
-`TOTAL_POINTS` and both cutoffs — and `patternArmed` is still an open gate-1 item that would move
-them again. Calibrating a scorecard that is about to change shape wastes the run. Settle
-`patternArmed` first.
-
-Traps for whoever eventually runs it:
-
-- **The new refinements all tighten criteria**, which shrinks the very Execute bucket the threshold
-  calibration needs. Derive criterion evidence from the **unconditioned** population (`--within all`)
-  and thresholds from the **Execute bucket** — same run, different slices. Do not loosen anything to
-  grow the bucket.
-- **Derive thresholds from 15Min, not 1Hour.** `docs/BACKTESTING.md` records 1Hour historically
-  inverting the scoring model's own verdict ranking (Execute measuring as the *worst* bucket). Capture
-  1Hour for the override check if useful, but do not calibrate on it.
-- **The `Gann` word is banned in user-facing criterion notes**, which are generated at runtime.
-  `scripts/check-banned-terms.mjs` catches it and PR #234 tripped this exact gate. Comments are exempt;
-  generated copy is not.
-
-**Platform state carried forward (2026-09-16).** PR #234 merged to `main` (`45038da`), production
-deploy READY. It added eight Gann-derived refinements, **all confluence-only** — no scored verdict
-changed by that release. The 1Hour execution-timeframe override above remains live in production.
+**One open item this run surfaced, not yet acted on.** `stopRoom` is currently registry-quarantined
+(`lib/validation/criteria-registry.ts`) for saturating 98–99% on the 2026-09-14 six-symbol runs —
+past `DEFAULT_SATURATION_BOUNDS`' 95% ceiling. The 2026-09-23 twelve-symbol run reads it at 430/615
+(69.9%) passing, Δ+0.213R, informative and well inside bounds — but the underlying stop-anchoring
+code (`lib/strat/levels.ts`'s `nearestStructuralStop`, `EQUITY_STOP_MIN_PCT`/`EQUITY_STOP_MAX_PCT`)
+has not changed since the quarantine, so this reads as a population-dependent result (a wider,
+more-structured universe naturally clears the band more often), not a confirmed fix. Flagged here
+rather than silently un-quarantined; a future session should treat this as an open question, not a
+resolved one.
 
 **Live weights incident (2026-09-17) — merging is not shipping.** PR #235 merged the uniform
 `DEFAULT_CRITERION_WEIGHTS` decision to `main` and deployed clean, and the change was still

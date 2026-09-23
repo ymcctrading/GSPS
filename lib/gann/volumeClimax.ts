@@ -40,24 +40,17 @@ import { relativeVolume } from "@/lib/signals/indicators";
 import type { Bar } from "@/lib/types";
 
 /**
- * TEMPORARY OVERRIDE (since 2026-09-14) — see AGENTS.md's "Temporary
- * overrides" section, `VOLUME_CLIMAX_THRESHOLD` entry. Loosened from the
- * `lib/signals/regime.ts`-matched 1.5x: on the committed 2026-09-11
- * unconditioned run (docs/replay-runs/2026-09-11-15Min-2R-within-all.json)
- * this was the rarest of the new scored criteria at 60/1061 (5.7%) passing,
- * one of several contributors to the Execute bucket collapsing to 0 trades.
- * The underlying signal (Δ+0.111R, consistently positive across four
- * readings) stays worth scoring; 1.5x was just too strict a bar to ever
- * co-occur with the other eight criteria at once.
- *
- * Widening this alone (2026-09-14 stopgap) turned out to dilute the signal
- * rather than just admit more of it — see `lib/validation/criteria-registry.ts`'s
- * `volumeClimax` entry for the 2026-09-14 reading (pass rate rose 3-10x more
- * than the threshold math alone predicts, and the effect collapsed toward
- * zero/inverted). `RECENT_PIVOTS_CHECKED` below is the follow-up fix: the
- * starvation problem was "too few candidate anchors ever clear 1.5x," not
- * "1.5x itself is wrong," so this restores 1.5x and widens the *anchor pool*
- * instead of the bar.
+ * Held at the `lib/signals/regime.ts`-matched 1.5x since 2026-09-14, when a
+ * brief widening to 1.25x (part of the since-closed Execute-collapse
+ * stopgap) turned out to dilute the signal toward noise rather than just
+ * admit more of it — see `lib/validation/criteria-registry.ts`'s
+ * `volumeClimax` entry. `RECENT_PIVOTS_CHECKED` below is what actually fixed
+ * the starvation this was trying to patch: the problem was "too few
+ * candidate anchors ever clear 1.5x," not "1.5x itself is wrong." Confirmed
+ * on the 2026-09-23 fresh run (12-symbol universe, 615 unconditioned trades,
+ * `docs/replay-runs/2026-09-23-15Min-2R-within-all-12sym.json`): 273/615
+ * (44.4%) passing, Δ+0.645R, the strongest single-criterion effect on that
+ * board — well clear of saturation and clearly informative at 1.5x.
  */
 export const VOLUME_CLIMAX_THRESHOLD = 1.5;
 
