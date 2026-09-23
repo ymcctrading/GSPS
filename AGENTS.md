@@ -837,8 +837,8 @@ indicator library" Q2 roadmap item's own boundary ("no indicator added there
 may feed a scored criterion...") is unaffected. This exception is scoped to
 one new, clearly-labeled, opt-in system and nothing else.
 
-**Custom-script/plugin system — Phase 1 (DSL + evaluator) built 2026-09-23,
-Phases 2-4 not yet built.** The project owner also asked about a
+**Custom-script/plugin system — Phases 1-2 (DSL + evaluator, plugin registry
++ CRUD API) built 2026-09-23, Phases 3-4 not yet built.** The project owner also asked about a
 TradingView-style system where a user (or GSPS) can author and plot a new
 indicator/strategy that generates its own levels the same way. `lib/strategies/custom/`
 now has a small, safe, declarative condition/action DSL and a tree-walking
@@ -878,10 +878,29 @@ applying the Three-question mandate rather than engineering preference alone):
   this section already gives the system overall): a script author trades
   their own method, they do not get to issue verdicts to other users.
 
-**Phases 2-4 (plugin registry + CRUD API, chart-plotting hook, backtesting
-via `replaySignals.ts`'s evidence-gathering shape) remain design-only** per
-`docs/STRATEGY_MODES.md`'s sequencing — DSL first, since everything else
-depends on it. Any strategy plugin built under those future phases must
+**Phase 2 — plugin registry + CRUD API (built 2026-09-23).**
+`supabase/migrations/0080_strategy_plugins.sql` adds `strategy_plugins`
+(current state per script; owner-only RLS, private to the authoring user)
+and `strategy_plugin_versions` (append-only, one row per saved `source`
+edit — a `name`/`active` edit alone does not bump `version`). No compiled-
+AST or evaluator column is stored anywhere — every read path recompiles
+`source` through `compileCustomScript` on demand, so there is nothing
+cached that could drift from the source of truth (AGENTS.md's orphan-
+module audit outcome 5/8's "can never drift" lesson, applied here by
+construction rather than by a registry-vs-code equality test like
+`strategy_modules`' own, since this registry's content is user-authored,
+not a static GSPS list). `/api/strategy-plugins` (list, create) and
+`/api/strategy-plugins/[id]` (read + version history, edit, delete) — every
+write checks `isCustomScriptAuthoringAllowedForPolicy` server-side and
+compiles `source` via `compileCustomScript` before persisting; an invalid
+script is rejected with the parser's own error message, never stored
+half-valid. Verified: extended `access.test.ts`/`policy.test.ts` covering
+the new gate, full suite 1882/1882 passing, `tsc --noEmit` clean, lint
+clean (0 errors), `check-banned-terms.mjs` clean.
+
+**Phases 3-4 (chart-plotting hook, backtesting via `replaySignals.ts`'s
+evidence-gathering shape) remain design-only** per `docs/STRATEGY_MODES.md`'s
+sequencing. Any strategy plugin built under those future phases must
 satisfy the same rules this section states: opt-in, one-at-a-time, never
 touching the Gann verdict, tier-gated and server-resolved only, and clearly
 labeled.

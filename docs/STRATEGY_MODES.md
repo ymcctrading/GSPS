@@ -153,8 +153,8 @@ One candidate remains deliberately not built:
 
 ## Custom-script / plugin system
 
-**Status (2026-09-23): Phase 1 (DSL + evaluator) built and tested. Phases
-2-4 (plugin registry/CRUD API, chart-plotting hook, backtesting) remain
+**Status (2026-09-23): Phases 1-2 (DSL + evaluator, plugin registry + CRUD
+API) built and tested. Phases 3-4 (chart-plotting hook, backtesting) remain
 design-only**, per the sequencing below — this section was originally
 written as design-only and is updated in place rather than duplicated.
 
@@ -259,19 +259,36 @@ script/plugin system" entry:
   script author trades their own method, they do not get to issue verdicts
   to other users.
 
-### Phases 2-4 — not yet built
+### Phase 2 — plugin registry + CRUD API (built 2026-09-23)
 
-- **A plugin registry** — script metadata (author, name, version, the DSL
-  source), versioned so a script's own history is auditable the way
-  `lib/backtest/strategyVersion.ts` versions a backtest strategy.
-  A `strategy_plugins` table, parallel in spirit to migration 0048's
-  `strategy_modules` (module identity queryable independent of a deploy —
-  see AGENTS.md's orphan-module audit outcome 5/8 for that precedent and
-  its "can never drift" lesson — whatever claim this registry makes needs a
-  real, tested enforcement path).
-- **A CRUD API** for creating/editing/versioning a script, gated to Wall
-  Street per the authoring-tier decision above, resolved server-side only
-  (no client component computing its own idea of who may author).
+- **`supabase/migrations/0080_strategy_plugins.sql`** — `strategy_plugins`
+  (one row per script: `user_id`, `name`, `author`, `source`, `version`,
+  `active`; owner-only RLS, unique on `(user_id, name)`) and
+  `strategy_plugin_versions` (append-only: one row per saved `source` edit,
+  `unique (plugin_id, version)`, RLS resolved through the parent plugin's
+  `user_id` rather than a direct FK to `auth.users` — same reasoning 0048's
+  evaluation tables use for `signal_id`). Parallel in spirit to migration
+  0048's `strategy_modules` (module identity queryable independent of a
+  deploy — AGENTS.md's orphan-module audit outcome 5/8), but its "can never
+  drift" property is enforced differently: no compiled-AST or evaluator
+  column exists to drift from `source` in the first place, because every
+  read path recompiles `source` through `compileCustomScript` on demand
+  rather than trusting a cached derivative.
+- **`/api/strategy-plugins`** (list, create) and
+  **`/api/strategy-plugins/[id]`** (read + version history, edit, delete).
+  Every write resolves `isCustomScriptAuthoringAllowedForPolicy` server-side
+  (Wall Street tier only —
+  `lib/entitlements/policy.ts#customScriptAuthoringEnabled`) and compiles
+  `source` through `compileCustomScript` before persisting; a script that
+  fails to compile is rejected with the parser's own error message and
+  never stored. Every query is additionally scoped to `user_id = auth
+  user`, matching the private-to-author-only decision (RLS enforces the
+  same boundary independently). Editing `source` bumps `version` and
+  appends a `strategy_plugin_versions` row; editing `name`/`active` alone
+  does not, since those aren't the script's logic.
+
+### Phases 3-4 — not yet built
+
 - **A chart-plotting hook** — reuse `components/chart/candles.tsx`'s
   existing overlay-series rendering path (the same one SMA/EMA/Bollinger/
   RSI/MACD/PSAR/Supertrend already use) rather than a new rendering system.
