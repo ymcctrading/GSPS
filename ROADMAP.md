@@ -1062,9 +1062,13 @@ Portfolio analytics drives retention and trust.
   2026-09-23: the TradingView-style custom-script/plugin system requested
   alongside "Strategy Modes" (Q1, out-of-phase, see that entry above) is
   scoped to land here rather than as its own initiative — see
-  `docs/STRATEGY_MODES.md`'s "Custom-script / plugin system" section for the
-  sandboxed-execution/plugin-registry/chart-hook design sketch. Not started;
-  design only as of this note.)*
+  `docs/STRATEGY_MODES.md`'s "Custom-script / plugin system" section.
+  **Phase 1 (the DSL + sandboxed-evaluator core, `lib/strategies/custom/`)
+  built out-of-phase the same day, direct request** — same precedent as the
+  Q1 Strategy Modes entry above, a signal-engine addition built now at
+  explicit request rather than waiting for this phase's window. Phases 2-4
+  (plugin registry/CRUD API, chart-plotting hook, backtesting) remain
+  design-only and still belong to this Q2 initiative's actual window.)*
 - **Database optimization** — indexing for scan queries, caching for frequent
   chart requests, query-plan review.
 

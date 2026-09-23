@@ -837,15 +837,54 @@ indicator library" Q2 roadmap item's own boundary ("no indicator added there
 may feed a scored criterion...") is unaffected. This exception is scoped to
 one new, clearly-labeled, opt-in system and nothing else.
 
-**Future custom-script/plugin system.** The project owner also asked about a
+**Custom-script/plugin system — Phase 1 (DSL + evaluator) built 2026-09-23,
+Phases 2-4 not yet built.** The project owner also asked about a
 TradingView-style system where a user (or GSPS) can author and plot a new
-indicator/strategy that generates its own levels the same way. That is a
-substantially larger, security-sensitive (sandboxed execution) project of
-its own — scoped as a design-only Q2/Q3 roadmap initiative in
-`docs/STRATEGY_MODES.md` and ROADMAP.md rather than built this session. Any
-strategy plugin built under that future system would need to satisfy the
-same rules this section states: opt-in, one-at-a-time, never touching the
-Gann verdict, and clearly labeled.
+indicator/strategy that generates its own levels the same way. `lib/strategies/custom/`
+now has a small, safe, declarative condition/action DSL and a tree-walking
+interpreter — text source is parsed by a whitelist-only recursive-descent
+parser (`parser.ts`) into a bounded AST (`limits.ts`: max source length,
+node count, nesting depth, indicator period/offset), then interpreted
+(`interpret.ts`) into a function of the exact `(bars: Bar[]) => X | null`
+shape `StrategyEvaluator` already uses. No `eval`/`new Function`/`vm`
+anywhere, no loop or recursion in the language itself, no dynamic
+identifier resolution outside `parser.ts`'s indicator/series whitelist —
+see `types.ts`'s header for the full three-question design basis. A
+compiled script's result is `CustomScriptLevels`, deliberately NOT shoehorned
+into `StrategyLevels`/`StrategyModeId` (a closed union the nine built-ins
+and `registry.ts` depend on staying closed) — it carries the script's own
+`scriptId`/`scriptName`/`author`/`version` instead, satisfying hard rule 5
+structurally rather than by convention. Verified: 22 unit tests including
+exact parity against `evaluateMaCrossover` for an equivalent hand-written
+rule, `tsc --noEmit` clean, lint clean, `check-banned-terms.mjs` clean.
+
+Design decisions confirmed with the project owner before building (2026-09-23,
+applying the Three-question mandate rather than engineering preference alone):
+- **Textual grammar, not JSON-only.** Hermetic Correspondence — the text an
+  author writes mirrors the AST 1:1, no opaque JSON-tree authoring. Safety is
+  unaffected: the parser only ever emits nodes from the closed whitelist,
+  identical to what a JSON-only front end would have validated.
+- **Script authoring is Wall Street-tier only** (not extended to Expert
+  alongside the nine built-in modes) — authoring is categorically more
+  sensitive than selecting a pre-vetted built-in mode, so it sits one rung
+  above "sees all built-in modes."
+- **Private to the authoring user only, no marketplace, in v1.** A
+  GSPS-curated/shared script is functionally identical in trust level to
+  adding an official tenth built-in mode to `lib/strategies/` directly (GSPS
+  wrote it, so it isn't untrusted the way a user script is) — routing it
+  through the untrusted-script pipeline instead would be redundant, not
+  safer, and cross-user script execution reopens exactly the trust problem
+  the private-only scoping avoids. Read through Polarity (the same framing
+  this section already gives the system overall): a script author trades
+  their own method, they do not get to issue verdicts to other users.
+
+**Phases 2-4 (plugin registry + CRUD API, chart-plotting hook, backtesting
+via `replaySignals.ts`'s evidence-gathering shape) remain design-only** per
+`docs/STRATEGY_MODES.md`'s sequencing — DSL first, since everything else
+depends on it. Any strategy plugin built under those future phases must
+satisfy the same rules this section states: opt-in, one-at-a-time, never
+touching the Gann verdict, tier-gated and server-resolved only, and clearly
+labeled.
 
 ## Three-question mandate — the lens work is reasoned through, every session
 
