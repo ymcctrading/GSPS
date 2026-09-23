@@ -2,8 +2,10 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-09-23 (Annotated the Feature Priority Matrix's Q1
-"Platform & reliability"/"Security & compliance" lines: Sentry error
+**Last updated:** 2026-09-23 (Closed "Pattern education" under the Improved
+onboarding note — the Signal and Regime Engine's four states now have
+glossary entries.) Previously same day (Annotated the Feature Priority
+Matrix's Q1 "Platform & reliability"/"Security & compliance" lines: Sentry error
 capture closed, API key encryption rotation verified already done.)
 Previously same day (Closed the durable, cross-device custom
 price-alert table under the "Dashboard welcome banner, saved setups, chart
@@ -401,7 +403,25 @@ both signal discovery and execution.
   (`components/glossary.tsx`, `components/glossary-term.tsx`) linked from
   nav, Settings, the onboarding tour, the dashboard novice-home summary, the
   chart pane, the order ticket, and scan cards. Pattern education remains
-  open.)*
+  open.)* *(Closed 2026-09-23, direct request. Checked what already existed
+  before writing anything new: the five STRAT reversal/continuation
+  patterns already had glossary entries (the "Reversal & continuation
+  patterns" group), and `components/scan/pattern-education.tsx` already
+  gave a per-signal explainer once a pattern armed — so "pattern education"
+  wasn't actually absent, just incomplete one level up. The Signal and
+  Regime Engine's four states (`lib/signals/types.ts`'s
+  `SCANNER_STATE_META` — Trend Pullback, Trend Breakout, Confirmed
+  Reversal, Range Reversion) had only a one-line `purpose` string used
+  inline in the score breakdown UI, with nowhere a novice could browse what
+  they mean independent of an active scan result. New glossary group
+  surfaces that same existing `purpose` copy — no new claims written, just
+  made findable. Also added `components/glossary.test.tsx`, asserting
+  every `<GlossaryTerm>` cross-reference used elsewhere in the app
+  (`PATTERN_GLOSSARY_TERM`'s pattern names, now also the four state labels)
+  resolves to a real glossary entry — nothing enforced that before, and the
+  near-miss while building this (almost re-adding the five pattern terms a
+  second time, which would have collided on their shared anchor id) is
+  exactly the class of drift it now guards against.)*
 - **Guided Decision Mode** *(shipped 2026-08-17)* — one recommended action per
   symbol, sized from a per-trade risk cap, executed through a single
   confirmation. Paper-only, long-only, Execute-verdict only, with daily/weekly
