@@ -523,6 +523,28 @@ both signal discovery and execution.
   actual fill (rejected/canceled orders correctly don't count).
   `lib/trade/place-order.ts`'s live branch now calls it and passes the real
   count into `evaluateLiveCircuitBreaker` instead of a hardcoded `0`.)*
+  *(Follow-up, 2026-09-23, direct request: the per-user kill switch now has
+  a UI. The mechanism already existed —
+  `broker_connections.status`/`lib/brokers/live-creds.ts`'s
+  `readLiveAlpacaConnection` already required `status = 'active'` before
+  every live order, and `/api/alpaca/connect-live`'s `POST`/`DELETE` already
+  implemented connect and soft-disable (`status = 'disabled'`) — but nothing
+  in the app ever called that route: no Settings section, no button,
+  nothing. `lib/trade/kill-switch.ts`'s own header already named this gap
+  ("Per-user kill switches need a column and a policy, and they land with
+  the per-user connection work"). New `components/settings/
+  live-trading-settings.tsx`, on the Settings page: shows connection status,
+  a minimal connect form (API key/secret, verified against Alpaca before
+  saving — the existing `POST` behavior), and a confirm-gated "Pause live
+  trading" button that calls the existing `DELETE`. Pausing disables the
+  connection, so every subsequent live order is refused the same way as
+  before connecting — it does not cancel a resting broker order or close an
+  open position, the same carve-out the global `TRADING_DISABLED` switch's
+  own docs already state for protective actions. Also added a `GET` to that
+  route (connection status was previously unreadable by any caller) and
+  fixed the settings page to have a live-account section at all — before
+  this, a live-connected user had no way to see their live-trading state
+  anywhere in Settings.)*
 - **Market Universe, Data Quality & Account Constraints engine** *(2026-08-29,
   out-of-phase, direct request)* — a pure-logic engine, `lib/universe/*`,
   implementing the "Market Universe, Data Quality & Account Constraints"

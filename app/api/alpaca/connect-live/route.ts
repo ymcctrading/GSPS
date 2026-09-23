@@ -27,6 +27,30 @@ const ConnectSchema = z.object({
 
 const LABEL = "Alpaca Live";
 
+/**
+ * GET: whether this user has an active live Alpaca connection right now —
+ * the read side of the per-user kill switch `DELETE` implements. Settings
+ * uses this to decide whether to show "Connect" or "Pause live trading".
+ */
+export async function GET() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+
+  const { data, error } = await supabase
+    .from("broker_connections")
+    .select("status")
+    .eq("user_id", user.id)
+    .eq("provider", "alpaca_live")
+    .eq("label", LABEL)
+    .maybeSingle();
+  if (error) return NextResponse.json({ error: error.message }, { status: 502 });
+
+  return NextResponse.json({ connected: data?.status === "active" });
+}
+
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const {
