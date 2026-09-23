@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { ResultsTable, type ScanRow } from "@/components/scan/results-table";
 import { IntradayAlerts } from "@/components/scan/intraday-alerts";
 import { ScanHistory } from "@/components/scan/scan-history";
+import { SavedSearches } from "@/components/scan/saved-searches";
 import { SECTORS, COMING_SOON } from "@/lib/sectors";
 import { cn } from "@/lib/utils";
 import { toPublicSignalSummary } from "@/lib/signals/publicSummary";
@@ -176,6 +177,15 @@ export default function ScannerPage() {
                 </Button>
               </div>
               {error && <p className="text-sm text-bear">{error}</p>}
+
+              <SavedSearches
+                selected={selected}
+                custom={custom}
+                onLoad={({ sectorKeys, customSymbols }) => {
+                  setSelected(sectorKeys);
+                  setCustom(customSymbols);
+                }}
+              />
             </CardContent>
           </Card>
 
