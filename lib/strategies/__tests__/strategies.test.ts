@@ -7,6 +7,9 @@ import { evaluateMaCrossover } from "@/lib/strategies/maCrossover";
 import { evaluateBollinger } from "@/lib/strategies/bollinger";
 import { evaluateRsiReversal } from "@/lib/strategies/rsiReversal";
 import { evaluateMacdMomentum } from "@/lib/strategies/macdMomentum";
+import { evaluateVwap } from "@/lib/strategies/vwap";
+import { evaluateStochastic } from "@/lib/strategies/stochastic";
+import { evaluateDonchian } from "@/lib/strategies/donchian";
 import {
   evaluateStrategyMode,
   isNonGannStrategyMode,
@@ -186,5 +189,57 @@ describe("evaluateMacdMomentum", () => {
       expect(result.direction).toBe("bullish");
       expect(result.stopLoss).toBeLessThan(result.entry);
     }
+  });
+});
+
+describe("evaluateVwap", () => {
+  it("detects a bullish VWAP reclaim", () => {
+    const bars: Bar[] = [
+      bar(100, 101, 99, 100, 1000),
+      bar(99, 100.5, 98.5, 99, 1000),
+      bar(98, 99.5, 97.5, 98, 1000), // closes below the running VWAP
+      bar(98, 103, 97.5, 102, 500), // rallies and closes back above VWAP
+    ];
+    const result = evaluateVwap(bars);
+    expect(result).not.toBeNull();
+    expect(result!.direction).toBe("bullish");
+    expect(result!.stopLoss).toBeLessThan(result!.entry);
+  });
+
+  it("returns null with no reclaim/loss on this bar", () => {
+    expect(evaluateVwap(flat(100, 5))).toBeNull();
+  });
+});
+
+describe("evaluateStochastic", () => {
+  it("detects a bullish %K/%D cross emerging from oversold", () => {
+    const bars: Bar[] = [];
+    let p = 150;
+    for (let i = 0; i < 20; i++) {
+      p -= 1.5;
+      bars.push(bar(p + 0.3, p + 0.3, p - 0.3, p));
+    }
+    p += 0.8;
+    bars.push(bar(p - 0.3, p + 0.3, p - 0.3, p));
+    const result = evaluateStochastic(bars);
+    expect(result).not.toBeNull();
+    expect(result!.direction).toBe("bullish");
+    expect(result!.stopLoss).toBeLessThan(result!.entry);
+  });
+});
+
+describe("evaluateDonchian", () => {
+  it("detects a bullish breakout above the 20-bar channel", () => {
+    const bars: Bar[] = flat(100, 20);
+    // Close clears every prior bar's high.
+    bars.push(bar(100.5, 106, 100, 105.5));
+    const result = evaluateDonchian(bars);
+    expect(result).not.toBeNull();
+    expect(result!.direction).toBe("bullish");
+    expect(result!.stopLoss).toBeLessThan(result!.entry);
+  });
+
+  it("returns null inside the channel", () => {
+    expect(evaluateDonchian(flat(100, 25))).toBeNull();
   });
 });

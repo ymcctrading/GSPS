@@ -37,7 +37,10 @@ export type StrategyModeId =
   | "maCrossover"
   | "bollinger"
   | "rsiReversal"
-  | "macdMomentum";
+  | "macdMomentum"
+  | "vwap"
+  | "stochastic"
+  | "donchian";
 
 // User-facing labels — kept off GSPS's internal Gann/Strat vocabulary per
 // scripts/check-banned-terms.mjs (docs/GSPS_BRAND_GUIDE.md), even though the
@@ -50,6 +53,9 @@ export const STRATEGY_MODE_LABELS: Record<StrategyModeId, string> = {
   bollinger: "Bollinger Band reversion/breakout (swing)",
   rsiReversal: "RSI 14 reversal (overbought/oversold)",
   macdMomentum: "MACD momentum crossover (swing)",
+  vwap: "VWAP reclaim/loss (intraday)",
+  stochastic: "Stochastic 14/3/3 crossover",
+  donchian: "Donchian channel breakout (swing)",
 };
 
 /** Non-Gann modes only — the set a "Strategy mode" picker actually offers as
@@ -61,6 +67,9 @@ export const NON_GANN_STRATEGY_MODES: readonly Exclude<StrategyModeId, "gann">[]
   "bollinger",
   "rsiReversal",
   "macdMomentum",
+  "vwap",
+  "stochastic",
+  "donchian",
 ];
 
 export interface StrategyLevels {

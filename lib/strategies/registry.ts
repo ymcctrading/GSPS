@@ -18,6 +18,9 @@ import { evaluateMaCrossover } from "./maCrossover";
 import { evaluateBollinger } from "./bollinger";
 import { evaluateRsiReversal } from "./rsiReversal";
 import { evaluateMacdMomentum } from "./macdMomentum";
+import { evaluateVwap } from "./vwap";
+import { evaluateStochastic } from "./stochastic";
+import { evaluateDonchian } from "./donchian";
 
 export const NON_GANN_STRATEGY_EVALUATORS = {
   psarSupertrend: evaluatePsarSupertrend,
@@ -26,6 +29,9 @@ export const NON_GANN_STRATEGY_EVALUATORS = {
   bollinger: evaluateBollinger,
   rsiReversal: evaluateRsiReversal,
   macdMomentum: evaluateMacdMomentum,
+  vwap: evaluateVwap,
+  stochastic: evaluateStochastic,
+  donchian: evaluateDonchian,
 } satisfies Record<string, StrategyEvaluator>;
 
 export type NonGannStrategyModeId = keyof typeof NON_GANN_STRATEGY_EVALUATORS;

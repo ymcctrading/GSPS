@@ -2,11 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import {
-  NON_GANN_STRATEGY_MODES,
-  STRATEGY_MODE_LABELS,
-  type StrategyModeId,
-} from "@/lib/strategies/types";
+import { STRATEGY_MODE_LABELS, type StrategyModeId } from "@/lib/strategies/types";
 
 /**
  * Default Strategy Mode (AGENTS.md's "Strategy Modes" section;
@@ -16,11 +12,18 @@ import {
  * entry/stop/target levels priced that way instead. This setting only
  * changes what the order ticket/chart *default to* pre-selecting — it never
  * touches scanning, scoring, SignalGates, or Automation, all of which remain
- * Gann-only regardless of this setting. "Gann (default)" is always
- * available and is what a new account starts on.
+ * Gann-only regardless of this setting. "Structural analysis (default)" is
+ * always available and is what a new account starts on.
+ *
+ * Tier-gated server-side (`lib/entitlements/policy.ts#allowedStrategyModes`):
+ * Novice sees no selector at all (`allowedModes` comes back empty); Pro sees
+ * a four-mode subset; Expert/Wall Street see every mode. This component only
+ * renders whatever the server says this account may pick — it does not
+ * duplicate the tier logic client-side.
  */
 export function StrategyModeSettings() {
   const [mode, setMode] = useState<StrategyModeId | null>(null);
+  const [allowedModes, setAllowedModes] = useState<StrategyModeId[] | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,10 +31,13 @@ export function StrategyModeSettings() {
     let cancelled = false;
     fetch("/api/strategy-mode-preference")
       .then((res) => res.json())
-      .then((body: { mode?: StrategyModeId; error?: string }) => {
+      .then((body: { mode?: StrategyModeId; allowedModes?: StrategyModeId[]; error?: string }) => {
         if (cancelled) return;
         if (body.error) setError(body.error);
-        else setMode(body.mode ?? "gann");
+        else {
+          setMode(body.mode ?? "gann");
+          setAllowedModes(body.allowedModes ?? []);
+        }
       })
       .catch(() => !cancelled && setError("Couldn't load your Strategy Mode preference."));
     return () => {
@@ -60,6 +66,10 @@ export function StrategyModeSettings() {
     }
   }
 
+  // Novice: no Strategy Mode access — render nothing rather than an empty
+  // selector with only the default option in it.
+  if (allowedModes !== null && allowedModes.length === 0) return null;
+
   return (
     <Card>
       <CardHeader>
@@ -75,11 +85,11 @@ export function StrategyModeSettings() {
         <select
           className="w-full rounded-md border px-3 py-2 text-sm bg-background"
           value={mode ?? "gann"}
-          disabled={mode === null || saving}
+          disabled={allowedModes === null || saving}
           onChange={(e) => save(e.target.value as StrategyModeId)}
         >
           <option value="gann">{STRATEGY_MODE_LABELS.gann}</option>
-          {NON_GANN_STRATEGY_MODES.map((m) => (
+          {(allowedModes ?? []).map((m) => (
             <option key={m} value={m}>
               {STRATEGY_MODE_LABELS[m]}
             </option>

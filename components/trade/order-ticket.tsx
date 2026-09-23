@@ -19,7 +19,6 @@ import { formatUsd, cn } from "@/lib/utils";
 import type { ScanResult } from "@/lib/types";
 import type { AssetTradability } from "@/app/api/assets/route";
 import {
-  NON_GANN_STRATEGY_MODES,
   STRATEGY_MODE_LABELS,
   type StrategyLevels,
   type StrategyModeId,
@@ -108,6 +107,10 @@ export function OrderTicket({
   // fields below via "Use these levels", the same way any other manual entry
   // works. Never touches `levels`/`result.direction` (the Gann plan) above.
   const [strategyMode, setStrategyMode] = useState<StrategyModeId>("gann");
+  // Server-resolved (`lib/entitlements/policy.ts#allowedStrategyModes`) —
+  // null while loading, [] for a tier with no Strategy Mode access at all
+  // (Novice). Never computed client-side.
+  const [allowedStrategyModes, setAllowedStrategyModes] = useState<StrategyModeId[] | null>(null);
   const [strategyLevels, setStrategyLevels] = useState<StrategyLevels | null>(null);
   const [strategyStatus, setStrategyStatus] = useState<"idle" | "loading" | "ready" | "error">(
     "idle",
@@ -164,11 +167,13 @@ export function OrderTicket({
     let cancelled = false;
     fetch("/api/strategy-mode-preference")
       .then((res) => res.json())
-      .then((body: { mode?: StrategyModeId }) => {
-        if (!cancelled && body.mode) setStrategyMode(body.mode);
+      .then((body: { mode?: StrategyModeId; allowedModes?: StrategyModeId[] }) => {
+        if (cancelled) return;
+        if (body.mode) setStrategyMode(body.mode);
+        setAllowedStrategyModes(body.allowedModes ?? []);
       })
       .catch(() => {
-        /* default stays "gann" */
+        if (!cancelled) setAllowedStrategyModes([]);
       });
     return () => {
       cancelled = true;
@@ -632,6 +637,9 @@ export function OrderTicket({
                   managed exit.
                 </p>
 
+                {/* Novice (allowedStrategyModes === []) sees nothing here —
+                    server-resolved, not a client-side tier guess. */}
+                {allowedStrategyModes && allowedStrategyModes.length > 0 && (
                 <div className="rounded-lg border border-border p-3 text-xs">
                   <label className="flex flex-col gap-1 text-muted">
                     Strategy mode (optional) — price this order from a different technique instead
@@ -647,7 +655,7 @@ export function OrderTicket({
                       }}
                     >
                       <option value="gann">{STRATEGY_MODE_LABELS.gann} — no override</option>
-                      {NON_GANN_STRATEGY_MODES.map((m) => (
+                      {allowedStrategyModes.map((m) => (
                         <option key={m} value={m}>
                           {STRATEGY_MODE_LABELS[m]}
                         </option>
@@ -714,6 +722,7 @@ export function OrderTicket({
                     </div>
                   )}
                 </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-2">
                   <label className="flex flex-col gap-1 text-xs text-muted">

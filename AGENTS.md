@@ -800,16 +800,34 @@ engine changes:
   that module's header comment ("must never feed... a trade plan") stays
   literally true.
 
-**Modes built under this exception** (2026-09-23): PSAR+Supertrend
-agreement-flip reversal, Sara Strat bar-pattern precision entry (reusing
-`lib/strat/patterns.ts#detectPatterns`'s own trigger/stop, the same taxonomy
-the "Gann-grounded platform" audit already investigated and kept for
-display/confluence use), EMA9/SMA20 crossover, Bollinger Band reversion,
-RSI(14) overbought/oversold reversal, and MACD(12/26/9) momentum crossover —
+**Modes built under this exception** (2026-09-23, nine total — six at first
+write-down, three more the same day per direct follow-up request): PSAR+
+Supertrend agreement-flip reversal, Sara Strat bar-pattern precision entry
+(reusing `lib/strat/patterns.ts#detectPatterns`'s own trigger/stop, the same
+taxonomy the "Gann-grounded platform" audit already investigated and kept
+for display/confluence use), EMA9/SMA20 crossover, Bollinger Band reversion,
+RSI(14) overbought/oversold reversal, MACD(12/26/9) momentum crossover, VWAP
+reclaim/loss, Stochastic(14/3/3) crossover, and Donchian channel breakout —
 see `lib/strategies/` and `docs/STRATEGY_MODES.md` for the architecture and
 each mode's three-question design rationale (required by the mandate below
 even though gate 1, Gann sourcing, is answered "none, deliberately" for
 every mode here).
+
+**Tier-gated** (2026-09-23, direct project-owner instruction, same day as
+the follow-up above): Novice has no Strategy Mode access at all — no
+selector shown, only the structural/Gann plan; Pro (STANDARD) is scoped to
+`macdMomentum`/`rsiReversal`/`maCrossover`/`vwap`; Expert and Wall Street get
+all nine. See `lib/entitlements/policy.ts#allowedStrategyModes` and
+`lib/strategies/access.ts`, checked server-side on every read/write
+(`/api/strategy-levels`, `/api/strategy-mode-preference`) — no client
+component computes its own idea of which modes a tier gets. This is an
+access-control decision, not a technique-sourcing one: AGENTS.md's
+Three-question mandate questions 1/2 (Gann sourcing, Dewey's cycle
+checklist) don't apply to the gate itself, only question 3 does (Hermetic
+Polarity — the same framing the mandate's own novice/expert interface-design
+worked example already gives this exact shape of tiered-depth decision). See
+`docs/STRATEGY_MODES.md`'s "Tier gating" section for the full reasoning and
+why each mode landed where it did.
 
 **What this does not open the door to.** This is not a general license to
 weaken the non-Gann boundary elsewhere. The scored criteria, signal gates,

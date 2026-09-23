@@ -2,12 +2,15 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-09-23 (Added "Strategy Modes" under Q1, out-of-phase
+**Last updated:** 2026-09-23 (Follow-up to "Strategy Modes" under Q1: three
+more modes — VWAP reclaim/loss, Stochastic crossover, Donchian breakout —
+and tier gating, Novice/Pro/Expert+Wall Street, on the whole feature. See
+AGENTS.md's "Strategy Modes" section and `docs/STRATEGY_MODES.md`.)
+Previously same day (Added "Strategy Modes" under Q1, out-of-phase
 direct request: opt-in, non-default entry/exit level generation off PSAR+
 Supertrend and Sara Strat bar patterns, plus four more swing/intraday
 indicator strategies, with the custom-script/plugin system scoped
-design-only under the existing Q2 "Expanded indicator library" initiative.
-See AGENTS.md's "Strategy Modes" section and `docs/STRATEGY_MODES.md`.)
+design-only under the existing Q2 "Expanded indicator library" initiative.)
 Previously same day (Closed "Pattern education" under the Improved
 onboarding note — the Signal and Regime Engine's four states now have
 glossary entries.) Previously same day (Annotated the Feature Priority
@@ -211,7 +214,15 @@ both signal discovery and execution.
   strategies, sandboxed) was also requested; scoped design-only this pass
   (`docs/STRATEGY_MODES.md`'s own section) given its sandboxing/security
   scope, and placed under the existing Q2 "Expanded indicator library"
-  initiative below rather than built here.
+  initiative below rather than built here. *(Follow-up, 2026-09-23, same
+  day, direct request: three more modes shipped — VWAP reclaim/loss,
+  Stochastic(14/3/3) crossover, and Donchian channel breakout — closing out
+  every candidate this feature had originally deferred, and access is now
+  tier-gated: Novice gets no Strategy Mode selector at all; Pro is scoped to
+  MACD/RSI/the EMA+SMA crossover/VWAP; Expert and Wall Street get all nine.
+  See `lib/entitlements/policy.ts#allowedStrategyModes`,
+  `lib/strategies/access.ts`, and `docs/STRATEGY_MODES.md`'s "Tier gating"
+  section.)*
 - **Gann & Sara Cross-Market Confluence Layers** *(out-of-phase, direct
   request: "GSPS Gann & Sara Cross-Market Integration Addendum", 2026-08-28.
   Fits no Q1 strategic goal above — it's a signal-engine addition, not

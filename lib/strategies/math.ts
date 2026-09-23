@@ -257,3 +257,98 @@ export function recentHigh(bars: Bar[], i: number, lookback: number): number {
   for (let j = start; j <= i; j++) high = Math.max(high, bars[j].h);
   return high;
 }
+
+/**
+ * Session-anchored VWAP: cumulative (typical price × volume) / cumulative
+ * volume from the start of `bars`. Callers pass one session's worth of
+ * intraday bars (the anchor point) — this function has no notion of a
+ * calendar day itself, matching the convention every other Strategy Modes
+ * function uses of taking exactly the bars the caller wants evaluated.
+ */
+export function vwap(bars: Bar[]): (number | null)[] {
+  const out: (number | null)[] = new Array(bars.length).fill(null);
+  let cumPV = 0;
+  let cumVolume = 0;
+  for (let i = 0; i < bars.length; i++) {
+    const typicalPrice = (bars[i].h + bars[i].l + bars[i].c) / 3;
+    cumPV += typicalPrice * bars[i].v;
+    cumVolume += bars[i].v;
+    out[i] = cumVolume > 0 ? cumPV / cumVolume : null;
+  }
+  return out;
+}
+
+export interface StochasticPoint {
+  k: number;
+  d: number;
+}
+
+/** Stochastic oscillator: %K is the close's position within the trailing
+ * `period`-bar high/low range (smoothed by `kSmooth`), %D is a further SMA
+ * of %K. Standard (14, 3, 3). */
+export function stochastic(
+  bars: Bar[],
+  period = 14,
+  kSmooth = 3,
+  dSmooth = 3,
+): (StochasticPoint | null)[] {
+  const out: (StochasticPoint | null)[] = new Array(bars.length).fill(null);
+  if (bars.length < period) return out;
+
+  const rawK: (number | null)[] = new Array(bars.length).fill(null);
+  for (let i = period - 1; i < bars.length; i++) {
+    const high = recentHigh(bars, i, period);
+    const low = recentLow(bars, i, period);
+    rawK[i] = high === low ? 50 : ((bars[i].c - low) / (high - low)) * 100;
+  }
+
+  // %K is itself smoothed by an SMA of the raw %K series (kSmooth).
+  const smoothedK: (number | null)[] = new Array(bars.length).fill(null);
+  for (let i = 0; i < bars.length; i++) {
+    if (i < period - 1 + kSmooth - 1) continue;
+    let sum = 0;
+    let count = 0;
+    for (let j = i - kSmooth + 1; j <= i; j++) {
+      if (rawK[j] == null) continue;
+      sum += rawK[j] as number;
+      count++;
+    }
+    if (count === kSmooth) smoothedK[i] = sum / kSmooth;
+  }
+
+  for (let i = 0; i < bars.length; i++) {
+    if (i < period - 1 + kSmooth - 1 + dSmooth - 1) continue;
+    let sum = 0;
+    let count = 0;
+    for (let j = i - dSmooth + 1; j <= i; j++) {
+      if (smoothedK[j] == null) continue;
+      sum += smoothedK[j] as number;
+      count++;
+    }
+    if (count === dSmooth && smoothedK[i] != null) {
+      out[i] = { k: smoothedK[i] as number, d: sum / dSmooth };
+    }
+  }
+
+  return out;
+}
+
+export interface DonchianPoint {
+  upper: number;
+  lower: number;
+  middle: number;
+}
+
+/** Donchian channel: highest high / lowest low over the trailing `period`
+ * bars EXCLUDING the current one — the classic turtle-style breakout
+ * reference, where the current bar is judged against the channel that
+ * existed before it, not one that already includes it. */
+export function donchian(bars: Bar[], period = 20): (DonchianPoint | null)[] {
+  const out: (DonchianPoint | null)[] = new Array(bars.length).fill(null);
+  for (let i = period; i < bars.length; i++) {
+    const upper = recentHigh(bars, i - 1, period);
+    const lower = recentLow(bars, i - 1, period);
+    out[i] = { upper, lower, middle: (upper + lower) / 2 };
+  }
+  return out;
+}

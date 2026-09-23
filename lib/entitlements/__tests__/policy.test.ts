@@ -92,6 +92,18 @@ describe("getEntitlementPolicy", () => {
     expect(policy.maxAutomationWorkflows).toBe(0);
     expect(policy.automationEnabled).toBe(false);
   });
+
+  it("gates Strategy Modes per AGENTS.md's Strategy Modes section: Novice none, Pro a fixed subset, Expert/Wall Street all", () => {
+    expect(getEntitlementPolicy("PRACTICE").allowedStrategyModes).toEqual([]);
+    expect(getEntitlementPolicy("STANDARD").allowedStrategyModes).toEqual([
+      "macdMomentum",
+      "rsiReversal",
+      "maCrossover",
+      "vwap",
+    ]);
+    expect(getEntitlementPolicy("INVESTOR_MODE").allowedStrategyModes).toBe("all");
+    expect(getEntitlementPolicy("SYSTEM_MASTERY").allowedStrategyModes).toBe("all");
+  });
 });
 
 describe("getUserEntitlementPolicy", () => {

@@ -1,7 +1,8 @@
 # Strategy Modes
 
-**Status:** Six modes live (2026-09-23). Custom-script/plugin system:
-design-only, not built.
+**Status:** Nine modes live (2026-09-23, expanded same day). Tier-gated
+(Novice: none; Pro: a four-mode subset; Expert/Wall Street: all). Custom-
+script/plugin system: design-only, not built.
 
 Strategy Modes is an opt-in, non-default system that generates entry, stop
 loss, first target (TP1), and master target (MTP) from a named, real,
@@ -34,6 +35,13 @@ Read that section before touching anything under `lib/strategies/`.
 5. **Always labeled.** Every place a Strategy Mode result is shown states
    which mode produced it, so it can never be mistaken for the Gann trade
    plan.
+6. **Tier-gated, server-resolved only.** Which modes an account may even
+   select is an entitlement (`lib/entitlements/policy.ts#allowedStrategyModes`),
+   checked server-side on every read and write
+   (`/api/strategy-levels`, `/api/strategy-mode-preference`) via
+   `lib/strategies/access.ts#isStrategyModeAllowedForPolicy`. No client
+   component computes or trusts its own idea of which modes a tier gets —
+   each one renders exactly the list the server returns.
 
 ## Architecture
 
@@ -43,12 +51,16 @@ lib/strategies/
   math.ts        Strategy-Modes-only indicator math (own copy, see rule 4)
   targets.ts     buildLevels() — shared R-multiple target projection
   registry.ts    mode id -> evaluator dispatch, isNonGannStrategyMode()
+  access.ts      isStrategyModeAllowedForPolicy() — tier gate (rule 6)
   psarSupertrend.ts
   saraStrat.ts
   maCrossover.ts
   bollinger.ts
   rsiReversal.ts
   macdMomentum.ts
+  vwap.ts
+  stochastic.ts
+  donchian.ts
 ```
 
 Every mode exports a pure `(bars: Bar[]) => StrategyLevels | null` evaluator.
@@ -74,36 +86,65 @@ header — summarized here, read the module for the full reasoning:
 | `bollinger` | Swing mean-reversion | Break of a band-rejection bar | Rejection bar's own extreme | Middle band / opposite band |
 | `rsiReversal` | Intraday/swing reversal | Break of the RSI 30/70 recross bar | That bar's own extreme | 1.5R / 3R |
 | `macdMomentum` | Swing momentum | Break of the MACD histogram flip bar | 10-bar swing low/high | 2R / 4R |
+| `vwap` | Intraday reversal | Break of the session-VWAP reclaim/loss bar | That bar's own extreme | 1.5R / 3R |
+| `stochastic` | Intraday/swing reversal | Break of the %K/%D cross-from-extreme bar | That bar's own extreme | 1.5R / 3R |
+| `donchian` | Swing trend-following | Break beyond the 20-bar Donchian channel | Opposite channel bound | 2R / 4R |
 
 `gann` is listed in `StrategyModeId` for completeness (a mode picker needs
 to offer it as the default option) but has no evaluator in this registry —
 it is the existing pipeline, not a new one.
 
-## Why these six, and what's next
+## Tier gating (2026-09-23, direct project-owner instruction)
+
+| Tier | Access |
+|---|---|
+| Novice (PRACTICE) | None — no selector shown, only the structural/Gann plan |
+| Pro (STANDARD) | `macdMomentum`, `rsiReversal`, `maCrossover`, `vwap` only |
+| Expert (INVESTOR_MODE) | All nine |
+| Wall Street (SYSTEM_MASTERY) | All nine |
+
+This is a pure access-control decision, not a claim about any technique, so
+AGENTS.md's Three-question mandate questions 1 (Gann sourcing) and 2 (Dewey's
+cycle checklist) don't apply to the gating itself — each *mode* still answers
+them individually in its own module header. Question 3 (Hermetic principle)
+does apply: this reads as **Polarity**, the same framing AGENTS.md's mandate
+section gives the novice/expert interface-design goal — a four-tier ladder
+that widens what each tier is trusted to touch, rather than either exposing
+everything to everyone or reserving all depth for the top tier. Pro's four
+modes were chosen as the ones built directly on indicators Pro can already
+see on the chart today (MACD, RSI, EMA/SMA); the five held back for Expert/
+Wall Street are the two precision-entry reversal modes GSPS's own case study
+built first (PSAR+Supertrend, Sara Strat) plus the newer Bollinger,
+Stochastic, and Donchian modes.
+
+## Why these nine, and what's next
 
 The project owner asked for PSAR+Supertrend and Sara Strat bar-pattern
 levels specifically, then asked which other real swing/intraday
 indicator-strategy combinations could reasonably be added given the
 platform's existing indicator set (SMA20/50, EMA9, Bollinger(20,2), PSAR,
 Supertrend, RSI14, MACD 12/26/9, plus STRAT patterns and structural levels).
-MA crossover, Bollinger reversion, RSI reversal, and MACD momentum are the
-four most standard, widely-taught strategies built directly on indicators
-GSPS already computes — each is a real, commonly-traded technique, not an
-invented one, matching the same "confirm the thesis before assuming it"
-standard AGENTS.md's Three-question mandate and this feature's own request
-applied to PSAR+Supertrend.
+MA crossover, Bollinger reversion, RSI reversal, and MACD momentum were the
+first four follow-ons — the most standard, widely-taught strategies built
+directly on indicators GSPS already computed at the time. VWAP reclaim/loss,
+Stochastic crossover, and Donchian breakout were picked up the same day as a
+direct follow-up request, closing out every candidate this document had
+originally deferred (see the retired list below). Every mode here is a
+real, commonly-traded technique, not an invented one, matching the same
+"confirm the thesis before assuming it" standard AGENTS.md's Three-question
+mandate and this feature's own original request applied to PSAR+Supertrend.
 
-Candidates considered and deliberately not built this pass, for a future
-session to pick up if requested:
+**Retired deferred-candidate list** (all three built 2026-09-23; kept here
+only so a future session doesn't waste time re-deriving why they were once
+deferred): VWAP-anchored reversion (needed VWAP computed first — now
+`lib/strategies/math.ts#vwap`, a session-anchored cumulative VWAP built for
+Strategy Modes' own use, independent of the Q2 "Expanded indicator library"
+charting item, which may still add VWAP as a chart overlay separately);
+Stochastic %K/%D crossover and Donchian channel breakout (both needed their
+indicator built first — now `lib/strategies/math.ts#stochastic`/`#donchian`).
 
-- **VWAP-anchored reversion/breakout** — needs VWAP itself computed first;
-  the Q2 "Expanded indicator library" roadmap item already lists "VWAP
-  variants" as a charting candidate, so this mode should follow once that
-  lands rather than duplicating the indicator's math ahead of it.
-- **Stochastic %K/%D crossover** (intraday) and **Donchian channel
-  breakout** (swing) — same shape as RSI reversal / Bollinger here, but both
-  indicators are Q2 roadmap candidates, not yet implemented anywhere in this
-  codebase; build the indicator first.
+One candidate remains deliberately not built:
+
 - **Volume-climax exhaustion reversal off PSAR/Supertrend** — combining a
   non-Gann trend overlay with `lib/gann/volumeClimax.ts` would blur the
   Gann/non-Gann line this document exists to keep clean; if wanted, it
@@ -114,14 +155,14 @@ session to pick up if requested:
 
 The project owner separately asked for a TradingView-style system: a user
 (or GSPS) authors a new indicator/strategy, it plots on the chart, and it
-can generate its own levels the same way the six modes above do. This is a
+can generate its own levels the same way the nine modes above do. This is a
 materially larger, security-sensitive project and was scoped as
 design-only this session (explicit project-owner decision, 2026-09-23) —
 recorded here so a future session has the shape rather than starting from
-nothing, and so nobody mistakes the six built-in modes above for a
+nothing, and so nobody mistakes the nine built-in modes above for a
 down-scoped version of this.
 
-**Why it's larger than "add another mode":** the six modes above are code
+**Why it's larger than "add another mode":** the nine modes above are code
 GSPS's own engineers wrote and reviewed. A user-authored script is untrusted
 code that must run against real market data and (optionally) feed an order
 ticket — that combination is exactly what a sandbox exists to contain.
@@ -134,7 +175,7 @@ technique:**
    library" item already made for charting indicators, extended to
    full custom logic.
 2. *Cycle theory:* not applicable to the platform mechanism itself — same
-   answer `lib/gann/entryTrigger.ts` and this document's six modes give for
+   answer `lib/gann/entryTrigger.ts` and this document's nine modes give for
    a mechanism that claims no periodicity of its own. Applies per-script, if
    and when a specific script makes a periodicity claim.
 3. *Hermetic principle: Polarity.* The novice/expert interface-design
@@ -143,7 +184,7 @@ technique:**
    platform a novice trades on with Gann's default, and the two must
    coexist without either diluting the other. A custom script must never
    become visible as, or confusable with, GSPS's own verdict — the same
-   labeling rule this document's six built-in modes already follow.
+   labeling rule this document's nine built-in modes already follow.
 
 **Sketch of what building it would need** (not commitments, a starting
 point):
@@ -167,10 +208,10 @@ point):
   existing overlay-series rendering path (the same one SMA/EMA/Bollinger/
   RSI/MACD/PSAR/Supertrend already use) rather than a new rendering system.
 - **A level-generation hook** — any compiled script that emits
-  entry/stop/target values must satisfy this document's five hard rules
-  above exactly like the six built-in modes: opt-in, one-at-a-time, never
+  entry/stop/target values must satisfy this document's six hard rules
+  above exactly like the nine built-in modes: opt-in, one-at-a-time, never
   touching the Gann verdict, own math, always labeled (by script name, not
-  just "custom").
+  just "custom"), and tier-gated the same way.
 - **Backtesting a custom script** before trusting it live — reusing
   `lib/backtest/replaySignals.ts`'s evidence-gathering shape (parallel
   infrastructure to the Gann walk-forward replay, per AGENTS.md's orphan-
