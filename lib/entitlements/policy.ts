@@ -26,6 +26,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getUserTier, type PlatformTier } from "@/lib/tiers";
+import type { StrategyModeId } from "@/lib/strategies/types";
 
 export type Limit = number | "unlimited";
 
@@ -69,6 +70,27 @@ export type EntitlementPolicy = {
    * than rounding ad hoc.
    */
   exactScoreDisplayEnabled: boolean;
+  /**
+   * Strategy Modes (AGENTS.md's "Strategy Modes" section;
+   * docs/STRATEGY_MODES.md) — which non-default, non-Gann entry/stop/target
+   * techniques this tier may select. `[]` means the tier sees only GSPS's
+   * own structural/Gann trade plan, with no Strategy Mode selector at all.
+   * `"all"` means every mode in `lib/strategies/registry.ts` is available.
+   * Added 2026-09-23, direct project-owner instruction: Expert/Wall Street
+   * get full access; Pro is scoped to the four modes built directly on
+   * indicators Pro can already see on the chart (MACD, RSI, the EMA/SMA
+   * crossover, VWAP); Novice gets none, consistent with every other
+   * advanced/self-directed capability on this ladder (backtesting,
+   * automation, intraday) being withheld from Novice. This is a pure
+   * access-control decision with no Gann-sourcing or cycle-periodicity claim
+   * of its own (AGENTS.md's Three-question mandate, questions 1/2 do not
+   * apply here) — read through Polarity (question 3) the same way the
+   * novice/expert interface-design worked example in AGENTS.md's mandate
+   * section does: the four-tier ladder holds one coherent product together
+   * rather than splitting it, each tier's depth matched to what it's ready
+   * to use safely.
+   */
+  allowedStrategyModes: "all" | readonly Exclude<StrategyModeId, "gann">[];
   maxActiveWatchMonitors: Limit;
   maxAutomationWorkflows: Limit;
   maxCustomAlertRules: Limit;
@@ -107,6 +129,7 @@ const ENTITLEMENT_POLICY: Record<PlatformTier, EntitlementPolicy> = {
     proIntradayModuleEnabled: false,
     backtestingEnabled: false,
     exactScoreDisplayEnabled: false,
+    allowedStrategyModes: [],
     maxActiveWatchMonitors: 15,
     maxAutomationWorkflows: 0,
     maxCustomAlertRules: 10,
@@ -128,6 +151,7 @@ const ENTITLEMENT_POLICY: Record<PlatformTier, EntitlementPolicy> = {
     proIntradayModuleEnabled: true,
     backtestingEnabled: false,
     exactScoreDisplayEnabled: false,
+    allowedStrategyModes: ["macdMomentum", "rsiReversal", "maCrossover", "vwap"],
     maxActiveWatchMonitors: 50,
     maxAutomationWorkflows: 0,
     maxCustomAlertRules: 50,
@@ -149,6 +173,7 @@ const ENTITLEMENT_POLICY: Record<PlatformTier, EntitlementPolicy> = {
     proIntradayModuleEnabled: false,
     backtestingEnabled: false,
     exactScoreDisplayEnabled: true,
+    allowedStrategyModes: "all",
     maxActiveWatchMonitors: 150,
     maxAutomationWorkflows: 0,
     maxCustomAlertRules: 200,
@@ -170,6 +195,7 @@ const ENTITLEMENT_POLICY: Record<PlatformTier, EntitlementPolicy> = {
     proIntradayModuleEnabled: false,
     backtestingEnabled: true,
     exactScoreDisplayEnabled: true,
+    allowedStrategyModes: "all",
     maxActiveWatchMonitors: "unlimited",
     maxAutomationWorkflows: "unlimited",
     maxCustomAlertRules: "unlimited",

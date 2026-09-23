@@ -18,6 +18,11 @@ import {
 import { formatUsd, cn } from "@/lib/utils";
 import type { ScanResult } from "@/lib/types";
 import type { AssetTradability } from "@/app/api/assets/route";
+import {
+  STRATEGY_MODE_LABELS,
+  type StrategyLevels,
+  type StrategyModeId,
+} from "@/lib/strategies/types";
 
 type EntryMode = "advised" | "now";
 type AssetType = "shares" | "options";
@@ -95,6 +100,22 @@ export function OrderTicket({
   const [attachLevels, setAttachLevels] = useState(true);
   const [manualStop, setManualStop] = useState("");
   const [manualTarget, setManualTarget] = useState("");
+  // Strategy Modes (AGENTS.md's "Strategy Modes" section; docs/STRATEGY_MODES.md):
+  // an opt-in, non-default alternative to GSPS's own Gann trade plan. Defaults
+  // to the user's saved preference, but never auto-applies it — a human still
+  // has to explicitly load the computed levels into the manual stop/target
+  // fields below via "Use these levels", the same way any other manual entry
+  // works. Never touches `levels`/`result.direction` (the Gann plan) above.
+  const [strategyMode, setStrategyMode] = useState<StrategyModeId>("gann");
+  // Server-resolved (`lib/entitlements/policy.ts#allowedStrategyModes`) —
+  // null while loading, [] for a tier with no Strategy Mode access at all
+  // (Novice). Never computed client-side.
+  const [allowedStrategyModes, setAllowedStrategyModes] = useState<StrategyModeId[] | null>(null);
+  const [strategyLevels, setStrategyLevels] = useState<StrategyLevels | null>(null);
+  const [strategyStatus, setStrategyStatus] = useState<"idle" | "loading" | "ready" | "error">(
+    "idle",
+  );
+  const [strategyError, setStrategyError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string; code?: string } | null>(null);
   /**
@@ -137,6 +158,27 @@ export function OrderTicket({
       cancelled = true;
     };
   }, [symbol]);
+
+  // Load the user's saved default Strategy Mode once (Settings ->
+  // "Strategy mode"). Only pre-selects the dropdown above — it never
+  // auto-fetches levels or auto-fills the manual stop/target, which still
+  // need an explicit "Check levels" / "Use these levels" action.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/strategy-mode-preference")
+      .then((res) => res.json())
+      .then((body: { mode?: StrategyModeId; allowedModes?: StrategyModeId[] }) => {
+        if (cancelled) return;
+        if (body.mode) setStrategyMode(body.mode);
+        setAllowedStrategyModes(body.allowedModes ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setAllowedStrategyModes([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const advised = levels?.entry ?? currentPrice ?? 0;
 
@@ -594,6 +636,94 @@ export function OrderTicket({
                   does for a protocol-recommended trade. Leave both blank for a plain order with no
                   managed exit.
                 </p>
+
+                {/* Novice (allowedStrategyModes === []) sees nothing here —
+                    server-resolved, not a client-side tier guess. */}
+                {allowedStrategyModes && allowedStrategyModes.length > 0 && (
+                <div className="rounded-lg border border-border p-3 text-xs">
+                  <label className="flex flex-col gap-1 text-muted">
+                    Strategy mode (optional) — price this order from a different technique instead
+                    of GSPS&apos;s own structural analysis
+                    <select
+                      className="mt-1 w-full rounded-md border px-2 py-1.5 text-xs bg-background"
+                      value={strategyMode}
+                      onChange={(e) => {
+                        setStrategyMode(e.target.value as StrategyModeId);
+                        setStrategyLevels(null);
+                        setStrategyStatus("idle");
+                        setStrategyError("");
+                      }}
+                    >
+                      <option value="gann">{STRATEGY_MODE_LABELS.gann} — no override</option>
+                      {allowedStrategyModes.map((m) => (
+                        <option key={m} value={m}>
+                          {STRATEGY_MODE_LABELS[m]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  {strategyMode !== "gann" && (
+                    <div className="mt-2 flex flex-col gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-fit"
+                        disabled={strategyStatus === "loading"}
+                        onClick={async () => {
+                          setStrategyStatus("loading");
+                          setStrategyError("");
+                          try {
+                            const res = await fetch(
+                              `/api/strategy-levels?symbol=${encodeURIComponent(symbol)}&mode=${strategyMode}`,
+                            );
+                            const body = await res.json();
+                            if (!res.ok) throw new Error(body.error ?? "Couldn't check levels.");
+                            setStrategyLevels(body.levels ?? null);
+                            setStrategyStatus("ready");
+                          } catch (err) {
+                            setStrategyError(err instanceof Error ? err.message : String(err));
+                            setStrategyStatus("error");
+                          }
+                        }}
+                      >
+                        {strategyStatus === "loading" ? "Checking…" : "Check levels"}
+                      </Button>
+
+                      {strategyStatus === "error" && (
+                        <p className="text-warn">{strategyError}</p>
+                      )}
+                      {strategyStatus === "ready" && !strategyLevels && (
+                        <p className="text-muted">
+                          Nothing currently armed under {STRATEGY_MODE_LABELS[strategyMode]}.
+                        </p>
+                      )}
+                      {strategyLevels && (
+                        <div className="rounded-md bg-surface-alt p-2">
+                          <p className="text-muted">{strategyLevels.rationale}</p>
+                          <p className="mt-1">
+                            Entry {formatUsd(strategyLevels.entry)} · Stop{" "}
+                            {formatUsd(strategyLevels.stopLoss)} · TP1{" "}
+                            {formatUsd(strategyLevels.takeProfit1)} · Master target{" "}
+                            {formatUsd(strategyLevels.masterTarget)}
+                          </p>
+                          <button
+                            type="button"
+                            className="mt-2 min-h-9 cursor-pointer font-medium text-accent underline underline-offset-2"
+                            onClick={() => {
+                              setManualStop(String(strategyLevels.stopLoss));
+                              setManualTarget(String(strategyLevels.takeProfit1));
+                            }}
+                          >
+                            Use these levels (stop + TP1) →
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-2">
                   <label className="flex flex-col gap-1 text-xs text-muted">
                     Stop-loss
