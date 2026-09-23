@@ -88,7 +88,16 @@ const FALLBACK_UNIVERSE = Array.from(
   ]),
 ).filter((s) => !s.includes("/"));
 
-async function resolveUniverse(universeTop: number): Promise<string[]> {
+/**
+ * `extraSymbols` leads every concatenation below — ahead of both the actives
+ * screener and the curated fallback — so `capUniverse`'s post-dedup slice
+ * can never crowd them out regardless of `universeTop`. See its callers for
+ * what actually lands here: the currently-tracked (already-qualified)
+ * shortlist and the current universe-rotation discovery chunk, per
+ * `lib/scan/universe-rotation.ts` and AGENTS.md's "Cycles as architecture,
+ * not only scoring."
+ */
+export async function resolveUniverse(universeTop: number, extraSymbols: string[] = []): Promise<string[]> {
   try {
     const actives = await fetchMostActives(universeTop);
     // Union rather than either/or. The screener answers "what is busy today",
@@ -98,12 +107,12 @@ async function resolveUniverse(universeTop: number): Promise<string[]> {
     // volume is itself evidence, and the combined list is capped by the caller's
     // budget rather than here.
     if (actives.length > 0) {
-      return capUniverse([...actives, ...FALLBACK_UNIVERSE], universeTop);
+      return capUniverse([...extraSymbols, ...actives, ...FALLBACK_UNIVERSE], universeTop);
     }
   } catch {
     /* screener unavailable — fall back to the curated universe */
   }
-  return capUniverse(FALLBACK_UNIVERSE, universeTop);
+  return capUniverse([...extraSymbols, ...FALLBACK_UNIVERSE], universeTop);
 }
 
 /**
@@ -657,6 +666,14 @@ export async function runMarketScan(
    * constants, so every existing caller is unaffected.
    */
   universeThresholds: UniverseThresholds = DEFAULT_UNIVERSE_THRESHOLDS,
+  /**
+   * Symbols this run must include regardless of what the actives screener
+   * returns — see `resolveUniverse`'s own comment. Defaults to empty, so
+   * every existing caller is unaffected; `app/api/market-scan/route.ts` is
+   * the one caller that resolves and passes this (the currently-tracked
+   * shortlist union the current universe-rotation discovery chunk).
+   */
+  extraSymbols: string[] = [],
 ): Promise<MarketScanOutput> {
   const startedAt = Date.now();
   // Temporary stage-timing breadcrumbs (2026-09-10) while the widened
@@ -675,7 +692,7 @@ export async function runMarketScan(
   const scanDate = etDateKey(new Date());
   const provider = getMarketDataProvider();
 
-  const actives = await resolveUniverse(universeTop);
+  const actives = await resolveUniverse(universeTop, extraSymbols);
   mark("resolveUniverse done", `${actives.length} symbols`);
 
   // Coarse pass — daily bars for trend/level context, plus a short window of

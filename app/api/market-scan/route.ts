@@ -18,6 +18,8 @@ import { etDateKey } from "@/lib/market/session";
 import { fanOutToAllProfiles } from "@/lib/entitlements/scan-fanout";
 import type { RankedSetup } from "@/lib/entitlements/result-selection";
 import type { ScanResult } from "@/lib/types";
+import { LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
+import { resolveDiscoveryAndTrackingSymbols } from "@/lib/scan/universe-rotation";
 
 /**
  * scan_executions.source for this route's own per-profile monitor fan-out.
@@ -54,6 +56,30 @@ const REUSE_RECENT_SCAN_MS = 60_000;
 export const maxDuration = 60;
 
 /**
+ * Discovery + tracking symbols this run must include, ahead of the actives
+ * screener — see `lib/scan/universe-rotation.ts`'s own header for the full
+ * three-question design basis (Gann: none claimed; Dewey: phase-resumption
+ * applied as an engineering property, not a market claim; Hermetic: Rhythm —
+ * a returning cycle, not a linear drain-and-halt). Best-effort: a read
+ * failure here degrades to "this run relies on the actives screener and
+ * curated fallback alone," same as `resolveUniverse` already does when the
+ * screener itself fails, rather than aborting the scan over it.
+ *
+ * Live-timing verified 2026-09-23 on a preview deployment (PR #270): the
+ * full coarse+full pipeline with both passes wired in completed in ~4.1s,
+ * ~56s under this route's 60s budget — see `DISCOVERY_CHUNK_SIZE`'s own
+ * comment (lib/scan/universe-rotation.ts) for the full breadcrumb figures.
+ */
+async function resolveExtraSymbols(service: ReturnType<typeof createServiceClient>, scanDate: string): Promise<string[]> {
+  try {
+    return await resolveDiscoveryAndTrackingSymbols(service, scanDate, LARGE_CAP_UNIVERSE);
+  } catch (err) {
+    console.warn(`market-scan: discovery/tracking symbols not resolved — ${describeDbError(err)}`);
+    return [];
+  }
+}
+
+/**
  * `fanOutToProfiles`: true only for the authenticated cron invocation (see
  * the GET handler below), never for a signed-in user's own manual "Refresh
  * scan" click (POST) — a single user's click must never fan monitor
@@ -68,6 +94,8 @@ export const maxDuration = 60;
 async function runAndPersist(options: { fanOutToProfiles: boolean } = { fanOutToProfiles: false }) {
   const service = createServiceClient();
   const { universe } = await getUniversePolicy(service);
+  const scanDate = etDateKey(new Date());
+  const extraSymbols = await resolveExtraSymbols(service, scanDate);
 
   // `runMarketScan` itself was previously uncaught here: a thrown
   // MarketDataError (e.g. Alpaca's free-tier rate limit, hit more easily now
@@ -79,7 +107,7 @@ async function runAndPersist(options: { fanOutToProfiles: boolean } = { fanOutTo
   // other failure mode this route already handles below.
   let output: Awaited<ReturnType<typeof runMarketScan>>;
   try {
-    output = await runMarketScan(FULL_UNIVERSE_TOP, undefined, universe);
+    output = await runMarketScan(FULL_UNIVERSE_TOP, undefined, universe, extraSymbols);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`market-scan: scan itself failed — ${message}`);

@@ -852,6 +852,170 @@ it did; a request to audit specific past work should name the PRs or
 commits, and that audit should be run — and recorded here or in the
 relevant doc — going forward, not assumed to have happened automatically.
 
+### Worked example: universe rotation — the precedent this mandate codifies
+
+**Note:** the "motivating precedent" above and this worked example are the
+same event. This section predates the formal mandate by a few hours in the
+same session; it is kept as the concrete artifact rather than folded away,
+the same way `lib/gann/entryTrigger.ts` is a standing worked example rather
+than a paragraph summarizing it.
+
+## Cycles as architecture, not only scoring — standing direction (2026-09-23, project owner)
+
+The Hermetic principle of Rhythm — everything flows, out and in; a cycle
+completes and *returns*, it does not complete and stop — governs how this
+platform's own recurring processes are designed, not only which market
+techniques get scored. This is the same "Hermetic principles & cycle
+theory" section above, extended by direct project-owner instruction from
+scoring criteria to the platform's architecture itself: a scheduled job
+that drains a finite batch and halts is a linear model, and linear is not
+how Gann's own cycle work treats the market, so it is not how this
+platform's own scanning cadence should be modeled either.
+
+**Worked example: the universe-rotation scan design**
+(`lib/scan/universe-rotation.ts`, built the same session this direction was
+given). The automated market scan's coarse universe was capped at the
+top-250-most-active symbols every run (`FULL_UNIVERSE_TOP`,
+`lib/marketScan.ts`) — a structural exclusion of most of the 766-ticker
+large-cap universe from ever being looked at, not a deliberate choice (see
+PR #265's platform-wide scan audit). The fix chunks the full universe and
+rotates through the chunks so full coverage happens over a repeating cycle
+instead of never happening at all. The rotation index is **time-anchored**
+(`resolveRotationChunk`, keyed off ET wall-clock minutes via
+`lib/market/session.ts#etParts`), not a stored counter that increments and
+could desync — a missed or delayed cron tick still resolves to the correct
+chunk on the next run, because the schedule's phase is recomputed from the
+clock every time rather than carried forward as state. That is Dewey's
+"phase-resumption after distortion" criterion (Part C), applied here as an
+**engineering property of the mechanism**, not a claim about market data —
+the distinction matters and is kept explicit in that module's own header.
+
+**The boundary to hold, stated the same way `lib/gann/trendStrength.ts`
+states its own two engineering constants:** the *shape* of the design (a
+returning cycle, not a linear batch-and-halt) is Rhythm-grounded and
+Dewey-informed reasoning about how to build a scheduler well. The
+*specific numbers* — chunk size, rotation interval, how many chunks make a
+full cycle — are engineering choices sized against the Vercel Hobby
+60-second function budget and the measured per-symbol scan cost
+(`FULL_UNIVERSE_TOP`'s own doc comment), not derived from any Gann source
+or cycle-theory literature. Framing shapes the design. It does not source
+the numbers. Do not let a future session read "time-anchored, phase-
+resuming" as a claim that the rotation cadence itself is Gann-derived —
+it isn't, and it doesn't need to be to be good engineering.
+
+**Standing instruction going forward:** before designing any new recurring
+platform process — a cron cadence, a rescanning loop, a rotation, a
+retry/backoff schedule — ask whether a linear "run once and stop" or "drain
+and halt" shape is actually right, or whether the process is naturally
+cyclical (the market it serves never stops cycling either) and should be
+built as a returning wheel instead. Say which, in the module's own header,
+the same way `lib/gann/entryTrigger.ts` states its three-question Gann/
+cycle-theory/Hermetic design basis.
+
+## Three-question mandate — the lens work is reasoned through, every session
+
+Project owner direction, 2026-09-23, standing indefinitely; clarified
+2026-09-23. This is not a checklist bolted onto finished work and it is not
+a gate — it is the **framework, the core, the structure**: the lens a
+session conceives of and reasons through a concept with, from the moment
+the idea forms, not a compliance step applied after the shape of the thing
+is already decided. Read the three questions below in that spirit — as the
+soul/source the platform is designed and reasoned through, not as boxes to
+tick once a design is finished.
+
+**Why this exists — the motivating precedent.** A prior session proposed a
+concept carrying an implicit linear, discrete-step assumption baked into
+its design — the kind of default a mind reaches for without noticing it
+has reached for it. The project owner was the one who caught it and
+redirected the session toward a continuous scanning function instead; the
+session then went back and confirmed the correction against its own notes.
+Nothing about that idea was Gann-adjacent in the narrow, criteria-and-scoring
+sense, and nothing about it was a citation problem — it was a *reasoning*
+problem: a linear-thinking default slipped into a concept because nobody
+was holding a lens up to it while it was still being conceived, only after
+it had already taken a shape. This is recorded here the same way
+`harmonicProximity`'s stale anchor and the ADX incident are recorded
+elsewhere in this file — as a concrete, worked example of a failure mode,
+not a hypothetical one — because the mandate exists specifically to catch
+this class of mistake *before* it becomes a feature, not to audit it after.
+
+Ask and answer these three questions — in writing, where the work lands
+(module header, PR description, or the session's reply) — while conceiving
+of and reasoning about a concept, in this order:
+
+1. **How does Gann's own methodology best ground or improve this?** Cite
+   the source and tier in `docs/GANN_HISTORICAL_SOURCES.md`.
+2. **How does Dewey's and Tomes' work on cycles best inform this?** Where
+   the component makes any claim about periodicity or recurrence, run
+   Dewey's seven-item checklist explicitly (dominance, regularity of
+   timing, repetition count, constancy of period, phase-resumption after
+   distortion, wave-shape identity, cross-series clustering) and state
+   which items were cleared and which were not.
+3. **Which Hermetic principle does this best express** — Mentalism,
+   Correspondence, Vibration, Polarity, Rhythm, Cause and Effect, or
+   Gender — and does that framing change the design?
+
+This is a **reasoning and design discipline**, not a new evidentiary
+standard, and it is emphatically not a gating mechanism: it does not exist
+to unlock or move thresholds, weights, or gates, and it does not relax the
+citation discipline set out under "Hermetic principles & cycle theory"
+above. Hermetic framing and cycle-theory literature shape *how* a
+component is designed and reasoned about; they cannot, on their own, move
+a threshold, a weight, or a gate. Only a citable Gann source (per "WD Gann
+precedence" and "Gann-derived AND measured" above) or a measured result
+(`lib/validation/criteria-registry.ts`) can do that. Applying this mandate
+must not be read as license to smuggle in unsourced numerology, astrology,
+or cycle claims that haven't cleared Dewey's checklist — those still stay
+confluence-only and non-gating, per the existing rule.
+
+**Scope: platform-wide, not Gann-adjacent-only.** All three questions apply
+to every feature, function, and future update on this platform —
+scoring/criteria/Gann-technical surfaces, yes, but equally UI/UX,
+functionality, interface design, copy, onboarding, everything with a
+product-facing shape. A prior framing of this section scoped it to
+Gann-adjacent work only (new or audited criteria, scoring, level
+construction, entry/exit/risk logic, lifecycle, charting, education copy);
+that framing was too narrow and is corrected here. Where question 1 (Gann
+sourcing) genuinely doesn't apply to a given surface — pure UI/UX work,
+novice-vs-pro interface design, and similar cases where there is no Gann
+technique to cite — questions 2 (cycle theory) and 3 (Hermetic principles)
+still apply and should be worked through; question 1's inapplicability
+does not excuse the other two. The one true exemption is work with no
+product-facing shape at all — a build fix, a typo, a dependency bump, pure
+infra with no design decision embedded in it — and that exemption should
+be stated plainly rather than assumed: say "this has no product-facing
+shape, the mandate does not apply" instead of silently skipping it or
+padding an answer to appear compliant.
+
+**Worked example: the novice-friendly-yet-expert-depth interface design
+goal.** This platform's goal of an interface that is approachable to a
+novice while still carrying expert-level depth is a worked example of
+**Polarity** (Hermetic principle, Emerald Tablet): two poles of the same
+spectrum, novice and expert, held together in one coherent design — not a
+tradeoff where one pole is chosen at the other's expense, and not a
+compromise that dilutes both. It is also read through **Rhythm** and
+cycle theory — specifically the technology adoption/product life-cycle
+pattern (innovators through laggards, and the maturity/decline phase that
+typically follows). GSPS's stance toward that pattern is to observe and
+respect its actual behavior — its phases, its rhythm — without accepting
+the pattern's typical terminal decline/obsolescence phase as inevitable
+for this platform. The intent is not exemption from the cycle; it is
+persistence *through* correctly adhering to whatever the pattern's real
+underlying rule turns out to be, the same way a Gann technique is
+implemented by translating its disclosed rule faithfully rather than by
+declaring the rule optional. Treat this the way `lib/gann/entryTrigger.ts`
+treats the three questions for a code module — stated in place, not
+assumed.
+
+This section is what makes the mandate durable across sessions: it is
+checked into the repository and loaded by every session via
+`CLAUDE.md` → `AGENTS.md`, the same mechanism that already carries every
+other standing principle in this file. A session has no means to reach
+into a different, already-completed session and retroactively change what
+it did; a request to audit specific past work should name the PRs or
+commits, and that audit should be run — and recorded here or in the
+relevant doc — going forward, not assumed to have happened automatically.
+
 ## Temporary overrides — mandatory, check on every session
 
 These are explicit, user-directed departures from the protocol's real design, made for a stated
