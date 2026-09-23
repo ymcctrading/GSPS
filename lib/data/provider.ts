@@ -172,15 +172,29 @@ export async function fetchAllTimeframes(
       ? null
       : new Date(now - 16 * 60 * 1000);
 
+  // The fixed "hourly" slot and an `executionTimeframe` of "1Hour" (as under
+  // the temporary EXECUTION_TIMEFRAME override -- see AGENTS.md) are the same
+  // series. Fetching both separately doubled a network round-trip for
+  // identical data; when they coincide, fetch once with a window wide enough
+  // for both needs and reuse it. Reverting the override to "15Min" (its real
+  // design) restores the original two-fetch behavior automatically -- no
+  // separate cleanup needed here.
+  const executionIsHourly = executionTimeframe === "1Hour";
+  const hourlyLookbackDays = executionIsHourly
+    ? Math.max(30, executionLookbackDays(executionTimeframe))
+    : 30;
+
   const [monthly, weekly, daily, hourly, execution] = await Promise.all([
     provider.fetchBars(symbol, "1Month", yearsAgo(10), end, assetClass),
     provider.fetchBars(symbol, "1Week", yearsAgo(5), end, assetClass),
     provider.fetchBars(symbol, "1Day", yearsAgo(1), end, assetClass),
-    provider.fetchBars(symbol, "1Hour", daysAgo(30), end, assetClass),
-    provider.fetchBars(symbol, executionTimeframe, daysAgo(executionLookbackDays(executionTimeframe)), end, assetClass),
+    provider.fetchBars(symbol, "1Hour", daysAgo(hourlyLookbackDays), end, assetClass),
+    executionIsHourly
+      ? Promise.resolve(null)
+      : provider.fetchBars(symbol, executionTimeframe, daysAgo(executionLookbackDays(executionTimeframe)), end, assetClass),
   ]);
 
-  return { monthly, weekly, daily, hourly, execution };
+  return { monthly, weekly, daily, hourly, execution: executionIsHourly ? hourly : (execution ?? []) };
 }
 
 export interface AllTimeframeBars {
@@ -216,28 +230,40 @@ export async function fetchAllTimeframesBatch(
   const daysAgo = (n: number) => new Date(now - n * 24 * 3600 * 1000);
   const end = provider.isLive ? new Date(now - 16 * 60 * 1000) : null;
 
+  // See the matching comment in `fetchAllTimeframes` above -- same
+  // deduplication, batched form. A widened universe makes this one
+  // batched request (not five per symbol) that gets skipped, so the saving
+  // scales with `symbols.length` the way every other timeframe here does.
+  const executionIsHourly = executionTimeframe === "1Hour";
+  const hourlyLookbackDays = executionIsHourly
+    ? Math.max(30, executionLookbackDays(executionTimeframe))
+    : 30;
+
   const [monthly, weekly, daily, hourly, execution] = await Promise.all([
     provider.fetchBarsBatch(symbols, "1Month", yearsAgo(10), end, "us_equity"),
     provider.fetchBarsBatch(symbols, "1Week", yearsAgo(5), end, "us_equity"),
     provider.fetchBarsBatch(symbols, "1Day", yearsAgo(1), end, "us_equity"),
-    provider.fetchBarsBatch(symbols, "1Hour", daysAgo(30), end, "us_equity"),
-    provider.fetchBarsBatch(
-      symbols,
-      executionTimeframe,
-      daysAgo(executionLookbackDays(executionTimeframe)),
-      end,
-      "us_equity",
-    ),
+    provider.fetchBarsBatch(symbols, "1Hour", daysAgo(hourlyLookbackDays), end, "us_equity"),
+    executionIsHourly
+      ? Promise.resolve(null)
+      : provider.fetchBarsBatch(
+          symbols,
+          executionTimeframe,
+          daysAgo(executionLookbackDays(executionTimeframe)),
+          end,
+          "us_equity",
+        ),
   ]);
 
   for (const symbol of symbols) {
     const sym = symbol.toUpperCase();
+    const hourlyBars = hourly.get(sym) ?? [];
     out.set(symbol, {
       monthly: monthly.get(sym) ?? [],
       weekly: weekly.get(sym) ?? [],
       daily: daily.get(sym) ?? [],
-      hourly: hourly.get(sym) ?? [],
-      execution: execution.get(sym) ?? [],
+      hourly: hourlyBars,
+      execution: executionIsHourly ? hourlyBars : (execution?.get(sym) ?? []),
     });
   }
   return out;

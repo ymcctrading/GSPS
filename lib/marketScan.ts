@@ -125,11 +125,16 @@ async function resolveUniverse(universeTop: number): Promise<string[]> {
  * `LARGE_CAP_UNIVERSE` from ~500 to ~770 names (see
  * lib/scan/large-cap-universe.ts) — the combined fallback pool (MAG7 + sector
  * watchlists + the large-cap list) now sits around 800-820 unique symbols, and
- * 750 would have silently clipped it. The coarse pass batches bars in chunks of
- * 100 symbols fired concurrently (`fetchBarsBatch`), so wall-clock cost scales
- * with the slowest chunk's latency, not the chunk count — but that is an
- * architectural expectation, not a measurement. Confirm actual run time on a
- * live deploy against the 60s ceiling before trusting this in the daily cron.
+ * 750 would have silently clipped it.
+ *
+ * This is only a backstop, not a claim that the coarse pass is safe anywhere
+ * near it — `runMarketScan`'s own `universeTop` default was pulled back to
+ * 250 on 2026-09-22 after a live run at 700 blew the 60s ceiling; see that
+ * default's doc comment for the actual measured timing. "Wall-clock cost
+ * scales with the slowest chunk's latency, not the chunk count" turned out to
+ * be wrong in practice — the coarse fetch scaled visibly with symbol count.
+ * Don't raise `universeTop` toward this ceiling without a fresh timed run
+ * confirming headroom first.
  */
 export const MAX_COARSE_UNIVERSE = 1000;
 
@@ -150,12 +155,45 @@ export const MAX_COARSE_UNIVERSE = 1000;
  * universe): both paths score identically, but the scheduled scan was
  * drawing from a much smaller, actives-biased pool.
  *
- * Set well under `MAX_COARSE_UNIVERSE` (750) — see that constant's own
+ * 2026-09-22 CORRECTION: this was set to 700 on the architectural belief that
+ * the coarse pass's cost scales with request *chunks*, not `universeTop`
+ * directly — untested, and wrong, for a reason findable in the code: chunk
+ * requests aren't actually all fired at once. `fetchBarsBatch`'s
+ * `CHUNK_CONCURRENCY = 3` (lib/data/alpaca.ts, added the same week to stop
+ * an unrelated rate-limit crash) throttles chunks to 3 at a time, and each
+ * 100-symbol daily-bar chunk needs multiple sequential pages of its own
+ * (100 symbols x ~252 trading days exceeds Alpaca's 10,000-row page limit —
+ * see `BATCH_CHUNK`'s comment). 700 symbols is ~7 chunks, i.e. 3 waves; 250
+ * is ~3 chunks, one wave — so this doesn't just reduce total work, it
+ * removes whole serialized waves.
+ *
+ * A live production run at 700 confirmed the cost: `POST /api/market-scan`
+ * 504'd at Vercel's 60s ceiling. The `[market-scan]` stage breadcrumbs
+ * (lib/marketScan.ts's `mark()` calls) from that run: universe resolution
+ * 10ms, coarse batch bar fetch **23.1s**, coarse scoring 75ms, full-pass
+ * batch bar fetch (only 50 shortlisted symbols) a further **25.9s** — ~49s
+ * spent fetching before a single full score was computed, then the timeout
+ * with no results persisted. The full pass's own fetch was independently
+ * expensive too — partly `fetchAllTimeframesBatch` fetching `1Hour` bars
+ * twice under the temporary `EXECUTION_TIMEFRAME=1Hour` override (see
+ * AGENTS.md), fixed in lib/data/provider.ts, but that fix alone is unproven
+ * sufficient on its own.
+ *
+ * Pulled back to 250 as a conservative, data-informed interim value — one
+ * coarse-fetch wave instead of three, with real margin left even before
+ * crediting the dedup fix's savings. Still 2.5x the original 100-symbol
+ * default that motivated introducing this
+ * constant. **Do not raise this again on architectural reasoning alone** —
+ * that produced both this outage and the 700 value it replaced. Raising it
+ * needs a fresh live-timed run (the `mark()` breadcrumbs above) confirming
+ * actual headroom first.
+ *
+ * Set well under `MAX_COARSE_UNIVERSE` (1000) — see that constant's own
  * comment on why the coarse pass is affordable at this size (batched
  * fetches, not one request per symbol) and what re-checking a further raise
  * would require.
  */
-export const FULL_UNIVERSE_TOP = 700;
+export const FULL_UNIVERSE_TOP = 250;
 
 /**
  * Apply the caller's budget, then the hard ceiling.
@@ -599,30 +637,18 @@ const SHORTLIST_MULTIPLE = 4;
 const CONTINUATION_DEADLINE_MS = 42_000;
 
 /**
- * `universeTop`/`perSide` at full breadth are safe again now that the coarse,
- * full, and continuation passes batch-fetch bars for the whole shortlist in a
- * handful of requests (`fetchBarsBatch` / `fetchAllTimeframesBatch`) instead
- * of one request per symbol per timeframe — the ~700-request version of this
- * scan was what blew through Vercel Hobby's 60s function ceiling, not the
- * universe size itself. See `app/api/market-scan/route.ts` for the ceiling
- * this now comfortably fits inside.
- *
- * `universeTop` default raised from 100 to 900 so a run actually reaches the
- * whole combined fallback pool (MAG7 + sector watchlists + the ~770-symbol
- * `LARGE_CAP_UNIVERSE`, roughly 800-820 unique names after de-duping) instead
- * of coarse-filtering only the first 100 of it — see
- * lib/scan/large-cap-universe.ts for that list's own refresh. The coarse pass
- * cost scales with request *chunks* (100 symbols each, all fired
- * concurrently), not with `universeTop` directly, so this is 2 timeframes x
- * ~9 chunks = ~18 parallel requests instead of ~2, still well under Alpaca's
- * ~200 req/min (docs/THIRD_PARTY_LIMITS.md) for a single run. Every caller
- * that takes this default — the 08:30/17:30 ET crons
- * (app/api/market-scan/route.ts) and the 06:00/09:15 ET GitHub Actions scans
- * (lib/entitlements/scheduled-scan.ts) — widens together; none of the four
- * runs overlap in time, so their per-minute budgets don't stack.
+ * `universeTop` defaults to `FULL_UNIVERSE_TOP` — see that constant's own
+ * comment for the full history (including the 2026-09-22 production timeout
+ * that corrected it from an untested 700/900 down to a measured-safe 250).
+ * A bare literal here, independent of `FULL_UNIVERSE_TOP`, is exactly how
+ * this drifted out of sync with reality before: every real caller
+ * (`app/api/market-scan/route.ts`, `lib/entitlements/scheduled-scan.ts`)
+ * already passes `FULL_UNIVERSE_TOP` explicitly, so this default only
+ * matters to a caller that doesn't — and it should never quietly diverge
+ * from the number those callers use.
  */
 export async function runMarketScan(
-  universeTop = 900,
+  universeTop = FULL_UNIVERSE_TOP,
   perSide = 15,
   /**
    * `getUniversePolicy()`-resolved Market Universe thresholds, resolved once
