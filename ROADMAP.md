@@ -1156,7 +1156,20 @@ ecosystem. 300+ paying users, $50k+ MRR.
   procedure, not a scheduled job: the first step (moving the Vercel env var)
   can't be automated from inside the app, so a human has to drive rotation
   regardless — the same reasoning key rotation of this kind generally
-  follows. No code changed for this item. Rate-limit hardening — still open.
+  follows. No code changed for this item. Rate-limit hardening — **partial,
+  2026-09-23**: every `/api` route already sat behind `proxy.ts`'s blanket
+  limiter (120/min default, 20/min for market-data-hitting scan routes) —
+  broader coverage than "still open" implied. The real gap: no tier below
+  that blanket default for the one class of route it's genuinely too loose
+  for — `POST /api/alpaca/connect-live` (submits a broker API key/secret to
+  be verified against Alpaca), exactly the shape an attacker would hammer to
+  test stolen/guessed credentials or abuse Alpaca's API quota from GSPS's
+  own IP. New tighter tier (5/min) for that route and `/api/snaptrade/
+  connect`. Left "partial" rather than "done": this is still `lib/
+  rate-limit.ts`'s documented Hobby-tier stopgap (in-memory, per serverless
+  instance — the shared Redis store is the same Q2 dependency as the
+  caching work above), and a broader audit of which other routes deserve
+  their own tier wasn't attempted here.
 - **Q2** — Penetration testing; SOC 2 Type I kickoff.
 - **Q3** — SOC 2 Type I completion; compliance dashboard and audit log exports.
 - **Q4** — SOC 2 Type II; GDPR and privacy controls; best-execution docs.
