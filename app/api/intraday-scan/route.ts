@@ -42,6 +42,7 @@ import { atr } from "@/lib/analysis/pivots";
 import { equitySession, etParts } from "@/lib/market/session";
 import { readLiquidity } from "@/lib/scan/liquidity";
 import { sendAlertEmail } from "@/lib/notifications/resend-handler";
+import { withTimeout } from "@/lib/utils";
 import {
   DEFAULT_CONFIG,
   WATCHLIST,
@@ -169,7 +170,14 @@ export async function GET(req: NextRequest) {
     : await loadPriorAlerts(supabase as Supabase, universe.map((u) => u.symbol), now);
 
   const inputs = await mapWithConcurrency(universe, 4, async (entry) =>
-    buildInput(entry, todayEt, provider, priorAlerts.get(entry.symbol) ?? [], now),
+    withTimeout(
+      buildInput(entry, todayEt, provider, priorAlerts.get(entry.symbol) ?? [], now),
+      15_000,
+      `buildInput for ${entry.symbol}`
+    ).catch((err) => {
+      console.error(`[intraday-scan] buildInput failed for ${entry.symbol}:`, err);
+      return null;
+    }),
   );
 
   const resolved = inputs.filter((i): i is SymbolInput => i !== null);
@@ -772,6 +780,11 @@ async function notifySubscribedUsers(supabase: ServiceSupabase, alerts: Alert[])
         symbol: alert.symbol,
         direction,
         score,
+        // This alert's own 0-9 confidence scale, already a whole number
+        // (`Math.round` above) — unlike lib/scoring/weights.ts's protocol
+        // score, there's no fractional value to hide from a Novice/Pro
+        // viewer, so the tier split doesn't apply here.
+        exactScoreDisplayEnabled: true,
         entry: alert.move.current,
         stopLoss: alert.invalidation ?? alert.move.current,
         takeProfit: alert.continuationPlan.firstTarget ?? alert.move.current,

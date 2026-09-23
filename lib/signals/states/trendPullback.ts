@@ -35,7 +35,6 @@ export interface TrendPullbackInputs {
   vwapAnchorIndex: number;
   gates: SignalGates;
   /** Optional evidence only — never a sole signal. */
-  trendOverlayFlips?: number;
   /** Configured number of completed operating-timeframe bars before the signal expires unfilled. */
   expiryBars?: number;
   regimeOverrides?: Partial<RegimeInputs>;
@@ -65,7 +64,6 @@ export function evaluateTrendPullback(inputs: TrendPullbackInputs): SignalVerdic
     executionBars,
     vwapAnchorIndex,
     gates,
-    trendOverlayFlips = 0,
     expiryBars = DEFAULT_EXPIRY_BARS,
     regimeOverrides,
     approvedZoneToleranceAtr = DEFAULT_ZONE_TOLERANCE_ATR,
@@ -78,7 +76,7 @@ export function evaluateTrendPullback(inputs: TrendPullbackInputs): SignalVerdic
     return { status: "disqualified", state, disqualifiers };
   }
 
-  const regime = classifyRegime({ bars: htfBars, trendOverlayFlips, ...regimeOverrides });
+  const regime = classifyRegime({ bars: htfBars, ...regimeOverrides });
   const higherTimeframeBullish =
     regime.regime === "trend" && regime.direction === direction && regime.disqualifiers.length === 0;
 

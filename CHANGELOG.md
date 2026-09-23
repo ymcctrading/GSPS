@@ -7,6 +7,91 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-09-23
+
+### Fixed
+- **Chart bar fetches were failing with a 400 on every sub-daily timeframe
+  again** (`Alpaca market data request failed (400): {"message":"unexpected
+  query parameter(s): extended_hours"}`, visible directly on the ticker page).
+  `lib/data/alpaca.ts`'s `barsRequest` had regained an `extended_hours=true`
+  query param on Alpaca's `/v2/stocks/bars` call — the exact regression
+  already diagnosed and removed on 2026-08-17 ("it's an order-placement
+  field, not a bars-query one"), reintroduced since. Removed the param again
+  and documented, inline, why it must not come back a third time; the chart's
+  "Extended hours" checkbox already works by filtering client-side, so no
+  opt-in query param was ever needed for the free IEX feed's intraday bars.
+- **A chart could fail to load with no message at all** ("This page couldn't
+  load" in the browser chrome, not an app-rendered error), intermittent and
+  hard to reproduce. Root cause: `lib/data/http.ts`'s shared per-provider
+  `RateLimiter.acquire()` had no deadline. Since the prior day's change to
+  run the market scan every 15 minutes throughout market hours
+  (`.github/workflows/full-market-scan.yml`), that shared bucket can be
+  drained for extended stretches, and a concurrent chart load queuing for a
+  token could wait past Vercel's 60s function `maxDuration` and get
+  hard-killed with no HTTP response — which a phone browser reports as a
+  bare connection failure rather than this app's own graceful
+  rate-limit message. Bounded the wait (`queueTimeoutMs`, 12s default) so a
+  queued request always fails fast with the existing `MarketDataError(429)`
+  message instead of hanging silently.
+
+### Changed
+- **Scheduled-scan cadence corrected to match actual market hours**,
+  project-owner direction: `morning-preparation-scan.yml` moved from 6:00 AM
+  to 6:30 AM ET (more real time to react to pre-market moves before the
+  8:30 AM run); `full-market-scan.yml`'s 15-minute cadence trimmed from a
+  09:30 AM–6:00 PM ET window to 09:30 AM–4:00 PM ET, since equities cannot
+  move once the regular session closes (`lib/market/session.ts`'s `CLOSE`
+  constant); the native `vercel.json` `/api/market-scan` cron moved from
+  17:30 ET to 20:00 ET to cover the close of the after-hours/extended-trading
+  window instead of an arbitrary post-close time. The existing 9:15 AM,
+  11:00 AM, and 2:00 PM scheduled scans are unchanged — despite also falling
+  within (or near) the 15-minute cadence's window, they run through a
+  separate entitlement fan-out pipeline (`lib/entitlements/scheduled-scan.ts`)
+  that delivers notifications per user tier, which the plain dashboard-refresh
+  cadence never does; conflating the two would have silently dropped three
+  scheduled notification checkpoints. `intraday-scan.yml`'s weekend/off-hours
+  schedule is also unchanged — it exists specifically to scan BTC/USD and
+  ETH/USD, which already trade 24/7, not to re-run the equity scan outside
+  market hours.
+
+## 2026-09-10 (sixth follow-up)
+
+### Added
+- **Live scan pipeline wiring for four of `0064`'s blueprint-named tables**
+  (`bar`, `instrument_profile`, `volume_state`, `volatility_state`) — direct
+  follow-up request. `lib/learning/record.ts`'s `recordScanVerdict` now
+  writes all four from values `lib/scanTicker.ts` already computes, nothing
+  fetched or derived just to fill a column:
+  - `bar` — the last 5 of `ScanResult.dailyBars`, upserted with
+    `ignoreDuplicates` so a repeat scan of the same symbol is a cheap no-op
+    rather than a resend of the whole fetched window (`upsertBars`,
+    `lib/learning/db.ts`).
+  - `instrument_profile` — `avg_dollar_volume` only, from
+    `ScanResult.liquidity`. Sector/industry/market cap/float stay unset — no
+    data source for any of them exists anywhere in this pipeline.
+  - `volume_state` — `relative_volume_index`, from
+    `lib/signals/indicators.ts`'s existing `relativeVolume` against the same
+    daily bars (`ScanResult.volumeRead`).
+  - `volatility_state` — `atr` plus a `volatility_regime` bucketed from the
+    recent-ATR/baseline-ATR expansion ratio `momentumElevated` is already
+    computed from (`ScanResult.volatilityRead`). `atr_percentile` stays
+    unset — the ratio is a real expansion/contraction read, not a formal
+    statistical percentile, and labeling it as one would be dishonest.
+  - `ScanResult` gained `dailyBars`/`volatilityRead`/`volumeRead`
+    (`lib/types.ts`), populated in `lib/scanTicker.ts`. `dailyBars` is
+    internal-only — `redactScanResult` (`lib/scoring/public-summary.ts`)
+    strips it at the API boundary, same treatment as `decision.breakdown`;
+    it's bulk data carried only so the recorder can persist it without a
+    second fetch, not a public response field. `volatilityRead`/`volumeRead`
+    are small derived numbers and stay public, same as `liquidity` already
+    is.
+  - `corporate_action` (no splits/dividends data source exists anywhere in
+    this codebase), `feature_registry`/`experiment_registry` (governance/
+    research catalogs, not per-scan writes) and `backtest_run` (belongs to
+    the `lib/backtest/*` CLI tool, which has no per-user-scoped concept, not
+    the live scan pipeline) are deliberately not wired from here — see
+    `supabase/AGENTS.md`'s updated table inventory.
+
 ## 2026-09-10 (fifth follow-up)
 
 ### Added

@@ -63,6 +63,14 @@ export const LARGE_CAP_MAX_STOP_ATR_MULTIPLE = 3.5;
 export const TP1_MULTIPLE_BY_ASSET: Record<AssetClass, number> = {
   us_equity: 1.5,
   crypto: 1.5,
+  // Placeholder pending a real commodities feed (lib/data/commodity.ts) — no
+  // trade has ever been placed against this asset class, so there's nothing
+  // to derive a commodity-specific multiple from yet. Mirrors us_equity
+  // rather than inventing a number; revisit once real data/trades exist.
+  // Three-question mandate (AGENTS.md): a type-completeness filler with zero
+  // supporting data is not a design decision to reason through yet — the
+  // mandate applies once a real commodity multiple is actually chosen.
+  commodity: 1.5,
 };
 
 /**
@@ -72,6 +80,8 @@ export const TP1_MULTIPLE_BY_ASSET: Record<AssetClass, number> = {
 export const TP2_MULTIPLE_BY_ASSET: Record<AssetClass, number> = {
   us_equity: 2.5,
   crypto: 3.0,
+  // Same placeholder rationale as TP1_MULTIPLE_BY_ASSET above.
+  commodity: 2.5,
 };
 
 /**
@@ -189,11 +199,50 @@ export interface EquityTradeLevels {
 }
 
 /**
+ * How close two structural levels must sit (as a percent of their own
+ * average) before they're treated as "the same" resistance point rather than
+ * two separate ones.
+ */
+const NEARBY_LEVEL_TOLERANCE_PCT = 1.0;
+
+/**
+ * Combine structural levels that sit within `NEARBY_LEVEL_TOLERANCE_PCT` of
+ * each other into a single averaged level — `How to Make Profits Trading in
+ * Commodities` (A8, `docs/GANN_HISTORICAL_SOURCES.md`)'s disclosed
+ * "resistance points near same levels" technique: "when two nearby
+ * resistance levels cluster, average them into one combined support/
+ * resistance point," rather than treating a clustered S/R level, a fan line,
+ * and a Square-of-9 price that all happen to sit within a percent of each
+ * other as three separate, competing candidates. Added 2026-09-16 per
+ * `docs/GANN_PLATFORM_AUDIT.md` Part 4 item 3 / AGENTS.md's "WD Gann
+ * precedence" principle — his literal cents-based "lost motion" stop-buffer
+ * number (the same A8 passage) is deliberately NOT ported here: that figure
+ * is dimensionally a 1930s-commodity number (cents per bushel), not an
+ * equity percentage, and porting its raw magnitude across asset class and
+ * era would be a guess dressed up as a derivation. This clustering rule is
+ * the one part of the same disclosed passage that transfers cleanly with no
+ * unit conversion required.
+ */
+function combineNearbyLevels(levels: number[]): number[] {
+  if (levels.length === 0) return [];
+  const sorted = [...levels].sort((a, b) => a - b);
+  const clusters: number[][] = [[sorted[0]]];
+  for (let i = 1; i < sorted.length; i++) {
+    const current = clusters[clusters.length - 1];
+    const mean = current.reduce((s, p) => s + p, 0) / current.length;
+    if ((Math.abs(sorted[i] - mean) / mean) * 100 <= NEARBY_LEVEL_TOLERANCE_PCT) current.push(sorted[i]);
+    else clusters.push([sorted[i]]);
+  }
+  return clusters.map((c) => c.reduce((s, p) => s + p, 0) / c.length);
+}
+
+/**
  * Nearest structural level on the trade's favorable side (support under a
  * long, resistance above a short) that lands inside [minPct, maxPct] of
  * entry. Callers pass only clustered historical S/R here — see
  * `computeEquityTradeLevels`'s `structuralLevels` param for why Gann-derived
  * targets are deliberately excluded from this search as of 2026-09-15.
+ * Nearby levels are combined first — see `combineNearbyLevels`.
  */
 function nearestStructuralStop(
   entry: number,
@@ -204,7 +253,7 @@ function nearestStructuralStop(
 ): number | null {
   let best: number | null = null;
   let bestDist = Infinity;
-  for (const level of structuralLevels) {
+  for (const level of combineNearbyLevels(structuralLevels)) {
     const onFavorableSide = side === "long" ? level < entry : level > entry;
     if (!onFavorableSide) continue;
     const distPct = (Math.abs(entry - level) / entry) * 100;
@@ -377,8 +426,40 @@ export function computeStopWithLeeway(params: {
   return sl;
 }
 
+/**
+ * The minimum an entry rule must supply to price a trade: a direction, the
+ * price that arms it, and the structural stop behind it.
+ *
+ * Widened from `StratPattern` to this on 2026-09-17 so the trade plan is
+ * priced from Gann's own entry rule (`lib/gann/entryTrigger.ts` — crossing an
+ * old swing top/bottom plus the "lost motion" allowance) rather than from the
+ * bar-sequence pattern's trigger. `StratPattern` still satisfies this shape
+ * structurally, which is what keeps the existing tests meaningful, but the
+ * live scan and the replay now both pass a `GannEntryTrigger`.
+ *
+ * Nothing else in this function changed: it only ever read `direction`,
+ * `triggerPrice` and `stopPrice` off its first argument. Naming that
+ * explicitly is the point — the dependency was on three numbers, not on
+ * STRAT, and the old signature hid that.
+ */
+export interface EntrySource {
+  direction: "bullish" | "bearish";
+  /** The price that must be exceeded for the trade to trigger. */
+  triggerPrice: number;
+  /** Structural stop behind the trigger. */
+  stopPrice: number;
+  /**
+   * Short, user-facing name for the setup, used in the invalidation copy.
+   * Optional because the two sources name themselves differently: a
+   * bar-sequence pattern has a glossary term keyed by `name`, while a
+   * swing-crossing trigger is described by what it crossed. When absent,
+   * `buildPivotPlan` falls back to a neutral phrase rather than inventing one.
+   */
+  setupLabel?: string;
+}
+
 export function computeTradeLevels(
-  pattern: StratPattern,
+  pattern: EntrySource,
   previousBar: Bar,
   gannTargets: number[],
   optionPremium?: number,
@@ -574,13 +655,17 @@ export function computeTradeLevels(
  * honest about what this timeframe actually knows, rather than fabricating
  * a level nothing in the pattern supports.
  */
-function buildPivotPlan(pattern: StratPattern, stopLoss: number, entry: number): PivotPlan {
+function buildPivotPlan(pattern: EntrySource, stopLoss: number, entry: number): PivotPlan {
   const bullish = pattern.direction === "bullish";
   const opposite = bullish ? "bearish" : "bullish";
+  // "setup" is the neutral fallback: a trigger that isn't a named bar sequence
+  // still has a thesis to invalidate, and naming it something it isn't would
+  // be worse than naming it generically.
+  const label = pattern.setupLabel ?? "setup";
   return {
     confirmation:
-      `This ${pattern.direction} ${PATTERN_GLOSSARY_TERM[pattern.name].toLowerCase()} thesis is invalidated if price closes back through the stop at ${stopLoss.toFixed(2)}. ` +
-      `Even then, a ${opposite} trade needs its own evidence: a fresh pattern confirming in the ${opposite} direction, not just this one stopping out.`,
+      `This ${pattern.direction} ${label.toLowerCase()} thesis is invalidated if price closes back through the stop at ${stopLoss.toFixed(2)}. ` +
+      `Even then, a ${opposite} trade needs its own evidence: a fresh setup confirming in the ${opposite} direction, not just this one stopping out.`,
     invalidation: null,
     // Mirrors intraday's choice of VWAP (the level a reversal is expected to
     // retest first): here, that's the level the original thesis entered at.

@@ -88,7 +88,16 @@ const FALLBACK_UNIVERSE = Array.from(
   ]),
 ).filter((s) => !s.includes("/"));
 
-async function resolveUniverse(universeTop: number): Promise<string[]> {
+/**
+ * `extraSymbols` leads every concatenation below — ahead of both the actives
+ * screener and the curated fallback — so `capUniverse`'s post-dedup slice
+ * can never crowd them out regardless of `universeTop`. See its callers for
+ * what actually lands here: the currently-tracked (already-qualified)
+ * shortlist and the current universe-rotation discovery chunk, per
+ * `lib/scan/universe-rotation.ts` and AGENTS.md's "Cycles as architecture,
+ * not only scoring."
+ */
+export async function resolveUniverse(universeTop: number, extraSymbols: string[] = []): Promise<string[]> {
   try {
     const actives = await fetchMostActives(universeTop);
     // Union rather than either/or. The screener answers "what is busy today",
@@ -98,12 +107,12 @@ async function resolveUniverse(universeTop: number): Promise<string[]> {
     // volume is itself evidence, and the combined list is capped by the caller's
     // budget rather than here.
     if (actives.length > 0) {
-      return capUniverse([...actives, ...FALLBACK_UNIVERSE], universeTop);
+      return capUniverse([...extraSymbols, ...actives, ...FALLBACK_UNIVERSE], universeTop);
     }
   } catch {
     /* screener unavailable — fall back to the curated universe */
   }
-  return capUniverse(FALLBACK_UNIVERSE, universeTop);
+  return capUniverse([...extraSymbols, ...FALLBACK_UNIVERSE], universeTop);
 }
 
 /**
@@ -120,8 +129,80 @@ async function resolveUniverse(universeTop: number): Promise<string[]> {
  * growth is fine, silent unbounded growth is not. Raising it means re-checking
  * the scan's wall-clock time against the ceiling in
  * `app/api/market-scan/route.ts` first.
+ *
+ * Raised from 750 to 1000 alongside the large-cap universe refresh that took
+ * `LARGE_CAP_UNIVERSE` from ~500 to ~770 names (see
+ * lib/scan/large-cap-universe.ts) — the combined fallback pool (MAG7 + sector
+ * watchlists + the large-cap list) now sits around 800-820 unique symbols, and
+ * 750 would have silently clipped it.
+ *
+ * This is only a backstop, not a claim that the coarse pass is safe anywhere
+ * near it — `runMarketScan`'s own `universeTop` default was pulled back to
+ * 250 on 2026-09-22 after a live run at 700 blew the 60s ceiling; see that
+ * default's doc comment for the actual measured timing. "Wall-clock cost
+ * scales with the slowest chunk's latency, not the chunk count" turned out to
+ * be wrong in practice — the coarse fetch scaled visibly with symbol count.
+ * Don't raise `universeTop` toward this ceiling without a fresh timed run
+ * confirming headroom first.
  */
-export const MAX_COARSE_UNIVERSE = 750;
+export const MAX_COARSE_UNIVERSE = 1000;
+
+/**
+ * The `universeTop` every full-universe scheduled/cron scan should pass —
+ * every call site that exists to cover the whole big-cap universe (not a
+ * narrower on-demand or intraday one) uses this constant rather than its own
+ * number, so "how wide is a full scan" is answered in one place.
+ *
+ * Previously every one of these call sites left `universeTop` at
+ * `runMarketScan`'s bare default of 100 — which, per `resolveUniverse`
+ * below, is a pool of same-day "most actives" (often small, volatile names)
+ * unioned with the ~600-symbol `FALLBACK_UNIVERSE` and then capped to 100
+ * *before* the union is even sorted by relevance — so on a busy day the
+ * actives alone could fill the entire budget and the curated large-cap list
+ * was never reached at all. That is the dashboard-vs-manual-scan gap
+ * (Buy/Sell setups reading thinner than a manual Scan-tab run over the same
+ * universe): both paths score identically, but the scheduled scan was
+ * drawing from a much smaller, actives-biased pool.
+ *
+ * 2026-09-22 CORRECTION: this was set to 700 on the architectural belief that
+ * the coarse pass's cost scales with request *chunks*, not `universeTop`
+ * directly — untested, and wrong, for a reason findable in the code: chunk
+ * requests aren't actually all fired at once. `fetchBarsBatch`'s
+ * `CHUNK_CONCURRENCY = 3` (lib/data/alpaca.ts, added the same week to stop
+ * an unrelated rate-limit crash) throttles chunks to 3 at a time, and each
+ * 100-symbol daily-bar chunk needs multiple sequential pages of its own
+ * (100 symbols x ~252 trading days exceeds Alpaca's 10,000-row page limit —
+ * see `BATCH_CHUNK`'s comment). 700 symbols is ~7 chunks, i.e. 3 waves; 250
+ * is ~3 chunks, one wave — so this doesn't just reduce total work, it
+ * removes whole serialized waves.
+ *
+ * A live production run at 700 confirmed the cost: `POST /api/market-scan`
+ * 504'd at Vercel's 60s ceiling. The `[market-scan]` stage breadcrumbs
+ * (lib/marketScan.ts's `mark()` calls) from that run: universe resolution
+ * 10ms, coarse batch bar fetch **23.1s**, coarse scoring 75ms, full-pass
+ * batch bar fetch (only 50 shortlisted symbols) a further **25.9s** — ~49s
+ * spent fetching before a single full score was computed, then the timeout
+ * with no results persisted. The full pass's own fetch was independently
+ * expensive too — partly `fetchAllTimeframesBatch` fetching `1Hour` bars
+ * twice under the temporary `EXECUTION_TIMEFRAME=1Hour` override (see
+ * AGENTS.md), fixed in lib/data/provider.ts, but that fix alone is unproven
+ * sufficient on its own.
+ *
+ * Pulled back to 250 as a conservative, data-informed interim value — one
+ * coarse-fetch wave instead of three, with real margin left even before
+ * crediting the dedup fix's savings. Still 2.5x the original 100-symbol
+ * default that motivated introducing this
+ * constant. **Do not raise this again on architectural reasoning alone** —
+ * that produced both this outage and the 700 value it replaced. Raising it
+ * needs a fresh live-timed run (the `mark()` breadcrumbs above) confirming
+ * actual headroom first.
+ *
+ * Set well under `MAX_COARSE_UNIVERSE` (1000) — see that constant's own
+ * comment on why the coarse pass is affordable at this size (batched
+ * fetches, not one request per symbol) and what re-checking a further raise
+ * would require.
+ */
+export const FULL_UNIVERSE_TOP = 250;
 
 /**
  * Apply the caller's budget, then the hard ceiling.
@@ -426,6 +507,14 @@ export function isMomentumContinuation(
   if (!hasTradePlan(r) || r.direction !== direction || !r.momentumElevated) return false;
   if (r.pattern === null || !CONTINUATION_PATTERNS.has(r.pattern.name)) return false;
   const macro = r.trends.filter((t) => t.timeframe !== "1Hour");
+  // Considered switching to lib/gann/timeframeWeight.ts's power-ratio
+  // weighting here too (the same fix applied to lib/scanTicker.ts's
+  // macro-direction pattern preference) — reverted: this gate needs a
+  // *breadth* requirement (at least 2 of 3 macro timeframes actually
+  // confirming), which a pure weighted score doesn't provide, since one
+  // strongly-weighted timeframe alone would then satisfy it. Confirmed by
+  // lib/__tests__/trade-plan.test.ts's "does not count the hourly trend
+  // toward macro confirmation" case, which the weighted version broke.
   return macro.filter((t) => t.direction === direction).length >= 2;
 }
 
@@ -557,16 +646,18 @@ const SHORTLIST_MULTIPLE = 4;
 const CONTINUATION_DEADLINE_MS = 42_000;
 
 /**
- * `universeTop`/`perSide` at full breadth are safe again now that the coarse,
- * full, and continuation passes batch-fetch bars for the whole shortlist in a
- * handful of requests (`fetchBarsBatch` / `fetchAllTimeframesBatch`) instead
- * of one request per symbol per timeframe — the ~700-request version of this
- * scan was what blew through Vercel Hobby's 60s function ceiling, not the
- * universe size itself. See `app/api/market-scan/route.ts` for the ceiling
- * this now comfortably fits inside.
+ * `universeTop` defaults to `FULL_UNIVERSE_TOP` — see that constant's own
+ * comment for the full history (including the 2026-09-22 production timeout
+ * that corrected it from an untested 700/900 down to a measured-safe 250).
+ * A bare literal here, independent of `FULL_UNIVERSE_TOP`, is exactly how
+ * this drifted out of sync with reality before: every real caller
+ * (`app/api/market-scan/route.ts`, `lib/entitlements/scheduled-scan.ts`)
+ * already passes `FULL_UNIVERSE_TOP` explicitly, so this default only
+ * matters to a caller that doesn't — and it should never quietly diverge
+ * from the number those callers use.
  */
 export async function runMarketScan(
-  universeTop = 100,
+  universeTop = FULL_UNIVERSE_TOP,
   perSide = 15,
   /**
    * `getUniversePolicy()`-resolved Market Universe thresholds, resolved once
@@ -575,8 +666,25 @@ export async function runMarketScan(
    * constants, so every existing caller is unaffected.
    */
   universeThresholds: UniverseThresholds = DEFAULT_UNIVERSE_THRESHOLDS,
+  /**
+   * Symbols this run must include regardless of what the actives screener
+   * returns — see `resolveUniverse`'s own comment. Defaults to empty, so
+   * every existing caller is unaffected; `app/api/market-scan/route.ts` is
+   * the one caller that resolves and passes this (the currently-tracked
+   * shortlist union the current universe-rotation discovery chunk).
+   */
+  extraSymbols: string[] = [],
 ): Promise<MarketScanOutput> {
   const startedAt = Date.now();
+  // Temporary stage-timing breadcrumbs (2026-09-10) while the widened
+  // universeTop default (see this function's own doc comment above) is
+  // unverified against Vercel's 60s ceiling — a 504 kills the response
+  // before any JSON gets returned, so these are logged as each stage
+  // finishes rather than only reported at the end. Remove once the budget
+  // is confirmed safe on a live run, or replace with real telemetry.
+  const mark = (stage: string, extra?: string) =>
+    console.log(`[market-scan] ${stage} at +${Date.now() - startedAt}ms${extra ? ` (${extra})` : ""}`);
+
   // The trading date the scan describes, not the UTC date it happened to run
   // on. The two diverge between 20:00 ET and midnight — a post-close re-run
   // would otherwise be filed under tomorrow, and tomorrow would open showing
@@ -584,7 +692,8 @@ export async function runMarketScan(
   const scanDate = etDateKey(new Date());
   const provider = getMarketDataProvider();
 
-  const actives = await resolveUniverse(universeTop);
+  const actives = await resolveUniverse(universeTop, extraSymbols);
+  mark("resolveUniverse done", `${actives.length} symbols`);
 
   // Coarse pass — daily bars for trend/level context, plus a short window of
   // 4-hour bars so the continuation gate can judge the last 4 hours on their
@@ -603,6 +712,7 @@ export async function runMarketScan(
     provider.fetchBarsBatch?.(actives, "1Day", yearAgo, end, "us_equity") ?? null,
     provider.fetchBarsBatch?.(actives, "4Hour", recentWeeks, end, "us_equity") ?? null,
   ]);
+  mark("coarse batch bar fetch done", `daily=${dailyBatch?.size ?? "n/a"} 4h=${bars4hBatch?.size ?? "n/a"}`);
 
   const coarse = await mapWithConcurrency(actives, 8, async (symbol) => {
     try {
@@ -622,6 +732,7 @@ export async function runMarketScan(
       return { reversion: null, continuation: null, diagnostics: null };
     }
   });
+  mark("coarse scoring done");
 
   const byCoarseScore = (a: CoarseCandidate, b: CoarseCandidate) => b.coarseScore - a.coarseScore;
   const shortlist = coarse
@@ -638,9 +749,11 @@ export async function runMarketScan(
   // shortlist up front (five requests total) so each scanTicker call below is
   // just scoring, not a fresh five-request fetch per symbol.
   const shortlistBars = await fetchAllTimeframesBatch(shortlist.map((c) => c.symbol), EXECUTION_TIMEFRAME);
+  mark("full-pass batch bar fetch done", `shortlist=${shortlist.length}`);
   const full = await mapWithConcurrency(shortlist, 5, (c) =>
     scanTicker(c.symbol, undefined, undefined, shortlistBars.get(c.symbol.toUpperCase()), universeThresholds),
   );
+  mark("full-pass scanTicker scoring done");
   const valid = full.filter((r) => !r.error);
   const scanErrors = full.length - valid.length;
 

@@ -10,7 +10,7 @@ This specification is the server-authoritative product contract for GSPS plans, 
 
 | Capability | Novice | Pro | Expert | Wall Street |
 |---|---:|---:|---:|---:|
-| 6:00 AM ET Morning Preparation scan | Included | Included | Included | Included |
+| 6:30 AM ET Morning Preparation scan | Included | Included | Included | Included |
 | 9:15 AM ET confirmation scan | Included | Included | Included | Included |
 | Manual dashboard scans/day | 1 | 3 | 6 | Unlimited, fair use |
 | Guided scans/day | 1 | 2 | 6 | Unlimited, fair use |
@@ -39,7 +39,7 @@ This specification is the server-authoritative product contract for GSPS plans, 
 ## Quota semantics
 
 - A daily quota day is bounded by `America/New_York`.
-- The 6:00 AM ET Morning Preparation scan and 9:15 AM ET confirmation scan are automated system work. They do not consume a user’s manual-dashboard or guided-scan quota.
+- The 6:30 AM ET Morning Preparation scan and 9:15 AM ET confirmation scan are automated system work. They do not consume a user’s manual-dashboard or guided-scan quota.
 - A user-clicked dashboard scan consumes exactly one `manual_dashboard_scan` unit.
 - A guided scan consumes exactly one `guided_scan` unit.
 - A manual dashboard scan must not consume guided-scan quota, and a guided scan must not consume manual-dashboard quota.
@@ -63,7 +63,7 @@ The system must never fabricate or pad results. Hidden or ineligible setups must
 
 Eligible monitor sources are:
 
-- 6:00 AM Morning Preparation output
+- 6:30 AM Morning Preparation output
 - 9:15 AM confirmation output
 - Manual dashboard scans
 - Plan-authorized automated scans and watchlists
@@ -112,7 +112,7 @@ Every protected route, server action, background job, and notification worker mu
 
 ## Scheduling requirements
 
-The 6:00 AM ET and 9:15 AM ET system scans require trusted job authentication, schedule idempotency, ET-aware execution semantics, and a verified job-auth pattern. Scheduled scans are system work and must not debit manual-dashboard or guided-scan quota.
+The 6:30 AM ET and 9:15 AM ET system scans require trusted job authentication, schedule idempotency, ET-aware execution semantics, and a verified job-auth pattern. Scheduled scans are system work and must not debit manual-dashboard or guided-scan quota.
 
 ## Explicit non-goals
 
@@ -125,7 +125,7 @@ Implementation should proceed through independently reviewable pull requests in 
 1. Central server-only entitlement policy types and resolver with tests.
 2. Additive migration-managed usage ledger, scan execution records, visible result records, monitor registry, transition ledger, and notification delivery ledger with RLS.
 3. Manual dashboard quota enforcement and server-side result caps.
-4. Verified schedule support for 6:00 AM ET and 9:15 AM ET.
+4. Verified schedule support for 6:30 AM ET and 9:15 AM ET.
 5. Eligible monitor lifecycle and idempotent Watch → Execute notification delivery.
 6. Plan gates for automation, intraday scans, and backtests.
 7. Tests, lint, typecheck, build, and preview verification.

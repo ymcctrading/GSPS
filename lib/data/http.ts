@@ -84,17 +84,38 @@ class RateLimiter {
     this.lastRefill = now;
   }
 
-  async acquire(): Promise<void> {
+  /**
+   * Waits for a token, up to `deadline` (`Date.now()`-based). Unbounded
+   * waiting here was a real production bug: the 2026-09-22 change to run the
+   * market scan every 15 minutes during market hours (see
+   * `.github/workflows/full-market-scan.yml`) means this shared bucket can
+   * now be under near-continuous load all day, regardless of how many
+   * symbols any one run covers. A concurrent single-ticker chart load
+   * queuing here with no ceiling could wait past Vercel's 60s function
+   * `maxDuration` and get hard-killed with no HTTP response at all — which a
+   * browser reports as a bare connection failure ("This page couldn't
+   * load"), not as this app's own graceful rate-limit message. Bounding the
+   * wait converts that silent hang into the same clean, fast
+   * `MarketDataError` a live 429 would produce.
+   */
+  async acquire(deadline: number): Promise<void> {
     for (;;) {
       this.refill();
       if (this.tokens >= 1) {
         this.tokens -= 1;
         return;
       }
-      await sleep(Math.max((1 - this.tokens) / this.refillPerMs, 10));
+      if (Date.now() >= deadline) throw new QueueTimeoutError();
+      // Capped so a near-empty bucket (a slow refill relative to `deadline`)
+      // rechecks the deadline periodically instead of oversleeping well past it.
+      const wait = Math.max((1 - this.tokens) / this.refillPerMs, 10);
+      await sleep(Math.min(wait, 250));
     }
   }
 }
+
+/** Internal signal that a caller gave up waiting for a rate-limit token. */
+class QueueTimeoutError extends Error {}
 
 const limiters = new Map<string, RateLimiter>();
 function limiterFor(provider: string, ratePerMinute: number): RateLimiter {
@@ -121,6 +142,13 @@ export interface RetryOptions {
    * don't push the account over it. Set to 0 to disable throttling.
    */
   ratePerMinute?: number;
+  /**
+   * Ceiling on total time spent queued for a rate-limit token, across every
+   * attempt combined. Well under Vercel's 60s Hobby `maxDuration` so a caller
+   * always gets a real response — success or a clean error — instead of
+   * being hard-killed mid-queue. See `RateLimiter.acquire`'s doc comment.
+   */
+  queueTimeoutMs?: number;
 }
 
 /**
@@ -136,13 +164,26 @@ export async function fetchWithRetry(
   const baseDelay = opts.baseDelayMs ?? 400;
   const maxDelay = opts.maxDelayMs ?? 4000;
   const ratePerMinute = opts.ratePerMinute ?? 150;
+  const queueDeadline = Date.now() + (opts.queueTimeoutMs ?? 12_000);
 
   let lastStatus = 0;
   let lastBody = "";
   let lastRetryAfter: number | null = null;
 
   for (let attempt = 0; attempt <= retries; attempt++) {
-    if (ratePerMinute > 0) await limiterFor(opts.provider, ratePerMinute).acquire();
+    if (ratePerMinute > 0) {
+      try {
+        await limiterFor(opts.provider, ratePerMinute).acquire(queueDeadline);
+      } catch {
+        // Gave up waiting for a token — report it exactly like a live 429
+        // rather than hanging until the platform kills the function.
+        throw new MarketDataError(describe(opts.provider, 429, ""), {
+          status: 429,
+          provider: opts.provider,
+          retryAfterMs: null,
+        });
+      }
+    }
 
     let res: Response;
     try {

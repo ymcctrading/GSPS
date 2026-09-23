@@ -140,71 +140,6 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "before this can move past hypothesis.",
   },
   {
-    id: "adxTrendStrength",
-    family: "scanScore",
-    source: "lib/scoring/score.ts, lib/signals/indicators.ts",
-    label: "1-hour trend strength (ADX/DMI)",
-    expectedSign: "positive",
-    evidence: "quarantined",
-    quarantineReason:
-      "15Min unconditioned population (2026-09-10, docs/replay-runs/2026-09-10-15Min-2R-within-all.json, " +
-      "1049 trades): 292 passed (28%), correlation −0.065, t≈−2.09 — clears " +
-      "lib/validation/health.ts's significance bar (|r|·√(n-3)≥1.96, not the flat ±0.1 cutoff the " +
-      "RETIRED entries below describe — superseded because it misjudges significance across sample " +
-      "sizes, see MIN_SIGNIFICANCE_T's comment), a real, significant inversion against the declared " +
-      "positive sign.\n" +
-      "\n" +
-      "1Hour unconditioned population, captured as the direct follow-up (2026-09-10, " +
-      "docs/replay-runs/2026-09-10-1Hour-2R-within-all.json, 10472 observed trades — over 10x the " +
-      "15Min sample): 2645 passed (25%), correlation +0.0069, t≈0.70 — not significant, and the sign " +
-      "flipped positive. The inversion did NOT replicate on a much larger, independent population.\n" +
-      "\n" +
-      "This is the same shape BACKTESTING.md's masterStructural entry describes for a sign that " +
-      "disagreed between timeframes: 'the disqualifying case propose-weights.ts calls disagreed... left " +
-      "alone' rather than acted on either way. Structurally, though, this criterion cannot mechanically " +
-      "return to `hypothesis`: docs/replay-runs/2026-09-10-15Min-2R-within-all.json stays committed (this " +
-      "project does not delete or overwrite historical payloads — they are the evidentiary record), and " +
-      "criteria-gate.test.ts re-audits every committed payload against the CURRENT registry on every " +
-      "run. As long as that payload sits in the repo, lib/validation/health.ts's checkSign will keep " +
-      "reporting its −2.09 as a significant inversion — un-quarantining would re-fail the same payload's " +
-      "audit forever, not just today. So the disagreement argues the 15Min reading is plausibly a " +
-      "regime/timeframe artifact rather than a real defect (matching masterStructural's precedent), but " +
-      "the registry's own mechanics keep this quarantined regardless of that judgment.\n" +
-      "\n" +
-      "Exit condition, revised: no single additional run can lift this the way the original exit " +
-      "condition assumed, because the 15Min payload's significant reading is now permanent evidence in " +
-      "the repo. Lifting this needs either a maintainer's explicit call that the 15Min run is " +
-      "non-representative (e.g. a `--since` window matched to the 1Hour run's period, isolating regime " +
-      "from timeframe the way BACKTESTING.md's 'What would settle it' section describes for exactly this " +
-      "kind of disagreement), or a preponderance of further non-inverted runs strong enough to outweigh " +
-      "one committed inversion — a threshold this project has not formalized.\n" +
-      "\n" +
-      "**2026-09-11 update: the weight of evidence has moved, not resolved.** A second 15Min " +
-      "unconditioned capture (docs/replay-runs/2026-09-11-15Min-2R-within-all.json, 1061 trades, one " +
-      "day's rolling window forward) read 297 passed (28%), correlation −0.078, t≈−2.54 — significant " +
-      "again, and a larger magnitude than the first 15Min reading (t≈−2.09). That is now **two " +
-      "independent-in-time significant inversions at 15Min**, against **one** non-significant positive " +
-      "reading at 1Hour. This no longer reads as a coin-flip disagreement between timeframes — it reads " +
-      "as a real, reproducing effect specific to 15Min that a single larger 1Hour sample hasn't (yet) " +
-      "overturned. Caveat carried over from stopRoom's own entry: a one-day-later capture on the " +
-      "identical six-symbol universe is not a genuinely independent population, so this is not yet the " +
-      "\"preponderance of further runs\" the exit condition above asks for — but it is materially " +
-      "stronger evidence than existed yesterday, and the direction to bet on if forced to guess now is " +
-      "that adxTrendStrength is genuinely inverted at 15Min specifically, not that the 15Min reading is " +
-      "noise. Still quarantined, still not acted on beyond that — the next genuinely useful run is a " +
-      "different universe or a `--since`-isolated window, not a third same-universe 15Min capture.",
-    note:
-      "Replaces `hourlyTrend` (retired 2026-09-10; see RETIRED) — its own leniency (an ambiguous " +
-      "\"sideways\" hourly read counted as agreement) never cleared the sample floor as anything more " +
-      "than hypothesis. Reuses lib/signals/indicators.ts's adx() and the 20-ADX trend-strength " +
-      "threshold lib/signals/regime.ts already validated for the Signal & Regime Engine's own " +
-      "\"which indicator confirms a trend\" question, rather than re-deriving a new one — per AGENTS.md's " +
-      "cross-platform consistency principle. Stricter than hourlyTrend: both ADX >= 20 (trend " +
-      "established) and +DI/-DI direction agreement with the setup are required, no lenient " +
-      "ambiguous-still-passes branch. See quarantineReason for the 2026-09-10 measurement that put this " +
-      "under quarantine on its first real run.",
-  },
-  {
     id: "gannAngleSlope",
     family: "scanScore",
     source: "lib/scoring/score.ts",
@@ -307,7 +242,34 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "Δ+0.111R, r=+0.018, t≈0.59 — still positive, still nowhere near significant. Four consistent-" +
       "direction readings across two timeframes and a near-miss band is the strongest directional " +
       "consistency of the four new criteria, but none individually significant — stays hypothesis " +
-      "until one population actually clears |t|>=1.96.",
+      "until one population actually clears |t|>=1.96.\n" +
+      "\n" +
+      "`VOLUME_CLIMAX_THRESHOLD` was loosened 1.5x → 1.25x relative volume on 2026-09-14 as part of the " +
+      "AGENTS.md 'Execute collapse stopgap' (lib/gann/volumeClimax.ts) — intended to widen a criterion " +
+      "that was rare (6%) but positively signed into a more common one without losing the sign. Two " +
+      "fresh unconditioned readings against the loosened threshold: 15Min " +
+      "(docs/replay-runs/2026-09-14-15Min-2R-within-all.json, 985 trades) passed 168/985 (17% — well " +
+      "above the ~10-12% expected from the threshold math, and nearly 3x the pre-loosening 6%): Δ E[R] " +
+      "−0.0018R, correlation −0.0005, t≈−0.02 — the sign flipped negative and the effect collapsed to " +
+      "indistinguishable from zero. 1Hour (docs/replay-runs/2026-09-14-1Hour-2R-within-all.json, 10480 " +
+      "observed) passed 3301/10480 (31.5% — over 10x the pre-loosening 19%): Δ E[R] +0.0044R, " +
+      "correlation +0.0014, t≈0.15 — sign held positive but the effect is now negligible to the point " +
+      "of carrying no information, down from the pre-loosening +0.014R/t≈0.39 on a similarly-sized " +
+      "1Hour sample. Both readings agree on one thing the stopgap did not intend: the wider band did " +
+      "not just admit more of the same signal, it diluted it toward noise.\n" +
+      "\n" +
+      "**2026-09-14, follow-up: reverted the threshold, widened the anchor pool instead.** " +
+      "`VOLUME_CLIMAX_THRESHOLD` moved back to 1.5x (the `lib/signals/regime.ts`-matched value) and " +
+      "`computeVolumeClimax` (lib/gann/volumeClimax.ts) now checks the last `RECENT_PIVOTS_CHECKED` " +
+      "(3) pivots of the anchor's kind for climax volume, not only the single most recent one — " +
+      "`anchorPrice`/`anchorKind` still always name the single latest pivot, matching " +
+      "`gannAngleSlope`/`timePriceSquare`'s shared anchor convention exactly, so this doesn't desync " +
+      "the direction-matched anchor the way giving this criterion its own lower `findPivots` strength " +
+      "would have. This targets the actual starvation mechanism (too few candidate anchors ever " +
+      "cleared 1.5x) instead of loosening the bar every candidate is judged against, which is what " +
+      "diluted the signal above. Not yet measured — needs its own fresh committed run before any sign " +
+      "claim; the 6%/17%/31.5% pass rates and the deltas throughout this entry all describe prior code " +
+      "versions, none of them this one.",
   },
   {
     id: "historicalSR",
@@ -329,16 +291,29 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "from hypothesis to validated on the second confirming run, per this file's own stated bar.",
   },
   {
-    id: "patternArmed",
+    id: "entryTriggerArmed",
     family: "scanScore",
-    source: "lib/scoring/score.ts",
-    label: "Pattern armed",
+    source: "lib/scoring/score.ts, lib/gann/entryTrigger.ts",
+    label: "Entry trigger armed (old-level crossing)",
     expectedSign: "positive",
     evidence: "unmeasured",
     note:
-      "Constant by construction inside any triggered sample — a trade cannot exist without an armed " +
-      "pattern — so a bucket-conditioned run can never measure it. Only an unconditioned population " +
-      "(armed setups that did and did not trigger) can.",
+      "Renamed from `patternArmed` and regrounded 2026-09-17, closing the last gate-1 failure on " +
+      "this scorecard. The criterion was never the problem — 'is there an armed trigger to enter " +
+      "on?' is a real question — but its implementation read a bar-sequence reversal pattern " +
+      "taxonomy with no source in this platform's methodology. It now reads " +
+      "lib/gann/entryTrigger.ts: crossing an old swing top or bottom plus the 'lost motion' " +
+      "allowance, both disclosed in docs/GANN_HISTORICAL_SOURCES.md A8 (the nine Buying Points " +
+      "and nine Selling Points, and the Resistance Level method). Renamed rather than retired, so " +
+      "CRITERION_KEYS.length and both cutoffs are unchanged.\n\n" +
+      "Still constant by construction inside any triggered sample — a trade cannot exist without " +
+      "an armed trigger — so a bucket-conditioned run can never measure it. Only an unconditioned " +
+      "population (armed setups that did and did not trigger) can. That limitation carried over " +
+      "unchanged from the old implementation and is a property of what the criterion asks, not of " +
+      "which rule answers it.\n\n" +
+      "**Its prior measurements do not transfer.** Any attribution captured against `patternArmed` " +
+      "measured a different rule on a different reference level (the prior BAR's extreme, not the " +
+      "prior SWING's). Treat this as a fresh criterion for evidence purposes.",
     saturation: { minPassRate: 0, maxPassRate: 1 },
   },
   {
@@ -432,9 +407,18 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "magnitude as the two before it. Reproduces cleanly a third time, but per the standard this entry " +
       "already set for itself, a one-day-later window on the identical six symbols is not the " +
       "genuinely independent sample the exit condition asks for — it's essentially the same population " +
-      "plus a handful of new trades, not a different regime or universe. Stays hypothesis. Until then: " +
-      "reversion-only, 15Min. See MIN_STOP_ROOM_ATR for why this is a selection " +
-      "rule and never an instruction to widen a stop.",
+      "plus a handful of new trades, not a different regime or universe. Reversion-only, 15Min. See " +
+      "MIN_STOP_ROOM_ATR for why this is a selection rule and never an instruction to widen a stop.\n" +
+      "\n" +
+      "**2026-09-11 onward: the above describes an evidentiary record for a branch this criterion no " +
+      "longer walks for equities.** The same day as the last reading above, `us_equity` moved to the " +
+      "percent-of-purchase-price stop model (lib/strat/levels.ts's `computeEquityTradeLevels`) and this " +
+      "criterion's equity question changed from 'stop width >= 1.5x ATR' to 'stop anchored to real " +
+      "structure' (score.ts's `hasStopRoom`). Every reading above measured the ATR-multiple question, " +
+      "which every non-equity asset class still asks — that history stays valid for them, but describes " +
+      "nothing about the equity branch, which went unmeasured for three days until the 2026-09-14 runs " +
+      "found it 98-99% saturated. See `quarantineReason` for that finding, its root cause, and the " +
+      "candidate fixes.",
   },
   {
     id: "timePriceSquare",
@@ -490,7 +474,27 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "reading has itself been significant, so neither produced an `inverted` finding) — this stays " +
       "`hypothesis`, needing a tie-breaking run (a third *independent* population — not another same-" +
       "universe capture — or the `--since`-windowed timeframe/regime split BACKTESTING.md's 'What would " +
-      "settle it' section describes) before it can move either direction.",
+      "settle it' section describes) before it can move either direction.\n" +
+      "\n" +
+      "`SQUARE_TOLERANCE_BARS` was loosened 2 → 4 bars on 2026-09-14 as part of the AGENTS.md 'Execute " +
+      "collapse stopgap' (lib/gann/timePriceSquare.ts) — the disagreement above (negative-leaning " +
+      "15Min, significant-positive 1Hour) is exactly the shape the loosening was aimed at resolving, " +
+      "not just widening pass rate. Two fresh unconditioned readings against the loosened tolerance: " +
+      "15Min (docs/replay-runs/2026-09-14-15Min-2R-within-all.json, 985 trades) passed 240/985 (24% — " +
+      "above the ~20% expected, roughly double the pre-loosening 11%): Δ E[R] +0.112R, correlation " +
+      "+0.034, t≈1.07 — the sign FLIPPED from negative to positive, resolving the prior 15Min-vs-1Hour " +
+      "disagreement in the direction the declared `expectedSign: positive` calls for, though still " +
+      "short of significance. 1Hour (docs/replay-runs/2026-09-14-1Hour-2R-within-all.json, 10480 " +
+      "observed) passed 2851/10480 (27%, up from the pre-loosening 13%): Δ E[R] +0.051R, correlation " +
+      "+0.016, t≈1.62 — sign held positive but the effect weakened from the pre-loosening +0.088R/" +
+      "t≈2.15 down below the significance bar it used to clear. Net effect of the loosening: both " +
+      "timeframes now agree on sign for the first time (previously they disagreed), but neither clears " +
+      "|t|>=1.96 any longer — the 1Hour reading traded a significant positive result for a merely " +
+      "directionally-consistent one. That is progress on the cross-timeframe disagreement this entry " +
+      "flagged as needing a tie-breaker, but it is not itself a validation: stays `hypothesis`, and a " +
+      "future weight re-derivation should use these post-loosening deltas (+0.112R/+0.051R), not the " +
+      "pre-loosening −0.221R this entry's earlier paragraphs describe — that reading no longer " +
+      "describes the code as shipped.",
   },
   {
     id: "gannRetracementConfluence",
@@ -509,10 +513,118 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "an independent structural check, never as the sole basis for the point. Never scored before; " +
       "needs a fresh committed replay before any sign claim.",
   },
+  {
+    id: "ruleOfThree",
+    family: "scanScore",
+    source: "lib/scoring/score.ts, lib/gann/ruleOfThree.ts",
+    label: "Rule of Three (consecutive closes confirm the direction)",
+    expectedSign: "positive",
+    evidence: "unmeasured",
+    note:
+      "Added 2026-09-16 per docs/GANN_PLATFORM_AUDIT.md Part 4 item 1 and AGENTS.md's standing " +
+      "precedence-for-the-disclosed-methodology principle — a direct request to wire the source's own " +
+      "highest-conviction disclosed rule " +
+      "(`Wall Street Stock Selector`, 1930, docs/GANN_HISTORICAL_SOURCES.md A4: 'traders paid me $1,000 " +
+      "for this rule') into the live scorer immediately, overriding this codebase's normal unmeasured " +
+      "-> attribution -> in/out-of-sample discipline (PROPOSAL_NEW_GANN_CRITERIA.md) rather than " +
+      "quarantining it as a hypothesis first. No replay has ever measured it — this entry exists so " +
+      "that gap is visible, not hidden. The literal book rule is directional and asymmetric (an uptrend " +
+      "needs 3 consecutive lower closes to signal reversal; a downtrend needs only 2 consecutive higher " +
+      "closes) and is about a REVERSAL forming, not a trade's own direction generically — " +
+      "lib/gann/ruleOfThree.ts's docblock states exactly how this criterion generalizes that to 'the " +
+      "immediate closes support this trade's own direction' for both reversion and continuation setups, " +
+      "which is a broader reading than the source's literal text. Needs a fresh committed replay before any " +
+      "sign claim, same as every other never-scored criterion above — the override applies to whether " +
+      "it scores live today, not to whether its evidence claim is settled.",
+  },
 ];
 
 /** Scored in the past, kept for the historical record. See `EvidenceStatus`. */
 const RETIRED: RegisteredCriterion[] = [
+  {
+    id: "patternArmed",
+    family: "scanScore",
+    source: "lib/scoring/score.ts (scored until 2026-09-17), lib/strat/patterns.ts",
+    label: "Pattern armed",
+    expectedSign: "positive",
+    evidence: "retired",
+    note:
+      "Retired 2026-09-17 — superseded in place by `entryTriggerArmed`, not deleted. It asked a " +
+      "legitimate question ('is there an armed trigger to enter on?') and answered it with a " +
+      "bar-sequence reversal pattern taxonomy with no source in this platform's " +
+      "methodology. That made it the last gate-1 failure on the scorecard, and — more " +
+      "consequentially than its single scored point — the source of every trade plan's entry " +
+      "price and, through riskPerShare, every position size. See `entryTriggerArmed` for the " +
+      "replacement and `lib/gann/entryTrigger.ts` for the rule.\n\n" +
+      "**Kept here, retired rather than removed, so the committed runs in docs/replay-runs/ " +
+      "still validate.** Every run captured before 2026-09-17 measured this criterion by this " +
+      "name, and `criteria-gate.test.ts` fails any measured id it cannot find declared. Deleting " +
+      "the entry would have made those runs unreadable rather than historical. Its numbers " +
+      "describe the old rule on the old reference level (the prior BAR's extreme, not the prior " +
+      "SWING's) and do not transfer to the replacement.",
+  },
+  {
+    id: "adxTrendStrength",
+    family: "scanScore",
+    source: "lib/scoring/score.ts (scored until 2026-09-16), lib/signals/indicators.ts",
+    label: "1-hour trend strength (ADX/DMI)",
+    expectedSign: "positive",
+    evidence: "retired",
+    note:
+      "Removed from the scorecard 2026-09-16 on the project owner's direct instruction, and " +
+      "deliberately **not replaced with anything** — unlike every other entry in this list, which was " +
+      "swapped for a successor criterion. The scored criteria went from ten back to nine; " +
+      "EXECUTE_SCORE_THRESHOLD/WATCH_SCORE_THRESHOLD were rescaled 6.67/3.89 -> 6/3.5 to hold the same " +
+      "relative bar (66.7%/38.9% of TOTAL_POINTS), and DEFAULT_CRITERION_WEIGHTS lost its 0.5 entry.\n" +
+      "\n" +
+      "**The reason is provenance, not the measurement — and the reason generalizes even though the " +
+      "number does not.** adxTrendStrength was the one scored criterion with no lineage in the " +
+      "platform's own founding methodology at all: Wilder's ADX/DMI (1978) postdates that " +
+      "methodology's own historical source material by more than two decades (docs/" +
+      "GANN_PLATFORM_AUDIT.md's Part 1 table classifies it GSPS-ORIGINAL for exactly this reason). It " +
+      "entered this codebase in lib/signals/regime.ts, as the trend-confirmation overlay the Signal & " +
+      "Regime Engine uses *instead of* leaning on a PSAR/Supertrend-style indicator alone (AGENTS.md's " +
+      "cross-platform-consistency section cites it as the standing example), and reached the scorecard " +
+      "by propagation from there rather than by any independent claim that it belonged in a setup " +
+      "selected by that methodology's score. With no PSAR anywhere in this repo (docs/" +
+      "GSPS_AUTOMATION.md confirms: zero matches repo-wide), the thing it substituted for does not " +
+      "exist here, so there is nothing to keep substituting for.\n" +
+      "\n" +
+      "That settles a hypothesis raised while auditing the negative readings below: the -0.245R was " +
+      "**not** a mistranslation of a founding-methodology rule into code, because there was no such " +
+      "rule to mistranslate. A general-purpose trend filter measuring inverted against setups selected " +
+      "by that methodology is the expected result, not a porting defect to hunt for. Generalize the " +
+      "reason, not the number: when a criterion with no connection to that methodology measures " +
+      "against its declared sign on this scorecard, ask first whether it was ever grounded in the " +
+      "methodology the setups are selected by, before treating the inversion as a bug in the " +
+      "implementation.\n" +
+      "\n" +
+      "**The indicator is not removed; only the scored criterion is.** lib/signals/indicators.ts's " +
+      "adx() stays exported and stays in live use by lib/signals/regime.ts (classifyRegime's " +
+      "trend-strength support) and lib/signals/states/rangeReversion.ts (its MAX_ADX_FOR_RANGE gate). " +
+      "That is a deliberate call, not an oversight of AGENTS.md's cross-platform consistency principle: " +
+      "the Signal & Regime Engine's spec genuinely asks a different question (is this market trending " +
+      "or ranging, at all?) than this scorecard does (does an independent trend filter agree with a " +
+      "setup this platform's core methodology selected?), which is the \"different governing spec\" " +
+      "carve-out that section names. " +
+      "ScoreInputs.hourlyAdx, score.ts's adxTrendHolding/ADX_TREND_THRESHOLD, and the adx() calls in " +
+      "lib/scanTicker.ts and lib/backtest/replay.ts all went with the criterion.\n" +
+      "\n" +
+      "Measurement history, kept because every payload committed before 2026-09-16 measured this and a " +
+      "validity ledger that forgets what it used to score cannot explain its own past. It replaced " +
+      "`hourlyTrend` on 2026-09-10 (see that entry) with a stricter two-part test — ADX >= 20 AND " +
+      "+DI/-DI agreeing with the setup's direction, no lenient ambiguous-still-passes branch — and was " +
+      "quarantined on its first real run. 15Min unconditioned populations inverted significantly and " +
+      "reproducibly: 2026-09-10-15Min-2R-within-all.json, 292/1049 passed (28%), r=-0.065, t~-2.09; " +
+      "2026-09-11-15Min-2R-within-all.json, 297/1061 (28%), r=-0.078, t~-2.54, Delta=-0.245R; " +
+      "2026-09-14-15Min-2R-within-all.json, 289/985, Delta=-0.261R. The much larger 1Hour populations " +
+      "read flat-positive and not significant (2026-09-10-1Hour-2R-within-all.json, 2645/10472, " +
+      "r=+0.0069, t~0.70; 2026-09-14-1Hour, 2647/10480, Delta=+0.020R), which is the timeframe " +
+      "disagreement masterStructural's entry describes. That disagreement was never resolved either " +
+      "way and no longer needs to be — the criterion is gone for a reason that does not depend on it, " +
+      "and the quarantine's stated exit condition (a maintainer's call that the 15Min runs are " +
+      "non-representative, or a preponderance of non-inverted runs) is moot.",
+  },
   {
     id: "momentum",
     family: "scanScore",
@@ -688,15 +800,14 @@ const SCORE_HOLDS: RegisteredCriterion[] = [
     expectedSign: "unknown",
     evidence: "unmeasured",
     note:
-      "Starved by construction, the mirror image of patternArmed being saturated by construction: " +
-      "applyReversionConfirmation only ever appends this key on its downgrade branch " +
-      "(`passed: false`, when a bare 2-2 reversal lacks both momentum and S/R confirmation) — there " +
-      "is no code path that appends it `passed: true`. Every committed payload has measured 0 " +
-      "passes (0/608+ across all runs to date), which is exactly what the code guarantees, not a " +
-      "market finding. First exposed as a saturation error 2026-09-15 when committed within=all " +
-      "payloads crossed MIN_OBSERVATIONS_FOR_SATURATION (30) for this criterion for the first time " +
-      "(docs/replay-runs/2026-09-15-*-within-all-productionStop*.json) — unrelated to what those " +
-      "payloads were captured to measure (the equities percent-of-purchase-price stop model).",
+      "Failed by construction whenever it appears at all: `applyReversionConfirmation` only appends " +
+      "this breakdown item on the early-return path taken when `confirmed` is false (a bare 2-2 pattern " +
+      "on an Execute verdict that didn't get momentum+S/R confirmation) — there is no code path that " +
+      "appends it with `passed: true`. First surfaced as a `starved` (0% pass) finding 2026-09-14 once " +
+      "committed observation counts (31 at 15Min, 464 at 1Hour) cleared MIN_OBSERVATIONS_FOR_SATURATION " +
+      "for the first time; every previous committed run had only 1 observation, too few to trip the " +
+      "check. Same shape as `patternArmed` above (constant by construction, not a discrimination " +
+      "defect), so it gets the same override.",
     saturation: { minPassRate: 0, maxPassRate: 1 },
   },
   {

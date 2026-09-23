@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { AssetTypeBadge } from "@/components/trade/asset-type-badge";
 import { GreeksToggle } from "./order-rows";
 import { formatOpenedAt } from "@/lib/portfolio/opened-at";
@@ -47,14 +48,46 @@ export interface Protectable {
   currentPrice: number;
 }
 
+/** An equity leg that already has a working staged exit, editable in place. */
+export interface Editable {
+  symbol: string;
+  side: "long" | "short";
+  currentPrice: number;
+  entryPrice: number;
+  stopLoss: number | null;
+  takeProfit: number | null;
+  masterProfit: number | null;
+}
+
+/**
+ * Live and paper positions render in the same grid (`/api/portfolio` merges
+ * a connected live account's legs in for display), so a live leg needs to be
+ * visually distinguishable — real money is at stake. Same treatment as
+ * `components/portfolio/order-rows.tsx`'s `LiveBadge` for orders: paper
+ * carries no badge since it's the default/majority case, only the exception
+ * is flagged. Live legs also have no Protect/Edit/Close action wired here
+ * yet (this page's actions all call paper-only routes) — action buttons are
+ * hidden rather than shown wired to nothing, per `ActionsCell` below.
+ */
+function LiveBadge({ mode }: { mode: "paper" | "live" }) {
+  if (mode !== "live") return null;
+  return (
+    <Badge variant="warn" title="This position is on your connected live broker account, not paper.">
+      Live
+    </Badge>
+  );
+}
+
 export function BlendedPositionGroup({
   group,
   onClose,
   onProtect,
+  onEdit,
 }: {
   group: BlendedPosition;
   onClose: (c: Closable) => void;
   onProtect?: (p: Protectable) => void;
+  onEdit?: (e: Editable) => void;
 }) {
   const [showGreeks, setShowGreeks] = useState(false);
   const legCount = (group.equity ? 1 : 0) + group.options.length;
@@ -83,7 +116,9 @@ export function BlendedPositionGroup({
         </div>
       </div>
 
-      {group.equity && <EquityLegs legs={[group.equity]} onClose={onClose} onProtect={onProtect} />}
+      {group.equity && (
+        <EquityLegs legs={[group.equity]} onClose={onClose} onProtect={onProtect} onEdit={onEdit} />
+      )}
 
       {group.options.length > 0 && (
         <OptionLegs
@@ -110,10 +145,12 @@ function EquityLegs({
   legs,
   onClose,
   onProtect,
+  onEdit,
 }: {
   legs: EquityLeg[];
   onClose: (c: Closable) => void;
   onProtect?: (p: Protectable) => void;
+  onEdit?: (e: Editable) => void;
 }) {
   return (
     <>
@@ -139,7 +176,10 @@ function EquityLegs({
             {legs.map((leg) => (
               <TR key={leg.symbol}>
                 <TD>
-                  <AssetTypeBadge assetType="EQUITY" />
+                  <span className="inline-flex items-center gap-1.5">
+                    <AssetTypeBadge assetType="EQUITY" />
+                    <LiveBadge mode={leg.mode} />
+                  </span>
                 </TD>
                 <TD className="text-right font-mono">{leg.totalShares}</TD>
                 <TD className="text-right font-mono">{formatUsd(leg.avgFillPrice)}</TD>
@@ -164,15 +204,35 @@ function EquityLegs({
                 <OpenedCell opened={leg.opened} />
                 <ProtectionCell leg={leg} />
                 <TD className="text-center">
-                  <div className="flex items-center justify-center gap-1.5">
-                    {onProtect && leg.stopLoss == null && (
-                      <ProtectButton onClick={() => onProtect(protectableEquity(leg))} />
-                    )}
-                    <CloseButton onClick={() => onClose(closableEquity(leg))} />
-                  </div>
+                  {leg.mode === "live" ? (
+                    <span className="text-xs text-muted" title="Live-position actions aren't wired here yet — manage this position through your broker.">
+                      —
+                    </span>
+                  ) : (
+                    <div className="flex items-center justify-center gap-1.5">
+                      {onProtect && leg.stopLoss == null && (
+                        <ProtectButton onClick={() => onProtect(protectableEquity(leg))} />
+                      )}
+                      {onEdit && leg.stopLoss != null && (
+                        <EditButton onClick={() => onEdit(editableEquity(leg))} />
+                      )}
+                      <CloseButton onClick={() => onClose(closableEquity(leg))} />
+                    </div>
+                  )}
                 </TD>
               </TR>
             ))}
+            {legs.some((leg) => leg.stopLoss != null || leg.takeProfit != null || leg.masterProfit != null) && (
+              <TR className="hover:bg-transparent">
+                <TD colSpan={10} className="pt-0">
+                  <div className="flex flex-col gap-2">
+                    {legs.map((leg) => (
+                      <ProximityBar key={leg.symbol} leg={leg} />
+                    ))}
+                  </div>
+                </TD>
+              </TR>
+            )}
           </TBody>
         </Table>
       </div>
@@ -181,7 +241,10 @@ function EquityLegs({
         {legs.map((leg) => (
           <div key={leg.symbol} className="rounded-lg border border-border p-3">
             <div className="flex items-center justify-between gap-2">
-              <AssetTypeBadge assetType="EQUITY" />
+              <span className="inline-flex items-center gap-1.5">
+                <AssetTypeBadge assetType="EQUITY" />
+                <LiveBadge mode={leg.mode} />
+              </span>
               <span
                 className={cn("font-mono text-sm", leg.equityPl >= 0 ? "text-bull" : "text-bear")}
               >
@@ -197,12 +260,18 @@ function EquityLegs({
             </dl>
             <OpenedLine opened={leg.opened} />
             <ProtectionLine leg={leg} />
-            <div className="mt-2 flex gap-2">
-              {onProtect && leg.stopLoss == null && (
-                <ProtectButton onClick={() => onProtect(protectableEquity(leg))} />
-              )}
-              <CloseButton onClick={() => onClose(closableEquity(leg))} />
-            </div>
+            <ProximityBar leg={leg} />
+            {leg.mode !== "live" && (
+              <div className="mt-2 flex gap-2">
+                {onProtect && leg.stopLoss == null && (
+                  <ProtectButton onClick={() => onProtect(protectableEquity(leg))} />
+                )}
+                {onEdit && leg.stopLoss != null && (
+                  <EditButton onClick={() => onEdit(editableEquity(leg))} />
+                )}
+                <CloseButton onClick={() => onClose(closableEquity(leg))} />
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -224,7 +293,9 @@ function ProtectionCell({ leg }: { leg: EquityLeg }) {
     <TD className="whitespace-nowrap text-xs text-muted">
       {leg.stopLoss != null && <>Stop {formatUsd(leg.stopLoss)}</>}
       {leg.stopLoss != null && leg.takeProfit != null && " · "}
-      {leg.takeProfit != null && <>Target {formatUsd(leg.takeProfit)}</>}
+      {leg.takeProfit != null && <>TP1 {formatUsd(leg.takeProfit)}</>}
+      {(leg.stopLoss != null || leg.takeProfit != null) && leg.masterProfit != null && " · "}
+      {leg.masterProfit != null && <>Master {formatUsd(leg.masterProfit)}</>}
     </TD>
   );
 }
@@ -237,9 +308,85 @@ function ProtectionLine({ leg }: { leg: EquityLeg }) {
     <p className="mt-1 text-xs text-muted">
       {leg.stopLoss != null && <>Stop {formatUsd(leg.stopLoss)}</>}
       {leg.stopLoss != null && leg.takeProfit != null && " · "}
-      {leg.takeProfit != null && <>Target {formatUsd(leg.takeProfit)}</>}
+      {leg.takeProfit != null && <>TP1 {formatUsd(leg.takeProfit)}</>}
+      {(leg.stopLoss != null || leg.takeProfit != null) && leg.masterProfit != null && " · "}
+      {leg.masterProfit != null && <>Master {formatUsd(leg.masterProfit)}</>}
     </p>
   );
+}
+
+/**
+ * How close price is to the stop, TP1, and Master Profit levels attached to
+ * an equity leg — the "am I nearing TP1, MTP, or S/L" gap: those levels were
+ * already computed and shown as static numbers (`ProtectionCell`/
+ * `ProtectionLine`, and `masterProfit` wasn't even rendered there), but
+ * nothing showed where the *current* price sits relative to them without a
+ * trader doing the mental math themselves.
+ *
+ * A long leg's levels run Stop < Entry < TP1 <= Master (rising); a short
+ * leg's run the opposite way. Normalized to a 0-100 left-to-right bar either
+ * way, so "further right" always means "closer to the profitable side"
+ * regardless of direction.
+ */
+function ProximityBar({ leg }: { leg: EquityLeg }) {
+  if (leg.stopLoss == null && leg.takeProfit == null && leg.masterProfit == null) return null;
+
+  const isShort = leg.totalShares < 0;
+  // Span the bar across whichever levels are actually attached — a stop-only
+  // leg still gets a meaningful bar instead of assuming a target that was
+  // never set.
+  const known = [leg.stopLoss, leg.avgFillPrice, leg.takeProfit, leg.masterProfit, leg.currentPrice].filter(
+    (v): v is number => v != null,
+  );
+  const rawMin = Math.min(...known);
+  const rawMax = Math.max(...known);
+  const span = rawMax - rawMin;
+  if (span <= 0) return null;
+
+  // pct: 0 = the "losing" end of the span, 100 = the "winning" end, for
+  // either direction.
+  const pct = (price: number) => {
+    const raw = ((price - rawMin) / span) * 100;
+    return isShort ? 100 - raw : raw;
+  };
+
+  const currentPct = clampPct(pct(leg.currentPrice));
+
+  return (
+    <div className="flex items-center gap-2 py-1.5">
+      <span className="w-10 shrink-0 text-right font-mono text-[10px] text-bear">
+        {leg.stopLoss != null ? formatUsd(leg.stopLoss) : "—"}
+      </span>
+      <div className="relative h-1.5 min-w-0 flex-1 rounded-full bg-gradient-to-r from-bear/30 via-border to-bull/30">
+        {leg.takeProfit != null && (
+          <div
+            className="absolute top-1/2 h-2.5 w-0.5 -translate-y-1/2 bg-muted"
+            style={{ left: `${clampPct(pct(leg.takeProfit))}%` }}
+            title={`TP1 ${formatUsd(leg.takeProfit)}`}
+          />
+        )}
+        {leg.masterProfit != null && (
+          <div
+            className="absolute top-1/2 h-2.5 w-0.5 -translate-y-1/2 bg-bull"
+            style={{ left: `${clampPct(pct(leg.masterProfit))}%` }}
+            title={`Master Profit ${formatUsd(leg.masterProfit)}`}
+          />
+        )}
+        <div
+          className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-surface bg-accent shadow"
+          style={{ left: `${currentPct}%` }}
+          title={`Current ${formatUsd(leg.currentPrice)}`}
+        />
+      </div>
+      <span className="w-10 shrink-0 font-mono text-[10px] text-bull">
+        {leg.masterProfit != null ? formatUsd(leg.masterProfit) : leg.takeProfit != null ? formatUsd(leg.takeProfit) : "—"}
+      </span>
+    </div>
+  );
+}
+
+function clampPct(n: number): number {
+  return Math.max(2, Math.min(98, n));
 }
 
 function OptionLegs({
@@ -288,7 +435,10 @@ function OptionLegs({
             {legs.map((leg) => (
               <TR key={leg.symbol}>
                 <TD>
-                  <AssetTypeBadge assetType="OPTION" />
+                  <span className="inline-flex items-center gap-1.5">
+                    <AssetTypeBadge assetType="OPTION" />
+                    <LiveBadge mode={leg.mode} />
+                  </span>
                 </TD>
                 <TD className="text-muted">{leg.type.toUpperCase()}</TD>
                 <TD className="text-muted">{leg.expiration}</TD>
@@ -315,7 +465,13 @@ function OptionLegs({
                 </TD>
                 <OpenedCell opened={leg.opened} />
                 <TD className="text-center">
-                  <CloseButton onClick={() => onClose(closableOption(leg))} />
+                  {leg.mode === "live" ? (
+                    <span className="text-xs text-muted" title="Live-position actions aren't wired here yet — manage this position through your broker.">
+                      —
+                    </span>
+                  ) : (
+                    <CloseButton onClick={() => onClose(closableOption(leg))} />
+                  )}
                 </TD>
               </TR>
             ))}
@@ -329,6 +485,7 @@ function OptionLegs({
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <AssetTypeBadge assetType="OPTION" />
+                <LiveBadge mode={leg.mode} />
                 <span className="text-xs text-muted">
                   {formatUsd(leg.strike)} {leg.type.toUpperCase()}
                 </span>
@@ -355,9 +512,11 @@ function OptionLegs({
               )}
             </dl>
             <OpenedLine opened={leg.opened} />
-            <div className="mt-2">
-              <CloseButton onClick={() => onClose(closableOption(leg))} />
-            </div>
+            {leg.mode !== "live" && (
+              <div className="mt-2">
+                <CloseButton onClick={() => onClose(closableOption(leg))} />
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -451,12 +610,35 @@ function ProtectButton({ onClick }: { onClick: () => void }) {
   );
 }
 
+function EditButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="min-h-9 cursor-pointer rounded-md border border-border px-2 py-1 text-xs font-medium text-muted transition-colors hover:border-accent hover:text-accent"
+    >
+      Edit
+    </button>
+  );
+}
+
 function protectableEquity(leg: EquityLeg): Protectable {
   return {
     symbol: leg.symbol,
     qty: leg.totalShares < 0 ? -leg.totalShares : leg.totalShares,
     side: leg.totalShares < 0 ? "short" : "long",
     currentPrice: leg.currentPrice,
+  };
+}
+
+function editableEquity(leg: EquityLeg): Editable {
+  return {
+    symbol: leg.symbol,
+    side: leg.totalShares < 0 ? "short" : "long",
+    currentPrice: leg.currentPrice,
+    entryPrice: leg.avgFillPrice,
+    stopLoss: leg.stopLoss,
+    takeProfit: leg.takeProfit,
+    masterProfit: leg.masterProfit,
   };
 }
 

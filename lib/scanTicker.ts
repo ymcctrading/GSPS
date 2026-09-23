@@ -23,24 +23,28 @@ import {
 import { EXECUTION_TIMEFRAME } from "@/lib/timeframe";
 import { readTrend } from "@/lib/analysis/trend";
 import { atr } from "@/lib/analysis/pivots";
-import { levelRole } from "@/lib/analysis/levelRole";
+import { relativeVolume } from "@/lib/signals/indicators";
+import { countLevelTests, levelRole } from "@/lib/analysis/levelRole";
 import { computeFanLines } from "@/lib/gann/fans";
 import { recentSquareOf9Levels } from "@/lib/gann/squareOf9";
 import { timeCycles } from "@/lib/gann/timeCycles";
+import { weightedTrendAgreement } from "@/lib/gann/timeframeWeight";
 import { computeAngleSlopes } from "@/lib/gann/normalizedSlope";
 import { computeRetracementLevels } from "@/lib/gann/retracement";
 import { priceTimeConfluence } from "@/lib/gann/digitalRoot";
-import { computeSwingChart } from "@/lib/gann/swingChart";
+import { computeCampaignLeg, computeSwingChart } from "@/lib/gann/swingChart";
+import { computeRuleOfThree } from "@/lib/gann/ruleOfThree";
 import { computeTimePriceSquare } from "@/lib/gann/timePriceSquare";
 import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
-import { adx } from "@/lib/signals/indicators";
+import { computeBoilingPoint } from "@/lib/gann/boilingPoint";
 import {
   CONTINUATION_PATTERNS,
   detectPatterns,
   gapRuleViolated,
   riskFloorViolated,
 } from "@/lib/strat/patterns";
-import { computeTradeLevels } from "@/lib/strat/levels";
+import { computeTradeLevels, type EntrySource } from "@/lib/strat/levels";
+import { computeGannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
 import { applyDataLagHold, applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
 import { decisionLag, feedDelayMs } from "@/lib/data/latency";
@@ -89,6 +93,19 @@ export interface ScanPreference {
 // build (`Failed to collect page data for /api/batch-scan`), which is why the
 // definition lives in a leaf module instead.
 
+/**
+ * Buckets the same recent-ATR / baseline-ATR expansion ratio
+ * `momentumElevated` is computed from into the `volatility_state` table's
+ * (migration 0064) four labels. A ratio, not a distributional percentile —
+ * see `ScanResult.volatilityRead`'s doc comment.
+ */
+function volatilityRegimeFromAtrRatio(ratio: number): "low" | "normal" | "elevated" | "extreme" {
+  if (ratio >= 2.0) return "extreme";
+  if (ratio >= 1.2) return "elevated";
+  if (ratio >= 0.8) return "normal";
+  return "low";
+}
+
 export async function scanTicker(
   symbol: string,
   optionPremium?: number,
@@ -131,12 +148,14 @@ export async function scanTicker(
     // macroTrend agreement check — same daily bars, a different (reversal-
     // count) construction. See lib/gann/swingChart.ts.
     const swingChart = computeSwingChart(daily);
+    // Gann's "sections of a campaign" leg count, added 2026-09-16 — confluence/
+    // context only, see lib/gann/swingChart.ts#computeCampaignLeg.
+    const campaignLeg = computeCampaignLeg(daily);
+    // Gann's Rule of Three, added 2026-09-16 — see lib/gann/ruleOfThree.ts.
+    const ruleOfThree = computeRuleOfThree(daily);
 
     // ---- Level 2: 1hr refinement
     const hourlyTrend = readTrend(hourly, "1Hour");
-    // Same implementation and 20-ADX threshold lib/signals/regime.ts already
-    // validated for trend-strength confirmation — reused, not reinvented.
-    const hourlyAdx = adx(hourly);
 
     // ---- Gann structures (anchored on the daily chart)
     const fanLines = computeFanLines(daily, currentPrice);
@@ -148,6 +167,9 @@ export async function scanTicker(
     const timePriceSquare = computeTimePriceSquare(daily, currentPrice);
     // Volume climax at the same pivots, replacing harmonicProximity.
     const volumeClimax = computeVolumeClimax(daily);
+    // Gann's "boiling point" blow-off duration off the same climax anchors,
+    // added 2026-09-16 — confluence/context only, see lib/gann/boilingPoint.ts.
+    const boilingPoint = computeBoilingPoint(daily, volumeClimax);
     const retracementLevels = computeRetracementLevels(daily, currentPrice);
     // Digital-root/vortex confluence off the same anchors angleSlopes reads —
     // confluence/context only (blueprint 7.4); score.ts's gannRetracementConfluence
@@ -177,13 +199,16 @@ export async function scanTicker(
       timeCycleBullishActive: cycles.bullishActive,
       timeCycleBearishActive: cycles.bearishActive,
       timeCycleDates: cycles.dates,
+      timeCycleFixedCalendarActive: cycles.fixedCalendarActive,
+      timeCycleFixedCalendarDates: cycles.fixedCalendarDates,
       angleSlopes,
-      retracementLevels: retracementLevels.slice(0, 7).map(({ fraction, label, price, distancePct, role }) => ({
+      retracementLevels: retracementLevels.slice(0, 7).map(({ fraction, label, price, distancePct, role, importance }) => ({
         fraction,
         label,
         price: Math.round(price * 100) / 100,
         distancePct,
         role,
+        importance,
       })),
       digitalRootConfluences,
     };
@@ -200,10 +225,15 @@ export async function scanTicker(
     // Prefer the pattern aligned with a reversion of the macro move; then by
     // trigger proximity to current price. A caller hunting a continuation
     // supplies its own direction instead — the trend's, not the reversion of it.
-    const macroDir =
-      [monthlyTrend, weeklyTrend, dailyTrend].filter((t) => t.direction === "bearish").length >= 2
-        ? "bearish"
-        : "bullish";
+    //
+    // Weighted by Gann's chart-timeframe power ratio (lib/gann/timeframeWeight.ts)
+    // rather than a flat 2-of-3 vote — a single monthly trend outweighs
+    // weekly+daily disagreeing with it, per Wall Street Stock Selector (1930).
+    // This only changes which of several simultaneously-armed patterns the
+    // live scan prefers showing; it is not a scored criterion.
+    const macroDir = weightedTrendAgreement([monthlyTrend, weeklyTrend, dailyTrend], "bearish").agrees
+      ? "bearish"
+      : "bullish";
     const reversionDirection = macroDir === "bearish" ? "bullish" : "bearish";
     const preferredDirection = preference?.direction ?? reversionDirection;
 
@@ -243,8 +273,41 @@ export async function scanTicker(
 
     const pattern: StratPattern | null = armedPatterns[0] ?? null;
 
-    const direction: "bullish" | "bearish" | "none" = pattern?.direction ?? "none";
-    const scoreDirection = pattern?.direction ?? preferredDirection;
+    // ---- What arms and prices the trade (changed 2026-09-17)
+    //
+    // The trade plan used to be armed and priced by the bar-sequence pattern
+    // above: `direction` was the pattern's, and `computeTradeLevels` read its
+    // `triggerPrice`/`stopPrice`. That made Rob Smith's STRAT the source of
+    // every entry price and, through `riskPerShare`, every position size —
+    // the single most load-bearing non-Gann component on the platform.
+    //
+    // It is now Gann's own rule: crossing an old swing top or bottom plus the
+    // "lost motion" allowance (`lib/gann/entryTrigger.ts`, sourced to the nine
+    // Buying Points and nine Selling Points). Direction comes from
+    // `preferredDirection`, which is already Gann-derived — `weightedTrendAgreement`
+    // over monthly/weekly/daily using his chart-timeframe power ratio.
+    //
+    // The bar-sequence pattern is NOT removed. It keeps its display and
+    // confluence role (`armedPatterns`, the price-action confluence layer),
+    // which the project owner examined and deliberately kept — see AGENTS.md's
+    // "Audit outcomes". What it no longer does is decide where an order goes.
+    const gannTrigger = computeGannEntryTrigger(daily, preferredDirection);
+
+    const direction: "bullish" | "bearish" | "none" = gannTrigger?.direction ?? "none";
+    const scoreDirection = gannTrigger?.direction ?? preferredDirection;
+
+    // The label is what the invalidation copy calls this setup. It describes
+    // what was crossed rather than naming a bar sequence, because that is what
+    // actually armed the trade now.
+    const entrySource: EntrySource | null = gannTrigger
+      ? {
+          direction: gannTrigger.direction,
+          triggerPrice: gannTrigger.triggerPrice,
+          stopPrice: gannTrigger.stopPrice,
+          setupLabel:
+            gannTrigger.direction === "bullish" ? "swing-top crossing" : "swing-bottom break",
+        }
+      : null;
 
     // ---- Trade levels
     const previousBar = closedExecutionBars[closedExecutionBars.length - 2] ?? closedExecutionBars[closedExecutionBars.length - 1];
@@ -292,10 +355,10 @@ export async function scanTicker(
 
     let levels: TradeLevels | null = null;
     let levelsError: string | undefined;
-    if (pattern) {
+    if (entrySource) {
       try {
         levels = computeTradeLevels(
-          pattern,
+          entrySource,
           previousBar,
           gannTargets,
           optionPremium,
@@ -328,14 +391,21 @@ export async function scanTicker(
           direction: scoreDirection,
           macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
           hourlyTrend,
-          hourlyAdx,
           swingChart,
+          campaignLeg,
+          ruleOfThree,
           timePriceSquare,
           volumeClimax,
+          boilingPoint,
           gann,
           nearSupportResistance,
-          srMatch: srMatch && { ...srMatch, role: levelRole(currentPrice, srMatch.price) },
+          srMatch: srMatch && {
+            ...srMatch,
+            role: levelRole(currentPrice, srMatch.price),
+            testCount: countLevelTests(daily, srMatch.price, srBandPct),
+          },
           pattern,
+          gannTrigger,
           momentumElevated,
           levels,
           stopAtrMultiple:
@@ -492,6 +562,13 @@ export async function scanTicker(
       // consumer can apply the platform-wide liquidity floor without a second
       // fetch — see lib/scan/liquidity.ts.
       liquidity,
+      // Internal only — stripped at the API boundary by redactScanResult.
+      // See lib/learning/record.ts for the `bar`/`volatility_state`/
+      // `volume_state` tables this backs.
+      dailyBars: daily,
+      volatilityRead:
+        baselineAtr > 0 ? { atr: recentAtr, regime: volatilityRegimeFromAtrRatio(recentAtr / baselineAtr) } : undefined,
+      volumeRead: { relativeVolumeIndex: relativeVolume(daily, 20) },
       optionPremium,
       signals: {
         regime,

@@ -1,0 +1,80 @@
+name: Full market scan (intraday cadence)
+
+# 2026-09-22, project-owner direction: the flagship big-cap market scan
+# (lib/marketScan.ts's FULL_UNIVERSE_TOP -- read that constant for the
+# current live value; it moved from 700 to 250 later the same day after a
+# live 700-symbol run 504'd at Vercel's 60s ceiling, so don't restate a
+# number here that can drift out of sync with it again) previously only ran
+# twice a day —
+# the 08:30 ET pre-market run (premarket-scan.yml) and the 17:30 ET
+# post-close run (native vercel.json cron). Between those two runs the
+# dashboard's "Daily market scan" sat on a stale snapshot for hours in a
+# market that moves in minutes, and the only way to get a current read was
+# the "Refresh scan" button re-running the full scan synchronously in front
+# of the user — racing the same 60s Vercel Hobby function ceiling
+# /api/market-scan's own header comment documents, and reading as a slow,
+# untrustworthy "flagship" feature to a novice watching it.
+#
+# The fix is architectural, not a longer timeout: keep `daily_scans`
+# continuously fresh in the background so a user never triggers the
+# expensive scan themselves. This workflow is that background job — same
+# CRON_SECRET-bearer pattern every other GitHub-Actions-scheduled route in
+# this repo uses (see docs/THIRD_PARTY_LIMITS.md; both of Vercel Hobby's 2
+# native cron slots are already spent, so anything else has to live here).
+#
+# Every 15 minutes, 09:30 ET through the 16:00 ET regular-session close —
+# `13-21 UTC` is wider than that on purpose, the same way premarket-scan.yml
+# and intraday-scan.yml already are, so one range covers both EST (UTC-5)
+# and EDT (UTC-4) without a DST-aware cron: 9:30am ET is 13:30 UTC (EDT) or
+# 14:30 UTC (EST), 4:00pm ET is 20:00 UTC (EDT) or 21:00 UTC (EST). A run
+# that lands a little outside the real session (pre-open or post-close) is
+# cheap and not wrong: /api/market-scan reads bars as of the last closed
+# session regardless of exactly when it's called, same as premarket-scan.yml
+# already relies on.
+#
+# Trimmed from a 09:30-18:00 ET window to 09:30-16:00 ET, 2026-09-23,
+# project-owner direction: this 15-minute cadence exists to keep the
+# dashboard fresh while the market can actually move, and equities are
+# closed after the 16:00 ET regular-session close (see
+# lib/market/session.ts's own CLOSE constant) — there is no new bar for a
+# re-scan to react to in the 16:00-18:00 ET window this used to cover. The
+# after-hours/extended-trading window (16:00-20:00 ET) is covered instead by
+# a single final run — see the native `vercel.json` cron below, retimed to
+# 20:00 ET the same day.
+#
+# This substantially raises how often the full-universe scan runs (roughly
+# every 15 minutes across the regular session vs. twice a day before) — see
+# docs/THIRD_PARTY_LIMITS.md's "Provider call volume" note for the
+# single-active-user headroom this was sized against; re-check that
+# reasoning if concurrent usage grows. It also shares the same per-provider
+# rate limiter every other market-data caller uses
+# (`lib/data/http.ts`'s `RateLimiter`) — see that file's `acquire` doc
+# comment for the production bug this caused (a concurrent chart load
+# queuing behind this scan's burst with no wait ceiling, hard-timing out
+# with no HTTP response) and the fix.
+#
+# Deliberately does NOT touch the existing 08:30 ET (premarket-scan.yml) run
+# — this schedule overlaps it, and the extra invocation is a harmless
+# no-op-in-substance (a fresh scan just overwrites the same day's rows
+# again), not a reason to remove it.
+on:
+  schedule:
+    - cron: '*/15 13-21 * * 1-5'
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    name: Trigger /api/market-scan
+    steps:
+      - name: Call market-scan
+        run: |
+          status=$(curl -sS -o /tmp/response.json -w '%{http_code}' \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ vars.PRODUCTION_URL || 'https://gsps.vercel.app' }}/api/market-scan")
+          echo "HTTP $status"
+          cat /tmp/response.json
+          if [ "$status" -ge 300 ]; then
+            echo "market-scan returned $status" >&2
+            exit 1
+          fi

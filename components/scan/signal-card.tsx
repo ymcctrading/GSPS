@@ -3,11 +3,55 @@ import { ScoreBadge } from "@/components/scan/score-badge";
 import { Badge } from "@/components/ui/badge";
 import { GlossaryTerm } from "@/components/glossary-term";
 import { PatternEducation } from "@/components/scan/pattern-education";
+import { SaveSetupButton } from "@/components/scan/save-setup-button";
 import { SCORE_PILLAR_DESCRIPTIONS, SCORE_PILLAR_LABELS } from "@/lib/scoring/public-summary";
+import { formatScore } from "@/lib/scoring/display";
 import { tradeSideLabel } from "@/lib/scoring/direction-copy";
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 import { formatUsd, cn } from "@/lib/utils";
 import type { AssetClass, PublicScoreSummary, ScanResult } from "@/lib/types";
+
+/**
+ * The Protocol signal's own rationale, in the structural-trigger's own terms —
+ * not the STRAT bar-sequence pattern's. Since 2026-09-17 (see AGENTS.md,
+ * "Entry pricing moved off STRAT onto Gann's own rule") the trade plan is
+ * armed and priced by crossing the prior completed swing's top/bottom plus a
+ * "lost motion" overshoot allowance (`lib/gann/entryTrigger.ts`), not by a
+ * bar-sequence pattern's penny-above-the-high trigger. This headline used to
+ * render `pattern.description`, which is the bar-sequence pattern's own
+ * language and can name a different bar — even a different direction — than
+ * the one that actually armed and priced this trade plan. `result.direction`
+ * is the direction the trade plan itself was computed against
+ * (`lib/scanTicker.ts`'s `scoreDirection`), so that is what this card's
+ * headline describes. Kept free of internal-methodology vocabulary per
+ * `scripts/check-banned-terms.mjs` — see `docs/GSPS_BRAND_GUIDE.md`.
+ */
+function structuralTriggerHeadline(direction: "bullish" | "bearish"): string {
+  return direction === "bullish"
+    ? "Crossing the prior confirmed swing high, past the key level's lost-motion allowance."
+    : "Breaking the prior confirmed swing low, past the key level's lost-motion allowance.";
+}
+
+/**
+ * ScanResult -> the shape SaveSetupButton already knows how to save. Before
+ * this, the button only existed inside ResultsTable (Dashboard preview,
+ * Scanner Universe results) -- a symbol looked up directly by search, or a
+ * ticker page opened from a link elsewhere, had no save affordance at all.
+ */
+function toSavedSetupRow(result: ScanResult) {
+  return {
+    symbol: result.symbol,
+    score: result.decision.score,
+    outputState: result.decision.outputState,
+    direction: result.direction,
+    entry: result.levels?.entry ?? null,
+    stopLoss: result.levels?.stopLoss ?? null,
+    takeProfit1: result.levels?.takeProfit1 ?? null,
+    masterProfit: result.levels?.masterProfit ?? null,
+    patternName: result.pattern?.name ?? null,
+    setupKind: result.setupKind,
+  };
+}
 
 /**
  * TP1/master labels: an R-multiple for every asset class except `us_equity`,
@@ -33,7 +77,13 @@ function targetLabel(
   return `${base} (${rMultiple.toFixed(1)}R)`;
 }
 
-export function SignalCard({ result }: { result: ScanResult }) {
+export function SignalCard({
+  result,
+  exactScoreDisplayEnabled = false,
+}: {
+  result: ScanResult;
+  exactScoreDisplayEnabled?: boolean;
+}) {
   const { decision, levels, levelsError, pattern, dataLag, assetClass } = result;
   const armed = result.armedPatterns ?? (pattern ? [pattern] : []);
   const others = armed.filter((p) => p !== pattern);
@@ -43,33 +93,62 @@ export function SignalCard({ result }: { result: ScanResult }) {
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>Protocol signal</CardTitle>
-          <ScoreBadge score={decision.score} state={decision.outputState} />
+          <div className="flex items-center gap-1.5">
+            <ScoreBadge
+              score={decision.score}
+              state={decision.outputState}
+              exactScoreDisplayEnabled={exactScoreDisplayEnabled}
+            />
+            <SaveSetupButton row={toSavedSetupRow(result)} />
+          </div>
         </div>
-        {pattern ? (
+        {result.direction !== "none" ? (
           <CardDescription>
-            <GlossaryTerm term={PATTERN_GLOSSARY_TERM[pattern.name]} label={PATTERN_GLOSSARY_TERM[pattern.name]} />{" "}
-            <span className={pattern.direction === "bullish" ? "text-bull" : "text-bear"}>
-              {tradeSideLabel(pattern.direction)}
+            <span className={result.direction === "bullish" ? "text-bull" : "text-bear"}>
+              {tradeSideLabel(result.direction)}
             </span>{" "}
-            — {pattern.description}
+            — {structuralTriggerHeadline(result.direction)}
           </CardDescription>
         ) : (
-          <CardDescription>No reversal pattern is currently armed on the execution timeframe.</CardDescription>
+          <CardDescription>No structural entry trigger is currently armed on the execution timeframe.</CardDescription>
         )}
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        {pattern && <PatternEducation name={pattern.name} />}
-        {others.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5 text-xs">
-            <span className="text-muted">Also armed:</span>
-            {others.map((p, i) => (
-              <Badge key={`${p.name}-${p.direction}-${i}`} variant="muted">
-                {PATTERN_GLOSSARY_TERM[p.name]}{" "}
-                <span className={p.direction === "bullish" ? "text-bull" : "text-bear"}>
-                  {tradeSideLabel(p.direction)}
+        {pattern && (
+          <div className="rounded-md border border-border bg-background p-3">
+            <div className="flex flex-wrap items-center justify-between gap-1.5">
+              <p className="text-xs font-medium text-muted">
+                Reversal pattern <span className="font-normal">— reference only, not this trade&apos;s entry rule</span>
+              </p>
+              <Badge variant="muted">
+                <GlossaryTerm term={PATTERN_GLOSSARY_TERM[pattern.name]} label={PATTERN_GLOSSARY_TERM[pattern.name]} />{" "}
+                <span className={pattern.direction === "bullish" ? "text-bull" : "text-bear"}>
+                  {tradeSideLabel(pattern.direction)}
                 </span>
               </Badge>
-            ))}
+            </div>
+            <p className="mt-1.5 text-xs text-muted">
+              {pattern.direction !== result.direction && result.direction !== "none"
+                ? `This bar-sequence read is ${pattern.direction}, the opposite side from the structural trigger above — they're independent methods and are expected to disagree sometimes. `
+                : ""}
+              {pattern.description}
+            </p>
+            <div className="mt-2">
+              <PatternEducation name={pattern.name} />
+            </div>
+            {others.length > 0 && (
+              <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+                <span className="text-muted">Also armed:</span>
+                {others.map((p, i) => (
+                  <Badge key={`${p.name}-${p.direction}-${i}`} variant="muted">
+                    {PATTERN_GLOSSARY_TERM[p.name]}{" "}
+                    <span className={p.direction === "bullish" ? "text-bull" : "text-bear"}>
+                      {tradeSideLabel(p.direction)}
+                    </span>
+                  </Badge>
+                ))}
+              </div>
+            )}
           </div>
         )}
         {levels && (
@@ -140,7 +219,9 @@ export function SignalCard({ result }: { result: ScanResult }) {
           </div>
         )}
 
-        {decision.summary && <ScoreBreakdown summary={decision.summary} />}
+        {decision.summary && (
+          <ScoreBreakdown summary={decision.summary} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
+        )}
       </CardContent>
     </Card>
   );
@@ -165,7 +246,13 @@ function PivotPlanLine({ label, value }: { label: string; value: string }) {
  * lib/scoring/public-summary.ts), so there is nothing here to read back out of
  * a network response either.
  */
-function ScoreBreakdown({ summary }: { summary: PublicScoreSummary }) {
+function ScoreBreakdown({
+  summary,
+  exactScoreDisplayEnabled,
+}: {
+  summary: PublicScoreSummary;
+  exactScoreDisplayEnabled: boolean;
+}) {
   if (summary.pillars.length === 0) return null;
 
   return (
@@ -173,7 +260,7 @@ function ScoreBreakdown({ summary }: { summary: PublicScoreSummary }) {
       <div className="mb-2 flex items-baseline justify-between gap-3">
         <h4 className="text-sm font-medium">Score breakdown</h4>
         <span className="font-mono text-xs text-muted tabular-nums">
-          {summary.score}/{summary.max} points
+          {formatScore(summary.score, exactScoreDisplayEnabled)}/{summary.max} points
         </span>
       </div>
 

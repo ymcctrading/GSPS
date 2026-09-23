@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
-import { computeSwingChart, swingChartDirection } from "../swingChart";
+import { computeCampaignLeg, computeSwingChart, swingChartDirection } from "../swingChart";
 
 function bars(closes: number[]): Bar[] {
   return closes.map((c, i) => ({ t: `2026-01-${String(i + 1).padStart(2, "0")}T00:00:00Z`, o: c, h: c, l: c, c, v: 1000 }));
@@ -53,5 +53,34 @@ describe("computeSwingChart", () => {
 
   it("returns null legs when there isn't enough history for either window", () => {
     expect(computeSwingChart(bars([10, 11, 12]))).toEqual({ threeDay: null, nineDay: null });
+  });
+});
+
+describe("computeCampaignLeg", () => {
+  it("returns null when there isn't enough history for the 9-day chart", () => {
+    expect(computeCampaignLeg(bars([10, 11, 12]))).toEqual({ legNumber: null, confidence: null });
+  });
+
+  it("reads a monotonic run with no 3-day reversal as leg 1 (low confidence)", () => {
+    const closes = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
+    expect(computeCampaignLeg(bars(closes))).toEqual({ legNumber: 1, confidence: "low" });
+  });
+
+  it("counts two 3-day flips (never enough for a 9-day major change) as leg 3 (high confidence)", () => {
+    const closes = [10, 11, 12, 11, 10, 9, 12, 13, 14, 15, 16];
+    expect(computeCampaignLeg(bars(closes))).toEqual({ legNumber: 3, confidence: "high" });
+  });
+
+  it("counts four 3-day flips as leg 5 (extended, outside the classic 3-4-leg pattern)", () => {
+    const closes = [10, 11, 12, 11, 10, 9, 12, 13, 14, 13, 12, 11, 14, 15, 16];
+    expect(computeCampaignLeg(bars(closes))).toEqual({ legNumber: 5, confidence: "extended" });
+  });
+
+  it("resets the leg count after a genuine 9-day major trend change, ignoring legs from before it", () => {
+    // Bullish start, then 9 consecutive down closes (flips the 9-day chart
+    // bearish), then 3 up closes (one 3-day flip back to bullish since the
+    // major change) -- only that one flip since the major change counts.
+    const closes = [10, 11, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 4, 5, 6];
+    expect(computeCampaignLeg(bars(closes))).toEqual({ legNumber: 2, confidence: "low" });
   });
 });

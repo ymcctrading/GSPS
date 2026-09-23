@@ -14,6 +14,8 @@ function symbol(overrides: Partial<Parameters<typeof buildHistorySymbol>[0]> = {
     masterProfit: 120,
     currentState: null,
     currentStateAsOf: null,
+    currentScore: null,
+    currentPrice: null,
     ...overrides,
   });
 }

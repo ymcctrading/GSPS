@@ -32,18 +32,19 @@ export interface GateResult {
 }
 
 /**
- * Whether `action` may proceed under the current circuit-breaker state. Risk-
- * reducing actions are always allowed regardless of state; a new entry or an
- * increase to an existing position is gated by the state's own rules.
+ * Whether `action` may proceed given an *already-resolved* circuit decision.
+ * Risk-reducing actions are always allowed regardless of state; a new entry
+ * or an increase to an existing position is gated by the state's own rules.
+ *
+ * Split out from `gateAction` (2026-09-17 orphan-module audit) so a caller
+ * that has already resolved the circuit state itself — e.g.
+ * `lib/risk/service.ts#evaluateLiveCircuitBreaker`, which persists the
+ * transition and must resolve state exactly once against the stored prior —
+ * can apply the same permitted-action rule without a second, potentially
+ * inconsistent `resolveState` call. `gateAction` below is the convenience
+ * wrapper for a caller that has raw inputs instead.
  */
-export function gateAction(
-  action: TradeAction,
-  inputs: CircuitInputs,
-  prior?: PriorState,
-  tradingDaysElapsedSince?: (from: Date) => number,
-): GateResult {
-  const circuit = resolveState(inputs, prior, tradingDaysElapsedSince);
-
+export function gateResolvedAction(action: TradeAction, circuit: CircuitDecision): GateResult {
   if (ALWAYS_PERMITTED_ACTIONS.has(action as AlwaysPermittedAction)) {
     return { allowed: true, requiresRiskReview: false, reason: null, circuit };
   }
@@ -72,6 +73,21 @@ export function gateAction(
     reason: circuit.newEntryRequiresRiskReview ? circuit.reason : null,
     circuit,
   };
+}
+
+/**
+ * Whether `action` may proceed under the current circuit-breaker state.
+ * Resolves the state itself from raw inputs — see `gateResolvedAction` for a
+ * caller that has already resolved it.
+ */
+export function gateAction(
+  action: TradeAction,
+  inputs: CircuitInputs,
+  prior?: PriorState,
+  tradingDaysElapsedSince?: (from: Date) => number,
+): GateResult {
+  const circuit = resolveState(inputs, prior, tradingDaysElapsedSince);
+  return gateResolvedAction(action, circuit);
 }
 
 /** The reset checklist required before new entries resume out of hard_cooldown or a lock. */

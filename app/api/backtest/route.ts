@@ -23,7 +23,6 @@
  *                          purpose (one bucket, not the whole universe's
  *                          trades), for building a real trade-by-trade
  *                          timeline the aggregate numbers can't answer
- *
  * Not on a cron and it must not go on one: a run walks every bar of every
  * symbol and is far too slow for a scheduled hobby-plan invocation. It is
  * called on demand from the learning dashboard.
@@ -46,6 +45,7 @@ import {
   type Bucket,
 } from "@/lib/backtest/run";
 import { byOutputState, byScoreRange } from "@/lib/backtest/replay";
+import { replaySignalEngineForUniverse } from "@/lib/backtest/replaySignals";
 import { isTimeframe } from "@/lib/timeframe";
 import { verifyAuth } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/server";
@@ -144,9 +144,40 @@ export async function GET(req: NextRequest) {
   const productionStopRaw = searchParams.get("productionStop");
   const useProductionStop = productionStopRaw !== null && productionStopRaw !== "0" && productionStopRaw !== "false";
   const wantTrades = searchParams.get("trades") === "1";
+  const wantSignalEngine = searchParams.get("engine") === "signal";
   const includeSlippageSensitivity = searchParams.get("slippageSensitivity") === "1";
 
+  if ([wantTrades, wantSignalEngine].filter(Boolean).length > 1) {
+    return NextResponse.json(
+      { error: "'trades' and 'engine=signal' are mutually exclusive — pass one." },
+      { status: 400 },
+    );
+  }
+
   try {
+    // Evidence-gathering walk-forward over the Signal & Regime Engine
+    // (lib/signals), parallel to the Gann/STRAT score's own replay above —
+    // see lib/backtest/replaySignals.ts's header for why it reports tier
+    // frequency rather than a simulated P&L.
+    if (wantSignalEngine) {
+      const result = await replaySignalEngineForUniverse(universe, timeframe);
+      return NextResponse.json({
+        timeframe,
+        symbols: universe,
+        skipped: result.skipped,
+        aggregateTierCounts: result.aggregateTierCounts,
+        aggregateTradeableCount: result.aggregateTradeableCount,
+        aggregateEventCount: result.aggregateEventCount,
+        perSymbol: result.results.map((r) => ({
+          symbol: r.symbol,
+          barsEvaluated: r.barsEvaluated,
+          tierCounts: r.tierCounts,
+          tradeableCount: r.tradeableCount,
+          eventCount: r.events.length,
+        })),
+      });
+    }
+
     if (wantTrades) {
       const run = await collectRun({
         symbols: universe,

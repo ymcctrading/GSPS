@@ -6,6 +6,7 @@ const getPositions = vi.fn();
 const manageProtocolExits = vi.fn();
 const reconcilePositions = vi.fn();
 const settlePendingTradeLogs = vi.fn();
+const syncLiveOrderStatuses = vi.fn();
 
 vi.mock("@/lib/brokers/live-creds", () => ({
   readLiveAlpacaConnection: (...args: unknown[]) => readLiveAlpacaConnection(...args),
@@ -22,6 +23,9 @@ vi.mock("@/lib/portfolio/reconcile", () => ({
 vi.mock("@/lib/portfolio/trade-log-settle", () => ({
   settlePendingTradeLogs: (...args: unknown[]) => settlePendingTradeLogs(...args),
 }));
+vi.mock("@/lib/portfolio/order-status", () => ({
+  syncLiveOrderStatuses: (...args: unknown[]) => syncLiveOrderStatuses(...args),
+}));
 
 import { syncLiveAccount } from "@/lib/trade/live-sync";
 
@@ -35,16 +39,24 @@ describe("syncLiveAccount", () => {
     manageProtocolExits.mockReset();
     reconcilePositions.mockReset();
     settlePendingTradeLogs.mockReset();
+    syncLiveOrderStatuses.mockReset();
   });
 
   it("is a no-op when there is no live connection", async () => {
     readLiveAlpacaConnection.mockResolvedValue(null);
     const result = await syncLiveAccount(supabase, "u1");
-    expect(result).toEqual({ connected: false, exits: null, reconcile: null, settlement: null, error: null });
+    expect(result).toEqual({
+      connected: false,
+      exits: null,
+      reconcile: null,
+      settlement: null,
+      orderSync: null,
+      error: null,
+    });
     expect(getPositions).not.toHaveBeenCalled();
   });
 
-  it("fetches live positions once and feeds all three sync passes", async () => {
+  it("fetches live positions once and feeds all four sync passes", async () => {
     readLiveAlpacaConnection.mockResolvedValue({ connectionId: "c1", creds });
     getPositions.mockResolvedValue([
       { symbol: "AAPL", qty: "10", side: "long", avg_entry_price: "200" },
@@ -52,6 +64,7 @@ describe("syncLiveAccount", () => {
     manageProtocolExits.mockResolvedValue({ managed: 1, attached: 0, adjusted: 0, closed: 0, notes: [], error: null });
     reconcilePositions.mockResolvedValue({ opened: 1, closed: 0, error: null });
     settlePendingTradeLogs.mockResolvedValue({ settled: 0, stillPending: 0, error: null });
+    syncLiveOrderStatuses.mockResolvedValue({ updated: 0, orphaned: 0, error: null });
 
     const result = await syncLiveAccount(supabase, "u1");
 
@@ -62,9 +75,11 @@ describe("syncLiveAccount", () => {
       { symbol: "AAPL", qty: 10, side: "long", avgEntry: 200 },
     ]);
     expect(settlePendingTradeLogs).toHaveBeenCalledWith(supabase, creds, "u1");
+    expect(syncLiveOrderStatuses).toHaveBeenCalledWith(supabase, creds, "u1");
     expect(result.connected).toBe(true);
     expect(result.exits?.managed).toBe(1);
     expect(result.reconcile?.opened).toBe(1);
+    expect(result.orderSync?.updated).toBe(0);
     expect(result.error).toBeNull();
   });
 
@@ -74,6 +89,7 @@ describe("syncLiveAccount", () => {
     manageProtocolExits.mockResolvedValue({ managed: 0, attached: 0, adjusted: 0, closed: 0, notes: [], error: null });
     reconcilePositions.mockResolvedValue({ opened: 0, closed: 0, error: null });
     settlePendingTradeLogs.mockResolvedValue({ settled: 0, stillPending: 0, error: null });
+    syncLiveOrderStatuses.mockResolvedValue({ updated: 0, orphaned: 0, error: null });
 
     await syncLiveAccount(supabase, "u1");
 
@@ -82,7 +98,7 @@ describe("syncLiveAccount", () => {
     ]);
   });
 
-  it("reports an error and skips the three passes when the broker's position list can't be read", async () => {
+  it("reports an error and skips the four passes when the broker's position list can't be read", async () => {
     readLiveAlpacaConnection.mockResolvedValue({ connectionId: "c1", creds });
     getPositions.mockRejectedValue(new Error("Alpaca down"));
 
@@ -93,5 +109,6 @@ describe("syncLiveAccount", () => {
     expect(manageProtocolExits).not.toHaveBeenCalled();
     expect(reconcilePositions).not.toHaveBeenCalled();
     expect(settlePendingTradeLogs).not.toHaveBeenCalled();
+    expect(syncLiveOrderStatuses).not.toHaveBeenCalled();
   });
 });

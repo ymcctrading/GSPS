@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { LayoutDashboard, Radar, Briefcase, Bot, FlaskConical, BookOpen, GraduationCap, Settings, LogOut, TrendingUp, Compass, UserCircle } from "lucide-react";
 import { SymbolSearch } from "@/components/search/symbol-search";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 
 /**
  * Every destination, in order. `tabBar: false` keeps one out of the phone tab
@@ -115,6 +116,8 @@ export function AppNav() {
 
           <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
             <SymbolSearch />
+
+            <NotificationBell />
 
             <Link
               href="/settings"

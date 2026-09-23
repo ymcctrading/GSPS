@@ -14,7 +14,20 @@ import type {
 } from "@/lib/types";
 import { computeScore, type ScoreInputs } from "@/lib/scoring/score";
 import { hasTradePlan, isMomentumContinuation, qualifiesAsContinuationFill } from "@/lib/marketScan";
-import { EXECUTE_SCORE_THRESHOLD } from "@/lib/scoring/weights";
+import { CRITERION_KEYS, EXECUTE_SCORE_THRESHOLD, type CriterionWeights } from "@/lib/scoring/weights";
+
+/**
+ * These fixtures check raw pass/fail arithmetic against fixed score values
+ * (9, 8, 7...) — only meaningful when every criterion is worth one point.
+ * `DEFAULT_CRITERION_WEIGHTS` (what `computeScore` falls back to when no
+ * `weights` is supplied) is uniform again as of 2026-09-16, so it matches
+ * this today — but it is still supplied explicitly, so a future change to
+ * the live default cannot silently break these fixtures. See that constant's
+ * own doc comment in lib/scoring/weights.ts.
+ */
+const UNIFORM_WEIGHTS: CriterionWeights = Object.fromEntries(
+  CRITERION_KEYS.map((k) => [k, 1]),
+) as CriterionWeights;
 
 function trend(
   timeframe: TrendReading["timeframe"],
@@ -24,11 +37,16 @@ function trend(
 }
 
 /**
- * Every structural criterion passing — 8 of 9 without a pattern or levels.
- * gannAngleSlope and gannRetracementConfluence both read off `gann` alone
- * (not the computed trade `levels`), so only `patternArmed` needs an armed
- * pattern to pass — unlike the old `masterStructural` it replaced, which
- * needed `levels.masterFromStructure`.
+ * Every original structural criterion passing — 7 of 8 without a pattern or
+ * levels. gannAngleSlope and gannRetracementConfluence both read off `gann`
+ * alone (not the computed trade `levels`), so only `patternArmed` needs an
+ * armed pattern to pass — unlike the old `masterStructural` it replaced,
+ * which needed `levels.masterFromStructure`. `ruleOfThree` (added
+ * 2026-09-16) is deliberately left unsupplied in `inputs()` below — it
+ * always fails here, so every score in this file is one point lower than a
+ * literal "all nine pass" run would read; the exact numbers below already
+ * account for that. `adxTrendStrength` (removed 2026-09-16) no longer
+ * exists to supply or count.
  */
 const gann: GannLevels = {
   fanLines: [],
@@ -40,7 +58,7 @@ const gann: GannLevels = {
   angleSlopes: [
     { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, slope: 1.1, nearestAngle: { label: "1x1", ratio: 1, direction: "up" } },
   ],
-  retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100, distancePct: 0.1, role: "support" }],
+  retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100, distancePct: 0.1, role: "support", importance: 1 }],
   digitalRootConfluences: [{ anchorKind: "low", priceRoot: 1, timeRoot: 8, type: "COMPLEMENTARY_PAIR" }],
 };
 
@@ -51,6 +69,13 @@ const pattern: StratPattern = {
   stopPrice: 99,
   description: "",
 };
+
+/**
+ * What actually arms the trade since 2026-09-17 — the swing-level crossing
+ * (`lib/gann/entryTrigger.ts`), not the bar sequence above. Same prices, so
+ * each fixture's intent is unchanged; `pattern` stays for the display role.
+ */
+const gannTrigger = { direction: "bullish" as const, triggerPrice: 100, stopPrice: 99 };
 
 const levels: TradeLevels = {
   entry: 100,
@@ -79,20 +104,21 @@ function inputs(overrides: Partial<ScoreInputs> = {}): ScoreInputs {
       trend("1Day", "bullish"),
     ],
     hourlyTrend: trend("1Hour", "bullish"),
-    hourlyAdx: { adx: 25, plusDI: 20, minusDI: 10 },
     swingChart: { threeDay: "bullish", nineDay: "bullish" },
     timePriceSquare: [
-      { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, squared: true },
+      { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMoveAtrUnits: 10, squared: true },
     ],
     volumeClimax: [
-      { anchorKind: "low", anchorPrice: 90, relativeVolume: 2, climax: true },
+      { anchorKind: "low", anchorPrice: 90, anchorIndex: 0, relativeVolume: 2, bestRecentRelativeVolume: 2, climax: true },
     ],
     gann,
     nearSupportResistance: true,
     pattern,
+    gannTrigger,
     momentumElevated: true,
     stopAtrMultiple: 2,
     levels,
+    weights: UNIFORM_WEIGHTS,
     ...overrides,
   };
 }
@@ -100,13 +126,14 @@ function inputs(overrides: Partial<ScoreInputs> = {}): ScoreInputs {
 describe("computeScore output state", () => {
   it("reaches Execute when the plan is priced", () => {
     const decision = computeScore(inputs());
-    expect(decision.score).toBe(9);
+    expect(decision.score).toBe(8);
     expect(decision.outputState).toBe("Execute");
   });
 
-  it("holds at Watch when the context scores 7+ but no pattern is armed", () => {
-    const decision = computeScore(inputs({ pattern: null, levels: null }));
-    expect(decision.score).toBe(8);
+  it("holds at Watch when the context scores 7+ but no trigger is armed", () => {
+    // `gannTrigger` is what arms the trade now; `pattern` no longer does.
+    const decision = computeScore(inputs({ pattern: null, gannTrigger: null, levels: null }));
+    expect(decision.score).toBe(7);
     expect(decision.outputState).toBe("Watch");
     expect(decision.breakdown.at(-1)?.criterion).toMatch(/Trade plan priced/);
   });
@@ -116,9 +143,11 @@ describe("computeScore output state", () => {
     expect(decision.outputState).toBe("Watch");
   });
 
-  it("holds at Watch when the armed pattern opposes the scored direction", () => {
-    const decision = computeScore(inputs({ pattern: { ...pattern, direction: "bearish" } }));
-    expect(decision.score).toBe(8);
+  it("holds at Watch when the armed trigger opposes the scored direction", () => {
+    const decision = computeScore(
+      inputs({ gannTrigger: { ...gannTrigger, direction: "bearish" as const } }),
+    );
+    expect(decision.score).toBe(7);
     expect(decision.outputState).toBe("Watch");
   });
 
@@ -303,15 +332,15 @@ describe("continuation scoring", () => {
     expect(decision.breakdown[0].passed).toBe(false);
   });
 
-  it("names the pattern criterion after the trade it describes", () => {
+  it("names the trigger criterion after the trade it describes", () => {
     const asContinuation = computeScore(inputs({ setupKind: "continuation" }));
-    expect(asContinuation.breakdown[5].criterion).toBe("Continuation pattern armed");
-    expect(computeScore(inputs()).breakdown[5].criterion).toBe("Reversal pattern armed");
+    expect(asContinuation.breakdown[4].criterion).toBe("Continuation entry trigger armed");
+    expect(computeScore(inputs()).breakdown[4].criterion).toBe("Reversal entry trigger armed");
   });
 
-  it("can still reach 9/9 as a continuation — nothing structurally caps it", () => {
+  it("can still reach 8/9 as a continuation — nothing structurally caps it", () => {
     const decision = computeScore(inputs({ setupKind: "continuation", swingChart: swingBullish }));
-    expect(decision.score).toBe(9);
+    expect(decision.score).toBe(8);
     expect(decision.outputState).toBe("Execute");
   });
 

@@ -8,7 +8,19 @@ import type { GannConfluenceResult, SaraConfluenceResult } from "@/lib/signals/c
 import type { NoviceEligibility } from "@/lib/universe/types";
 import type { ConfluenceType } from "@/lib/gann/digitalRoot";
 
-export type AssetClass = "us_equity" | "crypto";
+/**
+ * `"commodity"` is a recognized value with no live market-data connection
+ * yet — see `lib/data/commodity.ts`. It exists so the scan/scoring/Gann
+ * pipeline's types are ready for a future data source without a breaking
+ * change to this union later. Until that provider is actually registered in
+ * `lib/data/provider.ts`'s `getMarketDataProvider()`, nothing in the
+ * universe/scan layer should produce a symbol tagged `"commodity"` — every
+ * `assetClass === "crypto" ? ... : ...` binary check elsewhere in this
+ * codebase (liquidity floors, market sessions, learning-event mapping, etc.)
+ * silently treats it like `"us_equity"`, which is only safe while no such
+ * symbol exists to flow through them.
+ */
+export type AssetClass = "us_equity" | "crypto" | "commodity";
 
 export interface Bar {
   t: string; // ISO timestamp
@@ -81,6 +93,17 @@ export interface GannLevels {
   timeCycleBearishActive: boolean;
   timeCycleDates: string[];
   /**
+   * A fixed annual calendar window (`Wall Street Stock Selector`, 1930,
+   * `docs/GANN_HISTORICAL_SOURCES.md` A4) is active — no per-symbol anchor,
+   * no directional bias, unlike the pivot-anchored fields above. Optional so
+   * existing fixtures/tests that predate this field keep working; every real
+   * scan (`lib/scanTicker.ts`) populates it. See
+   * `lib/gann/timeCycles.ts`'s header and `docs/GANN_PLATFORM_AUDIT.md` Part 4.
+   */
+  timeCycleFixedCalendarActive?: boolean;
+  /** Upcoming fixed-calendar dates of interest (ISO date strings). See `timeCycleFixedCalendarActive`. */
+  timeCycleFixedCalendarDates?: string[];
+  /**
    * Realized Gann-angle (1x1, etc.) slope since the most recent significant
    * low (bullish reading) and high (bearish reading) — lib/gann/normalizedSlope.ts.
    */
@@ -92,7 +115,7 @@ export interface GannLevels {
     nearestAngle: { label: string; ratio: number; direction: "up" | "down" } | null;
   }[];
   /** Gann percentage retracement zones (eighths) off the last swing — lib/gann/retracement.ts. */
-  retracementLevels: { fraction: number; label: string; price: number; distancePct: number; role: "support" | "resistance" }[];
+  retracementLevels: { fraction: number; label: string; price: number; distancePct: number; role: "support" | "resistance"; importance: number | null }[];
   /**
    * Digital-root/vortex price-time confluence off the same anchors as
    * `angleSlopes`. Confluence/context only, per blueprint 7.4 — never a
@@ -285,6 +308,30 @@ export interface ScanResult {
    * history to average, which the floor treats as a failure rather than a pass.
    */
   liquidity?: LiquidityRead;
+  /**
+   * The daily bars this scan's structure was computed from — internal only,
+   * stripped at the API boundary by `redactScanResult` the same way
+   * `decision.breakdown` is: full OHLCV history is bulk internal data, not a
+   * public response field. Carried so a recorded scan can persist it to the
+   * `bar` table (migration 0064) without a second fetch — see
+   * `lib/learning/record.ts`.
+   */
+  dailyBars?: Bar[];
+  /**
+   * Realized volatility off the same daily bars, expressed as the recent-ATR
+   * / prior-baseline-ATR ratio `momentumElevated` is already computed from —
+   * a real expansion/contraction read, not a formal statistical percentile.
+   * Backs the `volatility_state` table (migration 0064). Absent on an
+   * errored scan or when there isn't enough daily history.
+   */
+  volatilityRead?: { atr: number; regime: "low" | "normal" | "elevated" | "extreme" };
+  /**
+   * Latest daily bar's volume relative to its own trailing 20-bar average
+   * (`lib/signals/indicators.ts`'s `relativeVolume`). Backs the
+   * `volume_state` table (migration 0064). `null` when there isn't enough
+   * daily history to average.
+   */
+  volumeRead?: { relativeVolumeIndex: number | null };
   /** Optional: option premium supplied by user for the 12–18% stop calc. */
   optionPremium?: number;
   /**

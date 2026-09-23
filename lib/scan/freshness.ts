@@ -96,7 +96,7 @@ const REGULAR_OPEN = 9 * 60 + 30;
  * like the freshest thing available while being priced off tape that has
  * already been superseded by the overnight session and the opening auction.
  *
- * The 17:30 ET run has the opposite property: also outside market hours, but
+ * The 20:00 ET run has the opposite property: also outside market hours, but
  * its bars are that day's, which is why the test is "before the open" and not
  * "outside the session".
  *

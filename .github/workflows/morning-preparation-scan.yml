@@ -1,26 +1,28 @@
 name: Morning Preparation scan
 
-# The 6:00 AM ET "Morning Preparation" scheduled scan from
+# The 6:30 AM ET "Morning Preparation" scheduled scan from
 # GSPS_TIER_ENTITLEMENT_SPEC.md. Both Vercel cron slots are already spent
-# (/api/market-scan at 17:30 ET, /api/trade-journal/daily-email at 18:00 ET
+# (/api/market-scan at 20:00 ET, /api/trade-journal/daily-email at 18:00 ET
 # -- see docs/THIRD_PARTY_LIMITS.md), so this follows the same
 # GitHub-Actions-external-scheduler pattern as premarket-scan.yml rather than
 # vercel.json.
 #
-# 10:00 UTC = 6:00 AM ET during EDT (UTC-4, roughly mid-March to early
-# November). During EST (UTC-5) this actually fires at 5:00 AM ET -- the same
+# 10:30 UTC = 6:30 AM ET during EDT (UTC-4, roughly mid-March to early
+# November). During EST (UTC-5) this actually fires at 5:30 AM ET -- the same
 # DST drift premarket-scan.yml already accepts for its own fixed-UTC
 # schedule, for the same reason: the route's output doesn't depend on being
 # called at exactly its nominal minute. Revisit if that stops being true.
 #
-# lib/entitlements/scheduled-scan.ts runs this at a deliberately reduced
-# universe/per-side budget (MORNING_SCAN_UNIVERSE_TOP / MORNING_SCAN_PER_SIDE)
-# rather than the main scan's full budget -- see that file's header comment
-# for why, and for exactly what to change once a higher-tier plan is in
-# place (expected within ~60 days of 2026-08-26).
+# Moved from 6:00 AM to 6:30 AM ET, 2026-09-23, project-owner direction: give
+# a user a little more real time between this run and the 8:30 AM premarket
+# scan to react to pre-market moves.
+#
+# lib/entitlements/scheduled-scan.ts runs this at the full big-cap universe
+# budget (FULL_UNIVERSE_TOP in lib/marketScan.ts) -- see that file's header
+# comment for the current budget and when to reintroduce a reduced one.
 on:
   schedule:
-    - cron: '0 10 * * 1-5'
+    - cron: '30 10 * * 1-5'
   workflow_dispatch:
 
 jobs:

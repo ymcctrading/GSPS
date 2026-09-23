@@ -63,11 +63,24 @@ to turn it on.
    — already required by, and shared with, the plan-scoped flow's live
    mode. Nothing new to build there.
 2. **`AUTONOMOUS_LIVE_TRADING_HALTED=false`** set in the deployment
-   environment.
+   environment. Set on production 2026-09-23, project-owner direction given
+   directly in a Claude Code session — see that Vercel env var's own
+   comment for the exact record. Inert on its own; item 3 is the gate that
+   actually matters.
 3. **One row in `compliance_signoffs`** for
    `feature: 'autonomous_live_trading'`, written by hand via
-   `recordSignoff(supabase, { feature, approvedBy, reviewReference })` —
-   not from a UI action, not from a deploy, not from this document.
+   `scripts/record-autonomous-live-signoff.mjs` (a thin CLI wrapper around
+   `recordSignoff`, built 2026-09-23 specifically so this step has a ready
+   tool without an AI agent ever running it on someone's behalf) — not from
+   a UI action, not from a deploy, not from this document, and not from
+   that Claude Code session either: `lib/compliance/signoff.ts`'s own
+   comment is explicit that an AI coding agent can build the controls a
+   review requires but cannot grant the review, and this table's
+   `approved_by`/`review_reference` columns exist specifically to record a
+   real reviewer and a real review artifact — neither of which a chat
+   instruction alone supplies. Run the script yourself once you've actually
+   done that review. `scripts/revoke-autonomous-live-signoff.mjs` is the
+   undo.
 
 Until all three are true, a member can select "Live" on the control panel
 today and nothing about their real account changes — the loop keeps

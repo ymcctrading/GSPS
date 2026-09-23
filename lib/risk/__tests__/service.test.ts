@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { evaluateLiveCircuitBreaker } from "@/lib/risk/service";
+import { evaluateLiveCircuitBreaker, countLiveEntriesOpenedToday } from "@/lib/risk/service";
 
 interface Snapshot {
   equity: number;
@@ -138,5 +138,44 @@ describe("evaluateLiveCircuitBreaker", () => {
     const s = makeSupabase({ snapshots: [], priorState: null });
     const result = await evaluateLiveCircuitBreaker(s.client, "u1", 450, false, 0, new Date("2026-08-28T14:00:00Z"));
     expect(result.sourceDataConfidence).toBe("estimate");
+  });
+});
+
+describe("countLiveEntriesOpenedToday", () => {
+  function makePositionsClient(count: number | null, error: { message: string } | null = null) {
+    const gteFilters: Record<string, unknown>[] = [];
+    const client = {
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            eq: () => ({
+              gte: (col: string, val: unknown) => {
+                gteFilters.push({ [col]: val });
+                return Promise.resolve({ count, error });
+              },
+            }),
+          }),
+        }),
+      }),
+    } as unknown as SupabaseClient;
+    return { client, gteFilters };
+  }
+
+  it("returns the row count from a live, today-scoped positions query", async () => {
+    const { client } = makePositionsClient(2);
+    const result = await countLiveEntriesOpenedToday(client, "u1", new Date("2026-09-23T18:00:00Z"));
+    expect(result).toBe(2);
+  });
+
+  it("returns 0 (fails closed) rather than throwing when the query errors", async () => {
+    const { client } = makePositionsClient(null, { message: "db down" });
+    const result = await countLiveEntriesOpenedToday(client, "u1", new Date("2026-09-23T18:00:00Z"));
+    expect(result).toBe(0);
+  });
+
+  it("treats a null count (query succeeded, no rows) as 0", async () => {
+    const { client } = makePositionsClient(null);
+    const result = await countLiveEntriesOpenedToday(client, "u1", new Date("2026-09-23T18:00:00Z"));
+    expect(result).toBe(0);
   });
 });

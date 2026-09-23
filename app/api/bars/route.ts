@@ -3,6 +3,16 @@ import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { getMarketDataProvider } from "@/lib/data/provider";
 import { TF_LOOKBACK_DAYS, TF_MAX_BARS, isTimeframe } from "@/lib/timeframe";
 
+// See app/api/scan/route.ts's comment on this same constant — without it,
+// this route (the chart's own data source, polled on every timeframe
+// switch) falls back to Vercel's 10s Hobby default instead of the 60s
+// ceiling every other market-data route already opts into. A single-symbol
+// fetch is normally fast, but the shared per-provider rate limiter
+// (lib/data/http.ts) can queue this request behind whatever a concurrent
+// market-scan or another chart tab is already doing, and 3 retries with
+// backoff on a 429/5xx alone can exceed 10s.
+export const maxDuration = 60;
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const symbol = searchParams.get("symbol");
@@ -26,6 +36,13 @@ export async function GET(req: NextRequest) {
       : new Date(Date.now() - 16 * 60 * 1000);
 
   try {
+    // Extended hours: pre-market and after-hours prints on the free IEX feed
+    // used to be dropped entirely, so a candle only ever appeared once the
+    // regular 9:30 ET session opened. Requesting them here (sub-daily
+    // timeframes only — see supportsExtendedHours in lib/data/alpaca.ts)
+    // still carries the same ~15min feed delay as the rest of this route's
+    // data (the `end` cutoff above), just no longer withholds the bars once
+    // they exist.
     const bars = await provider.fetchBars(
       symbol,
       timeframe,
@@ -33,6 +50,7 @@ export async function GET(req: NextRequest) {
       end,
       assetClass,
       TF_MAX_BARS[timeframe],
+      true,
     );
     return NextResponse.json({
       symbol: symbol.toUpperCase(),

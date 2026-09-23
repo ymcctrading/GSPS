@@ -16,12 +16,15 @@ import { evaluateMonitor } from "@/lib/entitlements/monitor-store";
 import {
   dispatchNotificationDelivery,
   getEnabledChannels,
+  recordInAppNotification,
   recordNotificationDelivery,
   type EntitledAlertPayload,
   type EntitledInvalidationPayload,
 } from "@/lib/entitlements/delivery";
 import { toPublicSignalSummary } from "@/lib/signals/publicSummary";
-import type { Limit } from "@/lib/entitlements/policy";
+import { getEntitlementPolicy, getUserEntitlementPolicy, type Limit } from "@/lib/entitlements/policy";
+import type { PlatformTier } from "@/lib/tiers";
+import { SCORE_MAX } from "@/lib/scoring/display";
 import type { ScanResult } from "@/lib/types";
 import { STRATEGY_VERSION } from "@/lib/backtest/strategyVersion";
 import { buildNewTradePlanFromScanResult } from "@/lib/lifecycle/fromScanResult";
@@ -147,6 +150,16 @@ export async function evaluateMonitorsAndNotify(
         candidateState: setup.value.decision.outputState === "Execute" ? "EXECUTE" : "WATCH",
         evaluationId: args.scanExecutionId,
         maxActiveWatchMonitors: args.maxActiveWatchMonitors,
+        score: setup.value.decision.score,
+        levels: {
+          direction: setup.value.direction,
+          entry: setup.value.levels?.entry ?? null,
+          stopLoss: setup.value.levels?.stopLoss ?? null,
+          takeProfit1: setup.value.levels?.takeProfit1 ?? null,
+          masterProfit: setup.value.levels?.masterProfit ?? null,
+          patternName: setup.value.pattern?.name ?? null,
+          outputState: setup.value.decision.outputState,
+        },
       });
       if (result.outcome === "applied" && result.notify && result.transitionId) {
         notifyWorthy.push({ transitionId: result.transitionId, setup });
@@ -178,11 +191,23 @@ export async function evaluateMonitorsAndNotify(
 
   if (notifyWorthy.length === 0 && invalidatedWorthy.length === 0) return 0;
 
+  // Resolved here (once, and only when there's something to notify) rather
+  // than threaded through every caller: this is the one place that needs it,
+  // to render the score in an email/push at the recipient's own tier
+  // precision — see lib/scoring/display.ts.
+  const exactScoreDisplayEnabled = await getUserEntitlementPolicy(service, args.profileId)
+    .then((p) => p.exactScoreDisplayEnabled)
+    .catch(() => false);
+
+  // Email/sms/push are opt-in per profile (notification_preferences); the
+  // in-app ("on the platform itself") notification below is not -- it has no
+  // send cost and no spam risk, so it always fires for a notify-worthy
+  // transition regardless of what this returns. An empty `channels` here
+  // just means the per-channel loops below run zero times each.
   const channels = await getEnabledChannels(service, args.profileId).catch((err) => {
     console.error(`evaluateMonitorsAndNotify: enabled channels not resolved — ${String(err)}`);
     return [];
   });
-  if (channels.length === 0) return 0;
 
   let sentCount = 0;
   for (const { transitionId, setup } of notifyWorthy) {
@@ -193,7 +218,10 @@ export async function evaluateMonitorsAndNotify(
       console.error(`evaluateMonitorsAndNotify: trade plan not created for ${setup.value.symbol} — ${String(err)}`);
     });
 
-    const payload = buildAlertPayload(setup);
+    const payload = buildAlertPayload(setup, exactScoreDisplayEnabled);
+    await recordInAppNotification(service, { transitionId, profileId: args.profileId, payload }).catch((err) => {
+      console.error(`evaluateMonitorsAndNotify: in-app notification not recorded for ${setup.value.symbol} — ${String(err)}`);
+    });
     for (const channel of channels) {
       try {
         const recorded = await recordNotificationDelivery(service, {
@@ -217,6 +245,9 @@ export async function evaluateMonitorsAndNotify(
 
   for (const { transitionId, symbol } of invalidatedWorthy) {
     const payload: EntitledInvalidationPayload = { symbol, verdict: "INVALIDATED" };
+    await recordInAppNotification(service, { transitionId, profileId: args.profileId, payload }).catch((err) => {
+      console.error(`evaluateMonitorsAndNotify: in-app invalidation notification not recorded for ${symbol} — ${String(err)}`);
+    });
     for (const channel of channels) {
       try {
         const recorded = await recordNotificationDelivery(service, {
@@ -290,18 +321,22 @@ async function createTradePlanForTransition(
   });
 }
 
-function buildAlertPayload(setup: RankedSetup<ScanResult>): EntitledAlertPayload {
+function buildAlertPayload(
+  setup: RankedSetup<ScanResult>,
+  exactScoreDisplayEnabled: boolean,
+): EntitledAlertPayload {
   const r = setup.value;
   const entry = r.levels?.entry ?? r.currentPrice;
   return {
     symbol: r.symbol,
     direction: setup.side === "buy" ? "bullish" : "bearish",
     score: r.decision.score,
+    exactScoreDisplayEnabled,
     entry,
     stopLoss: r.levels?.stopLoss ?? entry,
     takeProfit: r.levels?.takeProfit1 ?? entry,
     verdict: r.decision.outputState,
-    confidence: r.decision.score / 9,
+    confidence: r.decision.score / SCORE_MAX,
     // Informational only — see EntitledAlertPayload's doc comment. Does not
     // affect whether this alert fires or what triggered it.
     signal: toPublicSignalSummary(
@@ -311,4 +346,64 @@ function buildAlertPayload(setup: RankedSetup<ScanResult>): EntitledAlertPayload
       r.signals?.rangeReversion,
     ),
   };
+}
+
+/**
+ * Fans a shared scan's qualifying setups out to every profile in the
+ * system, gated on `getEntitlementPolicy(tier).morningConfirmationScanEnabled`
+ * (true for every tier today — see lib/entitlements/policy.ts — but kept as
+ * an explicit per-profile check rather than assumed, same as every other
+ * scheduled job in this file's caller). One profile's failure is logged and
+ * skipped, never allowed to abort the rest of the run.
+ *
+ * Factored out of lib/entitlements/scheduled-scan.ts's own (former)
+ * `fanOutToProfiles` so a second caller — /api/market-scan's cron path,
+ * which runs far more often than the five scheduled_* jobs and so cannot
+ * share their once-per-market-date scan_executions row — applies the exact
+ * same per-profile rules rather than a diverging copy. See
+ * supabase/migrations/0076_scheduled_full_universe_scan_source.sql for why
+ * that route needs its own source value instead of reusing one of the five.
+ */
+export async function fanOutToAllProfiles(
+  service: SupabaseClient,
+  args: {
+    scanExecutionId: string;
+    source: string;
+    qualifying: RankedSetup<ScanResult>[];
+    rejectedSymbols: Set<string>;
+  },
+): Promise<{ profilesFannedOut: number; profilesFailed: number; totalNotified: number }> {
+  const { data: profiles, error } = await service.from("profiles").select("id, tier");
+  if (error || !profiles) {
+    console.error(`${args.source}: could not list profiles for fan-out — ${error?.message}`);
+    return { profilesFannedOut: 0, profilesFailed: 0, totalNotified: 0 };
+  }
+
+  let profilesFannedOut = 0;
+  let profilesFailed = 0;
+  let totalNotified = 0;
+
+  for (const profile of profiles as { id: string; tier: PlatformTier | null }[]) {
+    const policy = getEntitlementPolicy(profile.tier ?? "PRACTICE");
+    if (!policy.morningConfirmationScanEnabled) continue;
+
+    try {
+      const outcome = await fanOutForProfile(service, {
+        profileId: profile.id,
+        scanExecutionId: args.scanExecutionId,
+        source: args.source,
+        qualifying: args.qualifying,
+        rejectedSymbols: args.rejectedSymbols,
+        maxDashboardSetupsPerScan: policy.maxDashboardSetupsPerScan,
+        maxActiveWatchMonitors: policy.maxActiveWatchMonitors,
+      });
+      profilesFannedOut += 1;
+      totalNotified += outcome.notifiedCount;
+    } catch (err) {
+      profilesFailed += 1;
+      console.error(`${args.source}: fan-out failed for profile ${profile.id} — ${String(err)}`);
+    }
+  }
+
+  return { profilesFannedOut, profilesFailed, totalNotified };
 }

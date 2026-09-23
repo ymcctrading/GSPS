@@ -35,6 +35,7 @@ const aaplShares: EquityLeg = {
   stopLoss: null,
   takeProfit: null,
   masterProfit: null,
+  mode: "paper",
 };
 
 const aaplCall: OptionLeg = {
@@ -57,6 +58,7 @@ const aaplCall: OptionLeg = {
   greeksModeled: true,
   greeksAvailable: true,
   opened: { openedAt: "2026-08-07T18:02:00.000Z", reason: "derived" },
+  mode: "paper",
 };
 
 const blendedPositions = [
@@ -97,6 +99,7 @@ function order(o: {
     limit_price: null,
     requested_limit_price: null,
     status: o.status,
+    mode: "paper",
     created_at: o.created_at ?? "2026-08-01T14:30:00.000Z",
     broker_submitted_at: o.broker_submitted_at ?? null,
     reject_reason: o.reject_reason ?? null,

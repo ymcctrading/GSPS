@@ -32,6 +32,12 @@ import { LIVE_BROKERAGE_BLOCK, resolveGuidedCaps } from "@/lib/guided/config";
 import { getGuidedPolicy } from "@/lib/guided/policy";
 import { hasLiveBrokerage, readGuidedAccount, resolveShortable } from "@/lib/guided/service";
 
+// Unset falls back to Vercel Hobby's 10s default (see app/api/scan/route.ts's
+// comment) -- shorter than a single scanTicker call plus a broker round trip
+// can reliably need. Every other route that calls scanTicker sets this
+// explicitly; this one didn't.
+export const maxDuration = 60;
+
 const ExecuteSchema = z.object({ id: z.uuid() });
 
 interface RecommendationRow {

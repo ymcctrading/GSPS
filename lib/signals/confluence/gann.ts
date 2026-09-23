@@ -1,9 +1,16 @@
 /**
  * Gann Confluence Layer — the addendum's "North Star" numerical/coordinate
- * context module. Wraps GSPS's existing, already-implemented public-domain
- * Gann techniques (`lib/gann/squareOf9.ts`, `lib/gann/fans.ts`,
- * `lib/gann/timeCycles.ts`) rather than inventing new numerology: the
- * addendum requires "independently designed public concepts" with
+ * context module. Wraps GSPS's existing, already-implemented Square of 9 and
+ * Gann angles (`lib/gann/squareOf9.ts`, `lib/gann/fans.ts`,
+ * `lib/gann/timeCycles.ts`) rather than inventing new numerology. These are
+ * genuinely Gann's own techniques, in his own voice, from his private paid
+ * correspondence course — never sold in any of the ten books he published for
+ * the general public — per `docs/GANN_HISTORICAL_SOURCES.md` A2.1, sourced
+ * from public-domain-accessible archives. See `docs/GANN_PLATFORM_AUDIT.md`
+ * Part 3a/5 (2026-09-16) for the finding this comment and the metadata below
+ * correct: an earlier version called this "public-domain Gann techniques,"
+ * which blurred private-course material with his publicly disclosed method.
+ * The addendum requires "independently designed public concepts" with
  * provenance metadata, and forbids inferring any personally sourced
  * numerical logic that hasn't been supplied in an authorized written
  * specification. Material Number versus Harmonic Node classification still
@@ -34,6 +41,14 @@ import { atr, findPivots } from "@/lib/analysis/pivots";
 import { computeFanLines, nearestFanLine } from "@/lib/gann/fans";
 import { nearestS9Level, recentSquareOf9Levels } from "@/lib/gann/squareOf9";
 import { timeCycles } from "@/lib/gann/timeCycles";
+import { computeDecadeCycle } from "@/lib/gann/decadeCycle";
+import { masterTwelveLevels, nearestMasterTwelveLevel } from "@/lib/gann/masterTwelve";
+import { squareOf52Windows } from "@/lib/gann/squareOf52";
+import { angleMonthCounts as computeAngleMonthCounts } from "@/lib/gann/angleMonthCounts";
+import { detectSpectralCycle } from "@/lib/gann/spectralCycle";
+import { computeCampaignLeg } from "@/lib/gann/swingChart";
+import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
+import { computeBoilingPoint } from "@/lib/gann/boilingPoint";
 import {
   buildDigitalRootFeature,
   classifyConfluence,
@@ -59,7 +74,7 @@ export const GANN_CONFLUENCE_MODULE: ConfluenceModuleMeta = {
   moduleType: "gann",
   displayName: "Structural Coordinate Confluence",
   authorizedSource:
-    "lib/gann/squareOf9.ts, lib/gann/fans.ts, lib/gann/timeCycles.ts — independently implemented public-domain structural coordinate techniques already in production use in the legacy scan scorer (lib/scanTicker.ts).",
+    "lib/gann/squareOf9.ts, lib/gann/fans.ts, lib/gann/timeCycles.ts — independently implemented structural coordinate techniques disclosed only in the private paid correspondence course this platform is built from (docs/GANN_HISTORICAL_SOURCES.md A2.1), never sold in the ten public books; already in production use in the legacy scan scorer (lib/scanTicker.ts).",
   version: "0.1.0",
 };
 
@@ -101,6 +116,23 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
       nearestFanLine: null,
       timeCycleActive: false,
       timeCycleDates: [],
+      timeCycleFixedCalendarActive: false,
+      timeCycleFixedCalendarDates: [],
+      decadeCycle: computeDecadeCycle(),
+      nearestMasterTwelve: null,
+      squareOf52: { active: false, dates: [] },
+      angleMonthCounts: { active: false, dates: [] },
+      spectralCycle: {
+        active: false,
+        dominantPeriodBars: null,
+        dominancePower: null,
+        repetitionCount: null,
+        periodConsistent: null,
+        hypothesisOnly: true,
+        note: reason,
+      },
+      campaignLeg: { legNumber: null, confidence: null },
+      boilingPoint: [],
       vortexContext: {
         priceDisplacement: null,
         timeDisplacement: null,
@@ -140,6 +172,13 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
   const cycles = timeCycles(inputs.dailyBars);
   const nearestS9 = nearestS9Level(s9Levels);
   const nearestFan = nearestFanLine(fanLines);
+  const nearestMasterTwelve = nearestMasterTwelveLevel(masterTwelveLevels(majorLow, inputs.currentPrice));
+  const squareOf52 = squareOf52Windows(inputs.dailyBars);
+  const angleMonthCountsResult = computeAngleMonthCounts(inputs.dailyBars);
+  const spectralCycle = detectSpectralCycle(inputs.dailyBars);
+  const campaignLeg = computeCampaignLeg(inputs.dailyBars);
+  const volumeClimaxReadings = computeVolumeClimax(inputs.dailyBars);
+  const boilingPoint = computeBoilingPoint(inputs.dailyBars, volumeClimaxReadings);
 
   // Digital Root/Vortex context (blueprint sections 2, 7, 18): price_dr from
   // the normalized tick displacement off the anchor, time_dr from bars
@@ -219,7 +258,34 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
   }
   if (nearestFan) {
     explanationTrace.push(
-      `Nearest structural angle line: ${nearestFan.angle} at ${nearestFan.price.toFixed(2)} (${nearestFan.role}, ${nearestFan.distancePct.toFixed(2)}% away).`,
+      `Nearest structural angle line: ${nearestFan.angle} at ${nearestFan.price.toFixed(2)} (${nearestFan.role}, ${nearestFan.distancePct.toFixed(2)}% away)` +
+        (nearestFan.timeProjectionDate
+          ? `, time-projected target date ${nearestFan.timeProjectionDate}.`
+          : "."),
+    );
+  }
+  if (nearestMasterTwelve) {
+    explanationTrace.push(
+      `Nearest Master Twelve level: ${nearestMasterTwelve.price.toFixed(2)} (${nearestMasterTwelve.role}, ${nearestMasterTwelve.distancePct.toFixed(2)}% away, degree ${nearestMasterTwelve.degree}, rotation ${nearestMasterTwelve.rotation}).`,
+    );
+  }
+  if (squareOf52.active) {
+    explanationTrace.push(`Active Square of 52 weekly window (nearby dates: ${squareOf52.dates.slice(0, 3).join(", ") || "n/a"}).`);
+  }
+  if (angleMonthCountsResult.active) {
+    explanationTrace.push(
+      `Active 36-angle month-count window (nearby dates: ${angleMonthCountsResult.dates.slice(0, 3).join(", ") || "n/a"}).`,
+    );
+  }
+  explanationTrace.push(`Spectral cycle: ${spectralCycle.note}`);
+  if (campaignLeg.legNumber != null) {
+    explanationTrace.push(
+      `Campaign leg ${campaignLeg.legNumber} since the last major (9-day) trend change (${campaignLeg.confidence} confidence — reversals on the 3rd/4th leg are trusted more than the 2nd).`,
+    );
+  }
+  for (const bp of boilingPoint) {
+    explanationTrace.push(
+      `${bp.weeksSinceClimax} weeks since the ${bp.anchorKind} volume-climax anchor (${bp.phase} — the disclosed exhaustion window is 6-7 weeks, rarely past 10).`,
     );
   }
   explanationTrace.push(
@@ -259,6 +325,15 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
     nearestFanLine: nearestFan,
     timeCycleActive: cycles.active,
     timeCycleDates: cycles.dates,
+    timeCycleFixedCalendarActive: cycles.fixedCalendarActive,
+    timeCycleFixedCalendarDates: cycles.fixedCalendarDates,
+    decadeCycle: computeDecadeCycle(),
+    nearestMasterTwelve,
+    squareOf52,
+    angleMonthCounts: angleMonthCountsResult,
+    spectralCycle,
+    campaignLeg,
+    boilingPoint,
     vortexContext,
     angleSlope,
     coordinateLedger,

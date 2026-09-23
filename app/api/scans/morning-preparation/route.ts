@@ -1,7 +1,7 @@
 /**
  * GSPS — /api/scans/morning-preparation
  *
- * The 6:00 AM ET "Morning Preparation" scheduled scan from
+ * The 6:30 AM ET "Morning Preparation" scheduled scan from
  * docs/GSPS_TIER_ENTITLEMENT_SPEC.md -- included on every tier, and explicitly
  * does not consume any user's manual_dashboard_scan or guided_scan quota
  * (it never reserves against usage_ledger at all; see

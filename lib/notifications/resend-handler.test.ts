@@ -15,12 +15,14 @@ vi.mock("resend", () => ({
 }));
 
 import { sendAlertEmail, type AlertEmailData } from "./resend-handler";
+import { SCORE_MAX } from "@/lib/scoring/display";
 
 const BASE: AlertEmailData = {
   userEmail: "user@example.com",
   symbol: "AAPL",
   direction: "bullish",
   score: 8,
+  exactScoreDisplayEnabled: true,
   entry: 100,
   stopLoss: 95,
   takeProfit: 110,
@@ -71,7 +73,7 @@ describe("sendAlertEmail", () => {
     });
 
     const html = sendMock.mock.calls[0][0].html as string;
-    expect(html).toContain(`${BASE.score}/9`);
+    expect(html).toContain(`${BASE.score}/${SCORE_MAX}`);
     expect(html).toContain(BASE.verdict);
   });
 });

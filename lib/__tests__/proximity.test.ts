@@ -63,7 +63,7 @@ function gannAt(distancePct: number): GannLevels {
     timeCycleBearishActive: false,
     timeCycleDates: [],
     angleSlopes: [],
-    retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100, distancePct, role: "support" }],
+    retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100, distancePct, role: "support", importance: 1 }],
     digitalRootConfluences: [{ anchorKind: "low", priceRoot: 1, timeRoot: 8, type: "COMPLEMENTARY_PAIR" }],
   };
 }

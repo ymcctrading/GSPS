@@ -16,10 +16,10 @@
  * default and the only one implemented today):
  *
  *   entry_zone_touched     price reaches the plan's entry trigger
- *   break_or_sweep_detected a later bar CLOSES beyond the trigger, in
- *                           direction (a same-bar close doesn't count —
- *                           that would let touch and break collapse into
- *                           one event)
+ *   break_or_sweep_detected a later bar CLOSES beyond the trigger *by at
+ *                           least `confirmationBufferPct`*, in direction (a
+ *                           same-bar close doesn't count — that would let
+ *                           touch and break collapse into one event)
  *   return_or_retest_detected a later bar's range returns to/through the
  *                           entry trigger after the break
  *   confirmation_move_validated a later CLOSED bar resumes beyond the
@@ -30,6 +30,26 @@
  * Each stage requires a bar strictly after the prior stage's bar — a single
  * bar cannot satisfy two stages, matching "an indicator flip ... alone
  * cannot produce an entry."
+ *
+ * **The break stage's buffer** (added 2026-09-16, per
+ * `docs/GANN_PLATFORM_AUDIT.md` Part 3f/4 item 2 / AGENTS.md's "WD Gann
+ * precedence" principle): `New Stock Trend Detector` (1936,
+ * `docs/GANN_HISTORICAL_SOURCES.md` A5) discloses the "3-point rule" — a
+ * break of an old level must clear it by a real buffer (his stated figure,
+ * 3 full points) before it's trusted, not any close a penny beyond it.
+ * Before this change, `break_or_sweep_detected` fired on *any* close beyond
+ * the trigger, with no buffer at all. Gann's literal "3 points" is a 1930s
+ * stock-price-era absolute figure, not directly portable to a modern
+ * multi-price-range, multi-asset-class platform (a 2026-09-16 sibling
+ * change, `lib/strat/levels.ts`'s `combineNearbyLevels`, declines to port a
+ * different disclosed absolute figure for the same reason) — so this
+ * implements the *rule* (a real, non-trivial buffer, not the bare trigger
+ * price) rather than his exact number, using `DEFAULT_CONFIRMATION_BUFFER_PCT`
+ * as a percentage of the trigger price, the same order of magnitude as the
+ * platform's other "how far beyond a level counts as real" convention
+ * (`EQUITY_STOP_BUFFER_PCT`, `lib/strat/levels.ts`). Live now, gating real
+ * entries — not measured against historical stop-hit data, per the explicit
+ * override.
  */
 
 import type { Bar } from "@/lib/types";
@@ -38,9 +58,18 @@ import { EMPTY_ENTRY_CONFIRMATION } from "./types";
 
 export type ConfirmationDirection = "bullish" | "bearish";
 
+/**
+ * Default break-stage buffer as a percentage of the entry trigger price —
+ * see the "3-point rule" note above. Applied when a rule doesn't specify its
+ * own `confirmationBufferPct`.
+ */
+export const DEFAULT_CONFIRMATION_BUFFER_PCT = 0.3;
+
 export interface EntryConfirmationRule {
   direction: ConfirmationDirection;
   entryTrigger: number;
+  /** Percentage of `entryTrigger` the break stage must clear by. Defaults to `DEFAULT_CONFIRMATION_BUFFER_PCT`. */
+  confirmationBufferPct?: number;
 }
 
 /**
@@ -69,10 +98,12 @@ export function advanceEntryConfirmation(
     }
   }
 
-  // Stage 2: break/sweep. Requires a CLOSE beyond the trigger, on a bar
-  // strictly after the touch bar.
+  // Stage 2: break/sweep. Requires a CLOSE beyond the trigger by the "3-point
+  // rule" buffer (see header), on a bar strictly after the touch bar.
   if (next.touchedAt != null && next.breakOrSweepAt == null && bar.t > next.touchedAt) {
-    const broke = up ? bar.c > trigger : bar.c < trigger;
+    const bufferPct = rule.confirmationBufferPct ?? DEFAULT_CONFIRMATION_BUFFER_PCT;
+    const bufferedTrigger = up ? trigger * (1 + bufferPct / 100) : trigger * (1 - bufferPct / 100);
+    const broke = up ? bar.c > bufferedTrigger : bar.c < bufferedTrigger;
     if (broke) {
       next = { ...next, breakOrSweepAt: bar.t, breakOrSweepPrice: bar.c };
     }

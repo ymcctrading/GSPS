@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { ResultsTable, type ScanRow } from "@/components/scan/results-table";
 import { IntradayAlerts } from "@/components/scan/intraday-alerts";
 import { ScanHistory } from "@/components/scan/scan-history";
+import { SavedSearches } from "@/components/scan/saved-searches";
 import { SECTORS, COMING_SOON } from "@/lib/sectors";
 import { cn } from "@/lib/utils";
 import { toPublicSignalSummary } from "@/lib/signals/publicSummary";
@@ -51,6 +52,7 @@ export default function ScannerPage() {
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<ScanRow[] | null>(null);
   const [failed, setFailed] = useState<string[]>([]);
+  const [exactScoreDisplayEnabled, setExactScoreDisplayEnabled] = useState(false);
 
   function toggleSector(key: string) {
     setSelected((prev) =>
@@ -82,6 +84,7 @@ export default function ScannerPage() {
       const all = (data.results ?? []) as ScanResult[];
       const ok = all.filter((r) => !r.error);
       setFailed(all.filter((r) => r.error).map((r) => r.symbol));
+      setExactScoreDisplayEnabled(Boolean(data.exactScoreDisplayEnabled));
       setResults(
         ok.map(toRow).sort((a, b) => b.score - a.score),
       );
@@ -174,6 +177,15 @@ export default function ScannerPage() {
                 </Button>
               </div>
               {error && <p className="text-sm text-bear">{error}</p>}
+
+              <SavedSearches
+                selected={selected}
+                custom={custom}
+                onLoad={({ sectorKeys, customSymbols }) => {
+                  setSelected(sectorKeys);
+                  setCustom(customSymbols);
+                }}
+              />
             </CardContent>
           </Card>
 
@@ -187,7 +199,11 @@ export default function ScannerPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <ResultsTable rows={results} emptyText="No symbols produced a scan result." />
+                <ResultsTable
+                  rows={results}
+                  emptyText="No symbols produced a scan result."
+                  exactScoreDisplayEnabled={exactScoreDisplayEnabled}
+                />
               </CardContent>
             </Card>
           )}

@@ -15,6 +15,21 @@ import { cachedFetch, fetchWithRetry, MarketDataError } from "./http";
 const DATA_BASE = "https://data.alpaca.markets";
 
 /**
+ * Alpaca has no commodities/futures endpoint. Without this guard, `"commodity"`
+ * would silently fall through every `assetClass === "crypto" ? ... : ...`
+ * branch below into the *stocks* path and return wrong-market data with no
+ * error — see `lib/data/commodity.ts` for the actual (unconnected) home for
+ * this asset class.
+ */
+function assertAlpacaSupports(assetClass: AssetClass): void {
+  if (assetClass === "commodity") {
+    throw new Error(
+      "Alpaca has no commodities data — this asset class isn't connected yet (see lib/data/commodity.ts).",
+    );
+  }
+}
+
+/**
  * How long a response stays reusable, by endpoint. Quotes and latest trades get
  * a sub-poll-interval window: long enough that the ticker header, the chart, and
  * the order ticket share one upstream call, short enough that the price still
@@ -134,6 +149,19 @@ const ALPACA_TIMEFRAME: Record<Timeframe, string> = {
 /** Alpaca caps a single bars page at 10k regardless of what `limit` asks for. */
 const PAGE_LIMIT = 10000;
 
+/**
+ * `includeExtendedHours` (see the `MarketDataProvider` interface doc) is
+ * accepted here but deliberately never turned into a query param. Alpaca's
+ * `/v2/stocks/bars` endpoint has no `extended_hours` parameter — that field
+ * belongs to order placement, not bars queries — and rejects it with a 400.
+ * This was already diagnosed and fixed once (CHANGELOG.md, 2026-08-17: "it's
+ * an order-placement field, not a bars-query one") after the same 400 had
+ * been silently swallowing every intraday bar fetch for ~36 hours. Do not
+ * re-add it a third time. The free IEX feed already includes pre/post-market
+ * prints in intraday bars with no opt-in required; `EXTENDED_HOURS_TFS` /
+ * the chart's "Extended hours" checkbox (`components/chart/candles.tsx`)
+ * filters them client-side after the fact.
+ */
 /** Shared param-building for the bars endpoint — one or many symbols. */
 function barsRequest(
   symbols: string,
@@ -144,6 +172,7 @@ function barsRequest(
   limit: number,
   pageToken?: string,
 ): { path: string; params: Record<string, string> } {
+  assertAlpacaSupports(assetClass);
   const crypto = assetClass === "crypto";
   const path = crypto ? `/v1beta3/crypto/us/bars` : `/v2/stocks/bars`;
 
@@ -178,6 +207,9 @@ export async function fetchBars(
   end: Date | null,
   assetClass: AssetClass,
   limit = 10000,
+  // Accepted for MarketDataProvider interface compatibility; see barsRequest's
+  // doc comment for why it's not turned into a query param.
+  _includeExtendedHours = false,
 ): Promise<Bar[]> {
   const crypto = assetClass === "crypto";
   const sym = crypto ? normalizeCryptoSymbol(symbol) : symbol.toUpperCase();
@@ -187,7 +219,9 @@ export async function fetchBars(
 
   do {
     const remaining = limit - collected.length;
-    const { path, params } = barsRequest(sym, timeframe, start, end, assetClass, remaining, pageToken);
+    const { path, params } = barsRequest(
+      sym, timeframe, start, end, assetClass, remaining, pageToken,
+    );
 
     const data = await get(path, params);
     const page = toBars(data.bars?.[sym]);
@@ -208,6 +242,34 @@ function chunk<T>(items: T[], size: number): T[][] {
 
 /** Symbols per multi-symbol bars request — comfortably under any URL-length limit. */
 const BATCH_CHUNK = 100;
+
+/**
+ * How many chunk requests (and their page-token follow-ups) run at once.
+ * Unbounded `Promise.all` across every chunk was fine at the ~500-symbol
+ * universe this was built for, but the 2026-09-20 large-cap refresh (~765
+ * symbols, ~8 chunks per timeframe, 2 timeframes per scan) turned that into
+ * a burst of a dozen-plus simultaneous requests — each daily-bar chunk also
+ * paginating (100 symbols x ~252 trading days exceeds the 10,000-row
+ * PAGE_LIMIT) — and started tripping Alpaca's free-tier rate limit
+ * mid-scan, which the market-scan route had no handling for (see that
+ * route's own comment). Capped rather than removed: the batching's whole
+ * point is fewer requests than one-per-symbol, this just stops firing all
+ * of them at once.
+ */
+const CHUNK_CONCURRENCY = 3;
+
+async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = [];
+  let i = 0;
+  async function worker() {
+    while (i < items.length) {
+      const idx = i++;
+      results[idx] = await fn(items[idx]);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+}
 
 /**
  * Bars for many symbols, one timeframe, in a handful of requests instead of
@@ -241,34 +303,33 @@ export async function fetchBarsBatch(
   const result = new Map<string, Bar[]>();
   if (syms.length === 0) return result;
 
-  await Promise.all(
-    chunk(syms, BATCH_CHUNK).map(async (group) => {
-      const collected = new Map<string, Bar[]>(group.map((s) => [s, []]));
-      let pageToken: string | undefined;
+  await mapWithConcurrency(chunk(syms, BATCH_CHUNK), CHUNK_CONCURRENCY, async (group) => {
+    const collected = new Map<string, Bar[]>(group.map((s) => [s, []]));
+    let pageToken: string | undefined;
 
-      do {
-        const { path, params } = barsRequest(group.join(","), timeframe, start, end, assetClass, limit, pageToken);
-        const data = await get(path, params);
+    do {
+      const { path, params } = barsRequest(group.join(","), timeframe, start, end, assetClass, limit, pageToken);
+      const data = await get(path, params);
 
-        let pageBarCount = 0;
-        for (const sym of group) {
-          const page = toBars(data.bars?.[sym]);
-          if (page.length > 0) collected.get(sym)!.push(...page);
-          pageBarCount += page.length;
-        }
-        pageToken = data.next_page_token ?? undefined;
-        // An empty page means the window is exhausted even if a token came back.
-        if (pageBarCount === 0) break;
-      } while (pageToken);
+      let pageBarCount = 0;
+      for (const sym of group) {
+        const page = toBars(data.bars?.[sym]);
+        if (page.length > 0) collected.get(sym)!.push(...page);
+        pageBarCount += page.length;
+      }
+      pageToken = data.next_page_token ?? undefined;
+      // An empty page means the window is exhausted even if a token came back.
+      if (pageBarCount === 0) break;
+    } while (pageToken);
 
-      for (const sym of group) result.set(sym, collected.get(sym)!.reverse());
-    }),
-  );
+    for (const sym of group) result.set(sym, collected.get(sym)!.reverse());
+  });
 
   return result;
 }
 
 export async function fetchLatestPrice(symbol: string, assetClass: AssetClass): Promise<number> {
+  assertAlpacaSupports(assetClass);
   if (assetClass === "crypto") {
     const sym = normalizeCryptoSymbol(symbol);
     const data = await get(`/v1beta3/crypto/us/latest/trades`, { symbols: sym });
@@ -296,6 +357,7 @@ export interface Snapshot {
  * separate the live (possibly extended-hours) print from the regular close.
  */
 export async function fetchSnapshot(symbol: string, assetClass: AssetClass): Promise<Snapshot> {
+  assertAlpacaSupports(assetClass);
   if (assetClass === "crypto") {
     const sym = normalizeCryptoSymbol(symbol);
     const data = await get(`/v1beta3/crypto/us/snapshots`, { symbols: sym });

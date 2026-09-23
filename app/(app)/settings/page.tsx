@@ -22,6 +22,7 @@ import { NotificationSettings } from "@/components/settings/notification-setting
 import { BillingSettings } from "@/components/settings/billing-settings";
 import { ReferralSettings } from "@/components/settings/referral-settings";
 import { PromotionSettings } from "@/components/settings/promotion-settings";
+import { LiveTradingSettings } from "@/components/settings/live-trading-settings";
 import { StartTourButton } from "@/components/onboarding/tour-provider";
 import Link from "next/link";
 import { Link2, Landmark, Compass, BookOpen } from "lucide-react";
@@ -115,6 +116,8 @@ export default function SettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      <LiveTradingSettings />
 
       <Card>
         <CardHeader>

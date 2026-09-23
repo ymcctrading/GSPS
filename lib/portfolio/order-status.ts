@@ -19,8 +19,18 @@
  *    local ledger against the broker's current order list and produces the
  *    updates that make the ledger true again.
  *
- * Both functions are pure so they can be tested without a broker or a database.
+ * `normalizeOrderStatus` and `reconcileOrders` are pure so they can be tested
+ * without a broker or a database. `syncLiveOrderStatuses`, at the bottom, is
+ * the database-and-broker shell that actually calls `reconcileOrders` for
+ * live orders — see its own comment for why that call was, until now,
+ * missing even though every piece it needed already existed.
  */
+
+import type { AlpacaCreds, AlpacaOrder } from "@/lib/brokers/alpaca";
+import { listOrders } from "@/lib/brokers/alpaca";
+import type { createClient } from "@/lib/supabase/server";
+
+type Supabase = Awaited<ReturnType<typeof createClient>>;
 
 /** The six meanings the UI renders. Everything else maps onto one of these. */
 export type NormalizedStatus =
@@ -288,4 +298,107 @@ export function byNewestAccepted<T extends { id: string; broker_submitted_at?: s
     return tb - ta;
   }
   return a.id.localeCompare(b.id);
+}
+
+/** ---- Database and broker shell ------------------------------------------ */
+
+export interface OrderSyncRun {
+  updated: number;
+  orphaned: number;
+  /** Non-null when the broker's order list couldn't be read, so nothing ran. */
+  error: string | null;
+}
+
+/** How far back to page the broker's order list when reconciling. */
+const ORDER_SYNC_WINDOW_DAYS = 90;
+
+/**
+ * Sync every live order's status against the broker.
+ *
+ * This is `reconcileOrders`'s missing caller. The pure diff, the paged broker
+ * fetch (`listOrders`), and the DB columns it writes to (`broker_submitted_at`,
+ * `reject_reason`, `last_synced_at` — see migration 0008) were all built
+ * together, for exactly this purpose, but nothing ever called this function:
+ * paper orders' statuses are updated inline as they fill or invalidate
+ * (`lib/brokers/simulator.ts#evaluateRestingOrders`), which made the original
+ * "Pending forever" bug look fixed — but that inline path only covers
+ * `mode = 'paper'`. A live order, placed once live trading shipped, has had
+ * no path back from the broker's own status changes since, which is the same
+ * "Pending forever" bug this file's header describes, just scoped to real
+ * money instead of paper. `syncLiveAccount` (`lib/trade/live-sync.ts`) is
+ * this function's caller.
+ */
+export async function syncLiveOrderStatuses(
+  supabase: Supabase,
+  creds: AlpacaCreds,
+  userId: string,
+): Promise<OrderSyncRun> {
+  const { data: localRows, error: readError } = await supabase
+    .from("orders")
+    .select("id, broker_order_id, status, filled_qty, filled_avg_price, created_at")
+    .eq("user_id", userId)
+    .eq("mode", "live")
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+  if (readError) return { updated: 0, orphaned: 0, error: readError.message };
+  const localOrders: LocalOrder[] = (localRows ?? []).map((r) => ({
+    id: String(r.id),
+    broker_order_id: r.broker_order_id ?? null,
+    status: String(r.status ?? ""),
+    // Supabase returns `numeric` columns as strings to avoid float precision
+    // loss in transit; `reconcileOrders` wants numbers to compare against
+    // the broker's own (already-numeric) fields.
+    filled_qty: r.filled_qty == null ? null : Number(r.filled_qty),
+    filled_avg_price: r.filled_avg_price == null ? null : Number(r.filled_avg_price),
+    created_at: String(r.created_at),
+  }));
+  if (localOrders.length === 0) return { updated: 0, orphaned: 0, error: null };
+
+  let brokerOrders: AlpacaOrder[];
+  try {
+    const since = new Date(Date.now() - ORDER_SYNC_WINDOW_DAYS * 24 * 3600 * 1000);
+    brokerOrders = await listOrders(creds, { since });
+  } catch (err) {
+    return {
+      updated: 0,
+      orphaned: 0,
+      error: `Couldn't read the broker's order list, so order statuses weren't synced — ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    };
+  }
+
+  const { updates, orphanedIds } = reconcileOrders(localOrders, brokerOrders);
+  if (updates.length === 0 && orphanedIds.length === 0) {
+    return { updated: 0, orphaned: 0, error: null };
+  }
+
+  const syncedAt = new Date().toISOString();
+  const results = await Promise.all([
+    ...updates.map(({ id, ...fields }) =>
+      supabase.from("orders").update(fields).eq("id", id).eq("user_id", userId),
+    ),
+    ...(orphanedIds.length > 0
+      ? [
+          supabase
+            .from("orders")
+            .update({ status: "unknown", last_synced_at: syncedAt })
+            .in("id", orphanedIds)
+            .eq("user_id", userId),
+        ]
+      : []),
+  ]);
+
+  const writeError = results.find((r) => r.error)?.error;
+  if (writeError) {
+    console.error(`order-status: sync write failed — ${writeError.message}`);
+    return {
+      updated: 0,
+      orphaned: 0,
+      error: "The broker's order statuses were read but couldn't be saved.",
+    };
+  }
+
+  return { updated: updates.length, orphaned: orphanedIds.length, error: null };
 }

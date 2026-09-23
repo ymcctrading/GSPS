@@ -20,12 +20,15 @@
  * the moment live execution is built, it is already there rather than a
  * second integration pass — see the call site for the exact seam.
  *
- * Scope note: `newPositionsOpenedToday` has no live-order history to count
- * from yet (there is no live order history at all — see above), so callers
- * pass 0 until one exists. That means `entry_pause` cannot trigger from live
- * trading today; the loss/drawdown-driven states (warning through
- * severe_override) are unaffected, since they are computed from the equity
- * snapshot history in this file, not from a position count.
+ * `newPositionsOpenedToday`: callers pass `countLiveEntriesOpenedToday`'s
+ * result (below) — a real count of this user's live entries opened since
+ * midnight ET, read from the `positions` table's `mode = 'live'` rows now
+ * that live order placement exists (see `lib/trade/place-order.ts`'s
+ * `mode === "live"` branch). Until 2026-09-23 this was hardcoded to 0 at
+ * every call site with a comment claiming "no live order history to count
+ * from yet" — stale even at the time it was written, since live order
+ * placement had already shipped; `entry_pause` could never trigger from
+ * live trading as a result. Fixed then.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -94,6 +97,34 @@ async function readEquitySamples(
     samples: rows.map((r) => ({ at: new Date(r.recorded_at), equity: r.equity })),
     anyUnverified: rows.some((r) => !r.verified),
   };
+}
+
+/**
+ * How many `mode = 'live'` positions this user has opened since midnight ET
+ * — the real input `evaluateLiveCircuitBreaker`'s `newPositionsOpenedToday`
+ * needs to let `entry_pause` trigger from live trading. Counts `positions`
+ * rows rather than `orders`: a position row is only ever created on a fill
+ * (`lib/trade/place-order.ts`'s live insert branches), so an order that
+ * never filled — rejected, canceled — correctly doesn't count as an entry.
+ */
+export async function countLiveEntriesOpenedToday(
+  supabase: SupabaseClient,
+  userId: string,
+  now: Date = new Date(),
+): Promise<number> {
+  const { minutes } = etParts(now);
+  const startOfTodayEt = new Date(now.getTime() - minutes * 60_000);
+  const { count, error } = await supabase
+    .from("positions")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("mode", "live")
+    .gte("opened_at", startOfTodayEt.toISOString());
+  if (error) {
+    console.error(`risk: live entries-opened-today count failed for ${userId} — ${error.message}`);
+    return 0;
+  }
+  return count ?? 0;
 }
 
 /** The last equity mark before the current ET trading day began (approximated as the prior day's 20:00 ET close). */

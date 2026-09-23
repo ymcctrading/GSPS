@@ -163,3 +163,18 @@ curl http://localhost:3000/api/futures?symbols=ES,NQ          # needs TWELVE_DAT
 - [ ] Circuit-breaker pattern for provider failures
 - [ ] Multi-provider fallback chain (e.g. Polygon → Twelve Data automatically)
 - [ ] Provider performance/error-rate monitoring
+
+## Planned: commodities (not yet connected)
+
+`lib/types.ts`'s `AssetClass` already has a `"commodity"` value and
+`lib/data/commodity.ts` is the reserved extension point — both exist so this
+can be wired up without a breaking type/interface change later, but nothing
+today actually serves commodities bars into the scan/scoring/Gann pipeline.
+This is distinct from `/api/futures` above: that route already fetches a
+live futures **quote** via `fetchFuturesData()`, but only for on-demand
+display — it was never connected to `MarketDataProvider`/`getMarketDataProvider()`,
+so `runMarketScan`, backtesting, and every `lib/gann/*` cycle/time module have
+no commodities data source at all. See `lib/data/commodity.ts`'s header for
+the concrete steps (a historical-bars endpoint, provider registration, and
+revisiting the several `assetClass === "crypto" ? ... : "us_equity"`-shaped
+checks elsewhere that currently default `"commodity"` to equity behavior).

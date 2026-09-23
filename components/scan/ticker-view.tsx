@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CandleChart, type PriceMarker } from "@/components/chart/candles";
@@ -14,7 +14,8 @@ import { GlossaryDetails } from "@/components/glossary";
 import { GlossaryTerm } from "@/components/glossary-term";
 import { useLiveQuote } from "@/lib/hooks/useLiveQuote";
 import { sessionLabel } from "@/lib/market/session";
-import { formatUsd, formatPct, cn } from "@/lib/utils";
+import { formatUsd, formatPct, cn, parseJsonResponse } from "@/lib/utils";
+import { hasFeature, type PlatformTier } from "@/lib/tiers";
 import type { ScanResult } from "@/lib/types";
 import type { SignalPlan } from "@/lib/signals/types";
 import type { LiveQuote } from "@/app/api/quote/route";
@@ -51,16 +52,41 @@ function strongestTradeablePlan(result: ScanResult | null): SignalPlan | null {
 export function TickerView({ symbol }: { symbol: string }) {
   // Bumping this re-runs the scan without remounting the page.
   const [reloadKey, setReloadKey] = useState(0);
+  const [mounted, setMounted] = useState(false);
   const quote = useLiveQuote(symbol);
+
+  // Gates the chart's STRAT reversal-pattern marker overlay (System Mastery only).
+  // Fetched client-side rather than threaded through from a server component,
+  // since this page has none upstream of it (see app/(app)/ticker/[...symbol]/page.tsx).
+  const [tier, setTier] = useState<PlatformTier | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/billing/status")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { tier?: PlatformTier } | null) => {
+        if (!cancelled && data?.tier) setTier(data.tier);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const saraMarkersUnlocked = tier !== null && hasFeature(tier, "sara_sniper_chart_markers");
 
   // Set only by the intraday alerts panel's "Trade this" link (see
   // components/scan/intraday-alerts.tsx and lib/routes.ts's tickerHref),
   // never by a manual visit to this page — that's what makes the flag
   // trustworthy enough to gate an order on.
   const searchParams = useSearchParams();
-  const intradaySourced = searchParams.get("intraday") === "1";
-  const sideParam = searchParams.get("side");
+  const intradaySourced = mounted && searchParams.get("intraday") === "1";
+  const sideParam = mounted ? searchParams.get("side") : null;
   const forceSide = sideParam === "buy" || sideParam === "sell" ? sideParam : undefined;
+
+  // Suppress render until hydrated to prevent client/server mismatch flicker
+  useLayoutEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+  }, []);
 
   /**
    * The scan is stored together with the request it answers, and read back
@@ -77,24 +103,26 @@ export function TickerView({ symbol }: { symbol: string }) {
     // Set when the failure is temporary (a throttled data feed), which is the
     // difference between offering a retry and calling the symbol unscannable.
     retryable: boolean;
-  }>({ key: "", result: null, error: null, retryable: false });
+    // See lib/scoring/display.ts — whether this viewer's tier sees the exact
+    // weighted score or one rounded to the nearest half point.
+    exactScoreDisplayEnabled: boolean;
+  }>({ key: "", result: null, error: null, retryable: false, exactScoreDisplayEnabled: false });
 
   const scanKey = `${symbol}:${reloadKey}`;
   const current = scan.key === scanKey ? scan : null;
   const result = current?.result ?? null;
   const error = current?.error ?? null;
   const retryable = current?.retryable ?? false;
+  const exactScoreDisplayEnabled = current?.exactScoreDisplayEnabled ?? false;
 
   useEffect(() => {
     let cancelled = false;
     const key = `${symbol}:${reloadKey}`;
     fetch(`/api/scan?ticker=${encodeURIComponent(symbol)}`)
-      .then(async (res) => {
-        if (!res.ok) throw new Error((await res.json()).error ?? `HTTP ${res.status}`);
-        return res.json();
-      })
-      .then((data: ScanResult) => {
+      .then((res) => parseJsonResponse<ScanResult & { exactScoreDisplayEnabled?: boolean }>(res))
+      .then((data) => {
         if (cancelled) return;
+        const exactScoreDisplayEnabled = Boolean(data.exactScoreDisplayEnabled);
         setScan(
           data.error
             ? {
@@ -102,8 +130,9 @@ export function TickerView({ symbol }: { symbol: string }) {
                 result: null,
                 error: data.error,
                 retryable: data.errorCode === "rate_limited" || data.errorCode === "upstream",
+                exactScoreDisplayEnabled,
               }
-            : { key, result: data, error: null, retryable: false },
+            : { key, result: data, error: null, retryable: false, exactScoreDisplayEnabled },
         );
       })
       .catch(
@@ -114,6 +143,7 @@ export function TickerView({ symbol }: { symbol: string }) {
             result: null,
             error: err instanceof Error ? err.message : String(err),
             retryable: false,
+            exactScoreDisplayEnabled: false,
           }),
       );
     return () => {
@@ -223,6 +253,7 @@ export function TickerView({ symbol }: { symbol: string }) {
               markers={markers}
               livePrice={quote?.price ?? null}
               enableTrading
+              saraMarkersUnlocked={saraMarkersUnlocked}
             />
           </CardContent>
         </Card>
@@ -261,9 +292,9 @@ export function TickerView({ symbol }: { symbol: string }) {
         </div>
       </div>
 
-      <MarketTabs symbol={symbol} result={result} />
+      <MarketTabs symbol={symbol} result={result} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
 
-      {result && <SignalCard result={result} />}
+      {result && <SignalCard result={result} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />}
 
       {result && <SignalRegimeCard result={result} />}
 

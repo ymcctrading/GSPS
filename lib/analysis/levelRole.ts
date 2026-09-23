@@ -9,10 +9,63 @@
  * stale as price moves through it.
  */
 
-import type { Timeframe } from "@/lib/types";
+import type { Bar, Timeframe } from "@/lib/types";
 import { EXECUTION_TIMEFRAME, TF_LABEL } from "@/lib/timeframe";
 
 export type LevelRole = "support" | "resistance";
+
+/**
+ * Counts distinct historical tests of a level — consecutive bars whose
+ * high/low range touches the band around `levelPrice` count as one test;
+ * price has to leave the band and come back to count a new one, so a level
+ * price is chopping sideways through doesn't inflate the count bar-by-bar.
+ */
+export function countLevelTests(bars: Bar[], levelPrice: number, bandPct: number): number {
+  if (!(levelPrice > 0) || !(bandPct > 0)) return 0;
+  const upper = levelPrice * (1 + bandPct / 100);
+  const lower = levelPrice * (1 - bandPct / 100);
+
+  let count = 0;
+  let inBand = false;
+  for (const bar of bars) {
+    const touches = bar.l <= upper && bar.h >= lower;
+    if (touches) {
+      if (!inBand) count++;
+      inBand = true;
+    } else {
+      inBand = false;
+    }
+  }
+  return count;
+}
+
+export type LevelTestConfidence = "untested" | "reliable" | "caution";
+
+/**
+ * Gann's own rule (*45 Years in Wall Street*, 1949,
+ * `docs/GANN_HISTORICAL_SOURCES.md` A9): the fourth test of the same
+ * double/triple top or bottom is markedly less safe than the first three —
+ * "it nearly always goes through." `"caution"` covers the 4th test onward.
+ */
+export function levelTestConfidence(testCount: number): LevelTestConfidence {
+  if (testCount <= 0) return "untested";
+  return testCount <= 3 ? "reliable" : "caution";
+}
+
+/**
+ * Wiring scope for this rule (AGENTS.md cross-platform-consistency): wired
+ * into `lib/scoring/score.ts`'s `historicalSR` note (mirrored identically in
+ * `lib/scanTicker.ts` and `lib/backtest/replay.ts`, both computing
+ * `srMatch.testCount` off the same daily bars) — that criterion is the one
+ * place in the codebase that already matches price against a specific
+ * clustered level. `lib/strat/levels.ts`'s `combineNearbyLevels` is a
+ * deliberate non-target: it dedupes candidate stop/runner anchors into
+ * plain numbers with no level metadata (role, timeframe, or now testCount)
+ * carried through, and stop/runner placement is live order-affecting logic
+ * this rule has no backtested evidence for touching. Not an oversight —
+ * this criterion's own confidence note is confluence/context only for the
+ * identical reason (see `levelTestNote` in `lib/scoring/score.ts`).
+ */
 
 export function levelRole(currentPrice: number, levelPrice: number): LevelRole {
   return currentPrice >= levelPrice ? "support" : "resistance";

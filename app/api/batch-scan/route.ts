@@ -34,6 +34,17 @@ const DEFAULT_WATCHLIST = [
   "NVDA", "AMZN", "GOOGL", "TTWO", "BTC/USD",
 ];
 
+// Every other scan route in this codebase (market-scan, intraday-scan, scan,
+// the scheduled scans/* family) both declares an explicit maxDuration and
+// bounds how wide a request-driven symbol list can get -- this route did
+// neither, the same "unverified universe width" bug class the 2026-09-22
+// market-scan 504 was, but reachable by any caller's own ?tickers= list
+// rather than a fixed constant. 60s matches market-scan's own budget for a
+// scanTicker-based pipeline; 25 mirrors intraday-scan's MAX_SYMBOLS -- both
+// numbers already proven safe on the same scanTicker cost per symbol.
+export const maxDuration = 60;
+const MAX_SYMBOLS = 25;
+
 export async function GET(req: NextRequest) {
   const supabase = await createClient();
   const {
@@ -45,9 +56,10 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const tickersParam = searchParams.get("tickers");
-  const tickers = tickersParam
+  const tickers = (tickersParam
     ? tickersParam.split(",").map((t) => t.trim()).filter(Boolean)
-    : DEFAULT_WATCHLIST;
+    : DEFAULT_WATCHLIST
+  ).slice(0, MAX_SYMBOLS);
 
   // Server-side writes and the quota RPCs below require service_role -- see
   // supabase/migrations/0036_entitlement_usage_and_monitors.sql's grants.
@@ -167,6 +179,11 @@ export async function GET(req: NextRequest) {
       resultVisibility: metadata,
       // The per-criterion breakdown is the scoring model; only its rollup ships.
       results: responseResults.map(redactScanResult),
+      // Whether this tier sees the exact weighted score or the value rounded
+      // to the nearest half point -- see lib/scoring/display.ts. `results[].
+      // decision.score` itself stays exact (the client sorts by it); only the
+      // UI's rendered number should be formatted through this flag.
+      exactScoreDisplayEnabled: policy.exactScoreDisplayEnabled,
     });
   } catch (err) {
     // The scan attempt itself failed before producing anything -- release

@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ResultsTable } from "@/components/scan/results-table";
+import { TrackedExecuteList } from "@/components/dashboard/tracked-execute-list";
 import { AutoScan } from "@/components/scan/auto-scan";
 import { StaleScanNotice } from "@/components/scan/stale-scan-notice";
 import { LiveExpectancyToggle } from "@/components/guided/live-expectancy-toggle";
 import { EarningsCalendar } from "@/components/macro/earnings-calendar";
 import { MarketNews } from "@/components/macro/market-news";
 import { getDailyScans } from "@/lib/dailyScans";
+import { getTrackedExecuteSetups } from "@/lib/dashboard/trackedExecute";
 import { DEFAULTS } from "@/lib/sectors";
 import { tickerHref } from "@/lib/routes";
 import { ArrowRight, Compass, Bookmark } from "lucide-react";
@@ -14,10 +16,12 @@ import { tradeSideWord } from "@/lib/scoring/direction-copy";
 import { formatOpenedAt } from "@/lib/portfolio/opened-at";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getUserTier } from "@/lib/tiers";
+import { resolveExactScoreDisplayEnabled } from "@/lib/scoring/tier-display";
 import { getMarketRegimeSummary } from "@/lib/promotion/market-regime";
 import { getNoviceHomeSummary } from "@/lib/promotion/novice-home";
 import { NoviceHomeSummary } from "@/components/dashboard/novice-home-summary";
 import { WelcomeBanner } from "@/components/dashboard/welcome-banner";
+import { IntradayAlerts } from "@/components/scan/intraday-alerts";
 import type { ScanRow } from "@/components/scan/results-table";
 
 export const metadata = { title: "Dashboard — GSPS" };
@@ -30,6 +34,8 @@ export default async function DashboardPage() {
     await getDailyScans();
 
   const noviceSummary = await getNoviceSummaryIfApplicable(bullish, bearish);
+  const trackedExecute = await getTrackedExecuteSetupsIfSignedIn();
+  const exactScoreDisplayEnabled = await resolveExactScoreDisplayEnabled();
 
   return (
     <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
@@ -82,6 +88,25 @@ export default async function DashboardPage() {
 
       <LiveExpectancyToggle />
 
+      {trackedExecute.length > 0 && (
+        <Card data-tour="dash-tracked-execute">
+          <CardHeader>
+            <CardTitle className="text-bull">Your tracked Execute setups</CardTitle>
+            <CardDescription>
+              Symbols you scanned individually that currently read Execute — not part of the
+              market-wide daily scan below, so they wouldn&apos;t otherwise show up here. See{" "}
+              <Link href="/scanner" className="underline hover:text-accent">
+                Scan History
+              </Link>{" "}
+              for the full live status of everything you&apos;ve scanned.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <TrackedExecuteList initialRows={trackedExecute} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
+          </CardContent>
+        </Card>
+      )}
+
       <Card data-tour="dash-watchlist">
         <CardHeader>
           <CardTitle>Default watchlist</CardTitle>
@@ -108,14 +133,34 @@ export default async function DashboardPage() {
           rows={bullish}
           emptyText="Scanning for buy setups…"
           scannedAt={scannedAt}
+          exactScoreDisplayEnabled={exactScoreDisplayEnabled}
         />
         <ReversionPreview
           direction="bearish"
           rows={bearish}
           emptyText="Scanning for sell setups…"
           scannedAt={scannedAt}
+          exactScoreDisplayEnabled={exactScoreDisplayEnabled}
         />
       </div>
+
+      {/*
+        The Buy/Sell setups above read from daily_scans, refreshed only by
+        the 6:00/9:15/9:45 scheduled scans and the evening post-close run --
+        up to hours stale between them. IntradayAlerts runs its own live scan
+        on mount and refreshes every few minutes, so it's what actually
+        answers "what's moved since the last full scan" -- see the freshness
+        gap this session traced through several reports of the dashboard
+        reading thinner/staler than a manual scan.
+
+        Deliberately its own card, not merged into the Buy/Sell setups above:
+        its "confidence" is a different momentum model's score, not the
+        platform's own structural 0-9 scorecard those setups are ranked on.
+        Blending the two into one list would misrepresent one methodology's
+        read as the other's, the same reason the Signal & Regime Engine's
+        tier is shown alongside a setup's score and never folded into it.
+      */}
+      <IntradayAlerts />
 
       <div className="grid min-w-0 gap-4 sm:gap-6 lg:grid-cols-2">
         <EarningsCalendar />
@@ -123,6 +168,15 @@ export default async function DashboardPage() {
       </div>
     </div>
   );
+}
+
+async function getTrackedExecuteSetupsIfSignedIn() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+  return getTrackedExecuteSetups(supabase, user.id);
 }
 
 /**
@@ -154,11 +208,13 @@ function ReversionPreview({
   rows,
   emptyText,
   scannedAt,
+  exactScoreDisplayEnabled,
 }: {
   direction: "bullish" | "bearish";
   rows: import("@/components/scan/results-table").ScanRow[];
   emptyText: string;
   scannedAt: string | null;
+  exactScoreDisplayEnabled: boolean;
 }) {
   const isBull = direction === "bullish";
   const side = tradeSideWord(direction);
@@ -187,7 +243,10 @@ function ReversionPreview({
               {scannedAt && (
                 <>
                   {" "}
-                  <span className="text-muted">Scanned {formatOpenedAt(scannedAt)}.</span>
+                  <span className="text-muted">
+                    Scanned {formatOpenedAt(scannedAt)} — a symbol&apos;s own page recomputes live and can read
+                    differently (even a different side) if price has moved since.
+                  </span>
                 </>
               )}
             </CardDescription>
@@ -195,7 +254,7 @@ function ReversionPreview({
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        <ResultsTable rows={preview} emptyText={emptyText} />
+        <ResultsTable rows={preview} emptyText={emptyText} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
         {more > 0 && (
           <Link
             href={`/dashboard/${direction}`}

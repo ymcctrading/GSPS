@@ -81,7 +81,7 @@ describe("pricedBeforeSession", () => {
   // 2026-08-05 is a Wednesday. 12:30 UTC = 08:30 ET, the pre-open cron.
   const preOpenCron = "2026-08-05T12:30:00.000Z";
   const midSession = "2026-08-05T15:00:00.000Z"; // 11:00 ET
-  const afterClose = "2026-08-05T21:30:00.000Z"; // 17:30 ET
+  const afterClose = "2026-08-05T21:30:00.000Z"; // 17:30 ET — any after-close moment, not tied to a specific cron's fire time
 
   it("flags the pre-open cron run — its closed bars are yesterday's", () => {
     expect(pricedBeforeSession("2026-08-05", preOpenCron)).toBe(true);

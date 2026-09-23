@@ -8,6 +8,7 @@ import { pricedBeforeSession, scanFreshness, type ScanFreshness } from "@/lib/sc
 import { isInvalidatedByStop } from "@/lib/trade/invalidate-pending";
 import type { ScanRow } from "@/components/scan/results-table";
 import type { ScoreBreakdownItem } from "@/lib/types";
+import type { PublicSignalSummary } from "@/lib/signals/publicSummary";
 
 export type Direction = "bullish" | "bearish";
 
@@ -28,6 +29,7 @@ interface DailyScanRow {
     scannedAt?: string | null;
     currentPrice?: number | null;
     breakdown?: ScoreBreakdownItem[] | null;
+    signal?: PublicSignalSummary | null;
   } | null;
 }
 
@@ -74,6 +76,12 @@ function toRow(r: DailyScanRow): ScanRow {
     // reversions, which is also what the column defaults to reading as.
     setupKind: r.detail?.setupKind === "continuation" ? "continuation" : "reversion",
     currentPrice: r.detail?.currentPrice ?? null,
+    // undefined (not yet computed at write time) collapses to null here —
+    // ScanRow's contract only distinguishes "no live scan ran this" from
+    // "ran and nothing qualified" for the manual scanner; a persisted row
+    // that predates this field reads the same as the latter, which is the
+    // closer of the two false readings.
+    signal: r.detail?.signal ?? null,
   };
 }
 

@@ -24,6 +24,20 @@ import {
   toPublicScoreSummary,
   SCORE_PILLARS,
 } from "@/lib/scoring/public-summary";
+import { CRITERION_KEYS, type CriterionWeights } from "@/lib/scoring/weights";
+
+/**
+ * These fixtures check raw pass/fail arithmetic against fixed score values
+ * (9, 0...) — only meaningful when every criterion is worth one point.
+ * `DEFAULT_CRITERION_WEIGHTS` (what `computeScore` falls back to when no
+ * `weights` is supplied) is uniform again as of 2026-09-16, so it matches
+ * this today — but it is still supplied explicitly, so a future change to
+ * the live default cannot silently break these fixtures. See that constant's
+ * own doc comment in lib/scoring/weights.ts.
+ */
+const UNIFORM_WEIGHTS: CriterionWeights = Object.fromEntries(
+  CRITERION_KEYS.map((k) => [k, 1]),
+) as CriterionWeights;
 
 const trend = (direction: TrendReading["direction"]): TrendReading => ({
   timeframe: "1Day",
@@ -45,7 +59,7 @@ const gann: GannLevels = {
   angleSlopes: [
     { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, slope: 1.1, nearestAngle: { label: "1x1", ratio: 1, direction: "up" } },
   ],
-  retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100.5, distancePct: 0.2, role: "support" }],
+  retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100.5, distancePct: 0.2, role: "support", importance: 1 }],
   digitalRootConfluences: [{ anchorKind: "low", priceRoot: 1, timeRoot: 8, type: "COMPLEMENTARY_PAIR" }],
 };
 
@@ -72,32 +86,42 @@ const pattern: StratPattern = {
   description: "",
 };
 
+/**
+ * What actually arms the trade since 2026-09-17 — the swing-level crossing
+ * (`lib/gann/entryTrigger.ts`), not the bar sequence above. Same prices, so
+ * each fixture's intent is unchanged; `pattern` stays for the display role.
+ */
+const gannTrigger = { direction: "bullish" as const, triggerPrice: 100, stopPrice: 95 };
+
 const allPass: ScoreInputs = {
   direction: "bullish",
   // Macro trend now scores agreement with the trade, not the old
   // counter-trend-into-a-level premise.
   macroTrends: [trend("bullish"), trend("bullish"), trend("bullish")],
   hourlyTrend: trend("bullish"),
-  hourlyAdx: { adx: 25, plusDI: 20, minusDI: 10 },
   swingChart: { threeDay: "bullish", nineDay: "bullish" },
+  ruleOfThree: { consecutiveLowerCloses: 0, consecutiveHigherCloses: 2, bullishSignal: true, bearishSignal: false },
   timePriceSquare: [
-    { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, squared: true },
+    { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMoveAtrUnits: 10, squared: true },
   ],
   volumeClimax: [
-    { anchorKind: "low", anchorPrice: 90, relativeVolume: 2, climax: true },
+    { anchorKind: "low", anchorPrice: 90, anchorIndex: 0, relativeVolume: 2, bestRecentRelativeVolume: 2, climax: true },
   ],
   gann,
   nearSupportResistance: true,
   pattern,
+  gannTrigger,
   momentumElevated: true,
   stopAtrMultiple: 2,
   levels,
+  weights: UNIFORM_WEIGHTS,
 };
 
 const allFail: ScoreInputs = {
   direction: "bullish",
   macroTrends: [trend("bearish"), trend("bearish"), trend("bearish")],
   hourlyTrend: trend("bearish"),
+  ruleOfThree: { consecutiveLowerCloses: 0, consecutiveHigherCloses: 0, bullishSignal: false, bearishSignal: false },
   gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [], angleSlopes: [], retracementLevels: [], digitalRootConfluences: [] },
   nearSupportResistance: false,
   pattern: null,
@@ -134,9 +158,11 @@ describe("toPublicScoreSummary", () => {
   });
 
   it("notes a capped state without inflating a pillar", () => {
-    // Seven context criteria pass with no armed pattern, which holds the state
-    // at Watch and appends an unscored item explaining it.
-    const decision = computeScore({ ...allPass, pattern: null });
+    // Context criteria pass with no armed TRIGGER, which holds the state at
+    // Watch and appends an unscored item explaining it. Clearing `pattern`
+    // alone no longer does this — the trade is armed by the swing-level
+    // crossing since 2026-09-17, so that is what has to be absent.
+    const decision = computeScore({ ...allPass, pattern: null, gannTrigger: null });
     const summary = toPublicScoreSummary(decision);
 
     expect(decision.breakdown.length).toBeGreaterThan(9);
@@ -210,6 +236,29 @@ describe("redaction at the API boundary", () => {
     // The caller's own copy keeps its breakdown — the scan pipeline, the
     // backtest replay and the published rows all still read it server-side.
     expect(result.decision.breakdown).toHaveLength(9);
+  });
+
+  it("strips dailyBars — bulk internal data, not a public response field", () => {
+    const result: ScanResult = {
+      symbol: "AAPL",
+      assetClass: "us_equity",
+      scannedAt: "2026-08-08T00:00:00Z",
+      currentPrice: 100,
+      direction: "bullish",
+      setupKind: "reversion",
+      momentumElevated: true,
+      trends: [trend("bullish")],
+      gann,
+      pattern,
+      armedPatterns: [pattern],
+      levels,
+      decision,
+      dailyBars: [{ t: "2026-08-08T00:00:00Z", o: 100, h: 101, l: 99, c: 100, v: 1000 }],
+    };
+
+    expect(redactScanResult(result).dailyBars).toBeUndefined();
+    // The caller's own copy is untouched — lib/learning/record.ts still reads it server-side.
+    expect(result.dailyBars).toHaveLength(1);
   });
 
   it("redacts the Signal and Regime Engine's per-criterion breakdown the same way", () => {

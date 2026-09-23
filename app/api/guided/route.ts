@@ -46,6 +46,11 @@ import { finalizeUsageReservation, reserveUsageSlot } from "@/lib/entitlements/q
 import { getUniversePolicy } from "@/lib/universe/policy";
 
 export const dynamic = "force-dynamic";
+// Every other scan route in this codebase declares its own budget explicitly
+// rather than falling back to the platform default; this one didn't, despite
+// running up to MAX_CANDIDATES_SCANNED (16) live scanTicker calls, batched.
+// 60s matches market-scan's own scanTicker-pipeline budget.
+export const maxDuration = 60;
 
 export async function GET() {
   const supabase = await createClient();

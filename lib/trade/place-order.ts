@@ -19,7 +19,9 @@ import {
   assetClassOf,
   executeFill,
   getOpenPosition,
+  getOrCreateAccount,
   isTriggered,
+  listOpenPositions,
   logPlainClose,
   quoteOptionPrice,
   quotePrice,
@@ -29,13 +31,15 @@ import { planProtocolExit } from "@/lib/trade/protocol-exit";
 import { validateLimitPrice, type RoundingMode } from "@/lib/trade/tick-size";
 import { isProtectiveOrder, killSwitchRefusal } from "@/lib/trade/kill-switch";
 import { recordOrderExecution, brokerStatusFrom, type RecordExecutionOptions } from "@/lib/learning/record";
-import { evaluateLiveCircuitBreaker } from "@/lib/risk/service";
+import { evaluateLiveCircuitBreaker, countLiveEntriesOpenedToday } from "@/lib/risk/service";
 import { canEnterNewIntradayPosition } from "@/lib/promotion/pro-intraday";
 import { loadProIntradayUsage, PRO_INTRADAY_DAILY_LOSS_LOCK_PCT } from "@/lib/promotion/intraday-gate-usage";
 import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 import { readLiveAlpacaConnection } from "@/lib/brokers/live-creds";
 import { getAccount, placeOrder } from "@/lib/brokers/alpaca";
 import { isLiveTradingRestricted } from "@/lib/risk/live-trade-loss";
+import { checkPositionLimits } from "@/lib/risk/position-limits";
+import { gateResolvedAction } from "@/lib/risk/cooldown";
 
 type RecordedOrderType = RecordExecutionOptions["orderType"];
 
@@ -168,6 +172,70 @@ export async function placeSimulatedOrder(
         return {
           status: 409,
           body: { error: decision.reason, code: "pro_intraday_gate" },
+        };
+      }
+    }
+  }
+
+  // Novice Risk, Account & Cooldown Engine's allocation/correlation ceilings
+  // (lib/risk/config.ts, Gann's disclosed 10%-of-capital risk ceiling and
+  // diversification caution — docs/GANN_HISTORICAL_SOURCES.md tier A2/A4/
+  // A5/A6/A8, restructured as % of account rather than Gann's dollar/point
+  // tiers, same carve-out lib/strat/levels.ts's combineNearbyLevels
+  // documents). `checkPositionLimits` (lib/risk/position-limits.ts) existed
+  // with no caller anywhere in the codebase — a Novice account had no
+  // enforced ceiling on single-position size, aggregate deployment, total
+  // open risk, or correlated concentration before an order actually placed
+  // (2026-09-17 orphan-module audit). Wired here, in the same
+  // before-any-write position as the kill switch and the Pro intraday gate
+  // above, and skipped for the same reason: a protective order only ever
+  // reduces exposure, so it can't violate a ceiling that exists to bound how
+  // much new exposure is opened.
+  //
+  // Correlated-group membership: no sector/instrument-correlation mapping
+  // exists anywhere in this codebase yet, so this uses the same symbol as a
+  // conservative proxy for "the same correlated group" — a new order in a
+  // symbol with no open position always counts as a new group, one in a
+  // symbol already held joins the existing one. That undercounts real
+  // cross-symbol correlation (e.g. two different oil producers), which is a
+  // known, documented limitation of this wiring, not a silent gap: the
+  // notional/aggregate/open-risk ceilings below do not depend on this proxy
+  // and are enforced fully.
+  if (!isProtective) {
+    const [account, openPositions] = await Promise.all([
+      getOrCreateAccount(supabase, userId),
+      listOpenPositions(supabase, userId),
+    ]);
+    const deployedUsd = openPositions.reduce((sum, p) => sum + p.qty * p.avg_entry_price, 0);
+    const openRiskUsd = openPositions.reduce(
+      (sum, p) => sum + (p.stop_loss == null ? 0 : Math.abs(p.avg_entry_price - p.stop_loss) * p.qty),
+      0,
+    );
+    const equity = account.cash + deployedUsd;
+    const candidateSymbol = input.symbol.toUpperCase();
+    const candidateJoinsExistingGroup = openPositions.some((p) => p.symbol === candidateSymbol);
+    const correlatedGroups = new Set(openPositions.map((p) => p.symbol)).size;
+    const referencePrice = input.limitPrice ?? input.referencePrice ?? null;
+    if (equity > 0 && referencePrice != null) {
+      const newPositionNotionalUsd = referencePrice * input.qty;
+      const newPositionRiskUsd = input.attachLevels
+        ? Math.abs(referencePrice - input.attachLevels.stopLoss) * input.qty
+        : 0;
+      const verdict = checkPositionLimits({
+        equity,
+        newPositionNotionalUsd,
+        currentlyDeployedUsd: deployedUsd,
+        currentOpenRiskUsd: openRiskUsd,
+        newPositionRiskUsd,
+        openCorrelatedGroupsExcludingThis: candidateJoinsExistingGroup
+          ? correlatedGroups - 1
+          : correlatedGroups,
+        candidateJoinsExistingGroup,
+      });
+      if (!verdict.ok) {
+        return {
+          status: 409,
+          body: { error: verdict.violations.join(" "), code: "position_limit", violations: verdict.violations },
         };
       }
     }
@@ -357,6 +425,48 @@ export async function placeSimulatedOrder(
       }
       // Not triggered yet (or no quote this instant) — rests as `new` and is
       // picked up by evaluateRestingOrders once the market reaches it.
+    }
+
+    // `checkBracket` above only ever validated against the price known *before*
+    // the fill — the submitted limit, or the plan's stale `referencePrice` for
+    // an automation-sourced "now" entry. Between that check and this line the
+    // market can have moved a long way: an advised order fills at whatever
+    // price the market crossed the trigger at (by design — see the comment
+    // above), and a "now" market order fills at whatever the live quote is,
+    // with no proximity check to the plan's entry at all.
+    //
+    // Observed in production 2026-09-01 through 2026-09-08: four bracket
+    // orders (AMD, TSLA, DRAM, BAC) filled far enough from their planned entry
+    // that the take-profit target ended up on the wrong side of the real fill
+    // — AMD's plan priced a 459.48 entry and 464.15 target, but the order
+    // didn't actually fill until the market had already reached 476.08, past
+    // both. The resulting bracket was nonsensical (a long whose target sits
+    // below its own entry), and all four filled with `exit_plan_id` left null
+    // — unprotected, indistinguishable in the UI from a normal open position.
+    //
+    // Re-running the same check against the real fill price closes this
+    // before a single row is written, for both the manual ticket and the
+    // (not yet live) automated path — deriveOrderInputFromPlan calls this
+    // same function, so this guard is already in place for it.
+    if (filled && useBracket && fillPrice != null) {
+      const postFillCheck = checkBracket({
+        side: input.side,
+        basePrice: fillPrice,
+        stopLoss: bracketLevels!.stopLoss,
+        takeProfit: bracketLevels!.takeProfit,
+      });
+      if (!postFillCheck.ok) {
+        return {
+          status: 409,
+          body: {
+            error:
+              `The market moved before this order could fill — it filled at ${fillPrice}, past ` +
+              `the plan's own stop or target. ${postFillCheck.reason ?? ""} Refresh the setup and ` +
+              `resubmit at current prices rather than the stale ones.`,
+            code: "fill_outran_bracket",
+          },
+        };
+      }
     }
 
     const { data: inserted, error: dbError } = await supabase
@@ -560,17 +670,29 @@ async function placeLiveOrder(
     };
   }
 
+  const newPositionsOpenedToday = await countLiveEntriesOpenedToday(supabase, userId);
   const gate = await evaluateLiveCircuitBreaker(
     supabase,
     userId,
     equity,
     true,
-    0, // no live order history to count from yet — see lib/risk/service.ts header
+    newPositionsOpenedToday,
   );
-  if (!gate.decision.newEntriesAllowed) {
+  // `gateResolvedAction` (lib/risk/cooldown.ts) applies the disclosed
+  // "cooldown never blocks a stop loss/take profit/reduce/close" rule to the
+  // already-resolved decision above, without a second, potentially
+  // inconsistent state resolution. Before this fix (2026-09-17
+  // orphan-module audit), a live protective order hitting during an active
+  // cooldown or lock would have been refused here — this file already
+  // claimed elsewhere that "the account-wide circuit breaker never blocks a
+  // close," but `lib/risk/cooldown.ts` had no caller anywhere in the
+  // codebase, so nothing actually enforced that at this, the one live call
+  // site it applies to.
+  const cooldownGate = gateResolvedAction(isProtective ? "position_reduce" : "new_entry", gate.decision);
+  if (!cooldownGate.allowed) {
     return {
       status: 409,
-      body: { error: gate.decision.reason, code: "risk_cooldown", riskState: gate.decision.state },
+      body: { error: cooldownGate.reason, code: "risk_cooldown", riskState: gate.decision.state },
     };
   }
 
