@@ -23,21 +23,6 @@
  *                          purpose (one bucket, not the whole universe's
  *                          trades), for building a real trade-by-trade
  *                          timeline the aggregate numbers can't answer
- *   ?proposeWeights=1      run `lib/backtest/propose-weights.ts`'s chronological
- *                          in/out-of-sample weight study instead of the
- *                          aggregate report, and return its proposal against
- *                          the current DEFAULT_CRITERION_WEIGHTS. Exists
- *                          because a real weight study needs the raw
- *                          per-trade criteria data `?trades=1` deliberately
- *                          does not expose (see above) — this runs the study
- *                          server-side instead of shipping that data out, so
- *                          the response is only the aggregated proposal, not
- *                          per-trade criteria. Mutually exclusive with
- *                          `trades=1`. `scripts/propose-weights-report.mjs`
- *                          does the identical thing from a local checkout
- *                          with vendor credentials; this is the same study
- *                          for a caller who only has a browser.
- *
  * Not on a cron and it must not go on one: a run walks every bar of every
  * symbol and is far too slow for a scheduled hobby-plan invocation. It is
  * called on demand from the learning dashboard.
@@ -60,13 +45,11 @@ import {
   type Bucket,
 } from "@/lib/backtest/run";
 import { byOutputState, byScoreRange } from "@/lib/backtest/replay";
-import { proposeWeights } from "@/lib/backtest/propose-weights";
 import { replaySignalEngineForUniverse } from "@/lib/backtest/replaySignals";
 import { isTimeframe } from "@/lib/timeframe";
 import { verifyAuth } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
-import { DEFAULT_CRITERION_WEIGHTS, EXECUTE_SCORE_THRESHOLD, WATCH_SCORE_THRESHOLD } from "@/lib/scoring/weights";
 
 const DEFAULT_UNIVERSE = ["SPY", "AAPL", "AMD", "TSLA", "MSFT", "NVDA"];
 
@@ -161,13 +144,12 @@ export async function GET(req: NextRequest) {
   const productionStopRaw = searchParams.get("productionStop");
   const useProductionStop = productionStopRaw !== null && productionStopRaw !== "0" && productionStopRaw !== "false";
   const wantTrades = searchParams.get("trades") === "1";
-  const wantProposeWeights = searchParams.get("proposeWeights") === "1";
   const wantSignalEngine = searchParams.get("engine") === "signal";
   const includeSlippageSensitivity = searchParams.get("slippageSensitivity") === "1";
 
-  if ([wantTrades, wantProposeWeights, wantSignalEngine].filter(Boolean).length > 1) {
+  if ([wantTrades, wantSignalEngine].filter(Boolean).length > 1) {
     return NextResponse.json(
-      { error: "'trades', 'proposeWeights' and 'engine=signal' are mutually exclusive — pass one." },
+      { error: "'trades' and 'engine=signal' are mutually exclusive — pass one." },
       { status: 400 },
     );
   }
@@ -193,29 +175,6 @@ export async function GET(req: NextRequest) {
           tradeableCount: r.tradeableCount,
           eventCount: r.events.length,
         })),
-      });
-    }
-
-    if (wantProposeWeights) {
-      const run = await collectRun({
-        symbols: universe,
-        timeframe,
-        targetR,
-        ...(since !== null ? { since } : {}),
-      });
-      const proposal = proposeWeights(run.overall.trades, { current: DEFAULT_CRITERION_WEIGHTS });
-      return NextResponse.json({
-        source: run.source,
-        live: run.live,
-        timeframe: run.timeframe,
-        targetR: run.targetR,
-        symbols: run.symbols,
-        skipped: run.skipped,
-        window: run.window,
-        totalTrades: run.overall.trades.length,
-        currentWeights: DEFAULT_CRITERION_WEIGHTS,
-        currentThresholds: { EXECUTE_SCORE_THRESHOLD, WATCH_SCORE_THRESHOLD },
-        proposal,
       });
     }
 
