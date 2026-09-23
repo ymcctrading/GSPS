@@ -32,6 +32,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { buildHistorySymbol, type MonitorState, type ScanHistoryRun, type ScannedState } from "@/lib/scanner/history";
 import { fetchLatestPrice, isCryptoSymbol } from "@/lib/data/alpaca";
+import { resolveExactScoreDisplayEnabled } from "@/lib/scoring/tier-display";
 
 const DEFAULT_DAYS = 7;
 const MAX_DAYS = 30;
@@ -47,6 +48,7 @@ export async function GET(req: NextRequest) {
 
   const days = resolveDays(new URL(req.url).searchParams.get("days"));
   const since = new Date(Date.now() - days * 24 * 3600_000).toISOString();
+  const exactScoreDisplayEnabled = await resolveExactScoreDisplayEnabled(supabase);
 
   const { data: resultRows, error: resultsError } = await supabase
     .from("scan_results")
@@ -61,7 +63,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: resultsError.message }, { status: 500 });
   }
   if (!resultRows || resultRows.length === 0) {
-    return NextResponse.json({ days, runs: [] satisfies ScanHistoryRun[] });
+    return NextResponse.json({ days, runs: [] satisfies ScanHistoryRun[], exactScoreDisplayEnabled });
   }
 
   const symbols = [...new Set(resultRows.map((r) => r.symbol))];
@@ -145,6 +147,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     days,
     runs: [...runs.values()].sort((a, b) => Date.parse(b.runAt) - Date.parse(a.runAt)),
+    exactScoreDisplayEnabled,
   });
 }
 

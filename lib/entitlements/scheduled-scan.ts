@@ -32,17 +32,15 @@
  * Runs at `FULL_UNIVERSE_TOP` (lib/marketScan.ts) / perSide=15 -- the same
  * full big-cap universe budget as the 08:30/17:30 ET `/api/market-scan`
  * crons, not the bare `runMarketScan()` default of 100 these jobs used to
- * fall back to. See `FULL_UNIVERSE_TOP`'s own comment for why leaving this
- * at the default silently under-covered the universe (a same-day "most
- * actives" pool could fill the whole 100-symbol budget before the curated
- * large-cap list was ever reached) -- the dashboard-vs-manual-scan gap this
- * widening exists to close. These jobs were originally throttled to a
- * smaller universe pending confirmation that multiple full scans/day stays
- * under every provider's rate limit end-to-end; restored to full capacity
- * 2026-08-26, and widened again 2026-09-17 to actually cover the full
- * universe rather than just the pre-widening default. With a single active
- * user, the extra scans/day add negligible request volume against Alpaca's
- * (the primary provider's) ~200 req/min, no-documented-daily-cap limit.
+ * fall back to. See `FULL_UNIVERSE_TOP`'s own comment for the full history,
+ * including the 2026-09-22 production timeout that corrected it from an
+ * untested 700 down to a measured-safe 250 -- these jobs were originally
+ * throttled to a smaller universe pending confirmation that multiple full
+ * scans/day stays under every provider's rate limit end-to-end; restored to
+ * full capacity 2026-08-26, widened (too far, per that correction) on
+ * 2026-09-17, and pulled back 2026-09-22. With a single active user, the
+ * extra scans/day add negligible request volume against Alpaca's (the
+ * primary provider's) ~200 req/min, no-documented-daily-cap limit.
  * Revisit -- reintroduce a reduced budget -- once concurrent usage grows
  * enough that these scans could plausibly approach a real provider ceiling
  * (docs/THIRD_PARTY_LIMITS.md has the actual per-provider numbers).

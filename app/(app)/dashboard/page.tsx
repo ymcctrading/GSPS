@@ -16,6 +16,7 @@ import { tradeSideWord } from "@/lib/scoring/direction-copy";
 import { formatOpenedAt } from "@/lib/portfolio/opened-at";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getUserTier } from "@/lib/tiers";
+import { resolveExactScoreDisplayEnabled } from "@/lib/scoring/tier-display";
 import { getMarketRegimeSummary } from "@/lib/promotion/market-regime";
 import { getNoviceHomeSummary } from "@/lib/promotion/novice-home";
 import { NoviceHomeSummary } from "@/components/dashboard/novice-home-summary";
@@ -34,6 +35,7 @@ export default async function DashboardPage() {
 
   const noviceSummary = await getNoviceSummaryIfApplicable(bullish, bearish);
   const trackedExecute = await getTrackedExecuteSetupsIfSignedIn();
+  const exactScoreDisplayEnabled = await resolveExactScoreDisplayEnabled();
 
   return (
     <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
@@ -100,7 +102,7 @@ export default async function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <TrackedExecuteList initialRows={trackedExecute} />
+            <TrackedExecuteList initialRows={trackedExecute} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
           </CardContent>
         </Card>
       )}
@@ -131,12 +133,14 @@ export default async function DashboardPage() {
           rows={bullish}
           emptyText="Scanning for buy setups…"
           scannedAt={scannedAt}
+          exactScoreDisplayEnabled={exactScoreDisplayEnabled}
         />
         <ReversionPreview
           direction="bearish"
           rows={bearish}
           emptyText="Scanning for sell setups…"
           scannedAt={scannedAt}
+          exactScoreDisplayEnabled={exactScoreDisplayEnabled}
         />
       </div>
 
@@ -204,11 +208,13 @@ function ReversionPreview({
   rows,
   emptyText,
   scannedAt,
+  exactScoreDisplayEnabled,
 }: {
   direction: "bullish" | "bearish";
   rows: import("@/components/scan/results-table").ScanRow[];
   emptyText: string;
   scannedAt: string | null;
+  exactScoreDisplayEnabled: boolean;
 }) {
   const isBull = direction === "bullish";
   const side = tradeSideWord(direction);
@@ -248,7 +254,7 @@ function ReversionPreview({
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        <ResultsTable rows={preview} emptyText={emptyText} />
+        <ResultsTable rows={preview} emptyText={emptyText} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
         {more > 0 && (
           <Link
             href={`/dashboard/${direction}`}

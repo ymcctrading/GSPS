@@ -17,19 +17,21 @@ import { getUniversePolicy } from "@/lib/universe/policy";
 import { etDateKey } from "@/lib/market/session";
 
 /**
- * How recently the autonomous 700-symbol scan (see
+ * How recently the autonomous full-universe scan (see
  * .github/workflows/full-market-scan.yml, every 15 minutes through the
- * session) has to have last written today's rows for a manual "Refresh scan"
+ * session; `FULL_UNIVERSE_TOP` in lib/marketScan.ts for the current symbol
+ * count) has to have last written today's rows for a manual "Refresh scan"
  * click to reuse them instead of re-running the full scan itself.
  *
  * This is the fix for the scan timing out under the dashboard's "Refresh
- * scan" button: the button was always re-running the entire ~700-symbol scan
- * synchronously in front of the user, racing the same 60s Hobby ceiling the
- * autonomous cron already respects. Since the autonomous scan is now
- * continuously refreshing `daily_scans` throughout the day, a manual click
- * that lands moments after one of those runs has nothing new to compute —
- * the stored rows already are "up to the second." A click that lands more
- * than this window past the last write still gets a genuinely fresh scan.
+ * scan" button: the button was always re-running the entire full-universe
+ * scan synchronously in front of the user, racing the same 60s Hobby
+ * ceiling `FULL_UNIVERSE_TOP`'s own doc comment records a live 700-symbol
+ * run actually losing. Since the autonomous scan is now continuously
+ * refreshing `daily_scans` throughout the day, a manual click that lands
+ * moments after one of those runs has nothing new to compute — the stored
+ * rows already are "up to the second." A click that lands more than this
+ * window past the last write still gets a genuinely fresh scan.
  */
 const REUSE_RECENT_SCAN_MS = 60_000;
 

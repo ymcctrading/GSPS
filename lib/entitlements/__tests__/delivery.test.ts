@@ -35,6 +35,7 @@ const PAYLOAD = {
   symbol: "AAPL",
   direction: "bullish" as const,
   score: 8,
+  exactScoreDisplayEnabled: true,
   entry: 100,
   stopLoss: 95,
   takeProfit: 110,

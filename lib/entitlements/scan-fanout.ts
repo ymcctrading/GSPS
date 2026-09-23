@@ -22,7 +22,8 @@ import {
   type EntitledInvalidationPayload,
 } from "@/lib/entitlements/delivery";
 import { toPublicSignalSummary } from "@/lib/signals/publicSummary";
-import type { Limit } from "@/lib/entitlements/policy";
+import { getUserEntitlementPolicy, type Limit } from "@/lib/entitlements/policy";
+import { SCORE_MAX } from "@/lib/scoring/display";
 import type { ScanResult } from "@/lib/types";
 import { STRATEGY_VERSION } from "@/lib/backtest/strategyVersion";
 import { buildNewTradePlanFromScanResult } from "@/lib/lifecycle/fromScanResult";
@@ -189,6 +190,14 @@ export async function evaluateMonitorsAndNotify(
 
   if (notifyWorthy.length === 0 && invalidatedWorthy.length === 0) return 0;
 
+  // Resolved here (once, and only when there's something to notify) rather
+  // than threaded through every caller: this is the one place that needs it,
+  // to render the score in an email/push at the recipient's own tier
+  // precision — see lib/scoring/display.ts.
+  const exactScoreDisplayEnabled = await getUserEntitlementPolicy(service, args.profileId)
+    .then((p) => p.exactScoreDisplayEnabled)
+    .catch(() => false);
+
   // Email/sms/push are opt-in per profile (notification_preferences); the
   // in-app ("on the platform itself") notification below is not -- it has no
   // send cost and no spam risk, so it always fires for a notify-worthy
@@ -208,7 +217,7 @@ export async function evaluateMonitorsAndNotify(
       console.error(`evaluateMonitorsAndNotify: trade plan not created for ${setup.value.symbol} — ${String(err)}`);
     });
 
-    const payload = buildAlertPayload(setup);
+    const payload = buildAlertPayload(setup, exactScoreDisplayEnabled);
     await recordInAppNotification(service, { transitionId, profileId: args.profileId, payload }).catch((err) => {
       console.error(`evaluateMonitorsAndNotify: in-app notification not recorded for ${setup.value.symbol} — ${String(err)}`);
     });
@@ -311,18 +320,22 @@ async function createTradePlanForTransition(
   });
 }
 
-function buildAlertPayload(setup: RankedSetup<ScanResult>): EntitledAlertPayload {
+function buildAlertPayload(
+  setup: RankedSetup<ScanResult>,
+  exactScoreDisplayEnabled: boolean,
+): EntitledAlertPayload {
   const r = setup.value;
   const entry = r.levels?.entry ?? r.currentPrice;
   return {
     symbol: r.symbol,
     direction: setup.side === "buy" ? "bullish" : "bearish",
     score: r.decision.score,
+    exactScoreDisplayEnabled,
     entry,
     stopLoss: r.levels?.stopLoss ?? entry,
     takeProfit: r.levels?.takeProfit1 ?? entry,
     verdict: r.decision.outputState,
-    confidence: r.decision.score / 9,
+    confidence: r.decision.score / SCORE_MAX,
     // Informational only — see EntitledAlertPayload's doc comment. Does not
     // affect whether this alert fires or what triggered it.
     signal: toPublicSignalSummary(

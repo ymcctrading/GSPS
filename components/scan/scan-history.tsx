@@ -31,6 +31,7 @@ export function ScanHistory() {
   const [runs, setRuns] = useState<ScanHistoryRun[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [exactScoreDisplayEnabled, setExactScoreDisplayEnabled] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -40,6 +41,7 @@ export function ScanHistory() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
         setRuns(data.runs ?? []);
+        setExactScoreDisplayEnabled(Boolean(data.exactScoreDisplayEnabled));
       })
       .catch((err) => setError(err instanceof Error ? err.message : String(err)))
       .finally(() => setLoading(false));
@@ -88,7 +90,9 @@ export function ScanHistory() {
             No scans in this window yet. Run one above and it will show up here.
           </p>
         )}
-        {runs && runs.length > 0 && <RankedByExecutability runs={runs} />}
+        {runs && runs.length > 0 && (
+          <RankedByExecutability runs={runs} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
+        )}
         {runs?.map((run, i) => (
           <div key={run.scanExecutionId ?? i} className="rounded-lg border border-border">
             <div className="border-b border-border bg-background/50 px-3 py-2 text-xs text-muted">
@@ -105,14 +109,22 @@ export function ScanHistory() {
                     <Link href={tickerHref(s.symbol)} className="font-medium text-accent hover:underline">
                       {s.symbol}
                     </Link>
-                    <ScoreBadge score={s.score} state={s.scannedState} />
+                    <ScoreBadge
+                      score={s.score}
+                      state={s.scannedState}
+                      exactScoreDisplayEnabled={exactScoreDisplayEnabled}
+                    />
                   </div>
                   <div className="flex items-center gap-2 text-sm">
                     <span className="text-muted">now:</span>
                     {s.currentState === null ? (
                       <Badge variant="muted">Not tracked since</Badge>
                     ) : s.currentScore !== null ? (
-                      <ScoreBadge score={s.currentScore} state={monitorStateAsScannedLabel(s.currentState)} />
+                      <ScoreBadge
+                        score={s.currentScore}
+                        state={monitorStateAsScannedLabel(s.currentState)}
+                        exactScoreDisplayEnabled={exactScoreDisplayEnabled}
+                      />
                     ) : (
                       <MonitorBadge state={s.currentState} />
                     )}
@@ -166,7 +178,13 @@ function monitorStateAsScannedLabel(state: MonitorState): "Execute" | "Watch" | 
  * originally scanned score only when no live score exists at all (see
  * lib/scanner/history.ts#executabilityRank).
  */
-function RankedByExecutability({ runs }: { runs: ScanHistoryRun[] }) {
+function RankedByExecutability({
+  runs,
+  exactScoreDisplayEnabled,
+}: {
+  runs: ScanHistoryRun[];
+  exactScoreDisplayEnabled: boolean;
+}) {
   const bySymbol = new Map<string, ScanHistorySymbol>();
   for (const run of runs) {
     for (const s of run.symbols) {
@@ -197,12 +215,17 @@ function RankedByExecutability({ runs }: { runs: ScanHistoryRun[] }) {
             {s.currentState === null ? (
               <Badge variant="muted">Not tracked</Badge>
             ) : s.currentScore !== null ? (
-              <ScoreBadge score={s.currentScore} state={monitorStateAsScannedLabel(s.currentState)} />
+              <ScoreBadge
+                score={s.currentScore}
+                state={monitorStateAsScannedLabel(s.currentState)}
+                exactScoreDisplayEnabled={exactScoreDisplayEnabled}
+              />
             ) : (
               <MonitorBadge state={s.currentState} />
             )}
             <span className="flex items-center gap-1 text-xs text-muted">
-              scanned <ScoreBadge score={s.score} state={s.scannedState} />
+              scanned{" "}
+              <ScoreBadge score={s.score} state={s.scannedState} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
             </span>
             <div className="ml-auto flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted">
               <span>Price {s.currentPrice != null ? formatUsd(s.currentPrice) : "—"}</span>

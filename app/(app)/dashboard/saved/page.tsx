@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { SavedSetupsList, type SavedSetupRow } from "@/components/dashboard/saved-setups-list";
 import { createClient } from "@/lib/supabase/server";
 import { getDailyScans } from "@/lib/dailyScans";
+import { resolveExactScoreDisplayEnabled } from "@/lib/scoring/tier-display";
 
 export const metadata = { title: "Saved setups — GSPS" };
 export const dynamic = "force-dynamic";
@@ -13,6 +14,8 @@ export default async function SavedSetupsPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  const exactScoreDisplayEnabled = await resolveExactScoreDisplayEnabled(supabase);
 
   let rows: SavedSetupRow[] = [];
   if (user) {
@@ -106,7 +109,7 @@ export default async function SavedSetupsPage() {
           <CardDescription>A saved setup keeps the trade plan as it looked when you saved it.</CardDescription>
         </CardHeader>
         <CardContent>
-          <SavedSetupsList initialRows={rows} />
+          <SavedSetupsList initialRows={rows} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
         </CardContent>
       </Card>
     </div>

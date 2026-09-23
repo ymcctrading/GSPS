@@ -780,6 +780,11 @@ async function notifySubscribedUsers(supabase: ServiceSupabase, alerts: Alert[])
         symbol: alert.symbol,
         direction,
         score,
+        // This alert's own 0-9 confidence scale, already a whole number
+        // (`Math.round` above) — unlike lib/scoring/weights.ts's protocol
+        // score, there's no fractional value to hide from a Novice/Pro
+        // viewer, so the tier split doesn't apply here.
+        exactScoreDisplayEnabled: true,
         entry: alert.move.current,
         stopLoss: alert.invalidation ?? alert.move.current,
         takeProfit: alert.continuationPlan.firstTarget ?? alert.move.current,

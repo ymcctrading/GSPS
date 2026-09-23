@@ -56,6 +56,19 @@ export type EntitlementPolicy = {
    */
   proIntradayModuleEnabled: boolean;
   backtestingEnabled: boolean;
+  /**
+   * Whether a user sees the scored setup's exact weighted figure (e.g.
+   * `6.67`) or the value rounded to the nearest half point (`6.5`). Added
+   * 2026-09-16 (project owner direction) once the 2026-09-14 weight
+   * rebalance made `decision.score` fractional by design
+   * (`lib/scoring/weights.ts`'s `DEFAULT_CRITERION_WEIGHTS`): a raw figure
+   * like `6.06` reads as noise, not signal, to Novice/Pro traders still
+   * learning what the score means, while Expert/Wall Street are expected to
+   * reason about the precise weighted number. See `lib/scoring/display.ts`,
+   * the module every score-rendering surface should format through rather
+   * than rounding ad hoc.
+   */
+  exactScoreDisplayEnabled: boolean;
   maxActiveWatchMonitors: Limit;
   maxAutomationWorkflows: Limit;
   maxCustomAlertRules: Limit;
@@ -93,6 +106,7 @@ const ENTITLEMENT_POLICY: Record<PlatformTier, EntitlementPolicy> = {
     intradayScansEnabled: false,
     proIntradayModuleEnabled: false,
     backtestingEnabled: false,
+    exactScoreDisplayEnabled: false,
     maxActiveWatchMonitors: 15,
     maxAutomationWorkflows: 0,
     maxCustomAlertRules: 10,
@@ -113,6 +127,7 @@ const ENTITLEMENT_POLICY: Record<PlatformTier, EntitlementPolicy> = {
     intradayScansEnabled: false,
     proIntradayModuleEnabled: true,
     backtestingEnabled: false,
+    exactScoreDisplayEnabled: false,
     maxActiveWatchMonitors: 50,
     maxAutomationWorkflows: 0,
     maxCustomAlertRules: 50,
@@ -133,6 +148,7 @@ const ENTITLEMENT_POLICY: Record<PlatformTier, EntitlementPolicy> = {
     intradayScansEnabled: true,
     proIntradayModuleEnabled: false,
     backtestingEnabled: false,
+    exactScoreDisplayEnabled: true,
     maxActiveWatchMonitors: 150,
     maxAutomationWorkflows: 0,
     maxCustomAlertRules: 200,
@@ -153,6 +169,7 @@ const ENTITLEMENT_POLICY: Record<PlatformTier, EntitlementPolicy> = {
     intradayScansEnabled: true,
     proIntradayModuleEnabled: false,
     backtestingEnabled: true,
+    exactScoreDisplayEnabled: true,
     maxActiveWatchMonitors: "unlimited",
     maxAutomationWorkflows: "unlimited",
     maxCustomAlertRules: "unlimited",
