@@ -239,11 +239,9 @@ function combineNearbyLevels(levels: number[]): number[] {
 /**
  * Nearest structural level on the trade's favorable side (support under a
  * long, resistance above a short) that lands inside [minPct, maxPct] of
- * entry — accepting any level in `structuralLevels`, since for stop-anchoring
- * purposes a clustered historical S/R level, a fan line, or a Square-of-9
- * price are all "real structure" in the same sense; scoring criteria that
- * care about which kind matched (historicalSR vs. the Gann-specific ones)
- * read the underlying level data separately, upstream of this function.
+ * entry. Callers pass only clustered historical S/R here — see
+ * `computeEquityTradeLevels`'s `structuralLevels` param for why Gann-derived
+ * targets are deliberately excluded from this search as of 2026-09-15.
  * Nearby levels are combined first — see `combineNearbyLevels`.
  */
 function nearestStructuralStop(
@@ -284,14 +282,39 @@ function clampPct(pct: number, minPct: number, maxPct: number): number {
 export function computeEquityTradeLevels(params: {
   direction: "bullish" | "bearish";
   entry: number;
-  /** Support and resistance prices from any source (clustered S/R, fan lines, Square-of-9) — see nearestStructuralStop. */
+  /**
+   * Clustered historical S/R prices only — the same source `historicalSR`
+   * reads — used to anchor the stop. Narrowed from "any structural level" to
+   * "S/R only" on 2026-09-15: `stopRoom`'s us_equity branch (does this stop
+   * come from real structure) measured 98-99.5% saturated on every real,
+   * unconditioned run captured that day (see lib/validation/criteria-
+   * registry.ts's `stopRoom` entry), traced to Gann-derived targets being
+   * pooled in here — dense enough across the wide (3-20% for large-cap) band
+   * that a level was found almost every time, so the fixed-percentage
+   * fallback essentially never fired and the criterion stopped
+   * discriminating. `historicalSR` alone passes only ~18-19% of real setups
+   * (see EQUITY_FALLBACK_STOP_PCT), which is the selectivity this was
+   * supposed to have. Gann targets still extend the runner — see
+   * `extensionLevels` — only the stop's own search narrowed.
+   */
   structuralLevels: number[];
+  /**
+   * Levels the runner (TP2/master) may extend to beyond its raw ATR-scaled
+   * target — see the "Runner extension" block below. Defaults to
+   * `structuralLevels` when omitted. Separated from the stop's search
+   * 2026-09-15 (see `structuralLevels` above) because the runner-extension
+   * rate was never measured saturated — only the stop was — so pooling Gann
+   * targets in here is unchanged, still a real key-price-level target to aim
+   * a scale-out at, not "is this setup real" the way the stop's own
+   * structural question is.
+   */
+  extensionLevels?: number[];
   /** Daily ATR as % of price (lib/scoring/proximity.ts#atrPercentOfPrice). Undefined falls back to the min target %. */
   atrPct?: number;
   /** Widens the stop-placement ceiling and fallback — see EQUITY_LARGE_CAP_STOP_MAX_PCT/EQUITY_LARGE_CAP_FALLBACK_STOP_PCT. */
   largeCap?: boolean;
 }): EquityTradeLevels {
-  const { direction, entry, structuralLevels, atrPct, largeCap = false } = params;
+  const { direction, entry, structuralLevels, extensionLevels = structuralLevels, atrPct, largeCap = false } = params;
   const side: StopSide = direction === "bullish" ? "long" : "short";
   const dir = direction === "bullish" ? 1 : -1;
 
@@ -329,7 +352,7 @@ export function computeEquityTradeLevels(params: {
   // becomes the target instead of the raw multiple — same idea as
   // `masterFromStructure` in the R-based model.
   const capTarget = entry + dir * (EQUITY_MASTER_CAP_PCT / 100) * entry;
-  const structuralExtension = structuralLevels
+  const structuralExtension = extensionLevels
     .filter((l) => dir * (l - tp2Target) > 0 && dir * (l - capTarget) <= 0)
     .sort((a, b) => dir * (a - b))[0];
   const masterFromStructure = structuralExtension !== undefined;
@@ -461,7 +484,11 @@ export function computeTradeLevels(
     const equity = computeEquityTradeLevels({
       direction: pattern.direction,
       entry,
-      structuralLevels: [...gannTargets, ...structuralLevels],
+      // S/R only for the stop (see structuralLevels's own doc comment on
+      // computeEquityTradeLevels) — Gann targets stay in the runner's own
+      // extension pool below, unchanged.
+      structuralLevels,
+      extensionLevels: [...gannTargets, ...structuralLevels],
       atrPct: dailyAtrPct,
       largeCap: effectiveLargeCap,
     });

@@ -27,26 +27,20 @@ import type { Bar } from "@/lib/types";
  * How close the bar count and the ATR-normalized price move have to land to
  * call the square holding.
  *
- * TEMPORARY OVERRIDE (since 2026-09-14) — see AGENTS.md's "Temporary
- * overrides" section, `SQUARE_TOLERANCE_BARS` entry. Widened from 2 to 4 as
- * part of the Execute-collapse stopgap, when this criterion still compared
- * elapsed bars against the raw, un-normalized dollar move: on the committed
- * 2026-09-11 unconditioned run this passed only 118/1061 (11%) and read
- * Δ−0.221R, one of several contributors to the Execute bucket collapsing to
- * 0 trades. That widening was a patch on a scale-dependent measurement, not
- * a fix to the scale problem itself — a 4-bar tolerance means something very
- * different for a $900 stock than a $150 one when the move it's compared
- * against is a raw dollar amount. This has since been replaced with the
- * ATR-normalized comparison below (2026-09-14, direct request) — every
- * other proximity-style criterion in this codebase already made this exact
- * move (see `lib/scoring/proximity.ts`'s header), and this one is a
- * genuinely different construction only in *what* it compares, not in
- * whether the comparison should be scale-relative. `4` is carried forward
- * unchanged rather than re-guessed, but it now bounds a different quantity
- * (elapsed bars vs. ATR-units of price move) than the reading that produced
- * it — needs a fresh committed run before this evidence describes the code
- * as shipped. See `lib/validation/criteria-registry.ts`'s `timePriceSquare`
- * entry.
+ * `4` bars, widened from 2 as part of the since-closed Execute-collapse
+ * stopgap — but superseded rather than reverted: this criterion was
+ * comparing elapsed bars against the raw, un-normalized dollar move at the
+ * time, so the 4-bar tolerance meant something very different for a $900
+ * stock than a $150 one. Replaced with the ATR-normalized comparison below
+ * (2026-09-14), matching every other proximity-style criterion in this
+ * codebase (`lib/scoring/proximity.ts`). `4` carried forward unchanged but
+ * now bounds a different quantity (elapsed bars vs. ATR-units of price
+ * move). Confirmed on the 2026-09-23 fresh run (12-symbol universe, 615
+ * unconditioned trades, `docs/replay-runs/2026-09-23-15Min-2R-within-all-
+ * 12sym.json`): 130/615 (21.1%) passing, Δ+0.111R — positive and informative
+ * for the first time since this criterion existed, where the pre-ATR-fix
+ * version had read Δ−0.221R. See
+ * `lib/validation/criteria-registry.ts`'s `timePriceSquare` entry.
  */
 export const SQUARE_TOLERANCE_BARS = 4;
 

@@ -593,3 +593,108 @@ fewer than `MIN_SAMPLES_PER_ARM` (10) trades, and reports the factor as **too
 few** instead. This mirrors the floor in the Python `backtest.py` so both tools
 refuse at the same place. A 3-trade arm will show a correlation of 1.0 given the
 chance.
+
+## First validation of the equities percent-of-purchase-price model (2026-09-15)
+
+PR #217 (merged 2026-09-11) replaced R:R with a percent-of-purchase-price model for `us_equity`
+trade levels (`computeEquityTradeLevels()`, `lib/strat/levels.ts`), explicitly flagged in code as
+starting defaults, not measured constants. This is the first real measurement.
+
+Six live, unconditioned (`within=all`) runs against the default universe (SPY, AAPL, AMD, TSLA,
+MSFT, NVDA — all large-cap, no crypto), `productionStop=1` so the walk exercises the actual
+computed stop rather than the raw pattern stop:
+
+| Timeframe | Window | Trades | Win rate | Expectancy | Execute (n, E[R]) | Payload |
+|---|---|---:|---:|---:|---|---|
+| 15Min | full (~59d) | 985 | 33.0% | −0.020R | 33, +0.079R | `2026-09-15-15Min-within-all-productionStop.json` |
+| 15Min | 90d | 985 | 33.0% | −0.020R | 33, +0.079R | `…-since90d.json` (identical — see below) |
+| 15Min | 30d | 438 | 35.4% | +0.059R | 12, +0.488R | `…-since30d.json` |
+| 1Hour | full (6yr) | 11,363 | 34.3% | +0.011R | 622, +0.047R | `2026-09-15-1Hour-within-all-productionStop.json` |
+| 1Hour | 90d | 367 | 32.2% | −0.035R | 19, −0.479R | `…-since90d.json` |
+| 1Hour | 30d | 100 | 30.0% | −0.079R | 4, −0.001R | `…-since30d.json` |
+
+**The 15Min-90d run is not a sixth independent sample.** 15Min's natural `TF_LOOKBACK_DAYS`
+window (~60 days) is already under the 90-day cutoff, so `since=90d` trims nothing — the payload
+is byte-identical to the full-history run bar its `generatedAt` timestamp. Read this as 5
+distinct windows, not 6.
+
+**The verdict ladder still doesn't hold up out of sample, same conclusion as the pre-existing
+section above, now reconfirmed under the new stop model.** 1Hour full-history has Execute as the
+*best* bucket (+0.047R, n=622) — the opposite of the historical 1Hour inversion this file already
+documented. But the 1Hour 90-day window flips it back to the *worst* bucket (−0.479R, n=19), and
+15Min goes the other way again (Execute best on the 30-day window, +0.488R off just 12 trades).
+None of these per-window Execute readings are reliable on their own — n=19 and n=12 are both thin
+— but the instability itself, flipping sign across every window cut, is consistent with the
+existing regime-sensitivity finding, not new evidence against it. **A separate investigation
+(regime-dependent inversion of `adxTrendStrength`/`gannAngleSlope` on 1Hour, tracked outside this
+document) is chasing the likely mechanism — do not read either sign as settled.**
+
+### `stopRoom` (us_equity: "stop backed by real structure") — quarantined for saturation
+
+`stopRoom`'s `us_equity` branch reads `levels.stopFromStructure` instead of an ATR multiple (see
+`hasStopRoom`, `lib/scoring/score.ts`) — it asks whether the stop landed on a real structural
+level or fell back to a fixed percentage. On all 5 distinct windows above, the answer was "real
+structure" **98.0%–99.5%** of the time:
+
+| Window | Observed | Passed (structural) | Failed (fallback) | Pass rate |
+|---|---:|---:|---:|---:|
+| 15Min full/90d | 985 | 967 | 18 | 98.2% |
+| 15Min 30d | 438 | 432 | 6 | 98.6% |
+| 1Hour full | 10,480 | 10,427 | 53 | 99.5% |
+| 1Hour 90d | 367 | 364 | 3 | 99.2% |
+| 1Hour 30d | 100 | 98 | 2 | 98.0% |
+
+Every reading clears `MIN_OBSERVATIONS_FOR_SATURATION` (30) and every one sits well past
+`DEFAULT_SATURATION_BOUNDS.maxPassRate` (0.95, `lib/validation/health.ts`) — not a borderline call,
+5/5 distinct windows. **The criterion has been quarantined in `lib/validation/criteria-registry.ts`
+for this reason** (see that entry's `quarantineReason` for the full writeup).
+
+The mechanism: `nearestStructuralStop` (`lib/strat/levels.ts`) searches Gann targets *and*
+clustered S/R pooled together for any favorable-side level inside 3–20% of entry (the default
+universe is entirely large-cap, so the wide band always applies). Gann fan/Square-of-9 levels are
+dense enough across a 17-point band that one is almost always found — the fixed-percentage
+fallback fired on only 18/985, 6/438, 53/10,480, 3/367, and 2/100 trades. `historicalSR` (the
+criterion reading the same underlying S/R data, alone) passes only ~18–19% of real setups per
+`lib/strat/levels.ts`'s own comment on `EQUITY_FALLBACK_STOP_PCT` — pooling in Gann targets turned
+"is there real structure nearby" into "is there almost always something nearby," which isn't the
+same question.
+
+Sign, on the two windows large enough to read (985 and 10,480 trades — the other three have
+failed arms of 6, 3, and 2, all under `MIN_SAMPLES_PER_ARM`): correlation is negative but
+negligible (r=−0.016, t=−0.51; r=−0.005, t=−0.55 — both short of the ±1.96 significance bar). Not
+inverted, just uninformative, which is what a criterion this saturated produces either way.
+
+**Fix applied 2026-09-15, confirmed by user.** `nearestStructuralStop`'s input is now split:
+`computeEquityTradeLevels`'s `structuralLevels` param feeds the stop alone (S/R only, same source
+`historicalSR` reads); a new `extensionLevels` param (defaults to `structuralLevels`) carries the
+old combined S/R+Gann pool for the runner extension only, which was never measured saturated —
+only the stop was. See `lib/strat/levels.ts`'s own doc comments.
+
+**Quarantine stays in place regardless — a code fix is not a measurement.** The exit condition is
+unchanged: it lifts once a re-measured unconditioned equity run against live data, post-fix, lands
+the pass rate back inside [0.05, 0.95]. That confirming run has not happened yet — it needs a
+fresh `?within=all&productionStop=1` capture the same way the original 6 runs were obtained.
+
+### TP1/TP2/master clamp boundaries — not measurable from this data
+
+The task this validation pass answers asked whether `EQUITY_TP1_MIN_PCT`/`MAX_PCT`,
+`EQUITY_TP2_MIN_PCT`/`MAX_PCT`, and `EQUITY_MASTER_CAP_PCT` are getting clamped constantly (a sign
+of miscalibration) or rarely. **The aggregate `/api/backtest` report has no field for this** — the
+clamp only shows up in the per-trade computed levels, not in the aggregate win-rate/expectancy/
+factor tables captured here. Answering it needs a `?trades=1&within=all` pull (or new
+instrumentation in `runBacktest`/`collectRun` that counts clamp hits) — out of scope for this pass
+rather than guessed at. Flagging explicitly instead of fabricating a number.
+
+### What this run did confirm
+
+- **The model is live-data-viable, not broken.** None of the 5 distinct windows show a
+  catastrophic failure mode (a 0% win rate, every trade hitting the same clamp, etc.) — overall
+  expectancy is mixed-sign across windows (−0.079R to +0.059R) but within the range the R-based
+  model already showed pre-existing.
+- **`useProductionStop=1` is doing real work here**, unlike the 2026-09-09 finding earlier in this
+  file where it was a no-op on the R-based large-cap widening — the equity model's stop is now the
+  *only* stop equities have (there's no separate raw-pattern-stop path for `us_equity`), so this
+  flag genuinely walks the model under test rather than reproducing the un-flagged run.
+- **`stopRoom` needs attention before it can be trusted** for equities specifically — see above.
+  This does not implicate the stop *placement* logic itself (buffer, min/max band, fallback
+  percentage), only the criterion that scores whether a level was "real structure."

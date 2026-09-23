@@ -63,6 +63,23 @@ function stubSupabase() {
         return { select: () => ({ maybeSingle: () => Promise.resolve({ data: { id: "plan-1" }, error: null }) }) };
       },
     },
+    // getOrCreateAccount/listOpenPositions (lib/brokers/simulator.ts, used by
+    // placeSimulatedOrder's position-limits check) aren't overridden by the
+    // module mock above — only getOpenPosition is — so they run for real
+    // against this stub. An empty account/no open positions is enough for
+    // checkPositionLimits to pass on every fixture's small test quantities.
+    paper_accounts: {
+      select: () => ({
+        eq: () => ({ maybeSingle: () => Promise.resolve({ data: { cash: 100_000 }, error: null }) }),
+      }),
+    },
+    positions: {
+      select: () => ({
+        eq: () => ({
+          eq: () => ({ eq: () => ({ order: () => Promise.resolve({ data: [], error: null }) }) }),
+        }),
+      }),
+    },
   };
   return { supabase: { from: (t: string) => tables[t] } as unknown as SupabaseClient, ordersInsert, protocolExitsInsert };
 }
