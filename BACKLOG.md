@@ -172,8 +172,18 @@
 ## Priority 6: Infrastructure & Operations
 
 ### Performance Optimization
-- [ ] Database query optimization
-- [ ] Cache layer implementation (Redis)
+- [ ] Database query optimization — partial: `trade_logs_user_exit_idx`
+      (migration 0078) closes a real missing-index gap on the portfolio
+      analytics queries (`(user_id, entry_timestamp)` existed;
+      `(user_id, exit_timestamp)`, what every analytics query actually
+      filters/orders by, didn't). Left open as a general item — this was
+      one targeted fix, not an exhaustive pass over every table.
+- [ ] Cache layer implementation (Redis) — still open; genuinely needs the
+      Q2 Redis dependency (`ROADMAP.md`). `GET /api/portfolio/analytics`
+      now sends `Cache-Control: private, max-age=30,
+      stale-while-revalidate=60` (browser-level, no server infra needed),
+      which is a distinct, smaller thing from a shared server-side cache —
+      don't read this as satisfying the Redis item.
 - [ ] CDN for static assets
 - [ ] Code splitting and lazy loading
 - [ ] Image optimization
