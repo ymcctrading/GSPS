@@ -735,7 +735,44 @@ both signal discovery and execution.
   blocked as before. Not named in this roadmap — small hardening ahead of an
   unscheduled dependency (live trading), not a reprioritization.
 - **Mobile-responsive dashboard** — not a native app yet, but positions and
-  alerts must be usable on phones and tablets.
+  alerts must be usable on phones and tablets. *(Verified 2026-09-23, direct
+  request — "unconfirmed shipped" going in, since `docs/Q1_DAILY_PLAN.md`'s
+  Sprint 4 schedules this for Sep 28–Oct 9, which hadn't started as of
+  today, yet the codebase already had it built with no roadmap entry to
+  show for it — a documentation gap, the same shape as the Portfolio
+  analytics dashboard correction above.* Audited every major surface
+  (`components/app/nav.tsx`, `app/(app)/dashboard/page.tsx`,
+  `app/(app)/portfolio/page.tsx` + `open-positions.tsx`,
+  `app/(app)/scanner/page.tsx` + `results-table.tsx`,
+  `components/scan/ticker-view.tsx` + `candles.tsx` + `order-ticket.tsx`,
+  `components/portfolio/analytics-dashboard.tsx`) rather than trusting the
+  "unconfirmed" framing either way. Found comprehensive, consistently-applied
+  responsive design already in place: `components/app/nav.tsx` gives phones
+  (`< md`) a dedicated fixed bottom tab bar instead of the desktop top nav;
+  `components/ui/table.tsx` — the shared primitive every dense table in the
+  app uses — wraps every table in its own horizontal-scroll box
+  (`scroll-x w-full min-w-0 max-w-full`) with a `sticky left-0` first column,
+  specifically so a wide grid scrolls inside its own box instead of widening
+  the page body (its own header comment states this explicitly); the same
+  scroll-in-a-box pattern is independently applied to
+  `analytics-dashboard.tsx`'s SVG charts and pattern table
+  (`min-w-[480px]`/`min-w-[520px]` each wrapped in `overflow-x-auto`);
+  `open-positions.tsx` goes further and renders genuinely different markup
+  per breakpoint — a desktop table plus a separate `sm:hidden` mobile card
+  layout; the dashboard, scanner, and ticker/chart+order-ticket pages all
+  use mobile-first responsive grids that stack to one column below `sm`/`lg`
+  and widen above it, with `flex-wrap` and `scroll-x no-scrollbar` toolbars
+  where controls could otherwise overflow. `app/layout.tsx` sets a real
+  `viewport` export (`viewportFit: "cover"` for notch/safe-area handling),
+  without which none of the above would engage correctly on a real device.
+  No fix was needed — searched specifically for the failure modes that would
+  need one (unwrapped fixed pixel widths, missing viewport meta, dense grids
+  with no mobile alternative) and found none outside an already-scrolled
+  container. Not visually verified on a real device or browser at a mobile
+  viewport in this pass — this environment has no authenticated Supabase
+  session to render the signed-in app behind (same limitation Phase 7's
+  entry above documents) — so treat this as a thorough static/structural
+  audit, not a pixel-level QA pass.)*
 - **Technical indicators (phase 1)** — SMA, EMA, RSI, MACD as chart overlays.
   Visible for analysis; not yet alert factors.
 - **GSPS Automation — entry confirmation, plan-scoped Automation, live-only
