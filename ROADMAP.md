@@ -2,7 +2,10 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-09-23 (Closed the durable, cross-device custom
+**Last updated:** 2026-09-23 (Annotated the Feature Priority Matrix's Q1
+"Platform & reliability"/"Security & compliance" lines: Sentry error
+capture closed, API key encryption rotation verified already done.)
+Previously same day (Closed the durable, cross-device custom
 price-alert table under the "Dashboard welcome banner, saved setups, chart
 pane glossary, typed price alerts" note.) Previously same day (Closed the
 portfolio/orders live-vs-paper UI gap under the Live order execution
@@ -1129,8 +1132,13 @@ ecosystem. 300+ paying users, $50k+ MRR.
 
 ### Platform & reliability
 
-- **Q1** — Upgrade Vercel to Pro (removes the 2-cron/day cap); structured error
-  logging (Sentry).
+- **Q1** — Upgrade Vercel to Pro (removes the 2-cron/day cap; still open —
+  every cron slot workaround in `docs/THIRD_PARTY_LIMITS.md` is downstream
+  of this staying unresourced); structured error logging (Sentry) — **done,
+  2026-09-23**: `@sentry/nextjs` was already initialized in both
+  `instrumentation.ts`/`instrumentation-client.ts` but never actually
+  caught an error (no `onRequestError` hook, no `app/global-error.tsx`);
+  both added. Inert until `SENTRY_DSN` is set on the deployment.
 - **Q2** — Database indexing audit; query performance baselines; Redis cache
   for order and portfolio data.
 - **Q3** — Horizontal scaling investigation; load-balancing design.
@@ -1139,7 +1147,16 @@ ecosystem. 300+ paying users, $50k+ MRR.
 
 ### Security & compliance
 
-- **Q1** — API key encryption rotation; rate-limit hardening.
+- **Q1** — API key encryption rotation — **verified 2026-09-23, already
+  done**: `lib/crypto.ts` (AES-256-GCM, dual-key `CREDENTIALS_ENCRYPTION_KEY`/
+  `_PREVIOUS` fallback), `scripts/rotate-credentials-key.mjs` (idempotent
+  re-encryption sweep of every `broker_connections` row), and the exact
+  procedure in `SECURITY.md`, all already existed and are tested
+  (`lib/__tests__/crypto.test.ts`). Deliberately a documented manual
+  procedure, not a scheduled job: the first step (moving the Vercel env var)
+  can't be automated from inside the app, so a human has to drive rotation
+  regardless — the same reasoning key rotation of this kind generally
+  follows. No code changed for this item. Rate-limit hardening — still open.
 - **Q2** — Penetration testing; SOC 2 Type I kickoff.
 - **Q3** — SOC 2 Type I completion; compliance dashboard and audit log exports.
 - **Q4** — SOC 2 Type II; GDPR and privacy controls; best-execution docs.
