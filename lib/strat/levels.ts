@@ -67,6 +67,9 @@ export const TP1_MULTIPLE_BY_ASSET: Record<AssetClass, number> = {
   // trade has ever been placed against this asset class, so there's nothing
   // to derive a commodity-specific multiple from yet. Mirrors us_equity
   // rather than inventing a number; revisit once real data/trades exist.
+  // Three-question mandate (AGENTS.md): a type-completeness filler with zero
+  // supporting data is not a design decision to reason through yet — the
+  // mandate applies once a real commodity multiple is actually chosen.
   commodity: 1.5,
 };
 

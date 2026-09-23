@@ -33,6 +33,27 @@
  * Confluence/context only, same as every cycle-hypothesis module this
  * validates: this file only assesses whether a *claimed* cycle looks
  * non-chance. It never itself produces a trade signal.
+ *
+ * **Three-question mandate** (AGENTS.md), answered in place:
+ * 1. Gann grounding — this module doesn't implement a Gann technique itself;
+ *    it validates the cycle *hypotheses* that support Gann's own cycle work
+ *    (`lib/gann/decadeCycle.ts`, `lib/gann/timeCycles.ts`) before they're
+ *    trusted. Its role is downstream of Gann's methodology, not a port of it.
+ * 2. Dewey/Tomes — this file *is* the checklist: all five of Dewey's
+ *    single-series criteria (dominance, regularity, repetition count,
+ *    constancy of period, phase-resumption) plus his cross-series synchrony
+ *    criterion are implemented, not merely referenced. Wave-shape identity
+ *    (Dewey's 9th criterion) is the one item from the full 18-point original
+ *    (`docs/GANN_HISTORICAL_SOURCES.md` C6) deliberately not attempted here —
+ *    it requires averaging waveforms across many cycle repetitions, a
+ *    materially harder problem than the arithmetic-over-dates approach this
+ *    module takes, and is left as a named gap rather than faked.
+ * 3. Hermetic principle — Rhythm and Vibration: this module exists
+ *    specifically to test whether a claimed periodic rhythm is real
+ *    (non-chance) rather than assumed. That framing is why it stays strictly
+ *    diagnostic (an assessment function) rather than becoming a generator of
+ *    new cycle claims — Rhythm as a design lens means testing the pulse
+ *    that's already claimed, not inventing new ones.
  */
 
 export type CriterionVerdict = "pass" | "fail" | "notApplicable";

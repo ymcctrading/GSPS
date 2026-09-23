@@ -38,6 +38,27 @@
  *   4. Confirm `docs/THIRD_PARTY_LIMITS.md`'s Twelve Data free-tier cap
  *      (800 requests/day) still holds once bars/backfill requests are added on
  *      top of the existing quote traffic.
+ *
+ * **Three-question mandate** (AGENTS.md), answered in place:
+ * 1. Gann grounding — Gann himself traded and wrote forecasts for commodities
+ *    (cotton, wheat, coffee — `docs/GANN_HISTORICAL_SOURCES.md`'s A2.1/A2.3
+ *    private-course and letter material is explicitly commodity-denominated,
+ *    e.g. the "May Coffee Santos D" letter). This stub exists specifically so
+ *    Gann's cycle/time/geometry techniques, currently equities/crypto-only,
+ *    can eventually reach the asset class most of his own worked examples
+ *    were actually written against — a gap, not a feature addition.
+ * 2. Dewey/Tomes — no periodicity or recurrence claim is made by this file;
+ *    it moves no data and computes nothing. Dewey's checklist
+ *    (`lib/validation/cycleRigor.ts`) applies once a real commodity data feed
+ *    exists to test cycle claims against, not to the plumbing itself.
+ * 3. Hermetic principle — Correspondence ("as above, so below"): the premise
+ *    of extending this asset-class path at all is that a technique proven on
+ *    equities/crypto is expected to hold on commodities too (the same
+ *    reasoning behind AGENTS.md's cross-platform-consistency principle). This
+ *    file is the placeholder for that correspondence to be tested later, not
+ *    a claim that it already holds — see the TP1/TP2 placeholder note in
+ *    `lib/strat/levels.ts` for where "expected to hold" still needs real data
+ *    before it can be trusted.
  */
 
 import type { AssetClass, Bar, Timeframe } from "@/lib/types";
