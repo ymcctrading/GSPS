@@ -36,6 +36,13 @@ export async function GET(req: NextRequest) {
       : new Date(Date.now() - 16 * 60 * 1000);
 
   try {
+    // Extended hours: pre-market and after-hours prints on the free IEX feed
+    // used to be dropped entirely, so a candle only ever appeared once the
+    // regular 9:30 ET session opened. Requesting them here (sub-daily
+    // timeframes only — see supportsExtendedHours in lib/data/alpaca.ts)
+    // still carries the same ~15min feed delay as the rest of this route's
+    // data (the `end` cutoff above), just no longer withholds the bars once
+    // they exist.
     const bars = await provider.fetchBars(
       symbol,
       timeframe,
@@ -43,6 +50,7 @@ export async function GET(req: NextRequest) {
       end,
       assetClass,
       TF_MAX_BARS[timeframe],
+      true,
     );
     return NextResponse.json({
       symbol: symbol.toUpperCase(),

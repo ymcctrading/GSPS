@@ -134,6 +134,16 @@ const ALPACA_TIMEFRAME: Record<Timeframe, string> = {
 /** Alpaca caps a single bars page at 10k regardless of what `limit` asks for. */
 const PAGE_LIMIT = 10000;
 
+/**
+ * Sub-daily timeframes only — Alpaca's `extended_hours` param has no effect on
+ * `1Day`+ bars (a daily bar is already the regular session's OHLC), and crypto
+ * never closes, so there's no pre/post session to include.
+ */
+function supportsExtendedHours(timeframe: Timeframe): boolean {
+  return timeframe === "1Min" || timeframe === "5Min" || timeframe === "15Min" ||
+    timeframe === "1Hour" || timeframe === "2Hour" || timeframe === "4Hour";
+}
+
 /** Shared param-building for the bars endpoint — one or many symbols. */
 function barsRequest(
   symbols: string,
@@ -143,6 +153,7 @@ function barsRequest(
   assetClass: AssetClass,
   limit: number,
   pageToken?: string,
+  includeExtendedHours = false,
 ): { path: string; params: Record<string, string> } {
   const crypto = assetClass === "crypto";
   const path = crypto ? `/v1beta3/crypto/us/bars` : `/v2/stocks/bars`;
@@ -157,6 +168,9 @@ function barsRequest(
   if (!crypto) {
     params.adjustment = "split";
     params.feed = "iex";
+    if (includeExtendedHours && supportsExtendedHours(timeframe)) {
+      params.extended_hours = "true";
+    }
   }
   params.limit = String(Math.min(limit, PAGE_LIMIT));
   if (pageToken) params.page_token = pageToken;
@@ -178,6 +192,7 @@ export async function fetchBars(
   end: Date | null,
   assetClass: AssetClass,
   limit = 10000,
+  includeExtendedHours = false,
 ): Promise<Bar[]> {
   const crypto = assetClass === "crypto";
   const sym = crypto ? normalizeCryptoSymbol(symbol) : symbol.toUpperCase();
@@ -187,7 +202,9 @@ export async function fetchBars(
 
   do {
     const remaining = limit - collected.length;
-    const { path, params } = barsRequest(sym, timeframe, start, end, assetClass, remaining, pageToken);
+    const { path, params } = barsRequest(
+      sym, timeframe, start, end, assetClass, remaining, pageToken, includeExtendedHours,
+    );
 
     const data = await get(path, params);
     const page = toBars(data.bars?.[sym]);

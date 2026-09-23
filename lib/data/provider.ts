@@ -30,6 +30,14 @@ export interface MarketDataProvider {
     end: Date | null,
     assetClass: AssetClass,
     limit?: number,
+    /**
+     * Pre-/post-market bars on sub-daily timeframes, when the provider can
+     * serve them (still subject to the free feed's ~15min delay — see
+     * app/api/bars/route.ts's `end` comment). Defaults to false so every
+     * existing caller (scans, indicators) keeps scoring the regular session
+     * only; the chart route is the one caller that opts in.
+     */
+    includeExtendedHours?: boolean,
   ): Promise<Bar[]>;
 
   /**
