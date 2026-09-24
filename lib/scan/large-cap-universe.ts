@@ -163,3 +163,60 @@ export const LARGE_CAP_UNIVERSE: string[] = [
   "OC", "WTFC", "MOH", "RYAN", "BIO", "FRT", "AVTR", "CFR", "SOLS", "ENSG",
   "GMED",
 ];
+
+/**
+ * A 25-symbol diversified sample for ad-hoc backtest comparisons, drawn
+ * entirely from `LARGE_CAP_UNIVERSE` above — unlike
+ * `app/api/backtest/route.ts`'s `DEFAULT_UNIVERSE` and the symbol list
+ * behind the 2026-09-23 committed run (SPY, AAPL, AMD, TSLA, MSFT, NVDA,
+ * GOOGL, META, AMZN, NFLX, AVGO, CRM), which are mega-cap tech/growth
+ * names sitting ABOVE this file's $10B–$200B band. That run measured a
+ * universe production's own live scan never looks at, concentrated in one
+ * sector and one volatility profile — the mega-cap names never clear the
+ * coarse gate the real scan runs against.
+ *
+ * Three-question design basis (AGENTS.md's standing mandate; a sampling-
+ * methodology decision has no product-facing market technique, so
+ * question 1, Gann sourcing, does not apply and is stated as such rather
+ * than skipped):
+ * 1. Gann sourcing: N/A — this is which symbols to measure against, not a
+ *    market technique.
+ * 2. Dewey's cycle checklist: N/A — a cross-sectional sample, not a claim
+ *    about periodicity or recurrence.
+ * 3. Hermetic Polarity/Rhythm: deliberately pairs high-beta/momentum names
+ *    (MSTR, HOOD, APP, MRNA) against low-beta/defensive ones (NEE, SO,
+ *    PEP, MO, PLD) rather than sampling one pole, so a run describes the
+ *    strategy across the volatility spectrum instead of one end of it.
+ *    Spans multiple industries (tech/semis, energy, financials,
+ *    healthcare, industrials, consumer/travel, utilities, REITs,
+ *    telecom) for continuous cross-sectional coverage rather than one
+ *    branch — the 2026-09-23 run was effectively all one branch (mega-cap
+ *    tech/growth).
+ *
+ * Not a replacement for `LARGE_CAP_UNIVERSE` itself, and not a claim that
+ * this exact 25 is the definitive backtest universe — a hand-picked spread
+ * for a quick, representative comparison run. A full run over all ~765
+ * symbols is the more rigorous version of the same fix, just far slower
+ * to fetch (collectRun fetches sequentially — see its own comment on the
+ * vendor rate limit).
+ */
+export const DIVERSIFIED_BACKTEST_SAMPLE: string[] = [
+  // High-beta / momentum
+  "MSTR", "HOOD", "APP", "MRNA",
+  // Energy (cyclical, high volatility)
+  "OXY", "DVN", "FANG",
+  // Semiconductors (cyclical, moderate-high volatility)
+  "NXPI", "MPWR", "QCOM",
+  // Consumer discretionary / travel
+  "ABNB", "DAL", "LOW",
+  // Industrials
+  "BA", "DE",
+  // Financials
+  "SCHW", "BLK",
+  // Healthcare
+  "PFE", "GILD",
+  // Defensive: utilities, staples
+  "NEE", "SO", "PEP", "MO",
+  // REIT / telecom (low volatility, rate-sensitive)
+  "PLD", "TMUS",
+];
