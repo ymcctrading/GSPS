@@ -1180,6 +1180,41 @@ more-structured universe naturally clears the band more often), not a confirmed 
 rather than silently un-quarantined; a future session should treat this as an open question, not a
 resolved one.
 
+**Second open item, found 2026-09-24: the 41-trade Execute number above measures a different fill
+rule than the one that actually gates a `trade_plan` in production.** Production requires every
+plan to clear the mandatory break/retest/confirmation-move sequence
+(`lib/lifecycle/entryConfirmation.ts`, `entryReady`) inside a ~20-bar expiry window before it can
+leave `awaiting_entry_confirmation` and reach `armed` — `lib/lifecycle/transitions.ts` hard-gates
+on it. `lib/backtest/replay.ts`, the harness that produced the 41-trade/+0.362R number the
+threshold resolution above rests on, never modeled that sequence at all: its `fired` check was
+(and by default still is) a single-bar stop-order touch of the raw trigger price, with no buffer,
+no retest, and no confirmation move — `lib/backtest/entryConfirmation.ts`'s own header already
+said as much ("`lib/backtest/replay.ts` ... does not model [the confirmation pipeline] at all"),
+but nothing had wired the two together. This is a third instance of the cross-platform-consistency
+failure this file opens with (`harmonicProximity`'s stale anchor, the ADX incident): a rule built
+once in the lifecycle module and never carried to the harness that measures the number this
+section treats as confirmed.
+
+Checked directly against production (`trade_plans` table, 2026-09-24): 15 Execute-tier plans were
+generated over the prior eight days and **zero ever reached `armed`** — all 15 expired
+unconfirmed, 13 of them without even completing the first (touch) stage. That is independent
+evidence the parity gap is real and material, not a theoretical concern.
+
+Fixed the parity gap itself, not the number: `replay()` gained an opt-in
+`requireEntryConfirmation` option (default `false`, so every existing committed run and test in
+this repo is unchanged) that walks the same `advanceEntryConfirmation`/`entryReady` state machine
+production uses, entering at the confirmation-move price rather than the raw trigger. Wired through
+`BacktestRequest`/`runBacktest`/`collectRun` and exposed as `?requireEntryConfirmation=1` on
+`GET /api/backtest`, mirroring how `useProductionStop` already lets a run be repeated under a
+stricter rule for comparison. **The 41-trade Execute number has not yet been re-run under this
+option** — this session had no Alpaca credentials available to refetch the 12-symbol universe's
+bars. A future session (or the project owner, via the learning dashboard) should re-run
+`docs/replay-runs/2026-09-23-15Min-2R-within-all-12sym.json`'s exact request with
+`requireEntryConfirmation=1` added and treat *that* number, not the one above, as what the Execute
+bucket actually does in production. Expect it to be smaller — possibly much smaller, given the
+15/15-unarmed production evidence — and expect that to be the honest number, not a regression in
+this option.
+
 **Live weights incident (2026-09-17) — merging is not shipping.** PR #235 merged the uniform
 `DEFAULT_CRITERION_WEIGHTS` decision to `main` and deployed clean, and the change was still
 **inert in production**. The project owner reported a score of `4.48` on the live site, which is

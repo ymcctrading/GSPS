@@ -35,6 +35,12 @@ import {
 } from "@/lib/scoring/proximity";
 import type { CriterionWeights } from "@/lib/scoring/weights";
 import { computeGannEntryTrigger, type GannEntryTrigger } from "@/lib/gann/entryTrigger";
+import {
+  DEFAULT_CONFIRMATION_BUFFER_PCT,
+  advanceEntryConfirmation,
+  entryReady,
+  freshEntryConfirmation,
+} from "@/lib/lifecycle/entryConfirmation";
 import { readTrend } from "@/lib/analysis/trend";
 import { countLevelTests, levelRole, type LevelRole } from "@/lib/analysis/levelRole";
 import { atr } from "@/lib/analysis/pivots";
@@ -53,6 +59,14 @@ import { DEFAULT_COST_PER_SHARE_USD } from "@/lib/trade/friction";
 
 /** 6.5 hours of 15-minute candles. */
 export const BARS_PER_SESSION = 26;
+
+/**
+ * Matches `lib/lifecycle/fromScanResult.ts`'s `DEFAULT_EXPIRES_AFTER_BARS` —
+ * the window a live/paper trade plan gets before it expires unconfirmed. See
+ * `requireEntryConfirmation`'s own doc comment for why this harness needs its
+ * own copy of that number.
+ */
+export const DEFAULT_CONFIRMATION_EXPIRY_BARS = 20;
 
 /**
  * Daily history needed before a confluence score is worth computing. Below
@@ -113,6 +127,44 @@ export interface ReplayOptions {
    * with each stop, is the before/after `docs/BACKTESTING.md` asks for.
    */
   useProductionStop?: boolean;
+  /**
+   * Gate a trigger through the same mandatory break/retest/confirmation-move
+   * sequence (`lib/lifecycle/entryConfirmation.ts`) that production requires
+   * before a `trade_plan` can leave `awaiting_entry_confirmation` and reach
+   * `armed` — see that module's header: "An indicator flip, initial touch,
+   * initial break, or initial sweep alone can never produce an entry."
+   *
+   * Defaults false, which is this harness's original behaviour: `fired` is a
+   * single-bar stop-order touch of `pattern.triggerPrice`, with no buffer, no
+   * retest, and no confirmation move, and a setup not filled on the very next
+   * bar is dropped rather than carried forward. That model is what every
+   * committed run in `docs/replay-runs/` and every existing test in this file
+   * describes, and it is NOT what gates a real `trade_plan` — production's
+   * `lib/lifecycle/fromScanResult.ts` → `lib/lifecycle/transitions.ts` path
+   * requires the full four-stage sequence within `confirmationExpiryBars`,
+   * and as of 2026-09-23 that path had armed zero of the 15 Execute-tier
+   * plans generated in production over the prior eight days — every one
+   * expired unconfirmed. `lib/backtest/entryConfirmation.ts`'s own header
+   * already documented that `lib/backtest/replay.ts` "does not model [the
+   * confirmation pipeline] at all," but nothing had wired the two together
+   * until this option — the exact "concept built once and left stranded in
+   * the module that introduced it" failure AGENTS.md's cross-platform-
+   * consistency principle names (the `harmonicProximity` stale-anchor and
+   * ADX incidents are the same shape). Set this true to answer "what does
+   * the Execute bucket look like under the rule production actually
+   * enforces" rather than the easier rule this harness happened to ship
+   * with first — the same "before/after" purpose `useProductionStop` serves
+   * for the stop width. Expect a smaller and/or different Execute bucket;
+   * that is the honest number, not a defect in this option.
+   */
+  requireEntryConfirmation?: boolean;
+  /**
+   * Bars a triggered-but-unconfirmed setup is walked forward before being
+   * dropped as expired. Only used when `requireEntryConfirmation` is true.
+   * Defaults to `DEFAULT_CONFIRMATION_EXPIRY_BARS`, matching production's
+   * `DEFAULT_EXPIRES_AFTER_BARS`.
+   */
+  confirmationExpiryBars?: number;
 }
 
 export interface ReplayTrade {
@@ -365,6 +417,8 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     dailyBars,
     weights,
     useProductionStop = false,
+    requireEntryConfirmation = false,
+    confirmationExpiryBars = DEFAULT_CONFIRMATION_EXPIRY_BARS,
   } = options;
 
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
@@ -409,12 +463,43 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
 
       const long = pattern.direction === "bullish";
       const dir = long ? 1 : -1;
-      // The trigger is a stop order: it fills only if this candle reaches it.
-      const fired = long ? live.h >= pattern.triggerPrice : live.l <= pattern.triggerPrice;
-      if (!fired) continue;
-      triggered++;
 
-      const entry = pattern.triggerPrice;
+      let entry: number;
+      let entryIndex: number;
+
+      if (requireEntryConfirmation) {
+        // Walk the same four-stage state machine production runs, starting
+        // on the arming bar, up to the plan's own expiry window. A setup
+        // that never completes touch -> break -> retest -> confirm inside
+        // that window is dropped, exactly as an unconfirmed `trade_plan`
+        // expires in production — not carried forward, and not counted.
+        const rule = {
+          direction: pattern.direction,
+          entryTrigger: pattern.triggerPrice,
+          confirmationBufferPct: DEFAULT_CONFIRMATION_BUFFER_PCT,
+        };
+        let evidence = freshEntryConfirmation();
+        let confirmedAtIndex: number | null = null;
+        const windowEnd = Math.min(bars.length, i + confirmationExpiryBars);
+        for (let j = i; j < windowEnd; j++) {
+          evidence = advanceEntryConfirmation(evidence, rule, bars[j]);
+          if (entryReady(evidence)) {
+            confirmedAtIndex = j;
+            break;
+          }
+        }
+        if (confirmedAtIndex == null) continue;
+        triggered++;
+        entry = evidence.confirmationMovePrice!;
+        entryIndex = confirmedAtIndex;
+      } else {
+        // The trigger is a stop order: it fills only if this candle reaches it.
+        const fired = long ? live.h >= pattern.triggerPrice : live.l <= pattern.triggerPrice;
+        if (!fired) continue;
+        triggered++;
+        entry = pattern.triggerPrice;
+        entryIndex = i;
+      }
 
       // Prior sessions only — the same look-ahead guard scoreSetup applies to
       // macro context, since large-cap status is read off the same daily bars.
@@ -465,12 +550,12 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       let barsHeld = 0;
       let ambiguous = false;
 
-      for (let j = i; j < Math.min(bars.length, i + maxBarsHeld); j++) {
+      for (let j = entryIndex; j < Math.min(bars.length, entryIndex + maxBarsHeld); j++) {
         const b = bars[j];
         const hitStop = long ? b.l <= stop : b.h >= stop;
         const hitTarget = long ? b.h >= target : b.l <= target;
         if (!hitStop && !hitTarget) continue;
-        barsHeld = j - i + 1;
+        barsHeld = j - entryIndex + 1;
         ambiguous = hitStop && hitTarget;
         // Both in one bar: no way to order them, so assume the loss.
         outcome = hitStop ? "loss" : "win";
@@ -479,10 +564,10 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
 
       if (outcome === "timeout") {
         // Marked out at the last close rather than silently dropped.
-        barsHeld = Math.min(maxBarsHeld, bars.length - i);
-        const exit = bars[Math.min(bars.length - 1, i + barsHeld - 1)].c;
+        barsHeld = Math.min(maxBarsHeld, bars.length - entryIndex);
+        const exit = bars[Math.min(bars.length - 1, entryIndex + barsHeld - 1)].c;
         trades.push({
-          symbol, openedAt: live.t, pattern: pattern.name, direction: pattern.direction,
+          symbol, openedAt: bars[entryIndex].t, pattern: pattern.name, direction: pattern.direction,
           entry, stop, target, barsHeld, outcome,
           rMultiple: (dir * (exit - entry) - costPerShare) / risk,
           ambiguous: false,
@@ -497,7 +582,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
 
       const gross = outcome === "win" ? targetR * risk : -risk;
       trades.push({
-        symbol, openedAt: live.t, pattern: pattern.name, direction: pattern.direction,
+        symbol, openedAt: bars[entryIndex].t, pattern: pattern.name, direction: pattern.direction,
         entry, stop, target, barsHeld, outcome,
         rMultiple: (gross - costPerShare) / risk,
         ambiguous,

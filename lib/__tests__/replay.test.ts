@@ -158,6 +158,48 @@ describe("replay", () => {
     }
   });
 
+  it("requireEntryConfirmation: a raw trigger touch, even spanning stop and target, is not an entry on its own", () => {
+    // ARMS_AND_TRIGGERS touches the trigger and then spans a huge range —
+    // the exact ambiguous-single-bar case the default (unconfirmed) model
+    // counts as a loss above. Under the mandatory break/retest/confirmation-
+    // move sequence production actually requires, an initial touch with no
+    // later buffered break, retest, and held reclaim is not a trade at all.
+    const r = replay("TEST", ARMS_AND_TRIGGERS, { targetR: 2, requireEntryConfirmation: true });
+    expect(r.triggered).toBe(0);
+    expect(r.trades.length).toBe(0);
+  });
+
+  it("requireEntryConfirmation: enters at the confirmation-move price, not the raw trigger price", () => {
+    // Same arming candle as ARMS_AND_TRIGGERS (bearish, trigger ~94.72,
+    // stop ~103.31), followed by a hand-built touch -> break -> retest ->
+    // confirm sequence with generous margins so the exact swing-derived
+    // trigger value doesn't matter — only that each stage's bar clears the
+    // prior stage's threshold with room to spare.
+    // Entry-confirmation staging compares bar timestamps, not array position
+    // (`bar.t > next.touchedAt` etc. in advanceEntryConfirmation), so unlike
+    // every other fixture in this file — which reuses the same stamp for
+    // every bar since the P&L walk only cares about array order — these bars
+    // need distinct, increasing timestamps from the touch bar onward.
+    const stamped = (mins: number, o: number, h: number, l: number, c: number): Bar => ({
+      t: new Date(Date.UTC(2026, 0, 1, 0, mins)).toISOString(),
+      o, h, l, c, v: 1000,
+    });
+    const bars = series([
+      bar(100, 105, 99, 104), // arms the bearish setup
+      stamped(15, 100, 102, 80, 101), // touch: low reaches well past the trigger
+      stamped(30, 101, 102, 89, 90), // break: closes well past the buffered trigger
+      stamped(45, 90, 98, 89, 90), // retest: high returns to/through the trigger
+      stamped(60, 90, 91, 84, 85), // confirmation move: closes below the retest high
+      stamped(75, 85, 86, 83, 84), // trailing bar so the P&L walk has somewhere to run
+    ]);
+    const r = replay("TEST", bars, { targetR: 2, requireEntryConfirmation: true });
+    expect(r.triggered).toBeGreaterThan(0);
+    const confirmedTrade = r.trades.find((t) => Math.abs(t.entry - 85) < 0.01);
+    expect(confirmedTrade).toBeDefined();
+    // 85 is the confirmation bar's close, nowhere near the raw trigger (~94.7).
+    expect(confirmedTrade!.entry).not.toBeCloseTo(94.72, 0);
+  });
+
   it("never reports more triggered than armed", () => {
     const bars = series([
       bar(100, 105, 99, 104),

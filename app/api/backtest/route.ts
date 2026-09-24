@@ -15,6 +15,12 @@
  *   ?since=2026-06-15      replay only bars at or after this instant
  *   ?productionStop=1      walk the leeway/large-cap-widened stop instead of
  *                          the raw pattern one — see ReplayOptions.useProductionStop
+ *   ?requireEntryConfirmation=1
+ *                          gate every trigger through the mandatory
+ *                          break/retest/confirmation-move sequence production
+ *                          requires before a trade_plan can arm, instead of
+ *                          this harness's original single-bar stop-order
+ *                          fill — see ReplayOptions.requireEntryConfirmation
  *   ?slippageSensitivity=1 also run the request at 3x cost-per-share and report
  *                          the expectancy delta — a second full fetch/replay,
  *                          off by default. See BacktestRequest.includeSlippageSensitivity
@@ -143,6 +149,9 @@ export async function GET(req: NextRequest) {
 
   const productionStopRaw = searchParams.get("productionStop");
   const useProductionStop = productionStopRaw !== null && productionStopRaw !== "0" && productionStopRaw !== "false";
+  const entryConfirmationRaw = searchParams.get("requireEntryConfirmation");
+  const requireEntryConfirmation =
+    entryConfirmationRaw !== null && entryConfirmationRaw !== "0" && entryConfirmationRaw !== "false";
   const wantTrades = searchParams.get("trades") === "1";
   const wantSignalEngine = searchParams.get("engine") === "signal";
   const includeSlippageSensitivity = searchParams.get("slippageSensitivity") === "1";
@@ -184,6 +193,8 @@ export async function GET(req: NextRequest) {
         timeframe,
         targetR,
         ...(since !== null ? { since } : {}),
+        ...(useProductionStop ? { useProductionStop } : {}),
+        ...(requireEntryConfirmation ? { requireEntryConfirmation } : {}),
       });
       const bucketTrades = scoreRange
         ? byScoreRange(run.overall, scoreRange[0], scoreRange[1]).trades
@@ -220,6 +231,7 @@ export async function GET(req: NextRequest) {
       ...(scoreRange ? { attributeScoreRange: scoreRange } : {}),
       ...(since !== null ? { since } : {}),
       ...(useProductionStop ? { useProductionStop } : {}),
+      ...(requireEntryConfirmation ? { requireEntryConfirmation } : {}),
       ...(includeSlippageSensitivity ? { includeSlippageSensitivity } : {}),
     });
     return NextResponse.json(report);

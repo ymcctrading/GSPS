@@ -110,6 +110,16 @@ export interface BacktestRequest {
    */
   useProductionStop?: boolean;
   /**
+   * Gate every trigger through the mandatory break/retest/confirmation-move
+   * sequence production requires before a `trade_plan` can arm, instead of
+   * this harness's original single-bar stop-order fill. See
+   * `ReplayOptions.requireEntryConfirmation` — off by default because it is
+   * a materially different, stricter rule than every committed run in
+   * `docs/replay-runs/` describes; pass it to answer what the Execute bucket
+   * looks like under the rule production actually enforces.
+   */
+  requireEntryConfirmation?: boolean;
+  /**
    * Also run the same request a second time at `slippageMultiplier` times the
    * cost-per-share and report the expectancy delta — the spec pack's
    * "slippage sensitivity" metric, showing how much of a bucket's edge is a
@@ -193,6 +203,8 @@ export interface BacktestReport {
   largeCapSplit: { largeCap: RunSummary; notLargeCap: RunSummary };
   /** Echoes the request — a report has to say which stop model produced it. */
   useProductionStop: boolean;
+  /** Echoes the request — a report has to say which fill/confirmation model produced it. */
+  requireEntryConfirmation: boolean;
   /** Setups armed and triggered across the run, for a fill-rate sanity check. */
   armed: number;
   triggered: number;
@@ -281,6 +293,7 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
     weights,
     since,
     useProductionStop,
+    requireEntryConfirmation,
   } = request;
 
   const sinceMs = since === undefined ? null : Date.parse(since);
@@ -294,6 +307,7 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
     ...(costPerShare !== undefined ? { costPerShare } : {}),
     ...(weights ? { weights } : {}),
     ...(useProductionStop !== undefined ? { useProductionStop } : {}),
+    ...(requireEntryConfirmation !== undefined ? { requireEntryConfirmation } : {}),
   };
 
   const results: ReplayResult[] = [];
@@ -372,7 +386,12 @@ async function computeSlippageSensitivity(
 }
 
 export async function runBacktest(request: BacktestRequest): Promise<BacktestReport> {
-  const { attributeWithin = "Execute", attributeScoreRange, useProductionStop = false } = request;
+  const {
+    attributeWithin = "Execute",
+    attributeScoreRange,
+    useProductionStop = false,
+    requireEntryConfirmation = false,
+  } = request;
 
   const run = await collectRun(request);
   const split = byOutputState(run.overall);
@@ -405,6 +424,7 @@ export async function runBacktest(request: BacktestRequest): Promise<BacktestRep
       notLargeCap: summarise(capSplit.notLargeCap),
     },
     useProductionStop,
+    requireEntryConfirmation,
     armed: run.overall.armed,
     triggered: run.overall.triggered,
     attributeWithin: attributedLabel,
