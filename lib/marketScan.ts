@@ -23,6 +23,16 @@
  * slot on its own merits, is not — `qualifiesAsContinuationFill` requires
  * both the right shape and an Execute-tier score, never just "the best of
  * what's left." Six 7/9s beat eighteen setups trailing off through 6, 5, 4.
+ *
+ * Cycle-timed rank (added 2026-09-25): the coarse pass also folds in each
+ * symbol's own Gann time-cycle read (`lib/gann/timeCycles.ts`) as a small
+ * rank bonus (`CYCLE_WINDOW_BONUS`) on both gates — the first time
+ * `timeCycles()` influences *which* symbols reach a full scan, rather than
+ * only annotating symbols a full scan already selected. Runs inside this
+ * same coarse pass, on bars already fetched for it — no new fetch, no new
+ * cron. See `CYCLE_WINDOW_BONUS`'s own comment for the full design
+ * rationale (Gann source, Dewey caveat, Hermetic framing) and why it's
+ * scoped to a bonus rather than a gate.
  */
 
 import type { Bar, ScanResult, SetupKind } from "@/lib/types";
@@ -33,6 +43,7 @@ import { etDateKey } from "@/lib/market/session";
 import { atr } from "@/lib/analysis/pivots";
 import { computeFanLines } from "@/lib/gann/fans";
 import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
+import { timeCycles, type TimeCycleResult } from "@/lib/gann/timeCycles";
 import { CONTINUATION_PATTERNS } from "@/lib/strat/patterns";
 import { MIN_EQUITY_PRICE_USD, meetsLiquidityFloor, readLiquidity } from "@/lib/scan/liquidity";
 import { scanTicker } from "@/lib/scanTicker";
@@ -321,7 +332,56 @@ function tradeable(daily: Bar[]): boolean {
   return meetsLiquidityFloor(readLiquidity(daily), "us_equity").ok;
 }
 
-export function coarseReversion(symbol: string, daily: Bar[]): CoarseCandidate | null {
+/**
+ * Coarse-pass rank bonus when this symbol's own Gann time-cycle projection
+ * (`lib/gann/timeCycles.ts`) is inside a turn window matching the
+ * candidate's direction — the per-symbol Master Time Factor hierarchy, not
+ * the macro/market-wide calendar. Inverts `timeCycles()` from a post-hoc
+ * confluence flag (its only role before this — see `scanTicker.ts` and
+ * `lib/backtest/replay.ts`, both of which call it only on symbols already
+ * selected) into an input to *which* symbols get selected in the first
+ * place.
+ *
+ * Three-question mandate (AGENTS.md):
+ * 1. Gann source: Ch.7's Master Time Factor cycle hierarchy
+ *    (`docs/GANN_HISTORICAL_SOURCES.md` A2.1) — the same rule `timeCycles()`
+ *    already implements, reused unmodified here, not re-derived.
+ * 2. Dewey checklist: unchanged from `timeCycles()`'s own standing caveat —
+ *    a single symbol's tradeable history rarely contains enough of its own
+ *    pivots to show a cycle repeating even twice, so repetition count and
+ *    constancy of period stay unproven per symbol. That is exactly why this
+ *    is a coarse-pass RANK bonus, not a gate on its own: it can tip a
+ *    borderline candidate into the shortlist, never manufacture one with no
+ *    other criterion behind it.
+ * 3. Hermetic principle: Correspondence/Rhythm — "wheel within a wheel," the
+ *    same nested-cycle structure Gann's Square of 9/Square of 144 are
+ *    documented as using (`docs/GANN_HISTORICAL_SOURCES.md` Ch.13). A single
+ *    stock's own cycle sits nested inside the macro Great Cycle rather than
+ *    being a separate mechanism — this bonus is that nesting made concrete
+ *    in the coarse gate, not a new technique.
+ *
+ * Value chosen to move, not decide: the reversion floor is score>=3 across
+ * five criteria worth 1-2 points each (max 8) — +1 here is worth less than
+ * any single existing criterion, so cycle timing can tip a genuinely close
+ * call but never substitute for the structural criteria that carry the
+ * pass/fail weight. Not yet logged to `coarse_gate_telemetry` / calibrated
+ * against real outcomes the way the ATR-relative thresholds were — a
+ * deliberately conservative starting value, to revisit once telemetry
+ * exists for it.
+ */
+export const CYCLE_WINDOW_BONUS = 1;
+
+function cycleBonus(direction: "bullish" | "bearish", cycles: TimeCycleResult | undefined): number {
+  if (!cycles) return 0;
+  const matches = direction === "bullish" ? cycles.bullishActive : cycles.bearishActive;
+  return matches ? CYCLE_WINDOW_BONUS : 0;
+}
+
+export function coarseReversion(
+  symbol: string,
+  daily: Bar[],
+  cycles?: TimeCycleResult,
+): CoarseCandidate | null {
   if (daily.length < 60) return null;
   if (!tradeable(daily)) return null;
   const price = daily[daily.length - 1].c;
@@ -366,6 +426,8 @@ export function coarseReversion(symbol: string, daily: Bar[]): CoarseCandidate |
   const levels = direction === "bullish" ? trend.support : trend.resistance;
   if (levels.some((l) => (Math.abs(price - l) / price) * 100 <= srBandPct)) score += 2;
 
+  score += cycleBonus(direction, cycles);
+
   if (score < 3) return null;
   return { symbol, direction, kind: "reversion", coarseScore: score };
 }
@@ -388,7 +450,12 @@ export function coarseReversion(symbol: string, daily: Bar[]): CoarseCandidate |
 export const TRAVEL_ATR_MULT = 1.2;
 export const FALLBACK_TRAVEL_PCT = 3;
 
-export function coarseContinuation(symbol: string, daily: Bar[], bars4h: Bar[]): CoarseCandidate | null {
+export function coarseContinuation(
+  symbol: string,
+  daily: Bar[],
+  bars4h: Bar[],
+  cycles?: TimeCycleResult,
+): CoarseCandidate | null {
   // Needs the full trailing window the baseline is measured over.
   if (daily.length < 120) return null;
   if (!tradeable(daily)) return null;
@@ -429,6 +496,8 @@ export function coarseContinuation(symbol: string, daily: Bar[], bars4h: Bar[]):
   const travelBandPct = proximityBandPct(TRAVEL_ATR_MULT, FALLBACK_TRAVEL_PCT, atrPct);
   if (travelPct > travelBandPct) score += 1;
 
+  score += cycleBonus(direction, cycles);
+
   return { symbol, direction, kind: "continuation", coarseScore: score };
 }
 
@@ -444,6 +513,11 @@ interface CoarseDiagnostics {
   extensionAtr: number | null;
   travelPct: number | null;
   travelAtr: number | null;
+  /** Whether this symbol's own Gann time-cycle projection is inside a turn
+   * window right now, in either direction — see `CYCLE_WINDOW_BONUS`. */
+  cycleActive: boolean;
+  /** Which direction that window argues, when active; null when inactive. */
+  cycleDirection: "bullish" | "bearish" | null;
 }
 
 /**
@@ -456,7 +530,11 @@ interface CoarseDiagnostics {
  * Cheap (same bars already in memory, no extra network calls) and never
  * feeds back into the gates, so instrumenting it can't change scan behavior.
  */
-function coarseDiagnostics(symbol: string, daily: Bar[]): CoarseDiagnostics | null {
+function coarseDiagnostics(
+  symbol: string,
+  daily: Bar[],
+  cycles?: TimeCycleResult,
+): CoarseDiagnostics | null {
   if (daily.length < 60) return null;
   const price = daily[daily.length - 1].c;
   const atrPct = atrPercentOfPrice(atr(daily.slice(-20), 14), price) ?? null;
@@ -475,7 +553,27 @@ function coarseDiagnostics(symbol: string, daily: Bar[]): CoarseDiagnostics | nu
     travelAtr = atrPct !== null && atrPct > 0 ? travelPct / atrPct : null;
   }
 
-  return { symbol, trendDirection, price, atrPct, extensionPct, extensionAtr, travelPct, travelAtr };
+  const cycleActive = cycles?.active ?? false;
+  const cycleDirection: "bullish" | "bearish" | null = !cycles
+    ? null
+    : cycles.bullishActive
+      ? "bullish"
+      : cycles.bearishActive
+        ? "bearish"
+        : null;
+
+  return {
+    symbol,
+    trendDirection,
+    price,
+    atrPct,
+    extensionPct,
+    extensionAtr,
+    travelPct,
+    travelAtr,
+    cycleActive,
+    cycleDirection,
+  };
 }
 
 /**
@@ -723,10 +821,16 @@ export async function runMarketScan(
               provider.fetchBars(symbol, "1Day", yearAgo, end, "us_equity"),
               provider.fetchBars(symbol, "4Hour", recentWeeks, end, "us_equity"),
             ]);
+      // Computed once per symbol and threaded into both gates plus
+      // diagnostics — cheap (pure arithmetic over bars already in memory
+      // from the batch fetch above), no extra network call. See
+      // `CYCLE_WINDOW_BONUS`'s own comment for what this does and doesn't
+      // claim.
+      const cycles = timeCycles(daily);
       return {
-        reversion: coarseReversion(symbol, daily),
-        continuation: coarseContinuation(symbol, daily, bars4h),
-        diagnostics: coarseDiagnostics(symbol, daily),
+        reversion: coarseReversion(symbol, daily, cycles),
+        continuation: coarseContinuation(symbol, daily, bars4h, cycles),
+        diagnostics: coarseDiagnostics(symbol, daily, cycles),
       };
     } catch {
       return { reversion: null, continuation: null, diagnostics: null };
@@ -881,6 +985,8 @@ export async function runMarketScan(
         continuation_score: c.continuation?.coarseScore ?? null,
         travel_pct: d.travelPct,
         travel_atr: d.travelAtr,
+        cycle_active: d.cycleActive,
+        cycle_direction: d.cycleDirection,
         shortlisted: shortlistedSymbols.has(sym),
         full_scan_score: fullResult?.decision.score ?? null,
         full_scan_output_state: fullResult?.decision.outputState ?? null,
