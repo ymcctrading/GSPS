@@ -6,7 +6,11 @@
 Curriculum/Track Record/Pay Your Way, each independently sufficient, applied
 to all three tier transitions. See AGENTS.md's "Three-path tier promotion"
 section.)
-Previously 2026-09-23 (Follow-up to "Strategy Modes" under Q1: three
+Previously 2026-09-23 (Added "Polarity audit: Novice/Pro's own
+designed pole" under Q1 — a platform-wide audit for Expert/Wall Street depth
+with no designed Novice/Pro counterpart, two real gaps fixed. See AGENTS.md's
+Polarity-audit section.)
+Previously same day (Follow-up to "Strategy Modes" under Q1: three
 more modes — VWAP reclaim/loss, Stochastic crossover, Donchian breakout —
 and tier gating, Novice/Pro/Expert+Wall Street, on the whole feature. See
 AGENTS.md's "Strategy Modes" section and `docs/STRATEGY_MODES.md`.)
@@ -227,6 +231,26 @@ both signal discovery and execution.
   See `lib/entitlements/policy.ts#allowedStrategyModes`,
   `lib/strategies/access.ts`, and `docs/STRATEGY_MODES.md`'s "Tier gating"
   section.)*
+- **Polarity audit: Novice/Pro's own designed pole** *(2026-09-23, direct
+  request, fits this Q1 goal's retention side — a designed Novice/Pro
+  experience closer to "sandbox that encourages earning while learning" is
+  a retention lever, not a Strategy-Modes-style out-of-phase addition)* —
+  platform-wide audit for places Expert/Wall Street depth had no designed
+  Novice/Pro counterpart (a capped feature list, not a genuine second
+  pole), per AGENTS.md's Polarity-audit section. Two real gaps found and
+  fixed: (1) per-factor backtest attribution was Wall-Street-only with no
+  Novice/Pro/Expert equivalent — `lib/lifecycle/review.ts`'s existing,
+  previously UI-less post-close review now also carries the plan's Rules
+  Alignment breakdown, rendered in a new "Trade Reviews" panel
+  (`components/portfolio/trade-reviews.tsx`, `/api/trade-plans/reviews`) —
+  a personal single-trade cause-and-effect mirror, deliberately not a
+  diluted copy of cross-symbol backtest statistics; (2) the order ticket's
+  Strategy Mode area showed nothing at all for Novice, with no rationale
+  where Pro's narrower subset had one — now shows a short explainer instead
+  of blank space. Chart-overlay gating (currently ungated for every tier by
+  standing direction) and GSPS School curriculum were investigated and
+  found to need no fix this pass — see AGENTS.md for the full per-surface
+  findings, including the ones judged already correct.
 - **Gann & Sara Cross-Market Confluence Layers** *(out-of-phase, direct
   request: "GSPS Gann & Sara Cross-Market Integration Addendum", 2026-08-28.
   Fits no Q1 strategic goal above — it's a signal-engine addition, not
