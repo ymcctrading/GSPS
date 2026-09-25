@@ -376,3 +376,46 @@ describe("byScoreRange", () => {
     expect(byScoreRange(r, 5, 6).trades).toHaveLength(0);
   });
 });
+
+describe("replay yearCycleHits", () => {
+  /** Monthly bars from Jan 2019: an inverted V topping in Jan 2021 (index 24), through Dec 2025. */
+  function monthlyTop(): Bar[] {
+    const out: Bar[] = [];
+    for (let i = 0; i < 84; i++) {
+      const c = 200 - Math.abs(i - 24) * 1.5;
+      out.push({ t: new Date(Date.UTC(2019, i, 1)).toISOString(), o: c, h: c + 1, l: c - 1, c, v: 1000 });
+    }
+    return out;
+  }
+
+  it("tags a trade with the yearly cycles landing on its month, in its direction", () => {
+    const r = replay("TEST", ARMS_AND_TRIGGERS, { targetR: 2, monthlyBars: monthlyTop() });
+    expect(r.trades.some((t) => t.direction === "bearish")).toBe(true);
+    // Jan 2021 high, trade in Jan 2026: the 5-year cycle — for shorts. The
+    // fixture has no major low, so longs get none.
+    for (const t of r.trades) {
+      expect(t.yearCycleHits).toBe(t.direction === "bearish" ? 1 : 0);
+    }
+  });
+
+  it("leaves the tag undefined without monthly bars", () => {
+    const r = replay("TEST", ARMS_AND_TRIGGERS, { targetR: 2 });
+    expect(r.trades.every((t) => t.yearCycleHits === undefined)).toBe(true);
+  });
+
+  it("cannot see months at or after the trade", () => {
+    const history = monthlyTop();
+    // Three years of violent swings from Jan 2026 on. Read without the guard,
+    // they'd raise the major-pivot cutoff and drop the 2021 high out.
+    const future: Bar[] = [];
+    for (let i = 0; i < 36; i++) {
+      // Smooth, so each swing is a strict peak or trough findPivots can see.
+      const c = 200 + 190 * Math.sin((i / 6) * 2 * Math.PI);
+      future.push({ t: new Date(Date.UTC(2026, i, 1)).toISOString(), o: c, h: c + 1, l: c - 1, c, v: 1000 });
+    }
+    const withFuture = replay("TEST", ARMS_AND_TRIGGERS, { targetR: 2, monthlyBars: [...history, ...future] });
+    const without = replay("TEST", ARMS_AND_TRIGGERS, { targetR: 2, monthlyBars: history });
+    expect(without.trades.some((t) => t.yearCycleHits === 1)).toBe(true);
+    expect(withFuture.trades.map((t) => t.yearCycleHits)).toEqual(without.trades.map((t) => t.yearCycleHits));
+  });
+});

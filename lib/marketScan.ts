@@ -32,8 +32,9 @@
  *     both gates (`CYCLE_WINDOW_BONUS`). No extra fetch.
  *   - Yearly cycles, on ten years of monthly bars: a re-rank of the
  *     reversion pool before the shortlist cut (`YEAR_CYCLE_POOL_MULTIPLE`,
- *     `rankShortlist`). One extra batch fetch for the pool only, skipped
- *     past `YEAR_CYCLE_RERANK_DEADLINE_MS`.
+ *     `rankShortlist`). One extra batch fetch, run in parallel with the
+ *     daily fetch and never waited on — skipped for the run if it hasn't
+ *     landed when the coarse pass finishes.
  * Both rank, neither gates, and both run inside this same scan — no new
  * cron. Each constant's own comment carries its design rationale.
  */
@@ -778,13 +779,6 @@ export const YEAR_CYCLE_POOL_MULTIPLE = 2;
 export const YEAR_CYCLE_HIT_BONUS = 1;
 export const YEAR_CYCLE_BONUS_CAP = 2;
 
-/**
- * Past this point in the run the re-rank is skipped and the shortlist falls
- * back to plain coarse order — the monthly fetch is optional, the full pass
- * is not. Same pattern as `CONTINUATION_DEADLINE_MS`.
- */
-const YEAR_CYCLE_RERANK_DEADLINE_MS = 20_000;
-
 function yearCycleBonus(c: CoarseCandidate, hits: YearCycleConvergence | undefined): number {
   if (!hits) return 0;
   const n = c.direction === "bullish" ? hits.bullishHits : hits.bearishHits;
@@ -888,6 +882,29 @@ export async function runMarketScan(
   // enough to blow through both the upstream rate limit and Vercel's function
   // timeout before a scan could finish. Falls back to per-symbol fetches below
   // when unavailable (e.g. the synthetic demo provider).
+  // Monthly bars for the yearly-cycle re-rank, started alongside the daily
+  // and 4-hour fetch rather than after it, so it adds no wall-clock time: it
+  // is under half the daily fetch's rows and runs while the daily fetch (the
+  // long pole — 21.4s at 250 symbols, production 2026-09-25) is still going.
+  // Never awaited past that point: if it hasn't landed by the time the coarse
+  // pass needs it, the re-rank is skipped for this run rather than waited on.
+  // See AGENTS.md's "Speed is a product requirement".
+  let monthlyBatch: Map<string, Bar[]> | null | undefined = undefined;
+  if (provider.fetchBarsBatch) {
+    const monthlyStarted = Date.now();
+    const tenYearsAgo = new Date(Date.now() - 10 * 365.25 * 24 * 3600 * 1000);
+    void provider
+      .fetchBarsBatch(actives, "1Month", tenYearsAgo, end, "us_equity")
+      .then((m) => {
+        monthlyBatch = m;
+        mark("monthly batch fetch done", `${m.size} symbols in ${Date.now() - monthlyStarted}ms`);
+      })
+      .catch((err) => {
+        monthlyBatch = null;
+        console.warn(`market-scan: ${scanDate} monthly fetch failed, yearly-cycle re-rank skipped — ${String(err)}`);
+      });
+  }
+
   const [dailyBatch, bars4hBatch] = await Promise.all([
     provider.fetchBarsBatch?.(actives, "1Day", yearAgo, end, "us_equity") ?? null,
     provider.fetchBarsBatch?.(actives, "4Hour", recentWeeks, end, "us_equity") ?? null,
@@ -928,35 +945,17 @@ export async function runMarketScan(
     .sort(byCoarseScore)
     .slice(0, shortlistSize * YEAR_CYCLE_POOL_MULTIPLE);
 
-  // Yearly-cycle re-rank — see YEAR_CYCLE_POOL_MULTIPLE. Only worth a fetch
-  // when the pool is bigger than the shortlist; otherwise every candidate is
-  // full-scanned regardless of order.
+  // Yearly-cycle re-rank — see YEAR_CYCLE_POOL_MULTIPLE. Read for every
+  // symbol the monthly fetch returned, not just the pool, so telemetry can
+  // compare cycle-ranked names against the rest of the universe.
+  const monthlyNow = monthlyBatch as Map<string, Bar[]> | null | undefined;
   let yearHits: Map<string, YearCycleConvergence> | null = null;
-  if (
-    rerankPool.length > shortlistSize &&
-    provider.fetchBarsBatch &&
-    Date.now() - startedAt < YEAR_CYCLE_RERANK_DEADLINE_MS
-  ) {
-    try {
-      const tenYearsAgo = new Date(Date.now() - 10 * 365.25 * 24 * 3600 * 1000);
-      const monthly = await provider.fetchBarsBatch(
-        rerankPool.map((c) => c.symbol),
-        "1Month",
-        tenYearsAgo,
-        end,
-        "us_equity",
-      );
-      yearHits = new Map(
-        rerankPool.map((c) => {
-          const sym = c.symbol.toUpperCase();
-          return [sym, yearCycleConvergence(monthly.get(sym) ?? [])];
-        }),
-      );
-    } catch (err) {
-      console.warn(`market-scan: ${scanDate} yearly-cycle re-rank skipped — ${String(err)}`);
-    }
-    mark("yearly-cycle re-rank done", `pool=${rerankPool.length} read=${yearHits?.size ?? 0}`);
+  if (monthlyNow) {
+    yearHits = new Map([...monthlyNow].map(([sym, bars]) => [sym, yearCycleConvergence(bars)]));
+  } else if (monthlyNow === undefined && provider.fetchBarsBatch) {
+    console.warn(`market-scan: ${scanDate} monthly fetch still running after the coarse pass — yearly-cycle re-rank skipped`);
   }
+  mark("yearly-cycle re-rank", yearHits ? `read=${yearHits.size}` : "skipped");
   const shortlist = rankShortlist(rerankPool, shortlistSize, yearHits);
   const continuationPool = coarse
     .map((c) => c.continuation)

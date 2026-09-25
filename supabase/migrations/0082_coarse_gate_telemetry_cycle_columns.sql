@@ -7,8 +7,8 @@
 --     (`CYCLE_WINDOW_BONUS`).
 --   * year_cycle_bullish_hits / year_cycle_bearish_hits —
 --     `yearCycleConvergence()` on monthly bars, the shortlist re-rank
---     (`YEAR_CYCLE_POOL_MULTIPLE`). Null when the symbol wasn't in the
---     re-rank pool or the re-rank was skipped that run.
+--     (`YEAR_CYCLE_POOL_MULTIPLE`). Null when the monthly fetch returned
+--     nothing for the symbol or hadn't landed in time that run.
 -- Logged for the same reason the ATR-multiple thresholds are: so the bonus
 -- values can be calibrated against real full-scan outcomes instead of
 -- staying a one-time guess.

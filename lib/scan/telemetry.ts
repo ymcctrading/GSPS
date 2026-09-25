@@ -36,8 +36,8 @@ export interface CoarseTelemetryRow {
    * a high-anchored window were active at once). */
   cycle_direction: "bullish" | "bearish" | "both" | null;
   /** Yearly-cycle convergence hits from major lows / highs on monthly bars
-   * (`yearCycleConvergence`). Null when this symbol wasn't in the re-rank
-   * pool or the re-rank was skipped this run. */
+   * (`yearCycleConvergence`). Null when the monthly fetch returned nothing
+   * for this symbol or hadn't landed in time this run. */
   year_cycle_bullish_hits: number | null;
   year_cycle_bearish_hits: number | null;
   /** Whether this symbol made the full-scan shortlist (coarse score plus the yearly-cycle re-rank). */

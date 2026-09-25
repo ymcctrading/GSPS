@@ -381,7 +381,7 @@ async function main() {
       const symbol = universe[i];
       const tickStart = Date.now();
       try {
-        const { bars: fetched, daily } = await run.fetchSeries(symbol, args.timeframe);
+        const { bars: fetched, daily, monthly } = await run.fetchSeries(symbol, args.timeframe, true);
         const bars = sinceMs === null ? fetched : fetched.filter((b) => Date.parse(b.t) >= sinceMs);
         if (bars.length === 0) {
           skipped.push({ symbol, reason: "no execution-timeframe bars" });
@@ -389,7 +389,7 @@ async function main() {
           if (from === null || bars[0].t < from) from = bars[0].t;
           if (to === null || bars[bars.length - 1].t > to) to = bars[bars.length - 1].t;
           cells.forEach((cell, c) => {
-            perCell[c].push(replay(symbol, bars, { targetR: args.targetR, ...(cell.options ?? {}), dailyBars: daily }));
+            perCell[c].push(replay(symbol, bars, { targetR: args.targetR, ...(cell.options ?? {}), dailyBars: daily, monthlyBars: monthly }));
           });
           used.push(symbol);
         }
