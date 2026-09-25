@@ -42,6 +42,7 @@ import { computeFanLines, nearestFanLine } from "@/lib/gann/fans";
 import { nearestS9Level, recentSquareOf9Levels } from "@/lib/gann/squareOf9";
 import { timeCycles } from "@/lib/gann/timeCycles";
 import { computeDecadeCycle } from "@/lib/gann/decadeCycle";
+import { computeMacroCycle } from "@/lib/gann/macroCycle";
 import { masterTwelveLevels, nearestMasterTwelveLevel } from "@/lib/gann/masterTwelve";
 import { squareOf52Windows } from "@/lib/gann/squareOf52";
 import { angleMonthCounts as computeAngleMonthCounts } from "@/lib/gann/angleMonthCounts";
@@ -119,6 +120,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
       timeCycleFixedCalendarActive: false,
       timeCycleFixedCalendarDates: [],
       decadeCycle: computeDecadeCycle(),
+      macroCycle: computeMacroCycle(),
       nearestMasterTwelve: null,
       squareOf52: { active: false, dates: [] },
       angleMonthCounts: { active: false, dates: [] },
@@ -170,6 +172,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
   const s9Levels = recentSquareOf9Levels(inputs.dailyBars, inputs.currentPrice);
   const fanLines = computeFanLines(inputs.dailyBars, inputs.currentPrice);
   const cycles = timeCycles(inputs.dailyBars);
+  const macroCycle = computeMacroCycle();
   const nearestS9 = nearestS9Level(s9Levels);
   const nearestFan = nearestFanLine(fanLines);
   const nearestMasterTwelve = nearestMasterTwelveLevel(masterTwelveLevels(majorLow, inputs.currentPrice));
@@ -293,6 +296,13 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
       ? `Active structural time-cycle window (nearby dates: ${cycles.dates.slice(0, 3).join(", ") || "n/a"}).`
       : "No active structural time-cycle window.",
   );
+  explanationTrace.push(
+    macroCycle.active
+      ? `Active macro time-cycle window, projected from Gann's own historical anchors (${macroCycle.activeWindows
+          .map((w) => `${w.anchor} +${w.years}y`)
+          .join(", ")}).`
+      : "No active macro time-cycle window.",
+  );
   if (coordinateLedger.length > 0) {
     explanationTrace.push(
       `Coordinate ledger: ${coordinateLedger.length} prior D/W/M high-low and range-fraction candidates computed.`,
@@ -328,6 +338,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
     timeCycleFixedCalendarActive: cycles.fixedCalendarActive,
     timeCycleFixedCalendarDates: cycles.fixedCalendarDates,
     decadeCycle: computeDecadeCycle(),
+    macroCycle,
     nearestMasterTwelve,
     squareOf52,
     angleMonthCounts: angleMonthCountsResult,
