@@ -837,9 +837,9 @@ indicator library" Q2 roadmap item's own boundary ("no indicator added there
 may feed a scored criterion...") is unaffected. This exception is scoped to
 one new, clearly-labeled, opt-in system and nothing else.
 
-**Custom-script/plugin system — Phases 1-3 (DSL + evaluator, plugin registry
-+ CRUD API, chart-plotting + level-generation hook) built 2026-09-23/25,
-Phase 4 not yet built.** The project owner also asked about a
+**Custom-script/plugin system — all four phases (DSL + evaluator, plugin
+registry + CRUD API, chart-plotting + level-generation hook, backtesting)
+built 2026-09-23/25.** The project owner also asked about a
 TradingView-style system where a user (or GSPS) can author and plot a new
 indicator/strategy that generates its own levels the same way. `lib/strategies/custom/`
 now has a small, safe, declarative condition/action DSL and a tree-walking
@@ -931,11 +931,28 @@ all pre-existing except one `react-hooks/set-state-in-effect` warning of a
 class already tolerated twice elsewhere in `candles.tsx`), build clean (all
 three new routes compiled), `check-banned-terms.mjs` clean.
 
-**Phase 4 (backtesting via `replaySignals.ts`'s evidence-gathering shape)
-remains design-only** per `docs/STRATEGY_MODES.md`'s sequencing. Any
-strategy plugin built under that future phase must satisfy the same rules
-this section states: opt-in, one-at-a-time, never touching the Gann
-verdict, tier-gated and server-resolved only, and clearly labeled.
+**Phase 4 — backtesting (built 2026-09-25).**
+`lib/backtest/replayCustomScript.ts` walks one script forward over a
+symbol/timeframe's history, re-evaluating it against every closed-history
+window the same growing-window shape `replaySignals.ts#replaySignalEngine`
+uses, and records an event only where the script actually armed —
+evidence-gathering only, deliberately not a trade simulation (no fill/stop/
+target-touch model, same restraint `replaySignals.ts`'s own header
+documents, for the same "public accuracy claims outrunning validated
+methodology" reason — a custom script is user-authored and this project has
+no reviewed fill-simulation methodology for arbitrary author-defined entry/
+stop/target logic). `/api/strategy-plugins/[id]/backtest` (new) wires it in,
+same private-to-author scoping as `../evaluate/route.ts`. Verified: 5 new
+`replayCustomScript.ts` tests (compile-failure handling, event ordering,
+armed-count invariants, identity labeling, a flat-data zero-arm case), full
+suite 1892/1892 passing, `tsc --noEmit` clean, lint clean (0 errors, no new
+warnings), build clean (all four `/api/strategy-plugins/*` routes
+compiled), `check-banned-terms.mjs` clean.
+
+Any strategy plugin built or extended under this family must continue to
+satisfy the rules this section states: opt-in, one-at-a-time, never
+touching the Gann verdict, tier-gated and server-resolved only, and clearly
+labeled.
 
 ## Three-question mandate — the lens work is reasoned through, every session
 

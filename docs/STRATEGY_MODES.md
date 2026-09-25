@@ -153,11 +153,10 @@ One candidate remains deliberately not built:
 
 ## Custom-script / plugin system
 
-**Status (2026-09-25): Phases 1-3 (DSL + evaluator, plugin registry + CRUD
-API, chart-plotting + level-generation hook) built and tested. Phase 4
-(backtesting) remains design-only**, per the sequencing below — this
-section was originally written as design-only and is updated in place
-rather than duplicated.
+**Status (2026-09-25): all four phases (DSL + evaluator, plugin registry +
+CRUD API, chart-plotting + level-generation hook, backtesting) built and
+tested.** This section was originally written as design-only and is
+updated in place rather than duplicated.
 
 The project owner separately asked for a TradingView-style system: a user
 (or GSPS) authors a new indicator/strategy, it plots on the chart, and it
@@ -327,12 +326,37 @@ Verified: 5 new `plot.ts` tests (including exact parity against
 `tsc --noEmit` clean, lint clean (0 errors), build clean (all three new
 routes compiled), `check-banned-terms.mjs` clean.
 
-### Phase 4 — not yet built
+### Phase 4 — backtesting (built 2026-09-25)
 
-- **Backtesting a custom script** before trusting it live — reusing
-  `lib/backtest/replaySignals.ts`'s evidence-gathering shape (parallel
+- **`lib/backtest/replayCustomScript.ts`** — walks one compiled script
+  forward over a symbol/timeframe's available history, re-evaluating it
+  against every closed-history window (`bars.slice(0, i + 1)`), the same
+  growing-window shape `replaySignals.ts#replaySignalEngine` uses (parallel
   infrastructure to the Gann walk-forward replay, per AGENTS.md's orphan-
-  module audit outcome 6/8) rather than a third backtest engine.
+  module audit outcome 6/8, reused rather than a third backtest engine).
+  Records an event only where the script actually armed. Deliberately
+  **evidence-gathering, not trade simulation** — no fill/stop/target-touch
+  model, so no win-rate/R-multiple/P&L claim is ever produced. Same
+  restraint `replaySignals.ts`'s own header documents, applied for the same
+  reason and, if anything, more sharply here: a custom script is user-
+  authored and arbitrarily numerous, and this project has no reviewed
+  fill-simulation methodology for an arbitrary author's own entry/stop/
+  target logic. See that module's own header for the full reasoning.
+- **`/api/strategy-plugins/[id]/backtest`** — wires it in for one saved
+  script against a symbol/timeframe, same private-to-author scoping as
+  `../evaluate/route.ts` (plugin lookup scoped to `user_id = auth user`).
+
+Verified: 5 new `replayCustomScript.ts` tests (compile-failure handling,
+event ordering, armed-count invariants, identity labeling, a flat-data
+zero-arm case), full suite 1892/1892 passing, `tsc --noEmit` clean, lint
+clean (0 errors, no new warnings), build clean (all four
+`/api/strategy-plugins/*` routes compiled), `check-banned-terms.mjs` clean.
+
+All four phases of this design are now built. A dedicated script-authoring/
+management UI page (as opposed to the CRUD API itself) was never part of
+this design's four phases and remains unbuilt — a future session adding one
+should read this document and AGENTS.md's "Strategy Modes" section first,
+the same way this session did.
 
 Roadmap placement: Q2/Q3, alongside the existing "Expanded indicator
 library for self-directed strategy testing" initiative (ROADMAP.md) — see

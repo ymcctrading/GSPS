@@ -1063,16 +1063,20 @@ Portfolio analytics drives retention and trust.
   alongside "Strategy Modes" (Q1, out-of-phase, see that entry above) is
   scoped to land here rather than as its own initiative — see
   `docs/STRATEGY_MODES.md`'s "Custom-script / plugin system" section.
-  **Phases 1-3 (the DSL + sandboxed-evaluator core, `lib/strategies/custom/`;
-  the plugin registry + CRUD API, `supabase/migrations/0080_strategy_plugins.sql`,
-  `/api/strategy-plugins`; the chart-plotting + level-generation hook,
-  `lib/strategies/custom/plot.ts`, `/api/strategy-plugins/[id]/evaluate`,
-  wired into `components/chart/candles.tsx` and
-  `components/trade/order-ticket.tsx`) built out-of-phase, direct
+  **All four phases (the DSL + sandboxed-evaluator core,
+  `lib/strategies/custom/`; the plugin registry + CRUD API,
+  `supabase/migrations/0080_strategy_plugins.sql`, `/api/strategy-plugins`;
+  the chart-plotting + level-generation hook, `lib/strategies/custom/plot.ts`,
+  `/api/strategy-plugins/[id]/evaluate`, wired into
+  `components/chart/candles.tsx` and `components/trade/order-ticket.tsx`;
+  and backtesting, `lib/backtest/replayCustomScript.ts`,
+  `/api/strategy-plugins/[id]/backtest`) built out-of-phase, direct
   request** — same precedent as the Q1 Strategy Modes entry above, a
   signal-engine addition built now at explicit request rather than waiting
-  for this phase's window. Phase 4 (backtesting) remains design-only and
-  still belongs to this Q2 initiative's actual window.)*
+  for this phase's window. A dedicated script-authoring/management UI page
+  (distinct from the CRUD API itself) was never part of this design's four
+  phases and remains a real gap for a future session, still belonging to
+  this Q2 initiative's window.)*
 - **Database optimization** — indexing for scan queries, caching for frequent
   chart requests, query-plan review.
 
