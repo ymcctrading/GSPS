@@ -1,0 +1,142 @@
+name: Universe backtest (manual)
+
+# Replays the backtest harness over a whole universe — up to all ~766 symbols of
+# LARGE_CAP_UNIVERSE — which GET /api/backtest cannot do: that route caps a
+# request at 12 symbols to fit Vercel Hobby's 60s function limit. Here the
+# harness runs in one Actions job with no function timeout. Each symbol is
+# fetched once and every "cell" (harness configuration) is replayed against the
+# same bars. See scripts/backtest-universe.mjs for the flags and the output.
+#
+# One-time setup: add repository secrets ALPACA_API_KEY and ALPACA_API_SECRET
+# (Settings → Secrets and variables → Actions). They are the same market-data
+# keys the Vercel project uses. The job refuses to run without them rather than
+# silently falling back to synthetic bars.
+#
+# Rate limit: production scans use the same Alpaca account (~200 req/min). The
+# default pace (30 symbols/min ≈ 60 req/min) leaves them headroom; raise it
+# only outside market hours.
+#
+# Read-only by design: nothing is pushed. Results come back two ways: as the
+# `backtest-universe-<run id>` artifact (full reports and trade lists), and
+# printed between BEGIN/END markers in the "Print results" step's log, so a
+# session can read them through the GitHub API without downloading anything.
+# Committing a run to docs/replay-runs/ stays a deliberate, reviewed step.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag or SHA whose harness to run (must include scripts/backtest-universe.mjs)
+        required: true
+        default: main
+      universe:
+        description: large-cap | mega-12 | diversified | mega-cap | comma-separated symbols
+        required: true
+        default: large-cap
+      cells:
+        description: 'JSON array of {label, options, within?} — e.g. [{"label":"baseline","options":{"useProductionStop":true}}]'
+        required: true
+        default: '[{"label":"baseline","options":{"useProductionStop":true}}]'
+      timeframe:
+        description: Execution timeframe
+        required: true
+        default: 15Min
+      target_r:
+        description: Target in R
+        required: true
+        default: '2'
+      since:
+        description: Optional ISO timestamp — replay only bars at or after it
+        required: false
+        default: ''
+      limit:
+        description: Optional — only the first N symbols (smoke test)
+        required: false
+        default: ''
+      symbols_per_minute:
+        description: Pacing (30 ≈ 60 vendor requests/min). Keep ≤30 during market hours.
+        required: true
+        default: '30'
+
+concurrency:
+  # One at a time: concurrent runs would share (and exhaust) one vendor rate limit.
+  group: backtest-universe
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    name: Universe backtest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Require market-data secrets
+        env:
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_API_SECRET: ${{ secrets.ALPACA_API_SECRET }}
+          REF: ${{ inputs.ref }}
+        run: |
+          if [ -z "$ALPACA_API_KEY" ] || [ -z "$ALPACA_API_SECRET" ]; then
+            echo "::error::Repository secrets ALPACA_API_KEY and ALPACA_API_SECRET are not set. Add them under Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          if [ ! -f scripts/backtest-universe.mjs ]; then
+            echo "::error::scripts/backtest-universe.mjs is not on ref '$REF'. Merge main into it first."
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run backtest
+        env:
+          MARKET_DATA_PROVIDER: alpaca
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_API_SECRET: ${{ secrets.ALPACA_API_SECRET }}
+          BACKTEST_REF: ${{ inputs.ref }}
+          NODE_OPTIONS: --max-old-space-size=6144
+          UNIVERSE: ${{ inputs.universe }}
+          CELLS: ${{ inputs.cells }}
+          TIMEFRAME: ${{ inputs.timeframe }}
+          TARGET_R: ${{ inputs.target_r }}
+          SINCE: ${{ inputs.since }}
+          LIMIT: ${{ inputs.limit }}
+          PACE: ${{ inputs.symbols_per_minute }}
+        # Inputs arrive through env vars, never interpolated into the script,
+        # so a crafted input cannot inject shell.
+        run: |
+          set -euo pipefail
+          args=(--universe "$UNIVERSE" --cells "$CELLS" --timeframe "$TIMEFRAME" --targetR "$TARGET_R" --symbolsPerMinute "$PACE" --out out)
+          if [ -n "$SINCE" ]; then args+=(--since "$SINCE"); fi
+          if [ -n "$LIMIT" ]; then args+=(--limit "$LIMIT"); fi
+          node scripts/backtest-universe.mjs "${args[@]}"
+          cat out/summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Print results
+        if: always()
+        run: |
+          shopt -s nullglob
+          for f in out/summary.json out/*.report.json; do
+            echo "=== BEGIN $(basename "$f") ==="
+            cat "$f"
+            echo
+            echo "=== END $(basename "$f") ==="
+          done
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backtest-universe-${{ github.run_id }}
+          path: out/
+          if-no-files-found: ignore
+          retention-days: 30
