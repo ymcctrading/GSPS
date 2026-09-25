@@ -1164,7 +1164,7 @@ trading (`autonomous_portfolio_manager`, Wall-Street-only per
 `lib/tiers.ts`). The Academy 8 capstone's live-trading risk/settlement/
 gaps/slippage/account-type education is treated as a safety prerequisite,
 not a monetization lever, and is required for **every** path to Wall
-Street — curriculum, track record, or pay-to-play alike
+Street — curriculum, track record, or pay-your-way alike
 (`lib/promotion/curriculumPolicy.ts`'s `mandatoryComponentMet`). This is
 the one place the "three independent paths" model has a shared,
 non-optional component. It is deliberate; do not "clean it up" into full
@@ -1199,17 +1199,21 @@ separate computation for a different question ("has this trader actually
 made money," relevant to promotion specifically) and are never fed back
 into risk sizing.
 
-**Pay-to-play pricing is a proposal, not a live product.**
-`lib/billing/promotionPricing.ts` follows the same "not enabled until real
-Stripe prices exist" posture as the existing `lib/billing/stripe.ts` —
-`isPromotionBillingEnabled()` is `false` until configured, so no checkout
-can go live from this alone. Proposed figures (Novice→Pro $49 one-time;
-Pro→Expert $499 one-time + the standard subscription; Expert→Wall Street
-$1,499 one-time + the standard subscription) are sized against GSPS's own
-existing tier subscription prices so pay-to-play is always the worse deal
-than earning a tier for free through curriculum or track record — see that
-module's own header for the transition-by-transition reasoning. These
-numbers await project-owner approval before any Stripe product is created.
+**Pay Your Way pricing — approved (2026-09-25), not yet a live product.**
+Novice→Pro $49 one-time; Pro→Expert $499 one-time + the standard
+subscription; Expert→Wall Street $1,499 one-time + the standard
+subscription — sized against GSPS's own existing tier subscription prices
+so pay-your-way is always the worse deal than earning a tier for free
+through curriculum or track record, per the reasoning in
+`lib/billing/promotionPricing.ts`'s own header (`APPROVED_PROMOTION_PRICING`).
+Approval of the *price* is a separate action from activating billing:
+`lib/billing/promotionPricing.ts` still follows the same "not enabled until
+real Stripe prices exist" posture as the existing `lib/billing/stripe.ts` —
+`isPromotionBillingEnabled()` stays `false` until `STRIPE_PRICE_PROMOTION_*`
+env vars are actually set, which requires creating the real Stripe Price
+objects first (Stripe dashboard access this session does not have). That
+remaining ops step is what's left before checkout can go live, not further
+pricing approval.
 
 **Schema**: `supabase/migrations/0080_tier_promotion_three_paths.sql` adds
 `tier_promotions_progress`, `tier_promotions_status`, and

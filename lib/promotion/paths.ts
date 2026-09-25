@@ -1,6 +1,6 @@
 /**
  * The top-level three-path promotion decision: is a profile eligible for
- * `transition` through *any* of Curriculum, Track Record, or Pay-to-play —
+ * `transition` through *any* of Curriculum, Track Record, or Pay Your Way —
  * each independently sufficient, except for one shared, mandatory
  * component (today: only Expert→Wall Street's live-trading risk capstone,
  * see `curriculumPolicy.ts`'s module doc for why that one is not optional).
@@ -17,8 +17,8 @@ export interface PromotionPathsResult {
   mandatoryComponentMet: boolean;
   curriculumEligible: boolean;
   trackRecord: TrackRecordEligibility;
-  /** Whether a completed pay-to-play purchase exists for this transition (see `lib/promotion/promote.ts`). */
-  payToPlayPurchased: boolean;
+  /** Whether a completed pay-your-way purchase exists for this transition (see `lib/promotion/promote.ts`). */
+  payYourWayPurchased: boolean;
   /** Every path currently sufficient to clear this transition, given `mandatoryComponentMet`. Empty if the mandatory component isn't met, regardless of the other three. */
   eligiblePaths: PromotionPath[];
   eligible: boolean;
@@ -30,7 +30,7 @@ export function evaluatePromotionPaths(
     curriculum: CurriculumProgressInputs;
     trackRecord: TrackRecordInputs;
     trackRecordPolicy: TrackRecordPolicy;
-    payToPlayPurchased: boolean;
+    payYourWayPurchased: boolean;
   },
 ): PromotionPathsResult {
   const mandatoryOk = mandatoryComponentMet(transition, inputs.curriculum);
@@ -41,7 +41,7 @@ export function evaluatePromotionPaths(
   if (mandatoryOk) {
     if (curriculum.eligible) eligiblePaths.push("curriculum");
     if (trackRecord.eligible) eligiblePaths.push("track_record");
-    if (inputs.payToPlayPurchased) eligiblePaths.push("pay_to_play");
+    if (inputs.payYourWayPurchased) eligiblePaths.push("pay_your_way");
   }
 
   return {
@@ -49,7 +49,7 @@ export function evaluatePromotionPaths(
     mandatoryComponentMet: mandatoryOk,
     curriculumEligible: curriculum.eligible,
     trackRecord,
-    payToPlayPurchased: inputs.payToPlayPurchased,
+    payYourWayPurchased: inputs.payYourWayPurchased,
     eligiblePaths,
     eligible: eligiblePaths.length > 0,
   };

@@ -4,7 +4,7 @@
  * Read side of the generalized three-path tier-promotion model
  * (`lib/promotion/paths.ts`) — covers all three transitions
  * (Novice→Pro, Pro→Expert, Expert→Wall Street), each independently
- * clearable through Curriculum, Track Record, or Pay-to-play.
+ * clearable through Curriculum, Track Record, or Pay Your Way.
  *
  * `?transition=` is optional; omitted, it defaults to the caller's own next
  * transition (`nextTransitionFor` on their current tier). Requesting a
@@ -23,7 +23,7 @@ import { gatherTrackRecordInputs } from "@/lib/promotion/readiness";
 import { gatherCurriculumProgressInputs } from "@/lib/promotion/curriculumPolicy";
 import { evaluatePromotionPaths } from "@/lib/promotion/paths";
 import { applyDueTransitionPromotion, recordTransitionEligibilityIfNewlyMet } from "@/lib/promotion/promote";
-import { PROMOTION_PRICE_PROPOSALS, isPromotionBillingEnabled } from "@/lib/billing/promotionPricing";
+import { APPROVED_PROMOTION_PRICING, isPromotionBillingEnabled } from "@/lib/billing/promotionPricing";
 
 export async function GET(req: NextRequest) {
   const supabase = await createClient();
@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
     curriculum,
     trackRecord,
     trackRecordPolicy: policy,
-    payToPlayPurchased: purchase != null,
+    payYourWayPurchased: purchase != null,
   });
 
   await recordTransitionEligibilityIfNewlyMet(service, user.id, transition, result.eligible, now);
@@ -87,7 +87,7 @@ export async function GET(req: NextRequest) {
     requestedAt: status?.requested_at ?? null,
     effectiveAt: status?.effective_at ?? null,
     pricing: {
-      proposal: PROMOTION_PRICE_PROPOSALS[transition],
+      proposal: APPROVED_PROMOTION_PRICING[transition],
       billingEnabled: isPromotionBillingEnabled(),
     },
   });

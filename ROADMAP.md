@@ -3,7 +3,7 @@
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
 **Last updated:** 2026-09-25 (Added "Three-path tier promotion" under Q1 —
-Curriculum/Track Record/Pay-to-play, each independently sufficient, applied
+Curriculum/Track Record/Pay Your Way, each independently sufficient, applied
 to all three tier transitions. See AGENTS.md's "Three-path tier promotion"
 section.)
 Previously 2026-09-23 (Follow-up to "Strategy Modes" under Q1: three
@@ -768,7 +768,7 @@ both signal discovery and execution.
   Novice→Pro promotion gate above into a three-path model applied to
   **every** tier transition on the ladder (Novice→Pro, Pro→Expert,
   Expert→Wall Street): Curriculum completion, a demonstrated Track Record,
-  or Pay-to-play, any one independently sufficient. See AGENTS.md's
+  or Pay Your Way, any one independently sufficient. See AGENTS.md's
   "Three-path tier promotion" section for the full three-question-mandate
   reasoning, the one mandatory shared component (the Wall Street capstone,
   required regardless of path), and where the Track Record thresholds come
@@ -790,7 +790,7 @@ both signal discovery and execution.
     `lib/risk/execution-score.ts`'s behavior-only score, per that module's
     own "P&L must never feed execution scoring" rule.
   - `lib/billing/promotionPricing.ts` — proposed (not yet approved or
-    Stripe-activated) pay-to-play pricing, sized so it is always the worse
+    Stripe-activated) pay-your-way pricing, sized so it is always the worse
     deal than earning a tier for free: Novice→Pro $49 one-time; Pro→Expert
     $499 one-time + the standard subscription; Expert→Wall Street $1,499
     one-time + the standard subscription.

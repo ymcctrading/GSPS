@@ -1,5 +1,5 @@
 /**
- * Pay-to-play tier-promotion pricing — one of GSPS's three independent
+ * Pay Your Way tier-promotion pricing — one of GSPS's three independent
  * promotion paths (see `lib/promotion/transitions.ts`).
  *
  * Three-question mandate:
@@ -15,35 +15,39 @@
  *
  * ---
  *
- * ## Pricing proposal — NOT yet approved, NOT yet wired to Stripe
+ * ## Pricing — approved by the project owner (2026-09-25); still not wired to Stripe
  *
- * These figures are a proposal for project-owner approval, following the
- * same "propose figures, don't activate billing" instruction under which
- * this module was built (2026-09-25). `isPromotionBillingEnabled()` is
- * `false` until real Stripe Price ids exist, exactly mirroring
- * `lib/billing/stripe.ts`'s own "needs a real Stripe account before
- * launch" posture — no checkout can go live from this module alone.
+ * These figures were proposed for approval and **approved as proposed,
+ * 2026-09-25.** `isPromotionBillingEnabled()` is still `false` until real
+ * Stripe Price ids exist, exactly mirroring `lib/billing/stripe.ts`'s own
+ * "needs a real Stripe account before launch" posture — approval of the
+ * *price* is not the same action as activating billing, and no checkout can
+ * go live from this module alone. Creating the actual Stripe Price objects
+ * and setting `STRIPE_PRICE_PROMOTION_*` is a separate, ops-level step
+ * (Stripe dashboard access, then environment configuration) outside what
+ * this session can do — this approval clears that step to happen next, it
+ * does not perform it.
  *
  * **The reasoning, transition by transition:**
  *
  * - **novice_to_pro**: Pro (`STANDARD`) is a **free** tier
  *   (`lib/tiers.ts#TIER_META`, `monthlyUsd: 0`) — curriculum and track
- *   record both reach it at zero additional cost. A pay-to-play price here
+ *   record both reach it at zero additional cost. A pay-your-way price here
  *   only has to clear one bar to be "the worst deal": be above zero.
- *   Proposed: **$49 one-time.** Framed as "skip the wait," not as buying
- *   something curriculum/track record don't already give for free.
+ *   **$49 one-time.** Framed as "skip the wait," not as buying something
+ *   curriculum/track record don't already give for free.
  * - **pro_to_expert**: Expert (`INVESTOR_MODE`) is a paid subscription
  *   (`$99/mo`, `$990/yr`) regardless of promotion path — paying to skip
  *   readiness does not replace that subscription, it only removes the
- *   curriculum/track-record requirement gating who may subscribe. Proposed:
+ *   curriculum/track-record requirement gating who may subscribe.
  *   **$499 one-time, in addition to the standard subscription.** A
  *   candidate who earns Expert via curriculum or track record pays nothing
- *   beyond the subscription every Expert user already pays; a pay-to-play
+ *   beyond the subscription every Expert user already pays; a pay-your-way
  *   candidate pays that same subscription *plus* this premium — strictly
  *   worse, by construction, not by a persuasive framing choice.
  * - **expert_to_wall_street**: Wall Street (`SYSTEM_MASTERY`) is `$299/mo`.
- *   Proposed: **$1,499 one-time, in addition to the standard subscription**,
- *   still requiring the mandatory live-trading risk capstone
+ *   **$1,499 one-time, in addition to the standard subscription**, still
+ *   requiring the mandatory live-trading risk capstone
  *   (`lib/promotion/curriculumPolicy.ts`'s `mandatoryComponentMet`) — payment
  *   never substitutes for that safety gate, per direct project-owner
  *   decision (2026-09-25). The premium scales with the earlier one roughly
@@ -51,21 +55,21 @@
  *   $1,499 mirrors that), rather than being picked independently.
  *
  * No figure here is derived from GSPS's own revenue data (none exists yet
- * for a pre-launch product) — they are proposals sized against the
- * platform's own existing subscription prices, for the project owner to
- * approve, adjust, or reject before any Stripe product is created.
+ * for a pre-launch product) — they were sized against the platform's own
+ * existing subscription prices and approved on that reasoning.
  */
 
 import type { TierTransition } from "@/lib/promotion/transitions";
 
-export interface PromotionPriceProposal {
-  /** Proposed one-time fee, in cents. */
+export interface ApprovedPromotionPrice {
+  /** Approved one-time fee, in cents. */
   amountCents: number;
   /** True when this transition's target tier still carries its own ongoing subscription regardless of path. */
   subscriptionStillRequired: boolean;
 }
 
-export const PROMOTION_PRICE_PROPOSALS: Record<TierTransition, PromotionPriceProposal> = {
+/** Approved by the project owner 2026-09-25 — see this module's own header for the reasoning. Not yet wired to Stripe. */
+export const APPROVED_PROMOTION_PRICING: Record<TierTransition, ApprovedPromotionPrice> = {
   novice_to_pro: { amountCents: 4_900, subscriptionStillRequired: false },
   pro_to_expert: { amountCents: 49_900, subscriptionStillRequired: true },
   expert_to_wall_street: { amountCents: 149_900, subscriptionStillRequired: true },
@@ -82,7 +86,7 @@ export function isPromotionBillingEnabled(): boolean {
   return Boolean(process.env.STRIPE_SECRET_KEY) && Object.values(PRICE_ENV_VAR).some((v) => Boolean(process.env[v]));
 }
 
-/** The Stripe Price id for a transition's pay-to-play fee, or null if unset. */
+/** The Stripe Price id for a transition's pay-your-way fee, or null if unset. */
 export function promotionPriceIdFor(transition: TierTransition): string | null {
   return process.env[PRICE_ENV_VAR[transition]] ?? null;
 }

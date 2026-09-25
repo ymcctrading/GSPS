@@ -29,7 +29,7 @@
  * `lib/tiers.ts`). The capstone's live-trading risk/settlement/gaps/
  * slippage/account-type education is treated as a safety prerequisite, not
  * a monetization lever — it is required for **every** path to Wall Street,
- * curriculum, track record, or pay-to-play alike. This is the one place
+ * curriculum, track record, or pay-your-way alike. This is the one place
  * the "three independent paths" model has a shared, non-optional
  * component; it is deliberate, not an oversight, and it should not be
  * "cleaned up" into full path independence by a future session without

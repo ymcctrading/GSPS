@@ -25,7 +25,7 @@ import type { PlatformTier } from "@/lib/tiers";
 export const TIER_TRANSITIONS = ["novice_to_pro", "pro_to_expert", "expert_to_wall_street"] as const;
 export type TierTransition = (typeof TIER_TRANSITIONS)[number];
 
-export const PROMOTION_PATHS = ["curriculum", "track_record", "pay_to_play"] as const;
+export const PROMOTION_PATHS = ["curriculum", "track_record", "pay_your_way"] as const;
 export type PromotionPath = (typeof PROMOTION_PATHS)[number];
 
 export interface TransitionTiers {
@@ -55,5 +55,5 @@ export const TRANSITION_LABELS: Record<TierTransition, string> = {
 export const PATH_LABELS: Record<PromotionPath, string> = {
   curriculum: "Curriculum completion",
   track_record: "Track record",
-  pay_to_play: "Pay to play",
+  pay_your_way: "Pay Your Way",
 };

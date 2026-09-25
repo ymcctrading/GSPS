@@ -2,7 +2,7 @@
 
 /**
  * Tier Promotion — the three-path model (Curriculum / Track Record /
- * Pay-to-play), any one of which independently clears a profile's next
+ * Pay Your Way), any one of which independently clears a profile's next
  * tier transition. See `lib/promotion/paths.ts` and AGENTS.md's
  * "Three-path tier promotion" section.
  *
@@ -37,7 +37,7 @@ interface PathsResult {
   mandatoryComponentMet: boolean;
   curriculumEligible: boolean;
   trackRecord: TrackRecordEligibility;
-  payToPlayPurchased: boolean;
+  payYourWayPurchased: boolean;
   eligiblePaths: PromotionPath[];
   eligible: boolean;
 }
@@ -186,18 +186,18 @@ export default function PromotionPage() {
             </PathCard>
             <PathCard
               icon={<CreditCard className="h-4 w-4" />}
-              path="pay_to_play"
-              eligible={status.paths.eligiblePaths.includes("pay_to_play")}
+              path="pay_your_way"
+              eligible={status.paths.eligiblePaths.includes("pay_your_way")}
               mandatoryOk={status.paths.mandatoryComponentMet}
               description="Pay a one-time fee to skip the curriculum and track-record requirements."
-              requesting={requesting === "pay_to_play"}
-              onRequest={() => requestUpgrade("pay_to_play")}
+              requesting={requesting === "pay_your_way"}
+              onRequest={() => requestUpgrade("pay_your_way")}
               scheduled={Boolean(status.effectiveAt)}
             >
               {status.pricing && (
                 <div className="flex flex-col gap-1 text-xs text-muted">
                   <span>
-                    Proposed fee: ${(status.pricing.proposal.amountCents / 100).toLocaleString()}
+                    Fee: ${(status.pricing.proposal.amountCents / 100).toLocaleString()}
                     {status.pricing.proposal.subscriptionStillRequired ? " + the standard subscription" : ""}
                   </span>
                   {!status.pricing.billingEnabled && (

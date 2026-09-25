@@ -30,21 +30,21 @@ describe("evaluatePromotionPaths", () => {
       curriculum: { ...NO_CURRICULUM, foundationsEducationCompletedAt: "2026-01-01", practiceValidationCompletedAt: "2026-01-01" },
       trackRecord: FAILING_TRACK_RECORD,
       trackRecordPolicy: DEFAULT_TRACK_RECORD_POLICIES.novice_to_pro,
-      payToPlayPurchased: false,
+      payYourWayPurchased: false,
     });
     expect(result.eligible).toBe(true);
     expect(result.eligiblePaths).toEqual(["curriculum"]);
   });
 
-  it("is eligible via pay-to-play alone when curriculum and track record both fail", () => {
+  it("is eligible via pay-your-way alone when curriculum and track record both fail", () => {
     const result = evaluatePromotionPaths("novice_to_pro", {
       curriculum: NO_CURRICULUM,
       trackRecord: FAILING_TRACK_RECORD,
       trackRecordPolicy: DEFAULT_TRACK_RECORD_POLICIES.novice_to_pro,
-      payToPlayPurchased: true,
+      payYourWayPurchased: true,
     });
     expect(result.eligible).toBe(true);
-    expect(result.eligiblePaths).toEqual(["pay_to_play"]);
+    expect(result.eligiblePaths).toEqual(["pay_your_way"]);
   });
 
   it("expert_to_wall_street: no path clears without the mandatory capstone, even with a completed purchase", () => {
@@ -52,22 +52,22 @@ describe("evaluatePromotionPaths", () => {
       curriculum: NO_CURRICULUM,
       trackRecord: FAILING_TRACK_RECORD,
       trackRecordPolicy: DEFAULT_TRACK_RECORD_POLICIES.expert_to_wall_street,
-      payToPlayPurchased: true,
+      payYourWayPurchased: true,
     });
     expect(result.mandatoryComponentMet).toBe(false);
     expect(result.eligiblePaths).toEqual([]);
     expect(result.eligible).toBe(false);
   });
 
-  it("expert_to_wall_street: pay-to-play clears once the capstone is also done (capstone alone also satisfies curriculum, since that path's own requirement IS the capstone)", () => {
+  it("expert_to_wall_street: pay-your-way clears once the capstone is also done (capstone alone also satisfies curriculum, since that path's own requirement IS the capstone)", () => {
     const result = evaluatePromotionPaths("expert_to_wall_street", {
       curriculum: { ...NO_CURRICULUM, capstoneCompletedAt: "2026-01-01" },
       trackRecord: FAILING_TRACK_RECORD,
       trackRecordPolicy: DEFAULT_TRACK_RECORD_POLICIES.expert_to_wall_street,
-      payToPlayPurchased: true,
+      payYourWayPurchased: true,
     });
     expect(result.mandatoryComponentMet).toBe(true);
-    expect(result.eligiblePaths.sort()).toEqual(["curriculum", "pay_to_play"]);
+    expect(result.eligiblePaths.sort()).toEqual(["curriculum", "pay_your_way"]);
   });
 
   it("reports multiple eligible paths at once when more than one clears", () => {
@@ -75,8 +75,8 @@ describe("evaluatePromotionPaths", () => {
       curriculum: { ...NO_CURRICULUM, foundationsEducationCompletedAt: "2026-01-01", practiceValidationCompletedAt: "2026-01-01" },
       trackRecord: FAILING_TRACK_RECORD,
       trackRecordPolicy: DEFAULT_TRACK_RECORD_POLICIES.novice_to_pro,
-      payToPlayPurchased: true,
+      payYourWayPurchased: true,
     });
-    expect(result.eligiblePaths.sort()).toEqual(["curriculum", "pay_to_play"]);
+    expect(result.eligiblePaths.sort()).toEqual(["curriculum", "pay_your_way"]);
   });
 });

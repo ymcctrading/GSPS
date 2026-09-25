@@ -56,7 +56,7 @@ create policy "own tier promotion progress" on public.tier_promotions_progress
 create table public.tier_promotions_status (
   profile_id uuid not null references auth.users (id) on delete cascade,
   transition text not null check (transition in ('novice_to_pro', 'pro_to_expert', 'expert_to_wall_street')),
-  path_used text check (path_used in ('curriculum', 'track_record', 'pay_to_play')),
+  path_used text check (path_used in ('curriculum', 'track_record', 'pay_your_way')),
   eligible_since timestamptz,
   requested_at timestamptz,
   effective_at timestamptz,
@@ -71,7 +71,7 @@ create policy "own tier promotion status" on public.tier_promotions_status
   for select using (auth.uid () = profile_id);
 
 -- ============ tier_promotion_purchases ============
--- Records a Pay-to-play promotion purchase. Additive, Stripe-agnostic
+-- Records a Pay Your Way promotion purchase. Additive, Stripe-agnostic
 -- schema -- lib/billing/promotionPricing.ts follows the same
 -- "not enabled until real Stripe prices exist" posture as lib/billing/stripe.ts,
 -- so this table exists ahead of any live payment integration; no row is

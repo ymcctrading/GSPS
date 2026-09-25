@@ -2,7 +2,7 @@
  * GSPS — /api/promotion/paths/upgrade
  *
  * A user's explicit request to promote through a transition via a specific
- * path (curriculum, track_record, or pay_to_play), generalized version of
+ * path (curriculum, track_record, or pay_your_way), generalized version of
  * `/api/promotion/upgrade`. Re-derives eligibility server-side — never
  * trusts a client-supplied path or transition. Requesting a path the
  * profile isn't actually eligible through (even if a different path would
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
     curriculum,
     trackRecord,
     trackRecordPolicy: policy,
-    payToPlayPurchased: purchase != null,
+    payYourWayPurchased: purchase != null,
   });
 
   if (!result.eligiblePaths.includes(path)) {
