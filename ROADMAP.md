@@ -1063,14 +1063,16 @@ Portfolio analytics drives retention and trust.
   alongside "Strategy Modes" (Q1, out-of-phase, see that entry above) is
   scoped to land here rather than as its own initiative — see
   `docs/STRATEGY_MODES.md`'s "Custom-script / plugin system" section.
-  **Phases 1-2 (the DSL + sandboxed-evaluator core, `lib/strategies/custom/`;
+  **Phases 1-3 (the DSL + sandboxed-evaluator core, `lib/strategies/custom/`;
   the plugin registry + CRUD API, `supabase/migrations/0080_strategy_plugins.sql`,
-  `/api/strategy-plugins`) built out-of-phase the same day, direct
+  `/api/strategy-plugins`; the chart-plotting + level-generation hook,
+  `lib/strategies/custom/plot.ts`, `/api/strategy-plugins/[id]/evaluate`,
+  wired into `components/chart/candles.tsx` and
+  `components/trade/order-ticket.tsx`) built out-of-phase, direct
   request** — same precedent as the Q1 Strategy Modes entry above, a
   signal-engine addition built now at explicit request rather than waiting
-  for this phase's window. Phases 3-4 (chart-plotting hook, backtesting)
-  remain design-only and still belong to this Q2 initiative's actual
-  window.)*
+  for this phase's window. Phase 4 (backtesting) remains design-only and
+  still belongs to this Q2 initiative's actual window.)*
 - **Database optimization** — indexing for scan queries, caching for frequent
   chart requests, query-plan review.
 

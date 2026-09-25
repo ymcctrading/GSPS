@@ -72,7 +72,10 @@ const SERIES_FIELD: Record<string, keyof Bar> = {
   volume: "v",
 };
 
-class EvalContext {
+/** Exported for `plot.ts`, which reuses the same node resolution (and its
+ * indicator-array cache) to render a script's referenced series on the
+ * chart, rather than re-implementing indicator dispatch a second time. */
+export class EvalContext {
   private indicatorCache = new Map<string, IndicatorArray>();
 
   constructor(private bars: Bar[]) {}

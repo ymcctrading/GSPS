@@ -153,10 +153,11 @@ One candidate remains deliberately not built:
 
 ## Custom-script / plugin system
 
-**Status (2026-09-23): Phases 1-2 (DSL + evaluator, plugin registry + CRUD
-API) built and tested. Phases 3-4 (chart-plotting hook, backtesting) remain
-design-only**, per the sequencing below — this section was originally
-written as design-only and is updated in place rather than duplicated.
+**Status (2026-09-25): Phases 1-3 (DSL + evaluator, plugin registry + CRUD
+API, chart-plotting + level-generation hook) built and tested. Phase 4
+(backtesting) remains design-only**, per the sequencing below — this
+section was originally written as design-only and is updated in place
+rather than duplicated.
 
 The project owner separately asked for a TradingView-style system: a user
 (or GSPS) authors a new indicator/strategy, it plots on the chart, and it
@@ -287,17 +288,47 @@ script/plugin system" entry:
   appends a `strategy_plugin_versions` row; editing `name`/`active` alone
   does not, since those aren't the script's logic.
 
-### Phases 3-4 — not yet built
+### Phase 3 — chart-plotting + level-generation hook (built 2026-09-25)
 
-- **A chart-plotting hook** — reuse `components/chart/candles.tsx`'s
-  existing overlay-series rendering path (the same one SMA/EMA/Bollinger/
-  RSI/MACD/PSAR/Supertrend already use) rather than a new rendering system.
-- **A level-generation hook** wiring `compileCustomScript`'s output into the
-  order ticket's optional levels display — must satisfy this document's six
-  hard rules exactly like the nine built-in modes and Phase 1's
-  `CustomScriptLevels` already does structurally: opt-in, one-at-a-time,
-  never touching the Gann verdict, own math, always labeled, tier-gated and
-  server-resolved.
+- **`lib/strategies/custom/plot.ts`** — walks a compiled script's AST and
+  extracts every distinct named indicator/extreme reference (`collectPlotNodes`)
+  into a full, unshifted series (`computeScriptPlotSeries`), reusing
+  `interpret.ts`'s own `EvalContext` (and its indicator cache) rather than
+  re-implementing indicator dispatch. Bare bar series (`open`/`high`/`low`/
+  `close`/`volume`) and compound arithmetic are walked into, never plotted
+  as their own line — only single named techniques appear, matching every
+  built-in overlay's own convention.
+- **`/api/strategy-plugins/[id]/evaluate`** — computes one saved script's
+  levels *and* its plotted series for a symbol/timeframe in a single call.
+  Private to the authoring user (plugin lookup scoped to `user_id = auth
+  user`). Each series is zipped to its bar's own timestamp
+  (`new Date(bar.t).getTime() / 1000`, matching `candles.tsx`'s own
+  convention) rather than returned as bare index-aligned arrays, since the
+  chart's candle fetch is a separate request and time is the only safe join
+  key across two independently-fetched bar series.
+- **`components/chart/candles.tsx`** — reuses the exact same
+  `addLine`/`LineSeries` pattern the built-in SMA/EMA/Bollinger/PSAR/
+  Supertrend overlays already use (a small fixed color palette cycles
+  across a script's series, since the DSL assigns none of its own); a "My
+  scripts" picker next to the existing indicator-toggle chips, populated
+  only for a signed-in user with saved scripts.
+- **`components/trade/order-ticket.tsx`** — a "Custom script" section
+  mirroring the built-in Strategy Mode "Check levels"/"Use these levels"
+  flow exactly: a script picker, a `Check levels` button hitting the same
+  evaluate route, and a result the human must explicitly click to load into
+  the manual stop/target fields — this document's six hard rules hold the
+  same way the built-in modes' own flow already does (opt-in, one-at-a-time,
+  never touching the Gann verdict, own math, always labeled by the script's
+  rationale, tier-gated and server-resolved via the plugin's private-to-
+  author scoping).
+
+Verified: 5 new `plot.ts` tests (including exact parity against
+`lib/strategies/math.ts`'s own `sma`/`ema`), full suite 1887/1887 passing,
+`tsc --noEmit` clean, lint clean (0 errors), build clean (all three new
+routes compiled), `check-banned-terms.mjs` clean.
+
+### Phase 4 — not yet built
+
 - **Backtesting a custom script** before trusting it live — reusing
   `lib/backtest/replaySignals.ts`'s evidence-gathering shape (parallel
   infrastructure to the Gann walk-forward replay, per AGENTS.md's orphan-

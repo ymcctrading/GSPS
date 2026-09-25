@@ -837,8 +837,9 @@ indicator library" Q2 roadmap item's own boundary ("no indicator added there
 may feed a scored criterion...") is unaffected. This exception is scoped to
 one new, clearly-labeled, opt-in system and nothing else.
 
-**Custom-script/plugin system — Phases 1-2 (DSL + evaluator, plugin registry
-+ CRUD API) built 2026-09-23, Phases 3-4 not yet built.** The project owner also asked about a
+**Custom-script/plugin system — Phases 1-3 (DSL + evaluator, plugin registry
++ CRUD API, chart-plotting + level-generation hook) built 2026-09-23/25,
+Phase 4 not yet built.** The project owner also asked about a
 TradingView-style system where a user (or GSPS) can author and plot a new
 indicator/strategy that generates its own levels the same way. `lib/strategies/custom/`
 now has a small, safe, declarative condition/action DSL and a tree-walking
@@ -898,12 +899,43 @@ half-valid. Verified: extended `access.test.ts`/`policy.test.ts` covering
 the new gate, full suite 1882/1882 passing, `tsc --noEmit` clean, lint
 clean (0 errors), `check-banned-terms.mjs` clean.
 
-**Phases 3-4 (chart-plotting hook, backtesting via `replaySignals.ts`'s
-evidence-gathering shape) remain design-only** per `docs/STRATEGY_MODES.md`'s
-sequencing. Any strategy plugin built under those future phases must
-satisfy the same rules this section states: opt-in, one-at-a-time, never
-touching the Gann verdict, tier-gated and server-resolved only, and clearly
-labeled.
+**Phase 3 — chart-plotting + level-generation hook (built 2026-09-25).**
+`lib/strategies/custom/plot.ts` walks a compiled script's AST and extracts
+every distinct named indicator/extreme reference (bare `open`/`high`/`low`/
+`close`/`volume` and compound arithmetic are walked into, not plotted, so
+only single named techniques ever appear as a line — the same convention
+every built-in overlay follows) into a full, unshifted series per
+reference, computed once even if the script reads it at several offsets.
+`/api/strategy-plugins/[id]/evaluate` (new) computes one script's levels
+*and* its plotted series for a symbol/timeframe in one call — private to
+the authoring user (the plugin lookup is scoped to `user_id = auth user`,
+so the route structurally cannot evaluate another account's script) — and
+zips each series to its bar's own timestamp rather than returning bare
+index-aligned arrays, since the chart's own candle fetch is a separate
+request and time is the only safe join key across two independently-fetched
+bar series. Wired into `components/chart/candles.tsx` via the exact same
+`addLine`/`LineSeries` pattern the built-in SMA/EMA/Bollinger/PSAR/
+Supertrend overlays already use (a small fixed color palette cycles across
+a script's series, since the DSL assigns none of its own) — no parallel
+rendering system, per the design doc's own instruction. Wired into
+`components/trade/order-ticket.tsx`'s manual stop/target section the same
+way the built-in Strategy Mode "Check levels"/"Use these levels" flow
+already works: a "Custom script" picker (empty when the signed-in user has
+no saved scripts, whatever the reason) that fetches the same evaluate route
+and only ever fills the manual fields on an explicit click — never
+auto-applied, always labeled by the script's own rationale (which itself
+names the script and author). Verified: 5 new `plot.ts` tests (including
+exact parity against `lib/strategies/math.ts`'s own `sma`/`ema`), full suite
+1887/1887 passing, `tsc --noEmit` clean, lint clean (0 errors — 40 warnings,
+all pre-existing except one `react-hooks/set-state-in-effect` warning of a
+class already tolerated twice elsewhere in `candles.tsx`), build clean (all
+three new routes compiled), `check-banned-terms.mjs` clean.
+
+**Phase 4 (backtesting via `replaySignals.ts`'s evidence-gathering shape)
+remains design-only** per `docs/STRATEGY_MODES.md`'s sequencing. Any
+strategy plugin built under that future phase must satisfy the same rules
+this section states: opt-in, one-at-a-time, never touching the Gann
+verdict, tier-gated and server-resolved only, and clearly labeled.
 
 ## Three-question mandate — the lens work is reasoned through, every session
 
