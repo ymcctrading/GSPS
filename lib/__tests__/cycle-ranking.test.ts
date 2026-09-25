@@ -8,6 +8,7 @@ import {
   type CoarseCandidate,
 } from "@/lib/marketScan";
 import type { Bar } from "@/lib/types";
+import { buildMacroContext } from "@/lib/backtest/replay";
 
 /** Monthly bars from Jan 2020, a single V (or inverted V) turning at `turnIndex`. */
 function monthlyV(turnIndex: number, months: number, kind: "low" | "high"): Bar[] {
@@ -131,5 +132,36 @@ describe("coarseReversion day-count cycle bonus", () => {
 
   it("adds nothing for a window arguing the other direction", () => {
     expect(coarseReversion("X", bars, cycles(false, true))?.coarseScore).toBe(base?.coarseScore);
+  });
+});
+
+describe("buildMacroContext time-cycle date (replay)", () => {
+  // Daily V with its low on 2024-01-21 (index 20); 110 bars, so the session
+  // after the last bar is exactly 90 days — one wheel count — past the low.
+  function dailyV(): Bar[] {
+    const bars: Bar[] = [];
+    for (let i = 0; i < 110; i++) {
+      const c = 100 + Math.abs(i - 20);
+      const t = new Date(Date.UTC(2024, 0, 1 + i)).toISOString();
+      bars.push({ t, o: c, h: c + 0.5, l: c - 0.5, c, v: 1_000_000 });
+    }
+    return bars;
+  }
+
+  it("reads turn windows relative to the replayed session, not the wall clock", () => {
+    const bars = dailyV();
+    const price = bars[bars.length - 1].c;
+    expect(buildMacroContext(bars, price).gann.timeCycleBullishActive).toBe(true);
+    expect(
+      buildMacroContext(bars, price, new Date(Date.UTC(2024, 3, 20))).gann.timeCycleBullishActive,
+    ).toBe(true);
+  });
+
+  it("is not active for a session that isn't on a wheel count", () => {
+    const bars = dailyV();
+    const price = bars[bars.length - 1].c;
+    expect(
+      buildMacroContext(bars, price, new Date(Date.UTC(2026, 8, 25))).gann.timeCycleBullishActive,
+    ).toBe(false);
   });
 });

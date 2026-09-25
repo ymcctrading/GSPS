@@ -94,6 +94,9 @@ export function PublicChart({ symbol }: { symbol: string }) {
           {result?.gann.timeCycleActive && (
             <span className="text-xs font-medium text-warn">⏱ Cyclical turn window active</span>
           )}
+          {result && (result.gann.yearCycleBullishHits ?? 0) + (result.gann.yearCycleBearishHits ?? 0) > 0 && (
+            <span className="text-xs font-medium text-warn">⟳ Yearly cycles converging</span>
+          )}
           <div className="ml-auto">
             <ShareButton symbol={symbol} />
           </div>

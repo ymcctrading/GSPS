@@ -274,7 +274,18 @@ export interface MacroContext {
   structuralLevels: number[];
 }
 
-export function buildMacroContext(daily: Bar[], price: number): MacroContext {
+/**
+ * `asOf` is the session being replayed. It must be passed through to every
+ * date-relative read (`timeCycles`): left to default, those compare historical
+ * pivots against the wall-clock time the backtest runs, not the replayed
+ * session — which is how every replay before 2026-09-25 measured `timeCycle`.
+ * Defaults to the day after the last bar, i.e. the session `daily` precedes.
+ */
+export function buildMacroContext(
+  daily: Bar[],
+  price: number,
+  asOf: Date = new Date(new Date(daily[daily.length - 1].t).getTime() + 24 * 3600 * 1000),
+): MacroContext {
   const weekly = rollUp(daily, weekKey);
   const monthly = rollUp(daily, (b) => b.t.slice(0, 7));
   const monthlyTrend = readTrend(monthly, "1Month");
@@ -286,7 +297,7 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
 
   const fanLines = computeFanLines(daily, price);
   const s9 = recentSquareOf9Levels(daily, price).slice(0, 12);
-  const cycles = timeCycles(daily);
+  const cycles = timeCycles(daily, asOf);
   const angleSlopes = computeAngleSlopes(daily, price);
   const timePriceSquare = computeTimePriceSquare(daily, price);
   const volumeClimax = computeVolumeClimax(daily);
@@ -595,7 +606,7 @@ function scoreSetup(input: {
     const priorSessions = dailyBars.filter((b) => b.t.slice(0, 10) < date);
     context =
       priorSessions.length >= MIN_DAILY_BARS_FOR_SCORE
-        ? buildMacroContext(priorSessions, price)
+        ? buildMacroContext(priorSessions, price, new Date(`${date}T12:00:00Z`))
         : null;
     contextByDate.set(date, context);
   }

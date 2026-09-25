@@ -73,6 +73,11 @@ const GROUPS: { heading: string; terms: Term[] }[] = [
         plain:
           "Dates when GSPS's analysis suggests a turn is more likely. When you see 'turn window active,' today is near one of those dates.",
       },
+      {
+        term: "Yearly cycles converging",
+        plain:
+          "This month is an exact 1, 2, 3, 5 or 7-year anniversary of one or more of this stock's major tops or bottoms. Gann expected turns where several cycles run out together, so the more that line up, the more worth watching this month is. It's timing context, not a buy or sell signal.",
+      },
     ],
   },
   {
