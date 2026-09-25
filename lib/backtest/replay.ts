@@ -464,6 +464,44 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       const long = pattern.direction === "bullish";
       const dir = long ? 1 : -1;
 
+      // Prior sessions only — the same look-ahead guard scoreSetup applies to
+      // macro context, since large-cap status is read off the same daily bars.
+      const priorSessions = dailyBars
+        ? dailyBars.filter((b) => b.t.slice(0, 10) < live.t.slice(0, 10))
+        : undefined;
+      const largeCap = isLargeCapStock(
+        symbol,
+        assetClass,
+        priorSessions ? readLiquidity(priorSessions) : undefined,
+      );
+
+      // Stop, risk-per-share and target are all fixed from the ORIGINAL
+      // trigger price and never recalculated after confirmation — matching
+      // `lib/automation/service.ts#deriveOrderInputFromPlan`, which sizes
+      // `qty` from `|entryTrigger - invalidation|` and attaches
+      // `invalidation`/`takeProfit1` as fixed absolute prices set once at
+      // plan creation, then fires the order later at whatever price the
+      // market is at (`entryMode: "now"`). An earlier version of this option
+      // recomputed risk and target from the confirmed entry price instead —
+      // a different, easier rule than production's own mechanics, and the
+      // wrong one to measure. The harness's original stop: the raw pattern,
+      // untouched by the leeway/large-cap widening. `useProductionStop`
+      // swaps it for the widened one, computed from the same original
+      // trigger price for the same reason.
+      const stop =
+        useProductionStop && executionAtr > 0
+          ? computeStopWithLeeway({
+              side: long ? "long" : "short",
+              entry: pattern.triggerPrice,
+              structuralStop: pattern.stopPrice,
+              atr15: executionAtr,
+              largeCap,
+            })
+          : pattern.stopPrice;
+      const riskPerShare = Math.abs(pattern.triggerPrice - stop);
+      if (!(riskPerShare > 0)) continue;
+      const target = pattern.triggerPrice + dir * targetR * riskPerShare;
+
       let entry: number;
       let entryIndex: number;
 
@@ -500,35 +538,6 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         entry = pattern.triggerPrice;
         entryIndex = i;
       }
-
-      // Prior sessions only — the same look-ahead guard scoreSetup applies to
-      // macro context, since large-cap status is read off the same daily bars.
-      const priorSessions = dailyBars
-        ? dailyBars.filter((b) => b.t.slice(0, 10) < live.t.slice(0, 10))
-        : undefined;
-      const largeCap = isLargeCapStock(
-        symbol,
-        assetClass,
-        priorSessions ? readLiquidity(priorSessions) : undefined,
-      );
-
-      // The harness's original stop: the raw pattern, untouched by the leeway
-      // or large-cap widening `computeTradeLevels` applies for the live scan
-      // and Guided Mode. `useProductionStop` swaps it for the widened one —
-      // see the option's own comment for why this distinction has to exist.
-      const stop =
-        useProductionStop && executionAtr > 0
-          ? computeStopWithLeeway({
-              side: long ? "long" : "short",
-              entry,
-              structuralStop: pattern.stopPrice,
-              atr15: executionAtr,
-              largeCap,
-            })
-          : pattern.stopPrice;
-      const risk = Math.abs(entry - stop);
-      if (!(risk > 0)) continue;
-      const target = entry + dir * targetR * risk;
 
       const decision = dailyBars
         ? scoreSetup({
@@ -569,9 +578,9 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         trades.push({
           symbol, openedAt: bars[entryIndex].t, pattern: pattern.name, direction: pattern.direction,
           entry, stop, target, barsHeld, outcome,
-          rMultiple: (dir * (exit - entry) - costPerShare) / risk,
+          rMultiple: (dir * (exit - entry) - costPerShare) / riskPerShare,
           ambiguous: false,
-          atrMultiple: executionAtr > 0 ? risk / executionAtr : 0,
+          atrMultiple: executionAtr > 0 ? riskPerShare / executionAtr : 0,
           score: decision?.score,
           outputState: decision?.outputState,
           criteria: criteriaOf(decision),
@@ -580,13 +589,22 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         continue;
       }
 
-      const gross = outcome === "win" ? targetR * risk : -risk;
+      // The actual price distance from the actual (possibly confirmed, and
+      // therefore already-moved) entry to the fixed stop/target — NOT a flat
+      // targetR*riskPerShare/-riskPerShare assumption. When `entry` differs
+      // from the original trigger price, those two diverge: a win can be
+      // worth less than the planned targetR, and a loss can cost more than
+      // one riskPerShare, exactly the exposure `deriveOrderInputFromPlan`
+      // creates by sizing off the original trigger/stop while filling later
+      // at a different price. Flattening this back to targetR*riskPerShare
+      // would hide the thing this option exists to measure.
+      const gross = outcome === "win" ? dir * (target - entry) : dir * (stop - entry);
       trades.push({
         symbol, openedAt: bars[entryIndex].t, pattern: pattern.name, direction: pattern.direction,
         entry, stop, target, barsHeld, outcome,
-        rMultiple: (gross - costPerShare) / risk,
+        rMultiple: (gross - costPerShare) / riskPerShare,
         ambiguous,
-        atrMultiple: executionAtr > 0 ? risk / executionAtr : 0,
+        atrMultiple: executionAtr > 0 ? riskPerShare / executionAtr : 0,
         score: decision?.score,
         outputState: decision?.outputState,
         criteria: criteriaOf(decision),
