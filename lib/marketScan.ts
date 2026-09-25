@@ -40,7 +40,7 @@ import { EXECUTION_TIMEFRAME } from "@/lib/timeframe";
 import { EXECUTE_SCORE_THRESHOLD } from "@/lib/scoring/weights";
 import { DEFAULT_UNIVERSE_THRESHOLDS, type UniverseThresholds } from "@/lib/universe/eligibility";
 import { MAG7, SECTORS } from "@/lib/sectors";
-import { LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
+import { LARGE_CAP_UNIVERSE, MEGA_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
 import type { CoarseTelemetryRow } from "@/lib/scan/telemetry";
 import {
   FALLBACK_FAN_PCT,
@@ -79,11 +79,20 @@ export const MIN_SCAN_PRICE = MIN_EQUITY_PRICE_USD;
  * market has nothing" rather than "we looked at 65 things". Widening the input
  * does not touch any threshold: the liquidity floor, the coarse momentum gate
  * and the full scan all run afterwards, unchanged.
+ *
+ * `MEGA_CAP_UNIVERSE` added 2026-09-25, project-owner direction: before this,
+ * mega-cap ($200B+) coverage was whatever `MAG7`/`SECTORS` happened to carry
+ * incidentally (7 names plus stragglers in sector watchlists), not a
+ * deliberate mega-cap universe the way `LARGE_CAP_UNIVERSE` is for $10B–
+ * $200B. See that constant's own doc comment (`lib/scan/large-cap-
+ * universe.ts`) for what it covers and its weaker sourcing versus the
+ * export-and-validated list below it.
  */
 const FALLBACK_UNIVERSE = Array.from(
   new Set([
     ...MAG7,
     ...Object.values(SECTORS).flatMap((s) => s.symbols),
+    ...MEGA_CAP_UNIVERSE,
     ...LARGE_CAP_UNIVERSE,
   ]),
 ).filter((s) => !s.includes("/"));

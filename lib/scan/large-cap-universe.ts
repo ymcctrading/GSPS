@@ -165,6 +165,46 @@ export const LARGE_CAP_UNIVERSE: string[] = [
 ];
 
 /**
+ * Mega-caps: US-tradeable companies above this file's $200B band ceiling.
+ *
+ * Added 2026-09-25, project-owner direction, after finding that production's
+ * only mega-cap coverage was `MAG7` (`lib/sectors.ts`, 7 names) plus whatever
+ * a curated sector watchlist happened to carry — real coverage, but thin and
+ * incidental rather than a deliberate mega-cap universe. Of a 12-symbol
+ * backtest sample built the same day (SPY, AAPL, AMD, TSLA, MSFT, NVDA,
+ * GOOGL, META, AMZN, NFLX, AVGO, CRM), 11 of 12 turned out to already be
+ * covered by MAG7/sector lists — only `NFLX` was genuinely missing. This
+ * list closes that gap properly rather than leaving mega-cap coverage to
+ * whatever a sector watchlist happens to include.
+ *
+ * **Sourcing is weaker than `LARGE_CAP_UNIVERSE` above, and that is stated
+ * here rather than hidden.** That list was built from a dated
+ * companiesmarketcap.com export, band-filtered, and validated symbol-by-
+ * symbol against Alpaca's live `/v2/assets` (`scripts/validate-large-cap-
+ * universe.mjs`). This list is hand-compiled from well-known mega-cap names
+ * without that export or that validation pass — it has not been checked
+ * against Alpaca's active/tradable catalog, and a handful of entries may be
+ * mis-ticked, delisted, or otherwise unresolvable (the same self-healing
+ * failure mode `LARGE_CAP_UNIVERSE`'s own header describes: an unresolvable
+ * symbol returns no bars and is dropped by the coarse pass, costing a
+ * wasted slot rather than a wrong answer — never a correctness risk, only a
+ * completeness one). Re-run the same export-and-validate process
+ * `LARGE_CAP_UNIVERSE` used, band-filtered to $200B+, to upgrade this list
+ * to the same sourcing standard; until then, treat it as "known-good names,
+ * not yet independently verified" rather than a committed, audited list.
+ */
+export const MEGA_CAP_UNIVERSE: string[] = [
+  "AAPL", "MSFT", "GOOGL", "GOOG", "AMZN", "NVDA", "META", "TSLA",
+  "AVGO", "TSM", "WMT", "JPM", "LLY", "V", "MA", "NFLX", "ORCL",
+  "COST", "HD", "PG", "JNJ", "BAC", "ABBV", "CRM", "KO", "PEP",
+  "ASML", "TMO", "MRK", "ADBE", "CSCO", "PM", "UNH", "XOM", "CVX",
+  "MCD", "WFC", "IBM", "GE", "ACN", "TXN", "INTU", "NOW", "DIS",
+  "ABT", "AMD", "CAT", "VZ", "PLTR", "UBER", "QCOM", "GS", "AXP",
+  "BKNG", "SPGI", "RTX", "HON", "NKE", "LOW", "UPS", "SBUX", "BLK",
+  "DE", "MS", "T", "AMAT", "LRCX", "ADI", "PANW", "ANET", "MU",
+];
+
+/**
  * A 25-symbol diversified sample for ad-hoc backtest comparisons, drawn
  * entirely from `LARGE_CAP_UNIVERSE` above — unlike
  * `app/api/backtest/route.ts`'s `DEFAULT_UNIVERSE` and the symbol list
