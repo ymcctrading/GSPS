@@ -599,10 +599,11 @@ const RETIRED: RegisteredCriterion[] = [
       "methodology the setups are selected by, before treating the inversion as a bug in the " +
       "implementation.\n" +
       "\n" +
-      "**The indicator is not removed; only the scored criterion is.** lib/signals/indicators.ts's " +
-      "adx() stays exported and stays in live use by lib/signals/regime.ts (classifyRegime's " +
-      "trend-strength support) and lib/signals/states/rangeReversion.ts (its MAX_ADX_FOR_RANGE gate). " +
-      "That is a deliberate call, not an oversight of AGENTS.md's cross-platform consistency principle: " +
+      "**The indicator was not removed at the time; only the scored criterion was.** lib/signals/indicators.ts's " +
+      "adx() stayed exported and, until 2026-09-17, in live use by lib/signals/regime.ts (classifyRegime's " +
+      "trend-strength support) and lib/signals/states/rangeReversion.ts (its MAX_ADX_FOR_RANGE gate); " +
+      "both were then replaced by lib/gann/trendStrength.ts, and adx() itself was deleted as dead code on 2026-09-25. " +
+      "Keeping it that long was a deliberate call, not an oversight of AGENTS.md's cross-platform consistency principle: " +
       "the Signal & Regime Engine's spec genuinely asks a different question (is this market trending " +
       "or ranging, at all?) than this scorecard does (does an independent trend filter agree with a " +
       "setup this platform's core methodology selected?), which is the \"different governing spec\" " +
