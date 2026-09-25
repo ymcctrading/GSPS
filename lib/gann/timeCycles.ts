@@ -144,3 +144,52 @@ export function timeCycles(dailyBars: Bar[], asOf: Date = new Date(), windowDays
     fixedCalendarDates: upcomingFixed,
   };
 }
+
+export interface YearCycleConvergence {
+  /** (anchor, cycle-length) pairs landing on the current month from major lows. */
+  bullishHits: number;
+  /** The same from major highs. */
+  bearishHits: number;
+}
+
+/**
+ * The yearly half of the Master Time Factor, read on monthly bars — the part
+ * `timeCycles()` cannot reach on the one year of daily bars the scans hold,
+ * since every daily anchor is under a year old.
+ *
+ * Counts how many (major pivot, cycle length) pairs from `MAJOR_CYCLE_YEARS`
+ * land on the current calendar month: a major low exactly N years back, for
+ * N in that list, is one bullish hit. Counting convergence rather than
+ * returning a yes/no is the same reading Gann gives the cycles himself — a
+ * turn is expected where several cycles run out together (the Ch.7 DJIA case
+ * study names every elapsed count against multiple prior anchors at once).
+ *
+ * Month precision, not day: Gann works yearly cycles off the monthly chart,
+ * and a monthly pivot's date is only known to the month. Exact-month match
+ * rather than a +/-1 month window, because the window is what makes the
+ * signal indiscriminate — with a dozen anchors and six reachable cycle
+ * lengths, +/-1 month would mark most symbols active most months.
+ *
+ * Reach is bounded by the data, not the method: with ~10 years of monthly
+ * history (the provider's limit) only the 1/2/3/5/7-year cycles, and 10 at
+ * the edge, can land. The 15-60-year cycles need anchors older than any
+ * per-symbol history available here.
+ */
+export function yearCycleConvergence(monthlyBars: Bar[], asOf: Date = new Date()): YearCycleConvergence {
+  const result: YearCycleConvergence = { bullishHits: 0, bearishHits: 0 };
+  if (monthlyBars.length < 24) return result;
+
+  const monthIndex = (d: Date) => d.getUTCFullYear() * 12 + d.getUTCMonth();
+  const now = monthIndex(asOf);
+  const anchors = majorPivots(findPivots(monthlyBars, 3));
+
+  for (const anchor of anchors) {
+    const ageMonths = now - monthIndex(new Date(anchor.bar.t));
+    for (const years of MAJOR_CYCLE_YEARS) {
+      if (ageMonths !== years * 12) continue;
+      if (anchor.kind === "low") result.bullishHits += 1;
+      else result.bearishHits += 1;
+    }
+  }
+  return result;
+}

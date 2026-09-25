@@ -32,9 +32,15 @@ export interface CoarseTelemetryRow {
    * anchors, not the macro calendar) was inside a turn window this scan —
    * see `CYCLE_WINDOW_BONUS` in `lib/marketScan.ts`. */
   cycle_active: boolean;
-  /** Which direction that window argued, when active. */
-  cycle_direction: "bullish" | "bearish" | null;
-  /** Whether this symbol's reversion score made the top-`perSide*4` shortlist. */
+  /** Which direction that window argued, when active ("both" when a low- and
+   * a high-anchored window were active at once). */
+  cycle_direction: "bullish" | "bearish" | "both" | null;
+  /** Yearly-cycle convergence hits from major lows / highs on monthly bars
+   * (`yearCycleConvergence`). Null when this symbol wasn't in the re-rank
+   * pool or the re-rank was skipped this run. */
+  year_cycle_bullish_hits: number | null;
+  year_cycle_bearish_hits: number | null;
+  /** Whether this symbol made the full-scan shortlist (coarse score plus the yearly-cycle re-rank). */
   shortlisted: boolean;
   /** The real protocol score, when this symbol got a full scan (shortlisted or a continuation top-up candidate). Null otherwise — the coarse gate never let it through. */
   full_scan_score: number | null;
