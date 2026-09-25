@@ -93,8 +93,9 @@ export function classifyRegime(inputs: RegimeInputs): RegimeRead {
 
   // Trend strength and direction come from Gann's own 3-day/9-day swing
   // charts, not Wilder's ADX/DMI (replaced 2026-09-17 — see
-  // `lib/gann/trendStrength.ts` for the rule and its sourcing). A trend is
-  // confirmed when both charts agree; the agreed direction is the read.
+  // `lib/gann/trendStrength.ts` for the rule and its sourcing). The 9-day
+  // chart gives the direction; it is confirmed only when the 3-day chart's
+  // swings are stepping the same way.
   const gannTrend = readGannTrend(bars);
   const trendStrengthSupport = gannTrend.confirmed;
   const adxDirection: "bullish" | "bearish" | null = gannTrend.direction;
@@ -157,7 +158,7 @@ export function classifyRegime(inputs: RegimeInputs): RegimeRead {
       reasons: [
         bullishTrend ? "Higher highs and higher lows." : "Lower highs and lower lows.",
         "Fast/slow MA aligned and sloping with the trend.",
-        `3-day and 9-day swing charts agree ${gannTrend.direction} — trend confirmed at both granularities.`,
+        `9-day swing chart ${gannTrend.direction}, with 3-day swings stepping the same way — trend confirmed.`,
       ],
       disqualifiers: [],
     };

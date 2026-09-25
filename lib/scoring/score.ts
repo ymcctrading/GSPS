@@ -110,10 +110,11 @@ export interface ScoreInputs {
    * `lib/scoring/weights.ts`'s `CRITERION_KEYS` and the RETIRED entry in
    * `lib/validation/criteria-registry.ts`). Unlike `momentum` below, the
    * field is gone rather than kept-but-unread: nothing else in this module
-   * reads ADX, and `lib/signals/indicators.ts#adx` remains exported and in
-   * live use by `lib/signals/regime.ts` and
-   * `lib/signals/states/rangeReversion.ts`, so the indicator itself is not
-   * what was removed.
+   * reads ADX. (`lib/signals/indicators.ts#adx` outlived it by a day: its
+   * last two callers, `lib/signals/regime.ts` and
+   * `lib/signals/states/rangeReversion.ts`, moved to
+   * `lib/gann/trendStrength.ts` on 2026-09-17, and `adx()` was deleted on
+   * 2026-09-25.)
    */
   gann: GannLevels;
   nearSupportResistance: boolean;

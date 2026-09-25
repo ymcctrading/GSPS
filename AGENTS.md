@@ -63,8 +63,9 @@ found in this codebase on 2026-09-10:
   propagated. (**Historical example, still valid as an illustration of this
   rule** — but as of 2026-09-16 ADX is no longer the scanner's answer to that
   problem: `adxTrendStrength` was discarded for failing the Gann-grounding
-  gate. See "Audit outcomes" below. `lib/signals/regime.ts` still uses
-  `adx()`.)
+  gate. See "Audit outcomes" below. As of 2026-09-17 `lib/signals/regime.ts`
+  no longer uses `adx()` either — see `lib/gann/trendStrength.ts` — and
+  `adx()` was deleted on 2026-09-25.)
 
 Before considering any indicator, anchor rule, fixed threshold, or computed
 field "in place," check every surface it plausibly applies to — other
@@ -194,12 +195,15 @@ future session should re-check rather than trust it:
 - **STRAT pattern detection** (`lib/strat/patterns.ts`) — `2-2`, `1-2-2`,
   `3-2-2`, `3-1-2`, `PMG`. Rob Smith's STRAT, not Gann. **This taxonomy has
   two distinct uses and they have different verdicts — do not collapse
-  them.** It feeds the `patternArmed` scored criterion (non-Gann substance
-  sitting inside the scorecard itself, **still open**), and it is separately
-  wrapped by the non-gating confluence layer in
-  `lib/signals/confluence/sara.ts` (**investigated and deliberately kept** —
-  see "Audit outcomes" below, which also records why the keep does not
-  settle `patternArmed`).
+  them.** It used to feed the `patternArmed` scored criterion and every trade
+  plan's entry price (**resolved 2026-09-17**: renamed `entryTriggerArmed` and
+  regrounded on `lib/gann/entryTrigger.ts` — see "Entry pricing moved off
+  STRAT" under "Audit outcomes"), and it is separately wrapped by the
+  non-gating confluence layer in `lib/signals/confluence/sara.ts`
+  (**investigated and deliberately kept** — see "Audit outcomes" below). One
+  residue remains: `lib/backtest/replay.ts` still uses the detected pattern to
+  choose which bars and which direction to test, which the live scan no longer
+  does (2026-09-25 alignment audit, finding F2.7/F3.3).
 - **Wilder's ADX/DMI** (`lib/signals/indicators.ts#adx`) — **fully resolved
   2026-09-17.** The scored criterion was discarded 2026-09-16 (see "Audit
   outcomes"); the two remaining consumers, `lib/signals/regime.ts` and
@@ -207,15 +211,16 @@ future session should re-check rather than trust it:
   `lib/gann/trendStrength.ts`. The "different governing spec" carve-out that
   kept them was a stay of execution, not an acquittal — the question they ask
   ("is this trending or ranging") is one Gann's own swing charts answer. No
-  caller of `adx()` remains.
-- **PSAR/Supertrend** — narrower than it first appears, so scope the work to
-  what is actually there. Nothing in this codebase *computes* either one.
-  `lib/signals/regime.ts` accepts an optional `trendOverlayFlips` count and
-  uses it solely to disqualify a Trend read on repeated flips;
-  `lib/signals/states/trendPullback.ts` threads the same optional value
-  through. Both default to `0` and no caller supplies a value, so this is a
-  dormant hook for a non-Gann overlay rather than live non-Gann substance.
-  Either close the hook or ground it.
+  caller of `adx()` remained, and the function was deleted as dead code on
+  2026-09-25.
+- **PSAR/Supertrend** — **resolved for the verdict engine.** The dormant
+  `trendOverlayFlips` hook in `lib/signals/regime.ts` and
+  `lib/signals/states/trendPullback.ts` was removed 2026-09-17 (see
+  `regime.ts`'s header). Both are now computed, but only in the two places
+  that are explicitly exempt: the user-driven chart overlays
+  (`lib/indicators.ts`, see "Charting indicators" below) and the opt-in
+  `psarSupertrend` Strategy Mode (`lib/strategies/psarSupertrend.ts`, see
+  "Strategy Modes"). Neither feeds GSPS's own verdict.
 
 - **Classic charting indicators** (`lib/indicators.ts`, `lib/analysis/indicators.ts`)
   — `sma`, `ema`, `bollinger`, `rsi`, `macd`. Found by the sweep above on
@@ -266,8 +271,9 @@ down. Generalize the reason, not the number: when a non-Gann criterion on
 this scorecard measures against its declared sign, ask first whether it
 was ever grounded in the methodology the setups are selected by, before
 spending effort hunting a translation bug that may not exist. The
-indicator itself (`adx()`) was not removed — `lib/signals/regime.ts` and
-`lib/signals/states/rangeReversion.ts` still use it for the different
+indicator itself (`adx()`) was not removed at the time — `lib/signals/regime.ts` and
+`lib/signals/states/rangeReversion.ts` still used it (both replaced the next
+day; see "ADX's last two consumers replaced" below) for the different
 question the Signal & Regime Engine's own spec asks (is this market
 trending or ranging, at all?), which is the "different governing spec"
 carve-out the cross-platform consistency principle above names. Only the
@@ -452,13 +458,12 @@ replay it still names the candidate for attribution grouping. What it no longer
 does is decide where an order goes.
 
 **What that keep does not cover.** It settles the *display* use only. The
-same `lib/strat/patterns.ts` taxonomy also feeds `patternArmed`, a **scored**
-criterion — and scoring gates, where `sara.ts` cannot. So `patternArmed`
-takes no shelter from the entry above and remains an open gate-1 item; the
-investigation that cleared the display use is in fact the same finding that
-sharpens the question for the scored one, since it establishes there is no
-Gann source behind the taxonomy at all. Do not read "Sara's candle counting
-is kept" as "STRAT is settled."
+same `lib/strat/patterns.ts` taxonomy used to feed `patternArmed`, a **scored**
+criterion — and scoring gates, where `sara.ts` cannot. The keep gave that
+scored use no shelter; it was closed separately by the 2026-09-17
+rename/reground to `entryTriggerArmed` recorded above, not by this entry. Do
+not read "Sara's candle counting is kept" as a reason STRAT may ever feed a
+scored criterion again.
 
 **Worked example: eight-item orphan-module audit (2026-09-17, project owner
 direction).** A platform-wide sweep for modules that exist but never reach
@@ -563,6 +568,51 @@ config = { matcher: ... }`), and `lib/validation/health.ts#MIN_SIGNIFICANCE_T`/
    than reviving 0048's tables verbatim; speccing the schema before any
    consumer existed is what let it sit unwired in the first place.
 
+**Platform-wide alignment audit (2026-09-25, project owner direction) — open
+findings awaiting sign-off.** Audited `main@bcfbf36` against current code, the
+live Supabase tables and the Vercel env list. The full report (file:line
+evidence, IDs F1.1–F7.7) was delivered as a PDF in that session. Only
+comment/doc fixes and deletion of the dead `adx()` were applied. Everything
+below touches production behaviour, risk or order placement, and is **held
+for the project owner** — do not fix it silently, and re-verify it first:
+
+- **Backtest trigger ≠ live trigger (F3.1–F3.3).** `lib/scanTicker.ts` computes
+  `computeGannEntryTrigger` from **daily** bars with a `weightedTrendAgreement`
+  direction. `lib/backtest/replay.ts` computes it from **15-minute** bars, only
+  on STRAT-detected candidates, and additionally filters it through
+  `gapRuleViolated`/`riskFloorViolated`. Replay runs since 2026-09-17,
+  including the 2026-09-23 run that confirmed the 6/3.5 cutoffs, measure a
+  trigger production doesn't use. This is the `harmonicProximity` failure
+  shape again.
+- **Live orders skip `checkPositionLimits` (F3.5).** It runs only on the paper
+  path in `lib/trade/place-order.ts`. `placeLiveOrder` never calls it, so the
+  orphan-module audit's item 1 above is true for paper only.
+- **Autonomous live trading looks authorised (F4.4, F7.6).** An active
+  `compliance_signoffs` row for `autonomous_live_trading` has existed since
+  2026-09-03, and its `review_reference` says no formal review was performed.
+  Production also sets `AUTONOMOUS_LIVE_TRADING_HALTED` (2026-09-23).
+  Commit 95da144's "sign-off held back" was already untrue when written.
+  This is latent while no live broker connection exists.
+- **Entry confirmation isn't uniform (F3.4).** Guided execute, the demo
+  auto-trader and the manual ticket place orders without it. Only plan-scoped
+  automation requires an `armed` plan.
+- **Non-Gann inputs in the Signal & Regime Engine (F2.5).** SMA 20/50 and
+  anchored VWAP (`lib/signals/regime.ts`, `lib/signals/states/trendPullback.ts`)
+  feed user-facing tier/"Tradeable" labels and trade-plan expiry. The
+  mandatory sweep regex above can't see them: it doesn't match SMA, EMA or
+  VWAP.
+- **Being in `FALLBACK_UNIVERSE` doesn't mean being scanned (F1.7).** It
+  comes last behind the tracked symbols, the rotation chunk (drawn from
+  `LARGE_CAP_UNIVERSE` only) and the most-actives, inside a 250-slot cap.
+  Check coverage in coarse telemetry, not list membership.
+- Lesser items: the weight-promotion path can still promote non-uniform
+  weights (F4.2); pre-entry plans aren't invalidated by a stop breach (F3.7);
+  `policy_values` overrides have no bounds (F4.3); `stopRoom`'s
+  "quarantined" status doesn't affect live scoring (F4.7). Kept rather than
+  deleted because they're unfinished rather than dead:
+  `withinTriggerTolerance` (an unenforced spec rule), `toSaraStrategyResult`,
+  and `quantityFromPermittedRisk`/`plannedRiskDollars`.
+
 
 ## Gann-derived AND measured — standing principle
 
@@ -598,15 +648,18 @@ Legitimacy lives in the criteria being counted, which are Gann's. A cutoff
 on a count of Gann conditions is a ranking and display decision, not a claim
 about the market.
 
-**Gate 1 status** (2026-09-16):
+**Gate 1 status** (2026-09-16; updated 2026-09-25 after re-verifying against
+`lib/scoring/weights.ts#CRITERION_KEYS`):
 
 - `adxTrendStrength` (Wilder) — **resolved: discarded, and landed.** Removed
   from `CRITERION_KEYS` in PR #236; `TOTAL_POINTS` is back to 9 and the
   cutoffs rescaled with it. See "Audit outcomes" above.
-- `patternArmed` (STRAT) — **still open**, and it is now the only gate-1
-  failure among the nine. The same `lib/strat/patterns.ts` taxonomy has a
-  second, non-gating use that *is* deliberately kept (audit outcome above);
-  that keep covers the display use only and does not settle this scored one.
+- `patternArmed` (STRAT) — **resolved 2026-09-17: renamed to
+  `entryTriggerArmed` and regrounded** on Gann's swing-crossing rule
+  (`lib/gann/entryTrigger.ts`). See "Entry pricing moved off STRAT" under
+  "Audit outcomes". No gate-1 failure remains among the nine. The same
+  taxonomy's non-gating display use is deliberately kept (audit outcome
+  above).
 
 Resolving a gate-1 item changes `CRITERION_KEYS.length` — which moves
 `TOTAL_POINTS` and both thresholds — so it is deliberately not a drive-by
@@ -832,7 +885,8 @@ why each mode landed where it did.
 **What this does not open the door to.** This is not a general license to
 weaken the non-Gann boundary elsewhere. The scored criteria, signal gates,
 and the Gann trade plan are exactly as off-limits to these indicators as
-before; `patternArmed`'s open gate-1 status is unaffected; the "Expanded
+before; the resolved gate-1 status of the scored criteria (see "Gann-derived
+AND measured") is unaffected; the "Expanded
 indicator library" Q2 roadmap item's own boundary ("no indicator added there
 may feed a scored criterion...") is unaffected. This exception is scoped to
 one new, clearly-labeled, opt-in system and nothing else.
