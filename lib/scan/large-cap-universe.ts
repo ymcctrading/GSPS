@@ -200,24 +200,32 @@ export const LARGE_CAP_UNIVERSE: string[] = [
  * slower to fetch (collectRun fetches sequentially — see its own comment
  * on the vendor rate limit).
  *
- * `BMNR`/`CRCL` added 2026-09-25, project-owner direction: a third,
- * deliberately narrower pole beyond "high-beta" and "defensive" —
- * small, thinly-floated, crypto-adjacent names that started highly
- * volatile and attracted momentum/crypto/short-term-speculator flow, the
- * project owner's own description of a "winning formula" archetype that
- * recurred in 2025 and is expected to keep rotating across industries
- * (a separate, later session is scoped to identify the next one). Both
- * are already members of `LARGE_CAP_UNIVERSE`, so this doesn't widen the
- * sample outside what production actually scans — it's a sharper cut of
- * the same high-volatility pole `MSTR`/`HOOD`/`APP` already sample,
- * closer to that archetype's actual size/float than any of the three.
+ * `COIN`/`CVNA` added 2026-09-25, project-owner direction: a third,
+ * deliberately narrower pole beyond "high-beta" and "defensive" — names
+ * that were once tiny, highly volatile, and magnets for momentum
+ * traders, crypto investors, and short-term speculators, the project
+ * owner's own description of a "winning formula" archetype that recurred
+ * in 2025 and is expected to keep rotating across industries (a
+ * separate, later session is scoped to identify the next one). The
+ * project owner's first two picks, `BMNR`/`CRCL`, fit the archetype
+ * description precisely but are too recently listed for this harness to
+ * use today — `computeGannEntryTrigger` needs two completed swings
+ * (~10+ bars with real reversals) to arm at all, and scoring needs
+ * `MIN_DAILY_BARS_FOR_SCORE` (120) daily bars, neither of which a
+ * 2025 IPO has accumulated yet. `COIN` (the direct crypto-exchange
+ * play) and `CVNA` (2022–2023's defining momentum/short-squeeze
+ * comeback story) are the closest same-archetype substitutes already in
+ * `LARGE_CAP_UNIVERSE` with years of history behind them — swap back to
+ * `BMNR`/`CRCL`, or add them alongside these two, once enough bars have
+ * accumulated.
  */
 export const DIVERSIFIED_BACKTEST_SAMPLE: string[] = [
   // High-beta / momentum
   "MSTR", "HOOD", "APP", "MRNA",
-  // Small, thinly-floated, crypto-adjacent momentum names (project-owner
-  // direction, 2026-09-25) — see this constant's own doc comment.
-  "BMNR", "CRCL",
+  // Formerly-tiny, highly volatile, momentum/crypto/speculator-magnet
+  // names (project-owner direction, 2026-09-25) — see this constant's
+  // own doc comment for why COIN/CVNA stand in for BMNR/CRCL today.
+  "COIN", "CVNA",
   // Energy (cyclical, high volatility)
   "OXY", "DVN", "FANG",
   // Semiconductors (cyclical, moderate-high volatility)
