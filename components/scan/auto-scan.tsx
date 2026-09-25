@@ -83,7 +83,15 @@ export function AutoScan({ scanDate }: { scanDate: string | null }) {
             );
           }
           if (!data) throw new Error("Scan response was not valid JSON.");
-          const found = (data.bullish?.length ?? 0) + (data.bearish?.length ?? 0);
+          const rows: { state?: string }[] = [...(data.bullish ?? []), ...(data.bearish ?? [])];
+          const scanned = data.persistedCount ?? rows.length;
+          // `persistedCount` counts every row saved with a priced trade plan,
+          // including ones that scored below WATCH_SCORE_THRESHOLD and render
+          // only inside each card's "not qualified" toggle — see
+          // lib/scoring/weights.ts. Reporting that number alone as "setups
+          // found" reads as a promise the Buy/Sell cards then don't keep, so
+          // the qualified (Watch/Execute) count is called out separately.
+          const qualified = rows.filter((r) => r.state === "Execute" || r.state === "Watch").length;
           if (mounted.current) {
             setMsg({
               // A scan that saved nothing hasn't updated the lists below, so it
@@ -91,7 +99,7 @@ export function AutoScan({ scanDate }: { scanDate: string | null }) {
               // offered no setup worth publishing.
               ok: Boolean(data.persisted),
               text: data.persisted
-                ? `Scan complete — ${data.persistedCount ?? found} setups found.`
+                ? `Scan complete — ${scanned} scanned, ${qualified} qualified (Watch or better).`
                 : `Scan ran but nothing was saved: ${data.persistError ?? "unknown reason"}.`,
             });
           }

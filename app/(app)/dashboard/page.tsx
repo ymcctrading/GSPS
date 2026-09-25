@@ -221,6 +221,14 @@ function ReversionPreview({
   const preview = rows.slice(0, PREVIEW);
   const more = rows.length - preview.length;
   const continuations = rows.filter((r) => r.setupKind === "continuation").length;
+  // A "Reject"-scored row (below WATCH_SCORE_THRESHOLD) with no Signal Engine
+  // read doesn't render in ResultsTable's primary list -- it sits behind that
+  // component's own "scanned but not qualified" toggle instead (see
+  // components/scan/results-table.tsx's qualifying/rejected split). Counting
+  // it here as a "setup near a buy/sell point" promised something the card
+  // then didn't show -- this header count now matches what the card body
+  // actually renders.
+  const qualifying = rows.filter((r) => r.outputState !== "Reject" || r.signal != null);
 
   return (
     <Card>
@@ -234,12 +242,17 @@ function ReversionPreview({
               <ArrowRight className="h-4 w-4 text-muted transition-transform group-hover:translate-x-0.5" />
             </Link>
             <CardDescription>
-              {rows.length > 0
-                ? `${rows.length} setup${rows.length === 1 ? "" : "s"} near a ${side} point` +
+              {qualifying.length > 0
+                ? `${qualifying.length} setup${qualifying.length === 1 ? "" : "s"} near a ${side} point` +
                   (continuations > 0
                     ? `, including ${continuations} momentum continuation${continuations === 1 ? "" : "s"}.`
-                    : ".")
-                : `Setups near a ${side} point.`}
+                    : ".") +
+                  (rows.length > qualifying.length
+                    ? ` (${rows.length - qualifying.length} more scanned but below the qualifying score.)`
+                    : "")
+                : rows.length > 0
+                  ? `${rows.length} symbol${rows.length === 1 ? "" : "s"} scanned, none qualified yet.`
+                  : `Setups near a ${side} point.`}
               {scannedAt && (
                 <>
                   {" "}
