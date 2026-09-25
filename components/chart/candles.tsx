@@ -220,6 +220,19 @@ export function CandleChart({
   // can enable it via the toggle chip below the timeframes.
   const [overlays, setOverlays] = useState<Set<Overlay>>(new Set());
   const [studies, setStudies] = useState<Set<Study>>(new Set());
+  // Custom-script Strategy Modes chart hook (lib/strategies/custom/plot.ts,
+  // docs/STRATEGY_MODES.md's "Custom-script / plugin system" section, Phase
+  // 3). Reuses this same overlay-series rendering path (see the effect
+  // below) rather than a new one. `customScripts` is server-resolved and
+  // private to the signed-in user (`/api/strategy-plugins` is RLS- and
+  // tier-scoped to the author) — an empty list means either no saved
+  // scripts or a tier that can't author them, and the picker renders
+  // nothing either way, same convention order-ticket.tsx uses.
+  const [customScripts, setCustomScripts] = useState<{ id: string; name: string }[]>([]);
+  const [selectedCustomScriptId, setSelectedCustomScriptId] = useState("");
+  const [customScriptSeries, setCustomScriptSeries] = useState<
+    { label: string; points: { time: number; value: number }[] }[]
+  >([]);
 
   // ---- Drawing tools + alert state
   const [tool, setTool] = useState<Tool>("none");
@@ -637,6 +650,80 @@ export function CandleChart({
     });
     return () => series.removePriceLine(line);
   }, [alertPrice, status]);
+
+  // Load the signed-in user's own saved custom scripts, if any — populates
+  // the picker below only, same one-time-fetch convention
+  // order-ticket.tsx's own customScripts state uses.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/strategy-plugins")
+      .then((res) => (res.ok ? res.json() : { plugins: [] }))
+      .then((body: { plugins?: { id: string; name: string; active: boolean }[] }) => {
+        if (!cancelled) {
+          setCustomScripts((body.plugins ?? []).filter((p) => p.active).map((p) => ({ id: p.id, name: p.name })));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setCustomScripts([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Re-evaluate the selected custom script against the current symbol/
+  // timeframe. `lib/strategies/custom/plot.ts` supplies the referenced
+  // indicator series; `/api/strategy-plugins/[id]/evaluate` zips them to
+  // each bar's own timestamp so they line up on this chart's time axis
+  // regardless of exactly which bars this fetch vs. the candle fetch
+  // returned (see that route's own comment).
+  useEffect(() => {
+    if (!selectedCustomScriptId) {
+      setCustomScriptSeries((prev) => (prev.length === 0 ? prev : []));
+      return;
+    }
+    let cancelled = false;
+    fetch(
+      `/api/strategy-plugins/${selectedCustomScriptId}/evaluate?symbol=${encodeURIComponent(symbol)}&timeframe=${timeframe}`,
+    )
+      .then((res) => (res.ok ? res.json() : { series: [] }))
+      .then((body: { series?: typeof customScriptSeries }) => {
+        if (!cancelled) setCustomScriptSeries(body.series ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setCustomScriptSeries([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCustomScriptId, symbol, timeframe]);
+
+  // Plots the selected custom script's referenced indicator series, reusing
+  // the exact same addLine/LineSeries pattern as the built-in overlay
+  // effect just below (docs/STRATEGY_MODES.md's Phase 3 instruction: reuse
+  // this rendering path rather than build a second one). A small fixed
+  // palette cycles across a script's series since the DSL doesn't assign
+  // its own colors.
+  const CUSTOM_SERIES_COLORS = ["#f472b6", "#22d3ee", "#a3e635", "#fb923c", "#818cf8"];
+  const customSeriesKey = customScriptSeries.map((s) => s.label).join(",");
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart || status !== "ready" || customScriptSeries.length === 0) return;
+    const created: ISeriesApi<"Line">[] = customScriptSeries.map((s, i) => {
+      const line = chart.addSeries(LineSeries, {
+        color: CUSTOM_SERIES_COLORS[i % CUSTOM_SERIES_COLORS.length],
+        lineWidth: 2,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false,
+        title: s.label,
+      });
+      line.setData(s.points.map((p) => ({ time: p.time as Time, value: p.value })));
+      return line;
+    });
+    return () => created.forEach((s) => chart.removeSeries(s));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customSeriesKey, status]);
 
   // Indicator overlays in the main price pane (SMA/EMA/Bollinger).
   const calcCandles: CalcCandle[] = candleData.map((c) => ({
@@ -1122,6 +1209,20 @@ export function CandleChart({
             onClick={() => toggleSet(studies, setStudies, k)}
           />
         ))}
+        {customScripts.length > 0 && (
+          <select
+            className="min-h-8 rounded-md border px-2 py-1 text-xs bg-background"
+            value={selectedCustomScriptId}
+            onChange={(e) => setSelectedCustomScriptId(e.target.value)}
+          >
+            <option value="">My scripts: none</option>
+            {customScripts.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       {/* Contextual hint while a drawing tool is armed. */}

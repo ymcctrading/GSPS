@@ -1134,9 +1134,23 @@ Portfolio analytics drives retention and trust.
   2026-09-23: the TradingView-style custom-script/plugin system requested
   alongside "Strategy Modes" (Q1, out-of-phase, see that entry above) is
   scoped to land here rather than as its own initiative — see
-  `docs/STRATEGY_MODES.md`'s "Custom-script / plugin system" section for the
-  sandboxed-execution/plugin-registry/chart-hook design sketch. Not started;
-  design only as of this note.)*
+  `docs/STRATEGY_MODES.md`'s "Custom-script / plugin system" section.
+  **All four phases (the DSL + sandboxed-evaluator core,
+  `lib/strategies/custom/`; the plugin registry + CRUD API,
+  `supabase/migrations/0081_strategy_plugins.sql`, `/api/strategy-plugins`;
+  the chart-plotting + level-generation hook, `lib/strategies/custom/plot.ts`,
+  `/api/strategy-plugins/[id]/evaluate`, wired into
+  `components/chart/candles.tsx` and `components/trade/order-ticket.tsx`;
+  and backtesting, `lib/backtest/replayCustomScript.ts`,
+  `/api/strategy-plugins/[id]/backtest`) built out-of-phase, direct
+  request** — same precedent as the Q1 Strategy Modes entry above, a
+  signal-engine addition built now at explicit request rather than waiting
+  for this phase's window. **Authoring UI built the same way, out-of-phase,
+  direct request:** `/settings/scripts`
+  (`components/settings/custom-script-editor.tsx`), reachable from a
+  plain-text link on the Settings page rather than the main nav — the CRUD
+  API's own four phases never included a front end, so this closes that gap
+  rather than leaving it for later.)*
 - **Database optimization** — indexing for scan queries, caching for frequent
   chart requests, query-plan review.
 

@@ -837,15 +837,144 @@ indicator library" Q2 roadmap item's own boundary ("no indicator added there
 may feed a scored criterion...") is unaffected. This exception is scoped to
 one new, clearly-labeled, opt-in system and nothing else.
 
-**Future custom-script/plugin system.** The project owner also asked about a
+**Custom-script/plugin system — all four phases (DSL + evaluator, plugin
+registry + CRUD API, chart-plotting + level-generation hook, backtesting)
+built 2026-09-23/25.** The project owner also asked about a
 TradingView-style system where a user (or GSPS) can author and plot a new
-indicator/strategy that generates its own levels the same way. That is a
-substantially larger, security-sensitive (sandboxed execution) project of
-its own — scoped as a design-only Q2/Q3 roadmap initiative in
-`docs/STRATEGY_MODES.md` and ROADMAP.md rather than built this session. Any
-strategy plugin built under that future system would need to satisfy the
-same rules this section states: opt-in, one-at-a-time, never touching the
-Gann verdict, and clearly labeled.
+indicator/strategy that generates its own levels the same way. `lib/strategies/custom/`
+now has a small, safe, declarative condition/action DSL and a tree-walking
+interpreter — text source is parsed by a whitelist-only recursive-descent
+parser (`parser.ts`) into a bounded AST (`limits.ts`: max source length,
+node count, nesting depth, indicator period/offset), then interpreted
+(`interpret.ts`) into a function of the exact `(bars: Bar[]) => X | null`
+shape `StrategyEvaluator` already uses. No `eval`/`new Function`/`vm`
+anywhere, no loop or recursion in the language itself, no dynamic
+identifier resolution outside `parser.ts`'s indicator/series whitelist —
+see `types.ts`'s header for the full three-question design basis. A
+compiled script's result is `CustomScriptLevels`, deliberately NOT shoehorned
+into `StrategyLevels`/`StrategyModeId` (a closed union the nine built-ins
+and `registry.ts` depend on staying closed) — it carries the script's own
+`scriptId`/`scriptName`/`author`/`version` instead, satisfying hard rule 5
+structurally rather than by convention. Verified: 22 unit tests including
+exact parity against `evaluateMaCrossover` for an equivalent hand-written
+rule, `tsc --noEmit` clean, lint clean, `check-banned-terms.mjs` clean.
+
+Design decisions confirmed with the project owner before building (2026-09-23,
+applying the Three-question mandate rather than engineering preference alone):
+- **Textual grammar, not JSON-only.** Hermetic Correspondence — the text an
+  author writes mirrors the AST 1:1, no opaque JSON-tree authoring. Safety is
+  unaffected: the parser only ever emits nodes from the closed whitelist,
+  identical to what a JSON-only front end would have validated.
+- **Script authoring is Wall Street-tier only** (not extended to Expert
+  alongside the nine built-in modes) — authoring is categorically more
+  sensitive than selecting a pre-vetted built-in mode, so it sits one rung
+  above "sees all built-in modes."
+- **Private to the authoring user only, no marketplace, in v1.** A
+  GSPS-curated/shared script is functionally identical in trust level to
+  adding an official tenth built-in mode to `lib/strategies/` directly (GSPS
+  wrote it, so it isn't untrusted the way a user script is) — routing it
+  through the untrusted-script pipeline instead would be redundant, not
+  safer, and cross-user script execution reopens exactly the trust problem
+  the private-only scoping avoids. Read through Polarity (the same framing
+  this section already gives the system overall): a script author trades
+  their own method, they do not get to issue verdicts to other users.
+
+**Phase 2 — plugin registry + CRUD API (built 2026-09-23).**
+`supabase/migrations/0081_strategy_plugins.sql` adds `strategy_plugins`
+(current state per script; owner-only RLS, private to the authoring user)
+and `strategy_plugin_versions` (append-only, one row per saved `source`
+edit — a `name`/`active` edit alone does not bump `version`). No compiled-
+AST or evaluator column is stored anywhere — every read path recompiles
+`source` through `compileCustomScript` on demand, so there is nothing
+cached that could drift from the source of truth (AGENTS.md's orphan-
+module audit outcome 5/8's "can never drift" lesson, applied here by
+construction rather than by a registry-vs-code equality test like
+`strategy_modules`' own, since this registry's content is user-authored,
+not a static GSPS list). `/api/strategy-plugins` (list, create) and
+`/api/strategy-plugins/[id]` (read + version history, edit, delete) — every
+write checks `isCustomScriptAuthoringAllowedForPolicy` server-side and
+compiles `source` via `compileCustomScript` before persisting; an invalid
+script is rejected with the parser's own error message, never stored
+half-valid. Verified: extended `access.test.ts`/`policy.test.ts` covering
+the new gate, full suite 1882/1882 passing, `tsc --noEmit` clean, lint
+clean (0 errors), `check-banned-terms.mjs` clean.
+
+**Phase 3 — chart-plotting + level-generation hook (built 2026-09-25).**
+`lib/strategies/custom/plot.ts` walks a compiled script's AST and extracts
+every distinct named indicator/extreme reference (bare `open`/`high`/`low`/
+`close`/`volume` and compound arithmetic are walked into, not plotted, so
+only single named techniques ever appear as a line — the same convention
+every built-in overlay follows) into a full, unshifted series per
+reference, computed once even if the script reads it at several offsets.
+`/api/strategy-plugins/[id]/evaluate` (new) computes one script's levels
+*and* its plotted series for a symbol/timeframe in one call — private to
+the authoring user (the plugin lookup is scoped to `user_id = auth user`,
+so the route structurally cannot evaluate another account's script) — and
+zips each series to its bar's own timestamp rather than returning bare
+index-aligned arrays, since the chart's own candle fetch is a separate
+request and time is the only safe join key across two independently-fetched
+bar series. Wired into `components/chart/candles.tsx` via the exact same
+`addLine`/`LineSeries` pattern the built-in SMA/EMA/Bollinger/PSAR/
+Supertrend overlays already use (a small fixed color palette cycles across
+a script's series, since the DSL assigns none of its own) — no parallel
+rendering system, per the design doc's own instruction. Wired into
+`components/trade/order-ticket.tsx`'s manual stop/target section the same
+way the built-in Strategy Mode "Check levels"/"Use these levels" flow
+already works: a "Custom script" picker (empty when the signed-in user has
+no saved scripts, whatever the reason) that fetches the same evaluate route
+and only ever fills the manual fields on an explicit click — never
+auto-applied, always labeled by the script's own rationale (which itself
+names the script and author). Verified: 5 new `plot.ts` tests (including
+exact parity against `lib/strategies/math.ts`'s own `sma`/`ema`), full suite
+1887/1887 passing, `tsc --noEmit` clean, lint clean (0 errors — 40 warnings,
+all pre-existing except one `react-hooks/set-state-in-effect` warning of a
+class already tolerated twice elsewhere in `candles.tsx`), build clean (all
+three new routes compiled), `check-banned-terms.mjs` clean.
+
+**Phase 4 — backtesting (built 2026-09-25).**
+`lib/backtest/replayCustomScript.ts` walks one script forward over a
+symbol/timeframe's history, re-evaluating it against every closed-history
+window the same growing-window shape `replaySignals.ts#replaySignalEngine`
+uses, and records an event only where the script actually armed —
+evidence-gathering only, deliberately not a trade simulation (no fill/stop/
+target-touch model, same restraint `replaySignals.ts`'s own header
+documents, for the same "public accuracy claims outrunning validated
+methodology" reason — a custom script is user-authored and this project has
+no reviewed fill-simulation methodology for arbitrary author-defined entry/
+stop/target logic). `/api/strategy-plugins/[id]/backtest` (new) wires it in,
+same private-to-author scoping as `../evaluate/route.ts`. Verified: 5 new
+`replayCustomScript.ts` tests (compile-failure handling, event ordering,
+armed-count invariants, identity labeling, a flat-data zero-arm case), full
+suite 1892/1892 passing, `tsc --noEmit` clean, lint clean (0 errors, no new
+warnings), build clean (all four `/api/strategy-plugins/*` routes
+compiled), `check-banned-terms.mjs` clean.
+
+**Authoring UI (built 2026-09-25).** Never one of the four numbered
+phases, but the CRUD API had no front end — `/settings/scripts`
+(`app/(app)/settings/scripts/page.tsx`,
+`components/settings/custom-script-editor.tsx`) is a thin client over
+`/api/strategy-plugins*` that trusts nothing it hasn't fetched from those
+routes, including authoring eligibility itself (`GET /api/strategy-plugins`
+now also returns `authoringEnabled`, resolved server-side, since an empty
+script list alone can't distinguish "no scripts yet" from "this tier can't
+author them"). Reachable only from a plain-text link on the Settings page
+(`components/settings/custom-scripts-settings.tsx`, itself gated on
+`authoringEnabled`, rendering nothing otherwise), not the main nav — same
+off-nav placement `components/app/nav.tsx`'s own header comment documents
+for Glossary. The backtest panel repeats Phase 4's "evidence only, not a
+performance claim" wording in the UI itself, not just the API response.
+Verified: `tsc --noEmit` clean, lint clean (0 errors, 0 new warnings), full
+suite still 1892/1892 (no route-level UI tests, matching this codebase's
+existing convention — `app/api/**` and `app/(app)/**` have none), build
+clean (`/settings/scripts` compiled, statically prerendered),
+`check-banned-terms.mjs` clean. Not exercised in a live browser in this
+session (no Supabase-authenticated environment available here) — say so
+rather than claiming a manual click-through happened.
+
+Any strategy plugin built or extended under this family must continue to
+satisfy the rules this section states: opt-in, one-at-a-time, never
+touching the Gann verdict, tier-gated and server-resolved only, and clearly
+labeled.
 
 ## Three-question mandate — the lens work is reasoned through, every session
 

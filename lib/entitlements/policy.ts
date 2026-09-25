@@ -91,6 +91,23 @@ export type EntitlementPolicy = {
    * to use safely.
    */
   allowedStrategyModes: "all" | readonly Exclude<StrategyModeId, "gann">[];
+  /**
+   * Custom-script Strategy Modes authoring (`lib/strategies/custom/`,
+   * `docs/STRATEGY_MODES.md`'s "Custom-script / plugin system" section).
+   * Whether this tier may create/edit/save a DSL script at all — distinct
+   * from `allowedStrategyModes` above, which only governs selecting one of
+   * the nine GSPS-built modes. Added 2026-09-23, direct project-owner
+   * instruction, confirmed before Phase 2 (the plugin registry/CRUD API)
+   * was built: Wall Street (SYSTEM_MASTERY) only, one rung above
+   * `allowedStrategyModes: "all"` (which Expert also gets) — authoring is
+   * categorically more sensitive than selecting a pre-vetted built-in mode,
+   * even though the DSL itself is sandboxed. A script's own author is
+   * always allowed to use (select) the scripts they authored; there is no
+   * separate "usage" flag because v1 has no sharing/marketplace (see
+   * AGENTS.md's "Strategy Modes" section for the full reasoning) — a script
+   * only ever runs for the account that authored it.
+   */
+  customScriptAuthoringEnabled: boolean;
   maxActiveWatchMonitors: Limit;
   maxAutomationWorkflows: Limit;
   maxCustomAlertRules: Limit;
@@ -130,6 +147,7 @@ const ENTITLEMENT_POLICY: Record<PlatformTier, EntitlementPolicy> = {
     backtestingEnabled: false,
     exactScoreDisplayEnabled: false,
     allowedStrategyModes: [],
+    customScriptAuthoringEnabled: false,
     maxActiveWatchMonitors: 15,
     maxAutomationWorkflows: 0,
     maxCustomAlertRules: 10,
@@ -152,6 +170,7 @@ const ENTITLEMENT_POLICY: Record<PlatformTier, EntitlementPolicy> = {
     backtestingEnabled: false,
     exactScoreDisplayEnabled: false,
     allowedStrategyModes: ["macdMomentum", "rsiReversal", "maCrossover", "vwap"],
+    customScriptAuthoringEnabled: false,
     maxActiveWatchMonitors: 50,
     maxAutomationWorkflows: 0,
     maxCustomAlertRules: 50,
@@ -174,6 +193,7 @@ const ENTITLEMENT_POLICY: Record<PlatformTier, EntitlementPolicy> = {
     backtestingEnabled: false,
     exactScoreDisplayEnabled: true,
     allowedStrategyModes: "all",
+    customScriptAuthoringEnabled: false,
     maxActiveWatchMonitors: 150,
     maxAutomationWorkflows: 0,
     maxCustomAlertRules: 200,
@@ -196,6 +216,7 @@ const ENTITLEMENT_POLICY: Record<PlatformTier, EntitlementPolicy> = {
     backtestingEnabled: true,
     exactScoreDisplayEnabled: true,
     allowedStrategyModes: "all",
+    customScriptAuthoringEnabled: true,
     maxActiveWatchMonitors: "unlimited",
     maxAutomationWorkflows: "unlimited",
     maxCustomAlertRules: "unlimited",

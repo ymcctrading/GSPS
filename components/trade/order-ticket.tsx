@@ -23,6 +23,7 @@ import {
   type StrategyLevels,
   type StrategyModeId,
 } from "@/lib/strategies/types";
+import type { CustomScriptLevels } from "@/lib/strategies/custom/types";
 
 type EntryMode = "advised" | "now";
 type AssetType = "shares" | "options";
@@ -116,6 +117,23 @@ export function OrderTicket({
     "idle",
   );
   const [strategyError, setStrategyError] = useState("");
+  // Custom-script Strategy Modes (lib/strategies/custom/,
+  // docs/STRATEGY_MODES.md's "Custom-script / plugin system" section,
+  // AGENTS.md's "Strategy Modes" section). Same status as the built-in
+  // Strategy Mode block above: a parallel, opt-in, explicitly-labeled
+  // suggestion, never auto-applied — "Use these levels" still requires a
+  // human click. `customScripts` is server-resolved and private to the
+  // signed-in user (`/api/strategy-plugins` is RLS- and tier-scoped to the
+  // author); an empty list here means either no saved scripts or a tier
+  // that can't author them, and the section renders nothing either way —
+  // no client-side tier guess.
+  const [customScripts, setCustomScripts] = useState<
+    { id: string; name: string; author: string; version: number; active: boolean }[] | null
+  >(null);
+  const [selectedScriptId, setSelectedScriptId] = useState("");
+  const [scriptLevels, setScriptLevels] = useState<CustomScriptLevels | null>(null);
+  const [scriptStatus, setScriptStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [scriptError, setScriptError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string; code?: string } | null>(null);
   /**
@@ -174,6 +192,24 @@ export function OrderTicket({
       })
       .catch(() => {
         if (!cancelled) setAllowedStrategyModes([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Load the signed-in user's own saved custom scripts, if any. Only
+  // populates the picker below — never auto-fetches levels or auto-fills
+  // the manual stop/target fields, same as the built-in Strategy Mode block.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/strategy-plugins")
+      .then((res) => (res.ok ? res.json() : { plugins: [] }))
+      .then((body: { plugins?: typeof customScripts }) => {
+        if (!cancelled) setCustomScripts((body.plugins ?? []).filter((p) => p.active));
+      })
+      .catch(() => {
+        if (!cancelled) setCustomScripts([]);
       });
     return () => {
       cancelled = true;
@@ -723,6 +759,90 @@ export function OrderTicket({
                             onClick={() => {
                               setManualStop(String(strategyLevels.stopLoss));
                               setManualTarget(String(strategyLevels.takeProfit1));
+                            }}
+                          >
+                            Use these levels (stop + TP1) →
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                )}
+
+                {/* Empty list means either no saved scripts or a tier that
+                    can't author them — server-resolved either way, no
+                    client-side tier guess. */}
+                {customScripts && customScripts.length > 0 && (
+                <div className="rounded-lg border border-border p-3 text-xs">
+                  <label className="flex flex-col gap-1 text-muted">
+                    Custom script (optional) — price this order from one of your own saved
+                    scripts instead
+                    <select
+                      className="mt-1 w-full rounded-md border px-2 py-1.5 text-xs bg-background"
+                      value={selectedScriptId}
+                      onChange={(e) => {
+                        setSelectedScriptId(e.target.value);
+                        setScriptLevels(null);
+                        setScriptStatus("idle");
+                        setScriptError("");
+                      }}
+                    >
+                      <option value="">None</option>
+                      {customScripts.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name} (v{s.version}) — {s.author}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  {selectedScriptId && (
+                    <div className="mt-2 flex flex-col gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-fit"
+                        disabled={scriptStatus === "loading"}
+                        onClick={async () => {
+                          setScriptStatus("loading");
+                          setScriptError("");
+                          try {
+                            const res = await fetch(
+                              `/api/strategy-plugins/${selectedScriptId}/evaluate?symbol=${encodeURIComponent(symbol)}`,
+                            );
+                            const body = await res.json();
+                            if (!res.ok) throw new Error(body.error ?? "Couldn't check levels.");
+                            setScriptLevels(body.levels ?? null);
+                            setScriptStatus("ready");
+                          } catch (err) {
+                            setScriptError(err instanceof Error ? err.message : String(err));
+                            setScriptStatus("error");
+                          }
+                        }}
+                      >
+                        {scriptStatus === "loading" ? "Checking…" : "Check levels"}
+                      </Button>
+
+                      {scriptStatus === "error" && <p className="text-warn">{scriptError}</p>}
+                      {scriptStatus === "ready" && !scriptLevels && (
+                        <p className="text-muted">Nothing currently armed under this script.</p>
+                      )}
+                      {scriptLevels && (
+                        <div className="rounded-md bg-surface-alt p-2">
+                          <p className="text-muted">{scriptLevels.rationale}</p>
+                          <p className="mt-1">
+                            Entry {formatUsd(scriptLevels.entry)} · Stop{" "}
+                            {formatUsd(scriptLevels.stopLoss)} · TP1{" "}
+                            {formatUsd(scriptLevels.takeProfit1)} · Master target{" "}
+                            {formatUsd(scriptLevels.masterTarget)}
+                          </p>
+                          <button
+                            type="button"
+                            className="mt-2 min-h-9 cursor-pointer font-medium text-accent underline underline-offset-2"
+                            onClick={() => {
+                              setManualStop(String(scriptLevels.stopLoss));
+                              setManualTarget(String(scriptLevels.takeProfit1));
                             }}
                           >
                             Use these levels (stop + TP1) →
