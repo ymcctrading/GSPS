@@ -76,7 +76,7 @@ const GROUPS: { heading: string; terms: Term[] }[] = [
       {
         term: "Yearly cycles converging",
         plain:
-          "This month is an exact 1, 2, 3, 5 or 7-year anniversary of one or more of this stock's major tops or bottoms. Gann expected turns where several cycles run out together, so the more that line up, the more worth watching this month is. It's timing context, not a buy or sell signal.",
+          "This month is an exact 1, 2, 3, 5 or 7-year anniversary of one or more of this stock's major tops or bottoms. Turns tend to come where several cycles run out together, so the more that line up, the more worth watching this month is. It's timing context, not a buy or sell signal.",
       },
     ],
   },
