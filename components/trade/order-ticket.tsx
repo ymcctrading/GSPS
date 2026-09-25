@@ -637,8 +637,18 @@ export function OrderTicket({
                   managed exit.
                 </p>
 
-                {/* Novice (allowedStrategyModes === []) sees nothing here —
-                    server-resolved, not a client-side tier guess. */}
+                {/* Novice (allowedStrategyModes === []) sees the explainer
+                    below instead of the selector — a designed counterpart,
+                    not silence. Both branches are server-resolved, not a
+                    client-side tier guess. See AGENTS.md's Polarity-audit
+                    section. */}
+                {allowedStrategyModes && allowedStrategyModes.length === 0 && (
+                  <p className="rounded-lg border border-border p-3 text-xs text-muted">
+                    GSPS prices every trade plan from its own structural analysis — no Strategy Mode
+                    override at this tier. That&apos;s the one set of levels this platform stands
+                    behind, and it&apos;s the one worth learning to read first.
+                  </p>
+                )}
                 {allowedStrategyModes && allowedStrategyModes.length > 0 && (
                 <div className="rounded-lg border border-border p-3 text-xs">
                   <label className="flex flex-col gap-1 text-muted">

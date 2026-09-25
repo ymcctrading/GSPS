@@ -198,4 +198,20 @@ export interface StructuredReview {
   ruleState: PlanState;
   lessonTags: string[];
   summary: string;
+  /**
+   * The Rules Alignment breakdown (`lib/signals/scoring.ts`) as it stood
+   * when this plan was generated — the "cause" half of a cause-and-effect
+   * pairing whose "effect" half is everything else on this review
+   * (`ruleState`, `planAdherence`, the actual-vs-planned prices). Added
+   * 2026-09-23 as this platform's Polarity counterpart to Wall-Street-only
+   * backtest attribution (`lib/backtest/attribution.ts`): a personal,
+   * single-trade, non-statistical mirror available at every tier, not a
+   * cross-symbol expectancy/win-rate engine. See AGENTS.md's Polarity-audit
+   * section for the full reasoning; this field was the missing half of an
+   * already-built-but-never-rendered review (this module has existed, and
+   * `/api/trade-plans/[planId]/review` has served it, since before this
+   * change — no UI ever consumed either, and neither included the
+   * criteria-level evidence, only the plan-adherence half).
+   */
+  alignment: RulesAlignmentScore;
 }
