@@ -1137,7 +1137,7 @@ Portfolio analytics drives retention and trust.
   `docs/STRATEGY_MODES.md`'s "Custom-script / plugin system" section.
   **All four phases (the DSL + sandboxed-evaluator core,
   `lib/strategies/custom/`; the plugin registry + CRUD API,
-  `supabase/migrations/0080_strategy_plugins.sql`, `/api/strategy-plugins`;
+  `supabase/migrations/0081_strategy_plugins.sql`, `/api/strategy-plugins`;
   the chart-plotting + level-generation hook, `lib/strategies/custom/plot.ts`,
   `/api/strategy-plugins/[id]/evaluate`, wired into
   `components/chart/candles.tsx` and `components/trade/order-ticket.tsx`;

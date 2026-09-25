@@ -4,7 +4,7 @@
  * CRUD for custom-script Strategy Modes (`lib/strategies/custom/`,
  * `docs/STRATEGY_MODES.md`'s "Custom-script / plugin system" section;
  * AGENTS.md's "Strategy Modes" section). Phase 2 of that design: the plugin
- * registry (`supabase/migrations/0080_strategy_plugins.sql`) and this CRUD
+ * registry (`supabase/migrations/0081_strategy_plugins.sql`) and this CRUD
  * API. Never wired into scanning, scoring, `SignalGates`, or Automation — a
  * saved script exists only to be compiled and evaluated on demand by a
  * future chart hook (Phase 3, not built here).

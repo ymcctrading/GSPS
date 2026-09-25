@@ -880,7 +880,7 @@ applying the Three-question mandate rather than engineering preference alone):
   their own method, they do not get to issue verdicts to other users.
 
 **Phase 2 — plugin registry + CRUD API (built 2026-09-23).**
-`supabase/migrations/0080_strategy_plugins.sql` adds `strategy_plugins`
+`supabase/migrations/0081_strategy_plugins.sql` adds `strategy_plugins`
 (current state per script; owner-only RLS, private to the authoring user)
 and `strategy_plugin_versions` (append-only, one row per saved `source`
 edit — a `name`/`active` edit alone does not bump `version`). No compiled-

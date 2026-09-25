@@ -261,7 +261,7 @@ script/plugin system" entry:
 
 ### Phase 2 — plugin registry + CRUD API (built 2026-09-23)
 
-- **`supabase/migrations/0080_strategy_plugins.sql`** — `strategy_plugins`
+- **`supabase/migrations/0081_strategy_plugins.sql`** — `strategy_plugins`
   (one row per script: `user_id`, `name`, `author`, `source`, `version`,
   `active`; owner-only RLS, unique on `(user_id, name)`) and
   `strategy_plugin_versions` (append-only: one row per saved `source` edit,
