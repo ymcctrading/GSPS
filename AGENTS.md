@@ -949,6 +949,28 @@ suite 1892/1892 passing, `tsc --noEmit` clean, lint clean (0 errors, no new
 warnings), build clean (all four `/api/strategy-plugins/*` routes
 compiled), `check-banned-terms.mjs` clean.
 
+**Authoring UI (built 2026-09-25).** Never one of the four numbered
+phases, but the CRUD API had no front end — `/settings/scripts`
+(`app/(app)/settings/scripts/page.tsx`,
+`components/settings/custom-script-editor.tsx`) is a thin client over
+`/api/strategy-plugins*` that trusts nothing it hasn't fetched from those
+routes, including authoring eligibility itself (`GET /api/strategy-plugins`
+now also returns `authoringEnabled`, resolved server-side, since an empty
+script list alone can't distinguish "no scripts yet" from "this tier can't
+author them"). Reachable only from a plain-text link on the Settings page
+(`components/settings/custom-scripts-settings.tsx`, itself gated on
+`authoringEnabled`, rendering nothing otherwise), not the main nav — same
+off-nav placement `components/app/nav.tsx`'s own header comment documents
+for Glossary. The backtest panel repeats Phase 4's "evidence only, not a
+performance claim" wording in the UI itself, not just the API response.
+Verified: `tsc --noEmit` clean, lint clean (0 errors, 0 new warnings), full
+suite still 1892/1892 (no route-level UI tests, matching this codebase's
+existing convention — `app/api/**` and `app/(app)/**` have none), build
+clean (`/settings/scripts` compiled, statically prerendered),
+`check-banned-terms.mjs` clean. Not exercised in a live browser in this
+session (no Supabase-authenticated environment available here) — say so
+rather than claiming a manual click-through happened.
+
 Any strategy plugin built or extended under this family must continue to
 satisfy the rules this section states: opt-in, one-at-a-time, never
 touching the Gann verdict, tier-gated and server-resolved only, and clearly

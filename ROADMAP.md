@@ -1073,10 +1073,12 @@ Portfolio analytics drives retention and trust.
   `/api/strategy-plugins/[id]/backtest`) built out-of-phase, direct
   request** — same precedent as the Q1 Strategy Modes entry above, a
   signal-engine addition built now at explicit request rather than waiting
-  for this phase's window. A dedicated script-authoring/management UI page
-  (distinct from the CRUD API itself) was never part of this design's four
-  phases and remains a real gap for a future session, still belonging to
-  this Q2 initiative's window.)*
+  for this phase's window. **Authoring UI built the same way, out-of-phase,
+  direct request:** `/settings/scripts`
+  (`components/settings/custom-script-editor.tsx`), reachable from a
+  plain-text link on the Settings page rather than the main nav — the CRUD
+  API's own four phases never included a front end, so this closes that gap
+  rather than leaving it for later.)*
 - **Database optimization** — indexing for scan queries, caching for frequent
   chart requests, query-plan review.
 

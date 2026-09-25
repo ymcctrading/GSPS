@@ -352,11 +352,31 @@ zero-arm case), full suite 1892/1892 passing, `tsc --noEmit` clean, lint
 clean (0 errors, no new warnings), build clean (all four
 `/api/strategy-plugins/*` routes compiled), `check-banned-terms.mjs` clean.
 
-All four phases of this design are now built. A dedicated script-authoring/
-management UI page (as opposed to the CRUD API itself) was never part of
-this design's four phases and remains unbuilt — a future session adding one
-should read this document and AGENTS.md's "Strategy Modes" section first,
-the same way this session did.
+All four phases of this design are now built.
+
+### Authoring UI (built 2026-09-25)
+
+Never part of the four numbered phases, but the CRUD API on its own had no
+front end for a human to actually use it. `/settings/scripts`
+(`app/(app)/settings/scripts/page.tsx`,
+`components/settings/custom-script-editor.tsx`) is a thin client over
+`/api/strategy-plugins*` — it computes nothing of its own and trusts
+nothing it hasn't fetched from those routes, including whether the
+signed-in account may author at all (`authoringEnabled`, now returned by
+`GET /api/strategy-plugins` alongside the script list, resolved server-side
+via `isCustomScriptAuthoringAllowedForPolicy` — necessary because an empty
+script list is otherwise ambiguous between "no scripts yet" and "this tier
+can't author them"). List/create/edit/delete a script, see its version
+history, and exercise Phase 3's evaluate route and Phase 4's backtest route
+against a symbol — the backtest panel repeats that module's own "evidence
+only, not a performance claim" wording in the UI itself, not just its API
+response, so the disclaimer travels with the number wherever it's read.
+Reachable only from a plain-text link on the Settings page
+(`components/settings/custom-scripts-settings.tsx`, itself gated on
+`authoringEnabled` and rendering nothing otherwise) rather than promoted
+into the main nav — the same off-nav placement `components/app/nav.tsx`'s
+own header comment already documents for Glossary, given the nav's
+seven-item tab-bar ceiling.
 
 Roadmap placement: Q2/Q3, alongside the existing "Expanded indicator
 library for self-directed strategy testing" initiative (ROADMAP.md) — see

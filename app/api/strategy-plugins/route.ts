@@ -66,7 +66,16 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ plugins: data ?? [] });
+  // An empty `plugins` list is ambiguous on its own (no scripts yet vs. a
+  // tier that can't author them) — `authoringEnabled` disambiguates for any
+  // UI (e.g. the settings scripts manager) that needs to decide whether to
+  // even offer script authoring, without duplicating the tier check
+  // client-side.
+  const policy = await getUserEntitlementPolicy(supabase, user.id);
+  return NextResponse.json({
+    plugins: data ?? [],
+    authoringEnabled: isCustomScriptAuthoringAllowedForPolicy(policy),
+  });
 }
 
 export async function POST(req: NextRequest) {
