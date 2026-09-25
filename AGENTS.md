@@ -597,6 +597,11 @@ for the project owner** — do not fix it silently, and re-verify it first:
   Production also sets `AUTONOMOUS_LIVE_TRADING_HALTED` (2026-09-23).
   Commit 95da144's "sign-off held back" was already untrue when written.
   This is latent while no live broker connection exists.
+  **Resolved 2026-09-25, project-owner sign-off:** the row
+  (`96573294-…`) was revoked in production, not deleted. `revoked_reason`
+  cites this finding. `isFeatureAuthorized("autonomous_live_trading")` is
+  now false. Re-record it with `scripts/record-autonomous-live-signoff.mjs`
+  only once a real compliance/legal review exists.
 - **Entry confirmation isn't uniform (F3.4).** Guided execute, the demo
   auto-trader and the manual ticket place orders without it. Only plan-scoped
   automation requires an `armed` plan.
