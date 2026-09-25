@@ -12,13 +12,16 @@ import type { Bar, ScanResult } from "@/lib/types";
  */
 function extendedDowntrend(scale: number): Bar[] {
   const bars: Bar[] = [];
-  for (let i = 0; i < 80; i++) {
-    // Gentle decline for the first 70 bars, then a sharp final leg down so
-    // price sits well below its 50-bar mean — the "primed for reversion"
-    // extension coarseReversion looks for.
-    const base = i < 70 ? 100 - i * 0.3 : 100 - 70 * 0.3 - (i - 70) * 3;
-    const c = base * scale;
-    bars.push({ t: `2026-01-${String((i % 28) + 1).padStart(2, "0")}T00:00:00Z`, o: c, h: c * 1.01, l: c * 0.99, c, v: 1_000_000 });
+  for (let i = 0; i < 120; i++) {
+    // A declining zig-zag (so the trend read has swings to find — a straight
+    // line reads as sideways) with a final leg down that leaves price
+    // extended below its 50-bar mean.
+    const trend = 150 - i * 0.5;
+    const wiggle = 6 * Math.sin((i / 10) * 2 * Math.PI);
+    const tail = i >= 110 ? (i - 109) * 1.5 : 0;
+    const c = (trend + wiggle - tail) * scale;
+    const t = new Date(Date.UTC(2025, 0, 1 + i)).toISOString();
+    bars.push({ t, o: c, h: c * 1.01, l: c * 0.99, c, v: 1_000_000 });
   }
   return bars;
 }
@@ -38,6 +41,9 @@ describe("coarseReversion price floor", () => {
     // the outcome.
     const at1000 = coarseReversion("A", extendedDowntrend(10));
     const at2000 = coarseReversion("B", extendedDowntrend(20));
+    // Guard against a vacuous pass: this fixture previously read as sideways,
+    // so both calls returned null and null matched null.
+    expect(at1000).not.toBeNull();
     expect(at1000?.coarseScore).toEqual(at2000?.coarseScore);
     expect(at1000?.direction).toEqual(at2000?.direction);
   });

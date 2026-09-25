@@ -1566,6 +1566,28 @@ something outside the repo overrides it. Known override surfaces as of 2026-09-1
 
 The list is a starting point, not an inventory. Re-derive it rather than trusting it.
 
+## Speed is a product requirement, not a platform ceiling — standing direction (2026-09-25, project owner)
+
+Recorded here because it has had to be restated four times. The 60-second
+budget that runs through this codebase (`maxDuration = 60` in
+`app/api/market-scan/route.ts`, `FULL_UNIVERSE_TOP`,
+`CONTINUATION_DEADLINE_MS`, `YEAR_CYCLE_RERANK_DEADLINE_MS`) is **a
+self-imposed limit**, set so a novice feels safe using the product. If the
+flagship scan feels slow, prospective users draw negative conclusions about
+the whole platform, and that is the outcome to avoid.
+
+What that means for a session:
+
+- **Do not describe the budget as "Vercel's limit"** or treat it as a
+  constraint to engineer around. It is a design decision about how the
+  product should feel.
+- **Do not solve latency by raising the budget.** Raising `maxDuration` or a
+  deadline to make room for new work spends exactly what the budget exists to
+  protect. New work fits inside it, or it runs off the user's path.
+- **Every change that adds time to a scan says how much**, measured, not
+  estimated (the `[market-scan]` `mark()` breadcrumbs exist for this), and
+  says whether a user waits on it.
+
 ## Deployment (Vercel)
 
 - The project runs on the **Vercel Hobby (free) plan**. Cron jobs are capped at **2 per project**, each running **no more than once a day**. Before adding a new scheduled job, confirm the total stays at or under that cap — see `docs/THIRD_PARTY_LIMITS.md`. If something needs to run more often than daily, it does not belong in `vercel.json` crons; trigger it from an external scheduler instead.
