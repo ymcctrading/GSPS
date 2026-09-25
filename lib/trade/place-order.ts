@@ -36,7 +36,7 @@ import { canEnterNewIntradayPosition } from "@/lib/promotion/pro-intraday";
 import { loadProIntradayUsage, PRO_INTRADAY_DAILY_LOSS_LOCK_PCT } from "@/lib/promotion/intraday-gate-usage";
 import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 import { readLiveAlpacaConnection } from "@/lib/brokers/live-creds";
-import { getAccount, placeOrder } from "@/lib/brokers/alpaca";
+import { getAccount, getPositions, placeOrder } from "@/lib/brokers/alpaca";
 import { isLiveTradingRestricted } from "@/lib/risk/live-trade-loss";
 import { checkPositionLimits } from "@/lib/risk/position-limits";
 import { gateResolvedAction } from "@/lib/risk/cooldown";
@@ -694,6 +694,77 @@ async function placeLiveOrder(
       status: 409,
       body: { error: cooldownGate.reason, code: "risk_cooldown", riskState: gate.decision.state },
     };
+  }
+
+  // Allocation/correlation ceilings (lib/risk/position-limits.ts) — the same
+  // Gann-disclosed capital ceilings the paper path enforces above, on the
+  // account they matter most on. Until 2026-09-25 this ran on paper only
+  // (alignment audit finding F3.5), so a live entry faced a looser rule set
+  // than a paper one. Skipped for a protective order for the same reason as
+  // on paper. Exposure is read from the broker itself (the account of
+  // record); planned open risk from this app's own working live exit plans,
+  // since Alpaca holds no planned stop distance for a position — a position
+  // with no working plan contributes no planned risk, the same as a paper
+  // position with no stop. Same-symbol correlated-group proxy as the paper
+  // path. Fails closed: if exposure can't be read, nothing is placed.
+  if (!isProtective) {
+    let brokerPositions: Awaited<ReturnType<typeof getPositions>>;
+    try {
+      brokerPositions = await getPositions(connection.creds);
+      if (!Array.isArray(brokerPositions)) throw new Error("Alpaca returned no position list.");
+    } catch (err) {
+      return {
+        status: 502,
+        body: {
+          error: `Couldn't read the live account's open positions from Alpaca — ${err instanceof Error ? err.message : String(err)}. Nothing was placed.`,
+          code: "live_positions_unreadable",
+        },
+      };
+    }
+    const { data: workingPlans, error: plansError } = await supabase
+      .from("protocol_exits")
+      .select("qty, entry_price, stop_loss")
+      .eq("user_id", userId)
+      .eq("mode", "live")
+      .eq("status", "working");
+    if (plansError) {
+      return {
+        status: 502,
+        body: {
+          error: `Couldn't read this account's open live exit plans — ${plansError.message}. Nothing was placed.`,
+          code: "live_open_risk_unreadable",
+        },
+      };
+    }
+    const openRiskUsd = ((workingPlans ?? []) as { qty: number; entry_price: number; stop_loss: number | null }[])
+      .reduce(
+        (sum, p) =>
+          sum + (p.stop_loss == null ? 0 : Math.abs(Number(p.entry_price) - Number(p.stop_loss)) * Number(p.qty)),
+        0,
+      );
+    const deployedUsd = brokerPositions.reduce((sum, p) => sum + Math.abs(Number(p.market_value) || 0), 0);
+    const heldSymbols = new Set(brokerPositions.map((p) => p.symbol.toUpperCase()));
+    const candidateJoinsExistingGroup = heldSymbols.has(input.symbol.toUpperCase());
+    const referencePrice = input.limitPrice ?? input.referencePrice ?? null;
+    if (referencePrice != null) {
+      const verdict = checkPositionLimits({
+        equity,
+        newPositionNotionalUsd: referencePrice * input.qty,
+        currentlyDeployedUsd: deployedUsd,
+        currentOpenRiskUsd: openRiskUsd,
+        newPositionRiskUsd: input.attachLevels
+          ? Math.abs(referencePrice - input.attachLevels.stopLoss) * input.qty
+          : 0,
+        openCorrelatedGroupsExcludingThis: candidateJoinsExistingGroup ? heldSymbols.size - 1 : heldSymbols.size,
+        candidateJoinsExistingGroup,
+      });
+      if (!verdict.ok) {
+        return {
+          status: 409,
+          body: { error: verdict.violations.join(" "), code: "position_limit", violations: verdict.violations },
+        };
+      }
+    }
   }
 
   if (input.entryMode === "advised" && !input.limitPrice) {

@@ -584,9 +584,13 @@ for the project owner** — do not fix it silently, and re-verify it first:
   including the 2026-09-23 run that confirmed the 6/3.5 cutoffs, measure a
   trigger production doesn't use. This is the `harmonicProximity` failure
   shape again.
-- **Live orders skip `checkPositionLimits` (F3.5).** It runs only on the paper
-  path in `lib/trade/place-order.ts`. `placeLiveOrder` never calls it, so the
-  orphan-module audit's item 1 above is true for paper only.
+- **Live orders skip `checkPositionLimits` (F3.5).** **Resolved 2026-09-25,
+  project-owner sign-off.** `placeLiveOrder` now enforces the same four
+  ceilings as the paper path, after the circuit breaker and before any
+  pricing or broker call. Exposure comes from the broker's own positions and
+  planned open risk from the account's `working` live `protocol_exits` rows.
+  It fails closed if either can't be read and is skipped for protective
+  orders, the same as paper.
 - **Autonomous live trading looks authorised (F4.4, F7.6).** An active
   `compliance_signoffs` row for `autonomous_live_trading` has existed since
   2026-09-03, and its `review_reference` says no formal review was performed.
