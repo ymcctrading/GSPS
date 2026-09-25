@@ -2,7 +2,15 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-09-23 (Follow-up to "Strategy Modes" under Q1: three
+**Last updated:** 2026-09-25 (Added "Three-path tier promotion" under Q1 —
+Curriculum/Track Record/Pay Your Way, each independently sufficient, applied
+to all three tier transitions. See AGENTS.md's "Three-path tier promotion"
+section.)
+Previously 2026-09-23 (Added "Polarity audit: Novice/Pro's own
+designed pole" under Q1 — a platform-wide audit for Expert/Wall Street depth
+with no designed Novice/Pro counterpart, two real gaps fixed. See AGENTS.md's
+Polarity-audit section.)
+Previously same day (Follow-up to "Strategy Modes" under Q1: three
 more modes — VWAP reclaim/loss, Stochastic crossover, Donchian breakout —
 and tier gating, Novice/Pro/Expert+Wall Street, on the whole feature. See
 AGENTS.md's "Strategy Modes" section and `docs/STRATEGY_MODES.md`.)
@@ -223,6 +231,26 @@ both signal discovery and execution.
   See `lib/entitlements/policy.ts#allowedStrategyModes`,
   `lib/strategies/access.ts`, and `docs/STRATEGY_MODES.md`'s "Tier gating"
   section.)*
+- **Polarity audit: Novice/Pro's own designed pole** *(2026-09-23, direct
+  request, fits this Q1 goal's retention side — a designed Novice/Pro
+  experience closer to "sandbox that encourages earning while learning" is
+  a retention lever, not a Strategy-Modes-style out-of-phase addition)* —
+  platform-wide audit for places Expert/Wall Street depth had no designed
+  Novice/Pro counterpart (a capped feature list, not a genuine second
+  pole), per AGENTS.md's Polarity-audit section. Two real gaps found and
+  fixed: (1) per-factor backtest attribution was Wall-Street-only with no
+  Novice/Pro/Expert equivalent — `lib/lifecycle/review.ts`'s existing,
+  previously UI-less post-close review now also carries the plan's Rules
+  Alignment breakdown, rendered in a new "Trade Reviews" panel
+  (`components/portfolio/trade-reviews.tsx`, `/api/trade-plans/reviews`) —
+  a personal single-trade cause-and-effect mirror, deliberately not a
+  diluted copy of cross-symbol backtest statistics; (2) the order ticket's
+  Strategy Mode area showed nothing at all for Novice, with no rationale
+  where Pro's narrower subset had one — now shows a short explainer instead
+  of blank space. Chart-overlay gating (currently ungated for every tier by
+  standing direction) and GSPS School curriculum were investigated and
+  found to need no fix this pass — see AGENTS.md for the full per-surface
+  findings, including the ones judged already correct.
 - **Gann & Sara Cross-Market Confluence Layers** *(out-of-phase, direct
   request: "GSPS Gann & Sara Cross-Market Integration Addendum", 2026-08-28.
   Fits no Q1 strategic goal above — it's a signal-engine addition, not
@@ -759,6 +787,50 @@ both signal discovery and execution.
       tier that can see the intraday alerts panel; only a Pro account's
       intraday-sourced order is actually gated by it — an Expert/Wall Street
       order carrying the same tag places exactly as it would untagged.
+- **Three-path tier promotion** *(2026-09-25, direct request, fits this
+  phase's monetization/retention goal directly)* — generalizes the
+  Novice→Pro promotion gate above into a three-path model applied to
+  **every** tier transition on the ladder (Novice→Pro, Pro→Expert,
+  Expert→Wall Street): Curriculum completion, a demonstrated Track Record,
+  or Pay Your Way, any one independently sufficient. See AGENTS.md's
+  "Three-path tier promotion" section for the full three-question-mandate
+  reasoning, the one mandatory shared component (the Wall Street capstone,
+  required regardless of path), and where the Track Record thresholds come
+  from. Built:
+  - `lib/promotion/transitions.ts`, `trackRecordPolicy.ts`,
+    `curriculumPolicy.ts`, `paths.ts` — the shared vocabulary, per-transition
+    thresholds (asymmetric: easiest at Novice→Pro, hardest at
+    Expert→Wall Street), curriculum-gate mapping, and the combinator that
+    decides which of the three paths currently clear a transition.
+  - `lib/school/curriculum.ts`/`curriculum-service.ts` — Academies 4-7
+    ("Sharpening the Edge"/"Professional Toolkit"), advisory-only until now,
+    gained a real consumer: completing all of them writes
+    `tier_promotions_progress.curriculum_completed_at` for `pro_to_expert`,
+    the Curriculum path for that transition. The academies and their lessons
+    are unchanged; only what reading their completion means is new.
+  - `lib/promotion/readiness.ts#gatherTrackRecordInputs` — adds a
+    profitability metric (cumulative realized return, average realized
+    R-multiple) deliberately kept separate from
+    `lib/risk/execution-score.ts`'s behavior-only score, per that module's
+    own "P&L must never feed execution scoring" rule.
+  - `lib/billing/promotionPricing.ts` — proposed (not yet approved or
+    Stripe-activated) pay-your-way pricing, sized so it is always the worse
+    deal than earning a tier for free: Novice→Pro $49 one-time; Pro→Expert
+    $499 one-time + the standard subscription; Expert→Wall Street $1,499
+    one-time + the standard subscription.
+  - `supabase/migrations/0080_tier_promotion_three_paths.sql` —
+    `tier_promotions_progress`/`tier_promotions_status`/`tier_promotion_purchases`,
+    generalized across all three transitions. The original
+    `promotion_progress`/`promotion_status` (0046) are left in place,
+    unmigrated, and still read for Novice→Pro's existing Foundations flags.
+  - `/api/promotion/paths/status`, `/api/promotion/paths/upgrade`,
+    `app/(app)/promotion/page.tsx` — the new three-path UI, added alongside
+    (not replacing) the existing Novice→Pro-only `/api/promotion/status`/
+    `upgrade` routes and Settings-page card, which are untouched and still
+    drive that transition's original behavior. Copy follows the ascension
+    framing the project owner asked for (a genuine graduation out of a
+    lower tier's constraints) within `lib/promotion/copy.ts`'s existing
+    forbidden-phrase rule.
 - **Validation, backtesting & audit metrics** *(2026-08-30, out-of-phase,
   direct request)* — required-performance-metric and versioning additions to
   the existing walk-forward backtest harness (`lib/backtest/*`), against the
@@ -1062,9 +1134,23 @@ Portfolio analytics drives retention and trust.
   2026-09-23: the TradingView-style custom-script/plugin system requested
   alongside "Strategy Modes" (Q1, out-of-phase, see that entry above) is
   scoped to land here rather than as its own initiative — see
-  `docs/STRATEGY_MODES.md`'s "Custom-script / plugin system" section for the
-  sandboxed-execution/plugin-registry/chart-hook design sketch. Not started;
-  design only as of this note.)*
+  `docs/STRATEGY_MODES.md`'s "Custom-script / plugin system" section.
+  **All four phases (the DSL + sandboxed-evaluator core,
+  `lib/strategies/custom/`; the plugin registry + CRUD API,
+  `supabase/migrations/0081_strategy_plugins.sql`, `/api/strategy-plugins`;
+  the chart-plotting + level-generation hook, `lib/strategies/custom/plot.ts`,
+  `/api/strategy-plugins/[id]/evaluate`, wired into
+  `components/chart/candles.tsx` and `components/trade/order-ticket.tsx`;
+  and backtesting, `lib/backtest/replayCustomScript.ts`,
+  `/api/strategy-plugins/[id]/backtest`) built out-of-phase, direct
+  request** — same precedent as the Q1 Strategy Modes entry above, a
+  signal-engine addition built now at explicit request rather than waiting
+  for this phase's window. **Authoring UI built the same way, out-of-phase,
+  direct request:** `/settings/scripts`
+  (`components/settings/custom-script-editor.tsx`), reachable from a
+  plain-text link on the Settings page rather than the main nav — the CRUD
+  API's own four phases never included a front end, so this closes that gap
+  rather than leaving it for later.)*
 - **Database optimization** — indexing for scan queries, caching for frequent
   chart requests, query-plan review.
 

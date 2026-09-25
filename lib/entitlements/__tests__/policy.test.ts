@@ -48,6 +48,13 @@ describe("getEntitlementPolicy", () => {
     expect(getEntitlementPolicy("SYSTEM_MASTERY").automationEnabled).toBe(true);
   });
 
+  it("gates custom-script authoring at Wall Street (SYSTEM_MASTERY) only, one rung above 'all' built-in modes", () => {
+    expect(getEntitlementPolicy("PRACTICE").customScriptAuthoringEnabled).toBe(false);
+    expect(getEntitlementPolicy("STANDARD").customScriptAuthoringEnabled).toBe(false);
+    expect(getEntitlementPolicy("INVESTOR_MODE").customScriptAuthoringEnabled).toBe(false);
+    expect(getEntitlementPolicy("SYSTEM_MASTERY").customScriptAuthoringEnabled).toBe(true);
+  });
+
   it("gates intraday scans at Expert (INVESTOR_MODE) and above only", () => {
     expect(getEntitlementPolicy("PRACTICE").intradayScansEnabled).toBe(false);
     expect(getEntitlementPolicy("STANDARD").intradayScansEnabled).toBe(false);

@@ -29,6 +29,10 @@ const LINKS = [
   // /settings, so this is the one destination with a standing duplicate
   // affordance to spare.
   { href: "/settings", label: "Settings", short: "Setup", icon: Settings, tabBar: false },
+  // A status page a user checks occasionally, not a daily destination — no
+  // tab-bar slot to spare for it either, same reasoning as Glossary/Settings
+  // above.
+  { href: "/promotion", label: "Tier Promotion", short: "Promote", icon: TrendingUp, tabBar: false },
 ];
 
 /**

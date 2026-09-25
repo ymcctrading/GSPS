@@ -7,6 +7,7 @@ import {
   academyUnlocked,
   maybeWriteEducationCompleted,
   maybeWritePracticeValidationCompleted,
+  maybeWriteAdvancedCurriculumCompleted,
 } from "@/lib/school/curriculum-service";
 
 function lessonIdFromParams(segments: string[]): string {
@@ -81,13 +82,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ les
   // user-scoped progress write above.
   let wroteEducationCompleted = false;
   let wrotePracticeValidationCompleted = false;
-  if (result.shouldCheckEducationCompleted || result.shouldCheckPracticeValidation) {
+  let wroteAdvancedCurriculumCompleted = false;
+  if (
+    result.shouldCheckEducationCompleted ||
+    result.shouldCheckPracticeValidation ||
+    result.shouldCheckAdvancedCurriculumCompleted
+  ) {
     const service = createServiceClient();
     if (result.shouldCheckEducationCompleted) {
       wroteEducationCompleted = await maybeWriteEducationCompleted(service, user.id);
     }
     if (result.shouldCheckPracticeValidation) {
       wrotePracticeValidationCompleted = await maybeWritePracticeValidationCompleted(service, user.id);
+    }
+    if (result.shouldCheckAdvancedCurriculumCompleted) {
+      wroteAdvancedCurriculumCompleted = await maybeWriteAdvancedCurriculumCompleted(service, user.id);
     }
   }
 
@@ -96,5 +105,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ les
     score: result.score,
     wroteEducationCompleted,
     wrotePracticeValidationCompleted,
+    wroteAdvancedCurriculumCompleted,
   });
 }
