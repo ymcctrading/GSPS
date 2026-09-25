@@ -194,15 +194,30 @@ export const LARGE_CAP_UNIVERSE: string[] = [
  *    tech/growth).
  *
  * Not a replacement for `LARGE_CAP_UNIVERSE` itself, and not a claim that
- * this exact 25 is the definitive backtest universe — a hand-picked spread
- * for a quick, representative comparison run. A full run over all ~765
- * symbols is the more rigorous version of the same fix, just far slower
- * to fetch (collectRun fetches sequentially — see its own comment on the
- * vendor rate limit).
+ * this exact list is the definitive backtest universe — a hand-picked
+ * spread for a quick, representative comparison run. A full run over all
+ * ~765 symbols is the more rigorous version of the same fix, just far
+ * slower to fetch (collectRun fetches sequentially — see its own comment
+ * on the vendor rate limit).
+ *
+ * `BMNR`/`CRCL` added 2026-09-25, project-owner direction: a third,
+ * deliberately narrower pole beyond "high-beta" and "defensive" —
+ * small, thinly-floated, crypto-adjacent names that started highly
+ * volatile and attracted momentum/crypto/short-term-speculator flow, the
+ * project owner's own description of a "winning formula" archetype that
+ * recurred in 2025 and is expected to keep rotating across industries
+ * (a separate, later session is scoped to identify the next one). Both
+ * are already members of `LARGE_CAP_UNIVERSE`, so this doesn't widen the
+ * sample outside what production actually scans — it's a sharper cut of
+ * the same high-volatility pole `MSTR`/`HOOD`/`APP` already sample,
+ * closer to that archetype's actual size/float than any of the three.
  */
 export const DIVERSIFIED_BACKTEST_SAMPLE: string[] = [
   // High-beta / momentum
   "MSTR", "HOOD", "APP", "MRNA",
+  // Small, thinly-floated, crypto-adjacent momentum names (project-owner
+  // direction, 2026-09-25) — see this constant's own doc comment.
+  "BMNR", "CRCL",
   // Energy (cyclical, high volatility)
   "OXY", "DVN", "FANG",
   // Semiconductors (cyclical, moderate-high volatility)
