@@ -27,7 +27,7 @@ import { relativeVolume } from "@/lib/signals/indicators";
 import { countLevelTests, levelRole } from "@/lib/analysis/levelRole";
 import { computeFanLines } from "@/lib/gann/fans";
 import { recentSquareOf9Levels } from "@/lib/gann/squareOf9";
-import { timeCycles } from "@/lib/gann/timeCycles";
+import { timeCycles, yearCycleConvergence } from "@/lib/gann/timeCycles";
 import { computeAngleSlopes } from "@/lib/gann/normalizedSlope";
 import { computeRetracementLevels } from "@/lib/gann/retracement";
 import { priceTimeConfluence } from "@/lib/gann/digitalRoot";
@@ -155,6 +155,9 @@ export async function scanTicker(
     const fanLines = computeFanLines(daily, currentPrice);
     const s9 = recentSquareOf9Levels(daily, currentPrice).slice(0, 12);
     const cycles = timeCycles(daily);
+    // The yearly cycles need the 10-year monthly chart; the daily read above
+    // only reaches the day-count wheel. See yearCycleConvergence.
+    const yearCycles = yearCycleConvergence(monthly);
     const angleSlopes = computeAngleSlopes(daily, currentPrice);
     // Gann's squaring of price and time, replacing timeCycle — same anchors
     // as angleSlopes, a different (raw count-for-count) construction.
@@ -195,6 +198,8 @@ export async function scanTicker(
       timeCycleDates: cycles.dates,
       timeCycleFixedCalendarActive: cycles.fixedCalendarActive,
       timeCycleFixedCalendarDates: cycles.fixedCalendarDates,
+      yearCycleBullishHits: yearCycles.bullishHits,
+      yearCycleBearishHits: yearCycles.bearishHits,
       angleSlopes,
       retracementLevels: retracementLevels.slice(0, 7).map(({ fraction, label, price, distancePct, role, importance }) => ({
         fraction,

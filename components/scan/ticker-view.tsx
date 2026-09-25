@@ -231,6 +231,12 @@ export function TickerView({ symbol }: { symbol: string }) {
             ⏱ <GlossaryTerm term="Cyclical turn window" label="Cyclical turn window" className="decoration-warn/60" /> active
           </span>
         )}
+        {result && (result.gann.yearCycleBullishHits ?? 0) + (result.gann.yearCycleBearishHits ?? 0) > 0 && (
+          <span className="hidden text-xs font-medium text-warn sm:inline">
+            ⟳ <GlossaryTerm term="Yearly cycles converging" label="Yearly cycles converging" className="decoration-warn/60" />
+            {" "}({result.gann.yearCycleBullishHits ?? 0} from lows, {result.gann.yearCycleBearishHits ?? 0} from highs)
+          </span>
+        )}
         <div className="ml-auto flex items-center gap-2">
           <ShareButton symbol={symbol} />
         </div>

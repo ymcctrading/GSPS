@@ -104,6 +104,16 @@ export interface GannLevels {
   /** Upcoming fixed-calendar dates of interest (ISO date strings). See `timeCycleFixedCalendarActive`. */
   timeCycleFixedCalendarDates?: string[];
   /**
+   * Yearly Master Time Factor cycles landing on the current month, counted
+   * from major lows / highs on the monthly chart (`yearCycleConvergence`,
+   * lib/gann/timeCycles.ts). The half of the time-cycle method the daily
+   * `timeCycle*` fields above cannot reach on a year of daily bars. Display
+   * only, like those. Optional: absent where no monthly history exists (the
+   * backtest replay, which rolls monthly bars up from about a year of daily).
+   */
+  yearCycleBullishHits?: number;
+  yearCycleBearishHits?: number;
+  /**
    * Realized Gann-angle (1x1, etc.) slope since the most recent significant
    * low (bullish reading) and high (bearish reading) — lib/gann/normalizedSlope.ts.
    */

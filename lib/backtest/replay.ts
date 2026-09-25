@@ -67,7 +67,7 @@ import { countLevelTests, levelRole, type LevelRole } from "@/lib/analysis/level
 import { atr } from "@/lib/analysis/pivots";
 import { computeFanLines } from "@/lib/gann/fans";
 import { recentSquareOf9Levels } from "@/lib/gann/squareOf9";
-import { timeCycles } from "@/lib/gann/timeCycles";
+import { timeCycles, yearCycleConvergence } from "@/lib/gann/timeCycles";
 import { computeAngleSlopes } from "@/lib/gann/normalizedSlope";
 import { computeRetracementLevels } from "@/lib/gann/retracement";
 import { priceTimeConfluence } from "@/lib/gann/digitalRoot";
@@ -106,6 +106,13 @@ export interface ReplayOptions {
    * Only sessions strictly before the day being traded are ever read.
    */
   dailyBars: Bar[];
+  /**
+   * Monthly bars for the same symbol (up to ten years). Supplying them tags
+   * each trade with `yearCycleHits`. Only months that closed before the
+   * trade's month are read, and a monthly pivot needs three later months to
+   * confirm, so no future bar can reach the tag.
+   */
+  monthlyBars?: Bar[];
   /**
    * Criterion weights to score with. Defaults to `DEFAULT_CRITERION_WEIGHTS`
    * (`lib/scoring/weights.ts`) — one point each, restored on principle
@@ -211,6 +218,15 @@ export interface ReplayTrade {
    * the same way it already buckets by verdict or stop width.
    */
   largeCap?: boolean;
+  /**
+   * Yearly Gann cycles landing on the trade's month in its own direction
+   * (`yearCycleConvergence` — major lows for a long, highs for a short), read
+   * from months closed before entry. Undefined when no monthly bars were
+   * supplied — never defaulted to 0, which would read as "checked, none".
+   * Not a scored criterion: this is what lets a run measure whether the
+   * market scan's yearly-cycle re-rank picks better trades.
+   */
+  yearCycleHits?: number;
 }
 
 export interface ReplayResult {
@@ -307,7 +323,18 @@ export interface MacroContext {
   structuralLevels: number[];
 }
 
-export function buildMacroContext(daily: Bar[], price: number): MacroContext {
+/**
+ * `asOf` is the session being replayed. It must be passed through to every
+ * date-relative read (`timeCycles`): left to default, those compare historical
+ * pivots against the wall-clock time the backtest runs, not the replayed
+ * session — which is how every replay before 2026-09-25 measured `timeCycle`.
+ * Defaults to the day after the last bar, i.e. the session `daily` precedes.
+ */
+export function buildMacroContext(
+  daily: Bar[],
+  price: number,
+  asOf: Date = new Date(new Date(daily[daily.length - 1].t).getTime() + 24 * 3600 * 1000),
+): MacroContext {
   const weekly = rollUp(daily, weekKey);
   const monthly = rollUp(daily, (b) => b.t.slice(0, 7));
   const monthlyTrend = readTrend(monthly, "1Month");
@@ -319,7 +346,7 @@ export function buildMacroContext(daily: Bar[], price: number): MacroContext {
 
   const fanLines = computeFanLines(daily, price);
   const s9 = recentSquareOf9Levels(daily, price).slice(0, 12);
-  const cycles = timeCycles(daily);
+  const cycles = timeCycles(daily, asOf);
   const angleSlopes = computeAngleSlopes(daily, price);
   const timePriceSquare = computeTimePriceSquare(daily, price);
   const volumeClimax = computeVolumeClimax(daily);
@@ -403,6 +430,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     maxBarsHeld = BARS_PER_SESSION * 10,
     warmupBars = 40,
     dailyBars,
+    monthlyBars,
     weights,
     useProductionStop = false,
   } = options;
@@ -426,7 +454,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     const priorSessions = dailyBars.filter((b) => b.t.slice(0, 10) < date);
     let arm: SessionArm | null = null;
     if (priorSessions.length >= MIN_DAILY_BARS_FOR_SCORE) {
-      const context = buildMacroContext(priorSessions, price);
+      const context = buildMacroContext(priorSessions, price, new Date(`${date}T12:00:00Z`));
       const direction = preferredEntryDirection(context.macroTrends);
       arm = {
         context,
@@ -527,6 +555,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       outputState: decision.outputState,
       criteria: criteriaOf(decision),
       largeCap,
+      yearCycleHits: monthlyBars ? yearCycleHitsAt(monthlyBars, live.t, trigger.direction) : undefined,
     };
 
     if (outcome === "timeout") {
@@ -702,6 +731,27 @@ export function byOutputState(result: ReplayResult): {
  * carries `largeCap` regardless of whether `dailyBars`/scoring were supplied,
  * so unlike `byOutputState` there is no "unknown" bucket to report.
  */
+/** Hits in `direction` at `at`, from monthly bars that closed before `at`'s month. */
+function yearCycleHitsAt(monthlyBars: Bar[], at: string, direction: "bullish" | "bearish"): number {
+  const month = at.slice(0, 7);
+  const closed = monthlyBars.filter((b) => b.t.slice(0, 7) < month);
+  const hits = yearCycleConvergence(closed, new Date(`${at.slice(0, 10)}T12:00:00Z`));
+  return direction === "bullish" ? hits.bullishHits : hits.bearishHits;
+}
+
+/**
+ * Split a run's trades by whether any yearly cycle landed on the trade's month
+ * in its direction — the measurement the market scan's shortlist re-rank
+ * (`rankShortlist`, lib/marketScan.ts) needs before its bonus values can be
+ * trusted. Trades with no monthly read are in neither row.
+ */
+export function byYearCycle(result: ReplayResult): { withHits: ReplayResult; withoutHits: ReplayResult } {
+  return {
+    withHits: summarise(result.trades.filter((t) => (t.yearCycleHits ?? 0) > 0)),
+    withoutHits: summarise(result.trades.filter((t) => t.yearCycleHits === 0)),
+  };
+}
+
 export function byLargeCap(result: ReplayResult): { largeCap: ReplayResult; notLargeCap: ReplayResult } {
   return {
     largeCap: summarise(result.trades.filter((t) => t.largeCap === true)),

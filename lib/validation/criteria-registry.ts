@@ -737,7 +737,14 @@ const RETIRED: RegisteredCriterion[] = [
       "`timeCycleBearishActive` are still computed and still drive the display-only turn-window " +
       "callouts on the ticker and chart pages — only the scored point moved. Replaced with a different " +
       "construction on the same daily bars (squaring price and time against the swing pivot rather " +
-      "than projecting anniversary dates) rather than a third attempt at tuning an anniversary-date rule.",
+      "than projecting anniversary dates) rather than a third attempt at tuning an anniversary-date rule. " +
+      "2026-09-25: every measurement above is invalid. The replay (lib/backtest/replay.ts's " +
+      "buildMacroContext) called timeCycles(daily) with no asOf, so it defaulted to the wall-clock time " +
+      "the backtest ran — each historical session was asked whether a turn window was active on the run " +
+      "date, not on that session. Fixed the same day (asOf now the replayed session). This criterion was " +
+      "therefore never measured at all; the retirement stands on the code as it is today, but reinstating " +
+      "it would be a fresh measurement, not a re-litigation of these numbers. The replay also cannot see " +
+      "the yearly cycles (yearCycleConvergence needs monthly history the replay does not fetch).",
   },
   {
     id: "harmonicProximity",

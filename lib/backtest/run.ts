@@ -28,6 +28,7 @@ import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { TF_LOOKBACK_DAYS, TF_MAX_BARS } from "@/lib/timeframe";
 import {
   byLargeCap,
+  byYearCycle,
   byOutputState,
   byScoreRange,
   combine,
@@ -191,6 +192,14 @@ export interface BacktestReport {
    * a property of large-cap names generally — not of the widening.
    */
   largeCapSplit: { largeCap: RunSummary; notLargeCap: RunSummary };
+  /**
+   * The run split by whether any yearly Gann cycle landed on each trade's
+   * month in its direction (`ReplayTrade.yearCycleHits`), over every trade
+   * regardless of verdict. This is what checks the market scan's yearly-cycle
+   * shortlist re-rank: if `withHits` doesn't beat `withoutHits`, the re-rank
+   * bonus is ranking noise.
+   */
+  yearCycleSplit: { withHits: RunSummary; withoutHits: RunSummary };
   /** Echoes the request — a report has to say which stop model produced it. */
   useProductionStop: boolean;
   /** Setups armed and triggered across the run, for a fill-rate sanity check. */
@@ -240,17 +249,28 @@ function summarise(r: ReplayResult): RunSummary {
  * Daily bars are what switch the score on inside the replay; without them
  * every trade comes back unscored and there is nothing to attribute.
  */
-export async function fetchSeries(symbol: string, timeframe: Timeframe): Promise<{ bars: Bar[]; daily: Bar[] }> {
+/**
+ * `includeMonthly` adds ten years of monthly bars for `replay`'s
+ * `yearCycleHits` tag. Off by default so callers that only need daily bars
+ * (the signal-engine replay) don't pay for an extra request per symbol.
+ */
+export async function fetchSeries(
+  symbol: string,
+  timeframe: Timeframe,
+  includeMonthly = false,
+): Promise<{ bars: Bar[]; daily: Bar[]; monthly?: Bar[] }> {
   const provider = getMarketDataProvider();
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
   const now = Date.now();
   const window = (tf: Timeframe) => new Date(now - TF_LOOKBACK_DAYS[tf] * 86_400_000);
+  const tenYearsAgo = new Date(now - 10 * 365.25 * 86_400_000);
 
-  const [bars, daily] = await Promise.all([
+  const [bars, daily, monthly] = await Promise.all([
     provider.fetchBars(symbol, timeframe, window(timeframe), null, assetClass, TF_MAX_BARS[timeframe]),
     provider.fetchBars(symbol, "1Day", window("1Day"), null, assetClass, TF_MAX_BARS["1Day"]),
+    includeMonthly ? provider.fetchBars(symbol, "1Month", tenYearsAgo, null, assetClass) : Promise.resolve(undefined),
   ]);
-  return { bars, daily };
+  return { bars, daily, ...(monthly ? { monthly } : {}) };
 }
 
 export interface RunOutcome {
@@ -308,7 +328,7 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
   // while looking like it succeeded.
   for (const symbol of symbols) {
     try {
-      const { bars: fetched, daily } = await fetchSeries(symbol, timeframe);
+      const { bars: fetched, daily, monthly } = await fetchSeries(symbol, timeframe, true);
       const bars = sinceMs === null ? fetched : fetched.filter((b) => Date.parse(b.t) >= sinceMs);
       if (bars.length === 0) {
         skipped.push({
@@ -330,7 +350,7 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
       if (from === null || first < from) from = first;
       if (to === null || last > to) to = last;
 
-      results.push(replay(symbol, bars, { ...options, dailyBars: daily }));
+      results.push(replay(symbol, bars, { ...options, dailyBars: daily, monthlyBars: monthly }));
       used.push(symbol);
     } catch (err) {
       skipped.push({ symbol, reason: err instanceof Error ? err.message : String(err) });
@@ -403,6 +423,7 @@ export function buildReport(
     ? `score ${attributeScoreRange[0]}–${attributeScoreRange[1]}`
     : attributeWithin;
   const capSplit = byLargeCap(run.overall);
+  const cycleSplit = byYearCycle(run.overall);
 
   return {
     source: run.source,
@@ -418,6 +439,10 @@ export function buildReport(
     largeCapSplit: {
       largeCap: summarise(capSplit.largeCap),
       notLargeCap: summarise(capSplit.notLargeCap),
+    },
+    yearCycleSplit: {
+      withHits: summarise(cycleSplit.withHits),
+      withoutHits: summarise(cycleSplit.withoutHits),
     },
     useProductionStop,
     armed: run.overall.armed,

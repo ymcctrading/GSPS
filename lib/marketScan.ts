@@ -23,6 +23,20 @@
  * slot on its own merits, is not — `qualifiesAsContinuationFill` requires
  * both the right shape and an Execute-tier score, never just "the best of
  * what's left." Six 7/9s beat eighteen setups trailing off through 6, 5, 4.
+ *
+ * Cycle-timed selection (added 2026-09-25): each symbol's own Gann time
+ * cycles now help decide *which* symbols reach a full scan, rather than only
+ * annotating symbols a full scan already selected. Two reads, because the
+ * two halves of the method need different history:
+ *   - Day-count wheel, on the coarse pass's daily bars: a small bonus on
+ *     both gates (`CYCLE_WINDOW_BONUS`). No extra fetch.
+ *   - Yearly cycles, on ten years of monthly bars: a re-rank of the
+ *     reversion pool before the shortlist cut (`YEAR_CYCLE_POOL_MULTIPLE`,
+ *     `rankShortlist`). One extra batch fetch, run in parallel with the
+ *     daily fetch and never waited on — skipped for the run if it hasn't
+ *     landed when the coarse pass finishes.
+ * Both rank, neither gates, and both run inside this same scan — no new
+ * cron. Each constant's own comment carries its design rationale.
  */
 
 import type { Bar, ScanResult, SetupKind } from "@/lib/types";
@@ -33,6 +47,12 @@ import { etDateKey } from "@/lib/market/session";
 import { atr } from "@/lib/analysis/pivots";
 import { computeFanLines } from "@/lib/gann/fans";
 import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
+import {
+  timeCycles,
+  yearCycleConvergence,
+  type TimeCycleResult,
+  type YearCycleConvergence,
+} from "@/lib/gann/timeCycles";
 import { CONTINUATION_PATTERNS } from "@/lib/strat/patterns";
 import { MIN_EQUITY_PRICE_USD, meetsLiquidityFloor, readLiquidity } from "@/lib/scan/liquidity";
 import { scanTicker } from "@/lib/scanTicker";
@@ -217,7 +237,7 @@ function capUniverse(symbols: string[], universeTop: number): string[] {
   return Array.from(new Set(symbols)).slice(0, limit);
 }
 
-interface CoarseCandidate {
+export interface CoarseCandidate {
   symbol: string;
   direction: "bullish" | "bearish";
   kind: SetupKind;
@@ -321,7 +341,64 @@ function tradeable(daily: Bar[]): boolean {
   return meetsLiquidityFloor(readLiquidity(daily), "us_equity").ok;
 }
 
-export function coarseReversion(symbol: string, daily: Bar[]): CoarseCandidate | null {
+/**
+ * Coarse-pass rank bonus when this symbol's own Gann time-cycle projection
+ * (`lib/gann/timeCycles.ts`) is inside a turn window matching the
+ * candidate's direction — the per-symbol Master Time Factor hierarchy, not
+ * the macro/market-wide calendar. Inverts `timeCycles()` from a post-hoc
+ * confluence flag (its only role before this — see `scanTicker.ts` and
+ * `lib/backtest/replay.ts`, both of which call it only on symbols already
+ * selected) into an input to *which* symbols get selected in the first
+ * place.
+ *
+ * What actually fires here: the coarse pass holds one year of daily bars, so
+ * every pivot `timeCycles()` can anchor to is under a year old and its
+ * 2-60-year anniversaries always land in the future. On this input only the
+ * day-count wheel (45/90/120/180/270/360 days from a pivot) can activate.
+ * The yearly cycles are read separately, on monthly bars, by
+ * `yearCycleConvergence` in the shortlist re-rank below.
+ *
+ * Three-question mandate (AGENTS.md):
+ * 1. Gann source: the day-count wheel — the 45/90/180/360 divisions of the
+ *    circle read as calendar days from a top or bottom (Ch.7/Ch.13,
+ *    `docs/GANN_HISTORICAL_SOURCES.md` A2.1) — as already implemented in
+ *    `timeCycles()`, reused unmodified here, not re-derived.
+ * 2. Dewey checklist: unchanged from `timeCycles()`'s own standing caveat —
+ *    a single symbol's tradeable history rarely contains enough of its own
+ *    pivots to show a cycle repeating even twice, so repetition count and
+ *    constancy of period stay unproven per symbol. That is exactly why this
+ *    is a coarse-pass RANK bonus, not a gate on its own: it can tip a
+ *    borderline candidate into the shortlist, never manufacture one with no
+ *    other criterion behind it.
+ * 3. Hermetic principle: Correspondence/Rhythm — "wheel within a wheel," the
+ *    same nested-cycle structure Gann's Square of 9/Square of 144 are
+ *    documented as using (`docs/GANN_HISTORICAL_SOURCES.md` Ch.13). A single
+ *    stock's own cycle sits nested inside the macro Great Cycle rather than
+ *    being a separate mechanism — this bonus is that nesting made concrete
+ *    in the coarse gate, not a new technique.
+ *
+ * Value chosen to move, not decide: the reversion floor is score>=3 across
+ * five criteria worth 1-2 points each (max 8) — +1 here is worth less than
+ * any single existing criterion, so cycle timing can tip a genuinely close
+ * call but never substitute for the structural criteria that carry the
+ * pass/fail weight. Not yet logged to `coarse_gate_telemetry` / calibrated
+ * against real outcomes the way the ATR-relative thresholds were — a
+ * deliberately conservative starting value, to revisit once telemetry
+ * exists for it.
+ */
+export const CYCLE_WINDOW_BONUS = 1;
+
+function cycleBonus(direction: "bullish" | "bearish", cycles: TimeCycleResult | undefined): number {
+  if (!cycles) return 0;
+  const matches = direction === "bullish" ? cycles.bullishActive : cycles.bearishActive;
+  return matches ? CYCLE_WINDOW_BONUS : 0;
+}
+
+export function coarseReversion(
+  symbol: string,
+  daily: Bar[],
+  cycles?: TimeCycleResult,
+): CoarseCandidate | null {
   if (daily.length < 60) return null;
   if (!tradeable(daily)) return null;
   const price = daily[daily.length - 1].c;
@@ -366,6 +443,8 @@ export function coarseReversion(symbol: string, daily: Bar[]): CoarseCandidate |
   const levels = direction === "bullish" ? trend.support : trend.resistance;
   if (levels.some((l) => (Math.abs(price - l) / price) * 100 <= srBandPct)) score += 2;
 
+  score += cycleBonus(direction, cycles);
+
   if (score < 3) return null;
   return { symbol, direction, kind: "reversion", coarseScore: score };
 }
@@ -388,7 +467,12 @@ export function coarseReversion(symbol: string, daily: Bar[]): CoarseCandidate |
 export const TRAVEL_ATR_MULT = 1.2;
 export const FALLBACK_TRAVEL_PCT = 3;
 
-export function coarseContinuation(symbol: string, daily: Bar[], bars4h: Bar[]): CoarseCandidate | null {
+export function coarseContinuation(
+  symbol: string,
+  daily: Bar[],
+  bars4h: Bar[],
+  cycles?: TimeCycleResult,
+): CoarseCandidate | null {
   // Needs the full trailing window the baseline is measured over.
   if (daily.length < 120) return null;
   if (!tradeable(daily)) return null;
@@ -429,6 +513,8 @@ export function coarseContinuation(symbol: string, daily: Bar[], bars4h: Bar[]):
   const travelBandPct = proximityBandPct(TRAVEL_ATR_MULT, FALLBACK_TRAVEL_PCT, atrPct);
   if (travelPct > travelBandPct) score += 1;
 
+  score += cycleBonus(direction, cycles);
+
   return { symbol, direction, kind: "continuation", coarseScore: score };
 }
 
@@ -444,6 +530,12 @@ interface CoarseDiagnostics {
   extensionAtr: number | null;
   travelPct: number | null;
   travelAtr: number | null;
+  /** Whether this symbol's own Gann time-cycle projection is inside a turn
+   * window right now, in either direction — see `CYCLE_WINDOW_BONUS`. */
+  cycleActive: boolean;
+  /** Which direction that window argues, when active; "both" when a low- and
+   * a high-anchored window are active at once; null when inactive. */
+  cycleDirection: "bullish" | "bearish" | "both" | null;
 }
 
 /**
@@ -456,7 +548,11 @@ interface CoarseDiagnostics {
  * Cheap (same bars already in memory, no extra network calls) and never
  * feeds back into the gates, so instrumenting it can't change scan behavior.
  */
-function coarseDiagnostics(symbol: string, daily: Bar[]): CoarseDiagnostics | null {
+function coarseDiagnostics(
+  symbol: string,
+  daily: Bar[],
+  cycles?: TimeCycleResult,
+): CoarseDiagnostics | null {
   if (daily.length < 60) return null;
   const price = daily[daily.length - 1].c;
   const atrPct = atrPercentOfPrice(atr(daily.slice(-20), 14), price) ?? null;
@@ -475,7 +571,29 @@ function coarseDiagnostics(symbol: string, daily: Bar[]): CoarseDiagnostics | nu
     travelAtr = atrPct !== null && atrPct > 0 ? travelPct / atrPct : null;
   }
 
-  return { symbol, trendDirection, price, atrPct, extensionPct, extensionAtr, travelPct, travelAtr };
+  const cycleActive = cycles?.active ?? false;
+  const cycleDirection: "bullish" | "bearish" | "both" | null = !cycles
+    ? null
+    : cycles.bullishActive && cycles.bearishActive
+      ? "both"
+      : cycles.bullishActive
+        ? "bullish"
+        : cycles.bearishActive
+          ? "bearish"
+          : null;
+
+  return {
+    symbol,
+    trendDirection,
+    price,
+    atrPct,
+    extensionPct,
+    extensionAtr,
+    travelPct,
+    travelAtr,
+    cycleActive,
+    cycleDirection,
+  };
 }
 
 /**
@@ -630,6 +748,62 @@ const CONTINUATION_QUOTA_PER_SIDE = 2;
 const SHORTLIST_MULTIPLE = 4;
 
 /**
+ * Shortlist re-rank on each candidate's own yearly Gann cycles
+ * (`yearCycleConvergence`, monthly bars). The pool re-ranked is this multiple
+ * of the shortlist size, so a candidate with converging cycles can climb in
+ * from just below the coarse cut — without it the re-rank could only reorder
+ * symbols that were getting a full scan anyway, which changes nothing.
+ *
+ * Only reversion candidates that already cleared the coarse gate enter the
+ * pool, so this never admits a symbol the structural criteria rejected; it
+ * decides which qualified ones get the limited full-scan slots.
+ *
+ * Three-question mandate (AGENTS.md):
+ * 1. Gann source: Ch.7's Master Time Factor yearly cycles
+ *    (`docs/GANN_HISTORICAL_SOURCES.md` A2.1), counted as convergence the way
+ *    his own worked DJIA example counts elapsed time against several anchors
+ *    at once.
+ * 2. Dewey checklist: per symbol, repetition count and constancy of period
+ *    are unproven (ten years of monthly history holds few major pivots), so
+ *    this ranks and never gates. It is logged to `coarse_gate_telemetry` so
+ *    whether cycle-ranked names outscore their neighbours in the full pass
+ *    can be measured rather than assumed.
+ * 3. Hermetic principle: Correspondence — the same cycle arithmetic run on
+ *    the market as a whole, run on each stock's own history.
+ *
+ * The numbers (pool multiple, +1 per hit, cap of 2) are engineering choices,
+ * not sourced: the cap equals the heaviest single coarse criterion, so cycle
+ * timing can outrank one structural point but not several.
+ */
+export const YEAR_CYCLE_POOL_MULTIPLE = 2;
+export const YEAR_CYCLE_HIT_BONUS = 1;
+export const YEAR_CYCLE_BONUS_CAP = 2;
+
+function yearCycleBonus(c: CoarseCandidate, hits: YearCycleConvergence | undefined): number {
+  if (!hits) return 0;
+  const n = c.direction === "bullish" ? hits.bullishHits : hits.bearishHits;
+  return Math.min(n * YEAR_CYCLE_HIT_BONUS, YEAR_CYCLE_BONUS_CAP);
+}
+
+/**
+ * Cut `pool` (already in coarse-score order) to `size`, ranking by coarse
+ * score plus the yearly-cycle bonus. With no cycle reads it is exactly the
+ * old top-`size` slice. Ties keep coarse order.
+ */
+export function rankShortlist(
+  pool: CoarseCandidate[],
+  size: number,
+  yearHits: Map<string, YearCycleConvergence> | null,
+): CoarseCandidate[] {
+  if (!yearHits) return pool.slice(0, size);
+  return pool
+    .map((c, i) => ({ c, i, rank: c.coarseScore + yearCycleBonus(c, yearHits.get(c.symbol.toUpperCase())) }))
+    .sort((a, b) => b.rank - a.rank || a.i - b.i)
+    .slice(0, size)
+    .map((x) => x.c);
+}
+
+/**
  * Soft internal deadline, in ms from the start of the scan, past which the
  * continuation top-up pass is skipped rather than attempted. Batching (see
  * `fetchBarsBatch`/`fetchAllTimeframesBatch`) made a normal run comfortably
@@ -708,6 +882,29 @@ export async function runMarketScan(
   // enough to blow through both the upstream rate limit and Vercel's function
   // timeout before a scan could finish. Falls back to per-symbol fetches below
   // when unavailable (e.g. the synthetic demo provider).
+  // Monthly bars for the yearly-cycle re-rank, started alongside the daily
+  // and 4-hour fetch rather than after it, so it adds no wall-clock time: it
+  // is under half the daily fetch's rows and runs while the daily fetch (the
+  // long pole — 21.4s at 250 symbols, production 2026-09-25) is still going.
+  // Never awaited past that point: if it hasn't landed by the time the coarse
+  // pass needs it, the re-rank is skipped for this run rather than waited on.
+  // See AGENTS.md's "Speed is a product requirement".
+  let monthlyBatch: Map<string, Bar[]> | null | undefined = undefined;
+  if (provider.fetchBarsBatch) {
+    const monthlyStarted = Date.now();
+    const tenYearsAgo = new Date(Date.now() - 10 * 365.25 * 24 * 3600 * 1000);
+    void provider
+      .fetchBarsBatch(actives, "1Month", tenYearsAgo, end, "us_equity")
+      .then((m) => {
+        monthlyBatch = m;
+        mark("monthly batch fetch done", `${m.size} symbols in ${Date.now() - monthlyStarted}ms`);
+      })
+      .catch((err) => {
+        monthlyBatch = null;
+        console.warn(`market-scan: ${scanDate} monthly fetch failed, yearly-cycle re-rank skipped — ${String(err)}`);
+      });
+  }
+
   const [dailyBatch, bars4hBatch] = await Promise.all([
     provider.fetchBarsBatch?.(actives, "1Day", yearAgo, end, "us_equity") ?? null,
     provider.fetchBarsBatch?.(actives, "4Hour", recentWeeks, end, "us_equity") ?? null,
@@ -723,10 +920,16 @@ export async function runMarketScan(
               provider.fetchBars(symbol, "1Day", yearAgo, end, "us_equity"),
               provider.fetchBars(symbol, "4Hour", recentWeeks, end, "us_equity"),
             ]);
+      // Computed once per symbol and threaded into both gates plus
+      // diagnostics — cheap (pure arithmetic over bars already in memory
+      // from the batch fetch above), no extra network call. See
+      // `CYCLE_WINDOW_BONUS`'s own comment for what this does and doesn't
+      // claim.
+      const cycles = timeCycles(daily);
       return {
-        reversion: coarseReversion(symbol, daily),
-        continuation: coarseContinuation(symbol, daily, bars4h),
-        diagnostics: coarseDiagnostics(symbol, daily),
+        reversion: coarseReversion(symbol, daily, cycles),
+        continuation: coarseContinuation(symbol, daily, bars4h, cycles),
+        diagnostics: coarseDiagnostics(symbol, daily, cycles),
       };
     } catch {
       return { reversion: null, continuation: null, diagnostics: null };
@@ -735,11 +938,25 @@ export async function runMarketScan(
   mark("coarse scoring done");
 
   const byCoarseScore = (a: CoarseCandidate, b: CoarseCandidate) => b.coarseScore - a.coarseScore;
-  const shortlist = coarse
+  const shortlistSize = perSide * SHORTLIST_MULTIPLE;
+  const rerankPool = coarse
     .map((c) => c.reversion)
     .filter((c): c is CoarseCandidate => c !== null)
     .sort(byCoarseScore)
-    .slice(0, perSide * SHORTLIST_MULTIPLE); // full-scan up to perSide*SHORTLIST_MULTIPLE candidates
+    .slice(0, shortlistSize * YEAR_CYCLE_POOL_MULTIPLE);
+
+  // Yearly-cycle re-rank — see YEAR_CYCLE_POOL_MULTIPLE. Read for every
+  // symbol the monthly fetch returned, not just the pool, so telemetry can
+  // compare cycle-ranked names against the rest of the universe.
+  const monthlyNow = monthlyBatch as Map<string, Bar[]> | null | undefined;
+  let yearHits: Map<string, YearCycleConvergence> | null = null;
+  if (monthlyNow) {
+    yearHits = new Map([...monthlyNow].map(([sym, bars]) => [sym, yearCycleConvergence(bars)]));
+  } else if (monthlyNow === undefined && provider.fetchBarsBatch) {
+    console.warn(`market-scan: ${scanDate} monthly fetch still running after the coarse pass — yearly-cycle re-rank skipped`);
+  }
+  mark("yearly-cycle re-rank", yearHits ? `read=${yearHits.size}` : "skipped");
+  const shortlist = rankShortlist(rerankPool, shortlistSize, yearHits);
   const continuationPool = coarse
     .map((c) => c.continuation)
     .filter((c): c is CoarseCandidate => c !== null)
@@ -881,6 +1098,10 @@ export async function runMarketScan(
         continuation_score: c.continuation?.coarseScore ?? null,
         travel_pct: d.travelPct,
         travel_atr: d.travelAtr,
+        cycle_active: d.cycleActive,
+        cycle_direction: d.cycleDirection,
+        year_cycle_bullish_hits: yearHits?.get(sym)?.bullishHits ?? null,
+        year_cycle_bearish_hits: yearHits?.get(sym)?.bearishHits ?? null,
         shortlisted: shortlistedSymbols.has(sym),
         full_scan_score: fullResult?.decision.score ?? null,
         full_scan_output_state: fullResult?.decision.outputState ?? null,

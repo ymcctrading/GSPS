@@ -366,3 +366,55 @@ describe("byScoreRange", () => {
     expect(byScoreRange(r, 5, 6).trades).toHaveLength(0);
   });
 });
+
+describe("replay yearCycleHits", () => {
+  // The same session, moved to January so the 5-year cycle from a January
+  // 2021 pivot lands on it. dailyHistory's shape doesn't depend on its end
+  // date, so the trigger (and its direction) is the same as TRIGGER's.
+  const JAN = "2026-01-15";
+  const janDaily = dailyHistory(300, JAN);
+  const janBars = session([crossing, quiet]).map((b) => ({ ...b, t: b.t.replace(DAY, JAN) }));
+
+  /**
+   * Monthly bars from Jan 2019: a V pivoting in Jan 2021 (index 24), through
+   * Dec 2025. A top when the fixture's trigger is short, a bottom when it's
+   * long, so the pivot is always on the trade's side.
+   */
+  function monthlyPivot(): Bar[] {
+    const out: Bar[] = [];
+    for (let i = 0; i < 84; i++) {
+      const c = SIDE < 0 ? 200 - Math.abs(i - 24) * 1.5 : 100 + Math.abs(i - 24) * 1.5;
+      out.push({ t: new Date(Date.UTC(2019, i, 1)).toISOString(), o: c, h: c + 1, l: c - 1, c, v: 1000 });
+    }
+    return out;
+  }
+
+  it("tags a trade with the yearly cycles landing on its month, in its direction", () => {
+    const r = replay("TEST", janBars, { targetR: 2, dailyBars: janDaily, monthlyBars: monthlyPivot() });
+    expect(r.trades.length).toBeGreaterThan(0);
+    // Jan 2021 pivot, trade in Jan 2026: the 5-year cycle, in the pivot's direction.
+    for (const t of r.trades) expect(t.yearCycleHits).toBe(1);
+  });
+
+  it("leaves the tag undefined without monthly bars", () => {
+    const r = replay("TEST", janBars, { targetR: 2, dailyBars: janDaily });
+    expect(r.trades.length).toBeGreaterThan(0);
+    expect(r.trades.every((t) => t.yearCycleHits === undefined)).toBe(true);
+  });
+
+  it("cannot see months at or after the trade", () => {
+    const history = monthlyPivot();
+    // Three years of violent swings from Jan 2026 on. Read without the guard,
+    // they'd raise the major-pivot cutoff and drop the 2021 pivot out.
+    const future: Bar[] = [];
+    for (let i = 0; i < 36; i++) {
+      // Smooth, so each swing is a strict peak or trough findPivots can see.
+      const c = 200 + 190 * Math.sin((i / 6) * 2 * Math.PI);
+      future.push({ t: new Date(Date.UTC(2026, i, 1)).toISOString(), o: c, h: c + 1, l: c - 1, c, v: 1000 });
+    }
+    const withFuture = replay("TEST", janBars, { targetR: 2, dailyBars: janDaily, monthlyBars: [...history, ...future] });
+    const without = replay("TEST", janBars, { targetR: 2, dailyBars: janDaily, monthlyBars: history });
+    expect(without.trades.some((t) => t.yearCycleHits === 1)).toBe(true);
+    expect(withFuture.trades.map((t) => t.yearCycleHits)).toEqual(without.trades.map((t) => t.yearCycleHits));
+  });
+});
