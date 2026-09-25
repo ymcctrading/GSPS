@@ -18,6 +18,7 @@ import type { ConfluenceType, DigitalRootFeature, VortexClass } from "@/lib/gann
 import type { NearestGannAngle } from "@/lib/gann/normalizedSlope";
 import type { LedgerCoordinate } from "@/lib/gann/coordinateLedger";
 import type { DecadeCycleReading } from "@/lib/gann/decadeCycle";
+import type { MacroCycleResult } from "@/lib/gann/macroCycle";
 import type { MasterTwelveLevel } from "@/lib/gann/masterTwelve";
 import type { SquareOf52Result } from "@/lib/gann/squareOf52";
 import type { AngleMonthCountResult } from "@/lib/gann/angleMonthCounts";
@@ -109,6 +110,18 @@ export interface GannConfluenceResult {
    * `lib/gann/decadeCycle.ts`.
    */
   decadeCycle: DecadeCycleReading;
+  /**
+   * Gann's major/minor time-cycle hierarchy run one level up from
+   * `timeCycleActive`/`timeCycleDates` — projected forward from Gann's own
+   * cited historical market turns (`docs/GANN_HISTORICAL_SOURCES.md` A2.1
+   * Ch. 7's worked DJIA case study) instead of this symbol's own pivots.
+   * Calendar-only, independent of the symbol being scanned — useful as
+   * macro backdrop context and where a thin-history symbol has no usable
+   * pivot for `timeCycleActive` yet. Confluence/context only, same
+   * hypothesis-labeled, never-gating treatment as `decadeCycle` and
+   * `spectralCycle` below. See `lib/gann/macroCycle.ts`.
+   */
+  macroCycle: MacroCycleResult;
   /**
    * Square of 144/"Master Twelve" nearest level (`docs/GANN_HISTORICAL_SOURCES.md`
    * A2.1 Ch. 13) — the base-12 analog of `nearestSquareOf9`, same spiral

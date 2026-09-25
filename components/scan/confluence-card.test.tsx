@@ -73,6 +73,7 @@ describe("ConfluenceCard", () => {
           timeCycleFixedCalendarActive: false,
           timeCycleFixedCalendarDates: [],
           decadeCycle: { yearDigit: 5, bias: "bullish", label: "Year of Ascension", note: "" },
+          macroCycle: { active: false, bullishActive: false, bearishActive: false, dates: [], activeWindows: [] },
           nearestMasterTwelve: null,
           squareOf52: { active: false, dates: [] },
           angleMonthCounts: { active: false, dates: [] },

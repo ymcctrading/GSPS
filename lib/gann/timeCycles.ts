@@ -43,8 +43,13 @@ const WHEEL_COUNTS = [45, 90, 120, 180, 270, 360];
  * AGENTS.md's "WD Gann precedence" principle — this is a literal, disclosed
  * rule, not a reconstruction, so it replaces the narrower 1-3-year window
  * rather than sitting alongside it as a separate hypothesis.
+ *
+ * Exported so `lib/gann/macroCycle.ts` can project the identical hierarchy
+ * from Gann's own cited historical anchors instead of a per-symbol pivot —
+ * same disclosed year list, different anchor source. Keep both in sync from
+ * this one export rather than letting a second copy drift.
  */
-const MAJOR_CYCLE_YEARS = [1, 2, 3, 5, 7, 10, 15, 20, 30, 50, 60];
+export const MAJOR_CYCLE_YEARS = [1, 2, 3, 5, 7, 10, 15, 20, 30, 50, 60];
 
 /**
  * "Early February/March/May/June/August/September/November/December" per A4

@@ -96,6 +96,10 @@ function GannRow({ result }: { result: NonNullable<ScanResult["signals"]>["gannC
             <p className="text-muted">Time cycle</p>
             <p className="font-mono font-semibold">{result.timeCycleActive ? "Active" : "None"}</p>
           </div>
+          <div className="rounded-md border border-border bg-surface p-2">
+            <p className="text-muted">Macro time cycle (hypothesis)</p>
+            <p className="font-mono font-semibold">{result.macroCycle.active ? "Active" : "None"}</p>
+          </div>
           {result.nearestMasterTwelve && (
             <div className="rounded-md border border-border bg-surface p-2">
               <p className="text-muted">Nearest Master Twelve level</p>
