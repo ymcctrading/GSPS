@@ -19,7 +19,31 @@ import * as Sentry from "@sentry/nextjs";
  * when active) — kept deliberately minimal rather than pulling in this
  * app's fonts/nav, since the error that triggered this may be in the
  * layout itself.
+ *
+ * Stale-chunk auto-recovery: every production deploy replaces the JS chunk
+ * files on the CDN, so a browser tab left open (or resumed) from before a
+ * deploy fails its next code-split import with no chunk to fetch — the
+ * classic `ChunkLoadError` / "Failed to fetch dynamically imported module".
+ * That is a stale-client problem, not a real application error, and the fix
+ * is a normal reload (it re-fetches the current HTML/JS), not the dead-end
+ * "Try again" button, which just re-runs the same stale bundle and fails
+ * the same way. Detected here rather than a hook higher up because this is
+ * the one boundary guaranteed to see every such failure, from any route.
+ * `STALE_CHUNK_RELOAD_KEY` guards against a reload loop if the reload
+ * itself doesn't fix it (e.g. the CDN is still mid-deploy); it's cleared on
+ * every successful client boot by instrumentation-client.ts.
  */
+const STALE_CHUNK_RELOAD_KEY = "gsps-stale-chunk-reload";
+
+function isStaleChunkError(error: Error): boolean {
+  return (
+    error.name === "ChunkLoadError" ||
+    /loading chunk .* failed/i.test(error.message) ||
+    /failed to fetch dynamically imported module/i.test(error.message) ||
+    /importing a module script failed/i.test(error.message)
+  );
+}
+
 export default function GlobalError({
   error,
   unstable_retry,
@@ -29,6 +53,15 @@ export default function GlobalError({
 }) {
   useEffect(() => {
     Sentry.captureException(error);
+
+    if (!isStaleChunkError(error)) return;
+    try {
+      if (sessionStorage.getItem(STALE_CHUNK_RELOAD_KEY)) return; // already tried once this session
+      sessionStorage.setItem(STALE_CHUNK_RELOAD_KEY, "1");
+    } catch {
+      return; // sessionStorage unavailable — fall back to the manual button
+    }
+    window.location.reload();
   }, [error]);
 
   return (

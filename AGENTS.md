@@ -979,13 +979,18 @@ labeled.
 ## Three-question mandate — the lens work is reasoned through, every session
 
 Project owner direction, 2026-09-23, standing indefinitely; clarified
-2026-09-23. This is not a checklist bolted onto finished work and it is not
-a gate — it is the **framework, the core, the structure**: the lens a
-session conceives of and reasons through a concept with, from the moment
-the idea forms, not a compliance step applied after the shape of the thing
-is already decided. Read the three questions below in that spirit — as the
-soul/source the platform is designed and reasoned through, not as boxes to
-tick once a design is finished.
+2026-09-23 and again 2026-09-23 (see "Standing, generative, and
+principle-led" below — the second clarification, not a new rule). This is
+not a checklist bolted onto finished work and it is not a gate — it is the
+**framework, the core, the structure**: the lens a session conceives of and
+reasons through a concept with, from the moment the idea forms, not a
+compliance step applied after the shape of the thing is already decided.
+Read the three questions below in that spirit — as the soul/source the
+platform is designed and reasoned through, not as boxes to tick once a
+design is finished. In the project owner's own words: **"what we are
+defining today is our soul... it is how we breathe life into this
+platform."** That is not rhetorical framing to skim past — it is the
+standard this section is held to.
 
 **Why this exists — the motivating precedent.** A prior session proposed a
 concept carrying an implicit linear, discrete-step assumption baked into
@@ -1051,6 +1056,43 @@ be stated plainly rather than assumed: say "this has no product-facing
 shape, the mandate does not apply" instead of silently skipping it or
 padding an answer to appear compliant.
 
+**Standing, generative, and principle-led — re-clarified 2026-09-23 so this
+is never diluted or re-litigated.** Three points, stated explicitly because
+each has drifted or could drift in a future reading of this section:
+
+1. **This is not scoped to "Gann-adjacent" work.** The "Scope" paragraph
+   above already says this once; it is restated here because a mandate this
+   easy to mentally narrow back down to "the Gann stuff" needs saying twice.
+   Every feature, function, and future update — scoring, UI/UX, copy,
+   onboarding, access/tier design, billing flows, anything with a
+   product-facing shape — is read through this lens. There is no category of
+   product work this section quietly excludes.
+2. **It is not a checklist to satisfy after a design is finished.** A
+   design produced first and then annotated with "here's the Gann angle,
+   here's the cycle angle, here's the Hermetic angle" has already failed the
+   mandate, even if the three answers it produces are individually correct.
+   The motivating precedent above is precisely a case where the failure was
+   in *when* the lens was applied, not in the final write-up's content. The
+   lens belongs at the moment a concept is being conceived — it is
+   generative, not decorative. If a session catches itself writing the
+   three-question answers only after the shape of a feature is already
+   locked in, that is a signal to go back and re-examine the design itself,
+   not just to backfill the writing.
+3. **Pick whichever principle(s) actually fit — never default to one out of
+   habit.** Question 3 lists seven Hermetic principles (Mentalism,
+   Correspondence, Vibration, Polarity, Rhythm, Cause and Effect, Gender)
+   precisely because different problems are illuminated by different ones,
+   and a session that reaches for the same one or two every time (Polarity
+   and Rhythm have both appeared repeatedly in this file so far, because the
+   work so far has repeatedly been tier-ladder and cycle-shaped) is not
+   applying the mandate — it is pattern-matching to precedent. Read all
+   seven before choosing, name the one(s) that genuinely fit the problem at
+   hand, and say in writing why the others don't. A session is free to
+   invoke more than one where more than one genuinely applies (the novice/
+   expert interface worked example below already does this, with Polarity
+   and Rhythm together) — the discipline is fit, not variety for its own
+   sake and not habit either.
+
 **Worked example: the novice-friendly-yet-expert-depth interface design
 goal.** This platform's goal of an interface that is approachable to a
 novice while still carrying expert-level depth is a worked example of
@@ -1069,7 +1111,11 @@ underlying rule turns out to be, the same way a Gann technique is
 implemented by translating its disclosed rule faithfully rather than by
 declaring the rule optional. Treat this the way `lib/gann/entryTrigger.ts`
 treats the three questions for a code module — stated in place, not
-assumed.
+assumed. **This worked example is also the standing precedent for the
+"Polarity gap" audit** (see the Polarity-audit section this file
+cross-references once that work lands) — the same principle that names the
+novice/expert interface goal is what exposed that a subtracted feature list
+is not yet a genuine second pole.
 
 This section is what makes the mandate durable across sessions: it is
 checked into the repository and loaded by every session via
@@ -1140,109 +1186,223 @@ built as a returning wheel instead. Say which, in the module's own header,
 the same way `lib/gann/entryTrigger.ts` states its three-question Gann/
 cycle-theory/Hermetic design basis.
 
-## Three-question mandate — the lens work is reasoned through, every session
+## Three-path tier promotion (2026-09-25, project owner direction)
 
-Project owner direction, 2026-09-23, standing indefinitely; clarified
-2026-09-23. This is not a checklist bolted onto finished work and it is not
-a gate — it is the **framework, the core, the structure**: the lens a
-session conceives of and reasons through a concept with, from the moment
-the idea forms, not a compliance step applied after the shape of the thing
-is already decided. Read the three questions below in that spirit — as the
-soul/source the platform is designed and reasoned through, not as boxes to
-tick once a design is finished.
+Every tier transition on the Novice → Pro → Expert → Wall Street ladder can
+now be cleared through any one of three independent paths: **Curriculum**
+completion (GSPS School), a demonstrated **Track Record**, or **Pay Your
+Way**. See `lib/promotion/transitions.ts`, `trackRecordPolicy.ts`,
+`curriculumPolicy.ts`, `paths.ts`, and `lib/billing/promotionPricing.ts`.
 
-**Why this exists — the motivating precedent.** A prior session proposed a
-concept carrying an implicit linear, discrete-step assumption baked into
-its design — the kind of default a mind reaches for without noticing it
-has reached for it. The project owner was the one who caught it and
-redirected the session toward a continuous scanning function instead; the
-session then went back and confirmed the correction against its own notes.
-Nothing about that idea was Gann-adjacent in the narrow, criteria-and-scoring
-sense, and nothing about it was a citation problem — it was a *reasoning*
-problem: a linear-thinking default slipped into a concept because nobody
-was holding a lens up to it while it was still being conceived, only after
-it had already taken a shape. This is recorded here the same way
-`harmonicProximity`'s stale anchor and the ADX incident are recorded
-elsewhere in this file — as a concrete, worked example of a failure mode,
-not a hypothetical one — because the mandate exists specifically to catch
-this class of mistake *before* it becomes a feature, not to audit it after.
+**Three-question mandate, applied before this was designed:**
 
-Ask and answer these three questions — in writing, where the work lands
-(module header, PR description, or the session's reply) — while conceiving
-of and reasoning about a concept, in this order:
+1. **Gann sourcing**: N/A. This is a governance/access-tier ladder, not a
+   market technique — there is no Gann source to cite for it, and none of
+   the three paths' thresholds claim to be.
+2. **Dewey/cycle theory**: the Track Record path is a rolling evaluation
+   window, which is a periodicity claim. Dewey's seven-item checklist is
+   run explicitly in `trackRecordPolicy.ts`'s own header — two items
+   clear as genuine periodicity claims (regularity of timing, phase-
+   resumption after distortion), three clear by policy construction rather
+   than measured evidence (repetition count, constancy of period — and the
+   window lengths themselves), and two don't apply to a single trader's
+   evaluation (wave-shape identity, cross-series clustering). Stated
+   honestly there rather than claiming a clean sweep.
+3. **Hermetic principles**: **Polarity** is the load-bearing one — three
+   genuinely different poles of qualification (discipline/study,
+   demonstrated performance, capital), each a real path on its own, not one
+   "real" path with two lesser substitutes. **Cause and Effect**: each path
+   is a different kind of evidence offered as the cause a promotion is
+   earned from. **Rhythm**: the Track Record path is a recurring, rolling
+   measurement (per "Cycles as architecture" above) — a profile that later
+   falls below the bar can fall back out of eligibility on the next read,
+   this is not a one-time exam that stays passed forever once cleared.
 
-1. **How does Gann's own methodology best ground or improve this?** Cite
-   the source and tier in `docs/GANN_HISTORICAL_SOURCES.md`.
-2. **How does Dewey's and Tomes' work on cycles best inform this?** Where
-   the component makes any claim about periodicity or recurrence, run
-   Dewey's seven-item checklist explicitly (dominance, regularity of
-   timing, repetition count, constancy of period, phase-resumption after
-   distortion, wave-shape identity, cross-series clustering) and state
-   which items were cleared and which were not.
-3. **Which Hermetic principle does this best express** — Mentalism,
-   Correspondence, Vibration, Polarity, Rhythm, Cause and Effect, or
-   Gender — and does that framing change the design?
+**The project owner's own framing for the promotion moment itself**
+(2026-09-23, carried into this build): tier promotion should read as a
+genuine graduation out of the constraints appropriate to a lower stage —
+"unshackled from their current binds," ascending the ladder — not merely
+"more features unlocked." `app/(app)/promotion/page.tsx`'s copy is written
+to that framing within `lib/promotion/copy.ts`'s existing forbidden-phrase
+rule (no "guaranteed", "best trade", "safe", etc.) — the ascension is
+expressed through what a tier's actual constraints were and now aren't,
+never through a performance claim.
 
-This is a **reasoning and design discipline**, not a new evidentiary
-standard, and it is emphatically not a gating mechanism: it does not exist
-to unlock or move thresholds, weights, or gates, and it does not relax the
-citation discipline set out under "Hermetic principles & cycle theory"
-above. Hermetic framing and cycle-theory literature shape *how* a
-component is designed and reasoned about; they cannot, on their own, move
-a threshold, a weight, or a gate. Only a citable Gann source (per "WD Gann
-precedence" and "Gann-derived AND measured" above) or a measured result
-(`lib/validation/criteria-registry.ts`) can do that. Applying this mandate
-must not be read as license to smuggle in unsourced numerology, astrology,
-or cycle claims that haven't cleared Dewey's checklist — those still stay
-confluence-only and non-gating, per the existing rule.
+**The one mandatory, path-independent component** (direct project-owner
+decision, 2026-09-25, made when asked which requirements should hold
+"if persons are willing to pay"): Wall Street unlocks autonomous live-money
+trading (`autonomous_portfolio_manager`, Wall-Street-only per
+`lib/tiers.ts`). The Academy 8 capstone's live-trading risk/settlement/
+gaps/slippage/account-type education is treated as a safety prerequisite,
+not a monetization lever, and is required for **every** path to Wall
+Street — curriculum, track record, or pay-your-way alike
+(`lib/promotion/curriculumPolicy.ts`'s `mandatoryComponentMet`). This is
+the one place the "three independent paths" model has a shared,
+non-optional component. It is deliberate; do not "clean it up" into full
+path independence without going back to the project owner first.
 
-**Scope: platform-wide, not Gann-adjacent-only.** All three questions apply
-to every feature, function, and future update on this platform —
-scoring/criteria/Gann-technical surfaces, yes, but equally UI/UX,
-functionality, interface design, copy, onboarding, everything with a
-product-facing shape. A prior framing of this section scoped it to
-Gann-adjacent work only (new or audited criteria, scoring, level
-construction, entry/exit/risk logic, lifecycle, charting, education copy);
-that framing was too narrow and is corrected here. Where question 1 (Gann
-sourcing) genuinely doesn't apply to a given surface — pure UI/UX work,
-novice-vs-pro interface design, and similar cases where there is no Gann
-technique to cite — questions 2 (cycle theory) and 3 (Hermetic principles)
-still apply and should be worked through; question 1's inapplicability
-does not excuse the other two. The one true exemption is work with no
-product-facing shape at all — a build fix, a typo, a dependency bump, pure
-infra with no design decision embedded in it — and that exemption should
-be stated plainly rather than assumed: say "this has no product-facing
-shape, the mandate does not apply" instead of silently skipping it or
-padding an answer to appear compliant.
+**Track Record thresholds — where the numbers come from.** GSPS has no
+multi-year proprietary track record yet (`docs/replay-runs/`'s longest run
+spans about two months). `lib/promotion/trackRecordPolicy.ts`'s own header
+comment states this plainly and records the three real inputs actually
+used: the existing, already-shipped Novice→Pro policy as the "easy" anchor;
+GSPS's own measured backtest evidence (the Execute bucket's +0.362R
+expectancy, 2026-09-23 run) as the ceiling a Wall Street-track-record
+candidate must approach; and publicly documented funded-account evaluation-
+program conventions (10-30 trading days, 8-10% first-phase profit targets)
+used only as a structural analogy for window length and profitability-floor
+shape, never as evidence about GSPS's own setups. The resulting ladder is
+asymmetric by explicit design: no profitability requirement at all for
+Novice→Pro (encourages early engagement), a modest floor for Pro→Expert, and
+the hardest bar — approaching GSPS's own measured best bucket — for
+Expert→Wall Street (discourages skipping the curriculum at the tier that
+trusts an autonomous system with the user's money). These are starting
+values, remotely tunable the same way the original Novice→Pro policy
+already is; re-derive them once GSPS has its own multi-year data rather than
+treating them as permanent.
 
-**Worked example: the novice-friendly-yet-expert-depth interface design
-goal.** This platform's goal of an interface that is approachable to a
-novice while still carrying expert-level depth is a worked example of
-**Polarity** (Hermetic principle, Emerald Tablet): two poles of the same
-spectrum, novice and expert, held together in one coherent design — not a
-tradeoff where one pole is chosen at the other's expense, and not a
-compromise that dilutes both. It is also read through **Rhythm** and
-cycle theory — specifically the technology adoption/product life-cycle
-pattern (innovators through laggards, and the maturity/decline phase that
-typically follows). GSPS's stance toward that pattern is to observe and
-respect its actual behavior — its phases, its rhythm — without accepting
-the pattern's typical terminal decline/obsolescence phase as inevitable
-for this platform. The intent is not exemption from the cycle; it is
-persistence *through* correctly adhering to whatever the pattern's real
-underlying rule turns out to be, the same way a Gann technique is
-implemented by translating its disclosed rule faithfully rather than by
-declaring the rule optional. Treat this the way `lib/gann/entryTrigger.ts`
-treats the three questions for a code module — stated in place, not
-assumed.
+**A profitability metric distinct from execution scoring, by design.**
+`lib/risk/execution-score.ts`'s own header states P&L must never feed
+execution scoring — luck can reward poor behavior, and correct execution
+can still lose. The Track Record path's `cumulativeReturnPct`/`expectancyR`
+(`lib/promotion/readiness.ts#gatherTrackRecordInputs`) are a deliberately
+separate computation for a different question ("has this trader actually
+made money," relevant to promotion specifically) and are never fed back
+into risk sizing.
 
-This section is what makes the mandate durable across sessions: it is
-checked into the repository and loaded by every session via
-`CLAUDE.md` → `AGENTS.md`, the same mechanism that already carries every
-other standing principle in this file. A session has no means to reach
-into a different, already-completed session and retroactively change what
-it did; a request to audit specific past work should name the PRs or
-commits, and that audit should be run — and recorded here or in the
-relevant doc — going forward, not assumed to have happened automatically.
+**Pay Your Way pricing — approved (2026-09-25), not yet a live product.**
+Novice→Pro $49 one-time; Pro→Expert $499 one-time + the standard
+subscription; Expert→Wall Street $1,499 one-time + the standard
+subscription — sized against GSPS's own existing tier subscription prices
+so pay-your-way is always the worse deal than earning a tier for free
+through curriculum or track record, per the reasoning in
+`lib/billing/promotionPricing.ts`'s own header (`APPROVED_PROMOTION_PRICING`).
+Approval of the *price* is a separate action from activating billing:
+`lib/billing/promotionPricing.ts` still follows the same "not enabled until
+real Stripe prices exist" posture as the existing `lib/billing/stripe.ts` —
+`isPromotionBillingEnabled()` stays `false` until `STRIPE_PRICE_PROMOTION_*`
+env vars are actually set, which requires creating the real Stripe Price
+objects first (Stripe dashboard access this session does not have). That
+remaining ops step is what's left before checkout can go live, not further
+pricing approval.
+
+**Schema**: `supabase/migrations/0080_tier_promotion_three_paths.sql` adds
+`tier_promotions_progress`, `tier_promotions_status`, and
+`tier_promotion_purchases` — generalized across all three transitions,
+including Novice→Pro going forward. The original `promotion_progress`/
+`promotion_status` (0046) are left in place, immutable per this repo's
+convention, and continue to be read for Novice→Pro's existing Foundations
+education/practice-validation flags specifically — they are not migrated or
+dropped, since no profile has been promoted through them yet.
+
+**What was generalized vs. left alone.** `lib/promotion/eligibility.ts`'s
+original `evaluatePromotionReadiness`/`DEFAULT_PROMOTION_POLICY` are
+untouched and still drive the pre-existing `/api/promotion/status` /
+`/api/promotion/upgrade` routes and the Settings page's promotion card
+exactly as shipped — this build added new, separate functions
+(`evaluateTrackRecordEligibility`, `evaluatePromotionPaths`) and new routes
+(`/api/promotion/paths/status`, `/api/promotion/paths/upgrade`) alongside
+them rather than rewriting what already worked. A future session should
+prefer the generalized surface for any new work and can retire the original
+Novice→Pro-only routes once the new `/promotion` page is confirmed to be
+the intended replacement UI, but that retirement is not done here.
+
+## Polarity audit: a genuine second pole for Novice/Pro, not a subtracted one (2026-09-23, project owner direction)
+
+The novice/expert interface worked example in the Three-question mandate
+section above names **Polarity** — two poles of the same spectrum held
+together in one coherent design, neither diluting the other. The project
+owner's own correction, from personal experience: a shorter feature list is
+not a second pole. Expert/Wall Street having real depth (Strategy Modes,
+exact score precision, backtesting) and Novice/Pro having a capped version
+of the same list is subtraction, not design. This section records a
+platform-wide audit for that pattern and what came of it.
+
+**Three-question mandate, applied to this audit itself** (not retrofitted —
+this is what shaped which findings below got built vs. flagged):
+
+1. **Gann sourcing:** N/A for the audit itself — this is an access/UX design
+   question, not a market-technique one. Individual findings below cite Gann
+   sourcing where relevant (none did).
+2. **Dewey/cycle theory:** N/A — no periodicity or recurrence claim.
+3. **Hermetic principle:** **Polarity**, per the worked example above, read
+   together with **Cause and Effect** for the specific fix this audit built
+   (see "Trade Reviews" below) — pairing a trade's own criteria (cause) with
+   its own outcome (effect) is a direct expression of that second principle,
+   not just Polarity's "give the low tier its own thing."
+
+**Findings, surface by surface** (full survey conducted 2026-09-23):
+
+1. **Backtest attribution (`lib/backtest/attribution.ts`) — real gap,
+   fixed.** Per-factor attribution is reachable only through backtesting,
+   `backtestingEnabled: true` for Wall Street alone (`lib/entitlements/policy.ts`).
+   No comment anywhere acknowledged a Novice/Pro/Expert equivalent — it was
+   simply absent for three of four tiers. **Fixed**: `lib/lifecycle/review.ts`'s
+   `buildPostCloseReview` (which already existed, already had an API route at
+   `/api/trade-plans/[planId]/review`, and had **no UI consumer anywhere** —
+   itself a "not existing everywhere it applies is equal to not existing
+   anywhere" case) now also carries the plan's Rules Alignment breakdown
+   (`lib/signals/scoring.ts`'s per-criterion evidence, already persisted on
+   every `trade_plans` row via the `alignment` evidence field — no migration
+   needed). A new list endpoint (`/api/trade-plans/reviews`) and UI panel
+   (`components/portfolio/trade-reviews.tsx`, "Trade Reviews" on the
+   Portfolio page) render it for every tier. This is deliberately **not** a
+   diluted copy of backtest attribution: one trade's own cause and effect,
+   no cross-symbol win rate, expectancy, or profit factor — those claims
+   stay backtesting's own, still gated as before. The distinction is the
+   point, not a compromise.
+2. **Order ticket Strategy Mode area — real gap, fixed.** Pro's four-mode
+   subset already carried a stated rationale (`lib/entitlements/policy.ts`);
+   Novice's `[]` (no modes at all) had none beyond "consistent with every
+   other advanced capability being withheld" — a bare exclusion where a
+   selector renders for every other tier. **Fixed**: `components/trade/order-ticket.tsx`
+   now renders a short explainer in that exact space for Novice/Pro without
+   modes, naming what GSPS prices every plan from instead, rather than
+   leaving a blank space where a control used to be.
+3. **Chart complexity (`components/chart/candles.tsx`) — not yet a gap,
+   flagged for whoever gates it.** Overlays are currently ungated for every
+   tier, by explicit standing project-owner direction recorded in that
+   file's own comment. Nothing to fix today, but the recorded *intent* is to
+   eventually withhold PSAR/Supertrend from lower tiers with no companion
+   plan for what Novice/Pro's chart should look like instead. Flagged here
+   so that future gating work doesn't repeat the subtraction pattern this
+   audit exists to catch — design the simplified counterpart in the same
+   change that adds the gate, not after.
+4. **Dashboard/setup-card display — investigated, no gap found.** The plain
+   results table (`components/scan/results-table.tsx`) is the same shape at
+   every tier (row count and score precision differ, nothing else) — but
+   Guided Mode (`components/guided/guided-card.tsx`, `/guided`) is already
+   the real teaching-oriented counterpart, already nav-prominent as "the
+   novice's primary path" (`components/app/nav.tsx`'s own comment). This is
+   Polarity done correctly, already in place — no action needed.
+5. **Scoring precision (`lib/scoring/display.ts`) — investigated, no gap
+   found.** Already a deliberately-designed second pole with its own
+   in-code rationale (rounding to the half-point rather than a raw decimal
+   for Novice/Pro), not a subtraction. Recorded here as the positive
+   precedent this audit's other fixes followed.
+6. **GSPS School curriculum (`lib/school/curriculum.ts`) — investigated, no
+   gap found.** Genuinely tier-differentiated content (Foundations for
+   Novice, advisory-only Academies 4-7 for Pro/Expert, a required capstone
+   for Wall Street) rather than one curriculum stripped down. No new
+   curriculum content was written for this pass — see the note below on
+   what would be reused if it ever is.
+7. **Watch → Execute alerts / monitoring — investigated, accepted as
+   quantitative-only.** No qualitative depth difference exists between
+   tiers here, only capacity numbers (`maxActiveWatchMonitors`, etc.). Not
+   flagged as a gap: a monitor slot is a resource ceiling, not a taught
+   skill, so there is no "shallow-but-designed" counterpart for it to be
+   missing in the way there was for attribution or the order ticket.
+
+**Content-reuse constraint that applies to any future curriculum work
+building on this audit** (project owner direction, 2026-09-23): if new
+GSPS School content is ever written to plug a Polarity gap, it must teach
+the underlying premise of a technique without reproducing another
+practitioner's specific words, methods, or published observations verbatim
+— consistent with the numerology/astrology citation discipline elsewhere in
+this file (a technique's *rule* can be taught; someone else's specific
+proprietary expression of it cannot be lifted). No new curriculum content
+was written in this pass, so this constraint did not need to be exercised
+here — it's recorded for the session that first does.
 
 ## Temporary overrides — mandatory, check on every session
 

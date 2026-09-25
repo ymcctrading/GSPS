@@ -20,6 +20,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { equitySession } from "@/lib/market/session";
+import { TRANSITION_TIERS, type PromotionPath, type TierTransition } from "@/lib/promotion/transitions";
 
 const NOVICE_TIER = "PRACTICE";
 const PRO_TIER = "STANDARD";
@@ -153,6 +154,135 @@ export async function applyDuePromotion(
     .update({ promoted_at: now.toISOString(), updated_at: now.toISOString() })
     .eq("profile_id", profileId);
   if (statusError) console.error(`promotion: promoted_at not recorded for ${profileId} — ${statusError.message}`);
+
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// Generalized three-path model (`tier_promotions_status`, all three
+// transitions). The functions above are untouched and keep driving the
+// existing Novice→Pro-only `/api/promotion/status` and
+// `/api/promotion/upgrade` routes against `promotion_status` — these
+// generalized functions are the new, separate surface for the three-path
+// model (`/api/promotion/paths/*`), covering all three transitions
+// including Novice→Pro.
+// ---------------------------------------------------------------------------
+
+export type RequestTierPromotionResult =
+  | { status: "scheduled"; effectiveAt: string; path: PromotionPath }
+  | { status: "not_eligible" }
+  | { status: "already_requested"; effectiveAt: string };
+
+/** Same idempotent "first eligible" marker as `recordEligibilityIfNewlyMet`, generalized across transitions. */
+export async function recordTransitionEligibilityIfNewlyMet(
+  supabase: SupabaseClient,
+  profileId: string,
+  transition: TierTransition,
+  eligible: boolean,
+  now: Date = new Date(),
+): Promise<void> {
+  if (!eligible) return;
+  const { data: existing } = await supabase
+    .from("tier_promotions_status")
+    .select("eligible_since")
+    .eq("profile_id", profileId)
+    .eq("transition", transition)
+    .maybeSingle();
+  if (existing?.eligible_since) return;
+
+  const { error } = await supabase.from("tier_promotions_status").upsert(
+    { profile_id: profileId, transition, eligible_since: now.toISOString(), updated_at: now.toISOString() },
+    { onConflict: "profile_id,transition" },
+  );
+  if (error) console.error(`promotion: eligible_since not recorded for ${profileId}/${transition} — ${error.message}`);
+}
+
+/**
+ * A user's explicit request to promote through `transition` via `path` —
+ * generalized version of `requestPromotion`. Never applies immediately;
+ * `applyDueTransitionPromotion` performs the actual tier flip once
+ * `effective_at` has arrived, same "not retroactively to defeat an entry
+ * cap" posture as the original.
+ */
+export async function requestTransitionPromotion(
+  supabase: SupabaseClient,
+  profileId: string,
+  transition: TierTransition,
+  eligiblePath: PromotionPath | null,
+  now: Date = new Date(),
+): Promise<RequestTierPromotionResult> {
+  if (!eligiblePath) return { status: "not_eligible" };
+
+  const { data: existing } = await supabase
+    .from("tier_promotions_status")
+    .select("requested_at, effective_at, promoted_at")
+    .eq("profile_id", profileId)
+    .eq("transition", transition)
+    .maybeSingle();
+
+  if (existing?.requested_at && existing.effective_at && !existing.promoted_at) {
+    return { status: "already_requested", effectiveAt: existing.effective_at as string };
+  }
+
+  const effectiveAt = nextMarketOpen(now);
+  const { error } = await supabase.from("tier_promotions_status").upsert(
+    {
+      profile_id: profileId,
+      transition,
+      path_used: eligiblePath,
+      eligible_since: now.toISOString(),
+      requested_at: now.toISOString(),
+      effective_at: effectiveAt.toISOString(),
+      updated_at: now.toISOString(),
+    },
+    { onConflict: "profile_id,transition" },
+  );
+  if (error) throw new Error(`requestTransitionPromotion(${profileId}, ${transition}): ${error.message}`);
+
+  return { status: "scheduled", effectiveAt: effectiveAt.toISOString(), path: eligiblePath };
+}
+
+/**
+ * Applies a due transition promotion — generalized `applyDuePromotion`.
+ * Flips `profiles.tier` from `transition`'s `from` tier to its `to` tier
+ * once `effective_at` has arrived, only if the profile is still on the
+ * expected `from` tier (a no-op otherwise — already promoted, demoted, or
+ * on an unrelated tier).
+ */
+export async function applyDueTransitionPromotion(
+  supabase: SupabaseClient,
+  profileId: string,
+  transition: TierTransition,
+  now: Date = new Date(),
+): Promise<boolean> {
+  const { data: status } = await supabase
+    .from("tier_promotions_status")
+    .select("effective_at, promoted_at")
+    .eq("profile_id", profileId)
+    .eq("transition", transition)
+    .maybeSingle();
+
+  if (!status?.effective_at || status.promoted_at) return false;
+  if (new Date(status.effective_at) > now) return false;
+
+  const { from, to } = TRANSITION_TIERS[transition];
+  const { data: profile } = await supabase.from("profiles").select("tier").eq("id", profileId).single();
+  if ((profile?.tier ?? from) !== from) return false;
+
+  const { error: tierError } = await supabase.from("profiles").update({ tier: to }).eq("id", profileId);
+  if (tierError) {
+    console.error(`promotion: tier update failed for ${profileId}/${transition} — ${tierError.message}`);
+    return false;
+  }
+
+  const { error: statusError } = await supabase
+    .from("tier_promotions_status")
+    .update({ promoted_at: now.toISOString(), updated_at: now.toISOString() })
+    .eq("profile_id", profileId)
+    .eq("transition", transition);
+  if (statusError) {
+    console.error(`promotion: promoted_at not recorded for ${profileId}/${transition} — ${statusError.message}`);
+  }
 
   return true;
 }

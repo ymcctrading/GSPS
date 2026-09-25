@@ -1,6 +1,22 @@
 /**
  * "After close, generate a structured review: plan adherence, actual versus
  * planned entry/exit, rule state, and lesson tags."
+ *
+ * Three-question mandate (AGENTS.md), applied to the `alignment` field added
+ * 2026-09-23:
+ * 1. Gann sourcing: N/A — this reflects the Signal & Regime Engine's
+ *    already-computed Rules Alignment evidence back to the user; it derives
+ *    no new criterion of its own.
+ * 2. Dewey/cycle theory: N/A — a single trade's review makes no periodicity
+ *    or recurrence claim.
+ * 3. Hermetic principle: Cause and Effect, read together with Polarity. This
+ *    is the Novice/Pro/Expert-tier counterpart to Wall-Street-only backtest
+ *    attribution (`lib/backtest/attribution.ts`) named in AGENTS.md's
+ *    Polarity-audit section — deliberately a different kind of tool, not a
+ *    diluted copy: one trade's cause (the criteria the Signal & Regime
+ *    Engine observed at plan generation) paired with its own effect (how
+ *    the plan actually resolved), with no expectancy, win-rate, or profit-
+ *    factor claim across trades. Those remain backtesting's own claims.
  */
 
 import type { PlanState, StructuredReview, TradePlan } from "./types";
@@ -44,6 +60,7 @@ export function buildPostCloseReview(plan: TradePlan): StructuredReview {
     ruleState: plan.state,
     lessonTags,
     summary,
+    alignment: plan.evidence.alignment,
   };
 }
 

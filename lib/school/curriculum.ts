@@ -1005,3 +1005,26 @@ export function wallStreetCapstoneLessons(): readonly CurriculumLesson[] {
   const course = ACADEMY_8.courses.find((c) => c.id === WALL_STREET_CAPSTONE_COURSE_ID);
   return course?.lessons ?? [];
 }
+
+/**
+ * Academies (by id) that count toward the "advanced curriculum" gate used
+ * by the Pro→Expert Curriculum promotion path (`lib/promotion/curriculumPolicy.ts`).
+ * Academies 4-7 ("Sharpening the Edge" / "Professional Toolkit") were
+ * advisory-only until this path existed — this is the first thing that
+ * reads their completion as sufficient for a real promotion, not a change
+ * to the academies themselves. Selected by academy `number` (4-7), not by
+ * `programIds` tag: Academy 6 also carries a "systemization-capital-
+ * stewardship" tag (it doubles as a required Wall Street prerequisite, per
+ * its own comment) but is still Academy 6 and belongs in this set —
+ * filtering by tag alone would have silently dropped it.
+ */
+export const ADVANCED_CURRICULUM_ACADEMY_IDS = ACADEMIES.filter((a) => a.number >= 4 && a.number <= 7).map(
+  (a) => a.id,
+);
+
+/** Lessons across Academies 4-7 whose collective completion is required for the Pro→Expert curriculum path. */
+export function advancedCurriculumLessons(): readonly CurriculumLesson[] {
+  return ACADEMIES.filter((a) => ADVANCED_CURRICULUM_ACADEMY_IDS.includes(a.id)).flatMap((a) =>
+    a.courses.flatMap((c) => c.lessons),
+  );
+}
