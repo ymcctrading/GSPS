@@ -2,7 +2,10 @@
 
 **Status:** Nine modes live (2026-09-23, expanded same day). Tier-gated
 (Novice: none; Pro: a four-mode subset; Expert/Wall Street: all). Custom-
-script/plugin system: design-only, not built.
+script/plugin system: built and shipped (all four phases plus the
+`/settings/scripts` authoring UI, 2026-09-23 through 2026-09-25; Wall
+Street-tier authoring only, private to the author) — see "Custom-script /
+plugin system" below.
 
 Strategy Modes is an opt-in, non-default system that generates entry, stop
 loss, first target (TP1), and master target (MTP) from a named, real,
@@ -162,9 +165,9 @@ The project owner separately asked for a TradingView-style system: a user
 (or GSPS) authors a new indicator/strategy, it plots on the chart, and it
 can generate its own levels the same way the nine modes above do. This is a
 materially larger, security-sensitive project than the nine built-in modes
-— recorded here so a future session has the shape rather than starting from
-nothing, and so nobody mistakes the nine built-in modes above for a
-down-scoped version of this.
+— originally recorded here as a design so a future session had the shape
+rather than starting from nothing, and now the record of what was built;
+the nine built-in modes above are not a down-scoped version of it.
 
 **Why it's larger than "add another mode":** the nine modes above are code
 GSPS's own engineers wrote and reviewed. A user-authored script is untrusted
@@ -200,8 +203,9 @@ exposes to the nine built-in modes (`sma`, `ema`, `rsi`, `atr`, `vwap`,
 `recentHigh`), compiled to a function of the exact `(bars: Bar[]) =>
 X | null` shape `lib/strategies/types.ts#StrategyEvaluator` already uses.
 Deliberately **not** an arbitrary-code sandbox — no `eval`, `new Function`,
-or `vm`, anywhere — the design-only sketch below explained why that tradeoff
-was chosen, and Phase 1 built exactly that, not a more general sandbox.
+or `vm`, anywhere — the original design-only sketch (since replaced in place
+by this build record) chose that tradeoff over a general sandbox, and Phase 1
+built exactly that.
 
 - `lexer.ts` / `parser.ts` — hand-written recursive-descent parser, text ->
   AST. Every production emits exactly one whitelisted node kind

@@ -222,7 +222,9 @@ both signal discovery and execution.
   strategies, sandboxed) was also requested; scoped design-only this pass
   (`docs/STRATEGY_MODES.md`'s own section) given its sandboxing/security
   scope, and placed under the existing Q2 "Expanded indicator library"
-  initiative below rather than built here. *(Follow-up, 2026-09-23, same
+  initiative below rather than built here — *since built, 2026-09-23
+  through 2026-09-25; see the "Expanded indicator library" entry below.*
+  *(Follow-up, 2026-09-23, same
   day, direct request: three more modes shipped — VWAP reclaim/loss,
   Stochastic(14/3/3) crossover, and Donchian channel breakout — closing out
   every candidate this feature had originally deferred, and access is now
