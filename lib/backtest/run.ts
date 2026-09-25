@@ -372,9 +372,26 @@ async function computeSlippageSensitivity(
 }
 
 export async function runBacktest(request: BacktestRequest): Promise<BacktestReport> {
+  const run = await collectRun(request);
+  const slippageSensitivity = request.includeSlippageSensitivity
+    ? await computeSlippageSensitivity(request, run.overall.expectancyR)
+    : undefined;
+  return buildReport(run, request, slippageSensitivity);
+}
+
+/**
+ * The report half of `runBacktest`, split out so a caller that already holds
+ * a `RunOutcome` (e.g. `scripts/backtest-universe.ts`, which fetches each
+ * symbol once and replays several configurations on the same bars) can build
+ * the identical report without refetching.
+ */
+export function buildReport(
+  run: RunOutcome,
+  request: BacktestRequest,
+  slippageSensitivity?: SlippageSensitivity,
+): BacktestReport {
   const { attributeWithin = "Execute", attributeScoreRange, useProductionStop = false } = request;
 
-  const run = await collectRun(request);
   const split = byOutputState(run.overall);
   const target = attributeScoreRange
     ? byScoreRange(run.overall, attributeScoreRange[0], attributeScoreRange[1])
@@ -385,9 +402,6 @@ export async function runBacktest(request: BacktestRequest): Promise<BacktestRep
     ? `score ${attributeScoreRange[0]}–${attributeScoreRange[1]}`
     : attributeWithin;
   const capSplit = byLargeCap(run.overall);
-  const slippageSensitivity = request.includeSlippageSensitivity
-    ? await computeSlippageSensitivity(request, run.overall.expectancyR)
-    : undefined;
 
   return {
     source: run.source,

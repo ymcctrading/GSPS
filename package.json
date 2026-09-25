@@ -10,6 +10,7 @@
     "check:terms": "node scripts/check-banned-terms.mjs",
     "check:migrations": "node scripts/check-migrations.mjs",
     "backtest": "node scripts/replay-report.mjs",
+    "backtest:universe": "node scripts/backtest-universe.mjs",
     "test": "vitest run",
     "test:e2e": "playwright test"
   },
