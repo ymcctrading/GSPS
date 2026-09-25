@@ -18,7 +18,12 @@
  *    position-size compliance — those stay computed purely in
  *    lib/promotion/readiness.ts from real trading history.
  *  - Sharpening the Edge / Professional Toolkit (Academies 4-7): progress
- *    persists; nothing here ever writes a promotion or entitlement field.
+ *    persists, and completing all of them now ALSO writes
+ *    `tier_promotions_progress.curriculum_completed_at` (transition
+ *    `pro_to_expert`) — the Curriculum path for Pro→Expert promotion
+ *    (`lib/promotion/curriculumPolicy.ts`, added 2026-09-25). This academy
+ *    range was advisory-only before that path existed; nothing about the
+ *    lessons themselves changed, only what reading their completion means.
  *  - Systemization & Capital Stewardship (Academy 8 capstone, not W2):
  *    passing every capstone lesson AND the capstone dossier lab writes
  *    `live_trading_restrictions.wall_street_school_completed_at`. Course W2
@@ -38,6 +43,8 @@ import {
   foundationsEducationLessons,
   PAPER_VALIDATION_LESSON_ID,
   wallStreetCapstoneLessons,
+  advancedCurriculumLessons,
+  ADVANCED_CURRICULUM_ACADEMY_IDS,
 } from "@/lib/school/curriculum";
 import {
   validateThreeElementSubmission,
@@ -123,6 +130,8 @@ export interface AttemptLessonResult {
   shouldCheckPracticeValidation?: boolean;
   /** True when this attempt newly passed a Foundations lesson other than paper-validation — the caller should then call `maybeWriteEducationCompleted` with a service-role client. */
   shouldCheckEducationCompleted?: boolean;
+  /** True when this attempt newly passed a lesson in Academies 4-7 — the caller should then call `maybeWriteAdvancedCurriculumCompleted` with a service-role client. */
+  shouldCheckAdvancedCurriculumCompleted?: boolean;
 }
 
 /**
@@ -179,6 +188,7 @@ export async function recordCurriculumLessonAttempt(
     score,
     shouldCheckPracticeValidation: nowPassed && lesson.id === PAPER_VALIDATION_LESSON_ID,
     shouldCheckEducationCompleted: nowPassed && lesson.id !== PAPER_VALIDATION_LESSON_ID,
+    shouldCheckAdvancedCurriculumCompleted: nowPassed && ADVANCED_CURRICULUM_ACADEMY_IDS.includes(academy.id),
   };
 }
 
@@ -243,6 +253,50 @@ export async function maybeWritePracticeValidationCompleted(service: SupabaseCli
   );
   if (error) {
     console.error(`gsps-school: practice_validation_completed_at not written for ${userId} — ${error.message}`);
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Writes `tier_promotions_progress.curriculum_completed_at` (transition
+ * `pro_to_expert`) once every Academy 4-7 lesson has passed — the
+ * Curriculum path for Pro→Expert promotion. Idempotent, mirroring
+ * `maybeWriteEducationCompleted`'s own pattern. `service` must be a
+ * service-role client.
+ */
+export async function maybeWriteAdvancedCurriculumCompleted(service: SupabaseClient, userId: string): Promise<boolean> {
+  const { data: progressRows } = await service
+    .from("school_lesson_progress")
+    .select("lesson_id")
+    .eq("user_id", userId)
+    .eq("program_id", SCHOOL_CURRICULUM_PROGRAM_ID)
+    .eq("status", "passed");
+  const passedIds = new Set((progressRows ?? []).map((r) => r.lesson_id as string));
+
+  const required = advancedCurriculumLessons();
+  const allPassed = required.every((l) => passedIds.has(l.id));
+  if (!allPassed) return false;
+
+  const { data: existing } = await service
+    .from("tier_promotions_progress")
+    .select("curriculum_completed_at")
+    .eq("profile_id", userId)
+    .eq("transition", "pro_to_expert")
+    .maybeSingle();
+  if (existing?.curriculum_completed_at) return false;
+
+  const { error } = await service.from("tier_promotions_progress").upsert(
+    {
+      profile_id: userId,
+      transition: "pro_to_expert",
+      curriculum_completed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "profile_id,transition" },
+  );
+  if (error) {
+    console.error(`gsps-school: curriculum_completed_at not written for ${userId} (pro_to_expert) — ${error.message}`);
     return false;
   }
   return true;
