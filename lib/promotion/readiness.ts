@@ -22,7 +22,8 @@ import { computeExecutionScore } from "@/lib/risk/execution-score";
 import { MAX_SINGLE_POSITION_ALLOCATION_PCT } from "@/lib/risk/config";
 import { STARTING_CASH } from "@/lib/brokers/simulator";
 import type { PromotionPolicy } from "@/lib/promotion/config";
-import type { PromotionReadinessInputs } from "@/lib/promotion/eligibility";
+import type { PromotionReadinessInputs, TrackRecordInputs } from "@/lib/promotion/eligibility";
+import type { TrackRecordPolicy } from "@/lib/promotion/trackRecordPolicy";
 
 interface ClosedPositionRow {
   qty: number;
@@ -139,4 +140,55 @@ export async function gatherPromotionReadinessInputs(
 function ratio<T>(rows: T[], predicate: (row: T) => boolean): number {
   if (rows.length === 0) return 1; // nothing to fail yet — see requirement gating in eligibility.ts, which still requires minCompletedTrades separately.
   return rows.filter(predicate).length / rows.length;
+}
+
+/**
+ * Track Record path — generalized across all three tier transitions
+ * (see `lib/promotion/eligibility.ts#evaluateTrackRecordEligibility`).
+ * Reuses the same behavioral gathering as `gatherPromotionReadinessInputs`
+ * above, parameterized by a transition's own `TrackRecordPolicy` (different
+ * lookback/severity window per transition), and adds the two profitability
+ * metrics no transition needed until Pro→Expert introduced a profitability
+ * bar: cumulative realized return and average realized R-multiple.
+ *
+ * Deliberately a *different* metric from `lib/risk/execution-score.ts`,
+ * not an extension of it — that module's own header comment states P&L
+ * must never feed execution scoring (behavior, not luck, is what it
+ * measures). Profitability is a legitimate, separate question for
+ * promotion eligibility specifically ("has this trader actually made
+ * money") and is computed independently here, never fed back into risk
+ * sizing.
+ */
+export async function gatherTrackRecordInputs(
+  supabase: SupabaseClient,
+  profileId: string,
+  policy: TrackRecordPolicy,
+  now: Date = new Date(),
+): Promise<TrackRecordInputs> {
+  const base = await gatherPromotionReadinessInputs(supabase, profileId, policy, now);
+
+  const lookbackCutoff = new Date(now.getTime() - policy.riskStateLookbackDays * 86_400_000);
+  const { data: closedRaw } = await supabase
+    .from("positions")
+    .select("qty, avg_entry_price, stop_loss, realized_pl, opened_at, closed_at")
+    .eq("user_id", profileId)
+    .eq("mode", "paper")
+    .eq("closed", true);
+  const closed = (closedRaw ?? []) as ClosedPositionRow[];
+  const recentClosed = closed.filter((p) => p.closed_at && new Date(p.closed_at) >= lookbackCutoff);
+
+  const cumulativeReturnPct =
+    (recentClosed.reduce((sum, p) => sum + (p.realized_pl ?? 0), 0) / STARTING_CASH) * 100;
+
+  const rMultiples = recentClosed
+    .filter((p) => p.stop_loss != null && p.realized_pl != null)
+    .map((p) => {
+      const riskPerShare = Math.abs(p.avg_entry_price - (p.stop_loss as number));
+      const plannedRisk = p.qty * riskPerShare;
+      return plannedRisk > 0 ? (p.realized_pl as number) / plannedRisk : null;
+    })
+    .filter((r): r is number => r != null);
+  const expectancyR = rMultiples.length > 0 ? rMultiples.reduce((s, r) => s + r, 0) / rMultiples.length : 0;
+
+  return { ...base, cumulativeReturnPct, expectancyR };
 }
