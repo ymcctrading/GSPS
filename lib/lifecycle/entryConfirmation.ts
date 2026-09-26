@@ -203,3 +203,36 @@ export function replayEntryConfirmation(
   }
   return evidence;
 }
+
+/**
+ * Whether a bar traded through the plan's stop while the plan was still
+ * waiting for entry confirmation (added 2026-09-26, alignment audit F3.7,
+ * project-owner sign-off).
+ *
+ * Before this, a plan in `awaiting_entry_confirmation` could watch price run
+ * straight through its own invalidation level and keep waiting; a later
+ * retest-and-confirm sequence would then arm a setup whose protective level
+ * had already failed. The stop is Gann's own protective swing
+ * (`lib/gann/entryTrigger.ts`: the opposite old swing top or bottom, plus the
+ * lost-motion allowance), so price crossing it means the swing structure the
+ * trigger was built on has broken. The setup no longer exists, the same as
+ * after entry.
+ *
+ * Uses the bar's extreme (low for a long, high for a short), the same touch
+ * convention the post-entry stop uses. Shared by the live scan pass
+ * (`lib/lifecycle/advanceConfirmation.ts`) and the backtest replay so both
+ * invalidate on the same condition.
+ *
+ * Three-question mandate: (1) Gann: the stop is the protective swing of A8's
+ * Buying/Selling Points; a breached swing ends the setup. (2) Cycles: no
+ * periodicity claim. (3) Hermetic: Cause and Effect, an entry may only be
+ * caused by a setup whose defining structure still holds. Polarity supports
+ * the mirror for shorts. The other five do not bear on it.
+ */
+export function preEntryStopBreached(
+  direction: ConfirmationDirection,
+  stop: number,
+  bar: Pick<Bar, "h" | "l">,
+): boolean {
+  return direction === "bullish" ? bar.l <= stop : bar.h >= stop;
+}

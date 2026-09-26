@@ -5,6 +5,8 @@
  * MASTER_REACHED -> RUNNER -> CLOSED
  * Any pre-entry state -> EXPIRED when the trigger doesn't occur by `expiresAt`.
  * Any active (post-entry) state -> INVALIDATED when the stop/invalidation rule fires.
+ * AWAITING_ENTRY_CONFIRMATION -> INVALIDATED when price trades through the
+ * stop before entry (2026-09-26, audit F3.7 — see `preEntryStopBreached`).
  *
  * Cooldown gates the ENTER transition only. It never blocks CLOSE, or the
  * risk-reducing actions (TP fills, invalidation) that can fire from an active
@@ -248,8 +250,14 @@ function applyRemainingEvent(plan: TradePlan, event: PlanEvent): TransitionResul
     }
 
     case "invalidate": {
-      if (!ACTIVE_STATES.includes(plan.state)) {
-        return fail(`Cannot invalidate a plan in state "${plan.state}"; invalidation only applies post-entry.`);
+      // Pre-entry, only a plan awaiting confirmation: it has a live trigger
+      // and stop but no working order. An `armed` plan may already have an
+      // order at the broker, and invalidating it safely would also mean
+      // cancelling that order, which this transition does not do.
+      if (!ACTIVE_STATES.includes(plan.state) && plan.state !== "awaiting_entry_confirmation") {
+        return fail(
+          `Cannot invalidate a plan in state "${plan.state}"; invalidation applies post-entry or while awaiting entry confirmation.`,
+        );
       }
       return {
         ok: true,

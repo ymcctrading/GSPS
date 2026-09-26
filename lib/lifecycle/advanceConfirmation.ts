@@ -18,11 +18,17 @@
  * scan's actual closed bar through here (rather than `currentPrice`) would
  * restore full intra-bar fidelity; tracked as a follow-up rather than
  * blocking this gate.
+ *
+ * A pass that finds price through the plan's stop invalidates the plan
+ * instead of advancing it (2026-09-26, audit F3.7 — see
+ * `preEntryStopBreached`). With the degenerate bar above this reads the
+ * scan's `currentPrice` only, so a wick through the stop between passes is
+ * missed; the same known limitation as the stages themselves.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Bar } from "@/lib/types";
-import { advanceEntryConfirmation, entryReady } from "./entryConfirmation";
+import { advanceEntryConfirmation, entryReady, preEntryStopBreached } from "./entryConfirmation";
 import { applyEventAndPersist, listTradePlans } from "./store";
 
 export interface ConfirmationScanTick {
@@ -66,6 +72,15 @@ export async function advanceEntryConfirmationForSymbol(
 
   for (const plan of candidates) {
     try {
+      if (preEntryStopBreached(plan.direction, plan.coordinates.invalidation, bar)) {
+        await applyEventAndPersist(service, profileId, plan.planId, {
+          type: "invalidate",
+          at: tick.scannedAt,
+          reason: `Price ${tick.currentPrice} traded through the stop ${plan.coordinates.invalidation} before entry was confirmed.`,
+        });
+        continue;
+      }
+
       const nextEvidence = advanceEntryConfirmation(
         plan.entryConfirmation,
         { direction: plan.direction, entryTrigger: plan.coordinates.entryTrigger },

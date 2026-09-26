@@ -169,7 +169,7 @@ describe("expiry and invalidation", () => {
     expect(postEntry.ok).toBe(false);
   });
 
-  it("invalidates only from an active (post-entry) state", () => {
+  it("invalidates from an active state or while awaiting entry confirmation, nowhere else", () => {
     const active = applyPlanEvent(plan({ state: "tp1_reached" }), {
       type: "invalidate",
       at: "t",
@@ -184,6 +184,24 @@ describe("expiry and invalidation", () => {
       reason: "stop hit",
     });
     expect(preEntry.ok).toBe(false);
+
+    // F3.7 (2026-09-26): a plan waiting on confirmation dies when price
+    // trades through its stop.
+    const awaiting = applyPlanEvent(plan({ state: "awaiting_entry_confirmation" }), {
+      type: "invalidate",
+      at: "t",
+      reason: "stop breached before entry",
+    });
+    expect(awaiting.ok).toBe(true);
+    if (awaiting.ok) expect(awaiting.plan.state).toBe("invalidated");
+
+    // An armed plan may have a working order; it is not invalidated here.
+    const armed = applyPlanEvent(plan({ state: "armed" }), {
+      type: "invalidate",
+      at: "t",
+      reason: "stop breached before entry",
+    });
+    expect(armed.ok).toBe(false);
   });
 });
 
