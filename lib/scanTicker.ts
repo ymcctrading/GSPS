@@ -28,7 +28,6 @@ import { countLevelTests, levelRole } from "@/lib/analysis/levelRole";
 import { computeFanLines } from "@/lib/gann/fans";
 import { recentSquareOf9Levels } from "@/lib/gann/squareOf9";
 import { timeCycles, yearCycleConvergence } from "@/lib/gann/timeCycles";
-import { weightedTrendAgreement } from "@/lib/gann/timeframeWeight";
 import { computeAngleSlopes } from "@/lib/gann/normalizedSlope";
 import { computeRetracementLevels } from "@/lib/gann/retracement";
 import { priceTimeConfluence } from "@/lib/gann/digitalRoot";
@@ -37,12 +36,7 @@ import { computeRuleOfThree } from "@/lib/gann/ruleOfThree";
 import { computeTimePriceSquare } from "@/lib/gann/timePriceSquare";
 import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
 import { computeBoilingPoint } from "@/lib/gann/boilingPoint";
-import {
-  CONTINUATION_PATTERNS,
-  detectPatterns,
-  gapRuleViolated,
-  riskFloorViolated,
-} from "@/lib/strat/patterns";
+import { preferredEntryDirection, rankArmedPatterns } from "@/lib/scan/entrySelection";
 import { computeTradeLevels, type EntrySource } from "@/lib/strat/levels";
 import { computeGannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
@@ -223,57 +217,22 @@ export async function scanTicker(
     // The execution-timeframe ATR sets the noise floor a setup's stop has to
     // clear; without it a narrow bar arms a pattern no one could actually hold.
     const executionAtr = atr(closedExecutionBars.slice(-30), 14);
-    const armed = detectPatterns(closedExecutionBars).filter(
-      (p) => !gapRuleViolated(p, currentPrice) && !riskFloorViolated(p, executionAtr),
+    // Direction and pattern ranking are shared with the backtest replay
+    // (lib/scan/entrySelection.ts) so the two cannot drift — see that
+    // module's header. Direction: against the macro move, weighted by Gann's
+    // chart-timeframe power ratio (a single monthly trend outweighs weekly +
+    // daily disagreeing with it, per Wall Street Stock Selector, 1930). A
+    // caller hunting a continuation supplies its own direction instead.
+    const preferredDirection = preferredEntryDirection(
+      [monthlyTrend, weeklyTrend, dailyTrend],
+      preference,
     );
-
-    // Prefer the pattern aligned with a reversion of the macro move; then by
-    // trigger proximity to current price. A caller hunting a continuation
-    // supplies its own direction instead — the trend's, not the reversion of it.
-    //
-    // Weighted by Gann's chart-timeframe power ratio (lib/gann/timeframeWeight.ts)
-    // rather than a flat 2-of-3 vote — a single monthly trend outweighs
-    // weekly+daily disagreeing with it, per Wall Street Stock Selector (1930).
-    // This only changes which of several simultaneously-armed patterns the
-    // live scan prefers showing; it is not a scored criterion.
-    const macroDir = weightedTrendAgreement([monthlyTrend, weeklyTrend, dailyTrend], "bearish").agrees
-      ? "bearish"
-      : "bullish";
-    const reversionDirection = macroDir === "bearish" ? "bullish" : "bearish";
-    const preferredDirection = preference?.direction ?? reversionDirection;
-
-    // Three-bar compound setups carry more context than a bare 2-2 (which arms
-    // on almost every directional bar), so rank them ahead of it.
-    const specificity = (name: StratPattern["name"]): number => {
-      switch (name) {
-        case "2-1-2":
-        case "3-1-2":
-        case "1-2-2":
-        case "3-2-2":
-          return 0;
-        case "PMG":
-          return 1;
-        case "2-2":
-          return 2;
-      }
-    };
-
-    // A continuation is carried by the compound patterns that break in the
-    // direction of the bar sequence; the 2-2 family reverses it. Within the
-    // preferred direction, rank the continuation shapes first when that is what
-    // was asked for, so the trade plan priced below is the continuation's.
-    const kindRank = (p: StratPattern): number =>
-      setupKind === "continuation" && !CONTINUATION_PATTERNS.has(p.name) ? 1 : 0;
-
-    const armedPatterns = [...armed].sort((a, b) => {
-      const aRev = a.direction === preferredDirection ? 0 : 1;
-      const bRev = b.direction === preferredDirection ? 0 : 1;
-      if (aRev !== bRev) return aRev - bRev;
-      const kind = kindRank(a) - kindRank(b);
-      if (kind !== 0) return kind;
-      const spec = specificity(a.name) - specificity(b.name);
-      if (spec !== 0) return spec;
-      return Math.abs(a.triggerPrice - currentPrice) - Math.abs(b.triggerPrice - currentPrice);
+    const armedPatterns = rankArmedPatterns({
+      closedExecutionBars,
+      currentPrice,
+      executionAtr,
+      preferredDirection,
+      setupKind,
     });
 
     const pattern: StratPattern | null = armedPatterns[0] ?? null;

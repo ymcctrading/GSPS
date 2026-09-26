@@ -309,7 +309,8 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
   }
 
   const provider = getMarketDataProvider();
-  const options: ReplayOptions = {
+  // Daily bars are supplied per symbol below.
+  const options: Omit<ReplayOptions, "dailyBars"> = {
     targetR,
     ...(costPerShare !== undefined ? { costPerShare } : {}),
     ...(weights ? { weights } : {}),

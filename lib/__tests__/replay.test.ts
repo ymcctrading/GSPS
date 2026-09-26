@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import { CRITERION_KEYS, type CriterionWeights } from "@/lib/scoring/weights";
+import { computeGannEntryTrigger, type GannEntryTrigger } from "@/lib/gann/entryTrigger";
+import { preferredEntryDirection } from "@/lib/scan/entrySelection";
 import {
   MIN_DAILY_BARS_FOR_SCORE,
   buildMacroContext,
@@ -13,56 +15,82 @@ import {
   type ReplayTrade,
 } from "@/lib/backtest/replay";
 
-function bar(o: number, h: number, l: number, c: number): Bar {
-  return { t: "2026-01-01T00:00:00Z", o, h, l, c, v: 1000 };
+/** The trading day every intraday fixture below sits on. */
+const DAY = "2026-06-15";
+
+function dayBar(date: string, o: number, h: number, l: number, c: number): Bar {
+  return { t: `${date}T00:00:00Z`, o, h, l, c, v: 1000 };
 }
 
 /**
- * A warm-up run long enough to clear `MIN_DAILY_BARS_FOR_SCORE`, then whatever
- * is appended.
- *
- * **This head oscillates; it used to be flat (every close 100).** A flat run
- * cannot arm anything since 2026-09-17: the trade is triggered by crossing a
- * completed swing extreme (`lib/gann/entryTrigger.ts`), the swing walk skips
- * flat closes entirely, and with no completed swing on each side there is no
- * old level to cross and no protective swing to stop beyond. Under the
- * previous bar-sequence trigger two or three bars were enough, so the flat
- * head was harmless; it now produces zero trades.
- *
- * Runs of four in each direction so the 3-day swing chart actually flips and
- * both a top and a bottom complete. The oscillation is symmetric around 100 to
- * keep the warm-up directionally neutral, which is all these fixtures ever
- * wanted from it.
+ * `count` daily bars ending the day before `before`, oscillating around 100 in
+ * an 8-day cycle (four rising closes, four falling). The swing walk skips flat
+ * closes, so a flat history completes no swing and arms nothing. Runs of four
+ * let the 3-day swing chart flip, so tops near 103 and bottoms near 95
+ * complete on both sides.
  */
-function series(tail: Bar[]): Bar[] {
-  const head: Bar[] = [];
-  for (let i = 0; i < 48; i++) {
-    // 8-bar cycle: four rising closes, four falling.
-    const phase = i % 8;
+function dailyHistory(count: number, before: string): Bar[] {
+  const out: Bar[] = [];
+  const end = new Date(`${before}T00:00:00Z`).getTime();
+  for (let i = count; i >= 1; i--) {
+    const d = new Date(end - i * 86_400_000).toISOString().slice(0, 10);
+    const phase = (count - i) % 8;
     const step = phase < 4 ? phase : 7 - phase;
     const c = 96 + step * 2;
-    head.push(bar(c, c + 1, c - 1, c));
+    out.push(dayBar(d, c, c + 1, c - 1, c));
   }
-  return [...head, ...tail];
+  return out;
+}
+
+const DAILY = dailyHistory(300, DAY);
+
+/**
+ * The trigger the live scan would arm for DAY. It is computed here with the
+ * same two calls `lib/scanTicker.ts` makes, so every assertion below checks
+ * the replay against production's rule rather than against a hand-copied
+ * number.
+ */
+function liveTrigger(daily: Bar[] = DAILY): GannEntryTrigger {
+  const direction = preferredEntryDirection(buildMacroContext(daily, 100).macroTrends);
+  const t = computeGannEntryTrigger(daily, direction);
+  if (!t) throw new Error("fixture must arm a trigger");
+  return t;
+}
+
+const TRIGGER = liveTrigger();
+/** +1 for a long trigger, -1 for a short, so fixtures work in either direction. */
+const SIDE = TRIGGER.direction === "bullish" ? 1 : -1;
+const RISK = Math.abs(TRIGGER.triggerPrice - TRIGGER.stopPrice);
+
+/** 15-minute bars on DAY, timestamped in order from midnight. */
+function intraday(bars: Array<Omit<Bar, "t" | "v">>): Bar[] {
+  return bars.map((b, i) => {
+    const minutes = i * 15;
+    const hh = String(Math.floor(minutes / 60)).padStart(2, "0");
+    const mm = String(minutes % 60).padStart(2, "0");
+    return { ...b, t: `${DAY}T${hh}:${mm}:00Z`, v: 1000 };
+  });
 }
 
 /**
- * A 2-up bar that arms a bearish reversal, the candle that triggers it, and a
- * third bar. The third matters: the replay only examines a history ending one
- * bar before `live`, so without it no history ever ends on the arming bar and
- * the run is silently empty.
+ * A warm-up that stays well inside both the trigger and the stop, oscillating
+ * so the 15-minute ATR is non-zero, followed by whatever is appended.
  */
-const ARMS_AND_TRIGGERS: Bar[] = series([
-  bar(100, 105, 99, 104),
-  // Spans the whole range in one candle. Against the warm-up's completed
-  // swings the bearish trigger is ~94.72 and the stop ~103.31, so risk is
-  // ~8.6 and the 2R target is ~77.5 — this bar reaches all three, which is
-  // exactly the ambiguity the test is about. The numbers are larger than the
-  // old fixture's because the swing-derived stop sits at the opposing swing
-  // rather than one cent off the trigger candle, so R is wider.
-  bar(104, 106, 77, 95),
-  bar(95, 96, 94, 95),
-]);
+function session(tail: Array<Omit<Bar, "t" | "v">>): Bar[] {
+  const head: Array<Omit<Bar, "t" | "v">> = [];
+  for (let i = 0; i < 44; i++) {
+    const c = 99 + (i % 4 < 2 ? 0.5 : -0.5);
+    head.push({ o: c, h: c + 0.6, l: c - 0.6, c });
+  }
+  return intraday([...head, ...tail]);
+}
+
+/** A price `by` beyond the trigger, in the trade's direction. */
+const past = (by: number) => TRIGGER.triggerPrice + SIDE * by;
+/** A bar that crosses the trigger from inside and closes just past it. */
+const crossing = { o: 99, h: SIDE > 0 ? past(0.5) : 99.2, l: SIDE > 0 ? 98.8 : past(0.5), c: past(0.3) };
+/** A quiet bar, inside the trigger. */
+const quiet = { o: 99, h: 99.4, l: 98.6, c: 99 };
 
 const trade = (over: Partial<ReplayTrade> = {}): ReplayTrade => ({
   symbol: "TEST",
@@ -113,21 +141,53 @@ describe("summarise", () => {
 });
 
 describe("replay", () => {
+  it("arms from the daily swing-crossing trigger the live scan uses (F3.1)", () => {
+    const r = replay("TEST", session([crossing, quiet]), { targetR: 2, dailyBars: DAILY });
+    expect(r.trades).toHaveLength(1);
+    const t = r.trades[0];
+    expect(t.direction).toBe(TRIGGER.direction);
+    expect(t.entry).toBeCloseTo(TRIGGER.triggerPrice, 10);
+    expect(t.stop).toBeCloseTo(TRIGGER.stopPrice, 10);
+    expect(t.target).toBeCloseTo(TRIGGER.triggerPrice + SIDE * 2 * RISK, 10);
+  });
+
   it("takes no trade when the trigger is never reached", () => {
-    // A 2-2 arms off the last bar, but the following candle never trades up to
-    // the trigger, and the protocol does not carry a setup forward.
-    // The warm-up's completed swings sit at roughly 103 (top) and 95 (bottom),
-    // so the triggers are ~103.31 and ~94.72 once the lost-motion allowance is
-    // applied. This follow-up candle stays inside both, so nothing fires.
-    // (It used to read 103/104/102/103, which was clear of the old
-    // bar-sequence trigger at 98.99 but now crosses the upper one.)
-    const bars = series([
-      bar(100, 103, 99, 102), // arms, but its own high stays under 103.31
-      bar(100, 103, 99, 100), // inside both triggers — reaches neither
-    ]);
-    const r = replay("TEST", bars, { targetR: 2 });
+    const r = replay("TEST", session([quiet, quiet]), { targetR: 2, dailyBars: DAILY });
+    expect(r.armed).toBeGreaterThan(0);
     expect(r.triggered).toBe(0);
-    expect(r.trades.length).toBe(0);
+    expect(r.trades).toHaveLength(0);
+  });
+
+  it("fills a candle that opens beyond the resting stop at its open, not the trigger", () => {
+    const gapOpen = past(1);
+    const gap = { o: gapOpen, h: SIDE > 0 ? past(1.2) : gapOpen, l: SIDE > 0 ? gapOpen : past(1.2), c: past(1.1) };
+    const r = replay("TEST", session([gap, quiet]), { targetR: 2, dailyBars: DAILY });
+    expect(r.trades).toHaveLength(1);
+    expect(r.trades[0].entry).toBeCloseTo(gapOpen, 10);
+  });
+
+  it("crosses a given swing extreme once, not on every bar beyond it", () => {
+    const r = replay("TEST", session([crossing, crossing, crossing, quiet]), { targetR: 2, dailyBars: DAILY });
+    expect(r.trades).toHaveLength(1);
+    expect(r.triggered).toBe(1);
+  });
+
+  it("does not gate the trigger on the STRAT gap rule or risk floor (F3.2)", () => {
+    // The 15-minute warm-up arms no bar-sequence pattern in the trade's
+    // direction at all, and the swing-derived risk is several 15-minute ATRs
+    // wide. Neither matters: the live scan prices from the trigger alone.
+    const r = replay("TEST", session([crossing, quiet]), { targetR: 2, dailyBars: DAILY });
+    expect(r.trades).toHaveLength(1);
+    expect(r.trades[0].atrMultiple).toBeGreaterThan(1);
+  });
+
+  it("resolves a bar covering both stop and target as a loss", () => {
+    const wide = { o: 99, h: SIDE > 0 ? past(3 * RISK) : TRIGGER.stopPrice + 1, l: SIDE > 0 ? TRIGGER.stopPrice - 1 : past(3 * RISK), c: 99 };
+    const r = replay("TEST", session([wide, quiet]), { targetR: 2, dailyBars: DAILY });
+    expect(r.trades).toHaveLength(1);
+    expect(r.trades[0].ambiguous).toBe(true);
+    expect(r.trades[0].outcome).toBe("loss");
+    expect(r.ambiguous).toBe(1);
   });
 
   it("charges friction against the winner as well as the loser", () => {
@@ -138,19 +198,8 @@ describe("replay", () => {
     expect(withCost).toBeCloseTo(1.98, 10);
   });
 
-  it("resolves a bar covering both stop and target as a loss", () => {
-    // One candle spans the whole range. There is no way to know which side was
-    // touched first, so the pessimistic reading stands and is flagged.
-    const r = replay("TEST", ARMS_AND_TRIGGERS, { targetR: 2 });
-    expect(r.trades.length).toBeGreaterThan(0);
-    const ambiguous = r.trades.filter((t) => t.ambiguous);
-    expect(ambiguous.length).toBeGreaterThan(0);
-    expect(ambiguous.every((t) => t.outcome === "loss")).toBe(true);
-    expect(r.ambiguous).toBe(ambiguous.length);
-  });
-
-  it("records the stop width in ATR so the floor can be tuned against results", () => {
-    const r = replay("TEST", ARMS_AND_TRIGGERS, { targetR: 2 });
+  it("records the stop width in ATR so it can be studied against results", () => {
+    const r = replay("TEST", session([crossing, quiet]), { targetR: 2, dailyBars: DAILY });
     expect(r.trades.length).toBeGreaterThan(0);
     for (const t of r.trades) {
       expect(t.atrMultiple).toBeGreaterThan(0);
@@ -159,33 +208,11 @@ describe("replay", () => {
   });
 
   it("never reports more triggered than armed", () => {
-    const bars = series([
-      bar(100, 105, 99, 104),
-      bar(104, 108, 103, 107),
-      bar(107, 109, 100, 101),
-      bar(101, 103, 95, 96),
-    ]);
-    const r = replay("TEST", bars, { targetR: 2 });
+    const r = replay("TEST", session([quiet, crossing, quiet, crossing]), { targetR: 2, dailyBars: DAILY });
     expect(r.triggered).toBeLessThanOrEqual(r.armed);
     expect(r.trades.length).toBeLessThanOrEqual(r.triggered);
   });
 });
-
-function dayBar(date: string, o: number, h: number, l: number, c: number): Bar {
-  return { t: `${date}T00:00:00Z`, o, h, l, c, v: 1000 };
-}
-
-/** `count` daily bars ending the day before `before`, drifting gently upward. */
-function dailyHistory(count: number, before: string): Bar[] {
-  const out: Bar[] = [];
-  const end = new Date(`${before}T00:00:00Z`).getTime();
-  for (let i = count; i >= 1; i--) {
-    const d = new Date(end - i * 86_400_000).toISOString().slice(0, 10);
-    const base = 100 + (count - i) * 0.05;
-    out.push(dayBar(d, base, base + 1.5, base - 1.5, base + 0.2));
-  }
-  return out;
-}
 
 describe("rollUp", () => {
   it("keeps the first open, the last close, and the extremes between", () => {
@@ -222,24 +249,8 @@ describe("buildMacroContext", () => {
 });
 
 describe("replay scoring", () => {
-  const intraday = ARMS_AND_TRIGGERS.map((b, i) => ({
-    ...b,
-    t: `2026-06-15T${String(9 + Math.floor(i / 4)).padStart(2, "0")}:${["00", "15", "30", "45"][i % 4]}:00Z`,
-  }));
-
-  it("leaves the verdict undefined when no daily bars are supplied", () => {
-    const r = replay("TEST", intraday, { targetR: 2 });
-    for (const t of r.trades) {
-      expect(t.score).toBeUndefined();
-      expect(t.outputState).toBeUndefined();
-    }
-  });
-
-  it("attaches a verdict once there is enough prior daily history", () => {
-    const r = replay("TEST", intraday, {
-      targetR: 2,
-      dailyBars: dailyHistory(300, "2026-06-15"),
-    });
+  it("attaches a verdict to every trade", () => {
+    const r = replay("TEST", session([crossing, quiet]), { targetR: 2, dailyBars: DAILY });
     expect(r.trades.length).toBeGreaterThan(0);
     for (const t of r.trades) {
       expect(t.score).toBeGreaterThanOrEqual(0);
@@ -248,91 +259,70 @@ describe("replay scoring", () => {
   });
 
   it("records which criteria passed, so the factors can be attributed later", () => {
-    // Explicit uniform weights: this test checks that the criteria map agrees
-    // with the headline score (no criterion silently missing or double
-    // counted), which is only a raw pass-count comparison when every
-    // criterion is worth the same one point. DEFAULT_CRITERION_WEIGHTS is
-    // uniform again as of 2026-09-16 (see its own doc comment), so it
-    // matches today — set explicitly anyway so a later change to the live
-    // default cannot turn this into a weighted comparison unnoticed.
+    // Explicit uniform weights: this checks that the criteria map agrees with
+    // the headline score (no criterion silently missing or double counted),
+    // which is only a raw pass-count comparison when every criterion is worth
+    // one point.
     const uniformWeights = Object.fromEntries(CRITERION_KEYS.map((k) => [k, 1])) as CriterionWeights;
-    const r = replay("TEST", intraday, {
+    const r = replay("TEST", session([crossing, quiet]), {
       targetR: 2,
-      dailyBars: dailyHistory(300, "2026-06-15"),
+      dailyBars: DAILY,
       weights: uniformWeights,
     });
     expect(r.trades.length).toBeGreaterThan(0);
     for (const t of r.trades) {
       const passed = Object.values(t.criteria!).filter(Boolean).length;
-      // The recorded map has to agree with the headline score, or the factor
-      // study and the verdict split would be describing different trades.
       expect(passed).toBe(t.score);
+      // The trigger is what arms the trade, so the criterion that asks
+      // whether one is armed in the setup's direction always passes here.
+      expect(t.criteria!.entryTriggerArmed).toBe(true);
     }
-  });
-
-  it("attaches no criteria at all to an unscored trade", () => {
-    // An empty map would read as "every criterion failed" once attributed.
-    const r = replay("TEST", intraday, { targetR: 2 });
-    for (const t of r.trades) expect(t.criteria).toBeUndefined();
   });
 
   it("reads only sessions before the day being traded", () => {
     // Every daily bar here is dated on or after the trading day, so a replay
-    // that peeked would still find history to score against. It must not.
-    const sameDayOnly = dailyHistory(300, "2026-09-01").map((b, i) => ({
-      ...b,
-      t: `2026-0${6 + (i % 3)}-15T00:00:00Z`,
-    })).filter((b) => b.t.slice(0, 10) >= "2026-06-15");
-    const r = replay("TEST", intraday, { targetR: 2, dailyBars: sameDayOnly });
-    for (const t of r.trades) expect(t.outputState).toBeUndefined();
+    // that peeked would still find a trigger. It must not.
+    const sameDayOnly = DAILY.map((b) => ({ ...b, t: `${DAY}T00:00:00Z` }));
+    const r = replay("TEST", session([crossing, quiet]), { targetR: 2, dailyBars: sameDayOnly });
+    expect(r.armed).toBe(0);
+    expect(r.trades).toHaveLength(0);
   });
 
-  it("refuses to score on too little history rather than inventing one", () => {
-    const r = replay("TEST", intraday, {
+  it("refuses to arm on too little history rather than inventing a macro read", () => {
+    const r = replay("TEST", session([crossing, quiet]), {
       targetR: 2,
-      dailyBars: dailyHistory(MIN_DAILY_BARS_FOR_SCORE - 1, "2026-06-15"),
+      dailyBars: dailyHistory(MIN_DAILY_BARS_FOR_SCORE - 1, DAY),
     });
-    for (const t of r.trades) expect(t.score).toBeUndefined();
+    expect(r.armed).toBe(0);
+    expect(r.trades).toHaveLength(0);
   });
 });
 
 describe("useProductionStop", () => {
-  // A wide structural stop (well past the default 2.5x-ATR ceiling) so the
-  // default and large-cap ceilings clip it to two different widths, and a
-  // target far enough out that neither stop width is at risk of hitting it
-  // by coincidence within this short series.
-  const wideStop: Bar[] = series([
-    bar(100, 105, 99, 104), // 2U — arms a bearish trigger at 98.99, stop far above
-    bar(99, 100, 90, 92), // triggers, then drifts down without hitting a tight stop
-    bar(92, 93, 91, 92),
-  ]);
+  // The swing-derived stop is several 15-minute ATRs wide, past the default
+  // ceiling, so the leeway/ceiling logic moves it.
+  const bars = session([crossing, quiet, quiet]);
 
-  it("uses the raw pattern stop by default, unaffected by the option's absence", () => {
-    const withDefault = replay("TEST", wideStop, { targetR: 2 });
-    const explicitFalse = replay("TEST", wideStop, { targetR: 2, useProductionStop: false });
+  it("uses the raw structural stop by default, unaffected by the option's absence", () => {
+    const withDefault = replay("TEST", bars, { targetR: 2, dailyBars: DAILY });
+    const explicitFalse = replay("TEST", bars, { targetR: 2, dailyBars: DAILY, useProductionStop: false });
     expect(withDefault.trades).toEqual(explicitFalse.trades);
   });
 
   it("widens the walked stop when true, changing the realised risk", () => {
-    const raw = replay("TEST", wideStop, { targetR: 2 });
-    const widened = replay("TEST", wideStop, { targetR: 2, useProductionStop: true });
+    const raw = replay("TEST", bars, { targetR: 2, dailyBars: DAILY });
+    const widened = replay("TEST", bars, { targetR: 2, dailyBars: DAILY, useProductionStop: true });
     expect(raw.trades.length).toBeGreaterThan(0);
     expect(widened.trades.length).toBe(raw.trades.length);
-    // Same pattern, same bars — only the stop distance the P&L walk checks
-    // against should differ once the leeway/ceiling logic is in the loop.
-    const rawTrade = raw.trades[0];
-    const widenedTrade = widened.trades[0];
-    expect(widenedTrade.stop).not.toBe(rawTrade.stop);
+    expect(widened.trades[0].stop).not.toBe(raw.trades[0].stop);
   });
 
-  it("tags every trade with its large-cap read even with no daily bars supplied", () => {
-    // The large-cap classification only needs the symbol (for the known-name
-    // list) — it must not silently require dailyBars the way score/outputState do.
-    const r = replay("MSFT", wideStop, { targetR: 2 });
+  it("tags every trade with its large-cap read", () => {
+    const r = replay("MSFT", bars, { targetR: 2, dailyBars: DAILY });
     expect(r.trades.length).toBeGreaterThan(0);
     expect(r.trades.every((t) => t.largeCap === true)).toBe(true);
 
-    const notLargeCap = replay("TINYCO", wideStop, { targetR: 2 });
+    const notLargeCap = replay("TINYCO", bars, { targetR: 2, dailyBars: DAILY });
     expect(notLargeCap.trades.every((t) => t.largeCap === false)).toBe(true);
   });
 });
@@ -378,43 +368,52 @@ describe("byScoreRange", () => {
 });
 
 describe("replay yearCycleHits", () => {
-  /** Monthly bars from Jan 2019: an inverted V topping in Jan 2021 (index 24), through Dec 2025. */
-  function monthlyTop(): Bar[] {
+  // The same session, moved to January so the 5-year cycle from a January
+  // 2021 pivot lands on it. dailyHistory's shape doesn't depend on its end
+  // date, so the trigger (and its direction) is the same as TRIGGER's.
+  const JAN = "2026-01-15";
+  const janDaily = dailyHistory(300, JAN);
+  const janBars = session([crossing, quiet]).map((b) => ({ ...b, t: b.t.replace(DAY, JAN) }));
+
+  /**
+   * Monthly bars from Jan 2019: a V pivoting in Jan 2021 (index 24), through
+   * Dec 2025. A top when the fixture's trigger is short, a bottom when it's
+   * long, so the pivot is always on the trade's side.
+   */
+  function monthlyPivot(): Bar[] {
     const out: Bar[] = [];
     for (let i = 0; i < 84; i++) {
-      const c = 200 - Math.abs(i - 24) * 1.5;
+      const c = SIDE < 0 ? 200 - Math.abs(i - 24) * 1.5 : 100 + Math.abs(i - 24) * 1.5;
       out.push({ t: new Date(Date.UTC(2019, i, 1)).toISOString(), o: c, h: c + 1, l: c - 1, c, v: 1000 });
     }
     return out;
   }
 
   it("tags a trade with the yearly cycles landing on its month, in its direction", () => {
-    const r = replay("TEST", ARMS_AND_TRIGGERS, { targetR: 2, monthlyBars: monthlyTop() });
-    expect(r.trades.some((t) => t.direction === "bearish")).toBe(true);
-    // Jan 2021 high, trade in Jan 2026: the 5-year cycle — for shorts. The
-    // fixture has no major low, so longs get none.
-    for (const t of r.trades) {
-      expect(t.yearCycleHits).toBe(t.direction === "bearish" ? 1 : 0);
-    }
+    const r = replay("TEST", janBars, { targetR: 2, dailyBars: janDaily, monthlyBars: monthlyPivot() });
+    expect(r.trades.length).toBeGreaterThan(0);
+    // Jan 2021 pivot, trade in Jan 2026: the 5-year cycle, in the pivot's direction.
+    for (const t of r.trades) expect(t.yearCycleHits).toBe(1);
   });
 
   it("leaves the tag undefined without monthly bars", () => {
-    const r = replay("TEST", ARMS_AND_TRIGGERS, { targetR: 2 });
+    const r = replay("TEST", janBars, { targetR: 2, dailyBars: janDaily });
+    expect(r.trades.length).toBeGreaterThan(0);
     expect(r.trades.every((t) => t.yearCycleHits === undefined)).toBe(true);
   });
 
   it("cannot see months at or after the trade", () => {
-    const history = monthlyTop();
+    const history = monthlyPivot();
     // Three years of violent swings from Jan 2026 on. Read without the guard,
-    // they'd raise the major-pivot cutoff and drop the 2021 high out.
+    // they'd raise the major-pivot cutoff and drop the 2021 pivot out.
     const future: Bar[] = [];
     for (let i = 0; i < 36; i++) {
       // Smooth, so each swing is a strict peak or trough findPivots can see.
       const c = 200 + 190 * Math.sin((i / 6) * 2 * Math.PI);
       future.push({ t: new Date(Date.UTC(2026, i, 1)).toISOString(), o: c, h: c + 1, l: c - 1, c, v: 1000 });
     }
-    const withFuture = replay("TEST", ARMS_AND_TRIGGERS, { targetR: 2, monthlyBars: [...history, ...future] });
-    const without = replay("TEST", ARMS_AND_TRIGGERS, { targetR: 2, monthlyBars: history });
+    const withFuture = replay("TEST", janBars, { targetR: 2, dailyBars: janDaily, monthlyBars: [...history, ...future] });
+    const without = replay("TEST", janBars, { targetR: 2, dailyBars: janDaily, monthlyBars: history });
     expect(without.trades.some((t) => t.yearCycleHits === 1)).toBe(true);
     expect(withFuture.trades.map((t) => t.yearCycleHits)).toEqual(without.trades.map((t) => t.yearCycleHits));
   });

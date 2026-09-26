@@ -200,10 +200,11 @@ future session should re-check rather than trust it:
   regrounded on `lib/gann/entryTrigger.ts` — see "Entry pricing moved off
   STRAT" under "Audit outcomes"), and it is separately wrapped by the
   non-gating confluence layer in `lib/signals/confluence/sara.ts`
-  (**investigated and deliberately kept** — see "Audit outcomes" below). One
-  residue remains: `lib/backtest/replay.ts` still uses the detected pattern to
-  choose which bars and which direction to test, which the live scan no longer
-  does (2026-09-25 alignment audit, finding F2.7/F3.3).
+  (**investigated and deliberately kept** — see "Audit outcomes" below). The
+  last residue, `lib/backtest/replay.ts` using the detected pattern to choose
+  which bars and which direction to test (finding F2.7/F3.3), was removed
+  2026-09-25. The replay now arms exactly as the live scan does, via
+  `lib/scan/entrySelection.ts`.
 - **Wilder's ADX/DMI** (`lib/signals/indicators.ts#adx`) — **fully resolved
   2026-09-17.** The scored criterion was discarded 2026-09-16 (see "Audit
   outcomes"); the two remaining consumers, `lib/signals/regime.ts` and
@@ -584,15 +585,34 @@ for the project owner** — do not fix it silently, and re-verify it first:
   including the 2026-09-23 run that confirmed the 6/3.5 cutoffs, measure a
   trigger production doesn't use. This is the `harmonicProximity` failure
   shape again.
-- **Live orders skip `checkPositionLimits` (F3.5).** It runs only on the paper
-  path in `lib/trade/place-order.ts`. `placeLiveOrder` never calls it, so the
-  orphan-module audit's item 1 above is true for paper only.
+  **Resolved 2026-09-25, project-owner sign-off.** The replay now arms from
+  the daily trigger in `preferredEntryDirection`'s macro-derived direction,
+  and applies no STRAT gap rule or risk floor to it. Both surfaces call the
+  same code (`lib/scan/entrySelection.ts`), so they cannot drift again.
+  `STRATEGY_VERSION` is bumped to `2026-09-25-live-trigger-replay`. **Open
+  consequence:** every committed run in `docs/replay-runs/` since 2026-09-17,
+  including the 2026-09-23 run behind the 6/3.5 confirmation, measured the
+  old trigger. The cutoffs stay where they are until a fresh run on this
+  version re-derives them. Treat `entryTriggerArmed` and the Execute-bucket
+  numbers as unmeasured until then.
+- **Live orders skip `checkPositionLimits` (F3.5).** **Resolved 2026-09-25,
+  project-owner sign-off.** `placeLiveOrder` now enforces the same four
+  ceilings as the paper path, after the circuit breaker and before any
+  pricing or broker call. Exposure comes from the broker's own positions and
+  planned open risk from the account's `working` live `protocol_exits` rows.
+  It fails closed if either can't be read and is skipped for protective
+  orders, the same as paper.
 - **Autonomous live trading looks authorised (F4.4, F7.6).** An active
   `compliance_signoffs` row for `autonomous_live_trading` has existed since
   2026-09-03, and its `review_reference` says no formal review was performed.
   Production also sets `AUTONOMOUS_LIVE_TRADING_HALTED` (2026-09-23).
   Commit 95da144's "sign-off held back" was already untrue when written.
   This is latent while no live broker connection exists.
+  **Resolved 2026-09-25, project-owner sign-off:** the row
+  (`96573294-…`) was revoked in production, not deleted. `revoked_reason`
+  cites this finding. `isFeatureAuthorized("autonomous_live_trading")` is
+  now false. Re-record it with `scripts/record-autonomous-live-signoff.mjs`
+  only once a real compliance/legal review exists.
 - **Entry confirmation isn't uniform (F3.4).** Guided execute, the demo
   auto-trader and the manual ticket place orders without it. Only plan-scoped
   automation requires an `armed` plan.
@@ -1503,7 +1523,11 @@ supplementary per-score-band sweep of the same population confirmed the real zer
 almost exactly at the existing 6-point cutoff (negative through score 4, turning positive at 5–6).
 Re-deriving from this data does not move either number — it confirms them as the platform's actual
 thresholds, not a stopgap. `lib/scoring/weights.ts`'s own comment on `EXECUTE_SCORE_THRESHOLD`
-carries the full detail now; this entry is the historical record.
+carries the full detail now; this entry is the historical record. **Caveat added 2026-09-25:** that run
+predates the F3.1–F3.3 replay fix (see "Platform-wide alignment audit"). It
+measured the old 15-minute STRAT-candidate trigger, not production's, so
+this confirmation needs re-deriving from a fresh run on
+`STRATEGY_VERSION` `2026-09-25-live-trigger-replay`.
 
 The two band loosenings (`VOLUME_CLIMAX_THRESHOLD`, `SQUARE_TOLERANCE_BARS`) were already resolved
 earlier (reverted and superseded respectively, both same-day 2026-09-14) and the weight-rebalance

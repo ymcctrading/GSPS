@@ -66,6 +66,9 @@ const PMG_IDENTIFIER_FILES = [
   "lib/strat/patterns.ts",
   "lib/education/patterns.ts",
   "lib/scanTicker.ts",
+  // The pattern ranking moved here from lib/scanTicker.ts (2026-09-25) so the
+  // live scan and the backtest replay share it; same bare tag, no copy.
+  "lib/scan/entrySelection.ts",
   // Strategy Modes (docs/STRATEGY_MODES.md): ranks patterns by the same bare
   // tag, and renders only PATTERN_GLOSSARY_TERM's approved label.
   "lib/strategies/saraStrat.ts",
