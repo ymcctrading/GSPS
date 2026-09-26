@@ -168,6 +168,10 @@ describe("replay", () => {
     const r = replay("TEST", session([gap, quiet]), { targetR: 2, dailyBars: DAILY });
     expect(r.trades).toHaveLength(1);
     expect(r.trades[0].entry).toBeCloseTo(gapOpen, 10);
+    // The bracket is the plan's, and R is measured on the plan's risk. A
+    // worse fill shows up as a smaller win, not as a different stop.
+    expect(r.trades[0].stop).toBeCloseTo(TRIGGER.stopPrice, 10);
+    expect(r.trades[0].target).toBeCloseTo(TRIGGER.triggerPrice + SIDE * 2 * RISK, 10);
   });
 
   it("crosses a given swing extreme once, not on every bar beyond it", () => {
@@ -279,8 +283,22 @@ describe("replay entryRule: confirmed", () => {
       entryRule: "confirmed",
     });
     expect(r.trades).toHaveLength(1);
-    expect(r.trades[0].entry).toBeCloseTo(next.o, 10);
-    expect(r.trades[0].stop).toBeCloseTo(TRIGGER.stopPrice, 10);
+    const t = r.trades[0];
+    expect(t.entry).toBeCloseTo(next.o, 10);
+    // The bracket stays the plan's, fixed from the trigger, as
+    // deriveOrderInputFromPlan attaches it. It is not re-derived from the fill.
+    expect(t.stop).toBeCloseTo(TRIGGER.stopPrice, 10);
+    expect(t.target).toBeCloseTo(P + SIDE * 2 * RISK, 10);
+  });
+
+  it("drops a fill that lands past the plan's own target, and counts it", () => {
+    // A candle that opens beyond TP1 would fill past the bracket.
+    // Production refuses that order (fill_outran_bracket).
+    const beyond = past(2 * RISK + 1);
+    const gap = { o: beyond, h: SIDE > 0 ? beyond + 0.5 : beyond, l: SIDE > 0 ? beyond : beyond - 0.5, c: beyond };
+    const r = replay("TEST", session([gap, quiet]), { targetR: 2, dailyBars: DAILY });
+    expect(r.trades).toHaveLength(0);
+    expect(r.refusedFills).toBe(1);
   });
 
   it("fills the same bars earlier under the default stop rule", () => {

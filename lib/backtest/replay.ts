@@ -294,10 +294,18 @@ export interface ReplayResult {
   expectancyR: number;
   /** Sum of all results, in R. */
   totalR: number;
+  /**
+   * Triggered entries whose fill landed at or beyond the plan's own stop or
+   * target, and were dropped rather than counted. Production refuses these
+   * (`fill_outran_bracket`, lib/trade/place-order.ts): an order that fills
+   * past its bracket is never opened. Reported so a run says how many there
+   * were.
+   */
+  refusedFills: number;
 }
 
 const EMPTY: Omit<ReplayResult, "trades"> = {
-  armed: 0, triggered: 0, wins: 0, losses: 0, timeouts: 0, ambiguous: 0,
+  armed: 0, triggered: 0, refusedFills: 0, wins: 0, losses: 0, timeouts: 0, ambiguous: 0,
   winRate: 0, expectancyR: 0, totalR: 0,
 };
 
@@ -504,6 +512,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
   // Counted once per session a pivot is armed on, and once per fill.
   const armedKeys = new Set<string>();
   let triggered = 0;
+  let refusedFills = 0;
   // A swing top/bottom is crossed once per setup kind. Pivot indices are
   // stable across sessions because each session's daily history is a prefix
   // of the next.
@@ -611,19 +620,41 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       // the leeway or large-cap widening `computeTradeLevels` applies for the
       // live scan and Guided Mode. `useProductionStop` swaps it for the widened
       // one. See the option's own comment for why this distinction exists.
+      // The plan's bracket is fixed when the plan is priced, from the trigger,
+      // and every production path attaches it unchanged: the ticket's
+      // advised entry, Guided Mode, and automation's
+      // `deriveOrderInputFromPlan`, which sizes from the trigger-to-stop risk
+      // and attaches the plan's stop and TP1. So stop, risk and target are
+      // fixed from the trigger here too, and R is measured on that plan risk.
+      // A fill that lands away from the trigger (a gap past a resting stop,
+      // or a confirmed entry's market order) changes the P&L in price terms,
+      // not the bracket.
+      //
+      // The harness's original stop is the raw structural stop, untouched by
+      // the leeway or large-cap cap `computeTradeLevels` applies for the live
+      // scan and Guided Mode. `useProductionStop` swaps in the capped one,
+      // priced against the trigger as the plan prices it.
       const stop =
         useProductionStop && executionAtr > 0
           ? computeStopWithLeeway({
               side: long ? "long" : "short",
-              entry,
+              entry: trigger.triggerPrice,
               structuralStop: trigger.stopPrice,
               atr15: executionAtr,
               largeCap,
             })
           : trigger.stopPrice;
-      const risk = Math.abs(entry - stop);
-      if (!(risk > 0) || (long ? stop >= entry : stop <= entry)) continue;
-      const target = entry + dir * targetR * risk;
+      const risk = Math.abs(trigger.triggerPrice - stop);
+      if (!(risk > 0) || (long ? stop >= trigger.triggerPrice : stop <= trigger.triggerPrice)) continue;
+      const target = trigger.triggerPrice + dir * targetR * risk;
+
+      // Production refuses a fill at or beyond its own stop or target
+      // (`fill_outran_bracket`). The setup is spent either way.
+      const outran = long ? entry <= stop || entry >= target : entry >= stop || entry <= target;
+      if (outran) {
+        refusedFills++;
+        continue;
+      }
 
       const decision = scoreSetup({
         context: arm.context,
@@ -676,7 +707,8 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         continue;
       }
 
-      const gross = outcome === "win" ? targetR * risk : -risk;
+      // Gross P&L is the actual price distance from the fill to the exit.
+      const gross = dir * ((outcome === "win" ? target : stop) - entry);
       trades.push({
         ...base, barsHeld, outcome,
         rMultiple: (gross - costPerShare) / risk,
@@ -685,7 +717,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     }
   }
 
-  return summarise(trades, armedKeys.size, triggered);
+  return summarise(trades, armedKeys.size, triggered, refusedFills);
 }
 
 /**
@@ -712,8 +744,8 @@ function criteriaOf(decision: ScanDecision | undefined): Record<string, boolean>
   return out;
 }
 
-export function summarise(trades: ReplayTrade[], armed = 0, triggered = 0): ReplayResult {
-  if (trades.length === 0) return { trades, ...EMPTY, armed, triggered };
+export function summarise(trades: ReplayTrade[], armed = 0, triggered = 0, refusedFills = 0): ReplayResult {
+  if (trades.length === 0) return { trades, ...EMPTY, armed, triggered, refusedFills };
   const wins = trades.filter((t) => t.outcome === "win").length;
   const losses = trades.filter((t) => t.outcome === "loss").length;
   const timeouts = trades.filter((t) => t.outcome === "timeout").length;
@@ -722,6 +754,7 @@ export function summarise(trades: ReplayTrade[], armed = 0, triggered = 0): Repl
     trades,
     armed,
     triggered,
+    refusedFills,
     wins,
     losses,
     timeouts,
@@ -739,7 +772,8 @@ export function combine(results: ReplayResult[]): ReplayResult {
   const trades = results.flatMap((r) => r.trades);
   const armed = results.reduce((s, r) => s + r.armed, 0);
   const triggered = results.reduce((s, r) => s + r.triggered, 0);
-  return summarise(trades, armed, triggered);
+  const refusedFills = results.reduce((s, r) => s + (r.refusedFills ?? 0), 0);
+  return summarise(trades, armed, triggered, refusedFills);
 }
 
 /**

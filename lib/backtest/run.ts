@@ -212,6 +212,11 @@ export interface BacktestReport {
    * only at Execute, so read that side together with the verdict buckets.
    */
   setupKindSplit: { reversion: RunSummary; continuation: RunSummary };
+  /**
+   * Triggered entries dropped because they filled at or beyond the plan's own
+   * stop or target, which production refuses (`fill_outran_bracket`).
+   */
+  refusedFills: number;
   /** Setups armed and triggered across the run, for a fill-rate sanity check. */
   armed: number;
   triggered: number;
@@ -465,6 +470,7 @@ export function buildReport(
     },
     armed: run.overall.armed,
     triggered: run.overall.triggered,
+    refusedFills: run.overall.refusedFills,
     attributeWithin: attributedLabel,
     ...(attributeScoreRange ? { attributeScoreRange } : {}),
     factors: attributeFactors(target.trades),
