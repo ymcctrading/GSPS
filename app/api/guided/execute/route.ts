@@ -16,6 +16,11 @@
  *
  * Only then does it submit, through the same `placeSimulatedOrder` path the
  * manual ticket uses — a real bracket, with stop, TP1 and master attached.
+ *
+ * The order rests as a stop-entry at the trigger. It is not held back for the
+ * full entry-confirmation sequence plan-scoped automation waits for, because
+ * the person confirmed this specific trade (decided 2026-09-26, alignment
+ * audit F3.4; see `lib/lifecycle/entryConfirmation.ts`).
  */
 
 import { NextRequest, NextResponse } from "next/server";

@@ -31,6 +31,15 @@
  * On a day nothing new clears the Execute bar, it looks for a reason to add
  * to a position already open rather than forcing a new one — see
  * `runQuietDayDca`.
+ *
+ * **Entry confirmation (decided 2026-09-26, alignment audit F3.4).** This
+ * loop runs unattended, yet it places Guided Mode's resting stop-entry at the
+ * trigger rather than waiting for an `armed`, fully confirmed plan the way
+ * plan-scoped automation does. That is deliberate: this account exists to
+ * show what Guided Mode does, and a stricter entry rule here would show
+ * something else. It trades paper only, on GSPS's own showcase account,
+ * never on a member's behalf or a member's money. If that ever changes, it
+ * must switch to the confirmed rule (see `lib/lifecycle/entryConfirmation.ts`).
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";

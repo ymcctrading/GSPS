@@ -43,6 +43,7 @@ import type { Bar, ScanResult, SetupKind } from "@/lib/types";
 import { fetchAllTimeframesBatch, getMarketDataProvider } from "@/lib/data/provider";
 import { fetchMostActives } from "@/lib/data/alpaca";
 import { readTrend } from "@/lib/analysis/trend";
+import { rangeMidpoint } from "@/lib/gann/retracement";
 import { etDateKey } from "@/lib/market/session";
 import { atr } from "@/lib/analysis/pivots";
 import { computeFanLines } from "@/lib/gann/fans";
@@ -416,10 +417,13 @@ export function coarseReversion(
   // not a flat percent of price — see EXTENSION_ATR_TIER1 above for why.
   const atrPct = atrPercentOfPrice(atr(daily.slice(-20), 14), price);
 
-  // Extension: distance of price from its 50-bar mean, in multiples of the
-  // symbol's own ATR — more extended, more primed for reversion.
-  const mean50 = mean(daily.slice(-50).map((b) => b.c));
-  const extensionPct = (Math.abs(price - mean50) / mean50) * 100;
+  // Extension: distance of price from the 50% point of its last 50 bars'
+  // range (Gann's balance point; was the 50-bar closing mean, an SMA, until
+  // 2026-09-26), in multiples of the symbol's own ATR. More extended means
+  // more primed for reversion.
+  const mid50 = rangeMidpoint(daily.slice(-50));
+  if (mid50 === null) return null;
+  const extensionPct = (Math.abs(price - mid50) / mid50) * 100;
   const tier1Pct = proximityBandPct(EXTENSION_ATR_TIER1, FALLBACK_EXTENSION_PCT_TIER1, atrPct);
   const tier2Pct = proximityBandPct(EXTENSION_ATR_TIER2, FALLBACK_EXTENSION_PCT_TIER2, atrPct);
   if (extensionPct > tier1Pct) score += 1;
@@ -490,9 +494,12 @@ export function coarseContinuation(
   if (ratio < MOMENTUM_EXPANSION) return null;
 
   // The trend has to still be intact, not rolling over into the pullback that
-  // makes a reversion candidate: price on the trend side of its 20-bar mean.
-  const mean20 = mean(daily.slice(-20).map((b) => b.c));
-  const intact = direction === "bullish" ? price > mean20 : price < mean20;
+  // makes a reversion candidate: price on the trend side of the 50% point of
+  // its last 20 bars' range (Gann's balance point; was the 20-bar mean until
+  // 2026-09-26).
+  const mid20 = rangeMidpoint(daily.slice(-20));
+  if (mid20 === null) return null;
+  const intact = direction === "bullish" ? price > mid20 : price < mid20;
   if (!intact) return null;
 
   let score = 3; // cleared the daily expansion gate and the 4-hour spike gate
@@ -504,12 +511,12 @@ export function coarseContinuation(
   const volBaseline = mean(daily.slice(-60, -10).map((b) => b.v));
   if (volBaseline > 0 && volRecent / volBaseline >= 1.2) score += 1;
 
-  // Distance travelled from the 50-bar mean in the trend direction — a trend
-  // that has actually gone somewhere, scored the opposite way to a reversion.
-  // Same ATR-relative rebasing as coarseReversion's extension tiers, scaled
-  // down to preserve the ratio the old 3%-vs-5% pair expressed.
-  const mean50 = mean(daily.slice(-50).map((b) => b.c));
-  const travelPct = mean50 > 0 ? ((price - mean50) / mean50) * 100 * (direction === "bullish" ? 1 : -1) : 0;
+  // Distance travelled from the 50% point of the last 50 bars' range in the
+  // trend direction: a trend that has actually gone somewhere, scored the
+  // opposite way to a reversion. Same balance point and ATR-relative
+  // rebasing as coarseReversion's extension tiers.
+  const mid50 = rangeMidpoint(daily.slice(-50));
+  const travelPct = mid50 ? ((price - mid50) / mid50) * 100 * (direction === "bullish" ? 1 : -1) : 0;
   const atrPct = atrPercentOfPrice(atr(daily.slice(-20), 14), price);
   const travelBandPct = proximityBandPct(TRAVEL_ATR_MULT, FALLBACK_TRAVEL_PCT, atrPct);
   if (travelPct > travelBandPct) score += 1;
@@ -557,8 +564,9 @@ function coarseDiagnostics(
   if (daily.length < 60) return null;
   const price = daily[daily.length - 1].c;
   const atrPct = atrPercentOfPrice(atr(daily.slice(-20), 14), price) ?? null;
-  const mean50 = mean(daily.slice(-50).map((b) => b.c));
-  const extensionPct = mean50 > 0 ? (Math.abs(price - mean50) / mean50) * 100 : 0;
+  // Same balance point as the gates above (Gann's 50% of range).
+  const mid50 = rangeMidpoint(daily.slice(-50));
+  const extensionPct = mid50 ? (Math.abs(price - mid50) / mid50) * 100 : 0;
   const extensionAtr = atrPct !== null && atrPct > 0 ? extensionPct / atrPct : null;
 
   const trend = daily.length >= 120 ? readTrend(daily, "1Day") : null;
@@ -568,7 +576,7 @@ function coarseDiagnostics(
   if (trend && trend.direction !== "sideways") {
     trendDirection = trend.direction;
     const dir = trend.direction === "bullish" ? 1 : -1;
-    travelPct = mean50 > 0 ? ((price - mean50) / mean50) * 100 * dir : 0;
+    travelPct = mid50 ? ((price - mid50) / mid50) * 100 * dir : 0;
     travelAtr = atrPct !== null && atrPct > 0 ? travelPct / atrPct : null;
   }
 

@@ -97,3 +97,31 @@ export function nearestRetracementLevel(
   const nearest = levels[0];
   return nearest && nearest.distancePct <= proximityPct ? nearest : null;
 }
+
+/**
+ * The halfway point of a range: midway between its highest high and lowest
+ * low. Gann ranks 50% first among retracement levels
+ * (`docs/GANN_HISTORICAL_SOURCES.md`; see `RetracementLevel.importance`), and
+ * the halfway point of a range's extremes is the balance point his method
+ * reads a market against.
+ *
+ * It replaced the 20- and 50-bar closing-price means in `lib/marketScan.ts`'s
+ * coarse gates on 2026-09-26. Those were simple moving averages under another
+ * name (alignment audit F2.5, extended). "How far price has stretched from its
+ * balance point" is the same question, measured from Gann's balance point
+ * instead of an average.
+ *
+ * Returns null for an empty or zero range, rather than a number that would
+ * divide into a meaningless percentage.
+ */
+export function rangeMidpoint(bars: Bar[]): number | null {
+  if (bars.length === 0) return null;
+  let high = -Infinity;
+  let low = Infinity;
+  for (const b of bars) {
+    if (b.h > high) high = b.h;
+    if (b.l < low) low = b.l;
+  }
+  if (!(high > low)) return null;
+  return (high + low) / 2;
+}

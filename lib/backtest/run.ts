@@ -31,6 +31,7 @@ import {
   byYearCycle,
   byOutputState,
   byScoreRange,
+  bySetupKind,
   combine,
   replay,
   type ReplayOptions,
@@ -110,6 +111,8 @@ export interface BacktestRequest {
    * `docs/BACKTESTING.md` asks for on an unmeasured constant.
    */
   useProductionStop?: boolean;
+  /** Which entry rule fills trades. See `ReplayOptions.entryRule`. Defaults to `"stop"`. */
+  entryRule?: ReplayOptions["entryRule"];
   /**
    * Also run the same request a second time at `slippageMultiplier` times the
    * cost-per-share and report the expectancy delta — the spec pack's
@@ -202,6 +205,13 @@ export interface BacktestReport {
   yearCycleSplit: { withHits: RunSummary; withoutHits: RunSummary };
   /** Echoes the request — a report has to say which stop model produced it. */
   useProductionStop: boolean;
+  /** Echoes the request: a report has to say which entry rule produced it. */
+  entryRule: "stop" | "confirmed";
+  /**
+   * The run split by the scan's two setup kinds. Continuations are published
+   * only at Execute, so read that side together with the verdict buckets.
+   */
+  setupKindSplit: { reversion: RunSummary; continuation: RunSummary };
   /** Setups armed and triggered across the run, for a fill-rate sanity check. */
   armed: number;
   triggered: number;
@@ -301,6 +311,7 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
     weights,
     since,
     useProductionStop,
+    entryRule,
   } = request;
 
   const sinceMs = since === undefined ? null : Date.parse(since);
@@ -315,6 +326,7 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
     ...(costPerShare !== undefined ? { costPerShare } : {}),
     ...(weights ? { weights } : {}),
     ...(useProductionStop !== undefined ? { useProductionStop } : {}),
+    ...(entryRule !== undefined ? { entryRule } : {}),
   };
 
   const results: ReplayResult[] = [];
@@ -411,7 +423,7 @@ export function buildReport(
   request: BacktestRequest,
   slippageSensitivity?: SlippageSensitivity,
 ): BacktestReport {
-  const { attributeWithin = "Execute", attributeScoreRange, useProductionStop = false } = request;
+  const { attributeWithin = "Execute", attributeScoreRange, useProductionStop = false, entryRule = "stop" } = request;
 
   const split = byOutputState(run.overall);
   const target = attributeScoreRange
@@ -424,6 +436,7 @@ export function buildReport(
     : attributeWithin;
   const capSplit = byLargeCap(run.overall);
   const cycleSplit = byYearCycle(run.overall);
+  const kindSplit = bySetupKind(run.overall);
 
   return {
     source: run.source,
@@ -445,6 +458,11 @@ export function buildReport(
       withoutHits: summarise(cycleSplit.withoutHits),
     },
     useProductionStop,
+    entryRule,
+    setupKindSplit: {
+      reversion: summarise(kindSplit.reversion),
+      continuation: summarise(kindSplit.continuation),
+    },
     armed: run.overall.armed,
     triggered: run.overall.triggered,
     attributeWithin: attributedLabel,

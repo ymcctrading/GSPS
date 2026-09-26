@@ -15,6 +15,17 @@ date.
   through shared helpers, so the two can't drift. It also arms from the scan's
   own 30-bar daily minimum instead of 120. `STRATEGY_VERSION` is now
   `2026-09-26-continuation-replay`.
+- **Moving averages and VWAP removed from GSPS's own verdict** (alignment
+  audit F2.5, wider than reported). The macro trend read (`readTrend`) now
+  uses Gann's confirmed swing trend instead of SMA 20/50. The coarse scan
+  gates measure from the range's 50% point instead of closing means. The
+  Signal & Regime Engine (regime, range reversion, trend pullback, confirmed
+  reversal) no longer uses MA alignment, MA pullback locations or an
+  anchored VWAP. **This changes which direction setups are read in and what
+  they score**, so the 6/3.5 cutoffs need re-deriving on this code.
+- **The backtest can measure both entry rules** production uses
+  (`entryRule: "stop" | "confirmed"`), and the entry-confirmation module no
+  longer claims every order path goes through it (alignment audit F3.4).
 - **`docs/AUTOMATED_PORTFOLIO_MANAGER_LIVE_REVIEW.md`** now records the
   2026-09-03 sign-off and its 2026-09-25 revocation. It also corrects a line
   that said the loop falls back to paper; it skips the member's candidates

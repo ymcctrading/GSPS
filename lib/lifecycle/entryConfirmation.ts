@@ -5,11 +5,25 @@
  * "Price commonly breaks above or below an entry level before returning.
  * That initial move is a setup-state observation — not an executable
  * entry." An indicator flip, initial touch, initial break, or initial
- * sweep alone can never produce an entry. This applies uniformly to
- * user-facing trade suggestions, backtesting, forward testing, paper
- * orders, and live automated orders — every caller runs bars through
- * `advanceEntryConfirmation` and gates on `entryReady`, so scan, backtest
- * and live execution can never drift apart on what counts as confirmed.
+ * sweep alone can never produce an entry. The spec states this for every
+ * surface. **Where GSPS actually applies it** (decided 2026-09-26, alignment
+ * audit F3.4, project-owner delegation; AGENTS.md records the reasoning):
+ *
+ *   - Unattended execution is gated on it: plan-scoped automation and the
+ *     autonomous portfolio manager act only on an `armed` plan, which
+ *     `lib/lifecycle/transitions.ts`'s `arm` event refuses without
+ *     `entryReady`.
+ *   - Orders a person places are not: the manual ticket, and Guided Mode's
+ *     one-tap execute, which the person confirms. Their advised entries rest
+ *     as stop-entries at Gann's swing-crossing trigger, filled when price
+ *     reaches it (`lib/brokers/simulator.ts#isTriggered`). That trigger
+ *     already includes Gann's lost-motion allowance (A8). Crossing an old top
+ *     is Gann's own Buying Point, and a human has approved that specific
+ *     trade. The demo account follows Guided Mode on purpose, because it
+ *     exists to show what Guided Mode does.
+ *   - The backtest measures both rules through the same function:
+ *     `lib/backtest/replay.ts`'s `entryRule` option (`"stop"` or
+ *     `"confirmed"`) calls `advanceEntryConfirmation` directly.
  *
  * Versioned rule (v1, "breakout-retest-hold" / "breakdown-retest-fail" —
  * the spec explicitly allows other versioned setup rules; this is GSPS's

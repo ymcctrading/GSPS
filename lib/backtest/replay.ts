@@ -84,6 +84,8 @@ import {
 } from "@/lib/scoring/proximity";
 import type { CriterionWeights } from "@/lib/scoring/weights";
 import { computeGannEntryTrigger, type GannEntryTrigger } from "@/lib/gann/entryTrigger";
+import { advanceEntryConfirmation, entryReady, freshEntryConfirmation } from "@/lib/lifecycle/entryConfirmation";
+import type { EntryConfirmationEvidence } from "@/lib/lifecycle/types";
 import { readTrend } from "@/lib/analysis/trend";
 import { countLevelTests, levelRole, type LevelRole } from "@/lib/analysis/levelRole";
 import { atr } from "@/lib/analysis/pivots";
@@ -170,6 +172,27 @@ export interface ReplayOptions {
    * with each stop, is the before/after `docs/BACKTESTING.md` asks for.
    */
   useProductionStop?: boolean;
+  /**
+   * Which entry rule fills the trade. Production uses both, on different
+   * paths:
+   *
+   * - `"stop"` (default): a resting stop order at the trigger, filled the
+   *   moment a candle reaches it (at the open when it gaps past). This is how
+   *   the manual ticket, Guided Mode and the demo account enter. Their
+   *   advised entries rest as stop-entries at the trigger
+   *   (`lib/brokers/simulator.ts#isTriggered`).
+   * - `"confirmed"`: the full entry-confirmation sequence
+   *   (`lib/lifecycle/entryConfirmation.ts`: touch, a close beyond the
+   *   trigger by the 3-point-rule buffer, a retest, then a close that holds).
+   *   The trade fills at the open of the bar after the hold confirms. This is
+   *   how plan-scoped automation and the autonomous portfolio manager enter;
+   *   they act only on an `armed` plan. It uses the same state-machine
+   *   function the live plans use, so the two can't drift.
+   *
+   * Added 2026-09-26 (alignment audit F3.4). Before this the replay measured
+   * only the stop entry, so nothing measured the rule automation trades on.
+   */
+  entryRule?: "stop" | "confirmed";
 }
 
 export interface ReplayTrade {
@@ -468,11 +491,16 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     monthlyBars,
     weights,
     useProductionStop = false,
+    entryRule = "stop",
   } = options;
 
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
 
   const trades: ReplayTrade[] = [];
+  // Entry-confirmation evidence per armed pivot, used only when
+  // `entryRule === "confirmed"`. Each pivot records the date it first armed
+  // on, so no bar from before that session can count toward its confirmation.
+  const confirmation = new Map<string, { since: string; evidence: EntryConfirmationEvidence }>();
   // Counted once per session a pivot is armed on, and once per fill.
   const armedKeys = new Set<string>();
   let triggered = 0;
@@ -528,8 +556,26 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
 
       const long = trigger.direction === "bullish";
       const dir = long ? 1 : -1;
-      // The trigger is a stop order: it fills only if this candle reaches it.
-      const fired = long ? live.h >= trigger.triggerPrice : live.l <= trigger.triggerPrice;
+      let fired: boolean;
+      if (entryRule === "confirmed") {
+        // Advance the confirmation state machine on the last closed bar, if
+        // it belongs to a session this pivot was armed on. Once the sequence
+        // completes, the entry is this candle's open.
+        const state = confirmation.get(pivotKey) ?? { since: date, evidence: freshEntryConfirmation() };
+        const closed = history[history.length - 1];
+        if (closed.t.slice(0, 10) >= state.since) {
+          state.evidence = advanceEntryConfirmation(
+            state.evidence,
+            { direction: trigger.direction, entryTrigger: trigger.triggerPrice },
+            closed,
+          );
+        }
+        confirmation.set(pivotKey, state);
+        fired = entryReady(state.evidence);
+      } else {
+        // The trigger is a stop order: it fills only if this candle reaches it.
+        fired = long ? live.h >= trigger.triggerPrice : live.l <= trigger.triggerPrice;
+      }
       if (!fired) continue;
 
       const executionAtr = atr(history.slice(-30), 14);
@@ -550,8 +596,15 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       consumedPivots.add(pivotKey);
       triggered++;
 
-      // A candle that opens beyond the resting stop fills at its open.
-      const entry = long ? Math.max(trigger.triggerPrice, live.o) : Math.min(trigger.triggerPrice, live.o);
+      // A stop entry fills at the trigger, or at the open when a candle opens
+      // beyond it. A confirmed entry is a market order after the hold, filled
+      // at this candle's open.
+      const entry =
+        entryRule === "confirmed"
+          ? live.o
+          : long
+            ? Math.max(trigger.triggerPrice, live.o)
+            : Math.min(trigger.triggerPrice, live.o);
       const { largeCap } = arm;
 
       // The harness's original stop is the raw structural stop, untouched by

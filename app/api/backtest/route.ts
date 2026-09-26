@@ -15,6 +15,9 @@
  *   ?since=2026-06-15      replay only bars at or after this instant
  *   ?productionStop=1      walk the leeway/large-cap-widened stop instead of
  *                          the raw pattern one — see ReplayOptions.useProductionStop
+ *   ?entryRule=confirmed   fill on the full entry-confirmation sequence (how
+ *                          automation enters) instead of the resting stop
+ *                          (how the ticket/Guided enter). See ReplayOptions.entryRule
  *   ?slippageSensitivity=1 also run the request at 3x cost-per-share and report
  *                          the expectancy delta — a second full fetch/replay,
  *                          off by default. See BacktestRequest.includeSlippageSensitivity
@@ -141,6 +144,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: `Invalid since '${since}'` }, { status: 400 });
   }
 
+  const entryRuleRaw = searchParams.get("entryRule");
+  if (entryRuleRaw !== null && entryRuleRaw !== "stop" && entryRuleRaw !== "confirmed") {
+    return NextResponse.json({ error: `Invalid entryRule '${entryRuleRaw}' (stop | confirmed)` }, { status: 400 });
+  }
+  const entryRule = entryRuleRaw ?? undefined;
+
   const productionStopRaw = searchParams.get("productionStop");
   const useProductionStop = productionStopRaw !== null && productionStopRaw !== "0" && productionStopRaw !== "false";
   const wantTrades = searchParams.get("trades") === "1";
@@ -184,6 +193,7 @@ export async function GET(req: NextRequest) {
         timeframe,
         targetR,
         ...(since !== null ? { since } : {}),
+        ...(entryRule ? { entryRule } : {}),
       });
       const bucketTrades = scoreRange
         ? byScoreRange(run.overall, scoreRange[0], scoreRange[1]).trades
@@ -220,6 +230,7 @@ export async function GET(req: NextRequest) {
       ...(scoreRange ? { attributeScoreRange: scoreRange } : {}),
       ...(since !== null ? { since } : {}),
       ...(useProductionStop ? { useProductionStop } : {}),
+      ...(entryRule ? { entryRule } : {}),
       ...(includeSlippageSensitivity ? { includeSlippageSensitivity } : {}),
     });
     return NextResponse.json(report);

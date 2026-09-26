@@ -1,10 +1,20 @@
 /**
  * Regime classifier: Trend / Range / Transition / Event-high-uncertainty.
  *
- * Built entirely from independently designed public components — MA slope/
- * alignment, price structure (swing pivots), ATR-based volatility state,
- * ADX/DMI, anchored VWAP, volume behavior, and horizontal support/
- * resistance — per the spec.
+ * Built from price structure (swing pivots), Gann's 3-day/9-day swing charts
+ * (`lib/gann/trendStrength.ts`), ATR-based volatility state, volume behavior,
+ * and horizontal support/resistance.
+ *
+ * **Moving averages removed 2026-09-26** (alignment audit F2.5,
+ * project-owner delegation). A fast/slow SMA 20/50 alignment-and-slope test
+ * used to sit beside the swing-chart read as a second opinion on "is this
+ * trending, and which way". It was the last non-Gann input to the regime
+ * labels, and it answered a question the swing charts already answer. Gann
+ * reads trend from tops and bottoms, not from averaged closes. The trend read
+ * is now the 9-day chart confirmed by stepping 3-day swings, plus the HH/HL
+ * structure. The range read is the exact negation of that trend read, plus
+ * repeatable boundaries. The prior-trend direction a transition breaks
+ * against is the 9-day chart's.
  *
  * **The PSAR/Supertrend hook was removed 2026-09-17.** This module used to
  * accept a `trendOverlayFlips` count and disqualify a Trend read on repeated
@@ -20,7 +30,7 @@
 
 import type { Bar } from "@/lib/types";
 import { atr, clusterLevels, findPivots } from "@/lib/analysis/pivots";
-import { relativeVolume, slope, smaSeries } from "./indicators";
+import { relativeVolume } from "./indicators";
 import { readGannTrend } from "@/lib/gann/trendStrength";
 import { SWING_CHART_DAYS } from "@/lib/gann/swingChart";
 import type { RegimeRead } from "./types";
@@ -28,10 +38,7 @@ import type { RegimeRead } from "./types";
 export interface RegimeInputs {
   /** Closed bars on the timeframe the regime is being read on, ascending. */
   bars: Bar[];
-  fastMaPeriod?: number;
-  slowMaPeriod?: number;
   atrPeriod?: number;
-  maFlatSlopeEpsilon?: number;
   /** Explicit event-risk flags — these short-circuit to the "event" regime. */
   scheduledBinaryEvent?: boolean;
   staleData?: boolean;
@@ -40,19 +47,21 @@ export interface RegimeInputs {
 }
 
 const DEFAULTS = {
-  fastMaPeriod: 20,
-  slowMaPeriod: 50,
   atrPeriod: 14,
-  maFlatSlopeEpsilon: 0.0005,
 };
+
+/**
+ * Fewest bars the classifier reads. It was set by the 50-bar slow SMA plus a
+ * margin. That MA is gone, but the figure is kept at 60 so that removing it
+ * doesn't also widen what counts as classifiable. The 9-day chart needs only
+ * `days + 2`, well inside this.
+ */
+const MIN_REGIME_BARS = 60;
 
 export function classifyRegime(inputs: RegimeInputs): RegimeRead {
   const {
     bars,
-    fastMaPeriod = DEFAULTS.fastMaPeriod,
-    slowMaPeriod = DEFAULTS.slowMaPeriod,
     atrPeriod = DEFAULTS.atrPeriod,
-    maFlatSlopeEpsilon = DEFAULTS.maFlatSlopeEpsilon,
     scheduledBinaryEvent = false,
     staleData = false,
     abnormalSpread = false,
@@ -74,7 +83,7 @@ export function classifyRegime(inputs: RegimeInputs): RegimeRead {
   // chart that replaced it needs `days + 2` bars to establish a direction
   // (see `swingChartDirection`), and a confirmed read needs a completed swing
   // on top of that, so this keeps a comfortable margin over both.
-  const minBars = Math.max(slowMaPeriod, SWING_CHART_DAYS.nineDay + 2) + 10;
+  const minBars = Math.max(MIN_REGIME_BARS, SWING_CHART_DAYS.nineDay + 2 + 10);
   if (bars.length < minBars) {
     return {
       regime: "event",
@@ -84,13 +93,6 @@ export function classifyRegime(inputs: RegimeInputs): RegimeRead {
     };
   }
 
-  const fastMa = smaSeries(bars, fastMaPeriod);
-  const slowMa = smaSeries(bars, slowMaPeriod);
-  const fastSlope = slope(fastMa, 5);
-  const slowSlope = slope(slowMa, 5);
-  const fastAboveSlow = fastMa[fastMa.length - 1] > slowMa[slowMa.length - 1];
-  const flatMas = Math.abs(fastSlope) < maFlatSlopeEpsilon && Math.abs(slowSlope) < maFlatSlopeEpsilon;
-
   // Trend strength and direction come from Gann's own 3-day/9-day swing
   // charts, not Wilder's ADX/DMI (replaced 2026-09-17 — see
   // `lib/gann/trendStrength.ts` for the rule and its sourcing). The 9-day
@@ -98,7 +100,7 @@ export function classifyRegime(inputs: RegimeInputs): RegimeRead {
   // swings are stepping the same way.
   const gannTrend = readGannTrend(bars);
   const trendStrengthSupport = gannTrend.confirmed;
-  const adxDirection: "bullish" | "bearish" | null = gannTrend.direction;
+  const gannDirection: "bullish" | "bearish" | null = gannTrend.direction;
 
   const pivots = findPivots(bars, 3);
   const highs = pivots.filter((p) => p.kind === "high").slice(-4).map((p) => p.price);
@@ -122,11 +124,15 @@ export function classifyRegime(inputs: RegimeInputs): RegimeRead {
     ? Math.min(...clusters.map((c) => Math.abs(c - price))) / price
     : Infinity;
   const atMeaningfulLevel = atrValue > 0 && nearestClusterDistance * price <= atrValue * 0.5;
-  const priorTrendDirection = fastAboveSlow ? "bullish" : "bearish";
+  // The prevailing trend a transition breaks against is the 9-day chart's
+  // (the same chart `readGannTrend` takes direction from). With no 9-day
+  // direction yet there is no prior trend to reverse.
+  const priorTrendDirection = gannTrend.nineDay;
   const recentBreak =
-    priorTrendDirection === "bullish"
+    priorTrendDirection !== null &&
+    (priorTrendDirection === "bullish"
       ? bars[bars.length - 1].c < lows[lows.length - 2 >= 0 ? lows.length - 2 : 0]
-      : bars[bars.length - 1].c > highs[highs.length - 2 >= 0 ? highs.length - 2 : 0];
+      : bars[bars.length - 1].c > highs[highs.length - 2 >= 0 ? highs.length - 2 : 0]);
   if (atMeaningfulLevel && recentBreak) {
     return {
       regime: "transition",
@@ -139,17 +145,12 @@ export function classifyRegime(inputs: RegimeInputs): RegimeRead {
     };
   }
 
-  // --- Trend: clear HH/HL or LH/LL, MA slope/alignment agreement, ADX support. ---
+  // --- Trend: clear HH/HL or LH/LL, confirmed by Gann's swing charts in the same direction. ---
   const trendDisqualifiers: string[] = [];
-  if (flatMas) trendDisqualifiers.push("Flat/crossing moving averages.");
   if (!higherHighsLows && !lowerHighsLows) trendDisqualifiers.push("No directional swing structure.");
 
-  const bullishTrend =
-    higherHighsLows && fastAboveSlow && fastSlope > 0 && slowSlope > 0 &&
-    trendStrengthSupport && (adxDirection === null || adxDirection === "bullish");
-  const bearishTrend =
-    lowerHighsLows && !fastAboveSlow && fastSlope < 0 && slowSlope < 0 &&
-    trendStrengthSupport && (adxDirection === null || adxDirection === "bearish");
+  const bullishTrend = higherHighsLows && trendStrengthSupport && gannDirection === "bullish";
+  const bearishTrend = lowerHighsLows && trendStrengthSupport && gannDirection === "bearish";
 
   if ((bullishTrend || bearishTrend) && trendDisqualifiers.length === 0) {
     return {
@@ -157,14 +158,13 @@ export function classifyRegime(inputs: RegimeInputs): RegimeRead {
       direction: bullishTrend ? "bullish" : "bearish",
       reasons: [
         bullishTrend ? "Higher highs and higher lows." : "Lower highs and lower lows.",
-        "Fast/slow MA aligned and sloping with the trend.",
         `9-day swing chart ${gannTrend.direction}, with 3-day swings stepping the same way — trend confirmed.`,
       ],
       disqualifiers: [],
     };
   }
 
-  // --- Range: weak trend strength, flat MAs, repeatable horizontal boundaries. ---
+  // --- Range: no confirmed Gann trend, repeatable horizontal boundaries. ---
   const rangeDisqualifiers: string[] = [];
   const acceptedBreakout =
     atrValue > 0 &&
@@ -172,14 +172,13 @@ export function classifyRegime(inputs: RegimeInputs): RegimeRead {
     rvol !== null && rvol > 1.5;
   if (acceptedBreakout) rangeDisqualifiers.push("Accepted breakout with rising volatility/volume.");
 
-  const rangeConditions = !trendStrengthSupport && flatMas && repeatableBoundaries;
+  const rangeConditions = !trendStrengthSupport && repeatableBoundaries;
   if (rangeConditions && rangeDisqualifiers.length === 0) {
     return {
       regime: "range",
       direction: "sideways",
       reasons: [
         `3-day and 9-day swing charts do not agree (${gannTrend.threeDay ?? "unset"} vs ${gannTrend.nineDay ?? "unset"}) — no confirmed trend.`,
-        "Flat moving averages.",
         "Repeatable horizontal boundaries above and below price.",
       ],
       disqualifiers: [],
@@ -187,12 +186,13 @@ export function classifyRegime(inputs: RegimeInputs): RegimeRead {
   }
 
   // No regime's required characteristics cleanly matched — report the closest
-  // read (trend if disqualified only by the overlay/flat-MA checks, else
-  // range) rather than silently defaulting, so callers can see why.
+  // read (trend when the swing charts confirm one but the HH/HL structure
+  // didn't, else range) rather than silently defaulting, so callers can see
+  // why.
   const fallbackRegime = trendStrengthSupport ? "trend" : "range";
   return {
     regime: fallbackRegime,
-    direction: fallbackRegime === "trend" ? (fastAboveSlow ? "bullish" : "bearish") : "sideways",
+    direction: fallbackRegime === "trend" && gannDirection !== null ? gannDirection : "sideways",
     reasons: ["No regime's required characteristics were unambiguously met — closest read reported."],
     disqualifiers: [...trendDisqualifiers, ...rangeDisqualifiers],
   };

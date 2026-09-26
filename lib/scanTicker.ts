@@ -461,7 +461,6 @@ export async function scanTicker(
             direction: regime.direction,
             htfBars: daily,
             executionBars: closedExecutionBars,
-            vwapAnchorIndex: Math.max(0, closedExecutionBars.length - 20),
             gates: marketGates,
             accountContextAssumed: true,
           })

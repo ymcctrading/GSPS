@@ -252,6 +252,44 @@ describe("buildMacroContext", () => {
   });
 });
 
+describe("replay entryRule: confirmed", () => {
+  const P = TRIGGER.triggerPrice;
+  /** A bar spanning `a`..`b` (in the trade's direction from the trigger), opening at `o` and closing at `c`. */
+  const at = (o: number, a: number, b: number, c: number) => {
+    const xs = [P + SIDE * a, P + SIDE * b];
+    return { o: P + SIDE * o, h: Math.max(...xs), l: Math.min(...xs), c: P + SIDE * c };
+  };
+  // Offsets are in price units in the trade's direction: positive is beyond
+  // the trigger, negative is short of it.
+  const touch = at(-3, -3.2, 0.1, -1); // reaches the trigger, closes back inside
+  const brk = at(-1, -1.1, 1.2, 1.0); // closes beyond the 0.3% buffer
+  const retest = at(1.0, 1.1, -0.2, 0.3); // comes back through the trigger
+  const hold = at(0.3, 0.1, 1.5, 1.4); // closes beyond the retest's own extreme
+  const next = at(1.4, 1.2, 1.8, 1.6);
+
+  it("does not fill on a first touch or break alone", () => {
+    const r = replay("TEST", session([touch, brk, quiet]), { targetR: 2, dailyBars: DAILY, entryRule: "confirmed" });
+    expect(r.trades).toHaveLength(0);
+  });
+
+  it("fills at the open of the bar after the hold completes the sequence", () => {
+    const r = replay("TEST", session([touch, brk, retest, hold, next, quiet]), {
+      targetR: 2,
+      dailyBars: DAILY,
+      entryRule: "confirmed",
+    });
+    expect(r.trades).toHaveLength(1);
+    expect(r.trades[0].entry).toBeCloseTo(next.o, 10);
+    expect(r.trades[0].stop).toBeCloseTo(TRIGGER.stopPrice, 10);
+  });
+
+  it("fills the same bars earlier under the default stop rule", () => {
+    const r = replay("TEST", session([touch, brk, retest, hold, next, quiet]), { targetR: 2, dailyBars: DAILY });
+    expect(r.trades).toHaveLength(1);
+    expect(r.trades[0].entry).toBeCloseTo(P, 10);
+  });
+});
+
 describe("replay scoring", () => {
   it("attaches a verdict to every trade", () => {
     const r = replay("TEST", session([crossing, quiet]), { targetR: 2, dailyBars: DAILY });
