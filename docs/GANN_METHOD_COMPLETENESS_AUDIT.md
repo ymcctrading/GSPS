@@ -687,6 +687,22 @@ tuned scoring," except where flagged otherwise.
     rather than silently omitted, per AGENTS.md's cross-platform-consistency
     carve-out. Revisit only if GSPS ever adds a futures/options asset class
     with a real open-interest feed.
+17. **`lib/gann/macroCycle.ts` — built 2026-09-26, confluence/display only,
+    never scored.** The A2.1 Ch. 7 hierarchy anchored to Gann's own cited
+    DJIA turns (Aug 1896, Apr 1897, Nov 1907, Sep 1909, Sep 1929) instead of
+    a symbol's pivots, as recurring anniversary *months* (anchors are
+    month-precise; A9's anniversary-month rule). Two traps its first version
+    fell into, both worth knowing before touching `timeCycles.ts` too:
+    projecting each cycle length once (the max anchor + max cycle is
+    1929 + 60 = 1989, so it went silent for every live date) and a
+    day-level window around a month-level anchor. It is calendar-only, so it
+    reads identically for every symbol on a date and cannot rank one setup
+    against another — the structural reason it is not a scored-criterion
+    candidate, independent of Dewey's checklist (which it also does not
+    clear). Exposes cycle convergence per window, partly addressing Finding
+    3 below for this layer only; `timeCycles.ts` itself still has neither
+    convergence nor recurrence (its per-pivot projections also fire each
+    length once), which remains open.
 
 ## Addendum (2026-09-16): "Observation of Cycles" folder audit — Dewey/Tomes findings
 

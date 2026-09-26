@@ -296,12 +296,16 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
       ? `Active structural time-cycle window (nearby dates: ${cycles.dates.slice(0, 3).join(", ") || "n/a"}).`
       : "No active structural time-cycle window.",
   );
+  const nextMajor = macroCycle.upcomingMajor[0];
   explanationTrace.push(
-    macroCycle.active
-      ? `Active macro time-cycle window, projected from Gann's own historical anchors (${macroCycle.activeWindows
-          .map((w) => `${w.anchor} +${w.years}y`)
-          .join(", ")}).`
-      : "No active macro time-cycle window.",
+    (macroCycle.active
+      ? `Macro time-cycle month (hypothesis) from the cited historical DJIA turns: ${macroCycle.activeWindows
+          .map((w) => `${w.anchor} +${w.yearsElapsed}y (${w.cycleYears.join("/")}-year cycles)`)
+          .join("; ")}.`
+      : "No macro time-cycle month active.") +
+      (nextMajor
+        ? ` Next major macro window: ${nextMajor.month}, ${nextMajor.anchor} +${nextMajor.yearsElapsed}y.`
+        : ""),
   );
   if (coordinateLedger.length > 0) {
     explanationTrace.push(

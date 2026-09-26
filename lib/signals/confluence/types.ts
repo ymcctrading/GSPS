@@ -112,14 +112,13 @@ export interface GannConfluenceResult {
   decadeCycle: DecadeCycleReading;
   /**
    * Gann's major/minor time-cycle hierarchy run one level up from
-   * `timeCycleActive`/`timeCycleDates` — projected forward from Gann's own
-   * cited historical market turns (`docs/GANN_HISTORICAL_SOURCES.md` A2.1
-   * Ch. 7's worked DJIA case study) instead of this symbol's own pivots.
-   * Calendar-only, independent of the symbol being scanned — useful as
-   * macro backdrop context and where a thin-history symbol has no usable
-   * pivot for `timeCycleActive` yet. Confluence/context only, same
-   * hypothesis-labeled, never-gating treatment as `decadeCycle` and
-   * `spectralCycle` below. See `lib/gann/macroCycle.ts`.
+   * `timeCycleActive`/`timeCycleDates` — recurring anniversary months of
+   * Gann's own cited DJIA turns (`docs/GANN_HISTORICAL_SOURCES.md` A2.1
+   * Ch. 7's worked case study) instead of this symbol's own pivots.
+   * Calendar-only and identical for every symbol on a date, so it is
+   * backdrop, never a per-setup discriminator. Confluence/context only,
+   * same hypothesis-labeled, never-gating treatment as `decadeCycle` and
+   * `spectralCycle`. See `lib/gann/macroCycle.ts`.
    */
   macroCycle: MacroCycleResult;
   /**
