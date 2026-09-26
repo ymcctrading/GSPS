@@ -1,12 +1,19 @@
-# Handoff: Production entry rules vs. baseline — which system should GSPS run platform-wide?
+# Handoff: close the audit, re-measure, then decide the platform's entry rules
 
-Repository: `ymcctrading/GSPS`. Today is 2026-09-25 or later. Phase: Q1 (Aug–Oct 2026). This task is
-out-of-phase and was requested directly by the project owner, so mark the PR `N/A`.
+Repository: `ymcctrading/GSPS`. Written 2026-09-26. Phase: Q1 (Aug–Oct 2026). This work is
+out-of-phase and was requested directly by the project owner, so mark every PR `N/A`.
+
+**The goal.** Determine whether production's entry rules or the current baseline is the more
+proficient system to run platform-wide, including the Automated Portfolio Manager (APM). Then
+re-derive the score cutoffs from evidence that actually describes production.
+
+**The order is the owner's decision (2026-09-26): fix the known audit bugs first, measure second,
+tune last.** Don't tweak thresholds, stops or criteria before Phases 1 and 2 are done.
 
 ## 0. Mandates. Read this section first. It is not optional.
 
-1. **Read `AGENTS.md` and `CLAUDE.md` in full before doing anything.** They are long, and every section
-   applies. In particular:
+1. **Read `AGENTS.md` and `CLAUDE.md` in full before doing anything.** They are long, and every
+   section applies. In particular:
    - Cross-platform consistency
    - WD Gann precedence
    - Gann-grounded platform, including the mandatory sweep
@@ -18,267 +25,253 @@ out-of-phase and was requested directly by the project owner, so mark the PR `N/
    - Temporary overrides
    - The Live weights incident
    - Deployment and Git/PR workflow
-   - The **"Platform-wide alignment audit (2026-09-25)"** entry under *Audit outcomes*. It lists the
-     findings this task builds on.
-2. **Three-question mandate: apply it while designing, not afterwards.** Before you design the
-   experiment or change the harness, answer all three questions in writing: Gann source and tier;
-   Dewey's seven-item checklist, stating which items you cleared and which you didn't; and which
-   Hermetic principle or principles fit. Read all seven principles first and say why the others don't
-   fit. Put the answers in the PR description and in the header of any module you change. Don't
-   default to Polarity or Rhythm out of habit.
-3. **Accuracy over speed, always.** Two errors in the prior session came from stating things as
-   verified after checking an adjacent file. Trace every claim to its real consumer or call path, and
-   give file:line evidence. Re-verify every finding listed below against current `main` before you act
-   on it. Don't trust this prompt either.
+   - The **"Platform-wide alignment audit (2026-09-25)"** entry under *Audit outcomes*. It records
+     which findings are resolved and which are open.
+2. **Three-question mandate: apply it while designing, not afterwards.** Before designing a fix, the
+   experiment or the diagnosis, answer all three in writing:
+   - Gann source and tier.
+   - Dewey's seven-item checklist: say which items you cleared and which you didn't.
+   - Which Hermetic principle or principles fit. Read all seven first and say why the others don't
+     fit.
+
+   Put the answers in each PR description and in the header of any module you change. Don't default
+   to Polarity or Rhythm out of habit. Work with no product-facing shape is exempt, but say so
+   explicitly.
+3. **Accuracy over speed, always.** Two errors in an earlier session came from stating things as
+   verified after checking an adjacent file. A third came from this handoff's own history: the
+   production stop was described as "widened" when it is a cap.
+   - Trace every claim to its real consumer or call path, with file:line evidence.
+   - Re-verify every status line below against current `main` before acting on it.
+   - Don't trust this prompt either.
 4. **Check the runtime configuration surface, not just code.** A `learning_models` row, a
    `policy_values` row or an env var can override a code constant. Check them before reporting any
    number as production behaviour.
-5. **Don't change production behaviour.** This task changes the backtest harness only. Anything that
-   alters live scanning, order placement, the Automated Portfolio Manager (APM), risk or thresholds is
-   a *recommendation* for the project owner's sign-off, never a drive-by edit.
+5. **Production-behaviour changes need the owner's sign-off.** That covers anything touching live
+   scanning, order placement, the APM, risk, thresholds or user-facing verdicts.
+   - Section 1 marks which fixes are pre-approved and which need a decision. Ask the owner the
+     decision questions at the **start**, with your recommendation, before building those items.
    - Don't merge to `main` unless the owner asks. Merging deploys to production.
    - Open a PR after pushing, following the template and naming the phase.
    - Delete the branch after it merges.
 6. **Settled decisions you must not revert:**
-   - Don't move the entry trigger back to STRAT. It moved to `lib/gann/entryTrigger.ts` on 2026-09-17.
+   - Don't move the entry trigger back to STRAT. It moved to `lib/gann/entryTrigger.ts` on
+     2026-09-17.
    - Don't shorten Gann's swing counts.
    - Don't re-widen `EXECUTION_TIMEFRAME`.
-   - Don't fix a thin Execute bucket by loosening a rule. Thresholds are display decisions, and are
+   - Don't fix a thin Execute bucket by loosening a rule. Thresholds are display decisions,
      re-derived from measurement.
 7. **Measurement is a debugging tool aimed at our own translation, not a verdict on Gann.** If a
-   Gann-derived component measures negative, suspect a porting defect first.
+   Gann-derived criterion measures negative, presume a porting defect on our side first. Check
+   gate 1 (is it actually Gann-derived?) before hunting.
 
-## Status as of 2026-09-26 (read before section 1)
+## Status as of 2026-09-26 — verify each line
 
-Re-verify every line of this section against current `main`.
+**Resolved on `main` by other sessions. Verify these; don't redo them.**
 
-- **F3.1–F3.3 are fixed on `main`** (PR #290, commit `c113f6a`).
-  - The replay now arms exactly as the live scan does, through `lib/scan/entrySelection.ts`: the
-    daily-bar Gann trigger, the macro-derived direction, no STRAT candidate gate, and no gap rule or
-    risk floor on the trigger.
-  - It fills the resting stop order on 15-minute bars, at the open when a bar gaps past it.
-  - `STRATEGY_VERSION` is now `2026-09-25-live-trigger-replay`.
-  - Per AGENTS.md, every committed run since 2026-09-17, including the one behind the 6/3.5 cutoffs,
-    needs re-deriving on this version.
-  - Your job on these three findings is to **verify** the fix, not redo it.
-- **The confirmation option is stranded.** `requireEntryConfirmation` lives only on
-  `claude/great-brown-h6hops`, and that branch now **conflicts with `main`** in
-  `lib/backtest/replay.ts` and `lib/backtest/run.ts`. Port the option onto the new replay, on a
-  fresh branch from `main`, rather than merging the old branch. Keep what that branch got right:
-  - stop, risk and target fixed from the original trigger;
-  - gross P&L from the actual price distance.
-- **The full-universe runner exists and works.**
-  - Workflow: "Universe backtest (manual)" (`.github/workflows/backtest-universe.yml`).
+- **F3.1–F3.3** (PR #290, `c113f6a`).
+  - The replay arms exactly as the live scan does, via `lib/scan/entrySelection.ts`: the daily-bar
+    Gann trigger, the macro-derived direction, no STRAT candidate gate, and no gap rule or risk floor
+    on the trigger.
+  - `STRATEGY_VERSION` is `2026-09-25-live-trigger-replay`.
+  - Every committed run before it, including the one behind the 6/3.5 cutoffs, needs re-deriving.
+- **F3.5** (`3d379d5`, PR #289). `placeLiveOrder` now enforces `checkPositionLimits`.
+- **F4.4 / F7.6.** The 2026-09-03 `compliance_signoffs` row for `autonomous_live_trading` was
+  revoked in production, so autonomous live trading is not authorised.
+
+**Tooling that exists and works.**
+
+- The workflow "Universe backtest (manual)" (`.github/workflows/backtest-universe.yml` →
+  `scripts/backtest-universe.mjs`).
+  - It runs the harness over the full universe in one job, fetching each symbol once and replaying
+    every cell on the same bars.
+  - It reports bootstrap CIs, time-half splits and cell-vs-cell difference CIs.
+  - It refuses synthetic data, and warns when an option isn't implemented on the ref.
   - The `ALPACA_API_KEY` and `ALPACA_API_SECRET` repository secrets are set.
-  - A `mega-12` smoke test (run 36172659557) reproduced the committed
-    2026-09-23 run to within window drift.
-- **The first full-universe run is committed, and it's a pre-fix baseline.** It covers 766 of 766
-  symbols, ran on `main@f67575d` (the old harness) as workflow run 36172939410, and is in
-  `docs/replay-runs/2026-09-25-*766sym*`. Read `docs/replay-runs/2026-09-25-766sym-NOTES.md`.
+  - A full large-cap run (766 symbols) takes about 26 minutes at 30 symbols a minute. Keep the pace
+    at 30 or below in market hours, because the live scans share the Alpaca account.
+  - Trigger it with the GitHub MCP `actions_run_trigger` tool, or ask the owner. Read results from
+    the "Print results" step log, between the `=== BEGIN/END ===` markers.
 
-  | Execute bucket, n=1,444 | Expectancy [95% CI] |
-  |---|---|
-  | raw stop | +0.124R [+0.055, +0.192] |
-  | production stop | +0.020R [−0.053, +0.093], below Watch (+0.092R) and Reject (+0.149R) |
+**Pre-fix baseline (evidence about the old harness only).** `docs/replay-runs/2026-09-25-*766sym*`
+comes from workflow run 36172939410 on `main@f67575d`, before PR #290. Read
+`docs/replay-runs/2026-09-25-766sym-NOTES.md`.
 
-  - The 12-symbol +0.362R headline was mostly a small-sample artefact.
-  - Under the production stop, the score's ranking inverted.
-  - `ruleOfThree`, `swingChartTrend`, `volumeClimax` and `historicalSR` measured negative. All four
-    are daily-chart concepts measured against the old 15-minute trigger. That makes PR #290 the
-    first explanation to test before calling any of them inverted.
-- **The production stop is a cap, not a widening.** Earlier notes, including this prompt's first
-  version, called it "widened". `computeStopWithLeeway` (`lib/strat/levels.ts`) adds a small ATR
-  leeway, then **clamps** the stop to at most 2.5× the 15-minute ATR (3.5× for large caps). For
-  most trades that makes it *tighter* than the structural stop. Mean Execute hold fell from 76.6
-  bars to 21.2.
-- **Next run that counts:** the same `raw` and `prodstop` cells, plus a `confirmed` cell once it has
-  been ported, all on `STRATEGY_VERSION` `2026-09-25-live-trigger-replay`, with `universe:
-  large-cap`. Compare it against the pre-fix baseline above.
+| Execute, n=1,444 | Expectancy [95% CI] |
+|---|---|
+| `raw` (structural swing stop) | +0.124R [+0.055, +0.192] |
+| `prodstop` (production stop) | +0.020R [−0.053, +0.093]; Watch +0.092R, Reject +0.149R |
 
-## 1. The question
+- The 12-symbol +0.362R headline was mostly a small-sample artefact.
+- Under the production stop, the score's ranking inverted.
+- **Production stop = `computeStopWithLeeway` (`lib/strat/levels.ts`).** It adds a small ATR leeway,
+  then **caps** the stop at 2.5× the 15-minute ATR (3.5× for large caps). In the baseline that made
+  the stop tighter for most Execute trades, and mean hold fell from 76.6 bars to 21.2.
 
-The prior session built `requireEntryConfirmation` into the backtest harness. It lives on branch
-`claude/great-brown-h6hops` and is not merged. It models production's mandatory
-break → retest → confirmation-move sequence, from `lib/lifecycle/entryConfirmation.ts`.
+## 1. Phase 1: close the open audit findings
 
-Early results:
+Work in small PRs off a fresh `main`, one theme each.
 
-| | 12-symbol mega-cap | 27-symbol diversified |
-|---|---|---|
-| Unconfirmed (current harness baseline) | 41 trades, +0.362R, 36.6% win | 41 trades, −0.298R, 14.6% win |
-| Confirmed | 40 trades, −0.198R, 25.0% win | stale, not re-run |
+### Pre-approved: build these without asking
 
-The owner needs to decide which entry model GSPS should run everywhere: the live scan, Guided Mode,
-demo auto-trade, plan-scoped automation and the APM. **These numbers can't answer that yet.**
-Section 2 explains why. The harness must first model production faithfully. Then run a
-pre-registered experiment.
-
-Frame the decision correctly. The backtest is never allowed to be easier than production. The real
-choice is between two options:
-
-- **(A)** Keep production's confirmation rule. The confirmed number is then the honest one.
-- **(B)** Recommend changing production's rule, and only if the evidence shows confirmation destroys
-  edge.
-
-Either way, the harness and production must end up measuring the same thing.
-
-## 2. Known defects to fix in the harness before any run that counts
-
-All come from the 2026-09-25 audit. Re-verify each one.
-
-- **F3.1–F3.3 (trigger timeframe, direction source, filters): fixed on `main` by PR #290.** Verify
-  it. Read `lib/scan/entrySelection.ts`, and confirm `lib/scanTicker.ts` and `lib/backtest/replay.ts`
-  both call it with daily bars and apply the same filters. Don't re-implement it.
-- **F1.2: the target differs from production.**
-  - The replay targets `trigger + targetR × risk`.
-  - Production attaches the plan's structural `takeProfit1`. See `lib/lifecycle/fromScanResult.ts` and
+- **Port `requireEntryConfirmation` onto the new replay.**
+  - It exists only on `claude/great-brown-h6hops`, which now conflicts with `main` in `replay.ts`
+    and `run.ts`. Don't merge or rewrite that branch; port the option onto a fresh branch.
+  - Keep what it got right: stop, risk and target are fixed from the original trigger, and gross P&L
+    uses the actual price distance. That matches `deriveOrderInputFromPlan`.
+- **F1.2: target.**
+  - The replay targets `trigger + targetR × risk`. Production attaches the plan's structural
+    `takeProfit1`. See `lib/lifecycle/fromScanResult.ts` and
     `lib/automation/service.ts#deriveOrderInputFromPlan`.
-  - Model TP1 from `computeTradeLevels`, as the scan does. If you keep a targetR variant, label it as
-    non-production.
+  - Add a production-target option that models TP1 exactly as `computeTradeLevels` prices it.
+  - Label the targetR variant as non-production.
 - **F1.3: fills past the bracket.**
-  - Production rejects a fill that lands past its stop or target with `fill_outran_bracket` (409), in
-    `lib/trade/place-order.ts` around lines 451–469.
-  - The replay counts that trade instead, as a "win" with negative gross.
-  - Drop those trades, and report how many were refused.
-- **F1.5: possible duplicates.**
-  - The same setup can re-arm on consecutive bars and confirm on the same bar.
-  - Production de-duplicates through `signalFingerprint`.
-  - De-duplicate by (symbol, trigger level, confirmation bar).
+  - Production refuses a fill beyond its stop or target (`fill_outran_bracket`, 409, in
+    `lib/trade/place-order.ts`).
+  - The replay must drop those trades, not count them, and report how many it refused.
+  - Check the new gap-fill-at-open path too: a gap past the trigger can also land past the target.
+- **F1.5: duplicates.**
+  - One setup can arm, or confirm, on several consecutive bars.
+  - Production de-duplicates through `signalFingerprint`. De-duplicate by (symbol, trigger level,
+    fill or confirmation bar).
 - **F1.4: confirmation cadence.**
-  - Production advances confirmation once per scan pass. It builds a flat bar from `currentPrice` and
-    only advances symbols in that pass's visible set. See `lib/lifecycle/advanceConfirmation.ts` and
-    `lib/entitlements/scan-fanout.ts`.
-  - Production expires plans on wall-clock time, using the verdict's `expiresAfterBars` times 15
-    minutes.
-  - Either model scan-cadence sampling, or document the replay as an upper bound on how many
-    confirmations production would achieve.
-- **Stop model.** Production uses `computeStopWithLeeway`: a small ATR leeway, then a cap at 2.5× (large caps 3.5×) the 15-minute ATR. That is usually *tighter* than the structural stop, not wider. Run
-  production cells with `useProductionStop` on.
+  - Production advances confirmation once per scan pass. It builds a flat bar from `currentPrice`,
+    only for symbols in that pass's visible set, and expires plans on wall-clock time.
+  - Either model that, or document the replay's confirmation rate as an upper bound.
+- **F4.3: `policy_values` overrides have no bounds.** Add per-key sanity bounds to
+  `lib/policy/store.ts#getPolicyOverrides`, rejecting and logging out-of-range values. Today the table
+  has no rows, so this changes nothing live.
+- **Tests for every fix.** Fixtures need real price reversals: flat bars arm nothing under the Gann
+  trigger.
 
-Also confirm what's already correct on that branch:
+### Needs the owner's decision first: ask at the start, with your recommendation
 
-- Stop, risk-per-share and target are fixed from the *original* trigger. Only the fill price moves.
-  This matches `deriveOrderInputFromPlan`.
-- Gross P&L uses the actual price distance, not a flat R.
+- **F2.5: SMA 20/50 and anchored VWAP in the Signal & Regime Engine.**
+  - Where: `lib/signals/regime.ts` and `lib/signals/states/trendPullback.ts`.
+  - They feed user-facing tier and "Tradeable" labels and trade-plan expiry.
+  - Recommend replacing them with swing-chart structure (`lib/gann/trendStrength.ts`), per "WD Gann
+    precedence", or recording an explicit exception.
+  - Also extend AGENTS.md's mandatory sweep regex to match `SMA`, `EMA` and `VWAP`.
+- **F3.7: pre-entry stop breach.** A plan in `awaiting_entry_confirmation` is never invalidated when
+  price trades through its stop (`lib/lifecycle/transitions.ts`). Recommend adding pre-entry
+  invalidation, in both production and the replay.
+- **F4.2: weight promotion.** The weight-promotion path can still promote non-uniform weights, against
+  "weighting is substance". Recommend blocking non-uniform promotion unless a citable
+  cross-criterion ranking exists.
+- **F1.7: universe coverage.** Being in `FALLBACK_UNIVERSE` doesn't mean being scanned. Check
+  migration `0082_coarse_gate_telemetry_cycle_columns.sql` and coarse telemetry first: another
+  session may already be on this.
+- **F7.1: PR #285, `macroCycle` (unmerged).** Its projections stop at 1989, so it can never be active
+  today. Recommend fixing it or closing the PR.
+- **Leave F3.4 until Phase 4.** Whether Guided execute, demo auto-trade and the manual ticket must
+  pass entry confirmation depends on the result of Phase 2, so don't decide it before then.
 
-Keep both of those.
+## 2. Phase 2: one production-faithful run (pre-register it)
 
-Add tests for every fix. Test fixtures need real price reversals: flat fixtures arm nothing under the
-Gann trigger.
+Write the design and decision rule into the PR description **before** running. Run on
+`STRATEGY_VERSION` `2026-09-25-live-trigger-replay` with the Phase 1 fixes. Use `universe:
+large-cap` as the primary run; `mega-12` and `diversified` are sanity checks only.
 
-## 3. Experiment design
+**Cells**, all with refused fills dropped and duplicates removed:
 
-**Pre-register it.** Write the design and the decision rule into the PR description *before* looking
-at results.
+1. `raw`: the structural swing stop, and no confirmation.
+2. `prodstop`: the production stop, and no confirmation. This is the baseline.
+3. `confirmed`: the production stop, plus the full confirmation sequence. This is production.
+4. The same three cells with the **production TP1 target**, if F1.2 lands as a separate option.
 
-**Cells.** Compare entry models under otherwise identical, production-faithful settings:
+**The stop-cap question is answered by `raw` vs `prodstop` in this run.** In the pre-fix baseline,
+the cap cost Execute −0.103R (CI −0.202 to −0.002), but it improved the overall result: +0.042R, CI
++0.020 to +0.065. It also improved Reject (+0.070 to +0.149R). Watch moved +0.020R, within noise. So there is **no evidence yet that the cap limits profitable trades.** The baseline measured
+the old trigger, used a targetR target that moves with the stop, and counted refused fills.
 
-1. **Baseline:** stop-order fill at the Gann trigger, no confirmation.
-2. **Production:** the full confirmation sequence, stop and target fixed from the trigger, refused
-   fills dropped.
-3. *(Optional, label it clearly)*: a production variant on its own, for example confirmation without
-   the 0.3% break buffer. Only include it if it's Gann-grounded; cite the "3-point rule" source.
+- Compare the cells in R. Production sizes positions from a dollar risk, so R is the right unit.
+- Report both the per-bucket results and the ATR-band table.
+- Don't propose changing the cap unless the post-fix run shows `raw` beating `prodstop` on Execute
+  with separated CIs, stable across both halves, **and** with the production TP1 target.
 
-**Universes.**
+**Report**, for every cell:
 
-- The 12-symbol mega-cap set.
-- The 27-symbol `DIVERSIFIED_BACKTEST_SAMPLE`.
-- **The full `LARGE_CAP_UNIVERSE` (~766 symbols).** Treat this as the primary result. Small universes
-  are only for sanity checks.
+- n, expectancy with a 95% CI, win rate, profit factor and max drawdown in R;
+- Execute, Watch, Reject and all trades;
+- a per-score-band sweep;
+- both time halves;
+- the refused-fill count, the confirmation rate and the expiry rate;
+- the factor table.
 
-**How to run the full universe.** Use the **"Universe backtest (manual)"** GitHub Actions
-workflow (`.github/workflows/backtest-universe.yml`), which drives `scripts/backtest-universe.mjs`.
-Don't use `/api/backtest`: that route caps a request at 12 symbols to fit Vercel's 60 s limit. The
-workflow instead:
+**Commit the run** to `docs/replay-runs/` with a NOTES file (see the 2026-09-25 one as the model).
 
-- runs the harness in one job, with a 330-minute timeout;
-- fetches each symbol once and replays every cell on the same bars;
-- paces itself to leave rate-limit headroom for production scans;
-- refuses to run on synthetic data;
-- reports bootstrap CIs, time-half splits and cell-vs-cell difference CIs;
-- warns if two cells with different options produce identical trades, which means an option isn't
-  implemented on that ref.
+## 3. Phase 3: diagnose `stopRoom` and the four negative Gann criteria
 
-Its inputs:
+Only on the Phase 2 data. Don't diagnose from the pre-fix baseline.
 
-- `ref`: your harness branch. It must include `main` from after this workflow landed.
-- `universe`: `large-cap`, `mega-12`, `diversified`, or a comma-separated list.
-- `cells`: JSON, for example
-  `[{"label":"baseline","options":{"useProductionStop":true}},{"label":"confirmed","options":{"useProductionStop":true,"requireEntryConfirmation":true}}]`.
-- `symbols_per_minute`: keep at 30 or below during market hours. It can go higher off-hours.
+**`stopRoom`** was the strongest positive in the baseline: +0.358R under the production stop, but
+only +0.052R under `raw`.
 
-Results come back in two places. They're printed between `=== BEGIN … ===` / `=== END … ===` markers
-in the "Print results" step's log, which you can read with the GitHub MCP job-log tools. They're also
-uploaded as an artifact.
+- What it measures, for equities: whether the plan's stop is anchored to a real nearby structural
+  level rather than a fixed fallback percentage (`levels.stopFromStructure`,
+  `lib/strat/levels.ts#computeEquityTradeLevels`). See its registry entry
+  (`lib/validation/criteria-registry.ts`), which is quarantined for near-saturation and has a
+  2026-09-15 fix history.
+- The leading hypothesis to test is an **interaction, not an edge**. When no structure is near
+  (fail, n=134), a tight capped stop sits in noise and gets hit, at −0.305R. With the wider raw stop,
+  the same trades are barely worse.
+- Test it by comparing `stopRoom`'s delta across `raw`, `prodstop` and `confirmed`, and by
+  cross-tabbing it against the ATR bands.
+- Check gate 1 too. The registry records its provenance, so establish whether it is a Gann-derived
+  criterion or a risk-hygiene one before treating it as confirming the method.
 
-To trigger a run, ask the owner, or use the GitHub MCP `actions_run_trigger` tool if it's available.
-This requires repository secrets `ALPACA_API_KEY` and `ALPACA_API_SECRET`. If they're missing, the job
-fails immediately with a clear message.
+**`ruleOfThree`, `swingChartTrend`, `volumeClimax` and `historicalSR`** were negative inside Execute
+under the production stop in the baseline.
 
-The workflow itself is already smoke-tested. After your harness changes, run a quick `mega-12` pass
-first to check that the new cells produce different trades from `raw`. The runner warns if two
-cells with different options produce identical trades. Don't expect it to reproduce the 2026-09-23
-numbers: PR #290 changed the trigger. A full-universe run takes about 26 minutes at 30 symbols a
-minute.
+1. First, check whether they are still negative on the Phase 2 run. All four are daily-chart
+   concepts, and the baseline measured them against the old 15-minute trigger.
+2. If one still inverts, trace its translation end to end, with file:line evidence. The code starts
+   in `lib/scoring/score.ts` (around lines 240–360) and `lib/gann/*`. Check:
+   - the bars it reads;
+   - its look-ahead guard in the replay: prior sessions only;
+   - the anchor it uses;
+   - its direction convention. It's scored in the trade's direction: support for longs, low anchors
+     for longs, higher closes for bullish.
+   - whether the scan and the replay compute it identically;
+   - whether its Gann source (`docs/GANN_HISTORICAL_SOURCES.md`) supports the setup kind being
+     scored. Most live setups are *reversions* of the macro move, and a trend-confirmation rule may
+     be being applied to a counter-trend entry.
+3. Report each as one of: **translation defect found** (with the fix), **no defect found**, or
+   **inconclusive** (with the sample needed).
+4. Fixes are Phase 1-style PRs, owner-approved, followed by a re-run. Don't reweight or drop a
+   criterion to make the numbers better.
 
-**Buckets.** Report Execute, Watch and unconditioned results for every cell, plus a per-score-band
-sweep.
+## 4. Phase 4: decide (pre-registered rule; adjust only with written justification)
 
-**Statistics.**
-
-- Report n, expectancy in R with a **bootstrap 95% CI**, win rate, profit factor and max drawdown in R.
-- Report refused fills, the expiry rate and the confirmation rate.
-- Around 40 trades gives roughly ±0.2R standard error on expectancy. Don't call a difference real
-  unless the CIs separate, or a paired or bootstrap test of the difference clears 95%.
-- Report per-universe results and a pooled result.
-- Check stability across time: split the window into halves.
-
-**Commit every run** to `docs/replay-runs/` in the existing format, with the harness commit SHA and
-every flag recorded.
-
-**Attribution.** Run the factor table (`lib/backtest/attribution.ts`) per cell. If a Gann-derived
-criterion inverts under the production-faithful harness, treat it as a porting-defect lead. Flag it;
-don't fix it silently.
-
-## 4. Decision rule (pre-register it; adjust only with written justification)
-
-- **Recommend keeping production's confirmation rule platform-wide** if its Execute-bucket
-  expectancy CI lies above 0 on the full universe, *or* if it isn't significantly worse than baseline.
-- **Recommend the owner consider changing production's rule** only if baseline beats confirmation
-  with separated CIs on the full universe *and* the result is stable across time halves. Any change
-  must stay Gann-grounded; the confirmation buffer itself is cited to the "3-point rule". Write it as a
+- **Recommend keeping production's confirmation rule platform-wide** if `confirmed`'s Execute CI lies
+  above 0 on the full universe, *or* if it isn't significantly worse than `prodstop`.
+- **Recommend the owner consider changing production's rule** only if `prodstop` beats `confirmed`
+  with separated CIs on the full universe **and** the result is stable across both halves. Any change
+  must stay Gann-grounded: the confirmation buffer is cited to the "3-point rule". Write it as a
   proposal. Don't implement it.
-- **If neither model's Execute CI clears 0 on the full universe,** say so plainly. That points at the
-  thresholds or the translation, not at the entry model. Recommend re-deriving the cutoffs (`6`/`3.5`
-  in `lib/scoring/weights.ts`), which were confirmed on the 12-symbol run only.
+- **If no cell's Execute CI clears 0,** say so plainly. That points at the translation (Phase 3) or
+  the thresholds, not at the entry model. Re-derive the 6/3.5 cutoffs (`lib/scoring/weights.ts`) from
+  the per-score-band sweep, as a proposal.
+- **Then settle F3.4.** Whichever model wins must hold on every surface where a plan can be entered:
+  - the live scan and trade plans;
+  - the APM and plan-scoped automation, which act only on `armed` plans;
+  - Guided execute;
+  - demo auto-trade;
+  - the manual ticket.
 
-## 5. Scope reminders (platform-wide means all of these)
+  Recommend aligning them, or recording an explicit, justified exception.
+- **Also flag** that `lib/promotion/trackRecordPolicy.ts` cites +0.362R as its Wall Street ceiling.
+  That number came from the superseded 12-symbol run.
 
-The chosen model has to hold on every surface. Cross-platform consistency applies here. List where
-each surface stands today, then check each one yourself:
+## 5. Deliverables
 
-- **Live scan and trade plans:** plans start `awaiting_entry_confirmation` and are armed by
-  `advanceEntryConfirmationForSymbol`.
-- **APM and plan-scoped automation:** they only act on `armed` plans. See
-  `lib/automation/portfolio-manager.ts` → `activateAutomationProfile` → `deriveOrderInputFromPlan`.
-- **Guided Mode execute, demo auto-trade and the manual ticket:** these currently place orders *without*
-  confirmation (audit finding F3.4). Whatever model wins, recommend aligning them, or recording an
-  explicit exception.
-- **Latent risk items the owner must also see.** Don't fix these here, but list them in the report:
-  - Live orders skip `checkPositionLimits` (F3.5).
-  - Autonomous live trading looks authorised: there is an active `compliance_signoffs` row, and the
-    `AUTONOMOUS_LIVE_TRADING_HALTED` env var is set in production (F4.4 / F7.6).
-
-  These matter more if the APM becomes more active.
-
-## 6. Deliverables
-
-1. A harness PR with the fixes from section 2, tests and the pre-registered design. Keep it separate
-   from, or rebased onto, `claude/great-brown-h6hops`. Don't rewrite that branch's history.
-2. Committed run files in `docs/replay-runs/`.
-3. A report with the per-cell table, CIs, the decision under the pre-registered rule, what it means
-   for the APM, and every limitation. Include coverage honestly: state what was fully run, partially
-   run, or not run.
-4. A dated addendum under *Audit outcomes* in `AGENTS.md` recording the result, so it isn't
-   re-litigated.
-5. No production behaviour change. List the recommended changes for the owner's sign-off.
+1. Phase 1 PRs: fixes, tests and the three-question answers.
+2. Committed run files and a NOTES file for every run that counts.
+3. A report covering:
+   - the per-cell tables with CIs;
+   - the stop-cap answer;
+   - each criterion's Phase 3 verdict;
+   - the Phase 4 recommendation and what it means for the APM;
+   - honest coverage: what was fully done, partially done, or not done.
+4. A dated addendum under *Audit outcomes* in `AGENTS.md` recording what closed and what the run
+   showed, so it isn't re-litigated.
+5. A list of production changes awaiting the owner's sign-off. Nothing ships without it.
