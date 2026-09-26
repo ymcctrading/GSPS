@@ -21,6 +21,10 @@
  *     is Gann's own Buying Point, and a human has approved that specific
  *     trade. The demo account follows Guided Mode on purpose, because it
  *     exists to show what Guided Mode does.
+ *   - **Evidence against this split (2026-09-26, same day):** the stop entry
+ *     measured −0.155R and the confirmed entry +0.190R on the full universe
+ *     (docs/replay-runs/2026-09-26-766sym-NOTES.md). Aligning every path on
+ *     confirmation is recommended and held for the owner (AGENTS.md, F3.4).
  *   - The backtest measures both rules through the same function:
  *     `lib/backtest/replay.ts`'s `entryRule` option (`"stop"` or
  *     `"confirmed"`) calls `advanceEntryConfirmation` directly.

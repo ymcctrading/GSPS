@@ -40,6 +40,11 @@
  * something else. It trades paper only, on GSPS's own showcase account,
  * never on a member's behalf or a member's money. If that ever changes, it
  * must switch to the confirmed rule (see `lib/lifecycle/entryConfirmation.ts`).
+ *
+ * **Evidence against this (2026-09-26, same day):** on the full universe the
+ * stop entry measured −0.155R and the confirmed entry +0.190R
+ * (docs/replay-runs/2026-09-26-766sym-NOTES.md). Moving this path to
+ * confirmation is recommended and held for the owner (AGENTS.md, F3.4).
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";

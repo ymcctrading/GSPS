@@ -21,6 +21,11 @@
  * full entry-confirmation sequence plan-scoped automation waits for, because
  * the person confirmed this specific trade (decided 2026-09-26, alignment
  * audit F3.4; see `lib/lifecycle/entryConfirmation.ts`).
+ *
+ * **Evidence against this (2026-09-26, same day):** on the full universe the
+ * stop entry measured −0.155R and the confirmed entry +0.190R
+ * (docs/replay-runs/2026-09-26-766sym-NOTES.md). Moving this path to
+ * confirmation is recommended and held for the owner (AGENTS.md, F3.4).
  */
 
 import { NextRequest, NextResponse } from "next/server";

@@ -650,6 +650,25 @@ for the project owner** — do not fix it silently, and re-verify it first:
   measured. Until then nothing measured the rule automation trades on.
   `lib/lifecycle/entryConfirmation.ts`'s header had claimed every caller ran
   through confirmation. It was corrected.
+  **Reversed by evidence the same day (2026-09-26).** The first run on the
+  production-faithful replay (`docs/replay-runs/2026-09-26-766sym-NOTES.md`,
+  766 symbols, production stop, fixed plan bracket, refused fills dropped)
+  measured the stop entry at **−0.155R** [−0.254, −0.053] on all trades and
+  −0.440R on Execute. The confirmed entry measured **+0.190R** [+0.068,
+  +0.311], positive in both halves. The CIs don't overlap. Under the
+  pre-registered Phase 4 rule
+  (`BACKTEST_PRODUCTION_VS_BASELINE_HANDOFF.md`), confirmation should hold on
+  every surface where a plan can be entered, the human paths included. The
+  principled argument above ("a human approved it") doesn't survive
+  measurement: the human approves the trade, not the fill rule, and the fill
+  rule is what loses money. **Current recommendation:** align the manual
+  ticket's advised entry, Guided execute and the demo auto-trader on
+  confirmation. Guided and the demo would place their order only once the
+  plan is `armed` (or the equivalent confirmation has been observed), instead
+  of resting a stop at the trigger. This is a production and UX change, held
+  for the owner's go-ahead. The code comments that describe the interim
+  decision (`lib/lifecycle/entryConfirmation.ts`,
+  `app/api/guided/execute/route.ts`, `lib/demo/auto-trade.ts`) point here.
 - **Non-Gann inputs in the Signal & Regime Engine (F2.5).** SMA 20/50 and
   anchored VWAP (`lib/signals/regime.ts`, `lib/signals/states/trendPullback.ts`)
   feed user-facing tier/"Tradeable" labels and trade-plan expiry. The

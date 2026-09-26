@@ -102,12 +102,12 @@ done and verify them; if not, don't duplicate them.**
     `hasTradePlan` requiring a STRAT pattern.
 - **F3.4: a current decision is recorded, and Phase 4 may revise it on evidence.** Unattended
   execution requires confirmation. Human orders (the ticket, Guided) and the demo use the stop
-  entry. **Early evidence against that decision.** Run 36212431397 used the pre-F1.3 bracket
-  semantics, the production stop, all trades and 766 symbols:
-  - `stop`: −0.208R (n=898); Execute −0.468R (n=96).
-  - `confirmed`: +0.073R (n=581); Execute +0.194R (n=70).
-  - Confirmed minus stop, all trades: +0.28R, CI [+0.13, +0.43].
-  - Re-check on the corrected run before acting on it.
+  entry. **The corrected run reverses it.** See
+  `docs/replay-runs/2026-09-26-766sym-NOTES.md`, run 36268497380, with F1.3 applied.
+  - `prodstop` (stop entry): −0.155R [−0.254, −0.053] on all trades; Execute −0.440R.
+  - `confirmed`: +0.190R [+0.068, +0.311], positive in both halves.
+  - Under the Phase 4 rule, aligning every path on confirmation is recommended and held for the
+    owner. That run is effectively Phase 2 minus F1.2, F1.4 and F1.5.
 
 **Tooling that exists and works.**
 
