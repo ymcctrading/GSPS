@@ -24,6 +24,7 @@ import { ReferralSettings } from "@/components/settings/referral-settings";
 import { PromotionSettings } from "@/components/settings/promotion-settings";
 import { LiveTradingSettings } from "@/components/settings/live-trading-settings";
 import { StrategyModeSettings } from "@/components/settings/strategy-mode-settings";
+import { CustomScriptsSettings } from "@/components/settings/custom-scripts-settings";
 import { StartTourButton } from "@/components/onboarding/tour-provider";
 import Link from "next/link";
 import { Link2, Landmark, Compass, BookOpen } from "lucide-react";
@@ -121,6 +122,8 @@ export default function SettingsPage() {
       <LiveTradingSettings />
 
       <StrategyModeSettings />
+
+      <CustomScriptsSettings />
 
       <Card>
         <CardHeader>

@@ -22,3 +22,19 @@ export function isStrategyModeAllowedForPolicy(
   if (allowed === "all") return true;
   return allowed.includes(mode);
 }
+
+/**
+ * Custom-script Strategy Modes authoring gate (`lib/strategies/custom/`).
+ * Distinct from `isStrategyModeAllowedForPolicy` above, which only governs
+ * selecting one of the nine GSPS-built modes — this governs whether a tier
+ * may create/edit/save a DSL script at all. See
+ * `EntitlementPolicy#customScriptAuthoringEnabled`'s own doc comment for the
+ * full reasoning (Wall Street only). Every CRUD route under
+ * `/api/strategy-plugins` must check this server-side before accepting a
+ * write; there is no client-side equivalent to trust.
+ */
+export function isCustomScriptAuthoringAllowedForPolicy(
+  policy: Pick<EntitlementPolicy, "customScriptAuthoringEnabled">,
+): boolean {
+  return policy.customScriptAuthoringEnabled;
+}

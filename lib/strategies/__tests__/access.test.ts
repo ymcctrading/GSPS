@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isStrategyModeAllowedForPolicy } from "@/lib/strategies/access";
+import { isCustomScriptAuthoringAllowedForPolicy, isStrategyModeAllowedForPolicy } from "@/lib/strategies/access";
 
 describe("isStrategyModeAllowedForPolicy", () => {
   it("always allows the structural default regardless of the tier's list", () => {
@@ -26,5 +26,12 @@ describe("isStrategyModeAllowedForPolicy", () => {
     expect(isStrategyModeAllowedForPolicy(policy, "psarSupertrend")).toBe(true);
     expect(isStrategyModeAllowedForPolicy(policy, "saraStrat")).toBe(true);
     expect(isStrategyModeAllowedForPolicy(policy, "donchian")).toBe(true);
+  });
+});
+
+describe("isCustomScriptAuthoringAllowedForPolicy", () => {
+  it("rejects every tier except Wall Street (customScriptAuthoringEnabled: true)", () => {
+    expect(isCustomScriptAuthoringAllowedForPolicy({ customScriptAuthoringEnabled: false })).toBe(false);
+    expect(isCustomScriptAuthoringAllowedForPolicy({ customScriptAuthoringEnabled: true })).toBe(true);
   });
 });

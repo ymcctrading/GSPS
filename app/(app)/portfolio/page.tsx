@@ -14,6 +14,7 @@ import { RejectedOrders } from "@/components/portfolio/rejected-orders";
 import { SyncBar } from "@/components/portfolio/sync-bar";
 import { ExitActivity } from "@/components/portfolio/exit-activity";
 import { AnalyticsDashboard } from "@/components/portfolio/analytics-dashboard";
+import { TradeReviews } from "@/components/portfolio/trade-reviews";
 import type { ExitsState, OrderRow, Portfolio, SyncState } from "@/components/portfolio/types";
 import { countOpenLegs, groupByDisposition, sectionOrders } from "@/lib/portfolio/sections";
 import { formatUsd, formatPct, cn } from "@/lib/utils";
@@ -281,6 +282,8 @@ export default function PortfolioPage() {
           </div>
         )}
       </PositionSection>
+
+      <TradeReviews />
 
       <div className="flex flex-col gap-1">
         <h2 className="text-lg font-semibold">Performance Analytics</h2>

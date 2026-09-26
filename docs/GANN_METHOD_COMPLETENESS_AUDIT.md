@@ -700,9 +700,14 @@ tuned scoring," except where flagged otherwise.
     against another — the structural reason it is not a scored-criterion
     candidate, independent of Dewey's checklist (which it also does not
     clear). Exposes cycle convergence per window, partly addressing Finding
-    3 below for this layer only; `timeCycles.ts` itself still has neither
-    convergence nor recurrence (its per-pivot projections also fire each
-    length once), which remains open.
+    3 below for this layer. Complements, does not duplicate,
+    `timeCycles.ts#yearCycleConvergence` (per-symbol monthly pivots, month
+    precision, convergence count — the same design, reaching only the
+    1-10-year cycles because per-symbol history is ~10 years; this module
+    covers the 15-60-year reach from Gann's own anchors). Still open in
+    `timeCycles.ts`: recurrence — both `timeCycles()` and
+    `yearCycleConvergence()` match each length once (exactly N years back),
+    so a pivot 4 years old never registers its 2-year cycle's second return.
 
 ## Addendum (2026-09-16): "Observation of Cycles" folder audit — Dewey/Tomes findings
 

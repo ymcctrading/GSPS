@@ -18,6 +18,22 @@ date.
   +120 years and the 1929 top +100 years). Labeled a hypothesis, the same
   for every symbol on a given date, and never scored or gating.
 
+## 2026-09-25
+
+### Fixed
+- **The backtest replay measured an entry trigger production never used**
+  (alignment audit F3.1–F3.3). Since 2026-09-17 the live scan has armed trades
+  from Gann's swing-crossing trigger on daily bars, in the macro-derived
+  direction. `lib/backtest/replay.ts` instead computed it on 15-minute bars,
+  only for STRAT-detected candidates, and filtered it through the STRAT gap
+  rule and risk floor. The replay now arms exactly as the scan does, through
+  shared code (`lib/scan/entrySelection.ts`). `STRATEGY_VERSION` is bumped to
+  `2026-09-25-live-trigger-replay`. Committed runs from 2026-09-17 up to this
+  change, including the 2026-09-23 run behind the 6/3.5 cutoff confirmation,
+  are not comparable with runs from this version.
+- **Live orders now enforce the position-limit ceilings** paper orders already
+  did (alignment audit F3.5).
+
 ## 2026-09-23
 
 ### Fixed

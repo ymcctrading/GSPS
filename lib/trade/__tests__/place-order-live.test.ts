@@ -5,6 +5,7 @@ const getOpenPosition = vi.fn();
 const readLiveAlpacaConnection = vi.fn();
 const getAccount = vi.fn();
 const placeOrder = vi.fn();
+const getPositions = vi.fn();
 const evaluateLiveCircuitBreaker = vi.fn();
 const countLiveEntriesOpenedToday = vi.fn();
 const recordOrderExecution = vi.fn();
@@ -25,6 +26,7 @@ vi.mock("@/lib/brokers/live-creds", () => ({
 vi.mock("@/lib/brokers/alpaca", () => ({
   getAccount: (...args: unknown[]) => getAccount(...args),
   placeOrder: (...args: unknown[]) => placeOrder(...args),
+  getPositions: (...args: unknown[]) => getPositions(...args),
 }));
 vi.mock("@/lib/risk/service", () => ({
   evaluateLiveCircuitBreaker: (...args: unknown[]) => evaluateLiveCircuitBreaker(...args),
@@ -57,6 +59,14 @@ function stubSupabase(overrides: Partial<Record<string, unknown>> = {}) {
       update: () => ({ eq: () => Promise.resolve({ error: null }) }),
     },
     protocol_exits: {
+      select: () => {
+        const chain = {
+          eq: () => chain,
+          then: (resolve: (v: unknown) => unknown) =>
+            resolve({ data: overrides.workingPlans ?? [], error: null }),
+        };
+        return chain;
+      },
       insert: () => ({
         select: () => ({
           maybeSingle: () => Promise.resolve(overrides.protocolExitsInsertResult ?? protocolExitsInsertResult),
@@ -82,6 +92,7 @@ describe("placeSimulatedOrder — live branch", () => {
     readLiveAlpacaConnection.mockReset();
     getAccount.mockReset();
     placeOrder.mockReset();
+    getPositions.mockReset().mockResolvedValue([]);
     evaluateLiveCircuitBreaker.mockReset();
     countLiveEntriesOpenedToday.mockReset().mockResolvedValue(0);
     recordOrderExecution.mockReset();
@@ -159,7 +170,7 @@ describe("placeSimulatedOrder — live branch", () => {
 
   it("submits a stop-only bracket (no take-profit leg) when attach levels are given, and writes a protocol_exits plan", async () => {
     readLiveAlpacaConnection.mockResolvedValue(connection);
-    getAccount.mockResolvedValue({ equity: "450" });
+    getAccount.mockResolvedValue({ equity: "10000" });
     evaluateLiveCircuitBreaker.mockResolvedValue({ decision: { newEntriesAllowed: true, state: "normal" } });
     placeOrder.mockResolvedValue({ id: "alpaca-order-2", status: "accepted" });
 
@@ -196,5 +207,80 @@ describe("placeSimulatedOrder — live branch", () => {
       "u1",
       expect.objectContaining({ brokerStatus: "rejected" }),
     );
+  });
+  it("enforces the position-limit ceilings on a live entry, same as paper (F3.5)", async () => {
+    readLiveAlpacaConnection.mockResolvedValue(connection);
+    getAccount.mockResolvedValue({ equity: "450" });
+    evaluateLiveCircuitBreaker.mockResolvedValue({ decision: { newEntriesAllowed: true, state: "normal" } });
+
+    const result = await placeSimulatedOrder(stubSupabase(), "u1", {
+      ...baseInput,
+      entryMode: "advised",
+      limitPrice: 100,
+      referencePrice: 100,
+      attachLevels: { stopLoss: 95, takeProfit: 110 },
+    });
+
+    expect(result.status).toBe(409);
+    expect((result.body as { code: string }).code).toBe("position_limit");
+    expect(placeOrder).not.toHaveBeenCalled();
+  });
+
+  it("counts broker-held positions and working live exit plans toward the ceilings", async () => {
+    readLiveAlpacaConnection.mockResolvedValue(connection);
+    getAccount.mockResolvedValue({ equity: "10000" });
+    evaluateLiveCircuitBreaker.mockResolvedValue({ decision: { newEntriesAllowed: true, state: "normal" } });
+    // Another symbol is already held, so the Novice one-correlated-group
+    // ceiling refuses a second; the working plan's 150 of planned risk plus
+    // this order's 51 passes the 2% (200) total-open-risk ceiling.
+    getPositions.mockResolvedValue([{ symbol: "MSFT", market_value: "3000" }]);
+
+    const result = await placeSimulatedOrder(
+      stubSupabase({ workingPlans: [{ qty: 30, entry_price: 100, stop_loss: 95 }] }),
+      "u1",
+      {
+        ...baseInput,
+        entryMode: "advised",
+        limitPrice: 100,
+        referencePrice: 100,
+        attachLevels: { stopLoss: 94.9, takeProfit: 110 },
+      },
+    );
+
+    expect(result.status).toBe(409);
+    const violations = (result.body as { violations: string[] }).violations;
+    expect(violations.some((v) => v.includes("open risk"))).toBe(true);
+    expect(violations.some((v) => v.includes("correlated risk group"))).toBe(true);
+    expect(placeOrder).not.toHaveBeenCalled();
+  });
+
+  it("fails closed with 502 when the broker's positions can't be read", async () => {
+    readLiveAlpacaConnection.mockResolvedValue(connection);
+    getAccount.mockResolvedValue({ equity: "10000" });
+    evaluateLiveCircuitBreaker.mockResolvedValue({ decision: { newEntriesAllowed: true, state: "normal" } });
+    getPositions.mockRejectedValue(new Error("network error"));
+
+    const result = await placeSimulatedOrder(stubSupabase(), "u1", baseInput);
+    expect(result.status).toBe(502);
+    expect((result.body as { code: string }).code).toBe("live_positions_unreadable");
+    expect(placeOrder).not.toHaveBeenCalled();
+  });
+
+  it("skips the ceilings for a protective (position-reducing) live order", async () => {
+    getOpenPosition.mockResolvedValue({ side: "long", qty: 10, symbol: "AAPL" });
+    readLiveAlpacaConnection.mockResolvedValue(connection);
+    getAccount.mockResolvedValue({ equity: "450" });
+    evaluateLiveCircuitBreaker.mockResolvedValue({ decision: { newEntriesAllowed: true, state: "normal" } });
+    placeOrder.mockResolvedValue({ id: "alpaca-order-close", status: "accepted" });
+
+    const result = await placeSimulatedOrder(stubSupabase(), "u1", {
+      ...baseInput,
+      side: "sell",
+      limitPrice: 100,
+      referencePrice: 100,
+    });
+
+    expect(getPositions).not.toHaveBeenCalled();
+    expect(result.status).toBe(200);
   });
 });

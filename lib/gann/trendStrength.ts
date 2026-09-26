@@ -94,15 +94,17 @@ export const STRUCTURE_SWING_DAYS = SWING_CHART_DAYS.threeDay;
 
 export interface GannTrendRead {
   /**
-   * The direction both swing charts agree on, or null when they disagree or
-   * either has not established one yet.
+   * The 9-day chart's direction when the 3-day chart's swings are stepping
+   * the same way, or null when they aren't or the 9-day chart has no
+   * direction yet. The 3-day chart's own direction is not required to agree —
+   * it flips on every pullback (see the module header).
    *
    * Null is the honest reading of a market with no trend, and callers should
    * treat it that way rather than defaulting to a direction — the same
    * treatment `swingChartDirection` gives insufficient history.
    */
   direction: Exclude<SwingDirection, null> | null;
-  /** True when both charts agree — the trend-confirmed condition. */
+  /** True when the 9-day chart has a direction and `structureAgrees` — the trend-confirmed condition. */
   confirmed: boolean;
   threeDay: SwingDirection;
   nineDay: SwingDirection;

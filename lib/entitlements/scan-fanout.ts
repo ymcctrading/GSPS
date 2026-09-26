@@ -22,8 +22,7 @@ import {
   type EntitledInvalidationPayload,
 } from "@/lib/entitlements/delivery";
 import { toPublicSignalSummary } from "@/lib/signals/publicSummary";
-import { getEntitlementPolicy, getUserEntitlementPolicy, type Limit } from "@/lib/entitlements/policy";
-import type { PlatformTier } from "@/lib/tiers";
+import { getUserEntitlementPolicy, type Limit } from "@/lib/entitlements/policy";
 import { SCORE_MAX } from "@/lib/scoring/display";
 import type { ScanResult } from "@/lib/types";
 import { STRATEGY_VERSION } from "@/lib/backtest/strategyVersion";
@@ -346,64 +345,4 @@ function buildAlertPayload(
       r.signals?.rangeReversion,
     ),
   };
-}
-
-/**
- * Fans a shared scan's qualifying setups out to every profile in the
- * system, gated on `getEntitlementPolicy(tier).morningConfirmationScanEnabled`
- * (true for every tier today — see lib/entitlements/policy.ts — but kept as
- * an explicit per-profile check rather than assumed, same as every other
- * scheduled job in this file's caller). One profile's failure is logged and
- * skipped, never allowed to abort the rest of the run.
- *
- * Factored out of lib/entitlements/scheduled-scan.ts's own (former)
- * `fanOutToProfiles` so a second caller — /api/market-scan's cron path,
- * which runs far more often than the five scheduled_* jobs and so cannot
- * share their once-per-market-date scan_executions row — applies the exact
- * same per-profile rules rather than a diverging copy. See
- * supabase/migrations/0076_scheduled_full_universe_scan_source.sql for why
- * that route needs its own source value instead of reusing one of the five.
- */
-export async function fanOutToAllProfiles(
-  service: SupabaseClient,
-  args: {
-    scanExecutionId: string;
-    source: string;
-    qualifying: RankedSetup<ScanResult>[];
-    rejectedSymbols: Set<string>;
-  },
-): Promise<{ profilesFannedOut: number; profilesFailed: number; totalNotified: number }> {
-  const { data: profiles, error } = await service.from("profiles").select("id, tier");
-  if (error || !profiles) {
-    console.error(`${args.source}: could not list profiles for fan-out — ${error?.message}`);
-    return { profilesFannedOut: 0, profilesFailed: 0, totalNotified: 0 };
-  }
-
-  let profilesFannedOut = 0;
-  let profilesFailed = 0;
-  let totalNotified = 0;
-
-  for (const profile of profiles as { id: string; tier: PlatformTier | null }[]) {
-    const policy = getEntitlementPolicy(profile.tier ?? "PRACTICE");
-    if (!policy.morningConfirmationScanEnabled) continue;
-
-    try {
-      const outcome = await fanOutForProfile(service, {
-        profileId: profile.id,
-        scanExecutionId: args.scanExecutionId,
-        source: args.source,
-        qualifying: args.qualifying,
-        rejectedSymbols: args.rejectedSymbols,
-        maxDashboardSetupsPerScan: policy.maxDashboardSetupsPerScan,
-        maxActiveWatchMonitors: policy.maxActiveWatchMonitors,
-      });
-      profilesFannedOut += 1;
-      totalNotified += outcome.notifiedCount;
-    } catch (err) {
-      profilesFailed += 1;
-      console.error(`${args.source}: fan-out failed for profile ${profile.id} — ${String(err)}`);
-    }
-  }
-
-  return { profilesFannedOut, profilesFailed, totalNotified };
 }

@@ -64,13 +64,20 @@ describe("runBacktest", () => {
     // itself selected, so a criterion's pass rate inside one describes the
     // bucket's definition rather than the criterion — see
     // UNCONDITIONED_ATTRIBUTION and lib/validation/health.ts.
+    //
+    // Symbols chosen because they trade on the synthetic feed. Since
+    // 2026-09-25 the replay arms from the daily swing-crossing trigger, as
+    // the live scan does. The synthetic provider's daily and 15-minute
+    // series are independent random walks, so for most symbols the
+    // 15-minute walk never reaches the daily trigger, and SPY/AAPL produce
+    // no trades to attribute.
     const all = await runBacktest({
-      symbols: ["SPY", "AAPL"],
+      symbols: ["NVDA", "TSLA", "IWM"],
       timeframe: "15Min",
       attributeWithin: UNCONDITIONED_ATTRIBUTION,
     });
     const execute = await runBacktest({
-      symbols: ["SPY", "AAPL"],
+      symbols: ["NVDA", "TSLA", "IWM"],
       timeframe: "15Min",
       attributeWithin: "Execute",
     });

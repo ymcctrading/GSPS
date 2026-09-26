@@ -78,4 +78,31 @@ describe("buildPostCloseReview", () => {
     const review = buildPostCloseReview(closedPlan({ state: "invalidated" }));
     expect(review.lessonTags).toContain("stop_or_invalidation_hit");
   });
+
+  it("carries the plan's own Rules Alignment evidence through unchanged", () => {
+    const review = buildPostCloseReview(closedPlan());
+    expect(review.alignment).toEqual({ score: 82, tier: "aTier", blueprintScoreBand: "ACTIONABLE", breakdown: [] });
+  });
+
+  it("surfaces per-criterion breakdown items when the plan carries them", () => {
+    const review = buildPostCloseReview(
+      closedPlan({
+        evidence: {
+          regime: { regime: "trend", direction: "bullish", reasons: [], disqualifiers: [] },
+          alignment: {
+            score: 90,
+            tier: "aPlusTier",
+            blueprintScoreBand: "HIGH_CONFLUENCE",
+            breakdown: [
+              { key: "trendAlignment", label: "Trend alignment", points: 10, maxPoints: 10, applicable: true, passed: true, note: "Aligned with the 9-day swing." },
+            ],
+          },
+          dataTimestamps: {},
+          eventLiquidityStatus: "clear",
+        },
+      }),
+    );
+    expect(review.alignment.breakdown).toHaveLength(1);
+    expect(review.alignment.breakdown[0].key).toBe("trendAlignment");
+  });
 });

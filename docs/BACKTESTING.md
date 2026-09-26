@@ -8,9 +8,16 @@ that spec pack is not built (stress tests, Monte Carlo, live-scan audit
 persistence, the legal/compliance workstream).
 
 `lib/backtest/replay.ts` is the source of truth for win rate and expectancy. It
-replays the shipped entry logic bar by bar — the same `detectPatterns`, the same
-gap rule, the same risk floor — so a number quoted from it describes the system
-that runs, not a re-implementation of it.
+replays the shipped entry logic bar by bar, so a number quoted from it
+describes the system that runs, not a re-implementation of it. Since
+2026-09-25 (`STRATEGY_VERSION` `2026-09-25-live-trigger-replay`) that logic is
+Gann's swing-crossing trigger, read from prior **daily** sessions in the
+macro-derived direction (`lib/scan/entrySelection.ts`, shared with
+`lib/scanTicker.ts`). The 15-minute bars decide when, and whether, the resting
+stop order fills. Earlier runs armed from STRAT-detected candidates on
+15-minute bars and measured a trigger production did not use. Don't compare
+them with current runs as if they measured the same rule. Daily bars are now
+required: without them nothing can arm.
 
 Run it from **Backtest** in the app nav (`/learning`), hit
 `GET /api/backtest?symbols=SPY,AAPL&targetR=2&within=Execute` directly, or from the command line:

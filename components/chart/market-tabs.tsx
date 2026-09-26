@@ -232,6 +232,11 @@ function ResearchPanel({
             ⏱ <GlossaryTerm term="Cyclical turn window" label="Cyclical turn window" className="decoration-warn/60" />
           </Badge>
         )}
+        {(fetched.gann.yearCycleBullishHits ?? 0) + (fetched.gann.yearCycleBearishHits ?? 0) > 0 && (
+          <Badge variant="warn">
+            ⟳ <GlossaryTerm term="Yearly cycles converging" label="Yearly cycles converging" className="decoration-warn/60" />
+          </Badge>
+        )}
       </div>
 
       <section>
