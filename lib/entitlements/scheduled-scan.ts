@@ -62,11 +62,10 @@ import { buildScanRows, describeDbError, persistDailyScans } from "@/lib/scan/pu
 import { createServiceClient } from "@/lib/supabase/server";
 import { isTradingDay } from "@/lib/market/calendar";
 import { etDateKey } from "@/lib/market/session";
-import { getEntitlementPolicy } from "@/lib/entitlements/policy";
-import { fanOutForProfile } from "@/lib/entitlements/scan-fanout";
+import type { EntitlementPolicy } from "@/lib/entitlements/policy";
+import { FAN_OUT_DEADLINE_MS, fanOutToProfiles } from "@/lib/entitlements/fanout-all";
 import type { RankedSetup } from "@/lib/entitlements/result-selection";
 import type { ScanResult } from "@/lib/types";
-import type { PlatformTier } from "@/lib/tiers";
 import { isPreviewEnvironment } from "@/lib/env/preview";
 import { getUniversePolicy } from "@/lib/universe/policy";
 import { recordShadowSignals } from "@/lib/shadow/record";
@@ -96,6 +95,18 @@ function isAuthorized(authorizationHeader: string | null): boolean {
 const UNIQUE_VIOLATION = "23505";
 
 /**
+ * Which tiers each scheduled job serves. The 9:45 AM, ~11:00 AM and ~2:00 PM
+ * jobs share `morningConfirmationScanEnabled` with the 9:15 AM one rather
+ * than each getting a policy field — every flag is `true` for every tier
+ * today (policy.ts), so more fields would change nothing.
+ */
+function scheduleEnabled(source: ScheduledScanSource): (policy: EntitlementPolicy) => boolean {
+  return source === "scheduled_morning_scan"
+    ? (policy) => policy.morningPreparationScanEnabled
+    : (policy) => policy.morningConfirmationScanEnabled;
+}
+
+/**
  * Single structured log line per invocation, emitted at every exit path --
  * covers the "Add observability" requirement (run identifier, job type,
  * intended ET market date, branch/environment, outcome, failure reason,
@@ -112,6 +123,7 @@ function logRunOutcome(args: {
   eligibleCount?: number;
   profilesFannedOut?: number;
   profilesFailed?: number;
+  profilesDeferred?: number;
   totalNotified?: number;
 }): void {
   console.log(
@@ -125,6 +137,7 @@ function logRunOutcome(args: {
       eligibleCount: args.eligibleCount,
       profilesFannedOut: args.profilesFannedOut,
       profilesFailed: args.profilesFailed,
+      profilesDeferred: args.profilesDeferred,
       totalNotified: args.totalNotified,
     }),
   );
@@ -263,12 +276,6 @@ export async function runScheduledScan(
   }
 
   const scanExecutionId = (inserted as { id: string }).id;
-  const fanOut = await fanOutToProfiles(service, {
-    scanExecutionId,
-    source,
-    qualifying,
-    rejectedSymbols,
-  });
 
   // Phase 7 ("Validation and monitoring") shadow-mode tracking -- best-effort
   // and deliberately outside the fan-out's own error handling, so a failure
@@ -280,6 +287,10 @@ export async function runScheduledScan(
   // window against the committed backtest baseline for a drift worth
   // alerting on (email cooldown-suppressed -- see lib/shadow/compare.ts).
   // See lib/shadow/{record,evaluate,compare}.ts.
+  //
+  // Runs before the fan-out, not after: it's a few bounded calls, and while
+  // the fan-out ran first, every run that timed out in it (all of them, from
+  // 2026-09-24) skipped this silently.
   try {
     await recordShadowSignals(service, qualifying.map((q) => q.value), source);
     await evaluatePendingShadowSignals(service, now);
@@ -287,6 +298,18 @@ export async function runScheduledScan(
   } catch (err) {
     console.error(`${source}: shadow-mode tracking failed — ${String(err)}`);
   }
+
+  // A symbol this run actually gave a full pass and found clean is an
+  // invalidation for any open monitor on it; a symbol it never looked at is
+  // not in `rejectedSymbols` and is left alone. See fanOutForProfile.
+  const fanOut = await fanOutToProfiles(service, {
+    scanExecutionId,
+    source,
+    qualifying,
+    rejectedSymbols,
+    isEnabled: scheduleEnabled(source),
+    deadlineAt: now.getTime() + FAN_OUT_DEADLINE_MS,
+  });
 
   logRunOutcome({
     runId,
@@ -297,6 +320,7 @@ export async function runScheduledScan(
     eligibleCount,
     profilesFannedOut: fanOut.profilesFannedOut,
     profilesFailed: fanOut.profilesFailed,
+    profilesDeferred: fanOut.profilesDeferred,
     totalNotified: fanOut.totalNotified,
   });
 
@@ -312,82 +336,7 @@ export async function runScheduledScan(
     scanExecutionId,
     profilesFannedOut: fanOut.profilesFannedOut,
     profilesFailed: fanOut.profilesFailed,
+    profilesDeferred: fanOut.profilesDeferred,
     totalNotified: fanOut.totalNotified,
   });
-}
-
-/**
- * Fans the shared scan's qualifying setups out to every profile, applying
- * each profile's own tier-derived visible-result cap and monitor capacity.
- * One profile's failure is logged and skipped, never allowed to abort the
- * rest of the run -- a scheduled job serving hundreds of profiles cannot
- * let one bad row take the whole batch down.
- *
- * `rejectedSymbols` (built by the caller from `output.fullScanResults`) is
- * the same profile-independent set for every profile in this loop -- a
- * symbol either got a full scan and came back clean this run, or it
- * didn't, regardless of who's watching it. A symbol this run's reduced
- * universe never looked at at all is correctly *not* in that set and is
- * left alone -- distinct from "looked at and found nothing," which is what
- * `fullScanResults` (unlike `bullish`/`bearish` alone) makes possible to
- * tell apart. See lib/marketScan.ts#MarketScanOutput.fullScanResults.
- */
-async function fanOutToProfiles(
-  service: ReturnType<typeof createServiceClient>,
-  args: {
-    scanExecutionId: string;
-    source: ScheduledScanSource;
-    qualifying: RankedSetup<ScanResult>[];
-    rejectedSymbols: Set<string>;
-  },
-): Promise<{ profilesFannedOut: number; profilesFailed: number; totalNotified: number }> {
-  const { data: profiles, error } = await service.from("profiles").select("id, tier");
-  if (error || !profiles) {
-    console.error(`${args.source}: could not list profiles for fan-out — ${error?.message}`);
-    return { profilesFannedOut: 0, profilesFailed: 0, totalNotified: 0 };
-  }
-
-  let profilesFannedOut = 0;
-  let profilesFailed = 0;
-  let totalNotified = 0;
-
-  for (const profile of profiles as { id: string; tier: PlatformTier | null }[]) {
-    const policy = getEntitlementPolicy(profile.tier ?? "PRACTICE");
-    // The 9:45 AM, ~11:00 AM, and ~2:00 PM jobs all share
-    // morningConfirmationScanEnabled with the 9:15 AM one rather than each
-    // getting their own policy field -- every flag here is `true` for every
-    // tier today (see policy.ts), so a fourth/fifth field would carry no
-    // behavioral difference from the second. Written as an explicit branch,
-    // not folded into the ternary above, so a source added later can't
-    // silently fall through to whichever arm happens to be `else`.
-    const scheduleEnabled =
-      args.source === "scheduled_morning_scan"
-        ? policy.morningPreparationScanEnabled
-        : args.source === "scheduled_morning_confirmation_scan" ||
-            args.source === "scheduled_first_90min_scan" ||
-            args.source === "scheduled_midday_scan" ||
-            args.source === "scheduled_afternoon_scan"
-          ? policy.morningConfirmationScanEnabled
-          : false;
-    if (!scheduleEnabled) continue;
-
-    try {
-      const outcome = await fanOutForProfile(service, {
-        profileId: profile.id,
-        scanExecutionId: args.scanExecutionId,
-        source: args.source,
-        qualifying: args.qualifying,
-        rejectedSymbols: args.rejectedSymbols,
-        maxDashboardSetupsPerScan: policy.maxDashboardSetupsPerScan,
-        maxActiveWatchMonitors: policy.maxActiveWatchMonitors,
-      });
-      profilesFannedOut += 1;
-      totalNotified += outcome.notifiedCount;
-    } catch (err) {
-      profilesFailed += 1;
-      console.error(`${args.source}: fan-out failed for profile ${profile.id} — ${String(err)}`);
-    }
-  }
-
-  return { profilesFannedOut, profilesFailed, totalNotified };
 }

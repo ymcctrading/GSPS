@@ -15,7 +15,7 @@ import { persistCoarseTelemetry } from "@/lib/scan/telemetry";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getUniversePolicy } from "@/lib/universe/policy";
 import { etDateKey } from "@/lib/market/session";
-import { fanOutToAllProfiles } from "@/lib/entitlements/scan-fanout";
+import { FAN_OUT_DEADLINE_MS, fanOutToProfiles } from "@/lib/entitlements/fanout-all";
 import type { RankedSetup } from "@/lib/entitlements/result-selection";
 import type { ScanResult } from "@/lib/types";
 import { LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
@@ -92,6 +92,7 @@ async function resolveExtraSymbols(service: ReturnType<typeof createServiceClien
  * "untracked" even after becoming a real Execute setup.
  */
 async function runAndPersist(options: { fanOutToProfiles: boolean } = { fanOutToProfiles: false }) {
+  const requestStartedAt = Date.now();
   const service = createServiceClient();
   const { universe } = await getUniversePolicy(service);
   const scanDate = etDateKey(new Date());
@@ -191,11 +192,13 @@ async function runAndPersist(options: { fanOutToProfiles: boolean } = { fanOutTo
       if (insertError || !inserted) {
         console.error(`market-scan: scan execution not recorded for fan-out — ${insertError?.message}`);
       } else {
-        const fanOut = await fanOutToAllProfiles(service, {
+        const fanOut = await fanOutToProfiles(service, {
           scanExecutionId: (inserted as { id: string }).id,
           source: FAN_OUT_SOURCE,
           qualifying,
           rejectedSymbols,
+          isEnabled: (policy) => policy.morningConfirmationScanEnabled,
+          deadlineAt: requestStartedAt + FAN_OUT_DEADLINE_MS,
         });
         profilesFannedOut = fanOut.profilesFannedOut;
       }
