@@ -36,7 +36,7 @@ import { computeRuleOfThree } from "@/lib/gann/ruleOfThree";
 import { computeTimePriceSquare } from "@/lib/gann/timePriceSquare";
 import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
 import { computeBoilingPoint } from "@/lib/gann/boilingPoint";
-import { preferredEntryDirection, rankArmedPatterns } from "@/lib/scan/entrySelection";
+import { MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection, rankArmedPatterns } from "@/lib/scan/entrySelection";
 import { computeTradeLevels, type EntrySource } from "@/lib/strat/levels";
 import { computeGannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
@@ -130,7 +130,7 @@ export async function scanTicker(
       provider.fetchLatestPrice(symbol, assetClass),
     ]);
 
-    if (daily.length < 30 || execution.length < 10) {
+    if (daily.length < MIN_DAILY_BARS_FOR_SCAN || execution.length < 10) {
       throw new Error(`Insufficient bar data for ${symbol}`);
     }
 

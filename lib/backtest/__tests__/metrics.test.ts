@@ -7,6 +7,7 @@ function trade(overrides: Partial<ReplayTrade>): ReplayTrade {
     symbol: "TEST",
     openedAt: "2026-01-01T00:00:00Z",
     pattern: "2-1-2",
+    setupKind: "reversion",
     direction: "bullish",
     entry: 100,
     stop: 99,

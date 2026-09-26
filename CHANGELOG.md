@@ -7,6 +7,19 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-09-26
+
+### Fixed
+- **The backtest replay now covers continuation setups and short history.**
+  It arms continuations the way the market scan's continuation pass does,
+  through shared helpers, so the two can't drift. It also arms from the scan's
+  own 30-bar daily minimum instead of 120. `STRATEGY_VERSION` is now
+  `2026-09-26-continuation-replay`.
+- **`docs/AUTOMATED_PORTFOLIO_MANAGER_LIVE_REVIEW.md`** now records the
+  2026-09-03 sign-off and its 2026-09-25 revocation. It also corrects a line
+  that said the loop falls back to paper; it skips the member's candidates
+  instead.
+
 ## 2026-09-25
 
 ### Fixed

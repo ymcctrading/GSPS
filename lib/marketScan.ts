@@ -54,6 +54,7 @@ import {
   type YearCycleConvergence,
 } from "@/lib/gann/timeCycles";
 import { CONTINUATION_PATTERNS } from "@/lib/strat/patterns";
+import { isContinuationShape, macroBreadthAgrees } from "@/lib/scan/entrySelection";
 import { MIN_EQUITY_PRICE_USD, meetsLiquidityFloor, readLiquidity } from "@/lib/scan/liquidity";
 import { scanTicker } from "@/lib/scanTicker";
 import { EXECUTION_TIMEFRAME } from "@/lib/timeframe";
@@ -623,8 +624,7 @@ export function isMomentumContinuation(
   direction: "bullish" | "bearish",
 ): boolean {
   if (!hasTradePlan(r) || r.direction !== direction || !r.momentumElevated) return false;
-  if (r.pattern === null || !CONTINUATION_PATTERNS.has(r.pattern.name)) return false;
-  const macro = r.trends.filter((t) => t.timeframe !== "1Hour");
+  if (!isContinuationShape(r.pattern)) return false;
   // Considered switching to lib/gann/timeframeWeight.ts's power-ratio
   // weighting here too (the same fix applied to lib/scanTicker.ts's
   // macro-direction pattern preference) — reverted: this gate needs a
@@ -633,7 +633,10 @@ export function isMomentumContinuation(
   // strongly-weighted timeframe alone would then satisfy it. Confirmed by
   // lib/__tests__/trade-plan.test.ts's "does not count the hourly trend
   // toward macro confirmation" case, which the weighted version broke.
-  return macro.filter((t) => t.direction === direction).length >= 2;
+  //
+  // Both halves of this rule live in lib/scan/entrySelection.ts, shared with
+  // the backtest replay's continuation arm, so the two can't drift.
+  return macroBreadthAgrees(r.trends, direction);
 }
 
 /**

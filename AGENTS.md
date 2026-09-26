@@ -595,6 +595,14 @@ for the project owner** — do not fix it silently, and re-verify it first:
   old trigger. The cutoffs stay where they are until a fresh run on this
   version re-derives them. Treat `entryTriggerArmed` and the Execute-bucket
   numbers as unmeasured until then.
+  **Follow-up 2026-09-26:** the replay's two documented coverage gaps are
+  closed. It now also arms continuation setups, gated exactly as
+  `runMarketScan`'s continuation pass gates them. The shared helpers
+  `macroBreadthAgrees` and `isContinuationShape` in
+  `lib/scan/entrySelection.ts` are used by both. A session now arms on the
+  live scan's own 30-bar daily minimum (`MIN_DAILY_BARS_FOR_SCAN`) instead of
+  120. `STRATEGY_VERSION` is `2026-09-26-continuation-replay`, and no runs
+  were committed on the interim `2026-09-25` version.
 - **Live orders skip `checkPositionLimits` (F3.5).** **Resolved 2026-09-25,
   project-owner sign-off.** `placeLiveOrder` now enforces the same four
   ceilings as the paper path, after the circuit breaker and before any
@@ -1527,7 +1535,7 @@ carries the full detail now; this entry is the historical record. **Caveat added
 predates the F3.1–F3.3 replay fix (see "Platform-wide alignment audit"). It
 measured the old 15-minute STRAT-candidate trigger, not production's, so
 this confirmation needs re-deriving from a fresh run on
-`STRATEGY_VERSION` `2026-09-25-live-trigger-replay`.
+`STRATEGY_VERSION` `2026-09-26-continuation-replay` or later.
 
 The two band loosenings (`VOLUME_CLIMAX_THRESHOLD`, `SQUARE_TOLERANCE_BARS`) were already resolved
 earlier (reverted and superseded respectively, both same-day 2026-09-14) and the weight-rebalance
