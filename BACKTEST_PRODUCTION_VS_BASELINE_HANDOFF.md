@@ -78,6 +78,37 @@ tune last.** Don't tweak thresholds, stops or criteria before Phases 1 and 2 are
 - **F4.4 / F7.6.** The 2026-09-03 `compliance_signoffs` row for `autonomous_live_trading` was
   revoked in production, so autonomous live trading is not authorised.
 
+**In PR #294 (`claude/jolly-gauss-k1ky1w`, added 2026-09-26). If it has merged, treat these as
+done and verify them; if not, don't duplicate them.**
+
+- **Replay coverage.** Continuation setups are replayed, gated as `runMarketScan` gates them. A
+  session arms on the scan's own 30-bar minimum. `STRATEGY_VERSION` is
+  `2026-09-26-continuation-replay`.
+- **Phase 1 "port `requireEntryConfirmation`": done, under a different name.** Use
+  `ReplayOptions.entryRule: "stop" | "confirmed"`. `"confirmed"` drives
+  `advanceEntryConfirmation` bar by bar and fills at the next open. Don't port the old branch's
+  option as well.
+- **Phase 1 F1.3: done.** For both entry rules the bracket is fixed from the trigger, as
+  `deriveOrderInputFromPlan` attaches it: stop, risk and target. R is measured on the plan's risk,
+  and gross P&L on the actual fill distance. Fills at or beyond the stop or target are dropped and
+  counted in `refusedFills`, which is also in the report. F1.2 (the production TP1 target), F1.5
+  (de-duplication) and F1.4 (confirmation cadence) are **not** done.
+- **F2.5: done, and wider than scoped here.** The project owner delegated the call.
+  - `readTrend`, the core macro trend read, uses Gann's confirmed swing trend instead of SMA 20/50.
+  - The coarse gates measure from the range's 50% point.
+  - The regime engine no longer uses MAs or VWAP.
+  - The mandatory sweep regex covers SMA/EMA/VWAP.
+  - AGENTS.md records the two new open findings: VWAP in `lib/scanner/intraday.ts`, and
+    `hasTradePlan` requiring a STRAT pattern.
+- **F3.4: a current decision is recorded, and Phase 4 may revise it on evidence.** Unattended
+  execution requires confirmation. Human orders (the ticket, Guided) and the demo use the stop
+  entry. **The corrected run reverses it.** See
+  `docs/replay-runs/2026-09-26-766sym-NOTES.md`, run 36268497380, with F1.3 applied.
+  - `prodstop` (stop entry): −0.155R [−0.254, −0.053] on all trades; Execute −0.440R.
+  - `confirmed`: +0.190R [+0.068, +0.311], positive in both halves.
+  - Under the Phase 4 rule, aligning every path on confirmation is recommended and held for the
+    owner. That run is effectively Phase 2 minus F1.2, F1.4 and F1.5.
+
 **Tooling that exists and works.**
 
 - The workflow "Universe backtest (manual)" (`.github/workflows/backtest-universe.yml` →

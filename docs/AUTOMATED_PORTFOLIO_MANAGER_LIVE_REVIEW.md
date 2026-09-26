@@ -83,6 +83,25 @@ to turn it on.
    undo.
 
 Until all three are true, a member can select "Live" on the control panel
-today and nothing about their real account changes — the loop keeps
-trading paper on their behalf and says why in its run logs. That's the
+today and nothing about their real account changes. The loop skips that
+member's candidates for the run and logs why. It never falls back to paper
+on their behalf (`lib/automation/portfolio-manager.ts`). That's the
 deliberate shape of "pre-established, not pre-enabled."
+
+## Sign-off status (updated 2026-09-26)
+
+**No active sign-off exists. Autonomous live trading is not authorized.**
+
+- **2026-09-03:** a `compliance_signoffs` row for `autonomous_live_trading`
+  was recorded (id `96573294-…`). It named the product owner as approver.
+  Its own `review_reference` stated that no formal compliance or legal review
+  had been performed, so it never met item 3 above. An earlier version of
+  this document did not mention the row.
+- **2026-09-25:** that row was revoked in production at the project owner's
+  direction (alignment audit finding F4.4). It was revoked, not deleted, and
+  `revoked_reason` cites the finding.
+  `isFeatureAuthorized("autonomous_live_trading")` has returned false since.
+
+Because item 3 is unmet, the fact that item 2 is set on production does not
+matter. Run `scripts/record-autonomous-live-signoff.mjs` only once a real
+review exists and there is an artifact to cite in `review_reference`.

@@ -179,6 +179,15 @@ cheap and it is not optional:
 # "reve<RSI>on" and will hand you a false count.
 grep -rnE '\b(RSI|MACD|Bollinger|Wilder|adx|Supertrend|PSAR|Ichimoku|Elliott|Wyckoff|Keltner|Donchian|Fibonacci)\b' \
   --include=*.ts --include=*.tsx lib/ app/ components/ | grep -v __tests__
+
+# Moving averages and VWAP. Added 2026-09-26: the regex above can't see them,
+# and the 2026-09-25 audit found them feeding the verdict (F2.5). Hits under
+# lib/strategies/, lib/indicators.ts, lib/analysis/indicators.ts and
+# components/chart/ are the documented Strategy Modes / chart-overlay
+# exceptions. Anything else needs a reason.
+grep -rnE '\b(sma|smaSeries|ema|vwap|anchoredVwap|SMA|EMA|VWAP)\b' \
+  --include=*.ts --include=*.tsx lib/ app/ components/ | grep -v __tests__ \
+  | grep -vE '^(lib/strategies/|lib/indicators\.ts|lib/analysis/indicators\.ts|components/chart/)'
 ```
 
 Then confirm each hit is dead, documented, or gone. **A component is only
@@ -595,6 +604,14 @@ for the project owner** — do not fix it silently, and re-verify it first:
   old trigger. The cutoffs stay where they are until a fresh run on this
   version re-derives them. Treat `entryTriggerArmed` and the Execute-bucket
   numbers as unmeasured until then.
+  **Follow-up 2026-09-26:** the replay's two documented coverage gaps are
+  closed. It now also arms continuation setups, gated exactly as
+  `runMarketScan`'s continuation pass gates them. The shared helpers
+  `macroBreadthAgrees` and `isContinuationShape` in
+  `lib/scan/entrySelection.ts` are used by both. A session now arms on the
+  live scan's own 30-bar daily minimum (`MIN_DAILY_BARS_FOR_SCAN`) instead of
+  120. `STRATEGY_VERSION` is `2026-09-26-continuation-replay`, and no runs
+  were committed on the interim `2026-09-25` version.
 - **Live orders skip `checkPositionLimits` (F3.5).** **Resolved 2026-09-25,
   project-owner sign-off.** `placeLiveOrder` now enforces the same four
   ceilings as the paper path, after the circuit breaker and before any
@@ -616,11 +633,90 @@ for the project owner** — do not fix it silently, and re-verify it first:
 - **Entry confirmation isn't uniform (F3.4).** Guided execute, the demo
   auto-trader and the manual ticket place orders without it. Only plan-scoped
   automation requires an `armed` plan.
+  **Decided 2026-09-26 (project owner delegated the call).** The divergence
+  stays, and it is now principled and written down instead of accidental.
+  Unattended execution (plan-scoped automation, the autonomous portfolio
+  manager) requires the full confirmation sequence. Orders a person places
+  (the manual ticket, Guided Mode's one-tap execute) rest as stop-entries at
+  the trigger. That trigger is Gann's own Buying/Selling Point with the
+  lost-motion allowance (A8), and the person approved that specific trade. The
+  retest-and-hold stages come from the GSPS spec pack, not from Gann. Under
+  "WD Gann precedence" they aren't imposed on a human's own order. The demo
+  auto-trader follows Guided Mode on purpose (it exists to show Guided Mode)
+  and is bound to switch rules if it ever trades a member's account. The
+  measurement side is fixed: `lib/backtest/replay.ts` gained
+  `entryRule: "stop" | "confirmed"`, both driven by
+  `advanceEntryConfirmation`, so each path's actual entry rule can be
+  measured. Until then nothing measured the rule automation trades on.
+  `lib/lifecycle/entryConfirmation.ts`'s header had claimed every caller ran
+  through confirmation. It was corrected.
+  **Reversed by evidence the same day (2026-09-26).** The first run on the
+  production-faithful replay (`docs/replay-runs/2026-09-26-766sym-NOTES.md`,
+  766 symbols, production stop, fixed plan bracket, refused fills dropped)
+  measured the stop entry at **−0.155R** [−0.254, −0.053] on all trades and
+  −0.440R on Execute. The confirmed entry measured **+0.190R** [+0.068,
+  +0.311], positive in both halves. The CIs don't overlap. Under the
+  pre-registered Phase 4 rule
+  (`BACKTEST_PRODUCTION_VS_BASELINE_HANDOFF.md`), confirmation should hold on
+  every surface where a plan can be entered, the human paths included. The
+  principled argument above ("a human approved it") doesn't survive
+  measurement: the human approves the trade, not the fill rule, and the fill
+  rule is what loses money. **Current recommendation:** align the manual
+  ticket's advised entry, Guided execute and the demo auto-trader on
+  confirmation. Guided and the demo would place their order only once the
+  plan is `armed` (or the equivalent confirmation has been observed), instead
+  of resting a stop at the trigger. This is a production and UX change, held
+  for the owner's go-ahead. The code comments that describe the interim
+  decision (`lib/lifecycle/entryConfirmation.ts`,
+  `app/api/guided/execute/route.ts`, `lib/demo/auto-trade.ts`) point here.
 - **Non-Gann inputs in the Signal & Regime Engine (F2.5).** SMA 20/50 and
   anchored VWAP (`lib/signals/regime.ts`, `lib/signals/states/trendPullback.ts`)
   feed user-facing tier/"Tradeable" labels and trade-plan expiry. The
   mandatory sweep regex above can't see them: it doesn't match SMA, EMA or
   VWAP.
+  **Resolved 2026-09-26 (project owner delegated the call), and wider than
+  reported.** The extended sweep found the same SMAs in the **core Gann
+  verdict**, not only the regime labels. `lib/analysis/trend.ts#readTrend`,
+  which reads the monthly/weekly/daily trends behind every setup's direction
+  and the score's macro criteria, used SMA 20/50. Everything was replaced
+  with Gann's own tools:
+  - `readTrend`'s direction is `readGannTrend`: the 9-day swing chart
+    confirmed by stepping 3-day swings, "sideways" when unconfirmed. Pivots
+    still supply the S/R lists.
+  - `lib/marketScan.ts`'s coarse gates measured "extension", "trend intact"
+    and "travel" from 20/50-bar closing means. They now measure from the 50%
+    point of the range, Gann's first-ranked retracement level
+    (`lib/gann/retracement.ts#rangeMidpoint`).
+  - `lib/signals/regime.ts` and `rangeReversion.ts` dropped MA alignment,
+    slope and flatness. Trend is Gann-confirmed direction plus HH/HL
+    structure, and range is its negation plus repeatable boundaries.
+  - `trendPullback.ts`'s approved pullback locations were the 20/50 SMAs and
+    an anchored VWAP. They are now Gann's top-ranked retracement levels of
+    the latest swing (1/2, full, 1/4, 3/4) plus the existing S/R zones.
+  - `confirmedReversal.ts` measures overextension from the range's 50% point
+    instead of a 20-bar SMA.
+  - `smaSeries`, `slope` and `anchoredVwap` (`lib/signals/indicators.ts`)
+    and `lib/analysis/pivots.ts#sma` were deleted once they had no consumer.
+  **This moves the verdict.** Macro trend reads are now stricter: a market
+  with short legs that SMAs called trending often reads "sideways" until
+  Gann's 9-day chart turns. The 6/3.5 cutoffs have to be re-derived on this
+  code, not on the code before it.
+- **VWAP in the intraday alerts (new, 2026-09-26, open).**
+  `lib/scanner/intraday.ts` uses session VWAP for its direction, its
+  invalidation level and its first target. Those alerts carry a "Trade this"
+  action into the order ticket, so VWAP there is platform substance, not a
+  chart tool. It's a separate system with its own spec, so it wasn't rewritten
+  in the F2.5 pass. It needs a Gann replacement (the session's 50% point is
+  the natural counterpart) or an explicit exception recorded here.
+- **STRAT still gates publication (new, 2026-09-26, open).**
+  `lib/marketScan.ts#hasTradePlan` requires `r.pattern !== null` before any
+  setup reaches the daily lists, and `isMomentumContinuation` requires a
+  continuation-shaped pattern. Since 2026-09-17 the bar-sequence taxonomy is
+  meant to be display and confluence only. Here it still decides which
+  Gann-armed setups are published. That contradicts "What it no longer does
+  is decide where an order goes" in spirit, since publication decides what
+  Guided Mode and the demo trade. It's a production behaviour change, so it's
+  held for the project owner. The replay does not apply this filter.
 - **Being in `FALLBACK_UNIVERSE` doesn't mean being scanned (F1.7).** It
   comes last behind the tracked symbols, the rotation chunk (drawn from
   `LARGE_CAP_UNIVERSE` only) and the most-actives, inside a 250-slot cap.
@@ -1527,7 +1623,7 @@ carries the full detail now; this entry is the historical record. **Caveat added
 predates the F3.1–F3.3 replay fix (see "Platform-wide alignment audit"). It
 measured the old 15-minute STRAT-candidate trigger, not production's, so
 this confirmation needs re-deriving from a fresh run on
-`STRATEGY_VERSION` `2026-09-25-live-trigger-replay`.
+`STRATEGY_VERSION` `2026-09-26-continuation-replay` or later.
 
 The two band loosenings (`VOLUME_CLIMAX_THRESHOLD`, `SQUARE_TOLERANCE_BARS`) were already resolved
 earlier (reverted and superseded respectively, both same-day 2026-09-14) and the weight-rebalance

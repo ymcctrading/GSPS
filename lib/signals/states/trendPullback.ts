@@ -13,7 +13,8 @@
 
 import type { Bar, Direction } from "@/lib/types";
 import { atr, clusterLevels, findPivots } from "@/lib/analysis/pivots";
-import { anchoredVwap, relativeVolume, slope, smaSeries } from "../indicators";
+import { relativeVolume } from "../indicators";
+import { computeRetracementLevels } from "@/lib/gann/retracement";
 import { classifyRegime, type RegimeInputs } from "../regime";
 import { computeRulesAlignmentScore } from "../scoring";
 import { allSafetyGatesPass, evaluateDisqualifiers } from "../disqualifiers";
@@ -31,8 +32,6 @@ export interface TrendPullbackInputs {
   htfBars: Bar[];
   /** Operating-timeframe bars used for the pullback/confirmation, ascending, closed only. */
   executionBars: Bar[];
-  /** Index into `executionBars` the anchored VWAP is measured from (e.g. session open or breakout bar). */
-  vwapAnchorIndex: number;
   gates: SignalGates;
   /** Optional evidence only — never a sole signal. */
   /** Configured number of completed operating-timeframe bars before the signal expires unfilled. */
@@ -62,7 +61,6 @@ export function evaluateTrendPullback(inputs: TrendPullbackInputs): SignalVerdic
     direction,
     htfBars,
     executionBars,
-    vwapAnchorIndex,
     gates,
     expiryBars = DEFAULT_EXPIRY_BARS,
     regimeOverrides,
@@ -80,10 +78,6 @@ export function evaluateTrendPullback(inputs: TrendPullbackInputs): SignalVerdic
   const higherTimeframeBullish =
     regime.regime === "trend" && regime.direction === direction && regime.disqualifiers.length === 0;
 
-  const fastMa = smaSeries(htfBars, regimeOverrides?.fastMaPeriod ?? 20);
-  const slowMa = smaSeries(htfBars, regimeOverrides?.slowMaPeriod ?? 50);
-  const fastSlope = slope(fastMa, 5);
-  const slowSlope = slope(slowMa, 5);
   const structuralHigherLow = lastStructuralPivot(htfBars, direction === "bullish" ? "low" : "high");
   const priceAboveHigherLow =
     structuralHigherLow !== null &&
@@ -91,16 +85,12 @@ export function evaluateTrendPullback(inputs: TrendPullbackInputs): SignalVerdic
       ? htfBars[htfBars.length - 1].c > structuralHigherLow
       : htfBars[htfBars.length - 1].c < structuralHigherLow);
 
-  const maDirectionOk =
-    direction === "bullish"
-      ? fastMa[fastMa.length - 1] > slowMa[slowMa.length - 1] && fastSlope > 0 && slowSlope > 0
-      : fastMa[fastMa.length - 1] < slowMa[slowMa.length - 1] && fastSlope < 0 && slowSlope < 0;
+  // Direction comes from the regime read, which is Gann's confirmed swing
+  // trend (`lib/gann/trendStrength.ts`). A fast/slow SMA alignment test used
+  // to be required alongside it; that was removed 2026-09-26 (alignment audit
+  // F2.5) as a second, non-Gann opinion on the same question.
+  const higherTimeframeDirectionPassed = higherTimeframeBullish && priceAboveHigherLow;
 
-  const higherTimeframeDirectionPassed = higherTimeframeBullish && maDirectionOk && priceAboveHigherLow;
-
-  const execFastMa = smaSeries(executionBars, regimeOverrides?.fastMaPeriod ?? 20);
-  const execSlowMa = smaSeries(executionBars, regimeOverrides?.slowMaPeriod ?? 50);
-  const vwap = anchoredVwap(executionBars, vwapAnchorIndex);
   const lastBar = executionBars[executionBars.length - 1];
   const atrValue = atr(executionBars, 14);
 
@@ -109,12 +99,19 @@ export function evaluateTrendPullback(inputs: TrendPullbackInputs): SignalVerdic
     .map((p) => p.price);
   const definedZones = clusterLevels(supportPivots, 1.0);
 
-  const approvedLocations = [
-    execFastMa[execFastMa.length - 1],
-    execSlowMa[execSlowMa.length - 1],
-    vwap ?? undefined,
-    ...definedZones,
-  ].filter((v): v is number => typeof v === "number");
+  // Where a pullback may be bought (or a rally sold). These were the 20/50
+  // SMAs and an anchored VWAP until 2026-09-26 (alignment audit F2.5). They
+  // are now Gann's own retracement levels of the latest execution swing, the
+  // ones his importance ranking puts first: 1/2, the full retracement, 1/4
+  // and 3/4 (`RetracementLevel.importance` <= 3,
+  // docs/GANN_HISTORICAL_SOURCES.md). The support/resistance zones are kept
+  // as before.
+  const gannRetracements = computeRetracementLevels(executionBars, lastBar.c)
+    .filter((l) => l.importance !== null && l.importance <= 3)
+    .map((l) => l.price);
+  const approvedLocations = [...gannRetracements, ...definedZones].filter(
+    (v): v is number => typeof v === "number" && Number.isFinite(v),
+  );
 
   const withinTolerance = (target: number) =>
     atrValue > 0 && Math.abs(lastBar.c - target) <= atrValue * approvedZoneToleranceAtr;
@@ -163,7 +160,7 @@ export function evaluateTrendPullback(inputs: TrendPullbackInputs): SignalVerdic
       applicable: true,
       passed: higherTimeframeDirectionPassed,
       note: higherTimeframeDirectionPassed
-        ? `Higher-timeframe trend reads ${direction}: MA aligned/sloping and price above the structural higher low.`
+        ? `Higher-timeframe trend reads ${direction}: swing trend confirmed and price holding the structural ${direction === "bullish" ? "higher low" : "lower high"}.`
         : "Higher-timeframe trend does not confirm the setup direction.",
     },
     {
@@ -175,7 +172,7 @@ export function evaluateTrendPullback(inputs: TrendPullbackInputs): SignalVerdic
       passed: pullbackAtApprovedLocation,
       note: pullbackAtApprovedLocation
         ? `Price at ${lastBar.c.toFixed(2)} touches/reclaims an approved zone near ${matchedLocation!.toFixed(2)}.`
-        : "Price has not reached an approved pullback location (MA, anchored VWAP, retest zone, or support area).",
+        : "Price has not reached an approved pullback location (a key retracement level of the last swing, or a support/resistance zone).",
     },
     {
       key: "structuralIntegrity",

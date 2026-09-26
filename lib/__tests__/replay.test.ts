@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import { CRITERION_KEYS, type CriterionWeights } from "@/lib/scoring/weights";
 import { computeGannEntryTrigger, type GannEntryTrigger } from "@/lib/gann/entryTrigger";
-import { preferredEntryDirection } from "@/lib/scan/entrySelection";
+import { MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection } from "@/lib/scan/entrySelection";
+import { CONTINUATION_PATTERNS } from "@/lib/strat/patterns";
 import {
   MIN_DAILY_BARS_FOR_SCORE,
   buildMacroContext,
   byOutputState,
   byScoreRange,
+  bySetupKind,
   combine,
   replay,
   rollUp,
@@ -96,6 +98,7 @@ const trade = (over: Partial<ReplayTrade> = {}): ReplayTrade => ({
   symbol: "TEST",
   openedAt: "2025-01-02T15:00:00Z",
   pattern: "2-2",
+  setupKind: "reversion",
   direction: "bullish",
   entry: 100,
   stop: 99,
@@ -145,6 +148,7 @@ describe("replay", () => {
     const r = replay("TEST", session([crossing, quiet]), { targetR: 2, dailyBars: DAILY });
     expect(r.trades).toHaveLength(1);
     const t = r.trades[0];
+    expect(t.setupKind).toBe("reversion");
     expect(t.direction).toBe(TRIGGER.direction);
     expect(t.entry).toBeCloseTo(TRIGGER.triggerPrice, 10);
     expect(t.stop).toBeCloseTo(TRIGGER.stopPrice, 10);
@@ -164,6 +168,10 @@ describe("replay", () => {
     const r = replay("TEST", session([gap, quiet]), { targetR: 2, dailyBars: DAILY });
     expect(r.trades).toHaveLength(1);
     expect(r.trades[0].entry).toBeCloseTo(gapOpen, 10);
+    // The bracket is the plan's, and R is measured on the plan's risk. A
+    // worse fill shows up as a smaller win, not as a different stop.
+    expect(r.trades[0].stop).toBeCloseTo(TRIGGER.stopPrice, 10);
+    expect(r.trades[0].target).toBeCloseTo(TRIGGER.triggerPrice + SIDE * 2 * RISK, 10);
   });
 
   it("crosses a given swing extreme once, not on every bar beyond it", () => {
@@ -248,6 +256,58 @@ describe("buildMacroContext", () => {
   });
 });
 
+describe("replay entryRule: confirmed", () => {
+  const P = TRIGGER.triggerPrice;
+  /** A bar spanning `a`..`b` (in the trade's direction from the trigger), opening at `o` and closing at `c`. */
+  const at = (o: number, a: number, b: number, c: number) => {
+    const xs = [P + SIDE * a, P + SIDE * b];
+    return { o: P + SIDE * o, h: Math.max(...xs), l: Math.min(...xs), c: P + SIDE * c };
+  };
+  // Offsets are in price units in the trade's direction: positive is beyond
+  // the trigger, negative is short of it.
+  const touch = at(-3, -3.2, 0.1, -1); // reaches the trigger, closes back inside
+  const brk = at(-1, -1.1, 1.2, 1.0); // closes beyond the 0.3% buffer
+  const retest = at(1.0, 1.1, -0.2, 0.3); // comes back through the trigger
+  const hold = at(0.3, 0.1, 1.5, 1.4); // closes beyond the retest's own extreme
+  const next = at(1.4, 1.2, 1.8, 1.6);
+
+  it("does not fill on a first touch or break alone", () => {
+    const r = replay("TEST", session([touch, brk, quiet]), { targetR: 2, dailyBars: DAILY, entryRule: "confirmed" });
+    expect(r.trades).toHaveLength(0);
+  });
+
+  it("fills at the open of the bar after the hold completes the sequence", () => {
+    const r = replay("TEST", session([touch, brk, retest, hold, next, quiet]), {
+      targetR: 2,
+      dailyBars: DAILY,
+      entryRule: "confirmed",
+    });
+    expect(r.trades).toHaveLength(1);
+    const t = r.trades[0];
+    expect(t.entry).toBeCloseTo(next.o, 10);
+    // The bracket stays the plan's, fixed from the trigger, as
+    // deriveOrderInputFromPlan attaches it. It is not re-derived from the fill.
+    expect(t.stop).toBeCloseTo(TRIGGER.stopPrice, 10);
+    expect(t.target).toBeCloseTo(P + SIDE * 2 * RISK, 10);
+  });
+
+  it("drops a fill that lands past the plan's own target, and counts it", () => {
+    // A candle that opens beyond TP1 would fill past the bracket.
+    // Production refuses that order (fill_outran_bracket).
+    const beyond = past(2 * RISK + 1);
+    const gap = { o: beyond, h: SIDE > 0 ? beyond + 0.5 : beyond, l: SIDE > 0 ? beyond : beyond - 0.5, c: beyond };
+    const r = replay("TEST", session([gap, quiet]), { targetR: 2, dailyBars: DAILY });
+    expect(r.trades).toHaveLength(0);
+    expect(r.refusedFills).toBe(1);
+  });
+
+  it("fills the same bars earlier under the default stop rule", () => {
+    const r = replay("TEST", session([touch, brk, retest, hold, next, quiet]), { targetR: 2, dailyBars: DAILY });
+    expect(r.trades).toHaveLength(1);
+    expect(r.trades[0].entry).toBeCloseTo(P, 10);
+  });
+});
+
 describe("replay scoring", () => {
   it("attaches a verdict to every trade", () => {
     const r = replay("TEST", session([crossing, quiet]), { targetR: 2, dailyBars: DAILY });
@@ -288,7 +348,19 @@ describe("replay scoring", () => {
     expect(r.trades).toHaveLength(0);
   });
 
-  it("refuses to arm on too little history rather than inventing a macro read", () => {
+  it("arms on the same minimum daily history the live scan reads", () => {
+    // One shared constant (lib/scan/entrySelection.ts), so the replay trades
+    // exactly the history scanTicker does. It was 120 here until 2026-09-26.
+    expect(MIN_DAILY_BARS_FOR_SCORE).toBe(MIN_DAILY_BARS_FOR_SCAN);
+    const short = dailyHistory(MIN_DAILY_BARS_FOR_SCAN, DAY);
+    const t = liveTrigger(short);
+    const cross = { o: 99, h: t.direction === "bullish" ? t.triggerPrice + 0.5 : 99.2, l: t.direction === "bullish" ? 98.8 : t.triggerPrice - 0.5, c: 99 };
+    const r = replay("TEST", session([cross, quiet]), { targetR: 2, dailyBars: short });
+    expect(r.armed).toBeGreaterThan(0);
+    expect(r.trades).toHaveLength(1);
+  });
+
+  it("refuses to arm below the live scan's minimum rather than inventing a macro read", () => {
     const r = replay("TEST", session([crossing, quiet]), {
       targetR: 2,
       dailyBars: dailyHistory(MIN_DAILY_BARS_FOR_SCORE - 1, DAY),
@@ -416,5 +488,91 @@ describe("replay yearCycleHits", () => {
     const without = replay("TEST", janBars, { targetR: 2, dailyBars: janDaily, monthlyBars: history });
     expect(without.trades.some((t) => t.yearCycleHits === 1)).toBe(true);
     expect(withFuture.trades.map((t) => t.yearCycleHits)).toEqual(without.trades.map((t) => t.yearCycleHits));
+  });
+});
+
+describe("replay continuation setups", () => {
+  /**
+   * A rising market (monthly aside, weekly and daily read bullish) whose last
+   * 20 sessions widen its range, so momentum reads elevated. The reversion arm
+   * is short and the continuation arm is long, the way the market scan's
+   * continuation pass would call scanTicker for this symbol.
+   */
+  function risingDaily(count: number, before: string): Bar[] {
+    const out: Bar[] = [];
+    const end = new Date(`${before}T00:00:00Z`).getTime();
+    for (let i = count; i >= 1; i--) {
+      const k = count - i;
+      const d = new Date(end - i * 86_400_000).toISOString().slice(0, 10);
+      const phase = k % 8;
+      const step = phase < 5 ? phase : 8 - phase;
+      const late = k >= count - 20;
+      const c = 50 + k * 0.3 + 10 * Math.sin((2 * Math.PI * k) / 60) + step * (late ? 3 : 1);
+      const w = late ? 3 : 1;
+      out.push(dayBar(d, c, c + w, c - w, c));
+    }
+    return out;
+  }
+
+  const rising = risingDaily(300, DAY);
+  const ctx = buildMacroContext(rising, rising[rising.length - 1].c);
+  const reversionDir = preferredEntryDirection(ctx.macroTrends);
+  const continuationDir = reversionDir === "bullish" ? "bearish" : "bullish";
+  const T = computeGannEntryTrigger(rising, continuationDir)!.triggerPrice;
+
+  /**
+   * Quiet 15-minute bars well below the continuation trigger. Every bar steps
+   * away from the one before. Repeating a bar would make it an inside bar and
+   * arm a 2-1-2 on its own.
+   */
+  const warm = Array.from({ length: 44 }, (_, i) => {
+    const c = T - 3 + [0, 0.2, 0.4, 0.2][i % 4];
+    return { o: c, h: c + 0.3, l: c - 0.3, c };
+  });
+  const twoUp = { o: T - 3, h: T - 1.2, l: T - 3.1, c: T - 1.4 };
+  const inside = { o: T - 1.5, h: T - 1.3, l: T - 2.6, c: T - 1.4 };
+  const breakout = { o: T - 1.4, h: T + 0.5, l: T - 1.5, c: T + 0.3 };
+  const after = { o: T, h: T + 0.2, l: T - 0.2, c: T };
+
+  it("arms a continuation with the macro move, on a continuation shape, scored as one", () => {
+    expect(continuationDir).toBe("bullish");
+    const r = replay("TEST", intraday([...warm, twoUp, inside, breakout, after]), { targetR: 2, dailyBars: rising });
+    const cont = r.trades.filter((t) => t.setupKind === "continuation");
+    expect(cont).toHaveLength(1);
+    expect(cont[0].direction).toBe(continuationDir);
+    expect(CONTINUATION_PATTERNS.has(cont[0].pattern!)).toBe(true);
+    expect(cont[0].entry).toBeCloseTo(T, 10);
+    expect(cont[0].criteria!.entryTriggerArmed).toBe(true);
+  });
+
+  it("does not arm a continuation without a continuation shape at the fill", () => {
+    // Directional warm-up bars run straight into the breakout, so no inside
+    // bar sets up a 2-1-2 or 3-1-2. The replay never trades the final bar, so
+    // the breakout is the only candle that could fill.
+    const r = replay("TEST", intraday([...warm, ...warm.slice(0, 2), breakout, after]), { targetR: 2, dailyBars: rising });
+    expect(r.trades.filter((t) => t.setupKind === "continuation")).toHaveLength(0);
+  });
+
+  it("does not arm a continuation where the breadth and momentum gate is shut", () => {
+    // The oscillating history reads no macro trend and no momentum expansion,
+    // so the pass would never be asked for a continuation on it.
+    const opposite = computeGannEntryTrigger(DAILY, TRIGGER.direction === "bullish" ? "bearish" : "bullish")!;
+    const O = opposite.triggerPrice;
+    const up = opposite.direction === "bullish" ? 1 : -1;
+    const bars = session([
+      { o: O - 3 * up, h: O - 1.2 * up, l: O - 3.1 * up, c: O - 1.4 * up },
+      { o: O - 1.5 * up, h: O - 1.3 * up, l: O - 2.6 * up, c: O - 1.4 * up },
+      { o: O - 1.4 * up, h: O + 0.5 * up, l: O - 1.5 * up, c: O + 0.3 * up },
+      quiet,
+    ].map((b) => ({ o: b.o, h: Math.max(b.h, b.l), l: Math.min(b.h, b.l), c: b.c })));
+    const r = replay("TEST", bars, { targetR: 2, dailyBars: DAILY });
+    expect(r.trades.every((t) => t.setupKind === "reversion")).toBe(true);
+  });
+
+  it("splits a run by setup kind without losing a trade", () => {
+    const r = replay("TEST", intraday([...warm, twoUp, inside, breakout, after]), { targetR: 2, dailyBars: rising });
+    const split = bySetupKind(r);
+    expect(split.reversion.trades.length + split.continuation.trades.length).toBe(r.trades.length);
+    expect(split.continuation.trades.length).toBeGreaterThan(0);
   });
 });

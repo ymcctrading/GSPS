@@ -42,6 +42,39 @@ import {
 export type EntryDirection = "bullish" | "bearish";
 
 /**
+ * The fewest daily bars the scan will read a symbol on. Below this,
+ * `scanTicker` refuses the symbol, and the replay does not arm a session.
+ * One constant, so the two can't disagree about which history counts.
+ */
+export const MIN_DAILY_BARS_FOR_SCAN = 30;
+
+/**
+ * At least two of the three macro timeframes (monthly, weekly, daily; the
+ * hourly never counts) read `direction`. This is the continuation pass's
+ * breadth requirement. It is deliberately not the power-ratio weighting
+ * `preferredEntryDirection` uses: a single heavily weighted timeframe would
+ * satisfy a weighted score on its own, and this gate exists to demand
+ * agreement across timeframes.
+ */
+export function macroBreadthAgrees(
+  trends: Pick<TrendReading, "timeframe" | "direction">[],
+  direction: EntryDirection,
+): boolean {
+  return trends.filter((t) => t.timeframe !== "1Hour" && t.direction === direction).length >= 2;
+}
+
+/**
+ * The top-ranked pattern is a continuation shape: the compound shapes that
+ * break with the bar sequence. The 2-2 family reverses a move, so it doesn't
+ * qualify. Moved verbatim from `lib/marketScan.ts#isMomentumContinuation`. It
+ * checks the shape only, not the pattern's own direction; the caller checks
+ * the setup's direction separately.
+ */
+export function isContinuationShape(pattern: StratPattern | null): pattern is StratPattern {
+  return pattern !== null && CONTINUATION_PATTERNS.has(pattern.name);
+}
+
+/**
  * The direction the scan arms a reversion setup in: against the macro move,
  * where the macro move is read with Gann's chart-timeframe power ratio rather
  * than a flat vote (a single monthly trend outweighs weekly and daily
