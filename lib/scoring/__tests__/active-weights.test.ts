@@ -16,7 +16,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { isWeightSetAddressedToCurrentCriteria } from "@/lib/scoring/active-weights";
+import { isAdmissibleWeightSet, isWeightSetAddressedToCurrentCriteria } from "@/lib/scoring/active-weights";
 import { CRITERION_KEYS, parseCriterionWeights, TOTAL_POINTS } from "@/lib/scoring/weights";
 
 const uniform = Object.fromEntries(CRITERION_KEYS.map((k) => [k, 1]));
@@ -74,5 +74,27 @@ describe("why the guard is needed at all", () => {
 
     // And it is not uniform, so adopting it overrides the repo's decision.
     expect(CRITERION_KEYS.every((k) => reshaped[k] === 1)).toBe(false);
+  });
+});
+
+describe("isAdmissibleWeightSet (audit F4.2, 2026-09-26)", () => {
+  it("admits the uniform set", () => {
+    expect(isAdmissibleWeightSet(parseCriterionWeights(uniform))).toBe(true);
+  });
+
+  it("admits uniform weights at any scale, since normalisation makes them equal", () => {
+    const doubled = Object.fromEntries(CRITERION_KEYS.map((k) => [k, 2]));
+    expect(isAdmissibleWeightSet(parseCriterionWeights(doubled))).toBe(true);
+  });
+
+  it("rejects a correctly-keyed set that ranks one criterion above another", () => {
+    const ranked = { ...uniform, [CRITERION_KEYS[0]]: 2 };
+    expect(isWeightSetAddressedToCurrentCriteria(ranked)).toBe(true); // passes the key check...
+    expect(isAdmissibleWeightSet(parseCriterionWeights(ranked))).toBe(false); // ...but not this one
+  });
+
+  it("admits a ranked set only when a cited cross-criterion ranking is supplied", () => {
+    const ranked = parseCriterionWeights({ ...uniform, [CRITERION_KEYS[0]]: 2 });
+    expect(isAdmissibleWeightSet(ranked, "hypothetical source")).toBe(true);
   });
 });

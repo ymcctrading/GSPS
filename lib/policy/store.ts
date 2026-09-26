@@ -19,16 +19,46 @@ interface PolicyValueRow {
 }
 
 /**
+ * A sanity range for one policy key. Not the policy itself — the widest value
+ * that could plausibly be intended, so a typo (a percent stored as a
+ * fraction, a dollar figure with three extra zeros, a negative count) is
+ * rejected instead of becoming the platform's live risk ceiling.
+ */
+export interface PolicyBound {
+  min: number;
+  max: number;
+  /** Counts and day totals must be whole numbers. */
+  integer?: boolean;
+}
+
+export type PolicyBounds<T> = Partial<Record<keyof T, PolicyBound>>;
+
+/** Why a stored override was rejected, or null when it is within bounds. */
+export function policyBoundViolation(value: number, bound: PolicyBound | undefined): string | null {
+  if (!bound) return null;
+  if (bound.integer && !Number.isInteger(value)) return `must be a whole number`;
+  if (value < bound.min || value > bound.max) return `outside [${bound.min}, ${bound.max}]`;
+  return null;
+}
+
+/**
  * Resolves the effective policy for one domain: `defaults` with any valid
  * `policy_values` row (restricted to `keys`) applied on top. Non-numeric or
  * unknown-key rows are ignored. `supabase` should be a service-role client —
  * the table has no client select policy.
+ *
+ * `bounds` (added 2026-09-26, alignment audit F4.3, pre-approved): a row
+ * outside its key's sanity range is rejected and logged, and the code default
+ * stands. Before this any finite number was accepted, so one mistyped row
+ * could set a live risk ceiling to anything. The table had no rows when this
+ * landed, so it changed nothing live.
  */
 export async function getPolicyOverrides<T extends object>(
   supabase: SupabaseClient,
   domain: string,
   defaults: T,
   keys: readonly (keyof T)[] = Object.keys(defaults) as (keyof T)[],
+  bounds: PolicyBounds<T> = {},
 ): Promise<T> {
   const { data, error } = await supabase
     .from("policy_values")
@@ -47,6 +77,11 @@ export async function getPolicyOverrides<T extends object>(
     if (!(keys as unknown[]).map(String).includes(key)) continue;
     const value = typeof row.value === "number" ? row.value : Number(row.value);
     if (!Number.isFinite(value)) continue;
+    const violation = policyBoundViolation(value, (bounds as Record<string, PolicyBound | undefined>)[key]);
+    if (violation) {
+      console.error(`policy(${domain}): rejected override ${key}=${value} (${violation}); using the default`);
+      continue;
+    }
     resolved[key] = value;
   }
   return resolved as T;
