@@ -1,0 +1,207 @@
+{
+  "meta": {
+    "universe": "large-cap",
+    "symbolsRequested": 766,
+    "symbolsUsed": 766,
+    "skipped": [],
+    "ref": "main",
+    "sha": "f67575d6d47f08de47dc76f15af71f37710c798a",
+    "timeframe": "15Min",
+    "targetR": 2,
+    "since": null,
+    "source": "alpaca",
+    "live": true,
+    "window": {
+      "from": "2026-07-27T18:30:00Z",
+      "to": "2026-09-25T18:45:00Z"
+    },
+    "generatedAt": "2026-09-25T18:48:51.719Z",
+    "durationMinutes": 26.46005,
+    "workflowRunId": 36172939410,
+    "note": "Pre-F3.1 replay harness (strategyVersion 2026-08-27-role-aware-proximity, 15-minute STRAT-candidate trigger). Superseded by STRATEGY_VERSION 2026-09-25-live-trigger-replay (PR #290); not evidence about the current harness."
+  },
+  "cells": [
+    {
+      "label": "raw",
+      "options": {},
+      "scopes": {
+        "Execute": {
+          "n": 1444,
+          "expectancyR": 0.12351365133794351,
+          "expectancyCI95": [
+            0.054923888929396994,
+            0.19207300558467214
+          ],
+          "winRate": 0.31024930747922436,
+          "profitFactor": 1.2178854957144338,
+          "totalR": 178.35371253199042,
+          "halves": {
+            "first": {
+              "n": 722,
+              "expectancyR": 0.06721672027169646,
+              "from": "2026-07-29T15:30:00Z"
+            },
+            "second": {
+              "n": 722,
+              "expectancyR": 0.1798105824041905,
+              "from": "2026-08-27T14:00:00Z"
+            }
+          }
+        },
+        "Watch": {
+          "n": 12828,
+          "expectancyR": 0.07278241205444341,
+          "expectancyCI95": [
+            0.04961387047074007,
+            0.09591963444074626
+          ],
+          "winRate": 0.2888992828188338,
+          "profitFactor": 1.1264125672751162,
+          "totalR": 933.6527818344001,
+          "halves": {
+            "first": {
+              "n": 6414,
+              "expectancyR": -0.02478252917481959,
+              "from": "2026-07-29T14:45:00Z"
+            },
+            "second": {
+              "n": 6414,
+              "expectancyR": 0.17034735328370543,
+              "from": "2026-08-27T18:45:00Z"
+            }
+          }
+        },
+        "all": {
+          "n": 29126,
+          "expectancyR": 0.07579892272246763,
+          "expectancyCI95": [
+            0.05974663509294243,
+            0.09145750601995466
+          ],
+          "winRate": 0.2955778342374511,
+          "profitFactor": 1.130486596676544,
+          "totalR": 2207.719423214592,
+          "halves": {
+            "first": {
+              "n": 14563,
+              "expectancyR": 0.042375803207526146,
+              "from": "2026-07-29T13:30:00Z"
+            },
+            "second": {
+              "n": 14563,
+              "expectancyR": 0.10922204223741012,
+              "from": "2026-08-27T14:00:00Z"
+            }
+          }
+        }
+      }
+    },
+    {
+      "label": "prodstop",
+      "options": {
+        "useProductionStop": true
+      },
+      "scopes": {
+        "Execute": {
+          "n": 1444,
+          "expectancyR": 0.02037106364954947,
+          "expectancyCI95": [
+            -0.053483733120463076,
+            0.09283268920889998
+          ],
+          "winRate": 0.34833795013850416,
+          "profitFactor": 1.0307974389573535,
+          "totalR": 29.415815909949437,
+          "halves": {
+            "first": {
+              "n": 722,
+              "expectancyR": -0.015132131765069997,
+              "from": "2026-07-29T15:30:00Z"
+            },
+            "second": {
+              "n": 722,
+              "expectancyR": 0.055874259064168964,
+              "from": "2026-08-27T14:00:00Z"
+            }
+          }
+        },
+        "Watch": {
+          "n": 12828,
+          "expectancyR": 0.09229831075579173,
+          "expectancyCI95": [
+            0.06806490027883799,
+            0.11674896604801294
+          ],
+          "winRate": 0.36568444028687247,
+          "profitFactor": 1.145674813164451,
+          "totalR": 1184.0027303752963,
+          "halves": {
+            "first": {
+              "n": 6414,
+              "expectancyR": 0.05004419664631546,
+              "from": "2026-07-29T14:45:00Z"
+            },
+            "second": {
+              "n": 6414,
+              "expectancyR": 0.1345524248652667,
+              "from": "2026-08-27T18:45:00Z"
+            }
+          }
+        },
+        "all": {
+          "n": 29126,
+          "expectancyR": 0.11786168574394912,
+          "expectancyCI95": [
+            0.10093884067875121,
+            0.1343219770304724
+          ],
+          "winRate": 0.3760214241571105,
+          "profitFactor": 1.188118081443782,
+          "totalR": 3432.839458978262,
+          "halves": {
+            "first": {
+              "n": 14563,
+              "expectancyR": 0.11900994868790042,
+              "from": "2026-07-29T13:30:00Z"
+            },
+            "second": {
+              "n": 14563,
+              "expectancyR": 0.11671342279999508,
+              "from": "2026-08-27T14:00:00Z"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "differencesVsFirst": [
+    {
+      "label": "prodstop",
+      "against": "raw",
+      "scopes": {
+        "Execute": {
+          "diffR": -0.10314258768839404,
+          "diffCI95": [
+            -0.20175957210502712,
+            -0.0017989515368477954
+          ]
+        },
+        "Watch": {
+          "diffR": 0.019515898701348317,
+          "diffCI95": [
+            -0.014390513970881647,
+            0.053111545134597656
+          ]
+        },
+        "all": {
+          "diffR": 0.042062763021481486,
+          "diffCI95": [
+            0.019735938637621533,
+            0.06509172197494612
+          ]
+        }
+      }
+    }
+  ],
+  "warnings": []
+}
