@@ -62,7 +62,7 @@ import { EXECUTION_TIMEFRAME } from "@/lib/timeframe";
 import { EXECUTE_SCORE_THRESHOLD } from "@/lib/scoring/weights";
 import { DEFAULT_UNIVERSE_THRESHOLDS, type UniverseThresholds } from "@/lib/universe/eligibility";
 import { MAG7, SECTORS } from "@/lib/sectors";
-import { LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
+import { LARGE_CAP_UNIVERSE, MEGA_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
 import type { CoarseTelemetryRow } from "@/lib/scan/telemetry";
 import {
   FALLBACK_FAN_PCT,
@@ -106,6 +106,9 @@ const FALLBACK_UNIVERSE = Array.from(
   new Set([
     ...MAG7,
     ...Object.values(SECTORS).flatMap((s) => s.symbols),
+    // Mega-caps added 2026-09-26 (project-owner direction) — see
+    // MEGA_CAP_UNIVERSE's own comment in lib/scan/large-cap-universe.ts.
+    ...MEGA_CAP_UNIVERSE,
     ...LARGE_CAP_UNIVERSE,
   ]),
 ).filter((s) => !s.includes("/"));

@@ -163,3 +163,98 @@ export const LARGE_CAP_UNIVERSE: string[] = [
   "OC", "WTFC", "MOH", "RYAN", "BIO", "FRT", "AVTR", "CFR", "SOLS", "ENSG",
   "GMED",
 ];
+
+/**
+ * Mega-caps: US-tradeable companies above this file's $200B band ceiling.
+ *
+ * Added 2026-09-26 by project-owner direction, ported from the unmerged
+ * `claude/great-brown-h6hops` branch (where it was compiled 2026-09-25). The
+ * point is to have mega-cap names scanned deliberately rather than
+ * incidentally, so their setups reach users (and later the newsletter). Before
+ * this, mega-cap coverage was `MAG7` plus whatever a sector watchlist carried,
+ * plus the most-actives screener: production's coarse-gate telemetry for
+ * 2026-09-19..25 shows 18 of these 71 names (NFLX, COST, WMT, PLTR, HD, KO,
+ * PG, CSCO, IBM, TXN, VZ, PM, AMAT, LRCX, ANET, PANW, AXP, GOOG) reached the
+ * coarse gate on only one of those seven scan days.
+ *
+ * **Sourcing is weaker than `LARGE_CAP_UNIVERSE` above.** That list came from
+ * a dated export and was validated against Alpaca's `/v2/assets`. This one is
+ * hand-compiled from well-known names and has not been through
+ * `scripts/validate-large-cap-universe.mjs`. What is verified: every one of
+ * the 71 appears in production's `coarse_gate_telemetry` for 2026-09-25, so
+ * each resolves bars on the live feed. 21 of them also sit in
+ * `LARGE_CAP_UNIVERSE` (their cap was under $200B at that list's capture);
+ * `SCAN_DISCOVERY_UNIVERSE` below de-duplicates them.
+ */
+export const MEGA_CAP_UNIVERSE: string[] = [
+  "AAPL", "MSFT", "GOOGL", "GOOG", "AMZN", "NVDA", "META", "TSLA", "AVGO", "TSM",
+  "WMT", "JPM", "LLY", "V", "MA", "NFLX", "ORCL", "COST", "HD", "PG",
+  "JNJ", "BAC", "ABBV", "CRM", "KO", "PEP", "ASML", "TMO", "MRK", "ADBE",
+  "CSCO", "PM", "UNH", "XOM", "CVX", "MCD", "WFC", "IBM", "GE", "ACN",
+  "TXN", "INTU", "NOW", "DIS", "ABT", "AMD", "CAT", "VZ", "PLTR", "UBER",
+  "QCOM", "GS", "AXP", "BKNG", "SPGI", "RTX", "HON", "NKE", "LOW", "UPS",
+  "SBUX", "BLK", "DE", "MS", "T", "AMAT", "LRCX", "ADI", "PANW", "ANET",
+  "MU",
+];
+
+/**
+ * What the live scan's discovery rotation walks (`lib/scan/universe-rotation.ts`,
+ * via `app/api/market-scan/route.ts`): mega-caps first, then the large-cap
+ * band, de-duplicated. 816 symbols as of 2026-09-26.
+ *
+ * Scan-time cost: none per run. The rotation scans one fixed-size chunk per
+ * run (`DISCOVERY_CHUNK_SIZE`, 150), so adding names changes how many chunks
+ * make a full cycle, not how many symbols a run fetches. 766 → 816 symbols is
+ * still 6 chunks of at most 150, so the cycle stays 6 runs (90 minutes at the
+ * 15-minute cadence); only the last chunk grows, from 16 symbols to 66, and
+ * stays under the chunk size every other run already carries. This is
+ * structural, not a timing measurement: confirm with the `[market-scan]`
+ * `mark()` breadcrumbs after deploy (AGENTS.md, "Speed is a product
+ * requirement").
+ */
+export const SCAN_DISCOVERY_UNIVERSE: string[] = Array.from(
+  new Set([...MEGA_CAP_UNIVERSE, ...LARGE_CAP_UNIVERSE].map((s) => s.toUpperCase())),
+);
+
+/**
+ * A 27-symbol diversified sample for backtest sanity checks, drawn entirely
+ * from `LARGE_CAP_UNIVERSE`. Ported 2026-09-26 from the unmerged
+ * `claude/great-brown-h6hops` branch so `scripts/backtest-universe.mjs
+ * --universe diversified` runs on `main` (the handoff's Phase 2 names it as a
+ * sanity check; before this port the script stopped with "does not exist on
+ * this ref"). Backtest-only: nothing in the live scan reads it.
+ *
+ * Spread on purpose across the volatility spectrum and across industries:
+ * high-beta/momentum names against defensive ones, so a run is not describing
+ * one pole. `COIN`/`CVNA` stand in for the project owner's `BMNR`/`CRCL`
+ * archetype (formerly tiny, volatile, momentum and crypto-speculator magnets),
+ * because those two listed too recently to have the 120 daily bars scoring
+ * needs (`MIN_DAILY_BARS_FOR_SCORE`). Swap them in once they have the history.
+ *
+ * Three-question mandate: (1) Gann: N/A, this is which symbols to measure,
+ * not a technique. (2) Cycles: N/A, a cross-sectional sample, no periodicity
+ * claim. (3) Hermetic: Polarity, both poles of the volatility spectrum held
+ * in one sample; the other six do not decide sample composition.
+ */
+export const DIVERSIFIED_BACKTEST_SAMPLE: string[] = [
+  // High-beta / momentum
+  "MSTR", "HOOD", "APP", "MRNA",
+  // Formerly tiny, volatile, momentum/crypto magnets (stand-ins for BMNR/CRCL)
+  "COIN", "CVNA",
+  // Energy
+  "OXY", "DVN", "FANG",
+  // Semiconductors
+  "NXPI", "MPWR", "QCOM",
+  // Consumer discretionary / travel
+  "ABNB", "DAL", "LOW",
+  // Industrials
+  "BA", "DE",
+  // Financials
+  "SCHW", "BLK",
+  // Healthcare
+  "PFE", "GILD",
+  // Defensive: utilities, staples
+  "NEE", "SO", "PEP", "MO",
+  // REIT / telecom
+  "PLD", "TMUS",
+];
