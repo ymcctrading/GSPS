@@ -103,7 +103,9 @@ project owner. Per-source notes are in `docs/memory-bank/sources/`.
 **`docs/memory-bank/GANN_PARITY_ROADMAP.md`** is the build plan toward a
 faithful copy of Gann's disclosed method: a rule-by-rule parity matrix with
 status, owner decisions and a staged build order. Update its rows when a
-rule is built.
+rule is built. **Owner decision 2026-09-27 on its decisions 1-3 (swing-chart
+construction X3, "never fix a target price" X4, volume at bottoms X1):
+"Gann's method supersedes my own. Implement Gann's method."**
 
 ## WD Gann precedence — standing principle
 

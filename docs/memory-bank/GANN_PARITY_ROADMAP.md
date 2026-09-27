@@ -178,6 +178,8 @@ Each row gives the rule and its source, what GSPS does now, the status, and the 
 
 ## Part 4 — Decisions the owner needs to make first
 
+> **Decided 2026-09-27 (project owner): decisions 1, 2 and 3 are "Gann's method supersedes my own. Implement Gann's method."** X3, X4 and X1 are to be built to Gann's text: swing charts on counter-move duration with trend turns on breaking the last swing extreme; no fixed profit objective, exits on the stop or a Gann trend-change signal and selling only at Gann-derived levels; volume read with the normal drying-up bottom as the rule and the climax as the panic exception. Decisions 4–7 below are still open.
+
 These block or shape the build order. Each is a real choice between "what GSPS does" and "what Gann wrote." Under "WD Gann precedence" the default is Gann's side unless a stated reason says otherwise.
 
 1. **X3 — Rebuild the swing charts to Gann's definition.** This is the most consequential item. Everything trend-related sits on it.
