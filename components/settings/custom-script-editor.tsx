@@ -76,8 +76,31 @@ async function readJson(res: Response): Promise<Record<string, unknown>> {
   }
 }
 
+/** `details` is a string[] for a compile failure but zod's `flatten()`
+ * object for a schema failure (e.g. a whitespace-only name) — flatten both
+ * into readable lines rather than rendering nothing for the latter. */
+function errorDetailLines(details: unknown): string[] {
+  if (Array.isArray(details)) return details.map(String);
+  if (details && typeof details === "object") {
+    const { formErrors = [], fieldErrors = {} } = details as {
+      formErrors?: string[];
+      fieldErrors?: Record<string, string[] | undefined>;
+    };
+    return [
+      ...formErrors,
+      ...Object.entries(fieldErrors).flatMap(([field, msgs]) => (msgs ?? []).map((m) => `${field}: ${m}`)),
+    ];
+  }
+  return [];
+}
+
 export function CustomScriptEditor() {
   const [authoringEnabled, setAuthoringEnabled] = useState<boolean | null>(null);
+  // A failed list fetch is not "your plan doesn't include this" — keep the
+  // two apart, or a server error reads as a tier gate (verified 2026-09-27:
+  // with migration 0081 unapplied in production, a Wall Street account saw
+  // the plan message instead of the missing-table error).
+  const [loadError, setLoadError] = useState("");
   const [scripts, setScripts] = useState<PluginSummary[]>([]);
   const [mode, setMode] = useState<Mode>("list");
 
@@ -111,12 +134,17 @@ export function CustomScriptEditor() {
 
   const loadList = useCallback(() => {
     fetch("/api/strategy-plugins")
-      .then((res) => res.json())
-      .then((body: { plugins?: PluginSummary[]; authoringEnabled?: boolean }) => {
+      .then(async (res) => {
+        const body = (await readJson(res)) as { plugins?: PluginSummary[]; authoringEnabled?: boolean; error?: string };
+        if (!res.ok) {
+          setLoadError(body.error ?? `Couldn't load your scripts (HTTP ${res.status}).`);
+          return;
+        }
+        setLoadError("");
         setAuthoringEnabled(body.authoringEnabled ?? false);
         setScripts(body.plugins ?? []);
       })
-      .catch(() => setAuthoringEnabled(false));
+      .catch((err) => setLoadError(err instanceof Error ? err.message : String(err)));
   }, []);
 
   useEffect(() => {
@@ -180,7 +208,7 @@ export function CustomScriptEditor() {
       const body = await readJson(res);
       if (!res.ok) {
         setSaveError((body.error as string) ?? "Couldn't save.");
-        setSaveErrorDetails((body.details as string[]) ?? []);
+        setSaveErrorDetails(errorDetailLines(body.details));
         setSaveStatus("error");
         return;
       }
@@ -249,6 +277,15 @@ export function CustomScriptEditor() {
     }
   }
 
+  if (loadError && authoringEnabled === null) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <p className="text-sm text-warn">Couldn&apos;t load your scripts: {loadError}</p>
+        </CardContent>
+      </Card>
+    );
+  }
   if (authoringEnabled === null) {
     return <p className="text-sm text-muted">Loading…</p>;
   }
