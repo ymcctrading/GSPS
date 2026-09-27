@@ -183,7 +183,7 @@ The Stock Selector reprints the forecast issued in November 1928 for 1929. This 
   - The day is right for **Feb, May, Aug and Nov** (within a few days).
   - It is **16–19 days early for Mar, Jun, Sep and Dec**, whose windows are the 20th–24th.
 - The error cannot be caught from the month list alone. It is a porting defect of the `harmonicProximity` kind: right rule, wrong anchor.
-- **Proposed fix (held for the owner):** replace the single day with the eight disclosed windows, e.g. `[[2,8,10],[3,21,23],[5,3,7],[6,20,24],[8,3,8],[9,21,24],[11,8,11],[12,20,24]]`. Cite A4 (1930, PDF 458) and A9 (1949) for the same anchors.
+- **Fixed 2026-09-27 with the owner's go-ahead** (`FIXED_CALENDAR_WINDOWS`). The fix as proposed: replace the single day with the eight disclosed windows, e.g. `[[2,8,10],[3,21,23],[5,3,7],[6,20,24],[8,3,8],[9,21,24],[11,8,11],[12,20,24]]`. Cite A4 (1930, PDF 458) and A9 (1949) for the same anchors.
 - **Blast radius:** low. `fixedCalendarActive` is display-only and not scored, per its own header. Still, it is a user-visible Gann claim, and it is currently wrong for half the year.
 
 **C-A4-2 — the master report's AS5 ("eclipse longitude crossed by a planet — *Truth of the Stock Tape*, *Stock Selector*, per B05") is not supported by either book.**
@@ -201,7 +201,7 @@ The Stock Selector reprints the forecast issued in November 1928 for 1929. This 
 | Book rule | GSPS today | Status |
 |---|---|---|
 | Rule of Three: 3 consecutive lower closes reverse an uptrend (daily, weekly, monthly) | `lib/gann/ruleOfThree.ts` | **Primary source confirmed** (SS p. 72). Check whether GSPS applies it on the weekly/monthly as Gann does. |
-| Permanent cycle: 8 fixed windows (solstices, equinoxes, cross-quarters) | `lib/gann/timeCycles.ts` fixed calendar (day 5 of each month) | **Wrong for 4 of 8 months**: C-A4-1 |
+| Permanent cycle: 8 fixed windows (solstices, equinoxes, cross-quarters) | `lib/gann/timeCycles.ts` fixed calendar (day 5 of each month) | **Fixed 2026-09-27** (C-A4-1) |
 | Time charts over space charts; daily/weekly/monthly time rules | Swing charts (`lib/gann/swingChart.ts`) count consecutive closes | Supports X3: Gann builds swings on *time* (days/weeks), and a pure consecutive-close counter is a translation choice |
 | Cross an old top or bottom + 3 points = entry; stop 3 points beyond | `lib/gann/entryTrigger.ts`, entry-confirmation buffer | Aligned (the magnitude is price-scaled in GSPS) |
 | Break-even stop after 3–4 points of profit | Not implemented as a rule | **New gap G23** |

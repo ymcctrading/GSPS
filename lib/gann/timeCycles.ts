@@ -14,16 +14,40 @@
  * `docs/GANN_PLATFORM_AUDIT.md` Part 4 item 4 / AGENTS.md's "WD Gann
  * precedence" principle): `Wall Street Stock Selector` (1930,
  * `docs/GANN_HISTORICAL_SOURCES.md` A4) discloses a *separate*, non-anchored
- * cycle — specific early-month windows he called "a permanent cycle which
- * does not change," independent of any symbol's own pivots. This is
+ * cycle — eight dated windows he called "a permanent cycle which does not
+ * change," independent of any symbol's own pivots. This is
  * genuinely different from the anniversary/wheel-count logic above (which
  * needs a per-symbol anchor pivot): it fires the same calendar dates for
  * every symbol, every year, with no directional bias (Gann's own framing is
  * "watch for trend-change here," not "this favors bullish or bearish"), so it
  * is tracked as its own flag rather than folded into `bullishActive`/
  * `bearishActive`. Live and running (not scoring-gated, since Gann's own
- * rule has no per-direction pass/fail to gate with) — the first day of each
- * named window, ± `windowDays`.
+ * rule has no per-direction pass/fail to gate with) — each disclosed window,
+ * widened by ± `windowDays` at both ends.
+ *
+ * **Dates corrected 2026-09-27 (project-owner go-ahead).** Until then this
+ * used the 5th of each named month, from a second-hand reading of A4 as
+ * "early February/March/…". The primary text (the 1929 Annual Stock
+ * Forecast reprinted in the Stock Selector's back matter) gives specific
+ * day ranges, and four of the eight are late-month windows, so the old
+ * anchor fired 16-19 days early for March, June, September and December.
+ * Right rule, wrong anchor: the `harmonicProximity` failure shape. See
+ * `docs/memory-bank/sources/A02_A04_truth_of_stock_tape_1923_and_stock_selector_1930.md`
+ * (correction C-A4-1).
+ *
+ * Three-question basis:
+ * 1. Gann: A4 (1930, Tier A), back matter. The same anchors recur in A9's
+ *    (1949) seasonal change windows, and two of Face Facts America!'s (A7,
+ *    1940) dated windows sit on them.
+ * 2. Dewey: an annual, eight-phase periodicity claim. Regularity of timing
+ *    and constancy of period hold by construction (it is the solar year).
+ *    Dominance, repetition count against a base rate, wave-shape identity
+ *    and cross-series clustering are untested anywhere in Gann's text, which
+ *    is why this stays display-only and unscored until it is measured.
+ * 3. Hermetic: Rhythm. The windows sit on the equinoxes and solstices and
+ *    the cross-quarter points between them, i.e. the solar year divided into
+ *    eighths. That is our observation, not Gann's wording, and it is a
+ *    seasonal fact, not an astrological claim.
  */
 
 import type { Bar } from "@/lib/types";
@@ -47,12 +71,20 @@ const WHEEL_COUNTS = [45, 90, 120, 180, 270, 360];
 const MAJOR_CYCLE_YEARS = [1, 2, 3, 5, 7, 10, 15, 20, 30, 50, 60];
 
 /**
- * "Early February/March/May/June/August/September/November/December" per A4
- * — read as the first ten days of each named month, since Gann's text names
- * the month without a specific day.
+ * Gann's "permanent cycle which does not change" (A4, 1930 back matter):
+ * Feb 8-10, Mar 21-23, May 3-7, Jun 20-24, Aug 3-8, Sep 21-24, Nov 8-11,
+ * Dec 20-24. Month is 1-based, days inclusive.
  */
-const FIXED_CALENDAR_MONTHS = [2, 3, 5, 6, 8, 9, 11, 12];
-const FIXED_CALENDAR_DAY = 5;
+export const FIXED_CALENDAR_WINDOWS: readonly { month: number; startDay: number; endDay: number }[] = [
+  { month: 2, startDay: 8, endDay: 10 },
+  { month: 3, startDay: 21, endDay: 23 },
+  { month: 5, startDay: 3, endDay: 7 },
+  { month: 6, startDay: 20, endDay: 24 },
+  { month: 8, startDay: 3, endDay: 8 },
+  { month: 9, startDay: 21, endDay: 24 },
+  { month: 11, startDay: 8, endDay: 11 },
+  { month: 12, startDay: 20, endDay: 24 },
+];
 
 export interface TimeCycleResult {
   /** Any direction's turn window is active — for display, not scoring. */
@@ -64,16 +96,29 @@ export interface TimeCycleResult {
   dates: string[]; // upcoming/nearby dates of interest (ISO date strings)
   /** A fixed annual calendar window (A4) is active — no per-symbol anchor, no directional bias. */
   fixedCalendarActive: boolean;
-  /** Upcoming fixed-calendar dates of interest (ISO date strings). */
+  /**
+   * Start dates (ISO) of fixed-calendar windows that are in progress or begin
+   * within the next 14 days, soonest first, at most three.
+   */
   fixedCalendarDates: string[];
 }
 
-function fixedCalendarWindows(asOf: Date): Date[] {
-  const years = [asOf.getFullYear() - 1, asOf.getFullYear(), asOf.getFullYear() + 1];
-  const windows: Date[] = [];
-  for (const year of years) {
-    for (const month of FIXED_CALENDAR_MONTHS) {
-      windows.push(new Date(Date.UTC(year, month - 1, FIXED_CALENDAR_DAY)));
+const DAY_MS = 24 * 3600 * 1000;
+
+/** Whole UTC days since the epoch, so window edges compare by calendar day. */
+function utcDay(d: Date): number {
+  return Math.floor(d.getTime() / DAY_MS);
+}
+
+function fixedCalendarWindows(asOf: Date): { start: number; end: number }[] {
+  const year = asOf.getUTCFullYear();
+  const windows: { start: number; end: number }[] = [];
+  for (const y of [year - 1, year, year + 1]) {
+    for (const w of FIXED_CALENDAR_WINDOWS) {
+      windows.push({
+        start: utcDay(new Date(Date.UTC(y, w.month - 1, w.startDay))),
+        end: utcDay(new Date(Date.UTC(y, w.month - 1, w.endDay))),
+      });
     }
   }
   return windows;
@@ -81,15 +126,15 @@ function fixedCalendarWindows(asOf: Date): Date[] {
 
 export function timeCycles(dailyBars: Bar[], asOf: Date = new Date(), windowDays = 2): TimeCycleResult {
   const fixedCalendar = fixedCalendarWindows(asOf);
-  const dayMsForFixed = 24 * 3600 * 1000;
+  const today = utcDay(asOf);
   const nearbyFixed = fixedCalendar.filter(
-    (d) => Math.abs(d.getTime() - asOf.getTime()) <= windowDays * dayMsForFixed,
+    (w) => today >= w.start - windowDays && today <= w.end + windowDays,
   );
   const upcomingFixed = fixedCalendar
-    .filter((d) => d.getTime() >= asOf.getTime() && d.getTime() <= asOf.getTime() + 14 * dayMsForFixed)
-    .sort((a, b) => a.getTime() - b.getTime())
+    .filter((w) => w.end >= today && w.start <= today + 14)
+    .sort((a, b) => a.start - b.start)
     .slice(0, 3)
-    .map((d) => d.toISOString().slice(0, 10));
+    .map((w) => new Date(w.start * DAY_MS).toISOString().slice(0, 10));
 
   if (dailyBars.length < 30)
     return {

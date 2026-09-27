@@ -165,9 +165,10 @@ Genuinely new content:
   stocks typically exhaust in 6–7 weeks (rarely past 10).
 - **Even-figure order placement**: place orders ½–¾ point off round
   numbers, since public/stop orders cluster exactly there.
-- **A fixed annual calendar cycle** of specific dates (early
-  February/March/May/June/August/September/November/December windows)
-  called "a permanent cycle which does not change" for watching
+- **A fixed annual calendar cycle** of specific dates (Feb 8–10,
+  Mar 21–23, May 3–7, Jun 20–24, Aug 3–8, Sep 21–24, Nov 8–11, Dec 20–24,
+  per the 1929 Annual Forecast in the book's back matter; corrected
+  2026-09-27 from an earlier "early-month" reading) called "a permanent cycle which does not change" for watching
   trend-change regardless of year — distinct from anniversary-of-a-pivot
   cycles, this one repeats every calendar year on its own.
 - **Explicit chart-timeframe hierarchy** with a stated "power ratio"

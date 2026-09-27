@@ -78,7 +78,7 @@ B13's historian's note explains why: Gann issued lessons as letters over 1931–
 
 1.7 **Other time anchors in Gann's own text.**
 - The **incorporation / company-age anniversary**: *Tunnel*'s "Major Motors … when the Company would be 19 years old," plus the Master Course's incorporation-date calendar.
-- **Fixed annual windows**, the "permanent cycle which does not change" (*Wall Street Stock Selector*, 1930, back matter): Feb 8–10, Mar 21–23, May 3–7, Jun 20–24, Aug 3–8, Sep 21–24, Nov 8–11, Dec 20–24. That is the solar year in eighths. Implemented, **but with the wrong days for four months** (C-A4-1).
+- **Fixed annual windows**, the "permanent cycle which does not change" (*Wall Street Stock Selector*, 1930, back matter): Feb 8–10, Mar 21–23, May 3–7, Jun 20–24, Aug 3–8, Sep 21–24, Nov 8–11, Dec 20–24. That is the solar year in eighths. Implemented with the disclosed days since 2026-09-27 (C-A4-1).
 - **Daily, weekly and monthly time rules** (A04 Ch. IV):
   - a 2–3-day halt at an extreme
   - buy 2–3-week reactions; watch the 3rd week; fast moves end in the 6th–7th week
@@ -432,7 +432,7 @@ Every item below is an **open recommendation**. Items that touch scoring, gating
     - A09 (1949) repeats the same anchors.
   - The code uses **day 5** of each of those eight months. That is right for Feb, May, Aug and Nov, but **16–19 days early for Mar, Jun, Sep and Dec.**
   - The month list was right, which hid the error: the anchor was wrong, the same shape as `harmonicProximity`.
-  - The field is display-only, so the blast radius is low. Proposed fix: the eight disclosed windows. **Owner decision.**
+  - The field is display-only, so the blast radius is low. **Fixed 2026-09-27 with owner go-ahead:** `FIXED_CALENDAR_WINDOWS` now holds the eight disclosed windows, each widened by ±`windowDays`, with tests.
 
 ### Gaps: Gann rules with no implementation (candidates, in rough order of literalness and cost)
 1. **G1 — Close vs bar midpoint** (Ch. 13). A per-bar trend read. Cheapest and most literal.
