@@ -897,3 +897,106 @@ A near-verbatim duplicate of the Hexagon section of 15A: the same ring completio
   - +¼ year from May 4 = Aug 4: new highs.
   - +½ year = Nov 4: the decline started Nov 5.
 - "Range of prices" matters as much as the extremes.
+
+## Ch. 18 — *Time and Price Resistance Levels* (weekly tables) (pp. 434–438; signed **January 26, 1955**)
+- "**The Weekly Chart is one of the most reliable trend indicators that we use.**" Count from the exact dates of extreme **and minor** highs and lows, never from Jan 1 or the 1st of a month.
+- **Seasonal year from Mar 20, in days:** ⅛ = 46, ¼ = 91 (Jun 21), ⅓ = 121 (Jul 23), ⅜ = 136 (Aug 5), ½ = 182 (Sep 22), ⅝ = 227 (Nov 8), ⅔ = 242 (Nov 22), ¾ = 273 (Dec 21), ⅞ = 319 (Feb 4), 1 = 365.
+  - Importance: "**½ and the end of the season** most; next ¼ and ¾; then ⅓ and ⅔."
+  - Midseason points: May 5, Aug 5, Nov 8, Feb 4.
+- **Price = time in the same units.** The 10 divisions of the year (6½, 13, 17, 19½, 26, 32½, 35, 39, 45½, 52 weeks) are also the 10 price divisions, continued for 40 years (to 2,080).
+  - **Worked balances:** low 50, price 102 ⇒ up 52 = 1 year ⇒ a "Time and Price Balance". High 182, price 130 ⇒ down 52.
+  - **Measure every price as distance up from lows and down from highs.**
+  - Cross-fraction coincidences (time on ¼/¾ from the low while on ⅓/⅔ from the high, with price at ½ or ¾ resistance) = important.
+- **Indications for change in trend (1955 list):**
+  1. time and price balance (260 weeks with price at 260; next, 262 weeks with price at 234 = 4½ yr)
+  2. anniversary dates of extreme highs and lows
+  3. ¼, ⅓, ½, ⅔, ¾ of time periods
+  4. price resistance levels, especially when time is at a division
+  5. **weekly bottom broken or weekly top crossed**: "the greater the time period from any high or low level, the more important it is when prices cross these levels"
+  6. double and triple tops and bottoms at important time and price ⇒ a lasting move
+  7. **swing bottoms broken or swing tops crossed**
+- **The Weekly Swing Chart, as Gann defines it here:**
+  - Move the line up to the top of each week.
+  - "The first time the low of the previous week is broken, move the swing line down to the low of that week… continue to move it down as long as the price makes lower tops and lower bottoms."
+  - "The first week that the price makes **a higher bottom and a higher top**, you move the line… up."
+
+  ⇒ **A 1-bar (one-week) swing chart.** Compare `lib/gann/swingChart.ts`, which uses 3-day and 9-day consecutive-close runs on daily closes. The two are different constructions, both Gann-sourced.
+- **When most important changes in trend occur (ranked):**
+  1. anniversary dates
+  2. ½ year (182 days)
+  3. ¼ and ¾ (13 and 39 weeks)
+  4. ⅓ and ⅔ (17 and 35 weeks)
+  5. ⅜ and ⅞ (19½ and 45½ weeks)
+
+## Ch. 19A — *How to Make Profits Trading in Puts and Calls* (pp. 439–455; signed **May 26, 1937**). ⇒ This *is* the "Puts and Calls" text, so that title is no longer missing from the catalog.
+- 1937 over-the-counter 30-day options: CALL $142.50 and PUT $137.50 per 100 shares; 7-day $62.50; 14-day $87.50. Gann favours 30 days and strikes a number of points out of the money.
+- **Options as a stop-loss substitute:** a stop can fill 5 points worse on an overnight gap, while a put fixes the exit. ⇒ Gann explicitly recognises **gap risk through stops**, relevant to GSPS's risk and education copy (cf. the Academy 8 slippage and gap content).
+- **Seven rules for when to buy (a compact restatement of the trend rules):**
+  1. Near double or triple bottoms (tops): "wait several weeks or several months if a stock holds around a bottom… giving time to complete accumulation or distribution."
+  2. When old levels are crossed after weeks, months or years in a narrow range.
+  3. A third, lower top at an old top ⇒ short. A second or third higher bottom plus upside activity ⇒ long.
+  4. Several months at one level without breaking the first support ⇒ position when activity starts.
+  5. After breaking through an old top by several points, **buy the reaction back to the old top** (and the mirror at old bottoms).
+  6. In a bull market, wait for reactions of **5, 10 or 12 points**; in a bear market, rallies of **5, 7, 10 or 12**.
+  7. **Buy when a stock reacts 40–50% of the last advance** (sell rallies of 40–50% in bear markets). "After these fast moves, as a general rule, **the reaction runs one-half or 50%**."
+- **Pyramiding** with monthly calls, protecting profits with puts rather than stops.
+- **Price-zone velocity:** "Stocks always move faster at higher levels." Best range $75–150. $20–36 is slow. "**After stocks cross $36 to $40 per share they move much faster**" up to $60–75. Declines from 100+ are fast down to ~50–40, then slower. Low-priced stocks: wait for a multi-year range breakout.
+- Worked examples: Chrysler 1932–37, U.S. Steel 1932–37, Johns Manville, Boeing and Douglas. Each is a narrow-range breakout over multi-week tops, or a third top at an old top. "**When activity follows a long period of dullness there are big opportunities.**"
+
+## Ch. 19B — *How to Sell Puts and Calls* (pp. 456–459; undated)
+- Premium-selling mechanics: sell puts below the market to enter lower, sell calls above to exit or go short, and write calls monthly against long stock ("more than one point a month"). Also the **collar**: buy a put 3 below and sell a call 5 above to finance the protection. Historical mechanics only; nothing to port.
+
+---
+## Master Course — what this full read adds beyond the prior catalog entry (A2.1)
+The previous catalog pass targeted Ch. 2, 4, 7 and 13–15. The page-by-page read adds or corrects:
+1. **Lost motion, primary text (Ch. 9):** "averages 1⅞ points… never reaches 3 full points". This underwrites `lib/gann/entryTrigger.ts`'s allowance from the course itself (it was previously cited only to A8).
+2. **Resistance clustering, averaged (Ch. 9):** primary text for `combineNearbyLevels`.
+3. **The three-stage Space Rule (Ch. 11A):** last reaction exceeded, then the weekly-bottom cluster broken, then the greatest reaction exceeded. Plus the "+1 point" confirmation, "3 points under at high prices", and "a reaction under an old top should not exceed ~5 points."
+4. **Counter-trend duration prior (Ch. 11B, 14, 17):** counter-trend moves typically 2–5 weeks (bull reactions and bear rallies 3–4 weeks; 14 and 21 days most common), sometimes 6–8, rarely 11–14 (6 times in 42 years).
+5. **Volume (Ch. 12):**
+   - four rules (**volume decreases at normal bottoms**, increases at tops)
+   - peak volume precedes the price high
+   - **shares-per-point efficiency** (doubling at the 1937 top)
+   - float turnover in a distribution range
+6. **Close vs midpoint (Ch. 13):** "close above the half-way point… trend is up; below… down, at least temporarily." A per-bar Gann trend reading.
+7. **Square of 144 and 360° tables (Ch. 13, 15A):** strongest fractions ¼ ⅓ ⅜ ½ ⅝ ⅔ ¾ ⅞. Convergence of independent squarings (high, low and range in time) into one window.
+8. **"Great Cycle" varies by year of writing:** 20 yr (1931), 60 yr (1935), 56¾ yr (1953), 90 yr (1955).
+9. **Weekly swing chart definition (Ch. 18):** 1-week, higher-top-and-higher-bottom reversal.
+10. **Seasonal time from Mar 20/21** with midseason points, and the ranked "most important change dates" list (Ch. 14, 18).
+11. **Dow 1889–1951 month counts (Ch. 17):** December most lows and fewest highs.
+12. **Hourly chart endorsed** in fast markets (Ch. 13). **Daily chart for first indications** in fast markets (Ch. 11A).
+13. **Name/letter-count squares** (Ch. 15A): citably Gann's own numerology. Confluence-only at most.
+14. **The Puts and Calls text exists (Ch. 19A):** includes the 40–50% reaction rule and the $36–40 price-velocity threshold.
+
+## GSPS cross-reference (Master Course → code), findings to carry to the master report
+
+| Gann rule (chapter) | GSPS today | Status |
+|---|---|---|
+| Lost motion 1⅞, never 3 full (Ch. 9) | `lib/gann/entryTrigger.ts` allowance | Aligned; add the Ch. 9 citation |
+| Clustered levels averaged (Ch. 9) | `lib/strat/levels.ts#combineNearbyLevels` | Aligned; add the Ch. 9 citation |
+| Retracement ranking ½ first (Ch. 2, 13) | `lib/gann/retracement.ts` ranking | Aligned. Ch. 13 adds ⅓, ⅔ and ⅜ to the "strongest points" |
+| 3-stage Space Rule / greatest-reaction exceeded (Ch. 7, 10A, 11A) | No module measures "greatest counter-trend move of the campaign" | **Gap:** a Gann trend-change rule with no implementation |
+| Counter-trend duration prior, 2–5 wk typical, >8 wk rare (Ch. 11B, 14, 17) | None | **Gap:** candidate confluence/context field |
+| Volume falls at normal bottoms, rises at tops; peak volume precedes the high (Ch. 12) | `lib/gann/volumeClimax.ts` rewards **heavy** volume at a swing **low** | **Conflict to review:** Gann's Rule 3 says normal bottoms come on *decreasing* volume and narrowing range. Climax volume at lows is his *exception* (fast panics like Oct–Nov 1929). The criterion measures positive (Δ+0.645R, 2026-09-23), so this is a translation-fidelity question for the owner, not an automatic change. |
+| Shares-per-point efficiency at tops (Ch. 12) | None | Gap: candidate exit/top-warning field |
+| Close vs (H+L)/2 per bar (Ch. 13) | None found in `lib/gann/` | Gap: cheap, literal, Gann-sourced trend read |
+| Weekly 1-bar swing chart (Ch. 18) | `swingChart.ts` = 3-day/9-day close runs (daily only) | Different construction; the weekly definition is unimplemented |
+| Seasonal dates from Mar 21, midseason points (Ch. 14, 17, 18) | `timeCycles.ts` fixed annual calendar; `squareOf52.ts` fractions | Check the calendar matches the Ch. 18 day counts |
+| Square of 144 (Ch. 13) | `masterTwelve.ts` (spiral), confluence | Partial: the Ch. 13 fraction and convergence rules aren't used |
+| Hexagon/Square of 20 (Ch. 15A/B) | `hexagonChart.ts`, `squareOf20.ts` research-only | Exception stands; plates still lost |
+| Index confirmation / Dow Theory obsolete (Ch. 5–6) | `macroBreadthAgrees` in `lib/scan/entrySelection.ts` | Review: Gann rejected Dow Theory confirmation |
+| Great Cycle / Master Time Period (Ch. 4, 13, 14) | AGENTS.md says "20-year Master Time Period" | **Doc correction:** cite source and year |
+| Options as a gap-risk hedge (Ch. 19A) | Academy 8 capstone risk education | Education cross-reference only |
+
+## Three-question notes (for the master report)
+1. **Gann source/tier:** Tier A (private paid course, 1931–1955, dated per lesson). Wording shifts between 1931, 1935, 1939, 1953 and 1955 (e.g. the Great Cycle), so cite the lesson and year, not "the course."
+2. **Dewey/Tomes:**
+   - Ch. 10B, 11B and 17 are Gann's own **repetition-count** evidence: 204 minor moves; top-to-top and bottom-to-bottom histograms; monthly counts over 62 years.
+   - They speak to **regularity of timing** (36–49-month campaign clustering) and **repetition count**.
+   - They do *not* test **constancy of period**, **phase-resumption**, **dominance** or significance.
+   - Anything built from them is confluence/context until measured.
+3. **Hermetic principles:**
+   - **Correspondence:** time divided exactly as price, and weekly counts mirror daily ones.
+   - **Rhythm:** a secondary rally always follows the first sharp decline.
+   - **Polarity:** every rule is stated with its "reverse the rule" mirror, and old tops become bottoms.
+   - **Cause and Effect:** long accumulation leads to a large move, and volume is "the driving power."
