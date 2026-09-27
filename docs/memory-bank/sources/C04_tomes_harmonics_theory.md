@@ -58,7 +58,7 @@
   - Gann's divisions are an empirical harmonic analysis, which is what Gann himself called it ("cycle theory, or harmonic analysis," *Tunnel*). He wrote in 1926 that Schuster and Fourier theories would help (B01).
   - The cycle-theory literature supplies the **mechanism** (non-linear response ⇒ integer harmonics) and the **validation standard** (Dewey's checklist). Gann supplies the **rule**.
 - **What this does not license:**
-  - It does not make the *5* factors (⅕ divisions, 45-degree steps are ⅛ so fine) or numerology admissible.
+  - It does not make divisions Gann never used (e.g. ⅕ or ⅐ of a range) or any numerology admissible.
   - Numbers still need a Gann source (gate 1) and measurement (gate 2).
 
 ## GSPS relevance
