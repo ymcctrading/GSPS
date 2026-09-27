@@ -8,7 +8,8 @@
 > check are done. Steps 2, 4 and 5 still need a browser, on
 > an environment whose network policy allows the app and
 > `*.supabase.co`. See `docs/STRATEGY_MODES.md`'s "Production verification
-> pass" for what was found. Delete this file once the click-through is done.
+> pass" for what was found. `CUSTOM_SCRIPTS_BROWSER_HANDOFF_PROMPT.md` is the
+> ready-to-run prompt for that click-through. Delete both files once it's done.
 
 Machine-oriented handoff for a Claude Code session to pick up where a prior
 session left off: verify the custom-script Strategy Modes feature in a live
