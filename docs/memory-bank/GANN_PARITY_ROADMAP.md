@@ -252,6 +252,7 @@ Each step says whether a user waits on it (AGENTS.md "Speed is a product require
 - F1 · G9 7/14-day alternation; G20 reverse signal day and 7–10 Day Rule; G21 gap rules; G11 Square of 144 convergence; G12 projection dispersion.
 - F2 · The astrology track AS1–AS4 (decision 7): ephemeris, a rule fixed in advance, Dewey's full test, confluence only.
 - F3 · Measurement upgrades M1–M7 throughout (Schuster test, out-of-sample, regime splits, base rates).
+- F4 · The deferred cycles, solar-year anchor and calendar-convention research prompt: `FUTURE_PROMPTS.md`, "Deferred: cycles and calendar research". Not before Stages A–E are complete.
 
 ---
 

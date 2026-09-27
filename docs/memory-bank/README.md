@@ -22,4 +22,6 @@ A PDF copy of the report sits beside it.
 
 Read these alongside `AGENTS.md` and `docs/GANN_HISTORICAL_SOURCES.md`, which remain the governing documents.
 
+**Deferred research prompts** are saved in [`FUTURE_PROMPTS.md`](FUTURE_PROMPTS.md), each with its start condition.
+
 **Keeping it current:** when a new source is read, add a `sources/` note in the same format and update the report's Part V and Part VI.
