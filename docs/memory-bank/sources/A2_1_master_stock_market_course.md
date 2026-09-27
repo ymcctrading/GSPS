@@ -772,3 +772,128 @@ Instructions for a transparent overlay: a 144×144 grid ruled in 9-unit sections
 - May 5 (⅛), **Jun 21 (¼)**, Jul 23 (⅓), Aug 5 (⅜), **Sep 22 (½)**, Nov 8 (⅝), Nov 22 (⅔), **Dec 21 (¾)**, Feb 4 (⅞), Mar 20 (1).
 - **Midseason dates: May 5, Aug 5, Nov 8, Feb 4.** "Important changes in trend occur around these midseason dates." ⇒ compare with the fixed annual calendar in `lib/gann/timeCycles.ts`.
 - Scales for cotton, coffee, cocoa and eggs are given (commodity-specific; not ported).
+
+## Ch. 15A — *Master Charts* (pp. 387–398; undated, c. early 1931 by letterhead). Pages 399–417 are chart plates with no text in this source; the illustrations are lost.
+"The Master Charts are **permanent** and represent natural angles and permanent resistance points for either price, time or volume. These points do not change."
+### Master "12" Chart (Square of 12: squares end at 144, 288, 432, 576)
+- Applies to time, space, price or volume: points up or down, and days, weeks, months or years.
+- **Minor centres** (minor tops/bottoms): 14, 17, 20, 23, 50, 53, 56, 59, 86, 89, 92, 95, 122, 125, 128, 131.
+- **Major centre** (strongest resistance): **66, 67, 78, 79**.
+- 45° diagonals: 14, 27, 40, 53, 66, 79, 92, 105, 118, 131, 144 and 12, 23, 34, 45, 56, 67, 78, 89, 100, 111, 122, 133.
+- The ¼-square 45° lines: 6, 7, 17, 20, 28, 33, 39, 46, 50, 59, 61, 72 and 73, 84, 95, 96/99, 106, 112, 117, 125, 128, 138, 139.
+- Bottom-of-column numbers 1, 13, 25 … 133 ("opposition numbers… equal to the half-way point"). **Top-of-column numbers 12, 24 … 144: "very important to measure time."**
+- **"Opposition" (½) row:** 6/7, 18/19, 30/31, 42/43, 54/55, 66/67, 78/79, 90/91, 102/103, 114/115, 126/127, 138/139.
+- **Section-count rule (columns of 12):**
+  - 3 sections over = "the square of its own place" (first strong resistance)
+  - 6 over = opposition, the half-way point (stronger)
+  - 9 over = ¾ point
+  - **8th and 9th sections = "the 'death' zone", the hardest to pass**
+  - 12th (ends at 144) = the strongest
+  - Once out of the square by **3 points (147), much higher; after that it "should not drop back to 141" (3 points into Square 1).** ⇒ the 3-point rule applied to a square boundary.
+- "When a stock gets into the Second Square… it has **faster moves**; when the time… from any bottom or top moves into the Second Square… faster moves." "In the 3rd and 4th squares of the Master 12… **most of the big bull and bear campaigns culminate, when measured by months**" (i.e. **month 288–576 from the origin**; read with care, since this is ambiguous in the text).
+### Square of Nine
+- 360/9 = **40** ("why tops and bottoms often come out on these angles measured by one-ninth of the circle"). 240 months (20 yr)/9 = **26⅔**.
+- Squares completed at 81, 162, **243 (= 20 yr + 3 months: "accounts for the time which often elapses before the change in the Cycle, sometimes running over 3 months")**, 324, and 361 = 19² ("transition point, begins the next Circle"; start at 0 and it ends at 360).
+- 45° diagonals from centre 1: **7, 21, 43, 73, 111, 157, 211, 273, 343** and **3, 13, 31, 57, 91, 133, 183, 241, 307**. Other angles from centre: **8, 23, 46, 77, 116, 163, 218, 281, 352** and **4, 15, 34, 61, 96, 139, 190, 249, 316**. "Great resistance points and measuring out important time factors." (Compare the `lib/gann/` Square-of-9 implementation for agreement.)
+- **Six Squares of Nine** (six permanent charts of 81 = 486; bottom, four sides, top ⇒ a cube). **5 is "the balance or main center"** of the digits.
+- **19×19 layout:** 181 sits at the grand centre ("crossing the Equator or Gravity center").
+- "When you have… proved yourself worthy, I will give you the **Master Number and also the Master Word**" (cf. A10 *The Magic Word*).
+### Hexagon Chart (text description only; the plate is lost, consistent with the `hexagonChart.ts` exception)
+- Rings complete at **1, 7, 19, 37, 61, 91, 127, 169, 217, 271, 331, 397** (gains 6, 12, 18 … i.e. 3n(n−1)+1).
+  - **127 months = 10 yr 7 mo** ("why some campaigns will run 10 years and seven months")
+  - **169 = 14 yr 1 mo (13²)**
+  - **271 ≈ 270° (¾)**
+- The other ray: **2, 9, 22, 41, 66, 97, 134, 177, 226, 281, 342**.
+- **66 months (5½ yr)** "marks the culmination of a major campaign… how often they culminate on the **60th month**, then have a reaction, and make a **second top or bottom in the 66th month**." 66°/67½°/68° are "doubly strong."
+- **"Stocks move faster the higher they get"** because the 45° points spread further apart on outer rings (**above 120/127, fluctuations more rapid**). This is Gann's geometric explanation of price-scale-dependent volatility.
+- "**Everything seeks the center of gravity** and important tops and bottoms are formed according to centers and measurements of time from a center."
+- A price of 22½ strikes the 22½° angle, and so does 22½ days/weeks/months ⇒ **price and time units are interchangeable in the angle framework**.
+- **The 20-year cycle as a hexagonal cube (1° per month):**
+  - 60° = 5 yr (the bottom)
+  - 120 = 10 yr (first side)
+  - **180 = 15 yr (half built, strong resistance)**
+  - 240 = 20 yr (two-thirds, "completes our 20-year cycle")
+  - 300 = 25 yr ("a repetition of the first 5 years")
+  - 360 = **30 yr (the top, complete cube)**
+### Master Chart of 360° (91 Wall St letterhead)
+- Halvings 180 → 5⅝, then thirds (120, 240), then 60/30/15/7½. **15° per hour** (24 h), and 48 divisions of 7½° "important in measuring day, weekly and monthly time periods."
+- "**When anything has travelled up 180°, it starts to go down to the opposite point**… a top at 90 months will recur 90 months apart." Culminations **every 14–15 years (180 months)**. Near-pairs are strong: 60/67½, 112½/120, 150/157½.
+- Full list of the half/third/fourth/eighth … 64th angle points 5⅝ → 360 (reproduced in source).
+- **Divide by 7:** 51³⁄₇, 102⁶⁄₇, 154²⁄₇, 205⁵⁄₇, 257¹⁄₇, 308⁴⁄₇, 360. "why so many fast market movements culminate in the **49th day or the 52nd day** and why the 7th week… 7th month… 7th year." 1½ × 51³⁄₇ = **77⅐ ⇒ 77th day/week/month important**.
+- Square of 90 = 8,100 cells and square of 360 = 32,400, with fractions (¼ of 32,400 = 8,100, ½ = 16,200, ⅔ = 21,600, ¾ = 24,300, ⅞ = 28,350), "important… for **volume of sales** as well as time and price." The square of 90 in days ≈ 22 yr 2 mo.
+- **Spiral chart:** at the centre, 45° = 1 point; after 7 turns, 7 points; after 12 turns, 10 points between 45° hits ⇒ "a stock could move in one direction ten months without striking anything."
+### NYSE Permanent Chart (Square of 20 = 400), origin **May 17 1792**
+- Year n lands on cell n. For example, 1931 = 139 is on the 45° from 20 in the 7th zone ⇒ "ending of a bear campaign… but… break around May and June 1931." 1929 = 137 (45°); 1930 at the ½ of the 4th square ⇒ severe decline; 1935 on the 45° at the grand centre of the 8th zone ⇒ bottom, then advance in 1936.
+- Already catalogued as `lib/gann/squareOf20.ts` (research-only); this is its primary text.
+### Name charts — ⚠ numerology, Gann's own (Tier A), confluence-only at most
+- **"United States Steel" = 17 letters ⇒ Square of 17 (289)**; prices 34, 51, 68 … 272 (multiples of 17) "strike important vibrations on the name." US Steel's "digit is 9… finishing at 261 = 28 nines from its beginning point."
+- **United States: "America" = 7 letters ⇒ Square of 7 (49, "a very important and fatal number"), from Oct 12 1492.** "United States of America" = 21 letters ⇒ Square of 21 (441, ½ = 220½).
+- "numbers do determine everything in the future." ⇒ Letter-count squares are **citably Gann's own technique** (so not "invented numerology" under AGENTS.md). But the method gives no validation and cannot clear Dewey's checklist. Under the Astrology/numerology policy it may exist **only as a labelled, non-gating confluence field**, like `digitalRoot.ts`. Recorded; not recommended for build ahead of the §18.4 sequencing.
+
+## Ch. 15B — *The Hexagon Chart* (pp. 418–420; dated **January 1931**)
+A near-verbatim duplicate of the Hexagon section of 15A: the same ring completions, the 127-month and 169-month counts, the 22½ price/time equivalence, and the 20-year hexagonal cube. Its value is the **date** (Jan 1931), which fixes 15A's undated material to the same period. Plates on pp. 421–423 are not in the source text.
+
+## Ch. 16 — *Auburn Motors* (pp. 423–428; dated **May 9, 1931**) — a worked daily-chart angle example, the most concrete angle-trading walkthrough in the course
+### Method as applied
+- Draw **45° angles down from each top** (Apr 1 1930 263¾ and Apr 16 262¾). At each natural time count (11¼, 22½, 33¾, 45, 56¼, 67½, 78¾, 90, 101¼ … **days** from the top) draw a 45° "time angle" diagonally. **"The crossing of two right angles is very important for a change in trend."**
+- Natural **price** levels are the same circle divisions used as prices: 180 (½), 202½ (180 + 22½), 150 (5/12), 135 (⅜), 120 (⅓), 101¼, 90, 78¾, **60 (⅙)**, 225 (⅝), 240 (⅔), 270, 292½ (270 + 22½).
+- Counts are in **market days** in the main; calendar days are also noted (166th and 179th calendar day).
+### Rules stated in the example
+- "**Every stock squares itself according to price and time and when it breaks out of the square one way or the other, continues to move in the same direction until it reaches another important 45° angle or resistance point.**"
+- "**A stock is always a short sale the first time it rallies to the 45° angle from its top, protected with a stop-loss order 3 points above the angle**" (Sep 8 1930 at 135). Mirror: a buy at the lowest 45° angle from a bottom, "stop 3 points under." **Failing to go 3 points above a natural angle = resistance holds** (292½, 225). ⇒ the 3-point stop/penetration rule applied to angles.
+- **Regaining the 45° angle from the top, especially the outermost parallel, turns the main trend up**: Nov 29 1930 above the Apr 16 angle; "never sold lower… until 295½." "**When a stock regains the 45° angle from the bottom it is in a very strong position.**" Working into higher parallels to the left of the 45° from the low = strength (the mirror of the decline).
+- **Parallel-width rule:** the width of the parallel from the lowest 45° line (53 pts from Apr 1, 59 pts from Apr 16) was **reused on the way up**. The Apr 14 1931 top came where the same-width parallel (59) crossed the 180-day angle at 290. It closed only 1 day above the parallel and then reversed. ⇒ **the channel width of the decline measures the advance.**
+- **Half-way points of several ranges are used together:**
+  - ½ of (514 all-time high, 60⅜ last low) = 287⅛
+  - ½ of (514, 31¾ history low) = 272⅞
+  - ½ of 514 = 257
+  - ½ of 60⅜–295½ = 177¾ (held ⇒ strong)
+  - ½ of 295½–180 = 237¾
+
+  Breaking each successively "indicated greater weakness." "**You should always watch the ¼ and ½ points from the last important bottom.**" Stop = 3 points beyond the half-way point (short at 260 = 257 + 3).
+- Time hits in the example:
+  - 22nd day (22½°)
+  - 27th day (bottom at 180)
+  - **40th and 45th market days** (low, then top)
+  - **60th market day (⅙ circle)**
+  - 67th (67½)
+  - 90th/92nd
+  - 120th (⅓)
+  - 177th/180th (½): trend turned up on the 180th day
+  - 225th (⅝)
+  - 315th and 330th market days from the top
+- **Seasonal:** Jun 23 "an important date for a seasonal change"; Apr 14 1931 high ≈ anniversary of the Apr 16 1930 high ("a date for a seasonal change").
+
+## Ch. 17 — *Time Periods, Seasonal and Yearly* (pp. 429–433; c. Aug–Sep 1951)
+- "The year is **not divided according to calendar months**… it is divided by the **4 seasons**, the half-seasons, ⅓ and ⅔." **1/16 year ≈ 23 days**, which "accounts for market moves… often last **3 weeks to 1 month**."
+- **"In a Bull Market, reactions will last from 3 to 4 weeks and then the main trend will be resumed. In a Bear Market, rallies… 3 to 4 weeks."** (Consistent with 11B and Ch. 14.)
+- **Seasonal periods from Mar 21:** May 5 (⅛), Jun 20/21 (¼), Jul 23 (⅓), Aug 8 (⅜), Sep 23 (½), Nov 8 (⅝), Nov 22 (⅔), [Dec 21 ¾], Feb 4 (⅞), Mar 20 (year). Slight date differences vs Ch. 14 (Aug 5 vs Aug 8).
+- **Time-table method:** from every high/low date, add **6½ weeks (⅛)**, then successive 13-week quarters, to the anniversary. Tabulate how many of these projections fall in each calendar month.
+- **Gann's empirical finding:** "the **largest percentage** of high or low prices have occurred **45 to 50 days before** the date of a previous high or low, **or 45 to 50 days after**" ⇒ the ⅛-year (6½-week) and ⅞-year (45½-week) periods are most important.
+- **Dow 1889–1951 monthly count of extreme/minor highs and lows** (Gann's table):
+
+  | Month | Highs | Lows |
+  |---|---|---|
+  | Jan | 23 | 18 |
+  | Feb | 17 | 18 |
+  | Mar | 16 | 17 |
+  | Apr | 14 | 15 |
+  | May | 15 | 22 |
+  | Jun | 11 | 24 |
+  | Jul | 10 | 16 |
+  | Aug | 12 | 18 |
+  | Sep | 18 | 18 |
+  | Oct | 14 | 16 |
+  | Nov | 15 | 17 |
+  | **Dec** | **4** | **30** |
+
+  **December: the most lows (30) and the fewest highs (4). January: the most highs (23). June: the second-most lows (24).** ⇒ an empirical, Gann-tabulated seasonal prior. Its sample is dated, and it would need re-measurement before any use beyond confluence.
+- The table of projection counts by fraction and month appears in the source (e.g. Mar total 94, Jul 90).
+- **Worked 1951 forecasts:**
+  - Sep 12–14 high expected: ¼ year from Jun 14 1948 / Jun 12 1950, and Sep 13 1939 was a major top. The actual high came Sep 14 1951.
+  - December low expected: ¼ year from Sep 14 = Dec 14, and ⅝ year from May 4 = Dec 20.
+  - "32 periods fall May 1–10 ⇒ top before May 10." Actual: May 4 1951.
+  - 1/16 year (23 days) before May 29 1946 = May 6.
+  - +¼ year from May 4 = Aug 4: new highs.
+  - +½ year = Nov 4: the decline started Nov 5.
+- "Range of prices" matters as much as the extremes.
