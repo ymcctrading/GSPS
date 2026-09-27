@@ -224,3 +224,182 @@ Input: daily high/low. State: current direction, current chart level, last recor
 - **Stop-and-reverse** is Gann's own default in this method; GSPS does not reverse. Relevant to Strategy/automation design only if a "Gann mechanical" mode is ever wanted — note that AGENTS.md says Gann is the default *verdict*, and this is literally Gann's mechanical system.
 - **Pyramiding with halving units** and **trailing 5/10 pts from the extreme in fast markets** — no GSPS equivalent.
 - **Half-way-point reversal trades with 1-pt stops** — `lib/gann/retracement.ts` supplies the level; the *trade rule* (enter at the ½ of the last swing, stop 1 pt beyond) is not in GSPS entries.
+
+---
+## Ch. 4 — *The Basis of My Forecasting Method — Geometric Angles* (pp. 117–156; lesson pages GA-1…GA-32; signed **November 1935**)
+### Philosophy (GA-1)
+- "Mathematics is the only exact science." Emerson: "God does indeed geometrize"; Pythagoras: "Before God was numbers" — vibration of numbers. Arithmetic does only two things: **increase or decrease.**
+- **"Everything in nature is male and female, white and black, harmony or inharmony, right and left. The market moves only two ways, up and down."** (Gender + Polarity in Gann's own words.) Three dimensions; three figures — **circle, square, triangle**; the 360° circle measures Time and Price; three angle kinds — vertical, horizontal, diagonal; "we use the square of odd and even numbers to get not only the proof of market movements, but **the cause**."
+### Charts to keep (GA-2/3) — including two not in other books
+- **Yearly** high-low; **Monthly** high-low — "the most important chart of all in determining the main trend" (1 pt per ⅛ inch); **Weekly** (½ pt/space below 50; 1 pt/space above 100 when active); **Semi-weekly / 3-day chart** — Mon open→Wed close, Thu open→Sat close (half-weeks) — "very important"; **Weekly moving-average / mean point = (weekly high + weekly low)/2** plotted as a dot; **Daily** (market days only, no gaps for holidays/Sundays, but **carry calendar days every two weeks** because time counts for changes (30, 60, 80?, 120, 135… days) are in **calendar days**; a trading-day angle and a calendar-day count coinciding = "doubly important point").
+  - ⇒ **Gann defines a "moving average" as the (H+L)/2 mean of each period** and says geometric angles are the *regular* version of it ("geometrical angles, which are really moving-averages, move up or down at a uniform rate"). Relevant to AGENTS.md F2.5 (SMA removal): Gann's own "moving average" is **not an N-period SMA** — it's the per-period midpoint, and his real trend line is the fixed-rate angle.
+### Why angles (GA-3/4)
+- "Geometrical angles measure accurately **space, time, volume and price**." 35 years of research. Angles **self-correct counting errors** (a 45° drawn down from 120 must hit 0 at 120 across). Angles keep the position in front of you; they **are** moving-average trend lines at a uniform rate.
+### Construction: the square and the Pattern Chart (GA-4/5)
+- Square of 28: vertical + horizontal mid-lines + both diagonals ⇒ 2, 4, 8 equal parts, 8 triangles; **the strongest support/resistance is the center where four angles cross.** A top of 28 → 28×28 square = **squaring price by time** (28 days/weeks/months squares a 28-point range).
+- **Pattern Chart = Square of 90** with angles 3¾, 7½, 15, 18¾, 26¼, 30, 33¾, 37½, 45, 52½, 56¼, 60, 63¾, 71¼, 75, 82½, 86¼, 90°; count spaces (8×8 to the inch) rather than measure.
+### Angles from a low (Form 2) — bull side (GA-5…GA-7)
+1. **45° (1×1) — "the first and always most important"**, 1 pt per day/week/month. Above it = strong. **Buy each time it rests on the 45°, stop 1–3 pts under (never >3)**; normally **1 pt** under except near low levels/early bull markets. **Broken by 1 point ⇒ trend changed at least temporarily.** "You can beat the market by trading against the 45° angle alone."
+2. **2×1** — 2 pts/period, "63¾°" in his Pattern-Chart convention; stronger than the 45°; **"No matter what angle the stock breaks under, it indicates a decline to the next angle below it."**
+3. **4×1** (75°), 4. **8×1** (82½°) — strongest position; 5. **16×1** (86¼°) — only in 1929-type markets.
+- **3×1** (71¼°, drawn in green) — useful after prolonged advances, on monthly/weekly.
+- All important angles lie between 0 and 90° (135, 225, 315 are 45° in other quadrants). **90/8 → the ⅛ angles; 90/3 → 30° and 60°** for time and resistance.
+- **When to start angles from a bottom:** daily — after a **3-day rally** with higher bottoms and tops, draw the 45° and 2×1; weekly — after a 3-week+ decline and a 2-week+ rally.
+### Bear side of the square (Form 3) — after the 45° from the bottom is broken (GA-8/9)
+- First support: **2×1 bear-side** (½ pt/period, 26¼°) — often rests there, sometimes long; then **4×1** (¼ pt, 15°), then **8×1** (⅛ pt, 7½°) — "often a very strong support angle… may make final bottom from this angle" after prolonged declines (monthly/weekly); **16×1** (1/16 pt/month, 3¾°) on monthly after long time.
+- **3×1 bear-side (⅓ pt/period, 18¾°, "drawn in red ink") — "a very important angle… I strongly advise using it at all times and keeping it up on monthly charts from any important bottom."**
+### Angles from tops (Forms 4–5) (GA-9…GA-11)
+- Start after a top has declined ~**3 days / 3 weeks / 3 months** breaking previous bottoms. Draw the **45° down** (below it = weakest, bear market), and the faster 2×1, 4×1, 8×1 down (**under 8×1 = weakest possible**). Crossing the 2×1-down = better rally; crossing the 45°-down after a prolonged decline = may be changing to bull; then draw the slower down-angles (2×1 = ½ pt, 4×1 = ¼ pt, 8×1 = ⅛ pt, **3×1 = ⅓ pt** "important after prolonged declines").
+- Always weigh **points up from the bottom and down from the top** together.
+### Double/triple bottoms, parallels, zero-angles (GA-12…GA-16)
+- **Angles from double/triple bottoms:** 45° from the first bottom and 2×1 from the second — **their crossing = important change point** (Form 6: crossings at 48, 53½, 58). Tops/bottoms need not be exact.
+- **Parallel angles:** 45° up from the bottom and 45° up from the first top form a channel; a stock often works up for a whole campaign between them; if far apart, a middle 45° is support. Parallels also form between 2×1 or 4×1 lines (slow stocks).
+- **Angles from "0":** from the date of each bottom, draw a 45° starting at **price zero** — it reaches the bottom's price after as many periods as the bottom price (low 20 → 20 days/weeks/months). It becomes support after the angles from the actual bottom are broken; **breaking the 45° from "0" = weakest possible position**; it "proves when **price and time are balancing** or when the stock is squaring out from its bottom." Do the same from the **date of a top** ("last strong support"). Carry "0" angles from 1st/2nd/3rd higher bottoms and lower tops with much time between — especially weekly/monthly. "You could not locate this support point in any other way."
+- **45° from a top down to 0 and back up again**; also from a bottom down to 0 and up; **start 0-angles when a major time cycle runs out**: U.S. Steel 1904 low → May 1924 = 20-year cycle end (Gann writes "120 months" — a slip; 20 yrs = 240), top 109 against a 45° from "0" started at the Feb 1915 bottom; 0-angle from May 1924 → 84 in May 1931 (**7-year = 84-month** cycle) — Steel low 83⅛ Jun 1931.
+- **Two 45°s from the same bottom (up and down)** separate at **2 pts per period** ⇒ the potential open break is wide when late: U.S. Steel 111¼ (Jan 1927) — 45 months later the two angles were 90 pts apart ⇒ "wide open break" possible (Dec 1931 broke the down-45°; Jun 1932 low 21¼).
+- **Price-time balance example:** 45° from "0" at the Oct 1907 bottom 21⅞ crossed **262 in Sep 1929** — Steel topped at **261¾** — "in 262 months… one point per month… Time was up."
+- **Top-to-top angles (Chart 9):** 45° from the first top in new-high territory as resistance (e.g. 60 → 74 top → 64 → 90 at month 22 = 16 pts above 74 in 16 months = time equals price above the first top). Breaking the bottom-45° at a high level (24 pts up) = weak. After new highs, a decline to the old top (74) is support **unless broken by 3 pts**.
+- **Bottom of the first sharp decline** after a top: draw the 45° **down** from it (squaring out time from that bottom = place to buy a rally; can dip slightly under and hold). **After a sharp break of 2–3 days/weeks/months, a rally, then a break under the first sharp break's low ⇒ main trend down** (mirror: a first sharp recovery's high crossed later ⇒ higher).
+- **Last swing:** draw 2×1 and 45° from the start of the final run; breaking the 2×1 = trend turned; the decline resting on the 45° from the top = time and price squared → buy for a rally (stop 2–3 under). Dow Mar 9 1932 top 90 → Jul 8 low 41: **the 2×1 down from 90 crossed 50 in the week ending Jul 30 1932 — first definite sign the trend turned up.** Half-way point of the last big swing (119½ → 40½) = 80; crossing it the second time → 119, never back to 81 until 149½.
+- **Momentum crosses and falls back = weakness; fast drops under angles and quick recovery = strength/turn.**
+- **Most important points to draw from** (Dow example): extreme high (Sep 3 1929), first sharp-decline bottom (Nov 13 1929), bear-market big rally / second lower top (Apr 17 1930), extreme low (Jul 8 1932), first sharp advance top (Sep 8 1932), **second higher bottom** (Feb–Mar 1933).
+### Sections of market campaigns (GA-20/21)
+- Campaigns move in sections: advance several weeks/months, **halt several weeks/months in a 5–20-pt range**, resume above the first section's high; **markets often culminate at the end of the third section**; if the third top is crossed, a **fourth section — "generally marks a culmination and a reversal for a bigger decline."** Chrysler 1935: 31 → (1) 49¾ → 41¼ → (2) 62¾ → 57½ → (3) 74 → 68 → (4) 90, then **5 weeks in a 6-pt range = distribution** → down. **Bear-market rallies may make only one section (extreme: two).**
+### Strength/weakness by angle position (GA-21…GA-23)
+- Monthly/weekly angles > daily. Distance from base matters.
+- **Weakest:** distribution complete + broke the 45° from an important bottom (weekly/monthly); or broke the **half-way point** between an important top and bottom; the longer the time and higher the price, the weaker (e.g. at 150, only 25 off the top, breaking the 45° from the low = very weak because it "already squared out the time period with price"). Weakness develops at the ¾, ⅔, ½ breaks; **first weakness = breaking the first important angle up from the last bottom of the final run.**
+- **Strongest:** holding above the acute angles; **"the stocks which have the biggest advances are those that always hold above the angle of 2×1 on the monthly chart"** — "rest 10 or 15 times on the 2×1 and never break it until they have advanced 100 points or more" ("stays ahead of time… within the square of time"). Also: advancing above the prior move's half-way point and then holding it on reaction (= resting on a 45°).
+- **"The cinch buying point is when a stock rests on a 45° angle"** (stop below); also the **half-way point** (stop under); in uptrends the **weekly/monthly 2×1**.
+- Regaining/losing angles flips the trend again. A stock can be **strong from the bottom but weak from the top** (short when it rallies into the 45°/2×1 *down* from the top until it crosses them), or strong from the top but weak from the bottom.
+- **45° from the extreme top crossed ⇒ major move.** Dow: 386 top (Sep 3 1929); week of Jan 12 1935 = 279 weeks ⇒ 45° at 386−279 = **107**; Dow 106½ that week, reacted to 100, crossed at 103 (Feb 16 1935), hit 108 (45° from Sep 1934 low 85½ + 2×1 from Jul 1932) → reacted to 96 (Mar 18 1935) resting on the 45° from the 1929 top **and** where a **3×1 (⅓ pt/week) from "0" at Sep 1929** crossed it → new highs. Watch when the 45° from 386 reaches **0 — 386 weeks = late January 1937.**
+- **Semi-weekly chart** gives the trend change **2–3 days before the weekly**; better than the daily in narrow markets.
+### Newly listed stocks (GA-24)
+- No pivots yet → use a **square of 90** (¼ circle) with natural angles from the opening price; or a square matched to the opening price: <22½ → square of 22½; 22½–45 → 45; 45–67½ → 67½; 90–135 → 135 (or a second 90 from 90–180). Breaking natural angles from "0" = breaking angles from a bottom; crossing angles from "90" down = crossing angles from a top.
+### Calculating, 3×2, latitude & longitude (GA-24/25)
+- Compute crossings instead of drawing (bottom 15 Jan 1900 → 45° at 135 in Jan 1910 = +120 months).
+- **3×2** (¾ pt/month, "8 points in 12 months") — seldom used; shows position between widely spread angles.
+- **Latitude = price** (horizontal lines at natural angle-levels 11¼, 22½, 33¾, 45, 56¼, 67½, 78¾, 90, 101¼, 112½, 120…); **longitude = time** (vertical lines at the same counts from each top/bottom). **"If the price of a stock at 60 comes out on the 60th day, week or month, it will meet strong resistance because it has reached the square of price with time."** Square of 90 advised on weekly/monthly; start from any pivot or natural points 90, 135, 180; always square the extreme low, high, and 2nd/3rd lower tops/higher bottoms with time.
+### Time-count bookkeeping rules (GA-25…GA-27) — codeable conventions
+- **Counting from a bottom:** the bottom month belongs to the old down-move; **count the first month up as 1** (numbering every 4 squares per half-inch). From a top: **the top month is 0**, next is 1. Verify angles arithmetically (e.g. 75-pt decline in 40 periods → 2×1-down is 80 below the top).
+- **Most important monthly count origins:** the **extreme life low**, and the **date of incorporation / first NYSE trading**; next, a **2nd or 3rd higher bottom — but only once the market has held/advanced 3–4 months** from it. U.S. Steel: incorporated Feb 25 1901 → **Feb 1931 = 360 months (30 yrs) → restart at 0** ("the second cycle or circle of 360°"); extreme low 8⅜ May 14 1904 → 30-yr cycle ends May 1934; 21⅞ Oct 1907 first higher bottom; Feb 1915 third higher bottom. Tops: Apr 1901, Oct 1909, May 1917, **Sep 1929 (most important)**, Apr 1930 (secondary top).
+- **Retire an origin when its top/bottom is exceeded by 3 points** (except to project 3, 5, 7, 10, 20-year cycles). **Tops that stay uncrossed longest are most important**; after the extreme high is crossed, the next secondary (lower) top becomes the key origin.
+### Squaring the price range with time (GA-28…GA-30) — "one of the most important and valuable discoveries that I have ever made"
+- **Definition:** equal number of points and time periods — e.g. up 24 pts in 24 days ⇒ at the 45° ⇒ **watch for an important change**; to stay strong it must stay above the 45°.
+- **Reactions are the squaring out of minor time periods; big advances/declines the squaring of major ones.** Check weekly/monthly while squaring on the daily.
+- **Squaring a trading range (Form 12):** range 48–60 (12 pts) — run the 45° from the bottom to the top of the range, then back down to the bottom, repeatedly, while price stays in the range; **"every time the 45° reaches the top or bottom of this range there is some important change in trend."** 2×1s on each side also divide it. On breakout, restart from the new bottom / last bottom in the range.
+- **Three ways to square:** (1) **the range** (range 25 ⇒ 25 periods, repeating while in the range); (2) **the low price** (bottom 25 ⇒ 25 days/weeks/months; watch the **3rd, 4th, 7th and 9th squares** of the low-price period); (3) **the high price** (top 50 ⇒ 50 periods). **Dow top 386 → 386 calendar days → Sep 23 1930; again Oct 14 1931, Nov 4 1932, Nov 25 1933, Dec 16 1934, Jan 6 1936** — "important changes in trend occurred on the daily chart." For very high tops, divide the price into **8 equal time periods** and watch ¼, ⅓, ½, ¾ — most of all **time = price**. Cross-check squares from the opposite extreme (a top squaring while in the 2nd–3rd square from the bottom = double indication).
+- **Weekly square of 52 × 52** (52 weeks; low 50 → square top 102); watch **13, 26, 39 weeks**.
+- **Monthly:** **square of 12 (144)**; changes often on **even 12-month periods** from a top/bottom; price resistance at **24, 36, 48, 60, 72, 84, 96, 108…**; price 135 on month 135 breaking a 45° = time & space balancing ⇒ big decline.
+- **Price ahead of time:** first cross of the 45° before the square is complete → secondary reaction rests on the 45° when the square of distance is reached → then the greater advance (mirror at tops; breaking the 45° the 4th time far from base = extremely weak).
+### Strongest angles for time & price (GA-31/32) — repeated from Ch. 2 with additions
+- 90, 180, 270, 360; **270 months = 22½ years = ½ of 45**; 120 and 240 (⅓, ⅔ — "especially strong for measurements of time"); 45, 135, 225, 315; Cardinal & Fixed crosses; 22½ > 11¼; 67½; **78¾ (⅞ of 90) — tops/bottoms around the 78th–80th day/week/month; "don't overlook 84 months or 7 years, a strong time cycle."** ⅛-division of $1; par-100 → degrees table (printed 82½ for 315° — arithmetic gives 87½).
+
+---
+## Ch. 5 — *Seasonal Changes on Stocks* (pp. 157–180; 82–88 Wall Street; circa 1935)
+### Seasonal (solar) dates — Gann's list with his reasoning
+| Date | Gann's derivation | Note |
+|---|---|---|
+| **Dec 22** | winter solstice — quarter start | |
+| **Jan 5–6** | 15 days after Dec 22 | "always important… extreme high or low… change in trend"; a December low near the 22nd ⇒ January rise (dividend buying), culminating ~Jan 3–7, sometimes Jan 20–21 |
+| **Feb 5** | 45 days from Dec 22 | minor, sometimes very important tops/bottoms |
+| **Mar 21** | 90 days; Sun crosses the equator (spring) | spring rally starts or culminates |
+| **May 6** | 46 days from Mar 21 = **135 days from Dec 22 = 135°** | important change |
+| **Jun 22** | 93 days from Mar 21 = 90°; opposite Dec 22 | summer |
+| **Jul 7** | 15 days from Jun 22; **180 days from Jan 7**; dividend month | next important after Jun 22 |
+| **Aug 8** | 47 days from Jun 22 but the **Sun has moved only 45°** | "very important date for change in trend" |
+| **Sep 23** | 93 days from Jun 22, Sun moved 90°; equator crossing, opposite Mar 21 (180°) | fall |
+| **Nov 8** | 46 days from Sep 23 = 45° | many tops/bottoms |
+| **Dec 22** | 91 days from Sep 23; 180 days from Jun 22 | winter |
+- Gann explicitly measures by **the Sun's degrees, not raw days** ("47 days… but the Sun has only moved 45°") ⇒ the calendar is **solar-longitude-based** (seasonal points and their 45° midpoints — the "cross-quarter" dates).
+### Monthly changes (p.158)
+- **"Stocks make important changes in trend every 30, 60, 120, 150, 210, 240, 300, 330 and 360 days or degrees from any important top or bottom."** (Note: 90, 180, 270 are the seasonal/quarter points above; this list is the 30° divisions.)
+- From Dec 22: **Jan 21 (30°, Sun changes sign), Feb 19 (60°), Apr 20 (120°), May 22 (150°; 60° from Mar 21), Jul 23 (210°; 120° from Mar 21), Aug 23 (240°), Oct 23 (300°), Nov 22 (330°)** — i.e. the **Sun's ingress into each zodiac sign** (~20th–23rd of each month).
+- **Next to the 30-day change, the most important are the 7th, 10th, 14th, 20th and 21st days.** Variation because the Sun changes sign every 30 days, the **Moon returns to its own place every 28 days**, and **New Moon to New Moon ≈ 29 days** ⇒ changes sometimes on the **28th** day, sometimes the **33rd or 34th**.
+### Individual stock seasonal clock (p.159)
+- **Dates of incorporation and first trading shift a stock's seasonal dates.** U.S. Steel incorporated **Feb 25 1901**, first NYSE trade **Mar 28 1901** ⇒ many changes in Feb/Mar. Its own "seasonal" dates from Feb 25: Apr 12 = 45°; Apr 27 = 60°; May 28 = 90°; Jun 12 = 135° [sic]; Jun 28 = 120° [sic — order/values as printed]; Jul 30 = 150°; Aug 30 = 180°; Oct 14 = 225°; Oct 30 = 240°; Nov 29 = 270°; Dec 28 = 300°; Jan 11 = 315°; Jan 27 = 330°; Feb 25 = 360°.
+  - ⇒ **Each instrument has its own "birth chart" calendar** (incorporation/listing date) in addition to the market-wide solar calendar. (Correspondence: same law, own phase — cf. A05 "each stock has its own time period.")
+### U.S. Steel quarterly chart & swing log 1901–1935 (pp. 159–180)
+- A **quarterly chart built on the seasonal quarters** (solstice/equinox to solstice/equinox), not calendar quarters, recording the date of each quarter's extreme high/low.
+- A day-by-day record of U.S. Steel's Overnight-chart tops/bottoms 1901→1935, offered as evidence that **tops/bottoms come 30, 60, 90 days apart and that 7, 10, 14, 15, 20 and 21-day periods work "with remarkable regularity."** Observations visible in the log: repeated turns within a few days of **Jan 2–7, Mar 21–24, Jun 20–25, Sep 21–24, Dec 17–24** (quarter points); **"a bear year, high in January – low in December"** (1902, 1903); 1907 panic low **Oct 23 (21⅞)**; 1929 final high **Sep 3 = 95 days from the May 31 low**; Nov 13 1929 low 150 "down 111¾ points in 71 days"; **Jun 28 1932 low 21¼ ≈ Oct 1907 low 21⅞ — a 25-year double bottom**; Mar 2 1933 quarter range only 8½ pts on very small volume + higher bottom ⇒ trend up; Mar 18 1935 higher bottom than Mar 31 1933.
+- *Research note:* this log is the raw material for a **testable seasonal-date hypothesis** (turns clustering near solstices/equinoxes/cross-quarters and 30° sign ingresses). Dewey checklist: repetition count ✔ (35 yrs of quarters), regularity/dominance **not measured by Gann** (anecdotal selection). GSPS's `lib/gann/timeCycles.ts` "fixed annual calendar cycle" should be checked against this exact date list (esp. Aug 8 and Nov 8 as 45° points, and the 30° sign-ingress dates).
+
+---
+## Ch. 6 — *Natural Resistance Levels and Time Cycle Points* (pp. 181–213; 88 Wall Street; signed **November 1935**)
+"Based upon natural law and can be applied to the measurement of **both Time and Space**… around these points stocks meet resistance going up or down **or travelling the same number of points from a top to a bottom**."
+### Base-100 (decimal/money) levels — ranked (p.181)
+1. **25, 50, 75** (¼, ½, ¾) · 2. **33⅓, 66⅔** · 3. ⅛s: **12½, 37½, 62½, 87½** · 4. 1/16s: **6¼, 18¾, 31¼, 43¾, 56¼, 68¾, 81¼, 93¾**. (Origin: counting on fingers/toes → decimal system → 5, 10, 20, 30-year cycles; $1 and par 100.)
+### Levels by 9 and 12 (p.182)
+- **9-multiples: 9, 18 [printed "12"], 27, 36, 45, 54, 63, 72, 81, 90, 99, 108, 117, 126, 135, 144**; their half-points **4½, 13½?, 22½, 31½, 40½, 49½, 58½, 67½, 76½, 85½, 94½, 103½** (add 4½ to multiples of 9).
+- **12-multiples and 6-steps: 12, 18, 24, 30, 36, 42, 48, 54, 60, 66, 72, 78, 84, 90, 96, 102, 108, 114, 120, 126, 132, 138, 144** — "tops and bottoms of most stocks come out remarkably close to a basis of 12." (12 = 9 + ⅓ of 9.)
+### Divisions of the 360° circle (pp. 182–185) — Gann's full ladder
+- **/2 → 180** — strongest (gravity center) = **180 months = 15 years = ¾ of 20-yr, ½ of 30-yr**.
+- **/4 → 90, 180, 270, 360** = **7½, 15, 22½, 30 years** in months — beginnings/ends of important cycles; resistance when price reaches them "especially when the time is up."
+- **/3 → 120, 240** = **10-yr and 20-yr cycles** (360 = 30-yr).
+- **/12 → every 30°**; **150 and 210 very important** (150 = ½ between 120 and 180; 210 = ½ between 180 and 240).
+- **/24 → every 15°** (Earth turns 15°/hour); add **7½** to get more points (15 + 7½ = 22½ = 1/16 circle; 150 + 15 = 165 = ½ of 150–180).
+- **/8 → 45, 90, 135, 180, 225, 270, 315** (225 = 180 from 45; 315 opposite 135).
+- **/16 → 22½, 45, 67½, 90, 112½, 135, 157½, (180), 202½, 225, 247½, (270), 292½, 315, 337½.**
+- **/32 → +11¼ steps: 11¼, 33¾, 56¼, 78¾, 101¼ [printed 101¾], 123¾…** — "measure out cycles closely in accordance with the Master 12 Chart and come out closely with the months."
+- **/64 → 5⅝ steps: 5⅝, 16⅞, 28⅛, 39⅜, 50⅝, 61⅞, 73⅛, 84⅜, 95⅝, 106⅞, 118⅛, 129⅜…** — minor, but tops/bottoms often come on them **"especially when we are nearing the end of a major cycle."**
+- **/9 → 40, 80, 120, 160, 200, 240, 280, 320, 360**; halved → every 20. **"I use these points and the Master 12 points and the other important points obtained through dividing the circle by 2, 4 and 8, as the most important Resistance Levels in measuring the Time cycles."**
+- Weekly charts show more hits than monthly; daily more than weekly.
+### Time divisions of the year (pp. 185–186)
+- Year ÷ 4 → seasons (≈90 days): watch **3, 6, 9, 12 months**; **"most stocks make changes of importance at the end of each 12-month period."** Year ÷ 3 → **4, 8, 12 months**. **52 weeks ÷ 4 → 13, 26, 39 weeks; ÷ 3 → weeks 17–18 and 35–36.**
+### Reaction-size tests at the end of long campaigns (p.186) — codeable
+- After an extended campaign of **≥50 points**, take **the greatest counter-move (reaction) during the campaign**; **when a reaction exceeds it, the trend is changing.**
+- **1/12 rule:** a stock up 144 → **1/12 = 12 pts**; a 12-pt reaction (especially if prior reactions were smaller) ⇒ move ending.
+- Some stocks never react more than **¼** of the distance travelled, others **⅓**, others to **½**; always measure from where the move last started (and the major pivots).
+### U.S. Steel 1901–1935 worked analysis (pp. 187–205) — the method in action
+- **New listing rule:** first **3-point move** decides direction (opened 42¾ Mar 28 1901; +3 to 46, crossing 45 ⇒ higher). Square of 90 from "0" and "90" at listing.
+- **Resistance at 55 (1901 top):** 56¼ = 45 + 11¼; 54 on Square of 9 and Master 12; **55 "psychological" — public buys after 50.** ½ of 43–55 = 49; breaking it ⇒ down.
+- **½ of the top price** as support: 55/2 = 27½; with the 22½° angle ⇒ midpoint 25 — **May 9 1901 panic low 24** (Master 12 point).
+- May 1904 low **8⅜**: 39th month from Mar 1901, **36 months from May 1901 bottom (even cycle)**, down **46** from top (≈45 ⇒ strong support); **9 ≈ ⅚ of 55; "any stock getting down around 9, the digit, always receives good support."**
+- Recovery measured by **¼ (20), ⅓ (23⅝), ½ (32⅞), ⅝ (38)** of 55–8⅜; Feb 1905 top 46 near 45 and **¾ point 43¼** and **60 months = 5-yr cycle** ⇒ reaction.
+- Jan 1907 top **69 months from Apr 1901 top, 71 from incorporation, 32 from May 1904 low**; **"going into the 7th year indicated lower prices. The 7th year is always a year for a panicky decline"**; failing to get **3 points above** the Jul 1901 top = weakness. The **fourth test** of 32 broke (rule). Nov 1907 low **21⅞**: **78th month from the Apr 1901 top (78¾ = ⅞ of 90)**, 80 months from Mar 1901; **40 months after the Jun 1904 last low** ("40 is 1/9 of 360 and ⅓ of 120").
+- **"Stocks always go higher in the 8th and 9th years of a 10-year cycle."** Aug 1908 = **90 months** from Mar 1901 → "out of the first square of 90" ⇒ strong. Nov 1908 top 58¾ on the **90th month from the Apr 1901 top**; >3 pts above 55 ⇒ higher later. **Gann's published calls (Ticker, Dec 1909):** top 58¾ (Nov 1908), bottom 42 (Feb 1909 actual 41⅛), **short at 94⅞ "would not go to 95."**
+- **Price projection for new territory (p.192):** (a) **last important top + 45** (50 + 45 = 95); (b) **"tops and bottoms become half-way points"** — the prior swing added to the breakout top (21⅞→58¾ = 37 pts; 58¾ + 37 = 95¾); actual **94⅞** (Oct 1909). Also: **"Any time a stock advances 84 to 90 points from the bottom or base, it is in selling territory."** Top on the **102nd month** (101¼ resistance), **24 months from Nov 1907**; broke at the 104th; **105th month (8¾ yrs)** important.
+- Oct 1911 low 50: **89th month from May 1904 (7½-yr cycle / 90°)**; **down 44⅞ ≈ 45 = 45° support**; 50⅝ resistance; 51⅝ = ½ of 8⅜–94⅞; 47⅜ = ½ of 94⅞; **24 months from the top, 48 from Nov 1907 = time balanced**; the **128th month from Mar 1901 "put it out of the hexagon movement"** (see Ch. 15B).
+- Sep–Oct 1912 top 80 = ¾ of 94⅞–50, **10 years after Sep 1902 top**. Jun 1913 low 50 = **7 years (84 months) from the 1906 bottom**.
+- Feb 1915 low 38: **168 months (14 yrs) from Mar 1901, 64 from 1909 top, 72 from Feb 1909, 88th month from 1907 bottom** — "all strong time cycles"; 38 ≈ 37½ (30+7½, 22½+15), ⅞ of 45 = 39⅜, ⅔ of 94⅞–8⅜.
+- **Forecasting by time (p.195):** 10 years back (1905–07 up ⇒ 1915–17 up); **top + 7 years** (Oct 1909 + 7 = Oct 1916; actual early Nov 1916, 129). Top 21 months from Feb 1914; bottom 24 months from Feb 1915 (Feb 1917, 99 = 90 above the 8⅜ base = "square").
+- **Projection 1917 (p.196):** last-low center 80 (1909–1912 tops, 1916 bottoms); swing 94⅞ − 38 = 56⅞; **80 + 56⅞ = 136⅞ = the exact May 31 1917 high.** ½ of 21⅞–136⅞ = 79¼ ≈ 80 → "80 was to become the center of gravity… for a 10-year cycle." Top on the **91st month** from the Oct 1909 top (≈ square/90°), 193 months (16 yrs) from 1901; "there is a cycle of **32 years and 6 months**" (half = 16¼ yrs). Large volume = distribution.
+- 1907 panic year ⇒ **1917 must repeat** (10-yr); 1910 bear ⇒ 1917 (7-yr). Dec 1917 low 80 (½ from 1907), 90 months from Jul 1910. 1918–19 = 1908–09 (10-yr). **Jun 1921 low 70½: 7 yrs from Jul 1914, ~14 from 1907, 76 months from 1915, 49 from 1917 top, 242 months from Apr 1901 top ("working out the 20-year cycle, the most important cycle")**. ½ of total value 136⅝ = 68¼ held ⇒ strong.
+- May–Jun 1924 = **20 years from May 1904** (price 95, never seen again). Nov 1928 top = 20 yrs from Nov 1908 top.
+- **Sep 3 1929 top 261¾ (pp. 198–200):** **343rd month from Mar 1901 = 7 × 49** ("marks culminations"); 98 months from 1921 low (early **9th year**); 10 yrs from May 1917 (old stock top May 1927); 174 months from 1915 (near **180**); 147 months from 1917 (135 + 11¼ = 146¼); **300 months from Sep 1904**. Space: 38→261¾ = 223¾ (≈**225**); 21⅞→261¾ = **240** (⅔ circle); 8⅜→ = 253⅜ (≈255 = ½ of 240–270); 70½→ = 191¼ (**180 + 11¼**). Last run 162½→261¾ ≈ 100: **"when stocks have sharp advances, getting up 90 to 100 points, it is time to watch for top."**
+- **Key law (p.199):** **"Over a long period of years a stock cannot maintain a gain of more than one point per month, or… cannot do better than to hold the 45° angle. When a stock… goes up too fast and gets ahead of time, sharp reactions have to take place while the stock is squaring itself… when Time and Space balance, the stock makes top or bottom."** Steel's 45° from "0" at Oct 1907 was due at 262 on **Aug 23 1929**; top 261¾ on Sep 3 within ¼ pt. "Steel was behind time in May 1929. That is why the fast advance of 100 points took place."
+- **"Important tops and important bottoms become half-way points or main centers"**: Dec 1928 low 149¾ → 261¾ = 149¾ + (149¾ − 38) ⇒ 150 the half-way point 1915–1929 → Nov 13 1929 low exactly 150 (buy, stop 147).
+- Apr 1930 short at 198¾ (¾ of 261¾ = 196¼; ⅔ of 70½–261¾ = 198) — time: 10 yrs from Apr 1920, 20 yrs from Mar/Apr 1910, 7 yrs from Apr 1923, 90 months from Oct 1922.
+- **Looking ahead from incorporation:** 1901–04 bear ⇒ end of the **30-year cycle (1931) very much lower** esp. after the "third high top"; 20 yrs back (1911) and 10 (1921) ⇒ 1931 bear. **Feb 1931 = 360 months from incorporation → "a change in trend of Steel nearly always comes in the month of February."** Dec 1930 low 135 = ½ of life range. Jun 1931 83¼ on the 45° from "0" of May 1924 + 4×1 from "0" Sep 1929 at 84. Dec 1931 36 on the 45° from "0" of Dec 1928 (150) and the 45° down from Jun 1925 low 114; **242 months from 1911 low, 60 from Jan 1927.** **Jun 1932 21¼ = Oct 1907 low (double bottom)**, **34 months from the 1929 top**, **336 months from May 1904**, the 45° down from May 1924 reached **"0"** in Jun 1932 ⇒ bottom. Feb 1933 23¼ higher bottom = **42 months from Sep 1929 (½ of 7-yr)**, on the 45° from "0" of Feb 1931 (at 24). Oct 1933 low 34½ = **49 months** from the 1929 top, 42 from Apr 1930; 10, 7, 5, 15-yr look-backs all lows. Sep 1934 low 29½ = **60 months from the 1929 top.** 1935 repeating the bull years 1905, 1915, 1925; Nov 1935 45° down from Jul 1931 top 105½ at 53½. 1936 forecast method: look at 1906, 1916, 1926 (and 1921, 1922, 1929).
+### Squares of numbers (pp. 205–209)
+- "Every price at which a stock stops… is some important mathematical point" (circle division, square of 12, **square of 20**, or a half-way point of some number's square). **"Every market movement is the result of a Cause."** "Everything moves to a gravity center." Halving ladder: 360 → 180 → 90 → 45 → 22½ → 11¼ → 5⅝ → **2 13/16 (lowest usable time division).**
+- **Squares and their half-way points:** 4, 6½, 9, 12½, 16, 20½, 25, 30½, 36, 42½, 49, 56½, 64, 72½, 81, 90½, 100, 110½, 121, 132½, 144 …
+- **Odd/even rule:** a low on an **odd** number (3, 5, 7, 9, 11) works out to the **odd squares**; a low on an **even** number to the **even squares**.
+- At low prices tops/bottoms at 2, 4, 6½, 9, 12½, 16…; these are also **time periods** (monthly; watch weekly; daily when far from the pivot).
+### Important numbers 11–100 (Time AND Price) (pp. 206–209) — Gann's own gloss
+| # | Why (Gann) |
+|---|---|
+| 11–12 | 12 months; 11¼ = 1/32 circle |
+| 15–16 | 16 = 4²; 15 = 1¼ yrs |
+| 18 | 2×9, 1½×12, 1/20 circle |
+| 20½ | ½ of 16–25 |
+| 22½–24 | 1/16 circle; **"why stocks often top or bottom in the 23rd month"**; 24 = 2×12; 25 = 5², ¼ of 100 |
+| 26 | ½ of 16–36 |
+| 27–28 | **tops/bottoms often at 27–28 months; campaigns end there**; 28 = 4×7 = 2⅓ yrs; 27 = 3×9 ("3 the first odd number we can square") |
+| 30 | 2½ yrs; 30½ = ½ of 25–36 |
+| 34–36 | 33¾ = ¾ of 45; **1929–32 bear = 34 months**; 36 = 6², 3 yrs |
+| 39–40 | Biblical 40; 3⅓ yrs; 39⅜ = ⅞ of 45; 1/9 circle |
+| 42 | 3½ yrs = ½ of 7-yr cycle; 42½ = ½ of 36–49 |
+| **45** | **"the master of all numbers because it contains all the digits from 1 to 9"** (1+…+9 = 45); ½ of 90; ⅛ of 360; 5×9; **fast moves often in the 45th month**; appears on Square of 9, 12 and **20** |
+| 48–49 | 49 = 7²; 48 = 4 yrs; declines to 49–50 rally; advances to 49–50 react to 45 |
+| 50 | ½ of 100; 45 + 5⅝ = 50⅝ |
+| 52 | 52 weeks; **51⅞ = 1/7 circle**; 4⅓ yrs; 52½ = ½ of 45–60 |
+| 56–57 | 56¼ = 45 + 11¼; 56½ = ½ of 49–64 |
+| **60** | 5 yrs, ½ of 10-yr, ¼ of 20-yr; **"one of the most important time periods after 45 to 49"**; ⅙ circle; 3×20; hesitation at 60 ⇒ reversal |
+| 63–64 | 62½ = ⅝ of 100; 63 = 7×9; 64 = 8², 5⅓ yrs |
+| 66–67 | 5½ yrs; 67½ = 45 + 22½ = 3/16 circle |
+| 70–72 | Biblical 70 (3 score and 10); 72 = 6 yrs; 72½ = ½ of 64–81; 72 = 1/5 circle |
+| 78–80 | 78¾ = ⅞ of 90; 80 = 4×20, 1/18? circle (actually 2/9); 81 = 9² — "the endings and beginnings of cycles" |
+| 84–85 | 84⅜ = 15/16 of 90; **84 = 7-year cycle**; greatest resistance before 90 |
+| **89–90** | ¼ circle, vertical; 90½ = ½ of 81–100; **moves straight up/down at the 90th month/week/day; watch the 89th month** (campaigns begin/end at 89, some 91); **daily: change often on the 92nd–93rd day, often runs to ~98th day** |
+| 95–96 | 8×12, 95⅝ = 90 + 5⅝; **96–98th month starts the 9th year — "the 9th year is always important and marks the ending of important campaigns with extreme high or low prices"**; stocks often stall at 95–97 below 100 |
+| 99–100 | 10²; 11×9; 100 psychological |
