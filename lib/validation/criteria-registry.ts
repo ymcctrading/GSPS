@@ -107,8 +107,8 @@ const SCAN_SCORE: RegisteredCriterion[] = [
     expectedSign: "positive",
     evidence: "hypothesis",
     note:
-      "**Construction replaced 2026-09-27 (owner decision, conflict X3).** The charts now follow the source books " +
-      "own: the 3-Day Chart (45 Years in Wall Street, 1949, Ch. VII) and the 7-day weekly swing chart " +
+      "**Construction replaced 2026-09-27 (owner decision, conflict X3).** The charts now follow the source books: " +
+      "the 3-Day Chart (45 Years in Wall Street, 1949, Ch. VII) and the 7-day weekly swing chart " +
       "(How to Make Profits in Commodities, 1951, pp. 316-317), built on highs and lows, with the trend " +
       "turning only when the last swing top or bottom breaks. The old close-count '9-day' chart had no " +
       "source. Every measurement below describes the old construction and does not transfer: treat " +
