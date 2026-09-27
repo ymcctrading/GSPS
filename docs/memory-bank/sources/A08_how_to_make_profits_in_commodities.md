@@ -4,7 +4,7 @@
 |---|---|
 | Tier | **A** (Gann's own published book). Original copyright Jan 20 1942; revised 1951 (Edward Lambert). |
 | Copyright | In copyright. Synthesis only. |
-| Read status | **Text body COMPLETE (2026-09-27): book pp. 1–328, read page by page.** Covers the front matter, Chs. I–IV, every commodity section (wheat, soy beans, corn, rye, oats, barley, lard, cotton, cotton seed oil, butter, cocoa, coffee, eggs, hides, black pepper, potatoes, rubber, silk, sugar, wool), the 1941 Conclusion, and **the whole 1951 "New Rules" section (pp. 307–328)**. Method: pp. 1–64 via the Drive text export; pp. 61–328 by local OCR (tesseract) of the downloaded 425-page scan. Book page = PDF page − 16 at the start and − 18 from about p. 226, because the scan repeats pp. 204–205 and 226–227. p. 52 is missing from the source. **After p. 328 the file holds chart plates** (Chart No. 4 onward: coffee, cotton, cotton seed oil …) that OCR cannot turn into text. Their swing data is also given in the text tables already read. Any tabular pages found later among the plates will be noted here. |
+| Read status | **Text body COMPLETE (2026-09-27): book pp. 1–328, read page by page.** Covers the front matter, Chs. I–IV, every commodity section (wheat, soy beans, corn, rye, oats, barley, lard, cotton, cotton seed oil, butter, cocoa, coffee, eggs, hides, black pepper, potatoes, rubber, silk, sugar, wool), the 1941 Conclusion, and **the whole 1951 "New Rules" section (pp. 307–328)**. Method: pp. 1–64 via the Drive text export; pp. 61–328 by local OCR (tesseract) of the downloaded 425-page scan. Book page = PDF page − 16 at the start and − 18 from about p. 226, because the scan repeats pp. 204–205 and 226–227. p. 52 is missing from the source. **Pp. 329–366 are chart plates** (Charts No. 4–24: coffee, cotton, cotton seed oil, hides, hogs, rye, lard, oats, rubber, soy bean quarterly, sugar, wheat war swings, wool quarterly), which OCR cannot turn into text. **Pp. 367–408 are the statistical Appendix**, surveyed page by page: yearly high and low prices and months (lard 72 years, cotton spots 1816–1941, cotton seed oil, butter, coffee, eggs, hides, rubber, silk 1840–1941, sugar 1846–1941, wool 1851–1941), swing tables, cotton futures volume by month, and crop and production records (wheat, corn, soy beans, hogs, world cotton, cottonseed). The swing and extreme data duplicate the chapter text. The only prose is the crop-record commentary (see below). **The book is therefore read in full.** |
 
 ## Content read (synthesis, with page references)
 
@@ -288,6 +288,12 @@ This is the section flagged as the highest-priority gap. It **settles conflict X
     - **Limit days:** two consecutive limit moves closing at the extreme means selling (or buying) at the next open with a 2–3¢ stop. A limit day plus a gap plus a reverse signal at a ½ point is the strongest top signal, then confirmed by over-balanced price and time.
 13. **Long-term investing in futures (pp. 325–326).** A spread technique for tax-period management. Out of scope for GSPS.
 14. **Conclusion (pp. 326–328):** "apply mathematical scientific rules and gain Knowledge … before they risk their money."
+
+### Statistical appendix (pp. 367–408)
+- Data tables only, useful as a historical dataset rather than method.
+- **Crop-record prose (pp. 399–403).** Gann logs each crop as "one/two/three years larger" or "smaller" than the prior, and the interval from a record crop to the shortest crop: wheat 10 years (1915→1925) and 19 years (1915→1934); corn 5–7-year runs.
+  - He expects "1942 to 1944 the record should be broken" from these runs. This is crop-cycle forecasting by counting runs, the same run-counting logic as `ruleOfThree.ts` applied to annual data.
+  - It is not portable to equities.
 
 ## X3 — what the 1951 New Rules settle
 - **Gann's own swing charts, across three texts, are defined by the *duration of counter-moves*, measured on the bar's highs and lows, not by runs of closes:**
