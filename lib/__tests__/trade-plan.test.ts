@@ -191,6 +191,7 @@ function continuation(overrides: Partial<ScanResult> = {}): ScanResult {
     setupKind: "continuation",
     momentumElevated: true,
     pattern: { ...pattern, name: "2-1-2" },
+    swingChart: { threeDay: "bullish", nineDay: "bullish" },
     trends: [
       trend("1Month", "bullish"),
       trend("1Week", "bullish"),
@@ -202,12 +203,19 @@ function continuation(overrides: Partial<ScanResult> = {}): ScanResult {
 }
 
 describe("hasTradePlan", () => {
-  it("accepts a scan with a pattern and four finite levels", () => {
+  it("accepts a scan with an armed direction and four finite levels", () => {
     expect(hasTradePlan(result())).toBe(true);
   });
 
-  it("rejects a scan with no armed pattern", () => {
+  it("accepts a Gann-armed plan with no STRAT pattern (2026-09-26)", () => {
+    // The bar-sequence pattern is display and confluence only; it no longer
+    // decides what reaches the daily lists.
+    expect(hasTradePlan(result({ pattern: null }))).toBe(true);
+  });
+
+  it("rejects a scan with no armed trigger", () => {
     expect(hasTradePlan(result({ pattern: null, levels: null, direction: "none" }))).toBe(false);
+    expect(hasTradePlan(result({ direction: "none" }))).toBe(false);
   });
 
   it("rejects a scan whose levels failed to price", () => {
@@ -220,22 +228,28 @@ describe("hasTradePlan", () => {
 });
 
 describe("isMomentumContinuation", () => {
-  it("accepts a priced continuation pattern running with the macro trend", () => {
+  it("accepts a priced continuation running with the macro trend and both swing charts", () => {
     expect(isMomentumContinuation(continuation(), "bullish")).toBe(true);
   });
 
-  it("rejects a reversal shape, however much momentum is behind it", () => {
-    for (const name of ["2-2", "1-2-2", "3-2-2", "PMG"] as const) {
-      expect(
-        isMomentumContinuation(continuation({ pattern: { ...pattern, name } }), "bullish"),
-      ).toBe(false);
+  it("does not care which STRAT shape, or whether any, armed (2026-09-26)", () => {
+    for (const name of ["2-2", "1-2-2", "3-2-2", "PMG", "3-1-2"] as const) {
+      expect(isMomentumContinuation(continuation({ pattern: { ...pattern, name } }), "bullish")).toBe(true);
     }
+    expect(isMomentumContinuation(continuation({ pattern: null }), "bullish")).toBe(true);
   });
 
-  it("accepts the other continuation shape (3-1-2)", () => {
+  it("rejects a continuation while the 3-day swing chart is pulling back against it", () => {
     expect(
-      isMomentumContinuation(continuation({ pattern: { ...pattern, name: "3-1-2" } }), "bullish"),
-    ).toBe(true);
+      isMomentumContinuation(continuation({ swingChart: { threeDay: "bearish", nineDay: "bullish" } }), "bullish"),
+    ).toBe(false);
+  });
+
+  it("rejects a continuation whose main (9-day) trend hasn't turned its way, or has no swing read", () => {
+    expect(
+      isMomentumContinuation(continuation({ swingChart: { threeDay: "bullish", nineDay: "bearish" } }), "bullish"),
+    ).toBe(false);
+    expect(isMomentumContinuation(continuation({ swingChart: undefined }), "bullish")).toBe(false);
   });
 
   it("rejects a flat tape — a continuation needs the range expansion", () => {
@@ -283,7 +297,7 @@ describe("isMomentumContinuation", () => {
  * continuation must not fill a slot just because it's the best one left.
  */
 describe("qualifiesAsContinuationFill", () => {
-  it("accepts a shaped continuation that clears the Execute bar", () => {
+  it("accepts a confirmed continuation that clears the Execute bar", () => {
     expect(
       qualifiesAsContinuationFill(
         continuation({ decision: { score: EXECUTE_SCORE_THRESHOLD, outputState: "Execute", breakdown: [] } }),
@@ -303,11 +317,11 @@ describe("qualifiesAsContinuationFill", () => {
     ).toBe(false);
   });
 
-  it("rejects a high score that never armed the right shape", () => {
+  it("rejects a high score whose swing charts don't confirm the continuation", () => {
     expect(
       qualifiesAsContinuationFill(
         continuation({
-          pattern: { ...pattern, name: "2-2" },
+          swingChart: { threeDay: "bearish", nineDay: "bullish" },
           decision: { score: 9, outputState: "Execute", breakdown: [] },
         }),
         "bullish",

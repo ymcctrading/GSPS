@@ -546,11 +546,30 @@ describe("replay continuation setups", () => {
     expect(cont[0].criteria!.entryTriggerArmed).toBe(true);
   });
 
-  it("does not arm a continuation without a continuation shape at the fill", () => {
+  it("arms a continuation with no STRAT continuation shape once the swing charts confirm it (2026-09-26)", () => {
     // Directional warm-up bars run straight into the breakout, so no inside
-    // bar sets up a 2-1-2 or 3-1-2. The replay never trades the final bar, so
-    // the breakout is the only candle that could fill.
+    // bar sets up a 2-1-2 or 3-1-2. Until 2026-09-26 that alone kept the
+    // continuation out; the gate is now Gann's swing charts, and on this
+    // history both read the continuation's direction.
+    expect(ctx.swingChart.threeDay).toBe(continuationDir);
+    expect(ctx.swingChart.nineDay).toBe(continuationDir);
     const r = replay("TEST", intraday([...warm, ...warm.slice(0, 2), breakout, after]), { targetR: 2, dailyBars: rising });
+    expect(r.trades.filter((t) => t.setupKind === "continuation")).toHaveLength(1);
+  });
+
+  it("does not arm a continuation while the 3-day swing chart is pulling back against it", () => {
+    // One session less: the 3-day chart has flipped against the 9-day, which
+    // still reads the macro direction. Everything else in the gate is open.
+    const pulledBack = rising.slice(0, -1);
+    const pbCtx = buildMacroContext(pulledBack, pulledBack[pulledBack.length - 1].c);
+    expect(pbCtx.swingChart.nineDay).toBe(continuationDir);
+    expect(pbCtx.swingChart.threeDay).not.toBe(continuationDir);
+    const P = computeGannEntryTrigger(pulledBack, continuationDir)!.triggerPrice;
+    const shift = (b: { o: number; h: number; l: number; c: number }) => ({
+      o: b.o - T + P, h: b.h - T + P, l: b.l - T + P, c: b.c - T + P,
+    });
+    const bars = intraday([...warm, twoUp, inside, breakout, after].map(shift));
+    const r = replay("TEST", bars, { targetR: 2, dailyBars: pulledBack });
     expect(r.trades.filter((t) => t.setupKind === "continuation")).toHaveLength(0);
   });
 

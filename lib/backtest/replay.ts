@@ -31,9 +31,10 @@
  *     `runMarketScan`'s continuation pass calls `scanTicker` with a
  *     direction. A session arms one only when that pass's own gate
  *     (`isMomentumContinuation`) could admit it: at least two of three macro
- *     timeframes agree (`macroBreadthAgrees`), momentum is elevated, and at
- *     the fill the top-ranked pattern is a continuation shape
- *     (`isContinuationShape`). The scan also requires an Execute score before
+ *     timeframes agree (`macroBreadthAgrees`), momentum is elevated, and
+ *     Gann's 3-day and 9-day swing charts both read the continuation's
+ *     direction (`swingChartsConfirm`; a STRAT continuation shape until
+ *     2026-09-26). The scan also requires an Execute score before
  *     publishing a continuation. The replay records every such trade with its
  *     score, so read continuation results from the Execute bucket
  *     (`bySetupKind` and then `byOutputState`). Filtering on score here would
@@ -77,14 +78,14 @@ import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { computeStopWithLeeway, computeTradeLevels, type EntrySource } from "@/lib/strat/levels";
 import {
   MIN_DAILY_BARS_FOR_SCAN,
-  isContinuationShape,
+  swingChartsConfirm,
   macroBreadthAgrees,
   preferredEntryDirection,
   rankArmedPatterns,
 } from "@/lib/scan/entrySelection";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
 import { readLiquidity } from "@/lib/scan/liquidity";
-import { applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
+import { computeScore } from "@/lib/scoring/score";
 import {
   FALLBACK_SR_PCT,
   SR_PROXIMITY_ATR,
@@ -362,7 +363,7 @@ export interface ReplayTrade {
    * criterion asked of two setup kinds.
    *
    * Partial by construction. Some checks are appended only in the situations
-   * that trigger them (the trade-plan hold, the bare-2-2 downgrade, the
+   * that trigger them (the trade-plan hold, the
    * decision-lag hold), so an absent key means "not evaluated on this setup",
    * never "failed". Consumers must not read absence as false — see
    * `attribution.ts`.
@@ -825,11 +826,12 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           preferredDirection: trigger.direction,
           setupKind,
         })[0] ?? null;
-      // The continuation pass publishes only a continuation shape. Without
-      // one there's no published plan and so no resting order. The pivot is
-      // not consumed, so a later bar can still fill once a shape arms, just as
-      // a later scan could publish it.
-      if (setupKind === "continuation" && !isContinuationShape(pattern)) continue;
+      // The continuation pass publishes a continuation only when Gann's 3-day
+      // and 9-day swing charts both confirm its direction. Without that there's
+      // no published plan and so no resting order. The pivot is not consumed,
+      // so a later session can still fill once the charts agree, just as a
+      // later scan could publish it.
+      if (setupKind === "continuation" && !swingChartsConfirm(arm.context.swingChart, trigger.direction)) continue;
 
       consumedPivots.add(pivotKey);
       triggered++;
@@ -1075,34 +1077,29 @@ function scoreSetup(input: {
 
   const levels = priceLevels({ context, gannTrigger, history, executionAtr, assetClass, largeCap });
 
-  return applyReversionConfirmation(
-    computeScore({
-      direction: gannTrigger.direction,
-      macroTrends: context.macroTrends,
-      hourlyTrend,
-      swingChart: context.swingChart,
-      campaignLeg: context.campaignLeg,
-      ruleOfThree: context.ruleOfThree,
-      timePriceSquare: context.timePriceSquare,
-      volumeClimax: context.volumeClimax,
-      boilingPoint: context.boilingPoint,
-      gann: context.gann,
-      nearSupportResistance: context.nearSupportResistance,
-      srMatch: context.srMatch,
-      pattern,
-      gannTrigger,
-      momentumElevated: context.momentumElevated,
-      levels,
-      stopAtrMultiple: levels && executionAtr > 0 ? levels.riskPerShare / executionAtr : null,
-      assetClass,
-      setupKind,
-      atrPct: context.atrPct,
-      ...(weights ? { weights } : {}),
-    }),
+  return computeScore({
+    direction: gannTrigger.direction,
+    macroTrends: context.macroTrends,
+    hourlyTrend,
+    swingChart: context.swingChart,
+    campaignLeg: context.campaignLeg,
+    ruleOfThree: context.ruleOfThree,
+    timePriceSquare: context.timePriceSquare,
+    volumeClimax: context.volumeClimax,
+    boilingPoint: context.boilingPoint,
+    gann: context.gann,
+    nearSupportResistance: context.nearSupportResistance,
+    srMatch: context.srMatch,
     pattern,
-    context.momentumElevated,
-    context.nearSupportResistance,
-  );
+    gannTrigger,
+    momentumElevated: context.momentumElevated,
+    levels,
+    stopAtrMultiple: levels && executionAtr > 0 ? levels.riskPerShare / executionAtr : null,
+    assetClass,
+    setupKind,
+    atrPct: context.atrPct,
+    ...(weights ? { weights } : {}),
+  });
 }
 
 /**

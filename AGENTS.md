@@ -730,6 +730,27 @@ for the project owner** — do not fix it silently, and re-verify it first:
   is decide where an order goes" in spirit, since publication decides what
   Guided Mode and the demo trade. It's a production behaviour change, so it's
   held for the project owner. The replay does not apply this filter.
+  **Resolved 2026-09-27, project-owner direction** ("fix hasTradePlan
+  requiring a STRAT pattern"). `hasTradePlan` now needs an armed direction
+  and four finite levels, not a pattern. `isMomentumContinuation` and the
+  replay's continuation arm are gated on `swingChartsConfirm`
+  (`lib/scan/entrySelection.ts`): Gann's 3-day and 9-day swing charts both
+  reading the setup's direction, carried on `ScanResult.swingChart`. The
+  continuation pass's pre-scan pruning (`cannotArm`) reads the same swing
+  charts instead of the armed STRAT list. The order ticket's description had
+  dereferenced `pattern!` whenever protocol levels existed, a latent crash for
+  any Gann-armed setup without a STRAT pattern; it now describes the
+  structural trigger's direction.
+  **The sweep for this found one more STRAT gate, also resolved 2026-09-27
+  with the owner's sign-off** ("It was custom instructions added by me, but no
+  longer valid/needed since we're using the Ganns method"):
+  `applyReversionConfirmation` in `lib/scoring/score.ts` downgraded Execute to
+  Watch whenever the top pattern was a bare "2-2" without momentum and S/R
+  confirmation. Deleted from the scan and the replay; the `reversionConfirmation`
+  registry entry is retired. After both changes, nothing in the scan, the
+  score, publication or the replay reads a STRAT pattern except for display,
+  confluence and ranking which pattern is shown. `STRATEGY_VERSION` is
+  `2026-09-27-gann-publication`.
 - **Being in `FALLBACK_UNIVERSE` doesn't mean being scanned (F1.7).**
   **Resolved in practice, checked 2026-09-26 against production:** the
   rotation reached 765 of the 766 large caps at the coarse gate on

@@ -32,6 +32,7 @@
 import type { StratPattern, TrendReading } from "@/lib/types";
 import type { SetupKind } from "@/lib/types";
 import { weightedTrendAgreement } from "@/lib/gann/timeframeWeight";
+import type { SwingChartReading } from "@/lib/gann/swingChart";
 import {
   CONTINUATION_PATTERNS,
   detectPatterns,
@@ -64,14 +65,29 @@ export function macroBreadthAgrees(
 }
 
 /**
- * The top-ranked pattern is a continuation shape: the compound shapes that
- * break with the bar sequence. The 2-2 family reverses a move, so it doesn't
- * qualify. Moved verbatim from `lib/marketScan.ts#isMomentumContinuation`. It
- * checks the shape only, not the pattern's own direction; the caller checks
- * the setup's direction separately.
+ * Whether the trend a continuation would join is intact on Gann's own swing
+ * charts: both the 3-day (minor) and 9-day (main) charts read the setup's
+ * direction. Replaced `isContinuationShape` on 2026-09-26 (project-owner
+ * direction, closing the audit finding "STRAT still gates publication"). That
+ * check required the top-ranked STRAT bar-sequence pattern to be a
+ * continuation shape, so Rob Smith's taxonomy still decided which Gann-armed
+ * continuations were published, after 2026-09-17 had made it display and
+ * confluence only. Shared by `lib/marketScan.ts#isMomentumContinuation` and
+ * the replay's continuation arm, so the two can't drift.
+ *
+ * Three-question mandate: (1) Gann: the 3-day and 9-day swing charts,
+ * `docs/GANN_HISTORICAL_SOURCES.md` A2.1 Ch. VII (primary); the 9-day chart
+ * carries the main trend and the 3-day the swing within it, so both agreeing
+ * is his read of a trend that is running, not pulling back. (2) Cycles: no
+ * periodicity claim. (3) Hermetic: Correspondence, the same construction read
+ * at two scales agreeing. The other six don't decide what "the trend is
+ * intact" means.
  */
-export function isContinuationShape(pattern: StratPattern | null): pattern is StratPattern {
-  return pattern !== null && CONTINUATION_PATTERNS.has(pattern.name);
+export function swingChartsConfirm(
+  swingChart: SwingChartReading | null | undefined,
+  direction: EntryDirection,
+): boolean {
+  return swingChart?.threeDay === direction && swingChart?.nineDay === direction;
 }
 
 /**

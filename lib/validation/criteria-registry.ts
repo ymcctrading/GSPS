@@ -373,7 +373,7 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "Replaced `momentum` on 2026-09-08. Momentum was the deadest criterion in the app: on 1,005 " +
       "unconditioned live trades it measured r=−0.0003, t=−0.01, Δ=−0.002R — three ten-thousandths " +
       "of a correlation, a point contributed for no information. It survives as an input to " +
-      "applyReversionConfirmation's bare-2-2 gate, which is a different job; it is simply no longer " +
+      "applyReversionConfirmation's bare-2-2 gate (deleted 2026-09-26), which was a different job; it is simply no longer " +
       "scored. Corroborated on the fresher, larger 2026-09-10 unconditioned run (1,029 trades): still " +
       "r≈0.00 (100/1029 passing, Δ=+0.002R) — dead on a second, independent population too.\n" +
       "\n" +
@@ -637,8 +637,9 @@ const RETIRED: RegisteredCriterion[] = [
       "Replaced by `stopRoom`. On 1,005 unconditioned live trades it measured r=−0.0003, t=−0.01, " +
       "Δ=−0.002R: three ten-thousandths of a correlation, contributing a point of the nine for no " +
       "information at all. Every payload committed before 2026-09-08 measured it, which is why the " +
-      "entry stays. `momentumElevated` itself is still computed and still gates the bare-2-2 check " +
-      "in applyReversionConfirmation — that job was never the scored point.",
+      "entry stays. `momentumElevated` itself is still computed; it gated the bare-2-2 check in " +
+      "applyReversionConfirmation until that was deleted 2026-09-26, and still gates the continuation " +
+      "pass — that job was never the scored point.",
   },
   {
     id: "fanProximity",
@@ -783,6 +784,22 @@ const RETIRED: RegisteredCriterion[] = [
       "criterion it approximates. Replaced with a different signal off the same anchor (volume climax) " +
       "rather than a third attempt at tuning a price-proximity band.",
   },
+  {
+    id: "reversionConfirmation",
+    family: "scoreHold",
+    source: "lib/scoring/score.ts (applyReversionConfirmation, deleted 2026-09-26)",
+    label: "Bare reversal confirmation",
+    expectedSign: "unknown",
+    evidence: "retired",
+    note:
+      "Retired 2026-09-26 with the hold that produced it. `applyReversionConfirmation` downgraded an " +
+      "Execute verdict to Watch when the top bar-sequence reversal pattern was a bare failed push " +
+      "without both momentum and S/R confirmation, and appended this item, always failed. That let a " +
+      "taxonomy outside the platform's method decide a verdict after 2026-09-17 made it display and " +
+      "confluence only; the project owner confirmed it was a custom instruction that no longer " +
+      "applies. Kept so committed runs that carry the key stay readable.",
+    saturation: { minPassRate: 0, maxPassRate: 1 },
+  },
 ];
 
 /**
@@ -799,24 +816,6 @@ const SCORE_HOLDS: RegisteredCriterion[] = [
     expectedSign: "unknown",
     evidence: "unmeasured",
     note: "Appended only when a 7+ score has no priced plan, so it is absent from most trades and cannot be read as a fail elsewhere.",
-  },
-  {
-    id: "reversionConfirmation",
-    family: "scoreHold",
-    source: "lib/scoring/score.ts",
-    label: "Bare reversal confirmation",
-    expectedSign: "unknown",
-    evidence: "unmeasured",
-    note:
-      "Failed by construction whenever it appears at all: `applyReversionConfirmation` only appends " +
-      "this breakdown item on the early-return path taken when `confirmed` is false (a bare 2-2 pattern " +
-      "on an Execute verdict that didn't get momentum+S/R confirmation) — there is no code path that " +
-      "appends it with `passed: true`. First surfaced as a `starved` (0% pass) finding 2026-09-14 once " +
-      "committed observation counts (31 at 15Min, 464 at 1Hour) cleared MIN_OBSERVATIONS_FOR_SATURATION " +
-      "for the first time; every previous committed run had only 1 observation, too few to trip the " +
-      "check. Same shape as `patternArmed` above (constant by construction, not a discrimination " +
-      "defect), so it gets the same override.",
-    saturation: { minPassRate: 0, maxPassRate: 1 },
   },
   {
     id: "dataLag",

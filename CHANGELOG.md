@@ -7,6 +7,25 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-09-27
+
+### Changed
+- **The bar-sequence (STRAT) taxonomy no longer decides anything.** A bare
+  "2-2" pattern no longer downgrades an Execute verdict to Watch
+  (`applyReversionConfirmation` deleted). A published plan no longer needs an
+  armed pattern (`hasTradePlan`). A continuation is gated on Gann's 3-day and
+  9-day swing charts both confirming its direction, not on a continuation
+  shape, in the live scan and the replay alike. **This changes verdicts and
+  which setups are published.** `STRATEGY_VERSION` is
+  `2026-09-27-gann-publication`.
+- **The intraday scanner reads the session's balance point** (the halfway
+  point of the day's range) instead of VWAP, for direction, invalidation and
+  the pivot plan's first target. VWAP stays an optional chart overlay.
+- **The scan reads completed daily sessions only**, the mega-cap universe is
+  in the live rotation, a plan waiting for confirmation is invalidated when
+  price trades through its stop, and non-uniform live weights and
+  out-of-range `policy_values` rows are ignored.
+
 ## 2026-09-26
 
 ### Fixed

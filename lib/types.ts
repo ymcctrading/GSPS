@@ -289,7 +289,18 @@ export interface ScanResult {
   momentumElevated: boolean;
   trends: TrendReading[];
   gann: GannLevels;
+  /**
+   * The top-ranked STRAT bar-sequence pattern. Display and confluence only:
+   * since 2026-09-26 it no longer gates publication either (`hasTradePlan`,
+   * `isMomentumContinuation`). Null when none is armed, which is normal.
+   */
   pattern: StratPattern | null;
+  /**
+   * Gann's 3-day/9-day swing charts off the daily bars. Carried so the
+   * continuation gate (`swingChartsConfirm`) can read them after the scan.
+   * Optional because older persisted results don't have it.
+   */
+  swingChart?: { threeDay: "bullish" | "bearish" | null; nineDay: "bullish" | "bearish" | null };
   /** Every setup armed on the execution timeframe (the primary is `pattern`). */
   armedPatterns: StratPattern[];
   levels: TradeLevels | null;

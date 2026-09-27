@@ -500,8 +500,8 @@ export function OrderTicket({
         <CardDescription>
           {useProtocolLevels
             ? assetType === "options"
-              ? `Trade ${symbol} options — protocol read is ${pattern!.direction}.`
-              : `${side === "buy" ? "Long" : "Short"} ${symbol} — armed ${PATTERN_GLOSSARY_TERM[pattern!.name].toLowerCase()} setup is ${pattern!.direction}.`
+              ? `Trade ${symbol} options — protocol read is ${result.direction}.`
+              : `${side === "buy" ? "Long" : "Short"} ${symbol} — armed structural trigger is ${result.direction}.`
             : `Manual ${side === "buy" ? "long" : "short"} execution for ${symbol} ${assetType === "options" ? "options" : ""} — no protocol levels attached${assetType === "shares" ? "; optional custom stop/target below" : ""}.`}
         </CardDescription>
         <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-border pt-3">

@@ -21,7 +21,7 @@
  * short. A short list is an acceptable outcome; a list padded with symbols
  * that have no trade plan, or with a trade plan too weak to have earned a
  * slot on its own merits, is not — `qualifiesAsContinuationFill` requires
- * both the right shape and an Execute-tier score, never just "the best of
+ * both a confirmed swing-chart trend and an Execute-tier score, never just "the best of
  * what's left." Six 7/9s beat eighteen setups trailing off through 6, 5, 4.
  *
  * Cycle-timed selection (added 2026-09-25): each symbol's own Gann time
@@ -54,8 +54,7 @@ import {
   type TimeCycleResult,
   type YearCycleConvergence,
 } from "@/lib/gann/timeCycles";
-import { CONTINUATION_PATTERNS } from "@/lib/strat/patterns";
-import { isContinuationShape, macroBreadthAgrees } from "@/lib/scan/entrySelection";
+import { macroBreadthAgrees, swingChartsConfirm } from "@/lib/scan/entrySelection";
 import { MIN_EQUITY_PRICE_USD, meetsLiquidityFloor, readLiquidity } from "@/lib/scan/liquidity";
 import { scanTicker } from "@/lib/scanTicker";
 import { EXECUTION_TIMEFRAME } from "@/lib/timeframe";
@@ -613,11 +612,19 @@ function coarseDiagnostics(
  * complete, finite trade plan. Every consumer of `daily_scans` renders the four
  * price columns as the reason to take the trade, so a row missing any of them
  * is not a setup — it is noise that outranks real ones on score alone.
+ *
+ * It no longer requires an armed STRAT pattern (2026-09-26, project-owner
+ * direction, closing the audit finding "STRAT still gates publication"). The
+ * plan is armed and priced from Gann's swing-crossing trigger
+ * (`lib/gann/entryTrigger.ts`); the bar-sequence taxonomy has been display and
+ * confluence only since 2026-09-17, and requiring one here meant it still
+ * decided which Gann setups reached the lists, Guided Mode and the demo. The
+ * replay never applied this filter, so the two now agree.
  */
 export function hasTradePlan(r: ScanResult): boolean {
   const l = r.levels;
   return (
-    r.pattern !== null &&
+    r.direction !== "none" &&
     l !== null &&
     [l.entry, l.stopLoss, l.takeProfit1, l.masterProfit].every(
       (v) => typeof v === "number" && Number.isFinite(v),
@@ -626,16 +633,18 @@ export function hasTradePlan(r: ScanResult): boolean {
 }
 
 /**
- * What earns a top-up slot: a priced plan, on a continuation shape, breaking in
- * the direction the macro timeframes already read, with the range expansion to
- * carry it. All four, or the row is not what the shortage asked for.
+ * What earns a top-up slot: a priced plan, in the direction the macro
+ * timeframes already read, with Gann's 3-day and 9-day swing charts both
+ * confirming that trend, and the range expansion to carry it. All four, or the
+ * row is not what the shortage asked for. (The swing-chart check replaced a
+ * STRAT "continuation shape" on 2026-09-26 — see `swingChartsConfirm`.)
  */
 export function isMomentumContinuation(
   r: ScanResult,
   direction: "bullish" | "bearish",
 ): boolean {
   if (!hasTradePlan(r) || r.direction !== direction || !r.momentumElevated) return false;
-  if (!isContinuationShape(r.pattern)) return false;
+  if (!swingChartsConfirm(r.swingChart, direction)) return false;
   // Considered switching to lib/gann/timeframeWeight.ts's power-ratio
   // weighting here too (the same fix applied to lib/scanTicker.ts's
   // macro-direction pattern preference) — reverted: this gate needs a
@@ -652,9 +661,9 @@ export function isMomentumContinuation(
 
 /**
  * The continuation top-up pass's actual admission test: a genuine momentum
- * continuation shape (`isMomentumContinuation`) that also clears the same
+ * continuation (`isMomentumContinuation`) that also clears the same
  * Execute-tier bar a reversion has to clear on its own merits
- * (`EXECUTE_SCORE_THRESHOLD`). A candidate that arms the right pattern but
+ * (`EXECUTE_SCORE_THRESHOLD`). A candidate that passes the continuation gate but
  * scores a 6, 5, or 4 is not "the best of what's left" here — it's excluded,
  * same as a symbol with no trade plan at all. A short continuation fill (or
  * none) is the correct answer on a day nothing clears the bar, not a
@@ -989,8 +998,8 @@ export async function runMarketScan(
   const scanErrors = full.length - valid.length;
 
   // The daily lists are trade plans, not a watchlist. A symbol only earns a row
-  // when the execution timeframe actually armed a pattern in that direction and
-  // the plan priced out — entry, stop, TP1 and master profit all present.
+  // when Gann's trigger armed in that direction and the plan priced out —
+  // entry, stop, TP1 and master profit all present.
   const rank = (dir: "bullish" | "bearish") =>
     valid
       .filter((r) => r.direction === dir && hasTradePlan(r))
@@ -1040,19 +1049,17 @@ export async function runMarketScan(
     // Split the budget across the sides being scanned so a deep shortfall on
     // one can't consume every scan and leave the other empty.
     const perSideBudget = Math.floor(MAX_TOPUP_SCANS / Math.max(shortSides.length, 1));
-    // A symbol already scanned in the reversion pass told us every pattern it
-    // armed. If none of them was a continuation shape in the direction we need,
-    // re-scanning it cannot produce one — the preference only reorders the same
-    // armed list — so skip it and spend the call on a candidate that might.
+    // A symbol already scanned in the reversion pass told us its swing charts.
+    // They're read off daily bars and don't depend on the direction the scan
+    // prefers, so if they don't both confirm the direction we need, the
+    // continuation gate (`swingChartsConfirm`) will refuse a re-scan too. Skip
+    // it and spend the call on a candidate that might. (Until 2026-09-26 this
+    // skipped symbols with no STRAT continuation shape armed, the same
+    // bar-sequence gate `isMomentumContinuation` dropped then.)
     const scanned = new Map(valid.map((r) => [r.symbol, r]));
     const cannotArm = (c: CoarseCandidate): boolean => {
       const prior = scanned.get(c.symbol);
-      return (
-        prior !== undefined &&
-        !prior.armedPatterns.some(
-          (p) => p.direction === c.direction && CONTINUATION_PATTERNS.has(p.name),
-        )
-      );
+      return prior !== undefined && !swingChartsConfirm(prior.swingChart, c.direction);
     };
 
     const fills = shortSides.flatMap((dir) =>

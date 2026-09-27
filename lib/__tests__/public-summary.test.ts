@@ -17,7 +17,8 @@ import type {
   TradeLevels,
   TrendReading,
 } from "@/lib/types";
-import { applyReversionConfirmation, computeScore, type ScoreInputs } from "@/lib/scoring/score";
+import { applyDataLagHold, computeScore, type ScoreInputs } from "@/lib/scoring/score";
+import { FREE_EQUITY_FEED_DELAY_MS, decisionLag } from "@/lib/data/latency";
 import {
   redactDecision,
   redactScanResult,
@@ -170,9 +171,20 @@ describe("toPublicScoreSummary", () => {
     expect(summary.stateNote).not.toBeNull();
   });
 
-  it("notes the downgrade of an unconfirmed reversal", () => {
-    const decision = applyReversionConfirmation(computeScore(allPass), pattern, false, false);
+  it("notes a hold that moves Execute to Watch", () => {
+    const lag = decisionLag("15Min", FREE_EQUITY_FEED_DELAY_MS, true);
+    const decision = applyDataLagHold(computeScore(allPass), lag);
+    expect(decision.outputState).toBe("Watch");
     expect(toPublicScoreSummary(decision).stateNote).not.toBeNull();
+  });
+
+  it("does not let a bare 2-2 STRAT pattern change the verdict (2026-09-26)", () => {
+    // allPass carries a bare, unconfirmed "2-2". Until 2026-09-26 that alone
+    // downgraded Execute to Watch. The bar-sequence pattern is display only.
+    expect(allPass.pattern?.name).toBe("2-2");
+    const decision = computeScore({ ...allPass, momentumElevated: false });
+    expect(decision.outputState).toBe("Execute");
+    expect(decision.breakdown.some((b) => b.key === "reversionConfirmation")).toBe(false);
   });
 
   it("leaves the note off when the state matches the score", () => {
