@@ -100,6 +100,10 @@ own words with no book text stored. **Start with
 about Gann's methodology, cycle validation or the Hermetic lens comes up.
 Its Part V lists the open gaps, conflicts and corrections, all held for the
 project owner. Per-source notes are in `docs/memory-bank/sources/`.
+**`docs/memory-bank/GANN_PARITY_ROADMAP.md`** is the build plan toward a
+faithful copy of Gann's disclosed method: a rule-by-rule parity matrix with
+status, owner decisions and a staged build order. Update its rows when a
+rule is built.
 
 ## WD Gann precedence — standing principle
 

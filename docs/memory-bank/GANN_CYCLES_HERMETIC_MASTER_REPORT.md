@@ -402,7 +402,13 @@ The lens shapes design and reasoning. It **cannot move a threshold, weight or ga
 
 Every item below is an **open recommendation**. Items that touch scoring, gating, plans, orders or risk are **held for the project owner** under AGENTS.md. Anything built must pass gate 1 (cited here) and gate 2 (measured), and anything cyclical must state its Dewey items.
 
+**Build plan:** `GANN_PARITY_ROADMAP.md` (and PDF) turns this Part into a rule-by-rule parity matrix (74 rules) with owner decisions and a staged build order.
+
 ### Conflicts to review
+- **X4 — "Never fix a target price" vs GSPS's fixed TP1 and master target** (found 2026-09-27).
+  - Gann exits on the stop or on a trend-change signal, and sells at resistance levels his rules identify (A02 Book II; A04 rules).
+  - `lib/trade/protocol-exit.ts` takes 60% off at TP1 and 20% at the master target.
+  - See the roadmap, Part 4, decision 2. **Owner decision.**
 - **X1 — `volumeClimax.ts` vs Gann's volume rules.**
   - The module's header says a genuine turn "prints on climax volume." The Master Course Ch. 12 (Rule 3) and A05 say **normal bottoms form on *decreasing* volume and narrowing range**, and climax volume at a low is the **exception** (fast panics).
   - The criterion measures positive (Δ+0.645R, 2026-09-23 run). That is a translation-fidelity question for the owner, not an automatic change.
