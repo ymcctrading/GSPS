@@ -91,13 +91,22 @@ describe("computeEquityTradeLevels", () => {
     expect(result.takeProfit2).toBeCloseTo(entry * 1.105, 5);
   });
 
-  it("extends the runner to a real structural level beyond TP2 but inside the cap", () => {
+  it("takes TP1 at the nearest level in its band and the master at the next level (parity C4)", () => {
     const entry = 100;
-    const atrPct = 3; // TP2 raw target lands at 110.5
-    const structuralLevels = [95, 115]; // 115 is beyond TP2, inside the 30% cap (130)
+    const atrPct = 3;
+    const structuralLevels = [95, 106, 115]; // 106 is inside the TP1 band, 115 beyond it, inside the 30% cap
     const result = computeEquityTradeLevels({ direction: "bullish", entry, structuralLevels, atrPct });
+    expect(result.tp1FromStructure).toBe(true);
+    expect(result.takeProfit1).toBe(106);
     expect(result.masterFromStructure).toBe(true);
     expect(result.takeProfit2).toBe(115);
+  });
+
+  it("falls back to the range-scaled TP1 only when no level lies in the TP1 band", () => {
+    const entry = 100;
+    const result = computeEquityTradeLevels({ direction: "bullish", entry, structuralLevels: [95, 200], atrPct: 3 });
+    expect(result.tp1FromStructure).toBe(false);
+    expect(result.takeProfit1).toBeCloseTo(106, 5);
   });
 
   it("does not extend the runner to a level beyond the master cap", () => {
@@ -142,10 +151,11 @@ describe("computeEquityTradeLevels", () => {
       direction: "bullish",
       entry,
       structuralLevels: [], // no S/R for the stop
-      extensionLevels: [115], // Gann-only target beyond TP2, inside the 30% cap
+      extensionLevels: [106, 115], // Gann-only targets, inside the TP1 band and the 30% cap
       atrPct,
     });
     expect(result.stopFromStructure).toBe(false);
+    expect(result.takeProfit1).toBe(106);
     expect(result.masterFromStructure).toBe(true);
     expect(result.takeProfit2).toBe(115);
   });
@@ -153,9 +163,10 @@ describe("computeEquityTradeLevels", () => {
   it("defaults extensionLevels to structuralLevels when omitted, unchanged from before the split", () => {
     const entry = 100;
     const atrPct = 3;
-    const structuralLevels = [95, 115];
+    const structuralLevels = [95, 106, 115];
     const result = computeEquityTradeLevels({ direction: "bullish", entry, structuralLevels, atrPct });
     expect(result.stopFromStructure).toBe(true);
+    expect(result.tp1FromStructure).toBe(true);
     expect(result.masterFromStructure).toBe(true);
     expect(result.takeProfit2).toBe(115);
   });

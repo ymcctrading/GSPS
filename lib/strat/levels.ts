@@ -195,6 +195,8 @@ export interface EquityTradeLevels {
   takeProfit1: number;
   takeProfit2: number;
   stopFromStructure: boolean;
+  /** TP1 sits on a Gann or S/R level (parity C4) rather than the ATR fallback. */
+  tp1FromStructure: boolean;
   masterFromStructure: boolean;
 }
 
@@ -334,35 +336,44 @@ export function computeEquityTradeLevels(params: {
     : fallbackStopPct;
   const stopLoss = entry - dir * (stopPct / 100) * entry;
 
-  const tp1Pct = clampPct(
-    EQUITY_TP1_ATR_MULTIPLE * (atrPct ?? EQUITY_TP1_MIN_PCT),
-    EQUITY_TP1_MIN_PCT,
-    EQUITY_TP1_MAX_PCT,
-  );
-  const takeProfit1 = entry + dir * (tp1Pct / 100) * entry;
-
-  const tp2Pct = clampPct(
+  // Targets (parity C4, owner decision 2, 2026-09-27: "Gann's method
+  // supersedes my own"). Gann never fixes a profit objective; he sells at the
+  // resistance levels his rules identify (*Truth of the Stock Tape*, Book II).
+  // So TP1 is the nearest such level (Gann targets and clustered S/R, the
+  // `extensionLevels` pool) inside the TP1 band, and the master target the
+  // next one beyond it inside the cap. The ATR-scaled percentage survives only
+  // as the fallback when no level lies in the band, and the flags say which
+  // was used. Beyond the master, the runner leaves on a Gann trend-change
+  // signal (`lib/gann/exitRules.ts`), not at a price.
+  const atrTp1 = entry + dir * (clampPct(EQUITY_TP1_ATR_MULTIPLE * (atrPct ?? EQUITY_TP1_MIN_PCT), EQUITY_TP1_MIN_PCT, EQUITY_TP1_MAX_PCT) / 100) * entry;
+  const atrTp2Pct = clampPct(
     EQUITY_TP2_ATR_MULTIPLE * (atrPct ?? EQUITY_TP2_MIN_PCT),
     EQUITY_TP2_MIN_PCT,
     EQUITY_TP2_MAX_PCT,
   );
-  const tp2Target = entry + dir * (tp2Pct / 100) * entry;
+  const pctFrom = (level: number) => (dir * (level - entry) / entry) * 100;
+  const ascending = [...extensionLevels].sort((a, b) => dir * (a - b));
+  const levelTp1 = ascending.find((l) => pctFrom(l) >= EQUITY_TP1_MIN_PCT && pctFrom(l) <= EQUITY_TP1_MAX_PCT);
+  const tp1FromStructure = levelTp1 !== undefined;
+  const takeProfit1 = levelTp1 ?? atrTp1;
 
-  // Runner extension: a real structural level beyond TP2 but inside the cap
-  // becomes the target instead of the raw multiple — same idea as
-  // `masterFromStructure` in the R-based model.
+  // The master: the next level beyond TP1 (by at least the TP1 band's floor
+  // again, so the two are not the same resistance), inside the cap.
   const capTarget = entry + dir * (EQUITY_MASTER_CAP_PCT / 100) * entry;
-  const structuralExtension = extensionLevels
-    .filter((l) => dir * (l - tp2Target) > 0 && dir * (l - capTarget) <= 0)
-    .sort((a, b) => dir * (a - b))[0];
+  const tp2Target = Math.max(atrTp2Pct, pctFrom(takeProfit1) + EQUITY_TP1_MIN_PCT);
+  const tp2Floor = entry + dir * (tp2Target / 100) * entry;
+  const structuralExtension = ascending.find(
+    (l) => dir * (l - takeProfit1) > 0 && pctFrom(l) - pctFrom(takeProfit1) >= EQUITY_TP1_MIN_PCT && dir * (l - capTarget) <= 0,
+  );
   const masterFromStructure = structuralExtension !== undefined;
-  const takeProfit2 = structuralExtension ?? tp2Target;
+  const takeProfit2 = structuralExtension ?? tp2Floor;
 
   return {
     stopLoss: round(stopLoss),
     takeProfit1: round(takeProfit1),
     takeProfit2: round(takeProfit2),
     stopFromStructure,
+    tp1FromStructure,
     masterFromStructure,
   };
 }
