@@ -105,7 +105,13 @@ faithful copy of Gann's disclosed method: a rule-by-rule parity matrix with
 status, owner decisions and a staged build order. Update its rows when a
 rule is built. **Owner decision 2026-09-27 on its decisions 1-3 (swing-chart
 construction X3, "never fix a target price" X4, volume at bottoms X1):
-"Gann's method supersedes my own. Implement Gann's method."**
+"Gann's method supersedes my own. Implement Gann's method."** Decisions 4-7,
+same day: (4) entry confirmation on every path, since it agrees with the
+2026-09-26 766-symbol run; (5) always Gann's rules, so range setups are
+Watch context and Execute needs the breakaway; (6) break-even and trailing
+stops on Gann's structure; (7) astrology stays research-only, maintained
+separately from the build. Scores may change so long as they follow Gann's
+method. The owner wants the intraday use verified by measurement.
 
 ## WD Gann precedence — standing principle
 
