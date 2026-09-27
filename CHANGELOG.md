@@ -10,6 +10,13 @@ date.
 ## 2026-09-27
 
 ### Changed
+- **Targets from Gann levels, and Gann's volume rule** (parity C4, D1).
+  Equity TP1 is the nearest Gann or support/resistance level in the TP1 band
+  and the master target the next level beyond it; the range-scaled target is
+  only a flagged fallback. The volume criterion (now "Volume at the turn")
+  passes a low on volume drying up, a lower-volume retest, or a selling
+  climax (the panic exception), and a high on heavy volume or a lower-volume
+  secondary top. `STRATEGY_VERSION` is `2026-09-27-gann-targets-volume`.
 - **Entry confirmation on every path, automation included** (parity C5,
   owner decision 4 and "automation should adhere to the same rules as
   everything else"). Any entry with the protocol's levels (the ticket's

@@ -39,11 +39,11 @@ The goal is that every rule Gann **disclosed** runs in GSPS the way he stated it
 | Price and levels | 6 | 1 | 0 | 3 | — |
 | Trend | 5 | 1 | 0 (X3 fixed) | 6 | — |
 | Entries, stops, exits, lifecycle | 3 | 3 | 1 (X4) | 5 | — |
-| Volume | 0 | 0 | 1 (X1) | 3 | — |
+| Volume | 2 | 0 | 0 | 2 | — |
 | Risk and money management | 2 | 2 | 0 | 2 | — |
 | The trader (education) | 1 | 2 | 0 | 2 | — |
 | Astrology, numerology, forecasting | 1 | 0 | 0 | 3 (research) | 2 excluded, 1 cannot be copied |
-| **Total (74 rules)** | **25** | **12** | **2** | **31** | **4** |
+| **Total (74 rules)** | **27** | **12** | **1** | **30** | **4** |
 
 Counts are rows in Part 3; "Aligned" includes rows aligned in structure.
 
@@ -136,8 +136,8 @@ Each row gives the rule and its source, what GSPS does now, the status, and the 
 
 | Gann rule | Source | GSPS today | Status | Next step |
 |---|---|---|---|---|
-| Normal bottoms on *decreasing* volume and narrowing range; climax volume at a low is the panic exception; tops on heavy volume | A2.1 Ch. 12; A09 Ch. X; A8 p. 63; A04 Ch. VII | `volumeClimax.ts` assumes climax volume marks the turn | **Conflict (X1)** | **Owner.** Minimum: add the drying-up bottom rule alongside (option b) |
-| Shrinking volume on an equal or lower low = liquidation over | A04 Ch. VII | none | Missing | Part of X1(b) |
+| Normal bottoms on *decreasing* volume and narrowing range; climax volume at a low is the panic exception; tops on heavy volume | A2.1 Ch. 12; A09 Ch. X; A8 p. 63; A04 Ch. VII | **Built 2026-09-27 (D1).** `volumeClimax.ts` reads drying-up, lower-volume retests and climaxes; the scored criterion ("Volume at the turn") and the coarse pre-filter pass a low on drying up, a lower-volume retest or a panic climax, and a high on heavy volume or a lower-volume secondary top | Aligned | Measure on the next run |
+| Shrinking volume on an equal or lower low = liquidation over | A04 Ch. VII | **Built 2026-09-27 (D1):** `retestOnLowerVolume` | Aligned | — |
 | Volume relative to float; ⅔ of float in a week = distribution | A04 Ch. VII; A2.1 Ch. 12 | none | Missing | G7. Needs a shares-outstanding source |
 | Shares-per-point efficiency at tops | A2.1 Ch. 12 | none | Missing | G7 |
 
@@ -249,9 +249,9 @@ Each step says whether a user waits on it (AGENTS.md "Speed is a product require
 - C1–C4 · **Built 2026-09-27 for measurement** in one pure module, `lib/gann/exitRules.ts` (`readGannExit`): the hold test (a daily close back under the crossed level by the lost-motion allowance), three successive adverse closes, break-even after one risk unit of profit (Gann's 3-point stop and 3-point break-even, as a ratio), the stop under each higher bottom since entry and under the prior month's low, the final-stage trail (last reaction's size, prior day after a 2-day counter-move), and exits on a weekly trend change or a campaign over-balance after entry. No fixed target. The replay runs it as `exitRule: "gann"` against the fixed bracket, and the report splits results by exit reason (`exitReasonSplit`). The live exit manager is switched once the replay agrees (decision 4's "if it agrees with our own backtest").
 
 **Stage D — volume and data**
-- D1 · X1(b): the drying-up bottom rule alongside `volumeClimax`.
-- D2 · G7 float-relative volume, once a shares-outstanding source exists (a data-provider decision).
-- D3 · G10 incorporation-date anniversaries, once a per-symbol date source exists.
+- D1 · **Built 2026-09-27.** Gann's volume rule in full, not only the climax: drying-up bottoms, lower-volume retests and secondary tops, the climax as the panic exception (see the X1 row). The criterion key stays `volumeClimax`; it is unmeasured on the new construction.
+- D2 · G7 float-relative volume, once a shares-outstanding source exists (a data-provider decision). **Blocked 2026-09-27:** no source exists; `lib/deferred/types.ts` only reserves the field. Owner to choose a provider.
+- D3 · G10 incorporation-date anniversaries, once a per-symbol date source exists. **Blocked 2026-09-27:** no source exists. Owner to choose a provider.
 
 **Stage E — risk and education**
 - E1 · G16: cite Gann in `cooldown.ts`, align the thresholds (owner), and add "don't size up after a winning run."

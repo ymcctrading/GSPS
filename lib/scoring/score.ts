@@ -32,7 +32,7 @@ import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 import type { CampaignLegReading, SwingChartReading } from "@/lib/gann/swingChart";
 import type { RuleOfThreeReading } from "@/lib/gann/ruleOfThree";
 import type { TimePriceSquareReading } from "@/lib/gann/timePriceSquare";
-import { VOLUME_CLIMAX_THRESHOLD, type VolumeClimaxReading } from "@/lib/gann/volumeClimax";
+import type { VolumeClimaxReading } from "@/lib/gann/volumeClimax";
 import type { BoilingPointReading } from "@/lib/gann/boilingPoint";
 import {
   DEFAULT_CRITERION_WEIGHTS,
@@ -224,6 +224,20 @@ export interface ScoreInputs {
  */
 export const MIN_STOP_ROOM_ATR = 1.5;
 
+/** Plain-language read of Gann's volume rule at the anchor (see `lib/gann/volumeClimax.ts`). */
+function volumeNote(r: VolumeClimaxReading): string {
+  const at = `The ${r.anchorKind} at ${r.anchorPrice.toFixed(2)}`;
+  if (r.anchorKind === "low") {
+    if (r.dryingUp) return `${at} came on shrinking volume and a narrowing range: liquidation running its course, the normal bottom.`;
+    if (r.retestOnLowerVolume) return `${at} retested the previous low on smaller volume: liquidation is over.`;
+    if (r.climax) return `${at} came on ${r.bestRecentRelativeVolume.toFixed(2)}x trailing volume: a selling climax, the panic-bottom exception.`;
+    return `${at} came on neither shrinking volume nor a selling climax (${r.bestRecentRelativeVolume.toFixed(2)}x trailing volume at best).`;
+  }
+  if (r.climax) return `${at} came on ${r.bestRecentRelativeVolume.toFixed(2)}x trailing volume: tops come on heavy sales.`;
+  if (r.retestOnLowerVolume) return `${at} is a secondary top on smaller volume than the one before: the advance is tiring.`;
+  return `${at} came on ordinary volume (${r.bestRecentRelativeVolume.toFixed(2)}x trailing at best): no sign of distribution yet.`;
+}
+
 export function computeScore(inputs: ScoreInputs): ScanDecision {
   const {
     direction, swingChart, campaignLeg, ruleOfThree, ruleOfThreeWeekly = null, ruleOfThreeMonthly = null, timePriceSquare, volumeClimax, boilingPoint, gann,
@@ -349,7 +363,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // volume climax, not another price-distance check.
   const climaxReading =
     (volumeClimax ?? []).find((r) => r.anchorKind === angleAnchorKind) ?? null;
-  const volumeClimaxHolding = climaxReading?.climax === true;
+  const volumeClimaxHolding = climaxReading?.confirms === true;
   // Confluence/context only — never changes volumeClimaxHolding itself. See
   // ScoreInputs.boilingPoint's own doc comment for why this stays out of
   // the scored boolean.
@@ -439,15 +453,12 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     },
     {
       key: "volumeClimax",
-      criterion: "Volume climax at the anchor pivot",
+      criterion: "Volume at the turn",
       pillar: "structure",
       passed: volumeClimaxHolding,
       note: climaxReading
-        ? (volumeClimaxHolding
-            ? `The ${climaxReading.anchorKind} anchor at ${climaxReading.anchorPrice.toFixed(2)} or one of the pivots just before it printed on ${climaxReading.bestRecentRelativeVolume.toFixed(2)}x trailing volume — above the ${VOLUME_CLIMAX_THRESHOLD}x climax floor.`
-            : `The ${climaxReading.anchorKind} anchor at ${climaxReading.anchorPrice.toFixed(2)} and the pivots just before it printed on only ${climaxReading.bestRecentRelativeVolume.toFixed(2)}x trailing volume at best — below the ${VOLUME_CLIMAX_THRESHOLD}x climax floor.`) +
-          boilingPointNote
-        : `No measurable volume climax since the last significant ${angleAnchorKind}.`,
+        ? volumeNote(climaxReading) + boilingPointNote
+        : `No measurable volume reading since the last significant ${angleAnchorKind}.`,
     },
     {
       key: "historicalSR",

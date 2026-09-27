@@ -213,9 +213,14 @@ const SCAN_SCORE: RegisteredCriterion[] = [
     id: "volumeClimax",
     family: "scanScore",
     source: "lib/scoring/score.ts, lib/gann/volumeClimax.ts",
-    label: "Volume climax at the anchor pivot",
+    label: "Volume at the turn",
     expectedSign: "positive",
     evidence: "hypothesis",
+    // 2026-09-27 (parity D1, conflict X1, owner decision): the rule is no
+    // longer climax-only. A low passes on drying-up volume, a lower-volume
+    // retest, or a climax (the panic exception); a high on heavy volume or a
+    // lower-volume secondary top. The measurements below describe the
+    // climax-only construction and do not transfer; treat it as unmeasured.
     note:
       "Replaces `harmonicProximity` (retired 2026-09-10; see RETIRED) — its key-price-level-proximity " +
       "approach measured negligible even after fixing its stale-anchor defect twice. This is a " +

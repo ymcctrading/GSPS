@@ -122,6 +122,14 @@ this file describes the construction it replaced. `STRATEGY_VERSION` is
 crosses the 13-week range's extreme, on the live scan and the replay.
 `rangeReversion.ts` is never tradeable. `STRATEGY_VERSION` is now
 `2026-09-27-gann-breakaway`.
+**Stage C/D, same day:** Gann's exit rules (`lib/gann/exitRules.ts`) are
+measured in the replay (`exitRule: "gann"`); the live exit manager switches
+once the replay agrees. Entry confirmation holds on every path, automation
+included (owner: "automation should adhere to the same rules as everything
+else"), checked once in `lib/trade/place-order.ts`. Equity targets come from
+Gann/S-R levels (C4), and the volume criterion reads Gann's full rule (D1).
+D2/D3 are blocked on a data source. `STRATEGY_VERSION` is
+`2026-09-27-gann-targets-volume`.
 **Owner direction, same day: "the point of the parity is to align, infuse
 and implement within and throughout the entire GSPS platform."** A rule is
 not parity-complete while it only shows on a card: it has to act where Gann

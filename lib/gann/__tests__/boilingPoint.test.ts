@@ -15,7 +15,7 @@ function dailyBars(count: number): Bar[] {
 }
 
 function climaxReading(anchorIndex: number, climax = true): VolumeClimaxReading {
-  return { anchorKind: "low", anchorPrice: 100, anchorIndex, relativeVolume: 2, bestRecentRelativeVolume: 2, climax };
+  return { anchorKind: "low", anchorPrice: 100, anchorIndex, relativeVolume: 2, bestRecentRelativeVolume: 2, climax, dryingUp: false, retestOnLowerVolume: false, confirms: climax };
 }
 
 describe("computeBoilingPoint", () => {

@@ -435,13 +435,12 @@ export function coarseReversion(
   const fanBandPct = proximityBandPct(FAN_PROXIMITY_ATR, FALLBACK_FAN_PCT, atrPct);
   const fans = computeFanLines(daily, price);
   if (fans.length > 0 && fans[0].distancePct <= fanBandPct) score += 2;
-  // Same anchor convention and threshold as the full scan's volumeClimax
-  // criterion (lib/scoring/score.ts) — replaces this pre-filter's old
-  // Square-of-9 proximity check, which tracked harmonicProximity before that
-  // criterion was itself replaced by volumeClimax.
+  // Same anchor convention and rule as the full scan's volumeClimax
+  // criterion (lib/scoring/score.ts): Gann's volume rule at the turn, drying
+  // up at a normal bottom or a climax in a panic, heavy at a top (parity D1).
   const climaxAnchorKind = direction === "bullish" ? "low" : "high";
   const climax = computeVolumeClimax(daily).find((r) => r.anchorKind === climaxAnchorKind);
-  if (climax?.climax) score += 2;
+  if (climax?.confirms) score += 2;
 
   // Proximity to a clustered S/R level in the reversion direction
   const srBandPct = proximityBandPct(SR_PROXIMITY_ATR, FALLBACK_SR_PCT, atrPct);

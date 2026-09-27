@@ -24,4 +24,7 @@
 // closes as well as daily.
 // Third bump (owner decision 5): Gann's breakaway rule. A range-bound setup
 // whose entry stays inside its 13-week range is held from Execute to Watch.
-export const STRATEGY_VERSION = "2026-09-27-gann-breakaway";
+// Fourth bump (parity C4 and D1): equity TP1/master taken from Gann and S/R
+// levels, and the volume criterion reads Gann's full rule (drying-up bottoms,
+// lower-volume retests, the climax as the panic exception).
+export const STRATEGY_VERSION = "2026-09-27-gann-targets-volume";
