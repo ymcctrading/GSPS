@@ -96,6 +96,8 @@ describe("describeTrades", () => {
     expect(d.profitFactor).toBeCloseTo(2);
     expect(d.halves.first).toMatchObject({ n: 2, expectancyR: 2 });
     expect(d.halves.second).toMatchObject({ n: 2, expectancyR: -1 });
+    // Chronological: +2, +2, -1, -1 → peak 4, trough 2.
+    expect(d.maxDrawdownR).toBeCloseTo(2);
   });
 });
 
