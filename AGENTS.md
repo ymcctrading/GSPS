@@ -941,13 +941,16 @@ the resolution of `docs/GANN_METHOD_COMPLETENESS_AUDIT.md`'s open item on
 whether astrology has any place in GSPS at all; check that document's
 "Astrology" addendum section if this ever needs revisiting.
 
-**Priority raised (2026-09-27, project owner direction): astrology is a
-priority where it can be proven and connected to W.D. Gann.** This changes
-the research order, not the gate:
-- Gann-traceable astrology comes **first** in the research queue, not last.
-  This supersedes the "astrology last" sequencing in
-  `docs/GANN_METHODOLOGY_FULL_REPORT.md` §18.4 and the memory-bank report.
-- "Connected to Gann" means a technique in his own text, letters or charts:
+**Priority clarified (2026-09-27, project owner direction): astrology is not
+low priority where W.D. Gann himself says it is part of his methodology,
+our source files (Gann's own and otherwise) corroborate it, and it can be
+implemented in GSPS.** It is not placed first either. It ranks alongside
+Gann's other techniques, by the strength of its sourcing and how feasible
+it is to implement. It is no longer deferred to last: this supersedes the
+"astrology last" sequencing in `docs/GANN_METHODOLOGY_FULL_REPORT.md` §18.4
+and in the memory-bank report.
+- "Gann himself says it" means a technique in his own text, letters or
+  charts. Examples:
   - the 1954 soybean letter's heliocentric and geocentric averages of the six
     major planets, and the five-planet average with Mars left out
   - its "active angles" (a planet's longitude, and its squares, trines and
@@ -955,8 +958,8 @@ the research order, not the gate:
   - its price-to-longitude placement on the Circle Chart
   - Jupiter–Saturn aspects
   - the Saturn return
-  - the 1948 soybean chart's plotted longitudes
-  
+  - the 1931 lesson's "30-year cycle caused by Saturn"
+  - the 1948 soybean chart's and "Path of Planets" chart's plotted longitudes
   See `docs/memory-bank/` (A2.3, B03, B05). Interpretive decodings (Mikula's
   "natural"/"wise" key words) are leads, not sources.
 - "Proven" means Dewey's full standard (`docs/memory-bank/sources/C06_dewey_case_for_cycles.md`):

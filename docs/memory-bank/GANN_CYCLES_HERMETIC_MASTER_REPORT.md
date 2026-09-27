@@ -447,8 +447,8 @@ Every item below is an **open recommendation**. Items that touch scoring, gating
 - **M6 — Base rate before hit rate.** B07's "efficiency tests" report 56% hits without the market's own up-day base rate. GSPS's attribution already compares each criterion with the unconditioned population. Keep it that way for any new calendar field.
 - **M4 — Validate calendar/anniversary windows as recurrent events** (Dewey C05): hit-rate vs base rate, not spectra.
 
-### Astrology research track (priority raised 2026-09-27, owner direction; see AGENTS.md "Astrology")
-Research order: Gann-traceable techniques first. Each needs an ephemeris calculation, a rule fixed in advance, and Dewey's test (base rate, significance with a multiple-comparisons correction, out-of-sample). A proven technique enters as confluence only.
+### Astrology research track (priority clarified 2026-09-27, owner direction; see AGENTS.md "Astrology")
+Not low priority, and not first. Where Gann himself names the technique and our files corroborate it, it ranks alongside his other techniques. Each needs an ephemeris calculation, a rule fixed in advance, and Dewey's test (base rate, significance with a multiple-comparisons correction, out-of-sample). A proven technique enters as confluence only.
 - **AS1 — Planetary averages** (1954 soybean letter, quoted in B05): the heliocentric and geocentric averages of Mars through Pluto, and of Jupiter through Pluto (Mars left out), as time/price resistance. Open question to fix *before* testing: smooth the 360°→0° wrap or not (Gann doesn't say).
 - **AS2 — Active angles** (1954 letter): a transiting planet's longitude, plus its 90/120/180°, read as a price via the Circle Chart. Mikula's first-trade-horoscope reading is interpretive, so test it separately.
 - **AS3 — Jupiter–Saturn aspects** (1954 letter; 1948 chart; *Speculation* 1954 per B05): conjunction, square, trine, sesquisquare and opposition dates against pivot dates.
