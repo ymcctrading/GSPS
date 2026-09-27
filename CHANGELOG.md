@@ -10,6 +10,13 @@ date.
 ## 2026-09-27
 
 ### Changed
+- **Gann's exit rules, built for measurement** (parity Stage C1–C4, owner
+  decisions 2 and 6). `lib/gann/exitRules.ts` reads the hold test, three
+  adverse closes, break-even after one risk unit, the structural trail (higher
+  bottoms, prior month's low, final-stage rules) and trend-change exits, with
+  no fixed target. The replay's new `exitRule: "gann"` measures them against
+  the fixed bracket, and the backtest report splits them by exit reason. The
+  live exit manager is unchanged until the replay agrees.
 - **Gann's breakaway rule gates Execute in sideways markets** (owner decision
   5, "always adhere to Gann's rules"). Gann stays out of a narrow range until
   it breaks away (*How to Make Profits in Commodities*, pp. 51-52). A

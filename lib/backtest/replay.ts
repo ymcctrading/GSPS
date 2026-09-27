@@ -76,6 +76,7 @@ import { isLargeCapStock } from "@/lib/strat/large-cap";
 import { readLiquidity } from "@/lib/scan/liquidity";
 import { applyBreakawayHold, applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
 import { readBreakaway, type BreakawayReading } from "@/lib/gann/breakaway";
+import { readGannExit, type GannExitReason, type GannStopReason } from "@/lib/gann/exitRules";
 import {
   FALLBACK_SR_PCT,
   SR_PROXIMITY_ATR,
@@ -196,6 +197,20 @@ export interface ReplayOptions {
    * only the stop entry, so nothing measured the rule automation trades on.
    */
   entryRule?: "stop" | "confirmed";
+  /**
+   * How an open trade leaves (parity roadmap Stage C, owner decisions 2 and 6):
+   *
+   * - `"bracket"` (default): the plan's fixed stop and a `targetR` target.
+   * - `"gann"`: no fixed target (Gann never fixes one). The trade leaves on
+   *   its stop, which moves on Gann's structure, or at the next session's open
+   *   after a Gann exit signal: the hold test, three adverse closes, or a
+   *   change of trend. See `lib/gann/exitRules.ts`. Stops and signals update
+   *   once per session from completed daily bars only.
+   *
+   * Both fill a stop at the stop price, so the two are compared on the same
+   * convention.
+   */
+  exitRule?: "bracket" | "gann";
 }
 
 export interface ReplayTrade {
@@ -226,6 +241,8 @@ export interface ReplayTrade {
   target: number;
   barsHeld: number;
   outcome: "win" | "loss" | "timeout";
+  /** Why the trade left, under `exitRule: "gann"`. Undefined under the bracket. */
+  exitReason?: GannStopReason | GannExitReason | "timeout";
   /** Realised result in units of the trade's own risk, after costs. */
   rMultiple: number;
   /** True when one bar covered both stop and target, and the loss was assumed. */
@@ -525,6 +542,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     weights,
     useProductionStop = false,
     entryRule = "stop",
+    exitRule = "bracket",
   } = options;
 
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
@@ -700,6 +718,30 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       let barsHeld = 0;
       let ambiguous = false;
 
+      if (exitRule === "gann" && !outran) {
+        const walked = walkGannExit({
+          bars, from: i, maxBarsHeld, long, entry, stop, dailyBars: dailyBars ?? [],
+          crossedLevel: trigger.pivot.price,
+        });
+        trades.push({
+          symbol, openedAt: live.t, pattern: pattern?.name ?? null, setupKind, direction: trigger.direction,
+          entry, stop, target,
+          atrMultiple: executionAtr > 0 ? risk / executionAtr : 0,
+          score: decision.score,
+          outputState: decision.outputState,
+          criteria: criteriaOf(decision),
+          contextFactors: contextFactorsFor(arm.context.disclosedRules, trigger.direction, entry),
+          largeCap,
+          yearCycleHits: monthlyBars ? yearCycleHitsAt(monthlyBars, live.t, trigger.direction) : undefined,
+          barsHeld: walked.barsHeld,
+          outcome: walked.reason === "timeout" ? "timeout" : dir * (walked.exit - entry) > 0 ? "win" : "loss",
+          exitReason: walked.reason,
+          rMultiple: (dir * (walked.exit - entry) - costPerShare) / risk,
+          ambiguous: false,
+        });
+        continue;
+      }
+
       for (let j = i; j < Math.min(bars.length, i + maxBarsHeld); j++) {
         const b = bars[j];
         const hitStop = long ? b.l <= stop : b.h >= stop;
@@ -803,6 +845,50 @@ export function combine(results: ReplayResult[]): ReplayResult {
   const triggered = results.reduce((s, r) => s + r.triggered, 0);
   const refusedFills = results.reduce((s, r) => s + (r.refusedFills ?? 0), 0);
   return summarise(trades, armed, triggered, refusedFills);
+}
+
+/**
+ * Walk one filled trade forward under Gann's exit rules (`exitRule: "gann"`).
+ *
+ * The stop is checked on every execution bar. At the first bar of each new
+ * session, Gann's rules are read from the completed daily sessions before it:
+ * the stop moves if they tighten it, and an exit signal leaves at that bar's
+ * open. A stop hit fills at the stop, the same convention as the bracket.
+ */
+function walkGannExit(input: {
+  bars: Bar[];
+  from: number;
+  maxBarsHeld: number;
+  long: boolean;
+  entry: number;
+  stop: number;
+  dailyBars: Bar[];
+  crossedLevel: number;
+}): { exit: number; barsHeld: number; reason: GannStopReason | GannExitReason | "timeout" } {
+  const { bars, from, maxBarsHeld, long, entry, dailyBars, crossedLevel } = input;
+  const entryDate = bars[from].t.slice(0, 10);
+  const position = { side: long ? "long" : "short", entry, initialStop: input.stop, entryDate, crossedLevel } as const;
+  let stop = input.stop;
+  let stopReason: GannStopReason = "initial";
+  let best: number | null = null;
+  const end = Math.min(bars.length, from + maxBarsHeld);
+  for (let j = from; j < end; j++) {
+    const b = bars[j];
+    const date = b.t.slice(0, 10);
+    if (j > from && date !== bars[j - 1].t.slice(0, 10)) {
+      const prior = dailyBars.filter((d) => d.t.slice(0, 10) < date);
+      const reading = readGannExit(position, prior, best);
+      if (reading.exit) return { exit: b.o, barsHeld: j - from + 1, reason: reading.exit.reason };
+      if (long ? reading.stop > stop : reading.stop < stop) {
+        stop = reading.stop;
+        stopReason = reading.stopReason;
+      }
+    }
+    if (long ? b.l <= stop : b.h >= stop) return { exit: stop, barsHeld: j - from + 1, reason: stopReason };
+    best = best === null ? (long ? b.h : b.l) : long ? Math.max(best, b.h) : Math.min(best, b.l);
+  }
+  const barsHeld = end - from;
+  return { exit: bars[end - 1].c, barsHeld, reason: "timeout" };
 }
 
 /**

@@ -34,6 +34,7 @@ import {
   bySetupKind,
   combine,
   replay,
+  summarise as summariseTrades,
   type ReplayOptions,
   type ReplayResult,
 } from "./replay";
@@ -113,6 +114,8 @@ export interface BacktestRequest {
   useProductionStop?: boolean;
   /** Which entry rule fills trades. See `ReplayOptions.entryRule`. Defaults to `"stop"`. */
   entryRule?: ReplayOptions["entryRule"];
+  /** How open trades leave. See `ReplayOptions.exitRule`. Defaults to `"bracket"`. */
+  exitRule?: ReplayOptions["exitRule"];
   /**
    * Also run the same request a second time at `slippageMultiplier` times the
    * cost-per-share and report the expectancy delta — the spec pack's
@@ -207,11 +210,19 @@ export interface BacktestReport {
   useProductionStop: boolean;
   /** Echoes the request: a report has to say which entry rule produced it. */
   entryRule: "stop" | "confirmed";
+  /** Echoes the request: a report has to say which exit rule produced it. */
+  exitRule: "bracket" | "gann";
   /**
    * The run split by the scan's two setup kinds. Continuations are published
    * only at Execute, so read that side together with the verdict buckets.
    */
   setupKindSplit: { reversion: RunSummary; continuation: RunSummary };
+  /**
+   * Under `exitRule: "gann"`, the run split by why each trade left (the stop
+   * reason that was binding, a Gann exit signal, or the timeout), so each of
+   * Gann's exit rules can be read on its own. Empty under the bracket.
+   */
+  exitReasonSplit: Record<string, RunSummary>;
   /**
    * Triggered entries dropped because they filled at or beyond the plan's own
    * stop or target, which production refuses (`fill_outran_bracket`).
@@ -319,6 +330,7 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
     since,
     useProductionStop,
     entryRule,
+    exitRule,
   } = request;
 
   const sinceMs = since === undefined ? null : Date.parse(since);
@@ -334,6 +346,7 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
     ...(weights ? { weights } : {}),
     ...(useProductionStop !== undefined ? { useProductionStop } : {}),
     ...(entryRule !== undefined ? { entryRule } : {}),
+    ...(exitRule !== undefined ? { exitRule } : {}),
   };
 
   const results: ReplayResult[] = [];
@@ -430,7 +443,7 @@ export function buildReport(
   request: BacktestRequest,
   slippageSensitivity?: SlippageSensitivity,
 ): BacktestReport {
-  const { attributeWithin = "Execute", attributeScoreRange, useProductionStop = false, entryRule = "stop" } = request;
+  const { attributeWithin = "Execute", attributeScoreRange, useProductionStop = false, entryRule = "stop", exitRule = "bracket" } = request;
 
   const split = byOutputState(run.overall);
   const target = attributeScoreRange
@@ -466,10 +479,17 @@ export function buildReport(
     },
     useProductionStop,
     entryRule,
+    exitRule,
     setupKindSplit: {
       reversion: summarise(kindSplit.reversion),
       continuation: summarise(kindSplit.continuation),
     },
+    exitReasonSplit: Object.fromEntries(
+      [...new Set(run.overall.trades.flatMap((t) => (t.exitReason ? [t.exitReason] : [])))].map((reason) => [
+        reason,
+        summarise(summariseTrades(run.overall.trades.filter((t) => t.exitReason === reason))),
+      ]),
+    ),
     armed: run.overall.armed,
     triggered: run.overall.triggered,
     refusedFills: run.overall.refusedFills,

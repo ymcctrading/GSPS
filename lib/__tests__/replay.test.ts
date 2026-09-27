@@ -576,3 +576,26 @@ describe("replay continuation setups", () => {
     expect(split.continuation.trades.length).toBeGreaterThan(0);
   });
 });
+
+describe("replay exitRule: gann", () => {
+  it("does not take profit at a fixed target", () => {
+    // Crosses the trigger, then runs through the bracket's 2R target.
+    const beyond = past(3 * RISK);
+    const run = { o: past(0.4), h: SIDE > 0 ? beyond : past(0.3), l: SIDE > 0 ? past(0.3) : beyond, c: past(0.5) };
+    const bracket = replay("TEST", session([crossing, run, quiet]), { targetR: 2, dailyBars: DAILY });
+    const gann = replay("TEST", session([crossing, run, quiet]), { targetR: 2, dailyBars: DAILY, exitRule: "gann" });
+    expect(bracket.trades[0].outcome).toBe("win");
+    expect(gann.trades).toHaveLength(1);
+    expect(gann.trades[0].exitReason).toBeDefined();
+    expect(gann.trades[0].rMultiple).not.toBeCloseTo(bracket.trades[0].rMultiple, 5);
+  });
+
+  it("leaves at the plan's stop, recorded as the initial stop", () => {
+    const through = TRIGGER.stopPrice - SIDE * 0.5;
+    const fall = { o: past(0.2), h: SIDE > 0 ? past(0.3) : through, l: SIDE > 0 ? through : past(0.3), c: through };
+    const r = replay("TEST", session([crossing, fall, quiet]), { targetR: 2, dailyBars: DAILY, exitRule: "gann" });
+    expect(r.trades).toHaveLength(1);
+    expect(r.trades[0].exitReason).toBe("initial");
+    expect(r.trades[0].outcome).toBe("loss");
+  });
+});
