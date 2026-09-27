@@ -941,6 +941,35 @@ the resolution of `docs/GANN_METHOD_COMPLETENESS_AUDIT.md`'s open item on
 whether astrology has any place in GSPS at all; check that document's
 "Astrology" addendum section if this ever needs revisiting.
 
+**Priority raised (2026-09-27, project owner direction): astrology is a
+priority where it can be proven and connected to W.D. Gann.** This changes
+the research order, not the gate:
+- Gann-traceable astrology comes **first** in the research queue, not last.
+  This supersedes the "astrology last" sequencing in
+  `docs/GANN_METHODOLOGY_FULL_REPORT.md` §18.4 and the memory-bank report.
+- "Connected to Gann" means a technique in his own text, letters or charts:
+  - the 1954 soybean letter's heliocentric and geocentric averages of the six
+    major planets, and the five-planet average with Mars left out
+  - its "active angles" (a planet's longitude, and its squares, trines and
+    oppositions, read as price and time)
+  - its price-to-longitude placement on the Circle Chart
+  - Jupiter–Saturn aspects
+  - the Saturn return
+  - the 1948 soybean chart's plotted longitudes
+  
+  See `docs/memory-bank/` (A2.3, B03, B05). Interpretive decodings (Mikula's
+  "natural"/"wise" key words) are leads, not sources.
+- "Proven" means Dewey's full standard (`docs/memory-bank/sources/C06_dewey_case_for_cycles.md`):
+  - a hit rate against a base rate
+  - a significance test with a multiple-comparisons correction
+  - out-of-sample persistence on data the rule never saw
+  - the rule fixed **before** testing, with no searching across planets,
+    orbs or price scales
+- **Unchanged until the owner decides otherwise on measured evidence:** a
+  proven technique enters as a labelled confluence field first and does not
+  gate a verdict. Promotion beyond confluence is a separate, recorded owner
+  decision.
+
 ## Strategy Modes — scoped exception to the non-Gann boundary (2026-09-23, project owner direction)
 
 The "Gann-grounded platform" section above states a boundary "that must not
