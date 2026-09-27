@@ -708,6 +708,19 @@ for the project owner** — do not fix it silently, and re-verify it first:
   chart tool. It's a separate system with its own spec, so it wasn't rewritten
   in the F2.5 pass. It needs a Gann replacement (the session's 50% point is
   the natural counterpart) or an explicit exception recorded here.
+  **Resolved 2026-09-26, project-owner direction** ("extend the intraday
+  scanner VWAP change too"). `SessionMetrics.vwap` became `balancePoint`, the
+  halfway point between the session's high and low: Gann's 50% level, the
+  same balance point `rangeMidpoint` gives the daily scan. It now supplies the
+  intraday scanner's direction, its "right side" check, every invalidation
+  level that was VWAP, and the pivot plan's first target. `MoveBasis` `"vwap"`
+  became `"balance_point"`, and `Alert.vwap` became `balancePoint` (nothing
+  persisted it, so no migration). User copy says "the halfway point of today's
+  range", per the banned-terms rule. VWAP remains only as the optional chart
+  overlay and the opt-in `vwap` Strategy Mode. **This changes live alerts:**
+  the balance point ignores volume, so on a lopsided-volume day it can sit
+  well away from where VWAP was, and direction and invalidation move with it.
+  It hasn't been measured; there is no intraday-alert replay yet.
 - **STRAT still gates publication (new, 2026-09-26, open).**
   `lib/marketScan.ts#hasTradePlan` requires `r.pattern !== null` before any
   setup reaches the daily lists, and `isMomentumContinuation` requires a

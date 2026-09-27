@@ -31,7 +31,7 @@ const spyAlert: Alert = {
     percent: 0.9,
     direction: "up",
   },
-  vwap: 502.1,
+  balancePoint: 502.1,
   relativeVolume: 1.8,
   sessionVolume: 62_000_000,
   confidence: 75,
@@ -44,13 +44,13 @@ const spyAlert: Alert = {
     confirmation: "Wait for a bar to close above 504.50 rather than entering into the move.",
     invalidation: 500,
     firstTarget: 513.5,
-    cancelIf: "Price closes back below VWAP at 502.10.",
+    cancelIf: "Price closes back below the day's halfway point at 502.10.",
   },
   pivotPlan: {
     confirmation: "The continuation thesis fails if price closes back below 500.00.",
     invalidation: 504.9,
     firstTarget: 502.1,
-    cancelIf: "Price chops around VWAP without holding either side.",
+    cancelIf: "Price chops around the day's halfway point without holding either side.",
   },
   whyThisAppeared:
     "SPY traded above the range it set in the first 15 minutes of the day, and the extra volume behind it says the move has participation.",
@@ -203,7 +203,7 @@ describe("IntradayAlerts", () => {
     expect(screen.getByText("If it continues")).toBeInTheDocument();
     expect(screen.getByText("If it turns")).toBeInTheDocument();
     expect(screen.getByText(/Wait for a bar to close above 504\.50/)).toBeInTheDocument();
-    expect(screen.getByText(/chops around VWAP/)).toBeInTheDocument();
+    expect(screen.getByText(/chops around the day.s halfway point/)).toBeInTheDocument();
   });
 
   it("explains a late detection when the move already happened", async () => {

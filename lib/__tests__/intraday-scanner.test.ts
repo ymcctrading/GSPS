@@ -78,11 +78,13 @@ describe("sessionMetrics", () => {
     expect(m.openingRangeComplete).toBe(false);
   });
 
-  it("computes VWAP from typical price, so a bar closing at its extreme doesn't dominate", () => {
-    const bars = [bar(0, 100, 110, 90, 110, 1000), bar(1, 110, 110, 110, 110, 1000)];
+  it("reads the balance point as the halfway point of the session's range, not a volume average", () => {
+    // Replaced session VWAP 2026-09-26 (Gann's 50% level). Volume is heavily
+    // skewed here on purpose: a VWAP would sit near 110, the balance point
+    // doesn't move.
+    const bars = [bar(0, 100, 110, 90, 110, 1000), bar(1, 110, 110, 110, 110, 100000)];
     const m = sessionMetrics(input({ bars, prevClose: 100 }), DEFAULT_CONFIG)!;
-    // Typical prices are (110+90+110)/3 = 103.33 and 110, equally weighted.
-    expect(m.vwap).toBeCloseTo(106.67, 1);
+    expect(m.balancePoint).toBeCloseTo(100, 10);
   });
 
   it("leaves relative volume null rather than defaulting it to 1.0", () => {

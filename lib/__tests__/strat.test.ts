@@ -205,7 +205,7 @@ describe("computeTradeLevels", () => {
     // No session context exists at this timeframe to derive the pivot
     // trade's own stop from — deliberately left null rather than fabricated.
     expect(levels.pivotPlan?.invalidation).toBeNull();
-    // Mirrors intraday's VWAP-as-first-target choice: here that's the level
+    // Mirrors intraday's balance-point-as-first-target choice: here that's the level
     // the original thesis entered at.
     expect(levels.pivotPlan?.firstTarget).toBe(levels.entry);
     expect(levels.pivotPlan?.cancelIf).toBeTruthy();
