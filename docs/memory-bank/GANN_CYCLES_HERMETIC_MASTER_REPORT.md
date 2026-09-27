@@ -1,6 +1,6 @@
 # Gann, Cycles & Hermetic Thought — GSPS Master Reference Report
 
-*Compiled 2026-09-27 from the page-by-page source reads in `docs/memory-bank/sources/`; second pass the same day added A08, A09, B04, B05, B07 and B11.
+*Compiled 2026-09-27 from the page-by-page source reads in `docs/memory-bank/sources/`; second pass the same day added A08, A09, B04, B05, B07 and B11; third pass (local OCR) completed A08, H01 and B04/B05/B07 and added A02 *Truth of the Stock Tape* and A04 *Wall Street Stock Selector*.
 Use this with AGENTS.md's standing principles when a question comes up about Gann's methodology, cycle validation or the Hermetic lens.*
 
 > **What this is.** It synthesises everything read in the project owner's Gann, Observation of Cycles and Hermetic folders. It is written in our own words so no book is reproduced; the public repo carries no copyrighted text.
@@ -78,7 +78,14 @@ B13's historian's note explains why: Gann issued lessons as letters over 1931–
 
 1.7 **Other time anchors in Gann's own text.**
 - The **incorporation / company-age anniversary**: *Tunnel*'s "Major Motors … when the Company would be 19 years old," plus the Master Course's incorporation-date calendar.
-- **Fixed annual windows** (*Wall Street Stock Selector*; implemented).
+- **Fixed annual windows**, the "permanent cycle which does not change" (*Wall Street Stock Selector*, 1930, back matter): Feb 8–10, Mar 21–23, May 3–7, Jun 20–24, Aug 3–8, Sep 21–24, Nov 8–11, Dec 20–24. That is the solar year in eighths. Implemented, **but with the wrong days for four months** (C-A4-1).
+- **Daily, weekly and monthly time rules** (A04 Ch. IV):
+  - a 2–3-day halt at an extreme
+  - buy 2–3-week reactions; watch the 3rd week; fast moves end in the 6th–7th week
+  - strong stocks seldom react into a 2nd month
+  - watch the 3rd, 6th, 9th and 12th months and the pivot's anniversary
+  - favoured weekdays and dates in the month
+- **The Rule of Three on daily, weekly and monthly charts** (A04 p. 72, the primary source of `ruleOfThree.ts`).
 - **7/14-day alternation** of minor and major turns in the 1919–22 forecasts.
 - **Monthly recurring dates** within one contract's history (1954 coffee letter).
 - The **Dow 1889–1951 month counts** (Ch. 17): December has the most lows and the fewest highs.
@@ -354,7 +361,7 @@ Under Dewey this is **cross-series clustering** (criterion 11/17). None of it es
 | Polarity | Positive, negative, neutral; every rule has its "reverse the rules" mirror | A03; A05 |
 | Gender | Weakest. Only the positive/negative/neutral triad | A03 |
 
-### 3. Hauck's Emerald Tablet (H01, partial read)
+### 3. Hauck's Emerald Tablet (H01, complete for this edition)
 - **Correspondence runs both ways.** "As below, so above; as above, so below." Hauck calls the popular one-way reading half the equation and says **work begins in the Below**.
   - GSPS already practises this: trade outcomes (Below) correct our translation of Gann's rules (Above) through the measurement gate. The cross-platform consistency rule is the other direction.
 - **Four elements from the One Thing, each with an operation:**
@@ -404,7 +411,13 @@ Every item below is an **open recommendation**. Items that touch scoring, gating
   - **Gann's 3-Day Chart** runs on highs and lows: three days of higher tops *and* higher bottoms, with the signal on crossing the last 3-day top or bottom. The code flips on three consecutive *closes*.
   - **Gann's second chart is a 9-point swing chart** (a reversal on a counter-move of at least 9 Dow points), not a 9-day chart.
   - **Who depends on it.** `swingChartTrend` (a scored criterion), `trendStrength.ts` (the regime engine) and `readGannTrend` (macro trend reads) all sit on the 9-day chart. So this reaches the core verdict.
-  - **Check before changing anything.** *Commodities*' 1951 "New Rules" (pp. 308–330, **unread**, blocked) include swing and weekly swing charts and may define a day-based variant.
+  - **Settled on the source side (2026-09-27).** Four texts agree that Gann builds swing charts on *time*, meaning the duration of counter-moves, and turns the trend on **breaking the last swing extreme**:
+    - A8's 1951 New Rules (pp. 316–317): daily counter-moves of 2–3 days, and a weekly chart of 7 calendar days or more
+    - A09 Ch. VII: a 3-day chart on highs and lows
+    - A04 Ch. IV (1930): "space charts fool traders the most because they ignore time"; daily, weekly and monthly time rules
+    - A02 p. 82 (1923): "moves of from three days to one week"
+
+    None of them defines a "9-day" chart or a consecutive-close counter. The closest literal port is a 2–3-day swing chart plus a 7-calendar-day chart. Full reading: `sources/A08_…md` "X3 — what the 1951 New Rules settle", and `sources/A02_A04_…md`.
   - **Porting the point threshold.** A 9-point move was about 5–9% of the Dow at 100–200. Porting it needs a price-scaled or ATR-scaled threshold (the literal-magnitude carve-out AGENTS.md documents for `combineNearbyLevels`).
   - Under "WD Gann precedence" the code should match Gann's definition or record why not. **Owner decision; do not change silently.**
 - **X1 status:** now confirmed by A09 Ch. X and A8 p. 63 as well as A2.1 Ch. 12.
@@ -412,6 +425,14 @@ Every item below is an **open recommendation**. Items that touch scoring, gating
   - The source notes had flagged `macroBreadthAgrees` against Gann's rejection of Dow-Theory index confirmation.
   - The function (`lib/scan/entrySelection.ts`) requires **the stock's own** monthly, weekly and daily trends to agree. That is Gann's own chart hierarchy (A05; Part IV), not confirmation from an index or group.
   - **No conflict.** The live Gann rule to keep in mind: never gate a stock's setup on an *index's* or *sector's* trend.
+
+- **C-A4-1 — `timeCycles.ts`'s fixed calendar cycle uses the wrong days** (a porting defect, found 2026-09-27).
+  - *Wall Street Stock Selector*'s back matter (the 1929 Annual Forecast, PDF 458) gives the "permanent cycle which does not change" as **Feb 8–10, Mar 21–23, May 3–7, Jun 20–24, Aug 3–8, Sep 21–24, Nov 8–11, Dec 20–24.**
+    - That is the solar year in eighths: the equinoxes and solstices, plus the cross-quarter points.
+    - A09 (1949) repeats the same anchors.
+  - The code uses **day 5** of each of those eight months. That is right for Feb, May, Aug and Nov, but **16–19 days early for Mar, Jun, Sep and Dec.**
+  - The month list was right, which hid the error: the anchor was wrong, the same shape as `harmonicProximity`.
+  - The field is display-only, so the blast radius is low. Proposed fix: the eight disclosed windows. **Owner decision.**
 
 ### Gaps: Gann rules with no implementation (candidates, in rough order of literalness and cost)
 1. **G1 — Close vs bar midpoint** (Ch. 13). A per-bar trend read. Cheapest and most literal.
@@ -432,6 +453,19 @@ Every item below is an **open recommendation**. Items that touch scoring, gating
 16. **G16 — Series-of-losses rule** (A8 pp. 12, 17, 29). Cite it in `lib/risk/cooldown.ts`; check whether the cooldown thresholds (loss count, unit reduction to 10% of remaining capital) match. Risk change, so owner sign-off.
 17. **G17 — Day-count bands** (A8 p. 57–58; A09 Rule 8): 49–52 (7×7), 42–45, 90–98, 120–135, 330 days, and the short A09 bands (7–12, 18–21, 28–31, 42–49, 57–65, 85–92, 112–120, 150–157). `WHEEL_COUNTS` has only 45/90/120/180/270/360. Also the monthly change days and the January-range rule (A8 p. 58).
 18. **G18 — Final-stage trailing stop** (A8 BP/SP #9 via B04). In a fast final stage, trail the stop under or over the previous day's extreme after a 2-day counter-move. A candidate for `lib/lifecycle/` with `boilingPoint.ts`. Exit rule, so owner sign-off.
+20. **G20 — Reverse signal day and the 7–10 Day Rule** (A8 1951, pp. 311, 317–318). A literal daily-bar rule.
+21. **G21 — Gap rules** (A8 1951, pp. 318–325): the exhaust gap, gap counts, and "a filled gap reverses the minor trend". Confluence first.
+22. **G22 — Time balancing and percentages of time** (A8 pp. 97–99, 293; A04 Ch. VII).
+    - Project prior swing durations forward, and fractions of them.
+    - "The more time consumed in accumulation, the bigger the advance."
+    - Use the campaign's greatest reaction, in points *and* days, as the gauge. Shrinking reactions in the last section signal exhaustion (A8 p. 52).
+    - Pairs with G3 and G14.
+23. **G23 — Break-even stop after 3–4 points of profit** (A02 Book II; A04 Rule 3). A lifecycle rule. It changes exits, so it needs owner sign-off. The literal point magnitude needs price scaling.
+24. **G24 — The monthly reaction rule and trailing stop** (A04 Ch. IV and VII):
+    - Strong stocks seldom react into a 2nd month.
+    - Never short a stock whose reactions last no more than a month.
+    - Pyramid every 10 points, with the stop trailed under the prior month's low.
+25. **G25 — First-year-high leadership filter** (A04 Ch. VII). A stock must cross the high of the campaign's first year (or 3 points above it) before it can lead a later section. A scanner ranking and context field.
 19. **G19 — Wheel angle from prior extremes** (Master Egg Course, quoted in B05). Place each prior high and low on a 360-unit price wheel and treat prices at 0/90/120/180 from them as levels. Research and confluence only, since the illustrations are lost (same caveat as `squareOf20.ts`).
 
 ### Measurement-method enhancements (cycle literature; confluence and diagnostics only)
@@ -453,8 +487,11 @@ Not low priority, and not first. Where Gann himself names the technique and our 
 - **AS2 — Active angles** (1954 letter): a transiting planet's longitude, plus its 90/120/180°, read as a price via the Circle Chart. Mikula's first-trade-horoscope reading is interpretive, so test it separately.
 - **AS3 — Jupiter–Saturn aspects** (1954 letter; 1948 chart; *Speculation* 1954 per B05): conjunction, square, trine, sesquisquare and opposition dates against pivot dates.
 - **AS4 — Returns**: the Saturn return (A2.3; B03) and the Mars half-return from a pivot.
-- **AS5 — Eclipse longitude crossed by a planet** (*Truth of the Stock Tape*, *Stock Selector*, per B05): interpretive, lower priority.
-- **Pre-requisites:** an ephemeris source in code (a vetted astronomy library, not hand tables); an unread-source sweep of Mikula Chs. 5–8, the rest of *Truth of the Stock Tape* and Pesavento's appendices; and the 1954 letter text itself (A2.3 notes).
+- **AS5 — Eclipse longitude crossed by a planet** (attributed to *Truth of the Stock Tape* and *Stock Selector* by B05): interpretive, lower priority. **Correction C-A4-2 (2026-09-27):** both books were read in full, and neither mentions an eclipse, a planet, a zodiac sign or astrology. The attribution is Mikula's, not Gann's text. Cite AS5 to B05 only unless a Gann source is found.
+- **What A02/A04 do add to this track:**
+  - The "permanent cycle" dates are the Sun's annual eighths (C-A4-1). That is a solar and seasonal cycle Gann disclosed, **not** a planetary aspect.
+  - The 1929 forecast is dated turn by turn and adds storm, earthquake and war calls. It is "based on my Master Time Factor… return of cycles" and **never names astrology.** Treat an astrological reading of it as inference.
+- **Pre-requisites:** an ephemeris source in code (a vetted astronomy library, not hand tables); an extraction of the astrology rules from the now-complete B05 note (*Truth of the Stock Tape*, the *Stock Selector* and Pesavento's appendices are read; none adds a Gann astrology source); and the 1954 letter text itself (A2.3 notes).
 - **Excluded regardless:** per-market price→degree scales chosen without derivation (Part I §9), and non-Gann astrology (B06, B07, B11) except as test-method reference.
 
 ### Documentation corrections
@@ -474,31 +511,37 @@ Not low priority, and not first. Where Gann himself names the technique and our 
 
 ## Part VI — Coverage and what remains unread
 
-*Updated after the second pass (2026-09-27).*
+*Updated after the third pass (2026-09-27): local OCR of the image-only scans, downloaded under the one-rule curl permission.*
 
 **Read in full, page by page:**
-- *Tier A:* Ticker 1909 (A01); Master Course (A2.1, all chapters incl. 19A/B, which also carries the *Puts and Calls* text, A6); annual forecasts 1919–22 (A2.2); coffee letter 1954 (A2.3); *Tunnel Thru the Air* (A03); *New Stock Trend Detector* (A05); *45 Years in Wall Street* (A09, pp. 1–148; chart plates are images); *The Magic Word* (A10); *Economic Forecaster* 1954 (A11)
-- *Tier B:* B01 Awodele; B02; B03/B03b; B06 Bucholtz (text; image-only pages are charts); B08; B09; B10a–c; **B11 Meadors**; B12; B13; B14
+- *Tier A:*
+  - Ticker 1909 (A01)
+  - **Truth of the Stock Tape 1923 (A02)**
+  - Master Course (A2.1, all chapters incl. 19A/B, which also carries the *Puts and Calls* text, A6)
+  - annual forecasts 1919–22 (A2.2)
+  - coffee letter 1954 (A2.3)
+  - *Tunnel Thru the Air* (A03)
+  - ***Wall Street Stock Selector* 1930 (A04), including its back matter and the 1929 Annual Forecast**
+  - *New Stock Trend Detector* (A05)
+  - ***How to Make Profits in Commodities* (A08): text pp. 1–328, including the 1951 New Rules; p. 52 from a second scan; plates and appendix tables surveyed**
+  - *45 Years in Wall Street* (A09)
+  - *The Magic Word* (A10)
+  - *Economic Forecaster* 1954 (A11)
+- *Tier B:*
+  - B01 Awodele; B02; B03/B03b
+  - **B04 Reddy (all 200 pp.)**
+  - **B05 Mikula Vol. 2 (all 194 pp.)**
+  - B06 Bucholtz (text; image-only pages are charts)
+  - **B07 Pesavento & Smoleny (all, incl. appendices)**
+  - B08; B09; B10a–c; B11 Meadors
+  - B12 (the workbook re-uploaded on 2026-09-27 is the same file: same name and 452,608-byte size)
+  - B13; B14
 - *Tier C:* C01–C07
+- *Tier H:* **H01 Hauck, complete for this edition.** Chs. 1 and 3 are absent from the edition's body.
 
-**Partial.** The reason is the same in every case: the Drive connector's text export stops at about 200K characters (or less), and the binary download fails with an expired session above ~7 MB.
+**What OCR cannot recover:** chart plates and rotated statistical tables (A02/A04 chart pages, A08 pp. 329–366 and the rotated appendix tables, A09 plates). They are data and illustrations, and the text states the rules they illustrate.
 
-| Source | Read | Not read |
-|---|---|---|
-| **A8**, *How to Make Profits in Commodities* (1942/1951) | pp. 1–64 | **pp. 65–~413**, including the **1951 "New Rules" (pp. 308–330)**: time turns trend, over-balanced swings, swing and weekly swing charts, extreme-price rules, reverse signal day, gaps. **Highest-priority gap**, because it may settle conflict X3. All three Drive copies (20 MB ×2, 76 MB) stop at the same page. |
-| **H01 Hauck** | Intro, Chs. 2, 4–6 | Chs. 1, 3, 7–25 |
-| **B04 Reddy** | Preface, Chs. 1–3, most of Ch. 4 | rest of Ch. 4, Chs. 5–8, Appendices A–E |
-| **B05 Mikula Vol. 2** | Intro, Chs. 1–4 | Chs. 5–8 (Fourth Dimension, intraday, double-numbered charts, Cube Cycle), Conclusion, Update |
-| **B07 Pesavento & Smoleny** | pp. 1–162 | rest of Ch. 11, Conclusion, Appendices A–D (astrology; low priority) |
-
-**Not read at all:**
-- **A2 *Truth of the Stock Tape*.** The Drive file is a 58.7 MB image-only scan with no text layer; it needs OCR.
-- A4 *Wall Street Stock Selector* and A7 *Face Facts America!* Their existing catalogue entries still stand.
-
-**What would unblock the rest.** Each of these is the owner's call; none is something this session may route around:
-1. **Split the PDFs in Drive** into parts under ~2.5 MB or about 60 pages each, starting with A8 pp. 65–413.
-2. **Save Google Docs versions** of the PDFs in Drive (Drive's "Open with Google Docs" also OCRs image scans, which covers *Truth of the Stock Tape*). Very long Docs may still need splitting.
-3. **Allow `drive.google.com` (or the book's host) in the environment's network settings**, so the container can download the files directly.
+**Not read at all:** A7 *Face Facts America!* (not in the Drive folders). Its catalogue entry stands.
 
 **Recommended addition:** *The Kybalion* (1908, public domain), the actual text of the seven principles AGENTS.md uses.
 
@@ -509,6 +552,7 @@ Not low priority, and not first. Where Gann himself names the technique and our 
 | File | Source | Tier |
 |---|---|---|
 | `A01_ticker_interview_1909.md` | Ticker & Investment Digest interview, 1909 | A |
+| `A02_A04_truth_of_stock_tape_1923_and_stock_selector_1930.md` | *Truth of the Stock Tape*, 1923, and *Wall Street Stock Selector*, 1930 (incl. the 1929 Annual Forecast) | A |
 | `A2_1_master_stock_market_course.md` | Master Stock Market Course (lessons 1931–1955), all chapters | A |
 | `A2_2_annual_forecasts_1919_1922.md` | Annual forecasts 1919–1922 | A |
 | `A2_3_coffee_letter_1954.md` | Coffee letter 1954 (astrology) | A |
@@ -517,13 +561,13 @@ Not low priority, and not first. Where Gann himself names the technique and our 
 | `A10_magic_word.md` | *The Magic Word*, 1950 | A |
 | `A11_economic_forecaster_1954.md` | *Economic Forecaster*, 1954 | A |
 | `B01_awodele_harmonic_analysis.md` | Awodele: Gann/Fourier/Schuster/Moore | B (quoting A) |
-| `A08_how_to_make_profits_in_commodities.md` | *How to Make Profits in Commodities*, 1942/51 (pp. 1–64) | A |
+| `A08_how_to_make_profits_in_commodities.md` | *How to Make Profits in Commodities*, 1942/51 (full text incl. 1951 New Rules) | A |
 | `A09_45_years_in_wall_street_1949.md` | *45 Years in Wall Street*, 1949 | A |
 | `B03_wdgann_blog_and_d_levels.md` | wdgann.com posts; D-levels table | B |
-| `B04_reddy_trading_methodologies.md` | Reddy, Gann trading methodologies (partial) | B |
+| `B04_reddy_trading_methodologies.md` | Reddy, Gann trading methodologies | B |
 | `B05_mikula_scientific_methods_vol2.md` | Mikula, *Gann's Scientific Methods Unveiled* Vol. 2 (partial; astrology) | B |
 | `B06_bucholtz_bull_bear_planets.md` | Bucholtz planetary tables | B |
-| `B07_pesavento_smoleny_financial_astrology.md` | Pesavento & Smoleny 2015 (pp. 1–162; not Gann) | B |
+| `B07_pesavento_smoleny_financial_astrology.md` | Pesavento & Smoleny 2015 (complete; not Gann) | B |
 | `B11_meadors_law_of_price_movement.md` | Meadors, Law of Price Movement | B |
 | `B12_gann_master_chart_spreadsheet.md` | Hayashi hexagon/Square-of-9 spreadsheet | B |
 | `B13_additional_cycle_findings.md` | Kitchin/Juglar/Kuznets/Kondratieff compilation | B/C |
@@ -535,7 +579,7 @@ Not low priority, and not first. Where Gann himself names the technique and our 
 | `C05_dewey_definitions_and_concepts.md` | Dewey 1965, definitions | C |
 | `C06_dewey_case_for_cycles.md` | Dewey 1967, *The Case for Cycles* (18 criteria) | C |
 | `C07_halberg_circadian_chronomics.md` | Halberg et al. 2003 | C |
-| `H01_hauck_emerald_tablet.md` | Hauck 1999 (partial) | H |
+| `H01_hauck_emerald_tablet.md` | Hauck 1999 (complete for this edition) | H |
 
 Related standing documents: `docs/GANN_HISTORICAL_SOURCES.md`, `docs/GANN_METHOD_COMPLETENESS_AUDIT.md`, `docs/GANN_METHODOLOGY_FULL_REPORT.md`, `AGENTS.md`.
 
