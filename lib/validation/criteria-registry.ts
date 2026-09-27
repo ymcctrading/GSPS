@@ -103,10 +103,16 @@ const SCAN_SCORE: RegisteredCriterion[] = [
     id: "swingChartTrend",
     family: "scanScore",
     source: "lib/scoring/score.ts, lib/gann/swingChart.ts",
-    label: "3-day/9-day swing chart trend",
+    label: "3-day/weekly swing chart trend",
     expectedSign: "positive",
     evidence: "hypothesis",
     note:
+      "**Construction replaced 2026-09-27 (owner decision, conflict X3).** The charts are now Gann's " +
+      "own: the 3-Day Chart (45 Years in Wall Street, 1949, Ch. VII) and the 7-day weekly swing chart " +
+      "(How to Make Profits in Commodities, 1951, pp. 316-317), built on highs and lows, with the trend " +
+      "turning only when the last swing top or bottom breaks. The old close-count '9-day' chart had no " +
+      "source. Every measurement below describes the old construction and does not transfer: treat " +
+      "this criterion as unmeasured from STRATEGY_VERSION 2026-09-27-gann-swing-charts on.\n\n" +
       "Replaces `macroTrend` (retired 2026-09-10; see RETIRED) — its monthly/weekly/daily 2-of-3 " +
       "agreement measured negligible (inside the ±0.1R noise band on both adequately sampled arms) " +
       "after its counter-trend premise was already corrected once, on 2026-09-09. The 3-day and 9-day " +

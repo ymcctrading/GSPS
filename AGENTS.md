@@ -112,6 +112,11 @@ Watch context and Execute needs the breakaway; (6) break-even and trailing
 stops on Gann's structure; (7) astrology stays research-only, maintained
 separately from the build. Scores may change so long as they follow Gann's
 method. The owner wants the intraday use verified by measurement.
+**Built the same day (B1):** `lib/gann/swingChart.ts` now implements Gann's
+own 3-Day Chart and 7-day weekly chart (highs and lows; trend turns on
+breaking the last swing extreme). Every "9-day chart" mention elsewhere in
+this file describes the construction it replaced. `STRATEGY_VERSION` is
+`2026-09-27-gann-swing-charts`, and the 6/3.5 cutoffs need re-deriving on it.
 
 ## WD Gann precedence — standing principle
 

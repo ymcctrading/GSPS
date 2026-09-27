@@ -13,4 +13,8 @@
  * `lib/strat/patterns.ts`, `lib/strat/levels.ts`, the Signal and Regime Engine
  * states) — and note the bump in `CHANGELOG.md`.
  */
-export const STRATEGY_VERSION = "2026-09-26-continuation-replay";
+// 2026-09-27: Gann's own swing charts (3-Day Chart and 7-day weekly chart on
+// highs and lows, trend turns on breaking the last swing extreme) replace the
+// close-count 3/9 charts under swingChartTrend, the regime engine, readTrend
+// and the entry trigger's pivots. Conflict X3, owner decision.
+export const STRATEGY_VERSION = "2026-09-27-gann-swing-charts";

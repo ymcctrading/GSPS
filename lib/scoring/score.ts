@@ -47,17 +47,16 @@ export interface ScoreInputs {
   macroTrends: TrendReading[]; // monthly/weekly/daily
   hourlyTrend: TrendReading;
   /**
-   * Gann's 3-day and 9-day swing charts off the daily close
-   * (`lib/gann/swingChart.ts#computeSwingChart`). Null on either leg when
-   * there isn't enough daily history to establish an initial swing
-   * direction, which scores as a fail the same way a missing ADX reading
-   * does.
+   * Gann's 3-Day Chart and 7-day weekly swing chart off the daily highs and
+   * lows (`lib/gann/swingChart.ts#computeSwingChart`). Null on either chart
+   * until it has signalled a trend (crossed its last swing top or broken its
+   * last swing bottom), which scores as a fail.
    */
   swingChart?: SwingChartReading | null;
   /**
    * Gann's "sections of a campaign" leg count off the same daily bars
    * (`lib/gann/swingChart.ts#computeCampaignLeg`) — how many 3-day
-   * swing-chart legs have printed since the last 9-day trend change, and
+   * swing-chart legs have printed since the weekly chart's last trend change, and
    * whether that count falls in his disclosed 3-4-leg reversal zone.
    * Confluence/context only: appended to `swingChartTrend`'s explanation
    * note, never affecting `passed` — a materially different construction
@@ -228,14 +227,16 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // 2-of-3 agreement measured negligible (inside the ±0.1R noise band on
   // both adequately sampled arms — see lib/validation/criteria-registry.ts's
   // `macroTrend` RETIRED entry) after its counter-trend premise was already
-  // corrected once. Gann's 3-day/9-day swing charts are a different
-  // construction on the same daily bars — a reversal count instead of a
-  // moving-average/pivot read — so both legs must agree with the trade's own
-  // direction, not just with each other.
+  // corrected once. Gann's swing charts are a different construction on the
+  // same daily bars, so both must agree with the trade's own direction, not
+  // just with each other. Since 2026-09-27 they are Gann's own charts: the
+  // 3-Day Chart (A09 Ch. VII) and the 7-day weekly chart (A8 1951), built on
+  // highs and lows, with the trend turning on a break of the last swing
+  // extreme. See lib/gann/swingChart.ts.
   const swingChartAligned =
     swingChart != null &&
     swingChart.threeDay === direction &&
-    swingChart.nineDay === direction;
+    swingChart.weekly === direction;
 
   // Added 2026-09-16: Gann's "Rule of Three" (see lib/gann/ruleOfThree.ts's
   // header for the exact rule and its generalization to both reversion and
@@ -368,7 +369,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // scored boolean.
   const campaignLegNote =
     campaignLeg?.legNumber != null && campaignLeg.confidence != null
-      ? ` Leg ${campaignLeg.legNumber} of the current campaign since the last major (9-day) trend change (${campaignLeg.confidence} confidence — reversals on the 3rd/4th leg are trusted more than the 2nd).`
+      ? ` Leg ${campaignLeg.legNumber} of the current campaign since the last major (weekly chart) trend change (${campaignLeg.confidence} confidence — reversals on the 3rd/4th leg are trusted more than the 2nd).`
       : "";
 
   // Confluence/context only, same treatment as campaignLegNote above — never
@@ -396,19 +397,19 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   const breakdown: ScoreBreakdownItem[] = [
     {
       key: "swingChartTrend",
-      criterion: "3-day/9-day swing chart trend",
+      criterion: "3-day/weekly swing chart trend",
       pillar: "trend",
       passed: swingChartAligned,
       note:
-        swingChart == null || swingChart.threeDay == null || swingChart.nineDay == null
-          ? "Not enough daily history to read the 3-day/9-day swing charts."
+        swingChart == null || swingChart.threeDay == null || swingChart.weekly == null
+          ? "The 3-day and weekly swing charts have not both signalled a trend yet."
           : (swingChartAligned
               ? setupKind === "continuation"
-                ? `Both the 3-day and 9-day swing charts read ${direction} — the trend this setup continues is intact.`
-                : `Both the 3-day and 9-day swing charts read ${direction} — in agreement with this reversion.`
-              : swingChart.threeDay === swingChart.nineDay
+                ? `Both the 3-day and weekly swing charts read ${direction} — the trend this setup continues is intact.`
+                : `Both the 3-day and weekly swing charts read ${direction} — in agreement with this reversion.`
+              : swingChart.threeDay === swingChart.weekly
                 ? `Both swing charts read ${swingChart.threeDay}, not ${direction} — they agree with each other but not with this setup.`
-                : `The 3-day (${swingChart.threeDay}) and 9-day (${swingChart.nineDay}) swing charts disagree with each other.`) +
+                : `The 3-day (${swingChart.threeDay}) and weekly (${swingChart.weekly}) swing charts disagree with each other.`) +
             campaignLegNote,
     },
     {

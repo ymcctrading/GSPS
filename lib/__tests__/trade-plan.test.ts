@@ -104,7 +104,7 @@ function inputs(overrides: Partial<ScoreInputs> = {}): ScoreInputs {
       trend("1Day", "bullish"),
     ],
     hourlyTrend: trend("1Hour", "bullish"),
-    swingChart: { threeDay: "bullish", nineDay: "bullish" },
+    swingChart: { threeDay: "bullish", weekly: "bullish" },
     timePriceSquare: [
       { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMoveAtrUnits: 10, squared: true },
     ],
@@ -317,8 +317,8 @@ describe("qualifiesAsContinuationFill", () => {
 });
 
 describe("continuation scoring", () => {
-  const swingBullish = { threeDay: "bullish" as const, nineDay: "bullish" as const };
-  const swingBearish = { threeDay: "bearish" as const, nineDay: "bearish" as const };
+  const swingBullish = { threeDay: "bullish" as const, weekly: "bullish" as const };
+  const swingBearish = { threeDay: "bearish" as const, weekly: "bearish" as const };
 
   it("credits a continuation for swing charts running WITH it", () => {
     const decision = computeScore(inputs({ setupKind: "continuation", swingChart: swingBullish }));

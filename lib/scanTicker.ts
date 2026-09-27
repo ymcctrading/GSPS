@@ -138,7 +138,7 @@ export async function scanTicker(
     const monthlyTrend = readTrend(monthly, "1Month");
     const weeklyTrend = readTrend(weekly, "1Week");
     const dailyTrend = readTrend(daily, "1Day");
-    // Gann's 3-day/9-day swing charts, replacing the monthly/weekly/daily
+    // Gann's 3-Day and 7-day weekly swing charts, replacing the monthly/weekly/daily
     // macroTrend agreement check — same daily bars, a different (reversal-
     // count) construction. See lib/gann/swingChart.ts.
     const swingChart = computeSwingChart(daily);

@@ -37,13 +37,13 @@ The goal is that every rule Gann **disclosed** runs in GSPS the way he stated it
 |---|---|---|---|---|---|
 | Time | 7 | 3 | 0 | 7 | 1 research-only |
 | Price and levels | 6 | 1 | 0 | 3 | — |
-| Trend | 3 | 2 | 1 (X3) | 6 | — |
+| Trend | 4 | 2 | 0 (X3 fixed) | 6 | — |
 | Entries, stops, exits, lifecycle | 3 | 3 | 1 (X4) | 5 | — |
 | Volume | 0 | 0 | 1 (X1) | 3 | — |
 | Risk and money management | 2 | 2 | 0 | 2 | — |
 | The trader (education) | 1 | 2 | 0 | 2 | — |
 | Astrology, numerology, forecasting | 1 | 0 | 0 | 3 (research) | 2 excluded, 1 cannot be copied |
-| **Total (74 rules)** | **23** | **13** | **3** | **31** | **4** |
+| **Total (74 rules)** | **24** | **13** | **2** | **31** | **4** |
 
 Counts are rows in Part 3; "Aligned" includes rows aligned in structure.
 
@@ -102,7 +102,7 @@ Each row gives the rule and its source, what GSPS does now, the status, and the 
 
 | Gann rule | Source | GSPS today | Status | Next step |
 |---|---|---|---|---|
-| **Swing chart = counter-moves of 2–3 days on highs and lows; weekly chart = 7 calendar days; trend turns on breaking the last swing extreme** | A8 1951 pp. 316–317; A09 Ch. VII; A04 Ch. IV; A02 p. 82 | `swingChart.ts` flips on 3 and 9 consecutive *closes*; the "9-day" chart has no source | **Conflict (X3)** | **Owner.** Rebuild `swingChart.ts` to Gann's definition (see Part 5, step B1). It moves `swingChartTrend`, `trendStrength.ts` and `readGannTrend`, so the 6/3.5 cutoffs must be re-derived |
+| **Swing chart = counter-moves of 2–3 days on highs and lows; weekly chart = 7 calendar days; trend turns on breaking the last swing extreme** | A8 1951 pp. 316–317; A09 Ch. VII; A04 Ch. IV; A02 p. 82 | `swingChart.ts` rebuilt 2026-09-27: 3-Day Chart + 7-day weekly chart on highs and lows, trend on breaking the last swing extreme | **Aligned (B1 built 2026-09-27)** | Fresh replay on `2026-09-27-gann-swing-charts` (B3); the price-scaled 9-point chart stays a candidate |
 | Time trend turn: a lower top, then a break of the first swing low | A8 1951 p. 309 | `trendStrength.ts` stepping swings | Aligned in structure | Re-verify after B1 |
 | Rule of Three (3 consecutive lower closes reverse an uptrend) on daily, weekly and monthly | A04 p. 72 | `ruleOfThree.ts` (scored, daily) | Partial | Apply on weekly and monthly as Gann does |
 | Three-stage Space Rule; greatest reaction of the campaign exceeded = trend change | A2.1 Ch. 7, 10A, 11A; A8 p. 51; A04 Ch. VII | none | **Missing** | G3 + G14: build one **campaign counter-move ledger** (Part 5, B2) |
@@ -217,7 +217,7 @@ Each step says whether a user waits on it (AGENTS.md "Speed is a product require
 - A8 · C4 citation headers (no behaviour change).
 
 **Stage B — the trend engine (owner decisions 1 and 5)**
-- B1 · Rebuild `swingChart.ts`:
+- B1 · **Built 2026-09-27** (`STRATEGY_VERSION` `2026-09-27-gann-swing-charts`). Rebuild `swingChart.ts`:
   - daily chart = counter-moves of ≥2–3 bars on highs and lows
   - weekly chart = ≥7 calendar days
   - trend turns on breaking the last swing extreme

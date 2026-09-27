@@ -7,6 +7,23 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-09-27
+
+### Changed
+- **Gann's own swing charts replace the close-count charts** (parity roadmap
+  conflict X3, owner decision "Gann's method supersedes my own"). The 3-Day
+  Chart (*45 Years in Wall Street*, 1949) and the 7-day weekly swing chart
+  (*How to Make Profits in Commodities*, 1951) are now built on highs and
+  lows. The line reverses on a counter-move of 3 bars or 7 calendar days, and
+  the trend turns only when the last swing top or bottom breaks. The
+  unsourced "9-day" chart is gone. This feeds `swingChartTrend`, the Signal &
+  Regime Engine, the macro trend read and the entry trigger's pivots, so
+  **scores and trend reads change**. `STRATEGY_VERSION` is now
+  `2026-09-27-gann-swing-charts`; the 6/3.5 cutoffs need re-deriving on it.
+- **Gann's permanent-cycle calendar uses his published dates** (Feb 8–10,
+  Mar 21–23, May 3–7, Jun 20–24, Aug 3–8, Sep 21–24, Nov 8–11, Dec 20–24)
+  instead of the 5th of each month. Display only.
+
 ## 2026-09-26
 
 ### Fixed

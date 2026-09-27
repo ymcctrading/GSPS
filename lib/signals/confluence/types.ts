@@ -155,7 +155,7 @@ export interface GannConfluenceResult {
   /**
    * Gann's "sections of a campaign" leg count (`docs/GANN_HISTORICAL_SOURCES.md`
    * A5/A8/A9) — how many 3-day swing-chart legs have printed since the last
-   * 9-day trend change, classified against his disclosed 3-4-leg reversal
+   * weekly-chart trend change, classified against his disclosed 3-4-leg reversal
    * pattern. Confluence/context only, same non-authoritative role as every
    * other field here — never changes `swingChartAligned`'s scored pass/fail
    * in `lib/scoring/score.ts`. See `lib/gann/swingChart.ts#computeCampaignLeg`.

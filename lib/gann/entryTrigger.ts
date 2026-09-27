@@ -94,10 +94,10 @@ export const LOST_MOTION_BUFFER_PCT = DEFAULT_CONFIRMATION_BUFFER_PCT;
 /**
  * Which swing chart the entry trigger reads.
  *
- * The 3-day chart, not the 9-day. Both are Gann's, and `swingChartTrend`
+ * The 3-Day Chart, not the weekly chart. Both are Gann's, and `swingChartTrend`
  * already requires them to agree before it scores the *trend* — but an entry
- * needs a level near enough to current price to be actionable, and the 9-day
- * chart's pivots are by construction further away and older. The 9-day chart
+ * needs a level near enough to current price to be actionable, and the weekly
+ * chart's pivots are by construction further away and older. The weekly chart
  * governs whether the trend is real; the 3-day chart governs where this leg's
  * old top sits.
  */

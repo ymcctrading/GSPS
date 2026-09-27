@@ -16,8 +16,13 @@ import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import { isGannRangeBound, readGannTrend } from "@/lib/gann/trendStrength";
 
+// Consecutive calendar days, so the weekly (7-calendar-day) swing chart sees
+// real dates. Every fixture used to share one timestamp, which the old
+// close-count charts never read.
+let day = 0;
 function bar(c: number): Bar {
-  return { t: "2026-01-01T00:00:00Z", o: c, h: c + 1, l: c - 1, c, v: 1000 } as Bar;
+  const t = new Date(Date.UTC(2026, 0, 1) + day++ * 86_400_000).toISOString();
+  return { t, o: c, h: c + 1, l: c - 1, c, v: 1000 } as Bar;
 }
 
 /** Stepping uptrend: 8 up, 3 down, net higher — rising tops and bottoms. */

@@ -90,7 +90,7 @@ export type BreakdownKey = CriterionKey | HoldKey;
 
 /** Short labels for the factor tables, where the full criterion text is too wide. */
 export const CRITERION_LABELS: Record<CriterionKey, string> = {
-  swingChartTrend: "3-day/9-day swing chart trend",
+  swingChartTrend: "3-day/weekly swing chart trend",
   gannAngleSlope: "Structural trend-angle strength (1x2+)",
   volumeClimax: "Volume climax at the anchor pivot",
   historicalSR: "Historical support/resistance",

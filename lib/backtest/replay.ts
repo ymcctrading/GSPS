@@ -354,7 +354,7 @@ const weekKey = (b: Bar) => {
 export interface MacroContext {
   macroTrends: TrendReading[];
   swingChart: SwingChartReading;
-  /** How many 3-day swing-chart legs since the last 9-day trend change, and Gann's "sections of a campaign" confidence read on that count. Confluence/context only — see lib/gann/swingChart.ts#computeCampaignLeg. */
+  /** How many 3-day swing-chart legs since the weekly chart's last trend change, and Gann's "sections of a campaign" confidence read on that count. Confluence/context only — see lib/gann/swingChart.ts#computeCampaignLeg. */
   campaignLeg: CampaignLegReading;
   ruleOfThree: RuleOfThreeReading;
   timePriceSquare: TimePriceSquareReading[];
