@@ -109,6 +109,31 @@ done and verify them; if not, don't duplicate them.**
   - Under the Phase 4 rule, aligning every path on confirmation is recommended and held for the
     owner. That run is effectively Phase 2 minus F1.2, F1.4 and F1.5.
 
+**Second session, 2026-09-26 (`claude/kind-dijkstra-uxxdma`), on top of PR #294. Verify.**
+
+- **Correction to this document and to #294's NOTES:** "Production stop =
+  `computeStopWithLeeway`" is wrong for equities. An equity plan's stop is
+  `computeEquityTradeLevels`' S/R stop (3–15%, or 8%/12% fallback) and its
+  target is `takeProfit1` (2× daily ATR%, clamped 3–15%). The `prodstop` and
+  `confirmed` cells of both 766-symbol runs used the leeway stop and a 2R
+  target. AGENTS.md records the consequences.
+- **F1.2, F1.4, F1.5 done in the replay**, all opt-in so earlier runs stay
+  reproducible: `stopModel` (`trigger` | `leeway` | `plan`), `targetModel`
+  (`targetR` | `planTp1`), `confirmationCadence` (`bar` | `scanPass`),
+  `confirmationExpiryBars` (wall-clock), `invalidateOnPreEntryStop` (F3.7),
+  and duplicate dropping. `PRODUCTION_HARNESS` bundles the production-faithful
+  set; `/api/backtest?harness=production` applies it. The funnel (plans,
+  confirmed, expired, invalidated, no plan, duplicates) is in every report and
+  in the universe script's summary.
+- **Phase 2 should be re-run** with cells `raw` (defaults), `plan`
+  (`stopModel: "plan"`, `targetModel: "planTp1"`, stop entry) and
+  `production` (`PRODUCTION_HARNESS`), and a score-band sweep, before the F3.4
+  alignment or any stop change is acted on. `--universe diversified` works on
+  `main` once this merges.
+- **Also landed:** production reads completed daily sessions only; F3.7 in
+  production; F4.2; F4.3; mega-cap universe in the live rotation; VWAP as an
+  optional chart overlay. F7.1 is held for the owner.
+
 **Tooling that exists and works.**
 
 - The workflow "Universe backtest (manual)" (`.github/workflows/backtest-universe.yml` →

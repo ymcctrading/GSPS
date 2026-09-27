@@ -717,18 +717,89 @@ for the project owner** — do not fix it silently, and re-verify it first:
   is decide where an order goes" in spirit, since publication decides what
   Guided Mode and the demo trade. It's a production behaviour change, so it's
   held for the project owner. The replay does not apply this filter.
-- **Being in `FALLBACK_UNIVERSE` doesn't mean being scanned (F1.7).** It
-  comes last behind the tracked symbols, the rotation chunk (drawn from
-  `LARGE_CAP_UNIVERSE` only) and the most-actives, inside a 250-slot cap.
-  Check coverage in coarse telemetry, not list membership.
-- Lesser items: the weight-promotion path can still promote non-uniform
-  weights (F4.2); pre-entry plans aren't invalidated by a stop breach (F3.7);
-  `policy_values` overrides have no bounds (F4.3); `stopRoom`'s
-  "quarantined" status doesn't affect live scoring (F4.7). Kept rather than
-  deleted because they're unfinished rather than dead:
-  `withinTriggerTolerance` (an unenforced spec rule), `toSaraStrategyResult`,
-  and `quantityFromPermittedRisk`/`plannedRiskDollars`.
+- **Being in `FALLBACK_UNIVERSE` doesn't mean being scanned (F1.7).**
+  **Resolved in practice, checked 2026-09-26 against production:** the
+  rotation reached 765 of the 766 large caps at the coarse gate on
+  2026-09-25 (`coarse_gate_telemetry`). Migration 0082 only adds cycle
+  columns; it was not a coverage fix. Read coverage from telemetry, not list
+  membership. The rotation now walks `SCAN_DISCOVERY_UNIVERSE` (mega-caps +
+  large-caps), see "Mega-cap coverage" below.
+- **Pre-entry stop breach (F3.7).** **Resolved 2026-09-26, project-owner
+  sign-off.** A plan in `awaiting_entry_confirmation` is invalidated when a
+  scan pass finds price through its stop (`preEntryStopBreached`,
+  `lib/lifecycle/advanceConfirmation.ts`), and the replay can run the same
+  check (`invalidateOnPreEntryStop`). An `armed` plan is deliberately not
+  covered: it may have a working order, and invalidating it would also need a
+  cancel.
+- **Weight promotion (F4.2).** **Resolved 2026-09-26, project-owner
+  sign-off.** `lib/scoring/active-weights.ts` ignores a `live` row whose
+  weights aren't uniform unless `CITED_CROSS_CRITERION_RANKING` (a reviewed
+  code constant, null today) names a source. The citation is deliberately not
+  a field on the row, because a hand promotion has no review.
+- **`policy_values` bounds (F4.3).** **Resolved 2026-09-26.** The risk,
+  guided and universe domains each declare per-key sanity bounds; an
+  out-of-range or non-integer override is logged and ignored. The table has
+  no rows in production, so nothing live changed.
+- **F7.1, PR #285 `macroCycle`: held for the project owner.** Its projections
+  stop at 1989 (latest anchor 1929 + the 60-year cycle), so it is never active
+  today. The owner recalls a session that projected the cycle forward using
+  *Tunnel Thru the Air*. As of 2026-09-26 no branch, commit or document here
+  contains that projection (searched every remote branch and all commit
+  messages for "Tunnel Thru"), and a session can't read another session's
+  transcript. Don't close or rebuild the PR until the owner points to it.
+- Still open, lesser: `stopRoom`'s "quarantined" status doesn't affect live
+  scoring (F4.7). Kept rather than deleted because they're unfinished rather
+  than dead: `withinTriggerTolerance` (an unenforced spec rule),
+  `toSaraStrategyResult`, and `quantityFromPermittedRisk`/`plannedRiskDollars`.
 
+**Addendum, 2026-09-26 (second session), each with project-owner sign-off.**
+
+- **The equity "production stop" was misidentified, in the handoff and in
+  both 766-symbol runs.** The handoff, the 2026-09-25 NOTES and the
+  2026-09-26 NOTES all treat `computeStopWithLeeway` (an ATR leeway capped at
+  2.5×/3.5× the 15-minute ATR) as the production stop, and their `prodstop`
+  and `confirmed` cells walk it. For `us_equity` it is not what a plan
+  carries: `computeTradeLevels` returns `computeEquityTradeLevels`' stop, the
+  nearest clustered S/R 3–15% from entry (3–20% large-cap) plus 0.5%, else a
+  fixed 8%/12% (`lib/strat/levels.ts`, the `assetClass === "us_equity"`
+  branch). That is the plan's `invalidation` and the order's stop
+  (`fromScanResult.ts`, `deriveOrderInputFromPlan`), and
+  `lib/trade/protocol-rules.ts` says the same in user copy.
+  `computeStopWithLeeway` is production's stop for non-equities only. Two
+  consequences:
+  - The "stop cap costs money" reading (`prodstop` vs `raw`) is about a stop
+    no equity plan uses. It is not evidence about production's stop.
+  - The F3.4 reversal above (stop entry −0.155R vs confirmed +0.190R) is an
+    internally consistent comparison of the two entry rules, but under the
+    leeway stop and a `trigger + 2R` target, not the plan's own bracket.
+    Re-run it with `PRODUCTION_HARNESS` (`lib/backtest/replay.ts`: plan stop,
+    plan TP1, confirmation at scan-pass cadence, wall-clock expiry, pre-entry
+    invalidation) before acting on the alignment recommendation.
+- **The scan read an unfinished daily candle.** Alpaca's `1Day` bars include
+  the current session's candle and nothing trimmed it, so during market hours
+  the Gann trigger's swing walk ran over a candle still moving. Owner
+  direction: "always default to the Gann method." `fetchAllTimeframes`/`Batch`
+  now pass the daily series through `completedDailySessions`
+  (`lib/data/provider.ts`), matching the replay's prior-sessions-only read.
+  Not changed, flagged: the coarse pre-filter's own daily fetch
+  (`lib/marketScan.ts`) still sees today's candle, because it uses it as the
+  current price and trimming would make the pre-filter a day stale; and the
+  weekly/monthly week- and month-to-date bars still include today.
+- **Mega-cap coverage.** Owner direction: mega-caps are scanned on purpose,
+  for users and the newsletter. `MEGA_CAP_UNIVERSE` (71 names, ported from
+  `claude/great-brown-h6hops`) is in `FALLBACK_UNIVERSE`, the rotation
+  (`SCAN_DISCOVERY_UNIVERSE`, 816 symbols), Guided's fallback tail, and the
+  novice market-cap gate (`lib/universe/scanGates.ts`), where AAPL/MSFT/NVDA
+  had been failing closed because only the $10B–$200B capture counted. Before
+  this, 18 of the 71 reached the coarse gate on only one of seven scan days.
+  The list isn't yet validated with `scripts/validate-large-cap-universe.mjs`,
+  but all 71 resolve bars in production telemetry. Scan-time cost is
+  structurally zero per run (same chunk size, still 6 chunks); confirm with
+  the `[market-scan]` breadcrumbs after deploy.
+- **VWAP is now an optional chart overlay** beside SMA 20/50
+  (`components/chart/candles.tsx`, `lib/indicators.ts#vwap`), per the owner's
+  "SMA and VWAP should be optional indicators". Display only, under the
+  "Charting indicators" boundary.
 
 ## Gann-derived AND measured — standing principle
 
@@ -1678,8 +1749,8 @@ something outside the repo overrides it. Known override surfaces as of 2026-09-1
 - `learning_models` (`status = 'live'`) — overrides `DEFAULT_CRITERION_WEIGHTS` via
   `lib/scoring/active-weights.ts`. Guarded as above.
 - `lib/risk/policy.ts` — `getRiskPolicy(supabase)` / `setRiskPolicyValue()` resolve risk policy
-  from the database over `DEFAULT_RISK_POLICY_VALUES`. **Not yet audited for the same class of
-  drift.**
+  from the database over `DEFAULT_RISK_POLICY_VALUES`. Checked 2026-09-26: `policy_values` has no
+  rows in production, and every domain's overrides are now range-checked (F4.3).
 - Environment variables — the confluence modules read `GSPS_DISABLE_GANN_CONFLUENCE` /
   `GSPS_DISABLE_SARA_CONFLUENCE` (`lib/signals/confluence/flags.ts`), and `MARKET_DATA_REALTIME`
   carries a mandatory revert trigger above. **Production values not yet verified.**
