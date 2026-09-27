@@ -1,6 +1,6 @@
 # Gann, Cycles & Hermetic Thought — GSPS Master Reference Report
 
-*Compiled 2026-09-27 from the page-by-page source reads in `docs/memory-bank/sources/`; second pass the same day added A08, A09, B04, B05, B07 and B11; third pass (local OCR) completed A08, H01 and B04/B05/B07 and added A02 *Truth of the Stock Tape* and A04 *Wall Street Stock Selector*.
+*Compiled 2026-09-27 from the page-by-page source reads in `docs/memory-bank/sources/`; second pass the same day added A08, A09, B04, B05, B07 and B11; third pass (local OCR) completed A08, H01 and B04/B05/B07 and added A02 *Truth of the Stock Tape*, A04 *Wall Street Stock Selector* and A07 *Face Facts America!*
 Use this with AGENTS.md's standing principles when a question comes up about Gann's methodology, cycle validation or the Hermetic lens.*
 
 > **What this is.** It synthesises everything read in the project owner's Gann, Observation of Cycles and Hermetic folders. It is written in our own words so no book is reproduced; the public repo carries no copyrighted text.
@@ -480,6 +480,12 @@ Every item below is an **open recommendation**. Items that touch scoring, gating
 - **M5 — Repetition-count caution on the longest cycles** (Dewey 3; B07 Ch. 7 makes the same point from the other side). `MAJOR_CYCLE_YEARS`' 30/50/60-year entries have 1–4 repetitions in any US equity history. Label them as Gann's disclosed hierarchy, not as validated periodicities.
 - **M6 — Base rate before hit rate.** B07's "efficiency tests" report 56% hits without the market's own up-day base rate. GSPS's attribution already compares each criterion with the unconditioned population. Keep it that way for any new calendar field.
 - **M4 — Validate calendar/anniversary windows as recurrent events** (Dewey C05): hit-rate vs base rate, not spectra.
+- **M7 — Gann's own out-of-sample record.** *Face Facts America!* (A07, May 1940) is a dated, public forecast by his undisclosed "Master Time cycles," written before the events. Most of its calls missed:
+  - the war was supposed to end by May 1941 at the latest
+  - post-war deflation and US bankruptcy were expected
+  - it did get "turn for the better in 1945" roughly right
+
+  The 1929 forecast (A04) is a single success Gann chose to reprint. Together they are the argument for measuring any calendar or anniversary field before it can mean anything. This concerns only the *undisclosed* forecasting method, not the disclosed rules GSPS implements.
 
 ### Astrology research track (priority clarified 2026-09-27, owner direction; see AGENTS.md "Astrology")
 Not low priority, and not first. Where Gann himself names the technique and our files corroborate it, it ranks alongside his other techniques. Each needs an ephemeris calculation, a rule fixed in advance, and Dewey's test (base rate, significance with a multiple-comparisons correction, out-of-sample). A proven technique enters as confluence only.
@@ -541,7 +547,7 @@ Not low priority, and not first. Where Gann himself names the technique and our 
 
 **What OCR cannot recover:** chart plates and rotated statistical tables (A02/A04 chart pages, A08 pp. 329–366 and the rotated appendix tables, A09 plates). They are data and illustrations, and the text states the rules they illustrate.
 
-**Not read at all:** A7 *Face Facts America!* (not in the Drive folders). Its catalogue entry stands.
+**A7 *Face Facts America!* (1940):** read in full from the owner's upload (`sources/A07_face_facts_america_1940.md`). Every Gann source in the owner's folders has now been read.
 
 **Recommended addition:** *The Kybalion* (1908, public domain), the actual text of the seven principles AGENTS.md uses.
 
@@ -556,6 +562,7 @@ Not low priority, and not first. Where Gann himself names the technique and our 
 | `A2_1_master_stock_market_course.md` | Master Stock Market Course (lessons 1931–1955), all chapters | A |
 | `A2_2_annual_forecasts_1919_1922.md` | Annual forecasts 1919–1922 | A |
 | `A2_3_coffee_letter_1954.md` | Coffee letter 1954 (astrology) | A |
+| `A07_face_facts_america_1940.md` | *Face Facts America! Looking Ahead to 1950*, 1940 | A |
 | `A03_tunnel_thru_the_air_1927.md` | *The Tunnel Thru the Air*, 1927 | A |
 | `A05_new_stock_trend_detector.md` | *New Stock Trend Detector*, 1936 | A |
 | `A10_magic_word.md` | *The Magic Word*, 1950 | A |
