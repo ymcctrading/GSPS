@@ -1045,6 +1045,16 @@ clean (`/settings/scripts` compiled, statically prerendered),
 session (no Supabase-authenticated environment available here) — say so
 rather than claiming a manual click-through happened.
 
+**Production verification pass (2026-09-27).** Migration 0081 had merged but
+was **never applied to production**, so the whole feature was dead on the live
+site. The UI hid that by turning the 500 into "not included on your plan".
+Applied with project-owner sign-off. RLS was verified and the editor now shows
+load errors. `0080_tier_promotion_three_paths.sql` is still unapplied. A live
+browser click-through is still owed (this session's network policy blocked
+both the site and Supabase). See `docs/STRATEGY_MODES.md`'s "Production
+verification pass". Generalises the live-weights lesson: **merging a
+migration is not applying it.**
+
 Any strategy plugin built or extended under this family must continue to
 satisfy the rules this section states: opt-in, one-at-a-time, never
 touching the Gann verdict, tier-gated and server-resolved only, and clearly

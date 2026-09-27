@@ -1,5 +1,15 @@
 # Custom-script Strategy Modes — browser verification handoff
 
+> **Status (2026-09-27): partially executed. Only the live browser
+> click-through is left.** A prior pass found migration 0081 had never been
+> applied to production (fixed), verified RLS, ran the test script through
+> the real library path, and fixed the editor's error handling. It could not
+> reach the site or Supabase from its sandbox. Steps 1 and 3's library-level
+> check are done. Steps 2, 4 and 5 still need a browser, on
+> an environment whose network policy allows the app and
+> `*.supabase.co`. See `docs/STRATEGY_MODES.md`'s "Production verification
+> pass" for what was found. Delete this file once the click-through is done.
+
 Machine-oriented handoff for a Claude Code session to pick up where a prior
 session left off: verify the custom-script Strategy Modes feature in a live
 browser and create a test script. The prior session built and merged the

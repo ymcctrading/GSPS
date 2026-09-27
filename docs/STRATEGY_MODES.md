@@ -382,6 +382,46 @@ into the main nav — the same off-nav placement `components/app/nav.tsx`'s
 own header comment already documents for Glossary, given the nav's
 seven-item tab-bar ceiling.
 
+### Production verification pass (2026-09-27)
+
+A follow-up session set out to click through the whole flow in a live
+browser. It found the feature **could not have worked in production at
+all**: migration `0081_strategy_plugins.sql` had merged but was never
+applied to the live Supabase project. `strategy_plugins` and
+`strategy_plugin_versions` did not exist, so every `/api/strategy-plugins*`
+call failed. (`0080_tier_promotion_three_paths.sql` is also unapplied. The
+project owner scoped that out of this pass, so the three-path `/promotion`
+tables are still missing.) The session applied 0081 to production with the
+project owner's sign-off. A rolled-back probe confirmed the RLS policies: the
+owner sees their row and its version rows, another user sees neither and
+cannot update it.
+
+**Why nobody noticed: the UI turned a server error into a tier gate.** The
+Settings card's link rendered nothing on a non-OK list response, and
+`/settings/scripts` showed "Custom-script authoring isn't included on your
+plan." to a Wall Street account. The editor now shows the real load error
+instead. The Settings link still hides on error, since it's only a link.
+The same pass made a schema-validation failure (e.g. a whitespace-only name)
+list zod's field errors instead of a bare "Invalid body". General lesson,
+the same one as AGENTS.md's live-weights incident: **merging a migration is
+not applying it.** Before calling a table-backed feature shipped, check the
+live schema, e.g. with `list_migrations` or a query against
+`information_schema`.
+
+**What was verified and what was not.** The handoff's test script ran
+through the real `compileCustomScript` → evaluator → `computeScriptPlotSeries`
+→ `replayCustomScript` path on 420 synthetic daily bars for SPY and AAPL. It
+compiled, plotted four series (`ema(9)`, `sma(20)`, `lowest(low,10)`,
+`highest(high,10)`), and armed 18 times (9 bullish / 9 bearish). Its output
+matched the built-in `evaluateMaCrossover` on every window. A read of the
+routes and the chart and order-ticket wiring found them consistent: the
+evaluate route and the chart use the same epoch-second timestamps, and the
+order ticket defaults to 5Min for custom scripts exactly as it does for
+built-in modes. **No live browser click-through happened.** The session's
+network policy blocked the production site and the Supabase API host, so a
+local dev server could not reach the database either. That click-through
+is still owed.
+
 Roadmap placement: Q2/Q3, alongside the existing "Expanded indicator
 library for self-directed strategy testing" initiative (ROADMAP.md) — see
 that document's entry for this feature.
