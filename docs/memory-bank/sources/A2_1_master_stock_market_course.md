@@ -648,3 +648,127 @@ A week-by-week walk through every Dow Industrials campaign from Nov 1903 to Aug 
   ⇒ **Codeable prior:** a counter-trend swing is usually 2–5 weeks, sometimes 6–8, and rarely 11–14. A counter-trend move past about 8 weeks is itself evidence that the main trend may have changed. This is Gann's **time** analogue of the greatest-reaction **space** rule.
 - **Rails** counter-trend moves run somewhat longer (many 8–10 weeks, some 13–15).
 - 1932–33 narrative: first sharp advance 9 weeks with no reaction, then a 25-week "reaction in a bull market or accumulation on the side."
+
+## Ch. 12 — *Volume of Sales* (pp. 355–369; signed **August 12, 1939**)
+Volume is the **fourth factor**, after Formations, Time and Resistance Levels. It is "the real driving power behind the market", showing whether supply or demand is increasing. It is always used **in combination with** the other three.
+### The four rules for culminations by volume (verbatim substance)
+1. After a prolonged bull campaign or rapid advance, a **large increase in volume marks the end**, at least temporarily. After a sharp decline on heavy volume, a **secondary rally on decreasing volume** ⇒ final top is in and the main trend will turn down.
+2. After a **second lower top**, if the stock gets dull and narrow sideways and then **breaks out on increased volume** ⇒ further decline.
+3. After a prolonged decline (weeks, months or years), **volume decreases and the range narrows** at bottom. This is "one of the sure signs that liquidation is running its course."
+4. After the first sharp advance out of a bear market, the **secondary reaction on decreasing volume**, followed by an advance on heavier volume ⇒ higher levels.
+- These apply to total NYSE volume (daily, weekly or monthly) **and** to individual stocks.
+- **Summary:** "SALES INCREASE NEAR THE TOP AND DECREASE NEAR THE BOTTOM." The exception is abnormal, fast panics (Oct–Nov 1929), which culminate on large volume with a sharp bottom and swift rebound.
+### Additional volume findings
+- **"Largest volume of sales before final top":** the peak volume often comes **before** the actual high. At the high itself, volume is smaller than in prior months or weeks (the public has already loaded up). Worked: Jan 1936 largest volume, then Apr 1936 high; Jan 1937 largest volume, then Mar 8 1937 final high.
+- **Shares per point (volume efficiency), Gann's own metric:**
+  - Jul 1934 → Oct 1936: 88,860 shares per Dow point.
+  - Oct 1936 → Mar 1937 top: **151,197 shares per point**, nearly double. "This **increased volume on a smaller gain** was an indication that the market was nearing top."
+  ⇒ Codeable: rising volume-per-unit-of-price-progress at the end of an advance = effort without result = top.
+- **Float turnover:** Chrysler 1928, the last 15-week "grand rush" (63⅝ → 140½, never breaking a prior week's low) turned the whole capital stock over **twice**, and **half of it in the last 2 weeks**. The record weekly volume came in the top week. In Jan–Apr 1934, **the entire capital stock traded within a 10-point range** after a 52-point advance ⇒ distribution ⇒ change in trend.
+- **Sideways distribution:** the minor trend turns down, the rally can't reach old highs, and the stock moves sideways while "people buy the stock on the reaction because they think it is cheap."
+- **Secondary rally/reaction volume test:** the Aug 1937 secondary rally came to within 5 pts of the top on **≤ ⅓ of the volume** of the first top ⇒ "a signal to sell the market short". The mirror, May 1938: a secondary reaction on very small volume ⇒ buy.
+- **Smallest monthly volume in years at a low = "a sure sign of bottom"** (Feb 1933; Sep 1934 at 12M shares).
+- Time cross-references inside the volume chapter:
+  - "watch for a change in trend **one year, two years, or three years from any important top and bottom**" (Jul 1933 top ⇒ Jul 1934 bottom)
+  - "always watch for a change in trend **at the end of a year**" (Chrysler +52⅝ in 51 weeks)
+  - "At no time from April 1930 to July 1932 had the averages… rallied over two months. Therefore… they would have to advance **three full months or more**" (the third-month rule, restated)
+- **Space equality:** the Nov 1935 advance equalled the 1933 campaign's points (61 vs 60) ⇒ "time to watch for at least a temporary change in trend." Price-move **equality with a prior campaign** is a watch signal. The 1934 Chrysler low of 29¼ was "practically **one-half** of 60⅜."
+- Gann attributes lower post-1934 volume per point to SEC regulation, and closes with an anti-regulation editorial (historical context only; nothing to implement).
+
+## Ch. 13 — *Mathematical Formula for Market Predictions: The Master Mathematical Price, Time and Trend Calculator* (Square of 144) (pp. 370–379; signed **September 29, 1953**, among Gann's last writings)
+Instructions for a transparent overlay: a 144×144 grid ruled in 9-unit sections, with red 45° angles on the squares of 9, green 2×1 and 1×2 angles, green straight lines at thirds, and an "Inner Square" drawn from 72.
+### Why 144
+- "The square of 12 is always important… 12 months in a year." **144 is "the GREAT SQUARE"** and "works better than any other square both for TIME AND PRICE because it contains all of the squares from 1 to 144."
+- The grid is divided into 9s "because 9 is the highest digit." 9 spaces = 9 days/weeks/months = 9¢ grain = 9 pts stocks = 90 pts cotton.
+### The Great Cycle of the Square of 144
+- 144² = **20,736** units. Gann's calendar conversions (days → weeks → months → years) show the unit is **days**: 2,962 weeks = 681 months 23 days = **56 years 9 months 23 days** (the text's "20,736 weeks or months" is loose wording).
+- Fractions: ½ = 10,368 d (28 yr 5 mo 8 d; the monthly section's "28 yr 9 mo 23 d" is a transcription inconsistency); ¼ = 5,184 d (14 yr 2 mo 19 d); ⅛ = 2,592 d (7 yr 1 mo 10 d); 1/16 = 1,296 d (42 mo 20 d); 1/32 = 648 d (21 mo 10 d, "close to 22½ months, which is 1/16 of the circle"); 1/64 = 324; 1/128 = 162; 1/256 = **81 = 9²**.
+- Weekly: 1,481 wk (½), 740 (¼), 370 (⅛), 185 (1/16), 92 wk 4 d (1/32), ~46 (1/64).
+- "**The 14-year cycle is always very important because it is 2 seven-year periods.** 14 years = 168 months and **169 months is the square of 13**."
+### The Master Numbers: 3, 5, 7, 9, 12 (Gann's own ranking and reasons)
+- **9** is most important ("9 digits added together equal 45"). **7** is next (the Bible; 7 days in the week). **7² = 49**, with multiples 98, 147 and **196 (= 14²)**. **5** is "the balancing number between 1 and 9". 5² = 25; 50 is "just 1 over the square of 7, making **49 to 50 very important for a change in trend**"; 75; **100 = 10²**. **3**: 3×3 = 9, "must be used in every way possible" (21, 15, 27, 36 = 6²). **12**: disciples, months, zodiac signs; the 12s in 144 are 12, 24 … 144.
+- **63–64** (7×9 and 8²), **84** (7×12, "of very great importance"), **90** (10×9, ¼ circle) and **108** (9×12, ¾ of 144).
+- Gann's reasons are partly scriptural and numerological (Tier A primary, but **B2/numerology caution applies**: this is Gann's stated rationale, not a market proof). The **arithmetic** content (the fractions of 144 and 360, the squares) is what is operational.
+### 144 ↔ 360 correspondence
+- 360 = 2½ × 144; 180 = 1¼ × 144; 90 = ⅝ × 144.
+- Fractions of 144: 9 = 1/16, 18 = ⅛, 27 = 3/16 (text says 3/8), 36 = ¼, 45 = 5/16, 48 = ⅓, 54 = 3/8, 63 = 7/16, 72 = ½, 81 = 9/16, 90 = ⅝, 99 = 11/16, 108 = ¾, 117 = 13/16, 126 = ⅞, 135 = 15/16.
+- **"Strongest points" of the square: ¼, ⅓, ⅔, ⅜, ½, ⅝, ¾, ⅞ and the full square.** "Points where the most angles cross are strongest for resistance in PRICE and TIME."
+- **Triangle points** (green crossings): 36, 48, 72, 96, 108, 144. **Squares within the square:** 36, 45, 54, 63, 72, 90, 108, 144.
+- **Time = price ⇒ "TIME and PRICE is SQUARE… watch for change in trend"** (price 36 at time 36; at 72/72 they sit on the 45° angle at the half-way point).
+### Five factors and the close — directly codeable
+- Three points on any bar-chart period: **low, high and the ½ (range midpoint)**.
+- "**FIVE FACTORS FOR TIME AND PRICE:** high, low, halfway point, opening and closing prices. **The trend is indicated by the closing price… If price closes above the half-way point or near the high, the trend is up. If it closes below the half-way point or near the low… the trend is down, at least temporarily.**" ⇒ a per-bar trend reading, Gann's own: close vs (H+L)/2.
+- Price has three aspects: price, time & volume, and **pitch** (the angle). **Four factors: PRICE, TIME, VOLUME, VELOCITY.** "**Time is the most important factor because when time is up volume increases and the velocity… increases.**"
+### Where to watch for changes in trend
+- Time at **½ of 144**, at the end of the square, and at ⅓, ⅔, ¼, ¾.
+- Watch **the square in time of**:
+  - the highest price
+  - the minor highs and lows
+  - the lowest price
+  - the second/third higher bottom
+  - the range
+- **Worked example (wheat):** lowest 28¢ ⇒ every 28 months squares it; May-option high 325 ⇒ 325 months; low 44 ⇒ 44 months; range 281 ⇒ 281 months/weeks/days. 2×144 = 288 ⇒ watch **281–288**. 6½ × 44 = 286 ⇒ also inside that window. ⇒ **Convergence of several independent squarings into one narrow window is the signal.**
+- **Placement rules:** lay 0 at the extreme low, the extreme high, 0 itself, the ½ of the range, or ½ of the highest price. Put the **centre (72) on the halfway point in price**, "the gravity center". "**Never overlook** the extreme high and low price. Also most important ½ of high to low and ½ of the highest price any commodity or stock ever sold."
+- "**When prices pass out of one square into another, a change of trend usually takes place.**" Start a new square every 144 time units. Count **leap years** (add a day) when computing exact day and week counts.
+- **Hourly charts:** "When markets are very active… keep an **hourly** High and Low Chart… the Hourly Chart will give the first change in trend." 144 hours at 5 h/day ≈ 28 days 4 h. ⇒ a Gann-sourced justification for intraday charting in fast markets.
+- **Chart hierarchy (restated):** daily = first indication; weekly = next in importance; **monthly = greatest importance for changes in the main trend.**
+### Circle of 360° divisions (price and time)
+- Order of importance:
+  1. ÷2 (180)
+  2. ÷3 (120, 240)
+  3. ÷4 (90, 270)
+  4. ÷8 (45s)
+  5. ÷16 (22½)
+  6. ÷32 (11¼)
+  7. ÷64 (5⅝)
+
+  Also ÷6 (60, 300), **÷12 (30, 150, 210, 330: "works out accurately for time periods")** and ÷24 (15° ≈ 15 days; 15, 75, 105, 165, 195, 285, 345).
+- Full **table of 64ths of the circle** (5⅝ … 360) is reproduced in the source. Rows 8 and 16 (45s and 90s) are marked most important.
+- **Squares 1…19² (1, 4, 9 … 361)** are "important degrees in the circle" for time and price.
+- **Method:** "always figure how many points… prices are up from the extreme low or minor lows and… down from the extreme highs or minor highs… also… above or below the main halfway point or the minor halfway points or **gravity centers**. The important halfway points form very close to these natural degrees in the circle."
+- Worked example (May soybeans 1948): high 436¾, low 67. Midpoint 251⅞ ≈ 45/64 (253⅛); ½ of the high, 218⅜ ≈ 39/64 (219⅜). Cash low 44 ≈ 45. The 67 low ≈ 67½ (halfway 45–90), with triple bottoms at 67–69. Time: Dec 28 1932 low → **Dec 28 1947 = 15 yr = 180 months (½ circle)**; high on **Jan 15 1948, 18 days after**.
+
+## Ch. 14 — *Master Calculator for Weekly Time Periods* (Square of 52) (pp. 380–386; signed **January 10, 1955**, Gann's last dated lesson)
+### Construction
+- 52 weeks × 7 days = **364 days**, so each year the weekly count gains one day (7 days in 7 years), plus a day per leap year. For long spans, compute the calendar days and divide by 7. "You start time periods **from the actual dates of important highs and lows, not from the first day of each month or year.**"
+- **52² = 2,704**: as days, 386 wk 2 d ≈ 7 yr 5 mo, "very close to the important cycle of **7½ years (90 months)**". As hours, 2,704/24 = 112⅔ days.
+- The calculator spans 104 weeks (2 yr) and extends to 208, 312, 416 and **520 (10-year cycle)**. The price scale matches: 104/208/312/416/520 units ($1 per share for stocks).
+### Divisions of the year (weekly) — Gann's weights
+- ⅛ = 6½ wk; ¼ = 13; ⅓ = 17; ⅜ = 19½; **½ = 26 ("a most important time and resistance level")**; ⅝ = 32½; ⅔ = 35; **¾ = 39 ("very important for a change in trend")**; ⅞ = 45½; 1 = 52.
+- **Ranking, "MOST IMPORTANT TIME PERIODS":**
+  1. **Anniversaries (1, 2, 3+ years) of important highs and lows**
+  2. ½ year
+  3. ¾ year (39 weeks)
+  4. ⅓ (17 weeks) and ⅔ (35 weeks)
+### Day-level time counts (from any important high or low)
+- **3½ days** (½ of 7): "Always watch the **3rd and 4th day** from any important high or low for a minor change in trend, which later may become a major change."
+- **7-day periods: 14 days is the most important, 21 next.** "Reactions will often run 2 weeks, and sometimes 3 weeks and then resume the main trend. Rallies in a Bear Market often run 14 days, sometimes 21." (Consistent with Ch. 11B: 2–5 weeks typical.)
+- **49 days (7²)**: start watching after day 42, but the first sign may not come until **day 45–46 (⅛ year)**. **23 days (1/16 year)** is also important. Then **63–65** (7×9, 8²), **81** (9²), **90–91** (¼ year = 7×13, "very great importance") and ~**182** (½ year).
+### Yearly cycles — the 1955 list
+- "Important yearly cycles are **1, 2, 3, 5, 7, 9, 10, 12, 14, 15, 18, 20, 21, 22½, 24, 25, 27, 28, 30, 40, 45, 49, 56, 60, 84, and 90, which is the Great Cycle**."
+- Divide each cycle by ½ (most important), ⅛, ⅓ and ⅔. For example, 90 yr = 1,080 mo: ½ = 45 yr, ¼ = 22½, ⅛ = 11¼, 1/16 = 5⅝.
+- ⚠ **"Great Cycle" / "Master Time Period" is not one fixed number across Gann's own writing:**
+  - 1931 (*Wall Street Stock Selector*, per the catalog): the 20-year cycle is the most important
+  - 1935 (Ch. 4 of this course): **60 years = "GREAT CYCLE – MASTER TIME PERIOD"**
+  - 1953 (Ch. 13): the Square-of-144 great cycle = 20,736 days ≈ **56¾ years**
+  - 1955 (this chapter): **90 years = "the Great Cycle"**
+
+  AGENTS.md's phrase "the 20-year Master Time Period among cycles" should cite the specific source and year rather than state it as Gann's single fixed ranking.
+- **Multiples of 7 years**: 7, 14, 21, 28, 35, 42, **49 (most important, 7²)**, 56, 63 (7×9), 81 (9²). **Prices in sevens too**: 98 = 2×49, 126 = 2×63, 162 = 2×81.
+- Also watch the 3, 5, 7, 10, 15 (½ of 30), 20 (⅓ of 60) and **30-year (360 months, "a complete cycle")** cycles on weekly work.
+- **Confluence rule:** "When **⅓ of a year from one important low comes out at the same time that ¼ or ½ of a year from another important top or bottom**, it is of great importance." ⇒ Gann's own statement that **coincidence of independent time counts** is the signal (cf. the Ch. 13 wheat 281–288 window).
+### Price, time and the "fourth dimension"
+- Price, in order: (1) lowest, (2) highest, (3) **the ½ point, "mean or average… gravity center"**, with 45° angles drawn from it, "the most important for price resistance", (4) volume, "the power which drives… but TIME is the most essential element and when Time is completed, the volume of sales starts to move the market."
+- Time sections: daily, weekly, monthly and yearly highs and lows. **"The Weekly and the Yearly Time Periods are most important for trend indications and for changes in trend."**
+- Day quarters: sunrise, noon, sunset and midnight. Noon (90°) and midnight (180° from noon) are most important. This is astronomical framing with no operational rule.
+- **Pitch or trend (the "4th dimension")** is read mostly off the **45° angle**. Above 45° is acute and fast; below it is flat and creeping, and a market can "regain important angles and increase the pitch."
+- **"When a Time Cycle is completed, Volume increases and the market begins to move up faster or down faster."**
+- **Three ways to square time and price:**
+  1. balance the lowest price and the highest price with time in weeks
+  2. balance the range
+  3. balance price and time in weekly periods on the Square of 52
+- Placement: at 0 below the price, at the low, "Top" at the high on its exact date, and **26 (the ½) over ½ of the highest price or ½ of the range**. The Inner Square of 45° angles runs from 26, and all 45° lines cross at ¼, ½ and ¾, balancing time and price.
+### Seasonal time periods (counted from **March 21**, not Jan 1)
+- May 5 (⅛), **Jun 21 (¼)**, Jul 23 (⅓), Aug 5 (⅜), **Sep 22 (½)**, Nov 8 (⅝), Nov 22 (⅔), **Dec 21 (¾)**, Feb 4 (⅞), Mar 20 (1).
+- **Midseason dates: May 5, Aug 5, Nov 8, Feb 4.** "Important changes in trend occur around these midseason dates." ⇒ compare with the fixed annual calendar in `lib/gann/timeCycles.ts`.
+- Scales for cotton, coffee, cocoa and eggs are given (commodity-specific; not ported).
