@@ -389,10 +389,10 @@ browser. It found the feature **could not have worked in production at
 all**: migration `0081_strategy_plugins.sql` had merged but was never
 applied to the live Supabase project. `strategy_plugins` and
 `strategy_plugin_versions` did not exist, so every `/api/strategy-plugins*`
-call failed. (`0080_tier_promotion_three_paths.sql` is also unapplied. The
-project owner scoped that out of this pass, so the three-path `/promotion`
-tables are still missing.) The session applied 0081 to production with the
-project owner's sign-off. A rolled-back probe confirmed the RLS policies: the
+call failed. `0080_tier_promotion_three_paths.sql` had the same problem, so
+the three-path `/promotion` tables were missing too. The session applied both
+to production with the project owner's sign-off, 0081 first and 0080 at the
+owner's follow-up request. A rolled-back probe confirmed the RLS policies: the
 owner sees their row and its version rows, another user sees neither and
 cannot update it.
 
