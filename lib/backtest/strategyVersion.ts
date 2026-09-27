@@ -22,4 +22,6 @@
 // and day-count bands in the time windows, his major percentage-of-price
 // levels in the S/R list, and the Rule of Three scored on weekly and monthly
 // closes as well as daily.
-export const STRATEGY_VERSION = "2026-09-27-gann-trend-time-levels";
+// Third bump (owner decision 5): Gann's breakaway rule. A range-bound setup
+// whose entry stays inside its 13-week range is held from Execute to Watch.
+export const STRATEGY_VERSION = "2026-09-27-gann-breakaway";

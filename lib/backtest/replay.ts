@@ -74,7 +74,8 @@ import {
 } from "@/lib/scan/entrySelection";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
 import { readLiquidity } from "@/lib/scan/liquidity";
-import { applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
+import { applyBreakawayHold, applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
+import { readBreakaway, type BreakawayReading } from "@/lib/gann/breakaway";
 import {
   FALLBACK_SR_PCT,
   SR_PROXIMITY_ATR,
@@ -502,6 +503,8 @@ export function buildMacroContext(
 interface SessionTrigger {
   setupKind: SetupKind;
   trigger: GannEntryTrigger;
+  /** Gann's breakaway reading for this trigger, from prior sessions only (as the live scan reads it). */
+  breakaway: BreakawayReading;
 }
 
 /** One session's arming state: read once per date from prior sessions only. */
@@ -554,13 +557,14 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       const reversionDirection = preferredEntryDirection(context.macroTrends);
       const triggers: SessionTrigger[] = [];
       const reversion = computeGannEntryTrigger(priorSessions, reversionDirection);
-      if (reversion) triggers.push({ setupKind: "reversion", trigger: reversion });
+      if (reversion) triggers.push({ setupKind: "reversion", trigger: reversion, breakaway: readBreakaway(priorSessions, reversion) });
       // The continuation pass arms with the macro move, never against it, and
       // only where its breadth and momentum gate could admit the result.
       const continuationDirection = reversionDirection === "bullish" ? "bearish" : "bullish";
       if (context.momentumElevated && macroBreadthAgrees(context.macroTrends, continuationDirection)) {
         const continuation = computeGannEntryTrigger(priorSessions, continuationDirection);
-        if (continuation) triggers.push({ setupKind: "continuation", trigger: continuation });
+        if (continuation)
+          triggers.push({ setupKind: "continuation", trigger: continuation, breakaway: readBreakaway(priorSessions, continuation) });
       }
       arm = {
         context,
@@ -581,7 +585,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     const arm = sessionArm(date, lastClose);
     if (!arm) continue;
 
-    for (const { setupKind, trigger } of arm.triggers) {
+    for (const { setupKind, trigger, breakaway } of arm.triggers) {
       const pivotKey = `${setupKind}:${trigger.direction}:${trigger.pivot.kind}:${trigger.pivot.index}`;
       if (consumedPivots.has(pivotKey)) continue;
       armedKeys.add(`${date}|${pivotKey}`);
@@ -688,6 +692,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         assetClass,
         largeCap,
         setupKind,
+        breakaway,
         weights,
       });
 
@@ -817,9 +822,10 @@ function scoreSetup(input: {
   /** Computed once per session by the caller (it also tags the trade record). */
   largeCap: boolean;
   setupKind: SetupKind;
+  breakaway: BreakawayReading;
   weights?: CriterionWeights;
 }): ScanDecision {
-  const { context, pattern, gannTrigger, history, executionAtr, assetClass, largeCap, setupKind, weights } = input;
+  const { context, pattern, gannTrigger, history, executionAtr, assetClass, largeCap, setupKind, breakaway, weights } = input;
 
   // The last 400 candles is ~15 sessions of hourly context, which is more than
   // readTrend looks back over and keeps the roll-up cheap.
@@ -853,7 +859,7 @@ function scoreSetup(input: {
     // does when computeTradeLevels rejects it.
   }
 
-  return applyReversionConfirmation(
+  return applyBreakawayHold(applyReversionConfirmation(
     computeScore({
       direction: gannTrigger.direction,
       macroTrends: context.macroTrends,
@@ -882,7 +888,7 @@ function scoreSetup(input: {
     pattern,
     context.momentumElevated,
     context.nearSupportResistance,
-  );
+  ), breakaway);
 }
 
 /**

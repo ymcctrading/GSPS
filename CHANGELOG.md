@@ -10,6 +10,15 @@ date.
 ## 2026-09-27
 
 ### Changed
+- **Gann's breakaway rule gates Execute in sideways markets** (owner decision
+  5, "always adhere to Gann's rules"). Gann stays out of a narrow range until
+  it breaks away (*How to Make Profits in Commodities*, pp. 51-52). A
+  range-bound setup (the weekly swing trend not confirmed) whose entry stays
+  inside the 3-Day Chart's 13-week range is now held from Execute to Watch by
+  `applyBreakawayHold` (`lib/gann/breakaway.ts`), on the live scan and the
+  replay alike. The Signal & Regime Engine's Range Reversion state is never
+  tradeable and prices no plan. `STRATEGY_VERSION` is
+  `2026-09-27-gann-breakaway`.
 - **Gann's own swing charts replace the close-count charts** (parity roadmap
   conflict X3, owner decision "Gann's method supersedes my own"). The 3-Day
   Chart (*45 Years in Wall Street*, 1949) and the 7-day weekly swing chart

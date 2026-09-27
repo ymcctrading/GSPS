@@ -117,6 +117,11 @@ own 3-Day Chart and 7-day weekly chart (highs and lows; trend turns on
 breaking the last swing extreme). Every "9-day chart" mention elsewhere in
 this file describes the construction it replaced. `STRATEGY_VERSION` is
 `2026-09-27-gann-swing-charts`, and the 6/3.5 cutoffs need re-deriving on it.
+**Built the same day (decision 5):** `lib/gann/breakaway.ts` and
+`applyBreakawayHold` hold a range-bound Execute to Watch unless the entry
+crosses the 13-week range's extreme, on the live scan and the replay.
+`rangeReversion.ts` is never tradeable. `STRATEGY_VERSION` is now
+`2026-09-27-gann-breakaway`.
 **Owner direction, same day: "the point of the parity is to align, infuse
 and implement within and throughout the entire GSPS platform."** A rule is
 not parity-complete while it only shows on a card: it has to act where Gann

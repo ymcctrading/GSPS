@@ -9,6 +9,7 @@
  * stopgap.
  */
 
+import type { BreakawayReading } from "@/lib/gann/breakaway";
 import type {
   AssetClass,
   GannLevels,
@@ -605,6 +606,30 @@ export function applyDataLagHold(decision: ScanDecision, lag: DecisionLag): Scan
         criterion: "Data current enough to act on",
         passed: false,
         note: `${lag.note} Held from Execute to Watch — confirm the trigger against a live quote before acting.`,
+      },
+    ],
+  };
+}
+
+/**
+ * Gann's breakaway rule (owner decision 5; *Commodities* pp. 51-52): in a
+ * sideways market the trader stays out until price breaks away from the
+ * range. A range-bound setup whose entry does not cross the range's extreme
+ * is held from Execute to Watch. See `lib/gann/breakaway.ts`.
+ */
+export function applyBreakawayHold(decision: ScanDecision, breakaway: BreakawayReading): ScanDecision {
+  if (!breakaway.rangeBound || breakaway.breaksAway || decision.outputState !== "Execute") return decision;
+  const fmt = (n: number | null) => (n === null ? "n/a" : n.toFixed(2));
+  return {
+    ...decision,
+    outputState: "Watch",
+    breakdown: [
+      ...decision.breakdown,
+      {
+        key: "breakaway",
+        criterion: "Breakaway from a sideways range",
+        passed: false,
+        note: `The market is moving sideways (range ${fmt(breakaway.rangeLow)}-${fmt(breakaway.rangeHigh)}) and the entry stays inside it. Held from Execute to Watch until price breaks away from the range.`,
       },
     ],
   };

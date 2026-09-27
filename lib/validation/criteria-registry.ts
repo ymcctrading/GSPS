@@ -825,6 +825,19 @@ const SCORE_HOLDS: RegisteredCriterion[] = [
     saturation: { minPassRate: 0, maxPassRate: 1 },
   },
   {
+    id: "breakaway",
+    family: "scoreHold",
+    source: "lib/gann/breakaway.ts",
+    label: "Breakaway from a sideways range",
+    expectedSign: "unknown",
+    evidence: "unmeasured",
+    note:
+      "Owner decision 5 (2026-09-27): the method stays out of a sideways market until it breaks away " +
+      "(Commodities pp. 51-52). Appended only when it holds a range-bound Execute whose entry sits inside " +
+      "the 13-week range, so it is failed by construction whenever present.",
+    saturation: { minPassRate: 0, maxPassRate: 1 },
+  },
+  {
     id: "dataLag",
     family: "scoreHold",
     source: "lib/data/latency.ts",

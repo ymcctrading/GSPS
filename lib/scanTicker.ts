@@ -41,7 +41,8 @@ import { MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection, rankArmedPatterns } f
 import { computeTradeLevels, type EntrySource } from "@/lib/strat/levels";
 import { computeGannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
-import { applyDataLagHold, applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
+import { applyBreakawayHold, applyDataLagHold, applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
+import { readBreakaway } from "@/lib/gann/breakaway";
 import { decisionLag, feedDelayMs } from "@/lib/data/latency";
 import { marketSession } from "@/lib/market/session";
 import {
@@ -356,8 +357,12 @@ export async function scanTicker(
       marketSession(assetClass) === "regular",
     );
 
+    // Gann's breakaway rule (owner decision 5): a sideways market is Watch
+    // context until the entry crosses the range's extreme.
+    const breakaway = readBreakaway(daily, gannTrigger);
+
     const decision = applyDataLagHold(
-      applyReversionConfirmation(
+      applyBreakawayHold(applyReversionConfirmation(
         computeScore({
           direction: scoreDirection,
           macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
@@ -391,7 +396,7 @@ export async function scanTicker(
         pattern,
         momentumElevated,
         nearSupportResistance,
-      ),
+      ), breakaway),
       dataLag,
     );
 

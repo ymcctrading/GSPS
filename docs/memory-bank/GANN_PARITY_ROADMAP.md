@@ -37,13 +37,13 @@ The goal is that every rule Gann **disclosed** runs in GSPS the way he stated it
 |---|---|---|---|---|---|
 | Time | 7 | 3 | 0 | 7 | 1 research-only |
 | Price and levels | 6 | 1 | 0 | 3 | — |
-| Trend | 4 | 2 | 0 (X3 fixed) | 6 | — |
+| Trend | 5 | 1 | 0 (X3 fixed) | 6 | — |
 | Entries, stops, exits, lifecycle | 3 | 3 | 1 (X4) | 5 | — |
 | Volume | 0 | 0 | 1 (X1) | 3 | — |
 | Risk and money management | 2 | 2 | 0 | 2 | — |
 | The trader (education) | 1 | 2 | 0 | 2 | — |
 | Astrology, numerology, forecasting | 1 | 0 | 0 | 3 (research) | 2 excluded, 1 cannot be copied |
-| **Total (74 rules)** | **24** | **13** | **2** | **31** | **4** |
+| **Total (74 rules)** | **25** | **12** | **2** | **31** | **4** |
 
 Counts are rows in Part 3; "Aligned" includes rows aligned in structure.
 
@@ -113,7 +113,7 @@ Each row gives the rule and its source, what GSPS does now, the status, and the 
 | Monthly > weekly > daily hierarchy, with power ratio 7/30/365 | A05; A04 | `readTrend`, `timeframeWeight.ts` | Aligned | — |
 | Stock's own trend, never index confirmation | A05; A2.1 Ch. 5–6 | `macroBreadthAgrees` uses the stock's own charts | Aligned | Keep it that way (X2 withdrawn) |
 | Campaigns run in 3–4 sections; signals weigh more in the 3rd/4th | A04; A09 Rule 5; A8 p. 51 | none | Missing | A section counter in the B2 ledger |
-| Sideways range: stay out; trade the breakaway | A8 p. 52; A04 Ch. V, VII | `rangeReversion.ts` trades inside ranges; `entryTrigger.ts` trades breakouts | Partial | **Owner:** Gann prefers the breakaway. Consider demoting in-range reversion to Watch |
+| Sideways range: stay out; trade the breakaway | A8 p. 52; A04 Ch. V, VII | **Built 2026-09-27 (decision 5).** `rangeReversion.ts` is never tradeable; `lib/gann/breakaway.ts` + `applyBreakawayHold` hold a range-bound Execute to Watch unless the entry crosses the 13-week range's extreme (live scan and replay) | Aligned | — |
 
 ### 3.4 Entries, stops, exits and lifecycle
 
@@ -239,6 +239,7 @@ Each step says whether a user waits on it (AGENTS.md "Speed is a product require
 - B3 · A fresh replay on the new `STRATEGY_VERSION`. Re-derive the Execute/Watch cutoffs. Record the result in AGENTS.md.
 
 **Stage C — lifecycle and exits (owner decisions 2 and 6)**
+- Decision 5 · **Built 2026-09-27** (`STRATEGY_VERSION` `2026-09-27-gann-breakaway`). Range setups are Watch context only; Execute in a range-bound market needs the breakaway (the entry crosses the highest top or lowest bottom of the 3-Day Chart's last 13 weeks). Same code on the live scan and the replay; the `breakaway` hold is registered in `criteria-registry.ts`.
 - C1 · G4 hold test and three-adverse-closes exit as lifecycle invalidations.
 - C2 · G23 break-even on a price-scaled profit threshold.
 - C3 · G18/G24 trailing by the last reaction and by the prior month's low; final-stage daily trail.
