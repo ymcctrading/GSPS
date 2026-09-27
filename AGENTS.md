@@ -93,6 +93,14 @@ disclosed-by-Gann-himself versus later reconstruction versus unrelated.
 `docs/GANN_METHOD_COMPLETENESS_AUDIT.md` is the implementation audit built
 from it.
 
+`docs/memory-bank/` holds the page-by-page reads (2026-09-27) of the Gann,
+Observation of Cycles and Hermetic (Hauck) source folders, synthesised in our
+own words with no book text stored. **Start with
+`docs/memory-bank/GANN_CYCLES_HERMETIC_MASTER_REPORT.md`** when a question
+about Gann's methodology, cycle validation or the Hermetic lens comes up.
+Its Part V lists the open gaps, conflicts and corrections, all held for the
+project owner. Per-source notes are in `docs/memory-bank/sources/`.
+
 ## WD Gann precedence — standing principle
 
 When GSPS's current implementation, a design choice, or a piece of copy
@@ -803,8 +811,11 @@ Two consequences follow, and together they are why
   conditions outranks another. Nothing in the source catalog ranks the
   confirming conditions against each other — every "most important" in
   `docs/GANN_HISTORICAL_SOURCES.md` sits *within* a technique (50% among
-  retracement levels, the 20-year Master Time Period among cycles, 1/2 = 26
-  weeks among the 52-week fractions), never across them. A weighted sum is
+  retracement levels, the Master Time Period among cycles, 1/2 = 26
+  weeks among the 52-week fractions), never across them. (The Master Time
+  Period's length depends on the lesson: 20 years in 1931, 60 in 1935, 56¾
+  in 1953, 90 in 1955. Cite the lesson and year. See
+  `docs/memory-bank/GANN_CYCLES_HERMETIC_MASTER_REPORT.md` Part I §1.6.) A weighted sum is
   therefore the scorecard injecting a ranking claim Gann never made. If a
   citable cross-criterion ranking is ever found, that changes this.
 - **Thresholds are not substance.** A cutoff is where the ranked list gets
@@ -837,7 +848,13 @@ worked example):
    repetition count, constancy of period, phase-resumption after distortion,
    wave-shape identity, cross-series clustering. `lib/gann/spectralCycle.ts`
    evaluates three of the seven and says which — that is the standard: state
-   which you cleared and which you did not.
+   which you cleared and which you did not. (Source note, 2026-09-27: these
+   seven are a working subset. Dewey's own list in *The Case for Cycles*
+   (1967) has 18 criteria. When a cycle claim is actually being *validated*
+   rather than designed, also answer three that the seven omit: persistence
+   through changed conditions, persistence after discovery (out-of-sample),
+   and a mathematical significance test. See
+   `docs/memory-bank/sources/C06_dewey_case_for_cycles.md`.)
 3. **Which Hermetic principle it expresses** — Mentalism, Correspondence,
    Vibration, Polarity, Rhythm, Cause and Effect, Gender. Correspondence ("as
    above, so below") is why a technique proven on one timeframe or asset class

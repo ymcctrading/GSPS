@@ -928,7 +928,7 @@ A near-verbatim duplicate of the Hexagon section of 15A: the same ring completio
   4. ⅓ and ⅔ (17 and 35 weeks)
   5. ⅜ and ⅞ (19½ and 45½ weeks)
 
-## Ch. 19A — *How to Make Profits Trading in Puts and Calls* (pp. 439–455; signed **May 26, 1937**). ⇒ This *is* the "Puts and Calls" text, so that title is no longer missing from the catalog.
+## Ch. 19A — *How to Make Profits Trading in Puts and Calls* (pp. 439–455; signed **May 26, 1937**). ⇒ This is the same text as catalogue entry A6 (*Puts and Calls*), bundled into the course.
 - 1937 over-the-counter 30-day options: CALL $142.50 and PUT $137.50 per 100 shares; 7-day $62.50; 14-day $87.50. Gann favours 30 days and strikes a number of points out of the money.
 - **Options as a stop-loss substitute:** a stop can fill 5 points worse on an overnight gap, while a put fixes the exit. ⇒ Gann explicitly recognises **gap risk through stops**, relevant to GSPS's risk and education copy (cf. the Academy 8 slippage and gap content).
 - **Seven rules for when to buy (a compact restatement of the trend rules):**
@@ -966,7 +966,7 @@ The previous catalog pass targeted Ch. 2, 4, 7 and 13–15. The page-by-page rea
 11. **Dow 1889–1951 month counts (Ch. 17):** December most lows and fewest highs.
 12. **Hourly chart endorsed** in fast markets (Ch. 13). **Daily chart for first indications** in fast markets (Ch. 11A).
 13. **Name/letter-count squares** (Ch. 15A): citably Gann's own numerology. Confluence-only at most.
-14. **The Puts and Calls text exists (Ch. 19A):** includes the 40–50% reaction rule and the $36–40 price-velocity threshold.
+14. **The Puts and Calls text is bundled as Ch. 19A (= catalogue A6):** includes the 40–50% reaction rule and the $36–40 price-velocity threshold.
 
 ## GSPS cross-reference (Master Course → code), findings to carry to the master report
 
@@ -984,7 +984,7 @@ The previous catalog pass targeted Ch. 2, 4, 7 and 13–15. The page-by-page rea
 | Seasonal dates from Mar 21, midseason points (Ch. 14, 17, 18) | `timeCycles.ts` fixed annual calendar; `squareOf52.ts` fractions | Check the calendar matches the Ch. 18 day counts |
 | Square of 144 (Ch. 13) | `masterTwelve.ts` (spiral), confluence | Partial: the Ch. 13 fraction and convergence rules aren't used |
 | Hexagon/Square of 20 (Ch. 15A/B) | `hexagonChart.ts`, `squareOf20.ts` research-only | Exception stands; plates still lost |
-| Index confirmation / Dow Theory obsolete (Ch. 5–6) | `macroBreadthAgrees` in `lib/scan/entrySelection.ts` | Review: Gann rejected Dow Theory confirmation |
+| Index confirmation / Dow Theory obsolete (Ch. 5–6) | `macroBreadthAgrees` in `lib/scan/entrySelection.ts` | **Checked 2026-09-27: no conflict.** It requires the *stock's own* monthly/weekly/daily agreement, not index confirmation |
 | Great Cycle / Master Time Period (Ch. 4, 13, 14) | AGENTS.md says "20-year Master Time Period" | **Doc correction:** cite source and year |
 | Options as a gap-risk hedge (Ch. 19A) | Academy 8 capstone risk education | Education cross-reference only |
 

@@ -211,7 +211,7 @@ The previous A5 entry summarised the book at a high level. This full read adds, 
 | Volume culmination rules 1–4, dry-up at bottoms | `lib/gann/volumeClimax.ts` | Partial (climax only) |
 | Volume relative to float | — | Gap (volume is not normalised by shares outstanding) |
 | Monthly/weekly/daily chart hierarchy | `lib/analysis/trend.ts#readTrend` (monthly/weekly/daily) | Aligned |
-| No index confirmation gating | `lib/marketScan.ts` macro breadth (`macroBreadthAgrees`) | **Review** — Gann explicitly says don't wait for averages/groups to confirm an individual stock's trend |
+| No index confirmation gating | `lib/marketScan.ts` macro breadth (`macroBreadthAgrees`) | **Checked 2026-09-27: aligned.** It tests the stock's own monthly/weekly/daily trends, not an index or group |
 | ≤10% risk, reduce after losses, reserve fund | `lib/risk/*` (percent-of-account ceilings) | Aligned in structure; "reduce unit after 2–3 losses" ≈ cooldown; verify |
 | Pyramiding spacing & shrinking units | — | Gap (no pyramiding in GSPS) |
 | Price-level volatility (moves faster above 50/100/150/200) | ATR normalisation | Aligned in spirit (don't port point sizes) |
