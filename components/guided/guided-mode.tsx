@@ -107,11 +107,17 @@ export function GuidedMode() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: rec.id }),
       });
-      const body: { error?: string; order?: { status?: string } } = await res.json();
+      const body: { error?: string; code?: string; order?: { status?: string } } = await res.json();
       if (!res.ok) {
         setError(body.error ?? `HTTP ${res.status}`);
-        // Anything refused at submission has also been resolved server-side, so
-        // the card on screen is stale either way.
+        // Waiting on entry confirmation leaves the recommendation open, so its
+        // card stays: the person can tap again once the market confirms.
+        if (body.code === "awaiting_confirmation" || body.code === "confirmation_unavailable") {
+          setConfirming(null);
+          return;
+        }
+        // Anything else refused at submission has also been resolved
+        // server-side, so the card on screen is stale.
         setData((d) =>
           d ? { ...d, recommendations: d.recommendations.filter((r) => r.id !== rec.id) } : d,
         );

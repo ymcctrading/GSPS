@@ -10,6 +10,15 @@ date.
 ## 2026-09-27
 
 ### Changed
+- **Entry confirmation on every path, automation included** (parity C5,
+  owner decision 4 and "automation should adhere to the same rules as
+  everything else"). Any entry with the protocol's levels (the ticket's
+  advised entry, Guided Mode, the demo account, plan-scoped automation and so
+  the autonomous portfolio manager) is placed only once it has confirmed on
+  closed execution-timeframe bars: a close through the trigger by the
+  3-point-rule buffer, a retest, and a close that held. Until then the order
+  is refused with `awaiting_confirmation`; Guided keeps the recommendation
+  open. Checked once, in `lib/trade/place-order.ts`.
 - **Gann's exit rules, built for measurement** (parity Stage C1–C4, owner
   decisions 2 and 6). `lib/gann/exitRules.ts` reads the hold test, three
   adverse closes, break-even after one risk unit, the structural trail (higher

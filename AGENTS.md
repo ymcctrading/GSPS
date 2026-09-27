@@ -705,6 +705,19 @@ for the project owner** — do not fix it silently, and re-verify it first:
   for the owner's go-ahead. The code comments that describe the interim
   decision (`lib/lifecycle/entryConfirmation.ts`,
   `app/api/guided/execute/route.ts`, `lib/demo/auto-trade.ts`) point here.
+  **Resolved 2026-09-27, project owner (decision 4, and "automation should
+  adhere to the same rules as everything else on the platform").** One rule,
+  one place: `lib/trade/place-order.ts` places any entry carrying the
+  protocol's levels only once it has confirmed on closed execution-timeframe
+  bars (`lib/lifecycle/confirmNow.ts`, the same state machine the plans and
+  the replay use). That covers the manual ticket's advised entry, Guided Mode,
+  the demo account and plan-scoped automation (the autonomous portfolio
+  manager runs through it). A plan-sourced order is judged on its plan's own
+  trigger over the bars since the plan was generated; an unconfirmed entry is
+  refused with `awaiting_confirmation` and nothing is placed. The 2026-09-27
+  swing-chart run agrees: confirmed +0.190R vs stop −0.052R overall. Not
+  covered, deliberately: the ticket's "now" market entry (no trigger to
+  confirm) and protective orders.
 - **Non-Gann inputs in the Signal & Regime Engine (F2.5).** SMA 20/50 and
   anchored VWAP (`lib/signals/regime.ts`, `lib/signals/states/trendPullback.ts`)
   feed user-facing tier/"Tradeable" labels and trade-plan expiry. The

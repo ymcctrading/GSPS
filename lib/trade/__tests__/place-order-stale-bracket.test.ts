@@ -35,6 +35,16 @@ vi.mock("@/lib/brokers/simulator", async () => {
     logPlainClose: vi.fn(),
   };
 });
+// Entry confirmation (owner decision 4) reads live bars; these tests cover
+// what happens after it, so it reports a confirmed entry.
+const confirmNow = vi.hoisted(() => ({ ready: true }));
+vi.mock("@/lib/lifecycle/confirmNow", () => ({
+  readEntryConfirmationNow: vi.fn(async () =>
+    confirmNow.ready
+      ? { ready: true, stage: "confirmed", note: "confirmed" }
+      : { ready: false, stage: "broken", note: "Price closed through the entry level and is waiting for a retest." },
+  ),
+}));
 vi.mock("@/lib/trade/kill-switch", async () => {
   const actual = await vi.importActual<typeof import("@/lib/trade/kill-switch")>("@/lib/trade/kill-switch");
   return { ...actual, killSwitchRefusal: () => killSwitchRefusal() };
@@ -153,6 +163,26 @@ describe("placeSimulatedOrder — bracket re-validated against the real fill", (
     expect(result.status).toBe(409);
     expect(result.body).toMatchObject({ code: "fill_outran_bracket" });
     expect(ordersInsert).not.toHaveBeenCalled();
+  });
+
+  it("refuses an advised entry that hasn't confirmed yet, and places nothing", async () => {
+    quotePrice.mockResolvedValue(460);
+    isTriggered.mockReturnValue(true);
+    const { supabase, ordersInsert } = stubSupabase();
+    confirmNow.ready = false;
+    try {
+      const result = await placeSimulatedOrder(supabase, "u1", {
+        ...amdIncident,
+        entryMode: "advised",
+        referencePrice: undefined,
+        limitPrice: 459.48,
+      });
+      expect(result.status).toBe(409);
+      expect(result.body).toMatchObject({ code: "awaiting_confirmation", stage: "broken" });
+      expect(ordersInsert).not.toHaveBeenCalled();
+    } finally {
+      confirmNow.ready = true;
+    }
   });
 
   it("does not affect an order with no protocol levels attached", async () => {

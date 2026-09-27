@@ -244,7 +244,7 @@ Each step says whether a user waits on it (AGENTS.md "Speed is a product require
 - C2 · G23 break-even on a price-scaled profit threshold.
 - C3 · G18/G24 trailing by the last reaction and by the prior month's low; final-stage daily trail.
 - C4 · X4 targets from Gann levels only; the runner exits on a B2 trend-change signal.
-- C5 · Entry confirmation on all paths (decision 4).
+- C5 · Entry confirmation on all paths (decision 4). **Built 2026-09-27**: `lib/trade/place-order.ts` checks it for every entry carrying the protocol's levels (ticket advised entry, Guided, demo, and automation, per the owner's "automation adheres to the same rules as everything else"), via `lib/lifecycle/confirmNow.ts`.
 - Measure C1–C4 on the replay with `entryRule` variants before any production switch.
 - C1–C4 · **Built 2026-09-27 for measurement** in one pure module, `lib/gann/exitRules.ts` (`readGannExit`): the hold test (a daily close back under the crossed level by the lost-motion allowance), three successive adverse closes, break-even after one risk unit of profit (Gann's 3-point stop and 3-point break-even, as a ratio), the stop under each higher bottom since entry and under the prior month's low, the final-stage trail (last reaction's size, prior day after a 2-day counter-move), and exits on a weekly trend change or a campaign over-balance after entry. No fixed target. The replay runs it as `exitRule: "gann"` against the fixed bracket, and the report splits results by exit reason (`exitReasonSplit`). The live exit manager is switched once the replay agrees (decision 4's "if it agrees with our own backtest").
 

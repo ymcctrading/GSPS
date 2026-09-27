@@ -13,6 +13,8 @@
  * shape (parse, status codes); this owns what actually happens to the money.
  */
 
+import { readEntryConfirmationNow } from "@/lib/lifecycle/confirmNow";
+import { getTradePlan } from "@/lib/lifecycle/store";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import {
@@ -118,6 +120,58 @@ export interface PlacedOrder {
   body: Record<string, unknown>;
   /** The ledger row id, when one was written and the order was accepted. */
   orderId?: string | null;
+}
+
+/**
+ * Owner decision 4 (2026-09-27), and the owner's follow-up that automation
+ * adheres to the same rules as everything else: every entry that carries the
+ * protocol's levels is placed only once it has confirmed on closed
+ * execution-timeframe bars (a close through the trigger by the 3-point-rule
+ * buffer, a retest, a close that held). That is the manual ticket's advised
+ * entry, Guided Mode, the demo account, and plan-scoped automation, which the
+ * autonomous portfolio manager runs through. A plan-sourced order is judged
+ * on its plan's own trigger and direction, over the bars since the plan was
+ * generated. Measured reason: the confirmed entry beat the resting
+ * stop-entry on the full universe (+0.190R vs −0.155R). See
+ * `lib/lifecycle/confirmNow.ts`. Returns a refusal, or null to proceed.
+ */
+async function entryConfirmationRefusal(
+  supabase: SupabaseClient,
+  userId: string,
+  input: Pick<OrderInput, "symbol" | "assetClass" | "side" | "entryMode" | "limitPrice" | "attachLevels" | "sourcePlanId">,
+): Promise<{ status: number; body: Record<string, unknown> } | null> {
+  if (!input.attachLevels || input.assetClass === "option") return null;
+
+  let target: { direction: "bullish" | "bearish"; entryTrigger: number; since?: string } | null = null;
+  if (input.sourcePlanId) {
+    const plan = await getTradePlan(supabase, userId, input.sourcePlanId).catch(() => null);
+    if (!plan) {
+      return { status: 409, body: { error: "The plan behind this order couldn't be read, so its entry can't be confirmed. Nothing was placed.", code: "confirmation_unavailable" } };
+    }
+    target = { direction: plan.direction, entryTrigger: plan.coordinates.entryTrigger, since: plan.generatedAt };
+  } else if (input.entryMode === "advised" && input.limitPrice != null) {
+    target = { direction: input.side === "sell" ? "bearish" : "bullish", entryTrigger: input.limitPrice };
+  }
+  if (!target) return null;
+
+  const confirmation = await readEntryConfirmationNow({ symbol: input.symbol, assetClass: "us_equity", ...target }).catch(
+    () => null,
+  );
+  if (!confirmation) {
+    return {
+      status: 503,
+      body: { error: "Couldn't read the latest bars to confirm the entry. Nothing was placed; try again shortly.", code: "confirmation_unavailable" },
+    };
+  }
+  if (confirmation.ready) return null;
+  return {
+    status: 409,
+    body: {
+      error: `Waiting for the entry to confirm. ${confirmation.note} Nothing was placed.`,
+      code: "awaiting_confirmation",
+      stage: confirmation.stage,
+    },
+  };
 }
 
 export async function placeSimulatedOrder(
@@ -248,6 +302,8 @@ export async function placeSimulatedOrder(
   if (!isOption && input.entryMode === "advised" && !input.limitPrice) {
     return { status: 400, body: { error: "Advised-price orders need a limitPrice" } };
   }
+  const unconfirmed = isProtective ? null : await entryConfirmationRefusal(supabase, userId, input);
+  if (unconfirmed) return unconfirmed;
 
   // ---- Price-increment validation -----------------------------------------
   // A price between two valid increments is refused by the broker with
@@ -770,6 +826,8 @@ async function placeLiveOrder(
   if (input.entryMode === "advised" && !input.limitPrice) {
     return { status: 400, body: { error: "Advised-price orders need a limitPrice" } };
   }
+  const unconfirmed = isProtective ? null : await entryConfirmationRefusal(supabase, userId, input);
+  if (unconfirmed) return unconfirmed;
 
   let submittedLimitPrice = input.limitPrice;
   let priceCheck: ReturnType<typeof validateLimitPrice> | null = null;
