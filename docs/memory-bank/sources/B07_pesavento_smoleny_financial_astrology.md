@@ -4,7 +4,7 @@
 |---|---|
 | Tier | **Not a Gann source.** The catalogue (B7) already records that the book never mentions Gann. It is read here for its **testing method**, which bears on how GSPS validates cycle claims (Dewey, C06). |
 | Copyright | © John Wiley & Sons. In copyright. Synthesis only; no book text is stored. |
-| Read status | **Pages 1–162 of about 200 read in full** (front matter, Preface, Chs. 1–10, and the opening of Ch. 11). The Drive text extraction stopped at p. 162. **Not read:** the rest of Ch. 11 (Moon vs Sun angle since 1885, since 2009/QE; Moon vs sign for the S&P since 1950 and since 2009), the Conclusion, and Appendices A (Full/New Moon dates), B (Bradley Barometer), C (Sun/Moon lunar cycles) and D. |
+| Read status | **COMPLETE (2026-09-27).** Read page by page: pp. 1–162 via the Drive export, then pp. 162–231 from the downloaded PDF. That covers the rest of Ch. 11, the Conclusion, Appendices A–D and the index. Appendices A–C are date tables and charts, so only their method notes are recorded. |
 | Admissibility | Astrology. **Excluded** under AGENTS.md "Astrology — standing decision". Nothing here may be built as a criterion, gate or confluence field. |
 
 ## What the book does (synthesis)
@@ -120,3 +120,35 @@
    (resonance, harmonic angles as "standing waves") and on **Polarity**
    (soft/hard angles, Jupiter/Saturn). It is a clear example of the lens
    being used as evidence, which AGENTS.md forbids.
+
+## Remainder read 2026-09-27 (pp. 162–231)
+- **Ch. 11: Moon–Sun angle cycle for the Dow since 1885 (1,346 lunations).**
+  - The composite shows a bottom at or near the **New Moon**.
+  - Tables are keyed to days before or after New and Full Moon (New +2, New +7, Full −7, Full −1, Full +3 …).
+  - The authors describe the angles (sextile, square, trine …) as "mile markers", *not* as turning points.
+- **Since 2009 (43 lunations).** The authors say the composite shifted and describe the post-2009 market as "not … driven by natural law" but by central-bank liquidity. Two observations for GSPS:
+  - **Regime dependence.** A cycle composite that changes shape after a structural break fails Dewey's persistence-through-changed-conditions criterion. The authors notice the shift but don't test it.
+  - **43 cycles is a very small sample** against the 1,346-cycle long run.
+- **Moon-through-signs cycle for the S&P since 1950 (730 cycles).**
+  - Absolute low in Gemini/Capricorn, absolute high in Libra.
+  - Since 2009 (61 cycles) the high "shifted" to Virgo and the low to Scorpio.
+  - **Same caveat:** the sign locations move with the sample window, which is what noise looks like. There is no significance test and no base rate.
+- **Conclusion (pp. 153–154).** The authors call financial astrology "in the very early stages". Their claims are the New Moon bottom (efficiency test, Ch. 8) and barometers (Bradley) that "outline broad-based rises and falls".
+- **Appendix A:** New and Full Moon dates 2015–2024 (EDT). It states the rule "in bull markets New Moons are bottoms and Full Moons are tops; in bear markets the reverse".
+  - **This inversion rule makes the claim nearly unfalsifiable**, because either phase can be scored as a hit depending on the regime label. Any GSPS test must fix the regime definition in advance.
+- **Appendix B:** Bradley Barometer charts 2015–2024 with quarterly buy and sell dates. **Appendix C:** Sun/Moon lunar-cycle buy and sell dates for the S&P, 2015. Both are date lists, not method.
+- **Appendix D, "It's Not What You Think, It's How You Think!" (Pesavento; trading psychology).** Items that **parallel Gann's own rules** (A8, A09):
+  - "never add to a losing position" (Gann A8 Rule 27 and the series-of-losses rule)
+  - "when in doubt, get out and stay out" (A8 p. 255, "when in doubt, keep out")
+  - "always use stop protection"
+  - risk is the only controllable variable
+  - the **Commodity Corporation practice of a three-month sabbatical after death, divorce or a debilitating capital loss**. This is an institutional precedent for a mandatory cooldown after a drawdown, a useful external comparison for `lib/risk/cooldown.ts` alongside Gann's own series-of-losses rule (G16).
+  - The rest is general motivation and is not recorded.
+
+## GSPS relevance of the remainder
+- Nothing in pp. 162–231 is Gann's. The value is **method caution** for the astrology research track (AS1–AS5):
+  1. Fix regime labels before testing any phase rule (Appendix A's bull/bear inversion).
+  2. Report stability across sub-periods, which the authors observe but do not test (1885+ vs 2009+).
+  3. Require a base rate and a significance test. The book reports neither.
+- **Moon-phase windows are not a Gann technique in any source read.** Gann's astrology in A2.3/B05 uses planetary longitudes, aspects and averages, not lunar phase. **Do not add a lunar-phase field under the Gann banner.** If ever tested, it is non-Gann astrology and falls under AGENTS.md's exclusion.
+
