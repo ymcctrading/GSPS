@@ -20,6 +20,25 @@ date.
   Regime Engine, the macro trend read and the entry trigger's pivots, so
   **scores and trend reads change**. `STRATEGY_VERSION` is now
   `2026-09-27-gann-swing-charts`; the 6/3.5 cutoffs need re-deriving on it.
+- **Gann's rules now act on the verdict, not only the display** (parity
+  roadmap Stage A/B2, owner direction to implement Gann's method throughout):
+  - **Trend:** a trend stops reading as confirmed when a pullback is larger
+    or longer than any earlier one in the campaign (over-balance of space or
+    time), or when price breaks the prior month's low (high in a downtrend).
+    This flows into the macro trend reads, the regime labels and setup
+    direction.
+  - **Time:** the time-cycle windows add ⅔ of a year and the odd eighths, and
+    Gann's day-count bands (7-12 … 175-185 days) from each major pivot.
+  - **Levels:** Gann's three most important percentage-of-price levels (50%
+    and 100% above the low, 50% of the high, from the monthly history) join
+    the support/resistance list used for the level criterion, stops and
+    targets.
+  - **Rule of Three:** scored when it fires on weekly or monthly closes as
+    well as daily.
+  - **Measurement:** every other Gann reading (bar midpoint, level tests,
+    counter-move length, campaign over-balance, …) is recorded on each
+    backtest trade and attributed in a new `contextFactors` table.
+  `STRATEGY_VERSION` is now `2026-09-27-gann-trend-time-levels`.
 - **Gann's permanent-cycle calendar uses his published dates** (Feb 8–10,
   Mar 21–23, May 3–7, Jun 20–24, Aug 3–8, Sep 21–24, Nov 8–11, Dec 20–24)
   instead of the 5th of each month. Display only.

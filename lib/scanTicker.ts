@@ -33,6 +33,7 @@ import { computeRetracementLevels } from "@/lib/gann/retracement";
 import { priceTimeConfluence } from "@/lib/gann/digitalRoot";
 import { computeCampaignLeg, computeSwingChart } from "@/lib/gann/swingChart";
 import { computeRuleOfThree } from "@/lib/gann/ruleOfThree";
+import { majorPricePercentageLevels } from "@/lib/gann/disclosedRules";
 import { computeTimePriceSquare } from "@/lib/gann/timePriceSquare";
 import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
 import { computeBoilingPoint } from "@/lib/gann/boilingPoint";
@@ -147,6 +148,9 @@ export async function scanTicker(
     const campaignLeg = computeCampaignLeg(daily);
     // Gann's Rule of Three, added 2026-09-16 — see lib/gann/ruleOfThree.ts.
     const ruleOfThree = computeRuleOfThree(daily);
+    // Gann applies the rule to weekly and monthly closes too (2026-09-27).
+    const ruleOfThreeWeekly = weekly.length >= 4 ? computeRuleOfThree(weekly) : null;
+    const ruleOfThreeMonthly = monthly.length >= 4 ? computeRuleOfThree(monthly) : null;
 
     // ---- Level 2: 1hr refinement
     const hourlyTrend = readTrend(hourly, "1Hour");
@@ -307,6 +311,9 @@ export async function scanTicker(
       ...weeklyTrend.resistance.map((price) => ({ price, timeframe: weeklyTrend.timeframe })),
       ...monthlyTrend.support.map((price) => ({ price, timeframe: monthlyTrend.timeframe })),
       ...monthlyTrend.resistance.map((price) => ({ price, timeframe: monthlyTrend.timeframe })),
+      // Gann's major percentage-of-price levels, anchored on the monthly
+      // history's extremes (2026-09-27). See majorPricePercentageLevels.
+      ...majorPricePercentageLevels([...monthly, ...daily]).map((price) => ({ price, timeframe: "1Month" as const })),
     ];
     const recentAtr = atr(daily.slice(-20), 14);
     const baselineAtr = atr(daily.slice(-100, -20), 14);
@@ -358,6 +365,8 @@ export async function scanTicker(
           swingChart,
           campaignLeg,
           ruleOfThree,
+          ruleOfThreeWeekly,
+          ruleOfThreeMonthly,
           timePriceSquare,
           volumeClimax,
           boilingPoint,

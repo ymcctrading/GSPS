@@ -117,6 +117,12 @@ own 3-Day Chart and 7-day weekly chart (highs and lows; trend turns on
 breaking the last swing extreme). Every "9-day chart" mention elsewhere in
 this file describes the construction it replaced. `STRATEGY_VERSION` is
 `2026-09-27-gann-swing-charts`, and the 6/3.5 cutoffs need re-deriving on it.
+**Owner direction, same day: "the point of the parity is to align, infuse
+and implement within and throughout the entire GSPS platform."** A rule is
+not parity-complete while it only shows on a card: it has to act where Gann
+says it acts (trend, time, levels, entries, exits, education) on the live
+scan and the replay alike. Stage A/B2 were wired in accordingly;
+`STRATEGY_VERSION` is `2026-09-27-gann-trend-time-levels`.
 
 ## WD Gann precedence — standing principle
 

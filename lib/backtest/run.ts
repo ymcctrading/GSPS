@@ -229,6 +229,8 @@ export interface BacktestReport {
   /** Echoes the request's score band, when one was given — see `attributeWithin`. */
   attributeScoreRange?: [number, number];
   factors: FactorAttribution[];
+  /** The same split for Gann readings the score doesn't count yet (`ReplayTrade.contextFactors`). */
+  contextFactors: FactorAttribution[];
   atrBands: Array<{ from: number; to: number | null; trades: number; winRate: number; expectancyR: number }>;
   /**
    * The rule-set identifier this run describes — see `strategyVersion.ts`.
@@ -474,6 +476,7 @@ export function buildReport(
     attributeWithin: attributedLabel,
     ...(attributeScoreRange ? { attributeScoreRange } : {}),
     factors: attributeFactors(target.trades),
+    contextFactors: attributeFactors(target.trades, { field: "contextFactors" }),
     atrBands: attributeByAtrMultiple(target.trades).map(({ from, to, arm }) => ({
       from,
       to,

@@ -68,6 +68,8 @@
 import type { Bar } from "@/lib/types";
 import { findPivots, majorPivots } from "@/lib/analysis/pivots";
 import { computeRuleOfThree, type RuleOfThreeReading } from "@/lib/gann/ruleOfThree";
+import { DAY_COUNT_BANDS } from "@/lib/gann/timeCycles";
+import { buildCampaignLedger, describeCampaignLedger, type CampaignLedger } from "@/lib/gann/campaignLedger";
 import { THREE_DAY_CHART, WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 
 const DAY_MS = 24 * 3600 * 1000;
@@ -137,6 +139,24 @@ export function pricePercentageLevels(low: number, high: number): PricePercentag
   return levels.sort((a, b) => a.price - b.price);
 }
 
+/**
+ * Gann's three "most important" percentage-of-price levels (50% and 100% above
+ * the low, 50% of the high) from the lowest low and highest high of `bars`.
+ * These join the scan's support and resistance list (added 2026-09-27, owner
+ * direction to implement Gann's method throughout). The scan passes its
+ * monthly history, so the anchors are the longest-range extremes it holds,
+ * which Gann ranks first (*Commodities* p. 34).
+ */
+export function majorPricePercentageLevels(bars: Bar[]): number[] {
+  if (bars.length === 0) return [];
+  const low = Math.min(...bars.map((b) => b.l));
+  const high = Math.max(...bars.map((b) => b.h));
+  if (!(low > 0) || !(high > low)) return [];
+  return pricePercentageLevels(low, high)
+    .filter((l) => l.importance === 1)
+    .map((l) => l.price);
+}
+
 export function readPricePercentages(bars: Bar[], currentPrice: number): PricePercentageReading | null {
   if (bars.length === 0 || !(currentPrice > 0)) return null;
   const low = Math.min(...bars.map((b) => b.l));
@@ -156,17 +176,7 @@ export function readPricePercentages(bars: Bar[], currentPrice: number): PricePe
 // ---------------------------------------------------------------------------
 // 3. Day-count bands, and 6. ranked fractions of the year
 
-export const DAY_COUNT_BANDS: readonly [number, number][] = [
-  [7, 12],
-  [18, 21],
-  [28, 31],
-  [42, 49],
-  [57, 65],
-  [85, 92],
-  [112, 120],
-  [150, 157],
-  [175, 185],
-];
+export { DAY_COUNT_BANDS };
 
 /** Fractions of the 360-day year from a pivot, with Gann's ranking (1 = most important). */
 export const YEAR_FRACTIONS: readonly { days: number; label: string; rank: number }[] = [
@@ -269,7 +279,11 @@ export function readCounterMove(bars: Bar[]): CounterMoveReading | null {
   const daily = walkSwingChart(bars, THREE_DAY_CHART);
   const against = daily.swingDirection !== null && daily.swingDirection !== weekly.trend;
   const start = daily.pivots[daily.pivots.length - 1];
-  if (!against || !start) return { trend: weekly.trend, inCounterMove: false, days: 0, phase: null };
+  // Crossing the swing extreme the counter-move started from ends it.
+  const resumed =
+    start !== undefined &&
+    bars.slice(start.index + 1).some((b) => (weekly.trend === "bullish" ? b.h > start.price : b.l < start.price));
+  if (!against || !start || resumed) return { trend: weekly.trend, inCounterMove: false, days: 0, phase: null };
   const days = daysBetween(bars[start.index].t, bars[bars.length - 1].t);
   return { trend: weekly.trend, inCounterMove: true, days, phase: counterMovePhase(days) };
 }
@@ -373,6 +387,8 @@ export interface DisclosedRulesContext {
   counterMove: CounterMoveReading | null;
   levelTests: LevelTestsReading;
   ruleOfThree: RuleOfThreeTimeframes;
+  /** The campaign counter-move ledger (Stage B2). See `campaignLedger.ts`. */
+  campaign: CampaignLedger | null;
 }
 
 export const EMPTY_DISCLOSED_RULES: DisclosedRulesContext = {
@@ -383,6 +399,7 @@ export const EMPTY_DISCLOSED_RULES: DisclosedRulesContext = {
   counterMove: null,
   levelTests: { support: null, resistance: null },
   ruleOfThree: { weekly: null, monthly: null },
+  campaign: null,
 };
 
 export function readDisclosedRules(dailyBars: Bar[], currentPrice: number): DisclosedRulesContext {
@@ -394,12 +411,13 @@ export function readDisclosedRules(dailyBars: Bar[], currentPrice: number): Disc
     counterMove: readCounterMove(dailyBars),
     levelTests: readLevelTests(dailyBars, currentPrice),
     ruleOfThree: readRuleOfThreeTimeframes(dailyBars),
+    campaign: buildCampaignLedger(dailyBars),
   };
 }
 
 /** Plain-language lines for the explanation trace. */
 export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
-  const lines: string[] = [];
+  const lines: string[] = ctx.campaign ? describeCampaignLedger(ctx.campaign) : [];
   if (ctx.barMidpoint) {
     lines.push(
       `Close vs bar midpoint: last bar ${ctx.barMidpoint.lastBar}; ${ctx.barMidpoint.upOfLast5} of the last 5 closed above their midpoint.`,

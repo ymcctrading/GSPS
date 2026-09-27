@@ -74,6 +74,15 @@ export interface ScoreInputs {
    */
   ruleOfThree?: RuleOfThreeReading | null;
   /**
+   * The same rule on weekly and monthly closes. Gann applies the Rule of
+   * Three to the weekly and monthly charts as well as the daily (*Wall Street
+   * Stock Selector*, 1930, p. 72). Added 2026-09-27 (parity roadmap A7, owner
+   * direction to implement Gann's method throughout): the criterion passes
+   * when the rule fires in the trade's direction on any of the three charts.
+   */
+  ruleOfThreeWeekly?: RuleOfThreeReading | null;
+  ruleOfThreeMonthly?: RuleOfThreeReading | null;
+  /**
    * Gann's squaring of price and time off the daily bars
    * (`lib/gann/timePriceSquare.ts#computeTimePriceSquare`) — bars elapsed
    * since the direction-matched swing pivot (low for bullish, high for
@@ -216,7 +225,7 @@ export const MIN_STOP_ROOM_ATR = 1.5;
 
 export function computeScore(inputs: ScoreInputs): ScanDecision {
   const {
-    direction, swingChart, campaignLeg, ruleOfThree, timePriceSquare, volumeClimax, boilingPoint, gann,
+    direction, swingChart, campaignLeg, ruleOfThree, ruleOfThreeWeekly = null, ruleOfThreeMonthly = null, timePriceSquare, volumeClimax, boilingPoint, gann,
     nearSupportResistance, srMatch, pattern, gannTrigger = null, levels, stopAtrMultiple, assetClass,
     setupKind = "reversion",
     atrPct,
@@ -244,9 +253,15 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // (>= 2 consecutive higher closes); a bearish call reads the uptrend rule
   // (>= 3 consecutive lower closes) — Gann's own stated asymmetry, not
   // symmetrized here.
-  const ruleOfThreeHolding =
-    ruleOfThree != null &&
-    (direction === "bullish" ? ruleOfThree.bullishSignal : ruleOfThree.bearishSignal);
+  const fires = (r: RuleOfThreeReading | null | undefined): boolean =>
+    r != null && (direction === "bullish" ? r.bullishSignal : r.bearishSignal);
+  const ruleOfThreeDaily = fires(ruleOfThree);
+  const ruleOfThreeHigher = fires(ruleOfThreeWeekly)
+    ? "weekly"
+    : fires(ruleOfThreeMonthly)
+      ? "monthly"
+      : null;
+  const ruleOfThreeHolding = ruleOfThreeDaily || ruleOfThreeHigher !== null;
 
   // Null (no priced plan) fails: a setup with no stop has no room to measure,
   // and the alternative — treating "unknown" as a pass — would hand a free
@@ -510,7 +525,9 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       pillar: "trend",
       passed: ruleOfThreeHolding,
       note:
-        ruleOfThree == null
+        !ruleOfThreeDaily && ruleOfThreeHigher !== null
+          ? `The Rule of Three fires on the ${ruleOfThreeHigher} chart in this setup's direction.`
+          : ruleOfThree == null
           ? "Not enough daily history to read the Rule of Three."
           : ruleOfThreeHolding
             ? direction === "bullish"

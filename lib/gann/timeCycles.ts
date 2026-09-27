@@ -59,7 +59,31 @@
 import type { Bar } from "@/lib/types";
 import { findPivots, majorPivots } from "@/lib/analysis/pivots";
 
-const WHEEL_COUNTS = [45, 90, 120, 180, 270, 360];
+/**
+ * Fractions of the 360-day year counted from a pivot (Master Course Ch. 13-14:
+ * the year and the circle divided into eighths and thirds). ⅔ (240) and the
+ * odd eighths (135, 225, 315) were added 2026-09-27 (parity roadmap A6, owner
+ * direction to implement Gann's method throughout); the earlier list stopped
+ * at 45/90/120/180/270/360.
+ */
+const WHEEL_COUNTS = [45, 90, 120, 135, 180, 225, 240, 270, 315, 360];
+
+/**
+ * Gann's day-count bands from any important high or low (*45 Years in Wall
+ * Street*, 1949, Rule 8). A band is a range, not a date: the window is open
+ * for every day inside it. Added 2026-09-27 (parity roadmap A3).
+ */
+export const DAY_COUNT_BANDS: readonly [number, number][] = [
+  [7, 12],
+  [18, 21],
+  [28, 31],
+  [42, 49],
+  [57, 65],
+  [85, 92],
+  [112, 120],
+  [150, 157],
+  [175, 185],
+];
 
 /**
  * The full disclosed major/minor time-cycle hierarchy, in years, projected
@@ -179,6 +203,13 @@ export function timeCycles(dailyBars: Bar[], asOf: Date = new Date(), windowDays
   const nearby = dates.filter(
     (d) => Math.abs(d.date.getTime() - asOf.getTime()) <= windowDays * dayMs,
   );
+  // Day-count bands: open for every day inside the band from each anchor.
+  for (const anchor of anchors) {
+    const elapsed = Math.round((asOf.getTime() - new Date(anchor.bar.t).getTime()) / dayMs);
+    if (DAY_COUNT_BANDS.some(([lo, hi]) => elapsed >= lo && elapsed <= hi)) {
+      nearby.push({ date: asOf, bullish: anchor.kind === "low" });
+    }
+  }
 
   const upcoming = dates
     .filter((d) => d.date.getTime() >= asOf.getTime() && d.date.getTime() <= asOf.getTime() + 14 * dayMs)

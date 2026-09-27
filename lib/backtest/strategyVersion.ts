@@ -17,4 +17,9 @@
 // highs and lows, trend turns on breaking the last swing extreme) replace the
 // close-count 3/9 charts under swingChartTrend, the regime engine, readTrend
 // and the entry trigger's pivots. Conflict X3, owner decision.
-export const STRATEGY_VERSION = "2026-09-27-gann-swing-charts";
+// Same day, second bump: Gann's change-of-trend rules in the trend read
+// (over-balance of space/time, monthly-low break), his fractions of the year
+// and day-count bands in the time windows, his major percentage-of-price
+// levels in the S/R list, and the Rule of Three scored on weekly and monthly
+// closes as well as daily.
+export const STRATEGY_VERSION = "2026-09-27-gann-trend-time-levels";

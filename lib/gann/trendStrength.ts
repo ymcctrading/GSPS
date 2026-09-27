@@ -86,6 +86,7 @@ import {
   swingPivots,
   type SwingDirection,
 } from "@/lib/gann/swingChart";
+import { buildCampaignLedger } from "@/lib/gann/campaignLedger";
 
 /**
  * Which chart's pivots the structure test reads.
@@ -120,6 +121,15 @@ export interface GannTrendRead {
    * False in a range, where tops and bottoms sit at the same levels.
    */
   structureAgrees: boolean;
+  /**
+   * Gann's change-of-trend signals against the weekly trend (added
+   * 2026-09-27, parity roadmap B2): the current counter-move is larger or
+   * longer than the campaign's greatest (over-balance of space or time), or
+   * price has broken the prior month's low (high in a downtrend). When any
+   * of these fire, the trend is changing and is no longer confirmed. See
+   * `lib/gann/campaignLedger.ts` for the sources.
+   */
+  changing: boolean;
 }
 
 export function readGannTrend(bars: Bar[]): GannTrendRead {
@@ -145,9 +155,12 @@ export function readGannTrend(bars: Bar[]): GannTrendRead {
 
   const structureAgrees =
     (weekly === "bullish" && rising) || (weekly === "bearish" && falling);
-  const confirmed = weekly !== null && structureAgrees;
+  const ledger = buildCampaignLedger(bars);
+  const changing =
+    ledger !== null && (ledger.spaceOverbalanced || ledger.timeOverbalanced || ledger.monthlyBreak);
+  const confirmed = weekly !== null && structureAgrees && !changing;
 
-  return { direction: confirmed ? weekly : null, confirmed, threeDay, weekly, structureAgrees };
+  return { direction: confirmed ? weekly : null, confirmed, threeDay, weekly, structureAgrees, changing };
 }
 
 /**

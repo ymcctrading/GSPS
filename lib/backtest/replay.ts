@@ -96,6 +96,8 @@ import { computeAngleSlopes } from "@/lib/gann/normalizedSlope";
 import { computeRetracementLevels } from "@/lib/gann/retracement";
 import { priceTimeConfluence } from "@/lib/gann/digitalRoot";
 import { computeCampaignLeg, computeSwingChart, type CampaignLegReading, type SwingChartReading } from "@/lib/gann/swingChart";
+import { majorPricePercentageLevels, readDisclosedRules, type DisclosedRulesContext } from "@/lib/gann/disclosedRules";
+import { contextFactorsFor } from "@/lib/gann/contextFactors";
 import { computeRuleOfThree, type RuleOfThreeReading } from "@/lib/gann/ruleOfThree";
 import { computeTimePriceSquare, type TimePriceSquareReading } from "@/lib/gann/timePriceSquare";
 import { computeVolumeClimax, type VolumeClimaxReading } from "@/lib/gann/volumeClimax";
@@ -263,6 +265,13 @@ export interface ReplayTrade {
    */
   criteria?: Record<string, boolean>;
   /**
+   * Gann readings recorded on the trade that the score doesn't count yet
+   * (`lib/gann/contextFactors.ts`), in the trade's direction. Measured by the
+   * factor table the same way as `criteria`, so each can be promoted on
+   * evidence. Absent means not evaluated.
+   */
+  contextFactors?: Record<string, boolean>;
+  /**
    * Whether this symbol read as large-cap at the time of the trade — see
    * `lib/strat/large-cap.ts`. Always computed (unlike `score`, which needs
    * `dailyBars`) since it only needs the symbol and, when available, prior
@@ -357,6 +366,8 @@ export interface MacroContext {
   /** How many 3-day swing-chart legs since the weekly chart's last trend change, and Gann's "sections of a campaign" confidence read on that count. Confluence/context only — see lib/gann/swingChart.ts#computeCampaignLeg. */
   campaignLeg: CampaignLegReading;
   ruleOfThree: RuleOfThreeReading;
+  ruleOfThreeWeekly: RuleOfThreeReading | null;
+  ruleOfThreeMonthly: RuleOfThreeReading | null;
   timePriceSquare: TimePriceSquareReading[];
   volumeClimax: VolumeClimaxReading[];
   boilingPoint: BoilingPointReading[];
@@ -381,6 +392,8 @@ export interface MacroContext {
    * only whichever is closest to price in either direction.
    */
   structuralLevels: number[];
+  /** Stage A readings and the B2 campaign ledger, as the live scan's confluence card shows them. */
+  disclosedRules: DisclosedRulesContext;
 }
 
 /**
@@ -394,6 +407,8 @@ export function buildMacroContext(
   daily: Bar[],
   price: number,
   asOf: Date = new Date(new Date(daily[daily.length - 1].t).getTime() + 24 * 3600 * 1000),
+  /** Closed monthly bars before `asOf`, when the run has them. They anchor Gann's percentage-of-price levels the way the live scan's monthly history does. */
+  priorMonthly: Bar[] = [],
 ): MacroContext {
   const weekly = rollUp(daily, weekKey);
   const monthly = rollUp(daily, (b) => b.t.slice(0, 7));
@@ -426,6 +441,8 @@ export function buildMacroContext(
     ...weeklyTrend.resistance.map((p) => ({ price: p, timeframe: weeklyTrend.timeframe })),
     ...monthlyTrend.support.map((p) => ({ price: p, timeframe: monthlyTrend.timeframe })),
     ...monthlyTrend.resistance.map((p) => ({ price: p, timeframe: monthlyTrend.timeframe })),
+    // Mirrors lib/scanTicker.ts: Gann's major percentage-of-price levels.
+    ...majorPricePercentageLevels([...priorMonthly, ...daily]).map((p) => ({ price: p, timeframe: "1Month" as const })),
   ];
   const recentAtr = atr(daily.slice(-20), 14);
   const baselineAtr = atr(daily.slice(-100, -20), 14);
@@ -442,6 +459,10 @@ export function buildMacroContext(
     swingChart,
     campaignLeg,
     ruleOfThree,
+    // Mirrors lib/scanTicker.ts. The live scan reads the provider's weekly
+    // and monthly bars; here they are rolled up from the daily history.
+    ruleOfThreeWeekly: weekly.length >= 4 ? computeRuleOfThree(weekly) : null,
+    ruleOfThreeMonthly: monthly.length >= 4 ? computeRuleOfThree(monthly) : null,
     timePriceSquare,
     volumeClimax,
     boilingPoint,
@@ -473,6 +494,7 @@ export function buildMacroContext(
     momentumElevated: baselineAtr > 0 && recentAtr / baselineAtr >= 1.2,
     atrPct,
     structuralLevels: allLevels.map((l) => l.price),
+    disclosedRules: readDisclosedRules(daily, price),
   };
 }
 
@@ -527,7 +549,8 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     const priorSessions = dailyBars.filter((b) => b.t.slice(0, 10) < date);
     let arm: SessionArm | null = null;
     if (priorSessions.length >= MIN_DAILY_BARS_FOR_SCORE) {
-      const context = buildMacroContext(priorSessions, price, new Date(`${date}T12:00:00Z`));
+      const priorMonthly = monthlyBars ? monthlyBars.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)) : [];
+      const context = buildMacroContext(priorSessions, price, new Date(`${date}T12:00:00Z`), priorMonthly);
       const reversionDirection = preferredEntryDirection(context.macroTrends);
       const triggers: SessionTrigger[] = [];
       const reversion = computeGannEntryTrigger(priorSessions, reversionDirection);
@@ -691,6 +714,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         score: decision.score,
         outputState: decision.outputState,
         criteria: criteriaOf(decision),
+        contextFactors: contextFactorsFor(arm.context.disclosedRules, trigger.direction, entry),
         largeCap,
         yearCycleHits: monthlyBars ? yearCycleHitsAt(monthlyBars, live.t, trigger.direction) : undefined,
       };
@@ -837,6 +861,8 @@ function scoreSetup(input: {
       swingChart: context.swingChart,
       campaignLeg: context.campaignLeg,
       ruleOfThree: context.ruleOfThree,
+      ruleOfThreeWeekly: context.ruleOfThreeWeekly,
+      ruleOfThreeMonthly: context.ruleOfThreeMonthly,
       timePriceSquare: context.timePriceSquare,
       volumeClimax: context.volumeClimax,
       boilingPoint: context.boilingPoint,

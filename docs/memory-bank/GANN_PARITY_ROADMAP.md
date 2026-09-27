@@ -212,7 +212,7 @@ Each step says whether a user waits on it (AGENTS.md "Speed is a product require
 > - A2 lives in the new module, not `retracement.ts`, so the scored retracement criterion is unchanged.
 > - A3 and A6 read from the scan's major pivots without changing `timeCycles.ts`' own windows. `WHEEL_COUNTS` still lacks ⅔ (240 days) and the other ⅛s; A6's ranking includes them.
 > - A5 counts completed 3-Day Chart swing extremes within 1% of a level, rather than editing `levels.ts`.
-> - Next: measure each field against a base rate (M4) before any may gate.
+> - **Infused the same day** (owner: "the point of the parity is to align, infuse and implement throughout the platform"): A3/A6's day-count bands and full year fractions now drive `timeCycles.ts`' windows (scanner ranking); A2's three major percentage-of-price levels join the S/R list (level criterion, stops, targets) on the live scan and the replay; A7's weekly/monthly Rule of Three counts in the scored `ruleOfThree` criterion. A1, A4 and A5 act through the trend read and are recorded per backtest trade as `contextFactors` for measurement; they move to the verdict or lifecycle (Stage C) when measured.
 
 - A1 · G1 close vs bar midpoint (per-bar trend read) on the confluence card.
 - A2 · G13 percentages of the extreme price as levels in `retracement.ts`.
@@ -230,7 +230,7 @@ Each step says whether a user waits on it (AGENTS.md "Speed is a product require
   - trend turns on breaking the last swing extreme
   - a price-scaled 9-point variant kept as an option, per A09
   - Re-point `swingChartTrend`, `trendStrength.ts` and `readGannTrend`, and apply it identically in the live scan and the replay (`lib/scan/entrySelection.ts`).
-- B2 · The **campaign counter-move ledger**: per symbol, each swing's points and duration, the campaign's section count, and its greatest reaction in points and in time. It powers:
+- B2 · **Built 2026-09-27** (`lib/gann/campaignLedger.ts`) and wired into the verdict: over-balance of space or time and the monthly-low break now stop `readGannTrend` confirming a trend, which feeds the macro trend reads, the regime engine and setup direction. The first-year high is computed but rarely available on a year of daily bars. Time balancing is shown and measured, not yet acted on. The **campaign counter-move ledger**: per symbol, each swing's points and duration, the campaign's section count, and its greatest reaction in points and in time. It powers:
   - G3 (the Space Rule)
   - G14 (over-balance of time and space)
   - G6 (monthly-low break)
