@@ -10,9 +10,11 @@ import type { Bar, Timeframe } from "@/lib/types";
 
 const { fetchBarsBatchMock } = vi.hoisted(() => ({ fetchBarsBatchMock: vi.fn() }));
 
-vi.mock("@/lib/data/provider", () => ({
+vi.mock("@/lib/data/provider", async (importOriginal) => ({
   getMarketDataProvider: () => ({ fetchBars: vi.fn(), fetchBarsBatch: fetchBarsBatchMock }),
   fetchAllTimeframesBatch: vi.fn(async () => new Map()),
+  // The real trim: the coarse pass reads completed sessions only (2026-09-26).
+  completedDailySessions: (await importOriginal<typeof import("@/lib/data/provider")>()).completedDailySessions,
 }));
 vi.mock("@/lib/data/alpaca", () => ({ fetchMostActives: vi.fn(async () => []) }));
 vi.mock("@/lib/scanTicker", () => ({ scanTicker: vi.fn(async (symbol: string) => ({ symbol, error: "not under test" })) }));

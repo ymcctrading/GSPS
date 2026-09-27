@@ -40,7 +40,7 @@
  */
 
 import type { Bar, ScanResult, SetupKind } from "@/lib/types";
-import { fetchAllTimeframesBatch, getMarketDataProvider } from "@/lib/data/provider";
+import { completedDailySessions, fetchAllTimeframesBatch, getMarketDataProvider } from "@/lib/data/provider";
 import { fetchMostActives } from "@/lib/data/alpaca";
 import { readTrend } from "@/lib/analysis/trend";
 import { rangeMidpoint } from "@/lib/gann/retracement";
@@ -398,14 +398,20 @@ function cycleBonus(direction: "bullish" | "bearish", cycles: TimeCycleResult | 
   return matches ? CYCLE_WINDOW_BONUS : 0;
 }
 
+/**
+ * `daily` should be completed sessions only; `price` is the latest print
+ * (defaults to the last bar's close). Split 2026-09-26 so the structure reads
+ * closed days, as Gann's charts do, while the gate still judges today's price
+ * — see the coarse pass in `runMarketScan`.
+ */
 export function coarseReversion(
   symbol: string,
   daily: Bar[],
   cycles?: TimeCycleResult,
+  price: number = daily[daily.length - 1]?.c ?? Number.NaN,
 ): CoarseCandidate | null {
   if (daily.length < 60) return null;
   if (!tradeable(daily)) return null;
-  const price = daily[daily.length - 1].c;
   if (price < MIN_SCAN_PRICE) return null;
   const trend = readTrend(daily, "1Day");
   if (trend.direction === "sideways") return null;
@@ -474,17 +480,18 @@ export function coarseReversion(
 export const TRAVEL_ATR_MULT = 1.2;
 export const FALLBACK_TRAVEL_PCT = 3;
 
+/** Same `daily`/`price` split as `coarseReversion`. */
 export function coarseContinuation(
   symbol: string,
   daily: Bar[],
   bars4h: Bar[],
   cycles?: TimeCycleResult,
+  price: number = daily[daily.length - 1]?.c ?? Number.NaN,
 ): CoarseCandidate | null {
   // Needs the full trailing window the baseline is measured over.
   if (daily.length < 120) return null;
   if (!tradeable(daily)) return null;
   if (!hasExceptional4hMomentum(bars4h)) return null;
-  const price = daily[daily.length - 1].c;
   if (price < MIN_SCAN_PRICE) return null;
   const trend = readTrend(daily, "1Day");
   if (trend.direction === "sideways") return null;
@@ -562,9 +569,9 @@ function coarseDiagnostics(
   symbol: string,
   daily: Bar[],
   cycles?: TimeCycleResult,
+  price: number = daily[daily.length - 1]?.c ?? Number.NaN,
 ): CoarseDiagnostics | null {
   if (daily.length < 60) return null;
-  const price = daily[daily.length - 1].c;
   const atrPct = atrPercentOfPrice(atr(daily.slice(-20), 14), price) ?? null;
   // Same balance point as the gates above (Gann's 50% of range).
   const mid50 = rangeMidpoint(daily.slice(-50));
@@ -948,11 +955,21 @@ export async function runMarketScan(
       // from the batch fetch above), no extra network call. See
       // `CYCLE_WINDOW_BONUS`'s own comment for what this does and doesn't
       // claim.
-      const cycles = timeCycles(daily);
+      // Structure from completed sessions only; price from the latest print.
+      // Until 2026-09-26 this pre-filter read today's still-forming daily
+      // candle as part of its structure (trend, swing pivots, fans, volume
+      // climax, cycles, expansion, participation), which the full scan
+      // stopped doing the same day (`completedDailySessions`). The forming
+      // candle's close is still the right "current price" for the gates, so
+      // it is kept for that and nothing else. Project-owner direction.
+      if (daily.length === 0) return { reversion: null, continuation: null, diagnostics: null };
+      const price = daily[daily.length - 1].c;
+      const closed = completedDailySessions(daily, end, "us_equity");
+      const cycles = timeCycles(closed);
       return {
-        reversion: coarseReversion(symbol, daily, cycles),
-        continuation: coarseContinuation(symbol, daily, bars4h, cycles),
-        diagnostics: coarseDiagnostics(symbol, daily, cycles),
+        reversion: coarseReversion(symbol, closed, cycles, price),
+        continuation: coarseContinuation(symbol, closed, bars4h, cycles, price),
+        diagnostics: coarseDiagnostics(symbol, closed, cycles, price),
       };
     } catch {
       return { reversion: null, continuation: null, diagnostics: null };

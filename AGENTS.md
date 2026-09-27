@@ -815,10 +815,14 @@ for the project owner** — do not fix it silently, and re-verify it first:
   direction: "always default to the Gann method." `fetchAllTimeframes`/`Batch`
   now pass the daily series through `completedDailySessions`
   (`lib/data/provider.ts`), matching the replay's prior-sessions-only read.
-  Not changed, flagged: the coarse pre-filter's own daily fetch
-  (`lib/marketScan.ts`) still sees today's candle, because it uses it as the
-  current price and trimming would make the pre-filter a day stale; and the
-  weekly/monthly week- and month-to-date bars still include today.
+  **The coarse pre-filter followed on 2026-09-27** (owner: "fix the coarse
+  pre-filter forming candle too"). Its gates now read their structure (trend,
+  swings, fans, volume climax, cycles, expansion, participation) from
+  `completedDailySessions`, and take the forming candle's close only as the
+  current price, passed in separately (`coarseReversion`/`coarseContinuation`/
+  `coarseDiagnostics`' `price` argument). So the pre-filter isn't a day stale
+  and doesn't read a moving candle as structure. Still flagged, not changed:
+  the weekly/monthly week- and month-to-date bars include today.
 - **Mega-cap coverage.** Owner direction: mega-caps are scanned on purpose,
   for users and the newsletter. `MEGA_CAP_UNIVERSE` (71 names, ported from
   `claude/great-brown-h6hops`) is in `FALLBACK_UNIVERSE`, the rotation

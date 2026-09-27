@@ -21,6 +21,8 @@ date.
 - **The intraday scanner reads the session's balance point** (the halfway
   point of the day's range) instead of VWAP, for direction, invalidation and
   the pivot plan's first target. VWAP stays an optional chart overlay.
+- **The coarse pre-filter reads completed daily sessions for its structure**
+  and today's latest print only as the current price, matching the full scan.
 - **The scan reads completed daily sessions only**, the mega-cap universe is
   in the live rotation, a plan waiting for confirmation is invalidated when
   price trades through its stop, and non-uniform live weights and

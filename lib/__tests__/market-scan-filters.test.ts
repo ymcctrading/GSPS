@@ -56,6 +56,23 @@ describe("coarseReversion price floor", () => {
   });
 });
 
+describe("coarseReversion reads structure from closed days and judges the live price (2026-09-26)", () => {
+  it("uses the price it is given, not the last closed bar's close", () => {
+    // Structure comes from completed sessions; the forming candle's close is
+    // passed separately as the current price. A price under the floor must
+    // reject the candidate even though every closed bar is well above it.
+    const closed = extendedDowntrend(10);
+    expect(coarseReversion("A", closed)).not.toBeNull();
+    expect(coarseReversion("A", closed, undefined, MIN_SCAN_PRICE - 0.01)).toBeNull();
+  });
+
+  it("defaults the price to the last bar's close, so older callers are unchanged", () => {
+    const closed = extendedDowntrend(10);
+    const last = closed[closed.length - 1].c;
+    expect(coarseReversion("A", closed)).toEqual(coarseReversion("A", closed, undefined, last));
+  });
+});
+
 function scanResult(symbol: string): ScanResult {
   return {
     symbol,
