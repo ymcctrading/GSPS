@@ -1250,6 +1250,17 @@ clean (`/settings/scripts` compiled, statically prerendered),
 session (no Supabase-authenticated environment available here) — say so
 rather than claiming a manual click-through happened.
 
+**Production verification pass (2026-09-27).** Migration 0081 had merged but
+was **never applied to production**, so the whole feature was dead on the live
+site. The UI hid that by turning the 500 into "not included on your plan".
+Applied with project-owner sign-off. RLS was verified and the editor now shows
+load errors. `0080_tier_promotion_three_paths.sql` had the same gap and was
+applied in the same pass, also with sign-off. A live
+browser click-through is still owed (this session's network policy blocked
+both the site and Supabase). See `docs/STRATEGY_MODES.md`'s "Production
+verification pass". Generalises the live-weights lesson: **merging a
+migration is not applying it.**
+
 Any strategy plugin built or extended under this family must continue to
 satisfy the rules this section states: opt-in, one-at-a-time, never
 touching the Gann verdict, tier-gated and server-resolved only, and clearly
@@ -1572,7 +1583,10 @@ including Novice→Pro going forward. The original `promotion_progress`/
 `promotion_status` (0046) are left in place, immutable per this repo's
 convention, and continue to be read for Novice→Pro's existing Foundations
 education/practice-validation flags specifically — they are not migrated or
-dropped, since no profile has been promoted through them yet.
+dropped, since no profile has been promoted through them yet. **Not applied to
+production until 2026-09-27**: the migration merged without being run, so
+`/promotion`'s three-path tables didn't exist until then (see "Production
+verification pass" under Strategy Modes).
 
 **What was generalized vs. left alone.** `lib/promotion/eligibility.ts`'s
 original `evaluatePromotionReadiness`/`DEFAULT_PROMOTION_POLICY` are
