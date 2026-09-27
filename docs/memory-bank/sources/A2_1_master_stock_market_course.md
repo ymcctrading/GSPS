@@ -403,3 +403,89 @@ Input: daily high/low. State: current direction, current chart level, last recor
 | **89–90** | ¼ circle, vertical; 90½ = ½ of 81–100; **moves straight up/down at the 90th month/week/day; watch the 89th month** (campaigns begin/end at 89, some 91); **daily: change often on the 92nd–93rd day, often runs to ~98th day** |
 | 95–96 | 8×12, 95⅝ = 90 + 5⅝; **96–98th month starts the 9th year — "the 9th year is always important and marks the ending of important campaigns with extreme high or low prices"**; stocks often stall at 95–97 below 100 |
 | 99–100 | 10²; 11×9; 100 psychological |
+
+---
+## Ch. 7 — *Master Time Factor and Forecasting by Mathematical Rules* + *How to Trade* (pp. 214–236; lesson pages F-1…F-21; signed **November 1935**)
+"Everything moves in cycles as a result of the natural law of **action and reaction**." "There must always be a major and a minor, a greater and a lesser, **a positive and a negative**."
+### Major time cycles — the 1935 hierarchy (F-1/F-2)
+| Cycle | Gann (1935) |
+|---|---|
+| **60 years — "GREAT CYCLE – MASTER TIME PERIOD"** | **"This is the greatest and most important cycle of all,"** repeating every 60 years = end of the third 20-year cycle. 1861–69 war boom & 1869 panic ↔ 1921–29 boom & panic. |
+| 50 years | 49–50; "jubilee" 5–7 years of extremes; 7 fatal, 7×7 = 49 |
+| 30 years | ½ of 60; three 10-yr cycles; **always compare 30 years back in an annual forecast** |
+| **20 years (240 months)** | "one of the most important… most stocks and the averages work closer to this cycle than to any other" |
+| 15 years | ¾ of 20; 180 months = ½ circle |
+| 10 years | ½ of 20, ⅙ of 60, 120 months = ⅓ circle; extremes every 10 years |
+| **7 years (84 months)** | watch 7 years from any important top/bottom; **42 months (½)** "many combinations"; **21 months (¼)**; **10–11 months = ⅛ of the 7-year cycle** (why stocks turn 10–11 months apart) |
+| **84 years** | 12 × 7; ½ = 42 yrs, ¼ = 21, **⅛ = 10½ yrs** — why Aug 1921 → Jul 1932 bottoms were ~11 years apart; such variation happens at the end of a Great Cycle. **Tops/bottoms often around the 135th month (11¼ yrs = 135°).** |
+| 5 years | ½ of 10, ¼ of 20; smallest complete cycle |
+| Minor | **3 years and 2 years** (the 1931 text said "6"; editor notes Gann later said 2); smallest 1 year — change in the 10th–11th month |
+
+> **⚠ Correction for AGENTS.md / prior memory bank.** AGENTS.md ("The scorecard's role") states "the 20-year Master Time Period among cycles." In Gann's own 1935 text the phrase **"Master Time Period" is attached to the 60-year Great Cycle**; the 20-year is "one of the most important" (in the 1931 lesson, Ch. 2, it was "the most important time cycle"). Gann's own ranking changed between 1931 and 1935. Cite precisely: *1931 (Ch. 2): 20-yr most important; 1935 (Ch. 7): 60-yr = "Great Cycle – Master Time Period… most important of all," 20-yr the most reliable working cycle for forecasting ("the 20-year cycle is the most important cycle for forecasting future market movements," F-9).*
+
+### Rules for future cycles (F-3/F-4) — 1935 restatement (differences from 1931 noted)
+1. Bull campaign **generally** 5 yrs (2 up, 1 down, 2 up); end in the **59th–60th month**.
+2. Bear cycle **often** 5 yrs down (2 down, 1 up, 2 down).
+3. Campaigns **seldom** exceed 3–3½ years without a 3–6-month or 1-year counter-move **"except at the end of Major Cycles, like 1869 and 1929"**; culminations in the **23rd, 24th, 27th or 30th month**, extreme campaigns **34th–35th or 41st–42nd**.
+4–5. **Top + 10 yrs → top; bottom + 10 → bottom** (same kind of year).
+6. **Bottom + 3 → bottom; + 4 more → 7-yr bottom** (1914 → 1917 panic low → 1921 depression low).
+7. **Top + 3 → top, + 3 → third top, + 4 → final top of the 10-yr cycle**; watch the **27th, 34th and 42nd month** for early reversals.
+8. **Top + 5 → bottom; bottom + 5 → top** (1917 → 1922 minor top; 1919 → 1924 bottom; 1917 + 7 = 1924; 1924 + 5 = 1929 top).
+### Monthly / weekly / daily forecasting rules (F-4/F-5) — 1935 wording
+- Monthly: bottom + 3, + 4 (=7) months → minor bottoms/reaction points; big upswings react ≤2 months (third month up); extreme markets react only 2–3 weeks ⇒ can rise 12 months without breaking a monthly bottom; bull minor trend may reverse **3–4 months**, bear rallies 3–4 months but **"as a general rule, stocks never rally more than 2 months in a bear market"**.
+- Weekly: bull reactions 2–3 (possibly 4) weeks; turn up **mid-third week, close higher at the end of the third week** (or the fourth). **Rapid big-volume moves run 6–7 weeks; in 1929-type markets 13–15 weeks (¼ year)** = culminations. **49–52nd day** (7×7) top/bottom; sometimes **42nd–45th day ("45 days is ⅛ of a year")**; **culminations at 90–98 days**. After a 7-week decline, 2–3 sideways weeks, then up.
+- **Trading-range rule (F-5):** after a top, 2–3-week reaction, 2–3-week rally not above the top, then a range of weeks: buy near the range low / sell near the high with 1–3-pt stops — **"a better plan would be to wait… then buy when it crosses the highest point or sell when it breaks the lowest point of that trading range."**
+- Daily: fast markets move **2 days against the trend, resume on the 3rd**; daily reversals run 7–10 days. **Natural monthly change dates: 6–7th, 9–10th, 14–15th, 19–20th, 23–24th, 29–31st.** Watch **30 days** from the last top/bottom, then **60, 90, 120, 180 (very important), 270 and 330 days**.
+### Calendar windows (F-5/F-6)
+- **January 2–7 and 15–21:** note the high and low; **until these are crossed/broken, consider the trend up/down**; an early-January low often holds until July/August or all year; an early-January high often is the year's high until after July/August. (U.S. Steel Jan 2 1930 low 166 = ½ of 1921–29; broken ⇒ lower.)
+- **July 3–7 and 20–27:** dividend month; changes **180 days from January** tops/bottoms (Jul 8 1932 low, Jul 17 1933 high, Jul 26 1934 low).
+### Dividing the year (F-6)
+- ÷2 = 6 months / 26 weeks (180°); ÷4 = 3 months / 13 weeks (90°); ÷3 = 4 months / **17⅓ weeks** (120°); ÷8 = 45 days / **6½ weeks — "why the 7th week is always so important"**; ÷16 = **22½ days ≈ 3 weeks — accounts for 3-week moves.**
+- **"As a general rule, when any stock closes higher the 4th consecutive week, it will go higher."**
+- **"The 5th week is also very important… The 5th is the day, week, month, or year of Ascension and always marks fast moves up or down."**
+### Bull and bear calendar years — the decade pattern (F-6/F-7)
+| Year digit | Gann |
+|---|---|
+| 1 | bear market ends, bull begins (1901, 1911, 1921) |
+| 2 | minor bull / a bear-market rally (1902, 1912, 1922, 1932) |
+| 3 | starts a bear year; 2nd-year rally may run to Mar/Apr, or a decline bottoms Feb/Mar (1933) |
+| 4 | bear year but ends the bear cycle, foundation for a bull (1904, 1914) |
+| **5** | **"year of Ascension" — very strong bull** (1905, 1915, 1925, 1935) |
+| 6 | bull year; campaign begun in year 4 ends in the Fall, fast decline (1869, 1906, 1916, 1926) |
+| **7** | **bear** ("84 months or 84° is 7/8 of 90") (1897, 1907, 1917; 1927 exception = end of a 60-yr cycle) |
+| 8 | bull; the 90th month falls in year 8 — big advance (1898, 1908, 1918, 1928) |
+| **9** | **strongest bull; final campaigns culminate; bear markets start Sep–Nov** (1869, 1879 … 1929) |
+| 10 (0) | bear; rally to Mar/Apr, severe decline to Nov/Dec (1910, 1920, 1930) |
+Calendar years. The 10-year pattern repeats; greatest moves at the ends of 20- and 30-year cycles, strongest at 50- and 60-year ends.
+- *Dewey checklist on the decade pattern:* repetition ✔ (Gann cites 3–4 decades each), regularity **not tested**, obvious counter-examples acknowledged by Gann himself (1927). Treat as **non-gating context** (cf. `lib/gann/decadeCycle.ts`).
+### Important points to remember (F-7/F-8)
+- **"TIME is the most important factor of all… The Time factor will overbalance both Space and Volume."**
+- Each stock works out its **1, 2, 3, 5, 7, 10, 15, 20, 30, 50 and 60-year cycles from its own base** regardless of others.
+- Reversal after extremes: first reversal over **¼ to ½** of the previous move ⇒ trend changed (at least temporarily); when time runs out, space breaks back over **¼, ⅓ or ½** of the last extreme-low-to-high move.
+- Five years of higher yearly bottoms then a lower one ⇒ reversal (mirror for tops).
+### How to make annual forecasts — Master 20-Year Forecasting Chart (F-8…F-12)
+- Previous **10- and 20-year cycles have the most effect**; check **30 years** back; also watch **5, 7, 15, 50-year** repeats. 1935 forecast: 1905, 1915, 1925. **1929 forecast: 1919 (10), 1909 (20), 1899 (30), 1869 (60 — Great Cycle).**
+- **Master 20-year Forecasting Chart 1831–1935:** stack 20-year blocks (1831–1850 canal/rail stocks; 1856–96 Gann railroad averages; Dow from 1896): 1861–80, 1881–1900, 1901–20, 1921–40; years numbered 1–20; **"extreme high prices have always been reached" in the 8th and 9th years.**
+- **1929:** by the 60-yr cycle 1929 ≈ 1869, 1909, 1919 ⇒ Gann's published 1929 forecast: **top not later than end of August, "Black Friday" in September** (actual top Sep 3). "There is no other way, outside of using the 20 and 60-year cycle that we could have forecast this… so closely."
+- 1869–73 vs 1929–33 (Nov 1873 low ↔ Oct 1933 last low).
+- **1935:** zone years 1855, 1875, 1895, 1915 and 5th-zone 1865, 1885, 1905, 1925 ⇒ Gann's Oct-1934 forecast: **top Oct 28, secondary top Nov 15–16, 1935** (actual Dow top Nov 20 1935). **Zone-average rule:** Dow crossing 108 in May 1935 = above the average high of all previous 15th-zone years ⇒ bull.
+- **1936 outlook:** 16th zone 1856, 1876, 1896, 1916 (60, 40, 20 back) + 6th zone 1866, 1886, 1906, 1926; expects **1896 to repeat** (election year, panicky decline into August), breaks in Jan, Mar, **late May–June (4 yrs from 1932 low, 6 from Apr 1930 high)**, July (nominations), end of August (1896 cycle end), late September; Sep–Nov = **7 years from the Sep–Nov 1929 top/panic**; post-election rally into December.
+- Individual stocks: build the same 10- and 20-year cycle charts per stock ("works… even better than on the Averages").
+### Fast moves at time angles (F-12…F-15)
+- **Proportional parts of 360 to watch in months from any top/bottom:** 11¼, 22½, 33¾, **45**, 56¼, **60**, 67½, 78¾, **90**, 101¼, 112½, **120**, 123¾, **135**, 146¼, 157½, 168¾, **180**, 191¼, 202½, 213¾, **225**, 236¼, **240**, 247½, 258¾, **270**, 281¼, 292½, **300**, 303¾, **315**, 326¼, 337½, 348¾, **360** (* very important: **45, 60, 90, 120, 135, 180, 225, 240, 270, 300, 315, 360 months**).
+- Dow 1896–1934 month-count review (examples): Nov 1907 low = **135th month from 1896**; Nov 1916 top ≈ **240–243 months from 1896** (20-yr end); Feb 1919 = **135 from 1907, 270 from 1896** ("3/8 and 3/4 of the circle"); Aug 1921 low = **300 months from 1896**; Aug 1926 top = **360 months (30 yrs) from 1896**; Sep 1929 top = 240 from 1909 top, 262 from 1907 low, 97 from Aug 1921, "37 months in the second cycle"; Jul 8 1932 = 131 from 1921, 34 from 1929; Apr–Jul 1933 fast advance = **43–46 months from 1929 ("always watch for combinations around the 45th month and multiples of 45")**; Feb 1934 top = **90 months in the new 30-yr cycle from Aug 1926**. Time angles running out Oct–Nov 1929: 32, 40, 67½, 75, 120, 180.
+- Seasonal changes also around **Mar–Apr, Sep–Oct, Nov–Dec.**
+### NYSE Permanent Chart — Square of 20 (F-15/F-16)
+- Square of **20×20 = 400**, for days/weeks/months/years; "works out the 20-year cycles remarkably well."
+- **NYSE incorporated May 17 1792** = 0; 1812 = 20, … **1932 = 140 = 7×20 = "90° angle… top of the 7th zone"** ⇒ end of a bear campaign & great cycle; watch May–July 1932 (actual low Jul 8 1932). 1861 on 69 (45° angle); 1882 on the 90° line at the ½ point; 1902 at 110 (½); 1920–21 on 129 (45°); 1922 at 130 (½); **1929 on 137 on a 45° angle; 1930 at the ½ point of the 4th square ⇒ severe decline**; 1933 on 141 (8th zone start); 1935 on 143 on the 45° at the grand center of the 8th zone.
+- Also from **Oct 12 1492** (Columbus): 1892 = 400 yrs (square of 20 complete); 1932 = 40 years into the next.
+- ⇒ **Square of 20 is primary Gann** (cf. `lib/gann/squareOf20.ts`, research-only per AGENTS.md — this chapter supplies the NYSE-birth-date application text; the placement rule itself is textual and simple: count units from the origin date and read the position in the 20×20 grid).
+### How to trade (F-17…F-21)
+- **Before any trade:** check (1) annual forecast (bull/bear year), (2) the stock's own cycle, (3) monthly angles & time periods, (4) weekly — squaring time from top/bottom?, (5) daily — near the square of a recent top/bottom?, (6) price resistance levels / half-way points, (7) **held several days/weeks/months at one level and about to cross/break angles**, (8) volume trend, (9) **the greatest recent reaction** — e.g. prior reactions 5 pts, now 3 off the top in an uptrend near a support angle ⇒ buy, stop 2–3 away; **a reaction exceeding 5 (the prior limit) = trend change → exit**, (10) **"the most important factor… is Geometrical Angles"**; bring up angles from "0", (11) a definite indication, (12) **"Most important of all – always locate the point at which to place a stop loss order."**
+- **Monthly + weekly + daily all confirming uptrend ⇒ "a cinch to buy"** (with a stop ≤3 pts); bear year + all three down ⇒ short.
+- **Paper-trade first**; "if you make mistakes trading on paper… you are not ready."
+- **When to close:** only on a definite indication per the rules, or let the trailed stop be caught.
+- **When NOT to trade:** in a narrow 3–5-pt range that hasn't broken bottoms or crossed tops (can last weeks, months, years); **when price is squeezed between two important angles**; after a prolonged decline's narrowing range — wait for angles from the bottom to break or angles from the top to be crossed and an old top crossed.
+- **Capital:** divide into **10 equal parts, never risk >10% on one trade; after three consecutive losses reduce the unit** (risk 10% of remaining). $3,000 per 100 shares, ≤3-pt risk ⇒ **"the market would have to beat you 10 consecutive times to wipe out your capital."** Prefer 1–2-pt stops. $300 per 10 shares.
+- **Pyramiding:** only in active markets with above-normal volume, after a strong/weak angle position or a range breakout. Add a second lot only after **5 points** in your favour, stop ≤3 pts on both (worst case net −1 pt); add every 5 pts; for stocks **5–75**, after **15–25 pts** in favour start watching for a change. **The big money is the run between accumulation and distribution** — start after double/triple tops are crossed and the zone of accumulation is cleared; buy every 5 pts, stop ≤3 below the last lot (mirror for shorts). Above $100 in fast markets: **7–10 pts apart.** Panic markets: trail ~10 pts, then ~5 pts from the low. **Safest pyramid at extreme levels: 100 → +50 → +30 → +20 (repeat 20) each 5 pts.** **Never add near a double top/bottom**; don't pyramid while in a 10–12-pt range.
+- Closing maxim: **"The whole can never exceed all of its parts, and all of the parts make up the whole. If you leave out one of the parts or one of the rules, you do not have a complete trend indicator."**
