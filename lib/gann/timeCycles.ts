@@ -35,6 +35,12 @@
  * `docs/memory-bank/sources/A02_A04_truth_of_stock_tape_1923_and_stock_selector_1930.md`
  * (correction C-A4-1).
  *
+ * **What these windows are, statistically** (Dewey, "Definitions and Concepts
+ * Used in Cycle Study", 1965, `docs/memory-bank/sources/C05`): calendar and anniversary
+ * windows are *recurrent events*, not waves with a spectrum. So they are
+ * validated by a hit rate against a base rate (roadmap M4), not by a
+ * periodogram. Added 2026-09-27 (roadmap item A8 / C4).
+ *
  * Three-question basis:
  * 1. Gann: A4 (1930, Tier A), back matter. The same anchors recur in A9's
  *    (1949) seasonal change windows, and two of Face Facts America!'s (A7,

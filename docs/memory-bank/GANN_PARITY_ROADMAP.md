@@ -207,6 +207,13 @@ The order follows three rules:
 Each step says whether a user waits on it (AGENTS.md "Speed is a product requirement"). All of these are per-symbol computations on bars the scan already loads, so the added scan cost should be small, but it must be measured with the `[market-scan]` breadcrumbs.
 
 **Stage A — literal, cheap, display/confluence only (no owner sign-off needed beyond this plan)**
+
+> **Built 2026-09-27** in one module, `lib/gann/disclosedRules.ts`, shown on the confluence card and in the explanation trace, and never scored. A1–A7 are there as context fields. A8 citation headers were added to `entryTrigger.ts` and `timeCycles.ts`; `spectralCycle.ts` already carried its citations. Deviations from the plan as written:
+> - A2 lives in the new module, not `retracement.ts`, so the scored retracement criterion is unchanged.
+> - A3 and A6 read from the scan's major pivots without changing `timeCycles.ts`' own windows. `WHEEL_COUNTS` still lacks ⅔ (240 days) and the other ⅛s; A6's ranking includes them.
+> - A5 counts completed 3-Day Chart swing extremes within 1% of a level, rather than editing `levels.ts`.
+> - Next: measure each field against a base rate (M4) before any may gate.
+
 - A1 · G1 close vs bar midpoint (per-bar trend read) on the confluence card.
 - A2 · G13 percentages of the extreme price as levels in `retracement.ts`.
 - A3 · G17 day-count bands from each major pivot in `timeCycles.ts`.

@@ -47,6 +47,7 @@ import { squareOf52Windows } from "@/lib/gann/squareOf52";
 import { angleMonthCounts as computeAngleMonthCounts } from "@/lib/gann/angleMonthCounts";
 import { detectSpectralCycle } from "@/lib/gann/spectralCycle";
 import { computeCampaignLeg } from "@/lib/gann/swingChart";
+import { EMPTY_DISCLOSED_RULES, describeDisclosedRules, readDisclosedRules } from "@/lib/gann/disclosedRules";
 import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
 import { computeBoilingPoint } from "@/lib/gann/boilingPoint";
 import {
@@ -143,6 +144,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
       },
       angleSlope: null,
       coordinateLedger: [],
+      disclosedRules: EMPTY_DISCLOSED_RULES,
       materialNumberClassification: "notImplemented",
       evidence: {
         calculationVersion: GANN_CONFLUENCE_MODULE.version,
@@ -232,6 +234,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
   const slope = normalizedSlope(inputs.currentPrice, majorLow, atrAtAnchor, timeDisplacementBars);
   const angleSlope = slope !== null ? { slope, nearestAngle: nearestGannAngle(slope) } : null;
   const coordinateLedger = buildCoordinateLedger(inputs.dailyBars, inputs.currentPrice);
+  const disclosedRules = readDisclosedRules(inputs.dailyBars, inputs.currentPrice);
 
   const explanationTrace: string[] = [
     `Root: sqrt(anchor ${anchorPivot?.kind === "high" ? "high" : "low"} ${majorLow.toFixed(2)}) = ${root.toFixed(4)}.`,
@@ -299,6 +302,8 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
     );
   }
 
+  explanationTrace.push(...describeDisclosedRules(disclosedRules));
+
   // Alignment/conflict reads off whichever coordinate is nearer current price
   // (fan lines are checked first — the key-price-level read is the fallback
   // when no fan anchor is available). Neither can override the caller's
@@ -337,6 +342,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
     vortexContext,
     angleSlope,
     coordinateLedger,
+    disclosedRules,
     materialNumberClassification: "notImplemented",
     evidence: {
       calculationVersion: GANN_CONFLUENCE_MODULE.version,

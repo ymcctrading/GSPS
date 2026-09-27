@@ -132,9 +132,75 @@ function GannRow({ result }: { result: NonNullable<ScanResult["signals"]>["gannC
               </p>
             </div>
           )}
+          <DisclosedRuleTiles rules={result.disclosedRules} />
         </div>
       )}
     </div>
+  );
+}
+
+const COUNTER_MOVE_LABEL = {
+  normal: "normal (2-3 weeks)",
+  extended: "longer than usual",
+  secondMonth: "into a 2nd month",
+  thirdMonth: "3rd month: trend change",
+} as const;
+
+/**
+ * Stage A context (`lib/gann/disclosedRules.ts`). Optional-chained because
+ * scan results cached before these fields existed don't carry them.
+ */
+function DisclosedRuleTiles({
+  rules,
+}: {
+  rules: NonNullable<NonNullable<ScanResult["signals"]>["gannConfluence"]>["disclosedRules"] | undefined;
+}) {
+  if (!rules) return null;
+  const tiles: { label: string; value: string }[] = [];
+  if (rules.counterMove?.inCounterMove && rules.counterMove.phase) {
+    tiles.push({
+      label: "Counter-move length",
+      value: `${rules.counterMove.days}d (${COUNTER_MOVE_LABEL[rules.counterMove.phase]})`,
+    });
+  }
+  const pct = rules.pricePercentages;
+  if (pct?.nearestAbove || pct?.nearestBelow) {
+    tiles.push({
+      label: "Percent-of-price levels",
+      value: `${pct.nearestBelow ? pct.nearestBelow.price.toFixed(2) : "—"} / ${pct.nearestAbove ? pct.nearestAbove.price.toFixed(2) : "—"}`,
+    });
+  }
+  const tests = [rules.levelTests.support, rules.levelTests.resistance].filter((t) => t && t.tests >= 2);
+  if (tests.length > 0) {
+    tiles.push({
+      label: "Level tests",
+      value: tests.map((t) => `${t!.level.toFixed(2)} ×${t!.tests}`).join(", "),
+    });
+  }
+  if (rules.yearFraction) {
+    tiles.push({ label: "Time from pivot", value: `${rules.yearFraction.fraction} (${rules.yearFraction.daysSincePivot}d)` });
+  } else if (rules.dayCountBands.length > 0) {
+    const d = rules.dayCountBands[0];
+    tiles.push({ label: "Time from pivot", value: `${d.daysSincePivot}d (${d.band[0]}-${d.band[1]} band)` });
+  }
+  if (rules.barMidpoint) {
+    tiles.push({ label: "Closes above bar midpoint", value: `${rules.barMidpoint.upOfLast5} of last 5` });
+  }
+  const rot = rules.ruleOfThree;
+  const rotText = [
+    rot.weekly?.bearishSignal ? "weekly 3 lower" : rot.weekly?.bullishSignal ? "weekly 2 higher" : null,
+    rot.monthly?.bearishSignal ? "monthly 3 lower" : rot.monthly?.bullishSignal ? "monthly 2 higher" : null,
+  ].filter(Boolean);
+  if (rotText.length > 0) tiles.push({ label: "Rule of Three (W/M)", value: rotText.join(", ") });
+  return (
+    <>
+      {tiles.map((t) => (
+        <div key={t.label} className="rounded-md border border-border bg-surface p-2">
+          <p className="text-muted">{t.label}</p>
+          <p className="font-mono font-semibold">{t.value}</p>
+        </div>
+      ))}
+    </>
   );
 }
 

@@ -24,6 +24,11 @@
  *     level by up to ~1⅞ cents but rarely a full 3 cents, which is his stated
  *     reason for placing stops exactly 3 cents beyond a level. A bare touch of
  *     an old top is therefore not a cross; clearing it by a real margin is.
+ *   - **Primary text for both** (added 2026-09-27, roadmap item A8 / C4): the
+ *     Master Stock Market Course, Ch. 9, states the lost-motion allowance
+ *     (averaging about 1⅞, never a full 3) and the averaging of nearby levels
+ *     into one. *Wall Street Stock Selector* (1930) and *Truth of the Stock
+ *     Tape* (1923) apply "3 points beyond the old top or bottom" throughout.
  *
  * **Why the buffer is a percentage and not 3 cents.** Gann's figure is a
  * 1930s stock-price-era absolute, and this platform prices equities and
