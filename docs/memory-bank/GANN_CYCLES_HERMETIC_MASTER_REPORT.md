@@ -1,6 +1,6 @@
 # Gann, Cycles & Hermetic Thought — GSPS Master Reference Report
 
-*Compiled 2026-09-27 from the page-by-page source reads in `docs/memory-bank/sources/`.
+*Compiled 2026-09-27 from the page-by-page source reads in `docs/memory-bank/sources/`; second pass the same day added A08, A09, B04, B05, B07 and B11.
 Use this with AGENTS.md's standing principles when a question comes up about Gann's methodology, cycle validation or the Hermetic lens.*
 
 > **What this is.** It synthesises everything read in the project owner's Gann, Observation of Cycles and Hermetic folders. It is written in our own words so no book is reproduced; the public repo carries no copyrighted text.
@@ -104,6 +104,14 @@ B13's historian's note explains why: Gann issued lessons as letters over 1931–
 - **The hexagon and Square-of-20 plates are lost.** B12's check shows Gann's non-radial series (2, 9, 22, 41, 66…) doesn't fall on one angle in a modern reconstruction, which supports keeping `hexagonChart.ts` research-only.
 - `squareOf9.ts` uses the geometrically correct **180° = +1 in the square root**. The B03b "D-levels" table's "45°" steps are really **22.5°**; don't "fix" the code to the table.
 
+2.4a **Percentages of the extreme *price*, not only of the range** (A8 pp. 32–34, 1942/51; A09 1949).
+- Divide the **low** price by 8 (12½ … 100%), and also divide the **highest selling price** by 8 and by 3.
+- **50% and 100% of a bottom are "the two most important"** (A8 p. 32). Use 10% multiples for cotton-type markets.
+- Importance order (A8 p. 34): all-time range, then divisions of the highest price, then each campaign, then 3rd/4th lower tops.
+- `retracement.ts` uses **range** fractions only. See Part V, G13.
+
+2.4b **The 4th test goes through** (A8 p. 43; A09). Triple tops and bottoms years apart are the most important. A 4th test usually breaks the level, and if it holds a big reversal follows. See G15.
+
 2.5 **Price in motion: speed.** Points per unit of time.
 - A rally "very feeble … for the time required" means liquidation isn't finished.
 - **Equal-points and equal-time legs** flag culminations (A05).
@@ -112,7 +120,10 @@ B13's historian's note explains why: Gann issued lessons as letters over 1931–
 ### 3. Trend
 
 3.1 **Swing charts.**
-- The 3-day and 9-day charts count closing runs (implemented, `swingChart.ts` / `trendStrength.ts`).
+- GSPS's 3-day and 9-day charts count closing runs (implemented, `swingChart.ts` / `trendStrength.ts`).
+- **Gann's own definitions differ** (*45 Years in Wall Street*, 1949, Ch. VII; A09). See Part V, conflict X3.
+  - His **3-Day Chart** is built from **highs and lows**: three days of higher tops *and* higher bottoms. The signal is crossing the last 3-day top or bottom.
+  - His second chart is a **9-point** swing chart: a reversal on a counter-move of at least 9 points in the Dow. No 9-*day* chart appears there.
 - The Master Course Ch. 18 also defines a **weekly 1-bar swing chart**: reversal on a higher top and higher bottom (lower for down). **Not implemented.**
 
 3.2 **Close vs the bar's midpoint** (Ch. 13). A close above (H+L)/2 means the trend is up, and below means down, "at least temporarily." It is Gann's own per-bar trend read, cheap and literal. **Not implemented.** Gann's "moving average" is likewise the per-period midpoint (B01).
@@ -127,6 +138,13 @@ Confirmation rules:
 - a reaction under an old top shouldn't exceed about 5 points
 
 **Not implemented.** No module measures "greatest counter-trend move of the campaign."
+
+3.3a **Over-balance: time before space** (A8 BP/SP #3–#6 and p. 51; A09 Rule 8; Master Course Ch. 11). Reddy (B04) ranks these first among the disclosed buying and selling points.
+- The first counter-move whose **time** exceeds the greatest counter-move of the prior campaign changes the trend (e.g. a reaction longer than 4 weeks in a bull market).
+- So does the first whose **space** (points) exceeds it.
+- "TIME … will overbalance both Space and Volume. When TIME is up, space movement will start and large volume will begin" (A8 p. 56).
+- The signal carries more weight after the 3rd or 4th section of a campaign than after the 2nd.
+- **Not implemented.** See G14.
 
 3.4 **Monthly-low break.** The first break under a prior month's low since the top signals a turn (A05).
 
@@ -162,6 +180,8 @@ Confirmation rules:
 - Volume drying up to multi-year lows marks a bottom.
 - Volume is "the driving power" (Cause and Effect in Gann's words).
 
+- **Confirmed in three separate texts:** Master Course Ch. 12, *45 Years* Ch. X (1949: heavy volume at tops, volume drying up at bottoms), and *Commodities* p. 63 (1939–40 wheat, where the public bought heavily at the top).
+
 ⇒ This conflicts with `volumeClimax.ts`'s premise; see Part V, conflict X1.
 
 ### 6. Risk and money management
@@ -169,6 +189,10 @@ Confirmation rules:
 - **Risk ≤ 10% of capital**, restated in *Tunnel* as **10% of current profits, shrinking after each loss**, "the market would have to beat him ten consecutive times."
 - **Reduce the unit after 2–3 losses**, double only once profits equal capital, and keep a reserve fund (A05).
 - **Don't over-diversify**: "too many irons in the fire," and people keep losers while cutting winners (*Tunnel*, Watson's lessons).
+- **Series-of-losses rule** (A8 pp. 12, 17, 29; Rule 27):
+  - After 1–3 losing trades, "something is wrong with you and not with the market." Get out, wait and study.
+  - After 3 consecutive losses, cut the unit to **10% of *remaining* capital**. Reduce after the first loss and never increase.
+  - This is direct Gann grounding for `lib/risk/cooldown.ts`. See G16.
 - **Never trade in bad health**: stop when your own state is impaired (A05 Ch. II). This is the conceptual parallel to `lib/risk/cooldown.ts`.
 - GSPS `lib/risk/*` is aligned in structure (percentage ceilings), as `GANN_HISTORICAL_SOURCES.md` already records.
 
@@ -357,7 +381,7 @@ The lens shapes design and reasoning. It **cannot move a threshold, weight or ga
 | ½ first, then ¼/¾, ⅓/⅔ retracements | `lib/gann/retracement.ts` | A2.1 Ch. 2, 13 |
 | Pivot-anchored cycle-year hierarchy and wheel counts | `lib/gann/timeCycles.ts` (`MAJOR_CYCLE_YEARS`, `WHEEL_COUNTS`) | A2.1 Ch. 7 |
 | Direction from price, time as the window | `timeCycles.ts` pivot polarity | A2.2 |
-| 3-day/9-day swing charts; trend = 9-day, confirmed by 3-day structure | `swingChart.ts`, `trendStrength.ts` | Ch. VII (A-tier; see the catalogue) |
+| 3-day/9-day swing charts; trend = 9-day, confirmed by 3-day structure | `swingChart.ts`, `trendStrength.ts` | **Aligned in intent only.** A09 Ch. VII defines a high/low 3-day chart and a 9-point chart; see conflict X3 |
 | Rule of three closes | `ruleOfThree.ts` | A4 |
 | Square of Nine geometry (180° = +1 root) | `squareOf9.ts` | Checked against B03b/B12 |
 | Spectral cycle, detrended, confluence-only | `spectralCycle.ts` | Now **citably Gann's tool** (1926 letter) |
@@ -376,6 +400,14 @@ Every item below is an **open recommendation**. Items that touch scoring, gating
   - The module's header says a genuine turn "prints on climax volume." The Master Course Ch. 12 (Rule 3) and A05 say **normal bottoms form on *decreasing* volume and narrowing range**, and climax volume at a low is the **exception** (fast panics).
   - The criterion measures positive (Δ+0.645R, 2026-09-23 run). That is a translation-fidelity question for the owner, not an automatic change.
   - Options: (a) keep it and document it as Gann's *panic-bottom* case; (b) add the normal-bottom rule (volume drying up) alongside; (c) replace it. Gann precedence argues for at least (b).
+- **X3 — `swingChart.ts` vs Gann's own chart definitions** (A09 Ch. VII, 1949). This is the most consequential finding of the second pass.
+  - **Gann's 3-Day Chart** runs on highs and lows: three days of higher tops *and* higher bottoms, with the signal on crossing the last 3-day top or bottom. The code flips on three consecutive *closes*.
+  - **Gann's second chart is a 9-point swing chart** (a reversal on a counter-move of at least 9 Dow points), not a 9-day chart.
+  - **Who depends on it.** `swingChartTrend` (a scored criterion), `trendStrength.ts` (the regime engine) and `readGannTrend` (macro trend reads) all sit on the 9-day chart. So this reaches the core verdict.
+  - **Check before changing anything.** *Commodities*' 1951 "New Rules" (pp. 308–330, **unread**, blocked) include swing and weekly swing charts and may define a day-based variant.
+  - **Porting the point threshold.** A 9-point move was about 5–9% of the Dow at 100–200. Porting it needs a price-scaled or ATR-scaled threshold (the literal-magnitude carve-out AGENTS.md documents for `combineNearbyLevels`).
+  - Under "WD Gann precedence" the code should match Gann's definition or record why not. **Owner decision; do not change silently.**
+- **X1 status:** now confirmed by A09 Ch. X and A8 p. 63 as well as A2.1 Ch. 12.
 - **X2 — withdrawn after checking the code.**
   - The source notes had flagged `macroBreadthAgrees` against Gann's rejection of Dow-Theory index confirmation.
   - The function (`lib/scan/entrySelection.ts`) requires **the stock's own** monthly, weekly and daily trends to agree. That is Gann's own chart hierarchy (A05; Part IV), not confirmation from an index or group.
@@ -394,6 +426,13 @@ Every item below is an **open recommendation**. Items that touch scoring, gating
 10. **G10 — Incorporation-date anniversary** (*Tunnel*; Ch. 7). Needs per-symbol incorporation dates.
 11. **G11 — Square of 144 fraction and convergence rules** (Ch. 13). `masterTwelve.ts` has the spiral but not the convergence of independent squarings into one window.
 12. **G12 — Time-projection dispersion** (Tomes C02 method applied to Gann's "count from every pivot"). Report how tightly projections from multiple past pivots cluster. A confidence annotation, not a gate.
+13. **G13 — Percentage-of-price levels** (A8 pp. 32–34; A09). 50% and 100% of the low; ⅛s and ⅓s of the highest price. Verify first that no module computes them (a grep found none).
+14. **G14 — Time and space over-balance** (A8 BP/SP #3–#6, p. 51; A09 Rule 8; A2.1 Ch. 11). The first counter-move longer, in time or points, than the greatest counter-move of the prior campaign. Pairs with G2 and G3; may share one "campaign counter-move ledger."
+15. **G15 — 4th-test rule** (A8 p. 43; A09). A small confluence or invalidation field on repeated tests of a level.
+16. **G16 — Series-of-losses rule** (A8 pp. 12, 17, 29). Cite it in `lib/risk/cooldown.ts`; check whether the cooldown thresholds (loss count, unit reduction to 10% of remaining capital) match. Risk change, so owner sign-off.
+17. **G17 — Day-count bands** (A8 p. 57–58; A09 Rule 8): 49–52 (7×7), 42–45, 90–98, 120–135, 330 days, and the short A09 bands (7–12, 18–21, 28–31, 42–49, 57–65, 85–92, 112–120, 150–157). `WHEEL_COUNTS` has only 45/90/120/180/270/360. Also the monthly change days and the January-range rule (A8 p. 58).
+18. **G18 — Final-stage trailing stop** (A8 BP/SP #9 via B04). In a fast final stage, trail the stop under or over the previous day's extreme after a 2-day counter-move. A candidate for `lib/lifecycle/` with `boilingPoint.ts`. Exit rule, so owner sign-off.
+19. **G19 — Wheel angle from prior extremes** (Master Egg Course, quoted in B05). Place each prior high and low on a 360-unit price wheel and treat prices at 0/90/120/180 from them as levels. Research and confluence only, since the illustrations are lost (same caveat as `squareOf20.ts`).
 
 ### Measurement-method enhancements (cycle literature; confluence and diagnostics only)
 - **M1 — `spectralCycle.ts`:**
@@ -404,6 +443,8 @@ Every item below is an **open recommendation**. Items that touch scoring, gating
   - Covers Dewey items 1 and 10.
 - **M2 — Out-of-sample confirmation for any searched period** (Dewey 7). The existing split-half check is a start; a forward hold-out is the full test.
 - **M3 — Regime-split attribution** (Halberg phase confounding; Dewey 6). Read `attribution.ts` deltas by regime or phase where the sample allows, as the 766-symbol run's halves already do.
+- **M5 — Repetition-count caution on the longest cycles** (Dewey 3; B07 Ch. 7 makes the same point from the other side). `MAJOR_CYCLE_YEARS`' 30/50/60-year entries have 1–4 repetitions in any US equity history. Label them as Gann's disclosed hierarchy, not as validated periodicities.
+- **M6 — Base rate before hit rate.** B07's "efficiency tests" report 56% hits without the market's own up-day base rate. GSPS's attribution already compares each criterion with the unconditioned population. Keep it that way for any new calendar field.
 - **M4 — Validate calendar/anniversary windows as recurrent events** (Dewey C05): hit-rate vs base rate, not spectra.
 
 ### Documentation corrections
@@ -423,25 +464,31 @@ Every item below is an **open recommendation**. Items that touch scoring, gating
 
 ## Part VI — Coverage and what remains unread
 
+*Updated after the second pass (2026-09-27).*
+
 **Read in full, page by page:**
-- *Tier A:* Ticker 1909 (A01); Master Course (A2.1, all chapters incl. 19A/B); annual forecasts 1919–22 (A2.2); coffee letter 1954 (A2.3); *Tunnel Thru the Air* (A03); *New Stock Trend Detector* (A05); *The Magic Word* (A10); *Economic Forecaster* 1954 (A11)
-- *Tier B:* B01 Awodele; B02; B03/B03b; B06 Bucholtz (text; image-only pages are charts); B08; B09; B10a–c; B12; B13; B14
+- *Tier A:* Ticker 1909 (A01); Master Course (A2.1, all chapters incl. 19A/B, which also carries the *Puts and Calls* text, A6); annual forecasts 1919–22 (A2.2); coffee letter 1954 (A2.3); *Tunnel Thru the Air* (A03); *New Stock Trend Detector* (A05); *45 Years in Wall Street* (A09, pp. 1–148; chart plates are images); *The Magic Word* (A10); *Economic Forecaster* 1954 (A11)
+- *Tier B:* B01 Awodele; B02; B03/B03b; B06 Bucholtz (text; image-only pages are charts); B08; B09; B10a–c; **B11 Meadors**; B12; B13; B14
 - *Tier C:* C01–C07
 
-**Partial:**
-- **H01 Hauck**: Introduction and Chs. 2, 4, 5, 6 only. Chs. 1, 3 and 7–25 are unavailable because the Drive export is truncated and the 9.7 MB PDF download fails with an expired session.
+**Partial.** The reason is the same in every case: the Drive connector's text export stops at about 200K characters (or less), and the binary download fails with an expired session above ~7 MB.
 
-**Not re-read page by page in this pass** (catalogue IDs from `docs/GANN_HISTORICAL_SOURCES.md`; their existing catalogue entries still stand):
-- A2 *Truth of the Stock Tape*
-- A4 *Wall Street Stock Selector*
-- A6 *Puts and Calls*. Its text is also bundled as Master Course Ch. 19A, which *was* read.
-- A7 *Face Facts America!*
-- A8 *How to Make Profits in Commodities*. Note which 1951 printing.
-- A9 *45 Years in Wall Street*
-- B4 Reddy, B5 Mikula, B7 Pesavento & Smoleny, B11 Meadors
-- the rest of Hauck
+| Source | Read | Not read |
+|---|---|---|
+| **A8**, *How to Make Profits in Commodities* (1942/1951) | pp. 1–64 | **pp. 65–~413**, including the **1951 "New Rules" (pp. 308–330)**: time turns trend, over-balanced swings, swing and weekly swing charts, extreme-price rules, reverse signal day, gaps. **Highest-priority gap**, because it may settle conflict X3. All three Drive copies (20 MB ×2, 76 MB) stop at the same page. |
+| **H01 Hauck** | Intro, Chs. 2, 4–6 | Chs. 1, 3, 7–25 |
+| **B04 Reddy** | Preface, Chs. 1–3, most of Ch. 4 | rest of Ch. 4, Chs. 5–8, Appendices A–E |
+| **B05 Mikula Vol. 2** | Intro, Chs. 1–4 | Chs. 5–8 (Fourth Dimension, intraday, double-numbered charts, Cube Cycle), Conclusion, Update |
+| **B07 Pesavento & Smoleny** | pp. 1–162 | rest of Ch. 11, Conclusion, Appendices A–D (astrology; low priority) |
 
-For the large PDFs among these, the Drive connector's text export truncates and the binary download fails with an expired session. A Google Docs copy of each, or a split into files under ~5 MB, would allow a page-by-page pass.
+**Not read at all:**
+- **A2 *Truth of the Stock Tape*.** The Drive file is a 58.7 MB image-only scan with no text layer; it needs OCR.
+- A4 *Wall Street Stock Selector* and A7 *Face Facts America!* Their existing catalogue entries still stand.
+
+**What would unblock the rest.** Each of these is the owner's call; none is something this session may route around:
+1. **Split the PDFs in Drive** into parts under ~2.5 MB or about 60 pages each, starting with A8 pp. 65–413.
+2. **Save Google Docs versions** of the PDFs in Drive (Drive's "Open with Google Docs" also OCRs image scans, which covers *Truth of the Stock Tape*). Very long Docs may still need splitting.
+3. **Allow `drive.google.com` (or the book's host) in the environment's network settings**, so the container can download the files directly.
 
 **Recommended addition:** *The Kybalion* (1908, public domain), the actual text of the seven principles AGENTS.md uses.
 
@@ -460,8 +507,14 @@ For the large PDFs among these, the Drive connector's text export truncates and 
 | `A10_magic_word.md` | *The Magic Word*, 1950 | A |
 | `A11_economic_forecaster_1954.md` | *Economic Forecaster*, 1954 | A |
 | `B01_awodele_harmonic_analysis.md` | Awodele: Gann/Fourier/Schuster/Moore | B (quoting A) |
+| `A08_how_to_make_profits_in_commodities.md` | *How to Make Profits in Commodities*, 1942/51 (pp. 1–64) | A |
+| `A09_45_years_in_wall_street_1949.md` | *45 Years in Wall Street*, 1949 | A |
 | `B03_wdgann_blog_and_d_levels.md` | wdgann.com posts; D-levels table | B |
+| `B04_reddy_trading_methodologies.md` | Reddy, Gann trading methodologies (partial) | B |
+| `B05_mikula_scientific_methods_vol2.md` | Mikula, *Gann's Scientific Methods Unveiled* Vol. 2 (partial; astrology) | B |
 | `B06_bucholtz_bull_bear_planets.md` | Bucholtz planetary tables | B |
+| `B07_pesavento_smoleny_financial_astrology.md` | Pesavento & Smoleny 2015 (pp. 1–162; not Gann) | B |
+| `B11_meadors_law_of_price_movement.md` | Meadors, Law of Price Movement | B |
 | `B12_gann_master_chart_spreadsheet.md` | Hayashi hexagon/Square-of-9 spreadsheet | B |
 | `B13_additional_cycle_findings.md` | Kitchin/Juglar/Kuznets/Kondratieff compilation | B/C |
 | `B_minor_secondary_sources.md` | B02, B08, B09, B10a–c, B14 | B |
