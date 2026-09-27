@@ -49,6 +49,45 @@ export function ema(candles: Candle[], period: number): LinePoint[] {
   return out;
 }
 
+/**
+ * Volume-weighted average price, as a user-toggled chart overlay.
+ *
+ * Added 2026-09-26 (project-owner direction on audit finding F2.5): anchored
+ * VWAP used to feed the Signal & Regime Engine's "approved pullback
+ * location", and it came out of that engine for having no Gann grounding.
+ * The owner asked that it stay available as an optional indicator instead, so
+ * it lives here with SMA/EMA/Bollinger under the same boundary as the rest of
+ * this module: a tool the user switches on, never an input to a score, gate,
+ * trade plan or verdict.
+ *
+ * On intraday charts it resets at each America/New_York session date (the
+ * usual session VWAP); on daily and higher it runs cumulatively from the
+ * first candle loaded. Candles with no volume contribute nothing.
+ */
+export function vwap(candles: Candle[], sessionAnchored: boolean): LinePoint[] {
+  const out: LinePoint[] = [];
+  const sessionKey = (t: number) =>
+    new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date(t * 1000));
+  let pv = 0;
+  let vol = 0;
+  let session: string | null = null;
+  for (const c of candles) {
+    if (sessionAnchored) {
+      const key = sessionKey(c.time);
+      if (key !== session) {
+        session = key;
+        pv = 0;
+        vol = 0;
+      }
+    }
+    const v = c.volume ?? 0;
+    pv += ((c.high + c.low + c.close) / 3) * v;
+    vol += v;
+    if (vol > 0) out.push({ time: c.time, value: pv / vol });
+  }
+  return out;
+}
+
 export interface BollingerBands {
   upper: LinePoint[];
   middle: LinePoint[];

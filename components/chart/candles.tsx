@@ -28,7 +28,7 @@ import {
   TIMEFRAMES,
 } from "@/lib/timeframe";
 import { barSession, isExtended } from "@/lib/market/session";
-import { sma, ema, bollinger, rsi, macd, psar, supertrend, volumeBars, type Candle as CalcCandle } from "@/lib/indicators";
+import { sma, ema, vwap, bollinger, rsi, macd, psar, supertrend, volumeBars, type Candle as CalcCandle } from "@/lib/indicators";
 import { classifySeries } from "@/lib/strat/classify";
 import { cn, parseJsonResponse } from "@/lib/utils";
 
@@ -88,7 +88,7 @@ type Point = { time: Time; price: number };
 type Trendline = { a: Point; b: Point };
 
 // Overlay indicators drawn in the main price pane.
-type Overlay = "sma20" | "sma50" | "ema9" | "bb" | "psar" | "supertrend";
+type Overlay = "sma20" | "sma50" | "ema9" | "vwap" | "bb" | "psar" | "supertrend";
 // Study indicators drawn in their own pane below price.
 type Study = "volume" | "rsi" | "macd";
 
@@ -96,6 +96,10 @@ const OVERLAY_META: Record<Overlay, { label: string; color: string }> = {
   sma20: { label: "SMA 20", color: "#f59e0b" },
   sma50: { label: "SMA 50", color: "#8b5cf6" },
   ema9: { label: "EMA 9", color: "#06b6d4" },
+  // Optional, user-toggled. Removed from the Signal & Regime Engine
+  // 2026-09-26 (audit F2.5) and kept here instead, by project-owner direction
+  // — see vwap() in lib/indicators.ts.
+  vwap: { label: "VWAP", color: "#ec4899" },
   bb: { label: "Boll (20,2)", color: "#94a3b8" },
   // Neither is computed anywhere else in this codebase (AGENTS.md's
   // "PSAR/Supertrend" bullet — previously just a dormant optional-flip-count
@@ -756,6 +760,7 @@ export function CandleChart({
     if (overlays.has("sma20")) addLine(sma(calcCandles, 20), OVERLAY_META.sma20.color);
     if (overlays.has("sma50")) addLine(sma(calcCandles, 50), OVERLAY_META.sma50.color);
     if (overlays.has("ema9")) addLine(ema(calcCandles, 9), OVERLAY_META.ema9.color);
+    if (overlays.has("vwap")) addLine(vwap(calcCandles, intraday), OVERLAY_META.vwap.color);
     if (overlays.has("bb")) {
       const bb = bollinger(calcCandles, 20, 2);
       addLine(bb.upper, OVERLAY_META.bb.color, 1, true);
@@ -805,7 +810,7 @@ export function CandleChart({
 
     return () => created.forEach((s) => chart.removeSeries(s));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [overlayKey, candleData, status]);
+  }, [overlayKey, candleData, status, intraday]);
 
   /**
    * The STRAT reversal-pattern taxonomy's per-bar labels — `1` (inside),
