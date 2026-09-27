@@ -13,8 +13,14 @@
  *
  * Usage:
  *   node scripts/backtest-universe.mjs --universe large-cap --out tmp/run \
- *     --cells '[{"label":"baseline","options":{"useProductionStop":true}},
- *               {"label":"confirmed","options":{"useProductionStop":true,"requireEntryConfirmation":true}}]'
+ *     --cells '[{"label":"raw","options":{}},
+ *               {"label":"plan","options":{"stopModel":"plan","targetModel":"planTp1"}},
+ *               {"label":"production","options":{"stopModel":"plan","targetModel":"planTp1","entryRule":"confirmed",
+ *                 "confirmationCadence":"scanPass","confirmationExpiryBars":20,"invalidateOnPreEntryStop":true}}]'
+ *
+ *   The `production` cell above is `PRODUCTION_HARNESS` (lib/backtest/replay.ts)
+ *   spelled out. `useProductionStop` is the legacy spelling of
+ *   `stopModel: "leeway"`, which is not the stop equity plans carry.
  *
  *   --universe      large-cap | mega-12 | diversified | mega-cap | SYM1,SYM2,…
  *   --cells         JSON array (or a path to a .json file) of
@@ -199,9 +205,10 @@ function tradeSignature(trades) {
  * for any two cells whose options differ but whose trades are identical.
  */
 export function summarizeCells(cellResults) {
-  const cells = cellResults.map(({ cell, trades }) => ({
+  const cells = cellResults.map(({ cell, trades, funnel, refusedFills }) => ({
     label: cell.label,
     options: cell.options ?? {},
+    funnel: funnel ? { refusedFills, ...funnel } : null,
     scopes: Object.fromEntries(Object.entries(SCOPES).map(([k, f]) => [k, describeTrades(trades.filter(f))])),
   }));
 
@@ -249,6 +256,23 @@ export function summaryMarkdown(meta, summary) {
       `window ${meta.window.from ?? "—"} → ${meta.window.to ?? "—"} · generated ${meta.generatedAt}`,
   );
   lines.push("");
+  // The entry funnel (2026-09-26): setups that never became scored trades.
+  if (summary.cells.some((c) => c.funnel)) {
+    const rate = (x) => (x === null || x === undefined ? "—" : fmtPct(x));
+    lines.push("## Entry funnel");
+    lines.push("");
+    lines.push("| Cell | Refused fills | Duplicates | No plan | Plans | Confirmed | Expired | Invalidated pre-entry | Confirm rate | Expiry rate |");
+    lines.push("|---|---|---|---|---|---|---|---|---|---|");
+    for (const c of summary.cells) {
+      const f = c.funnel;
+      if (!f) continue;
+      lines.push(
+        `| ${c.label} | ${f.refusedFills ?? "—"} | ${f.duplicatesDropped} | ${f.noPlan} | ${f.plansCreated} | ` +
+          `${f.confirmed} | ${f.expired} | ${f.invalidatedPreEntry} | ${rate(f.confirmationRate)} | ${rate(f.expiryRate)} |`,
+      );
+    }
+    lines.push("");
+  }
   if (summary.warnings.length > 0) {
     lines.push("## Warnings");
     for (const w of summary.warnings) lines.push(`- ${w}`);
@@ -389,7 +413,15 @@ async function main() {
           if (from === null || bars[0].t < from) from = bars[0].t;
           if (to === null || bars[bars.length - 1].t > to) to = bars[bars.length - 1].t;
           cells.forEach((cell, c) => {
-            perCell[c].push(replay(symbol, bars, { targetR: args.targetR, ...(cell.options ?? {}), dailyBars: daily, monthlyBars: monthly }));
+            perCell[c].push(
+              replay(symbol, bars, {
+                targetR: args.targetR,
+                timeframe: args.timeframe,
+                ...(cell.options ?? {}),
+                dailyBars: daily,
+                monthlyBars: monthly,
+              }),
+            );
           });
           used.push(symbol);
         }
@@ -431,7 +463,7 @@ async function main() {
       });
       await writeFile(path.resolve(root, args.out, `${cell.label}.report.json`), JSON.stringify({ cell, ...report }));
       await writeFile(path.resolve(root, args.out, `${cell.label}.trades.json`), JSON.stringify(overall.trades));
-      cellResults.push({ cell, trades: overall.trades });
+      cellResults.push({ cell, trades: overall.trades, funnel: report.funnel ?? null, refusedFills: report.refusedFills ?? null });
     }
 
     const { sha, ref } = gitInfo();
