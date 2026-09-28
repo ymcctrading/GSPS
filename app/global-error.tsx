@@ -7,7 +7,8 @@ import * as Sentry from "@sentry/nextjs";
  * Root-level error boundary. `instrumentation.ts`'s `onRequestError` hook
  * covers server-side errors (Server Component rendering, route handlers);
  * this is the client-side half — a React render error that escapes every
- * nested `error.tsx` (none exist yet) reaches here instead of a blank
+ * nested `error.tsx` (`app/(app)/error.tsx` catches the signed-in pages; this
+ * catches the rest and the root layout) reaches here instead of a blank
  * white screen. Reports to Sentry the same way the SDK's own docs pattern
  * does, and is a no-op when SENTRY_DSN isn't set (see instrumentation-client.ts's
  * `enabled` flag) — captureException just has nowhere to send it.

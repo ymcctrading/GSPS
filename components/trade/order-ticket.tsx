@@ -499,10 +499,16 @@ export function OrderTicket({
           </p>
         )}
         <CardDescription>
+          {/*
+            Describes the structural trigger (`result.direction`, which
+            `useProtocolLevels` guarantees is armed), never `pattern`: the
+            bar-sequence read is reference-only and is null on many armed
+            setups, and dereferencing it here crashed the whole ticker page.
+          */}
           {useProtocolLevels
             ? assetType === "options"
-              ? `Trade ${symbol} options — protocol read is ${pattern!.direction}.`
-              : `${side === "buy" ? "Long" : "Short"} ${symbol} — armed ${PATTERN_GLOSSARY_TERM[pattern!.name].toLowerCase()} setup is ${pattern!.direction}.`
+              ? `Trade ${symbol} options — protocol read is ${result.direction}.`
+              : `${side === "buy" ? "Long" : "Short"} ${symbol} — armed structural entry trigger is ${result.direction}.`
             : `Manual ${side === "buy" ? "long" : "short"} execution for ${symbol} ${assetType === "options" ? "options" : ""} — no protocol levels attached${assetType === "shares" ? "; optional custom stop/target below" : ""}.`}
         </CardDescription>
         <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-border pt-3">
