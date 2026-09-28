@@ -70,6 +70,7 @@
  *    whether the market's pull-back rhythm is still normal).
  */
 
+import { describeSevenZones, readSevenZones, type ZoneReading } from "@/lib/gann/sevenZones";
 import { approachingFigure, type ApproachReading } from "@/lib/gann/evenFigures";
 import type { Bar } from "@/lib/types";
 import { findPivots, majorPivots } from "@/lib/analysis/pivots";
@@ -414,6 +415,8 @@ export interface DisclosedRulesContext {
   incorporation: IncorporationCycleReading | null;
   /** A round number within reach overhead and underneath (Gann's even figures). See `evenFigures.ts`. */
   evenFigures: { overhead: ApproachReading | null; underneath: ApproachReading | null };
+  /** Gann's Seven Zones of Activity, read from behaviour. See `sevenZones.ts`. */
+  zone: ZoneReading | null;
 }
 
 /**
@@ -443,6 +446,7 @@ export const EMPTY_DISCLOSED_RULES: DisclosedRulesContext = {
   capitalStock: null,
   incorporation: null,
   evenFigures: { overhead: null, underneath: null },
+  zone: null,
 };
 
 export function readDisclosedRules(
@@ -469,6 +473,7 @@ export function readDisclosedRules(
       overhead: approachingFigure(currentPrice, "bullish"),
       underneath: approachingFigure(currentPrice, "bearish"),
     },
+    zone: readSevenZones(dailyBars),
   };
 }
 
@@ -477,6 +482,7 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   const lines: string[] = ctx.campaign ? describeCampaignLedger(ctx.campaign) : [];
   if (ctx.capitalStock) lines.push(...describeCapitalStock(ctx.capitalStock));
   if (ctx.incorporation) lines.push(...describeIncorporationCycle(ctx.incorporation));
+  if (ctx.zone) lines.push(describeSevenZones(ctx.zone));
   if (ctx.evenFigures.overhead) lines.push(ctx.evenFigures.overhead.note);
   if (ctx.evenFigures.underneath) lines.push(ctx.evenFigures.underneath.note);
   if (ctx.barMidpoint) {

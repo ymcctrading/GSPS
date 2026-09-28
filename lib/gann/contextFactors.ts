@@ -87,6 +87,16 @@ export function contextFactorsFor(
   // Gann's even figures: a round number just ahead of the entry, in the
   // trade's direction, is where orders gather against it.
   f.roundNumberAhead = approachingFigure(price, direction) !== null;
+  // Gann's Seven Zones: entering with the move in its first two zones is
+  // early; entering in the third is late, where the chapter places
+  // distribution (and the mirror for shorts).
+  if (ctx.zone) {
+    const z = bull ? ctx.zone.zone : -ctx.zone.zone;
+    f.zoneEarlyInTradeDirection = z === 1 || z === 2;
+    f.zoneExtremeInTradeDirection = z === 3;
+    f.zoneExtremeAgainstTrade = z === -3;
+    f.zoneFirstSignOfEnd = ctx.zone.firstSignOfEnd;
+  }
 
   // D2: Gann's capital-stock readings are top warnings, so they count against
   // a long and with a short. Absent when no share count is stored.

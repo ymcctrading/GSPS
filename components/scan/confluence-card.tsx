@@ -210,6 +210,9 @@ function DisclosedRuleTiles({
     timing?.square144 && timing.square144.units.length >= 2 ? `12-multiple in ${timing.square144.units.join("+")}` : null,
   ].filter(Boolean);
   if (timingText.length > 0) tiles.push({ label: "Turn timing", value: timingText.join(", ") });
+  if (rules.zone) {
+    tiles.push({ label: "Zone of activity", value: `${rules.zone.zone > 0 ? "+" : ""}${rules.zone.zone}${rules.zone.firstSignOfEnd ? " (first sign of the end)" : ""}` });
+  }
   if (timing?.projection) {
     tiles.push({ label: `Next swing ${timing.projection.kind}`, value: `~${timing.projection.medianDate} (±${Math.round(timing.projection.spreadDays / 2)}d)` });
   }
