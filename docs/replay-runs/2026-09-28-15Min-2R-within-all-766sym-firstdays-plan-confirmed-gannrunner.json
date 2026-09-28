@@ -1,0 +1,4479 @@
+{
+ "cell": {
+  "label": "plan-confirmed-gannrunner",
+  "options": {
+   "usePlanLevels": true,
+   "entryRule": "confirmed",
+   "exitRule": "gann-runner"
+  },
+  "within": "all"
+ },
+ "source": "alpaca",
+ "live": true,
+ "timeframe": "15Min",
+ "targetR": 2,
+ "breakEvenWinRate": 0.3333333333333333,
+ "symbols": [
+  "TMUS",
+  "QCOM",
+  "PEP",
+  "SCHW",
+  "DE",
+  "ABT",
+  "GILD",
+  "DIS",
+  "MCD",
+  "ADI",
+  "SCCO",
+  "BLK",
+  "WDC",
+  "NEE",
+  "T",
+  "WELL",
+  "UNP",
+  "RIO",
+  "UBS",
+  "SMFG",
+  "SHOP",
+  "COP",
+  "BA",
+  "ETN",
+  "BBVA",
+  "PFE",
+  "BX",
+  "IBKR",
+  "BUD",
+  "UBER",
+  "GLW",
+  "DHR",
+  "TJX",
+  "SONY",
+  "NEM",
+  "NOW",
+  "PBR",
+  "UL",
+  "MFG",
+  "VRTX",
+  "PLD",
+  "BMY",
+  "BKNG",
+  "CB",
+  "COF",
+  "ISRG",
+  "PGR",
+  "SPGI",
+  "CVS",
+  "LMT",
+  "BMO",
+  "PH",
+  "BP",
+  "MDT",
+  "BTI",
+  "SNOW",
+  "FTNT",
+  "SBUX",
+  "HDB",
+  "MO",
+  "BNS",
+  "MPC",
+  "VLO",
+  "PDD",
+  "NET",
+  "LOW",
+  "BNY",
+  "ENB",
+  "FCX",
+  "ACN",
+  "SPOT",
+  "EQNR",
+  "ASX",
+  "CNQ",
+  "SYK",
+  "ADP",
+  "PSX",
+  "ING",
+  "CM",
+  "IBN",
+  "CEG",
+  "MCK",
+  "HOOD",
+  "EQIX",
+  "SNY",
+  "AEM",
+  "APP",
+  "SO",
+  "ABNB",
+  "ADBE",
+  "VRT",
+  "CME",
+  "TT",
+  "GSK",
+  "USB",
+  "KKR",
+  "PNC",
+  "GD",
+  "MELI",
+  "PWR",
+  "DUK",
+  "HWM",
+  "WMB",
+  "HCA",
+  "CSX",
+  "ITUB",
+  "LITE",
+  "BCS",
+  "ICE",
+  "JCI",
+  "CMCSA",
+  "WM",
+  "MAR",
+  "ELV",
+  "BN",
+  "INTU",
+  "LYG",
+  "DASH",
+  "EPD",
+  "MMM",
+  "SLB",
+  "UPS",
+  "MRSH",
+  "MNST",
+  "EMR",
+  "REGN",
+  "MCO",
+  "AMT",
+  "SU",
+  "CVNA",
+  "DDOG",
+  "E",
+  "CTAS",
+  "MDLZ",
+  "BE",
+  "CP",
+  "CDNS",
+  "HPE",
+  "SHW",
+  "NGG",
+  "SPG",
+  "APO",
+  "EOG",
+  "TRV",
+  "DB",
+  "CMI",
+  "ECL",
+  "BAM",
+  "MSI",
+  "GM",
+  "SNPS",
+  "ITW",
+  "ET",
+  "NTES",
+  "CNI",
+  "NWG",
+  "CI",
+  "B",
+  "NOC",
+  "FDX",
+  "NSC",
+  "NU",
+  "ROST",
+  "TGT",
+  "DLR",
+  "MFC",
+  "WPM",
+  "RACE",
+  "CL",
+  "WBD",
+  "KMI",
+  "ORLY",
+  "RCL",
+  "AMX",
+  "HLT",
+  "RSG",
+  "AEP",
+  "SE",
+  "TRP",
+  "APD",
+  "VALE",
+  "IMO",
+  "NBIS",
+  "BSX",
+  "HON",
+  "AON",
+  "PCAR",
+  "ALL",
+  "URI",
+  "BKR",
+  "AJG",
+  "TRGP",
+  "ARGX",
+  "TDG",
+  "CVE",
+  "COR",
+  "OXY",
+  "TFC",
+  "MPLX",
+  "MET",
+  "SUNB",
+  "OKE",
+  "NOK",
+  "GWW",
+  "TER",
+  "RELX",
+  "CRH",
+  "COHR",
+  "TEL",
+  "MPWR",
+  "NUE",
+  "TAK",
+  "MT",
+  "AFL",
+  "D",
+  "LNG",
+  "UMC",
+  "O",
+  "FIX",
+  "FANG",
+  "CTVA",
+  "KEYS",
+  "NXPI",
+  "FAST",
+  "CAH",
+  "SRE",
+  "NKE",
+  "PSA",
+  "AU",
+  "AME",
+  "MRNA",
+  "DVN",
+  "F",
+  "MSTR",
+  "STT",
+  "NDAQ",
+  "GRMN",
+  "CRWV",
+  "ALAB",
+  "DAL",
+  "ETR",
+  "FNV",
+  "VST",
+  "VMRK",
+  "EW",
+  "FITB",
+  "BDX",
+  "AMP",
+  "HONA",
+  "HUM",
+  "CIEN",
+  "DEO",
+  "CARR",
+  "XYZ",
+  "NTRA",
+  "XEL",
+  "AZO",
+  "ROK",
+  "WAB",
+  "LHX",
+  "CBRS",
+  "ABEV",
+  "COIN",
+  "WDS",
+  "EBAY",
+  "STM",
+  "VTR",
+  "MDLN",
+  "CCEP",
+  "CMG",
+  "EXC",
+  "TEAM",
+  "WDAY",
+  "PYPL",
+  "RVMD",
+  "KB",
+  "ARES",
+  "INFY",
+  "CCJ",
+  "SLF",
+  "KDP",
+  "HEI",
+  "ADSK",
+  "FERG",
+  "TEVA",
+  "IQV",
+  "VEEV",
+  "FMX",
+  "CLS",
+  "TRI",
+  "GFI",
+  "ADM",
+  "FLEX",
+  "PAYX",
+  "A",
+  "HMC",
+  "HLN",
+  "IDXX",
+  "IX",
+  "PRU",
+  "WCN",
+  "CBRE",
+  "RKLB",
+  "MSCI",
+  "AXON",
+  "ED",
+  "WAT",
+  "ONC",
+  "MCHP",
+  "YUM",
+  "LYV",
+  "VOD",
+  "TTWO",
+  "AIG",
+  "SYY",
+  "DHI",
+  "ROP",
+  "NTR",
+  "SHG",
+  "VG",
+  "RKT",
+  "VIK",
+  "ODFL",
+  "HIG",
+  "EC",
+  "JD",
+  "BBD",
+  "NTAP",
+  "PEG",
+  "TKO",
+  "KGC",
+  "EL",
+  "MLM",
+  "QSR",
+  "RPRX",
+  "TWLO",
+  "UAL",
+  "HSY",
+  "WEC",
+  "KR",
+  "ALNY",
+  "TECK",
+  "STLD",
+  "CHT",
+  "MTB",
+  "IRM",
+  "EQT",
+  "KVUE",
+  "CQP",
+  "NTRS",
+  "RJF",
+  "HBAN",
+  "PUK",
+  "ESLT",
+  "EME",
+  "ALC",
+  "CCI",
+  "ERIC",
+  "KMB",
+  "ACGL",
+  "EXPE",
+  "JBL",
+  "VMC",
+  "P",
+  "RBLX",
+  "RMD",
+  "DXCM",
+  "CNC",
+  "CRDO",
+  "UI",
+  "BIDU",
+  "PCG",
+  "BIIB",
+  "CCL",
+  "ILMN",
+  "HAL",
+  "NMR",
+  "FTI",
+  "CBOE",
+  "ZTS",
+  "ROIV",
+  "OKTA",
+  "EXR",
+  "BAP",
+  "CPRT",
+  "GEHC",
+  "AEE",
+  "CFG",
+  "HPQ",
+  "KHC",
+  "WTW",
+  "TS",
+  "MDB",
+  "PBA",
+  "IR",
+  "DTE",
+  "RDDT",
+  "FTS",
+  "ATO",
+  "INSM",
+  "ATI",
+  "RYAAY",
+  "LVS",
+  "ZM",
+  "AWK",
+  "VICI",
+  "ON",
+  "TDY",
+  "LPLA",
+  "DG",
+  "ZS",
+  "WSM",
+  "FE",
+  "CPAY",
+  "ES",
+  "CPNG",
+  "ECHO",
+  "OTIS",
+  "Q",
+  "CTSH",
+  "CNP",
+  "LH",
+  "PPL",
+  "DGX",
+  "CINF",
+  "WRB",
+  "VRSN",
+  "FISV",
+  "MTD",
+  "TPL",
+  "SYM",
+  "DOV",
+  "NVT",
+  "SMCI",
+  "INCY",
+  "RF",
+  "CRCL",
+  "GFS",
+  "SYF",
+  "JBHT",
+  "XYL",
+  "TCOM",
+  "BNTX",
+  "TSEM",
+  "EXPD",
+  "PHG",
+  "PFG",
+  "ASTS",
+  "FWONK",
+  "NRG",
+  "FCNCA",
+  "HUBB",
+  "FOX",
+  "BSP",
+  "SN",
+  "PPG",
+  "DRI",
+  "BG",
+  "VNOM",
+  "WST",
+  "CIB",
+  "CASY",
+  "KEY",
+  "RIVN",
+  "ULTA",
+  "VRSK",
+  "VLTO",
+  "GPN",
+  "AFRM",
+  "TROW",
+  "KOF",
+  "FFIV",
+  "CRS",
+  "ROKU",
+  "IHG",
+  "TPR",
+  "PHM",
+  "IOT",
+  "ARXS",
+  "CHD",
+  "AMRZ",
+  "SOFI",
+  "EXE",
+  "BRO",
+  "RGLD",
+  "TW",
+  "L",
+  "DLTR",
+  "AER",
+  "SW",
+  "MKL",
+  "EIX",
+  "ENTG",
+  "MTSI",
+  "GH",
+  "FSLR",
+  "UTHR",
+  "THC",
+  "CDE",
+  "XPO",
+  "IFF",
+  "OMC",
+  "CMS",
+  "DOW",
+  "FICO",
+  "USFD",
+  "STE",
+  "CF",
+  "CW",
+  "LYB",
+  "STZ",
+  "SNX",
+  "WES",
+  "PKG",
+  "RS",
+  "RL",
+  "NI",
+  "WWD",
+  "GIS",
+  "SBAC",
+  "PR",
+  "EFX",
+  "FIS",
+  "SNA",
+  "LEN",
+  "MTZ",
+  "DINO",
+  "BR",
+  "TPG",
+  "FTAI",
+  "VTRS",
+  "LUV",
+  "ESS",
+  "TOST",
+  "EVRG",
+  "U",
+  "FDXF",
+  "GPC",
+  "SSNC",
+  "BBY",
+  "IP",
+  "RBRK",
+  "PAA",
+  "TSN",
+  "MKSI",
+  "NTNX",
+  "ZBH",
+  "CHTR",
+  "ITT",
+  "GEN",
+  "OVV",
+  "CDW",
+  "NWS",
+  "TSCO",
+  "SITM",
+  "LNT",
+  "CHRW",
+  "EWBC",
+  "NDSN",
+  "BEN",
+  "WCC",
+  "DD",
+  "NLY",
+  "OWL",
+  "ONTO",
+  "FTV",
+  "CLH",
+  "INVH",
+  "ROL",
+  "IEX",
+  "J",
+  "NVR",
+  "APG",
+  "LSCC",
+  "MEDP",
+  "ZBRA",
+  "WY",
+  "LDOS",
+  "RGA",
+  "BALL",
+  "WPC",
+  "JLL",
+  "AKAM",
+  "KIM",
+  "NBIX",
+  "CG",
+  "APA",
+  "DOCN",
+  "IONQ",
+  "RBC",
+  "SOLV",
+  "TLN",
+  "HST",
+  "SMTC",
+  "BEP",
+  "MAA",
+  "STRL",
+  "LAMR",
+  "CRBG",
+  "OHI",
+  "BURL",
+  "PFGC",
+  "ARMK",
+  "PNFP",
+  "H",
+  "BBIO",
+  "ALB",
+  "LECO",
+  "TRU",
+  "UNM",
+  "WMG",
+  "ULS",
+  "DT",
+  "SUI",
+  "SUN",
+  "BMNR",
+  "PS",
+  "DOC",
+  "EXEL",
+  "BWXT",
+  "SGI",
+  "PAG",
+  "EQH",
+  "IVZ",
+  "ARCC",
+  "MLI",
+  "REG",
+  "TYL",
+  "HL",
+  "PTC",
+  "SWK",
+  "MKC",
+  "AIZ",
+  "RVTY",
+  "TXT",
+  "W",
+  "MAS",
+  "FIVE",
+  "CACI",
+  "CRL",
+  "CSL",
+  "AA",
+  "TRMB",
+  "BWA",
+  "DTM",
+  "AMH",
+  "QXO",
+  "SJM",
+  "TTMI",
+  "CHYM",
+  "GL",
+  "AUR",
+  "UDR",
+  "QNT",
+  "LII",
+  "IESC",
+  "AVY",
+  "SEIC",
+  "CNA",
+  "WSO",
+  "AMKR",
+  "ERIE",
+  "RPM",
+  "ALLY",
+  "NXT",
+  "MDGL",
+  "BAX",
+  "PEN",
+  "COKE",
+  "MAIR",
+  "HAS",
+  "CORT",
+  "BMRN",
+  "AGNC",
+  "TOL",
+  "UHAL",
+  "GLPI",
+  "COO",
+  "GGG",
+  "BTSG",
+  "ELS",
+  "HALO",
+  "BF.A",
+  "SF",
+  "CCK",
+  "CPT",
+  "DOCU",
+  "AR",
+  "MANH",
+  "EHC",
+  "CSGP",
+  "FNF",
+  "AIT",
+  "WTRG",
+  "WTS",
+  "DKS",
+  "GDDY",
+  "GWRE",
+  "HUBS",
+  "PNW",
+  "TXRH",
+  "ELAN",
+  "DKNG",
+  "FIG",
+  "AHR",
+  "DVA",
+  "ARWR",
+  "AFG",
+  "CR",
+  "FHN",
+  "BXP",
+  "HRL",
+  "SWKS",
+  "PSKY",
+  "AEIS",
+  "TECH",
+  "JEF",
+  "KNX",
+  "BJ",
+  "JKHY",
+  "EVR",
+  "HII",
+  "TEM",
+  "SANM",
+  "AXSM",
+  "GNRC",
+  "ARW",
+  "DECK",
+  "ALGN",
+  "SCI",
+  "AM",
+  "CLX",
+  "CART",
+  "FROG",
+  "NYT",
+  "UMBF",
+  "LFUS",
+  "IT",
+  "DAR",
+  "EGP",
+  "DPZ",
+  "RRX",
+  "GKOS",
+  "GSAT",
+  "ALSN",
+  "AES",
+  "BPOP",
+  "CGNX",
+  "MGM",
+  "DCI",
+  "UHS",
+  "PINS",
+  "KRYS",
+  "CYTK",
+  "SSB",
+  "OC",
+  "WTFC",
+  "MOH",
+  "RYAN",
+  "BIO",
+  "FRT",
+  "AVTR",
+  "CFR",
+  "SOLS",
+  "ENSG",
+  "GMED"
+ ],
+ "skipped": [],
+ "window": {
+  "from": "2026-07-30T12:00:00Z",
+  "to": "2026-09-25T20:45:00Z"
+ },
+ "overall": {
+  "trades": 392,
+  "winRate": 0.07908163265306123,
+  "expectancyR": 0.07503679438440639,
+  "totalR": 29.414423398687305,
+  "profitable": true,
+  "required": {
+   "sampleSize": 392,
+   "avgWinR": 0.30654004336995205,
+   "medianWinR": 0.2260072733249796,
+   "avgLossR": -0.5937007327790637,
+   "medianLossR": -0.5480256913390196,
+   "maxLossR": -1.565600899526191,
+   "profitFactor": 0.12804756093174383,
+   "maxDrawdownR": 17.299977452991385,
+   "avgBarsHeld": 163.5969387755102,
+   "medianBarsHeld": 180
+  }
+ },
+ "buckets": [
+  {
+   "bucket": "Execute",
+   "trades": 49,
+   "winRate": 0.14285714285714285,
+   "expectancyR": 0.09971813575989105,
+   "totalR": 4.886188652234662,
+   "profitable": true,
+   "required": {
+    "sampleSize": 49,
+    "avgWinR": 0.23705401568396836,
+    "medianWinR": 0.1871864318470701,
+    "avgLossR": -0.7542314345641739,
+    "medianLossR": -0.9693710238079655,
+    "maxLossR": -1.0784591855670753,
+    "profitFactor": 0.16923780173314246,
+    "maxDrawdownR": 4.4617128797988075,
+    "avgBarsHeld": 162.46938775510205,
+    "medianBarsHeld": 184
+   }
+  },
+  {
+   "bucket": "Watch",
+   "trades": 282,
+   "winRate": 0.06382978723404255,
+   "expectancyR": 0.07555416234468743,
+   "totalR": 21.306273781201853,
+   "profitable": true,
+   "required": {
+    "sampleSize": 282,
+    "avgWinR": 0.30102465081714974,
+    "medianWinR": 0.21264406610072162,
+    "avgLossR": -0.5769476474987841,
+    "medianLossR": -0.47289953788588834,
+    "maxLossR": -1.565600899526191,
+    "profitFactor": 0.10320405635139861,
+    "maxDrawdownR": 13.903324842631894,
+    "avgBarsHeld": 162.43262411347519,
+    "medianBarsHeld": 178
+   }
+  },
+  {
+   "bucket": "Reject",
+   "trades": 61,
+   "winRate": 0.09836065573770492,
+   "expectancyR": 0.0528190322172261,
+   "totalR": 3.221960965250792,
+   "profitable": true,
+   "required": {
+    "sampleSize": 61,
+    "avgWinR": 0.4041532533286733,
+    "medianWinR": 0.3802457196563806,
+    "avgLossR": -0.5669212869361588,
+    "medianLossR": -0.5586592178770935,
+    "maxLossR": -1.2351244139920663,
+    "profitFactor": 0.20368322861531574,
+    "maxDrawdownR": 3.164496720840175,
+    "avgBarsHeld": 169.88524590163934,
+    "medianBarsHeld": 194
+   }
+  },
+  {
+   "bucket": "unscored",
+   "trades": 0,
+   "winRate": 0,
+   "expectancyR": 0,
+   "totalR": 0,
+   "profitable": false,
+   "required": {
+    "sampleSize": 0,
+    "avgWinR": null,
+    "medianWinR": null,
+    "avgLossR": null,
+    "medianLossR": null,
+    "maxLossR": null,
+    "profitFactor": null,
+    "maxDrawdownR": 0,
+    "avgBarsHeld": null,
+    "medianBarsHeld": null
+   }
+  }
+ ],
+ "largeCapSplit": {
+  "largeCap": {
+   "trades": 23,
+   "winRate": 0,
+   "expectancyR": -0.043202490666208855,
+   "totalR": -0.9936572853228036,
+   "profitable": false,
+   "required": {
+    "sampleSize": 23,
+    "avgWinR": null,
+    "medianWinR": null,
+    "avgLossR": -0.4624738678250148,
+    "medianLossR": -0.37037265761079696,
+    "maxLossR": -1.1328996257779147,
+    "profitFactor": 0,
+    "maxDrawdownR": 2.4266191923946683,
+    "avgBarsHeld": 163.7826086956522,
+    "medianBarsHeld": 180
+   }
+  },
+  "notLargeCap": {
+   "trades": 369,
+   "winRate": 0.08401084010840108,
+   "expectancyR": 0.08240672272089458,
+   "totalR": 30.4080806840101,
+   "profitable": true,
+   "required": {
+    "sampleSize": 369,
+    "avgWinR": 0.30654004336995205,
+    "medianWinR": 0.2260072733249796,
+    "avgLossR": -0.6051117645141983,
+    "medianLossR": -0.5749371999028581,
+    "maxLossR": -1.565600899526191,
+    "profitFactor": 0.1365574729760887,
+    "maxDrawdownR": 16.540873876765747,
+    "avgBarsHeld": 163.58536585365854,
+    "medianBarsHeld": 180
+   }
+  }
+ },
+ "yearCycleSplit": {
+  "withHits": {
+   "trades": 20,
+   "winRate": 0,
+   "expectancyR": 0.11552468561105016,
+   "totalR": 2.310493712221003,
+   "profitable": true,
+   "required": {
+    "sampleSize": 20,
+    "avgWinR": null,
+    "medianWinR": null,
+    "avgLossR": -0.8048734818940323,
+    "medianLossR": -0.9160147200006796,
+    "maxLossR": -1.2080286102890991,
+    "profitFactor": 0,
+    "maxDrawdownR": 2.385070861594111,
+    "avgBarsHeld": 174.85,
+    "medianBarsHeld": 226.5
+   }
+  },
+  "withoutHits": {
+   "trades": 372,
+   "winRate": 0.08333333333333333,
+   "expectancyR": 0.07286002603888789,
+   "totalR": 27.103929686466294,
+   "profitable": true,
+   "required": {
+    "sampleSize": 372,
+    "avgWinR": 0.30654004336995205,
+    "medianWinR": 0.2260072733249796,
+    "avgLossR": -0.5830533672774687,
+    "medianLossR": -0.5021471851285392,
+    "maxLossR": -1.565600899526191,
+    "profitFactor": 0.13695996586749137,
+    "maxDrawdownR": 15.672134896748016,
+    "avgBarsHeld": 162.99193548387098,
+    "medianBarsHeld": 179.5
+   }
+  }
+ },
+ "useProductionStop": false,
+ "usePlanLevels": true,
+ "entryRule": "confirmed",
+ "exitRule": "gann-runner",
+ "setupKindSplit": {
+  "reversion": {
+   "trades": 360,
+   "winRate": 0.06944444444444445,
+   "expectancyR": 0.08164978610967462,
+   "totalR": 29.39392299948286,
+   "profitable": true,
+   "required": {
+    "sampleSize": 360,
+    "avgWinR": 0.28872594275241925,
+    "medianWinR": 0.2221260237043821,
+    "avgLossR": -0.5886919632967523,
+    "medianLossR": -0.5250864382337794,
+    "maxLossR": -1.565600899526191,
+    "profitFactor": 0.10390960705591329,
+    "maxDrawdownR": 16.100438154417322,
+    "avgBarsHeld": 163.95277777777778,
+    "medianBarsHeld": 182
+   }
+  },
+  "continuation": {
+   "trades": 32,
+   "winRate": 0.1875,
+   "expectancyR": 0.0006406374751385079,
+   "totalR": 0.02050039920443225,
+   "profitable": true,
+   "required": {
+    "sampleSize": 32,
+    "avgWinR": 0.38076546260967215,
+    "medianWinR": 0.3525597973843458,
+    "avgLossR": -0.6781342754808829,
+    "medianLossR": -1.0007289260078316,
+    "maxLossR": -1.2080286102890991,
+    "profitFactor": 0.481276951074532,
+    "maxDrawdownR": 1.7224553936179097,
+    "avgBarsHeld": 159.59375,
+    "medianBarsHeld": 148.5
+   }
+  }
+ },
+ "exitReasonSplit": {
+  "initial": {
+   "trades": 45,
+   "winRate": 0,
+   "expectancyR": -0.9267885326097379,
+   "totalR": -41.705483967438205,
+   "profitable": false,
+   "required": {
+    "sampleSize": 45,
+    "avgWinR": null,
+    "medianWinR": null,
+    "avgLossR": -0.9267885326097379,
+    "medianLossR": -1.0007289260078316,
+    "maxLossR": -1.565600899526191,
+    "profitFactor": 0,
+    "maxDrawdownR": 41.70548396743822,
+    "avgBarsHeld": 76.71111111111111,
+    "medianBarsHeld": 52
+   }
+  },
+  "hold_test_failed": {
+   "trades": 35,
+   "winRate": 0.11428571428571428,
+   "expectancyR": -0.40886371646202424,
+   "totalR": -14.310230076170848,
+   "profitable": false,
+   "required": {
+    "sampleSize": 35,
+    "avgWinR": 0.15292776032012675,
+    "medianWinR": 0.12343999370499414,
+    "avgLossR": -0.4813529392726243,
+    "medianLossR": -0.4273089795327431,
+    "maxLossR": -0.9744259058325471,
+    "profitFactor": 0.040994066151695575,
+    "maxDrawdownR": 14.310230076170848,
+    "avgBarsHeld": 100.91428571428571,
+    "medianBarsHeld": 76
+   }
+  },
+  "final_stage": {
+   "trades": 13,
+   "winRate": 0.38461538461538464,
+   "expectancyR": -0.2007540052114338,
+   "totalR": -2.6098020677486393,
+   "profitable": false,
+   "required": {
+    "sampleSize": 13,
+    "avgWinR": 0.4253637205261608,
+    "medianWinR": 0.3696689289132174,
+    "avgLossR": -0.5920775837974304,
+    "medianLossR": -0.5502734676492415,
+    "maxLossR": -1.0320004750237748,
+    "profitFactor": 0.44901602864905543,
+    "maxDrawdownR": 2.7728727568497193,
+    "avgBarsHeld": 130.6153846153846,
+    "medianBarsHeld": 132
+   }
+  },
+  "timeout": {
+   "trades": 236,
+   "winRate": 0,
+   "expectancyR": 0.3988316680152614,
+   "totalR": 94.12427365160168,
+   "profitable": true,
+   "required": {
+    "sampleSize": 236,
+    "avgWinR": null,
+    "medianWinR": null,
+    "avgLossR": null,
+    "medianLossR": null,
+    "maxLossR": null,
+    "profitFactor": null,
+    "maxDrawdownR": 1.9523638341835436,
+    "avgBarsHeld": 210.34745762711864,
+    "medianBarsHeld": 260
+   }
+  },
+  "three_adverse_closes": {
+   "trades": 40,
+   "winRate": 0.2,
+   "expectancyR": -0.2500176985666197,
+   "totalR": -10.000707942664787,
+   "profitable": false,
+   "required": {
+    "sampleSize": 40,
+    "avgWinR": 0.1987117163632614,
+    "medianWinR": 0.1335636889710075,
+    "avgLossR": -0.36220005229908997,
+    "medianLossR": -0.36415560413995274,
+    "maxLossR": -0.8864314377083143,
+    "profitFactor": 0.13715605167774342,
+    "maxDrawdownR": 10.594004161234839,
+    "avgBarsHeld": 68.85,
+    "medianBarsHeld": 70.5
+   }
+  },
+  "break_even": {
+   "trades": 17,
+   "winRate": 0.6470588235294118,
+   "expectancyR": 0.27525597505059396,
+   "totalR": 4.679351575860097,
+   "profitable": true,
+   "required": {
+    "sampleSize": 17,
+    "avgWinR": 0.43892836648712535,
+    "medianWinR": 0.46576284053778194,
+    "avgLossR": -0.024810075916380434,
+    "medianLossR": -0.010597336493323763,
+    "maxLossR": -0.08980086657836249,
+    "profitFactor": 32.43448379354234,
+    "maxDrawdownR": 0.08980086657836228,
+    "avgBarsHeld": 125.52941176470588,
+    "medianBarsHeld": 105
+   }
+  },
+  "trend_change": {
+   "trades": 6,
+   "winRate": 0.5,
+   "expectancyR": -0.12716296245867556,
+   "totalR": -0.7629777747520534,
+   "profitable": false,
+   "required": {
+    "sampleSize": 6,
+    "avgWinR": 0.11543531276424439,
+    "medianWinR": 0.10502304804448138,
+    "avgLossR": -0.3697612376815955,
+    "medianLossR": -0.4622409468212827,
+    "maxLossR": -0.4818166582872449,
+    "profitFactor": 0.3121887883327746,
+    "maxDrawdownR": 0.8680008227965348,
+    "avgBarsHeld": 153,
+    "medianBarsHeld": 179
+   }
+  }
+ },
+ "armed": 28256,
+ "triggered": 396,
+ "refusedFills": 4,
+ "attributeWithin": "all",
+ "factors": [
+  {
+   "criterion": "stopRoom",
+   "observed": 392,
+   "passed": {
+    "n": 355,
+    "wins": 27,
+    "winRate": 0.07605633802816901,
+    "expectancyR": 0.0880788694432788
+   },
+   "failed": {
+    "n": 37,
+    "wins": 4,
+    "winRate": 0.10810810810810811,
+    "expectancyR": -0.050096628477748276
+   },
+   "deltaExpectancyR": 0.13817549792102707,
+   "deltaWinRate": -0.032051770079939104,
+   "correlation": 0.0637576890699075,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "gannAngleSlope",
+   "observed": 392,
+   "passed": {
+    "n": 194,
+    "wins": 13,
+    "winRate": 0.06701030927835051,
+    "expectancyR": 0.1297592436190001
+   },
+   "failed": {
+    "n": 198,
+    "wins": 18,
+    "winRate": 0.09090909090909091,
+    "expectancyR": 0.02141984917475389
+   },
+   "deltaExpectancyR": 0.1083393944442462,
+   "deltaWinRate": -0.0238987816307404,
+   "correlation": 0.08548823575712763,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "volumeClimax",
+   "observed": 392,
+   "passed": {
+    "n": 237,
+    "wins": 20,
+    "winRate": 0.08438818565400844,
+    "expectancyR": 0.09806015401675923
+   },
+   "failed": {
+    "n": 155,
+    "wins": 11,
+    "winRate": 0.07096774193548387,
+    "expectancyR": 0.03983333481751844
+   },
+   "deltaExpectancyR": 0.05822681919924079,
+   "deltaWinRate": 0.013420443718524563,
+   "correlation": 0.04493136152658422,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "historicalSR",
+   "observed": 392,
+   "passed": {
+    "n": 150,
+    "wins": 10,
+    "winRate": 0.06666666666666667,
+    "expectancyR": 0.086565312546022
+   },
+   "failed": {
+    "n": 242,
+    "wins": 21,
+    "winRate": 0.08677685950413223,
+    "expectancyR": 0.06789101866439669
+   },
+   "deltaExpectancyR": 0.01867429388162531,
+   "deltaWinRate": -0.020110192837465568,
+   "correlation": 0.014324649102533832,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "timePriceSquare",
+   "observed": 392,
+   "passed": {
+    "n": 134,
+    "wins": 11,
+    "winRate": 0.08208955223880597,
+    "expectancyR": 0.08595939238909116
+   },
+   "failed": {
+    "n": 258,
+    "wins": 20,
+    "winRate": 0.07751937984496124,
+    "expectancyR": 0.06936381712615924
+   },
+   "deltaExpectancyR": 0.016595575262931914,
+   "deltaWinRate": 0.004570172393844732,
+   "correlation": 0.012423416747841486,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "ruleOfThree",
+   "observed": 392,
+   "passed": {
+    "n": 202,
+    "wins": 18,
+    "winRate": 0.0891089108910891,
+    "expectancyR": 0.05638713228977184
+   },
+   "failed": {
+    "n": 190,
+    "wins": 13,
+    "winRate": 0.06842105263157895,
+    "expectancyR": 0.09486432987449146
+   },
+   "deltaExpectancyR": -0.038477197584719625,
+   "deltaWinRate": 0.020687858259510153,
+   "correlation": -0.03034886189273448,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "swingChartTrend",
+   "observed": 392,
+   "passed": {
+    "n": 200,
+    "wins": 21,
+    "winRate": 0.105,
+    "expectancyR": 0.05471842807882123
+   },
+   "failed": {
+    "n": 192,
+    "wins": 10,
+    "winRate": 0.052083333333333336,
+    "expectancyR": 0.09620175928605756
+   },
+   "deltaExpectancyR": -0.04148333120723634,
+   "deltaWinRate": 0.05291666666666666,
+   "correlation": -0.03272847177276928,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "gannRetracementConfluence",
+   "observed": 392,
+   "passed": {
+    "n": 60,
+    "wins": 4,
+    "winRate": 0.06666666666666667,
+    "expectancyR": 0.015109663357280301
+   },
+   "failed": {
+    "n": 332,
+    "wins": 27,
+    "winRate": 0.08132530120481928,
+    "expectancyR": 0.08586699878689905
+   },
+   "deltaExpectancyR": -0.07075733542961875,
+   "deltaWinRate": -0.01465863453815261,
+   "correlation": -0.0402070886638934,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "entryTriggerArmed",
+   "observed": 392,
+   "passed": {
+    "n": 392,
+    "wins": 31,
+    "winRate": 0.07908163265306123,
+    "expectancyR": 0.07503679438440639
+   },
+   "failed": {
+    "n": 0,
+    "wins": 0,
+    "winRate": 0,
+    "expectancyR": 0
+   },
+   "verdict": "constant"
+  },
+  {
+   "criterion": "breakaway",
+   "observed": 40,
+   "passed": {
+    "n": 0,
+    "wins": 0,
+    "winRate": 0,
+    "expectancyR": 0
+   },
+   "failed": {
+    "n": 40,
+    "wins": 3,
+    "winRate": 0.075,
+    "expectancyR": 0.02725270694051362
+   },
+   "verdict": "constant"
+  },
+  {
+   "criterion": "reversionConfirmation",
+   "observed": 46,
+   "passed": {
+    "n": 0,
+    "wins": 0,
+    "winRate": 0,
+    "expectancyR": 0
+   },
+   "failed": {
+    "n": 46,
+    "wins": 3,
+    "winRate": 0.06521739130434782,
+    "expectancyR": 0.13081877432445044
+   },
+   "verdict": "constant"
+  }
+ ],
+ "contextFactors": [
+  {
+   "criterion": "overbalancedAgainstCampaign",
+   "observed": 392,
+   "passed": {
+    "n": 40,
+    "wins": 1,
+    "winRate": 0.025,
+    "expectancyR": 0.2369180326427185
+   },
+   "failed": {
+    "n": 352,
+    "wins": 30,
+    "winRate": 0.08522727272727272,
+    "expectancyR": 0.05664119912777999
+   },
+   "deltaExpectancyR": 0.1802768335149385,
+   "deltaWinRate": -0.06022727272727272,
+   "correlation": 0.08612470340575648,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "monthlyBreakAgainstCampaign",
+   "observed": 392,
+   "passed": {
+    "n": 39,
+    "wins": 3,
+    "winRate": 0.07692307692307693,
+    "expectancyR": 0.23621591795408703
+   },
+   "failed": {
+    "n": 353,
+    "wins": 28,
+    "winRate": 0.07932011331444759,
+    "expectancyR": 0.05722946911750115
+   },
+   "deltaExpectancyR": 0.17898644883658588,
+   "deltaWinRate": -0.0023970363913706633,
+   "correlation": 0.08455246988012767,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "reactionAbnormalLength",
+   "observed": 392,
+   "passed": {
+    "n": 11,
+    "wins": 2,
+    "winRate": 0.18181818181818182,
+    "expectancyR": 0.22871858704999112
+   },
+   "failed": {
+    "n": 381,
+    "wins": 29,
+    "winRate": 0.07611548556430446,
+    "expectancyR": 0.07059978724707978
+   },
+   "deltaExpectancyR": 0.15811879980291133,
+   "deltaWinRate": 0.10570269625387736,
+   "correlation": 0.041212487671097114,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "leanedOnLevelTestedThreePlus",
+   "observed": 389,
+   "passed": {
+    "n": 67,
+    "wins": 4,
+    "winRate": 0.05970149253731343,
+    "expectancyR": 0.17799870947000784
+   },
+   "failed": {
+    "n": 322,
+    "wins": 27,
+    "winRate": 0.08385093167701864,
+    "expectancyR": 0.05177873346801731
+   },
+   "deltaExpectancyR": 0.12621997600199053,
+   "deltaWinRate": -0.024149439139705207,
+   "correlation": 0.07503003002115488,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "lateMoverLong",
+   "observed": 65,
+   "passed": {
+    "n": 24,
+    "wins": 6,
+    "winRate": 0.25,
+    "expectancyR": 0.11750966173433976
+   },
+   "failed": {
+    "n": 41,
+    "wins": 4,
+    "winRate": 0.0975609756097561,
+    "expectancyR": -0.0036694391657874875
+   },
+   "deltaExpectancyR": 0.12117910090012725,
+   "deltaWinRate": 0.1524390243902439,
+   "correlation": 0.10597379162743167,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "yearFractionMajor",
+   "observed": 392,
+   "passed": {
+    "n": 28,
+    "wins": 1,
+    "winRate": 0.03571428571428571,
+    "expectancyR": 0.18509962749416362
+   },
+   "failed": {
+    "n": 364,
+    "wins": 30,
+    "winRate": 0.08241758241758242,
+    "expectancyR": 0.06657042260673274
+   },
+   "deltaExpectancyR": 0.11852920488743088,
+   "deltaWinRate": -0.046703296703296704,
+   "correlation": 0.04817720149664506,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "seasonalCountMajor",
+   "observed": 392,
+   "passed": {
+    "n": 46,
+    "wins": 1,
+    "winRate": 0.021739130434782608,
+    "expectancyR": 0.17337891048136014
+   },
+   "failed": {
+    "n": 346,
+    "wins": 30,
+    "winRate": 0.08670520231213873,
+    "expectancyR": 0.061962409007354745
+   },
+   "deltaExpectancyR": 0.11141650147400539,
+   "deltaWinRate": -0.06496607187735612,
+   "correlation": 0.056591730354864346,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "reverseSignalAgrees",
+   "observed": 43,
+   "passed": {
+    "n": 13,
+    "wins": 1,
+    "winRate": 0.07692307692307693,
+    "expectancyR": 0.017910384269735024
+   },
+   "failed": {
+    "n": 30,
+    "wins": 3,
+    "winRate": 0.1,
+    "expectancyR": -0.07009558808951907
+   },
+   "deltaExpectancyR": 0.0880059723592541,
+   "deltaWinRate": -0.023076923076923078,
+   "correlation": 0.053207401659470924,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "ruleOfThreeWeeklyAgrees",
+   "observed": 392,
+   "passed": {
+    "n": 102,
+    "wins": 9,
+    "winRate": 0.08823529411764706,
+    "expectancyR": 0.1304811377049762
+   },
+   "failed": {
+    "n": 290,
+    "wins": 22,
+    "winRate": 0.07586206896551724,
+    "expectancyR": 0.0555356805268266
+   },
+   "deltaExpectancyR": 0.07494545717814961,
+   "deltaWinRate": 0.012373225152129824,
+   "correlation": 0.05189564196388561,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "culminationGapsInTradeDirection",
+   "observed": 221,
+   "passed": {
+    "n": 12,
+    "wins": 3,
+    "winRate": 0.25,
+    "expectancyR": 0.09953715721789765
+   },
+   "failed": {
+    "n": 209,
+    "wins": 14,
+    "winRate": 0.06698564593301436,
+    "expectancyR": 0.0324768066397785
+   },
+   "deltaExpectancyR": 0.06706035057811915,
+   "deltaWinRate": 0.18301435406698563,
+   "correlation": 0.023223691916546704,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "closeVsMidpointAgrees",
+   "observed": 392,
+   "passed": {
+    "n": 238,
+    "wins": 19,
+    "winRate": 0.07983193277310924,
+    "expectancyR": 0.09619655437492443
+   },
+   "failed": {
+    "n": 154,
+    "wins": 12,
+    "winRate": 0.07792207792207792,
+    "expectancyR": 0.04233534712633307
+   },
+   "deltaExpectancyR": 0.05386120724859136,
+   "deltaWinRate": 0.0019098548510313174,
+   "correlation": 0.04151560900163593,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "thirdTestFailedAgainstTrade",
+   "observed": 392,
+   "passed": {
+    "n": 10,
+    "wins": 1,
+    "winRate": 0.1,
+    "expectancyR": 0.10317228314124453
+   },
+   "failed": {
+    "n": 382,
+    "wins": 30,
+    "winRate": 0.07853403141361257,
+    "expectancyR": 0.07430026326511743
+   },
+   "deltaExpectancyR": 0.0288720198761271,
+   "deltaWinRate": 0.02146596858638744,
+   "correlation": 0.007184479999644689,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "haltAgainstTrade",
+   "observed": 392,
+   "passed": {
+    "n": 55,
+    "wins": 2,
+    "winRate": 0.03636363636363636,
+    "expectancyR": 0.0977166208313879
+   },
+   "failed": {
+    "n": 337,
+    "wins": 29,
+    "winRate": 0.08605341246290801,
+    "expectancyR": 0.07133533902955776
+   },
+   "deltaExpectancyR": 0.026381281801830136,
+   "deltaWinRate": -0.04968977609927165,
+   "correlation": 0.01446034580608482,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "facingLevelTestedThreePlus",
+   "observed": 387,
+   "passed": {
+    "n": 70,
+    "wins": 7,
+    "winRate": 0.1,
+    "expectancyR": 0.08522446790033406
+   },
+   "failed": {
+    "n": 317,
+    "wins": 24,
+    "winRate": 0.07570977917981073,
+    "expectancyR": 0.07718182739728523
+   },
+   "deltaExpectancyR": 0.008042640503048828,
+   "deltaWinRate": 0.02429022082018928,
+   "correlation": 0.004870751130287017,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "macroMajorCycleWithTrade",
+   "observed": 392,
+   "passed": {
+    "n": 43,
+    "wins": 5,
+    "winRate": 0.11627906976744186,
+    "expectancyR": 0.06708182294541933
+   },
+   "failed": {
+    "n": 349,
+    "wins": 26,
+    "winRate": 0.07449856733524356,
+    "expectancyR": 0.07601691980525578
+   },
+   "deltaExpectancyR": -0.008935096859836456,
+   "deltaWinRate": 0.0417805024321983,
+   "correlation": -0.004406894935894195,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "counterMoveNormal",
+   "observed": 392,
+   "passed": {
+    "n": 91,
+    "wins": 6,
+    "winRate": 0.06593406593406594,
+    "expectancyR": 0.06771226324422168
+   },
+   "failed": {
+    "n": 301,
+    "wins": 25,
+    "winRate": 0.08305647840531562,
+    "expectancyR": 0.07725118751981103
+   },
+   "deltaExpectancyR": -0.009538924275589347,
+   "deltaWinRate": -0.01712241247124968,
+   "correlation": -0.006356087039589781,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "zoneExtremeAgainstTrade",
+   "observed": 392,
+   "passed": {
+    "n": 14,
+    "wins": 2,
+    "winRate": 0.14285714285714285,
+    "expectancyR": 0.06385265477031452
+   },
+   "failed": {
+    "n": 378,
+    "wins": 29,
+    "winRate": 0.07671957671957672,
+    "expectancyR": 0.0754510217775209
+   },
+   "deltaExpectancyR": -0.011598367007206387,
+   "deltaWinRate": 0.06613756613756613,
+   "correlation": -0.00339698207645983,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "multipleTopCrossedWithTrade",
+   "observed": 392,
+   "passed": {
+    "n": 117,
+    "wins": 10,
+    "winRate": 0.08547008547008547,
+    "expectancyR": 0.065668869654745
+   },
+   "failed": {
+    "n": 275,
+    "wins": 21,
+    "winRate": 0.07636363636363637,
+    "expectancyR": 0.07902242054211686
+   },
+   "deltaExpectancyR": -0.013353550887371862,
+   "deltaWinRate": 0.009106449106449102,
+   "correlation": -0.009643674296423408,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "filledGapAgrees",
+   "observed": 146,
+   "passed": {
+    "n": 70,
+    "wins": 6,
+    "winRate": 0.08571428571428572,
+    "expectancyR": 0.07247391923214985
+   },
+   "failed": {
+    "n": 76,
+    "wins": 3,
+    "winRate": 0.039473684210526314,
+    "expectancyR": 0.08604021850836144
+   },
+   "deltaExpectancyR": -0.013566299276211585,
+   "deltaWinRate": 0.0462406015037594,
+   "correlation": -0.011178686880239755,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "roundNumberAhead",
+   "observed": 392,
+   "passed": {
+    "n": 87,
+    "wins": 6,
+    "winRate": 0.06896551724137931,
+    "expectancyR": 0.05060139696854583
+   },
+   "failed": {
+    "n": 305,
+    "wins": 25,
+    "winRate": 0.08196721311475409,
+    "expectancyR": 0.08200689135220926
+   },
+   "deltaExpectancyR": -0.03140549438366343,
+   "deltaWinRate": -0.013001695873374783,
+   "correlation": -0.020596891017182452,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "lateSection",
+   "observed": 392,
+   "passed": {
+    "n": 185,
+    "wins": 14,
+    "winRate": 0.07567567567567568,
+    "expectancyR": 0.049591442185438275
+   },
+   "failed": {
+    "n": 207,
+    "wins": 17,
+    "winRate": 0.0821256038647343,
+    "expectancyR": 0.0977778096346918
+   },
+   "deltaExpectancyR": -0.04818636744925353,
+   "deltaWinRate": -0.0064499281890586235,
+   "correlation": -0.03796485238689021,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "onAlternationTurnDay",
+   "observed": 392,
+   "passed": {
+    "n": 162,
+    "wins": 11,
+    "winRate": 0.06790123456790123,
+    "expectancyR": 0.0462535830317235
+   },
+   "failed": {
+    "n": 230,
+    "wins": 20,
+    "winRate": 0.08695652173913043,
+    "expectancyR": 0.09531018672846993
+   },
+   "deltaExpectancyR": -0.04905660369674643,
+   "deltaWinRate": -0.0190552871712292,
+   "correlation": -0.038124608585662176,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "withWeeklyTrend",
+   "observed": 392,
+   "passed": {
+    "n": 211,
+    "wins": 22,
+    "winRate": 0.10426540284360189,
+    "expectancyR": 0.05164805409426644
+   },
+   "failed": {
+    "n": 181,
+    "wins": 9,
+    "winRate": 0.049723756906077346,
+    "expectancyR": 0.10230212146296727
+   },
+   "deltaExpectancyR": -0.05065406736870083,
+   "deltaWinRate": 0.054541645937524544,
+   "correlation": -0.039854863803398644,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "zoneFirstSignOfEnd",
+   "observed": 392,
+   "passed": {
+    "n": 13,
+    "wins": 2,
+    "winRate": 0.15384615384615385,
+    "expectancyR": 0.025187041758011366
+   },
+   "failed": {
+    "n": 379,
+    "wins": 29,
+    "winRate": 0.07651715039577836,
+    "expectancyR": 0.07674668035839882
+   },
+   "deltaExpectancyR": -0.05155963860038745,
+   "deltaWinRate": 0.0773290034503755,
+   "correlation": -0.014570942230252607,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "yearFractionActive",
+   "observed": 392,
+   "passed": {
+    "n": 252,
+    "wins": 23,
+    "winRate": 0.09126984126984126,
+    "expectancyR": 0.05330601610567875
+   },
+   "failed": {
+    "n": 140,
+    "wins": 8,
+    "winRate": 0.05714285714285714,
+    "expectancyR": 0.11415219528611602
+   },
+   "deltaExpectancyR": -0.06084617918043727,
+   "deltaWinRate": 0.034126984126984124,
+   "correlation": -0.046013375181158334,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "earlyLeaderInTradeDirection",
+   "observed": 392,
+   "passed": {
+    "n": 262,
+    "wins": 21,
+    "winRate": 0.08015267175572519,
+    "expectancyR": 0.047655754504945545
+   },
+   "failed": {
+    "n": 130,
+    "wins": 10,
+    "winRate": 0.07692307692307693,
+    "expectancyR": 0.13022012091070426
+   },
+   "deltaExpectancyR": -0.0825643664057587,
+   "deltaWinRate": 0.003229594832648258,
+   "correlation": -0.06134814917530177,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "zoneExtremeInTradeDirection",
+   "observed": 392,
+   "passed": {
+    "n": 18,
+    "wins": 2,
+    "winRate": 0.1111111111111111,
+    "expectancyR": -0.02031510173235907
+   },
+   "failed": {
+    "n": 374,
+    "wins": 29,
+    "winRate": 0.07754010695187166,
+    "expectancyR": 0.0796259230745181
+   },
+   "deltaExpectancyR": -0.09994102480687717,
+   "deltaWinRate": 0.03357100415923944,
+   "correlation": -0.03301431895359658,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "ruleOfThreeMonthlyAgrees",
+   "observed": 392,
+   "passed": {
+    "n": 62,
+    "wins": 7,
+    "winRate": 0.11290322580645161,
+    "expectancyR": -0.020421983002500397
+   },
+   "failed": {
+    "n": 330,
+    "wins": 24,
+    "winRate": 0.07272727272727272,
+    "expectancyR": 0.09297147377224949
+   },
+   "deltaExpectancyR": -0.11339345677474988,
+   "deltaWinRate": 0.040175953079178886,
+   "correlation": -0.06530212293755272,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "seasonalCountActive",
+   "observed": 392,
+   "passed": {
+    "n": 117,
+    "wins": 6,
+    "winRate": 0.05128205128205128,
+    "expectancyR": -0.010472753559724737
+   },
+   "failed": {
+    "n": 275,
+    "wins": 25,
+    "winRate": 0.09090909090909091,
+    "expectancyR": 0.11141722023700036
+   },
+   "deltaExpectancyR": -0.1218899737967251,
+   "deltaWinRate": -0.03962703962703963,
+   "correlation": -0.08802656441043068,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "onTimeBalanceDate",
+   "observed": 392,
+   "passed": {
+    "n": 48,
+    "wins": 1,
+    "winRate": 0.020833333333333332,
+    "expectancyR": -0.05114781338642605
+   },
+   "failed": {
+    "n": 344,
+    "wins": 30,
+    "winRate": 0.0872093023255814,
+    "expectancyR": 0.09264394895708067
+   },
+   "deltaExpectancyR": -0.1437917623435067,
+   "deltaWinRate": -0.06637596899224807,
+   "correlation": -0.07439098979326379,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "macroMajorCycleActive",
+   "observed": 392,
+   "passed": {
+    "n": 180,
+    "wins": 16,
+    "winRate": 0.08888888888888889,
+    "expectancyR": -0.013604378872330814
+   },
+   "failed": {
+    "n": 212,
+    "wins": 15,
+    "winRate": 0.07075471698113207,
+    "expectancyR": 0.1502981679042775
+   },
+   "deltaExpectancyR": -0.16390254677660832,
+   "deltaWinRate": 0.01813417190775682,
+   "correlation": -0.1289069626397935,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "zoneEarlyInTradeDirection",
+   "observed": 392,
+   "passed": {
+    "n": 25,
+    "wins": 5,
+    "winRate": 0.2,
+    "expectancyR": -0.10272983873251781
+   },
+   "failed": {
+    "n": 367,
+    "wins": 26,
+    "winRate": 0.07084468664850137,
+    "expectancyR": 0.08714623805722135
+   },
+   "deltaExpectancyR": -0.18987607678973917,
+   "deltaWinRate": 0.12915531335149866,
+   "correlation": -0.07322506685395665,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "dayCountBandActive",
+   "observed": 392,
+   "passed": {
+    "n": 359,
+    "wins": 28,
+    "winRate": 0.07799442896935933,
+    "expectancyR": 0.05321916230278113
+   },
+   "failed": {
+    "n": 33,
+    "wins": 3,
+    "winRate": 0.09090909090909091,
+    "expectancyR": 0.31238618581784483
+   },
+   "deltaExpectancyR": -0.2591670235150637,
+   "deltaWinRate": -0.012914661939731578,
+   "correlation": -0.11357177825499537,
+   "verdict": "informative"
+  },
+  {
+   "criterion": "reactionInThirdWeek",
+   "observed": 20,
+   "passed": {
+    "n": 3,
+    "wins": 0,
+    "winRate": 0,
+    "expectancyR": 0.48850352585272255
+   },
+   "failed": {
+    "n": 17,
+    "wins": 3,
+    "winRate": 0.17647058823529413,
+    "expectancyR": -0.003817588175121652
+   },
+   "deltaExpectancyR": 0.49232111402784423,
+   "deltaWinRate": -0.17647058823529413,
+   "correlation": 0.3240530210479746,
+   "verdict": "insufficient"
+  },
+  {
+   "criterion": "sharesPerPointTopAgainst",
+   "observed": 56,
+   "passed": {
+    "n": 1,
+    "wins": 1,
+    "winRate": 1,
+    "expectancyR": 0.20316210849706118
+   },
+   "failed": {
+    "n": 55,
+    "wins": 4,
+    "winRate": 0.07272727272727272,
+    "expectancyR": -0.02695115291412016
+   },
+   "deltaExpectancyR": 0.23011326141118132,
+   "deltaWinRate": 0.9272727272727272,
+   "correlation": 0.053567890438969215,
+   "verdict": "insufficient"
+  },
+  {
+   "criterion": "counterMoveBeyondFirstMonth",
+   "observed": 392,
+   "passed": {
+    "n": 8,
+    "wins": 1,
+    "winRate": 0.125,
+    "expectancyR": 0.2296428305937129
+   },
+   "failed": {
+    "n": 384,
+    "wins": 30,
+    "winRate": 0.078125,
+    "expectancyR": 0.0718158352967125
+   },
+   "deltaExpectancyR": 0.1578269952970004,
+   "deltaWinRate": 0.046875,
+   "correlation": 0.035219110635951956,
+   "verdict": "insufficient"
+  },
+  {
+   "criterion": "square144Convergence",
+   "observed": 386,
+   "passed": {
+    "n": 8,
+    "wins": 0,
+    "winRate": 0,
+    "expectancyR": 0.15958855566673938
+   },
+   "failed": {
+    "n": 378,
+    "wins": 31,
+    "winRate": 0.082010582010582,
+    "expectancyR": 0.07585618703337527
+   },
+   "deltaExpectancyR": 0.08373236863336411,
+   "deltaWinRate": -0.082010582010582,
+   "correlation": 0.01883552797832999,
+   "verdict": "insufficient"
+  },
+  {
+   "criterion": "longAccumulationBreakoutWithTrade",
+   "observed": 392,
+   "passed": {
+    "n": 9,
+    "wins": 1,
+    "winRate": 0.1111111111111111,
+    "expectancyR": 0.13660549934529242
+   },
+   "failed": {
+    "n": 383,
+    "wins": 30,
+    "winRate": 0.0783289817232376,
+    "expectancyR": 0.07359001019472498
+   },
+   "deltaExpectancyR": 0.06301548915056744,
+   "deltaWinRate": 0.032782129387873504,
+   "correlation": 0.014895477989699991,
+   "verdict": "insufficient"
+  },
+  {
+   "criterion": "reactionInTwoToThreeWeekZone",
+   "observed": 20,
+   "passed": {
+    "n": 11,
+    "wins": 0,
+    "winRate": 0,
+    "expectancyR": 0.08477180344985437
+   },
+   "failed": {
+    "n": 9,
+    "wins": 3,
+    "winRate": 0.3333333333333333,
+    "expectancyR": 0.05201352673696685
+   },
+   "deltaExpectancyR": 0.032758276712887516,
+   "deltaWinRate": -0.3333333333333333,
+   "correlation": 0.0300414692697641,
+   "verdict": "insufficient"
+  },
+  {
+   "criterion": "nearMajorPercentLevel",
+   "observed": 392,
+   "passed": {
+    "n": 7,
+    "wins": 0,
+    "winRate": 0,
+    "expectancyR": -0.18915740835220599
+   },
+   "failed": {
+    "n": 385,
+    "wins": 31,
+    "winRate": 0.08051948051948052,
+    "expectancyR": 0.07984032534325386
+   },
+   "deltaExpectancyR": -0.2689977336954599,
+   "deltaWinRate": -0.08051948051948052,
+   "correlation": -0.056223062282000295,
+   "verdict": "insufficient"
+  },
+  {
+   "criterion": "exhaustGapAgrees",
+   "observed": 6,
+   "passed": {
+    "n": 1,
+    "wins": 0,
+    "winRate": 0,
+    "expectancyR": -0.5480256913390196
+   },
+   "failed": {
+    "n": 5,
+    "wins": 0,
+    "winRate": 0,
+    "expectancyR": -0.18116019359787536
+   },
+   "deltaExpectancyR": -0.3668654977411442,
+   "deltaWinRate": 0,
+   "correlation": -0.24643795650252476,
+   "verdict": "insufficient"
+  },
+  {
+   "criterion": "sharesPerPointTopWith",
+   "observed": 56,
+   "passed": {
+    "n": 1,
+    "wins": 0,
+    "winRate": 0,
+    "expectancyR": -1.0229017199786963
+   },
+   "failed": {
+    "n": 55,
+    "wins": 5,
+    "winRate": 0.09090909090909091,
+    "expectancyR": -0.004659083305470042
+   },
+   "deltaExpectancyR": -1.0182426366732262,
+   "deltaWinRate": -0.09090909090909091,
+   "correlation": -0.23703592599182627,
+   "verdict": "insufficient"
+  },
+  {
+   "criterion": "tightTimeProjection",
+   "observed": 392,
+   "passed": {
+    "n": 0,
+    "wins": 0,
+    "winRate": 0,
+    "expectancyR": 0
+   },
+   "failed": {
+    "n": 392,
+    "wins": 31,
+    "winRate": 0.07908163265306123,
+    "expectancyR": 0.07503679438440639
+   },
+   "verdict": "constant"
+  },
+  {
+   "criterion": "firstYearHighCrossed",
+   "observed": 2,
+   "passed": {
+    "n": 2,
+    "wins": 1,
+    "winRate": 0.5,
+    "expectancyR": -0.09629150415474325
+   },
+   "failed": {
+    "n": 0,
+    "wins": 0,
+    "winRate": 0,
+    "expectancyR": 0
+   },
+   "verdict": "constant"
+  }
+ ],
+ "halves": {
+  "early": {
+   "factors": [
+    {
+     "criterion": "gannAngleSlope",
+     "observed": 196,
+     "passed": {
+      "n": 84,
+      "wins": 5,
+      "winRate": 0.05952380952380952,
+      "expectancyR": 0.00710514406434427
+     },
+     "failed": {
+      "n": 112,
+      "wins": 13,
+      "winRate": 0.11607142857142858,
+      "expectancyR": -0.05843478737354265
+     },
+     "deltaExpectancyR": 0.06553993143788692,
+     "deltaWinRate": -0.056547619047619055,
+     "correlation": 0.0497161977637506,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "timePriceSquare",
+     "observed": 196,
+     "passed": {
+      "n": 67,
+      "wins": 4,
+      "winRate": 0.05970149253731343,
+      "expectancyR": 0.006467364671369461
+     },
+     "failed": {
+      "n": 129,
+      "wins": 14,
+      "winRate": 0.10852713178294573,
+      "expectancyR": -0.0494664923830512
+     },
+     "deltaExpectancyR": 0.055933857054420666,
+     "deltaWinRate": -0.0488256392456323,
+     "correlation": 0.040667763988418044,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "volumeClimax",
+     "observed": 196,
+     "passed": {
+      "n": 119,
+      "wins": 12,
+      "winRate": 0.10084033613445378,
+      "expectancyR": -0.027293564462495767
+     },
+     "failed": {
+      "n": 77,
+      "wins": 6,
+      "winRate": 0.07792207792207792,
+      "expectancyR": -0.03506402484928385
+     },
+     "deltaExpectancyR": 0.007770460386788084,
+     "deltaWinRate": 0.022918258212375864,
+     "correlation": 0.00581713126518883,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "historicalSR",
+     "observed": 196,
+     "passed": {
+      "n": 71,
+      "wins": 4,
+      "winRate": 0.056338028169014086,
+      "expectancyR": -0.04395255286070445
+     },
+     "failed": {
+      "n": 125,
+      "wins": 14,
+      "winRate": 0.112,
+      "expectancyR": -0.02261786265057468
+     },
+     "deltaExpectancyR": -0.02133469021012977,
+     "deltaWinRate": -0.05566197183098592,
+     "correlation": -0.015718597444878257,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "stopRoom",
+     "observed": 196,
+     "passed": {
+      "n": 172,
+      "wins": 16,
+      "winRate": 0.09302325581395349,
+      "expectancyR": -0.037583962514980356
+     },
+     "failed": {
+      "n": 24,
+      "wins": 2,
+      "winRate": 0.08333333333333333,
+      "expectancyR": 0.021524061172698495
+     },
+     "deltaExpectancyR": -0.059108023687678854,
+     "deltaWinRate": 0.009689922480620158,
+     "correlation": -0.029700212239398564,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "swingChartTrend",
+     "observed": 196,
+     "passed": {
+      "n": 101,
+      "wins": 10,
+      "winRate": 0.09900990099009901,
+      "expectancyR": -0.06862110973577742
+     },
+     "failed": {
+      "n": 95,
+      "wins": 8,
+      "winRate": 0.08421052631578947,
+      "expectancyR": 0.010345978935596535
+     },
+     "deltaExpectancyR": -0.07896708867137396,
+     "deltaWinRate": 0.014799374674309543,
+     "correlation": -0.06049394209160969,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "gannRetracementConfluence",
+     "observed": 196,
+     "passed": {
+      "n": 31,
+      "wins": 1,
+      "winRate": 0.03225806451612903,
+      "expectancyR": -0.12243237032200233
+     },
+     "failed": {
+      "n": 165,
+      "wins": 17,
+      "winRate": 0.10303030303030303,
+      "expectancyR": -0.01304521578454412
+     },
+     "deltaExpectancyR": -0.1093871545374582,
+     "deltaWinRate": -0.070772238514174,
+     "correlation": -0.061183231899873666,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "ruleOfThree",
+     "observed": 196,
+     "passed": {
+      "n": 87,
+      "wins": 10,
+      "winRate": 0.11494252873563218,
+      "expectancyR": -0.11193119142491291
+     },
+     "failed": {
+      "n": 109,
+      "wins": 8,
+      "winRate": 0.07339449541284404,
+      "expectancyR": 0.03477201439940889
+     },
+     "deltaExpectancyR": -0.1467032058243218,
+     "deltaWinRate": 0.04154803332278814,
+     "correlation": -0.11172638561928822,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "entryTriggerArmed",
+     "observed": 196,
+     "passed": {
+      "n": 196,
+      "wins": 18,
+      "winRate": 0.09183673469387756,
+      "expectancyR": -0.030346245328733944
+     },
+     "failed": {
+      "n": 0,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": 0
+     },
+     "verdict": "constant"
+    },
+    {
+     "criterion": "reversionConfirmation",
+     "observed": 14,
+     "passed": {
+      "n": 0,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": 0
+     },
+     "failed": {
+      "n": 14,
+      "wins": 1,
+      "winRate": 0.07142857142857142,
+      "expectancyR": -0.08405096901684768
+     },
+     "verdict": "constant"
+    },
+    {
+     "criterion": "breakaway",
+     "observed": 21,
+     "passed": {
+      "n": 0,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": 0
+     },
+     "failed": {
+      "n": 21,
+      "wins": 1,
+      "winRate": 0.047619047619047616,
+      "expectancyR": -0.12419273885282582
+     },
+     "verdict": "constant"
+    }
+   ],
+   "contextFactors": [
+    {
+     "criterion": "reverseSignalAgrees",
+     "observed": 28,
+     "passed": {
+      "n": 11,
+      "wins": 1,
+      "winRate": 0.09090909090909091,
+      "expectancyR": 0.0716380032966813
+     },
+     "failed": {
+      "n": 17,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": -0.3496364049974145
+     },
+     "deltaExpectancyR": 0.4212744082940958,
+     "deltaWinRate": 0.09090909090909091,
+     "correlation": 0.24686228539535246,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "monthlyBreakAgainstCampaign",
+     "observed": 196,
+     "passed": {
+      "n": 12,
+      "wins": 2,
+      "winRate": 0.16666666666666666,
+      "expectancyR": 0.2653198289957844
+     },
+     "failed": {
+      "n": 184,
+      "wins": 16,
+      "winRate": 0.08695652173913043,
+      "expectancyR": -0.04962881539337639
+     },
+     "deltaExpectancyR": 0.31494864438916076,
+     "deltaWinRate": 0.07971014492753623,
+     "correlation": 0.11573975207570662,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "macroMajorCycleActive",
+     "observed": 196,
+     "passed": {
+      "n": 180,
+      "wins": 16,
+      "winRate": 0.08888888888888889,
+      "expectancyR": -0.013604378872330836
+     },
+     "failed": {
+      "n": 16,
+      "wins": 2,
+      "winRate": 0.125,
+      "expectancyR": -0.21869224296326917
+     },
+     "deltaExpectancyR": 0.20508786409093832,
+     "deltaWinRate": -0.03611111111111111,
+     "correlation": 0.0860754844737909,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "overbalancedAgainstCampaign",
+     "observed": 196,
+     "passed": {
+      "n": 18,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": 0.14422810865624622
+     },
+     "failed": {
+      "n": 178,
+      "wins": 18,
+      "winRate": 0.10112359550561797,
+      "expectancyR": -0.04799983168676563
+     },
+     "deltaExpectancyR": 0.19222794034301185,
+     "deltaWinRate": -0.10112359550561797,
+     "correlation": 0.08509539061469988,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "lateMoverLong",
+     "observed": 44,
+     "passed": {
+      "n": 19,
+      "wins": 3,
+      "winRate": 0.15789473684210525,
+      "expectancyR": 0.19805999592911075
+     },
+     "failed": {
+      "n": 25,
+      "wins": 2,
+      "winRate": 0.08,
+      "expectancyR": 0.011772758107433057
+     },
+     "deltaExpectancyR": 0.1862872378216777,
+     "deltaWinRate": 0.07789473684210525,
+     "correlation": 0.15702218364468062,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "ruleOfThreeWeeklyAgrees",
+     "observed": 196,
+     "passed": {
+      "n": 38,
+      "wins": 5,
+      "winRate": 0.13157894736842105,
+      "expectancyR": 0.09337185388278012
+     },
+     "failed": {
+      "n": 158,
+      "wins": 13,
+      "winRate": 0.08227848101265822,
+      "expectancyR": -0.06010123121504741
+     },
+     "deltaExpectancyR": 0.15347308509782753,
+     "deltaWinRate": 0.04930046635576282,
+     "correlation": 0.0930027595379311,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "counterMoveNormal",
+     "observed": 196,
+     "passed": {
+      "n": 44,
+      "wins": 5,
+      "winRate": 0.11363636363636363,
+      "expectancyR": 0.08624294176107034
+     },
+     "failed": {
+      "n": 152,
+      "wins": 13,
+      "winRate": 0.08552631578947369,
+      "expectancyR": -0.06409574685472987
+     },
+     "deltaExpectancyR": 0.1503386886158002,
+     "deltaWinRate": 0.028110047846889946,
+     "correlation": 0.09615284961914215,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "macroMajorCycleWithTrade",
+     "observed": 196,
+     "passed": {
+      "n": 43,
+      "wins": 5,
+      "winRate": 0.11627906976744186,
+      "expectancyR": 0.0670818229454193
+     },
+     "failed": {
+      "n": 153,
+      "wins": 13,
+      "winRate": 0.08496732026143791,
+      "expectancyR": -0.05772799000709076
+     },
+     "deltaExpectancyR": 0.12480981295251006,
+     "deltaWinRate": 0.03131174950600395,
+     "correlation": 0.07917206004186499,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "zoneExtremeInTradeDirection",
+     "observed": 196,
+     "passed": {
+      "n": 13,
+      "wins": 2,
+      "winRate": 0.15384615384615385,
+      "expectancyR": 0.08600317996370771
+     },
+     "failed": {
+      "n": 183,
+      "wins": 16,
+      "winRate": 0.08743169398907104,
+      "expectancyR": -0.03861150504896203
+     },
+     "deltaExpectancyR": 0.12461468501266974,
+     "deltaWinRate": 0.06641445985708282,
+     "correlation": 0.0475345859011297,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "closeVsMidpointAgrees",
+     "observed": 196,
+     "passed": {
+      "n": 112,
+      "wins": 12,
+      "winRate": 0.10714285714285714,
+      "expectancyR": 0.011257732913482334
+     },
+     "failed": {
+      "n": 84,
+      "wins": 6,
+      "winRate": 0.07142857142857142,
+      "expectancyR": -0.08581821631835565
+     },
+     "deltaExpectancyR": 0.09707594923183799,
+     "deltaWinRate": 0.03571428571428571,
+     "correlation": 0.07363826882681089,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "lateSection",
+     "observed": 196,
+     "passed": {
+      "n": 88,
+      "wins": 6,
+      "winRate": 0.06818181818181818,
+      "expectancyR": 0.012851615613042022
+     },
+     "failed": {
+      "n": 108,
+      "wins": 12,
+      "winRate": 0.1111111111111111,
+      "expectancyR": -0.0655445023924033
+     },
+     "deltaExpectancyR": 0.07839611800544531,
+     "deltaWinRate": -0.04292929292929293,
+     "correlation": 0.05977107152881663,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "haltAgainstTrade",
+     "observed": 196,
+     "passed": {
+      "n": 30,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": 0.012857720800765948
+     },
+     "failed": {
+      "n": 166,
+      "wins": 18,
+      "winRate": 0.10843373493975904,
+      "expectancyR": -0.038154191014788154
+     },
+     "deltaExpectancyR": 0.051011911815554103,
+     "deltaWinRate": -0.10843373493975904,
+     "correlation": 0.028153315122386544,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "multipleTopCrossedWithTrade",
+     "observed": 196,
+     "passed": {
+      "n": 58,
+      "wins": 3,
+      "winRate": 0.05172413793103448,
+      "expectancyR": 0.00445633373007572
+     },
+     "failed": {
+      "n": 138,
+      "wins": 15,
+      "winRate": 0.10869565217391304,
+      "expectancyR": -0.044973416237509084
+     },
+     "deltaExpectancyR": 0.049429749967584806,
+     "deltaWinRate": -0.05697151424287856,
+     "correlation": 0.034584796409376284,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "leanedOnLevelTestedThreePlus",
+     "observed": 194,
+     "passed": {
+      "n": 30,
+      "wins": 4,
+      "winRate": 0.13333333333333333,
+      "expectancyR": -0.016227084837858074
+     },
+     "failed": {
+      "n": 164,
+      "wins": 14,
+      "winRate": 0.08536585365853659,
+      "expectancyR": -0.036104199142059354
+     },
+     "deltaExpectancyR": 0.01987711430420128,
+     "deltaWinRate": 0.04796747967479674,
+     "correlation": 0.010988521526546198,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "onTimeBalanceDate",
+     "observed": 196,
+     "passed": {
+      "n": 28,
+      "wins": 1,
+      "winRate": 0.03571428571428571,
+      "expectancyR": -0.013312071112462607
+     },
+     "failed": {
+      "n": 168,
+      "wins": 17,
+      "winRate": 0.10119047619047619,
+      "expectancyR": -0.03318527436477916
+     },
+     "deltaExpectancyR": 0.019873203252316552,
+     "deltaWinRate": -0.06547619047619048,
+     "correlation": 0.010659695540064044,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "facingLevelTestedThreePlus",
+     "observed": 194,
+     "passed": {
+      "n": 38,
+      "wins": 6,
+      "winRate": 0.15789473684210525,
+      "expectancyR": -0.02551405874880294
+     },
+     "failed": {
+      "n": 156,
+      "wins": 12,
+      "winRate": 0.07692307692307693,
+      "expectancyR": -0.02910490594106369
+     },
+     "deltaExpectancyR": 0.00359084719226075,
+     "deltaWinRate": 0.08097165991902833,
+     "correlation": 0.002174288477524744,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "roundNumberAhead",
+     "observed": 196,
+     "passed": {
+      "n": 48,
+      "wins": 4,
+      "winRate": 0.08333333333333333,
+      "expectancyR": -0.0452659559068811
+     },
+     "failed": {
+      "n": 148,
+      "wins": 14,
+      "winRate": 0.0945945945945946,
+      "expectancyR": -0.025507420276361877
+     },
+     "deltaExpectancyR": -0.019758535630519224,
+     "deltaWinRate": -0.011261261261261271,
+     "correlation": -0.013024153337644565,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "filledGapAgrees",
+     "observed": 72,
+     "passed": {
+      "n": 38,
+      "wins": 4,
+      "winRate": 0.10526315789473684,
+      "expectancyR": 0.028109287273865004
+     },
+     "failed": {
+      "n": 34,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": 0.06307176824491492
+     },
+     "deltaExpectancyR": -0.03496248097104992,
+     "deltaWinRate": 0.10526315789473684,
+     "correlation": -0.028101997248441698,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "yearFractionMajor",
+     "observed": 196,
+     "passed": {
+      "n": 12,
+      "wins": 1,
+      "winRate": 0.08333333333333333,
+      "expectancyR": -0.06705905164228892
+     },
+     "failed": {
+      "n": 184,
+      "wins": 17,
+      "winRate": 0.09239130434782608,
+      "expectancyR": -0.027951931873502124
+     },
+     "deltaExpectancyR": -0.0391071197687868,
+     "deltaWinRate": -0.009057971014492752,
+     "correlation": -0.014371385389554419,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "onAlternationTurnDay",
+     "observed": 196,
+     "passed": {
+      "n": 84,
+      "wins": 7,
+      "winRate": 0.08333333333333333,
+      "expectancyR": -0.057053562364765296
+     },
+     "failed": {
+      "n": 112,
+      "wins": 11,
+      "winRate": 0.09821428571428571,
+      "expectancyR": -0.010315757551710455
+     },
+     "deltaExpectancyR": -0.04673780481305484,
+     "deltaWinRate": -0.014880952380952384,
+     "correlation": -0.03545359136256556,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "withWeeklyTrend",
+     "observed": 196,
+     "passed": {
+      "n": 102,
+      "wins": 11,
+      "winRate": 0.10784313725490197,
+      "expectancyR": -0.06432414857255198
+     },
+     "failed": {
+      "n": 94,
+      "wins": 7,
+      "winRate": 0.07446808510638298,
+      "expectancyR": 0.0065233943613665175
+     },
+     "deltaExpectancyR": -0.0708475429339185,
+     "deltaWinRate": 0.03337505214851899,
+     "correlation": -0.05425403903987189,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "yearFractionActive",
+     "observed": 196,
+     "passed": {
+      "n": 122,
+      "wins": 14,
+      "winRate": 0.11475409836065574,
+      "expectancyR": -0.06429330934675481
+     },
+     "failed": {
+      "n": 74,
+      "wins": 4,
+      "winRate": 0.05405405405405406,
+      "expectancyR": 0.02562053589016529
+     },
+     "deltaExpectancyR": -0.0899138452369201,
+     "deltaWinRate": 0.06070004430660168,
+     "correlation": -0.06681371435523017,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "ruleOfThreeMonthlyAgrees",
+     "observed": 196,
+     "passed": {
+      "n": 28,
+      "wins": 2,
+      "winRate": 0.07142857142857142,
+      "expectancyR": -0.14348759787528836
+     },
+     "failed": {
+      "n": 168,
+      "wins": 16,
+      "winRate": 0.09523809523809523,
+      "expectancyR": -0.011489353237641529
+     },
+     "deltaExpectancyR": -0.13199824463764684,
+     "deltaWinRate": -0.023809523809523808,
+     "correlation": -0.07080192769105778,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "seasonalCountActive",
+     "observed": 196,
+     "passed": {
+      "n": 71,
+      "wins": 5,
+      "winRate": 0.07042253521126761,
+      "expectancyR": -0.12958791617789245
+     },
+     "failed": {
+      "n": 125,
+      "wins": 13,
+      "winRate": 0.104,
+      "expectancyR": 0.02602302371358807
+     },
+     "deltaExpectancyR": -0.1556109398914805,
+     "deltaWinRate": -0.033577464788732386,
+     "correlation": -0.11464828868299907,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "earlyLeaderInTradeDirection",
+     "observed": 196,
+     "passed": {
+      "n": 124,
+      "wins": 13,
+      "winRate": 0.10483870967741936,
+      "expectancyR": -0.0916844808331715
+     },
+     "failed": {
+      "n": 72,
+      "wins": 5,
+      "winRate": 0.06944444444444445,
+      "expectancyR": 0.07529182692890865
+     },
+     "deltaExpectancyR": -0.16697630776208017,
+     "deltaWinRate": 0.03539426523297491,
+     "correlation": -0.12338865043919679,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "zoneEarlyInTradeDirection",
+     "observed": 196,
+     "passed": {
+      "n": 13,
+      "wins": 1,
+      "winRate": 0.07692307692307693,
+      "expectancyR": -0.187745587992343
+     },
+     "failed": {
+      "n": 183,
+      "wins": 17,
+      "winRate": 0.09289617486338798,
+      "expectancyR": -0.019164871259734415
+     },
+     "deltaExpectancyR": -0.1685807167326086,
+     "deltaWinRate": -0.015973097940311057,
+     "correlation": -0.06430553959178621,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "dayCountBandActive",
+     "observed": 196,
+     "passed": {
+      "n": 183,
+      "wins": 17,
+      "winRate": 0.09289617486338798,
+      "expectancyR": -0.0452030269831314
+     },
+     "failed": {
+      "n": 13,
+      "wins": 1,
+      "winRate": 0.07692307692307693,
+      "expectancyR": 0.17879152719086183
+     },
+     "deltaExpectancyR": -0.22399455417399322,
+     "deltaWinRate": 0.015973097940311057,
+     "correlation": -0.08544328764853346,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "square144Convergence",
+     "observed": 191,
+     "passed": {
+      "n": 5,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": 0.23715645284744272
+     },
+     "failed": {
+      "n": 186,
+      "wins": 18,
+      "winRate": 0.0967741935483871,
+      "expectancyR": -0.03355915073071523
+     },
+     "deltaExpectancyR": 0.27071560357815794,
+     "deltaWinRate": -0.0967741935483871,
+     "correlation": 0.06631223366942794,
+     "verdict": "insufficient"
+    },
+    {
+     "criterion": "reactionInTwoToThreeWeekZone",
+     "observed": 10,
+     "passed": {
+      "n": 4,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": 0.27328766203468086
+     },
+     "failed": {
+      "n": 6,
+      "wins": 3,
+      "winRate": 0.5,
+      "expectancyR": 0.06429742941399104
+     },
+     "deltaExpectancyR": 0.20899023262068983,
+     "deltaWinRate": -0.5,
+     "correlation": 0.21128902618053155,
+     "verdict": "insufficient"
+    },
+    {
+     "criterion": "culminationGapsInTradeDirection",
+     "observed": 106,
+     "passed": {
+      "n": 5,
+      "wins": 1,
+      "winRate": 0.2,
+      "expectancyR": 0.10160812082207746
+     },
+     "failed": {
+      "n": 101,
+      "wins": 7,
+      "winRate": 0.06930693069306931,
+      "expectancyR": -0.08143636770247772
+     },
+     "deltaExpectancyR": 0.18304448852455518,
+     "deltaWinRate": 0.1306930693069307,
+     "correlation": 0.05537893361891439,
+     "verdict": "insufficient"
+    },
+    {
+     "criterion": "zoneFirstSignOfEnd",
+     "observed": 196,
+     "passed": {
+      "n": 7,
+      "wins": 1,
+      "winRate": 0.14285714285714285,
+      "expectancyR": 0.13861278496586757
+     },
+     "failed": {
+      "n": 189,
+      "wins": 17,
+      "winRate": 0.08994708994708994,
+      "expectancyR": -0.036603987191496955
+     },
+     "deltaExpectancyR": 0.17521677215736453,
+     "deltaWinRate": 0.05291005291005291,
+     "correlation": 0.049842390957243396,
+     "verdict": "insufficient"
+    },
+    {
+     "criterion": "zoneExtremeAgainstTrade",
+     "observed": 196,
+     "passed": {
+      "n": 9,
+      "wins": 1,
+      "winRate": 0.1111111111111111,
+      "expectancyR": 0.07227197745351746
+     },
+     "failed": {
+      "n": 187,
+      "wins": 17,
+      "winRate": 0.09090909090909091,
+      "expectancyR": -0.03528509027547332
+     },
+     "deltaExpectancyR": 0.10755706772899079,
+     "deltaWinRate": 0.020202020202020193,
+     "correlation": 0.03450835694233754,
+     "verdict": "insufficient"
+    },
+    {
+     "criterion": "thirdTestFailedAgainstTrade",
+     "observed": 196,
+     "passed": {
+      "n": 7,
+      "wins": 1,
+      "winRate": 0.14285714285714285,
+      "expectancyR": 0.0656688113144919
+     },
+     "failed": {
+      "n": 189,
+      "wins": 17,
+      "winRate": 0.08994708994708994,
+      "expectancyR": -0.03390235853774231
+     },
+     "deltaExpectancyR": 0.09957116985223421,
+     "deltaWinRate": 0.05291005291005291,
+     "correlation": 0.028324144513904914,
+     "verdict": "insufficient"
+    },
+    {
+     "criterion": "reactionInThirdWeek",
+     "observed": 10,
+     "passed": {
+      "n": 2,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": 0.21081669136439846
+     },
+     "failed": {
+      "n": 8,
+      "wins": 3,
+      "winRate": 0.375,
+      "expectancyR": 0.13216273023673408
+     },
+     "deltaExpectancyR": 0.07865396112766437,
+     "deltaWinRate": -0.375,
+     "correlation": 0.0649270875094319,
+     "verdict": "insufficient"
+    },
+    {
+     "criterion": "reactionAbnormalLength",
+     "observed": 196,
+     "passed": {
+      "n": 5,
+      "wins": 2,
+      "winRate": 0.4,
+      "expectancyR": -0.01730911400182339
+     },
+     "failed": {
+      "n": 191,
+      "wins": 16,
+      "winRate": 0.08376963350785341,
+      "expectancyR": -0.030687531489124256
+     },
+     "deltaExpectancyR": 0.013378417487300866,
+     "deltaWinRate": 0.31623036649214664,
+     "correlation": 0.003233327529921767,
+     "verdict": "insufficient"
+    },
+    {
+     "criterion": "counterMoveBeyondFirstMonth",
+     "observed": 196,
+     "passed": {
+      "n": 3,
+      "wins": 1,
+      "winRate": 0.3333333333333333,
+      "expectancyR": -0.05313357491287921
+     },
+     "failed": {
+      "n": 193,
+      "wins": 17,
+      "winRate": 0.08808290155440414,
+      "expectancyR": -0.029992038133125454
+     },
+     "deltaExpectancyR": -0.02314153677975376,
+     "deltaWinRate": 0.2452504317789292,
+     "correlation": -0.004354865514542662,
+     "verdict": "insufficient"
+    },
+    {
+     "criterion": "longAccumulationBreakoutWithTrade",
+     "observed": 196,
+     "passed": {
+      "n": 3,
+      "wins": 1,
+      "winRate": 0.3333333333333333,
+      "expectancyR": -0.09714226648714026
+     },
+     "failed": {
+      "n": 193,
+      "wins": 17,
+      "winRate": 0.08808290155440414,
+      "expectancyR": -0.02930796520710071
+     },
+     "deltaExpectancyR": -0.06783430128003956,
+     "deltaWinRate": 0.2452504317789292,
+     "correlation": -0.012765325922779328,
+     "verdict": "insufficient"
+    },
+    {
+     "criterion": "nearMajorPercentLevel",
+     "observed": 196,
+     "passed": {
+      "n": 4,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": -0.12427088827250143
+     },
+     "failed": {
+      "n": 192,
+      "wins": 18,
+      "winRate": 0.09375,
+      "expectancyR": -0.02838948193407213
+     },
+     "deltaExpectancyR": -0.0958814063384293,
+     "deltaWinRate": -0.09375,
+     "correlation": -0.02078060920727385,
+     "verdict": "insufficient"
+    },
+    {
+     "criterion": "sharesPerPointTopWith",
+     "observed": 33,
+     "passed": {
+      "n": 1,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": -1.0229017199786963
+     },
+     "failed": {
+      "n": 32,
+      "wins": 2,
+      "winRate": 0.0625,
+      "expectancyR": -0.053805691756584936
+     },
+     "deltaExpectancyR": -0.9690960282221114,
+     "deltaWinRate": -0.0625,
+     "correlation": -0.2679785420657082,
+     "verdict": "insufficient"
+    },
+    {
+     "criterion": "tightTimeProjection",
+     "observed": 196,
+     "passed": {
+      "n": 0,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": 0
+     },
+     "failed": {
+      "n": 196,
+      "wins": 18,
+      "winRate": 0.09183673469387756,
+      "expectancyR": -0.030346245328733944
+     },
+     "verdict": "constant"
+    },
+    {
+     "criterion": "seasonalCountMajor",
+     "observed": 196,
+     "passed": {
+      "n": 0,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": 0
+     },
+     "failed": {
+      "n": 196,
+      "wins": 18,
+      "winRate": 0.09183673469387756,
+      "expectancyR": -0.030346245328733944
+     },
+     "verdict": "constant"
+    },
+    {
+     "criterion": "sharesPerPointTopAgainst",
+     "observed": 33,
+     "passed": {
+      "n": 0,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": 0
+     },
+     "failed": {
+      "n": 33,
+      "wins": 2,
+      "winRate": 0.06060606060606061,
+      "expectancyR": -0.0831722380663459
+     },
+     "verdict": "constant"
+    },
+    {
+     "criterion": "exhaustGapAgrees",
+     "observed": 4,
+     "passed": {
+      "n": 0,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": 0
+     },
+     "failed": {
+      "n": 4,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": -0.12367736643039552
+     },
+     "verdict": "constant"
+    }
+   ]
+  },
+  "late": {
+   "factors": [
+    {
+     "criterion": "stopRoom",
+     "observed": 196,
+     "passed": {
+      "n": 183,
+      "wins": 11,
+      "winRate": 0.060109289617486336,
+      "expectancyR": 0.2061881978412054
+     },
+     "failed": {
+      "n": 13,
+      "wins": 2,
+      "winRate": 0.15384615384615385,
+      "expectancyR": -0.18231944014011156
+     },
+     "deltaExpectancyR": 0.38850763798131693,
+     "deltaWinRate": -0.09373686422866752,
+     "correlation": 0.16223537061839896,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "volumeClimax",
+     "observed": 196,
+     "passed": {
+      "n": 118,
+      "wins": 8,
+      "winRate": 0.06779661016949153,
+      "expectancyR": 0.22447619214414335
+     },
+     "failed": {
+      "n": 78,
+      "wins": 5,
+      "winRate": 0.0641025641025641,
+      "expectancyR": 0.11377047192448991
+     },
+     "deltaExpectancyR": 0.11070572021965344,
+     "deltaWinRate": 0.0036940460669274283,
+     "correlation": 0.0909299871130736,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "gannAngleSlope",
+     "observed": 196,
+     "passed": {
+      "n": 110,
+      "wins": 8,
+      "winRate": 0.07272727272727272,
+      "expectancyR": 0.22342237418800998
+     },
+     "failed": {
+      "n": 86,
+      "wins": 5,
+      "winRate": 0.05813953488372093,
+      "expectancyR": 0.12541658514462825
+     },
+     "deltaExpectancyR": 0.09800578904338172,
+     "deltaWinRate": 0.014587737843551794,
+     "correlation": 0.08161050412516317,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "historicalSR",
+     "observed": 196,
+     "passed": {
+      "n": 79,
+      "wins": 6,
+      "winRate": 0.0759493670886076,
+      "expectancyR": 0.20386617892421924
+     },
+     "failed": {
+      "n": 117,
+      "wins": 7,
+      "winRate": 0.05982905982905983,
+      "expectancyR": 0.16458854143680188
+     },
+     "deltaExpectancyR": 0.03927763748741736,
+     "deltaWinRate": 0.016120307259547766,
+     "correlation": 0.03232961977006167,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "ruleOfThree",
+     "observed": 196,
+     "passed": {
+      "n": 115,
+      "wins": 8,
+      "winRate": 0.06956521739130435,
+      "expectancyR": 0.18372360327392467
+     },
+     "failed": {
+      "n": 81,
+      "wins": 5,
+      "winRate": 0.06172839506172839,
+      "expectancyR": 0.17572929761256548
+     },
+     "deltaExpectancyR": 0.007994305661359197,
+     "deltaWinRate": 0.007836822329575957,
+     "correlation": 0.0066057318767795276,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "swingChartTrend",
+     "observed": 196,
+     "passed": {
+      "n": 99,
+      "wins": 11,
+      "winRate": 0.1111111111111111,
+      "expectancyR": 0.1805496737280582
+     },
+     "failed": {
+      "n": 97,
+      "wins": 2,
+      "winRate": 0.020618556701030927,
+      "expectancyR": 0.18028731736125123
+     },
+     "deltaExpectancyR": 0.00026235636680696506,
+     "deltaWinRate": 0.09049255441008018,
+     "correlation": 0.00022011205848337123,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "gannRetracementConfluence",
+     "observed": 196,
+     "passed": {
+      "n": 29,
+      "wins": 3,
+      "winRate": 0.10344827586206896,
+      "expectancyR": 0.16213735453168596
+     },
+     "failed": {
+      "n": 167,
+      "wins": 10,
+      "winRate": 0.059880239520958084,
+      "expectancyR": 0.1835946359383248
+     },
+     "deltaExpectancyR": -0.021457281406638856,
+     "deltaWinRate": 0.04356803634111088,
+     "correlation": -0.012784410121833541,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "timePriceSquare",
+     "observed": 196,
+     "passed": {
+      "n": 67,
+      "wins": 7,
+      "winRate": 0.1044776119402985,
+      "expectancyR": 0.1654514201068128
+     },
+     "failed": {
+      "n": 129,
+      "wins": 6,
+      "winRate": 0.046511627906976744,
+      "expectancyR": 0.18819412663536955
+     },
+     "deltaExpectancyR": -0.022742706528556755,
+     "deltaWinRate": 0.05796598403332176,
+     "correlation": -0.018101858537146444,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "entryTriggerArmed",
+     "observed": 196,
+     "passed": {
+      "n": 196,
+      "wins": 13,
+      "winRate": 0.0663265306122449,
+      "expectancyR": 0.18041983409754656
+     },
+     "failed": {
+      "n": 0,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": 0
+     },
+     "verdict": "constant"
+    },
+    {
+     "criterion": "reversionConfirmation",
+     "observed": 32,
+     "passed": {
+      "n": 0,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": 0
+     },
+     "failed": {
+      "n": 32,
+      "wins": 2,
+      "winRate": 0.0625,
+      "expectancyR": 0.2248242870362684
+     },
+     "verdict": "constant"
+    },
+    {
+     "criterion": "breakaway",
+     "observed": 19,
+     "passed": {
+      "n": 0,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": 0
+     },
+     "failed": {
+      "n": 19,
+      "wins": 2,
+      "winRate": 0.10526315789473684,
+      "expectancyR": 0.1946397786068361
+     },
+     "verdict": "constant"
+    }
+   ],
+   "contextFactors": [
+    {
+     "criterion": "yearFractionMajor",
+     "observed": 196,
+     "passed": {
+      "n": 16,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": 0.37421863684650297
+     },
+     "failed": {
+      "n": 180,
+      "wins": 13,
+      "winRate": 0.07222222222222222,
+      "expectancyR": 0.1631932738531949
+     },
+     "deltaExpectancyR": 0.21102536299330807,
+     "deltaWinRate": -0.07222222222222222,
+     "correlation": 0.09695711016435649,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "leanedOnLevelTestedThreePlus",
+     "observed": 195,
+     "passed": {
+      "n": 37,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": 0.3354790832331425
+     },
+     "failed": {
+      "n": 158,
+      "wins": 13,
+      "winRate": 0.08227848101265822,
+      "expectancyR": 0.14299899263290694
+     },
+     "deltaExpectancyR": 0.19248009060023558,
+     "deltaWinRate": -0.08227848101265822,
+     "correlation": 0.12634879203884278,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "overbalancedAgainstCampaign",
+     "observed": 196,
+     "passed": {
+      "n": 22,
+      "wins": 1,
+      "winRate": 0.045454545454545456,
+      "expectancyR": 0.31275524317710485
+     },
+     "failed": {
+      "n": 174,
+      "wins": 12,
+      "winRate": 0.06896551724137931,
+      "expectancyR": 0.16368777088059094
+     },
+     "deltaExpectancyR": 0.1490674722965139,
+     "deltaWinRate": -0.023510971786833854,
+     "correlation": 0.07896190451466857,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "monthlyBreakAgainstCampaign",
+     "observed": 196,
+     "passed": {
+      "n": 27,
+      "wins": 1,
+      "winRate": 0.037037037037037035,
+      "expectancyR": 0.22328084637999937
+     },
+     "failed": {
+      "n": 169,
+      "wins": 12,
+      "winRate": 0.07100591715976332,
+      "expectancyR": 0.17357221675064585
+     },
+     "deltaExpectancyR": 0.04970862962935352,
+     "deltaWinRate": -0.03396888012272628,
+     "correlation": 0.028747877653665717,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "facingLevelTestedThreePlus",
+     "observed": 193,
+     "passed": {
+      "n": 32,
+      "wins": 1,
+      "winRate": 0.03125,
+      "expectancyR": 0.21672646829618422
+     },
+     "failed": {
+      "n": 161,
+      "wins": 12,
+      "winRate": 0.07453416149068323,
+      "expectancyR": 0.18016773050773505
+     },
+     "deltaExpectancyR": 0.036558737788449175,
+     "deltaWinRate": -0.04328416149068323,
+     "correlation": 0.022816397836579298,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "haltAgainstTrade",
+     "observed": 196,
+     "passed": {
+      "n": 25,
+      "wins": 2,
+      "winRate": 0.08,
+      "expectancyR": 0.19954730086813424
+     },
+     "failed": {
+      "n": 171,
+      "wins": 11,
+      "winRate": 0.06432748538011696,
+      "expectancyR": 0.17762342082699284
+     },
+     "deltaExpectancyR": 0.021923880041141403,
+     "deltaWinRate": 0.015672514619883046,
+     "correlation": 0.012272533874803294,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "filledGapAgrees",
+     "observed": 74,
+     "passed": {
+      "n": 32,
+      "wins": 2,
+      "winRate": 0.0625,
+      "expectancyR": 0.1251569196826131
+     },
+     "failed": {
+      "n": 42,
+      "wins": 3,
+      "winRate": 0.07142857142857142,
+      "expectancyR": 0.10463372586448484
+     },
+     "deltaExpectancyR": 0.02052319381812827,
+     "deltaWinRate": -0.008928571428571425,
+     "correlation": 0.017247024812003037,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "seasonalCountActive",
+     "observed": 196,
+     "passed": {
+      "n": 46,
+      "wins": 1,
+      "winRate": 0.021739130434782608,
+      "expectancyR": 0.17337891048136003
+     },
+     "failed": {
+      "n": 150,
+      "wins": 12,
+      "winRate": 0.08,
+      "expectancyR": 0.18257905067317717
+     },
+     "deltaExpectancyR": -0.009200140191817141,
+     "deltaWinRate": -0.058260869565217394,
+     "correlation": -0.006542861894917254,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "seasonalCountMajor",
+     "observed": 196,
+     "passed": {
+      "n": 46,
+      "wins": 1,
+      "winRate": 0.021739130434782608,
+      "expectancyR": 0.17337891048136003
+     },
+     "failed": {
+      "n": 150,
+      "wins": 12,
+      "winRate": 0.08,
+      "expectancyR": 0.18257905067317717
+     },
+     "deltaExpectancyR": -0.009200140191817141,
+     "deltaWinRate": -0.058260869565217394,
+     "correlation": -0.006542861894917254,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "roundNumberAhead",
+     "observed": 196,
+     "passed": {
+      "n": 39,
+      "wins": 2,
+      "winRate": 0.05128205128205128,
+      "expectancyR": 0.16859198512291743
+     },
+     "failed": {
+      "n": 157,
+      "wins": 11,
+      "winRate": 0.07006369426751592,
+      "expectancyR": 0.18335796218678574
+     },
+     "deltaExpectancyR": -0.014765977063868313,
+     "deltaWinRate": -0.01878164298546464,
+     "correlation": -0.009892204413347316,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "closeVsMidpointAgrees",
+     "observed": 196,
+     "passed": {
+      "n": 126,
+      "wins": 7,
+      "winRate": 0.05555555555555555,
+      "expectancyR": 0.1716977290073172
+     },
+     "failed": {
+      "n": 70,
+      "wins": 6,
+      "winRate": 0.08571428571428572,
+      "expectancyR": 0.19611962325995952
+     },
+     "deltaExpectancyR": -0.024421894252642323,
+     "deltaWinRate": -0.030158730158730163,
+     "correlation": -0.019636424035976652,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "earlyLeaderInTradeDirection",
+     "observed": 196,
+     "passed": {
+      "n": 138,
+      "wins": 8,
+      "winRate": 0.057971014492753624,
+      "expectancyR": 0.1728600239391957
+     },
+     "failed": {
+      "n": 58,
+      "wins": 5,
+      "winRate": 0.08620689655172414,
+      "expectancyR": 0.19840696861224366
+     },
+     "deltaExpectancyR": -0.025546944673047967,
+     "deltaWinRate": -0.02823588205897052,
+     "correlation": -0.019567767084018445,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "onAlternationTurnDay",
+     "observed": 196,
+     "passed": {
+      "n": 78,
+      "wins": 4,
+      "winRate": 0.05128205128205128,
+      "expectancyR": 0.15750743192024988
+     },
+     "failed": {
+      "n": 118,
+      "wins": 9,
+      "winRate": 0.07627118644067797,
+      "expectancyR": 0.19556532028253934
+     },
+     "deltaExpectancyR": -0.03805788836228946,
+     "deltaWinRate": -0.02498913515862669,
+     "correlation": -0.03125948046286621,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "ruleOfThreeWeeklyAgrees",
+     "observed": 196,
+     "passed": {
+      "n": 64,
+      "wins": 4,
+      "winRate": 0.0625,
+      "expectancyR": 0.15251477497440513
+     },
+     "failed": {
+      "n": 132,
+      "wins": 9,
+      "winRate": 0.06818181818181818,
+      "expectancyR": 0.1939495597330091
+     },
+     "deltaExpectancyR": -0.04143478475860396,
+     "deltaWinRate": -0.005681818181818177,
+     "correlation": -0.03260549535942745,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "withWeeklyTrend",
+     "observed": 196,
+     "passed": {
+      "n": 109,
+      "wins": 11,
+      "winRate": 0.10091743119266056,
+      "expectancyR": 0.16017250062651853
+     },
+     "failed": {
+      "n": 87,
+      "wins": 2,
+      "winRate": 0.022988505747126436,
+      "expectancyR": 0.20578718292906456
+     },
+     "deltaExpectancyR": -0.045614682302546034,
+     "deltaWinRate": 0.07792892544553412,
+     "correlation": -0.038029997125156326,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "yearFractionActive",
+     "observed": 196,
+     "passed": {
+      "n": 130,
+      "wins": 9,
+      "winRate": 0.06923076923076923,
+      "expectancyR": 0.16366845999180868
+     },
+     "failed": {
+      "n": 66,
+      "wins": 4,
+      "winRate": 0.06060606060606061,
+      "expectancyR": 0.21341496491187883
+     },
+     "deltaExpectancyR": -0.049746504920070156,
+     "deltaWinRate": 0.008624708624708627,
+     "correlation": -0.03945072423418079,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "multipleTopCrossedWithTrade",
+     "observed": 196,
+     "passed": {
+      "n": 59,
+      "wins": 7,
+      "winRate": 0.11864406779661017,
+      "expectancyR": 0.1258439049705216
+     },
+     "failed": {
+      "n": 137,
+      "wins": 6,
+      "winRate": 0.043795620437956206,
+      "expectancyR": 0.20392333642232374
+     },
+     "deltaExpectancyR": -0.07807943145180216,
+     "deltaWinRate": 0.07484844735865397,
+     "correlation": -0.060099615642638694,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "ruleOfThreeMonthlyAgrees",
+     "observed": 196,
+     "passed": {
+      "n": 34,
+      "wins": 5,
+      "winRate": 0.14705882352941177,
+      "expectancyR": 0.08092617042214856
+     },
+     "failed": {
+      "n": 162,
+      "wins": 8,
+      "winRate": 0.04938271604938271,
+      "expectancyR": 0.20130122030102515
+     },
+     "deltaExpectancyR": -0.1203750498788766,
+     "deltaWinRate": 0.09767610748002906,
+     "correlation": -0.07648604571917636,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "counterMoveNormal",
+     "observed": 196,
+     "passed": {
+      "n": 47,
+      "wins": 1,
+      "winRate": 0.02127659574468085,
+      "expectancyR": 0.050364393994405884
+     },
+     "failed": {
+      "n": 149,
+      "wins": 12,
+      "winRate": 0.08053691275167785,
+      "expectancyR": 0.22144403332471183
+     },
+     "deltaExpectancyR": -0.17107963933030595,
+     "deltaWinRate": -0.05926031700699699,
+     "correlation": -0.12257140153803282,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "lateSection",
+     "observed": 196,
+     "passed": {
+      "n": 97,
+      "wins": 8,
+      "winRate": 0.08247422680412371,
+      "expectancyR": 0.08292241886967402
+     },
+     "failed": {
+      "n": 99,
+      "wins": 5,
+      "winRate": 0.050505050505050504,
+      "expectancyR": 0.2759476045733409
+     },
+     "deltaExpectancyR": -0.19302518570366686,
+     "deltaWinRate": 0.031969176299073206,
+     "correlation": -0.16194450121973555,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "zoneEarlyInTradeDirection",
+     "observed": 196,
+     "passed": {
+      "n": 12,
+      "wins": 4,
+      "winRate": 0.3333333333333333,
+      "expectancyR": -0.010629443701040528
+     },
+     "failed": {
+      "n": 184,
+      "wins": 9,
+      "winRate": 0.04891304347826087,
+      "expectancyR": 0.1928795696061501
+     },
+     "deltaExpectancyR": -0.20350901330719062,
+     "deltaWinRate": 0.28442028985507245,
+     "correlation": -0.08187134894521206,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "dayCountBandActive",
+     "observed": 196,
+     "passed": {
+      "n": 176,
+      "wins": 11,
+      "winRate": 0.0625,
+      "expectancyR": 0.1555558704807469
+     },
+     "failed": {
+      "n": 20,
+      "wins": 2,
+      "winRate": 0.1,
+      "expectancyR": 0.39922271392538383
+     },
+     "deltaExpectancyR": -0.24366684344463693,
+     "deltaWinRate": -0.037500000000000006,
+     "correlation": -0.12377032516970632,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "onTimeBalanceDate",
+     "observed": 196,
+     "passed": {
+      "n": 20,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": -0.10411785256997483
+     },
+     "failed": {
+      "n": 176,
+      "wins": 13,
+      "winRate": 0.07386363636363637,
+      "expectancyR": 0.21275366212794677
+     },
+     "deltaExpectancyR": -0.31687151469792163,
+     "deltaWinRate": -0.07386363636363637,
+     "correlation": -0.16095456343895242,
+     "verdict": "informative"
+    },
+    {
+     "criterion": "reactionInThirdWeek",
+     "observed": 10,
+     "passed": {
+      "n": 1,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": 1.0438771948293706
+     },
+     "failed": {
+      "n": 9,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": -0.12468898231899339
+     },
+     "deltaExpectancyR": 1.168566177148364,
+     "deltaWinRate": 0,
+     "correlation": 0.5997706177228763,
+     "verdict": "insufficient"
+    },
+    {
+     "criterion": "reactionAbnormalLength",
+     "observed": 196,
+     "passed": {
+      "n": 6,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": 0.43374167125983654
+     },
+     "failed": {
+      "n": 190,
+      "wins": 13,
+      "winRate": 0.06842105263157895,
+      "expectancyR": 0.17242019713452694
+     },
+     "deltaExpectancyR": 0.2613214741253096,
+     "deltaWinRate": -0.06842105263157895,
+     "correlation": 0.07553987953868195,
+     "verdict": "insufficient"
+    },
+    {
+     "criterion": "counterMoveBeyondFirstMonth",
+     "observed": 196,
+     "passed": {
+      "n": 5,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": 0.3993086738976681
+     },
+     "failed": {
+      "n": 191,
+      "wins": 13,
+      "winRate": 0.06806282722513089,
+      "expectancyR": 0.17468975975722925
+     },
+     "deltaExpectancyR": 0.22461891414043886,
+     "deltaWinRate": -0.06806282722513089,
+     "correlation": 0.05942877415404285,
+     "verdict": "insufficient"
+    },
+    {
+     "criterion": "sharesPerPointTopAgainst",
+     "observed": 23,
+     "passed": {
+      "n": 1,
+      "wins": 1,
+      "winRate": 1,
+      "expectancyR": 0.20316210849706118
+     },
+     "failed": {
+      "n": 22,
+      "wins": 2,
+      "winRate": 0.09090909090909091,
+      "expectancyR": 0.0573804748142184
+     },
+     "deltaExpectancyR": 0.14578163368284278,
+     "deltaWinRate": 0.9090909090909091,
+     "correlation": 0.06282784959001299,
+     "verdict": "insufficient"
+    },
+    {
+     "criterion": "longAccumulationBreakoutWithTrade",
+     "observed": 196,
+     "passed": {
+      "n": 6,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": 0.25347938226150885
+     },
+     "failed": {
+      "n": 190,
+      "wins": 13,
+      "winRate": 0.06842105263157895,
+      "expectancyR": 0.17811269047131617
+     },
+     "deltaExpectancyR": 0.07536669179019267,
+     "deltaWinRate": -0.06842105263157895,
+     "correlation": 0.02178615759809359,
+     "verdict": "insufficient"
+    },
+    {
+     "criterion": "thirdTestFailedAgainstTrade",
+     "observed": 196,
+     "passed": {
+      "n": 3,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": 0.19068038407033394
+     },
+     "failed": {
+      "n": 193,
+      "wins": 13,
+      "winRate": 0.06735751295336788,
+      "expectancyR": 0.18026034368346178
+     },
+     "deltaExpectancyR": 0.010420040386872165,
+     "deltaWinRate": -0.06735751295336788,
+     "correlation": 0.0021466312479139294,
+     "verdict": "insufficient"
+    },
+    {
+     "criterion": "culminationGapsInTradeDirection",
+     "observed": 115,
+     "passed": {
+      "n": 7,
+      "wins": 2,
+      "winRate": 0.2857142857142857,
+      "expectancyR": 0.09805789750062635
+     },
+     "failed": {
+      "n": 108,
+      "wins": 7,
+      "winRate": 0.06481481481481481,
+      "expectancyR": 0.13900671968207362
+     },
+     "deltaExpectancyR": -0.04094882218144727,
+     "deltaWinRate": 0.22089947089947087,
+     "correlation": -0.016567622489225227,
+     "verdict": "insufficient"
+    },
+    {
+     "criterion": "reactionInTwoToThreeWeekZone",
+     "observed": 10,
+     "passed": {
+      "n": 7,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": -0.022951544312903614
+     },
+     "failed": {
+      "n": 3,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": 0.02744572138291845
+     },
+     "deltaExpectancyR": -0.05039726569582206,
+     "deltaWinRate": 0,
+     "correlation": -0.039511838798067384,
+     "verdict": "insufficient"
+    },
+    {
+     "criterion": "zoneExtremeAgainstTrade",
+     "observed": 196,
+     "passed": {
+      "n": 5,
+      "wins": 1,
+      "winRate": 0.2,
+      "expectancyR": 0.04869787394054921
+     },
+     "failed": {
+      "n": 191,
+      "wins": 12,
+      "winRate": 0.06282722513089005,
+      "expectancyR": 0.183868052949824
+     },
+     "deltaExpectancyR": -0.1351701790092748,
+     "deltaWinRate": 0.13717277486910995,
+     "correlation": -0.03576278547799074,
+     "verdict": "insufficient"
+    },
+    {
+     "criterion": "exhaustGapAgrees",
+     "observed": 2,
+     "passed": {
+      "n": 1,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": -0.5480256913390196
+     },
+     "failed": {
+      "n": 1,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": -0.4110915022677947
+     },
+     "deltaExpectancyR": -0.1369341890712249,
+     "deltaWinRate": 0,
+     "correlation": -1,
+     "verdict": "insufficient"
+    },
+    {
+     "criterion": "square144Convergence",
+     "observed": 195,
+     "passed": {
+      "n": 3,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": 0.030308727032233935
+     },
+     "failed": {
+      "n": 192,
+      "wins": 13,
+      "winRate": 0.06770833333333333,
+      "expectancyR": 0.18185229549233775
+     },
+     "deltaExpectancyR": -0.1515435684601038,
+     "deltaWinRate": -0.06770833333333333,
+     "correlation": -0.031225156628981173,
+     "verdict": "insufficient"
+    },
+    {
+     "criterion": "lateMoverLong",
+     "observed": 21,
+     "passed": {
+      "n": 5,
+      "wins": 3,
+      "winRate": 0.6,
+      "expectancyR": -0.18858160820579012
+     },
+     "failed": {
+      "n": 16,
+      "wins": 2,
+      "winRate": 0.125,
+      "expectancyR": -0.027797872405194584
+     },
+     "deltaExpectancyR": -0.16078373580059555,
+     "deltaWinRate": 0.475,
+     "correlation": -0.15233776320348494,
+     "verdict": "insufficient"
+    },
+    {
+     "criterion": "zoneFirstSignOfEnd",
+     "observed": 196,
+     "passed": {
+      "n": 6,
+      "wins": 1,
+      "winRate": 0.16666666666666666,
+      "expectancyR": -0.10714299198448757
+     },
+     "failed": {
+      "n": 190,
+      "wins": 12,
+      "winRate": 0.06315789473684211,
+      "expectancyR": 0.18950076544750552
+     },
+     "deltaExpectancyR": -0.2966437574319931,
+     "deltaWinRate": 0.10350877192982455,
+     "correlation": -0.08575044885736975,
+     "verdict": "insufficient"
+    },
+    {
+     "criterion": "nearMajorPercentLevel",
+     "observed": 196,
+     "passed": {
+      "n": 3,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": -0.27567276845847855
+     },
+     "failed": {
+      "n": 193,
+      "wins": 13,
+      "winRate": 0.06735751295336788,
+      "expectancyR": 0.18750935641707026
+     },
+     "deltaExpectancyR": -0.4631821248755488,
+     "deltaWinRate": -0.06735751295336788,
+     "correlation": -0.09542009299557805,
+     "verdict": "insufficient"
+    },
+    {
+     "criterion": "zoneExtremeInTradeDirection",
+     "observed": 196,
+     "passed": {
+      "n": 5,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": -0.2967426341421327
+     },
+     "failed": {
+      "n": 191,
+      "wins": 13,
+      "winRate": 0.06806282722513089,
+      "expectancyR": 0.19291099818759053
+     },
+     "deltaExpectancyR": -0.48965363232972325,
+     "deltaWinRate": -0.06806282722513089,
+     "correlation": -0.12955060013884648,
+     "verdict": "insufficient"
+    },
+    {
+     "criterion": "reverseSignalAgrees",
+     "observed": 15,
+     "passed": {
+      "n": 2,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": -0.2775915203784695
+     },
+     "failed": {
+      "n": 13,
+      "wins": 3,
+      "winRate": 0.23076923076923078,
+      "expectancyR": 0.2954577878669595
+     },
+     "deltaExpectancyR": -0.573049308245429,
+     "deltaWinRate": -0.23076923076923078,
+     "correlation": -0.38826897977213826,
+     "verdict": "insufficient"
+    },
+    {
+     "criterion": "tightTimeProjection",
+     "observed": 196,
+     "passed": {
+      "n": 0,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": 0
+     },
+     "failed": {
+      "n": 196,
+      "wins": 13,
+      "winRate": 0.0663265306122449,
+      "expectancyR": 0.18041983409754656
+     },
+     "verdict": "constant"
+    },
+    {
+     "criterion": "macroMajorCycleActive",
+     "observed": 196,
+     "passed": {
+      "n": 0,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": 0
+     },
+     "failed": {
+      "n": 196,
+      "wins": 13,
+      "winRate": 0.0663265306122449,
+      "expectancyR": 0.18041983409754656
+     },
+     "verdict": "constant"
+    },
+    {
+     "criterion": "macroMajorCycleWithTrade",
+     "observed": 196,
+     "passed": {
+      "n": 0,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": 0
+     },
+     "failed": {
+      "n": 196,
+      "wins": 13,
+      "winRate": 0.0663265306122449,
+      "expectancyR": 0.18041983409754656
+     },
+     "verdict": "constant"
+    },
+    {
+     "criterion": "sharesPerPointTopWith",
+     "observed": 23,
+     "passed": {
+      "n": 0,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": 0
+     },
+     "failed": {
+      "n": 23,
+      "wins": 3,
+      "winRate": 0.13043478260869565,
+      "expectancyR": 0.06371880671347242
+     },
+     "verdict": "constant"
+    },
+    {
+     "criterion": "firstYearHighCrossed",
+     "observed": 2,
+     "passed": {
+      "n": 2,
+      "wins": 1,
+      "winRate": 0.5,
+      "expectancyR": -0.09629150415474325
+     },
+     "failed": {
+      "n": 0,
+      "wins": 0,
+      "winRate": 0,
+      "expectancyR": 0
+     },
+     "verdict": "constant"
+    }
+   ]
+  }
+ },
+ "byYear": {
+  "2026": {
+   "trades": 392,
+   "winRate": 0.07908163265306123,
+   "expectancyR": 0.07503679438440639,
+   "totalR": 29.414423398687305,
+   "profitable": true,
+   "required": {
+    "sampleSize": 392,
+    "avgWinR": 0.30654004336995205,
+    "medianWinR": 0.2260072733249796,
+    "avgLossR": -0.5937007327790637,
+    "medianLossR": -0.5480256913390196,
+    "maxLossR": -1.565600899526191,
+    "profitFactor": 0.12804756093174383,
+    "maxDrawdownR": 17.299977452991385,
+    "avgBarsHeld": 163.5969387755102,
+    "medianBarsHeld": 180
+   }
+  }
+ },
+ "executeByYear": {
+  "2026": {
+   "trades": 49,
+   "winRate": 0.14285714285714285,
+   "expectancyR": 0.09971813575989105,
+   "totalR": 4.886188652234662,
+   "profitable": true,
+   "required": {
+    "sampleSize": 49,
+    "avgWinR": 0.23705401568396836,
+    "medianWinR": 0.1871864318470701,
+    "avgLossR": -0.7542314345641739,
+    "medianLossR": -0.9693710238079655,
+    "maxLossR": -1.0784591855670753,
+    "profitFactor": 0.16923780173314246,
+    "maxDrawdownR": 4.4617128797988075,
+    "avgBarsHeld": 162.46938775510205,
+    "medianBarsHeld": 184
+   }
+  }
+ },
+ "atrBands": [
+  {
+   "from": 0,
+   "to": 0.5,
+   "trades": 0,
+   "winRate": 0,
+   "expectancyR": 0
+  },
+  {
+   "from": 0.5,
+   "to": 1,
+   "trades": 0,
+   "winRate": 0,
+   "expectancyR": 0
+  },
+  {
+   "from": 1,
+   "to": 1.5,
+   "trades": 0,
+   "winRate": 0,
+   "expectancyR": 0
+  },
+  {
+   "from": 1.5,
+   "to": 2,
+   "trades": 1,
+   "winRate": 0,
+   "expectancyR": -0.7275122803500085
+  },
+  {
+   "from": 2,
+   "to": 2.5,
+   "trades": 0,
+   "winRate": 0,
+   "expectancyR": 0
+  },
+  {
+   "from": 2.5,
+   "to": null,
+   "trades": 391,
+   "winRate": 0.0792838874680307,
+   "expectancyR": 0.07708934956275527
+  }
+ ],
+ "strategyVersion": "2026-09-28-gann-first-days",
+ "generatedAt": "2026-09-28T12:08:55.557Z"
+}
