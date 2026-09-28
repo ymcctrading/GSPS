@@ -276,8 +276,8 @@ export const TOUR_STEPS: TourStep[] = [
     anchor: "automation-deployments",
     body: [
       "Knowing when to sell is harder than knowing when to buy, so GSPS divides the exit into stages.",
-      "The bulk of a position sells at the first profit target. A further slice sells at the second. A small remainder stays open in case the price keeps climbing.",
-      "That remainder sits behind a trailing stop \u2014 a sell price that climbs with the market and never retreats. Once a trade is far enough ahead, a reversal cannot turn the gain back into a loss.",
+      "The bulk of a position sells at the first profit target. The rest stays open while the trend holds, with no fixed final target.",
+      "Its stop climbs under each higher bottom the market makes and never retreats. Once the trade has gained as much as it risked, the stop sits at the entry, so a reversal cannot turn it into a loss. The rest is sold when the trend changes.",
       "Exact share counts appear on the ticket before you approve anything.",
     ],
   },

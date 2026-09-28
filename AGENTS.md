@@ -1301,6 +1301,17 @@ satisfy the rules this section states: opt-in, one-at-a-time, never
 touching the Gann verdict, tier-gated and server-resolved only, and clearly
 labeled.
 
+## Forward-looking claims — standing direction (2026-09-28, project owner)
+
+Forward-looking claims (a dated window, a projected turn) are allowed **when
+verified by documentation**: the Gann source, the method that produced it, and
+its measured record (a backtest or a forward test such as the F4 calendar
+test) are written down and linked where the claim is shown. An undocumented
+projection stays out. The owner cites a forward test from a former session
+that projected a 2027–2029 window from Gann's own model; the module behind it,
+`lib/gann/macroCycle.ts`, is on the unmerged branch `claude/stoic-brown-p296wd`.
+This does not relax the rule against performance claims or guarantees.
+
 ## Three-question mandate — the lens work is reasoned through, every session
 
 Project owner direction, 2026-09-23, standing indefinitely; clarified

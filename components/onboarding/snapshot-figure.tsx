@@ -204,7 +204,7 @@ function PlanLevels() {
     { label: "Entry", value: SNAPSHOT_PLAN.entry, tone: "accent", plain: "where the trade starts" },
     { label: "Stop loss", value: SNAPSHOT_PLAN.stopLoss, tone: "bear", plain: "where you get out if it goes wrong" },
     { label: "First target", value: SNAPSHOT_PLAN.takeProfit1, tone: "bull", plain: "where most of it is sold" },
-    { label: "Second target", value: SNAPSHOT_PLAN.masterProfit, tone: "bull", plain: "where more comes off" },
+    { label: "Next level", value: SNAPSHOT_PLAN.masterProfit, tone: "bull", plain: "the next level above, where the move may stall" },
   ] as const;
 
   return (

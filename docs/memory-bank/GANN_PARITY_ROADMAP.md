@@ -157,7 +157,7 @@ Each row gives the rule and its source, what GSPS does now, the status, and the 
 | Seven Zones of Activity | A02 Ch. XI | **Built 2026-09-28:** `sevenZones.ts` reads the zone from behaviour (the chapter gives no price boundaries): direction, activity against the stock's own year, gaps, the zone-3 first sign of the end; card, trace, four measured factors; Academy 6 lesson | Aligned (context, measuring) | Decide on the next full run |
 | Early and late leaders; first-year-high filter; stocks that bottom first top first | A04 Ch. VII | **Built 2026-09-28:** `leadership.ts`: bottomed or topped before/after the market (SPY), and the first-year high | Aligned (context, measuring) | Decide on the next full run |
 | Never buy one stock to follow another in its group | A04 Ch. VII | stock-own trend | Aligned | — |
-| Dated forecasts are testimony, never performance claims | all | banned-terms rule | Partial | Keep the 1929/1940 record as a teaching example of why GSPS measures |
+| Dated forecasts: allowed when verified by documentation (owner, 2026-09-28) | all | A forward-looking window may be shown when its source, method and measured record are documented (e.g. the macro-cycle projection from Gann's cited Dow turns, `lib/gann/macroCycle.ts` on branch `claude/stoic-brown-p296wd`, and the F4 calendar test) | Partial | Bring `macroCycle.ts` onto this branch and show its documented windows with their record. **Owner** (the module is on an unmerged branch) |
 
 ### 3.8 Astrology, numerology and forecasting
 
