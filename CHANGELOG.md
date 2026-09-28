@@ -9,6 +9,15 @@ date.
 
 ## 2026-09-26
 
+### Added
+- **Macro time-cycle context in the confluence card** (`lib/gann/macroCycle.ts`).
+  Gann's 60-to-1-year cycle hierarchy (A2.1 Ch. 7), run from his own cited
+  DJIA turns (1896, 1897, 1907, 1909, 1929) rather than a single stock's
+  chart. It recurs by anniversary month and reports which cycle lengths
+  converge, plus the next major window (e.g. September 2029: the 1909 top
+  +120 years and the 1929 top +100 years). Labeled a hypothesis, the same
+  for every symbol on a given date, and never scored or gating.
+
 ### Fixed
 - **The backtest replay now covers continuation setups and short history.**
   It arms continuations the way the market scan's continuation pass does,
