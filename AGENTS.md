@@ -143,7 +143,17 @@ through `splitAdjustedSharesAsOf`, never raw.
 +0.190R overall. The 6/3.5 cutoffs hold. Gann's exits raise the population
 figure but lower Execute, and the gain rests on trades still open at the
 10-session limit, so **the live exit manager stays on the bracket** until a
-longer-horizon run settles it.
+longer-horizon run settles it. **Superseded 2026-09-28 by the owner ("switch
+on Gann's exits"):** live and paper positions now exit on Gann's rules with
+60% still taken at TP1 (`LIVE_EXIT_RULE`, `lib/trade/protocol-exit.ts`;
+measured as `exitRule: "gann-runner"`, not yet run).
+**Six-year one-hour run, 2026-09-28** (same notes file, runs 12 and 13): every
+cell loses over 2020-2026, interval wholly below zero, both halves; Execute
+is worse than Watch (−0.090 stop, −0.123 confirmed, −0.164 Gann exits). The
+positive 15-minute results cover only two months. Treat the verdict's edge as
+unproven across regimes, presume a translation defect first, and start from
+that run's factor tables (`historicalSR`, and `ruleOfThree`/`swingChartTrend`
+under confirmation, invert). Held for the owner.
 **Stage E, 2026-09-28:** Gann's series-of-losses rule runs on every placement
 path (`lib/risk/lossSeries.ts`: three losses in a row pause new entries for
 that day and the next; protective orders never blocked). School gained an
