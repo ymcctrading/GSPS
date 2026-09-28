@@ -24,6 +24,16 @@
  * about. A `scan_results` fallback is kept only for a monitor row written
  * before this migration, whose new columns are still null.
  *
+ * Only a scored Execute verdict qualifies (project owner, 2026-09-28). An
+ * intraday-alert check also moves monitors to EXECUTE, without a score, so
+ * the monitor's `state` alone put symbols whose scored verdict was Watch or
+ * Reject on this card with a score of 0. The verdict (`output_state`) is
+ * what "reads Execute" means here.
+ *
+ * `executeScore` is the score when the monitor entered EXECUTE (migration
+ * 0085), shown against the current `score` the way saved setups show "score
+ * when saved -> score now". Null for a monitor that entered before 0085.
+ *
  * Same "never rescan" discipline as scan-history's read: this is a live
  * read of `active_monitors`, never a fresh scan — so it can disagree with a
  * truly live rescan the way scan-history's "now" already can, but never
@@ -31,12 +41,29 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { ScanRow } from "@/components/scan/results-table";
+
+export interface TrackedExecuteRow {
+  symbol: string;
+  direction: string;
+  patternName: string | null;
+  /** The live scored read. */
+  score: number;
+  outputState: string;
+  /** The read when this monitor entered EXECUTE; null when not recorded. */
+  executeScore: number | null;
+  executeOutputState: string | null;
+  entry: number;
+  stopLoss: number | null;
+  takeProfit1: number | null;
+  masterProfit: number | null;
+}
 
 interface OpenExecuteMonitor {
   symbol: string;
   score: number | null;
   output_state: string | null;
+  execute_score: number | null;
+  execute_output_state: string | null;
   direction: string | null;
   entry: number | null;
   stop_loss: number | null;
@@ -48,10 +75,12 @@ interface OpenExecuteMonitor {
 export async function getTrackedExecuteSetups(
   supabase: SupabaseClient,
   profileId: string,
-): Promise<ScanRow[]> {
+): Promise<TrackedExecuteRow[]> {
   const { data: monitors } = await supabase
     .from("active_monitors")
-    .select("symbol, score, output_state, direction, entry, stop_loss, take_profit_1, master_profit, pattern_name")
+    .select(
+      "symbol, score, output_state, execute_score, execute_output_state, direction, entry, stop_loss, take_profit_1, master_profit, pattern_name",
+    )
     .eq("profile_id", profileId)
     .eq("state", "EXECUTE");
 
@@ -60,7 +89,7 @@ export async function getTrackedExecuteSetups(
 
   // Rows carrying every new-schema field can be served without the
   // scan_results fallback at all.
-  const needsFallback = rows.filter((r) => r.direction == null || r.entry == null);
+  const needsFallback = rows.filter((r) => r.direction == null || r.entry == null || r.output_state == null);
   const fallbackBySymbol = await loadScanResultsFallback(
     supabase,
     profileId,
@@ -68,24 +97,28 @@ export async function getTrackedExecuteSetups(
   );
 
   return rows
-    .map((row) => {
+    .map((row): TrackedExecuteRow | null => {
       const fallback = fallbackBySymbol.get(row.symbol) ?? null;
       const direction = row.direction ?? fallback?.direction ?? null;
       const entry = row.entry ?? fallback?.entry ?? null;
-      if (direction == null || entry == null) return null;
+      const outputState = row.output_state ?? fallback?.output_state ?? null;
+      const score = row.score ?? fallback?.score ?? null;
+      if (direction == null || entry == null || outputState !== "Execute" || score == null) return null;
       return {
         symbol: row.symbol,
-        score: row.score ?? fallback?.score ?? 0,
-        outputState: row.output_state ?? fallback?.output_state ?? "Watch",
         direction,
+        patternName: row.pattern_name ?? null,
+        score,
+        outputState,
+        executeScore: row.execute_score,
+        executeOutputState: row.execute_output_state,
         entry,
         stopLoss: row.stop_loss ?? fallback?.stop_loss ?? null,
         takeProfit1: row.take_profit_1 ?? fallback?.take_profit_1 ?? null,
         masterProfit: row.master_profit ?? fallback?.master_profit ?? null,
-        patternName: row.pattern_name ?? null,
       };
     })
-    .filter((row): row is NonNullable<typeof row> => row != null)
+    .filter((row): row is TrackedExecuteRow => row != null)
     .sort((a, b) => b.score - a.score);
 }
 

@@ -57,7 +57,9 @@ export async function evaluateMonitor(
      * The 9-point scorecard score behind `candidateState`, when this
      * evaluation came from that scorecard. Null for sources scored by a
      * different engine entirely (e.g. intraday's Signal & Regime Engine) —
-     * there's no comparable number to store, not a missing one.
+     * there's no comparable number to store, not a missing one. Omit it to
+     * leave an existing row's stored score untouched (same convention as
+     * `levels` below); only a scored evaluation replaces it.
      */
     score?: number | null;
     /**
@@ -98,7 +100,7 @@ export async function evaluateMonitor(
   // recently evaluated monitor for this symbol".
   const { data: existing } = await service
     .from("active_monitors")
-    .select("id, state, last_evaluated_at")
+    .select("id, state, last_evaluated_at, execute_score")
     .eq("profile_id", args.profileId)
     .eq("symbol", symbol)
     .order("created_at", { ascending: false })
@@ -165,6 +167,22 @@ export async function evaluateMonitor(
       }
     : {};
 
+  // "Score then" for the Home dashboard's tracked Execute card (migration
+  // 0085): recorded when a scored evaluation brings the monitor into EXECUTE,
+  // or finds it there with nothing recorded yet (an unscored source such as an
+  // intraday check put it there first). Left alone on every later refresh.
+  const enteringExecute =
+    args.candidateState === "EXECUTE" &&
+    args.score != null &&
+    (priorState !== "EXECUTE" || existing?.execute_score == null);
+  const executeColumns = enteringExecute
+    ? { execute_score: args.score, execute_output_state: args.levels?.outputState ?? null }
+    : {};
+  // An evaluation that carries no score (`score` omitted) leaves the stored
+  // one alone. Writing null here is what blanked the tracked Execute card's
+  // scores whenever an intraday check re-touched a monitor.
+  const scoreColumns = args.score !== undefined ? { score: args.score } : {};
+
   let monitorId: string;
   if (decision.isNewMonitor) {
     const { data: inserted, error } = await service
@@ -178,6 +196,7 @@ export async function evaluateMonitor(
         last_evaluated_at: now.toISOString(),
         expires_at: args.expiresAt ?? null,
         ...levelsColumns,
+        ...executeColumns,
       })
       .select("id")
       .single();
@@ -195,7 +214,7 @@ export async function evaluateMonitor(
       .from("active_monitors")
       .update({
         state: args.candidateState,
-        score: args.score ?? null,
+        ...scoreColumns,
         last_evaluated_at: now.toISOString(),
         // A successful apply clears any suppression left over from an
         // earlier cooldown/stale-evaluation skip -- that record described a
@@ -203,6 +222,7 @@ export async function evaluateMonitor(
         last_suppressed_reason: null,
         last_suppressed_at: null,
         ...levelsColumns,
+        ...executeColumns,
       })
       .eq("id", monitorId);
   }

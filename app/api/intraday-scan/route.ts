@@ -574,13 +574,25 @@ async function applyMonitorsForUser(
     if (!bySymbol.has(alert.symbol)) bySymbol.set(alert.symbol, alert);
   }
 
+  // An intraday alert is not a scored Execute verdict, so it only ever opens
+  // a WATCH monitor for a symbol with none open, and never touches one that
+  // is. Marking alert symbols EXECUTE put Watch/Reject setups on Home's
+  // tracked Execute card with no score (project owner, 2026-09-28).
+  const { data: openMonitors } = await service
+    .from("active_monitors")
+    .select("symbol")
+    .eq("profile_id", profileId)
+    .in("state", ["WATCH", "EXECUTE"]);
+  const alreadyOpen = new Set((openMonitors ?? []).map((m) => String(m.symbol).toUpperCase()));
+
   for (const alert of bySymbol.values()) {
+    if (alreadyOpen.has(alert.symbol.toUpperCase())) continue;
     try {
       await evaluateMonitor(service, {
         profileId,
         symbol: alert.symbol,
         source: "intraday",
-        candidateState: "EXECUTE",
+        candidateState: "WATCH",
         evaluationId: execution.id as string,
         maxActiveWatchMonitors,
       });

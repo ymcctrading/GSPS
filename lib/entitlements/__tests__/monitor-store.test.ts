@@ -426,4 +426,43 @@ describe("evaluateMonitor", () => {
     expect(monitors).toHaveLength(1);
     expect(monitors[0]).toMatchObject({ symbol: "SOXL", state: "WATCH" });
   });
+
+  describe("scores (migration 0085)", () => {
+    const base = { profileId: "p1", symbol: "HDB", maxActiveWatchMonitors: 15 as const };
+    const levels = (outputState: "Execute" | "Watch") => ({
+      direction: "bullish" as const,
+      entry: 23.81,
+      stopLoss: 22.69,
+      takeProfit1: 25,
+      masterProfit: 26,
+      patternName: null,
+      outputState,
+    });
+
+    it("records the score a monitor entered EXECUTE with, and keeps it while the live score moves", async () => {
+      const { client, monitors } = fakeStore();
+      await evaluateMonitor(client, { ...base, source: "manual_dashboard", candidateState: "WATCH", evaluationId: "e1", score: 5, levels: levels("Watch"), now: new Date("2026-09-28T14:00:00Z") });
+      await evaluateMonitor(client, { ...base, source: "manual_dashboard", candidateState: "EXECUTE", evaluationId: "e2", score: 7, levels: levels("Execute"), now: new Date("2026-09-28T14:05:00Z") });
+      await evaluateMonitor(client, { ...base, source: "manual_dashboard", candidateState: "EXECUTE", evaluationId: "e3", score: 6, levels: levels("Execute"), now: new Date("2026-09-28T14:10:00Z") });
+
+      expect(monitors[0]).toMatchObject({ score: 6, execute_score: 7, execute_output_state: "Execute" });
+    });
+
+    it("leaves the stored score alone when an evaluation carries none (an intraday check)", async () => {
+      const { client, monitors } = fakeStore();
+      await evaluateMonitor(client, { ...base, source: "manual_dashboard", candidateState: "EXECUTE", evaluationId: "e1", score: 7, levels: levels("Execute"), now: new Date("2026-09-28T14:00:00Z") });
+      await evaluateMonitor(client, { ...base, source: "intraday", candidateState: "EXECUTE", evaluationId: "e2", now: new Date("2026-09-28T14:05:00Z") });
+
+      expect(monitors[0]).toMatchObject({ score: 7, execute_score: 7 });
+    });
+
+    it("records the entry score when an unscored source put the monitor in EXECUTE first", async () => {
+      const { client, monitors } = fakeStore();
+      await evaluateMonitor(client, { ...base, source: "intraday", candidateState: "EXECUTE", evaluationId: "e1", now: new Date("2026-09-28T14:00:00Z") });
+      expect(monitors[0].execute_score ?? null).toBeNull();
+
+      await evaluateMonitor(client, { ...base, source: "manual_dashboard", candidateState: "EXECUTE", evaluationId: "e2", score: 6, levels: levels("Execute"), now: new Date("2026-09-28T14:05:00Z") });
+      expect(monitors[0]).toMatchObject({ score: 6, execute_score: 6 });
+    });
+  });
 });
