@@ -56,7 +56,9 @@
  * fills the pool when the actives screener comes up short. Chunking that
  * full universe and rotating one chunk into the scan per cron tick (instead
  * of only ever scanning the same actives-biased 250) means every symbol
- * gets looked at over the course of a rotation cycle, not never.
+ * gets looked at over the course of a rotation cycle, not never. Since
+ * 2026-09-26 the wheel walks `SCAN_DISCOVERY_UNIVERSE` (mega-caps plus the
+ * large-cap band), not the large-cap band alone.
  *
  * Two passes, one invocation, no schema change. Wired into
  * `app/api/market-scan/route.ts` as `extraSymbols` on `runMarketScan`

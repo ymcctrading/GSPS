@@ -2,9 +2,10 @@
  * Coordinate ledger — "GSPS Implementation Blueprint" §8.3's prior
  * daily/weekly/monthly high-low and range-fraction candidate coordinates,
  * unified into one schema-complete list. Confirmed swing high/low
- * (`lib/analysis/pivots.ts`), measured move (`lib/signals/states/*`), and
- * anchored VWAP (`lib/signals/indicators.ts`) already exist as separate
- * candidate-coordinate sources per §8.3's list — this module does not
+ * (`lib/analysis/pivots.ts`) and measured move (`lib/signals/states/*`)
+ * already exist as separate candidate-coordinate sources per §8.3's list
+ * (anchored VWAP was one too, until nothing read it after 2026-09-26, audit
+ * F2.5) — this module does not
  * duplicate them, only the two rows the traceability audit found genuinely
  * missing.
  *

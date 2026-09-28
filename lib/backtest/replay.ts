@@ -31,9 +31,10 @@
  *     `runMarketScan`'s continuation pass calls `scanTicker` with a
  *     direction. A session arms one only when that pass's own gate
  *     (`isMomentumContinuation`) could admit it: at least two of three macro
- *     timeframes agree (`macroBreadthAgrees`), momentum is elevated, and at
- *     the fill the top-ranked pattern is a continuation shape
- *     (`isContinuationShape`). The scan also requires an Execute score before
+ *     timeframes agree (`macroBreadthAgrees`), momentum is elevated, and
+ *     Gann's 3-day and 9-day swing charts both read the continuation's
+ *     direction (`swingChartsConfirm`; a STRAT continuation shape until
+ *     2026-09-26). The scan also requires an Execute score before
  *     publishing a continuation. The replay records every such trade with its
  *     score, so read continuation results from the Execute bucket
  *     (`bySetupKind` and then `byOutputState`). Filtering on score here would
@@ -62,19 +63,29 @@
  * output as an upper bound on a strategy's quality, never a promise.
  */
 
-import type { AssetClass, Bar, GannLevels, ScanDecision, SetupKind, StratPattern, Timeframe, TrendReading } from "@/lib/types";
+import type {
+  AssetClass,
+  Bar,
+  GannLevels,
+  ScanDecision,
+  SetupKind,
+  StratPattern,
+  Timeframe,
+  TradeLevels,
+  TrendReading,
+} from "@/lib/types";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { computeStopWithLeeway, computeTradeLevels, type EntrySource } from "@/lib/strat/levels";
 import {
   MIN_DAILY_BARS_FOR_SCAN,
-  isContinuationShape,
+  swingChartsConfirm,
   macroBreadthAgrees,
   preferredEntryDirection,
   rankArmedPatterns,
 } from "@/lib/scan/entrySelection";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
 import { readLiquidity } from "@/lib/scan/liquidity";
-import { applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
+import { computeScore } from "@/lib/scoring/score";
 import {
   FALLBACK_SR_PCT,
   SR_PROXIMITY_ATR,
@@ -84,7 +95,12 @@ import {
 } from "@/lib/scoring/proximity";
 import type { CriterionWeights } from "@/lib/scoring/weights";
 import { computeGannEntryTrigger, type GannEntryTrigger } from "@/lib/gann/entryTrigger";
-import { advanceEntryConfirmation, entryReady, freshEntryConfirmation } from "@/lib/lifecycle/entryConfirmation";
+import {
+  advanceEntryConfirmation,
+  entryReady,
+  freshEntryConfirmation,
+  preEntryStopBreached,
+} from "@/lib/lifecycle/entryConfirmation";
 import type { EntryConfirmationEvidence } from "@/lib/lifecycle/types";
 import { readTrend } from "@/lib/analysis/trend";
 import { countLevelTests, levelRole, type LevelRole } from "@/lib/analysis/levelRole";
@@ -101,6 +117,7 @@ import { computeTimePriceSquare, type TimePriceSquareReading } from "@/lib/gann/
 import { computeVolumeClimax, type VolumeClimaxReading } from "@/lib/gann/volumeClimax";
 import { computeBoilingPoint, type BoilingPointReading } from "@/lib/gann/boilingPoint";
 import { DEFAULT_COST_PER_SHARE_USD } from "@/lib/trade/friction";
+import { TF_INTERVAL_MS } from "@/lib/timeframe";
 
 /** 6.5 hours of 15-minute candles. */
 export const BARS_PER_SESSION = 26;
@@ -112,6 +129,75 @@ export const BARS_PER_SESSION = 26;
  * 2026-09-26.
  */
 export const MIN_DAILY_BARS_FOR_SCORE = MIN_DAILY_BARS_FOR_SCAN;
+
+/**
+ * Which stop the P&L walk checks (added 2026-09-26). Every model is priced
+ * from the trigger, never from the fill: production fixes a plan's stop when
+ * it prices the plan and sizes from `|entryTrigger - invalidation|`
+ * (`lib/automation/service.ts#deriveOrderInputFromPlan`).
+ *
+ * - `trigger`: the Gann trigger's own protective swing. The original default.
+ * - `leeway`: `computeStopWithLeeway` (an ATR leeway capped at 2.5×, or 3.5×
+ *   large-cap, the execution ATR). **Production uses it for non-equities
+ *   only.** For `us_equity`, `computeTradeLevels` never calls it (the
+ *   `assetClass === "us_equity"` branch in `lib/strat/levels.ts`). The
+ *   legacy `useProductionStop` flag selects this, so the `prodstop` cells of
+ *   the 2026-09-25 and 2026-09-26 runs measured a stop no equity plan uses.
+ * - `plan`: the stop `computeTradeLevels` prices for the live scan, called
+ *   exactly as `lib/scanTicker.ts` calls it. For equities that is the nearest
+ *   clustered support/resistance 3–15% from entry (3–20% large-cap) plus a
+ *   0.5% buffer, else a fixed 8% (12% large-cap). This is what a production
+ *   equity plan's `invalidation` is.
+ */
+export type StopModel = "trigger" | "leeway" | "plan";
+
+/**
+ * Which target the walk checks (audit F1.2, 2026-09-26).
+ *
+ * - `targetR`: `trigger ± targetR × risk`. **Not a production target**: no
+ *   production path prices one this way, and it moves with the stop, which
+ *   confounds any stop comparison. The original default.
+ * - `planTp1`: the plan's `takeProfit1` from `computeTradeLevels`, which
+ *   production attaches as the bracket's take-profit. For equities, 2× daily
+ *   ATR%, clamped to 3–15% of entry.
+ */
+export type TargetModel = "targetR" | "planTp1";
+
+/**
+ * What the confirmation state machine sees on each bar (audit F1.4).
+ *
+ * - `bar`: the full OHLC of every closed execution bar. The original
+ *   behaviour; an upper bound, since it sees wicks production cannot.
+ * - `scanPass`: what production does. `advanceEntryConfirmation` runs once
+ *   per scan pass on a flat bar at `currentPrice`
+ *   (`lib/lifecycle/advanceConfirmation.ts`), so the replay feeds a flat bar
+ *   at each closed bar's close. It still assumes the symbol is visible on
+ *   every pass, which production does not guarantee.
+ */
+export type ConfirmationCadence = "bar" | "scanPass";
+
+/**
+ * Matches `lib/lifecycle/fromScanResult.ts`'s `DEFAULT_EXPIRES_AFTER_BARS`.
+ * Production measures it on the wall clock: `expiresAt = generatedAt + bars ×
+ * TF_INTERVAL_MS`.
+ */
+export const DEFAULT_CONFIRMATION_EXPIRY_BARS = 20;
+
+/**
+ * The options that make the replay act as production does, end to end, for
+ * equities (2026-09-26): the plan's own stop and TP1, the confirmation
+ * sequence at scan-pass cadence, wall-clock expiry, and pre-entry stop
+ * invalidation (F3.7). Every one of these defaults to the older behaviour,
+ * so committed runs stay reproducible; spread this preset to opt in.
+ */
+export const PRODUCTION_HARNESS = {
+  stopModel: "plan",
+  targetModel: "planTp1",
+  entryRule: "confirmed",
+  confirmationCadence: "scanPass",
+  confirmationExpiryBars: DEFAULT_CONFIRMATION_EXPIRY_BARS,
+  invalidateOnPreEntryStop: true,
+} as const satisfies Partial<ReplayOptions>;
 
 export interface ReplayOptions {
   /** Take-profit distance as a multiple of the trade's risk. */
@@ -193,6 +279,27 @@ export interface ReplayOptions {
    * only the stop entry, so nothing measured the rule automation trades on.
    */
   entryRule?: "stop" | "confirmed";
+  /** See `StopModel`. Default: `"leeway"` when `useProductionStop` is set, else `"trigger"`. */
+  stopModel?: StopModel;
+  /** See `TargetModel`. Default `"targetR"`. */
+  targetModel?: TargetModel;
+  /** `entryRule: "confirmed"` only. See `ConfirmationCadence`. Default `"bar"`. */
+  confirmationCadence?: ConfirmationCadence;
+  /**
+   * `entryRule: "confirmed"` only. Plan lifetime, in execution bars of
+   * wall-clock time from the bar the plan opened on. Null (the default) means
+   * no expiry, the original behaviour; production uses
+   * `DEFAULT_CONFIRMATION_EXPIRY_BARS`.
+   */
+  confirmationExpiryBars?: number | null;
+  /**
+   * `entryRule: "confirmed"` only. End a waiting plan when a bar trades
+   * through its stop before confirmation, as production does since
+   * 2026-09-26 (audit F3.7, `preEntryStopBreached`). Default false.
+   */
+  invalidateOnPreEntryStop?: boolean;
+  /** Execution timeframe of `bars`, for wall-clock expiry. Default `"15Min"`. */
+  timeframe?: Timeframe;
 }
 
 export interface ReplayTrade {
@@ -256,7 +363,7 @@ export interface ReplayTrade {
    * criterion asked of two setup kinds.
    *
    * Partial by construction. Some checks are appended only in the situations
-   * that trigger them (the trade-plan hold, the bare-2-2 downgrade, the
+   * that trigger them (the trade-plan hold, the
    * decision-lag hold), so an absent key means "not evaluated on this setup",
    * never "failed". Consumers must not read absence as false — see
    * `attribution.ts`.
@@ -302,11 +409,40 @@ export interface ReplayResult {
    * were.
    */
   refusedFills: number;
+  /**
+   * The rest of the entry funnel (added 2026-09-26): setups that did not
+   * become scored trades, and how the confirmation plans ended. Populated by
+   * `replay()` and summed by `combine()`; zero on any slice `summarise()`
+   * builds from trades alone.
+   */
+  funnel: ReplayFunnel;
 }
+
+export interface ReplayFunnel {
+  /** Entries dropped as a repeat of one already taken: same direction, trigger level and fill bar (F1.5). */
+  duplicatesDropped: number;
+  /** `stopModel: "plan"` / `targetModel: "planTp1"` with no valid priced plan. Production creates no plan either. */
+  noPlan: number;
+  /** `entryRule: "confirmed"`: plans opened, and how they ended without a trade. */
+  plansCreated: number;
+  confirmed: number;
+  expired: number;
+  /** Price traded through the stop before confirmation (F3.7). */
+  invalidatedPreEntry: number;
+}
+
+export const EMPTY_FUNNEL: ReplayFunnel = {
+  duplicatesDropped: 0,
+  noPlan: 0,
+  plansCreated: 0,
+  confirmed: 0,
+  expired: 0,
+  invalidatedPreEntry: 0,
+};
 
 const EMPTY: Omit<ReplayResult, "trades"> = {
   armed: 0, triggered: 0, refusedFills: 0, wins: 0, losses: 0, timeouts: 0, ambiguous: 0,
-  winRate: 0, expectancyR: 0, totalR: 0,
+  winRate: 0, expectancyR: 0, totalR: 0, funnel: EMPTY_FUNNEL,
 };
 
 /**
@@ -500,7 +636,17 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     weights,
     useProductionStop = false,
     entryRule = "stop",
+    stopModel = useProductionStop ? "leeway" : "trigger",
+    targetModel = "targetR",
+    confirmationCadence = "bar",
+    confirmationExpiryBars = null,
+    invalidateOnPreEntryStop = false,
+    timeframe = "15Min",
   } = options;
+  const planLifetimeMs =
+    confirmationExpiryBars == null
+      ? null
+      : confirmationExpiryBars * (TF_INTERVAL_MS[timeframe] ?? 15 * 60 * 1000);
 
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
 
@@ -508,7 +654,60 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
   // Entry-confirmation evidence per armed pivot, used only when
   // `entryRule === "confirmed"`. Each pivot records the date it first armed
   // on, so no bar from before that session can count toward its confirmation.
-  const confirmation = new Map<string, { since: string; evidence: EntryConfirmationEvidence }>();
+  // The plan's bracket is fixed when the plan opens, as production fixes it
+  // when it prices the plan.
+  const confirmation = new Map<
+    string,
+    { since: string; openedAt: number; evidence: EntryConfirmationEvidence; bracket: Bracket }
+  >();
+  const funnel: ReplayFunnel = { ...EMPTY_FUNNEL };
+  // F1.5: one trade per (direction, trigger level, fill bar).
+  const takenEntries = new Set<string>();
+
+  type Bracket = { stop: number; target: number; risk: number };
+  /**
+   * Stop, target and plan risk for a trigger, by `stopModel`/`targetModel`,
+   * all priced from the trigger. Null when no valid bracket exists.
+   */
+  const bracketFor = (
+    trigger: GannEntryTrigger,
+    history: Bar[],
+    arm: SessionArm,
+  ): Bracket | "noPlan" | null => {
+    const long = trigger.direction === "bullish";
+    const dir = long ? 1 : -1;
+    const executionAtr = atr(history.slice(-30), 14);
+    let levels: TradeLevels | null = null;
+    if (stopModel === "plan" || targetModel === "planTp1") {
+      levels = priceLevels({
+        context: arm.context,
+        gannTrigger: trigger,
+        history,
+        executionAtr,
+        assetClass,
+        largeCap: arm.largeCap,
+      });
+      if (!levels) return "noPlan";
+    }
+    const stop =
+      stopModel === "plan"
+        ? levels!.stopLoss
+        : stopModel === "leeway" && executionAtr > 0
+          ? computeStopWithLeeway({
+              side: long ? "long" : "short",
+              entry: trigger.triggerPrice,
+              structuralStop: trigger.stopPrice,
+              atr15: executionAtr,
+              largeCap: arm.largeCap,
+            })
+          : trigger.stopPrice;
+    const risk = Math.abs(trigger.triggerPrice - stop);
+    if (!(risk > 0) || (long ? stop >= trigger.triggerPrice : stop <= trigger.triggerPrice)) return null;
+    const target =
+      targetModel === "planTp1" ? levels!.takeProfit1 : trigger.triggerPrice + dir * targetR * risk;
+    if (long ? target <= trigger.triggerPrice : target >= trigger.triggerPrice) return "noPlan";
+    return { stop, target, risk };
+  };
   // Counted once per session a pivot is armed on, and once per fill.
   const armedKeys = new Set<string>();
   let triggered = 0;
@@ -566,21 +765,52 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       const long = trigger.direction === "bullish";
       const dir = long ? 1 : -1;
       let fired: boolean;
+      let planBracket: Bracket | null = null;
       if (entryRule === "confirmed") {
         // Advance the confirmation state machine on the last closed bar, if
         // it belongs to a session this pivot was armed on. Once the sequence
         // completes, the entry is this candle's open.
-        const state = confirmation.get(pivotKey) ?? { since: date, evidence: freshEntryConfirmation() };
+        let state = confirmation.get(pivotKey);
+        if (!state) {
+          const opened = bracketFor(trigger, history, arm);
+          if (opened === null || opened === "noPlan") {
+            if (opened === "noPlan") funnel.noPlan++;
+            consumedPivots.add(pivotKey);
+            continue;
+          }
+          state = { since: date, openedAt: Date.parse(live.t), evidence: freshEntryConfirmation(), bracket: opened };
+          funnel.plansCreated++;
+        }
         const closed = history[history.length - 1];
         if (closed.t.slice(0, 10) >= state.since) {
+          if (planLifetimeMs !== null && Date.parse(closed.t) > state.openedAt + planLifetimeMs) {
+            funnel.expired++;
+            consumedPivots.add(pivotKey);
+            continue;
+          }
+          const seen: Bar =
+            confirmationCadence === "scanPass"
+              ? { t: closed.t, o: closed.c, h: closed.c, l: closed.c, c: closed.c, v: 0 }
+              : closed;
+          // Same order as lib/lifecycle/advanceConfirmation.ts: a breached
+          // stop ends the plan before the stages advance.
+          if (invalidateOnPreEntryStop && preEntryStopBreached(trigger.direction, state.bracket.stop, seen)) {
+            funnel.invalidatedPreEntry++;
+            consumedPivots.add(pivotKey);
+            continue;
+          }
           state.evidence = advanceEntryConfirmation(
             state.evidence,
             { direction: trigger.direction, entryTrigger: trigger.triggerPrice },
-            closed,
+            seen,
           );
         }
         confirmation.set(pivotKey, state);
         fired = entryReady(state.evidence);
+        if (fired) {
+          funnel.confirmed++;
+          planBracket = state.bracket;
+        }
       } else {
         // The trigger is a stop order: it fills only if this candle reaches it.
         fired = long ? live.h >= trigger.triggerPrice : live.l <= trigger.triggerPrice;
@@ -596,11 +826,12 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           preferredDirection: trigger.direction,
           setupKind,
         })[0] ?? null;
-      // The continuation pass publishes only a continuation shape. Without
-      // one there's no published plan and so no resting order. The pivot is
-      // not consumed, so a later bar can still fill once a shape arms, just as
-      // a later scan could publish it.
-      if (setupKind === "continuation" && !isContinuationShape(pattern)) continue;
+      // The continuation pass publishes a continuation only when Gann's 3-day
+      // and 9-day swing charts both confirm its direction. Without that there's
+      // no published plan and so no resting order. The pivot is not consumed,
+      // so a later session can still fill once the charts agree, just as a
+      // later scan could publish it.
+      if (setupKind === "continuation" && !swingChartsConfirm(arm.context.swingChart, trigger.direction)) continue;
 
       consumedPivots.add(pivotKey);
       triggered++;
@@ -616,10 +847,6 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
             : Math.min(trigger.triggerPrice, live.o);
       const { largeCap } = arm;
 
-      // The harness's original stop is the raw structural stop, untouched by
-      // the leeway or large-cap widening `computeTradeLevels` applies for the
-      // live scan and Guided Mode. `useProductionStop` swaps it for the widened
-      // one. See the option's own comment for why this distinction exists.
       // The plan's bracket is fixed when the plan is priced, from the trigger,
       // and every production path attaches it unchanged: the ticket's
       // advised entry, Guided Mode, and automation's
@@ -628,25 +855,13 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       // fixed from the trigger here too, and R is measured on that plan risk.
       // A fill that lands away from the trigger (a gap past a resting stop,
       // or a confirmed entry's market order) changes the P&L in price terms,
-      // not the bracket.
-      //
-      // The harness's original stop is the raw structural stop, untouched by
-      // the leeway or large-cap cap `computeTradeLevels` applies for the live
-      // scan and Guided Mode. `useProductionStop` swaps in the capped one,
-      // priced against the trigger as the plan prices it.
-      const stop =
-        useProductionStop && executionAtr > 0
-          ? computeStopWithLeeway({
-              side: long ? "long" : "short",
-              entry: trigger.triggerPrice,
-              structuralStop: trigger.stopPrice,
-              atr15: executionAtr,
-              largeCap,
-            })
-          : trigger.stopPrice;
-      const risk = Math.abs(trigger.triggerPrice - stop);
-      if (!(risk > 0) || (long ? stop >= trigger.triggerPrice : stop <= trigger.triggerPrice)) continue;
-      const target = trigger.triggerPrice + dir * targetR * risk;
+      // not the bracket. Which stop and target: `stopModel`/`targetModel`.
+      const priced = planBracket ?? bracketFor(trigger, history, arm);
+      if (priced === null || priced === "noPlan") {
+        if (priced === "noPlan") funnel.noPlan++;
+        continue;
+      }
+      const { stop, target, risk } = priced;
 
       // Production refuses a fill at or beyond its own stop or target
       // (`fill_outran_bracket`). The setup is spent either way.
@@ -655,6 +870,13 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         refusedFills++;
         continue;
       }
+      // F1.5: one setup, one trade.
+      const entryKey = `${trigger.direction}:${trigger.triggerPrice.toFixed(4)}:${i}`;
+      if (takenEntries.has(entryKey)) {
+        funnel.duplicatesDropped++;
+        continue;
+      }
+      takenEntries.add(entryKey);
 
       const decision = scoreSetup({
         context: arm.context,
@@ -717,7 +939,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     }
   }
 
-  return summarise(trades, armedKeys.size, triggered, refusedFills);
+  return summarise(trades, armedKeys.size, triggered, refusedFills, funnel);
 }
 
 /**
@@ -744,8 +966,14 @@ function criteriaOf(decision: ScanDecision | undefined): Record<string, boolean>
   return out;
 }
 
-export function summarise(trades: ReplayTrade[], armed = 0, triggered = 0, refusedFills = 0): ReplayResult {
-  if (trades.length === 0) return { trades, ...EMPTY, armed, triggered, refusedFills };
+export function summarise(
+  trades: ReplayTrade[],
+  armed = 0,
+  triggered = 0,
+  refusedFills = 0,
+  funnel: ReplayFunnel = EMPTY_FUNNEL,
+): ReplayResult {
+  if (trades.length === 0) return { trades, ...EMPTY, armed, triggered, refusedFills, funnel };
   const wins = trades.filter((t) => t.outcome === "win").length;
   const losses = trades.filter((t) => t.outcome === "loss").length;
   const timeouts = trades.filter((t) => t.outcome === "timeout").length;
@@ -764,6 +992,7 @@ export function summarise(trades: ReplayTrade[], armed = 0, triggered = 0, refus
     winRate: wins / trades.length,
     expectancyR: totalR / trades.length,
     totalR,
+    funnel,
   };
 }
 
@@ -773,7 +1002,11 @@ export function combine(results: ReplayResult[]): ReplayResult {
   const armed = results.reduce((s, r) => s + r.armed, 0);
   const triggered = results.reduce((s, r) => s + r.triggered, 0);
   const refusedFills = results.reduce((s, r) => s + (r.refusedFills ?? 0), 0);
-  return summarise(trades, armed, triggered, refusedFills);
+  const funnel = { ...EMPTY_FUNNEL };
+  for (const r of results) {
+    for (const k of Object.keys(funnel) as (keyof ReplayFunnel)[]) funnel[k] += r.funnel?.[k] ?? 0;
+  }
+  return summarise(trades, armed, triggered, refusedFills, funnel);
 }
 
 /**
@@ -783,6 +1016,46 @@ export function combine(results: ReplayResult[]): ReplayResult {
  * than production, which sees the current day's partial bar, and the direction
  * of the difference is deliberate: a replay that peeks is worthless.
  */
+/**
+ * The trade plan's levels, priced exactly as `lib/scanTicker.ts` prices them:
+ * from the swing-crossing trigger, labelled by what it crossed. Null when
+ * `computeTradeLevels` rejects the setup, as the scan does. Shared by the
+ * verdict and by `stopModel: "plan"` / `targetModel: "planTp1"`.
+ */
+function priceLevels(input: {
+  context: MacroContext;
+  gannTrigger: GannEntryTrigger;
+  history: Bar[];
+  executionAtr: number;
+  assetClass: AssetClass;
+  largeCap: boolean;
+}): TradeLevels | null {
+  const { context, gannTrigger, history, executionAtr, assetClass, largeCap } = input;
+  const entrySource: EntrySource = {
+    direction: gannTrigger.direction,
+    triggerPrice: gannTrigger.triggerPrice,
+    stopPrice: gannTrigger.stopPrice,
+    setupLabel: gannTrigger.direction === "bullish" ? "swing-top crossing" : "swing-bottom break",
+  };
+  try {
+    return computeTradeLevels(
+      entrySource,
+      history[history.length - 2] ?? history[history.length - 1],
+      [...context.gann.fanLines.map((f) => f.price), ...context.gann.squareOf9.map((s) => s.price)],
+      undefined,
+      executionAtr,
+      assetClass,
+      largeCap,
+      context.structuralLevels,
+      context.atrPct,
+    );
+  } catch {
+    // A setup with no valid plan is scored without one, exactly as the scan
+    // does when computeTradeLevels rejects it.
+    return null;
+  }
+}
+
 function scoreSetup(input: {
   context: MacroContext;
   pattern: StratPattern | null;
@@ -802,61 +1075,31 @@ function scoreSetup(input: {
   const hourlyBars = rollUp(history.slice(-400), (b) => b.t.slice(0, 13));
   const hourlyTrend = readTrend(hourlyBars, "1Hour");
 
-  // Priced exactly as lib/scanTicker.ts prices it: from the swing-crossing
-  // trigger, labelled by what it crossed.
-  const entrySource: EntrySource = {
+  const levels = priceLevels({ context, gannTrigger, history, executionAtr, assetClass, largeCap });
+
+  return computeScore({
     direction: gannTrigger.direction,
-    triggerPrice: gannTrigger.triggerPrice,
-    stopPrice: gannTrigger.stopPrice,
-    setupLabel: gannTrigger.direction === "bullish" ? "swing-top crossing" : "swing-bottom break",
-  };
-
-  let levels = null;
-  try {
-    levels = computeTradeLevels(
-      entrySource,
-      history[history.length - 2] ?? history[history.length - 1],
-      [...context.gann.fanLines.map((f) => f.price), ...context.gann.squareOf9.map((s) => s.price)],
-      undefined,
-      executionAtr,
-      assetClass,
-      largeCap,
-      context.structuralLevels,
-      context.atrPct,
-    );
-  } catch {
-    // A setup with no valid plan is scored without one, exactly as the scan
-    // does when computeTradeLevels rejects it.
-  }
-
-  return applyReversionConfirmation(
-    computeScore({
-      direction: gannTrigger.direction,
-      macroTrends: context.macroTrends,
-      hourlyTrend,
-      swingChart: context.swingChart,
-      campaignLeg: context.campaignLeg,
-      ruleOfThree: context.ruleOfThree,
-      timePriceSquare: context.timePriceSquare,
-      volumeClimax: context.volumeClimax,
-      boilingPoint: context.boilingPoint,
-      gann: context.gann,
-      nearSupportResistance: context.nearSupportResistance,
-      srMatch: context.srMatch,
-      pattern,
-      gannTrigger,
-      momentumElevated: context.momentumElevated,
-      levels,
-      stopAtrMultiple: levels && executionAtr > 0 ? levels.riskPerShare / executionAtr : null,
-      assetClass,
-      setupKind,
-      atrPct: context.atrPct,
-      ...(weights ? { weights } : {}),
-    }),
+    macroTrends: context.macroTrends,
+    hourlyTrend,
+    swingChart: context.swingChart,
+    campaignLeg: context.campaignLeg,
+    ruleOfThree: context.ruleOfThree,
+    timePriceSquare: context.timePriceSquare,
+    volumeClimax: context.volumeClimax,
+    boilingPoint: context.boilingPoint,
+    gann: context.gann,
+    nearSupportResistance: context.nearSupportResistance,
+    srMatch: context.srMatch,
     pattern,
-    context.momentumElevated,
-    context.nearSupportResistance,
-  );
+    gannTrigger,
+    momentumElevated: context.momentumElevated,
+    levels,
+    stopAtrMultiple: levels && executionAtr > 0 ? levels.riskPerShare / executionAtr : null,
+    assetClass,
+    setupKind,
+    atrPct: context.atrPct,
+    ...(weights ? { weights } : {}),
+  });
 }
 
 /**

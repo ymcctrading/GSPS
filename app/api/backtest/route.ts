@@ -18,6 +18,11 @@
  *   ?entryRule=confirmed   fill on the full entry-confirmation sequence (how
  *                          automation enters) instead of the resting stop
  *                          (how the ticket/Guided enter). See ReplayOptions.entryRule
+ *   ?harness=production    PRODUCTION_HARNESS: plan stop + plan TP1 + confirmation
+ *                          at scan-pass cadence, wall-clock expiry, pre-entry
+ *                          stop invalidation (overridable by the params below)
+ *   ?stopModel=trigger|leeway|plan  ?targetModel=targetR|planTp1
+ *   ?confirmationCadence=bar|scanPass   see the ReplayOptions fields
  *   ?slippageSensitivity=1 also run the request at 3x cost-per-share and report
  *                          the expectancy delta — a second full fetch/replay,
  *                          off by default. See BacktestRequest.includeSlippageSensitivity
@@ -47,7 +52,7 @@ import {
   runBacktest,
   type Bucket,
 } from "@/lib/backtest/run";
-import { byOutputState, byScoreRange } from "@/lib/backtest/replay";
+import { PRODUCTION_HARNESS, byOutputState, byScoreRange } from "@/lib/backtest/replay";
 import { replaySignalEngineForUniverse } from "@/lib/backtest/replaySignals";
 import { isTimeframe } from "@/lib/timeframe";
 import { verifyAuth } from "@/lib/auth";
@@ -150,6 +155,29 @@ export async function GET(req: NextRequest) {
   }
   const entryRule = entryRuleRaw ?? undefined;
 
+  // Harness-fidelity options (2026-09-26): see ReplayOptions. `?harness=production`
+  // applies PRODUCTION_HARNESS, the combination that acts as production does
+  // for equities; individual params override it.
+  const oneOf = <T extends string>(name: string, allowed: readonly T[]): T | undefined | Response => {
+    const raw = searchParams.get(name);
+    if (raw === null) return undefined;
+    if (!(allowed as readonly string[]).includes(raw)) {
+      return NextResponse.json({ error: `Invalid ${name} '${raw}' (${allowed.join(" | ")})` }, { status: 400 });
+    }
+    return raw as T;
+  };
+  const stopModelParam = oneOf("stopModel", ["trigger", "leeway", "plan"] as const);
+  const targetModelParam = oneOf("targetModel", ["targetR", "planTp1"] as const);
+  const cadenceParam = oneOf("confirmationCadence", ["bar", "scanPass"] as const);
+  for (const v of [stopModelParam, targetModelParam, cadenceParam]) if (v instanceof Response) return v;
+  const harness = {
+    ...(searchParams.get("harness") === "production" ? PRODUCTION_HARNESS : {}),
+    ...(typeof stopModelParam === "string" ? { stopModel: stopModelParam } : {}),
+    ...(typeof targetModelParam === "string" ? { targetModel: targetModelParam } : {}),
+    ...(typeof cadenceParam === "string" ? { confirmationCadence: cadenceParam } : {}),
+    ...(entryRule ? { entryRule: entryRule as "stop" | "confirmed" } : {}),
+  };
+
   const productionStopRaw = searchParams.get("productionStop");
   const useProductionStop = productionStopRaw !== null && productionStopRaw !== "0" && productionStopRaw !== "false";
   const wantTrades = searchParams.get("trades") === "1";
@@ -193,7 +221,7 @@ export async function GET(req: NextRequest) {
         timeframe,
         targetR,
         ...(since !== null ? { since } : {}),
-        ...(entryRule ? { entryRule } : {}),
+        ...harness,
       });
       const bucketTrades = scoreRange
         ? byScoreRange(run.overall, scoreRange[0], scoreRange[1]).trades
@@ -230,7 +258,7 @@ export async function GET(req: NextRequest) {
       ...(scoreRange ? { attributeScoreRange: scoreRange } : {}),
       ...(since !== null ? { since } : {}),
       ...(useProductionStop ? { useProductionStop } : {}),
-      ...(entryRule ? { entryRule } : {}),
+      ...harness,
       ...(includeSlippageSensitivity ? { includeSlippageSensitivity } : {}),
     });
     return NextResponse.json(report);

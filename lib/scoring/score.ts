@@ -592,39 +592,12 @@ export function applyDataLagHold(decision: ScanDecision, lag: DecisionLag): Scan
   };
 }
 
-/**
- * A bare "2-2" reversal (unsharpened by a prior inside/outside bar) is only
- * an actionable reversion call when both momentum/volatility and a
- * historical support/resistance level confirm it. Without both, it must be
- * downgraded to "Watch" regardless of score — never shown as a trade signal.
+/*
+ * `applyReversionConfirmation` lived here until 2026-09-26. It downgraded an
+ * Execute verdict to Watch whenever the top STRAT bar-sequence pattern was a
+ * bare "2-2" without both momentum and S/R confirmation. That let Rob Smith's
+ * taxonomy decide a GSPS verdict after 2026-09-17 had made it display and
+ * confluence only, and the project owner confirmed the rule was a custom
+ * instruction no longer valid under Gann's method. Removed from the scan and
+ * the replay together; its registry entry is retired, not deleted.
  */
-export function applyReversionConfirmation(
-  decision: ScanDecision,
-  pattern: StratPattern | null,
-  momentumElevated: boolean,
-  // Kept for signature stability; the confirmation itself now reads the
-  // score's own (role-aware) historicalSR verdict below so this can never
-  // disagree with what the breakdown actually shows.
-  _nearSupportResistance: boolean,
-): ScanDecision {
-  const isBareReversal = pattern?.name === "2-2";
-  const srConfirmed = decision.breakdown.some((b) => b.key === "historicalSR" && b.passed);
-  const confirmed = momentumElevated && srConfirmed;
-  if (!isBareReversal || confirmed || decision.outputState !== "Execute") {
-    return decision;
-  }
-
-  return {
-    ...decision,
-    outputState: "Watch",
-    breakdown: [
-      ...decision.breakdown,
-      {
-        key: "reversionConfirmation",
-        criterion: "Reversion confirmation (bare failed-push reversal needs momentum + S/R)",
-        passed: false,
-        note: "Bare failed-push reversal without both momentum/volatility and support/resistance confirmation — downgraded from Execute to Watch.",
-      },
-    ],
-  };
-}

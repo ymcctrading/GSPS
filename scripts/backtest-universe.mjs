@@ -13,8 +13,14 @@
  *
  * Usage:
  *   node scripts/backtest-universe.mjs --universe large-cap --out tmp/run \
- *     --cells '[{"label":"baseline","options":{"useProductionStop":true}},
- *               {"label":"confirmed","options":{"useProductionStop":true,"requireEntryConfirmation":true}}]'
+ *     --cells '[{"label":"raw","options":{}},
+ *               {"label":"plan","options":{"stopModel":"plan","targetModel":"planTp1"}},
+ *               {"label":"production","options":{"stopModel":"plan","targetModel":"planTp1","entryRule":"confirmed",
+ *                 "confirmationCadence":"scanPass","confirmationExpiryBars":20,"invalidateOnPreEntryStop":true}}]'
+ *
+ *   The `production` cell above is `PRODUCTION_HARNESS` (lib/backtest/replay.ts)
+ *   spelled out. `useProductionStop` is the legacy spelling of
+ *   `stopModel: "leeway"`, which is not the stop equity plans carry.
  *
  *   --universe      large-cap | mega-12 | diversified | mega-cap | SYM1,SYM2,…
  *   --cells         JSON array (or a path to a .json file) of
@@ -158,7 +164,23 @@ export function bootstrapDiffCI(a, b, { resamples = 5000, alpha = 0.05, seed = 2
   ];
 }
 
-/** n, expectancy with CI, win rate, profit factor, and both time halves. */
+/**
+ * Largest peak-to-trough fall of cumulative R, taking trades in the order they
+ * opened. A portfolio-level drawdown in R, not per symbol.
+ */
+export function maxDrawdownR(sortedRs) {
+  let equity = 0;
+  let peak = 0;
+  let worst = 0;
+  for (const r of sortedRs) {
+    equity += r;
+    if (equity > peak) peak = equity;
+    if (peak - equity > worst) worst = peak - equity;
+  }
+  return worst;
+}
+
+/** n, expectancy with CI, win rate, profit factor, max drawdown in R, and both time halves. */
 export function describeTrades(trades) {
   const rs = trades.map((t) => t.rMultiple);
   const wins = rs.filter((r) => r > 0);
@@ -176,6 +198,7 @@ export function describeTrades(trades) {
     winRate: trades.length === 0 ? 0 : trades.filter((t) => t.outcome === "win").length / trades.length,
     profitFactor: grossLoss === 0 ? (grossWin > 0 ? null : 0) : grossWin / grossLoss,
     totalR: rs.reduce((s, r) => s + r, 0),
+    maxDrawdownR: maxDrawdownR(sorted.map((t) => t.rMultiple)),
     halves: {
       first: { n: firstHalf.length, expectancyR: mean(firstHalf), from: sorted[0]?.openedAt ?? null },
       second: { n: secondHalf.length, expectancyR: mean(secondHalf), from: sorted[half]?.openedAt ?? null },
@@ -183,10 +206,23 @@ export function describeTrades(trades) {
   };
 }
 
+/**
+ * Verdict buckets, then a per-score-band sweep (added 2026-09-26: the handoff's
+ * Phase 2 needs the band-by-band zero-crossing to re-derive the 6/3.5 cutoffs,
+ * and the reports only carry buckets). Scores are whole numbers under the
+ * uniform default weights, so each band is one score except the tails.
+ */
 const SCOPES = {
   Execute: (t) => t.outputState === "Execute",
   Watch: (t) => t.outputState === "Watch",
+  Reject: (t) => t.outputState === "Reject",
   all: () => true,
+  "score 0-2": (t) => t.score !== undefined && t.score < 3,
+  "score 3": (t) => t.score !== undefined && t.score >= 3 && t.score < 4,
+  "score 4": (t) => t.score !== undefined && t.score >= 4 && t.score < 5,
+  "score 5": (t) => t.score !== undefined && t.score >= 5 && t.score < 6,
+  "score 6": (t) => t.score !== undefined && t.score >= 6 && t.score < 7,
+  "score 7+": (t) => t.score !== undefined && t.score >= 7,
 };
 
 /** A fingerprint of a cell's trades, to catch options the ref silently ignored. */
@@ -199,9 +235,10 @@ function tradeSignature(trades) {
  * for any two cells whose options differ but whose trades are identical.
  */
 export function summarizeCells(cellResults) {
-  const cells = cellResults.map(({ cell, trades }) => ({
+  const cells = cellResults.map(({ cell, trades, funnel, refusedFills }) => ({
     label: cell.label,
     options: cell.options ?? {},
+    funnel: funnel ? { refusedFills, ...funnel } : null,
     scopes: Object.fromEntries(Object.entries(SCOPES).map(([k, f]) => [k, describeTrades(trades.filter(f))])),
   }));
 
@@ -249,21 +286,41 @@ export function summaryMarkdown(meta, summary) {
       `window ${meta.window.from ?? "—"} → ${meta.window.to ?? "—"} · generated ${meta.generatedAt}`,
   );
   lines.push("");
+  // The entry funnel (2026-09-26): setups that never became scored trades.
+  if (summary.cells.some((c) => c.funnel)) {
+    const rate = (x) => (x === null || x === undefined ? "—" : fmtPct(x));
+    lines.push("## Entry funnel");
+    lines.push("");
+    lines.push("| Cell | Refused fills | Duplicates | No plan | Plans | Confirmed | Expired | Invalidated pre-entry | Confirm rate | Expiry rate |");
+    lines.push("|---|---|---|---|---|---|---|---|---|---|");
+    for (const c of summary.cells) {
+      const f = c.funnel;
+      if (!f) continue;
+      lines.push(
+        `| ${c.label} | ${f.refusedFills ?? "—"} | ${f.duplicatesDropped} | ${f.noPlan} | ${f.plansCreated} | ` +
+          `${f.confirmed} | ${f.expired} | ${f.invalidatedPreEntry} | ${rate(f.confirmationRate)} | ${rate(f.expiryRate)} |`,
+      );
+    }
+    lines.push("");
+  }
   if (summary.warnings.length > 0) {
     lines.push("## Warnings");
     for (const w of summary.warnings) lines.push(`- ${w}`);
     lines.push("");
   }
   for (const scope of Object.keys(SCOPES)) {
-    lines.push(`## ${scope === "all" ? "All trades (unconditioned)" : `${scope} bucket`}`);
+    lines.push(
+      `## ${scope === "all" ? "All trades (unconditioned)" : scope.startsWith("score") ? scope : `${scope} bucket`}`,
+    );
     lines.push("");
-    lines.push("| Cell | n | Expectancy | 95% CI | Win rate | PF | 1st half | 2nd half |");
-    lines.push("|---|---:|---:|---|---:|---:|---:|---:|");
+    lines.push("| Cell | n | Expectancy | 95% CI | Win rate | PF | Max DD | 1st half | 2nd half |");
+    lines.push("|---|---:|---:|---|---:|---:|---:|---:|---:|");
     for (const c of summary.cells) {
       const s = c.scopes[scope];
       lines.push(
         `| ${c.label} | ${s.n} | ${fmtR(s.expectancyR)} | ${fmtCI(s.expectancyCI95)} | ${fmtPct(s.winRate)} | ` +
-          `${s.profitFactor === null ? "∞" : s.profitFactor.toFixed(2)} | ${fmtR(s.halves.first.expectancyR)} (n=${s.halves.first.n}) | ` +
+          `${s.profitFactor === null ? "∞" : s.profitFactor.toFixed(2)} | ${s.maxDrawdownR.toFixed(1)}R | ` +
+          `${fmtR(s.halves.first.expectancyR)} (n=${s.halves.first.n}) | ` +
           `${fmtR(s.halves.second.expectancyR)} (n=${s.halves.second.n}) |`,
       );
     }
@@ -389,7 +446,15 @@ async function main() {
           if (from === null || bars[0].t < from) from = bars[0].t;
           if (to === null || bars[bars.length - 1].t > to) to = bars[bars.length - 1].t;
           cells.forEach((cell, c) => {
-            perCell[c].push(replay(symbol, bars, { targetR: args.targetR, ...(cell.options ?? {}), dailyBars: daily, monthlyBars: monthly }));
+            perCell[c].push(
+              replay(symbol, bars, {
+                targetR: args.targetR,
+                timeframe: args.timeframe,
+                ...(cell.options ?? {}),
+                dailyBars: daily,
+                monthlyBars: monthly,
+              }),
+            );
           });
           used.push(symbol);
         }
@@ -431,7 +496,7 @@ async function main() {
       });
       await writeFile(path.resolve(root, args.out, `${cell.label}.report.json`), JSON.stringify({ cell, ...report }));
       await writeFile(path.resolve(root, args.out, `${cell.label}.trades.json`), JSON.stringify(overall.trades));
-      cellResults.push({ cell, trades: overall.trades });
+      cellResults.push({ cell, trades: overall.trades, funnel: report.funnel ?? null, refusedFills: report.refusedFills ?? null });
     }
 
     const { sha, ref } = gitInfo();

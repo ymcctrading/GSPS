@@ -16,6 +16,7 @@
 
 import type { AssetClass, Bar, Timeframe } from "@/lib/types";
 import { TF_INTERVAL_MS } from "@/lib/timeframe";
+import { etDateKey, mostRecentClose } from "@/lib/market/session";
 
 export interface MarketDataProvider {
   /** Stable identifier, surfaced to the UI (e.g. "alpaca", "synthetic"). */
@@ -147,6 +148,52 @@ function executionLookbackDays(executionTimeframe: Timeframe): number {
 }
 
 /**
+ * The daily series with today's still-forming candle removed, so the scan
+ * pipeline reads completed sessions only.
+ *
+ * Why (2026-09-26, project-owner direction: "always default to the Gann
+ * method"): Gann's swing charts, trend reads and Buying/Selling Points are
+ * drawn from closed days. Alpaca's `/v2/stocks/bars?timeframe=1Day` returns
+ * the current day's candle aggregated so far, and nothing here trimmed it, so
+ * during market hours `computeGannEntryTrigger` (lib/gann/entryTrigger.ts)
+ * walked a candle whose high, low and close were still moving. A swing could
+ * appear or vanish intraday and move the trigger with it. The backtest replay
+ * (lib/backtest/replay.ts, `priorSessions`) already reads completed sessions
+ * only, so this also closes a live-vs-replay gap of the kind AGENTS.md's
+ * "Cross-platform consistency" section names.
+ *
+ * `dataEnd` is the latest instant the fetch could see (the query's `end`, or
+ * now). An equity session is complete once a 16:00 ET close on or after its
+ * date sits at or before `dataEnd`; a crypto daily candle (UTC day) is
+ * complete once its 24 hours have elapsed. Half-day sessions have no calendar
+ * here, so their candle is held back until 16:00 ET: a few hours late, never
+ * early.
+ *
+ * Three-question mandate: (1) Gann: the daily swing chart is built from closed
+ * days (A2.1 Ch. VII, the 3-day/9-day charts; A8's Buying/Selling Points are
+ * old swing tops and bottoms, i.e. completed swings). (2) Cycles: no
+ * periodicity claim, Dewey's checklist does not apply. (3) Hermetic: Cause and
+ * Effect. A trigger may only be caused by a swing that has actually
+ * completed. Correspondence also applies: the live read must correspond to
+ * what the replay measures. The other five (Mentalism, Vibration, Polarity,
+ * Rhythm, Gender) describe nothing this data-boundary rule decides.
+ *
+ * Only the scan pipeline's daily series is trimmed. Charts still show the
+ * forming candle, and the weekly/monthly week- and month-to-date bars are
+ * left as the vendor serves them (flagged in AGENTS.md, not changed here).
+ */
+export function completedDailySessions(bars: Bar[], dataEnd: Date, assetClass: AssetClass): Bar[] {
+  if (bars.length === 0) return bars;
+  const last = bars[bars.length - 1];
+  const lastStart = new Date(last.t);
+  if (assetClass === "crypto") {
+    return lastStart.getTime() + 24 * 3600 * 1000 <= dataEnd.getTime() ? bars : bars.slice(0, -1);
+  }
+  const lastCloseKey = etDateKey(mostRecentClose(dataEnd));
+  return lastCloseKey >= etDateKey(lastStart) ? bars : bars.slice(0, -1);
+}
+
+/**
  * All timeframes the top-down GSPS pipeline consumes, fetched through whichever
  * provider is active. Lives at the seam so callers never import a vendor module.
  *
@@ -194,7 +241,13 @@ export async function fetchAllTimeframes(
       : provider.fetchBars(symbol, executionTimeframe, daysAgo(executionLookbackDays(executionTimeframe)), end, assetClass),
   ]);
 
-  return { monthly, weekly, daily, hourly, execution: executionIsHourly ? hourly : (execution ?? []) };
+  return {
+    monthly,
+    weekly,
+    daily: completedDailySessions(daily, end ?? new Date(now), assetClass),
+    hourly,
+    execution: executionIsHourly ? hourly : (execution ?? []),
+  };
 }
 
 export interface AllTimeframeBars {
@@ -261,7 +314,7 @@ export async function fetchAllTimeframesBatch(
     out.set(symbol, {
       monthly: monthly.get(sym) ?? [],
       weekly: weekly.get(sym) ?? [],
-      daily: daily.get(sym) ?? [],
+      daily: completedDailySessions(daily.get(sym) ?? [], end ?? new Date(now), "us_equity"),
       hourly: hourlyBars,
       execution: executionIsHourly ? hourlyBars : (execution?.get(sym) ?? []),
     });

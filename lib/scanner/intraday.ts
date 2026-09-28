@@ -39,6 +39,25 @@
  * why it did not alert earlier. "The scanner missed it" and "the scanner
  * evaluated it and the volume filter rejected it at 10:04" are different
  * problems, and until now there was no way to tell them apart.
+ *
+ * The balance point, not VWAP (2026-09-26, project-owner direction; alignment
+ * audit follow-up to F2.5). Direction, the "right side" check, the
+ * invalidation level and the pivot plan's first target were all read off the
+ * session VWAP, and these alerts carry a "Trade this" action into the order
+ * ticket, so that was platform substance rather than a chart tool. They now
+ * read the session's balance point: the halfway point between the session's
+ * high and low, the same 50% level `lib/gann/retracement.ts#rangeMidpoint`
+ * gives the daily scan. VWAP stays available as an optional chart overlay.
+ *
+ * Three-question mandate: (1) Gann: the 50% retracement, first in his own
+ * ranking of retracement levels (`docs/GANN_HISTORICAL_SOURCES.md`); the
+ * halfway point of a range is the balance point he reads a market against.
+ * (2) Cycles: no periodicity claim, so Dewey's checklist doesn't apply.
+ * (3) Hermetic: Polarity. The halfway point is where the session's two poles,
+ * its high and its low, are equally far; a market above it is being carried
+ * by buyers, below it by sellers. Cause and Effect secondarily: the level is
+ * caused by the range itself, not by a volume weighting on top of it. The
+ * other five don't decide which level a session is read against.
  */
 
 import type { Bar } from "@/lib/types";
@@ -59,7 +78,7 @@ export type SignalType =
 export type Direction = "up" | "down";
 
 /** What a move is measured against. Always stated; never left to inference. */
-export type MoveBasis = "prior_close" | "session_open" | "opening_range" | "vwap";
+export type MoveBasis = "prior_close" | "session_open" | "opening_range" | "balance_point";
 
 export type AssetKind = "equity" | "etf" | "index" | "crypto";
 
@@ -208,7 +227,8 @@ export interface SessionMetrics {
   high: number;
   low: number;
   last: number;
-  vwap: number;
+  /** Halfway between the session's high and low — Gann's 50% balance point. */
+  balancePoint: number;
   cumulativeVolume: number;
   /** Opening-range high/low, null until the range has completed. */
   openingRangeHigh: number | null;
@@ -256,7 +276,6 @@ export function sessionMetrics(input: SymbolInput, config: ScannerConfig): Sessi
   let high = -Infinity;
   let low = Infinity;
   let cumulativeVolume = 0;
-  let pvSum = 0;
   let orHigh: number | null = null;
   let orLow: number | null = null;
   let lastMinute = openMinutes;
@@ -265,9 +284,6 @@ export function sessionMetrics(input: SymbolInput, config: ScannerConfig): Sessi
     high = Math.max(high, bar.h);
     low = Math.min(low, bar.l);
     cumulativeVolume += bar.v;
-    // Typical price × volume is the standard VWAP numerator; using the close
-    // alone overweights a bar that closed at an extreme of its own range.
-    pvSum += ((bar.h + bar.l + bar.c) / 3) * bar.v;
 
     const minute = etParts(new Date(bar.t)).minutes;
     lastMinute = minute;
@@ -284,7 +300,7 @@ export function sessionMetrics(input: SymbolInput, config: ScannerConfig): Sessi
     high,
     low,
     last,
-    vwap: cumulativeVolume > 0 ? pvSum / cumulativeVolume : last,
+    balancePoint: high > low ? (high + low) / 2 : last,
     cumulativeVolume,
     openingRangeHigh: orHigh,
     openingRangeLow: orLow,
@@ -363,7 +379,7 @@ export const MOVE_BASIS_LABELS: Record<MoveBasis, string> = {
   prior_close: "yesterday's close",
   session_open: "today's open",
   opening_range: "the opening range",
-  vwap: "the volume-weighted average price",
+  balance_point: "the halfway point of today's range",
 };
 
 /** ---- Alerts ------------------------------------------------------------ */
@@ -398,7 +414,8 @@ export interface Alert {
   dataTimestamp: string;
   dataAgeSeconds: number;
   move: Move;
-  vwap: number;
+  /** The session's balance point (halfway between its high and low). */
+  balancePoint: number;
   relativeVolume: number | null;
   sessionVolume: number;
   /** 0–100, with the factors that produced it. Never a bare number. */
@@ -745,7 +762,7 @@ function detectOpeningMomentum(
           ? "No volume baseline for this symbol, so the break is unconfirmed."
           : `${formatRvol(m.relativeVolume)} of the volume this symbol normally has by now.`,
     },
-    vwapFactor(m, direction),
+    balanceFactor(m, direction),
     dayDirectionFactor(dayMove, direction),
   ];
 
@@ -774,25 +791,25 @@ function detectTrendContinuation(
     return null;
   }
 
-  const direction: Direction = m.last >= m.vwap ? "up" : "down";
+  const direction: Direction = m.last >= m.balancePoint ? "up" : "down";
   const beyondRange =
     direction === "up" ? m.last > m.openingRangeHigh : m.last < m.openingRangeLow;
-  const beyondVwap = direction === "up" ? m.last > m.vwap : m.last < m.vwap;
+  const beyondBalance = direction === "up" ? m.last > m.balancePoint : m.last < m.balancePoint;
   const structure = readStructure(input.bars, direction);
   const volumeSustained =
     m.relativeVolume !== null && m.relativeVolume >= config.relativeVolumeThreshold;
 
-  const qualifies = beyondRange && beyondVwap && structure.aligned;
+  const qualifies = beyondRange && beyondBalance && structure.aligned;
   checks.push({
     name: "Trend continuation",
     passed: qualifies,
     detail: qualifies
-      ? `Extended past both the opening range and VWAP with ${structure.label}.`
-      : `Needs price past the opening range (${beyondRange ? "yes" : "no"}), past VWAP (${beyondVwap ? "yes" : "no"}) and ${direction === "up" ? "higher highs and lows" : "lower highs and lows"} (${structure.aligned ? "yes" : "no"}).`,
+      ? `Extended past both the opening range and the halfway point of today's range with ${structure.label}.`
+      : `Needs price past the opening range (${beyondRange ? "yes" : "no"}), past the halfway point of today's range (${beyondBalance ? "yes" : "no"}) and ${direction === "up" ? "higher highs and lows" : "lower highs and lows"} (${structure.aligned ? "yes" : "no"}).`,
   });
   if (!qualifies) return null;
 
-  const move = measureMove(m.last, m.vwap, "vwap");
+  const move = measureMove(m.last, m.balancePoint, "balance_point");
   if (!move) return null;
 
   const factors: ConfidenceFactor[] = [
@@ -802,7 +819,7 @@ function detectTrendContinuation(
       weight: 20,
       detail: `Trading beyond the first ${config.openingRangeMinutes} minutes' ${direction === "up" ? "high" : "low"}.`,
     },
-    { label: "On the right side of VWAP", passed: true, weight: 20, detail: `VWAP is ${m.vwap.toFixed(2)}.` },
+    { label: "On the right side of the day's halfway point", passed: true, weight: 20, detail: `The halfway point of today's range is ${m.balancePoint.toFixed(2)}.` },
     { label: "Structure agrees", passed: true, weight: 20, detail: structure.label },
     {
       label: "Volume sustained",
@@ -824,8 +841,8 @@ function detectTrendContinuation(
     direction,
     move,
     factors,
-    invalidation: m.vwap,
-    whyThisAppeared: `${input.symbol} is ${direction === "up" ? "above" : "below"} both its opening range and the average price everyone has paid today, and it is still making ${direction === "up" ? "higher highs and higher lows" : "lower highs and lower lows"}. That combination is what a trend that is still working looks like. It is not a promise that it continues — the level that would say otherwise is the average price itself, at ${m.vwap.toFixed(2)}.`,
+    invalidation: m.balancePoint,
+    whyThisAppeared: `${input.symbol} is ${direction === "up" ? "above" : "below"} both its opening range and the halfway point of today's range, and it is still making ${direction === "up" ? "higher highs and higher lows" : "lower highs and lower lows"}. That combination is what a trend that is still working looks like. It is not a promise that it continues — the level that would say otherwise is that halfway point, at ${m.balancePoint.toFixed(2)}.`,
   });
 }
 
@@ -879,7 +896,7 @@ function detectVolatilityExpansion(
           ? "No volume baseline available."
           : `${formatRvol(m.relativeVolume)} of normal for this time of day.`,
     },
-    vwapFactor(m, dayMove.direction),
+    balanceFactor(m, dayMove.direction),
   ];
 
   return buildAlert({
@@ -890,7 +907,7 @@ function detectVolatilityExpansion(
     direction: dayMove.direction,
     move: dayMove,
     factors,
-    invalidation: m.vwap,
+    invalidation: m.balancePoint,
     whyThisAppeared: `${input.symbol} has moved ${formatMoney(travelled)} from ${MOVE_BASIS_LABELS[dayMove.basis]}, which is ${multiple.toFixed(1)} times the distance it normally covers in an entire day. Ranges this wide cut both ways: stops that would be sensible on a normal day are inside the noise today, so position size matters more than direction.`,
   });
 }
@@ -943,7 +960,7 @@ function detectUnusualVolume(
     direction: dayMove.direction,
     move: dayMove,
     factors,
-    invalidation: m.vwap,
+    invalidation: m.balancePoint,
     whyThisAppeared: `${formatVolume(m.cumulativeVolume, input.kind === "crypto" ? "coins" : "shares")} of ${input.symbol} has traded today — ${formatRvol(m.relativeVolume)} what it normally does by this point. Volume like that usually means news or a large participant. It says something is happening; it does not say which way it resolves.`,
   });
 }
@@ -964,35 +981,36 @@ function detectReversalRisk(
   // now back inside it. The move that people entered on has been given back.
   const failedUp = m.high > m.openingRangeHigh && m.last < m.openingRangeHigh;
   const failedDown = m.low < m.openingRangeLow && m.last > m.openingRangeLow;
-  // A VWAP rejection: the day ran one way but price has lost the average price.
-  const lostVwap =
-    (dayMove.direction === "up" && m.last < m.vwap) ||
-    (dayMove.direction === "down" && m.last > m.vwap);
+  // A balance-point rejection: the day ran one way but price has fallen back
+  // through the halfway point of its own range.
+  const lostBalance =
+    (dayMove.direction === "up" && m.last < m.balancePoint) ||
+    (dayMove.direction === "down" && m.last > m.balancePoint);
 
-  if (!failedUp && !failedDown && !lostVwap) {
+  if (!failedUp && !failedDown && !lostBalance) {
     checks.push({
       name: "Reversal risk",
       passed: false,
-      detail: "No failed breakout and price is still on its side of VWAP.",
+      detail: "No failed breakout and price is still on its side of the day's halfway point.",
     });
     return null;
   }
 
   // The risk points against the move that was running.
   const direction: Direction = failedUp ? "down" : failedDown ? "up" : dayMove.direction === "up" ? "down" : "up";
-  const move = measureMove(m.last, m.vwap, "vwap");
+  const move = measureMove(m.last, m.balancePoint, "balance_point");
   if (!move) return null;
 
   const cause = failedUp
     ? `Price traded up through the opening-range high at ${m.openingRangeHigh.toFixed(2)} and has come back below it.`
     : failedDown
       ? `Price traded down through the opening-range low at ${m.openingRangeLow.toFixed(2)} and has come back above it.`
-      : `The day was ${dayMove.direction === "up" ? "up" : "down"} but price has crossed back through VWAP at ${m.vwap.toFixed(2)}.`;
+      : `The day was ${dayMove.direction === "up" ? "up" : "down"} but price has crossed back through the halfway point of today's range at ${m.balancePoint.toFixed(2)}.`;
 
   checks.push({ name: "Reversal risk", passed: true, detail: cause });
 
   const factors: ConfidenceFactor[] = [
-    { label: "Breakout failed or VWAP lost", passed: true, weight: 30, detail: cause },
+    { label: "Breakout failed or halfway point lost", passed: true, weight: 30, detail: cause },
     {
       label: "Volume behind the reversal",
       passed: m.relativeVolume !== null && m.relativeVolume >= config.relativeVolumeThreshold,
@@ -1012,20 +1030,20 @@ function detectReversalRisk(
     direction,
     move,
     factors,
-    invalidation: failedUp ? m.high : failedDown ? m.low : m.vwap,
+    invalidation: failedUp ? m.high : failedDown ? m.low : m.balancePoint,
     whyThisAppeared: `${cause} A move that gets given back like this is the most common way a breakout turns into a loss. The useful response is usually to stand aside rather than to flip: a failed move in one direction is not, on its own, a signal in the other.`,
   });
 }
 
 /** ---- Shared factors ---------------------------------------------------- */
 
-function vwapFactor(m: SessionMetrics, direction: Direction): ConfidenceFactor {
-  const onside = direction === "up" ? m.last > m.vwap : m.last < m.vwap;
+function balanceFactor(m: SessionMetrics, direction: Direction): ConfidenceFactor {
+  const onside = direction === "up" ? m.last > m.balancePoint : m.last < m.balancePoint;
   return {
-    label: "Price on the right side of VWAP",
+    label: "Price on the right side of the day's halfway point",
     passed: onside,
     weight: 15,
-    detail: `Last ${m.last.toFixed(2)} against VWAP ${m.vwap.toFixed(2)}.`,
+    detail: `Last ${m.last.toFixed(2)} against the halfway point ${m.balancePoint.toFixed(2)}.`,
   };
 }
 
@@ -1096,7 +1114,7 @@ function buildAlert(args: {
     dataTimestamp: m.dataTimestamp,
     dataAgeSeconds: dataAge,
     move,
-    vwap: m.vwap,
+    balancePoint: m.balancePoint,
     relativeVolume: m.relativeVolume,
     sessionVolume: m.cumulativeVolume,
     confidence,
@@ -1133,7 +1151,7 @@ function continuationPlan(
     confirmation: `Wait for a bar to close ${direction === "up" ? "above" : "below"} ${m.last.toFixed(2)} rather than entering into the move. Chasing an extended price is how a good read becomes a bad fill.`,
     invalidation,
     firstTarget: target,
-    cancelIf: `Price closes back ${direction === "up" ? "below" : "above"} VWAP at ${m.vwap.toFixed(2)}, or the move stalls without a new ${direction === "up" ? "high" : "low"} for several bars.`,
+    cancelIf: `Price closes back ${direction === "up" ? "below" : "above"} the day's halfway point at ${m.balancePoint.toFixed(2)}, or the move stalls without a new ${direction === "up" ? "high" : "low"} for several bars.`,
   };
 }
 
@@ -1145,10 +1163,10 @@ function continuationPlan(
 function pivotPlan(m: SessionMetrics, direction: Direction, invalidation: number | null): TradePlan {
   const opposite: Direction = direction === "up" ? "down" : "up";
   return {
-    confirmation: `The continuation thesis fails if price closes back ${direction === "up" ? "below" : "above"} ${invalidation != null ? invalidation.toFixed(2) : m.vwap.toFixed(2)}. Even then, a ${opposite === "up" ? "long" : "short"} needs its own evidence: a close through VWAP in the new direction and a failure to reclaim the level that broke.`,
+    confirmation: `The continuation thesis fails if price closes back ${direction === "up" ? "below" : "above"} ${invalidation != null ? invalidation.toFixed(2) : m.balancePoint.toFixed(2)}. Even then, a ${opposite === "up" ? "long" : "short"} needs its own evidence: a close through the day's halfway point in the new direction and a failure to reclaim the level that broke.`,
     invalidation: direction === "up" ? m.high : m.low,
-    firstTarget: m.vwap,
-    cancelIf: `Price chops around VWAP without holding either side, or volume drops off. Neither direction is worth trading in that state — standing aside is a position.`,
+    firstTarget: m.balancePoint,
+    cancelIf: `Price chops around the day's halfway point without holding either side, or volume drops off. Neither direction is worth trading in that state — standing aside is a position.`,
   };
 }
 

@@ -13,4 +13,8 @@
  * `lib/strat/patterns.ts`, `lib/strat/levels.ts`, the Signal and Regime Engine
  * states) — and note the bump in `CHANGELOG.md`.
  */
-export const STRATEGY_VERSION = "2026-09-26-continuation-replay";
+// Bumped 2026-09-27: STRAT no longer gates publication or verdicts (the bare
+// 2-2 Execute→Watch downgrade is gone, and continuations are gated on the
+// swing charts instead of a bar-sequence shape). Both change what the replay
+// scores and arms.
+export const STRATEGY_VERSION = "2026-09-27-gann-publication";

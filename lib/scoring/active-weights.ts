@@ -105,6 +105,41 @@ export function isWeightSetAddressedToCurrentCriteria(stored: unknown): boolean 
   );
 }
 
+/**
+ * A citable source that ranks Gann's confirming conditions against each
+ * other, if one is ever found. Null today: nothing in
+ * `docs/GANN_HISTORICAL_SOURCES.md` ranks them (AGENTS.md, "The scorecard's
+ * role"). While this is null, `isAdmissibleWeightSet` rejects any non-uniform
+ * set.
+ *
+ * Deliberately a reviewed code constant rather than a field on the
+ * `learning_models` row. A row can be promoted by hand with no diff and no
+ * review (the Live weights incident), so a citation that lives on the row
+ * would be exactly as unreviewed as the weights it excuses.
+ */
+export const CITED_CROSS_CRITERION_RANKING: string | null = null;
+
+/**
+ * Does this weight set make a ranking claim the scorecard has no source for?
+ * (Added 2026-09-26, alignment audit F4.2, project-owner sign-off.)
+ *
+ * "Weighting is substance" (AGENTS.md, "The scorecard's role"): a non-equal
+ * weight asserts that one of Gann's conditions outranks another, and no
+ * source ranks them. Before this, a hand-promoted `live` row with non-uniform
+ * weights passed every check here as long as its key set matched, and the
+ * only thing standing between it and the live scan was that nobody had
+ * promoted one. Uniform means every criterion carries the same weight after
+ * `parseCriterionWeights`' normalisation, within floating-point noise.
+ */
+export function isAdmissibleWeightSet(
+  weights: CriterionWeights,
+  citedRanking: string | null = CITED_CROSS_CRITERION_RANKING,
+): boolean {
+  if (citedRanking) return true;
+  const values = CRITERION_KEYS.map((k) => weights[k]);
+  return values.every((v) => Math.abs(v - values[0]) < 1e-9);
+}
+
 async function load(now: number): Promise<Cached> {
   if (cache && now - cache.at < CACHE_TTL_MS) return cache;
   if (inflight) return inflight;
@@ -164,7 +199,19 @@ async function fetchLiveWeights(now: number): Promise<Cached> {
       return fallback;
     }
 
-    return { weights: parseCriterionWeights(stored), version: row.version, at: now };
+    const weights = parseCriterionWeights(stored);
+    // Non-uniform weights rank Gann's conditions against each other, which
+    // nothing sources — see `isAdmissibleWeightSet`.
+    if (!isAdmissibleWeightSet(weights)) {
+      console.warn(
+        `[active-weights] Ignoring live ${SCORE_WEIGHT_MODEL_TYPE} v${row.version}: ` +
+          `its weights are not uniform, and no cited cross-criterion ranking exists ` +
+          `(CITED_CROSS_CRITERION_RANKING). Scoring with the uniform default.`,
+      );
+      return fallback;
+    }
+
+    return { weights, version: row.version, at: now };
   } catch {
     // No adopted weights is the safe reading of any failure here.
     return fallback;

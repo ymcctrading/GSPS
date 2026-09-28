@@ -17,7 +17,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getPolicyOverrides, setPolicyValue } from "@/lib/policy/store";
+import { getPolicyOverrides, setPolicyValue, type PolicyBounds } from "@/lib/policy/store";
 import { DEFAULT_MARKET_CAP_THRESHOLDS, type MarketCapThresholds } from "@/lib/universe/marketCap";
 import { DEFAULT_LIQUIDITY_THRESHOLDS, type LiquidityThresholds } from "@/lib/universe/liquidity";
 import { DEFAULT_PRICE_BAND_THRESHOLDS, type PriceBandThresholds } from "@/lib/universe/priceAccessibility";
@@ -64,6 +64,23 @@ export const DEFAULT_UNIVERSE_POLICY_VALUES: UniversePolicyValues = {
 
 export const UNIVERSE_POLICY_KEYS = Object.keys(DEFAULT_UNIVERSE_POLICY_VALUES) as (keyof UniversePolicyValues)[];
 
+/** Sanity ranges for stored overrides (audit F4.3, 2026-09-26) — typo catchers, not tuning. */
+export const UNIVERSE_POLICY_BOUNDS: PolicyBounds<UniversePolicyValues> = {
+  marketCapFloorUsd: { min: 1e8, max: 1e12 },
+  marketCapCoreFloorUsd: { min: 1e8, max: 1e12 },
+  noviceLiquidityFloorUsd: { min: 1e6, max: 1e11 },
+  noviceLiquidityCoreFloorUsd: { min: 1e6, max: 1e11 },
+  priceBandMinUsd: { min: 1, max: 1_000 },
+  priceBandMaxUsd: { min: 5, max: 10_000 },
+  maxSpreadPctOfPrice: { min: 0.01, max: 5 },
+  maxSpreadFractionOfStop: { min: 0.01, max: 1 },
+  minAtrPctOfPrice: { min: 0.05, max: 10 },
+  maxAtrPctOfPrice: { min: 1, max: 50 },
+  maxQuoteStalenessSeconds: { min: 1, max: 3_600, integer: true },
+  maxFundamentalsStalenessDays: { min: 1, max: 730, integer: true },
+  minWholeUnitsForStagedExit: { min: 1, max: 100, integer: true },
+};
+
 export interface ResolvedUniversePolicy {
   universe: UniverseThresholds;
   smallAccount: SmallAccountThresholds;
@@ -101,6 +118,7 @@ export async function getUniversePolicy(supabase: SupabaseClient): Promise<Resol
     UNIVERSE_POLICY_DOMAIN,
     DEFAULT_UNIVERSE_POLICY_VALUES,
     UNIVERSE_POLICY_KEYS,
+    UNIVERSE_POLICY_BOUNDS,
   );
   return {
     universe: toUniverseThresholds(values),

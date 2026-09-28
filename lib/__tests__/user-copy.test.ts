@@ -15,7 +15,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { Bar, GannLevels, StratPattern, TradeLevels, TrendReading } from "@/lib/types";
-import { applyReversionConfirmation, computeScore, type ScoreInputs } from "@/lib/scoring/score";
+import { computeScore, type ScoreInputs } from "@/lib/scoring/score";
 import { detectPatterns } from "@/lib/strat/patterns";
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 import { computeTradeLevels } from "@/lib/strat/levels";
@@ -189,11 +189,6 @@ describe("confluence checklist copy", () => {
     };
     expectPlainLanguage(checklistStrings(withTrend));
     expectPlainLanguage(checklistStrings({ ...allFail, setupKind: "continuation" }));
-  });
-
-  it("reads in plain language on the downgrade note", () => {
-    const decision = applyReversionConfirmation(computeScore(allPass), pattern, false, false);
-    expectPlainLanguage(decision.breakdown.flatMap((item) => [item.criterion, item.note]));
   });
 
   it("covers every criterion in both directions", () => {

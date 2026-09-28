@@ -12,7 +12,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getPolicyOverrides, setPolicyValue } from "@/lib/policy/store";
+import { getPolicyOverrides, setPolicyValue, type PolicyBounds } from "@/lib/policy/store";
 import { DEFAULT_CIRCUIT_THRESHOLDS, type CircuitThresholds } from "@/lib/risk/circuit-breaker";
 import { DEFAULT_RISK_BAND_THRESHOLDS, type RiskBandThresholds } from "@/lib/risk/dynamic-risk";
 
@@ -61,6 +61,30 @@ export const DEFAULT_RISK_POLICY_VALUES: RiskPolicyValues = {
 
 export const RISK_POLICY_KEYS = Object.keys(DEFAULT_RISK_POLICY_VALUES) as (keyof RiskPolicyValues)[];
 
+/**
+ * Sanity ranges for stored overrides (audit F4.3, 2026-09-26). Wide on
+ * purpose: they catch typos, not tuning. Percent keys are in percent (2 = 2%).
+ */
+export const RISK_POLICY_BOUNDS: PolicyBounds<RiskPolicyValues> = {
+  maxNewPositionsPerDay: { min: 0, max: 20, integer: true },
+  warning48hLossPct: { min: 0.5, max: 10 },
+  softCooldown48hLossPct: { min: 0.5, max: 15 },
+  hardCooldown48hLossPct: { min: 1, max: 20 },
+  criticalLock30dDrawdownPct: { min: 2, max: 30 },
+  emergencyLock30dDrawdownPct: { min: 3, max: 40 },
+  severeOverride30dDrawdownPct: { min: 5, max: 50 },
+  hardCooldownBlockedDays: { min: 0, max: 10, integer: true },
+  criticalLockBlockedDays: { min: 1, max: 30, integer: true },
+  emergencyLockBlockedDays: { min: 1, max: 60, integer: true },
+  minTradesForRiskIncrease: { min: 5, max: 200, integer: true },
+  exceptionalBandMinTrades: { min: 10, max: 500, integer: true },
+  absoluteTierCapPct: { min: 0.1, max: 3 },
+  riskBandRateBase: { min: 0.1, max: 3 },
+  riskBandRateATier: { min: 0.1, max: 3 },
+  riskBandRateAPlus: { min: 0.1, max: 3 },
+  riskBandRateExceptionalAPlus: { min: 0.1, max: 3 },
+};
+
 export interface ResolvedRiskPolicy {
   circuit: CircuitThresholds;
   band: RiskBandThresholds;
@@ -102,7 +126,13 @@ function toBandThresholds(v: RiskPolicyValues): RiskBandThresholds {
  * accept. `supabase` should be a service-role client.
  */
 export async function getRiskPolicy(supabase: SupabaseClient): Promise<ResolvedRiskPolicy> {
-  const values = await getPolicyOverrides(supabase, RISK_POLICY_DOMAIN, DEFAULT_RISK_POLICY_VALUES, RISK_POLICY_KEYS);
+  const values = await getPolicyOverrides(
+    supabase,
+    RISK_POLICY_DOMAIN,
+    DEFAULT_RISK_POLICY_VALUES,
+    RISK_POLICY_KEYS,
+    RISK_POLICY_BOUNDS,
+  );
   return { circuit: toCircuitThresholds(values), band: toBandThresholds(values) };
 }
 

@@ -10,7 +10,7 @@
 
 import type { AssetClass, Bar } from "@/lib/types";
 import type { LiquidityRead } from "@/lib/scan/liquidity";
-import { LARGE_CAP_SOURCE_CAPTURED, LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
+import { LARGE_CAP_SOURCE_CAPTURED, LARGE_CAP_UNIVERSE, MEGA_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
 import { nextKnownEarningsEvent } from "@/lib/macro/earnings";
 import { marketSession } from "@/lib/market/session";
 import { assessNoviceEligibility, DEFAULT_UNIVERSE_THRESHOLDS, type UniverseThresholds } from "./eligibility";
@@ -18,7 +18,13 @@ import { marketCapPassFromLargeCapCoverage } from "./marketCap";
 import type { DataQualityInputs } from "./dataQuality";
 import type { NoviceEligibility, TriState } from "./types";
 
-const LARGE_CAP_SET: ReadonlySet<string> = new Set(LARGE_CAP_UNIVERSE.map((s) => s.toUpperCase()));
+// Mega-caps added 2026-09-26: membership means "cap above the $10B floor",
+// and a $200B+ name clears it by construction. Before this AAPL, MSFT, NVDA
+// and every other mega-cap outside the $10B-$200B capture failed this gate
+// closed (`marketCapPass(null)`) and so never read as novice-eligible.
+const LARGE_CAP_SET: ReadonlySet<string> = new Set(
+  [...MEGA_CAP_UNIVERSE, ...LARGE_CAP_UNIVERSE].map((s) => s.toUpperCase()),
+);
 
 export interface ScanUniverseGateInputs {
   symbol: string;

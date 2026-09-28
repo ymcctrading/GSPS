@@ -11,6 +11,7 @@ import {
   byScoreRange,
   bySetupKind,
   combine,
+  PRODUCTION_HARNESS,
   replay,
   rollUp,
   summarise,
@@ -545,11 +546,30 @@ describe("replay continuation setups", () => {
     expect(cont[0].criteria!.entryTriggerArmed).toBe(true);
   });
 
-  it("does not arm a continuation without a continuation shape at the fill", () => {
+  it("arms a continuation with no STRAT continuation shape once the swing charts confirm it (2026-09-26)", () => {
     // Directional warm-up bars run straight into the breakout, so no inside
-    // bar sets up a 2-1-2 or 3-1-2. The replay never trades the final bar, so
-    // the breakout is the only candle that could fill.
+    // bar sets up a 2-1-2 or 3-1-2. Until 2026-09-26 that alone kept the
+    // continuation out; the gate is now Gann's swing charts, and on this
+    // history both read the continuation's direction.
+    expect(ctx.swingChart.threeDay).toBe(continuationDir);
+    expect(ctx.swingChart.nineDay).toBe(continuationDir);
     const r = replay("TEST", intraday([...warm, ...warm.slice(0, 2), breakout, after]), { targetR: 2, dailyBars: rising });
+    expect(r.trades.filter((t) => t.setupKind === "continuation")).toHaveLength(1);
+  });
+
+  it("does not arm a continuation while the 3-day swing chart is pulling back against it", () => {
+    // One session less: the 3-day chart has flipped against the 9-day, which
+    // still reads the macro direction. Everything else in the gate is open.
+    const pulledBack = rising.slice(0, -1);
+    const pbCtx = buildMacroContext(pulledBack, pulledBack[pulledBack.length - 1].c);
+    expect(pbCtx.swingChart.nineDay).toBe(continuationDir);
+    expect(pbCtx.swingChart.threeDay).not.toBe(continuationDir);
+    const P = computeGannEntryTrigger(pulledBack, continuationDir)!.triggerPrice;
+    const shift = (b: { o: number; h: number; l: number; c: number }) => ({
+      o: b.o - T + P, h: b.h - T + P, l: b.l - T + P, c: b.c - T + P,
+    });
+    const bars = intraday([...warm, twoUp, inside, breakout, after].map(shift));
+    const r = replay("TEST", bars, { targetR: 2, dailyBars: pulledBack });
     expect(r.trades.filter((t) => t.setupKind === "continuation")).toHaveLength(0);
   });
 
@@ -574,5 +594,99 @@ describe("replay continuation setups", () => {
     const split = bySetupKind(r);
     expect(split.reversion.trades.length + split.continuation.trades.length).toBe(r.trades.length);
     expect(split.continuation.trades.length).toBeGreaterThan(0);
+  });
+});
+
+describe("harness fidelity (Phase 1: F1.2, F1.4, F1.5, F3.7; 2026-09-26)", () => {
+  const P = TRIGGER.triggerPrice;
+  /** Same shape as the confirmed-entry fixtures above: offsets in the trade's direction from the trigger. */
+  const at = (o: number, a: number, b: number, c: number) => {
+    const xs = [P + SIDE * a, P + SIDE * b];
+    return { o: P + SIDE * o, h: Math.max(...xs), l: Math.min(...xs), c: P + SIDE * c };
+  };
+  const touch = at(-3, -3.2, 0.1, -1);
+  const brk = at(-1, -1.1, 1.2, 1.0);
+  const retest = at(1.0, 1.1, -0.2, 0.3);
+  const hold = at(0.3, 0.1, 1.5, 1.4);
+  const next = at(1.4, 1.2, 1.8, 1.6);
+  const sequence = [touch, brk, retest, hold, next, quiet];
+  const confirmed = { targetR: 2, dailyBars: DAILY, entryRule: "confirmed" as const };
+
+  describe("plan levels (F1.2)", () => {
+    const bars = session([crossing, quiet, quiet]);
+
+    it("targets the plan's TP1 as computeTradeLevels prices an equity, not trigger ± targetR·risk", () => {
+      const r = replay("TEST", bars, { targetR: 2, dailyBars: DAILY, targetModel: "planTp1" });
+      expect(r.trades).toHaveLength(1);
+      const tp1Pct = Math.abs(r.trades[0].target - P) / P;
+      expect(tp1Pct).toBeGreaterThanOrEqual(0.03 - 1e-6);
+      expect(tp1Pct).toBeLessThanOrEqual(0.15 + 1e-6);
+      expect(r.trades[0].target).not.toBeCloseTo(P + SIDE * 2 * RISK, 6);
+    });
+
+    it("walks the plan's equity stop: S/R 3–20% away plus buffer, or the 8%/12% fallback", () => {
+      const r = replay("TEST", bars, { targetR: 2, dailyBars: DAILY, stopModel: "plan" });
+      expect(r.trades).toHaveLength(1);
+      const stopPct = Math.abs(P - r.trades[0].stop) / P;
+      expect(stopPct).toBeGreaterThanOrEqual(0.03);
+      expect(stopPct).toBeLessThanOrEqual(0.205 + 1e-6);
+    });
+
+    it("keeps useProductionStop as the legacy spelling of the leeway stop", () => {
+      const legacy = replay("TEST", bars, { targetR: 2, dailyBars: DAILY, useProductionStop: true });
+      const explicit = replay("TEST", bars, { targetR: 2, dailyBars: DAILY, stopModel: "leeway" });
+      expect(legacy.trades).toEqual(explicit.trades);
+    });
+  });
+
+  describe("confirmation plan lifecycle", () => {
+    it("counts a plan opened and confirmed", () => {
+      const r = replay("TEST", session(sequence), confirmed);
+      expect(r.trades).toHaveLength(1);
+      expect(r.funnel.plansCreated).toBe(1);
+      expect(r.funnel.confirmed).toBe(1);
+    });
+
+    it("sees one flat bar per scan pass under scanPass, so wick-only stages don't count (F1.4)", () => {
+      // `touch` reaches the trigger only on a wick and `retest` comes back
+      // only on a wick; production's flat bar at the close sees neither.
+      const full = replay("TEST", session(sequence), confirmed);
+      const scanPass = replay("TEST", session(sequence), { ...confirmed, confirmationCadence: "scanPass" });
+      expect(full.funnel.confirmed).toBe(1);
+      expect(scanPass.funnel.confirmed).toBe(0);
+    });
+
+    it("expires a plan on the wall clock", () => {
+      // The plan opens on the first armed bar; the sequence arrives hours later.
+      const r = replay("TEST", session(sequence), { ...confirmed, confirmationExpiryBars: 1 });
+      expect(r.trades).toHaveLength(0);
+      expect(r.funnel.expired).toBe(1);
+    });
+
+    it("invalidates a waiting plan when price trades through its stop first (F3.7)", () => {
+      const through = at(-2, -2, -(RISK + 1), -(RISK + 0.5));
+      const without = replay("TEST", session([through, ...sequence]), confirmed);
+      const withRule = replay("TEST", session([through, ...sequence]), { ...confirmed, invalidateOnPreEntryStop: true });
+      expect(without.trades).toHaveLength(1);
+      expect(withRule.trades).toHaveLength(0);
+      expect(withRule.funnel.invalidatedPreEntry).toBe(1);
+    });
+
+    it("runs end to end under the production preset", () => {
+      const r = replay("TEST", session(sequence), { targetR: 2, dailyBars: DAILY, ...PRODUCTION_HARNESS });
+      expect(r.funnel.plansCreated + r.funnel.noPlan).toBeGreaterThan(0);
+      for (const t of r.trades) {
+        expect(Math.abs(P - t.stop) / P).toBeGreaterThanOrEqual(0.03);
+      }
+    });
+  });
+
+  it("sums the funnel across symbols, with no duplicate entries on a clean run (F1.5)", () => {
+    const a = replay("A", session(sequence), confirmed);
+    const b = replay("B", session(sequence), { ...confirmed, confirmationExpiryBars: 1 });
+    const both = combine([a, b]);
+    expect(both.funnel.plansCreated).toBe(a.funnel.plansCreated + b.funnel.plansCreated);
+    expect(both.funnel.expired).toBe(b.funnel.expired);
+    expect(both.funnel.duplicatesDropped).toBe(0);
   });
 });

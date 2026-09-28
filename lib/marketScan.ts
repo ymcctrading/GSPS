@@ -21,7 +21,7 @@
  * short. A short list is an acceptable outcome; a list padded with symbols
  * that have no trade plan, or with a trade plan too weak to have earned a
  * slot on its own merits, is not — `qualifiesAsContinuationFill` requires
- * both the right shape and an Execute-tier score, never just "the best of
+ * both a confirmed swing-chart trend and an Execute-tier score, never just "the best of
  * what's left." Six 7/9s beat eighteen setups trailing off through 6, 5, 4.
  *
  * Cycle-timed selection (added 2026-09-25): each symbol's own Gann time
@@ -40,7 +40,7 @@
  */
 
 import type { Bar, ScanResult, SetupKind } from "@/lib/types";
-import { fetchAllTimeframesBatch, getMarketDataProvider } from "@/lib/data/provider";
+import { completedDailySessions, fetchAllTimeframesBatch, getMarketDataProvider } from "@/lib/data/provider";
 import { fetchMostActives } from "@/lib/data/alpaca";
 import { readTrend } from "@/lib/analysis/trend";
 import { rangeMidpoint } from "@/lib/gann/retracement";
@@ -54,15 +54,14 @@ import {
   type TimeCycleResult,
   type YearCycleConvergence,
 } from "@/lib/gann/timeCycles";
-import { CONTINUATION_PATTERNS } from "@/lib/strat/patterns";
-import { isContinuationShape, macroBreadthAgrees } from "@/lib/scan/entrySelection";
+import { macroBreadthAgrees, swingChartsConfirm } from "@/lib/scan/entrySelection";
 import { MIN_EQUITY_PRICE_USD, meetsLiquidityFloor, readLiquidity } from "@/lib/scan/liquidity";
 import { scanTicker } from "@/lib/scanTicker";
 import { EXECUTION_TIMEFRAME } from "@/lib/timeframe";
 import { EXECUTE_SCORE_THRESHOLD } from "@/lib/scoring/weights";
 import { DEFAULT_UNIVERSE_THRESHOLDS, type UniverseThresholds } from "@/lib/universe/eligibility";
 import { MAG7, SECTORS } from "@/lib/sectors";
-import { LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
+import { LARGE_CAP_UNIVERSE, MEGA_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
 import type { CoarseTelemetryRow } from "@/lib/scan/telemetry";
 import {
   FALLBACK_FAN_PCT,
@@ -106,6 +105,9 @@ const FALLBACK_UNIVERSE = Array.from(
   new Set([
     ...MAG7,
     ...Object.values(SECTORS).flatMap((s) => s.symbols),
+    // Mega-caps added 2026-09-26 (project-owner direction) — see
+    // MEGA_CAP_UNIVERSE's own comment in lib/scan/large-cap-universe.ts.
+    ...MEGA_CAP_UNIVERSE,
     ...LARGE_CAP_UNIVERSE,
   ]),
 ).filter((s) => !s.includes("/"));
@@ -396,14 +398,20 @@ function cycleBonus(direction: "bullish" | "bearish", cycles: TimeCycleResult | 
   return matches ? CYCLE_WINDOW_BONUS : 0;
 }
 
+/**
+ * `daily` should be completed sessions only; `price` is the latest print
+ * (defaults to the last bar's close). Split 2026-09-26 so the structure reads
+ * closed days, as Gann's charts do, while the gate still judges today's price
+ * — see the coarse pass in `runMarketScan`.
+ */
 export function coarseReversion(
   symbol: string,
   daily: Bar[],
   cycles?: TimeCycleResult,
+  price: number = daily[daily.length - 1]?.c ?? Number.NaN,
 ): CoarseCandidate | null {
   if (daily.length < 60) return null;
   if (!tradeable(daily)) return null;
-  const price = daily[daily.length - 1].c;
   if (price < MIN_SCAN_PRICE) return null;
   const trend = readTrend(daily, "1Day");
   if (trend.direction === "sideways") return null;
@@ -472,17 +480,18 @@ export function coarseReversion(
 export const TRAVEL_ATR_MULT = 1.2;
 export const FALLBACK_TRAVEL_PCT = 3;
 
+/** Same `daily`/`price` split as `coarseReversion`. */
 export function coarseContinuation(
   symbol: string,
   daily: Bar[],
   bars4h: Bar[],
   cycles?: TimeCycleResult,
+  price: number = daily[daily.length - 1]?.c ?? Number.NaN,
 ): CoarseCandidate | null {
   // Needs the full trailing window the baseline is measured over.
   if (daily.length < 120) return null;
   if (!tradeable(daily)) return null;
   if (!hasExceptional4hMomentum(bars4h)) return null;
-  const price = daily[daily.length - 1].c;
   if (price < MIN_SCAN_PRICE) return null;
   const trend = readTrend(daily, "1Day");
   if (trend.direction === "sideways") return null;
@@ -560,9 +569,9 @@ function coarseDiagnostics(
   symbol: string,
   daily: Bar[],
   cycles?: TimeCycleResult,
+  price: number = daily[daily.length - 1]?.c ?? Number.NaN,
 ): CoarseDiagnostics | null {
   if (daily.length < 60) return null;
-  const price = daily[daily.length - 1].c;
   const atrPct = atrPercentOfPrice(atr(daily.slice(-20), 14), price) ?? null;
   // Same balance point as the gates above (Gann's 50% of range).
   const mid50 = rangeMidpoint(daily.slice(-50));
@@ -610,11 +619,19 @@ function coarseDiagnostics(
  * complete, finite trade plan. Every consumer of `daily_scans` renders the four
  * price columns as the reason to take the trade, so a row missing any of them
  * is not a setup — it is noise that outranks real ones on score alone.
+ *
+ * It no longer requires an armed STRAT pattern (2026-09-26, project-owner
+ * direction, closing the audit finding "STRAT still gates publication"). The
+ * plan is armed and priced from Gann's swing-crossing trigger
+ * (`lib/gann/entryTrigger.ts`); the bar-sequence taxonomy has been display and
+ * confluence only since 2026-09-17, and requiring one here meant it still
+ * decided which Gann setups reached the lists, Guided Mode and the demo. The
+ * replay never applied this filter, so the two now agree.
  */
 export function hasTradePlan(r: ScanResult): boolean {
   const l = r.levels;
   return (
-    r.pattern !== null &&
+    r.direction !== "none" &&
     l !== null &&
     [l.entry, l.stopLoss, l.takeProfit1, l.masterProfit].every(
       (v) => typeof v === "number" && Number.isFinite(v),
@@ -623,16 +640,18 @@ export function hasTradePlan(r: ScanResult): boolean {
 }
 
 /**
- * What earns a top-up slot: a priced plan, on a continuation shape, breaking in
- * the direction the macro timeframes already read, with the range expansion to
- * carry it. All four, or the row is not what the shortage asked for.
+ * What earns a top-up slot: a priced plan, in the direction the macro
+ * timeframes already read, with Gann's 3-day and 9-day swing charts both
+ * confirming that trend, and the range expansion to carry it. All four, or the
+ * row is not what the shortage asked for. (The swing-chart check replaced a
+ * STRAT "continuation shape" on 2026-09-26 — see `swingChartsConfirm`.)
  */
 export function isMomentumContinuation(
   r: ScanResult,
   direction: "bullish" | "bearish",
 ): boolean {
   if (!hasTradePlan(r) || r.direction !== direction || !r.momentumElevated) return false;
-  if (!isContinuationShape(r.pattern)) return false;
+  if (!swingChartsConfirm(r.swingChart, direction)) return false;
   // Considered switching to lib/gann/timeframeWeight.ts's power-ratio
   // weighting here too (the same fix applied to lib/scanTicker.ts's
   // macro-direction pattern preference) — reverted: this gate needs a
@@ -649,9 +668,9 @@ export function isMomentumContinuation(
 
 /**
  * The continuation top-up pass's actual admission test: a genuine momentum
- * continuation shape (`isMomentumContinuation`) that also clears the same
+ * continuation (`isMomentumContinuation`) that also clears the same
  * Execute-tier bar a reversion has to clear on its own merits
- * (`EXECUTE_SCORE_THRESHOLD`). A candidate that arms the right pattern but
+ * (`EXECUTE_SCORE_THRESHOLD`). A candidate that passes the continuation gate but
  * scores a 6, 5, or 4 is not "the best of what's left" here — it's excluded,
  * same as a symbol with no trade plan at all. A short continuation fill (or
  * none) is the correct answer on a day nothing clears the bar, not a
@@ -936,11 +955,21 @@ export async function runMarketScan(
       // from the batch fetch above), no extra network call. See
       // `CYCLE_WINDOW_BONUS`'s own comment for what this does and doesn't
       // claim.
-      const cycles = timeCycles(daily);
+      // Structure from completed sessions only; price from the latest print.
+      // Until 2026-09-26 this pre-filter read today's still-forming daily
+      // candle as part of its structure (trend, swing pivots, fans, volume
+      // climax, cycles, expansion, participation), which the full scan
+      // stopped doing the same day (`completedDailySessions`). The forming
+      // candle's close is still the right "current price" for the gates, so
+      // it is kept for that and nothing else. Project-owner direction.
+      if (daily.length === 0) return { reversion: null, continuation: null, diagnostics: null };
+      const price = daily[daily.length - 1].c;
+      const closed = completedDailySessions(daily, end, "us_equity");
+      const cycles = timeCycles(closed);
       return {
-        reversion: coarseReversion(symbol, daily, cycles),
-        continuation: coarseContinuation(symbol, daily, bars4h, cycles),
-        diagnostics: coarseDiagnostics(symbol, daily, cycles),
+        reversion: coarseReversion(symbol, closed, cycles, price),
+        continuation: coarseContinuation(symbol, closed, bars4h, cycles, price),
+        diagnostics: coarseDiagnostics(symbol, closed, cycles, price),
       };
     } catch {
       return { reversion: null, continuation: null, diagnostics: null };
@@ -986,8 +1015,8 @@ export async function runMarketScan(
   const scanErrors = full.length - valid.length;
 
   // The daily lists are trade plans, not a watchlist. A symbol only earns a row
-  // when the execution timeframe actually armed a pattern in that direction and
-  // the plan priced out — entry, stop, TP1 and master profit all present.
+  // when Gann's trigger armed in that direction and the plan priced out —
+  // entry, stop, TP1 and master profit all present.
   const rank = (dir: "bullish" | "bearish") =>
     valid
       .filter((r) => r.direction === dir && hasTradePlan(r))
@@ -1037,19 +1066,17 @@ export async function runMarketScan(
     // Split the budget across the sides being scanned so a deep shortfall on
     // one can't consume every scan and leave the other empty.
     const perSideBudget = Math.floor(MAX_TOPUP_SCANS / Math.max(shortSides.length, 1));
-    // A symbol already scanned in the reversion pass told us every pattern it
-    // armed. If none of them was a continuation shape in the direction we need,
-    // re-scanning it cannot produce one — the preference only reorders the same
-    // armed list — so skip it and spend the call on a candidate that might.
+    // A symbol already scanned in the reversion pass told us its swing charts.
+    // They're read off daily bars and don't depend on the direction the scan
+    // prefers, so if they don't both confirm the direction we need, the
+    // continuation gate (`swingChartsConfirm`) will refuse a re-scan too. Skip
+    // it and spend the call on a candidate that might. (Until 2026-09-26 this
+    // skipped symbols with no STRAT continuation shape armed, the same
+    // bar-sequence gate `isMomentumContinuation` dropped then.)
     const scanned = new Map(valid.map((r) => [r.symbol, r]));
     const cannotArm = (c: CoarseCandidate): boolean => {
       const prior = scanned.get(c.symbol);
-      return (
-        prior !== undefined &&
-        !prior.armedPatterns.some(
-          (p) => p.direction === c.direction && CONTINUATION_PATTERNS.has(p.name),
-        )
-      );
+      return prior !== undefined && !swingChartsConfirm(prior.swingChart, c.direction);
     };
 
     const fills = shortSides.flatMap((dir) =>

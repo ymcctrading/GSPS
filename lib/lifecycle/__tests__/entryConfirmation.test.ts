@@ -4,6 +4,7 @@ import {
   advanceEntryConfirmation,
   entryReady,
   freshEntryConfirmation,
+  preEntryStopBreached,
   replayEntryConfirmation,
 } from "@/lib/lifecycle/entryConfirmation";
 
@@ -79,5 +80,18 @@ describe("entry confirmation — bearish", () => {
       bar("t4", 49.8, 49.9, 48.2, 48.4), // confirmation (close < retest bar's high 50.3)
     ]);
     expect(entryReady(evidence)).toBe(true);
+  });
+});
+
+describe("preEntryStopBreached (audit F3.7, 2026-09-26)", () => {
+  it("fires when a long's bar trades down through the stop, not before", () => {
+    expect(preEntryStopBreached("bullish", 97, bar("t", 98, 99, 97.01, 98))).toBe(false);
+    expect(preEntryStopBreached("bullish", 97, bar("t", 98, 99, 97, 98))).toBe(true);
+    expect(preEntryStopBreached("bullish", 97, bar("t", 98, 99, 96.5, 98))).toBe(true);
+  });
+
+  it("mirrors for a short", () => {
+    expect(preEntryStopBreached("bearish", 103, bar("t", 102, 102.99, 101, 102))).toBe(false);
+    expect(preEntryStopBreached("bearish", 103, bar("t", 102, 103.2, 101, 102))).toBe(true);
   });
 });

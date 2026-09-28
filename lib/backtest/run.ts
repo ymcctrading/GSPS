@@ -34,6 +34,8 @@ import {
   bySetupKind,
   combine,
   replay,
+  EMPTY_FUNNEL,
+  type ReplayFunnel,
   type ReplayOptions,
   type ReplayResult,
 } from "./replay";
@@ -113,6 +115,16 @@ export interface BacktestRequest {
   useProductionStop?: boolean;
   /** Which entry rule fills trades. See `ReplayOptions.entryRule`. Defaults to `"stop"`. */
   entryRule?: ReplayOptions["entryRule"];
+  /**
+   * Harness-fidelity options (2026-09-26, audit F1.2, F1.4, F3.7): see the
+   * same-named `ReplayOptions` fields, and `PRODUCTION_HARNESS` for the
+   * combination that acts as production does for equities.
+   */
+  stopModel?: ReplayOptions["stopModel"];
+  targetModel?: ReplayOptions["targetModel"];
+  confirmationCadence?: ReplayOptions["confirmationCadence"];
+  confirmationExpiryBars?: ReplayOptions["confirmationExpiryBars"];
+  invalidateOnPreEntryStop?: ReplayOptions["invalidateOnPreEntryStop"];
   /**
    * Also run the same request a second time at `slippageMultiplier` times the
    * cost-per-share and report the expectancy delta — the spec pack's
@@ -217,6 +229,16 @@ export interface BacktestReport {
    * stop or target, which production refuses (`fill_outran_bracket`).
    */
   refusedFills: number;
+  /** Echoes the resolved harness model, so a report says which stop, target and confirmation lifecycle produced it. */
+  harness: {
+    stopModel: NonNullable<ReplayOptions["stopModel"]>;
+    targetModel: NonNullable<ReplayOptions["targetModel"]>;
+    confirmationCadence: NonNullable<ReplayOptions["confirmationCadence"]>;
+    confirmationExpiryBars: number | null;
+    invalidateOnPreEntryStop: boolean;
+  };
+  /** The rest of the entry funnel, with the confirmation and expiry rates (null when no plan opened). */
+  funnel: ReplayFunnel & { confirmationRate: number | null; expiryRate: number | null };
   /** Setups armed and triggered across the run, for a fill-rate sanity check. */
   armed: number;
   triggered: number;
@@ -317,6 +339,11 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
     since,
     useProductionStop,
     entryRule,
+    stopModel,
+    targetModel,
+    confirmationCadence,
+    confirmationExpiryBars,
+    invalidateOnPreEntryStop,
   } = request;
 
   const sinceMs = since === undefined ? null : Date.parse(since);
@@ -332,6 +359,12 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
     ...(weights ? { weights } : {}),
     ...(useProductionStop !== undefined ? { useProductionStop } : {}),
     ...(entryRule !== undefined ? { entryRule } : {}),
+    ...(stopModel !== undefined ? { stopModel } : {}),
+    ...(targetModel !== undefined ? { targetModel } : {}),
+    ...(confirmationCadence !== undefined ? { confirmationCadence } : {}),
+    ...(confirmationExpiryBars !== undefined ? { confirmationExpiryBars } : {}),
+    ...(invalidateOnPreEntryStop !== undefined ? { invalidateOnPreEntryStop } : {}),
+    timeframe,
   };
 
   const results: ReplayResult[] = [];
@@ -429,6 +462,7 @@ export function buildReport(
   slippageSensitivity?: SlippageSensitivity,
 ): BacktestReport {
   const { attributeWithin = "Execute", attributeScoreRange, useProductionStop = false, entryRule = "stop" } = request;
+  const funnel = run.overall.funnel ?? EMPTY_FUNNEL;
 
   const split = byOutputState(run.overall);
   const target = attributeScoreRange
@@ -471,6 +505,18 @@ export function buildReport(
     armed: run.overall.armed,
     triggered: run.overall.triggered,
     refusedFills: run.overall.refusedFills,
+    harness: {
+      stopModel: request.stopModel ?? (useProductionStop ? "leeway" : "trigger"),
+      targetModel: request.targetModel ?? "targetR",
+      confirmationCadence: request.confirmationCadence ?? "bar",
+      confirmationExpiryBars: request.confirmationExpiryBars ?? null,
+      invalidateOnPreEntryStop: request.invalidateOnPreEntryStop ?? false,
+    },
+    funnel: {
+      ...funnel,
+      confirmationRate: funnel.plansCreated > 0 ? funnel.confirmed / funnel.plansCreated : null,
+      expiryRate: funnel.plansCreated > 0 ? funnel.expired / funnel.plansCreated : null,
+    },
     attributeWithin: attributedLabel,
     ...(attributeScoreRange ? { attributeScoreRange } : {}),
     factors: attributeFactors(target.trades),

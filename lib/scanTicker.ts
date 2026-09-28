@@ -40,7 +40,7 @@ import { MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection, rankArmedPatterns } f
 import { computeTradeLevels, type EntrySource } from "@/lib/strat/levels";
 import { computeGannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
-import { applyDataLagHold, applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
+import { applyDataLagHold, computeScore } from "@/lib/scoring/score";
 import { decisionLag, feedDelayMs } from "@/lib/data/latency";
 import { marketSession } from "@/lib/market/session";
 import {
@@ -350,8 +350,7 @@ export async function scanTicker(
     );
 
     const decision = applyDataLagHold(
-      applyReversionConfirmation(
-        computeScore({
+      computeScore({
           direction: scoreDirection,
           macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
           hourlyTrend,
@@ -379,10 +378,6 @@ export async function scanTicker(
           atrPct,
           weights: await getActiveCriterionWeights(),
         }),
-        pattern,
-        momentumElevated,
-        nearSupportResistance,
-      ),
       dataLag,
     );
 
@@ -515,6 +510,7 @@ export async function scanTicker(
       trends: [monthlyTrend, weeklyTrend, dailyTrend, hourlyTrend],
       gann,
       pattern,
+      swingChart,
       armedPatterns,
       levels,
       levelsError,

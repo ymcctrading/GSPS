@@ -650,7 +650,7 @@ export function computeTradeLevels(
  * setup failed.
  *
  * Narrower than the intraday version in one respect: a daily/swing setup
- * has no session context (VWAP, opening range, intraday high/low) to derive
+ * has no session context (the day's balance point, opening range, intraday high/low) to derive
  * the pivot trade's *own* stop from, so `invalidation` stays null here —
  * honest about what this timeframe actually knows, rather than fabricating
  * a level nothing in the pattern supports.
@@ -667,7 +667,7 @@ function buildPivotPlan(pattern: EntrySource, stopLoss: number, entry: number): 
       `This ${pattern.direction} ${label.toLowerCase()} thesis is invalidated if price closes back through the stop at ${stopLoss.toFixed(2)}. ` +
       `Even then, a ${opposite} trade needs its own evidence: a fresh setup confirming in the ${opposite} direction, not just this one stopping out.`,
     invalidation: null,
-    // Mirrors intraday's choice of VWAP (the level a reversal is expected to
+    // Mirrors intraday's choice of the session balance point (the level a reversal is expected to
     // retest first): here, that's the level the original thesis entered at.
     firstTarget: entry,
     cancelIf:

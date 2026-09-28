@@ -18,7 +18,7 @@ import { etDateKey } from "@/lib/market/session";
 import { FAN_OUT_DEADLINE_MS, fanOutToProfiles } from "@/lib/entitlements/fanout-all";
 import type { RankedSetup } from "@/lib/entitlements/result-selection";
 import type { ScanResult } from "@/lib/types";
-import { LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
+import { SCAN_DISCOVERY_UNIVERSE } from "@/lib/scan/large-cap-universe";
 import { resolveDiscoveryAndTrackingSymbols } from "@/lib/scan/universe-rotation";
 
 /**
@@ -72,7 +72,9 @@ export const maxDuration = 60;
  */
 async function resolveExtraSymbols(service: ReturnType<typeof createServiceClient>, scanDate: string): Promise<string[]> {
   try {
-    return await resolveDiscoveryAndTrackingSymbols(service, scanDate, LARGE_CAP_UNIVERSE);
+    // Mega-caps + large-caps since 2026-09-26 (was LARGE_CAP_UNIVERSE alone).
+    // Same chunk size, so no extra symbols per run — see SCAN_DISCOVERY_UNIVERSE.
+    return await resolveDiscoveryAndTrackingSymbols(service, scanDate, SCAN_DISCOVERY_UNIVERSE);
   } catch (err) {
     console.warn(`market-scan: discovery/tracking symbols not resolved — ${describeDbError(err)}`);
     return [];
