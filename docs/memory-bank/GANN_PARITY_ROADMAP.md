@@ -261,7 +261,7 @@ Each step says whether a user waits on it (AGENTS.md "Speed is a product require
 - F3 · Measurement upgrades M1–M7 throughout (Schuster test, out-of-sample, regime splits, base rates).
   **2026-09-28:** M1 Schuster p in `spectralCycle.ts`; M2/M3 the backtest report now repeats both factor tables for the early and late half of the window (`halves`); M4/M6 every calendar and timing field is a measured context factor against the unconditioned population; M5 labelled; M7 recorded. The remaining M1/M2 items (cosinor interval, log detrending, artifact guards, 70/30 hold-out) were built the same day in `spectralCycle.ts`; the extra checks run only when a cycle clears the dominance threshold, so the common case costs one scan as before.
 - F2 · Stays research-only and separate (decision 7). F4 · Unblocked 2026-09-28: Stages A–E are built (D2/D3 landed via #300).
-- F4 · The deferred cycles, solar-year anchor and calendar-convention research prompt: `FUTURE_PROMPTS.md`, "Deferred: cycles and calendar research". Not before Stages A–E are complete.
+- F4 · **Done 2026-09-28:** `F4_CYCLES_CALENDAR_RESEARCH.md`. The equinox anchor is plausible as a forced-cycle anchor but unproven against Jan 1 for equities; Gann's missed forecasts are explained by average-vs-specific timing, phase loss after shocks, beats and fractional periods, without deciding whether the cycles are real; the 100-year cycle fails repetition count and the 20-year cycle is best read as a ~16–22-year window; Tomes supports Gann's 2×3 divisions but not his order below the quarter. A pre-registered test (three year conventions × three window sets × two series, Holm-corrected) is designed, not run; four roadmap edits are proposed there for the owner.
 
 ---
 

@@ -172,7 +172,9 @@ context and measured `contextFactors` (`lib/gann/extremeRules.ts`,
 labelled. The rest of M1/M2 followed: log detrending, cosinor amplitude CI and
 zero-amplitude test, artifact guards and a 70/30 hold-out in `spectralCycle.ts`
 (run only for an active candidate). F2 stays research-only. Stages A–E are now
-built (D2/D3 landed via #300), so F4, the deferred cycles research, is unblocked.
+built (D2/D3 landed via #300). F4, the deferred cycles research, was done
+2026-09-28 (`docs/memory-bank/F4_CYCLES_CALENDAR_RESEARCH.md`): its
+pre-registered calendar test is designed, not run, pending the owner.
 **Owner direction, same day: "the point of the parity is to align, infuse
 and implement within and throughout the entire GSPS platform."** A rule is
 not parity-complete while it only shows on a card: it has to act where Gann

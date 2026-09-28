@@ -6,7 +6,7 @@ Research prompts the project owner has written and deliberately deferred. Each o
 
 ## Deferred: cycles and calendar research
 
-**Status:** deferred, saved 2026-09-27.
+**Status:** **done 2026-09-28** (start condition met when D2/D3 landed). Findings, the pre-registered test design (not run; needs owner approval) and proposed roadmap edits are in `F4_CYCLES_CALENDAR_RESEARCH.md`. Saved 2026-09-27.
 
 **Start condition:** don't start until Stages A–E of `GANN_PARITY_ROADMAP.md` are complete. It belongs to Stage F (timing refinements and research).
 
