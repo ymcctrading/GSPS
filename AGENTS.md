@@ -155,6 +155,14 @@ positive 15-minute results cover only two months. Treat the verdict's edge as
 unproven across regimes, presume a translation defect first, and start from
 that run's factor tables (`historicalSR`, and `ruleOfThree`/`swingChartTrend`
 under confirmation, invert). Held for the owner.
+**Diagnosed 2026-09-28 (run 16, same notes file):** two translation defects.
+The replay traded a stop and target unlike production's plan (fixed:
+`usePlanLevels`), and Gann's "3 points" in the exit rules had been ported as
+the entry's 0.3% lost-motion margin, a tenth of his own price-scaled figure,
+so the hold test ended most trades on noise (fixed: `lib/gann/pointScale.ts`,
+live and replay). `STRATEGY_VERSION` is `2026-09-28-gann-points-continuation`.
+The F4 calendar test ran on 2019–2025 (the feed's reach): no window set beats
+random placement, so the windows stay context only.
 **Stage E, 2026-09-28:** Gann's series-of-losses rule runs on every placement
 path (`lib/risk/lossSeries.ts`: three losses in a row pause new entries for
 that day and the next; protective orders never blocked). School gained a
@@ -804,14 +812,18 @@ for the project owner** — do not fix it silently, and re-verify it first:
   with short legs that SMAs called trending often reads "sideways" until
   Gann's 9-day chart turns. The 6/3.5 cutoffs have to be re-derived on this
   code, not on the code before it.
-- **VWAP in the intraday alerts (new, 2026-09-26, open).**
+- **VWAP in the intraday alerts (new, 2026-09-26, resolved 2026-09-28).**
   `lib/scanner/intraday.ts` uses session VWAP for its direction, its
   invalidation level and its first target. Those alerts carry a "Trade this"
   action into the order ticket, so VWAP there is platform substance, not a
   chart tool. It's a separate system with its own spec, so it wasn't rewritten
   in the F2.5 pass. It needs a Gann replacement (the session's 50% point is
   the natural counterpart) or an explicit exception recorded here.
-- **STRAT still gates publication (new, 2026-09-26, open).**
+  **Resolved 2026-09-28 (project owner: "not Gann methodology, so implement
+  Gann's methods").** Direction, invalidation and first target now read the
+  session's 50% point (`SessionMetrics.midpoint`); VWAP is gone from the
+  alerts.
+- **STRAT gated publication (new, 2026-09-26, resolved 2026-09-28).**
   `lib/marketScan.ts#hasTradePlan` requires `r.pattern !== null` before any
   setup reaches the daily lists, and `isMomentumContinuation` requires a
   continuation-shaped pattern. Since 2026-09-17 the bar-sequence taxonomy is
@@ -820,6 +832,11 @@ for the project owner** — do not fix it silently, and re-verify it first:
   is decide where an order goes" in spirit, since publication decides what
   Guided Mode and the demo trade. It's a production behaviour change, so it's
   held for the project owner. The replay does not apply this filter.
+  **Resolved 2026-09-28 (project owner, same instruction).** `hasTradePlan` no
+  longer reads the pattern; a plan's levels come only from Gann's trigger. The
+  continuation pass (live and replay) gates on Gann's with-the-daily-trend
+  crossing (`lib/scan/entrySelection.ts#isGannContinuation`) instead of a
+  STRAT continuation shape, and its top-up skip reads the daily trend too.
 - **Being in `FALLBACK_UNIVERSE` doesn't mean being scanned (F1.7).** It
   comes last behind the tracked symbols, the rotation chunk (drawn from
   `LARGE_CAP_UNIVERSE` only) and the most-actives, inside a 250-slot cap.

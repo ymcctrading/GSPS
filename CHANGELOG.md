@@ -9,6 +9,21 @@ date.
 
 ## 2026-09-28
 
+### Fixed (six-year diagnosis)
+
+- Gann's "3 points" in the exit rules (hold test, stops under swings and the
+  prior month's low) is now price-scaled from his own bands
+  (`lib/gann/pointScale.ts`), instead of the entry's 0.3% lost-motion margin.
+  The hold test had been ending most trades on noise. Applies to live exits
+  and the replay alike. `STRATEGY_VERSION` 2026-09-28-gann-points-continuation.
+- Publication no longer requires a STRAT pattern; the continuation pass gates
+  on Gann's with-the-daily-trend crossing (`isGannContinuation`).
+- Intraday alerts use the session's 50% point instead of VWAP.
+- Replay pyramiding now places adds (fractional lots rounded them to zero).
+- The macro and decade cycles read as of the last bar, not the wall clock,
+  and the macro cycle's major windows are measured as context factors.
+- The calendar test's phase blocks score their own years.
+
 ### Added
 - **Volume against the capital stock, and time from the company's birth**
   (parity D2, D3). Shares outstanding come from SEC EDGAR and inception dates
