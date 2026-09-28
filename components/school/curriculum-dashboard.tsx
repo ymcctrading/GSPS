@@ -113,6 +113,24 @@ export function CurriculumDashboard() {
 
       <Card>
         <CardHeader>
+          <CardTitle>Graduation exams</CardTitle>
+          <CardDescription>
+            Show you can apply what you&apos;ve learned on real past charts. Passing your tier&apos;s exam is required to
+            move up, whichever way you move up.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-1">
+          <Link href="/school/exam/novice_to_pro" className="text-sm font-medium text-accent hover:underline">
+            Novice graduation exam →
+          </Link>
+          <Link href="/school/exam/pro_to_expert" className="text-sm font-medium text-accent hover:underline">
+            Pro graduation exam →
+          </Link>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Restricted from live trading?</CardTitle>
           <CardDescription>
             A 50% live-loss event requires the separate Live-Trading Risk Re-Certification program, available any time regardless of curriculum progress.

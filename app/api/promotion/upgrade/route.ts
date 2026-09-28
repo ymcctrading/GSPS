@@ -11,6 +11,7 @@
  * cap."
  */
 
+import { examPassedAt } from "@/lib/school/examService";
 import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getUserTier } from "@/lib/tiers";
@@ -32,6 +33,15 @@ export async function POST() {
   const tier = await getUserTier(service, user.id);
   if (tier !== "PRACTICE") {
     return NextResponse.json({ error: "Already Pro or above" }, { status: 409 });
+  }
+
+  // The Novice graduation exam is required on every path up (owner,
+  // 2026-09-28); see lib/promotion/curriculumPolicy.ts#mandatoryComponentMet.
+  if (!(await examPassedAt(service, user.id, "novice_to_pro"))) {
+    return NextResponse.json(
+      { error: "Pass the Novice graduation exam in GSPS School first.", code: "graduation_exam_required" },
+      { status: 403 },
+    );
   }
 
   const policy = await getPromotionPolicy(service);

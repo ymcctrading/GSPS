@@ -20,8 +20,31 @@ date.
   and its 5–60-year cycles show on the confluence trace. All readings are
   recorded as replay context factors. Default verdicts and bracket trades are
   unchanged.
+- **Graduation exams** for Novice -> Pro and Pro -> Expert: five real past
+  charts, graded on the rules (trend, trade or wait, entry, stop, size), not on
+  P&L, with each chart played forward afterwards. Required on every path up,
+  paying included. Migration 0084 (applied).
+- **Round numbers** (even figures): targets just before them, stops beyond
+  them, a switchable notice on the card, chart and ticket, and a portfolio
+  manager setting for auto-ordering at them (off by default).
+- **Twice-yearly rest reminder** on the dashboard (switchable).
+- **Pyramiding suggestion** on open positions that have earned an add;
+  nothing is placed automatically.
+- **Context readings, measured on every trade:** the Seven Zones of Activity,
+  seasonal counts from March 21, accumulation time, volume per point at tops,
+  early and late leaders against the market, the 2-3-day halt and reaction
+  weeks, and double and triple tops.
+- **School:** plain-English Novice and Pro courses with Mr. Bull and Mrs.
+  Bear as guides; the detailed method course moved to Academy 6 with a
+  pyramiding lesson.
 
 ### Changed
+- **Exits run on Gann's rules** on every paper and live position: 60% at the
+  first target, no fixed final target, the stop moved on the market's swings,
+  and the rest closed on a failed breakout, three closes against the trade or
+  a trend change.
+- **Six-year 1-hour backtest recorded:** every cell lost money; see
+  `docs/replay-runs/2026-09-27-766sym-NOTES.md`.
 - **Gann's timing and extreme-price rules as measured context** (parity
   F1). The reverse signal day and 7-10 Day Rule, gap rules (exhaust gaps,
   gaps in new territory, filled gaps), the 7/14-day turn count, Square-of-144

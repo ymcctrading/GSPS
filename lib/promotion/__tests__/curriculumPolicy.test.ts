@@ -43,9 +43,11 @@ describe("evaluateCurriculumEligibility", () => {
 });
 
 describe("mandatoryComponentMet", () => {
-  it("is always true for novice_to_pro and pro_to_expert regardless of inputs", () => {
-    expect(mandatoryComponentMet("novice_to_pro", NONE)).toBe(true);
-    expect(mandatoryComponentMet("pro_to_expert", NONE)).toBe(true);
+  it("requires the graduation exam for novice_to_pro and pro_to_expert", () => {
+    expect(mandatoryComponentMet("novice_to_pro", NONE)).toBe(false);
+    expect(mandatoryComponentMet("pro_to_expert", NONE)).toBe(false);
+    expect(mandatoryComponentMet("novice_to_pro", { ...NONE, noviceExamPassedAt: "2026-09-28" })).toBe(true);
+    expect(mandatoryComponentMet("pro_to_expert", { ...NONE, proExamPassedAt: "2026-09-28" })).toBe(true);
   });
 
   it("is false for expert_to_wall_street until the capstone completes, even via other paths", () => {

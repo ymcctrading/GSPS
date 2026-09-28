@@ -1563,6 +1563,16 @@ the one place the "three independent paths" model has a shared,
 non-optional component. It is deliberate; do not "clean it up" into full
 path independence without going back to the project owner first.
 
+**Graduation exams (project owner, 2026-09-28).** Novice -> Pro and Pro ->
+Expert now each have their own mandatory component too: a graduation exam in
+the tier's sandbox (`lib/school/graduationExam.ts`, `/school/exam/[transition]`),
+real past charts shown up to a date, graded on the server against the
+platform's rules (trend, trade or wait, entry, stop, size), never on P&L. It
+holds every path, pay-your-way and the Expert subscription checkout included,
+and the older Novice -> Pro route. Stored in `graduation_exam_attempts`
+(migration 0084, applied to production with owner sign-off the same day;
+service-role writes only). Wall Street keeps the Academy 8 capstone.
+
 **Track Record thresholds — where the numbers come from.** GSPS has no
 multi-year proprietary track record yet (`docs/replay-runs/`'s longest run
 spans about two months). `lib/promotion/trackRecordPolicy.ts`'s own header

@@ -174,3 +174,8 @@ read the one filed before each session. Written only by
 `lib/data/instrumentReference.ts` for Gann's capital-stock and
 incorporation-date rules (parity D2, D3). `float_shares` stays unset: float is
 not the figure Gann used.
+
+Graduation exams (`0084`, applied 2026-09-28): `graduation_exam_attempts`, one
+row per attempt with the scenarios and answer key fixed at start. Owner can read
+their own rows; only the service role writes (a pass gates promotion). Read by
+`lib/school/examService.ts` and `lib/promotion/curriculumPolicy.ts`.
