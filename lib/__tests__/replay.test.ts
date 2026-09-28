@@ -601,6 +601,13 @@ describe("replay exitRule: gann", () => {
 });
 
 describe("replay exitRule: gann-runner (the live rule)", () => {
+  it("records lots under pyramiding and never adds to a trade that stopped out", () => {
+    const through = TRIGGER.stopPrice - SIDE * 0.5;
+    const fall = { o: past(0.2), h: SIDE > 0 ? past(0.3) : through, l: SIDE > 0 ? through : past(0.3), c: through };
+    const r = replay("TEST", session([crossing, fall, quiet]), { targetR: 2, dailyBars: DAILY, exitRule: "gann-runner", pyramid: true });
+    expect(r.trades[0].lots).toBe(1);
+  });
+
   it("banks 60% at the target and runs the rest on Gann's rules", () => {
     const beyond = past(3 * RISK);
     const run = { o: past(0.4), h: SIDE > 0 ? beyond : past(0.3), l: SIDE > 0 ? past(0.3) : beyond, c: past(0.5) };

@@ -78,6 +78,7 @@ import { applyBreakawayHold, applyReversionConfirmation, computeScore } from "@/
 import { readBreakaway, type BreakawayReading } from "@/lib/gann/breakaway";
 import { readGannExit, type GannExitReason, type GannStopReason } from "@/lib/gann/exitRules";
 import { SCALE_OUT_PCT } from "@/lib/trade/protocol-exit";
+import { readPyramidAdd, type PyramidLot } from "@/lib/gann/pyramid";
 import {
   FALLBACK_SR_PCT,
   SR_PROXIMITY_ATR,
@@ -228,6 +229,14 @@ export interface ReplayOptions {
    */
   exitRule?: "bracket" | "gann" | "gann-runner";
   /**
+   * Under a Gann exit rule, add to winning trades on Gann's pyramiding rules
+   * (`lib/gann/pyramid.ts`): half the last lot at each crossed swing top made
+   * since it, once it shows a full risk unit of profit, with the whole
+   * position's stop lifted to at least its combined break-even. R stays in
+   * units of the first lot's risk. Ignored under the bracket.
+   */
+  pyramid?: boolean;
+  /**
    * Stored filings facts for the symbol (parity roadmap D2, D3; see
    * `lib/data/instrumentReference.ts`). Each session reads the share count
    * that had been filed before it, restated to the bars' split basis, so no
@@ -266,6 +275,8 @@ export interface ReplayTrade {
   target: number;
   barsHeld: number;
   outcome: "win" | "loss" | "timeout";
+  /** Lots held at the end, under `pyramid: true` (1 when nothing was added). */
+  lots?: number;
   /** Why the trade left, under `exitRule: "gann"`. Undefined under the bracket. */
   exitReason?: GannStopReason | GannExitReason | "timeout";
   /** Realised result in units of the trade's own risk, after costs. */
@@ -570,6 +581,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     useProductionStop = false,
     entryRule = "stop",
     exitRule = "bracket",
+    pyramid = false,
     instrument,
   } = options;
 
@@ -754,6 +766,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           bars, from: i, maxBarsHeld, long, entry, stop, dailyBars: dailyBars ?? [],
           crossedLevel: trigger.pivot.price,
           scaleOut: exitRule === "gann-runner" ? { price: target, fraction: RUNNER_SCALE_OUT } : undefined,
+          pyramid,
           sharesOn: instrument ? (date) => splitAdjustedSharesAsOf(instrument.sharesHistory, date) : undefined,
         });
         trades.push({
@@ -769,6 +782,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           barsHeld: walked.barsHeld,
           outcome: walked.reason === "timeout" ? "timeout" : dir * (walked.exit - entry) > 0 ? "win" : "loss",
           exitReason: walked.reason,
+          ...(pyramid ? { lots: walked.lots } : {}),
           rMultiple: (dir * (walked.exit - entry) - costPerShare) / risk,
           ambiguous: false,
         });
@@ -904,11 +918,27 @@ function walkGannExit(input: {
   sharesOn?: (date: string) => number | null;
   /** `"gann-runner"`: this fraction leaves at `price`; the rest runs. */
   scaleOut?: { price: number; fraction: number };
-}): { exit: number; barsHeld: number; reason: GannStopReason | GannExitReason | "timeout" } {
-  const { bars, from, maxBarsHeld, long, entry, dailyBars, crossedLevel, sharesOn, scaleOut } = input;
-  // The blended exit: the scaled-out fraction at its price, the rest where it left.
+  /** Add to the winner on Gann's pyramiding rules (`lib/gann/pyramid.ts`). */
+  pyramid?: boolean;
+}): { exit: number; barsHeld: number; reason: GannStopReason | GannExitReason | "timeout"; lots: number } {
+  const { bars, from, maxBarsHeld, long, entry, dailyBars, crossedLevel, sharesOn, scaleOut, pyramid } = input;
+  const dir = long ? 1 : -1;
+  // Position accounting in units of the first lot (1.0). The result is
+  // reported as the single exit price that gives the same P&L per unit, so the
+  // caller's R arithmetic is unchanged: the first lot's risk stays the unit.
+  let openQty = 1;
+  let cost = entry;
+  let realized = 0;
+  const lots: PyramidLot[] = [{ qty: 1, price: entry, date: bars[from].t.slice(0, 10) }];
+  const close = (price: number) => realized + dir * (openQty * price - cost);
+  const done = (price: number, j: number, reason: GannStopReason | GannExitReason | "timeout") => ({
+    exit: entry + dir * close(price),
+    barsHeld: j,
+    reason,
+    lots: lots.length,
+  });
   let scaled = false;
-  const blend = (exit: number) => (scaled && scaleOut ? scaleOut.fraction * scaleOut.price + (1 - scaleOut.fraction) * exit : exit);
+  let pendingAdd: { qty: number; trigger: number; newStop: number } | null = null;
   const entryDate = bars[from].t.slice(0, 10);
   const position = { side: long ? "long" : "short", entry, initialStop: input.stop, entryDate, crossedLevel } as const;
   let stop = input.stop;
@@ -921,18 +951,51 @@ function walkGannExit(input: {
     if (j > from && date !== bars[j - 1].t.slice(0, 10)) {
       const prior = dailyBars.filter((d) => d.t.slice(0, 10) < date);
       const reading = readGannExit(position, prior, best, sharesOn?.(date) ?? null);
-      if (reading.exit) return { exit: blend(b.o), barsHeld: j - from + 1, reason: reading.exit.reason };
+      if (reading.exit) return done(b.o, j - from + 1, reading.exit.reason);
       if (long ? reading.stop > stop : reading.stop < stop) {
         stop = reading.stop;
         stopReason = reading.stopReason;
       }
+      pendingAdd = null;
+      if (pyramid && prior.length > 0) {
+        const add = readPyramidAdd({
+          side: long ? "long" : "short",
+          lots,
+          stop,
+          initialStop: input.stop,
+          daily: prior,
+          price: prior[prior.length - 1].c,
+        }).add;
+        // Lots are fractions of the first here, so the size rule is applied directly.
+        if (add) pendingAdd = { qty: lots[lots.length - 1].qty / 2, trigger: add.trigger, newStop: add.newStop };
+      }
     }
-    if (long ? b.l <= stop : b.h >= stop) return { exit: blend(stop), barsHeld: j - from + 1, reason: stopReason };
-    if (scaleOut && !scaled && (long ? b.h >= scaleOut.price : b.l <= scaleOut.price)) scaled = true;
+    if (long ? b.l <= stop : b.h >= stop) return done(stop, j - from + 1, stopReason);
+    if (pendingAdd && (long ? b.h >= pendingAdd.trigger : b.l <= pendingAdd.trigger)) {
+      const fill = long ? Math.max(pendingAdd.trigger, b.o) : Math.min(pendingAdd.trigger, b.o);
+      openQty += pendingAdd.qty;
+      cost += pendingAdd.qty * fill;
+      lots.push({ qty: pendingAdd.qty, price: fill, date });
+      const avg = cost / openQty;
+      const floor = long ? Math.max(pendingAdd.newStop, avg) : Math.min(pendingAdd.newStop, avg);
+      if (long ? floor > stop : floor < stop) {
+        stop = floor;
+        stopReason = "break_even";
+      }
+      pendingAdd = null;
+    }
+    if (scaleOut && !scaled && (long ? b.h >= scaleOut.price : b.l <= scaleOut.price)) {
+      // Scale out the fraction of what is held now, at the target.
+      const sold = openQty * scaleOut.fraction;
+      const avg = cost / openQty;
+      realized += dir * sold * (scaleOut.price - avg);
+      cost -= sold * avg;
+      openQty -= sold;
+      scaled = true;
+    }
     best = best === null ? (long ? b.h : b.l) : long ? Math.max(best, b.h) : Math.min(best, b.l);
   }
-  const barsHeld = end - from;
-  return { exit: blend(bars[end - 1].c), barsHeld, reason: "timeout" };
+  return done(bars[end - 1].c, end - from, "timeout");
 }
 
 /**
