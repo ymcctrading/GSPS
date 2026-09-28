@@ -111,6 +111,30 @@ export function contextFactorsFor(
     f.sharesPerPointTopAgainst = bull && ctx.sharesPerPoint.topWarning;
     f.sharesPerPointTopWith = !bull && ctx.sharesPerPoint.topWarning;
   }
+  // Daily/weekly time rules: a halt at the extreme against the trade, a
+  // reaction inside Gann's 2–3 week zone with the weekly trend, an abnormal one.
+  if (ctx.timeRules) {
+    f.haltAgainstTrade = ctx.timeRules.halt !== null && ctx.timeRules.halt.at === (bull ? "top" : "bottom");
+    if (ctx.counterMove?.inCounterMove && ctx.counterMove.trend === direction) {
+      f.reactionInTwoToThreeWeekZone = ctx.timeRules.reactionInZone;
+      f.reactionInThirdWeek = ctx.timeRules.thirdWeek;
+    }
+    f.reactionAbnormalLength = ctx.timeRules.reactionAbnormal;
+  }
+  // Double/triple tops and bottoms: crossed in the trade's direction, or a
+  // failed third test standing against it.
+  if (ctx.multipleTops) {
+    // The level in the trade's path: a top for a long, a bottom for a short.
+    const inPath = bull ? ctx.multipleTops.top : ctx.multipleTops.bottom;
+    f.multipleTopCrossedWithTrade = inPath?.state === "crossed";
+    f.thirdTestFailedAgainstTrade = inPath?.state === "failed";
+  }
+  // Time balancing (B2): today within two days of a date when the open leg
+  // has lasted as long as the matching prior leg.
+  if (ctx.campaign && ctx.asOf) {
+    const today = Date.parse(ctx.asOf);
+    f.onTimeBalanceDate = ctx.campaign.timeBalanceDates.some((d) => Math.abs(Date.parse(d) - today) <= 2 * 86_400_000);
+  }
   // G25: early and late leaders; the first-year high for longs.
   if (ctx.leadership) {
     f.earlyLeaderInTradeDirection = bull ? ctx.leadership.bottomedFirst : ctx.leadership.toppedFirst;

@@ -219,6 +219,14 @@ function DisclosedRuleTiles({
     tiles.push({ label: "Versus the market", value: lead.bottomedFirst ? "bottomed first" : lead.bottomedLate ? "bottomed late" : "topped first" });
   }
   if (rules.sharesPerPoint?.topWarning) tiles.push({ label: "Volume per point", value: `${rules.sharesPerPoint.ratio.toFixed(1)}× prior leg` });
+  const tr = rules.timeRules;
+  if (tr?.halt) tiles.push({ label: `${tr.halt.days}-day halt`, value: `at ${tr.halt.at} ${tr.halt.extreme.toFixed(2)}` });
+  if (tr?.reactionWeek) {
+    tiles.push({ label: "Reaction week", value: `${tr.reactionWeek}${tr.reactionAbnormal ? " (long)" : tr.reactionInZone ? " (2–3 wk zone)" : ""}` });
+  }
+  for (const m of [rules.multipleTops?.top, rules.multipleTops?.bottom]) {
+    if (m) tiles.push({ label: `${m.tests >= 3 ? "Triple" : "Double"} ${m.kind}`, value: `${m.level.toFixed(2)} ${m.state}` });
+  }
   if (rules.zone) {
     tiles.push({ label: "Zone of activity", value: `${rules.zone.zone > 0 ? "+" : ""}${rules.zone.zone}${rules.zone.firstSignOfEnd ? " (first sign of the end)" : ""}` });
   }

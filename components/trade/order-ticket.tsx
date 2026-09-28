@@ -621,6 +621,10 @@ export function OrderTicket({
               price={entryMode === "advised" ? advised : currentPrice}
               direction={side === "buy" ? "bullish" : "bearish"}
             />
+            <p className="text-xs text-muted">
+              Trade only when you&apos;re rested and clear-headed. If you&apos;re tired, unwell or
+              upset, the trade can wait.
+            </p>
 
             {useProtocolLevels && levels ? (
               <div id="tour-exit" className="flex flex-col gap-2">

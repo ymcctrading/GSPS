@@ -70,6 +70,8 @@
  *    whether the market's pull-back rhythm is still normal).
  */
 
+import { readTimeRules, type TimeRulesReading } from "@/lib/gann/timeRules";
+import { readMultipleTops, type MultipleTopsReading } from "@/lib/gann/multipleTops";
 import { readSeasonalCount, type SeasonalCountReading } from "@/lib/gann/seasonalCounts";
 import { readAccumulation, type AccumulationReading } from "@/lib/gann/accumulation";
 import { readSharesPerPoint, type SharesPerPointReading } from "@/lib/gann/sharesPerPoint";
@@ -429,6 +431,12 @@ export interface DisclosedRulesContext {
   sharesPerPoint: SharesPerPointReading | null;
   /** Early and late leaders, and the first-year high. See `leadership.ts`. */
   leadership: LeadershipReading | null;
+  /** The 2–3-day halt and the reaction-week rules. See `timeRules.ts`. */
+  timeRules: TimeRulesReading | null;
+  /** Double and triple tops and bottoms. See `multipleTops.ts`. */
+  multipleTops: MultipleTopsReading | null;
+  /** The session this was read for (YYYY-MM-DD). */
+  asOf: string;
 }
 
 /**
@@ -465,6 +473,9 @@ export const EMPTY_DISCLOSED_RULES: DisclosedRulesContext = {
   accumulation: null,
   sharesPerPoint: null,
   leadership: null,
+  timeRules: null,
+  multipleTops: null,
+  asOf: "",
 };
 
 export function readDisclosedRules(
@@ -475,12 +486,13 @@ export function readDisclosedRules(
   asOf: Date = new Date(),
 ): DisclosedRulesContext {
   const campaign = buildCampaignLedger(dailyBars);
+  const counterMove = readCounterMove(dailyBars);
   return {
     barMidpoint: readBarMidpoint(dailyBars),
     pricePercentages: readPricePercentages(dailyBars, currentPrice),
     dayCountBands: readDayCountBands(dailyBars),
     yearFraction: readYearFraction(dailyBars),
-    counterMove: readCounterMove(dailyBars),
+    counterMove,
     levelTests: readLevelTests(dailyBars, currentPrice),
     ruleOfThree: readRuleOfThreeTimeframes(dailyBars),
     campaign,
@@ -497,6 +509,9 @@ export function readDisclosedRules(
     accumulation: readAccumulation(dailyBars),
     sharesPerPoint: readSharesPerPoint(dailyBars, campaign),
     leadership: readLeadership(dailyBars, instrument?.marketDaily ?? null, campaign),
+    timeRules: readTimeRules(dailyBars, counterMove),
+    multipleTops: readMultipleTops(dailyBars),
+    asOf: asOf.toISOString().slice(0, 10),
   };
 }
 
@@ -513,6 +528,18 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   }
   if (ctx.sharesPerPoint?.topWarning) {
     lines.push(`Volume per point of gain is ${ctx.sharesPerPoint.ratio.toFixed(1)}× the prior up leg near the high: more effort for less gain, a sign of a top.`);
+  }
+  if (ctx.timeRules) {
+    const t = ctx.timeRules;
+    if (t.halt) lines.push(`${t.halt.days}-day halt at a ${t.halt.at} of ${t.halt.extreme.toFixed(2)}; a stop beyond it belongs at ${t.halt.stop.toFixed(2)}.`);
+    if (t.reactionWeek !== null) {
+      lines.push(`Reaction in its week ${t.reactionWeek}${t.reactionInZone ? " (the 2–3 week zone)" : ""}${t.thirdWeek ? ", the third week, when reactions usually end" : ""}${t.reactionAbnormal ? ": longer than an active stock's normal reaction" : ""}.`);
+    }
+  }
+  for (const m of [ctx.multipleTops?.top, ctx.multipleTops?.bottom]) {
+    if (!m) continue;
+    const name = m.tests >= 3 ? `Triple ${m.kind}` : `Double ${m.kind}`;
+    lines.push(`${name} at ${m.level.toFixed(2)}: ${m.state === "crossed" ? "crossed, a strong breakout" : m.state === "failed" ? "failed on its third test" : "being tested"}.`);
   }
   if (ctx.leadership) {
     const l = ctx.leadership;
