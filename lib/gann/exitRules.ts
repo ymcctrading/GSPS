@@ -12,7 +12,8 @@
  *   Detector* p. 20; *Commodities* p. 53). A daily close back under the
  *   crossed level by the allowance ends the trade.
  * - **C1 three adverse closes.** If the trade closes against you the third
- *   successive day, you are wrong: get out (*New Stock Trend Detector* p. 23).
+ *   successive day from entry, you are wrong: get out (*New Stock Trend
+ *   Detector* p. 23). Read on the first three sessions after the fill only.
  * - **C2 break-even.** Move the stop to break-even after 3-4 points of profit,
  *   with a 3-point stop (*Truth of the Stock Tape*, Book II; *Wall Street
  *   Stock Selector*, Rule 3). That is a profit equal to the risk taken, so the
@@ -140,9 +141,16 @@ export function readGannExit(
       };
     }
   }
+  // Gann counts from the entry: "if it closes against you the first day you
+  // are apt to be wrong; the third successive day, you are wrong" (A05 p. 23).
+  // So it tests the first three sessions after the fill (the fill's own session
+  // is day one); a check that runs late still acts on those three. Until 2026-09-28 it
+  // fired on any three closes under the entry at any point in the trade, a
+  // pullback in a winner included; run 19 showed that exit costing 107 trades
+  // at -0.25R.
   if (!exit && since.length >= 3) {
-    const adverse = since.slice(-3).every((b) => (long ? b.c < pos.entry : b.c > pos.entry));
-    if (adverse) exit = { reason: "three_adverse_closes", note: "Closed against the trade three days running." };
+    const adverse = since.slice(0, 3).every((b) => (long ? b.c < pos.entry : b.c > pos.entry));
+    if (adverse) exit = { reason: "three_adverse_closes", note: "Closed against the trade on each of its first three days." };
   }
 
   // C4: a change of trend after entry.

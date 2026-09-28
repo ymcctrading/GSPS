@@ -37,4 +37,6 @@
 // lost-motion margin; the STRAT shape no longer gates publication or the
 // continuation pass (Gann's with-the-daily-trend rule, isGannContinuation);
 // the replay's pyramid adds now fire; macro/decade cycles read as of the bar.
-export const STRATEGY_VERSION = "2026-09-28-gann-points-continuation";
+// Third bump: Gann's three-adverse-closes exit reads the first three sessions
+// from the fill, as the source counts them, not any three closes in the trade.
+export const STRATEGY_VERSION = "2026-09-28-gann-first-days";

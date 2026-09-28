@@ -50,16 +50,24 @@ describe("readGannExit", () => {
     expect(readGannExit(pos, bars, 126.5).exit?.reason).not.toBe("hold_test_failed");
   });
 
-  it("exits after three successive closes against the trade", () => {
-    const bars = daily([...steppingAdvance(3), 125, 124.8, 124.7, 124.6]);
-    const pos = position(bars, bars.length - 4);
+  it("exits when each of the first three sessions from entry closes against the trade", () => {
+    const bars = daily([...steppingAdvance(3), 125, 124.8, 124.7]);
+    const pos = position(bars, bars.length - 3, { entry: 125.2 });
     expect(readGannExit(pos, bars, 125.5).exit?.reason).toBe("three_adverse_closes");
   });
 
   it("does not exit on two adverse closes", () => {
-    const bars = daily([...steppingAdvance(3), 125, 124.8, 124.7]);
-    const pos = position(bars, bars.length - 3);
+    const bars = daily([...steppingAdvance(3), 125, 124.8]);
+    const pos = position(bars, bars.length - 2, { entry: 125.2 });
     expect(readGannExit(pos, bars, 125.5).exit).toBeNull();
+  });
+
+  it("does not apply to three adverse closes later in the trade", () => {
+    // Days one to three close above the entry; a later three-day dip under it
+    // is a reaction inside the trade, not Gann's first-days test.
+    const bars = daily([...steppingAdvance(3), 125.5, 125.6, 125.7, 124.9, 124.8, 124.7]);
+    const pos = position(bars, bars.length - 6, { entry: 125.2 });
+    expect(readGannExit(pos, bars, 126).exit?.reason).not.toBe("three_adverse_closes");
   });
 
   it("moves the stop to break-even once the trade has gone one risk unit its way", () => {
@@ -84,8 +92,8 @@ describe("readGannExit", () => {
   });
 
   it("mirrors every rule for a short", () => {
-    const bars = daily([...steppingAdvance(3).map((c) => 250 - c), 125, 125.2, 125.3, 125.4]);
-    const pos = position(bars, bars.length - 4, { side: "short", initialStop: 130 });
+    const bars = daily([...steppingAdvance(3).map((c) => 250 - c), 125, 125.2, 125.3]);
+    const pos = position(bars, bars.length - 3, { side: "short", entry: 124.9, initialStop: 130 });
     expect(readGannExit(pos, bars, 124.5).exit?.reason).toBe("three_adverse_closes");
   });
 
