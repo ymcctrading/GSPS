@@ -35,24 +35,21 @@ The goal is that every rule Gann **disclosed** runs in GSPS the way he stated it
 
 | Domain | Aligned | Partial | Conflict | Missing | Other |
 |---|---|---|---|---|---|
-| Time | 7 | 3 | 0 | 7 | 1 research-only |
-| Price and levels | 6 | 1 | 0 | 3 | — |
-| Trend | 5 | 1 | 0 (X3 fixed) | 6 | — |
-| Entries, stops, exits, lifecycle | 3 | 3 | 1 (X4) | 5 | — |
-| Volume | 2 | 0 | 0 | 2 | — |
+| Time | 13 | 2 | 0 | 2 | 1 research-only |
+| Price and levels | 8 | 1 | 0 | 1 | — |
+| Trend | 12 | 0 | 0 (X3 fixed) | 0 | — |
+| Entries, stops, exits, lifecycle | 6 | 5 | 0 (X4 now partial) | 1 | — |
+| Volume | 3 | 0 | 0 (X1 fixed) | 1 | — |
 | Risk and money management | 4 | 1 | 0 | 1 | — |
 | The trader (education) | 3 | 1 | 0 | 1 | — |
 | Astrology, numerology, forecasting | 1 | 0 | 0 | 3 (research) | 2 excluded, 1 cannot be copied |
-| **Total (74 rules)** | **31** | **10** | **1** | **28** | **4** |
+| **Total (74 rules)** | **50** | **10** | **0** | **10** | **4** |
 
-Counts are rows in Part 3; "Aligned" includes rows aligned in structure.
+Counts are rows in Part 3, recounted from the row statuses on 2026-09-28. "Aligned" includes rows aligned in structure and rules built as measured context; "Partial" includes the exit rules that are measured but not yet switched on live.
 
-**The headline:** GSPS already has a large share of Gann's *level and time geometry*. The biggest gaps are:
-- **Trend construction** (X3). The swing charts underneath the verdict are not Gann's definition.
-- **Gann's "change of trend" rules**: over-balance of time and space, the greatest reaction of the campaign, the monthly-low break.
-- **Post-entry and exit management**: hold tests, the three-adverse-closes exit, trailing by the last reaction, and the "never fix a target" conflict.
+**The headline (updated 2026-09-28):** the three gaps this roadmap opened with are closed or measured. Gann's own swing charts now build the trend (X3), and his change-of-trend rules (over-balance of price and time, the campaign's greatest reaction, the monthly-low break) act in the trend read. His exit rules (hold test, three adverse closes, structural break-even and trail, trend-change exit) are built and measured in the replay, but the live exit manager stays on the staged bracket until a longer-horizon run shows they help the Execute bucket. What remains missing is mostly narrow: seasonal counts, accumulation time, even-figure orders, pyramiding, the half-yearly rest, early/late leaders, shares-per-point efficiency, and the astrology research track.
 
-Those three areas are where Gann's method is most specific, and where the verdict is most affected.
+The original headline (2026-09-27) named trend construction, the change-of-trend rules and post-entry management as the biggest gaps.
 
 ---
 
@@ -69,15 +66,15 @@ Each row gives the rule and its source, what GSPS does now, the status, and the 
 | Cycle hierarchy 1, 2, 3, 5, 7, 10, 15, 20, 30, 50, 60 years | A2.1 Ch. 7 | `MAJOR_CYCLE_YEARS`, `yearCycleConvergence` | Aligned | **Done 2026-09-28 (M5):** 30/50/60 labelled disclosed, not validated |
 | Convergence of several cycles on one window | A2.1 Ch. 7, 13 | `yearCycleConvergence` counts hits; **2026-09-28 (G11):** `timeConvergence.ts` reads days/weeks/months from the year's extreme landing on a multiple of 12 together | Aligned (context, measuring) | — |
 | Permanent annual calendar (8 dated windows) | A04 back matter; A09 | `FIXED_CALENDAR_WINDOWS` | **Aligned (fixed 2026-09-27)** | Measure as a recurrent event (M4) |
-| Fractions of the year: anniversary > ½ > ¼, ¾ > ⅓, ⅔ > ⅛s | A2.1 Ch. 13–14 | `squareOf52.ts`, `WHEEL_COUNTS` | Partial | Add the ranking to the output (G8) |
-| Day-count bands 7–12, 18–21, 28–31, 42–49, 57–65, 85–92, 112–120, 150–157, 175–185 | A09 Rule 8; A8 pp. 57–58 | `WHEEL_COUNTS` = 45/90/120/180/270/360 only | Missing | G17: add the bands as windows from each pivot. Confluence first |
+| Fractions of the year: anniversary > ½ > ¼, ¾ > ⅓, ⅔ > ⅛s | A2.1 Ch. 13–14 | `squareOf52.ts`, `WHEEL_COUNTS`; **Stage A:** `YEAR_FRACTIONS` ranked and driving the time windows | Aligned | Add the ranking to the output (G8) |
+| Day-count bands 7–12, 18–21, 28–31, 42–49, 57–65, 85–92, 112–120, 150–157, 175–185 | A09 Rule 8; A8 pp. 57–58 | **Stage A:** `DAY_COUNT_BANDS` drive the time windows (`timeCycles.ts`) | Aligned | G17: add the bands as windows from each pivot. Confluence first |
 | Seasonal counts from Mar 20/21 and the midseason points | A2.1 Ch. 14, 17, 18 | none (the calendar fix covers the dates, not counts from them) | Missing | G8 |
-| Counter-move duration prior: reactions 2–5 weeks (3–4 typical; 14 and 21 days most common); a 3rd month means a trend change; strong stocks seldom react into a 2nd month | A2.1 Ch. 11B, 14, 17; A05; A04 Ch. IV | none | **Missing** | G2 and G24. A "counter-move clock" context field, then an Owner decision on using it as a trend-change signal |
+| Counter-move duration prior: reactions 2–5 weeks (3–4 typical; 14 and 21 days most common); a 3rd month means a trend change; strong stocks seldom react into a 2nd month | A2.1 Ch. 11B, 14, 17; A05; A04 Ch. IV | **Stage A:** `readCounterMove` (normal / extended / 2nd / 3rd month), card and measured factors | Aligned (context, measuring) | G2 and G24. A "counter-move clock" context field, then an Owner decision on using it as a trend-change signal |
 | Daily/weekly time rules: 2–3-day halt at extremes; buy 2–3-week reactions; watch the 3rd week; the 6th–7th week ends fast moves | A04 Ch. IV; A09 Rule 4 | `boilingPoint.ts` (6–7 weeks) | Partial | Add the 2–3-day halt and the 3rd-week watch to the same clock |
-| Time balancing: project prior swing durations forward; percentages of time | A8 pp. 97–99, 293 | `timePriceSquare.ts` (price = time) | Missing | G22 |
+| Time balancing: project prior swing durations forward; percentages of time | A8 pp. 97–99, 293 | `timePriceSquare.ts`; **B2/F1:** campaign-ledger time-balance dates and projection dispersion (`timeConvergence.ts`), shown and measured | Partial (not yet acted on) | G22 |
 | Accumulation time proportional to the size of the advance | A04 Ch. VII; A8 p. 52 | none | Missing | G22: a context annotation on breakouts from long ranges |
 | 7/14-day alternation of minor and major turns | A2.2 | **Built 2026-09-28 (G9):** `timeConvergence.ts` (7/14/21 days ±1 from the last 3-Day Chart pivot) | Aligned (context, measuring) | — |
-| Incorporation-date anniversary / company age | A03; A2.1 Ch. 7; A04 Ch. VI | **Built 2026-09-28 (D3).** `lib/gann/incorporationCycle.ts`: the anniversary, Gann's U.S. Steel seasonal degrees (45° … 360°) and the 5–60-year cycles from the company's inception date (Wikidata P571 by SEC CIK, stored in `instrument_profile`). On the confluence trace and recorded as replay context factors | Context, measured | Measure on the next run |
+| Incorporation-date anniversary / company age | A03; A2.1 Ch. 7; A04 Ch. VI | **Built 2026-09-28 (D3).** `lib/gann/incorporationCycle.ts`: the anniversary, Gann's U.S. Steel seasonal degrees (45° … 360°) and the 5–60-year cycles from the company's inception date (Wikidata P571 by SEC CIK, stored in `instrument_profile`). On the confluence trace and recorded as replay context factors | Aligned (context, measuring) | Measure on the next run |
 | Periodogram ("harmonic analysis") | A03; 1926 letter (B01) | `spectralCycle.ts`, confluence; **2026-09-28 (M1/M2):** Schuster p, cosinor amplitude with 95% interval and zero-amplitude test, log-price detrending, band-edge and window-trim artifact guards, a 70/30 forward hold-out | Aligned | — |
 | Squares of time: Master 12, Square of 52, 36 angle month-counts | A2.1 Ch. 7, 13, 14 | `masterTwelve.ts`, `squareOf52.ts`, `angleMonthCounts.ts` (confluence) | Aligned | — |
 | Decade-digit bull/bear years | A2.1 Ch. 7 | `decadeCycle.ts` (confluence) | Aligned | — |
@@ -88,11 +85,11 @@ Each row gives the rule and its source, what GSPS does now, the status, and the 
 | Gann rule | Source | GSPS today | Status | Next step |
 |---|---|---|---|---|
 | Range divisions: ½ first, then ¼/¾, ⅓/⅔, ⅛s | A2.1 Ch. 2, 13 | `retracement.ts`, `gannRetracementConfluence` (scored) | Aligned | — |
-| Percentages of the extreme *price* (low ÷ 8; high ÷ 8 and ÷ 3; 50% and 100% of a bottom) | A8 pp. 32–34; A09 | range fractions only | Missing | G13: add as levels to `retracement.ts`, feeding the same confluence |
+| Percentages of the extreme *price* (low ÷ 8; high ÷ 8 and ÷ 3; 50% and 100% of a bottom) | A8 pp. 32–34; A09 | **Stage A:** `pricePercentageLevels`; the three major levels join the S/R list | Aligned | G13: add as levels to `retracement.ts`, feeding the same confluence |
 | Old tops become support, old bottoms resistance | A02; A04; A8 | `historicalSR` (scored), `levels.ts` | Aligned | — |
 | Clustered levels averaged into one | A2.1 Ch. 9; A8 | `combineNearbyLevels` | Aligned | — |
 | Double and triple tops within a price-scaled band; the 3rd test decides | A05; A8 p. 53 | levels only | Partial | Count tests per level (feeds G15) |
-| The 4th test of a level goes through | A8 p. 43; A09 | none | Missing | G15: an invalidation or confluence field |
+| The 4th test of a level goes through | A8 p. 43; A09 | **Stage A:** `readLevelTests` counts tests and notes that a 4th usually breaks; measured factors | Aligned (context, measuring) | G15: an invalidation or confluence field |
 | Square of Nine (180° = +1 root) | A2.1 Ch. 13 | `squareOf9.ts` | Aligned | Don't "fix" it to the D-levels table (C5) |
 | Gann angles / 1x1 | A2.1 Ch. 4 | `fans.ts`, `normalizedSlope.ts`, `gannAngleSlope` (scored) | Aligned (price unit ATR-scaled, documented) | — |
 | Price = time squaring | A2.1; A8 | `timePriceSquare` (scored) | Aligned | — |
@@ -104,15 +101,15 @@ Each row gives the rule and its source, what GSPS does now, the status, and the 
 |---|---|---|---|---|
 | **Swing chart = counter-moves of 2–3 days on highs and lows; weekly chart = 7 calendar days; trend turns on breaking the last swing extreme** | A8 1951 pp. 316–317; A09 Ch. VII; A04 Ch. IV; A02 p. 82 | `swingChart.ts` rebuilt 2026-09-27: 3-Day Chart + 7-day weekly chart on highs and lows, trend on breaking the last swing extreme | **Aligned (B1 built 2026-09-27)** | Fresh replay on `2026-09-27-gann-swing-charts` (B3); the price-scaled 9-point chart stays a candidate |
 | Time trend turn: a lower top, then a break of the first swing low | A8 1951 p. 309 | `trendStrength.ts` stepping swings | Aligned in structure | Re-verify after B1 |
-| Rule of Three (3 consecutive lower closes reverse an uptrend) on daily, weekly and monthly | A04 p. 72 | `ruleOfThree.ts` (scored, daily) | Partial | Apply on weekly and monthly as Gann does |
-| Three-stage Space Rule; greatest reaction of the campaign exceeded = trend change | A2.1 Ch. 7, 10A, 11A; A8 p. 51; A04 Ch. VII | none | **Missing** | G3 + G14: build one **campaign counter-move ledger** (Part 5, B2) |
-| Over-balance of time before space | A8 BP/SP #3–#6; A09 Rule 8; A2.1 Ch. 11 | none | **Missing** | G14, same ledger |
-| Monthly-low (high) break since the top = trend turn | A05; A04 Ch. VII | none | Missing | G6 |
-| Close vs bar midpoint as a per-bar trend read | A2.1 Ch. 13 | none | Missing | G1, the cheapest literal rule |
-| Weekly 1-bar swing chart | A2.1 Ch. 18 | none | Missing | G5 (subsumed by B1's weekly chart) |
+| Rule of Three (3 consecutive lower closes reverse an uptrend) on daily, weekly and monthly | A04 p. 72 | `ruleOfThree.ts`, scored on daily, weekly and monthly closes (Stage A) | Aligned | Apply on weekly and monthly as Gann does |
+| Three-stage Space Rule; greatest reaction of the campaign exceeded = trend change | A2.1 Ch. 7, 10A, 11A; A8 p. 51; A04 Ch. VII | **B2:** `campaignLedger.ts` over-balance of space stops a trend confirming (`readGannTrend`) | Aligned | G3 + G14: build one **campaign counter-move ledger** (Part 5, B2) |
+| Over-balance of time before space | A8 BP/SP #3–#6; A09 Rule 8; A2.1 Ch. 11 | **B2:** over-balance of time, same path | Aligned | G14, same ledger |
+| Monthly-low (high) break since the top = trend turn | A05; A04 Ch. VII | **B2:** monthly-low (high) break, same path | Aligned | G6 |
+| Close vs bar midpoint as a per-bar trend read | A2.1 Ch. 13 | **Stage A:** `readBarMidpoint`, card and measured factor | Aligned (context, measuring) | G1, the cheapest literal rule |
+| Weekly 1-bar swing chart | A2.1 Ch. 18 | Subsumed by B1's 7-day weekly swing chart | Aligned | G5 (subsumed by B1's weekly chart) |
 | Monthly > weekly > daily hierarchy, with power ratio 7/30/365 | A05; A04 | `readTrend`, `timeframeWeight.ts` | Aligned | — |
 | Stock's own trend, never index confirmation | A05; A2.1 Ch. 5–6 | `macroBreadthAgrees` uses the stock's own charts | Aligned | Keep it that way (X2 withdrawn) |
-| Campaigns run in 3–4 sections; signals weigh more in the 3rd/4th | A04; A09 Rule 5; A8 p. 51 | none | Missing | A section counter in the B2 ledger |
+| Campaigns run in 3–4 sections; signals weigh more in the 3rd/4th | A04; A09 Rule 5; A8 p. 51 | **B2:** campaign sections in the ledger; final-stage trail in `exitRules.ts`; `lateSection` factor | Aligned | A section counter in the B2 ledger |
 | Sideways range: stay out; trade the breakaway | A8 p. 52; A04 Ch. V, VII | **Built 2026-09-27 (decision 5).** `rangeReversion.ts` is never tradeable; `lib/gann/breakaway.ts` + `applyBreakawayHold` hold a range-bound Execute to Watch unless the entry crosses the 13-week range's extreme (live scan and replay) | Aligned | — |
 
 ### 3.4 Entries, stops, exits and lifecycle
@@ -122,12 +119,12 @@ Each row gives the rule and its source, what GSPS does now, the status, and the 
 | Buy/sell on crossing an old swing extreme + lost motion (≈1⅞, never 3 points) | A2.1 Ch. 9; A8 | `entryTrigger.ts` | Aligned | Add the Ch. 9 citation (C4) |
 | 3-point confirmation beyond a level | A02; A04; A05 | `entryConfirmation.ts` buffer | Aligned | — |
 | Stop placed at entry, just beyond the level | A01; A05; A04 | plan invalidation | Aligned | — |
-| Hold test: no 3-point reaction back under a crossed top | A05; A8 p. 53 | none | **Missing** | G4. A lifecycle invalidation. **Owner** |
-| Exit after 3 successive adverse closes | A05 p. 23 | none | **Missing** | G4. A lifecycle exit. **Owner** |
-| Break-even stop after 3–4 points of profit | A02 Book II; A04 Rule 3 | break-even only after TP1 is hit (`protocol-exit.ts` rule 4) | Partial | G23. Move to break-even on a price-scaled profit threshold, not only at TP1. **Owner** |
-| Trail the stop by the size of the last reaction, or under the prior month's low; in the final stage, under the prior day after a 2-day counter-move | A04 Ch. IV, VI, VII; A8 BP/SP #9 | trails the best price by one unit of the original risk | Partial | G18 + G24: trail on Gann's structure (last reaction, prior month's low) instead of a fixed R. **Owner** |
-| **"Never fix a target price"**: exit on the stop or a trend-change signal; sell at resistance levels his rules identify | A02 Book II; A04 Rule list | fixed TP1 (60% out) and master target (20% out) | **Conflict (X4, new)** | **Owner.** Gann sells at resistance *levels* but never at a fixed profit objective. Options: (a) keep TP1 and document it as a GSPS safety choice; (b) derive TP1/master only from Gann levels and let the runner exit only on a Gann trend-change signal (B2/B4). Option (b) is the faithful copy |
-| Entry confirmation on every path | measured 2026-09-26 (+0.190R vs −0.155R) | automation only | Partial | Already recommended in AGENTS.md (F3.4 reversal). **Owner** |
+| Hold test: no 3-point reaction back under a crossed top | A05; A8 p. 53 | **C1:** `exitRules.ts` hold test, measured via `exitRule: "gann"` | Partial (measured; live switch pending) | G4. A lifecycle invalidation. **Owner** |
+| Exit after 3 successive adverse closes | A05 p. 23 | **C1:** `exitRules.ts`, measured via `exitRule: "gann"` | Partial (measured; live switch pending) | G4. A lifecycle exit. **Owner** |
+| Break-even stop after 3–4 points of profit | A02 Book II; A04 Rule 3 | **C2:** break-even after one risk unit in `exitRules.ts`; live still breaks even at TP1 | Partial (measured; live switch pending) | G23. Move to break-even on a price-scaled profit threshold, not only at TP1. **Owner** |
+| Trail the stop by the size of the last reaction, or under the prior month's low; in the final stage, under the prior day after a 2-day counter-move | A04 Ch. IV, VI, VII; A8 BP/SP #9 | **C3:** swing-bottom, prior-month and final-stage trails in `exitRules.ts`; live still trails by 1R | Partial (measured; live switch pending) | G18 + G24: trail on Gann's structure (last reaction, prior month's low) instead of a fixed R. **Owner** |
+| **"Never fix a target price"**: exit on the stop or a trend-change signal; sell at resistance levels his rules identify | A02 Book II; A04 Rule list | **C4:** targets now come from Gann/S-R levels; the runner's trend-change exit is measured, live keeps the staged exit | Partial (C4 built; runner exit pending) | **Owner.** Gann sells at resistance *levels* but never at a fixed profit objective. Options: (a) keep TP1 and document it as a GSPS safety choice; (b) derive TP1/master only from Gann levels and let the runner exit only on a Gann trend-change signal (B2/B4). Option (b) is the faithful copy |
+| Entry confirmation on every path | measured 2026-09-26 (+0.190R vs −0.155R) | **C5:** every path, automation included (`place-order.ts`) | Aligned | Already recommended in AGENTS.md (F3.4 reversal). **Owner** |
 | Pyramiding: decreasing lots every 10 points (price-scaled), stop on each add | A02; A03; A04; A05 | GSPS does not pyramid | Missing | Excluded for now (a product choice); teach it in the School. Revisit for Expert/Wall Street |
 | Reverse signal day; 7–10 Day Rule | A8 1951 pp. 311, 317–318 | **Built 2026-09-28 (G20):** `extremeRules.ts` | Aligned (context, measuring) | Act on it once measured |
 | Gap rules (exhaust gap; filled gap reverses the minor trend) | A8 1951 pp. 318–325 | **Built 2026-09-28 (G21):** `extremeRules.ts` (exhaust gap, gaps in new territory, filled-gap reversal; limit days have no equity counterpart) | Aligned (context, measuring) | Act on it once measured |
