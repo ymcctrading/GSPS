@@ -130,6 +130,13 @@ else"), checked once in `lib/trade/place-order.ts`. Equity targets come from
 Gann/S-R levels (C4), and the volume criterion reads Gann's full rule (D1).
 D2/D3 are blocked on a data source. `STRATEGY_VERSION` is
 `2026-09-27-gann-targets-volume`.
+**Measured the same day** (`docs/replay-runs/2026-09-27-766sym-NOTES.md`,
+766 symbols): since B1, Execute beats Watch in every bracket cell (confirmed
++0.350R, stop +0.220R on the breakaway version); the confirmed entry stays
++0.190R overall. The 6/3.5 cutoffs hold. Gann's exits raise the population
+figure but lower Execute, and the gain rests on trades still open at the
+10-session limit, so **the live exit manager stays on the bracket** until a
+longer-horizon run settles it.
 **Owner direction, same day: "the point of the parity is to align, infuse
 and implement within and throughout the entire GSPS platform."** A rule is
 not parity-complete while it only shows on a card: it has to act where Gann
