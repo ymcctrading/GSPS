@@ -18,8 +18,14 @@
  *              LARGE_CAP_UNIVERSE, read from the source files)
  *   --out      JSON of every record fetched (default tmp/instrument-reference.json)
  *   --sql      also write idempotent upsert SQL to this path
- *   --apply    upsert straight into Supabase. Needs NEXT_PUBLIC_SUPABASE_URL
- *              and SUPABASE_SERVICE_ROLE_KEY.
+ *   --apply    upsert straight into Supabase with the service role key, taken
+ *              from SUPABASE_SERVICE_ROLE_KEY, or, when that is unset, from a
+ *              Claude Code API credential attached to requests for the
+ *              Supabase host. NEXT_PUBLIC_SUPABASE_URL overrides the project URL.
+ *
+ * In a Claude Code cloud session, run it with NODE_USE_ENV_PROXY=1. Node's
+ * built-in fetch otherwise bypasses the sandbox proxy, which is what attaches
+ * the Supabase credential.
  *
  * SEC asks for a descriptive User-Agent with a contact and at most 10
  * requests a second (https://www.sec.gov/os/accessing-edgar-data). This keeps
@@ -245,30 +251,54 @@ on conflict (instrument_id, as_of, filed) do update set shares = excluded.shares
   return lines.join("\n\n") + "\n";
 }
 
-async function applyToSupabase(records) {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+// Plain PostgREST calls rather than supabase-js, so this works both with the
+// key in SUPABASE_SERVICE_ROLE_KEY and in a Claude Code environment where the
+// key is an API credential the sandbox attaches to requests for the Supabase
+// host (the script then sends no key of its own).
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://vebhpmmzxixlhujlptue.supabase.co";
+
+async function rest(method, pathAndQuery, body, prefer) {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error("--apply needs NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY");
-  const { createClient } = await import("@supabase/supabase-js");
-  const db = createClient(url, key, { auth: { persistSession: false } });
-  const withData = records.filter((r) => r.cik);
-  const { error: iErr } = await db
-    .from("instrument")
-    .upsert(withData.map((r) => ({ symbol: r.symbol, asset_class: "us_equity", name: r.name })), {
-      onConflict: "symbol,asset_class",
-      ignoreDuplicates: true,
-    });
-  if (iErr) throw new Error(`instrument upsert: ${iErr.message}`);
-  const ids = new Map();
-  for (let i = 0; i < withData.length; i += 200) {
-    const { data, error } = await db
-      .from("instrument")
-      .select("id, symbol")
-      .eq("asset_class", "us_equity")
-      .in("symbol", withData.slice(i, i + 200).map((r) => r.symbol));
-    if (error) throw new Error(`instrument read: ${error.message}`);
-    for (const row of data) ids.set(row.symbol, row.id);
+  const headers = { "Content-Type": "application/json", Accept: "application/json" };
+  if (prefer) headers.Prefer = prefer;
+  if (key) {
+    headers.apikey = key;
+    headers.Authorization = `Bearer ${key}`;
   }
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${pathAndQuery}`, {
+    method,
+    headers,
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const text = await res.text();
+  if (!res.ok) throw new Error(`${method} ${pathAndQuery.split("?")[0]}: HTTP ${res.status} ${text.slice(0, 300)}`);
+  return text ? JSON.parse(text) : null;
+}
+
+const inList = (values) => `(${values.map((v) => `"${String(v).replace(/"/g, '\\"')}"`).join(",")})`;
+
+async function applyToSupabase(records) {
+  const withData = records.filter((r) => r.cik);
+  for (let i = 0; i < withData.length; i += 200) {
+    await rest(
+      "POST",
+      "instrument?on_conflict=symbol,asset_class",
+      withData.slice(i, i + 200).map((r) => ({ symbol: r.symbol, asset_class: "us_equity", name: r.name })),
+      "resolution=ignore-duplicates,return=minimal",
+    );
+  }
+  const ids = new Map();
+  for (let i = 0; i < withData.length; i += 100) {
+    const symbols = withData.slice(i, i + 100).map((r) => r.symbol);
+    const rows = await rest(
+      "GET",
+      `instrument?select=id,symbol&asset_class=eq.us_equity&symbol=in.${encodeURIComponent(inList(symbols))}`,
+    );
+    for (const row of rows) ids.set(row.symbol, row.id);
+  }
+  const missing = withData.filter((r) => !ids.has(r.symbol)).map((r) => r.symbol);
+  if (missing.length > 0) throw new Error(`no instrument row for ${missing.join(", ")}`);
+
   const profiles = withData.map((r) => ({
     instrument_id: ids.get(r.symbol),
     cik: r.cik,
@@ -283,17 +313,30 @@ async function applyToSupabase(records) {
     reference_fetched_at: r.fetchedAt,
     updated_at: new Date().toISOString(),
   }));
-  const { error: pErr } = await db.from("instrument_profile").upsert(profiles, { onConflict: "instrument_id" });
-  if (pErr) throw new Error(`instrument_profile upsert: ${pErr.message}`);
-  const history = withData.flatMap((r) =>
-    (r.history ?? []).map((h) => ({ instrument_id: ids.get(r.symbol), ...h })),
-  );
-  for (let i = 0; i < history.length; i += 1000) {
-    const { error } = await db
-      .from("instrument_shares_outstanding")
-      .upsert(history.slice(i, i + 1000), { onConflict: "instrument_id,as_of,filed" });
-    if (error) throw new Error(`instrument_shares_outstanding upsert: ${error.message}`);
+  for (let i = 0; i < profiles.length; i += 200) {
+    await rest("POST", "instrument_profile?on_conflict=instrument_id", profiles.slice(i, i + 200), "resolution=merge-duplicates,return=minimal");
   }
+
+  // One row per primary key, or the batch upsert is refused.
+  const history = [
+    ...new Map(
+      withData.flatMap((r) =>
+        (r.history ?? []).map((h) => {
+          const row = { instrument_id: ids.get(r.symbol), as_of: h.as_of, filed: h.filed, shares: h.shares, form: h.form, accession: h.accession, source: h.source };
+          return [`${row.instrument_id}|${row.as_of}|${row.filed}`, row];
+        }),
+      ),
+    ).values(),
+  ];
+  for (let i = 0; i < history.length; i += 1000) {
+    await rest(
+      "POST",
+      "instrument_shares_outstanding?on_conflict=instrument_id,as_of,filed",
+      history.slice(i, i + 1000),
+      "resolution=merge-duplicates,return=minimal",
+    );
+  }
+  return { instruments: ids.size, profiles: profiles.length, historyRows: history.length };
 }
 
 async function main() {
@@ -344,7 +387,7 @@ async function main() {
     await mkdir(path.dirname(sqlPath), { recursive: true });
     await writeFile(sqlPath, toSql(records));
   }
-  if (args.apply) await applyToSupabase(records);
+  const applied = args.apply ? await applyToSupabase(records) : null;
 
   const withCik = records.filter((r) => r.cik);
   console.log(
@@ -358,7 +401,7 @@ async function main() {
         inceptionByPrecision: Object.fromEntries(
           ["day", "month", "year"].map((p) => [p, withCik.filter((r) => r.inception?.precision === p).length]),
         ),
-        applied: args.apply,
+        applied,
       },
       null,
       2,
