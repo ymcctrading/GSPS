@@ -217,6 +217,22 @@ async function advance(supabase: Supabase, userId: string, plan: SimPlanRow, run
       appliedStop: plan.applied_stop,
       gann,
     });
+    // `planStopAdjustment` answers "none" once the stop it would place is the
+    // one already applied. For a real broker that's right: the stop rests there
+    // as an order and fills on its own. Nothing rests in the simulator, so a
+    // crossed stop that hasn't moved has to be enforced here or it never fires.
+    // This covers a manual stop (`updateProtocolExit` writes `applied_stop`) and
+    // any stop an earlier pass placed. It fills at the market price seen now,
+    // as a triggered stop-market order would, not at the stop itself.
+    if (stopAction.kind === "none" && (plan.side === "long" ? price <= stopAction.stop : price >= stopAction.stop)) {
+      stopAction = {
+        kind: "close_all",
+        stop: stopAction.stop,
+        reason: plan.applied_stop_reason ?? stopAction.reason,
+        explanation: `Price traded through the stop at ${stopAction.stop.toFixed(2)}, so the position closed at the market.`,
+        atMarket: true,
+      };
+    }
     if (stopAction.kind === "close_all") {
       // A Gann exit signal leaves at the market; a stop that was crossed fills at the stop.
       const fillAt = stopAction.atMarket ? price : stopAction.stop;
