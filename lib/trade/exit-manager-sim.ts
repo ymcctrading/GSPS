@@ -26,10 +26,12 @@
 import { executeFill, quotePrice, assetClassOf } from "@/lib/brokers/simulator";
 import {
   extendHighWater,
+  LIVE_EXIT_RULE,
   planStopAdjustment,
   type StopReason,
 } from "@/lib/trade/protocol-exit";
 import { handleAutomatedStopOut } from "@/lib/automation/stop-out";
+import { readLiveGannExit } from "@/lib/trade/gann-exit-live";
 import type { createClient } from "@/lib/supabase/server";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
@@ -195,6 +197,17 @@ async function advance(supabase: Supabase, userId: string, plan: SimPlanRow, run
 
   let stopAction: ReturnType<typeof planStopAdjustment> | null = null;
   if (remainingQty > 1e-9) {
+    const gann =
+      LIVE_EXIT_RULE === "gann"
+        ? await readLiveGannExit({
+            symbol: plan.symbol,
+            side: plan.side,
+            entryPrice: plan.entry_price,
+            initialStop: plan.stop_loss,
+            openedAt: plan.created_at,
+            best: highWater,
+          })
+        : null;
     stopAction = planStopAdjustment({
       side: plan.side,
       entryPrice: plan.entry_price,
@@ -202,9 +215,12 @@ async function advance(supabase: Supabase, userId: string, plan: SimPlanRow, run
       highWater,
       lastPrice: price,
       appliedStop: plan.applied_stop,
+      gann,
     });
     if (stopAction.kind === "close_all") {
-      for (const t of stillOpenAfterTargets) toFill.push({ key: t.key, qty: t.qty, price: stopAction.stop });
+      // A Gann exit signal leaves at the market; a stop that was crossed fills at the stop.
+      const fillAt = stopAction.atMarket ? price : stopAction.stop;
+      for (const t of stillOpenAfterTargets) toFill.push({ key: t.key, qty: t.qty, price: fillAt });
     }
   }
 

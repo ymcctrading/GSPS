@@ -1021,13 +1021,15 @@ function ExitPlanNotice({
       <p className="mt-1">{summary}</p>
       {splittable && (
         <p className="mt-1">
-          Once TP1 is reached the stop moves to your entry and then trails the best price seen, so
-          the trade can&apos;t come back as a loss.
+          Once the trade has gained as much as it risked, the stop moves to your entry. After that it
+          moves up under each higher swing bottom, and under last month&apos;s low once a new month
+          starts. The rest is closed if price falls back under the level it broke out of, closes
+          against the trade three days running, or the trend turns.
           {hasMaster
             ? " If price pushes through the final target and falls back through it, the rest is closed."
             : ""}{" "}
-          The trailing part advances while the app is open; the stop resting at the broker is what
-          protects the position the rest of the time.
+          The stop moves while the app is open; the stop resting at the broker is what protects the
+          position the rest of the time.
         </p>
       )}
     </div>

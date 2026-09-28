@@ -77,6 +77,7 @@ import { readLiquidity } from "@/lib/scan/liquidity";
 import { applyBreakawayHold, applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
 import { readBreakaway, type BreakawayReading } from "@/lib/gann/breakaway";
 import { readGannExit, type GannExitReason, type GannStopReason } from "@/lib/gann/exitRules";
+import { SCALE_OUT_PCT } from "@/lib/trade/protocol-exit";
 import {
   FALLBACK_SR_PCT,
   SR_PROXIMITY_ATR,
@@ -214,10 +215,18 @@ export interface ReplayOptions {
    *   change of trend. See `lib/gann/exitRules.ts`. Stops and signals update
    *   once per session from completed daily bars only.
    *
-   * Both fill a stop at the stop price, so the two are compared on the same
+   * - `"gann-runner"`: the rule live and paper positions use since 2026-09-28
+   *   (`lib/trade/protocol-exit.ts#LIVE_EXIT_RULE`): 60% leaves at the target,
+   *   the rest runs on Gann's stop and exit signals exactly as `"gann"` does.
+   *   Before the target, Gann's stop covers the whole position. A bar that
+   *   touches both the target and the stop counts the stop (the conservative
+   *   order, as the bracket does). The replay's target is `targetR`, while live
+   *   TP1 is a Gann level; the tranche split is the same.
+   *
+   * All fill a stop at the stop price, so they are compared on the same
    * convention.
    */
-  exitRule?: "bracket" | "gann";
+  exitRule?: "bracket" | "gann" | "gann-runner";
   /**
    * Stored filings facts for the symbol (parity roadmap D2, D3; see
    * `lib/data/instrumentReference.ts`). Each session reads the share count
@@ -740,10 +749,11 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       let barsHeld = 0;
       let ambiguous = false;
 
-      if (exitRule === "gann" && !outran) {
+      if ((exitRule === "gann" || exitRule === "gann-runner") && !outran) {
         const walked = walkGannExit({
           bars, from: i, maxBarsHeld, long, entry, stop, dailyBars: dailyBars ?? [],
           crossedLevel: trigger.pivot.price,
+          scaleOut: exitRule === "gann-runner" ? { price: target, fraction: RUNNER_SCALE_OUT } : undefined,
           sharesOn: instrument ? (date) => splitAdjustedSharesAsOf(instrument.sharesHistory, date) : undefined,
         });
         trades.push({
@@ -870,6 +880,9 @@ export function combine(results: ReplayResult[]): ReplayResult {
   return summarise(trades, armed, triggered, refusedFills);
 }
 
+/** Share of the position that leaves at the target under `"gann-runner"` (mirrors `SCALE_OUT_PCT`). */
+const RUNNER_SCALE_OUT = SCALE_OUT_PCT;
+
 /**
  * Walk one filled trade forward under Gann's exit rules (`exitRule: "gann"`).
  *
@@ -889,8 +902,13 @@ function walkGannExit(input: {
   crossedLevel: number;
   /** The stored share count as of a session (D2), or null. */
   sharesOn?: (date: string) => number | null;
+  /** `"gann-runner"`: this fraction leaves at `price`; the rest runs. */
+  scaleOut?: { price: number; fraction: number };
 }): { exit: number; barsHeld: number; reason: GannStopReason | GannExitReason | "timeout" } {
-  const { bars, from, maxBarsHeld, long, entry, dailyBars, crossedLevel, sharesOn } = input;
+  const { bars, from, maxBarsHeld, long, entry, dailyBars, crossedLevel, sharesOn, scaleOut } = input;
+  // The blended exit: the scaled-out fraction at its price, the rest where it left.
+  let scaled = false;
+  const blend = (exit: number) => (scaled && scaleOut ? scaleOut.fraction * scaleOut.price + (1 - scaleOut.fraction) * exit : exit);
   const entryDate = bars[from].t.slice(0, 10);
   const position = { side: long ? "long" : "short", entry, initialStop: input.stop, entryDate, crossedLevel } as const;
   let stop = input.stop;
@@ -903,17 +921,18 @@ function walkGannExit(input: {
     if (j > from && date !== bars[j - 1].t.slice(0, 10)) {
       const prior = dailyBars.filter((d) => d.t.slice(0, 10) < date);
       const reading = readGannExit(position, prior, best, sharesOn?.(date) ?? null);
-      if (reading.exit) return { exit: b.o, barsHeld: j - from + 1, reason: reading.exit.reason };
+      if (reading.exit) return { exit: blend(b.o), barsHeld: j - from + 1, reason: reading.exit.reason };
       if (long ? reading.stop > stop : reading.stop < stop) {
         stop = reading.stop;
         stopReason = reading.stopReason;
       }
     }
-    if (long ? b.l <= stop : b.h >= stop) return { exit: stop, barsHeld: j - from + 1, reason: stopReason };
+    if (long ? b.l <= stop : b.h >= stop) return { exit: blend(stop), barsHeld: j - from + 1, reason: stopReason };
+    if (scaleOut && !scaled && (long ? b.h >= scaleOut.price : b.l <= scaleOut.price)) scaled = true;
     best = best === null ? (long ? b.h : b.l) : long ? Math.max(best, b.h) : Math.min(best, b.l);
   }
   const barsHeld = end - from;
-  return { exit: bars[end - 1].c, barsHeld, reason: "timeout" };
+  return { exit: blend(bars[end - 1].c), barsHeld, reason: "timeout" };
 }
 
 /**

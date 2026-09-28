@@ -27,9 +27,33 @@
  * trade moves, and that the exit manager pushes to the broker.
  *
  * Everything here is pure. The broker calls live in `lib/trade/exit-manager.ts`.
+ *
+ * Gann's exits are live (2026-09-28, project owner: "switch on Gann's exits")
+ * ---------------------------------------------------------------------------
+ * `LIVE_EXIT_RULE` is "gann". Under it, rules 3 and 4 above are replaced by
+ * Gann's own (`lib/gann/exitRules.ts`, owner decisions 2 and 6):
+ *   - 60% still leaves at TP1, which since C4 is a Gann/support-resistance
+ *     level, not an R multiple (the runner option, owner-approved).
+ *   - No master-target order is placed: Gann never fixes a profit objective,
+ *     so everything after TP1 is the runner.
+ *   - The stop moves on Gann's structure: break-even once the trade has gone
+ *     one risk unit its way, then under each higher bottom, under the prior
+ *     month's low, and tighter in a campaign's final stage.
+ *   - A Gann exit signal (failed hold test, three adverse closes, a trend
+ *     change, a distribution week) closes the remainder at market.
+ * The caller reads Gann's rules (`lib/trade/gann-exit-live.ts`) and passes the
+ * reading in as `ExitState.gann`. With no reading this pass (no data), only the
+ * stop already resting protects the trade, and nothing loosens.
+ * The replay measures the same rule as `exitRule: "gann-runner"`.
+ * "bracket" keeps the previous behaviour, for a revert.
  */
 
 import { snapToTick, tickSizeFor } from "@/lib/trade/tick-size";
+import type { GannExitReading, GannStopReason } from "@/lib/gann/exitRules";
+
+/** Which exit rules manage live and paper positions. See the header. */
+export type LiveExitRule = "gann" | "bracket";
+export const LIVE_EXIT_RULE: LiveExitRule = "gann";
 
 /** Share of the position that leaves at TP1. */
 export const SCALE_OUT_PCT = 0.6;
@@ -87,9 +111,14 @@ export interface ExitPlan {
  * the master target loses its leg before the trade loses its runner, because a
  * runner with nothing in it removes rules 3 and 4 entirely.
  */
-export function planProtocolExit(qty: number, levels: ProtocolLevels): ExitPlan {
+export function planProtocolExit(
+  qty: number,
+  levels: ProtocolLevels,
+  rule: LiveExitRule = LIVE_EXIT_RULE,
+): ExitPlan {
   const whole = Math.floor(qty);
-  const mp = levels.masterProfit ?? null;
+  // Under Gann's rules there is no fixed master target: the remainder runs.
+  const mp = rule === "gann" ? null : (levels.masterProfit ?? null);
 
   // Non-finite or non-positive input (a cleared quantity field, a bad read from
   // the broker) has nothing to build a plan from. `Math.max(1, whole)` used to
@@ -159,7 +188,7 @@ export function planProtocolExit(qty: number, levels: ProtocolLevels): ExitPlan 
       qty: runnerQty,
       takeProfit: null,
       stopLoss: levels.stopLoss,
-      label: "Runs on, protected by the trailing stop",
+      label: rule === "gann" ? "Runs on until the trend changes, stop moved on the swings" : "Runs on, protected by the trailing stop",
     });
   }
 
@@ -171,7 +200,7 @@ export function planProtocolExit(qty: number, levels: ProtocolLevels): ExitPlan 
     masterQty,
     runnerQty,
     scaleOutPct: pct,
-    summary: buildSummary(whole, scaleOutQty, masterQty, runnerQty, pct),
+    summary: buildSummary(whole, scaleOutQty, masterQty, runnerQty, pct, rule),
   };
 }
 
@@ -181,11 +210,18 @@ function buildSummary(
   master: number,
   runner: number,
   pct: number,
+  rule: LiveExitRule,
 ): string {
   const share = `${scaleOut} of ${qty} shares (${Math.round(pct * 100)}%)`;
   const parts = [`${share} exit at TP1`];
   if (master > 0) parts.push(`${master} at the final target`);
-  if (runner > 0) parts.push(`${runner} run on behind a trailing stop`);
+  if (runner > 0) {
+    parts.push(
+      rule === "gann"
+        ? `${runner} run on until the trend changes, with the stop raised under each higher bottom`
+        : `${runner} run on behind a trailing stop`,
+    );
+  }
   return `${parts.join(", ")}. The stop covers all ${qty} shares, so a stop-out closes the trade completely.`;
 }
 
@@ -215,6 +251,13 @@ export interface ExitState {
   lastPrice: number | null;
   /** The stop currently resting at the broker, if we've placed one. */
   appliedStop: number | null;
+  /** Which rule set applies. Defaults to `LIVE_EXIT_RULE`. */
+  rule?: LiveExitRule;
+  /**
+   * Gann's reading for this position (`readGannExit`), when `rule` is "gann".
+   * Null when it couldn't be read this pass: the resting stop stays.
+   */
+  gann?: GannExitReading | null;
 }
 
 export type ExitAction =
@@ -228,7 +271,22 @@ export type ExitAction =
    * placed here would be rejected or would fill at an arbitrary price, so the
    * remainder is closed at market instead.
    */
-  | { kind: "close_all"; stop: number; reason: StopReason; explanation: string };
+  | { kind: "close_all"; stop: number; reason: StopReason; explanation: string; atMarket?: boolean };
+
+/**
+ * Gann's stop reasons, mapped onto the stored `applied_stop_reason` values
+ * (the column's check constraint). The explanation carries Gann's own reason.
+ */
+export function storedStopReason(reason: GannStopReason): StopReason {
+  switch (reason) {
+    case "initial":
+      return "protocol";
+    case "break_even":
+      return "break_even";
+    default:
+      return "trailing";
+  }
+}
 
 /**
  * Where the stop should be, given everything the trade has done so far.
@@ -262,6 +320,30 @@ export function planStopAdjustment(state: ExitState): ExitAction {
   };
 
   const best = highWater ?? lastPrice;
+  const rule = state.rule ?? LIVE_EXIT_RULE;
+
+  if (rule === "gann") {
+    const g = state.gann ?? null;
+    let gannReason: GannStopReason | null = null;
+    if (g) {
+      const before = stop;
+      adopt(g.stop, storedStopReason(g.stopReason));
+      if (stop !== before) gannReason = g.stopReason;
+    }
+    stop = snapToTick(stop, tick, long ? "down" : "up");
+    if (appliedStop != null && isTighter(appliedStop, stop)) stop = appliedStop;
+    if (g?.exit) {
+      return { kind: "close_all", stop, reason, explanation: g.exit.note, atMarket: true };
+    }
+    const unchangedG = appliedStop != null && Math.abs(appliedStop - stop) < tick / 2;
+    if (unchangedG) return { kind: "none", stop, reason };
+    const explanationG = explainGann(gannReason, stop);
+    if (lastPrice != null && (long ? lastPrice <= stop : lastPrice >= stop)) {
+      return { kind: "close_all", stop, reason, explanation: explanationG };
+    }
+    return { kind: "replace_stop", stop, reason, explanation: explanationG };
+  }
+
   // Reached counts a touch: the level was traded at or better, which is enough
   // to arm break-even and the trail — those only ever tighten the stop, so
   // arming a tick early costs nothing.
@@ -332,6 +414,23 @@ function explain(reason: StopReason, stop: number, long: boolean): string {
     case "master_reversal":
       return `Price traded through the final target, so the remainder now exits if it falls back ${long ? "below" : "above"} it (${usd(stop)}).`;
     case "protocol":
+    default:
+      return `The protocol stop rests at ${usd(stop)}.`;
+  }
+}
+
+function explainGann(reason: GannStopReason | null, stop: number): string {
+  const usd = (n: number) =>
+    n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 });
+  switch (reason) {
+    case "break_even":
+      return `The trade has gone as far in its favour as it risked, so the stop moves to the entry (${usd(stop)}).`;
+    case "last_reaction":
+      return `The stop moves under the latest higher bottom, to ${usd(stop)}.`;
+    case "prior_month":
+      return `The trade has run into a new month, so the stop moves under last month's extreme, to ${usd(stop)}.`;
+    case "final_stage":
+      return `The move is in its late stage, so the stop is kept close, at ${usd(stop)}.`;
     default:
       return `The protocol stop rests at ${usd(stop)}.`;
   }

@@ -599,3 +599,26 @@ describe("replay exitRule: gann", () => {
     expect(r.trades[0].outcome).toBe("loss");
   });
 });
+
+describe("replay exitRule: gann-runner (the live rule)", () => {
+  it("banks 60% at the target and runs the rest on Gann's rules", () => {
+    const beyond = past(3 * RISK);
+    const run = { o: past(0.4), h: SIDE > 0 ? beyond : past(0.3), l: SIDE > 0 ? past(0.3) : beyond, c: past(0.5) };
+    const gann = replay("TEST", session([crossing, run, quiet]), { targetR: 2, dailyBars: DAILY, exitRule: "gann" });
+    const runner = replay("TEST", session([crossing, run, quiet]), { targetR: 2, dailyBars: DAILY, exitRule: "gann-runner" });
+    expect(runner.trades).toHaveLength(1);
+    const t = runner.trades[0];
+    const g = gann.trades[0];
+    // Same walk, with 60% of it taken at the 2R target instead (costs aside).
+    const expected = 0.6 * 2 + 0.4 * g.rMultiple;
+    expect(t.rMultiple).toBeCloseTo(expected, 1);
+  });
+
+  it("takes the whole position out at the stop when the target was never reached", () => {
+    const through = TRIGGER.stopPrice - SIDE * 0.5;
+    const fall = { o: past(0.2), h: SIDE > 0 ? past(0.3) : through, l: SIDE > 0 ? through : past(0.3), c: through };
+    const gann = replay("TEST", session([crossing, fall, quiet]), { targetR: 2, dailyBars: DAILY, exitRule: "gann" });
+    const runner = replay("TEST", session([crossing, fall, quiet]), { targetR: 2, dailyBars: DAILY, exitRule: "gann-runner" });
+    expect(runner.trades[0].rMultiple).toBeCloseTo(gann.trades[0].rMultiple, 6);
+  });
+});

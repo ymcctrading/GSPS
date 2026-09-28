@@ -212,7 +212,7 @@ export interface BacktestReport {
   /** Echoes the request: a report has to say which entry rule produced it. */
   entryRule: "stop" | "confirmed";
   /** Echoes the request: a report has to say which exit rule produced it. */
-  exitRule: "bracket" | "gann";
+  exitRule: "bracket" | "gann" | "gann-runner";
   /**
    * The run split by the scan's two setup kinds. Continuations are published
    * only at Execute, so read that side together with the verdict buckets.
