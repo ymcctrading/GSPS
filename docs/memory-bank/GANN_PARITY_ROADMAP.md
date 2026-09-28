@@ -40,10 +40,10 @@ The goal is that every rule Gann **disclosed** runs in GSPS the way he stated it
 | Trend | 5 | 1 | 0 (X3 fixed) | 6 | — |
 | Entries, stops, exits, lifecycle | 3 | 3 | 1 (X4) | 5 | — |
 | Volume | 2 | 0 | 0 | 2 | — |
-| Risk and money management | 2 | 2 | 0 | 2 | — |
+| Risk and money management | 4 | 1 | 0 | 1 | — |
 | The trader (education) | 1 | 2 | 0 | 2 | — |
 | Astrology, numerology, forecasting | 1 | 0 | 0 | 3 (research) | 2 excluded, 1 cannot be copied |
-| **Total (74 rules)** | **27** | **12** | **1** | **30** | **4** |
+| **Total (74 rules)** | **29** | **11** | **1** | **29** | **4** |
 
 Counts are rows in Part 3; "Aligned" includes rows aligned in structure.
 
@@ -66,8 +66,8 @@ Each row gives the rule and its source, what GSPS does now, the status, and the 
 |---|---|---|---|---|
 | Time outranks price; time says when, price says which way | A2.1, A2.2, A11 | `timeCycles.ts` gives windows; direction comes from pivot polarity | Aligned | — |
 | Count from every major pivot, not a calendar origin | A03; A2.1 Ch. 13 | `majorPivots` anchors | Aligned | — |
-| Cycle hierarchy 1, 2, 3, 5, 7, 10, 15, 20, 30, 50, 60 years | A2.1 Ch. 7 | `MAJOR_CYCLE_YEARS`, `yearCycleConvergence` | Aligned | Label 30–60 as disclosed, not validated (M5) |
-| Convergence of several cycles on one window | A2.1 Ch. 7, 13 | `yearCycleConvergence` counts hits | Partial | Extend to the daily/weekly counts and squares (G11) |
+| Cycle hierarchy 1, 2, 3, 5, 7, 10, 15, 20, 30, 50, 60 years | A2.1 Ch. 7 | `MAJOR_CYCLE_YEARS`, `yearCycleConvergence` | Aligned | **Done 2026-09-28 (M5):** 30/50/60 labelled disclosed, not validated |
+| Convergence of several cycles on one window | A2.1 Ch. 7, 13 | `yearCycleConvergence` counts hits; **2026-09-28 (G11):** `timeConvergence.ts` reads days/weeks/months from the year's extreme landing on a multiple of 12 together | Aligned (context, measuring) | — |
 | Permanent annual calendar (8 dated windows) | A04 back matter; A09 | `FIXED_CALENDAR_WINDOWS` | **Aligned (fixed 2026-09-27)** | Measure as a recurrent event (M4) |
 | Fractions of the year: anniversary > ½ > ¼, ¾ > ⅓, ⅔ > ⅛s | A2.1 Ch. 13–14 | `squareOf52.ts`, `WHEEL_COUNTS` | Partial | Add the ranking to the output (G8) |
 | Day-count bands 7–12, 18–21, 28–31, 42–49, 57–65, 85–92, 112–120, 150–157, 175–185 | A09 Rule 8; A8 pp. 57–58 | `WHEEL_COUNTS` = 45/90/120/180/270/360 only | Missing | G17: add the bands as windows from each pivot. Confluence first |
@@ -76,9 +76,9 @@ Each row gives the rule and its source, what GSPS does now, the status, and the 
 | Daily/weekly time rules: 2–3-day halt at extremes; buy 2–3-week reactions; watch the 3rd week; the 6th–7th week ends fast moves | A04 Ch. IV; A09 Rule 4 | `boilingPoint.ts` (6–7 weeks) | Partial | Add the 2–3-day halt and the 3rd-week watch to the same clock |
 | Time balancing: project prior swing durations forward; percentages of time | A8 pp. 97–99, 293 | `timePriceSquare.ts` (price = time) | Missing | G22 |
 | Accumulation time proportional to the size of the advance | A04 Ch. VII; A8 p. 52 | none | Missing | G22: a context annotation on breakouts from long ranges |
-| 7/14-day alternation of minor and major turns | A2.2 | none | Missing | G9, confluence |
+| 7/14-day alternation of minor and major turns | A2.2 | **Built 2026-09-28 (G9):** `timeConvergence.ts` (7/14/21 days ±1 from the last 3-Day Chart pivot) | Aligned (context, measuring) | — |
 | Incorporation-date anniversary / company age | A03; A2.1 Ch. 7; A04 Ch. VI | **Built 2026-09-28 (D3).** `lib/gann/incorporationCycle.ts`: the anniversary, Gann's U.S. Steel seasonal degrees (45° … 360°) and the 5–60-year cycles from the company's inception date (Wikidata P571 by SEC CIK, stored in `instrument_profile`). On the confluence trace and recorded as replay context factors | Context, measured | Load the stored rows (see D3); then measure on the next run |
-| Periodogram ("harmonic analysis") | A03; 1926 letter (B01) | `spectralCycle.ts`, confluence | Aligned | Add the Schuster test (M1) |
+| Periodogram ("harmonic analysis") | A03; 1926 letter (B01) | `spectralCycle.ts`, confluence; **2026-09-28 (M1/M2):** Schuster p, cosinor amplitude with 95% interval and zero-amplitude test, log-price detrending, band-edge and window-trim artifact guards, a 70/30 forward hold-out | Aligned | — |
 | Squares of time: Master 12, Square of 52, 36 angle month-counts | A2.1 Ch. 7, 13, 14 | `masterTwelve.ts`, `squareOf52.ts`, `angleMonthCounts.ts` (confluence) | Aligned | — |
 | Decade-digit bull/bear years | A2.1 Ch. 7 | `decadeCycle.ts` (confluence) | Aligned | — |
 | Square of 20 and Hexagon | A2.1 Ch. 7, 15B | research-only | Research-only | Keep, unless new source material appears |
@@ -129,8 +129,8 @@ Each row gives the rule and its source, what GSPS does now, the status, and the 
 | **"Never fix a target price"**: exit on the stop or a trend-change signal; sell at resistance levels his rules identify | A02 Book II; A04 Rule list | fixed TP1 (60% out) and master target (20% out) | **Conflict (X4, new)** | **Owner.** Gann sells at resistance *levels* but never at a fixed profit objective. Options: (a) keep TP1 and document it as a GSPS safety choice; (b) derive TP1/master only from Gann levels and let the runner exit only on a Gann trend-change signal (B2/B4). Option (b) is the faithful copy |
 | Entry confirmation on every path | measured 2026-09-26 (+0.190R vs −0.155R) | automation only | Partial | Already recommended in AGENTS.md (F3.4 reversal). **Owner** |
 | Pyramiding: decreasing lots every 10 points (price-scaled), stop on each add | A02; A03; A04; A05 | GSPS does not pyramid | Missing | Excluded for now (a product choice); teach it in the School. Revisit for Expert/Wall Street |
-| Reverse signal day; 7–10 Day Rule | A8 1951 pp. 311, 317–318 | none | Missing | G20 |
-| Gap rules (exhaust gap; filled gap reverses the minor trend) | A8 1951 pp. 318–325 | none | Missing | G21, confluence first |
+| Reverse signal day; 7–10 Day Rule | A8 1951 pp. 311, 317–318 | **Built 2026-09-28 (G20):** `extremeRules.ts` | Aligned (context, measuring) | Act on it once measured |
+| Gap rules (exhaust gap; filled gap reverses the minor trend) | A8 1951 pp. 318–325 | **Built 2026-09-28 (G21):** `extremeRules.ts` (exhaust gap, gaps in new territory, filled-gap reversal; limit days have no equity counterpart) | Aligned (context, measuring) | Act on it once measured |
 
 ### 3.5 Volume
 
@@ -146,8 +146,8 @@ Each row gives the rule and its source, what GSPS does now, the status, and the 
 | Gann rule | Source | GSPS today | Status | Next step |
 |---|---|---|---|---|
 | Risk ≤ 10% of capital; equal risk over 4–5 positions | A03; A04; A05 | `lib/risk/*`, `checkPositionLimits` | Aligned (percentage form) | — |
-| Series of losses: after 2–3 losses stop and study; cut the unit to 10% of remaining capital | A8 pp. 12, 17, 29; A02; A04 Ch. III | `cooldown.ts` circuit breaker | Partial | G16. Cite Gann and compare the thresholds. **Owner** |
-| Don't increase size after a long winning run | A04 Rule 24 | none | Missing | A sizing guard. **Owner** |
+| Series of losses: after 2–3 losses stop and study; cut the unit to 10% of remaining capital | A8 pp. 12, 17, 29; A02; A04 Ch. III | **Built 2026-09-28 (E1):** `lib/risk/lossSeries.ts` pauses new entries after 3 consecutive losses (rest of that day and the next trading day) on every path, paper and live; percentage sizing re-bases the unit after losses. `cooldown.ts` now cites the rule and states that its % thresholds are GSPS's own | Aligned | — |
+| Don't increase size after a long winning run | A04 Rule 24 | Verified 2026-09-28: sizing is a fixed % of current equity and nothing raises it on results (the demo's larger-size days alternate by date, not by wins) | Aligned (structure) | — |
 | Close all trades twice a year and rest | A02 Book I | none | Missing | Education and an optional reminder; never forced |
 | Reward/risk: don't take a 3–5-point target unless the stop is 1–2 points | A04 Ch. II | plan R:R checks | Aligned | — |
 | Never trade in bad health or impaired state | A05 Ch. II | cooldown concept | Partial | Education |
@@ -156,7 +156,7 @@ Each row gives the rule and its source, what GSPS does now, the status, and the 
 
 | Gann rule | Source | GSPS today | Status | Next step |
 |---|---|---|---|---|
-| Five qualifications; hope and fear as the enemy; prove the rules yourself | A05; A03; A10 | GSPS School curriculum | Partial | Add Gann-sourced lessons per the content-reuse rule (teach the rule, never the wording) |
+| Five qualifications; hope and fear as the enemy; prove the rules yourself | A05; A03; A10 | GSPS School curriculum; **E2 2026-09-28:** Academy 4 course "The Method's Rules" (swing charts and trend change, time, entries/stops/exits, volume and the trader), in our own words | Partial | The qualifications and the Seven Zones still to write |
 | Seven Zones of Activity | A02 Ch. XI | none | Missing | Education or regime display |
 | Early and late leaders; first-year-high filter; stocks that bottom first top first | A04 Ch. VII | none | Missing | G25: scanner ranking context |
 | Never buy one stock to follow another in its group | A04 Ch. VII | stock-own trend | Aligned | — |
@@ -254,13 +254,16 @@ Each step says whether a user waits on it (AGENTS.md "Speed is a product require
 - D3 · G10 time from the company's inception. **Built 2026-09-28** (owner chose Wikidata). `lib/gann/incorporationCycle.ts`: the anniversary, Gann's own U.S. Steel seasonal degrees (his printed dates are the test fixture) and the 5–60-year cycles. Context only, like the fixed calendar, since Gann gives these dates no direction. Of 817 universe symbols, 582 have a date, but only 135 to the day (426 are year-only, giving cycle years only). Wikidata's date is usually the founding, not the incorporation Gann names. **Rows not loaded yet**, as for D2.
 
 **Stage E — risk and education**
-- E1 · G16: cite Gann in `cooldown.ts`, align the thresholds (owner), and add "don't size up after a winning run."
-- E2 · GSPS School lessons for the disclosed rules users now see in the product: time rules, the Rule of Three, the 3-point rule, sections, over-balance, the Seven Zones, early and late leaders, and why forecasts are measured.
+- E1 · G16: cite Gann in `cooldown.ts`, align the thresholds (owner), and add "don't size up after a winning run." **Built 2026-09-28:** `lib/risk/lossSeries.ts` on every placement path; the % breaker is documented as GSPS's own; no result-based size increase exists.
+- E2 · GSPS School lessons for the disclosed rules users now see in the product: time rules, the Rule of Three, the 3-point rule, sections, over-balance, the Seven Zones, early and late leaders, and why forecasts are measured. **Built 2026-09-28:** a four-lesson course in Academy 4 (advisory for Pro/Expert, so no required academy reopens for existing learners). The Seven Zones and the trader's qualifications are still to write.
 
 **Stage F — timing refinements and research**
 - F1 · G9 7/14-day alternation; G20 reverse signal day and 7–10 Day Rule; G21 gap rules; G11 Square of 144 convergence; G12 projection dispersion.
+  **Built 2026-09-28** as context on the card, lines in the explanation trace, and measured factors in the replay (`extremeRules.ts`, `timeConvergence.ts`, seven new `contextFactors`). None changes a verdict until the replay measures it. Adds about 0.2 ms per scanned symbol.
 - F2 · The astrology track AS1–AS4 (decision 7): ephemeris, a rule fixed in advance, Dewey's full test, confluence only.
 - F3 · Measurement upgrades M1–M7 throughout (Schuster test, out-of-sample, regime splits, base rates).
+  **2026-09-28:** M1 Schuster p in `spectralCycle.ts`; M2/M3 the backtest report now repeats both factor tables for the early and late half of the window (`halves`); M4/M6 every calendar and timing field is a measured context factor against the unconditioned population; M5 labelled; M7 recorded. The remaining M1/M2 items (cosinor interval, log detrending, artifact guards, 70/30 hold-out) were built the same day in `spectralCycle.ts`; the extra checks run only when a cycle clears the dominance threshold, so the common case costs one scan as before.
+- F2 · Stays research-only and separate (decision 7). F4 · Still gated: Stage D is in progress in another session.
 - F4 · The deferred cycles, solar-year anchor and calendar-convention research prompt: `FUTURE_PROMPTS.md`, "Deferred: cycles and calendar research". Not before Stages A–E are complete.
 
 ---

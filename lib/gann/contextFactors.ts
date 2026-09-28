@@ -69,6 +69,20 @@ export function contextFactorsFor(
     f.monthlyBreakAgainstCampaign = against && c.monthlyBreak;
     f.lateSection = c.sections >= 3;
   }
+  // Stage F1: extreme-price and timing rules, in the trade's direction.
+  const rs = ctx.extremes.reverseSignal.signal;
+  if (rs) f.reverseSignalAgrees = rs === (bull ? "bottom" : "top");
+  const exhaust = ctx.extremes.gaps.exhaustGap;
+  if (exhaust) f.exhaustGapAgrees = exhaust === (bull ? "bottom" : "top");
+  const filled = ctx.extremes.gaps.filledGapReversal;
+  if (filled) f.filledGapAgrees = filled === direction;
+  const gapsNew = ctx.extremes.gaps.gapsInNewTerritory;
+  // Three or more gaps in new territory in the trade's own direction: that
+  // move is near its culmination, a risk to this trade.
+  if (gapsNew) f.culminationGapsInTradeDirection = gapsNew.count >= 3 && gapsNew.direction === (bull ? "up" : "down");
+  if (ctx.timing.alternation) f.onAlternationTurnDay = ctx.timing.alternation.mark !== null;
+  if (ctx.timing.square144) f.square144Convergence = ctx.timing.square144.units.length >= 2;
+  if (ctx.timing.projection) f.tightTimeProjection = ctx.timing.projection.spreadDays <= 5;
 
   // D2: Gann's capital-stock readings are top warnings, so they count against
   // a long and with a short. Absent when no share count is stored.

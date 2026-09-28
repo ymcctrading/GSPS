@@ -76,6 +76,8 @@ import { computeRuleOfThree, type RuleOfThreeReading } from "@/lib/gann/ruleOfTh
 import { DAY_COUNT_BANDS } from "@/lib/gann/timeCycles";
 import { buildCampaignLedger, describeCampaignLedger, type CampaignLedger } from "@/lib/gann/campaignLedger";
 import { THREE_DAY_CHART, WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
+import { readExtremeRules, type ExtremeRulesReading } from "@/lib/gann/extremeRules";
+import { readTiming, type TimingReading } from "@/lib/gann/timeConvergence";
 import { describeCapitalStock, readCapitalStock, type CapitalStockReading } from "@/lib/gann/capitalStock";
 import {
   describeIncorporationCycle,
@@ -401,6 +403,10 @@ export interface DisclosedRulesContext {
   ruleOfThree: RuleOfThreeTimeframes;
   /** The campaign counter-move ledger (Stage B2). See `campaignLedger.ts`. */
   campaign: CampaignLedger | null;
+  /** Reverse signal day, 7-10 Day Rule and gaps (Stage F1). See `extremeRules.ts`. */
+  extremes: ExtremeRulesReading;
+  /** 7/14-day alternation, Square of 144 convergence, projection dispersion (Stage F1). See `timeConvergence.ts`. */
+  timing: TimingReading;
   /** Volume against shares outstanding (Stage D2). Null without a stored share count. See `capitalStock.ts`. */
   capitalStock: CapitalStockReading | null;
   /** Time from the company's inception date (Stage D3). Null without a stored date. See `incorporationCycle.ts`. */
@@ -426,6 +432,11 @@ export const EMPTY_DISCLOSED_RULES: DisclosedRulesContext = {
   levelTests: { support: null, resistance: null },
   ruleOfThree: { weekly: null, monthly: null },
   campaign: null,
+  extremes: {
+    reverseSignal: { signal: null, rule: null, runDays: null },
+    gaps: { exhaustGap: null, gapsInNewTerritory: null, filledGapReversal: null },
+  },
+  timing: { alternation: null, square144: null, projection: null },
   capitalStock: null,
   incorporation: null,
 };
@@ -446,6 +457,8 @@ export function readDisclosedRules(
     levelTests: readLevelTests(dailyBars, currentPrice),
     ruleOfThree: readRuleOfThreeTimeframes(dailyBars),
     campaign: buildCampaignLedger(dailyBars),
+    extremes: readExtremeRules(dailyBars),
+    timing: readTiming(dailyBars),
     capitalStock: readCapitalStock(dailyBars, toWeeklyBars(dailyBars), instrument?.sharesOutstanding),
     incorporation: readIncorporationCycle(instrument?.inception, asOf),
   };
@@ -494,6 +507,30 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   for (const [name, r] of [["Weekly", ctx.ruleOfThree.weekly], ["Monthly", ctx.ruleOfThree.monthly]] as const) {
     if (r?.bearishSignal) lines.push(`${name} Rule of Three: ${r.consecutiveLowerCloses} lower closes in a row.`);
     else if (r?.bullishSignal) lines.push(`${name} Rule of Three: ${r.consecutiveHigherCloses} higher closes in a row.`);
+  }
+  const rs = ctx.extremes.reverseSignal;
+  if (rs.signal) {
+    lines.push(
+      rs.rule === "reverseDay"
+        ? `Reverse signal day at a ${rs.signal}: opened beyond the prior day's extreme and closed near the other end.`
+        : `After ${rs.runDays} days without breaking the prior day's ${rs.signal === "top" ? "low" : "high"}, the last day broke it and closed near its ${rs.signal === "top" ? "low" : "high"} (7-10 Day Rule, ${rs.signal}).`,
+    );
+  }
+  const g = ctx.extremes.gaps;
+  if (g.exhaustGap) lines.push(`Exhaust gap at a ${g.exhaustGap}: a one-day gap to a new extreme, filled the next day.`);
+  if (g.gapsInNewTerritory && g.gapsInNewTerritory.count >= 3) {
+    lines.push(`${g.gapsInNewTerritory.count} ${g.gapsInNewTerritory.direction} gaps in new territory this swing: a culmination is near.`);
+  }
+  if (g.filledGapReversal) lines.push(`A recent gap has been filled: the minor trend turns ${g.filledGapReversal}.`);
+  const t = ctx.timing;
+  if (t.alternation?.mark) lines.push(`${t.alternation.daysSincePivot} days from the last swing pivot: on the ${t.alternation.mark}-day turn count.`);
+  if (t.square144 && t.square144.units.length >= 2) {
+    lines.push(`Time from the ${t.square144.pivotDate} extreme is on a multiple of 12 in ${t.square144.units.join(" and ")}: time counts converge.`);
+  }
+  if (t.projection) {
+    lines.push(
+      `Next swing ${t.projection.kind} projected around ${t.projection.medianDate} from ${t.projection.count} earlier cycles (spread ${t.projection.spreadDays} days${t.projection.spreadDays <= 5 ? ", tight" : ""}).`,
+    );
   }
   return lines;
 }

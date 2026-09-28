@@ -56,3 +56,32 @@ describe("detectSpectralCycle", () => {
     expect(reading.active).toBe(false);
   });
 });
+
+describe("F3 cycle checks: cosinor, artifact guards, hold-out", () => {
+  const bars = (closes: number[]) =>
+    closes.map((c, i) => ({ t: new Date(Date.UTC(2025, 0, 1) + i * 86_400_000).toISOString(), o: c, h: c + 0.5, l: c - 0.5, c, v: 1000 }));
+
+  it("measures a 5% cycle's amplitude, with an interval that contains it", () => {
+    // 5% swing in price: log amplitude ≈ 0.05.
+    const r = detectSpectralCycle(bars(Array.from({ length: 240 }, (_, i) => 100 * Math.exp(0.05 * Math.sin((2 * Math.PI * i) / 20)))));
+    expect(r.cosinor).not.toBeNull();
+    expect(r.cosinor!.amplitudePct).toBeCloseTo(5, 0);
+    expect(r.cosinor!.amplitudeCiPct[0]).toBeLessThanOrEqual(5);
+    expect(r.cosinor!.amplitudeCiPct[1]).toBeGreaterThanOrEqual(5);
+    expect(r.cosinor!.zeroAmplitudeP).toBeLessThan(0.001);
+  });
+
+  it("carries a real cycle forward into the unseen 30% of the window", () => {
+    const r = detectSpectralCycle(bars(Array.from({ length: 240 }, (_, i) => 100 + 5 * Math.sin((2 * Math.PI * i) / 20))));
+    expect(r.holdout).not.toBeNull();
+    expect(r.holdout!.trainPeriodBars).toBe(20);
+    expect(r.holdout!.correlation).toBeGreaterThan(0.9);
+    expect(r.windowStable).toBe(true);
+    expect(r.atBandEdge).toBe(false);
+  });
+
+  it("does not call a curved trend's leftover a cycle", () => {
+    const r = detectSpectralCycle(bars(Array.from({ length: 200 }, (_, i) => 50 + 0.002 * i * i)));
+    expect(r.active).toBe(false);
+  });
+});

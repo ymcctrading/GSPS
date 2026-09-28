@@ -21,6 +21,28 @@ date.
   recorded as replay context factors. Default verdicts and bracket trades are
   unchanged.
 
+### Changed
+- **Gann's timing and extreme-price rules as measured context** (parity
+  F1). The reverse signal day and 7-10 Day Rule, gap rules (exhaust gaps,
+  gaps in new territory, filled gaps), the 7/14-day turn count, Square-of-144
+  time convergence and the spread of projected turn dates now show on the
+  confluence card and are recorded on every backtest trade. None changes a
+  verdict yet.
+- **Cycle detector checks** (parity F3). Prices are detrended in log form so a cycle is measured as a percentage; a cosinor fit reports the cycle's amplitude with a 95% interval and a zero-amplitude test; a peak at the longest period scanned is no longer counted as a cycle; the peak must survive dropping the oldest tenth of the window; and a period fitted on the first 70% is checked against the last 30%. Context only, as before.
+- **Measurement upgrades** (parity F3). Schuster's significance test on the
+  cycle detector; the backtest report repeats its factor tables for the
+  early and late half of the window; the 30-60 year cycles are labelled as
+  disclosed rather than validated.
+- **Stop after a series of losses, on every account** (parity E1). After
+  three losing trades in a row, new entries pause for the rest of that day
+  and the next trading day, on paper and live alike, including Guided Mode,
+  the demo account and automation. Stops and closes are never blocked.
+  Before this only live accounts had a loss rule (the percentage circuit
+  breaker).
+- **School: "The Method's Rules"** (parity E2). A four-lesson Academy 4
+  course on how GSPS reads trend, time, entries and exits, volume, and the
+  trader's rules, written in our own words.
+
 ## 2026-09-27
 
 ### Changed
