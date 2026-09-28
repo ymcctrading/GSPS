@@ -9,6 +9,18 @@ date.
 
 ## 2026-09-28
 
+### Added
+- **Volume against the capital stock, and time from the company's birth**
+  (parity D2, D3). Shares outstanding come from SEC EDGAR and inception dates
+  from Wikidata, fetched once by `scripts/fetch-instrument-reference.mjs` and
+  stored in `instrument_profile` / `instrument_shares_outstanding` (migration
+  0083). Two-thirds of the stock trading in one week at a top, or a week
+  turning over almost all of it, is now a Gann exit for longs in the replay's
+  `exitRule: "gann"`. The company anniversary, Gann's seasonal degrees from it
+  and its 5–60-year cycles show on the confluence trace. All readings are
+  recorded as replay context factors. Default verdicts and bracket trades are
+  unchanged.
+
 ### Changed
 - **Gann's timing and extreme-price rules as measured context** (parity
   F1). The reverse signal day and 7-10 Day Rule, gap rules (exhaust gaps,

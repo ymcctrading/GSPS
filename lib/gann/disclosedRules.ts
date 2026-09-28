@@ -37,6 +37,11 @@
  *    charts as well as the daily). The daily form is already scored
  *    (`ruleOfThree.ts`); this adds the two coarser readings.
  *
+ * Stage D adds two readings that need per-symbol facts from filings rather
+ * than bars (the `instrument` argument): volume against shares outstanding
+ * (D2, `capitalStock.ts`) and time from the company's inception date (D3,
+ * `incorporationCycle.ts`). Each carries its own sources and choices.
+ *
  * Engineering choices, labelled as such rather than dressed as sourced:
  * - The percentage-of-price anchors are the lowest low and highest high of
  *   the bars supplied (about a year of daily bars in the scan). Gann ranks
@@ -73,6 +78,13 @@ import { buildCampaignLedger, describeCampaignLedger, type CampaignLedger } from
 import { THREE_DAY_CHART, WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 import { readExtremeRules, type ExtremeRulesReading } from "@/lib/gann/extremeRules";
 import { readTiming, type TimingReading } from "@/lib/gann/timeConvergence";
+import { describeCapitalStock, readCapitalStock, type CapitalStockReading } from "@/lib/gann/capitalStock";
+import {
+  describeIncorporationCycle,
+  readIncorporationCycle,
+  type Inception,
+  type IncorporationCycleReading,
+} from "@/lib/gann/incorporationCycle";
 
 const DAY_MS = 24 * 3600 * 1000;
 
@@ -395,6 +407,20 @@ export interface DisclosedRulesContext {
   extremes: ExtremeRulesReading;
   /** 7/14-day alternation, Square of 144 convergence, projection dispersion (Stage F1). See `timeConvergence.ts`. */
   timing: TimingReading;
+  /** Volume against shares outstanding (Stage D2). Null without a stored share count. See `capitalStock.ts`. */
+  capitalStock: CapitalStockReading | null;
+  /** Time from the company's inception date (Stage D3). Null without a stored date. See `incorporationCycle.ts`. */
+  incorporation: IncorporationCycleReading | null;
+}
+
+/**
+ * The per-symbol facts D2 and D3 need, from `lib/data/instrumentReference.ts`.
+ * `sharesOutstanding` must be the count that was public on the session read
+ * (the replay passes its as-of, split-adjusted count).
+ */
+export interface InstrumentFacts {
+  sharesOutstanding: number | null;
+  inception: Inception | null;
 }
 
 export const EMPTY_DISCLOSED_RULES: DisclosedRulesContext = {
@@ -411,9 +437,17 @@ export const EMPTY_DISCLOSED_RULES: DisclosedRulesContext = {
     gaps: { exhaustGap: null, gapsInNewTerritory: null, filledGapReversal: null },
   },
   timing: { alternation: null, square144: null, projection: null },
+  capitalStock: null,
+  incorporation: null,
 };
 
-export function readDisclosedRules(dailyBars: Bar[], currentPrice: number): DisclosedRulesContext {
+export function readDisclosedRules(
+  dailyBars: Bar[],
+  currentPrice: number,
+  instrument: InstrumentFacts | null = null,
+  /** The session being read. Defaults to now (the live scan); the replay passes the replayed session. */
+  asOf: Date = new Date(),
+): DisclosedRulesContext {
   return {
     barMidpoint: readBarMidpoint(dailyBars),
     pricePercentages: readPricePercentages(dailyBars, currentPrice),
@@ -425,12 +459,16 @@ export function readDisclosedRules(dailyBars: Bar[], currentPrice: number): Disc
     campaign: buildCampaignLedger(dailyBars),
     extremes: readExtremeRules(dailyBars),
     timing: readTiming(dailyBars),
+    capitalStock: readCapitalStock(dailyBars, toWeeklyBars(dailyBars), instrument?.sharesOutstanding),
+    incorporation: readIncorporationCycle(instrument?.inception, asOf),
   };
 }
 
 /** Plain-language lines for the explanation trace. */
 export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   const lines: string[] = ctx.campaign ? describeCampaignLedger(ctx.campaign) : [];
+  if (ctx.capitalStock) lines.push(...describeCapitalStock(ctx.capitalStock));
+  if (ctx.incorporation) lines.push(...describeIncorporationCycle(ctx.incorporation));
   if (ctx.barMidpoint) {
     lines.push(
       `Close vs bar midpoint: last bar ${ctx.barMidpoint.lastBar}; ${ctx.barMidpoint.upOfLast5} of the last 5 closed above their midpoint.`,

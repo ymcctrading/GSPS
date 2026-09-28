@@ -88,3 +88,35 @@ describe("readGannExit", () => {
     expect(readGannExit(pos, bars, null)).toEqual({ stop: pos.initialStop, stopReason: "initial", exit: null });
   });
 });
+
+describe("readGannExit: the distribution week (parity D2)", () => {
+  // A long advance, a fill, then a final week at the high on heavy volume.
+  function advanceWithHeavyWeek(heavyDaily: number): { bars: Bar[]; entryIndex: number } {
+    const closes = steppingAdvance(8);
+    const bars = daily(closes);
+    const entryIndex = bars.length - 10;
+    for (let i = bars.length - 5; i < bars.length; i++) bars[i] = { ...bars[i], v: heavyDaily };
+    return { bars, entryIndex };
+  }
+
+  it("exits a long when two-thirds of the stock trades in a week at a top after the fill", () => {
+    const { bars, entryIndex } = advanceWithHeavyWeek(20_000);
+    const reading = readGannExit(position(bars, entryIndex), bars, null, 100_000);
+    expect(reading.exit?.reason).toBe("distribution");
+  });
+
+  it("is silent without a share count, and on ordinary volume", () => {
+    const { bars, entryIndex } = advanceWithHeavyWeek(20_000);
+    expect(readGannExit(position(bars, entryIndex), bars, null).exit?.reason).not.toBe("distribution");
+    const quiet = advanceWithHeavyWeek(1000);
+    expect(readGannExit(position(quiet.bars, quiet.entryIndex), quiet.bars, null, 100_000).exit?.reason).not.toBe(
+      "distribution",
+    );
+  });
+
+  it("does not apply to shorts", () => {
+    const { bars, entryIndex } = advanceWithHeavyWeek(20_000);
+    const short = position(bars, entryIndex, { side: "short", initialStop: bars[entryIndex].c + 5 });
+    expect(readGannExit(short, bars, null, 100_000).exit?.reason).not.toBe("distribution");
+  });
+});

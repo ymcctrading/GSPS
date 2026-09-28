@@ -1,6 +1,7 @@
 /**
- * Turns Gann's context readings (Stage A, `disclosedRules.ts`, and the B2
- * campaign ledger, `campaignLedger.ts`) into yes/no factors for one trade, in
+ * Turns Gann's context readings (Stage A, `disclosedRules.ts`; the B2
+ * campaign ledger, `campaignLedger.ts`; and the D2/D3 filings readings,
+ * `capitalStock.ts` and `incorporationCycle.ts`) into yes/no factors for one trade, in
  * that trade's direction, so the backtest's factor table can measure each one
  * the way it measures the scored criteria (`attributeFactors` with
  * `field: "contextFactors"`).
@@ -82,5 +83,25 @@ export function contextFactorsFor(
   if (ctx.timing.alternation) f.onAlternationTurnDay = ctx.timing.alternation.mark !== null;
   if (ctx.timing.square144) f.square144Convergence = ctx.timing.square144.units.length >= 2;
   if (ctx.timing.projection) f.tightTimeProjection = ctx.timing.projection.spreadDays <= 5;
+
+  // D2: Gann's capital-stock readings are top warnings, so they count against
+  // a long and with a short. Absent when no share count is stored.
+  const cs = ctx.capitalStock;
+  if (cs) {
+    f.capitalStockDistributionAgainst = bull && cs.distributionSignal;
+    f.capitalStockDistributionWith = !bull && cs.distributionSignal;
+  }
+
+  // D3: time from the company's inception has no direction in Gann's text
+  // (a date to watch for a change), like the day-count bands above.
+  const inc = ctx.incorporation;
+  if (inc) {
+    if (inc.precision === "day") {
+      f.incorporationAnniversary = inc.degree?.degrees === 360;
+      f.incorporationDegreeActive = inc.degree !== null;
+    }
+    if (inc.precision !== "year") f.incorporationMonth = inc.anniversaryMonth;
+    f.incorporationCycleYear = inc.completingCycles.length > 0;
+  }
   return f;
 }

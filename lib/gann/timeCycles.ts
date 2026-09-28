@@ -104,7 +104,7 @@ export const DAY_COUNT_BANDS: readonly [number, number][] = [
  * hierarchy and are used as such; a hit on one is weaker evidence than a hit
  * on a 1- to 10-year cycle, which has had many repetitions to be tested on.
  */
-const MAJOR_CYCLE_YEARS = [1, 2, 3, 5, 7, 10, 15, 20, 30, 50, 60];
+export const MAJOR_CYCLE_YEARS = [1, 2, 3, 5, 7, 10, 15, 20, 30, 50, 60];
 
 /**
  * Gann's "permanent cycle which does not change" (A4, 1930 back matter):
