@@ -22,6 +22,7 @@
  * same number over three weeks and over three years are different claims.
  */
 
+import { loadInstrumentReferenceHistory } from "@/lib/data/instrumentReference";
 import type { Bar, Timeframe } from "@/lib/types";
 import { getMarketDataProvider } from "@/lib/data/provider";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
@@ -34,6 +35,7 @@ import {
   bySetupKind,
   combine,
   replay,
+  summarise as summariseTrades,
   type ReplayOptions,
   type ReplayResult,
 } from "./replay";
@@ -111,8 +113,14 @@ export interface BacktestRequest {
    * `docs/BACKTESTING.md` asks for on an unmeasured constant.
    */
   useProductionStop?: boolean;
+  /** Trade the production plan's own stop and TP1. See `ReplayOptions.usePlanLevels`. */
+  usePlanLevels?: boolean;
+  /** Add to winners on Gann's pyramiding rules. See `ReplayOptions.pyramid`. */
+  pyramid?: boolean;
   /** Which entry rule fills trades. See `ReplayOptions.entryRule`. Defaults to `"stop"`. */
   entryRule?: ReplayOptions["entryRule"];
+  /** How open trades leave. See `ReplayOptions.exitRule`. Defaults to `"bracket"`. */
+  exitRule?: ReplayOptions["exitRule"];
   /**
    * Also run the same request a second time at `slippageMultiplier` times the
    * cost-per-share and report the expectancy delta — the spec pack's
@@ -205,13 +213,31 @@ export interface BacktestReport {
   yearCycleSplit: { withHits: RunSummary; withoutHits: RunSummary };
   /** Echoes the request — a report has to say which stop model produced it. */
   useProductionStop: boolean;
+  /** Echoes the request: true when the bracket was the production plan's own stop and TP1. */
+  usePlanLevels: boolean;
   /** Echoes the request: a report has to say which entry rule produced it. */
   entryRule: "stop" | "confirmed";
+  /** Echoes the request: a report has to say which exit rule produced it. */
+  exitRule: "bracket" | "gann" | "gann-runner";
   /**
    * The run split by the scan's two setup kinds. Continuations are published
    * only at Execute, so read that side together with the verdict buckets.
    */
   setupKindSplit: { reversion: RunSummary; continuation: RunSummary };
+  /**
+   * Under `exitRule: "gann"`, the run split by why each trade left (the stop
+   * reason that was binding, a Gann exit signal, or the timeout), so each of
+   * Gann's exit rules can be read on its own. Empty under the bracket.
+   */
+  exitReasonSplit: Record<string, RunSummary>;
+  /**
+   * All trades split by the calendar year each opened in (added 2026-09-28),
+   * so a multi-year run can be read by market regime (Dewey criterion 6,
+   * persistence through changed conditions; Halberg's phase confounding).
+   */
+  byYear: Record<string, RunSummary>;
+  /** Execute-bucket trades split by the year each opened in. */
+  executeByYear: Record<string, RunSummary>;
   /**
    * Triggered entries dropped because they filled at or beyond the plan's own
    * stop or target, which production refuses (`fill_outran_bracket`).
@@ -229,6 +255,18 @@ export interface BacktestReport {
   /** Echoes the request's score band, when one was given — see `attributeWithin`. */
   attributeScoreRange?: [number, number];
   factors: FactorAttribution[];
+  /** The same split for Gann readings the score doesn't count yet (`ReplayTrade.contextFactors`). */
+  contextFactors: FactorAttribution[];
+  /**
+   * Both factor tables again for the earlier and later half of the attributed
+   * trades by open time (parity F3: Dewey's persistence and out-of-sample
+   * tests, M2/M3). A factor whose delta flips sign between halves is not yet
+   * evidence of anything.
+   */
+  halves: {
+    early: { factors: FactorAttribution[]; contextFactors: FactorAttribution[] };
+    late: { factors: FactorAttribution[]; contextFactors: FactorAttribution[] };
+  };
   atrBands: Array<{ from: number; to: number | null; trades: number; winRate: number; expectancyR: number }>;
   /**
    * The rule-set identifier this run describes — see `strategyVersion.ts`.
@@ -316,7 +354,10 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
     weights,
     since,
     useProductionStop,
+    usePlanLevels,
+    pyramid,
     entryRule,
+    exitRule,
   } = request;
 
   const sinceMs = since === undefined ? null : Date.parse(since);
@@ -331,7 +372,10 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
     ...(costPerShare !== undefined ? { costPerShare } : {}),
     ...(weights ? { weights } : {}),
     ...(useProductionStop !== undefined ? { useProductionStop } : {}),
+    ...(usePlanLevels !== undefined ? { usePlanLevels } : {}),
+    ...(pyramid !== undefined ? { pyramid } : {}),
     ...(entryRule !== undefined ? { entryRule } : {}),
+    ...(exitRule !== undefined ? { exitRule } : {}),
   };
 
   const results: ReplayResult[] = [];
@@ -343,6 +387,15 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
   // Sequential rather than parallel: the vendor rate-limits, and a backtest
   // that trips the limiter reports a smaller universe than it was asked for
   // while looking like it succeeded.
+  // Shares outstanding and inception dates (parity roadmap D2, D3), one read
+  // for the whole run. Empty when the table can't be reached, and the two
+  // readings are then simply absent from every trade.
+  const references = await loadInstrumentReferenceHistory(symbols);
+  // The market's daily bars (SPY) once, for Gann's early/late leaders (G25).
+  const marketDailyBars = await fetchSeries("SPY", timeframe)
+    .then((s) => s.daily)
+    .catch(() => undefined);
+
   for (const symbol of symbols) {
     try {
       const { bars: fetched, daily, monthly } = await fetchSeries(symbol, timeframe, true);
@@ -367,7 +420,11 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
       if (from === null || first < from) from = first;
       if (to === null || last > to) to = last;
 
-      results.push(replay(symbol, bars, { ...options, dailyBars: daily, monthlyBars: monthly }));
+      const reference = references.get(symbol.toUpperCase());
+      const instrument = reference
+        ? { sharesHistory: reference.history, inception: reference.reference.inception }
+        : undefined;
+      results.push(replay(symbol, bars, { ...options, dailyBars: daily, monthlyBars: monthly, instrument, marketDailyBars }));
       used.push(symbol);
     } catch (err) {
       skipped.push({ symbol, reason: err instanceof Error ? err.message : String(err) });
@@ -423,12 +480,30 @@ export async function runBacktest(request: BacktestRequest): Promise<BacktestRep
  * symbol once and replays several configurations on the same bars) can build
  * the identical report without refetching.
  */
+/** Split trades at the median open time and attribute each half. */
+function splitByYear(trades: ReplayResult["trades"]): Record<string, RunSummary> {
+  const years = [...new Set(trades.map((t) => t.openedAt.slice(0, 4)))].sort();
+  return Object.fromEntries(
+    years.map((y) => [y, summarise(summariseTrades(trades.filter((t) => t.openedAt.startsWith(y))))]),
+  );
+}
+
+function chronologicalHalves(trades: ReplayResult["trades"]): BacktestReport["halves"] {
+  const sorted = [...trades].sort((a, b) => a.openedAt.localeCompare(b.openedAt));
+  const mid = Math.floor(sorted.length / 2);
+  const table = (ts: typeof sorted) => ({
+    factors: attributeFactors(ts),
+    contextFactors: attributeFactors(ts, { field: "contextFactors" }),
+  });
+  return { early: table(sorted.slice(0, mid)), late: table(sorted.slice(mid)) };
+}
+
 export function buildReport(
   run: RunOutcome,
   request: BacktestRequest,
   slippageSensitivity?: SlippageSensitivity,
 ): BacktestReport {
-  const { attributeWithin = "Execute", attributeScoreRange, useProductionStop = false, entryRule = "stop" } = request;
+  const { attributeWithin = "Execute", attributeScoreRange, useProductionStop = false, usePlanLevels = false, entryRule = "stop", exitRule = "bracket" } = request;
 
   const split = byOutputState(run.overall);
   const target = attributeScoreRange
@@ -463,17 +538,29 @@ export function buildReport(
       withoutHits: summarise(cycleSplit.withoutHits),
     },
     useProductionStop,
+    usePlanLevels,
     entryRule,
+    exitRule,
     setupKindSplit: {
       reversion: summarise(kindSplit.reversion),
       continuation: summarise(kindSplit.continuation),
     },
+    exitReasonSplit: Object.fromEntries(
+      [...new Set(run.overall.trades.flatMap((t) => (t.exitReason ? [t.exitReason] : [])))].map((reason) => [
+        reason,
+        summarise(summariseTrades(run.overall.trades.filter((t) => t.exitReason === reason))),
+      ]),
+    ),
     armed: run.overall.armed,
     triggered: run.overall.triggered,
     refusedFills: run.overall.refusedFills,
     attributeWithin: attributedLabel,
     ...(attributeScoreRange ? { attributeScoreRange } : {}),
     factors: attributeFactors(target.trades),
+    contextFactors: attributeFactors(target.trades, { field: "contextFactors" }),
+    halves: chronologicalHalves(target.trades),
+    byYear: splitByYear(run.overall.trades),
+    executeByYear: splitByYear(run.overall.trades.filter((t) => t.outputState === "Execute")),
     atrBands: attributeByAtrMultiple(target.trades).map(({ from, to, arm }) => ({
       from,
       to,

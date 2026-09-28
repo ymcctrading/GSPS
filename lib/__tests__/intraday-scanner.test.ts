@@ -82,7 +82,7 @@ describe("sessionMetrics", () => {
     const bars = [bar(0, 100, 110, 90, 110, 1000), bar(1, 110, 110, 110, 110, 1000)];
     const m = sessionMetrics(input({ bars, prevClose: 100 }), DEFAULT_CONFIG)!;
     // Typical prices are (110+90+110)/3 = 103.33 and 110, equally weighted.
-    expect(m.vwap).toBeCloseTo(106.67, 1);
+    expect(m.midpoint).toBeCloseTo((m.high + m.low) / 2, 6);
   });
 
   it("leaves relative volume null rather than defaulting it to 1.0", () => {

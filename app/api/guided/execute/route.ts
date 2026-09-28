@@ -16,16 +16,12 @@
  *
  * Only then does it submit, through the same `placeSimulatedOrder` path the
  * manual ticket uses — a real bracket, with stop, TP1 and master attached.
- *
- * The order rests as a stop-entry at the trigger. It is not held back for the
- * full entry-confirmation sequence plan-scoped automation waits for, because
- * the person confirmed this specific trade (decided 2026-09-26, alignment
- * audit F3.4; see `lib/lifecycle/entryConfirmation.ts`).
- *
- * **Evidence against this (2026-09-26, same day):** on the full universe the
- * stop entry measured −0.155R and the confirmed entry +0.190R
- * (docs/replay-runs/2026-09-26-766sym-NOTES.md). Moving this path to
- * confirmation is recommended and held for the owner (AGENTS.md, F3.4).
+ * That path places an advised entry only once it has confirmed on today's
+ * closed bars: a close through the trigger by the 3-point-rule buffer, a
+ * retest, and a close that held (owner decision 4, 2026-09-27; see
+ * `lib/lifecycle/confirmNow.ts`). An unconfirmed entry is refused with
+ * `awaiting_confirmation`, and the failure path below puts the
+ * recommendation back to open so the person can tap again.
  */
 
 import { NextRequest, NextResponse } from "next/server";

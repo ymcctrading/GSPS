@@ -63,7 +63,9 @@ concretely:
   function's own comment.
 - **Part 4 item 4 (fixed annual calendar cycle) — built live**:
   `lib/gann/timeCycles.ts` now computes A4's fixed calendar windows
-  (early Feb/Mar/May/Jun/Aug/Sep/Nov/Dec) independent of any pivot anchor,
+  (Feb 8–10, Mar 21–23, May 3–7, Jun 20–24, Aug 3–8, Sep 21–24, Nov 8–11,
+  Dec 20–24; the day-5 approximation first built here was corrected on
+  2026-09-27) independent of any pivot anchor,
   surfaced as `timeCycleFixedCalendarActive`/`timeCycleFixedCalendarDates`
   on `GannLevels` and `GannConfluenceResult`. Context/display only — Gann's
   own rule has no per-direction pass/fail to gate scoring with.

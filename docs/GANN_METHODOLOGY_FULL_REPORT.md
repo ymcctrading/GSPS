@@ -520,8 +520,10 @@ primary-source shell to build from).
 ### 4.1 The fixed annual calendar cycle
 
 *Wall Street Stock Selector* (1930, A4) describes a fixed annual calendar
-cycle of specific recurring dates — windows in early February, March, May,
-June, August, September, November, and December — explicitly called "a
+cycle of specific recurring dates — Feb 8–10, Mar 21–23, May 3–7,
+Jun 20–24, Aug 3–8, Sep 21–24, Nov 8–11 and Dec 20–24 (the book's reprinted
+1929 Annual Forecast; an earlier reading here said "early" in each month,
+corrected 2026-09-27) — explicitly called "a
 permanent cycle which does not change," to be watched for trend changes
 every year regardless of what happened the year before. This is distinct
 from anniversary-of-a-pivot timing (§4.2): it repeats on the same calendar

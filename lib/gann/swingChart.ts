@@ -1,125 +1,94 @@
 /**
- * Gann's 3-day and 9-day swing charts.
+ * Gann's swing charts: the 3-Day Chart and the 7-day (weekly) swing chart.
  *
- * A swing chart plots trend as a line that only reverses once price moves
- * against the prevailing swing for a fixed number of consecutive days —
- * filtering the noise a single higher-high or lower-low would react to. The
- * 3-day chart reacts to a smaller reversal than the 9-day; requiring both to
- * agree confirms the trend at two granularities of the same construction,
- * the way the retired macro-timeframe check required 2-of-3 timeframes
- * (monthly/weekly/daily) to agree before it was measured to be a net-negative
- * premise (see lib/validation/criteria-registry.ts's `macroTrend` entry).
+ * **Rebuilt 2026-09-27 to Gann's own construction** (project-owner decision:
+ * "Gann's method supersedes my own", conflict X3 in
+ * `docs/memory-bank/GANN_PARITY_ROADMAP.md`). The earlier version flipped a
+ * direction after 3 or 9 consecutive opposing *closes*, and its "9-day"
+ * chart had no source. Four of Gann's texts define the charts differently,
+ * and all agree on three points:
  *
- * This reads daily closes only — no separate weekly/monthly resample — since
- * the swing count itself (3 days, 9 days) is what stands in for the coarser
- * timeframes.
+ * 1. **Highs and lows, not closes.** *45 Years in Wall Street* (1949,
+ *    Ch. VII, p. 62): when the market makes higher tops for 3 consecutive
+ *    days the line follows it up; after 3 days of lower bottoms the line
+ *    moves down to the low of the third day.
+ * 2. **The line records counter-moves by their duration.** *How to Make
+ *    Profits in Commodities* (1951 New Rules, p. 316): the daily chart
+ *    "records all reverse moves or reactions that run 2 to 3 days". Pp.
+ *    316-317: the weekly chart records "reverse moves of 7 calendar days or
+ *    more", which Gann calls "one of the most valuable trend indicators".
+ * 3. **The trend changes when the last swing extreme breaks**, not when a
+ *    counter-move ends. The counter-move only moves the line. Crossing the
+ *    last swing top means higher; breaking the last swing bottom means lower
+ *    (A09 p. 62; A8 p. 316). *Wall Street Stock Selector* (1930, Ch. IV) and
+ *    *Truth of the Stock Tape* (1923, p. 82) give the same time-based charts
+ *    ("moves of from three days to one week").
+ *
+ * So this module keeps two things separate: the **line** (which way the
+ * swing is currently moving, reversed by a counter-move of the chart's
+ * length) and the **trend** (set only by crossing the last completed swing
+ * top or breaking the last completed swing bottom).
+ *
+ * **The two charts.**
+ * - `THREE_DAY_CHART`: a counter-move of 3 consecutive bars making lower lows
+ *   (against an up-swing) or higher highs (against a down-swing). A09's
+ *   literal rule. Bars that neither extend the swing nor continue the
+ *   counter-run reset the count, so it must be consecutive.
+ * - `WEEKLY_SWING_CHART`: a counter-move whose extreme comes 7 or more
+ *   calendar days after the swing's own extreme. A8's literal rule, measured
+ *   on calendar dates, so weekends and holidays count, as Gann counted them.
+ *
+ * **Correspondence across timeframes.** The same two rules applied to coarser
+ * bars reproduce Gann's other disclosed charts rather than inventing new
+ * ones. On weekly bars, the 7-calendar-day rule reverses on a one-bar
+ * counter-move: the Master Course's weekly 1-bar swing chart (Ch. 18). On
+ * monthly bars it reverses on a one-month reaction, and the trend turns on
+ * breaking the prior swing's monthly low: A05's monthly-low break. On weekly
+ * bars the 3-bar chart is the "3-week" reaction rule (A09 Rule 4).
+ *
+ * **Not built here: the 9-point swing chart** (A09 Ch. VII). Its threshold is
+ * 9 Dow points, a price magnitude that needs scaling to each instrument
+ * before it means anything. It stays a candidate, not a silent substitute.
+ *
+ * ---
+ *
+ * **Three-question basis:**
+ * 1. Gann: A09 Ch. VII (1949), A8 pp. 316-317 (1951), A04 Ch. IV (1930),
+ *    A02 p. 82 (1923). All Tier A, Gann's own published books.
+ * 2. Cycles: no periodicity claim. The 3 and 7 are counter-move lengths
+ *    Gann uses to filter noise, not cycle periods, so Dewey's checklist does
+ *    not gate this. Stated because the mandate asks for an answer.
+ * 3. Hermetic: Rhythm (the line only turns when the market's own swing
+ *    rhythm turns) and Correspondence (one construction, every timeframe, as
+ *    above). Polarity: every rule has its exact mirror for the down side.
  */
 
 import type { Bar } from "@/lib/types";
 
 export type SwingDirection = "bullish" | "bearish" | null;
 
+/** How a chart decides that a counter-move is long enough to move the line. */
+export type SwingChartSpec =
+  /** N consecutive bars against the swing (lower lows in an up-swing, higher highs in a down-swing). */
+  | { kind: "bars"; count: number }
+  /** The counter-move's extreme is at least N calendar days after the swing's own extreme. */
+  | { kind: "calendarDays"; days: number };
+
+/** Gann's 3-Day Chart (A09 Ch. VII, p. 62). */
+export const THREE_DAY_CHART: SwingChartSpec = { kind: "bars", count: 3 };
+
+/** Gann's 7-day weekly swing chart (A8 1951, pp. 316-317). */
+export const WEEKLY_SWING_CHART: SwingChartSpec = { kind: "calendarDays", days: 7 };
+
 /**
- * Walks closes in order, tracking the prevailing swing direction. A close
- * against the current swing starts (or extends) a run of opposing days; once
- * that run reaches `days`, the swing flips and the run resets. A close that
- * agrees with the swing resets the opposing run to zero. Flat closes (equal
- * to the prior close) neither extend nor reset the run.
- *
- * Returns null when there isn't enough history to establish an initial
- * direction (fewer than `days + 2` bars, or every close in that window is
- * flat) — scored as a fail the same way a missing ADX reading is, rather than
- * guessing a direction from insufficient data.
+ * The two charts' counter-move lengths, for callers that size history
+ * windows. `threeDay` is in bars and `weekly` in calendar days.
  */
-export function swingChartDirection(bars: Bar[], days: number): SwingDirection {
-  if (bars.length < days + 2) return null;
-
-  let direction: SwingDirection = null;
-  let opposingRun = 0;
-
-  for (let i = 1; i < bars.length; i++) {
-    const up = bars[i].c > bars[i - 1].c;
-    const down = bars[i].c < bars[i - 1].c;
-    if (!up && !down) continue; // flat close: neither extends nor resets the run
-
-    if (direction === null) {
-      direction = up ? "bullish" : "bearish";
-      continue;
-    }
-
-    const against = direction === "bullish" ? down : up;
-    if (against) {
-      opposingRun++;
-      if (opposingRun >= days) {
-        direction = direction === "bullish" ? "bearish" : "bullish";
-        opposingRun = 0;
-      }
-    } else {
-      opposingRun = 0;
-    }
-  }
-
-  return direction;
-}
-
-export interface SwingChartReading {
-  threeDay: SwingDirection;
-  nineDay: SwingDirection;
-}
-
-/** The two swing-chart reversal counts this criterion checks agreement across. */
-export const SWING_CHART_DAYS = { threeDay: 3, nineDay: 9 } as const;
-
-export function computeSwingChart(bars: Bar[]): SwingChartReading {
-  return {
-    threeDay: swingChartDirection(bars, SWING_CHART_DAYS.threeDay),
-    nineDay: swingChartDirection(bars, SWING_CHART_DAYS.nineDay),
-  };
-}
+export const SWING_CHART_DAYS = { threeDay: 3, weekly: 7 } as const;
 
 /**
- * Bar indices where the `days`-count swing chart's direction flipped — the
- * same walk `swingChartDirection` does, but recording every reversal rather
- * than only the final direction. Used by `computeCampaignLeg` below to count
- * how many 3-day-chart legs have printed since the last 9-day trend change.
- */
-function swingReversalIndices(bars: Bar[], days: number): number[] {
-  if (bars.length < days + 2) return [];
-
-  const indices: number[] = [];
-  let direction: SwingDirection = null;
-  let opposingRun = 0;
-
-  for (let i = 1; i < bars.length; i++) {
-    const up = bars[i].c > bars[i - 1].c;
-    const down = bars[i].c < bars[i - 1].c;
-    if (!up && !down) continue;
-
-    if (direction === null) {
-      direction = up ? "bullish" : "bearish";
-      continue;
-    }
-
-    const against = direction === "bullish" ? down : up;
-    if (against) {
-      opposingRun++;
-      if (opposingRun >= days) {
-        direction = direction === "bullish" ? "bearish" : "bullish";
-        opposingRun = 0;
-        indices.push(i);
-      }
-    } else {
-      opposingRun = 0;
-    }
-  }
-
-  return indices;
-}
-
-/**
- * A completed swing's extreme — the "old top" or "old bottom" Gann's numbered
- * Buying and Selling Points are stated against (`docs/GANN_HISTORICAL_SOURCES.md`
- * A8: "crossing old tops/bottoms").
+ * A completed swing's extreme: the "old top" or "old bottom" Gann's Buying
+ * and Selling Points are stated against (A8: "crossing old tops/bottoms").
  */
 export interface SwingPivot {
   /** Bar index where the extreme printed. */
@@ -128,97 +97,222 @@ export interface SwingPivot {
   kind: "top" | "bottom";
 }
 
+export interface SwingChartWalk {
+  /**
+   * Gann's trend: the line's first direction until a swing completes, then
+   * changed only by crossing the last completed swing top (bullish) or
+   * breaking the last completed swing bottom (bearish). Null only when the
+   * bars never move out of their opening range.
+   */
+  trend: SwingDirection;
+  /** Which way the swing line is currently moving. Null before the first swing. */
+  swingDirection: SwingDirection;
+  /**
+   * Every completed swing extreme, oldest first, starting with the chart's
+   * origin (the extreme the first swing started from). The swing still in
+   * progress is excluded.
+   */
+  pivots: SwingPivot[];
+  /** Bar indices where `trend` changed. */
+  trendChanges: number[];
+  /** Bar indices where the line reversed (a swing completed). */
+  reversals: number[];
+}
+
+const DAY_MS = 24 * 3600 * 1000;
+
+function calendarDaysBetween(a: Bar, b: Bar): number {
+  return Math.round((Date.parse(b.t) - Date.parse(a.t)) / DAY_MS);
+}
+
+function toSpec(chart: SwingChartSpec | number): SwingChartSpec {
+  return typeof chart === "number" ? { kind: "bars", count: chart } : chart;
+}
+
 /**
- * Every completed swing's extreme, oldest first.
- *
- * `swingReversalIndices` above records *where* the swing chart flipped; this
- * records *what price the swing reached* before it flipped, which is the
- * quantity Gann's entry rules are written against. A bullish swing's pivot is
- * the highest high it printed; a bearish swing's is the lowest low.
+ * Walks the bars once and returns the chart's line, its completed swings and
+ * Gann's trend. A plain number is read as a consecutive-bar count, so
+ * `walkSwingChart(bars, 3)` is the 3-Day Chart.
+ */
+export function walkSwingChart(bars: Bar[], chart: SwingChartSpec | number): SwingChartWalk {
+  const spec = toSpec(chart);
+  const walk: SwingChartWalk = {
+    trend: null,
+    swingDirection: null,
+    pivots: [],
+    trendChanges: [],
+    reversals: [],
+  };
+  if (bars.length < 2) return walk;
+
+  let dir: SwingDirection = null;
+  let ext = 0; // index of the current swing's extreme (top in an up-swing, bottom in a down-swing)
+  let counterExt = -1; // index of the counter-move's extreme since `ext`
+  let run = 0; // consecutive counter bars (bars spec only)
+  let lastTop: SwingPivot | null = null;
+  let lastBottom: SwingPivot | null = null;
+
+  for (let i = 1; i < bars.length; i++) {
+    const bar = bars[i];
+    const prev = bars[i - 1];
+
+    // Trend first, against swings completed before this bar.
+    const crossedTop = lastTop !== null && bar.h > lastTop.price;
+    const brokeBottom = lastBottom !== null && bar.l < lastBottom.price;
+    // A bar that does both is ambiguous on its own; the trend holds until one
+    // side is cleared cleanly.
+    const signal: SwingDirection =
+      crossedTop && !brokeBottom ? "bullish" : brokeBottom && !crossedTop ? "bearish" : null;
+    if (signal !== null && signal !== walk.trend) {
+      walk.trend = signal;
+      walk.trendChanges.push(i);
+    }
+
+    // Then the line.
+    if (dir === null) {
+      const higher = bar.h > bars[ext].h;
+      const lower = bar.l < bars[ext].l;
+      if (higher && !lower) {
+        dir = "bullish";
+        ext = i;
+      } else if (lower && !higher) {
+        dir = "bearish";
+        ext = i;
+      } else if (higher && lower) {
+        ext = i; // outside bar: the new range is the starting point
+      }
+      // The chart starts from where the first swing began: the lowest low
+      // before a first up-swing (or the highest high before a first
+      // down-swing) is the chart's first old bottom (top). Without it the
+      // first swing would have nothing to break, and a market that turned
+      // from its opening swing would keep reading the opening direction.
+      // Until another swing completes, the line's first direction is the
+      // trend; from then on only a crossing changes it.
+      if (dir !== null && walk.trend === null) {
+        let start = 0;
+        for (let k = 1; k < i; k++) {
+          if (dir === "bullish" ? bars[k].l < bars[start].l : bars[k].h > bars[start].h) start = k;
+        }
+        const origin: SwingPivot =
+          dir === "bullish"
+            ? { index: start, price: bars[start].l, kind: "bottom" }
+            : { index: start, price: bars[start].h, kind: "top" };
+        walk.pivots.push(origin);
+        if (dir === "bullish") lastBottom = origin;
+        else lastTop = origin;
+        walk.trend = dir;
+        walk.trendChanges.push(i);
+      }
+      continue;
+    }
+
+    const up: boolean = dir === "bullish";
+    const extends_ = up ? bar.h > bars[ext].h : bar.l < bars[ext].l;
+    if (extends_) {
+      ext = i;
+      run = 0;
+      counterExt = -1;
+      continue;
+    }
+
+    // A counter-move bar: track its extreme and, for the bar-count chart, the run.
+    const counterBetter = up
+      ? counterExt < 0 || bar.l < bars[counterExt].l
+      : counterExt < 0 || bar.h > bars[counterExt].h;
+    if (counterBetter) counterExt = i;
+
+    let reverse: boolean;
+    if (spec.kind === "bars") {
+      const continues = up ? bar.l < prev.l : bar.h > prev.h;
+      const breaks = up ? bar.l > prev.l : bar.h < prev.h;
+      if (continues) run++;
+      else if (breaks) run = 0;
+      reverse = run >= spec.count;
+    } else {
+      reverse = counterExt >= 0 && calendarDaysBetween(bars[ext], bars[counterExt]) >= spec.days;
+    }
+
+    if (reverse && counterExt >= 0) {
+      const pivot: SwingPivot = up
+        ? { index: ext, price: bars[ext].h, kind: "top" }
+        : { index: ext, price: bars[ext].l, kind: "bottom" };
+      walk.pivots.push(pivot);
+      if (up) lastTop = pivot;
+      else lastBottom = pivot;
+      walk.reversals.push(i);
+      dir = up ? "bearish" : "bullish";
+      ext = counterExt;
+      counterExt = -1;
+      run = 0;
+    }
+  }
+
+  walk.swingDirection = dir;
+  return walk;
+}
+
+/** Gann's trend on the given chart: see `SwingChartWalk.trend`. */
+export function swingChartDirection(bars: Bar[], chart: SwingChartSpec | number): SwingDirection {
+  return walkSwingChart(bars, chart).trend;
+}
+
+export interface SwingChartReading {
+  /** Trend on the 3-Day Chart. */
+  threeDay: SwingDirection;
+  /** Trend on the 7-day weekly swing chart. */
+  weekly: SwingDirection;
+}
+
+export function computeSwingChart(bars: Bar[]): SwingChartReading {
+  return {
+    threeDay: swingChartDirection(bars, THREE_DAY_CHART),
+    weekly: swingChartDirection(bars, WEEKLY_SWING_CHART),
+  };
+}
+
+/**
+ * Every completed swing's extreme, oldest first. A number is a
+ * consecutive-bar count (3 = the 3-Day Chart).
  *
  * Only completed swings are returned. The swing still in progress has no
- * settled extreme — price may still extend it — and an entry rule written
- * against a moving level is not the rule Gann stated.
+ * settled extreme, and an entry rule written against a moving level is not
+ * the rule Gann stated.
  */
-export function swingPivots(bars: Bar[], days: number): SwingPivot[] {
-  const reversals = swingReversalIndices(bars, days);
-  if (reversals.length === 0) return [];
-
-  // Direction of the swing that ENDS at reversals[0]. A reversal flips the
-  // swing, so the segment before the first recorded flip ran in the opposite
-  // direction to the one the flip produced. Recovering it from the closes
-  // around that flip keeps this consistent with the walk above rather than
-  // re-deriving a direction from scratch.
-  let direction: SwingDirection = null;
-  for (let i = 1; i <= reversals[0]; i++) {
-    const up = bars[i].c > bars[i - 1].c;
-    const down = bars[i].c < bars[i - 1].c;
-    if (!up && !down) continue;
-    direction = up ? "bullish" : "bearish";
-    break;
-  }
-  if (direction === null) return [];
-
-  const pivots: SwingPivot[] = [];
-  let start = 0;
-
-  for (const end of reversals) {
-    let bestIndex = start;
-    for (let i = start; i <= end && i < bars.length; i++) {
-      if (direction === "bullish") {
-        if (bars[i].h > bars[bestIndex].h) bestIndex = i;
-      } else if (bars[i].l < bars[bestIndex].l) {
-        bestIndex = i;
-      }
-    }
-    pivots.push({
-      index: bestIndex,
-      price: direction === "bullish" ? bars[bestIndex].h : bars[bestIndex].l,
-      kind: direction === "bullish" ? "top" : "bottom",
-    });
-    direction = direction === "bullish" ? "bearish" : "bullish";
-    start = end;
-  }
-
-  return pivots;
+export function swingPivots(bars: Bar[], chart: SwingChartSpec | number): SwingPivot[] {
+  return walkSwingChart(bars, chart).pivots;
 }
 
 export type CampaignLegConfidence = "low" | "high" | "extended";
 
 export interface CampaignLegReading {
-  /** How many 3-day-chart legs (including the current, still-open one) have printed since the last 9-day trend change. Null when there isn't enough history to establish either swing chart. */
+  /**
+   * How many 3-Day Chart legs (including the current, still-open one) have
+   * printed since the weekly swing chart's last trend change. Null until the
+   * weekly chart has signalled a trend.
+   */
   legNumber: number | null;
   /**
-   * Gann's own rule ("sections of a campaign" — *New Stock Trend Detector*
-   * 1936, *How to Make Profits Trading in Commodities* 1941, *45 Years in
-   * Wall Street* 1949): a bull/bear move typically runs 3-4 legs before a
-   * genuine trend change is likely, and a reversal on the 3rd/4th leg is
-   * trusted more than one on the 2nd. `"low"` = legs 1-2 (an early,
-   * less-trusted wobble), `"high"` = legs 3-4 (the classic reversal zone),
-   * `"extended"` = leg 5+ (an unusually stretched run outside Gann's own
-   * disclosed 3-4 leg pattern — not itself a stronger or weaker read, just
-   * outside the textbook case). Null when `legNumber` is null.
+   * Gann's "sections of a campaign" (A05 1936; A8; A09 Rule 5): a bull or
+   * bear move typically runs 3-4 sections before a genuine trend change, and
+   * a reversal in the 3rd/4th is trusted more than one in the 2nd. `"low"` =
+   * legs 1-2, `"high"` = legs 3-4, `"extended"` = leg 5+ (outside the
+   * textbook case, not itself stronger or weaker). Null when `legNumber` is.
    */
   confidence: CampaignLegConfidence | null;
 }
 
 /**
- * Confluence/context only (per AGENTS.md's evidence-gating discipline —
- * every new criterion here stays out of `lib/scoring/score.ts`'s pass/fail
- * `swingChartAligned` boolean until a fresh backtest specifically measures
- * it): counts how many 3-day swing-chart legs have printed since the last
- * 9-day swing-chart direction change, and classifies that count against
- * Gann's disclosed 3-4-leg "sections of a campaign" pattern.
+ * Confluence/context only. Counts 3-Day Chart legs since the weekly chart's
+ * last trend change and classifies the count against Gann's 3-4-section
+ * pattern. Never affects a scored `passed`.
  */
 export function computeCampaignLeg(bars: Bar[]): CampaignLegReading {
-  const nineDayFlips = swingReversalIndices(bars, SWING_CHART_DAYS.nineDay);
-  const threeDayFlips = swingReversalIndices(bars, SWING_CHART_DAYS.threeDay);
-  if (bars.length < SWING_CHART_DAYS.nineDay + 2) {
-    return { legNumber: null, confidence: null };
-  }
+  const weekly = walkSwingChart(bars, WEEKLY_SWING_CHART);
+  if (weekly.trend === null) return { legNumber: null, confidence: null };
+  const threeDay = walkSwingChart(bars, THREE_DAY_CHART);
 
-  const lastNineDayFlip = nineDayFlips.length > 0 ? nineDayFlips[nineDayFlips.length - 1] : 0;
-  const legsSinceMajorChange = threeDayFlips.filter((i) => i > lastNineDayFlip).length;
+  const lastMajorChange = weekly.trendChanges[weekly.trendChanges.length - 1];
+  const legsSinceMajorChange = threeDay.reversals.filter((i) => i > lastMajorChange).length;
   const legNumber = legsSinceMajorChange + 1; // the current, still-open leg counts as one
 
   const confidence: CampaignLegConfidence = legNumber <= 2 ? "low" : legNumber <= 4 ? "high" : "extended";

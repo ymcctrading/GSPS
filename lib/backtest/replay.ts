@@ -31,9 +31,9 @@
  *     `runMarketScan`'s continuation pass calls `scanTicker` with a
  *     direction. A session arms one only when that pass's own gate
  *     (`isMomentumContinuation`) could admit it: at least two of three macro
- *     timeframes agree (`macroBreadthAgrees`), momentum is elevated, and at
- *     the fill the top-ranked pattern is a continuation shape
- *     (`isContinuationShape`). The scan also requires an Execute score before
+ *     timeframes agree (`macroBreadthAgrees`), momentum is elevated, and the
+ *     daily swing chart already runs that way (`isGannContinuation`; the STRAT
+ *     shape gate it replaced was removed 2026-09-28). The scan also requires an Execute score before
  *     publishing a continuation. The replay records every such trade with its
  *     score, so read continuation results from the Execute bucket
  *     (`bySetupKind` and then `byOutputState`). Filtering on score here would
@@ -65,16 +65,25 @@
 import type { AssetClass, Bar, GannLevels, ScanDecision, SetupKind, StratPattern, Timeframe, TrendReading } from "@/lib/types";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { computeStopWithLeeway, computeTradeLevels, type EntrySource } from "@/lib/strat/levels";
+import type { TradeLevels } from "@/lib/types";
 import {
   MIN_DAILY_BARS_FOR_SCAN,
-  isContinuationShape,
+  isGannContinuation,
   macroBreadthAgrees,
   preferredEntryDirection,
   rankArmedPatterns,
 } from "@/lib/scan/entrySelection";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
 import { readLiquidity } from "@/lib/scan/liquidity";
-import { applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
+import { applyBreakawayHold, applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
+import { readBreakaway, type BreakawayReading } from "@/lib/gann/breakaway";
+import { readGannExit, type GannExitReason, type GannStopReason } from "@/lib/gann/exitRules";
+import { SCALE_OUT_PCT } from "@/lib/trade/protocol-exit";
+import { readPyramidAdd, type PyramidLot } from "@/lib/gann/pyramid";
+
+/** Whole-share scale for fractional replay lots (1 lot = 1024 shares, so four halvings stay whole). */
+const PYRAMID_SHARE_SCALE = 1024;
+import { roundNumberEntryBlocked } from "@/lib/gann/evenFigures";
 import {
   FALLBACK_SR_PCT,
   SR_PROXIMITY_ATR,
@@ -96,6 +105,15 @@ import { computeAngleSlopes } from "@/lib/gann/normalizedSlope";
 import { computeRetracementLevels } from "@/lib/gann/retracement";
 import { priceTimeConfluence } from "@/lib/gann/digitalRoot";
 import { computeCampaignLeg, computeSwingChart, type CampaignLegReading, type SwingChartReading } from "@/lib/gann/swingChart";
+import {
+  majorPricePercentageLevels,
+  readDisclosedRules,
+  type DisclosedRulesContext,
+  type InstrumentFacts,
+} from "@/lib/gann/disclosedRules";
+import { splitAdjustedSharesAsOf, type SharesPoint } from "@/lib/data/instrumentReference";
+import type { Inception } from "@/lib/gann/incorporationCycle";
+import { contextFactorsFor } from "@/lib/gann/contextFactors";
 import { computeRuleOfThree, type RuleOfThreeReading } from "@/lib/gann/ruleOfThree";
 import { computeTimePriceSquare, type TimePriceSquareReading } from "@/lib/gann/timePriceSquare";
 import { computeVolumeClimax, type VolumeClimaxReading } from "@/lib/gann/volumeClimax";
@@ -173,6 +191,28 @@ export interface ReplayOptions {
    */
   useProductionStop?: boolean;
   /**
+   * Trade the plan production actually attaches (2026-09-28). For US
+   * equities `computeTradeLevels` prices the stop with
+   * `computeEquityTradeLevels` (a structural stop in a percent-of-price band)
+   * and TP1 from Gann and S/R levels. `useProductionStop` never used that
+   * model: it capped the daily-structure stop at 2.5–3.5× the *execution-bar*
+   * ATR (`computeStopWithLeeway`), a stop a small fraction of the plan's, and
+   * paired it with a `targetR` target. With this on, the bracket's stop is the
+   * plan's `stopLoss` and its target the plan's `takeProfit1` (the Gann exit
+   * rules scale out at that TP1 too), exactly as `scoreSetup` prices it for
+   * the verdict. `targetR` is then unused. R stays measured on the plan's own
+   * risk (trigger to plan stop). Takes precedence over `useProductionStop`.
+   * A setup with no valid plan is skipped, as production publishes none.
+   */
+  usePlanLevels?: boolean;
+  /**
+   * Skip entries the autonomous portfolio manager holds at a round number by
+   * default (`lib/gann/evenFigures.ts#roundNumberEntryBlocked`): an entry just
+   * short of a figure whose breakout level isn't that figure. Mirrors the
+   * manager's default setting (auto-ordering at round numbers off).
+   */
+  roundNumberHold?: boolean;
+  /**
    * Which entry rule fills the trade. Production uses both, on different
    * paths:
    *
@@ -193,6 +233,51 @@ export interface ReplayOptions {
    * only the stop entry, so nothing measured the rule automation trades on.
    */
   entryRule?: "stop" | "confirmed";
+  /**
+   * How an open trade leaves (parity roadmap Stage C, owner decisions 2 and 6):
+   *
+   * - `"bracket"` (default): the plan's fixed stop and a `targetR` target.
+   * - `"gann"`: no fixed target (Gann never fixes one). The trade leaves on
+   *   its stop, which moves on Gann's structure, or at the next session's open
+   *   after a Gann exit signal: the hold test, three adverse closes, or a
+   *   change of trend. See `lib/gann/exitRules.ts`. Stops and signals update
+   *   once per session from completed daily bars only.
+   *
+   * - `"gann-runner"`: the rule live and paper positions use since 2026-09-28
+   *   (`lib/trade/protocol-exit.ts#LIVE_EXIT_RULE`): 60% leaves at the target,
+   *   the rest runs on Gann's stop and exit signals exactly as `"gann"` does.
+   *   Before the target, Gann's stop covers the whole position. A bar that
+   *   touches both the target and the stop counts the stop (the conservative
+   *   order, as the bracket does). The replay's target is `targetR`, while live
+   *   TP1 is a Gann level; the tranche split is the same.
+   *
+   * All fill a stop at the stop price, so they are compared on the same
+   * convention.
+   */
+  exitRule?: "bracket" | "gann" | "gann-runner";
+  /**
+   * Under a Gann exit rule, add to winning trades on Gann's pyramiding rules
+   * (`lib/gann/pyramid.ts`): half the last lot at each crossed swing top made
+   * since it, once it shows a full risk unit of profit, with the whole
+   * position's stop lifted to at least its combined break-even. R stays in
+   * units of the first lot's risk. Ignored under the bracket.
+   */
+  pyramid?: boolean;
+  /**
+   * Stored filings facts for the symbol (parity roadmap D2, D3; see
+   * `lib/data/instrumentReference.ts`). Each session reads the share count
+   * that had been filed before it, restated to the bars' split basis, so no
+   * later filing reaches a trade. Omit it and the capital-stock and
+   * incorporation readings are null, as they are for symbols with no stored
+   * row.
+   */
+  instrument?: { sharesHistory: SharesPoint[]; inception: Inception | null };
+  /**
+   * The market's daily bars (SPY), for Gann's early and late leaders (G25).
+   * Each session reads only the bars before it. Omit it and the leadership
+   * reading carries only the first-year high.
+   */
+  marketDailyBars?: Bar[];
 }
 
 export interface ReplayTrade {
@@ -223,6 +308,10 @@ export interface ReplayTrade {
   target: number;
   barsHeld: number;
   outcome: "win" | "loss" | "timeout";
+  /** Lots held at the end, under `pyramid: true` (1 when nothing was added). */
+  lots?: number;
+  /** Why the trade left, under `exitRule: "gann"`. Undefined under the bracket. */
+  exitReason?: GannStopReason | GannExitReason | "timeout";
   /** Realised result in units of the trade's own risk, after costs. */
   rMultiple: number;
   /** True when one bar covered both stop and target, and the loss was assumed. */
@@ -262,6 +351,13 @@ export interface ReplayTrade {
    * `attribution.ts`.
    */
   criteria?: Record<string, boolean>;
+  /**
+   * Gann readings recorded on the trade that the score doesn't count yet
+   * (`lib/gann/contextFactors.ts`), in the trade's direction. Measured by the
+   * factor table the same way as `criteria`, so each can be promoted on
+   * evidence. Absent means not evaluated.
+   */
+  contextFactors?: Record<string, boolean>;
   /**
    * Whether this symbol read as large-cap at the time of the trade — see
    * `lib/strat/large-cap.ts`. Always computed (unlike `score`, which needs
@@ -354,9 +450,11 @@ const weekKey = (b: Bar) => {
 export interface MacroContext {
   macroTrends: TrendReading[];
   swingChart: SwingChartReading;
-  /** How many 3-day swing-chart legs since the last 9-day trend change, and Gann's "sections of a campaign" confidence read on that count. Confluence/context only — see lib/gann/swingChart.ts#computeCampaignLeg. */
+  /** How many 3-day swing-chart legs since the weekly chart's last trend change, and Gann's "sections of a campaign" confidence read on that count. Confluence/context only — see lib/gann/swingChart.ts#computeCampaignLeg. */
   campaignLeg: CampaignLegReading;
   ruleOfThree: RuleOfThreeReading;
+  ruleOfThreeWeekly: RuleOfThreeReading | null;
+  ruleOfThreeMonthly: RuleOfThreeReading | null;
   timePriceSquare: TimePriceSquareReading[];
   volumeClimax: VolumeClimaxReading[];
   boilingPoint: BoilingPointReading[];
@@ -381,6 +479,8 @@ export interface MacroContext {
    * only whichever is closest to price in either direction.
    */
   structuralLevels: number[];
+  /** Stage A readings and the B2 campaign ledger, as the live scan's confluence card shows them. */
+  disclosedRules: DisclosedRulesContext;
 }
 
 /**
@@ -394,6 +494,10 @@ export function buildMacroContext(
   daily: Bar[],
   price: number,
   asOf: Date = new Date(new Date(daily[daily.length - 1].t).getTime() + 24 * 3600 * 1000),
+  /** Closed monthly bars before `asOf`, when the run has them. They anchor Gann's percentage-of-price levels the way the live scan's monthly history does. */
+  priorMonthly: Bar[] = [],
+  /** Shares outstanding as of this session and the inception date (D2, D3), when stored. */
+  instrument: InstrumentFacts | null = null,
 ): MacroContext {
   const weekly = rollUp(daily, weekKey);
   const monthly = rollUp(daily, (b) => b.t.slice(0, 7));
@@ -426,6 +530,8 @@ export function buildMacroContext(
     ...weeklyTrend.resistance.map((p) => ({ price: p, timeframe: weeklyTrend.timeframe })),
     ...monthlyTrend.support.map((p) => ({ price: p, timeframe: monthlyTrend.timeframe })),
     ...monthlyTrend.resistance.map((p) => ({ price: p, timeframe: monthlyTrend.timeframe })),
+    // Mirrors lib/scanTicker.ts: Gann's major percentage-of-price levels.
+    ...majorPricePercentageLevels([...priorMonthly, ...daily]).map((p) => ({ price: p, timeframe: "1Month" as const })),
   ];
   const recentAtr = atr(daily.slice(-20), 14);
   const baselineAtr = atr(daily.slice(-100, -20), 14);
@@ -442,6 +548,10 @@ export function buildMacroContext(
     swingChart,
     campaignLeg,
     ruleOfThree,
+    // Mirrors lib/scanTicker.ts. The live scan reads the provider's weekly
+    // and monthly bars; here they are rolled up from the daily history.
+    ruleOfThreeWeekly: weekly.length >= 4 ? computeRuleOfThree(weekly) : null,
+    ruleOfThreeMonthly: monthly.length >= 4 ? computeRuleOfThree(monthly) : null,
     timePriceSquare,
     volumeClimax,
     boilingPoint,
@@ -473,6 +583,7 @@ export function buildMacroContext(
     momentumElevated: baselineAtr > 0 && recentAtr / baselineAtr >= 1.2,
     atrPct,
     structuralLevels: allLevels.map((l) => l.price),
+    disclosedRules: readDisclosedRules(daily, price, instrument, asOf),
   };
 }
 
@@ -480,6 +591,8 @@ export function buildMacroContext(
 interface SessionTrigger {
   setupKind: SetupKind;
   trigger: GannEntryTrigger;
+  /** Gann's breakaway reading for this trigger, from prior sessions only (as the live scan reads it). */
+  breakaway: BreakawayReading;
 }
 
 /** One session's arming state: read once per date from prior sessions only. */
@@ -499,7 +612,13 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     monthlyBars,
     weights,
     useProductionStop = false,
+    usePlanLevels = false,
+    roundNumberHold = false,
     entryRule = "stop",
+    exitRule = "bracket",
+    pyramid = false,
+    instrument,
+    marketDailyBars,
   } = options;
 
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
@@ -527,17 +646,31 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     const priorSessions = dailyBars.filter((b) => b.t.slice(0, 10) < date);
     let arm: SessionArm | null = null;
     if (priorSessions.length >= MIN_DAILY_BARS_FOR_SCORE) {
-      const context = buildMacroContext(priorSessions, price, new Date(`${date}T12:00:00Z`));
+      const priorMonthly = monthlyBars ? monthlyBars.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)) : [];
+      const facts: InstrumentFacts | null =
+        instrument || marketDailyBars
+          ? {
+              sharesOutstanding: instrument ? splitAdjustedSharesAsOf(instrument.sharesHistory, date) : null,
+              inception: instrument?.inception ?? null,
+              marketDaily: marketDailyBars ?? null,
+            }
+          : null;
+      const context = buildMacroContext(priorSessions, price, new Date(`${date}T12:00:00Z`), priorMonthly, facts);
       const reversionDirection = preferredEntryDirection(context.macroTrends);
       const triggers: SessionTrigger[] = [];
       const reversion = computeGannEntryTrigger(priorSessions, reversionDirection);
-      if (reversion) triggers.push({ setupKind: "reversion", trigger: reversion });
+      if (reversion) triggers.push({ setupKind: "reversion", trigger: reversion, breakaway: readBreakaway(priorSessions, reversion) });
       // The continuation pass arms with the macro move, never against it, and
       // only where its breadth and momentum gate could admit the result.
       const continuationDirection = reversionDirection === "bullish" ? "bearish" : "bullish";
-      if (context.momentumElevated && macroBreadthAgrees(context.macroTrends, continuationDirection)) {
+      if (
+        context.momentumElevated &&
+        macroBreadthAgrees(context.macroTrends, continuationDirection) &&
+        isGannContinuation(context.macroTrends, continuationDirection)
+      ) {
         const continuation = computeGannEntryTrigger(priorSessions, continuationDirection);
-        if (continuation) triggers.push({ setupKind: "continuation", trigger: continuation });
+        if (continuation)
+          triggers.push({ setupKind: "continuation", trigger: continuation, breakaway: readBreakaway(priorSessions, continuation) });
       }
       arm = {
         context,
@@ -558,7 +691,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     const arm = sessionArm(date, lastClose);
     if (!arm) continue;
 
-    for (const { setupKind, trigger } of arm.triggers) {
+    for (const { setupKind, trigger, breakaway } of arm.triggers) {
       const pivotKey = `${setupKind}:${trigger.direction}:${trigger.pivot.kind}:${trigger.pivot.index}`;
       if (consumedPivots.has(pivotKey)) continue;
       armedKeys.add(`${date}|${pivotKey}`);
@@ -596,11 +729,6 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           preferredDirection: trigger.direction,
           setupKind,
         })[0] ?? null;
-      // The continuation pass publishes only a continuation shape. Without
-      // one there's no published plan and so no resting order. The pivot is
-      // not consumed, so a later bar can still fill once a shape arms, just as
-      // a later scan could publish it.
-      if (setupKind === "continuation" && !isContinuationShape(pattern)) continue;
 
       consumedPivots.add(pivotKey);
       triggered++;
@@ -634,8 +762,33 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       // the leeway or large-cap cap `computeTradeLevels` applies for the live
       // scan and Guided Mode. `useProductionStop` swaps in the capped one,
       // priced against the trigger as the plan prices it.
-      const stop =
-        useProductionStop && executionAtr > 0
+      const scored = scoreSetup({
+        context: arm.context,
+        pattern,
+        gannTrigger: trigger,
+        history,
+        executionAtr,
+        assetClass,
+        largeCap,
+        setupKind,
+        breakaway,
+        weights,
+      });
+      const decision = scored.decision;
+
+      if (
+        roundNumberHold &&
+        roundNumberEntryBlocked({ entry: trigger.triggerPrice, direction: trigger.direction, crossedLevel: trigger.pivot.price }).blocked
+      ) {
+        continue;
+      }
+
+      // The production plan (usePlanLevels): its own stop and TP1.
+      if (usePlanLevels && !scored.levels) continue;
+      const planLevels = usePlanLevels ? scored.levels : null;
+      const stop = planLevels
+        ? planLevels.stopLoss
+        : useProductionStop && executionAtr > 0
           ? computeStopWithLeeway({
               side: long ? "long" : "short",
               entry: trigger.triggerPrice,
@@ -646,7 +799,8 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           : trigger.stopPrice;
       const risk = Math.abs(trigger.triggerPrice - stop);
       if (!(risk > 0) || (long ? stop >= trigger.triggerPrice : stop <= trigger.triggerPrice)) continue;
-      const target = trigger.triggerPrice + dir * targetR * risk;
+      const target = planLevels ? planLevels.takeProfit1 : trigger.triggerPrice + dir * targetR * risk;
+      if (planLevels && (long ? target <= trigger.triggerPrice : target >= trigger.triggerPrice)) continue;
 
       // Production refuses a fill at or beyond its own stop or target
       // (`fill_outran_bracket`). The setup is spent either way.
@@ -656,21 +810,39 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         continue;
       }
 
-      const decision = scoreSetup({
-        context: arm.context,
-        pattern,
-        gannTrigger: trigger,
-        history,
-        executionAtr,
-        assetClass,
-        largeCap,
-        setupKind,
-        weights,
-      });
+
 
       let outcome: ReplayTrade["outcome"] = "timeout";
       let barsHeld = 0;
       let ambiguous = false;
+
+      if ((exitRule === "gann" || exitRule === "gann-runner") && !outran) {
+        const walked = walkGannExit({
+          bars, from: i, maxBarsHeld, long, entry, stop, dailyBars: dailyBars ?? [],
+          crossedLevel: trigger.pivot.price,
+          scaleOut: exitRule === "gann-runner" ? { price: target, fraction: RUNNER_SCALE_OUT } : undefined,
+          pyramid,
+          sharesOn: instrument ? (date) => splitAdjustedSharesAsOf(instrument.sharesHistory, date) : undefined,
+        });
+        trades.push({
+          symbol, openedAt: live.t, pattern: pattern?.name ?? null, setupKind, direction: trigger.direction,
+          entry, stop, target,
+          atrMultiple: executionAtr > 0 ? risk / executionAtr : 0,
+          score: decision.score,
+          outputState: decision.outputState,
+          criteria: criteriaOf(decision),
+          contextFactors: contextFactorsFor(arm.context.disclosedRules, trigger.direction, entry),
+          largeCap,
+          yearCycleHits: monthlyBars ? yearCycleHitsAt(monthlyBars, live.t, trigger.direction) : undefined,
+          barsHeld: walked.barsHeld,
+          outcome: walked.reason === "timeout" ? "timeout" : dir * (walked.exit - entry) > 0 ? "win" : "loss",
+          exitReason: walked.reason,
+          ...(pyramid ? { lots: walked.lots } : {}),
+          rMultiple: (dir * (walked.exit - entry) - costPerShare) / risk,
+          ambiguous: false,
+        });
+        continue;
+      }
 
       for (let j = i; j < Math.min(bars.length, i + maxBarsHeld); j++) {
         const b = bars[j];
@@ -691,6 +863,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         score: decision.score,
         outputState: decision.outputState,
         criteria: criteriaOf(decision),
+        contextFactors: contextFactorsFor(arm.context.disclosedRules, trigger.direction, entry),
         largeCap,
         yearCycleHits: monthlyBars ? yearCycleHitsAt(monthlyBars, live.t, trigger.direction) : undefined,
       };
@@ -776,6 +949,113 @@ export function combine(results: ReplayResult[]): ReplayResult {
   return summarise(trades, armed, triggered, refusedFills);
 }
 
+/** Share of the position that leaves at the target under `"gann-runner"` (mirrors `SCALE_OUT_PCT`). */
+const RUNNER_SCALE_OUT = SCALE_OUT_PCT;
+
+/**
+ * Walk one filled trade forward under Gann's exit rules (`exitRule: "gann"`).
+ *
+ * The stop is checked on every execution bar. At the first bar of each new
+ * session, Gann's rules are read from the completed daily sessions before it:
+ * the stop moves if they tighten it, and an exit signal leaves at that bar's
+ * open. A stop hit fills at the stop, the same convention as the bracket.
+ */
+function walkGannExit(input: {
+  bars: Bar[];
+  from: number;
+  maxBarsHeld: number;
+  long: boolean;
+  entry: number;
+  stop: number;
+  dailyBars: Bar[];
+  crossedLevel: number;
+  /** The stored share count as of a session (D2), or null. */
+  sharesOn?: (date: string) => number | null;
+  /** `"gann-runner"`: this fraction leaves at `price`; the rest runs. */
+  scaleOut?: { price: number; fraction: number };
+  /** Add to the winner on Gann's pyramiding rules (`lib/gann/pyramid.ts`). */
+  pyramid?: boolean;
+}): { exit: number; barsHeld: number; reason: GannStopReason | GannExitReason | "timeout"; lots: number } {
+  const { bars, from, maxBarsHeld, long, entry, dailyBars, crossedLevel, sharesOn, scaleOut, pyramid } = input;
+  const dir = long ? 1 : -1;
+  // Position accounting in units of the first lot (1.0). The result is
+  // reported as the single exit price that gives the same P&L per unit, so the
+  // caller's R arithmetic is unchanged: the first lot's risk stays the unit.
+  let openQty = 1;
+  let cost = entry;
+  let realized = 0;
+  const lots: PyramidLot[] = [{ qty: 1, price: entry, date: bars[from].t.slice(0, 10) }];
+  const close = (price: number) => realized + dir * (openQty * price - cost);
+  const done = (price: number, j: number, reason: GannStopReason | GannExitReason | "timeout") => ({
+    exit: entry + dir * close(price),
+    barsHeld: j,
+    reason,
+    lots: lots.length,
+  });
+  let scaled = false;
+  let pendingAdd: { qty: number; trigger: number; newStop: number } | null = null;
+  const entryDate = bars[from].t.slice(0, 10);
+  const position = { side: long ? "long" : "short", entry, initialStop: input.stop, entryDate, crossedLevel } as const;
+  let stop = input.stop;
+  let stopReason: GannStopReason = "initial";
+  let best: number | null = null;
+  const end = Math.min(bars.length, from + maxBarsHeld);
+  for (let j = from; j < end; j++) {
+    const b = bars[j];
+    const date = b.t.slice(0, 10);
+    if (j > from && date !== bars[j - 1].t.slice(0, 10)) {
+      const prior = dailyBars.filter((d) => d.t.slice(0, 10) < date);
+      const reading = readGannExit(position, prior, best, sharesOn?.(date) ?? null);
+      if (reading.exit) return done(b.o, j - from + 1, reading.exit.reason);
+      if (long ? reading.stop > stop : reading.stop < stop) {
+        stop = reading.stop;
+        stopReason = reading.stopReason;
+      }
+      pendingAdd = null;
+      if (pyramid && prior.length > 0) {
+        // Lots are fractions of the first lot here. Scale them to whole shares
+        // for the reading (only the ratios matter), or "half of 1" would round
+        // to zero and no add would ever be offered.
+        const add = readPyramidAdd({
+          side: long ? "long" : "short",
+          lots: lots.map((l) => ({ ...l, qty: l.qty * PYRAMID_SHARE_SCALE })),
+          stop,
+          initialStop: input.stop,
+          daily: prior,
+          price: prior[prior.length - 1].c,
+        }).add;
+        // Lots are fractions of the first here, so the size rule is applied directly.
+        if (add) pendingAdd = { qty: lots[lots.length - 1].qty / 2, trigger: add.trigger, newStop: add.newStop };
+      }
+    }
+    if (long ? b.l <= stop : b.h >= stop) return done(stop, j - from + 1, stopReason);
+    if (pendingAdd && (long ? b.h >= pendingAdd.trigger : b.l <= pendingAdd.trigger)) {
+      const fill = long ? Math.max(pendingAdd.trigger, b.o) : Math.min(pendingAdd.trigger, b.o);
+      openQty += pendingAdd.qty;
+      cost += pendingAdd.qty * fill;
+      lots.push({ qty: pendingAdd.qty, price: fill, date });
+      const avg = cost / openQty;
+      const floor = long ? Math.max(pendingAdd.newStop, avg) : Math.min(pendingAdd.newStop, avg);
+      if (long ? floor > stop : floor < stop) {
+        stop = floor;
+        stopReason = "break_even";
+      }
+      pendingAdd = null;
+    }
+    if (scaleOut && !scaled && (long ? b.h >= scaleOut.price : b.l <= scaleOut.price)) {
+      // Scale out the fraction of what is held now, at the target.
+      const sold = openQty * scaleOut.fraction;
+      const avg = cost / openQty;
+      realized += dir * sold * (scaleOut.price - avg);
+      cost -= sold * avg;
+      openQty -= sold;
+      scaled = true;
+    }
+    best = best === null ? (long ? b.h : b.l) : long ? Math.max(best, b.h) : Math.min(best, b.l);
+  }
+  return done(bars[end - 1].c, end - from, "timeout");
+}
+
 /**
  * Rebuild the verdict the scanner would have shown for one armed setup.
  *
@@ -793,9 +1073,10 @@ function scoreSetup(input: {
   /** Computed once per session by the caller (it also tags the trade record). */
   largeCap: boolean;
   setupKind: SetupKind;
+  breakaway: BreakawayReading;
   weights?: CriterionWeights;
-}): ScanDecision {
-  const { context, pattern, gannTrigger, history, executionAtr, assetClass, largeCap, setupKind, weights } = input;
+}): { decision: ScanDecision; levels: TradeLevels | null } {
+  const { context, pattern, gannTrigger, history, executionAtr, assetClass, largeCap, setupKind, breakaway, weights } = input;
 
   // The last 400 candles is ~15 sessions of hourly context, which is more than
   // readTrend looks back over and keeps the roll-up cheap.
@@ -811,7 +1092,7 @@ function scoreSetup(input: {
     setupLabel: gannTrigger.direction === "bullish" ? "swing-top crossing" : "swing-bottom break",
   };
 
-  let levels = null;
+  let levels: TradeLevels | null = null;
   try {
     levels = computeTradeLevels(
       entrySource,
@@ -829,7 +1110,7 @@ function scoreSetup(input: {
     // does when computeTradeLevels rejects it.
   }
 
-  return applyReversionConfirmation(
+  const decision = applyBreakawayHold(applyReversionConfirmation(
     computeScore({
       direction: gannTrigger.direction,
       macroTrends: context.macroTrends,
@@ -837,6 +1118,8 @@ function scoreSetup(input: {
       swingChart: context.swingChart,
       campaignLeg: context.campaignLeg,
       ruleOfThree: context.ruleOfThree,
+      ruleOfThreeWeekly: context.ruleOfThreeWeekly,
+      ruleOfThreeMonthly: context.ruleOfThreeMonthly,
       timePriceSquare: context.timePriceSquare,
       volumeClimax: context.volumeClimax,
       boilingPoint: context.boilingPoint,
@@ -856,7 +1139,8 @@ function scoreSetup(input: {
     pattern,
     context.momentumElevated,
     context.nearSupportResistance,
-  );
+  ), breakaway);
+  return { decision, levels };
 }
 
 /**

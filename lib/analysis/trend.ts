@@ -10,17 +10,18 @@ import { readGannTrend } from "@/lib/gann/trendStrength";
  * used to come from SMA 20/50 (price above a rising fast average, and so on)
  * with a pivot check. That put a non-Gann indicator under every setup's
  * direction and the score's macro criteria. It is now `readGannTrend`: the
- * 9-day swing chart's direction, confirmed only when the 3-day swings are
+ * weekly (7-day) swing chart's trend, confirmed only when the 3-day swings are
  * stepping the same way. Anything unconfirmed is "sideways". The same read
  * applies on monthly, weekly and daily bars. Gann kept swing charts on every
  * timeframe, and Correspondence is why a rule read on one is expected to hold
  * on another. Pivots still supply the support/resistance lists.
  *
  * Three-question basis:
- * 1. Gann: swing charts (the 3-day and 9-day charts, Ch. VII); trend is read
+ * 1. Gann: swing charts (the 3-Day Chart, A09 Ch. VII, and the 7-day weekly
+ *    chart, A8 1951 pp. 316-317); trend is read
  *    from rising or falling tops and bottoms (docs/GANN_HISTORICAL_SOURCES.md,
  *    via lib/gann/trendStrength.ts).
- * 2. Cycles: this makes no periodicity claim. The 3 and 9 are Gann's
+ * 2. Cycles: this makes no periodicity claim. The 3 and 7 are Gann's
  *    reversal counts, not cycle lengths, so Dewey's checklist doesn't apply.
  * 3. Hermetic: Correspondence, since one rule serves every timeframe. Rhythm
  *    also fits: the swing chart only turns when the market's own swing

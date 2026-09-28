@@ -103,10 +103,16 @@ const SCAN_SCORE: RegisteredCriterion[] = [
     id: "swingChartTrend",
     family: "scanScore",
     source: "lib/scoring/score.ts, lib/gann/swingChart.ts",
-    label: "3-day/9-day swing chart trend",
+    label: "3-day/weekly swing chart trend",
     expectedSign: "positive",
     evidence: "hypothesis",
     note:
+      "**Construction replaced 2026-09-27 (owner decision, conflict X3).** The charts now follow the source books: " +
+      "the 3-Day Chart (45 Years in Wall Street, 1949, Ch. VII) and the 7-day weekly swing chart " +
+      "(How to Make Profits in Commodities, 1951, pp. 316-317), built on highs and lows, with the trend " +
+      "turning only when the last swing top or bottom breaks. The old close-count '9-day' chart had no " +
+      "source. Every measurement below describes the old construction and does not transfer: treat " +
+      "this criterion as unmeasured from STRATEGY_VERSION 2026-09-27-gann-swing-charts on.\n\n" +
       "Replaces `macroTrend` (retired 2026-09-10; see RETIRED) — its monthly/weekly/daily 2-of-3 " +
       "agreement measured negligible (inside the ±0.1R noise band on both adequately sampled arms) " +
       "after its counter-trend premise was already corrected once, on 2026-09-09. The 3-day and 9-day " +
@@ -207,9 +213,14 @@ const SCAN_SCORE: RegisteredCriterion[] = [
     id: "volumeClimax",
     family: "scanScore",
     source: "lib/scoring/score.ts, lib/gann/volumeClimax.ts",
-    label: "Volume climax at the anchor pivot",
+    label: "Volume at the turn",
     expectedSign: "positive",
     evidence: "hypothesis",
+    // 2026-09-27 (parity D1, conflict X1, owner decision): the rule is no
+    // longer climax-only. A low passes on drying-up volume, a lower-volume
+    // retest, or a climax (the panic exception); a high on heavy volume or a
+    // lower-volume secondary top. The measurements below describe the
+    // climax-only construction and do not transfer; treat it as unmeasured.
     note:
       "Replaces `harmonicProximity` (retired 2026-09-10; see RETIRED) — its key-price-level-proximity " +
       "approach measured negligible even after fixing its stale-anchor defect twice. This is a " +
@@ -816,6 +827,19 @@ const SCORE_HOLDS: RegisteredCriterion[] = [
       "for the first time; every previous committed run had only 1 observation, too few to trip the " +
       "check. Same shape as `patternArmed` above (constant by construction, not a discrimination " +
       "defect), so it gets the same override.",
+    saturation: { minPassRate: 0, maxPassRate: 1 },
+  },
+  {
+    id: "breakaway",
+    family: "scoreHold",
+    source: "lib/gann/breakaway.ts",
+    label: "Breakaway from a sideways range",
+    expectedSign: "unknown",
+    evidence: "unmeasured",
+    note:
+      "Owner decision 5 (2026-09-27): the method stays out of a sideways market until it breaks away " +
+      "(Commodities pp. 51-52). Appended only when it holds a range-bound Execute whose entry sits inside " +
+      "the 13-week range, so it is failed by construction whenever present.",
     saturation: { minPassRate: 0, maxPassRate: 1 },
   },
   {

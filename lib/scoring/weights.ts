@@ -84,15 +84,15 @@ export type CriterionKey = (typeof CRITERION_KEYS)[number];
  * They carry no points and take no weight, but they are keyed too so the
  * replay's factor table and the UI can identify them without string matching.
  */
-export type HoldKey = "tradePlanPriced" | "reversionConfirmation" | "dataLag";
+export type HoldKey = "tradePlanPriced" | "reversionConfirmation" | "dataLag" | "breakaway";
 
 export type BreakdownKey = CriterionKey | HoldKey;
 
 /** Short labels for the factor tables, where the full criterion text is too wide. */
 export const CRITERION_LABELS: Record<CriterionKey, string> = {
-  swingChartTrend: "3-day/9-day swing chart trend",
+  swingChartTrend: "3-day/weekly swing chart trend",
   gannAngleSlope: "Structural trend-angle strength (1x2+)",
-  volumeClimax: "Volume climax at the anchor pivot",
+  volumeClimax: "Volume at the turn",
   historicalSR: "Historical support/resistance",
   entryTriggerArmed: "Entry trigger armed (old-level crossing)",
   stopRoom: "Stop room (>= 1.5x ATR)",

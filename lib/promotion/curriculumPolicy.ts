@@ -38,6 +38,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { TierTransition } from "./transitions";
+import { examPassedAt } from "@/lib/school/examService";
 
 export interface CurriculumProgressInputs {
   /** Academies 1-3 fully passed (education) — novice_to_pro only. */
@@ -48,11 +49,15 @@ export interface CurriculumProgressInputs {
   advancedCurriculumCompletedAt: string | null;
   /** Academy 8 capstone + dossier lab passed — expert_to_wall_street only, also the mandatory safety gate. */
   capstoneCompletedAt: string | null;
+  /** The Novice graduation exam passed (lib/school/graduationExam.ts) — part of novice_to_pro's curriculum path. */
+  noviceExamPassedAt?: string | null;
+  /** The Pro graduation exam passed — part of pro_to_expert's curriculum path. */
+  proExamPassedAt?: string | null;
 }
 
 export interface CurriculumEligibility {
   eligible: boolean;
-  /** True whenever this transition has a mandatory component regardless of path (today: only expert_to_wall_street's capstone). */
+  /** Whether this transition's path-independent component is met (the graduation exam, or Wall Street's capstone). */
   mandatoryComponentMet: boolean;
 }
 
@@ -62,14 +67,20 @@ export function evaluateCurriculumEligibility(
   inputs: CurriculumProgressInputs,
 ): CurriculumEligibility {
   switch (transition) {
+    // The curriculum path graduates through the exam (owner, 2026-09-28):
+    // the courses plus a passed graduation exam. Track record and paying are
+    // their own proofs and don't need it.
     case "novice_to_pro":
       return {
-        eligible: inputs.foundationsEducationCompletedAt != null && inputs.practiceValidationCompletedAt != null,
+        eligible:
+          inputs.foundationsEducationCompletedAt != null &&
+          inputs.practiceValidationCompletedAt != null &&
+          inputs.noviceExamPassedAt != null,
         mandatoryComponentMet: true,
       };
     case "pro_to_expert":
       return {
-        eligible: inputs.advancedCurriculumCompletedAt != null,
+        eligible: inputs.advancedCurriculumCompletedAt != null && inputs.proExamPassedAt != null,
         mandatoryComponentMet: true,
       };
     case "expert_to_wall_street":
@@ -83,9 +94,10 @@ export function evaluateCurriculumEligibility(
 /**
  * Whether the transition's mandatory, path-independent safety component is
  * met — checked once and required regardless of which of the three paths a
- * profile otherwise qualifies through. Only `expert_to_wall_street` has one
- * today (the live-trading risk capstone); every other transition returns
- * `true` unconditionally.
+ * profile otherwise qualifies through. Only Wall Street has one: the
+ * live-trading risk capstone (owner, 2026-09-25). The graduation exams
+ * (owner, 2026-09-28) belong to the curriculum path alone: a student who
+ * pays, or who proves sustained trading success, may advance without them.
  */
 export function mandatoryComponentMet(transition: TierTransition, inputs: CurriculumProgressInputs): boolean {
   if (transition !== "expert_to_wall_street") return true;
@@ -102,7 +114,7 @@ export async function gatherCurriculumProgressInputs(
   supabase: SupabaseClient,
   profileId: string,
 ): Promise<CurriculumProgressInputs> {
-  const [{ data: legacyProgress }, { data: tierProgress }, { data: liveRestrictions }] = await Promise.all([
+  const [{ data: legacyProgress }, { data: tierProgress }, { data: liveRestrictions }, noviceExamPassedAt, proExamPassedAt] = await Promise.all([
     supabase
       .from("promotion_progress")
       .select("education_completed_at, practice_validation_completed_at")
@@ -119,6 +131,8 @@ export async function gatherCurriculumProgressInputs(
       .select("wall_street_school_completed_at")
       .eq("user_id", profileId)
       .maybeSingle(),
+    examPassedAt(supabase, profileId, "novice_to_pro"),
+    examPassedAt(supabase, profileId, "pro_to_expert"),
   ]);
 
   return {
@@ -126,5 +140,7 @@ export async function gatherCurriculumProgressInputs(
     practiceValidationCompletedAt: legacyProgress?.practice_validation_completed_at ?? null,
     advancedCurriculumCompletedAt: tierProgress?.curriculum_completed_at ?? null,
     capstoneCompletedAt: liveRestrictions?.wall_street_school_completed_at ?? null,
+    noviceExamPassedAt,
+    proExamPassedAt,
   };
 }

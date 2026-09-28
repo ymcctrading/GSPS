@@ -20,6 +20,31 @@
  * is judged against the same swing point they'd use. Only the volume check
  * itself looks wider — see `RECENT_PIVOTS_CHECKED` below.
  *
+ * **Gann's volume rule, not only the climax (parity X1/D1, owner decision
+ * 2026-09-27: "Gann's method supersedes my own").** Three of his texts agree
+ * that sales increase near tops and *decrease* near bottoms: after a long
+ * decline, volume shrinks and the range narrows as liquidation runs its
+ * course (Master Course Ch. 12; *45 Years in Wall Street* Ch. X;
+ * *Commodities* p. 63). Heavy volume at a low is the exception, the panic or
+ * selling climax (*New Stock Trend Detector* pp. 39-45). A retest of the low
+ * on smaller volume says liquidation is over (*Wall Street Stock Selector*
+ * Ch. VII), and the mirror, a secondary top on smaller volume than the final
+ * advance, says the trend is turning down (*New Stock Trend Detector* Rule 7).
+ * So each reading now carries all of them, and `confirms` is the rule for
+ * its kind:
+ *   - a low confirms on volume drying up (the normal bottom), a retest on
+ *     lower volume, or a climax (the panic exception);
+ *   - a high confirms on heavy volume (tops come on large sales) or a
+ *     secondary top on lower volume.
+ * The criterion key stays `volumeClimax` so stored runs and weights still
+ * line up; what it measures is Gann's full rule.
+ *
+ * Engineering choices, labelled as such: "drying up" compares the mean
+ * volume and mean bar range of the `DRY_UP_BARS` bars ending at the pivot
+ * with the `lookback` bars before them, and requires both to have shrunk;
+ * a retest is a pivot within `RETEST_TOLERANCE_PCT` of, or beyond, the one
+ * before it. Gann gives the observation, not the window.
+ *
  * **Documented asset-class exception, not an oversight (2026-09-16 audit):**
  * *How to Make Profits Trading in Commodities* (1941/51) discloses a fifth
  * culmination rule alongside the volume-of-sales ones this module already
@@ -74,6 +99,11 @@ export const VOLUME_CLIMAX_THRESHOLD = 1.5;
  */
 export const RECENT_PIVOTS_CHECKED = 3;
 
+/** Bars ending at the pivot that are compared with the bars before them for "drying up". */
+export const DRY_UP_BARS = 5;
+/** How close (percent) a later pivot must come to the earlier one to count as a retest of it. */
+export const RETEST_TOLERANCE_PCT = 1;
+
 export interface VolumeClimaxReading {
   anchorKind: "high" | "low";
   anchorPrice: number;
@@ -85,6 +115,24 @@ export interface VolumeClimaxReading {
   bestRecentRelativeVolume: number;
   /** Whether the anchor pivot or one of the last few pivots of its kind printed on climax volume. */
   climax: boolean;
+  /** Volume and range both shrank into the anchor pivot (Gann's normal bottom; context for a high). */
+  dryingUp: boolean;
+  /** The anchor retested the previous pivot of its kind (equal or beyond) on smaller volume. */
+  retestOnLowerVolume: boolean;
+  /** Gann's volume rule for this kind of turn holds (see the module header). */
+  confirms: boolean;
+}
+
+const mean = (xs: number[]) => (xs.length === 0 ? NaN : xs.reduce((a, b) => a + b, 0) / xs.length);
+
+function driedUp(bars: Bar[], index: number, lookback: number): boolean {
+  const end = index + 1;
+  const recent = bars.slice(Math.max(0, end - DRY_UP_BARS), end);
+  const before = bars.slice(Math.max(0, end - DRY_UP_BARS - lookback), Math.max(0, end - DRY_UP_BARS));
+  if (recent.length < DRY_UP_BARS || before.length < lookback / 2) return false;
+  const vol = mean(recent.map((b) => b.v)) < mean(before.map((b) => b.v));
+  const range = mean(recent.map((b) => b.h - b.l)) < mean(before.map((b) => b.h - b.l));
+  return vol && range;
 }
 
 export function computeVolumeClimax(bars: Bar[], lookback = 20): VolumeClimaxReading[] {
@@ -105,13 +153,28 @@ export function computeVolumeClimax(bars: Bar[], lookback = 20): VolumeClimaxRea
       if (rvol !== null && rvol > best) best = rvol;
     }
 
+    const climax = best > VOLUME_CLIMAX_THRESHOLD;
+    const dryingUp = driedUp(bars, anchor.index, lookback);
+    const previous = recent[1];
+    let retestOnLowerVolume = false;
+    if (previous) {
+      const prevRvol = relativeVolume(bars.slice(0, previous.index + 1), lookback);
+      const tol = (previous.price * RETEST_TOLERANCE_PCT) / 100;
+      const reached = kind === "low" ? anchor.price <= previous.price + tol : anchor.price >= previous.price - tol;
+      retestOnLowerVolume = reached && prevRvol !== null && anchorRvol < prevRvol;
+    }
+    const confirms = kind === "low" ? dryingUp || retestOnLowerVolume || climax : climax || retestOnLowerVolume;
+
     readings.push({
       anchorKind: anchor.kind,
       anchorPrice: anchor.price,
       anchorIndex: anchor.index,
       relativeVolume: anchorRvol,
       bestRecentRelativeVolume: best,
-      climax: best > VOLUME_CLIMAX_THRESHOLD,
+      climax,
+      dryingUp,
+      retestOnLowerVolume,
+      confirms,
     });
   }
   return readings;

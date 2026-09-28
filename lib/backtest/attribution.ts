@@ -82,6 +82,12 @@ export interface FactorAttribution {
 export interface AttributionOptions {
   /** Per-arm floor for a recommendation. Defaults to MIN_SAMPLES_PER_ARM. */
   minSamples?: number;
+  /**
+   * Which per-trade map to attribute: the score's `criteria` (default), or
+   * `contextFactors`, the Gann readings recorded on each trade that the score
+   * doesn't yet count (see `lib/gann/contextFactors.ts`).
+   */
+  field?: "criteria" | "contextFactors";
 }
 
 function arm(trades: ReplayTrade[]): FactorArm {
@@ -133,20 +139,22 @@ export function attributeFactors(
   trades: ReplayTrade[],
   options: AttributionOptions = {},
 ): FactorAttribution[] {
-  const { minSamples = MIN_SAMPLES_PER_ARM } = options;
+  const { minSamples = MIN_SAMPLES_PER_ARM, field = "criteria" } = options;
+  const map = (t: ReplayTrade): Record<string, boolean> | undefined => t[field];
 
   const criteria = new Set<string>();
   for (const t of trades) {
-    if (t.criteria) for (const key of Object.keys(t.criteria)) criteria.add(key);
+    const m = map(t);
+    if (m) for (const key of Object.keys(m)) criteria.add(key);
   }
 
   const out: FactorAttribution[] = [];
   for (const criterion of criteria) {
     // Absent means "not evaluated on this setup", so it drops out of both arms
     // rather than landing in `failed`.
-    const observed = trades.filter((t) => t.criteria?.[criterion] !== undefined);
-    const passed = observed.filter((t) => t.criteria![criterion]);
-    const failed = observed.filter((t) => !t.criteria![criterion]);
+    const observed = trades.filter((t) => map(t)?.[criterion] !== undefined);
+    const passed = observed.filter((t) => map(t)![criterion]);
+    const failed = observed.filter((t) => !map(t)![criterion]);
 
     const passedArm = arm(passed);
     const failedArm = arm(failed);
@@ -168,7 +176,7 @@ export function attributeFactors(
       deltaWinRate: varied ? passedArm.winRate - failedArm.winRate : undefined,
       correlation: varied
         ? correlate(
-            observed.map((t) => (t.criteria![criterion] ? 1 : 0)),
+            observed.map((t) => (map(t)![criterion] ? 1 : 0)),
             observed.map((t) => t.rMultiple),
           )
         : undefined,

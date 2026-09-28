@@ -164,3 +164,18 @@ in the Next.js app.
 
 Deno code is excluded from `tsconfig.json` and the ESLint config — it doesn't
 run on the Node/Next toolchain and shouldn't be judged by it.
+
+Filings facts (`0083`): `instrument_profile` gains `shares_outstanding` (SEC
+XBRL, all share classes, with its as-of, filed date and source concept) and
+`inception_date` / `inception_precision` (Wikidata P571 by SEC CIK), and
+`instrument_shares_outstanding` keeps every reported count so the backtest can
+read the one filed before each session. Written only by
+`scripts/fetch-instrument-reference.mjs` (service role, `--apply`); read by
+`lib/data/instrumentReference.ts` for Gann's capital-stock and
+incorporation-date rules (parity D2, D3). `float_shares` stays unset: float is
+not the figure Gann used.
+
+Graduation exams (`0084`, applied 2026-09-28): `graduation_exam_attempts`, one
+row per attempt with the scenarios and answer key fixed at start. Owner can read
+their own rows; only the service role writes (a pass gates promotion). Read by
+`lib/school/examService.ts` and `lib/promotion/curriculumPolicy.ts`.

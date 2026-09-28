@@ -1,5 +1,6 @@
 "use client";
 
+import { RoundNumberNotice } from "@/components/gann/round-number-notice";
 import { useCallback, useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -616,6 +617,15 @@ export function OrderTicket({
               />
             </div>
 
+            <RoundNumberNotice
+              price={entryMode === "advised" ? advised : currentPrice}
+              direction={side === "buy" ? "bullish" : "bearish"}
+            />
+            <p className="text-xs text-muted">
+              Trade only when you&apos;re rested and clear-headed. If you&apos;re tired, unwell or
+              upset, the trade can wait.
+            </p>
+
             {useProtocolLevels && levels ? (
               <div id="tour-exit" className="flex flex-col gap-2">
                 <label
@@ -1021,13 +1031,15 @@ function ExitPlanNotice({
       <p className="mt-1">{summary}</p>
       {splittable && (
         <p className="mt-1">
-          Once TP1 is reached the stop moves to your entry and then trails the best price seen, so
-          the trade can&apos;t come back as a loss.
+          Once the trade has gained as much as it risked, the stop moves to your entry. After that it
+          moves up under each higher swing bottom, and under last month&apos;s low once a new month
+          starts. The rest is closed if price falls back under the level it broke out of, closes
+          against the trade three days running, or the trend turns.
           {hasMaster
             ? " If price pushes through the final target and falls back through it, the rest is closed."
             : ""}{" "}
-          The trailing part advances while the app is open; the stop resting at the broker is what
-          protects the position the rest of the time.
+          The stop moves while the app is open; the stop resting at the broker is what protects the
+          position the rest of the time.
         </p>
       )}
     </div>

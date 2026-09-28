@@ -29,6 +29,18 @@ import { randomUUID } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+// Entry confirmation on closed bars (owner decision 4, and automation under
+// the same rules as every other path) reads live bars. This file tests the
+// plumbing after it, so it reports a confirmed entry unless a test says not.
+const confirmNow = vi.hoisted(() => ({ ready: true, calls: [] as unknown[] }));
+vi.mock("@/lib/lifecycle/confirmNow", () => ({
+  readEntryConfirmationNow: vi.fn(async (args: unknown) => {
+    confirmNow.calls.push(args);
+    return confirmNow.ready
+      ? { ready: true, stage: "confirmed", note: "confirmed" }
+      : { ready: false, stage: "touched", note: "Price reached the entry level but hasn't closed through it yet." };
+  }),
+}));
 vi.mock("@/lib/learning/record", () => ({
   recordTradePlanRegime: vi.fn(),
   recordOrderExecution: vi.fn(),
@@ -269,6 +281,11 @@ function fakeSupabase(automationProfileRow: Record<string, unknown> | null) {
       if (name === "automation_events") return automationEventsTable();
       if (name === "orders") return ordersTable();
       if (name === "protocol_exits") return protocolExitsTable();
+      if (name === "settings") {
+        // No stored preferences: Gann rule defaults apply.
+        const q = { select: () => q, eq: () => q, maybeSingle: () => Promise.resolve({ data: null, error: null }) };
+        return q;
+      }
       throw new Error(`unexpected table ${name}`);
     },
   } as unknown as SupabaseClient;
@@ -408,6 +425,30 @@ describe("Automated Portfolio Manager — real end-to-end pipeline (paper)", () 
     expect(orders[0].symbol).toBe("AAPL");
     expect(orders[0].side).toBe("buy");
     expect(orders[0].mode).toBe("paper");
+    // Automation is held to the same confirmation rule as every other entry,
+    // judged on its plan's own trigger over the bars since the plan was made.
+    expect(confirmNow.calls.at(-1)).toMatchObject({ symbol: "AAPL", direction: "bullish" });
+    expect((confirmNow.calls.at(-1) as { since?: string }).since).toBeTruthy();
+  });
+
+  it("places nothing for an armed plan whose entry hasn't confirmed on the bars", async () => {
+    const { client, orders } = fakeSupabase({
+      user_id: "user-1",
+      is_automation_enabled: true,
+      risk_profile: "PASSIVE",
+      directional_bias: "BOTH",
+      volatility_trigger_type: "DOLLAR_AMOUNT",
+      volatility_trigger_value: 1,
+      execution_mode: "paper",
+    });
+    await createArmedPlan(client, "user-1");
+    confirmNow.ready = false;
+    try {
+      await runAutonomousPortfolioManager(client);
+      expect(orders).toHaveLength(0);
+    } finally {
+      confirmNow.ready = true;
+    }
   });
 
   it("skips a candidate whose direction doesn't match the profile's bias, and places no order", async () => {

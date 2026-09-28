@@ -329,6 +329,15 @@ async function loadCells(value) {
 }
 
 async function main() {
+  // The F4 calendar test rides this workflow (see scripts/calendar-test.mjs).
+  if (process.argv.includes("calendar-test")) {
+    const { runCalendarTest } = await import("./calendar-test.mjs");
+    await runCalendarTest({});
+    await mkdir(path.join(root, "out"), { recursive: true });
+    await writeFile(path.join(root, "out", "summary.md"), "Calendar test: see the job log.\n");
+    return;
+  }
+
   const args = parseArgs(process.argv.slice(2));
   const cells = await loadCells(args.cells);
 
@@ -369,6 +378,20 @@ async function main() {
     const sinceMs = args.since === null ? null : Date.parse(args.since);
     if (sinceMs !== null && Number.isNaN(sinceMs)) throw new Error(`Invalid --since ${args.since}`);
 
+    // Shares outstanding and inception dates (parity roadmap D2, D3), read
+    // once, as `collectRun` does. Older refs have no loader; the readings are
+    // then absent, as they are without SUPABASE_SERVICE_ROLE_KEY.
+    let references = new Map();
+    try {
+      const refs = await server.ssrLoadModule("/lib/data/instrumentReference.ts");
+      if (typeof refs.loadInstrumentReferenceHistory === "function") {
+        references = await refs.loadInstrumentReferenceHistory(universe);
+      }
+    } catch {
+      // Not on this ref.
+    }
+    process.stderr.write(`Stored filings facts for ${references.size}/${universe.length} symbols.\n`);
+
     const perCell = cells.map(() => []);
     const used = [];
     const skipped = [];
@@ -376,6 +399,14 @@ async function main() {
     let to = null;
     const started = Date.now();
     const paceMs = args.symbolsPerMinute > 0 ? 60_000 / args.symbolsPerMinute : 0;
+
+    // The market's daily bars (SPY) once, for Gann's early/late leaders (G25).
+    let marketDailyBars;
+    try {
+      marketDailyBars = (await run.fetchSeries("SPY", args.timeframe, true)).daily;
+    } catch {
+      marketDailyBars = undefined;
+    }
 
     for (let i = 0; i < universe.length; i++) {
       const symbol = universe[i];
@@ -388,8 +419,12 @@ async function main() {
         } else {
           if (from === null || bars[0].t < from) from = bars[0].t;
           if (to === null || bars[bars.length - 1].t > to) to = bars[bars.length - 1].t;
+          const ref = references.get(symbol.toUpperCase());
+          const instrument = ref ? { sharesHistory: ref.history, inception: ref.reference.inception } : undefined;
           cells.forEach((cell, c) => {
-            perCell[c].push(replay(symbol, bars, { targetR: args.targetR, ...(cell.options ?? {}), dailyBars: daily, monthlyBars: monthly }));
+            perCell[c].push(
+              replay(symbol, bars, { targetR: args.targetR, ...(cell.options ?? {}), dailyBars: daily, monthlyBars: monthly, instrument, marketDailyBars }),
+            );
           });
           used.push(symbol);
         }

@@ -98,14 +98,20 @@ The same rule applies to GSPS School specifically: its Three-Element Method
 (Signal / Bull Case / Bear Challenge / Operator's Decision) traces its design
 rationale to Hermetic/alchemical source material, which is fine to document
 in code comments and internal docs (`docs/GSPS_SCHOOL.md`) but must never
-surface as product copy. Avoid: Philosopher's Stone, Mr. Bull / Mrs. Bear (use
-Bull Case / Bear Challenge), Hermetic, alchemical, or any of the seven
+surface as product copy. Avoid: Philosopher's Stone, Hermetic, alchemical, or any of the seven
 principle names (Mentalism, Correspondence, Vibration, Polarity, Rhythm,
 Cause and Effect, Gender) — each has a plain product-control name already
 (Trader Operating System, Learning-to-Behavior Trace, Market-Regime
 Checkpoint, Bull/Bear Contradiction Rubric, Cadence Engine, Metric
 Provenance, Complementary Decision Functions) and only that name should ever
 reach the learner.
+
+**Mr. Bull and Mrs. Bear are allowed (project owner, 2026-09-28).** They are the
+learner's named guides in GSPS School lesson text, the way a friendly assistant
+character guides a new user: Mr. Bull makes the case for a trade, Mrs. Bear
+challenges it. The activity fields themselves keep their product names (Bull
+Case, Bear Challenge). Their names must never carry a source name, a banned term
+or a performance claim.
 
 ## Module naming
 

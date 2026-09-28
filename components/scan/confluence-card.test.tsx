@@ -9,6 +9,7 @@ import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { ConfluenceCard } from "./confluence-card";
 import type { ScanResult } from "@/lib/types";
+import { EMPTY_DISCLOSED_RULES } from "@/lib/gann/disclosedRules";
 
 const baseResult: Omit<ScanResult, "signals"> = {
   symbol: "AAPL",
@@ -89,7 +90,7 @@ describe("ConfluenceCard", () => {
             dominantPeriodBars: null,
             dominancePower: null,
             repetitionCount: null,
-            periodConsistent: null,
+            periodConsistent: null, schusterP: null, cosinor: null, atBandEdge: null, windowStable: null, holdout: null,
             hypothesisOnly: true,
             note: "",
           },
@@ -114,6 +115,7 @@ describe("ConfluenceCard", () => {
           },
           angleSlope: null,
           coordinateLedger: [],
+          disclosedRules: EMPTY_DISCLOSED_RULES,
           materialNumberClassification: "notImplemented",
           evidence: { calculationVersion: "0.1.0", inputs: { secretNote: "internal threshold" }, sourceTimestamp: "x", explanationTrace: ["secret internal trace"] },
           note: "Confluence only.",

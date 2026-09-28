@@ -14,6 +14,11 @@
  * opposite side. The exact thresholds below are this codebase's own choice,
  * not doctrine-derived, documented here rather than implied.
  *
+ * **Never tradeable since 2026-09-27 (owner decision 5).** Gann stays out
+ * of a sideways range until it breaks away, so this state is Watch context
+ * only: it still scores the boundary setup (the breakdown shows whether it
+ * qualified), but `tradeable` is always false and no plan is priced.
+ *
  * "No midpoint entries" is enforced structurally: a criterion requires price
  * to sit in the outer band near the boundary being traded, not the range's
  * middle, and nothing here scores or trades a mid-range read.
@@ -25,7 +30,7 @@ import { relativeVolume } from "../indicators";
 import { isGannRangeBound } from "@/lib/gann/trendStrength";
 import { classifyRegime, type RegimeInputs } from "../regime";
 import { computeRulesAlignmentScore } from "../scoring";
-import { allSafetyGatesPass, evaluateDisqualifiers } from "../disqualifiers";
+import { evaluateDisqualifiers } from "../disqualifiers";
 import {
   SCANNER_STATE_META,
   type RulesAlignmentBreakdownItem,
@@ -65,8 +70,6 @@ const ENTRY_ZONE_ATR = 0.5;
 const BREAKOUT_CHECK_BARS = 5;
 const BREAKOUT_MARGIN_ATR = 0.15;
 const BREAKOUT_VOLUME_MULTIPLE = 1.5;
-
-const PENNY = 0.01;
 
 export function evaluateRangeReversion(inputs: RangeReversionInputs): SignalVerdict {
   const state = "rangeReversion" as const;
@@ -165,7 +168,6 @@ export function evaluateRangeReversion(inputs: RangeReversionInputs): SignalVerd
   const volumeDataAvailable = recentRvol !== null;
   const noBreakoutVolumeSpike = volumeDataAvailable && (recentRvol as number) < BREAKOUT_VOLUME_MULTIPLE;
 
-  const safetyGatesOk = allSafetyGatesPass(gates);
   const targetStopFeasible = gates.targetRoomAvailable && gates.stopWithinNovicePolicy;
 
   const breakdown: RulesAlignmentBreakdownItem[] = [
@@ -272,17 +274,14 @@ export function evaluateRangeReversion(inputs: RangeReversionInputs): SignalVerd
   ];
 
   const alignment = computeRulesAlignmentScore(breakdown);
-  const tradeable =
-    alignment.tier !== "watchlistOnly" &&
-    safetyGatesOk &&
-    verifiedRange &&
-    atBoundaryNotMidpoint &&
-    structuralIntegrity &&
-    rejectionConfirmation;
-
-  const plan: SignalPlan | null = tradeable
-    ? buildPlan(direction, lastBar, rangeHigh, rangeLow)
-    : null;
+  // Owner decision 5 (2026-09-27): always Gann's rules. Gann stays out of a
+  // sideways market until it breaks away (*Commodities* pp. 51-52), so a
+  // range trade is never tradeable and no plan is priced (the regime card
+  // renders any plan it is given). The breakdown still shows whether the
+  // boundary setup qualified. The breakaway itself is Trend Breakout's job,
+  // and on the scanner `applyBreakawayHold` lets it through.
+  const tradeable = false;
+  const plan: SignalPlan | null = null;
 
   return {
     status: "evaluated",
@@ -293,39 +292,6 @@ export function evaluateRangeReversion(inputs: RangeReversionInputs): SignalVerd
     plan,
     expiresAfterBars: expiryBars,
     accountContextAssumed,
-  };
-}
-
-/**
- * Entry: break of the rejection bar's own extreme by a penny — the same
- * trigger convention the other implemented states use. Stop: a penny beyond
- * the traded boundary — a close through it is this state's own definition
- * of the range thesis failing. Target: the opposite boundary, the classic
- * range-trade objective — always available once `verifiedRange` is true, so
- * unlike the other states there's no structural-zone/measured-move fallback
- * to reach for.
- */
-function buildPlan(
-  direction: Exclude<Direction, "none">,
-  lastBar: Bar,
-  rangeHigh: number,
-  rangeLow: number,
-): SignalPlan | null {
-  const boundary = direction === "bullish" ? rangeLow : rangeHigh;
-  const target = direction === "bullish" ? rangeHigh : rangeLow;
-
-  const entryTrigger = direction === "bullish" ? lastBar.h + PENNY : lastBar.l - PENNY;
-  const stop = direction === "bullish" ? boundary - PENNY : boundary + PENNY;
-  const risk = Math.abs(entryTrigger - stop);
-  if (risk <= 0) return null;
-
-  return {
-    direction,
-    entryTrigger,
-    entryDescription: `Break of the rejection bar's own extreme by ${PENNY.toFixed(2)}.`,
-    stop,
-    target,
-    targetDescription: `Opposite range boundary at ${target.toFixed(2)}.`,
   };
 }
 

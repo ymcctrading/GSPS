@@ -1,5 +1,7 @@
 "use client";
 
+import { Switch } from "@/components/gann/switch";
+import { useGannRulePrefs } from "@/components/gann/use-gann-rule-prefs";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -212,6 +214,8 @@ export function AutomationControlPanel({
         </CardContent>
       </Card>
 
+      <RoundNumberAutomationCard />
+
       <p className="text-xs text-muted">
         {saving ? "Saving…" : savedAt ? `Saved at ${savedAt}` : "Changes save automatically."}
       </p>
@@ -244,5 +248,35 @@ function Segmented<T extends string>({
         </button>
       ))}
     </div>
+  );
+}
+
+/**
+ * Gann's even figures for the autonomous portfolio manager (owner,
+ * 2026-09-28): off by default, the manager won't auto-place an entry just
+ * short of a round number unless the plan's own breakout level is that
+ * number. Stored with the trader's other rule switches (lib/gann/traderPrefs.ts).
+ */
+function RoundNumberAutomationCard() {
+  const { prefs, error, save } = useGannRulePrefs();
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Auto-order at round numbers</CardTitle>
+        <CardDescription>
+          Orders gather at round numbers like 50, 100 or 200, and moves often stall just short of them.
+          While this is off, the engine won&apos;t place an entry just below (or, for a short, just
+          above) a round number unless the plan&apos;s own breakout level is that number.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Switch
+          label="Auto-order at round numbers"
+          checked={prefs.autoOrderRoundNumbers}
+          onChange={() => save({ autoOrderRoundNumbers: !prefs.autoOrderRoundNumbers })}
+        />
+        {error && <p className="mt-2 text-xs text-bear">{error}</p>}
+      </CardContent>
+    </Card>
   );
 }

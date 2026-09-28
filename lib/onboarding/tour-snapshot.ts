@@ -185,7 +185,7 @@ export const SNAPSHOT_GUIDED = {
   sizeSentence:
     "10 shares — not a number you typed, but the most a $250 per-trade budget will stretch to at this price.",
   exitSentence:
-    "If it works, 6 of the 10 shares are sold at the first target and the other 4 run on to the second, with the stop moved up behind them. If it doesn't, the whole position is sold at the stop.",
+    "If it works, 6 of the 10 shares are sold at the first target and the other 4 run on until the trend changes, with the stop moved up behind each higher bottom. If it doesn't, the whole position is sold at the stop.",
   scoreOutOf9: 8,
   verdict: "Execute" as const,
   trend: "Weekly and daily both pointing up.",
@@ -193,7 +193,7 @@ export const SNAPSHOT_GUIDED = {
 
 /**
  * The staged exit, as share counts rather than percentages — a beginner can
- * check "6 + 2 + 2 = 10" and cannot check "60% of the remainder".
+ * check "6 + 4 = 10" and cannot check "60% of the position".
  */
 export const SNAPSHOT_EXIT_LADDER = [
   {
@@ -203,17 +203,11 @@ export const SNAPSHOT_EXIT_LADDER = [
     plain: "Most of the position is sold here, which locks in a profit early.",
   },
   {
-    stage: "Second target",
-    price: SNAPSHOT_PLAN.masterProfit,
-    shares: 2,
-    plain: "Half of what's left comes off here.",
-  },
-  {
     stage: "Runner",
     price: null,
-    shares: 2,
+    shares: 4,
     plain:
-      "The last shares keep going, protected by a stop that rises as the price rises but never falls back down.",
+      "The rest keep going while the trend holds, with the stop raised under each higher bottom and never lowered. They're sold when the trend changes.",
   },
 ] as const;
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { PyramidHint } from "@/components/portfolio/pyramid-hint";
 import { useState } from "react";
 import Link from "next/link";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
@@ -227,7 +228,10 @@ function EquityLegs({
                 <TD colSpan={10} className="pt-0">
                   <div className="flex flex-col gap-2">
                     {legs.map((leg) => (
-                      <ProximityBar key={leg.symbol} leg={leg} />
+                      <div key={leg.symbol}>
+                        <ProximityBar leg={leg} />
+                        {leg.stopLoss != null && <PyramidHint symbol={leg.symbol} />}
+                      </div>
                     ))}
                   </div>
                 </TD>
@@ -261,6 +265,7 @@ function EquityLegs({
             <OpenedLine opened={leg.opened} />
             <ProtectionLine leg={leg} />
             <ProximityBar leg={leg} />
+            {leg.stopLoss != null && <PyramidHint symbol={leg.symbol} />}
             {leg.mode !== "live" && (
               <div className="mt-2 flex gap-2">
                 {onProtect && leg.stopLoss == null && (

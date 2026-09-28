@@ -64,14 +64,25 @@ export function macroBreadthAgrees(
 }
 
 /**
- * The top-ranked pattern is a continuation shape: the compound shapes that
- * break with the bar sequence. The 2-2 family reverses a move, so it doesn't
- * qualify. Moved verbatim from `lib/marketScan.ts#isMomentumContinuation`. It
- * checks the shape only, not the pattern's own direction; the caller checks
- * the setup's direction separately.
+ * Gann's continuation (2026-09-28, project owner: the STRAT shape gate "is not
+ * Gann methodology, so implement Gann's methods"): buy on crossing an old top
+ * while the trend is up, sell on breaking an old bottom while it is down (the
+ * nine Buying and Selling Points, A8; "buy on crossing old tops in a bull
+ * market", A5). The entry already crosses a swing extreme in `direction`
+ * (`lib/gann/entryTrigger.ts`); what makes it a continuation rather than a
+ * reversal is that the daily swing chart, confirmed by its stepping swings,
+ * already runs that way (`readGannTrend`, via `readTrend`'s 1Day reading).
+ * Replaces `isContinuationShape` as the gate on the live scan and the replay.
+ *
+ * Three-question basis: 1. Gann, as cited (Tier A). 2. No periodicity claim.
+ * 3. Rhythm: a continuation joins the swing already under way instead of
+ * reading a bar sequence.
  */
-export function isContinuationShape(pattern: StratPattern | null): pattern is StratPattern {
-  return pattern !== null && CONTINUATION_PATTERNS.has(pattern.name);
+export function isGannContinuation(
+  trends: Pick<TrendReading, "timeframe" | "direction">[],
+  direction: EntryDirection,
+): boolean {
+  return trends.some((t) => t.timeframe === "1Day" && t.direction === direction);
 }
 
 /**

@@ -48,6 +48,12 @@ import { squareOf52Windows } from "@/lib/gann/squareOf52";
 import { angleMonthCounts as computeAngleMonthCounts } from "@/lib/gann/angleMonthCounts";
 import { detectSpectralCycle } from "@/lib/gann/spectralCycle";
 import { computeCampaignLeg } from "@/lib/gann/swingChart";
+import {
+  EMPTY_DISCLOSED_RULES,
+  describeDisclosedRules,
+  readDisclosedRules,
+  type InstrumentFacts,
+} from "@/lib/gann/disclosedRules";
 import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
 import { computeBoilingPoint } from "@/lib/gann/boilingPoint";
 import {
@@ -94,6 +100,13 @@ export interface GannConfluenceInputs {
    * simply `null`, same as always.
    */
   previousVortexRoots?: { price: number | null; time: number | null } | null;
+  /**
+   * Shares outstanding and inception date from the stored filings data
+   * (`lib/data/instrumentReference.ts`), for Gann's capital-stock and
+   * incorporation-date readings (parity roadmap D2, D3). Omit it and those
+   * two readings are null.
+   */
+  instrument?: InstrumentFacts | null;
 }
 
 const MIN_DAILY_BARS = 30;
@@ -129,7 +142,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
         dominantPeriodBars: null,
         dominancePower: null,
         repetitionCount: null,
-        periodConsistent: null,
+        periodConsistent: null, schusterP: null, cosinor: null, atBandEdge: null, windowStable: null, holdout: null,
         hypothesisOnly: true,
         note: reason,
       },
@@ -145,6 +158,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
       },
       angleSlope: null,
       coordinateLedger: [],
+      disclosedRules: EMPTY_DISCLOSED_RULES,
       materialNumberClassification: "notImplemented",
       evidence: {
         calculationVersion: GANN_CONFLUENCE_MODULE.version,
@@ -172,7 +186,11 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
   const s9Levels = recentSquareOf9Levels(inputs.dailyBars, inputs.currentPrice);
   const fanLines = computeFanLines(inputs.dailyBars, inputs.currentPrice);
   const cycles = timeCycles(inputs.dailyBars);
-  const macroCycle = computeMacroCycle();
+  // As of the last completed bar, not the wall clock, so a replay over past
+  // bars reads the month those bars were in (cross-platform consistency).
+  const lastBarT = inputs.dailyBars[inputs.dailyBars.length - 1]?.t;
+  const barAsOf = lastBarT ? new Date(lastBarT) : new Date();
+  const macroCycle = computeMacroCycle(barAsOf);
   const nearestS9 = nearestS9Level(s9Levels);
   const nearestFan = nearestFanLine(fanLines);
   const nearestMasterTwelve = nearestMasterTwelveLevel(masterTwelveLevels(majorLow, inputs.currentPrice));
@@ -235,6 +253,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
   const slope = normalizedSlope(inputs.currentPrice, majorLow, atrAtAnchor, timeDisplacementBars);
   const angleSlope = slope !== null ? { slope, nearestAngle: nearestGannAngle(slope) } : null;
   const coordinateLedger = buildCoordinateLedger(inputs.dailyBars, inputs.currentPrice);
+  const disclosedRules = readDisclosedRules(inputs.dailyBars, inputs.currentPrice, inputs.instrument ?? null);
 
   const explanationTrace: string[] = [
     `Root: sqrt(anchor ${anchorPivot?.kind === "high" ? "high" : "low"} ${majorLow.toFixed(2)}) = ${root.toFixed(4)}.`,
@@ -283,7 +302,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
   explanationTrace.push(`Spectral cycle: ${spectralCycle.note}`);
   if (campaignLeg.legNumber != null) {
     explanationTrace.push(
-      `Campaign leg ${campaignLeg.legNumber} since the last major (9-day) trend change (${campaignLeg.confidence} confidence — reversals on the 3rd/4th leg are trusted more than the 2nd).`,
+      `Campaign leg ${campaignLeg.legNumber} since the last major (weekly chart) trend change (${campaignLeg.confidence} confidence — reversals on the 3rd/4th leg are trusted more than the 2nd).`,
     );
   }
   for (const bp of boilingPoint) {
@@ -313,6 +332,8 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
     );
   }
 
+  explanationTrace.push(...describeDisclosedRules(disclosedRules));
+
   // Alignment/conflict reads off whichever coordinate is nearer current price
   // (fan lines are checked first — the key-price-level read is the fallback
   // when no fan anchor is available). Neither can override the caller's
@@ -341,7 +362,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
     timeCycleDates: cycles.dates,
     timeCycleFixedCalendarActive: cycles.fixedCalendarActive,
     timeCycleFixedCalendarDates: cycles.fixedCalendarDates,
-    decadeCycle: computeDecadeCycle(),
+    decadeCycle: computeDecadeCycle(barAsOf),
     macroCycle,
     nearestMasterTwelve,
     squareOf52,
@@ -352,6 +373,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
     vortexContext,
     angleSlope,
     coordinateLedger,
+    disclosedRules,
     materialNumberClassification: "notImplemented",
     evidence: {
       calculationVersion: GANN_CONFLUENCE_MODULE.version,

@@ -118,7 +118,7 @@ describe("timeCycles", () => {
 
   it("reports inactive with too little daily history", () => {
     // Fixed asOf, safely between fixed-calendar windows (A4), so this
-    // assertion doesn't flake near one of them (Feb/Mar/May/Jun/Aug/Sep/Nov/Dec 5th).
+    // assertion doesn't flake near one of them (see FIXED_CALENDAR_WINDOWS).
     const asOf = new Date("2026-01-20T00:00:00Z");
     const result = timeCycles([bar("2026-01-01", 101, 100)], asOf);
     expect(result).toEqual({
@@ -132,10 +132,40 @@ describe("timeCycles", () => {
   });
 
   describe("fixed annual calendar cycle (A4)", () => {
-    it("marks the window active within windowDays of a named fixed-calendar date", () => {
-      const result = timeCycles([], new Date("2026-02-05T00:00:00Z"));
+    it("marks the window active inside a disclosed window", () => {
+      const result = timeCycles([], new Date("2026-02-09T00:00:00Z"));
       expect(result.fixedCalendarActive).toBe(true);
-      expect(result.fixedCalendarDates[0]).toBe("2026-02-05");
+      expect(result.fixedCalendarDates[0]).toBe("2026-02-08");
+    });
+
+    it("uses Gann's late-month windows for Mar/Jun/Sep/Dec, not the 5th", () => {
+      // The pre-2026-09-27 code fired on the 5th of these months.
+      expect(timeCycles([], new Date("2026-03-05T00:00:00Z")).fixedCalendarActive).toBe(false);
+      expect(timeCycles([], new Date("2026-03-22T00:00:00Z")).fixedCalendarActive).toBe(true);
+      expect(timeCycles([], new Date("2026-06-22T00:00:00Z")).fixedCalendarActive).toBe(true);
+      expect(timeCycles([], new Date("2026-09-23T00:00:00Z")).fixedCalendarActive).toBe(true);
+      expect(timeCycles([], new Date("2026-12-24T12:00:00Z")).fixedCalendarActive).toBe(true);
+    });
+
+    it("widens each window by windowDays at both ends", () => {
+      // Aug 3-8, default windowDays 2: Aug 1 and Aug 10 in, Jul 31 and Aug 11 out.
+      expect(timeCycles([], new Date("2026-08-01T00:00:00Z")).fixedCalendarActive).toBe(true);
+      expect(timeCycles([], new Date("2026-08-10T23:00:00Z")).fixedCalendarActive).toBe(true);
+      expect(timeCycles([], new Date("2026-07-31T00:00:00Z")).fixedCalendarActive).toBe(false);
+      expect(timeCycles([], new Date("2026-08-11T00:00:00Z")).fixedCalendarActive).toBe(false);
+    });
+
+    it("lists upcoming window starts within 14 days", () => {
+      const result = timeCycles([], new Date("2026-03-10T00:00:00Z"));
+      expect(result.fixedCalendarActive).toBe(false);
+      expect(result.fixedCalendarDates).toEqual(["2026-03-21"]);
+    });
+
+    it("rolls over the year end", () => {
+      const result = timeCycles([], new Date("2026-12-30T00:00:00Z"));
+      expect(result.fixedCalendarActive).toBe(false);
+      expect(result.fixedCalendarDates).toEqual([]);
+      expect(timeCycles([], new Date("2027-02-06T00:00:00Z")).fixedCalendarActive).toBe(true);
     });
 
     it("does not mark the window active far from any named date", () => {
@@ -203,12 +233,12 @@ describe("computeScore", () => {
       // setup wants bullish macro too.
       macroTrends: [trend("1Month", "bullish"), trend("1Week", "bullish"), trend("1Day", "bullish")],
       hourlyTrend: trend("1Hour", "bullish"),
-      swingChart: { threeDay: "bullish", nineDay: "bullish" },
+      swingChart: { threeDay: "bullish", weekly: "bullish" },
       timePriceSquare: [
         { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMoveAtrUnits: 10, squared: true },
       ],
       volumeClimax: [
-        { anchorKind: "low", anchorPrice: 90, anchorIndex: 0, relativeVolume: 2, bestRecentRelativeVolume: 2, climax: true },
+        { anchorKind: "low", anchorPrice: 90, anchorIndex: 0, relativeVolume: 2, bestRecentRelativeVolume: 2, climax: true, dryingUp: false, retestOnLowerVolume: false, confirms: true },
       ],
       gann: {
         fanLines: [],
@@ -270,12 +300,12 @@ describe("computeScore", () => {
       // setup wants bullish macro too.
       macroTrends: [trend("1Month", "bullish"), trend("1Week", "bullish"), trend("1Day", "bullish")],
       hourlyTrend: trend("1Hour", "bullish"),
-      swingChart: { threeDay: "bullish", nineDay: "bullish" },
+      swingChart: { threeDay: "bullish", weekly: "bullish" },
       timePriceSquare: [
         { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMoveAtrUnits: 10, squared: true },
       ],
       volumeClimax: [
-        { anchorKind: "low", anchorPrice: 90, anchorIndex: 0, relativeVolume: 2, bestRecentRelativeVolume: 2, climax: true },
+        { anchorKind: "low", anchorPrice: 90, anchorIndex: 0, relativeVolume: 2, bestRecentRelativeVolume: 2, climax: true, dryingUp: false, retestOnLowerVolume: false, confirms: true },
       ],
       gann: {
         fanLines: [],

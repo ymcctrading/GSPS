@@ -93,6 +93,104 @@ disclosed-by-Gann-himself versus later reconstruction versus unrelated.
 `docs/GANN_METHOD_COMPLETENESS_AUDIT.md` is the implementation audit built
 from it.
 
+`docs/memory-bank/` holds the page-by-page reads (2026-09-27) of the Gann,
+Observation of Cycles and Hermetic (Hauck) source folders, synthesised in our
+own words with no book text stored. **Start with
+`docs/memory-bank/GANN_CYCLES_HERMETIC_MASTER_REPORT.md`** when a question
+about Gann's methodology, cycle validation or the Hermetic lens comes up.
+Its Part V lists the open gaps, conflicts and corrections, all held for the
+project owner. Per-source notes are in `docs/memory-bank/sources/`.
+**`docs/memory-bank/GANN_PARITY_ROADMAP.md`** is the build plan toward a
+faithful copy of Gann's disclosed method: a rule-by-rule parity matrix with
+status, owner decisions and a staged build order. Update its rows when a
+rule is built. **Owner decision 2026-09-27 on its decisions 1-3 (swing-chart
+construction X3, "never fix a target price" X4, volume at bottoms X1):
+"Gann's method supersedes my own. Implement Gann's method."** Decisions 4-7,
+same day: (4) entry confirmation on every path, since it agrees with the
+2026-09-26 766-symbol run; (5) always Gann's rules, so range setups are
+Watch context and Execute needs the breakaway; (6) break-even and trailing
+stops on Gann's structure; (7) astrology stays research-only, maintained
+separately from the build. Scores may change so long as they follow Gann's
+method. The owner wants the intraday use verified by measurement.
+**Built the same day (B1):** `lib/gann/swingChart.ts` now implements Gann's
+own 3-Day Chart and 7-day weekly chart (highs and lows; trend turns on
+breaking the last swing extreme). Every "9-day chart" mention elsewhere in
+this file describes the construction it replaced. `STRATEGY_VERSION` is
+`2026-09-27-gann-swing-charts`, and the 6/3.5 cutoffs need re-deriving on it.
+**Built the same day (decision 5):** `lib/gann/breakaway.ts` and
+`applyBreakawayHold` hold a range-bound Execute to Watch unless the entry
+crosses the 13-week range's extreme, on the live scan and the replay.
+`rangeReversion.ts` is never tradeable. `STRATEGY_VERSION` is now
+`2026-09-27-gann-breakaway`.
+**Stage C/D, same day:** Gann's exit rules (`lib/gann/exitRules.ts`) are
+measured in the replay (`exitRule: "gann"`); the live exit manager switches
+once the replay agrees. Entry confirmation holds on every path, automation
+included (owner: "automation should adhere to the same rules as everything
+else"), checked once in `lib/trade/place-order.ts`. Equity targets come from
+Gann/S-R levels (C4), and the volume criterion reads Gann's full rule (D1).
+`STRATEGY_VERSION` is `2026-09-27-gann-targets-volume`.
+**D2/D3, 2026-09-28:** shares outstanding (SEC EDGAR) and inception dates
+(Wikidata, by CIK) are fetched once by `scripts/fetch-instrument-reference.mjs`
+and stored (migration 0083); nothing at runtime calls either service. D2's
+distribution week is a Gann exit for longs (`exitRules.ts`), D3 is context.
+Both are read the same way on the live scan and the replay. Verdicts and
+trades on the default bracket are unchanged, so `STRATEGY_VERSION` stays.
+**Bars are split-adjusted, share counts are not:** read historical counts
+through `splitAdjustedSharesAsOf`, never raw.
+**Measured the same day** (`docs/replay-runs/2026-09-27-766sym-NOTES.md`,
+766 symbols): since B1, Execute beats Watch in every bracket cell (confirmed
++0.350R, stop +0.220R on the breakaway version); the confirmed entry stays
++0.190R overall. The 6/3.5 cutoffs hold. Gann's exits raise the population
+figure but lower Execute, and the gain rests on trades still open at the
+10-session limit, so **the live exit manager stays on the bracket** until a
+longer-horizon run settles it. **Superseded 2026-09-28 by the owner ("switch
+on Gann's exits"):** live and paper positions now exit on Gann's rules with
+60% still taken at TP1 (`LIVE_EXIT_RULE`, `lib/trade/protocol-exit.ts`;
+measured as `exitRule: "gann-runner"`, not yet run). `STRATEGY_VERSION` is
+`2026-09-28-gann-exits-figures` (even figures move plan stops and targets).
+**Six-year one-hour run, 2026-09-28** (same notes file, runs 12 and 13): every
+cell loses over 2020-2026, interval wholly below zero, both halves; Execute
+is worse than Watch (−0.090 stop, −0.123 confirmed, −0.164 Gann exits). The
+positive 15-minute results cover only two months. Treat the verdict's edge as
+unproven across regimes, presume a translation defect first, and start from
+that run's factor tables (`historicalSR`, and `ruleOfThree`/`swingChartTrend`
+under confirmation, invert). Held for the owner.
+**Diagnosed 2026-09-28 (run 16, same notes file):** two translation defects.
+The replay traded a stop and target unlike production's plan (fixed:
+`usePlanLevels`), and Gann's "3 points" in the exit rules had been ported as
+the entry's 0.3% lost-motion margin, a tenth of his own price-scaled figure,
+so the hold test ended most trades on noise (fixed: `lib/gann/pointScale.ts`,
+live and replay). `STRATEGY_VERSION` is `2026-09-28-gann-points-continuation`.
+The F4 calendar test ran on 2019–2025 (the feed's reach): no window set beats
+random placement, so the windows stay context only.
+**Stage E, 2026-09-28:** Gann's series-of-losses rule runs on every placement
+path (`lib/risk/lossSeries.ts`: three losses in a row pause new entries for
+that day and the next; protective orders never blocked). School gained a
+course on the method's rules, now including the Seven Zones and the trader's
+five qualifications. **Restructured 2026-09-28 (owner):** that course moved to
+Academy 6 (Expert and Wall Street) with a pyramiding lesson added; Novice
+(Academy 2, required) and Pro (Academy 4) got plain-English courses with
+Mr. Bull and Mrs. Bear, the learner's named guides (allowed in lesson text
+since that date; see `docs/GSPS_BRAND_GUIDE.md`). No source name or banned
+term appears in lesson text.
+**Stage F, same day:** F1 (reverse signal day, 7-10 Day Rule, gaps, 7/14-day
+turns, Square-of-144 convergence, projection dispersion) is built as card
+context and measured `contextFactors` (`lib/gann/extremeRules.ts`,
+`lib/gann/timeConvergence.ts`); none gates. F3: Schuster p in
+`spectralCycle.ts`, early/late `halves` in the backtest report, long cycles
+labelled. The rest of M1/M2 followed: log detrending, cosinor amplitude CI and
+zero-amplitude test, artifact guards and a 70/30 hold-out in `spectralCycle.ts`
+(run only for an active candidate). F2 stays research-only. Stages A–E are now
+built (D2/D3 landed via #300). F4, the deferred cycles research, was done
+2026-09-28 (`docs/memory-bank/F4_CYCLES_CALENDAR_RESEARCH.md`): its
+pre-registered calendar test is designed, not run, pending the owner.
+**Owner direction, same day: "the point of the parity is to align, infuse
+and implement within and throughout the entire GSPS platform."** A rule is
+not parity-complete while it only shows on a card: it has to act where Gann
+says it acts (trend, time, levels, entries, exits, education) on the live
+scan and the replay alike. Stage A/B2 were wired in accordingly;
+`STRATEGY_VERSION` is `2026-09-27-gann-trend-time-levels`.
+
 ## WD Gann precedence — standing principle
 
 When GSPS's current implementation, a design choice, or a piece of copy
@@ -669,6 +767,19 @@ for the project owner** — do not fix it silently, and re-verify it first:
   for the owner's go-ahead. The code comments that describe the interim
   decision (`lib/lifecycle/entryConfirmation.ts`,
   `app/api/guided/execute/route.ts`, `lib/demo/auto-trade.ts`) point here.
+  **Resolved 2026-09-27, project owner (decision 4, and "automation should
+  adhere to the same rules as everything else on the platform").** One rule,
+  one place: `lib/trade/place-order.ts` places any entry carrying the
+  protocol's levels only once it has confirmed on closed execution-timeframe
+  bars (`lib/lifecycle/confirmNow.ts`, the same state machine the plans and
+  the replay use). That covers the manual ticket's advised entry, Guided Mode,
+  the demo account and plan-scoped automation (the autonomous portfolio
+  manager runs through it). A plan-sourced order is judged on its plan's own
+  trigger over the bars since the plan was generated; an unconfirmed entry is
+  refused with `awaiting_confirmation` and nothing is placed. The 2026-09-27
+  swing-chart run agrees: confirmed +0.190R vs stop −0.052R overall. Not
+  covered, deliberately: the ticket's "now" market entry (no trigger to
+  confirm) and protective orders.
 - **Non-Gann inputs in the Signal & Regime Engine (F2.5).** SMA 20/50 and
   anchored VWAP (`lib/signals/regime.ts`, `lib/signals/states/trendPullback.ts`)
   feed user-facing tier/"Tradeable" labels and trade-plan expiry. The
@@ -701,14 +812,18 @@ for the project owner** — do not fix it silently, and re-verify it first:
   with short legs that SMAs called trending often reads "sideways" until
   Gann's 9-day chart turns. The 6/3.5 cutoffs have to be re-derived on this
   code, not on the code before it.
-- **VWAP in the intraday alerts (new, 2026-09-26, open).**
+- **VWAP in the intraday alerts (new, 2026-09-26, resolved 2026-09-28).**
   `lib/scanner/intraday.ts` uses session VWAP for its direction, its
   invalidation level and its first target. Those alerts carry a "Trade this"
   action into the order ticket, so VWAP there is platform substance, not a
   chart tool. It's a separate system with its own spec, so it wasn't rewritten
   in the F2.5 pass. It needs a Gann replacement (the session's 50% point is
   the natural counterpart) or an explicit exception recorded here.
-- **STRAT still gates publication (new, 2026-09-26, open).**
+  **Resolved 2026-09-28 (project owner: "not Gann methodology, so implement
+  Gann's methods").** Direction, invalidation and first target now read the
+  session's 50% point (`SessionMetrics.midpoint`); VWAP is gone from the
+  alerts.
+- **STRAT gated publication (new, 2026-09-26, resolved 2026-09-28).**
   `lib/marketScan.ts#hasTradePlan` requires `r.pattern !== null` before any
   setup reaches the daily lists, and `isMomentumContinuation` requires a
   continuation-shaped pattern. Since 2026-09-17 the bar-sequence taxonomy is
@@ -717,6 +832,11 @@ for the project owner** — do not fix it silently, and re-verify it first:
   is decide where an order goes" in spirit, since publication decides what
   Guided Mode and the demo trade. It's a production behaviour change, so it's
   held for the project owner. The replay does not apply this filter.
+  **Resolved 2026-09-28 (project owner, same instruction).** `hasTradePlan` no
+  longer reads the pattern; a plan's levels come only from Gann's trigger. The
+  continuation pass (live and replay) gates on Gann's with-the-daily-trend
+  crossing (`lib/scan/entrySelection.ts#isGannContinuation`) instead of a
+  STRAT continuation shape, and its top-up skip reads the daily trend too.
 - **Being in `FALLBACK_UNIVERSE` doesn't mean being scanned (F1.7).** It
   comes last behind the tracked symbols, the rotation chunk (drawn from
   `LARGE_CAP_UNIVERSE` only) and the most-actives, inside a 250-slot cap.
@@ -803,8 +923,11 @@ Two consequences follow, and together they are why
   conditions outranks another. Nothing in the source catalog ranks the
   confirming conditions against each other — every "most important" in
   `docs/GANN_HISTORICAL_SOURCES.md` sits *within* a technique (50% among
-  retracement levels, the 20-year Master Time Period among cycles, 1/2 = 26
-  weeks among the 52-week fractions), never across them. A weighted sum is
+  retracement levels, the Master Time Period among cycles, 1/2 = 26
+  weeks among the 52-week fractions), never across them. (The Master Time
+  Period's length depends on the lesson: 20 years in 1931, 60 in 1935, 56¾
+  in 1953, 90 in 1955. Cite the lesson and year. See
+  `docs/memory-bank/GANN_CYCLES_HERMETIC_MASTER_REPORT.md` Part I §1.6.) A weighted sum is
   therefore the scorecard injecting a ranking claim Gann never made. If a
   citable cross-criterion ranking is ever found, that changes this.
 - **Thresholds are not substance.** A cutoff is where the ranked list gets
@@ -837,7 +960,13 @@ worked example):
    repetition count, constancy of period, phase-resumption after distortion,
    wave-shape identity, cross-series clustering. `lib/gann/spectralCycle.ts`
    evaluates three of the seven and says which — that is the standard: state
-   which you cleared and which you did not.
+   which you cleared and which you did not. (Source note, 2026-09-27: these
+   seven are a working subset. Dewey's own list in *The Case for Cycles*
+   (1967) has 18 criteria. When a cycle claim is actually being *validated*
+   rather than designed, also answer three that the seven omit: persistence
+   through changed conditions, persistence after discovery (out-of-sample),
+   and a mathematical significance test. See
+   `docs/memory-bank/sources/C06_dewey_case_for_cycles.md`.)
 3. **Which Hermetic principle it expresses** — Mentalism, Correspondence,
    Vibration, Polarity, Rhythm, Cause and Effect, Gender. Correspondence ("as
    above, so below") is why a technique proven on one timeframe or asset class
@@ -923,6 +1052,38 @@ astrology entirely** — no code, no confluence field, nothing built. This is
 the resolution of `docs/GANN_METHOD_COMPLETENESS_AUDIT.md`'s open item on
 whether astrology has any place in GSPS at all; check that document's
 "Astrology" addendum section if this ever needs revisiting.
+
+**Priority clarified (2026-09-27, project owner direction): astrology is not
+low priority where W.D. Gann himself says it is part of his methodology,
+our source files (Gann's own and otherwise) corroborate it, and it can be
+implemented in GSPS.** It is not placed first either. It ranks alongside
+Gann's other techniques, by the strength of its sourcing and how feasible
+it is to implement. It is no longer deferred to last: this supersedes the
+"astrology last" sequencing in `docs/GANN_METHODOLOGY_FULL_REPORT.md` §18.4
+and in the memory-bank report.
+- "Gann himself says it" means a technique in his own text, letters or
+  charts. Examples:
+  - the 1954 soybean letter's heliocentric and geocentric averages of the six
+    major planets, and the five-planet average with Mars left out
+  - its "active angles" (a planet's longitude, and its squares, trines and
+    oppositions, read as price and time)
+  - its price-to-longitude placement on the Circle Chart
+  - Jupiter–Saturn aspects
+  - the Saturn return
+  - the 1931 lesson's "30-year cycle caused by Saturn"
+  - the 1948 soybean chart's and "Path of Planets" chart's plotted longitudes
+  See `docs/memory-bank/` (A2.3, B03, B05). Interpretive decodings (Mikula's
+  "natural"/"wise" key words) are leads, not sources.
+- "Proven" means Dewey's full standard (`docs/memory-bank/sources/C06_dewey_case_for_cycles.md`):
+  - a hit rate against a base rate
+  - a significance test with a multiple-comparisons correction
+  - out-of-sample persistence on data the rule never saw
+  - the rule fixed **before** testing, with no searching across planets,
+    orbs or price scales
+- **Unchanged until the owner decides otherwise on measured evidence:** a
+  proven technique enters as a labelled confluence field first and does not
+  gate a verdict. Promotion beyond confluence is a separate, recorded owner
+  decision.
 
 ## Strategy Modes — scoped exception to the non-Gann boundary (2026-09-23, project owner direction)
 
@@ -1156,6 +1317,17 @@ Any strategy plugin built or extended under this family must continue to
 satisfy the rules this section states: opt-in, one-at-a-time, never
 touching the Gann verdict, tier-gated and server-resolved only, and clearly
 labeled.
+
+## Forward-looking claims — standing direction (2026-09-28, project owner)
+
+Forward-looking claims (a dated window, a projected turn) are allowed **when
+verified by documentation**: the Gann source, the method that produced it, and
+its measured record (a backtest or a forward test such as the F4 calendar
+test) are written down and linked where the claim is shown. An undocumented
+projection stays out. The owner cites a forward test from a former session
+that projected a 2027–2029 window from Gann's own model; the module behind it,
+`lib/gann/macroCycle.ts`, is on the unmerged branch `claude/stoic-brown-p296wd`.
+This does not relax the rule against performance claims or guarantees.
 
 ## Three-question mandate — the lens work is reasoned through, every session
 
@@ -1421,6 +1593,18 @@ Street — curriculum, track record, or pay-your-way alike
 the one place the "three independent paths" model has a shared,
 non-optional component. It is deliberate; do not "clean it up" into full
 path independence without going back to the project owner first.
+
+**Graduation exams (project owner, 2026-09-28).** Novice -> Pro and Pro ->
+Expert each have a graduation exam in the tier's sandbox
+(`lib/school/graduationExam.ts`, `/school/exam/[transition]`): real past charts
+shown up to a date, graded on the server against the platform's rules (trend,
+trade or wait, entry, stop, size), never on P&L. **It belongs to the curriculum
+path only** (owner, same day: "if paying for expert tier, or advancing via
+earning it through achieving sustained trading success, then they have
+permission to advance"): the courses plus the exam clear that path; track
+record and pay-your-way need no exam. Stored in `graduation_exam_attempts`
+(migration 0084, applied to production with owner sign-off; service-role
+writes only). Wall Street keeps the Academy 8 capstone on every path.
 
 **Track Record thresholds — where the numbers come from.** GSPS has no
 multi-year proprietary track record yet (`docs/replay-runs/`'s longest run

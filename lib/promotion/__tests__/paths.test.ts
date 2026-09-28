@@ -4,11 +4,15 @@ import { DEFAULT_TRACK_RECORD_POLICIES } from "@/lib/promotion/trackRecordPolicy
 import type { CurriculumProgressInputs } from "@/lib/promotion/curriculumPolicy";
 import type { TrackRecordInputs } from "@/lib/promotion/eligibility";
 
+// Courses not done; both graduation exams passed, so the curriculum path is
+// decided by the courses alone in these tests.
 const NO_CURRICULUM: CurriculumProgressInputs = {
   foundationsEducationCompletedAt: null,
   practiceValidationCompletedAt: null,
   advancedCurriculumCompletedAt: null,
   capstoneCompletedAt: null,
+  noviceExamPassedAt: "2026-01-01",
+  proExamPassedAt: "2026-01-01",
 };
 
 const FAILING_TRACK_RECORD: TrackRecordInputs = {
@@ -25,6 +29,26 @@ const FAILING_TRACK_RECORD: TrackRecordInputs = {
 };
 
 describe("evaluatePromotionPaths", () => {
+  it("lets pay-your-way and track record advance without the graduation exam; curriculum needs it", () => {
+    for (const [transition, key] of [["novice_to_pro", "noviceExamPassedAt"], ["pro_to_expert", "proExamPassedAt"]] as const) {
+      const courses = {
+        ...NO_CURRICULUM,
+        foundationsEducationCompletedAt: "2026-01-01",
+        practiceValidationCompletedAt: "2026-01-01",
+        advancedCurriculumCompletedAt: "2026-01-01",
+        [key]: null,
+      };
+      const paid = evaluatePromotionPaths(transition, {
+        curriculum: courses,
+        trackRecord: FAILING_TRACK_RECORD,
+        trackRecordPolicy: DEFAULT_TRACK_RECORD_POLICIES[transition],
+        payYourWayPurchased: true,
+      });
+      expect(paid.mandatoryComponentMet).toBe(true);
+      expect(paid.eligiblePaths).toEqual(["pay_your_way"]);
+    }
+  });
+
   it("is eligible via curriculum alone when track record and payment both fail", () => {
     const result = evaluatePromotionPaths("novice_to_pro", {
       curriculum: { ...NO_CURRICULUM, foundationsEducationCompletedAt: "2026-01-01", practiceValidationCompletedAt: "2026-01-01" },

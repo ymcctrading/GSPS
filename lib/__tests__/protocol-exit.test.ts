@@ -10,7 +10,7 @@ const levels = { stopLoss: 90, takeProfit1: 120, masterProfit: 140 };
 
 describe("planProtocolExit", () => {
   it("takes 60% off at TP1 and splits the rest between the master target and a runner", () => {
-    const plan = planProtocolExit(10, levels);
+    const plan = planProtocolExit(10, levels, "bracket");
     expect(plan.scaleOutQty).toBe(6);
     expect(plan.masterQty).toBe(2);
     expect(plan.runnerQty).toBe(2);
@@ -18,13 +18,13 @@ describe("planProtocolExit", () => {
   });
 
   it("gives every tranche the protocol stop, so a stop-out closes the whole trade", () => {
-    const plan = planProtocolExit(10, levels);
+    const plan = planProtocolExit(10, levels, "bracket");
     expect(plan.tranches.every((t) => t.stopLoss === levels.stopLoss)).toBe(true);
     expect(plan.tranches.reduce((sum, t) => sum + t.qty, 0)).toBe(10);
   });
 
   it("rests only the TP1 tranche at TP1 and only the master tranche at the master target", () => {
-    const plan = planProtocolExit(10, levels);
+    const plan = planProtocolExit(10, levels, "bracket");
     expect(plan.tranches.find((t) => t.key === "scale_out")?.takeProfit).toBe(120);
     expect(plan.tranches.find((t) => t.key === "master")?.takeProfit).toBe(140);
     // The runner has no resting target: what gets it out is a trailing rule.
@@ -32,7 +32,7 @@ describe("planProtocolExit", () => {
   });
 
   it("never rounds the scale-out up to the whole position", () => {
-    const plan = planProtocolExit(2, levels);
+    const plan = planProtocolExit(2, levels, "bracket");
     expect(plan.scaleOutQty).toBe(1);
     expect(plan.scaleOutQty).toBeLessThan(2);
   });
@@ -40,20 +40,20 @@ describe("planProtocolExit", () => {
   it("starves the master tranche before the runner when the remainder is one share", () => {
     // 3 shares → 2 out at TP1, 1 left. Half of one share can't be taken at the
     // master target, and the runner is the tranche the trailing rules need.
-    const plan = planProtocolExit(3, levels);
+    const plan = planProtocolExit(3, levels, "bracket");
     expect(plan.scaleOutQty).toBe(2);
     expect(plan.masterQty).toBe(0);
     expect(plan.runnerQty).toBe(1);
   });
 
   it("drops the master tranche when the signal published no master target", () => {
-    const plan = planProtocolExit(10, { ...levels, masterProfit: null });
+    const plan = planProtocolExit(10, { ...levels, masterProfit: null }, "bracket");
     expect(plan.masterQty).toBe(0);
     expect(plan.runnerQty).toBe(4);
   });
 
   it("says so rather than scaling out of a single share", () => {
-    const plan = planProtocolExit(1, levels);
+    const plan = planProtocolExit(1, levels, "bracket");
     expect(plan.splittable).toBe(false);
     expect(plan.tranches).toHaveLength(1);
     expect(plan.tranches[0].qty).toBe(1);
@@ -63,14 +63,14 @@ describe("planProtocolExit", () => {
 
   it("produces no tranches for a zero or negative quantity, rather than a phantom 1-share order", () => {
     for (const qty of [0, -3]) {
-      const plan = planProtocolExit(qty, levels);
+      const plan = planProtocolExit(qty, levels, "bracket");
       expect(plan.tranches).toHaveLength(0);
       expect(plan.scaleOutQty).toBe(0);
     }
   });
 
   it("produces no tranches for a non-finite quantity, rather than an order for NaN shares", () => {
-    const plan = planProtocolExit(NaN, levels);
+    const plan = planProtocolExit(NaN, levels, "bracket");
     expect(plan.tranches).toHaveLength(0);
     expect(Number.isFinite(plan.scaleOutQty)).toBe(true);
     expect(plan.scaleOutQty).toBe(0);
@@ -85,6 +85,7 @@ describe("planStopAdjustment", () => {
     highWater: null,
     lastPrice: 105,
     appliedStop: 90,
+    rule: "bracket",
     ...over,
   });
 
@@ -160,11 +161,65 @@ describe("planStopAdjustment", () => {
       highWater: 80,
       lastPrice: 82,
       appliedStop: 110,
+      rule: "bracket",
     });
     expect(action.kind).toBe("replace_stop");
     // Trailing a short adds the risk unit (10) to the best price seen.
     expect(action.stop).toBe(90);
     expect(action.reason).toBe("trailing");
+  });
+});
+
+describe("Gann exit rules (live since 2026-09-28)", () => {
+  const gannState = (over: Partial<ExitState> = {}): ExitState => ({
+    side: "long",
+    entryPrice: 100,
+    levels,
+    highWater: 112,
+    lastPrice: 110,
+    appliedStop: 90,
+    rule: "gann",
+    gann: null,
+    ...over,
+  });
+
+  it("places no master-target order: everything after TP1 runs", () => {
+    const plan = planProtocolExit(10, levels, "gann");
+    expect(plan.tranches.map((t) => t.key)).toEqual(["scale_out", "runner"]);
+    expect(plan.scaleOutQty).toBe(6);
+    expect(plan.runnerQty).toBe(4);
+  });
+
+  it("keeps the resting stop when Gann's rules couldn't be read this pass", () => {
+    const action = planStopAdjustment(gannState({ gann: null }));
+    expect(action.kind).toBe("none");
+    expect(action.stop).toBe(90);
+  });
+
+  it("moves the stop to Gann's structural level and never loosens it", () => {
+    const up = planStopAdjustment(gannState({ gann: { stop: 104, stopReason: "last_reaction", exit: null } }));
+    expect(up.kind).toBe("replace_stop");
+    expect(up.stop).toBe(104);
+    expect(up.reason).toBe("trailing");
+    const looser = planStopAdjustment(
+      gannState({ appliedStop: 104, gann: { stop: 100, stopReason: "break_even", exit: null } }),
+    );
+    expect(looser.kind).toBe("none");
+    expect(looser.stop).toBe(104);
+  });
+
+  it("closes the remainder at market on a Gann exit signal", () => {
+    const action = planStopAdjustment(
+      gannState({ gann: { stop: 90, stopReason: "initial", exit: { reason: "trend_change", note: "turned" } } }),
+    );
+    expect(action.kind).toBe("close_all");
+    expect(action.kind === "close_all" && action.atMarket).toBe(true);
+  });
+
+  it("does not break even at TP1 the way the bracket does", () => {
+    const action = planStopAdjustment(gannState({ highWater: 121, lastPrice: 118 }));
+    expect(action.kind).toBe("none");
+    expect(action.stop).toBe(90);
   });
 });
 

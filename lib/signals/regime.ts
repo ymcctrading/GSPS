@@ -1,7 +1,7 @@
 /**
  * Regime classifier: Trend / Range / Transition / Event-high-uncertainty.
  *
- * Built from price structure (swing pivots), Gann's 3-day/9-day swing charts
+ * Built from price structure (swing pivots), Gann's 3-Day and 7-day weekly swing charts
  * (`lib/gann/trendStrength.ts`), ATR-based volatility state, volume behavior,
  * and horizontal support/resistance.
  *
@@ -11,10 +11,12 @@
  * trending, and which way". It was the last non-Gann input to the regime
  * labels, and it answered a question the swing charts already answer. Gann
  * reads trend from tops and bottoms, not from averaged closes. The trend read
- * is now the 9-day chart confirmed by stepping 3-day swings, plus the HH/HL
+ * is now the weekly swing chart confirmed by stepping 3-day swings, plus the HH/HL
  * structure. The range read is the exact negation of that trend read, plus
  * repeatable boundaries. The prior-trend direction a transition breaks
- * against is the 9-day chart's.
+ * against is the weekly chart's. (The "9-day" close-count chart this used
+ * to read was replaced by Gann's own weekly chart on 2026-09-27; see
+ * `lib/gann/swingChart.ts`.)
  *
  * **The PSAR/Supertrend hook was removed 2026-09-17.** This module used to
  * accept a `trendOverlayFlips` count and disqualify a Trend read on repeated
@@ -53,8 +55,8 @@ const DEFAULTS = {
 /**
  * Fewest bars the classifier reads. It was set by the 50-bar slow SMA plus a
  * margin. That MA is gone, but the figure is kept at 60 so that removing it
- * doesn't also widen what counts as classifiable. The 9-day chart needs only
- * `days + 2`, well inside this.
+ * doesn't also widen what counts as classifiable. The swing charts need a few
+ * completed swings, well inside this.
  */
 const MIN_REGIME_BARS = 60;
 
@@ -79,11 +81,10 @@ export function classifyRegime(inputs: RegimeInputs): RegimeRead {
     return { regime: "event", direction: "sideways", reasons: eventReasons, disqualifiers: [] };
   }
 
-  // Was `adxPeriod * 2 + 1` for Wilder's smoothing seed. The 9-day swing
-  // chart that replaced it needs `days + 2` bars to establish a direction
-  // (see `swingChartDirection`), and a confirmed read needs a completed swing
-  // on top of that, so this keeps a comfortable margin over both.
-  const minBars = Math.max(MIN_REGIME_BARS, SWING_CHART_DAYS.nineDay + 2 + 10);
+  // Was `adxPeriod * 2 + 1` for Wilder's smoothing seed. The swing charts
+  // that replaced it need completed swings on both sides before they signal a
+  // trend (see `walkSwingChart`), so this keeps a comfortable margin.
+  const minBars = Math.max(MIN_REGIME_BARS, SWING_CHART_DAYS.weekly + 2 + 10);
   if (bars.length < minBars) {
     return {
       regime: "event",
@@ -93,9 +94,9 @@ export function classifyRegime(inputs: RegimeInputs): RegimeRead {
     };
   }
 
-  // Trend strength and direction come from Gann's own 3-day/9-day swing
+  // Trend strength and direction come from Gann's own 3-day/weekly swing
   // charts, not Wilder's ADX/DMI (replaced 2026-09-17 — see
-  // `lib/gann/trendStrength.ts` for the rule and its sourcing). The 9-day
+  // `lib/gann/trendStrength.ts` for the rule and its sourcing). The weekly
   // chart gives the direction; it is confirmed only when the 3-day chart's
   // swings are stepping the same way.
   const gannTrend = readGannTrend(bars);
@@ -124,10 +125,10 @@ export function classifyRegime(inputs: RegimeInputs): RegimeRead {
     ? Math.min(...clusters.map((c) => Math.abs(c - price))) / price
     : Infinity;
   const atMeaningfulLevel = atrValue > 0 && nearestClusterDistance * price <= atrValue * 0.5;
-  // The prevailing trend a transition breaks against is the 9-day chart's
-  // (the same chart `readGannTrend` takes direction from). With no 9-day
+  // The prevailing trend a transition breaks against is the weekly chart's
+  // (the same chart `readGannTrend` takes direction from). With no weekly
   // direction yet there is no prior trend to reverse.
-  const priorTrendDirection = gannTrend.nineDay;
+  const priorTrendDirection = gannTrend.weekly;
   const recentBreak =
     priorTrendDirection !== null &&
     (priorTrendDirection === "bullish"
@@ -158,7 +159,7 @@ export function classifyRegime(inputs: RegimeInputs): RegimeRead {
       direction: bullishTrend ? "bullish" : "bearish",
       reasons: [
         bullishTrend ? "Higher highs and higher lows." : "Lower highs and lower lows.",
-        `9-day swing chart ${gannTrend.direction}, with 3-day swings stepping the same way — trend confirmed.`,
+        `Weekly swing chart ${gannTrend.direction}, with 3-day swings stepping the same way — trend confirmed.`,
       ],
       disqualifiers: [],
     };
@@ -178,7 +179,7 @@ export function classifyRegime(inputs: RegimeInputs): RegimeRead {
       regime: "range",
       direction: "sideways",
       reasons: [
-        `3-day and 9-day swing charts do not agree (${gannTrend.threeDay ?? "unset"} vs ${gannTrend.nineDay ?? "unset"}) — no confirmed trend.`,
+        `3-day and weekly swing charts do not agree (${gannTrend.threeDay ?? "unset"} vs ${gannTrend.weekly ?? "unset"}) — no confirmed trend.`,
         "Repeatable horizontal boundaries above and below price.",
       ],
       disqualifiers: [],

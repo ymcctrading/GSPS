@@ -20,7 +20,11 @@ beforeAll(() => {
   process.env.MARKET_DATA_PROVIDER = "synthetic";
 });
 
-describe("runBacktest", () => {
+// Each case replays several synthetic symbols end to end (1-3s locally), so the
+// 5s default leaves no margin on a loaded CI runner.
+const REPLAY_TIMEOUT_MS = 30_000;
+
+describe("runBacktest", { timeout: REPLAY_TIMEOUT_MS }, () => {
   it("reports the data source and refuses to claim a synthetic run is live", async () => {
     expect(getMarketDataProvider().isLive).toBe(false);
     const report = await runBacktest({ symbols: ["SPY"], timeframe: "15Min" });
@@ -159,7 +163,7 @@ describe("runBacktest", () => {
  * replayed — a start that is silently ignored would label two years of trades
  * as two months.
  */
-describe("runBacktest with a pinned start", () => {
+describe("runBacktest with a pinned start", { timeout: REPLAY_TIMEOUT_MS }, () => {
   const full = () => runBacktest({ symbols: ["SPY"], timeframe: "15Min" });
 
   it("starts the window no earlier than the requested instant", async () => {

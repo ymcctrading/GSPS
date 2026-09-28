@@ -7,6 +7,154 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-09-28
+
+### Fixed (six-year diagnosis)
+
+- Gann's "3 points" in the exit rules (hold test, stops under swings and the
+  prior month's low) is now price-scaled from his own bands
+  (`lib/gann/pointScale.ts`), instead of the entry's 0.3% lost-motion margin.
+  The hold test had been ending most trades on noise. Applies to live exits
+  and the replay alike. `STRATEGY_VERSION` 2026-09-28-gann-points-continuation.
+- Publication no longer requires a STRAT pattern; the continuation pass gates
+  on Gann's with-the-daily-trend crossing (`isGannContinuation`).
+- Intraday alerts use the session's 50% point instead of VWAP.
+- Replay pyramiding now places adds (fractional lots rounded them to zero).
+- The macro and decade cycles read as of the last bar, not the wall clock,
+  and the macro cycle's major windows are measured as context factors.
+- The calendar test's phase blocks score their own years.
+
+### Added
+- **Volume against the capital stock, and time from the company's birth**
+  (parity D2, D3). Shares outstanding come from SEC EDGAR and inception dates
+  from Wikidata, fetched once by `scripts/fetch-instrument-reference.mjs` and
+  stored in `instrument_profile` / `instrument_shares_outstanding` (migration
+  0083). Two-thirds of the stock trading in one week at a top, or a week
+  turning over almost all of it, is now a Gann exit for longs in the replay's
+  `exitRule: "gann"`. The company anniversary, Gann's seasonal degrees from it
+  and its 5–60-year cycles show on the confluence trace. All readings are
+  recorded as replay context factors. Default verdicts and bracket trades are
+  unchanged.
+- **Graduation exams** for Novice -> Pro and Pro -> Expert: five real past
+  charts, graded on the rules (trend, trade or wait, entry, stop, size), not on
+  P&L, with each chart played forward afterwards. Part of the School
+  (curriculum) path; paying or a proven track record advance without it.
+  Migration 0084 (applied).
+- **Round numbers** (even figures): targets just before them, stops beyond
+  them, a switchable notice on the card, chart and ticket, and a portfolio
+  manager setting for auto-ordering at them (off by default).
+- **Twice-yearly rest reminder** on the dashboard (switchable).
+- **Pyramiding suggestion** on open positions that have earned an add;
+  nothing is placed automatically.
+- **Context readings, measured on every trade:** the Seven Zones of Activity,
+  seasonal counts from March 21, accumulation time, volume per point at tops,
+  early and late leaders against the market, the 2-3-day halt and reaction
+  weeks, and double and triple tops.
+- **School:** plain-English Novice and Pro courses with Mr. Bull and Mrs.
+  Bear as guides; the detailed method course moved to Academy 6 with a
+  pyramiding lesson.
+
+### Changed
+- **`STRATEGY_VERSION` is `2026-09-28-gann-exits-figures`**: even figures
+  move plan stops and targets, and live exits follow Gann's rules.
+- **Exits run on Gann's rules** on every paper and live position: 60% at the
+  first target, no fixed final target, the stop moved on the market's swings,
+  and the rest closed on a failed breakout, three closes against the trade or
+  a trend change.
+- **Six-year 1-hour backtest recorded:** every cell lost money; see
+  `docs/replay-runs/2026-09-27-766sym-NOTES.md`.
+- **Gann's timing and extreme-price rules as measured context** (parity
+  F1). The reverse signal day and 7-10 Day Rule, gap rules (exhaust gaps,
+  gaps in new territory, filled gaps), the 7/14-day turn count, Square-of-144
+  time convergence and the spread of projected turn dates now show on the
+  confluence card and are recorded on every backtest trade. None changes a
+  verdict yet.
+- **Cycle detector checks** (parity F3). Prices are detrended in log form so a cycle is measured as a percentage; a cosinor fit reports the cycle's amplitude with a 95% interval and a zero-amplitude test; a peak at the longest period scanned is no longer counted as a cycle; the peak must survive dropping the oldest tenth of the window; and a period fitted on the first 70% is checked against the last 30%. Context only, as before.
+- **Measurement upgrades** (parity F3). Schuster's significance test on the
+  cycle detector; the backtest report repeats its factor tables for the
+  early and late half of the window; the 30-60 year cycles are labelled as
+  disclosed rather than validated.
+- **Stop after a series of losses, on every account** (parity E1). After
+  three losing trades in a row, new entries pause for the rest of that day
+  and the next trading day, on paper and live alike, including Guided Mode,
+  the demo account and automation. Stops and closes are never blocked.
+  Before this only live accounts had a loss rule (the percentage circuit
+  breaker).
+- **School: "The Method's Rules"** (parity E2). A four-lesson Academy 4
+  course on how GSPS reads trend, time, entries and exits, volume, and the
+  trader's rules, written in our own words.
+  Two more lessons the same day: the Seven Zones of Activity, and the
+  trader's five qualifications (knowledge, patience, nerve, health, capital)
+  with hope and fear as the enemies.
+
+## 2026-09-27
+
+### Changed
+- **Targets from Gann levels, and Gann's volume rule** (parity C4, D1).
+  Equity TP1 is the nearest Gann or support/resistance level in the TP1 band
+  and the master target the next level beyond it; the range-scaled target is
+  only a flagged fallback. The volume criterion (now "Volume at the turn")
+  passes a low on volume drying up, a lower-volume retest, or a selling
+  climax (the panic exception), and a high on heavy volume or a lower-volume
+  secondary top. `STRATEGY_VERSION` is `2026-09-27-gann-targets-volume`.
+- **Entry confirmation on every path, automation included** (parity C5,
+  owner decision 4 and "automation should adhere to the same rules as
+  everything else"). Any entry with the protocol's levels (the ticket's
+  advised entry, Guided Mode, the demo account, plan-scoped automation and so
+  the autonomous portfolio manager) is placed only once it has confirmed on
+  closed execution-timeframe bars: a close through the trigger by the
+  3-point-rule buffer, a retest, and a close that held. Until then the order
+  is refused with `awaiting_confirmation`; Guided keeps the recommendation
+  open. Checked once, in `lib/trade/place-order.ts`.
+- **Gann's exit rules, built for measurement** (parity Stage C1–C4, owner
+  decisions 2 and 6). `lib/gann/exitRules.ts` reads the hold test, three
+  adverse closes, break-even after one risk unit, the structural trail (higher
+  bottoms, prior month's low, final-stage rules) and trend-change exits, with
+  no fixed target. The replay's new `exitRule: "gann"` measures them against
+  the fixed bracket, and the backtest report splits them by exit reason. The
+  live exit manager is unchanged until the replay agrees.
+- **Gann's breakaway rule gates Execute in sideways markets** (owner decision
+  5, "always adhere to Gann's rules"). Gann stays out of a narrow range until
+  it breaks away (*How to Make Profits in Commodities*, pp. 51-52). A
+  range-bound setup (the weekly swing trend not confirmed) whose entry stays
+  inside the 3-Day Chart's 13-week range is now held from Execute to Watch by
+  `applyBreakawayHold` (`lib/gann/breakaway.ts`), on the live scan and the
+  replay alike. The Signal & Regime Engine's Range Reversion state is never
+  tradeable and prices no plan. `STRATEGY_VERSION` is
+  `2026-09-27-gann-breakaway`.
+- **Gann's own swing charts replace the close-count charts** (parity roadmap
+  conflict X3, owner decision "Gann's method supersedes my own"). The 3-Day
+  Chart (*45 Years in Wall Street*, 1949) and the 7-day weekly swing chart
+  (*How to Make Profits in Commodities*, 1951) are now built on highs and
+  lows. The line reverses on a counter-move of 3 bars or 7 calendar days, and
+  the trend turns only when the last swing top or bottom breaks. The
+  unsourced "9-day" chart is gone. This feeds `swingChartTrend`, the Signal &
+  Regime Engine, the macro trend read and the entry trigger's pivots, so
+  **scores and trend reads change**. `STRATEGY_VERSION` is now
+  `2026-09-27-gann-swing-charts`; the 6/3.5 cutoffs need re-deriving on it.
+- **Gann's rules now act on the verdict, not only the display** (parity
+  roadmap Stage A/B2, owner direction to implement Gann's method throughout):
+  - **Trend:** a trend stops reading as confirmed when a pullback is larger
+    or longer than any earlier one in the campaign (over-balance of space or
+    time), or when price breaks the prior month's low (high in a downtrend).
+    This flows into the macro trend reads, the regime labels and setup
+    direction.
+  - **Time:** the time-cycle windows add ⅔ of a year and the odd eighths, and
+    Gann's day-count bands (7-12 … 175-185 days) from each major pivot.
+  - **Levels:** Gann's three most important percentage-of-price levels (50%
+    and 100% above the low, 50% of the high, from the monthly history) join
+    the support/resistance list used for the level criterion, stops and
+    targets.
+  - **Rule of Three:** scored when it fires on weekly or monthly closes as
+    well as daily.
+  - **Measurement:** every other Gann reading (bar midpoint, level tests,
+    counter-move length, campaign over-balance, …) is recorded on each
+    backtest trade and attributed in a new `contextFactors` table.
+  `STRATEGY_VERSION` is now `2026-09-27-gann-trend-time-levels`.
+- **Gann's permanent-cycle calendar uses his published dates** (Feb 8–10,
+  Mar 21–23, May 3–7, Jun 20–24, Aug 3–8, Sep 21–24, Nov 8–11, Dec 20–24)
+  instead of the 5th of each month. Display only.
+
 ## 2026-09-26
 
 ### Added

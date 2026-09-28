@@ -9,6 +9,7 @@
  * stopgap.
  */
 
+import type { BreakawayReading } from "@/lib/gann/breakaway";
 import type {
   AssetClass,
   GannLevels,
@@ -31,7 +32,7 @@ import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 import type { CampaignLegReading, SwingChartReading } from "@/lib/gann/swingChart";
 import type { RuleOfThreeReading } from "@/lib/gann/ruleOfThree";
 import type { TimePriceSquareReading } from "@/lib/gann/timePriceSquare";
-import { VOLUME_CLIMAX_THRESHOLD, type VolumeClimaxReading } from "@/lib/gann/volumeClimax";
+import type { VolumeClimaxReading } from "@/lib/gann/volumeClimax";
 import type { BoilingPointReading } from "@/lib/gann/boilingPoint";
 import {
   DEFAULT_CRITERION_WEIGHTS,
@@ -47,17 +48,16 @@ export interface ScoreInputs {
   macroTrends: TrendReading[]; // monthly/weekly/daily
   hourlyTrend: TrendReading;
   /**
-   * Gann's 3-day and 9-day swing charts off the daily close
-   * (`lib/gann/swingChart.ts#computeSwingChart`). Null on either leg when
-   * there isn't enough daily history to establish an initial swing
-   * direction, which scores as a fail the same way a missing ADX reading
-   * does.
+   * Gann's 3-Day Chart and 7-day weekly swing chart off the daily highs and
+   * lows (`lib/gann/swingChart.ts#computeSwingChart`). Null on either chart
+   * until it has signalled a trend (crossed its last swing top or broken its
+   * last swing bottom), which scores as a fail.
    */
   swingChart?: SwingChartReading | null;
   /**
    * Gann's "sections of a campaign" leg count off the same daily bars
    * (`lib/gann/swingChart.ts#computeCampaignLeg`) — how many 3-day
-   * swing-chart legs have printed since the last 9-day trend change, and
+   * swing-chart legs have printed since the weekly chart's last trend change, and
    * whether that count falls in his disclosed 3-4-leg reversal zone.
    * Confluence/context only: appended to `swingChartTrend`'s explanation
    * note, never affecting `passed` — a materially different construction
@@ -74,6 +74,15 @@ export interface ScoreInputs {
    * fail the same way a missing swing-chart reading does.
    */
   ruleOfThree?: RuleOfThreeReading | null;
+  /**
+   * The same rule on weekly and monthly closes. Gann applies the Rule of
+   * Three to the weekly and monthly charts as well as the daily (*Wall Street
+   * Stock Selector*, 1930, p. 72). Added 2026-09-27 (parity roadmap A7, owner
+   * direction to implement Gann's method throughout): the criterion passes
+   * when the rule fires in the trade's direction on any of the three charts.
+   */
+  ruleOfThreeWeekly?: RuleOfThreeReading | null;
+  ruleOfThreeMonthly?: RuleOfThreeReading | null;
   /**
    * Gann's squaring of price and time off the daily bars
    * (`lib/gann/timePriceSquare.ts#computeTimePriceSquare`) — bars elapsed
@@ -215,9 +224,23 @@ export interface ScoreInputs {
  */
 export const MIN_STOP_ROOM_ATR = 1.5;
 
+/** Plain-language read of Gann's volume rule at the anchor (see `lib/gann/volumeClimax.ts`). */
+function volumeNote(r: VolumeClimaxReading): string {
+  const at = `The ${r.anchorKind} at ${r.anchorPrice.toFixed(2)}`;
+  if (r.anchorKind === "low") {
+    if (r.dryingUp) return `${at} came on shrinking volume and a narrowing range: liquidation running its course, the normal bottom.`;
+    if (r.retestOnLowerVolume) return `${at} retested the previous low on smaller volume: liquidation is over.`;
+    if (r.climax) return `${at} came on ${r.bestRecentRelativeVolume.toFixed(2)}x trailing volume: a selling climax, the panic-bottom exception.`;
+    return `${at} came on neither shrinking volume nor a selling climax (${r.bestRecentRelativeVolume.toFixed(2)}x trailing volume at best).`;
+  }
+  if (r.climax) return `${at} came on ${r.bestRecentRelativeVolume.toFixed(2)}x trailing volume: tops come on heavy sales.`;
+  if (r.retestOnLowerVolume) return `${at} is a secondary top on smaller volume than the one before: the advance is tiring.`;
+  return `${at} came on ordinary volume (${r.bestRecentRelativeVolume.toFixed(2)}x trailing at best): no sign of distribution yet.`;
+}
+
 export function computeScore(inputs: ScoreInputs): ScanDecision {
   const {
-    direction, swingChart, campaignLeg, ruleOfThree, timePriceSquare, volumeClimax, boilingPoint, gann,
+    direction, swingChart, campaignLeg, ruleOfThree, ruleOfThreeWeekly = null, ruleOfThreeMonthly = null, timePriceSquare, volumeClimax, boilingPoint, gann,
     nearSupportResistance, srMatch, pattern, gannTrigger = null, levels, stopAtrMultiple, assetClass,
     setupKind = "reversion",
     atrPct,
@@ -228,14 +251,16 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // 2-of-3 agreement measured negligible (inside the ±0.1R noise band on
   // both adequately sampled arms — see lib/validation/criteria-registry.ts's
   // `macroTrend` RETIRED entry) after its counter-trend premise was already
-  // corrected once. Gann's 3-day/9-day swing charts are a different
-  // construction on the same daily bars — a reversal count instead of a
-  // moving-average/pivot read — so both legs must agree with the trade's own
-  // direction, not just with each other.
+  // corrected once. Gann's swing charts are a different construction on the
+  // same daily bars, so both must agree with the trade's own direction, not
+  // just with each other. Since 2026-09-27 they are Gann's own charts: the
+  // 3-Day Chart (A09 Ch. VII) and the 7-day weekly chart (A8 1951), built on
+  // highs and lows, with the trend turning on a break of the last swing
+  // extreme. See lib/gann/swingChart.ts.
   const swingChartAligned =
     swingChart != null &&
     swingChart.threeDay === direction &&
-    swingChart.nineDay === direction;
+    swingChart.weekly === direction;
 
   // Added 2026-09-16: Gann's "Rule of Three" (see lib/gann/ruleOfThree.ts's
   // header for the exact rule and its generalization to both reversion and
@@ -243,9 +268,15 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // (>= 2 consecutive higher closes); a bearish call reads the uptrend rule
   // (>= 3 consecutive lower closes) — Gann's own stated asymmetry, not
   // symmetrized here.
-  const ruleOfThreeHolding =
-    ruleOfThree != null &&
-    (direction === "bullish" ? ruleOfThree.bullishSignal : ruleOfThree.bearishSignal);
+  const fires = (r: RuleOfThreeReading | null | undefined): boolean =>
+    r != null && (direction === "bullish" ? r.bullishSignal : r.bearishSignal);
+  const ruleOfThreeDaily = fires(ruleOfThree);
+  const ruleOfThreeHigher = fires(ruleOfThreeWeekly)
+    ? "weekly"
+    : fires(ruleOfThreeMonthly)
+      ? "monthly"
+      : null;
+  const ruleOfThreeHolding = ruleOfThreeDaily || ruleOfThreeHigher !== null;
 
   // Null (no priced plan) fails: a setup with no stop has no room to measure,
   // and the alternative — treating "unknown" as a pass — would hand a free
@@ -332,7 +363,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // volume climax, not another price-distance check.
   const climaxReading =
     (volumeClimax ?? []).find((r) => r.anchorKind === angleAnchorKind) ?? null;
-  const volumeClimaxHolding = climaxReading?.climax === true;
+  const volumeClimaxHolding = climaxReading?.confirms === true;
   // Confluence/context only — never changes volumeClimaxHolding itself. See
   // ScoreInputs.boilingPoint's own doc comment for why this stays out of
   // the scored boolean.
@@ -368,7 +399,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // scored boolean.
   const campaignLegNote =
     campaignLeg?.legNumber != null && campaignLeg.confidence != null
-      ? ` Leg ${campaignLeg.legNumber} of the current campaign since the last major (9-day) trend change (${campaignLeg.confidence} confidence — reversals on the 3rd/4th leg are trusted more than the 2nd).`
+      ? ` Leg ${campaignLeg.legNumber} of the current campaign since the last major (weekly chart) trend change (${campaignLeg.confidence} confidence — reversals on the 3rd/4th leg are trusted more than the 2nd).`
       : "";
 
   // Confluence/context only, same treatment as campaignLegNote above — never
@@ -396,19 +427,19 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   const breakdown: ScoreBreakdownItem[] = [
     {
       key: "swingChartTrend",
-      criterion: "3-day/9-day swing chart trend",
+      criterion: "3-day/weekly swing chart trend",
       pillar: "trend",
       passed: swingChartAligned,
       note:
-        swingChart == null || swingChart.threeDay == null || swingChart.nineDay == null
-          ? "Not enough daily history to read the 3-day/9-day swing charts."
+        swingChart == null || swingChart.threeDay == null || swingChart.weekly == null
+          ? "The 3-day and weekly swing charts have not both signalled a trend yet."
           : (swingChartAligned
               ? setupKind === "continuation"
-                ? `Both the 3-day and 9-day swing charts read ${direction} — the trend this setup continues is intact.`
-                : `Both the 3-day and 9-day swing charts read ${direction} — in agreement with this reversion.`
-              : swingChart.threeDay === swingChart.nineDay
+                ? `Both the 3-day and weekly swing charts read ${direction} — the trend this setup continues is intact.`
+                : `Both the 3-day and weekly swing charts read ${direction} — in agreement with this reversion.`
+              : swingChart.threeDay === swingChart.weekly
                 ? `Both swing charts read ${swingChart.threeDay}, not ${direction} — they agree with each other but not with this setup.`
-                : `The 3-day (${swingChart.threeDay}) and 9-day (${swingChart.nineDay}) swing charts disagree with each other.`) +
+                : `The 3-day (${swingChart.threeDay}) and weekly (${swingChart.weekly}) swing charts disagree with each other.`) +
             campaignLegNote,
     },
     {
@@ -422,15 +453,12 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     },
     {
       key: "volumeClimax",
-      criterion: "Volume climax at the anchor pivot",
+      criterion: "Volume at the turn",
       pillar: "structure",
       passed: volumeClimaxHolding,
       note: climaxReading
-        ? (volumeClimaxHolding
-            ? `The ${climaxReading.anchorKind} anchor at ${climaxReading.anchorPrice.toFixed(2)} or one of the pivots just before it printed on ${climaxReading.bestRecentRelativeVolume.toFixed(2)}x trailing volume — above the ${VOLUME_CLIMAX_THRESHOLD}x climax floor.`
-            : `The ${climaxReading.anchorKind} anchor at ${climaxReading.anchorPrice.toFixed(2)} and the pivots just before it printed on only ${climaxReading.bestRecentRelativeVolume.toFixed(2)}x trailing volume at best — below the ${VOLUME_CLIMAX_THRESHOLD}x climax floor.`) +
-          boilingPointNote
-        : `No measurable volume climax since the last significant ${angleAnchorKind}.`,
+        ? volumeNote(climaxReading) + boilingPointNote
+        : `No measurable volume reading since the last significant ${angleAnchorKind}.`,
     },
     {
       key: "historicalSR",
@@ -509,7 +537,9 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       pillar: "trend",
       passed: ruleOfThreeHolding,
       note:
-        ruleOfThree == null
+        !ruleOfThreeDaily && ruleOfThreeHigher !== null
+          ? `The Rule of Three fires on the ${ruleOfThreeHigher} chart in this setup's direction.`
+          : ruleOfThree == null
           ? "Not enough daily history to read the Rule of Three."
           : ruleOfThreeHolding
             ? direction === "bullish"
@@ -587,6 +617,30 @@ export function applyDataLagHold(decision: ScanDecision, lag: DecisionLag): Scan
         criterion: "Data current enough to act on",
         passed: false,
         note: `${lag.note} Held from Execute to Watch — confirm the trigger against a live quote before acting.`,
+      },
+    ],
+  };
+}
+
+/**
+ * Gann's breakaway rule (owner decision 5; *Commodities* pp. 51-52): in a
+ * sideways market the trader stays out until price breaks away from the
+ * range. A range-bound setup whose entry does not cross the range's extreme
+ * is held from Execute to Watch. See `lib/gann/breakaway.ts`.
+ */
+export function applyBreakawayHold(decision: ScanDecision, breakaway: BreakawayReading): ScanDecision {
+  if (!breakaway.rangeBound || breakaway.breaksAway || decision.outputState !== "Execute") return decision;
+  const fmt = (n: number | null) => (n === null ? "n/a" : n.toFixed(2));
+  return {
+    ...decision,
+    outputState: "Watch",
+    breakdown: [
+      ...decision.breakdown,
+      {
+        key: "breakaway",
+        criterion: "Breakaway from a sideways range",
+        passed: false,
+        note: `The market is moving sideways (range ${fmt(breakaway.rangeLow)}-${fmt(breakaway.rangeHigh)}) and the entry stays inside it. Held from Execute to Watch until price breaks away from the range.`,
       },
     ],
   };

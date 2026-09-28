@@ -16,8 +16,13 @@ import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import { isGannRangeBound, readGannTrend } from "@/lib/gann/trendStrength";
 
+// Consecutive calendar days, so the weekly (7-calendar-day) swing chart sees
+// real dates. Every fixture used to share one timestamp, which the old
+// close-count charts never read.
+let day = 0;
 function bar(c: number): Bar {
-  return { t: "2026-01-01T00:00:00Z", o: c, h: c + 1, l: c - 1, c, v: 1000 } as Bar;
+  const t = new Date(Date.UTC(2026, 0, 1) + day++ * 86_400_000).toISOString();
+  return { t, o: c, h: c + 1, l: c - 1, c, v: 1000 } as Bar;
 }
 
 /** Stepping uptrend: 8 up, 3 down, net higher — rising tops and bottoms. */
@@ -61,11 +66,25 @@ describe("readGannTrend", () => {
     // evaluates a market IN a pullback, so a rule that needs both charts to
     // agree makes that state unreachable. Ending mid-pullback must still read
     // as a trend.
-    const bars = uptrend(120);
+    // uptrend(118) ends on the last up bar of a cycle, so the pullback below
+    // matches the fixture's earlier 3-bar pullbacks instead of extending one.
+    // A pullback longer or deeper than every earlier one is Gann's
+    // over-balance signal, which is covered separately below.
+    const bars = uptrend(118);
     bars.push(bar(bars[bars.length - 1].c - 0.4));
     bars.push(bar(bars[bars.length - 1].c - 0.4));
     bars.push(bar(bars[bars.length - 1].c - 0.4));
     expect(readGannTrend(bars).confirmed).toBe(true);
+  });
+
+  it("stops confirming when a pullback over-balances the campaign's earlier ones", () => {
+    // Earlier pullbacks run 3 bars; this one runs 8 and goes deeper, so it is
+    // longer and larger than any before it in the campaign.
+    const bars = uptrend(118);
+    for (let k = 0; k < 8; k++) bars.push(bar(bars[bars.length - 1].c - 0.6));
+    const t = readGannTrend(bars);
+    expect(t.changing).toBe(true);
+    expect(t.confirmed).toBe(false);
   });
 
   it("mirrors for a downtrend", () => {

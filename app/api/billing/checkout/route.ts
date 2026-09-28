@@ -36,8 +36,8 @@ export async function POST(req: NextRequest) {
 
   // Wall Street (SYSTEM_MASTERY) checkout requires the GSPS School capstone
   // (Academy 8, not Course W2) completed first — server-side, unbypassable
-  // from the client. Pro/Expert purchase is never gated on School; see
-  // lib/school/curriculum-service.ts and the product spec section 8/15.
+  // from the client. Expert purchase needs no graduation exam: paying is its
+  // own path up (owner, 2026-09-28); the exams belong to the curriculum path.
   if (tier === "SYSTEM_MASTERY") {
     const completed = await isWallStreetSchoolCompleted(supabase, user.id);
     if (!completed) {

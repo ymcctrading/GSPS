@@ -3,7 +3,6 @@ import type { Bar } from "@/lib/types";
 import { CRITERION_KEYS, type CriterionWeights } from "@/lib/scoring/weights";
 import { computeGannEntryTrigger, type GannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection } from "@/lib/scan/entrySelection";
-import { CONTINUATION_PATTERNS } from "@/lib/strat/patterns";
 import {
   MIN_DAILY_BARS_FOR_SCORE,
   buildMacroContext,
@@ -534,23 +533,22 @@ describe("replay continuation setups", () => {
   const breakout = { o: T - 1.4, h: T + 0.5, l: T - 1.5, c: T + 0.3 };
   const after = { o: T, h: T + 0.2, l: T - 0.2, c: T };
 
-  it("arms a continuation with the macro move, on a continuation shape, scored as one", () => {
+  it("arms a continuation with the macro move and the daily swing trend, scored as one", () => {
     expect(continuationDir).toBe("bullish");
     const r = replay("TEST", intraday([...warm, twoUp, inside, breakout, after]), { targetR: 2, dailyBars: rising });
     const cont = r.trades.filter((t) => t.setupKind === "continuation");
     expect(cont).toHaveLength(1);
     expect(cont[0].direction).toBe(continuationDir);
-    expect(CONTINUATION_PATTERNS.has(cont[0].pattern!)).toBe(true);
     expect(cont[0].entry).toBeCloseTo(T, 10);
     expect(cont[0].criteria!.entryTriggerArmed).toBe(true);
   });
 
-  it("does not arm a continuation without a continuation shape at the fill", () => {
+  it("arms a continuation without any bar-sequence shape at the fill", () => {
     // Directional warm-up bars run straight into the breakout, so no inside
-    // bar sets up a 2-1-2 or 3-1-2. The replay never trades the final bar, so
-    // the breakout is the only candle that could fill.
+    // bar sets up a 2-1-2 or 3-1-2. Gann's continuation needs only the daily
+    // swing trend, so the crossing still fills (2026-09-28).
     const r = replay("TEST", intraday([...warm, ...warm.slice(0, 2), breakout, after]), { targetR: 2, dailyBars: rising });
-    expect(r.trades.filter((t) => t.setupKind === "continuation")).toHaveLength(0);
+    expect(r.trades.filter((t) => t.setupKind === "continuation")).toHaveLength(1);
   });
 
   it("does not arm a continuation where the breadth and momentum gate is shut", () => {
@@ -574,5 +572,76 @@ describe("replay continuation setups", () => {
     const split = bySetupKind(r);
     expect(split.reversion.trades.length + split.continuation.trades.length).toBe(r.trades.length);
     expect(split.continuation.trades.length).toBeGreaterThan(0);
+  });
+});
+
+describe("replay exitRule: gann", () => {
+  it("does not take profit at a fixed target", () => {
+    // Crosses the trigger, then runs through the bracket's 2R target.
+    const beyond = past(3 * RISK);
+    const run = { o: past(0.4), h: SIDE > 0 ? beyond : past(0.3), l: SIDE > 0 ? past(0.3) : beyond, c: past(0.5) };
+    const bracket = replay("TEST", session([crossing, run, quiet]), { targetR: 2, dailyBars: DAILY });
+    const gann = replay("TEST", session([crossing, run, quiet]), { targetR: 2, dailyBars: DAILY, exitRule: "gann" });
+    expect(bracket.trades[0].outcome).toBe("win");
+    expect(gann.trades).toHaveLength(1);
+    expect(gann.trades[0].exitReason).toBeDefined();
+    expect(gann.trades[0].rMultiple).not.toBeCloseTo(bracket.trades[0].rMultiple, 5);
+  });
+
+  it("leaves at the plan's stop, recorded as the initial stop", () => {
+    const through = TRIGGER.stopPrice - SIDE * 0.5;
+    const fall = { o: past(0.2), h: SIDE > 0 ? past(0.3) : through, l: SIDE > 0 ? through : past(0.3), c: through };
+    const r = replay("TEST", session([crossing, fall, quiet]), { targetR: 2, dailyBars: DAILY, exitRule: "gann" });
+    expect(r.trades).toHaveLength(1);
+    expect(r.trades[0].exitReason).toBe("initial");
+    expect(r.trades[0].outcome).toBe("loss");
+  });
+});
+
+describe("replay usePlanLevels (the production plan's bracket)", () => {
+  it("trades the plan's own stop and first target, not an R-multiple bracket", () => {
+    const beyond = past(3 * RISK);
+    const run = { o: past(0.4), h: SIDE > 0 ? beyond : past(0.3), l: SIDE > 0 ? past(0.3) : beyond, c: past(0.5) };
+    const plan = replay("TEST", session([crossing, run, quiet]), { targetR: 2, dailyBars: DAILY, usePlanLevels: true });
+    const legacy = replay("TEST", session([crossing, run, quiet]), { targetR: 2, dailyBars: DAILY, useProductionStop: true });
+    expect(plan.trades.length).toBeGreaterThan(0);
+    for (const t of plan.trades) {
+      const risk = Math.abs(t.entry - t.stop);
+      // The plan's TP1 comes from levels, so it is not tied to 2R of risk.
+      expect(Math.abs(Math.abs(t.target - t.entry) - 2 * risk)).toBeGreaterThan(1e-6);
+    }
+    if (plan.trades.length > 0 && legacy.trades.length > 0) {
+      expect(plan.trades[0].stop).not.toBeCloseTo(legacy.trades[0].stop, 6);
+    }
+  });
+});
+
+describe("replay exitRule: gann-runner (the live rule)", () => {
+  it("records lots under pyramiding and never adds to a trade that stopped out", () => {
+    const through = TRIGGER.stopPrice - SIDE * 0.5;
+    const fall = { o: past(0.2), h: SIDE > 0 ? past(0.3) : through, l: SIDE > 0 ? through : past(0.3), c: through };
+    const r = replay("TEST", session([crossing, fall, quiet]), { targetR: 2, dailyBars: DAILY, exitRule: "gann-runner", pyramid: true });
+    expect(r.trades[0].lots).toBe(1);
+  });
+
+  it("banks 60% at the target and runs the rest on Gann's rules", () => {
+    const beyond = past(3 * RISK);
+    const run = { o: past(0.4), h: SIDE > 0 ? beyond : past(0.3), l: SIDE > 0 ? past(0.3) : beyond, c: past(0.5) };
+    const gann = replay("TEST", session([crossing, run, quiet]), { targetR: 2, dailyBars: DAILY, exitRule: "gann" });
+    const runner = replay("TEST", session([crossing, run, quiet]), { targetR: 2, dailyBars: DAILY, exitRule: "gann-runner" });
+    expect(runner.trades).toHaveLength(1);
+    const t = runner.trades[0];
+    const g = gann.trades[0];
+    // Same walk, with 60% of it taken at the 2R target instead (costs aside).
+    const expected = 0.6 * 2 + 0.4 * g.rMultiple;
+    expect(t.rMultiple).toBeCloseTo(expected, 1);
+  });
+
+  it("takes the whole position out at the stop when the target was never reached", () => {
+    const through = TRIGGER.stopPrice - SIDE * 0.5;
+    const fall = { o: past(0.2), h: SIDE > 0 ? past(0.3) : through, l: SIDE > 0 ? through : past(0.3), c: through };
+    const gann = replay("TEST", session([crossing, fall, quiet]), { targetR: 2, dailyBars: DAILY, exitRule: "gann" });
+    const runner = replay("TEST", session([crossing, fall, quiet]), { targetR: 2, dailyBars: DAILY, exitRule: "gann-runner" });
+    expect(runner.trades[0].rMultiple).toBeCloseTo(gann.trades[0].rMultiple, 6);
   });
 });

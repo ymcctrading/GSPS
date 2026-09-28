@@ -85,7 +85,7 @@ describe("evaluateRangeReversion", () => {
     }
   });
 
-  it("scores a verified range with a confirmed boundary rejection as tradeable", () => {
+  it("scores a verified range with a confirmed boundary rejection but never trades inside it", () => {
     const bars = rangeBars({ rejection: true, breakoutVolume: 500 });
     const verdict = evaluateRangeReversion({
       direction: "bullish",
@@ -101,11 +101,9 @@ describe("evaluateRangeReversion", () => {
       expect(verifiedRange?.passed).toBe(true);
       expect(rejection?.passed).toBe(true);
       expect(midpoint?.passed).toBe(true);
-      expect(verdict.tradeable).toBe(true);
-      expect(verdict.plan).not.toBeNull();
-      expect(verdict.plan?.stop).toBeLessThan(verdict.plan!.entryTrigger);
-      // Target is the opposite (high) boundary, not a midpoint projection.
-      expect(verdict.plan?.target).toBeGreaterThan(verdict.plan!.entryTrigger);
+      // Owner decision 5: stay out of a sideways range until it breaks away.
+      expect(verdict.tradeable).toBe(false);
+      expect(verdict.plan).toBeNull();
     }
   });
 

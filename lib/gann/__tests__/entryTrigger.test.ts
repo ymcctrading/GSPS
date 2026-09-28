@@ -52,8 +52,10 @@ describe("swingPivots", () => {
     }
   });
 
-  it("is empty when there is not enough history to complete a swing", () => {
-    expect(swingPivots(bars([10, 11]), ENTRY_TRIGGER_SWING_DAYS)).toEqual([]);
+  it("has no completed top when there is not enough history to complete a swing", () => {
+    // Only the chart's origin (the low the first swing started from) exists.
+    const pivots = swingPivots(bars([10, 11]), ENTRY_TRIGGER_SWING_DAYS);
+    expect(pivots.filter((p) => p.kind === "top")).toEqual([]);
   });
 });
 

@@ -81,6 +81,6 @@ describe("figures", () => {
 
   it("shows an exit ladder whose shares add up in front of the reader", () => {
     render(<SnapshotFigure figure="exits" />);
-    expect(screen.getByText(/6 \+ 2 \+ 2 = 10/)).toBeInTheDocument();
+    expect(screen.getByText(/6 \+ 4 = 10/)).toBeInTheDocument();
   });
 });

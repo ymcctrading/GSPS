@@ -33,6 +33,7 @@ import { computeRetracementLevels } from "@/lib/gann/retracement";
 import { priceTimeConfluence } from "@/lib/gann/digitalRoot";
 import { computeCampaignLeg, computeSwingChart } from "@/lib/gann/swingChart";
 import { computeRuleOfThree } from "@/lib/gann/ruleOfThree";
+import { majorPricePercentageLevels } from "@/lib/gann/disclosedRules";
 import { computeTimePriceSquare } from "@/lib/gann/timePriceSquare";
 import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
 import { computeBoilingPoint } from "@/lib/gann/boilingPoint";
@@ -40,7 +41,8 @@ import { MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection, rankArmedPatterns } f
 import { computeTradeLevels, type EntrySource } from "@/lib/strat/levels";
 import { computeGannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
-import { applyDataLagHold, applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
+import { applyBreakawayHold, applyDataLagHold, applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
+import { readBreakaway } from "@/lib/gann/breakaway";
 import { decisionLag, feedDelayMs } from "@/lib/data/latency";
 import { marketSession } from "@/lib/market/session";
 import {
@@ -63,6 +65,8 @@ import type { SignalVerdict } from "@/lib/signals/types";
 import { buildScanNoviceEligibility } from "@/lib/universe/scanGates";
 import { DEFAULT_UNIVERSE_THRESHOLDS, type UniverseThresholds } from "@/lib/universe/eligibility";
 import { evaluateGannConfluence } from "@/lib/signals/confluence/gann";
+import { getInstrumentReference } from "@/lib/data/instrumentReference";
+import { getMarketDailyBars } from "@/lib/data/marketBenchmark";
 import { evaluateSaraConfluence } from "@/lib/signals/confluence/sara";
 import { routeMarketAdapter } from "@/lib/signals/confluence/marketAdapters";
 import { isConfluenceModuleEnabled } from "@/lib/signals/confluence/flags";
@@ -125,9 +129,15 @@ export async function scanTicker(
 
   try {
     const provider = getMarketDataProvider();
-    const [{ monthly, weekly, daily, hourly, execution }, currentPrice] = await Promise.all([
+    // The stored shares outstanding and inception date (parity roadmap D2,
+    // D3) load alongside the bars. The whole table is read once per server
+    // instance and cached, so after the first symbol this resolves at once.
+    const [{ monthly, weekly, daily, hourly, execution }, currentPrice, instrumentReference, marketDaily] = await Promise.all([
       prefetched ?? fetchAllTimeframes(symbol, assetClass, EXECUTION_TIMEFRAME),
       provider.fetchLatestPrice(symbol, assetClass),
+      assetClass === "us_equity" ? getInstrumentReference(symbol) : Promise.resolve(null),
+      // The market's daily bars for Gann's early/late leaders; read once a day.
+      assetClass === "us_equity" ? getMarketDailyBars() : Promise.resolve(null),
     ]);
 
     if (daily.length < MIN_DAILY_BARS_FOR_SCAN || execution.length < 10) {
@@ -138,7 +148,7 @@ export async function scanTicker(
     const monthlyTrend = readTrend(monthly, "1Month");
     const weeklyTrend = readTrend(weekly, "1Week");
     const dailyTrend = readTrend(daily, "1Day");
-    // Gann's 3-day/9-day swing charts, replacing the monthly/weekly/daily
+    // Gann's 3-Day and 7-day weekly swing charts, replacing the monthly/weekly/daily
     // macroTrend agreement check — same daily bars, a different (reversal-
     // count) construction. See lib/gann/swingChart.ts.
     const swingChart = computeSwingChart(daily);
@@ -147,6 +157,9 @@ export async function scanTicker(
     const campaignLeg = computeCampaignLeg(daily);
     // Gann's Rule of Three, added 2026-09-16 — see lib/gann/ruleOfThree.ts.
     const ruleOfThree = computeRuleOfThree(daily);
+    // Gann applies the rule to weekly and monthly closes too (2026-09-27).
+    const ruleOfThreeWeekly = weekly.length >= 4 ? computeRuleOfThree(weekly) : null;
+    const ruleOfThreeMonthly = monthly.length >= 4 ? computeRuleOfThree(monthly) : null;
 
     // ---- Level 2: 1hr refinement
     const hourlyTrend = readTrend(hourly, "1Hour");
@@ -307,6 +320,9 @@ export async function scanTicker(
       ...weeklyTrend.resistance.map((price) => ({ price, timeframe: weeklyTrend.timeframe })),
       ...monthlyTrend.support.map((price) => ({ price, timeframe: monthlyTrend.timeframe })),
       ...monthlyTrend.resistance.map((price) => ({ price, timeframe: monthlyTrend.timeframe })),
+      // Gann's major percentage-of-price levels, anchored on the monthly
+      // history's extremes (2026-09-27). See majorPricePercentageLevels.
+      ...majorPricePercentageLevels([...monthly, ...daily]).map((price) => ({ price, timeframe: "1Month" as const })),
     ];
     const recentAtr = atr(daily.slice(-20), 14);
     const baselineAtr = atr(daily.slice(-100, -20), 14);
@@ -349,8 +365,12 @@ export async function scanTicker(
       marketSession(assetClass) === "regular",
     );
 
+    // Gann's breakaway rule (owner decision 5): a sideways market is Watch
+    // context until the entry crosses the range's extreme.
+    const breakaway = readBreakaway(daily, gannTrigger);
+
     const decision = applyDataLagHold(
-      applyReversionConfirmation(
+      applyBreakawayHold(applyReversionConfirmation(
         computeScore({
           direction: scoreDirection,
           macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
@@ -358,6 +378,8 @@ export async function scanTicker(
           swingChart,
           campaignLeg,
           ruleOfThree,
+          ruleOfThreeWeekly,
+          ruleOfThreeMonthly,
           timePriceSquare,
           volumeClimax,
           boilingPoint,
@@ -382,7 +404,7 @@ export async function scanTicker(
         pattern,
         momentumElevated,
         nearSupportResistance,
-      ),
+      ), breakaway),
       dataLag,
     );
 
@@ -440,6 +462,7 @@ export async function scanTicker(
           dailyBars: daily,
           currentPrice,
           direction: scoreDirection,
+          instrument: instrumentReference ? { ...instrumentReference, marketDaily } : marketDaily ? { sharesOutstanding: null, inception: null, marketDaily } : null,
         })
       : null;
     const saraConfluence = isConfluenceModuleEnabled(

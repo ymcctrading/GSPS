@@ -24,6 +24,7 @@ import type { SquareOf52Result } from "@/lib/gann/squareOf52";
 import type { AngleMonthCountResult } from "@/lib/gann/angleMonthCounts";
 import type { SpectralCycleReading } from "@/lib/gann/spectralCycle";
 import type { CampaignLegReading } from "@/lib/gann/swingChart";
+import type { DisclosedRulesContext } from "@/lib/gann/disclosedRules";
 import type { BoilingPointReading } from "@/lib/gann/boilingPoint";
 import type { MarketAdapterStatus, SupportedMarket } from "./marketAdapters";
 
@@ -167,7 +168,7 @@ export interface GannConfluenceResult {
   /**
    * Gann's "sections of a campaign" leg count (`docs/GANN_HISTORICAL_SOURCES.md`
    * A5/A8/A9) — how many 3-day swing-chart legs have printed since the last
-   * 9-day trend change, classified against his disclosed 3-4-leg reversal
+   * weekly-chart trend change, classified against his disclosed 3-4-leg reversal
    * pattern. Confluence/context only, same non-authoritative role as every
    * other field here — never changes `swingChartAligned`'s scored pass/fail
    * in `lib/scoring/score.ts`. See `lib/gann/swingChart.ts#computeCampaignLeg`.
@@ -196,6 +197,14 @@ export interface GannConfluenceResult {
    * role as every other field here. See `lib/gann/coordinateLedger.ts`.
    */
   coordinateLedger: LedgerCoordinate[];
+  /**
+   * Stage A of the Gann parity roadmap: close vs bar midpoint, percentages of
+   * the extreme price, day-count bands, ranked fractions of the year, the
+   * counter-move clock, level tests, and the Rule of Three on weekly and
+   * monthly bars. Context only, never scored or gating. See
+   * `lib/gann/disclosedRules.ts`.
+   */
+  disclosedRules: DisclosedRulesContext;
   /**
    * The addendum's "Material Number versus Harmonic Node classification" is
    * personally sourced numerical logic that has not been supplied in an

@@ -11,6 +11,7 @@
  *    is known (see the warning block below).
  */
 
+import { stopBeyondFigure, targetCandidates } from "@/lib/gann/evenFigures";
 import type { AssetClass, Bar, PivotPlan, StratPattern, TradeLevels } from "@/lib/types";
 import { readPremiumStop } from "@/lib/trade/premium-stop";
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
@@ -195,6 +196,8 @@ export interface EquityTradeLevels {
   takeProfit1: number;
   takeProfit2: number;
   stopFromStructure: boolean;
+  /** TP1 sits on a Gann or S/R level (parity C4) rather than the ATR fallback. */
+  tp1FromStructure: boolean;
   masterFromStructure: boolean;
 }
 
@@ -309,12 +312,17 @@ export function computeEquityTradeLevels(params: {
    * structural question is.
    */
   extensionLevels?: number[];
+  /**
+   * Apply Gann's even-figure rule to the stop and targets (default true).
+   * False isolates the other rules, for tests and measurement.
+   */
+  evenFigures?: boolean;
   /** Daily ATR as % of price (lib/scoring/proximity.ts#atrPercentOfPrice). Undefined falls back to the min target %. */
   atrPct?: number;
   /** Widens the stop-placement ceiling and fallback — see EQUITY_LARGE_CAP_STOP_MAX_PCT/EQUITY_LARGE_CAP_FALLBACK_STOP_PCT. */
   largeCap?: boolean;
 }): EquityTradeLevels {
-  const { direction, entry, structuralLevels, extensionLevels = structuralLevels, atrPct, largeCap = false } = params;
+  const { direction, entry, structuralLevels, extensionLevels = structuralLevels, atrPct, largeCap = false, evenFigures = true } = params;
   const side: StopSide = direction === "bullish" ? "long" : "short";
   const dir = direction === "bullish" ? 1 : -1;
 
@@ -332,37 +340,55 @@ export function computeEquityTradeLevels(params: {
   const stopPct = stopFromStructure
     ? (Math.abs(entry - structuralStop) / entry) * 100 + EQUITY_STOP_BUFFER_PCT
     : fallbackStopPct;
-  const stopLoss = entry - dir * (stopPct / 100) * entry;
+  // Gann's even figures (2026-09-28): a stop resting just inside a round
+  // number is moved beyond it by the lost-motion allowance ("an old top of
+  // 100 crossed means a stop at 97"). See lib/gann/evenFigures.ts.
+  const rawStop = entry - dir * (stopPct / 100) * entry;
+  const stopLoss = evenFigures ? stopBeyondFigure(entry, rawStop, direction, stopMaxPct + EQUITY_STOP_BUFFER_PCT) : rawStop;
 
-  const tp1Pct = clampPct(
-    EQUITY_TP1_ATR_MULTIPLE * (atrPct ?? EQUITY_TP1_MIN_PCT),
-    EQUITY_TP1_MIN_PCT,
-    EQUITY_TP1_MAX_PCT,
-  );
-  const takeProfit1 = entry + dir * (tp1Pct / 100) * entry;
-
-  const tp2Pct = clampPct(
+  // Targets (parity C4, owner decision 2, 2026-09-27: "Gann's method
+  // supersedes my own"). Gann never fixes a profit objective; he sells at the
+  // resistance levels his rules identify (*Truth of the Stock Tape*, Book II).
+  // So TP1 is the nearest such level (Gann targets and clustered S/R, the
+  // `extensionLevels` pool) inside the TP1 band, and the master target the
+  // next one beyond it inside the cap. The ATR-scaled percentage survives only
+  // as the fallback when no level lies in the band, and the flags say which
+  // was used. Beyond the master, the runner leaves on a Gann trend-change
+  // signal (`lib/gann/exitRules.ts`), not at a price.
+  const atrTp1 = entry + dir * (clampPct(EQUITY_TP1_ATR_MULTIPLE * (atrPct ?? EQUITY_TP1_MIN_PCT), EQUITY_TP1_MIN_PCT, EQUITY_TP1_MAX_PCT) / 100) * entry;
+  const atrTp2Pct = clampPct(
     EQUITY_TP2_ATR_MULTIPLE * (atrPct ?? EQUITY_TP2_MIN_PCT),
     EQUITY_TP2_MIN_PCT,
     EQUITY_TP2_MAX_PCT,
   );
-  const tp2Target = entry + dir * (tp2Pct / 100) * entry;
+  const pctFrom = (level: number) => (dir * (level - entry) / entry) * 100;
+  // Even figures are resistance too: each contributes a target just before
+  // it, since markets turn just short of round numbers (Gann; see
+  // lib/gann/evenFigures.ts).
+  const capForFigures = entry + dir * (EQUITY_MASTER_CAP_PCT / 100) * entry;
+  const figureTargets = evenFigures ? targetCandidates(entry, capForFigures, direction) : [];
+  const ascending = [...extensionLevels, ...figureTargets].sort((a, b) => dir * (a - b));
+  const levelTp1 = ascending.find((l) => pctFrom(l) >= EQUITY_TP1_MIN_PCT && pctFrom(l) <= EQUITY_TP1_MAX_PCT);
+  const tp1FromStructure = levelTp1 !== undefined;
+  const takeProfit1 = levelTp1 ?? atrTp1;
 
-  // Runner extension: a real structural level beyond TP2 but inside the cap
-  // becomes the target instead of the raw multiple — same idea as
-  // `masterFromStructure` in the R-based model.
+  // The master: the next level beyond TP1 (by at least the TP1 band's floor
+  // again, so the two are not the same resistance), inside the cap.
   const capTarget = entry + dir * (EQUITY_MASTER_CAP_PCT / 100) * entry;
-  const structuralExtension = extensionLevels
-    .filter((l) => dir * (l - tp2Target) > 0 && dir * (l - capTarget) <= 0)
-    .sort((a, b) => dir * (a - b))[0];
+  const tp2Target = Math.max(atrTp2Pct, pctFrom(takeProfit1) + EQUITY_TP1_MIN_PCT);
+  const tp2Floor = entry + dir * (tp2Target / 100) * entry;
+  const structuralExtension = ascending.find(
+    (l) => dir * (l - takeProfit1) > 0 && pctFrom(l) - pctFrom(takeProfit1) >= EQUITY_TP1_MIN_PCT && dir * (l - capTarget) <= 0,
+  );
   const masterFromStructure = structuralExtension !== undefined;
-  const takeProfit2 = structuralExtension ?? tp2Target;
+  const takeProfit2 = structuralExtension ?? tp2Floor;
 
   return {
     stopLoss: round(stopLoss),
     takeProfit1: round(takeProfit1),
     takeProfit2: round(takeProfit2),
     stopFromStructure,
+    tp1FromStructure,
     masterFromStructure,
   };
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { RoundNumberNotice } from "@/components/gann/round-number-notice";
 import { useState } from "react";
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
@@ -152,8 +153,9 @@ function WhyPanel({ rec }: { rec: Recommendation }) {
         <Level label="Entry" value={why.entry} tone="accent" />
         <Level label="Stop" value={why.stopLoss} tone="bear" />
         <Level label="Target 1" value={why.takeProfit1} tone="bull" />
-        <Level label="Target 2" value={why.masterProfit} tone="bull" />
+        <Level label="Next level" value={why.masterProfit} tone="bull" />
       </div>
+      <RoundNumberNotice price={why.entry} direction={rec.action === "buy" ? "bullish" : "bearish"} />
       <p className="text-xs text-muted">{rec.exitSentence}</p>
       <p className="text-xs text-muted">Higher timeframes: {why.trend}.</p>
       <Link href={why.tickerHref} className="w-fit text-sm font-medium text-accent hover:underline">

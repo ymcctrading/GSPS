@@ -39,6 +39,16 @@ vi.mock("@/lib/learning/record", async () => {
   const actual = await vi.importActual<typeof import("@/lib/learning/record")>("@/lib/learning/record");
   return { ...actual, recordOrderExecution: (...args: unknown[]) => recordOrderExecution(...args) };
 });
+// Entry confirmation (owner decision 4) reads live bars; these tests cover
+// what happens after it, so it reports a confirmed entry.
+const confirmNow = vi.hoisted(() => ({ ready: true }));
+vi.mock("@/lib/lifecycle/confirmNow", () => ({
+  readEntryConfirmationNow: vi.fn(async () =>
+    confirmNow.ready
+      ? { ready: true, stage: "confirmed", note: "confirmed" }
+      : { ready: false, stage: "broken", note: "Price closed through the entry level and is waiting for a retest." },
+  ),
+}));
 vi.mock("@/lib/trade/kill-switch", async () => {
   const actual = await vi.importActual<typeof import("@/lib/trade/kill-switch")>("@/lib/trade/kill-switch");
   return { ...actual, killSwitchRefusal: () => killSwitchRefusal() };

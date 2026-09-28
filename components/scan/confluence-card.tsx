@@ -145,9 +145,116 @@ function GannRow({ result }: { result: NonNullable<ScanResult["signals"]>["gannC
               </p>
             </div>
           )}
+          <DisclosedRuleTiles rules={result.disclosedRules} />
         </div>
       )}
     </div>
+  );
+}
+
+const COUNTER_MOVE_LABEL = {
+  normal: "normal (2-3 weeks)",
+  extended: "longer than usual",
+  secondMonth: "into a 2nd month",
+  thirdMonth: "3rd month: trend change",
+} as const;
+
+/**
+ * Stage A context (`lib/gann/disclosedRules.ts`). Optional-chained because
+ * scan results cached before these fields existed don't carry them.
+ */
+function DisclosedRuleTiles({
+  rules,
+}: {
+  rules: NonNullable<NonNullable<ScanResult["signals"]>["gannConfluence"]>["disclosedRules"] | undefined;
+}) {
+  if (!rules) return null;
+  const tiles: { label: string; value: string }[] = [];
+  if (rules.counterMove?.inCounterMove && rules.counterMove.phase) {
+    tiles.push({
+      label: "Counter-move length",
+      value: `${rules.counterMove.days}d (${COUNTER_MOVE_LABEL[rules.counterMove.phase]})`,
+    });
+  }
+  const pct = rules.pricePercentages;
+  if (pct?.nearestAbove || pct?.nearestBelow) {
+    tiles.push({
+      label: "Percent-of-price levels",
+      value: `${pct.nearestBelow ? pct.nearestBelow.price.toFixed(2) : "—"} / ${pct.nearestAbove ? pct.nearestAbove.price.toFixed(2) : "—"}`,
+    });
+  }
+  const tests = [rules.levelTests.support, rules.levelTests.resistance].filter((t) => t && t.tests >= 2);
+  if (tests.length > 0) {
+    tiles.push({
+      label: "Level tests",
+      value: tests.map((t) => `${t!.level.toFixed(2)} ×${t!.tests}`).join(", "),
+    });
+  }
+  if (rules.yearFraction) {
+    tiles.push({ label: "Time from pivot", value: `${rules.yearFraction.fraction} (${rules.yearFraction.daysSincePivot}d)` });
+  } else if (rules.dayCountBands.length > 0) {
+    const d = rules.dayCountBands[0];
+    tiles.push({ label: "Time from pivot", value: `${d.daysSincePivot}d (${d.band[0]}-${d.band[1]} band)` });
+  }
+  if (rules.barMidpoint) {
+    tiles.push({ label: "Closes above bar midpoint", value: `${rules.barMidpoint.upOfLast5} of last 5` });
+  }
+  const rot = rules.ruleOfThree;
+  const rotText = [
+    rot.weekly?.bearishSignal ? "weekly 3 lower" : rot.weekly?.bullishSignal ? "weekly 2 higher" : null,
+    rot.monthly?.bearishSignal ? "monthly 3 lower" : rot.monthly?.bullishSignal ? "monthly 2 higher" : null,
+  ].filter(Boolean);
+  if (rotText.length > 0) tiles.push({ label: "Rule of Three (W/M)", value: rotText.join(", ") });
+  // Stage F1: extreme-price and timing rules (cached results may predate them).
+  const rs = rules.extremes?.reverseSignal;
+  if (rs?.signal) {
+    tiles.push({ label: "Reversal day", value: `${rs.signal} (${rs.rule === "reverseDay" ? "reverse day" : `${rs.runDays}-day run broken`})` });
+  }
+  const gaps = rules.extremes?.gaps;
+  const gapText = [
+    gaps?.exhaustGap ? `exhaust gap at ${gaps.exhaustGap}` : null,
+    gaps?.gapsInNewTerritory && gaps.gapsInNewTerritory.count >= 3 ? `${gaps.gapsInNewTerritory.count} ${gaps.gapsInNewTerritory.direction} gaps` : null,
+    gaps?.filledGapReversal ? `filled gap: minor trend ${gaps.filledGapReversal}` : null,
+  ].filter(Boolean);
+  if (gapText.length > 0) tiles.push({ label: "Gaps", value: gapText.join(", ") });
+  const timing = rules.timing;
+  const timingText = [
+    timing?.alternation?.mark ? `${timing.alternation.mark}-day turn count` : null,
+    timing?.square144 && timing.square144.units.length >= 2 ? `12-multiple in ${timing.square144.units.join("+")}` : null,
+  ].filter(Boolean);
+  if (timingText.length > 0) tiles.push({ label: "Turn timing", value: timingText.join(", ") });
+  if (rules.seasonal) tiles.push({ label: "Seasonal count", value: rules.seasonal.point.label });
+  if (rules.accumulation && rules.accumulation.weeks >= 2) {
+    tiles.push({ label: "Weeks in range", value: `${rules.accumulation.weeks.toFixed(1)}${rules.accumulation.breakout ? ` (broke ${rules.accumulation.breakout})` : ""}` });
+  }
+  const lead = rules.leadership;
+  if (lead && (lead.bottomedFirst || lead.bottomedLate || lead.toppedFirst)) {
+    tiles.push({ label: "Versus the market", value: lead.bottomedFirst ? "bottomed first" : lead.bottomedLate ? "bottomed late" : "topped first" });
+  }
+  if (rules.sharesPerPoint?.topWarning) tiles.push({ label: "Volume per point", value: `${rules.sharesPerPoint.ratio.toFixed(1)}× prior leg` });
+  const tr = rules.timeRules;
+  if (tr?.halt) tiles.push({ label: `${tr.halt.days}-day halt`, value: `at ${tr.halt.at} ${tr.halt.extreme.toFixed(2)}` });
+  if (tr?.reactionWeek) {
+    tiles.push({ label: "Reaction week", value: `${tr.reactionWeek}${tr.reactionAbnormal ? " (long)" : tr.reactionInZone ? " (2–3 wk zone)" : ""}` });
+  }
+  for (const m of [rules.multipleTops?.top, rules.multipleTops?.bottom]) {
+    if (m) tiles.push({ label: `${m.tests >= 3 ? "Triple" : "Double"} ${m.kind}`, value: `${m.level.toFixed(2)} ${m.state}` });
+  }
+  if (rules.zone) {
+    tiles.push({ label: "Zone of activity", value: `${rules.zone.zone > 0 ? "+" : ""}${rules.zone.zone}${rules.zone.firstSignOfEnd ? " (first sign of the end)" : ""}` });
+  }
+  if (timing?.projection) {
+    tiles.push({ label: `Next swing ${timing.projection.kind}`, value: `~${timing.projection.medianDate} (±${Math.round(timing.projection.spreadDays / 2)}d)` });
+  }
+  return (
+    <>
+      {tiles.map((t) => (
+        <div key={t.label} className="rounded-md border border-border bg-surface p-2">
+          <p className="text-muted">{t.label}</p>
+          <p className="font-mono font-semibold">{t.value}</p>
+        </div>
+      ))}
+    </>
   );
 }
 

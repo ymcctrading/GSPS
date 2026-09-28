@@ -69,10 +69,12 @@ import {
 } from "@/lib/brokers/alpaca";
 import {
   extendHighWater,
+  LIVE_EXIT_RULE,
   planProtocolExit,
   planStopAdjustment,
   type StopReason,
 } from "@/lib/trade/protocol-exit";
+import { readLiveGannExit } from "@/lib/trade/gann-exit-live";
 import { describeProtocolSignal, recordPendingExit } from "@/lib/portfolio/trade-log-record";
 import { isWorking, normalizeOrderStatus } from "@/lib/portfolio/order-status";
 import { handleAutomatedStopOut } from "@/lib/automation/stop-out";
@@ -277,6 +279,17 @@ async function advance(
     return;
   }
 
+  const gann =
+    LIVE_EXIT_RULE === "gann"
+      ? await readLiveGannExit({
+          symbol: plan.symbol,
+          side: plan.side,
+          entryPrice,
+          initialStop: plan.stop_loss,
+          openedAt: plan.created_at,
+          best: highWater,
+        })
+      : null;
   const action = planStopAdjustment({
     side: plan.side,
     entryPrice,
@@ -288,6 +301,7 @@ async function advance(
     highWater,
     lastPrice: Number.isFinite(price) ? price : null,
     appliedStop: plan.applied_stop,
+    gann,
   });
 
   if (action.kind === "close_all") {
