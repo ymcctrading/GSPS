@@ -30,6 +30,14 @@
  *   weekly swing chart turning against the trade after entry, or the
  *   campaign's greatest reaction over-balanced in space or time (Master
  *   Course Ch. 7; *Commodities* p. 51).
+ * - **D2 distribution week** (added 2026-09-28). Two-thirds of the capital
+ *   stock changing hands in one week at a top means distribution (*Wall
+ *   Street Stock Selector* Ch. VII), and a week turning over almost all of it
+ *   is a plain top (Master Course Ch. 12). A long leaves when such a week
+ *   prints after the fill. Longs only: the text states these as top rules,
+ *   and its bottom rule is volume drying up (D1), not a turnover count, so no
+ *   mirror is invented for shorts. Needs the stored share count; without it
+ *   the rule is silent. See `capitalStock.ts`.
  *
  * Engineering choices, labelled as such:
  * - Gann's "3 points" is the codebase's existing price-scaled lost-motion
@@ -54,6 +62,8 @@ import type { Bar } from "@/lib/types";
 import { LOST_MOTION_BUFFER_PCT } from "@/lib/gann/entryTrigger";
 import { THREE_DAY_CHART, WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 import { buildCampaignLedger } from "@/lib/gann/campaignLedger";
+import { readCapitalStock } from "@/lib/gann/capitalStock";
+import { toWeeklyBars } from "@/lib/gann/disclosedRules";
 
 export const EXIT_ALLOWANCE_PCT = LOST_MOTION_BUFFER_PCT;
 
@@ -73,7 +83,7 @@ export interface GannExitPosition {
 }
 
 export type GannStopReason = "initial" | "break_even" | "last_reaction" | "prior_month" | "final_stage";
-export type GannExitReason = "hold_test_failed" | "three_adverse_closes" | "trend_change";
+export type GannExitReason = "hold_test_failed" | "three_adverse_closes" | "trend_change" | "distribution";
 
 export interface GannExitReading {
   /** The tightest stop Gann's rules allow now. Callers ratchet: never loosen a stop already placed. */
@@ -91,8 +101,14 @@ const day = (b: Bar) => b.t.slice(0, 10);
  * `daily` is the completed daily sessions up to now, oldest first, including
  * history from before the entry (the swing charts and the campaign need it).
  * `best` is the best price the trade has seen since the fill.
+ * `sharesOutstanding` is the stored share count as of now (D2), when known.
  */
-export function readGannExit(pos: GannExitPosition, daily: Bar[], best: number | null): GannExitReading {
+export function readGannExit(
+  pos: GannExitPosition,
+  daily: Bar[],
+  best: number | null,
+  sharesOutstanding: number | null = null,
+): GannExitReading {
   const long = pos.side === "long";
   const a = EXIT_ALLOWANCE_PCT / 100;
   const below = (p: number) => (long ? p * (1 - a) : p * (1 + a));
@@ -153,6 +169,20 @@ export function readGannExit(pos: GannExitPosition, daily: Bar[], best: number |
         .filter(Boolean)
         .join(" and ")}): the trend is changing.`,
     };
+  }
+
+  // D2: a distribution week at a top, printed after the fill.
+  if (!exit && long && sharesOutstanding) {
+    const cs = readCapitalStock(daily, toWeeklyBars(daily), sharesOutstanding);
+    // Weekly bars are keyed by their Monday, so a week that began before the
+    // fill but closed after it still counts.
+    const entryWeek = toWeeklyBars(since)[0]?.t.slice(0, 10) ?? pos.entryDate;
+    if (cs && (cs.distributionWeek || cs.plainTopWeek) && cs.peakRecentWeek !== null && cs.peakRecentWeek >= entryWeek) {
+      exit = {
+        reason: "distribution",
+        note: `${(cs.peakRecentWeekTurnover * 100).toFixed(0)}% of the capital stock changed hands in the week of ${cs.peakRecentWeek}, at a top: distribution.`,
+      };
+    }
   }
 
   // C2: break-even after a profit equal to the risk taken.

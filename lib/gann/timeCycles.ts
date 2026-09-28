@@ -98,7 +98,7 @@ export const DAY_COUNT_BANDS: readonly [number, number][] = [
  * rule, not a reconstruction, so it replaces the narrower 1-3-year window
  * rather than sitting alongside it as a separate hypothesis.
  */
-const MAJOR_CYCLE_YEARS = [1, 2, 3, 5, 7, 10, 15, 20, 30, 50, 60];
+export const MAJOR_CYCLE_YEARS = [1, 2, 3, 5, 7, 10, 15, 20, 30, 50, 60];
 
 /**
  * Gann's "permanent cycle which does not change" (A4, 1930 back matter):

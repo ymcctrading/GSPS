@@ -98,7 +98,14 @@ import { computeAngleSlopes } from "@/lib/gann/normalizedSlope";
 import { computeRetracementLevels } from "@/lib/gann/retracement";
 import { priceTimeConfluence } from "@/lib/gann/digitalRoot";
 import { computeCampaignLeg, computeSwingChart, type CampaignLegReading, type SwingChartReading } from "@/lib/gann/swingChart";
-import { majorPricePercentageLevels, readDisclosedRules, type DisclosedRulesContext } from "@/lib/gann/disclosedRules";
+import {
+  majorPricePercentageLevels,
+  readDisclosedRules,
+  type DisclosedRulesContext,
+  type InstrumentFacts,
+} from "@/lib/gann/disclosedRules";
+import { splitAdjustedSharesAsOf, type SharesPoint } from "@/lib/data/instrumentReference";
+import type { Inception } from "@/lib/gann/incorporationCycle";
 import { contextFactorsFor } from "@/lib/gann/contextFactors";
 import { computeRuleOfThree, type RuleOfThreeReading } from "@/lib/gann/ruleOfThree";
 import { computeTimePriceSquare, type TimePriceSquareReading } from "@/lib/gann/timePriceSquare";
@@ -211,6 +218,15 @@ export interface ReplayOptions {
    * convention.
    */
   exitRule?: "bracket" | "gann";
+  /**
+   * Stored filings facts for the symbol (parity roadmap D2, D3; see
+   * `lib/data/instrumentReference.ts`). Each session reads the share count
+   * that had been filed before it, restated to the bars' split basis, so no
+   * later filing reaches a trade. Omit it and the capital-stock and
+   * incorporation readings are null, as they are for symbols with no stored
+   * row.
+   */
+  instrument?: { sharesHistory: SharesPoint[]; inception: Inception | null };
 }
 
 export interface ReplayTrade {
@@ -427,6 +443,8 @@ export function buildMacroContext(
   asOf: Date = new Date(new Date(daily[daily.length - 1].t).getTime() + 24 * 3600 * 1000),
   /** Closed monthly bars before `asOf`, when the run has them. They anchor Gann's percentage-of-price levels the way the live scan's monthly history does. */
   priorMonthly: Bar[] = [],
+  /** Shares outstanding as of this session and the inception date (D2, D3), when stored. */
+  instrument: InstrumentFacts | null = null,
 ): MacroContext {
   const weekly = rollUp(daily, weekKey);
   const monthly = rollUp(daily, (b) => b.t.slice(0, 7));
@@ -512,7 +530,7 @@ export function buildMacroContext(
     momentumElevated: baselineAtr > 0 && recentAtr / baselineAtr >= 1.2,
     atrPct,
     structuralLevels: allLevels.map((l) => l.price),
-    disclosedRules: readDisclosedRules(daily, price),
+    disclosedRules: readDisclosedRules(daily, price, instrument, asOf),
   };
 }
 
@@ -543,6 +561,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     useProductionStop = false,
     entryRule = "stop",
     exitRule = "bracket",
+    instrument,
   } = options;
 
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
@@ -571,7 +590,10 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     let arm: SessionArm | null = null;
     if (priorSessions.length >= MIN_DAILY_BARS_FOR_SCORE) {
       const priorMonthly = monthlyBars ? monthlyBars.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)) : [];
-      const context = buildMacroContext(priorSessions, price, new Date(`${date}T12:00:00Z`), priorMonthly);
+      const facts: InstrumentFacts | null = instrument
+        ? { sharesOutstanding: splitAdjustedSharesAsOf(instrument.sharesHistory, date), inception: instrument.inception }
+        : null;
+      const context = buildMacroContext(priorSessions, price, new Date(`${date}T12:00:00Z`), priorMonthly, facts);
       const reversionDirection = preferredEntryDirection(context.macroTrends);
       const triggers: SessionTrigger[] = [];
       const reversion = computeGannEntryTrigger(priorSessions, reversionDirection);
@@ -722,6 +744,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         const walked = walkGannExit({
           bars, from: i, maxBarsHeld, long, entry, stop, dailyBars: dailyBars ?? [],
           crossedLevel: trigger.pivot.price,
+          sharesOn: instrument ? (date) => splitAdjustedSharesAsOf(instrument.sharesHistory, date) : undefined,
         });
         trades.push({
           symbol, openedAt: live.t, pattern: pattern?.name ?? null, setupKind, direction: trigger.direction,
@@ -864,8 +887,10 @@ function walkGannExit(input: {
   stop: number;
   dailyBars: Bar[];
   crossedLevel: number;
+  /** The stored share count as of a session (D2), or null. */
+  sharesOn?: (date: string) => number | null;
 }): { exit: number; barsHeld: number; reason: GannStopReason | GannExitReason | "timeout" } {
-  const { bars, from, maxBarsHeld, long, entry, dailyBars, crossedLevel } = input;
+  const { bars, from, maxBarsHeld, long, entry, dailyBars, crossedLevel, sharesOn } = input;
   const entryDate = bars[from].t.slice(0, 10);
   const position = { side: long ? "long" : "short", entry, initialStop: input.stop, entryDate, crossedLevel } as const;
   let stop = input.stop;
@@ -877,7 +902,7 @@ function walkGannExit(input: {
     const date = b.t.slice(0, 10);
     if (j > from && date !== bars[j - 1].t.slice(0, 10)) {
       const prior = dailyBars.filter((d) => d.t.slice(0, 10) < date);
-      const reading = readGannExit(position, prior, best);
+      const reading = readGannExit(position, prior, best, sharesOn?.(date) ?? null);
       if (reading.exit) return { exit: b.o, barsHeld: j - from + 1, reason: reading.exit.reason };
       if (long ? reading.stop > stop : reading.stop < stop) {
         stop = reading.stop;

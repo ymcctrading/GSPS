@@ -47,7 +47,12 @@ import { squareOf52Windows } from "@/lib/gann/squareOf52";
 import { angleMonthCounts as computeAngleMonthCounts } from "@/lib/gann/angleMonthCounts";
 import { detectSpectralCycle } from "@/lib/gann/spectralCycle";
 import { computeCampaignLeg } from "@/lib/gann/swingChart";
-import { EMPTY_DISCLOSED_RULES, describeDisclosedRules, readDisclosedRules } from "@/lib/gann/disclosedRules";
+import {
+  EMPTY_DISCLOSED_RULES,
+  describeDisclosedRules,
+  readDisclosedRules,
+  type InstrumentFacts,
+} from "@/lib/gann/disclosedRules";
 import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
 import { computeBoilingPoint } from "@/lib/gann/boilingPoint";
 import {
@@ -94,6 +99,13 @@ export interface GannConfluenceInputs {
    * simply `null`, same as always.
    */
   previousVortexRoots?: { price: number | null; time: number | null } | null;
+  /**
+   * Shares outstanding and inception date from the stored filings data
+   * (`lib/data/instrumentReference.ts`), for Gann's capital-stock and
+   * incorporation-date readings (parity roadmap D2, D3). Omit it and those
+   * two readings are null.
+   */
+  instrument?: InstrumentFacts | null;
 }
 
 const MIN_DAILY_BARS = 30;
@@ -234,7 +246,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
   const slope = normalizedSlope(inputs.currentPrice, majorLow, atrAtAnchor, timeDisplacementBars);
   const angleSlope = slope !== null ? { slope, nearestAngle: nearestGannAngle(slope) } : null;
   const coordinateLedger = buildCoordinateLedger(inputs.dailyBars, inputs.currentPrice);
-  const disclosedRules = readDisclosedRules(inputs.dailyBars, inputs.currentPrice);
+  const disclosedRules = readDisclosedRules(inputs.dailyBars, inputs.currentPrice, inputs.instrument ?? null);
 
   const explanationTrace: string[] = [
     `Root: sqrt(anchor ${anchorPivot?.kind === "high" ? "high" : "low"} ${majorLow.toFixed(2)}) = ${root.toFixed(4)}.`,

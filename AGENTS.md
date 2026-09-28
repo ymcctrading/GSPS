@@ -128,8 +128,15 @@ once the replay agrees. Entry confirmation holds on every path, automation
 included (owner: "automation should adhere to the same rules as everything
 else"), checked once in `lib/trade/place-order.ts`. Equity targets come from
 Gann/S-R levels (C4), and the volume criterion reads Gann's full rule (D1).
-D2/D3 are blocked on a data source. `STRATEGY_VERSION` is
-`2026-09-27-gann-targets-volume`.
+`STRATEGY_VERSION` is `2026-09-27-gann-targets-volume`.
+**D2/D3, 2026-09-28:** shares outstanding (SEC EDGAR) and inception dates
+(Wikidata, by CIK) are fetched once by `scripts/fetch-instrument-reference.mjs`
+and stored (migration 0083); nothing at runtime calls either service. D2's
+distribution week is a Gann exit for longs (`exitRules.ts`), D3 is context.
+Both are read the same way on the live scan and the replay. Verdicts and
+trades on the default bracket are unchanged, so `STRATEGY_VERSION` stays.
+**Bars are split-adjusted, share counts are not:** read historical counts
+through `splitAdjustedSharesAsOf`, never raw.
 **Measured the same day** (`docs/replay-runs/2026-09-27-766sym-NOTES.md`,
 766 symbols): since B1, Execute beats Watch in every bracket cell (confirmed
 +0.350R, stop +0.220R on the breakaway version); the confirmed entry stays

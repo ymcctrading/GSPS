@@ -22,6 +22,7 @@
  * same number over three weeks and over three years are different claims.
  */
 
+import { loadInstrumentReferenceHistory } from "@/lib/data/instrumentReference";
 import type { Bar, Timeframe } from "@/lib/types";
 import { getMarketDataProvider } from "@/lib/data/provider";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
@@ -358,6 +359,11 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
   // Sequential rather than parallel: the vendor rate-limits, and a backtest
   // that trips the limiter reports a smaller universe than it was asked for
   // while looking like it succeeded.
+  // Shares outstanding and inception dates (parity roadmap D2, D3), one read
+  // for the whole run. Empty when the table can't be reached, and the two
+  // readings are then simply absent from every trade.
+  const references = await loadInstrumentReferenceHistory(symbols);
+
   for (const symbol of symbols) {
     try {
       const { bars: fetched, daily, monthly } = await fetchSeries(symbol, timeframe, true);
@@ -382,7 +388,11 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
       if (from === null || first < from) from = first;
       if (to === null || last > to) to = last;
 
-      results.push(replay(symbol, bars, { ...options, dailyBars: daily, monthlyBars: monthly }));
+      const reference = references.get(symbol.toUpperCase());
+      const instrument = reference
+        ? { sharesHistory: reference.history, inception: reference.reference.inception }
+        : undefined;
+      results.push(replay(symbol, bars, { ...options, dailyBars: daily, monthlyBars: monthly, instrument }));
       used.push(symbol);
     } catch (err) {
       skipped.push({ symbol, reason: err instanceof Error ? err.message : String(err) });
