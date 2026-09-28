@@ -19,6 +19,7 @@
 
 import type { DisclosedRulesContext } from "@/lib/gann/disclosedRules";
 import { approachingFigure } from "@/lib/gann/evenFigures";
+import { computeMacroCycle } from "@/lib/gann/macroCycle";
 
 export type ContextFactors = Record<string, boolean>;
 
@@ -134,6 +135,15 @@ export function contextFactorsFor(
   if (ctx.campaign && ctx.asOf) {
     const today = Date.parse(ctx.asOf);
     f.onTimeBalanceDate = ctx.campaign.timeBalanceDates.some((d) => Math.abs(Date.parse(d) - today) <= 2 * 86_400_000);
+  }
+  // Macro cycle (PR #285): Gann's cited DJIA anchors, month-granular and the
+  // same for every symbol. A low-anchored window is a bullish backdrop, a
+  // high-anchored one bearish; only major (5-year-plus) cycles are counted.
+  if (ctx.asOf) {
+    const macro = computeMacroCycle(new Date(ctx.asOf));
+    const major = macro.activeWindows.filter((w) => w.majorCycleYears.length > 0);
+    f.macroMajorCycleActive = major.length > 0;
+    f.macroMajorCycleWithTrade = major.some((w) => w.bullish === bull);
   }
   // G25: early and late leaders; the first-year high for longs.
   if (ctx.leadership) {

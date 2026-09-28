@@ -103,6 +103,11 @@ export const DAY_COUNT_BANDS: readonly [number, number][] = [
  * history, far too few to confirm as periodicities. They are Gann's stated
  * hierarchy and are used as such; a hit on one is weaker evidence than a hit
  * on a 1- to 10-year cycle, which has had many repetitions to be tested on.
+ *
+ * Exported so `lib/gann/macroCycle.ts` can project the identical hierarchy
+ * from Gann's own cited historical anchors instead of a per-symbol pivot —
+ * same disclosed year list, different anchor source. Keep both in sync from
+ * this one export rather than letting a second copy drift.
  */
 export const MAJOR_CYCLE_YEARS = [1, 2, 3, 5, 7, 10, 15, 20, 30, 50, 60];
 
