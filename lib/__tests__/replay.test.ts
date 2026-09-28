@@ -600,6 +600,24 @@ describe("replay exitRule: gann", () => {
   });
 });
 
+describe("replay usePlanLevels (the production plan's bracket)", () => {
+  it("trades the plan's own stop and first target, not an R-multiple bracket", () => {
+    const beyond = past(3 * RISK);
+    const run = { o: past(0.4), h: SIDE > 0 ? beyond : past(0.3), l: SIDE > 0 ? past(0.3) : beyond, c: past(0.5) };
+    const plan = replay("TEST", session([crossing, run, quiet]), { targetR: 2, dailyBars: DAILY, usePlanLevels: true });
+    const legacy = replay("TEST", session([crossing, run, quiet]), { targetR: 2, dailyBars: DAILY, useProductionStop: true });
+    expect(plan.trades.length).toBeGreaterThan(0);
+    for (const t of plan.trades) {
+      const risk = Math.abs(t.entry - t.stop);
+      // The plan's TP1 comes from levels, so it is not tied to 2R of risk.
+      expect(Math.abs(Math.abs(t.target - t.entry) - 2 * risk)).toBeGreaterThan(1e-6);
+    }
+    if (plan.trades.length > 0 && legacy.trades.length > 0) {
+      expect(plan.trades[0].stop).not.toBeCloseTo(legacy.trades[0].stop, 6);
+    }
+  });
+});
+
 describe("replay exitRule: gann-runner (the live rule)", () => {
   it("records lots under pyramiding and never adds to a trade that stopped out", () => {
     const through = TRIGGER.stopPrice - SIDE * 0.5;

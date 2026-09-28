@@ -65,6 +65,7 @@
 import type { AssetClass, Bar, GannLevels, ScanDecision, SetupKind, StratPattern, Timeframe, TrendReading } from "@/lib/types";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { computeStopWithLeeway, computeTradeLevels, type EntrySource } from "@/lib/strat/levels";
+import type { TradeLevels } from "@/lib/types";
 import {
   MIN_DAILY_BARS_FOR_SCAN,
   isContinuationShape,
@@ -79,6 +80,7 @@ import { readBreakaway, type BreakawayReading } from "@/lib/gann/breakaway";
 import { readGannExit, type GannExitReason, type GannStopReason } from "@/lib/gann/exitRules";
 import { SCALE_OUT_PCT } from "@/lib/trade/protocol-exit";
 import { readPyramidAdd, type PyramidLot } from "@/lib/gann/pyramid";
+import { roundNumberEntryBlocked } from "@/lib/gann/evenFigures";
 import {
   FALLBACK_SR_PCT,
   SR_PROXIMITY_ATR,
@@ -185,6 +187,28 @@ export interface ReplayOptions {
    * with each stop, is the before/after `docs/BACKTESTING.md` asks for.
    */
   useProductionStop?: boolean;
+  /**
+   * Trade the plan production actually attaches (2026-09-28). For US
+   * equities `computeTradeLevels` prices the stop with
+   * `computeEquityTradeLevels` (a structural stop in a percent-of-price band)
+   * and TP1 from Gann and S/R levels. `useProductionStop` never used that
+   * model: it capped the daily-structure stop at 2.5–3.5× the *execution-bar*
+   * ATR (`computeStopWithLeeway`), a stop a small fraction of the plan's, and
+   * paired it with a `targetR` target. With this on, the bracket's stop is the
+   * plan's `stopLoss` and its target the plan's `takeProfit1` (the Gann exit
+   * rules scale out at that TP1 too), exactly as `scoreSetup` prices it for
+   * the verdict. `targetR` is then unused. R stays measured on the plan's own
+   * risk (trigger to plan stop). Takes precedence over `useProductionStop`.
+   * A setup with no valid plan is skipped, as production publishes none.
+   */
+  usePlanLevels?: boolean;
+  /**
+   * Skip entries the autonomous portfolio manager holds at a round number by
+   * default (`lib/gann/evenFigures.ts#roundNumberEntryBlocked`): an entry just
+   * short of a figure whose breakout level isn't that figure. Mirrors the
+   * manager's default setting (auto-ordering at round numbers off).
+   */
+  roundNumberHold?: boolean;
   /**
    * Which entry rule fills the trade. Production uses both, on different
    * paths:
@@ -585,6 +609,8 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     monthlyBars,
     weights,
     useProductionStop = false,
+    usePlanLevels = false,
+    roundNumberHold = false,
     entryRule = "stop",
     exitRule = "bracket",
     pyramid = false,
@@ -734,29 +760,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       // the leeway or large-cap cap `computeTradeLevels` applies for the live
       // scan and Guided Mode. `useProductionStop` swaps in the capped one,
       // priced against the trigger as the plan prices it.
-      const stop =
-        useProductionStop && executionAtr > 0
-          ? computeStopWithLeeway({
-              side: long ? "long" : "short",
-              entry: trigger.triggerPrice,
-              structuralStop: trigger.stopPrice,
-              atr15: executionAtr,
-              largeCap,
-            })
-          : trigger.stopPrice;
-      const risk = Math.abs(trigger.triggerPrice - stop);
-      if (!(risk > 0) || (long ? stop >= trigger.triggerPrice : stop <= trigger.triggerPrice)) continue;
-      const target = trigger.triggerPrice + dir * targetR * risk;
-
-      // Production refuses a fill at or beyond its own stop or target
-      // (`fill_outran_bracket`). The setup is spent either way.
-      const outran = long ? entry <= stop || entry >= target : entry >= stop || entry <= target;
-      if (outran) {
-        refusedFills++;
-        continue;
-      }
-
-      const decision = scoreSetup({
+      const scored = scoreSetup({
         context: arm.context,
         pattern,
         gannTrigger: trigger,
@@ -768,6 +772,43 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         breakaway,
         weights,
       });
+      const decision = scored.decision;
+
+      if (
+        roundNumberHold &&
+        roundNumberEntryBlocked({ entry: trigger.triggerPrice, direction: trigger.direction, crossedLevel: trigger.pivot.price }).blocked
+      ) {
+        continue;
+      }
+
+      // The production plan (usePlanLevels): its own stop and TP1.
+      if (usePlanLevels && !scored.levels) continue;
+      const planLevels = usePlanLevels ? scored.levels : null;
+      const stop = planLevels
+        ? planLevels.stopLoss
+        : useProductionStop && executionAtr > 0
+          ? computeStopWithLeeway({
+              side: long ? "long" : "short",
+              entry: trigger.triggerPrice,
+              structuralStop: trigger.stopPrice,
+              atr15: executionAtr,
+              largeCap,
+            })
+          : trigger.stopPrice;
+      const risk = Math.abs(trigger.triggerPrice - stop);
+      if (!(risk > 0) || (long ? stop >= trigger.triggerPrice : stop <= trigger.triggerPrice)) continue;
+      const target = planLevels ? planLevels.takeProfit1 : trigger.triggerPrice + dir * targetR * risk;
+      if (planLevels && (long ? target <= trigger.triggerPrice : target >= trigger.triggerPrice)) continue;
+
+      // Production refuses a fill at or beyond its own stop or target
+      // (`fill_outran_bracket`). The setup is spent either way.
+      const outran = long ? entry <= stop || entry >= target : entry >= stop || entry <= target;
+      if (outran) {
+        refusedFills++;
+        continue;
+      }
+
+
 
       let outcome: ReplayTrade["outcome"] = "timeout";
       let barsHeld = 0;
@@ -1029,7 +1070,7 @@ function scoreSetup(input: {
   setupKind: SetupKind;
   breakaway: BreakawayReading;
   weights?: CriterionWeights;
-}): ScanDecision {
+}): { decision: ScanDecision; levels: TradeLevels | null } {
   const { context, pattern, gannTrigger, history, executionAtr, assetClass, largeCap, setupKind, breakaway, weights } = input;
 
   // The last 400 candles is ~15 sessions of hourly context, which is more than
@@ -1046,7 +1087,7 @@ function scoreSetup(input: {
     setupLabel: gannTrigger.direction === "bullish" ? "swing-top crossing" : "swing-bottom break",
   };
 
-  let levels = null;
+  let levels: TradeLevels | null = null;
   try {
     levels = computeTradeLevels(
       entrySource,
@@ -1064,7 +1105,7 @@ function scoreSetup(input: {
     // does when computeTradeLevels rejects it.
   }
 
-  return applyBreakawayHold(applyReversionConfirmation(
+  const decision = applyBreakawayHold(applyReversionConfirmation(
     computeScore({
       direction: gannTrigger.direction,
       macroTrends: context.macroTrends,
@@ -1094,6 +1135,7 @@ function scoreSetup(input: {
     context.momentumElevated,
     context.nearSupportResistance,
   ), breakaway);
+  return { decision, levels };
 }
 
 /**

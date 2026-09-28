@@ -15,7 +15,6 @@
  */
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { CheckCircle2, Circle, GraduationCap, LineChart, CreditCard, ArrowUpCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -140,20 +139,8 @@ export default function PromotionPage() {
           {!status.paths.mandatoryComponentMet && (
             <Card>
               <CardContent className="py-4 text-sm text-warn">
-                {status.transition === "expert_to_wall_street" ? (
-                  <>
-                    This transition requires completing the live-trading risk education module first — every
-                    path below is held until that&apos;s done.
-                  </>
-                ) : (
-                  <>
-                    This transition requires passing your tier&apos;s graduation exam first — every path below,
-                    paying included, is held until you do.{" "}
-                    <Link href={`/school/exam/${status.transition}`} className="font-medium underline">
-                      Take the graduation exam →
-                    </Link>
-                  </>
-                )}
+                This transition requires completing the live-trading risk education module first — every
+                path below is held until that&apos;s done.
               </CardContent>
             </Card>
           )}

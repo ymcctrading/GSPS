@@ -6,9 +6,8 @@
  * hands back a redirect URL.
  */
 
-import { examPassedAt } from "@/lib/school/examService";
 import { NextRequest, NextResponse } from "next/server";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { isStripeEnabled, stripeClient, priceIdFor, type BillableTier, type BillingInterval } from "@/lib/billing/stripe";
 import { isWallStreetSchoolCompleted } from "@/lib/school/curriculum-service";
 
@@ -37,18 +36,8 @@ export async function POST(req: NextRequest) {
 
   // Wall Street (SYSTEM_MASTERY) checkout requires the GSPS School capstone
   // (Academy 8, not Course W2) completed first — server-side, unbypassable
-  // from the client. Since 2026-09-28 (owner) Expert (INVESTOR_MODE) checkout
-  // also requires the Pro graduation exam, the same exam every other path to
-  // Expert requires (lib/promotion/curriculumPolicy.ts#mandatoryComponentMet).
-  if (tier === "INVESTOR_MODE") {
-    const passed = await examPassedAt(createServiceClient(), user.id, "pro_to_expert");
-    if (!passed) {
-      return NextResponse.json(
-        { error: "Pass the Pro graduation exam in GSPS School before moving up to Expert.", code: "graduation_exam_required" },
-        { status: 403 },
-      );
-    }
-  }
+  // from the client. Expert purchase needs no graduation exam: paying is its
+  // own path up (owner, 2026-09-28); the exams belong to the curriculum path.
   if (tier === "SYSTEM_MASTERY") {
     const completed = await isWallStreetSchoolCompleted(supabase, user.id);
     if (!completed) {

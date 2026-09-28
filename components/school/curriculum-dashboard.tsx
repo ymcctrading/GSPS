@@ -115,8 +115,8 @@ export function CurriculumDashboard() {
         <CardHeader>
           <CardTitle>Graduation exams</CardTitle>
           <CardDescription>
-            Show you can apply what you&apos;ve learned on real past charts. Passing your tier&apos;s exam is required to
-            move up, whichever way you move up.
+            Show you can apply what you&apos;ve learned on real past charts. Passing your tier&apos;s exam is how the
+            School path moves you up a tier.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-1">

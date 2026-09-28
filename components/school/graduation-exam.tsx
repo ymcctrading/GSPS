@@ -136,7 +136,7 @@ export function GraduationExam({ transition }: { transition: string }) {
           Mr. Bull and Mrs. Bear hand you five real charts, each stopped at a date in the past. Read the
           trend, decide whether there&apos;s a trade{pro ? ", pick the entry" : ""}, place the stop and size the
           position. You&apos;re graded on applying the rules, not on whether the trade made money. Pass with
-          80% to graduate; if you miss, you can try again after a day.
+          80% to graduate through the School path; if you miss, you can try again after a day.
         </p>
       </div>
       {error && <p className="text-sm text-bear">{error}</p>}

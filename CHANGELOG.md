@@ -22,8 +22,9 @@ date.
   unchanged.
 - **Graduation exams** for Novice -> Pro and Pro -> Expert: five real past
   charts, graded on the rules (trend, trade or wait, entry, stop, size), not on
-  P&L, with each chart played forward afterwards. Required on every path up,
-  paying included. Migration 0084 (applied).
+  P&L, with each chart played forward afterwards. Part of the School
+  (curriculum) path; paying or a proven track record advance without it.
+  Migration 0084 (applied).
 - **Round numbers** (even figures): targets just before them, stops beyond
   them, a switchable notice on the card, chart and ticket, and a portfolio
   manager setting for auto-ordering at them (off by default).

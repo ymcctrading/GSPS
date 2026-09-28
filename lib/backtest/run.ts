@@ -113,6 +113,10 @@ export interface BacktestRequest {
    * `docs/BACKTESTING.md` asks for on an unmeasured constant.
    */
   useProductionStop?: boolean;
+  /** Trade the production plan's own stop and TP1. See `ReplayOptions.usePlanLevels`. */
+  usePlanLevels?: boolean;
+  /** Add to winners on Gann's pyramiding rules. See `ReplayOptions.pyramid`. */
+  pyramid?: boolean;
   /** Which entry rule fills trades. See `ReplayOptions.entryRule`. Defaults to `"stop"`. */
   entryRule?: ReplayOptions["entryRule"];
   /** How open trades leave. See `ReplayOptions.exitRule`. Defaults to `"bracket"`. */
@@ -209,6 +213,8 @@ export interface BacktestReport {
   yearCycleSplit: { withHits: RunSummary; withoutHits: RunSummary };
   /** Echoes the request — a report has to say which stop model produced it. */
   useProductionStop: boolean;
+  /** Echoes the request: true when the bracket was the production plan's own stop and TP1. */
+  usePlanLevels: boolean;
   /** Echoes the request: a report has to say which entry rule produced it. */
   entryRule: "stop" | "confirmed";
   /** Echoes the request: a report has to say which exit rule produced it. */
@@ -224,6 +230,14 @@ export interface BacktestReport {
    * Gann's exit rules can be read on its own. Empty under the bracket.
    */
   exitReasonSplit: Record<string, RunSummary>;
+  /**
+   * All trades split by the calendar year each opened in (added 2026-09-28),
+   * so a multi-year run can be read by market regime (Dewey criterion 6,
+   * persistence through changed conditions; Halberg's phase confounding).
+   */
+  byYear: Record<string, RunSummary>;
+  /** Execute-bucket trades split by the year each opened in. */
+  executeByYear: Record<string, RunSummary>;
   /**
    * Triggered entries dropped because they filled at or beyond the plan's own
    * stop or target, which production refuses (`fill_outran_bracket`).
@@ -340,6 +354,8 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
     weights,
     since,
     useProductionStop,
+    usePlanLevels,
+    pyramid,
     entryRule,
     exitRule,
   } = request;
@@ -356,6 +372,8 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
     ...(costPerShare !== undefined ? { costPerShare } : {}),
     ...(weights ? { weights } : {}),
     ...(useProductionStop !== undefined ? { useProductionStop } : {}),
+    ...(usePlanLevels !== undefined ? { usePlanLevels } : {}),
+    ...(pyramid !== undefined ? { pyramid } : {}),
     ...(entryRule !== undefined ? { entryRule } : {}),
     ...(exitRule !== undefined ? { exitRule } : {}),
   };
@@ -463,6 +481,13 @@ export async function runBacktest(request: BacktestRequest): Promise<BacktestRep
  * the identical report without refetching.
  */
 /** Split trades at the median open time and attribute each half. */
+function splitByYear(trades: ReplayResult["trades"]): Record<string, RunSummary> {
+  const years = [...new Set(trades.map((t) => t.openedAt.slice(0, 4)))].sort();
+  return Object.fromEntries(
+    years.map((y) => [y, summarise(summariseTrades(trades.filter((t) => t.openedAt.startsWith(y))))]),
+  );
+}
+
 function chronologicalHalves(trades: ReplayResult["trades"]): BacktestReport["halves"] {
   const sorted = [...trades].sort((a, b) => a.openedAt.localeCompare(b.openedAt));
   const mid = Math.floor(sorted.length / 2);
@@ -478,7 +503,7 @@ export function buildReport(
   request: BacktestRequest,
   slippageSensitivity?: SlippageSensitivity,
 ): BacktestReport {
-  const { attributeWithin = "Execute", attributeScoreRange, useProductionStop = false, entryRule = "stop", exitRule = "bracket" } = request;
+  const { attributeWithin = "Execute", attributeScoreRange, useProductionStop = false, usePlanLevels = false, entryRule = "stop", exitRule = "bracket" } = request;
 
   const split = byOutputState(run.overall);
   const target = attributeScoreRange
@@ -513,6 +538,7 @@ export function buildReport(
       withoutHits: summarise(cycleSplit.withoutHits),
     },
     useProductionStop,
+    usePlanLevels,
     entryRule,
     exitRule,
     setupKindSplit: {
@@ -533,6 +559,8 @@ export function buildReport(
     factors: attributeFactors(target.trades),
     contextFactors: attributeFactors(target.trades, { field: "contextFactors" }),
     halves: chronologicalHalves(target.trades),
+    byYear: splitByYear(run.overall.trades),
+    executeByYear: splitByYear(run.overall.trades.filter((t) => t.outputState === "Execute")),
     atrBands: attributeByAtrMultiple(target.trades).map(({ from, to, arm }) => ({
       from,
       to,

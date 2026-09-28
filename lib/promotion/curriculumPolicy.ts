@@ -49,9 +49,9 @@ export interface CurriculumProgressInputs {
   advancedCurriculumCompletedAt: string | null;
   /** Academy 8 capstone + dossier lab passed — expert_to_wall_street only, also the mandatory safety gate. */
   capstoneCompletedAt: string | null;
-  /** The Novice graduation exam passed (lib/school/graduationExam.ts) — novice_to_pro's mandatory component. */
+  /** The Novice graduation exam passed (lib/school/graduationExam.ts) — part of novice_to_pro's curriculum path. */
   noviceExamPassedAt?: string | null;
-  /** The Pro graduation exam passed — pro_to_expert's mandatory component. */
+  /** The Pro graduation exam passed — part of pro_to_expert's curriculum path. */
   proExamPassedAt?: string | null;
 }
 
@@ -67,15 +67,21 @@ export function evaluateCurriculumEligibility(
   inputs: CurriculumProgressInputs,
 ): CurriculumEligibility {
   switch (transition) {
+    // The curriculum path graduates through the exam (owner, 2026-09-28):
+    // the courses plus a passed graduation exam. Track record and paying are
+    // their own proofs and don't need it.
     case "novice_to_pro":
       return {
-        eligible: inputs.foundationsEducationCompletedAt != null && inputs.practiceValidationCompletedAt != null,
-        mandatoryComponentMet: inputs.noviceExamPassedAt != null,
+        eligible:
+          inputs.foundationsEducationCompletedAt != null &&
+          inputs.practiceValidationCompletedAt != null &&
+          inputs.noviceExamPassedAt != null,
+        mandatoryComponentMet: true,
       };
     case "pro_to_expert":
       return {
-        eligible: inputs.advancedCurriculumCompletedAt != null,
-        mandatoryComponentMet: inputs.proExamPassedAt != null,
+        eligible: inputs.advancedCurriculumCompletedAt != null && inputs.proExamPassedAt != null,
+        mandatoryComponentMet: true,
       };
     case "expert_to_wall_street":
       return {
@@ -88,21 +94,14 @@ export function evaluateCurriculumEligibility(
 /**
  * Whether the transition's mandatory, path-independent safety component is
  * met — checked once and required regardless of which of the three paths a
- * profile otherwise qualifies through. Wall Street: the live-trading risk
- * capstone (owner, 2026-09-25). Novice -> Pro and Pro -> Expert: the
- * graduation exam in that tier's sandbox (owner, 2026-09-28: a student shows
- * they can apply what they learned before moving up, whichever path they
- * take, pay-your-way included).
+ * profile otherwise qualifies through. Only Wall Street has one: the
+ * live-trading risk capstone (owner, 2026-09-25). The graduation exams
+ * (owner, 2026-09-28) belong to the curriculum path alone: a student who
+ * pays, or who proves sustained trading success, may advance without them.
  */
 export function mandatoryComponentMet(transition: TierTransition, inputs: CurriculumProgressInputs): boolean {
-  switch (transition) {
-    case "novice_to_pro":
-      return inputs.noviceExamPassedAt != null;
-    case "pro_to_expert":
-      return inputs.proExamPassedAt != null;
-    case "expert_to_wall_street":
-      return inputs.capstoneCompletedAt != null;
-  }
+  if (transition !== "expert_to_wall_street") return true;
+  return inputs.capstoneCompletedAt != null;
 }
 
 /**
