@@ -346,3 +346,16 @@ describe("OrderTicket protocol-level invalidation", () => {
     expect(screen.getByRole("button", { name: /Sell short DRAM/ })).not.toBeDisabled();
   });
 });
+
+/**
+ * A plan armed by the structural trigger with no bar-sequence pattern — the
+ * shape `/api/scan` returned for HDB and BMNR on 2026-09-28. The ticket's
+ * headline used to dereference `pattern!` and took down the whole ticker page.
+ */
+describe("OrderTicket with no bar-sequence pattern", () => {
+  it("renders a protocol plan whose pattern is null", () => {
+    mockFetch();
+    render(<OrderTicket result={{ ...scanWithEntry(40, "bearish"), pattern: null }} livePrice={40} />);
+    expect(screen.getByText(/armed structural entry trigger is bearish/)).toBeInTheDocument();
+  });
+});
