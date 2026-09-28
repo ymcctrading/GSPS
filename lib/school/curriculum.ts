@@ -712,6 +712,64 @@ const ACADEMY_4: Academy = {
           ],
           reviewMeta: AUTHOR,
         },
+        {
+          id: "academy-4/method-rules/seven-zones",
+          title: "The Seven Zones of Activity",
+          objectives: [
+            "Place a stock in its normal zone or one of the extreme zones above or below it.",
+            "Explain why the outer zones call for the other rules to confirm, not for a trade on their own.",
+          ],
+          estimatedMinutes: 10,
+          instruction: [
+            "The method divides a stock's activity into seven zones: one normal zone where it spends most of its time, three zones above it that are progressively more extreme, and three below it, mirrored. A stock moving up out of its normal zone passes into the first zone above, then the second and third, each one further from what is normal for that stock.",
+            "The outer zones are where campaigns end. A bear campaign that has reached the lowest zone, or a bull campaign in the highest, has less room left to run than one just leaving the normal zone. A market does not turn simply because it has reached an outer zone, though; it can stay there for some time.",
+            "So the zones are a map, not a trigger. In the outer zones, give the turning rules more weight: volume at the turn, a reaction that over-balances the campaign's earlier ones, a campaign in its third or fourth section, and a close back under the level that was crossed. When those agree with an extreme zone, the turn is more likely real.",
+          ],
+          application:
+            "Take a stock you follow. Mark the range it spent most of the last year in, then say which zone it is in now and which turning rules, if any, are showing.",
+          quiz: [
+            q(
+              "How many zones of activity does the method describe?",
+              ["Three", "Five", "Seven: one normal zone and three on each side", "Nine"],
+              2,
+            ),
+            q(
+              "A stock has reached its most extreme zone above normal. What should you do?",
+              ["Sell short at once", "Give the turning rules more weight and wait for them to confirm", "Buy more", "Ignore the zone entirely"],
+              1,
+            ),
+          ],
+          reviewMeta: AUTHOR,
+        },
+        {
+          id: "academy-4/method-rules/trader-qualifications",
+          title: "The Trader's Five Qualifications",
+          objectives: [
+            "Name the five qualifications the method says a trader needs.",
+            "Explain why hope and fear are treated as the trader's chief enemies.",
+          ],
+          estimatedMinutes: 10,
+          instruction: [
+            "The method names five things a trader needs before the rules can work. Knowledge: regular study over years, not a few weeks. Patience: waiting for the right entry, and waiting for the trend to change before taking profits. Nerve, which comes from knowledge: you act on a rule because you understand it. Good health: never trade when you are ill or not yourself; stop and recover first. And capital: a small account is fine, provided every trade has a stop, losses are kept small and you don't overtrade.",
+            "Most losses come from the trader, not the market: trading on hope, tips, opinions or guesses, and refusing to admit a trade is wrong. Hope keeps a losing trade open; fear closes a winning one too early. A definite plan, followed every time, is the defence against both.",
+            "Prove the rules to yourself before you trust them with money. That is why GSPS measures every rule it uses against past trades, why paper trading comes before live money, and why the platform pauses new entries after a run of losses: it is the same instruction to stop, study and recover.",
+          ],
+          application:
+            "Rate yourself honestly on each of the five qualifications today. Pick the weakest one and write one thing you will do this week to improve it.",
+          quiz: [
+            q(
+              "Which of these is one of the five qualifications?",
+              ["A large account", "Good health", "Inside information", "A fast internet connection"],
+              1,
+            ),
+            q(
+              "Hope is treated as an enemy because it:",
+              ["Makes you take profits too early", "Keeps a losing trade open when the plan says to close it", "Stops you trading at all", "Has no effect on trading"],
+              1,
+            ),
+          ],
+          reviewMeta: AUTHOR,
+        },
       ],
     },
   ],

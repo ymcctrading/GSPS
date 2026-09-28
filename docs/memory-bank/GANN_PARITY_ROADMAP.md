@@ -41,9 +41,9 @@ The goal is that every rule Gann **disclosed** runs in GSPS the way he stated it
 | Entries, stops, exits, lifecycle | 3 | 3 | 1 (X4) | 5 | — |
 | Volume | 2 | 0 | 0 | 2 | — |
 | Risk and money management | 4 | 1 | 0 | 1 | — |
-| The trader (education) | 1 | 2 | 0 | 2 | — |
+| The trader (education) | 3 | 1 | 0 | 1 | — |
 | Astrology, numerology, forecasting | 1 | 0 | 0 | 3 (research) | 2 excluded, 1 cannot be copied |
-| **Total (74 rules)** | **29** | **11** | **1** | **29** | **4** |
+| **Total (74 rules)** | **31** | **10** | **1** | **28** | **4** |
 
 Counts are rows in Part 3; "Aligned" includes rows aligned in structure.
 
@@ -156,8 +156,8 @@ Each row gives the rule and its source, what GSPS does now, the status, and the 
 
 | Gann rule | Source | GSPS today | Status | Next step |
 |---|---|---|---|---|
-| Five qualifications; hope and fear as the enemy; prove the rules yourself | A05; A03; A10 | GSPS School curriculum; **E2 2026-09-28:** Academy 4 course "The Method's Rules" (swing charts and trend change, time, entries/stops/exits, volume and the trader), in our own words | Partial | The qualifications and the Seven Zones still to write |
-| Seven Zones of Activity | A02 Ch. XI | none | Missing | Education or regime display |
+| Five qualifications; hope and fear as the enemy; prove the rules yourself | A05; A03; A10 | GSPS School: Academy 4 course "The Method's Rules" (2026-09-28), including a lesson on the five qualifications and hope and fear, in our own words | Aligned | A Foundations version would reopen the required academy for existing learners: owner's call |
+| Seven Zones of Activity | A02 Ch. XI | **Education 2026-09-28:** Academy 4 lesson (normal zone, three extreme zones each side, the outer zones as where campaigns end, confirmed by the turning rules) | Aligned (education) | A regime display once a zone boundary rule is specified; our notes don't give Gann's boundaries |
 | Early and late leaders; first-year-high filter; stocks that bottom first top first | A04 Ch. VII | none | Missing | G25: scanner ranking context |
 | Never buy one stock to follow another in its group | A04 Ch. VII | stock-own trend | Aligned | — |
 | Dated forecasts are testimony, never performance claims | all | banned-terms rule | Partial | Keep the 1929/1940 record as a teaching example of why GSPS measures |
@@ -255,7 +255,7 @@ Each step says whether a user waits on it (AGENTS.md "Speed is a product require
 
 **Stage E — risk and education**
 - E1 · G16: cite Gann in `cooldown.ts`, align the thresholds (owner), and add "don't size up after a winning run." **Built 2026-09-28:** `lib/risk/lossSeries.ts` on every placement path; the % breaker is documented as GSPS's own; no result-based size increase exists.
-- E2 · GSPS School lessons for the disclosed rules users now see in the product: time rules, the Rule of Three, the 3-point rule, sections, over-balance, the Seven Zones, early and late leaders, and why forecasts are measured. **Built 2026-09-28:** a four-lesson course in Academy 4 (advisory for Pro/Expert, so no required academy reopens for existing learners). The Seven Zones and the trader's qualifications are still to write.
+- E2 · GSPS School lessons for the disclosed rules users now see in the product: time rules, the Rule of Three, the 3-point rule, sections, over-balance, the Seven Zones, early and late leaders, and why forecasts are measured. **Built 2026-09-28:** a four-lesson course in Academy 4 (advisory for Pro/Expert, so no required academy reopens for existing learners). The Seven Zones and the trader's qualifications lessons followed the same day.
 
 **Stage F — timing refinements and research**
 - F1 · G9 7/14-day alternation; G20 reverse signal day and 7–10 Day Rule; G21 gap rules; G11 Square of 144 convergence; G12 projection dispersion.
@@ -263,7 +263,7 @@ Each step says whether a user waits on it (AGENTS.md "Speed is a product require
 - F2 · The astrology track AS1–AS4 (decision 7): ephemeris, a rule fixed in advance, Dewey's full test, confluence only.
 - F3 · Measurement upgrades M1–M7 throughout (Schuster test, out-of-sample, regime splits, base rates).
   **2026-09-28:** M1 Schuster p in `spectralCycle.ts`; M2/M3 the backtest report now repeats both factor tables for the early and late half of the window (`halves`); M4/M6 every calendar and timing field is a measured context factor against the unconditioned population; M5 labelled; M7 recorded. The remaining M1/M2 items (cosinor interval, log detrending, artifact guards, 70/30 hold-out) were built the same day in `spectralCycle.ts`; the extra checks run only when a cycle clears the dominance threshold, so the common case costs one scan as before.
-- F2 · Stays research-only and separate (decision 7). F4 · Still gated: Stage D is in progress in another session.
+- F2 · Stays research-only and separate (decision 7). F4 · Unblocked 2026-09-28: Stages A–E are built (D2/D3 landed via #300).
 - F4 · The deferred cycles, solar-year anchor and calendar-convention research prompt: `FUTURE_PROMPTS.md`, "Deferred: cycles and calendar research". Not before Stages A–E are complete.
 
 ---

@@ -42,6 +42,9 @@ date.
 - **School: "The Method's Rules"** (parity E2). A four-lesson Academy 4
   course on how GSPS reads trend, time, entries and exits, volume, and the
   trader's rules, written in our own words.
+  Two more lessons the same day: the Seven Zones of Activity, and the
+  trader's five qualifications (knowledge, patience, nerve, health, capital)
+  with hope and fear as the enemies.
 
 ## 2026-09-27
 
