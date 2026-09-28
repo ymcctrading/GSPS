@@ -137,6 +137,11 @@ D2/D3 are blocked on a data source. `STRATEGY_VERSION` is
 figure but lower Execute, and the gain rests on trades still open at the
 10-session limit, so **the live exit manager stays on the bracket** until a
 longer-horizon run settles it.
+**Stage E, 2026-09-28:** Gann's series-of-losses rule runs on every placement
+path (`lib/risk/lossSeries.ts`: three losses in a row pause new entries for
+that day and the next; protective orders never blocked). School gained an
+Academy 4 course on the method's rules. The Seven Zones and the trader's
+qualifications lessons are still to write.
 **Owner direction, same day: "the point of the parity is to align, infuse
 and implement within and throughout the entire GSPS platform."** A rule is
 not parity-complete while it only shows on a card: it has to act where Gann

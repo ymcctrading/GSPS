@@ -15,6 +15,7 @@
 
 import { readEntryConfirmationNow } from "@/lib/lifecycle/confirmNow";
 import { getTradePlan } from "@/lib/lifecycle/store";
+import { readUserLossSeries } from "@/lib/risk/lossSeries";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import {
@@ -120,6 +121,28 @@ export interface PlacedOrder {
   body: Record<string, unknown>;
   /** The ledger row id, when one was written and the order was accepted. */
   orderId?: string | null;
+}
+
+/**
+ * Gann's series-of-losses rule (parity E1, `lib/risk/lossSeries.ts`): after
+ * three losing trades in a row, new entries pause for the rest of that day
+ * and the next. Both paths call it; protective orders never reach it. A read
+ * failure is logged and lets the order through: this is a behavioural pause,
+ * and the capital ceilings that fail closed are checked separately.
+ */
+async function lossSeriesRefusal(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<{ status: number; body: Record<string, unknown> } | null> {
+  const series = await readUserLossSeries(supabase, userId).catch((err) => {
+    console.error(`place-order: loss series unreadable for ${userId} — ${String(err)}`);
+    return null;
+  });
+  if (!series?.paused) return null;
+  return {
+    status: 409,
+    body: { error: series.note, code: "loss_series_pause", consecutiveLosses: series.consecutiveLosses },
+  };
 }
 
 /**
@@ -255,6 +278,11 @@ export async function placeSimulatedOrder(
   // known, documented limitation of this wiring, not a silent gap: the
   // notional/aggregate/open-risk ceilings below do not depend on this proxy
   // and are enforced fully.
+  if (!isProtective) {
+    const paused = await lossSeriesRefusal(supabase, userId);
+    if (paused) return paused;
+  }
+
   if (!isProtective) {
     const [account, openPositions] = await Promise.all([
       getOrCreateAccount(supabase, userId),
@@ -750,6 +778,10 @@ async function placeLiveOrder(
       status: 409,
       body: { error: cooldownGate.reason, code: "risk_cooldown", riskState: gate.decision.state },
     };
+  }
+  if (!isProtective) {
+    const paused = await lossSeriesRefusal(supabase, userId);
+    if (paused) return paused;
   }
 
   // Allocation/correlation ceilings (lib/risk/position-limits.ts) — the same

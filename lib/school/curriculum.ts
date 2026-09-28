@@ -589,6 +589,131 @@ const ACADEMY_4: Academy = {
         },
       ],
     },
+    {
+      id: "academy-4/method-rules",
+      slug: "method-rules",
+      title: "The Method's Rules: Trend, Time, Entries, Exits and the Trader",
+      outcome:
+        "Explain the rules GSPS applies on every setup (how the trend is read, when time matters, where an entry, stop and exit go, and when to stop trading) well enough to check a plan against them yourself.",
+      lessons: [
+        {
+          id: "academy-4/method-rules/swing-charts-and-trend",
+          title: "Swing Charts and When a Trend Changes",
+          objectives: [
+            "Read the trend from a 3-day and a weekly swing chart.",
+            "Name the signs that a trend is changing before price proves it.",
+          ],
+          estimatedMinutes: 15,
+          instruction: [
+            "GSPS reads trend from two swing charts built on highs and lows, not from moving averages. The 3-day chart follows price up while it makes higher highs and turns down after three bars of lower lows; the weekly chart does the same with a counter-move of about a week. The trend itself only turns when price crosses the last swing top (up) or breaks the last swing bottom (down). A pullback that holds above the last bottom is still an uptrend.",
+            "Trends run in sections, usually three or four. A signal in the third or fourth section counts for more than one in the second, because the move has had time to exhaust itself.",
+            "Three signs warn that a trend is changing before the swing chart turns: a reaction bigger than any earlier reaction in the move (price over-balanced), a reaction that lasts longer than any earlier one (time over-balanced), and the first break of the prior month's low after a long advance (or of its high after a decline). Time is read first: a move that runs out of time usually runs out of price soon after.",
+          ],
+          application:
+            "On a chart you know, mark the last swing top and bottom on the daily chart, count the sections of the current move, and note whether the current reaction is larger or longer than any before it.",
+          quiz: [
+            q(
+              "On the swing charts GSPS uses, an uptrend turns down when:",
+              ["Price closes below a moving average", "Price breaks the last swing bottom", "Volume falls for a day", "Any red candle appears"],
+              1,
+            ),
+            q(
+              "A reaction that lasts longer than every earlier reaction in the move is a sign that:",
+              ["The trend is strengthening", "Nothing has changed", "The trend may be changing", "Volume is about to rise"],
+              2,
+            ),
+          ],
+          reviewMeta: AUTHOR,
+        },
+        {
+          id: "academy-4/method-rules/time",
+          title: "Time: Counter-Moves, Anniversaries and the Rule of Three",
+          objectives: [
+            "Judge whether a counter-move has run a normal length of time or an abnormal one.",
+            "Use the three-close rule on daily, weekly and monthly bars.",
+          ],
+          estimatedMinutes: 14,
+          instruction: [
+            "Counter-moves in a healthy trend are usually short: two to three weeks is normal, and strong markets seldom react into a second month. A reaction that reaches a third month is treated as a change of trend, not a pause.",
+            "Turns tend to cluster at set distances from a major top or bottom: at fractions of the year (a quarter, a third, a half, and the full year, with the half year ranked highest) and at recurring day counts. GSPS shows these as time windows. They are a reason to watch closely, never a reason to trade on their own.",
+            "The three-close rule: after a run, three lower closes in a row turn a short-term uptrend down, and three higher closes turn a downtrend up. It is read on daily bars, and again on weekly and monthly bars, where it carries more weight.",
+          ],
+          application:
+            "Find the last major bottom on a daily chart. Count the calendar days since it, and check whether today falls near a quarter, a third or a half of a year from it.",
+          quiz: [
+            q(
+              "A reaction in an uptrend that runs into a third month should be treated as:",
+              ["A normal pullback", "A change of trend", "A buying opportunity", "Irrelevant"],
+              1,
+            ),
+            q(
+              "Time windows on GSPS are:",
+              ["A reason to trade on their own", "A reason to watch closely, not to trade on their own", "Only for crypto", "Hidden from the plan"],
+              1,
+            ),
+          ],
+          reviewMeta: AUTHOR,
+        },
+        {
+          id: "academy-4/method-rules/entries-and-exits",
+          title: "Entries, Stops and Exits on the Market's Own Structure",
+          objectives: [
+            "Explain where a GSPS entry, stop and target come from.",
+            "Describe how the stop moves and when a trade is closed early.",
+          ],
+          estimatedMinutes: 16,
+          instruction: [
+            "An entry is a crossing of an old swing top (long) or old swing bottom (short) by a small allowance, so ordinary noise at the level doesn't trigger it. GSPS then waits for confirmation: a close through the level, a retest, and a close that holds. Only then is the order placed, on every path, including automation. In a sideways market GSPS stays out until price breaks away from the range, because a trade inside the range is only a guess at which way it will leave.",
+            "The stop goes beyond the swing on the other side. Targets are taken at the support and resistance levels the method identifies, not at a fixed percentage, falling back to a range-based target only when no level is near.",
+            "The method manages an open trade on the market's own structure: the stop moves to break-even once the trade has gained as much as it risked, then follows each higher swing bottom and the prior month's low. A trade is closed early if price closes back under the level it broke (the breakout did not hold), or closes against the trade three days in a row. Today GSPS still manages open trades with its staged exit (part of the position at the first target, the rest behind a trailing stop) while these rules are tested against it; it will switch once the tests confirm them.",
+          ],
+          application:
+            "Take one GSPS plan. Identify the swing top or bottom its entry crosses, the swing its stop sits beyond, and the level its first target sits at.",
+          quiz: [
+            q(
+              "Where does a GSPS long entry come from?",
+              ["A fixed percentage above today's open", "A crossing of an old swing top plus a small allowance", "A moving-average crossover", "The previous day's close"],
+              1,
+            ),
+            q(
+              "Under the method's rules, a trade is closed early when:",
+              ["It is up one risk unit", "Price closes back under the level it broke, or closes against the trade three days running", "Volume drops", "It reaches break-even"],
+              1,
+            ),
+          ],
+          reviewMeta: AUTHOR,
+        },
+        {
+          id: "academy-4/method-rules/volume-and-the-trader",
+          title: "Volume at Turns, and Rules for the Trader",
+          objectives: [
+            "Read volume at a bottom and at a top the way the method does.",
+            "State the rules GSPS applies after a run of losses or wins.",
+          ],
+          estimatedMinutes: 12,
+          instruction: [
+            "Sales tend to increase near tops and decrease near bottoms. A normal bottom forms on shrinking volume and a narrowing range as selling runs out; a retest of the low on smaller volume says the selling is over. Very heavy volume at a low is the exception, a panic, and it is usually followed by a sharp rebound. A top tends to come on heavy volume, and a second top on smaller volume than the first says the advance is tiring.",
+            "After three losing trades in a row, GSPS pauses new entries for the rest of that day and the next trading day. The point is to stop and find out what changed, the market or your judgment, before the next trade. Stops and closes are never blocked.",
+            "Size is a fixed share of what the account is worth now, so a loss shrinks the next trade automatically. Nothing in GSPS raises size because of a winning streak: confidence after a run of wins is the moment to be most careful, not to trade bigger.",
+          ],
+          application:
+            "Look at the last low on a chart you follow. Was volume shrinking into it, or was it a heavy-volume panic? Write down which rule you'd have applied.",
+          quiz: [
+            q(
+              "A normal bottom most often forms on:",
+              ["Shrinking volume and a narrowing range", "Record volume every time", "Rising volume and a widening range", "No volume at all"],
+              0,
+            ),
+            q(
+              "After three losing trades in a row, GSPS:",
+              ["Doubles the next position", "Pauses new entries for the rest of the day and the next trading day", "Closes every open position", "Changes nothing"],
+              1,
+            ),
+          ],
+          reviewMeta: AUTHOR,
+        },
+      ],
+    },
   ],
 };
 

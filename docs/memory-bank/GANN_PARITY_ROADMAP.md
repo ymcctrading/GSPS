@@ -40,10 +40,10 @@ The goal is that every rule Gann **disclosed** runs in GSPS the way he stated it
 | Trend | 5 | 1 | 0 (X3 fixed) | 6 | — |
 | Entries, stops, exits, lifecycle | 3 | 3 | 1 (X4) | 5 | — |
 | Volume | 2 | 0 | 0 | 2 | — |
-| Risk and money management | 2 | 2 | 0 | 2 | — |
+| Risk and money management | 4 | 1 | 0 | 1 | — |
 | The trader (education) | 1 | 2 | 0 | 2 | — |
 | Astrology, numerology, forecasting | 1 | 0 | 0 | 3 (research) | 2 excluded, 1 cannot be copied |
-| **Total (74 rules)** | **27** | **12** | **1** | **30** | **4** |
+| **Total (74 rules)** | **29** | **11** | **1** | **29** | **4** |
 
 Counts are rows in Part 3; "Aligned" includes rows aligned in structure.
 
@@ -146,8 +146,8 @@ Each row gives the rule and its source, what GSPS does now, the status, and the 
 | Gann rule | Source | GSPS today | Status | Next step |
 |---|---|---|---|---|
 | Risk ≤ 10% of capital; equal risk over 4–5 positions | A03; A04; A05 | `lib/risk/*`, `checkPositionLimits` | Aligned (percentage form) | — |
-| Series of losses: after 2–3 losses stop and study; cut the unit to 10% of remaining capital | A8 pp. 12, 17, 29; A02; A04 Ch. III | `cooldown.ts` circuit breaker | Partial | G16. Cite Gann and compare the thresholds. **Owner** |
-| Don't increase size after a long winning run | A04 Rule 24 | none | Missing | A sizing guard. **Owner** |
+| Series of losses: after 2–3 losses stop and study; cut the unit to 10% of remaining capital | A8 pp. 12, 17, 29; A02; A04 Ch. III | **Built 2026-09-28 (E1):** `lib/risk/lossSeries.ts` pauses new entries after 3 consecutive losses (rest of that day and the next trading day) on every path, paper and live; percentage sizing re-bases the unit after losses. `cooldown.ts` now cites the rule and states that its % thresholds are GSPS's own | Aligned | — |
+| Don't increase size after a long winning run | A04 Rule 24 | Verified 2026-09-28: sizing is a fixed % of current equity and nothing raises it on results (the demo's larger-size days alternate by date, not by wins) | Aligned (structure) | — |
 | Close all trades twice a year and rest | A02 Book I | none | Missing | Education and an optional reminder; never forced |
 | Reward/risk: don't take a 3–5-point target unless the stop is 1–2 points | A04 Ch. II | plan R:R checks | Aligned | — |
 | Never trade in bad health or impaired state | A05 Ch. II | cooldown concept | Partial | Education |
@@ -156,7 +156,7 @@ Each row gives the rule and its source, what GSPS does now, the status, and the 
 
 | Gann rule | Source | GSPS today | Status | Next step |
 |---|---|---|---|---|
-| Five qualifications; hope and fear as the enemy; prove the rules yourself | A05; A03; A10 | GSPS School curriculum | Partial | Add Gann-sourced lessons per the content-reuse rule (teach the rule, never the wording) |
+| Five qualifications; hope and fear as the enemy; prove the rules yourself | A05; A03; A10 | GSPS School curriculum; **E2 2026-09-28:** Academy 4 course "The Method's Rules" (swing charts and trend change, time, entries/stops/exits, volume and the trader), in our own words | Partial | The qualifications and the Seven Zones still to write |
 | Seven Zones of Activity | A02 Ch. XI | none | Missing | Education or regime display |
 | Early and late leaders; first-year-high filter; stocks that bottom first top first | A04 Ch. VII | none | Missing | G25: scanner ranking context |
 | Never buy one stock to follow another in its group | A04 Ch. VII | stock-own trend | Aligned | — |
@@ -254,8 +254,8 @@ Each step says whether a user waits on it (AGENTS.md "Speed is a product require
 - D3 · G10 incorporation-date anniversaries, once a per-symbol date source exists. **Blocked 2026-09-27:** no source exists. Owner to choose a provider.
 
 **Stage E — risk and education**
-- E1 · G16: cite Gann in `cooldown.ts`, align the thresholds (owner), and add "don't size up after a winning run."
-- E2 · GSPS School lessons for the disclosed rules users now see in the product: time rules, the Rule of Three, the 3-point rule, sections, over-balance, the Seven Zones, early and late leaders, and why forecasts are measured.
+- E1 · G16: cite Gann in `cooldown.ts`, align the thresholds (owner), and add "don't size up after a winning run." **Built 2026-09-28:** `lib/risk/lossSeries.ts` on every placement path; the % breaker is documented as GSPS's own; no result-based size increase exists.
+- E2 · GSPS School lessons for the disclosed rules users now see in the product: time rules, the Rule of Three, the 3-point rule, sections, over-balance, the Seven Zones, early and late leaders, and why forecasts are measured. **Built 2026-09-28:** a four-lesson course in Academy 4 (advisory for Pro/Expert, so no required academy reopens for existing learners). The Seven Zones and the trader's qualifications are still to write.
 
 **Stage F — timing refinements and research**
 - F1 · G9 7/14-day alternation; G20 reverse signal day and 7–10 Day Rule; G21 gap rules; G11 Square of 144 convergence; G12 projection dispersion.

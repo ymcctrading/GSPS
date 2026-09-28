@@ -7,6 +7,19 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-09-28
+
+### Changed
+- **Stop after a series of losses, on every account** (parity E1). After
+  three losing trades in a row, new entries pause for the rest of that day
+  and the next trading day, on paper and live alike, including Guided Mode,
+  the demo account and automation. Stops and closes are never blocked.
+  Before this only live accounts had a loss rule (the percentage circuit
+  breaker).
+- **School: "The Method's Rules"** (parity E2). A four-lesson Academy 4
+  course on how GSPS reads trend, time, entries and exits, volume, and the
+  trader's rules, written in our own words.
+
 ## 2026-09-27
 
 ### Changed

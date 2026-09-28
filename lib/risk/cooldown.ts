@@ -8,7 +8,16 @@
  *     `ALWAYS_PERMITTED_ACTIONS`.
  *   - A paid upgrade never overrides an active cooldown or lock — `gateAction`
  *     takes no tier/entitlement parameter at all, so there is nothing for a
- *     caller to pass that would let one through.
+ *     caller to pass that would let one through. *
+ * Where this sits against Gann (parity E1, G16). Gann's own loss rule counts
+ * trades, not percentages: after two or three losses in a row, stop and study
+ * (*Commodities* pp. 12, 17, 29; *Stock Selector* Ch. III). That rule now
+ * runs on every account in `lib/risk/lossSeries.ts`. The percentage
+ * thresholds this state machine reads (`lib/risk/config.ts`: 2/3/5% over 48
+ * hours, 8/12/18% over 30 days) are GSPS's own account-protection layer on
+ * live accounts, not a translation of a Gann number; his disclosed ceiling is
+ * the 10%-of-capital risk limit, enforced in `lib/risk/position-limits.ts`.
+ * Both layers keep Gann's "never block a close" rule.
  */
 
 import {
