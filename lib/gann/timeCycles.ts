@@ -97,6 +97,12 @@ export const DAY_COUNT_BANDS: readonly [number, number][] = [
  * AGENTS.md's "WD Gann precedence" principle — this is a literal, disclosed
  * rule, not a reconstruction, so it replaces the narrower 1-3-year window
  * rather than sitting alongside it as a separate hypothesis.
+ *
+ * Disclosed, not validated (parity F3/M5, Dewey's repetition-count test): the
+ * 30-, 50- and 60-year cycles repeat only one to four times in any US equity
+ * history, far too few to confirm as periodicities. They are Gann's stated
+ * hierarchy and are used as such; a hit on one is weaker evidence than a hit
+ * on a 1- to 10-year cycle, which has had many repetitions to be tested on.
  */
 const MAJOR_CYCLE_YEARS = [1, 2, 3, 5, 7, 10, 15, 20, 30, 50, 60];
 

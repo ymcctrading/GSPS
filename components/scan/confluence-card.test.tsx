@@ -82,7 +82,7 @@ describe("ConfluenceCard", () => {
             dominantPeriodBars: null,
             dominancePower: null,
             repetitionCount: null,
-            periodConsistent: null,
+            periodConsistent: null, schusterP: null,
             hypothesisOnly: true,
             note: "",
           },

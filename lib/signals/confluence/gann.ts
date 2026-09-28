@@ -128,7 +128,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
         dominantPeriodBars: null,
         dominancePower: null,
         repetitionCount: null,
-        periodConsistent: null,
+        periodConsistent: null, schusterP: null,
         hypothesisOnly: true,
         note: reason,
       },

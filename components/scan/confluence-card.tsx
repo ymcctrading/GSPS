@@ -192,6 +192,27 @@ function DisclosedRuleTiles({
     rot.monthly?.bearishSignal ? "monthly 3 lower" : rot.monthly?.bullishSignal ? "monthly 2 higher" : null,
   ].filter(Boolean);
   if (rotText.length > 0) tiles.push({ label: "Rule of Three (W/M)", value: rotText.join(", ") });
+  // Stage F1: extreme-price and timing rules (cached results may predate them).
+  const rs = rules.extremes?.reverseSignal;
+  if (rs?.signal) {
+    tiles.push({ label: "Reversal day", value: `${rs.signal} (${rs.rule === "reverseDay" ? "reverse day" : `${rs.runDays}-day run broken`})` });
+  }
+  const gaps = rules.extremes?.gaps;
+  const gapText = [
+    gaps?.exhaustGap ? `exhaust gap at ${gaps.exhaustGap}` : null,
+    gaps?.gapsInNewTerritory && gaps.gapsInNewTerritory.count >= 3 ? `${gaps.gapsInNewTerritory.count} ${gaps.gapsInNewTerritory.direction} gaps` : null,
+    gaps?.filledGapReversal ? `filled gap: minor trend ${gaps.filledGapReversal}` : null,
+  ].filter(Boolean);
+  if (gapText.length > 0) tiles.push({ label: "Gaps", value: gapText.join(", ") });
+  const timing = rules.timing;
+  const timingText = [
+    timing?.alternation?.mark ? `${timing.alternation.mark}-day turn count` : null,
+    timing?.square144 && timing.square144.units.length >= 2 ? `12-multiple in ${timing.square144.units.join("+")}` : null,
+  ].filter(Boolean);
+  if (timingText.length > 0) tiles.push({ label: "Turn timing", value: timingText.join(", ") });
+  if (timing?.projection) {
+    tiles.push({ label: `Next swing ${timing.projection.kind}`, value: `~${timing.projection.medianDate} (±${Math.round(timing.projection.spreadDays / 2)}d)` });
+  }
   return (
     <>
       {tiles.map((t) => (

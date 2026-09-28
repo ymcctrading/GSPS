@@ -242,6 +242,16 @@ export interface BacktestReport {
   factors: FactorAttribution[];
   /** The same split for Gann readings the score doesn't count yet (`ReplayTrade.contextFactors`). */
   contextFactors: FactorAttribution[];
+  /**
+   * Both factor tables again for the earlier and later half of the attributed
+   * trades by open time (parity F3: Dewey's persistence and out-of-sample
+   * tests, M2/M3). A factor whose delta flips sign between halves is not yet
+   * evidence of anything.
+   */
+  halves: {
+    early: { factors: FactorAttribution[]; contextFactors: FactorAttribution[] };
+    late: { factors: FactorAttribution[]; contextFactors: FactorAttribution[] };
+  };
   atrBands: Array<{ from: number; to: number | null; trades: number; winRate: number; expectancyR: number }>;
   /**
    * The rule-set identifier this run describes — see `strategyVersion.ts`.
@@ -438,6 +448,17 @@ export async function runBacktest(request: BacktestRequest): Promise<BacktestRep
  * symbol once and replays several configurations on the same bars) can build
  * the identical report without refetching.
  */
+/** Split trades at the median open time and attribute each half. */
+function chronologicalHalves(trades: ReplayResult["trades"]): BacktestReport["halves"] {
+  const sorted = [...trades].sort((a, b) => a.openedAt.localeCompare(b.openedAt));
+  const mid = Math.floor(sorted.length / 2);
+  const table = (ts: typeof sorted) => ({
+    factors: attributeFactors(ts),
+    contextFactors: attributeFactors(ts, { field: "contextFactors" }),
+  });
+  return { early: table(sorted.slice(0, mid)), late: table(sorted.slice(mid)) };
+}
+
 export function buildReport(
   run: RunOutcome,
   request: BacktestRequest,
@@ -497,6 +518,7 @@ export function buildReport(
     ...(attributeScoreRange ? { attributeScoreRange } : {}),
     factors: attributeFactors(target.trades),
     contextFactors: attributeFactors(target.trades, { field: "contextFactors" }),
+    halves: chronologicalHalves(target.trades),
     atrBands: attributeByAtrMultiple(target.trades).map(({ from, to, arm }) => ({
       from,
       to,

@@ -10,6 +10,16 @@ date.
 ## 2026-09-28
 
 ### Changed
+- **Gann's timing and extreme-price rules as measured context** (parity
+  F1). The reverse signal day and 7-10 Day Rule, gap rules (exhaust gaps,
+  gaps in new territory, filled gaps), the 7/14-day turn count, Square-of-144
+  time convergence and the spread of projected turn dates now show on the
+  confluence card and are recorded on every backtest trade. None changes a
+  verdict yet.
+- **Measurement upgrades** (parity F3). Schuster's significance test on the
+  cycle detector; the backtest report repeats its factor tables for the
+  early and late half of the window; the 30-60 year cycles are labelled as
+  disclosed rather than validated.
 - **Stop after a series of losses, on every account** (parity E1). After
   three losing trades in a row, new entries pause for the rest of that day
   and the next trading day, on paper and live alike, including Guided Mode,

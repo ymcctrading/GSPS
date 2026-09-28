@@ -142,6 +142,12 @@ path (`lib/risk/lossSeries.ts`: three losses in a row pause new entries for
 that day and the next; protective orders never blocked). School gained an
 Academy 4 course on the method's rules. The Seven Zones and the trader's
 qualifications lessons are still to write.
+**Stage F, same day:** F1 (reverse signal day, 7-10 Day Rule, gaps, 7/14-day
+turns, Square-of-144 convergence, projection dispersion) is built as card
+context and measured `contextFactors` (`lib/gann/extremeRules.ts`,
+`lib/gann/timeConvergence.ts`); none gates. F3: Schuster p in
+`spectralCycle.ts`, early/late `halves` in the backtest report, long cycles
+labelled. F2 stays research-only; F4 waits on Stage D.
 **Owner direction, same day: "the point of the parity is to align, infuse
 and implement within and throughout the entire GSPS platform."** A rule is
 not parity-complete while it only shows on a card: it has to act where Gann

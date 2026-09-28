@@ -54,6 +54,15 @@ export interface SpectralCycleReading {
   repetitionCount: number | null;
   /** Whether independently re-estimating the dominant period from each half of the window agrees within tolerance — Dewey's "constancy of period" criterion. Null when the window is too short to split. */
   periodConsistent: boolean | null;
+  /**
+   * Schuster's test (parity F3/M1; B01): the chance that noise alone would
+   * produce a peak this dominant somewhere in the scanned band, ≈ the number
+   * of independent frequencies × e^(−dominance). Below 0.05 reads as
+   * significant. Caveat: the test assumes white noise, and detrended prices
+   * are red noise (low frequencies carry more power by nature), so it is
+   * optimistic for long periods. Null when no reading was made.
+   */
+  schusterP: number | null;
   /** Always true — see module header. Never independently scored or gated regardless of this reading's values. */
   hypothesisOnly: true;
   note: string;
@@ -114,7 +123,7 @@ function dominantPeriod(values: number[], maxPeriod: number): { period: number; 
 }
 
 const NOT_COMPUTED_NOTE =
-  "Hypothesis only per AGENTS.md's Dewey cycle-validation checklist: dominance, repetition count, and constancy of period are evaluated numerically above; regularity of timing, phase-resumption after distortion, wave-shape identity, and cross-series clustering are not computed by this module. Never independently scored or gated.";
+  "Hypothesis only per AGENTS.md's Dewey cycle-validation checklist: dominance (with Schuster's significance test), repetition count, and constancy of period are evaluated numerically above; regularity of timing, phase-resumption after distortion, wave-shape identity, and cross-series clustering are not computed by this module. Never independently scored or gated.";
 
 export function detectSpectralCycle(dailyBars: Bar[]): SpectralCycleReading {
   const n = dailyBars.length;
@@ -125,6 +134,7 @@ export function detectSpectralCycle(dailyBars: Bar[]): SpectralCycleReading {
       dominancePower: null,
       repetitionCount: null,
       periodConsistent: null,
+      schusterP: null,
       hypothesisOnly: true,
       note: `Insufficient bar history (${n} < ${MIN_BARS}) for spectral cycle detection.`,
     };
@@ -147,6 +157,7 @@ export function detectSpectralCycle(dailyBars: Bar[]): SpectralCycleReading {
       dominancePower: null,
       repetitionCount: null,
       periodConsistent: null,
+      schusterP: null,
       hypothesisOnly: true,
       note: "No usable spectral candidates in this window.",
     };
@@ -154,6 +165,9 @@ export function detectSpectralCycle(dailyBars: Bar[]): SpectralCycleReading {
 
   const dominance = result.power / result.meanPower;
   const active = dominance >= DOMINANCE_THRESHOLD;
+  // Independent Fourier frequencies inside the scanned band of periods.
+  const independent = Math.max(1, Math.round(n / MIN_PERIOD_BARS - n / maxPeriod));
+  const schusterP = Math.min(1, independent * Math.exp(-dominance));
   const repetitionCount = Math.round((n / result.period) * 10) / 10;
 
   let periodConsistent: boolean | null = null;
@@ -181,9 +195,10 @@ export function detectSpectralCycle(dailyBars: Bar[]): SpectralCycleReading {
     dominancePower: Math.round(dominance * 100) / 100,
     repetitionCount,
     periodConsistent,
+    schusterP: Math.round(schusterP * 1000) / 1000,
     hypothesisOnly: true,
     note: active
-      ? `Dominant candidate cycle ~${result.period} bars (${dominance.toFixed(2)}x mean spectral power, ~${repetitionCount} repetitions in window).${consistencyNote} ${NOT_COMPUTED_NOTE}`
+      ? `Dominant candidate cycle ~${result.period} bars (${dominance.toFixed(2)}x mean spectral power, ~${repetitionCount} repetitions in window; Schuster p ≈ ${schusterP < 0.001 ? "<0.001" : schusterP.toFixed(3)}${schusterP < 0.05 ? ", significant against white noise" : ", not significant"}).${consistencyNote} ${NOT_COMPUTED_NOTE}`
       : `No candidate cycle cleared the dominance threshold (best: ~${result.period} bars at ${dominance.toFixed(2)}x mean power, threshold ${DOMINANCE_THRESHOLD}x). ${NOT_COMPUTED_NOTE}`,
   };
 }

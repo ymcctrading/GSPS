@@ -66,8 +66,8 @@ Each row gives the rule and its source, what GSPS does now, the status, and the 
 |---|---|---|---|---|
 | Time outranks price; time says when, price says which way | A2.1, A2.2, A11 | `timeCycles.ts` gives windows; direction comes from pivot polarity | Aligned | — |
 | Count from every major pivot, not a calendar origin | A03; A2.1 Ch. 13 | `majorPivots` anchors | Aligned | — |
-| Cycle hierarchy 1, 2, 3, 5, 7, 10, 15, 20, 30, 50, 60 years | A2.1 Ch. 7 | `MAJOR_CYCLE_YEARS`, `yearCycleConvergence` | Aligned | Label 30–60 as disclosed, not validated (M5) |
-| Convergence of several cycles on one window | A2.1 Ch. 7, 13 | `yearCycleConvergence` counts hits | Partial | Extend to the daily/weekly counts and squares (G11) |
+| Cycle hierarchy 1, 2, 3, 5, 7, 10, 15, 20, 30, 50, 60 years | A2.1 Ch. 7 | `MAJOR_CYCLE_YEARS`, `yearCycleConvergence` | Aligned | **Done 2026-09-28 (M5):** 30/50/60 labelled disclosed, not validated |
+| Convergence of several cycles on one window | A2.1 Ch. 7, 13 | `yearCycleConvergence` counts hits; **2026-09-28 (G11):** `timeConvergence.ts` reads days/weeks/months from the year's extreme landing on a multiple of 12 together | Aligned (context, measuring) | — |
 | Permanent annual calendar (8 dated windows) | A04 back matter; A09 | `FIXED_CALENDAR_WINDOWS` | **Aligned (fixed 2026-09-27)** | Measure as a recurrent event (M4) |
 | Fractions of the year: anniversary > ½ > ¼, ¾ > ⅓, ⅔ > ⅛s | A2.1 Ch. 13–14 | `squareOf52.ts`, `WHEEL_COUNTS` | Partial | Add the ranking to the output (G8) |
 | Day-count bands 7–12, 18–21, 28–31, 42–49, 57–65, 85–92, 112–120, 150–157, 175–185 | A09 Rule 8; A8 pp. 57–58 | `WHEEL_COUNTS` = 45/90/120/180/270/360 only | Missing | G17: add the bands as windows from each pivot. Confluence first |
@@ -76,9 +76,9 @@ Each row gives the rule and its source, what GSPS does now, the status, and the 
 | Daily/weekly time rules: 2–3-day halt at extremes; buy 2–3-week reactions; watch the 3rd week; the 6th–7th week ends fast moves | A04 Ch. IV; A09 Rule 4 | `boilingPoint.ts` (6–7 weeks) | Partial | Add the 2–3-day halt and the 3rd-week watch to the same clock |
 | Time balancing: project prior swing durations forward; percentages of time | A8 pp. 97–99, 293 | `timePriceSquare.ts` (price = time) | Missing | G22 |
 | Accumulation time proportional to the size of the advance | A04 Ch. VII; A8 p. 52 | none | Missing | G22: a context annotation on breakouts from long ranges |
-| 7/14-day alternation of minor and major turns | A2.2 | none | Missing | G9, confluence |
+| 7/14-day alternation of minor and major turns | A2.2 | **Built 2026-09-28 (G9):** `timeConvergence.ts` (7/14/21 days ±1 from the last 3-Day Chart pivot) | Aligned (context, measuring) | — |
 | Incorporation-date anniversary / company age | A03; A2.1 Ch. 7; A04 Ch. VI | none | Missing | G10. Needs a per-symbol incorporation-date source |
-| Periodogram ("harmonic analysis") | A03; 1926 letter (B01) | `spectralCycle.ts`, confluence | Aligned | Add the Schuster test (M1) |
+| Periodogram ("harmonic analysis") | A03; 1926 letter (B01) | `spectralCycle.ts`, confluence; **2026-09-28 (M1):** Schuster p reported | Aligned | Cosinor CI and log detrend still open |
 | Squares of time: Master 12, Square of 52, 36 angle month-counts | A2.1 Ch. 7, 13, 14 | `masterTwelve.ts`, `squareOf52.ts`, `angleMonthCounts.ts` (confluence) | Aligned | — |
 | Decade-digit bull/bear years | A2.1 Ch. 7 | `decadeCycle.ts` (confluence) | Aligned | — |
 | Square of 20 and Hexagon | A2.1 Ch. 7, 15B | research-only | Research-only | Keep, unless new source material appears |
@@ -129,8 +129,8 @@ Each row gives the rule and its source, what GSPS does now, the status, and the 
 | **"Never fix a target price"**: exit on the stop or a trend-change signal; sell at resistance levels his rules identify | A02 Book II; A04 Rule list | fixed TP1 (60% out) and master target (20% out) | **Conflict (X4, new)** | **Owner.** Gann sells at resistance *levels* but never at a fixed profit objective. Options: (a) keep TP1 and document it as a GSPS safety choice; (b) derive TP1/master only from Gann levels and let the runner exit only on a Gann trend-change signal (B2/B4). Option (b) is the faithful copy |
 | Entry confirmation on every path | measured 2026-09-26 (+0.190R vs −0.155R) | automation only | Partial | Already recommended in AGENTS.md (F3.4 reversal). **Owner** |
 | Pyramiding: decreasing lots every 10 points (price-scaled), stop on each add | A02; A03; A04; A05 | GSPS does not pyramid | Missing | Excluded for now (a product choice); teach it in the School. Revisit for Expert/Wall Street |
-| Reverse signal day; 7–10 Day Rule | A8 1951 pp. 311, 317–318 | none | Missing | G20 |
-| Gap rules (exhaust gap; filled gap reverses the minor trend) | A8 1951 pp. 318–325 | none | Missing | G21, confluence first |
+| Reverse signal day; 7–10 Day Rule | A8 1951 pp. 311, 317–318 | **Built 2026-09-28 (G20):** `extremeRules.ts` | Aligned (context, measuring) | Act on it once measured |
+| Gap rules (exhaust gap; filled gap reverses the minor trend) | A8 1951 pp. 318–325 | **Built 2026-09-28 (G21):** `extremeRules.ts` (exhaust gap, gaps in new territory, filled-gap reversal; limit days have no equity counterpart) | Aligned (context, measuring) | Act on it once measured |
 
 ### 3.5 Volume
 
@@ -259,8 +259,11 @@ Each step says whether a user waits on it (AGENTS.md "Speed is a product require
 
 **Stage F — timing refinements and research**
 - F1 · G9 7/14-day alternation; G20 reverse signal day and 7–10 Day Rule; G21 gap rules; G11 Square of 144 convergence; G12 projection dispersion.
+  **Built 2026-09-28** as context on the card, lines in the explanation trace, and measured factors in the replay (`extremeRules.ts`, `timeConvergence.ts`, seven new `contextFactors`). None changes a verdict until the replay measures it. Adds about 0.2 ms per scanned symbol.
 - F2 · The astrology track AS1–AS4 (decision 7): ephemeris, a rule fixed in advance, Dewey's full test, confluence only.
 - F3 · Measurement upgrades M1–M7 throughout (Schuster test, out-of-sample, regime splits, base rates).
+  **2026-09-28:** M1 Schuster p in `spectralCycle.ts`; M2/M3 the backtest report now repeats both factor tables for the early and late half of the window (`halves`); M4/M6 every calendar and timing field is a measured context factor against the unconditioned population; M5 labelled; M7 recorded. Still open: cosinor CI, log detrending, a forward hold-out beyond the split halves.
+- F2 · Stays research-only and separate (decision 7). F4 · Still gated: Stage D is in progress in another session.
 - F4 · The deferred cycles, solar-year anchor and calendar-convention research prompt: `FUTURE_PROMPTS.md`, "Deferred: cycles and calendar research". Not before Stages A–E are complete.
 
 ---
