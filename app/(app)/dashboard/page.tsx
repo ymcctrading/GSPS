@@ -21,6 +21,7 @@ import { getMarketRegimeSummary } from "@/lib/promotion/market-regime";
 import { getNoviceHomeSummary } from "@/lib/promotion/novice-home";
 import { NoviceHomeSummary } from "@/components/dashboard/novice-home-summary";
 import { WelcomeBanner } from "@/components/dashboard/welcome-banner";
+import { RestReminder } from "@/components/dashboard/rest-reminder";
 import { IntradayAlerts } from "@/components/scan/intraday-alerts";
 import type { ScanRow } from "@/components/scan/results-table";
 
@@ -52,6 +53,8 @@ export default async function DashboardPage() {
       </div>
 
       <WelcomeBanner />
+
+      <RestReminder />
 
       {noviceSummary && (
         <NoviceHomeSummary regime={noviceSummary.regime} bestPlan={noviceSummary.bestPlan} home={noviceSummary.home} />

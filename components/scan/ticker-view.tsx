@@ -1,5 +1,7 @@
 "use client";
 
+import { useGannRulePrefs } from "@/components/gann/use-gann-rule-prefs";
+import { approachingFigure } from "@/lib/gann/evenFigures";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -50,6 +52,7 @@ function strongestTradeablePlan(result: ScanResult | null): SignalPlan | null {
 }
 
 export function TickerView({ symbol }: { symbol: string }) {
+  const { prefs: gannPrefs } = useGannRulePrefs();
   // Bumping this re-runs the scan without remounting the page.
   const [reloadKey, setReloadKey] = useState(0);
   const [mounted, setMounted] = useState(false);
@@ -152,6 +155,13 @@ export function TickerView({ symbol }: { symbol: string }) {
   }, [symbol, reloadKey]);
 
   const markers: PriceMarker[] = [];
+  // Gann's even figures: mark the round number the price is approaching,
+  // when the trader has the notice on (lib/gann/evenFigures.ts).
+  const roundAhead =
+    gannPrefs.roundNumberNotices && result?.levels && result.direction !== "none"
+      ? approachingFigure(result.levels.entry, result.direction)
+      : null;
+  if (roundAhead) markers.push({ price: roundAhead.figure.price, label: "Round number", kind: "structural" });
   if (result?.levels) {
     markers.push(
       { price: result.levels.entry, label: "Entry", kind: "entry" },

@@ -74,11 +74,11 @@ describe("computeEquityTradeLevels", () => {
   it("clamps the ATR-scaled TP1/TP2 percentages to their floors and ceilings", () => {
     const entry = 100;
     // Extremely low ATR% should clamp up to the minimum, not collapse toward 0.
-    const low = computeEquityTradeLevels({ direction: "bullish", entry, structuralLevels: [], atrPct: 0.01 });
+    const low = computeEquityTradeLevels({ direction: "bullish", entry, structuralLevels: [], atrPct: 0.01, evenFigures: false });
     expect(low.takeProfit1).toBeCloseTo(entry * (1 + EQUITY_TP1_MIN_PCT / 100), 5);
 
     // Extremely high ATR% should clamp down to the ceiling, not run away.
-    const high = computeEquityTradeLevels({ direction: "bullish", entry, structuralLevels: [], atrPct: 50 });
+    const high = computeEquityTradeLevels({ direction: "bullish", entry, structuralLevels: [], atrPct: 50, evenFigures: false });
     expect(high.takeProfit1).toBeCloseTo(entry * (1 + EQUITY_TP1_MAX_PCT / 100), 5);
     expect(high.takeProfit2).toBeCloseTo(entry * (1 + EQUITY_TP2_MAX_PCT / 100), 5);
   });
@@ -86,7 +86,7 @@ describe("computeEquityTradeLevels", () => {
   it("scales TP1/TP2 with a mid-range ATR% between the floor and ceiling", () => {
     const entry = 100;
     const atrPct = 3; // 2.0x -> 6% (inside [3,15]); 3.5x -> 10.5% (inside [6,25])
-    const result = computeEquityTradeLevels({ direction: "bullish", entry, structuralLevels: [], atrPct });
+    const result = computeEquityTradeLevels({ direction: "bullish", entry, structuralLevels: [], atrPct, evenFigures: false });
     expect(result.takeProfit1).toBeCloseTo(entry * 1.06, 5);
     expect(result.takeProfit2).toBeCloseTo(entry * 1.105, 5);
   });
@@ -113,9 +113,19 @@ describe("computeEquityTradeLevels", () => {
     const entry = 100;
     const atrPct = 3;
     const structuralLevels = [95, 200]; // 200 is far beyond the 30% cap (130)
-    const result = computeEquityTradeLevels({ direction: "bullish", entry, structuralLevels, atrPct });
+    const result = computeEquityTradeLevels({ direction: "bullish", entry, structuralLevels, atrPct, evenFigures: false });
     expect(result.masterFromStructure).toBe(false);
     expect(result.takeProfit2).toBeCloseTo(entry * 1.105, 5);
+  });
+
+  it("targets just short of a round number and keeps the stop beyond one (even figures)", () => {
+    // Entry 92: 100 is 8.7% away, inside the TP1 band, so TP1 sits just under it.
+    const result = computeEquityTradeLevels({ direction: "bullish", entry: 92, structuralLevels: [], atrPct: 3 });
+    expect(result.tp1FromStructure).toBe(true);
+    expect(result.takeProfit1).toBeCloseTo(99.5, 2);
+    // A structural stop just above 90 is moved under 90.
+    const withStop = computeEquityTradeLevels({ direction: "bullish", entry: 93, structuralLevels: [90.2], atrPct: 3 });
+    expect(withStop.stopLoss).toBeLessThan(90);
   });
 
   it("mirrors every computation correctly for a bearish (short) trade", () => {

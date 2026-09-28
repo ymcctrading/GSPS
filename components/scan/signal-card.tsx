@@ -1,3 +1,4 @@
+import { RoundNumberNotice } from "@/components/gann/round-number-notice";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ScoreBadge } from "@/components/scan/score-badge";
 import { Badge } from "@/components/ui/badge";
@@ -114,6 +115,10 @@ export function SignalCard({
         )}
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        <RoundNumberNotice
+          price={levels?.entry ?? null}
+          direction={result.direction !== "none" ? result.direction : null}
+        />
         {pattern && (
           <div className="rounded-md border border-border bg-background p-3">
             <div className="flex flex-wrap items-center justify-between gap-1.5">

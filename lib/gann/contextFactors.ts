@@ -18,6 +18,7 @@
  */
 
 import type { DisclosedRulesContext } from "@/lib/gann/disclosedRules";
+import { approachingFigure } from "@/lib/gann/evenFigures";
 
 export type ContextFactors = Record<string, boolean>;
 
@@ -83,6 +84,9 @@ export function contextFactorsFor(
   if (ctx.timing.alternation) f.onAlternationTurnDay = ctx.timing.alternation.mark !== null;
   if (ctx.timing.square144) f.square144Convergence = ctx.timing.square144.units.length >= 2;
   if (ctx.timing.projection) f.tightTimeProjection = ctx.timing.projection.spreadDays <= 5;
+  // Gann's even figures: a round number just ahead of the entry, in the
+  // trade's direction, is where orders gather against it.
+  f.roundNumberAhead = approachingFigure(price, direction) !== null;
 
   // D2: Gann's capital-stock readings are top warnings, so they count against
   // a long and with a short. Absent when no share count is stored.

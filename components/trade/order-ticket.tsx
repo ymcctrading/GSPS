@@ -1,5 +1,6 @@
 "use client";
 
+import { RoundNumberNotice } from "@/components/gann/round-number-notice";
 import { useCallback, useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -615,6 +616,11 @@ export function OrderTicket({
                 subtitle={currentPrice ? formatUsd(currentPrice) : "market"}
               />
             </div>
+
+            <RoundNumberNotice
+              price={entryMode === "advised" ? advised : currentPrice}
+              direction={side === "buy" ? "bullish" : "bearish"}
+            />
 
             {useProtocolLevels && levels ? (
               <div id="tour-exit" className="flex flex-col gap-2">

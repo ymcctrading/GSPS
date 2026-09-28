@@ -281,6 +281,11 @@ function fakeSupabase(automationProfileRow: Record<string, unknown> | null) {
       if (name === "automation_events") return automationEventsTable();
       if (name === "orders") return ordersTable();
       if (name === "protocol_exits") return protocolExitsTable();
+      if (name === "settings") {
+        // No stored preferences: Gann rule defaults apply.
+        const q = { select: () => q, eq: () => q, maybeSingle: () => Promise.resolve({ data: null, error: null }) };
+        return q;
+      }
       throw new Error(`unexpected table ${name}`);
     },
   } as unknown as SupabaseClient;

@@ -70,6 +70,7 @@
  *    whether the market's pull-back rhythm is still normal).
  */
 
+import { approachingFigure, type ApproachReading } from "@/lib/gann/evenFigures";
 import type { Bar } from "@/lib/types";
 import { findPivots, majorPivots } from "@/lib/analysis/pivots";
 import { computeRuleOfThree, type RuleOfThreeReading } from "@/lib/gann/ruleOfThree";
@@ -411,6 +412,8 @@ export interface DisclosedRulesContext {
   capitalStock: CapitalStockReading | null;
   /** Time from the company's inception date (Stage D3). Null without a stored date. See `incorporationCycle.ts`. */
   incorporation: IncorporationCycleReading | null;
+  /** A round number within reach overhead and underneath (Gann's even figures). See `evenFigures.ts`. */
+  evenFigures: { overhead: ApproachReading | null; underneath: ApproachReading | null };
 }
 
 /**
@@ -439,6 +442,7 @@ export const EMPTY_DISCLOSED_RULES: DisclosedRulesContext = {
   timing: { alternation: null, square144: null, projection: null },
   capitalStock: null,
   incorporation: null,
+  evenFigures: { overhead: null, underneath: null },
 };
 
 export function readDisclosedRules(
@@ -461,6 +465,10 @@ export function readDisclosedRules(
     timing: readTiming(dailyBars),
     capitalStock: readCapitalStock(dailyBars, toWeeklyBars(dailyBars), instrument?.sharesOutstanding),
     incorporation: readIncorporationCycle(instrument?.inception, asOf),
+    evenFigures: {
+      overhead: approachingFigure(currentPrice, "bullish"),
+      underneath: approachingFigure(currentPrice, "bearish"),
+    },
   };
 }
 
@@ -469,6 +477,8 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   const lines: string[] = ctx.campaign ? describeCampaignLedger(ctx.campaign) : [];
   if (ctx.capitalStock) lines.push(...describeCapitalStock(ctx.capitalStock));
   if (ctx.incorporation) lines.push(...describeIncorporationCycle(ctx.incorporation));
+  if (ctx.evenFigures.overhead) lines.push(ctx.evenFigures.overhead.note);
+  if (ctx.evenFigures.underneath) lines.push(ctx.evenFigures.underneath.note);
   if (ctx.barMidpoint) {
     lines.push(
       `Close vs bar midpoint: last bar ${ctx.barMidpoint.lastBar}; ${ctx.barMidpoint.upOfLast5} of the last 5 closed above their midpoint.`,

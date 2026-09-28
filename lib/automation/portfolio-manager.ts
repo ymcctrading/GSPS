@@ -49,6 +49,9 @@ import {
 import { MAX_NEW_POSITIONS_PER_DAY } from "@/lib/risk/config";
 import { etDateKey } from "@/lib/market/session";
 import type { RulesAlignmentTier } from "@/lib/signals/types";
+import { roundNumberEntryBlocked } from "@/lib/gann/evenFigures";
+import { LOST_MOTION_BUFFER_PCT } from "@/lib/gann/entryTrigger";
+import { resolveGannRulePrefs } from "@/lib/gann/traderPrefs";
 
 type RiskProfile = "PASSIVE" | "MODERATE" | "AGGRESSIVE";
 type DirectionalBias = "BULLISH_ONLY" | "BEARISH_ONLY" | "BOTH";
@@ -280,6 +283,13 @@ async function runForProfile(
     return;
   }
 
+  // Gann's even figures (owner, 2026-09-28): with auto-ordering at round
+  // numbers off (the default), an entry just short of a round number is not
+  // placed unless the plan's own breakout level is that number. See
+  // lib/gann/evenFigures.ts#roundNumberEntryBlocked.
+  const { data: settingsRow } = await supabase.from("settings").select("prefs").eq("user_id", profile.user_id).maybeSingle();
+  const gannPrefs = resolveGannRulePrefs((settingsRow as { prefs?: unknown } | null)?.prefs ?? null);
+
   for (const plan of candidates) {
     if (remainingToday <= 0) {
       result.plansSkipped++;
@@ -292,6 +302,18 @@ async function runForProfile(
     if (!matchesVolatilityTrigger(plan, profile.volatility_trigger_type, profile.volatility_trigger_value)) {
       result.plansSkipped++;
       continue;
+    }
+    if (!gannPrefs.autoOrderRoundNumbers) {
+      // The trigger is the crossed swing level plus the lost-motion allowance.
+      const b = LOST_MOTION_BUFFER_PCT / 100;
+      const trigger = Number(plan.entry_trigger);
+      const crossedLevel = plan.direction === "bullish" ? trigger / (1 + b) : trigger / (1 - b);
+      const rn = roundNumberEntryBlocked({ entry: trigger, direction: plan.direction, crossedLevel });
+      if (rn.blocked) {
+        result.plansSkipped++;
+        result.errors.push({ userId: profile.user_id, planId: plan.plan_id, reason: rn.note ?? "Held at a round number." });
+        continue;
+      }
     }
 
     let tradeDollarRisk = allocatedDollarRisk;

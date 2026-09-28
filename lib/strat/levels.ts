@@ -11,6 +11,7 @@
  *    is known (see the warning block below).
  */
 
+import { stopBeyondFigure, targetCandidates } from "@/lib/gann/evenFigures";
 import type { AssetClass, Bar, PivotPlan, StratPattern, TradeLevels } from "@/lib/types";
 import { readPremiumStop } from "@/lib/trade/premium-stop";
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
@@ -311,12 +312,17 @@ export function computeEquityTradeLevels(params: {
    * structural question is.
    */
   extensionLevels?: number[];
+  /**
+   * Apply Gann's even-figure rule to the stop and targets (default true).
+   * False isolates the other rules, for tests and measurement.
+   */
+  evenFigures?: boolean;
   /** Daily ATR as % of price (lib/scoring/proximity.ts#atrPercentOfPrice). Undefined falls back to the min target %. */
   atrPct?: number;
   /** Widens the stop-placement ceiling and fallback — see EQUITY_LARGE_CAP_STOP_MAX_PCT/EQUITY_LARGE_CAP_FALLBACK_STOP_PCT. */
   largeCap?: boolean;
 }): EquityTradeLevels {
-  const { direction, entry, structuralLevels, extensionLevels = structuralLevels, atrPct, largeCap = false } = params;
+  const { direction, entry, structuralLevels, extensionLevels = structuralLevels, atrPct, largeCap = false, evenFigures = true } = params;
   const side: StopSide = direction === "bullish" ? "long" : "short";
   const dir = direction === "bullish" ? 1 : -1;
 
@@ -334,7 +340,11 @@ export function computeEquityTradeLevels(params: {
   const stopPct = stopFromStructure
     ? (Math.abs(entry - structuralStop) / entry) * 100 + EQUITY_STOP_BUFFER_PCT
     : fallbackStopPct;
-  const stopLoss = entry - dir * (stopPct / 100) * entry;
+  // Gann's even figures (2026-09-28): a stop resting just inside a round
+  // number is moved beyond it by the lost-motion allowance ("an old top of
+  // 100 crossed means a stop at 97"). See lib/gann/evenFigures.ts.
+  const rawStop = entry - dir * (stopPct / 100) * entry;
+  const stopLoss = evenFigures ? stopBeyondFigure(entry, rawStop, direction, stopMaxPct + EQUITY_STOP_BUFFER_PCT) : rawStop;
 
   // Targets (parity C4, owner decision 2, 2026-09-27: "Gann's method
   // supersedes my own"). Gann never fixes a profit objective; he sells at the
@@ -352,7 +362,12 @@ export function computeEquityTradeLevels(params: {
     EQUITY_TP2_MAX_PCT,
   );
   const pctFrom = (level: number) => (dir * (level - entry) / entry) * 100;
-  const ascending = [...extensionLevels].sort((a, b) => dir * (a - b));
+  // Even figures are resistance too: each contributes a target just before
+  // it, since markets turn just short of round numbers (Gann; see
+  // lib/gann/evenFigures.ts).
+  const capForFigures = entry + dir * (EQUITY_MASTER_CAP_PCT / 100) * entry;
+  const figureTargets = evenFigures ? targetCandidates(entry, capForFigures, direction) : [];
+  const ascending = [...extensionLevels, ...figureTargets].sort((a, b) => dir * (a - b));
   const levelTp1 = ascending.find((l) => pctFrom(l) >= EQUITY_TP1_MIN_PCT && pctFrom(l) <= EQUITY_TP1_MAX_PCT);
   const tp1FromStructure = levelTp1 !== undefined;
   const takeProfit1 = levelTp1 ?? atrTp1;
