@@ -329,6 +329,15 @@ async function loadCells(value) {
 }
 
 async function main() {
+  // The F4 calendar test rides this workflow (see scripts/calendar-test.mjs).
+  if (process.argv.includes("calendar-test")) {
+    const { runCalendarTest } = await import("./calendar-test.mjs");
+    await runCalendarTest({});
+    await mkdir(path.join(root, "out"), { recursive: true });
+    await writeFile(path.join(root, "out", "summary.md"), "Calendar test: see the job log.\n");
+    return;
+  }
+
   const args = parseArgs(process.argv.slice(2));
   const cells = await loadCells(args.cells);
 
