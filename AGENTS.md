@@ -156,9 +156,14 @@ that run's factor tables (`historicalSR`, and `ruleOfThree`/`swingChartTrend`
 under confirmation, invert). Held for the owner.
 **Stage E, 2026-09-28:** Gann's series-of-losses rule runs on every placement
 path (`lib/risk/lossSeries.ts`: three losses in a row pause new entries for
-that day and the next; protective orders never blocked). School gained an
-Academy 4 course on the method's rules, now including the Seven Zones and the
-trader's five qualifications.
+that day and the next; protective orders never blocked). School gained a
+course on the method's rules, now including the Seven Zones and the trader's
+five qualifications. **Restructured 2026-09-28 (owner):** that course moved to
+Academy 6 (Expert and Wall Street) with a pyramiding lesson added; Novice
+(Academy 2, required) and Pro (Academy 4) got plain-English courses with
+Mr. Bull and Mrs. Bear, the learner's named guides (allowed in lesson text
+since that date; see `docs/GSPS_BRAND_GUIDE.md`). No source name or banned
+term appears in lesson text.
 **Stage F, same day:** F1 (reverse signal day, 7-10 Day Rule, gaps, 7/14-day
 turns, Square-of-144 convergence, projection dispersion) is built as card
 context and measured `contextFactors` (`lib/gann/extremeRules.ts`,

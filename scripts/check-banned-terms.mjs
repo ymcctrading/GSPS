@@ -108,8 +108,9 @@ const USER_FACING_TERMS = [
   // rationale in comments and internal docs, but the product itself must read
   // as plain trading education, not insider/esoteric framing.
   { pattern: /Philosopher's Stone/i, term: "Philosopher's Stone", instead: "GSPS School" },
-  { pattern: /\bMr\. Bull\b/, term: "Mr. Bull", instead: "Bull Case" },
-  { pattern: /\bMrs\. Bear\b/, term: "Mrs. Bear", instead: "Bear Challenge" },
+  // "Mr. Bull" and "Mrs. Bear" were banned here until 2026-09-28, when the
+  // project owner made them the learner's named guides in GSPS School lesson
+  // text ("They are our guides"). See docs/GSPS_BRAND_GUIDE.md.
   { pattern: /\bHermetic\b/i, term: "Hermetic", instead: "(omit — plain educational-governance language)" },
 ];
 

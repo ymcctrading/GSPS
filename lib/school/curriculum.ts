@@ -349,6 +349,109 @@ const ACADEMY_2: Academy = {
         },
       ],
     },
+    {
+      id: "academy-2/simple-rules",
+      slug: "simple-rules",
+      title: "Simple Rules With Mr. Bull and Mrs. Bear",
+      outcome:
+        "Explain, in plain words, the handful of rules that keep a new trader in the game: trade with the trend, respect the levels where orders gather, keep losses small, and know when to stop.",
+      lessons: [
+        {
+          id: "academy-2/simple-rules/trend-and-levels",
+          title: "Which Way Is the Market Going?",
+          objectives: [
+            "Tell an uptrend from a downtrend by its tops and bottoms.",
+            "Explain why old highs and lows matter again later.",
+          ],
+          estimatedMinutes: 10,
+          instruction: [
+            "Mr. Bull and Mrs. Bear are your guides through GSPS School. Mr. Bull makes the case for a trade: what could go right. Mrs. Bear challenges it: what could go wrong, and what would prove the idea false. Every good decision hears both of them before it acts.",
+            "Mr. Bull's first lesson: a market going up makes higher tops and higher bottoms, one after another. A market going down makes lower tops and lower bottoms. When you can't tell which it is doing, it is going sideways, and sideways is the hardest place to make money.",
+            "Mrs. Bear's first lesson: don't argue with the trend. Buying in a downtrend because the price 'looks cheap' is how small losses become big ones. Wait for the market to show you it has turned: a higher bottom, then a break above the last top.",
+            "Old highs and lows matter again. A price where the market turned before is where buyers and sellers remember it, so it often stops the market again. When price finally pushes through an old high, that high often becomes the floor on the next dip.",
+          ],
+          application:
+            "Open any chart. Mark the last two tops and the last two bottoms. Are they rising, falling, or mixed? Say which way the trend is in one sentence, then say what Mrs. Bear would want to see before believing it.",
+          quiz: [
+            q("An uptrend is a market making:", ["Lower tops and lower bottoms", "Higher tops and higher bottoms", "The same top every day", "Big volume every day"], 1),
+            q(
+              "When price breaks above an old high, that old high often:",
+              ["Stops mattering", "Becomes a floor on the next dip", "Guarantees a new high", "Means the trend is down"],
+              1,
+            ),
+            q("Mrs. Bear's job in a decision is to:", ["Agree with Mr. Bull", "Challenge the idea and say what would prove it wrong", "Pick the position size", "Place the order"], 1),
+          ],
+          bullBear: { required: true, requiresRegimeCheckpoint: false, scenarioBasis: "hypothetical" },
+          reviewMeta: AUTHOR,
+        },
+        {
+          id: "academy-2/simple-rules/halfway-and-round-numbers",
+          title: "Halfway Points and Round Numbers",
+          objectives: [
+            "Find the halfway point of a move and explain why it matters.",
+            "Explain why prices often stall just short of round numbers.",
+          ],
+          estimatedMinutes: 9,
+          instruction: [
+            "Mr. Bull likes to measure. Take the highest and lowest price of a move and find the point halfway between them. Pullbacks often stop near that halfway point, and a market that holds above it is still healthy. A market that falls well below it is losing strength.",
+            "Round numbers such as 20, 50, 100 or 200 are where many people place their orders, because people think in round numbers. That crowd of orders often stops a rally just under the round number, or a fall just above it.",
+            "Mrs. Bear's warning: don't place your own order right on the round number, where everyone else's is. Place it a little before it. And when a stock finally breaks through a big round number, that is often a sign of real strength.",
+          ],
+          application:
+            "On a chart, find the high and low of the last big move and mark the halfway point. Then find the nearest round number above today's price. Which is closer?",
+          quiz: [
+            q("Pullbacks in a healthy move often stop near:", ["The halfway point of the move", "Zero", "Yesterday's close only", "The all-time high"], 0),
+            q(
+              "A sensible place for a selling order, when a round number is just above, is:",
+              ["Exactly on the round number", "A little before the round number", "Far above it", "Nowhere; round numbers don't matter"],
+              1,
+            ),
+          ],
+          reviewMeta: AUTHOR,
+        },
+        {
+          id: "academy-2/simple-rules/small-losses",
+          title: "Keep Losses Small, and Know When to Stop",
+          objectives: [
+            "State the rules for handling a losing trade.",
+            "Explain why a trader stops after a run of losses.",
+          ],
+          estimatedMinutes: 10,
+          instruction: [
+            "Mrs. Bear's most important rule: every trade has a stop before it is placed. The stop is the price that says 'I was wrong.' Hoping a losing trade comes back is how accounts get hurt.",
+            "Never add to a losing trade to 'average down'. If you add at all, add only to a trade that is already working, and add less than you started with.",
+            "Mr. Bull's rule for winners: once a trade has gained as much as you risked on it, move the stop to your entry price. From then on, the trade can't turn into a loss.",
+            "After three losing trades in a row, stop. Something has changed: the market, or your judgment. Take a break, review what happened, and come back smaller. GSPS pauses new entries for the rest of that day and the next after three losses in a row, and never blocks you from closing or protecting a trade.",
+            "Twice a year, it helps to close everything out and rest for a while. A clear head sees the next move better than a tired one.",
+          ],
+          application:
+            "Write down your stop rule, your break-even rule and your stop-after-losses rule in your own words, as if explaining them to a friend.",
+          quiz: [
+            q("When should a trade's stop be decided?", ["After it starts losing", "Before the trade is placed", "Never", "At the end of the week"], 1),
+            q("Adding to a losing trade to lower your average price is:", ["A good habit", "Something to avoid", "Required by GSPS", "Only for experts"], 1),
+            q("After three losing trades in a row, the sound move is to:", ["Trade bigger to win it back", "Stop, review, and come back smaller", "Switch to a new market immediately", "Remove your stops"], 1),
+          ],
+          reviewMeta: AUTHOR,
+        },
+        {
+          id: "academy-2/simple-rules/what-a-trader-needs",
+          title: "What Every Trader Needs",
+          objectives: ["Name the five things a trader needs before risking money.", "Explain why overtrading hurts."],
+          estimatedMinutes: 8,
+          instruction: [
+            "Five things make a trader: knowledge (learn before you risk money), patience (wait for the right setup, and give a good trade time), nerve (act on your rules when it's time, without freezing), health (a tired or unwell trader makes poor decisions), and capital (money you can afford to risk, sized so that no single trade can hurt you badly).",
+            "Mr. Bull's reminder: fewer, better trades beat many average ones. Trading because you are bored, or to win back a loss, is overtrading, and it is one of the fastest ways to lose.",
+            "Mrs. Bear's reminder: after a long winning run, don't suddenly trade bigger. Success makes traders careless.",
+          ],
+          application: "Rate yourself honestly on each of the five things, from 1 to 5. Which one needs the most work before you trade real money?",
+          quiz: [
+            q("Which of these is NOT one of the five things a trader needs?", ["Patience", "Capital", "A lucky number", "Health"], 2),
+            q("Trading to win back a loss is an example of:", ["Good risk control", "Overtrading", "Patience", "Pyramiding"], 1),
+          ],
+          reviewMeta: AUTHOR,
+        },
+      ],
+    },
   ],
 };
 
@@ -589,184 +692,66 @@ const ACADEMY_4: Academy = {
         },
       ],
     },
+
     {
-      id: "academy-4/method-rules",
-      slug: "method-rules",
-      title: "The Method's Rules: Trend, Time, Entries, Exits and the Trader",
+      id: "academy-4/reading-the-swings",
+      slug: "reading-the-swings",
+      title: "Reading the Swings With Mr. Bull and Mrs. Bear",
       outcome:
-        "Explain the rules GSPS applies on every setup (how the trend is read, when time matters, where an entry, stop and exit go, and when to stop trading) well enough to check a plan against them yourself.",
+        "Read a market's swings well enough to check a GSPS plan: where the breakout level is, where the stop belongs, what volume is saying, and how a winning trade is managed.",
       lessons: [
         {
-          id: "academy-4/method-rules/swing-charts-and-trend",
-          title: "Swing Charts and When a Trend Changes",
+          id: "academy-4/reading-the-swings/breakouts-and-stops",
+          title: "Breakout Levels and Where the Stop Goes",
           objectives: [
-            "Read the trend from a 3-day and a weekly swing chart.",
-            "Name the signs that a trend is changing before price proves it.",
-          ],
-          estimatedMinutes: 15,
-          instruction: [
-            "GSPS reads trend from two swing charts built on highs and lows, not from moving averages. The 3-day chart follows price up while it makes higher highs and turns down after three bars of lower lows; the weekly chart does the same with a counter-move of about a week. The trend itself only turns when price crosses the last swing top (up) or breaks the last swing bottom (down). A pullback that holds above the last bottom is still an uptrend.",
-            "Trends run in sections, usually three or four. A signal in the third or fourth section counts for more than one in the second, because the move has had time to exhaust itself.",
-            "Three signs warn that a trend is changing before the swing chart turns: a reaction bigger than any earlier reaction in the move (price over-balanced), a reaction that lasts longer than any earlier one (time over-balanced), and the first break of the prior month's low after a long advance (or of its high after a decline). Time is read first: a move that runs out of time usually runs out of price soon after.",
-          ],
-          application:
-            "On a chart you know, mark the last swing top and bottom on the daily chart, count the sections of the current move, and note whether the current reaction is larger or longer than any before it.",
-          quiz: [
-            q(
-              "On the swing charts GSPS uses, an uptrend turns down when:",
-              ["Price closes below a moving average", "Price breaks the last swing bottom", "Volume falls for a day", "Any red candle appears"],
-              1,
-            ),
-            q(
-              "A reaction that lasts longer than every earlier reaction in the move is a sign that:",
-              ["The trend is strengthening", "Nothing has changed", "The trend may be changing", "Volume is about to rise"],
-              2,
-            ),
-          ],
-          reviewMeta: AUTHOR,
-        },
-        {
-          id: "academy-4/method-rules/time",
-          title: "Time: Counter-Moves, Anniversaries and the Rule of Three",
-          objectives: [
-            "Judge whether a counter-move has run a normal length of time or an abnormal one.",
-            "Use the three-close rule on daily, weekly and monthly bars.",
-          ],
-          estimatedMinutes: 14,
-          instruction: [
-            "Counter-moves in a healthy trend are usually short: two to three weeks is normal, and strong markets seldom react into a second month. A reaction that reaches a third month is treated as a change of trend, not a pause.",
-            "Turns tend to cluster at set distances from a major top or bottom: at fractions of the year (a quarter, a third, a half, and the full year, with the half year ranked highest) and at recurring day counts. GSPS shows these as time windows. They are a reason to watch closely, never a reason to trade on their own.",
-            "The three-close rule: after a run, three lower closes in a row turn a short-term uptrend down, and three higher closes turn a downtrend up. It is read on daily bars, and again on weekly and monthly bars, where it carries more weight.",
-          ],
-          application:
-            "Find the last major bottom on a daily chart. Count the calendar days since it, and check whether today falls near a quarter, a third or a half of a year from it.",
-          quiz: [
-            q(
-              "A reaction in an uptrend that runs into a third month should be treated as:",
-              ["A normal pullback", "A change of trend", "A buying opportunity", "Irrelevant"],
-              1,
-            ),
-            q(
-              "Time windows on GSPS are:",
-              ["A reason to trade on their own", "A reason to watch closely, not to trade on their own", "Only for crypto", "Hidden from the plan"],
-              1,
-            ),
-          ],
-          reviewMeta: AUTHOR,
-        },
-        {
-          id: "academy-4/method-rules/entries-and-exits",
-          title: "Entries, Stops and Exits on the Market's Own Structure",
-          objectives: [
-            "Explain where a GSPS entry, stop and target come from.",
-            "Describe how the stop moves and when a trade is closed early.",
-          ],
-          estimatedMinutes: 16,
-          instruction: [
-            "An entry is a crossing of an old swing top (long) or old swing bottom (short) by a small allowance, so ordinary noise at the level doesn't trigger it. GSPS then waits for confirmation: a close through the level, a retest, and a close that holds. Only then is the order placed, on every path, including automation. In a sideways market GSPS stays out until price breaks away from the range, because a trade inside the range is only a guess at which way it will leave.",
-            "The stop goes beyond the swing on the other side. Targets are taken at the support and resistance levels the method identifies, not at a fixed percentage, falling back to a range-based target only when no level is near.",
-            "The method manages an open trade on the market's own structure: the stop moves to break-even once the trade has gained as much as it risked, then follows each higher swing bottom and the prior month's low. A trade is closed early if price closes back under the level it broke (the breakout did not hold), or closes against the trade three days in a row. GSPS manages every open trade this way: part of the position is taken off at the first target, a level from the chart, and the rest runs under these rules until the trend changes. No fixed final target is set for it.",
-          ],
-          application:
-            "Take one GSPS plan. Identify the swing top or bottom its entry crosses, the swing its stop sits beyond, and the level its first target sits at.",
-          quiz: [
-            q(
-              "Where does a GSPS long entry come from?",
-              ["A fixed percentage above today's open", "A crossing of an old swing top plus a small allowance", "A moving-average crossover", "The previous day's close"],
-              1,
-            ),
-            q(
-              "Under the method's rules, a trade is closed early when:",
-              ["It is up one risk unit", "Price closes back under the level it broke, or closes against the trade three days running", "Volume drops", "It reaches break-even"],
-              1,
-            ),
-          ],
-          reviewMeta: AUTHOR,
-        },
-        {
-          id: "academy-4/method-rules/volume-and-the-trader",
-          title: "Volume at Turns, and Rules for the Trader",
-          objectives: [
-            "Read volume at a bottom and at a top the way the method does.",
-            "State the rules GSPS applies after a run of losses or wins.",
+            "Explain why GSPS enters just past an old top or bottom.",
+            "Place a stop beyond the level that would prove the idea wrong.",
           ],
           estimatedMinutes: 12,
           instruction: [
-            "Sales tend to increase near tops and decrease near bottoms. A normal bottom forms on shrinking volume and a narrowing range as selling runs out; a retest of the low on smaller volume says the selling is over. Very heavy volume at a low is the exception, a panic, and it is usually followed by a sharp rebound. A top tends to come on heavy volume, and a second top on smaller volume than the first says the advance is tiring.",
-            "After three losing trades in a row, GSPS pauses new entries for the rest of that day and the next trading day. The point is to stop and find out what changed, the market or your judgment, before the next trade. Stops and closes are never blocked.",
-            "Size is a fixed share of what the account is worth now, so a loss shrinks the next trade automatically. Nothing in GSPS raises size because of a winning streak: confidence after a run of wins is the moment to be most careful, not to trade bigger.",
+            "Mr. Bull's entry: a buy is taken when price crosses the last swing top, by a small margin so a brush against the level doesn't count. Crossing the top is the market proving the buyers are in control. A short is the mirror: breaking the last swing bottom.",
+            "Mrs. Bear's stop: the stop goes beyond the last swing bottom (for a buy), again by a small margin. If price gets back there, the idea was wrong. A stop that sits right on a round number or right on the level is where everyone else's stops are, so it goes a little beyond.",
+            "After a breakout, a strong market shouldn't fall back far under the level it crossed. If it closes back under it, the breakout didn't hold, and GSPS treats that as a reason to leave.",
           ],
-          application:
-            "Look at the last low on a chart you follow. Was volume shrinking into it, or was it a heavy-volume panic? Write down which rule you'd have applied.",
+          application: "On a chart, mark the last swing top and bottom. Where would GSPS's entry be, and where would its stop go?",
           quiz: [
-            q(
-              "A normal bottom most often forms on:",
-              ["Shrinking volume and a narrowing range", "Record volume every time", "Rising volume and a widening range", "No volume at all"],
-              0,
-            ),
-            q(
-              "After three losing trades in a row, GSPS:",
-              ["Doubles the next position", "Pauses new entries for the rest of the day and the next trading day", "Closes every open position", "Changes nothing"],
-              1,
-            ),
+            q("GSPS buys when price:", ["Falls to a round number", "Crosses the last swing top by a small margin", "Makes a red candle", "Opens higher"], 1),
+            q("A breakout that closes back under the level it crossed:", ["Is stronger than ever", "Did not hold, a reason to leave", "Should be doubled", "Means nothing"], 1),
+          ],
+          bullBear: { required: true, requiresRegimeCheckpoint: true, scenarioBasis: "hypothetical" },
+          reviewMeta: AUTHOR,
+        },
+        {
+          id: "academy-4/reading-the-swings/three-closes-and-volume",
+          title: "Three Closes, and What Volume Says at Turns",
+          objectives: ["Use the three-close rule on a daily chart.", "Read volume at a bottom and at a top."],
+          estimatedMinutes: 11,
+          instruction: [
+            "A strong uptrend rarely closes lower three days in a row. Mrs. Bear watches for the third lower close: it says the short-term trend has turned, at least for now. Three higher closes in a downtrend say the same thing the other way.",
+            "At a bottom, selling usually dries up: volume gets smaller as the fall slows, and a retest of the low comes on lighter volume than the first low. That quiet is Mr. Bull's sign that the sellers are done. A panic day with huge volume can also end a fall, but it is the exception.",
+            "At a top, very heavy volume while price stops rising says the stock is being handed from strong holders to late buyers. Mrs. Bear reads that as a warning.",
+          ],
+          application: "Find a recent bottom on a chart. Did volume shrink into it, and was the retest quieter than the first low?",
+          quiz: [
+            q("Three lower closes in a row during an uptrend suggest:", ["The trend is accelerating", "The short-term trend has turned", "Nothing", "A round number is near"], 1),
+            q("A retest of a low on lighter volume than the first low is:", ["A sign selling is drying up", "A sign of heavy selling", "Irrelevant", "A sell signal"], 0),
           ],
           reviewMeta: AUTHOR,
         },
         {
-          id: "academy-4/method-rules/seven-zones",
-          title: "The Seven Zones of Activity",
-          objectives: [
-            "Place a stock in its normal zone or one of the extreme zones above or below it.",
-            "Explain why the outer zones call for the other rules to confirm, not for a trade on their own.",
-          ],
-          estimatedMinutes: 10,
+          id: "academy-4/reading-the-swings/managing-a-winner",
+          title: "Managing a Winning Trade",
+          objectives: ["Describe how GSPS manages a trade that is working.", "Explain why a runner has no fixed target."],
+          estimatedMinutes: 11,
           instruction: [
-            "The method divides a stock's activity into seven zones: one normal zone where it spends most of its time, three zones above it that are progressively more extreme, and three below it, mirrored. A stock moving up out of its normal zone passes into the first zone above, then the second and third, each one further from what is normal for that stock.",
-            "The outer zones are where campaigns end. A bear campaign that has reached the lowest zone, or a bull campaign in the highest, has less room left to run than one just leaving the normal zone. A market does not turn simply because it has reached an outer zone, though; it can stay there for some time.",
-            "So the zones are a map, not a trigger. In the outer zones, give the turning rules more weight: volume at the turn, a reaction that over-balances the campaign's earlier ones, a campaign in its third or fourth section, and a close back under the level that was crossed. When those agree with an extreme zone, the turn is more likely real.",
+            "When a GSPS trade reaches its first target, part of the position is taken off. Mr. Bull likes this: some profit is banked. The rest keeps running.",
+            "Once the trade has gained as much as it risked, the stop moves to the entry. After that, the stop steps up under each new higher bottom the market makes, and under last month's low once a new month begins.",
+            "The part that keeps running has no fixed final target. It leaves when the market says the move is over: a swing chart turning, a reaction bigger or longer than any before it, or three closes against the trade. Mrs. Bear's point: let the market tell you when to leave instead of guessing a price in advance.",
           ],
-          application:
-            "Take a stock you follow. Mark the range it spent most of the last year in, then say which zone it is in now and which turning rules, if any, are showing.",
+          application: "Take a trade you know that went well. Where would the stop have been after each higher bottom?",
           quiz: [
-            q(
-              "How many zones of activity does the method describe?",
-              ["Three", "Five", "Seven: one normal zone and three on each side", "Nine"],
-              2,
-            ),
-            q(
-              "A stock has reached its most extreme zone above normal. What should you do?",
-              ["Sell short at once", "Give the turning rules more weight and wait for them to confirm", "Buy more", "Ignore the zone entirely"],
-              1,
-            ),
-          ],
-          reviewMeta: AUTHOR,
-        },
-        {
-          id: "academy-4/method-rules/trader-qualifications",
-          title: "The Trader's Five Qualifications",
-          objectives: [
-            "Name the five qualifications the method says a trader needs.",
-            "Explain why hope and fear are treated as the trader's chief enemies.",
-          ],
-          estimatedMinutes: 10,
-          instruction: [
-            "The method names five things a trader needs before the rules can work. Knowledge: regular study over years, not a few weeks. Patience: waiting for the right entry, and waiting for the trend to change before taking profits. Nerve, which comes from knowledge: you act on a rule because you understand it. Good health: never trade when you are ill or not yourself; stop and recover first. And capital: a small account is fine, provided every trade has a stop, losses are kept small and you don't overtrade.",
-            "Most losses come from the trader, not the market: trading on hope, tips, opinions or guesses, and refusing to admit a trade is wrong. Hope keeps a losing trade open; fear closes a winning one too early. A definite plan, followed every time, is the defence against both.",
-            "Prove the rules to yourself before you trust them with money. That is why GSPS measures every rule it uses against past trades, why paper trading comes before live money, and why the platform pauses new entries after a run of losses: it is the same instruction to stop, study and recover.",
-          ],
-          application:
-            "Rate yourself honestly on each of the five qualifications today. Pick the weakest one and write one thing you will do this week to improve it.",
-          quiz: [
-            q(
-              "Which of these is one of the five qualifications?",
-              ["A large account", "Good health", "Inside information", "A fast internet connection"],
-              1,
-            ),
-            q(
-              "Hope is treated as an enemy because it:",
-              ["Makes you take profits too early", "Keeps a losing trade open when the plan says to close it", "Stops you trading at all", "Has no effect on trading"],
-              1,
-            ),
+            q("After a trade gains as much as it risked, the stop moves to:", ["Further away", "The entry price", "Zero", "The first target"], 1),
+            q("The part of a trade that keeps running leaves when:", ["It hits a fixed final price", "The market shows the move is over", "It is Friday", "Volume rises once"], 1),
           ],
           reviewMeta: AUTHOR,
         },
@@ -921,6 +906,212 @@ const ACADEMY_6: Academy = {
             ),
           ],
           bullBear: { required: true, requiresRegimeCheckpoint: false, scenarioBasis: "hypothetical" },
+          reviewMeta: AUTHOR,
+        },
+      ],
+    },
+    {
+      id: "academy-6/method-rules",
+      slug: "method-rules",
+      title: "The Method's Rules: Trend, Time, Entries, Exits and the Trader",
+      outcome:
+        "Explain the rules GSPS applies on every setup (how the trend is read, when time matters, where an entry, stop and exit go, and when to stop trading) well enough to check a plan against them yourself.",
+      lessons: [
+        {
+          id: "academy-6/method-rules/swing-charts-and-trend",
+          title: "Swing Charts and When a Trend Changes",
+          objectives: [
+            "Read the trend from a 3-day and a weekly swing chart.",
+            "Name the signs that a trend is changing before price proves it.",
+          ],
+          estimatedMinutes: 15,
+          instruction: [
+            "GSPS reads trend from two swing charts built on highs and lows, not from moving averages. The 3-day chart follows price up while it makes higher highs and turns down after three bars of lower lows; the weekly chart does the same with a counter-move of about a week. The trend itself only turns when price crosses the last swing top (up) or breaks the last swing bottom (down). A pullback that holds above the last bottom is still an uptrend.",
+            "Trends run in sections, usually three or four. A signal in the third or fourth section counts for more than one in the second, because the move has had time to exhaust itself.",
+            "Three signs warn that a trend is changing before the swing chart turns: a reaction bigger than any earlier reaction in the move (price over-balanced), a reaction that lasts longer than any earlier one (time over-balanced), and the first break of the prior month's low after a long advance (or of its high after a decline). Time is read first: a move that runs out of time usually runs out of price soon after.",
+          ],
+          application:
+            "On a chart you know, mark the last swing top and bottom on the daily chart, count the sections of the current move, and note whether the current reaction is larger or longer than any before it.",
+          quiz: [
+            q(
+              "On the swing charts GSPS uses, an uptrend turns down when:",
+              ["Price closes below a moving average", "Price breaks the last swing bottom", "Volume falls for a day", "Any red candle appears"],
+              1,
+            ),
+            q(
+              "A reaction that lasts longer than every earlier reaction in the move is a sign that:",
+              ["The trend is strengthening", "Nothing has changed", "The trend may be changing", "Volume is about to rise"],
+              2,
+            ),
+          ],
+          reviewMeta: AUTHOR,
+        },
+        {
+          id: "academy-6/method-rules/time",
+          title: "Time: Counter-Moves, Anniversaries and the Rule of Three",
+          objectives: [
+            "Judge whether a counter-move has run a normal length of time or an abnormal one.",
+            "Use the three-close rule on daily, weekly and monthly bars.",
+          ],
+          estimatedMinutes: 14,
+          instruction: [
+            "Counter-moves in a healthy trend are usually short: two to three weeks is normal, and strong markets seldom react into a second month. A reaction that reaches a third month is treated as a change of trend, not a pause.",
+            "Turns tend to cluster at set distances from a major top or bottom: at fractions of the year (a quarter, a third, a half, and the full year, with the half year ranked highest) and at recurring day counts. GSPS shows these as time windows. They are a reason to watch closely, never a reason to trade on their own.",
+            "The three-close rule: after a run, three lower closes in a row turn a short-term uptrend down, and three higher closes turn a downtrend up. It is read on daily bars, and again on weekly and monthly bars, where it carries more weight.",
+          ],
+          application:
+            "Find the last major bottom on a daily chart. Count the calendar days since it, and check whether today falls near a quarter, a third or a half of a year from it.",
+          quiz: [
+            q(
+              "A reaction in an uptrend that runs into a third month should be treated as:",
+              ["A normal pullback", "A change of trend", "A buying opportunity", "Irrelevant"],
+              1,
+            ),
+            q(
+              "Time windows on GSPS are:",
+              ["A reason to trade on their own", "A reason to watch closely, not to trade on their own", "Only for crypto", "Hidden from the plan"],
+              1,
+            ),
+          ],
+          reviewMeta: AUTHOR,
+        },
+        {
+          id: "academy-6/method-rules/entries-and-exits",
+          title: "Entries, Stops and Exits on the Market's Own Structure",
+          objectives: [
+            "Explain where a GSPS entry, stop and target come from.",
+            "Describe how the stop moves and when a trade is closed early.",
+          ],
+          estimatedMinutes: 16,
+          instruction: [
+            "An entry is a crossing of an old swing top (long) or old swing bottom (short) by a small allowance, so ordinary noise at the level doesn't trigger it. GSPS then waits for confirmation: a close through the level, a retest, and a close that holds. Only then is the order placed, on every path, including automation. In a sideways market GSPS stays out until price breaks away from the range, because a trade inside the range is only a guess at which way it will leave.",
+            "The stop goes beyond the swing on the other side. Targets are taken at the support and resistance levels the method identifies, not at a fixed percentage, falling back to a range-based target only when no level is near.",
+            "The method manages an open trade on the market's own structure: the stop moves to break-even once the trade has gained as much as it risked, then follows each higher swing bottom and the prior month's low. A trade is closed early if price closes back under the level it broke (the breakout did not hold), or closes against the trade three days in a row. GSPS manages every open trade this way: part of the position is taken off at the first target, a level from the chart, and the rest runs under these rules until the trend changes. No fixed final target is set for it.",
+          ],
+          application:
+            "Take one GSPS plan. Identify the swing top or bottom its entry crosses, the swing its stop sits beyond, and the level its first target sits at.",
+          quiz: [
+            q(
+              "Where does a GSPS long entry come from?",
+              ["A fixed percentage above today's open", "A crossing of an old swing top plus a small allowance", "A moving-average crossover", "The previous day's close"],
+              1,
+            ),
+            q(
+              "Under the method's rules, a trade is closed early when:",
+              ["It is up one risk unit", "Price closes back under the level it broke, or closes against the trade three days running", "Volume drops", "It reaches break-even"],
+              1,
+            ),
+          ],
+          reviewMeta: AUTHOR,
+        },
+        {
+          id: "academy-6/method-rules/volume-and-the-trader",
+          title: "Volume at Turns, and Rules for the Trader",
+          objectives: [
+            "Read volume at a bottom and at a top the way the method does.",
+            "State the rules GSPS applies after a run of losses or wins.",
+          ],
+          estimatedMinutes: 12,
+          instruction: [
+            "Sales tend to increase near tops and decrease near bottoms. A normal bottom forms on shrinking volume and a narrowing range as selling runs out; a retest of the low on smaller volume says the selling is over. Very heavy volume at a low is the exception, a panic, and it is usually followed by a sharp rebound. A top tends to come on heavy volume, and a second top on smaller volume than the first says the advance is tiring.",
+            "After three losing trades in a row, GSPS pauses new entries for the rest of that day and the next trading day. The point is to stop and find out what changed, the market or your judgment, before the next trade. Stops and closes are never blocked.",
+            "Size is a fixed share of what the account is worth now, so a loss shrinks the next trade automatically. Nothing in GSPS raises size because of a winning streak: confidence after a run of wins is the moment to be most careful, not to trade bigger.",
+          ],
+          application:
+            "Look at the last low on a chart you follow. Was volume shrinking into it, or was it a heavy-volume panic? Write down which rule you'd have applied.",
+          quiz: [
+            q(
+              "A normal bottom most often forms on:",
+              ["Shrinking volume and a narrowing range", "Record volume every time", "Rising volume and a widening range", "No volume at all"],
+              0,
+            ),
+            q(
+              "After three losing trades in a row, GSPS:",
+              ["Doubles the next position", "Pauses new entries for the rest of the day and the next trading day", "Closes every open position", "Changes nothing"],
+              1,
+            ),
+          ],
+          reviewMeta: AUTHOR,
+        },
+        {
+          id: "academy-6/method-rules/pyramiding",
+          title: "Adding to a Winner, and When to Stop Adding",
+          objectives: [
+            "State the conditions under which a position may be added to.",
+            "Size each addition and move the stop so the whole position can't lose.",
+          ],
+          estimatedMinutes: 13,
+          instruction: [
+            "Adding to a position is earned, never hoped for. The last lot must already show a profit at least as large as the risk the trade started with, and the market must prove the trend again by crossing a new swing top (a new swing bottom, for a short) made since that last lot. Adding to a losing trade to improve the average price is the one thing this rule exists to prevent.",
+            "Each addition is smaller than the one before, about half. The largest amount goes on first, when the trend is youngest; later waves of the same move get less new money. After four lots, stop adding: the move is getting old.",
+            "With every addition, the stop on the whole position moves up to at least the combined break-even, so that a reversal can cost profit but not capital. A full stop-out of everything together should never cost more than a tenth of the account.",
+            "GSPS shows an add on the Portfolio when a position has earned one. It is a suggestion: you place it through the order ticket, and nothing is added automatically.",
+          ],
+          application:
+            "Take a trend you know. Mark where the first entry would have been, the first swing top made after it, and the combined break-even after a half-size addition there.",
+          quiz: [
+            q("A position may be added to when:", ["It is losing and the price is cheaper", "The last lot shows a full risk unit of profit and a new swing top is crossed", "Any day of the week", "Volume rises once"], 1),
+            q("Each addition should be:", ["Larger than the last", "The same size", "About half the last", "Random"], 2),
+            q("After an addition, the stop on the whole position moves to at least:", ["The first entry's stop", "The combined break-even", "A round number above price", "Nowhere"], 1),
+          ],
+          reviewMeta: AUTHOR,
+        },
+        {
+          id: "academy-6/method-rules/seven-zones",
+          title: "The Seven Zones of Activity",
+          objectives: [
+            "Place a stock in its normal zone or one of the extreme zones above or below it.",
+            "Explain why the outer zones call for the other rules to confirm, not for a trade on their own.",
+          ],
+          estimatedMinutes: 10,
+          instruction: [
+            "The method divides a stock's activity into seven zones: one normal zone where it spends most of its time, three zones above it that are progressively more extreme, and three below it, mirrored. A stock moving up out of its normal zone passes into the first zone above, then the second and third, each one further from what is normal for that stock.",
+            "The outer zones are where campaigns end. A bear campaign that has reached the lowest zone, or a bull campaign in the highest, has less room left to run than one just leaving the normal zone. A market does not turn simply because it has reached an outer zone, though; it can stay there for some time.",
+            "So the zones are a map, not a trigger. In the outer zones, give the turning rules more weight: volume at the turn, a reaction that over-balances the campaign's earlier ones, a campaign in its third or fourth section, and a close back under the level that was crossed. When those agree with an extreme zone, the turn is more likely real.",
+          ],
+          application:
+            "Take a stock you follow. Mark the range it spent most of the last year in, then say which zone it is in now and which turning rules, if any, are showing.",
+          quiz: [
+            q(
+              "How many zones of activity does the method describe?",
+              ["Three", "Five", "Seven: one normal zone and three on each side", "Nine"],
+              2,
+            ),
+            q(
+              "A stock has reached its most extreme zone above normal. What should you do?",
+              ["Sell short at once", "Give the turning rules more weight and wait for them to confirm", "Buy more", "Ignore the zone entirely"],
+              1,
+            ),
+          ],
+          reviewMeta: AUTHOR,
+        },
+        {
+          id: "academy-6/method-rules/trader-qualifications",
+          title: "The Trader's Five Qualifications",
+          objectives: [
+            "Name the five qualifications the method says a trader needs.",
+            "Explain why hope and fear are treated as the trader's chief enemies.",
+          ],
+          estimatedMinutes: 10,
+          instruction: [
+            "The method names five things a trader needs before the rules can work. Knowledge: regular study over years, not a few weeks. Patience: waiting for the right entry, and waiting for the trend to change before taking profits. Nerve, which comes from knowledge: you act on a rule because you understand it. Good health: never trade when you are ill or not yourself; stop and recover first. And capital: a small account is fine, provided every trade has a stop, losses are kept small and you don't overtrade.",
+            "Most losses come from the trader, not the market: trading on hope, tips, opinions or guesses, and refusing to admit a trade is wrong. Hope keeps a losing trade open; fear closes a winning one too early. A definite plan, followed every time, is the defence against both.",
+            "Prove the rules to yourself before you trust them with money. That is why GSPS measures every rule it uses against past trades, why paper trading comes before live money, and why the platform pauses new entries after a run of losses: it is the same instruction to stop, study and recover.",
+          ],
+          application:
+            "Rate yourself honestly on each of the five qualifications today. Pick the weakest one and write one thing you will do this week to improve it.",
+          quiz: [
+            q(
+              "Which of these is one of the five qualifications?",
+              ["A large account", "Good health", "Inside information", "A fast internet connection"],
+              1,
+            ),
+            q(
+              "Hope is treated as an enemy because it:",
+              ["Makes you take profits too early", "Keeps a losing trade open when the plan says to close it", "Stops you trading at all", "Has no effect on trading"],
+              1,
+            ),
+          ],
           reviewMeta: AUTHOR,
         },
       ],
