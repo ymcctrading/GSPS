@@ -116,9 +116,13 @@ export const FIXED_CALENDAR_WINDOWS: readonly { month: number; startDay: number;
   { month: 3, startDay: 21, endDay: 23 },
   { month: 5, startDay: 3, endDay: 7 },
   { month: 6, startDay: 20, endDay: 24 },
+  // ⅓ of the seasonal year from March 21 (Master Course; seasonalCounts.ts).
+  { month: 7, startDay: 22, endDay: 24 },
   { month: 8, startDay: 3, endDay: 8 },
   { month: 9, startDay: 21, endDay: 24 },
   { month: 11, startDay: 8, endDay: 11 },
+  // ⅔ of the seasonal year from March 21.
+  { month: 11, startDay: 21, endDay: 23 },
   { month: 12, startDay: 20, endDay: 24 },
 ];
 

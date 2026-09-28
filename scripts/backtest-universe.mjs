@@ -391,6 +391,14 @@ async function main() {
     const started = Date.now();
     const paceMs = args.symbolsPerMinute > 0 ? 60_000 / args.symbolsPerMinute : 0;
 
+    // The market's daily bars (SPY) once, for Gann's early/late leaders (G25).
+    let marketDailyBars;
+    try {
+      marketDailyBars = (await run.fetchSeries("SPY", args.timeframe, true)).daily;
+    } catch {
+      marketDailyBars = undefined;
+    }
+
     for (let i = 0; i < universe.length; i++) {
       const symbol = universe[i];
       const tickStart = Date.now();
@@ -406,7 +414,7 @@ async function main() {
           const instrument = ref ? { sharesHistory: ref.history, inception: ref.reference.inception } : undefined;
           cells.forEach((cell, c) => {
             perCell[c].push(
-              replay(symbol, bars, { targetR: args.targetR, ...(cell.options ?? {}), dailyBars: daily, monthlyBars: monthly, instrument }),
+              replay(symbol, bars, { targetR: args.targetR, ...(cell.options ?? {}), dailyBars: daily, monthlyBars: monthly, instrument, marketDailyBars }),
             );
           });
           used.push(symbol);

@@ -245,6 +245,12 @@ export interface ReplayOptions {
    * row.
    */
   instrument?: { sharesHistory: SharesPoint[]; inception: Inception | null };
+  /**
+   * The market's daily bars (SPY), for Gann's early and late leaders (G25).
+   * Each session reads only the bars before it. Omit it and the leadership
+   * reading carries only the first-year high.
+   */
+  marketDailyBars?: Bar[];
 }
 
 export interface ReplayTrade {
@@ -583,6 +589,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     exitRule = "bracket",
     pyramid = false,
     instrument,
+    marketDailyBars,
   } = options;
 
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
@@ -611,9 +618,14 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     let arm: SessionArm | null = null;
     if (priorSessions.length >= MIN_DAILY_BARS_FOR_SCORE) {
       const priorMonthly = monthlyBars ? monthlyBars.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)) : [];
-      const facts: InstrumentFacts | null = instrument
-        ? { sharesOutstanding: splitAdjustedSharesAsOf(instrument.sharesHistory, date), inception: instrument.inception }
-        : null;
+      const facts: InstrumentFacts | null =
+        instrument || marketDailyBars
+          ? {
+              sharesOutstanding: instrument ? splitAdjustedSharesAsOf(instrument.sharesHistory, date) : null,
+              inception: instrument?.inception ?? null,
+              marketDaily: marketDailyBars ?? null,
+            }
+          : null;
       const context = buildMacroContext(priorSessions, price, new Date(`${date}T12:00:00Z`), priorMonthly, facts);
       const reversionDirection = preferredEntryDirection(context.macroTrends);
       const triggers: SessionTrigger[] = [];

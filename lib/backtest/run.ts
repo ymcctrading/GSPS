@@ -373,6 +373,10 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
   // for the whole run. Empty when the table can't be reached, and the two
   // readings are then simply absent from every trade.
   const references = await loadInstrumentReferenceHistory(symbols);
+  // The market's daily bars (SPY) once, for Gann's early/late leaders (G25).
+  const marketDailyBars = await fetchSeries("SPY", timeframe)
+    .then((s) => s.daily)
+    .catch(() => undefined);
 
   for (const symbol of symbols) {
     try {
@@ -402,7 +406,7 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
       const instrument = reference
         ? { sharesHistory: reference.history, inception: reference.reference.inception }
         : undefined;
-      results.push(replay(symbol, bars, { ...options, dailyBars: daily, monthlyBars: monthly, instrument }));
+      results.push(replay(symbol, bars, { ...options, dailyBars: daily, monthlyBars: monthly, instrument, marketDailyBars }));
       used.push(symbol);
     } catch (err) {
       skipped.push({ symbol, reason: err instanceof Error ? err.message : String(err) });

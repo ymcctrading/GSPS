@@ -70,6 +70,10 @@
  *    whether the market's pull-back rhythm is still normal).
  */
 
+import { readSeasonalCount, type SeasonalCountReading } from "@/lib/gann/seasonalCounts";
+import { readAccumulation, type AccumulationReading } from "@/lib/gann/accumulation";
+import { readSharesPerPoint, type SharesPerPointReading } from "@/lib/gann/sharesPerPoint";
+import { readLeadership, type LeadershipReading } from "@/lib/gann/leadership";
 import { describeSevenZones, readSevenZones, type ZoneReading } from "@/lib/gann/sevenZones";
 import { approachingFigure, type ApproachReading } from "@/lib/gann/evenFigures";
 import type { Bar } from "@/lib/types";
@@ -417,6 +421,14 @@ export interface DisclosedRulesContext {
   evenFigures: { overhead: ApproachReading | null; underneath: ApproachReading | null };
   /** Gann's Seven Zones of Activity, read from behaviour. See `sevenZones.ts`. */
   zone: ZoneReading | null;
+  /** The seasonal point (counted from March 21) today sits on. See `seasonalCounts.ts`. */
+  seasonal: SeasonalCountReading | null;
+  /** Time spent in the range price is in or leaving. See `accumulation.ts`. */
+  accumulation: AccumulationReading | null;
+  /** Volume per point of gain, current up leg against the prior one. See `sharesPerPoint.ts`. */
+  sharesPerPoint: SharesPerPointReading | null;
+  /** Early and late leaders, and the first-year high. See `leadership.ts`. */
+  leadership: LeadershipReading | null;
 }
 
 /**
@@ -427,6 +439,8 @@ export interface DisclosedRulesContext {
 export interface InstrumentFacts {
   sharesOutstanding: number | null;
   inception: Inception | null;
+  /** The market's daily bars (SPY), for early and late leaders (G25). See `leadership.ts`. */
+  marketDaily?: Bar[] | null;
 }
 
 export const EMPTY_DISCLOSED_RULES: DisclosedRulesContext = {
@@ -447,6 +461,10 @@ export const EMPTY_DISCLOSED_RULES: DisclosedRulesContext = {
   incorporation: null,
   evenFigures: { overhead: null, underneath: null },
   zone: null,
+  seasonal: null,
+  accumulation: null,
+  sharesPerPoint: null,
+  leadership: null,
 };
 
 export function readDisclosedRules(
@@ -456,6 +474,7 @@ export function readDisclosedRules(
   /** The session being read. Defaults to now (the live scan); the replay passes the replayed session. */
   asOf: Date = new Date(),
 ): DisclosedRulesContext {
+  const campaign = buildCampaignLedger(dailyBars);
   return {
     barMidpoint: readBarMidpoint(dailyBars),
     pricePercentages: readPricePercentages(dailyBars, currentPrice),
@@ -464,7 +483,7 @@ export function readDisclosedRules(
     counterMove: readCounterMove(dailyBars),
     levelTests: readLevelTests(dailyBars, currentPrice),
     ruleOfThree: readRuleOfThreeTimeframes(dailyBars),
-    campaign: buildCampaignLedger(dailyBars),
+    campaign,
     extremes: readExtremeRules(dailyBars),
     timing: readTiming(dailyBars),
     capitalStock: readCapitalStock(dailyBars, toWeeklyBars(dailyBars), instrument?.sharesOutstanding),
@@ -474,6 +493,10 @@ export function readDisclosedRules(
       underneath: approachingFigure(currentPrice, "bearish"),
     },
     zone: readSevenZones(dailyBars),
+    seasonal: readSeasonalCount(asOf),
+    accumulation: readAccumulation(dailyBars),
+    sharesPerPoint: readSharesPerPoint(dailyBars, campaign),
+    leadership: readLeadership(dailyBars, instrument?.marketDaily ?? null, campaign),
   };
 }
 
@@ -483,6 +506,21 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   if (ctx.capitalStock) lines.push(...describeCapitalStock(ctx.capitalStock));
   if (ctx.incorporation) lines.push(...describeIncorporationCycle(ctx.incorporation));
   if (ctx.zone) lines.push(describeSevenZones(ctx.zone));
+  if (ctx.seasonal) lines.push(`Seasonal count: ${ctx.seasonal.point.label} of the year from March 21 (${ctx.seasonal.offsetDays === 0 ? "today" : `${Math.abs(ctx.seasonal.offsetDays)}d ${ctx.seasonal.offsetDays > 0 ? "after" : "before"}`}).`);
+  if (ctx.accumulation) {
+    const a = ctx.accumulation;
+    lines.push(`Range ${a.rangeLow.toFixed(2)}–${a.rangeHigh.toFixed(2)} held ${a.weeks.toFixed(1)} weeks${a.breakout ? `, broken ${a.breakout}` : ""}. The longer the time in a range, the bigger the move out of it.`);
+  }
+  if (ctx.sharesPerPoint?.topWarning) {
+    lines.push(`Volume per point of gain is ${ctx.sharesPerPoint.ratio.toFixed(1)}× the prior up leg near the high: more effort for less gain, a sign of a top.`);
+  }
+  if (ctx.leadership) {
+    const l = ctx.leadership;
+    if (l.bottomedFirst) lines.push("Bottomed before the market: an early leader (stocks that bottom first top first).");
+    if (l.bottomedLate) lines.push("Bottomed after the market: a late mover.");
+    if (l.toppedFirst) lines.push("Topped before the market: watch for early weakness.");
+    if (l.firstYearHighCrossed !== null) lines.push(`First-year high of the campaign ${l.firstYearHighCrossed ? "crossed" : "not yet crossed"}.`);
+  }
   if (ctx.evenFigures.overhead) lines.push(ctx.evenFigures.overhead.note);
   if (ctx.evenFigures.underneath) lines.push(ctx.evenFigures.underneath.note);
   if (ctx.barMidpoint) {

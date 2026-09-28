@@ -210,6 +210,15 @@ function DisclosedRuleTiles({
     timing?.square144 && timing.square144.units.length >= 2 ? `12-multiple in ${timing.square144.units.join("+")}` : null,
   ].filter(Boolean);
   if (timingText.length > 0) tiles.push({ label: "Turn timing", value: timingText.join(", ") });
+  if (rules.seasonal) tiles.push({ label: "Seasonal count", value: rules.seasonal.point.label });
+  if (rules.accumulation && rules.accumulation.weeks >= 2) {
+    tiles.push({ label: "Weeks in range", value: `${rules.accumulation.weeks.toFixed(1)}${rules.accumulation.breakout ? ` (broke ${rules.accumulation.breakout})` : ""}` });
+  }
+  const lead = rules.leadership;
+  if (lead && (lead.bottomedFirst || lead.bottomedLate || lead.toppedFirst)) {
+    tiles.push({ label: "Versus the market", value: lead.bottomedFirst ? "bottomed first" : lead.bottomedLate ? "bottomed late" : "topped first" });
+  }
+  if (rules.sharesPerPoint?.topWarning) tiles.push({ label: "Volume per point", value: `${rules.sharesPerPoint.ratio.toFixed(1)}× prior leg` });
   if (rules.zone) {
     tiles.push({ label: "Zone of activity", value: `${rules.zone.zone > 0 ? "+" : ""}${rules.zone.zone}${rules.zone.firstSignOfEnd ? " (first sign of the end)" : ""}` });
   }

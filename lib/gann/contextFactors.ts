@@ -97,6 +97,26 @@ export function contextFactorsFor(
     f.zoneExtremeAgainstTrade = z === -3;
     f.zoneFirstSignOfEnd = ctx.zone.firstSignOfEnd;
   }
+  // G8: the seasonal count from March 21 (any point, and the ½/¼/¾/full year).
+  if (ctx.seasonal !== undefined) {
+    f.seasonalCountActive = ctx.seasonal !== null;
+    f.seasonalCountMajor = ctx.seasonal !== null && ctx.seasonal.point.rank <= 2;
+  }
+  // G22: a breakout from a long range in the trade's direction.
+  if (ctx.accumulation) {
+    f.longAccumulationBreakoutWithTrade = ctx.accumulation.long && ctx.accumulation.breakout === (bull ? "up" : "down");
+  }
+  // G7: a top warning counts against a long and with a short.
+  if (ctx.sharesPerPoint) {
+    f.sharesPerPointTopAgainst = bull && ctx.sharesPerPoint.topWarning;
+    f.sharesPerPointTopWith = !bull && ctx.sharesPerPoint.topWarning;
+  }
+  // G25: early and late leaders; the first-year high for longs.
+  if (ctx.leadership) {
+    f.earlyLeaderInTradeDirection = bull ? ctx.leadership.bottomedFirst : ctx.leadership.toppedFirst;
+    if (bull) f.lateMoverLong = ctx.leadership.bottomedLate;
+    if (bull && ctx.leadership.firstYearHighCrossed !== null) f.firstYearHighCrossed = ctx.leadership.firstYearHighCrossed;
+  }
 
   // D2: Gann's capital-stock readings are top warnings, so they count against
   // a long and with a short. Absent when no share count is stored.
