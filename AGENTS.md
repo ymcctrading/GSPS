@@ -146,7 +146,8 @@ figure but lower Execute, and the gain rests on trades still open at the
 longer-horizon run settles it. **Superseded 2026-09-28 by the owner ("switch
 on Gann's exits"):** live and paper positions now exit on Gann's rules with
 60% still taken at TP1 (`LIVE_EXIT_RULE`, `lib/trade/protocol-exit.ts`;
-measured as `exitRule: "gann-runner"`, not yet run).
+measured as `exitRule: "gann-runner"`, not yet run). `STRATEGY_VERSION` is
+`2026-09-28-gann-exits-figures` (even figures move plan stops and targets).
 **Six-year one-hour run, 2026-09-28** (same notes file, runs 12 and 13): every
 cell loses over 2020-2026, interval wholly below zero, both halves; Execute
 is worse than Watch (−0.090 stop, −0.123 confirmed, −0.164 Gann exits). The

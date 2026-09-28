@@ -39,6 +39,8 @@ date.
   pyramiding lesson.
 
 ### Changed
+- **`STRATEGY_VERSION` is `2026-09-28-gann-exits-figures`**: even figures
+  move plan stops and targets, and live exits follow Gann's rules.
 - **Exits run on Gann's rules** on every paper and live position: 60% at the
   first target, no fixed final target, the stop moved on the market's swings,
   and the rest closed on a failed breakout, three closes against the trade or

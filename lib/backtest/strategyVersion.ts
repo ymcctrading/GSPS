@@ -27,4 +27,9 @@
 // Fourth bump (parity C4 and D1): equity TP1/master taken from Gann and S/R
 // levels, and the volume criterion reads Gann's full rule (drying-up bottoms,
 // lower-volume retests, the climax as the panic exception).
-export const STRATEGY_VERSION = "2026-09-27-gann-targets-volume";
+// 2026-09-28 (owner): Gann's even figures move equity stops beyond, and add
+// targets just short of, round numbers (lib/gann/evenFigures.ts via
+// computeEquityTradeLevels); live and paper exits switch to Gann's rules with
+// 60% at TP1 (replay exitRule "gann-runner"). The ⅓ and ⅔ seasonal dates join
+// the fixed calendar. New context readings are measured, not scored.
+export const STRATEGY_VERSION = "2026-09-28-gann-exits-figures";
