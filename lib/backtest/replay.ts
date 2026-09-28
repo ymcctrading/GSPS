@@ -24,14 +24,30 @@
  * resting at it fills. A given swing top or bottom is crossed once: after a
  * fill, that pivot does not arm again.
  *
- * Coverage differences from the live scan that remain, stated rather than
- * hidden:
- *   - Only the reversion direction is replayed. `runMarketScan`'s
- *     continuation fills pass their own direction to `scanTicker`, and that
- *     secondary pool is not modelled here.
- *   - A session needs `MIN_DAILY_BARS_FOR_SCORE` prior daily bars before it
- *     can arm. The live scan needs 30. That excludes early history rather
- *     than scoring it on a fabricated macro read.
+ * Both of the scan's setup kinds are replayed (2026-09-26):
+ *   - **Reversion**, in `preferredEntryDirection`'s direction, the way
+ *     `scanTicker` arms every symbol.
+ *   - **Continuation**, in the macro direction itself, the way
+ *     `runMarketScan`'s continuation pass calls `scanTicker` with a
+ *     direction. A session arms one only when that pass's own gate
+ *     (`isMomentumContinuation`) could admit it: at least two of three macro
+ *     timeframes agree (`macroBreadthAgrees`), momentum is elevated, and at
+ *     the fill the top-ranked pattern is a continuation shape
+ *     (`isContinuationShape`). The scan also requires an Execute score before
+ *     publishing a continuation. The replay records every such trade with its
+ *     score, so read continuation results from the Execute bucket
+ *     (`bySetupKind` and then `byOutputState`). Filtering on score here would
+ *     hide the attribution data the factor table needs. What is still not
+ *     modelled is the pass's candidate pool and per-side quota. Those are
+ *     cross-symbol, per-run rationing, not properties of one symbol's setup.
+ *
+ * A session arms once it has `MIN_DAILY_BARS_FOR_SCAN` prior daily bars, the
+ * same minimum `scanTicker` enforces (it was 120 here until 2026-09-26, which
+ * excluded early history the live scan does trade). One remaining difference
+ * is stated rather than hidden: the replay reads weekly and monthly trends
+ * from rollups of the daily bars, while the live scan fetches those
+ * timeframes directly. On short daily history the rollups have fewer bars
+ * than the live fetch would.
  *
  * Deliberately pessimistic wherever a bar is ambiguous:
  *   - The trigger is a resting stop order. If a candle opens already beyond
@@ -46,10 +62,16 @@
  * output as an upper bound on a strategy's quality, never a promise.
  */
 
-import type { AssetClass, Bar, GannLevels, ScanDecision, StratPattern, Timeframe, TrendReading } from "@/lib/types";
+import type { AssetClass, Bar, GannLevels, ScanDecision, SetupKind, StratPattern, Timeframe, TrendReading } from "@/lib/types";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { computeStopWithLeeway, computeTradeLevels, type EntrySource } from "@/lib/strat/levels";
-import { preferredEntryDirection, rankArmedPatterns } from "@/lib/scan/entrySelection";
+import {
+  MIN_DAILY_BARS_FOR_SCAN,
+  isContinuationShape,
+  macroBreadthAgrees,
+  preferredEntryDirection,
+  rankArmedPatterns,
+} from "@/lib/scan/entrySelection";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
 import { readLiquidity } from "@/lib/scan/liquidity";
 import { applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
@@ -62,6 +84,8 @@ import {
 } from "@/lib/scoring/proximity";
 import type { CriterionWeights } from "@/lib/scoring/weights";
 import { computeGannEntryTrigger, type GannEntryTrigger } from "@/lib/gann/entryTrigger";
+import { advanceEntryConfirmation, entryReady, freshEntryConfirmation } from "@/lib/lifecycle/entryConfirmation";
+import type { EntryConfirmationEvidence } from "@/lib/lifecycle/types";
 import { readTrend } from "@/lib/analysis/trend";
 import { countLevelTests, levelRole, type LevelRole } from "@/lib/analysis/levelRole";
 import { atr } from "@/lib/analysis/pivots";
@@ -82,11 +106,12 @@ import { DEFAULT_COST_PER_SHARE_USD } from "@/lib/trade/friction";
 export const BARS_PER_SESSION = 26;
 
 /**
- * Daily history needed before a confluence score is worth computing. Below
- * this the macro trends and structural levels are being read off too little
- * data to mean anything, and a fabricated score is worse than none.
+ * Daily history needed before a session can arm. This is the live scan's own
+ * minimum (`MIN_DAILY_BARS_FOR_SCAN`), not a separate replay threshold, so the
+ * replay trades exactly the history production trades. It was 120 until
+ * 2026-09-26.
  */
-export const MIN_DAILY_BARS_FOR_SCORE = 120;
+export const MIN_DAILY_BARS_FOR_SCORE = MIN_DAILY_BARS_FOR_SCAN;
 
 export interface ReplayOptions {
   /** Take-profit distance as a multiple of the trade's risk. */
@@ -147,6 +172,27 @@ export interface ReplayOptions {
    * with each stop, is the before/after `docs/BACKTESTING.md` asks for.
    */
   useProductionStop?: boolean;
+  /**
+   * Which entry rule fills the trade. Production uses both, on different
+   * paths:
+   *
+   * - `"stop"` (default): a resting stop order at the trigger, filled the
+   *   moment a candle reaches it (at the open when it gaps past). This is how
+   *   the manual ticket, Guided Mode and the demo account enter. Their
+   *   advised entries rest as stop-entries at the trigger
+   *   (`lib/brokers/simulator.ts#isTriggered`).
+   * - `"confirmed"`: the full entry-confirmation sequence
+   *   (`lib/lifecycle/entryConfirmation.ts`: touch, a close beyond the
+   *   trigger by the 3-point-rule buffer, a retest, then a close that holds).
+   *   The trade fills at the open of the bar after the hold confirms. This is
+   *   how plan-scoped automation and the autonomous portfolio manager enter;
+   *   they act only on an `armed` plan. It uses the same state-machine
+   *   function the live plans use, so the two can't drift.
+   *
+   * Added 2026-09-26 (alignment audit F3.4). Before this the replay measured
+   * only the stop entry, so nothing measured the rule automation trades on.
+   */
+  entryRule?: "stop" | "confirmed";
 }
 
 export interface ReplayTrade {
@@ -165,6 +211,12 @@ export interface ReplayTrade {
    * selects nor prices the trade. Null when no pattern was armed.
    */
   pattern: StratPattern["name"] | null;
+  /**
+   * Which of the scan's two setup kinds armed this trade. A reversion is
+   * armed against the macro move. A continuation is armed with it, the way
+   * the market scan's continuation pass arms one.
+   */
+  setupKind: SetupKind;
   direction: "bullish" | "bearish";
   entry: number;
   stop: number;
@@ -242,10 +294,18 @@ export interface ReplayResult {
   expectancyR: number;
   /** Sum of all results, in R. */
   totalR: number;
+  /**
+   * Triggered entries whose fill landed at or beyond the plan's own stop or
+   * target, and were dropped rather than counted. Production refuses these
+   * (`fill_outran_bracket`, lib/trade/place-order.ts): an order that fills
+   * past its bracket is never opened. Reported so a run says how many there
+   * were.
+   */
+  refusedFills: number;
 }
 
 const EMPTY: Omit<ReplayResult, "trades"> = {
-  armed: 0, triggered: 0, wins: 0, losses: 0, timeouts: 0, ambiguous: 0,
+  armed: 0, triggered: 0, refusedFills: 0, wins: 0, losses: 0, timeouts: 0, ambiguous: 0,
   winRate: 0, expectancyR: 0, totalR: 0,
 };
 
@@ -416,10 +476,16 @@ export function buildMacroContext(
   };
 }
 
+/** One armed trigger for a session, and the setup kind it belongs to. */
+interface SessionTrigger {
+  setupKind: SetupKind;
+  trigger: GannEntryTrigger;
+}
+
 /** One session's arming state: read once per date from prior sessions only. */
 interface SessionArm {
   context: MacroContext;
-  trigger: GannEntryTrigger | null;
+  triggers: SessionTrigger[];
   largeCap: boolean;
 }
 
@@ -433,19 +499,26 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     monthlyBars,
     weights,
     useProductionStop = false,
+    entryRule = "stop",
   } = options;
 
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
 
   const trades: ReplayTrade[] = [];
+  // Entry-confirmation evidence per armed pivot, used only when
+  // `entryRule === "confirmed"`. Each pivot records the date it first armed
+  // on, so no bar from before that session can count toward its confirmation.
+  const confirmation = new Map<string, { since: string; evidence: EntryConfirmationEvidence }>();
   // Counted once per session a pivot is armed on, and once per fill.
   const armedKeys = new Set<string>();
   let triggered = 0;
-  // A swing top/bottom is crossed once. Pivot indices are stable across
-  // sessions because each session's daily history is a prefix of the next.
+  let refusedFills = 0;
+  // A swing top/bottom is crossed once per setup kind. Pivot indices are
+  // stable across sessions because each session's daily history is a prefix
+  // of the next.
   const consumedPivots = new Set<string>();
-  // Macro context and the daily trigger only move once a session, so they are
-  // built per date, not per bar.
+  // Macro context and the daily triggers only move once a session, so they
+  // are built per date, not per bar.
   const armByDate = new Map<string, SessionArm | null>();
 
   const sessionArm = (date: string, price: number): SessionArm | null => {
@@ -455,10 +528,20 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     let arm: SessionArm | null = null;
     if (priorSessions.length >= MIN_DAILY_BARS_FOR_SCORE) {
       const context = buildMacroContext(priorSessions, price, new Date(`${date}T12:00:00Z`));
-      const direction = preferredEntryDirection(context.macroTrends);
+      const reversionDirection = preferredEntryDirection(context.macroTrends);
+      const triggers: SessionTrigger[] = [];
+      const reversion = computeGannEntryTrigger(priorSessions, reversionDirection);
+      if (reversion) triggers.push({ setupKind: "reversion", trigger: reversion });
+      // The continuation pass arms with the macro move, never against it, and
+      // only where its breadth and momentum gate could admit the result.
+      const continuationDirection = reversionDirection === "bullish" ? "bearish" : "bullish";
+      if (context.momentumElevated && macroBreadthAgrees(context.macroTrends, continuationDirection)) {
+        const continuation = computeGannEntryTrigger(priorSessions, continuationDirection);
+        if (continuation) triggers.push({ setupKind: "continuation", trigger: continuation });
+      }
       arm = {
         context,
-        trigger: computeGannEntryTrigger(priorSessions, direction),
+        triggers,
         largeCap: isLargeCapStock(symbol, assetClass, readLiquidity(priorSessions)),
       };
     }
@@ -468,117 +551,185 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
 
   for (let i = warmupBars; i < bars.length - 1; i++) {
     const history = bars.slice(0, i);
-    const live = bars[i]; // the candle the resting order may fill on
+    const live = bars[i]; // the candle a resting order may fill on
     const date = live.t.slice(0, 10);
     const lastClose = history[history.length - 1].c;
 
     const arm = sessionArm(date, lastClose);
-    const trigger = arm?.trigger;
-    if (!arm || !trigger) continue;
+    if (!arm) continue;
 
-    const pivotKey = `${trigger.direction}:${trigger.pivot.kind}:${trigger.pivot.index}`;
-    if (consumedPivots.has(pivotKey)) continue;
-    armedKeys.add(`${date}|${pivotKey}`);
+    for (const { setupKind, trigger } of arm.triggers) {
+      const pivotKey = `${setupKind}:${trigger.direction}:${trigger.pivot.kind}:${trigger.pivot.index}`;
+      if (consumedPivots.has(pivotKey)) continue;
+      armedKeys.add(`${date}|${pivotKey}`);
 
-    const long = trigger.direction === "bullish";
-    const dir = long ? 1 : -1;
-    // The trigger is a stop order: it fills only if this candle reaches it.
-    const fired = long ? live.h >= trigger.triggerPrice : live.l <= trigger.triggerPrice;
-    if (!fired) continue;
-    consumedPivots.add(pivotKey);
-    triggered++;
+      const long = trigger.direction === "bullish";
+      const dir = long ? 1 : -1;
+      let fired: boolean;
+      if (entryRule === "confirmed") {
+        // Advance the confirmation state machine on the last closed bar, if
+        // it belongs to a session this pivot was armed on. Once the sequence
+        // completes, the entry is this candle's open.
+        const state = confirmation.get(pivotKey) ?? { since: date, evidence: freshEntryConfirmation() };
+        const closed = history[history.length - 1];
+        if (closed.t.slice(0, 10) >= state.since) {
+          state.evidence = advanceEntryConfirmation(
+            state.evidence,
+            { direction: trigger.direction, entryTrigger: trigger.triggerPrice },
+            closed,
+          );
+        }
+        confirmation.set(pivotKey, state);
+        fired = entryReady(state.evidence);
+      } else {
+        // The trigger is a stop order: it fills only if this candle reaches it.
+        fired = long ? live.h >= trigger.triggerPrice : live.l <= trigger.triggerPrice;
+      }
+      if (!fired) continue;
 
-    // A candle that opens beyond the resting stop fills at its open.
-    const entry = long ? Math.max(trigger.triggerPrice, live.o) : Math.min(trigger.triggerPrice, live.o);
-    const executionAtr = atr(history.slice(-30), 14);
-    const { largeCap } = arm;
+      const executionAtr = atr(history.slice(-30), 14);
+      const pattern =
+        rankArmedPatterns({
+          closedExecutionBars: history,
+          currentPrice: lastClose,
+          executionAtr,
+          preferredDirection: trigger.direction,
+          setupKind,
+        })[0] ?? null;
+      // The continuation pass publishes only a continuation shape. Without
+      // one there's no published plan and so no resting order. The pivot is
+      // not consumed, so a later bar can still fill once a shape arms, just as
+      // a later scan could publish it.
+      if (setupKind === "continuation" && !isContinuationShape(pattern)) continue;
 
-    // The harness's original stop is the raw structural stop, untouched by the
-    // leeway or large-cap widening `computeTradeLevels` applies for the live
-    // scan and Guided Mode. `useProductionStop` swaps it for the widened one.
-    // See the option's own comment for why this distinction has to exist.
-    const stop =
-      useProductionStop && executionAtr > 0
-        ? computeStopWithLeeway({
-            side: long ? "long" : "short",
-            entry,
-            structuralStop: trigger.stopPrice,
-            atr15: executionAtr,
-            largeCap,
-          })
-        : trigger.stopPrice;
-    const risk = Math.abs(entry - stop);
-    if (!(risk > 0) || (long ? stop >= entry : stop <= entry)) continue;
-    const target = entry + dir * targetR * risk;
+      consumedPivots.add(pivotKey);
+      triggered++;
 
-    const pattern =
-      rankArmedPatterns({
-        closedExecutionBars: history,
-        currentPrice: lastClose,
+      // A stop entry fills at the trigger, or at the open when a candle opens
+      // beyond it. A confirmed entry is a market order after the hold, filled
+      // at this candle's open.
+      const entry =
+        entryRule === "confirmed"
+          ? live.o
+          : long
+            ? Math.max(trigger.triggerPrice, live.o)
+            : Math.min(trigger.triggerPrice, live.o);
+      const { largeCap } = arm;
+
+      // The harness's original stop is the raw structural stop, untouched by
+      // the leeway or large-cap widening `computeTradeLevels` applies for the
+      // live scan and Guided Mode. `useProductionStop` swaps it for the widened
+      // one. See the option's own comment for why this distinction exists.
+      // The plan's bracket is fixed when the plan is priced, from the trigger,
+      // and every production path attaches it unchanged: the ticket's
+      // advised entry, Guided Mode, and automation's
+      // `deriveOrderInputFromPlan`, which sizes from the trigger-to-stop risk
+      // and attaches the plan's stop and TP1. So stop, risk and target are
+      // fixed from the trigger here too, and R is measured on that plan risk.
+      // A fill that lands away from the trigger (a gap past a resting stop,
+      // or a confirmed entry's market order) changes the P&L in price terms,
+      // not the bracket.
+      //
+      // The harness's original stop is the raw structural stop, untouched by
+      // the leeway or large-cap cap `computeTradeLevels` applies for the live
+      // scan and Guided Mode. `useProductionStop` swaps in the capped one,
+      // priced against the trigger as the plan prices it.
+      const stop =
+        useProductionStop && executionAtr > 0
+          ? computeStopWithLeeway({
+              side: long ? "long" : "short",
+              entry: trigger.triggerPrice,
+              structuralStop: trigger.stopPrice,
+              atr15: executionAtr,
+              largeCap,
+            })
+          : trigger.stopPrice;
+      const risk = Math.abs(trigger.triggerPrice - stop);
+      if (!(risk > 0) || (long ? stop >= trigger.triggerPrice : stop <= trigger.triggerPrice)) continue;
+      const target = trigger.triggerPrice + dir * targetR * risk;
+
+      // Production refuses a fill at or beyond its own stop or target
+      // (`fill_outran_bracket`). The setup is spent either way.
+      const outran = long ? entry <= stop || entry >= target : entry >= stop || entry <= target;
+      if (outran) {
+        refusedFills++;
+        continue;
+      }
+
+      const decision = scoreSetup({
+        context: arm.context,
+        pattern,
+        gannTrigger: trigger,
+        history,
         executionAtr,
-        preferredDirection: trigger.direction,
-        setupKind: "reversion",
-      })[0] ?? null;
+        assetClass,
+        largeCap,
+        setupKind,
+        weights,
+      });
 
-    const decision = scoreSetup({
-      context: arm.context,
-      pattern,
-      gannTrigger: trigger,
-      history,
-      executionAtr,
-      assetClass,
-      largeCap,
-      weights,
-    });
+      let outcome: ReplayTrade["outcome"] = "timeout";
+      let barsHeld = 0;
+      let ambiguous = false;
 
-    let outcome: ReplayTrade["outcome"] = "timeout";
-    let barsHeld = 0;
-    let ambiguous = false;
+      for (let j = i; j < Math.min(bars.length, i + maxBarsHeld); j++) {
+        const b = bars[j];
+        const hitStop = long ? b.l <= stop : b.h >= stop;
+        const hitTarget = long ? b.h >= target : b.l <= target;
+        if (!hitStop && !hitTarget) continue;
+        barsHeld = j - i + 1;
+        ambiguous = hitStop && hitTarget;
+        // Both in one bar: no way to order them, so assume the loss.
+        outcome = hitStop ? "loss" : "win";
+        break;
+      }
 
-    for (let j = i; j < Math.min(bars.length, i + maxBarsHeld); j++) {
-      const b = bars[j];
-      const hitStop = long ? b.l <= stop : b.h >= stop;
-      const hitTarget = long ? b.h >= target : b.l <= target;
-      if (!hitStop && !hitTarget) continue;
-      barsHeld = j - i + 1;
-      ambiguous = hitStop && hitTarget;
-      // Both in one bar: no way to order them, so assume the loss.
-      outcome = hitStop ? "loss" : "win";
-      break;
-    }
+      const base = {
+        symbol, openedAt: live.t, pattern: pattern?.name ?? null, setupKind, direction: trigger.direction,
+        entry, stop, target,
+        atrMultiple: executionAtr > 0 ? risk / executionAtr : 0,
+        score: decision.score,
+        outputState: decision.outputState,
+        criteria: criteriaOf(decision),
+        largeCap,
+        yearCycleHits: monthlyBars ? yearCycleHitsAt(monthlyBars, live.t, trigger.direction) : undefined,
+      };
 
-    const base = {
-      symbol, openedAt: live.t, pattern: pattern?.name ?? null, direction: trigger.direction,
-      entry, stop, target,
-      atrMultiple: executionAtr > 0 ? risk / executionAtr : 0,
-      score: decision.score,
-      outputState: decision.outputState,
-      criteria: criteriaOf(decision),
-      largeCap,
-      yearCycleHits: monthlyBars ? yearCycleHitsAt(monthlyBars, live.t, trigger.direction) : undefined,
-    };
+      if (outcome === "timeout") {
+        // Marked out at the last close rather than silently dropped.
+        barsHeld = Math.min(maxBarsHeld, bars.length - i);
+        const exit = bars[Math.min(bars.length - 1, i + barsHeld - 1)].c;
+        trades.push({
+          ...base, barsHeld, outcome,
+          rMultiple: (dir * (exit - entry) - costPerShare) / risk,
+          ambiguous: false,
+        });
+        continue;
+      }
 
-    if (outcome === "timeout") {
-      // Marked out at the last close rather than silently dropped.
-      barsHeld = Math.min(maxBarsHeld, bars.length - i);
-      const exit = bars[Math.min(bars.length - 1, i + barsHeld - 1)].c;
+      // Gross P&L is the actual price distance from the fill to the exit.
+      const gross = dir * ((outcome === "win" ? target : stop) - entry);
       trades.push({
         ...base, barsHeld, outcome,
-        rMultiple: (dir * (exit - entry) - costPerShare) / risk,
-        ambiguous: false,
+        rMultiple: (gross - costPerShare) / risk,
+        ambiguous,
       });
-      continue;
     }
-
-    const gross = outcome === "win" ? targetR * risk : -risk;
-    trades.push({
-      ...base, barsHeld, outcome,
-      rMultiple: (gross - costPerShare) / risk,
-      ambiguous,
-    });
   }
 
-  return summarise(trades, armedKeys.size, triggered);
+  return summarise(trades, armedKeys.size, triggered, refusedFills);
+}
+
+/**
+ * Split a run by setup kind. Continuation results are best read inside the
+ * Execute bucket, since that's the only score the market scan publishes a
+ * continuation at.
+ */
+export function bySetupKind(result: ReplayResult): { reversion: ReplayResult; continuation: ReplayResult } {
+  return {
+    reversion: summarise(result.trades.filter((t) => t.setupKind === "reversion")),
+    continuation: summarise(result.trades.filter((t) => t.setupKind === "continuation")),
+  };
 }
 
 /**
@@ -593,8 +744,8 @@ function criteriaOf(decision: ScanDecision | undefined): Record<string, boolean>
   return out;
 }
 
-export function summarise(trades: ReplayTrade[], armed = 0, triggered = 0): ReplayResult {
-  if (trades.length === 0) return { trades, ...EMPTY, armed, triggered };
+export function summarise(trades: ReplayTrade[], armed = 0, triggered = 0, refusedFills = 0): ReplayResult {
+  if (trades.length === 0) return { trades, ...EMPTY, armed, triggered, refusedFills };
   const wins = trades.filter((t) => t.outcome === "win").length;
   const losses = trades.filter((t) => t.outcome === "loss").length;
   const timeouts = trades.filter((t) => t.outcome === "timeout").length;
@@ -603,6 +754,7 @@ export function summarise(trades: ReplayTrade[], armed = 0, triggered = 0): Repl
     trades,
     armed,
     triggered,
+    refusedFills,
     wins,
     losses,
     timeouts,
@@ -620,7 +772,8 @@ export function combine(results: ReplayResult[]): ReplayResult {
   const trades = results.flatMap((r) => r.trades);
   const armed = results.reduce((s, r) => s + r.armed, 0);
   const triggered = results.reduce((s, r) => s + r.triggered, 0);
-  return summarise(trades, armed, triggered);
+  const refusedFills = results.reduce((s, r) => s + (r.refusedFills ?? 0), 0);
+  return summarise(trades, armed, triggered, refusedFills);
 }
 
 /**
@@ -639,9 +792,10 @@ function scoreSetup(input: {
   assetClass: AssetClass;
   /** Computed once per session by the caller (it also tags the trade record). */
   largeCap: boolean;
+  setupKind: SetupKind;
   weights?: CriterionWeights;
 }): ScanDecision {
-  const { context, pattern, gannTrigger, history, executionAtr, assetClass, largeCap, weights } = input;
+  const { context, pattern, gannTrigger, history, executionAtr, assetClass, largeCap, setupKind, weights } = input;
 
   // The last 400 candles is ~15 sessions of hourly context, which is more than
   // readTrend looks back over and keeps the roll-up cheap.
@@ -695,6 +849,7 @@ function scoreSetup(input: {
       levels,
       stopAtrMultiple: levels && executionAtr > 0 ? levels.riskPerShare / executionAtr : null,
       assetClass,
+      setupKind,
       atrPct: context.atrPct,
       ...(weights ? { weights } : {}),
     }),

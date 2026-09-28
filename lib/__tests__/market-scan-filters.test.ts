@@ -5,7 +5,7 @@ import type { Bar, ScanResult } from "@/lib/types";
 /**
  * A synthetic 80-day series that reads as an extended downtrend against a
  * bullish reversion candidate — every criterion coarseReversion scores is a
- * ratio of price (SMA distance, pivot direction, level proximity as a % of
+ * ratio of price (distance from the range's 50% point, pivot direction, level proximity as a % of
  * price), so scaling every bar by the same factor reproduces the identical
  * read at a different absolute price. That isolates the $5 price floor as
  * the only thing that can tell the two apart.
@@ -17,8 +17,15 @@ function extendedDowntrend(scale: number): Bar[] {
     // line reads as sideways) with a final leg down that leaves price
     // extended below its 50-bar mean.
     const trend = 150 - i * 0.5;
-    const wiggle = 6 * Math.sin((i / 10) * 2 * Math.PI);
-    const tail = i >= 110 ? (i - 109) * 1.5 : 0;
+    //
+    // The final leg falls four points a bar, fast enough that ten straight
+    // closes decline. Since 2026-09-26 the trend read is Gann's 9-day swing
+    // chart confirmed by stepping 3-day swings (lib/gann/trendStrength.ts),
+    // not SMA 20/50. A 9-day chart only turns down after nine closes against
+    // it, which the old 1.5-point tail on 5-bar legs never produced, so that
+    // fixture read as no trend at all.
+    const wiggle = 6 * Math.sin((i / 12) * 2 * Math.PI);
+    const tail = i >= 110 ? (i - 109) * 4 : 0;
     const c = (trend + wiggle - tail) * scale;
     const t = new Date(Date.UTC(2025, 0, 1 + i)).toISOString();
     bars.push({ t, o: c, h: c * 1.01, l: c * 0.99, c, v: 1_000_000 });
@@ -34,7 +41,7 @@ describe("coarseReversion price floor", () => {
   });
 
   it("reads the identical shape the same way at any price above the floor", () => {
-    // Every criterion coarseReversion scores is a ratio (SMA distance, pivot
+    // Every criterion coarseReversion scores is a ratio (distance from the 50% point, pivot
     // direction, level proximity as a % of price), so the same shape scaled
     // to two different prices — both comfortably above the floor — has to
     // produce the same read. Only crossing the floor itself should change

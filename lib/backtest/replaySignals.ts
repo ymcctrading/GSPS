@@ -82,7 +82,6 @@ export function replaySignalEngine(symbol: string, dailyBars: Bar[]): SignalRepl
       direction: regime.direction,
       htfBars: window,
       executionBars: window,
-      vwapAnchorIndex: Math.max(0, window.length - 20),
       gates: ALL_GATES_PASS,
       accountContextAssumed: true,
     });

@@ -17,7 +17,12 @@ macro-derived direction (`lib/scan/entrySelection.ts`, shared with
 stop order fills. Earlier runs armed from STRAT-detected candidates on
 15-minute bars and measured a trigger production did not use. Don't compare
 them with current runs as if they measured the same rule. Daily bars are now
-required: without them nothing can arm.
+required: without them nothing can arm. Since 2026-09-26
+(`2026-09-26-continuation-replay`) the replay also arms continuation setups,
+gated as the market scan's continuation pass gates them. Split them out with
+`bySetupKind`, and read them inside the Execute bucket, the only score the
+scan publishes a continuation at. A session arms on the scan's own 30-bar
+daily minimum.
 
 Run it from **Backtest** in the app nav (`/learning`), hit
 `GET /api/backtest?symbols=SPY,AAPL&targetR=2&within=Execute` directly, or from the command line:

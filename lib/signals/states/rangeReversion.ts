@@ -21,7 +21,7 @@
 
 import type { Bar, Direction } from "@/lib/types";
 import { atr } from "@/lib/analysis/pivots";
-import { relativeVolume, slope, smaSeries } from "../indicators";
+import { relativeVolume } from "../indicators";
 import { isGannRangeBound } from "@/lib/gann/trendStrength";
 import { classifyRegime, type RegimeInputs } from "../regime";
 import { computeRulesAlignmentScore } from "../scoring";
@@ -56,7 +56,6 @@ const DEFAULT_EXPIRY_BARS = 4;
 // boundary test naturally pulls the short MA a little as price approaches
 // it, and this check only has to rule out a MA that's clearly still
 // trending, not demand a mathematically dead-flat line.
-const MA_FLAT_SLOPE_EPSILON = 0.002;
 /** How close to a boundary (in ATR multiples) a bar's extreme must land to count as a "touch". */
 const TOUCH_TOLERANCE_ATR = 0.25;
 const MIN_BOUNDARY_TOUCHES = 2;
@@ -114,24 +113,24 @@ export function evaluateRangeReversion(inputs: RangeReversionInputs): SignalVerd
 
   const atrValue = atr(rangeWindow, Math.min(14, rangeWindow.length));
 
-  // --- Verified range: weak trend strength, flat MAs, both boundaries touched repeatedly. ---
+  // --- Verified range: no confirmed Gann trend, both boundaries touched repeatedly. ---
   // The Gann read, not ADX (replaced 2026-09-17). Deliberately the exact
   // negation of the regime engine's trend-confirmed test rather than its own
   // threshold on a shared scale — see `lib/gann/trendStrength.ts`, which
   // explains why two independently-tuned ADX cutoffs could not be guaranteed
   // to partition the same market into "trending" and "ranging".
   const weakTrendStrength = isGannRangeBound(htfBars);
-  const fastMa = smaSeries(htfBars, regimeOverrides?.fastMaPeriod ?? 20);
-  const slowMa = smaSeries(htfBars, regimeOverrides?.slowMaPeriod ?? 50);
-  const flatMas =
-    Math.abs(slope(fastMa, 5)) < MA_FLAT_SLOPE_EPSILON && Math.abs(slope(slowMa, 5)) < MA_FLAT_SLOPE_EPSILON;
+  // A flat-moving-average test used to sit beside this as a second "no
+  // trend" check. It was removed 2026-09-26 (alignment audit F2.5): it asked
+  // the question `isGannRangeBound` already answers, from averaged closes
+  // instead of Gann's swings.
 
   const touchTolerance = atrValue * TOUCH_TOLERANCE_ATR;
   const highTouches = rangeWindow.filter((b) => rangeHigh - b.h <= touchTolerance).length;
   const lowTouches = rangeWindow.filter((b) => b.l - rangeLow <= touchTolerance).length;
   const bothBoundariesValidated = highTouches >= MIN_BOUNDARY_TOUCHES && lowTouches >= MIN_BOUNDARY_TOUCHES;
 
-  const verifiedRange = weakTrendStrength && flatMas && bothBoundariesValidated;
+  const verifiedRange = weakTrendStrength && bothBoundariesValidated;
 
   // --- No midpoint entries: price has to sit in the outer band near the traded boundary. ---
   const distanceFromBoundary = Math.abs(lastBar.c - boundary);

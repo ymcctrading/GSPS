@@ -98,8 +98,15 @@ function extendedDowntrend(scale = 1): Bar[] {
     // line reads as sideways) with a final leg down that leaves price
     // extended below its 50-bar mean.
     const trend = 150 - i * 0.5;
-    const wiggle = 6 * Math.sin((i / 10) * 2 * Math.PI);
-    const tail = i >= 110 ? (i - 109) * 1.5 : 0;
+    //
+    // The final leg falls four points a bar, fast enough that ten straight
+    // closes decline. Since 2026-09-26 the trend read is Gann's 9-day swing
+    // chart confirmed by stepping 3-day swings (lib/gann/trendStrength.ts),
+    // not SMA 20/50. A 9-day chart only turns down after nine closes against
+    // it, which the old 1.5-point tail on 5-bar legs never produced, so that
+    // fixture read as no trend at all.
+    const wiggle = 6 * Math.sin((i / 12) * 2 * Math.PI);
+    const tail = i >= 110 ? (i - 109) * 4 : 0;
     const c = (trend + wiggle - tail) * scale;
     const t = new Date(Date.UTC(2025, 0, 1 + i)).toISOString();
     bars.push({ t, o: c, h: c * 1.01, l: c * 0.99, c, v: 1_000_000 });

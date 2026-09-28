@@ -85,13 +85,15 @@ pulled from the roadmap.
 
 ## What's implemented
 
-- **Regime classifier** (`lib/signals/regime.ts`) — Trend / Range /
-  Transition / Event-high-uncertainty, from independently designed public
-  components: MA slope/alignment, ADX/DMI, ATR-based volatility, anchored
-  VWAP, volume behavior, and horizontal support/resistance via swing-pivot
-  clustering. A trend overlay (PSAR/Supertrend) is accepted only as
-  optional evidence (`trendOverlayFlips`), never as a sole signal, per the
-  spec.
+- **Regime classifier** (`lib/signals/regime.ts`): Trend / Range /
+  Transition / Event-high-uncertainty. Built from Gann's 3-day/9-day swing
+  charts (`lib/gann/trendStrength.ts`), HH/HL swing structure, ATR-based
+  volatility, volume behavior, and horizontal support/resistance via
+  swing-pivot clustering. The spec's original inputs included MA
+  slope/alignment, ADX/DMI, anchored VWAP and a PSAR/Supertrend overlay.
+  None of those remain. ADX went 2026-09-17, the overlay hook 2026-09-17,
+  and the MAs and VWAP 2026-09-26 (alignment audit F2.5). AGENTS.md's
+  "Gann-grounded platform" section records why.
 - **Rules Alignment Score** (`lib/signals/scoring.ts`) — 0–100, tallied from
   a per-state weighted breakdown, sorted into internal readiness tiers (the
   weights and cutoffs are defined once in code — `lib/signals/scoring.ts`
@@ -166,7 +168,8 @@ Signal and Regime Engine now implements every state the spec names.
   supplied by the caller as `SignalGates`, the same pattern
   `lib/scoring/score.ts` uses for its own inputs — this module doesn't reach
   into `lib/scan`/`lib/guided` itself, so it stays independently testable.
-- `lib/analysis/pivots.ts` (`atr`, `findPivots`, `clusterLevels`, `sma`) is
-  reused rather than duplicated; `lib/signals/indicators.ts` adds only what
-  didn't already exist there (ADX/DMI, anchored VWAP, relative volume, MA
-  slope, SMA series).
+- `lib/analysis/pivots.ts` (`atr`, `findPivots`, `clusterLevels`) is
+  reused rather than duplicated. `lib/signals/indicators.ts` adds only what
+  didn't already exist there (relative volume, true-range expansion). Its
+  ADX/DMI, anchored VWAP, MA slope and SMA series helpers were deleted once
+  they had no consumer.

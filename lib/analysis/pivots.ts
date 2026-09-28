@@ -110,9 +110,3 @@ export function atr(bars: Bar[], period = 14): number {
   const window = trs.slice(-period);
   return window.reduce((s, t) => s + t, 0) / window.length;
 }
-
-export function sma(values: number[], period: number): number {
-  const window = values.slice(-period);
-  if (window.length === 0) return 0;
-  return window.reduce((s, v) => s + v, 0) / window.length;
-}

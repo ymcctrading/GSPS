@@ -47,7 +47,6 @@ describe("evaluateTrendPullback", () => {
       direction: "bullish",
       htfBars: bars,
       executionBars: bars,
-      vwapAnchorIndex: bars.length - 20,
       gates: { ...PASSING_GATES, staleData: true },
     });
     expect(verdict.status).toBe("disqualified");
@@ -62,7 +61,6 @@ describe("evaluateTrendPullback", () => {
       direction: "bullish",
       htfBars: bars,
       executionBars: bars,
-      vwapAnchorIndex: bars.length - 20,
       gates: PASSING_GATES,
     });
     expect(verdict.status).toBe("evaluated");
@@ -80,7 +78,6 @@ describe("evaluateTrendPullback", () => {
       direction: "bullish",
       htfBars: bars,
       executionBars: bars,
-      vwapAnchorIndex: bars.length - 20,
       gates: PASSING_GATES,
     });
     expect(JSON.stringify(verdict).toLowerCase()).not.toContain("probability");

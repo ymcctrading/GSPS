@@ -13,4 +13,4 @@
  * `lib/strat/patterns.ts`, `lib/strat/levels.ts`, the Signal and Regime Engine
  * states) — and note the bump in `CHANGELOG.md`.
  */
-export const STRATEGY_VERSION = "2026-09-25-live-trigger-replay";
+export const STRATEGY_VERSION = "2026-09-26-continuation-replay";

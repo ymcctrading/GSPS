@@ -25,7 +25,8 @@
  */
 
 import type { Bar, Direction } from "@/lib/types";
-import { atr, clusterLevels, findPivots, sma } from "@/lib/analysis/pivots";
+import { atr, clusterLevels, findPivots } from "@/lib/analysis/pivots";
+import { rangeMidpoint } from "@/lib/gann/retracement";
 import { relativeVolume } from "../indicators";
 import { classifyRegime, type RegimeInputs } from "../regime";
 import { computeRulesAlignmentScore } from "../scoring";
@@ -58,7 +59,12 @@ const DEFAULT_EXHAUSTION_WINDOW_BARS = 20;
 const DEFAULT_EXPIRY_BARS = 4;
 /** How far beyond the broken swing point a close must land, in ATR multiples, to count as decisive. */
 const BREAK_MARGIN_ATR = 0.15;
-/** Minimum extension of the exhaustion extreme beyond its own SMA, in ATR multiples — the "meaningful" bar. */
+/**
+ * Minimum extension of the exhaustion extreme beyond the window's 50% point,
+ * in ATR multiples: the "meaningful" bar. The 50% point is Gann's balance
+ * point (`rangeMidpoint`). It replaced a 20-bar SMA on 2026-09-26 (alignment
+ * audit F2.5).
+ */
 const MIN_EXTENSION_ATR = 2.0;
 /** Reversal-thrust volume vs. the exhaustion window's own average, required to call it confirmed. */
 const REVERSAL_VOLUME_MULTIPLE = 1.3;
@@ -126,8 +132,8 @@ export function evaluateConfirmedReversal(inputs: ConfirmedReversalInputs): Sign
       : Math.min(...window.slice(0, Math.max(extremeIndex, 1)).map((b) => b.l));
 
   const atrValue = atr(window, Math.min(14, window.length));
-  const maValue = sma(window.map((b) => b.c), Math.min(20, window.length));
-  const extensionAtr = atrValue > 0 ? Math.abs(extremePrice - maValue) / atrValue : 0;
+  const balancePoint = rangeMidpoint(window);
+  const extensionAtr = atrValue > 0 && balancePoint !== null ? Math.abs(extremePrice - balancePoint) / atrValue : 0;
 
   const nearestClusterDistanceAtr = (() => {
     const pivots = findPivots(htfBars, 3).map((p) => p.price);
@@ -182,8 +188,8 @@ export function evaluateConfirmedReversal(inputs: ConfirmedReversalInputs): Sign
       applicable: true,
       passed: meaningfulLocation,
       note: meaningfulLocation
-        ? `Extreme sits ${extensionAtr.toFixed(1)}x ATR from its SMA or within a clustered structural level.`
-        : "Extreme isn't stretched enough from its own moving average, and isn't at a clustered structural level.",
+        ? `Extreme sits ${extensionAtr.toFixed(1)}x ATR from the range's 50% point or within a clustered structural level.`
+        : "Extreme isn't stretched far enough from the range's 50% point, and isn't at a clustered structural level.",
     },
     {
       key: "structuralBreak",

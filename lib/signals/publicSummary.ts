@@ -4,7 +4,7 @@
  * passed on which condition) stays server-side. What crosses an API/UI
  * boundary is a rollup: which regime, which direction, which readiness tier.
  * A reader learns the setup's regime and how it's rated; nothing about which
- * MA/VWAP/structural conditions decided it.
+ * structural conditions decided it.
  */
 
 import type { Regime, RulesAlignmentTier, ScannerStateName, SignalVerdict } from "./types";

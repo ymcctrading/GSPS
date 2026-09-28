@@ -45,6 +45,7 @@ const trade = (over: Partial<ReplayTrade> = {}): ReplayTrade => ({
   symbol: "TEST",
   openedAt: new Date(Date.UTC(2026, 0, 1) + clock++ * 900_000).toISOString(),
   pattern: "2-2",
+  setupKind: "reversion",
   direction: "bullish",
   entry: 100,
   stop: 99,
