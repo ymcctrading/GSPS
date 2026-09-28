@@ -63,6 +63,26 @@ export interface SpectralCycleReading {
    * optimistic for long periods. Null when no reading was made.
    */
   schusterP: number | null;
+  /**
+   * Cosinor fit at the dominant period (parity F3/M1; C07): the cycle's
+   * amplitude (percent of price, on the log series), its 95% interval, and
+   * the zero-amplitude F-test p-value. Like Schuster's test it assumes
+   * independent residuals, which price series are not, so it is optimistic.
+   */
+  cosinor: { amplitudePct: number; amplitudeCiPct: [number, number]; zeroAmplitudeP: number } | null;
+  /**
+   * Artifact guards (B01): the peak is at the longest period scanned (a trend
+   * residue, not a cycle), and whether the peak survives dropping the oldest
+   * 10% of the window.
+   */
+  atBandEdge: boolean | null;
+  windowStable: boolean | null;
+  /**
+   * Forward hold-out (M2; Dewey's persistence after discovery): the period
+   * and phase fitted on the first 70% of the window, correlated with the last
+   * 30% it never saw. Positive and material means the cycle carried forward.
+   */
+  holdout: { trainPeriodBars: number; correlation: number } | null;
   /** Always true — see module header. Never independently scored or gated regardless of this reading's values. */
   hypothesisOnly: true;
   note: string;
@@ -122,8 +142,64 @@ function dominantPeriod(values: number[], maxPeriod: number): { period: number; 
   return { period: bestPeriod, power: bestPower, meanPower: count > 0 ? totalPower / count : 0 };
 }
 
+/** Least-squares cosine/sine coefficients at `period` (evenly spaced bars, index offset `from`). */
+function harmonicFit(values: number[], period: number, from = 0): { a: number; b: number } {
+  const n = values.length;
+  const omega = (2 * Math.PI) / period;
+  let a = 0;
+  let b = 0;
+  for (let i = 0; i < n; i++) {
+    a += values[i] * Math.cos(omega * (i + from));
+    b += values[i] * Math.sin(omega * (i + from));
+  }
+  return { a: (2 * a) / n, b: (2 * b) / n };
+}
+
+function correlation(x: number[], y: number[]): number {
+  const n = x.length;
+  const mx = x.reduce((s, v) => s + v, 0) / n;
+  const my = y.reduce((s, v) => s + v, 0) / n;
+  let sxy = 0;
+  let sxx = 0;
+  let syy = 0;
+  for (let i = 0; i < n; i++) {
+    sxy += (x[i] - mx) * (y[i] - my);
+    sxx += (x[i] - mx) ** 2;
+    syy += (y[i] - my) ** 2;
+  }
+  return sxx > 0 && syy > 0 ? sxy / Math.sqrt(sxx * syy) : 0;
+}
+
+/** Cosinor amplitude, its 95% interval and the zero-amplitude F-test at `period`. */
+function cosinor(values: number[], period: number): SpectralCycleReading["cosinor"] {
+  const n = values.length;
+  if (n < 10) return null;
+  const { a, b } = harmonicFit(values, period);
+  const omega = (2 * Math.PI) / period;
+  let ssModel = 0;
+  let ssRes = 0;
+  for (let i = 0; i < n; i++) {
+    const fitted = a * Math.cos(omega * i) + b * Math.sin(omega * i);
+    ssModel += fitted * fitted;
+    ssRes += (values[i] - fitted) ** 2;
+  }
+  const df = n - 3;
+  if (ssRes <= 0 || df <= 0) return null;
+  const f = (df / 2) * (ssModel / ssRes);
+  // Exact upper tail of F(2, df): (1 + 2F/df)^(-df/2).
+  const p = Math.pow(1 + (2 * f) / df, -df / 2);
+  const amplitude = Math.hypot(a, b);
+  const se = Math.sqrt(ssRes / df) * Math.sqrt(2 / n);
+  const pct = (x: number) => Math.round(x * 10000) / 100;
+  return {
+    amplitudePct: pct(amplitude),
+    amplitudeCiPct: [pct(Math.max(0, amplitude - 1.96 * se)), pct(amplitude + 1.96 * se)],
+    zeroAmplitudeP: Math.round(p * 1000) / 1000,
+  };
+}
+
 const NOT_COMPUTED_NOTE =
-  "Hypothesis only per AGENTS.md's Dewey cycle-validation checklist: dominance (with Schuster's significance test), repetition count, and constancy of period are evaluated numerically above; regularity of timing, phase-resumption after distortion, wave-shape identity, and cross-series clustering are not computed by this module. Never independently scored or gated.";
+  "Hypothesis only per AGENTS.md's Dewey cycle-validation checklist: dominance (with Schuster's and the cosinor zero-amplitude tests), repetition count, constancy of period and persistence on unseen data (a 70/30 hold-out) are evaluated numerically above; regularity of timing, phase-resumption after distortion, wave-shape identity, and cross-series clustering are not computed by this module. Never independently scored or gated.";
 
 export function detectSpectralCycle(dailyBars: Bar[]): SpectralCycleReading {
   const n = dailyBars.length;
@@ -135,12 +211,18 @@ export function detectSpectralCycle(dailyBars: Bar[]): SpectralCycleReading {
       repetitionCount: null,
       periodConsistent: null,
       schusterP: null,
+      cosinor: null,
+      atBandEdge: null,
+      windowStable: null,
+      holdout: null,
       hypothesisOnly: true,
       note: `Insufficient bar history (${n} < ${MIN_BARS}) for spectral cycle detection.`,
     };
   }
 
-  const closes = dailyBars.map((b) => b.c);
+  // Log prices (parity F3; C03): a cycle's swing is a percentage of price, so
+  // the same cycle reads the same at $20 and $200.
+  const closes = dailyBars.every((b) => b.c > 0) ? dailyBars.map((b) => Math.log(b.c)) : dailyBars.map((b) => b.c);
   const detrended = linearDetrend(closes);
   // A flat series or a purely linear trend leaves residual variance at
   // floating-point noise level; without this floor, tiny near-zero powers
@@ -158,13 +240,20 @@ export function detectSpectralCycle(dailyBars: Bar[]): SpectralCycleReading {
       repetitionCount: null,
       periodConsistent: null,
       schusterP: null,
+      cosinor: null,
+      atBandEdge: null,
+      windowStable: null,
+      holdout: null,
       hypothesisOnly: true,
       note: "No usable spectral candidates in this window.",
     };
   }
 
   const dominance = result.power / result.meanPower;
-  const active = dominance >= DOMINANCE_THRESHOLD;
+  // A peak at the longest period scanned is trend left over from detrending,
+  // not a cycle (B01), so it never counts as active.
+  const atBandEdge = result.period >= maxPeriod - 1;
+  const active = dominance >= DOMINANCE_THRESHOLD && !atBandEdge;
   // Independent Fourier frequencies inside the scanned band of periods.
   const independent = Math.max(1, Math.round(n / MIN_PERIOD_BARS - n / maxPeriod));
   const schusterP = Math.min(1, independent * Math.exp(-dominance));
@@ -182,6 +271,38 @@ export function detectSpectralCycle(dailyBars: Bar[]): SpectralCycleReading {
     }
   }
 
+  // The checks below only mean something for a peak that could be a cycle,
+  // and each costs another scan, so they run only for an active candidate
+  // (keeps the common case at one scan; measured ~2 ms per symbol otherwise).
+  // Window artifact guard: the peak should survive dropping the oldest 10%.
+  let windowStable: boolean | null = null;
+  if (active) {
+    const trimmed = closes.slice(Math.floor(n * 0.1));
+    const trimmedPeak = dominantPeriod(linearDetrend(trimmed), Math.floor(trimmed.length * MAX_PERIOD_FRACTION));
+    windowStable = trimmedPeak
+      ? Math.abs(trimmedPeak.period - result.period) / result.period <= PERIOD_CONSISTENCY_TOLERANCE
+      : null;
+  }
+
+  // Forward hold-out: fit on the first 70%, test on the last 30%.
+  let holdout: SpectralCycleReading["holdout"] = null;
+  const cut = Math.floor(n * 0.7);
+  const train = active ? linearDetrend(closes.slice(0, cut)) : [];
+  const trainPeak = active ? dominantPeriod(train, Math.floor(cut * MAX_PERIOD_FRACTION)) : null;
+  if (trainPeak && n - cut >= 10) {
+    const { a, b } = harmonicFit(train, trainPeak.period);
+    const omega = (2 * Math.PI) / trainPeak.period;
+    const test = linearDetrend(closes.slice(cut));
+    const projected = test.map((_, k) => a * Math.cos(omega * (cut + k)) + b * Math.sin(omega * (cut + k)));
+    holdout = { trainPeriodBars: trainPeak.period, correlation: Math.round(correlation(projected, test) * 100) / 100 };
+  }
+
+  const fit = active ? cosinor(detrended, result.period) : null;
+
+  const guardNote =
+    (fit ? ` Amplitude ~${fit.amplitudePct}% of price (95% ${fit.amplitudeCiPct[0]}-${fit.amplitudeCiPct[1]}%, zero-amplitude p ${fit.zeroAmplitudeP < 0.001 ? "<0.001" : fit.zeroAmplitudeP}).` : "") +
+    (windowStable === false ? " The peak moved when the oldest 10% of the window was dropped, a sign of a window artifact." : "") +
+    (holdout ? ` Fitted on the first 70% (~${holdout.trainPeriodBars} bars), it correlated ${holdout.correlation} with the last 30% it hadn't seen.` : "");
   const consistencyNote =
     periodConsistent === true
       ? " Period held consistent across the first/second half of the window."
@@ -196,9 +317,15 @@ export function detectSpectralCycle(dailyBars: Bar[]): SpectralCycleReading {
     repetitionCount,
     periodConsistent,
     schusterP: Math.round(schusterP * 1000) / 1000,
+    cosinor: fit,
+    atBandEdge,
+    windowStable,
+    holdout,
     hypothesisOnly: true,
     note: active
-      ? `Dominant candidate cycle ~${result.period} bars (${dominance.toFixed(2)}x mean spectral power, ~${repetitionCount} repetitions in window; Schuster p ≈ ${schusterP < 0.001 ? "<0.001" : schusterP.toFixed(3)}${schusterP < 0.05 ? ", significant against white noise" : ", not significant"}).${consistencyNote} ${NOT_COMPUTED_NOTE}`
-      : `No candidate cycle cleared the dominance threshold (best: ~${result.period} bars at ${dominance.toFixed(2)}x mean power, threshold ${DOMINANCE_THRESHOLD}x). ${NOT_COMPUTED_NOTE}`,
+      ? `Dominant candidate cycle ~${result.period} bars (${dominance.toFixed(2)}x mean spectral power, ~${repetitionCount} repetitions in window; Schuster p ≈ ${schusterP < 0.001 ? "<0.001" : schusterP.toFixed(3)}${schusterP < 0.05 ? ", significant against white noise" : ", not significant"}).${consistencyNote}${guardNote} ${NOT_COMPUTED_NOTE}`
+      : atBandEdge
+        ? `The strongest peak (~${result.period} bars) sits at the longest period scanned: leftover trend, not a cycle. ${NOT_COMPUTED_NOTE}`
+        : `No candidate cycle cleared the dominance threshold (best: ~${result.period} bars at ${dominance.toFixed(2)}x mean power, threshold ${DOMINANCE_THRESHOLD}x). ${NOT_COMPUTED_NOTE}`,
   };
 }

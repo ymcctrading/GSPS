@@ -147,7 +147,9 @@ turns, Square-of-144 convergence, projection dispersion) is built as card
 context and measured `contextFactors` (`lib/gann/extremeRules.ts`,
 `lib/gann/timeConvergence.ts`); none gates. F3: Schuster p in
 `spectralCycle.ts`, early/late `halves` in the backtest report, long cycles
-labelled. F2 stays research-only; F4 waits on Stage D.
+labelled. The rest of M1/M2 followed: log detrending, cosinor amplitude CI and
+zero-amplitude test, artifact guards and a 70/30 hold-out in `spectralCycle.ts`
+(run only for an active candidate). F2 stays research-only; F4 waits on Stage D.
 **Owner direction, same day: "the point of the parity is to align, infuse
 and implement within and throughout the entire GSPS platform."** A rule is
 not parity-complete while it only shows on a card: it has to act where Gann

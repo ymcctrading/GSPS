@@ -78,7 +78,7 @@ Each row gives the rule and its source, what GSPS does now, the status, and the 
 | Accumulation time proportional to the size of the advance | A04 Ch. VII; A8 p. 52 | none | Missing | G22: a context annotation on breakouts from long ranges |
 | 7/14-day alternation of minor and major turns | A2.2 | **Built 2026-09-28 (G9):** `timeConvergence.ts` (7/14/21 days ±1 from the last 3-Day Chart pivot) | Aligned (context, measuring) | — |
 | Incorporation-date anniversary / company age | A03; A2.1 Ch. 7; A04 Ch. VI | none | Missing | G10. Needs a per-symbol incorporation-date source |
-| Periodogram ("harmonic analysis") | A03; 1926 letter (B01) | `spectralCycle.ts`, confluence; **2026-09-28 (M1):** Schuster p reported | Aligned | Cosinor CI and log detrend still open |
+| Periodogram ("harmonic analysis") | A03; 1926 letter (B01) | `spectralCycle.ts`, confluence; **2026-09-28 (M1/M2):** Schuster p, cosinor amplitude with 95% interval and zero-amplitude test, log-price detrending, band-edge and window-trim artifact guards, a 70/30 forward hold-out | Aligned | — |
 | Squares of time: Master 12, Square of 52, 36 angle month-counts | A2.1 Ch. 7, 13, 14 | `masterTwelve.ts`, `squareOf52.ts`, `angleMonthCounts.ts` (confluence) | Aligned | — |
 | Decade-digit bull/bear years | A2.1 Ch. 7 | `decadeCycle.ts` (confluence) | Aligned | — |
 | Square of 20 and Hexagon | A2.1 Ch. 7, 15B | research-only | Research-only | Keep, unless new source material appears |
@@ -262,7 +262,7 @@ Each step says whether a user waits on it (AGENTS.md "Speed is a product require
   **Built 2026-09-28** as context on the card, lines in the explanation trace, and measured factors in the replay (`extremeRules.ts`, `timeConvergence.ts`, seven new `contextFactors`). None changes a verdict until the replay measures it. Adds about 0.2 ms per scanned symbol.
 - F2 · The astrology track AS1–AS4 (decision 7): ephemeris, a rule fixed in advance, Dewey's full test, confluence only.
 - F3 · Measurement upgrades M1–M7 throughout (Schuster test, out-of-sample, regime splits, base rates).
-  **2026-09-28:** M1 Schuster p in `spectralCycle.ts`; M2/M3 the backtest report now repeats both factor tables for the early and late half of the window (`halves`); M4/M6 every calendar and timing field is a measured context factor against the unconditioned population; M5 labelled; M7 recorded. Still open: cosinor CI, log detrending, a forward hold-out beyond the split halves.
+  **2026-09-28:** M1 Schuster p in `spectralCycle.ts`; M2/M3 the backtest report now repeats both factor tables for the early and late half of the window (`halves`); M4/M6 every calendar and timing field is a measured context factor against the unconditioned population; M5 labelled; M7 recorded. The remaining M1/M2 items (cosinor interval, log detrending, artifact guards, 70/30 hold-out) were built the same day in `spectralCycle.ts`; the extra checks run only when a cycle clears the dominance threshold, so the common case costs one scan as before.
 - F2 · Stays research-only and separate (decision 7). F4 · Still gated: Stage D is in progress in another session.
 - F4 · The deferred cycles, solar-year anchor and calendar-convention research prompt: `FUTURE_PROMPTS.md`, "Deferred: cycles and calendar research". Not before Stages A–E are complete.
 
