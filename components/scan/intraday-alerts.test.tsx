@@ -31,7 +31,7 @@ const spyAlert: Alert = {
     percent: 0.9,
     direction: "up",
   },
-  vwap: 502.1,
+  midpoint: 502.1,
   relativeVolume: 1.8,
   sessionVolume: 62_000_000,
   confidence: 75,

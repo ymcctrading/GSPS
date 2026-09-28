@@ -31,9 +31,9 @@
  *     `runMarketScan`'s continuation pass calls `scanTicker` with a
  *     direction. A session arms one only when that pass's own gate
  *     (`isMomentumContinuation`) could admit it: at least two of three macro
- *     timeframes agree (`macroBreadthAgrees`), momentum is elevated, and at
- *     the fill the top-ranked pattern is a continuation shape
- *     (`isContinuationShape`). The scan also requires an Execute score before
+ *     timeframes agree (`macroBreadthAgrees`), momentum is elevated, and the
+ *     daily swing chart already runs that way (`isGannContinuation`; the STRAT
+ *     shape gate it replaced was removed 2026-09-28). The scan also requires an Execute score before
  *     publishing a continuation. The replay records every such trade with its
  *     score, so read continuation results from the Execute bucket
  *     (`bySetupKind` and then `byOutputState`). Filtering on score here would
@@ -68,7 +68,7 @@ import { computeStopWithLeeway, computeTradeLevels, type EntrySource } from "@/l
 import type { TradeLevels } from "@/lib/types";
 import {
   MIN_DAILY_BARS_FOR_SCAN,
-  isContinuationShape,
+  isGannContinuation,
   macroBreadthAgrees,
   preferredEntryDirection,
   rankArmedPatterns,
@@ -80,6 +80,9 @@ import { readBreakaway, type BreakawayReading } from "@/lib/gann/breakaway";
 import { readGannExit, type GannExitReason, type GannStopReason } from "@/lib/gann/exitRules";
 import { SCALE_OUT_PCT } from "@/lib/trade/protocol-exit";
 import { readPyramidAdd, type PyramidLot } from "@/lib/gann/pyramid";
+
+/** Whole-share scale for fractional replay lots (1 lot = 1024 shares, so four halvings stay whole). */
+const PYRAMID_SHARE_SCALE = 1024;
 import { roundNumberEntryBlocked } from "@/lib/gann/evenFigures";
 import {
   FALLBACK_SR_PCT,
@@ -660,7 +663,11 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       // The continuation pass arms with the macro move, never against it, and
       // only where its breadth and momentum gate could admit the result.
       const continuationDirection = reversionDirection === "bullish" ? "bearish" : "bullish";
-      if (context.momentumElevated && macroBreadthAgrees(context.macroTrends, continuationDirection)) {
+      if (
+        context.momentumElevated &&
+        macroBreadthAgrees(context.macroTrends, continuationDirection) &&
+        isGannContinuation(context.macroTrends, continuationDirection)
+      ) {
         const continuation = computeGannEntryTrigger(priorSessions, continuationDirection);
         if (continuation)
           triggers.push({ setupKind: "continuation", trigger: continuation, breakaway: readBreakaway(priorSessions, continuation) });
@@ -722,11 +729,6 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           preferredDirection: trigger.direction,
           setupKind,
         })[0] ?? null;
-      // The continuation pass publishes only a continuation shape. Without
-      // one there's no published plan and so no resting order. The pivot is
-      // not consumed, so a later bar can still fill once a shape arms, just as
-      // a later scan could publish it.
-      if (setupKind === "continuation" && !isContinuationShape(pattern)) continue;
 
       consumedPivots.add(pivotKey);
       triggered++;
@@ -1011,9 +1013,12 @@ function walkGannExit(input: {
       }
       pendingAdd = null;
       if (pyramid && prior.length > 0) {
+        // Lots are fractions of the first lot here. Scale them to whole shares
+        // for the reading (only the ratios matter), or "half of 1" would round
+        // to zero and no add would ever be offered.
         const add = readPyramidAdd({
           side: long ? "long" : "short",
-          lots,
+          lots: lots.map((l) => ({ ...l, qty: l.qty * PYRAMID_SHARE_SCALE })),
           stop,
           initialStop: input.stop,
           daily: prior,

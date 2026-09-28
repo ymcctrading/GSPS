@@ -260,7 +260,7 @@ function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: 
       <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
         <Field label="Reference" value={formatUsd(alert.move.reference)} />
         <Field label="Current" value={formatUsd(alert.move.current)} />
-        <Field label="VWAP" value={formatUsd(alert.vwap)} />
+        <Field label="Day's 50% point" value={formatUsd(alert.midpoint)} />
         <Field label="Rel. volume" value={formatRvol(alert.relativeVolume)} />
         <Field label="Session volume" value={formatVolume(alert.sessionVolume)} />
         <Field

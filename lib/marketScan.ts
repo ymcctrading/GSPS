@@ -54,8 +54,7 @@ import {
   type TimeCycleResult,
   type YearCycleConvergence,
 } from "@/lib/gann/timeCycles";
-import { CONTINUATION_PATTERNS } from "@/lib/strat/patterns";
-import { isContinuationShape, macroBreadthAgrees } from "@/lib/scan/entrySelection";
+import { isGannContinuation, macroBreadthAgrees } from "@/lib/scan/entrySelection";
 import { MIN_EQUITY_PRICE_USD, meetsLiquidityFloor, readLiquidity } from "@/lib/scan/liquidity";
 import { scanTicker } from "@/lib/scanTicker";
 import { EXECUTION_TIMEFRAME } from "@/lib/timeframe";
@@ -612,8 +611,10 @@ function coarseDiagnostics(
  */
 export function hasTradePlan(r: ScanResult): boolean {
   const l = r.levels;
+  // The plan's levels come only from Gann's entry trigger (scanTicker), so a
+  // complete plan is the whole test. The STRAT pattern no longer gates
+  // publication (2026-09-28, project owner; see AGENTS.md).
   return (
-    r.pattern !== null &&
     l !== null &&
     [l.entry, l.stopLoss, l.takeProfit1, l.masterProfit].every(
       (v) => typeof v === "number" && Number.isFinite(v),
@@ -622,7 +623,8 @@ export function hasTradePlan(r: ScanResult): boolean {
 }
 
 /**
- * What earns a top-up slot: a priced plan, on a continuation shape, breaking in
+ * What earns a top-up slot: a priced plan, a Gann continuation (the daily swing
+ * chart already running the trade's way), breaking in
  * the direction the macro timeframes already read, with the range expansion to
  * carry it. All four, or the row is not what the shortage asked for.
  */
@@ -631,7 +633,7 @@ export function isMomentumContinuation(
   direction: "bullish" | "bearish",
 ): boolean {
   if (!hasTradePlan(r) || r.direction !== direction || !r.momentumElevated) return false;
-  if (!isContinuationShape(r.pattern)) return false;
+  if (!isGannContinuation(r.trends, direction)) return false;
   // Considered switching to lib/gann/timeframeWeight.ts's power-ratio
   // weighting here too (the same fix applied to lib/scanTicker.ts's
   // macro-direction pattern preference) — reverted: this gate needs a
@@ -1036,19 +1038,15 @@ export async function runMarketScan(
     // Split the budget across the sides being scanned so a deep shortfall on
     // one can't consume every scan and leave the other empty.
     const perSideBudget = Math.floor(MAX_TOPUP_SCANS / Math.max(shortSides.length, 1));
-    // A symbol already scanned in the reversion pass told us every pattern it
-    // armed. If none of them was a continuation shape in the direction we need,
-    // re-scanning it cannot produce one — the preference only reorders the same
-    // armed list — so skip it and spend the call on a candidate that might.
+    // A symbol already scanned in the reversion pass told us its daily swing
+    // trend. If that trend doesn't run the direction we need, it can't be a
+    // Gann continuation (`isGannContinuation`) — re-scanning it with a
+    // direction preference won't change the daily chart — so skip it and spend
+    // the call on a candidate that might.
     const scanned = new Map(valid.map((r) => [r.symbol, r]));
     const cannotArm = (c: CoarseCandidate): boolean => {
       const prior = scanned.get(c.symbol);
-      return (
-        prior !== undefined &&
-        !prior.armedPatterns.some(
-          (p) => p.direction === c.direction && CONTINUATION_PATTERNS.has(p.name),
-        )
-      );
+      return prior !== undefined && !isGannContinuation(prior.trends, c.direction);
     };
 
     const fills = shortSides.flatMap((dir) =>

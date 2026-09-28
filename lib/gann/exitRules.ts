@@ -40,10 +40,11 @@
  *   the rule is silent. See `capitalStock.ts`.
  *
  * Engineering choices, labelled as such:
- * - Gann's "3 points" is the codebase's existing price-scaled lost-motion
- *   allowance (`LOST_MOTION_BUFFER_PCT`), the same one the entry trigger uses
- *   to cross the level, so the hold test and the stops under swing points
- *   use the same allowance the entry did.
+ * - Gann's "3 points" is price-scaled from his own bands (`pointScale.ts`).
+ *   Until 2026-09-28 it reused the entry's 0.3% lost-motion margin, about a
+ *   tenth of his figure; the 15-minute diagnosis run showed the hold test
+ *   ending most trades on it. The entry still crosses by lost motion (a
+ *   different rule: how far past a level counts as past it).
  * - Every rule reads completed daily sessions only. Callers act on a signal
  *   at the next opportunity (the replay at the next session's open).
  *
@@ -59,13 +60,12 @@
  */
 
 import type { Bar } from "@/lib/types";
-import { LOST_MOTION_BUFFER_PCT } from "@/lib/gann/entryTrigger";
+import { gannThreePoints } from "@/lib/gann/pointScale";
 import { THREE_DAY_CHART, WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 import { buildCampaignLedger } from "@/lib/gann/campaignLedger";
 import { readCapitalStock } from "@/lib/gann/capitalStock";
 import { toWeeklyBars } from "@/lib/gann/disclosedRules";
 
-export const EXIT_ALLOWANCE_PCT = LOST_MOTION_BUFFER_PCT;
 
 /** Gann's final stage: the 3rd section of a campaign or later. */
 export const FINAL_STAGE_SECTION = 3;
@@ -110,8 +110,8 @@ export function readGannExit(
   sharesOutstanding: number | null = null,
 ): GannExitReading {
   const long = pos.side === "long";
-  const a = EXIT_ALLOWANCE_PCT / 100;
-  const below = (p: number) => (long ? p * (1 - a) : p * (1 + a));
+  // Gann's "3 points" beyond a level, price-scaled as he scaled it (pointScale.ts).
+  const below = (p: number) => (long ? p - gannThreePoints(p) : p + gannThreePoints(p));
   const tighter = (x: number, y: number) => (long ? x > y : x < y);
 
   let stop = pos.initialStop;

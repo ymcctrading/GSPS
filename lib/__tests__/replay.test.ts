@@ -3,7 +3,6 @@ import type { Bar } from "@/lib/types";
 import { CRITERION_KEYS, type CriterionWeights } from "@/lib/scoring/weights";
 import { computeGannEntryTrigger, type GannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection } from "@/lib/scan/entrySelection";
-import { CONTINUATION_PATTERNS } from "@/lib/strat/patterns";
 import {
   MIN_DAILY_BARS_FOR_SCORE,
   buildMacroContext,
@@ -534,23 +533,22 @@ describe("replay continuation setups", () => {
   const breakout = { o: T - 1.4, h: T + 0.5, l: T - 1.5, c: T + 0.3 };
   const after = { o: T, h: T + 0.2, l: T - 0.2, c: T };
 
-  it("arms a continuation with the macro move, on a continuation shape, scored as one", () => {
+  it("arms a continuation with the macro move and the daily swing trend, scored as one", () => {
     expect(continuationDir).toBe("bullish");
     const r = replay("TEST", intraday([...warm, twoUp, inside, breakout, after]), { targetR: 2, dailyBars: rising });
     const cont = r.trades.filter((t) => t.setupKind === "continuation");
     expect(cont).toHaveLength(1);
     expect(cont[0].direction).toBe(continuationDir);
-    expect(CONTINUATION_PATTERNS.has(cont[0].pattern!)).toBe(true);
     expect(cont[0].entry).toBeCloseTo(T, 10);
     expect(cont[0].criteria!.entryTriggerArmed).toBe(true);
   });
 
-  it("does not arm a continuation without a continuation shape at the fill", () => {
+  it("arms a continuation without any bar-sequence shape at the fill", () => {
     // Directional warm-up bars run straight into the breakout, so no inside
-    // bar sets up a 2-1-2 or 3-1-2. The replay never trades the final bar, so
-    // the breakout is the only candle that could fill.
+    // bar sets up a 2-1-2 or 3-1-2. Gann's continuation needs only the daily
+    // swing trend, so the crossing still fills (2026-09-28).
     const r = replay("TEST", intraday([...warm, ...warm.slice(0, 2), breakout, after]), { targetR: 2, dailyBars: rising });
-    expect(r.trades.filter((t) => t.setupKind === "continuation")).toHaveLength(0);
+    expect(r.trades.filter((t) => t.setupKind === "continuation")).toHaveLength(1);
   });
 
   it("does not arm a continuation where the breadth and momentum gate is shut", () => {

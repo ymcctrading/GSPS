@@ -206,8 +206,12 @@ describe("hasTradePlan", () => {
     expect(hasTradePlan(result())).toBe(true);
   });
 
-  it("rejects a scan with no armed pattern", () => {
+  it("rejects a scan with no armed trigger (no levels)", () => {
     expect(hasTradePlan(result({ pattern: null, levels: null, direction: "none" }))).toBe(false);
+  });
+
+  it("publishes a priced plan with no bar-sequence pattern", () => {
+    expect(hasTradePlan(result({ pattern: null }))).toBe(true);
   });
 
   it("rejects a scan whose levels failed to price", () => {
@@ -224,12 +228,20 @@ describe("isMomentumContinuation", () => {
     expect(isMomentumContinuation(continuation(), "bullish")).toBe(true);
   });
 
-  it("rejects a reversal shape, however much momentum is behind it", () => {
+  it("does not depend on the bar-sequence shape", () => {
     for (const name of ["2-2", "1-2-2", "3-2-2", "PMG"] as const) {
       expect(
         isMomentumContinuation(continuation({ pattern: { ...pattern, name } }), "bullish"),
-      ).toBe(false);
+      ).toBe(true);
     }
+    expect(isMomentumContinuation(continuation({ pattern: null }), "bullish")).toBe(true);
+  });
+
+  it("rejects a continuation the daily swing chart does not run with", () => {
+    const againstDaily = continuation({
+      trends: [trend("1Month", "bullish"), trend("1Week", "bullish"), trend("1Day", "bearish"), trend("1Hour", "bullish")],
+    });
+    expect(isMomentumContinuation(againstDaily, "bullish")).toBe(false);
   });
 
   it("accepts the other continuation shape (3-1-2)", () => {
@@ -303,11 +315,11 @@ describe("qualifiesAsContinuationFill", () => {
     ).toBe(false);
   });
 
-  it("rejects a high score that never armed the right shape", () => {
+  it("rejects a high score against the daily swing trend", () => {
     expect(
       qualifiesAsContinuationFill(
         continuation({
-          pattern: { ...pattern, name: "2-2" },
+          trends: [trend("1Month", "bullish"), trend("1Week", "bullish"), trend("1Day", "sideways"), trend("1Hour", "bullish")],
           decision: { score: 9, outputState: "Execute", breakdown: [] },
         }),
         "bullish",

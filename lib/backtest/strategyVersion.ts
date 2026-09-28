@@ -32,4 +32,9 @@
 // computeEquityTradeLevels); live and paper exits switch to Gann's rules with
 // 60% at TP1 (replay exitRule "gann-runner"). The ⅓ and ⅔ seasonal dates join
 // the fixed calendar. New context readings are measured, not scored.
-export const STRATEGY_VERSION = "2026-09-28-gann-exits-figures";
+// Same day, second bump: Gann's "3 points" in the exit rules is price-scaled
+// from his own bands (lib/gann/pointScale.ts) instead of the entry's 0.3%
+// lost-motion margin; the STRAT shape no longer gates publication or the
+// continuation pass (Gann's with-the-daily-trend rule, isGannContinuation);
+// the replay's pyramid adds now fire; macro/decade cycles read as of the bar.
+export const STRATEGY_VERSION = "2026-09-28-gann-points-continuation";

@@ -37,10 +37,17 @@ function position(bars: Bar[], entryIndex: number, over: Partial<GannExitPositio
 }
 
 describe("readGannExit", () => {
-  it("fails the hold test when a close falls back under the crossed top", () => {
-    const bars = daily([...steppingAdvance(3), 125, 126, 124]);
+  it("fails the hold test when a close falls back under the crossed top by 3 points, price-scaled", () => {
+    // At $125, the 3 points scale to about 4.6% of price (lib/gann/pointScale.ts).
+    const bars = daily([...steppingAdvance(3), 125, 126, 118]);
     const pos = position(bars, bars.length - 3, { crossedLevel: 125 });
     expect(readGannExit(pos, bars, 126.5).exit?.reason).toBe("hold_test_failed");
+  });
+
+  it("holds through a small reaction back under the crossed top", () => {
+    const bars = daily([...steppingAdvance(3), 125, 126, 124]);
+    const pos = position(bars, bars.length - 3, { crossedLevel: 125 });
+    expect(readGannExit(pos, bars, 126.5).exit?.reason).not.toBe("hold_test_failed");
   });
 
   it("exits after three successive closes against the trade", () => {

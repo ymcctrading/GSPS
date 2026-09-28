@@ -54,19 +54,19 @@ export async function runCalendarTest({ symbols = ["SPY", "DIA"], start: startIs
           results.push(ct.scoreCell(symbol, { sessions, pivots }, set, convention));
         }
       }
-      // Phase check for W1: the record split into four blocks of years.
-      const years = [...new Set(sessions.map((t) => new Date(t).getUTCFullYear()))];
+      // Phase check for W1: the scored whole years split into four blocks.
+      // Each block is scored on the full record, restricted to its own years,
+      // so a window near a block edge still sees its ±2-session tolerance.
+      const firstWhole = new Date(sessions[0]).getUTCFullYear() + 1;
+      const lastWhole = new Date(sessions[sessions.length - 1]).getUTCFullYear() - 1;
+      const years = [];
+      for (let y = firstWhole; y <= lastWhole; y++) years.push(y);
       const q = Math.ceil(years.length / 4);
       for (let k = 0; k < 4; k++) {
         const ys = years.slice(k * q, (k + 1) * q);
-        if (ys.length < 2) continue;
-        const from = Date.UTC(ys[0], 0, 1);
-        const to = Date.UTC(ys[ys.length - 1], 11, 31);
-        const idx = sessions.map((t, i) => [t, i]).filter(([t]) => t >= from && t <= to).map(([, i]) => i);
-        const sub = idx.map((i) => sessions[i]);
-        const subPivots = pivots.filter((i) => i >= idx[0] && i <= idx[idx.length - 1]).map((i) => i - idx[0]);
+        if (ys.length === 0) continue;
         for (const convention of ["calendar", "solar"]) {
-          const r = ct.scoreCell(symbol, { sessions: sub, pivots: subPivots }, "W1", convention);
+          const r = ct.scoreCell(symbol, { sessions, pivots }, "W1", convention, [ys[0], ys[ys.length - 1]]);
           blocks.push({ series: symbol, block: `${ys[0]}-${ys[ys.length - 1]}`, convention, hitRate: r.hitRate, baseMean: r.baseMean, p: r.p, instances: r.instances });
         }
       }

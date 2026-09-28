@@ -109,7 +109,7 @@ export function windowInstances(
  */
 export function catches(sessions: number[], pivotSessionIdx: Set<number>, window: [number, number], tol = 2): boolean {
   // First session on/after start, last session on/before end.
-  let lo = sessions.findIndex((t) => t >= window[0]);
+  const lo = sessions.findIndex((t) => t >= window[0]);
   if (lo === -1) return false;
   let hi = lo;
   while (hi + 1 < sessions.length && sessions[hi + 1] <= window[1]) hi++;
@@ -145,11 +145,13 @@ export function scoreCell(
   input: SeriesInput,
   setName: "W1" | "W3",
   convention: Convention,
+  /** Years to score, inclusive. Defaults to the whole years inside the record. */
+  years?: [number, number],
 ): CellResult {
   const set = setName === "W1" ? W1 : W3;
   const anchor = setName === "W1" ? W1_ANCHOR_YEAR : W3_ANCHOR_YEAR;
-  const firstYear = new Date(input.sessions[0]).getUTCFullYear() + 1; // whole years only
-  const lastYear = new Date(input.sessions[input.sessions.length - 1]).getUTCFullYear() - 1;
+  const firstYear = years?.[0] ?? new Date(input.sessions[0]).getUTCFullYear() + 1; // whole years only
+  const lastYear = years?.[1] ?? new Date(input.sessions[input.sessions.length - 1]).getUTCFullYear() - 1;
   const pivotSet = new Set(input.pivots);
   const rateAt = (shift: number) => {
     let n = 0;
