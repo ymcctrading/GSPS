@@ -2,7 +2,10 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-09-25 (Added "Three-path tier promotion" under Q1 —
+**Last updated:** 2026-09-26 (Corrected two stale Q1 notes: pay-your-way
+promotion pricing is approved, not "proposed", and `patternArmed` was closed
+2026-09-17, not open.)
+Previously 2026-09-25 (Added "Three-path tier promotion" under Q1 —
 Curriculum/Track Record/Pay Your Way, each independently sufficient, applied
 to all three tier transitions. See AGENTS.md's "Three-path tier promotion"
 section.)
@@ -285,8 +288,11 @@ both signal discovery and execution.
   was found and fixed where a stale, superseded `learning_models` database
   row was silently overriding the uniform `DEFAULT_CRITERION_WEIGHTS`
   decision in production. `patternArmed` (the STRAT taxonomy's remaining
-  scored-criterion use) is the one open item from this audit — see AGENTS.md
-  "Gann-derived AND measured" for its status. This entry exists specifically
+  scored-criterion use) was the one item this audit left open; it was closed
+  2026-09-17 by renaming it `entryTriggerArmed` and regrounding it on
+  `lib/gann/entryTrigger.ts` (corrected 2026-09-26 — this note had kept
+  calling it open). See AGENTS.md "Gann-derived AND measured" and "Entry
+  pricing moved off STRAT". This entry exists specifically
   because AGENTS.md's "update ROADMAP.md in the same PR" rule was not
   followed at the time; nothing here reflects new work done today.)*
 - **Portfolio analytics dashboard** *(shipped 2026-08-18, PR #83 — carried
@@ -815,11 +821,14 @@ both signal discovery and execution.
     R-multiple) deliberately kept separate from
     `lib/risk/execution-score.ts`'s behavior-only score, per that module's
     own "P&L must never feed execution scoring" rule.
-  - `lib/billing/promotionPricing.ts` — proposed (not yet approved or
-    Stripe-activated) pay-your-way pricing, sized so it is always the worse
-    deal than earning a tier for free: Novice→Pro $49 one-time; Pro→Expert
-    $499 one-time + the standard subscription; Expert→Wall Street $1,499
-    one-time + the standard subscription.
+  - `lib/billing/promotionPricing.ts` — pay-your-way pricing, sized so it is
+    always the worse deal than earning a tier for free: Novice→Pro $49
+    one-time; Pro→Expert $499 one-time + the standard subscription;
+    Expert→Wall Street $1,499 one-time + the standard subscription.
+    Approved by the project owner 2026-09-25 (`APPROVED_PROMOTION_PRICING`;
+    corrected 2026-09-26 — this note previously read "not yet approved").
+    Not yet Stripe-activated: `isPromotionBillingEnabled()` stays `false`
+    until real `STRIPE_PRICE_PROMOTION_*` prices exist.
   - `supabase/migrations/0080_tier_promotion_three_paths.sql` —
     `tier_promotions_progress`/`tier_promotions_status`/`tier_promotion_purchases`,
     generalized across all three transitions. The original
