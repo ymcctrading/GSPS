@@ -243,6 +243,40 @@ function DisclosedRuleTiles({
   if (rules.zone) {
     tiles.push({ label: "Zone of activity", value: `${rules.zone.zone > 0 ? "+" : ""}${rules.zone.zone}${rules.zone.firstSignOfEnd ? " (first sign of the end)" : ""}` });
   }
+  // 2026-09-30: the Square of 144 calculator, the circle of 360°, the time
+  // angle and the planetary averages (cached results may predate them).
+  const mc = rules.masterCalculator;
+  if (mc) {
+    const z = mc.price.zero;
+    tiles.push({
+      label: "Square of 144",
+      value: `${z.position.toFixed(1)} in square ${z.square}${mc.strongPlacements.length > 0 ? ` (on ${mc.price[mc.strongPlacements[0]].nearest.point})` : ""}`,
+    });
+  }
+  const circle = rules.circle;
+  if (circle) {
+    tiles.push({
+      label: "Half-way on the circle",
+      value: `${circle.halfway.degree.toFixed(1)}° (near ${circle.halfway.nearest.degree}°)`,
+    });
+  }
+  if (rules.timeAngle) {
+    tiles.push({ label: "Time angle", value: rules.timeAngle.state === "balanced" ? "balanced" : `${rules.timeAngle.state} time` });
+  }
+  const planetary = rules.planetary;
+  if (planetary) {
+    const onAverages = planetary.averages.filter((a) => a.tier === "A" && a.on).map((a) => a.short);
+    const coe = planetary.averages.find((a) => a.id === "coe-geo");
+    tiles.push({
+      label: "Planetary averages",
+      value:
+        onAverages.length > 0
+          ? `on ${onAverages.join(", ")}`
+          : coe
+            ? `COE ${coe.below !== null ? coe.below.toFixed(2) : "—"} / ${coe.above.toFixed(2)}`
+            : "—",
+    });
+  }
   if (timing?.projection) {
     tiles.push({ label: `Next swing ${timing.projection.kind}`, value: `~${timing.projection.medianDate} (±${Math.round(timing.projection.spreadDays / 2)}d)` });
   }

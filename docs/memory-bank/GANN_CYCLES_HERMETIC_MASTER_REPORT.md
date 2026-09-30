@@ -496,6 +496,9 @@ Every item below is an **open recommendation**. Items that touch scoring, gating
 ### Astrology research track (priority clarified 2026-09-27, owner direction; see AGENTS.md "Astrology")
 Not low priority, and not first. Where Gann himself names the technique and our files corroborate it, it ranks alongside his other techniques. Each needs an ephemeris calculation, a rule fixed in advance, and Dewey's test (base rate, significance with a multiple-comparisons correction, out-of-sample). A proven technique enters as confluence only.
 - **AS1 — Planetary averages** (1954 soybean letter, quoted in B05): the heliocentric and geocentric averages of Mars through Pluto, and of Jupiter through Pluto (Mars left out), as time/price resistance. Open question to fix *before* testing: smooth the 360°→0° wrap or not (Gann doesn't say).
+  - **Built 2026-09-30 on owner direction, with the COE and MOF** (`lib/gann/planetaryAverages.ts`, source note A12). The letter of March 20, 1954 names the "COE AVERAGE" (not "CE") and the "MOF FORMULA"; Walker and Ganntrader (Tier B) decode them as the circle of eight (Mercury to Pluto) and the mean of five (Mars left out), which match the letter's own paragraphs.
+  - The wrap question is settled: a mean of N longitudes is defined only to within 360/N, so the resistance points are the family A + k × 360/N (60°, 72°, 45°), identical however the wrap is taken. Ganntrader draws those spacings.
+  - One price unit (the Gann point, one to a degree), fixed in advance. The Tier A averages' nearest points join the S/R list; all are measured context factors.
 - **AS2 — Active angles** (1954 letter): a transiting planet's longitude, plus its 90/120/180°, read as a price via the Circle Chart. Mikula's first-trade-horoscope reading is interpretive, so test it separately.
 - **AS3 — Jupiter–Saturn aspects** (1954 letter; 1948 chart; *Speculation* 1954 per B05): conjunction, square, trine, sesquisquare and opposition dates against pivot dates.
 - **AS4 — Returns**: the Saturn return (A2.3; B03) and the Mars half-return from a pivot.
@@ -507,6 +510,7 @@ Not low priority, and not first. Where Gann himself names the technique and our 
 - **Excluded regardless:** per-market price→degree scales chosen without derivation (Part I §9), and non-Gann astrology (B06, B07, B11) except as test-method reference.
 
 ### Documentation corrections
+- **C-A12-1 — "CE AVERAGE" is "COE AVERAGE"** in the March 20, 1954 letter (A12 §4). Corrected in A2.3's note and the catalog.
 - **C1 — AGENTS.md "20-year Master Time Period among cycles"** (in "The scorecard's role"). Gann's "Great Cycle / Master Time Period" is **20 (1931), 60 (1935), 56¾ (1953) or 90 (1955) years depending on the lesson**. The sentence's point (a ranking exists *within* the cycle technique) stands. Correction: cite the lesson and year, e.g. "the Master Time Period among cycles (20 years in the 1931 lesson; later lessons name 60, 56¾ and 90)."
 - **C2 — AGENTS.md "Dewey's seven-item checklist."** Record that Dewey's own list (*The Case for Cycles*, 1967) has 18 criteria. The seven are a working subset, and criteria 6 (changed conditions), 7 (out-of-sample) and 10 (significance) should be answered when a cycle claim is actually being validated.
 - **C3 — `GANN_HISTORICAL_SOURCES.md`:**

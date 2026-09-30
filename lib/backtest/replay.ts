@@ -111,6 +111,7 @@ import {
   type DisclosedRulesContext,
   type InstrumentFacts,
 } from "@/lib/gann/disclosedRules";
+import { gannMasterLevels } from "@/lib/gann/masterLevels";
 import { splitAdjustedSharesAsOf, type SharesPoint } from "@/lib/data/instrumentReference";
 import type { Inception } from "@/lib/gann/incorporationCycle";
 import { contextFactorsFor } from "@/lib/gann/contextFactors";
@@ -532,6 +533,11 @@ export function buildMacroContext(
     ...monthlyTrend.resistance.map((p) => ({ price: p, timeframe: monthlyTrend.timeframe })),
     // Mirrors lib/scanTicker.ts: Gann's major percentage-of-price levels.
     ...majorPricePercentageLevels([...priorMonthly, ...daily]).map((p) => ({ price: p, timeframe: "1Month" as const })),
+    // Mirrors lib/scanTicker.ts: the Square of 144 squares and the planetary averages.
+    ...gannMasterLevels([...priorMonthly, ...daily], daily, price, asOf).map((l) => ({
+      price: l.price,
+      timeframe: "1Month" as const,
+    })),
   ];
   const recentAtr = atr(daily.slice(-20), 14);
   const baselineAtr = atr(daily.slice(-100, -20), 14);

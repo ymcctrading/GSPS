@@ -171,5 +171,39 @@ export function contextFactorsFor(
     if (inc.precision !== "year") f.incorporationMonth = inc.anniversaryMonth;
     f.incorporationCycleYear = inc.completingCycles.length > 0;
   }
+
+  // The Square of 144 Master Calculator (1953). Gann gives these points no
+  // direction: they are where trend changes come, so they are recorded as
+  // they stand, like the day-count bands.
+  const mc = ctx.masterCalculator;
+  if (mc) {
+    f.square144PriceOnStrongPoint = mc.strongPlacements.length > 0;
+    const pivots = [mc.fromHigh, mc.fromLow].filter((p) => p !== null);
+    f.square144TimeOnChangePoint = pivots.some((p) => p!.onChangePoint.some((h) => h.unit !== "marketDays"));
+    f.square144TimePriceSquare = pivots.some((p) => p!.timePriceSquare.length > 0);
+    f.square144SquaringPrice = pivots.some((p) => p!.squaringPrice.length > 0);
+    f.greatCycleFraction = pivots.some((p) => p!.greatCycleFraction !== null);
+  }
+  // The circle of 360° (1953): half-way points and moves on a major degree.
+  const circle = ctx.circle;
+  if (circle) {
+    f.circleHalfwayMajor = circle.halfway.major || circle.halfHigh.major;
+    f.circleMoveMajor = circle.upFromLow.major || circle.downFromHigh.major;
+    f.circleTimeMajor = circle.time.some((t) => t.reading.major);
+  }
+  // GA-32: price on the degree of its time angle from inception.
+  if (ctx.timeAngle) {
+    f.timeAngleBalanced = ctx.timeAngle.state === "balanced";
+    f.priceAheadOfTimeWithTrade = ctx.timeAngle.state === (bull ? "ahead" : "behind");
+  }
+  // The planetary averages (1954 letter), Tier A ones only.
+  const pl = ctx.planetary;
+  if (pl) {
+    const on = (prefix: string) => pl.averages.some((a) => a.tier === "A" && a.id.startsWith(prefix) && a.on);
+    f.onPlanetaryAverage = pl.averages.some((a) => a.tier === "A" && a.on);
+    f.onSixPlanetAverage = on("six");
+    f.onMOF = on("mof");
+    f.onCOE = on("coe");
+  }
   return f;
 }

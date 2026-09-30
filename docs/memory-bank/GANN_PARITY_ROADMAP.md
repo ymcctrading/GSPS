@@ -84,6 +84,11 @@ Each row gives the rule and its source, what GSPS does now, the status, and the 
 
 | Gann rule | Source | GSPS today | Status | Next step |
 |---|---|---|---|---|
+| **Square of 144 Master Calculator**: price and time as positions in the square; strongest points ¼, ⅓, ⅜, ½, ⅝, ⅔, ¾, ⅞, full; placements at 0, the low, the high, 72 on half-way points; change of square = change of trend | A12 (Sept 29, 1953; soy bean instructions) | **Built 2026-09-30:** `masterCalculator.ts`. Square ends and centres join the S/R list (`masterLevels.ts`); price positions, time on the change points (days, market days, weeks, months), time-and-price square, squaring the low/high/range in time, Great Cycle fractions on the card, trace and measured factors. `masterTwelve.ts`'s spiral is GSPS's own, now labelled so | Aligned (levels acting; time measuring) | Measure; decide on the time readings |
+| Circle of 360° for price and time: Gann's ordered divisions, the 64ths, ÷6/÷12/÷24, squares to 361; moves and half-way points on natural degrees | A12 (1953) | **Built 2026-09-30:** `circleOf360.ts`, card, trace, measured factors | Aligned (context, measuring) | Decide on the next full run |
+| Price on the degree of its time angle (par = 360°, months from inception) | A12 / GA-32 (1935) | **Built 2026-09-30:** `circleOf360.ts#readTimeAngle`, from the stored inception date (D3); card, trace, measured factors | Aligned (context, measuring) | Decide on the next full run |
+| Master Three-Dimension Chart (time, price, volume → velocity) | A12 brochure (1954) | none | Cannot be copied | Construction undisclosed in every source read |
+| Square of 90 and Square of 52 calculator instructions; May soy beans Square of 67; semi-weekly (Mon–Wed / Thu–Sat) chart; the grain Price-and-Time Circle Chart plate | A12 course index and plates | none | Missing | Needs the missing chapters (owner) and, for the semi-weekly chart, an owner decision on the five-day week |
 | Range divisions: ½ first, then ¼/¾, ⅓/⅔, ⅛s | A2.1 Ch. 2, 13 | `retracement.ts`, `gannRetracementConfluence` (scored) | Aligned | — |
 | Percentages of the extreme *price* (low ÷ 8; high ÷ 8 and ÷ 3; 50% and 100% of a bottom) | A8 pp. 32–34; A09 | **Stage A:** `pricePercentageLevels`; the three major levels join the S/R list | Aligned | G13: add as levels to `retracement.ts`, feeding the same confluence |
 | Old tops become support, old bottoms resistance | A02; A04; A8 | `historicalSR` (scored), `levels.ts` | Aligned | — |
@@ -163,7 +168,7 @@ Each row gives the rule and its source, what GSPS does now, the status, and the 
 
 | Item | Source | GSPS today | Status | Next step |
 |---|---|---|---|---|
-| Planetary averages (helio/geo, 6 planets and the 5 without Mars) | A2.3 1954 letter | none | Missing (research) | AS1: ephemeris library, rule fixed in advance, Dewey test, confluence only |
+| Planetary averages (helio/geo, 6 planets and the 5 without Mars), the COE average and the MOF formula | A2.3 and A12 (letter of March 20, 1954); COE/MOF decoding Tier B (Walker, Ganntrader) | **Built 2026-09-30 (owner):** `planetaryAverages.ts` (astronomy-engine). Resistance points A + k × 360/N; the six, MOF and COE (helio and geo) nearest points join the S/R list on the live scan and the replay (`masterLevels.ts`); card, trace, measured factors (`onPlanetaryAverage`, `onSixPlanetAverage`, `onMOF`, `onCOE`) | Aligned (acting as price resistance; measuring) | Measure on the next run |
 | Active angles (a planet's longitude and its 90/120/180°) on the Circle Chart | A2.3 | none | Missing (research) | AS2 |
 | Jupiter–Saturn aspects; Saturn return; Mars half-return | A2.3; B03; A2.1 1931 lesson | none | Missing (research) | AS3, AS4 |
 | Eclipse longitudes | B05 only (not in A02/A04) | none | Excluded until a Gann source is found | C-A4-2 |

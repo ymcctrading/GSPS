@@ -87,6 +87,17 @@ import { THREE_DAY_CHART, WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/
 import { readExtremeRules, type ExtremeRulesReading } from "@/lib/gann/extremeRules";
 import { readTiming, type TimingReading } from "@/lib/gann/timeConvergence";
 import { describeCapitalStock, readCapitalStock, type CapitalStockReading } from "@/lib/gann/capitalStock";
+import { gannPointForBars } from "@/lib/gann/pointScale";
+import { describeMasterCalculator, readMasterCalculator, type MasterCalculatorReading } from "@/lib/gann/masterCalculator";
+import {
+  describeCircle,
+  describeTimeAngle,
+  readCircle,
+  readTimeAngle,
+  type CircleReading,
+  type TimeAngleReading,
+} from "@/lib/gann/circleOf360";
+import { describePlanetaryAverages, readPlanetaryAverages, type PlanetaryReading } from "@/lib/gann/planetaryAverages";
 import {
   describeIncorporationCycle,
   readIncorporationCycle,
@@ -435,6 +446,14 @@ export interface DisclosedRulesContext {
   timeRules: TimeRulesReading | null;
   /** Double and triple tops and bottoms. See `multipleTops.ts`. */
   multipleTops: MultipleTopsReading | null;
+  /** The Square of 144 Master Calculator, price and time (1953). See `masterCalculator.ts`. */
+  masterCalculator?: MasterCalculatorReading | null;
+  /** The circle of 360° in price and time (1953). See `circleOf360.ts`. */
+  circle?: CircleReading | null;
+  /** Price on the degree of its time angle from inception (GA-32). Null without an inception month. */
+  timeAngle?: TimeAngleReading | null;
+  /** The planetary averages, including the COE and MOF (1954 letter). See `planetaryAverages.ts`. */
+  planetary?: PlanetaryReading | null;
   /** The session this was read for (YYYY-MM-DD). */
   asOf: string;
 }
@@ -475,6 +494,10 @@ export const EMPTY_DISCLOSED_RULES: DisclosedRulesContext = {
   leadership: null,
   timeRules: null,
   multipleTops: null,
+  masterCalculator: null,
+  circle: null,
+  timeAngle: null,
+  planetary: null,
   asOf: "",
 };
 
@@ -487,6 +510,9 @@ export function readDisclosedRules(
 ): DisclosedRulesContext {
   const campaign = buildCampaignLedger(dailyBars);
   const counterMove = readCounterMove(dailyBars);
+  // One Gann point for the whole read (`pointScale.ts#gannPointForBars`), as the S/R levels use.
+  const unit = gannPointForBars(dailyBars);
+  const inception = instrument?.inception;
   return {
     barMidpoint: readBarMidpoint(dailyBars),
     pricePercentages: readPricePercentages(dailyBars, currentPrice),
@@ -511,6 +537,11 @@ export function readDisclosedRules(
     leadership: readLeadership(dailyBars, instrument?.marketDaily ?? null, campaign),
     timeRules: readTimeRules(dailyBars, counterMove),
     multipleTops: readMultipleTops(dailyBars),
+    masterCalculator: readMasterCalculator(dailyBars, currentPrice, unit),
+    circle: readCircle(dailyBars, currentPrice, unit),
+    timeAngle:
+      inception && inception.precision !== "year" ? readTimeAngle(currentPrice, unit, inception.date, asOf) : null,
+    planetary: readPlanetaryAverages(asOf, currentPrice, unit),
     asOf: asOf.toISOString().slice(0, 10),
   };
 }
@@ -608,6 +639,10 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   if (t.square144 && t.square144.units.length >= 2) {
     lines.push(`Time from the ${t.square144.pivotDate} extreme is on a multiple of 12 in ${t.square144.units.join(" and ")}: time counts converge.`);
   }
+  if (ctx.masterCalculator) lines.push(...describeMasterCalculator(ctx.masterCalculator));
+  if (ctx.circle) lines.push(...describeCircle(ctx.circle));
+  if (ctx.timeAngle) lines.push(describeTimeAngle(ctx.timeAngle));
+  if (ctx.planetary) lines.push(...describePlanetaryAverages(ctx.planetary));
   if (t.projection) {
     lines.push(
       `Next swing ${t.projection.kind} projected around ${t.projection.medianDate} from ${t.projection.count} earlier cycles (spread ${t.projection.spreadDays} days${t.projection.spreadDays <= 5 ? ", tight" : ""}).`,
