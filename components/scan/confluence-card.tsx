@@ -277,6 +277,17 @@ function DisclosedRuleTiles({
             : "—",
     });
   }
+  const ts = rules.squareOfNineTime?.[0];
+  if (ts) {
+    tiles.push({ label: "Time square", value: `${Math.round(ts.count)} ${ts.unit} from ${ts.pivot} (${ts.line.angle}° line)` });
+  }
+  const dc = rules.dayCircle;
+  if (dc) {
+    tiles.push({
+      label: "Day circle",
+      value: `${dc.degree.toFixed(1)}°${dc.majorDegree !== null ? ` (on ${dc.majorDegree}°)` : ""}; next ${dc.nextMajor.degree}° at ${dc.nextMajor.time} ET`,
+    });
+  }
   if (timing?.projection) {
     tiles.push({ label: `Next swing ${timing.projection.kind}`, value: `~${timing.projection.medianDate} (±${Math.round(timing.projection.spreadDays / 2)}d)` });
   }

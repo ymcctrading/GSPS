@@ -20,6 +20,7 @@
 import type { DisclosedRulesContext } from "@/lib/gann/disclosedRules";
 import { approachingFigure } from "@/lib/gann/evenFigures";
 import { computeMacroCycle } from "@/lib/gann/macroCycle";
+import { readDayCircle } from "@/lib/gann/dayCircle";
 
 export type ContextFactors = Record<string, boolean>;
 
@@ -27,6 +28,8 @@ export function contextFactorsFor(
   ctx: DisclosedRulesContext,
   direction: "bullish" | "bearish",
   price: number,
+  /** The entry bar, for Gann's day clock (`dayCircle.ts`). The replay passes it; omitted, those two factors are absent. */
+  entryBar?: { time: string; barMinutes: number },
 ): ContextFactors {
   const bull = direction === "bullish";
   const f: ContextFactors = {};
@@ -102,6 +105,8 @@ export function contextFactorsFor(
   if (ctx.seasonal !== undefined) {
     f.seasonalCountActive = ctx.seasonal !== null;
     f.seasonalCountMajor = ctx.seasonal !== null && ctx.seasonal.point.rank <= 2;
+    // The plate's sixteenths (2026-09-30), measured on their own.
+    f.seasonalCountSixteenth = ctx.seasonal !== null && ctx.seasonal.point.rank === 5;
   }
   // G22: a breakout from a long range in the trade's direction.
   if (ctx.accumulation) {
@@ -204,6 +209,21 @@ export function contextFactorsFor(
     f.onSixPlanetAverage = on("six");
     f.onMOF = on("mof");
     f.onCOE = on("coe");
+  }
+  // The time square (Gann's Square of Nine plate read in time): days, weeks or
+  // months from the extreme high or low on its cardinal cross, or on either
+  // cross. No direction in Gann's text; recorded as it stands.
+  if (ctx.squareOfNineTime) {
+    f.timeSquareCardinal = ctx.squareOfNineTime.some((h) => h.line.kind === "cardinal");
+    f.timeSquareOnCross = ctx.squareOfNineTime.some((h) => h.line.kind !== "sixteenth");
+  }
+  // Gann's day clock at the entry bar: a major degree of the day inside the
+  // bar, and price on the degree of its time angle.
+  if (entryBar) {
+    const unit = ctx.masterCalculator?.unit;
+    const r = readDayCircle(new Date(entryBar.time), entryBar.barMinutes, price, unit);
+    f.entryOnDayCircleMajor = r.majorDegree !== null;
+    if (unit) f.entryPriceOnDayTimeAngle = r.priceOnTimeAngle;
   }
   return f;
 }

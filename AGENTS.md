@@ -201,6 +201,13 @@ list on the live scan and the replay. The rest are measured context.
 `masterTwelve.ts`'s spiral is GSPS's own, not Gann's calculator.
 `STRATEGY_VERSION` is `2026-09-30-gann-calculator-planetary`. Prices are read
 in the Gann point (`pointScale.ts#gannPoint`, exactly $1 at $42.50).
+**Same day, from Gann's Square of Nine plate** (Vol. 3 p. 34 and the Cycles
+Research Institute workbook, source note B12, filed with the Gann sources):
+the sixteenths of the seasonal year (`seasonalCounts.ts`), the square read in
+time (`squareOfNineTime.ts`) and the day as a circle (`dayCircle.ts`). Owner on
+the clock: "I always defer to Gann's method", so it is used as drawn: 0° = 6:00
+AM New York time, 15° an hour. All three are measured context; verdicts and
+trades are unchanged, so `STRATEGY_VERSION` stays.
 
 ## WD Gann precedence — standing principle
 

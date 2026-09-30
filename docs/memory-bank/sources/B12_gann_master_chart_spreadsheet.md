@@ -97,7 +97,12 @@
   - Gann's second series 2, 9, 22, 41, 66, 97, 134 "on the same angle": its bearing drifts, at 180°, 120°, 90°, 79.1°, 73.9°, 70.9°, 68.9°. So "66 on 180°" does not hold on this layout.
   - Whether it held on Gann's lost plate cannot be checked. `hexagonChart.ts` stays research-only, as recorded in AGENTS.md (orphan audit item 7).
 
-## What this adds to GSPS (gaps, for the owner)
+## What this adds to GSPS (gaps; items 1–3 built 2026-09-30 on the owner's "execute")
+
+Items 1–3 are built: `seasonalCounts.ts` (sixteenths), `squareOfNineTime.ts`
+and `dayCircle.ts`. For item 3 the owner's direction was "I always defer to
+Gann's method": the clock is used exactly as the plate draws it (0° = 6:00 AM,
+15° an hour, New York time), not re-centred on the market's open.
 
 1. **The sixteenths of the seasonal year** as time points: Apr 12, May 27, Jul 14, Aug 31, Oct 15, Nov 30, Jan 13, Feb 28. They are missing from `seasonalCounts.ts`, which stops at the eighths.
 2. **The Square of Nine in time.** Put a pivot's date at the centre, step one day (or week) per cell, and the dates on the angle lines are time points.

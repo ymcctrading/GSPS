@@ -31,6 +31,17 @@ date.
   measured at 0.07 ms per symbol (about 53 ms over 766 symbols) plus a
   one-time 24 ms ephemeris load.
 
+### Added (Gann's Square of Nine plate, source note B12)
+
+- The sixteenths of the seasonal year at the plate's dates (Apr 12, May 27,
+  Jul 14, Aug 31, Oct 15, Nov 30, Jan 13, Feb 28), in `seasonalCounts.ts`.
+- `lib/gann/squareOfNineTime.ts`: the plate's lines in time, from the extreme
+  high and low.
+- `lib/gann/dayCircle.ts`: Gann's day clock (0° = 6:00 AM New York time, 15°
+  an hour), on the live card and at each replay entry.
+- 5 measured context factors. Context only; `STRATEGY_VERSION` unchanged.
+  Added scan time about 0.08 ms per symbol.
+
 ### Fixed (documentation)
 
 - The March 20, 1954 letter names the "COE" average, not "CE".

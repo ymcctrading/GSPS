@@ -593,6 +593,23 @@ export function buildMacroContext(
   };
 }
 
+/**
+ * The length of bar `i` in minutes, from its neighbours (the replay runs on
+ * 15-minute or 1-hour bars and carries no timeframe here). Used for Gann's day
+ * clock at entry (`lib/gann/dayCircle.ts`).
+ */
+function barMinutesAt(bars: { t: string }[], i: number): number {
+  const gaps: number[] = [];
+  for (const j of [i - 1, i]) {
+    const a = bars[j];
+    const b = bars[j + 1];
+    if (!a || !b) continue;
+    const m = (Date.parse(b.t) - Date.parse(a.t)) / 60_000;
+    if (m > 0 && m <= 240) gaps.push(m);
+  }
+  return gaps.length > 0 ? Math.min(...gaps) : 0;
+}
+
 /** One armed trigger for a session, and the setup kind it belongs to. */
 interface SessionTrigger {
   setupKind: SetupKind;
@@ -837,7 +854,10 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           score: decision.score,
           outputState: decision.outputState,
           criteria: criteriaOf(decision),
-          contextFactors: contextFactorsFor(arm.context.disclosedRules, trigger.direction, entry),
+          contextFactors: contextFactorsFor(arm.context.disclosedRules, trigger.direction, entry, {
+            time: live.t,
+            barMinutes: barMinutesAt(bars, i),
+          }),
           largeCap,
           yearCycleHits: monthlyBars ? yearCycleHitsAt(monthlyBars, live.t, trigger.direction) : undefined,
           barsHeld: walked.barsHeld,
@@ -869,7 +889,10 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         score: decision.score,
         outputState: decision.outputState,
         criteria: criteriaOf(decision),
-        contextFactors: contextFactorsFor(arm.context.disclosedRules, trigger.direction, entry),
+        contextFactors: contextFactorsFor(arm.context.disclosedRules, trigger.direction, entry, {
+            time: live.t,
+            barMinutes: barMinutesAt(bars, i),
+          }),
         largeCap,
         yearCycleHits: monthlyBars ? yearCycleHitsAt(monthlyBars, live.t, trigger.direction) : undefined,
       };
