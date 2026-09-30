@@ -107,12 +107,12 @@ const SCAN_SCORE: RegisteredCriterion[] = [
     expectedSign: "positive",
     evidence: "quarantined",
     quarantineReason:
-      "Quarantined 2026-09-30. On the Gann-swing-chart construction it measures against its declared " +
+      "Quarantined 2026-09-30. On the source-book swing-chart construction it measures against its declared " +
       "sign on every six-year run, over all trades on the live exit rule: run 12 (1Hour, Execute " +
       "inverted), run 22 (1Hour, 2026-09-28-gann-first-days, Δ −0.024, n 9,269) and run 23 (1Day, " +
       "same version, Δ −0.040 on gann-runner and −0.049 on the bracket, n 4,163; " +
       "docs/replay-runs/2026-09-30-1Day-2R-within-all-766sym-6yr-*.json). Presumed a translation " +
-      "defect (AGENTS.md \"Gann-derived AND measured\"): the criterion asks the 3-Day and weekly " +
+      "defect (AGENTS.md, derived-and-measured principle): the criterion asks the 3-Day and weekly " +
       "charts to agree with the trade's direction, but a reversion setup is armed against the macro " +
       "move, so the chart agreeing with the entry may mean the entry is chasing an extended swing. " +
       "Quarantine is a registry flag only; live scoring is unchanged (AGENTS.md F4.7). Exit: a fix held " +
