@@ -126,6 +126,23 @@ describe("SignalCard score breakdown", () => {
     expect(screen.queryByText("Score breakdown")).not.toBeInTheDocument();
   });
 
+  it("says so when a breached stop has retired the plan, and keeps what the plan was", () => {
+    // Owner decision, 2026-09-30 (lib/gann/stopBreach.ts): a breached stop
+    // retires the plan until a later scan confirms or replaces it.
+    const result = { ...resultWithFullBreakdown(), stopBreach: { stop: 88, price: 85 } };
+    render(<SignalCard result={result} />);
+
+    expect(screen.getByText("This plan is retired.")).toBeInTheDocument();
+    expect(screen.getByText(/does not reinstate it on its own/)).toBeInTheDocument();
+    // The retired plan's levels stay readable, dimmed, so a person can see what broke.
+    expect(screen.getByText("Stop loss")).toBeInTheDocument();
+  });
+
+  it("shows no retirement notice on a plan whose stop stands", () => {
+    render(<SignalCard result={resultWithFullBreakdown()} />);
+    expect(screen.queryByText("This plan is retired.")).not.toBeInTheDocument();
+  });
+
   it("still shows the trade plan the card exists to carry", () => {
     render(<SignalCard result={resultWithFullBreakdown()} />);
 

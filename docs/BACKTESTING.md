@@ -236,6 +236,12 @@ shows up in the next run:
 
 - **`lib/scoring/score.ts`** — the nine criteria, the 7/4 bucket cutoffs, the
   bare-2-2 downgrade, and the decision-lag hold.
+- **`lib/gann/stopBreach.ts`** (2026-09-30) — a breached stop retires the plan.
+  The replay does not enter a plan whose stop an earlier candle of the session
+  traded through (or whose stop the session's last close was already through),
+  and reports how many it retired as `retiredPlans`. `STRATEGY_VERSION`
+  `2026-09-30-stop-breach-retired`: runs before it entered those plans, so a
+  committed run on an older version measured a rule production no longer follows.
 - **`lib/scoring/proximity.ts`** — how close "near a level" is. These were fixed
   percentages of price (fan ≤1.5%, harmonic ≤1.0%, S/R ≤1.5%) and are now
   multiples of the instrument's own daily ATR, so a 7/9 means the same thing on

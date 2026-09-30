@@ -13,11 +13,13 @@
  *    to close … rather than entering into the move"). It is not a fill price.
  *  - **Exit (S/L)** is the alert's invalidation — the opening-range extreme, or
  *    the day's 50% point, depending on the signal.
- *  - **TP1** is the plan's first target: twice the distance from entry to exit.
- *    That is a risk multiple, not a price level the chart marks — the card shows
- *    "2.0× risk" beside it so it reads as what it is. (Whether an intraday first
- *    target should be a structural level instead is an open question written up
- *    in `docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md`, Part 3.)
+ *  - **TP1** is the plan's first target: the nearest old top or bottom beyond the
+ *    price, or a round number just short of one (`gannFirstTarget`,
+ *    `lib/scanner/intraday.ts`; project owner, 2026-09-30: "everything must align
+ *    with Gann"). It replaced twice the distance from entry to exit, a risk
+ *    multiple with no source in his method. It can be empty: when no old level
+ *    lies ahead the method fixes no target and the stop trails the move, and the
+ *    card says so instead of inventing one.
  *  - **MTP** is empty: the intraday scanner prices an exit and a first target
  *    and no master take profit.
  *
@@ -64,14 +66,14 @@ export function buildIntradaySynopsis(alert: Alert): string {
   const first = `${SIGNAL_LABELS[alert.type]}, ${up ? "up" : "down"}: ${passed} of ${total} checks line up (confidence ${alert.confidence}/100).`;
 
   const levels = intradayLevels(alert);
-  if (levels.entry == null || levels.stop == null || levels.tp1 == null) return first;
+  if (levels.entry == null || levels.stop == null) return first;
+  const wait = `${first} Wait for a bar to close ${up ? "above" : "below"} ${formatUsd(levels.entry)}, exit at ${formatUsd(levels.stop)} if it fails`;
+  if (levels.tp1 == null) {
+    // No old top or bottom lies ahead: name none rather than invent one.
+    return `${wait}. No target is fixed: there is no old ${up ? "high" : "low"} ahead of price, so the stop trails under each ${up ? "higher bottom" : "lower top"} instead.`;
+  }
   const multiple = rewardToRisk(levels, levels.tp1);
-  return (
-    `${first} Wait for a bar to close ${up ? "above" : "below"} ${formatUsd(levels.entry)}, ` +
-    `exit at ${formatUsd(levels.stop)} if it fails, first target ${formatUsd(levels.tp1)}` +
-    (multiple != null ? ` (${multiple.toFixed(1)}× the risk)` : "") +
-    "."
-  );
+  return `${wait}, first target ${formatUsd(levels.tp1)}${multiple != null ? ` (${multiple.toFixed(1)}× the risk)` : ""}.`;
 }
 
 export function buildIntradayCardModel(alert: Alert): SetupCardModel {

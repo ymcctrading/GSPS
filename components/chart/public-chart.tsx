@@ -54,7 +54,8 @@ export function PublicChart({ symbol }: { symbol: string }) {
   }, [symbol]);
 
   const markers: PriceMarker[] = [];
-  if (result?.levels) {
+  // A plan whose stop has been breached is retired and draws no lines (lib/gann/stopBreach.ts).
+  if (result?.levels && !result.stopBreach) {
     markers.push(
       { price: result.levels.entry, label: "Entry", kind: "entry" },
       { price: result.levels.stopLoss, label: "SL", kind: "stop" },

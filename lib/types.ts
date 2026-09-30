@@ -299,6 +299,14 @@ export interface ScanResult {
    */
   levelsError?: string;
   /**
+   * Present only when the price this scan ran at was already through the stop
+   * of the plan it priced: the plan is retired (owner decision, 2026-09-30),
+   * the verdict is Reject, and `levels` still holds the retired plan so a
+   * reader can see what broke. A scan run once price is back inside the stop
+   * confirms the plan or replaces it. See lib/gann/stopBreach.ts.
+   */
+  stopBreach?: { stop: number; price: number };
+  /**
    * How far behind the market the bars this scan was computed on are, expressed
    * against the execution timeframe. Published deliberately: the verdict is
    * held back when the lag is a whole bar or more, and a reader is owed the

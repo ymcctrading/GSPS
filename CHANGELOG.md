@@ -9,6 +9,24 @@ date.
 
 ## 2026-09-30
 
+### Changed (owner decisions, same day)
+- **A breached stop retires the plan** until a later scan confirms it or replaces
+  it (AGENTS.md finding F3.7, resolved). The scan holds a plan whose stop the
+  price it ran at is through to Reject (`lib/gann/stopBreach.ts`,
+  `applyStopBreachHold`), so the symbol page, lists, monitors and Guided Mode
+  agree; the signal card says the plan is retired and the chart draws no lines
+  for it; the order ticket keeps a breach latched until a newer scan arrives.
+  The replay does not enter a plan whose stop an earlier candle of the session
+  traded through, and reports `retiredPlans`. `STRATEGY_VERSION` is
+  `2026-09-30-stop-breach-retired`, so earlier replay runs no longer describe
+  production. The `trade_plans` lifecycle is unchanged (held for counsel review).
+- **Intraday first target is a Gann level or none** (`gannFirstTarget`): the
+  nearest old top or bottom, or a round number just short of one, instead of
+  twice the risk. With no level ahead no target is fixed and the stop trails;
+  the card, alert and email say so.
+- **Intraday refresh limits:** Pro 3 a day / 10 a week, Expert 5 / 21, Wall
+  Street unchanged (unlimited, automatic refresh), Novice none.
+
 ### Added
 - **Setup cards.** Click a setup's name on the Buy/Sell lists, the tracked and
   saved lists, or the intraday alerts and its card opens halfway (the score and

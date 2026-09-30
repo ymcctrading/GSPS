@@ -272,15 +272,20 @@ both signal discovery and execution.
   (3) The tracked and saved setups sit in closed dropdowns like live
   expectancy, and setups whose stop has broken are grouped apart from the live
   ones. (4) The on-demand intraday scan is metered per tier — Pro 3 a day / 10
-  a week, Expert 8 / 30, Wall Street unlimited with automatic refresh, Novice
-  none — counted from `scan_executions` rows, so no migration
+  a week, Expert 5 / 21 (owner-set, 2026-09-30), Wall Street unlimited with
+  automatic refresh, Novice none — counted from `scan_executions` rows, so no
+  migration
   (`lib/entitlements/intraday-refresh.ts`). (5) The Default watchlist is the
   user's own 3–9 symbols, stored in the existing `watchlists` tables
-  (`lib/dashboard/watchlist.ts`). **Held for the owner, not built:** whether a
-  breached stop retires the plan for good on every surface (the symbol page's
-  scan currently re-arms a plan the monitor sweep invalidated — AGENTS.md
-  finding F3.7), and a replay-only intraday profile. Both are written up, with
-  Gann's sources and the measured record, in
+  (`lib/dashboard/watchlist.ts`). **Owner decisions, 2026-09-30, built:** a
+  breached stop retires the plan until a later scan confirms it or replaces it
+  (the scan itself holds it to Reject, so the chart, lists, monitors and replay
+  agree — AGENTS.md finding F3.7, resolved); and the intraday first target is a
+  Gann level (the nearest old top or bottom, or a round number just short of
+  one) or none, never a multiple of the risk. **Not built:** a replay-only
+  intraday profile to measure the method at intraday scale, and a pre-entry
+  "invalidated" transition in the `trade_plans` lifecycle (its spec pack flags it
+  for counsel review). Gann's sources and the measured record are in
   `docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md`.
 - **Gann & Sara Cross-Market Confluence Layers** *(out-of-phase, direct
   request: "GSPS Gann & Sara Cross-Market Integration Addendum", 2026-08-28.

@@ -41,8 +41,15 @@ import { MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection, rankArmedPatterns } f
 import { computeTradeLevels, type EntrySource } from "@/lib/strat/levels";
 import { computeGannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
-import { applyBreakawayHold, applyDataLagHold, applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
+import {
+  applyBreakawayHold,
+  applyDataLagHold,
+  applyReversionConfirmation,
+  applyStopBreachHold,
+  computeScore,
+} from "@/lib/scoring/score";
 import { readBreakaway } from "@/lib/gann/breakaway";
+import { readStopBreach } from "@/lib/gann/stopBreach";
 import { decisionLag, feedDelayMs } from "@/lib/data/latency";
 import { marketSession } from "@/lib/market/session";
 import {
@@ -369,7 +376,18 @@ export async function scanTicker(
     // context until the entry crosses the range's extreme.
     const breakaway = readBreakaway(daily, gannTrigger);
 
-    const decision = applyDataLagHold(
+    // A breached stop retires the plan (owner decision, 2026-09-30): price the
+    // scan ran at is already through the stop of the plan it just priced, so
+    // the plan is over until a later scan, with price back inside, confirms or
+    // replaces it. Outermost, so it lands whatever the other holds did. See
+    // lib/gann/stopBreach.ts.
+    const stopBreach = readStopBreach({
+      direction: entrySource?.direction ?? "none",
+      stopLoss: levels?.stopLoss,
+      price: currentPrice,
+    });
+
+    const decision = applyStopBreachHold(applyDataLagHold(
       applyBreakawayHold(applyReversionConfirmation(
         computeScore({
           direction: scoreDirection,
@@ -406,7 +424,7 @@ export async function scanTicker(
         nearSupportResistance,
       ), breakaway),
       dataLag,
-    );
+    ), stopBreach);
 
     // ---- Signal and Regime Engine (lib/signals) — a separate decision layer
     // from the Gann/STRAT verdict above, never merged into it. This is a
@@ -541,6 +559,7 @@ export async function scanTicker(
       armedPatterns,
       levels,
       levelsError,
+      ...(stopBreach.breached ? { stopBreach: { stop: stopBreach.stop!, price: stopBreach.price! } } : {}),
       dataLag,
       executionBar: closedExecutionBars[closedExecutionBars.length - 1],
       decision,

@@ -72,6 +72,15 @@ export function assessEligibility(
     return { eligible: false, reasons };
   }
 
+  // A breached stop retires the plan (owner decision, 2026-09-30;
+  // lib/gann/stopBreach.ts). Named first so the reason a person reads is the
+  // real one, not the Reject it causes.
+  if (result.stopBreach) {
+    reasons.push(
+      "This plan is retired: price is through its stop. A fresh scan confirms it or replaces it, and Guided Mode only surfaces a plan that stands.",
+    );
+  }
+
   if (result.decision.outputState !== "Execute") {
     reasons.push(
       `Verdict is ${result.decision.outputState}, and Guided Mode only surfaces Execute setups.`,

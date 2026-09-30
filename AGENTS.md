@@ -842,26 +842,44 @@ for the project owner** — do not fix it silently, and re-verify it first:
   `LARGE_CAP_UNIVERSE` only) and the most-actives, inside a 250-slot cap.
   Check coverage in coarse telemetry, not list membership.
 - Lesser items: the weight-promotion path can still promote non-uniform
-  weights (F4.2); pre-entry plans aren't invalidated by a stop breach (F3.7);
-  `policy_values` overrides have no bounds (F4.3); `stopRoom`'s
+  weights (F4.2); `policy_values` overrides have no bounds (F4.3); `stopRoom`'s
   "quarantined" status doesn't affect live scoring (F4.7). Kept rather than
   deleted because they're unfinished rather than dead:
   `withinTriggerTolerance` (an unenforced spec rule), `toSaraStrategyResult`,
   and `quantityFromPermittedRisk`/`plannedRiskDollars`.
-- **F3.7 traced to its cause, 2026-09-30 — still held for the project owner.**
-  The owner saw OXY and GOOGL read invalidated on the Dashboard while the chart
-  still showed the plan. Three surfaces call a plan dead from a quote (the
+- **F3.7, traced 2026-09-30 and resolved the same day (project owner).** The
+  owner saw OXY and GOOGL read invalidated on the Dashboard while the chart
+  still showed the plan. Three surfaces called a plan dead from a quote (the
   lists, the order ticket, the twice-hourly monitor sweep); the scan behind the
-  symbol page reads only completed daily structure, returns the same plan, and
-  `evaluateMonitorsAndNotify` re-arms the monitor the sweep just invalidated.
-  The order ticket alone doesn't ratchet, so it un-invalidates when price
-  returns. Gann's answer (a caught stop is the reversal signal; the broken
-  level changes sides; re-entry is a new trade with a new stop) and three
-  options are in `docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md` Part 1; the
-  recommended fix is a stop-breach hold in the scan itself, on the live scan
-  and the replay alike. It changes the verdict, the monitors and the replay
-  together, so it waits for a go-ahead. Only the display was touched: the
-  Dashboard lists group broken setups apart from live ones.
+  symbol page read only completed daily structure, returned the same plan, and
+  `evaluateMonitorsAndNotify` re-armed the monitor the sweep had just
+  invalidated. The owner's rule: **"A breach retires the plan, until an updated
+  scan is run and a plan is either confirmed or an updated plan replaces the
+  original."** Built as `lib/gann/stopBreach.ts` and `applyStopBreachHold`
+  (`lib/scoring/score.ts`): the scan drops a plan whose stop the price it ran at
+  is through to Reject, so the monitor goes INVALIDATED and the plan leaves the
+  lists; a scan run once price is back inside the stop confirms the plan or
+  replaces it. There is no stored "retired" flag: the scan reads price against
+  the stop each time, so a late scan resumes correctly. Price returning to the
+  old entry does not reinstate it by itself: the ticket latches a breach until a
+  newer scan arrives, and the lists keep their ratchet until they reload. The
+  replay does not enter a plan whose stop an earlier candle of the session
+  traded through (`retiredPlans` in the report), and treats the next session's
+  scan as the updated scan. `STRATEGY_VERSION` is `2026-09-30-stop-breach-retired`:
+  replay runs before it entered such plans, so the Execute-bucket numbers
+  measured on earlier versions describe a rule production no longer follows.
+  Gann's sources and the options considered (this is option A, with the
+  next scan as the way back in) are in
+  `docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md` Part 1. **Not changed, and
+  why:** the `trade_plans` lifecycle still has no pre-entry "invalidated"
+  transition (`lib/lifecycle/reaper.ts`'s header: the spec pack says a change
+  to it needs counsel review). A retired plan there is simply never advanced
+  (the scan no longer lists it) and expires on its clock, and an order at its
+  levels is refused at the bracket (`fill_outran_bracket`). Adding the
+  transition is held for the owner. The intraday alerts are an exception by
+  construction: they are recomputed from the session on every scan, and their
+  invalidation is the session's 50% point or opening range, so a break of it
+  already changes the alert.
 
 
 ## Gann-derived AND measured — standing principle
@@ -1705,13 +1723,24 @@ Standing facts for a session that touches any list of setups:
   "Master" in the lists; it is **MTP** (master take profit) wherever a person
   reads it. Guided Mode and the onboarding walkthrough keep their plain-English
   "next level" and add "(MTP)". The internal field stays `masterProfit`.
-- **Intraday has no MTP and a risk-multiple TP1.** The intraday scanner prices
-  an exit and a first target of twice the risk. That target is an R-multiple
-  with no Gann source, an open Gann-grounding finding: the replacement (the
-  nearest old top or bottom, or the session's 50% point) is in the research
-  doc, Part 3.4, and waits for the owner.
+- **Intraday has no MTP, and its TP1 is a Gann level or nothing.** The
+  intraday scanner prices an exit (the session's 50% point or opening-range
+  extreme) and a first target, and no master take profit. The first target was
+  twice the risk, an R-multiple with no Gann source; on 2026-09-30 the owner
+  ("everything must align with Gann") had it replaced by `gannFirstTarget`
+  (`lib/scanner/intraday.ts`): the nearest old top or bottom beyond the price,
+  or a round number just short of one, at least one intraday ATR away. Where
+  none lies ahead the target is null, "no target is fixed, the stop trails"
+  (Gann's "never fix a target price"), and the card, alert and email say so
+  rather than inventing one. The session's own extreme and the prior close are
+  the only old levels read so far (the session's earlier swings and prior
+  sessions' highs and lows are not passed in), so it can under-name a level,
+  never invent one. A replay-only intraday profile to measure the method at
+  intraday scale is **not** built (doc Part 3.5); nothing measures it yet.
 - **The refresh budget lives in `lib/entitlements/policy.ts`**
-  (`intradayRefreshesPerDay` / `…PerWeek`) and is spelled out in
+  (`intradayRefreshesPerDay` / `…PerWeek`; owner-set 2026-09-30: Pro 3 a day /
+  10 a week, Expert 5 / 21, Wall Street unlimited with automatic refresh, Novice
+  none) and is spelled out in
   `docs/GSPS_TIER_ENTITLEMENT_SPEC.md`. Enforcement is
   `lib/entitlements/intraday-refresh.ts`, counted from `scan_executions` rows
   (`source = 'intraday'`), one per completed on-demand scan, so it needs no

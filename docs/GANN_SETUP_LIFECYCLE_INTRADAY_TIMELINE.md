@@ -1,8 +1,10 @@
 # Setup lifecycle, intraday, and timeline: what Gann says, and what GSPS does
 
 **Written:** 2026-09-30, answering items 2, 3 and 5 of the project owner's 2026-09-28 note.
-**Status:** research and recommendations. **Nothing in this document changes a verdict, a level,
-a gate or an order.** Where it recommends a change to one, the change is held for the owner (Part 4).
+**Status:** research, and the record of three owner decisions taken the same day (Part 4). When first
+written, nothing here changed a verdict, a level, a gate or an order; on 2026-09-30 the owner decided
+the stop-breach rule and the intraday first target, and both are built. Part 1.4 and Part 3.4 say what
+was built; what is still not built is listed in Part 4.
 **Sources:** the page-by-page reads in `docs/memory-bank/sources/` (Tier A: Gann's own text, unless
 marked), and the committed replay runs in `docs/replay-runs/`. Read
 `docs/GANN_HISTORICAL_SOURCES.md` for the tier definitions.
@@ -88,7 +90,14 @@ Four separate teachings bear on this. Each is quoted from the read, with the sou
 | **A setup not yet entered; price falls through its stop** | The thesis is gone (the swing bottom that qualified it is broken). Don't enter the old plan. The break is confirmed by a close, and a poke that closes back inside is not a change of trend. | The list and the sweep treat a quote through the stop as final. The chart page's scan doesn't see it, and re-arms the plan. |
 | **Price then returns to the original entry** | The old plan is not resumed. The old bottom is now resistance. A long needs a new higher bottom and a new buying point with a new stop; a short from the old level is the trade the method actually offers, if its own trigger arms. | The list keeps it dead. The ticket un-invalidates the moment price is back above the stop, and the chart shows the same plan. **This is the inconsistency you saw.** |
 
-### 1.4 Options, and what I recommend
+### 1.4 Options, and what was decided
+
+**Decided 2026-09-30 (project owner):** "A breach retires the plan, until an updated scan is run and a
+plan is either confirmed or an updated plan replaces the original." That is option A below with the
+way back in made explicit: the next scan, run with price inside the stop, either confirms the same
+plan (a poke that closed back inside) or prices a new one (the structure has moved). It is built as
+`lib/gann/stopBreach.ts` and `applyStopBreachHold` (`lib/scoring/score.ts`). Section "What was built"
+below says where. The options, as they were put to the owner:
 
 - **A. Gann-strict.** A breach of the stop retires that plan for good. It is only replaced by a new
   scan that produces new levels. Implementation: a stop-breach hold in the scan itself, beside
@@ -110,20 +119,30 @@ also his stop-caught rule. B is the fallback if the replay shows that a large sh
 stops close back inside by the end of the session; the replay can answer that before anything ships.
 Either ends the disagreement between the list and the chart.
 
-**What it would touch, and why I have not done it.** Every one of the surfaces in 1.1, plus Guided
-eligibility, the demo account, plan-scoped automation and the autonomous portfolio manager (all of
-which read the verdict), the monitor notifications (INVALIDATED notifies), and the replay's
-measurement (which must arm and retire plans by the same rule as the live scan, or the two drift,
-the `harmonicProximity` failure shape). It also changes what a "pre-entry plan" means in a module
-whose own header says a change to it needs counsel review
-(`lib/lifecycle/types.ts`). That is a verdict change, and AGENTS.md holds F3.7 for you. I would
-build A once you say so, with the replay measuring the retired-plan counts before anything is
-switched on.
+**What was built (2026-09-30).**
 
-**What I did change, and only this:** the dashboard lists now separate the broken setups from the
-live ones. They sit in a closed "Setups that broke their stop" dropdown (tracked) or "No longer valid setups" dropdown
-(saved), out of the live list and out of its count. The copy does not claim anything beyond what is
-true today ("its entry is a dead level").
+| Surface | Now |
+|---|---|
+| Live scan (`lib/scanTicker.ts`) | The price the scan ran at is read against the stop of the plan it priced. Through it: the verdict is Reject, `ScanResult.stopBreach` carries the stop and price, and `levels` still holds the retired plan so a person can see what broke. Applied outermost, after the other holds. |
+| Monitors (`evaluateMonitorsAndNotify`, the sweep) | No change to either. The scan now returns Reject for a breached plan, so the re-arm that caused F3.7 no longer happens; a scan run with price back inside the stop re-arms it, which is the owner's "confirmed". |
+| Symbol page | The signal card says "This plan is retired" and what to do; the chart (`ticker-view`, `public-chart`) draws no Entry/SL/TP/MTP lines for it; the order ticket blocks Protocol Recommended and keeps a live breach latched, keyed to the scan it was seen on, so price returning to the entry does not quietly un-retire it and a newer scan clears it. |
+| Lists | Unchanged: the one-way ratchet, and the grouped "broke their stop" / "No longer valid" dropdowns. A reload reads a fresh scan. |
+| Guided Mode (`lib/guided/eligibility.ts`) | Names the retirement first, ahead of the Reject it causes. |
+| Replay (`lib/backtest/replay.ts`) | A plan is read once per session (its stop from `computeTradeLevels`, the same pricing the verdict uses). The scan that arms a session reads the last close; every later closed candle of the session is read in turn. Through the stop: the plan is not entered for the rest of the session, a confirmation in progress starts over, and `retiredPlans` counts it. The next session's scan is the updated scan. The candle the entry fires on is left to the bracket walk. |
+| `STRATEGY_VERSION` | `2026-09-30-stop-breach-retired`. Runs before it entered plans the live scan now retires. |
+
+Two differences between the live scan and the replay are deliberate and labelled. The live read is
+point-in-time (price at scan time against the stop) and the replay's is by path (any earlier candle),
+because the replay has no scan cadence to consult; and the replay retires for the rest of the
+session, where a live on-demand scan can reinstate a plan sooner. Both lean toward entering less, not
+more.
+
+**Not built, and why.** The `trade_plans` lifecycle still has no pre-entry "invalidated" transition.
+`lib/lifecycle/reaper.ts` and `lib/lifecycle/types.ts` say the spec pack needs counsel review before
+that rule ships. A retired plan there is no longer advanced (it is not in the visible results), expires
+on its clock, and an order at its levels is refused at the bracket (`fill_outran_bracket`). Adding the
+transition is held for the owner. The intraday alerts need nothing: each scan recomputes them from the
+session, and their invalidation is the session's 50% point or opening range.
 
 ---
 
@@ -247,12 +266,20 @@ do not, and have to be re-derived in the unit of the chart. That is the same mov
 | Time | Daily/weekly counts | Hourly counts (144 hours), 4-minute rotation | Master Course Ch. 13; *Tunnel*. Research only until Dewey's items are met. |
 | Exit on trend change | Weekly swing chart turns | The hourly swing chart turns | Same rule, finer chart. |
 
-The intraday scanner (`lib/scanner/intraday.ts`) already uses two of these: the session's 50% point
-(replacing VWAP, 2026-09-28) and the opening range. Its first target is the exception: it is
-twice the risk (`continuationPlan`), which is an R-multiple with no Gann source. The new intraday
-cards say so on their face ("2.0× risk", and a note that there is no MTP). It is the one intraday
-component that fails the Gann-grounded standard, and the table's "first target" row is its
-replacement.
+The intraday scanner (`lib/scanner/intraday.ts`) already used two of these: the session's 50% point
+(replacing VWAP, 2026-09-28) and the opening range. Its first target was the exception: twice the
+risk, an R-multiple with no Gann source, and the one intraday component that failed the Gann-grounded
+standard. **Replaced 2026-09-30** (owner: "everything must align with Gann") by `gannFirstTarget`, the
+table's "first target" row: the nearest old top (up) or bottom (down) beyond the price, or a round
+number just short of one (`lib/gann/evenFigures.ts`, the rule the daily equity targets already use),
+and none where nothing lies ahead. A level must sit at least one intraday ATR beyond the price, and a
+round number counts only within a day's range of it; both are labelled engineering choices, since Gann
+gives the rule and not these magnitudes at intraday scale. The old levels it reads are the session's
+own extreme and the prior close; the session's earlier swings and the prior sessions' highs and lows
+are not passed in yet, so it can under-name a level but never invent one. Expect many alerts to carry
+no target: a market in new territory has no old top ahead of it, and Gann's answer there is to fix no
+target and trail the stop ("never fix a target price", owner decision X4). The card, alert and email
+say "no target is fixed", and the stop trails under each higher bottom.
 
 ### 3.5 A measurement plan that would settle it
 
@@ -272,18 +299,27 @@ fixed before the data is seen:
 **Recommendation.** Keep swing as GSPS's method, keep the intraday panel as confirmation, and
 commission step 1 if you want the intraday profile built. It is a replay-only build, no product risk,
 and it is the only route to an answer that isn't "the hourly run lost money, presumed a translation
-defect".
+defect". **Status 2026-09-30:** the owner's answer to the question was "everything must align with
+Gann", which settled the target (above) and leaves the profile itself unbuilt. The profile is what
+would *measure* the method at intraday scale; it changes nothing a person sees. It is still the only
+route to evidence, and is open for the owner to commission.
 
 ---
 
 ## Part 4. Decisions for the owner
 
-1. **Stop-breach rule** (Part 1.4): A, B or C. Recommended: A. Needs a go-ahead because it changes
-   the verdict, the monitors and the replay together.
-2. **Intraday profile** (Part 3.5): build as a replay-only option? Recommended: yes.
-3. **Refresh numbers** (shipped with the intraday cards, `lib/entitlements/policy.ts`): Pro 3 a day /
-   10 a week, Expert 8 / 30, Wall Street unlimited with automatic refresh, Novice none (no intraday
-   access, unchanged). These are starting values I chose; the rule is in one place to change.
+All three were decided on 2026-09-30.
+
+1. **Stop-breach rule** (Part 1.4). Decided: "A breach retires the plan, until an updated scan is run
+   and a plan is either confirmed or an updated plan replaces the original." Built (Part 1.4, "What was
+   built"). The `trade_plans` lifecycle transition is not built and waits on counsel review.
+2. **Intraday profile** (Part 3.5). The owner did not follow the question as put ("build the replay-only
+   profile?") and answered the principle: "everything must align with Gann." Acted on as: the intraday
+   first target, the one component with no Gann source, is replaced (Part 3.4). The replay-only profile,
+   which would measure the method at intraday scale, is not built; it is open.
+3. **Refresh numbers** (`lib/entitlements/policy.ts`). Decided: Pro 3 a day / 10 a week at most, Expert
+   5 a day / 21 a week at most, Wall Street unchanged (unlimited with automatic refresh), Novice none
+   (no intraday access, unchanged). Built.
 
 ## Three-question basis
 

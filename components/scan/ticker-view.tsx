@@ -157,12 +157,16 @@ export function TickerView({ symbol }: { symbol: string }) {
   const markers: PriceMarker[] = [];
   // Gann's even figures: mark the round number the price is approaching,
   // when the trader has the notice on (lib/gann/evenFigures.ts).
+  // A plan whose stop has been breached is retired (owner decision, 2026-09-30;
+  // lib/gann/stopBreach.ts), so the chart draws no Entry/SL/TP/MTP lines for it.
+  // The signal card says why, and what the plan was.
+  const retired = Boolean(result?.stopBreach);
   const roundAhead =
-    gannPrefs.roundNumberNotices && result?.levels && result.direction !== "none"
+    gannPrefs.roundNumberNotices && result?.levels && !retired && result.direction !== "none"
       ? approachingFigure(result.levels.entry, result.direction)
       : null;
   if (roundAhead) markers.push({ price: roundAhead.figure.price, label: "Round number", kind: "structural" });
-  if (result?.levels) {
+  if (result?.levels && !retired) {
     markers.push(
       { price: result.levels.entry, label: "Entry", kind: "entry" },
       { price: result.levels.stopLoss, label: "SL", kind: "stop" },

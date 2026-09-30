@@ -3,6 +3,7 @@ import type { Bar } from "@/lib/types";
 import {
   DEFAULT_CONFIG,
   cooldownUntil,
+  gannFirstTarget,
   measureMove,
   scanIntraday,
   barsForSession,
@@ -610,5 +611,68 @@ describe("session boundaries", () => {
 
   it("returns null when a symbol traded only outside the regular session", () => {
     expect(sessionMetrics(input({ bars: [etBar(4, 0, 400)] }), DEFAULT_CONFIG)).toBeNull();
+  });
+});
+
+
+/**
+ * The first target is an old top or bottom, or a round number just short of one
+ * (owner, 2026-09-30: "everything must align with Gann"), not a multiple of the
+ * risk. Where none lies ahead the method fixes no target and the stop trails.
+ */
+describe("gannFirstTarget", () => {
+  const base = {
+    direction: "up" as const,
+    last: 480,
+    sessionHigh: 480.05,
+    sessionLow: 470,
+    prevClose: 471,
+    dailyAtr: 3,
+    intradayAtr: 0.3,
+  };
+
+  it("names the session's own old top when price has come off it", () => {
+    expect(gannFirstTarget({ ...base, sessionHigh: 483 })).toBe(483);
+  });
+
+  it("ignores an old level inside the noise a real move has to clear", () => {
+    // 480.05 is a tenth of an intraday ATR away; it is not a target.
+    expect(gannFirstTarget(base)).toBeNull();
+  });
+
+  it("names a round number just short of it, when one lies within a day's range", () => {
+    // 100 is a figure; markets turn just short of it, so the target sits under it.
+    const t = gannFirstTarget({ ...base, last: 97.2, sessionHigh: 97.25, sessionLow: 95, prevClose: 96, intradayAtr: 0.2 });
+    expect(t).toBeCloseTo(99.5, 6);
+  });
+
+  it("takes the prior close above a price still under it as the nearest old level", () => {
+    const t = gannFirstTarget({ ...base, last: 498.6, sessionHigh: 498.7, sessionLow: 490, prevClose: 502.25, dailyAtr: 6 });
+    expect(t).toBe(502.25);
+  });
+
+  it("picks the nearest of several levels", () => {
+    const t = gannFirstTarget({ ...base, last: 97.2, sessionHigh: 98.4, sessionLow: 95, prevClose: 98.9, intradayAtr: 0.2 });
+    expect(t).toBe(98.4);
+  });
+
+  it("mirrors for a move down: the old bottom, or a figure just above", () => {
+    expect(gannFirstTarget({ ...base, direction: "down", last: 480, sessionHigh: 490, sessionLow: 477, prevClose: 489 })).toBe(477);
+    const t = gannFirstTarget({
+      direction: "down",
+      last: 102.6,
+      sessionHigh: 105,
+      sessionLow: 102.55,
+      prevClose: 104,
+      dailyAtr: 3,
+      intradayAtr: 0.2,
+    });
+    expect(t).toBeCloseTo(100.5, 6);
+  });
+
+  it("does not turn a risk multiple into a target: with no level ahead, there is none", () => {
+    const alert = scanIntraday([input()], DEFAULT_CONFIG, AT_1133).alerts.find((a) => a.type === "trend_continuation")!;
+    const risk = Math.abs(alert.move.current - (alert.invalidation ?? alert.move.current));
+    expect(alert.continuationPlan.firstTarget).not.toBeCloseTo(alert.move.current + risk * 2, 6);
   });
 });

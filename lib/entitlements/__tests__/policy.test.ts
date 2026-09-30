@@ -69,7 +69,7 @@ describe("getEntitlementPolicy", () => {
     };
     expect(refreshes("PRACTICE")).toEqual([0, 0]);
     expect(refreshes("STANDARD")).toEqual([3, 10]);
-    expect(refreshes("INVESTOR_MODE")).toEqual([8, 30]);
+    expect(refreshes("INVESTOR_MODE")).toEqual([5, 21]);
     expect(refreshes("SYSTEM_MASTERY")).toEqual(["unlimited", "unlimited"]);
   });
 

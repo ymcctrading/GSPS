@@ -56,6 +56,17 @@ describe("assessEligibility", () => {
     expect(assessEligibility(scan())).toEqual({ eligible: true, reasons: [] });
   });
 
+  it("refuses a plan the scan retired because its stop was breached, and names that first", () => {
+    const verdict = assessEligibility(
+      scan({
+        stopBreach: { stop: 98, price: 96 },
+        decision: { score: 8, outputState: "Reject", breakdown: [] },
+      }),
+    );
+    expect(verdict.eligible).toBe(false);
+    expect(verdict.reasons[0]).toMatch(/plan is retired/i);
+  });
+
   it("refuses a Watch-tier setup", () => {
     const verdict = assessEligibility(
       scan({ decision: { score: 7, outputState: "Watch", breakdown: [] } }),

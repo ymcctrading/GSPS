@@ -243,6 +243,12 @@ export interface BacktestReport {
    * stop or target, which production refuses (`fill_outran_bracket`).
    */
   refusedFills: number;
+  /**
+   * Session plans retired by a breached stop and so not entered that session
+   * (owner decision, 2026-09-30; `lib/gann/stopBreach.ts`). Runs before
+   * STRATEGY_VERSION `2026-09-30-stop-breach-retired` entered such plans.
+   */
+  retiredPlans: number;
   /** Setups armed and triggered across the run, for a fill-rate sanity check. */
   armed: number;
   triggered: number;
@@ -554,6 +560,7 @@ export function buildReport(
     armed: run.overall.armed,
     triggered: run.overall.triggered,
     refusedFills: run.overall.refusedFills,
+    retiredPlans: run.overall.retiredPlans,
     attributeWithin: attributedLabel,
     ...(attributeScoreRange ? { attributeScoreRange } : {}),
     factors: attributeFactors(target.trades),

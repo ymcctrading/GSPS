@@ -56,6 +56,21 @@ describe("buildIntradaySynopsis", () => {
     expect(buildIntradaySynopsis(down)).toContain("Wait for a bar to close below $504.50");
   });
 
+  it("says no target is fixed, and that the stop trails, when no old level lies ahead", () => {
+    const open: Alert = { ...alert, continuationPlan: { ...alert.continuationPlan, firstTarget: null } };
+    const up = buildIntradaySynopsis(open);
+    expect(up).toContain("Wait for a bar to close above $504.50, exit at $500.00 if it fails.");
+    expect(up).toContain("No target is fixed");
+    expect(up).toContain("trails under each higher bottom");
+    const down = buildIntradaySynopsis({
+      ...open,
+      direction: "down",
+      invalidation: 510,
+      continuationPlan: { ...open.continuationPlan, firstTarget: null },
+    });
+    expect(down).toContain("trails under each lower top");
+  });
+
   it("frames a reversal risk as a reason to stand aside, in the scanner's own words", () => {
     const risk: Alert = { ...alert, type: "reversal_risk", direction: "down", whyThisAppeared: "It failed." };
     const text = buildIntradaySynopsis(risk);

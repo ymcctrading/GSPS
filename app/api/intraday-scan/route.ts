@@ -829,7 +829,7 @@ async function notifySubscribedUsers(supabase: ServiceSupabase, alerts: Alert[])
         exactScoreDisplayEnabled: true,
         entry: alert.move.current,
         stopLoss: alert.invalidation ?? alert.move.current,
-        takeProfit: alert.continuationPlan.firstTarget ?? alert.move.current,
+        takeProfit: alert.continuationPlan.firstTarget,
         verdict: "Execute",
         confidence: alert.confidence / 100,
       });

@@ -64,8 +64,9 @@ export type EntitlementPolicy = {
    * day/week, dependent upon tiers". `0` for a tier with no intraday access at
    * all (Novice); `"unlimited"` keeps the panel's automatic refresh, so the
    * cap only exists where a person has to choose when to spend a refresh. The
-   * numbers are starting values for the owner to tune here, in the one place
-   * the entitlement numbers live; enforcement is
+   * numbers were set by the owner on 2026-09-30 (Pro 3 a day / 10 a week, Expert
+   * 5 / 21, Wall Street unchanged) and are tuned here, in the one place the
+   * entitlement numbers live; enforcement is
    * `lib/entitlements/intraday-refresh.ts`. The scheduled system scan
    * (cron, `Authorization: Bearer`) is not a user refresh and is never counted.
    */
@@ -209,8 +210,8 @@ const ENTITLEMENT_POLICY: Record<PlatformTier, EntitlementPolicy> = {
     automationEnabled: false,
     intradayScansEnabled: true,
     proIntradayModuleEnabled: false,
-    intradayRefreshesPerDay: 8,
-    intradayRefreshesPerWeek: 30,
+    intradayRefreshesPerDay: 5,
+    intradayRefreshesPerWeek: 21,
     backtestingEnabled: false,
     exactScoreDisplayEnabled: true,
     allowedStrategyModes: "all",

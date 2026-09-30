@@ -56,6 +56,7 @@ import { atr } from "@/lib/analysis/pivots";
 import { etDateKey, etParts } from "@/lib/market/session";
 import { meetsLiquidityFloor } from "@/lib/scan/liquidity";
 import { MAG7 } from "@/lib/sectors";
+import { APPROACH_WINDOW_PCT, targetCandidates } from "@/lib/gann/evenFigures";
 
 /** ---- Configuration ----------------------------------------------------- */
 
@@ -390,7 +391,11 @@ export interface TradePlan {
   confirmation: string;
   /** The price that says the thesis is wrong. */
   invalidation: number | null;
-  /** First place to take something off. */
+  /**
+   * First place to take something off: the nearest old top or bottom, or a
+   * round number just short of one (`gannFirstTarget`). Null when the method
+   * names none and the stop trails the move instead.
+   */
   firstTarget: number | null;
   /** Conditions that cancel the setup before it triggers. */
   cancelIf: string;
@@ -1094,7 +1099,6 @@ function buildAlert(args: {
   const { now, input, metrics: m, type, direction, move, factors, invalidation } = args;
 
   const confidence = scoreConfidence(factors);
-  const risk = invalidation != null ? Math.abs(m.last - invalidation) : null;
   const dataAge = ageSeconds(m.dataTimestamp, now);
 
   return {
@@ -1112,7 +1116,7 @@ function buildAlert(args: {
     confidence,
     confidenceFactors: factors,
     invalidation,
-    continuationPlan: continuationPlan(m, direction, invalidation, risk),
+    continuationPlan: continuationPlan(m, direction, invalidation, input.prevClose, input.dailyAtr),
     pivotPlan: pivotPlan(m, direction, invalidation),
     whyThisAppeared: args.whyThisAppeared,
     whyNotEarlier: explainLateness(dataAge, type, input.marketClosed === true),
@@ -1131,14 +1135,86 @@ export function scoreConfidence(factors: ConfidenceFactor[]): number {
   return Math.max(0, Math.min(100, Math.round((earned / total) * 100)));
 }
 
+/**
+ * The first target of an intraday continuation: the nearest old top (for a move
+ * up) or old bottom (for a move down) beyond the price the move had reached, or
+ * a round number just short of one. Null when there is none: no target is fixed,
+ * and the stop trails instead.
+ *
+ * It replaces "twice the distance to the stop" (2026-09-30, owner: "everything
+ * must align with Gann"). That was a multiple of the risk, a number with no
+ * source in his method; the intraday scanner was the one component that failed
+ * the Gann-grounded standard (docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md,
+ * Part 3.4).
+ *
+ * Three-question basis (AGENTS.md):
+ * 1. Gann, Tier A. Sell at old tops and buy at old bottoms: they are where the
+ *    market has turned before, and a crossed top becomes the floor (*New Stock
+ *    Trend Detector*, p. 13: "old tops become bottoms"). Even figures attract
+ *    orders, so markets turn just short of them (*How to Make Profits in
+ *    Commodities* p. 19; `lib/gann/evenFigures.ts`, the same rule the daily
+ *    plans use for equity targets). And "never fix a target price" (*Truth of
+ *    the Stock Tape*, owner decision X4): where the market has no old top ahead
+ *    of it, the method names no target and the stop follows the move.
+ * 2. Cycles: no periodicity claim, so Dewey's checklist does not apply.
+ * 3. Hermetic: Polarity. A level is the place where buyers and sellers have
+ *    met before, and the target is the far pole of the move the alert describes.
+ *    Correspondence: the same rule the daily plan prices from, read on the
+ *    session's own tops and bottoms.
+ *
+ * Engineering choices, labelled as such (Gann gives the rule, not these
+ * magnitudes at intraday scale): a level must sit at least one intraday ATR
+ * beyond the price to count, since anything nearer is inside the noise a real
+ * move has to clear (`SessionMetrics.intradayAtr`); and a round number counts
+ * only within one daily ATR of the price (2% of it when the daily ATR is not
+ * known, `APPROACH_WINDOW_PCT`), because one farther off is not a *first*
+ * target. The old tops and bottoms read are the session's own extreme and the
+ * prior close; the session's earlier swings and the prior sessions' highs and
+ * lows are not passed in yet, so this can only under-name a level, never
+ * invent one.
+ */
+export function gannFirstTarget(input: {
+  direction: Direction;
+  last: number;
+  sessionHigh: number;
+  sessionLow: number;
+  prevClose: number | null;
+  dailyAtr: number | null;
+  intradayAtr: number;
+}): number | null {
+  const { direction, last, sessionHigh, sessionLow, prevClose, dailyAtr, intradayAtr } = input;
+  const up = direction === "up";
+  const floor = Math.max(0, intradayAtr);
+  const beyond = (p: number) => (up ? p - last : last - p) >= floor && (up ? p > last : p < last);
+
+  const window = dailyAtr != null && dailyAtr > 0 ? dailyAtr : last * (APPROACH_WINDOW_PCT / 100);
+  const limit = up ? last + window : last - window;
+  const candidates = [
+    up ? sessionHigh : sessionLow,
+    ...(prevClose != null && prevClose > 0 ? [prevClose] : []),
+    ...targetCandidates(last, limit, up ? "bullish" : "bearish"),
+  ].filter((p) => Number.isFinite(p) && beyond(p));
+
+  if (candidates.length === 0) return null;
+  return candidates.reduce((nearest, p) => (Math.abs(p - last) < Math.abs(nearest - last) ? p : nearest));
+}
+
 function continuationPlan(
   m: SessionMetrics,
   direction: Direction,
   invalidation: number | null,
-  risk: number | null,
+  prevClose: number | null,
+  dailyAtr: number | null,
 ): TradePlan {
-  const target =
-    risk != null ? (direction === "up" ? m.last + risk * 2 : m.last - risk * 2) : null;
+  const target = gannFirstTarget({
+    direction,
+    last: m.last,
+    sessionHigh: m.high,
+    sessionLow: m.low,
+    prevClose,
+    dailyAtr,
+    intradayAtr: m.intradayAtr,
+  });
   return {
     confirmation: `Wait for a bar to close ${direction === "up" ? "above" : "below"} ${m.last.toFixed(2)} rather than entering into the move. Chasing an extended price is how a good read becomes a bad fill.`,
     invalidation,

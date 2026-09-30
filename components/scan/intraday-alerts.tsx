@@ -385,8 +385,9 @@ function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: 
               {!isRisk && (
                 <p className="text-xs text-muted">
                   Intraday setups price an exit and a first target only — there is no MTP (master take profit) on
-                  one. TP1 here is twice the distance from entry to exit, a multiple of the risk rather than a
-                  chart level.
+                  one. TP1 here is the nearest old high or low beyond the price, or a round number just short of
+                  one. When there is none ahead, no target is fixed and the stop trails under each higher bottom
+                  (a lower top for a sell) instead.
                 </p>
               )}
 
@@ -444,7 +445,7 @@ function Plan({
         />
         <PlanLine
           label="First target"
-          value={plan.firstTarget != null ? formatUsd(plan.firstTarget) : "Not defined"}
+          value={plan.firstTarget != null ? formatUsd(plan.firstTarget) : "None fixed: the stop trails the move"}
         />
         <PlanLine label="Cancel if" value={plan.cancelIf} />
       </dl>

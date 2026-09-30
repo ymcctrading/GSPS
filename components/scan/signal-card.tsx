@@ -115,8 +115,26 @@ export function SignalCard({
         )}
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        {/*
+          A breached stop retires the plan (owner decision, 2026-09-30;
+          lib/gann/stopBreach.ts). The levels below are what the plan was, so a
+          reader can see what broke; they are no longer a live plan, and price
+          returning to the old entry does not bring it back. A new scan, run
+          once price is back inside the stop, confirms it or replaces it.
+        */}
+        {result.stopBreach && (
+          <div className="rounded-md border border-bear/40 bg-bear-soft p-3 text-xs text-bear">
+            <p className="font-medium">This plan is retired.</p>
+            <p className="mt-1">
+              Price ({formatUsd(result.stopBreach.price)}) is through the {formatUsd(result.stopBreach.stop)} stop
+              this plan was staked on, so the structure behind it has broken. The levels below are what the
+              plan was. Scan again once price is back inside the stop: the scan either confirms this plan or
+              replaces it with a new one. A return to the old entry does not reinstate it on its own.
+            </p>
+          </div>
+        )}
         <RoundNumberNotice
-          price={levels?.entry ?? null}
+          price={result.stopBreach ? null : (levels?.entry ?? null)}
           direction={result.direction !== "none" ? result.direction : null}
         />
         {pattern && (
@@ -157,7 +175,7 @@ export function SignalCard({
           </div>
         )}
         {levels && (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className={cn("grid grid-cols-2 gap-3 sm:grid-cols-4", result.stopBreach && "opacity-60")}>
             <LevelStat label="Entry" glossaryTerm="Entry (blue line)" value={formatUsd(levels.entry)} tone="accent" />
             <LevelStat
               label="Stop loss"

@@ -645,3 +645,77 @@ describe("replay exitRule: gann-runner (the live rule)", () => {
     expect(runner.trades[0].rMultiple).toBeCloseTo(gann.trades[0].rMultiple, 6);
   });
 });
+
+/**
+ * A breached stop retires the plan (owner decision, 2026-09-30;
+ * lib/gann/stopBreach.ts). The live scan holds a plan whose stop price is
+ * through to Reject; the replay does not enter a plan whose stop the session
+ * already traded through, and counts it.
+ */
+describe("replay stop breach retires the plan", () => {
+  // The plan's own stop, read from a run that enters it. Taking it from the
+  // replay keeps the fixture on the stop the plan actually carries.
+  const baseline = replay("TEST", session([quiet, crossing, quiet]), { targetR: 2, dailyBars: DAILY, usePlanLevels: true });
+  const planStop = baseline.trades[0]?.stop ?? NaN;
+
+  /** A candle that trades through the plan's stop and closes back inside. */
+  const poke = {
+    o: 99,
+    h: SIDE > 0 ? 99.4 : planStop + 0.5,
+    l: SIDE > 0 ? planStop - 0.5 : 98.6,
+    c: 99,
+  };
+
+  it("has a plan stop to test against", () => {
+    expect(baseline.trades).toHaveLength(1);
+    expect(baseline.retiredPlans).toBe(0);
+    expect(Number.isFinite(planStop)).toBe(true);
+  });
+
+  it("does not enter a plan once an earlier candle in the session traded through its stop", () => {
+    const r = replay("TEST", session([poke, crossing, quiet]), { targetR: 2, dailyBars: DAILY, usePlanLevels: true });
+    expect(r.trades).toHaveLength(0);
+    expect(r.retiredPlans).toBe(1);
+  });
+
+  it("holds the same way under the confirmed entry rule, and starts the confirmation over", () => {
+    const r = replay("TEST", session([poke, crossing, quiet]), {
+      targetR: 2,
+      dailyBars: DAILY,
+      usePlanLevels: true,
+      entryRule: "confirmed",
+    });
+    expect(r.trades).toHaveLength(0);
+    expect(r.retiredPlans).toBe(1);
+  });
+
+  it("retires a plan at the session's first read when the last close is already through the stop", () => {
+    // Bars 0..43 are the warm-up; the replay reads its first session plan at bar 40,
+    // which sees bar 39's close.
+    const bars = session([quiet, crossing, quiet]);
+    const through = SIDE > 0 ? planStop - 0.5 : planStop + 0.5;
+    bars[39] = { ...bars[39], o: through, h: Math.max(through, bars[39].h), l: Math.min(through, bars[39].l), c: through };
+    const r = replay("TEST", bars, { targetR: 2, dailyBars: DAILY, usePlanLevels: true });
+    expect(r.trades).toHaveLength(0);
+    expect(r.retiredPlans).toBe(1);
+  });
+
+  it("leaves the candle the entry fires on to the bracket, as before", () => {
+    // What the same candle did first cannot be told, so it is not a retirement:
+    // it fills and the bracket walk takes the stop.
+    const both = {
+      o: 99,
+      h: SIDE > 0 ? past(0.5) : planStop + 0.5,
+      l: SIDE > 0 ? planStop - 0.5 : past(0.5),
+      c: 99,
+    };
+    const r = replay("TEST", session([quiet, both, quiet]), { targetR: 2, dailyBars: DAILY, usePlanLevels: true });
+    expect(r.retiredPlans).toBe(0);
+  });
+
+  it("adds retired plans up across symbols", () => {
+    const a = replay("A", session([poke, crossing, quiet]), { targetR: 2, dailyBars: DAILY, usePlanLevels: true });
+    const b = replay("B", session([poke, crossing, quiet]), { targetR: 2, dailyBars: DAILY, usePlanLevels: true });
+    expect(combine([a, b]).retiredPlans).toBe(2);
+  });
+});

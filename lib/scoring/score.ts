@@ -10,6 +10,7 @@
  */
 
 import type { BreakawayReading } from "@/lib/gann/breakaway";
+import type { StopBreachReading } from "@/lib/gann/stopBreach";
 import type {
   AssetClass,
   GannLevels,
@@ -641,6 +642,35 @@ export function applyBreakawayHold(decision: ScanDecision, breakaway: BreakawayR
         criterion: "Breakaway from a sideways range",
         passed: false,
         note: `The market is moving sideways (range ${fmt(breakaway.rangeLow)}-${fmt(breakaway.rangeHigh)}) and the entry stays inside it. Held from Execute to Watch until price breaks away from the range.`,
+      },
+    ],
+  };
+}
+
+/**
+ * A breached stop retires the plan (owner decision, 2026-09-30; see
+ * `lib/gann/stopBreach.ts`). When the price the scan ran at is already through
+ * the stop of the plan it priced, the plan is over: the structure that
+ * qualified it has broken. The verdict drops to Reject, so the monitor goes
+ * INVALIDATED and the setup leaves the lists, and stays there until a scan run
+ * later finds price back inside the stop and either confirms the same plan or
+ * prices a new one. Applies to Watch as well as Execute: there is no live plan
+ * to keep watching. The score is untouched, since the analysis behind it is
+ * not what failed.
+ */
+export function applyStopBreachHold(decision: ScanDecision, breach: StopBreachReading): ScanDecision {
+  if (!breach.breached || decision.outputState === "Reject") return decision;
+  const fmt = (n: number | null) => (n === null ? "n/a" : n.toFixed(2));
+  return {
+    ...decision,
+    outputState: "Reject",
+    breakdown: [
+      ...decision.breakdown,
+      {
+        key: "stopBreach",
+        criterion: "Plan's stop still intact",
+        passed: false,
+        note: `Price (${fmt(breach.price)}) is through the plan's stop (${fmt(breach.stop)}), so the plan is retired. A scan run once price is back inside the stop confirms it or replaces it.`,
       },
     ],
   };

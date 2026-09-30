@@ -13,6 +13,14 @@
  * rule, never wired to run" shape as the scan-list staleness bug this
  * follows up on (see CHANGELOG.md, 2026-09-08).
  *
+ * Owner decision 2026-09-30 (AGENTS.md finding F3.7): a breached stop retires
+ * the plan until a later scan confirms or replaces it. That is built on the scan
+ * (`lib/gann/stopBreach.ts`: the verdict is Reject, so the plan is never
+ * advanced and the monitor goes INVALIDATED), not here. This module still
+ * dispatches no price-based transition, because adding one to the lifecycle is
+ * the change the paragraph below says needs counsel review first; a retired
+ * plan simply expires on its clock.
+ *
  * Deliberately narrow: this only dispatches the `expire` transition the spec
  * already defines for pre-entry states. It does NOT add a new price-based
  * invalidation rule for pre-entry plans (price already running past the stop

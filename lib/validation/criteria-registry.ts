@@ -843,6 +843,22 @@ const SCORE_HOLDS: RegisteredCriterion[] = [
     saturation: { minPassRate: 0, maxPassRate: 1 },
   },
   {
+    id: "stopBreach",
+    family: "scoreHold",
+    source: "lib/gann/stopBreach.ts",
+    label: "Plan's stop still intact",
+    expectedSign: "unknown",
+    evidence: "unmeasured",
+    note:
+      "Owner decision (2026-09-30): a breached stop retires the plan until a later scan confirms it or " +
+      "replaces it (Master Course Ch. 3 Rule 4; NSTD p. 13, old bottoms become tops). Appended only when the " +
+      "price the scan ran at is already through the plan's stop, which drops the verdict to Reject, so it is " +
+      "failed by construction whenever present. The replay applies the same rule by path (a candle earlier " +
+      "in the session trading through the stop retires the plan for that session) and skips the entry " +
+      "instead of tagging it, so these plans never reach the factor tables.",
+    saturation: { minPassRate: 0, maxPassRate: 1 },
+  },
+  {
     id: "dataLag",
     family: "scoreHold",
     source: "lib/data/latency.ts",
