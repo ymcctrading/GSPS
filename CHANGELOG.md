@@ -7,6 +7,45 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-09-30
+
+### Added
+- **Setup cards.** Click a setup's name on the Buy/Sell lists, the tracked and
+  saved lists, or the intraday alerts and its card opens halfway (the score and
+  a one-or-two-sentence synopsis), then expands to the four levels, what lined
+  up per pillar, and the higher timeframes, ending in "Open the full scan for
+  …". `components/setups/setup-card.tsx`, `lib/setups/`. Daily rows now carry
+  the score's per-pillar rollup and their higher-timeframe reads
+  (`lib/dailyScans.ts`); the Signal Engine's 0–100 Rules Alignment score is
+  published beside its tier (`PublicSignalSummary.alignmentScore`, present on
+  scans from now on).
+- **Dashboard dropdowns.** Tracked Execute setups and Saved setups are closed
+  dropdowns like live expectancy, with the count in the label. Setups whose
+  stop has broken sit in a closed "Setups that broke their stop" / "No longer valid setups" group,
+  not among the live ones. The Dashboard's independent reads now run side by
+  side rather than one after another (not timed here).
+- **Custom default watchlist.** 3 to 9 US stocks or crypto pairs per account,
+  edited in place on the Dashboard (`/api/dashboard-watchlist`,
+  `lib/dashboard/watchlist.ts`), stored in the existing `watchlists` tables.
+- **Tiered intraday refresh.** The on-demand intraday scan is metered per day
+  and per rolling week by tier (`intradayRefreshesPerDay`/`PerWeek` in
+  `lib/entitlements/policy.ts`); the panel shows what is left and scans on
+  request where it is metered. `GET /api/intraday-scan?budget=1` reads the
+  budget without spending one. No migration: refreshes are counted from
+  `scan_executions` rows (`source = 'intraday'`), now written for every
+  completed scan, alert or not.
+- `docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md`: what Gann says when price
+  breaks a stop and returns to the entry, how long an executable setup takes,
+  and how the method translates to intraday, with the measured record.
+
+### Changed
+- "MP" / "Master" is **MTP** (master take profit) everywhere a person reads it:
+  chart labels and legend, scan history, portfolio, order rows, the glossary,
+  settings, and the order-ticket and API messages. Guided Mode keeps its plain
+  "next level" and adds "(MTP)".
+- The Buy/Sell list rows show the name, price, entry, exit (S/L), TP1 and MTP;
+  score, pattern and Signal Engine read moved onto the card.
+
 ## 2026-09-28
 
 ### Fixed (six-year diagnosis)

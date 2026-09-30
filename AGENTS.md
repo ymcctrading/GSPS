@@ -848,6 +848,20 @@ for the project owner** — do not fix it silently, and re-verify it first:
   deleted because they're unfinished rather than dead:
   `withinTriggerTolerance` (an unenforced spec rule), `toSaraStrategyResult`,
   and `quantityFromPermittedRisk`/`plannedRiskDollars`.
+- **F3.7 traced to its cause, 2026-09-30 — still held for the project owner.**
+  The owner saw OXY and GOOGL read invalidated on the Dashboard while the chart
+  still showed the plan. Three surfaces call a plan dead from a quote (the
+  lists, the order ticket, the twice-hourly monitor sweep); the scan behind the
+  symbol page reads only completed daily structure, returns the same plan, and
+  `evaluateMonitorsAndNotify` re-arms the monitor the sweep just invalidated.
+  The order ticket alone doesn't ratchet, so it un-invalidates when price
+  returns. Gann's answer (a caught stop is the reversal signal; the broken
+  level changes sides; re-entry is a new trade with a new stop) and three
+  options are in `docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md` Part 1; the
+  recommended fix is a stop-breach hold in the scan itself, on the live scan
+  and the replay alike. It changes the verdict, the monitors and the replay
+  together, so it waits for a go-ahead. Only the display was touched: the
+  Dashboard lists group broken setups apart from live ones.
 
 
 ## Gann-derived AND measured — standing principle
@@ -1674,6 +1688,46 @@ them rather than rewriting what already worked. A future session should
 prefer the generalized surface for any new work and can retire the original
 Novice→Pro-only routes once the new `/promotion` page is confirmed to be
 the intended replacement UI, but that retirement is not done here.
+
+## Setup cards, MTP and the intraday refresh budget (2026-09-30, project owner)
+
+Standing facts for a session that touches any list of setups:
+
+- **One card everywhere.** `components/setups/setup-card.tsx` (built from
+  `lib/setups/card.ts`, and `lib/setups/intraday.ts` for an intraday alert) is
+  the only way a setup opens from its name: the daily Buy/Sell lists, the
+  tracked and saved lists, and the intraday alerts. A new list of setups uses
+  it too (the cross-platform-consistency principle). The card shows the
+  scorecard's **per-pillar rollup only** — `lib/scoring/public-summary.ts`'s
+  rule that the named conditions stay server-side applies to it in full; never
+  pass a row's `breakdown` to the client.
+- **The name is MTP.** The master take profit was "MP" on the chart and
+  "Master" in the lists; it is **MTP** (master take profit) wherever a person
+  reads it. Guided Mode and the onboarding walkthrough keep their plain-English
+  "next level" and add "(MTP)". The internal field stays `masterProfit`.
+- **Intraday has no MTP and a risk-multiple TP1.** The intraday scanner prices
+  an exit and a first target of twice the risk. That target is an R-multiple
+  with no Gann source, an open Gann-grounding finding: the replacement (the
+  nearest old top or bottom, or the session's 50% point) is in the research
+  doc, Part 3.4, and waits for the owner.
+- **The refresh budget lives in `lib/entitlements/policy.ts`**
+  (`intradayRefreshesPerDay` / `…PerWeek`) and is spelled out in
+  `docs/GSPS_TIER_ENTITLEMENT_SPEC.md`. Enforcement is
+  `lib/entitlements/intraday-refresh.ts`, counted from `scan_executions` rows
+  (`source = 'intraday'`), one per completed on-demand scan, so it needs no
+  migration. It is a soft budget: the count is read before the scan and the row
+  written after, so two simultaneous requests can both pass. Do not "harden" it
+  onto `reserve_usage_slot` without a migration to admit the usage key, and
+  remember that merging a migration is not applying it.
+- **The Dashboard watchlist** is the user's own 3–9 US stocks or crypto pairs,
+  in the `watchlists` / `watchlist_items` tables migration 0001 created
+  (`lib/dashboard/watchlist.ts`). `app/api/intraday-scan/route.ts` merges every
+  user's watchlist symbols into the system scan's universe (capped at 50 total),
+  so a symbol added there can be covered by that scan.
+- **Timeline, in one line.** Entry is minutes to a few hours (four closed
+  15-minute bars at least; a plan expires after 45 minutes to 5 hours); the
+  trade is days to weeks (median about 5 to 7 sessions in the replay, and 60%
+  of trades on the live exits were still open at its 10-session limit).
 
 ## Polarity audit: a genuine second pole for Novice/Pro, not a subtracted one (2026-09-23, project owner direction)
 

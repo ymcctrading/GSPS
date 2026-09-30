@@ -2,7 +2,11 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-09-25 (Added "Three-path tier promotion" under Q1 —
+**Last updated:** 2026-09-30 (Added "Setup cards, dashboard dropdowns, tiered
+intraday refresh and a custom default watchlist" under Q1 — the Trade Reviews
+card's model applied to every setup list. See that note and
+`docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md`.)
+Previously 2026-09-25 (Added "Three-path tier promotion" under Q1 —
 Curriculum/Track Record/Pay Your Way, each independently sufficient, applied
 to all three tier transitions. See AGENTS.md's "Three-path tier promotion"
 section.)
@@ -253,6 +257,31 @@ both signal discovery and execution.
   standing direction) and GSPS School curriculum were investigated and
   found to need no fix this pass — see AGENTS.md for the full per-surface
   findings, including the ones judged already correct.
+- **Setup cards, dashboard dropdowns, tiered intraday refresh and a custom
+  default watchlist** *(2026-09-30, direct request; fits this Q1 goal's
+  friction and retention side — the Trade Reviews card's "what lined up, one
+  score" applied to every setup a Novice or Pro reads)* — (1) the daily Buy/Sell
+  lists, the tracked and saved lists and the intraday alerts all open the same
+  setup card from the symbol's name: halfway (score, a one-or-two-sentence
+  synopsis), then the full card (entry, exit, TP1, MTP, what lined up per
+  pillar, higher timeframes), ending in "Open the full scan for …"
+  (`components/setups/setup-card.tsx`, `lib/setups/`). The card carries the
+  scorecard's per-pillar rollup only, never which named condition decided it
+  (`lib/scoring/public-summary.ts`'s rule). (2) "MP"/"Master" is now **MTP**
+  (master take profit) on the chart, portfolio, history, order rows and lists.
+  (3) The tracked and saved setups sit in closed dropdowns like live
+  expectancy, and setups whose stop has broken are grouped apart from the live
+  ones. (4) The on-demand intraday scan is metered per tier — Pro 3 a day / 10
+  a week, Expert 8 / 30, Wall Street unlimited with automatic refresh, Novice
+  none — counted from `scan_executions` rows, so no migration
+  (`lib/entitlements/intraday-refresh.ts`). (5) The Default watchlist is the
+  user's own 3–9 symbols, stored in the existing `watchlists` tables
+  (`lib/dashboard/watchlist.ts`). **Held for the owner, not built:** whether a
+  breached stop retires the plan for good on every surface (the symbol page's
+  scan currently re-arms a plan the monitor sweep invalidated — AGENTS.md
+  finding F3.7), and a replay-only intraday profile. Both are written up, with
+  Gann's sources and the measured record, in
+  `docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md`.
 - **Gann & Sara Cross-Market Confluence Layers** *(out-of-phase, direct
   request: "GSPS Gann & Sara Cross-Market Integration Addendum", 2026-08-28.
   Fits no Q1 strategic goal above — it's a signal-engine addition, not
