@@ -1,11 +1,13 @@
 /**
- * The Signal Engine column is a separate read from the score/verdict
- * columns beside it — never merged into them, and gracefully absent for
- * rows that don't carry one (a persisted daily_scans row).
+ * A setup's row carries the levels; its name opens the setup card. The Signal
+ * Engine read lives on that card as a separate read from the score/verdict
+ * beside it — never merged into them, and gracefully absent for rows that don't
+ * carry one (a persisted daily_scans row).
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { ResultsTable, type ScanRow } from "./results-table";
 
 let flappyPrice: number | null = null;
@@ -36,12 +38,87 @@ describe("ResultsTable", () => {
     flappyPrice = null;
   });
 
-  it("shows a dash in the Signal Engine column when a row carries no rollup", () => {
-    render(<ResultsTable rows={[BASE_ROW]} />);
-    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
+  it("lists the levels in the order name, price, entry, exit, TP1, MTP", () => {
+    render(<ResultsTable rows={[{ ...BASE_ROW, currentPrice: 101.5 }]} />);
+
+    const headers = screen.getAllByRole("columnheader").map((h) => h.textContent);
+    expect(headers.slice(0, 6)).toEqual(["Symbol", "Price", "Entry", "Exit (S/L)", "TP1", "MTP"]);
+    expect(screen.getByText("$100.00")).toBeInTheDocument();
+    expect(screen.getByText("$95.00")).toBeInTheDocument();
+    expect(screen.getByText("$110.00")).toBeInTheDocument();
+    expect(screen.getByText("$120.00")).toBeInTheDocument();
   });
 
-  it("shows the state, tier, and a tradeable indicator when a row carries a rollup", () => {
+  it("opens a card halfway from the name — the score and a short synopsis — then expands and collapses", async () => {
+    const user = userEvent.setup();
+    render(
+      <ResultsTable
+        rows={[
+          {
+            ...BASE_ROW,
+            scoreSummary: {
+              score: 8,
+              max: 9,
+              stateNote: null,
+              pillars: [
+                { pillar: "trend", met: 2, total: 2 },
+                { pillar: "structure", met: 2, total: 3 },
+                { pillar: "timing", met: 0, total: 1 },
+              ],
+            },
+            trends: [
+              { timeframe: "1Month", direction: "bullish" },
+              { timeframe: "1Day", direction: "bearish" },
+            ],
+          },
+        ]}
+      />,
+    );
+
+    const name = screen.getByRole("button", { name: "AAPL" });
+    expect(name).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText(/A buy setup ready to act on/)).not.toBeInTheDocument();
+
+    await user.click(name);
+    expect(name).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Execute")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "A buy setup ready to act on: 8 of 9 checks line up, strongest on trend, still missing timing. Enter near $100.00, exit at $95.00 if it fails, first target $110.00 (2.0× the risk).",
+      ),
+    ).toBeInTheDocument();
+    // Halfway: the detail waits behind the expand control.
+    expect(screen.queryByText("What lined up")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open the full scan for AAPL" })).toHaveAttribute("href", "/ticker/AAPL");
+
+    await user.click(screen.getByRole("button", { name: /Show the full card/ }));
+    expect(screen.getByText("What lined up")).toBeInTheDocument();
+    expect(screen.getByText("Trend")).toBeInTheDocument();
+    expect(screen.getByText("Timing")).toBeInTheDocument();
+    expect(screen.getByText("Higher timeframes: Monthly rising, Daily falling.")).toBeInTheDocument();
+    expect(screen.getByText("MTP", { selector: "dt" })).toBeInTheDocument();
+    expect(screen.getByText("Exit (S/L)", { selector: "dt" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Collapse/ }));
+    expect(screen.queryByText("What lined up")).not.toBeInTheDocument();
+    expect(screen.getByText(/A buy setup ready to act on/)).toBeInTheDocument();
+
+    await user.click(name);
+    expect(screen.queryByText(/A buy setup ready to act on/)).not.toBeInTheDocument();
+  });
+
+  it("still opens a card, with the score and the plan, for a row that carries no rollup", async () => {
+    const user = userEvent.setup();
+    render(<ResultsTable rows={[BASE_ROW]} />);
+
+    await user.click(screen.getByRole("button", { name: "AAPL" }));
+    expect(screen.getByText(/A buy setup ready to act on: 8 of 9 checks line up\./)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Show the full card/ }));
+    expect(screen.queryByText("What lined up")).not.toBeInTheDocument();
+  });
+
+  it("shows the Rules Alignment score and the Signal Engine read on the card, separate from the score", async () => {
+    const user = userEvent.setup();
     render(
       <ResultsTable
         rows={[
@@ -52,6 +129,7 @@ describe("ResultsTable", () => {
               regime: "trend",
               direction: "bullish",
               tier: "aTier",
+              alignmentScore: 82,
               tradeable: true,
               accountContextAssumed: true,
             },
@@ -59,11 +137,16 @@ describe("ResultsTable", () => {
         ]}
       />,
     );
+
+    await user.click(screen.getByRole("button", { name: "AAPL" }));
+    expect(screen.getByText(/Rules alignment 82\/100 \(A-tier\)/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Show the full card/ }));
     expect(screen.getByText("Trend Pullback")).toBeInTheDocument();
-    expect(screen.getByText("A-tier")).toBeInTheDocument();
+    expect(screen.getAllByText("A-tier").length).toBeGreaterThan(0);
   });
 
-  it("never lets a watchlist-only, non-tradeable rollup read as an executable score", () => {
+  it("never lets a watchlist-only, non-tradeable rollup read as an executable score", async () => {
+    const user = userEvent.setup();
     render(
       <ResultsTable
         rows={[
@@ -83,8 +166,12 @@ describe("ResultsTable", () => {
         ]}
       />,
     );
+
+    await user.click(screen.getByRole("button", { name: "AAPL" }));
+    await user.click(screen.getByRole("button", { name: /Show the full card/ }));
     expect(screen.getByText("Watchlist")).toBeInTheDocument();
     expect(screen.getByText("Range Reversion")).toBeInTheDocument();
+    expect(screen.getByText(/A buy setup not yet strong enough to act on/)).toBeInTheDocument();
   });
 
   it("shows the current price when a row carries one", () => {

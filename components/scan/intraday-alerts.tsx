@@ -6,6 +6,7 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { SetupCardPanel, SetupNameButton, useCardStage } from "@/components/setups/setup-card";
 import { formatOpenedAt } from "@/lib/portfolio/opened-at";
 import {
   ASSET_KIND_LABELS,
@@ -19,8 +20,10 @@ import {
   type ScanOutput,
   type SymbolAudit,
 } from "@/lib/scanner/intraday";
+import { buildIntradayCardModel, isReversalRisk } from "@/lib/setups/intraday";
+import type { IntradayRefreshBudget } from "@/lib/entitlements/intraday-refresh";
 import { formatUsd, cn } from "@/lib/utils";
-import { tickerHref, intradayTradeHref } from "@/lib/routes";
+import { intradayTradeHref } from "@/lib/routes";
 
 /**
  * Intraday momentum panel.
@@ -33,6 +36,15 @@ import { tickerHref, intradayTradeHref } from "@/lib/routes";
  * old. "The scanner missed it" was previously unanswerable; with the audit
  * open, the answer is a line of text with a timestamp on it.
  *
+ * Each alert is the same setup card the daily lists use (project owner,
+ * 2026-09-30): the row carries the levels, the name opens the card halfway, and
+ * the card expands to everything behind the alert.
+ *
+ * How often the panel refreshes depends on the tier (2026-09-30,
+ * `lib/entitlements/intraday-refresh.ts`). Where nothing is metered it scans on
+ * open and every few minutes, as it always did. Where refreshes are counted it
+ * does not spend one on its own: it says how many are left and scans when asked.
+ *
  * The panel refreshes on a timer while it is open rather than from a scheduled
  * job, because this project's plan allows two cron runs a day and both are
  * already spent. That is stated in the footer rather than hidden: a user who
@@ -41,15 +53,22 @@ import { tickerHref, intradayTradeHref } from "@/lib/routes";
 
 const REFRESH_MS = 3 * 60 * 1000;
 
+type ScanResponse = ScanOutput & {
+  dataSource?: string;
+  dataIsLive?: boolean;
+  session?: string;
+  unreachable?: string[];
+  budget?: IntradayRefreshBudget | null;
+};
+
 export function IntradayAlerts({ symbols }: { symbols?: string[] }) {
-  const [output, setOutput] = useState<ScanOutput & {
-    dataSource?: string;
-    dataIsLive?: boolean;
-    session?: string;
-    unreachable?: string[];
-  } | null>(null);
+  const [output, setOutput] = useState<ScanResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // A plan without intraday access at all: said plainly, not as a red error.
+  const [locked, setLocked] = useState<string | null>(null);
+  const [budget, setBudget] = useState<IntradayRefreshBudget | null>(null);
+  const [budgetKnown, setBudgetKnown] = useState(false);
   const [showAudit, setShowAudit] = useState(false);
 
   const query = symbols?.length ? `?symbols=${encodeURIComponent(symbols.join(","))}` : "";
@@ -60,8 +79,10 @@ export function IntradayAlerts({ symbols }: { symbols?: string[] }) {
       return fetch(`/api/intraday-scan${query}`)
         .then(async (res) => {
           const data = await res.json();
+          if (res.status === 429 && data.budget) setBudget(data.budget);
           if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
           setOutput(data);
+          if (data.budget) setBudget(data.budget);
           setError(null);
         })
         .catch((err) => setError(err instanceof Error ? err.message : String(err)))
@@ -71,16 +92,49 @@ export function IntradayAlerts({ symbols }: { symbols?: string[] }) {
   );
 
   useEffect(() => {
-    // The first scan is scheduled rather than called inline: `run` flips the
-    // loading flag synchronously, and doing that inside the effect body would
-    // set state during the same commit that mounted the panel.
-    const kickoff = setTimeout(run, 0);
-    const timer = setInterval(run, REFRESH_MS);
+    // Ask what the plan allows before scanning anything: a metered plan must
+    // not have a refresh spent on its behalf just because the page opened.
+    let cancelled = false;
+    let timer: ReturnType<typeof setInterval> | undefined;
+    let kickoff: ReturnType<typeof setTimeout> | undefined;
+
+    fetch("/api/intraday-scan?budget=1")
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (res.status === 403) {
+          setLocked(data.error ?? "Intraday scans aren't included in your plan.");
+          setBudgetKnown(true);
+          return;
+        }
+        if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+        const known: IntradayRefreshBudget | null = data.budget ?? null;
+        setBudget(known);
+        setBudgetKnown(true);
+        // No budget in the answer means nothing is metered here.
+        if (known === null || known.automatic) {
+          // The first scan is scheduled rather than called inline: `run` flips
+          // the loading flag synchronously, and doing that inside the effect
+          // body would set state during the same commit that mounted the panel.
+          kickoff = setTimeout(run, 0);
+          timer = setInterval(run, REFRESH_MS);
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : String(err));
+        setBudgetKnown(true);
+      });
+
     return () => {
-      clearTimeout(kickoff);
-      clearInterval(timer);
+      cancelled = true;
+      if (kickoff) clearTimeout(kickoff);
+      if (timer) clearInterval(timer);
     };
   }, [run]);
+
+  const metered = budget !== null && !budget.automatic;
+  const outOfRefreshes = budget !== null && !budget.allowed;
 
   return (
     <Card>
@@ -94,19 +148,32 @@ export function IntradayAlerts({ symbols }: { symbols?: string[] }) {
               say it is wrong.
             </CardDescription>
           </div>
-          <Button variant="outline" onClick={run} disabled={loading} className="shrink-0">
-            {loading ? "Scanning…" : "Rescan"}
-          </Button>
+          {!locked && (
+            <Button
+              variant="outline"
+              onClick={run}
+              disabled={loading || !budgetKnown || outOfRefreshes}
+              className="shrink-0"
+            >
+              {loading ? "Scanning…" : output ? "Rescan" : metered ? "Run the scan" : "Rescan"}
+            </Button>
+          )}
         </div>
+        {metered && budget && <BudgetLine budget={budget} />}
         {output && <FreshnessLine output={output} />}
       </CardHeader>
 
       <CardContent className="flex flex-col gap-4">
+        {locked && <p className="py-4 text-center text-sm text-muted">{locked}</p>}
         {error && <p className="text-sm text-bear">{error}</p>}
 
-        {!output && !error && (
+        {!locked && !output && !error && (
           <p className="py-4 text-center text-sm text-muted">
-            {loading ? "Running the first scan…" : "No scan has run yet."}
+            {loading
+              ? "Running the scan…"
+              : metered
+                ? "Nothing has been scanned yet. Run the scan when you want a fresh read — each run uses one of your refreshes."
+                : "No scan has run yet."}
           </p>
         )}
 
@@ -141,6 +208,19 @@ export function IntradayAlerts({ symbols }: { symbols?: string[] }) {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+/** How many refreshes are left, on the plan's own terms. */
+function BudgetLine({ budget }: { budget: IntradayRefreshBudget }) {
+  const day = budget.limitPerDay === "unlimited" ? null : `${budget.remainingToday} of ${budget.limitPerDay} left today`;
+  const week =
+    budget.limitPerWeek === "unlimited" ? null : `${budget.remainingThisWeek} of ${budget.limitPerWeek} left this week`;
+  return (
+    <p className="mt-2 text-xs text-muted" data-testid="intraday-budget">
+      Your plan refreshes this panel on request: {[day, week].filter(Boolean).join(" · ")}.
+      {!budget.allowed && " The next one frees up when the count renews."}
+    </p>
   );
 }
 
@@ -181,11 +261,7 @@ function consolidateBySymbol(alerts: Alert[]): { alert: Alert; otherSignals: Ale
   });
 }
 
-function FreshnessLine({
-  output,
-}: {
-  output: ScanOutput & { dataSource?: string; dataIsLive?: boolean; session?: string; unreachable?: string[] };
-}) {
+function FreshnessLine({ output }: { output: ScanResponse }) {
   return (
     <div className="mt-2 flex flex-col gap-1 border-t border-border pt-2 text-xs">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted">
@@ -213,27 +289,24 @@ function FreshnessLine({
 }
 
 function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: Alert[] }) {
-  const [showDetail, setShowDetail] = useState(false);
+  const { stage, setStage, toggleName } = useCardStage();
   const up = alert.direction === "up";
-  const isRisk = alert.type === "reversal_risk";
+  const isRisk = isReversalRisk(alert);
+  const model = buildIntradayCardModel(alert);
+  const cardId = `intraday-card-${alert.symbol.replace(/[^a-zA-Z0-9-]/g, "_")}`;
+  const { levels } = model;
 
   return (
     <div className="rounded-lg border border-border p-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href={tickerHref(alert.symbol)}
-              className="font-semibold text-accent hover:underline"
-            >
-              {alert.symbol}
-            </Link>
+            <SetupNameButton symbol={alert.symbol} stage={stage} controls={cardId} onToggle={toggleName} className="font-semibold" />
             <Badge variant="muted">{ASSET_KIND_LABELS[alert.kind]}</Badge>
             <Badge variant={isRisk ? "warn" : up ? "bull" : "bear"}>
               {SIGNAL_LABELS[alert.type]} {up ? "↑" : "↓"}
             </Badge>
           </div>
-          <p className="mt-1 text-xs text-muted">{SIGNAL_DESCRIPTIONS[alert.type]}</p>
           {otherSignals.length > 0 && (
             <p className="mt-1 text-xs text-muted">
               Also qualified this pass:{" "}
@@ -257,99 +330,95 @@ function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: 
         </div>
       </div>
 
-      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
-        <Field label="Reference" value={formatUsd(alert.move.reference)} />
-        <Field label="Current" value={formatUsd(alert.move.current)} />
-        <Field label="Day's 50% point" value={formatUsd(alert.midpoint)} />
-        <Field label="Rel. volume" value={formatRvol(alert.relativeVolume)} />
-        <Field label="Session volume" value={formatVolume(alert.sessionVolume)} />
-        <Field
-          label="Invalidation"
-          value={alert.invalidation != null ? formatUsd(alert.invalidation) : "—"}
-        />
-        <Field label="Data age" value={formatAge(alert.dataAgeSeconds)} />
-        <Field label="Confidence" value={`${alert.confidence}/100`} />
-      </dl>
-
-      <p className="mt-3 text-sm">{alert.whyThisAppeared}</p>
-
-      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
-        <button
-          type="button"
-          onClick={() => setShowDetail((v) => !v)}
-          aria-expanded={showDetail}
-          className="min-h-9 cursor-pointer text-xs font-medium text-accent underline underline-offset-2"
-        >
-          {showDetail ? "Hide the plan and the score breakdown" : "Show the plan and the score breakdown"}
-        </button>
-
-        {!isRisk && (
-          <Link
-            href={intradayTradeHref(alert.symbol, up ? "buy" : "sell")}
-            className="min-h-9 cursor-pointer text-xs font-medium text-accent underline underline-offset-2"
-          >
-            Trade this →
-          </Link>
-        )}
-      </div>
-
-      {showDetail && (
-        <div className="mt-3 flex flex-col gap-3 border-t border-border pt-3">
-          <ScoreBreakdown alert={alert} />
-
-          <Plan
-            title="If it continues"
-            plan={alert.continuationPlan}
-            note="Entry confirmation, the level that says you're wrong, and the first place to take something off."
-          />
-          <Plan
-            title="If it turns"
-            plan={alert.pivotPlan}
-            note="What would invalidate the continuation, and what a trade in the other direction would need before it's worth considering."
-          />
-
-          {alert.whyNotEarlier && (
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-muted">
-                Why this wasn&apos;t flagged earlier
-              </p>
-              <p className="mt-1 text-sm text-muted">{alert.whyNotEarlier}</p>
-            </div>
-          )}
-
-          <p className="text-xs text-muted">
-            Trigger time {formatOpenedAt(alert.triggerTime)} · data timestamp{" "}
-            {formatOpenedAt(alert.dataTimestamp)}. Educational information, not a recommendation —
-            the right answer is often no trade.
-          </p>
-        </div>
+      {/* The same levels as the daily lists' rows, in the same order. A reversal
+          risk is a reason to stand aside, so it prices nothing. */}
+      {isRisk ? (
+        <p className="mt-2 text-xs text-muted">Price {formatUsd(alert.move.current)} — no levels: this is a reason to stand aside.</p>
+      ) : (
+        <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-5">
+          <Field label="Price" value={formatUsd(alert.move.current)} />
+          <Field label="Entry" value={levels.entry != null ? formatUsd(levels.entry) : "—"} />
+          <Field label="Exit (S/L)" value={levels.stop != null ? formatUsd(levels.stop) : "—"} />
+          <Field label="TP1" value={levels.tp1 != null ? formatUsd(levels.tp1) : "—"} />
+          <Field label="MTP" value="—" />
+        </dl>
       )}
-    </div>
-  );
-}
 
-function ScoreBreakdown({ alert }: { alert: Alert }) {
-  return (
-    <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-muted">
-        How the {alert.confidence}/100 was reached
-      </p>
-      <ul className="mt-1 flex flex-col gap-1">
-        {alert.confidenceFactors.map((factor) => (
-          <li key={factor.label} className="flex items-start gap-2 text-sm">
-            <span
-              className={cn("mt-0.5 shrink-0 font-mono text-xs", factor.passed ? "text-bull" : "text-muted")}
-              aria-hidden
-            >
-              {factor.passed ? "✓" : "✗"}
-            </span>
-            <span>
-              <span className={cn(!factor.passed && "text-muted")}>{factor.label}</span>{" "}
-              <span className="text-xs text-muted">({factor.weight} pts) — {factor.detail}</span>
-            </span>
-          </li>
-        ))}
-      </ul>
+      {stage !== "closed" && (
+        <SetupCardPanel
+          id={cardId}
+          model={model}
+          stage={stage}
+          onStageChange={setStage}
+          className="mt-3"
+          headline={
+            <Badge variant={isRisk ? "warn" : up ? "bull" : "bear"} className="px-3 py-1 text-sm">
+              {alert.confidence}/100 confidence
+            </Badge>
+          }
+          actions={
+            !isRisk && (
+              <Link
+                href={intradayTradeHref(alert.symbol, up ? "buy" : "sell")}
+                className="min-h-8 cursor-pointer text-sm font-medium text-accent hover:underline"
+              >
+                Trade this →
+              </Link>
+            )
+          }
+          extra={
+            <div className="flex flex-col gap-3 border-t border-border pt-3">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted">What this signal means</p>
+                <p className="mt-1 text-sm text-muted">{SIGNAL_DESCRIPTIONS[alert.type]}</p>
+                <p className="mt-2 text-sm">{alert.whyThisAppeared}</p>
+              </div>
+
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
+                <Field label="Reference" value={formatUsd(alert.move.reference)} />
+                <Field label="Day's 50% point" value={formatUsd(alert.midpoint)} />
+                <Field label="Rel. volume" value={formatRvol(alert.relativeVolume)} />
+                <Field label="Session volume" value={formatVolume(alert.sessionVolume)} />
+                <Field label="Data age" value={formatAge(alert.dataAgeSeconds)} />
+              </dl>
+
+              {!isRisk && (
+                <p className="text-xs text-muted">
+                  Intraday setups price an exit and a first target only — there is no MTP (master take profit) on
+                  one. TP1 here is twice the distance from entry to exit, a multiple of the risk rather than a
+                  chart level.
+                </p>
+              )}
+
+              <Plan
+                title="If it continues"
+                plan={alert.continuationPlan}
+                note="Entry confirmation, the level that says you're wrong, and the first place to take something off."
+              />
+              <Plan
+                title="If it turns"
+                plan={alert.pivotPlan}
+                note="What would invalidate the continuation, and what a trade in the other direction would need before it's worth considering."
+              />
+
+              {alert.whyNotEarlier && (
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted">
+                    Why this wasn&apos;t flagged earlier
+                  </p>
+                  <p className="mt-1 text-sm text-muted">{alert.whyNotEarlier}</p>
+                </div>
+              )}
+
+              <p className="text-xs text-muted">
+                Trigger time {formatOpenedAt(alert.triggerTime)} · data timestamp{" "}
+                {formatOpenedAt(alert.dataTimestamp)}. Educational information, not a recommendation —
+                the right answer is often no trade.
+              </p>
+            </div>
+          }
+        />
+      )}
     </div>
   );
 }

@@ -25,6 +25,12 @@
  * and emails every user whose notification preferences match — this is the
  * path that actually answers "why didn't the scanner notify me."
  *
+ * A signed-in user's refreshes are metered per tier — a per-day and a per-week
+ * budget on `EntitlementPolicy` (2026-09-30, `lib/entitlements/intraday-refresh.ts`).
+ * `?budget=1` reads the budget without running (or spending) a scan; a scan
+ * over budget is refused with 429 and the budget. The system scan is never
+ * metered.
+ *
  * Market data only. Nothing here touches broker or order state — those are
  * different sources with different trust properties, and the separation is
  * deliberate.
@@ -34,6 +40,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getUserEntitlementPolicy, type EntitlementPolicy } from "@/lib/entitlements/policy";
 import { evaluateMonitor } from "@/lib/entitlements/monitor-store";
+import {
+  computeIntradayRefreshBudget,
+  countIntradayRefreshes,
+  describeRefreshBlock,
+  recordIntradayRefresh,
+  type IntradayRefreshBudget,
+  type IntradayRefreshUsage,
+} from "@/lib/entitlements/intraday-refresh";
 import { DEFAULT_PRO_INTRADAY_POLICY } from "@/lib/promotion/config";
 import { isConfirmedIntradayEntry, remainingSetupsDisplayable } from "@/lib/promotion/pro-intraday";
 import { getMarketDataProvider } from "@/lib/data/provider";
@@ -107,6 +121,7 @@ function isSystemScan(req: NextRequest): boolean {
 
 export async function GET(req: NextRequest) {
   const systemScan = isSystemScan(req);
+  const now = new Date();
 
   const supabase = systemScan ? createServiceClient() : await createClient();
   let userId: string | null = null;
@@ -115,6 +130,8 @@ export async function GET(req: NextRequest) {
   // near the end of this handler (on-demand path only) can read the same
   // policy's `maxActiveWatchMonitors` without re-fetching it.
   let policy: EntitlementPolicy | null = null;
+  let usageBefore: IntradayRefreshUsage | null = null;
+  let budgetBefore: IntradayRefreshBudget | null = null;
   if (!systemScan) {
     const {
       data: { user },
@@ -139,6 +156,20 @@ export async function GET(req: NextRequest) {
       );
     }
     proBounded = !policy.intradayScansEnabled && policy.proIntradayModuleEnabled;
+
+    // The refresh budget (2026-09-30). Read before the scan, charged after it
+    // succeeds — a scan that errors costs nothing.
+    usageBefore = await countIntradayRefreshes(createServiceClient(), userId, now);
+    budgetBefore = computeIntradayRefreshBudget(
+      { perDay: policy.intradayRefreshesPerDay, perWeek: policy.intradayRefreshesPerWeek },
+      usageBefore,
+    );
+    if (new URL(req.url).searchParams.get("budget") === "1") {
+      return NextResponse.json({ budget: budgetBefore });
+    }
+    if (!budgetBefore.allowed) {
+      return NextResponse.json({ error: describeRefreshBlock(budgetBefore), budget: budgetBefore }, { status: 429 });
+    }
   }
 
   const params = new URL(req.url).searchParams;
@@ -158,7 +189,6 @@ export async function GET(req: NextRequest) {
   const config = resolveConfig(params);
   const provider = getMarketDataProvider();
 
-  const now = new Date();
   const todayEt = etDateKey(now);
   const nowEtMinute = etParts(now).minutes;
 
@@ -239,10 +269,26 @@ export async function GET(req: NextRequest) {
   // Best-effort and isolated per alert: one symbol's monitor write failing
   // must not discard alerts that already scanned, persisted, and are about
   // to be returned to the caller.
-  if (!systemScan && policy && output.alerts.length > 0) {
-    await applyMonitorsForUser(userId!, output.alerts, policy.maxActiveWatchMonitors).catch((err) => {
-      console.error("[intraday-scan] monitor wiring failed:", err);
-    });
+  //
+  // Every completed on-demand scan is recorded as a `scan_executions` row —
+  // that row is what the refresh budget counts — and the monitor pass reuses
+  // the same row as its evaluation id.
+  let budgetAfter: IntradayRefreshBudget | null = null;
+  if (!systemScan && policy && userId && usageBefore) {
+    const executionId = await recordIntradayRefresh(createServiceClient(), userId, {
+      eligible: output.alerts.length,
+      visible: output.alerts.length,
+    }, now);
+    budgetAfter = computeIntradayRefreshBudget(
+      { perDay: policy.intradayRefreshesPerDay, perWeek: policy.intradayRefreshesPerWeek },
+      // A write that failed didn't spend a refresh, so it doesn't show as one.
+      executionId ? { today: usageBefore.today + 1, week: usageBefore.week + 1 } : usageBefore,
+    );
+    if (executionId && output.alerts.length > 0) {
+      await applyMonitorsForUser(userId, output.alerts, policy.maxActiveWatchMonitors, executionId).catch((err) => {
+        console.error("[intraday-scan] monitor wiring failed:", err);
+      });
+    }
   }
 
   // The email fan-out is what actually answers "why wasn't I notified" — it
@@ -262,6 +308,8 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     ...output,
     alertsPersisted,
+    // Null on a system scan, which is never metered.
+    budget: budgetAfter,
     // Freshness and provenance travel with the result. A scan run against the
     // synthetic demo provider must never be presentable as a live one.
     dataSource: provider.name,
@@ -528,12 +576,12 @@ async function persistAlerts(
 }
 
 /**
- * Records this on-demand scan as a `scan_executions` row (source:
- * `"intraday"` — a value the check constraint in migration 0036 has always
- * allowed, but nothing wrote until now) and evaluates an `active_monitors`
- * transition for every alert's symbol against this profile, exactly as
- * `evaluateMonitor` already does for `manual_dashboard` scans
- * (app/api/batch-scan/route.ts). Deliberately does not call
+ * Evaluates an `active_monitors` transition for every alert's symbol against
+ * this profile, exactly as `evaluateMonitor` already does for `manual_dashboard`
+ * scans (app/api/batch-scan/route.ts). The `scan_executions` row that records
+ * this on-demand scan (source: `"intraday"`) is written by the caller — one per
+ * scan whether or not it found anything, since the refresh budget counts them —
+ * and passed in as the evaluation id. Deliberately does not call
  * `evaluateMonitorsAndNotify` / dispatch a notification: an on-demand scan
  * is the user looking, not the market moving, and intraday alerts already
  * have their own, separate email path for actual market-driven moves
@@ -544,27 +592,9 @@ async function applyMonitorsForUser(
   profileId: string,
   alerts: Alert[],
   maxActiveWatchMonitors: EntitlementPolicy["maxActiveWatchMonitors"],
+  executionId: string,
 ): Promise<void> {
   const service = createServiceClient();
-
-  const { data: execution, error: executionError } = await service
-    .from("scan_executions")
-    .insert({
-      profile_id: profileId,
-      source: "intraday",
-      started_at: new Date().toISOString(),
-      finished_at: new Date().toISOString(),
-      eligible_count: alerts.length,
-      visible_count: alerts.length,
-      result_fresh_as_of: new Date().toISOString(),
-    })
-    .select("id")
-    .single();
-
-  if (executionError || !execution) {
-    console.error(`[intraday-scan] scan execution not recorded — ${executionError?.message}`);
-    return;
-  }
 
   // One alert can name a symbol more than once across signal types in the
   // same run; a monitor is per profile+symbol, not per alert, so evaluate
@@ -593,7 +623,7 @@ async function applyMonitorsForUser(
         symbol: alert.symbol,
         source: "intraday",
         candidateState: "WATCH",
-        evaluationId: execution.id as string,
+        evaluationId: executionId,
         maxActiveWatchMonitors,
       });
     } catch (err) {

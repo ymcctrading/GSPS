@@ -173,13 +173,13 @@ export function SignalCard({
             />
             <LevelStat
               label={targetLabel(
-                "Master",
+                "MTP",
                 levels.entry,
                 levels.masterProfit,
                 levels.rewardToRiskMaster,
                 assetClass,
               )}
-              glossaryTerm="Master profit (green line)"
+              glossaryTerm="MTP - Master Take Profit (green line)"
               value={formatUsd(levels.masterProfit)}
               tone="bull"
             />

@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { ArrowRight, TriangleAlert, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScoreBadge } from "@/components/scan/score-badge";
+import { CollapsibleSection } from "@/components/dashboard/collapsible-section";
+import { SetupCardPanel, SetupNameButton, useCardStage } from "@/components/setups/setup-card";
+import { buildDailyCardModel } from "@/lib/setups/card";
+import { formatScore, SCORE_MAX } from "@/lib/scoring/display";
 import { cn, formatUsd } from "@/lib/utils";
-import { tickerHref } from "@/lib/routes";
 
 export interface SavedSetupRow {
   id: string;
@@ -35,6 +37,18 @@ export interface SavedSetupRow {
   monitorState: string | null;
 }
 
+/** A monitor state that says the setup is over: the structure that qualified it broke, or it lapsed. */
+function isRetired(row: SavedSetupRow): boolean {
+  return row.monitorState === "INVALIDATED" || row.monitorState === "EXPIRED" || row.monitorState === "NO_SETUP";
+}
+
+/**
+ * The user's saved setups, grouped by folder. Within a folder the setups still
+ * standing come first; the ones the monitor has retired sit in a "No longer
+ * valid" dropdown, closed by default (project owner, 2026-09-30, the same call
+ * as the tracked list: broken setups were being shown among the live ones).
+ * Clicking a symbol opens its setup card, the same one the daily lists use.
+ */
 export function SavedSetupsList({
   initialRows,
   exactScoreDisplayEnabled = false,
@@ -72,45 +86,124 @@ export function SavedSetupsList({
 
   return (
     <div className="flex flex-col gap-6">
-      {[...grouped.entries()].map(([folderName, items]) => (
-        <div key={folderName} className="flex flex-col gap-2">
-          <h2 className="text-sm font-semibold text-muted">{folderName}</h2>
-          <div className="flex flex-col divide-y divide-border rounded-lg border border-border">
-            {items.map((row) => (
-              <div
-                key={row.id}
-                className={cn(
-                  "flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2.5",
-                  row.monitorState === "INVALIDATED" && "bg-bear-soft/40",
-                )}
-              >
-                <Link href={tickerHref(row.symbol)} className="font-medium text-accent hover:underline">
-                  {row.symbol}
-                </Link>
-                <span className={row.direction === "bullish" ? "text-bull text-xs" : "text-bear text-xs"}>
-                  {row.direction === "bullish" ? "Buy" : "Sell"}
-                </span>
-                {row.pattern_name && <span className="text-xs text-muted">{row.pattern_name}</span>}
-                {row.setup_kind === "continuation" && <Badge variant="muted">continuation</Badge>}
-                <MonitorStatus state={row.monitorState} />
-                <ScoreChange row={row} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
-                <span className="flex flex-wrap items-center gap-3 text-xs font-mono text-muted sm:ml-auto">
-                  {row.entry != null && <span>Entry {formatUsd(row.entry)}</span>}
-                  {row.stop_loss != null && <span className="text-bear">Stop {formatUsd(row.stop_loss)}</span>}
-                  {row.take_profit1 != null && <span className="text-bull">TP1 {formatUsd(row.take_profit1)}</span>}
-                </span>
-                <button
-                  onClick={() => remove(row.id)}
-                  title="Remove from saved setups"
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted hover:bg-background hover:text-bear"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+      {[...grouped.entries()].map(([folderName, items]) => {
+        const standing = items.filter((row) => !isRetired(row));
+        const retired = items.filter(isRetired);
+        const renderRow = (row: SavedSetupRow) => (
+          <SavedRow key={row.id} row={row} onRemove={remove} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
+        );
+        return (
+          <div key={folderName} className="flex flex-col gap-2">
+            <h2 className="text-sm font-semibold text-muted">{folderName}</h2>
+            {standing.length > 0 ? (
+              <div className="flex flex-col divide-y divide-border rounded-lg border border-border">
+                {standing.map(renderRow)}
               </div>
-            ))}
+            ) : (
+              <p className="text-sm text-muted">Every setup in this folder is no longer valid.</p>
+            )}
+            {retired.length > 0 && (
+              <CollapsibleSection title="No longer valid setups" count={retired.length} quiet>
+                <div className="flex flex-col divide-y divide-border rounded-lg border border-border">
+                  {retired.map(renderRow)}
+                </div>
+              </CollapsibleSection>
+            )}
           </div>
-        </div>
-      ))}
+        );
+      })}
+    </div>
+  );
+}
+
+function SavedRow({
+  row,
+  onRemove,
+  exactScoreDisplayEnabled,
+}: {
+  row: SavedSetupRow;
+  onRemove: (id: string) => void;
+  exactScoreDisplayEnabled: boolean;
+}) {
+  const { stage, setStage, toggleName } = useCardStage();
+  const cardId = `saved-card-${row.id}`;
+  const model = buildDailyCardModel(
+    {
+      symbol: row.symbol,
+      score: row.score ?? 0,
+      outputState: row.output_state ?? "Reject",
+      direction: row.direction,
+      entry: row.entry,
+      stopLoss: row.stop_loss,
+      takeProfit1: row.take_profit1,
+      masterProfit: row.master_profit,
+      patternName: row.pattern_name,
+      setupKind: row.setup_kind === "continuation" ? "continuation" : "reversion",
+    },
+    {
+      // A setup saved without a score has no count of checks to state.
+      scoreText: row.score != null ? formatScore(row.score, exactScoreDisplayEnabled) : null,
+      scoreMax: SCORE_MAX,
+    },
+  );
+
+  return (
+    <div className={cn("flex flex-col gap-1.5 px-3 py-2.5", row.monitorState === "INVALIDATED" && "bg-bear-soft/40")}>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        <SetupNameButton symbol={row.symbol} stage={stage} controls={cardId} onToggle={toggleName} />
+        <span className={row.direction === "bullish" ? "text-bull text-xs" : "text-bear text-xs"}>
+          {row.direction === "bullish" ? "Buy" : "Sell"}
+        </span>
+        {row.pattern_name && <span className="text-xs text-muted">{row.pattern_name}</span>}
+        {row.setup_kind === "continuation" && <Badge variant="muted">continuation</Badge>}
+        <MonitorStatus state={row.monitorState} />
+        <ScoreChange row={row} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3 text-xs font-mono text-muted">
+        {row.entry != null && <span>Entry {formatUsd(row.entry)}</span>}
+        {row.stop_loss != null && <span className="text-bear">Exit {formatUsd(row.stop_loss)}</span>}
+        {row.take_profit1 != null && <span className="text-bull">TP1 {formatUsd(row.take_profit1)}</span>}
+        {row.master_profit != null && <span className="text-bull">MTP {formatUsd(row.master_profit)}</span>}
+        <button
+          onClick={() => onRemove(row.id)}
+          title="Remove from saved setups"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted hover:bg-background hover:text-bear"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      {stage !== "closed" && (
+        <SetupCardPanel
+          id={cardId}
+          model={model}
+          stage={stage}
+          onStageChange={setStage}
+          className="mt-1"
+          headline={
+            row.currentScore != null ? (
+              <span title="Score in today's scan">
+                <ScoreBadge
+                  score={row.currentScore}
+                  state={row.currentOutputState ?? "Reject"}
+                  exactScoreDisplayEnabled={exactScoreDisplayEnabled}
+                />
+              </span>
+            ) : row.score != null ? (
+              <span title="Score when saved">
+                <ScoreBadge
+                  score={row.score}
+                  state={row.output_state ?? "Reject"}
+                  exactScoreDisplayEnabled={exactScoreDisplayEnabled}
+                />
+              </span>
+            ) : (
+              <span className="text-xs text-muted">Saved without a score</span>
+            )
+          }
+        />
+      )}
     </div>
   );
 }

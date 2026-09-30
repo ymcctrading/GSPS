@@ -144,7 +144,7 @@ describe("SignalCard score breakdown", () => {
     render(<SignalCard result={resultWithFullBreakdown()} />);
     // entry 100, takeProfit1 124 -> 24.0%; masterProfit 136 -> 36.0%.
     expect(screen.getByText("TP1 (24.0%)")).toBeInTheDocument();
-    expect(screen.getByText("Master (36.0%)")).toBeInTheDocument();
+    expect(screen.getByText("MTP (36.0%)")).toBeInTheDocument();
     expect(screen.queryByText(/TP1 \(.*R\)/)).not.toBeInTheDocument();
   });
 
@@ -153,6 +153,6 @@ describe("SignalCard score breakdown", () => {
     result.assetClass = "crypto";
     render(<SignalCard result={result} />);
     expect(screen.getByText("TP1 (2.0R)")).toBeInTheDocument();
-    expect(screen.getByText("Master (3.0R)")).toBeInTheDocument();
+    expect(screen.getByText("MTP (3.0R)")).toBeInTheDocument();
   });
 });

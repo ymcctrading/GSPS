@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { SavedSetupsList, type SavedSetupRow } from "@/components/dashboard/saved-setups-list";
 import { createClient } from "@/lib/supabase/server";
 import { getDailyScans } from "@/lib/dailyScans";
+import { getSavedSetupRows } from "@/lib/dashboard/savedSetups";
 import { resolveExactScoreDisplayEnabled } from "@/lib/scoring/tier-display";
 
 export const metadata = { title: "Saved setups — GSPS" };
@@ -19,78 +20,7 @@ export default async function SavedSetupsPage() {
 
   let rows: SavedSetupRow[] = [];
   if (user) {
-    const [{ data }, { bullish, bearish }] = await Promise.all([
-      supabase
-        .from("saved_setups")
-        .select("*, setup_folders(name)")
-        .order("saved_at", { ascending: false }),
-      getDailyScans(),
-    ]);
-
-    // Today's scan re-ranks everything, so a saved setup's symbol may have
-    // moved, dropped out, or flipped direction since it was saved — look it
-    // up by symbol + direction rather than assuming it's still there.
-    const currentBySymbolDirection = new Map(
-      [...bullish, ...bearish].map((r) => [`${r.symbol}-${r.direction}`, r]),
-    );
-
-    type SavedSetupJoinRow = Omit<
-      SavedSetupRow,
-      "folderName" | "currentScore" | "currentOutputState" | "monitorState"
-    > & {
-      setup_folders: { name: string } | null;
-    };
-    const savedRows = (data ?? []) as SavedSetupJoinRow[];
-
-    // The Watch -> Execute monitor pipeline (lib/entitlements/monitor.ts)
-    // already evaluates every symbol it has tracked against the latest scan
-    // and can catch a setup breaking (INVALIDATED) well before the next time
-    // this page happens to load — a saved setup's own `score`/`output_state`
-    // is frozen at save time and never knows this happened. `active_monitors`
-    // has no `direction` column (at most one open monitor per symbol), so
-    // this is keyed by symbol alone; ordering by `last_evaluated_at desc`
-    // and keeping the first hit per symbol picks up the most-recently-
-    // evaluated monitor row. lib/entitlements/monitor-store.ts's
-    // `evaluateMonitor` re-arms a terminal (INVALIDATED/EXPIRED/NO_SETUP) row
-    // in place on requalification rather than orphaning a new one, so in
-    // steady state there is exactly one row per symbol here and this is
-    // mostly a defensive tiebreak — it still matters for rows created before
-    // that fix, or if a future caller ever inserts a second row for the same
-    // symbol.
-    const symbols = [...new Set(savedRows.map((r) => r.symbol))];
-    const monitorStateBySymbol = new Map<string, string>();
-    if (symbols.length > 0) {
-      const { data: monitors } = await supabase
-        .from("active_monitors")
-        .select("symbol, state, last_evaluated_at")
-        .in("symbol", symbols)
-        .order("last_evaluated_at", { ascending: false });
-      for (const m of (monitors ?? []) as { symbol: string; state: string }[]) {
-        if (!monitorStateBySymbol.has(m.symbol)) monitorStateBySymbol.set(m.symbol, m.state);
-      }
-    }
-
-    rows = savedRows.map((r) => {
-      const current = currentBySymbolDirection.get(`${r.symbol}-${r.direction}`);
-      return {
-        id: r.id,
-        symbol: r.symbol,
-        direction: r.direction,
-        score: r.score,
-        output_state: r.output_state,
-        entry: r.entry,
-        stop_loss: r.stop_loss,
-        take_profit1: r.take_profit1,
-        master_profit: r.master_profit,
-        pattern_name: r.pattern_name,
-        setup_kind: r.setup_kind,
-        saved_at: r.saved_at,
-        folderName: r.setup_folders?.name ?? "Saved setups",
-        currentScore: current?.score ?? null,
-        currentOutputState: current?.outputState ?? null,
-        monitorState: monitorStateBySymbol.get(r.symbol) ?? null,
-      };
-    });
+    rows = await getSavedSetupRows(supabase, getDailyScans());
   }
 
   return (

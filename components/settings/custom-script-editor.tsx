@@ -483,7 +483,7 @@ export function CustomScriptEditor() {
                     <p className="text-muted">{checkLevels.rationale}</p>
                     <p className="mt-1">
                       Entry {formatUsd(checkLevels.entry)} · Stop {formatUsd(checkLevels.stopLoss)} · TP1{" "}
-                      {formatUsd(checkLevels.takeProfit1)} · Master target{" "}
+                      {formatUsd(checkLevels.takeProfit1)} · MTP (master target){" "}
                       {formatUsd(checkLevels.masterTarget)}
                     </p>
                   </div>

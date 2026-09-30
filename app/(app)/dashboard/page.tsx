@@ -2,6 +2,9 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ResultsTable } from "@/components/scan/results-table";
 import { TrackedExecuteList } from "@/components/dashboard/tracked-execute-list";
+import { SavedSetupsList } from "@/components/dashboard/saved-setups-list";
+import { CollapsibleSection } from "@/components/dashboard/collapsible-section";
+import { DashboardWatchlist } from "@/components/dashboard/dashboard-watchlist";
 import { AutoScan } from "@/components/scan/auto-scan";
 import { StaleScanNotice } from "@/components/scan/stale-scan-notice";
 import { LiveExpectancyToggle } from "@/components/guided/live-expectancy-toggle";
@@ -9,9 +12,10 @@ import { EarningsCalendar } from "@/components/macro/earnings-calendar";
 import { MarketNews } from "@/components/macro/market-news";
 import { getDailyScans } from "@/lib/dailyScans";
 import { getTrackedExecuteSetups } from "@/lib/dashboard/trackedExecute";
+import { getSavedSetupRows } from "@/lib/dashboard/savedSetups";
+import { getDashboardWatchlist } from "@/lib/dashboard/watchlist";
 import { DEFAULTS } from "@/lib/sectors";
-import { tickerHref } from "@/lib/routes";
-import { ArrowRight, Compass, Bookmark } from "lucide-react";
+import { ArrowRight, Compass, Bookmark, Target } from "lucide-react";
 import { tradeSideWord } from "@/lib/scoring/direction-copy";
 import { formatOpenedAt } from "@/lib/portfolio/opened-at";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
@@ -31,12 +35,28 @@ export const dynamic = "force-dynamic";
 const PREVIEW = 3;
 
 export default async function DashboardPage() {
-  const { scanDate, freshness, pricedBeforeSession, scannedAt, bullish, bearish } =
-    await getDailyScans();
+  const supabase = await createClient();
+  // One round of independent reads, side by side. The scan, the viewer's tier
+  // display and the signed-in user don't depend on one another; everything that
+  // is per-user (tracked and saved setups, the watchlist, the Novice summary)
+  // needs only the user id, so it runs as a second side-by-side round rather
+  // than five sequential awaits, each of which used to look the user up again.
+  const [scans, exactScoreDisplayEnabled, userResult] = await Promise.all([
+    getDailyScans(),
+    resolveExactScoreDisplayEnabled(),
+    supabase.auth.getUser(),
+  ]);
+  const { scanDate, freshness, pricedBeforeSession, scannedAt, bullish, bearish } = scans;
+  const user = userResult.data.user;
 
-  const noviceSummary = await getNoviceSummaryIfApplicable(bullish, bearish);
-  const trackedExecute = await getTrackedExecuteSetupsIfSignedIn();
-  const exactScoreDisplayEnabled = await resolveExactScoreDisplayEnabled();
+  const [noviceSummary, trackedExecute, savedSetups, watchlist] = user
+    ? await Promise.all([
+        getNoviceSummaryIfApplicable(user.id, bullish, bearish),
+        getTrackedExecuteSetups(supabase, user.id),
+        getSavedSetupRows(supabase, Promise.resolve(scans)),
+        getDashboardWatchlist(supabase, user.id),
+      ])
+    : [null, [], [], { symbols: [...DEFAULTS], isDefault: true }];
 
   return (
     <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
@@ -74,14 +94,6 @@ export default async function DashboardPage() {
         New to this? Read the plain-English walkthrough of every part of GSPS.
       </Link>
 
-      <Link
-        href="/dashboard/saved"
-        className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-muted hover:border-accent hover:text-accent"
-      >
-        <Bookmark className="h-4 w-4 shrink-0" />
-        View your saved setups
-      </Link>
-
       <StaleScanNotice
         freshness={freshness}
         scanDate={scanDate}
@@ -92,43 +104,47 @@ export default async function DashboardPage() {
       <LiveExpectancyToggle />
 
       {trackedExecute.length > 0 && (
-        <Card data-tour="dash-tracked-execute">
-          <CardHeader>
-            <CardTitle className="text-bull">Your tracked Execute setups</CardTitle>
-            <CardDescription>
-              Symbols you scanned individually that currently read Execute — not part of the
-              market-wide daily scan below, so they wouldn&apos;t otherwise show up here. See{" "}
+        <div data-tour="dash-tracked-execute">
+          <CollapsibleSection
+            title="Your tracked Execute setups"
+            count={trackedExecute.length}
+            icon={<Target className="h-4 w-4 shrink-0" />}
+          >
+            <p className="mb-3 text-sm text-muted">
+              Symbols you scanned individually that currently read Execute — not part of the market-wide daily
+              scan below, so they wouldn&apos;t otherwise show up here. See{" "}
               <Link href="/scanner" className="underline hover:text-accent">
                 Scan History
               </Link>{" "}
               for the full live status of everything you&apos;ve scanned.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+            </p>
             <TrackedExecuteList initialRows={trackedExecute} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
-          </CardContent>
-        </Card>
+          </CollapsibleSection>
+        </div>
       )}
 
-      <Card data-tour="dash-watchlist">
-        <CardHeader>
-          <CardTitle>Default watchlist</CardTitle>
-          <CardDescription>Magnificent Seven, SPY, and BTC — open any symbol for a full protocol scan.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
-            {DEFAULTS.map((s) => (
-              <Link
-                key={s}
-                href={tickerHref(s)}
-                className="rounded-lg border border-border bg-background px-3 py-3 text-center text-sm font-semibold hover:border-accent hover:text-accent"
-              >
-                {s}
-              </Link>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      {user && (
+        <CollapsibleSection
+          title="Saved setups"
+          count={savedSetups.length}
+          icon={<Bookmark className="h-4 w-4 shrink-0" />}
+        >
+          <SavedSetupsList initialRows={savedSetups} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
+          <Link
+            href="/dashboard/saved"
+            className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline"
+          >
+            Open the saved setups page
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </CollapsibleSection>
+      )}
+
+      <DashboardWatchlist
+        initialSymbols={watchlist.symbols}
+        isDefault={watchlist.isDefault}
+        canEdit={Boolean(user)}
+      />
 
       <div data-tour="dash-setups" className="grid min-w-0 gap-4 sm:gap-6 lg:grid-cols-2">
         <ReversionPreview
@@ -173,33 +189,18 @@ export default async function DashboardPage() {
   );
 }
 
-async function getTrackedExecuteSetupsIfSignedIn() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return [];
-  return getTrackedExecuteSetups(supabase, user.id);
-}
-
 /**
  * Only Novice (PRACTICE tier) accounts get the summary card — everyone else
  * already has the full dashboard below, and the spec pack's "Novice user
  * experience" section is explicitly about a simplified first view for new
  * accounts, not a redesign of the whole page.
  */
-async function getNoviceSummaryIfApplicable(bullish: ScanRow[], bearish: ScanRow[]) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
-
+async function getNoviceSummaryIfApplicable(userId: string, bullish: ScanRow[], bearish: ScanRow[]) {
   const service = createServiceClient();
-  const tier = await getUserTier(service, user.id);
+  const tier = await getUserTier(service, userId);
   if (tier !== "PRACTICE") return null;
 
-  const [regime, home] = await Promise.all([getMarketRegimeSummary(), getNoviceHomeSummary(service, user.id)]);
+  const [regime, home] = await Promise.all([getMarketRegimeSummary(), getNoviceHomeSummary(service, userId)]);
 
   const bestPlan = [...bullish, ...bearish].sort((a, b) => b.score - a.score)[0] ?? null;
 

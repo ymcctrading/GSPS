@@ -1304,7 +1304,7 @@ export function CandleChart({
         </span>
         <LegendItem color="#2563eb" dashed label="Entry" />
         <LegendItem color="#dc2626" dashed label="Stop loss (SL)" />
-        <LegendItem color="#059669" dashed label="TP1 & MP (profit targets)" />
+        <LegendItem color="#059669" dashed label="TP1 & MTP (profit targets)" />
         <LegendItem color="#94a3b8" dashed label="Structural levels (support/resistance zones)" />
         {extendedApplies && <LegendItem color="rgba(5,150,105,0.40)" label="Extended-hours candles (dimmed)" solidBlock />}
         {alertPrice != null && <LegendItem color={ALERT_COLOR} dashed label="Price alert (drag the line, or type a price above)" />}

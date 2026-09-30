@@ -21,6 +21,7 @@ This specification is the server-authoritative product contract for GSPS plans, 
 | Watch → Execute alerts | Included within capacity | Included within capacity | Included within capacity | Included within fair-use capacity |
 | Automation | No | No | No | Yes |
 | Intraday scans/movement | No | No | Yes | Yes |
+| Intraday scan refreshes/day (rolling 7 days) | 0 | 3 (10) | 8 (30) | Unlimited, fair use (automatic refresh) |
 | Backtesting | No | No | No | Yes |
 
 ## Operational capacities

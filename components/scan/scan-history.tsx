@@ -144,7 +144,7 @@ export function ScanHistory() {
                       Entry {formatUsd(s.entry)}
                       {s.stopLoss != null && ` · Stop ${formatUsd(s.stopLoss)}`}
                       {s.takeProfit1 != null && ` · TP1 ${formatUsd(s.takeProfit1)}`}
-                      {s.masterProfit != null && ` · MP ${formatUsd(s.masterProfit)}`}
+                      {s.masterProfit != null && ` · MTP ${formatUsd(s.masterProfit)}`}
                       {s.currentPrice != null && ` · Now ${formatUsd(s.currentPrice)}`}
                     </div>
                   )}
@@ -230,7 +230,7 @@ function RankedByExecutability({
             <div className="ml-auto flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted">
               <span>Price {s.currentPrice != null ? formatUsd(s.currentPrice) : "—"}</span>
               <span>TP1 {s.takeProfit1 != null ? formatUsd(s.takeProfit1) : "—"}</span>
-              <span>MP {s.masterProfit != null ? formatUsd(s.masterProfit) : "—"}</span>
+              <span>MTP {s.masterProfit != null ? formatUsd(s.masterProfit) : "—"}</span>
               <span>S/L {s.stopLoss != null ? formatUsd(s.stopLoss) : "—"}</span>
             </div>
           </div>

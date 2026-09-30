@@ -188,7 +188,7 @@ export async function updateProtocolExit(
   const symbol = input.symbol.toUpperCase();
 
   if (input.stopLoss == null && input.takeProfit1 == null && input.masterProfit === undefined) {
-    return { status: 400, body: { error: "Nothing to update — pass a new stop loss, TP1, and/or master profit." } };
+    return { status: 400, body: { error: "Nothing to update — pass a new stop loss, TP1, and/or MTP (master take profit)." } };
   }
 
   const position = await getOpenPosition(supabase, userId, symbol);
@@ -270,7 +270,7 @@ export async function updateProtocolExit(
     } else {
       const validated = validateLimitPrice({ price: input.masterProfit, side: closingSide, instrument: equity, mode: targetMode });
       if (!validated.ok || validated.price == null) {
-        return { status: 422, body: { error: "Master profit can't be expressed at a price this instrument accepts." } };
+        return { status: 422, body: { error: "MTP (master take profit) can't be expressed at a price this instrument accepts." } };
       }
       newMaster = validated.price;
     }
@@ -287,7 +287,7 @@ export async function updateProtocolExit(
     if (!masterPastTp1) {
       return {
         status: 422,
-        body: { error: "Master profit has to sit beyond TP1 in the trade's favor, not before it." },
+        body: { error: "MTP (master take profit) has to sit beyond TP1 in the trade's favor, not before it." },
       };
     }
   }

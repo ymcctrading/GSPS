@@ -766,7 +766,7 @@ export function OrderTicket({
                           <p className="mt-1">
                             Entry {formatUsd(strategyLevels.entry)} · Stop{" "}
                             {formatUsd(strategyLevels.stopLoss)} · TP1{" "}
-                            {formatUsd(strategyLevels.takeProfit1)} · Master target{" "}
+                            {formatUsd(strategyLevels.takeProfit1)} · MTP (master target){" "}
                             {formatUsd(strategyLevels.masterTarget)}
                           </p>
                           <button
@@ -850,7 +850,7 @@ export function OrderTicket({
                           <p className="mt-1">
                             Entry {formatUsd(scriptLevels.entry)} · Stop{" "}
                             {formatUsd(scriptLevels.stopLoss)} · TP1{" "}
-                            {formatUsd(scriptLevels.takeProfit1)} · Master target{" "}
+                            {formatUsd(scriptLevels.takeProfit1)} · MTP (master target){" "}
                             {formatUsd(scriptLevels.masterTarget)}
                           </p>
                           <button
@@ -1042,7 +1042,7 @@ function ExitPlanNotice({
           starts. The rest is closed if price falls back under the level it broke out of, closes
           against the trade three days running, or the trend turns.
           {hasMaster
-            ? " If price pushes through the final target and falls back through it, the rest is closed."
+            ? " If price pushes through the MTP (master take profit) and falls back through it, the rest is closed."
             : ""}{" "}
           The stop moves while the app is open; the stop resting at the broker is what protects the
           position the rest of the time.

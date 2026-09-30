@@ -153,7 +153,7 @@ function WhyPanel({ rec }: { rec: Recommendation }) {
         <Level label="Entry" value={why.entry} tone="accent" />
         <Level label="Stop" value={why.stopLoss} tone="bear" />
         <Level label="Target 1" value={why.takeProfit1} tone="bull" />
-        <Level label="Next level" value={why.masterProfit} tone="bull" />
+        <Level label="MTP (next level)" value={why.masterProfit} tone="bull" />
       </div>
       <RoundNumberNotice price={why.entry} direction={rec.action === "buy" ? "bullish" : "bearish"} />
       <p className="text-xs text-muted">{rec.exitSentence}</p>

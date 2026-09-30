@@ -5,7 +5,7 @@ import { isReached, type TargetState, type TargetStatus } from "@/lib/trade/targ
 import { cn } from "@/lib/utils";
 
 /**
- * Three-state target tracker for an order row: TP1, MP and SL.
+ * Three-state target tracker for an order row: TP1, MTP (master take profit) and SL.
  *
  * Profit targets mark green when reached, the stop marks red — the colour says
  * what the outcome was, not merely that something happened. A level recorded in
@@ -16,7 +16,7 @@ export function TargetStatusCells({ status }: { status: TargetStatus }) {
   return (
     <div className="flex items-center justify-center gap-1">
       <Marker label="TP1" state={status.tp1} tone="bull" />
-      <Marker label="MP" state={status.mp} tone="bull" />
+      <Marker label="MTP" state={status.mp} tone="bull" />
       <Marker label="SL" state={status.sl} tone="bear" />
     </div>
   );
