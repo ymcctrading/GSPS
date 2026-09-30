@@ -163,6 +163,12 @@ so the hold test ended most trades on noise (fixed: `lib/gann/pointScale.ts`,
 live and replay). `STRATEGY_VERSION` is `2026-09-28-gann-points-continuation`.
 The F4 calendar test ran on 2019–2025 (the feed's reach): no window set beats
 random placement, so the windows stay context only.
+**Merged 2026-09-28 (#299) on the 15-minute result**, by owner decision, before the
+six-year run finished. That run (run 22, same notes file) is negative on every
+cell, interval below zero: the live `gann-runner` rule is −0.058R over all
+trades and −0.053R on Execute (run 12: −0.074/−0.164), and Execute no longer
+beats Watch. The 15-minute gains cover one two-month phase. Held for the owner;
+the next checks are listed in the notes.
 **Stage E, 2026-09-28:** Gann's series-of-losses rule runs on every placement
 path (`lib/risk/lossSeries.ts`: three losses in a row pause new entries for
 that day and the next; protective orders never blocked). School gained a
