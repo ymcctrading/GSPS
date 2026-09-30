@@ -278,9 +278,11 @@ both signal discovery and execution.
   (`lib/entitlements/intraday-refresh.ts`). (5) The Default watchlist is the
   user's own 3–9 symbols, stored in the existing `watchlists` tables
   (`lib/dashboard/watchlist.ts`). **Owner decisions, 2026-09-30, built:** a
-  breached stop retires the plan until a later scan confirms it or replaces it
-  (the scan itself holds it to Reject, so the chart, lists, monitors and replay
-  agree — AGENTS.md finding F3.7, resolved); and the intraday first target is a
+  breached stop retires the plan, and it returns only by Gann's own rule:
+  confirmed if the break was false (a close back through the broken level by his
+  3-point allowance), replaced by a new plan from the new structure, never
+  resumed at its old levels (the scan itself holds it to Reject, so the chart,
+  lists, monitors and replay agree — AGENTS.md finding F3.7, resolved); and the intraday first target is a
   Gann level (the nearest old top or bottom, or a round number just short of
   one) or none, never a multiple of the risk. **Not built:** a replay-only
   intraday profile to measure the method at intraday scale, and a pre-entry

@@ -244,9 +244,10 @@ export interface BacktestReport {
    */
   refusedFills: number;
   /**
-   * Session plans retired by a breached stop and so not entered that session
-   * (owner decision, 2026-09-30; `lib/gann/stopBreach.ts`). Runs before
-   * STRATEGY_VERSION `2026-09-30-stop-breach-retired` entered such plans.
+   * Session plans retired by a breached stop (owner decision, 2026-09-30;
+   * `lib/gann/stopBreach.ts`), whether or not a later closing candle reinstated
+   * them as a failed break. Runs before STRATEGY_VERSION
+   * `2026-09-30-stop-breach-retired` entered such plans.
    */
   retiredPlans: number;
   /** Setups armed and triggered across the run, for a fill-rate sanity check. */

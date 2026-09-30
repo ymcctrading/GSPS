@@ -14,7 +14,8 @@
  * follows up on (see CHANGELOG.md, 2026-09-08).
  *
  * Owner decision 2026-09-30 (AGENTS.md finding F3.7): a breached stop retires
- * the plan until a later scan confirms or replaces it. That is built on the scan
+ * the plan until Gann's own test confirms it (a failed break) or a new plan
+ * replaces it. That is built on the scan
  * (`lib/gann/stopBreach.ts`: the verdict is Reject, so the plan is never
  * advanced and the monitor goes INVALIDATED), not here. This module still
  * dispatches no price-based transition, because adding one to the lifecycle is

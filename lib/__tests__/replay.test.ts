@@ -3,6 +3,7 @@ import type { Bar } from "@/lib/types";
 import { CRITERION_KEYS, type CriterionWeights } from "@/lib/scoring/weights";
 import { computeGannEntryTrigger, type GannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection } from "@/lib/scan/entrySelection";
+import { reclaimLevel } from "@/lib/gann/stopBreach";
 import {
   MIN_DAILY_BARS_FOR_SCORE,
   buildMacroContext,
@@ -648,34 +649,73 @@ describe("replay exitRule: gann-runner (the live rule)", () => {
 
 /**
  * A breached stop retires the plan (owner decision, 2026-09-30;
- * lib/gann/stopBreach.ts). The live scan holds a plan whose stop price is
- * through to Reject; the replay does not enter a plan whose stop the session
- * already traded through, and counts it.
+ * lib/gann/stopBreach.ts). The live scan holds a plan whose stop is broken to
+ * Reject; the replay does not enter a plan whose stop the session already traded
+ * through, and counts it. It stands again only by Gann's own test of a false
+ * break: a closed candle closes back through the broken level by his 3-point
+ * allowance. Price merely returning between the stop and that line does not
+ * reinstate it.
  */
 describe("replay stop breach retires the plan", () => {
   // The plan's own stop, read from a run that enters it. Taking it from the
   // replay keeps the fixture on the stop the plan actually carries.
   const baseline = replay("TEST", session([quiet, crossing, quiet]), { targetR: 2, dailyBars: DAILY, usePlanLevels: true });
   const planStop = baseline.trades[0]?.stop ?? NaN;
+  const direction = SIDE > 0 ? "bullish" : "bearish";
+  const line = reclaimLevel(direction, planStop);
 
-  /** A candle that trades through the plan's stop and closes back inside. */
-  const poke = {
+  /** A candle that opens and closes at `c`, wide enough to hold it. */
+  const closingAt = (c: number) => ({ o: 99, h: Math.max(99.4, c + 0.2), l: Math.min(98.6, c - 0.2), c });
+  /** A candle that trades through the plan's stop and closes at `c`. */
+  const breakingAndClosingAt = (c: number) => ({
     o: 99,
-    h: SIDE > 0 ? 99.4 : planStop + 0.5,
-    l: SIDE > 0 ? planStop - 0.5 : 98.6,
-    c: 99,
-  };
+    h: SIDE > 0 ? Math.max(99.4, c + 0.2) : planStop + 0.5,
+    l: SIDE > 0 ? planStop - 0.5 : Math.min(98.6, c - 0.2),
+    c,
+  });
+  /** A break that closes back just inside the stop, short of the reclaim line. */
+  const poke = breakingAndClosingAt(planStop - SIDE * 0.1);
+  /** A close back through the broken level by the allowance. */
+  const reclaim = closingAt(line + SIDE * 0.5);
 
   it("has a plan stop to test against", () => {
     expect(baseline.trades).toHaveLength(1);
     expect(baseline.retiredPlans).toBe(0);
     expect(Number.isFinite(planStop)).toBe(true);
+    expect(Math.abs(line - planStop)).toBeGreaterThan(0);
   });
 
   it("does not enter a plan once an earlier candle in the session traded through its stop", () => {
     const r = replay("TEST", session([poke, crossing, quiet]), { targetR: 2, dailyBars: DAILY, usePlanLevels: true });
     expect(r.trades).toHaveLength(0);
     expect(r.retiredPlans).toBe(1);
+  });
+
+  it("does not bring it back because price returned toward the old entry without closing through the line", () => {
+    // Back above (long) the stop and well up toward the entry, but not through
+    // the broken level by the allowance: the old level is now the wrong side.
+    const between = closingAt(planStop - SIDE * 0.2);
+    const r = replay("TEST", session([poke, between, between, crossing, quiet]), {
+      targetR: 2,
+      dailyBars: DAILY,
+      usePlanLevels: true,
+    });
+    expect(r.trades).toHaveLength(0);
+    expect(r.retiredPlans).toBe(1);
+  });
+
+  it("stands the plan again when a later candle closes back through the broken level by the allowance", () => {
+    const r = replay("TEST", session([poke, reclaim, crossing, quiet]), { targetR: 2, dailyBars: DAILY, usePlanLevels: true });
+    expect(r.trades).toHaveLength(1);
+    // Still counted once as retired: it was, until the failed break showed.
+    expect(r.retiredPlans).toBe(1);
+  });
+
+  it("does not count a poke that reversed by its own close as a break that stands", () => {
+    // The breaking candle closes back through the line itself: a false break.
+    const flush = breakingAndClosingAt(line + SIDE * 0.5);
+    const r = replay("TEST", session([flush, crossing, quiet]), { targetR: 2, dailyBars: DAILY, usePlanLevels: true });
+    expect(r.trades).toHaveLength(1);
   });
 
   it("holds the same way under the confirmed entry rule, and starts the confirmation over", () => {
@@ -693,7 +733,7 @@ describe("replay stop breach retires the plan", () => {
     // Bars 0..43 are the warm-up; the replay reads its first session plan at bar 40,
     // which sees bar 39's close.
     const bars = session([quiet, crossing, quiet]);
-    const through = SIDE > 0 ? planStop - 0.5 : planStop + 0.5;
+    const through = planStop - SIDE * 0.5;
     bars[39] = { ...bars[39], o: through, h: Math.max(through, bars[39].h), l: Math.min(through, bars[39].l), c: through };
     const r = replay("TEST", bars, { targetR: 2, dailyBars: DAILY, usePlanLevels: true });
     expect(r.trades).toHaveLength(0);

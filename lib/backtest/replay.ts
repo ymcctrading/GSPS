@@ -77,7 +77,7 @@ import { isLargeCapStock } from "@/lib/strat/large-cap";
 import { readLiquidity } from "@/lib/scan/liquidity";
 import { applyBreakawayHold, applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
 import { readBreakaway, type BreakawayReading } from "@/lib/gann/breakaway";
-import { isStopBreached, isStopBreachedByBar } from "@/lib/gann/stopBreach";
+import { isReclaimedByClose, isStopBreached, isStopBreachedByBar } from "@/lib/gann/stopBreach";
 import { readGannExit, type GannExitReason, type GannStopReason } from "@/lib/gann/exitRules";
 import { SCALE_OUT_PCT } from "@/lib/trade/protocol-exit";
 import { readPyramidAdd, type PyramidLot } from "@/lib/gann/pyramid";
@@ -402,10 +402,13 @@ export interface ReplayResult {
   /**
    * Session plans retired by a breached stop (owner decision, 2026-09-30;
    * `lib/gann/stopBreach.ts`): the prior session's last close, or an earlier
-   * candle of the session, had already traded through the plan's own stop. A
-   * retired plan is not entered for the rest of that session, and the next
-   * session's scan is the updated scan that may confirm or replace it. Counted
-   * once per plan per session, whether or not its entry would have fired.
+   * candle of the session, had already traded through the plan's own stop. It
+   * is not entered while broken. It stands again if a closed candle closes back
+   * through the broken level by Gann's 3-point allowance (a failed break), and
+   * otherwise stays out for the rest of the session, when the next session's
+   * read of the swing chart replaces it with a new plan. Counted once per plan
+   * per session, whether or not it was later reinstated or its entry would have
+   * fired.
    */
   retiredPlans: number;
 }
@@ -648,12 +651,15 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
   const consumedPivots = new Set<string>();
   // A breached stop retires the plan (owner decision, 2026-09-30;
   // lib/gann/stopBreach.ts). The plan's stop is read once per plan per session
-  // (`sessionPlanStops`, keyed by date and pivot); once price has traded through
-  // it, the plan is in `retiredSessionPlans` and is not entered for the rest of
-  // that session. The next session's scan is the updated scan, so the plan
-  // comes back then if its pivot is still armed: the replay's coarse stand-in
-  // for "until a scan confirms it or replaces it".
+  // (`sessionPlanStops`, keyed by date and pivot). Once price has traded through
+  // it the plan is in `brokenPlans` and is not entered, until a closed candle
+  // closes back through the broken level by Gann's 3-point allowance: a failed
+  // break, which stands the plan again. Otherwise it stays out for the rest of
+  // the session, and the next session's read of the swing chart is what replaces
+  // it with a new plan. `retiredSessionPlans` counts each plan once that was ever
+  // retired, for the report.
   const sessionPlanStops = new Map<string, number | null>();
+  const brokenPlans = new Set<string>();
   const retiredSessionPlans = new Set<string>();
   // Macro context and the daily triggers only move once a session, so they
   // are built per date, not per bar.
@@ -716,37 +722,45 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       const planKey = `${date}|${pivotKey}`;
       armedKeys.add(planKey);
 
-      // The breach test the live scan applies to the price it ran at
-      // (`applyStopBreachHold`), applied by path: the scan that arms the session
-      // reads the last close, and every closed candle of the session after that
-      // is read in turn. The candle the entry fires on is not: what it did first
-      // cannot be told, so its stop is left to the bracket walk as before.
-      if (!retiredSessionPlans.has(planKey)) {
-        let planStop = sessionPlanStops.get(planKey);
-        if (planStop === undefined) {
-          planStop =
-            priceTradeLevels({
-              context: arm.context,
-              gannTrigger: trigger,
-              history,
-              executionAtr: atr(history.slice(-30), 14),
-              assetClass,
-              largeCap: arm.largeCap,
-            })?.stopLoss ?? null;
-          sessionPlanStops.set(planKey, planStop);
-          if (planStop !== null && isStopBreached(trigger.direction, planStop, lastClose)) {
+      // The breach test the live scan applies (`readStopBreach`), applied by
+      // path: the scan that arms the session reads the last close, and every
+      // closed candle of the session after that is read in turn. A candle that
+      // traded through the stop breaks the plan, unless it, or a later candle,
+      // closed back through the level by the allowance (a poke that reversed by
+      // the close, or a failed break). The candle the entry fires on is not
+      // read: what it did first cannot be told, so its stop is left to the
+      // bracket walk as before.
+      let planStop = sessionPlanStops.get(planKey);
+      if (planStop === undefined) {
+        planStop =
+          priceTradeLevels({
+            context: arm.context,
+            gannTrigger: trigger,
+            history,
+            executionAtr: atr(history.slice(-30), 14),
+            assetClass,
+            largeCap: arm.largeCap,
+          })?.stopLoss ?? null;
+        sessionPlanStops.set(planKey, planStop);
+        if (planStop !== null && isStopBreached(trigger.direction, planStop, lastClose)) {
+          brokenPlans.add(planKey);
+          retiredSessionPlans.add(planKey);
+        }
+      } else if (planStop !== null) {
+        const closed = history[history.length - 1];
+        if (closed.t.slice(0, 10) === date) {
+          if (isStopBreachedByBar(trigger.direction, planStop, closed)) {
+            brokenPlans.add(planKey);
             retiredSessionPlans.add(planKey);
           }
-        } else if (planStop !== null) {
-          const closed = history[history.length - 1];
-          if (closed.t.slice(0, 10) === date && isStopBreachedByBar(trigger.direction, planStop, closed)) {
-            retiredSessionPlans.add(planKey);
+          if (brokenPlans.has(planKey) && isReclaimedByClose(trigger.direction, planStop, closed)) {
+            brokenPlans.delete(planKey);
           }
         }
       }
-      if (retiredSessionPlans.has(planKey)) {
-        // Not entered this session; a confirmation in progress starts over
-        // with the next session's scan rather than carrying across the break.
+      if (brokenPlans.has(planKey)) {
+        // Not entered while it is broken; a confirmation in progress starts
+        // over rather than carrying across the break.
         confirmation.delete(pivotKey);
         continue;
       }

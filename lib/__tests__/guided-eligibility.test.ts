@@ -59,7 +59,7 @@ describe("assessEligibility", () => {
   it("refuses a plan the scan retired because its stop was breached, and names that first", () => {
     const verdict = assessEligibility(
       scan({
-        stopBreach: { stop: 98, price: 96 },
+        stopBreach: { stop: 98, price: 96, reclaimAt: 101 },
         decision: { score: 8, outputState: "Reject", breakdown: [] },
       }),
     );

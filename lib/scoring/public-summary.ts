@@ -75,7 +75,7 @@ const DATA_LAG_STATE_NOTE =
  * already see on the setup, not anything inside the model.
  */
 const STOP_BREACH_STATE_NOTE =
-  "This plan is retired: price has traded through its stop. A fresh scan, once price is back inside the stop, confirms the plan or replaces it.";
+  "This plan is retired: its stop has broken. It stands again only if a bar closes back through the broken level by the usual allowance (a false break), or a new plan from the new structure replaces it.";
 
 export function toPublicScoreSummary(decision: ScanDecision): PublicScoreSummary {
   const counts = new Map<ScorePillar, ScorePillarSummary>();

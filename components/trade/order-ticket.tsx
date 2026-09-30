@@ -308,8 +308,9 @@ export function OrderTicket({
   // direction regardless of which button the user has toggled.
   //
   // A breached stop retires the plan (owner decision, 2026-09-30;
-  // lib/gann/stopBreach.ts): it stays retired until a scan run afterwards
-  // confirms or replaces it, so price climbing back to the old entry does not
+  // lib/gann/stopBreach.ts): it stands again only if a closed bar closes back
+  // through the broken level by the allowance (the scan reads those bars), or a
+  // new plan replaces it, so price climbing back to the old entry does not
   // quietly un-retire it. Two memories carry that here. The scan itself
   // (`result.stopBreach`: it ran with price already through the stop), and a
   // latch on the live quote (price broke the stop while this scan's plan was
@@ -566,8 +567,9 @@ export function OrderTicket({
               through the {formatUsd(levels.stopLoss)} stop the {pattern ? PATTERN_GLOSSARY_TERM[pattern.name].toLowerCase() : "setup"}{" "}
               thesis was staked on. The advised entry at {formatUsd(advised)} is a dead level —
               placing this order at Protocol Recommended pricing is disabled. A plan whose stop has broken
-              stays retired when price comes back to the entry: scan again, and the new scan either
-              confirms this plan or replaces it.
+              stays retired when price comes back to the entry: it stands again only if a bar closes back
+              through the broken level by the usual allowance, and otherwise a new plan replaces it. Scan
+              again to read it.
             </p>
             <button
               onClick={() => setExecutionMode("manual")}

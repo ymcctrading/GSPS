@@ -855,21 +855,30 @@ for the project owner** — do not fix it silently, and re-verify it first:
   `evaluateMonitorsAndNotify` re-armed the monitor the sweep had just
   invalidated. The owner's rule: **"A breach retires the plan, until an updated
   scan is run and a plan is either confirmed or an updated plan replaces the
-  original."** Built as `lib/gann/stopBreach.ts` and `applyStopBreachHold`
-  (`lib/scoring/score.ts`): the scan drops a plan whose stop the price it ran at
-  is through to Reject, so the monitor goes INVALIDATED and the plan leaves the
-  lists; a scan run once price is back inside the stop confirms the plan or
-  replaces it. There is no stored "retired" flag: the scan reads price against
-  the stop each time, so a late scan resumes correctly. Price returning to the
-  old entry does not reinstate it by itself: the ticket latches a breach until a
-  newer scan arrives, and the lists keep their ratchet until they reload. The
-  replay does not enter a plan whose stop an earlier candle of the session
-  traded through (`retiredPlans` in the report), and treats the next session's
-  scan as the updated scan. `STRATEGY_VERSION` is `2026-09-30-stop-breach-retired`:
+  original."** Follow-up the same day: **"if Gann has his own version of
+  confirmed or replaced, implement his rule ... the sentiment/premise needs to
+  align."** He has, and it is built: **confirmed is a failed break** (a closed
+  bar closes back through the broken level by his 3-point allowance, price-scaled
+  by `lib/gann/pointScale.ts`: NSTD p. 20, Master Course pp. 246-248 and rules 4-5),
+  and **replaced is a new trade with a new stop from the new swing structure,
+  never the old levels resumed** (Overnight Chart rule 4, NSTD Rule 6, *Tunnel*).
+  Built as `lib/gann/stopBreach.ts` and `applyStopBreachHold`
+  (`lib/scoring/score.ts`): the scan drops a broken plan to Reject (price through
+  the stop, or broken earlier in the session with no bar since closing back
+  through the line), so the monitor goes INVALIDATED and the plan leaves the
+  lists. There is no stored "retired" flag: the scan reads the session's closed
+  bars against the stop each time, so a late scan resumes correctly. Price
+  returning to the old entry, or to between the stop and the line, does not
+  reinstate it: the ticket latches a breach until a newer scan arrives, and the
+  lists keep their ratchet until they reload. The replay does not enter a plan
+  whose stop an earlier candle of the session traded through, reinstates it on
+  the same closing test, and reports `retiredPlans`; otherwise the next
+  session's read of the swing chart replaces it.
+  `STRATEGY_VERSION` is `2026-09-30-stop-breach-retired`:
   replay runs before it entered such plans, so the Execute-bucket numbers
   measured on earlier versions describe a rule production no longer follows.
-  Gann's sources and the options considered (this is option A, with the
-  next scan as the way back in) are in
+  Gann's sources and the options considered (option A for the break, his own
+  failed-break test for the way back in) are in
   `docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md` Part 1. **Not changed, and
   why:** the `trade_plans` lifecycle still has no pre-entry "invalidated"
   transition (`lib/lifecycle/reaper.ts`'s header: the spec pack says a change

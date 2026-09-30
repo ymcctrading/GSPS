@@ -10,14 +10,18 @@ date.
 ## 2026-09-30
 
 ### Changed (owner decisions, same day)
-- **A breached stop retires the plan** until a later scan confirms it or replaces
-  it (AGENTS.md finding F3.7, resolved). The scan holds a plan whose stop the
-  price it ran at is through to Reject (`lib/gann/stopBreach.ts`,
+- **A breached stop retires the plan** (AGENTS.md finding F3.7, resolved), and
+  it comes back only the way Gann says: **confirmed** if the break was false (a
+  closed bar closes back through the broken level by his 3-point allowance),
+  **replaced** by a new plan from the new swing structure, never resumed at its
+  old levels. The scan holds a broken plan to Reject (`lib/gann/stopBreach.ts`,
   `applyStopBreachHold`), so the symbol page, lists, monitors and Guided Mode
-  agree; the signal card says the plan is retired and the chart draws no lines
-  for it; the order ticket keeps a breach latched until a newer scan arrives.
-  The replay does not enter a plan whose stop an earlier candle of the session
-  traded through, and reports `retiredPlans`. `STRATEGY_VERSION` is
+  agree; the signal card says the plan is retired, which line a close has to get
+  back through, and that the broken level now works the other way; the chart
+  draws no lines for it; the order ticket keeps a breach latched until a newer
+  scan arrives. The replay does not enter a plan whose stop an earlier candle of
+  the session traded through, reinstates it on the same closing test, and
+  reports `retiredPlans`. `STRATEGY_VERSION` is
   `2026-09-30-stop-breach-retired`, so earlier replay runs no longer describe
   production. The `trade_plans` lifecycle is unchanged (held for counsel review).
 - **Intraday first target is a Gann level or none** (`gannFirstTarget`): the

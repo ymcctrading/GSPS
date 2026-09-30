@@ -51,7 +51,7 @@ import {
 import { readBreakaway } from "@/lib/gann/breakaway";
 import { readStopBreach } from "@/lib/gann/stopBreach";
 import { decisionLag, feedDelayMs } from "@/lib/data/latency";
-import { marketSession } from "@/lib/market/session";
+import { etDateKey, marketSession } from "@/lib/market/session";
 import {
   FALLBACK_SR_PCT,
   SR_PROXIMITY_ATR,
@@ -377,14 +377,20 @@ export async function scanTicker(
     const breakaway = readBreakaway(daily, gannTrigger);
 
     // A breached stop retires the plan (owner decision, 2026-09-30): price the
-    // scan ran at is already through the stop of the plan it just priced, so
-    // the plan is over until a later scan, with price back inside, confirms or
-    // replaces it. Outermost, so it lands whatever the other holds did. See
+    // scan ran at is already through the stop of the plan it just priced, or
+    // broke it earlier in the session without closing back through it by the
+    // allowance. The plan is over until Gann's failed-break test passes or a new
+    // plan replaces it. Outermost, so it lands whatever the other holds did. See
     // lib/gann/stopBreach.ts.
+    // The session's own closed bars are what tell a poke that reversed by the
+    // close from a break: a plan broken earlier today stands again only once a
+    // bar has closed back through the level by Gann's 3-point allowance.
+    const sessionDay = etDateKey(new Date(scannedAt));
     const stopBreach = readStopBreach({
       direction: entrySource?.direction ?? "none",
       stopLoss: levels?.stopLoss,
       price: currentPrice,
+      sessionBars: closedExecutionBars.filter((b) => etDateKey(new Date(b.t)) === sessionDay),
     });
 
     const decision = applyStopBreachHold(applyDataLagHold(
@@ -559,7 +565,9 @@ export async function scanTicker(
       armedPatterns,
       levels,
       levelsError,
-      ...(stopBreach.breached ? { stopBreach: { stop: stopBreach.stop!, price: stopBreach.price! } } : {}),
+      ...(stopBreach.breached
+        ? { stopBreach: { stop: stopBreach.stop!, price: stopBreach.price!, reclaimAt: stopBreach.reclaimAt! } }
+        : {}),
       dataLag,
       executionBar: closedExecutionBars[closedExecutionBars.length - 1],
       decision,

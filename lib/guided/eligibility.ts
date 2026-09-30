@@ -77,7 +77,7 @@ export function assessEligibility(
   // real one, not the Reject it causes.
   if (result.stopBreach) {
     reasons.push(
-      "This plan is retired: price is through its stop. A fresh scan confirms it or replaces it, and Guided Mode only surfaces a plan that stands.",
+      "This plan is retired: its stop has broken. It stands again only if a bar closes back through the broken level by the usual allowance, or a new plan replaces it, and Guided Mode only surfaces a plan that stands.",
     );
   }
 

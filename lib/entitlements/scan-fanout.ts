@@ -113,13 +113,14 @@ export async function fanOutForProfile(
  * a live-price signal into a scan-cadence one is a real design decision
  * (which one should win, and when), not a wiring fix.
  *
- * Decided 2026-09-30 (project owner, F3.7): a breached stop retires the plan
- * until a later scan confirms or replaces it, so the scan is the authority and
- * it now reads the price against the stop itself (`lib/gann/stopBreach.ts`):
- * a plan whose stop the scan's price is through is Reject, lands in
- * `rejectedSymbols` and keeps the monitor INVALIDATED instead of re-arming it.
- * The two signals agree, and a scan run once price is back inside the stop is
- * what re-arms.
+ * Decided 2026-09-30 (project owner, F3.7): a breached stop retires the plan,
+ * and it returns only by Gann's own rule (a failed break, or a new plan from the
+ * new structure), so the scan is the authority and it now reads the price and
+ * the session's closed bars against the stop itself (`lib/gann/stopBreach.ts`):
+ * a broken plan is Reject, lands in `rejectedSymbols` and keeps the monitor
+ * INVALIDATED instead of re-arming it. The two signals agree, and a scan run
+ * once a bar has closed back through the reclaim line, or that prices new
+ * levels, is what re-arms.
  */
 export async function evaluateMonitorsAndNotify(
   service: SupabaseClient,

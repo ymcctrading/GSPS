@@ -94,10 +94,35 @@ Four separate teachings bear on this. Each is quoted from the read, with the sou
 
 **Decided 2026-09-30 (project owner):** "A breach retires the plan, until an updated scan is run and a
 plan is either confirmed or an updated plan replaces the original." That is option A below with the
-way back in made explicit: the next scan, run with price inside the stop, either confirms the same
-plan (a poke that closed back inside) or prices a new one (the structure has moved). It is built as
-`lib/gann/stopBreach.ts` and `applyStopBreachHold` (`lib/scoring/score.ts`). Section "What was built"
-below says where. The options, as they were put to the owner:
+way back in made explicit. **Follow-up the same day, also the owner's:** "if Gann has his own version
+of confirmed or replaced, implement his rule, methodology instead ... it may not be a word for word
+replacement, but the sentiment/premise needs to align." He does, and it is what is built:
+
+- **Confirmed is a failed break.** The broken level changes sides (an old bottom becomes a top, NSTD
+  p. 13), so price returning to the old entry is a test of resistance, not a second chance at the buy.
+  Only a rally that goes on through the broken level by his 3-point allowance shows the break was
+  false: after breaking an old bottom a stock "should not rally 3 points back above it" (NSTD p. 20),
+  rallies to old bottoms stop within 1-2 points (average 3) above it, and **more than 5 above means it
+  is going higher** (Master Course, the range rules, pp. 246-248). His close rule decides it: "still safer
+  to wait for a close beyond it ... intraday pokes often reverse by the close" (Master Course, rules
+  4 and 5, p. 7). So a broken plan stands again only when a **closed bar closes back through the
+  broken level by the allowance** (`reclaimLevel`, price-scaled by `lib/gann/pointScale.ts`, the same
+  "3 points" the exit rules use). A bar that wicks through the stop and closes back past that line is a
+  poke that reversed by the close, and is not a break at all. Price merely back between the stop and the
+  line does not reinstate the plan.
+- **Replaced is a new trade with a new stop.** He never resumes a stopped trade at its old levels: the
+  stop caught means the chart has reversed (Master Course, Overnight Chart rule 4); "if stopped, cover
+  and go long again" (NSTD Rule 6) is a new trade; in *Tunnel* he is stopped out at 225 and re-buys at
+  218, stop 212, for a stated reason. A new long needs a new bottom that holds (2-3 days in an active
+  market, NSTD p. 20) and a cross of an old top with a new stop 3 points under it; a short after a
+  broken bottom is sold on a small rally with the stop 3 points above the old bottom. That is what
+  `computeGannEntryTrigger` already reads from the swing chart on completed daily bars, and the swing
+  chart turns the moment the last swing bottom is broken, so once the break has made a daily bar the
+  scan prices a different plan (or none). Nothing resurrects the old plan; "replaced" needed no new
+  code beyond not reinstating it, and a replacement still earns its own entry confirmation.
+
+It is built as `lib/gann/stopBreach.ts` and `applyStopBreachHold` (`lib/scoring/score.ts`). Section
+"What was built" below says where. The options, as they were put to the owner:
 
 - **A. Gann-strict.** A breach of the stop retires that plan for good. It is only replaced by a new
   scan that produces new levels. Implementation: a stop-breach hold in the scan itself, beside
@@ -117,25 +142,30 @@ the last swing extreme breaks (`lib/gann/swingChart.ts`, parity stage B1), and t
 that extreme by Gann's own allowance, so a touch of it has already cleared his "lost motion". It is
 also his stop-caught rule. B is the fallback if the replay shows that a large share of breached
 stops close back inside by the end of the session; the replay can answer that before anything ships.
-Either ends the disagreement between the list and the chart.
+Either ends the disagreement between the list and the chart. (What was built is A for the break and Gann's
+own test of a false break for the way back in; see above.)
 
 **What was built (2026-09-30).**
 
 | Surface | Now |
 |---|---|
-| Live scan (`lib/scanTicker.ts`) | The price the scan ran at is read against the stop of the plan it priced. Through it: the verdict is Reject, `ScanResult.stopBreach` carries the stop and price, and `levels` still holds the retired plan so a person can see what broke. Applied outermost, after the other holds. |
-| Monitors (`evaluateMonitorsAndNotify`, the sweep) | No change to either. The scan now returns Reject for a breached plan, so the re-arm that caused F3.7 no longer happens; a scan run with price back inside the stop re-arms it, which is the owner's "confirmed". |
-| Symbol page | The signal card says "This plan is retired" and what to do; the chart (`ticker-view`, `public-chart`) draws no Entry/SL/TP/MTP lines for it; the order ticket blocks Protocol Recommended and keeps a live breach latched, keyed to the scan it was seen on, so price returning to the entry does not quietly un-retire it and a newer scan clears it. |
+| Live scan (`lib/scanTicker.ts`) | The price the scan ran at, and the session's closed execution bars, are read against the stop of the plan it priced. The plan is broken when price is through the stop, or a bar of the session traded through it and no bar since (the breaking bar included) has closed back through the reclaim line. Broken: the verdict is Reject, `ScanResult.stopBreach` carries the stop, the price and `reclaimAt`, and `levels` still holds the retired plan so a person can see what broke. Applied outermost, after the other holds. |
+| Monitors (`evaluateMonitorsAndNotify`, the sweep) | No change to either. The scan returns Reject for a broken plan, so the re-arm that caused F3.7 no longer happens; a scan run once a bar has closed back through the reclaim line re-arms it (a failed break), and a scan that prices new levels replaces it. |
+| Symbol page | The signal card says "This plan is retired", that the broken level now works the other way, the line a close has to get back through, and that otherwise a new plan replaces it; the chart (`ticker-view`, `public-chart`) draws no Entry/SL/TP/MTP lines for it; the order ticket blocks Protocol Recommended and keeps a live breach latched, keyed to the scan it was seen on (the scan is what reads the closes), so price returning to the entry does not quietly un-retire it. |
 | Lists | Unchanged: the one-way ratchet, and the grouped "broke their stop" / "No longer valid" dropdowns. A reload reads a fresh scan. |
 | Guided Mode (`lib/guided/eligibility.ts`) | Names the retirement first, ahead of the Reject it causes. |
-| Replay (`lib/backtest/replay.ts`) | A plan is read once per session (its stop from `computeTradeLevels`, the same pricing the verdict uses). The scan that arms a session reads the last close; every later closed candle of the session is read in turn. Through the stop: the plan is not entered for the rest of the session, a confirmation in progress starts over, and `retiredPlans` counts it. The next session's scan is the updated scan. The candle the entry fires on is left to the bracket walk. |
+| Replay (`lib/backtest/replay.ts`) | A plan is read once per session (its stop from `computeTradeLevels`, the same pricing the verdict uses). The scan that arms a session reads the last close; every later closed candle of the session is read in turn. Through the stop: the plan is not entered and a confirmation in progress starts over, until a closed candle closes back through the reclaim line (a failed break), when it stands again. `retiredPlans` counts each plan that was ever retired. If no candle reclaims, it stays out for the session and the next session's read of the swing chart replaces it. The candle the entry fires on is left to the bracket walk. |
 | `STRATEGY_VERSION` | `2026-09-30-stop-breach-retired`. Runs before it entered plans the live scan now retires. |
 
-Two differences between the live scan and the replay are deliberate and labelled. The live read is
-point-in-time (price at scan time against the stop) and the replay's is by path (any earlier candle),
-because the replay has no scan cadence to consult; and the replay retires for the rest of the
-session, where a live on-demand scan can reinstate a plan sooner. Both lean toward entering less, not
-more.
+Two differences between the live scan and the replay are deliberate and labelled. The live read
+takes the price at scan time plus the session's closed bars, the replay reads candle by candle, and
+both apply the same closing test. The live scan sees only the current session: a break that has
+already made a completed daily bar has turned the swing chart and the scan prices a different plan
+from it, which is the "replaced" case. The reclaim line's allowance is Gann's "3 points" price-scaled
+(`lib/gann/pointScale.ts`), which is about 5% at $100 and 2.6% at $500, so it is a wide line; he also
+says more than 5 points above means going higher, so a stricter line is defensible. It is an
+engineering reading of his 3 (his lower figure, the one his false-break rule names), and it is the
+number to tune if the replay shows reinstated plans failing.
 
 **Not built, and why.** The `trade_plans` lifecycle still has no pre-entry "invalidated" transition.
 `lib/lifecycle/reaper.ts` and `lib/lifecycle/types.ts` say the spec pack needs counsel review before
