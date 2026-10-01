@@ -4,7 +4,7 @@
 |---|---|
 | Tier | A (Gann's own promotional booklet; contains third-party letters and accountant statements) |
 | Copyright | 1954 booklet; reprint by Lambert-Gann. **Do not reproduce**; synthesis only |
-| Source file | Drive scan, 8 pp.; text recognised (heavily garbled in the testimonial columns) |
+| Source file | Drive scan (`661617074-WD-Gann-1954-Economic-Forecaster.pdf`), 10 PDF pages = covers + 16 printed pages in two-page spreads. Re-read in full by OCR on 2026-10-01, testimonials included; additions are in `docs/memory-bank/reading-log/other_gann_books_pictures.md` (the Master Calculators "Numbers 9 and 12", the Dollar Trend chart, the mass-pressure chart sent with every Master Course, the 1954 course list, the April 5, 1954 cycles essay). |
 | Read status | **Read in full** (2026-09-27) |
 
 ## Content by section
