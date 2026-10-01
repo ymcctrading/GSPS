@@ -23,6 +23,7 @@
   - 360 = 2½ × 144, and 180 = 1¼ × 144.
   - As fractions of 144: 9 = 1/16, 18 = ⅛, 27 = 3/16, 36 = ¼, 45 = 5/16, 48 = ⅓, 54 = ⅜, 63 = 7/16, 72 = ½, 81 = 9/16, 90 = ⅝, 99 = 11/16, 108 = ¾, 117 = 13/16, 126 = ⅞, 135 = 15/16.
 - **Chart order.** The daily chart gives the first indication, the weekly (7-day) chart is next, and the monthly chart matters most for the main trend.
+- **The Master Time Factor, named once (p. 3).** The lesson tells the student to apply the calculator's rules together with the Master Time Factor and geometric angles. It never says what the Master Time Factor is, and the term appears nowhere else in the course. The Gann Study Group compilation (A13) reads this as a sign that buyers were told privately. Nothing here discloses it (correction C-A13-3).
 - **Price factors.** Three factors: price; time and volume; and pitch (the angle). Four factors: price, time, volume and velocity. Time comes first, because when time is up volume and velocity increase.
 - **Five factors of a bar:** high, low, half-way point, open and close.
   - A close above the half-way point, or near the high, means the trend is up, especially in an active market. Below it means down, at least temporarily.

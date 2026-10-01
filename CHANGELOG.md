@@ -7,6 +7,23 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-10-01
+
+### Documentation (Gann sources)
+
+- **A13, the Master Time Factor compilation** (Gann Study Group, 2014),
+  filed with the Gann sources. It confirms the Master Time Factor was never
+  disclosed, so it adds nothing to build. It does add three corrections:
+  the 1908 date is a biographer's, the November 1935 lesson never names it,
+  and the 1953 calculator lesson names it once without defining it.
+- **B15, Global View Technology's 2002 Square of Nine and Hexagon help
+  pages.** A secondary source, checked against `squareOf9.ts` and the B12
+  workbook. No new Gann source.
+- **G26 proposed:** the Hexagon Chart's time counts stated in Gann's
+  January 1931 text. Held for the owner.
+- Code comments that called Ch. 7's cycles "the Master Time Factor" were
+  corrected. No behaviour change.
+
 ## 2026-09-30
 
 ### Added (Gann parity: the Master Calculator and the planetary averages)

@@ -16,6 +16,8 @@ The goal is that every rule Gann **disclosed** runs in GSPS the way he stated it
    - *Face Facts America!* (1940)
    - the 1929 Annual Forecast's sales pages
 
+   **Confirmed 2026-10-01 (A13).** The Gann Study Group's 2014 compilation gathers every statement Gann made about the Master Time Factor: letters, interviews, books and about 40 advertisements from 1921 to 1946. Each says what it does (when cycles repeat, when time runs out, when accumulation or distribution is under way), and none says how. The 1922 interview and *Truth of the Stock Tape* call it a secret, and the 1953 calculator lesson names it once without defining it.
+
    What survives is his **disclosed** time rules (cycle hierarchy, anniversaries, fractions of time, the permanent calendar, counter-move durations) and his **forecasts**. His forward record with the undisclosed method is mixed: the 1929 call was a hit he chose to reprint, and the 1940 war and economy calls mostly missed (master report M7). **GSPS can copy the disclosed rules exactly. It cannot copy the secret, and nothing in our files lets us reconstruct it.**
 2. **Some illustrations are lost.** The Hexagon and Square of 20 plates, and the Master Course chapter figures, don't survive. The modules built on them stay research-only (AGENTS.md, orphan audit item 7).
 3. **Magnitudes don't port literally.** "3 points," "5 cents," "9 points on the Dow" are 1920s–50s share and commodity prices. Gann himself scaled stops and moves to price level (A8's price-scaled cotton-seed-oil stops; the 1951 "normal move = 1/16 of price"). GSPS ports **the rule** and scales **the number**, and says so each time. `combineNearbyLevels` is the standing worked example.
@@ -35,7 +37,7 @@ The goal is that every rule Gann **disclosed** runs in GSPS the way he stated it
 
 | Domain | Aligned | Partial | Conflict | Missing | Other |
 |---|---|---|---|---|---|
-| Time | 17 | 0 | 0 | 0 | 1 research-only |
+| Time | 17 | 0 | 0 | 1 (hexagon counts, G26) | 1 research-only |
 | Price and levels | 10 | 0 | 0 | 0 | — |
 | Trend | 11 | 0 | 0 | 0 | — |
 | Entries, stops, exits, lifecycle | 11 | 1 (pyramiding not automated) | 0 | 0 | — |
@@ -43,7 +45,7 @@ The goal is that every rule Gann **disclosed** runs in GSPS the way he stated it
 | Risk and money management | 6 | 0 | 0 | 0 | — |
 | The trader (education) | 4 | 1 | 0 | 0 | — |
 | Astrology, numerology, forecasting | 1 | 0 | 0 | 3 (research) | 2 excluded, 1 cannot be copied |
-| **Total (73 rules)** | **64** | **2** | **0** | **3** | **4** |
+| **Total (74 rules)** | **64** | **2** | **0** | **4** | **4** |
 
 Counts are rows in Part 3, recounted from the row statuses late on 2026-09-28 (the earlier total of 74 was off by one). "Aligned" includes rules built as measured context that the next full run will decide on.
 
@@ -81,7 +83,8 @@ Each row gives the rule and its source, what GSPS does now, the status, and the 
 | The day as a circle, 15° an hour from 6 AM (the plate's clock; the "day quarters") | B12 / A12 plate; A2.1 Ch. 14 | **Built 2026-09-30 (owner: "I always defer to Gann's method"):** `dayCircle.ts`, Gann's clock as drawn (0° = 6:00 AM New York time, 15° an hour; the session is 52.5°–150°). Live card and trace at scan time; replay factors at each entry bar (`entryOnDayCircleMajor`, `entryPriceOnDayTimeAngle`) | Aligned (context, measuring) | Decide on the next full run |
 | Squares of time: Master 12, Square of 52, 36 angle month-counts | A2.1 Ch. 7, 13, 14 | `masterTwelve.ts`, `squareOf52.ts`, `angleMonthCounts.ts` (confluence) | Aligned | — |
 | Decade-digit bull/bear years | A2.1 Ch. 7 | `decadeCycle.ts` (confluence) | Aligned | — |
-| Square of 20 and Hexagon | A2.1 Ch. 7, 15B | research-only | Research-only | Keep, unless new source material appears |
+| Square of 20 and Hexagon | A2.1 Ch. 7, 15B | research-only | Research-only | Keep, unless new source material appears. 2026-10-01: B15's hexagon drawing is the B12 reconstruction again, not Gann's plate |
+| The Hexagon Chart's time counts stated in Gann's text (ring completions, the second series, 60/66, 127 and 169 months) | A2.1 Ch. 15A/15B (Jan 1931) | `hexagonChart.ts` only (research-only) | Missing | Candidate G26: the counts don't need the lost plate. Held for the owner |
 
 ### 3.2 Price and levels
 
@@ -177,7 +180,7 @@ Each row gives the rule and its source, what GSPS does now, the status, and the 
 | Eclipse longitudes | B05 only (not in A02/A04) | none | Excluded until a Gann source is found | C-A4-2 |
 | Gann's sacred numbers (3, 7, 9, 12…), digital root | A10; blueprint | `digitalRoot.ts` confluence | Aligned (confluence only) | — |
 | Name and letter-count numerology; per-market price-to-degree scales chosen ad hoc | A2.1 Ch. 15A; A03 | none | Excluded | No validatable rule; multiple-comparisons pattern |
-| The undisclosed Master Time Factor forecast | A04; A07 | none | Cannot be copied | See Part 1 |
+| The undisclosed Master Time Factor forecast | A04; A07; A13 | none | Cannot be copied | See Part 1. A13 (2026-10-01) confirms nothing about its working was ever disclosed |
 
 ---
 

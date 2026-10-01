@@ -406,6 +406,8 @@ Input: daily high/low. State: current direction, current chart level, last recor
 
 ---
 ## Ch. 7 — *Master Time Factor and Forecasting by Mathematical Rules* + *How to Trade* (pp. 214–236; lesson pages F-1…F-21; signed **November 1935**)
+
+> **Title caveat (2026-10-01, A13, correction C-A13-2).** Gann headed this lesson "Forecasting" (hence pages F-1…F-21). The longer title is the compilation's. Neither "Master Time Factor" nor "time factor" appears in the lesson. Its cycle hierarchy is disclosed and built. Calling it the Master Time Factor, or its "outer shell", is an inference, not Gann's statement.
 "Everything moves in cycles as a result of the natural law of **action and reaction**." "There must always be a major and a minor, a greater and a lesser, **a positive and a negative**."
 ### Major time cycles — the 1935 hierarchy (F-1/F-2)
 | Cycle | Gann (1935) |

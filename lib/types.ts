@@ -104,7 +104,7 @@ export interface GannLevels {
   /** Upcoming fixed-calendar dates of interest (ISO date strings). See `timeCycleFixedCalendarActive`. */
   timeCycleFixedCalendarDates?: string[];
   /**
-   * Yearly Master Time Factor cycles landing on the current month, counted
+   * Yearly Ch. 7 cycles landing on the current month, counted
    * from major lows / highs on the monthly chart (`yearCycleConvergence`,
    * lib/gann/timeCycles.ts). The half of the time-cycle method the daily
    * `timeCycle*` fields above cannot reach on a year of daily bars. Display

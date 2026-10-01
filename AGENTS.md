@@ -208,6 +208,12 @@ time (`squareOfNineTime.ts`) and the day as a circle (`dayCircle.ts`). Owner on
 the clock: "I always defer to Gann's method", so it is used as drawn: 0° = 6:00
 AM New York time, 15° an hour. All three are measured context; verdicts and
 trades are unchanged, so `STRATEGY_VERSION` stays.
+**The Master Time Factor, 2026-10-01** (owner: "save it with the rest of
+Gann's method"). The Gann Study Group's 2014 compilation of every statement
+Gann made about it is filed as source A13. It confirms the method was never
+disclosed: each statement says what it does, and none says how. Nothing in
+it can be built. Gann's November 1935 "Forecasting" lesson (A2.1 Ch. 7)
+never uses the term, so don't call its cycles the Master Time Factor.
 
 ## WD Gann precedence — standing principle
 

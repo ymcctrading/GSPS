@@ -472,6 +472,10 @@ Every item below is an **open recommendation**. Items that touch scoring, gating
     - Never short a stock whose reactions last no more than a month.
     - Pyramid every 10 points, with the stop trailed under the prior month's low.
 25. **G25 — First-year-high leadership filter** (A04 Ch. VII). A stock must cross the high of the campaign's first year (or 3 points above it) before it can lead a later section. A scanner ranking and context field.
+26. **G26 — The Hexagon Chart's time counts, from Gann's text** (A2.1 Ch. 15A/15B, January 1931; reprinted in B15).
+    - The counts: the ring completions 7, 19, 37, 61, 91, 127, 169, 217, 271, 331, 397; the second series 2, 9, 22, 41, 66, 97, 134, 177, 226, 281, 342; the 60th and 66th months; 127 months (10 yr 7 mo) and 169 months (14 yr 1 mo).
+    - Gann names them as points in time measurement for days, weeks, months and years. The numbers are stated in his text, so they don't depend on the lost plate. The plate is needed only to say *which angle* a number sits on.
+    - They live today only in `hexagonChart.ts`, which is research-only. A candidate time count, read like `squareOfNineTime.ts`, under the owner's 2026-09-30 direction. Held for the owner's go-ahead (proposed 2026-10-01).
 19. **G19 — Wheel angle from prior extremes** (Master Egg Course, quoted in B05). Place each prior high and low on a 360-unit price wheel and treat prices at 0/90/120/180 from them as levels. Research and confluence only, since the illustrations are lost (same caveat as `squareOf20.ts`).
 
 ### Measurement-method enhancements (cycle literature; confluence and diagnostics only)
@@ -510,6 +514,9 @@ Not low priority, and not first. Where Gann himself names the technique and our 
 - **Excluded regardless:** per-market price→degree scales chosen without derivation (Part I §9), and non-Gann astrology (B06, B07, B11) except as test-method reference.
 
 ### Documentation corrections
+- **C-A13-1 — The August 8, 1908 discovery is not named by Gann as the Master Time Factor.** The link is Les Clemens' (1995). Gann's earliest dated use of the name is a letter of July 9, 1927. Corrected in A11's note.
+- **C-A13-2 — The November 1935 lesson (A2.1 Ch. 7) is headed "Forecasting"** and uses neither "Master Time Factor" nor "time factor". The longer title is the compilation's. Its cycles are disclosed rules, and calling them the Master Time Factor is our inference. Corrected in A2.1's note and the catalog.
+- **C-A13-3 — The 1953 calculator lesson names the Master Time Factor once (p. 3), undefined.** Added to A12.
 - **C-A12-1 — "CE AVERAGE" is "COE AVERAGE"** in the March 20, 1954 letter (A12 §4). Corrected in A2.3's note and the catalog.
 - **C1 — AGENTS.md "20-year Master Time Period among cycles"** (in "The scorecard's role"). Gann's "Great Cycle / Master Time Period" is **20 (1931), 60 (1935), 56¾ (1953) or 90 (1955) years depending on the lesson**. The sentence's point (a ranking exists *within* the cycle technique) stands. Correction: cite the lesson and year, e.g. "the Master Time Period among cycles (20 years in the 1931 lesson; later lessons name 60, 56¾ and 90)."
 - **C2 — AGENTS.md "Dewey's seven-item checklist."** Record that Dewey's own list (*The Case for Cycles*, 1967) has 18 criteria. The seven are a working subset, and criteria 6 (changed conditions), 7 (out-of-sample) and 10 (significance) should be answered when a cycle claim is actually being validated.
@@ -543,6 +550,8 @@ Not low priority, and not first. Where Gann himself names the technique and our 
   - *45 Years in Wall Street* (A09)
   - *The Magic Word* (A10)
   - *Economic Forecaster* 1954 (A11)
+  - the Master Calculator lesson (1953), the circle of 360°, GA-32 and the March 20, 1954 letter (A12, 2026-09-30)
+  - *W. D. Gann on The Master Time Factor*, the Gann Study Group's 2014 compilation of every statement Gann made about it (A13, 2026-10-01). It confirms the Master Time Factor was never disclosed.
 - *Tier B:*
   - B01 Awodele; B02; B03/B03b
   - **B04 Reddy (all 200 pp.)**
@@ -552,6 +561,7 @@ Not low priority, and not first. Where Gann himself names the technique and our 
   - B08; B09; B10a–c; B11 Meadors
   - B12 (the workbook re-uploaded on 2026-09-27 is the same file: same name and 452,608-byte size)
   - B13; B14
+  - B15 Global View Technology help pages (2002), seven screenshots (2026-10-01)
 - *Tier C:* C01–C07
 - *Tier H:* **H01 Hauck, complete for this edition.** Chs. 1 and 3 are absent from the edition's body.
 
