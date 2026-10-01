@@ -1021,6 +1021,33 @@ reconstruction as B12, not Gann's lost plate. It reprints Gann's January
 1931 Hexagon lesson, which matches A2.1 Ch. 15A/15B. No new Gann source.
 Full note: `docs/memory-bank/sources/B15_global_view_technology_2002_square_of_nine_hexagon.md`.
 
+### B16. L. J. Jensen, *Astro-Cycles and Speculative Markets* (Library of Gann, 1978; from brochures of 1934–36)
+
+Read in full 2026-10-01 (154 pp.). Jensen never names Gann. The only link
+is the publisher. Section III ("Market Charts", 1934) is Gann's own
+January 1931 Pattern Chart, the Square of 90 with the same angle table,
+credited by Jensen to his partner George Liggett and to Virgil Moore. It
+corroborates Gann and adds worked examples. Sections I, II and IV are
+Jensen's own geocentric aspect method (Jupiter, Saturn, Uranus, the Moon's
+Node against 9° Gemini, the quintile family). It is not a decoding of
+Gann's astrology. Its dated planetary positions check out against
+`astronomy-engine`. Gives a fixed aspect-and-orb specification usable for
+testing Gann's Jupiter–Saturn aspects (AS3), and surfaced two gaps in
+Gann's own rules (G27, G28). Full note:
+`docs/memory-bank/sources/B16_jensen_astro_cycles_and_speculative_markets.md`.
+
+### B17. "The Market Geometry of Luther Jensen" (tradingwdgann.com, Arcanum Research)
+
+A course seller's article, read from 20 screenshots on 2026-10-01. It
+claims Jensen and Gann were colleagues (no evidence shown), and that
+Jensen's square-of-90 lines work through fixed "astral points" once tuned
+by an undisclosed Law of Vibration key. It also claims a decoding of "Gann's
+section on Descartes" in *Tunnel Thru the Air*: in the full text, Descartes
+is a doctor in the plot (pp. 244–246). Its visible mechanism (a line from
+each pivot, copied to the preceding opposite pivot) is Gann's own
+parallel-angle rule (A2.1 GA-12 to GA-16). Folded into gap G27. Full note:
+`docs/memory-bank/sources/B17_tradingwdgann_jensen_geometry_article.md`.
+
 ## Part C — General cycle-theory sources (non-Gann), from "Observation of
 Cycles"
 

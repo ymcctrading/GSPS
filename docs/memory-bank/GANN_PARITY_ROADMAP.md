@@ -38,14 +38,14 @@ The goal is that every rule Gann **disclosed** runs in GSPS the way he stated it
 | Domain | Aligned | Partial | Conflict | Missing | Other |
 |---|---|---|---|---|---|
 | Time | 17 | 0 | 0 | 1 (hexagon counts, G26) | 1 research-only |
-| Price and levels | 10 | 0 | 0 | 0 | — |
+| Price and levels | 9 | 1 (angles, G27) | 0 | 1 (G28) | — |
 | Trend | 11 | 0 | 0 | 0 | — |
 | Entries, stops, exits, lifecycle | 11 | 1 (pyramiding not automated) | 0 | 0 | — |
 | Volume | 4 | 0 | 0 | 0 | — |
 | Risk and money management | 6 | 0 | 0 | 0 | — |
 | The trader (education) | 4 | 1 | 0 | 0 | — |
 | Astrology, numerology, forecasting | 1 | 0 | 0 | 3 (research) | 2 excluded, 1 cannot be copied |
-| **Total (74 rules)** | **64** | **2** | **0** | **4** | **4** |
+| **Total (75 rules)** | **63** | **3** | **0** | **5** | **4** |
 
 Counts are rows in Part 3, recounted from the row statuses late on 2026-09-28 (the earlier total of 74 was off by one). "Aligned" includes rules built as measured context that the next full run will decide on.
 
@@ -102,7 +102,8 @@ Each row gives the rule and its source, what GSPS does now, the status, and the 
 | Double and triple tops within a price-scaled band; the 3rd test decides | A05; A8 p. 53 | **Built 2026-09-28:** `multipleTops.ts`: tests clustered per level; testing, crossed, or failed on the third test | Aligned (context, measuring) | Decide on the next full run |
 | The 4th test of a level goes through | A8 p. 43; A09 | **Stage A:** `readLevelTests` counts tests and notes that a 4th usually breaks; measured factors | Aligned (context, measuring) | G15: an invalidation or confluence field |
 | Square of Nine (180° = +1 root) | A2.1 Ch. 13 | `squareOf9.ts` | Aligned | Don't "fix" it to the D-levels table (C5) |
-| Gann angles / 1x1 | A2.1 Ch. 4 | `fans.ts`, `normalizedSlope.ts`, `gannAngleSlope` (scored) | Aligned (price unit ATR-scaled, documented) | — |
+| Gann angles / 1x1 | A2.1 Ch. 2 (Jan 1931), Ch. 4 | `fans.ts`, `normalizedSlope.ts`, `gannAngleSlope` (scored) | Partial (2026-10-01: five of Gann's angles on an ATR unit; the 3×1, 8×1, 16×1 and 1×3 are missing, and the unit should be the Gann point) | G27 |
+| The Master Chart of 360°: 48 divisions of 7½° and the division by 7 | A2.1 Ch. 15A | `circleOf360.ts` has the 1953 order only | Missing | G28 |
 | Price = time squaring | A2.1; A8 | `timePriceSquare` (scored) | Aligned | — |
 | Even figures (100, 200) attract orders; place orders ½–¾ off them | A04 Ch. I, V | **Built 2026-09-28:** `evenFigures.ts`: targets just before a figure and stops beyond one on every plan (live and replay); a notice on the card, chart and ticket (switchable); the portfolio manager holds entries into a figure unless the breakout is that figure (setting, default off); `roundNumberAhead` measured | Aligned | — |
 
@@ -176,7 +177,7 @@ Each row gives the rule and its source, what GSPS does now, the status, and the 
 |---|---|---|---|---|
 | Planetary averages (helio/geo, 6 planets and the 5 without Mars), the COE average and the MOF formula | A2.3 and A12 (letter of March 20, 1954); COE/MOF decoding Tier B (Walker, Ganntrader) | **Built 2026-09-30 (owner):** `planetaryAverages.ts` (astronomy-engine). Resistance points A + k × 360/N; the six, MOF and COE (helio and geo) nearest points join the S/R list on the live scan and the replay (`masterLevels.ts`); card, trace, measured factors (`onPlanetaryAverage`, `onSixPlanetAverage`, `onMOF`, `onCOE`) | Aligned (acting as price resistance; measuring) | Measure on the next run |
 | Active angles (a planet's longitude and its 90/120/180°) on the Circle Chart | A2.3 | none | Missing (research) | AS2 |
-| Jupiter–Saturn aspects; Saturn return; Mars half-return | A2.3; B03; A2.1 1931 lesson | none | Missing (research) | AS3, AS4 |
+| Jupiter–Saturn aspects; Saturn return; Mars half-return | A2.3; B03; A2.1 1931 lesson | none | Missing (research) | AS3, AS4. 2026-10-01: B16 (Jensen) supplies a fixed orb and aspect specification for a test |
 | Eclipse longitudes | B05 only (not in A02/A04) | none | Excluded until a Gann source is found | C-A4-2 |
 | Gann's sacred numbers (3, 7, 9, 12…), digital root | A10; blueprint | `digitalRoot.ts` confluence | Aligned (confluence only) | — |
 | Name and letter-count numerology; per-market price-to-degree scales chosen ad hoc | A2.1 Ch. 15A; A03 | none | Excluded | No validatable rule; multiple-comparisons pattern |

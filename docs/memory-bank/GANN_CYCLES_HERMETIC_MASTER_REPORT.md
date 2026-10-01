@@ -476,6 +476,13 @@ Every item below is an **open recommendation**. Items that touch scoring, gating
     - The counts: the ring completions 7, 19, 37, 61, 91, 127, 169, 217, 271, 331, 397; the second series 2, 9, 22, 41, 66, 97, 134, 177, 226, 281, 342; the 60th and 66th months; 127 months (10 yr 7 mo) and 169 months (14 yr 1 mo).
     - Gann names them as points in time measurement for days, weeks, months and years. The numbers are stated in his text, so they don't depend on the lost plate. The plate is needed only to say *which angle* a number sits on.
     - They live today only in `hexagonChart.ts`, which is research-only. A candidate time count, read like `squareOfNineTime.ts`, under the owner's 2026-09-30 direction. Held for the owner's go-ahead (proposed 2026-10-01).
+27. **G27 — Gann's full Pattern-Chart angle set on the Gann point** (A2.1 Ch. 2, Jan 1931, and Ch. 4, GA-4 to GA-11; surfaced by comparison with B16).
+    - `fans.ts` draws 1×4, 1×2, 1×1, 2×1 and 4×1 on an ATR unit.
+    - Gann's set runs from 16×1 to 1×16. He says to keep the **3×1 "at all times"** on monthly charts from any important bottom, and the 8×1 and 16×1 matter after long declines.
+    - The unit should be the Gann point (`pointScale.ts#gannPoint`), adopted 2026-09-30, not ATR.
+    - From every major pivot, with each angle also **copied to the preceding opposite pivot** (Gann's parallel angles, GA-12 to GA-16; Jensen pp. 112–113; the visible mechanism of the B17 article).
+    - Changes levels and the scored angle criterion, so held for the owner. If built, it is measured on the daily and the execution timeframe.
+28. **G28 — The Master Chart of 360°'s ÷48 (7½°) and ÷7 divisions** (A2.1 Ch. 15A; corroborated by B16's trine harmonics). Missing from `circleOf360.ts`. Measured context first.
 19. **G19 — Wheel angle from prior extremes** (Master Egg Course, quoted in B05). Place each prior high and low on a 360-unit price wheel and treat prices at 0/90/120/180 from them as levels. Research and confluence only, since the illustrations are lost (same caveat as `squareOf20.ts`).
 
 ### Measurement-method enhancements (cycle literature; confluence and diagnostics only)
@@ -505,6 +512,7 @@ Not low priority, and not first. Where Gann himself names the technique and our 
   - One price unit (the Gann point, one to a degree), fixed in advance. The Tier A averages' nearest points join the S/R list; all are measured context factors.
 - **AS2 — Active angles** (1954 letter): a transiting planet's longitude, plus its 90/120/180°, read as a price via the Circle Chart. Mikula's first-trade-horoscope reading is interpretive, so test it separately.
 - **AS3 — Jupiter–Saturn aspects** (1954 letter; 1948 chart; *Speculation* 1954 per B05): conjunction, square, trine, sesquisquare and opposition dates against pivot dates.
+  - **Specification available (2026-10-01, B16).** Gann gives no orbs. L. J. Jensen's published method (1935–78) fixes geocentric tropical positions, the aspect families and orbs: 5% each side, ±9° for the conjunction and opposition, ±2° for the quintiles. Adopting it before any test avoids an orb search. Jensen's ephemeris facts check out against `astronomy-engine`. His hit counts have no base rate.
 - **AS4 — Returns**: the Saturn return (A2.3; B03) and the Mars half-return from a pivot.
 - **AS5 — Eclipse longitude crossed by a planet** (attributed to *Truth of the Stock Tape* and *Stock Selector* by B05): interpretive, lower priority. **Correction C-A4-2 (2026-09-27):** both books were read in full, and neither mentions an eclipse, a planet, a zodiac sign or astrology. The attribution is Mikula's, not Gann's text. Cite AS5 to B05 only unless a Gann source is found.
 - **What A02/A04 do add to this track:**
@@ -562,6 +570,8 @@ Not low priority, and not first. Where Gann himself names the technique and our 
   - B12 (the workbook re-uploaded on 2026-09-27 is the same file: same name and 452,608-byte size)
   - B13; B14
   - B15 Global View Technology help pages (2002), seven screenshots (2026-10-01)
+  - B16 L. J. Jensen, *Astro-Cycles and Speculative Markets* (1978; all 154 pp., 2026-10-01). Its geometry is Gann's January 1931 Pattern Chart. Its astrology is Jensen's own.
+  - B17 tradingwdgann.com, "The Market Geometry of Luther Jensen" (20 screenshots, 2026-10-01). Its visible mechanism is Gann's parallel angles. Its "key" is undisclosed. Its "Descartes" reference is to a character in *Tunnel* (pp. 244–246), checked against the full text.
 - *Tier C:* C01–C07
 - *Tier H:* **H01 Hauck, complete for this edition.** Chs. 1 and 3 are absent from the edition's body.
 
