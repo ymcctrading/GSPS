@@ -7,6 +7,63 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-10-01
+
+### Documentation (Gann sources)
+
+- **A13, the Master Time Factor compilation** (Gann Study Group, 2014),
+  filed with the Gann sources. It confirms the Master Time Factor was never
+  disclosed, so it adds nothing to build. It does add three corrections:
+  the 1908 date is a biographer's, the November 1935 lesson never names it,
+  and the 1953 calculator lesson names it once without defining it.
+- **B15, Global View Technology's 2002 Square of Nine and Hexagon help
+  pages.** A secondary source, checked against `squareOf9.ts` and the B12
+  workbook. No new Gann source.
+- **G26 proposed:** the Hexagon Chart's time counts stated in Gann's
+  January 1931 text. Held for the owner.
+- Code comments that called Ch. 7's cycles "the Master Time Factor" were
+  corrected. No behaviour change.
+
+## 2026-09-30
+
+### Added (Gann parity: the Master Calculator and the planetary averages)
+
+- **Square of 144 Master Calculator** (`lib/gann/masterCalculator.ts`), from
+  Gann's lesson of Sept 29, 1953: price and time as positions in the square,
+  his strongest and triangle points, the five placements, time on the square's
+  change points, time and price square, squaring the low, high and range in
+  time, and the Great Cycle. Square ends and centres join the S/R list.
+- **Circle of 360°** (`lib/gann/circleOf360.ts`): Gann's ordered divisions,
+  the table of 64ths, natural-degree readings of moves and half-way points,
+  and GA-32's price on the degree of its time angle.
+- **Planetary averages, including the COE and MOF**
+  (`lib/gann/planetaryAverages.ts`, new dependency `astronomy-engine`, MIT):
+  the six major planets, the mean of five (MOF) and the circle of eight (COE),
+  heliocentric and geocentric. Their nearest resistance points join the S/R
+  list on the live scan and the replay (`lib/gann/masterLevels.ts`). Owner
+  decision recorded in AGENTS.md "Astrology".
+- The Gann point (`pointScale.ts#gannPoint`), one price unit for all three.
+- 15 new measured context factors; card tiles and trace lines.
+- `STRATEGY_VERSION` 2026-09-30-gann-calculator-planetary. Added scan time
+  measured at 0.07 ms per symbol (about 53 ms over 766 symbols) plus a
+  one-time 24 ms ephemeris load.
+
+### Added (Gann's Square of Nine plate, source note B12)
+
+- The sixteenths of the seasonal year at the plate's dates (Apr 12, May 27,
+  Jul 14, Aug 31, Oct 15, Nov 30, Jan 13, Feb 28), in `seasonalCounts.ts`.
+- `lib/gann/squareOfNineTime.ts`: the plate's lines in time, from the extreme
+  high and low.
+- `lib/gann/dayCircle.ts`: Gann's day clock (0° = 6:00 AM New York time, 15°
+  an hour), on the live card and at each replay entry.
+- 5 measured context factors. Context only; `STRATEGY_VERSION` unchanged.
+  Added scan time about 0.08 ms per symbol.
+
+### Fixed (documentation)
+
+- The March 20, 1954 letter names the "COE" average, not "CE".
+- `masterTwelve.ts` no longer claims its spiral is Gann's calculator.
+
 ## 2026-09-28
 
 ### Fixed (six-year diagnosis)

@@ -39,4 +39,10 @@
 // the replay's pyramid adds now fire; macro/decade cycles read as of the bar.
 // Third bump: Gann's three-adverse-closes exit reads the first three sessions
 // from the fill, as the source counts them, not any three closes in the trade.
-export const STRATEGY_VERSION = "2026-09-28-gann-first-days";
+// 2026-09-30 (owner: "zero gaps", COE and MOF "embedded throughout"): the S/R
+// list gains Gann's Square of 144 square ends and centres and the nearest
+// resistance points of his planetary averages (the six, the MOF and the COE,
+// heliocentric and geocentric), via lib/gann/masterLevels.ts on the live scan
+// and the replay. The Master Calculator's time readings, the circle of 360°
+// and the GA-32 time angle are new measured context, not scored.
+export const STRATEGY_VERSION = "2026-09-30-gann-calculator-planetary";

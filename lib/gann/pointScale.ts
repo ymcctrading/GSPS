@@ -50,3 +50,41 @@ export function gannThreePointsPct(price: number): number {
 export function gannThreePoints(price: number): number {
   return (price * gannThreePointsPct(price)) / 100;
 }
+
+/**
+ * One of Gann's points at this price, in dollars: his 3-point allowance ÷ 3.
+ * At $42.50, the middle of the band he wrote most of his stock rules for, it
+ * is exactly $1, his literal point.
+ *
+ * Added 2026-09-30 as the one price unit shared by the Square of 144 Master
+ * Calculator (`masterCalculator.ts`), the circle of 360° (`circleOf360.ts`)
+ * and the planetary averages (`planetaryAverages.ts`). Gann reads prices
+ * directly as positions in the square and as degrees in the circle ("9
+ * points on stocks", cents as degrees on grains), always on a chart scaled to
+ * the market's price level (the calculator's commodity scales; ½ point per
+ * space below $50, 1 point above $100). Porting the rule means reading price
+ * in points; porting the number means scaling the point, and this is the
+ * scaling the exit rules already use. Engineering choice, labelled as such.
+ */
+export function gannPoint(price: number): number {
+  return gannThreePoints(price) / 3;
+}
+
+/**
+ * The Gann point for a symbol, fixed from its bars rather than the current
+ * price so that levels computed in points stay put as price moves towards
+ * them. The reference is the gravity center of the bars' extremes, half-way
+ * between the lowest low and the highest high (Gann: "the gravity center",
+ * Master Calculator, 1953). Engineering choice, labelled as such.
+ */
+export function gannPointForBars(bars: { h: number; l: number }[]): number {
+  if (bars.length === 0) return 0;
+  let low = Infinity;
+  let high = -Infinity;
+  for (const b of bars) {
+    if (b.l < low) low = b.l;
+    if (b.h > high) high = b.h;
+  }
+  if (!(low > 0) || !(high >= low)) return 0;
+  return gannPoint((low + high) / 2);
+}

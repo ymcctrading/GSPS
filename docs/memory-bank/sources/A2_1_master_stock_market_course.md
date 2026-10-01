@@ -406,6 +406,8 @@ Input: daily high/low. State: current direction, current chart level, last recor
 
 ---
 ## Ch. 7 — *Master Time Factor and Forecasting by Mathematical Rules* + *How to Trade* (pp. 214–236; lesson pages F-1…F-21; signed **November 1935**)
+
+> **Title caveat (2026-10-01, A13, correction C-A13-2).** Gann headed this lesson "Forecasting" (hence pages F-1…F-21). The longer title is the compilation's. Neither "Master Time Factor" nor "time factor" appears in the lesson. Its cycle hierarchy is disclosed and built. Calling it the Master Time Factor, or its "outer shell", is an inference, not Gann's statement.
 "Everything moves in cycles as a result of the natural law of **action and reaction**." "There must always be a major and a minor, a greater and a lesser, **a positive and a negative**."
 ### Major time cycles — the 1935 hierarchy (F-1/F-2)
 | Cycle | Gann (1935) |
@@ -773,7 +775,7 @@ Instructions for a transparent overlay: a 144×144 grid ruled in 9-unit sections
 - **Midseason dates: May 5, Aug 5, Nov 8, Feb 4.** "Important changes in trend occur around these midseason dates." ⇒ compare with the fixed annual calendar in `lib/gann/timeCycles.ts`.
 - Scales for cotton, coffee, cocoa and eggs are given (commodity-specific; not ported).
 
-## Ch. 15A — *Master Charts* (pp. 387–398; undated, c. early 1931 by letterhead). Pages 399–417 are chart plates with no text in this source; the illustrations are lost.
+## Ch. 15A — *Master Charts* (pp. 387–398; undated, c. early 1931 by letterhead). Pages 399–417 are chart plates with no text in this source. **Not lost:** they are in the owner's PDF (`wdgannbook stock market course.pdf`), which was never opened (corrected 2026-10-01).
 "The Master Charts are **permanent** and represent natural angles and permanent resistance points for either price, time or volume. These points do not change."
 ### Master "12" Chart (Square of 12: squares end at 144, 288, 432, 576)
 - Applies to time, space, price or volume: points up or down, and days, weeks, months or years.
@@ -831,7 +833,7 @@ Instructions for a transparent overlay: a 144×144 grid ruled in 9-unit sections
 - "numbers do determine everything in the future." ⇒ Letter-count squares are **citably Gann's own technique** (so not "invented numerology" under AGENTS.md). But the method gives no validation and cannot clear Dewey's checklist. Under the Astrology/numerology policy it may exist **only as a labelled, non-gating confluence field**, like `digitalRoot.ts`. Recorded; not recommended for build ahead of the §18.4 sequencing.
 
 ## Ch. 15B — *The Hexagon Chart* (pp. 418–420; dated **January 1931**)
-A near-verbatim duplicate of the Hexagon section of 15A: the same ring completions, the 127-month and 169-month counts, the 22½ price/time equivalence, and the 20-year hexagonal cube. Its value is the **date** (Jan 1931), which fixes 15A's undated material to the same period. Plates on pp. 421–423 are not in the source text.
+A near-verbatim duplicate of the Hexagon section of 15A: the same ring completions, the 127-month and 169-month counts, the 22½ price/time equivalence, and the 20-year hexagonal cube. Its value is the **date** (Jan 1931), which fixes 15A's undated material to the same period. Plates on pp. 421–423 are not in the source text; they are in the owner's PDF, not yet viewed (2026-10-01).
 
 ## Ch. 16 — *Auburn Motors* (pp. 423–428; dated **May 9, 1931**) — a worked daily-chart angle example, the most concrete angle-trading walkthrough in the course
 ### Method as applied

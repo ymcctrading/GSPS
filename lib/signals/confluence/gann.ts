@@ -253,7 +253,8 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
   const slope = normalizedSlope(inputs.currentPrice, majorLow, atrAtAnchor, timeDisplacementBars);
   const angleSlope = slope !== null ? { slope, nearestAngle: nearestGannAngle(slope) } : null;
   const coordinateLedger = buildCoordinateLedger(inputs.dailyBars, inputs.currentPrice);
-  const disclosedRules = readDisclosedRules(inputs.dailyBars, inputs.currentPrice, inputs.instrument ?? null);
+  // The live read: the day clock is read at the moment of the scan.
+  const disclosedRules = readDisclosedRules(inputs.dailyBars, inputs.currentPrice, inputs.instrument ?? null, new Date(), new Date());
 
   const explanationTrace: string[] = [
     `Root: sqrt(anchor ${anchorPivot?.kind === "high" ? "high" : "low"} ${majorLow.toFixed(2)}) = ${root.toFixed(4)}.`,

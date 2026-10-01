@@ -11,7 +11,7 @@
 1. **Opening (p.2):** "you must have a well defined plan and must know the rules that have stood the test of time for 50 years or more… **eliminate guess work, hope and fear and follow rules**."
 2. **"W. D. Gann's record for 52 years"** (pp.2–6), a self-written chronology:
    - first commodity trade Aug 15 1902
-   - "Aug 8 1908 made one of his greatest mathematical discoveries" (the undisclosed "Master Time Factor")
+   - "Aug 8 1908 made one of his greatest mathematical discoveries" (the booklet does not name it; tying it to the Master Time Factor is Les Clemens' later reading, and Gann's earliest dated use of that name is a July 9, 1927 letter: A13, correction C-A13-1)
    - reprint of the 1909 *Ticker* article (A01)
    - forecast claims: 1914 war; 1918 armistice; 1919, 1921, 1922, 1929 ("end of bull market Sep 3 1929… a 'Black Friday'"); 1932 (bottom July 8); **Mar 1 1933 bottom "by the use of his Master Time Factor"**; Jul 17 1933 top; 1937; 1941 soybeans; Oct 15 1946 cotton
    - broker-statement trade records: 1933, 479 trades, 88% winners; 1934, 362 trades, 93% winners. **Self-published; not verifiable here.**

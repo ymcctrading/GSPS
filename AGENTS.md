@@ -196,6 +196,30 @@ not parity-complete while it only shows on a card: it has to act where Gann
 says it acts (trend, time, levels, entries, exits, education) on the live
 scan and the replay alike. Stage A/B2 were wired in accordingly;
 `STRATEGY_VERSION` is `2026-09-27-gann-trend-time-levels`.
+**Master Calculator and planetary averages, 2026-09-30 (owner: "zero gaps";
+"Execute").** From the full Square of 144 lesson (Sept 29, 1953), the circle
+of 360°, GA-32 and the March 20, 1954 letter (source note
+`docs/memory-bank/sources/A12_master_calculator_1953_and_1954_letter.md`):
+`lib/gann/masterCalculator.ts`, `circleOf360.ts`, `planetaryAverages.ts` (the
+COE and MOF, see "Astrology" below) and `masterLevels.ts`, which puts the
+square ends and centres and the planetary averages' nearest points in the S/R
+list on the live scan and the replay. The rest are measured context.
+`masterTwelve.ts`'s spiral is GSPS's own, not Gann's calculator.
+`STRATEGY_VERSION` is `2026-09-30-gann-calculator-planetary`. Prices are read
+in the Gann point (`pointScale.ts#gannPoint`, exactly $1 at $42.50).
+**Same day, from Gann's Square of Nine plate** (Vol. 3 p. 34 and the Cycles
+Research Institute workbook, source note B12, filed with the Gann sources):
+the sixteenths of the seasonal year (`seasonalCounts.ts`), the square read in
+time (`squareOfNineTime.ts`) and the day as a circle (`dayCircle.ts`). Owner on
+the clock: "I always defer to Gann's method", so it is used as drawn: 0° = 6:00
+AM New York time, 15° an hour. All three are measured context; verdicts and
+trades are unchanged, so `STRATEGY_VERSION` stays.
+**The Master Time Factor, 2026-10-01** (owner: "save it with the rest of
+Gann's method"). The Gann Study Group's 2014 compilation of every statement
+Gann made about it is filed as source A13. It confirms the method was never
+disclosed: each statement says what it does, and none says how. Nothing in
+it can be built. Gann's November 1935 "Forecasting" lesson (A2.1 Ch. 7)
+never uses the term, so don't call its cycles the Master Time Factor.
 
 ## WD Gann precedence — standing principle
 
@@ -1035,6 +1059,11 @@ into becoming assumed history:**
 
 ## Astrology — standing decision (2026-09-16, project owner direction)
 
+> **Superseded in part on 2026-10-01** by the owner's decisions recorded in
+> "Every Gann method acts" below: astrology from Gann and from Jensen now
+> acts, and the "never gate" and "confluence first" rules here no longer
+> bind it. The rest of this section (sourcing, the Dewey discipline) stands.
+
 Real historical evidence says Gann himself used astrology (`docs/
 GANN_HISTORICAL_SOURCES.md` A2.3's signed 1954 client letter — worked
 planetary-degree conversions, dated aspect-based forecasts). GSPS's policy
@@ -1090,6 +1119,93 @@ and in the memory-bank report.
   proven technique enters as a labelled confluence field first and does not
   gate a verdict. Promotion beyond confluence is a separate, recorded owner
   decision.
+
+**Owner decision, 2026-09-30: the planetary averages act, including the COE
+and MOF.** In the owner's words: "There should be absolutely zero gaps between
+Gann and GSPS. The CE average as well as the MOF formula should be
+implemented ... The algorithmic/equations/methodology need to be
+embedded/infused throughout the platform", then "Execute". This is the
+recorded decision the bullet above asks for, and it covers the planetary
+averages only (AS1). Built in `lib/gann/planetaryAverages.ts`:
+- Gann's letter of March 20, 1954 (Tier A) gives the six major planets and the
+  five with Mars left out, heliocentric and geocentric, as "the most powerful
+  points for time and price resistance", and names the **COE** average (not
+  "CE") and the MOF formula. Their definitions, the circle of eight and the
+  mean of five, are Tier B (Walker 2004; Ganntrader) and match the letter.
+- They act where Gann says they act, as price resistance: each Tier A
+  average's nearest points join the S/R list on the live scan and the replay
+  (`lib/gann/masterLevels.ts`), so they reach the historical S/R criterion and
+  plan stops and targets. They are also measured context factors.
+- The Dewey discipline still holds: the rule was fixed before any test (one
+  ephemeris, noon UTC, one price unit, the 360/N family, no scale or orb
+  search), and the next full replay measures it. If it inverts, presume a
+  translation defect first, per "Gann-derived AND measured".
+- Not covered by this decision, so still research-only: active angles,
+  aspects and returns (AS2–AS4), and any price-to-degree scale other than the
+  Gann point. Name them to the owner before building them to act.
+- No School lesson teaches them (owner: "we do NOT need to quote, or teach
+  them").
+
+## Every Gann method acts; Jensen's astrology is included — owner decisions, 2026-10-01
+
+Recorded in the owner's words, from the side chat, with the instruction
+"execute all five".
+
+1. **Jensen is included, whatever his link to Gann.** "forget establishing a
+   connection. being that his information is accurate. it needs to be
+   included into what we're building astrologically. This is the 'missing
+   piece' as far as forecasting goes with our scanner functionality." (L. J.
+   Jensen, *Astro-Cycles and Speculative Markets*, source note B16.)
+2. **The backend pinpoints astrological price and time points.** "if
+   astrology, and gann's own method say that price will reach a certain
+   point, based on astrology, our system (on the backend) should pinpoint
+   those points as well." The goal is the most accurate forecasting scanner,
+   across all 766 symbols and every timeframe from intraday to the decade.
+3. **Every Gann method acts.** "we have enough facts for every Gann method to
+   be implemented/act. no more watching, or background, or serving as
+   confluence." For Gann's own methods and for Jensen's astrology, this
+   supersedes:
+   - the Astrology section's "never gate" and "labelled confluence first"
+     rules
+   - the "measured context" placements recorded for individual modules (for
+     example the seasonal sixteenths, the time square, the day circle, the
+     circle readings, the Square of 144 time readings and the F1 extreme
+     rules)
+   - the "confluence-only" treatment in the Hermetic section, for techniques
+     that are citably Gann's own
+
+   It doesn't cover non-Gann material: Strategy Modes, the chart indicators
+   and the Sara/STRAT display stay as recorded. Each Gann method acts where
+   Gann says it acts (a level as a level, a time count as a time window, an
+   entry or exit rule as one). For Jensen's astrology the owner names the
+   placement item by item (asked on 2026-10-01, before the build).
+
+**Limits recorded with the decision.** These were raised in the side chat.
+They bound how the decision is built, not whether.
+- Only Jensen's planetary positions are verified (B16 §6). His market claims
+  are unmeasured.
+- Not every Gann method can be built, because nothing about it was disclosed
+  or survives:
+  - the Master Time Factor
+  - the Master Three-Dimension Chart
+  - the mass-pressure curve
+  - the lost plates
+  - the missing calculator chapters (Square of 90, Square of 52, Square of 67)
+  - name numerology
+- Gann gives no ranking between his techniques. How they combine when all of
+  them act is GSPS's design choice, labelled as such (see "The scorecard's
+  role").
+- Daily time points can swamp a verdict unless each one acts where Gann says
+  it acts. A time count marks a window for a turn; on its own it doesn't
+  make a setup.
+- The six-year one-hour run lost in every cell (2026-09-28). Every method
+  that acts is measured in the replay, and an inversion is presumed a
+  translation defect first.
+- A future date shown to a user needs its source, method and measured record
+  linked ("Forward-looking claims", 2026-09-28).
+- No performance claims.
+- The Dewey discipline holds: each rule is fixed before it is tested, with no
+  search over orbs, scales or planets.
 
 ## Strategy Modes — scoped exception to the non-Gann boundary (2026-09-23, project owner direction)
 

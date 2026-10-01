@@ -19,7 +19,7 @@
  * 0°/direct radial line: 1, 7, 19, 37, 61, 91, 127, 169, 217, 271, 331, 397.
  * These are named as time counts — e.g. 169 = 14 years 1 month, read as
  * "double our Cycle of 7 years" (14 years, to the month, is exactly double
- * the disclosed 7-year cycle from Chapter 7's Master Time Factor hierarchy).
+ * the disclosed 7-year cycle from Chapter 7's cycle hierarchy).
  *
  * **Historical precedent for multi-construction confluence, not just an
  * analogy to it.** Gann's own text cross-validates this chart against the
