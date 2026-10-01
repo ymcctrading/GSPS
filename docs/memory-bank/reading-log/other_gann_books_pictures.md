@@ -46,3 +46,32 @@ Started 2026-10-01 on the owner's instruction to read every remaining page in fu
     - **"With all Master Courses we send you a mass-pressure chart calculated for one year in the future."**
   - **A CPA letter of May 1954** (J. Zittrer) vouching for the booklet's historical record.
 - **What it adds to the build:** nothing new to implement. It names the 1954 tools (Master Calculators 9 and 12, the Three-Dimension Chart, the Dollar Trend, the mass-pressure chart) without disclosing them. The Dollar Trend corroborates the market-value gauge in Master Course Ch. 1.
+
+## *The Magic Word* (1950) — Drive `pdfcoffee.com_gann-w-d-the-magic-word-pdf-free.pdf`, 121 pp.
+
+The 12 pages without a text layer were viewed. They hold:
+- the title page (a Gann Study Group transcription) and the front and back covers (PDF 1–2, 121)
+- blank pages (3, 7, 13, 120)
+- the book's devotional word figures:
+  - the JEHOVAH word-triangle (I, AM, GOD, LOVE, FAITH, JEHOVAH) and the JEHOVAH letters in a circle of circles (17)
+  - the menorah, triangles and the list of "Seven letter words": Jehovah, Kingdom, Charity, Prayer, Forgive, Imanuel, Solomon (24)
+  - FORGIVE, PRAYER, FAITH, WORD, GOD, AM, I (40)
+  - two triangles, GOD … KINDNESS and GODLINESS … I (73)
+  - five growing triangles, with "Live, Love, Work, Wait on Word; do not think evil" (94)
+
+None has market content. A10 stands as read.
+
+## *45 Years in Wall Street* (1949) — Drive `pdfcoffee.com_-45-years-in-wall-street-gann-wd-1949-pdf-free.pdf`, 79 spreads
+
+- **Plates, pp. 134–146 (PDF 72–78), all viewed:**
+  - 134: Dow-Jones 30 Industrials **3-Day Chart A** (Nov 1940 – Aug 1943)
+  - 135: **3-Day Chart B** (Aug 1943 – 1946)
+  - 136: **3-Day Chart C** (1946–1949)
+  - 137–140: the **9-Point Swing Chart**, parts 1–4 (from 1912 to 1949), each swing dated
+  - 141–143: the **Dow-Jones 15 Public Utility Averages**, A and B
+  - 144: **Electric Bond & Share**, monthly
+  - 145: **Pan American Airways**, monthly
+  - 146: **Radio Corp**, quarterly
+
+  These are data plates for Ch. VII (the 3-Day and 9-Point Swing Charts) and Ch. XI (utilities and airlines). They add no rule; the construction is the one built in `swingChart.ts`.
+- **End matter, pp. 147–148:** Answers to Inquiries, read in full (recorded in A09). This printing ends on p. 148.
