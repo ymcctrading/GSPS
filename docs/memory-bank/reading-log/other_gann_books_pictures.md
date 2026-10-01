@@ -75,3 +75,49 @@ None has market content. A10 stands as read.
 
   These are data plates for Ch. VII (the 3-Day and 9-Point Swing Charts) and Ch. XI (utilities and airlines). They add no rule; the construction is the one built in `swingChart.ts`.
 - **End matter, pp. 147–148:** Answers to Inquiries, read in full (recorded in A09). This printing ends on p. 148.
+
+## *How to Make Profits in Commodities* (1951 printing) — Drive `pdfcoffee.com_w-d-gann-how-to-make-profits-trading-in-commodities-1951-4-pdf-free.pdf` (425 pp., no text layer) and `vdoc.pub_how-to-make-profits-in-commodities.pdf` (217 spreads)
+
+- **Charts, book pp. 329–366, every plate viewed.** There are **32 charts**, not 24. The A08 note listed "Charts No. 4–24"; the index of this printing (PDF 12–13, OCR'd) lists 1–32.
+  - **Charts 1–3** (Butter, Nov–Dec swings 1930–41; Cocoa, Sept swings 1925–41; Coffee–Santos, May D swings 1928–41) are **missing from the 425-page scan**, which jumps from book p. 328 to p. 332. They were viewed in the second scan (`vdoc`, PDF 176–177).
+  - **Charts 4–24** are the 1941 plates:
+    - Coffee–Rio May swings 1901–41
+    - Corn swings 1896–1951 (No. 5, with 1940s–1951 extended)
+    - Cotton July/Oct swings 1919–41 and monthly
+    - Cotton spots yearly 1816–1941
+    - Cotton-seed oil May/Oct 1904–41
+    - Eggs Oct/Dec 1930–41
+    - Hides Sept/Dec 1924–41
+    - Hogs (live) yearly 1898–1941
+    - Rye cash May swings 1914–41
+    - Lard cash 1868–1941
+    - Oats cash 1888–1941
+    - Rubber monthly 1928–41
+    - Silk Mar/Sept 1932–41
+    - Soy beans quarterly 1920–41
+    - **Soy beans 1- to 3-day moves 1940–41, with volume of sales and open interest drawn under the price** (No. 18)
+    - Sugar July swings 1915–41 and May monthly 1938–41
+    - Wheat swings 1841–1914, war swings 1914–41, and cash and May swings 1841–1941
+    - Wool quarterly 1912–41
+  - **Charts 25–32** were added in the 1951 printing, and are hand-drawn and hand-updated:
+    - Corn May swings 1940–55
+    - Soy beans May and November swings 1939–55
+    - Coffee May/July/Dec 1941–56
+    - Cotton October 1941–56
+    - Cotton-seed oil July/Oct 1940–55
+    - Eggs October 1941–55
+    - Rubber futures 1942–55
+    - Wheat May swings 1941–55
+
+    Their dates run to 1955–56, after Gann's death, so a later hand kept them current in this printing.
+- **What they show:** swing charts (one bar or line per swing, dated at each turn) for each commodity, the construction the text teaches. Chart 18 is the only plate that draws **open interest**. The text (A08) discusses volume, but GSPS reads no open interest; that applies to futures only, so it is not applicable to the equity scanner. No rule text appears inside any plate.
+- **Appendix, book pp. 367–412 (PDF 383–425), every page viewed.**
+  - lard 72 years, lard swings, oats swings, barley monthly
+  - hog–corn price ratio
+  - cotton spots and options, cotton futures volume
+  - cotton-seed oil prices and swings
+  - butter, cocoa, coffee and eggs (price tables and swings)
+  - hides, rubber, silk, sugar, wool
+  - crop records: wheat, corn, oats, barley, rye, buckwheat, potatoes, hay, soy beans, hogs, the pig crop, world cotton, cottonseed
+
+  The only prose is the crop commentary already in A08: record crops, and short crops followed by high prices, on Gann's "crop periods and time cycles". These are data tables and add no rule.
