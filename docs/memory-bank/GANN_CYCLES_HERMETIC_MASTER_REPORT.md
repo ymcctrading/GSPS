@@ -577,7 +577,15 @@ Not low priority, and not first. Where Gann himself names the technique and our 
 
 **What OCR cannot recover:** chart plates and rotated statistical tables (A02/A04 chart pages, A08 pp. 329–366 and the rotated appendix tables, A09 plates). They are data and illustrations, and the text states the rules they illustrate.
 
-**A7 *Face Facts America!* (1940):** read in full from the owner's upload (`sources/A07_face_facts_america_1940.md`). Every Gann source in the owner's folders has now been read.
+**A7 *Face Facts America!* (1940):** read in full from the owner's upload (`sources/A07_face_facts_america_1940.md`). ~~Every Gann source in the owner's folders has now been read.~~ **Corrected 2026-10-01: this was not true.** The text of the Gann books was read, with the gaps below, but most of their pictures were never looked at, and the Master Course PDF was never opened.
+- **Master Course** (`wdgannbook stock market course.pdf`, 464 pp., and its duplicate `wdgann method in detail.pdf`). A2.1 was read from a typed transcription (the `Gann master-course & synthesis.md` Google Doc), whose picture pages carry no text. Every illustration was missed, including Ch. 1's pp. 29–44 and the Ch. 15A/15B plates (pp. 399–417, 421–423) that A2.1 calls "lost". The PDF is too large for the Drive connector (download fails); it needs splitting.
+- ***45 Years in Wall Street*:** the chart plates (pp. 134–146) and the second half of p. 149.
+- ***How to Make Profits in Commodities*:** the chart plates (pp. 329–366, Charts 4–24).
+- ***Truth of the Stock Tape* and *Wall Street Stock Selector*:** the chart pages (OCR only).
+- ***New Stock Trend Detector*:** the chart pages, and the Chrysler worked-trades table that the scan lacks.
+- ***The Magic Word*:** 11 image pages.
+- ***Economic Forecaster* (1954):** 8 pages were read, but the catalog describes a 16-page booklet. Check the page count.
+- **Secondary:** Mikula Vol. 2's chart-only pages; Ingram's Elliott Wave paper (title page only; not Gann); Jensen's base and locality chart pages (B16, ~40 pages).
 
 **Recommended addition:** *The Kybalion* (1908, public domain), the actual text of the seven principles AGENTS.md uses.
 
