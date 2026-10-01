@@ -77,7 +77,7 @@ import { isLargeCapStock } from "@/lib/strat/large-cap";
 import { readLiquidity } from "@/lib/scan/liquidity";
 import { applyBreakawayHold, applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
 import { readBreakaway, type BreakawayReading } from "@/lib/gann/breakaway";
-import { isReclaimedByClose, isStopBreached, isStopBreachedByBar } from "@/lib/gann/stopBreach";
+import { RECLAIM_POINTS, isReclaimedByClose, isStopBreached, isStopBreachedByBar } from "@/lib/gann/stopBreach";
 import { readGannExit, type GannExitReason, type GannStopReason } from "@/lib/gann/exitRules";
 import { SCALE_OUT_PCT } from "@/lib/trade/protocol-exit";
 import { readPyramidAdd, type PyramidLot } from "@/lib/gann/pyramid";
@@ -257,6 +257,18 @@ export interface ReplayOptions {
    */
   exitRule?: "bracket" | "gann" | "gann-runner";
   /**
+   * How many of Gann's points a closed candle has to clear a broken stop by for
+   * the break to count as failed and the plan to stand again
+   * (`lib/gann/stopBreach.ts#reclaimLevel`). Defaults to `RECLAIM_POINTS` (3),
+   * the figure the live scan uses. This exists only so the stricter reading (5,
+   * `RECLAIM_POINTS_STRICT`: "more than 5 above means it is going higher",
+   * *Master Stock Market Course* pp. 246-248) can be measured against it
+   * before the live number moves. Pre-registered in
+   * `docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md` Part 5; 3 versus 5 are the
+   * only two values to run, and no other is searched.
+   */
+  reclaimPoints?: number;
+  /**
    * Under a Gann exit rule, add to winning trades on Gann's pyramiding rules
    * (`lib/gann/pyramid.ts`): half the last lot at each crossed swing top made
    * since it, once it shows a full risk unit of profit, with the whole
@@ -280,6 +292,9 @@ export interface ReplayOptions {
    */
   marketDailyBars?: Bar[];
 }
+
+/** Why an intraday-profile trade left (`lib/backtest/replayIntraday.ts`). */
+export type IntradayExitReason = "intraday_initial_stop" | "intraday_trailing_stop" | "intraday_trend_change";
 
 export interface ReplayTrade {
   symbol: string;
@@ -306,13 +321,14 @@ export interface ReplayTrade {
   direction: "bullish" | "bearish";
   entry: number;
   stop: number;
+  /** The first target. NaN (null in JSON) when the intraday profile names none: Gann fixes no target and the stop trails. */
   target: number;
   barsHeld: number;
   outcome: "win" | "loss" | "timeout";
   /** Lots held at the end, under `pyramid: true` (1 when nothing was added). */
   lots?: number;
-  /** Why the trade left, under `exitRule: "gann"`. Undefined under the bracket. */
-  exitReason?: GannStopReason | GannExitReason | "timeout";
+  /** Why the trade left, under `exitRule: "gann"` or the intraday profile. Undefined under the bracket. */
+  exitReason?: GannStopReason | GannExitReason | IntradayExitReason | "timeout";
   /** Realised result in units of the trade's own risk, after costs. */
   rMultiple: number;
   /** True when one bar covered both stop and target, and the loss was assumed. */
@@ -629,6 +645,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     roundNumberHold = false,
     entryRule = "stop",
     exitRule = "bracket",
+    reclaimPoints = RECLAIM_POINTS,
     pyramid = false,
     instrument,
     marketDailyBars,
@@ -753,7 +770,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
             brokenPlans.add(planKey);
             retiredSessionPlans.add(planKey);
           }
-          if (brokenPlans.has(planKey) && isReclaimedByClose(trigger.direction, planStop, closed)) {
+          if (brokenPlans.has(planKey) && isReclaimedByClose(trigger.direction, planStop, closed, reclaimPoints)) {
             brokenPlans.delete(planKey);
           }
         }

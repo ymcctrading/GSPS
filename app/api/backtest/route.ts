@@ -18,6 +18,13 @@
  *   ?entryRule=confirmed   fill on the full entry-confirmation sequence (how
  *                          automation enters) instead of the resting stop
  *                          (how the ticket/Guided enter). See ReplayOptions.entryRule
+ *   ?reclaimPoints=5       how many of Gann's points a close must clear a broken
+ *                          stop by for the plan to stand again: 3 (default, the
+ *                          live scan's figure) or 5 (the stricter reading). See
+ *                          ReplayOptions.reclaimPoints
+ *   ?profile=intraday      walk the replay-only intraday profile (Gann's rules read
+ *                          from the run's own bars, unscored) instead of the
+ *                          production method. See lib/backtest/replayIntraday.ts
  *   ?slippageSensitivity=1 also run the request at 3x cost-per-share and report
  *                          the expectancy delta — a second full fetch/replay,
  *                          off by default. See BacktestRequest.includeSlippageSensitivity
@@ -150,6 +157,20 @@ export async function GET(req: NextRequest) {
   }
   const entryRule = entryRuleRaw ?? undefined;
 
+  // Only the two pre-registered readings (docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md
+  // Part 5). Rejected rather than coerced, so no third value gets searched.
+  const reclaimPointsRaw = searchParams.get("reclaimPoints");
+  if (reclaimPointsRaw !== null && reclaimPointsRaw !== "3" && reclaimPointsRaw !== "5") {
+    return NextResponse.json({ error: `Invalid reclaimPoints '${reclaimPointsRaw}' (3 | 5)` }, { status: 400 });
+  }
+  const reclaimPoints = reclaimPointsRaw === null ? undefined : Number(reclaimPointsRaw);
+
+  const profileRaw = searchParams.get("profile");
+  if (profileRaw !== null && profileRaw !== "swing" && profileRaw !== "intraday") {
+    return NextResponse.json({ error: `Invalid profile '${profileRaw}' (swing | intraday)` }, { status: 400 });
+  }
+  const profile = profileRaw === "intraday" ? ("intraday" as const) : undefined;
+
   const productionStopRaw = searchParams.get("productionStop");
   const useProductionStop = productionStopRaw !== null && productionStopRaw !== "0" && productionStopRaw !== "false";
   const wantTrades = searchParams.get("trades") === "1";
@@ -194,6 +215,8 @@ export async function GET(req: NextRequest) {
         targetR,
         ...(since !== null ? { since } : {}),
         ...(entryRule ? { entryRule } : {}),
+        ...(reclaimPoints !== undefined ? { reclaimPoints } : {}),
+        ...(profile ? { profile } : {}),
       });
       const bucketTrades = scoreRange
         ? byScoreRange(run.overall, scoreRange[0], scoreRange[1]).trades
@@ -231,6 +254,8 @@ export async function GET(req: NextRequest) {
       ...(since !== null ? { since } : {}),
       ...(useProductionStop ? { useProductionStop } : {}),
       ...(entryRule ? { entryRule } : {}),
+      ...(reclaimPoints !== undefined ? { reclaimPoints } : {}),
+      ...(profile ? { profile } : {}),
       ...(includeSlippageSensitivity ? { includeSlippageSensitivity } : {}),
     });
     return NextResponse.json(report);

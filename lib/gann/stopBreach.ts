@@ -96,19 +96,46 @@ export function isStopBreached(direction: PlanDirection, stop: number | null, pr
 }
 
 /**
- * The line a rally back through the broken stop has to clear for the break to
- * count as false: the stop plus Gann's 3-point allowance for a long, minus it
- * for a short. The allowance is price-scaled (`lib/gann/pointScale.ts`), read at
- * the broken level's own price.
+ * How many of Gann's points a close has to clear the broken level by. Three is
+ * the figure his false-break rule names (NSTD p. 20: a stock "should not rally 3
+ * points back above" a broken bottom), and it is what the live scan uses. He
+ * also says a rally of more than five above an old bottom means it is going
+ * higher (*Master Stock Market Course*, pp. 246-248), so five is the stricter
+ * reading. Only the replay may vary it (`ReplayOptions.reclaimPoints`), to
+ * measure the two against each other before the live number moves; nothing in
+ * the live scan passes anything but this default.
  */
-export function reclaimLevel(direction: PlanDirection, stop: number): number {
-  const allowance = gannThreePoints(stop);
+export const RECLAIM_POINTS = 3;
+/** The stricter reading, for the replay's side-by-side. */
+export const RECLAIM_POINTS_STRICT = 5;
+
+/**
+ * The line a rally back through the broken stop has to clear for the break to
+ * count as false: the stop plus Gann's allowance for a long, minus it for a
+ * short. The allowance is his 3 points, price-scaled (`lib/gann/pointScale.ts`)
+ * and read at the broken level's own price, times `points / 3` when the replay
+ * asks for a different count.
+ */
+export function reclaimLevel(
+  direction: PlanDirection,
+  stop: number,
+  points: number = RECLAIM_POINTS,
+  /** Multiplies the allowance, for a chart finer than the daily one (the replay's intraday profile). 1 on every live path. */
+  scale: number = 1,
+): number {
+  const allowance = (gannThreePoints(stop) * scale * points) / 3;
   return direction === "bearish" ? stop - allowance : stop + allowance;
 }
 
 /** True when a bar's close has gone back through the broken level by the allowance. */
-export function isReclaimedByClose(direction: PlanDirection, stop: number, bar: Pick<Bar, "c">): boolean {
-  const line = reclaimLevel(direction, stop);
+export function isReclaimedByClose(
+  direction: PlanDirection,
+  stop: number,
+  bar: Pick<Bar, "c">,
+  points: number = RECLAIM_POINTS,
+  scale: number = 1,
+): boolean {
+  const line = reclaimLevel(direction, stop, points, scale);
   return direction === "bearish" ? bar.c <= line : bar.c >= line;
 }
 

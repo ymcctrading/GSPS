@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  RECLAIM_POINTS,
+  RECLAIM_POINTS_STRICT,
   isReclaimedByClose,
   isStopBreached,
   isStopBreachedByBar,
@@ -62,6 +64,19 @@ describe("reclaimLevel", () => {
   it("scales with the price, as he scaled his points", () => {
     const pctAt = (p: number) => (reclaimLevel("bullish", p) - p) / p;
     expect(pctAt(20)).toBeGreaterThan(pctAt(500));
+  });
+
+  it("defaults to his 3 points, and the replay can ask for the stricter 5", () => {
+    expect(RECLAIM_POINTS).toBe(3);
+    expect(RECLAIM_POINTS_STRICT).toBe(5);
+    expect(reclaimLevel("bullish", 88, RECLAIM_POINTS)).toBe(reclaimLevel("bullish", 88));
+    const three = reclaimLevel("bullish", 88) - 88;
+    expect(reclaimLevel("bullish", 88, 5) - 88).toBeCloseTo((three * 5) / 3, 10);
+    expect(88 - reclaimLevel("bearish", 88, 5)).toBeCloseTo((three * 5) / 3, 10);
+    // A close that clears three points does not clear five.
+    const close = { c: reclaimLevel("bullish", 88) + 0.01 };
+    expect(isReclaimedByClose("bullish", 88, close)).toBe(true);
+    expect(isReclaimedByClose("bullish", 88, close, 5)).toBe(false);
   });
 
   it("is won back on a close, not a touch", () => {

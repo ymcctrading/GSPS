@@ -753,6 +753,28 @@ describe("replay stop breach retires the plan", () => {
     expect(r.retiredPlans).toBe(0);
   });
 
+  it("measures the stricter reclaim line (5 points) apart from the live one (3)", () => {
+    const strictLine = reclaimLevel(direction, planStop, 5);
+    // The strict line sits farther from the broken level than the live one.
+    expect(Math.abs(strictLine - planStop)).toBeGreaterThan(Math.abs(line - planStop) + 0.6);
+    // A close that clears the live line but not the strict one.
+    const live = session([poke, reclaim, crossing, quiet]);
+    const standsAtThree = replay("TEST", live, { targetR: 2, dailyBars: DAILY, usePlanLevels: true });
+    const standsAtFive = replay("TEST", live, { targetR: 2, dailyBars: DAILY, usePlanLevels: true, reclaimPoints: 5 });
+    expect(standsAtThree.trades).toHaveLength(1);
+    expect(standsAtFive.trades).toHaveLength(0);
+    expect(standsAtFive.retiredPlans).toBe(1);
+    // A close that clears the strict line stands it at five too.
+    const reclaimFive = closingAt(strictLine + SIDE * 0.5);
+    const clears = replay("TEST", session([poke, reclaimFive, crossing, quiet]), {
+      targetR: 2,
+      dailyBars: DAILY,
+      usePlanLevels: true,
+      reclaimPoints: 5,
+    });
+    expect(clears.trades).toHaveLength(1);
+  });
+
   it("adds retired plans up across symbols", () => {
     const a = replay("A", session([poke, crossing, quiet]), { targetR: 2, dailyBars: DAILY, usePlanLevels: true });
     const b = replay("B", session([poke, crossing, quiet]), { targetR: 2, dailyBars: DAILY, usePlanLevels: true });
