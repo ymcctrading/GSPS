@@ -126,6 +126,26 @@ describe("SignalCard score breakdown", () => {
     expect(screen.queryByText("Score breakdown")).not.toBeInTheDocument();
   });
 
+  it("says so when a breached stop has retired the plan, and keeps what the plan was", () => {
+    // Owner decision, 2026-09-30 (lib/gann/stopBreach.ts): a breached stop
+    // retires the plan until a failed break confirms it or a new plan replaces it.
+    const result = { ...resultWithFullBreakdown(), stopBreach: { stop: 88, price: 85, reclaimAt: 92.5 } };
+    render(<SignalCard result={result} />);
+
+    expect(screen.getByText("This plan is retired.")).toBeInTheDocument();
+    // What has to happen for it to stand again, in the method's terms, and the flip.
+    expect(screen.getByText(/stands again only if a bar closes above \$92\.50/)).toBeInTheDocument();
+    expect(screen.getByText(/becomes resistance/)).toBeInTheDocument();
+    expect(screen.getByText(/Returning to the old entry does not reinstate it/)).toBeInTheDocument();
+    // The retired plan's levels stay readable, dimmed, so a person can see what broke.
+    expect(screen.getByText("Stop loss")).toBeInTheDocument();
+  });
+
+  it("shows no retirement notice on a plan whose stop stands", () => {
+    render(<SignalCard result={resultWithFullBreakdown()} />);
+    expect(screen.queryByText("This plan is retired.")).not.toBeInTheDocument();
+  });
+
   it("still shows the trade plan the card exists to carry", () => {
     render(<SignalCard result={resultWithFullBreakdown()} />);
 
@@ -144,7 +164,7 @@ describe("SignalCard score breakdown", () => {
     render(<SignalCard result={resultWithFullBreakdown()} />);
     // entry 100, takeProfit1 124 -> 24.0%; masterProfit 136 -> 36.0%.
     expect(screen.getByText("TP1 (24.0%)")).toBeInTheDocument();
-    expect(screen.getByText("Master (36.0%)")).toBeInTheDocument();
+    expect(screen.getByText("MTP (36.0%)")).toBeInTheDocument();
     expect(screen.queryByText(/TP1 \(.*R\)/)).not.toBeInTheDocument();
   });
 
@@ -153,6 +173,6 @@ describe("SignalCard score breakdown", () => {
     result.assetClass = "crypto";
     render(<SignalCard result={result} />);
     expect(screen.getByText("TP1 (2.0R)")).toBeInTheDocument();
-    expect(screen.getByText("Master (3.0R)")).toBeInTheDocument();
+    expect(screen.getByText("MTP (3.0R)")).toBeInTheDocument();
   });
 });

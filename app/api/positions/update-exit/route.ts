@@ -21,7 +21,7 @@ const UpdateSchema = z
   })
   .refine(
     (v) => v.stopLoss != null || v.takeProfit1 != null || v.masterProfit !== undefined,
-    { message: "Enter a new stop loss, TP1, and/or master profit to update." },
+    { message: "Enter a new stop loss, TP1, and/or MTP (master take profit) to update." },
   );
 
 export async function POST(req: NextRequest) {

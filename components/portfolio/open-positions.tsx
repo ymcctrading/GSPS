@@ -374,7 +374,7 @@ function ProximityBar({ leg }: { leg: EquityLeg }) {
           <div
             className="absolute top-1/2 h-2.5 w-0.5 -translate-y-1/2 bg-bull"
             style={{ left: `${clampPct(pct(leg.masterProfit))}%` }}
-            title={`Master Profit ${formatUsd(leg.masterProfit)}`}
+            title={`MTP (master take profit) ${formatUsd(leg.masterProfit)}`}
           />
         )}
         <div

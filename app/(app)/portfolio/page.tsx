@@ -644,7 +644,7 @@ function EditExitLevelsModal({
     if (masterProfit.trim() !== "") {
       const master = Number(masterProfit);
       if (!Number.isFinite(master) || master <= 0) {
-        setErr("Enter a valid master profit above zero.");
+        setErr("Enter a valid MTP (master take profit) above zero.");
         return;
       }
       if (master !== position.masterProfit) body.masterProfit = master;
@@ -727,7 +727,7 @@ function EditExitLevelsModal({
             />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-muted">Master profit</span>
+            <span className="text-muted">MTP (master take profit)</span>
             <Input
               type="number"
               min="0.01"

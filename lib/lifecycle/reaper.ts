@@ -13,16 +13,27 @@
  * rule, never wired to run" shape as the scan-list staleness bug this
  * follows up on (see CHANGELOG.md, 2026-09-08).
  *
+ * Owner decision 2026-09-30 (AGENTS.md finding F3.7): a breached stop retires
+ * the plan until Gann's own test confirms it (a failed break) or a new plan
+ * replaces it. The scan carries that rule (`lib/gann/stopBreach.ts`: the verdict
+ * is Reject, so the plan is never advanced and the monitor goes INVALIDATED).
+ * The pre-entry transition it needs on a stored plan, `retire`, was built
+ * 2026-10-01 (owner go-ahead) in `lib/lifecycle/retire.ts`, dispatched from the
+ * scan fan-out, not from here: this reaper is clock-driven and still dispatches
+ * no price-based transition. `retire` is the extension the paragraph below
+ * describes as needing counsel review, so it is dormant until a
+ * `preentry_plan_retirement` row is recorded in `compliance_signoffs`
+ * (`scripts/record-preentry-retirement-signoff.mjs`); with none, a retired plan
+ * simply expires on its clock, as before.
+ *
  * Deliberately narrow: this only dispatches the `expire` transition the spec
- * already defines for pre-entry states. It does NOT add a new price-based
- * invalidation rule for pre-entry plans (price already running past the stop
- * before the entry ever triggers) — extending INVALIDATED to apply pre-entry
- * would be a new business rule beyond what the "Trade Lifecycle, Exit &
- * Runner Engine" spec pack this module implements (see
- * `lib/lifecycle/types.ts`'s header) defines, and that spec's own header
- * flags the module as needing securities/compliance counsel review before
- * any such change ships. That decision is left to the product owner, not
- * made silently here.
+ * already defines for pre-entry states. A price-based invalidation for
+ * pre-entry plans (price already running past the stop before the entry ever
+ * triggers) is a new business rule beyond what the "Trade Lifecycle, Exit &
+ * Runner Engine" spec pack this module implements (see `lib/lifecycle/types.ts`'s
+ * header) defines, and that spec's own header flags the module as needing
+ * securities/compliance counsel review before any such change ships. That
+ * decision is left to the product owner and counsel, not made silently here.
  *
  * Also does not touch ACTIVE_STATES (post-entry) plans: `invalidate` there is
  * already dispatched reactively, from an actual broker/simulator stop fill

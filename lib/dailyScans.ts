@@ -7,8 +7,9 @@ import { createClient } from "@/lib/supabase/server";
 import { pricedBeforeSession, scanFreshness, type ScanFreshness } from "@/lib/scan/freshness";
 import { isInvalidatedByStop } from "@/lib/trade/invalidate-pending";
 import type { ScanRow } from "@/components/scan/results-table";
-import type { ScoreBreakdownItem } from "@/lib/types";
+import type { ScanDecision, ScoreBreakdownItem } from "@/lib/types";
 import type { PublicSignalSummary } from "@/lib/signals/publicSummary";
+import { toPublicScoreSummary } from "@/lib/scoring/public-summary";
 
 export type Direction = "bullish" | "bearish";
 
@@ -29,6 +30,7 @@ interface DailyScanRow {
     scannedAt?: string | null;
     currentPrice?: number | null;
     breakdown?: ScoreBreakdownItem[] | null;
+    trends?: { timeframe: string; direction: string }[] | null;
     signal?: PublicSignalSummary | null;
   } | null;
 }
@@ -61,6 +63,25 @@ function isInvalidated(r: DailyScanRow): boolean {
   return isInvalidatedByStop({ side, stop_price: r.stop_loss }, price);
 }
 
+/**
+ * The rollup the setup card lists under "What lined up". The stored `breakdown`
+ * is the scoring model written out longhand and stays on this side of the
+ * server/client boundary (`lib/scoring/public-summary.ts`); only the per-pillar
+ * counts are handed to the row. Null for a row persisted before the breakdown
+ * was kept, or one whose stored breakdown carries no pillars.
+ */
+function toScoreSummary(r: DailyScanRow): ScanRow["scoreSummary"] {
+  const breakdown = r.detail?.breakdown;
+  if (!Array.isArray(breakdown) || breakdown.length === 0) return null;
+  const decision: ScanDecision = {
+    score: r.score,
+    outputState: r.output_state as ScanDecision["outputState"],
+    breakdown,
+  };
+  const summary = toPublicScoreSummary(decision);
+  return summary.pillars.length > 0 ? summary : null;
+}
+
 function toRow(r: DailyScanRow): ScanRow {
   return {
     symbol: r.symbol,
@@ -82,6 +103,8 @@ function toRow(r: DailyScanRow): ScanRow {
     // that predates this field reads the same as the latter, which is the
     // closer of the two false readings.
     signal: r.detail?.signal ?? null,
+    scoreSummary: toScoreSummary(r),
+    trends: Array.isArray(r.detail?.trends) ? r.detail!.trends : null,
   };
 }
 

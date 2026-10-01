@@ -17,7 +17,12 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export type ComplianceFeature = "autonomous_live_trading";
+/**
+ * What a sign-off can authorize. `preentry_plan_retirement` gates the one
+ * lifecycle transition the spec pack does not define, a pre-entry plan going
+ * INVALIDATED when its stop breaks before it triggers (`lib/lifecycle/retire.ts`).
+ */
+export type ComplianceFeature = "autonomous_live_trading" | "preentry_plan_retirement";
 
 /**
  * True only if `compliance_signoffs` holds a row for `feature` with

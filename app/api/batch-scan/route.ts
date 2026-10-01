@@ -26,6 +26,7 @@ import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 import { finalizeUsageReservation, reserveUsageSlot } from "@/lib/entitlements/quota";
 import { selectVisibleResults, type RankedSetup } from "@/lib/entitlements/result-selection";
 import { evaluateMonitorsAndNotify } from "@/lib/entitlements/scan-fanout";
+import { retiredSignalsFrom } from "@/lib/lifecycle/retire";
 import { getUniversePolicy } from "@/lib/universe/policy";
 import type { ScanResult } from "@/lib/types";
 
@@ -158,6 +159,7 @@ export async function GET(req: NextRequest) {
         scanExecutionId,
         visible,
         rejectedSymbols,
+        retired: retiredSignalsFrom(results),
         maxActiveWatchMonitors: policy.maxActiveWatchMonitors,
       });
     }

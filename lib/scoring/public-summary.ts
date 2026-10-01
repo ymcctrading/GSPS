@@ -70,6 +70,13 @@ const CAPPED_STATE_NOTE =
 const DATA_LAG_STATE_NOTE =
   "The state is held lower because the price data behind it is a full execution bar or more behind the market. Confirm the trigger against a live quote before acting.";
 
+/**
+ * Also safe to name: it describes where price is against a stop the reader can
+ * already see on the setup, not anything inside the model.
+ */
+const STOP_BREACH_STATE_NOTE =
+  "This plan is retired: its stop has broken. It stands again only if a bar closes back through the broken level by the usual allowance (a false break), or a new plan from the new structure replaces it.";
+
 export function toPublicScoreSummary(decision: ScanDecision): PublicScoreSummary {
   const counts = new Map<ScorePillar, ScorePillarSummary>();
 
@@ -89,13 +96,20 @@ export function toPublicScoreSummary(decision: ScanDecision): PublicScoreSummary
 
   const holds = decision.breakdown.filter((item) => !item.pillar && !item.passed);
   const laggedOnly = holds.length > 0 && holds.every((item) => item.key === "dataLag");
+  const retired = holds.some((item) => item.key === "stopBreach");
 
   return {
     score: decision.score,
     max: pillars.reduce((sum, p) => sum + p.total, 0),
     pillars,
     stateNote:
-      holds.length === 0 ? null : laggedOnly ? DATA_LAG_STATE_NOTE : CAPPED_STATE_NOTE,
+      holds.length === 0
+        ? null
+        : retired
+          ? STOP_BREACH_STATE_NOTE
+          : laggedOnly
+            ? DATA_LAG_STATE_NOTE
+            : CAPPED_STATE_NOTE,
   };
 }
 

@@ -108,7 +108,7 @@ function EquityOrders({
               <TH className="text-right">P/L today</TH>
               <TH className="text-right">P/L %</TH>
               <TH className="text-right">TP1</TH>
-              <TH className="text-right">MP</TH>
+              <TH className="text-right" title="Master take profit">MTP</TH>
               <TH className="text-right">SL</TH>
               <TH className="text-center">Target hit</TH>
               <TH>Status</TH>
@@ -194,7 +194,7 @@ function OptionOrders({
               <TH className="text-right">P/L today</TH>
               <TH className="text-right">P/L %</TH>
               <TH className="text-right">TP1</TH>
-              <TH className="text-right">MP</TH>
+              <TH className="text-right" title="Master take profit">MTP</TH>
               <TH className="text-right">SL</TH>
               <TH className="text-center">Target hit</TH>
               <TH>Status</TH>

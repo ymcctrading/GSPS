@@ -79,6 +79,15 @@ describe("buildPostCloseReview", () => {
     expect(review.lessonTags).toContain("stop_or_invalidation_hit");
   });
 
+  it("tags a plan retired before it entered as a stop that broke first, not a position stopped out", () => {
+    const review = buildPostCloseReview(
+      closedPlan({ state: "invalidated", actualEntryPrice: null, actualEntryAt: null, closeReason: "retired" }),
+    );
+    expect(review.lessonTags).toContain("stop_broke_before_entry");
+    expect(review.lessonTags).not.toContain("stop_or_invalidation_hit");
+    expect(review.planAdherence).toBe("not_entered");
+  });
+
   it("carries the plan's own Rules Alignment evidence through unchanged", () => {
     const review = buildPostCloseReview(closedPlan());
     expect(review.alignment).toEqual({ score: 82, tier: "aTier", blueprintScoreBand: "ACTIONABLE", breakdown: [] });

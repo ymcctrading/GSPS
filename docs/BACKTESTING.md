@@ -236,6 +236,20 @@ shows up in the next run:
 
 - **`lib/scoring/score.ts`** — the nine criteria, the 7/4 bucket cutoffs, the
   bare-2-2 downgrade, and the decision-lag hold.
+- **`lib/gann/stopBreach.ts`** (2026-09-30) — a breached stop retires the plan,
+  which returns only by Gann's failed-break test. The replay does not enter a
+  plan whose stop an earlier candle of the session traded through (or whose stop
+  the session's last close was already through) until a closed candle closes
+  back through the broken level by his 3-point allowance, and reports how many
+  plans it ever retired as `retiredPlans`. `STRATEGY_VERSION`
+  `2026-09-30-stop-breach-retired`: runs before it entered those plans, so a
+  committed run on an older version measured a rule production no longer follows.
+  Two replay-only options sit beside it (2026-10-01), neither changing
+  production or `STRATEGY_VERSION`: `?reclaimPoints=3|5` (the reclaim allowance,
+  `ReplayOptions.reclaimPoints`) and `?profile=intraday` (Gann's rules read from
+  the run's own intraday bars, `lib/backtest/replayIntraday.ts`; unscored). Both
+  runs are specified, with their reading rules, in
+  `docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md` Part 5, and have not been made.
 - **`lib/scoring/proximity.ts`** — how close "near a level" is. These were fixed
   percentages of price (fan ≤1.5%, harmonic ≤1.0%, S/R ≤1.5%) and are now
   multiples of the instrument's own daily ATR, so a 7/9 means the same thing on

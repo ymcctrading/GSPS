@@ -16,6 +16,14 @@ export interface PublicSignalSummary {
   regime: Regime;
   direction: Exclude<Direction, "none"> | "sideways";
   tier: RulesAlignmentTier;
+  /**
+   * The Rules Alignment score, 0–100 — the same figure the Trade Reviews card
+   * shows for a closed plan and `redactScanResult` already lets across the API
+   * boundary as `alignment.score`. Optional because a row persisted before
+   * 2026-09-30 carries the tier alone. The setup cards (`lib/setups/card.ts`)
+   * show it when present.
+   */
+  alignmentScore?: number;
   tradeable: boolean;
   /** See `SignalVerdict`'s `accountContextAssumed` — false means this reading has real account gates behind it. */
   accountContextAssumed: boolean;
@@ -30,6 +38,7 @@ function toSummary(verdict: SignalVerdict): PublicSignalSummary {
     regime: verdict.regime.regime,
     direction: verdict.regime.direction,
     tier: verdict.alignment.tier,
+    alignmentScore: verdict.alignment.score,
     tradeable: verdict.tradeable,
     accountContextAssumed: verdict.accountContextAssumed,
   };

@@ -43,6 +43,8 @@ import { attributeByAtrMultiple, attributeFactors, type FactorAttribution } from
 import { computeRequiredMetrics, type RequiredMetrics } from "./metrics";
 import { STRATEGY_VERSION } from "./strategyVersion";
 import type { CriterionWeights } from "@/lib/scoring/weights";
+import { RECLAIM_POINTS } from "@/lib/gann/stopBreach";
+import { replayIntraday } from "./replayIntraday";
 
 /** Verdict buckets, plus the trades the score could not reach. */
 export type Bucket = "Execute" | "Watch" | "Reject" | "unscored";
@@ -121,6 +123,20 @@ export interface BacktestRequest {
   entryRule?: ReplayOptions["entryRule"];
   /** How open trades leave. See `ReplayOptions.exitRule`. Defaults to `"bracket"`. */
   exitRule?: ReplayOptions["exitRule"];
+  /**
+   * Points a close must clear a broken stop by to stand the plan again. See
+   * `ReplayOptions.reclaimPoints`. Defaults to 3, the live scan's figure.
+   */
+  reclaimPoints?: ReplayOptions["reclaimPoints"];
+  /**
+   * Which rule set walks the bars. `"swing"` (default) is the production
+   * method: the daily trigger, scored, timed on the run's bars. `"intraday"` is
+   * the replay-only intraday profile (`lib/backtest/replayIntraday.ts`), Gann's
+   * rules read from the run's own bars; it ignores `usePlanLevels`,
+   * `useProductionStop`, `entryRule`, `exitRule` and `pyramid`, and its trades
+   * are unscored. Nothing a person sees uses it.
+   */
+  profile?: "swing" | "intraday";
   /**
    * Also run the same request a second time at `slippageMultiplier` times the
    * cost-per-share and report the expectancy delta — the spec pack's
@@ -219,6 +235,10 @@ export interface BacktestReport {
   entryRule: "stop" | "confirmed";
   /** Echoes the request: a report has to say which exit rule produced it. */
   exitRule: "bracket" | "gann" | "gann-runner";
+  /** Echoes the request: points a close had to clear a broken stop by (3 is the live figure). */
+  reclaimPoints: number;
+  /** Echoes the request: which rule set walked the bars. */
+  profile: "swing" | "intraday";
   /**
    * The run split by the scan's two setup kinds. Continuations are published
    * only at Execute, so read that side together with the verdict buckets.
@@ -243,6 +263,13 @@ export interface BacktestReport {
    * stop or target, which production refuses (`fill_outran_bracket`).
    */
   refusedFills: number;
+  /**
+   * Session plans retired by a breached stop (owner decision, 2026-09-30;
+   * `lib/gann/stopBreach.ts`), whether or not a later closing candle reinstated
+   * them as a failed break. Runs before STRATEGY_VERSION
+   * `2026-09-30-stop-breach-retired` entered such plans.
+   */
+  retiredPlans: number;
   /** Setups armed and triggered across the run, for a fill-rate sanity check. */
   armed: number;
   triggered: number;
@@ -358,6 +385,8 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
     pyramid,
     entryRule,
     exitRule,
+    reclaimPoints,
+    profile = "swing",
   } = request;
 
   const sinceMs = since === undefined ? null : Date.parse(since);
@@ -376,6 +405,7 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
     ...(pyramid !== undefined ? { pyramid } : {}),
     ...(entryRule !== undefined ? { entryRule } : {}),
     ...(exitRule !== undefined ? { exitRule } : {}),
+    ...(reclaimPoints !== undefined ? { reclaimPoints } : {}),
   };
 
   const results: ReplayResult[] = [];
@@ -424,7 +454,15 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
       const instrument = reference
         ? { sharesHistory: reference.history, inception: reference.reference.inception }
         : undefined;
-      results.push(replay(symbol, bars, { ...options, dailyBars: daily, monthlyBars: monthly, instrument, marketDailyBars }));
+      results.push(
+        profile === "intraday"
+          ? replayIntraday(symbol, bars, {
+              ...(costPerShare !== undefined ? { costPerShare } : {}),
+              ...(reclaimPoints !== undefined ? { reclaimPoints } : {}),
+              dailyBars: daily,
+            })
+          : replay(symbol, bars, { ...options, dailyBars: daily, monthlyBars: monthly, instrument, marketDailyBars }),
+      );
       used.push(symbol);
     } catch (err) {
       skipped.push({ symbol, reason: err instanceof Error ? err.message : String(err) });
@@ -503,7 +541,7 @@ export function buildReport(
   request: BacktestRequest,
   slippageSensitivity?: SlippageSensitivity,
 ): BacktestReport {
-  const { attributeWithin = "Execute", attributeScoreRange, useProductionStop = false, usePlanLevels = false, entryRule = "stop", exitRule = "bracket" } = request;
+  const { attributeWithin = "Execute", attributeScoreRange, useProductionStop = false, usePlanLevels = false, entryRule = "stop", exitRule = "bracket", reclaimPoints = RECLAIM_POINTS, profile = "swing" } = request;
 
   const split = byOutputState(run.overall);
   const target = attributeScoreRange
@@ -541,6 +579,8 @@ export function buildReport(
     usePlanLevels,
     entryRule,
     exitRule,
+    reclaimPoints,
+    profile,
     setupKindSplit: {
       reversion: summarise(kindSplit.reversion),
       continuation: summarise(kindSplit.continuation),
@@ -554,6 +594,7 @@ export function buildReport(
     armed: run.overall.armed,
     triggered: run.overall.triggered,
     refusedFills: run.overall.refusedFills,
+    retiredPlans: run.overall.retiredPlans,
     attributeWithin: attributedLabel,
     ...(attributeScoreRange ? { attributeScoreRange } : {}),
     factors: attributeFactors(target.trades),

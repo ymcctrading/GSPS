@@ -1,14 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Trash2 } from "lucide-react";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { ScoreBadge } from "@/components/scan/score-badge";
 import { SaveSetupButton } from "@/components/scan/save-setup-button";
-import { SCANNER_STATE_META, type RulesAlignmentTier } from "@/lib/signals/types";
+import { SetupCardPanel, SetupNameButton, useCardStage } from "@/components/setups/setup-card";
 import type { PublicSignalSummary } from "@/lib/signals/publicSummary";
+import type { PublicScoreSummary } from "@/lib/types";
+import { buildDailyCardModel } from "@/lib/setups/card";
+import { formatScore, SCORE_MAX } from "@/lib/scoring/display";
 import { formatUsd, cn } from "@/lib/utils";
 import { tickerHref } from "@/lib/routes";
 import { useLiveQuote } from "@/lib/hooks/useLiveQuote";
@@ -39,14 +42,19 @@ export interface ScanRow {
    * that never asked the question at all.
    */
   signal?: PublicSignalSummary | null;
+  /**
+   * The publishable rollup of the score — points met per pillar, never which
+   * named condition decided it (`lib/scoring/public-summary.ts`). What the
+   * setup card lists under "What lined up". Absent on a row persisted before
+   * the card existed, in which case the card shows the score and the plan only.
+   */
+  scoreSummary?: PublicScoreSummary | null;
+  /** Higher-timeframe direction readings, for the card's "Higher timeframes" line. */
+  trends?: { timeframe: string; direction: string }[] | null;
 }
 
-const TIER_LABEL: Record<RulesAlignmentTier, string> = {
-  watchlistOnly: "Watchlist",
-  qualified: "Qualified",
-  aTier: "A-tier",
-  aPlusTier: "A+",
-};
+/** Symbol + Price + Entry + Exit + TP1 + MTP + Save. */
+const BASE_COLUMNS = 7;
 
 function rowKey(r: ScanRow): string {
   return `${r.symbol}-${r.direction}`;
@@ -128,13 +136,14 @@ export function ResultsTable({
               user scrolling right loses track of which row they're reading. */}
           <TH className="sticky left-0 z-10 bg-surface">Symbol</TH>
           <TH className="text-right">Price</TH>
-          <TH>Score</TH>
-          <TH>Setup</TH>
           <TH className="text-right">Entry</TH>
-          <TH className="text-right">Stop</TH>
+          <TH className="text-right" title="Exit: the stop-loss, the price that says the setup failed">
+            Exit (S/L)
+          </TH>
           <TH className="text-right">TP1</TH>
-          <TH className="text-right">Master</TH>
-          <TH>Signal Engine</TH>
+          <TH className="text-right" title="Master take profit">
+            MTP
+          </TH>
           <TH className="w-8" aria-label="Save" />
           {onRemove && <TH className="w-8" aria-label="Remove" />}
         </TR>
@@ -151,7 +160,7 @@ export function ResultsTable({
         ))}
         {dead.length > 0 && (
           <TR className="hover:bg-transparent">
-            <TD colSpan={onRemove ? 11 : 10} className="sticky left-0 z-10 bg-surface py-2 text-xs font-medium uppercase tracking-wide text-muted">
+            <TD colSpan={onRemove ? BASE_COLUMNS + 1 : BASE_COLUMNS} className="sticky left-0 z-10 bg-surface py-2 text-xs font-medium uppercase tracking-wide text-muted">
               No longer valid — price already broke the stop
             </TD>
           </TR>
@@ -293,88 +302,98 @@ function ResultsRow({
     onInvalidatedChange?.(rowKey(r), invalidated);
   }, [invalidated, onInvalidatedChange, r]);
 
+  const { stage, setStage, toggleName } = useCardStage();
+  const cardId = `setup-card-${rowKey(r).replace(/[^a-zA-Z0-9-]/g, "_")}`;
+  const model = buildDailyCardModel(r, {
+    scoreText: formatScore(r.score, exactScoreDisplayEnabled),
+    scoreMax: SCORE_MAX,
+    livePrice: quote?.price ?? null,
+  });
+  const columns = onRemove ? BASE_COLUMNS + 1 : BASE_COLUMNS;
+
   return (
-    <TR className={cn(invalidated && "opacity-60")}>
-      <TD className="sticky left-0 z-10 bg-surface">
-        <Link href={tickerHref(r.symbol)} className="font-medium text-accent hover:underline">
-          {r.symbol}
-        </Link>
-      </TD>
-      <TD className="text-right font-mono">
-        {quote != null
-          ? formatUsd(quote.price)
-          : r.currentPrice != null && r.currentPrice > 0
-            ? formatUsd(r.currentPrice)
-            : "—"}
-      </TD>
-      <TD>
-        <div className="flex flex-col items-start gap-1">
-          <ScoreBadge score={r.score} state={r.outputState} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
-          {invalidated && <Badge variant="bear">Invalidated</Badge>}
-        </div>
-      </TD>
-      {/* Four empty price columns need a reason on the row itself —
-          otherwise a scored symbol reads as a setup whose numbers failed
-          to load. No trigger armed means there is nothing to price. */}
-      <TD className="text-muted">
-        {r.entry == null ? (
-          <span className="italic">no trade plan</span>
-        ) : (
-          <>
-            {r.patternName ? `${r.patternName} ` : ""}
-            <span className={r.direction === "bullish" ? "text-bull" : r.direction === "bearish" ? "text-bear" : ""}>
-              {r.direction === "bullish" ? "Buy" : r.direction === "bearish" ? "Sell" : "—"}
+    <Fragment>
+      <TR className={cn(invalidated && "opacity-60")}>
+        <TD className="sticky left-0 z-10 bg-surface">
+          <div className="flex flex-col items-start gap-0.5">
+            <SetupNameButton symbol={r.symbol} stage={stage} controls={cardId} onToggle={toggleName} />
+            <span className="flex items-center gap-1.5 text-xs">
+              {r.entry == null ? (
+                <span className="italic text-muted">no trade plan</span>
+              ) : (
+                <span
+                  className={
+                    r.direction === "bullish" ? "text-bull" : r.direction === "bearish" ? "text-bear" : "text-muted"
+                  }
+                >
+                  {r.direction === "bullish" ? "Buy" : r.direction === "bearish" ? "Sell" : "—"}
+                </span>
+              )}
+              {invalidated && <Badge variant="bear">Invalidated</Badge>}
             </span>
-            {/* A continuation trades WITH the trend the rest of the list
-                is fading, so it can't read as just another row. */}
-            {r.setupKind === "continuation" && (
-              <Badge variant="muted" className="ml-1.5 align-middle">continuation</Badge>
-            )}
-            {invalidated && (
-              <p className="mt-0.5 text-xs font-normal text-bear">
-                Price has {r.direction === "bearish" ? "risen" : "fallen"} through the stop —
-                thesis no longer holds.
-              </p>
-            )}
-          </>
-        )}
-      </TD>
-      <TD className={cn("text-right font-mono", invalidated && "line-through")}>
-        {r.entry != null ? formatUsd(r.entry) : "—"}
-      </TD>
-      <TD className={cn("text-right font-mono text-bear", invalidated && "line-through")}>
-        {r.stopLoss != null ? formatUsd(r.stopLoss) : "—"}
-      </TD>
-      <TD className={cn("text-right font-mono text-bull", invalidated && "line-through")}>
-        {r.takeProfit1 != null ? formatUsd(r.takeProfit1) : "—"}
-      </TD>
-      <TD className={cn("text-right font-mono", invalidated && "line-through")}>
-        {r.masterProfit != null ? formatUsd(r.masterProfit) : "—"}
-      </TD>
-      <TD>
-        {r.signal ? (
-          <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-            <Badge variant={r.signal.tradeable ? "bull" : "muted"}>{TIER_LABEL[r.signal.tier]}</Badge>
-            <span className="text-xs text-muted">{SCANNER_STATE_META[r.signal.state].label}</span>
-          </span>
-        ) : (
-          <span className="text-xs text-muted">—</span>
-        )}
-      </TD>
-      <TD>
-        <SaveSetupButton row={r} />
-      </TD>
-      {onRemove && (
-        <TD>
-          <button
-            onClick={() => onRemove(r.symbol)}
-            title="Stop tracking this setup"
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted hover:bg-background hover:text-bear"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
+          </div>
         </TD>
+        <TD className="text-right font-mono">
+          {quote != null
+            ? formatUsd(quote.price)
+            : r.currentPrice != null && r.currentPrice > 0
+              ? formatUsd(r.currentPrice)
+              : "—"}
+        </TD>
+        <TD className={cn("text-right font-mono", invalidated && "line-through")}>
+          {r.entry != null ? formatUsd(r.entry) : "—"}
+        </TD>
+        <TD className={cn("text-right font-mono text-bear", invalidated && "line-through")}>
+          {r.stopLoss != null ? formatUsd(r.stopLoss) : "—"}
+        </TD>
+        <TD className={cn("text-right font-mono text-bull", invalidated && "line-through")}>
+          {r.takeProfit1 != null ? formatUsd(r.takeProfit1) : "—"}
+        </TD>
+        <TD className={cn("text-right font-mono text-bull", invalidated && "line-through")}>
+          {r.masterProfit != null ? formatUsd(r.masterProfit) : "—"}
+        </TD>
+        <TD>
+          <SaveSetupButton row={r} />
+        </TD>
+        {onRemove && (
+          <TD>
+            <button
+              onClick={() => onRemove(r.symbol)}
+              title="Stop tracking this setup"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted hover:bg-background hover:text-bear"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </TD>
+        )}
+      </TR>
+      {stage !== "closed" && (
+        <TR className="hover:bg-transparent">
+          <TD colSpan={columns} className="whitespace-normal py-2">
+            {/* The row scrolls sideways on a phone; the card stays pinned to the
+                left edge at the width of the screen, so it never opens off it. */}
+            <div className="sticky left-0 w-[calc(100vw-3.5rem)] max-w-3xl sm:w-auto">
+              <SetupCardPanel
+                id={cardId}
+                model={model}
+                stage={stage}
+                onStageChange={setStage}
+                headline={
+                  <ScoreBadge score={r.score} state={r.outputState} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
+                }
+                extra={
+                  invalidated ? (
+                    <p className="text-xs text-bear">
+                      Price has {r.direction === "bearish" ? "risen" : "fallen"} through the stop this setup was staked
+                      on, so its entry is a dead level. Look for a fresh setup instead.
+                    </p>
+                  ) : null
+                }
+              />
+            </div>
+          </TD>
+        </TR>
       )}
-    </TR>
+    </Fragment>
   );
 }

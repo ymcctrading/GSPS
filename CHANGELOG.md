@@ -7,6 +7,91 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-10-01
+
+### Added (owner go-ahead on the three items held from 2026-09-30)
+- **Pre-entry plan retirement in the `trade_plans` lifecycle**
+  (`lib/lifecycle/retire.ts`, a `retire` event in `transitions.ts`). When a scan
+  reports a plan's stop broken, the matching stored plan (same symbol, direction
+  and stop) goes INVALIDATED before it ever triggered. Dispatched from the scan
+  fan-out on every scan path. **Dormant until a `preentry_plan_retirement`
+  sign-off is recorded in `compliance_signoffs`**
+  (`scripts/record-preentry-retirement-signoff.mjs`), because the lifecycle spec
+  pack requires counsel review before this transition ships; with none recorded
+  nothing is read or written and plans behave as before.
+- **Replay-only intraday profile** (`lib/backtest/replayIntraday.ts`,
+  `/api/backtest?profile=intraday`): Gann's trend, crossing, stop, confirmation,
+  first target, trailing stop and exit read from the run's own intraday bars. No
+  product surface; its trades are unscored. Not run (no vendor keys in the
+  session); rules and the rule for reading the run are fixed in
+  `docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md` Part 5.
+- **Reclaim line as a replay option** (`ReplayOptions.reclaimPoints`,
+  `/api/backtest?reclaimPoints=3|5`). Live stays at his 3 points; the 3-versus-5
+  comparison and its decision rule are pre-registered in Part 5.
+- `STRATEGY_VERSION` unchanged: the production method and the default replay
+  are as they were.
+
+## 2026-09-30
+
+### Changed (owner decisions, same day)
+- **A breached stop retires the plan** (AGENTS.md finding F3.7, resolved), and
+  it comes back only the way Gann says: **confirmed** if the break was false (a
+  closed bar closes back through the broken level by his 3-point allowance),
+  **replaced** by a new plan from the new swing structure, never resumed at its
+  old levels. The scan holds a broken plan to Reject (`lib/gann/stopBreach.ts`,
+  `applyStopBreachHold`), so the symbol page, lists, monitors and Guided Mode
+  agree; the signal card says the plan is retired, which line a close has to get
+  back through, and that the broken level now works the other way; the chart
+  draws no lines for it; the order ticket keeps a breach latched until a newer
+  scan arrives. The replay does not enter a plan whose stop an earlier candle of
+  the session traded through, reinstates it on the same closing test, and
+  reports `retiredPlans`. `STRATEGY_VERSION` is
+  `2026-09-30-stop-breach-retired`, so earlier replay runs no longer describe
+  production. The `trade_plans` lifecycle is unchanged (held for counsel review).
+- **Intraday first target is a Gann level or none** (`gannFirstTarget`): the
+  nearest old top or bottom, or a round number just short of one, instead of
+  twice the risk. With no level ahead no target is fixed and the stop trails;
+  the card, alert and email say so.
+- **Intraday refresh limits:** Pro 3 a day / 10 a week, Expert 5 / 21, Wall
+  Street unchanged (unlimited, automatic refresh), Novice none.
+
+### Added
+- **Setup cards.** Click a setup's name on the Buy/Sell lists, the tracked and
+  saved lists, or the intraday alerts and its card opens halfway (the score and
+  a one-or-two-sentence synopsis), then expands to the four levels, what lined
+  up per pillar, and the higher timeframes, ending in "Open the full scan for
+  …". `components/setups/setup-card.tsx`, `lib/setups/`. Daily rows now carry
+  the score's per-pillar rollup and their higher-timeframe reads
+  (`lib/dailyScans.ts`); the Signal Engine's 0–100 Rules Alignment score is
+  published beside its tier (`PublicSignalSummary.alignmentScore`, present on
+  scans from now on).
+- **Dashboard dropdowns.** Tracked Execute setups and Saved setups are closed
+  dropdowns like live expectancy, with the count in the label. Setups whose
+  stop has broken sit in a closed "Setups that broke their stop" / "No longer valid setups" group,
+  not among the live ones. The Dashboard's independent reads now run side by
+  side rather than one after another (not timed here).
+- **Custom default watchlist.** 3 to 9 US stocks or crypto pairs per account,
+  edited in place on the Dashboard (`/api/dashboard-watchlist`,
+  `lib/dashboard/watchlist.ts`), stored in the existing `watchlists` tables.
+- **Tiered intraday refresh.** The on-demand intraday scan is metered per day
+  and per rolling week by tier (`intradayRefreshesPerDay`/`PerWeek` in
+  `lib/entitlements/policy.ts`); the panel shows what is left and scans on
+  request where it is metered. `GET /api/intraday-scan?budget=1` reads the
+  budget without spending one. No migration: refreshes are counted from
+  `scan_executions` rows (`source = 'intraday'`), now written for every
+  completed scan, alert or not.
+- `docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md`: what Gann says when price
+  breaks a stop and returns to the entry, how long an executable setup takes,
+  and how the method translates to intraday, with the measured record.
+
+### Changed
+- "MP" / "Master" is **MTP** (master take profit) everywhere a person reads it:
+  chart labels and legend, scan history, portfolio, order rows, the glossary,
+  settings, and the order-ticket and API messages. Guided Mode keeps its plain
+  "next level" and adds "(MTP)".
+- The Buy/Sell list rows show the name, price, entry, exit (S/L), TP1 and MTP;
+  score, pattern and Signal Engine read moved onto the card.
+
 ## 2026-09-28
 
 ### Fixed (six-year diagnosis)

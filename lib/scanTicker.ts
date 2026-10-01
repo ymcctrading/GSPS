@@ -41,10 +41,17 @@ import { MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection, rankArmedPatterns } f
 import { computeTradeLevels, type EntrySource } from "@/lib/strat/levels";
 import { computeGannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
-import { applyBreakawayHold, applyDataLagHold, applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
+import {
+  applyBreakawayHold,
+  applyDataLagHold,
+  applyReversionConfirmation,
+  applyStopBreachHold,
+  computeScore,
+} from "@/lib/scoring/score";
 import { readBreakaway } from "@/lib/gann/breakaway";
+import { readStopBreach } from "@/lib/gann/stopBreach";
 import { decisionLag, feedDelayMs } from "@/lib/data/latency";
-import { marketSession } from "@/lib/market/session";
+import { etDateKey, marketSession } from "@/lib/market/session";
 import {
   FALLBACK_SR_PCT,
   SR_PROXIMITY_ATR,
@@ -369,7 +376,24 @@ export async function scanTicker(
     // context until the entry crosses the range's extreme.
     const breakaway = readBreakaway(daily, gannTrigger);
 
-    const decision = applyDataLagHold(
+    // A breached stop retires the plan (owner decision, 2026-09-30): price the
+    // scan ran at is already through the stop of the plan it just priced, or
+    // broke it earlier in the session without closing back through it by the
+    // allowance. The plan is over until Gann's failed-break test passes or a new
+    // plan replaces it. Outermost, so it lands whatever the other holds did. See
+    // lib/gann/stopBreach.ts.
+    // The session's own closed bars are what tell a poke that reversed by the
+    // close from a break: a plan broken earlier today stands again only once a
+    // bar has closed back through the level by Gann's 3-point allowance.
+    const sessionDay = etDateKey(new Date(scannedAt));
+    const stopBreach = readStopBreach({
+      direction: entrySource?.direction ?? "none",
+      stopLoss: levels?.stopLoss,
+      price: currentPrice,
+      sessionBars: closedExecutionBars.filter((b) => etDateKey(new Date(b.t)) === sessionDay),
+    });
+
+    const decision = applyStopBreachHold(applyDataLagHold(
       applyBreakawayHold(applyReversionConfirmation(
         computeScore({
           direction: scoreDirection,
@@ -406,7 +430,7 @@ export async function scanTicker(
         nearSupportResistance,
       ), breakaway),
       dataLag,
-    );
+    ), stopBreach);
 
     // ---- Signal and Regime Engine (lib/signals) — a separate decision layer
     // from the Gann/STRAT verdict above, never merged into it. This is a
@@ -541,6 +565,9 @@ export async function scanTicker(
       armedPatterns,
       levels,
       levelsError,
+      ...(stopBreach.breached
+        ? { stopBreach: { stop: stopBreach.stop!, price: stopBreach.price!, reclaimAt: stopBreach.reclaimAt! } }
+        : {}),
       dataLag,
       executionBar: closedExecutionBars[closedExecutionBars.length - 1],
       decision,

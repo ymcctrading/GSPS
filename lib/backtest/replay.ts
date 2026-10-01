@@ -77,6 +77,7 @@ import { isLargeCapStock } from "@/lib/strat/large-cap";
 import { readLiquidity } from "@/lib/scan/liquidity";
 import { applyBreakawayHold, applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
 import { readBreakaway, type BreakawayReading } from "@/lib/gann/breakaway";
+import { RECLAIM_POINTS, isReclaimedByClose, isStopBreached, isStopBreachedByBar } from "@/lib/gann/stopBreach";
 import { readGannExit, type GannExitReason, type GannStopReason } from "@/lib/gann/exitRules";
 import { SCALE_OUT_PCT } from "@/lib/trade/protocol-exit";
 import { readPyramidAdd, type PyramidLot } from "@/lib/gann/pyramid";
@@ -256,6 +257,18 @@ export interface ReplayOptions {
    */
   exitRule?: "bracket" | "gann" | "gann-runner";
   /**
+   * How many of Gann's points a closed candle has to clear a broken stop by for
+   * the break to count as failed and the plan to stand again
+   * (`lib/gann/stopBreach.ts#reclaimLevel`). Defaults to `RECLAIM_POINTS` (3),
+   * the figure the live scan uses. This exists only so the stricter reading (5,
+   * `RECLAIM_POINTS_STRICT`: "more than 5 above means it is going higher",
+   * *Master Stock Market Course* pp. 246-248) can be measured against it
+   * before the live number moves. Pre-registered in
+   * `docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md` Part 5; 3 versus 5 are the
+   * only two values to run, and no other is searched.
+   */
+  reclaimPoints?: number;
+  /**
    * Under a Gann exit rule, add to winning trades on Gann's pyramiding rules
    * (`lib/gann/pyramid.ts`): half the last lot at each crossed swing top made
    * since it, once it shows a full risk unit of profit, with the whole
@@ -279,6 +292,9 @@ export interface ReplayOptions {
    */
   marketDailyBars?: Bar[];
 }
+
+/** Why an intraday-profile trade left (`lib/backtest/replayIntraday.ts`). */
+export type IntradayExitReason = "intraday_initial_stop" | "intraday_trailing_stop" | "intraday_trend_change";
 
 export interface ReplayTrade {
   symbol: string;
@@ -305,13 +321,14 @@ export interface ReplayTrade {
   direction: "bullish" | "bearish";
   entry: number;
   stop: number;
+  /** The first target. NaN (null in JSON) when the intraday profile names none: Gann fixes no target and the stop trails. */
   target: number;
   barsHeld: number;
   outcome: "win" | "loss" | "timeout";
   /** Lots held at the end, under `pyramid: true` (1 when nothing was added). */
   lots?: number;
-  /** Why the trade left, under `exitRule: "gann"`. Undefined under the bracket. */
-  exitReason?: GannStopReason | GannExitReason | "timeout";
+  /** Why the trade left, under `exitRule: "gann"` or the intraday profile. Undefined under the bracket. */
+  exitReason?: GannStopReason | GannExitReason | IntradayExitReason | "timeout";
   /** Realised result in units of the trade's own risk, after costs. */
   rMultiple: number;
   /** True when one bar covered both stop and target, and the loss was assumed. */
@@ -398,10 +415,22 @@ export interface ReplayResult {
    * were.
    */
   refusedFills: number;
+  /**
+   * Session plans retired by a breached stop (owner decision, 2026-09-30;
+   * `lib/gann/stopBreach.ts`): the prior session's last close, or an earlier
+   * candle of the session, had already traded through the plan's own stop. It
+   * is not entered while broken. It stands again if a closed candle closes back
+   * through the broken level by Gann's 3-point allowance (a failed break), and
+   * otherwise stays out for the rest of the session, when the next session's
+   * read of the swing chart replaces it with a new plan. Counted once per plan
+   * per session, whether or not it was later reinstated or its entry would have
+   * fired.
+   */
+  retiredPlans: number;
 }
 
 const EMPTY: Omit<ReplayResult, "trades"> = {
-  armed: 0, triggered: 0, refusedFills: 0, wins: 0, losses: 0, timeouts: 0, ambiguous: 0,
+  armed: 0, triggered: 0, refusedFills: 0, retiredPlans: 0, wins: 0, losses: 0, timeouts: 0, ambiguous: 0,
   winRate: 0, expectancyR: 0, totalR: 0,
 };
 
@@ -616,6 +645,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     roundNumberHold = false,
     entryRule = "stop",
     exitRule = "bracket",
+    reclaimPoints = RECLAIM_POINTS,
     pyramid = false,
     instrument,
     marketDailyBars,
@@ -636,6 +666,18 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
   // stable across sessions because each session's daily history is a prefix
   // of the next.
   const consumedPivots = new Set<string>();
+  // A breached stop retires the plan (owner decision, 2026-09-30;
+  // lib/gann/stopBreach.ts). The plan's stop is read once per plan per session
+  // (`sessionPlanStops`, keyed by date and pivot). Once price has traded through
+  // it the plan is in `brokenPlans` and is not entered, until a closed candle
+  // closes back through the broken level by Gann's 3-point allowance: a failed
+  // break, which stands the plan again. Otherwise it stays out for the rest of
+  // the session, and the next session's read of the swing chart is what replaces
+  // it with a new plan. `retiredSessionPlans` counts each plan once that was ever
+  // retired, for the report.
+  const sessionPlanStops = new Map<string, number | null>();
+  const brokenPlans = new Set<string>();
+  const retiredSessionPlans = new Set<string>();
   // Macro context and the daily triggers only move once a session, so they
   // are built per date, not per bar.
   const armByDate = new Map<string, SessionArm | null>();
@@ -694,7 +736,51 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     for (const { setupKind, trigger, breakaway } of arm.triggers) {
       const pivotKey = `${setupKind}:${trigger.direction}:${trigger.pivot.kind}:${trigger.pivot.index}`;
       if (consumedPivots.has(pivotKey)) continue;
-      armedKeys.add(`${date}|${pivotKey}`);
+      const planKey = `${date}|${pivotKey}`;
+      armedKeys.add(planKey);
+
+      // The breach test the live scan applies (`readStopBreach`), applied by
+      // path: the scan that arms the session reads the last close, and every
+      // closed candle of the session after that is read in turn. A candle that
+      // traded through the stop breaks the plan, unless it, or a later candle,
+      // closed back through the level by the allowance (a poke that reversed by
+      // the close, or a failed break). The candle the entry fires on is not
+      // read: what it did first cannot be told, so its stop is left to the
+      // bracket walk as before.
+      let planStop = sessionPlanStops.get(planKey);
+      if (planStop === undefined) {
+        planStop =
+          priceTradeLevels({
+            context: arm.context,
+            gannTrigger: trigger,
+            history,
+            executionAtr: atr(history.slice(-30), 14),
+            assetClass,
+            largeCap: arm.largeCap,
+          })?.stopLoss ?? null;
+        sessionPlanStops.set(planKey, planStop);
+        if (planStop !== null && isStopBreached(trigger.direction, planStop, lastClose)) {
+          brokenPlans.add(planKey);
+          retiredSessionPlans.add(planKey);
+        }
+      } else if (planStop !== null) {
+        const closed = history[history.length - 1];
+        if (closed.t.slice(0, 10) === date) {
+          if (isStopBreachedByBar(trigger.direction, planStop, closed)) {
+            brokenPlans.add(planKey);
+            retiredSessionPlans.add(planKey);
+          }
+          if (brokenPlans.has(planKey) && isReclaimedByClose(trigger.direction, planStop, closed, reclaimPoints)) {
+            brokenPlans.delete(planKey);
+          }
+        }
+      }
+      if (brokenPlans.has(planKey)) {
+        // Not entered while it is broken; a confirmation in progress starts
+        // over rather than carrying across the break.
+        confirmation.delete(pivotKey);
+        continue;
+      }
 
       const long = trigger.direction === "bullish";
       const dir = long ? 1 : -1;
@@ -890,7 +976,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     }
   }
 
-  return summarise(trades, armedKeys.size, triggered, refusedFills);
+  return summarise(trades, armedKeys.size, triggered, refusedFills, retiredSessionPlans.size);
 }
 
 /**
@@ -917,8 +1003,14 @@ function criteriaOf(decision: ScanDecision | undefined): Record<string, boolean>
   return out;
 }
 
-export function summarise(trades: ReplayTrade[], armed = 0, triggered = 0, refusedFills = 0): ReplayResult {
-  if (trades.length === 0) return { trades, ...EMPTY, armed, triggered, refusedFills };
+export function summarise(
+  trades: ReplayTrade[],
+  armed = 0,
+  triggered = 0,
+  refusedFills = 0,
+  retiredPlans = 0,
+): ReplayResult {
+  if (trades.length === 0) return { trades, ...EMPTY, armed, triggered, refusedFills, retiredPlans };
   const wins = trades.filter((t) => t.outcome === "win").length;
   const losses = trades.filter((t) => t.outcome === "loss").length;
   const timeouts = trades.filter((t) => t.outcome === "timeout").length;
@@ -928,6 +1020,7 @@ export function summarise(trades: ReplayTrade[], armed = 0, triggered = 0, refus
     armed,
     triggered,
     refusedFills,
+    retiredPlans,
     wins,
     losses,
     timeouts,
@@ -946,7 +1039,8 @@ export function combine(results: ReplayResult[]): ReplayResult {
   const armed = results.reduce((s, r) => s + r.armed, 0);
   const triggered = results.reduce((s, r) => s + r.triggered, 0);
   const refusedFills = results.reduce((s, r) => s + (r.refusedFills ?? 0), 0);
-  return summarise(trades, armed, triggered, refusedFills);
+  const retiredPlans = results.reduce((s, r) => s + (r.retiredPlans ?? 0), 0);
+  return summarise(trades, armed, triggered, refusedFills, retiredPlans);
 }
 
 /** Share of the position that leaves at the target under `"gann-runner"` (mirrors `SCALE_OUT_PCT`). */
@@ -1057,6 +1151,46 @@ function walkGannExit(input: {
 }
 
 /**
+ * The trade plan the scan would price for one armed trigger. Priced exactly as
+ * lib/scanTicker.ts prices it: from the swing-crossing trigger, labelled by
+ * what it crossed. A setup with no valid plan is scored without one, exactly as
+ * the scan does when `computeTradeLevels` rejects it. Shared by the verdict and
+ * by the stop-breach check, so the stop retirement reads is the stop the plan
+ * actually carries.
+ */
+function priceTradeLevels(input: {
+  context: MacroContext;
+  gannTrigger: GannEntryTrigger;
+  history: Bar[];
+  executionAtr: number;
+  assetClass: AssetClass;
+  largeCap: boolean;
+}): TradeLevels | null {
+  const { context, gannTrigger, history, executionAtr, assetClass, largeCap } = input;
+  const entrySource: EntrySource = {
+    direction: gannTrigger.direction,
+    triggerPrice: gannTrigger.triggerPrice,
+    stopPrice: gannTrigger.stopPrice,
+    setupLabel: gannTrigger.direction === "bullish" ? "swing-top crossing" : "swing-bottom break",
+  };
+  try {
+    return computeTradeLevels(
+      entrySource,
+      history[history.length - 2] ?? history[history.length - 1],
+      [...context.gann.fanLines.map((f) => f.price), ...context.gann.squareOf9.map((s) => s.price)],
+      undefined,
+      executionAtr,
+      assetClass,
+      largeCap,
+      context.structuralLevels,
+      context.atrPct,
+    );
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Rebuild the verdict the scanner would have shown for one armed setup.
  *
  * Reads only sessions strictly before the day being traded. That is stricter
@@ -1083,32 +1217,7 @@ function scoreSetup(input: {
   const hourlyBars = rollUp(history.slice(-400), (b) => b.t.slice(0, 13));
   const hourlyTrend = readTrend(hourlyBars, "1Hour");
 
-  // Priced exactly as lib/scanTicker.ts prices it: from the swing-crossing
-  // trigger, labelled by what it crossed.
-  const entrySource: EntrySource = {
-    direction: gannTrigger.direction,
-    triggerPrice: gannTrigger.triggerPrice,
-    stopPrice: gannTrigger.stopPrice,
-    setupLabel: gannTrigger.direction === "bullish" ? "swing-top crossing" : "swing-bottom break",
-  };
-
-  let levels: TradeLevels | null = null;
-  try {
-    levels = computeTradeLevels(
-      entrySource,
-      history[history.length - 2] ?? history[history.length - 1],
-      [...context.gann.fanLines.map((f) => f.price), ...context.gann.squareOf9.map((s) => s.price)],
-      undefined,
-      executionAtr,
-      assetClass,
-      largeCap,
-      context.structuralLevels,
-      context.atrPct,
-    );
-  } catch {
-    // A setup with no valid plan is scored without one, exactly as the scan
-    // does when computeTradeLevels rejects it.
-  }
+  const levels = priceTradeLevels({ context, gannTrigger, history, executionAtr, assetClass, largeCap });
 
   const decision = applyBreakawayHold(applyReversionConfirmation(
     computeScore({

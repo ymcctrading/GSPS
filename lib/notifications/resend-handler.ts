@@ -54,7 +54,8 @@ export interface AlertEmailData {
   exactScoreDisplayEnabled: boolean;
   entry: number;
   stopLoss: number;
-  takeProfit: number;
+  /** Null when the alert fixes no target and the stop trails the move instead. */
+  takeProfit: number | null;
   verdict: "Execute" | "Watch" | "Reject";
   confidence: number;
   /**
@@ -111,7 +112,7 @@ export async function sendAlertEmail(data: AlertEmailData) {
           <p style="margin: 0; color: #7c2d12; font-size: 14px; font-weight: 600;">Risk Management</p>
           <p style="margin: 8px 0 0; color: #7c2d12; font-size: 13px;">
             Stop Loss: <strong>$${data.stopLoss.toFixed(2)}</strong> |
-            Target: <strong>$${data.takeProfit.toFixed(2)}</strong>
+            Target: <strong>${data.takeProfit != null ? `$${data.takeProfit.toFixed(2)}` : "none fixed — the stop trails the move"}</strong>
           </p>
         </div>
 

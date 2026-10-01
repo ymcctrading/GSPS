@@ -39,6 +39,7 @@ import { getEntitlementPolicy, type EntitlementPolicy } from "@/lib/entitlements
 import type { RankedSetup } from "@/lib/entitlements/result-selection";
 import type { PlatformTier } from "@/lib/tiers";
 import type { ScanResult } from "@/lib/types";
+import type { RetiredPlanSignal } from "@/lib/lifecycle/retire";
 
 /** Profiles processed at once. Supabase handles this comfortably; engineering choice. */
 export const FAN_OUT_CONCURRENCY = 6;
@@ -75,6 +76,8 @@ export async function fanOutToProfiles(
     source: string;
     qualifying: RankedSetup<ScanResult>[];
     rejectedSymbols: Set<string>;
+    /** Plans the scan retired for a broken stop; see `fanOutForProfile`. */
+    retired?: readonly RetiredPlanSignal[];
     /** Which profiles this job serves, by their tier's policy. */
     isEnabled: (policy: EntitlementPolicy) => boolean;
     /** Epoch ms after which no new profile starts. Omit for no deadline. */
@@ -121,6 +124,7 @@ export async function fanOutToProfiles(
           source: args.source,
           qualifying: args.qualifying,
           rejectedSymbols: args.rejectedSymbols,
+          retired: args.retired,
           maxDashboardSetupsPerScan: profile.policy.maxDashboardSetupsPerScan,
           maxActiveWatchMonitors: profile.policy.maxActiveWatchMonitors,
         });

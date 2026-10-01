@@ -848,12 +848,61 @@ for the project owner** — do not fix it silently, and re-verify it first:
   `LARGE_CAP_UNIVERSE` only) and the most-actives, inside a 250-slot cap.
   Check coverage in coarse telemetry, not list membership.
 - Lesser items: the weight-promotion path can still promote non-uniform
-  weights (F4.2); pre-entry plans aren't invalidated by a stop breach (F3.7);
-  `policy_values` overrides have no bounds (F4.3); `stopRoom`'s
+  weights (F4.2); `policy_values` overrides have no bounds (F4.3); `stopRoom`'s
   "quarantined" status doesn't affect live scoring (F4.7). Kept rather than
   deleted because they're unfinished rather than dead:
   `withinTriggerTolerance` (an unenforced spec rule), `toSaraStrategyResult`,
   and `quantityFromPermittedRisk`/`plannedRiskDollars`.
+- **F3.7, traced 2026-09-30 and resolved the same day (project owner).** The
+  owner saw OXY and GOOGL read invalidated on the Dashboard while the chart
+  still showed the plan. Three surfaces called a plan dead from a quote (the
+  lists, the order ticket, the twice-hourly monitor sweep); the scan behind the
+  symbol page read only completed daily structure, returned the same plan, and
+  `evaluateMonitorsAndNotify` re-armed the monitor the sweep had just
+  invalidated. The owner's rule: **"A breach retires the plan, until an updated
+  scan is run and a plan is either confirmed or an updated plan replaces the
+  original."** Follow-up the same day: **"if Gann has his own version of
+  confirmed or replaced, implement his rule ... the sentiment/premise needs to
+  align."** He has, and it is built: **confirmed is a failed break** (a closed
+  bar closes back through the broken level by his 3-point allowance, price-scaled
+  by `lib/gann/pointScale.ts`: NSTD p. 20, Master Course pp. 246-248 and rules 4-5),
+  and **replaced is a new trade with a new stop from the new swing structure,
+  never the old levels resumed** (Overnight Chart rule 4, NSTD Rule 6, *Tunnel*).
+  Built as `lib/gann/stopBreach.ts` and `applyStopBreachHold`
+  (`lib/scoring/score.ts`): the scan drops a broken plan to Reject (price through
+  the stop, or broken earlier in the session with no bar since closing back
+  through the line), so the monitor goes INVALIDATED and the plan leaves the
+  lists. There is no stored "retired" flag: the scan reads the session's closed
+  bars against the stop each time, so a late scan resumes correctly. Price
+  returning to the old entry, or to between the stop and the line, does not
+  reinstate it: the ticket latches a breach until a newer scan arrives, and the
+  lists keep their ratchet until they reload. The replay does not enter a plan
+  whose stop an earlier candle of the session traded through, reinstates it on
+  the same closing test, and reports `retiredPlans`; otherwise the next
+  session's read of the swing chart replaces it.
+  `STRATEGY_VERSION` is `2026-09-30-stop-breach-retired`:
+  replay runs before it entered such plans, so the Execute-bucket numbers
+  measured on earlier versions describe a rule production no longer follows.
+  Gann's sources and the options considered (option A for the break, his own
+  failed-break test for the way back in) are in
+  `docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md` Part 1. **The `trade_plans`
+  lifecycle (built 2026-10-01, owner go-ahead; dormant).** A pre-entry plan
+  whose own stop the scan reports broken now goes INVALIDATED through a `retire`
+  event (`lib/lifecycle/retire.ts`, dispatched from the scan fan-out). The spec
+  pack says a change to the lifecycle needs counsel review, and building it is
+  not the review, so it is gated on a `compliance_signoffs` row for
+  `preentry_plan_retirement` (`scripts/record-preentry-retirement-signoff.mjs`).
+  **With no row it does nothing**, and a retired plan behaves as before (never
+  advanced, expires on its clock, refused at the bracket,
+  `fill_outran_bracket`). Recording the sign-off is a human act, not the build's.
+  Terminal by design: a failed break or new structure earns a new plan. The
+  reclaim line is also a replay option now (`reclaimPoints` 3 or 5), with the run
+  and its reading rule pre-registered in
+  `docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md` Part 5; live stays at 3. The
+  intraday alerts are an exception by
+  construction: they are recomputed from the session on every scan, and their
+  invalidation is the session's 50% point or opening range, so a break of it
+  already changes the alert.
 
 
 ## Gann-derived AND measured — standing principle
@@ -1680,6 +1729,59 @@ them rather than rewriting what already worked. A future session should
 prefer the generalized surface for any new work and can retire the original
 Novice→Pro-only routes once the new `/promotion` page is confirmed to be
 the intended replacement UI, but that retirement is not done here.
+
+## Setup cards, MTP and the intraday refresh budget (2026-09-30, project owner)
+
+Standing facts for a session that touches any list of setups:
+
+- **One card everywhere.** `components/setups/setup-card.tsx` (built from
+  `lib/setups/card.ts`, and `lib/setups/intraday.ts` for an intraday alert) is
+  the only way a setup opens from its name: the daily Buy/Sell lists, the
+  tracked and saved lists, and the intraday alerts. A new list of setups uses
+  it too (the cross-platform-consistency principle). The card shows the
+  scorecard's **per-pillar rollup only** — `lib/scoring/public-summary.ts`'s
+  rule that the named conditions stay server-side applies to it in full; never
+  pass a row's `breakdown` to the client.
+- **The name is MTP.** The master take profit was "MP" on the chart and
+  "Master" in the lists; it is **MTP** (master take profit) wherever a person
+  reads it. Guided Mode and the onboarding walkthrough keep their plain-English
+  "next level" and add "(MTP)". The internal field stays `masterProfit`.
+- **Intraday has no MTP, and its TP1 is a Gann level or nothing.** The
+  intraday scanner prices an exit (the session's 50% point or opening-range
+  extreme) and a first target, and no master take profit. The first target was
+  twice the risk, an R-multiple with no Gann source; on 2026-09-30 the owner
+  ("everything must align with Gann") had it replaced by `gannFirstTarget`
+  (`lib/scanner/intraday.ts`): the nearest old top or bottom beyond the price,
+  or a round number just short of one, at least one intraday ATR away. Where
+  none lies ahead the target is null, "no target is fixed, the stop trails"
+  (Gann's "never fix a target price"), and the card, alert and email say so
+  rather than inventing one. The session's own extreme and the prior close are
+  the only old levels read so far (the session's earlier swings and prior
+  sessions' highs and lows are not passed in), so it can under-name a level,
+  never invent one. A replay-only intraday profile to measure the method at
+  intraday scale is built (2026-10-01, `lib/backtest/replayIntraday.ts`,
+  `?profile=intraday`) and **not run**; its rules and the rule for reading the
+  run are fixed in the doc's Part 5. Nothing measures it yet.
+- **The refresh budget lives in `lib/entitlements/policy.ts`**
+  (`intradayRefreshesPerDay` / `…PerWeek`; owner-set 2026-09-30: Pro 3 a day /
+  10 a week, Expert 5 / 21, Wall Street unlimited with automatic refresh, Novice
+  none) and is spelled out in
+  `docs/GSPS_TIER_ENTITLEMENT_SPEC.md`. Enforcement is
+  `lib/entitlements/intraday-refresh.ts`, counted from `scan_executions` rows
+  (`source = 'intraday'`), one per completed on-demand scan, so it needs no
+  migration. It is a soft budget: the count is read before the scan and the row
+  written after, so two simultaneous requests can both pass. Do not "harden" it
+  onto `reserve_usage_slot` without a migration to admit the usage key, and
+  remember that merging a migration is not applying it.
+- **The Dashboard watchlist** is the user's own 3–9 US stocks or crypto pairs,
+  in the `watchlists` / `watchlist_items` tables migration 0001 created
+  (`lib/dashboard/watchlist.ts`). `app/api/intraday-scan/route.ts` merges every
+  user's watchlist symbols into the system scan's universe (capped at 50 total),
+  so a symbol added there can be covered by that scan.
+- **Timeline, in one line.** Entry is minutes to a few hours (four closed
+  15-minute bars at least; a plan expires after 45 minutes to 5 hours); the
+  trade is days to weeks (median about 5 to 7 sessions in the replay, and 60%
+  of trades on the live exits were still open at its 10-session limit).
 
 ## Polarity audit: a genuine second pole for Novice/Pro, not a subtracted one (2026-09-23, project owner direction)
 

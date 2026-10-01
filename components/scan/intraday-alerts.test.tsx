@@ -14,6 +14,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { IntradayAlerts } from "./intraday-alerts";
 import type { Alert, ScanOutput, SymbolAudit } from "@/lib/scanner/intraday";
+import type { IntradayRefreshBudget } from "@/lib/entitlements/intraday-refresh";
 
 const spyAlert: Alert = {
   symbol: "SPY",
@@ -72,7 +73,26 @@ const quietAudit: SymbolAudit = {
   metrics: null,
 };
 
-function mockScan(overrides: Partial<ScanOutput & Record<string, unknown>> = {}) {
+/** What `/api/intraday-scan?budget=1` answers, and what a scan attaches once it has spent a refresh. */
+function budget(overrides: Partial<IntradayRefreshBudget> = {}): IntradayRefreshBudget {
+  return {
+    limitPerDay: 3,
+    limitPerWeek: 10,
+    usedToday: 0,
+    usedThisWeek: 0,
+    remainingToday: 3,
+    remainingThisWeek: 10,
+    automatic: false,
+    allowed: true,
+    blockedBy: null,
+    ...overrides,
+  };
+}
+
+function mockScan(
+  overrides: Partial<ScanOutput & Record<string, unknown>> = {},
+  opts: { budget?: IntradayRefreshBudget | null; afterScan?: IntradayRefreshBudget | null } = {},
+) {
   const payload = {
     scannedAt: "2026-08-07T15:33:00.000Z",
     alerts: [spyAlert],
@@ -97,12 +117,23 @@ function mockScan(overrides: Partial<ScanOutput & Record<string, unknown>> = {})
     ...overrides,
   };
 
+  // The first thing the panel asks is the plan's budget (no scan, nothing
+  // spent); with none in the answer nothing is metered and it scans on open.
   vi.stubGlobal(
     "fetch",
-    vi.fn(() =>
-      Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(payload) } as Response),
-    ),
+    vi.fn((url: string) => {
+      const body = String(url).includes("budget=1")
+        ? { budget: opts.budget ?? undefined }
+        : { ...payload, budget: opts.afterScan ?? undefined };
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(body) } as Response);
+    }),
   );
+}
+
+/** Opens a setup's card halfway, then to the full card. */
+async function openFullCard(user: ReturnType<typeof userEvent.setup>, symbol = "SPY") {
+  await user.click(await screen.findByRole("button", { name: symbol }));
+  await user.click(screen.getByRole("button", { name: /Show the full card/ }));
 }
 
 afterEach(() => {
@@ -164,8 +195,8 @@ describe("IntradayAlerts", () => {
     mockScan({ alerts: [spyAlert, secondSpySignal] });
     render(<IntradayAlerts />);
 
-    // Exactly one SPY card — the symbol link renders once, not twice.
-    expect(await screen.findAllByRole("link", { name: "SPY" })).toHaveLength(1);
+    // Exactly one SPY card — the symbol control renders once, not twice.
+    expect(await screen.findAllByRole("button", { name: "SPY" })).toHaveLength(1);
     // The higher-confidence signal (Opening momentum) is the card's own badge...
     expect(screen.getByText("Opening momentum ↑")).toBeInTheDocument();
     // ...and the lower-confidence one (Unusual volume) is folded in as a
@@ -186,11 +217,12 @@ describe("IntradayAlerts", () => {
     mockScan();
     render(<IntradayAlerts />);
 
-    await user.click(await screen.findByRole("button", { name: /Show the plan/ }));
+    await openFullCard(user);
 
-    expect(screen.getByText(/How the 75\/100 was reached/)).toBeInTheDocument();
+    expect(screen.getByText("75/100 confidence")).toBeInTheDocument();
+    expect(screen.getByText("What lined up")).toBeInTheDocument();
     expect(screen.getByText(/Opening range broken/)).toBeInTheDocument();
-    expect(screen.getByText(/\(25 pts\) — 1\.8× of normal\./)).toBeInTheDocument();
+    expect(screen.getByText(/25 pts — 1\.8× of normal\./)).toBeInTheDocument();
   });
 
   it("gives both a continuation plan and an opposite-direction pivot plan", async () => {
@@ -198,7 +230,7 @@ describe("IntradayAlerts", () => {
     mockScan();
     render(<IntradayAlerts />);
 
-    await user.click(await screen.findByRole("button", { name: /Show the plan/ }));
+    await openFullCard(user);
 
     expect(screen.getByText("If it continues")).toBeInTheDocument();
     expect(screen.getByText("If it turns")).toBeInTheDocument();
@@ -211,7 +243,7 @@ describe("IntradayAlerts", () => {
     mockScan();
     render(<IntradayAlerts />);
 
-    await user.click(await screen.findByRole("button", { name: /Show the plan/ }));
+    await openFullCard(user);
 
     expect(screen.getByText(/Why this wasn't flagged earlier/)).toBeInTheDocument();
     expect(screen.getByText(/runs about 16 min behind/)).toBeInTheDocument();
@@ -222,7 +254,7 @@ describe("IntradayAlerts", () => {
     mockScan();
     render(<IntradayAlerts />);
 
-    await user.click(await screen.findByRole("button", { name: /Show the plan/ }));
+    await openFullCard(user);
 
     expect(screen.getByText(/not a recommendation/)).toBeInTheDocument();
   });
@@ -277,8 +309,8 @@ describe("IntradayAlerts", () => {
     render(<IntradayAlerts symbols={["SPY", "NVDA"]} />);
 
     await screen.findByText(/Scanned Aug 7, 2026/);
-    const url = String((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0][0]);
-    expect(url).toContain("symbols=SPY%2CNVDA");
+    const urls = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.map((c) => String(c[0]));
+    expect(urls.some((u) => u.includes("symbols=SPY%2CNVDA"))).toBe(true);
   });
 });
 
@@ -297,8 +329,143 @@ describe("IntradayAlerts — reversal risk", () => {
     });
     render(<IntradayAlerts />);
 
-    const card = (await screen.findByText("SPY")).closest("div.rounded-lg") as HTMLElement;
+    const user = userEvent.setup();
+    const name = await screen.findByRole("button", { name: "SPY" });
+    const card = name.closest("div.rounded-lg") as HTMLElement;
     expect(within(card).getByText(/Reversal risk/)).toBeInTheDocument();
+    // A warning is not a setup: it prices nothing.
+    expect(within(card).getByText(/no levels: this is a reason to stand aside/)).toBeInTheDocument();
+
+    await user.click(name);
     expect(within(card).getByText(/stand aside rather than to flip/)).toBeInTheDocument();
+    expect(within(card).queryByText(/Trade this/)).not.toBeInTheDocument();
+  });
+});
+
+describe("IntradayAlerts — the setup card", () => {
+  it("prices the alert in the same order as the daily lists, with no MTP", async () => {
+    mockScan();
+    render(<IntradayAlerts />);
+
+    await screen.findByRole("button", { name: "SPY" });
+    for (const label of ["Price", "Entry", "Exit (S/L)", "TP1", "MTP"]) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+    // Entry is the level the alert's plan waits on; exit its invalidation; TP1 the plan's first target.
+    expect(screen.getAllByText("$504.50").length).toBeGreaterThan(0);
+    expect(screen.getByText("$500.00")).toBeInTheDocument();
+    expect(screen.getByText("$513.50")).toBeInTheDocument();
+  });
+
+  it("opens halfway from the name with the score and a short synopsis, then expands and collapses", async () => {
+    const user = userEvent.setup();
+    mockScan();
+    render(<IntradayAlerts />);
+
+    const name = await screen.findByRole("button", { name: "SPY" });
+    expect(name).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("75/100 confidence")).not.toBeInTheDocument();
+
+    await user.click(name);
+    expect(name).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("75/100 confidence")).toBeInTheDocument();
+    expect(screen.getByText(/1 of 2 checks line up/)).toBeInTheDocument();
+    // Halfway: the detail is still behind the expand control.
+    expect(screen.queryByText("What lined up")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Show the full card/ }));
+    expect(screen.getByText("What lined up")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Collapse/ }));
+    expect(screen.queryByText("What lined up")).not.toBeInTheDocument();
+    expect(screen.getByText("75/100 confidence")).toBeInTheDocument();
+
+    await user.click(name);
+    expect(screen.queryByText("75/100 confidence")).not.toBeInTheDocument();
+  });
+
+  it("ends the card with a link to the full scan", async () => {
+    const user = userEvent.setup();
+    mockScan();
+    render(<IntradayAlerts />);
+
+    await user.click(await screen.findByRole("button", { name: "SPY" }));
+    const link = screen.getByRole("link", { name: "Open the full scan for SPY" });
+    expect(link).toHaveAttribute("href", "/ticker/SPY");
+  });
+});
+
+describe("IntradayAlerts — refresh budget", () => {
+  it("does not spend a refresh on open when the plan meters them, and says how many are left", async () => {
+    mockScan({}, { budget: budget({ usedToday: 1, usedThisWeek: 4, remainingToday: 2, remainingThisWeek: 6 }) });
+    render(<IntradayAlerts />);
+
+    expect(await screen.findByTestId("intraday-budget")).toHaveTextContent("2 of 3 left today · 6 of 10 left this week");
+    const urls = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.map((c) => String(c[0]));
+    expect(urls.every((u) => u.includes("budget=1"))).toBe(true);
+    expect(screen.getByRole("button", { name: "Run the scan" })).toBeEnabled();
+  });
+
+  it("scans on request and shows the count it now has left", async () => {
+    const user = userEvent.setup();
+    mockScan(
+      {},
+      {
+        budget: budget(),
+        afterScan: budget({ usedToday: 1, usedThisWeek: 1, remainingToday: 2, remainingThisWeek: 9 }),
+      },
+    );
+    render(<IntradayAlerts />);
+
+    await user.click(await screen.findByRole("button", { name: "Run the scan" }));
+
+    expect(await screen.findByRole("button", { name: "SPY" })).toBeInTheDocument();
+    expect(screen.getByTestId("intraday-budget")).toHaveTextContent("2 of 3 left today · 9 of 10 left this week");
+  });
+
+  it("disables the scan once the day's refreshes are used", async () => {
+    mockScan(
+      {},
+      {
+        budget: budget({
+          usedToday: 3,
+          usedThisWeek: 3,
+          remainingToday: 0,
+          remainingThisWeek: 7,
+          allowed: false,
+          blockedBy: "day",
+        }),
+      },
+    );
+    render(<IntradayAlerts />);
+
+    expect(await screen.findByRole("button", { name: "Run the scan" })).toBeDisabled();
+    expect(screen.getByTestId("intraday-budget")).toHaveTextContent("0 of 3 left today");
+  });
+
+  it("keeps scanning on its own where nothing is metered", async () => {
+    mockScan({}, { budget: budget({ limitPerDay: "unlimited", limitPerWeek: "unlimited", remainingToday: "unlimited", remainingThisWeek: "unlimited", automatic: true }) });
+    render(<IntradayAlerts />);
+
+    expect(await screen.findByText(/Scanned Aug 7, 2026/)).toBeInTheDocument();
+    expect(screen.queryByTestId("intraday-budget")).not.toBeInTheDocument();
+  });
+
+  it("says plainly when the plan has no intraday access, without scanning", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve({
+          ok: false,
+          status: 403,
+          json: () => Promise.resolve({ error: "Intraday scans are available on the Pro plan and above." }),
+        } as Response),
+      ),
+    );
+    render(<IntradayAlerts />);
+
+    expect(await screen.findByText("Intraday scans are available on the Pro plan and above.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /scan|Rescan/i })).not.toBeInTheDocument();
+    expect((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(1);
   });
 });

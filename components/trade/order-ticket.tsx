@@ -306,9 +306,26 @@ export function OrderTicket({
   // guards against. Read off signalSide (the protocol's own direction), not
   // the currently selected side, since the levels were computed for that
   // direction regardless of which button the user has toggled.
-  const protocolInvalidated =
+  //
+  // A breached stop retires the plan (owner decision, 2026-09-30;
+  // lib/gann/stopBreach.ts): it stands again only if a closed bar closes back
+  // through the broken level by the allowance (the scan reads those bars), or a
+  // new plan replaces it, so price climbing back to the old entry does not
+  // quietly un-retire it. Two memories carry that here. The scan itself
+  // (`result.stopBreach`: it ran with price already through the stop), and a
+  // latch on the live quote (price broke the stop while this scan's plan was
+  // on screen). The latch is keyed to the scan it was seen on, so a newer scan
+  // clears it, and the new scan says for itself whether the plan stands.
+  const liveBreach =
     useProtocolLevels && !!levels && currentPrice != null &&
     isInvalidatedByStop({ side: signalSide, stop_price: levels.stopLoss }, currentPrice);
+  const [breachLatch, setBreachLatch] = useState<{ scannedAt: string; price: number } | null>(null);
+  if (liveBreach && currentPrice != null && breachLatch?.scannedAt !== result.scannedAt) {
+    setBreachLatch({ scannedAt: result.scannedAt, price: currentPrice });
+  }
+  const latchedBreachPrice = breachLatch?.scannedAt === result.scannedAt ? breachLatch.price : null;
+  const breachPrice = liveBreach ? currentPrice : (latchedBreachPrice ?? result.stopBreach?.price ?? null);
+  const protocolInvalidated = useProtocolLevels && !!levels && breachPrice != null;
 
   // The price Alpaca measures the bracket legs against: the limit on an advised
   // entry, the live quote on a market entry. Choosing "buy now" below the
@@ -542,14 +559,17 @@ export function OrderTicket({
       <CardContent className="flex flex-col gap-4">
         {/* Caught before submit — price has already traded through the setup's
             own stop, so the advised entry no longer reflects a live thesis. */}
-        {protocolInvalidated && levels && currentPrice != null && (
+        {protocolInvalidated && levels && breachPrice != null && (
           <div className="rounded-lg border border-bear/40 bg-bear-soft p-3 text-xs text-bear">
             <p className="font-medium">This setup is invalidated.</p>
             <p className="mt-1">
-              Price has {signalSide === "sell" ? "risen to" : "fallen to"} {formatUsd(currentPrice)},
+              Price {signalSide === "sell" ? "rose to" : "fell to"} {formatUsd(breachPrice)},
               through the {formatUsd(levels.stopLoss)} stop the {pattern ? PATTERN_GLOSSARY_TERM[pattern.name].toLowerCase() : "setup"}{" "}
               thesis was staked on. The advised entry at {formatUsd(advised)} is a dead level —
-              placing this order at Protocol Recommended pricing is disabled.
+              placing this order at Protocol Recommended pricing is disabled. A plan whose stop has broken
+              stays retired when price comes back to the entry: it stands again only if a bar closes back
+              through the broken level by the usual allowance, and otherwise a new plan replaces it. Scan
+              again to read it.
             </p>
             <button
               onClick={() => setExecutionMode("manual")}
@@ -766,7 +786,7 @@ export function OrderTicket({
                           <p className="mt-1">
                             Entry {formatUsd(strategyLevels.entry)} · Stop{" "}
                             {formatUsd(strategyLevels.stopLoss)} · TP1{" "}
-                            {formatUsd(strategyLevels.takeProfit1)} · Master target{" "}
+                            {formatUsd(strategyLevels.takeProfit1)} · MTP (master target){" "}
                             {formatUsd(strategyLevels.masterTarget)}
                           </p>
                           <button
@@ -850,7 +870,7 @@ export function OrderTicket({
                           <p className="mt-1">
                             Entry {formatUsd(scriptLevels.entry)} · Stop{" "}
                             {formatUsd(scriptLevels.stopLoss)} · TP1{" "}
-                            {formatUsd(scriptLevels.takeProfit1)} · Master target{" "}
+                            {formatUsd(scriptLevels.takeProfit1)} · MTP (master target){" "}
                             {formatUsd(scriptLevels.masterTarget)}
                           </p>
                           <button
@@ -1042,7 +1062,7 @@ function ExitPlanNotice({
           starts. The rest is closed if price falls back under the level it broke out of, closes
           against the trade three days running, or the trend turns.
           {hasMaster
-            ? " If price pushes through the final target and falls back through it, the rest is closed."
+            ? " If price pushes through the MTP (master take profit) and falls back through it, the rest is closed."
             : ""}{" "}
           The stop moves while the app is open; the stop resting at the broker is what protects the
           position the rest of the time.

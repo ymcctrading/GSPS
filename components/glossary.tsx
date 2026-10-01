@@ -39,9 +39,9 @@ const GROUPS: { heading: string; terms: Term[] }[] = [
           "Your first profit goal, set by GSPS's analysis for this specific setup. Where it sits varies trade to trade rather than following one fixed rule.",
       },
       {
-        term: "Final target (green line)",
+        term: "MTP - Master Take Profit (green line)",
         plain:
-          "The bigger profit goal — further out than TP1, and adjusted to the nearest key price level GSPS finds in range. You'd typically take most profit at TP1 and let a small piece run toward this.",
+          "Master take profit (MTP): the bigger profit goal — further out than TP1, and adjusted to the nearest key price level GSPS finds in range. You'd typically take most profit at TP1 and let a small piece run toward this.",
       },
       {
         term: "Risk-to-reward (like 2:1)",

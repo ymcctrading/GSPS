@@ -56,6 +56,22 @@ export type EntitlementPolicy = {
    * STANDARD; this flag is the only thing that changes for Pro.
    */
   proIntradayModuleEnabled: boolean;
+  /**
+   * How many times a user may refresh the on-demand intraday scan
+   * (`/api/intraday-scan`), per America/New_York day and per rolling seven
+   * days — both apply, whichever runs out first. Project owner direction,
+   * 2026-09-30: the intraday cards update "a certain amount of times per
+   * day/week, dependent upon tiers". `0` for a tier with no intraday access at
+   * all (Novice); `"unlimited"` keeps the panel's automatic refresh, so the
+   * cap only exists where a person has to choose when to spend a refresh. The
+   * numbers were set by the owner on 2026-09-30 (Pro 3 a day / 10 a week, Expert
+   * 5 / 21, Wall Street unchanged) and are tuned here, in the one place the
+   * entitlement numbers live; enforcement is
+   * `lib/entitlements/intraday-refresh.ts`. The scheduled system scan
+   * (cron, `Authorization: Bearer`) is not a user refresh and is never counted.
+   */
+  intradayRefreshesPerDay: Limit;
+  intradayRefreshesPerWeek: Limit;
   backtestingEnabled: boolean;
   /**
    * Whether a user sees the scored setup's exact weighted figure (e.g.
@@ -144,6 +160,8 @@ const ENTITLEMENT_POLICY: Record<PlatformTier, EntitlementPolicy> = {
     automationEnabled: false,
     intradayScansEnabled: false,
     proIntradayModuleEnabled: false,
+    intradayRefreshesPerDay: 0,
+    intradayRefreshesPerWeek: 0,
     backtestingEnabled: false,
     exactScoreDisplayEnabled: false,
     allowedStrategyModes: [],
@@ -167,6 +185,8 @@ const ENTITLEMENT_POLICY: Record<PlatformTier, EntitlementPolicy> = {
     automationEnabled: false,
     intradayScansEnabled: false,
     proIntradayModuleEnabled: true,
+    intradayRefreshesPerDay: 3,
+    intradayRefreshesPerWeek: 10,
     backtestingEnabled: false,
     exactScoreDisplayEnabled: false,
     allowedStrategyModes: ["macdMomentum", "rsiReversal", "maCrossover", "vwap"],
@@ -190,6 +210,8 @@ const ENTITLEMENT_POLICY: Record<PlatformTier, EntitlementPolicy> = {
     automationEnabled: false,
     intradayScansEnabled: true,
     proIntradayModuleEnabled: false,
+    intradayRefreshesPerDay: 5,
+    intradayRefreshesPerWeek: 21,
     backtestingEnabled: false,
     exactScoreDisplayEnabled: true,
     allowedStrategyModes: "all",
@@ -213,6 +235,8 @@ const ENTITLEMENT_POLICY: Record<PlatformTier, EntitlementPolicy> = {
     automationEnabled: true,
     intradayScansEnabled: true,
     proIntradayModuleEnabled: false,
+    intradayRefreshesPerDay: "unlimited",
+    intradayRefreshesPerWeek: "unlimited",
     backtestingEnabled: true,
     exactScoreDisplayEnabled: true,
     allowedStrategyModes: "all",

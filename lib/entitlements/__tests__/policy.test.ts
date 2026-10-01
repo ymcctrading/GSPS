@@ -62,6 +62,25 @@ describe("getEntitlementPolicy", () => {
     expect(getEntitlementPolicy("SYSTEM_MASTERY").intradayScansEnabled).toBe(true);
   });
 
+  it("meters the on-demand intraday scan per tier, unlimited only at Wall Street", () => {
+    const refreshes = (tier: Parameters<typeof getEntitlementPolicy>[0]) => {
+      const p = getEntitlementPolicy(tier);
+      return [p.intradayRefreshesPerDay, p.intradayRefreshesPerWeek];
+    };
+    expect(refreshes("PRACTICE")).toEqual([0, 0]);
+    expect(refreshes("STANDARD")).toEqual([3, 10]);
+    expect(refreshes("INVESTOR_MODE")).toEqual([5, 21]);
+    expect(refreshes("SYSTEM_MASTERY")).toEqual(["unlimited", "unlimited"]);
+  });
+
+  it("never lets a weekly intraday budget sit below the daily one", () => {
+    for (const tier of ["PRACTICE", "STANDARD", "INVESTOR_MODE", "SYSTEM_MASTERY"] as const) {
+      const { intradayRefreshesPerDay: day, intradayRefreshesPerWeek: week } = getEntitlementPolicy(tier);
+      if (day === "unlimited") expect(week).toBe("unlimited");
+      else if (week !== "unlimited") expect(week).toBeGreaterThanOrEqual(day);
+    }
+  });
+
   it("gates the bounded Pro intraday module at Pro (STANDARD) only", () => {
     expect(getEntitlementPolicy("PRACTICE").proIntradayModuleEnabled).toBe(false);
     expect(getEntitlementPolicy("STANDARD").proIntradayModuleEnabled).toBe(true);

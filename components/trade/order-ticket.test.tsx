@@ -333,6 +333,35 @@ describe("OrderTicket protocol-level invalidation", () => {
     expect(screen.getByRole("button", { name: /Buy DRAM/ })).toBeDisabled();
   });
 
+  it("stays blocked when the scan itself retired the plan, even with price back at the entry", async () => {
+    mockFetch();
+    // The owner's rule (2026-09-30): a breached stop retires the plan until a
+    // Gann's own test confirms it (a failed break) or a new plan replaces it. Price returning to the entry is not
+    // that scan.
+    const scan = { ...scanWithEntry(100, "bullish"), stopBreach: { stop: 88, price: 85, reclaimAt: 92.5 } };
+    render(<OrderTicket result={scan} livePrice={100} />);
+
+    expect(await screen.findByText(/This setup is invalidated/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Buy DRAM/ })).toBeDisabled();
+  });
+
+  it("keeps a live breach latched when price comes back, until a newer scan arrives", async () => {
+    mockFetch();
+    const scan = scanWithEntry(100, "bullish"); // stop = 88
+    const { rerender } = render(<OrderTicket result={scan} livePrice={85} />);
+    expect(await screen.findByText(/This setup is invalidated/)).toBeInTheDocument();
+
+    // Price is back at the entry. No scan has run since, so the plan stays retired.
+    rerender(<OrderTicket result={scan} livePrice={100} />);
+    expect(screen.getByText(/This setup is invalidated/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Buy DRAM/ })).toBeDisabled();
+
+    // A scan run afterwards, with price inside the stop, confirms the plan.
+    rerender(<OrderTicket result={{ ...scan, scannedAt: "2026-08-07T16:10:00.000Z" }} livePrice={100} />);
+    expect(screen.queryByText(/This setup is invalidated/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Buy DRAM/ })).not.toBeDisabled();
+  });
+
   it("lets Manual Override past the block", async () => {
     const user = userEvent.setup();
     mockFetch();

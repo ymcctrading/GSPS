@@ -1,0 +1,463 @@
+# Setup lifecycle, intraday, and timeline: what Gann says, and what GSPS does
+
+**Written:** 2026-09-30, answering items 2, 3 and 5 of the project owner's 2026-09-28 note.
+**Status:** research, and the record of three owner decisions taken the same day (Part 4). When first
+written, nothing here changed a verdict, a level, a gate or an order; on 2026-09-30 the owner decided
+the stop-breach rule and the intraday first target, and both are built. Part 1.4 and Part 3.4 say what
+was built; what is still not built is listed in Part 4.
+**Sources:** the page-by-page reads in `docs/memory-bank/sources/` (Tier A: Gann's own text, unless
+marked), and the committed replay runs in `docs/replay-runs/`. Read
+`docs/GANN_HISTORICAL_SOURCES.md` for the tier definitions.
+
+## The three answers, up front
+
+1. **Price breaks the stop, then comes back to the entry.** In Gann's method the old plan does not
+   come back. The stop is caught because the structure it sat under has broken; the broken level
+   then flips to the other side (*old bottoms become tops*), so a return to the entry is a test of
+   resistance, not a second chance at the buy. A new long needs a new higher bottom and a new
+   buying point, with a new stop. GSPS mostly agrees on the dashboard and **disagrees on the chart
+   page**, for a specific reason that is a bug in the fit between two parts, not a market opinion
+   (Part 1.3). The fix is a verdict change and is held for you.
+2. **Intraday.** Gann's method is scale-free in how it is *built* and scale-bound in what it
+   *measures*. He used it on the hour and endorsed an hourly chart in fast markets, but he also wrote
+   that the money is made on the long swings and that swing trading beats scalping. GSPS's levels are
+   swing levels (stops 3–15% away, first targets 3–15%) because they come from daily structure, which
+   is why they look wrong on a chart you are trading by the hour. The honest state of the evidence is
+   that the one-hour method has **lost money over six years** in the largest sample GSPS has run.
+   Part 3 sets out how each piece of the method rescales and a measurement plan that would settle it.
+3. **Timeline.** Entry is a matter of minutes to a few hours; the trade is a matter of days to
+   weeks. Measured on 392 replayed trades, the median holding period was about **5 sessions** on the
+   fixed bracket and about **7 sessions** on the exits that are live now, and 60% of trades on the
+   live exits were still open when the replay's 10-session limit stopped them (Part 2).
+
+---
+
+## Part 1. The stop is broken, and price returns to the entry (item 2)
+
+### 1.1 What GSPS does today
+
+| Surface | What it does when price trades through a setup's stop |
+|---|---|
+| Dashboard lists (`components/scan/results-table.tsx`, `components/dashboard/tracked-execute-list.tsx`) | Marks the row invalidated the first time a live quote is through the stop, and **keeps it** (a one-way ratchet) so a feed gap or a tick back over the line can't un-invalidate it. |
+| Order ticket on the symbol page (`components/trade/order-ticket.tsx`, `protocolInvalidated`) | Recomputed from the live price on every render. **No ratchet:** the banner disappears when price is back above the stop. |
+| Daily list reader (`lib/dailyScans.ts`) | Drops a row whose *scan-time* price was already through the stop. |
+| Monitor sweep (`app/api/monitors/invalidation-sweep/route.ts`) | Twice an hour in market hours, flips a WATCH/EXECUTE monitor to INVALIDATED if a fresh quote is through its stop. |
+| Symbol page scan (`app/api/scan/route.ts` → `lib/scanTicker.ts`) | Re-scans from **completed daily structure** and knows nothing about the stop. It returns the same plan, and `evaluateMonitorsAndNotify` **re-arms the monitor** the sweep just invalidated (`lib/entitlements/monitor.ts`: INVALIDATED → WATCH → EXECUTE is a valid transition). |
+| Trade-plan lifecycle (`lib/lifecycle/reaper.ts`) | Deliberately does **not** invalidate a pre-entry plan on a stop breach; the header says that decision is the product owner's. This is finding F3.7 in AGENTS.md, held since 2026-09-25. |
+
+That is the whole of why the chart shows the plan as active. The list, the sweep and the ticket each
+say "invalidated" from a quote; the scan behind the chart says "still valid" from the last completed
+daily bars, and it is the scan that writes the monitor back to Execute. Three of those four agree
+with each other. The fourth is the one that draws the lines.
+
+### 1.2 What Gann says
+
+Four separate teachings bear on this. Each is quoted from the read, with the source file.
+
+- **A caught stop is a signal, not an accident to be undone.** "When the stop is caught the Overnight
+  Chart has reversed — reverse position", with the exception that he does not reverse where there is
+  no nearby second top or bottom to place the new stop against (*Master Stock Market Course*, Ch. 3,
+  Rule 4; `sources/A2_1_master_stock_market_course.md`). In *New Stock Trend Detector*, Rule 6: close
+  longs and go short when the trend changes; "if stopped, cover and go long again — keep with the
+  trend all the time" (`sources/A05_new_stock_trend_detector.md`). In neither does he wait for price
+  to return to where the first trade was entered.
+- **The broken level changes sides.** "Old tops become bottoms; old bottoms become tops" (*New Stock
+  Trend Detector* p. 13, `sources/A05_...md`), and, on closing prices, "breaks below old lows
+  generally rally back to the old lows = safe sell" (*Master Course* rule 5,
+  `sources/A2_1_...md` line 45). A long setup's stop sits under a swing bottom. Once that bottom is
+  broken, it is resistance. A return toward the old entry is a return toward resistance.
+- **Re-entry is a new trade with a new stop, not the old one resumed.** In *Tunnel Thru the Air* he
+  is stopped out at 225 and re-buys at 218 "after the 12 to 15 point reaction he expected, stop
+  212" (`sources/A03_tunnel_thru_the_air_1927.md`): a different price, a different stop, a stated
+  reason. "Too soon, too late: wait for a well-defined change in trend, then act", and "never
+  average a loss" (*Master Course*, fundamental rules, `sources/A2_1_...md` lines 37 and 39).
+- **How much of a break is a break.** His stops are placed 1–3 points beyond the swing extreme so
+  that ordinary "lost motion" does not catch them: price goes about 1⅞ points past a level but not 3
+  full points, "so a 3¢ stop is caught least often" (*How to Make Profits in Commodities* p. 38,
+  `sources/A08_how_to_make_profits_in_commodities.md` line 35). He prefers stops under closing prices
+  because they are "caught less often than under intraday lows" (*Master Course*, Stops,
+  `sources/A2_1_...md` line 57), and he wants a *close* beyond a level before treating a break of it
+  as real, because "intraday pokes often reverse by the close" (rule 5). So the stop being *touched*
+  is the trigger for an open position (a stop order fills on touch), but the confirmation that a
+  *trend* has changed is a close, and the allowance beyond the swing extreme is already built into
+  where the stop sits.
+
+### 1.3 Reading the three situations
+
+| Situation | Gann's answer | GSPS today |
+|---|---|---|
+| **An open position, stop hit** | Out. The reversal is the signal; he reverses only where a nearby second level gives the new stop somewhere to go. | Exits on the stop. GSPS does not reverse (noted in `sources/A2_1_...md`, "Implementation relevance"). |
+| **A setup not yet entered; price falls through its stop** | The thesis is gone (the swing bottom that qualified it is broken). Don't enter the old plan. The break is confirmed by a close, and a poke that closes back inside is not a change of trend. | The list and the sweep treat a quote through the stop as final. The chart page's scan doesn't see it, and re-arms the plan. |
+| **Price then returns to the original entry** | The old plan is not resumed. The old bottom is now resistance. A long needs a new higher bottom and a new buying point with a new stop; a short from the old level is the trade the method actually offers, if its own trigger arms. | The list keeps it dead. The ticket un-invalidates the moment price is back above the stop, and the chart shows the same plan. **This is the inconsistency you saw.** |
+
+### 1.4 Options, and what was decided
+
+**Decided 2026-09-30 (project owner):** "A breach retires the plan, until an updated scan is run and a
+plan is either confirmed or an updated plan replaces the original." That is option A below with the
+way back in made explicit. **Follow-up the same day, also the owner's:** "if Gann has his own version
+of confirmed or replaced, implement his rule, methodology instead ... it may not be a word for word
+replacement, but the sentiment/premise needs to align." He does, and it is what is built:
+
+- **Confirmed is a failed break.** The broken level changes sides (an old bottom becomes a top, NSTD
+  p. 13), so price returning to the old entry is a test of resistance, not a second chance at the buy.
+  Only a rally that goes on through the broken level by his 3-point allowance shows the break was
+  false: after breaking an old bottom a stock "should not rally 3 points back above it" (NSTD p. 20),
+  rallies to old bottoms stop within 1-2 points (average 3) above it, and **more than 5 above means it
+  is going higher** (Master Course, the range rules, pp. 246-248). His close rule decides it: "still safer
+  to wait for a close beyond it ... intraday pokes often reverse by the close" (Master Course, rules
+  4 and 5, p. 7). So a broken plan stands again only when a **closed bar closes back through the
+  broken level by the allowance** (`reclaimLevel`, price-scaled by `lib/gann/pointScale.ts`, the same
+  "3 points" the exit rules use). A bar that wicks through the stop and closes back past that line is a
+  poke that reversed by the close, and is not a break at all. Price merely back between the stop and the
+  line does not reinstate the plan.
+- **Replaced is a new trade with a new stop.** He never resumes a stopped trade at its old levels: the
+  stop caught means the chart has reversed (Master Course, Overnight Chart rule 4); "if stopped, cover
+  and go long again" (NSTD Rule 6) is a new trade; in *Tunnel* he is stopped out at 225 and re-buys at
+  218, stop 212, for a stated reason. A new long needs a new bottom that holds (2-3 days in an active
+  market, NSTD p. 20) and a cross of an old top with a new stop 3 points under it; a short after a
+  broken bottom is sold on a small rally with the stop 3 points above the old bottom. That is what
+  `computeGannEntryTrigger` already reads from the swing chart on completed daily bars, and the swing
+  chart turns the moment the last swing bottom is broken, so once the break has made a daily bar the
+  scan prices a different plan (or none). Nothing resurrects the old plan; "replaced" needed no new
+  code beyond not reinstating it, and a replacement still earns its own entry confirmation.
+
+It is built as `lib/gann/stopBreach.ts` and `applyStopBreachHold` (`lib/scoring/score.ts`). Section
+"What was built" below says where. The options, as they were put to the owner:
+
+- **A. Gann-strict.** A breach of the stop retires that plan for good. It is only replaced by a new
+  scan that produces new levels. Implementation: a stop-breach hold in the scan itself, beside
+  `applyDataLagHold` and `applyBreakawayHold`, applied on the live scan and the replay alike (they
+  must share the code, `lib/scan/entrySelection.ts`), which returns Reject for a plan whose stop is
+  already through, so the monitor goes INVALIDATED and stays there until a genuinely new plan
+  qualifies.
+- **B. Gann's close standard.** The same, but a stop that is *touched* only puts the plan **on hold**
+  (no entry while price is beyond it); it is retired when a session **closes** beyond it, and it
+  recovers if the day closes back inside. This is the reading of "intraday pokes often reverse by
+  the close" applied to a not-yet-entered plan.
+- **C. Leave it.** Keep the list's ratchet and the ticket's live check, and accept that the chart
+  and the list can disagree.
+
+**Recommendation: A.** It is what the swing-chart rule GSPS already runs says: a trend turns when
+the last swing extreme breaks (`lib/gann/swingChart.ts`, parity stage B1), and the stop sits beyond
+that extreme by Gann's own allowance, so a touch of it has already cleared his "lost motion". It is
+also his stop-caught rule. B is the fallback if the replay shows that a large share of breached
+stops close back inside by the end of the session; the replay can answer that before anything ships.
+Either ends the disagreement between the list and the chart. (What was built is A for the break and Gann's
+own test of a false break for the way back in; see above.)
+
+**What was built (2026-09-30).**
+
+| Surface | Now |
+|---|---|
+| Live scan (`lib/scanTicker.ts`) | The price the scan ran at, and the session's closed execution bars, are read against the stop of the plan it priced. The plan is broken when price is through the stop, or a bar of the session traded through it and no bar since (the breaking bar included) has closed back through the reclaim line. Broken: the verdict is Reject, `ScanResult.stopBreach` carries the stop, the price and `reclaimAt`, and `levels` still holds the retired plan so a person can see what broke. Applied outermost, after the other holds. |
+| Monitors (`evaluateMonitorsAndNotify`, the sweep) | No change to either. The scan returns Reject for a broken plan, so the re-arm that caused F3.7 no longer happens; a scan run once a bar has closed back through the reclaim line re-arms it (a failed break), and a scan that prices new levels replaces it. |
+| Symbol page | The signal card says "This plan is retired", that the broken level now works the other way, the line a close has to get back through, and that otherwise a new plan replaces it; the chart (`ticker-view`, `public-chart`) draws no Entry/SL/TP/MTP lines for it; the order ticket blocks Protocol Recommended and keeps a live breach latched, keyed to the scan it was seen on (the scan is what reads the closes), so price returning to the entry does not quietly un-retire it. |
+| Lists | Unchanged: the one-way ratchet, and the grouped "broke their stop" / "No longer valid" dropdowns. A reload reads a fresh scan. |
+| Guided Mode (`lib/guided/eligibility.ts`) | Names the retirement first, ahead of the Reject it causes. |
+| Replay (`lib/backtest/replay.ts`) | A plan is read once per session (its stop from `computeTradeLevels`, the same pricing the verdict uses). The scan that arms a session reads the last close; every later closed candle of the session is read in turn. Through the stop: the plan is not entered and a confirmation in progress starts over, until a closed candle closes back through the reclaim line (a failed break), when it stands again. `retiredPlans` counts each plan that was ever retired. If no candle reclaims, it stays out for the session and the next session's read of the swing chart replaces it. The candle the entry fires on is left to the bracket walk. |
+| `trade_plans` lifecycle (`lib/lifecycle/retire.ts`, built 2026-10-01) | A `retire` event takes a pre-entry plan (WATCHLIST to ARMED) to INVALIDATED, with the reason on the audit row, when the scan reports **that plan's** stop broken: same symbol, same direction, same stop. It is dispatched from the scan fan-out for every scan that carries a `stopBreach` (the market scan, the scheduled scans, the batch scan and the single-symbol scan), and it is **dormant until a `preentry_plan_retirement` row exists in `compliance_signoffs`** (see below). Terminal: a failed break or new structure earns a new plan with its own row, never the old one turned around. |
+| Replay option (`ReplayOptions.reclaimPoints`, 2026-10-01) | The reclaim allowance in points of his 3-point scale: 3 (default, what the live scan uses) or 5 (the stricter reading). Replay only; nothing live passes anything but 3. Pre-registered in Part 5. |
+| `STRATEGY_VERSION` | `2026-09-30-stop-breach-retired`. Runs before it entered plans the live scan now retires. Unchanged by the 2026-10-01 additions: the lifecycle row, the replay options and the intraday profile do not alter the production method or the default replay. |
+
+Two differences between the live scan and the replay are deliberate and labelled. The live read
+takes the price at scan time plus the session's closed bars, the replay reads candle by candle, and
+both apply the same closing test. The live scan sees only the current session: a break that has
+already made a completed daily bar has turned the swing chart and the scan prices a different plan
+from it, which is the "replaced" case. The reclaim line's allowance is Gann's "3 points" price-scaled
+(`lib/gann/pointScale.ts`), which is about 5% at $100 and 2.6% at $500, so it is a wide line; he also
+says more than 5 points above means going higher, so a stricter line is defensible. It is an
+engineering reading of his 3 (his lower figure, the one his false-break rule names), and it is the
+number to tune if the replay shows reinstated plans failing.
+
+**The lifecycle transition (built 2026-10-01, dormant).** The `trade_plans` lifecycle had no pre-entry
+"invalidated" transition, and `lib/lifecycle/reaper.ts` and `lib/lifecycle/types.ts` say the spec pack
+needs counsel review before that rule ships. The owner gave the go-ahead to build it on 2026-10-01.
+Building it is not the review, so it ships behind the repo's own mechanism for exactly this
+(`compliance_signoffs`, `lib/compliance/signoff.ts`; the feature key is `preentry_plan_retirement`):
+with no active row, `retirePlansForBrokenStops` reads nothing and writes nothing, and a plan behaves as
+it did: no longer advanced once the scan rejects it, expired on its clock, an order at its levels refused
+at the bracket (`fill_outran_bracket`). Recording the sign-off is a human act outside the code
+(`scripts/record-preentry-retirement-signoff.mjs`; revoke with `revokeSignoff`). Choices made in
+building it, each of which counsel may want to see:
+
+- **Which plan.** The one the scan priced and broke: symbol, direction and stop must all match (to a
+  cent). An older stored plan with a different stop is left to expire; the current plan replaced it.
+  The lifecycle reads the scan's own `stopBreach` and does not run a second breach test.
+- **Terminal.** `retire` lands in the existing INVALIDATED state. No new state and no migration. Gann
+  never resumes a stopped trade at its old levels (Part 1.2), so a failed break stands the *setup*
+  again as a fresh WATCH to EXECUTE transition with its own signal id and row, and the audit trail
+  shows a retired plan and its replacement.
+- **Not covered.** A stored plan whose stop was replaced by newer structure rather than broken is not
+  retired by this (it expires), and the twice-hourly price sweep
+  (`app/api/monitors/invalidation-sweep`) still invalidates monitors from a quote without touching
+  `trade_plans`: the scan is the authority, as the owner decided.
+
+The intraday alerts need nothing: each scan recomputes them from the session, and their invalidation is
+the session's 50% point or opening range.
+
+---
+
+## Part 2. How long an executable setup takes (item 5)
+
+There are two clocks, and they run at different speeds.
+
+### 2.1 The entry clock: minutes to a few hours
+
+- The **trigger** is set from daily bars (`lib/gann/entryTrigger.ts`, crossing an old swing extreme
+  plus lost motion), so a setup can exist from the pre-open scan onward.
+- The **entry** is confirmed on closed **15-minute** bars (`EXECUTION_TIMEFRAME`,
+  `lib/timeframe.ts`), through four stages that each need a later bar than the last: the trigger is
+  touched, a bar closes beyond it by the buffer, a later bar returns to it, and a later closed bar
+  resumes beyond the retest bar's extreme (`lib/lifecycle/entryConfirmation.ts`). That is **at least
+  four bars, about an hour**, and usually more.
+- A trade plan **expires** if that doesn't happen: 3 bars (45 minutes) for a breakout, 4 bars for a
+  confirmed reversal or a range reversion, 5 bars (75 minutes) for a pullback, and 20 bars (5 hours)
+  when no state supplies its own (`lib/signals/states/*.ts`, `lib/lifecycle/fromScanResult.ts`).
+- A Guided recommendation card is good for 15 minutes (`lib/guided/config.ts`).
+
+### 2.2 The trade clock: days to weeks
+
+Exits are judged on **completed daily sessions**, not on the 15-minute bars
+(`lib/gann/exitRules.ts`): the hold test and the trail read daily closes and the prior month's low,
+"three adverse closes" reads the first three sessions after the fill, and the trend-change exit
+reads the weekly swing chart. Stops and first targets come from daily structure too
+(3–15% for both on equities, `lib/strat/levels.ts`), so a level takes days to reach.
+
+Measured on the 15-minute replay of 766 symbols, 392 trades, 2026-07-30 to 2026-09-25 (run 21,
+`docs/replay-runs/2026-09-28-15Min-2R-within-all-766sym-firstdays-*.json`; 26 fifteen-minute bars
+make one regular session):
+
+| Exit | Trades | Median hold | In sessions |
+|---|---:|---:|---:|
+| Fixed bracket, all trades | 392 | 135 bars | **5.2** |
+| Live rule (Gann exits, 60% off at TP1), all trades | 392 | 180 bars | **6.9** |
+| … stopped at the initial stop | 45 | 52 bars | 2.0 |
+| … three adverse closes | 40 | 70 bars | 2.7 |
+| … hold test failed | 35 | 76 bars | 2.9 |
+| … break-even | 17 | 105 bars | 4.0 |
+| … final-stage trail | 13 | 132 bars | 5.1 |
+| … trend change | 6 | 179 bars | 6.9 |
+| … still open at the replay's 10-session limit | 236 | 260 bars | 10.0 (a floor) |
+
+Read this as: **losers are out in two to three sessions; winners run longer than the replay
+allowed**, because the last row is a limit, not a result. It is one two-month window, and the run
+notes say plainly that it is a single market phase.
+
+### 2.3 What Gann says about the same clocks
+
+Bull-market reactions are "quick and sharp but never more than 3–4 weeks" (*Master Course* Rules for
+stocks A); a normal reaction in a steady advance lasts 10–14 days, the next 28–30, and a move past
+30 days is likely to run 60 (*How to Make Profits in Commodities* p. 310–311); a market that has
+closed three days against you after entry is wrong (*New Stock Trend Detector* p. 23). He does not
+give a holding period for a single trade, and he says not to fix a target
+(*Truth of the Stock Tape*); the trade lasts as long as the trend does.
+
+**Dewey's checklist, since these are recurrence claims.** None of the durations above has been
+validated in GSPS. Regularity of timing and constancy of period are asserted by Gann and untested
+here; the dated-window version of the claim failed its own test on 2019–2025 data
+(`docs/replay-runs/2026-09-27-766sym-NOTES.md`, "F4 calendar test"). They are context, not gates.
+
+---
+
+## Part 3. Gann's method and intraday trading (item 3)
+
+### 3.1 Why the levels look wrong on an intraday chart
+
+They are swing levels by construction. On equities the stop is placed at a structural level 3–15%
+away (`EQUITY_STOP_MIN_PCT`/`MAX_PCT`), TP1 is 2 daily ATRs clamped to 3–15%, and the master target
+is 3.5 ATRs clamped to 6–25% (`lib/strat/levels.ts`). A stock that moves 1–2% in a day does not
+reach a 3% first target in a session, and a 3% stop is a large loss for a trade meant to last an
+hour. The 15-minute bars in GSPS decide *when* to enter a swing plan; they don't size it.
+
+### 3.2 What Gann himself says
+
+| Statement | Source (tier) | Bearing |
+|---|---|---|
+| "When markets are very active… keep an **hourly** High and Low Chart… the Hourly Chart will give the first change in trend." 144 hours ≈ 28 days. | *Master Course* Ch. 13 (A) | He charted by the hour, in fast markets. |
+| The law governs "the daily and even **hourly** movements." | 1909 *Ticker* interview (A) | Correspondence: the same law at every scale. |
+| In active fast markets use the daily chart and the **close**; "intraday pokes often reverse by the close." | *Master Course* rule 5 (A) | Caution about acting on an intraday break. |
+| "The big money… is made on the long swings and not by day to day trading." | *Annual Forecasts* 1919–22, closing (A) | Against day trading as the main source of profit. |
+| "Swing trading is most profitable. Hold until a reverse swing, and don't scalp." | *How to Make Profits in Commodities* p. 316 (A) | Same. |
+| Five factors for time and price: high, low, halfway point, open, close; close vs halfway point gives the bar's trend. | *Master Course* Ch. 13 (A) | A per-bar rule that works at any bar length. |
+| 4 minutes = 1° of rotation, "the smallest cycle… in things that are very active." | *Tunnel Thru the Air* (A, novel) | A time unit for the smallest scale; no trading rule attached. |
+| Overnight Chart method: 1-point stops, a 3-point reversal for larger swings, trades at the halfway point, stop and reverse. | *Master Course* Ch. 3 (A) | His most mechanical system, and a tight-stop one. |
+| Mikula's guess that Gann traded 1909 from Moon angles off intraday pivots. | *Scientific Methods* vol. 2, Ch. 6 (B, interpretive; he admits it is speculation) | A lead, not a source. |
+
+So: he had an intraday chart, he tightened his stops when he traded short-term, and he believed in
+the swing. The 1909 audited record (286 trades in 25 market days) is a historical claim about the
+method's *shape*, a level, a limit and a tight stop, and is not evidence for GSPS
+(`sources/A01_ticker_interview_1909.md`).
+
+### 3.3 What GSPS has measured
+
+- **One-hour bars, 2020-09-29 to 2026-09-25, 766 symbols (run 12):** every cell loses and every
+  interval sits wholly below zero, in both halves. Execute is worse than Watch. It is the largest
+  sample GSPS has (8,600 to 17,000 trades). "The intraday question is answered, and the answer is
+  no", in the run notes' words.
+- **15-minute bars, two months (runs 16, 19, 21):** positive (+0.075R live rule, +0.095R bracket),
+  but it covers one market phase and its first half is slightly negative.
+- The two are not the same test: the six-year run predates two translation fixes (Gann's points
+  scaled to price, and the first-days reading of the adverse-closes rule), and it traded the old
+  replay stop. **Nothing yet measures the fixed method at intraday scale over years.**
+
+### 3.4 How each piece rescales
+
+Gann's constructions are ratios and structures, so they carry over. His *measures* (points, days)
+do not, and have to be re-derived in the unit of the chart. That is the same move
+`lib/gann/pointScale.ts` already makes from his 1930s points to a percentage at any price.
+
+| Piece | Swing form (today) | Intraday form | Basis |
+|---|---|---|---|
+| Trend | 9-day / 3-day swing charts; weekly 7-day chart (`lib/gann/swingChart.ts`) | The same swing-chart rules on 15-minute and hourly bars: a swing reverses when the last extreme breaks. | Master Course Ch. 13 (hourly chart "gives the first change in trend"). |
+| Buying/selling point | Cross of an old swing top/bottom on daily bars, plus lost motion | The same cross on the 15-minute / hourly swing, plus a lost-motion allowance re-derived for the session's range | A8 nine buying points. His lost motion is in absolute cents and points, so it has to be rescaled, as `pointScale.ts` does for the exits. |
+| Stop | 3–15% band under a daily swing | 1 point-equivalent beyond the intraday swing extreme, scaled as `pointScale.ts` scales it | Master Course Ch. 3 (1-pt stops); NSTD stops of 1, 2, 3 points on cheap stocks. |
+| First target | 2 daily ATRs, clamped | The nearest old top/bottom or halfway point above the entry: the day's 50% point, the prior session's high/low | Master Course: sell at old tops, the halfway point as the gravity center. |
+| Master target | 3.5 ATRs | **None.** Trail the stop under each higher intraday bottom | "Never fix a target price" (*Truth of the Stock Tape*); the intraday scanner already prices no MTP. |
+| Confirmation | Four stages on 15-min bars | Four stages on 5-min bars | Same rule, finer bar. |
+| Time | Daily/weekly counts | Hourly counts (144 hours), 4-minute rotation | Master Course Ch. 13; *Tunnel*. Research only until Dewey's items are met. |
+| Exit on trend change | Weekly swing chart turns | The hourly swing chart turns | Same rule, finer chart. |
+
+The intraday scanner (`lib/scanner/intraday.ts`) already used two of these: the session's 50% point
+(replacing VWAP, 2026-09-28) and the opening range. Its first target was the exception: twice the
+risk, an R-multiple with no Gann source, and the one intraday component that failed the Gann-grounded
+standard. **Replaced 2026-09-30** (owner: "everything must align with Gann") by `gannFirstTarget`, the
+table's "first target" row: the nearest old top (up) or bottom (down) beyond the price, or a round
+number just short of one (`lib/gann/evenFigures.ts`, the rule the daily equity targets already use),
+and none where nothing lies ahead. A level must sit at least one intraday ATR beyond the price, and a
+round number counts only within a day's range of it; both are labelled engineering choices, since Gann
+gives the rule and not these magnitudes at intraday scale. The old levels it reads are the session's
+own extreme and the prior close; the session's earlier swings and the prior sessions' highs and lows
+are not passed in yet, so it can under-name a level but never invent one. Expect many alerts to carry
+no target: a market in new territory has no old top ahead of it, and Gann's answer there is to fix no
+target and trail the stop ("never fix a target price", owner decision X4). The card, alert and email
+say "no target is fixed", and the stop trails under each higher bottom.
+
+### 3.5 A measurement plan that would settle it
+
+Pre-registered, in the way `docs/memory-bank/F4_CYCLES_CALENDAR_RESEARCH.md` is, so the rule is
+fixed before the data is seen:
+
+1. Build the intraday profile as a *replay* option only (`entryRule`/`exitRule` already work this
+   way), with the rows in 3.4 as its rules and no parameter searched.
+2. Run it on the 766-symbol universe over the longest 5-minute and 15-minute window the feed
+   returns, plus the six-year hourly window, with the halves and the 95% interval that runs 12–21
+   already report.
+3. Judge it by Dewey's standard as well as sign: a hit rate against a base rate, out-of-sample
+   persistence, and the two halves agreeing.
+4. Only then decide whether it gets a product surface. Until then the intraday cards stay
+   *confirmations of moves that have already happened*, which is what the scanner says it is.
+
+**Built 2026-10-01 (owner go-ahead): step 1 is `lib/backtest/replayIntraday.ts`; the run is
+specified in Part 5 and has not been made.** What follows is the recommendation as it was put, kept
+because it still describes what the profile is for.
+
+**Recommendation.** Keep swing as GSPS's method, keep the intraday panel as confirmation, and
+commission step 1 if you want the intraday profile built. It is a replay-only build, no product risk,
+and it is the only route to an answer that isn't "the hourly run lost money, presumed a translation
+defect". **Status 2026-09-30:** the owner's answer to the question was "everything must align with
+Gann", which settled the target (above) and leaves the profile itself unbuilt. The profile is what
+would *measure* the method at intraday scale; it changes nothing a person sees. It is still the only
+route to evidence, and is open for the owner to commission.
+
+---
+
+## Part 4. Decisions for the owner
+
+All three were decided on 2026-09-30.
+
+1. **Stop-breach rule** (Part 1.4). Decided: "A breach retires the plan, until an updated scan is run
+   and a plan is either confirmed or an updated plan replaces the original." Built (Part 1.4, "What was
+   built"). The `trade_plans` lifecycle transition is built (2026-10-01) and dormant until a compliance sign-off is recorded.
+2. **Intraday profile** (Part 3.5). The owner did not follow the question as put ("build the replay-only
+   profile?") and answered the principle: "everything must align with Gann." Acted on as: the intraday
+   first target, the one component with no Gann source, is replaced (Part 3.4). The replay-only profile,
+   which would measure the method at intraday scale, was built as a replay option on 2026-10-01 after the
+owner's go-ahead (Part 5); the run is not made.
+3. **Refresh numbers** (`lib/entitlements/policy.ts`). Decided: Pro 3 a day / 10 a week at most, Expert
+   5 a day / 21 a week at most, Wall Street unchanged (unlimited with automatic refresh), Novice none
+   (no intraday access, unchanged). Built.
+
+## Part 5. Runs to make, fixed before anyone sees a result (2026-10-01)
+
+Two things were built on the owner's 2026-10-01 go-ahead that can only be judged by running the replay on
+market data, and this session had no vendor keys (`ALPACA_API_KEY`/`ALPACA_API_SECRET`), so neither run
+was made. Both are written down here, in the way `docs/memory-bank/F4_CYCLES_CALENDAR_RESEARCH.md` is, so
+the rule for reading them is fixed before the data is. Run them from a deployment that holds the keys
+(`GET /api/backtest`, then commit the captured JSON under `docs/replay-runs/` and render it with
+`npm run backtest -- --from`), as the earlier runs were.
+
+### 5.1 The reclaim line: 3 points or 5
+
+**Question.** After a stop breaks, a closed bar has to close back through the broken level by Gann's
+allowance for the plan to stand again. His false-break rule names 3 points (NSTD p. 20). He also says a
+rally of more than 5 above an old bottom means it is going higher (*Master Course* pp. 246-248), so 5 is
+the stricter reading. Live uses 3 (`RECLAIM_POINTS`).
+
+**Run.** The same request twice, on the 766-symbol universe, 15-minute bars, `usePlanLevels`,
+`entryRule=confirmed`, `exitRule=gann-runner` (the rule live positions use), `within=all&trades=1`,
+differing only in `?reclaimPoints=3` and `?reclaimPoints=5`. Those are the only two values; no third is
+searched.
+
+**Reading.** Plans a close of 3 points reinstates but 5 does not are the disputed set (the trades in the
+first run absent from the second, matched on symbol and `openedAt`). The live figure moves to 5 only if
+**all** hold: the disputed set's mean R is negative with its 95% interval wholly below zero; both
+chronological halves of it are negative; and it holds at least 30 trades. Otherwise 3 stays, because it is
+Gann's own figure and the standing precedence rule says the source wins unless measurement shows our
+translation failing. Changing the live number is a recorded owner decision and bumps `STRATEGY_VERSION`.
+
+### 5.2 The intraday profile
+
+**Question.** Does Gann's method, read from intraday bars with the 2026-09-28 translation fixes, have an
+edge over years? The six-year hourly run (`docs/replay-runs/2026-09-27-766sym-NOTES.md`, runs 12 and 13)
+predates those fixes and traded the old replay stop; the positive 15-minute results cover two months.
+Nothing yet measures the fixed method at intraday scale.
+
+**The rules** are the "intraday form" column of Part 3.4, as built in `lib/backtest/replayIntraday.ts`,
+and none was searched: the 3-bar swing chart's trend on the hourly roll-up; a cross of the last completed
+3-bar swing top (bottom) plus one intraday point; the stop one point beyond the protective swing; the
+four-stage confirmation; the first target `gannFirstTarget` names, or none; 60% off at it; the stop
+trailing one point under each higher completed bottom; a turn of the hourly chart as an exit at the next
+open; the same broken-stop test as the live scan, at this scale. One point is a third of
+`gannThreePoints(price)` times the bars' ATR over the daily ATR, floored at 0.05% of price. A plan lives 20
+bars (the lifecycle's own default). One position per symbol. All engineering choices are labelled in the
+module header and are not to be changed after seeing a result.
+
+**Runs.** `?profile=intraday&within=all` on the 766-symbol universe:
+
+1. **Primary:** `timeframe=1Hour`, the longest window the feed returns (about six years). This is the one
+   test the verdict rests on, so no multiple-comparisons correction is needed.
+2. **Replications, out of sample:** `timeframe=15Min` and `timeframe=5Min`, the longest windows the feed
+   returns (about 60 and 15 days). They are data the primary rules were never fitted to; they cannot
+   confirm a result, only fail to contradict it.
+
+**Reading.** Judged by Dewey's standard where it applies, not by sign alone. The profile earns a product
+surface only if **all** hold on the primary run: expectancy above zero with its 95% interval wholly above
+zero; both chronological halves positive (`halves`); the win rate above the break-even win rate implied by
+the run's own average win and loss (the base rate); and the 15Min and 5Min runs agree in sign. Any one
+failing keeps it replay-only, and the intraday cards stay what the scanner says they are: confirmations of
+moves that have already happened. Report `retiredPlans`, `refusedFills`, `exitReasonSplit` and `byYear` with
+it, and read a loss first as a translation question (gate 1 before gate 2, AGENTS.md), not as a verdict on
+the method. Dewey items not cleared: nothing here claims a period, so regularity, constancy and
+phase-resumption do not apply; persistence through changed conditions (`byYear`) and out-of-sample
+persistence (the replications) are the two that do, and neither is cleared until the run is made.
+
+### 5.3 What was not built
+
+No product surface for the intraday profile, no change to the production method or `STRATEGY_VERSION`, and
+no run. The profile has no scorecard (its trades are `unscored`), so it measures the arming rule alone.
+
+## Three-question basis
+
+1. **Gann.** Cited throughout, Tier A except where marked. The recommendations follow *Master
+   Course* Ch. 3 Rule 4, *New Stock Trend Detector* Rule 6 and p. 13, *Tunnel*, and the close
+   standard from rule 5.
+2. **Cycles (Dewey/Tomes).** Part 2's durations and Part 3's time counts are recurrence claims.
+   Cleared: none. Regularity of timing and constancy of period are asserted, untested here; the
+   pre-registered dated-window test failed. They stay context.
+3. **Hermetic.** **Polarity** for Part 1: a broken support becomes resistance, the level itself
+   flips sides. **Cause and Effect**: a caught stop is an effect whose cause, the broken structure,
+   has to be read before another entry. **Rhythm** for Part 2: the entry clock and the trade clock
+   are two cycles at different periods, and the scan returns on its own schedule rather than
+   completing once. **Correspondence** for Part 3, held to the citation discipline: "the same law at
+   every scale" shapes the table in 3.4; it is not evidence, and the six-year hourly run is the
+   evidence that has to be answered.

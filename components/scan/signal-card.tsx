@@ -115,8 +115,31 @@ export function SignalCard({
         )}
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        {/*
+          A breached stop retires the plan (owner decision, 2026-09-30;
+          lib/gann/stopBreach.ts). The levels below are what the plan was, so a
+          reader can see what broke; they are no longer a live plan. It stands
+          again only by the method's own test of a false break: a bar closes
+          back through the broken level by the usual 3-point allowance. Price
+          merely returning to the old entry does not bring it back, and
+          otherwise a new plan from the new structure replaces it.
+        */}
+        {result.stopBreach && (
+          <div className="rounded-md border border-bear/40 bg-bear-soft p-3 text-xs text-bear">
+            <p className="font-medium">This plan is retired.</p>
+            <p className="mt-1">
+              Its {formatUsd(result.stopBreach.stop)} stop has broken (price {formatUsd(result.stopBreach.price)}),
+              so the structure behind it has changed, and the broken level now works the other way: an old{" "}
+              {result.direction === "bearish" ? "top" : "bottom"} becomes {result.direction === "bearish" ? "support" : "resistance"}.
+              The levels below are what the plan was. It stands again only if a bar closes{" "}
+              {result.direction === "bearish" ? "below" : "above"} {formatUsd(result.stopBreach.reclaimAt)}, the broken
+              level plus the usual 3-point allowance, which shows the break was false. Otherwise a new plan from the
+              new structure replaces it, with its own entry and stop. Returning to the old entry does not reinstate it.
+            </p>
+          </div>
+        )}
         <RoundNumberNotice
-          price={levels?.entry ?? null}
+          price={result.stopBreach ? null : (levels?.entry ?? null)}
           direction={result.direction !== "none" ? result.direction : null}
         />
         {pattern && (
@@ -157,7 +180,7 @@ export function SignalCard({
           </div>
         )}
         {levels && (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className={cn("grid grid-cols-2 gap-3 sm:grid-cols-4", result.stopBreach && "opacity-60")}>
             <LevelStat label="Entry" glossaryTerm="Entry (blue line)" value={formatUsd(levels.entry)} tone="accent" />
             <LevelStat
               label="Stop loss"
@@ -173,13 +196,13 @@ export function SignalCard({
             />
             <LevelStat
               label={targetLabel(
-                "Master",
+                "MTP",
                 levels.entry,
                 levels.masterProfit,
                 levels.rewardToRiskMaster,
                 assetClass,
               )}
-              glossaryTerm="Master profit (green line)"
+              glossaryTerm="MTP - Master Take Profit (green line)"
               value={formatUsd(levels.masterProfit)}
               tone="bull"
             />

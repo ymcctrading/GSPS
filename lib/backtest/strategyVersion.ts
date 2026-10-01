@@ -39,4 +39,10 @@
 // the replay's pyramid adds now fire; macro/decade cycles read as of the bar.
 // Third bump: Gann's three-adverse-closes exit reads the first three sessions
 // from the fill, as the source counts them, not any three closes in the trade.
-export const STRATEGY_VERSION = "2026-09-28-gann-first-days";
+// 2026-09-30 (owner): a breached stop retires the plan until Gann's own test
+// confirms it or a new plan replaces it (lib/gann/stopBreach.ts). The live scan
+// holds a broken plan to Reject; it stands again only if a closed bar closes back
+// through the broken level by his 3-point allowance (a failed break); the replay
+// does not enter a plan whose stop an earlier candle of the session traded
+// through, and reinstates it on the same closing test.
+export const STRATEGY_VERSION = "2026-09-30-stop-breach-retired";

@@ -16,6 +16,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { getUniversePolicy } from "@/lib/universe/policy";
 import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 import { evaluateMonitorsAndNotify } from "@/lib/entitlements/scan-fanout";
+import { retiredSignalsFrom } from "@/lib/lifecycle/retire";
 import { withTimeout } from "@/lib/utils";
 import type { RankedSetup } from "@/lib/entitlements/result-selection";
 import { resolveExactScoreDisplayEnabled } from "@/lib/scoring/tier-display";
@@ -142,6 +143,7 @@ async function applyMonitorForSingleTickerScan(userId: string, result: ScanResul
     scanExecutionId: execution.id as string,
     visible,
     rejectedSymbols,
+    retired: retiredSignalsFrom([result]),
     maxActiveWatchMonitors: policy.maxActiveWatchMonitors,
   });
 }

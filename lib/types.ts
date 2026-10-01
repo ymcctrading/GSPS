@@ -299,6 +299,17 @@ export interface ScanResult {
    */
   levelsError?: string;
   /**
+   * Present only when the plan this scan priced is broken: price is through its
+   * stop, or broke it earlier this session and no closed bar has since closed
+   * back through the level by the allowance. The plan is retired (owner
+   * decision, 2026-09-30), the verdict is Reject, and `levels` still holds the
+   * retired plan so a reader can see what broke. `reclaimAt` is the line a bar
+   * has to close back through for the break to count as failed and the plan to
+   * stand again; otherwise a new plan from the new structure replaces it. See
+   * lib/gann/stopBreach.ts.
+   */
+  stopBreach?: { stop: number; price: number; reclaimAt: number };
+  /**
    * How far behind the market the bars this scan was computed on are, expressed
    * against the execution timeframe. Published deliberately: the verdict is
    * held back when the lag is a whole bar or more, and a reader is owed the
