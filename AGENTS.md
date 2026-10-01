@@ -879,13 +879,21 @@ for the project owner** — do not fix it silently, and re-verify it first:
   measured on earlier versions describe a rule production no longer follows.
   Gann's sources and the options considered (option A for the break, his own
   failed-break test for the way back in) are in
-  `docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md` Part 1. **Not changed, and
-  why:** the `trade_plans` lifecycle still has no pre-entry "invalidated"
-  transition (`lib/lifecycle/reaper.ts`'s header: the spec pack says a change
-  to it needs counsel review). A retired plan there is simply never advanced
-  (the scan no longer lists it) and expires on its clock, and an order at its
-  levels is refused at the bracket (`fill_outran_bracket`). Adding the
-  transition is held for the owner. The intraday alerts are an exception by
+  `docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md` Part 1. **The `trade_plans`
+  lifecycle (built 2026-10-01, owner go-ahead; dormant).** A pre-entry plan
+  whose own stop the scan reports broken now goes INVALIDATED through a `retire`
+  event (`lib/lifecycle/retire.ts`, dispatched from the scan fan-out). The spec
+  pack says a change to the lifecycle needs counsel review, and building it is
+  not the review, so it is gated on a `compliance_signoffs` row for
+  `preentry_plan_retirement` (`scripts/record-preentry-retirement-signoff.mjs`).
+  **With no row it does nothing**, and a retired plan behaves as before (never
+  advanced, expires on its clock, refused at the bracket,
+  `fill_outran_bracket`). Recording the sign-off is a human act, not the build's.
+  Terminal by design: a failed break or new structure earns a new plan. The
+  reclaim line is also a replay option now (`reclaimPoints` 3 or 5), with the run
+  and its reading rule pre-registered in
+  `docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md` Part 5; live stays at 3. The
+  intraday alerts are an exception by
   construction: they are recomputed from the session on every scan, and their
   invalidation is the session's 50% point or opening range, so a break of it
   already changes the alert.
@@ -1745,7 +1753,9 @@ Standing facts for a session that touches any list of setups:
   the only old levels read so far (the session's earlier swings and prior
   sessions' highs and lows are not passed in), so it can under-name a level,
   never invent one. A replay-only intraday profile to measure the method at
-  intraday scale is **not** built (doc Part 3.5); nothing measures it yet.
+  intraday scale is built (2026-10-01, `lib/backtest/replayIntraday.ts`,
+  `?profile=intraday`) and **not run**; its rules and the rule for reading the
+  run are fixed in the doc's Part 5. Nothing measures it yet.
 - **The refresh budget lives in `lib/entitlements/policy.ts`**
   (`intradayRefreshesPerDay` / `…PerWeek`; owner-set 2026-09-30: Pro 3 a day /
   10 a week, Expert 5 / 21, Wall Street unlimited with automatic refresh, Novice

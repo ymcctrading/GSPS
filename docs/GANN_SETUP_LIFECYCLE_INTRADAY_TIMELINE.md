@@ -155,7 +155,9 @@ own test of a false break for the way back in; see above.)
 | Lists | Unchanged: the one-way ratchet, and the grouped "broke their stop" / "No longer valid" dropdowns. A reload reads a fresh scan. |
 | Guided Mode (`lib/guided/eligibility.ts`) | Names the retirement first, ahead of the Reject it causes. |
 | Replay (`lib/backtest/replay.ts`) | A plan is read once per session (its stop from `computeTradeLevels`, the same pricing the verdict uses). The scan that arms a session reads the last close; every later closed candle of the session is read in turn. Through the stop: the plan is not entered and a confirmation in progress starts over, until a closed candle closes back through the reclaim line (a failed break), when it stands again. `retiredPlans` counts each plan that was ever retired. If no candle reclaims, it stays out for the session and the next session's read of the swing chart replaces it. The candle the entry fires on is left to the bracket walk. |
-| `STRATEGY_VERSION` | `2026-09-30-stop-breach-retired`. Runs before it entered plans the live scan now retires. |
+| `trade_plans` lifecycle (`lib/lifecycle/retire.ts`, built 2026-10-01) | A `retire` event takes a pre-entry plan (WATCHLIST to ARMED) to INVALIDATED, with the reason on the audit row, when the scan reports **that plan's** stop broken: same symbol, same direction, same stop. It is dispatched from the scan fan-out for every scan that carries a `stopBreach` (the market scan, the scheduled scans, the batch scan and the single-symbol scan), and it is **dormant until a `preentry_plan_retirement` row exists in `compliance_signoffs`** (see below). Terminal: a failed break or new structure earns a new plan with its own row, never the old one turned around. |
+| Replay option (`ReplayOptions.reclaimPoints`, 2026-10-01) | The reclaim allowance in points of his 3-point scale: 3 (default, what the live scan uses) or 5 (the stricter reading). Replay only; nothing live passes anything but 3. Pre-registered in Part 5. |
+| `STRATEGY_VERSION` | `2026-09-30-stop-breach-retired`. Runs before it entered plans the live scan now retires. Unchanged by the 2026-10-01 additions: the lifecycle row, the replay options and the intraday profile do not alter the production method or the default replay. |
 
 Two differences between the live scan and the replay are deliberate and labelled. The live read
 takes the price at scan time plus the session's closed bars, the replay reads candle by candle, and
@@ -167,12 +169,31 @@ says more than 5 points above means going higher, so a stricter line is defensib
 engineering reading of his 3 (his lower figure, the one his false-break rule names), and it is the
 number to tune if the replay shows reinstated plans failing.
 
-**Not built, and why.** The `trade_plans` lifecycle still has no pre-entry "invalidated" transition.
-`lib/lifecycle/reaper.ts` and `lib/lifecycle/types.ts` say the spec pack needs counsel review before
-that rule ships. A retired plan there is no longer advanced (it is not in the visible results), expires
-on its clock, and an order at its levels is refused at the bracket (`fill_outran_bracket`). Adding the
-transition is held for the owner. The intraday alerts need nothing: each scan recomputes them from the
-session, and their invalidation is the session's 50% point or opening range.
+**The lifecycle transition (built 2026-10-01, dormant).** The `trade_plans` lifecycle had no pre-entry
+"invalidated" transition, and `lib/lifecycle/reaper.ts` and `lib/lifecycle/types.ts` say the spec pack
+needs counsel review before that rule ships. The owner gave the go-ahead to build it on 2026-10-01.
+Building it is not the review, so it ships behind the repo's own mechanism for exactly this
+(`compliance_signoffs`, `lib/compliance/signoff.ts`; the feature key is `preentry_plan_retirement`):
+with no active row, `retirePlansForBrokenStops` reads nothing and writes nothing, and a plan behaves as
+it did: no longer advanced once the scan rejects it, expired on its clock, an order at its levels refused
+at the bracket (`fill_outran_bracket`). Recording the sign-off is a human act outside the code
+(`scripts/record-preentry-retirement-signoff.mjs`; revoke with `revokeSignoff`). Choices made in
+building it, each of which counsel may want to see:
+
+- **Which plan.** The one the scan priced and broke: symbol, direction and stop must all match (to a
+  cent). An older stored plan with a different stop is left to expire; the current plan replaced it.
+  The lifecycle reads the scan's own `stopBreach` and does not run a second breach test.
+- **Terminal.** `retire` lands in the existing INVALIDATED state. No new state and no migration. Gann
+  never resumes a stopped trade at its old levels (Part 1.2), so a failed break stands the *setup*
+  again as a fresh WATCH to EXECUTE transition with its own signal id and row, and the audit trail
+  shows a retired plan and its replacement.
+- **Not covered.** A stored plan whose stop was replaced by newer structure rather than broken is not
+  retired by this (it expires), and the twice-hourly price sweep
+  (`app/api/monitors/invalidation-sweep`) still invalidates monitors from a quote without touching
+  `trade_plans`: the scan is the authority, as the owner decided.
+
+The intraday alerts need nothing: each scan recomputes them from the session, and their invalidation is
+the session's 50% point or opening range.
 
 ---
 
@@ -326,6 +347,10 @@ fixed before the data is seen:
 4. Only then decide whether it gets a product surface. Until then the intraday cards stay
    *confirmations of moves that have already happened*, which is what the scanner says it is.
 
+**Built 2026-10-01 (owner go-ahead): step 1 is `lib/backtest/replayIntraday.ts`; the run is
+specified in Part 5 and has not been made.** What follows is the recommendation as it was put, kept
+because it still describes what the profile is for.
+
 **Recommendation.** Keep swing as GSPS's method, keep the intraday panel as confirmation, and
 commission step 1 if you want the intraday profile built. It is a replay-only build, no product risk,
 and it is the only route to an answer that isn't "the hourly run lost money, presumed a translation
@@ -342,14 +367,84 @@ All three were decided on 2026-09-30.
 
 1. **Stop-breach rule** (Part 1.4). Decided: "A breach retires the plan, until an updated scan is run
    and a plan is either confirmed or an updated plan replaces the original." Built (Part 1.4, "What was
-   built"). The `trade_plans` lifecycle transition is not built and waits on counsel review.
+   built"). The `trade_plans` lifecycle transition is built (2026-10-01) and dormant until a compliance sign-off is recorded.
 2. **Intraday profile** (Part 3.5). The owner did not follow the question as put ("build the replay-only
    profile?") and answered the principle: "everything must align with Gann." Acted on as: the intraday
    first target, the one component with no Gann source, is replaced (Part 3.4). The replay-only profile,
-   which would measure the method at intraday scale, is not built; it is open.
+   which would measure the method at intraday scale, was built as a replay option on 2026-10-01 after the
+owner's go-ahead (Part 5); the run is not made.
 3. **Refresh numbers** (`lib/entitlements/policy.ts`). Decided: Pro 3 a day / 10 a week at most, Expert
    5 a day / 21 a week at most, Wall Street unchanged (unlimited with automatic refresh), Novice none
    (no intraday access, unchanged). Built.
+
+## Part 5. Runs to make, fixed before anyone sees a result (2026-10-01)
+
+Two things were built on the owner's 2026-10-01 go-ahead that can only be judged by running the replay on
+market data, and this session had no vendor keys (`ALPACA_API_KEY`/`ALPACA_API_SECRET`), so neither run
+was made. Both are written down here, in the way `docs/memory-bank/F4_CYCLES_CALENDAR_RESEARCH.md` is, so
+the rule for reading them is fixed before the data is. Run them from a deployment that holds the keys
+(`GET /api/backtest`, then commit the captured JSON under `docs/replay-runs/` and render it with
+`npm run backtest -- --from`), as the earlier runs were.
+
+### 5.1 The reclaim line: 3 points or 5
+
+**Question.** After a stop breaks, a closed bar has to close back through the broken level by Gann's
+allowance for the plan to stand again. His false-break rule names 3 points (NSTD p. 20). He also says a
+rally of more than 5 above an old bottom means it is going higher (*Master Course* pp. 246-248), so 5 is
+the stricter reading. Live uses 3 (`RECLAIM_POINTS`).
+
+**Run.** The same request twice, on the 766-symbol universe, 15-minute bars, `usePlanLevels`,
+`entryRule=confirmed`, `exitRule=gann-runner` (the rule live positions use), `within=all&trades=1`,
+differing only in `?reclaimPoints=3` and `?reclaimPoints=5`. Those are the only two values; no third is
+searched.
+
+**Reading.** Plans a close of 3 points reinstates but 5 does not are the disputed set (the trades in the
+first run absent from the second, matched on symbol and `openedAt`). The live figure moves to 5 only if
+**all** hold: the disputed set's mean R is negative with its 95% interval wholly below zero; both
+chronological halves of it are negative; and it holds at least 30 trades. Otherwise 3 stays, because it is
+Gann's own figure and the standing precedence rule says the source wins unless measurement shows our
+translation failing. Changing the live number is a recorded owner decision and bumps `STRATEGY_VERSION`.
+
+### 5.2 The intraday profile
+
+**Question.** Does Gann's method, read from intraday bars with the 2026-09-28 translation fixes, have an
+edge over years? The six-year hourly run (`docs/replay-runs/2026-09-27-766sym-NOTES.md`, runs 12 and 13)
+predates those fixes and traded the old replay stop; the positive 15-minute results cover two months.
+Nothing yet measures the fixed method at intraday scale.
+
+**The rules** are the "intraday form" column of Part 3.4, as built in `lib/backtest/replayIntraday.ts`,
+and none was searched: the 3-bar swing chart's trend on the hourly roll-up; a cross of the last completed
+3-bar swing top (bottom) plus one intraday point; the stop one point beyond the protective swing; the
+four-stage confirmation; the first target `gannFirstTarget` names, or none; 60% off at it; the stop
+trailing one point under each higher completed bottom; a turn of the hourly chart as an exit at the next
+open; the same broken-stop test as the live scan, at this scale. One point is a third of
+`gannThreePoints(price)` times the bars' ATR over the daily ATR, floored at 0.05% of price. A plan lives 20
+bars (the lifecycle's own default). One position per symbol. All engineering choices are labelled in the
+module header and are not to be changed after seeing a result.
+
+**Runs.** `?profile=intraday&within=all` on the 766-symbol universe:
+
+1. **Primary:** `timeframe=1Hour`, the longest window the feed returns (about six years). This is the one
+   test the verdict rests on, so no multiple-comparisons correction is needed.
+2. **Replications, out of sample:** `timeframe=15Min` and `timeframe=5Min`, the longest windows the feed
+   returns (about 60 and 15 days). They are data the primary rules were never fitted to; they cannot
+   confirm a result, only fail to contradict it.
+
+**Reading.** Judged by Dewey's standard where it applies, not by sign alone. The profile earns a product
+surface only if **all** hold on the primary run: expectancy above zero with its 95% interval wholly above
+zero; both chronological halves positive (`halves`); the win rate above the break-even win rate implied by
+the run's own average win and loss (the base rate); and the 15Min and 5Min runs agree in sign. Any one
+failing keeps it replay-only, and the intraday cards stay what the scanner says they are: confirmations of
+moves that have already happened. Report `retiredPlans`, `refusedFills`, `exitReasonSplit` and `byYear` with
+it, and read a loss first as a translation question (gate 1 before gate 2, AGENTS.md), not as a verdict on
+the method. Dewey items not cleared: nothing here claims a period, so regularity, constancy and
+phase-resumption do not apply; persistence through changed conditions (`byYear`) and out-of-sample
+persistence (the replications) are the two that do, and neither is cleared until the run is made.
+
+### 5.3 What was not built
+
+No product surface for the intraday profile, no change to the production method or `STRATEGY_VERSION`, and
+no run. The profile has no scorecard (its trades are `unscored`), so it measures the arming rule alone.
 
 ## Three-question basis
 

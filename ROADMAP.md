@@ -2,7 +2,11 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-09-30 (Added "Setup cards, dashboard dropdowns, tiered
+**Last updated:** 2026-10-01 (Built the three held items from the setup-lifecycle
+work: a dormant pre-entry plan retirement, the replay-only intraday profile and
+a measurable reclaim line; see the note under Q1 and
+`docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md` Part 5.)
+Previously 2026-09-30 (Added "Setup cards, dashboard dropdowns, tiered
 intraday refresh and a custom default watchlist" under Q1 — the Trade Reviews
 card's model applied to every setup list. See that note and
 `docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md`.)
@@ -284,10 +288,12 @@ both signal discovery and execution.
   resumed at its old levels (the scan itself holds it to Reject, so the chart,
   lists, monitors and replay agree — AGENTS.md finding F3.7, resolved); and the intraday first target is a
   Gann level (the nearest old top or bottom, or a round number just short of
-  one) or none, never a multiple of the risk. **Not built:** a replay-only
-  intraday profile to measure the method at intraday scale, and a pre-entry
-  "invalidated" transition in the `trade_plans` lifecycle (its spec pack flags it
-  for counsel review). Gann's sources and the measured record are in
+  one) or none, never a multiple of the risk. **Built 2026-10-01 (owner
+  go-ahead):** a pre-entry "retired" transition in the `trade_plans` lifecycle,
+  dormant until a counsel sign-off is recorded (its spec pack flags the change
+  for review); a replay-only intraday profile (`?profile=intraday`); and a
+  `reclaimPoints` replay option (3 or 5). **Not run:** both measurements need
+  vendor data, and their reading rules are pre-registered. Gann's sources and the measured record are in
   `docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md`.
 - **Gann & Sara Cross-Market Confluence Layers** *(out-of-phase, direct
   request: "GSPS Gann & Sara Cross-Market Integration Addendum", 2026-08-28.

@@ -7,6 +7,30 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-10-01
+
+### Added (owner go-ahead on the three items held from 2026-09-30)
+- **Pre-entry plan retirement in the `trade_plans` lifecycle**
+  (`lib/lifecycle/retire.ts`, a `retire` event in `transitions.ts`). When a scan
+  reports a plan's stop broken, the matching stored plan (same symbol, direction
+  and stop) goes INVALIDATED before it ever triggered. Dispatched from the scan
+  fan-out on every scan path. **Dormant until a `preentry_plan_retirement`
+  sign-off is recorded in `compliance_signoffs`**
+  (`scripts/record-preentry-retirement-signoff.mjs`), because the lifecycle spec
+  pack requires counsel review before this transition ships; with none recorded
+  nothing is read or written and plans behave as before.
+- **Replay-only intraday profile** (`lib/backtest/replayIntraday.ts`,
+  `/api/backtest?profile=intraday`): Gann's trend, crossing, stop, confirmation,
+  first target, trailing stop and exit read from the run's own intraday bars. No
+  product surface; its trades are unscored. Not run (no vendor keys in the
+  session); rules and the rule for reading the run are fixed in
+  `docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md` Part 5.
+- **Reclaim line as a replay option** (`ReplayOptions.reclaimPoints`,
+  `/api/backtest?reclaimPoints=3|5`). Live stays at his 3 points; the 3-versus-5
+  comparison and its decision rule are pre-registered in Part 5.
+- `STRATEGY_VERSION` unchanged: the production method and the default replay
+  are as they were.
+
 ## 2026-09-30
 
 ### Changed (owner decisions, same day)
