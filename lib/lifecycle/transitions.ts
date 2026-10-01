@@ -5,6 +5,12 @@
  * MASTER_REACHED -> RUNNER -> CLOSED
  * Any pre-entry state -> EXPIRED when the trigger doesn't occur by `expiresAt`.
  * Any active (post-entry) state -> INVALIDATED when the stop/invalidation rule fires.
+ * Any pre-entry state -> INVALIDATED on `retire`, when the scan reports the plan's
+ * stop broken before the entry ever triggered (owner decision 2026-09-30, AGENTS.md
+ * F3.7; `lib/gann/stopBreach.ts`). This is the one transition the spec pack does
+ * not define, so it is dispatched only behind a recorded compliance sign-off
+ * (`lib/lifecycle/retire.ts`, feature `preentry_plan_retirement`); the reducer
+ * itself stays pure and applies it whenever it is asked.
  *
  * Cooldown gates the ENTER transition only. It never blocks CLOSE, or the
  * risk-reducing actions (TP fills, invalidation) that can fire from an active
@@ -38,6 +44,14 @@ export type PlanEvent =
   | { type: "close"; at: string; reason: string }
   | { type: "expire"; at: string }
   | { type: "invalidate"; at: string; reason: string }
+  /**
+   * A pre-entry plan whose stop broke before its entry triggered. Lands in
+   * INVALIDATED like a post-entry stop-out, with the reason on the audit row;
+   * the plan is never reinstated, because Gann does not resume a stopped trade
+   * at its old levels, and a failed break or new structure earns a new plan
+   * (a new signal id, a new row). See `lib/lifecycle/retire.ts`.
+   */
+  | { type: "retire"; at: string; reason: string }
   | {
       type: "edit";
       at: string;
@@ -266,6 +280,31 @@ function applyRemainingEvent(plan: TradePlan, event: PlanEvent): TransitionResul
           state: "invalidated",
           closedAt: event.at,
           closeReason: event.reason,
+        },
+      };
+    }
+
+    case "retire": {
+      if (!PRE_ENTRY_STATES.includes(plan.state)) {
+        return fail(
+          `Cannot retire a plan in state "${plan.state}"; retirement only applies pre-entry (a position that is open is invalidated by its stop fill).`,
+        );
+      }
+      return {
+        ok: true,
+        plan: {
+          ...audit(plan, {
+            at: event.at,
+            kind: "price_event",
+            fromState: plan.state,
+            toState: "invalidated",
+            reason: event.reason,
+            riskIncreased: false,
+            userConfirmed: true,
+          }),
+          state: "invalidated",
+          closedAt: event.at,
+          closeReason: "retired",
         },
       };
     }

@@ -4,12 +4,14 @@ import type { RankedSetup } from "@/lib/entitlements/result-selection";
 import type { ScanResult } from "@/lib/types";
 
 const {
+  retirePlansMock,
   evaluateMonitorMock,
   recordNotificationDeliveryMock,
   dispatchNotificationDeliveryMock,
   getEnabledChannelsMock,
   recordInAppNotificationMock,
 } = vi.hoisted(() => ({
+  retirePlansMock: vi.fn(),
   evaluateMonitorMock: vi.fn(),
   recordNotificationDeliveryMock: vi.fn(),
   dispatchNotificationDeliveryMock: vi.fn(),
@@ -17,6 +19,7 @@ const {
   recordInAppNotificationMock: vi.fn(),
 }));
 
+vi.mock("@/lib/lifecycle/retire", () => ({ retirePlansForBrokenStops: retirePlansMock }));
 vi.mock("@/lib/entitlements/monitor-store", () => ({ evaluateMonitor: evaluateMonitorMock }));
 vi.mock("@/lib/entitlements/delivery", () => ({
   recordNotificationDelivery: recordNotificationDeliveryMock,
@@ -45,6 +48,8 @@ function insertOnlyClient() {
 }
 
 beforeEach(() => {
+  retirePlansMock.mockReset();
+  retirePlansMock.mockResolvedValue({ authorized: true, retired: 0 });
   evaluateMonitorMock.mockReset();
   recordNotificationDeliveryMock.mockReset();
   dispatchNotificationDeliveryMock.mockReset();
@@ -204,6 +209,58 @@ describe("evaluateMonitorsAndNotify", () => {
       expect.anything(),
       expect.objectContaining({ deliveryId: "d2" }),
     );
+  });
+
+  it("hands the plans the scan retired to the lifecycle, and still invalidates the monitor", async () => {
+    evaluateMonitorMock.mockResolvedValueOnce({ outcome: "noop" });
+    const retired = [{ symbol: "OXY", direction: "bullish" as const, stop: 55.2, price: 54.1, reclaimAt: 58 }];
+    await evaluateMonitorsAndNotify(insertOnlyClient(), {
+      profileId: "p1",
+      source: "scheduled_morning_scan",
+      scanExecutionId: "se1",
+      visible: [],
+      rejectedSymbols: new Set(["OXY"]),
+      retired,
+      maxActiveWatchMonitors: 15,
+    });
+    expect(evaluateMonitorMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ symbol: "OXY", candidateState: "INVALIDATED" }),
+    );
+    expect(retirePlansMock).toHaveBeenCalledWith(expect.anything(), "p1", retired);
+  });
+
+  it("does not touch the lifecycle when the scan retired nothing", async () => {
+    evaluateMonitorMock.mockResolvedValueOnce({ outcome: "noop" });
+    await evaluateMonitorsAndNotify(insertOnlyClient(), {
+      profileId: "p1",
+      source: "scheduled_morning_scan",
+      scanExecutionId: "se1",
+      visible: [],
+      rejectedSymbols: new Set(["OXY"]),
+      maxActiveWatchMonitors: 15,
+    });
+    expect(retirePlansMock).not.toHaveBeenCalled();
+  });
+
+  it("does not let a failed retirement hold up the invalidation notice", async () => {
+    evaluateMonitorMock.mockResolvedValueOnce({ outcome: "applied", monitorId: "m1", transitionId: "t9", notify: true });
+    retirePlansMock.mockRejectedValueOnce(new Error("db"));
+    getEnabledChannelsMock.mockResolvedValueOnce(["email"]);
+    recordNotificationDeliveryMock.mockResolvedValueOnce({ recorded: true, deliveryId: "d9" });
+    dispatchNotificationDeliveryMock.mockResolvedValueOnce({ dispatched: true, status: "sent" });
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const sent = await evaluateMonitorsAndNotify(insertOnlyClient(), {
+      profileId: "p1",
+      source: "scheduled_morning_scan",
+      scanExecutionId: "se1",
+      visible: [],
+      rejectedSymbols: new Set(["OXY"]),
+      retired: [{ symbol: "OXY", direction: "bullish", stop: 55.2, price: 54.1, reclaimAt: 58 }],
+      maxActiveWatchMonitors: 15,
+    });
+    expect(sent).toBe(1);
+    spy.mockRestore();
   });
 
   it("does not throw when a single profile's monitor evaluation fails", async () => {

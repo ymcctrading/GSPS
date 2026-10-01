@@ -29,6 +29,7 @@ import { STRATEGY_VERSION } from "@/lib/backtest/strategyVersion";
 import { buildNewTradePlanFromScanResult } from "@/lib/lifecycle/fromScanResult";
 import { applyEventAndPersist, createOrGetIdempotentTradePlan } from "@/lib/lifecycle/store";
 import { advanceEntryConfirmationForSymbol } from "@/lib/lifecycle/advanceConfirmation";
+import { retirePlansForBrokenStops, type RetiredPlanSignal } from "@/lib/lifecycle/retire";
 
 export type FanOutOutcome = {
   visibleCount: number;
@@ -55,6 +56,8 @@ export async function fanOutForProfile(
     source: string;
     qualifying: RankedSetup<ScanResult>[];
     rejectedSymbols: Set<string>;
+    /** Plans the scan retired for a broken stop (`retiredSignalsFrom`). A subset of `rejectedSymbols`' symbols. */
+    retired?: readonly RetiredPlanSignal[];
     maxDashboardSetupsPerScan: number;
     maxActiveWatchMonitors: Limit;
   },
@@ -85,6 +88,7 @@ export async function fanOutForProfile(
     scanExecutionId: args.scanExecutionId,
     visible,
     rejectedSymbols: args.rejectedSymbols,
+    retired: args.retired,
     maxActiveWatchMonitors: args.maxActiveWatchMonitors,
   });
 
@@ -130,6 +134,7 @@ export async function evaluateMonitorsAndNotify(
     scanExecutionId: string;
     visible: RankedSetup<ScanResult>[];
     rejectedSymbols: Set<string>;
+    retired?: readonly RetiredPlanSignal[];
     maxActiveWatchMonitors: Limit;
   },
 ): Promise<number> {
@@ -195,6 +200,14 @@ export async function evaluateMonitorsAndNotify(
     } catch (err) {
       console.error(`evaluateMonitorsAndNotify: monitor invalidation failed for ${symbol} — ${String(err)}`);
     }
+  }
+
+  // Best-effort and independent of the monitors: a retirement that can't be
+  // recorded must never hold up an invalidation notice.
+  if (args.retired && args.retired.length > 0) {
+    await retirePlansForBrokenStops(service, args.profileId, args.retired).catch((err) => {
+      console.error(`evaluateMonitorsAndNotify: pre-entry plan retirement failed — ${String(err)}`);
+    });
   }
 
   if (notifyWorthy.length === 0 && invalidatedWorthy.length === 0) return 0;

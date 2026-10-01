@@ -29,10 +29,14 @@ const RULE_STATE_LESSONS: Partial<Record<PlanState, string>> = {
 
 export function buildPostCloseReview(plan: TradePlan): StructuredReview {
   const lessonTags: string[] = [];
-  const ruleLesson = RULE_STATE_LESSONS[plan.state];
+  const entered = plan.actualEntryPrice != null;
+  // An invalidated plan that never entered was retired before its trigger
+  // (`lib/lifecycle/retire.ts`): its stop broke first. That is a different
+  // lesson from a position stopped out.
+  const ruleLesson =
+    plan.state === "invalidated" && !entered ? "stop_broke_before_entry" : RULE_STATE_LESSONS[plan.state];
   if (ruleLesson) lessonTags.push(ruleLesson);
 
-  const entered = plan.actualEntryPrice != null;
   const planAdherence: StructuredReview["planAdherence"] = !entered
     ? "not_entered"
     : withinTolerance(plan)

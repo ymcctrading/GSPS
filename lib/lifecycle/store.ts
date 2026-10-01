@@ -223,6 +223,29 @@ export async function listTradePlans(
 }
 
 /**
+ * One user's open pre-entry plans for the given instruments: the read side of
+ * `lib/lifecycle/retire.ts`, which retires the ones whose stop the scan reports
+ * broken. Rows only (no audit join): the caller reads state, direction and the
+ * stop, and `applyEventAndPersist` re-reads the full plan before it writes.
+ */
+export async function listPreEntryPlansForInstruments(
+  supabase: SupabaseClient,
+  userId: string,
+  instruments: string[],
+): Promise<TradePlan[]> {
+  if (instruments.length === 0) return [];
+  const { data, error } = await supabase
+    .from("trade_plans")
+    .select("*")
+    .eq("user_id", userId)
+    .in("state", PRE_ENTRY_STATES)
+    .in("instrument", instruments)
+    .limit(200);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => rowToPlan(row, []));
+}
+
+/**
  * Every pre-entry plan whose trigger window has closed (`expiresAt <= now`),
  * across every user — the read side of the reaper (`lib/lifecycle/reaper.ts`)
  * that walks these and dispatches `expire` on each. Deliberately not scoped

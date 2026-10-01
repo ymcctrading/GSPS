@@ -29,7 +29,11 @@ export type PlanState =
   | "expired"
   | "invalidated";
 
-/** States in which no trigger has filled yet — the only states EXPIRED can be reached from. */
+/**
+ * States in which no trigger has filled yet — the only states EXPIRED can be
+ * reached from, and the only ones `retire` (a broken stop before entry,
+ * `lib/lifecycle/retire.ts`) applies to.
+ */
 export const PRE_ENTRY_STATES: readonly PlanState[] = [
   "watchlist",
   "qualified",
@@ -37,7 +41,7 @@ export const PRE_ENTRY_STATES: readonly PlanState[] = [
   "armed",
 ];
 
-/** States in which a position is open — the only states INVALIDATED and CLOSE/REDUCE/PROTECT apply to. */
+/** States in which a position is open — the only states a stop fill (`invalidate`) and CLOSE/REDUCE/PROTECT apply to. */
 export const ACTIVE_STATES: readonly PlanState[] = [
   "entered",
   "tp1_reached",

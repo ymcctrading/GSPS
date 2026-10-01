@@ -66,6 +66,7 @@ import type { EntitlementPolicy } from "@/lib/entitlements/policy";
 import { FAN_OUT_DEADLINE_MS, fanOutToProfiles } from "@/lib/entitlements/fanout-all";
 import type { RankedSetup } from "@/lib/entitlements/result-selection";
 import type { ScanResult } from "@/lib/types";
+import { retiredSignalsFrom } from "@/lib/lifecycle/retire";
 import { isPreviewEnvironment } from "@/lib/env/preview";
 import { getUniversePolicy } from "@/lib/universe/policy";
 import { recordShadowSignals } from "@/lib/shadow/record";
@@ -307,6 +308,7 @@ export async function runScheduledScan(
     source,
     qualifying,
     rejectedSymbols,
+    retired: retiredSignalsFrom(output.fullScanResults),
     isEnabled: scheduleEnabled(source),
     deadlineAt: now.getTime() + FAN_OUT_DEADLINE_MS,
   });

@@ -187,6 +187,47 @@ describe("expiry and invalidation", () => {
   });
 });
 
+describe("retire (a pre-entry plan whose stop broke before it triggered)", () => {
+  it("takes every pre-entry state to invalidated, with the reason on the audit row", () => {
+    for (const state of ["watchlist", "qualified", "awaiting_entry_confirmation", "armed"] as const) {
+      const r = applyPlanEvent(plan({ state }), { type: "retire", at: "t", reason: "stop broke" });
+      expect(r.ok).toBe(true);
+      if (!r.ok) continue;
+      expect(r.plan.state).toBe("invalidated");
+      expect(r.plan.closeReason).toBe("retired");
+      expect(r.plan.closedAt).toBe("t");
+      expect(r.plan.actualEntryPrice).toBeNull();
+      expect(r.plan.version).toBe(1);
+      expect(r.plan.audit.at(-1)).toMatchObject({
+        kind: "price_event",
+        fromState: state,
+        toState: "invalidated",
+        reason: "stop broke",
+        riskIncreased: false,
+      });
+    }
+  });
+
+  it("does not apply once a position is open or the plan has ended", () => {
+    for (const state of ["entered", "tp1_reached", "runner", "closed", "expired", "invalidated"] as const) {
+      expect(applyPlanEvent(plan({ state }), { type: "retire", at: "t", reason: "x" }).ok).toBe(false);
+    }
+  });
+
+  it("is terminal: nothing resumes a retired plan", () => {
+    const retired = applyPlanEvent(plan({ state: "armed" }), { type: "retire", at: "t", reason: "x" });
+    expect(retired.ok).toBe(true);
+    if (!retired.ok) return;
+    for (const type of ["qualify", "await_confirmation", "arm", "enter"] as const) {
+      const event =
+        type === "enter"
+          ? ({ type, at: "t", fillPrice: 100, cooldownBlocksNewEntry: false } as const)
+          : ({ type, at: "t", reason: "x" } as const);
+      expect(applyPlanEvent(retired.plan, event).ok).toBe(false);
+    }
+  });
+});
+
 describe("risk edits", () => {
   it("allows a risk decrease without confirmation", () => {
     const r = applyPlanEvent(plan(), {

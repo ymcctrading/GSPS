@@ -18,6 +18,7 @@ import { etDateKey } from "@/lib/market/session";
 import { FAN_OUT_DEADLINE_MS, fanOutToProfiles } from "@/lib/entitlements/fanout-all";
 import type { RankedSetup } from "@/lib/entitlements/result-selection";
 import type { ScanResult } from "@/lib/types";
+import { retiredSignalsFrom } from "@/lib/lifecycle/retire";
 import { LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
 import { resolveDiscoveryAndTrackingSymbols } from "@/lib/scan/universe-rotation";
 
@@ -197,6 +198,7 @@ async function runAndPersist(options: { fanOutToProfiles: boolean } = { fanOutTo
           source: FAN_OUT_SOURCE,
           qualifying,
           rejectedSymbols,
+          retired: retiredSignalsFrom(output.fullScanResults),
           isEnabled: (policy) => policy.morningConfirmationScanEnabled,
           deadlineAt: requestStartedAt + FAN_OUT_DEADLINE_MS,
         });
