@@ -176,7 +176,10 @@ export function buildScenario(symbol: string, asOf: string, daily: Bar[], seed: 
   const trend: Trend = direction === "bullish" ? "up" : direction === "bearish" ? "down" : "sideways";
   const trigger = direction ? computeGannEntryTrigger(before, direction) : null;
   const last = before[before.length - 1];
-  const decision: Decision = trigger && (direction === "bullish" ? trigger.triggerPrice > last.c : trigger.triggerPrice < last.c) ? "trade" : "wait";
+  // A trade when the old level is still to be crossed, or when it has been
+  // crossed and holds, so the buy rests for the reaction (PLAN.md item 5).
+  const decision: Decision =
+    trigger && (trigger.held || (direction === "bullish" ? trigger.triggerPrice > last.c : trigger.triggerPrice < last.c)) ? "trade" : "wait";
 
   let entryChoices: ExamChoice[] = [];
   let stopChoices: ExamChoice[] = [];
@@ -193,7 +196,7 @@ export function buildScenario(symbol: string, asOf: string, daily: Bar[], seed: 
     stop = round2(trigger.reactionStop);
     const e = [
       { id: "e1", price: entry },
-      // Buying at today's close, before the old level has been crossed.
+      // Buying at today's close instead of waiting for the reaction to the level.
       { id: "e2", price: round2(last.c) },
       // Short of the level: an order that fills before the market proves itself.
       { id: "e3", price: round2(long ? trigger.pivot.price * 0.97 : trigger.pivot.price * 1.03) },

@@ -309,7 +309,7 @@ describe("replay entryRule: confirmed", () => {
     expect(r.refusedFills).toBe(1);
   });
 
-  it("fills the same bars earlier under the default stop rule", () => {
+  it("fills the same bars earlier under the stop rule", () => {
     const r = replay("TEST", session([touch, brk, retest, hold, next, quiet]), { entryRule: "stop", targetR: 2, dailyBars: DAILY });
     expect(r.trades).toHaveLength(1);
     expect(r.trades[0].entry).toBeCloseTo(P, 10);

@@ -63,6 +63,8 @@ describe("readBreakaway (Commodities pp. 51-52)", () => {
       reactionEntry: 199.3,
       reactionStop: 198,
       protectivePivot: { index: 1, price: 91, kind: "bottom" },
+      held: false,
+      crossedAt: null,
       swingDays: 3,
     });
     expect(r.rangeBound).toBe(true);
@@ -91,5 +93,22 @@ describe("applyBreakawayHold", () => {
     expect(applyBreakawayHold(execute, { rangeBound: false, rangeHigh: null, rangeLow: null, breaksAway: true })).toBe(execute);
     const watch = { ...execute, outputState: "Watch" } as ScanDecision;
     expect(applyBreakawayHold(watch, { rangeBound: true, rangeHigh: 105, rangeLow: 95, breaksAway: false })).toBe(watch);
+  });
+});
+
+describe("readBreakaway on a held crossed level", () => {
+  it("measures the range before the crossing, not the top made after it", () => {
+    // Cross the 105.5 range high by 3 points, run to 113, react: the level is
+    // held and the breakaway is the crossing of the range high itself.
+    const bars = daily([...sideways(6), 100, 104, 108, 112, 113, 112, 111, 110]);
+    const t = computeGannEntryTrigger(bars, "bullish")!;
+    expect(t.held).toBe(true);
+    expect(t.level).toBe(105.5);
+    const r = readBreakaway(bars, t);
+    expect(r.rangeBound).toBe(true);
+    expect(r.rangeHigh).toBe(105.5);
+    expect(r.breaksAway).toBe(true);
+    // Read over every top, the move after the crossing would set the range.
+    expect(readBreakaway(bars, { ...t, held: false, crossedAt: null }).rangeHigh).toBeGreaterThan(110);
   });
 });

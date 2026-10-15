@@ -88,3 +88,19 @@
 - Tests first: crossedLevel.test.ts (4), confirmNow (1). Mutations: hold off, never broken, crossing at the
   level, window since-only: all caught. STRATEGY_VERSION 2026-10-15-gann-crossed-level-held.
 - Full suite 2395 passed, tsc clean, terms clean.
+
+== 2026-10-15 item 5 step 1: review fixes (scratchpad item5a_review.md) ==
+- HIGH: a held level no longer returns a null trigger. Its stop is the level less 3 points (the
+  reaction buy's own stop); the protective swing does not price or void it.
+- The held level is the one crossed most recently (the higher top on a tie), not the newest top.
+- "Until bought": the level ends once a bar after the crossing trades to the buy 1 point past it. A
+  close 3 points back through the level always trades through the buy first, so that test covers both.
+- The trigger carries `held` and `crossedAt`. breakaway.ts reads the range up to the crossing, and a
+  trigger on the range's own top counts as the breakaway (>= with float tolerance).
+- graduationExam: a held level answers "trade" at the reaction buy.
+- confirmNow: when the execution-bar window shows no crossing, the completed daily chart is read; a
+  held level whose buy is this order's entry makes it ready. The forming day is left out.
+- 18 new tests. Mutations: 17 of 19 caught; 2 are equivalent (break check, pre-pivot closes: both are
+  covered by the bought test) and the redundant break check was removed.
+- STRATEGY_VERSION 2026-10-15-gann-crossed-level-bought. Run 32 (old version) cancelled.
+- Full suite 2414 passed, tsc clean, eslint clean, terms clean.

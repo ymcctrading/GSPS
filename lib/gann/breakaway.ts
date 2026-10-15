@@ -41,6 +41,12 @@ import { swingPivots } from "@/lib/gann/swingChart";
 export const BREAKAWAY_RANGE_DAYS = 91;
 
 const DAY_MS = 24 * 3600 * 1000;
+/**
+ * A trigger built on the range's own top is exactly its extreme plus 3
+ * points, which is the breakaway; this absorbs floating-point noise so that
+ * case counts.
+ */
+const EPS = 1e-9;
 
 export interface BreakawayReading {
   rangeBound: boolean;
@@ -55,8 +61,15 @@ export function readBreakaway(daily: Bar[], trigger: GannEntryTrigger | null): B
   if (daily.length === 0 || !isGannRangeBound(daily)) {
     return { rangeBound: false, rangeHigh: null, rangeLow: null, breaksAway: true };
   }
-  const cutoff = Date.parse(daily[daily.length - 1].t) - BREAKAWAY_RANGE_DAYS * DAY_MS;
-  const pivots = swingPivots(daily, trigger?.swingDays ?? 3).filter((p) => Date.parse(daily[p.index].t) >= cutoff);
+  // A held level was crossed earlier and is bought on the reaction (PLAN.md
+  // item 5). The range it broke away from is the one before that crossing;
+  // the top made after it is the breakaway's own move, not the range.
+  const end = trigger?.held && trigger.crossedAt ? Date.parse(trigger.crossedAt) : Infinity;
+  const cutoff = Math.min(Date.parse(daily[daily.length - 1].t), end) - BREAKAWAY_RANGE_DAYS * DAY_MS;
+  const pivots = swingPivots(daily, trigger?.swingDays ?? 3).filter((p) => {
+    const t = Date.parse(daily[p.index].t);
+    return t >= cutoff && t < end;
+  });
   const tops = pivots.filter((p) => p.kind === "top").map((p) => p.price);
   const bottoms = pivots.filter((p) => p.kind === "bottom").map((p) => p.price);
   const rangeHigh = tops.length > 0 ? Math.max(...tops) : null;
@@ -66,8 +79,8 @@ export function readBreakaway(daily: Bar[], trigger: GannEntryTrigger | null): B
   if (trigger) {
     breaksAway =
       trigger.direction === "bullish"
-        ? rangeHigh === null || trigger.triggerPrice > beyondByThreePoints(rangeHigh, 1)
-        : rangeLow === null || trigger.triggerPrice < beyondByThreePoints(rangeLow, -1);
+        ? rangeHigh === null || trigger.triggerPrice >= beyondByThreePoints(rangeHigh, 1) - EPS * rangeHigh
+        : rangeLow === null || trigger.triggerPrice <= beyondByThreePoints(rangeLow, -1) + EPS * rangeLow;
   }
   return { rangeBound: true, rangeHigh, rangeLow, breaksAway };
 }

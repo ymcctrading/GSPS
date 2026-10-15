@@ -61,5 +61,9 @@
 // PLAN.md item 5, step 1: the crossed level stays the buying point through a
 // reaction until a close breaks it by 3 points, instead of moving to the new
 // top the reaction completes; plan confirmations read back past the plan's
-// generation; the replay defaults to the reaction rule.
-export const STRATEGY_VERSION = "2026-10-15-gann-crossed-level-held";
+// generation; the replay defaults to the reaction rule. Review fixes the same
+// day: the held level is the one crossed most recently, it ends once a later
+// bar trades to the buy (bought) as well as when broken, its stop is the
+// level less 3 points, and the breakaway range is read up to the crossing.
+// No run was committed on "2026-10-15-gann-crossed-level-held".
+export const STRATEGY_VERSION = "2026-10-15-gann-crossed-level-bought";

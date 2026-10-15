@@ -14,6 +14,7 @@ import {
 import { gannThreePoints } from "@/lib/gann/pointScale";
 import { preferredEntryDirection } from "@/lib/scan/entrySelection";
 import { buildMacroContext, replay } from "@/lib/backtest/replay";
+import { buildReport } from "@/lib/backtest/run";
 
 const DAY = "2026-06-15";
 function dayBar(date: string, c: number): Bar {
@@ -143,6 +144,19 @@ describe.each(FIXTURES)("$name", ({ daily, expect: direction }) => {
       expect(t.stop).toBeCloseTo(T.reactionStop, 8);
     });
 
+    it("is the replay's default rule", () => {
+      const tail = sess([
+        at(L + S * (P + 0.5)),
+        at(L + S * (P + 0.3)),
+        at(L + (S * P) / 3 + S * 0.1, 0.4),
+        at(L + S * P),
+      ]);
+      const byDefault = replay("TEST", tail, { targetR: 2, dailyBars: DAILY });
+      expect(byDefault.trades).toHaveLength(1);
+      expect(byDefault.trades[0].entry).toBeCloseTo(T.reactionEntry, 8);
+      expect(byDefault.trades).toEqual(replay("TEST", tail, opts).trades);
+    });
+
     it("does not buy when price never closed 3 points beyond the level", () => {
       const r = replay(
         "TEST",
@@ -179,5 +193,13 @@ describe.each(FIXTURES)("$name", ({ daily, expect: direction }) => {
         8,
       );
     });
+  });
+});
+
+describe("buildReport", () => {
+  it("labels a run with no entry rule as the reaction rule, the replay's default", () => {
+    const overall = replay("TEST", [], { targetR: 2, dailyBars: [] });
+    const report = buildReport({ source: "synthetic", live: false, timeframe: "15Min", targetR: 2, symbols: [], skipped: [], window: { from: null, to: null }, overall }, { symbols: [] });
+    expect(report.entryRule).toBe("reaction");
   });
 });

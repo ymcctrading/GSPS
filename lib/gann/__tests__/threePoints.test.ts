@@ -30,9 +30,18 @@ const ZIGZAG = bars([10, 11, 12, 13, 14, 15, 16, 15, 14, 13, 12, 13, 14, 15, 16,
 
 describe("3 points on the entry side", () => {
   it("crosses the old top by 3 points and stops 3 points beyond the protective bottom", () => {
-    const t = computeGannEntryTrigger(ZIGZAG, "bullish")!;
+    // Before the last top is crossed, so no crossed level is held.
+    const t = computeGannEntryTrigger(ZIGZAG.slice(0, -2), "bullish")!;
+    expect(t.held).toBe(false);
     expect(t.triggerPrice).toBeCloseTo(t.pivot.price + gannThreePoints(t.pivot.price), 8);
     expect(t.stopPrice).toBeCloseTo(t.protectivePivot.price - gannThreePoints(t.protectivePivot.price), 8);
+  });
+
+  it("stops 3 points under the level itself once the level is crossed and held", () => {
+    const t = computeGannEntryTrigger(ZIGZAG, "bullish")!;
+    expect(t.held).toBe(true);
+    expect(t.stopPrice).toBeCloseTo(t.level - gannThreePoints(t.level), 8);
+    expect(t.stopPrice).toBe(t.reactionStop);
   });
 
   it("breaks the old bottom by 3 points for a short, the exact mirror", () => {
@@ -141,6 +150,8 @@ describe("3 points on the entry side", () => {
       reactionEntry: 103.5 + gannThreePoints(103.5) / 3,
       reactionStop: 103.5 - gannThreePoints(103.5),
       protectivePivot: { index: 1, price: 95, kind: "bottom" as const },
+      held: false,
+      crossedAt: null,
       swingDays: 3,
     });
     const r0 = readBreakaway(daily, make(106));

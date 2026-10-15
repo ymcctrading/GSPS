@@ -124,6 +124,14 @@ export interface GannEntryTrigger {
   reactionStop: number;
   /** The swing on the other side that the stop sits beyond. */
   protectivePivot: SwingPivot;
+  /**
+   * The level has already been crossed by 3 points, not broken back and not
+   * yet bought: the buy is the reaction to `reactionEntry` (PLAN.md item 5).
+   * `stopPrice` is then `reactionStop`, the stop Gann gives that buy.
+   */
+  held: boolean;
+  /** Time of the close that crossed a held level; null when not held. */
+  crossedAt: string | null;
   /** Which swing-chart reversal count produced these pivots. */
   swingDays: number;
 }
@@ -167,15 +175,28 @@ export function computeGannEntryTrigger(
   // short is the mirror image. Nothing here is direction-agnostic by
   // accident — Gann states the Buying Points and Selling Points separately
   // and they are symmetric, so the mirror is the rule, not a shortcut.
-  const pivot = (holdCrossedLevel ? crossedLevelStillHeld(bars, pivots, direction, bufferPct) : null) ?? (direction === "bullish" ? lastTop : lastBottom);
+  const sign = direction === "bullish" ? 1 : -1;
+  const held = holdCrossedLevel ? crossedLevelStillHeld(bars, pivots, direction, bufferPct) : null;
+  const pivot = held?.pivot ?? (direction === "bullish" ? lastTop : lastBottom);
   const protectivePivot = direction === "bullish" ? lastBottom : lastTop;
 
-  const triggerPrice = buffered(pivot.price, direction === "bullish" ? 1 : -1, bufferPct);
-  const stopPrice = buffered(
-    protectivePivot.price,
-    direction === "bullish" ? -1 : 1,
-    bufferPct,
-  );
+  const triggerPrice = buffered(pivot.price, sign, bufferPct);
+  const points = Math.abs(triggerPrice - pivot.price);
+  const reactionEntry = pivot.price + (sign * points) / 3;
+  const reactionStop = pivot.price - sign * points;
+
+  if (held) {
+    // The buy on a held level is the reaction, and its stop is Gann's own, 3
+    // points the other side of the level (W006 p.20). The protective swing
+    // may have formed above the crossing since, so it does not price this
+    // trade and cannot void it.
+    return {
+      direction, triggerPrice, stopPrice: reactionStop, pivot, level: pivot.price,
+      reactionEntry, reactionStop, protectivePivot, held: true, crossedAt: bars[held.crossedAt].t, swingDays,
+    };
+  }
+
+  const stopPrice = buffered(protectivePivot.price, sign === 1 ? -1 : 1, bufferPct);
 
   // A trigger on the wrong side of its own stop is not a trade. This can
   // happen when the two pivots sit within a combined buffer's width of each
@@ -186,56 +207,58 @@ export function computeGannEntryTrigger(
     return null;
   }
 
-  const sign = direction === "bullish" ? 1 : -1;
-  const points = Math.abs(triggerPrice - pivot.price);
-  const reactionEntry = pivot.price + (sign * points) / 3;
-  const reactionStop = pivot.price - sign * points;
-  return { direction, triggerPrice, stopPrice, pivot, level: pivot.price, reactionEntry, reactionStop, protectivePivot, swingDays };
+  return { direction, triggerPrice, stopPrice, pivot, level: pivot.price, reactionEntry, reactionStop, protectivePivot, held: false, crossedAt: null, swingDays };
 }
 
 /**
- * The newest old top (bottom for a short) that a close has already crossed by
- * 3 points and no later close has broken back through by 3 points, or null.
+ * The old top (bottom for a short) crossed most recently by a close 3 points
+ * beyond it, provided no later close has broken back through it by 3 points
+ * and no later bar has reacted to the buy 1 point past it. Null otherwise.
  *
  * Gann's buy is on the reaction after the crossing, and the crossed level
  * holds until it is bought or broken (W006 pp.20, 46-47; PLAN.md item 5,
  * defect 1). A reaction of 3 days or more completes a new top at the high
  * after the crossing; without this, the buying point would move to that new
  * top and the reaction buy Gann describes would never be placed.
+ *
+ * The level is chosen by when it was crossed, not when its top formed: the
+ * latest crossing is the live one (on the same close, the higher top for a
+ * long). Once that level is bought or broken, older ones are not revived.
+ * The bar that crosses is not the reaction; the buy needs a later bar.
  */
 function crossedLevelStillHeld(
   bars: Bar[],
   pivots: SwingPivot[],
   direction: TriggerDirection,
   bufferPct?: number,
-): SwingPivot | null {
+): { pivot: SwingPivot; crossedAt: number } | null {
   const kind = direction === "bullish" ? "top" : "bottom";
   const sign = direction === "bullish" ? 1 : -1;
-  for (let k = pivots.length - 1; k >= 0; k--) {
-    const p = pivots[k];
+  let best: { pivot: SwingPivot; crossedAt: number } | null = null;
+  for (const p of pivots) {
     if (p.kind !== kind) continue;
     const line = buffered(p.price, sign, bufferPct);
-    const stop = buffered(p.price, sign === 1 ? -1 : 1, bufferPct);
-    let crossedAt = -1;
     for (let i = p.index + 1; i < bars.length; i++) {
       if (sign * (bars[i].c - line) >= 0) {
-        crossedAt = i;
+        if (!best || i > best.crossedAt || (i === best.crossedAt && sign * (p.price - best.pivot.price) > 0)) {
+          best = { pivot: p, crossedAt: i };
+        }
         break;
       }
     }
-    if (crossedAt < 0) continue;
-    let broken = false;
-    for (let i = crossedAt + 1; i < bars.length; i++) {
-      if (sign * (bars[i].c - stop) <= 0) {
-        broken = true;
-        break;
-      }
-    }
-    // The newest crossed level decides: once it is broken, the older ones
-    // beneath it are not revived.
-    return broken ? null : p;
   }
-  return null;
+  if (!best) return null;
+  const level = best.pivot.price;
+  const points = Math.abs(buffered(level, sign, bufferPct) - level);
+  const buy = level + (sign * points) / 3;
+  // Bought once a later bar trades to the buy. A close 3 points back through
+  // the level (broken) always trades through the buy first, so this one test
+  // covers both ends.
+  for (let i = best.crossedAt + 1; i < bars.length; i++) {
+    const b = bars[i];
+    if (sign * ((sign === 1 ? b.l : b.h) - buy) <= 0) return null;
+  }
+  return best;
 }
 
 /**

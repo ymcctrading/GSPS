@@ -4,7 +4,8 @@ import type { Bar } from "@/lib/types";
 const fetchBars = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/data/provider", () => ({ getMarketDataProvider: () => ({ fetchBars }) }));
 
-import { closedSessionBars, confirmationFromBars, readEntryConfirmationNow } from "../confirmNow";
+import { closedSessionBars, confirmationFromBars, heldOnDailyChart, readEntryConfirmationNow } from "../confirmNow";
+import { computeGannEntryTrigger } from "@/lib/gann/entryTrigger";
 
 const Q = 15 * 60 * 1000;
 function bar(t: string, o: number, h: number, l: number, c: number): Bar {
@@ -70,5 +71,56 @@ describe("readEntryConfirmationNow under the 3-point crossing rule", () => {
     fetchBars.mockResolvedValue([yesterday, today]);
     const r = await readEntryConfirmationNow({ symbol: "AAPL", assetClass: "us_equity", direction: "bullish", entryTrigger: 101, now });
     expect(r.ready).toBe(false);
+  });
+});
+
+describe("readEntryConfirmationNow: the window under the 3-point crossing rule", () => {
+  const now = new Date("2026-10-15T15:00:00Z");
+  const today = bar("2026-10-15T14:30:00Z", 103, 102.4, 100.9, 101.2);
+  const byTimeframe = (execution: Bar[], day: Bar[] = []) =>
+    fetchBars.mockImplementation(async (_s: string, tf: string) => (tf === "1Day" ? day : execution));
+
+  it("reads a crossing three days back for an order with no plan", async () => {
+    byTimeframe([bar("2026-10-12T19:45:00Z", 103, 103.4, 102.5, 103.2), today]);
+    const r = await readEntryConfirmationNow({ symbol: "AAPL", assetClass: "us_equity", direction: "bullish", entryTrigger: 101, stopPrice: 97, now });
+    expect(r.ready).toBe(true);
+  });
+
+  it("leaves out bars older than the window even when the feed returns them", async () => {
+    byTimeframe([bar("2026-10-05T19:45:00Z", 103, 103.4, 102.5, 103.2), today]);
+    const r = await readEntryConfirmationNow({ symbol: "AAPL", assetClass: "us_equity", direction: "bullish", entryTrigger: 101, stopPrice: 97, now });
+    expect(r.ready).toBe(false);
+  });
+});
+
+describe("the completed daily chart, for a reaction longer than the window", () => {
+  const leg = (from: number, to: number, n: number) => Array.from({ length: n }, (_, i) => from + ((to - from) * (i + 1)) / n);
+  // An old top near 50 crossed by 3 points on the way to 56, then a reaction
+  // to 52 that has not reached the buy near 51.2. Dated to end yesterday.
+  const closes = [...leg(40, 50, 6), ...leg(50, 44, 4), ...leg(44, 56, 8), ...leg(56, 52, 4)];
+  const end = Date.parse("2026-10-14T04:00:00Z");
+  const daily: Bar[] = closes.map((c, i) => ({ t: new Date(end - (closes.length - 1 - i) * 86_400_000).toISOString(), o: c, h: c + 0.3, l: c - 0.3, c, v: 1e6 }));
+  const now = new Date("2026-10-15T15:00:00Z");
+  const t = computeGannEntryTrigger(daily, "bullish")!;
+
+  it("is ready when the level still holds there and is the one this order buys", async () => {
+    expect(t.held).toBe(true);
+    expect(heldOnDailyChart(daily, now, "bullish", Math.round(t.reactionEntry * 100) / 100)).toBe(true);
+    fetchBars.mockImplementation(async (_s: string, tf: string) => (tf === "1Day" ? daily : [bar("2026-10-15T14:30:00Z", 52, 52.3, 51.8, 52)]));
+    const r = await readEntryConfirmationNow({ symbol: "AAPL", assetClass: "us_equity", direction: "bullish", entryTrigger: t.reactionEntry, stopPrice: t.reactionStop, now });
+    expect(r.ready).toBe(true);
+  });
+
+  it("is not ready for a different level's buy", () => {
+    expect(heldOnDailyChart(daily, now, "bullish", t.reactionEntry + 1)).toBe(false);
+  });
+
+  it("does not let the day still forming cross the level", () => {
+    // Without the final bar of the crossing, nothing is held; a forming day
+    // carrying the crossing close is left out.
+    const before = daily.slice(0, 16);
+    const forming: Bar = { ...daily[16], t: "2026-10-15T04:00:00Z" };
+    expect(computeGannEntryTrigger([...before, forming], "bullish")?.held).toBe(true);
+    expect(heldOnDailyChart([...before, forming], now, "bullish", t.reactionEntry)).toBe(false);
   });
 });

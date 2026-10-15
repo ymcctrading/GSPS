@@ -34,6 +34,7 @@
 import type { AssetClass, Bar } from "@/lib/types";
 import { getMarketDataProvider } from "@/lib/data/provider";
 import { EXECUTION_TIMEFRAME, TF_INTERVAL_MS } from "@/lib/timeframe";
+import { computeGannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { entryReady, replayEntryConfirmation } from "./entryConfirmation";
 import type { EntryConfirmationEvidence } from "./types";
 
@@ -144,10 +145,27 @@ export async function readEntryConfirmationNow(input: {
     input.stopPrice != null
       ? bars.filter((b) => Date.parse(b.t) + intervalMs <= now.getTime() && Date.parse(b.t) >= start.getTime())
       : closedSessionBars(bars, now, intervalMs, input.since);
-  return confirmationFromBars(
-    window,
-    input.direction,
-    input.entryTrigger,
-    input.stopPrice,
-  );
+  const read = confirmationFromBars(window, input.direction, input.entryTrigger, input.stopPrice);
+  if (input.stopPrice == null || read.ready || read.stage === "dead") return read;
+
+  // A reaction can run longer than the window above, so the crossing may be
+  // older than every bar fetched. The completed daily chart is where the scan
+  // found the level: if it still holds there (crossed, not broken, not yet
+  // bought) and it is the level this order buys, the entry is ready.
+  const year = new Date(now.getTime() - 365 * 24 * 3600 * 1000);
+  const daily = await getMarketDataProvider().fetchBars(input.symbol, "1Day", year, null, input.assetClass);
+  return heldOnDailyChart(daily, now, input.direction, input.entryTrigger) ? { ready: true, stage: "confirmed", note: GANN_NOTES.confirmed } : read;
+}
+
+/**
+ * Whether the completed daily bars hold a crossed level whose reaction buy is
+ * this entry (to the cent, or 0.1% on a large price). The bar still forming
+ * is left out, so an unfinished day can neither cross nor break the level.
+ */
+export function heldOnDailyChart(daily: Bar[], now: Date, direction: "bullish" | "bearish", entry: number): boolean {
+  const DAY = 24 * 3600 * 1000;
+  const completed = daily.filter((b) => Date.parse(b.t) + DAY <= now.getTime());
+  const trigger = computeGannEntryTrigger(completed, direction);
+  if (!trigger?.held) return false;
+  return Math.abs(trigger.reactionEntry - entry) <= Math.max(0.01, entry * 0.001);
 }
