@@ -32,6 +32,12 @@ describe("readPyramidAdd", () => {
     expect(readPyramidAdd({ ...base, price: 105 }).add).toBeNull();
   });
 
+  // Never average a loss (W006 pp.15-16, 47): no add below the last lot.
+  it("never adds to a losing position", () => {
+    expect(readPyramidAdd({ ...base, price: 100 }).add).toBeNull();
+    expect(readPyramidAdd({ ...base, price: 99 }).add).toBeNull();
+  });
+
   it("stops adding after the fourth lot", () => {
     const lots = Array.from({ length: MAX_LOTS }, (_, i) => ({ qty: 100 >> i, price: 102, date: "2026-06-03" }));
     expect(readPyramidAdd({ ...base, lots, price: 111 }).add).toBeNull();
