@@ -95,6 +95,7 @@ import {
 } from "@/lib/scoring/proximity";
 import type { CriterionWeights } from "@/lib/scoring/weights";
 import { computeGannEntryTrigger, selectGannEntry, type GannEntryTrigger } from "@/lib/gann/entryTrigger";
+import { restsWithoutCrossing } from "@/lib/gann/entryKind";
 import { advanceEntryConfirmation, entryReady, freshEntryConfirmation } from "@/lib/lifecycle/entryConfirmation";
 import type { EntryConfirmationEvidence } from "@/lib/lifecycle/types";
 import { readTrend } from "@/lib/analysis/trend";
@@ -824,8 +825,9 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         // A held trigger was already crossed on the completed daily chart
         // (PLAN.md item 5), the same reading the live scan prices from.
         const state = crossing.get(pivotKey) ?? { since: date, crossed: false };
-        // An old-level buy rests at the level with nothing to cross.
-        if (trigger.held || trigger.kind === "oldLevel") state.crossed = true;
+        // An old-level buy rests at the level, and a held bottom's buy at the
+        // last close, with nothing to cross.
+        if (trigger.held || restsWithoutCrossing(trigger.kind)) state.crossed = true;
         const closed = history[history.length - 1];
         if (closed.t.slice(0, 10) >= state.since && (long ? closed.c >= trigger.triggerPrice : closed.c <= trigger.triggerPrice)) {
           state.crossed = true;
@@ -959,9 +961,10 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       if ((exitRule === "gann" || exitRule === "gann-runner") && !outran) {
         const walked = walkGannExit({
           bars, from: i, maxBarsHeld, long, entry, stop, dailyBars: dailyBars ?? [],
-          // A double or triple bottom crosses nothing: its exit is the stop
-          // 3 points under it, as the live exit reads it (`entryCrossedLevel`).
-          crossedLevel: trigger.kind === "oldLevel" ? null : trigger.pivot.price,
+          // A double or triple bottom, or a bottom that held, crosses nothing:
+          // its exit is the stop 3 points under the low, as the live exit
+          // reads it (`entryCrossedLevel`).
+          crossedLevel: restsWithoutCrossing(trigger.kind) ? null : trigger.pivot.price,
           scaleOut: exitRule === "gann-runner" ? { price: target, fraction: RUNNER_SCALE_OUT } : undefined,
           pyramid,
           sharesOn: instrument ? (date) => splitAdjustedSharesAsOf(instrument.sharesHistory, date) : undefined,

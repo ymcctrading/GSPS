@@ -38,6 +38,26 @@ describe("guidedOrder", () => {
   });
 });
 
+describe("a held bottom (PLAN.md item 5, step 4)", () => {
+  it("goes onto the order and through the order form's schema as its own kind", () => {
+    const held = { ...levels, entryKind: "hold" as const };
+    const o = guidedOrder({ symbol: "AAPL", side: "buy", qty: 10, referencePrice: 41, levels: held });
+    expect(o.entryKind).toBe("hold");
+    expect(OrderSchema.parse(o).entryKind).toBe("hold");
+  });
+
+  it("is carried from the scan onto the card", () => {
+    const result = {
+      symbol: "AAPL", assetClass: "us_equity", currentPrice: 41, direction: "bullish",
+      levels: { ...levels, entryKind: "hold", riskPerShare: 1.96, rewardPerShare: 4.3, riskReward: 2.2 },
+      decision: { score: 7, outputState: "Execute", breakdown: [], summary: { score: 7, outOf: 9, pillars: [] } },
+      trends: [], pattern: null, signals: {},
+    } as unknown as ScanResult;
+    const sized = { qty: 10, notionalUsd: 397, riskUsd: 19.6, rewardUsd: 43, boundBy: "risk", blockedReason: null } as never;
+    expect(toRecommendation(result, "buy", sized, "2026-10-15T20:00:00Z").why.entryKind).toBe("hold");
+  });
+});
+
 describe("toRecommendation", () => {
   it("carries the scan's kind of buying point onto the card", () => {
     const result = {

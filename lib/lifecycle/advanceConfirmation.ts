@@ -100,7 +100,9 @@ export async function advanceEntryConfirmationForSymbol(
           reason:
             plan.coordinates.entryKind === "oldLevel"
               ? "The entry rests at the old level for its second or third test."
-              : "Price crossed the old level by 3 points; the entry waits for the reaction.",
+              : plan.coordinates.entryKind === "hold"
+                ? "The low has held; the entry rests at the last close."
+                : "Price crossed the old level by 3 points; the entry waits for the reaction.",
         });
       }
     } catch (err) {

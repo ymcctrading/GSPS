@@ -27,6 +27,7 @@ import { getMarketDataProvider } from "@/lib/data/provider";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { getInstrumentReference } from "@/lib/data/instrumentReference";
 import { selectGannEntry } from "@/lib/gann/entryTrigger";
+import { restsWithoutCrossing } from "@/lib/gann/entryKind";
 import { readGannExit, type GannExitReading } from "@/lib/gann/exitRules";
 import { etDateKey } from "@/lib/market/session";
 import { entryChart } from "@/lib/scan/entrySelection";
@@ -88,7 +89,8 @@ export function entryCrossedLevel(
 ): number | null {
   const chart = entryChart(daily, monthly, etDateKey(new Date(openedAt)));
   const trigger = selectGannEntry(chart.bars, side === "long" ? "bullish" : "bearish", chart.older);
-  if (!trigger || trigger.kind === "oldLevel") return null;
+  // A double or triple bottom, or a bottom that held, crossed nothing.
+  if (!trigger || restsWithoutCrossing(trigger.kind)) return null;
   // The level only counts as crossed when the entry is actually beyond it.
   return (side === "long" ? entryPrice >= trigger.pivot.price : entryPrice <= trigger.pivot.price) ? trigger.pivot.price : null;
 }

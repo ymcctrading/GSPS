@@ -166,6 +166,14 @@ describe("createTradePlan / getTradePlan", () => {
     expect(plans.find((r) => r.plan_id === old.planId)?.entry_kind).toBe("oldLevel");
   });
 
+  it("stores a held-bottom plan's kind (PLAN.md item 5, step 4)", async () => {
+    const { client, plans } = fakeSupabase();
+    const base = newPlan().coordinates;
+    const held = await createTradePlan(client, "user-1", newPlan({ coordinates: { ...base, entryKind: "hold" } }));
+    expect((await getTradePlan(client, "user-1", held.planId))?.coordinates.entryKind).toBe("hold");
+    expect(plans.find((r) => r.plan_id === held.planId)?.entry_kind).toBe("hold");
+  });
+
   it("gives the new plan's regime a second home in trend_state", async () => {
     const { client } = fakeSupabase();
     const created = await createTradePlan(client, "user-1", newPlan());

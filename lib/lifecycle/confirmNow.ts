@@ -35,6 +35,7 @@ import type { AssetClass, Bar } from "@/lib/types";
 import { getMarketDataProvider } from "@/lib/data/provider";
 import { EXECUTION_TIMEFRAME, TF_INTERVAL_MS } from "@/lib/timeframe";
 import { computeGannEntryTrigger } from "@/lib/gann/entryTrigger";
+import { restsWithoutCrossing, type GannEntryKind } from "@/lib/gann/entryKind";
 import { etDateKey } from "@/lib/market/session";
 import { entryChart } from "@/lib/scan/entrySelection";
 import { entryReady, replayEntryConfirmation } from "./entryConfirmation";
@@ -98,6 +99,11 @@ const OLD_LEVEL_NOTES = {
   dead: "Price closed through the stop under the old level, so this entry is off until a new setup forms.",
 } as const;
 
+const HOLD_NOTES = {
+  confirmed: "The low has held, so the entry rests at the last close with the stop 3 points under the low (over the high, for a short).",
+  dead: "Price closed through the stop under the low that held, so this entry is off until a new setup forms.",
+} as const;
+
 /**
  * With `stopPrice`, Gann's reaction rule: ready once a closed bar has closed
  * 3 points past the old level, and off ("dead") once a later close goes
@@ -109,15 +115,16 @@ export function confirmationFromBars(
   direction: "bullish" | "bearish",
   entryTrigger: number,
   stopPrice?: number,
-  entryKind?: "crossing" | "oldLevel",
+  entryKind?: GannEntryKind,
 ): ConfirmationNow {
-  if (stopPrice != null && entryKind === "oldLevel") {
-    // Gann's double or triple bottom (PLAN.md item 5, step 2): the order rests
-    // at the old bottom with nothing to cross first. Off once a close has gone
-    // through the stop.
+  if (stopPrice != null && restsWithoutCrossing(entryKind)) {
+    // Gann's double or triple bottom (PLAN.md item 5, step 2), or a bottom
+    // that has held (step 4): the order rests with nothing to cross first.
+    // Off once a close has gone through the stop.
     const up = direction === "bullish";
     const dead = bars.some((b) => (up ? b.c <= stopPrice : b.c >= stopPrice));
-    return dead ? { ready: false, stage: "dead", note: OLD_LEVEL_NOTES.dead } : { ready: true, stage: "confirmed", note: OLD_LEVEL_NOTES.confirmed };
+    const notes = entryKind === "hold" ? HOLD_NOTES : OLD_LEVEL_NOTES;
+    return dead ? { ready: false, stage: "dead", note: notes.dead } : { ready: true, stage: "confirmed", note: notes.confirmed };
   }
   const evidence = replayEntryConfirmation({ direction, entryTrigger, stopPrice }, bars);
   let stage = stageOf(evidence);
@@ -137,8 +144,8 @@ export async function readEntryConfirmationNow(input: {
   entryTrigger: number;
   /** The plan's stop: selects Gann's reaction rule (see `confirmationFromBars`). */
   stopPrice?: number;
-  /** Which of Gann's buying points; `oldLevel` has nothing to cross. */
-  entryKind?: "crossing" | "oldLevel";
+  /** Which of Gann's buying points; `oldLevel` and `hold` have nothing to cross. */
+  entryKind?: GannEntryKind;
   /**
    * Count bars from this time (a plan's generation time). Default: today's
    * session, or the last four days under Gann's rule.
@@ -164,7 +171,7 @@ export async function readEntryConfirmationNow(input: {
       ? bars.filter((b) => Date.parse(b.t) + intervalMs <= now.getTime() && Date.parse(b.t) >= start.getTime())
       : closedSessionBars(bars, now, intervalMs, input.since);
   const read = confirmationFromBars(window, input.direction, input.entryTrigger, input.stopPrice, input.entryKind);
-  if (input.stopPrice == null || input.entryKind === "oldLevel" || read.ready || read.stage === "dead") return read;
+  if (input.stopPrice == null || restsWithoutCrossing(input.entryKind) || read.ready || read.stage === "dead") return read;
   // The daily chart below leaves out the day still forming, so a close
   // through the stop in the bars above (today's included) ends it here.
   const stop = input.stopPrice;

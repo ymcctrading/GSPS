@@ -92,9 +92,13 @@ export interface ScenarioKey {
   /**
    * `oldLevel` when the buy rests at an old bottom (top) that held, a double
    * or triple bottom (PLAN.md item 5, step 2), so the explanations describe
-   * that entry. Absent is the crossing, and on scenarios stored before it.
+   * that entry. `hold` when the buy is at the last close over a bottom (top)
+   * that held (step 4). Absent is the crossing, and on scenarios stored
+   * before it.
    */
-  entryKind?: "oldLevel";
+  entryKind?: "oldLevel" | "hold";
+  /** For `hold`: which rule found the bottom that held, so the explanation names it. */
+  holdBasis?: "weeks" | "days" | "record";
   /**
    * For a crossing of the previous year's top or bottom, or the record from
    * before the last 52 weeks (PLAN.md item 5, step 3), so the explanation
@@ -213,6 +217,8 @@ export function buildScenario(
     (trigger.held ||
       // A double or triple bottom rests at the old level, below the price.
       trigger.kind === "oldLevel" ||
+      // A bottom that held is bought at the last close (step 4).
+      trigger.kind === "hold" ||
       (direction === "bullish" ? trigger.triggerPrice > last.c : trigger.triggerPrice < last.c))
       ? "trade"
       : "wait";
@@ -228,13 +234,17 @@ export function buildScenario(
     const long = direction === "bullish";
     // The reaction buy after the crossing (PLAN.md item 4): 1 point past the
     // old level, stop 3 points the other side. Or the old bottom itself, stop
-    // 3 points under it (a double or triple bottom, item 5 step 2).
+    // 3 points under it (a double or triple bottom, item 5 step 2). Or the
+    // last close over a bottom that held, stop 3 points under the low (step 4).
     entry = round2(trigger.reactionEntry);
     stop = round2(trigger.reactionStop);
     const e = [
       { id: "e1", price: entry },
-      // Buying at today's close instead of waiting for the reaction to the level.
-      { id: "e2", price: round2(last.c) },
+      trigger.kind === "hold"
+        ? // Chasing 3% past the close, away from the low that held.
+          { id: "e2", price: round2(long ? last.c * 1.03 : last.c * 0.97) }
+        : // Buying at today's close instead of waiting for the reaction to the level.
+          { id: "e2", price: round2(last.c) },
       // 3% the wrong side of the level: before a crossing proves itself, or
       // after an old bottom has already given way.
       { id: "e3", price: round2(long ? trigger.pivot.price * 0.97 : trigger.pivot.price * 1.03) },
@@ -271,8 +281,9 @@ export function buildScenario(
     },
     key: {
       trend, decision, direction, entryChoiceId, stopChoiceId, entry, stop, shares,
-      crossed: decision === "trade" && (trigger?.held === true || trigger?.kind === "oldLevel"),
+      crossed: decision === "trade" && (trigger?.held === true || trigger?.kind === "oldLevel" || trigger?.kind === "hold"),
       ...(decision === "trade" && trigger?.kind === "oldLevel" ? { entryKind: "oldLevel" as const } : {}),
+      ...(decision === "trade" && trigger?.kind === "hold" ? { entryKind: "hold" as const, holdBasis: trigger.holdBasis } : {}),
       ...(decision === "trade" && trigger?.kind === "crossing" && trigger.source !== "swing" ? { source: trigger.source } : {}),
     },
     playback: after.map((b) => ({ t: b.t.slice(0, 10), h: b.h, l: b.l, c: b.c })),
@@ -309,7 +320,9 @@ function playedOut(s: StoredScenario): string {
   }
   return filled
     ? `The entry filled; neither the stop nor twice the risk was reached within ${playback.length} sessions.`
-    : key.entryKind === "oldLevel"
+    : key.entryKind === "hold"
+      ? `Price moved away from the ${key.direction === "bearish" ? "high" : "low"} and never traded back ${key.direction === "bearish" ? "up" : "down"} to the entry within ${playback.length} sessions, so no trade was taken. The buy is made near the ${key.direction === "bearish" ? "top" : "bottom"}, not chased.`
+      : key.entryKind === "oldLevel"
       ? `Price never came back ${key.direction === "bearish" ? "up to the old top" : "down to the old bottom"} within ${playback.length} sessions, so no trade was taken. Waiting for the test of the level is part of the rule.`
       : crossed
       ? `Price crossed the old level but never pulled back to the entry within ${playback.length} sessions, so no trade was taken. Waiting for the reaction is part of the rule.`
@@ -348,13 +361,24 @@ export function gradeExam(transition: ExamTransition, scenarios: StoredScenario[
     );
     // An entry at an old bottom (top) that held: a double or triple bottom.
     const old = k.entryKind === "oldLevel";
+    // A buy at the close over a bottom (top) that held (step 4).
+    const hold = k.entryKind === "hold";
     const longKey = k.direction !== "bearish";
     const oldSide = longKey ? "bottom" : "top";
+    const extreme = longKey ? "low" : "high";
+    const heldWhat =
+      k.holdBasis === "record"
+        ? "the record low had held for weeks without breaking by 3 points"
+        : k.holdBasis === "days"
+          ? `the ${extreme} had held two days after a two-to-three-week reaction in a rising market`
+          : `the ${extreme} had held into its second week`;
     add(
       "decision",
       a.decision === k.decision,
       k.decision === "trade"
-        ? old
+        ? hold
+          ? `The trend was clear and ${heldWhat}: a trade, ${longKey ? "bought" : "sold"} at the last close near that ${oldSide}.`
+          : old
           ? `The trend was clear and an old ${oldSide} that had held sat ${longKey ? "below" : "above"} the price: a trade, resting at that ${oldSide} for a second or third test of it.`
           : "The trend was clear and there was an old swing level still to cross: a trade, entered only once price closes 3 points past it and pulls back."
         : "With no clear trend, or no level left to cross, the rule is to wait.",
@@ -364,7 +388,9 @@ export function gradeExam(transition: ExamTransition, scenarios: StoredScenario[
         add(
           "entry",
           a.entryChoiceId === k.entryChoiceId,
-          old
+          hold
+            ? `The entry is the last close, at ${k.entry?.toFixed(2)}: ${heldWhat}, so the ${longKey ? "buy" : "sell"} is made now, near the ${oldSide}, rather than chased later.`
+            : old
             ? `The entry is the old swing ${oldSide} itself, at ${k.entry?.toFixed(2)}: an order resting there ${longKey ? "buys" : "sells"} the next test of it, the double or triple ${oldSide}.`
             : `The entry is 1 point past ${crossedName(k)}, at ${k.entry?.toFixed(2)}: bought on the pullback after a close 3 points past it, so the market has proved itself first.`,
         );
@@ -372,7 +398,9 @@ export function gradeExam(transition: ExamTransition, scenarios: StoredScenario[
       add(
         "stop",
         a.stopChoiceId === k.stopChoiceId,
-        old
+        hold
+          ? `The stop goes 3 points ${longKey ? "under" : "over"} the ${extreme} that held, at ${k.stop?.toFixed(2)}: a close beyond it means the ${oldSide} has given way.`
+          : old
           ? `The stop goes 3 points ${longKey ? "under" : "over"} that ${oldSide}, at ${k.stop?.toFixed(2)}: a close beyond it means the ${oldSide} has not held.`
           : `The stop goes 3 points the other side of that same ${k.direction === "bullish" ? "top" : "bottom"}, at ${k.stop?.toFixed(2)}: back under it, the crossing has failed.`,
       );

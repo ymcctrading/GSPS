@@ -199,7 +199,7 @@ export interface Recommendation {
     takeProfit1: number;
     masterProfit: number;
     /** Which of Gann's buying points the entry is; absent is the crossing. */
-    entryKind?: "crossing" | "oldLevel";
+    entryKind?: "crossing" | "oldLevel" | "hold";
     trend: string;
     patternName: string | null;
     tickerHref: string;

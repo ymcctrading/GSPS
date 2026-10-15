@@ -51,6 +51,7 @@ import { etDateKey } from "@/lib/market/session";
 import type { RulesAlignmentTier } from "@/lib/signals/types";
 import { roundNumberEntryBlocked } from "@/lib/gann/evenFigures";
 import { gannCrossedLevel } from "@/lib/gann/entryTrigger";
+import { restsWithoutCrossing } from "@/lib/gann/entryKind";
 import { levelBeforeThreePoints } from "@/lib/gann/pointScale";
 import { isPivotSignal } from "@/lib/lifecycle/fromPivot";
 import { resolveGannRulePrefs } from "@/lib/gann/traderPrefs";
@@ -317,10 +318,11 @@ async function runForProfile(
       // level is recovered from the two. A stop-and-reverse plan's entry and
       // stop are not that pair, so its level is read back from the entry alone.
       const entry = Number(plan.entry_trigger);
-      // An old-level plan (a double or triple bottom) rests at the level itself.
+      // An old-level plan (a double or triple bottom) rests at the level
+      // itself, and a held bottom's at the last close: neither crossed one.
       const crossedLevel = isPivotSignal(plan.signal_id)
         ? levelBeforeThreePoints(entry, plan.direction)
-        : plan.entry_kind === "oldLevel"
+        : restsWithoutCrossing(plan.entry_kind)
           ? entry
           : gannCrossedLevel(entry, Number(plan.invalidation));
       const rn = roundNumberEntryBlocked({ entry, direction: plan.direction, crossedLevel });

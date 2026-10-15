@@ -89,4 +89,12 @@
 // top and bottom before those 52 weeks, are crossed and bought like any old
 // level (W006 pp.20, 22, 24, 47), read from the monthly chart on every
 // surface. Two crossings as near as each other go to the older level.
-export const STRATEGY_VERSION = "2026-10-15-gann-older-levels";
+// No run was committed on "2026-10-15-gann-older-levels".
+// PLAN.md item 5, step 4: a bottom that held is a buying point too, bought at
+// the last close with the stop 3 points under the low (W006 pp.20, 24,
+// 46-47): a low that has stood into its second week, a low that has held two
+// days after a reaction of two to three weeks in a bull market, or a record
+// low that has held for weeks without a 3-point break. Shorts mirror the
+// first. It is offered only where its risk stays inside the 5-point limit,
+// and it rests like a double bottom, with no crossing to confirm first.
+export const STRATEGY_VERSION = "2026-10-15-gann-held-bottoms";

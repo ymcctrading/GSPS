@@ -71,6 +71,7 @@ import type { Bar } from "@/lib/types";
 import type { EntryConfirmationEvidence } from "./types";
 import { EMPTY_ENTRY_CONFIRMATION } from "./types";
 import { gannBreakLine } from "@/lib/gann/entryTrigger";
+import { restsWithoutCrossing, type GannEntryKind } from "@/lib/gann/entryKind";
 
 export type ConfirmationDirection = "bullish" | "bearish";
 
@@ -102,9 +103,10 @@ export interface EntryConfirmationRule {
    * With `stopPrice`: `oldLevel` is Gann's double or triple bottom (PLAN.md
    * item 5, step 2), a resting order at the level itself with nothing to
    * arm, so it is ready on the first bar that hasn't closed through the stop.
-   * Absent or `crossing` is the reaction after a crossing.
+   * `hold`, a bottom that has held (step 4), rests at the last close the same
+   * way. Absent or `crossing` is the reaction after a crossing.
    */
-  entryKind?: "crossing" | "oldLevel";
+  entryKind?: GannEntryKind;
 }
 
 /**
@@ -124,8 +126,9 @@ export function advanceEntryConfirmation(
 
   let next = evidence;
 
-  if (rule.stopPrice != null && rule.entryKind === "oldLevel") {
-    // The order rests at the old bottom from the start: nothing to cross. A
+  if (rule.stopPrice != null && restsWithoutCrossing(rule.entryKind)) {
+    // The order rests at the old bottom (or over the bottom that held) from
+    // the start: nothing to cross. A
     // close through the stop first breaks the level, and it never arms after
     // that, as the placement check reads it (`confirmationFromBars`).
     if (next.entryConfirmedAt == null && next.stopClosedAt == null) {

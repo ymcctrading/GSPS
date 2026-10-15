@@ -18,7 +18,7 @@ export interface GuidedOrderLevels {
   takeProfit1: number;
   masterProfit: number;
   /** Which of Gann's buying points the entry is; absent is the crossing. */
-  entryKind?: "crossing" | "oldLevel";
+  entryKind?: "crossing" | "oldLevel" | "hold";
 }
 
 export function guidedOrder(input: {

@@ -166,6 +166,20 @@ describe("OrderTicket price increments", () => {
     expect(body.entryStop).toBeCloseTo(49.755 * 0.88, 6);
   });
 
+  it("sends a held-bottom plan's kind with its stop (PLAN.md item 5, step 4)", async () => {
+    const user = userEvent.setup();
+    const fetchMock = mockFetch();
+    const scan = scanWithEntry(49.755);
+    render(<OrderTicket result={{ ...scan, levels: { ...scan.levels!, entryKind: "hold" } }} />);
+
+    await user.click(await screen.findByRole("button", { name: /Buy DRAM at \$49\.75/ }));
+
+    const orderCall = fetchMock.mock.calls.find(([url]) => String(url).includes("/api/orders"));
+    const body = JSON.parse(String(orderCall![1]?.body));
+    expect(body.entryKind).toBe("hold");
+    expect(body.entryStop).toBeCloseTo(49.755 * 0.88, 6);
+  });
+
   it("leaves the protocol stop off an order placed against the plan's direction", async () => {
     const user = userEvent.setup();
     const fetchMock = mockFetch();

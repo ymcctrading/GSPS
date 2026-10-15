@@ -63,6 +63,12 @@ describe("buildNewTradePlanFromScanResult", () => {
     expect(buildNewTradePlanFromScanResult(scanResult(), opts)?.coordinates.entryKind).toBeUndefined();
   });
 
+  it("carries a held-bottom plan's kind (PLAN.md item 5, step 4)", () => {
+    const opts = { strategyVersion: "1.0.0", signalId: "transition-1", generatedAt: "2026-08-30T13:00:00.000Z" };
+    const held = buildNewTradePlanFromScanResult(scanResult({ levels: { ...levels, entryKind: "hold", holdBasis: "weeks" } }), opts);
+    expect(held?.coordinates.entryKind).toBe("hold");
+  });
+
   it("returns null when the scan has no priced levels", () => {
     const plan = buildNewTradePlanFromScanResult(scanResult({ levels: null }), {
       strategyVersion: "1.0.0",

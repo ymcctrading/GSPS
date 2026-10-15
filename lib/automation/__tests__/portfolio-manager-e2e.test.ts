@@ -467,6 +467,28 @@ describe("Automated Portfolio Manager — real end-to-end pipeline (paper)", () 
     expect(confirmNow.calls.at(-1)).toMatchObject({ entryKind: "oldLevel", stopPrice: 94.55 });
   });
 
+  it("reads a held-bottom plan as resting at its entry, not as a crossing (PLAN.md item 5, step 4)", async () => {
+    // As for the old level: the entry 99.50 is close enough to 100 to pass the
+    // round-number check. Read as a crossing it would come back as 98.26.
+    const { client, orders } = fakeSupabase({
+      user_id: "user-1",
+      is_automation_enabled: true,
+      risk_profile: "PASSIVE",
+      directional_bias: "BOTH",
+      volatility_trigger_type: "DOLLAR_AMOUNT",
+      volatility_trigger_value: 1,
+      execution_mode: "paper",
+    });
+    const base = armedCandidatePlan().coordinates;
+    await createArmedPlan(client, "user-1", { coordinates: { ...base, entryTrigger: 99.5, invalidation: 94.55, entryKind: "hold" } });
+    vi.mocked(isTriggered).mockReturnValue(false);
+    const result = await runAutonomousPortfolioManager(client);
+    expect(result.errors).toEqual([]);
+    expect(orders).toHaveLength(1);
+    expect(orders[0].limit_price).toBe(99.5);
+    expect(confirmNow.calls.at(-1)).toMatchObject({ entryKind: "hold", stopPrice: 94.55 });
+  });
+
   it("rests a limit at the plan's entry while price has not yet reacted back to it", async () => {
     const { client, orders } = fakeSupabase({
       user_id: "user-1",

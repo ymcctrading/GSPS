@@ -101,7 +101,7 @@ export function buildNewTradePlanFromScanResult(
     signalFingerprint: opts.signalFingerprint ?? opts.signalId,
     entryConfirmation: freshEntryConfirmation(),
     coordinates: {
-      ...(l.entryKind === "oldLevel" ? { entryKind: "oldLevel" as const } : {}),
+      ...(l.entryKind === "oldLevel" || l.entryKind === "hold" ? { entryKind: l.entryKind } : {}),
       entryTrigger: l.entry,
       // One tick over the structural stop's own tolerance isn't known here;
       // the trigger price itself is the only tolerance this pipeline has

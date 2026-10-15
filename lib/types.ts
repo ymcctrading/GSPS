@@ -143,10 +143,17 @@ export interface GannLevels {
 export interface TradeLevels {
   /**
    * Which of Gann's buying points priced the plan (PLAN.md item 5): the
-   * reaction after a crossing, or a resting order at the old bottom (top).
-   * Absent means the crossing, the only kind before step 2.
+   * reaction after a crossing, a resting order at the old bottom (top), or a
+   * bottom (top) that has held, bought at the last close (step 4). Absent
+   * means the crossing, the only kind before step 2.
    */
-  entryKind?: "crossing" | "oldLevel";
+  entryKind?: "crossing" | "oldLevel" | "hold";
+  /**
+   * For a held bottom: which of Gann's hold rules found it (the low stood into
+   * its second week, held two days after a bull-market reaction, or the record
+   * low held). Display only.
+   */
+  holdBasis?: "weeks" | "days" | "record";
   /**
    * For a crossing, when the level crossed is not the last swing: the
    * previous year's top or bottom, or the record from before the 52 weeks

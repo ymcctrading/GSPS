@@ -73,10 +73,11 @@ export const OrderSchema = z.object({
   entryStop: z.number().positive().optional(),
   /**
    * Which of Gann's buying points the protocol's entry is (PLAN.md item 5,
-   * step 2). `oldLevel` rests at the old bottom (top) with no crossing to wait
-   * for; absent is the crossing. Sent with `entryStop`.
+   * steps 2 and 4). `oldLevel` rests at the old bottom (top) and `hold` at the
+   * last close over a bottom that held, neither with a crossing to wait for;
+   * absent is the crossing. Sent with `entryStop`.
    */
-  entryKind: z.enum(["crossing", "oldLevel"]).optional(),
+  entryKind: z.enum(["crossing", "oldLevel", "hold"]).optional(),
   mode: z.enum(["paper", "live"]).default("paper"),
   /**
    * True only when this order was opened through the intraday alerts
@@ -184,8 +185,10 @@ async function lossSeriesRefusal(
  * Gann's risk cap: never risk more than 5 points on a trade (W006 pp.20,
  * 46-47; points price-scaled by `lib/gann/pointScale.ts`). Checked on every
  * entry that carries a stop and a known entry price, the person's own
- * Manual Override stop included. A protocol plan risks 4 points (entry 1
- * point past the level, stop 3 points the other side), so it always passes.
+ * Manual Override stop included. A protocol crossing risks 4 points (entry 1
+ * point past the level, stop 3 points the other side), and a buy over a low
+ * that held is offered only within the cap (`computeGannHoldEntry`), so a
+ * protocol plan always passes.
  */
 export function riskCapRefusal(
   input: Pick<OrderInput, "entryMode" | "limitPrice" | "attachLevels" | "referencePrice">,
@@ -222,7 +225,7 @@ export async function entryConfirmationRefusal(
     direction: "bullish" | "bearish";
     entryTrigger: number;
     stopPrice?: number;
-    entryKind?: "crossing" | "oldLevel";
+    entryKind?: "crossing" | "oldLevel" | "hold";
     since?: string;
   } | null = null;
   if (input.sourcePlanId) {

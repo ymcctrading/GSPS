@@ -65,12 +65,13 @@ export const MASTER_RULE_DETAIL =
  * at an old bottom that held, the stop 3 points under it. Points are
  * price-scaled (`lib/gann/pointScale.ts`).
  */
-export const STOP_RULE_LABEL = "3 points beyond the old top or bottom the entry crossed or rests at, scaled to the price";
+export const STOP_RULE_LABEL = "3 points beyond the old top or bottom the entry crossed or rests at, or the low that held, scaled to the price";
 
 export const STOP_RULE_DETAIL =
   "Once price closes 3 points past an old top, the buy rests 1 point above that top and fills when price pulls back to it; the stop goes 3 points below the top. " +
   "At a double or triple bottom the buy rests at the old bottom itself, with the stop 3 points under it. " +
-  "So a trade never risks more than 4 points, under the 5-point limit. Points grow with the price: 3 points is about 7% of a $40 stock, 5% at $100 and under 4% at $200. " +
+  "Once a low has held into its second week, the buy is at the last close, with the stop 3 points under the low, and only while that risks no more than 5 points. " +
+  "So a crossing risks 4 points, a double or triple bottom 3, and a buy over a low that held up to 5, the limit. Points grow with the price: 3 points is about 7% of a $40 stock, 5% at $100 and under 4% at $200. " +
   "A short is the mirror: after a close 3 points under an old bottom, sell 1 point below it, with the stop 3 points above. The 12–18% band applies to option premium, not to share price.";
 
 /**

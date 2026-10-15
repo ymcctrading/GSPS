@@ -212,3 +212,28 @@
 - Rebased onto the step 2 review fixes (fc343d9): entryCrossedLevel reads entryChart with the
   monthly chart and returns null for an old-level buy.
 - Full suite 2498 passed, tsc clean, eslint 0 errors (44 warnings, pre-existing), terms clean.
+
+== 2026-10-15 item 5 step 4: the bottom that held (A-ENTRY-01, -08, -10) ==
+- computeGannHoldEntry (lib/gann/entryTrigger.ts): a buy at the last close with the stop 3 points
+  under the low, after a reaction of 3 points or more from the latest 3-Day top (W006 pp.20, 24,
+  46-47). Three forms, recorded as holdBasis:
+  weeks: the low has stood 8 calendar days or more, into its second week (A-ENTRY-01, Rule 3).
+  days: long only, in a weekly uptrend, a counter-move of 8-21 days (readCounterMove) and the low
+  held 2 sessions (A-ENTRY-01's active-market form, A-ENTRY-08).
+  record: long only, the record bottom from before the 52 weeks, not broken by 3 points in the
+  window, first approached 8 days or more ago (A-ENTRY-10).
+  Shorts mirror the weeks form only; the bear-market rally (A-ENTRY-18) and A-ENTRY-07 are step 4b.
+- Offered only where entry to stop stays inside the 5-point cap. selectGannEntry reduces over the
+  crossing, the old level and the hold; a tie goes to the crossing.
+- The kind "hold" rests like "oldLevel" (restsWithoutCrossing in lib/gann/entryKind.ts): plans,
+  migration 0086's check, confirmation (ready until a close goes through the stop), placement, the
+  portfolio manager, the breakaway hold, the live Gann exit (no crossed level) and the replay.
+- Copy: the score note, the setup label ("single bottom", "record low that held"), the signal card
+  headline, the Settings stop rule (up to 5 points), Academy 4 and 6, and the graduation exam.
+- Tests first: holdEntry.test.ts (18), holdWiring.test.ts (16), holdCopy.test.ts (6), plus hold
+  cases in store, fromScanResult, guided order, order ticket and the portfolio manager e2e.
+  Mutations 5 of 5 caught (no hold candidate, 1-day weeks, 0-session days, hold not resting,
+  no risk cap).
+- STRATEGY_VERSION 2026-10-15-gann-held-bottoms. No run was committed on gann-older-levels.
+- Full suite 2544 passed, tsc clean, eslint 0 errors (44 warnings, pre-existing), terms clean.
+  Not pushed: the step 3 review findings come first.

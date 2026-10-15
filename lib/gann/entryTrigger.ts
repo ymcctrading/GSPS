@@ -80,8 +80,10 @@
  */
 
 import type { Bar } from "@/lib/types";
-import { gannThreePointsPct } from "@/lib/gann/pointScale";
+import { beyondByThreePoints, gannThreePoints, gannThreePointsPct } from "@/lib/gann/pointScale";
 import { SWING_CHART_DAYS, swingPivots, type SwingPivot } from "@/lib/gann/swingChart";
+import { readCounterMove } from "@/lib/gann/disclosedRules";
+import type { GannEntryKind, GannHoldBasis } from "@/lib/gann/entryKind";
 
 export type TriggerDirection = "bullish" | "bearish";
 
@@ -103,8 +105,10 @@ export const ENTRY_TRIGGER_SWING_DAYS = SWING_CHART_DAYS.threeDay;
  *   it, stop 3 points under it (W006 pp.20, 46-47).
  * - `oldLevel`: a resting buy at the old bottom, the double or triple bottom,
  *   stop 3 points under it (W006 pp.11, 20, 46). Shorts mirror both.
+ * - `hold`: a bottom that has held, bought at the market's last close with
+ *   the stop 3 points under it (W006 pp.20, 24, 46-47; PLAN.md item 5, step 4).
  */
-export type GannEntryKind = "crossing" | "oldLevel";
+export type { GannEntryKind } from "@/lib/gann/entryKind";
 
 /**
  * Where the level came from (PLAN.md item 5, step 3):
@@ -190,6 +194,14 @@ export interface GannEntryTrigger {
    * weight, so it only decides between buying points that are otherwise even.
    */
   formedAt: string;
+  /**
+   * `hold` only: which of Gann's rules found the bottom that held. `weeks`:
+   * the reaction's low stood into its second week (A-ENTRY-01). `days`: in a
+   * bull market, a reaction of two to three weeks whose low held two days
+   * (A-ENTRY-01 in active markets, A-ENTRY-08). `record`: the record low held
+   * for weeks without a 3-point break (A-ENTRY-10).
+   */
+  holdBasis?: GannHoldBasis;
 }
 
 function buffered(price: number, direction: 1 | -1, bufferPct?: number): number {
@@ -360,6 +372,132 @@ export function computeGannOldLevelEntry(
   };
 }
 
+/**
+ * How long a bottom has to hold before the weeks form buys it: into its second
+ * week. Gann says "2-3 weeks" (W006 p.20) and "1-3+ weeks" (Rule 3, pp.46-47);
+ * `lib/gann/timeRules.ts` already reads "2-3 weeks" as days 8-21 on the
+ * calendar, and the "+" keeps it a buy past day 21.
+ */
+export const HOLD_WEEKS_MIN_DAYS = 8;
+/** "Once it holds 2-3 days" (W006 pp.46-47): the sessions since the low. */
+export const HOLD_DAYS_MIN_SESSIONS = 2;
+/** The bull-market reaction the days form buys after: "2-3 weeks", days 8-21 as in `timeRules.ts`. */
+const BULL_REACTION_DAYS: [number, number] = [8, 21];
+
+const DAY_MS = 86_400_000;
+function calendarDays(fromIso: string, toIso: string): number {
+  return Math.round((Date.parse(toIso) - Date.parse(fromIso)) / DAY_MS);
+}
+
+/** Within Gann's 5-point risk cap (W006 p.46, A-STOP-02), points price-scaled as at placement. */
+function withinRiskCap(entry: number, stop: number): boolean {
+  return Math.abs(entry - stop) <= (5 / 3) * gannThreePoints(entry) + 1e-9 * entry;
+}
+
+/**
+ * A bottom that holds as a buying point (PLAN.md item 5, step 4). Gann:
+ * "Single bottom: after a reaction, wait until it holds a level 2-3 weeks,
+ * buy with a stop 3 points under the lowest week (2-3 days and the lowest day
+ * in active markets)" (W006 pp.20, 46-47, A-ENTRY-01); "in bull markets
+ * reactions last 2-3 weeks; buy after a 2-3 week reaction once it holds 2-3
+ * days" (pp.46-47, A-ENTRY-08); "a stock holding its all-time low for weeks or
+ * months without a 3-point break is a buy with a stop 3 points under" (p.24,
+ * A-ENTRY-10). Shorts sell a single top that holds, stop 3 points above
+ * (pp.22, 47, A-ENTRY-14; Rule 4 is Rule 3's mirror).
+ *
+ * The reaction is the move from the latest 3-Day Chart top that stands at
+ * least 3 points over the low made since it; its low is the lowest week's
+ * low and the lowest day's low alike, so one stop serves both forms. Three
+ * forms, the record first when both apply (the older level, p.24):
+ * - `record` (long only): the record low from before the 52 weeks, not broken
+ *   by 3 points since, with price within 3 points of it for 8 days or more.
+ *   The stop is 3 points under the record, not under a dip less than 3 points
+ *   through it (p.24: U.S. Steel ⅝ under its 1907 low, stop 3 under that low).
+ * - `weeks`: the reaction's low has stood 8 calendar days or more.
+ * - `days` (long only): the weekly chart is bullish, the reaction has run 8-21
+ *   days (`readCounterMove`), and its low has stood 2 sessions. "Active
+ *   markets" is read as A-ENTRY-08's own condition, a bull-market reaction.
+ *   The short side's days form is Rule 4's bear-rally sell, a rule of its own.
+ *
+ * Engineering choices, labelled as such: Gann says "buy" and names no price,
+ * so the order is a limit at the last completed session's close, the same
+ * limit every other buying point uses. A reaction must reach 3 points, the
+ * allowance under which Gann treats a move as noise. "Holds a level" is read
+ * as no lower low (a lower one starts the count again). The buy is offered only
+ * within Gann's 5-point risk cap, since Gann buys "near" the bottom (p.20);
+ * further off it, the order at the old bottom (`computeGannOldLevelEntry`) is
+ * the buy.
+ *
+ * Three-question basis: 1. Gann, as cited, Tier A. 2. The hold lengths are
+ * durations Gann gives from observation, not a periodic cycle, so Dewey's
+ * checklist does not apply; the replay's factor table is the test. 3. Rhythm
+ * (a reaction that stops making new lows has run its normal length) and
+ * Polarity, with the mirror only where Gann states it.
+ */
+export function computeGannHoldEntry(
+  bars: Bar[],
+  direction: TriggerDirection,
+  older: OlderGannLevel[] = [],
+  swingDays: number = ENTRY_TRIGGER_SWING_DAYS,
+): GannEntryTrigger | null {
+  if (bars.length === 0) return null;
+  const sign = direction === "bullish" ? 1 : -1;
+  const last = bars[bars.length - 1];
+  const entry = last.c;
+  const pivots = swingPivots(bars, swingDays);
+  const bottom = direction === "bullish" ? "bottom" : "top";
+  const extremeOf = (b: Bar) => (sign === 1 ? b.l : b.h);
+
+  // The record low that held (A-ENTRY-10). Long only: Gann states it for lows,
+  // and a record high is his "usually safe buy" (p.47), not a short.
+  const record = direction === "bullish" ? older.find((l) => l.kind === "bottom" && l.source === "allTime") : undefined;
+  if (record) {
+    const points = gannThreePoints(record.price);
+    const stop = record.price - points;
+    const unbroken = bars.every((b) => b.l >= stop);
+    const near = bars.findIndex((b) => b.l <= record.price + points);
+    if (unbroken && near >= 0 && calendarDays(bars[near].t, last.t) >= HOLD_WEEKS_MIN_DAYS && withinRiskCap(entry, stop)) {
+      const pivot: SwingPivot = { index: -1, price: record.price, kind: "bottom" };
+      const top = [...pivots].reverse().find((p) => p.kind === "top") ?? pivot;
+      return {
+        kind: "hold", direction, triggerPrice: entry, stopPrice: stop, pivot, level: record.price,
+        reactionEntry: entry, reactionStop: stop, protectivePivot: top, held: false, crossedAt: null,
+        swingDays, source: "allTime", formedAt: record.formedAt, holdBasis: "record",
+      };
+    }
+  }
+
+  // The reaction: from the latest top that stands 3 points over the low since it.
+  const tops = pivots.filter((p) => p.kind !== bottom);
+  for (let k = tops.length - 1; k >= 0; k--) {
+    const top = tops[k];
+    let low = -1;
+    for (let i = top.index + 1; i < bars.length; i++) {
+      if (low < 0 || sign * (extremeOf(bars[i]) - extremeOf(bars[low])) < 0) low = i;
+    }
+    if (low < 0) continue;
+    const level = extremeOf(bars[low]);
+    if (sign * (top.price - level) < gannThreePoints(level)) continue;
+    const stop = beyondByThreePoints(level, sign === 1 ? -1 : 1);
+    if (!withinRiskCap(entry, stop)) return null;
+    let holdBasis: "weeks" | "days" | null = null;
+    if (calendarDays(bars[low].t, last.t) >= HOLD_WEEKS_MIN_DAYS) holdBasis = "weeks";
+    else if (direction === "bullish" && bars.length - 1 - low >= HOLD_DAYS_MIN_SESSIONS) {
+      const cm = readCounterMove(bars);
+      if (cm?.trend === "bullish" && cm.inCounterMove && cm.days >= BULL_REACTION_DAYS[0] && cm.days <= BULL_REACTION_DAYS[1]) {
+        holdBasis = "days";
+      }
+    }
+    if (!holdBasis) return null;
+    return {
+      kind: "hold", direction, triggerPrice: entry, stopPrice: stop, pivot: { index: low, price: level, kind: bottom },
+      level, reactionEntry: entry, reactionStop: stop, protectivePivot: top, held: false, crossedAt: null,
+      swingDays, source: "swing", formedAt: bars[low].t, holdBasis,
+    };
+  }
+  return null;
+}
+
 /** The price a buying point fills at: the reaction buy, or the old level. */
 function entryOf(t: GannEntryTrigger): number {
   // A crossing not yet made has to reach its 3-point line first.
@@ -381,11 +519,12 @@ export function nearerBuyingPoint(a: GannEntryTrigger, b: GannEntryTrigger, pric
 }
 
 /**
- * The buying point a plan is priced from: of the crossing and the old level,
- * the one nearer the price (PLAN.md item 5, step 2). Gann ranks neither
- * against the other; a set of resting orders is filled by whichever price
- * reaches first, which is the nearer one. On a tie, the crossing. `older`
- * adds the previous year's and the record levels to the crossing (step 3).
+ * The buying point a plan is priced from: of the crossing, the old level and a
+ * bottom that holds, the one nearer the price (PLAN.md item 5, steps 2 and 4).
+ * Gann ranks none against the others; a set of resting orders is filled by
+ * whichever price reaches first, which is the nearer one. On a tie, the
+ * crossing. `older` adds the previous year's and the record levels to the
+ * crossing (step 3) and the record low to the hold (step 4).
  */
 export function selectGannEntry(
   bars: Bar[],
@@ -393,10 +532,14 @@ export function selectGannEntry(
   older: OlderGannLevel[] = [],
   swingDays: number = ENTRY_TRIGGER_SWING_DAYS,
 ): GannEntryTrigger | null {
-  const crossing = computeGannEntryTrigger(bars, direction, swingDays, undefined, true, older);
-  const old = computeGannOldLevelEntry(bars, direction, swingDays);
-  if (!crossing || !old || bars.length === 0) return crossing ?? old;
-  return nearerBuyingPoint(crossing, old, bars[bars.length - 1].c);
+  const candidates = [
+    computeGannEntryTrigger(bars, direction, swingDays, undefined, true, older),
+    computeGannOldLevelEntry(bars, direction, swingDays),
+    computeGannHoldEntry(bars, direction, older, swingDays),
+  ].filter((t): t is GannEntryTrigger => t !== null);
+  if (candidates.length === 0) return null;
+  const price = bars[bars.length - 1].c;
+  return candidates.reduce((a, b) => nearerBuyingPoint(a, b, price));
 }
 
 /**

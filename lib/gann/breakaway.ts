@@ -34,6 +34,7 @@
 import { beyondByThreePoints } from "@/lib/gann/pointScale";
 import type { Bar } from "@/lib/types";
 import type { GannEntryTrigger } from "@/lib/gann/entryTrigger";
+import { restsWithoutCrossing } from "@/lib/gann/entryKind";
 import { isGannRangeBound } from "@/lib/gann/trendStrength";
 import { swingPivots } from "@/lib/gann/swingChart";
 
@@ -54,6 +55,8 @@ const EPS = 1e-9;
  * is not held to Watch here; the hold still applies to a crossing inside a
  * range. Put to the owner on 2026-10-15 as a decision against owner decision
  * 5 (PLAN.md item 5, step 2); built on the recommended option until answered.
+ * A single bottom that held (step 4) is read the same way, under the same
+ * decision: it is a bottom of the range with its own stop 3 points under it.
  */
 export const OLD_LEVEL_BUYS_IN_RANGE = true;
 
@@ -85,7 +88,8 @@ export function readBreakaway(daily: Bar[], trigger: GannEntryTrigger | null): B
   const rangeLow = bottoms.length > 0 ? Math.min(...bottoms) : null;
 
   let breaksAway = false;
-  if (trigger?.kind === "oldLevel" && OLD_LEVEL_BUYS_IN_RANGE) {
+  // A bottom that held (step 4) is a bottom of the range too.
+  if (restsWithoutCrossing(trigger?.kind) && OLD_LEVEL_BUYS_IN_RANGE) {
     breaksAway = true;
   } else if (trigger) {
     breaksAway =

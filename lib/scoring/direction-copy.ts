@@ -31,15 +31,30 @@ export function tradeSideWord(direction: Exclude<Direction, "none">): "buy" | "s
  * allowance, price-scaled (`lib/gann/entryTrigger.ts`), and since PLAN.md
  * item 5 step 2 also by a resting order at an old bottom (top) that held, the
  * double or triple bottom. `direction` is the direction the trade plan itself
- * was computed against, `entryKind` which of the two priced it, and
- * `entrySource` which old level a crossing crossed (PLAN.md item 5, step 3). Kept free
+ * was computed against, `entryKind` which of them priced it,
+ * `entrySource` which old level a crossing crossed (PLAN.md item 5, step 3),
+ * and `holdBasis` which rule found a bottom that held (step 4). Kept free
  * of internal-methodology vocabulary per `scripts/check-banned-terms.mjs`.
  */
 export function structuralTriggerHeadline(
   direction: "bullish" | "bearish",
-  entryKind?: "crossing" | "oldLevel",
+  entryKind?: "crossing" | "oldLevel" | "hold",
   entrySource?: "priorYear" | "allTime",
+  holdBasis?: "weeks" | "days" | "record",
 ): string {
+  if (entryKind === "hold") {
+    // A bottom (top) that held, bought at the last close (item 5, step 4).
+    const up = direction === "bullish";
+    const held =
+      holdBasis === "record"
+        ? "the record low having held for weeks without breaking by 3 points"
+        : holdBasis === "days"
+          ? "the low having held two days after a two-to-three-week reaction in a rising market"
+          : `the ${up ? "low" : "high"} having held into its second week`;
+    return up
+      ? `A buy at the last close, ${held}, with the stop 3 points under the low.`
+      : `A sell at the last close, ${held}, with the stop 3 points over the high.`;
+  }
   if (entryKind === "oldLevel") {
     return direction === "bullish"
       ? "A buy resting at the last confirmed swing low, where a second or third test makes a double or triple bottom, with the stop 3 points under it."
