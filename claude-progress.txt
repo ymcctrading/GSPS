@@ -33,3 +33,15 @@
 - Found, not fixed (needs its own item): CYC-29 — a pure linear trend still reads dominance 5.04 after
   detrending; only the band-edge guard stops it being called a cycle.
 - Total passing: 11 of 342.
+
+== 2026-10-15 item 3: Gann's full 3 points on the entry side ==
+- Owner: "Use Gann's full 3 points now". Worktree ../gsps-item3, commits c28e7a4, 55a6d9a.
+- Tests first: lib/gann/__tests__/threePoints.test.ts (10 failed before the change, 16 tests now).
+- Changed: entryTrigger (trigger and stop 3 pts beyond), entryConfirmation (break buffer 0, counted once),
+  timeRules, multipleTops, accumulation, pyramid, evenFigures (levelOnFigure), levels.ts (stop 3 pts beyond
+  its level, once), breakaway (3 pts past the range), portfolio-manager (levelBeforeThreePoints), lesson copy.
+- STRATEGY_VERSION 2026-10-15-gann-three-points-entry. Full suite 2351/2351, tsc clean, terms clean.
+- Fresh review (docs/gann-feature-map/item3_review.md): all 7 entries FAIL on structure (no buy-the-reaction
+  entry, stop not 3 pts under the crossed top, context-only tops/bottoms, no distribution precondition).
+  Its fixable gaps were fixed in 55a6d9a. Structure moves to items 4 and 5. passes unchanged: 11 of 342.
+- Replay: 766 symbols, 15Min, before (main) and after (55a6d9a) queued on Actions.
