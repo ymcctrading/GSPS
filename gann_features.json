@@ -456,7 +456,7 @@
     "class": "A",
     "gsps_location": "lib/gann/entryTrigger.ts:computeGannEntryTrigger; lib/gann/exitRules.ts:readGannExit (hold_test_failed); lib/gann/pointScale.ts:gannThreePoints — differs: the entry crosses by 0.3% lost motion (entryTrigger.ts:97, entryConfirmation.ts:80), not 3 points; only the hold test is price-scaled; no buy-the-reaction entry",
     "test": "lib/gann/__tests__/exitRules.test.ts > readGannExit > fails the hold test when a close falls back under the crossed top by 3 points, price-scaled",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-ENTRY-05",

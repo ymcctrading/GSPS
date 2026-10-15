@@ -113,3 +113,28 @@ A related check: under `MARKET_DATA_PROVIDER=synthetic`, all 8 symbols in the sc
 3. **A person can place an advised order on the side opposite the plan.** The protocol pair still feeds `gannBreakLine`, so `entryStop = levels.stopLoss` arrives with `side` opposite to the plan (`order-ticket.tsx:440`, `place-order.ts:234`). A bearish read of a bullish pair gives a line above the entry, so the order is "ready" at once. This is an edge case for a person's own counter-plan order. Minor.
 
 Known open items, not re-reported: the replay default `"stop"`; entryTrigger dropping a setup whose swing stop is on the wrong side; no gap-through-stop guard on the live Alpaca limit; a slow reaction letting a new 3-Day top replace the level.
+
+---
+
+## Addendum: A-ENTRY-04 re-check at 36a2bb6
+
+Since 070b3c2, `lib/__tests__/replay-reaction.test.ts` runs every test over two fixtures via `describe.each(FIXTURES)`: "a long above an old top" (`fallingHistory`) and "a short below an old bottom". Each fixture first asserts its own direction (`arms in the fixture's direction`), so the long tests can't quietly run on the short branch.
+
+Baseline: full suite 2390/2390 passing; `tsc --noEmit` clean.
+
+| Mutation | Result | Caught by |
+|---|---|---|
+| W16: long fill condition `live.l <= reactionEntry` changed to `live.h >= reactionEntry` (`replay.ts:809`) | **caught** | long > refuses a gap through the stop line rather than buying it |
+| W16b: long fill price `Math.min` changed to `Math.max` (`replay.ts:850`) | **caught** | long > buys the reaction to 1 point past the level ...; long > refuses a gap ... |
+| W16c: long crossing counts any close (`replay.ts:806`) | **caught** | long > buys the reaction ...; long > does not buy when price never closed 3 points beyond the level; long > refuses a gap ... |
+| W11, W11b, W11c (the short-side regression check) | caught | the same tests on the short fixture |
+
+On the first run of W16b, three place-order tests also failed (in `reactionWiring.test.ts` and `place-order-live.test.ts`). A rerun of W16b on its own did not reproduce them; only the two replay-reaction failures came back. They were flaky under load and are not caused by the mutation.
+
+W16 is caught by a single test, the gap test. That is enough for criterion 3. The "buys the reaction" bar also has its high above the entry, so that test can't tell the two fill conditions apart.
+
+The live-path mutations (W1 to W10, W12, W14) were caught at 070b3c2. The diff since then touches only the replay tests, the ticket's `entryStop` (now sent only on the plan's own side, which closes "other gaps" item 3) and docs/json, so they were not rerun.
+
+**A-ENTRY-04: PASS.** The rule is asserted as Gann wrote it, price-scaled; the tests are green; and every mutation of the live paths and of both replay branches fails a test. The minor note stays: a fill between L−2 and L−3 is just past Gann's "down to 48", inside both the stop and the cap.
+
+After the work: files restored, `git status` clean at 36a2bb6.

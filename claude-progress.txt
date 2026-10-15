@@ -71,3 +71,8 @@
 - passes -> true (3): A-ENTRY-16, A-STOP-02, A-STOP-03. Total passing: 14 of 342. A-ENTRY-04 awaits re-check.
 - Before merge: REACTION_LIMIT_CUTOVER must not fall before any resting paper buy-stop placed on the old code;
   re-query `orders` (paper, status new, limit/bracket) and move the constant to the merge time.
+- Re-check of A-ENTRY-04 at 36a2bb6 (long-side replay mutations W16/W16b/W16c caught): PASS.
+  passes -> true: A-ENTRY-04. Total passing: 15 of 342.
+- A-STOP-01 ("a stop on every trade") held for the owner's card; a server + ticket draft is stashed
+  (stash "stop-required"): it refuses entries without a stop and disables the ticket button, and needs
+  the put-shortcut and Manual Override ticket tests reworked.
