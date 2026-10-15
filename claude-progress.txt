@@ -104,3 +104,16 @@
   covered by the bought test) and the redundant break check was removed.
 - STRATEGY_VERSION 2026-10-15-gann-crossed-level-bought. Run 32 (old version) cancelled.
 - Full suite 2414 passed, tsc clean, eslint clean, terms clean.
+- Second review (scratchpad item5b_review.md), fixed:
+  - HIGH F1: confirmNow's daily fallback could call an entry ready after today's close through the
+    stop (the daily read leaves the forming day out). A close through the stop in the execution-bar
+    window now ends it first.
+  - F2: a level bought by a short reaction (no new top) was re-offered as the latest top. The trigger
+    is now null until a newer top forms.
+  - F3: the crossing search starting before the pivot was not equivalent; a test now catches it.
+  - F4: the replay treats `trigger.held` as already crossed, as live does.
+  - F5: the exam key carries `crossed`, so the played-out text shows a fill on a straight reaction.
+  - F6 documented: a trigger on a range's own extreme now counts as the breakaway on every setup.
+  - Tests for the newer-higher tie-break and the short breakaway. Mutations: 7 of 8 caught; the
+    dead-stage skip is equivalent (the stop check right after returns the same).
+  - Open, LOW: the live scan's daily bars still include the forming day (F7).

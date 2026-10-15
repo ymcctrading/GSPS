@@ -203,3 +203,30 @@ describe("buildReport", () => {
     expect(report.entryRule).toBe("reaction");
   });
 });
+
+describe("replay entryRule: reaction on a level the daily chart already crossed", () => {
+  // The fixture's old bottom, broken by 3 points on the last two days before
+  // the session and reacting short of the sell 1 point under it: a held level.
+  const base = dailyHistory(300, DAY).slice(0, -3);
+  const first = computeGannEntryTrigger(base, "bearish")!;
+  const L = first.level;
+  const P = gannThreePoints(L);
+  const lastT = Date.parse(base[base.length - 1].t);
+  const extra = [L - (P + 1), L - (P + 0.5), L - (P / 3 + 1.5)].map((c, i) =>
+    dayBar(new Date(lastT + (i + 1) * 86_400_000).toISOString().slice(0, 10), c),
+  );
+  const DAILY = [...base, ...extra];
+  const T = computeGannEntryTrigger(DAILY, "bearish")!;
+
+  it("sells the reaction in the session without a fresh crossing there", () => {
+    expect(T.held).toBe(true);
+    expect(T.level).toBe(L);
+    const below = at(T.reactionEntry - 1);
+    const head = Array.from({ length: 44 }, () => below);
+    const r = replay("TEST", intraday([...head, at(T.reactionEntry - 0.1, 0.4), below]), { targetR: 2, dailyBars: DAILY, entryRule: "reaction" });
+    expect(r.trades).toHaveLength(1);
+    expect(r.trades[0].entry).toBeCloseTo(T.reactionEntry, 8);
+    expect(r.trades[0].stop).toBeCloseTo(T.reactionStop, 8);
+  });
+});
+

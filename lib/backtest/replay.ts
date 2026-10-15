@@ -799,7 +799,10 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       const dir = long ? 1 : -1;
       let fired: boolean;
       if (entryRule === "reaction") {
+        // A held trigger was already crossed on the completed daily chart
+        // (PLAN.md item 5), the same reading the live scan prices from.
         const state = crossing.get(pivotKey) ?? { since: date, crossed: false };
+        if (trigger.held) state.crossed = true;
         const closed = history[history.length - 1];
         if (closed.t.slice(0, 10) >= state.since && (long ? closed.c >= trigger.triggerPrice : closed.c <= trigger.triggerPrice)) {
           state.crossed = true;

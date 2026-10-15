@@ -111,4 +111,16 @@ describe("readBreakaway on a held crossed level", () => {
     // Read over every top, the move after the crossing would set the range.
     expect(readBreakaway(bars, { ...t, held: false, crossedAt: null }).rangeHigh).toBeGreaterThan(110);
   });
+
+  it("is the mirror for a short: the range ends where the bottom was broken", () => {
+    const flip = (xs: number[]) => xs.map((x) => 200 - x);
+    const bars = daily(flip([...sideways(6), 100, 104, 108, 112, 113, 112, 111, 110]));
+    const t = computeGannEntryTrigger(bars, "bearish")!;
+    expect(t.held).toBe(true);
+    const r = readBreakaway(bars, t);
+    expect(r.rangeBound).toBe(true);
+    expect(r.rangeLow).toBeCloseTo(t.level, 8);
+    expect(r.breaksAway).toBe(true);
+  });
 });
+

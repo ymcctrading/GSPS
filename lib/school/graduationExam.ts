@@ -82,6 +82,12 @@ export interface ScenarioKey {
   stop: number | null;
   /** Correct share count for the sizing question. */
   shares: number | null;
+  /**
+   * The old level was already crossed before the date and still holds, so
+   * the order rests for the reaction from the first session (PLAN.md item 5).
+   * Absent on scenarios stored before it was added.
+   */
+  crossed?: boolean;
 }
 
 export interface StoredScenario {
@@ -231,7 +237,7 @@ export function buildScenario(symbol: string, asOf: string, daily: Bar[], seed: 
       entryChoices,
       stopChoices,
     },
-    key: { trend, decision, direction, entryChoiceId, stopChoiceId, entry, stop, shares },
+    key: { trend, decision, direction, entryChoiceId, stopChoiceId, entry, stop, shares, crossed: decision === "trade" && trigger?.held === true },
     playback: after.map((b) => ({ t: b.t.slice(0, 10), h: b.h, l: b.l, c: b.c })),
   };
 }
@@ -251,7 +257,7 @@ function playedOut(s: StoredScenario): string {
   // The order is placed once a close crosses the old level by 3 points, and
   // fills when price reacts back to the entry.
   const line = gannBreakLine(key.entry, key.stop);
-  let crossed = false;
+  let crossed = key.crossed === true;
   let filled = false;
   for (const b of playback) {
     if (!filled) {

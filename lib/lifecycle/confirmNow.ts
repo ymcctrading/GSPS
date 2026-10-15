@@ -147,6 +147,11 @@ export async function readEntryConfirmationNow(input: {
       : closedSessionBars(bars, now, intervalMs, input.since);
   const read = confirmationFromBars(window, input.direction, input.entryTrigger, input.stopPrice);
   if (input.stopPrice == null || read.ready || read.stage === "dead") return read;
+  // The daily chart below leaves out the day still forming, so a close
+  // through the stop in the bars above (today's included) ends it here.
+  const stop = input.stopPrice;
+  const up = input.direction === "bullish";
+  if (window.some((b) => (up ? b.c <= stop : b.c >= stop))) return { ready: false, stage: "dead", note: GANN_NOTES.dead };
 
   // A reaction can run longer than the window above, so the crossing may be
   // older than every bar fetched. The completed daily chart is where the scan

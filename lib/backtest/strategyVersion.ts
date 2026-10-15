@@ -65,5 +65,9 @@
 // day: the held level is the one crossed most recently, it ends once a later
 // bar trades to the buy (bought) as well as when broken, its stop is the
 // level less 3 points, and the breakaway range is read up to the crossing.
+// Once bought, the level is not offered again until a newer top forms. A
+// trigger on a range's own extreme now counts as the breakaway on every setup
+// (it came down to floating-point noise before). The replay treats a held
+// level as already crossed, as the live scan does.
 // No run was committed on "2026-10-15-gann-crossed-level-held".
 export const STRATEGY_VERSION = "2026-10-15-gann-crossed-level-bought";

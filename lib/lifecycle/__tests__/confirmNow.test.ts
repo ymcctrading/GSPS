@@ -111,6 +111,15 @@ describe("the completed daily chart, for a reaction longer than the window", () 
     expect(r.ready).toBe(true);
   });
 
+  it("is off when a close today went through the stop, though the daily chart still holds", async () => {
+    fetchBars.mockImplementation(async (_s: string, tf: string) =>
+      tf === "1Day" ? daily : [bar("2026-10-15T14:30:00Z", 52, 52.3, t.reactionStop - 2, t.reactionStop - 1.5)],
+    );
+    const r = await readEntryConfirmationNow({ symbol: "AAPL", assetClass: "us_equity", direction: "bullish", entryTrigger: t.reactionEntry, stopPrice: t.reactionStop, now });
+    expect(r.ready).toBe(false);
+    expect(r.stage).toBe("dead");
+  });
+
   it("is not ready for a different level's buy", () => {
     expect(heldOnDailyChart(daily, now, "bullish", t.reactionEntry + 1)).toBe(false);
   });

@@ -123,4 +123,31 @@ describe("which crossed level is held, and when it ends", () => {
     expect(t.level).toBe(level);
     expect(t.held).toBe(true);
   });
+
+  it("offers no buying point once a short reaction has bought the level and no newer top has formed", () => {
+    // One day dips to the buy near 51.2 and closes back up: the 3-Day Chart
+    // completes no new top, so the last top is the level just bought.
+    const t0 = Date.parse("2026-03-20T00:00:00Z");
+    const dip: Bar = { t: new Date(t0).toISOString(), o: 55, h: 55.3, l: 51, c: 53, v: 1e6 };
+    expect(computeGannEntryTrigger(bars(BASE), "bullish")!.held).toBe(true);
+    expect(computeGannEntryTrigger([...bars(BASE), dip], "bullish")).toBeNull();
+  });
+
+  it("finds the crossing after the top, not a close above it from before", () => {
+    // Closes near 60 come before the top at 50; the real crossing is the
+    // later rally to 56, and the reaction to 52.5 has not bought it.
+    const xs = [...leg(30, 60, 6), ...leg(60, 40, 6), ...leg(40, 50, 5), ...leg(50, 44, 4), ...leg(44, 56, 8), ...leg(56, 52.5, 4)];
+    const t = computeGannEntryTrigger(bars(xs), "bullish")!;
+    expect(t.held).toBe(true);
+    expect(t.level).toBeCloseTo(50.3, 8);
+  });
+
+  it("holds the newer, higher top when one close crosses both", () => {
+    // Tops near 47.3 then 48.8 (inside the first one's 3 points), both first
+    // crossed by the same close at 56.
+    const xs = [...leg(40, 47, 5), ...leg(47, 42, 4), ...leg(42, 48.5, 5), ...leg(48.5, 44, 4), 56];
+    const t = computeGannEntryTrigger(bars(xs), "bullish")!;
+    expect(t.held).toBe(true);
+    expect(t.level).toBeCloseTo(48.8, 8);
+  });
 });

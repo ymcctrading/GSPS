@@ -176,8 +176,12 @@ export function computeGannEntryTrigger(
   // accident — Gann states the Buying Points and Selling Points separately
   // and they are symmetric, so the mirror is the rule, not a shortcut.
   const sign = direction === "bullish" ? 1 : -1;
-  const held = holdCrossedLevel ? crossedLevelStillHeld(bars, pivots, direction, bufferPct) : null;
+  const crossed = holdCrossedLevel ? latestCrossedLevel(bars, pivots, direction, bufferPct) : null;
+  const held = crossed && !crossed.spent ? crossed : null;
   const pivot = held?.pivot ?? (direction === "bullish" ? lastTop : lastBottom);
+  // A level already bought (or broken) is not offered again: until a newer
+  // top forms there is no buying point (PLAN.md item 5).
+  if (crossed?.spent && crossed.pivot.index === pivot.index) return null;
   const protectivePivot = direction === "bullish" ? lastBottom : lastTop;
 
   const triggerPrice = buffered(pivot.price, sign, bufferPct);
@@ -212,8 +216,8 @@ export function computeGannEntryTrigger(
 
 /**
  * The old top (bottom for a short) crossed most recently by a close 3 points
- * beyond it, provided no later close has broken back through it by 3 points
- * and no later bar has reacted to the buy 1 point past it. Null otherwise.
+ * beyond it, or null. `spent` once a later bar has traded to the buy 1 point
+ * past it (bought), or closed 3 points back through it (broken).
  *
  * Gann's buy is on the reaction after the crossing, and the crossed level
  * holds until it is bought or broken (W006 pp.20, 46-47; PLAN.md item 5,
@@ -226,12 +230,12 @@ export function computeGannEntryTrigger(
  * long). Once that level is bought or broken, older ones are not revived.
  * The bar that crosses is not the reaction; the buy needs a later bar.
  */
-function crossedLevelStillHeld(
+function latestCrossedLevel(
   bars: Bar[],
   pivots: SwingPivot[],
   direction: TriggerDirection,
   bufferPct?: number,
-): { pivot: SwingPivot; crossedAt: number } | null {
+): { pivot: SwingPivot; crossedAt: number; spent: boolean } | null {
   const kind = direction === "bullish" ? "top" : "bottom";
   const sign = direction === "bullish" ? 1 : -1;
   let best: { pivot: SwingPivot; crossedAt: number } | null = null;
@@ -256,9 +260,9 @@ function crossedLevelStillHeld(
   // covers both ends.
   for (let i = best.crossedAt + 1; i < bars.length; i++) {
     const b = bars[i];
-    if (sign * ((sign === 1 ? b.l : b.h) - buy) <= 0) return null;
+    if (sign * ((sign === 1 ? b.l : b.h) - buy) <= 0) return { ...best, spent: true };
   }
-  return best;
+  return { ...best, spent: false };
 }
 
 /**
