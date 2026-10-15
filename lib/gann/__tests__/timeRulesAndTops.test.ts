@@ -38,7 +38,8 @@ describe("double and triple tops", () => {
   });
 
   it("reads the crossing of a double or triple top", () => {
-    const r = readMultipleTops(bars([...base, ...leg(103, 113, 6)]));
+    // Clears the ~110.5 tops by Gann's 3 points (~5.3 at that price).
+    const r = readMultipleTops(bars([...base, ...leg(103, 118, 6)]));
     expect(r.top?.state).toBe("crossed");
   });
 });

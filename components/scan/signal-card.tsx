@@ -17,7 +17,7 @@ import type { AssetClass, PublicScoreSummary, ScanResult } from "@/lib/types";
  * not the STRAT bar-sequence pattern's. Since 2026-09-17 (see AGENTS.md,
  * "Entry pricing moved off STRAT onto Gann's own rule") the trade plan is
  * armed and priced by crossing the prior completed swing's top/bottom plus a
- * "lost motion" overshoot allowance (`lib/gann/entryTrigger.ts`), not by a
+ * 3-point allowance, price-scaled (`lib/gann/entryTrigger.ts`), not by a
  * bar-sequence pattern's penny-above-the-high trigger. This headline used to
  * render `pattern.description`, which is the bar-sequence pattern's own
  * language and can name a different bar — even a different direction — than
@@ -29,8 +29,8 @@ import type { AssetClass, PublicScoreSummary, ScanResult } from "@/lib/types";
  */
 function structuralTriggerHeadline(direction: "bullish" | "bearish"): string {
   return direction === "bullish"
-    ? "Crossing the prior confirmed swing high, past the key level's lost-motion allowance."
-    : "Breaking the prior confirmed swing low, past the key level's lost-motion allowance.";
+    ? "Crossing the prior confirmed swing high, by the 3-point allowance."
+    : "Breaking the prior confirmed swing low, by the 3-point allowance.";
 }
 
 /**

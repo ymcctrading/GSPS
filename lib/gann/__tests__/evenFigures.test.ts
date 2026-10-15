@@ -8,6 +8,7 @@ import {
   stopBeyondFigure,
   targetCandidates,
 } from "@/lib/gann/evenFigures";
+import { gannThreePoints } from "@/lib/gann/pointScale";
 
 describe("even figures", () => {
   it("scales the grid with price: quarters at $100 and above, halves below", () => {
@@ -35,10 +36,11 @@ describe("even figures", () => {
   });
 
   it("moves a stop sitting just on a figure beyond it", () => {
-    // Long from 105 with a stop at 100.40: the stop belongs under 100.
-    expect(stopBeyondFigure(105, 100.4, "bullish", 8)).toBeCloseTo(99.7, 6);
+    // Long from 105 with a stop at 100.40: the stop belongs under 100, by
+    // Gann's 3 points scaled to $100 (about 5).
+    expect(stopBeyondFigure(105, 100.4, "bullish", 15)).toBeCloseTo(100 - gannThreePoints(100), 6);
     // Mirror for a short.
-    expect(stopBeyondFigure(95, 99.6, "bearish", 8)).toBeCloseTo(100.3, 6);
+    expect(stopBeyondFigure(95, 99.6, "bearish", 15)).toBeCloseTo(100 + gannThreePoints(100), 6);
     // No figure nearby, or the move would pass the cap: unchanged.
     expect(stopBeyondFigure(105, 97.3, "bullish", 8)).toBe(97.3);
     expect(stopBeyondFigure(101, 100.4, "bullish", 1)).toBe(100.4);

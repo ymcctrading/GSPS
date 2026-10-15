@@ -50,7 +50,7 @@ import { MAX_NEW_POSITIONS_PER_DAY } from "@/lib/risk/config";
 import { etDateKey } from "@/lib/market/session";
 import type { RulesAlignmentTier } from "@/lib/signals/types";
 import { roundNumberEntryBlocked } from "@/lib/gann/evenFigures";
-import { LOST_MOTION_BUFFER_PCT } from "@/lib/gann/entryTrigger";
+import { levelBeforeThreePoints } from "@/lib/gann/pointScale";
 import { resolveGannRulePrefs } from "@/lib/gann/traderPrefs";
 
 type RiskProfile = "PASSIVE" | "MODERATE" | "AGGRESSIVE";
@@ -304,10 +304,9 @@ async function runForProfile(
       continue;
     }
     if (!gannPrefs.autoOrderRoundNumbers) {
-      // The trigger is the crossed swing level plus the lost-motion allowance.
-      const b = LOST_MOTION_BUFFER_PCT / 100;
+      // The trigger is the crossed swing level plus Gann's 3 points.
       const trigger = Number(plan.entry_trigger);
-      const crossedLevel = plan.direction === "bullish" ? trigger / (1 + b) : trigger / (1 - b);
+      const crossedLevel = levelBeforeThreePoints(trigger, plan.direction);
       const rn = roundNumberEntryBlocked({ entry: trigger, direction: plan.direction, crossedLevel });
       if (rn.blocked) {
         result.plansSkipped++;

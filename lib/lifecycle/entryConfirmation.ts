@@ -45,25 +45,20 @@
  * bar cannot satisfy two stages, matching "an indicator flip ... alone
  * cannot produce an entry."
  *
- * **The break stage's buffer** (added 2026-09-16, per
- * `docs/GANN_PLATFORM_AUDIT.md` Part 3f/4 item 2 / AGENTS.md's "WD Gann
- * precedence" principle): `New Stock Trend Detector` (1936,
- * `docs/GANN_HISTORICAL_SOURCES.md` A5) discloses the "3-point rule" — a
- * break of an old level must clear it by a real buffer (his stated figure,
- * 3 full points) before it's trusted, not any close a penny beyond it.
- * Before this change, `break_or_sweep_detected` fired on *any* close beyond
- * the trigger, with no buffer at all. Gann's literal "3 points" is a 1930s
- * stock-price-era absolute figure, not directly portable to a modern
- * multi-price-range, multi-asset-class platform (a 2026-09-16 sibling
- * change, `lib/strat/levels.ts`'s `combineNearbyLevels`, declines to port a
- * different disclosed absolute figure for the same reason) — so this
- * implements the *rule* (a real, non-trivial buffer, not the bare trigger
- * price) rather than his exact number, using `DEFAULT_CONFIRMATION_BUFFER_PCT`
- * as a percentage of the trigger price, the same order of magnitude as the
- * platform's other "how far beyond a level counts as real" convention
- * (`EQUITY_STOP_BUFFER_PCT`, `lib/strat/levels.ts`). Live now, gating real
- * entries — not measured against historical stop-hit data, per the explicit
- * override.
+ * **The break stage's buffer.** Gann's 3-point rule says a break of an old
+ * level must clear it by 3 points before it's trusted (W006 pp.20–24, 46–47;
+ * *New Stock Trend Detector* p. 20). From 2026-09-16 this stage asked for a
+ * close 0.3% beyond the trigger, on top of a trigger that was itself 0.3%
+ * beyond the level. From 2026-10-15 (owner: "Use Gann's full 3 points now";
+ * PLAN.md item 3) the full, price-scaled 3 points live in the trigger price
+ * (`lib/gann/entryTrigger.ts`, `lib/gann/pointScale.ts`), so the default
+ * buffer here is zero: a close beyond the trigger *is* a close 3 points
+ * beyond the old top. Adding the allowance again would ask for 6 points,
+ * which Gann never does. His sequence maps onto the stages as written: old
+ * top 50, a close at 53 or more is the break, a reaction back toward the old
+ * top is the retest, and the entry follows the resumption. A caller whose
+ * trigger is not already a 3-point crossing can pass its own
+ * `confirmationBufferPct` (the intraday replay does).
  */
 
 import type { Bar } from "@/lib/types";
@@ -73,11 +68,12 @@ import { EMPTY_ENTRY_CONFIRMATION } from "./types";
 export type ConfirmationDirection = "bullish" | "bearish";
 
 /**
- * Default break-stage buffer as a percentage of the entry trigger price —
- * see the "3-point rule" note above. Applied when a rule doesn't specify its
- * own `confirmationBufferPct`.
+ * Default break-stage buffer as a percentage of the entry trigger price.
+ * Zero, because the trigger already carries Gann's 3 points — see "The break
+ * stage's buffer" above. Applied when a rule doesn't specify its own
+ * `confirmationBufferPct`.
  */
-export const DEFAULT_CONFIRMATION_BUFFER_PCT = 0.3;
+export const DEFAULT_CONFIRMATION_BUFFER_PCT = 0;
 
 export interface EntryConfirmationRule {
   direction: ConfirmationDirection;
@@ -112,8 +108,8 @@ export function advanceEntryConfirmation(
     }
   }
 
-  // Stage 2: break/sweep. Requires a CLOSE beyond the trigger by the "3-point
-  // rule" buffer (see header), on a bar strictly after the touch bar.
+  // Stage 2: break/sweep. Requires a CLOSE beyond the trigger (which already
+  // carries Gann's 3 points; see header), on a bar strictly after the touch bar.
   if (next.touchedAt != null && next.breakOrSweepAt == null && bar.t > next.touchedAt) {
     const bufferPct = rule.confirmationBufferPct ?? DEFAULT_CONFIRMATION_BUFFER_PCT;
     const bufferedTrigger = up ? trigger * (1 + bufferPct / 100) : trigger * (1 - bufferPct / 100);

@@ -44,7 +44,7 @@
  */
 
 import type { Bar } from "@/lib/types";
-import { LOST_MOTION_BUFFER_PCT } from "@/lib/gann/entryTrigger";
+import { beyondByThreePoints } from "@/lib/gann/pointScale";
 import { THREE_DAY_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 
 export const MAX_LOTS = 4;
@@ -106,8 +106,7 @@ export function readPyramidAdd(input: PyramidInput): PyramidReading {
     .reverse()
     .find((p) => p.kind === (long ? "top" : "bottom") && lastIdx !== -1 && p.index >= lastIdx);
   if (!pivot) return { add: null, reason: "No swing top has formed since the last lot to cross." };
-  const a = LOST_MOTION_BUFFER_PCT / 100;
-  const trigger = long ? pivot.price * (1 + a) : pivot.price * (1 - a);
+  const trigger = beyondByThreePoints(pivot.price, long ? 1 : -1);
 
   const qty = Math.floor(last.qty / 2);
   if (qty < 1) return { add: null, reason: "The next lot would be less than one share." };

@@ -44,8 +44,8 @@
  * - Gann's "3 points" is price-scaled from his own bands (`pointScale.ts`).
  *   Until 2026-09-28 it reused the entry's 0.3% lost-motion margin, about a
  *   tenth of his figure; the 15-minute diagnosis run showed the hold test
- *   ending most trades on it. The entry still crosses by lost motion (a
- *   different rule: how far past a level counts as past it).
+ *   ending most trades on it. Since 2026-10-15 the entry crosses by the
+ *   same price-scaled 3 points (PLAN.md item 3).
  * - Every rule reads completed daily sessions only. Callers act on a signal
  *   at the next opportunity (the replay at the next session's open).
  *

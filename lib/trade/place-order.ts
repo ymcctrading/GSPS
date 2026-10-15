@@ -149,8 +149,8 @@ async function lossSeriesRefusal(
  * Owner decision 4 (2026-09-27), and the owner's follow-up that automation
  * adheres to the same rules as everything else: every entry that carries the
  * protocol's levels is placed only once it has confirmed on closed
- * execution-timeframe bars (a close through the trigger by the 3-point-rule
- * buffer, a retest, a close that held). That is the manual ticket's advised
+ * execution-timeframe bars (a close through the trigger, which carries
+ * Gann's 3 points, a retest, a close that held). That is the manual ticket's advised
  * entry, Guided Mode, the demo account, and plan-scoped automation, which the
  * autonomous portfolio manager runs through. A plan-sourced order is judged
  * on its plan's own trigger and direction, over the bars since the plan was

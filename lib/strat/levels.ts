@@ -12,6 +12,7 @@
  */
 
 import { stopBeyondFigure, targetCandidates } from "@/lib/gann/evenFigures";
+import { gannThreePoints, gannThreePointsPct } from "@/lib/gann/pointScale";
 import type { AssetClass, Bar, PivotPlan, StratPattern, TradeLevels } from "@/lib/types";
 import { readPremiumStop } from "@/lib/trade/premium-stop";
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
@@ -153,8 +154,16 @@ export const EQUITY_MASTER_CAP_PCT = 30;
 export const EQUITY_STOP_MIN_PCT = 3;
 export const EQUITY_STOP_MAX_PCT = 15;
 
-/** How far beyond the accepted level the stop actually sits — never exactly on it. */
-export const EQUITY_STOP_BUFFER_PCT = 0.5;
+/**
+ * How far beyond the accepted level the stop actually sits, as a percentage of
+ * the entry: Gann's 3 points at the level's own price (`lib/gann/pointScale.ts`).
+ * "Stops 3 points beyond old tops or bottoms" (W006 pp.20–24, 46–47). It was a
+ * flat 0.5% until 2026-10-15 (owner: "Use Gann's full 3 points now"; PLAN.md
+ * item 3).
+ */
+export function equityStopBufferPct(level: number, entry: number): number {
+  return (gannThreePoints(level) / entry) * 100;
+}
 
 /**
  * The fallback stop when no structural level lands inside the accepted band
@@ -338,13 +347,13 @@ export function computeEquityTradeLevels(params: {
   );
   const stopFromStructure = structuralStop !== null;
   const stopPct = stopFromStructure
-    ? (Math.abs(entry - structuralStop) / entry) * 100 + EQUITY_STOP_BUFFER_PCT
+    ? (Math.abs(entry - structuralStop) / entry) * 100 + equityStopBufferPct(structuralStop, entry)
     : fallbackStopPct;
   // Gann's even figures (2026-09-28): a stop resting just inside a round
-  // number is moved beyond it by the lost-motion allowance ("an old top of
+  // number is moved beyond it by Gann's 3 points ("an old top of
   // 100 crossed means a stop at 97"). See lib/gann/evenFigures.ts.
   const rawStop = entry - dir * (stopPct / 100) * entry;
-  const stopLoss = evenFigures ? stopBeyondFigure(entry, rawStop, direction, stopMaxPct + EQUITY_STOP_BUFFER_PCT) : rawStop;
+  const stopLoss = evenFigures ? stopBeyondFigure(entry, rawStop, direction, stopMaxPct + gannThreePointsPct(entry)) : rawStop;
 
   // Targets (parity C4, owner decision 2, 2026-09-27: "Gann's method
   // supersedes my own"). Gann never fixes a profit objective; he sells at the

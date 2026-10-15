@@ -21,7 +21,8 @@ describe("seasonal counts from March 21", () => {
 describe("accumulation time", () => {
   it("counts the weeks in a range and reads the breakout", () => {
     const flat = Array.from({ length: 90 }, (_, i) => 100 + (i % 4) - 1.5);
-    const r = readAccumulation(bars([...flat, 106]));
+    // A close 3 points (price-scaled, ~5.1 at $102) beyond the range high.
+    const r = readAccumulation(bars([...flat, 108]));
     expect(r?.breakout).toBe("up");
     expect(r!.weeks).toBeGreaterThanOrEqual(10);
     expect(r?.long).toBe(true);

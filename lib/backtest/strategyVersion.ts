@@ -45,4 +45,10 @@
 // through the broken level by his 3-point allowance (a failed break); the replay
 // does not enter a plan whose stop an earlier candle of the session traded
 // through, and reinstates it on the same closing test.
-export const STRATEGY_VERSION = "2026-09-30-stop-breach-retired";
+// 2026-10-15 (owner: "Use Gann's full 3 points now"): the entry side uses the
+// same price-scaled 3 points as the exits (lib/gann/pointScale.ts) instead of
+// 0.3%: the trigger crosses the old top or bottom by 3 points and the confirm
+// break stage adds nothing more; the trigger's stop, structural equity stops,
+// even-figure stops, the 2-3 day halt stop, multiple-top crossings, the
+// accumulation breakout and the pyramid add all sit 3 points beyond.
+export const STRATEGY_VERSION = "2026-10-15-gann-three-points-entry";

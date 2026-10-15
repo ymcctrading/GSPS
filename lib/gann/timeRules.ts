@@ -27,7 +27,7 @@
  */
 
 import type { Bar } from "@/lib/types";
-import { LOST_MOTION_BUFFER_PCT } from "@/lib/gann/entryTrigger";
+import { beyondByThreePoints } from "@/lib/gann/pointScale";
 import type { CounterMoveReading } from "@/lib/gann/disclosedRules";
 
 export const HALT_LOOKBACK = 20;
@@ -49,7 +49,6 @@ export function readTimeRules(daily: Bar[], counterMove: CounterMoveReading | nu
   const out: TimeRulesReading = { halt: null, reactionWeek: null, reactionInZone: false, thirdWeek: false, reactionAbnormal: false };
   if (daily.length >= HALT_LOOKBACK + 3) {
     const window = daily.slice(-HALT_LOOKBACK);
-    const a = LOST_MOTION_BUFFER_PCT / 100;
     for (const at of ["top", "bottom"] as const) {
       let idx = 0;
       for (let i = 1; i < window.length; i++) {
@@ -58,7 +57,7 @@ export function readTimeRules(daily: Bar[], counterMove: CounterMoveReading | nu
       const days = window.length - 1 - idx;
       if (days === 2 || days === 3) {
         const extreme = at === "top" ? window[idx].h : window[idx].l;
-        out.halt = { at, days, extreme, stop: at === "top" ? extreme * (1 + a) : extreme * (1 - a) };
+        out.halt = { at, days, extreme, stop: beyondByThreePoints(extreme, at === "top" ? 1 : -1) };
         break;
       }
     }

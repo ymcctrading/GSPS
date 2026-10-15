@@ -32,8 +32,8 @@
  *   figures are multiples of the unit. Popular prices are quarters of it at
  *   $100 and above (25, 50, 75, as Gann lists) and halves below (the 5s).
  * - Gann's ½–¾ point off 100 is taken as `ORDER_OFFSET_PCT` = 0.5% of the
- *   figure; his 3 points beyond it is the codebase's lost-motion allowance,
- *   the same one the entry trigger uses.
+ *   figure; his 3 points beyond it is `pointScale.ts`'s price-scaled 3
+ *   points, the same figure the entry trigger uses.
  * - "Approaching" is within `APPROACH_WINDOW_PCT` of the figure.
  *
  * Three-question basis:
@@ -47,7 +47,7 @@
  *    that support mirrors resistance.
  */
 
-import { LOST_MOTION_BUFFER_PCT } from "@/lib/gann/entryTrigger";
+import { beyondByThreePoints } from "@/lib/gann/pointScale";
 
 export const ORDER_OFFSET_PCT = 0.5;
 export const APPROACH_WINDOW_PCT = 2;
@@ -157,8 +157,8 @@ export function targetCandidates(entry: number, limit: number, direction: "bulli
 /**
  * A stop resting just inside a figure is moved beyond it (Gann's old top of
  * 100 crossed, stop at 97): orders gather at the figure, so a long's stop at
- * 100.40 sits in the crowd, and belongs under 100 by the lost-motion
- * allowance. A stop with no figure within `APPROACH_WINDOW_PCT` beyond it is
+ * 100.40 sits in the crowd, and belongs under 100 by Gann's 3 points,
+ * price-scaled (about 5 at $100). A stop with no figure within `APPROACH_WINDOW_PCT` beyond it is
  * unchanged, as is one the move would take past `maxPct` from the entry.
  */
 export function stopBeyondFigure(entry: number, stop: number, direction: "bullish" | "bearish", maxPct: number): number {
@@ -169,8 +169,7 @@ export function stopBeyondFigure(entry: number, stop: number, direction: "bullis
     ? figuresBetween(stop * (1 - w), stop + nudge).pop()
     : figuresBetween(stop - nudge, stop * (1 + w))[0];
   if (!near) return stop;
-  const a = LOST_MOTION_BUFFER_PCT / 100;
-  const moved = long ? near.price * (1 - a) : near.price * (1 + a);
+  const moved = beyondByThreePoints(near.price, long ? -1 : 1);
   if (long ? moved >= stop : moved <= stop) return stop;
   return (Math.abs(entry - moved) / entry) * 100 <= maxPct ? moved : stop;
 }

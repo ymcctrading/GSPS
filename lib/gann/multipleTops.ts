@@ -28,7 +28,7 @@
  */
 
 import type { Bar } from "@/lib/types";
-import { LOST_MOTION_BUFFER_PCT } from "@/lib/gann/entryTrigger";
+import { beyondByThreePoints } from "@/lib/gann/pointScale";
 import { THREE_DAY_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 
 export const TEST_TOLERANCE_PCT = 1.0;
@@ -65,7 +65,6 @@ export function readMultipleTops(daily: Bar[]): MultipleTopsReading {
   if (daily.length < 20) return out;
   const pivots = walkSwingChart(daily, THREE_DAY_CHART).pivots;
   const price = daily[daily.length - 1].c;
-  const a = LOST_MOTION_BUFFER_PCT / 100;
   const recent = daily.slice(-RECENT_SESSIONS);
   for (const kind of ["top", "bottom"] as const) {
     const prices = pivots.filter((p) => p.kind === kind).map((p) => p.price);
@@ -74,7 +73,7 @@ export function readMultipleTops(daily: Bar[]): MultipleTopsReading {
     const nearest = groups.reduce((x, y) => (Math.abs(y.level - price) < Math.abs(x.level - price) ? y : x));
     const band = nearest.level * (TEST_TOLERANCE_PCT / 100);
     let state: MultipleTestReading["state"] = "testing";
-    const crossed = kind === "top" ? recent.some((b) => b.c > nearest.level * (1 + a)) && price > nearest.level : recent.some((b) => b.c < nearest.level * (1 - a)) && price < nearest.level;
+    const crossed = kind === "top" ? recent.some((b) => b.c > beyondByThreePoints(nearest.level, 1)) && price > nearest.level : recent.some((b) => b.c < beyondByThreePoints(nearest.level, -1)) && price < nearest.level;
     if (crossed) state = "crossed";
     else if (
       nearest.tests >= 3 &&

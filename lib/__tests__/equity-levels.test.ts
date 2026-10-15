@@ -4,7 +4,6 @@ import {
   EQUITY_FALLBACK_STOP_PCT,
   EQUITY_LARGE_CAP_FALLBACK_STOP_PCT,
   EQUITY_LARGE_CAP_STOP_MAX_PCT,
-  EQUITY_STOP_BUFFER_PCT,
   EQUITY_STOP_MAX_PCT,
   EQUITY_STOP_MIN_PCT,
   EQUITY_TP1_MAX_PCT,
@@ -12,6 +11,7 @@ import {
   EQUITY_TP2_MAX_PCT,
   EQUITY_TP2_MIN_PCT,
 } from "@/lib/strat/levels";
+import { gannThreePoints } from "@/lib/gann/pointScale";
 
 describe("computeEquityTradeLevels", () => {
   // Resistance points near the same levels are averaged into one (parity P4,
@@ -24,10 +24,10 @@ describe("computeEquityTradeLevels", () => {
       structuralLevels: [95, 95.6],
       evenFigures: false,
     });
-    // Mean 95.3 -> 4.7% below entry, plus the buffer. Unmerged, the nearer
-    // 95.6 would have given 4.4% + buffer.
+    // Mean 95.3, less Gann's 3 points there. Unmerged, the nearer 95.6 would
+    // have anchored it.
     expect(merged.stopFromStructure).toBe(true);
-    expect(merged.stopLoss).toBeCloseTo(entry * (1 - (4.7 + EQUITY_STOP_BUFFER_PCT) / 100), 2);
+    expect(merged.stopLoss).toBeCloseTo(95.3 - gannThreePoints(95.3), 2);
   });
 
   it("keeps levels more than 1% apart separate", () => {
@@ -38,7 +38,7 @@ describe("computeEquityTradeLevels", () => {
       structuralLevels: [93, 95.6],
       evenFigures: false,
     });
-    expect(apart.stopLoss).toBeCloseTo(entry * (1 - (4.4 + EQUITY_STOP_BUFFER_PCT) / 100), 2);
+    expect(apart.stopLoss).toBeCloseTo(95.6 - gannThreePoints(95.6), 2);
   });
 
   it("anchors the stop to the nearest support level within band, on a long", () => {
@@ -50,8 +50,11 @@ describe("computeEquityTradeLevels", () => {
       structuralLevels: [95, 70, 130],
     });
     expect(result.stopFromStructure).toBe(true);
-    // Stop sits the buffer beyond the level, not on it.
-    const expectedStop = 95 * (1 - EQUITY_STOP_BUFFER_PCT / 100);
+    // Stop sits Gann's 3 points beyond the level, not on it. That lands just
+    // inside the even figure 90, so the even-figure rule then moves it 3
+    // points beyond 90.
+    expect(95 - gannThreePoints(95)).toBeGreaterThan(90);
+    const expectedStop = 90 - gannThreePoints(90);
     expect(result.stopLoss).toBeCloseTo(expectedStop, 1);
     expect(result.stopLoss).toBeLessThan(95);
   });

@@ -11,10 +11,10 @@ import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import {
   computeGannEntryTrigger,
-  LOST_MOTION_BUFFER_PCT,
   ENTRY_TRIGGER_SWING_DAYS,
 } from "@/lib/gann/entryTrigger";
 import { swingPivots } from "@/lib/gann/swingChart";
+import { gannThreePoints } from "@/lib/gann/pointScale";
 
 /** Bars from closes; high/low straddle each close so pivots are well defined. */
 function bars(closes: number[]): Bar[] {
@@ -71,10 +71,10 @@ describe("computeGannEntryTrigger", () => {
     expect(t!.pivot.price).not.toBe(priorBarHigh);
   });
 
-  it("clears the level by the lost-motion allowance rather than sitting on it", () => {
+  it("clears the level by 3 points, price-scaled, rather than sitting on it", () => {
     const t = computeGannEntryTrigger(ZIGZAG, "bullish")!;
     expect(t.triggerPrice).toBeGreaterThan(t.pivot.price);
-    expect(t.triggerPrice).toBeCloseTo(t.pivot.price * (1 + LOST_MOTION_BUFFER_PCT / 100), 8);
+    expect(t.triggerPrice).toBeCloseTo(t.pivot.price + gannThreePoints(t.pivot.price), 8);
   });
 
   it("stops beyond the protective swing on the other side", () => {

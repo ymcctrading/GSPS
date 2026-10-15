@@ -12,11 +12,20 @@
  * or 3 points on cheap ones, 10 points "at very high levels" (NSTD Rule 2).
  * Sources: `docs/memory-bank/sources/A02_A04_...md`, `A05_...md`.
  *
- * The exit rules used to read this as `LOST_MOTION_BUFFER_PCT` (0.3%). That
- * is the entry's crossing margin, a different rule, and about a tenth of
- * Gann's 3 points at the prices he wrote for. The hold test then ended 224 of
- * 384 trades at −0.23R each on that run. Presumed a translation defect, per
- * AGENTS.md "Gann-derived AND measured", and corrected here.
+ * The exit rules used to read this as `LOST_MOTION_BUFFER_PCT` (0.3%), about
+ * a tenth of Gann's 3 points at the prices he wrote for. The hold test then
+ * ended 224 of 384 trades at −0.23R each on that run. Presumed a translation
+ * defect, per AGENTS.md "Gann-derived AND measured", and corrected here.
+ *
+ * **The entry side too, from 2026-10-15** (owner: "Use Gann's full 3 points
+ * now, and we will update when/if necessary afterwards"; PLAN.md item 3). The
+ * entry crossing, every stop beyond a level, the 2–3 day halt stop, the
+ * crossing of multiple tops, the accumulation breakout, the pyramid add and
+ * the even-figure stop all read this figure; the 0.3% constant is gone. Gann
+ * buys on crossing an old top by 3 points and sells short on breaking an old
+ * bottom by 3 points, with stops 3 points beyond (W006 pp.20–24, 46–47). The
+ * Master Course's "lost motion averages about 1⅞, never a full 3" is not yet
+ * read in the collection; if it changes the crossing, it changes here.
  *
  * Engineering choices, labelled as such: a step table on Gann's bands jumps
  * at every edge (a $10 stock would get 20%, a $9 one 11%), so the allowance is
@@ -49,4 +58,25 @@ export function gannThreePointsPct(price: number): number {
 /** Gann's 3-point allowance at this price, in dollars. */
 export function gannThreePoints(price: number): number {
   return (price * gannThreePointsPct(price)) / 100;
+}
+
+/** The level moved Gann's 3 points beyond it: up for `sign` 1, down for -1. */
+export function beyondByThreePoints(level: number, sign: 1 | -1): number {
+  return level + sign * gannThreePoints(level);
+}
+
+/**
+ * The level a trigger was crossed from, given only the trigger: the inverse of
+ * `beyondByThreePoints`. The allowance changes slowly with price, so a few
+ * fixed-point steps settle it to well under a cent.
+ */
+export function levelBeforeThreePoints(trigger: number, direction: "bullish" | "bearish"): number {
+  const sign = direction === "bullish" ? 1 : -1;
+  let level = trigger;
+  for (let i = 0; i < 50; i++) {
+    const next = trigger - sign * gannThreePoints(level);
+    if (Math.abs(next - level) < 1e-10 * trigger) return next;
+    level = next;
+  }
+  return level;
 }

@@ -30,17 +30,16 @@
  *     into one. *Wall Street Stock Selector* (1930) and *Truth of the Stock
  *     Tape* (1923) apply "3 points beyond the old top or bottom" throughout.
  *
- * **Why the buffer is a percentage and not 3 cents.** Gann's figure is a
- * 1930s stock-price-era absolute, and this platform prices equities and
- * crypto across many orders of magnitude — three cents is a rounding error on
- * one and a large move on another. Per AGENTS.md's "WD Gann precedence"
- * principle, which distinguishes implementing a disclosed *rule* from porting
- * its literal magnitude, this implements the rule as a percentage. The same
- * decision, for the same reason, was already made twice in this codebase:
- * `lib/strat/levels.ts`'s `combineNearbyLevels` and
- * `lib/lifecycle/entryConfirmation.ts`'s "3-point rule" buffer. This module
- * reuses that second one's constant rather than introducing a third number
- * for the same concept.
+ * **The allowance is Gann's 3 points, price-scaled** (2026-10-15, owner:
+ * "Use Gann's full 3 points now"; PLAN.md item 3). It was a fixed 0.3% until
+ * then, about a tenth of Gann's figure at the prices he wrote for. Gann's
+ * points are a 1930s absolute, so `lib/gann/pointScale.ts` scales them with
+ * the price the way he scaled them himself (3 points at $25–60, 5–10 at
+ * $100–300); the exits and the stop-breach test already read it. The trigger
+ * is the old top plus 3 points at that top's price, and the stop is the
+ * protective swing less 3 points at its price. The crossing is counted once,
+ * here: `entryConfirmation.ts` treats a close beyond this trigger as the
+ * break and adds no second allowance.
  *
  * ---
  *
@@ -75,26 +74,16 @@
  *
  * **Relationship to `entryConfirmation.ts`.** That module confirms an entry
  * that has already been triggered, staging touch → break → retest. This one
- * decides *where* the trigger sits in the first place. Both now express
- * "clear the level by a real margin" through the same constant, so a change
- * to what counts as a real margin moves both together.
+ * decides *where* the trigger sits in the first place, and carries the whole
+ * 3-point crossing in it, so the confirmation's break stage adds nothing more
+ * (a second allowance would ask for 6 points).
  */
 
 import type { Bar } from "@/lib/types";
-import { DEFAULT_CONFIRMATION_BUFFER_PCT } from "@/lib/lifecycle/entryConfirmation";
+import { gannThreePointsPct } from "@/lib/gann/pointScale";
 import { SWING_CHART_DAYS, swingPivots, type SwingPivot } from "@/lib/gann/swingChart";
 
 export type TriggerDirection = "bullish" | "bearish";
-
-/**
- * Gann's "lost motion" allowance, as a percentage of the level being crossed.
- *
- * Deliberately the same value as `entryConfirmation.ts`'s break-stage buffer:
- * both answer "how far beyond a level counts as genuinely beyond it," and two
- * different answers to one question is the drift AGENTS.md's cross-platform
- * consistency principle is about.
- */
-export const LOST_MOTION_BUFFER_PCT = DEFAULT_CONFIRMATION_BUFFER_PCT;
 
 /**
  * Which swing chart the entry trigger reads.
@@ -112,7 +101,7 @@ export interface GannEntryTrigger {
   direction: TriggerDirection;
   /**
    * The price that must be exceeded for the trade to trigger — the old top or
-   * bottom, plus the lost-motion allowance.
+   * bottom, plus Gann's 3 points at that level's price.
    */
   triggerPrice: number;
   /**
@@ -129,8 +118,8 @@ export interface GannEntryTrigger {
   swingDays: number;
 }
 
-function buffered(price: number, direction: 1 | -1, bufferPct: number): number {
-  return price * (1 + (direction * bufferPct) / 100);
+function buffered(price: number, direction: 1 | -1, bufferPct?: number): number {
+  return price * (1 + (direction * (bufferPct ?? gannThreePointsPct(price))) / 100);
 }
 
 /**
@@ -147,7 +136,8 @@ export function computeGannEntryTrigger(
   bars: Bar[],
   direction: TriggerDirection,
   swingDays: number = ENTRY_TRIGGER_SWING_DAYS,
-  bufferPct: number = LOST_MOTION_BUFFER_PCT,
+  /** Overrides Gann's price-scaled 3 points (the intraday replay scales its own). */
+  bufferPct?: number,
 ): GannEntryTrigger | null {
   const pivots = swingPivots(bars, swingDays);
   if (pivots.length < 2) return null;

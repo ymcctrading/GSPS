@@ -63,6 +63,15 @@ const TRIGGER = liveTrigger();
 /** +1 for a long trigger, -1 for a short, so fixtures work in either direction. */
 const SIDE = TRIGGER.direction === "bullish" ? 1 : -1;
 const RISK = Math.abs(TRIGGER.triggerPrice - TRIGGER.stopPrice);
+/**
+ * Where the intraday fixtures trade before the cross: 5 points inside the
+ * trigger. Relative to the trigger rather than a fixed 99, because the trigger
+ * sits Gann's 3 points (price-scaled) beyond the old level, and a fixed price
+ * can land beyond the plan's own stop. Five points keeps the warm-up between
+ * the plan stop and its 3-point reclaim line, so no warm-up close reinstates a
+ * plan the stop-breach tests have retired.
+ */
+const MID = TRIGGER.triggerPrice - SIDE * 5;
 
 /** 15-minute bars on DAY, timestamped in order from midnight. */
 function intraday(bars: Array<Omit<Bar, "t" | "v">>): Bar[] {
@@ -81,7 +90,7 @@ function intraday(bars: Array<Omit<Bar, "t" | "v">>): Bar[] {
 function session(tail: Array<Omit<Bar, "t" | "v">>): Bar[] {
   const head: Array<Omit<Bar, "t" | "v">> = [];
   for (let i = 0; i < 44; i++) {
-    const c = 99 + (i % 4 < 2 ? 0.5 : -0.5);
+    const c = MID + (i % 4 < 2 ? 0.5 : -0.5);
     head.push({ o: c, h: c + 0.6, l: c - 0.6, c });
   }
   return intraday([...head, ...tail]);
@@ -90,9 +99,9 @@ function session(tail: Array<Omit<Bar, "t" | "v">>): Bar[] {
 /** A price `by` beyond the trigger, in the trade's direction. */
 const past = (by: number) => TRIGGER.triggerPrice + SIDE * by;
 /** A bar that crosses the trigger from inside and closes just past it. */
-const crossing = { o: 99, h: SIDE > 0 ? past(0.5) : 99.2, l: SIDE > 0 ? 98.8 : past(0.5), c: past(0.3) };
+const crossing = { o: MID, h: SIDE > 0 ? past(0.5) : MID + 0.2, l: SIDE > 0 ? MID - 0.2 : past(0.5), c: past(0.3) };
 /** A quiet bar, inside the trigger. */
-const quiet = { o: 99, h: 99.4, l: 98.6, c: 99 };
+const quiet = { o: MID, h: MID + 0.4, l: MID - 0.4, c: MID };
 
 const trade = (over: Partial<ReplayTrade> = {}): ReplayTrade => ({
   symbol: "TEST",
@@ -190,7 +199,7 @@ describe("replay", () => {
   });
 
   it("resolves a bar covering both stop and target as a loss", () => {
-    const wide = { o: 99, h: SIDE > 0 ? past(3 * RISK) : TRIGGER.stopPrice + 1, l: SIDE > 0 ? TRIGGER.stopPrice - 1 : past(3 * RISK), c: 99 };
+    const wide = { o: MID, h: SIDE > 0 ? past(3 * RISK) : TRIGGER.stopPrice + 1, l: SIDE > 0 ? TRIGGER.stopPrice - 1 : past(3 * RISK), c: MID };
     const r = replay("TEST", session([wide, quiet]), { targetR: 2, dailyBars: DAILY });
     expect(r.trades).toHaveLength(1);
     expect(r.trades[0].ambiguous).toBe(true);
@@ -354,7 +363,7 @@ describe("replay scoring", () => {
     expect(MIN_DAILY_BARS_FOR_SCORE).toBe(MIN_DAILY_BARS_FOR_SCAN);
     const short = dailyHistory(MIN_DAILY_BARS_FOR_SCAN, DAY);
     const t = liveTrigger(short);
-    const cross = { o: 99, h: t.direction === "bullish" ? t.triggerPrice + 0.5 : 99.2, l: t.direction === "bullish" ? 98.8 : t.triggerPrice - 0.5, c: 99 };
+    const cross = { o: MID, h: t.direction === "bullish" ? t.triggerPrice + 0.5 : MID + 0.2, l: t.direction === "bullish" ? MID - 0.2 : t.triggerPrice - 0.5, c: MID };
     const r = replay("TEST", session([cross, quiet]), { targetR: 2, dailyBars: short });
     expect(r.armed).toBeGreaterThan(0);
     expect(r.trades).toHaveLength(1);
@@ -665,12 +674,12 @@ describe("replay stop breach retires the plan", () => {
   const line = reclaimLevel(direction, planStop);
 
   /** A candle that opens and closes at `c`, wide enough to hold it. */
-  const closingAt = (c: number) => ({ o: 99, h: Math.max(99.4, c + 0.2), l: Math.min(98.6, c - 0.2), c });
+  const closingAt = (c: number) => ({ o: MID, h: Math.max(MID + 0.4, c + 0.2), l: Math.min(MID - 0.4, c - 0.2), c });
   /** A candle that trades through the plan's stop and closes at `c`. */
   const breakingAndClosingAt = (c: number) => ({
-    o: 99,
-    h: SIDE > 0 ? Math.max(99.4, c + 0.2) : planStop + 0.5,
-    l: SIDE > 0 ? planStop - 0.5 : Math.min(98.6, c - 0.2),
+    o: MID,
+    h: SIDE > 0 ? Math.max(MID + 0.4, c + 0.2) : planStop + 0.5,
+    l: SIDE > 0 ? planStop - 0.5 : Math.min(MID - 0.4, c - 0.2),
     c,
   });
   /** A break that closes back just inside the stop, short of the reclaim line. */
@@ -744,10 +753,10 @@ describe("replay stop breach retires the plan", () => {
     // What the same candle did first cannot be told, so it is not a retirement:
     // it fills and the bracket walk takes the stop.
     const both = {
-      o: 99,
+      o: MID,
       h: SIDE > 0 ? past(0.5) : planStop + 0.5,
       l: SIDE > 0 ? planStop - 0.5 : past(0.5),
-      c: 99,
+      c: MID,
     };
     const r = replay("TEST", session([quiet, both, quiet]), { targetR: 2, dailyBars: DAILY, usePlanLevels: true });
     expect(r.retiredPlans).toBe(0);

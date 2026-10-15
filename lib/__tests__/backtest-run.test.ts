@@ -74,14 +74,15 @@ describe("runBacktest", { timeout: REPLAY_TIMEOUT_MS }, () => {
     // the live scan does. The synthetic provider's daily and 15-minute
     // series are independent random walks, so for most symbols the
     // 15-minute walk never reaches the daily trigger, and SPY/AAPL produce
-    // no trades to attribute.
+    // no trades to attribute. Re-picked 2026-10-15 when the trigger moved to
+    // Gann's full 3 points: NVDA/TSLA/IWM stopped reaching it.
     const all = await runBacktest({
-      symbols: ["NVDA", "TSLA", "IWM"],
+      symbols: ["AMZN", "DIS", "MSFT"],
       timeframe: "15Min",
       attributeWithin: UNCONDITIONED_ATTRIBUTION,
     });
     const execute = await runBacktest({
-      symbols: ["NVDA", "TSLA", "IWM"],
+      symbols: ["AMZN", "DIS", "MSFT"],
       timeframe: "15Min",
       attributeWithin: "Execute",
     });

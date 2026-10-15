@@ -41,7 +41,9 @@ function steppingAdvance(cycles: number): number[] {
 
 describe("readBreakaway (Commodities pp. 51-52)", () => {
   it("reads a sideways market as range-bound and holds an entry inside the range", () => {
-    const bars = daily([...sideways(6), 97, 99, 101, 103, 102, 101, 100]);
+    // The last leg tops near 100, so its 3-point crossing (~5 points) still
+    // sits inside the ~105.5 range high.
+    const bars = daily([...sideways(6), 97, 98, 99, 100, 99, 98, 97, 96]);
     const trigger = computeGannEntryTrigger(bars, "bullish");
     const r = readBreakaway(bars, trigger);
     expect(r.rangeBound).toBe(true);
