@@ -344,3 +344,37 @@ describe("computeScore stopRoom (equities)", () => {
     expect(decision.breakdown.find((b) => b.key === "stopRoom")?.criterion).toMatch(/ATR/);
   });
 });
+
+/**
+ * The armed trigger's note names the level the close crossed, and says when
+ * that close was a new record on the chart (PLAN.md item 5, step 3).
+ */
+describe("computeScore entryTriggerArmed note", () => {
+  const trend = (direction: TrendReading["direction"]): TrendReading => ({ timeframe: "1Day", direction, support: [], resistance: [] });
+  const note = (gannTrigger: ScoreInputs["gannTrigger"]) =>
+    computeScore({
+      direction: "bullish",
+      macroTrends: [trend("sideways"), trend("sideways"), trend("sideways")],
+      hourlyTrend: trend("sideways"),
+      gann: EMPTY_GANN,
+      nearSupportResistance: false,
+      pattern: null,
+      gannTrigger,
+      momentumElevated: false,
+      stopAtrMultiple: 0.8,
+      levels: null,
+    }).breakdown.find((b) => b.key === "entryTriggerArmed")!.note;
+  const crossing = { triggerPrice: 125.5, stopPrice: 114.5, direction: "bullish" as const, kind: "crossing" as const, level: 120 };
+
+  it("names the level by where it came from", () => {
+    expect(note({ ...crossing, source: "swing" })).toMatch(/crosses the last completed swing level by 3 points/);
+    expect(note({ ...crossing, source: "priorYear" })).toMatch(/crosses the previous year's top by 3 points/);
+    expect(note({ ...crossing, source: "allTime" })).toMatch(/crosses the record high before the last 52 weeks by 3 points/);
+  });
+
+  it("says when the crossing close was a new record, and only then", () => {
+    expect(note({ ...crossing, source: "allTime", newRecord: true })).toMatch(/That close was a new record high on the chart\.$/);
+    expect(note({ ...crossing, source: "allTime", newRecord: false })).not.toMatch(/new record/);
+    expect(note({ ...crossing, source: "swing" })).not.toMatch(/new record/);
+  });
+});

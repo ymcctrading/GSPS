@@ -85,4 +85,8 @@
 // bottoms count only since a low last went more than 3 points under the
 // level; a plan whose stop closes through before it arms never arms; and an
 // old-level position has no crossed level to hold, live or in the replay.
-export const STRATEGY_VERSION = "2026-10-15-gann-double-bottoms";
+// PLAN.md item 5, step 3: the previous year's top and bottom, and the record
+// top and bottom before those 52 weeks, are crossed and bought like any old
+// level (W006 pp.20, 22, 24, 47), read from the monthly chart on every
+// surface. Two crossings as near as each other go to the older level.
+export const STRATEGY_VERSION = "2026-10-15-gann-older-levels";

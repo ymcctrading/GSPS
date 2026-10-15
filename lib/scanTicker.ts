@@ -37,7 +37,7 @@ import { majorPricePercentageLevels } from "@/lib/gann/disclosedRules";
 import { computeTimePriceSquare } from "@/lib/gann/timePriceSquare";
 import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
 import { computeBoilingPoint } from "@/lib/gann/boilingPoint";
-import { entryChartBars, MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection, rankArmedPatterns } from "@/lib/scan/entrySelection";
+import { entryChart, MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection, rankArmedPatterns } from "@/lib/scan/entrySelection";
 import { computeTradeLevels, gannEntrySource, type EntrySource } from "@/lib/strat/levels";
 import { selectGannEntry } from "@/lib/gann/entryTrigger";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
@@ -281,9 +281,11 @@ export async function scanTicker(
     // the one nearer the price (`selectGannEntry`).
     //
     // Read from completed sessions in the last 52 weeks, the window the replay
-    // and every other surface read it from (`entryChartBars`).
-    const entryDaily = entryChartBars(daily, etDateKey(new Date(scannedAt)));
-    const gannTrigger = selectGannEntry(entryDaily, preferredDirection);
+    // and every other surface read it from, with the monthly chart's previous
+    // year's levels and record (`entryChart`, item 5 step 3).
+    const chart = entryChart(daily, monthly, etDateKey(new Date(scannedAt)));
+    const entryDaily = chart.bars;
+    const gannTrigger = selectGannEntry(entryDaily, preferredDirection, chart.older);
 
     const direction: "bullish" | "bearish" | "none" = gannTrigger?.direction ?? "none";
     const scoreDirection = gannTrigger?.direction ?? preferredDirection;

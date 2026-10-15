@@ -36,7 +36,7 @@ import { getMarketDataProvider } from "@/lib/data/provider";
 import { EXECUTION_TIMEFRAME, TF_INTERVAL_MS } from "@/lib/timeframe";
 import { computeGannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { etDateKey } from "@/lib/market/session";
-import { entryChartBars } from "@/lib/scan/entrySelection";
+import { entryChart } from "@/lib/scan/entrySelection";
 import { entryReady, replayEntryConfirmation } from "./entryConfirmation";
 import type { EntryConfirmationEvidence } from "./types";
 
@@ -175,9 +175,17 @@ export async function readEntryConfirmationNow(input: {
   // older than every bar fetched. The completed daily chart is where the scan
   // found the level: if it still holds there (crossed, not broken, not yet
   // bought) and it is the level this order buys, the entry is ready.
+  // The monthly chart holds the older levels the scan also reads (step 3).
   const year = new Date(now.getTime() - 365 * 24 * 3600 * 1000);
-  const daily = await getMarketDataProvider().fetchBars(input.symbol, "1Day", year, null, input.assetClass);
-  return heldOnDailyChart(daily, now, input.direction, input.entryTrigger) ? { ready: true, stage: "confirmed", note: GANN_NOTES.confirmed } : read;
+  const decade = new Date(now.getTime() - 10 * 365.25 * 24 * 3600 * 1000);
+  const provider = getMarketDataProvider();
+  const [daily, monthly] = await Promise.all([
+    provider.fetchBars(input.symbol, "1Day", year, null, input.assetClass),
+    provider.fetchBars(input.symbol, "1Month", decade, null, input.assetClass),
+  ]);
+  return heldOnDailyChart(daily, now, input.direction, input.entryTrigger, monthly)
+    ? { ready: true, stage: "confirmed", note: GANN_NOTES.confirmed }
+    : read;
 }
 
 /**
@@ -185,9 +193,17 @@ export async function readEntryConfirmationNow(input: {
  * this entry (to the cent, or 0.1% on a large price). The bar still forming
  * is left out, so an unfinished day can neither cross nor break the level.
  */
-export function heldOnDailyChart(daily: Bar[], now: Date, direction: "bullish" | "bearish", entry: number): boolean {
-  // The scan's own window: the 52 weeks of sessions before today.
-  const trigger = computeGannEntryTrigger(entryChartBars(daily, etDateKey(now)), direction);
+export function heldOnDailyChart(
+  daily: Bar[],
+  now: Date,
+  direction: "bullish" | "bearish",
+  entry: number,
+  monthly: Bar[] = [],
+): boolean {
+  // The scan's own window: the 52 weeks of sessions before today, and the
+  // older levels on the monthly chart.
+  const chart = entryChart(daily, monthly, etDateKey(now));
+  const trigger = computeGannEntryTrigger(chart.bars, direction, undefined, undefined, true, chart.older);
   if (!trigger?.held) return false;
   return Math.abs(trigger.reactionEntry - entry) <= Math.max(0.01, entry * 0.001);
 }

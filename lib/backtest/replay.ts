@@ -68,7 +68,7 @@ import { computeStopWithLeeway, computeTradeLevels, gannEntrySource, type EntryS
 import type { TradeLevels } from "@/lib/types";
 import {
   MIN_DAILY_BARS_FOR_SCAN,
-  entryChartBars,
+  entryChart,
   isGannContinuation,
   macroBreadthAgrees,
   preferredEntryDirection,
@@ -724,14 +724,17 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       // sessions before the day (`entryChartBars`), not from all the history
       // the replay holds: a level held only on older history is one the scan
       // never sees.
-      const entryDaily = entryChartBars(dailyBars, date);
+      // The monthly chart's older levels come with it, from months closed
+      // before the session (item 5 step 3).
+      const chart = entryChart(dailyBars, monthlyBars ?? [], date);
+      const entryDaily = chart.bars;
       const entryOf = (d: "bullish" | "bearish") =>
-        entryRule === "reaction" ? selectGannEntry(entryDaily, d) : computeGannEntryTrigger(entryDaily, d);
+        entryRule === "reaction" ? selectGannEntry(entryDaily, d, chart.older) : computeGannEntryTrigger(entryDaily, d);
       const sessionTrigger = (setupKind: SetupKind, trigger: GannEntryTrigger): SessionTrigger => ({
         setupKind,
         trigger,
         breakaway: readBreakaway(entryDaily, trigger),
-        pivotAt: entryDaily[trigger.pivot.index].t,
+        pivotAt: trigger.formedAt,
       });
       const reversion = entryOf(reversionDirection);
       if (reversion) triggers.push(sessionTrigger("reversion", reversion));

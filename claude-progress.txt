@@ -182,3 +182,22 @@
 - Mutations: the reviewer's surviving gaps MA14, MA17, MA19, MA20, MA22, MA23, MA25, MA26, MA29 are
   now caught; MA24 (Guided route line) is not. New fixes: 13 of 13 caught.
 - Same STRATEGY_VERSION (no run on it yet).
+
+== 2026-10-15 item 5 step 3: old tops and bottoms beyond the swings (A-ENTRY-05, -06, -09, -17) ==
+- olderGannLevels (lib/gann/entryTrigger.ts): the previous calendar year's top and bottom, and the
+  record top and bottom before the 52-week window, from monthly bars. A previous year's level is
+  crossable from 1 January; the record from the window's first day. Same geometry as a swing
+  crossing (arm at L+3pts, buy at L+1pt, stop L-3pts), labelled an inference for -05/-06.
+- latestCrossedLevel reads swing and older levels together. Ties: the higher level on the same
+  bar, then the older reading of one price (A-ENTRY-09, W006 p.24). selectGannEntry: the nearer
+  buying point; two crossings equally near, the older; a crossing beats the old-level buy.
+- newRecord (A-ENTRY-06): the crossing close beats the record and every earlier high in the window.
+  Display only (score note and setup label); Gann's "usually safe" is not weighted.
+- entryChart(daily, monthly, asOf) feeds every surface: live scan, replay, confirmNow (fetches 1Month
+  when it has no bars), live Gann exit, graduation exam (examService fetches monthly).
+- Tests first: olderLevels.test.ts (19), olderLevelsFetch.test.ts (4), the wiring test, and the
+  score note test. Mutations 24 of 24 caught.
+- STRATEGY_VERSION 2026-10-15-gann-older-levels. A-ENTRY-10 (an all-time low held for weeks) moves to
+  step 4 with A-ENTRY-01.
+- Full suite 2474 passed, tsc clean, eslint 0 errors, terms clean. Not pushed: it rebases onto the
+  step 2 review fixes first.

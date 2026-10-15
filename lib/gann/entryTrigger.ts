@@ -106,6 +106,31 @@ export const ENTRY_TRIGGER_SWING_DAYS = SWING_CHART_DAYS.threeDay;
  */
 export type GannEntryKind = "crossing" | "oldLevel";
 
+/**
+ * Where the level came from (PLAN.md item 5, step 3):
+ * - `swing`: a completed top or bottom on the 3-Day Chart.
+ * - `priorYear`: the previous calendar year's top or bottom (W006 pp.20, 22,
+ *   47: cross the top of a previous year by 3 points and buy any small
+ *   reaction; break the bottom of a previous year by 3 points and it is a
+ *   short).
+ * - `allTime`: the highest top (lowest bottom) on record before the 52 weeks
+ *   the 3-Day Chart is read from: an old top like any other, and the oldest
+ *   the chart holds (p.24). The record is the monthly history the feed
+ *   reaches, about ten years, not the stock's whole life.
+ */
+export type GannLevelSource = "swing" | "priorYear" | "allTime";
+
+/** A level older than the 3-Day Chart's window, read from the monthly chart. */
+export interface OlderGannLevel {
+  price: number;
+  kind: "top" | "bottom";
+  source: Exclude<GannLevelSource, "swing">;
+  /** The monthly bar it was made in. */
+  formedAt: string;
+  /** Closes on or after this day (YYYY-MM-DD) can cross it. */
+  crossFrom: string;
+}
+
 export interface GannEntryTrigger {
   kind: GannEntryKind;
   direction: TriggerDirection;
@@ -149,6 +174,22 @@ export interface GannEntryTrigger {
   tests?: number;
   /** Which swing-chart reversal count produced these pivots. */
   swingDays: number;
+  /** Where the level came from. */
+  source: GannLevelSource;
+  /**
+   * A held crossing whose close made a new record high (low for a short) on
+   * the chart: above every earlier high, the record before the 52 weeks
+   * included. "New all-time highs are usually safe buys" (W006 p.47). Gann
+   * gives it no weight, so it is shown, not scored. Undefined without the
+   * monthly record to compare against.
+   */
+  newRecord?: boolean;
+  /**
+   * When the level formed: the bar its top or bottom was made on. The older
+   * the top, the more important its crossing (W006 p.24); Gann gives that no
+   * weight, so it only decides between buying points that are otherwise even.
+   */
+  formedAt: string;
 }
 
 function buffered(price: number, direction: 1 | -1, bufferPct?: number): number {
@@ -178,6 +219,8 @@ export function computeGannEntryTrigger(
    * entry (PLAN.md item 5).
    */
   holdCrossedLevel = true,
+  /** Older levels from the monthly chart (`olderGannLevels`), crossed the same way. */
+  older: OlderGannLevel[] = [],
 ): GannEntryTrigger | null {
   const pivots = swingPivots(bars, swingDays);
   if (pivots.length < 2) return null;
@@ -191,12 +234,13 @@ export function computeGannEntryTrigger(
   // accident — Gann states the Buying Points and Selling Points separately
   // and they are symmetric, so the mirror is the rule, not a shortcut.
   const sign = direction === "bullish" ? 1 : -1;
-  const crossed = holdCrossedLevel ? latestCrossedLevel(bars, pivots, direction, bufferPct) : null;
+  const crossed = holdCrossedLevel ? latestCrossedLevel(bars, pivots, direction, bufferPct, older) : null;
   const held = crossed && !crossed.spent ? crossed : null;
   const pivot = held?.pivot ?? (direction === "bullish" ? lastTop : lastBottom);
   // A level already bought (or broken) is not offered again: until a newer
-  // top forms there is no buying point (PLAN.md item 5).
-  if (crossed?.spent && crossed.pivot.index === pivot.index) return null;
+  // top forms there is no buying point (PLAN.md item 5). A previous year's
+  // top can be the last swing top too, at the same price.
+  if (crossed?.spent && (crossed.pivot.index === pivot.index || crossed.pivot.price === pivot.price)) return null;
   const protectivePivot = direction === "bullish" ? lastBottom : lastTop;
 
   const triggerPrice = buffered(pivot.price, sign, bufferPct);
@@ -209,9 +253,12 @@ export function computeGannEntryTrigger(
     // points the other side of the level (W006 p.20). The protective swing
     // may have formed above the crossing since, so it does not price this
     // trade and cannot void it.
+    const record = older.find((l) => l.source === "allTime" && l.kind === (direction === "bullish" ? "top" : "bottom"));
     return {
       kind: "crossing", direction, triggerPrice, stopPrice: reactionStop, pivot, level: pivot.price,
       reactionEntry, reactionStop, protectivePivot, held: true, crossedAt: bars[held.crossedAt].t, swingDays,
+      source: held.source, formedAt: held.formedAt,
+      ...(record ? { newRecord: isNewRecord(bars, held.crossedAt, record.price, sign) } : {}),
     };
   }
 
@@ -226,7 +273,10 @@ export function computeGannEntryTrigger(
     return null;
   }
 
-  return { kind: "crossing", direction, triggerPrice, stopPrice, pivot, level: pivot.price, reactionEntry, reactionStop, protectivePivot, held: false, crossedAt: null, swingDays };
+  return {
+    kind: "crossing", direction, triggerPrice, stopPrice, pivot, level: pivot.price, reactionEntry, reactionStop,
+    protectivePivot, held: false, crossedAt: null, swingDays, source: "swing", formedAt: bars[pivot.index].t,
+  };
 }
 
 /**
@@ -305,6 +355,8 @@ export function computeGannOldLevelEntry(
     crossedAt: null,
     tests,
     swingDays,
+    source: "swing",
+    formedAt: bars[pivot.index].t,
   };
 }
 
@@ -315,21 +367,36 @@ function entryOf(t: GannEntryTrigger): number {
 }
 
 /**
+ * Of two buying points, the one nearer `price`: a set of resting orders is
+ * filled by whichever price reaches first. When they are as near, the older
+ * of two crossings (W006 p.24: the further back an old top, the more
+ * important its crossing), and the crossing over the old level.
+ */
+export function nearerBuyingPoint(a: GannEntryTrigger, b: GannEntryTrigger, price: number): GannEntryTrigger {
+  const da = Math.abs(entryOf(a) - price);
+  const db = Math.abs(entryOf(b) - price);
+  if (da !== db) return da < db ? a : b;
+  if (a.kind === "crossing" && b.kind === "crossing") return b.formedAt < a.formedAt ? b : a;
+  return b.kind === "crossing" && a.kind !== "crossing" ? b : a;
+}
+
+/**
  * The buying point a plan is priced from: of the crossing and the old level,
  * the one nearer the price (PLAN.md item 5, step 2). Gann ranks neither
  * against the other; a set of resting orders is filled by whichever price
- * reaches first, which is the nearer one. On a tie, the crossing.
+ * reaches first, which is the nearer one. On a tie, the crossing. `older`
+ * adds the previous year's and the record levels to the crossing (step 3).
  */
 export function selectGannEntry(
   bars: Bar[],
   direction: TriggerDirection,
+  older: OlderGannLevel[] = [],
   swingDays: number = ENTRY_TRIGGER_SWING_DAYS,
 ): GannEntryTrigger | null {
-  const crossing = computeGannEntryTrigger(bars, direction, swingDays);
+  const crossing = computeGannEntryTrigger(bars, direction, swingDays, undefined, true, older);
   const old = computeGannOldLevelEntry(bars, direction, swingDays);
   if (!crossing || !old || bars.length === 0) return crossing ?? old;
-  const price = bars[bars.length - 1].c;
-  return Math.abs(entryOf(old) - price) < Math.abs(entryOf(crossing) - price) ? old : crossing;
+  return nearerBuyingPoint(crossing, old, bars[bars.length - 1].c);
 }
 
 /**
@@ -353,18 +420,33 @@ function latestCrossedLevel(
   pivots: SwingPivot[],
   direction: TriggerDirection,
   bufferPct?: number,
-): { pivot: SwingPivot; crossedAt: number; spent: boolean } | null {
+  older: OlderGannLevel[] = [],
+): { pivot: SwingPivot; crossedAt: number; spent: boolean; source: GannLevelSource; formedAt: string } | null {
   const kind = direction === "bullish" ? "top" : "bottom";
   const sign = direction === "bullish" ? 1 : -1;
-  let best: { pivot: SwingPivot; crossedAt: number } | null = null;
-  for (const p of pivots) {
-    if (p.kind !== kind) continue;
-    const line = buffered(p.price, sign, bufferPct);
-    for (let i = p.index + 1; i < bars.length; i++) {
+  type Candidate = { pivot: SwingPivot; from: number; source: GannLevelSource; formedAt: string };
+  const candidates: Candidate[] = pivots
+    .filter((p) => p.kind === kind)
+    .map((p) => ({ pivot: p, from: p.index + 1, source: "swing" as const, formedAt: bars[p.index].t }));
+  for (const l of older) {
+    if (l.kind !== kind) continue;
+    const from = bars.findIndex((b) => b.t.slice(0, 10) >= l.crossFrom);
+    if (from >= 0) candidates.push({ pivot: { index: -1, price: l.price, kind }, from, source: l.source, formedAt: l.formedAt });
+  }
+  let best: (Candidate & { crossedAt: number }) | null = null;
+  for (const c of candidates) {
+    const line = buffered(c.pivot.price, sign, bufferPct);
+    for (let i = c.from; i < bars.length; i++) {
       if (sign * (bars[i].c - line) >= 0) {
-        if (!best || i > best.crossedAt || (i === best.crossedAt && sign * (p.price - best.pivot.price) > 0)) {
-          best = { pivot: p, crossedAt: i };
-        }
+        const better =
+          !best ||
+          i > best.crossedAt ||
+          (i === best.crossedAt &&
+            (sign * (c.pivot.price - best.pivot.price) > 0 ||
+              // The same level twice (a previous year's top that is also a
+              // swing top): the older reading names it (W006 p.24).
+              (c.pivot.price === best.pivot.price && c.formedAt < best.formedAt)));
+        if (better) best = { ...c, crossedAt: i };
         break;
       }
     }
@@ -373,14 +455,52 @@ function latestCrossedLevel(
   const level = best.pivot.price;
   const points = Math.abs(buffered(level, sign, bufferPct) - level);
   const buy = level + (sign * points) / 3;
+  const found = { pivot: best.pivot, crossedAt: best.crossedAt, source: best.source, formedAt: best.formedAt };
   // Bought once a later bar trades to the buy. A close 3 points back through
   // the level (broken) always trades through the buy first, so this one test
   // covers both ends.
   for (let i = best.crossedAt + 1; i < bars.length; i++) {
     const b = bars[i];
-    if (sign * ((sign === 1 ? b.l : b.h) - buy) <= 0) return { ...best, spent: true };
+    if (sign * ((sign === 1 ? b.l : b.h) - buy) <= 0) return { ...found, spent: true };
   }
-  return { ...best, spent: false };
+  return { ...found, spent: false };
+}
+
+/** Whether the close at `at` is beyond every earlier high (low for a short) and the record. */
+function isNewRecord(bars: Bar[], at: number, record: number, sign: 1 | -1): boolean {
+  const close = bars[at].c;
+  if (sign * (close - record) <= 0) return false;
+  for (let i = 0; i < at; i++) if (sign * (close - (sign === 1 ? bars[i].h : bars[i].l)) <= 0) return false;
+  return true;
+}
+
+/**
+ * The previous calendar year's top and bottom, and the record top and bottom
+ * before the 52 weeks the 3-Day Chart is read from, from monthly bars
+ * (PLAN.md item 5, step 3; W006 pp.20, 22, 24, 47). Only the year before
+ * `asOf` (YYYY-MM-DD) and the months before the 52 weeks are read, so neither
+ * the month still forming nor any later month a replay holds can count. A
+ * previous year's level can be crossed by
+ * closes from 1 January of `asOf`'s year; the record, by closes from
+ * `windowFrom`, the first day of the 52 weeks. The days of the month holding
+ * `windowFrom` that fall before it are read by neither: an engineering limit
+ * of joining a monthly chart to a daily one, documented rather than hidden.
+ */
+export function olderGannLevels(monthly: Bar[], asOf: string, windowFrom: string): OlderGannLevel[] {
+  const year = Number(asOf.slice(0, 4));
+  const out: OlderGannLevel[] = [];
+  const extremes = (months: Bar[], source: OlderGannLevel["source"], crossFrom: string) => {
+    if (months.length === 0) return;
+    const top = months.reduce((a, b) => (b.h > a.h ? b : a));
+    const bottom = months.reduce((a, b) => (b.l < a.l ? b : a));
+    out.push(
+      { price: top.h, kind: "top", source, formedAt: top.t, crossFrom },
+      { price: bottom.l, kind: "bottom", source, formedAt: bottom.t, crossFrom },
+    );
+  };
+  extremes(monthly.filter((b) => b.t.slice(0, 4) === String(year - 1)), "priorYear", `${year}-01-01`);
+  extremes(monthly.filter((b) => b.t.slice(0, 7) < windowFrom.slice(0, 7)), "allTime", windowFrom);
+  return out;
 }
 
 /**

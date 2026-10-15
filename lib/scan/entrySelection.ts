@@ -32,6 +32,7 @@
 import type { Bar, StratPattern, TrendReading } from "@/lib/types";
 import type { SetupKind } from "@/lib/types";
 import { weightedTrendAgreement } from "@/lib/gann/timeframeWeight";
+import { olderGannLevels, type OlderGannLevel } from "@/lib/gann/entryTrigger";
 import {
   CONTINUATION_PATTERNS,
   detectPatterns,
@@ -65,11 +66,27 @@ export const ENTRY_CHART_DAYS = 364;
  * reads only completed sessions, as the replay always has.
  */
 export function entryChartBars(daily: Bar[], asOf: string): Bar[] {
-  const from = new Date(Date.parse(`${asOf}T00:00:00Z`) - ENTRY_CHART_DAYS * 86_400_000).toISOString().slice(0, 10);
+  const from = entryChartFrom(asOf);
   return daily.filter((b) => {
     const d = b.t.slice(0, 10);
     return d >= from && d < asOf;
   });
+}
+
+/** The first day (YYYY-MM-DD) of the 52 weeks before `asOf`. */
+export function entryChartFrom(asOf: string): string {
+  return new Date(Date.parse(`${asOf}T00:00:00Z`) - ENTRY_CHART_DAYS * 86_400_000).toISOString().slice(0, 10);
+}
+
+/**
+ * What a buying point is read from on `asOf`: the 52 weeks of completed daily
+ * sessions, and the older levels the monthly chart holds, the previous year's
+ * top and bottom and the record before the 52 weeks (PLAN.md item 5, step 3).
+ * Every surface that prices, confirms or recovers a buying point reads it
+ * through here.
+ */
+export function entryChart(daily: Bar[], monthly: Bar[], asOf: string): { bars: Bar[]; older: OlderGannLevel[] } {
+  return { bars: entryChartBars(daily, asOf), older: olderGannLevels(monthly, asOf, entryChartFrom(asOf)) };
 }
 
 /**

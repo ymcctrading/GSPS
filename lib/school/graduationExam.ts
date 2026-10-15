@@ -36,7 +36,7 @@
 import type { Bar } from "@/lib/types";
 import { readGannTrend } from "@/lib/gann/trendStrength";
 import { gannBreakLine, selectGannEntry } from "@/lib/gann/entryTrigger";
-import { entryChartBars } from "@/lib/scan/entrySelection";
+import { entryChart } from "@/lib/scan/entrySelection";
 
 export type ExamTransition = "novice_to_pro" | "pro_to_expert";
 export const EXAM_TRANSITIONS: readonly ExamTransition[] = ["novice_to_pro", "pro_to_expert"];
@@ -178,7 +178,14 @@ function shuffle<T>(xs: T[], rand: () => number): T[] {
  * Build one scenario from daily bars around `asOf`. Only bars dated before
  * `asOf` feed the chart and the key; bars from `asOf` on are the play-forward.
  */
-export function buildScenario(symbol: string, asOf: string, daily: Bar[], seed: number): StoredScenario | null {
+export function buildScenario(
+  symbol: string,
+  asOf: string,
+  daily: Bar[],
+  seed: number,
+  /** The monthly chart up to `asOf`: the previous year's and the record levels (PLAN.md item 5, step 3). */
+  monthly: Bar[] = [],
+): StoredScenario | null {
   const before = daily.filter((b) => b.t.slice(0, 10) < asOf);
   const after = daily.filter((b) => b.t.slice(0, 10) >= asOf).slice(0, PLAYBACK_BARS);
   if (before.length < 60 || after.length < 5) return null;
@@ -188,8 +195,10 @@ export function buildScenario(symbol: string, asOf: string, daily: Bar[], seed: 
   const direction = read.direction;
   const trend: Trend = direction === "bullish" ? "up" : direction === "bearish" ? "down" : "sideways";
   // The buying point production prices from (PLAN.md item 5, step 2).
-  // Read from the scan's own window, the 52 weeks of sessions before the day.
-  const trigger = direction ? selectGannEntry(entryChartBars(daily, asOf), direction) : null;
+  // Read from the scan's own window, the 52 weeks of sessions before the day,
+  // with the monthly chart's older levels.
+  const chart = entryChart(daily, monthly, asOf);
+  const trigger = direction ? selectGannEntry(chart.bars, direction, chart.older) : null;
   const last = before[before.length - 1];
   // A trade when the old level is still to be crossed, or when it has been
   // crossed and holds, so the buy rests for the reaction (PLAN.md item 5).

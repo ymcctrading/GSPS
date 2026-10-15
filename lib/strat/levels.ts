@@ -529,9 +529,17 @@ export function gannEntrySource(trigger: GannEntryTrigger): EntrySource {
     setupLabel:
       trigger.kind === "oldLevel"
         ? `${multiple} ${long ? "bottom" : "top"}`
-        : long
-          ? "swing-top crossing"
-          : "swing-bottom break",
+        : trigger.source === "priorYear"
+          ? long
+            ? "previous year's top crossing"
+            : "previous year's bottom break"
+          : trigger.source === "allTime"
+            ? long
+              ? "old record high crossing"
+              : "old record low break"
+            : long
+              ? "swing-top crossing"
+              : "swing-bottom break",
     entryKind: trigger.kind,
     gannReaction: true,
   };

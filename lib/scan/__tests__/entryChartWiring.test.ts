@@ -1,16 +1,17 @@
 /**
  * The live scan, the replay and the graduation exam read a buying point from
- * the same window (`entryChartBars`, PLAN.md item 5): each passes it the day
- * it prices for, and prices from what it returns.
+ * the same window (`entryChart`, PLAN.md item 5): each passes it the day it
+ * prices for, and prices from what it returns, the 52 weeks of daily sessions
+ * and the monthly chart's older levels (step 3).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Bar } from "@/lib/types";
 
-const spies = vi.hoisted(() => ({ entryChartBars: vi.fn(), selectGannEntry: vi.fn(), readBreakaway: vi.fn() }));
+const spies = vi.hoisted(() => ({ entryChart: vi.fn(), selectGannEntry: vi.fn(), readBreakaway: vi.fn() }));
 vi.mock("@/lib/scan/entrySelection", async () => {
   const actual = await vi.importActual<typeof import("@/lib/scan/entrySelection")>("@/lib/scan/entrySelection");
-  spies.entryChartBars.mockImplementation(actual.entryChartBars);
-  return { ...actual, entryChartBars: spies.entryChartBars };
+  spies.entryChart.mockImplementation(actual.entryChart);
+  return { ...actual, entryChart: spies.entryChart };
 });
 vi.mock("@/lib/gann/entryTrigger", async () => {
   const actual = await vi.importActual<typeof import("@/lib/gann/entryTrigger")>("@/lib/gann/entryTrigger");
@@ -40,14 +41,17 @@ function zigzag(count: number, before: string): Bar[] {
   });
 }
 
-/** Whether every call of `spy` read one of the arrays the window handed back. */
-function readFromWindow(spy = spies.selectGannEntry): boolean {
-  const windows = spies.entryChartBars.mock.results.map((r) => r.value);
-  return spy.mock.calls.length > 0 && spy.mock.calls.every(([bars]) => windows.includes(bars));
+/** Whether every call of `spy` read the bars of one of the charts handed back, with its older levels. */
+function readFromWindow(spy = spies.selectGannEntry, withOlder = spy === spies.selectGannEntry): boolean {
+  const charts = spies.entryChart.mock.results.map((r) => r.value as { bars: Bar[]; older: unknown[] });
+  return (
+    spy.mock.calls.length > 0 &&
+    spy.mock.calls.every(([bars, , older]) => charts.some((c) => c.bars === bars && (!withOlder || c.older === older)))
+  );
 }
 
 beforeEach(() => {
-  spies.entryChartBars.mockClear();
+  spies.entryChart.mockClear();
   spies.selectGannEntry.mockClear();
   spies.readBreakaway.mockClear();
 });
@@ -55,9 +59,10 @@ beforeEach(() => {
 describe("the window each surface reads", () => {
   it("the exam: the day the scenario is set", () => {
     const daily = zigzag(400, "2026-06-20");
+    const monthly = daily.filter((_, i) => i % 21 === 0);
     const asOf = "2026-06-10";
-    buildScenario("TEST", asOf, daily, 1);
-    expect(spies.entryChartBars).toHaveBeenCalledWith(daily, asOf);
+    buildScenario("TEST", asOf, daily, 1, monthly);
+    expect(spies.entryChart).toHaveBeenCalledWith(daily, monthly, asOf);
     expect(readFromWindow()).toBe(true);
   });
 
@@ -69,8 +74,9 @@ describe("the window each surface reads", () => {
       const c = 100 + (i % 2 ? 0.1 : -0.1);
       return { t: `${day}T${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}:00Z`, o: c, h: c + 0.2, l: c - 0.2, c, v: 1000 };
     });
-    replay("TEST", bars, { targetR: 2, dailyBars: daily, entryRule: "reaction" });
-    expect(spies.entryChartBars).toHaveBeenCalledWith(daily, day);
+    const monthlyBars = daily.filter((_, i) => i % 21 === 0);
+    replay("TEST", bars, { targetR: 2, dailyBars: daily, monthlyBars, entryRule: "reaction" });
+    expect(spies.entryChart).toHaveBeenCalledWith(daily, monthlyBars, day);
     expect(readFromWindow()).toBe(true);
     // The breakaway hold reads the same bars as the entry it holds.
     expect(readFromWindow(spies.readBreakaway)).toBe(true);
@@ -87,8 +93,11 @@ describe("the window each surface reads", () => {
 
     it("today, with the session still forming left out", async () => {
       await scanTicker("AAPL");
-      expect(spies.entryChartBars).toHaveBeenCalledTimes(1);
-      expect(spies.entryChartBars.mock.calls[0][1]).toBe(etDateKey(new Date()));
+      expect(spies.entryChart).toHaveBeenCalledTimes(1);
+      const [, monthly, asOf] = spies.entryChart.mock.calls[0];
+      expect(asOf).toBe(etDateKey(new Date()));
+      // The scan's own monthly chart, not an empty one.
+      expect((monthly as Bar[]).length).toBeGreaterThan(12);
       expect(readFromWindow()).toBe(true);
       expect(readFromWindow(spies.readBreakaway)).toBe(true);
     }, 30_000);

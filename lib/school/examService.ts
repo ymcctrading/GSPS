@@ -85,14 +85,18 @@ export async function startAttempt(service: SupabaseClient, userId: string, tran
     if (scenarios.length >= SCENARIOS_PER_EXAM) break;
     try {
       const asOf = new Date(`${c.asOf}T00:00:00Z`);
-      const bars = await provider.fetchBars(
-        c.symbol,
-        "1Day",
-        new Date(asOf.getTime() - 500 * 86_400_000),
-        new Date(asOf.getTime() + 60 * 86_400_000),
-        "us_equity",
-      );
-      const s = buildScenario(c.symbol, c.asOf, bars, seed + i);
+      const [bars, monthly] = await Promise.all([
+        provider.fetchBars(
+          c.symbol,
+          "1Day",
+          new Date(asOf.getTime() - 500 * 86_400_000),
+          new Date(asOf.getTime() + 60 * 86_400_000),
+          "us_equity",
+        ),
+        // The monthly chart up to the scenario's day, for its older levels.
+        provider.fetchBars(c.symbol, "1Month", new Date(asOf.getTime() - 10 * 365.25 * 86_400_000), asOf, "us_equity"),
+      ]);
+      const s = buildScenario(c.symbol, c.asOf, bars, seed + i, monthly);
       if (s) scenarios.push(s);
     } catch {
       // Try the next candidate.

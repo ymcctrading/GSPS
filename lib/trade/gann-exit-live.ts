@@ -29,27 +29,33 @@ import { getInstrumentReference } from "@/lib/data/instrumentReference";
 import { selectGannEntry } from "@/lib/gann/entryTrigger";
 import { readGannExit, type GannExitReading } from "@/lib/gann/exitRules";
 import { etDateKey } from "@/lib/market/session";
-import { entryChartBars } from "@/lib/scan/entrySelection";
+import { entryChart } from "@/lib/scan/entrySelection";
 
 /** About two years of sessions: enough for the weekly swing chart and the campaign ledger. */
 const DAILY_LOOKBACK_DAYS = 730;
 
-const cache = new Map<string, { day: string; bars: Bar[] }>();
+const cache = new Map<string, { day: string; bars: Bar[]; monthly: Bar[] }>();
 
 export function resetGannExitCache(): void {
   cache.clear();
 }
 
-async function completedDailyBars(symbol: string, now: Date): Promise<Bar[]> {
+/** Completed daily sessions, and the monthly chart the entry's older levels come from (PLAN.md item 5, step 3). */
+async function completedDailyBars(symbol: string, now: Date): Promise<{ bars: Bar[]; monthly: Bar[] }> {
   const today = etDateKey(now);
   const hit = cache.get(symbol);
-  if (hit && hit.day === today) return hit.bars;
+  if (hit && hit.day === today) return hit;
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
   const start = new Date(now.getTime() - DAILY_LOOKBACK_DAYS * 86_400_000);
-  const bars = await getMarketDataProvider().fetchBars(symbol, "1Day", start, null, assetClass);
-  const completed = bars.filter((b) => b.t.slice(0, 10) < today);
-  cache.set(symbol, { day: today, bars: completed });
-  return completed;
+  const decade = new Date(now.getTime() - 10 * 365.25 * 86_400_000);
+  const provider = getMarketDataProvider();
+  const [bars, monthly] = await Promise.all([
+    provider.fetchBars(symbol, "1Day", start, null, assetClass),
+    provider.fetchBars(symbol, "1Month", decade, null, assetClass),
+  ]);
+  const entry = { day: today, bars: bars.filter((b) => b.t.slice(0, 10) < today), monthly };
+  cache.set(symbol, entry);
+  return entry;
 }
 
 export interface LiveGannExitInput {
@@ -67,24 +73,35 @@ export interface LiveGannExitInput {
 
 /**
  * The level a position's entry crossed, read from the same 52 weeks of daily
- * sessions and the same buying point the scan priced the entry from
- * (`entryChartBars`, `selectGannEntry`). Null when that buying point is a
- * double or triple bottom, which crosses nothing (its exit is the stop 3
+ * sessions, the same older levels and the same buying point the scan priced
+ * the entry from (`entryChart`, `selectGannEntry`). Null when that buying
+ * point is a double or triple bottom, which crosses nothing (its exit is the stop 3
  * points under it, as in the replay), or when the entry is not beyond the
  * level.
  */
-export function entryCrossedLevel(side: "long" | "short", entryPrice: number, openedAt: string, daily: Bar[]): number | null {
-  const entryDate = etDateKey(new Date(openedAt));
-  const trigger = selectGannEntry(entryChartBars(daily, entryDate), side === "long" ? "bullish" : "bearish");
+export function entryCrossedLevel(
+  side: "long" | "short",
+  entryPrice: number,
+  openedAt: string,
+  daily: Bar[],
+  monthly: Bar[] = [],
+): number | null {
+  const chart = entryChart(daily, monthly, etDateKey(new Date(openedAt)));
+  const trigger = selectGannEntry(chart.bars, side === "long" ? "bullish" : "bearish", chart.older);
   if (!trigger || trigger.kind === "oldLevel") return null;
   // The level only counts as crossed when the entry is actually beyond it.
   return (side === "long" ? entryPrice >= trigger.pivot.price : entryPrice <= trigger.pivot.price) ? trigger.pivot.price : null;
 }
 
 /** Pure part, testable without a data provider. */
-export function readGannExitFromBars(input: LiveGannExitInput, daily: Bar[], sharesOutstanding: number | null): GannExitReading {
+export function readGannExitFromBars(
+  input: LiveGannExitInput,
+  daily: Bar[],
+  sharesOutstanding: number | null,
+  monthly: Bar[] = [],
+): GannExitReading {
   const entryDate = etDateKey(new Date(input.openedAt));
-  const crossed = entryCrossedLevel(input.side, input.entryPrice, input.openedAt, daily);
+  const crossed = entryCrossedLevel(input.side, input.entryPrice, input.openedAt, daily, monthly);
   return readGannExit(
     { side: input.side, entry: input.entryPrice, initialStop: input.initialStop, entryDate, crossedLevel: crossed },
     daily,
@@ -96,12 +113,12 @@ export function readGannExitFromBars(input: LiveGannExitInput, daily: Bar[], sha
 export async function readLiveGannExit(input: LiveGannExitInput): Promise<GannExitReading | null> {
   try {
     const now = input.now ?? new Date();
-    const [daily, ref] = await Promise.all([
+    const [{ bars: daily, monthly }, ref] = await Promise.all([
       completedDailyBars(input.symbol, now),
       isCryptoSymbol(input.symbol) ? Promise.resolve(null) : getInstrumentReference(input.symbol),
     ]);
     if (daily.length < 10) return null;
-    return readGannExitFromBars(input, daily, ref?.sharesOutstanding ?? null);
+    return readGannExitFromBars(input, daily, ref?.sharesOutstanding ?? null, monthly);
   } catch (err) {
     console.error(`gann-exit-live: ${input.symbol} — ${err instanceof Error ? err.message : String(err)}`);
     return null;

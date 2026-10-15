@@ -67,6 +67,8 @@ describe("readBreakaway (Commodities pp. 51-52)", () => {
       held: false,
       crossedAt: null,
       swingDays: 3,
+      source: "swing" as const,
+      formedAt: "2026-01-01T00:00:00Z",
     });
     expect(r.rangeBound).toBe(true);
     expect(r.breaksAway).toBe(true);

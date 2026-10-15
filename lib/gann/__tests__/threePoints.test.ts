@@ -154,6 +154,8 @@ describe("3 points on the entry side", () => {
       held: false,
       crossedAt: null,
       swingDays: 3,
+      source: "swing" as const,
+      formedAt: "2026-01-01T00:00:00Z",
     });
     const r0 = readBreakaway(daily, make(106));
     expect(r0.rangeBound).toBe(true);
