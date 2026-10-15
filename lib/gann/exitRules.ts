@@ -19,6 +19,9 @@
  *   Stock Selector*, Rule 3). That is a profit equal to the risk taken, so the
  *   price-scaled form is: break-even once the trade has gone one risk unit in
  *   its favour.
+ * - **Weekly trail** (A-STOP-05, PLAN.md item 4). Trail the stop 3 points
+ *   under each completed week's bottom once the trade is into a new week
+ *   (W006 p.46: "1, 2, 3 or 5 points"; 3 is the stop he calls safest).
  * - **C3 structural trail.** Keep the stop under each higher bottom as the
  *   swings step up (the 3-Day Chart's bottoms, *45 Years in Wall Street*), and
  *   under the prior month's low once the trade has run into a new month
@@ -83,7 +86,7 @@ export interface GannExitPosition {
   crossedLevel: number | null;
 }
 
-export type GannStopReason = "initial" | "break_even" | "last_reaction" | "prior_month" | "final_stage";
+export type GannStopReason = "initial" | "break_even" | "last_reaction" | "prior_week" | "prior_month" | "final_stage";
 export type GannExitReason = "hold_test_failed" | "three_adverse_closes" | "trend_change" | "distribution";
 
 export interface GannExitReading {
@@ -203,6 +206,17 @@ export function readGannExit(
   const swings = walkSwingChart(daily, THREE_DAY_CHART);
   const lastSwing = [...swings.pivots].reverse().find((p) => p.kind === (long ? "bottom" : "top") && p.index >= firstAfter);
   if (lastSwing) adopt(below(lastSwing.price), "last_reaction");
+
+  // A-STOP-05: under each week's bottom (over each week's top when short),
+  // once the trade has run into a new week. W006 p.46 gives "1, 2, 3 or 5
+  // points"; GSPS takes 3, the stop he calls safest on the same page.
+  const weeks = toWeeklyBars(daily);
+  const thisWeek = weeks.length > 0 ? weeks[weeks.length - 1].t.slice(0, 10) : null;
+  const entryWeek = toWeeklyBars(since)[0]?.t.slice(0, 10) ?? null;
+  if (thisWeek && entryWeek && thisWeek > entryWeek && weeks.length >= 2) {
+    const prior = weeks[weeks.length - 2];
+    adopt(below(long ? prior.l : prior.h), "prior_week");
+  }
 
   // C3: under the prior month's low once the trade has run into a new month.
   const month = day(last).slice(0, 7);

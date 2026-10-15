@@ -56,4 +56,6 @@
 // level plus 1 point and the stop the level less 3 points (W006 pp.20, 46-47),
 // replacing the retest-and-hold confirmation and the S/R-band and ATR stops.
 // The paper simulator fills limits as limits. Replay rule: entryRule "reaction".
+// Gann's exits also trail the stop 3 points under each completed week's bottom
+// (over its top when short) once the trade is into a new week (W006 p.46).
 export const STRATEGY_VERSION = "2026-10-15-gann-reaction-entry";

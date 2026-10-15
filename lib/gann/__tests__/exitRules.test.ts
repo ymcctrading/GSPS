@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import { readGannExit, type GannExitPosition } from "../exitRules";
+import { gannThreePoints } from "../pointScale";
 
 /** One bar per calendar day from 2026-01-01; each bar spans close ± 0.5. */
 function daily(closes: number[], start = Date.UTC(2026, 0, 1)): Bar[] {
@@ -133,5 +134,47 @@ describe("readGannExit: the distribution week (parity D2)", () => {
     const { bars, entryIndex } = advanceWithHeavyWeek(20_000);
     const short = position(bars, entryIndex, { side: "short", initialStop: bars[entryIndex].c + 5 });
     expect(readGannExit(short, bars, null, 100_000).exit?.reason).not.toBe("distribution");
+  });
+});
+
+describe("readGannExit: under each week's bottom (A-STOP-05)", () => {
+  // W006 p.46: trail the stop 1, 2, 3 or 5 points under each week's bottom
+  // (above each week's top when short). GSPS takes 3 points, the stop Gann
+  // calls safest (p.46), price-scaled.
+  const weekOf = (t: string) => {
+    const d = new Date(t);
+    return new Date(d.getTime() - ((d.getUTCDay() + 6) % 7) * 86_400_000).toISOString().slice(0, 10);
+  };
+  const priorWeek = (bars: ReturnType<typeof daily>) => {
+    const current = weekOf(bars[bars.length - 1].t);
+    const before = bars.filter((b) => weekOf(b.t) < current);
+    const wk = weekOf(before[before.length - 1].t);
+    return before.filter((b) => weekOf(b.t) === wk);
+  };
+
+  it("moves a long's stop 3 points under the last completed week's bottom", () => {
+    // A straight advance in January: no reaction, no new month.
+    const bars = daily(Array.from({ length: 30 }, (_, i) => 101 + i));
+    const pos = position(bars, 5, { initialStop: bars[5].c - 20 });
+    const low = Math.min(...priorWeek(bars).map((b) => b.l));
+    const r = readGannExit(pos, bars, bars[bars.length - 1].h);
+    expect(r.stop).toBeCloseTo(low - gannThreePoints(low), 8);
+    expect(r.stopReason).toBe("prior_week");
+  });
+
+  it("moves a short's stop 3 points over the last completed week's top", () => {
+    const bars = daily(Array.from({ length: 30 }, (_, i) => 200 - i));
+    const pos = position(bars, 5, { side: "short", initialStop: bars[5].c + 20 });
+    const high = Math.max(...priorWeek(bars).map((b) => b.h));
+    const r = readGannExit(pos, bars, bars[bars.length - 1].l);
+    expect(r.stop).toBeCloseTo(high + gannThreePoints(high), 8);
+    expect(r.stopReason).toBe("prior_week");
+  });
+
+  it("leaves the stop alone while the trade is still in its entry week", () => {
+    const bars = daily(Array.from({ length: 13 }, (_, i) => 101 + i));
+    // 2026-01-13 is a Tuesday; entered on the Monday of that week.
+    const pos = position(bars, 11, { initialStop: bars[11].c - 20 });
+    expect(readGannExit(pos, bars, bars[12].h).stopReason).not.toBe("prior_week");
   });
 });

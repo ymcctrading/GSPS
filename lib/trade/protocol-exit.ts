@@ -427,6 +427,8 @@ function explainGann(reason: GannStopReason | null, stop: number): string {
       return `The trade has gone as far in its favour as it risked, so the stop moves to the entry (${usd(stop)}).`;
     case "last_reaction":
       return `The stop moves under the latest higher bottom, to ${usd(stop)}.`;
+    case "prior_week":
+      return `The trade has run into a new week, so the stop moves under last week's extreme, to ${usd(stop)}.`;
     case "prior_month":
       return `The trade has run into a new month, so the stop moves under last month's extreme, to ${usd(stop)}.`;
     case "final_stage":
