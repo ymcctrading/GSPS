@@ -36,6 +36,7 @@
 import type { Bar } from "@/lib/types";
 import { readGannTrend } from "@/lib/gann/trendStrength";
 import { gannBreakLine, selectGannEntry } from "@/lib/gann/entryTrigger";
+import { entryChartBars } from "@/lib/scan/entrySelection";
 
 export type ExamTransition = "novice_to_pro" | "pro_to_expert";
 export const EXAM_TRANSITIONS: readonly ExamTransition[] = ["novice_to_pro", "pro_to_expert"];
@@ -181,7 +182,8 @@ export function buildScenario(symbol: string, asOf: string, daily: Bar[], seed: 
   const direction = read.direction;
   const trend: Trend = direction === "bullish" ? "up" : direction === "bearish" ? "down" : "sideways";
   // The buying point production prices from (PLAN.md item 5, step 2).
-  const trigger = direction ? selectGannEntry(before, direction) : null;
+  // Read from the scan's own window, the 52 weeks of sessions before the day.
+  const trigger = direction ? selectGannEntry(entryChartBars(daily, asOf), direction) : null;
   const last = before[before.length - 1];
   // A trade when the old level is still to be crossed, or when it has been
   // crossed and holds, so the buy rests for the reaction (PLAN.md item 5).

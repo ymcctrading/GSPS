@@ -142,3 +142,17 @@
   Watch +0.044R on 158. Halves +0.173 / -0.098. Run 31: all +0.123R, Execute -0.232R on 7.
 - plan-reaction-gannrunner: all +0.018R [-0.079, +0.116]; Execute -0.032R on 17.
 - Continuation +0.420R on 23; reversion -0.007R on 200. No interval clears zero.
+
+== 2026-10-15 item 5: one window for a buying point on every surface ==
+- Found while designing step 3: the replay read the entry from all six years of daily bars it holds,
+  the live scan from a year that includes the session still forming. Since step 1 a crossed level
+  is held until bought, so the replay could hold a level the scan never sees.
+- entryChartBars (lib/scan/entrySelection.ts): the 52 weeks of completed sessions before the day.
+  Read by the live scan (entry and breakaway), the replay (entry and breakaway; levels keyed by
+  their date, since the window moves), confirmNow's daily check, the graduation exam and the live
+  Gann exit's crossed-level recovery (now `entryCrossedLevel`).
+- Tests first: entryChartBars.test.ts (behaviour) and entryChartWiring.test.ts (each surface passes
+  its own day and prices from what the window returns). Mutations 10 of 10 caught.
+- Same STRATEGY_VERSION (no run on it yet). Full suite 2449 passed, tsc clean, eslint 0 errors,
+  terms clean.
+- Open: other daily readers in the live scan (daily trend, S/R) still include the forming day.

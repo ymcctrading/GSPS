@@ -68,6 +68,7 @@ import { computeStopWithLeeway, computeTradeLevels, gannEntrySource, type EntryS
 import type { TradeLevels } from "@/lib/types";
 import {
   MIN_DAILY_BARS_FOR_SCAN,
+  entryChartBars,
   isGannContinuation,
   macroBreadthAgrees,
   preferredEntryDirection,
@@ -632,6 +633,8 @@ interface SessionTrigger {
   trigger: GannEntryTrigger;
   /** Gann's breakaway reading for this trigger, from prior sessions only (as the live scan reads it). */
   breakaway: BreakawayReading;
+  /** When the trigger's level formed: names it across sessions, as the window it is read from moves. */
+  pivotAt: string;
 }
 
 /** One session's arming state: read once per date from prior sessions only. */
@@ -716,10 +719,22 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       // The reaction rule is production's, and production prices from the
       // nearer of the crossing and the old level (PLAN.md item 5, step 2). The
       // older rules measure the crossing alone, as they always have.
+      //
+      // The buying point is read from the live scan's window, the 52 weeks of
+      // sessions before the day (`entryChartBars`), not from all the history
+      // the replay holds: a level held only on older history is one the scan
+      // never sees.
+      const entryDaily = entryChartBars(dailyBars, date);
       const entryOf = (d: "bullish" | "bearish") =>
-        entryRule === "reaction" ? selectGannEntry(priorSessions, d) : computeGannEntryTrigger(priorSessions, d);
+        entryRule === "reaction" ? selectGannEntry(entryDaily, d) : computeGannEntryTrigger(entryDaily, d);
+      const sessionTrigger = (setupKind: SetupKind, trigger: GannEntryTrigger): SessionTrigger => ({
+        setupKind,
+        trigger,
+        breakaway: readBreakaway(entryDaily, trigger),
+        pivotAt: entryDaily[trigger.pivot.index].t,
+      });
       const reversion = entryOf(reversionDirection);
-      if (reversion) triggers.push({ setupKind: "reversion", trigger: reversion, breakaway: readBreakaway(priorSessions, reversion) });
+      if (reversion) triggers.push(sessionTrigger("reversion", reversion));
       // The continuation pass arms with the macro move, never against it, and
       // only where its breadth and momentum gate could admit the result.
       const continuationDirection = reversionDirection === "bullish" ? "bearish" : "bullish";
@@ -729,8 +744,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         isGannContinuation(context.macroTrends, continuationDirection)
       ) {
         const continuation = entryOf(continuationDirection);
-        if (continuation)
-          triggers.push({ setupKind: "continuation", trigger: continuation, breakaway: readBreakaway(priorSessions, continuation) });
+        if (continuation) triggers.push(sessionTrigger("continuation", continuation));
       }
       arm = {
         context,
@@ -751,8 +765,8 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     const arm = sessionArm(date, lastClose);
     if (!arm) continue;
 
-    for (const { setupKind, trigger, breakaway } of arm.triggers) {
-      const pivotKey = `${setupKind}:${trigger.kind}:${trigger.direction}:${trigger.pivot.kind}:${trigger.pivot.index}`;
+    for (const { setupKind, trigger, breakaway, pivotAt } of arm.triggers) {
+      const pivotKey = `${setupKind}:${trigger.kind}:${trigger.direction}:${trigger.pivot.kind}:${pivotAt}`;
       if (consumedPivots.has(pivotKey)) continue;
       const planKey = `${date}|${pivotKey}`;
       armedKeys.add(planKey);

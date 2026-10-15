@@ -76,4 +76,8 @@
 // the crossing, the plan is priced from the one nearer the price. Plans store
 // the kind (migration 0086). An old-level entry is not held by the breakaway
 // rule inside a range (put to the owner, built on the recommended option).
+// The buying point is read from the same window on every surface: the 52
+// weeks of completed sessions before the day (`entryChartBars`). The replay
+// had read all six years it holds, and the live scan included the session
+// still forming. No run was committed before this was added.
 export const STRATEGY_VERSION = "2026-10-15-gann-double-bottoms";

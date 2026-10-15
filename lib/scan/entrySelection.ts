@@ -29,7 +29,7 @@
  *    on.
  */
 
-import type { StratPattern, TrendReading } from "@/lib/types";
+import type { Bar, StratPattern, TrendReading } from "@/lib/types";
 import type { SetupKind } from "@/lib/types";
 import { weightedTrendAgreement } from "@/lib/gann/timeframeWeight";
 import {
@@ -47,6 +47,30 @@ export type EntryDirection = "bullish" | "bearish";
  * One constant, so the two can't disagree about which history counts.
  */
 export const MIN_DAILY_BARS_FOR_SCAN = 30;
+
+/**
+ * How far back a buying point is read: 52 weeks of daily sessions. The live
+ * scan fetches a year of daily bars and the replay holds six, and since PLAN.md
+ * item 5 a crossed level stays held until it is bought, so a deeper history
+ * could hold a level the scan never sees. One window keeps them the same. Gann
+ * names no lookback for reading the chart; this is the live fetch's reach, an
+ * engineering choice. Levels older than this come from the monthly chart.
+ */
+export const ENTRY_CHART_DAYS = 364;
+
+/**
+ * The daily bars every surface reads a buying point from: the sessions in the
+ * 52 weeks before `asOf` (YYYY-MM-DD), and never `asOf` itself. Gann's
+ * crossing is a close, and a session still forming has none, so the live scan
+ * reads only completed sessions, as the replay always has.
+ */
+export function entryChartBars(daily: Bar[], asOf: string): Bar[] {
+  const from = new Date(Date.parse(`${asOf}T00:00:00Z`) - ENTRY_CHART_DAYS * 86_400_000).toISOString().slice(0, 10);
+  return daily.filter((b) => {
+    const d = b.t.slice(0, 10);
+    return d >= from && d < asOf;
+  });
+}
 
 /**
  * At least two of the three macro timeframes (monthly, weekly, daily; the

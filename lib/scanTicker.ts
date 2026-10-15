@@ -37,7 +37,7 @@ import { majorPricePercentageLevels } from "@/lib/gann/disclosedRules";
 import { computeTimePriceSquare } from "@/lib/gann/timePriceSquare";
 import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
 import { computeBoilingPoint } from "@/lib/gann/boilingPoint";
-import { MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection, rankArmedPatterns } from "@/lib/scan/entrySelection";
+import { entryChartBars, MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection, rankArmedPatterns } from "@/lib/scan/entrySelection";
 import { computeTradeLevels, gannEntrySource, type EntrySource } from "@/lib/strat/levels";
 import { selectGannEntry } from "@/lib/gann/entryTrigger";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
@@ -279,7 +279,11 @@ export async function scanTicker(
     // Since PLAN.md item 5 step 2 the old bottom (top) is a buying point too:
     // Gann's double and triple bottoms. Of the two, the plan is priced from
     // the one nearer the price (`selectGannEntry`).
-    const gannTrigger = selectGannEntry(daily, preferredDirection);
+    //
+    // Read from completed sessions in the last 52 weeks, the window the replay
+    // and every other surface read it from (`entryChartBars`).
+    const entryDaily = entryChartBars(daily, etDateKey(new Date(scannedAt)));
+    const gannTrigger = selectGannEntry(entryDaily, preferredDirection);
 
     const direction: "bullish" | "bearish" | "none" = gannTrigger?.direction ?? "none";
     const scoreDirection = gannTrigger?.direction ?? preferredDirection;
@@ -373,7 +377,7 @@ export async function scanTicker(
 
     // Gann's breakaway rule (owner decision 5): a sideways market is Watch
     // context until the entry crosses the range's extreme.
-    const breakaway = readBreakaway(daily, gannTrigger);
+    const breakaway = readBreakaway(entryDaily, gannTrigger);
 
     // A breached stop retires the plan (owner decision, 2026-09-30): price the
     // scan ran at is already through the stop of the plan it just priced, or

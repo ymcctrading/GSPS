@@ -35,6 +35,8 @@ import type { AssetClass, Bar } from "@/lib/types";
 import { getMarketDataProvider } from "@/lib/data/provider";
 import { EXECUTION_TIMEFRAME, TF_INTERVAL_MS } from "@/lib/timeframe";
 import { computeGannEntryTrigger } from "@/lib/gann/entryTrigger";
+import { etDateKey } from "@/lib/market/session";
+import { entryChartBars } from "@/lib/scan/entrySelection";
 import { entryReady, replayEntryConfirmation } from "./entryConfirmation";
 import type { EntryConfirmationEvidence } from "./types";
 
@@ -184,9 +186,8 @@ export async function readEntryConfirmationNow(input: {
  * is left out, so an unfinished day can neither cross nor break the level.
  */
 export function heldOnDailyChart(daily: Bar[], now: Date, direction: "bullish" | "bearish", entry: number): boolean {
-  const DAY = 24 * 3600 * 1000;
-  const completed = daily.filter((b) => Date.parse(b.t) + DAY <= now.getTime());
-  const trigger = computeGannEntryTrigger(completed, direction);
+  // The scan's own window: the 52 weeks of sessions before today.
+  const trigger = computeGannEntryTrigger(entryChartBars(daily, etDateKey(now)), direction);
   if (!trigger?.held) return false;
   return Math.abs(trigger.reactionEntry - entry) <= Math.max(0.01, entry * 0.001);
 }

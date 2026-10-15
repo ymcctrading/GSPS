@@ -28,6 +28,7 @@ import { getInstrumentReference } from "@/lib/data/instrumentReference";
 import { computeGannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { readGannExit, type GannExitReading } from "@/lib/gann/exitRules";
 import { etDateKey } from "@/lib/market/session";
+import { entryChartBars } from "@/lib/scan/entrySelection";
 
 /** About two years of sessions: enough for the weekly swing chart and the campaign ledger. */
 const DAILY_LOOKBACK_DAYS = 730;
@@ -63,16 +64,24 @@ export interface LiveGannExitInput {
   now?: Date;
 }
 
+/**
+ * The level a position's entry crossed, read from the same 52 weeks of daily
+ * sessions the scan priced the entry from (`entryChartBars`). Null when the
+ * entry is not beyond it: a double or triple bottom crosses nothing.
+ */
+export function entryCrossedLevel(side: "long" | "short", entryPrice: number, openedAt: string, daily: Bar[]): number | null {
+  const entryDate = etDateKey(new Date(openedAt));
+  const trigger = computeGannEntryTrigger(entryChartBars(daily, entryDate), side === "long" ? "bullish" : "bearish");
+  // The level only counts as crossed when the entry is actually beyond it.
+  return trigger && (side === "long" ? entryPrice >= trigger.pivot.price : entryPrice <= trigger.pivot.price)
+    ? trigger.pivot.price
+    : null;
+}
+
 /** Pure part, testable without a data provider. */
 export function readGannExitFromBars(input: LiveGannExitInput, daily: Bar[], sharesOutstanding: number | null): GannExitReading {
   const entryDate = etDateKey(new Date(input.openedAt));
-  const before = daily.filter((b) => b.t.slice(0, 10) < entryDate);
-  const trigger = computeGannEntryTrigger(before, input.side === "long" ? "bullish" : "bearish");
-  // The level only counts as crossed when the entry is actually beyond it.
-  const crossed =
-    trigger && (input.side === "long" ? input.entryPrice >= trigger.pivot.price : input.entryPrice <= trigger.pivot.price)
-      ? trigger.pivot.price
-      : null;
+  const crossed = entryCrossedLevel(input.side, input.entryPrice, input.openedAt, daily);
   return readGannExit(
     { side: input.side, entry: input.entryPrice, initialStop: input.initialStop, entryDate, crossedLevel: crossed },
     daily,
