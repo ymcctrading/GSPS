@@ -11,8 +11,8 @@
  *    is known (see the warning block below).
  */
 
-import { stopBeyondFigure, targetCandidates } from "@/lib/gann/evenFigures";
-import { gannThreePoints, gannThreePointsPct } from "@/lib/gann/pointScale";
+import { levelOnFigure, stopBeyondFigure, targetCandidates } from "@/lib/gann/evenFigures";
+import { beyondByThreePoints, gannThreePointsPct } from "@/lib/gann/pointScale";
 import type { AssetClass, Bar, PivotPlan, StratPattern, TradeLevels } from "@/lib/types";
 import { readPremiumStop } from "@/lib/trade/premium-stop";
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
@@ -153,17 +153,6 @@ export const EQUITY_MASTER_CAP_PCT = 30;
  */
 export const EQUITY_STOP_MIN_PCT = 3;
 export const EQUITY_STOP_MAX_PCT = 15;
-
-/**
- * How far beyond the accepted level the stop actually sits, as a percentage of
- * the entry: Gann's 3 points at the level's own price (`lib/gann/pointScale.ts`).
- * "Stops 3 points beyond old tops or bottoms" (W006 pp.20–24, 46–47). It was a
- * flat 0.5% until 2026-10-15 (owner: "Use Gann's full 3 points now"; PLAN.md
- * item 3).
- */
-export function equityStopBufferPct(level: number, entry: number): number {
-  return (gannThreePoints(level) / entry) * 100;
-}
 
 /**
  * The fallback stop when no structural level lands inside the accepted band
@@ -346,14 +335,23 @@ export function computeEquityTradeLevels(params: {
     stopMaxPct,
   );
   const stopFromStructure = structuralStop !== null;
-  const stopPct = stopFromStructure
-    ? (Math.abs(entry - structuralStop) / entry) * 100 + equityStopBufferPct(structuralStop, entry)
-    : fallbackStopPct;
-  // Gann's even figures (2026-09-28): a stop resting just inside a round
-  // number is moved beyond it by Gann's 3 points ("an old top of
-  // 100 crossed means a stop at 97"). See lib/gann/evenFigures.ts.
-  const rawStop = entry - dir * (stopPct / 100) * entry;
-  const stopLoss = evenFigures ? stopBeyondFigure(entry, rawStop, direction, stopMaxPct + gannThreePointsPct(entry)) : rawStop;
+  // A structural stop sits Gann's 3 points beyond its level, once. Where the
+  // level rests on an even figure, the figure is the level ("an old top of 100
+  // crossed means a stop at 97"; lib/gann/evenFigures.ts), unless that would
+  // carry the stop past the band's ceiling. A fallback stop has no level, so
+  // the even-figure rule moves it past a figure it sits just inside.
+  let stopLoss: number;
+  if (structuralStop !== null) {
+    const anchored = evenFigures ? levelOnFigure(structuralStop, direction) : structuralStop;
+    const ceiling = stopMaxPct + gannThreePointsPct(entry);
+    const fromFigure = beyondByThreePoints(anchored, -dir as 1 | -1);
+    stopLoss = (Math.abs(entry - fromFigure) / entry) * 100 <= ceiling
+      ? fromFigure
+      : beyondByThreePoints(structuralStop, -dir as 1 | -1);
+  } else {
+    const rawStop = entry - dir * (fallbackStopPct / 100) * entry;
+    stopLoss = evenFigures ? stopBeyondFigure(entry, rawStop, direction, stopMaxPct + gannThreePointsPct(entry)) : rawStop;
+  }
 
   // Targets (parity C4, owner decision 2, 2026-09-27: "Gann's method
   // supersedes my own"). Gann never fixes a profit objective; he sells at the
@@ -467,7 +465,7 @@ export function computeStopWithLeeway(params: {
  *
  * Widened from `StratPattern` to this on 2026-09-17 so the trade plan is
  * priced from Gann's own entry rule (`lib/gann/entryTrigger.ts` — crossing an
- * old swing top/bottom plus the "lost motion" allowance) rather than from the
+ * old swing top/bottom plus the 3-point allowance) rather than from the
  * bar-sequence pattern's trigger. `StratPattern` still satisfies this shape
  * structurally, which is what keeps the existing tests meaningful, but the
  * live scan and the replay now both pass a `GannEntryTrigger`.

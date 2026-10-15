@@ -51,7 +51,7 @@
  * Rob Smith's STRAT, which has no source in this platform's methodology, and
  * it was the last gate-1 failure on this scorecard. It now reads
  * `lib/gann/entryTrigger.ts`: crossing an old swing top or bottom plus the
- * "lost motion" allowance, both disclosed by Gann himself
+ * 3-point allowance, both disclosed by Gann himself
  * (`docs/GANN_HISTORICAL_SOURCES.md` A8, the nine Buying Points and nine
  * Selling Points). Renamed rather than removed, so `TOTAL_POINTS` stays 9 and
  * neither cutoff moves — this is a change of substance behind a criterion,

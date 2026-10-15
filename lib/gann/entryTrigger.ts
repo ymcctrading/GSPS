@@ -9,7 +9,7 @@
  *   - The previous rule used the **prior bar's** extreme plus one cent
  *     (`lib/strat/patterns.ts`, `last.h + PENNY`). Both the level and the
  *     buffer came from Rob Smith's STRAT, which has no Gann source.
- *   - This uses the **prior completed swing's** extreme plus a "lost motion"
+ *   - This uses the **prior completed swing's** extreme plus Gann's 3-point
  *     buffer. Both are disclosed by Gann himself.
  *
  * Sources (`docs/GANN_HISTORICAL_SOURCES.md` A8, the "45 Years in Wall Street"
@@ -48,7 +48,7 @@
  *
  * 1. **Gann source.** `docs/GANN_HISTORICAL_SOURCES.md` A8 — the nine numbered
  *    Buying Points and nine Selling Points, in his own words, stated as
- *    crossing old tops and bottoms; plus the "lost motion" allowance from the
+ *    crossing old tops and bottoms; plus the 3-point allowance from the
  *    Resistance Level method in the same source. Tier: primary, his own
  *    published material.
  *
@@ -107,7 +107,7 @@ export interface GannEntryTrigger {
   /**
    * Structural stop: beyond the protective swing on the other side, by the
    * same allowance. Gann places the stop past the level, not at it, for the
-   * same lost-motion reason the trigger clears it.
+   * same reason the trigger clears it.
    */
   stopPrice: number;
   /** The old top (bullish) or bottom (bearish) being crossed. */

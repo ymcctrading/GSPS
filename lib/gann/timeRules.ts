@@ -5,7 +5,7 @@
  * ends fast moves; this adds the rest of the same clock:
  *
  * - **Daily rule:** at a top or bottom the market halts for two or three days;
- *   after the halt, the stop goes 3 points beyond it (the lost-motion
+ *   after the halt, the stop goes 3 points beyond it (the 3-point
  *   allowance, price-scaled).
  * - **Weekly rule:** buy two-to-three-week reactions in an uptrend (sell the
  *   rallies in a downtrend); active stocks seldom react more than three or

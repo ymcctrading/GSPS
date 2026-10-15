@@ -138,7 +138,7 @@ export interface ScoreInputs {
   pattern: StratPattern | null;
   /**
    * The armed entry trigger, from `lib/gann/entryTrigger.ts` — crossing an old
-   * swing top/bottom plus the "lost motion" allowance. Replaced `pattern` as
+   * swing top/bottom plus the 3-point allowance. Replaced `pattern` as
    * what arms and prices a trade on 2026-09-17; `pattern` stays for the
    * display/confluence role only. Null means nothing is armed.
    */

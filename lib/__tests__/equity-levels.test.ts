@@ -50,11 +50,8 @@ describe("computeEquityTradeLevels", () => {
       structuralLevels: [95, 70, 130],
     });
     expect(result.stopFromStructure).toBe(true);
-    // Stop sits Gann's 3 points beyond the level, not on it. That lands just
-    // inside the even figure 90, so the even-figure rule then moves it 3
-    // points beyond 90.
-    expect(95 - gannThreePoints(95)).toBeGreaterThan(90);
-    const expectedStop = 90 - gannThreePoints(90);
+    // Stop sits Gann's 3 points beyond the level, once, not on it.
+    const expectedStop = 95 - gannThreePoints(95);
     expect(result.stopLoss).toBeCloseTo(expectedStop, 1);
     expect(result.stopLoss).toBeLessThan(95);
   });

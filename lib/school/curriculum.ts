@@ -709,13 +709,13 @@ const ACADEMY_4: Academy = {
           ],
           estimatedMinutes: 12,
           instruction: [
-            "Mr. Bull's entry: a buy is taken when price crosses the last swing top, by a small margin so a brush against the level doesn't count. Crossing the top is the market proving the buyers are in control. A short is the mirror: breaking the last swing bottom.",
-            "Mrs. Bear's stop: the stop goes beyond the last swing bottom (for a buy), again by a small margin. If price gets back there, the idea was wrong. A stop that sits right on a round number or right on the level is where everyone else's stops are, so it goes a little beyond.",
+            "Mr. Bull's entry: a buy is taken when price crosses the last swing top by 3 points, so a brush against the level doesn't count. The 3 points grow with the price: about 3 on a $40 stock, 5 on a $100 stock. Crossing the top is the market proving the buyers are in control. A short is the mirror: breaking the last swing bottom.",
+            "Mrs. Bear's stop: the stop goes 3 points beyond the level that would prove the idea wrong, scaled to the price the same way. If price gets back there, the idea was wrong. A stop that sits right on a round number or right on the level is where everyone else's stops are, so it goes a little beyond.",
             "After a breakout, a strong market shouldn't fall back far under the level it crossed. If it closes back under it, the breakout didn't hold, and GSPS treats that as a reason to leave.",
           ],
           application: "On a chart, mark the last swing top and bottom. Where would GSPS's entry be, and where would its stop go?",
           quiz: [
-            q("GSPS buys when price:", ["Falls to a round number", "Crosses the last swing top by a small margin", "Makes a red candle", "Opens higher"], 1),
+            q("GSPS buys when price:", ["Falls to a round number", "Crosses the last swing top by 3 points", "Makes a red candle", "Opens higher"], 1),
             q("A breakout that closes back under the level it crossed:", ["Is stronger than ever", "Did not hold, a reason to leave", "Should be doubled", "Means nothing"], 1),
           ],
           bullBear: { required: true, requiresRegimeCheckpoint: true, scenarioBasis: "hypothetical" },

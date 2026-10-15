@@ -31,6 +31,7 @@
  *    is the market's rest between swings, and the breakaway is the next beat.
  */
 
+import { beyondByThreePoints } from "@/lib/gann/pointScale";
 import type { Bar } from "@/lib/types";
 import type { GannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { isGannRangeBound } from "@/lib/gann/trendStrength";
@@ -65,8 +66,8 @@ export function readBreakaway(daily: Bar[], trigger: GannEntryTrigger | null): B
   if (trigger) {
     breaksAway =
       trigger.direction === "bullish"
-        ? rangeHigh === null || trigger.triggerPrice > rangeHigh
-        : rangeLow === null || trigger.triggerPrice < rangeLow;
+        ? rangeHigh === null || trigger.triggerPrice > beyondByThreePoints(rangeHigh, 1)
+        : rangeLow === null || trigger.triggerPrice < beyondByThreePoints(rangeLow, -1);
   }
   return { rangeBound: true, rangeHigh, rangeLow, breaksAway };
 }

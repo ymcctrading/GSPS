@@ -266,7 +266,7 @@ export async function scanTicker(
     // the single most load-bearing non-Gann component on the platform.
     //
     // It is now Gann's own rule: crossing an old swing top or bottom plus the
-    // "lost motion" allowance (`lib/gann/entryTrigger.ts`, sourced to the nine
+    // 3-point allowance, price-scaled (`lib/gann/entryTrigger.ts`, sourced to the nine
     // Buying Points and nine Selling Points). Direction comes from
     // `preferredDirection`, which is already Gann-derived — `weightedTrendAgreement`
     // over monthly/weekly/daily using his chart-timeframe power ratio.

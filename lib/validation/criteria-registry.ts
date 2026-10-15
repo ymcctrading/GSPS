@@ -325,7 +325,7 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "this scorecard. The criterion was never the problem — 'is there an armed trigger to enter " +
       "on?' is a real question — but its implementation read a bar-sequence reversal pattern " +
       "taxonomy with no source in this platform's methodology. It now reads " +
-      "lib/gann/entryTrigger.ts: crossing an old swing top or bottom plus the 'lost motion' " +
+      "lib/gann/entryTrigger.ts: crossing an old swing top or bottom plus the price-scaled 3-point " +
       "allowance, both disclosed in docs/GANN_HISTORICAL_SOURCES.md A8 (the nine Buying Points " +
       "and nine Selling Points, and the Resistance Level method). Renamed rather than retired, so " +
       "CRITERION_KEYS.length and both cutoffs are unchanged.\n\n" +

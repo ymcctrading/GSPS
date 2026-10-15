@@ -14,7 +14,7 @@
  *
  * Engineering choices, labelled as such: the band is the existing
  * level-test tolerance (1%); "crossed" is a close beyond the level by the
- * lost-motion allowance within the last `RECENT_SESSIONS`; "failed" is a
+ * 3-point allowance within the last `RECENT_SESSIONS`; "failed" is a
  * third (or later) test, the latest swing of its kind, followed by a close
  * back below the band's floor; a level still being tested counts only within
  * `NEAR_PCT` of price.

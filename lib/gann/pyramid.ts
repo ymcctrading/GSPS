@@ -29,7 +29,7 @@
  *   price-scaled here as one risk unit, the same scaling the break-even rule
  *   uses (`exitRules.ts`).
  * - The add trigger is a completed 3-Day Chart top (bottom) made after the last
- *   lot, crossed by the lost-motion allowance: the same Buying Point the entry
+ *   lot, crossed by the 3-point allowance: the same Buying Point the entry
  *   uses (`entryTrigger.ts`).
  * - `MAX_LOTS` = 4, the low end of Gann's "after the 4th or 5th lot".
  *

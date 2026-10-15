@@ -54,9 +54,11 @@
  * (`lib/gann/entryTrigger.ts`, `lib/gann/pointScale.ts`), so the default
  * buffer here is zero: a close beyond the trigger *is* a close 3 points
  * beyond the old top. Adding the allowance again would ask for 6 points,
- * which Gann never does. His sequence maps onto the stages as written: old
- * top 50, a close at 53 or more is the break, a reaction back toward the old
- * top is the retest, and the entry follows the resumption. A caller whose
+ * which Gann never does. In his example (old top 50, a close at 53 crosses
+ * it, buy the reaction from 51 down to 48, stop at 47) only the break maps
+ * onto this stage exactly. The retest here is a return to the trigger (53),
+ * not his 51-48 reaction, and the plan's stop is not 3 points under the old
+ * top: those are PLAN.md items 4 and 5. A caller whose
  * trigger is not already a 3-point crossing can pass its own
  * `confirmationBufferPct` (the intraday replay does).
  */

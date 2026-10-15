@@ -155,6 +155,22 @@ export function targetCandidates(entry: number, limit: number, direction: "bulli
 }
 
 /**
+ * The even figure a structural level rests on, or the level itself. A support
+ * (long) within `APPROACH_WINDOW_PCT` above a figure rests on that figure, so
+ * the stop goes Gann's 3 points beyond the figure, once (2026-10-15: applying
+ * the 3 points to the level and then again past the next figure stacked two
+ * allowances). Mirror for resistance on a short.
+ */
+export function levelOnFigure(level: number, direction: "bullish" | "bearish"): number {
+  const w = APPROACH_WINDOW_PCT / 100;
+  const nudge = level * 1e-9;
+  const near = direction === "bullish"
+    ? figuresBetween(level * (1 - w), level + nudge).pop()
+    : figuresBetween(level - nudge, level * (1 + w))[0];
+  return near ? near.price : level;
+}
+
+/**
  * A stop resting just inside a figure is moved beyond it (Gann's old top of
  * 100 crossed, stop at 97): orders gather at the figure, so a long's stop at
  * 100.40 sits in the crowd, and belongs under 100 by Gann's 3 points,

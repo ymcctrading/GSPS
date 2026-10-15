@@ -12,7 +12,7 @@
  *
  * The reading: how long price has spent inside the range it is leaving (or
  * sitting in), counted back from the latest session while closes stay within
- * the range's high and low by the lost-motion allowance, and whether the
+ * the range's high and low by the 3-point allowance, and whether the
  * latest close has broken out of it and which way.
  *
  * Engineering choices, labelled as such: the range is the high and low of the
