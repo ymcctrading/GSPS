@@ -9,8 +9,9 @@
  * - **Completed daily sessions only.** Today's session is still forming, and
  *   Gann's rules read closes. Bars dated today (ET) are dropped.
  * - **The crossed level** for the hold test is the old top (bottom) the entry
- *   crossed: Gann's entry trigger computed on the sessions before the entry
- *   day, which is exactly how the replay arms (`computeGannEntryTrigger`).
+ *   crossed: Gann's buying point computed on the sessions before the entry
+ *   day, which is exactly how the replay arms (`selectGannEntry`). A double or
+ *   triple bottom crosses nothing, so it has no hold test, only its stop.
  * - **Shares outstanding** (D2) is the stored count, when there is one.
  *
  * Daily bars are cached per symbol per ET day, because the exit managers run
@@ -25,7 +26,7 @@ import type { Bar } from "@/lib/types";
 import { getMarketDataProvider } from "@/lib/data/provider";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { getInstrumentReference } from "@/lib/data/instrumentReference";
-import { computeGannEntryTrigger } from "@/lib/gann/entryTrigger";
+import { selectGannEntry } from "@/lib/gann/entryTrigger";
 import { readGannExit, type GannExitReading } from "@/lib/gann/exitRules";
 import { etDateKey } from "@/lib/market/session";
 import { entryChartBars } from "@/lib/scan/entrySelection";
@@ -66,16 +67,18 @@ export interface LiveGannExitInput {
 
 /**
  * The level a position's entry crossed, read from the same 52 weeks of daily
- * sessions the scan priced the entry from (`entryChartBars`). Null when the
- * entry is not beyond it: a double or triple bottom crosses nothing.
+ * sessions and the same buying point the scan priced the entry from
+ * (`entryChartBars`, `selectGannEntry`). Null when that buying point is a
+ * double or triple bottom, which crosses nothing (its exit is the stop 3
+ * points under it, as in the replay), or when the entry is not beyond the
+ * level.
  */
 export function entryCrossedLevel(side: "long" | "short", entryPrice: number, openedAt: string, daily: Bar[]): number | null {
   const entryDate = etDateKey(new Date(openedAt));
-  const trigger = computeGannEntryTrigger(entryChartBars(daily, entryDate), side === "long" ? "bullish" : "bearish");
+  const trigger = selectGannEntry(entryChartBars(daily, entryDate), side === "long" ? "bullish" : "bearish");
+  if (!trigger || trigger.kind === "oldLevel") return null;
   // The level only counts as crossed when the entry is actually beyond it.
-  return trigger && (side === "long" ? entryPrice >= trigger.pivot.price : entryPrice <= trigger.pivot.price)
-    ? trigger.pivot.price
-    : null;
+  return (side === "long" ? entryPrice >= trigger.pivot.price : entryPrice <= trigger.pivot.price) ? trigger.pivot.price : null;
 }
 
 /** Pure part, testable without a data provider. */

@@ -126,9 +126,14 @@ export function advanceEntryConfirmation(
 
   if (rule.stopPrice != null && rule.entryKind === "oldLevel") {
     // The order rests at the old bottom from the start: nothing to cross. A
-    // close through the stop first leaves it unarmed (the plan is broken).
-    if (next.entryConfirmedAt == null && (up ? bar.c > rule.stopPrice : bar.c < rule.stopPrice)) {
-      next = { ...next, touchedAt: bar.t, touchedPrice: bar.c, breakOrSweepAt: bar.t, breakOrSweepPrice: bar.c, entryConfirmedAt: bar.t };
+    // close through the stop first breaks the level, and it never arms after
+    // that, as the placement check reads it (`confirmationFromBars`).
+    if (next.entryConfirmedAt == null && next.stopClosedAt == null) {
+      if (up ? bar.c > rule.stopPrice : bar.c < rule.stopPrice) {
+        next = { ...next, touchedAt: bar.t, touchedPrice: bar.c, breakOrSweepAt: bar.t, breakOrSweepPrice: bar.c, entryConfirmedAt: bar.t };
+      } else {
+        next = { ...next, stopClosedAt: bar.t };
+      }
     }
     return next;
   }

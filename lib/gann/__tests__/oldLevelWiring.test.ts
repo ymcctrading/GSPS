@@ -26,7 +26,9 @@ import { advanceEntryConfirmation, entryReady, freshEntryConfirmation } from "@/
 import { entryConfirmationRefusal, type OrderInput } from "@/lib/trade/place-order";
 import { advanceEntryConfirmationForSymbol } from "@/lib/lifecycle/advanceConfirmation";
 import { readBreakaway } from "@/lib/gann/breakaway";
-import { computeGannOldLevelEntry } from "@/lib/gann/entryTrigger";
+import { computeGannEntryTrigger, computeGannOldLevelEntry, selectGannEntry } from "@/lib/gann/entryTrigger";
+import { entryCrossedLevel } from "@/lib/trade/gann-exit-live";
+import { computeTradeLevels, gannEntrySource } from "@/lib/strat/levels";
 
 const bar = (t: string, c: number): Bar => ({ t, o: c, h: c + 0.2, l: c - 0.2, c, v: 1 });
 
@@ -55,6 +57,37 @@ describe("the old-level entry is ready with nothing to cross", () => {
     const rule = { direction: "bullish" as const, entryTrigger: 100, stopPrice: 95, entryKind: "oldLevel" as const };
     expect(entryReady(advanceEntryConfirmation(freshEntryConfirmation(), rule, bar("2026-10-15T14:30:00Z", 103)))).toBe(true);
     expect(entryReady(advanceEntryConfirmation(freshEntryConfirmation(), rule, bar("2026-10-15T14:30:00Z", 94)))).toBe(false);
+  });
+
+  it("never arms once a close has gone through the stop, as the placement check reads it", () => {
+    const rule = { direction: "bullish" as const, entryTrigger: 100, stopPrice: 95, entryKind: "oldLevel" as const };
+    const bars = [bar("2026-10-15T14:30:00Z", 94), bar("2026-10-15T14:45:00Z", 99)];
+    const evidence = bars.reduce((e, b) => advanceEntryConfirmation(e, rule, b), freshEntryConfirmation());
+    expect(entryReady(evidence)).toBe(false);
+    expect(confirmationFromBars(bars, "bullish", 100, 95, "oldLevel").stage).toBe("dead");
+  });
+
+  it("is the mirror for a short: armed on a close under the stop, never after one over it", () => {
+    const rule = { direction: "bearish" as const, entryTrigger: 100, stopPrice: 105, entryKind: "oldLevel" as const };
+    expect(entryReady(advanceEntryConfirmation(freshEntryConfirmation(), rule, bar("2026-10-15T14:30:00Z", 98)))).toBe(true);
+    expect(entryReady(advanceEntryConfirmation(freshEntryConfirmation(), rule, bar("2026-10-15T14:30:00Z", 106)))).toBe(false);
+    const bars = [bar("2026-10-15T14:30:00Z", 106), bar("2026-10-15T14:45:00Z", 101)];
+    expect(entryReady(bars.reduce((e, b) => advanceEntryConfirmation(e, rule, b), freshEntryConfirmation()))).toBe(false);
+  });
+});
+
+describe("the plan's levels carry the kind", () => {
+  it("for stocks and crypto alike, at the old bottom with the stop 3 points under", () => {
+    const leg = (from: number, to: number, n: number) => Array.from({ length: n }, (_, i) => from + ((to - from) * (i + 1)) / n);
+    const closes = [...leg(60, 40, 8), ...leg(40, 48, 6), ...leg(48, 44, 4)];
+    const daily = closes.map((c, i) => bar(new Date(Date.UTC(2026, 2, 2) + i * 86_400_000).toISOString(), c));
+    const t = computeGannOldLevelEntry(daily, "bullish")!;
+    for (const assetClass of ["us_equity", "crypto"] as const) {
+      const l = computeTradeLevels(gannEntrySource(t), daily[daily.length - 1], [], undefined, 0.4, assetClass, false, [t.level - 9, 52, 56]);
+      expect(l.entryKind).toBe("oldLevel");
+      expect(l.entry).toBeCloseTo(t.level, 2);
+      expect(l.stopLoss).toBeCloseTo(t.reactionStop, 2);
+    }
   });
 });
 
@@ -114,11 +147,17 @@ describe("an old-level plan arms on the scan tick", () => {
 
 describe("an old-level entry inside a sideways range", () => {
   it("is not held to Watch by the breakaway rule", () => {
+    // Bottoms alternate between 95 and a dip more than 3 points under it, so
+    // the last bottom at 95 is a fresh level (a fourth test would not be a
+    // buy at all) inside the range.
     const sideways: number[] = [];
+    let from = 95;
     for (let k = 0; k < 6; k++) {
       const top = k % 2 === 0 ? 105 : 103;
-      for (let i = 1; i <= 5; i++) sideways.push(95 + ((top - 95) * i) / 5);
-      for (let i = 1; i <= 5; i++) sideways.push(top - ((top - 95) * i) / 5);
+      const bottom = k % 2 === 0 ? 89 : 95;
+      for (let i = 1; i <= 5; i++) sideways.push(from + ((top - from) * i) / 5);
+      for (let i = 1; i <= 5; i++) sideways.push(top - ((top - bottom) * i) / 5);
+      from = bottom;
     }
     // End on a rally off the last bottom, so that bottom is untested.
     const closes = [...sideways, 96, 97, 98, 99];
@@ -128,5 +167,23 @@ describe("an old-level entry inside a sideways range", () => {
     const r = readBreakaway(daily, t);
     expect(r.rangeBound).toBe(true);
     expect(r.breaksAway).toBe(true);
+  });
+});
+
+describe("the live exit of an old-level buy", () => {
+  it("reads no crossed level, even with an older crossed top still held under it", () => {
+    // A top at 40 crossed by 3 points and never bought back to, then a bottom
+    // near 44 and a reaction toward it: the scan prices the old bottom.
+    const leg = (from: number, to: number, n: number) => Array.from({ length: n }, (_, i) => from + ((to - from) * (i + 1)) / n);
+    const closes = [...leg(30, 40, 10), ...leg(40, 36, 4), ...leg(36, 47, 10), ...leg(47, 44, 4), ...leg(44, 49, 6), ...leg(49, 46, 4)];
+    const daily = closes.map((c, i) => bar(new Date(Date.UTC(2026, 2, 2) + i * 86_400_000).toISOString(), c));
+    const sel = selectGannEntry(daily, "bullish")!;
+    expect(sel.kind).toBe("oldLevel");
+    const held = computeGannEntryTrigger(daily, "bullish")!;
+    expect(held.held).toBe(true);
+    expect(held.level).toBeLessThan(sel.level);
+    const next = new Date(Date.parse(daily[daily.length - 1].t) + 86_400_000).toISOString();
+    // Bought at the old bottom: no breakout to hold, only the stop.
+    expect(entryCrossedLevel("long", sel.reactionEntry, next, daily)).toBeNull();
   });
 });

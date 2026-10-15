@@ -68,6 +68,7 @@ const EntryConfirmationSchema = z.object({
   confirmationMoveAt: z.string().nullable(),
   confirmationMovePrice: z.number().nullable(),
   entryConfirmedAt: z.string().nullable(),
+  stopClosedAt: z.string().nullable().optional(),
 });
 
 export const NewTradePlanSchema = z.object({

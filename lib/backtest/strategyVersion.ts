@@ -79,5 +79,10 @@
 // The buying point is read from the same window on every surface: the 52
 // weeks of completed sessions before the day (`entryChartBars`). The replay
 // had read all six years it holds, and the live scan included the session
-// still forming. No run was committed before this was added.
+// still forming. No run was committed before this was added. Review fixes
+// the same day, also before any run: only the second and third test of a
+// bottom are bought (a fourth is neither a double nor a triple bottom), and
+// bottoms count only since a low last went more than 3 points under the
+// level; a plan whose stop closes through before it arms never arms; and an
+// old-level position has no crossed level to hold, live or in the replay.
 export const STRATEGY_VERSION = "2026-10-15-gann-double-bottoms";

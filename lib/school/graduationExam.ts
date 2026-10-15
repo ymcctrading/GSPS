@@ -89,6 +89,12 @@ export interface ScenarioKey {
    * Absent on scenarios stored before it was added.
    */
   crossed?: boolean;
+  /**
+   * `oldLevel` when the buy rests at an old bottom (top) that held, a double
+   * or triple bottom (PLAN.md item 5, step 2), so the explanations describe
+   * that entry. Absent is the crossing, and on scenarios stored before it.
+   */
+  entryKind?: "oldLevel";
 }
 
 export interface StoredScenario {
@@ -248,7 +254,11 @@ export function buildScenario(symbol: string, asOf: string, daily: Bar[], seed: 
       entryChoices,
       stopChoices,
     },
-    key: { trend, decision, direction, entryChoiceId, stopChoiceId, entry, stop, shares, crossed: decision === "trade" && (trigger?.held === true || trigger?.kind === "oldLevel") },
+    key: {
+      trend, decision, direction, entryChoiceId, stopChoiceId, entry, stop, shares,
+      crossed: decision === "trade" && (trigger?.held === true || trigger?.kind === "oldLevel"),
+      ...(decision === "trade" && trigger?.kind === "oldLevel" ? { entryKind: "oldLevel" as const } : {}),
+    },
     playback: after.map((b) => ({ t: b.t.slice(0, 10), h: b.h, l: b.l, c: b.c })),
   };
 }
@@ -283,7 +293,9 @@ function playedOut(s: StoredScenario): string {
   }
   return filled
     ? `The entry filled; neither the stop nor twice the risk was reached within ${playback.length} sessions.`
-    : crossed
+    : key.entryKind === "oldLevel"
+      ? `Price never came back ${key.direction === "bearish" ? "up to the old top" : "down to the old bottom"} within ${playback.length} sessions, so no trade was taken. Waiting for the test of the level is part of the rule.`
+      : crossed
       ? `Price crossed the old level but never pulled back to the entry within ${playback.length} sessions, so no trade was taken. Waiting for the reaction is part of the rule.`
       : `Price never closed past the old level within ${playback.length} sessions, so no trade was taken. Waiting for the level is part of the rule.`;
 }
@@ -310,18 +322,36 @@ export function gradeExam(transition: ExamTransition, scenarios: StoredScenario[
         ? "The tops and bottoms weren't stepping one way, so the trend was sideways."
         : `The swings and the tops and bottoms were stepping ${TREND_WORD[k.trend]}, so the trend was ${TREND_WORD[k.trend]}.`,
     );
+    // An entry at an old bottom (top) that held: a double or triple bottom.
+    const old = k.entryKind === "oldLevel";
+    const longKey = k.direction !== "bearish";
+    const oldSide = longKey ? "bottom" : "top";
     add(
       "decision",
       a.decision === k.decision,
       k.decision === "trade"
-        ? "The trend was clear and there was an old swing level still to cross: a trade, entered only once price closes 3 points past it and pulls back."
+        ? old
+          ? `The trend was clear and an old ${oldSide} that had held sat ${longKey ? "below" : "above"} the price: a trade, resting at that ${oldSide} for a second or third test of it.`
+          : "The trend was clear and there was an old swing level still to cross: a trade, entered only once price closes 3 points past it and pulls back."
         : "With no clear trend, or no level left to cross, the rule is to wait.",
     );
     if (k.decision === "trade") {
       if (pro) {
-        add("entry", a.entryChoiceId === k.entryChoiceId, `The entry is 1 point past the last swing ${k.direction === "bullish" ? "top" : "bottom"}, at ${k.entry?.toFixed(2)}: bought on the pullback after a close 3 points past it, so the market has proved itself first.`);
+        add(
+          "entry",
+          a.entryChoiceId === k.entryChoiceId,
+          old
+            ? `The entry is the old swing ${oldSide} itself, at ${k.entry?.toFixed(2)}: an order resting there ${longKey ? "buys" : "sells"} the next test of it, the double or triple ${oldSide}.`
+            : `The entry is 1 point past the last swing ${k.direction === "bullish" ? "top" : "bottom"}, at ${k.entry?.toFixed(2)}: bought on the pullback after a close 3 points past it, so the market has proved itself first.`,
+        );
       }
-      add("stop", a.stopChoiceId === k.stopChoiceId, `The stop goes 3 points the other side of that same ${k.direction === "bullish" ? "top" : "bottom"}, at ${k.stop?.toFixed(2)}: back under it, the crossing has failed.`);
+      add(
+        "stop",
+        a.stopChoiceId === k.stopChoiceId,
+        old
+          ? `The stop goes 3 points ${longKey ? "under" : "over"} that ${oldSide}, at ${k.stop?.toFixed(2)}: a close beyond it means the ${oldSide} has not held.`
+          : `The stop goes 3 points the other side of that same ${k.direction === "bullish" ? "top" : "bottom"}, at ${k.stop?.toFixed(2)}: back under it, the crossing has failed.`,
+      );
       const sharesOk = k.shares !== null && typeof a.shares === "number" && Math.abs(a.shares - k.shares) <= Math.max(1, k.shares * 0.05);
       add("size", sharesOk, `Risking 1% of $${ACCOUNT_USD.toLocaleString("en-US")} is $${(ACCOUNT_USD * RISK_PCT) / 100}; divided by the risk per share (${k.entry !== null && k.stop !== null ? Math.abs(k.entry - k.stop).toFixed(2) : "?"}) that is ${k.shares} shares.`);
     }

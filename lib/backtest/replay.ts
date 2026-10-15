@@ -956,7 +956,9 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       if ((exitRule === "gann" || exitRule === "gann-runner") && !outran) {
         const walked = walkGannExit({
           bars, from: i, maxBarsHeld, long, entry, stop, dailyBars: dailyBars ?? [],
-          crossedLevel: trigger.pivot.price,
+          // A double or triple bottom crosses nothing: its exit is the stop
+          // 3 points under it, as the live exit reads it (`entryCrossedLevel`).
+          crossedLevel: trigger.kind === "oldLevel" ? null : trigger.pivot.price,
           scaleOut: exitRule === "gann-runner" ? { price: target, fraction: RUNNER_SCALE_OUT } : undefined,
           pyramid,
           sharesOn: instrument ? (date) => splitAdjustedSharesAsOf(instrument.sharesHistory, date) : undefined,
@@ -1113,7 +1115,7 @@ function walkGannExit(input: {
   entry: number;
   stop: number;
   dailyBars: Bar[];
-  crossedLevel: number;
+  crossedLevel: number | null;
   /** The stored share count as of a session (D2), or null. */
   sharesOn?: (date: string) => number | null;
   /** `"gann-runner"`: this fraction leaves at `price`; the rest runs. */

@@ -276,4 +276,19 @@ describe("replay entryRule: reaction at an old bottom (double or triple bottom)"
     const r = replay("TEST", intraday([...head, above, above]), { targetR: 2, dailyBars: DAILY });
     expect(r.trades).toHaveLength(0);
   });
+
+  it("buys on the first candle of the session the level first arms on", () => {
+    // The warm-up candles sit on a date with too little daily history to arm,
+    // so the old bottom is first offered on DAY, whose first candle already
+    // trades under it (above the stop). The resting order is filled there.
+    const stamp = (date: string, hour: number, i: number) => {
+      const m = i * 15;
+      return `${date}T${String(hour + Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}:00Z`;
+    };
+    const early: Bar[] = Array.from({ length: 44 }, (_, i) => ({ ...above, t: stamp("2025-08-25", 0, i), v: 1000 }));
+    const day: Bar[] = Array.from({ length: 6 }, (_, i) => ({ ...at(L - P / 4, 0.05), t: stamp(DAY, 14, i), v: 1000 }));
+    const r = replay("TEST", [...early, ...day], { targetR: 2, dailyBars: DAILY });
+    expect(r.trades).toHaveLength(1);
+    expect(r.trades[0].entry).toBeLessThanOrEqual(L);
+  });
 });

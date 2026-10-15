@@ -60,6 +60,45 @@ describe("computeGannOldLevelEntry", () => {
     expect(t.tests).toBe(1);
   });
 
+  it("offers no buy for a fourth test once three bottoms have held at the level", () => {
+    // Bottoms near 39.7, 39.6 and 39.5 are the triple bottom already made; an
+    // order at the level now would buy a fourth test, which double and triple
+    // bottoms do not cover.
+    const xs = [
+      ...leg(60, 40, 8), ...leg(40, 48, 6), ...leg(48, 39.9, 6),
+      ...leg(39.9, 48, 6), ...leg(48, 39.8, 6), ...leg(39.8, 48, 6), ...leg(48, 44, 4),
+    ];
+    expect(computeGannOldLevelEntry(bars(xs), "bullish")).toBeNull();
+    expect(selectGannEntry(bars(xs), "bullish")?.kind).not.toBe("oldLevel");
+    // The mirror: no sale against a fourth test of a top.
+    expect(computeGannOldLevelEntry(bars(xs.map((x) => 100 - x)), "bearish")).toBeNull();
+  });
+
+  it("counts only the bottoms since the level last broke by 3 points", () => {
+    // A bottom near 40, a break to 35 (more than 3 points under it), then a
+    // bottom near 40 again: the break ended the first one, so this is the
+    // first bottom of a new level and the order buys its second test.
+    const xs = [...leg(60, 40, 8), ...leg(40, 48, 6), ...leg(48, 35, 8), ...leg(35, 48, 8), ...leg(48, 40, 6), ...leg(40, 48, 6), ...leg(48, 44, 4)];
+    const t = computeGannOldLevelEntry(bars(xs), "bullish")!;
+    expect(t.level).toBeCloseTo(39.7, 8);
+    expect(35 - 0.3).toBeLessThan(t.level - gannThreePoints(t.level));
+    expect(t.tests).toBe(1);
+    // Three bottoms before the break do not make this one a fourth test.
+    const triple = [
+      ...leg(60, 40, 8), ...leg(40, 48, 6), ...leg(48, 39.9, 6), ...leg(39.9, 48, 6), ...leg(48, 39.8, 6),
+      ...leg(39.8, 48, 6), ...leg(48, 35, 8), ...leg(35, 48, 8), ...leg(48, 40, 6), ...leg(40, 48, 6), ...leg(48, 44, 4),
+    ];
+    expect(computeGannOldLevelEntry(bars(triple), "bullish")).toMatchObject({ kind: "oldLevel", tests: 1 });
+  });
+
+  it("counts a bottom a little under the level as a test of it, not a break", () => {
+    // Near 39.7, then 38.2 (under it by less than 3 points), then 39.7 again:
+    // three tests of one level, so no buy for a fourth.
+    const xs = [...leg(60, 40, 8), ...leg(40, 48, 6), ...leg(48, 38.5, 6), ...leg(38.5, 48, 6), ...leg(48, 40, 6), ...leg(40, 48, 6), ...leg(48, 44, 4)];
+    expect(38.2).toBeGreaterThan(39.7 - gannThreePoints(39.7));
+    expect(computeGannOldLevelEntry(bars(xs), "bullish")).toBeNull();
+  });
+
   it("returns null without a completed bottom", () => {
     expect(computeGannOldLevelEntry(bars(leg(40, 60, 20)), "bullish")).toBeNull();
   });

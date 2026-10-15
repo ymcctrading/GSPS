@@ -56,6 +56,8 @@ describe("graduation exam", () => {
       expect(s.key.entry).toBeCloseTo(t.reactionEntry, 2);
       expect(s.key.stop).toBeCloseTo(t.reactionStop, 2);
       expect(s.key.crossed).toBe(true);
+      // The explanations follow the kind of buying point.
+      expect(s.key.entryKind).toBe(t.kind === "oldLevel" ? "oldLevel" : undefined);
       // A reaction straight to the buy fills; no fresh crossing is needed.
       const dip = { t: "2099-01-01", h: s.key.entry! + 1, l: s.key.entry! - 0.05, c: s.key.entry! + 0.5 };
       const graded = gradeExam("pro_to_expert", [{ ...s, playback: [dip] }], [{ trend: s.key.trend, decision: "trade" }]);

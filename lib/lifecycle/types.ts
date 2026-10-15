@@ -146,6 +146,12 @@ export interface EntryConfirmationEvidence {
   confirmationMovePrice: number | null;
   /** Set once every prior stage is populated — mirrors `entryReady`'s decision. */
   entryConfirmedAt: string | null;
+  /**
+   * An old-level plan only (PLAN.md item 5, step 2): the bar that closed
+   * through the stop before the plan armed. The level is broken and the plan
+   * never arms after it. Absent on older rows, which read as never broken.
+   */
+  stopClosedAt?: string | null;
 }
 
 export const EMPTY_ENTRY_CONFIRMATION: EntryConfirmationEvidence = {

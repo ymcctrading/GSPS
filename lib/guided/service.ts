@@ -388,7 +388,8 @@ function collectBatch(params: {
   return { recommendations, skipped, committed };
 }
 
-function toRecommendation(
+/** One card from a scanned setup. Exported for its test. */
+export function toRecommendation(
   result: ScanResult,
   side: "buy" | "sell",
   sized: SizedTrade,

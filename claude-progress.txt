@@ -156,3 +156,29 @@
 - Same STRATEGY_VERSION (no run on it yet). Full suite 2449 passed, tsc clean, eslint 0 errors,
   terms clean.
 - Open: other daily readers in the live scan (daily trend, S/R) still include the forming day.
+
+== 2026-10-15 item 5 step 2: review fixes (fresh-context reviewer, 3 medium and 6 low findings) ==
+- F1 (medium): fourth and later tests were bought and called "triple bottom". Now only the second
+  and third test are bought (A-ENTRY-02/-03 cover double and triple bottoms), and bottoms count only
+  since a low last went more than 3 points under the level (A-LEVELS-06). The 3-point band on both
+  sides and "no minimum time apart" (F3) are labelled engineering choices in the header.
+- F2 (medium): the signal card headline, the graduation exam's explanations and played-out line,
+  the Pro and Expert lessons and the Settings stop rule now describe the buy at an old bottom. The
+  lesson's sideways-range sentence follows OLD_LEVEL_BUYS_IN_RANGE, so it stays true whichever way
+  the owner decides.
+- F9 (medium, test gap): Guided Mode and the demo now place one shared order (lib/guided/order.ts);
+  tests cover the order builder, the order form's schema, the Guided card, the demo, crypto levels
+  and the portfolio manager (end to end, with a fake that returns only the selected columns). The
+  Guided route's own line is not unit tested (no route tests in this codebase).
+- F4: an old-level plan whose stop closes through before it arms never arms (stopClosedAt in the
+  confirmation evidence, a JSON field, no migration). Short mirror tested.
+- F5: the replay's first-candle fill on the arming session is now tested (O9 was not equivalent).
+  The continuation pass's old-level buy is tested too.
+- F6: closed by the window fix (both surfaces read completed sessions). F7: the merge gate on
+  migration 0086 stays. F8: OLD_LEVEL_BUYS_IN_RANGE stays on the recommended option while the
+  owner card is open, per protocol; nothing merges before his answer.
+- N1: the live exit reads the scan's own buying point (selectGannEntry) and an old-level position
+  has no crossed level, as in the replay.
+- Mutations: the reviewer's surviving gaps MA14, MA17, MA19, MA20, MA22, MA23, MA25, MA26, MA29 are
+  now caught; MA24 (Guided route line) is not. New fixes: 13 of 13 caught.
+- Same STRATEGY_VERSION (no run on it yet).

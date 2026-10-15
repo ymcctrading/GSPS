@@ -240,11 +240,18 @@ export function computeGannEntryTrigger(
  * the last completed top (pp.22, 47: sell against single, double or triple
  * tops, stop 3 points above).
  *
+ * Only the second and third test are bought: after three bottoms at the
+ * level there is no buy, since a fourth test is neither a double nor a triple
+ * bottom. Bottoms count as the same level when within 3 points of it and
+ * formed since a low last went more than 3 points under it, the margin by
+ * which Gann says a bottom still holds (A-LEVELS-06).
+ *
  * Engineering choices, labelled as such: the order is a limit at the level
- * (Gann says "buy at" the bottom and names no order type), and earlier bottoms
- * count as the same level when within 3 points of it, the margin by which
- * Gann says a bottom still holds (A-LEVELS-06). Neither moves the order or
- * the stop; `tests` is display.
+ * (Gann says "buy at" the bottom and names no order type); the 3-point band
+ * applies on both sides of the level; and the bottoms need no minimum time
+ * apart. Gann describes them as "weeks, months or a year or more apart"
+ * (A-ENTRY-02) without a floor, so any two completed swings of the 3-Day
+ * Chart count. None of these moves the order or the stop.
  */
 export function computeGannOldLevelEntry(
   bars: Bar[],
@@ -266,7 +273,23 @@ export function computeGannOldLevelEntry(
   }
   const points = Math.abs(buffered(pivot.price, sign, undefined) - pivot.price);
   const reactionStop = pivot.price - sign * points;
-  const tests = own.filter((p) => Math.abs(p.price - pivot.price) <= points).length;
+  // The bottoms that make the double or triple bottom: those within 3 points
+  // of the level since a low last went more than 3 points under it. A break
+  // like that ends the old level (A-LEVELS-06: a low not 3 points under the
+  // old lows shows support; one further under does not).
+  let since = 0;
+  for (let i = pivot.index - 1; i >= 0; i--) {
+    if (sign * ((sign === 1 ? bars[i].l : bars[i].h) - reactionStop) < 0) {
+      since = i + 1;
+      break;
+    }
+  }
+  const tests = own.filter((p) => p.index >= since && Math.abs(p.price - pivot.price) <= points).length;
+  // Gann's buying points are the double and triple bottom, the second and
+  // third test (A-ENTRY-02, -03). After three bottoms the order would buy a
+  // fourth, which neither covers; his own note is that a fourth test usually
+  // goes through (45 Years p.7, held as M-P6).
+  if (tests >= 3) return null;
   const opposite = [...pivots].reverse().find((p) => p.kind !== kind) ?? pivot;
   return {
     kind: "oldLevel",

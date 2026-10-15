@@ -50,6 +50,7 @@ import { parseOccSymbol } from "@/lib/portfolio/occ";
 import { killSwitchRefusal } from "@/lib/trade/kill-switch";
 import { isInvalidatedByStop } from "@/lib/trade/invalidate-pending";
 import { placeSimulatedOrder } from "@/lib/trade/place-order";
+import { guidedOrder } from "@/lib/guided/order";
 import {
   buildRecommendations,
   candidateSymbols,
@@ -315,30 +316,18 @@ export async function runDemoAutoTrade(supabase: SupabaseClient, now: Date = new
   };
 }
 
-async function placeRecommendation(
+/** Places one recommendation on the demo account. Exported for its test. */
+export async function placeRecommendation(
   supabase: SupabaseClient,
   userId: string,
   rec: Recommendation,
 ): Promise<DemoAutoTradeResult["placed"][number] | null> {
-  const placed = await placeSimulatedOrder(supabase, userId, {
-    symbol: rec.symbol,
-    assetClass: "equity",
-    side: rec.action,
-    qty: rec.qty,
-    entryMode: "advised",
-    limitPrice: rec.why.entry,
-    // The protocol's own pair: the confirmation reads its line from these.
-    entryStop: rec.why.stopLoss,
-    entryKind: rec.why.entryKind,
-    referencePrice: rec.currentPrice,
-    intradaySourced: false,
-    attachLevels: {
-      stopLoss: rec.why.stopLoss,
-      takeProfit: rec.why.takeProfit1,
-      masterProfit: rec.why.masterProfit,
-    },
-    mode: "paper",
-  });
+  // The same order Guided Mode places for this recommendation.
+  const placed = await placeSimulatedOrder(
+    supabase,
+    userId,
+    guidedOrder({ symbol: rec.symbol, side: rec.action, qty: rec.qty, referencePrice: rec.currentPrice, levels: rec.why }),
+  );
   if (placed.status >= 400) {
     console.error(`demo auto-trade: ${rec.symbol} order refused — ${JSON.stringify(placed.body)}`);
     return null;

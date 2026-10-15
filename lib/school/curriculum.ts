@@ -27,6 +27,7 @@
 
 import type { PlatformTier } from "@/lib/tiers";
 import type { QuizQuestion } from "@/lib/school/content";
+import { OLD_LEVEL_BUYS_IN_RANGE } from "@/lib/gann/breakaway";
 
 export const SCHOOL_CURRICULUM_PROGRAM_ID = "gsps-school-curriculum";
 export const CURRICULUM_VERSION = "2026.09.1";
@@ -710,6 +711,7 @@ const ACADEMY_4: Academy = {
           estimatedMinutes: 12,
           instruction: [
             "Mr. Bull's entry: first price has to close 3 points above the last swing top, so a brush against the level doesn't count. The 3 points grow with the price: about 3 on a $40 stock, 5 on a $100 stock. Crossing the top is the market proving the buyers are in control. Then he doesn't chase it: he buys the pullback, 1 point above the old top. A short is the mirror: a close 3 points under the last swing bottom, then a sell on the bounce, 1 point below it.",
+            "Mr. Bull has a second entry: a swing bottom that already held once. His buy rests right at that bottom, so when price comes back down to test it, a second test makes a double bottom and a third a triple bottom. GSPS buys only those two tests. Mrs. Bear's stop for it goes 3 points under the bottom, so this trade risks 3 points. A short is the mirror at an old top that held.",
             "Mrs. Bear's stop: the stop goes 3 points below the old top the buy was taken over (above the old bottom for a short), scaled to the price the same way. That puts 4 points at risk, never more than 5. If price gets back there, the idea was wrong. A stop that sits right on a round number or right on the level is where everyone else's stops are, so it goes a little beyond.",
             "After a breakout, a strong market shouldn't fall back far under the level it crossed. If it closes back under it, the breakout didn't hold, and GSPS treats that as a reason to leave.",
           ],
@@ -984,12 +986,13 @@ const ACADEMY_6: Academy = {
           ],
           estimatedMinutes: 16,
           instruction: [
-            "An entry starts with a close 3 points past an old swing top (long) or old swing bottom (short), so ordinary noise at the level doesn't count. GSPS then buys the reaction: the order rests 1 point past the old level and fills when price pulls back to it, on every path, including automation. In a sideways market GSPS stays out until price breaks away from the range, because a trade inside the range is only a guess at which way it will leave.",
-            "The stop goes 3 points the other side of the old level, so the trade risks 4 points. Targets are taken at the support and resistance levels the method identifies, not at a fixed percentage, falling back to a range-based target only when no level is near.",
+            "An entry starts with a close 3 points past an old swing top (long) or old swing bottom (short), so ordinary noise at the level doesn't count. GSPS then buys the reaction: the order rests 1 point past the old level and fills when price pulls back to it, on every path, including automation. In a sideways market GSPS does not take a crossing until price breaks away from the range, because a crossing inside the range is only a guess at which way it will leave.",
+            `The other entry is the double or triple bottom: a swing bottom that already held, with the order resting at the bottom itself, so its second or third test is bought (an old top that held, for a short). A fourth test is not bought. ${OLD_LEVEL_BUYS_IN_RANGE ? "This entry is taken inside a sideways range too, since the bottom is the range's own edge." : "Like a crossing, it waits for the breakaway in a sideways range."}`,
+            "The stop goes 3 points the other side of the old level, so a crossing risks 4 points and a double or triple bottom 3. Targets are taken at the support and resistance levels the method identifies, not at a fixed percentage, falling back to a range-based target only when no level is near.",
             "The method manages an open trade on the market's own structure: the stop moves to break-even once the trade has gained as much as it risked, then follows each higher swing bottom and the prior month's low. A trade is closed early if price closes back under the level it broke (the breakout did not hold), or closes against the trade three days in a row. GSPS manages every open trade this way: part of the position is taken off at the first target, a level from the chart, and the rest runs under these rules until the trend changes. No fixed final target is set for it.",
           ],
           application:
-            "Take one GSPS plan. Identify the old swing top or bottom it crosses, check that the entry sits 1 point past it and the stop 3 points the other side, and find the level its first target sits at.",
+            "Take one GSPS plan. Identify the old swing top or bottom it crosses or rests at, check that the entry sits 1 point past a crossed level (or at the old level itself) and the stop 3 points the other side, and find the level its first target sits at.",
           quiz: [
             q(
               "Where does a GSPS long entry come from?",

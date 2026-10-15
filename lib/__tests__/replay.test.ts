@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import { CRITERION_KEYS, type CriterionWeights } from "@/lib/scoring/weights";
-import { computeGannEntryTrigger, type GannEntryTrigger } from "@/lib/gann/entryTrigger";
-import { MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection } from "@/lib/scan/entrySelection";
+import { computeGannEntryTrigger, selectGannEntry, type GannEntryTrigger } from "@/lib/gann/entryTrigger";
+import { entryChartBars, MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection } from "@/lib/scan/entrySelection";
 import { reclaimLevel } from "@/lib/gann/stopBreach";
 import {
   MIN_DAILY_BARS_FOR_SCORE,
@@ -574,6 +574,26 @@ describe("replay continuation setups", () => {
     ].map((b) => ({ o: b.o, h: Math.max(b.h, b.l), l: Math.min(b.h, b.l), c: b.c })));
     const r = replay("TEST", bars, { entryRule: "stop", targetR: 2, dailyBars: DAILY });
     expect(r.trades.every((t) => t.setupKind === "reversion")).toBe(true);
+  });
+
+  it("buys a continuation at an old bottom when that is the nearer buying point", () => {
+    // Three sessions later the reaction sits nearer the last bottom than any
+    // crossing, so the continuation, like the live scan's, rests at the bottom
+    // (PLAN.md item 5, step 2).
+    const later = risingDaily(303, DAY);
+    const sel = selectGannEntry(entryChartBars(later, DAY), "bullish")!;
+    expect(sel.kind).toBe("oldLevel");
+    const L = sel.level;
+    const hold = Array.from({ length: 44 }, (_, i) => {
+      const c = L + 2 + [0, 0.2, 0.4, 0.2][i % 4];
+      return { o: c, h: c + 0.3, l: c - 0.3, c };
+    });
+    const test = { o: L + 1, h: L + 1.2, l: L - 0.1, c: L + 0.5 };
+    const r = replay("TEST", intraday([...hold, test, { o: L + 1, h: L + 1.3, l: L + 0.8, c: L + 1 }]), { targetR: 2, dailyBars: later });
+    const cont = r.trades.filter((t) => t.setupKind === "continuation");
+    expect(cont).toHaveLength(1);
+    expect(cont[0].direction).toBe("bullish");
+    expect(cont[0].entry).toBeCloseTo(L, 8);
   });
 
   it("splits a run by setup kind without losing a trade", () => {

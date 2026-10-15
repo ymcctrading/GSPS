@@ -37,6 +37,7 @@ import { sizeGuidedTrade } from "@/lib/guided/sizing";
 import { LIVE_BROKERAGE_BLOCK, resolveGuidedCaps } from "@/lib/guided/config";
 import { getGuidedPolicy } from "@/lib/guided/policy";
 import { hasLiveBrokerage, readGuidedAccount, resolveShortable } from "@/lib/guided/service";
+import { guidedOrder } from "@/lib/guided/order";
 
 // Unset falls back to Vercel Hobby's 10s default (see app/api/scan/route.ts's
 // comment) -- shorter than a single scanTicker call plus a broker round trip
@@ -214,29 +215,19 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const placed = await placeSimulatedOrder(supabase, user.id, {
-    symbol: rec.symbol,
-    assetClass: "equity",
-    side,
-    qty: rec.qty,
-    // At the protocol's entry price, exactly as the "Protocol Recommended" path
-    // does from the ticket — never a market order at whatever is on the screen.
-    entryMode: "advised",
-    limitPrice: agreed.entry,
-    // The protocol's own pair: the confirmation reads its line from these.
-    entryStop: agreed.stopLoss,
-    entryKind: fresh.levels?.entryKind,
-    referencePrice: fresh.currentPrice,
-    // Guided Decision Mode, never the intraday alerts panel — this is not
-    // subject to the intraday-promotion gates.
-    intradaySourced: false,
-    attachLevels: {
-      stopLoss: agreed.stopLoss,
-      takeProfit: agreed.takeProfit1,
-      masterProfit: agreed.masterProfit,
-    },
-    mode: "paper",
-  });
+  // The agreed levels, with the kind of buying point the fresh scan priced
+  // them from (it matched those levels to the cent above).
+  const placed = await placeSimulatedOrder(
+    supabase,
+    user.id,
+    guidedOrder({
+      symbol: rec.symbol,
+      side,
+      qty: rec.qty,
+      referencePrice: fresh.currentPrice,
+      levels: { ...agreed, entryKind: fresh.levels?.entryKind },
+    }),
+  );
 
   if (placed.status >= 400) {
     // The claim was optimistic and no order exists, so it is released back to
