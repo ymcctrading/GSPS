@@ -77,6 +77,22 @@ describe("counter-move clock (Master Course Ch. 11B; Stock Selector Ch. IV)", ()
     expect(r.phase).toBe("normal");
   });
 
+  // W006 p.38 (A-TIME-02): in a bear market a rally into a 2nd month is
+  // weakness; one that runs into a 3rd month is a change. The clock reads the
+  // bear side exactly as the bull side (Polarity).
+  it("times a rally against a bearish trend in the same phases", () => {
+    const decline = Array.from({ length: 60 }, (_, i) => 200 - i * 1.5); // 200 -> 111.5
+    const rally = (n: number) => Array.from({ length: n }, (_, i) => 111.5 + (i + 1) * 0.2);
+    const second = readCounterMove(daily([...decline, ...rally(45)]))!;
+    expect(second.trend).toBe("bearish");
+    expect(second.inCounterMove).toBe(true);
+    expect(second.days).toBe(45);
+    expect(second.phase).toBe("secondMonth");
+    const third = readCounterMove(daily([...decline, ...rally(70)]))!;
+    expect(third.trend).toBe("bearish");
+    expect(third.phase).toBe("thirdMonth");
+  });
+
   it("reports no counter-move while the trend is running", () => {
     const r = readCounterMove(daily(Array.from({ length: 30 }, (_, i) => 100 + i)))!;
     expect(r.inCounterMove).toBe(false);

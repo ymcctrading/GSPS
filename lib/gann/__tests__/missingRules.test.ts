@@ -50,3 +50,61 @@ describe("shares per point", () => {
     if (r) expect(r.ratio).toBeGreaterThan(0);
   });
 });
+
+/** 6 bars up 1.0, 3 bars down 0.5, repeated, then a final 6-bar up leg. */
+function steppingCampaign(cycles: number): number[] {
+  const out: number[] = [];
+  let p = 100;
+  for (let k = 0; k < cycles; k++) {
+    for (let i = 0; i < 6; i++) out.push((p += 1));
+    for (let i = 0; i < 3; i++) out.push((p -= 0.5));
+  }
+  for (let i = 0; i < 6; i++) out.push((p += 1));
+  return out;
+}
+
+// W006 Volume Rule (campaign comparison, A-VOLUME-11): much more volume for
+// fewer points near the high warns of a top. GSPS compares the current up
+// leg with the prior one (sharesPerPoint.ts, TOP_WARNING_RATIO 1.8).
+describe("shares per point: the top warning", () => {
+  it("warns when the current up leg takes far more volume per point near the high", () => {
+    const closes = steppingCampaign(8);
+    const heavyFrom = closes.length - 6;
+    const r = readSharesPerPoint(bars(closes, (i) => (i >= heavyFrom ? 5e6 : 1e6)))!;
+    expect(r).not.toBeNull();
+    expect(r.ratio).toBeGreaterThanOrEqual(1.8);
+    expect(r.nearHigh).toBe(true);
+    expect(r.topWarning).toBe(true);
+  });
+
+  it("does not warn when volume per point is unchanged", () => {
+    const r = readSharesPerPoint(bars(steppingCampaign(8)))!;
+    expect(r).not.toBeNull();
+    expect(r.ratio).toBeLessThan(1.8);
+    expect(r.topWarning).toBe(false);
+  });
+});
+
+// W006 pp.27-29 / Stock Selector Ch. VII: early leaders in a bear market top
+// first; late tops make late bottoms (A-SELECTION-03, A-TIME-08).
+describe("leadership: topping first and bottoming late", () => {
+  it("marks a stock whose high came 10+ days before the market's as toppedFirst", () => {
+    const stock = bars(Array.from({ length: 120 }, (_, i) => (i < 40 ? 100 + i : 140 - (i - 40) * 0.5)));
+    const market = bars(Array.from({ length: 120 }, (_, i) => (i < 80 ? 300 + i : 380 - (i - 80) * 0.5)));
+    const r = readLeadership(stock, market)!;
+    expect(r.toppedFirst).toBe(true);
+  });
+
+  it("does not mark toppedFirst when the stock topped with the market", () => {
+    const series = Array.from({ length: 120 }, (_, i) => (i < 80 ? 100 + i : 180 - (i - 80) * 0.5));
+    expect(readLeadership(bars(series), bars(series.map((c) => c * 3)))!.toppedFirst).toBe(false);
+  });
+
+  it("marks a stock whose low came 10+ days after the market's as bottomedLate", () => {
+    const stock = bars(Array.from({ length: 120 }, (_, i) => (i < 70 ? 100 - i * 0.5 : 65 + (i - 70) * 0.5)));
+    const market = bars(Array.from({ length: 120 }, (_, i) => (i < 30 ? 400 - i : 370 + (i - 30) * 0.5)));
+    const r = readLeadership(stock, market)!;
+    expect(r.bottomedLate).toBe(true);
+    expect(r.bottomedFirst).toBe(false);
+  });
+});
