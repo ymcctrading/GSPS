@@ -15,9 +15,9 @@
  *   ?since=2026-06-15      replay only bars at or after this instant
  *   ?productionStop=1      walk the leeway/large-cap-widened stop instead of
  *                          the raw pattern one — see ReplayOptions.useProductionStop
- *   ?entryRule=confirmed   fill on the full entry-confirmation sequence (how
- *                          automation enters) instead of the resting stop
- *                          (how the ticket/Guided enter). See ReplayOptions.entryRule
+ *   ?entryRule=stop        fill on the old resting stop or the retest-and-hold
+ *   ?entryRule=confirmed   sequence instead of the reaction buy every path
+ *                          uses since PLAN.md item 4. See ReplayOptions.entryRule
  *   ?reclaimPoints=5       how many of Gann's points a close must clear a broken
  *                          stop by for the plan to stand again: 3 (default, the
  *                          live scan's figure) or 5 (the stricter reading). See

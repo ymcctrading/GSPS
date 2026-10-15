@@ -76,3 +76,15 @@
 - A-STOP-01 ("a stop on every trade") held for the owner's card; a server + ticket draft is stashed
   (stash "stop-required"): it refuses entries without a stop and disables the ticket button, and needs
   the put-shortcut and Manual Override ticket tests reworked.
+
+== 2026-10-15 item 5 step 1: the crossed level holds through the reaction ==
+- Map: docs/gann-feature-map/item5_map.md (defects 1-4 in the shared crossing pipeline).
+- Defect 1: computeGannEntryTrigger keeps the newest crossed, unbroken level as the buying point
+  (crossedLevelStillHeld) instead of moving to the top a 3-day reaction completes. The intraday replay
+  profile keeps the breakout read (holdCrossedLevel=false; not yet moved to the reaction entry).
+- Defect 2: plan confirmations read the last four days or from the plan's generation, whichever is earlier.
+- Defect 3: replay and backtest default entryRule is "reaction"; replay.test.ts pins "stop" explicitly.
+- Defect 4 (stored geometry) deferred until a buying point with another shape is built; it needs a migration.
+- Tests first: crossedLevel.test.ts (4), confirmNow (1). Mutations: hold off, never broken, crossing at the
+  level, window since-only: all caught. STRATEGY_VERSION 2026-10-15-gann-crossed-level-held.
+- Full suite 2395 passed, tsc clean, terms clean.

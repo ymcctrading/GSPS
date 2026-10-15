@@ -214,14 +214,13 @@ export interface ReplayOptions {
    */
   roundNumberHold?: boolean;
   /**
-   * Which entry rule fills the trade. Production uses both, on different
-   * paths:
+   * Which entry rule fills the trade. Since PLAN.md item 4 (2026-10-15)
+   * every production path enters on `"reaction"`, which is the default; the
+   * other two are kept to measure against it.
    *
-   * - `"stop"` (default): a resting stop order at the trigger, filled the
-   *   moment a candle reaches it (at the open when it gaps past). This is how
-   *   the manual ticket, Guided Mode and the demo account enter. Their
-   *   advised entries rest as stop-entries at the trigger
-   *   (`lib/brokers/simulator.ts#isTriggered`).
+   * - `"stop"`: a resting stop order at the trigger, filled the moment a
+   *   candle reaches it (at the open when it gaps past). This is how the
+   *   manual ticket, Guided Mode and the demo account entered until item 4.
    * - `"confirmed"`: the full entry-confirmation sequence
    *   (`lib/lifecycle/entryConfirmation.ts`: touch, a close beyond the
    *   trigger by the 3-point-rule buffer, a retest, then a close that holds).
@@ -233,7 +232,7 @@ export interface ReplayOptions {
    * Added 2026-09-26 (alignment audit F3.4). Before this the replay measured
    * only the stop entry, so nothing measured the rule automation trades on.
    *
-   * - `"reaction"` (2026-10-15, PLAN.md item 4): Gann's own crossing rule
+   * - `"reaction"` (default; 2026-10-15, PLAN.md item 4): Gann's own crossing rule
    *   (W006 pp.20, 46-47). A close 3 points beyond the old level crosses it;
    *   the buy is a limit on the reaction, 1 point past the level
    *   (`reactionEntry`), filled at that price or at the open when a candle
@@ -654,7 +653,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     useProductionStop = false,
     usePlanLevels = false,
     roundNumberHold = false,
-    entryRule = "stop",
+    entryRule = "reaction",
     exitRule = "bracket",
     reclaimPoints = RECLAIM_POINTS,
     pyramid = false,

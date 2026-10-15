@@ -57,6 +57,15 @@ describe("readEntryConfirmationNow under the 3-point crossing rule", () => {
     expect(r.ready).toBe(true);
   });
 
+  it("counts a crossing made before the plan was generated", async () => {
+    fetchBars.mockResolvedValue([yesterday, today]);
+    const r = await readEntryConfirmationNow({
+      symbol: "AAPL", assetClass: "us_equity", direction: "bullish", entryTrigger: 101, stopPrice: 97,
+      since: "2026-10-15T14:00:00Z", now,
+    });
+    expect(r.ready).toBe(true);
+  });
+
   it("keeps today's session only for the retest-and-hold sequence", async () => {
     fetchBars.mockResolvedValue([yesterday, today]);
     const r = await readEntryConfirmationNow({ symbol: "AAPL", assetClass: "us_equity", direction: "bullish", entryTrigger: 101, now });

@@ -133,14 +133,16 @@ export async function readEntryConfirmationNow(input: {
   const sinceMs = input.since ? Date.parse(input.since) : NaN;
   const start = new Date(Number.isFinite(sinceMs) ? Math.min(sinceMs, fourDays) : fourDays);
   const bars = await getMarketDataProvider().fetchBars(input.symbol, EXECUTION_TIMEFRAME, start, null, input.assetClass);
-  // Gann's crossing can close on one day and the reaction come the next, so
-  // without a plan's generation time his rule reads every closed bar fetched
-  // (the last four days); a later close through the stop calls it off. The
-  // four days is an engineering choice, not a figure from Gann. The
-  // retest-and-hold sequence keeps today's session.
+  // Gann's crossing can close on one day and the reaction come the next, and
+  // a plan is often generated after the crossing it buys (PLAN.md item 5,
+  // defect 2). So his rule reads every closed bar fetched: the last four days,
+  // or from the plan's generation time when that is earlier. A later close
+  // through the stop calls it off. The four days is an engineering choice,
+  // not a figure from Gann. The retest-and-hold sequence keeps today's
+  // session, or the bars since the plan.
   const window =
-    input.since == null && input.stopPrice != null
-      ? bars.filter((b) => Date.parse(b.t) + intervalMs <= now.getTime())
+    input.stopPrice != null
+      ? bars.filter((b) => Date.parse(b.t) + intervalMs <= now.getTime() && Date.parse(b.t) >= start.getTime())
       : closedSessionBars(bars, now, intervalMs, input.since);
   return confirmationFromBars(
     window,

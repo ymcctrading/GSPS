@@ -148,6 +148,13 @@ export function computeGannEntryTrigger(
   swingDays: number = ENTRY_TRIGGER_SWING_DAYS,
   /** Overrides Gann's price-scaled 3 points (the intraday replay scales its own). */
   bufferPct?: number,
+  /**
+   * Keep a crossed, unbroken level as the buying point (the reaction buy).
+   * The intraday replay profile still measures the breakout through the
+   * latest swing, so it passes false; it has not been moved to the reaction
+   * entry (PLAN.md item 5).
+   */
+  holdCrossedLevel = true,
 ): GannEntryTrigger | null {
   const pivots = swingPivots(bars, swingDays);
   if (pivots.length < 2) return null;
@@ -160,7 +167,7 @@ export function computeGannEntryTrigger(
   // short is the mirror image. Nothing here is direction-agnostic by
   // accident — Gann states the Buying Points and Selling Points separately
   // and they are symmetric, so the mirror is the rule, not a shortcut.
-  const pivot = direction === "bullish" ? lastTop : lastBottom;
+  const pivot = (holdCrossedLevel ? crossedLevelStillHeld(bars, pivots, direction, bufferPct) : null) ?? (direction === "bullish" ? lastTop : lastBottom);
   const protectivePivot = direction === "bullish" ? lastBottom : lastTop;
 
   const triggerPrice = buffered(pivot.price, direction === "bullish" ? 1 : -1, bufferPct);
@@ -184,6 +191,51 @@ export function computeGannEntryTrigger(
   const reactionEntry = pivot.price + (sign * points) / 3;
   const reactionStop = pivot.price - sign * points;
   return { direction, triggerPrice, stopPrice, pivot, level: pivot.price, reactionEntry, reactionStop, protectivePivot, swingDays };
+}
+
+/**
+ * The newest old top (bottom for a short) that a close has already crossed by
+ * 3 points and no later close has broken back through by 3 points, or null.
+ *
+ * Gann's buy is on the reaction after the crossing, and the crossed level
+ * holds until it is bought or broken (W006 pp.20, 46-47; PLAN.md item 5,
+ * defect 1). A reaction of 3 days or more completes a new top at the high
+ * after the crossing; without this, the buying point would move to that new
+ * top and the reaction buy Gann describes would never be placed.
+ */
+function crossedLevelStillHeld(
+  bars: Bar[],
+  pivots: SwingPivot[],
+  direction: TriggerDirection,
+  bufferPct?: number,
+): SwingPivot | null {
+  const kind = direction === "bullish" ? "top" : "bottom";
+  const sign = direction === "bullish" ? 1 : -1;
+  for (let k = pivots.length - 1; k >= 0; k--) {
+    const p = pivots[k];
+    if (p.kind !== kind) continue;
+    const line = buffered(p.price, sign, bufferPct);
+    const stop = buffered(p.price, sign === 1 ? -1 : 1, bufferPct);
+    let crossedAt = -1;
+    for (let i = p.index + 1; i < bars.length; i++) {
+      if (sign * (bars[i].c - line) >= 0) {
+        crossedAt = i;
+        break;
+      }
+    }
+    if (crossedAt < 0) continue;
+    let broken = false;
+    for (let i = crossedAt + 1; i < bars.length; i++) {
+      if (sign * (bars[i].c - stop) <= 0) {
+        broken = true;
+        break;
+      }
+    }
+    // The newest crossed level decides: once it is broken, the older ones
+    // beneath it are not revived.
+    return broken ? null : p;
+  }
+  return null;
 }
 
 /**

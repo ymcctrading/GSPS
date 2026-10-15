@@ -200,7 +200,7 @@ export function replayIntraday(symbol: string, bars: Bar[], options: IntradayRep
 
     // Arm the plan the swing chart prices now, with the trend only.
     if (direction && point > 0) {
-      const trigger = computeGannEntryTrigger(history, direction, SWING_BARS, bufferPct);
+      const trigger = computeGannEntryTrigger(history, direction, SWING_BARS, bufferPct, false);
       if (trigger) {
         const pivotKey = `${trigger.direction}:${trigger.pivot.kind}:${history[trigger.pivot.index].t}`;
         const planKey = `${pivotKey}|${trigger.stopPrice.toFixed(4)}`;

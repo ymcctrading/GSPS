@@ -58,4 +58,8 @@
 // The paper simulator fills limits as limits. Replay rule: entryRule "reaction".
 // Gann's exits also trail the stop 3 points under each completed week's bottom
 // (over its top when short) once the trade is into a new week (W006 p.46).
-export const STRATEGY_VERSION = "2026-10-15-gann-reaction-entry";
+// PLAN.md item 5, step 1: the crossed level stays the buying point through a
+// reaction until a close breaks it by 3 points, instead of moving to the new
+// top the reaction completes; plan confirmations read back past the plan's
+// generation; the replay defaults to the reaction rule.
+export const STRATEGY_VERSION = "2026-10-15-gann-crossed-level-held";

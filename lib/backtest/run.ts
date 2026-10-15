@@ -119,7 +119,7 @@ export interface BacktestRequest {
   usePlanLevels?: boolean;
   /** Add to winners on Gann's pyramiding rules. See `ReplayOptions.pyramid`. */
   pyramid?: boolean;
-  /** Which entry rule fills trades. See `ReplayOptions.entryRule`. Defaults to `"stop"`. */
+  /** Which entry rule fills trades. See `ReplayOptions.entryRule`. Defaults to `"reaction"`, the production rule. */
   entryRule?: ReplayOptions["entryRule"];
   /** How open trades leave. See `ReplayOptions.exitRule`. Defaults to `"bracket"`. */
   exitRule?: ReplayOptions["exitRule"];
@@ -541,7 +541,7 @@ export function buildReport(
   request: BacktestRequest,
   slippageSensitivity?: SlippageSensitivity,
 ): BacktestReport {
-  const { attributeWithin = "Execute", attributeScoreRange, useProductionStop = false, usePlanLevels = false, entryRule = "stop", exitRule = "bracket", reclaimPoints = RECLAIM_POINTS, profile = "swing" } = request;
+  const { attributeWithin = "Execute", attributeScoreRange, useProductionStop = false, usePlanLevels = false, entryRule = "reaction", exitRule = "bracket", reclaimPoints = RECLAIM_POINTS, profile = "swing" } = request;
 
   const split = byOutputState(run.overall);
   const target = attributeScoreRange
