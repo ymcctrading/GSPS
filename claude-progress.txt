@@ -15,3 +15,21 @@
   (A-PYRAMID-04, C-TIME-10, C-LEVELS-17, C-TIME-41, CYC-29) and go to item 2.
 - Script check: only the `passes` field changed in gann_features.json (7 entries).
 - UNVERIFIABLE (77) and UNDISCLOSED (23) entries were not candidates.
+
+## 2026-10-15 — Item 2: tests for implemented-but-untested Gann rules (no product code change)
+- Worktree ../gsps-item2, branch item2-untested-rules; commits 1fa1084 and dd2a475, merged.
+- New/extended tests: lib/analysis/__tests__/trend.test.ts (new), campaignLedger, volumeRule, missingRules,
+  disclosedRules, equity-levels, gann (timeCycles), retracement, pyramid.
+- Each new assertion was mutation-checked: the product rule was broken in a scratch copy and the test failed.
+  The reviewer found two tests that still passed with their rule removed; both were tightened (dd2a475) and re-checked.
+- npx vitest run -> 234 files, 2335 tests passed; npx tsc --noEmit clean; eslint clean on changed files.
+- Fresh reviewer: docs/gann-feature-map/item2_review.md.
+- passes -> true (4): A-PYRAMID-04 (pyramid.test.ts "never adds to a losing position"),
+  C-TIME-10 (gann.test.ts "opens a window on each of the ten degree counts..."),
+  C-LEVELS-17 (retracement.test.ts "places 3/8 and 5/8 at their eighths"),
+  C-TIME-41 (gann.test.ts "opens a window on the same calendar date a year after a pivot").
+- Still failing: A-TIME-30 (years/degrees not built; no 360/180 assertion).
+- Deferred: the 5-point stop cap test (A-STOP-02) fails today, so it belongs to item 4.
+- Found, not fixed (needs its own item): CYC-29 — a pure linear trend still reads dominance 5.04 after
+  detrending; only the band-edge guard stops it being called a cycle.
+- Total passing: 11 of 342.

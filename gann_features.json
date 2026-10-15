@@ -699,7 +699,7 @@
     "class": "A",
     "gsps_location": "lib/gann/pyramid.ts:readPyramidAdd",
     "test": "lib/gann/__tests__/pyramid.test.ts > readPyramidAdd > never adds to a position that hasn't earned a full risk unit",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-PYRAMID-05",
@@ -1869,7 +1869,7 @@
     "class": "C",
     "gsps_location": "lib/gann/timeCycles.ts:timeCycles (WHEEL_COUNTS, identical list); lib/gann/disclosedRules.ts:readYearFraction (YEAR_FRACTIONS)",
     "test": "lib/__tests__/gann.test.ts > timeCycles > tags a low-anchored window bullish and a high-anchored window bearish",
-    "passes": false
+    "passes": true
   },
   {
     "id": "C-TIME-11",
@@ -2283,7 +2283,7 @@
     "class": "C",
     "gsps_location": "lib/gann/retracement.ts:computeRetracementLevels (eighths, thirds, sixteenths, full; 1/2 ranked first)",
     "test": "lib/gann/__tests__/retracement.test.ts > computeRetracementLevels > assigns the disclosed importance ranking: 1/2 highest, then full retracement, then 1/4, 1/8, 1/16, thirds lowest",
-    "passes": false
+    "passes": true
   },
   {
     "id": "C-LEVELS-18",
@@ -2337,7 +2337,7 @@
     "class": "C",
     "gsps_location": "lib/gann/timeCycles.ts:timeCycles, yearCycleConvergence (1-year cycle in MAJOR_CYCLE_YEARS); lib/gann/disclosedRules.ts:readYearFraction (360 days, rank 1)",
     "test": "lib/__tests__/cycle-ranking.test.ts > yearCycleConvergence > counts a major low exactly one cycle length back as a bullish hit",
-    "passes": false
+    "passes": true
   },
   {
     "id": "C-TIME-42",
