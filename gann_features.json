@@ -24,7 +24,7 @@
     "class": "A",
     "gsps_location": "lib/gann/swingChart.ts:walkSwingChart",
     "test": "lib/gann/__tests__/swingChart.test.ts > walkSwingChart: the trend > turns bearish when price breaks the last completed swing bottom",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-TREND-04",
@@ -690,7 +690,7 @@
     "class": "A",
     "gsps_location": "lib/gann/pyramid.ts:readPyramidAdd",
     "test": "lib/gann/__tests__/pyramid.test.ts > readPyramidAdd > never adds to a position that hasn't earned a full risk unit",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-PYRAMID-04",
@@ -708,7 +708,7 @@
     "class": "A",
     "gsps_location": "lib/gann/pyramid.ts:readPyramidAdd (each add half the last lot)",
     "test": "lib/gann/__tests__/pyramid.test.ts > readPyramidAdd > adds half the last lot at the crossed swing top and lifts the stop to break-even",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-PYRAMID-06",
@@ -834,7 +834,7 @@
     "class": "A",
     "gsps_location": "lib/gann/volumeClimax.ts:computeVolumeClimax (dryingUp); lib/scoring/score.ts:computeScore (volumeClimax)",
     "test": "lib/gann/__tests__/volumeRule.test.ts > the volume rule at a low (parity D1) > confirms a normal bottom on drying-up volume and a narrowing range",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-VOLUME-05",
@@ -2049,7 +2049,7 @@
     "class": "C",
     "gsps_location": "lib/gann/multipleTops.ts:readMultipleTops; lib/gann/disclosedRules.ts:readLevelTests",
     "test": "lib/gann/__tests__/timeRulesAndTops.test.ts > double and triple tops > reads a triple top that failed on its third test",
-    "passes": false
+    "passes": true
   },
   {
     "id": "C-PRICE-02",
@@ -2625,7 +2625,7 @@
     "class": "CYCLE",
     "gsps_location": "lib/gann/spectralCycle.ts:detectSpectralCycle (dominance = peak/mean power ≥ DOMINANCE_THRESHOLD 3.0; log closes, linear detrend)",
     "test": "lib/gann/__tests__/spectralCycle.test.ts > detectSpectralCycle > detects a clean embedded 20-bar sinusoidal cycle as dominant",
-    "passes": false
+    "passes": true
   },
   {
     "id": "CYC-03",
@@ -3003,7 +3003,7 @@
     "class": "CYCLE",
     "gsps_location": "lib/gann/spectralCycle.ts:detectSpectralCycle (atBandEdge: a peak at the longest scanned period is never active)",
     "test": "lib/gann/__tests__/spectralCycle.test.ts > F3 cycle checks: cosinor, artifact guards, hold-out > does not call a curved trend's leftover a cycle",
-    "passes": false
+    "passes": true
   },
   {
     "id": "CYC-45",

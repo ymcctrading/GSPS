@@ -4,3 +4,14 @@
 - Commit ab5d7f2: NOTES.md, gann_features.json (342 entries, all passes:false), PLAN.md, docs/gann-feature-map/.
 - Baseline: npx vitest run -> 233 files, 2314 tests passed.
 - Chuck approved items 1 and 2; pass rule = Gann one-for-one, documented price scaling allowed; item 3 to use full 3 points.
+
+## 2026-10-15 — Item 1: verification sweep (no product change)
+- Ran every test file cited by an A/C/CYCLE entry: npx vitest run <29 files> -> 29 files, 242 tests passed.
+- 62 A/C/CYCLE entries cite an existing test; 43 record a structural difference in gsps_location and cannot pass as is.
+- Fresh-context reviewer checked the other 19 against the pass rule (docs/gann-feature-map/item1_sweep_review.md).
+- passes -> true (7): A-TREND-03, A-PYRAMID-03, A-PYRAMID-05, A-VOLUME-04, C-SWING-03, CYC-02, CYC-44.
+- Failed (12), reasons in the review: A-TREND-02, A-TIME-12, A-TIME-30, A-ENTRY-03, A-PYRAMID-04, A-VOLUME-06,
+  A-LEVELS-01, A-LEVELS-04, C-TIME-10, C-LEVELS-17, C-TIME-41, CYC-29. Five of these are test-only gaps
+  (A-PYRAMID-04, C-TIME-10, C-LEVELS-17, C-TIME-41, CYC-29) and go to item 2.
+- Script check: only the `passes` field changed in gann_features.json (7 entries).
+- UNVERIFIABLE (77) and UNDISCLOSED (23) entries were not candidates.
