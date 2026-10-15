@@ -53,6 +53,36 @@ describe("buildCampaignLedger", () => {
     expect(l.timeBalanceDates.length).toBe(1);
   });
 
+  // Monthly-low break (W006; parity G6): the first break of the prior
+  // month's low turns a bull campaign, mirrored for a bear campaign's high.
+  it("flags a bull campaign's bar that breaks the prior month's low", () => {
+    // 2026-01-01 .. 2026-03-14 stepping up, then a drop through February's low.
+    const up = steppingAdvance(8);
+    const ledgerBefore = buildCampaignLedger(daily(up))!;
+    expect(ledgerBefore.trend).toBe("bullish");
+    expect(ledgerBefore.monthlyBreak).toBe(false);
+    const bars = daily(up);
+    const febLow = Math.min(...bars.filter((b) => b.t.startsWith("2026-02")).map((b) => b.l));
+    const last = bars[bars.length - 1];
+    bars.push({ ...last, t: new Date(Date.parse(last.t) + 86_400_000).toISOString(), c: febLow - 1, o: last.c, h: last.c, l: febLow - 1.5 });
+    expect(bars[bars.length - 1].t.slice(0, 7)).toBe("2026-03");
+    const l = buildCampaignLedger(bars)!;
+    expect(l.trend).toBe("bullish");
+    expect(l.monthlyBreak).toBe(true);
+  });
+
+  it("flags a bear campaign's bar that breaks the prior month's high (the mirror)", () => {
+    const down = steppingAdvance(8).map((c) => 300 - c);
+    const bars = daily(down);
+    expect(buildCampaignLedger(bars)!.monthlyBreak).toBe(false);
+    const febHigh = Math.max(...bars.filter((b) => b.t.startsWith("2026-02")).map((b) => b.h));
+    const last = bars[bars.length - 1];
+    bars.push({ ...last, t: new Date(Date.parse(last.t) + 86_400_000).toISOString(), c: febHigh + 1, o: last.c, l: last.c, h: febHigh + 1.5 });
+    const l = buildCampaignLedger(bars)!;
+    expect(l.trend).toBe("bearish");
+    expect(l.monthlyBreak).toBe(true);
+  });
+
   it("returns null on too little history", () => {
     expect(buildCampaignLedger(daily([1, 2, 3]))).toBeNull();
   });

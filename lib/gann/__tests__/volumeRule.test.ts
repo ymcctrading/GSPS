@@ -45,3 +45,43 @@ describe("the volume rule at a low (parity D1)", () => {
     expect(low.confirms).toBe(false);
   });
 });
+
+/** A rise into a high, then a decline, with volume and range set for the last bars into the high. */
+function rallyThenDecline(intoHigh: { volume: number; range: number }): Bar[] {
+  const rows: Array<[number, number, number]> = [];
+  for (let i = 0; i < 30; i++) rows.push([70 + i, 1000, 2]); // steady advance on normal volume
+  for (let i = 0; i < 5; i++) rows.push([100 + i * 0.5, intoHigh.volume, intoHigh.range]); // into the high
+  for (let i = 1; i <= 8; i++) rows.push([102 - i, 1000, 2]); // decline away
+  return bars(rows);
+}
+
+// W006 pp.39-40 (Volume Rules 1-2) and Rule 7 p.48: volume swells at tops.
+// A top that comes on drying-up volume is Gann's bottom pattern, not a top.
+describe("the volume rule at a high (W006 pp.39-40, 48)", () => {
+  it("confirms a top made on heavy volume", () => {
+    const high = computeVolumeClimax(rallyThenDecline({ volume: 4000, range: 4 })).find((r) => r.anchorKind === "high")!;
+    expect(high.climax).toBe(true);
+    expect(high.confirms).toBe(true);
+  });
+
+  it("does not confirm a top on drying-up volume (that is the bottom pattern)", () => {
+    const high = computeVolumeClimax(rallyThenDecline({ volume: 400, range: 0.8 })).find((r) => r.anchorKind === "high")!;
+    expect(high.dryingUp).toBe(true);
+    expect(high.climax).toBe(false);
+    expect(high.retestOnLowerVolume).toBe(false);
+    expect(high.confirms).toBe(false);
+  });
+
+  it("confirms a secondary top that reaches the first on lower volume", () => {
+    const rows: Array<[number, number, number]> = [];
+    for (let i = 0; i < 30; i++) rows.push([70 + i, 1000, 2]);
+    rows.push([100, 3000, 2]); // first top on heavy volume
+    for (let i = 1; i <= 6; i++) rows.push([100 - i, 1000, 2]);
+    for (let i = 1; i <= 6; i++) rows.push([94 + i, 1000, 2]);
+    rows.push([100.2, 1500, 2]); // secondary top at the same level, less volume
+    for (let i = 1; i <= 6; i++) rows.push([100 - i, 1000, 2]);
+    const high = computeVolumeClimax(bars(rows)).find((r) => r.anchorKind === "high")!;
+    expect(high.retestOnLowerVolume).toBe(true);
+    expect(high.confirms).toBe(true);
+  });
+});

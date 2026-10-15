@@ -1,0 +1,3080 @@
+[
+  {
+    "id": "A-TREND-01",
+    "rule": "Read the main trend from a monthly high-low chart, the weekly chart next (Ch. VII calls the weekly the best chart for trading), and the daily only for fast, active stocks.",
+    "source": "W006 p.19",
+    "class": "A",
+    "gsps_location": "lib/analysis/trend.ts:readTrend; lib/gann/timeframeWeight.ts:weightedTrendAgreement; lib/scan/entrySelection.ts:preferredEntryDirection — differs: monthly/weekly/daily are weighted 30/7/1 and always all read, rather than daily used only for fast stocks",
+    "test": "lib/gann/__tests__/timeframeWeight.test.ts > weightedTrendAgreement > lets a single monthly trend outweigh two flat 2-of-3 daily/weekly votes against it",
+    "passes": false
+  },
+  {
+    "id": "A-TREND-02",
+    "rule": "Higher tops with higher bottoms mean an uptrend; lower tops with lower bottoms mean a downtrend.",
+    "source": "W006 pp.19-20",
+    "class": "A",
+    "gsps_location": "lib/gann/trendStrength.ts:readGannTrend; lib/analysis/trend.ts:readTrend — differs: read off the 3-Day and 7-day swing charts' pivots, applied to monthly/weekly/daily bars alike",
+    "test": "lib/gann/__tests__/trendStrength.test.ts > readGannTrend > confirms a stepping uptrend",
+    "passes": false
+  },
+  {
+    "id": "A-TREND-03",
+    "rule": "Breaking the point from which the last run-up started turns the main trend down (mirror for an upturn by Polarity).",
+    "source": "W006 pp.19-20",
+    "class": "A",
+    "gsps_location": "lib/gann/swingChart.ts:walkSwingChart",
+    "test": "lib/gann/__tests__/swingChart.test.ts > walkSwingChart: the trend > turns bearish when price breaks the last completed swing bottom",
+    "passes": true
+  },
+  {
+    "id": "A-TREND-04",
+    "rule": "Trade each stock's own trend, not the averages; the Dow Theory has been obsolete since 1916.",
+    "source": "W006 pp.16-18",
+    "class": "A",
+    "gsps_location": "lib/scan/entrySelection.ts:macroBreadthAgrees; lib/scan/entrySelection.ts:preferredEntryDirection — differs: lib/gann/leadership.ts:readLeadership compares with SPY, but as context only",
+    "test": "TO WRITE: lib/scan/__tests__/entrySelection.test.ts — macroBreadthAgrees and preferredEntryDirection decide from the symbol's own monthly/weekly/daily trends and take no index or market series as input.",
+    "passes": false
+  },
+  {
+    "id": "A-TREND-05",
+    "rule": "A secondary rally (or reaction) shorter and smaller than the one before it shows the main trend is unchanged (e.g. 41 points in 69 days after 99 points in 155 days: still down).",
+    "source": "W006 pp.13-14",
+    "class": "A",
+    "gsps_location": "lib/gann/campaignLedger.ts:buildCampaignLedger; lib/gann/trendStrength.ts:readGannTrend — differs: compares the current counter-move with the campaign's greatest counter-move (size in %, length in days), not with the immediately preceding one",
+    "test": "lib/gann/__tests__/campaignLedger.test.ts > buildCampaignLedger > records a bullish campaign's sections and its greatest reaction",
+    "passes": false
+  },
+  {
+    "id": "A-TREND-06",
+    "rule": "A reaction that holds above the previous campaign's top means the trend is still up (Oct 1933 low 82½ held above the Sep 1932 top of 81).",
+    "source": "W006 p.14",
+    "class": "A",
+    "gsps_location": "lib/analysis/levelRole.ts:levelRole; lib/scoring/score.ts:computeScore (historicalSR) — differs: role flip of any clustered pivot level, not specifically the prior campaign's top",
+    "test": "TO WRITE: lib/analysis/__tests__/levelRole.test.ts — a reaction low that stays above the prior campaign's top keeps readGannTrend bullish and reads that top as support.",
+    "passes": false
+  },
+  {
+    "id": "A-TREND-07",
+    "rule": "A stock that tops in the first or second year of a bull market and then fails for two years to exceed that top is weak.",
+    "source": "W006 pp.25, 27",
+    "class": "A",
+    "gsps_location": "lib/gann/campaignLedger.ts:buildCampaignLedger (firstYearHigh); lib/gann/leadership.ts:readLeadership — differs: only a crossed/not-crossed flag on the first-year high, no two-year failure count, and usually null on a year of daily bars",
+    "test": "TO WRITE: lib/gann/__tests__/campaignLedger.test.ts — a bull campaign whose first-year high is not exceeded for 24 months reads firstYearHigh.crossed=false and is flagged weak.",
+    "passes": false
+  },
+  {
+    "id": "A-TREND-08",
+    "rule": "In a bull market, a stock that rallies only 2-3 months at the start and never exceeds that first rally is weak.",
+    "source": "W006 p.35",
+    "class": "A",
+    "gsps_location": "lib/gann/campaignLedger.ts:buildCampaignLedger (firstYearHigh) — differs: first-year high, not the first 2-3-month rally's high",
+    "test": "TO WRITE: lib/gann/__tests__/campaignLedger.test.ts — a campaign whose first 2-3-month rally high is never exceeded is flagged weak.",
+    "passes": false
+  },
+  {
+    "id": "A-TREND-09",
+    "rule": "A stock is never too high to buy while its trend is up (with a stop), nor too low to sell short while its trend is down.",
+    "source": "W006 pp.22, 38-39",
+    "class": "A",
+    "gsps_location": "lib/marketScan.ts:coarseContinuation; lib/scan/entrySelection.ts:isGannContinuation — differs: lib/marketScan.ts:coarseReversion (lines 416-429) adds coarse score for extension from the 50-bar range midpoint and fades the extended trend",
+    "test": "TO WRITE: lib/__tests__/market-scan-continuation.test.ts — a bullish-trend symbol far above its range midpoint still qualifies as a continuation candidate and is not penalised for extension.",
+    "passes": false
+  },
+  {
+    "id": "A-TREND-10",
+    "rule": "After a late-bear break to new lows, a rally back to 3 points above the old bottom means the decline is over (AT&T a buy at 91).",
+    "source": "W006 p.30",
+    "class": "A",
+    "gsps_location": "lib/gann/stopBreach.ts:isReclaimedByClose; lib/gann/stopBreach.ts:reclaimLevel; lib/gann/pointScale.ts:gannThreePoints — differs: applied to a broken plan stop (failed break), not used as a bear-market-bottom buy signal",
+    "test": "lib/gann/__tests__/stopBreach.test.ts > readStopBreach > stands the plan again when a closed bar has closed back through the line: a failed break",
+    "passes": false
+  },
+  {
+    "id": "A-TREND-11",
+    "rule": "On the monthly chart, the first break of a prior month's low after a long advance warns of a trend turn (Oct 1929; May 1930).",
+    "source": "W006 p.41",
+    "class": "A",
+    "gsps_location": "lib/gann/campaignLedger.ts:buildCampaignLedger (monthlyBreak); lib/gann/exitRules.ts:readGannExit (prior_month trail)",
+    "test": "TO WRITE: lib/gann/__tests__/campaignLedger.test.ts — in a bullish campaign, a bar below the prior calendar month's low sets monthlyBreak=true, and a bar above it does not.",
+    "passes": false
+  },
+  {
+    "id": "A-TREND-12",
+    "rule": "A monthly bar crossing the previous month's high after a long decline (late Jul 1932 over June's high) shows the trend turning up.",
+    "source": "W006 pp.42-43",
+    "class": "A",
+    "gsps_location": "lib/gann/campaignLedger.ts:buildCampaignLedger (monthlyBreak, bearish campaign)",
+    "test": "TO WRITE: lib/gann/__tests__/campaignLedger.test.ts — in a bearish campaign, a bar above the prior calendar month's high sets monthlyBreak=true.",
+    "passes": false
+  },
+  {
+    "id": "A-TIME-01",
+    "rule": "In a bull market a rising stock reacts no more than 2-3 months and resumes in the third; a falling stock keeps falling in the third month.",
+    "source": "W006 p.38",
+    "class": "A",
+    "gsps_location": "lib/gann/disclosedRules.ts:readCounterMove; lib/gann/disclosedRules.ts:counterMovePhase — differs: context only; phases in days (≤21 normal, 22-30 extended, 31-60 second month, 61+ third month)",
+    "test": "lib/gann/__tests__/disclosedRules.test.ts > counter-move clock (Master Course Ch. 11B; Stock Selector Ch. IV) > classifies durations by the source's weeks and months",
+    "passes": false
+  },
+  {
+    "id": "A-TIME-02",
+    "rule": "In a bear market a rally lasting only 6-7 weeks, or no more than two months, is a sign of weakness; a bear rally that cannot go into its third month is weak.",
+    "source": "W006 p.38",
+    "class": "A",
+    "gsps_location": "lib/gann/disclosedRules.ts:readCounterMove (bearish weekly trend) — differs: context only, same day thresholds as the bull side",
+    "test": "TO WRITE: lib/gann/__tests__/disclosedRules.test.ts — readCounterMove on a bearish weekly trend with a 45-day rally reports inCounterMove=true, phase secondMonth, and a 70-day rally reports thirdMonth.",
+    "passes": false
+  },
+  {
+    "id": "A-TIME-03",
+    "rule": "A first rally out of a bear market that cannot go higher in its third month on large volume is only a first rally; a real bull market rises three full months or more after rallies of no more than two months.",
+    "source": "W006 pp.14, 43",
+    "class": "A",
+    "gsps_location": "lib/gann/disclosedRules.ts:readCounterMove — differs: no rule on the duration of the first advance or its volume; only counter-move length is read",
+    "test": "TO WRITE: lib/gann/__tests__/disclosedRules.test.ts — an advance out of a bear market that stalls before its third month on heavy volume is labelled a first rally, and one rising 3+ months a bull campaign.",
+    "passes": false
+  },
+  {
+    "id": "A-TIME-04",
+    "rule": "Watch for a change in trend one, two and three years from any important top or bottom.",
+    "source": "W006 pp.14, 44",
+    "class": "A",
+    "gsps_location": "lib/gann/timeCycles.ts:timeCycles (MAJOR_CYCLE_YEARS 1,2,3,...); lib/gann/timeCycles.ts:yearCycleConvergence — differs: context and coarse ranking only, never gates (F4)",
+    "test": "TO WRITE: lib/__tests__/gann.test.ts — timeCycles marks a window active exactly 1, 2 and 3 years after a major low (and high), each within windowDays.",
+    "passes": false
+  },
+  {
+    "id": "A-TIME-05",
+    "rule": "Count months from each major top and bottom to find periods to watch (1936 example: 42 months from the 1932 low, 37 from Feb 1933, 36 from the 1933 top, 48 from 1932).",
+    "source": "W006 p.15",
+    "class": "A",
+    "gsps_location": "lib/gann/angleMonthCounts.ts:angleMonthCounts; lib/gann/angleMonthCounts.ts:monthsElapsed; lib/gann/timeCycles.ts:yearCycleConvergence — differs: projects fixed angle month-counts (card only) and whole-year cycles, not a list of raw month counts from every pivot",
+    "test": "lib/gann/__tests__/angleMonthCounts.test.ts > monthsElapsed — the 1896-1935 DJIA case study arithmetic > August 1896 bottom to November 1907 low is exactly 135 months",
+    "passes": false
+  },
+  {
+    "id": "A-TIME-06",
+    "rule": "Bear markets have lasted 12 to 43 months, with culminations near months 27, 30, 34 and 36-43; from a top watch for a bottom at months 30-36, then 40-43.",
+    "source": "W006 p.13",
+    "class": "A",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/bearDuration.test.ts — a projector anchored on a major top flags months 30-36 and 40-43 after it as bottom windows.",
+    "passes": false
+  },
+  {
+    "id": "A-TIME-07",
+    "rule": "[research-only, confluence-only] Bull campaign lengths repeat: 1921-29 lasted 97 months against 99 months for 1861-69.",
+    "source": "W006 pp.9-12",
+    "class": "A",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/campaignLength.test.ts — a research-only reading reports the prior bull campaign's month length as a context projection and never feeds a verdict.",
+    "passes": false
+  },
+  {
+    "id": "A-TIME-08",
+    "rule": "Late tops make late bottoms and early tops make early bottoms; each stock keeps its own time period and independent movers can move against their group (merged with A-SELECTION-06).",
+    "source": "W006 pp.31, 35-37",
+    "class": "A",
+    "gsps_location": "lib/gann/timeCycles.ts:timeCycles (per-symbol majorPivots); lib/gann/leadership.ts:readLeadership (bottomedLate/toppedFirst)",
+    "test": "TO WRITE: lib/gann/__tests__/missingRules.test.ts — readLeadership marks a stock that topped well before the market as toppedFirst and one that bottomed after it as bottomedLate, and timeCycles projects only from the symbol's own pivots.",
+    "passes": false
+  },
+  {
+    "id": "A-TIME-09",
+    "rule": "Accumulation takes time at bottoms and distribution at tops: wait for a definite buying signal and do not anticipate the exact top or bottom eighth.",
+    "source": "W006 p.39; W036 p.12",
+    "class": "A",
+    "gsps_location": "lib/lifecycle/entryConfirmation.ts:advanceEntryConfirmation; lib/lifecycle/confirmNow.ts:readEntryConfirmationNow; lib/trade/place-order.ts; lib/gann/accumulation.ts:readAccumulation — differs: the four-stage touch/break/retest/hold sequence comes from the GSPS spec pack, not Gann",
+    "test": "lib/lifecycle/__tests__/entryConfirmation.test.ts > entry confirmation — bullish break/retest/confirm > an indicator flip / initial break alone can never produce entryReady",
+    "passes": false
+  },
+  {
+    "id": "A-TIME-10",
+    "rule": "The Master Time Factor tells months and years ahead when cycles repeat and cause extremes.",
+    "source": "W006 p.50; W001 p.5",
+    "class": "UNDISCLOSED",
+    "gsps_location": "none",
+    "test": "TO WRITE: none — not testable: the method is named but not disclosed in the text read",
+    "passes": false
+  },
+  {
+    "id": "A-TIME-11",
+    "rule": "[research-only, confluence-only] An investors' panic or severe depression comes about every 20 years.",
+    "source": "W006 pp.49-50 (quoting *Wall Street Stock Selector* pp.203-204)",
+    "class": "A",
+    "gsps_location": "lib/gann/timeCycles.ts:MAJOR_CYCLE_YEARS (20); lib/gann/macroCycle.ts:computeMacroCycle — differs: generic 20-year anniversary of each symbol's pivots / cited Dow turns, not a panic schedule",
+    "test": "TO WRITE: lib/__tests__/gann.test.ts — a major low 20 years back activates a timeCycles window labelled disclosed-not-validated and nothing in the score reads it.",
+    "passes": false
+  },
+  {
+    "id": "A-TIME-12",
+    "rule": "Hold time: a loss at the first close suggests you are wrong; after three successive closes against you, you are wrong nine times out of ten, so get out; a profit after three days means you are with the trend (merged with A-EXIT-01).",
+    "source": "W006 p.23",
+    "class": "A",
+    "gsps_location": "lib/gann/exitRules.ts:readGannExit (three_adverse_closes); lib/trade/gann-exit-live.ts; lib/backtest/replay.ts (exitRule gann/gann-runner) — differs: tested on the first three sessions from the fill only",
+    "test": "lib/gann/__tests__/exitRules.test.ts > readGannExit > exits when each of the first three sessions from entry closes against the trade",
+    "passes": false
+  },
+  {
+    "id": "A-TIME-13",
+    "rule": "The swings rest on a time factor calculated from three curves: the commodity curve, the money curve and the curve of stocks.",
+    "source": "W036 p.13",
+    "class": "UNDISCLOSED",
+    "gsps_location": "none",
+    "test": "TO WRITE: none — not testable: the method is named but not disclosed in the text read",
+    "passes": false
+  },
+  {
+    "id": "A-TIME-14",
+    "rule": "Forecasts come from the measurement of time cycles (1919) and a Cycle Theory Gann discovered (1920), giving two bull and two bear campaigns in the year.",
+    "source": "W036 pp.2, 4",
+    "class": "UNDISCLOSED",
+    "gsps_location": "none",
+    "test": "TO WRITE: none — not testable: the method is named but not disclosed in the text read",
+    "passes": false
+  },
+  {
+    "id": "A-TIME-15",
+    "rule": "Trade the dates, not the price: when the market turns close to a forecast date, buy or sell regardless of price.",
+    "source": "W036 p.22",
+    "class": "A",
+    "gsps_location": "lib/gann/timeCycles.ts:FIXED_CALENDAR_WINDOWS; lib/gann/timeCycles.ts:timeCycles — differs: calendar and anniversary windows are context only and never trigger an order (AGENTS.md, F4 calendar test)",
+    "test": "TO WRITE: lib/__tests__/gann.test.ts — a turn inside an active time window is reported as context and never changes the verdict or arms an entry by itself.",
+    "passes": false
+  },
+  {
+    "id": "A-TIME-16",
+    "rule": "Change dates alternate high and low: if a low comes on a 'high' date, expect a high at the next date; a listed date marks some rally or decline, not always the extreme.",
+    "source": "W036 pp.7, 22",
+    "class": "A",
+    "gsps_location": "lib/gann/timeConvergence.ts:readTiming (ALTERNATION_DAYS 7/14/21) — differs: alternation counted from the last 3-Day Chart pivot, not from a forecast date list with polarity",
+    "test": "TO WRITE: lib/gann/__tests__/extremeTiming.test.ts — when a low prints on a projected high date, the next projected date is labelled an expected high.",
+    "passes": false
+  },
+  {
+    "id": "A-TIME-17",
+    "rule": "Rank change dates; dates marked X are the most important to watch.",
+    "source": "W036 p.13",
+    "class": "A",
+    "gsps_location": "lib/gann/seasonalCounts.ts:SEASONAL_POINTS (rank); lib/gann/disclosedRules.ts:YEAR_FRACTIONS (rank) — differs: ranks come from other sources; Gann's X-mark basis is not disclosed",
+    "test": "lib/gann/__tests__/missingRules.test.ts > seasonal counts from March 21 > ranks the half year first and finds the midseason points",
+    "passes": false
+  },
+  {
+    "id": "A-TIME-18",
+    "rule": "The major grain change dates are Mar 20-24, Jun 21-23 and Sep 20-24, with minor dates between.",
+    "source": "W036 p.22",
+    "class": "A",
+    "gsps_location": "lib/gann/timeCycles.ts:FIXED_CALENDAR_WINDOWS (Mar 21-23, Jun 20-24, Sep 21-24); lib/gann/seasonalCounts.ts:readSeasonalCount — differs: windows come from A04's permanent calendar, a day narrower at the edges than W036's grain dates",
+    "test": "lib/__tests__/gann.test.ts > fixed annual calendar cycle (A4) > uses Gann's late-month windows for Mar/Jun/Sep/Dec, not the 5th",
+    "passes": false
+  },
+  {
+    "id": "A-TIME-19",
+    "rule": "Keep separate change-date calendars for rails and industrials, because the time factor can move one group up while the other falls.",
+    "source": "W036 p.7",
+    "class": "A",
+    "gsps_location": "none — differs: lib/gann/timeCycles.ts:FIXED_CALENDAR_WINDOWS fires the same dates for every symbol",
+    "test": "TO WRITE: lib/__tests__/gann.test.ts — per-group calendars can hold different dates for two groups and a symbol reads only its own group's calendar.",
+    "passes": false
+  },
+  {
+    "id": "A-TIME-20",
+    "rule": "Each year falls in a cycle of advancing or declining prices; a year can hold two bull and two bear campaigns.",
+    "source": "W036 pp.2, 4",
+    "class": "UNDISCLOSED",
+    "gsps_location": "none",
+    "test": "TO WRITE: none — not testable: the method is named but not disclosed in the text read",
+    "passes": false
+  },
+  {
+    "id": "A-TIME-21",
+    "rule": "Count the months from each prior pivot to the current turn (19 Mar 1954 coffee high: 9 months from the 19 Jun 1953 low, 2 from 19 Jan, 6 from 15 Sep, 5 from the 19 Oct high).",
+    "source": "W046 p.2",
+    "class": "A",
+    "gsps_location": "lib/gann/angleMonthCounts.ts:monthsElapsed — differs: the helper exists but nothing lists month counts from every prior pivot",
+    "test": "TO WRITE: lib/gann/__tests__/angleMonthCounts.test.ts — given the five coffee pivots and 19 Mar 1954, a month-count list returns 9, 2, 6 and 5 months from the respective pivots.",
+    "passes": false
+  },
+  {
+    "id": "A-TIME-22",
+    "rule": "Each market can have recurring important dates each month (coffee: the 1st, 15th, 18th and 19th).",
+    "source": "W046 p.2",
+    "class": "A",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/monthlyDates.test.ts — a per-instrument list of day-of-month dates marks a session on those days as a date of interest, context only.",
+    "passes": false
+  },
+  {
+    "id": "A-TIME-24",
+    "rule": "Master Time Cycle and Great Time Cycles recur at certain intervals; the greatest opportunities come at the end of great time cycles.",
+    "source": "W001 pp.7, 11, 13-14",
+    "class": "UNDISCLOSED",
+    "gsps_location": "none",
+    "test": "TO WRITE: none — not testable: the method is named but not disclosed in the text read",
+    "passes": false
+  },
+  {
+    "id": "A-TIME-25",
+    "rule": "Transition periods in time and price, with rules for how long price and time stay in a transition period.",
+    "source": "W001 p.11",
+    "class": "UNDISCLOSED",
+    "gsps_location": "none",
+    "test": "TO WRITE: none — not testable: the method is named but not disclosed in the text read",
+    "passes": false
+  },
+  {
+    "id": "A-TIME-26",
+    "rule": "The Master Calculator shows major and minor time periods, divisions of time and price, where Master Time Cycles end and begin, and five divisions of time from one center.",
+    "source": "W001 pp.14-15",
+    "class": "UNDISCLOSED",
+    "gsps_location": "none",
+    "test": "TO WRITE: none — not testable: the method is named but not disclosed in the text read",
+    "passes": false
+  },
+  {
+    "id": "A-TIME-29",
+    "rule": "Forecast by getting the past history and a correct starting point, finding which cycle you are in, and projecting the future curve as a repetition of past movements (cycle theory, or harmonic analysis).",
+    "source": "W022 pp.75-77 (PDF 80-82)",
+    "class": "UNDISCLOSED",
+    "gsps_location": "lib/gann/spectralCycle.ts:detectSpectralCycle — differs: a modern periodogram/cosinor stand-in, card only",
+    "test": "lib/gann/__tests__/spectralCycle.test.ts > F3 cycle checks: cosinor, artifact guards, hold-out > carries a real cycle forward into the unseen 30% of the window",
+    "passes": false
+  },
+  {
+    "id": "A-TIME-30",
+    "rule": "A 'time' is 360 days, years or degrees, and half a time is 180 (contradicted on p.372, where a time is a score of 20 years).",
+    "source": "W022 p.371 (PDF 376)",
+    "class": "A",
+    "gsps_location": "lib/gann/timeCycles.ts:timeCycles (WHEEL_COUNTS 180, 360); lib/gann/disclosedRules.ts:YEAR_FRACTIONS",
+    "test": "lib/gann/__tests__/disclosedRules.test.ts > day-count bands and fractions of the year (A09 Rule 8; Master Course Ch. 13-14) > ranks an active year fraction",
+    "passes": false
+  },
+  {
+    "id": "A-TIME-31",
+    "rule": "[research-only, confluence-only] A day counts for a year.",
+    "source": "W022 pp.371, 373 (PDF 376, 378)",
+    "class": "A",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/research.test.ts — a research-only day-for-year mapping, if built, has no consumer in score.ts, gates or plans.",
+    "passes": false
+  },
+  {
+    "id": "A-TIME-32",
+    "rule": "[research-only, confluence-only] Count 7, 14, 42 months, 49, 343, 490, the score (20), 70 and 140 years from founding or event dates to find troubled years (e.g. 1492+440=1932; 1776+140=1916; 1914+14=1928).",
+    "source": "W022 pp.371-374 (PDF 376-379)",
+    "class": "A",
+    "gsps_location": "none — closest analogue lib/gann/squareOf20.ts:dateToGridCell (years from the 1792 NYSE founding, research-only, no consumers)",
+    "test": "TO WRITE: lib/gann/__tests__/research.test.ts — a pre-registered founding-date count reproduces 1776+140=1916 and 1914+14=1928 and is not imported by any scoring module.",
+    "passes": false
+  },
+  {
+    "id": "A-TIME-33",
+    "rule": "[research-only, confluence-only] Daniel's 1,290 and 1,335 days and 70 weeks: 1,290 days from the 1928 outbreak, 1,335 is 45 days more; March 1931 to end-June 1932 is troublesome.",
+    "source": "W022 pp.213, 370-372 (PDF 218, 375-377)",
+    "class": "A",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/research.test.ts — a research-only 1,290/1,335-day projector returns dates 1,290 and 1,335 days from an anchor and has no verdict consumer.",
+    "passes": false
+  },
+  {
+    "id": "A-TIME-34",
+    "rule": "The anniversary of a company's founding is a time factor (Major Motors forecast to top on 16 Sep 1927, when the company turned 19).",
+    "source": "W022 p.197 (PDF 202)",
+    "class": "UNDISCLOSED",
+    "gsps_location": "lib/gann/incorporationCycle.ts:readIncorporationCycle; lib/data/instrumentReference.ts — differs: uses the anniversary month, seasonal degrees and 5-60-year cycles from inception, not age 19",
+    "test": "lib/gann/__tests__/incorporationCycle.test.ts > time from the company's inception (parity D3) > reads Feb 1931 as the 30-year cycle from incorporation, in the anniversary month",
+    "passes": false
+  },
+  {
+    "id": "A-TIME-35",
+    "rule": "Stocks make fast moves up or down at certain ages.",
+    "source": "W022 p.199 (PDF 204)",
+    "class": "UNDISCLOSED",
+    "gsps_location": "lib/gann/incorporationCycle.ts:readIncorporationCycle — differs: which ages is not disclosed; GSPS uses 5-60-year cycles from inception",
+    "test": "TO WRITE: none — not testable: the method is named but not disclosed in the text read",
+    "passes": false
+  },
+  {
+    "id": "A-TIME-36",
+    "rule": "Turns come on scheduled government crop-report dates (Aug 8, Sep 8, Oct 8 cotton reports).",
+    "source": "W022 pp.195-197, 217 (PDF 200-202, 222)",
+    "class": "A",
+    "gsps_location": "lib/signals/regime.ts:classifyRegime (scheduledBinaryEvent) — differs: a scheduled event makes the regime 'event' and stands aside, rather than marking a turn date",
+    "test": "TO WRITE: lib/signals/__tests__/regime.test.ts — a scheduled report date is recorded as a turn-date context field rather than only as an event disqualifier.",
+    "passes": false
+  },
+  {
+    "id": "A-TIME-37",
+    "rule": "Swings can run a fixed duration from a low: about thirty days up (25 Jun to 25 Jul); a wheat up-cycle of ten days.",
+    "source": "W022 pp.145, 195 (PDF 150, 200)",
+    "class": "A",
+    "gsps_location": "lib/gann/disclosedRules.ts:readDayCountBands (28-31 day band); lib/gann/timeCycles.ts:DAY_COUNT_BANDS — differs: bands from A09 Rule 8, not W022's example",
+    "test": "lib/gann/__tests__/disclosedRules.test.ts > day-count bands and fractions of the year (A09 Rule 8; Master Course Ch. 13-14) > flags a day count inside a disclosed band",
+    "passes": false
+  },
+  {
+    "id": "A-TIME-40",
+    "rule": "The relative position of price to time tells the time cycles.",
+    "source": "W001 p.7",
+    "class": "UNDISCLOSED",
+    "gsps_location": "lib/gann/timePriceSquare.ts:computeTimePriceSquare — differs: an ATR-normalised squaring stand-in",
+    "test": "TO WRITE: none — not testable: the method is named but not disclosed in the text read",
+    "passes": false
+  },
+  {
+    "id": "A-ENTRY-01",
+    "rule": "Single bottom: after a reaction, wait until the stock holds a level for 2-3 weeks (Rule 3: 1-3+ weeks), then buy with a stop 3 points under the lowest week; in active markets use 2-3 days and the lowest day.",
+    "source": "W006 pp.20, 46-47",
+    "class": "A",
+    "gsps_location": "lib/gann/timeRules.ts:readTimeRules (halt) — differs: the 2-3-day halt is context only, and its stop is placed 0.3% (LOST_MOTION_BUFFER_PCT) beyond the extreme, not price-scaled 3 points (timeRules.ts:52); no 2-3-week hold rule",
+    "test": "TO WRITE: lib/gann/__tests__/timeRulesAndTops.test.ts — a bottom held for 2-3 sessions yields a halt at 'bottom' with its stop gannThreePoints(price) below the lowest day.",
+    "passes": false
+  },
+  {
+    "id": "A-ENTRY-02",
+    "rule": "Double and triple bottoms (the same level reached weeks, months or a year or more apart): buy with a stop 1-3 points, never more than 3, below.",
+    "source": "W006 pp.20, 46",
+    "class": "A",
+    "gsps_location": "lib/gann/multipleTops.ts:readMultipleTops (bottom); lib/gann/disclosedRules.ts:readLevelTests — differs: context only; same-level band 1% (multipleTops.ts:34); no stop derived from it",
+    "test": "TO WRITE: lib/gann/__tests__/timeRulesAndTops.test.ts — three bottoms within the band read as a bottom cluster with tests>=3, and a buy point there carries a stop no more than gannThreePoints below the level.",
+    "passes": false
+  },
+  {
+    "id": "A-ENTRY-03",
+    "rule": "When a level holds a third time (triple bottom), an advance should follow as long as the third bottom is not broken.",
+    "source": "W006 p.11",
+    "class": "A",
+    "gsps_location": "lib/gann/multipleTops.ts:readMultipleTops; lib/analysis/levelRole.ts:levelTestConfidence",
+    "test": "lib/analysis/__tests__/levelRole.test.ts > levelTestConfidence > reads 1-3 tests as reliable",
+    "passes": false
+  },
+  {
+    "id": "A-ENTRY-04",
+    "rule": "Crossing an old top by 3 points: a stock going higher should not react 3 points below the old top, so buy a 1-2 point reaction (or down to just under the old top) with a stop 3 points under it (old top 50, advance to 53, buy 51 down to 48, stop 47).",
+    "source": "W006 pp.20, 46-47",
+    "class": "A",
+    "gsps_location": "lib/gann/entryTrigger.ts:computeGannEntryTrigger; lib/gann/exitRules.ts:readGannExit (hold_test_failed); lib/gann/pointScale.ts:gannThreePoints — differs: the entry crosses by 0.3% lost motion (entryTrigger.ts:97, entryConfirmation.ts:80), not 3 points; only the hold test is price-scaled; no buy-the-reaction entry",
+    "test": "lib/gann/__tests__/exitRules.test.ts > readGannExit > fails the hold test when a close falls back under the crossed top by 3 points, price-scaled",
+    "passes": false
+  },
+  {
+    "id": "A-ENTRY-05",
+    "rule": "After a stock crosses the top of a previous year by 3 points, buy any small reaction.",
+    "source": "W006 pp.20, 47",
+    "class": "A",
+    "gsps_location": "none — differs: lib/gann/entryTrigger.ts:computeGannEntryTrigger crosses only the last completed 3-Day Chart top",
+    "test": "TO WRITE: lib/gann/__tests__/entryTrigger.test.ts — a close above the prior calendar year's high by gannThreePoints marks a yearly-top crossing that a later reaction may be bought on.",
+    "passes": false
+  },
+  {
+    "id": "A-ENTRY-06",
+    "rule": "New all-time highs are usually safe buys.",
+    "source": "W006 p.47",
+    "class": "A",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/allTimeHigh.test.ts — a close above the highest high in the stored history is flagged as a new all-time high in the buy direction.",
+    "passes": false
+  },
+  {
+    "id": "A-ENTRY-07",
+    "rule": "In a bull market, buy reactions with a stop 3 points under the previous support.",
+    "source": "W006 p.20",
+    "class": "A",
+    "gsps_location": "lib/signals/states/trendPullback.ts; lib/strat/levels.ts:computeEquityTradeLevels — differs: stop is the nearest support plus a 0.5% buffer inside a 3-15% band (levels.ts:153-157), not 3 points",
+    "test": "lib/__tests__/equity-levels.test.ts > computeEquityTradeLevels > anchors the stop to the nearest support level within band, on a long",
+    "passes": false
+  },
+  {
+    "id": "A-ENTRY-08",
+    "rule": "In bull markets reactions last 2-3 weeks; buy after a 2-3-week reaction once the stock holds for 2-3 days.",
+    "source": "W006 pp.46-47",
+    "class": "A",
+    "gsps_location": "lib/gann/timeRules.ts:readTimeRules (reactionInZone, thirdWeek, halt) — differs: context only, not an entry",
+    "test": "lib/gann/__tests__/timeRulesAndTops.test.ts > time rules > places a reaction in its week and flags the 2-3 week zone and the third week",
+    "passes": false
+  },
+  {
+    "id": "A-ENTRY-09",
+    "rule": "The further back an old top is, the more important it is when crossed by 3 points.",
+    "source": "W006 p.24",
+    "class": "A",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/__tests__/score.test.ts — a crossed level formed years earlier ranks above an equally near level formed weeks earlier.",
+    "passes": false
+  },
+  {
+    "id": "A-ENTRY-10",
+    "rule": "A stock that holds its all-time low for weeks or months without a 3-point break is a buy with a stop 3 points under.",
+    "source": "W006 p.24",
+    "class": "A",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/allTimeHigh.test.ts — a stock holding within gannThreePoints of its all-time low for 4+ weeks is flagged as a buy point with that stop.",
+    "passes": false
+  },
+  {
+    "id": "A-ENTRY-14",
+    "rule": "Sell short against single, double or triple tops with a stop 3 points above.",
+    "source": "W006 pp.22, 47",
+    "class": "A",
+    "gsps_location": "lib/gann/multipleTops.ts:readMultipleTops (top, failed); lib/gann/timeRules.ts:readTimeRules (halt at top) — differs: context only; halt stop 0.3% beyond (timeRules.ts:52)",
+    "test": "lib/gann/__tests__/timeRulesAndTops.test.ts > double and triple tops > reads a triple top that failed on its third test",
+    "passes": false
+  },
+  {
+    "id": "A-ENTRY-15",
+    "rule": "Sell short after distribution and a 3-point break of the last important bottom; breaking old bottoms is safest at 3 points under.",
+    "source": "W006 pp.22, 47",
+    "class": "A",
+    "gsps_location": "lib/gann/entryTrigger.ts:computeGannEntryTrigger (bearish) — differs: breaks by 0.3% lost motion, not 3 points; no distribution precondition",
+    "test": "lib/gann/__tests__/entryTrigger.test.ts > computeGannEntryTrigger > mirrors exactly for a short",
+    "passes": false
+  },
+  {
+    "id": "A-ENTRY-16",
+    "rule": "After a stock breaks an old bottom by 3 or more points it should not rally 3 points above it if going lower; sell a small rally with a stop 3 points above the old bottom.",
+    "source": "W006 p.22",
+    "class": "A",
+    "gsps_location": "lib/gann/exitRules.ts:readGannExit (hold test, short mirror) — differs: used as an exit test, not a sell-the-rally entry",
+    "test": "lib/gann/__tests__/exitRules.test.ts > readGannExit > mirrors every rule for a short",
+    "passes": false
+  },
+  {
+    "id": "A-ENTRY-17",
+    "rule": "Breaking the bottom of a previous year by 3 points is a short.",
+    "source": "W006 pp.22, 47",
+    "class": "A",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/entryTrigger.test.ts — a close below the prior calendar year's low by gannThreePoints marks a yearly-bottom break in the short direction.",
+    "passes": false
+  },
+  {
+    "id": "A-ENTRY-18",
+    "rule": "Bear-market rallies last 2-3 weeks: sell at the end of the second or third week with a stop 3 points above the previous week's high.",
+    "source": "W006 p.47",
+    "class": "A",
+    "gsps_location": "lib/gann/timeRules.ts:readTimeRules (reactionInZone, thirdWeek, bearish counter-move) — differs: context only; no weekly-high stop",
+    "test": "TO WRITE: lib/gann/__tests__/timeRulesAndTops.test.ts — a 16-day rally against a bearish weekly trend reads reactionInZone and thirdWeek true, and its stop sits gannThreePoints above the prior week's high.",
+    "passes": false
+  },
+  {
+    "id": "A-ENTRY-19",
+    "rule": "A narrow week followed by a sharp drop on large volume turns the trend down; short even while the averages are rising.",
+    "source": "W006 p.27",
+    "class": "A",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/narrowWeek.test.ts — a week whose range is the narrowest of the last N followed by a week down on above-average volume is flagged as a bearish turn.",
+    "passes": false
+  },
+  {
+    "id": "A-ENTRY-20",
+    "rule": "A double top where the earlier high came on heavy volume: sell and go short with a stop 3 points above the old high.",
+    "source": "W006 p.28",
+    "class": "A",
+    "gsps_location": "lib/gann/multipleTops.ts:readMultipleTops; lib/gann/volumeClimax.ts:computeVolumeClimax (high anchor) — differs: the two readings are never combined; context only",
+    "test": "TO WRITE: lib/gann/__tests__/volumeClimax.test.ts — a second test of a high on lower volume than the first, heavy-volume test reads retestOnLowerVolume=true and confirms the top.",
+    "passes": false
+  },
+  {
+    "id": "A-STOP-01",
+    "rule": "Use a stop-loss order on every trade, placed 1, 2 or 3 points away.",
+    "source": "W006 pp.7, 46; W022 p.198 (PDF 203); W001 pp.12-13",
+    "class": "A",
+    "gsps_location": "lib/gann/entryTrigger.ts:computeGannEntryTrigger (stopPrice); lib/strat/levels.ts:computeEquityTradeLevels — differs: stop sits beyond the protective swing by 0.3%, or nearest support +0.5% within 3-15% of entry; not 1-3 points",
+    "test": "lib/gann/__tests__/entryTrigger.test.ts > computeGannEntryTrigger > stops beyond the protective swing on the other side",
+    "passes": false
+  },
+  {
+    "id": "A-STOP-02",
+    "rule": "Never risk more than 5 points (or $500 per 100 shares) on a trade.",
+    "source": "W006 p.46",
+    "class": "A",
+    "gsps_location": "lib/strat/levels.ts:computeEquityTradeLevels (EQUITY_STOP_MAX_PCT 15, large-cap 20) — differs: the cap is 15-20% of price, wider than 5 price-scaled points at most prices (about 11.8% at $42.50, 6.25% at $200 on pointScale's curve)",
+    "test": "TO WRITE: lib/__tests__/equity-levels.test.ts — no computed stop is further from entry than 5/3 x gannThreePoints(entry).",
+    "passes": false
+  },
+  {
+    "id": "A-STOP-03",
+    "rule": "A 3-point stop is the safest, because it is caught less often than any other.",
+    "source": "W006 p.46",
+    "class": "A",
+    "gsps_location": "lib/gann/pointScale.ts:gannThreePoints; lib/gann/stopBreach.ts:reclaimLevel; lib/gann/exitRules.ts:readGannExit — differs: plan stops are not placed 3 points beyond the level (entryTrigger 0.3%, levels.ts 0.5%)",
+    "test": "lib/gann/__tests__/pointScale.test.ts > gannThreePoints > gives 3 points in the middle of the $25-60 band and 7.5 in the middle of $100-300",
+    "passes": false
+  },
+  {
+    "id": "A-STOP-04",
+    "rule": "In fast advances at high levels trail the stop 5 points under each day's high, or 1-3 points under the day's low or close; at very high levels trail 10 points under the daily high.",
+    "source": "W006 p.46",
+    "class": "A",
+    "gsps_location": "lib/gann/exitRules.ts:readGannExit (final_stage trail) — differs: trails by the size of the campaign's last reaction and under the prior day after a 2-day counter-move, only in section 3+",
+    "test": "TO WRITE: lib/gann/__tests__/exitRules.test.ts — in a fast advance the stop trails gannThreePoints-scaled 5 points under each day's high.",
+    "passes": false
+  },
+  {
+    "id": "A-STOP-05",
+    "rule": "Trail the stop 1, 2, 3 or 5 points under each week's bottom (above each week's top when short; Rule 4: 1 point above the previous week's high).",
+    "source": "W006 p.46",
+    "class": "A",
+    "gsps_location": "lib/gann/exitRules.ts:readGannExit (last_reaction, prior_month) — differs: trails under 3-Day Chart higher bottoms and the prior month's low, not weekly bottoms",
+    "test": "lib/gann/__tests__/exitRules.test.ts > readGannExit > trails under a higher bottom made after entry",
+    "passes": false
+  },
+  {
+    "id": "A-STOP-06",
+    "rule": "Raise the stop on the whole line to 10 points under as the pyramid grows (at 253, stop to 243); stop 10 points above a new short (138 short, stop 147).",
+    "source": "W022 p.198 (PDF 203)",
+    "class": "A",
+    "gsps_location": "lib/gann/pyramid.ts:readPyramidAdd (newStop) — differs: the whole position's stop moves to combined break-even, not 10 points under",
+    "test": "lib/gann/__tests__/pyramid.test.ts > readPyramidAdd > adds half the last lot at the crossed swing top and lifts the stop to break-even",
+    "passes": false
+  },
+  {
+    "id": "A-STOP-07",
+    "rule": "Margin as the risk limit: the $1,000 margin defines the loss point (12.80).",
+    "source": "W022 p.70 (PDF 75)",
+    "class": "A",
+    "gsps_location": "lib/risk/dynamic-risk.ts:computePermittedRisk; lib/risk/position-limits.ts:checkPositionLimits — differs: risk is a % of equity, not the posted margin",
+    "test": "TO WRITE: lib/risk/__tests__/dynamic-risk.test.ts — computePermittedRisk never permits a loss above the configured share of equity.",
+    "passes": false
+  },
+  {
+    "id": "A-EXIT-02",
+    "rule": "Reverse at a change in trend: sell longs and go short (near an old top of 75 holding 1-2 weeks, short with a stop at 78; if stopped, reverse again). Keep with the trend all the time.",
+    "source": "W006 p.48 (Rule 6)",
+    "class": "A",
+    "gsps_location": "lib/gann/exitRules.ts:readGannExit (trend_change) — differs: exits only; no reversing entry is placed",
+    "test": "TO WRITE: lib/gann/__tests__/exitRules.test.ts — a trend_change exit on a long also yields a short entry suggestion with its stop 3 points above the top.",
+    "passes": false
+  },
+  {
+    "id": "A-EXIT-04",
+    "rule": "Cover shorts on bad news.",
+    "source": "W022 p.223 (PDF 228)",
+    "class": "A",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/exitRules.test.ts — a news-event flag triggers a cover suggestion for an open short.",
+    "passes": false
+  },
+  {
+    "id": "A-EXIT-05",
+    "rule": "Go flat before you will be away from the market.",
+    "source": "W022 p.113 (PDF 118)",
+    "class": "A",
+    "gsps_location": "none — closest: lib/gann/traderPrefs.ts:restReminderDue (twice-yearly rest, A02)",
+    "test": "TO WRITE: lib/gann/__tests__/traderPrefs.test.ts — an away-from-market setting produces a close-all reminder before the absence starts.",
+    "passes": false
+  },
+  {
+    "id": "A-PYRAMID-01",
+    "rule": "For stocks priced 20-50 add a lot every 5 points of profit, for 80-200 every 10 points, placing stops so the combined position cannot lose (50-80 and above 200 not covered).",
+    "source": "W006 p.47 (Rule 5)",
+    "class": "A",
+    "gsps_location": "lib/gann/pyramid.ts:readPyramidAdd; app/api/positions/pyramid/route.ts; lib/backtest/replay.ts (pyramid: true) — differs: interval is one risk unit at the next crossed 3-Day Chart top, not 5/10 points; suggested, not automated",
+    "test": "lib/gann/__tests__/pyramid.test.ts > readPyramidAdd > adds half the last lot at the crossed swing top and lifts the stop to break-even",
+    "passes": false
+  },
+  {
+    "id": "A-PYRAMID-02",
+    "rule": "After the fourth or fifth lot, cut the unit in half.",
+    "source": "W006 p.47",
+    "class": "A",
+    "gsps_location": "lib/gann/pyramid.ts:readPyramidAdd (MAX_LOTS=4, qty halved each add) — differs: GSPS halves every add from the second lot and stops at four lots (pyramid.ts:50, 112), where W006 keeps equal lots and halves after the 4th-5th",
+    "test": "lib/gann/__tests__/pyramid.test.ts > readPyramidAdd > stops adding after the fourth lot",
+    "passes": false
+  },
+  {
+    "id": "A-PYRAMID-03",
+    "rule": "Never buy a second or third lot unless the first trade has moved in your favour.",
+    "source": "W006 p.47",
+    "class": "A",
+    "gsps_location": "lib/gann/pyramid.ts:readPyramidAdd",
+    "test": "lib/gann/__tests__/pyramid.test.ts > readPyramidAdd > never adds to a position that hasn't earned a full risk unit",
+    "passes": true
+  },
+  {
+    "id": "A-PYRAMID-04",
+    "rule": "Never average a loss; average your profits.",
+    "source": "W006 pp.15-16, 47",
+    "class": "A",
+    "gsps_location": "lib/gann/pyramid.ts:readPyramidAdd",
+    "test": "lib/gann/__tests__/pyramid.test.ts > readPyramidAdd > never adds to a position that hasn't earned a full risk unit",
+    "passes": true
+  },
+  {
+    "id": "A-PYRAMID-05",
+    "rule": "Buy or sell the largest amount first, then add gradually smaller amounts on the way, always with a stop.",
+    "source": "W022 p.198 (PDF 203)",
+    "class": "A",
+    "gsps_location": "lib/gann/pyramid.ts:readPyramidAdd (each add half the last lot)",
+    "test": "lib/gann/__tests__/pyramid.test.ts > readPyramidAdd > adds half the last lot at the crossed swing top and lifts the stop to break-even",
+    "passes": true
+  },
+  {
+    "id": "A-PYRAMID-06",
+    "rule": "Add at fixed steps: 10 points for stocks, 1 cent for cotton.",
+    "source": "W022 pp.196-199 (PDF 201-204)",
+    "class": "A",
+    "gsps_location": "lib/gann/pyramid.ts:readPyramidAdd — differs: steps are crossed swing tops, not fixed points",
+    "test": "TO WRITE: lib/gann/__tests__/pyramid.test.ts — no add is offered until price is at least one fixed (price-scaled) step beyond the last lot.",
+    "passes": false
+  },
+  {
+    "id": "A-PYRAMID-07",
+    "rule": "After an expected 12-15 point reaction, re-buy with a stop about 6 points away (12 Aug at 218, stop 212).",
+    "source": "W022 p.198 (PDF 203)",
+    "class": "A",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/pyramid.test.ts — after a reaction of the expected size inside a campaign, a re-entry is offered with a stop about half the reaction away.",
+    "passes": false
+  },
+  {
+    "id": "A-PYRAMID-08",
+    "rule": "Add to a short on each further decline (sold more at 400½, 395½, 390½), cover partly, and re-short the rally.",
+    "source": "W001 p.7",
+    "class": "A",
+    "gsps_location": "lib/gann/pyramid.ts:readPyramidAdd (short mirror) — differs: no partial cover / re-short logic",
+    "test": "TO WRITE: lib/gann/__tests__/pyramid.test.ts — a short position that has gained a full risk unit is offered an add at the next crossed 3-Day Chart bottom with the stop lowered to combined break-even.",
+    "passes": false
+  },
+  {
+    "id": "A-RISK-01",
+    "rule": "Hold at least $3,000 of capital per 100 shares ($300 per 10 shares).",
+    "source": "W006 p.46 (Rule 1)",
+    "class": "A",
+    "gsps_location": "lib/risk/dynamic-risk.ts:quantityFromPermittedRisk; lib/risk/position-limits.ts:checkPositionLimits — differs: size is set by % of equity at risk and a 25% single-position allocation ceiling, not capital per share unit",
+    "test": "lib/risk/__tests__/position-limits.test.ts > checkPositionLimits > flags a single position over the 25% allocation ceiling",
+    "passes": false
+  },
+  {
+    "id": "A-RISK-02",
+    "rule": "Never risk more than 10% of capital on any one trade.",
+    "source": "W006 p.46",
+    "class": "A",
+    "gsps_location": "lib/risk/config.ts:RISK_BAND_RATE_PCT, ABSOLUTE_TIER_CAP_PCT; lib/risk/dynamic-risk.ts:computePermittedRisk — differs: stricter, 1-1.75% per trade, 2% absolute, 2% total open risk",
+    "test": "lib/risk/__tests__/position-limits.test.ts > checkPositionLimits > flags total planned open risk over 2.0%",
+    "passes": false
+  },
+  {
+    "id": "A-RISK-03",
+    "rule": "After two or three losses, reduce the unit (remainder of the sentence missing from the transcription).",
+    "source": "W006 p.46",
+    "class": "A",
+    "gsps_location": "lib/risk/lossSeries.ts:readLossSeries; lib/trade/place-order.ts — differs: three losses pause new entries for that day and the next instead of cutting the unit; % sizing shrinks the unit only by the equity lost",
+    "test": "lib/risk/__tests__/lossSeries.test.ts > readLossSeries (series-of-losses pause) > pauses after three losses in a row, for that day and the next trading day",
+    "passes": false
+  },
+  {
+    "id": "A-RISK-04",
+    "rule": "Double the unit to 200 shares only once profits equal the original capital.",
+    "source": "W006 p.46",
+    "class": "A",
+    "gsps_location": "lib/risk/dynamic-risk.ts:resolveRiskBand — differs: the risk rate steps up after 20 (and 40-50) completed trades and execution score, not when profits equal capital",
+    "test": "TO WRITE: lib/risk/__tests__/dynamic-risk.test.ts — resolveRiskBand never raises the unit while cumulative profit is below starting capital.",
+    "passes": false
+  },
+  {
+    "id": "A-RISK-07",
+    "rule": "After large profits never risk more than 10% of the profits on the first new deal; after a loss cut size so the next loss is only 10% of the remaining profits.",
+    "source": "W022 pp.198-199 (PDF 203-204)",
+    "class": "A",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/risk/__tests__/dynamic-risk.test.ts — with realised profits P, the first new trade's permitted risk is at most 0.1 x P, and after a loss at most 0.1 x the remaining profits.",
+    "passes": false
+  },
+  {
+    "id": "A-RISK-08",
+    "rule": "Specialise in two or three markets and do not diversify; stay out of commodities during a stock campaign.",
+    "source": "W022 pp.203-204, 226 (PDF 208-209, 231)",
+    "class": "A",
+    "gsps_location": "none — differs: lib/risk/config.ts caps new positions per day (3) and correlated groups (1) but scans and trades a universe of hundreds",
+    "test": "TO WRITE: lib/risk/__tests__/position-limits.test.ts — a fourth distinct symbol is refused while three are open, if the specialisation limit is adopted.",
+    "passes": false
+  },
+  {
+    "id": "A-RISK-13",
+    "rule": "Reward to risk is framed against the stop: a 4¢ stop on a 412 soybean short gained 26½¢, '6½ times the risk'; the coffee short '1,000% on the risk'.",
+    "source": "W001 pp.7-8",
+    "class": "A",
+    "gsps_location": "lib/strat/levels.ts:computeEquityTradeLevels (TP1/TP2/MTP vs stop); lib/scoring/score.ts:computeScore (tradePlanPriced) — differs: no minimum reward/risk ratio is stated by Gann; the example is reported, not a rule",
+    "test": "TO WRITE: lib/__tests__/equity-levels.test.ts — the plan reports reward as a multiple of the stop distance (R) for TP1 and the master target.",
+    "passes": false
+  },
+  {
+    "id": "A-RISK-16",
+    "rule": "The 'Twenty-four Never-failing Rules' in Wall Street Stock Selector pp.18-19.",
+    "source": "W006 p.9 (cited)",
+    "class": "UNDISCLOSED",
+    "gsps_location": "none",
+    "test": "TO WRITE: none — not testable: the method is named but not disclosed in the text read",
+    "passes": false
+  },
+  {
+    "id": "A-VOLUME-07",
+    "rule": "Rule 1 / Rule 7: a large increase in volume ends a prolonged advance, at least temporarily; rapid advances to high levels come on rising volume, and after a sharp decline on heavy volume a secondary rally on decreasing (smaller) volume marks the final top and the trend turning down (merged with A-VOLUME-02).",
+    "source": "W006 p.48 (Rule 7); W006 pp.39-40",
+    "class": "A",
+    "gsps_location": "lib/gann/volumeClimax.ts:computeVolumeClimax (high anchor: climax or retestOnLowerVolume confirms); lib/scoring/score.ts:computeScore (volumeClimax); lib/marketScan.ts:coarseReversion",
+    "test": "TO WRITE: lib/gann/__tests__/volumeClimax.test.ts — a high anchor printed on climax volume confirms, and a secondary high below it on lower volume reads retestOnLowerVolume=true and confirms.",
+    "passes": false
+  },
+  {
+    "id": "A-VOLUME-03",
+    "rule": "Rule 2: after a second, lower top, a dull narrow sideways spell that breaks out downward on increased volume signals a further decline.",
+    "source": "W006 pp.39-40",
+    "class": "A",
+    "gsps_location": "lib/gann/accumulation.ts:readAccumulation (breakout down) — differs: no lower-top precondition and no volume test on the breakout",
+    "test": "TO WRITE: lib/gann/__tests__/missingRules.test.ts — after a lower top, a narrow range broken downward on above-average volume reads as a distribution breakout.",
+    "passes": false
+  },
+  {
+    "id": "A-VOLUME-04",
+    "rule": "Rule 3: at the end of a long decline volume should decrease and the range narrow, showing liquidation running its course.",
+    "source": "W006 p.40",
+    "class": "A",
+    "gsps_location": "lib/gann/volumeClimax.ts:computeVolumeClimax (dryingUp); lib/scoring/score.ts:computeScore (volumeClimax)",
+    "test": "lib/gann/__tests__/volumeRule.test.ts > the volume rule at a low (parity D1) > confirms a normal bottom on drying-up volume and a narrowing range",
+    "passes": true
+  },
+  {
+    "id": "A-VOLUME-05",
+    "rule": "Rule 4: after the first sharp advance out of a bear market, a secondary reaction on decreasing volume followed by an advance on heavier volume signals higher prices.",
+    "source": "W006 p.40",
+    "class": "A",
+    "gsps_location": "lib/gann/volumeClimax.ts:computeVolumeClimax (retestOnLowerVolume) — differs: reads the lower-volume retest only, not the following advance on heavier volume",
+    "test": "TO WRITE: lib/gann/__tests__/volumeRule.test.ts — a secondary low on lower volume than the first, followed by an up-leg on higher volume, confirms.",
+    "passes": false
+  },
+  {
+    "id": "A-VOLUME-06",
+    "rule": "Volume rises near tops and falls near bottoms, except in abnormal markets: a panic can bottom on large volume, rally on fair volume, then make a secondary decline on much less volume.",
+    "source": "W006 pp.40, 48 (Rule 7)",
+    "class": "A",
+    "gsps_location": "lib/gann/volumeClimax.ts:computeVolumeClimax (climax exception at lows)",
+    "test": "lib/gann/__tests__/volumeRule.test.ts > the volume rule at a low (parity D1) > confirms a panic bottom on climax volume (the exception)",
+    "passes": false
+  },
+  {
+    "id": "A-VOLUME-08",
+    "rule": "Judge volume against shares outstanding; a small float moves over a wider range (GM's 44 million shares vs Chrysler's 4½ million).",
+    "source": "W006 pp.38-39, 48",
+    "class": "A",
+    "gsps_location": "lib/gann/capitalStock.ts:readCapitalStock; lib/data/instrumentReference.ts (splitAdjustedSharesAsOf) — differs: reads turnover at tops (A04/A2.1 rules); no float-size vs range rule",
+    "test": "lib/gann/__tests__/capitalStock.test.ts > capital-stock turnover (parity D2) > reads two-thirds of the stock in one week at a top as distribution",
+    "passes": false
+  },
+  {
+    "id": "A-VOLUME-09",
+    "rule": "The smallest volume in years is a sure sign of bottom.",
+    "source": "W006 pp.43-44",
+    "class": "A",
+    "gsps_location": "lib/gann/volumeClimax.ts:computeVolumeClimax (dryingUp) — differs: compares the 5 bars at the pivot with the 20 before (DRY_UP_BARS), not a multi-year volume low",
+    "test": "TO WRITE: lib/gann/__tests__/volumeRule.test.ts — a low printed on the lowest weekly volume of the stored multi-year history is flagged as a volume-extreme bottom.",
+    "passes": false
+  },
+  {
+    "id": "A-VOLUME-10",
+    "rule": "Avoid stocks in long, narrow ranges until they break out on volume.",
+    "source": "W006 p.20",
+    "class": "A",
+    "gsps_location": "lib/gann/breakaway.ts:readBreakaway; lib/scoring/score.ts:applyBreakawayHold; lib/gann/accumulation.ts:readAccumulation — differs: no volume condition on the breakaway",
+    "test": "lib/gann/__tests__/breakaway.test.ts > readBreakaway (Commodities pp. 51-52) > reads a sideways market as range-bound and holds an entry inside the range",
+    "passes": false
+  },
+  {
+    "id": "A-VOLUME-11",
+    "rule": "Compare total volume and points gained across campaigns: much more volume for fewer points warns of a top (422M shares for 60 points in 1933 vs 350M for 96 in 1929).",
+    "source": "W006 pp.43-45",
+    "class": "A",
+    "gsps_location": "lib/gann/sharesPerPoint.ts:readSharesPerPoint — differs: compares the current up leg with the prior up leg, not whole campaigns; warning at 1.8x",
+    "test": "TO WRITE: lib/gann/__tests__/missingRules.test.ts — an up leg whose volume per point is 1.8x the prior leg's, within 3% of the campaign high, sets topWarning=true.",
+    "passes": false
+  },
+  {
+    "id": "A-VOLUME-12",
+    "rule": "The largest weekly volume since a prior top warns to watch for a top.",
+    "source": "W006 p.44",
+    "class": "A",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/capitalStock.test.ts — a week whose volume is the largest since the last major top is flagged as a top warning.",
+    "passes": false
+  },
+  {
+    "id": "A-VOLUME-13",
+    "rule": "A double top on two-thirds of the first top's volume, and a third test of the same level, signal a top.",
+    "source": "W006 pp.43-44",
+    "class": "A",
+    "gsps_location": "lib/gann/volumeClimax.ts:computeVolumeClimax (retestOnLowerVolume at highs); lib/gann/multipleTops.ts:readMultipleTops — differs: no two-thirds ratio; lower volume of any amount",
+    "test": "TO WRITE: lib/gann/__tests__/volumeClimax.test.ts — a second top at about two-thirds of the first top's volume confirms a top reading.",
+    "passes": false
+  },
+  {
+    "id": "A-PRICE-01",
+    "rule": "Moves speed up above 50, faster above 100 and very wide above 150 and 200; on declines the first 50-100 points from an extreme high fall fastest; below 100 and 50 moves shrink.",
+    "source": "W006 pp.22-23",
+    "class": "A",
+    "gsps_location": "lib/gann/pointScale.ts:gannThreePointsPct — differs: one smooth curve for the allowance; no price-zone speed reading",
+    "test": "lib/gann/__tests__/pointScale.test.ts > gannThreePoints > shrinks as a share of price as the price rises, within the clamp",
+    "passes": false
+  },
+  {
+    "id": "A-PRICE-02",
+    "rule": "Speed is a movement in price during a unit of time.",
+    "source": "W001 p.11",
+    "class": "A",
+    "gsps_location": "lib/gann/normalizedSlope.ts:normalizedSlope — differs: price change per bar in ATR units",
+    "test": "lib/gann/__tests__/normalizedSlope.test.ts > normalizedSlope > computes (price_t - anchor_price) / (atr_at_anchor * bars_since_anchor)",
+    "passes": false
+  },
+  {
+    "id": "A-PRICE-03",
+    "rule": "Rules for when prices are in balance or out of balance with time.",
+    "source": "W001 p.11",
+    "class": "UNDISCLOSED",
+    "gsps_location": "none",
+    "test": "TO WRITE: none — not testable: the method is named but not disclosed in the text read",
+    "passes": false
+  },
+  {
+    "id": "A-PRICE-04",
+    "rule": "True Trend Line vs Relatively True Trend Line for advancing and declining markets, with indexes showing whether prices culminate on those lines.",
+    "source": "W001 pp.11, 14",
+    "class": "UNDISCLOSED",
+    "gsps_location": "none",
+    "test": "TO WRITE: none — not testable: the method is named but not disclosed in the text read",
+    "passes": false
+  },
+  {
+    "id": "A-PRICE-05",
+    "rule": "Time-price angle: from a major low draw a 45° line at a fixed number of points per month (coffee 435 + 30 pts/month x 276 months = 8715 on 19 Mar 1954, within 14 of the 8729 high; Gann printed 50, only 30 reproduces it).",
+    "source": "W046 p.1",
+    "class": "A",
+    "gsps_location": "lib/gann/fans.ts:computeFanLines; lib/gann/normalizedSlope.ts:computeAngleSlopes; lib/scoring/score.ts:computeScore (gannAngleSlope, quarantined) — differs: the price unit per time unit is ATR at the anchor, not a per-market points-per-month scale",
+    "test": "TO WRITE: lib/gann/__tests__/fans.test.ts — a 1x1 line from a low of 435 at 30 points per month reaches 8715 after 276 months.",
+    "passes": false
+  },
+  {
+    "id": "A-PRICE-06",
+    "rule": "Expected annual price range: 9-12 points on the averages, 20-30 on active stocks; wheat 30-35¢.",
+    "source": "W036 pp.12, 22",
+    "class": "A",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/annualRange.test.ts — a per-instrument expected annual range is reported as context from the symbol's own history.",
+    "passes": false
+  },
+  {
+    "id": "A-PRICE-07",
+    "rule": "State a conditional price trigger in advance (if May wheat sells at 1.08 after Jan 25, expect 95-92¢; a rally to 116 reverses the trend).",
+    "source": "W036 pp.22-23",
+    "class": "A",
+    "gsps_location": "lib/gann/stopBreach.ts:readStopBreach; lib/scoring/score.ts:applyStopBreachHold; lib/lifecycle/retire.ts — differs: the pre-stated level is the plan's stop, not a forecast target",
+    "test": "lib/gann/__tests__/stopBreach.test.ts > applyStopBreachHold > drops an Execute plan whose stop is broken to Reject, keeping the score",
+    "passes": false
+  },
+  {
+    "id": "A-LEVELS-01",
+    "rule": "Old tops become bottoms, and old bottoms later become tops.",
+    "source": "W006 pp.13, 24, 40-41",
+    "class": "A",
+    "gsps_location": "lib/analysis/levelRole.ts:levelRole; lib/scoring/score.ts:computeScore (historicalSR); lib/strat/levels.ts:computeEquityTradeLevels",
+    "test": "lib/analysis/__tests__/levelRole.test.ts > levelRole > still reads support at or above the level and resistance below",
+    "passes": false
+  },
+  {
+    "id": "A-LEVELS-02",
+    "rule": "The top of a secondary rally is always an important point to watch.",
+    "source": "W006 p.13",
+    "class": "A",
+    "gsps_location": "lib/gann/swingChart.ts:swingPivots; lib/gann/entryTrigger.ts:computeGannEntryTrigger (last completed top) — differs: any completed 3-Day Chart top, not specifically a secondary rally's",
+    "test": "lib/gann/__tests__/entryTrigger.test.ts > computeGannEntryTrigger > triggers above the old swing top for a long, not the prior bar's high",
+    "passes": false
+  },
+  {
+    "id": "A-LEVELS-03",
+    "rule": "When a stock breaks the previous bear-campaign bottom by 3 points, look to the next older campaign's bottom for support, then the next (from 1929: the 1923-24, 1921, 1917, 1914, 1907, 1903-04 and 1896 lows).",
+    "source": "W006 pp.23-24",
+    "class": "A",
+    "gsps_location": "lib/scanTicker.ts (monthly/weekly readTrend support lists); lib/strat/levels.ts:computeEquityTradeLevels (extensionLevels) — differs: about 10 years of monthly pivots, no ordered campaign-bottom ladder",
+    "test": "TO WRITE: lib/__tests__/equity-levels.test.ts — after a 3-point break of the nearest campaign bottom, the next support offered is the next older campaign bottom.",
+    "passes": false
+  },
+  {
+    "id": "A-LEVELS-04",
+    "rule": "Failing to pass an old top (a double top), especially on a third test of the same level, is a top.",
+    "source": "W006 pp.14-15, 44",
+    "class": "A",
+    "gsps_location": "lib/gann/multipleTops.ts:readMultipleTops; lib/gann/disclosedRules.ts:readLevelTests",
+    "test": "lib/gann/__tests__/timeRulesAndTops.test.ts > double and triple tops > reads a triple top that failed on its third test",
+    "passes": false
+  },
+  {
+    "id": "A-LEVELS-05",
+    "rule": "In bear markets old tops act as support; a rally that fails just below an old top (119 against the 120 top) means the bear market is still on.",
+    "source": "W006 p.24",
+    "class": "A",
+    "gsps_location": "lib/analysis/levelRole.ts:levelRole; lib/scoring/score.ts:computeScore (historicalSR role match)",
+    "test": "TO WRITE: lib/analysis/__tests__/levelRole.test.ts — a rally failing just below an old top reads that top as resistance and keeps the bearish read.",
+    "passes": false
+  },
+  {
+    "id": "A-LEVELS-06",
+    "rule": "A low that is not 3 points under the old lows shows good support (Aug 1921 at 64 against 66; Jul 1932 at 40½ against the 1903 low of 43).",
+    "source": "W006 pp.11-12, 24",
+    "class": "A",
+    "gsps_location": "lib/gann/stopBreach.ts:isStopBreachedByBar / isReclaimedByClose; lib/gann/multipleTops.ts:readMultipleTops — differs: the 3-point tolerance is applied to plan stops only; level clusters use 1%",
+    "test": "TO WRITE: lib/gann/__tests__/multipleTops.test.ts — a low that undercuts an old low by less than gannThreePoints counts as a test of that support, not a break.",
+    "passes": false
+  },
+  {
+    "id": "A-LEVELS-07",
+    "rule": "Price resistance levels as a price-and-time balance; the Corner Stone, Key Stone and Cap Stone for price and time trend.",
+    "source": "W001 pp.14-15",
+    "class": "UNDISCLOSED",
+    "gsps_location": "none",
+    "test": "TO WRITE: none — not testable: the method is named but not disclosed in the text read",
+    "passes": false
+  },
+  {
+    "id": "A-LEVELS-08",
+    "rule": "Round-number resistance: Major Motors would not advance much above 200, and not above 205½, before a big decline.",
+    "source": "W022 pp.146, 161 (PDF 151, 166)",
+    "class": "UNDISCLOSED",
+    "gsps_location": "lib/gann/evenFigures.ts:approachingFigure, shortOfFigure, stopBeyondFigure — differs: built from A04's even-figure rule, not this example",
+    "test": "lib/gann/__tests__/evenFigures.test.ts > even figures > notices a round number overhead for a long and underneath for a short",
+    "passes": false
+  },
+  {
+    "id": "A-ASTRO-01",
+    "rule": "[research-only, confluence-only] Place price on the 360° circle at several scales (1 point = 1°, 30 points per degree, 12 points per degree 'Jupiter scale', 1¢ per degree, $100 per degree) and read the zodiac position.",
+    "source": "W046 p.1",
+    "class": "A",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/astro.test.ts — a pre-registered single price-to-degree scale maps 8729 to 29° Gemini, and the module has no consumer in scoring or gates.",
+    "passes": false
+  },
+  {
+    "id": "A-ASTRO-02",
+    "rule": "[research-only, confluence-only] Compare the price-degree with heliocentric planet longitudes, looking for aspects (8663 '60° from heliocentric Jupiter'; 21° Capricorn price opposite heliocentric Uranus at 21°52′ Cancer).",
+    "source": "W046 p.1",
+    "class": "A",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/astro.test.ts — an aspect check between a price-degree and an ephemeris longitude reports 180° ± orb as an opposition, confluence only.",
+    "passes": false
+  },
+  {
+    "id": "A-ASTRO-03",
+    "rule": "[research-only, confluence-only] Add the Sun's travel since a major low (in degrees) to that low's price to get a resistance angle (8253° + 435 = 8688).",
+    "source": "W046 p.1",
+    "class": "A",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/astro.test.ts — sun travel of 8253° added to a 435 low returns 8688.",
+    "passes": false
+  },
+  {
+    "id": "A-ASTRO-04",
+    "rule": "[research-only, confluence-only] Convert a planet's travel since each major low into price at 30 points per degree plus the low (alternatively 45 points per degree), using geocentric and heliocentric Saturn.",
+    "source": "W046 p.1",
+    "class": "A",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/astro.test.ts — a planet's travel in degrees x 30 plus the low price reproduces a stated level, confluence only.",
+    "passes": false
+  },
+  {
+    "id": "A-ASTRO-05",
+    "rule": "[research-only, confluence-only] Take averages and midpoints of planetary longitudes: the averages of 6 heliocentric and 6 geocentric planets, the Jupiter-Saturn and Jupiter-Uranus halves, and the 4-planet average and its half.",
+    "source": "W046 pp.1-2",
+    "class": "A",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/astro.test.ts — the six printed longitudes average to about 164.17°.",
+    "passes": false
+  },
+  {
+    "id": "A-ASTRO-06",
+    "rule": "[research-only, confluence-only] List the coming aspects (60°, 120°, 135°, 180°, including heliocentric and Sun aspects); a cluster makes the month very important, with wide swings.",
+    "source": "W046 p.2",
+    "class": "A",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/astro.test.ts — a month with N or more listed aspects is flagged 'very important' as context only.",
+    "passes": false
+  },
+  {
+    "id": "A-ASTRO-07",
+    "rule": "[research-only, confluence-only] Count geocentric Mars's round trips from each major low; the half-cycle (Mars opposite its place at the low) is a change date, and the third opposition brought by retrograde motion is very important.",
+    "source": "W046 p.2",
+    "class": "A",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/astro.test.ts — given an ephemeris, the dates Mars reaches 180° from its longitude at a low are returned as change dates, pre-registered and confluence only.",
+    "passes": false
+  },
+  {
+    "id": "A-ASTRO-08",
+    "rule": "[research-only, confluence-only] Conditional astro forecast: if the decline starts in the Mar 22-24 window it runs to the completion of the adverse aspects (about Apr 15), then a quick rally to Apr 16, then a sharp decline.",
+    "source": "W046 pp.2-3",
+    "class": "A",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/astro.test.ts — a conditional forecast is stored with its trigger window and outcome window and scored only after the fact.",
+    "passes": false
+  },
+  {
+    "id": "A-ASTRO-10",
+    "rule": "'CE AVERAGE' and 'MOF FORMULA', held back for top-course students under a secrecy agreement.",
+    "source": "W046 p.3",
+    "class": "UNDISCLOSED",
+    "gsps_location": "none",
+    "test": "TO WRITE: none — not testable: the method is named but not disclosed in the text read",
+    "passes": false
+  },
+  {
+    "id": "A-ASTRO-11",
+    "rule": "'Malefic' and 'depressing' cycles in annual forecasts.",
+    "source": "W036 pp.4-6",
+    "class": "UNDISCLOSED",
+    "gsps_location": "none",
+    "test": "TO WRITE: none — not testable: the method is named but not disclosed in the text read",
+    "passes": false
+  },
+  {
+    "id": "A-ASTRO-14",
+    "rule": "[research-only, confluence-only] Gann's private 1940-50 Raphael ephemerides: Jupiter and Mars lines cross at the 1 Dec 1948 soybean high (a conjunction) and he was short into Jan 1949; his notes reportedly hold midpoints, declinations, heliocentric transits and lunar nodes.",
+    "source": "W010 pp.11-12",
+    "class": "B",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/astro.test.ts — a Jupiter-Mars conjunction date computed from an ephemeris falls on 1 Dec 1948 ± orb (research check only).",
+    "passes": false
+  },
+  {
+    "id": "A-SELECTION-01",
+    "rule": "Trade active stocks that follow the rules; leave queer-acting and dead, inactive stocks alone.",
+    "source": "W006 pp.20, 34-35",
+    "class": "A",
+    "gsps_location": "lib/scan/liquidity.ts:meetsLiquidityFloor; lib/marketScan.ts:runMarketScan — differs: a fixed $5 / 500k-share (crypto $5M) floor; 'queer-acting' not read",
+    "test": "lib/__tests__/liquidity.test.ts > meetsLiquidityFloor > fails a thinly traded equity above the price floor",
+    "passes": false
+  },
+  {
+    "id": "A-SELECTION-02",
+    "rule": "Early leaders in a bull market bottom and accumulate first, or cross previous years' tops first: buy them.",
+    "source": "W006 pp.27-29",
+    "class": "A",
+    "gsps_location": "lib/gann/leadership.ts:readLeadership (bottomedFirst) — differs: context only, vs SPY, no ranking",
+    "test": "lib/gann/__tests__/missingRules.test.ts > leadership > marks a stock that bottomed well before the market as an early leader",
+    "passes": false
+  },
+  {
+    "id": "A-SELECTION-03",
+    "rule": "Early leaders in a bear market top and distribute first, or break previous years' bottoms first: short them (Chrysler topped 11 months before the averages).",
+    "source": "W006 pp.24-25",
+    "class": "A",
+    "gsps_location": "lib/gann/leadership.ts:readLeadership (toppedFirst) — differs: context only",
+    "test": "TO WRITE: lib/gann/__tests__/missingRules.test.ts — a stock whose 250-session high came 10+ days before SPY's reads toppedFirst=true.",
+    "passes": false
+  },
+  {
+    "id": "A-SELECTION-04",
+    "rule": "Buy stocks in strong position and leave the weak alone; you can be long the strongest and short the weakest at once (Chrysler long, United Fruit short, 1935).",
+    "source": "W006 pp.32-34, 37-38; W022 pp.90, 146",
+    "class": "A",
+    "gsps_location": "lib/marketScan.ts:rankShortlist — differs: ranks by coarse score and cycles per direction; no strongest-vs-weakest pairing",
+    "test": "TO WRITE: lib/__tests__/cycle-ranking.test.ts — the long list is ranked strongest first and the short list weakest first on the same Gann criteria.",
+    "passes": false
+  },
+  {
+    "id": "A-SELECTION-07",
+    "rule": "Small-float stocks (130,000-166,000 shares) can be sold short for the widest declines.",
+    "source": "W006 pp.38-39",
+    "class": "A",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/capitalStock.test.ts — a small share count relative to traded volume is reported as a small-float flag on short candidates.",
+    "passes": false
+  },
+  {
+    "id": "A-SELECTION-08",
+    "rule": "Choose which futures contract month to trade by season (wheat: May until May 10, then July, then September and December; cotton per season).",
+    "source": "W036 pp.19-20, 22",
+    "class": "A",
+    "gsps_location": "none — intentional: GSPS trades US equities and spot crypto only (AssetClass), no futures",
+    "test": "TO WRITE: none — not applicable: GSPS has no futures contracts",
+    "passes": false
+  },
+  {
+    "id": "A-OTHER-04",
+    "rule": "Forecasting factors: TIME, PRICE, VOLUME and SPEED, plus a fifth, MASS PRESSURE.",
+    "source": "W001 p.11",
+    "class": "UNDISCLOSED",
+    "gsps_location": "none",
+    "test": "TO WRITE: none — not testable: the method is named but not disclosed in the text read",
+    "passes": false
+  },
+  {
+    "id": "A-OTHER-05",
+    "rule": "Mass Pressure: public over-optimism or pessimism after a cycle, as a curve calculable 100 years ahead with minor corrections at fixed intervals.",
+    "source": "W001 pp.11-12, 16",
+    "class": "UNDISCLOSED",
+    "gsps_location": "none",
+    "test": "TO WRITE: none — not testable: the method is named but not disclosed in the text read",
+    "passes": false
+  },
+  {
+    "id": "A-OTHER-06",
+    "rule": "The Master Three-Dimension Chart shows time, price and volume and velocity; also Master Calculators 9 and 12, the Dollar Trend chart, the New Time Trend Indicator and the Mechanical Method.",
+    "source": "W001 pp.7, 14-16",
+    "class": "UNDISCLOSED",
+    "gsps_location": "none",
+    "test": "TO WRITE: none — not testable: the method is named but not disclosed in the text read",
+    "passes": false
+  },
+  {
+    "id": "A-OTHER-07",
+    "rule": "[research-only, confluence-only] The number 7 matters most in time periods, then 3, 9 and 12 (other numbers: 3 and 7, 10 'perfect', 12, 21 days, seven circles around one).",
+    "source": "W001 p.14; W030 pp.108-110/93-95; W022 p.152",
+    "class": "A",
+    "gsps_location": "lib/gann/digitalRoot.ts:buildDigitalRootFeature; lib/gann/masterTwelve.ts (Master Numbers 3,5,7,9,12) — differs: masterTwelve's set comes from A2.1 and is unranked; digital root is mod-9 arithmetic",
+    "test": "TO WRITE: lib/gann/__tests__/masterTwelve.test.ts — a ranked number list puts 7 first, then 3, 9 and 12, and no scoring module imports it.",
+    "passes": false
+  },
+  {
+    "id": "A-OTHER-08",
+    "rule": "[research-only, confluence-only] Name-letter and 'fortunate number' numerology for elections (W022's 1928 call was wrong).",
+    "source": "W022 pp.218-221; W010 p.3",
+    "class": "A",
+    "gsps_location": "none — intentional: excluded (matrix S6)",
+    "test": "TO WRITE: none — excluded by AGENTS.md (no validatable rule)",
+    "passes": false
+  },
+  {
+    "id": "A-OTHER-12",
+    "rule": "Gann works the trend out in advance from the top or bottom of a swing to the exact turning point, ordering at the top or bottom eighth of a swing.",
+    "source": "W001 pp.1-2 (Wyckoff, *Ticker* 1909)",
+    "class": "UNDISCLOSED",
+    "gsps_location": "none",
+    "test": "TO WRITE: none — not testable: the method is named but not disclosed in the text read",
+    "passes": false
+  },
+  {
+    "id": "A-OTHER-13",
+    "rule": "Supplements revise a forecast during the year when the market strays from the projected curve.",
+    "source": "W036 pp.16-17, 23",
+    "class": "A",
+    "gsps_location": "lib/gann/macroCycle.ts:computeMacroCycle — differs: windows are fixed from cited anchors; no scheduled revision or revision log",
+    "test": "TO WRITE: lib/gann/__tests__/macroCycle.test.ts — a forecast record keeps its original windows and each dated revision separately, so it can be scored before and after revision.",
+    "passes": false
+  },
+  {
+    "id": "A-OTHER-14",
+    "rule": "Wheat prices forecast coming wars; Gann determined the major and minor time factors that repeat in nations, men and markets.",
+    "source": "W022 p.70 (PDF 75)",
+    "class": "UNDISCLOSED",
+    "gsps_location": "none",
+    "test": "TO WRITE: none — not testable: the method is named but not disclosed in the text read",
+    "passes": false
+  },
+  {
+    "id": "M-T3",
+    "rule": "Cycle hierarchy of 1, 2, 3, 5, 7, 10, 15, 20, 30, 50 and 60 years from major pivots.",
+    "source": "A2.1 Ch.7 (unread in current reading)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/timeCycles.ts:MAJOR_CYCLE_YEARS; lib/gann/timeCycles.ts:yearCycleConvergence; lib/marketScan.ts:rankShortlist",
+    "test": "lib/__tests__/cycle-ranking.test.ts > yearCycleConvergence > counts a major low exactly one cycle length back as a bullish hit",
+    "passes": false
+  },
+  {
+    "id": "M-T4",
+    "rule": "Several cycles converging on one window strengthen it.",
+    "source": "A2.1 Ch.7, 13 (unread in current reading)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/timeCycles.ts:yearCycleConvergence; lib/gann/timeConvergence.ts:readTiming",
+    "test": "lib/__tests__/cycle-ranking.test.ts > rankShortlist > lets converging cycles lift a candidate over a higher coarse score",
+    "passes": false
+  },
+  {
+    "id": "M-T5",
+    "rule": "Permanent annual calendar: Feb 8-10, Mar 21-23, May 3-7, Jun 20-24, Aug 3-8, Sep 21-24, Nov 8-11, Dec 20-24.",
+    "source": "A04 back matter; A09 (unread in current reading)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/timeCycles.ts:FIXED_CALENDAR_WINDOWS (10 windows, 8 from A04 plus the 1/3 and 2/3 seasonal dates)",
+    "test": "lib/__tests__/gann.test.ts > fixed annual calendar cycle (A4) > marks the window active inside a disclosed window",
+    "passes": false
+  },
+  {
+    "id": "M-T6",
+    "rule": "Fractions of the year ranked: anniversary > 1/2 > 1/4, 3/4 > 1/3, 2/3 > eighths.",
+    "source": "A2.1 Ch.13-14 (unread in current reading)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/disclosedRules.ts:YEAR_FRACTIONS, readYearFraction; lib/gann/squareOf52.ts:squareOf52Windows; lib/gann/timeCycles.ts (WHEEL_COUNTS)",
+    "test": "lib/gann/__tests__/squareOf52.test.ts > SQUARE_OF_52_FRACTIONS > flags 1/2 as most-important and 3/4 as very-important, per the source's own emphasis",
+    "passes": false
+  },
+  {
+    "id": "M-T7",
+    "rule": "Day-count bands from any important high or low: 7-12, 18-21, 28-31, 42-49, 57-65, 85-92, 112-120, 150-157, 175-185 days.",
+    "source": "A09 Rule 8; A8 pp.57-58 (unread in current reading)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/timeCycles.ts:DAY_COUNT_BANDS; lib/gann/disclosedRules.ts:readDayCountBands",
+    "test": "lib/gann/__tests__/disclosedRules.test.ts > day-count bands and fractions of the year (A09 Rule 8; Master Course Ch. 13-14) > flags a day count inside a disclosed band",
+    "passes": false
+  },
+  {
+    "id": "M-T8",
+    "rule": "Seasonal counts from Mar 20/21 and the midseason points, ranked 1/2, then 1/4 and 3/4, 1/3 and 2/3, then eighths.",
+    "source": "A2.1 Ch.14, 17, 18 (unread in current reading)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/seasonalCounts.ts:readSeasonalCount, SEASONAL_POINTS",
+    "test": "lib/gann/__tests__/missingRules.test.ts > seasonal counts from March 21 > ranks the half year first and finds the midseason points",
+    "passes": false
+  },
+  {
+    "id": "M-T10",
+    "rule": "The 6th-7th week ends fast moves (boiling point), rarely past 10 weeks; the 2-3-day halt and weekly reaction rules are covered by A-ENTRY-01/08.",
+    "source": "A04 Ch.IV; A09 Rule 4 (unread in current reading)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/boilingPoint.ts:computeBoilingPoint",
+    "test": "lib/gann/__tests__/boilingPoint.test.ts > computeBoilingPoint > reads 6-7 weeks since the anchor as classic",
+    "passes": false
+  },
+  {
+    "id": "M-T11",
+    "rule": "Time balancing: project prior swing durations forward; percentages of time.",
+    "source": "A8 pp.97-99, 293 (unread in current reading)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/campaignLedger.ts:buildCampaignLedger (timeBalanceDates); lib/gann/timePriceSquare.ts:computeTimePriceSquare",
+    "test": "lib/gann/__tests__/campaignLedger.test.ts > buildCampaignLedger > projects a time-balance date from the matching prior leg",
+    "passes": false
+  },
+  {
+    "id": "M-T12",
+    "rule": "The more time consumed in accumulation (2-6 or 10-13 weeks), the bigger the advance.",
+    "source": "A04 Ch.VII; A8 p.52 (unread in current reading)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/accumulation.ts:readAccumulation",
+    "test": "lib/gann/__tests__/missingRules.test.ts > accumulation time > counts the weeks in a range and reads the breakout",
+    "passes": false
+  },
+  {
+    "id": "M-T16",
+    "rule": "Squares of time: the Master 12, the Square of 52 and the 36 angle month-counts.",
+    "source": "A2.1 Ch.7, 13, 14 (unread in current reading)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/masterTwelve.ts:masterTwelveLevels; lib/gann/squareOf52.ts:squareOf52Windows; lib/gann/angleMonthCounts.ts:angleMonthCounts — card only",
+    "test": "lib/gann/__tests__/squareOf52.test.ts > SQUARE_OF_52_FRACTIONS > reproduces every disclosed week-count exactly",
+    "passes": false
+  },
+  {
+    "id": "M-T17",
+    "rule": "Decade-digit years: bull/bear tendency by the year's last digit.",
+    "source": "A2.1 Ch.7 (unread in current reading)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/decadeCycle.ts:computeDecadeCycle — card only",
+    "test": "lib/gann/__tests__/decadeCycle.test.ts > computeDecadeCycle > reads a '7' year as bearish",
+    "passes": false
+  },
+  {
+    "id": "M-T18",
+    "rule": "[research-only, confluence-only] Square of 20 and Hexagon chart constructions.",
+    "source": "A2.1 Ch.7, 15B (unread in current reading)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/squareOf20.ts:ringAndAngleOf, dateToGridCell; lib/gann/hexagonChart.ts:centeredHexagonalNumbers — no consumers by design",
+    "test": "lib/gann/__tests__/hexagonChart.test.ts > centeredHexagonalNumbers (3n^2 + 3n + 1) > reproduces the disclosed list exactly: 1, 7, 19, 37, 61, 91, 127, 169, 217, 271, 331, 397",
+    "passes": false
+  },
+  {
+    "id": "M-P1",
+    "rule": "Range divisions: 1/2 first, then 1/4 and 3/4, 1/3 and 2/3, then eighths.",
+    "source": "A2.1 Ch.2, 13 (unread in current reading)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/retracement.ts:computeRetracementLevels; lib/scoring/score.ts:computeScore (gannRetracementConfluence)",
+    "test": "lib/gann/__tests__/retracement.test.ts > computeRetracementLevels > assigns the disclosed importance ranking: 1/2 highest, then full retracement, then 1/4, 1/8, 1/16, thirds lowest",
+    "passes": false
+  },
+  {
+    "id": "M-P2",
+    "rule": "Percentages of the extreme price: the low divided by 8 and its eighths added above; the high divided by 8 and by 3; 50% and 100% of a bottom and 50% of the high most important.",
+    "source": "A8 pp.32-34; A09 (unread in current reading)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/disclosedRules.ts:pricePercentageLevels, majorPricePercentageLevels; lib/scanTicker.ts (S/R list)",
+    "test": "lib/gann/__tests__/disclosedRules.test.ts > percentages of the extreme price (Commodities pp. 32-34) > builds eighths of the low above it and eighths and thirds of the high",
+    "passes": false
+  },
+  {
+    "id": "M-P4",
+    "rule": "Nearby levels are averaged into one.",
+    "source": "A2.1 Ch.9; A8 (unread in current reading)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/strat/levels.ts:combineNearbyLevels (internal)",
+    "test": "TO WRITE: lib/__tests__/equity-levels.test.ts — two structural levels within the combine band are merged into one level at their average before the stop is anchored.",
+    "passes": false
+  },
+  {
+    "id": "M-P6",
+    "rule": "The 4th test of a level usually goes through.",
+    "source": "A8 p.43; A09 (unread in current reading)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/analysis/levelRole.ts:levelTestConfidence; lib/gann/disclosedRules.ts:readLevelTests",
+    "test": "lib/analysis/__tests__/levelRole.test.ts > levelTestConfidence > reads the 4th test onward as caution, per the disclosed rule",
+    "passes": false
+  },
+  {
+    "id": "M-P7",
+    "rule": "Square of Nine: 180° = +1 on the square root of price.",
+    "source": "A2.1 Ch.13 (unread in current reading)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/squareOf9.ts:squareOf9Levels, recentSquareOf9Levels",
+    "test": "lib/__tests__/gann.test.ts > squareOf9Levels > produces the classic 360° doubling relationship",
+    "passes": false
+  },
+  {
+    "id": "M-P9",
+    "rule": "Price equals time squaring.",
+    "source": "A2.1; A8 (unread in current reading)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/timePriceSquare.ts:computeTimePriceSquare; lib/scoring/score.ts:computeScore (timePriceSquare) — differs: price move in ATR units against bar count",
+    "test": "lib/gann/__tests__/timePriceSquare.test.ts > computeTimePriceSquare > squares when the bar count and the ATR-normalized price move land within tolerance",
+    "passes": false
+  },
+  {
+    "id": "M-P10",
+    "rule": "Even figures (100, 200) attract orders; place orders 1/2-3/4 point off them.",
+    "source": "A04 Ch.I, V (unread in current reading)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/evenFigures.ts:shortOfFigure, stopBeyondFigure, roundNumberEntryBlocked; lib/strat/levels.ts:computeEquityTradeLevels; lib/scanner/intraday.ts:gannFirstTarget",
+    "test": "lib/gann/__tests__/evenFigures.test.ts > even figures > places orders just before the figure",
+    "passes": false
+  },
+  {
+    "id": "M-R1",
+    "rule": "Swing chart: counter-moves of 2-3 days on highs and lows (3-Day Chart) and a 7-calendar-day weekly chart; the trend turns on breaking the last swing extreme.",
+    "source": "A8 1951 pp.316-317; A09 Ch.VII; A04 Ch.IV; A02 p.82 (unread in current reading)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/swingChart.ts:walkSwingChart, THREE_DAY_CHART, WEEKLY_SWING_CHART; lib/scoring/score.ts (swingChartTrend, quarantined 2026-09-30)",
+    "test": "lib/gann/__tests__/swingChart.test.ts > walkSwingChart: the line > reverses after 3 consecutive lower lows and records the top",
+    "passes": false
+  },
+  {
+    "id": "M-R3",
+    "rule": "Rule of Three: two higher closes (bullish) or three lower closes (bearish) reverse the trend, on daily, weekly and monthly bars.",
+    "source": "A04 p.72 (unread in current reading)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/ruleOfThree.ts:computeRuleOfThree; lib/gann/disclosedRules.ts:readRuleOfThreeTimeframes; lib/scoring/score.ts (ruleOfThree)",
+    "test": "lib/gann/__tests__/ruleOfThree.test.ts > computeRuleOfThree > signals bearish on three consecutive lower closes",
+    "passes": false
+  },
+  {
+    "id": "M-R7",
+    "rule": "A close above the bar's midpoint reads up, below reads down.",
+    "source": "A2.1 Ch.13 (unread in current reading)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/disclosedRules.ts:readBarMidpoint",
+    "test": "lib/gann/__tests__/disclosedRules.test.ts > close vs bar midpoint (Master Course Ch. 13) > reads a close above the midpoint as up and below as down",
+    "passes": false
+  },
+  {
+    "id": "M-R8",
+    "rule": "Weekly 1-bar swing chart.",
+    "source": "A2.1 Ch.18 (unread in current reading)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/swingChart.ts:WEEKLY_SWING_CHART (7 calendar days)",
+    "test": "lib/gann/__tests__/swingChart.test.ts > walkSwingChart: the line > counts calendar days, so a one-bar reaction on weekly bars is enough",
+    "passes": false
+  },
+  {
+    "id": "M-R11",
+    "rule": "Campaigns run in 3-4 sections; signals in the 3rd or 4th weigh more.",
+    "source": "A04; A09 Rule 5; A8 p.51 (unread in current reading)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/campaignLedger.ts:buildCampaignLedger (sections); lib/gann/exitRules.ts:FINAL_STAGE_SECTION; lib/gann/swingChart.ts:computeCampaignLeg",
+    "test": "lib/gann/__tests__/swingChart.test.ts > computeCampaignLeg > counts 3-Day Chart legs since the weekly chart's trend began",
+    "passes": false
+  },
+  {
+    "id": "M-E6",
+    "rule": "Move the stop to break-even after 3-4 points of profit.",
+    "source": "A02 Book II; A04 Rule 3 (unread in current reading)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/exitRules.ts:readGannExit (break_even after one risk unit) — differs: one risk unit, not 3-4 points",
+    "test": "lib/gann/__tests__/exitRules.test.ts > readGannExit > moves the stop to break-even once the trade has gone one risk unit its way",
+    "passes": false
+  },
+  {
+    "id": "M-E8",
+    "rule": "Never fix a target price: exit on the stop or a trend-change signal (cluster A-EXIT-03 states the same as philosophy and is excluded).",
+    "source": "A02 Book II; A04 Rule list (unread in current reading)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/trade/protocol-exit.ts:LIVE_EXIT_RULE, planProtocolExit; lib/gann/exitRules.ts:readGannExit — differs: 60% is still taken at TP1",
+    "test": "lib/__tests__/protocol-exit.test.ts > Gann exit rules (live since 2026-09-28) > places no master-target order: everything after TP1 runs",
+    "passes": false
+  },
+  {
+    "id": "M-E11",
+    "rule": "Reverse signal day (opens above the prior high, new high, closes near the low) and the 7-10 Day Rule.",
+    "source": "A8 1951 pp.311, 317-318 (unread in current reading)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/extremeRules.ts:readReverseSignal",
+    "test": "lib/gann/__tests__/extremeTiming.test.ts > reverse signal day and the 7-10 Day Rule > reads a top reverse day: opens above the prior high, new high, closes near the low",
+    "passes": false
+  },
+  {
+    "id": "M-E12",
+    "rule": "Gap rules: an exhaust gap is filled the next day; 3-4 gaps in new territory mean a culmination; a filled gap reverses the minor trend.",
+    "source": "A8 1951 pp.318-325 (unread in current reading)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/extremeRules.ts:readGaps",
+    "test": "lib/gann/__tests__/extremeTiming.test.ts > gap rules > reads an exhaust gap: a one-day gap to a new high filled the next day",
+    "passes": false
+  },
+  {
+    "id": "M-K3",
+    "rule": "Do not increase size after a long winning run.",
+    "source": "A04 Rule 24 (unread in current reading)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/risk/dynamic-risk.ts:resolveRiskBand — conflict risk: bands do step up after 20/40-50 completed trades and execution score",
+    "test": "TO WRITE: lib/risk/__tests__/dynamic-risk.test.ts — a winning streak by itself never raises the permitted risk band.",
+    "passes": false
+  },
+  {
+    "id": "M-K4",
+    "rule": "Close all trades twice a year and rest.",
+    "source": "A02 Book I (unread in current reading)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/traderPrefs.ts:currentRestWindow, restReminderDue (reminder only, never closes)",
+    "test": "lib/gann/__tests__/traderPrefs.test.ts > trader rule preferences > opens a rest window at each half-year turn, including across the new year",
+    "passes": false
+  },
+  {
+    "id": "M-K5",
+    "rule": "Do not take a 3-5-point target unless the stop is 1-2 points.",
+    "source": "A04 Ch.II (unread in current reading)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/strat/levels.ts:computeEquityTradeLevels; lib/scoring/score.ts:computeScore (tradePlanPriced) — no explicit minimum R:R gate found",
+    "test": "TO WRITE: lib/__tests__/equity-levels.test.ts — a plan whose TP1 is less than 1.5x its stop distance is marked not tradeable.",
+    "passes": false
+  },
+  {
+    "id": "M-H2",
+    "rule": "Seven Zones of Activity.",
+    "source": "A02 Ch.XI (unread in current reading)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/sevenZones.ts:readSevenZones",
+    "test": "lib/gann/__tests__/sevenZones.test.ts > readSevenZones > reads a quiet advance as zone 1 and a feverish one as zone 3",
+    "passes": false
+  },
+  {
+    "id": "M-S4",
+    "rule": "[research-only, confluence-only] Eclipse longitudes (excluded until a Gann source is found).",
+    "source": "B05 (unread in current reading)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "none — intentional: excluded",
+    "test": "TO WRITE: none — excluded pending a Gann source",
+    "passes": false
+  },
+  {
+    "id": "C-OTHER-01",
+    "rule": "Classify the market into one of four situations (bull, bull top, bear, bear-to-bull reversal), each traded with a different strategy (anonymous compiler, W003).",
+    "source": "W003 p.15; W034 p.1 (probable origin: Master Stock Market Course or 45 Years in Wall Street, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/signals/regime.ts:classifyRegime; lib/gann/trendStrength.ts:readGannTrend, isGannRangeBound — differs: GSPS reads bullish trend / bearish trend / range, not four phases with a distinct bull-top and bear-to-bull state",
+    "test": "TO WRITE: lib/signals/__tests__/regime.test.ts — a topping bull (over-balanced reaction after an advance) and a basing bear are classified as states distinct from a running bull and a running bear.",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-01",
+    "rule": "Most moves last three units: 3 days, 3 weeks or 3 months (anonymous compiler, W003).",
+    "source": "W003 p.15; W034 p.1 (probable origin: 45 Years in Wall Street or Truth of the Stock Tape, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/ruleOfThree.ts:computeRuleOfThree; lib/gann/disclosedRules.ts:readRuleOfThreeTimeframes — differs: GSPS counts a streak of 2 higher / 3 lower closes as a reversal signal, not the duration of a move",
+    "test": "TO WRITE: lib/gann/__tests__/timeRulesAndTops.test.ts — a move-duration reading classifies a completed 3-Day Chart swing of 3 days, 3 weeks or 3 months as the expected length and a longer one as extended.",
+    "passes": false
+  },
+  {
+    "id": "C-ENTRY-01",
+    "rule": "Never enter in the direction of the trend on the 3rd day of a run (anonymous compiler, W003).",
+    "source": "W003 pp.15, 17; W034 pp.1–2 (probable origin: Master Stock Market Course, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/entryTrigger.test.ts — a with-trend entry whose trigger session is the 3rd consecutive bar of the run is refused.",
+    "passes": false
+  },
+  {
+    "id": "C-TREND-01",
+    "rule": "Tops take more time to form than bottoms, and spike (V) bottoms are more common than spike tops (anonymous compiler, W003).",
+    "source": "W003 p.15 (probable origin: 45 Years in Wall Street or How to Make Profits in Commodities, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/swingChart.test.ts — a pivot-duration reading reports the days price spent near each top and each bottom so the top/bottom asymmetry can be measured against a base rate.",
+    "passes": false
+  },
+  {
+    "id": "C-TREND-02",
+    "rule": "Blow-off moves of up to 20% a day happen in small stocks at climaxes (anonymous compiler, W003).",
+    "source": "W003 p.15",
+    "class": "C",
+    "gsps_location": "lib/gann/boilingPoint.ts:computeBoilingPoint; lib/gann/volumeClimax.ts:computeVolumeClimax — differs: a climax is read from volume against its trailing average and weeks since it, never from a daily % price change",
+    "test": "TO WRITE: lib/gann/__tests__/boilingPoint.test.ts — a day whose range is 20% of price at a volume climax is reported as a blow-off magnitude (context only, no trigger).",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-02",
+    "rule": "Divergences do not time a turn; time cycles do (anonymous compiler, W003).",
+    "source": "W003 p.16",
+    "class": "C",
+    "gsps_location": "lib/gann/timeCycles.ts:timeCycles; lib/scoring/score.ts:computeScore — consistent by absence: no price/oscillator divergence feeds the verdict (RSI/MACD are chart overlays and Strategy Modes only)",
+    "test": "TO WRITE: lib/validation/__tests__/criteria-gate.test.ts — no CRITERION_KEYS entry or signal gate reads a divergence between price and an oscillator.",
+    "passes": false
+  },
+  {
+    "id": "C-TREND-03",
+    "rule": "In a bull market the first warning is a correction larger in both price and time than every earlier correction in the move (over-balance) (anonymous compiler, W003).",
+    "source": "W003 pp.15–16 (probable origin: How to Make Profits in Commodities or 45 Years in Wall Street, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/campaignLedger.ts:buildCampaignLedger (spaceOverbalanced, timeOverbalanced); lib/gann/trendStrength.ts:readGannTrend",
+    "test": "lib/gann/__tests__/campaignLedger.test.ts > buildCampaignLedger > flags over-balance when a reaction outlasts and outsizes every earlier one",
+    "passes": false
+  },
+  {
+    "id": "C-SWING-01",
+    "rule": "Corrections within an uptrend tend to be nearly equal in size (no tolerance given) (anonymous compiler, W003).",
+    "source": "W003 p.16",
+    "class": "C",
+    "gsps_location": "lib/gann/campaignLedger.ts:buildCampaignLedger (legs[].pct) — differs: leg sizes are recorded but never compared for equality",
+    "test": "TO WRITE: lib/gann/__tests__/campaignLedger.test.ts — the ledger flags a campaign whose counter-moves agree in % size within a pre-registered tolerance.",
+    "passes": false
+  },
+  {
+    "id": "C-PRICE-01",
+    "rule": "Project a swing objective by adding the prior swing's range to the new swing's starting point (measured move) (anonymous compiler, W003).",
+    "source": "W003 p.16 (probable origin: 45 Years in Wall Street, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/signals/states/trendBreakout.ts:evaluateTrendBreakout (buildPlan measuredMoveTarget) — differs: adds the base range to the breakout trigger, only as a fallback when no structural level lies beyond; lib/strat/levels.ts:computeEquityTradeLevels — differs: targets are old tops/bottoms (C4), not a projected range",
+    "test": "TO WRITE: lib/gann/__tests__/swingChart.test.ts — a measured-move objective from completed 3-Day Chart swings equals the new swing's start plus the prior swing's high minus low.",
+    "passes": false
+  },
+  {
+    "id": "C-LEVELS-01",
+    "rule": "Squares of numbers (n²) and the 50% point between consecutive squares act as support and resistance, but are not tradable alone (anonymous compiler, W003).",
+    "source": "W003 p.16",
+    "class": "C",
+    "gsps_location": "lib/gann/squareOf9.ts:squareOf9Levels — differs: levels are (√anchor + deg/180)² from a pivot price, not the fixed grid of integer squares and their midpoints; confluence-only, consistent with 'not tradable alone'",
+    "test": "TO WRITE: lib/__tests__/gann.test.ts — a squares-of-numbers level set around price 110 contains 100, 110.5 and 121, and no scored criterion reads it.",
+    "passes": false
+  },
+  {
+    "id": "C-LEVELS-02",
+    "rule": "Proof 1 of the nine mathematical proofs of resistance: angles drawn from tops and bottoms (anonymous compiler, W003).",
+    "source": "W003 p.16; W034 p.2 (probable origin: Master Stock Market Course (also summarised in Trading Methodologies and Scientific Methods Unveiled Vol 2), unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/fans.ts:computeFanLines; lib/gann/normalizedSlope.ts:computeAngleSlopes — differs: one price unit is one ATR per bar, not a fixed price-per-day scale",
+    "test": "lib/__tests__/gann.test.ts > computeFanLines > returns fan lines sorted by proximity for a trending series",
+    "passes": false
+  },
+  {
+    "id": "C-LEVELS-03",
+    "rule": "Proof 2: horizontal levels at old tops and bottoms act as resistance and support (anonymous compiler, W003).",
+    "source": "W003 p.16 (probable origin: Master Stock Market Course, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/scoring/score.ts:computeScore (historicalSR); lib/strat/levels.ts:computeEquityTradeLevels; lib/gann/disclosedRules.ts:readLevelTests",
+    "test": "lib/__tests__/equity-levels.test.ts > computeEquityTradeLevels > anchors the stop to the nearest support level within band, on a long",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-03",
+    "rule": "Proof 3: time cycles act as vertical angles; go short when, after 3–4 sideways days, a high-volume down day breaks the range at the expiry of a time cycle (anonymous compiler, W003).",
+    "source": "W003 p.16 (probable origin: Master Stock Market Course, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/timeCycles.ts:timeCycles; lib/gann/breakaway.ts:readBreakaway; lib/gann/volumeClimax.ts:computeVolumeClimax — differs: the pieces exist separately (cycle windows, a 13-week range, volume), but no rule combines a 3–4-day range, a volume spike and a cycle date into an entry",
+    "test": "TO WRITE: lib/gann/__tests__/breakaway.test.ts — a 4-day range broken downward on above-average volume on an active timeCycles date is read as a short setup, and the same break off a cycle date is not.",
+    "passes": false
+  },
+  {
+    "id": "C-LEVELS-04",
+    "rule": "Proof 4: crossings of angles drawn from zero (anonymous compiler, W003).",
+    "source": "W003 p.16 (probable origin: Master Stock Market Course, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/__tests__/gann.test.ts — fan lines anchored at price 0 on a stated origin date return the dates where they cross the current price.",
+    "passes": false
+  },
+  {
+    "id": "C-LEVELS-05",
+    "rule": "Proof 5: crossings of angles drawn from double and triple tops or bottoms (anonymous compiler, W003).",
+    "source": "W003 p.16 (probable origin: Master Stock Market Course, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "none — lib/gann/fans.ts anchors only on the latest swing pivots, and lib/gann/multipleTops.ts:readMultipleTops draws no angles",
+    "test": "TO WRITE: lib/gann/__tests__/timeRulesAndTops.test.ts — fan lines anchored on each test of a double bottom report the price and date where they cross.",
+    "passes": false
+  },
+  {
+    "id": "C-LEVELS-06",
+    "rule": "Proof 6: price crossing a double or triple top (or bottom) is a breakout (anonymous compiler, W003).",
+    "source": "W003 p.16 (probable origin: Master Stock Market Course, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/multipleTops.ts:readMultipleTops",
+    "test": "lib/gann/__tests__/timeRulesAndTops.test.ts > double and triple tops > reads the crossing of a double or triple top",
+    "passes": false
+  },
+  {
+    "id": "C-LEVELS-07",
+    "rule": "Proof 7: past support and resistance levels (the same substance as Proof 2) (anonymous compiler, W003).",
+    "source": "W003 p.16 (probable origin: Master Stock Market Course, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/scoring/score.ts:computeScore (historicalSR); lib/strat/levels.ts:computeEquityTradeLevels",
+    "test": "lib/__tests__/equity-levels.test.ts > computeEquityTradeLevels > anchors the stop to the nearest support level within band, on a long",
+    "passes": false
+  },
+  {
+    "id": "C-VOLUME-01",
+    "rule": "Proof 8: volume is a proof of resistance (named only, no rule given) (anonymous compiler, W003).",
+    "source": "W003 p.16 (probable origin: Master Stock Market Course, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/volumeClimax.ts:computeVolumeClimax; lib/scoring/score.ts:computeScore (volumeClimax)",
+    "test": "lib/gann/__tests__/volumeRule.test.ts > the volume rule at a low (parity D1) > confirms a normal bottom on drying-up volume and a narrowing range",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-04",
+    "rule": "Proof 9: the squaring of time and price (anonymous compiler, W003).",
+    "source": "W003 p.16 (probable origin: Master Stock Market Course, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/timePriceSquare.ts:computeTimePriceSquare — differs: one point = one ATR, with a 4-bar tolerance",
+    "test": "lib/gann/__tests__/timePriceSquare.test.ts > computeTimePriceSquare > squares when the bar count and the ATR-normalized price move land within tolerance",
+    "passes": false
+  },
+  {
+    "id": "C-SWING-02",
+    "rule": "In a consolidation the 3rd attempt at a range edge is the important one, and if it fails a fast reverse move follows (anonymous compiler, W003).",
+    "source": "W003 pp.16–17; W034 p.2 (probable origin: 45 Years in Wall Street or Master Stock Market Course, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/multipleTops.ts:readMultipleTops; lib/gann/disclosedRules.ts:readLevelTests",
+    "test": "lib/gann/__tests__/timeRulesAndTops.test.ts > double and triple tops > reads a triple top that failed on its third test",
+    "passes": false
+  },
+  {
+    "id": "C-STOP-01",
+    "rule": "A false breakout is a move outside a range that fails the following week without exceeding the top by more than 3 points (anonymous compiler, W003).",
+    "source": "W003 p.17; W034 p.2 (probable origin: Truth of the Stock Tape or 45 Years in Wall Street, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/stopBreach.ts:readStopBreach, reclaimLevel (RECLAIM_POINTS = 3); lib/gann/pointScale.ts:gannThreePoints — differs: the price-scaled 3-point test is applied to a broken plan stop, with no one-week window and no range-breakout reading; lib/gann/multipleTops.ts:readMultipleTops — differs: 'crossed' uses the 0.3% lost-motion buffer, not 3 points",
+    "test": "TO WRITE: lib/gann/__tests__/timeRulesAndTops.test.ts — a close above a range top by less than gannThreePoints(price) that falls back inside within the next 5 sessions is read as a false breakout, and one exceeding it is not.",
+    "passes": false
+  },
+  {
+    "id": "C-ENTRY-02",
+    "rule": "A narrow 3–4-day range breaks into a sharp 3-day move ('narrow' undefined) (anonymous compiler, W003).",
+    "source": "W003 p.17",
+    "class": "C",
+    "gsps_location": "lib/gann/breakaway.ts:readBreakaway — differs: reads a 13-week range, not a 3–4-day one",
+    "test": "TO WRITE: lib/gann/__tests__/breakaway.test.ts — a 4-bar range narrower than a pre-registered fraction of ATR is flagged, and its break is reported with the following 3-day move.",
+    "passes": false
+  },
+  {
+    "id": "C-ENTRY-03",
+    "rule": "Fast up-moves start from a 3rd or 4th higher bottom (anonymous compiler, W003).",
+    "source": "W003 p.17 (probable origin: 45 Years in Wall Street or Truth of the Stock Tape, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/trendStrength.ts:readGannTrend — differs: confirms a trend on rising tops and bottoms but does not count which higher bottom a move starts from",
+    "test": "TO WRITE: lib/gann/__tests__/trendStrength.test.ts — a count of successive higher 3-Day Chart bottoms returns 3 on the third higher low and 4 on the fourth.",
+    "passes": false
+  },
+  {
+    "id": "C-TREND-04",
+    "rule": "Late in a trend, reactions get smaller until a sharp reversal comes (anonymous compiler, W003).",
+    "source": "W003 p.17",
+    "class": "C",
+    "gsps_location": "lib/gann/sevenZones.ts:readSevenZones — differs: zones 2–3 describe small reactions qualitatively; there is no shrinking-reaction detector",
+    "test": "TO WRITE: lib/gann/__tests__/campaignLedger.test.ts — a campaign whose last three counter-moves each shrink in % size is flagged as contracting.",
+    "passes": false
+  },
+  {
+    "id": "C-TREND-05",
+    "rule": "From a bear-market bottom a fast move runs about 3 weeks up, then 3–5 weeks sideways, then accelerates (anonymous compiler, W003).",
+    "source": "W003 p.17 (probable origin: How to Make Profits in Commodities or 45 Years in Wall Street, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/missingRules.test.ts — a post-bottom template reading labels a fixture's ~3-week advance, 3–5-week range and acceleration as phases 1, 2 and 3.",
+    "passes": false
+  },
+  {
+    "id": "C-TREND-06",
+    "rule": "The first sign of a trend change is over-balance: a reaction larger in price than any earlier reaction in the campaign (anonymous compiler, W003).",
+    "source": "W003 p.17; W034 p.2 (probable origin: How to Make Profits in Commodities, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/campaignLedger.ts:buildCampaignLedger (spaceOverbalanced); lib/gann/trendStrength.ts:readGannTrend",
+    "test": "lib/gann/__tests__/trendStrength.test.ts > readGannTrend > stops confirming when a pullback over-balances the campaign's earlier ones",
+    "passes": false
+  },
+  {
+    "id": "C-TREND-07",
+    "rule": "A rising market should spend more time rising than falling, and an inversion of that ratio is a warning (anonymous compiler, W003).",
+    "source": "W003 p.17; W034 p.2",
+    "class": "C",
+    "gsps_location": "lib/gann/campaignLedger.ts:buildCampaignLedger (legs[].days) — differs: leg durations are recorded but no up/down time ratio is read",
+    "test": "TO WRITE: lib/gann/__tests__/campaignLedger.test.ts — a bullish campaign whose down-leg days exceed its up-leg days is flagged.",
+    "passes": false
+  },
+  {
+    "id": "C-OTHER-02",
+    "rule": "Ignore the financial press (anonymous compiler, W003).",
+    "source": "W003 p.17",
+    "class": "C",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/school/__tests__/content.test.ts — a discipline lesson tells the learner to judge the market from its own chart rather than the news.",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-05",
+    "rule": "Seasonal turn dates are 21–22 Dec, 21 Mar, 22 Jun and 21–23 Sep, plus about 15 days later 5–6 Jan, 5 Feb, 6 May, 7 Jul and 8 Aug (anonymous compiler, W003).",
+    "source": "W003 p.17; W034 p.3 (probable origin: 45 Years in Wall Street or Master Stock Market Course, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/timeCycles.ts:timeCycles (FIXED_CALENDAR_WINDOWS) — differs: GSPS windows are Feb 8–10, Mar 21–23, May 3–7, Jun 20–24, Jul 22–24, Aug 3–8, Sep 21–24, Nov 8–11, Nov 21–23 and Dec 20–24; 5–6 Jan, 5 Feb and 7 Jul are absent",
+    "test": "TO WRITE: lib/__tests__/gann.test.ts — timeCycles reports fixedCalendarActive on 5 Jan, 5 Feb, 6 May, 7 Jul and 8 Aug, or each missing date is recorded as a deliberate exception.",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-06",
+    "rule": "Count 30, 45, 60, 90, 135, 150, 180, 210, 225, 315, 330 and 360 calendar days from a pivot (anonymous compiler, W003).",
+    "source": "W003 pp.17–18; W034 p.3 (probable origin: Master Stock Market Course, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/timeCycles.ts:timeCycles (WHEEL_COUNTS, DAY_COUNT_BANDS) — differs: WHEEL_COUNTS is 45, 90, 120, 135, 180, 225, 240, 270, 315, 360; 30, 60 and 150 fall only inside the bands 28–31, 57–65 and 150–157; 210 and 330 are absent",
+    "test": "TO WRITE: lib/__tests__/gann.test.ts — timeCycles is active 210 and 330 days after a major low.",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-07",
+    "rule": "Trading-day equivalents of the circle are 11, 22, 33, 45, 56, 67, 78, 90, 101, 112, 123, 135, 146, 157, 168 and 180 sessions (steps of 11.25) (anonymous compiler, W003).",
+    "source": "W003 p.18; W034 p.3 (probable origin: Master Stock Market Course, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/angleMonthCounts.ts:angleMonthCounts (ANGLE_MONTH_COUNTS) — differs: the 11.25 grid exists but in months; timeCycles counts calendar days, never sessions",
+    "test": "TO WRITE: lib/gann/__tests__/angleMonthCounts.test.ts — a session-count reading flags sessions 56 and 101 after a pivot as on the 11.25 grid.",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-08",
+    "rule": "Count 13, 26, 39, 45, 52 and 78 weeks from a pivot, and treat the 7th week as a 'death zone' (anonymous compiler, W003).",
+    "source": "W003 p.18; W034 p.3 (probable origin: Master Stock Market Course, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/squareOf52.ts:squareOf52Windows (13, 26, 39, 52 weeks); lib/gann/boilingPoint.ts:computeBoilingPoint (6th–7th week) — differs: 45 and 78 weeks absent; the 7th week is counted only from a volume climax",
+    "test": "TO WRITE: lib/gann/__tests__/squareOf52.test.ts — squareOf52Windows projects windows at 45 and 78 weeks from a major pivot.",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-09",
+    "rule": "Count 6, 12 and 144 months from a pivot (anonymous compiler, W003).",
+    "source": "W003 p.18",
+    "class": "C",
+    "gsps_location": "lib/gann/timeConvergence.ts:readTiming (square144: months on a multiple of 12); lib/gann/squareOf52.ts:squareOf52Windows (26 weeks) — differs: no explicit 6-, 12- and 144-month count",
+    "test": "TO WRITE: lib/gann/__tests__/extremeTiming.test.ts — readTiming lists 'months' in square144.units when 144 months have elapsed since the extreme.",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-10",
+    "rule": "One day equals one degree, and the key angles are 45, 90, 120, 135, 180, 225, 240, 270, 315 and 360 days (anonymous compiler, W003).",
+    "source": "W003 p.18; W034 p.3",
+    "class": "C",
+    "gsps_location": "lib/gann/timeCycles.ts:timeCycles (WHEEL_COUNTS, identical list); lib/gann/disclosedRules.ts:readYearFraction (YEAR_FRACTIONS)",
+    "test": "lib/__tests__/gann.test.ts > timeCycles > tags a low-anchored window bullish and a high-anchored window bearish",
+    "passes": true
+  },
+  {
+    "id": "C-TIME-11",
+    "rule": "There are two kinds of cycle: natural time cycles and cycles derived from significant prices (anonymous compiler, W003).",
+    "source": "W003 p.18",
+    "class": "C",
+    "gsps_location": "lib/gann/timeCycles.ts:timeCycles (time counts); lib/gann/masterTwelve.ts:squareMonthsFromPriceRange (price read as time)",
+    "test": "TO WRITE: none — a taxonomy with no assertable behaviour.",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-12",
+    "rule": "Divide any cycle into 1/8, 1/4, 1/3, 3/8, 1/2, 5/8, 2/3, 3/4 and 7/8 (a 30-year cycle gives 3.75, 7.5 and 10 years) (anonymous compiler, W003).",
+    "source": "W003 p.18; W034 p.3",
+    "class": "C",
+    "gsps_location": "lib/gann/disclosedRules.ts:readYearFraction (YEAR_FRACTIONS); lib/gann/squareOf52.ts:squareOf52Windows — differs: fractions are applied to the 360-day and 52-week year only, never to the 5- to 60-year cycles in MAJOR_CYCLE_YEARS",
+    "test": "TO WRITE: lib/gann/__tests__/disclosedRules.test.ts — fractions of a 30-year cycle return 3.75, 7.5 and 10 years.",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-13",
+    "rule": "Use the Square of 52 on weekly charts, with two-year squares and inner and outer squares (anonymous compiler, W003).",
+    "source": "W003 p.18 (probable origin: Master Stock Market Course, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/squareOf52.ts:squareOf52Windows — differs: one 52-week year only; no two-year, inner or outer square",
+    "test": "lib/gann/__tests__/squareOf52.test.ts > SQUARE_OF_52_FRACTIONS > reproduces every disclosed week-count exactly",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-14",
+    "rule": "Use the Square of 90 on weekly and monthly charts (anonymous compiler, W003).",
+    "source": "W003 p.18 (probable origin: Master Stock Market Course, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/squareOf90.test.ts — weekly and monthly windows fall at 22.5, 45, 67.5 and 90 units from a major pivot.",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-15",
+    "rule": "Use the Square of 12 and multiples of 9 (anonymous compiler, W003).",
+    "source": "W003 pp.18–19 (probable origin: Master Stock Market Course, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/masterTwelve.ts:masterTwelveLevels (12-fold spiral); lib/gann/digitalRoot.ts:digitalRoot1to9 — differs: no time count in units of 12 or 9 from a pivot",
+    "test": "lib/gann/__tests__/masterTwelve.test.ts > masterTwelveLevels > produces 12-fold angular levels sorted by proximity to current price",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-16",
+    "rule": "The Square of 144 is the most important on monthly charts, and 144 points is also an absolute price move (anonymous compiler, W003).",
+    "source": "W003 pp.18–19; W034 p.3 (probable origin: Master Stock Market Course, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/timeConvergence.ts:readTiming (square144); lib/gann/masterTwelve.ts:GREAT_CYCLE — differs: the 144-point price move is not implemented",
+    "test": "TO WRITE: lib/gann/__tests__/extremeTiming.test.ts — readTiming flags months on a multiple of 12 from the extreme, and a price reading marks the extreme ± 144 points.",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-17",
+    "rule": "144 × 144 = 20,736 units divided by 1, 1/2 … 1/64 gives 20,736 days = 2,962 weeks = 682 months = 56.8 years, then 28.4, 14.2, 7.10, 3.55, 1.77 and 0.89 years (1/64 = 46 weeks) (anonymous compiler, W003).",
+    "source": "W003 p.19; W034 p.4 (probable origin: Master Stock Market Course, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/masterTwelve.ts:HALVING_CHAIN, GREAT_CYCLE — differs: the chain is kept as numbers (20,736 down to 81), never converted to days, weeks, months or years or projected from a pivot",
+    "test": "TO WRITE: lib/gann/__tests__/masterTwelve.test.ts — HALVING_CHAIN[k] days converted to years gives 56.8, 28.4, 14.2, 7.10, 3.55, 1.77 and 0.89, and 1/64 gives 46 weeks.",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-18",
+    "rule": "Watch the 3rd–4th day from a top or bottom, expect reactions of 2–3 weeks, and watch days 7, 14 (most significant) and 21 (anonymous compiler, W003).",
+    "source": "W003 p.19; W034 p.4",
+    "class": "C",
+    "gsps_location": "lib/gann/timeConvergence.ts:readTiming (ALTERNATION_DAYS 7, 14, 21 ±1); lib/gann/timeRules.ts:readTimeRules (reactionInZone, thirdWeek); lib/gann/swingChart.ts:walkSwingChart (3-day reversal)",
+    "test": "TO WRITE: lib/gann/__tests__/extremeTiming.test.ts — readTiming returns alternation.mark 7, 14 and 21 at those day counts from the last 3-Day Chart pivot (the existing timing test asserts only a non-null reading).",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-19",
+    "rule": "1/16 of a year is 23 days, 49 days (7²) is very important, and a 42-day move may change at 45–46 days (anonymous compiler, W003).",
+    "source": "W003 p.19; W034 p.4",
+    "class": "C",
+    "gsps_location": "lib/gann/timeCycles.ts:DAY_COUNT_BANDS ([18,21], [42,49]); lib/gann/squareOf52.ts:SQUARE_OF_52_FRACTIONS (1/16 = 3.25 weeks, disclosed:false) — differs: 23 days is not a window and 49 is only the top of the 42–49 band",
+    "test": "TO WRITE: lib/gann/__tests__/disclosedRules.test.ts — readDayCountBands flags day 23 and day 49 from a major pivot.",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-20",
+    "rule": "Use yearly cycles of 90, 60, 30, 20, 10, 7 and 5 years and their multiples, combine 1/3 of a year from one pivot with 1/2 or 1/4 of a year from another, treat 1/2 year as very important and anniversaries as most important (anonymous compiler, W003).",
+    "source": "W003 pp.19–20; W034 p.4 (probable origin: Master Stock Market Course or 45 Years in Wall Street, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/timeCycles.ts:timeCycles, yearCycleConvergence (MAJOR_CYCLE_YEARS); lib/gann/disclosedRules.ts:readYearFraction (anniversary rank 1, 1/2 year rank 2) — differs: no 90-year cycle, and fractions from two different pivots are never combined",
+    "test": "TO WRITE: lib/__tests__/cycle-ranking.test.ts — yearCycleConvergence counts a 90-year hit, and a convergence reading counts 1/3 year from pivot A landing with 1/2 year from pivot B.",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-21",
+    "rule": "Further week counts of 39, 17 and 35 weeks (anonymous compiler, W003).",
+    "source": "W003 p.20",
+    "class": "C",
+    "gsps_location": "lib/gann/squareOf52.ts:SQUARE_OF_52_FRACTIONS (39 and 17.33 weeks) — differs: 35 weeks absent",
+    "test": "TO WRITE: lib/gann/__tests__/squareOf52.test.ts — squareOf52Windows projects a 35-week window.",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-22",
+    "rule": "Read a high, low or range as time units (a high at 60 gives a 60-day, 60-week or 60-month cycle), the most powerful being the square of the range (anonymous compiler, W003).",
+    "source": "W003 p.20; W034 p.4 (probable origin: How to Make Profits in Commodities or Master Stock Market Course, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/masterTwelve.ts:squareMonthsFromPriceRange (range in cents read as months; no consumer outside its test); lib/gann/timePriceSquare.ts:computeTimePriceSquare — differs: compares bars elapsed with the ATR-normalized move, not the raw price as a time count",
+    "test": "lib/gann/__tests__/masterTwelve.test.ts > the wheat Square-of-144 worked example > reproduces 281 exactly: the May option's high minus low, in cents, read as months",
+    "passes": false
+  },
+  {
+    "id": "C-LEVELS-08",
+    "rule": "Draw a geometric square down from a high (or up from a low) with time units equal to price units, so a 1x1 falling from a high of 60 reaches zero on day 60 (anonymous compiler, W003).",
+    "source": "W003 p.20; W034 pp.4–5",
+    "class": "C",
+    "gsps_location": "lib/gann/fans.ts:computeFanLines; lib/gann/timePriceSquare.ts:computeTimePriceSquare — differs: one price unit is one ATR, so the square never closes at price zero",
+    "test": "TO WRITE: lib/__tests__/gann.test.ts — a 1x1 drawn from a high of 60 at one point per day reaches 0 on day 60.",
+    "passes": false
+  },
+  {
+    "id": "C-LEVELS-09",
+    "rule": "The 2x1, 1x1 and 1x2 are the most significant angles; draw them from the square's corners and midpoints, and treat their crossings as turning points (anonymous compiler, W003).",
+    "source": "W003 p.20; W034 p.5 (probable origin: Master Stock Market Course or How to Make Profits in Commodities, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/fans.ts:computeFanLines (1x4, 1x2, 1x1, 2x1, 4x1) — differs: drawn only from swing pivots, unranked, with no square corners or midpoints and no crossings",
+    "test": "TO WRITE: lib/__tests__/gann.test.ts — fan lines from a square's corners and midpoints report crossing points, and 1x2, 1x1, 2x1 rank above 1x4 and 4x1.",
+    "passes": false
+  },
+  {
+    "id": "C-LEVELS-10",
+    "rule": "Also draw angles from the 50% mark of the range (anonymous compiler, W003).",
+    "source": "W003 p.20",
+    "class": "C",
+    "gsps_location": "none — lib/gann/fans.ts anchors only on pivots; lib/gann/retracement.ts:rangeMidpoint gives the 50% price but no angle",
+    "test": "TO WRITE: lib/__tests__/gann.test.ts — computeFanLines with a range-midpoint anchor returns lines starting at the 50% price.",
+    "passes": false
+  },
+  {
+    "id": "C-STOP-02",
+    "rule": "Breaking the 1x1 signals weakness down to the next angle (anonymous compiler, W003).",
+    "source": "W003 p.20",
+    "class": "C",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/__tests__/gann.test.ts — after a close below the 1x1 fan line, the next target reported is the 1x2 line's price.",
+    "passes": false
+  },
+  {
+    "id": "C-LEVELS-11",
+    "rule": "50% of the range is the most important level, the 'centre of gravity' (anonymous compiler, W003).",
+    "source": "W003 pp.20–21; W034 p.5 (probable origin: 45 Years in Wall Street or Master Stock Market Course, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/retracement.ts:computeRetracementLevels (1/2 importance 1), rangeMidpoint; lib/marketScan.ts:coarseReversion; lib/scanner/intraday.ts:sessionMetrics (session 50% point)",
+    "test": "lib/gann/__tests__/retracement.test.ts > computeRetracementLevels > assigns the disclosed importance ranking: 1/2 highest, then full retracement, then 1/4, 1/8, 1/16, thirds lowest",
+    "passes": false
+  },
+  {
+    "id": "C-ENTRY-04",
+    "rule": "The first return to the 50% level after price has broken below it is a short sale, mirrored for longs (anonymous compiler, W003).",
+    "source": "W003 pp.20–21",
+    "class": "C",
+    "gsps_location": "lib/scanner/intraday.ts:scanIntraday — differs: the session 50% point sets direction and invalidation, not a retest entry; lib/signals/states/trendPullback.ts:evaluateTrendPullback — differs: the 1/2 retracement is a with-trend pullback location",
+    "test": "TO WRITE: lib/gann/__tests__/retracement.test.ts — after a close below rangeMidpoint, the first rally back to it is reported as a short entry, mirrored for longs.",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-23",
+    "rule": "When price reaches 50% of the range at 50% of the time, a 3-month fast move may follow (anonymous compiler, W003).",
+    "source": "W003 p.21",
+    "class": "C",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/timePriceSquare.test.ts — a reading flags price at rangeMidpoint within a pre-registered tolerance of the swing's time midpoint.",
+    "passes": false
+  },
+  {
+    "id": "C-SWING-03",
+    "rule": "The 3rd test of a zone is the dangerous time (anonymous compiler, W003).",
+    "source": "W003 p.21; W034 p.5",
+    "class": "C",
+    "gsps_location": "lib/gann/multipleTops.ts:readMultipleTops; lib/gann/disclosedRules.ts:readLevelTests",
+    "test": "lib/gann/__tests__/timeRulesAndTops.test.ts > double and triple tops > reads a triple top that failed on its third test",
+    "passes": true
+  },
+  {
+    "id": "C-PRICE-02",
+    "rule": "Project resistance at 1, 2, 3, 4, 7, 9 and 12 times a low (squares of lows) (anonymous compiler, W003).",
+    "source": "W003 p.21; W034 p.5",
+    "class": "C",
+    "gsps_location": "lib/gann/disclosedRules.ts:pricePercentageLevels — differs: eighths of the low up to 100% above it (2×); no 3×, 4×, 7×, 9× or 12×",
+    "test": "TO WRITE: lib/gann/__tests__/disclosedRules.test.ts — levels from a low of 10 include 30, 40, 70, 90 and 120.",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-24",
+    "rule": "By the year's last digit: 1 a bear ends and a bull begins; 2 a minor bull or bear rally; 3 a bear starts, with a rally possibly to Mar–Apr; 4 a bear year ending the bear cycle; 5 a bull 'year of ascension'; 6 a bull ending in the fall; 7 a bear (1927 an exception); 8 a bull, with the 90th month of the decade; 9 the strongest bull, topping and declining from Sep–Nov; 0 (10) a bear with a rally to Mar–Apr and a severe decline to Nov–Dec (anonymous compiler, W003).",
+    "source": "W003 pp.21–22; W034 p.5 (probable origin: Master Stock Market Course, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/decadeCycle.ts:computeDecadeCycle (DECADE_CHARACTER; card-only confluence) — differs: digit 8's 90th month is not modelled",
+    "test": "TO WRITE: lib/gann/__tests__/decadeCycle.test.ts — all ten digits return the W003 bias and the digit-8 note names the 90th month (existing tests cover digits 1, 7, 9 and 0 only).",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-25",
+    "rule": "Counter-trend moves last 3–4 days on indices and 3–5 days on stocks, a move past the 4th day signals consolidation or reversal, and the next counter-move lasts 7–10 days (anonymous compiler, W003).",
+    "source": "W003 p.22; W034 p.5",
+    "class": "C",
+    "gsps_location": "lib/gann/disclosedRules.ts:counterMovePhase (normal ≤ 21 days); lib/gann/extremeRules.ts:readReverseSignal (7–10 Day Rule, 7–14 days) — differs: GSPS's normal reaction runs to 3 weeks, and its 7–10 Day Rule counts days without a lower low, not counter-move length",
+    "test": "TO WRITE: lib/gann/__tests__/disclosedRules.test.ts — a 5-day counter-move on a stock is classified as past the normal 3–5-day length and a 7–10-day one as the next counter-move.",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-26",
+    "rule": "The smallest complete cycle is 5 years, the minor cycles are 3 and 6 years, and the 59th month is to be watched (anonymous compiler, W003).",
+    "source": "W003 p.22; W034 p.6 (probable origin: Master Stock Market Course or 45 Years in Wall Street, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/timeCycles.ts:MAJOR_CYCLE_YEARS (3 and 5 present) — differs: Gann's 1-year smallest cycle is used; 6 years and the 59th month are absent",
+    "test": "TO WRITE: lib/__tests__/cycle-ranking.test.ts — yearCycleConvergence counts a major low 59 months back, and a 6-year cycle, as hits.",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-27",
+    "rule": "Campaigns rarely run past 3–3.5 years without a 3–6-month counter-move, except at the end of a major cycle (1869, 1929), and many culminate in the 23rd month (anonymous compiler, W003).",
+    "source": "W003 p.22; W034 p.6 (probable origin: 45 Years in Wall Street or Master Stock Market Course, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/campaignLedger.ts:buildCampaignLedger — differs: tracks sections and reactions but has no campaign-duration ceiling or 23rd-month reading",
+    "test": "TO WRITE: lib/gann/__tests__/campaignLedger.test.ts — a campaign older than 42 months with no counter-move of 3+ months is flagged as overdue, and month 23 is flagged.",
+    "passes": false
+  },
+  {
+    "id": "C-RISK-01",
+    "rule": "Trade from a plan, do not overtrade, and ask whether a trade rests on hope or on logic (anonymous compiler, W003).",
+    "source": "W003 pp.15, 22–23",
+    "class": "C",
+    "gsps_location": "lib/trade/place-order.ts:placeSimulatedOrder (plan entries confirm first); lib/risk/lossSeries.ts:readLossSeries — differs: GSPS enforces plan confirmation and pauses after 3 losses, with no overtrading limit as such",
+    "test": "TO WRITE: lib/risk/__tests__/lossSeries.test.ts — a configured daily trade-count ceiling refuses new entries once reached and never blocks a protective order.",
+    "passes": false
+  },
+  {
+    "id": "C-ASTRO-01",
+    "rule": "[research-only, confluence-only; not sourced to Gann] Planetary sidereal periods for cycle work: Mercury 88.97 d, Venus 224.70 d, Earth 365.26 d, Mars 686.98 d, Jupiter 4,331.98 d (11.86 y), Saturn 10,760.60 d (29.46 y), Uranus 30,685.50 d (84.01 y), Neptune 61,285.25 d (167.69 y), Pluto 90,465.38 d (247.69 y) (anonymous compiler, W003).",
+    "source": "W003 p.23; W034 p.6 (probable origin: Trader's Guide to Financial Astrology or Scientific Methods Unveiled Vol 2, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/research/__tests__/planetaryPeriods.test.ts — a reference table gives Mercury ≈ 87.97 d and Neptune ≈ 60,190 d (correcting W003), and no verdict path imports it.",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-32",
+    "rule": "Harmonic (Fourier) analysis: set A0 to the mean, for each integer trial period T from 3 to half the record compute a = (2/N)Σx·cos(2πt/T) and b = (2/N)Σx·sin(2πt/T) with N trimmed to whole cycles, and rank periods by a²+b² (Awodele).",
+    "source": "W007 pp.25–28",
+    "class": "C",
+    "gsps_location": "lib/gann/spectralCycle.ts:detectSpectralCycle — differs: periods 5 to 0.4×N bars (not 3 to N/2) on linearly detrended log closes, with Schuster p, cosinor and hold-out added",
+    "test": "lib/gann/__tests__/spectralCycle.test.ts > detectSpectralCycle > detects a clean embedded 20-bar sinusoidal cycle as dominant",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-33",
+    "rule": "Sum the hand-picked dominant periods' sine waves and extend t to project the composite forward (Awodele).",
+    "source": "W007 pp.30–34, 39, 46, 49",
+    "class": "C",
+    "gsps_location": "lib/gann/spectralCycle.ts:detectSpectralCycle (holdout carries one fitted cycle into the last 30%) — differs: single cycle, no composite, no forward projection shown",
+    "test": "TO WRITE: lib/gann/__tests__/spectralCycle.test.ts — a composite of periods chosen on the training 70% is scored on the hold-out against a pre-registered threshold and a noise null.",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-34",
+    "rule": "For stocks, use the weekly (high+low)/2 midpoint as the input series (Awodele).",
+    "source": "W007 p.37",
+    "class": "C",
+    "gsps_location": "lib/gann/spectralCycle.ts:detectSpectralCycle — differs: input is log daily closes",
+    "test": "TO WRITE: lib/gann/__tests__/spectralCycle.test.ts — detectSpectralCycle run on a weekly (h+l)/2 series finds the same embedded period as on closes.",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-35",
+    "rule": "[research-only, confluence-only; not sourced to Gann] Choose the cycle-analysis window between heliocentric Jupiter–Saturn conjunctions (e.g. 16 Apr 1981 – 22 Jun 2000) (Awodele).",
+    "source": "W007 p.44",
+    "class": "C",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/spectralCycle.test.ts — a window bounded by two given dates is analysed only on bars inside it (no ephemeris exists in GSPS).",
+    "passes": false
+  },
+  {
+    "id": "C-ASTRO-02",
+    "rule": "[research-only, confluence-only; not sourced to Gann] The 30-year cycle is caused by Saturn, and Saturn rules products of the earth (Awodele, quoting an unidentified Gann course 'How to Forecast').",
+    "source": "W007 p.60 (probable origin: Master Stock Market Course, How to Make Profits in Commodities or Trader's Guide to Financial Astrology, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/timeCycles.ts:MAJOR_CYCLE_YEARS (30) — differs: a 30-year count from pivots, with no planetary cause",
+    "test": "TO WRITE: lib/research/__tests__/saturnCycle.test.ts — a Saturn-return date reading is labelled confluence-only and no verdict path imports it.",
+    "passes": false
+  },
+  {
+    "id": "C-NUMEROLOGY-01",
+    "rule": "'The square of odd and even numbers' gives the proof of market movements and their cause (Awodele, quoting Gann commodity courses).",
+    "source": "W007 p.62 (probable origin: How to Make Profits in Commodities or Master Stock Market Course, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "none — lib/gann/squareOf9.ts:squareOf9Levels has no odd/even-square rule",
+    "test": "TO WRITE: none — the quoted line has no operational content to assert.",
+    "passes": false
+  },
+  {
+    "id": "C-LEVELS-12",
+    "rule": "Gann's 'Even Squares for Cotton & Eggs' is a 16×16 square counted outward from the centre, each cell stepping price by 30 points, with 0° E, 90° N, 180° W, 270° S and 1/16 fractions on the edges (Gann chart reproduced by Awodele).",
+    "source": "W007 p.65",
+    "class": "C",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/evenSquares.test.ts — a 16×16 centre-out grid with a 30-point step puts each compass cell at its stated value, with the step a per-market input.",
+    "passes": false
+  },
+  {
+    "id": "C-LEVELS-13",
+    "rule": "Every stopping price is a mathematical point: a division of 360°, the square of 12, the square of 20, or the square or halfway point of another number (Awodele, quoting Gann).",
+    "source": "W007 p.67 (probable origin: Master Stock Market Course, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/squareOf9.ts:squareOf9Levels; lib/gann/masterTwelve.ts:masterTwelveLevels; lib/gann/squareOf20.ts:ringAndAngleOf (research-only, no consumer); lib/gann/retracement.ts:rangeMidpoint — differs: separate confluence levels, never claimed to contain every stopping price",
+    "test": "TO WRITE: lib/research/__tests__/mathematicalPoints.test.ts — the share of swing extremes within tolerance of any such level is compared with a random-price base rate.",
+    "passes": false
+  },
+  {
+    "id": "C-ASTRO-03",
+    "rule": "[research-only, confluence-only; not sourced to Gann] Pair found cycles with planetary periods: 8 years with Venus, 33 years with Mercury, 159 months ≈ 7 Mars periods, 19.875 years ≈ the Jupiter–Saturn synodic period (Awodele).",
+    "source": "W007 pp.28, 61",
+    "class": "C",
+    "gsps_location": "none",
+    "test": "TO WRITE: none — a numerical coincidence; any match test needs a chance base rate first (CYC-49).",
+    "passes": false
+  },
+  {
+    "id": "C-NUMEROLOGY-02",
+    "rule": "[research-only, confluence-only; not sourced to Gann] The planetary magic-square table assigns n = 3…9 to Saturn … Moon (Kircher 1665, then Liharzik, Hellenbach, Hartmann) (Awodele).",
+    "source": "W007 pp.62–67, 71",
+    "class": "C",
+    "gsps_location": "none",
+    "test": "TO WRITE: none — speculative, no operational rule.",
+    "passes": false
+  },
+  {
+    "id": "C-LEVELS-14",
+    "rule": "Square-of-Nine 45° levels for row n are (n + k/8)² for k = 0…8, so the next 45° level from P is (√P ± 1/8)² (anonymous table, W009).",
+    "source": "W009 pp.1–15",
+    "class": "C",
+    "gsps_location": "lib/gann/squareOf9.ts:squareOf9Levels — differs: GSPS uses (√anchor + deg/180)², so 45° adds 0.25 to the root, twice W009's 1/8; W009's step equals GSPS's 22.5°",
+    "test": "TO WRITE: lib/__tests__/gann.test.ts — for P = 100 the W009 next level (10.125)² = 102.52 is reconciled with squareOf9Levels' 45° level (10.25)² = 105.06, or the convention difference is recorded (the existing 360° test asserts GSPS's convention only).",
+    "passes": false
+  },
+  {
+    "id": "C-NUMEROLOGY-03",
+    "rule": "Watch price at multiples of 144 (144, 288, 432 …) and at its subdivisions 18, 36, 54 and 72, and add 144 to a price to find the next support or resistance (\"Brett\", forum post).",
+    "source": "W011 pp.1–2 (probable origin: 45 Years in Wall Street or Master Stock Market Course, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/evenFigures.ts:figuresAround — differs: a price-scaled grid of quarters/halves and round numbers, not a 144-point grid; 144 is used only as a time constant (timeConvergence.ts, masterTwelve.ts)",
+    "test": "TO WRITE: lib/gann/__tests__/evenFigures.test.ts — a 144-grid reading lists 288 and 432 above 200 and the 18-point subdivisions between them.",
+    "passes": false
+  },
+  {
+    "id": "C-NUMEROLOGY-04",
+    "rule": "Digital-root 'vibration': 30° steps reduce to 3-6-9, the 1/32 percentage steps reduce to 2,4,6,8,1,3,5,7,9, and multiples of 9 reduce to 9 and mark a 'change' (\"Brett\").",
+    "source": "W011 pp.1–3",
+    "class": "C",
+    "gsps_location": "lib/gann/digitalRoot.ts:digitalRoot1to9, classifyConfluence (confluence-only; holds by construction, arithmetic mod 9)",
+    "test": "TO WRITE: lib/gann/__tests__/digitalRoot.test.ts — digitalRoot1to9 of 30, 60, 90 … 360 cycles 3, 6, 9 (the existing test asserts only 9 and 18 reduce to 9).",
+    "passes": false
+  },
+  {
+    "id": "C-LEVELS-15",
+    "rule": "Square of Nine price wheel: a 33×33 spiral whose cell = Price × CF + Step × (n−1), with levels on 16 rays every 22.5° (Hayashi).",
+    "source": "W023 sheets SQ9 Price-1/2",
+    "class": "C",
+    "gsps_location": "lib/gann/squareOf9.ts:squareOf9Levels — differs: a square-root spiral at 8 angles (45°), with no CF or Step inputs and no 22.5° rays",
+    "test": "TO WRITE: lib/__tests__/gann.test.ts — a 33×33 wheel with CF = 1 and Step = 1 puts cell n at value n and reports 16 ray values at 22.5° spacing.",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-36",
+    "rule": "Square of Nine time wheel: the same spiral fed a start date, so each cell is a calendar date (Hayashi).",
+    "source": "W023 sheets SQ9 Time-1/2",
+    "class": "C",
+    "gsps_location": "lib/gann/squareOf20.ts:dateToGridCell (research-only, no consumer) — differs: a 20×20 grid, not the Square of Nine",
+    "test": "TO WRITE: lib/gann/__tests__/squareOf9.test.ts — cell n of a time wheel started on date D is D + (n−1) days.",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-37",
+    "rule": "Seasonal degree calendar: 21 Mar 06:00 = 0°, 21 Jun = 90°, 22 Sep = 180°, 21 Dec = 270°, each 22.5° step adding about 1h30m (e.g. 12 Apr 07:30 = 22.5°) (Hayashi; also a Ferrera-family figure and an unknown chart).",
+    "source": "W023; W035 p.3 figure; W050 image 5",
+    "class": "C",
+    "gsps_location": "lib/gann/seasonalCounts.ts:readSeasonalCount (SEASONAL_POINTS) — differs: eighths (45°) and thirds from 21 Mar at day precision; no 22.5° points and no hours",
+    "test": "TO WRITE: lib/gann/__tests__/missingRules.test.ts — readSeasonalCount reports the 22.5° point on 12 Apr.",
+    "passes": false
+  },
+  {
+    "id": "C-LEVELS-16",
+    "rule": "Hexagon chart: the numbers 1 to 1,518 in six-sided rings with angles every 30°, each cell = previous + Step (Hayashi).",
+    "source": "W023 Hexagon sheets",
+    "class": "C",
+    "gsps_location": "lib/gann/hexagonChart.ts:centeredHexagonalNumbers (research-only, no consumer) — differs: rings 3n²+3n+1 up to 397, no Step input",
+    "test": "lib/gann/__tests__/hexagonChart.test.ts > centeredHexagonalNumbers (3n^2 + 3n + 1) > reproduces the disclosed list exactly: 1, 7, 19, 37, 61, 91, 127, 169, 217, 271, 331, 397",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-38",
+    "rule": "'Square of Four' chart: seasonal labels in 15° steps (24 divisions: 21 Mar 0°, 6 May 45°, 21 Jun 90°, 23 Sep 180°, 21 Dec 270°) (Lambert-Gann print titled 'By W.D. Gann').",
+    "source": "W050 image 7",
+    "class": "C",
+    "gsps_location": "lib/gann/seasonalCounts.ts:SEASONAL_POINTS — differs: 45° steps and thirds only, with 45° on 5 May rather than 6 May",
+    "test": "TO WRITE: lib/gann/__tests__/missingRules.test.ts — a 24-division seasonal reading marks about 5 Apr (15°) after 21 Mar.",
+    "passes": false
+  },
+  {
+    "id": "C-LEVELS-17",
+    "rule": "Gann retracements are in eighths and thirds; 50% is the main one, and 3/8 and 5/8 are the Gann counterparts of the Fibonacci levels (Sidney).",
+    "source": "W031 p.1",
+    "class": "C",
+    "gsps_location": "lib/gann/retracement.ts:computeRetracementLevels (eighths, thirds, sixteenths, full; 1/2 ranked first)",
+    "test": "lib/gann/__tests__/retracement.test.ts > computeRetracementLevels > assigns the disclosed importance ranking: 1/2 highest, then full retracement, then 1/4, 1/8, 1/16, thirds lowest",
+    "passes": true
+  },
+  {
+    "id": "C-LEVELS-18",
+    "rule": "Pair each retracement fraction with a fan angle: 1/8–1x8, 1/4–1x4, 1/3–1x3, 3/8–1x2, 1/2–1x1, 5/8–2x1, 2/3–3x1, 3/4–4x1, 7/8–8x1 (Sidney).",
+    "source": "W031 p.2",
+    "class": "C",
+    "gsps_location": "none — lib/gann/fans.ts:ANGLES has only 1x4, 1x2, 1x1, 2x1 and 4x1 and no pairing with lib/gann/retracement.ts",
+    "test": "TO WRITE: lib/__tests__/gann.test.ts — a pairing table maps each retracement fraction to its angle, including 1x8, 1x3, 3x1 and 8x1.",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-39",
+    "rule": "When a retracement level is hit at the time the matching angle gives (e.g. 50% on the 1x1), a turn is likelier (Sidney).",
+    "source": "W031 p.3",
+    "class": "C",
+    "gsps_location": "lib/gann/timePriceSquare.ts:computeTimePriceSquare — differs: squares elapsed bars with the ATR-normalized move, not a retracement fraction with its paired angle",
+    "test": "TO WRITE: lib/gann/__tests__/timePriceSquare.test.ts — a 50% retracement reached on the date the 1x1 projects is flagged, and the same level reached on another date is not.",
+    "passes": false
+  },
+  {
+    "id": "C-LEVELS-19",
+    "rule": "Breaking one angle does not mean price must go to the next angle (Sidney).",
+    "source": "W031 p.1",
+    "class": "C",
+    "gsps_location": "lib/gann/fans.ts:nearestFanLine — consistent by absence: no next-angle target is projected",
+    "test": "TO WRITE: lib/__tests__/gann.test.ts — no target, stop or exit reads the next fan line after a break of the nearest one.",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-40",
+    "rule": "Use the fan as a time calculator: from a low, the time each angle takes to reach a target is 1x8 = 12.5%, 1x4 = 25%, 1x3 = 33.3%, 1x2 = 50%, 1x1 = 100%, 2x1 = 200%, 3x1 = 300%, 4x1 = 400% and 8x1 = 800% of the square (Sidney).",
+    "source": "W033 pp.1–3",
+    "class": "C",
+    "gsps_location": "lib/gann/fans.ts:computeFanLines (timeProjectionDate = base swing duration × ratio) — differs: only 25%, 50%, 100%, 200% and 400%; no 1x8, 1x3, 3x1 or 8x1",
+    "test": "lib/__tests__/gann.test.ts > computeFanLines > projects the 1x1 angle's time target as exactly one base-swing interval forward, and 2x1 as double",
+    "passes": false
+  },
+  {
+    "id": "C-PRICE-03",
+    "rule": "Doubling a major low gives a price target (SPI 1184 × 2 = 2368, the Feb 1994 high) (Sidney).",
+    "source": "W033 p.3",
+    "class": "C",
+    "gsps_location": "lib/gann/disclosedRules.ts:pricePercentageLevels ('100% above the low', importance 1), majorPricePercentageLevels (joins the S/R list)",
+    "test": "TO WRITE: lib/gann/__tests__/disclosedRules.test.ts — the '100% above the low' level from a low of 1184 is 2368 (the existing test asserts its label and importance, not its price).",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-41",
+    "rule": "The anniversary of a major low (the same calendar date each year) is a time to watch (Sidney).",
+    "source": "W033 p.4",
+    "class": "C",
+    "gsps_location": "lib/gann/timeCycles.ts:timeCycles, yearCycleConvergence (1-year cycle in MAJOR_CYCLE_YEARS); lib/gann/disclosedRules.ts:readYearFraction (360 days, rank 1)",
+    "test": "lib/__tests__/cycle-ranking.test.ts > yearCycleConvergence > counts a major low exactly one cycle length back as a bullish hit",
+    "passes": true
+  },
+  {
+    "id": "C-TIME-42",
+    "rule": "Time balance: compare swing durations (high to low, low to high, high to high, low to low), and near-equal spans (17 vs 18 weeks; 43 vs 44 weeks) point to a turn (Sidney).",
+    "source": "W032 pp.1–5",
+    "class": "C",
+    "gsps_location": "lib/gann/campaignLedger.ts:buildCampaignLedger (timeBalanceDates) — differs: projects only the matching prior leg's duration, with no high-to-high or low-to-low spans and no tolerance",
+    "test": "lib/gann/__tests__/campaignLedger.test.ts > buildCampaignLedger > projects a time-balance date from the matching prior leg",
+    "passes": false
+  },
+  {
+    "id": "C-STOP-03",
+    "rule": "Time alone is not enough: confirm with a false break, a bar that trades below the prior low but closes back above it (Sidney).",
+    "source": "W032 pp.5–6",
+    "class": "C",
+    "gsps_location": "lib/gann/stopBreach.ts:readStopBreach, isReclaimedByClose; lib/gann/extremeRules.ts:readReverseSignal — differs: GSPS's failed break needs a close back through the broken stop by its price-scaled 3 points",
+    "test": "lib/gann/__tests__/stopBreach.test.ts > readStopBreach > stands the plan again when a closed bar has closed back through the line: a failed break",
+    "passes": false
+  },
+  {
+    "id": "C-OTHER-03",
+    "rule": "Market-geometry dates forecast historical events (a Gulf War repeat, May 2003) (Sidney).",
+    "source": "W033 pp.4–5",
+    "class": "C",
+    "gsps_location": "none",
+    "test": "TO WRITE: none — out of scope under AGENTS.md's forward-looking-claims rule.",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-43",
+    "rule": "Measure market time on the 360° circle in days, weeks or months counted from extreme highs and lows, not from fixed seasonal or calendar dates (Vera, applying Ferrera; quoted 'Master Egg Course').",
+    "source": "W035 p.1 (probable origin: Master Stock Market Course or How to Make Profits in Commodities, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/timeCycles.ts:timeCycles (WHEEL_COUNTS from major pivots); lib/gann/squareOf52.ts:squareOf52Windows; lib/gann/angleMonthCounts.ts:angleMonthCounts — differs: GSPS also runs the fixed calendar (FIXED_CALENDAR_WINDOWS, seasonalCounts.ts) alongside",
+    "test": "lib/__tests__/gann.test.ts > timeCycles > tags a low-anchored window bullish and a high-anchored window bearish",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-44",
+    "rule": "Count the circle divisions 45, 90, 112½, 120, 135, 150, 157½, 165, 180 (very important), 202½, 225, 240, 247½, 270, 292½, 315, 337½ and 360 (quoted Gann passage via Vera/Ferrera).",
+    "source": "W035 p.1",
+    "class": "C",
+    "gsps_location": "lib/gann/timeCycles.ts:timeCycles (WHEEL_COUNTS, days); lib/gann/angleMonthCounts.ts:ANGLE_MONTH_COUNTS (11.25 grid plus 60/120/240/300, months) — differs: in days only the ten WHEEL_COUNTS; 150 and 165 absent in months",
+    "test": "TO WRITE: lib/__tests__/gann.test.ts — timeCycles is active 112, 150, 157, 165, 202, 247, 292 and 337 days after a major low.",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-45",
+    "rule": "From every swing pivot on a close-only chart with a 2% minimum swing, project 46, 61, 91, 121, 137, 182, 227, 242, 272, 317, 333 and 365 days, and treat dates where several projections cluster as change-of-trend candidates (Vera/Ferrera).",
+    "source": "W035 pp.1–2",
+    "class": "C",
+    "gsps_location": "lib/gann/timeConvergence.ts:readTiming (projection dispersion); lib/gann/timeCycles.ts:yearCycleConvergence — differs: GSPS projects prior swing cycles and year cycles from high/low pivots, not this offset list",
+    "test": "TO WRITE: lib/gann/__tests__/extremeTiming.test.ts — the cluster count on random dates (base rate) is measured before any cluster date is shown.",
+    "passes": false
+  },
+  {
+    "id": "C-TIME-46",
+    "rule": "Divide the year: 1/2 = 26 weeks (180°), 1/4 = 13 weeks, 1/3 = 17⅓ weeks (120°), 1/8 = 6½ weeks (why the 7th week matters) and 1/16 = 22½ days (about 3 weeks) (unattributed typed passage, W035).",
+    "source": "W035 pp.2–3 (probable origin: Master Stock Market Course, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/squareOf52.ts:SQUARE_OF_52_FRACTIONS; lib/gann/disclosedRules.ts:readYearFraction (YEAR_FRACTIONS); lib/gann/boilingPoint.ts:computeBoilingPoint (6th–7th week)",
+    "test": "lib/gann/__tests__/squareOf52.test.ts > SQUARE_OF_52_FRACTIONS > reproduces every disclosed week-count exactly",
+    "passes": false
+  },
+  {
+    "id": "C-TREND-08",
+    "rule": "A stock that closes higher for a 4th consecutive week will go higher; the 5th week is important, and the 5th day, week, month or year is 'of Ascension' (unattributed typed passage, W035).",
+    "source": "W035 p.3 (probable origin: Master Stock Market Course or 45 Years in Wall Street, unread)",
+    "class": "UNVERIFIABLE",
+    "gsps_location": "lib/gann/disclosedRules.ts:readRuleOfThreeTimeframes; lib/gann/ruleOfThree.ts:computeRuleOfThree (BULLISH_SIGNAL_CLOSES = 2) — differs: a weekly bullish signal fires on 2 higher closes, not 4, and no 5th-unit reading exists; lib/gann/decadeCycle.ts:computeDecadeCycle (digit 5 'Year of Ascension')",
+    "test": "TO WRITE: lib/gann/__tests__/disclosedRules.test.ts — four consecutive higher weekly closes are reported as a continuation signal and the 5th week is flagged.",
+    "passes": false
+  },
+  {
+    "id": "C-ASTRO-04",
+    "rule": "[research-only, confluence-only; not sourced to Gann] Gann's astro work was empirical: find by per-market research which cosmic cycles correlate with each market; heliocentric cycles are regular and geocentric ones irregular (Meadors).",
+    "source": "W027 pp.1–2",
+    "class": "C",
+    "gsps_location": "none",
+    "test": "TO WRITE: none — a per-market search is a multiple-comparisons pattern; a test needs a rule fixed before testing.",
+    "passes": false
+  },
+  {
+    "id": "C-ASTRO-05",
+    "rule": "[research-only, confluence-only; not sourced to Gann] The 84-year Uranus return times major lows (19 Oct 1987 vs 9 Nov 1903) (Meadors).",
+    "source": "W027",
+    "class": "C",
+    "gsps_location": "none",
+    "test": "TO WRITE: none — one anecdote; any test needs a base rate of lows near random 84-year offsets.",
+    "passes": false
+  },
+  {
+    "id": "C-ASTRO-06",
+    "rule": "[research-only, confluence-only; not sourced to Gann] DJIA monthly changes 1897–1961 follow geocentric conjunctions and oppositions by sky segment: up 92% of the time near the Galactic Centre, with a 30-day advance before Mars–Jupiter and Mercury conjunctions (Meadors, reporting Dewey 1969).",
+    "source": "W028",
+    "class": "C",
+    "gsps_location": "none",
+    "test": "TO WRITE: none — needs the original Dewey article and a pre-registered segment rule.",
+    "passes": false
+  },
+  {
+    "id": "C-ASTRO-07",
+    "rule": "[research-only, confluence-only; not sourced to Gann] The day before and the day after a solar eclipse matter (Meadors).",
+    "source": "W029",
+    "class": "C",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/research/__tests__/eclipseTest.test.ts — the rate of swing pivots within ±1 day of eclipse dates is compared with a circular-shift base rate.",
+    "passes": false
+  },
+  {
+    "id": "C-OTHER-04",
+    "rule": "All of Gann's methods are subservient to the Law of Vibration: every original impulse resolves into periodic or rhythmical motion (Meadors, quoting the 1909 Ticker interview).",
+    "source": "W029 (quoting 1909 Ticker)",
+    "class": "C",
+    "gsps_location": "none",
+    "test": "TO WRITE: none — a principle; AGENTS.md uses it as a design lens, not a rule.",
+    "passes": false
+  },
+  {
+    "id": "C-ASTRO-08",
+    "rule": "[research-only, confluence-only; not sourced to Gann] Use aspects at 0, 30, 45, 60, 90, 120, 150 and 180° with orbs of ±10° (conjunction, opposition), ±5° (square, sextile, trine) and ±3° (semi-sextile, semi-square) (Bucholtz).",
+    "source": "W013 pp.19, 94",
+    "class": "C",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/research/__tests__/aspects.test.ts — two longitudes 87° apart are a square within its ±5° orb and 84° apart are not.",
+    "passes": false
+  },
+  {
+    "id": "C-ASTRO-09",
+    "rule": "[research-only, confluence-only; not sourced to Gann] First-trade-chart method: cast a chart for the first trade date (exchange city, 9:30 am), keep the aspects that most often aligned with past swings, and project them forward (Bucholtz).",
+    "source": "W013 pp.96–99, 103",
+    "class": "C",
+    "gsps_location": "lib/gann/incorporationCycle.ts:readIncorporationCycle — differs: reads degrees of the year from a company's inception date, with no chart, no aspects and no selection on past swings",
+    "test": "TO WRITE: none — selection after the outcome is seen; excluded unless the aspect set is fixed before testing.",
+    "passes": false
+  },
+  {
+    "id": "C-ASTRO-10",
+    "rule": "[research-only, confluence-only; not sourced to Gann] The Moon matters most for stocks first traded on a New or Full Moon; watch New and Full Moons, apogee and perigee, North Node sign changes (about every 1.55 years) and eclipses (seasons about 173.3 days apart) (Bucholtz).",
+    "source": "W013 pp.29–92",
+    "class": "C",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/research/__tests__/lunarTest.test.ts — the pivot rate within ±1 day of New and Full Moons is compared with a circular-shift base rate.",
+    "passes": false
+  },
+  {
+    "id": "C-ASTRO-11",
+    "rule": "[research-only, confluence-only; not sourced to Gann] The Jupiter–Saturn synodic cycle of 19.85 years, read through heliocentric 0/90/180° episodes against the Dow, is subdivided /4…/9 into 59.6, 47.7, 39.7, 34, 29.8 and 26.5 months projected from major pivots (Bucholtz).",
+    "source": "W013 pp.113–117",
+    "class": "C",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/research/__tests__/jupiterSaturn.test.ts — 238.2 months / n for n = 4…9 gives 59.6, 47.6, 39.7, 34.0, 29.8 and 26.5 months.",
+    "passes": false
+  },
+  {
+    "id": "C-ASTRO-12",
+    "rule": "[research-only, confluence-only; not sourced to Gann] Synodic period S = s1·s2/(s2−s1): Earth–Mercury 116 d, Earth–Venus 584 d, Earth–Mars 780 d, Jupiter–Uranus 13.81 y, Saturn–Uranus 45.26 y, Saturn–Neptune 35.68 y, Saturn–Pluto 33.40 y (Bucholtz).",
+    "source": "W013 p.115",
+    "class": "C",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/research/__tests__/planetaryPeriods.test.ts — S(Earth 365.26 d, Mars 686.98 d) ≈ 780 days.",
+    "passes": false
+  },
+  {
+    "id": "C-ASTRO-13",
+    "rule": "[research-only, confluence-only; not sourced to Gann] Per-contract aspect sets: heliocentric Mercury–Jupiter and Mercury–Saturn at 0/90/180° for grains, heliocentric Venus sign changes for soybeans, Sun–Pluto and Sun–Node for gold, and 180 and 360 days from the first trade date for live cattle (Bucholtz).",
+    "source": "W013 pp.138–163",
+    "class": "C",
+    "gsps_location": "lib/gann/incorporationCycle.ts:readIncorporationCycle — differs: 180°/360° of the year from a stock's inception, not a futures first-trade date; no planetary sets",
+    "test": "TO WRITE: none — a catalogue of hypotheses; each needs its own pre-registered test.",
+    "passes": false
+  },
+  {
+    "id": "C-ASTRO-14",
+    "rule": "[research-only, confluence-only; not sourced to Gann] Watch exaltation degrees (Sun 19° Aries, Saturn 21° Libra, Jupiter 5° Cancer) and Mercury, Venus or Mars crossing the first-trade chart's MC (within 1–2°) or Ascendant (±1 day) (Bucholtz).",
+    "source": "W013 pp.103–112",
+    "class": "C",
+    "gsps_location": "none",
+    "test": "TO WRITE: none — no ephemeris in GSPS, and the source's own dates conflict (p.109 vs p.111).",
+    "passes": false
+  },
+  {
+    "id": "C-ASTRO-15",
+    "rule": "[research-only, confluence-only; not sourced to Gann] Use astrology only as a companion to technical analysis and the prevailing trend, never alone (Bucholtz).",
+    "source": "W013 pp.14–15, 164",
+    "class": "C",
+    "gsps_location": "none — consistent with AGENTS.md's astrology policy (never gating)",
+    "test": "TO WRITE: lib/validation/__tests__/criteria-gate.test.ts — no astrology field appears in CRITERION_KEYS, SignalGates or any verdict hold.",
+    "passes": false
+  },
+  {
+    "id": "C-LEVELS-20",
+    "rule": "Fixed chart scale: show every calendar day (non-trading days blank) with one day's width equal to one price unit's height, $1 per point for stocks and 1¢ for grain (Jensen).",
+    "source": "W049 printed pp.~124–125 (PDF 67R); Plate 2",
+    "class": "C",
+    "gsps_location": "lib/gann/fans.ts:computeFanLines; lib/gann/normalizedSlope.ts:normalizedSlope; lib/gann/timePriceSquare.ts:computeTimePriceSquare — differs: the unit is one ATR per trading bar, not $1 per calendar day",
+    "test": "TO WRITE: lib/gann/__tests__/normalizedSlope.test.ts — on a fixed $1-per-calendar-day scale a 1x1 rises $7 over a calendar week of 5 sessions.",
+    "passes": false
+  },
+  {
+    "id": "C-LEVELS-21",
+    "rule": "The square of 90 is the base unit: from a major low the harmonic points 90, 45, 22½, 11¼ and 67½ form squares and mark resistance and reversals, the 120-family points 120, 60, 30, 15 and 75 form trines and mark consolidation, and 90 and 45 are doubly strong (Jensen).",
+    "source": "W049 printed pp.107–110",
+    "class": "C",
+    "gsps_location": "lib/gann/angleMonthCounts.ts:ANGLE_MONTH_COUNTS — differs: an 11.25° grid read as months from a pivot, with no square/trine classes and no price points",
+    "test": "TO WRITE: lib/gann/__tests__/squareOf90.test.ts — from a low, the 22.5, 45, 67.5 and 90 points are classed as squares and 15, 30, 60, 75 and 120 as trines.",
+    "passes": false
+  },
+  {
+    "id": "C-PRICE-04",
+    "rule": "Add the harmonic points to the starting low (a low at 11 puts the 45 point at 56), and count calendar days, weeks or months from the extreme to the same points (Jensen).",
+    "source": "W049 printed pp.107–110",
+    "class": "C",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/squareOf90.test.ts — from a low of 11 the 45 point is 56 and the 90 point is 101, and the 45-day window opens 45 calendar days after the low.",
+    "passes": false
+  },
+  {
+    "id": "C-LEVELS-22",
+    "rule": "Plate 1 protractor table: each scale point = 90 × up/over (e.g. 45 = 4 up / 8 over), so an angle can be drawn without the full square (Jensen).",
+    "source": "W049 printed p.110 (PDF 61L)",
+    "class": "C",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/squareOf90.test.ts — the scale point for 4 up / 8 over is 45 and its angle is atan(4/8) ≈ 26.57°.",
+    "passes": false
+  },
+  {
+    "id": "C-LEVELS-23",
+    "rule": "Balance a 90-point line from a low with the same line from a top, copying any line from a bottom parallel upward from the preceding top so the parallelogram boxes the range and times the end of the move, strongest on weekly charts (Jensen).",
+    "source": "W049 printed p.113 (PDF 62R)",
+    "class": "C",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/squareOf90.test.ts — a line copied from a bottom to the preceding top keeps its slope, and the box's far corner gives the projected end date.",
+    "passes": false
+  },
+  {
+    "id": "C-LEVELS-24",
+    "rule": "Lines at 90, 45 and 22½ from double and triple bottoms converge on a major point where a new base line is set (Jensen).",
+    "source": "W049 printed pp.111–113",
+    "class": "C",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/squareOf90.test.ts — lines from the two tests of a double bottom return their convergence point.",
+    "passes": false
+  },
+  {
+    "id": "C-STOP-04",
+    "rule": "A trend line, high or low (not a degree point) is broken only after a full 1-point penetration (Jensen).",
+    "source": "W049 printed p.116 (PDF 64L)",
+    "class": "C",
+    "gsps_location": "lib/gann/stopBreach.ts:reclaimLevel; lib/gann/pointScale.ts:gannThreePoints; lib/lifecycle/entryConfirmation.ts:advanceEntryConfirmation (DEFAULT_CONFIRMATION_BUFFER_PCT 0.3%) — differs: GSPS uses Gann's price-scaled 3 points for stops and exits and 0.3% at entry, never 1 point",
+    "test": "TO WRITE: lib/gann/__tests__/stopBreach.test.ts — reclaimLevel(level, 'long', 1) sits one price-scaled point above the level, so the replay can measure Jensen's 1 point against Gann's 3.",
+    "passes": false
+  },
+  {
+    "id": "C-ASTRO-16",
+    "rule": "[research-only, confluence-only; not sourced to Gann] Planetary time periods ('planetary years'): Moon 4, Mercury 10, Venus 8, Sun 19, Mars 15, Jupiter 12, Saturn 40, Uranus 90 and Neptune 180 years (Jensen).",
+    "source": "W049 PDF 35L",
+    "class": "C",
+    "gsps_location": "none",
+    "test": "TO WRITE: none — traditional symbolic periods, not orbital data or a trading rule.",
+    "passes": false
+  },
+  {
+    "id": "C-LEVELS-25",
+    "rule": "[research-only, confluence-only; not sourced to Gann] Astral points: from each new high or low draw a line through a future 'astral point' and copy it parallel onto the previous pivot to catch the next turn, the point's location being a per-market key taught only in the course (anonymous vendor, tradingwdgann.com).",
+    "source": "W048 (screenshots; summary)",
+    "class": "C",
+    "gsps_location": "none",
+    "test": "TO WRITE: none — the key rule is withheld, so nothing can be asserted.",
+    "passes": false
+  },
+  {
+    "id": "CYC-01",
+    "rule": "Before crediting a cycle, assume first that it is chance, then an internal cause, and postulate an external cause only when neither will do (Dewey).",
+    "source": "W039 p.1",
+    "class": "CYCLE",
+    "gsps_location": "lib/gann/spectralCycle.ts:detectSpectralCycle — differs: Schuster p is reported, but `active` (dominance ≥ 3, not at the band edge) does not require chance to be ruled out first",
+    "test": "TO WRITE: lib/gann/__tests__/spectralCycle.test.ts — a peak with schusterP > 0.05 is never reported active.",
+    "passes": false
+  },
+  {
+    "id": "CYC-02",
+    "rule": "Dewey #1, dominance: the cycle must stand out clearly after trend removal, with fluctuations measured as a % of trend (Dewey).",
+    "source": "W039 pp.6–7 (Fig. 1)",
+    "class": "CYCLE",
+    "gsps_location": "lib/gann/spectralCycle.ts:detectSpectralCycle (dominance = peak/mean power ≥ DOMINANCE_THRESHOLD 3.0; log closes, linear detrend)",
+    "test": "lib/gann/__tests__/spectralCycle.test.ts > detectSpectralCycle > detects a clean embedded 20-bar sinusoidal cycle as dominant",
+    "passes": true
+  },
+  {
+    "id": "CYC-03",
+    "rule": "Dewey #2, regularity: crests and troughs should fall at regular intervals (Dewey).",
+    "source": "W039 p.8 (Fig. 2)",
+    "class": "CYCLE",
+    "gsps_location": "lib/research/calendarTest.ts:catches (dated windows only) — differs: no interval-regularity measure for waves (spectralCycle.ts lists it as not computed) or for timeCycles.ts, macroCycle.ts and decadeCycle.ts",
+    "test": "TO WRITE: lib/gann/__tests__/spectralCycle.test.ts — a regularity reading reports the spread of turn-to-turn intervals, small for a clean 20-bar sine and large for seeded noise.",
+    "passes": false
+  },
+  {
+    "id": "CYC-04",
+    "rule": "Dewey #3, repetitions: more repetitions make chance less likely and a cycle with too few repetitions should not be concluded (Dewey; Tomes declines a 30–36-year cycle on this ground).",
+    "source": "W039 p.9 (Fig. 3); W043 p.1",
+    "class": "CYCLE",
+    "gsps_location": "lib/gann/spectralCycle.ts:detectSpectralCycle (repetitionCount; MAX_PERIOD_FRACTION 0.4 ⇒ ≥ 2.5 cycles) — differs: reported, gates nothing; lib/gann/timeCycles.ts:timeCycles (MAJOR_CYCLE_YEARS) — differs: 30/50/60-year cycles fire though the header concedes they fail this",
+    "test": "TO WRITE: lib/gann/__tests__/spectralCycle.test.ts — a peak with fewer than a pre-registered minimum of repetitions is not active (the existing test asserts only repetitionCount > 2).",
+    "passes": false
+  },
+  {
+    "id": "CYC-05",
+    "rule": "Dewey #4, constancy of period: re-estimate the period on separate sections of the record (Dewey used five sections of 48 waves) and the estimates should agree (Dewey).",
+    "source": "W039 p.10 (Fig. 4)",
+    "class": "CYCLE",
+    "gsps_location": "lib/gann/spectralCycle.ts:detectSpectralCycle (periodConsistent: two halves within ±15%, n ≥ 120) — differs: two halves, not five sections",
+    "test": "lib/gann/__tests__/spectralCycle.test.ts > detectSpectralCycle > flags period consistency when the same cycle holds across both halves of the window",
+    "passes": false
+  },
+  {
+    "id": "CYC-06",
+    "rule": "Dewey #5, phase re-establishment: after a distortion the waves should return to their pre-distortion timing; a majority of 41-month crests fell within 3–4 months of ideal (about ±9% of the period) (Dewey).",
+    "source": "W039 p.12 (Fig. 5)",
+    "class": "CYCLE",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/spectralCycle.test.ts — a sine with a phase-preserving gap of noise resumes within ±9% of the period and is flagged phase-resuming, while a phase-shifted resumption is not.",
+    "passes": false
+  },
+  {
+    "id": "CYC-07",
+    "rule": "Dewey #6, persistence through changed conditions: a real cycle survives regime change, though crests rarely come exactly on time and extra crests appear, so look for zones of strength followed by weakness (Dewey).",
+    "source": "W039 p.13 (Fig. 6)",
+    "class": "CYCLE",
+    "gsps_location": "lib/gann/spectralCycle.ts:detectSpectralCycle (windowStable: peak survives dropping the oldest 10%) — partial; lib/research/calendarTest.ts:scoreCell — four ~24-year blocks designed, not runnable on 2019–2025 data",
+    "test": "TO WRITE: lib/gann/__tests__/spectralCycle.test.ts — windowStable is true for a stationary sine and false when the cycle exists only in the oldest 10% of the window.",
+    "passes": false
+  },
+  {
+    "id": "CYC-08",
+    "rule": "Dewey #7, persistence after discovery: determine the cycle on one part of the data and project it onto the rest, since a pre-chosen length is about N times less likely to fit by chance than the best of N tried (Dewey).",
+    "source": "W039 pp.13–14",
+    "class": "CYCLE",
+    "gsps_location": "lib/gann/spectralCycle.ts:detectSpectralCycle (holdout: fitted on the first 70%, correlated on the last 30%); lib/research/calendarTest.ts:scoreCell (windows fixed in advance) — differs: the hold-out runs only when `active`, decided on the full window, and its correlation has no threshold or null",
+    "test": "lib/gann/__tests__/spectralCycle.test.ts > F3 cycle checks: cosinor, artifact guards, hold-out > carries a real cycle forward into the unseen 30% of the window",
+    "passes": false
+  },
+  {
+    "id": "CYC-09",
+    "rule": "Benner caution: rounding a fractional period to whole units makes a projection drift out of phase (Benner's integer-year pig-iron rule, true period 9.2 years, slipped a year every five waves and failed by 1939) (Dewey).",
+    "source": "W039 p.14 (Table 2)",
+    "class": "CYCLE",
+    "gsps_location": "lib/gann/timeCycles.ts:timeCycles (whole-year MAJOR_CYCLE_YEARS, whole-day WHEEL_COUNTS); lib/gann/macroCycle.ts:computeMacroCycle (yearsElapsed % n === 0); lib/gann/spectralCycle.ts:detectSpectralCycle (integer-bar period grid) — differs: integer units throughout",
+    "test": "TO WRITE: lib/gann/__tests__/spectralCycle.test.ts — an embedded 9.2-bar period is estimated within 5% (fails at the current integer resolution).",
+    "passes": false
+  },
+  {
+    "id": "CYC-10",
+    "rule": "Dewey #8: a combination of cycles fitted on data either side of a gap should describe the unseen data in the gap (an interior hold-out) (Dewey).",
+    "source": "W039 p.15 (Fig. 7)",
+    "class": "CYCLE",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/spectralCycle.test.ts — two cycles fitted on data either side of a withheld interior block correlate with that block above a noise null.",
+    "passes": false
+  },
+  {
+    "id": "CYC-11",
+    "rule": "Dewey #9, wave shape: the average wave should keep a recognisable shape, which need not be symmetric (Dewey).",
+    "source": "W039 pp.16–17 (Figs 8–9)",
+    "class": "CYCLE",
+    "gsps_location": "lib/gann/spectralCycle.ts:detectSpectralCycle — differs: fits a pure cosine only, so a skewed wave is invisible",
+    "test": "TO WRITE: lib/gann/__tests__/spectralCycle.test.ts — an epoch-averaged wave of a fast-rise, slow-fall fixture reports the asymmetry and keeps the same shape in both halves.",
+    "passes": false
+  },
+  {
+    "id": "CYC-12",
+    "rule": "Dewey #10, mathematical tests: each test has faults but is useful comparatively; e.g. the 9.2-year stock cycle (1834–1966) arises in random numbers no more than 1 time in 5,000 by Bartels' test (Dewey).",
+    "source": "W039 p.17 (Fig. 10)",
+    "class": "CYCLE",
+    "gsps_location": "lib/gann/spectralCycle.ts:detectSpectralCycle (schusterP, cosinor.zeroAmplitudeP); lib/research/calendarTest.ts:scoreCell, holm — differs: no Bartels' test; both spectral p-values assume independent residuals",
+    "test": "lib/gann/__tests__/extremeTiming.test.ts > spectral cycle significance (Schuster) > gives a strong regular cycle a small Schuster p",
+    "passes": false
+  },
+  {
+    "id": "CYC-13",
+    "rule": "Dewey's résumé: any one criterion can establish non-chance on its own except dominance and wave shape, and at this stage the question is only whether the regularity is accidental, not whether it forecasts (Dewey).",
+    "source": "W039 p.18",
+    "class": "CYCLE",
+    "gsps_location": "lib/gann/spectralCycle.ts:detectSpectralCycle — conflicts: `active` rests on dominance alone",
+    "test": "TO WRITE: lib/gann/__tests__/spectralCycle.test.ts — `active` requires a significance or hold-out result in addition to dominance.",
+    "passes": false
+  },
+  {
+    "id": "CYC-14",
+    "rule": "Dewey #11: the same period appearing in many phenomena supports reality, but with hundreds of alleged cycles the chance rate of such coincidences must be computed (Dewey).",
+    "source": "W039 pp.19–20 (Table 3)",
+    "class": "CYCLE",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/research/__tests__/crossSeries.test.ts — a same-period match across series is reported with the chance rate of a match on random periods.",
+    "passes": false
+  },
+  {
+    "id": "CYC-15",
+    "rule": "Dewey #12, synchrony: same-period cycles in different series crest at about the same time, and tests requiring exactly simultaneous turning points are invalid because a common cause can stagger responses (Dewey).",
+    "source": "W039 pp.21–22 (Figs 11–12)",
+    "class": "CYCLE",
+    "gsps_location": "lib/research/calendarTest.ts:scoreCell (two index series, DJIA and S&P; partial)",
+    "test": "TO WRITE: lib/research/__tests__/crossSeries.test.ts — a synchrony check counts crests within a stated lag window as synchronous, not only same-day ones.",
+    "passes": false
+  },
+  {
+    "id": "CYC-16",
+    "rule": "Dewey #13: a cycle well established in one series lends significance to the same cycle in a weaker related series (Dewey).",
+    "source": "W039 pp.23–24 (Fig. 13)",
+    "class": "CYCLE",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/research/__tests__/crossSeries.test.ts — an index cycle passed as a prior raises the reported significance of the same period in a constituent only when the period matches.",
+    "passes": false
+  },
+  {
+    "id": "CYC-17",
+    "rule": "Dewey #14: the same wave shape across series supports a common cause (Dewey).",
+    "source": "W039 p.25 (Fig. 14)",
+    "class": "CYCLE",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/research/__tests__/crossSeries.test.ts — epoch-averaged waves of two series with the same period report a shape correlation.",
+    "passes": false
+  },
+  {
+    "id": "CYC-18",
+    "rule": "Dewey #15, latitudinal passage: crests come later toward the equator, about 70% of the period per 90° of latitude (Dewey).",
+    "source": "W039 p.26 (Figs 15–16)",
+    "class": "CYCLE",
+    "gsps_location": "n/a — does not apply to markets",
+    "test": "n/a",
+    "passes": false
+  },
+  {
+    "id": "CYC-19",
+    "rule": "Dewey #16: distortion patterned like magnetic declination, which Dewey says may be mere coincidence (Dewey).",
+    "source": "W039 pp.27–28 (Figs 16–17)",
+    "class": "CYCLE",
+    "gsps_location": "n/a — does not apply to markets",
+    "test": "n/a",
+    "passes": false
+  },
+  {
+    "id": "CYC-20",
+    "rule": "Dewey #17: alleged periods cluster (1,404 economic cycles from 327 authors), but clustering may partly come from investigators copying each other (Dewey).",
+    "source": "W039 p.28 (Fig. 18); collection-synthesis §3.5",
+    "class": "CYCLE",
+    "gsps_location": "none",
+    "test": "TO WRITE: none — a caution about source independence; record lineage in docs, nothing to assert in code.",
+    "passes": false
+  },
+  {
+    "id": "CYC-21",
+    "rule": "Dewey #18, families: periods fall in ×2 and ×3 progressions from 17.75 years, but so many cycles exist that a match is easy and periods are measured too crudely (Dewey).",
+    "source": "W039 pp.30–31 (Fig. 19, Table 4)",
+    "class": "CYCLE",
+    "gsps_location": "lib/gann/timeCycles.ts:timeCycles (WHEEL_COUNTS halves, thirds, eighths as a design prior only)",
+    "test": "TO WRITE: lib/validation/__tests__/criteria-gate.test.ts — no criterion or gate awards credit for a period's fit to a ×2/×3 family.",
+    "passes": false
+  },
+  {
+    "id": "CYC-22",
+    "rule": "Telling forced from free cycles in one series takes two tests: persistence through changed conditions, and resumption in phase after a distortion (a stopped pendulum resumes out of phase) (Dewey).",
+    "source": "W039 pp.34–35",
+    "class": "CYCLE",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/spectralCycle.test.ts — a forced-vs-free reading combines windowStable with a phase-resumption test (needs CYC-06 first).",
+    "passes": false
+  },
+  {
+    "id": "CYC-23",
+    "rule": "Dewey's 18 criteria are a toolkit used with common sense, since cycle study is not yet wholly a science (Dewey).",
+    "source": "W039 p.30",
+    "class": "CYCLE",
+    "gsps_location": "none — framing only",
+    "test": "TO WRITE: none — a framing statement with nothing to assert.",
+    "passes": false
+  },
+  {
+    "id": "CYC-24",
+    "rule": "Recurrent discrete events (dated yes/no occurrences) differ from periodic waves and need different statistics, a hit rate against a base rate (Dewey).",
+    "source": "W040 p.4 (and p.3 concept diagram)",
+    "class": "CYCLE",
+    "gsps_location": "lib/research/calendarTest.ts:scoreCell (hit rate vs circular-shift base rate, fixed calendar W1 and 1940 windows W3) — differs: not applied to timeCycles(), yearCycleConvergence, macroCycle.ts or decadeCycle.ts",
+    "test": "TO WRITE: lib/research/__tests__/calendarTest.test.ts — pivots planted inside the windows give a small p and random pivots a large one (the existing Holm test asserts only instance count, p > 0 and a boolean flag).",
+    "passes": false
+  },
+  {
+    "id": "CYC-25",
+    "rule": "'Ordered' means the spacing of waves is non-random, not serial correlation, and since prices are serially correlated the test is whether the intervals are random (Dewey).",
+    "source": "W040 p.5",
+    "class": "CYCLE",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/spectralCycle.test.ts — an interval-randomness test is not significant on a seeded random walk and is significant on a regularly spaced sine.",
+    "passes": false
+  },
+  {
+    "id": "CYC-26",
+    "rule": "Rhythm is a matter of degree and can be scored on a regularity index (e.g. 80%) (Dewey).",
+    "source": "W040 p.5",
+    "class": "CYCLE",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/spectralCycle.test.ts — a regularity index scores a clean sine near 100% and seeded noise near its chance level.",
+    "passes": false
+  },
+  {
+    "id": "CYC-27",
+    "rule": "Short periodicities arise easily by chance (H T H T) and long ones rarely, so short periods need more repetitions or a stricter test (Dewey).",
+    "source": "W040 p.5",
+    "class": "CYCLE",
+    "gsps_location": "lib/gann/spectralCycle.ts:detectSpectralCycle (MIN_PERIOD_BARS 5; Schuster independent-frequency count) — differs: no period-dependent scaling",
+    "test": "TO WRITE: lib/gann/__tests__/spectralCycle.test.ts — the significance threshold applied to a 5-bar peak is stricter than the one applied to a 40-bar peak.",
+    "passes": false
+  },
+  {
+    "id": "CYC-28",
+    "rule": "Yule–Slutsky effect: smoothing (or summing) random data creates apparent cycles, so rhythm must be shown against random series (Dewey).",
+    "source": "W040 p.3 (concept diagram)",
+    "class": "CYCLE",
+    "gsps_location": "lib/gann/spectralCycle.ts:detectSpectralCycle (OLS linear detrend, no moving average)",
+    "test": "TO WRITE: lib/gann/__tests__/spectralCycle.test.ts — detectSpectralCycle stays inactive on seeded white noise and on a seeded random walk in at least 95% of draws.",
+    "passes": false
+  },
+  {
+    "id": "CYC-29",
+    "rule": "Separate the non-cyclic growth trend from the cyclic pattern before analysing the cycle (Dewey).",
+    "source": "W040 pp.3–4; W039 p.6",
+    "class": "CYCLE",
+    "gsps_location": "lib/gann/spectralCycle.ts:detectSpectralCycle (linearDetrend on log closes; atBandEdge guard)",
+    "test": "lib/gann/__tests__/spectralCycle.test.ts > detectSpectralCycle > does not falsely detect a cycle in a pure linear trend with no periodicity",
+    "passes": false
+  },
+  {
+    "id": "CYC-30",
+    "rule": "A rhythm must be shown by inferential statistics ('time-microscopy'), not by eye alone ('time-macroscopy'), and both are needed (Halberg).",
+    "source": "W041 pp.29–30",
+    "class": "CYCLE",
+    "gsps_location": "lib/gann/spectralCycle.ts:detectSpectralCycle (Schuster, cosinor) — differs: timeCycles, macroCycle and decadeCycle windows are shown on the card with no inference attached",
+    "test": "lib/gann/__tests__/spectralCycle.test.ts > F3 cycle checks: cosinor, artifact guards, hold-out > measures a 5% cycle's amplitude, with an interval that contains it",
+    "passes": false
+  },
+  {
+    "id": "CYC-31",
+    "rule": "Cosinor: report the MESOR (rhythm-adjusted mean), amplitude and acrophase, each with a 95% CI (Halberg).",
+    "source": "W041 pp.7–8 (Fig. 11), pp.29–30",
+    "class": "CYCLE",
+    "gsps_location": "lib/gann/spectralCycle.ts:detectSpectralCycle (cosinor amplitude with 95% CI) — differs: no MESOR or acrophase, and the CI is amp ± 1.96·se rather than Halberg's error ellipse",
+    "test": "TO WRITE: lib/gann/__tests__/spectralCycle.test.ts — the cosinor reports a MESOR and an acrophase whose 95% CIs contain a fixture's known mean and phase.",
+    "passes": false
+  },
+  {
+    "id": "CYC-32",
+    "rule": "Zero-amplitude test: a rhythm is validated when its amplitude is significantly non-zero, i.e. the cosinor error ellipse does not cover the pole (Halberg).",
+    "source": "W041 p.42 (puzzle 6); p.30 (Fig. 34)",
+    "class": "CYCLE",
+    "gsps_location": "lib/gann/spectralCycle.ts:detectSpectralCycle (cosinor.zeroAmplitudeP, exact F(2, n−3) tail) — differs: computed at a period scanned from the same data (post-selection)",
+    "test": "lib/gann/__tests__/spectralCycle.test.ts > F3 cycle checks: cosinor, artifact guards, hold-out > measures a 5% cycle's amplitude, with an interval that contains it",
+    "passes": false
+  },
+  {
+    "id": "CYC-33",
+    "rule": "Use the cosinor when prior information fixes the period and the periodogram when it is unknown, testing hypotheses before estimating parameters (Halberg).",
+    "source": "W041 p.23; pp.32, 37",
+    "class": "CYCLE",
+    "gsps_location": "lib/gann/spectralCycle.ts:detectSpectralCycle — conflicts: runs a cosinor test on the same data at the periodogram's scanned period",
+    "test": "TO WRITE: lib/gann/__tests__/spectralCycle.test.ts — zeroAmplitudeP computed on the hold-out at the training period is below 0.05 in no more than about 5% of seeded noise draws.",
+    "passes": false
+  },
+  {
+    "id": "CYC-34",
+    "rule": "Every estimate, the period included, should carry its uncertainty, and 'circa' means the period may free-run from the nominal value (Halberg).",
+    "source": "W041 pp.10–11 (Fig. 20), p.32",
+    "class": "CYCLE",
+    "gsps_location": "none — dominantPeriodBars has no CI; lib/gann/timeCycles.ts:timeCycles and lib/gann/macroCycle.ts:computeMacroCycle use exact nominal counts",
+    "test": "TO WRITE: lib/gann/__tests__/spectralCycle.test.ts — the dominant period is reported with a CI that contains a fixture's true non-integer period.",
+    "passes": false
+  },
+  {
+    "id": "CYC-35",
+    "rule": "Comparing groups at a fixed clock time, or averaging without regard to phase, can hide or reverse a rhythm when the groups differ in phase (Halberg).",
+    "source": "W041 pp.3–5 (Figs 1–4)",
+    "class": "CYCLE",
+    "gsps_location": "none — lib/backtest/attribution.ts and lib/research/calendarTest.ts:scoreCell pool across phases",
+    "test": "TO WRITE: lib/research/__tests__/calendarTest.test.ts — two antiphase fixture groups pooled show no effect while each group scored alone shows it.",
+    "passes": false
+  },
+  {
+    "id": "CYC-36",
+    "rule": "Use gliding (moving-window) spectra so components that come and go or change period are visible (Halberg, 28-hour window with 8-hour step).",
+    "source": "W041 pp.25–29 (Figs 26, 28, 33)",
+    "class": "CYCLE",
+    "gsps_location": "lib/gann/spectralCycle.ts:detectSpectralCycle (periodConsistent, windowStable as partial proxies)",
+    "test": "TO WRITE: lib/gann/__tests__/spectralCycle.test.ts — a gliding periodogram over a fixture whose period changes from 20 to 30 bars reports both periods in their own windows.",
+    "passes": false
+  },
+  {
+    "id": "CYC-37",
+    "rule": "Beats: two near-equal periods add when in phase and cancel when out of phase, so a real component can appear in one stretch and vanish in another (Halberg).",
+    "source": "W041 pp.33, 35, 45–46, 50 (Fig. 44)",
+    "class": "CYCLE",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/spectralCycle.test.ts — a sum of 20- and 22-bar sines is reported as beating rather than as an absent or unstable cycle.",
+    "passes": false
+  },
+  {
+    "id": "CYC-38",
+    "rule": "A result can hold in one phase of a longer cycle and fail in another, as rhythms come and go and change frequency (Halberg).",
+    "source": "W041 pp.32–34 (Figs 36–37), pp.36–37",
+    "class": "CYCLE",
+    "gsps_location": "lib/backtest/replay.ts:replay (early/late halves in the report, Stage F3); lib/research/calendarTest.ts:scoreCell (four-block design not achievable on 2019–2025) — partial",
+    "test": "TO WRITE: lib/__tests__/replay.test.ts — the report splits results by regime block and shows a factor positive in one block and negative in another.",
+    "passes": false
+  },
+  {
+    "id": "CYC-39",
+    "rule": "Feedsidewards: the same input can amplify, do nothing, or attenuate depending on the phase at which it arrives (Halberg).",
+    "source": "W041 p.18 (Fig. 19)",
+    "class": "CYCLE",
+    "gsps_location": "lib/gann/timeCycles.ts:timeCycles — conflicts: the turn direction is fixed by anchor kind (low ⇒ bullish)",
+    "test": "TO WRITE: lib/__tests__/cycle-ranking.test.ts — a window's hits are reported split by the realised turn direction, not assumed from the anchor kind.",
+    "passes": false
+  },
+  {
+    "id": "CYC-40",
+    "rule": "Do not force the nominal period: a rhythm may fit better off-nominal (28 h and 178 h beat 24 h and 168 h) (Halberg).",
+    "source": "W041 pp.10–11, p.25 (Fig. 25)",
+    "class": "CYCLE",
+    "gsps_location": "lib/research/calendarTest.ts:windowInstances (calendar vs equinox vs 364-day conventions) — differs: lib/gann/timeCycles.ts:timeCycles and lib/gann/macroCycle.ts:computeMacroCycle use fixed nominal counts",
+    "test": "TO WRITE: lib/research/__tests__/calendarTest.test.ts — each convention is scored and the best-fitting one is reported, not assumed (the existing convention test asserts only the window mapping).",
+    "passes": false
+  },
+  {
+    "id": "CYC-41",
+    "rule": "Matching periods across domains are hints for search, not causal proof, which needs remove-and-replace evidence (Halberg).",
+    "source": "W041 p.42; pp.44–45",
+    "class": "CYCLE",
+    "gsps_location": "none — AGENTS.md keeps such matches confluence-only",
+    "test": "TO WRITE: lib/validation/__tests__/criteria-gate.test.ts — no cross-domain period match (planetary or otherwise) reaches CRITERION_KEYS or a gate.",
+    "passes": false
+  },
+  {
+    "id": "CYC-42",
+    "rule": "With prior information, a single timed spot-check can test a predicted phase (Halberg).",
+    "source": "W041 p.43 (puzzle 7)",
+    "class": "CYCLE",
+    "gsps_location": "lib/research/calendarTest.ts:scoreCell (Gann's windows fixed in advance)",
+    "test": "TO WRITE: lib/research/__tests__/calendarTest.test.ts — a pre-registered window scored on fresh data returns a p-value without any fitting step.",
+    "passes": false
+  },
+  {
+    "id": "CYC-43",
+    "rule": "An irregular cycle can recur at two or three specific interval lengths whose weighted mix makes the long-run average (3.244/4.542 years → 3.446; 10.38/12.00 years in about 4:3 → 11.07), so testing for one fixed period can fail though the phenomenon is real (Tomes).",
+    "source": "W045 p.2, pp.12–13, 17–19 (Fig. 20, Table 3)",
+    "class": "CYCLE",
+    "gsps_location": "lib/gann/timeCycles.ts:timeCycles (single fixed counts; DAY_COUNT_BANDS ranges only loosely fit); lib/gann/macroCycle.ts:computeMacroCycle (exact multiples) — differs",
+    "test": "TO WRITE: lib/__tests__/cycle-ranking.test.ts — a count tested as a set of specific intervals (e.g. 3.244 or 4.542 years) hits a fixture that a single 3.446-year count misses.",
+    "passes": false
+  },
+  {
+    "id": "CYC-44",
+    "rule": "Show that a feature is not an artefact of detrending before reading it as structure (Tomes).",
+    "source": "W042 pp.21–22",
+    "class": "CYCLE",
+    "gsps_location": "lib/gann/spectralCycle.ts:detectSpectralCycle (atBandEdge: a peak at the longest scanned period is never active)",
+    "test": "lib/gann/__tests__/spectralCycle.test.ts > F3 cycle checks: cosinor, artifact guards, hold-out > does not call a curved trend's leftover a cycle",
+    "passes": true
+  },
+  {
+    "id": "CYC-45",
+    "rule": "A period's precision must come from data not used to estimate it, since a ± computed from the same peaks that are then projected overstates precision (Tomes method; reader critique).",
+    "source": "W043 p.1 (Tables 1–2); synthesis §3.7",
+    "class": "CYCLE",
+    "gsps_location": "none",
+    "test": "TO WRITE: lib/gann/__tests__/spectralCycle.test.ts — the period error is measured on the hold-out, and on noise it exceeds the in-sample ±.",
+    "passes": false
+  },
+  {
+    "id": "CYC-46",
+    "rule": "Check the series is homogeneous before fitting a cycle, since a regime change (WTI administered prices before 1973) makes earlier peaks incomparable (Tomes; reader assessment).",
+    "source": "W043 p.2 (Fig. 1)",
+    "class": "CYCLE",
+    "gsps_location": "none — lib/gann/spectralCycle.ts:detectSpectralCycle assumes one regime across the window",
+    "test": "TO WRITE: lib/gann/__tests__/spectralCycle.test.ts — a fixture with a variance break is flagged inhomogeneous before any cycle is reported.",
+    "passes": false
+  },
+  {
+    "id": "CYC-47",
+    "rule": "A dated forward claim from a cycle needs its method and a measured record (Tomes' 2008-01 oil peak landed about 6 months early, later dates fitted worse), and dense alternating date lists make chance hits likely (Tomes; synthesis).",
+    "source": "W043 pp.1–2; collection-synthesis §3.8",
+    "class": "CYCLE",
+    "gsps_location": "lib/gann/macroCycle.ts:computeMacroCycle (upcomingMajor projects up to 60 years ahead) — differs: no measured record attached, as AGENTS.md's forward-looking-claims rule requires",
+    "test": "TO WRITE: lib/gann/__tests__/macroCycle.test.ts — each upcoming window carries its source and a measured hit rate against a base rate, or is not returned for display.",
+    "passes": false
+  },
+  {
+    "id": "CYC-48",
+    "rule": "A cycle whose period varies widely (140–170 days) and appears only in part of a longer cycle fails constancy and persistence, and amplitude-modulated data should be analysed on a log scale (Tomes).",
+    "source": "W044 pp.1–2",
+    "class": "CYCLE",
+    "gsps_location": "lib/gann/spectralCycle.ts:detectSpectralCycle (log closes) — differs: amplitude modulation by a longer cycle is not detected",
+    "test": "lib/gann/__tests__/spectralCycle.test.ts > F3 cycle checks: cosinor, artifact guards, hold-out > measures a 5% cycle's amplitude, with an interval that contains it",
+    "passes": false
+  },
+  {
+    "id": "CYC-49",
+    "rule": "On a dense ×2/×3 grid almost any period lies near a predicted one, so a match needs a chance baseline and must count the reported periods that do not fit (Tomes claim; Dewey objection).",
+    "source": "W042 pp.26–27; W044 p.2; W039 p.31; synthesis §3.4",
+    "class": "CYCLE",
+    "gsps_location": "lib/gann/timeCycles.ts:timeCycles (WHEEL_COUNTS ratios as a prior only)",
+    "test": "TO WRITE: lib/research/__tests__/crossSeries.test.ts — the share of random periods within tolerance of a ×2/×3 grid is reported as the baseline for any family match.",
+    "passes": false
+  },
+  {
+    "id": "CYC-50",
+    "rule": "A non-linear response to one sine produces in-phase integer harmonics, and several inputs produce sum and difference frequencies, so a peak at 2× or 3× a stronger one may be its harmonic, not an independent cycle (Tomes).",
+    "source": "W045 pp.8–9 (Figs 10–11)",
+    "class": "CYCLE",
+    "gsps_location": "lib/gann/spectralCycle.ts:detectSpectralCycle — differs: reports one dominant peak with no harmonic check",
+    "test": "TO WRITE: lib/gann/__tests__/spectralCycle.test.ts — a squared 20-bar sine's 10-bar peak is labelled a harmonic of the 20-bar peak.",
+    "passes": false
+  },
+  {
+    "id": "CYC-51",
+    "rule": "Correct for searching: with N candidate lengths the best fit is about N times likelier by chance than a pre-chosen one, and a family of tests needs a family-wise correction (Dewey; synthesis).",
+    "source": "W039 pp.13–14; collection-synthesis §3.6",
+    "class": "CYCLE",
+    "gsps_location": "lib/gann/spectralCycle.ts:detectSpectralCycle (Schuster independent-frequency multiplier); lib/research/calendarTest.ts:holm — differs: no correction in timeCycles() (about 21 counts × 12 anchors + 9 bands) or yearCycleConvergence",
+    "test": "TO WRITE: lib/research/__tests__/calendarTest.test.ts — holm marks a cell significant at raw p = 0.02 alone but not when it is one of five cells with that p.",
+    "passes": false
+  },
+  {
+    "id": "CYC-52",
+    "rule": "Gann's decade-digit character is a recurrent-event calendar claim and needs a hit rate against a base rate before it means anything (Dewey's rule, applied by us).",
+    "source": "W040 p.4 applied to decadeCycle.ts",
+    "class": "CYCLE",
+    "gsps_location": "lib/gann/decadeCycle.ts:computeDecadeCycle (lookup only)",
+    "test": "TO WRITE: lib/gann/__tests__/decadeCycle.test.ts — a measurement over yearly index returns reports each digit's bias hit rate against a shuffled-digit base rate.",
+    "passes": false
+  }
+]

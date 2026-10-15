@@ -79,6 +79,46 @@ describe("recentSquareOf9Levels", () => {
 });
 
 describe("timeCycles", () => {
+  /** 40 daily bars from 2025-01-01 with one deep pivot low at i=20 (2025-01-21). */
+  function pivotLowBars(): Bar[] {
+    const dayMs = 24 * 3600 * 1000;
+    const bars: Bar[] = [];
+    const start = new Date("2025-01-01T00:00:00Z");
+    for (let i = 0; i < 40; i++) {
+      const t = new Date(start.getTime() + i * dayMs).toISOString();
+      const l = i === 20 ? 50 : 100 - Math.abs(i - 20);
+      bars.push(bar(t, l + 10, l));
+    }
+    return bars;
+  }
+
+  // One day = one degree; the key counts are 45, 90, 120, 135, 180, 225, 240,
+  // 270, 315 and 360 days (W003 p.18; W022 p.371: a "time" is 360, half 180).
+  it("opens a window on each of the ten degree counts from a pivot, and not between them", () => {
+    const bars = pivotLowBars();
+    for (const count of [45, 90, 120, 135, 180, 225, 240, 270, 315, 360]) {
+      const asOf = new Date("2025-01-21T00:00:00Z");
+      asOf.setUTCDate(asOf.getUTCDate() + count);
+      const r = timeCycles(bars, asOf);
+      expect(r.active, `${count} days`).toBe(true);
+      expect(r.bullishActive, `${count} days`).toBe(true);
+      // The count's own date, not only an overlapping day-count band.
+      expect(r.dates, `${count} days`).toContain(asOf.toISOString().slice(0, 10));
+    }
+    const between = new Date("2025-01-21T00:00:00Z");
+    between.setUTCDate(between.getUTCDate() + 100); // outside every count and day-count band
+    expect(timeCycles(bars, between).active).toBe(false);
+  });
+
+  // The anniversary of a major low, the same calendar date a year later, is a
+  // time to watch (W033 p.4; the 1-year cycle in MAJOR_CYCLE_YEARS).
+  it("opens a window on the same calendar date a year after a pivot", () => {
+    const bars = pivotLowBars();
+    expect(timeCycles(bars, new Date("2026-01-21T00:00:00Z")).active).toBe(true);
+    expect(timeCycles(bars, new Date("2026-01-31T00:00:00Z")).active).toBe(false);
+  });
+
+
   it("tags a low-anchored window bullish and a high-anchored window bearish", () => {
     const dayMs = 24 * 3600 * 1000;
     const bars: Bar[] = [];
