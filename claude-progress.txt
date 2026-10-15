@@ -135,3 +135,10 @@
   path never reads the crossed flag before the fill.
 - Migration 0086 must be applied to production by the owner before this merges.
 - Full suite 2442 passed, tsc clean, eslint 0 errors, terms clean.
+
+== 2026-10-15 replay run 33 (step 1, cfc2dff, STRATEGY_VERSION 2026-10-15-gann-crossed-level-bought) ==
+- 766 symbols, 15Min, 2026-08-17 to 2026-10-15, plan levels. Trades 223 (run 31: 112).
+- plan-reaction: all +0.037R [-0.066, +0.138]; Execute +0.145R on 17 [-0.223, +0.503];
+  Watch +0.044R on 158. Halves +0.173 / -0.098. Run 31: all +0.123R, Execute -0.232R on 7.
+- plan-reaction-gannrunner: all +0.018R [-0.079, +0.116]; Execute -0.032R on 17.
+- Continuation +0.420R on 23; reversion -0.007R on 200. No interval clears zero.
