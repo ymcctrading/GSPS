@@ -327,6 +327,9 @@ async function placeRecommendation(
     qty: rec.qty,
     entryMode: "advised",
     limitPrice: rec.why.entry,
+    // The protocol's own pair: the confirmation reads its line from these.
+    entryStop: rec.why.stopLoss,
+    entryKind: rec.why.entryKind,
     referencePrice: rec.currentPrice,
     intradaySourced: false,
     attachLevels: {

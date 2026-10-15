@@ -48,6 +48,15 @@ const DAY_MS = 24 * 3600 * 1000;
  */
 const EPS = 1e-9;
 
+/**
+ * A double or triple bottom (top) is a test of the range's own edge, and Gann
+ * gives it its own stop 3 points beyond the level (W006 pp.11, 20, 46), so it
+ * is not held to Watch here; the hold still applies to a crossing inside a
+ * range. Put to the owner on 2026-10-15 as a decision against owner decision
+ * 5 (PLAN.md item 5, step 2); built on the recommended option until answered.
+ */
+export const OLD_LEVEL_BUYS_IN_RANGE = true;
+
 export interface BreakawayReading {
   rangeBound: boolean;
   /** The range's highest completed top and lowest completed bottom, when range-bound. */
@@ -76,7 +85,9 @@ export function readBreakaway(daily: Bar[], trigger: GannEntryTrigger | null): B
   const rangeLow = bottoms.length > 0 ? Math.min(...bottoms) : null;
 
   let breaksAway = false;
-  if (trigger) {
+  if (trigger?.kind === "oldLevel" && OLD_LEVEL_BUYS_IN_RANGE) {
+    breaksAway = true;
+  } else if (trigger) {
     breaksAway =
       trigger.direction === "bullish"
         ? rangeHigh === null || trigger.triggerPrice >= beyondByThreePoints(rangeHigh, 1) - EPS * rangeHigh

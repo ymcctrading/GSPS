@@ -35,7 +35,7 @@
 
 import type { Bar } from "@/lib/types";
 import { readGannTrend } from "@/lib/gann/trendStrength";
-import { computeGannEntryTrigger, gannBreakLine } from "@/lib/gann/entryTrigger";
+import { gannBreakLine, selectGannEntry } from "@/lib/gann/entryTrigger";
 
 export type ExamTransition = "novice_to_pro" | "pro_to_expert";
 export const EXAM_TRANSITIONS: readonly ExamTransition[] = ["novice_to_pro", "pro_to_expert"];
@@ -180,12 +180,19 @@ export function buildScenario(symbol: string, asOf: string, daily: Bar[], seed: 
   const read = readGannTrend(before);
   const direction = read.direction;
   const trend: Trend = direction === "bullish" ? "up" : direction === "bearish" ? "down" : "sideways";
-  const trigger = direction ? computeGannEntryTrigger(before, direction) : null;
+  // The buying point production prices from (PLAN.md item 5, step 2).
+  const trigger = direction ? selectGannEntry(before, direction) : null;
   const last = before[before.length - 1];
   // A trade when the old level is still to be crossed, or when it has been
   // crossed and holds, so the buy rests for the reaction (PLAN.md item 5).
   const decision: Decision =
-    trigger && (trigger.held || (direction === "bullish" ? trigger.triggerPrice > last.c : trigger.triggerPrice < last.c)) ? "trade" : "wait";
+    trigger &&
+    (trigger.held ||
+      // A double or triple bottom rests at the old level, below the price.
+      trigger.kind === "oldLevel" ||
+      (direction === "bullish" ? trigger.triggerPrice > last.c : trigger.triggerPrice < last.c))
+      ? "trade"
+      : "wait";
 
   let entryChoices: ExamChoice[] = [];
   let stopChoices: ExamChoice[] = [];
@@ -197,14 +204,16 @@ export function buildScenario(symbol: string, asOf: string, daily: Bar[], seed: 
   if (decision === "trade" && trigger) {
     const long = direction === "bullish";
     // The reaction buy after the crossing (PLAN.md item 4): 1 point past the
-    // old level, stop 3 points the other side.
+    // old level, stop 3 points the other side. Or the old bottom itself, stop
+    // 3 points under it (a double or triple bottom, item 5 step 2).
     entry = round2(trigger.reactionEntry);
     stop = round2(trigger.reactionStop);
     const e = [
       { id: "e1", price: entry },
       // Buying at today's close instead of waiting for the reaction to the level.
       { id: "e2", price: round2(last.c) },
-      // Short of the level: an order that fills before the market proves itself.
+      // 3% the wrong side of the level: before a crossing proves itself, or
+      // after an old bottom has already given way.
       { id: "e3", price: round2(long ? trigger.pivot.price * 0.97 : trigger.pivot.price * 1.03) },
     ];
     const s = [
@@ -237,7 +246,7 @@ export function buildScenario(symbol: string, asOf: string, daily: Bar[], seed: 
       entryChoices,
       stopChoices,
     },
-    key: { trend, decision, direction, entryChoiceId, stopChoiceId, entry, stop, shares, crossed: decision === "trade" && trigger?.held === true },
+    key: { trend, decision, direction, entryChoiceId, stopChoiceId, entry, stop, shares, crossed: decision === "trade" && (trigger?.held === true || trigger?.kind === "oldLevel") },
     playback: after.map((b) => ({ t: b.t.slice(0, 10), h: b.h, l: b.l, c: b.c })),
   };
 }

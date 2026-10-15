@@ -71,6 +71,12 @@ export const OrderSchema = z.object({
    * reaction buy never rests before the crossing (PLAN.md item 4).
    */
   entryStop: z.number().positive().optional(),
+  /**
+   * Which of Gann's buying points the protocol's entry is (PLAN.md item 5,
+   * step 2). `oldLevel` rests at the old bottom (top) with no crossing to wait
+   * for; absent is the crossing. Sent with `entryStop`.
+   */
+  entryKind: z.enum(["crossing", "oldLevel"]).optional(),
   mode: z.enum(["paper", "live"]).default("paper"),
   /**
    * True only when this order was opened through the intraday alerts
@@ -204,7 +210,7 @@ export async function entryConfirmationRefusal(
   userId: string,
   input: Pick<
     OrderInput,
-    "symbol" | "assetClass" | "side" | "entryMode" | "limitPrice" | "attachLevels" | "sourcePlanId" | "entryStop" | "referencePrice"
+    "symbol" | "assetClass" | "side" | "entryMode" | "limitPrice" | "attachLevels" | "sourcePlanId" | "entryStop" | "entryKind" | "referencePrice"
   >,
 ): Promise<{ status: number; body: Record<string, unknown> } | null> {
   if (input.assetClass === "option") return null;
@@ -212,7 +218,13 @@ export async function entryConfirmationRefusal(
   if (overCap) return overCap;
   if (!input.attachLevels && input.entryStop == null) return null;
 
-  let target: { direction: "bullish" | "bearish"; entryTrigger: number; stopPrice?: number; since?: string } | null = null;
+  let target: {
+    direction: "bullish" | "bearish";
+    entryTrigger: number;
+    stopPrice?: number;
+    entryKind?: "crossing" | "oldLevel";
+    since?: string;
+  } | null = null;
   if (input.sourcePlanId) {
     const plan = await getTradePlan(supabase, userId, input.sourcePlanId).catch(() => null);
     if (!plan) {
@@ -224,6 +236,7 @@ export async function entryConfirmationRefusal(
       // A stop-and-reverse plan's entry and stop are not Gann's reaction pair,
       // so it keeps the retest-and-hold confirmation.
       stopPrice: isPivotSignal(plan.signalId) ? undefined : plan.coordinates.invalidation,
+      entryKind: plan.coordinates.entryKind,
       since: plan.generatedAt,
     };
   } else if (input.entryMode === "advised" && input.limitPrice != null) {
@@ -233,7 +246,7 @@ export async function entryConfirmationRefusal(
     // order without it falls back to the stop it attaches.
     const stopPrice = input.entryStop ?? input.attachLevels?.stopLoss;
     if (stopPrice != null) {
-      target = { direction: input.side === "sell" ? "bearish" : "bullish", entryTrigger: input.limitPrice, stopPrice };
+      target = { direction: input.side === "sell" ? "bearish" : "bullish", entryTrigger: input.limitPrice, stopPrice, entryKind: input.entryKind };
     }
   }
   if (!target) return null;

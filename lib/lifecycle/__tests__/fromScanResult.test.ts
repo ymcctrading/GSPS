@@ -56,6 +56,13 @@ describe("buildNewTradePlanFromScanResult", () => {
     );
   });
 
+  it("carries an old-level plan's kind, and leaves a crossing's unset", () => {
+    const opts = { strategyVersion: "1.0.0", signalId: "transition-1", generatedAt: "2026-08-30T13:00:00.000Z" };
+    const old = buildNewTradePlanFromScanResult(scanResult({ levels: { ...levels, entryKind: "oldLevel" } }), opts);
+    expect(old?.coordinates.entryKind).toBe("oldLevel");
+    expect(buildNewTradePlanFromScanResult(scanResult(), opts)?.coordinates.entryKind).toBeUndefined();
+  });
+
   it("returns null when the scan has no priced levels", () => {
     const plan = buildNewTradePlanFromScanResult(scanResult({ levels: null }), {
       strategyVersion: "1.0.0",

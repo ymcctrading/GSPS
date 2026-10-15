@@ -9,6 +9,8 @@ import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import {
   computeGannEntryTrigger,
+  computeGannOldLevelEntry,
+  selectGannEntry,
   type GannEntryTrigger,
 } from "@/lib/gann/entryTrigger";
 import { gannThreePoints } from "@/lib/gann/pointScale";
@@ -56,6 +58,20 @@ function fallingHistory(count: number, before: string): Bar[] {
   return out;
 }
 
+/**
+ * The last day trades back down to the latest completed bottom and closes
+ * where it opened, so that bottom has had its test and is not a resting buy
+ * (PLAN.md item 5, step 2). The crossing is then the only buying point, which
+ * is what these tests exercise.
+ */
+function withBottomTested(daily: Bar[]): Bar[] {
+  const lastBottom = computeGannOldLevelEntry(daily, "bullish");
+  if (!lastBottom) return daily;
+  const last = daily[daily.length - 1];
+  const t = new Date(Date.parse(last.t) + 86_400_000).toISOString();
+  return [...daily, { t, o: last.c, h: last.c * 1.001, l: lastBottom.level * 0.999, c: last.c, v: 1000 }];
+}
+
 const FIXTURES = [
   {
     name: "a short below an old bottom",
@@ -64,7 +80,7 @@ const FIXTURES = [
   },
   {
     name: "a long above an old top",
-    daily: fallingHistory(300, DAY),
+    daily: withBottomTested(fallingHistory(299, "2026-06-14")),
     expect: "bullish",
   },
 ] as const;
@@ -110,6 +126,8 @@ describe.each(FIXTURES)("$name", ({ daily, expect: direction }) => {
 
   it("arms in the fixture's direction", () => {
     expect(T.direction).toBe(direction);
+    // The crossing is the buying point the replay selects here.
+    expect(selectGannEntry(DAILY, T.direction)?.kind).toBe("crossing");
   });
 
   describe("computeGannEntryTrigger: the crossing levels", () => {
@@ -230,3 +248,32 @@ describe("replay entryRule: reaction on a level the daily chart already crossed"
   });
 });
 
+
+describe("replay entryRule: reaction at an old bottom (double or triple bottom)", () => {
+  // The falling fixture's latest bottom is untested, so it is the nearer
+  // buying point and the order rests at it.
+  const DAILY = fallingHistory(300, DAY);
+  const T = selectGannEntry(DAILY, "bullish")!;
+  const L = T.level;
+  const P = gannThreePoints(L);
+  const above = at(L + P / 2);
+  const head = Array.from({ length: 44 }, () => above);
+
+  it("selects the old bottom", () => {
+    expect(T.kind).toBe("oldLevel");
+    expect(T.reactionEntry).toBe(L);
+    expect(T.reactionStop).toBeCloseTo(L - P, 8);
+  });
+
+  it("buys when price comes down to the old bottom, with the stop 3 points under it", () => {
+    const r = replay("TEST", intraday([...head, at(L + 0.05, 0.2), above]), { targetR: 2, dailyBars: DAILY });
+    expect(r.trades).toHaveLength(1);
+    expect(r.trades[0].entry).toBeCloseTo(L, 8);
+    expect(r.trades[0].stop).toBeCloseTo(L - P, 8);
+  });
+
+  it("does not buy while price stays above the old bottom", () => {
+    const r = replay("TEST", intraday([...head, above, above]), { targetR: 2, dailyBars: DAILY });
+    expect(r.trades).toHaveLength(0);
+  });
+});

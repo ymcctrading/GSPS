@@ -198,6 +198,8 @@ export interface Recommendation {
     stopLoss: number;
     takeProfit1: number;
     masterProfit: number;
+    /** Which of Gann's buying points the entry is; absent is the crossing. */
+    entryKind?: "crossing" | "oldLevel";
     trend: string;
     patternName: string | null;
     tickerHref: string;
@@ -423,6 +425,7 @@ function toRecommendation(
       stopLoss: levels.stopLoss,
       takeProfit1: levels.takeProfit1,
       masterProfit: levels.masterProfit,
+      ...(levels.entryKind ? { entryKind: levels.entryKind } : {}),
       trend: trendSummary(result.trends),
       patternName: result.pattern?.name ?? null,
       tickerHref: tickerHref(result.symbol),

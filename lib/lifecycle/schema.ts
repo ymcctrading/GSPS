@@ -8,6 +8,7 @@ const RunnerRuleSchema = z.object({
 });
 
 const CoordinatesSchema = z.object({
+  entryKind: z.enum(["crossing", "oldLevel"]).optional(),
   entryTrigger: z.number(),
   entryLimitTolerance: z.number().nonnegative(),
   invalidation: z.number(),

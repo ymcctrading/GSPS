@@ -443,6 +443,10 @@ export function OrderTicket({
                 entryMode === "advised" && levels && hasProtocolSignal && side === (result.direction === "bearish" ? "sell" : "buy")
                   ? levels.stopLoss
                   : undefined,
+              entryKind:
+                entryMode === "advised" && levels?.entryKind && hasProtocolSignal && side === (result.direction === "bearish" ? "sell" : "buy")
+                  ? levels.entryKind
+                  : undefined,
               // The server re-validates and re-rounds; sending the mode keeps
               // its answer identical to the one shown above the button.
               rounding: effectiveRounding,

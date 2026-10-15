@@ -141,6 +141,12 @@ export interface GannLevels {
 }
 
 export interface TradeLevels {
+  /**
+   * Which of Gann's buying points priced the plan (PLAN.md item 5): the
+   * reaction after a crossing, or a resting order at the old bottom (top).
+   * Absent means the crossing, the only kind before step 2.
+   */
+  entryKind?: "crossing" | "oldLevel";
   entry: number;
   stopLoss: number;
   takeProfit1: number;

@@ -38,10 +38,18 @@ describe("scan plans carry the reaction pair", () => {
 
   it("prices every equity plan at the level plus 1 point with the stop 3 points the other side", async () => {
     let checked = 0;
+    let oldLevel = 0;
     for (const symbol of ["AAPL", "MSFT", "NVDA", "AMD", "XOM", "JPM", "KO", "TSLA"]) {
       const r = await scanTicker(symbol);
       if (!r.levels || r.direction === "none") continue;
       const sign = r.direction === "bullish" ? 1 : -1;
+      if (r.levels.entryKind === "oldLevel") {
+        // A double or triple bottom (top): at the level, stop 3 points beyond (item 5, step 2).
+        expect(Math.abs(r.levels.entry - r.levels.stopLoss)).toBeCloseTo(gannThreePoints(r.levels.entry), 1);
+        expect(sign * (r.levels.entry - r.levels.stopLoss)).toBeGreaterThan(0);
+        oldLevel++;
+        continue;
+      }
       const level = gannCrossedLevel(r.levels.entry, r.levels.stopLoss);
       const point = gannThreePoints(level) / 3;
       expect(r.levels.entry).toBeCloseTo(level + sign * point, 1);
@@ -51,6 +59,8 @@ describe("scan plans carry the reaction pair", () => {
       checked++;
     }
     expect(checked).toBeGreaterThan(0);
+    // Both buying points reach a plan (KO's nearer one is its old bottom).
+    expect(oldLevel).toBeGreaterThan(0);
   }, 60_000);
 });
 

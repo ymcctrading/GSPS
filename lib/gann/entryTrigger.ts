@@ -97,7 +97,17 @@ export type TriggerDirection = "bullish" | "bearish";
  */
 export const ENTRY_TRIGGER_SWING_DAYS = SWING_CHART_DAYS.threeDay;
 
+/**
+ * Which of Gann's buying points priced the plan:
+ * - `crossing`: cross the old top by 3 points, buy the reaction 1 point above
+ *   it, stop 3 points under it (W006 pp.20, 46-47).
+ * - `oldLevel`: a resting buy at the old bottom, the double or triple bottom,
+ *   stop 3 points under it (W006 pp.11, 20, 46). Shorts mirror both.
+ */
+export type GannEntryKind = "crossing" | "oldLevel";
+
 export interface GannEntryTrigger {
+  kind: GannEntryKind;
   direction: TriggerDirection;
   /**
    * The price that must be exceeded for the trade to trigger — the old top or
@@ -132,6 +142,11 @@ export interface GannEntryTrigger {
   held: boolean;
   /** Time of the close that crossed a held level; null when not held. */
   crossedAt: string | null;
+  /**
+   * `oldLevel` only: how many completed bottoms (tops for a short) already sit
+   * at the level, so a fill makes the double (1) or triple (2) bottom.
+   */
+  tests?: number;
   /** Which swing-chart reversal count produced these pivots. */
   swingDays: number;
 }
@@ -195,7 +210,7 @@ export function computeGannEntryTrigger(
     // may have formed above the crossing since, so it does not price this
     // trade and cannot void it.
     return {
-      direction, triggerPrice, stopPrice: reactionStop, pivot, level: pivot.price,
+      kind: "crossing", direction, triggerPrice, stopPrice: reactionStop, pivot, level: pivot.price,
       reactionEntry, reactionStop, protectivePivot, held: true, crossedAt: bars[held.crossedAt].t, swingDays,
     };
   }
@@ -211,7 +226,87 @@ export function computeGannEntryTrigger(
     return null;
   }
 
-  return { direction, triggerPrice, stopPrice, pivot, level: pivot.price, reactionEntry, reactionStop, protectivePivot, held: false, crossedAt: null, swingDays };
+  return { kind: "crossing", direction, triggerPrice, stopPrice, pivot, level: pivot.price, reactionEntry, reactionStop, protectivePivot, held: false, crossedAt: null, swingDays };
+}
+
+/**
+ * Gann's double and triple bottoms as a buying point (PLAN.md item 5, step 2):
+ * a resting buy at the last completed bottom, stop 3 points under it. "Buy at
+ * double or triple bottoms with a stop 1 to 3 points under, never more than
+ * 3" (W006 pp.20, 46); a triple bottom that holds the third time is followed
+ * by an advance (p.11). The order at the old bottom is what buys the second
+ * test; once a later bar has traded to the level, that test is the buy, and
+ * the next level is the bottom the test completes. Shorts mirror it against
+ * the last completed top (pp.22, 47: sell against single, double or triple
+ * tops, stop 3 points above).
+ *
+ * Engineering choices, labelled as such: the order is a limit at the level
+ * (Gann says "buy at" the bottom and names no order type), and earlier bottoms
+ * count as the same level when within 3 points of it, the margin by which
+ * Gann says a bottom still holds (A-LEVELS-06). Neither moves the order or
+ * the stop; `tests` is display.
+ */
+export function computeGannOldLevelEntry(
+  bars: Bar[],
+  direction: TriggerDirection,
+  swingDays: number = ENTRY_TRIGGER_SWING_DAYS,
+): GannEntryTrigger | null {
+  const pivots = swingPivots(bars, swingDays);
+  // As for the crossing: a swing on each side, so the bottom is a completed
+  // swing and not just where the history starts.
+  if (pivots.length < 2) return null;
+  const kind = direction === "bullish" ? "bottom" : "top";
+  const sign = direction === "bullish" ? 1 : -1;
+  const own = pivots.filter((p) => p.kind === kind);
+  const pivot = own[own.length - 1];
+  if (!pivot) return null;
+  // Already tested since it formed: that test was the buy.
+  for (let i = pivot.index + 1; i < bars.length; i++) {
+    if (sign * ((sign === 1 ? bars[i].l : bars[i].h) - pivot.price) <= 0) return null;
+  }
+  const points = Math.abs(buffered(pivot.price, sign, undefined) - pivot.price);
+  const reactionStop = pivot.price - sign * points;
+  const tests = own.filter((p) => Math.abs(p.price - pivot.price) <= points).length;
+  const opposite = [...pivots].reverse().find((p) => p.kind !== kind) ?? pivot;
+  return {
+    kind: "oldLevel",
+    direction,
+    triggerPrice: pivot.price,
+    stopPrice: reactionStop,
+    pivot,
+    level: pivot.price,
+    reactionEntry: pivot.price,
+    reactionStop,
+    protectivePivot: opposite,
+    held: false,
+    crossedAt: null,
+    tests,
+    swingDays,
+  };
+}
+
+/** The price a buying point fills at: the reaction buy, or the old level. */
+function entryOf(t: GannEntryTrigger): number {
+  // A crossing not yet made has to reach its 3-point line first.
+  return t.kind === "crossing" && !t.held ? t.triggerPrice : t.reactionEntry;
+}
+
+/**
+ * The buying point a plan is priced from: of the crossing and the old level,
+ * the one nearer the price (PLAN.md item 5, step 2). Gann ranks neither
+ * against the other; a set of resting orders is filled by whichever price
+ * reaches first, which is the nearer one. On a tie, the crossing.
+ */
+export function selectGannEntry(
+  bars: Bar[],
+  direction: TriggerDirection,
+  swingDays: number = ENTRY_TRIGGER_SWING_DAYS,
+): GannEntryTrigger | null {
+  const crossing = computeGannEntryTrigger(bars, direction, swingDays);
+  const old = computeGannOldLevelEntry(bars, direction, swingDays);
+  if (!crossing || !old || bars.length === 0) return crossing ?? old;
+  const price = bars[bars.length - 1].c;
+  return Math.abs(entryOf(old) - price) < Math.abs(entryOf(crossing) - price) ? old : crossing;
 }
 
 /**

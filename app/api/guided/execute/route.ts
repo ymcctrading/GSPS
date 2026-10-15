@@ -223,6 +223,9 @@ export async function POST(req: NextRequest) {
     // does from the ticket — never a market order at whatever is on the screen.
     entryMode: "advised",
     limitPrice: agreed.entry,
+    // The protocol's own pair: the confirmation reads its line from these.
+    entryStop: agreed.stopLoss,
+    entryKind: fresh.levels?.entryKind,
     referencePrice: fresh.currentPrice,
     // Guided Decision Mode, never the intraday alerts panel — this is not
     // subject to the intraday-promotion gates.

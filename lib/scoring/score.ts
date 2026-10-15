@@ -142,7 +142,7 @@ export interface ScoreInputs {
    * what arms and prices a trade on 2026-09-17; `pattern` stays for the
    * display/confluence role only. Null means nothing is armed.
    */
-  gannTrigger?: { triggerPrice: number; stopPrice: number; direction: "bullish" | "bearish" } | null;
+  gannTrigger?: { triggerPrice: number; stopPrice: number; direction: "bullish" | "bearish"; kind?: "crossing" | "oldLevel"; level?: number; tests?: number } | null;
   /**
    * Accepted but no longer read here: `momentum` stopped being a scored
    * criterion on 2026-09-08 (see the `stopRoom` swap in
@@ -485,7 +485,9 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       pillar: "setup",
       passed: patternValid,
       note: patternValid
-        ? `Trigger armed ${gannTrigger!.direction}: a close at ${gannTrigger!.triggerPrice.toFixed(2)} crosses the last completed swing level by 3 points, and the entry then waits for the pullback toward that level.`
+        ? gannTrigger!.kind === "oldLevel"
+          ? `Trigger armed ${gannTrigger!.direction}: the entry rests at the old ${gannTrigger!.direction === "bullish" ? "bottom" : "top"} at ${(gannTrigger!.level ?? gannTrigger!.triggerPrice).toFixed(2)}, where a ${(gannTrigger!.tests ?? 1) >= 2 ? "third" : "second"} test makes the ${(gannTrigger!.tests ?? 1) >= 2 ? "triple" : "double"} ${gannTrigger!.direction === "bullish" ? "bottom" : "top"}, with the stop 3 points beyond it.`
+          : `Trigger armed ${gannTrigger!.direction}: a close at ${gannTrigger!.triggerPrice.toFixed(2)} crosses the last completed swing level by 3 points, and the entry then waits for the pullback toward that level.`
         : `No ${setupKind === "continuation" ? "continuation" : "reversal"} trigger armed — the swing chart has not completed a level to cross.`,
     },
     {

@@ -117,3 +117,21 @@
   - Tests for the newer-higher tie-break and the short breakaway. Mutations: 7 of 8 caught; the
     dead-stage skip is equivalent (the stop check right after returns the same).
   - Open, LOW: the live scan's daily bars still include the forming day (F7).
+
+== 2026-10-15 item 5 step 2: double and triple bottoms (W006 pp.11, 20, 46; tops pp.22, 47) ==
+- New `oldLevel` buying point (computeGannOldLevelEntry): a limit resting at the last completed
+  bottom L, stop L less 3 points, risk 3 points (mirror for tops). Void once a later bar trades to L.
+  `tests` counts same-kind pivots within 3 points of L (display only).
+- selectGannEntry offers the nearer of the crossing entry and the old level; a tie goes to the
+  crossing. Used by the live scan, the replay's reaction rule and the graduation exam.
+- An oldLevel order rests at the level: confirmNow, advanceConfirmation and entryConfirmation arm it
+  at once and kill it only on a close through its stop. The entry kind travels on the plan
+  (trade_plans.entry_kind, migration 0086) and the order (OrderSchema.entryKind) from every placing
+  path: ticket, Guided Mode, demo, plan automation, portfolio manager.
+- breakaway: an oldLevel buy inside a range counts as a breakaway (OLD_LEVEL_BUYS_IN_RANGE, on the
+  recommended option of the owner card; held for the owner).
+- STRATEGY_VERSION 2026-10-15-gann-double-bottoms.
+- Mutations: 19 of 20 caught. O9 (replay marks an oldLevel as crossed) is equivalent: the oldLevel
+  path never reads the crossed flag before the fill.
+- Migration 0086 must be applied to production by the owner before this merges.
+- Full suite 2442 passed, tsc clean, eslint 0 errors, terms clean.

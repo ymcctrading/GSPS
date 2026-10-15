@@ -64,6 +64,13 @@ export interface RunnerRule {
 
 /** `Coordinates` field group. */
 export interface PlanCoordinates {
+  /**
+   * Which of Gann's buying points the plan is (PLAN.md item 5): `crossing`
+   * arms on a close 3 points past the level and buys the reaction; `oldLevel`
+   * rests at the old bottom (top) with nothing to arm. Absent on plans stored
+   * before step 2, which are all crossings.
+   */
+  entryKind?: "crossing" | "oldLevel";
   entryTrigger: number;
   entryLimitTolerance: number;
   invalidation: number;

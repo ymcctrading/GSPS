@@ -26,7 +26,7 @@ const GROUPS: { heading: string; terms: Term[] }[] = [
       {
         term: "Entry (blue line)",
         plain:
-          "The price where you get in. First price has to close a little past an old high (or low, for a short); then the buy waits on this line, just past that old level, and fills when price pulls back to it.",
+          "The price where you get in. It is one of two kinds. Most often price has first closed a little past an old high (or low, for a short), and the buy waits on this line, just past that old level, filling when price pulls back to it. Or the buy waits at an old low that held before (an old high, for a short), filling if price comes back down to test it a second or third time.",
       },
       {
         term: "Stop loss (red line)",

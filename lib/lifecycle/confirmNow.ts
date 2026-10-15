@@ -91,6 +91,11 @@ const GANN_NOTES: Record<ConfirmationStage, string> = {
   dead: "Price closed through the stop after the crossing, so this entry is off until a new setup forms.",
 };
 
+const OLD_LEVEL_NOTES = {
+  confirmed: "The entry rests at the old level, where a second or third test makes the double or triple bottom (top, for a short).",
+  dead: "Price closed through the stop under the old level, so this entry is off until a new setup forms.",
+} as const;
+
 /**
  * With `stopPrice`, Gann's reaction rule: ready once a closed bar has closed
  * 3 points past the old level, and off ("dead") once a later close goes
@@ -102,7 +107,16 @@ export function confirmationFromBars(
   direction: "bullish" | "bearish",
   entryTrigger: number,
   stopPrice?: number,
+  entryKind?: "crossing" | "oldLevel",
 ): ConfirmationNow {
+  if (stopPrice != null && entryKind === "oldLevel") {
+    // Gann's double or triple bottom (PLAN.md item 5, step 2): the order rests
+    // at the old bottom with nothing to cross first. Off once a close has gone
+    // through the stop.
+    const up = direction === "bullish";
+    const dead = bars.some((b) => (up ? b.c <= stopPrice : b.c >= stopPrice));
+    return dead ? { ready: false, stage: "dead", note: OLD_LEVEL_NOTES.dead } : { ready: true, stage: "confirmed", note: OLD_LEVEL_NOTES.confirmed };
+  }
   const evidence = replayEntryConfirmation({ direction, entryTrigger, stopPrice }, bars);
   let stage = stageOf(evidence);
   if (stopPrice != null && stage === "confirmed" && evidence.breakOrSweepAt) {
@@ -121,6 +135,8 @@ export async function readEntryConfirmationNow(input: {
   entryTrigger: number;
   /** The plan's stop: selects Gann's reaction rule (see `confirmationFromBars`). */
   stopPrice?: number;
+  /** Which of Gann's buying points; `oldLevel` has nothing to cross. */
+  entryKind?: "crossing" | "oldLevel";
   /**
    * Count bars from this time (a plan's generation time). Default: today's
    * session, or the last four days under Gann's rule.
@@ -145,8 +161,8 @@ export async function readEntryConfirmationNow(input: {
     input.stopPrice != null
       ? bars.filter((b) => Date.parse(b.t) + intervalMs <= now.getTime() && Date.parse(b.t) >= start.getTime())
       : closedSessionBars(bars, now, intervalMs, input.since);
-  const read = confirmationFromBars(window, input.direction, input.entryTrigger, input.stopPrice);
-  if (input.stopPrice == null || read.ready || read.stage === "dead") return read;
+  const read = confirmationFromBars(window, input.direction, input.entryTrigger, input.stopPrice, input.entryKind);
+  if (input.stopPrice == null || input.entryKind === "oldLevel" || read.ready || read.stage === "dead") return read;
   // The daily chart below leaves out the day still forming, so a close
   // through the stop in the bars above (today's included) ends it here.
   const stop = input.stopPrice;

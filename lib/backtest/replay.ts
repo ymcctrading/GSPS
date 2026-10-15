@@ -93,7 +93,7 @@ import {
   proximityBandPct,
 } from "@/lib/scoring/proximity";
 import type { CriterionWeights } from "@/lib/scoring/weights";
-import { computeGannEntryTrigger, type GannEntryTrigger } from "@/lib/gann/entryTrigger";
+import { computeGannEntryTrigger, selectGannEntry, type GannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { advanceEntryConfirmation, entryReady, freshEntryConfirmation } from "@/lib/lifecycle/entryConfirmation";
 import type { EntryConfirmationEvidence } from "@/lib/lifecycle/types";
 import { readTrend } from "@/lib/analysis/trend";
@@ -713,7 +713,12 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       const context = buildMacroContext(priorSessions, price, new Date(`${date}T12:00:00Z`), priorMonthly, facts);
       const reversionDirection = preferredEntryDirection(context.macroTrends);
       const triggers: SessionTrigger[] = [];
-      const reversion = computeGannEntryTrigger(priorSessions, reversionDirection);
+      // The reaction rule is production's, and production prices from the
+      // nearer of the crossing and the old level (PLAN.md item 5, step 2). The
+      // older rules measure the crossing alone, as they always have.
+      const entryOf = (d: "bullish" | "bearish") =>
+        entryRule === "reaction" ? selectGannEntry(priorSessions, d) : computeGannEntryTrigger(priorSessions, d);
+      const reversion = entryOf(reversionDirection);
       if (reversion) triggers.push({ setupKind: "reversion", trigger: reversion, breakaway: readBreakaway(priorSessions, reversion) });
       // The continuation pass arms with the macro move, never against it, and
       // only where its breadth and momentum gate could admit the result.
@@ -723,7 +728,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         macroBreadthAgrees(context.macroTrends, continuationDirection) &&
         isGannContinuation(context.macroTrends, continuationDirection)
       ) {
-        const continuation = computeGannEntryTrigger(priorSessions, continuationDirection);
+        const continuation = entryOf(continuationDirection);
         if (continuation)
           triggers.push({ setupKind: "continuation", trigger: continuation, breakaway: readBreakaway(priorSessions, continuation) });
       }
@@ -747,7 +752,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     if (!arm) continue;
 
     for (const { setupKind, trigger, breakaway } of arm.triggers) {
-      const pivotKey = `${setupKind}:${trigger.direction}:${trigger.pivot.kind}:${trigger.pivot.index}`;
+      const pivotKey = `${setupKind}:${trigger.kind}:${trigger.direction}:${trigger.pivot.kind}:${trigger.pivot.index}`;
       if (consumedPivots.has(pivotKey)) continue;
       const planKey = `${date}|${pivotKey}`;
       armedKeys.add(planKey);
@@ -802,7 +807,8 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         // A held trigger was already crossed on the completed daily chart
         // (PLAN.md item 5), the same reading the live scan prices from.
         const state = crossing.get(pivotKey) ?? { since: date, crossed: false };
-        if (trigger.held) state.crossed = true;
+        // An old-level buy rests at the level with nothing to cross.
+        if (trigger.held || trigger.kind === "oldLevel") state.crossed = true;
         const closed = history[history.length - 1];
         if (closed.t.slice(0, 10) >= state.since && (long ? closed.c >= trigger.triggerPrice : closed.c <= trigger.triggerPrice)) {
           state.crossed = true;

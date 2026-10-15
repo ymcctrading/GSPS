@@ -59,6 +59,7 @@ function rowToPlan(row: Record<string, unknown>, auditRows: Record<string, unkno
     direction: row.direction as TradePlan["direction"],
     signalFingerprint: (row.signal_fingerprint as string | null) ?? null,
     coordinates: {
+      ...(row.entry_kind === "oldLevel" ? { entryKind: "oldLevel" as const } : {}),
       entryTrigger: Number(row.entry_trigger),
       entryLimitTolerance: Number(row.entry_limit_tolerance),
       invalidation: Number(row.invalidation),
@@ -121,6 +122,9 @@ function newPlanToRow(userId: string, plan: NewTradePlan): Record<string, unknow
     generated_at: plan.generatedAt,
     expires_at: plan.expiresAt,
     signal_fingerprint: plan.signalFingerprint,
+    // Written only for the old-level kind, so a crossing plan inserts the
+    // same row it did before migration 0086 added the column.
+    ...(plan.coordinates.entryKind === "oldLevel" ? { entry_kind: "oldLevel" } : {}),
     entry_trigger: plan.coordinates.entryTrigger,
     entry_limit_tolerance: plan.coordinates.entryLimitTolerance,
     invalidation: plan.coordinates.invalidation,

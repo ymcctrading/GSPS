@@ -142,6 +142,7 @@ describe("3 points on the entry side", () => {
     }
     const daily = bars(sideways);
     const make = (triggerPrice: number) => ({
+      kind: "crossing" as const,
       direction: "bullish" as const,
       triggerPrice,
       stopPrice: 90,

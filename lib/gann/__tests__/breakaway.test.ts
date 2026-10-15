@@ -55,6 +55,7 @@ describe("readBreakaway (Commodities pp. 51-52)", () => {
   it("allows an entry that crosses the top of the range", () => {
     const bars = daily(sideways(6));
     const r = readBreakaway(bars, {
+      kind: "crossing",
       direction: "bullish",
       triggerPrice: 200,
       stopPrice: 90,

@@ -11,7 +11,7 @@
  *    is known (see the warning block below).
  */
 
-import type { GannEntryTrigger } from "@/lib/gann/entryTrigger";
+import type { GannEntryKind, GannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { levelOnFigure, stopBeyondFigure, targetCandidates } from "@/lib/gann/evenFigures";
 import { beyondByThreePoints, gannThreePointsPct } from "@/lib/gann/pointScale";
 import type { AssetClass, Bar, PivotPlan, StratPattern, TradeLevels } from "@/lib/types";
@@ -499,6 +499,8 @@ export interface EntrySource {
    * `buildPivotPlan` falls back to a neutral phrase rather than inventing one.
    */
   setupLabel?: string;
+  /** Which of Gann's buying points this is; carried onto the plan (`TradeLevels.entryKind`). */
+  entryKind?: GannEntryKind;
   /**
    * True when this source is Gann's reaction buy after a crossing (PLAN.md
    * item 4; W006 pp.20, 46-47): `triggerPrice` is the level plus 1 point and
@@ -518,11 +520,19 @@ export interface EntrySource {
  * are the mirror.
  */
 export function gannEntrySource(trigger: GannEntryTrigger): EntrySource {
+  const long = trigger.direction === "bullish";
+  const multiple = (trigger.tests ?? 1) >= 2 ? "triple" : "double";
   return {
     direction: trigger.direction,
     triggerPrice: trigger.reactionEntry,
     stopPrice: trigger.reactionStop,
-    setupLabel: trigger.direction === "bullish" ? "swing-top crossing" : "swing-bottom break",
+    setupLabel:
+      trigger.kind === "oldLevel"
+        ? `${multiple} ${long ? "bottom" : "top"}`
+        : long
+          ? "swing-top crossing"
+          : "swing-bottom break",
+    entryKind: trigger.kind,
     gannReaction: true,
   };
 }
@@ -564,6 +574,7 @@ export function computeTradeLevels(
     });
     const equityRisk = Math.abs(entry - equity.stopLoss);
     return {
+      ...(pattern.entryKind ? { entryKind: pattern.entryKind } : {}),
       entry: round(entry),
       stopLoss: equity.stopLoss,
       takeProfit1: equity.takeProfit1,
@@ -690,6 +701,7 @@ export function computeTradeLevels(
   }
 
   return {
+    ...(pattern.entryKind ? { entryKind: pattern.entryKind } : {}),
     entry: round(entry),
     stopLoss: round(stopLoss),
     takeProfit1: round(takeProfit1),

@@ -80,6 +80,7 @@ export async function advanceEntryConfirmationForSymbol(
           entryTrigger: plan.coordinates.entryTrigger,
           // A scan plan is Gann's reaction pair; a stop-and-reverse plan is not.
           stopPrice: isPivotSignal(plan.signalId) ? undefined : plan.coordinates.invalidation,
+          entryKind: plan.coordinates.entryKind,
         },
         bar,
       );
@@ -96,7 +97,10 @@ export async function advanceEntryConfirmationForSymbol(
         await applyEventAndPersist(service, profileId, plan.planId, {
           type: "arm",
           at: tick.scannedAt,
-          reason: "Price crossed the old level by 3 points; the entry waits for the reaction.",
+          reason:
+            plan.coordinates.entryKind === "oldLevel"
+              ? "The entry rests at the old level for its second or third test."
+              : "Price crossed the old level by 3 points; the entry waits for the reaction.",
         });
       }
     } catch (err) {

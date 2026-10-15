@@ -98,6 +98,13 @@ export interface EntryConfirmationRule {
    * the older sequence can still be measured.
    */
   stopPrice?: number;
+  /**
+   * With `stopPrice`: `oldLevel` is Gann's double or triple bottom (PLAN.md
+   * item 5, step 2), a resting order at the level itself with nothing to
+   * arm, so it is ready on the first bar that hasn't closed through the stop.
+   * Absent or `crossing` is the reaction after a crossing.
+   */
+  entryKind?: "crossing" | "oldLevel";
 }
 
 /**
@@ -116,6 +123,15 @@ export function advanceEntryConfirmation(
   const trigger = rule.entryTrigger;
 
   let next = evidence;
+
+  if (rule.stopPrice != null && rule.entryKind === "oldLevel") {
+    // The order rests at the old bottom from the start: nothing to cross. A
+    // close through the stop first leaves it unarmed (the plan is broken).
+    if (next.entryConfirmedAt == null && (up ? bar.c > rule.stopPrice : bar.c < rule.stopPrice)) {
+      next = { ...next, touchedAt: bar.t, touchedPrice: bar.c, breakOrSweepAt: bar.t, breakOrSweepPrice: bar.c, entryConfirmedAt: bar.t };
+    }
+    return next;
+  }
 
   if (rule.stopPrice != null) {
     // Gann's crossing: the touch and the closing break may be the same bar,

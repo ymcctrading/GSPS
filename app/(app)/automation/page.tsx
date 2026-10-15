@@ -254,7 +254,8 @@ function countChecklistSteps(entryConfirmation: unknown): number {
 
 /**
  * Setups the engine has already flagged tradeable (EXECUTE) and is now
- * tracking until price closes 3 points past the old level
+ * tracking until price closes 3 points past the old level (or, for a
+ * double or triple bottom, until it rests at the old level)
  * before it will arm and place a trade — this is the "not idle, here's what
  * it's watching" surface for the Automated Portfolio Manager. Only plans in
  * `awaiting_entry_confirmation` are shown: `watchlist`/`qualified` are

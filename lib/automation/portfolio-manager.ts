@@ -73,6 +73,8 @@ interface CandidatePlanRow {
   plan_id: string;
   /** `pivot:`-prefixed for a stop-and-reverse plan (`lib/lifecycle/fromPivot.ts`). */
   signal_id: string | null;
+  /** Migration 0086; null for a crossing. */
+  entry_kind?: string | null;
   instrument: string;
   direction: "bullish" | "bearish";
   market: string;
@@ -189,7 +191,9 @@ async function runForProfile(
 
   const { data: plans, error: plansError } = await supabase
     .from("trade_plans")
-    .select("plan_id, signal_id, instrument, direction, market, entry_trigger, invalidation, alignment")
+    // Every column, so `entry_kind` (migration 0086) is read where it exists
+    // without failing the query where it doesn't yet.
+    .select("*")
     .eq("user_id", profile.user_id)
     .eq("market", "us_equity")
     .eq("state", "armed");
@@ -313,9 +317,12 @@ async function runForProfile(
       // level is recovered from the two. A stop-and-reverse plan's entry and
       // stop are not that pair, so its level is read back from the entry alone.
       const entry = Number(plan.entry_trigger);
+      // An old-level plan (a double or triple bottom) rests at the level itself.
       const crossedLevel = isPivotSignal(plan.signal_id)
         ? levelBeforeThreePoints(entry, plan.direction)
-        : gannCrossedLevel(entry, Number(plan.invalidation));
+        : plan.entry_kind === "oldLevel"
+          ? entry
+          : gannCrossedLevel(entry, Number(plan.invalidation));
       const rn = roundNumberEntryBlocked({ entry, direction: plan.direction, crossedLevel });
       if (rn.blocked) {
         result.plansSkipped++;

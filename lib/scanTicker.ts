@@ -39,7 +39,7 @@ import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
 import { computeBoilingPoint } from "@/lib/gann/boilingPoint";
 import { MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection, rankArmedPatterns } from "@/lib/scan/entrySelection";
 import { computeTradeLevels, gannEntrySource, type EntrySource } from "@/lib/strat/levels";
-import { computeGannEntryTrigger } from "@/lib/gann/entryTrigger";
+import { selectGannEntry } from "@/lib/gann/entryTrigger";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
 import {
   applyBreakawayHold,
@@ -275,7 +275,11 @@ export async function scanTicker(
     // confluence role (`armedPatterns`, the price-action confluence layer),
     // which the project owner examined and deliberately kept — see AGENTS.md's
     // "Audit outcomes". What it no longer does is decide where an order goes.
-    const gannTrigger = computeGannEntryTrigger(daily, preferredDirection);
+    //
+    // Since PLAN.md item 5 step 2 the old bottom (top) is a buying point too:
+    // Gann's double and triple bottoms. Of the two, the plan is priced from
+    // the one nearer the price (`selectGannEntry`).
+    const gannTrigger = selectGannEntry(daily, preferredDirection);
 
     const direction: "bullish" | "bearish" | "none" = gannTrigger?.direction ?? "none";
     const scoreDirection = gannTrigger?.direction ?? preferredDirection;

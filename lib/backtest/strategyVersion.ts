@@ -70,4 +70,10 @@
 // (it came down to floating-point noise before). The replay treats a held
 // level as already crossed, as the live scan does.
 // No run was committed on "2026-10-15-gann-crossed-level-held".
-export const STRATEGY_VERSION = "2026-10-15-gann-crossed-level-bought";
+// PLAN.md item 5, step 2: Gann's double and triple bottoms (tops) are a
+// buying point too, a resting order at the last completed bottom with the
+// stop 3 points under it (W006 pp.11, 20, 46; shorts pp.22, 47). Of that and
+// the crossing, the plan is priced from the one nearer the price. Plans store
+// the kind (migration 0086). An old-level entry is not held by the breakaway
+// rule inside a range (put to the owner, built on the recommended option).
+export const STRATEGY_VERSION = "2026-10-15-gann-double-bottoms";
