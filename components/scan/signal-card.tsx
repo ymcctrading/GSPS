@@ -87,7 +87,7 @@ export function SignalCard({
             <span className={result.direction === "bullish" ? "text-bull" : "text-bear"}>
               {tradeSideLabel(result.direction)}
             </span>{" "}
-            — {structuralTriggerHeadline(result.direction, result.levels?.entryKind)}
+            — {structuralTriggerHeadline(result.direction, result.levels?.entryKind, result.levels?.entrySource)}
           </CardDescription>
         ) : (
           <CardDescription>No structural entry trigger is currently armed on the execution timeframe.</CardDescription>

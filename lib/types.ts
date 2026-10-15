@@ -147,6 +147,12 @@ export interface TradeLevels {
    * Absent means the crossing, the only kind before step 2.
    */
   entryKind?: "crossing" | "oldLevel";
+  /**
+   * For a crossing, when the level crossed is not the last swing: the
+   * previous year's top or bottom, or the record from before the 52 weeks
+   * (PLAN.md item 5, step 3). Display only; the geometry is the same.
+   */
+  entrySource?: "priorYear" | "allTime";
   entry: number;
   stopLoss: number;
   takeProfit1: number;

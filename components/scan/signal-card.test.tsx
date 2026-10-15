@@ -168,6 +168,17 @@ describe("SignalCard score breakdown", () => {
     expect(screen.queryByText(/TP1 \(.*R\)/)).not.toBeInTheDocument();
   });
 
+  it("names the level the plan's buy rests on, and the kind of buying point", () => {
+    const result = resultWithFullBreakdown();
+    result.levels = { ...result.levels!, entrySource: "priorYear" };
+    const { unmount } = render(<SignalCard result={result} />);
+    expect(screen.getByText(/A close 3 points over the previous year's top/)).toBeInTheDocument();
+    unmount();
+    result.levels = { ...result.levels!, entrySource: undefined, entryKind: "oldLevel" };
+    render(<SignalCard result={result} />);
+    expect(screen.getByText(/double or triple bottom/)).toBeInTheDocument();
+  });
+
   it("keeps the R-multiple label for a non-equity asset class", () => {
     const result = resultWithFullBreakdown();
     result.assetClass = "crypto";

@@ -31,19 +31,30 @@ export function tradeSideWord(direction: Exclude<Direction, "none">): "buy" | "s
  * allowance, price-scaled (`lib/gann/entryTrigger.ts`), and since PLAN.md
  * item 5 step 2 also by a resting order at an old bottom (top) that held, the
  * double or triple bottom. `direction` is the direction the trade plan itself
- * was computed against, and `entryKind` which of the two priced it. Kept free
+ * was computed against, `entryKind` which of the two priced it, and
+ * `entrySource` which old level a crossing crossed (PLAN.md item 5, step 3). Kept free
  * of internal-methodology vocabulary per `scripts/check-banned-terms.mjs`.
  */
 export function structuralTriggerHeadline(
   direction: "bullish" | "bearish",
   entryKind?: "crossing" | "oldLevel",
+  entrySource?: "priorYear" | "allTime",
 ): string {
   if (entryKind === "oldLevel") {
     return direction === "bullish"
       ? "A buy resting at the last confirmed swing low, where a second or third test makes a double or triple bottom, with the stop 3 points under it."
       : "A sell resting at the last confirmed swing high, where a second or third test makes a double or triple top, with the stop 3 points over it.";
   }
-  return direction === "bullish"
-    ? "A close 3 points over the prior confirmed swing high, then a buy on the pullback toward it."
-    : "A close 3 points under the prior confirmed swing low, then a sell on the bounce toward it.";
+  // Since step 3 the level crossed can also be the previous year's top or
+  // bottom, or the record from before the last 52 weeks.
+  const up = direction === "bullish";
+  const level =
+    entrySource === "priorYear"
+      ? up ? "the previous year's top" : "the previous year's bottom"
+      : entrySource === "allTime"
+        ? up ? "the record high from before the last 52 weeks" : "the record low from before the last 52 weeks"
+        : up ? "the prior confirmed swing high" : "the prior confirmed swing low";
+  return up
+    ? `A close 3 points over ${level}, then a buy on the pullback toward it.`
+    : `A close 3 points under ${level}, then a sell on the bounce toward it.`;
 }

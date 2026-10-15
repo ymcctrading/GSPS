@@ -201,3 +201,14 @@
   step 4 with A-ENTRY-01.
 - Full suite 2474 passed, tsc clean, eslint 0 errors, terms clean. Not pushed: it rebases onto the
   step 2 review fixes first.
+
+== 2026-10-15 item 5 step 3: name the older level in what a person reads ==
+- The plan's levels carry entrySource ("priorYear" | "allTime") for a crossing of an older level
+  (TradeLevels, EntrySource, both computeTradeLevels returns). Display only; geometry unchanged.
+- The signal card's headline, the graduation exam's entry explanation (ScenarioKey.source) and the
+  Academy 6 lesson name the previous year's top or bottom, or the record from before the 52 weeks,
+  instead of always "the last swing".
+- Tests first: olderLevelsCopy.test.ts (5) and a signal card test. Mutations 13 of 13 caught.
+- Rebased onto the step 2 review fixes (fc343d9): entryCrossedLevel reads entryChart with the
+  monthly chart and returns null for an old-level buy.
+- Full suite 2498 passed, tsc clean, eslint 0 errors (44 warnings, pre-existing), terms clean.

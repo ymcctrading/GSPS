@@ -95,6 +95,12 @@ export interface ScenarioKey {
    * that entry. Absent is the crossing, and on scenarios stored before it.
    */
   entryKind?: "oldLevel";
+  /**
+   * For a crossing of the previous year's top or bottom, or the record from
+   * before the last 52 weeks (PLAN.md item 5, step 3), so the explanation
+   * names it. Absent is the last swing.
+   */
+  source?: "priorYear" | "allTime";
 }
 
 export interface StoredScenario {
@@ -267,6 +273,7 @@ export function buildScenario(
       trend, decision, direction, entryChoiceId, stopChoiceId, entry, stop, shares,
       crossed: decision === "trade" && (trigger?.held === true || trigger?.kind === "oldLevel"),
       ...(decision === "trade" && trigger?.kind === "oldLevel" ? { entryKind: "oldLevel" as const } : {}),
+      ...(decision === "trade" && trigger?.kind === "crossing" && trigger.source !== "swing" ? { source: trigger.source } : {}),
     },
     playback: after.map((b) => ({ t: b.t.slice(0, 10), h: b.h, l: b.l, c: b.c })),
   };
@@ -311,6 +318,14 @@ function playedOut(s: StoredScenario): string {
 
 const TREND_WORD: Record<Trend, string> = { up: "up", down: "down", sideways: "sideways" };
 
+/** The old level a crossing key crossed, in the explanation's words. */
+function crossedName(k: ScenarioKey): string {
+  const up = k.direction !== "bearish";
+  if (k.source === "priorYear") return up ? "the previous year's top" : "the previous year's bottom";
+  if (k.source === "allTime") return up ? "the record high from before the last 52 weeks" : "the record low from before the last 52 weeks";
+  return `the last swing ${up ? "top" : "bottom"}`;
+}
+
 export function gradeExam(transition: ExamTransition, scenarios: StoredScenario[], answers: ScenarioAnswer[]): ExamGrade {
   const pro = transition === "pro_to_expert";
   let right = 0;
@@ -351,7 +366,7 @@ export function gradeExam(transition: ExamTransition, scenarios: StoredScenario[
           a.entryChoiceId === k.entryChoiceId,
           old
             ? `The entry is the old swing ${oldSide} itself, at ${k.entry?.toFixed(2)}: an order resting there ${longKey ? "buys" : "sells"} the next test of it, the double or triple ${oldSide}.`
-            : `The entry is 1 point past the last swing ${k.direction === "bullish" ? "top" : "bottom"}, at ${k.entry?.toFixed(2)}: bought on the pullback after a close 3 points past it, so the market has proved itself first.`,
+            : `The entry is 1 point past ${crossedName(k)}, at ${k.entry?.toFixed(2)}: bought on the pullback after a close 3 points past it, so the market has proved itself first.`,
         );
       }
       add(

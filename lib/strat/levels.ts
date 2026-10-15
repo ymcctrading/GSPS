@@ -501,6 +501,8 @@ export interface EntrySource {
   setupLabel?: string;
   /** Which of Gann's buying points this is; carried onto the plan (`TradeLevels.entryKind`). */
   entryKind?: GannEntryKind;
+  /** The crossed level's source when it is not a swing (`TradeLevels.entrySource`). */
+  entrySource?: "priorYear" | "allTime";
   /**
    * True when this source is Gann's reaction buy after a crossing (PLAN.md
    * item 4; W006 pp.20, 46-47): `triggerPrice` is the level plus 1 point and
@@ -541,6 +543,7 @@ export function gannEntrySource(trigger: GannEntryTrigger): EntrySource {
               ? "swing-top crossing"
               : "swing-bottom break",
     entryKind: trigger.kind,
+    ...(trigger.kind === "crossing" && trigger.source !== "swing" ? { entrySource: trigger.source } : {}),
     gannReaction: true,
   };
 }
@@ -583,6 +586,7 @@ export function computeTradeLevels(
     const equityRisk = Math.abs(entry - equity.stopLoss);
     return {
       ...(pattern.entryKind ? { entryKind: pattern.entryKind } : {}),
+      ...(pattern.entrySource ? { entrySource: pattern.entrySource } : {}),
       entry: round(entry),
       stopLoss: equity.stopLoss,
       takeProfit1: equity.takeProfit1,
@@ -710,6 +714,7 @@ export function computeTradeLevels(
 
   return {
     ...(pattern.entryKind ? { entryKind: pattern.entryKind } : {}),
+    ...(pattern.entrySource ? { entrySource: pattern.entrySource } : {}),
     entry: round(entry),
     stopLoss: round(stopLoss),
     takeProfit1: round(takeProfit1),
