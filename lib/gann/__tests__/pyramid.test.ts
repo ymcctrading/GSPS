@@ -34,8 +34,12 @@ describe("readPyramidAdd", () => {
 
   // Never average a loss (W006 pp.15-16, 47): no add below the last lot.
   it("never adds to a losing position", () => {
-    expect(readPyramidAdd({ ...base, price: 100 }).add).toBeNull();
-    expect(readPyramidAdd({ ...base, price: 99 }).add).toBeNull();
+    for (const price of [100, 99]) {
+      const r = readPyramidAdd({ ...base, price });
+      expect(r.add).toBeNull();
+      // Refused by the profit guard itself, not by a later check.
+      expect(r.reason).toMatch(/hasn't yet gained/);
+    }
   });
 
   it("stops adding after the fourth lot", () => {

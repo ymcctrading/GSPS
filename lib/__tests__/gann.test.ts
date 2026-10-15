@@ -102,6 +102,8 @@ describe("timeCycles", () => {
       const r = timeCycles(bars, asOf);
       expect(r.active, `${count} days`).toBe(true);
       expect(r.bullishActive, `${count} days`).toBe(true);
+      // The count's own date, not only an overlapping day-count band.
+      expect(r.dates, `${count} days`).toContain(asOf.toISOString().slice(0, 10));
     }
     const between = new Date("2025-01-21T00:00:00Z");
     between.setUTCDate(between.getUTCDate() + 100); // outside every count and day-count band
