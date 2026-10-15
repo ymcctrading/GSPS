@@ -63,3 +63,11 @@
   gap-through-stop guard (latent: no live connection). The crossed level is replaced by a new 3-Day top
   after a slow reaction (item 5, per docs/gann-feature-map item5 map).
 - Full suite 2382/2382, tsc clean, eslint 0 errors, terms clean. passes unchanged pending a second review.
+- Second review (docs/gann-feature-map/item4_review2.md, 26 mutations): A-ENTRY-16, A-STOP-02, A-STOP-03 PASS;
+  A-ENTRY-04 FAIL only on the replay's untested long branch; A-STOP-01 FAIL on "a stop on every trade"
+  (a person's own order may carry none) plus the "1-3 points away" reading, both held for the owner.
+- Follow-up: replay-reaction tests now run a long and a short fixture (reviewer's W16/W16b/W16c caught);
+  the ticket leaves the protocol stop off an order placed against the plan's side.
+- passes -> true (3): A-ENTRY-16, A-STOP-02, A-STOP-03. Total passing: 14 of 342. A-ENTRY-04 awaits re-check.
+- Before merge: REACTION_LIMIT_CUTOVER must not fall before any resting paper buy-stop placed on the old code;
+  re-query `orders` (paper, status new, limit/bracket) and move the constant to the merge time.

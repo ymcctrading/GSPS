@@ -537,7 +537,7 @@
     "class": "A",
     "gsps_location": "lib/gann/exitRules.ts:readGannExit (hold test, short mirror) — differs: used as an exit test, not a sell-the-rally entry",
     "test": "lib/gann/__tests__/exitRules.test.ts > readGannExit > mirrors every rule for a short",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-ENTRY-17",
@@ -591,7 +591,7 @@
     "class": "A",
     "gsps_location": "lib/strat/levels.ts:computeEquityTradeLevels (EQUITY_STOP_MAX_PCT 15, large-cap 20) — differs: the cap is 15-20% of price, wider than 5 price-scaled points at most prices (about 11.8% at $42.50, 6.25% at $200 on pointScale's curve)",
     "test": "TO WRITE: lib/__tests__/equity-levels.test.ts — no computed stop is further from entry than 5/3 x gannThreePoints(entry).",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-STOP-03",
@@ -600,7 +600,7 @@
     "class": "A",
     "gsps_location": "lib/gann/pointScale.ts:gannThreePoints; lib/gann/stopBreach.ts:reclaimLevel; lib/gann/exitRules.ts:readGannExit — differs: plan stops are not placed 3 points beyond the level (entryTrigger 0.3%, levels.ts 0.5%)",
     "test": "lib/gann/__tests__/pointScale.test.ts > gannThreePoints > gives 3 points in the middle of the $25-60 band and 7.5 in the middle of $100-300",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-STOP-04",
