@@ -15,6 +15,8 @@
 
 import { readEntryConfirmationNow } from "@/lib/lifecycle/confirmNow";
 import { getTradePlan } from "@/lib/lifecycle/store";
+import { isPivotSignal } from "@/lib/lifecycle/fromPivot";
+import { gannThreePoints } from "@/lib/gann/pointScale";
 import { readUserLossSeries } from "@/lib/risk/lossSeries";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
@@ -61,6 +63,14 @@ export const OrderSchema = z.object({
       masterProfit: z.number().positive().optional(),
     })
     .optional(),
+  /**
+   * The protocol stop behind an advised entry, sent by the ticket whenever it
+   * offers the protocol's entry, even when no levels are attached or the
+   * person typed their own stop (Manual Override). Gann's crossing line is
+   * read from the protocol's entry and this stop (`gannBreakLine`), so the
+   * reaction buy never rests before the crossing (PLAN.md item 4).
+   */
+  entryStop: z.number().positive().optional(),
   mode: z.enum(["paper", "live"]).default("paper"),
   /**
    * True only when this order was opened through the intraday alerts
@@ -164,14 +174,45 @@ async function lossSeriesRefusal(
  * stop-entry). See `lib/lifecycle/confirmNow.ts`. Returns a refusal, or null
  * to proceed.
  */
-async function entryConfirmationRefusal(
+/**
+ * Gann's risk cap: never risk more than 5 points on a trade (W006 pp.20,
+ * 46-47; points price-scaled by `lib/gann/pointScale.ts`). Checked on every
+ * entry that carries a stop and a known entry price, the person's own
+ * Manual Override stop included. A protocol plan risks 4 points (entry 1
+ * point past the level, stop 3 points the other side), so it always passes.
+ */
+export function riskCapRefusal(
+  input: Pick<OrderInput, "entryMode" | "limitPrice" | "attachLevels" | "referencePrice">,
+): { status: number; body: Record<string, unknown> } | null {
+  const stop = input.attachLevels?.stopLoss;
+  const entry = input.entryMode === "now" ? input.referencePrice : (input.limitPrice ?? input.referencePrice);
+  if (stop == null || entry == null || !(entry > 0)) return null;
+  const cap = (5 / 3) * gannThreePoints(entry);
+  // A cent of slack for rounding to the tick.
+  if (Math.abs(entry - stop) <= cap + 0.01) return null;
+  return {
+    status: 422,
+    body: {
+      error: `The stop is more than 5 points from the entry (${Math.abs(entry - stop).toFixed(2)} against a limit of ${cap.toFixed(2)}). Move it closer. Nothing was placed.`,
+      code: "risk_over_five_points",
+    },
+  };
+}
+
+export async function entryConfirmationRefusal(
   supabase: SupabaseClient,
   userId: string,
-  input: Pick<OrderInput, "symbol" | "assetClass" | "side" | "entryMode" | "limitPrice" | "attachLevels" | "sourcePlanId">,
+  input: Pick<
+    OrderInput,
+    "symbol" | "assetClass" | "side" | "entryMode" | "limitPrice" | "attachLevels" | "sourcePlanId" | "entryStop" | "referencePrice"
+  >,
 ): Promise<{ status: number; body: Record<string, unknown> } | null> {
-  if (!input.attachLevels || input.assetClass === "option") return null;
+  if (input.assetClass === "option") return null;
+  const overCap = riskCapRefusal(input);
+  if (overCap) return overCap;
+  if (!input.attachLevels && input.entryStop == null) return null;
 
-  let target: { direction: "bullish" | "bearish"; entryTrigger: number; stopPrice: number; since?: string } | null = null;
+  let target: { direction: "bullish" | "bearish"; entryTrigger: number; stopPrice?: number; since?: string } | null = null;
   if (input.sourcePlanId) {
     const plan = await getTradePlan(supabase, userId, input.sourcePlanId).catch(() => null);
     if (!plan) {
@@ -180,17 +221,20 @@ async function entryConfirmationRefusal(
     target = {
       direction: plan.direction,
       entryTrigger: plan.coordinates.entryTrigger,
-      stopPrice: plan.coordinates.invalidation,
+      // A stop-and-reverse plan's entry and stop are not Gann's reaction pair,
+      // so it keeps the retest-and-hold confirmation.
+      stopPrice: isPivotSignal(plan.signalId) ? undefined : plan.coordinates.invalidation,
       since: plan.generatedAt,
     };
   } else if (input.entryMode === "advised" && input.limitPrice != null) {
-    // No plan row: the crossing line is read from the entry and stop this
-    // order carries (`gannBreakLine`), so a stop the person moved moves it too.
-    target = {
-      direction: input.side === "sell" ? "bearish" : "bullish",
-      entryTrigger: input.limitPrice,
-      stopPrice: input.attachLevels.stopLoss,
-    };
+    // No plan row: the crossing line is read from the protocol's entry and
+    // stop (`gannBreakLine`). The ticket sends that stop as `entryStop`, so a
+    // stop the person typed in Manual Override doesn't move the line; an
+    // order without it falls back to the stop it attaches.
+    const stopPrice = input.entryStop ?? input.attachLevels?.stopLoss;
+    if (stopPrice != null) {
+      target = { direction: input.side === "sell" ? "bearish" : "bullish", entryTrigger: input.limitPrice, stopPrice };
+    }
   }
   if (!target) return null;
 

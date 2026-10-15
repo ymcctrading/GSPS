@@ -462,6 +462,29 @@ export function isTriggered(side: "buy" | "sell", limitPrice: number, market: nu
 }
 
 /**
+ * Resting paper entries placed before the reaction rule went in were
+ * breakout triggers (a buy-stop above the market, a sell-stop below), so they
+ * keep that reading until they fill or are cancelled. Read as limits they
+ * would fill on the first poll, below the trigger they were placed at. Three
+ * such rows were resting in production on 2026-10-15, all from 2026-08-29.
+ */
+export const REACTION_LIMIT_CUTOVER = "2026-10-15T19:00:00Z";
+
+/** `isTriggered` for a resting row, honouring `REACTION_LIMIT_CUTOVER`. */
+export function isRestingOrderTriggered(
+  side: "buy" | "sell",
+  limitPrice: number,
+  market: number,
+  createdAt: string | null | undefined,
+): boolean {
+  const created = createdAt ? Date.parse(createdAt) : NaN;
+  if (Number.isFinite(created) && created < Date.parse(REACTION_LIMIT_CUTOVER)) {
+    return side === "buy" ? market >= limitPrice : market <= limitPrice;
+  }
+  return isTriggered(side, limitPrice, market);
+}
+
+/**
  * Fill every resting simulated limit entry the market has now reached, at the
  * live market price (at or better than the limit, which is what a real limit
  * reports when price trades through it between polls). Before that, an order
@@ -481,7 +504,7 @@ export async function evaluateRestingOrders(
 ): Promise<{ filled: number; invalidated: number; error: string | null }> {
   const { data, error } = await supabase
     .from("orders")
-    .select("id, symbol, side, qty, limit_price, stop_price, asset_class")
+    .select("id, symbol, side, qty, limit_price, stop_price, asset_class, created_at")
     .eq("user_id", userId)
     .eq("mode", "paper")
     .eq("status", "new")
@@ -536,7 +559,7 @@ export async function evaluateRestingOrders(
       continue;
     }
 
-    if (isTriggered(side, limitPrice, market)) {
+    if (isRestingOrderTriggered(side, limitPrice, market, row.created_at as string | null)) {
       // Claim before executing, same reasoning as the exit manager's tranche
       // claim: a concurrent poll must not fill this same resting order twice.
       const { data: claimed } = await supabase

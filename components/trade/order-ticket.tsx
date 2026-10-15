@@ -434,6 +434,10 @@ export function OrderTicket({
               qty: Number(qty),
               entryMode,
               limitPrice: entryMode === "advised" ? advised : undefined,
+              // The protocol's stop, so the server reads Gann's crossing line
+              // from the protocol's entry and stop even when no levels are
+              // attached or a Manual Override stop was typed.
+              entryStop: entryMode === "advised" && levels ? levels.stopLoss : undefined,
               // The server re-validates and re-rounds; sending the mode keeps
               // its answer identical to the one shown above the button.
               rounding: effectiveRounding,

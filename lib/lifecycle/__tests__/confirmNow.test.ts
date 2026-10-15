@@ -1,6 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Bar } from "@/lib/types";
-import { closedSessionBars, confirmationFromBars } from "../confirmNow";
+
+const fetchBars = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/data/provider", () => ({ getMarketDataProvider: () => ({ fetchBars }) }));
+
+import { closedSessionBars, confirmationFromBars, readEntryConfirmationNow } from "../confirmNow";
 
 const Q = 15 * 60 * 1000;
 function bar(t: string, o: number, h: number, l: number, c: number): Bar {
@@ -38,5 +42,24 @@ describe("confirmationFromBars", () => {
   it("is not ready when price never reached the level", () => {
     const r = confirmationFromBars([bar("2026-09-25T13:30:00Z", 95, 96, 94, 95)], "bullish", T);
     expect(r).toMatchObject({ ready: false, stage: "not_touched" });
+  });
+});
+
+describe("readEntryConfirmationNow under the 3-point crossing rule", () => {
+  // Entry 101, stop 97: the crossing line is 103 (PLAN.md item 4).
+  const yesterday = bar("2026-10-14T19:45:00Z", 103, 103.4, 102.5, 103.2);
+  const today = bar("2026-10-15T14:30:00Z", 103, 102.4, 100.9, 101.2);
+  const now = new Date("2026-10-15T15:00:00Z");
+
+  it("counts a crossing close from an earlier session for an order with no plan", async () => {
+    fetchBars.mockResolvedValue([yesterday, today]);
+    const r = await readEntryConfirmationNow({ symbol: "AAPL", assetClass: "us_equity", direction: "bullish", entryTrigger: 101, stopPrice: 97, now });
+    expect(r.ready).toBe(true);
+  });
+
+  it("keeps today's session only for the retest-and-hold sequence", async () => {
+    fetchBars.mockResolvedValue([yesterday, today]);
+    const r = await readEntryConfirmationNow({ symbol: "AAPL", assetClass: "us_equity", direction: "bullish", entryTrigger: 101, now });
+    expect(r.ready).toBe(false);
   });
 });

@@ -51,6 +51,8 @@ import { etDateKey } from "@/lib/market/session";
 import type { RulesAlignmentTier } from "@/lib/signals/types";
 import { roundNumberEntryBlocked } from "@/lib/gann/evenFigures";
 import { gannCrossedLevel } from "@/lib/gann/entryTrigger";
+import { levelBeforeThreePoints } from "@/lib/gann/pointScale";
+import { isPivotSignal } from "@/lib/lifecycle/fromPivot";
 import { resolveGannRulePrefs } from "@/lib/gann/traderPrefs";
 
 type RiskProfile = "PASSIVE" | "MODERATE" | "AGGRESSIVE";
@@ -69,6 +71,8 @@ interface AutonomousProfileRow {
 
 interface CandidatePlanRow {
   plan_id: string;
+  /** `pivot:`-prefixed for a stop-and-reverse plan (`lib/lifecycle/fromPivot.ts`). */
+  signal_id: string | null;
   instrument: string;
   direction: "bullish" | "bearish";
   market: string;
@@ -185,7 +189,7 @@ async function runForProfile(
 
   const { data: plans, error: plansError } = await supabase
     .from("trade_plans")
-    .select("plan_id, instrument, direction, market, entry_trigger, invalidation, alignment")
+    .select("plan_id, signal_id, instrument, direction, market, entry_trigger, invalidation, alignment")
     .eq("user_id", profile.user_id)
     .eq("market", "us_equity")
     .eq("state", "armed");
@@ -306,9 +310,12 @@ async function runForProfile(
     if (!gannPrefs.autoOrderRoundNumbers) {
       // The plan's entry is Gann's reaction buy, the crossed level plus 1
       // point, with its stop 3 points the other side (PLAN.md item 4); the
-      // level is recovered from the two.
+      // level is recovered from the two. A stop-and-reverse plan's entry and
+      // stop are not that pair, so its level is read back from the entry alone.
       const entry = Number(plan.entry_trigger);
-      const crossedLevel = gannCrossedLevel(entry, Number(plan.invalidation));
+      const crossedLevel = isPivotSignal(plan.signal_id)
+        ? levelBeforeThreePoints(entry, plan.direction)
+        : gannCrossedLevel(entry, Number(plan.invalidation));
       const rn = roundNumberEntryBlocked({ entry, direction: plan.direction, crossedLevel });
       if (rn.blocked) {
         result.plansSkipped++;

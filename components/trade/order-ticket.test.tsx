@@ -139,6 +139,18 @@ describe("OrderTicket price increments", () => {
     expect(body.rounding).toBe("down");
     expect(body.limitPrice).toBe(49.755);
   });
+
+  it("sends the protocol stop with an advised entry, so the server reads the crossing line from the plan", async () => {
+    const user = userEvent.setup();
+    const fetchMock = mockFetch();
+    render(<OrderTicket result={scanWithEntry(49.755)} />);
+
+    await user.click(await screen.findByRole("button", { name: /Buy DRAM at \$49\.75/ }));
+
+    const orderCall = fetchMock.mock.calls.find(([url]) => String(url).includes("/api/orders"));
+    const body = JSON.parse(String(orderCall![1]?.body));
+    expect(body.entryStop).toBeCloseTo(49.755 * 0.88, 6);
+  });
 });
 
 /**

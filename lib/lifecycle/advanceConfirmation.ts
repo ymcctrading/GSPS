@@ -30,6 +30,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Bar } from "@/lib/types";
 import { advanceEntryConfirmation, entryReady } from "./entryConfirmation";
 import { applyEventAndPersist, listTradePlans } from "./store";
+import { isPivotSignal } from "./fromPivot";
 
 export interface ConfirmationScanTick {
   symbol: string;
@@ -74,7 +75,12 @@ export async function advanceEntryConfirmationForSymbol(
     try {
       const nextEvidence = advanceEntryConfirmation(
         plan.entryConfirmation,
-        { direction: plan.direction, entryTrigger: plan.coordinates.entryTrigger, stopPrice: plan.coordinates.invalidation },
+        {
+          direction: plan.direction,
+          entryTrigger: plan.coordinates.entryTrigger,
+          // A scan plan is Gann's reaction pair; a stop-and-reverse plan is not.
+          stopPrice: isPivotSignal(plan.signalId) ? undefined : plan.coordinates.invalidation,
+        },
         bar,
       );
       if (nextEvidence === plan.entryConfirmation) continue; // no change this tick

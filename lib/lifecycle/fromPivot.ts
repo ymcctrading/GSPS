@@ -42,6 +42,20 @@ import type { TradePlan } from "./types";
 import type { NewTradePlan } from "./store";
 import { freshEntryConfirmation } from "./entryConfirmation";
 
+/** Every reversal plan this module builds carries a `signalId` with this prefix. */
+export const PIVOT_SIGNAL_PREFIX = "pivot:";
+
+/**
+ * Whether a plan is a stop-and-reverse plan from this module rather than a
+ * Gann reaction plan from a scan. A reversal's entry is the old stop and its
+ * stop the old entry, so its entry and stop are not the reaction pair
+ * `gannBreakLine` reads the crossing from (PLAN.md item 4); it keeps the
+ * retest-and-hold confirmation.
+ */
+export function isPivotSignal(signalId: string | null | undefined): boolean {
+  return typeof signalId === "string" && signalId.startsWith(PIVOT_SIGNAL_PREFIX);
+}
+
 /** Same fallback used when no fresh scan verdict exists to carry a real expiry from — see fromScanResult.ts. */
 const DEFAULT_EXPIRES_AFTER_BARS = 20;
 const FALLBACK_TIMEFRAME = "15Min" as const;
@@ -85,7 +99,7 @@ export function buildPivotTradePlanFromStoppedPlan(
 
   return {
     strategyVersion: stopped.strategyVersion,
-    signalId: `pivot:${stopped.planId}`,
+    signalId: `${PIVOT_SIGNAL_PREFIX}${stopped.planId}`,
     instrument: stopped.instrument,
     market: stopped.market,
     timeframe: stopped.timeframe,
