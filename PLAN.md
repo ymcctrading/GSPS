@@ -1,6 +1,11 @@
 # PLAN: bringing GSPS in line with the Gann rules in `gann_features.json`
 
-Written 2026-10-15. **Waiting for Chuck's approval. No code changes until then.** You decide what is built; this proposes an order and how each item would be done.
+Written 2026-10-15. You decide what is built; this proposes an order and how each item would be done.
+
+## Decisions (Chuck, 2026-10-15 17:14 UTC)
+1. **Approved to build: items 1 and 2.** Nothing else yet.
+2. **Pass rule: yes.** Apply Gann's rules one for one, everywhere they apply in GSPS. Scaling a number to price passes when the code documents it.
+3. **Item 3, when approved: use Gann's full 3 points now** (price-scaled by `pointScale.ts`) on the entry side too; revisit if the Master Course reading changes it.
 
 Roadmap phase: today is in **Q1** (Aug–Oct 2026, monetization and retention). None of this is a Q1 initiative. It continues the out-of-phase Gann-grounding work, so each PR will say `N/A` (out of phase, direct request).
 

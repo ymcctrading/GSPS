@@ -1,0 +1,6 @@
+# claude-progress.txt — append-only log, one block per item (working method step 4)
+
+## 2026-10-15 — Steps 1-3 (explore, feature list, plan)
+- Commit ab5d7f2: NOTES.md, gann_features.json (342 entries, all passes:false), PLAN.md, docs/gann-feature-map/.
+- Baseline: npx vitest run -> 233 files, 2314 tests passed.
+- Chuck approved items 1 and 2; pass rule = Gann one-for-one, documented price scaling allowed; item 3 to use full 3 points.
