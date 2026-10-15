@@ -152,8 +152,8 @@ export async function GET(req: NextRequest) {
   }
 
   const entryRuleRaw = searchParams.get("entryRule");
-  if (entryRuleRaw !== null && entryRuleRaw !== "stop" && entryRuleRaw !== "confirmed") {
-    return NextResponse.json({ error: `Invalid entryRule '${entryRuleRaw}' (stop | confirmed)` }, { status: 400 });
+  if (entryRuleRaw !== null && entryRuleRaw !== "stop" && entryRuleRaw !== "confirmed" && entryRuleRaw !== "reaction") {
+    return NextResponse.json({ error: `Invalid entryRule '${entryRuleRaw}' (stop | confirmed | reaction)` }, { status: 400 });
   }
   const entryRule = entryRuleRaw ?? undefined;
 

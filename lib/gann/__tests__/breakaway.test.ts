@@ -59,6 +59,9 @@ describe("readBreakaway (Commodities pp. 51-52)", () => {
       triggerPrice: 200,
       stopPrice: 90,
       pivot: { index: 0, price: 199, kind: "top" },
+      level: 199,
+      reactionEntry: 199.3,
+      reactionStop: 198,
       protectivePivot: { index: 1, price: 91, kind: "bottom" },
       swingDays: 3,
     });

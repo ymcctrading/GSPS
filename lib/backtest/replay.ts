@@ -232,8 +232,19 @@ export interface ReplayOptions {
    *
    * Added 2026-09-26 (alignment audit F3.4). Before this the replay measured
    * only the stop entry, so nothing measured the rule automation trades on.
+   *
+   * - `"reaction"` (2026-10-15, PLAN.md item 4): Gann's own crossing rule
+   *   (W006 pp.20, 46-47). A close 3 points beyond the old level crosses it;
+   *   the buy is a limit on the reaction, 1 point past the level
+   *   (`reactionEntry`), filled at that price or at the open when a candle
+   *   opens through it; the stop is 3 points the other side of the level
+   *   (`reactionStop`), so the trade risks 4 points, inside his 5-point cap.
+   *   Price can't reach the stop line without trading through the buy, so a
+   *   failed crossing is a fill that is stopped, or a gap through the stop
+   *   that production refuses (`fill_outran_bracket`); the plan-stop breach
+   *   test doesn't apply. R is measured from the reaction buy to its stop.
    */
-  entryRule?: "stop" | "confirmed";
+  entryRule?: "stop" | "confirmed" | "reaction";
   /**
    * How an open trade leaves (parity roadmap Stage C, owner decisions 2 and 6):
    *
@@ -658,6 +669,12 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
   // `entryRule === "confirmed"`. Each pivot records the date it first armed
   // on, so no bar from before that session can count toward its confirmation.
   const confirmation = new Map<string, { since: string; evidence: EntryConfirmationEvidence }>();
+  // Gann's crossing, per pivot, when `entryRule === "reaction"`: whether a
+  // close has crossed the level by 3 points since the pivot first armed.
+  const crossing = new Map<string, { since: string; crossed: boolean }>();
+  // The reaction rule's stop is Gann's own line under the level, reached only
+  // through the buy, so the plan-stop breach doesn't apply to it.
+  const breachApplies = entryRule !== "reaction";
   // Counted once per session a pivot is armed on, and once per fill.
   const armedKeys = new Set<string>();
   let triggered = 0;
@@ -759,11 +776,11 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
             largeCap: arm.largeCap,
           })?.stopLoss ?? null;
         sessionPlanStops.set(planKey, planStop);
-        if (planStop !== null && isStopBreached(trigger.direction, planStop, lastClose)) {
+        if (breachApplies && planStop !== null && isStopBreached(trigger.direction, planStop, lastClose)) {
           brokenPlans.add(planKey);
           retiredSessionPlans.add(planKey);
         }
-      } else if (planStop !== null) {
+      } else if (breachApplies && planStop !== null) {
         const closed = history[history.length - 1];
         if (closed.t.slice(0, 10) === date) {
           if (isStopBreachedByBar(trigger.direction, planStop, closed)) {
@@ -785,7 +802,15 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       const long = trigger.direction === "bullish";
       const dir = long ? 1 : -1;
       let fired: boolean;
-      if (entryRule === "confirmed") {
+      if (entryRule === "reaction") {
+        const state = crossing.get(pivotKey) ?? { since: date, crossed: false };
+        const closed = history[history.length - 1];
+        if (closed.t.slice(0, 10) >= state.since && (long ? closed.c >= trigger.triggerPrice : closed.c <= trigger.triggerPrice)) {
+          state.crossed = true;
+        }
+        crossing.set(pivotKey, state);
+        fired = state.crossed && (long ? live.l <= trigger.reactionEntry : live.h >= trigger.reactionEntry);
+      } else if (entryRule === "confirmed") {
         // Advance the confirmation state machine on the last closed bar, if
         // it belongs to a session this pivot was armed on. Once the sequence
         // completes, the entry is this candle's open.
@@ -823,7 +848,11 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       // beyond it. A confirmed entry is a market order after the hold, filled
       // at this candle's open.
       const entry =
-        entryRule === "confirmed"
+        entryRule === "reaction"
+          ? long
+            ? Math.min(trigger.reactionEntry, live.o)
+            : Math.max(trigger.reactionEntry, live.o)
+          : entryRule === "confirmed"
           ? live.o
           : long
             ? Math.max(trigger.triggerPrice, live.o)
@@ -872,7 +901,10 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       // The production plan (usePlanLevels): its own stop and TP1.
       if (usePlanLevels && !scored.levels) continue;
       const planLevels = usePlanLevels ? scored.levels : null;
-      const stop = planLevels
+      const planned = entryRule === "reaction" ? trigger.reactionEntry : trigger.triggerPrice;
+      const stop = entryRule === "reaction"
+        ? trigger.reactionStop
+        : planLevels
         ? planLevels.stopLoss
         : useProductionStop && executionAtr > 0
           ? computeStopWithLeeway({
@@ -883,10 +915,10 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
               largeCap,
             })
           : trigger.stopPrice;
-      const risk = Math.abs(trigger.triggerPrice - stop);
-      if (!(risk > 0) || (long ? stop >= trigger.triggerPrice : stop <= trigger.triggerPrice)) continue;
-      const target = planLevels ? planLevels.takeProfit1 : trigger.triggerPrice + dir * targetR * risk;
-      if (planLevels && (long ? target <= trigger.triggerPrice : target >= trigger.triggerPrice)) continue;
+      const risk = Math.abs(planned - stop);
+      if (!(risk > 0) || (long ? stop >= planned : stop <= planned)) continue;
+      const target = planLevels ? planLevels.takeProfit1 : planned + dir * targetR * risk;
+      if (planLevels && (long ? target <= planned : target >= planned)) continue;
 
       // Production refuses a fill at or beyond its own stop or target
       // (`fill_outran_bracket`). The setup is spent either way.

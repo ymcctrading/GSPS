@@ -137,6 +137,9 @@ describe("3 points on the entry side", () => {
       triggerPrice,
       stopPrice: 90,
       pivot: { index: 0, price: 103.5, kind: "top" as const },
+      level: 103.5,
+      reactionEntry: 103.5 + gannThreePoints(103.5) / 3,
+      reactionStop: 103.5 - gannThreePoints(103.5),
       protectivePivot: { index: 1, price: 95, kind: "bottom" as const },
       swingDays: 3,
     });

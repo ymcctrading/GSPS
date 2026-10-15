@@ -232,7 +232,7 @@ export interface BacktestReport {
   /** Echoes the request: true when the bracket was the production plan's own stop and TP1. */
   usePlanLevels: boolean;
   /** Echoes the request: a report has to say which entry rule produced it. */
-  entryRule: "stop" | "confirmed";
+  entryRule: "stop" | "confirmed" | "reaction";
   /** Echoes the request: a report has to say which exit rule produced it. */
   exitRule: "bracket" | "gann" | "gann-runner";
   /** Echoes the request: points a close had to clear a broken stop by (3 is the live figure). */

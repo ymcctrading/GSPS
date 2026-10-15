@@ -112,6 +112,16 @@ export interface GannEntryTrigger {
   stopPrice: number;
   /** The old top (bullish) or bottom (bearish) being crossed. */
   pivot: SwingPivot;
+  /** The crossed level itself (`pivot.price`). */
+  level: number;
+  /**
+   * Gann's buy on the reaction after the crossing: 1 point past the level
+   * (W006 pp.20, 46-47: "old top 50, advance to 53, buy 51 down to 48, stop
+   * 47"). Price-scaled: one third of the 3 points at the level.
+   */
+  reactionEntry: number;
+  /** Gann's stop for the reaction buy: 3 points the other side of the level. */
+  reactionStop: number;
   /** The swing on the other side that the stop sits beyond. */
   protectivePivot: SwingPivot;
   /** Which swing-chart reversal count produced these pivots. */
@@ -169,5 +179,9 @@ export function computeGannEntryTrigger(
     return null;
   }
 
-  return { direction, triggerPrice, stopPrice, pivot, protectivePivot, swingDays };
+  const sign = direction === "bullish" ? 1 : -1;
+  const points = Math.abs(triggerPrice - pivot.price);
+  const reactionEntry = pivot.price + (sign * points) / 3;
+  const reactionStop = pivot.price - sign * points;
+  return { direction, triggerPrice, stopPrice, pivot, level: pivot.price, reactionEntry, reactionStop, protectivePivot, swingDays };
 }
