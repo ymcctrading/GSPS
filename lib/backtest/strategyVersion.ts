@@ -51,4 +51,9 @@
 // break stage adds nothing more; the trigger's stop, structural equity stops,
 // even-figure stops, the 2-3 day halt stop, multiple-top crossings, the
 // accumulation breakout and the pyramid add all sit 3 points beyond.
-export const STRATEGY_VERSION = "2026-10-15-gann-three-points-entry";
+// Same day, second bump (PLAN.md item 4): every plan is Gann's reaction buy.
+// A close 3 points past the old level arms it; the entry is a limit at the
+// level plus 1 point and the stop the level less 3 points (W006 pp.20, 46-47),
+// replacing the retest-and-hold confirmation and the S/R-band and ATR stops.
+// The paper simulator fills limits as limits. Replay rule: entryRule "reaction".
+export const STRATEGY_VERSION = "2026-10-15-gann-reaction-entry";

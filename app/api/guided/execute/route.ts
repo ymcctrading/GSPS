@@ -17,8 +17,8 @@
  * Only then does it submit, through the same `placeSimulatedOrder` path the
  * manual ticket uses — a real bracket, with stop, TP1 and master attached.
  * That path places an advised entry only once it has confirmed on today's
- * closed bars: a close through the trigger by the 3-point-rule buffer, a
- * retest, and a close that held (owner decision 4, 2026-09-27; see
+ * closed bars: a close 3 points past the old level, after which the order
+ * rests as a limit at the plan's entry for the reaction (PLAN.md item 4; see
  * `lib/lifecycle/confirmNow.ts`). An unconfirmed entry is refused with
  * `awaiting_confirmation`, and the failure path below puts the
  * recommendation back to open so the person can tap again.

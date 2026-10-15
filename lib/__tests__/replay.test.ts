@@ -64,14 +64,13 @@ const TRIGGER = liveTrigger();
 const SIDE = TRIGGER.direction === "bullish" ? 1 : -1;
 const RISK = Math.abs(TRIGGER.triggerPrice - TRIGGER.stopPrice);
 /**
- * Where the intraday fixtures trade before the cross: 5 points inside the
- * trigger. Relative to the trigger rather than a fixed 99, because the trigger
- * sits Gann's 3 points (price-scaled) beyond the old level, and a fixed price
- * can land beyond the plan's own stop. Five points keeps the warm-up between
- * the plan stop and its 3-point reclaim line, so no warm-up close reinstates a
- * plan the stop-breach tests have retired.
+ * Where the intraday fixtures trade before the cross: half of Gann's 3 points
+ * inside the crossed level. The plan's stop is the level less 3 points and its
+ * reclaim line the level itself (PLAN.md item 4), so this keeps the warm-up
+ * between the two: no warm-up close reinstates a plan the stop-breach tests
+ * have retired, and a reaction back here is below the plan's entry.
  */
-const MID = TRIGGER.triggerPrice - SIDE * 5;
+const MID = TRIGGER.level - (SIDE * Math.abs(TRIGGER.triggerPrice - TRIGGER.level)) / 2;
 
 /** 15-minute bars on DAY, timestamped in order from midnight. */
 function intraday(bars: Array<Omit<Bar, "t" | "v">>): Bar[] {
@@ -612,7 +611,14 @@ describe("replay usePlanLevels (the production plan's bracket)", () => {
   it("trades the plan's own stop and first target, not an R-multiple bracket", () => {
     const beyond = past(3 * RISK);
     const run = { o: past(0.4), h: SIDE > 0 ? beyond : past(0.3), l: SIDE > 0 ? past(0.3) : beyond, c: past(0.5) };
-    const plan = replay("TEST", session([crossing, run, quiet]), { targetR: 2, dailyBars: DAILY, usePlanLevels: true });
+    // The plan is Gann's reaction buy (PLAN.md item 4), so it is traded on
+    // the reaction rule: the quiet candle reacts back to the entry.
+    const plan = replay("TEST", session([crossing, quiet, run]), {
+      targetR: 2,
+      dailyBars: DAILY,
+      usePlanLevels: true,
+      entryRule: "reaction",
+    });
     const legacy = replay("TEST", session([crossing, run, quiet]), { targetR: 2, dailyBars: DAILY, useProductionStop: true });
     expect(plan.trades.length).toBeGreaterThan(0);
     for (const t of plan.trades) {
@@ -666,10 +672,12 @@ describe("replay exitRule: gann-runner (the live rule)", () => {
  * reinstate it.
  */
 describe("replay stop breach retires the plan", () => {
-  // The plan's own stop, read from a run that enters it. Taking it from the
-  // replay keeps the fixture on the stop the plan actually carries.
-  const baseline = replay("TEST", session([quiet, crossing, quiet]), { targetR: 2, dailyBars: DAILY, usePlanLevels: true });
-  const planStop = baseline.trades[0]?.stop ?? NaN;
+  // The plan's own stop is Gann's line 3 points the other side of the
+  // crossed level (PLAN.md item 4), which the breach check reads whichever
+  // entry rule is replayed. These tests drive the breach with the trigger's
+  // stop-entry rule, so a fresh crossing close does not itself enter.
+  const baseline = replay("TEST", session([quiet, crossing, quiet]), { targetR: 2, dailyBars: DAILY });
+  const planStop = TRIGGER.reactionStop;
   const direction = SIDE > 0 ? "bullish" : "bearish";
   const line = reclaimLevel(direction, planStop);
 
@@ -695,7 +703,7 @@ describe("replay stop breach retires the plan", () => {
   });
 
   it("does not enter a plan once an earlier candle in the session traded through its stop", () => {
-    const r = replay("TEST", session([poke, crossing, quiet]), { targetR: 2, dailyBars: DAILY, usePlanLevels: true });
+    const r = replay("TEST", session([poke, crossing, quiet]), { targetR: 2, dailyBars: DAILY });
     expect(r.trades).toHaveLength(0);
     expect(r.retiredPlans).toBe(1);
   });
@@ -707,14 +715,13 @@ describe("replay stop breach retires the plan", () => {
     const r = replay("TEST", session([poke, between, between, crossing, quiet]), {
       targetR: 2,
       dailyBars: DAILY,
-      usePlanLevels: true,
     });
     expect(r.trades).toHaveLength(0);
     expect(r.retiredPlans).toBe(1);
   });
 
   it("stands the plan again when a later candle closes back through the broken level by the allowance", () => {
-    const r = replay("TEST", session([poke, reclaim, crossing, quiet]), { targetR: 2, dailyBars: DAILY, usePlanLevels: true });
+    const r = replay("TEST", session([poke, reclaim, crossing, quiet]), { targetR: 2, dailyBars: DAILY });
     expect(r.trades).toHaveLength(1);
     // Still counted once as retired: it was, until the failed break showed.
     expect(r.retiredPlans).toBe(1);
@@ -723,7 +730,7 @@ describe("replay stop breach retires the plan", () => {
   it("does not count a poke that reversed by its own close as a break that stands", () => {
     // The breaking candle closes back through the line itself: a false break.
     const flush = breakingAndClosingAt(line + SIDE * 0.5);
-    const r = replay("TEST", session([flush, crossing, quiet]), { targetR: 2, dailyBars: DAILY, usePlanLevels: true });
+    const r = replay("TEST", session([flush, crossing, quiet]), { targetR: 2, dailyBars: DAILY });
     expect(r.trades).toHaveLength(1);
   });
 
@@ -731,7 +738,6 @@ describe("replay stop breach retires the plan", () => {
     const r = replay("TEST", session([poke, crossing, quiet]), {
       targetR: 2,
       dailyBars: DAILY,
-      usePlanLevels: true,
       entryRule: "confirmed",
     });
     expect(r.trades).toHaveLength(0);
@@ -744,7 +750,7 @@ describe("replay stop breach retires the plan", () => {
     const bars = session([quiet, crossing, quiet]);
     const through = planStop - SIDE * 0.5;
     bars[39] = { ...bars[39], o: through, h: Math.max(through, bars[39].h), l: Math.min(through, bars[39].l), c: through };
-    const r = replay("TEST", bars, { targetR: 2, dailyBars: DAILY, usePlanLevels: true });
+    const r = replay("TEST", bars, { targetR: 2, dailyBars: DAILY });
     expect(r.trades).toHaveLength(0);
     expect(r.retiredPlans).toBe(1);
   });
@@ -758,7 +764,7 @@ describe("replay stop breach retires the plan", () => {
       l: SIDE > 0 ? planStop - 0.5 : past(0.5),
       c: MID,
     };
-    const r = replay("TEST", session([quiet, both, quiet]), { targetR: 2, dailyBars: DAILY, usePlanLevels: true });
+    const r = replay("TEST", session([quiet, both, quiet]), { targetR: 2, dailyBars: DAILY });
     expect(r.retiredPlans).toBe(0);
   });
 
@@ -768,8 +774,8 @@ describe("replay stop breach retires the plan", () => {
     expect(Math.abs(strictLine - planStop)).toBeGreaterThan(Math.abs(line - planStop) + 0.6);
     // A close that clears the live line but not the strict one.
     const live = session([poke, reclaim, crossing, quiet]);
-    const standsAtThree = replay("TEST", live, { targetR: 2, dailyBars: DAILY, usePlanLevels: true });
-    const standsAtFive = replay("TEST", live, { targetR: 2, dailyBars: DAILY, usePlanLevels: true, reclaimPoints: 5 });
+    const standsAtThree = replay("TEST", live, { targetR: 2, dailyBars: DAILY });
+    const standsAtFive = replay("TEST", live, { targetR: 2, dailyBars: DAILY, reclaimPoints: 5 });
     expect(standsAtThree.trades).toHaveLength(1);
     expect(standsAtFive.trades).toHaveLength(0);
     expect(standsAtFive.retiredPlans).toBe(1);
@@ -778,15 +784,14 @@ describe("replay stop breach retires the plan", () => {
     const clears = replay("TEST", session([poke, reclaimFive, crossing, quiet]), {
       targetR: 2,
       dailyBars: DAILY,
-      usePlanLevels: true,
       reclaimPoints: 5,
     });
     expect(clears.trades).toHaveLength(1);
   });
 
   it("adds retired plans up across symbols", () => {
-    const a = replay("A", session([poke, crossing, quiet]), { targetR: 2, dailyBars: DAILY, usePlanLevels: true });
-    const b = replay("B", session([poke, crossing, quiet]), { targetR: 2, dailyBars: DAILY, usePlanLevels: true });
+    const a = replay("A", session([poke, crossing, quiet]), { targetR: 2, dailyBars: DAILY });
+    const b = replay("B", session([poke, crossing, quiet]), { targetR: 2, dailyBars: DAILY });
     expect(combine([a, b]).retiredPlans).toBe(2);
   });
 });

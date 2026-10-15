@@ -54,18 +54,23 @@
  * (`lib/gann/entryTrigger.ts`, `lib/gann/pointScale.ts`), so the default
  * buffer here is zero: a close beyond the trigger *is* a close 3 points
  * beyond the old top. Adding the allowance again would ask for 6 points,
- * which Gann never does. In his example (old top 50, a close at 53 crosses
- * it, buy the reaction from 51 down to 48, stop at 47) only the break maps
- * onto this stage exactly. The retest here is a return to the trigger (53),
- * not his 51-48 reaction, and the plan's stop is not 3 points under the old
- * top: those are PLAN.md items 4 and 5. A caller whose
- * trigger is not already a 3-point crossing can pass its own
- * `confirmationBufferPct` (the intraday replay does).
+ * which Gann never does. A caller whose trigger is not already a 3-point
+ * crossing can pass its own `confirmationBufferPct` (the intraday replay does).
+ *
+ * **Gann's reaction rule (PLAN.md item 4, 2026-10-15).** Every production
+ * caller now passes the plan's stop, which selects his own rule: old top 50,
+ * a close at 53 crosses it, buy the reaction at 51, stop at 47 (W006 pp.20,
+ * 46-47). The plan's entry is the level plus 1 point and its stop the level
+ * less 3, so the crossing line is recovered from the two (`gannBreakLine`).
+ * The entry is ready on the closing break; the order then rests as a limit at
+ * the entry and the reaction fills it. The four-stage sequence above remains
+ * for the replay's `"confirmed"` rule, so the two can be measured side by side.
  */
 
 import type { Bar } from "@/lib/types";
 import type { EntryConfirmationEvidence } from "./types";
 import { EMPTY_ENTRY_CONFIRMATION } from "./types";
+import { gannBreakLine } from "@/lib/gann/entryTrigger";
 
 export type ConfirmationDirection = "bullish" | "bearish";
 
@@ -82,6 +87,17 @@ export interface EntryConfirmationRule {
   entryTrigger: number;
   /** Percentage of `entryTrigger` the break stage must clear by. Defaults to `DEFAULT_CONFIRMATION_BUFFER_PCT`. */
   confirmationBufferPct?: number;
+  /**
+   * The plan's stop. When given, the rule is Gann's reaction buy (PLAN.md
+   * item 4, W006 pp.20, 46-47) rather than the retest-and-hold sequence:
+   * `entryTrigger` is the level plus 1 point, this stop the level less 3,
+   * and the entry is ready once a closed bar closes at or past the level plus
+   * 3 points (`gannBreakLine`). The order then rests as a limit at
+   * `entryTrigger` and fills on the reaction. Every production path passes
+   * it; the replay's `"confirmed"` rule and the intraday replay don't, so
+   * the older sequence can still be measured.
+   */
+  stopPrice?: number;
 }
 
 /**
@@ -100,6 +116,20 @@ export function advanceEntryConfirmation(
   const trigger = rule.entryTrigger;
 
   let next = evidence;
+
+  if (rule.stopPrice != null) {
+    // Gann's crossing: the touch and the closing break may be the same bar,
+    // since "a close at 53 crosses 50" is one event. Once broken, the entry
+    // is ready: the reaction is bought with a resting limit, not here.
+    const line = gannBreakLine(trigger, rule.stopPrice);
+    if (next.touchedAt == null && (up ? bar.h >= line : bar.l <= line)) {
+      next = { ...next, touchedAt: bar.t, touchedPrice: up ? bar.h : bar.l };
+    }
+    if (next.touchedAt != null && next.breakOrSweepAt == null && (up ? bar.c >= line : bar.c <= line)) {
+      next = { ...next, breakOrSweepAt: bar.t, breakOrSweepPrice: bar.c, entryConfirmedAt: bar.t };
+    }
+    return next;
+  }
 
   // Stage 1: entry-zone touch. Range-based — a wick reaching the level
   // counts, since this stage explicitly does NOT gate an order.
@@ -166,11 +196,12 @@ export function advanceEntryConfirmation(
  * `plan.state`, which this function doesn't have), does.
  */
 export function entryReady(evidence: EntryConfirmationEvidence): boolean {
+  // Gann's reaction rule confirms on the break alone (its limit order waits
+  // for the reaction); the retest-and-hold rule needs all four stages. Each
+  // rule sets `entryConfirmedAt` only when its own sequence is complete.
   return (
     evidence.touchedAt != null &&
     evidence.breakOrSweepAt != null &&
-    evidence.retestAt != null &&
-    evidence.confirmationMoveAt != null &&
     evidence.entryConfirmedAt != null
   );
 }

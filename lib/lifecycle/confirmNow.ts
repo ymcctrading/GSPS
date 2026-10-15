@@ -15,16 +15,17 @@
  *
  * It runs the same state machine the plans and the replay use
  * (`replayEntryConfirmation`) over closed execution-timeframe bars (today's
- * session, or since the plan was generated for a plan-sourced order):
- * touch, a close beyond the trigger by the 3-point-rule buffer, a retest,
- * then a close that holds. Only when all four have happened does the order
- * go in. The replay's confirmed rule also counts only bars from the session
- * the trigger is armed on, so the two read the same window.
+ * session, or since the plan was generated for a plan-sourced order). Since
+ * PLAN.md item 4 that is Gann's crossing rule: a close 3 points past the old
+ * level makes the entry ready, and the order rests as a limit at the plan's
+ * entry for the reaction. A later close through the stop calls it off. The
+ * replay's reaction rule counts bars from the session the trigger is armed
+ * on, so the two read the same window.
  *
  * Three-question basis:
- * 1. Gann: the break stage's buffer is his 3-point rule (*New Stock Trend
- *    Detector*, A5); the retest-and-hold is his "should not react back under
- *    the old top" read on the execution chart (A05 p. 20).
+ * 1. Gann: a close 3 points past an old top crosses it, and the buy is on
+ *    the reaction 1 point above it with the stop 3 points below (W006 pp.20,
+ *    46-47; *New Stock Trend Detector*, A5).
  * 2. Cycles: no periodicity claim, so Dewey's checklist does not apply.
  * 3. Hermetic: Cause and Effect. The order is the effect; the observed
  *    confirmation is the cause it has to wait for.
@@ -36,7 +37,7 @@ import { EXECUTION_TIMEFRAME, TF_INTERVAL_MS } from "@/lib/timeframe";
 import { entryReady, replayEntryConfirmation } from "./entryConfirmation";
 import type { EntryConfirmationEvidence } from "./types";
 
-export type ConfirmationStage = "not_touched" | "touched" | "broken" | "retested" | "confirmed";
+export type ConfirmationStage = "not_touched" | "touched" | "broken" | "retested" | "confirmed" | "dead";
 
 export interface ConfirmationNow {
   ready: boolean;
@@ -59,6 +60,7 @@ const NOTES: Record<ConfirmationStage, string> = {
   broken: "Price closed through the entry level and is waiting for a retest.",
   retested: "Price retested the entry level and is waiting for a close that holds.",
   confirmed: "The entry is confirmed: a close through the level, a retest, and a close that held.",
+  dead: "Price closed through the stop, so this entry is off until a new setup forms.",
 };
 
 /**
@@ -78,14 +80,37 @@ export function closedSessionBars(bars: Bar[], now: Date, intervalMs: number, si
   return closed.filter((b) => b.t.slice(0, 10) === day);
 }
 
+/** The same stages read under Gann's reaction rule (PLAN.md item 4). */
+const GANN_NOTES: Record<ConfirmationStage, string> = {
+  not_touched: "Price hasn't crossed the old level by 3 points yet.",
+  touched: "Price reached 3 points past the old level but hasn't closed there yet.",
+  broken: "Price closed 3 points past the old level.",
+  retested: "Price closed 3 points past the old level.",
+  confirmed: "Price closed 3 points past the old level, so the entry rests as a limit for the reaction.",
+  dead: "Price closed through the stop after the crossing, so this entry is off until a new setup forms.",
+};
+
+/**
+ * With `stopPrice`, Gann's reaction rule: ready once a closed bar has closed
+ * 3 points past the old level, and off ("dead") once a later close goes
+ * through the stop (W006 p.20: the stop is 3 points the other side of the
+ * level). Without it, the retest-and-hold sequence.
+ */
 export function confirmationFromBars(
   bars: Bar[],
   direction: "bullish" | "bearish",
   entryTrigger: number,
+  stopPrice?: number,
 ): ConfirmationNow {
-  const evidence = replayEntryConfirmation({ direction, entryTrigger }, bars);
-  const stage = stageOf(evidence);
-  return { ready: stage === "confirmed", stage, note: NOTES[stage] };
+  const evidence = replayEntryConfirmation({ direction, entryTrigger, stopPrice }, bars);
+  let stage = stageOf(evidence);
+  if (stopPrice != null && stage === "confirmed" && evidence.breakOrSweepAt) {
+    const up = direction === "bullish";
+    const after = bars.filter((b) => b.t > evidence.breakOrSweepAt!);
+    if (after.some((b) => (up ? b.c <= stopPrice : b.c >= stopPrice))) stage = "dead";
+  }
+  const notes = stopPrice != null ? GANN_NOTES : NOTES;
+  return { ready: stage === "confirmed", stage, note: notes[stage] };
 }
 
 export async function readEntryConfirmationNow(input: {
@@ -93,6 +118,8 @@ export async function readEntryConfirmationNow(input: {
   assetClass: AssetClass;
   direction: "bullish" | "bearish";
   entryTrigger: number;
+  /** The plan's stop: selects Gann's reaction rule (see `confirmationFromBars`). */
+  stopPrice?: number;
   /** Count bars from this time (a plan's generation time). Default: today's session. */
   since?: string;
   now?: Date;
@@ -107,5 +134,6 @@ export async function readEntryConfirmationNow(input: {
     closedSessionBars(bars, now, intervalMs, input.since),
     input.direction,
     input.entryTrigger,
+    input.stopPrice,
   );
 }

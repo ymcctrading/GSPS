@@ -185,3 +185,21 @@ export function computeGannEntryTrigger(
   const reactionStop = pivot.price - sign * points;
   return { direction, triggerPrice, stopPrice, pivot, level: pivot.price, reactionEntry, reactionStop, protectivePivot, swingDays };
 }
+
+/**
+ * The line a close must cross before Gann's reaction buy is placed, recovered
+ * from a plan's own entry and stop (PLAN.md item 4). A Gann plan stores the
+ * reaction entry (the level plus 1 point) and its stop (the level less 3
+ * points), so the gap between them is 4 points and the crossing (the level
+ * plus 3 points) sits 2 points past the entry: `entry + (entry - stop) / 2`.
+ * Shorts are the mirror and the same formula gives it. Stored plans need no
+ * extra column for it.
+ */
+export function gannBreakLine(entry: number, stop: number): number {
+  return entry + (entry - stop) / 2;
+}
+
+/** The crossed level itself, recovered the same way: `(3 * entry + stop) / 4`. */
+export function gannCrossedLevel(entry: number, stop: number): number {
+  return (3 * entry + stop) / 4;
+}

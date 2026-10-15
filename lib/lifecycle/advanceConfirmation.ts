@@ -18,6 +18,12 @@
  * scan's actual closed bar through here (rather than `currentPrice`) would
  * restore full intra-bar fidelity; tracked as a follow-up rather than
  * blocking this gate.
+ *
+ * Since PLAN.md item 4 the plan's rule is Gann's reaction buy: a pass whose
+ * price is at or past the level plus 3 points arms the plan, and the order
+ * rests as a limit at the plan's entry. Placement (`lib/trade/place-order.ts`)
+ * re-reads the real closed bars, so a live price here never places an order
+ * on its own.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -68,7 +74,7 @@ export async function advanceEntryConfirmationForSymbol(
     try {
       const nextEvidence = advanceEntryConfirmation(
         plan.entryConfirmation,
-        { direction: plan.direction, entryTrigger: plan.coordinates.entryTrigger },
+        { direction: plan.direction, entryTrigger: plan.coordinates.entryTrigger, stopPrice: plan.coordinates.invalidation },
         bar,
       );
       if (nextEvidence === plan.entryConfirmation) continue; // no change this tick
@@ -84,7 +90,7 @@ export async function advanceEntryConfirmationForSymbol(
         await applyEventAndPersist(service, profileId, plan.planId, {
           type: "arm",
           at: tick.scannedAt,
-          reason: "Break/retest/confirmation-move sequence completed.",
+          reason: "Price crossed the old level by 3 points; the entry waits for the reaction.",
         });
       }
     } catch (err) {

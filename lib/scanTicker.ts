@@ -38,7 +38,7 @@ import { computeTimePriceSquare } from "@/lib/gann/timePriceSquare";
 import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
 import { computeBoilingPoint } from "@/lib/gann/boilingPoint";
 import { MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection, rankArmedPatterns } from "@/lib/scan/entrySelection";
-import { computeTradeLevels, type EntrySource } from "@/lib/strat/levels";
+import { computeTradeLevels, gannEntrySource, type EntrySource } from "@/lib/strat/levels";
 import { computeGannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
 import {
@@ -283,15 +283,10 @@ export async function scanTicker(
     // The label is what the invalidation copy calls this setup. It describes
     // what was crossed rather than naming a bar sequence, because that is what
     // actually armed the trade now.
-    const entrySource: EntrySource | null = gannTrigger
-      ? {
-          direction: gannTrigger.direction,
-          triggerPrice: gannTrigger.triggerPrice,
-          stopPrice: gannTrigger.stopPrice,
-          setupLabel:
-            gannTrigger.direction === "bullish" ? "swing-top crossing" : "swing-bottom break",
-        }
-      : null;
+    // Gann's reaction buy (PLAN.md item 4): the plan's entry is the level plus
+    // 1 point and its stop the level less 3; the close 3 points past the level
+    // arms it. Priced by the same helper the replay uses.
+    const entrySource: EntrySource | null = gannTrigger ? gannEntrySource(gannTrigger) : null;
 
     // ---- Trade levels
     const previousBar = closedExecutionBars[closedExecutionBars.length - 2] ?? closedExecutionBars[closedExecutionBars.length - 1];

@@ -485,7 +485,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       pillar: "setup",
       passed: patternValid,
       note: patternValid
-        ? `Trigger armed ${gannTrigger!.direction} at ${gannTrigger!.triggerPrice.toFixed(2)} — a crossing of the last completed swing level, with the stop beyond the opposing swing at ${gannTrigger!.stopPrice.toFixed(2)}.`
+        ? `Trigger armed ${gannTrigger!.direction}: a close at ${gannTrigger!.triggerPrice.toFixed(2)} crosses the last completed swing level by 3 points, and the entry then waits for the pullback toward that level.`
         : `No ${setupKind === "continuation" ? "continuation" : "reversal"} trigger armed — the swing chart has not completed a level to cross.`,
     },
     {

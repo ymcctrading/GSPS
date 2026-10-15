@@ -29,8 +29,8 @@ import type { AssetClass, PublicScoreSummary, ScanResult } from "@/lib/types";
  */
 function structuralTriggerHeadline(direction: "bullish" | "bearish"): string {
   return direction === "bullish"
-    ? "Crossing the prior confirmed swing high, by the 3-point allowance."
-    : "Breaking the prior confirmed swing low, by the 3-point allowance.";
+    ? "A close 3 points over the prior confirmed swing high, then a buy on the pullback toward it."
+    : "A close 3 points under the prior confirmed swing low, then a sell on the bounce toward it.";
 }
 
 /**

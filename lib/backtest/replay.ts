@@ -64,7 +64,7 @@
 
 import type { AssetClass, Bar, GannLevels, ScanDecision, SetupKind, StratPattern, Timeframe, TrendReading } from "@/lib/types";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
-import { computeStopWithLeeway, computeTradeLevels, type EntrySource } from "@/lib/strat/levels";
+import { computeStopWithLeeway, computeTradeLevels, gannEntrySource, type EntrySource } from "@/lib/strat/levels";
 import type { TradeLevels } from "@/lib/types";
 import {
   MIN_DAILY_BARS_FOR_SCAN,
@@ -672,9 +672,6 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
   // Gann's crossing, per pivot, when `entryRule === "reaction"`: whether a
   // close has crossed the level by 3 points since the pivot first armed.
   const crossing = new Map<string, { since: string; crossed: boolean }>();
-  // The reaction rule's stop is Gann's own line under the level, reached only
-  // through the buy, so the plan-stop breach doesn't apply to it.
-  const breachApplies = entryRule !== "reaction";
   // Counted once per session a pivot is armed on, and once per fill.
   const armedKeys = new Set<string>();
   let triggered = 0;
@@ -776,11 +773,11 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
             largeCap: arm.largeCap,
           })?.stopLoss ?? null;
         sessionPlanStops.set(planKey, planStop);
-        if (breachApplies && planStop !== null && isStopBreached(trigger.direction, planStop, lastClose)) {
+        if (planStop !== null && isStopBreached(trigger.direction, planStop, lastClose)) {
           brokenPlans.add(planKey);
           retiredSessionPlans.add(planKey);
         }
-      } else if (breachApplies && planStop !== null) {
+      } else if (planStop !== null) {
         const closed = history[history.length - 1];
         if (closed.t.slice(0, 10) === date) {
           if (isStopBreachedByBar(trigger.direction, planStop, closed)) {
@@ -893,7 +890,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
 
       if (
         roundNumberHold &&
-        roundNumberEntryBlocked({ entry: trigger.triggerPrice, direction: trigger.direction, crossedLevel: trigger.pivot.price }).blocked
+        roundNumberEntryBlocked({ entry: entryRule === "reaction" ? trigger.reactionEntry : trigger.triggerPrice, direction: trigger.direction, crossedLevel: trigger.pivot.price }).blocked
       ) {
         continue;
       }
@@ -1199,12 +1196,7 @@ function priceTradeLevels(input: {
   largeCap: boolean;
 }): TradeLevels | null {
   const { context, gannTrigger, history, executionAtr, assetClass, largeCap } = input;
-  const entrySource: EntrySource = {
-    direction: gannTrigger.direction,
-    triggerPrice: gannTrigger.triggerPrice,
-    stopPrice: gannTrigger.stopPrice,
-    setupLabel: gannTrigger.direction === "bullish" ? "swing-top crossing" : "swing-bottom break",
-  };
+  const entrySource: EntrySource = gannEntrySource(gannTrigger);
   try {
     return computeTradeLevels(
       entrySource,

@@ -69,6 +69,7 @@ import { createTradePlan, applyEventAndPersist, type NewTradePlan } from "@/lib/
 import { freshEntryConfirmation } from "@/lib/lifecycle/entryConfirmation";
 import { runAutonomousPortfolioManager } from "@/lib/automation/portfolio-manager";
 import { EXECUTION_TIMEFRAME } from "@/lib/timeframe";
+import { isTriggered } from "@/lib/brokers/simulator";
 
 /**
  * In-memory fake covering every table the real code touches on this path:
@@ -393,6 +394,9 @@ describe("Automated Portfolio Manager — real end-to-end pipeline (paper)", () 
     });
 
     const planId = await createArmedPlan(client, "user-1");
+    // The reaction has come: the market is back at the plan's entry, so the
+    // resting limit (Gann's reaction buy, PLAN.md item 4) is marketable.
+    vi.mocked(isTriggered).mockReturnValue(true);
 
     // Confirms the first half of the ask directly: the plan really did reach
     // `armed` through the real lifecycle reducer, priced on EXECUTION_TIMEFRAME.
@@ -428,7 +432,29 @@ describe("Automated Portfolio Manager — real end-to-end pipeline (paper)", () 
     // Automation is held to the same confirmation rule as every other entry,
     // judged on its plan's own trigger over the bars since the plan was made.
     expect(confirmNow.calls.at(-1)).toMatchObject({ symbol: "AAPL", direction: "bullish" });
+    // Gann's reaction rule: judged on the plan's entry and its stop, and the
+    // order is a limit at the entry, not a market order (PLAN.md item 4).
+    expect(confirmNow.calls.at(-1)).toMatchObject({ entryTrigger: 100, stopPrice: 97 });
+    expect(orders[0].limit_price).toBe(100);
     expect((confirmNow.calls.at(-1) as { since?: string }).since).toBeTruthy();
+  });
+
+  it("rests a limit at the plan's entry while price has not yet reacted back to it", async () => {
+    const { client, orders } = fakeSupabase({
+      user_id: "user-1",
+      is_automation_enabled: true,
+      risk_profile: "PASSIVE",
+      directional_bias: "BOTH",
+      volatility_trigger_type: "DOLLAR_AMOUNT",
+      volatility_trigger_value: 1,
+      execution_mode: "paper",
+    });
+    await createArmedPlan(client, "user-1");
+    vi.mocked(isTriggered).mockReturnValue(false);
+    await runAutonomousPortfolioManager(client);
+    expect(orders).toHaveLength(1);
+    expect(orders[0].status).toBe("new");
+    expect(orders[0].limit_price).toBe(100);
   });
 
   it("places nothing for an armed plan whose entry hasn't confirmed on the bars", async () => {

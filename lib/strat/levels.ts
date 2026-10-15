@@ -11,6 +11,7 @@
  *    is known (see the warning block below).
  */
 
+import type { GannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { levelOnFigure, stopBeyondFigure, targetCandidates } from "@/lib/gann/evenFigures";
 import { beyondByThreePoints, gannThreePointsPct } from "@/lib/gann/pointScale";
 import type { AssetClass, Bar, PivotPlan, StratPattern, TradeLevels } from "@/lib/types";
@@ -319,6 +320,13 @@ export function computeEquityTradeLevels(params: {
   atrPct?: number;
   /** Widens the stop-placement ceiling and fallback — see EQUITY_LARGE_CAP_STOP_MAX_PCT/EQUITY_LARGE_CAP_FALLBACK_STOP_PCT. */
   largeCap?: boolean;
+  /**
+   * A stop fixed by Gann's crossing rule (the crossed level less 3 points;
+   * PLAN.md item 4). Used as given. `stopFromStructure` is still read from the
+   * S/R band, because the `stopRoom` criterion asks whether real support sits
+   * behind the trade, which the fixed stop does not answer.
+   */
+  stopLoss?: number;
 }): EquityTradeLevels {
   const { direction, entry, structuralLevels, extensionLevels = structuralLevels, atrPct, largeCap = false, evenFigures = true } = params;
   const side: StopSide = direction === "bullish" ? "long" : "short";
@@ -341,7 +349,9 @@ export function computeEquityTradeLevels(params: {
   // carry the stop past the band's ceiling. A fallback stop has no level, so
   // the even-figure rule moves it past a figure it sits just inside.
   let stopLoss: number;
-  if (structuralStop !== null) {
+  if (params.stopLoss != null) {
+    stopLoss = params.stopLoss;
+  } else if (structuralStop !== null) {
     const anchored = evenFigures ? levelOnFigure(structuralStop, direction) : structuralStop;
     const ceiling = stopMaxPct + gannThreePointsPct(entry);
     const fromFigure = beyondByThreePoints(anchored, -dir as 1 | -1);
@@ -489,6 +499,32 @@ export interface EntrySource {
    * `buildPivotPlan` falls back to a neutral phrase rather than inventing one.
    */
   setupLabel?: string;
+  /**
+   * True when this source is Gann's reaction buy after a crossing (PLAN.md
+   * item 4; W006 pp.20, 46-47): `triggerPrice` is the level plus 1 point and
+   * `stopPrice` the level less 3 points. Both are used exactly as given, on
+   * every asset class: no structural re-anchoring for stocks and no ATR
+   * leeway for crypto, because Gann fixes the stop at 3 points past the
+   * crossed level.
+   */
+  gannReaction?: boolean;
+}
+
+/**
+ * The plan Gann's crossing rule prices, shared by the live scan and the replay
+ * so the two cannot drift (PLAN.md item 4). The close past the old top by 3
+ * points (`triggerPrice`) arms it; the order is the reaction buy at the level
+ * plus 1 point, stopped at the level less 3 points (W006 pp.20, 46-47). Shorts
+ * are the mirror.
+ */
+export function gannEntrySource(trigger: GannEntryTrigger): EntrySource {
+  return {
+    direction: trigger.direction,
+    triggerPrice: trigger.reactionEntry,
+    stopPrice: trigger.reactionStop,
+    setupLabel: trigger.direction === "bullish" ? "swing-top crossing" : "swing-bottom break",
+    gannReaction: true,
+  };
 }
 
 export function computeTradeLevels(
@@ -524,6 +560,7 @@ export function computeTradeLevels(
       extensionLevels: [...gannTargets, ...structuralLevels],
       atrPct: dailyAtrPct,
       largeCap: effectiveLargeCap,
+      stopLoss: pattern.gannReaction ? pattern.stopPrice : undefined,
     });
     const equityRisk = Math.abs(entry - equity.stopLoss);
     return {
@@ -547,7 +584,7 @@ export function computeTradeLevels(
   // Compute stop with ATR leeway (structural boundary + buffer for noise)
   // If no ATR available, fall back to structural stop only.
   let stopLoss = pattern.stopPrice;
-  if (executionAtr && executionAtr > 0) {
+  if (executionAtr && executionAtr > 0 && !pattern.gannReaction) {
     stopLoss = computeStopWithLeeway({
       side: pattern.direction === "bullish" ? "long" : "short",
       entry,

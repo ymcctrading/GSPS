@@ -22,8 +22,9 @@
  *
  * Three-question basis:
  * 1. Gann: the rules graded are his (trend from swing charts and the
- *    structure of tops and bottoms; entry past the old top by the allowance;
- *    the stop beyond the last bottom; risk a small, fixed part of capital),
+ *    structure of tops and bottoms; after a close 3 points past the old top,
+ *    buy the reaction 1 point above it with the stop 3 points below it (PLAN.md
+ *    item 4); risk a small, fixed part of capital),
  *    Tier A, as implemented in `lib/gann/`.
  * 2. Cycles: no periodicity claim; Dewey's checklist does not apply.
  * 3. Hermetic: Cause and Effect (the grade follows the decision's cause, the
@@ -34,7 +35,7 @@
 
 import type { Bar } from "@/lib/types";
 import { readGannTrend } from "@/lib/gann/trendStrength";
-import { computeGannEntryTrigger } from "@/lib/gann/entryTrigger";
+import { computeGannEntryTrigger, gannBreakLine } from "@/lib/gann/entryTrigger";
 
 export type ExamTransition = "novice_to_pro" | "pro_to_expert";
 export const EXAM_TRANSITIONS: readonly ExamTransition[] = ["novice_to_pro", "pro_to_expert"];
@@ -186,11 +187,13 @@ export function buildScenario(symbol: string, asOf: string, daily: Bar[], seed: 
   let shares: number | null = null;
   if (decision === "trade" && trigger) {
     const long = direction === "bullish";
-    entry = round2(trigger.triggerPrice);
-    stop = round2(trigger.stopPrice);
+    // The reaction buy after the crossing (PLAN.md item 4): 1 point past the
+    // old level, stop 3 points the other side.
+    entry = round2(trigger.reactionEntry);
+    stop = round2(trigger.reactionStop);
     const e = [
       { id: "e1", price: entry },
-      // Buying at today's close, before the old top has been crossed.
+      // Buying at today's close, before the old level has been crossed.
       { id: "e2", price: round2(last.c) },
       // Short of the level: an order that fills before the market proves itself.
       { id: "e3", price: round2(long ? trigger.pivot.price * 0.97 : trigger.pivot.price * 1.03) },
@@ -242,18 +245,27 @@ function playedOut(s: StoredScenario): string {
   const long = key.direction === "bullish";
   const risk = Math.abs(key.entry - key.stop);
   const target = long ? key.entry + 2 * risk : key.entry - 2 * risk;
+  // The order is placed once a close crosses the old level by 3 points, and
+  // fills when price reacts back to the entry.
+  const line = gannBreakLine(key.entry, key.stop);
+  let crossed = false;
   let filled = false;
   for (const b of playback) {
     if (!filled) {
-      if (long ? b.h >= key.entry : b.l <= key.entry) filled = true;
-      else continue;
+      if (crossed && (long ? b.l <= key.entry : b.h >= key.entry)) filled = true;
+      else {
+        if (long ? b.c >= line : b.c <= line) crossed = true;
+        continue;
+      }
     }
     if (long ? b.l <= key.stop : b.h >= key.stop) return "The entry filled and the stop was hit: a loss that the stop kept small. Following the rules can still lose.";
     if (long ? b.h >= target : b.l <= target) return "The entry filled and price reached twice the risk before the stop.";
   }
   return filled
     ? `The entry filled; neither the stop nor twice the risk was reached within ${playback.length} sessions.`
-    : `Price never reached the entry within ${playback.length} sessions, so no trade was taken. Waiting for the level is part of the rule.`;
+    : crossed
+      ? `Price crossed the old level but never pulled back to the entry within ${playback.length} sessions, so no trade was taken. Waiting for the reaction is part of the rule.`
+      : `Price never closed past the old level within ${playback.length} sessions, so no trade was taken. Waiting for the level is part of the rule.`;
 }
 
 const TREND_WORD: Record<Trend, string> = { up: "up", down: "down", sideways: "sideways" };
@@ -282,14 +294,14 @@ export function gradeExam(transition: ExamTransition, scenarios: StoredScenario[
       "decision",
       a.decision === k.decision,
       k.decision === "trade"
-        ? "The trend was clear and there was an old swing level still to cross: a trade, entered only if price crosses it."
+        ? "The trend was clear and there was an old swing level still to cross: a trade, entered only once price closes 3 points past it and pulls back."
         : "With no clear trend, or no level left to cross, the rule is to wait.",
     );
     if (k.decision === "trade") {
       if (pro) {
-        add("entry", a.entryChoiceId === k.entryChoiceId, `The entry is just past the last swing ${k.direction === "bullish" ? "top" : "bottom"}, at ${k.entry?.toFixed(2)}, so the market has to prove itself first.`);
+        add("entry", a.entryChoiceId === k.entryChoiceId, `The entry is 1 point past the last swing ${k.direction === "bullish" ? "top" : "bottom"}, at ${k.entry?.toFixed(2)}: bought on the pullback after a close 3 points past it, so the market has proved itself first.`);
       }
-      add("stop", a.stopChoiceId === k.stopChoiceId, `The stop goes just beyond the last swing ${k.direction === "bullish" ? "bottom" : "top"}, at ${k.stop?.toFixed(2)}: the price that proves the idea wrong.`);
+      add("stop", a.stopChoiceId === k.stopChoiceId, `The stop goes 3 points the other side of that same ${k.direction === "bullish" ? "top" : "bottom"}, at ${k.stop?.toFixed(2)}: back under it, the crossing has failed.`);
       const sharesOk = k.shares !== null && typeof a.shares === "number" && Math.abs(a.shares - k.shares) <= Math.max(1, k.shares * 0.05);
       add("size", sharesOk, `Risking 1% of $${ACCOUNT_USD.toLocaleString("en-US")} is $${(ACCOUNT_USD * RISK_PCT) / 100}; divided by the risk per share (${k.entry !== null && k.stop !== null ? Math.abs(k.entry - k.stop).toFixed(2) : "?"}) that is ${k.shares} shares.`);
     }

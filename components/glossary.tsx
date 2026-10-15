@@ -26,7 +26,7 @@ const GROUPS: { heading: string; terms: Term[] }[] = [
       {
         term: "Entry (blue line)",
         plain:
-          "The price where the trade turns on. If price crosses this line, the setup is 'triggered' and that's where you'd get in.",
+          "The price where you get in. First price has to close a little past an old high (or low, for a short); then the buy waits on this line, just past that old level, and fills when price pulls back to it.",
       },
       {
         term: "Stop loss (red line)",
@@ -150,7 +150,7 @@ const GROUPS: { heading: string; terms: Term[] }[] = [
       {
         term: "Buy at advised price vs. Buy now",
         plain:
-          "'At advised price' waits to buy exactly at the entry line. 'Buy now' buys at the current market price right away.",
+          "'At advised price' waits for price to pull back to the entry line and buys there. 'Buy now' buys at the current market price right away.",
       },
     ],
   },

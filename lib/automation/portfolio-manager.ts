@@ -50,7 +50,7 @@ import { MAX_NEW_POSITIONS_PER_DAY } from "@/lib/risk/config";
 import { etDateKey } from "@/lib/market/session";
 import type { RulesAlignmentTier } from "@/lib/signals/types";
 import { roundNumberEntryBlocked } from "@/lib/gann/evenFigures";
-import { levelBeforeThreePoints } from "@/lib/gann/pointScale";
+import { gannCrossedLevel } from "@/lib/gann/entryTrigger";
 import { resolveGannRulePrefs } from "@/lib/gann/traderPrefs";
 
 type RiskProfile = "PASSIVE" | "MODERATE" | "AGGRESSIVE";
@@ -304,10 +304,12 @@ async function runForProfile(
       continue;
     }
     if (!gannPrefs.autoOrderRoundNumbers) {
-      // The trigger is the crossed swing level plus Gann's 3 points.
-      const trigger = Number(plan.entry_trigger);
-      const crossedLevel = levelBeforeThreePoints(trigger, plan.direction);
-      const rn = roundNumberEntryBlocked({ entry: trigger, direction: plan.direction, crossedLevel });
+      // The plan's entry is Gann's reaction buy, the crossed level plus 1
+      // point, with its stop 3 points the other side (PLAN.md item 4); the
+      // level is recovered from the two.
+      const entry = Number(plan.entry_trigger);
+      const crossedLevel = gannCrossedLevel(entry, Number(plan.invalidation));
+      const rn = roundNumberEntryBlocked({ entry, direction: plan.direction, crossedLevel });
       if (rn.blocked) {
         result.plansSkipped++;
         result.errors.push({ userId: profile.user_id, planId: plan.plan_id, reason: rn.note ?? "Held at a round number." });

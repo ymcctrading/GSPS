@@ -786,6 +786,13 @@ for the project owner** — do not fix it silently, and re-verify it first:
   swing-chart run agrees: confirmed +0.190R vs stop −0.052R overall. Not
   covered, deliberately: the ticket's "now" market entry (no trigger to
   confirm) and protective orders.
+  **Superseded 2026-10-15 (PLAN.md item 4, owner: "GSPS should be a 1 for 1
+  implementation of Gann's methodology"):** the confirmation is now Gann's
+  crossing rule. A close 3 points past the old level arms the plan; the order
+  rests as a limit at the level plus 1 point and fills on the reaction, with
+  the stop 3 points the other side (W006 pp.20, 46-47). The retest-and-hold
+  sequence survives only as the replay's `entryRule: "confirmed"`.
+  `STRATEGY_VERSION` is `2026-10-15-gann-reaction-entry`.
 - **Non-Gann inputs in the Signal & Regime Engine (F2.5).** SMA 20/50 and
   anchored VWAP (`lib/signals/regime.ts`, `lib/signals/states/trendPullback.ts`)
   feed user-facing tier/"Tradeable" labels and trade-plan expiry. The

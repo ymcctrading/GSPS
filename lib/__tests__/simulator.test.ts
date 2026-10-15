@@ -58,26 +58,24 @@ describe("applyFill", () => {
 });
 
 describe("isTriggered", () => {
-  // Regression: a bearish "advised price" sell (a sell-stop below the current
-  // price per lib/strat/patterns.ts) was firing the instant it was armed,
-  // because the market hadn't yet reached — let alone fallen through — the
-  // entry, and the old marketability check ("sell fills once market >= limit")
-  // is already satisfied above the entry, not below it.
-  it("does not trigger a sell-stop entry while the market is still above it", () => {
-    expect(isTriggered("sell", 28.21, 28.32)).toBe(false);
+  // Since PLAN.md item 4 an advised entry is Gann's reaction buy: a limit at
+  // the crossed level plus 1 point that fills when price reacts back to it
+  // (W006 pp.20, 46-47). It was a breakout stop-entry before.
+  it("does not fill a buy limit while the market is still above it", () => {
+    expect(isTriggered("buy", 51, 52.4)).toBe(false);
   });
 
-  it("triggers a sell-stop entry once the market falls to or through it", () => {
-    expect(isTriggered("sell", 28.21, 28.21)).toBe(true);
-    expect(isTriggered("sell", 28.21, 28.1)).toBe(true);
+  it("fills a buy limit once the market reacts down to or through it", () => {
+    expect(isTriggered("buy", 51, 51)).toBe(true);
+    expect(isTriggered("buy", 51, 50.2)).toBe(true);
   });
 
-  it("does not trigger a buy-stop entry while the market is still below it", () => {
-    expect(isTriggered("buy", 105, 104.99)).toBe(false);
+  it("does not fill a sell limit while the market is still below it", () => {
+    expect(isTriggered("sell", 49, 47.6)).toBe(false);
   });
 
-  it("triggers a buy-stop entry once the market rises to or through it", () => {
-    expect(isTriggered("buy", 105, 105)).toBe(true);
-    expect(isTriggered("buy", 105, 105.5)).toBe(true);
+  it("fills a sell limit once the market rallies up to or through it", () => {
+    expect(isTriggered("sell", 49, 49)).toBe(true);
+    expect(isTriggered("sell", 49, 49.8)).toBe(true);
   });
 });

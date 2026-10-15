@@ -149,14 +149,20 @@ async function lossSeriesRefusal(
  * Owner decision 4 (2026-09-27), and the owner's follow-up that automation
  * adheres to the same rules as everything else: every entry that carries the
  * protocol's levels is placed only once it has confirmed on closed
- * execution-timeframe bars (a close through the trigger, which carries
- * Gann's 3 points, a retest, a close that held). That is the manual ticket's advised
- * entry, Guided Mode, the demo account, and plan-scoped automation, which the
- * autonomous portfolio manager runs through. A plan-sourced order is judged
- * on its plan's own trigger and direction, over the bars since the plan was
- * generated. Measured reason: the confirmed entry beat the resting
- * stop-entry on the full universe (+0.190R vs −0.155R). See
- * `lib/lifecycle/confirmNow.ts`. Returns a refusal, or null to proceed.
+ * execution-timeframe bars. That is the manual ticket's advised entry, Guided
+ * Mode, the demo account, and plan-scoped automation, which the autonomous
+ * portfolio manager runs through. A plan-sourced order is judged on its
+ * plan's own entry, stop and direction, over the bars since the plan was
+ * generated.
+ *
+ * The confirmation is Gann's own since PLAN.md item 4 (2026-10-15, owner:
+ * "GSPS should be a 1 for 1 implementation of Gann's methodology"): a close 3
+ * points past the old level crosses it, and the order then rests as a limit
+ * at the level plus 1 point, filling on the reaction, with the stop 3 points
+ * the other side (W006 pp.20, 46-47). It replaces the retest-and-hold
+ * sequence measured on 2026-09-26 (+0.190R vs −0.155R for the resting
+ * stop-entry). See `lib/lifecycle/confirmNow.ts`. Returns a refusal, or null
+ * to proceed.
  */
 async function entryConfirmationRefusal(
   supabase: SupabaseClient,
@@ -165,15 +171,26 @@ async function entryConfirmationRefusal(
 ): Promise<{ status: number; body: Record<string, unknown> } | null> {
   if (!input.attachLevels || input.assetClass === "option") return null;
 
-  let target: { direction: "bullish" | "bearish"; entryTrigger: number; since?: string } | null = null;
+  let target: { direction: "bullish" | "bearish"; entryTrigger: number; stopPrice: number; since?: string } | null = null;
   if (input.sourcePlanId) {
     const plan = await getTradePlan(supabase, userId, input.sourcePlanId).catch(() => null);
     if (!plan) {
       return { status: 409, body: { error: "The plan behind this order couldn't be read, so its entry can't be confirmed. Nothing was placed.", code: "confirmation_unavailable" } };
     }
-    target = { direction: plan.direction, entryTrigger: plan.coordinates.entryTrigger, since: plan.generatedAt };
+    target = {
+      direction: plan.direction,
+      entryTrigger: plan.coordinates.entryTrigger,
+      stopPrice: plan.coordinates.invalidation,
+      since: plan.generatedAt,
+    };
   } else if (input.entryMode === "advised" && input.limitPrice != null) {
-    target = { direction: input.side === "sell" ? "bearish" : "bullish", entryTrigger: input.limitPrice };
+    // No plan row: the crossing line is read from the entry and stop this
+    // order carries (`gannBreakLine`), so a stop the person moved moves it too.
+    target = {
+      direction: input.side === "sell" ? "bearish" : "bullish",
+      entryTrigger: input.limitPrice,
+      stopPrice: input.attachLevels.stopLoss,
+    };
   }
   if (!target) return null;
 
@@ -497,13 +514,12 @@ export async function placeSimulatedOrder(
     } else {
       const market = await quotePrice(input.symbol, fillAssetClass);
       if (market != null && isTriggered(input.side, submittedLimitPrice!, market)) {
-        // "At advised price" is a breakout/reversal trigger (a buy-stop above
-        // the current bar, a sell-stop below it — see lib/strat/patterns.ts),
-        // not a discount limit: a buy only fills once the market rises to or
-        // through it, a sell only once it falls to or through it. Filling at
-        // `market` rather than the stale `submittedLimitPrice` mirrors what a
-        // real stop-entry reports back, especially after a gap carries price
-        // well past the trigger between polls.
+        // "At advised price" is Gann's reaction buy since PLAN.md item 4: a
+        // limit at the crossed level plus 1 point, filled once the market
+        // reacts back to it (a buy at or below the price, a sell at or
+        // above). Filled at `market`, at or better than the limit. A market
+        // already through the stop fills here and is then refused by the
+        // bracket check below (`fill_outran_bracket`).
         fillPrice = market;
         filled = true;
       }
