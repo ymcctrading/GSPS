@@ -45,3 +45,21 @@
   entry, stop not 3 pts under the crossed top, context-only tops/bottoms, no distribution precondition).
   Its fixable gaps were fixed in 55a6d9a. Structure moves to items 4 and 5. passes unchanged: 11 of 342.
 - Replay: 766 symbols, 15Min, before (main) and after (55a6d9a) queued on Actions.
+
+== 2026-10-15 item 4: Gann's buy-the-reaction entry, stop 3 points under the level ==
+- W006 pp.20, 46-47: a close 3 pts past an old top crosses it; buy the reaction at the level + 1 pt, stop at
+  the level - 3 pts (4 pts at risk, never more than 5). Shorts are the mirror.
+- 4a cf168d2: replay entryRule "reaction". 4b f468a3d: live switch (scan plans, confirmation reads the
+  crossing line from entry and stop, limit-semantics paper fills, automation rests a limit).
+  4c 0288d3e: Gann's exits trail under each week's bottom (A-STOP-05).
+- STRATEGY_VERSION 2026-10-15-gann-reaction-entry.
+- Fresh review (docs/gann-feature-map/item4_review.md): all 5 entries FAIL, mainly because the live wiring
+  wasn't pinned by tests (3 surviving mutations) plus partial-carry gaps.
+- Fixes b031543: ticket sends the protocol stop (entryStop); stop-and-reverse plans keep retest-and-hold;
+  5-point cap enforced at placement; no-plan crossing window is four days; pre-cutover resting orders keep
+  breakout semantics. reactionWiring.test.ts: all 10 new mutations caught.
+- Left open: replay default entryRule is still "stop" (workflow cells set "reaction" explicitly);
+  entryTrigger still drops a setup whose old swing stop is on the wrong side; live broker limit has no
+  gap-through-stop guard (latent: no live connection). The crossed level is replaced by a new 3-Day top
+  after a slow reaction (item 5, per docs/gann-feature-map item5 map).
+- Full suite 2382/2382, tsc clean, eslint 0 errors, terms clean. passes unchanged pending a second review.
