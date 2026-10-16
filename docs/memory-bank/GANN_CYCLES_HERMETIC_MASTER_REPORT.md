@@ -472,6 +472,17 @@ Every item below is an **open recommendation**. Items that touch scoring, gating
     - Never short a stock whose reactions last no more than a month.
     - Pyramid every 10 points, with the stop trailed under the prior month's low.
 25. **G25 — First-year-high leadership filter** (A04 Ch. VII). A stock must cross the high of the campaign's first year (or 3 points above it) before it can lead a later section. A scanner ranking and context field.
+26. **G26 — The Hexagon Chart's time counts, from Gann's text** (A2.1 Ch. 15A/15B, January 1931; reprinted in B15).
+    - The counts: the ring completions 7, 19, 37, 61, 91, 127, 169, 217, 271, 331, 397; the second series 2, 9, 22, 41, 66, 97, 134, 177, 226, 281, 342; the 60th and 66th months; 127 months (10 yr 7 mo) and 169 months (14 yr 1 mo).
+    - Gann names them as points in time measurement for days, weeks, months and years. The numbers are stated in his text, so they don't depend on the lost plate. The plate is needed only to say *which angle* a number sits on.
+    - They live today only in `hexagonChart.ts`, which is research-only. A candidate time count, read like `squareOfNineTime.ts`, under the owner's 2026-09-30 direction. Held for the owner's go-ahead (proposed 2026-10-01).
+27. **G27 — Gann's full Pattern-Chart angle set on the Gann point** (A2.1 Ch. 2, Jan 1931, and Ch. 4, GA-4 to GA-11; surfaced by comparison with B16).
+    - `fans.ts` draws 1×4, 1×2, 1×1, 2×1 and 4×1 on an ATR unit.
+    - Gann's set runs from 16×1 to 1×16. He says to keep the **3×1 "at all times"** on monthly charts from any important bottom, and the 8×1 and 16×1 matter after long declines.
+    - The unit should be the Gann point (`pointScale.ts#gannPoint`), adopted 2026-09-30, not ATR.
+    - From every major pivot, with each angle also **copied to the preceding opposite pivot** (Gann's parallel angles, GA-12 to GA-16; Jensen pp. 112–113; the visible mechanism of the B17 article).
+    - Changes levels and the scored angle criterion, so held for the owner. If built, it is measured on the daily and the execution timeframe.
+28. **G28 — The Master Chart of 360°'s ÷48 (7½°) and ÷7 divisions** (A2.1 Ch. 15A; corroborated by B16's trine harmonics). Missing from `circleOf360.ts`. Measured context first.
 19. **G19 — Wheel angle from prior extremes** (Master Egg Course, quoted in B05). Place each prior high and low on a 360-unit price wheel and treat prices at 0/90/120/180 from them as levels. Research and confluence only, since the illustrations are lost (same caveat as `squareOf20.ts`).
 
 ### Measurement-method enhancements (cycle literature; confluence and diagnostics only)
@@ -496,8 +507,12 @@ Every item below is an **open recommendation**. Items that touch scoring, gating
 ### Astrology research track (priority clarified 2026-09-27, owner direction; see AGENTS.md "Astrology")
 Not low priority, and not first. Where Gann himself names the technique and our files corroborate it, it ranks alongside his other techniques. Each needs an ephemeris calculation, a rule fixed in advance, and Dewey's test (base rate, significance with a multiple-comparisons correction, out-of-sample). A proven technique enters as confluence only.
 - **AS1 — Planetary averages** (1954 soybean letter, quoted in B05): the heliocentric and geocentric averages of Mars through Pluto, and of Jupiter through Pluto (Mars left out), as time/price resistance. Open question to fix *before* testing: smooth the 360°→0° wrap or not (Gann doesn't say).
+  - **Built 2026-09-30 on owner direction, with the COE and MOF** (`lib/gann/planetaryAverages.ts`, source note A12). The letter of March 20, 1954 names the "COE AVERAGE" (not "CE") and the "MOF FORMULA"; Walker and Ganntrader (Tier B) decode them as the circle of eight (Mercury to Pluto) and the mean of five (Mars left out), which match the letter's own paragraphs.
+  - The wrap question is settled: a mean of N longitudes is defined only to within 360/N, so the resistance points are the family A + k × 360/N (60°, 72°, 45°), identical however the wrap is taken. Ganntrader draws those spacings.
+  - One price unit (the Gann point, one to a degree), fixed in advance. The Tier A averages' nearest points join the S/R list; all are measured context factors.
 - **AS2 — Active angles** (1954 letter): a transiting planet's longitude, plus its 90/120/180°, read as a price via the Circle Chart. Mikula's first-trade-horoscope reading is interpretive, so test it separately.
 - **AS3 — Jupiter–Saturn aspects** (1954 letter; 1948 chart; *Speculation* 1954 per B05): conjunction, square, trine, sesquisquare and opposition dates against pivot dates.
+  - **Specification available (2026-10-01, B16).** Gann gives no orbs. L. J. Jensen's published method (1935–78) fixes geocentric tropical positions, the aspect families and orbs: 5% each side, ±9° for the conjunction and opposition, ±2° for the quintiles. Adopting it before any test avoids an orb search. Jensen's ephemeris facts check out against `astronomy-engine`. His hit counts have no base rate.
 - **AS4 — Returns**: the Saturn return (A2.3; B03) and the Mars half-return from a pivot.
 - **AS5 — Eclipse longitude crossed by a planet** (attributed to *Truth of the Stock Tape* and *Stock Selector* by B05): interpretive, lower priority. **Correction C-A4-2 (2026-09-27):** both books were read in full, and neither mentions an eclipse, a planet, a zodiac sign or astrology. The attribution is Mikula's, not Gann's text. Cite AS5 to B05 only unless a Gann source is found.
 - **What A02/A04 do add to this track:**
@@ -507,6 +522,10 @@ Not low priority, and not first. Where Gann himself names the technique and our 
 - **Excluded regardless:** per-market price→degree scales chosen without derivation (Part I §9), and non-Gann astrology (B06, B07, B11) except as test-method reference.
 
 ### Documentation corrections
+- **C-A13-1 — The August 8, 1908 discovery is not named by Gann as the Master Time Factor.** The link is Les Clemens' (1995). Gann's earliest dated use of the name is a letter of July 9, 1927. Corrected in A11's note.
+- **C-A13-2 — The November 1935 lesson (A2.1 Ch. 7) is headed "Forecasting"** and uses neither "Master Time Factor" nor "time factor". The longer title is the compilation's. Its cycles are disclosed rules, and calling them the Master Time Factor is our inference. Corrected in A2.1's note and the catalog.
+- **C-A13-3 — The 1953 calculator lesson names the Master Time Factor once (p. 3), undefined.** Added to A12.
+- **C-A12-1 — "CE AVERAGE" is "COE AVERAGE"** in the March 20, 1954 letter (A12 §4). Corrected in A2.3's note and the catalog.
 - **C1 — AGENTS.md "20-year Master Time Period among cycles"** (in "The scorecard's role"). Gann's "Great Cycle / Master Time Period" is **20 (1931), 60 (1935), 56¾ (1953) or 90 (1955) years depending on the lesson**. The sentence's point (a ranking exists *within* the cycle technique) stands. Correction: cite the lesson and year, e.g. "the Master Time Period among cycles (20 years in the 1931 lesson; later lessons name 60, 56¾ and 90)."
 - **C2 — AGENTS.md "Dewey's seven-item checklist."** Record that Dewey's own list (*The Case for Cycles*, 1967) has 18 criteria. The seven are a working subset, and criteria 6 (changed conditions), 7 (out-of-sample) and 10 (significance) should be answered when a cycle claim is actually being validated.
 - **C3 — `GANN_HISTORICAL_SOURCES.md`:**
@@ -539,6 +558,8 @@ Not low priority, and not first. Where Gann himself names the technique and our 
   - *45 Years in Wall Street* (A09)
   - *The Magic Word* (A10)
   - *Economic Forecaster* 1954 (A11)
+  - the Master Calculator lesson (1953), the circle of 360°, GA-32 and the March 20, 1954 letter (A12, 2026-09-30)
+  - *W. D. Gann on The Master Time Factor*, the Gann Study Group's 2014 compilation of every statement Gann made about it (A13, 2026-10-01). It confirms the Master Time Factor was never disclosed.
 - *Tier B:*
   - B01 Awodele; B02; B03/B03b
   - **B04 Reddy (all 200 pp.)**
@@ -548,12 +569,23 @@ Not low priority, and not first. Where Gann himself names the technique and our 
   - B08; B09; B10a–c; B11 Meadors
   - B12 (the workbook re-uploaded on 2026-09-27 is the same file: same name and 452,608-byte size)
   - B13; B14
+  - B15 Global View Technology help pages (2002), seven screenshots (2026-10-01)
+  - B16 L. J. Jensen, *Astro-Cycles and Speculative Markets* (1978; all 154 pp., 2026-10-01). Its geometry is Gann's January 1931 Pattern Chart. Its astrology is Jensen's own.
+  - B17 tradingwdgann.com, "The Market Geometry of Luther Jensen" (20 screenshots, 2026-10-01). Its visible mechanism is Gann's parallel angles. Its "key" is undisclosed. Its "Descartes" reference is to a character in *Tunnel* (pp. 244–246), checked against the full text.
 - *Tier C:* C01–C07
 - *Tier H:* **H01 Hauck, complete for this edition.** Chs. 1 and 3 are absent from the edition's body.
 
 **What OCR cannot recover:** chart plates and rotated statistical tables (A02/A04 chart pages, A08 pp. 329–366 and the rotated appendix tables, A09 plates). They are data and illustrations, and the text states the rules they illustrate.
 
-**A7 *Face Facts America!* (1940):** read in full from the owner's upload (`sources/A07_face_facts_america_1940.md`). Every Gann source in the owner's folders has now been read.
+**A7 *Face Facts America!* (1940):** read in full from the owner's upload (`sources/A07_face_facts_america_1940.md`). ~~Every Gann source in the owner's folders has now been read.~~ **Corrected 2026-10-01: this was not true.** The text of the Gann books was read, with the gaps below, but most of their pictures were never looked at, and the Master Course PDF was never opened.
+- **Master Course** (`wdgannbook stock market course.pdf`, 464 pp., and its duplicate `wdgann method in detail.pdf`). A2.1 was read from a typed transcription (the `Gann master-course & synthesis.md` Google Doc), whose picture pages carry no text. Every illustration was missed, including Ch. 1's pp. 29–44 and the Ch. 15A/15B plates (pp. 399–417, 421–423) that A2.1 calls "lost". The PDF is too large for the Drive connector (download fails); it needs splitting.
+- ***45 Years in Wall Street*:** the chart plates (pp. 134–146) and the second half of p. 149.
+- ***How to Make Profits in Commodities*:** the chart plates (pp. 329–366, Charts 4–24).
+- ***Truth of the Stock Tape* and *Wall Street Stock Selector*:** the chart pages (OCR only).
+- ***New Stock Trend Detector*:** the chart pages, and the Chrysler worked-trades table that the scan lacks.
+- ***The Magic Word*:** 11 image pages.
+- ***Economic Forecaster* (1954):** 8 pages were read, but the catalog describes a 16-page booklet. Check the page count.
+- **Secondary:** Mikula Vol. 2's chart-only pages; Ingram's Elliott Wave paper (title page only; not Gann); Jensen's base and locality chart pages (B16, ~40 pages).
 
 **Recommended addition:** *The Kybalion* (1908, public domain), the actual text of the seven principles AGENTS.md uses.
 

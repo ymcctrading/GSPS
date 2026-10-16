@@ -45,4 +45,12 @@
 // through the broken level by his 3-point allowance (a failed break); the replay
 // does not enter a plan whose stop an earlier candle of the session traded
 // through, and reinstates it on the same closing test.
-export const STRATEGY_VERSION = "2026-09-30-stop-breach-retired";
+// 2026-09-30 (owner: "zero gaps", COE and MOF "embedded throughout"): the S/R
+// list gains Gann's Square of 144 square ends and centres and the nearest
+// resistance points of his planetary averages (the six, the MOF and the COE,
+// heliocentric and geocentric), via lib/gann/masterLevels.ts on the live scan
+// and the replay. The Master Calculator's time readings, the circle of 360°
+// and the GA-32 time angle are new measured context, not scored.
+// 2026-10-16: both 2026-09-30 changes together once PR #306 was merged with
+// main (the stop-breach retirement and the calculator/planetary levels).
+export const STRATEGY_VERSION = "2026-10-16-calculator-planetary-stop-breach";

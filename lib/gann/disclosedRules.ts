@@ -89,6 +89,19 @@ import { readTiming, type TimingReading } from "@/lib/gann/timeConvergence";
 import { describeOvernightChart, readOvernightChart, type OvernightReading } from "@/lib/gann/overnightChart";
 import { describeCloseCluster, readCloseCluster, type CloseClusterReading } from "@/lib/gann/closeCluster";
 import { describeCapitalStock, readCapitalStock, type CapitalStockReading } from "@/lib/gann/capitalStock";
+import { gannPointForBars } from "@/lib/gann/pointScale";
+import { describeMasterCalculator, readMasterCalculator, type MasterCalculatorReading } from "@/lib/gann/masterCalculator";
+import {
+  describeCircle,
+  describeTimeAngle,
+  readCircle,
+  readTimeAngle,
+  type CircleReading,
+  type TimeAngleReading,
+} from "@/lib/gann/circleOf360";
+import { describePlanetaryAverages, readPlanetaryAverages, type PlanetaryReading } from "@/lib/gann/planetaryAverages";
+import { describeSquareOfNineTime, readSquareOfNineTime, type SquareOfNineTimeHit } from "@/lib/gann/squareOfNineTime";
+import { describeDayCircle, readDayCircle, type DayCircleReading } from "@/lib/gann/dayCircle";
 import {
   describeIncorporationCycle,
   readIncorporationCycle,
@@ -441,6 +454,18 @@ export interface DisclosedRulesContext {
   overnight: OvernightReading | null;
   /** Rule 8: three closes around one price, on days, weeks and months. See `closeCluster.ts`. */
   closeClusters: { daily: CloseClusterReading | null; weekly: CloseClusterReading | null; monthly: CloseClusterReading | null };
+  /** The Square of 144 Master Calculator, price and time (1953). See `masterCalculator.ts`. */
+  masterCalculator?: MasterCalculatorReading | null;
+  /** The circle of 360° in price and time (1953). See `circleOf360.ts`. */
+  circle?: CircleReading | null;
+  /** Price on the degree of its time angle from inception (GA-32). Null without an inception month. */
+  timeAngle?: TimeAngleReading | null;
+  /** The planetary averages, including the COE and MOF (1954 letter). See `planetaryAverages.ts`. */
+  planetary?: PlanetaryReading | null;
+  /** Days, weeks and months from the extreme high and low on the time square's lines (Gann's plate). See `squareOfNineTime.ts`. */
+  squareOfNineTime?: SquareOfNineTimeHit[];
+  /** Gann's day clock at the time of the read (live scan only). See `dayCircle.ts`. */
+  dayCircle?: DayCircleReading | null;
   /** The session this was read for (YYYY-MM-DD). */
   asOf: string;
 }
@@ -483,6 +508,12 @@ export const EMPTY_DISCLOSED_RULES: DisclosedRulesContext = {
   multipleTops: null,
   overnight: null,
   closeClusters: { daily: null, weekly: null, monthly: null },
+  masterCalculator: null,
+  circle: null,
+  timeAngle: null,
+  planetary: null,
+  squareOfNineTime: [],
+  dayCircle: null,
   asOf: "",
 };
 
@@ -492,9 +523,18 @@ export function readDisclosedRules(
   instrument: InstrumentFacts | null = null,
   /** The session being read. Defaults to now (the live scan); the replay passes the replayed session. */
   asOf: Date = new Date(),
+  /**
+   * The instant to read Gann's day clock at: the live scan passes now; the
+   * replay passes null and records the clock at each trade's entry instead
+   * (`contextFactors.ts`).
+   */
+  clock: Date | null = null,
 ): DisclosedRulesContext {
   const campaign = buildCampaignLedger(dailyBars);
   const counterMove = readCounterMove(dailyBars);
+  // One Gann point for the whole read (`pointScale.ts#gannPointForBars`), as the S/R levels use.
+  const unit = gannPointForBars(dailyBars);
+  const inception = instrument?.inception;
   return {
     barMidpoint: readBarMidpoint(dailyBars),
     pricePercentages: readPricePercentages(dailyBars, currentPrice),
@@ -525,6 +565,13 @@ export function readDisclosedRules(
       weekly: readCloseCluster(toWeeklyBars(dailyBars), "weekly"),
       monthly: readCloseCluster(toMonthlyBars(dailyBars), "monthly"),
     },
+    masterCalculator: readMasterCalculator(dailyBars, currentPrice, unit),
+    circle: readCircle(dailyBars, currentPrice, unit),
+    timeAngle:
+      inception && inception.precision !== "year" ? readTimeAngle(currentPrice, unit, inception.date, asOf) : null,
+    planetary: readPlanetaryAverages(asOf, currentPrice, unit),
+    squareOfNineTime: readSquareOfNineTime(dailyBars),
+    dayCircle: clock ? readDayCircle(clock, 0, currentPrice, unit) : null,
     asOf: asOf.toISOString().slice(0, 10),
   };
 }
@@ -626,6 +673,12 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   if (t.square144 && t.square144.units.length >= 2) {
     lines.push(`Time from the ${t.square144.pivotDate} extreme is on a multiple of 12 in ${t.square144.units.join(" and ")}: time counts converge.`);
   }
+  if (ctx.masterCalculator) lines.push(...describeMasterCalculator(ctx.masterCalculator));
+  if (ctx.circle) lines.push(...describeCircle(ctx.circle));
+  if (ctx.timeAngle) lines.push(describeTimeAngle(ctx.timeAngle));
+  if (ctx.planetary) lines.push(...describePlanetaryAverages(ctx.planetary));
+  if (ctx.squareOfNineTime) lines.push(...describeSquareOfNineTime(ctx.squareOfNineTime));
+  if (ctx.dayCircle) lines.push(describeDayCircle(ctx.dayCircle));
   if (t.projection) {
     lines.push(
       `Next swing ${t.projection.kind} projected around ${t.projection.medianDate} from ${t.projection.count} earlier cycles (spread ${t.projection.spreadDays} days${t.projection.spreadDays <= 5 ? ", tight" : ""}).`,
