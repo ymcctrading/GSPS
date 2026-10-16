@@ -43,7 +43,7 @@ describe("placement reads the protocol's first target for the failed-top check",
     const order = (extra: Record<string, unknown>) =>
       OrderSchema.parse({ symbol: "AAPL", side: "buy", qty: 1, entryMode: "advised", limitPrice: 100 + 4.9 / 3, attachLevels: { stopLoss: 99, takeProfit: 118 }, ...extra }) as OrderInput;
     await entryConfirmationRefusal(supabase, "u1", order({ entryStop: 95.1 }));
-    expect(crossed()).toBeCloseTo(100, 6);
+    expect(crossed()).toBeCloseTo(100.005, 6);
     await entryConfirmationRefusal(supabase, "u1", order({ entryStop: 95.1, entryKind: "oldLevel" }));
     expect(crossed()).toBeNull();
     // No protocol stop: the attached (typed) stop does not place a crossing.
@@ -72,6 +72,6 @@ describe("placement reads the protocol's first target for the failed-top check",
     };
     await entryConfirmationRefusal(supabase, "u1", order);
     expect(target()).toBe(116);
-    expect(readEntryConfirmationNow.mock.calls.at(-1)![0].crossedLevel).toBeCloseTo((3 * 101 + 97) / 4, 6);
+    expect(readEntryConfirmationNow.mock.calls.at(-1)![0].crossedLevel).toBeCloseTo((3 * 101 + 97) / 4 + 0.005, 6);
   });
 });

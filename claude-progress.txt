@@ -812,3 +812,8 @@ including the break) survive as equivalent on one session; B3 removed as redunda
 - L2 fixed: lesson now says the hold applies to a move that must clear the top by 3 points to reach TP1.
 - L1 left: scan/replay verdict wiring of crossingLevelOf is pinned by source regex; the hold and the replay entry skip are behavioural.
 - M2 to owner: the exemption counts a 15-minute close past the break line as the pass, while the daily reading lifts a failure only on a daily close past L+3pts, so after such a fill the card can still read the top as failed and no failed-top exit fires until a new test.
+
+2026-10-16 A-LEVELS-04 review 16 (FAIL narrowly). STRATEGY_VERSION 2026-10-16-gann-failed-tops-exact
+- N-M1 fixed: the flat one-cent tolerance came off failedTestInPath (scan and replay pass exact levels; on DOGE it excused a lower second top). protocolCrossedLevel (placement only) now reads the rebuilt level half a cent (CENT_ROUNDING) in the trade's direction.
+- N-L1 fixed: bottom-side sweep and a cent-short hold for both sides; exact sub-dollar comparisons pinned. Mutants C0, C1, sign, top tolerance, bottom tolerance all killed. 3025 tests pass.
+- Note: plan levels are rounded to cents for every symbol (levels.ts round), so a sub-dollar coin's plan is coarse at placement; pre-existing, outside this rule.

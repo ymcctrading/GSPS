@@ -261,4 +261,10 @@
 // 2026-10-16-gann-failed-tops-cent: review 15. The crossing exemption allows
 // a cent, so placement, which rebuilds the crossed level from cent prices,
 // agrees with the scan and the replay at an equal-tops double top.
-export const STRATEGY_VERSION = "2026-10-16-gann-failed-tops-cent";
+//
+// 2026-10-16-gann-failed-tops-exact: review 16. The cent's tolerance came off
+// the scan and the replay, which pass the exact level (on a 16-cent coin it
+// excused a lower second top). Only placement, which rebuilds the level from
+// cent prices, reads it half a cent in the trade's direction. Verdicts match
+// failed-tops-crossing.
+export const STRATEGY_VERSION = "2026-10-16-gann-failed-tops-exact";

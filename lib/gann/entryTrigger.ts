@@ -935,5 +935,15 @@ export function gannCrossedLevel(entry: number, stop: number): number {
  */
 export function protocolCrossedLevel(entry: number, protocolStop: number | null | undefined, kind: GannEntryKind | undefined): number | null {
   if (protocolStop == null || restsWithoutCrossing(kind)) return null;
-  return gannCrossedLevel(entry, protocolStop);
+  // The plan's entry and stop are rounded to the cent (`lib/strat/levels.ts`),
+  // so the level read back can sit up to half a cent short of the one the scan
+  // crossed. It is read at the far end of that rounding, in the trade's
+  // direction, so placement does not refuse a crossing the scan and the replay
+  // let through (review 15 M1). The scan and the replay pass the exact level
+  // and compare it exactly (review 16 N-M1).
+  const sign = entry >= protocolStop ? 1 : -1;
+  return gannCrossedLevel(entry, protocolStop) + sign * CENT_ROUNDING;
 }
+
+/** Half a cent: the most a cent-rounded entry and stop move the level read back. */
+export const CENT_ROUNDING = 0.005;

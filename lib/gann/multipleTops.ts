@@ -155,9 +155,6 @@ export function failedTestAgainst(
  * a lower level, the lower second top included, arms short of the pass and is
  * held (review 14 H).
  */
-/** The rounding error allowed on a crossed level read back from cent prices. */
-export const CROSSED_LEVEL_TOLERANCE = 0.01;
-
 export function failedTestInPath(
   reading: MultipleTopsReading | null | undefined,
   direction: "bullish" | "bearish" | "none",
@@ -168,12 +165,7 @@ export function failedTestInPath(
   const failed = failedTestAgainst(reading, direction);
   if (!failed || entry == null || takeProfit1 == null) return null;
   if (crossedLevel != null) {
-    // A cent's tolerance: placement recovers the crossed level from the plan's
-    // cent-rounded entry and stop, which can land under a cent short of it
-    // (review 15 M1). An engineering figure: prices are quoted in cents.
-    const passesIt = direction === "bullish"
-      ? crossedLevel >= failed.level - CROSSED_LEVEL_TOLERANCE
-      : crossedLevel <= failed.level + CROSSED_LEVEL_TOLERANCE;
+    const passesIt = direction === "bullish" ? crossedLevel >= failed.level : crossedLevel <= failed.level;
     if (passesIt) return null;
   }
   const inPath =
