@@ -498,3 +498,4 @@ is unchecked here (collection-synthesis.md §1.6, §6).
 - L2 (low): A-TIME-04's window pinned at ±2 (±3 closed); the oscillator guard now covers lib/analysis, lib/strat, lib/trade and resolves relative imports (an injected relative import fails it); trendsFromBars pins the weekly roll-up.
 - L3: replay on the new version is next.
 - STRATEGY_VERSION 2026-10-16-gann-record-sections. Checks: vitest 2783 pass; tsc, check:terms, eslint clean.
+- 2026-10-16: passes flipped for A-TIME-04 and C-TIME-02 on the item 7 fresh review's PASS verdicts (item7c_review.md); only the passes field changed. 17 of 342 rules pass.

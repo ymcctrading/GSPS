@@ -141,7 +141,7 @@
     "class": "A",
     "gsps_location": "lib/gann/timeCycles.ts:timeCycles (MAJOR_CYCLE_YEARS 1,2,3,...); lib/gann/timeCycles.ts:yearCycleConvergence — differs: context and coarse ranking only, never gates (F4)",
     "test": "TO WRITE: lib/__tests__/gann.test.ts — timeCycles marks a window active exactly 1, 2 and 3 years after a major low (and high), each within windowDays.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-TIME-05",
@@ -1617,7 +1617,7 @@
     "class": "C",
     "gsps_location": "lib/gann/timeCycles.ts:timeCycles; lib/scoring/score.ts:computeScore — consistent by absence: no price/oscillator divergence feeds the verdict (RSI/MACD are chart overlays and Strategy Modes only)",
     "test": "TO WRITE: lib/validation/__tests__/criteria-gate.test.ts — no CRITERION_KEYS entry or signal gate reads a divergence between price and an oscillator.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "C-TREND-03",
