@@ -101,8 +101,13 @@
   - The average of the six major planets, heliocentric and geocentric, gives the most powerful points for time and price resistance.
   - The five with Mars left out are of great importance too.
   - Also average the eight planets that move around the Sun: "the first most important odd square" (1 + 8 = 9 = 3²).
-  - Students who keep the rules secret will later receive "the very important **COE** AVERAGE, and the **MOF** FORMULA".
-- **Correction C-A12-1.** Our A2.3 note and the reports read this as "CE AVERAGE". The letter says **COE**.
+  - Students who keep the rules secret will later receive "the very important **COE** AVERAGE, and the **MOF** FORMULA" (as printed in *Collected Writings* Vol. 3).
+- **Correction C-A12-1, revised 2026-10-16: the two copies disagree, so the spelling is unsettled.**
+  - *Collected Writings* Vol. 3 (the owner's 35-page PDF) prints **COE**. This note read it there on 2026-09-30 and called the earlier "CE" a misreading.
+  - The typewritten scan in the owner's Drive ("wd Gann using the stars.pdf", Observation of Cycles folder, p. 3) prints **CE AVERAGE**. Re-read 2026-10-16 from the embedded page image (587 × 750 px, 96 ppi) at 6× enlargement: "CE" with a normal word space before "AVERAGE" and no third letter.
+  - Ganntrader 3.0 labels its line "CE, Circle of Eight", and the owner's own instruction of 2026-09-30 says "the CE average".
+  - In that scan the sentence comes after the "March 20, 1954 / W. D. GANN" sign-off and before a "November 6, 1954" date, so it belongs to the November 6, 1954 note rather than the March 20 letter itself (A2.3 already files it there).
+  - Which copy follows Gann's original is unknown: Vol. 3 is a later retyped compilation, and the scan's provenance is not established either. Neither spelling changes the definition used (the circle of eight, Tier B). The code names the average `coe`, which is a label only.
 - **Walker (Tier B)** decodes them:
   - MOF = (Jupiter + Saturn + Uranus + Neptune + Pluto) / 5, the "mean of five"
   - COE = (Mercury + Venus + Mars + Jupiter + Saturn + Uranus + Neptune + Pluto) / 8, the "circle of eight"

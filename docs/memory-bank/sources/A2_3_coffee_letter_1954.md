@@ -32,7 +32,7 @@
 - **Nov 6 1954 note:**
   - "Apply the same rules to grains or any other commodity."
   - A secrecy agreement is invoked.
-  - The "COE AVERAGE" and "MOF FORMULA" are promised to top-tier students only. (Read as "CE" here until 2026-09-30; the letter says **COE**. Decoded, and built, from Walker and Ganntrader: see `A12_master_calculator_1953_and_1954_letter.md` §4.)
+  - The "COE AVERAGE" and "MOF FORMULA" are promised to top-tier students only. (The Drive scan prints "CE AVERAGE"; *Collected Writings* Vol. 3 prints "COE". Unsettled, see A12 §4 C-A12-1, revised 2026-10-16. Decoded, and built, from Walker and Ganntrader: see `A12_master_calculator_1953_and_1954_letter.md` §4.)
 
 ## Relevance to GSPS
 - The strongest primary evidence that Gann **used astrology operationally**: planetary longitudes, aspects and planetary returns counted from pivot dates, and price-to-degree scales.
