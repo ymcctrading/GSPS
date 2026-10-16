@@ -2,6 +2,7 @@
  * Gann's full Pattern-Chart angle set, drawn on the Gann point from the major
  * tops and bottoms, with each angle copied to the preceding opposite pivot
  * (gap G27, built 2026-10-16 under the owner's "every Gann method acts").
+ * Parallels trimmed the same day to the three lines Gann parallels himself.
  *
  * Sources:
  * - Tier A: Master Course Ch. 2 (January 17, 1931), the Square of 90 Pattern
@@ -9,17 +10,22 @@
  *   1×8 and 1×16. Gann says to keep the 3×1 "at all times" on monthly charts
  *   from any important bottom, and the 8×1 and 16×1 matter after long declines.
  * - Tier A: Ch. 4, GA-4 to GA-11 (November 1935): angles from tops and
- *   bottoms; GA-12 to GA-16: parallel angles from tops and bottoms forming the
- *   campaign's channel. His U.S. Steel example draws a 45° down from a low.
+ *   bottoms, every angle from each pivot. GA-6 fixes the scale: a set number
+ *   of points per period, the same for every angle, which is why these lines
+ *   can stand as price levels (the Gann point below). GA-12 to GA-16: parallel
+ *   angles from tops and bottoms forming the campaign's channel, drawn on the
+ *   45° (1×1), the 2×1 and the 4×1 only. His U.S. Steel example draws a 45°
+ *   down from a low.
  * - Corroboration: Jensen pp. 112–113 (B16) parallels the same point line
  *   from the preceding top; the B17 article's visible mechanism is the same.
  *   Its undisclosed per-market "key" is not used (source note B17).
  *
  * What it does: from the extreme low and extreme high of the daily bars, and
  * from the last completed top and bottom of Gann's weekly swing chart, every
- * angle in the set runs up from a bottom and down from a top. Each one is
- * also drawn at the same slope from the pivot of the opposite kind that came
- * before it (the parallel). The value of every line at the last bar is a
+ * angle in the set runs up from a bottom and down from a top. The 45°, 2×1
+ * and 4×1 are also drawn at the same slope from the pivot of the opposite
+ * kind that came before it (the parallel, GA-12 to GA-16); the other angles
+ * get no parallel, because Gann draws none for them. The value of every line at the last bar is a
  * support or resistance point; only the nearest above and the nearest below
  * price join the S/R list (`masterLevels.ts`), on the live scan and the
  * replay alike, so the list isn't flooded.
@@ -62,6 +68,9 @@ export const PATTERN_ANGLES: { label: string; ratio: number }[] = [
   { label: "1x8", ratio: 1 / 8 },
   { label: "1x16", ratio: 1 / 16 },
 ];
+
+/** The angles Gann parallels in GA-12 to GA-16: the 45°, the 2×1 and the 4×1. */
+export const PARALLEL_ANGLES: ReadonlySet<string> = new Set(["1x1", "2x1", "4x1"]);
 
 export interface AnglePivot {
   index: number;
@@ -135,7 +144,7 @@ export function patternAngleLines(bars: Bar[], unit: number): PatternAngleLine[]
       const slope = sign * ratio;
       const price = pivot.price + slope * unit * (last - pivot.index);
       if (price > 0) lines.push({ angle: label, from: pivot, parallelFrom: null, slope, price });
-      if (preceding) {
+      if (preceding && PARALLEL_ANGLES.has(label)) {
         const copy = preceding.price + slope * unit * (last - preceding.index);
         if (copy > 0) lines.push({ angle: label, from: pivot, parallelFrom: preceding, slope, price: copy });
       }

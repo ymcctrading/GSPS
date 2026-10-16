@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
-import { patternAngleLevels, patternAngleLines, PATTERN_ANGLES, readPatternAngles } from "../patternAngles";
+import { PARALLEL_ANGLES, patternAngleLevels, patternAngleLines, PATTERN_ANGLES, readPatternAngles } from "../patternAngles";
 
 const DAY = 86_400_000;
 const START = Date.parse("2026-01-02T00:00:00Z");
@@ -40,9 +40,19 @@ describe("the full angle set", () => {
     const lines = patternAngleLines(B, 1);
     const down = lines.find((l) => l.from.kind === "top" && l.from.index === 10 && l.angle === "1x4" && !l.parallelFrom);
     expect(down?.price).toBe(30 - 9 / 4);
-    const copy = lines.find((l) => l.from.index === 10 && l.angle === "1x4" && l.parallelFrom?.index === 0);
-    expect(copy?.price).toBe(10 - 19 / 4);
-    expect(copy?.slope).toBe(-1 / 4);
+    const fine = patternAngleLines(B, 0.1);
+    const copy = fine.find((l) => l.from.index === 10 && l.angle === "1x1" && l.parallelFrom?.index === 0);
+    expect(copy?.price).toBeCloseTo(10 - 1.9, 10);
+    expect(copy?.slope).toBe(-1);
+  });
+
+  it("parallels only the 45°, 2x1 and 4x1 (GA-12 to GA-16)", () => {
+    const lines = patternAngleLines(B, 0.1);
+    const copied = new Set(lines.filter((l) => l.parallelFrom).map((l) => l.angle));
+    expect([...copied].sort()).toEqual([...PARALLEL_ANGLES].sort());
+    // Every angle still runs from the pivots themselves.
+    const direct = new Set(lines.filter((l) => !l.parallelFrom).map((l) => l.angle));
+    expect(direct.size).toBe(PATTERN_ANGLES.length);
   });
 
   it("drops lines below zero", () => {

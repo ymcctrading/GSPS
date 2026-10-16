@@ -1302,8 +1302,8 @@ They bound how the decision is built, not whether.
   search over orbs, scales or planets.
 
 **Built 2026-10-16 under this decision (gaps G26–G28).** Gann's full angle set
-(16x1 to 1x16) on the Gann point, from the major pivots and copied to the
-preceding opposite pivot, joins the S/R list (`lib/gann/patternAngles.ts`, via
+(16x1 to 1x16) on the Gann point, from the major pivots, with the 45°, 2x1 and
+4x1 copied to the preceding opposite pivot (GA-12 to GA-16), joins the S/R list (`lib/gann/patternAngles.ts`, via
 `masterLevels.ts`, live and replay). `STRATEGY_VERSION` is
 `2026-10-16-gann-pattern-angles`. The Hexagon Chart's time counts, read from
 Gann's own plate (`hexagonTime.ts`), and the Master Chart of 360°'s 48ths and
