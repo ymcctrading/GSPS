@@ -422,6 +422,37 @@ network policy blocked the production site and the Supabase API host, so a
 local dev server could not reach the database either. That click-through
 is still owed.
 
+### Live click-through (2026-10-16)
+
+Run in Chromium against `gsps.vercel.app` and production Supabase, as a new
+Wall Street test account (`gsps-e2e-custom-scripts-20261016@mailinator.com`,
+kept for the owner; Supabase rejects `example.com` addresses, and the email
+confirmation and tier were set by SQL on that one row with the owner's
+go-ahead). Everything on the checklist worked, with no failed app request:
+
+- `/settings/scripts`: "EMA9/SMA20 crossover (test)" saved as v1, survived a
+  reload and re-selected with its source intact.
+- SPY: Check levels answered "Nothing currently armed" (the crossover arms
+  only on the crossing bar). Run backtest evaluated 913 bars and armed 43
+  times (21 bullish / 22 bearish), with the "Evidence only, not a
+  performance claim" text shown in the UI.
+- `/ticker/AAPL`: the "My scripts" picker drew all four series (`ema(9)`,
+  `sma(20)`, `lowest(low,10)`, `highest(high,10)`) on the daily chart.
+- Order ticket: the "Custom script" picker appears under Manual Override and
+  lists the script. Since the crossover was armed on none of 30 liquid
+  symbols, a temporary always-armed script (`close > 0`) was used to check
+  that "Use these levels" fills the manual stop and target; it did, and the
+  script was deleted afterwards. This tested the ticket as deployed that day,
+  before the explain-only change (PR #316) removed that button.
+- `/promotion` rendered (a Wall Street account sees "No further tier
+  promotion is available").
+
+Two small things noticed, not fixed here because the ticket was being
+reworked in #316: the ticket's script check calls `/evaluate` without a
+timeframe, so it reads the route's default rather than the chart's
+timeframe, and "Use these levels" wrote the unrounded TP1 (`347.5030625`)
+into the field.
+
 Roadmap placement: Q2/Q3, alongside the existing "Expanded indicator
 library for self-directed strategy testing" initiative (ROADMAP.md) — see
 that document's entry for this feature.
