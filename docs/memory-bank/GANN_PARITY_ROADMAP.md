@@ -16,8 +16,10 @@ The goal is that every rule Gann **disclosed** runs in GSPS the way he stated it
    - *Face Facts America!* (1940)
    - the 1929 Annual Forecast's sales pages
 
+   **Confirmed 2026-10-01 (A13).** The Gann Study Group's 2014 compilation gathers every statement Gann made about the Master Time Factor: letters, interviews, books and about 40 advertisements from 1921 to 1946. Each says what it does (when cycles repeat, when time runs out, when accumulation or distribution is under way), and none says how. The 1922 interview and *Truth of the Stock Tape* call it a secret, and the 1953 calculator lesson names it once without defining it.
+
    What survives is his **disclosed** time rules (cycle hierarchy, anniversaries, fractions of time, the permanent calendar, counter-move durations) and his **forecasts**. His forward record with the undisclosed method is mixed: the 1929 call was a hit he chose to reprint, and the 1940 war and economy calls mostly missed (master report M7). **GSPS can copy the disclosed rules exactly. It cannot copy the secret, and nothing in our files lets us reconstruct it.**
-2. **Some illustrations are lost.** The Hexagon and Square of 20 plates, and the Master Course chapter figures, don't survive. The modules built on them stay research-only (AGENTS.md, orphan audit item 7).
+2. **Some illustrations ~~are lost~~ were never viewed (corrected 2026-10-01).** The Hexagon and Square of 20 plates and the Master Course chapter figures are in the owner's 464-page PDF, which earlier reads never opened (they used a typed transcription). The modules built on them stay research-only (AGENTS.md, orphan audit item 7).
 3. **Magnitudes don't port literally.** "3 points," "5 cents," "9 points on the Dow" are 1920s–50s share and commodity prices. Gann himself scaled stops and moves to price level (A8's price-scaled cotton-seed-oil stops; the 1951 "normal move = 1/16 of price"). GSPS ports **the rule** and scales **the number**, and says so each time. `combineNearbyLevels` is the standing worked example.
 4. **Gann's astrology is his, but our policy governs how it enters.** Per AGENTS.md (clarified 2026-09-27), it ranks alongside his other techniques by how well it is sourced. It enters only as a labelled confluence field, after an ephemeris calculation and Dewey's full test. It never gates.
 
@@ -35,15 +37,15 @@ The goal is that every rule Gann **disclosed** runs in GSPS the way he stated it
 
 | Domain | Aligned | Partial | Conflict | Missing | Other |
 |---|---|---|---|---|---|
-| Time | 17 | 0 | 0 | 0 | 1 research-only |
-| Price and levels | 10 | 0 | 0 | 0 | — |
+| Time | 17 | 0 | 0 | 1 (hexagon counts, G26) | 1 research-only |
+| Price and levels | 9 | 1 (angles, G27) | 0 | 1 (G28) | — |
 | Trend | 11 | 0 | 0 | 0 | — |
 | Entries, stops, exits, lifecycle | 11 | 1 (pyramiding not automated) | 0 | 0 | — |
 | Volume | 4 | 0 | 0 | 0 | — |
 | Risk and money management | 6 | 0 | 0 | 0 | — |
 | The trader (education) | 4 | 1 | 0 | 0 | — |
 | Astrology, numerology, forecasting | 1 | 0 | 0 | 3 (research) | 2 excluded, 1 cannot be copied |
-| **Total (73 rules)** | **64** | **2** | **0** | **3** | **4** |
+| **Total (75 rules)** | **63** | **3** | **0** | **5** | **4** |
 
 Counts are rows in Part 3, recounted from the row statuses late on 2026-09-28 (the earlier total of 74 was off by one). "Aligned" includes rules built as measured context that the next full run will decide on.
 
@@ -76,14 +78,23 @@ Each row gives the rule and its source, what GSPS does now, the status, and the 
 | 7/14-day alternation of minor and major turns | A2.2 | **Built 2026-09-28 (G9):** `timeConvergence.ts` (7/14/21 days ±1 from the last 3-Day Chart pivot) | Aligned (context, measuring) | — |
 | Incorporation-date anniversary / company age | A03; A2.1 Ch. 7; A04 Ch. VI | **Built 2026-09-28 (D3).** `lib/gann/incorporationCycle.ts`: the anniversary, Gann's U.S. Steel seasonal degrees (45° … 360°) and the 5–60-year cycles from the company's inception date (Wikidata P571 by SEC CIK, stored in `instrument_profile`). On the confluence trace and recorded as replay context factors | Aligned (context, measuring) | Measure on the next run |
 | Periodogram ("harmonic analysis") | A03; 1926 letter (B01) | `spectralCycle.ts`, confluence; **2026-09-28 (M1/M2):** Schuster p, cosinor amplitude with 95% interval and zero-amplitude test, log-price detrending, band-edge and window-trim artifact guards, a 70/30 forward hold-out | Aligned | — |
+| Sixteenths of the seasonal year (Apr 12, May 27, Jul 14, Aug 31, Oct 15, Nov 30, Jan 13, Feb 28), from the Square of Nine plate's labels; 1/16 year ≈ 23 days | B12 (plate verified against A12 Vol. 3 p. 34); A2.1 Ch. 17 | **Built 2026-09-30:** `seasonalCounts.ts` rank 5, at the plate's dates; card, trace, measured factor `seasonalCountSixteenth`. Not added to `timeCycles.ts`' fixed calendar, which stays Gann's 1930 "permanent cycle" list as the F4 test measured it | Aligned (context, measuring) | Decide on the next full run |
+| Square of Nine in time: a pivot's date at the centre, one day (or week) per cell, dates on the angle lines ("measuring out important time factors") | A2.1 Ch. 2; B12 time sheets | **Built 2026-09-30:** `squareOfNineTime.ts`. The plate's lines in closed form ((2k+1)² − (7 − a/45)·k), days/weeks/months from the extreme high and low; card, trace, measured factors `timeSquareCardinal`, `timeSquareOnCross` | Aligned (context, measuring) | Decide on the next full run |
+| The day as a circle, 15° an hour from 6 AM (the plate's clock; the "day quarters") | B12 / A12 plate; A2.1 Ch. 14 | **Built 2026-09-30 (owner: "I always defer to Gann's method"):** `dayCircle.ts`, Gann's clock as drawn (0° = 6:00 AM New York time, 15° an hour; the session is 52.5°–150°). Live card and trace at scan time; replay factors at each entry bar (`entryOnDayCircleMajor`, `entryPriceOnDayTimeAngle`) | Aligned (context, measuring) | Decide on the next full run |
 | Squares of time: Master 12, Square of 52, 36 angle month-counts | A2.1 Ch. 7, 13, 14 | `masterTwelve.ts`, `squareOf52.ts`, `angleMonthCounts.ts` (confluence) | Aligned | — |
 | Decade-digit bull/bear years | A2.1 Ch. 7 | `decadeCycle.ts` (confluence) | Aligned | — |
-| Square of 20 and Hexagon | A2.1 Ch. 7, 15B | research-only | Research-only | Keep, unless new source material appears |
+| Square of 20 and Hexagon | A2.1 Ch. 7, 15B | research-only | Research-only | Keep, unless new source material appears. 2026-10-01: B15's hexagon drawing is the B12 reconstruction again, not Gann's plate |
+| The Hexagon Chart's time counts stated in Gann's text (ring completions, the second series, 60/66, 127 and 169 months) | A2.1 Ch. 15A/15B (Jan 1931) | `hexagonChart.ts` only (research-only) | Missing | Candidate G26: the counts don't need the lost plate. Held for the owner |
 
 ### 3.2 Price and levels
 
 | Gann rule | Source | GSPS today | Status | Next step |
 |---|---|---|---|---|
+| **Square of 144 Master Calculator**: price and time as positions in the square; strongest points ¼, ⅓, ⅜, ½, ⅝, ⅔, ¾, ⅞, full; placements at 0, the low, the high, 72 on half-way points; change of square = change of trend | A12 (Sept 29, 1953; soy bean instructions) | **Built 2026-09-30:** `masterCalculator.ts`. Square ends and centres join the S/R list (`masterLevels.ts`); price positions, time on the change points (days, market days, weeks, months), time-and-price square, squaring the low/high/range in time, Great Cycle fractions on the card, trace and measured factors. `masterTwelve.ts`'s spiral is GSPS's own, now labelled so | Aligned (levels acting; time measuring) | Measure; decide on the time readings |
+| Circle of 360° for price and time: Gann's ordered divisions, the 64ths, ÷6/÷12/÷24, squares to 361; moves and half-way points on natural degrees | A12 (1953) | **Built 2026-09-30:** `circleOf360.ts`, card, trace, measured factors | Aligned (context, measuring) | Decide on the next full run |
+| Price on the degree of its time angle (par = 360°, months from inception) | A12 / GA-32 (1935) | **Built 2026-09-30:** `circleOf360.ts#readTimeAngle`, from the stored inception date (D3); card, trace, measured factors | Aligned (context, measuring) | Decide on the next full run |
+| Master Three-Dimension Chart (time, price, volume → velocity) | A12 brochure (1954) | none | Cannot be copied | Construction undisclosed in every source read |
+| Square of 90 and Square of 52 calculator instructions; May soy beans Square of 67; semi-weekly (Mon–Wed / Thu–Sat) chart; the grain Price-and-Time Circle Chart plate | A12 course index and plates | none | Missing | Needs the missing chapters (owner) and, for the semi-weekly chart, an owner decision on the five-day week |
 | Range divisions: ½ first, then ¼/¾, ⅓/⅔, ⅛s | A2.1 Ch. 2, 13 | `retracement.ts`, `gannRetracementConfluence` (scored) | Aligned | — |
 | Percentages of the extreme *price* (low ÷ 8; high ÷ 8 and ÷ 3; 50% and 100% of a bottom) | A8 pp. 32–34; A09 | **Stage A:** `pricePercentageLevels`; the three major levels join the S/R list | Aligned | G13: add as levels to `retracement.ts`, feeding the same confluence |
 | Old tops become support, old bottoms resistance | A02; A04; A8 | `historicalSR` (scored), `levels.ts` | Aligned | — |
@@ -91,7 +102,8 @@ Each row gives the rule and its source, what GSPS does now, the status, and the 
 | Double and triple tops within a price-scaled band; the 3rd test decides | A05; A8 p. 53 | **Built 2026-09-28:** `multipleTops.ts`: tests clustered per level; testing, crossed, or failed on the third test | Aligned (context, measuring) | Decide on the next full run |
 | The 4th test of a level goes through | A8 p. 43; A09 | **Stage A:** `readLevelTests` counts tests and notes that a 4th usually breaks; measured factors | Aligned (context, measuring) | G15: an invalidation or confluence field |
 | Square of Nine (180° = +1 root) | A2.1 Ch. 13 | `squareOf9.ts` | Aligned | Don't "fix" it to the D-levels table (C5) |
-| Gann angles / 1x1 | A2.1 Ch. 4 | `fans.ts`, `normalizedSlope.ts`, `gannAngleSlope` (scored) | Aligned (price unit ATR-scaled, documented) | — |
+| Gann angles / 1x1 | A2.1 Ch. 2 (Jan 1931), Ch. 4 | `fans.ts`, `normalizedSlope.ts`, `gannAngleSlope` (scored) | Partial (2026-10-01: five of Gann's angles on an ATR unit; the 3×1, 8×1, 16×1 and 1×3 are missing, and the unit should be the Gann point) | G27 |
+| The Master Chart of 360°: 48 divisions of 7½° and the division by 7 | A2.1 Ch. 15A | `circleOf360.ts` has the 1953 order only | Missing | G28 |
 | Price = time squaring | A2.1; A8 | `timePriceSquare` (scored) | Aligned | — |
 | Even figures (100, 200) attract orders; place orders ½–¾ off them | A04 Ch. I, V | **Built 2026-09-28:** `evenFigures.ts`: targets just before a figure and stops beyond one on every plan (live and replay); a notice on the card, chart and ticket (switchable); the portfolio manager holds entries into a figure unless the breakout is that figure (setting, default off); `roundNumberAhead` measured | Aligned | — |
 
@@ -111,6 +123,9 @@ Each row gives the rule and its source, what GSPS does now, the status, and the 
 | Stock's own trend, never index confirmation | A05; A2.1 Ch. 5–6 | `macroBreadthAgrees` uses the stock's own charts | Aligned | Keep it that way (X2 withdrawn) |
 | Campaigns run in 3–4 sections; signals weigh more in the 3rd/4th | A04; A09 Rule 5; A8 p. 51 | **B2:** campaign sections in the ledger; final-stage trail in `exitRules.ts`; `lateSection` factor | Aligned | A section counter in the B2 ledger |
 | Sideways range: stay out; trade the breakaway | A8 p. 52; A04 Ch. V, VII | **Built 2026-09-27 (decision 5).** `rangeReversion.ts` is never tradeable; `lib/gann/breakaway.ts` + `applyBreakawayHold` hold a range-bound Execute to Watch unless the entry crosses the 13-week range's extreme (live scan and replay) | Aligned | — |
+| Overnight Chart: a one-bar swing chart keyed on the lows (¼-point break turns it down; inside day moves it up; outside day up then down) | A2.1 Ch. 3 p. 68 | **Built 2026-10-16:** `overnightChart.ts`, on the card and as measured factors (`overnightLineWithTrade`, `overnightTurnedWithTrade`), live scan and replay | Aligned (context, measuring) | Read the factor table on the next run |
+| Rule 8: 3 days, 3 weeks or 3 months closing around one price, then a long move the way it breaks | A2.1 Ch. 3 | **Built 2026-10-16:** `closeCluster.ts` on daily, weekly and monthly bars; card and measured factors | Aligned (context, measuring) | Read the factor table |
+| Hourly chart gives the first change in trend in active markets | A2.1 Ch. 13 | **Built 2026-10-16:** the 3-bar swing chart on hourly roll-ups, a factor on the intraday crossing and continuation alerts (`lib/scanner/intraday.ts#hourlyChart`), the same chart the intraday replay trades on | Aligned (intraday context) | Measure with the intraday replay profile |
 
 ### 3.4 Entries, stops, exits and lifecycle
 
@@ -128,6 +143,7 @@ Each row gives the rule and its source, what GSPS does now, the status, and the 
 | Pyramiding: decreasing lots every 10 points (price-scaled), stop on each add | A02; A03; A04; A05 | **Built 2026-09-28:** `pyramid.ts` (half the last lot at each crossed swing top once the last lot shows a full risk unit, stop to combined break-even, up to four lots); a Portfolio suggestion; measured with `pyramid: true`; Academy 6 lesson. Automated adds not placed | Partial (suggested and measured; not automated) | Automated adds need the exit managers to track more than one entry per plan |
 | Reverse signal day; 7–10 Day Rule | A8 1951 pp. 311, 317–318 | **Built 2026-09-28 (G20):** `extremeRules.ts` | Aligned (context, measuring) | Act on it once measured |
 | Gap rules (exhaust gap; filled gap reverses the minor trend) | A8 1951 pp. 318–325 | **Built 2026-09-28 (G21):** `extremeRules.ts` (exhaust gap, gaps in new territory, filled-gap reversal; limit days have no equity counterpart) | Aligned (context, measuring) | Act on it once measured |
+| Overnight method: stops 1 point beyond the last Overnight bottom (top); when caught, reverse and "double up" unless no nearby top (bottom) gives the new stop (Rule 4); reverse on an Overnight change after a big move (Rule 7); buy/sell the half-way point of the last swing with a 1-point stop (worked log); never more than 3 points of initial risk | A2.1 Ch. 3 pp. 68–116 | **Built 2026-10-16:** `walkOvernightSystem` in `overnightChart.ts`; the method's stops, half-way point and position on the card; measured on its own by `lib/backtest/replayOvernight.ts` (`/api/backtest?engine=overnight`, `halfway=1`). Places no order: GSPS plans still retire on a broken stop (`stopBreach.ts`) | Partial (measured, not acted on) | **Owner:** whether a caught stop should open the opposite plan, once the run is in. Rule 7's panic trail is not built (the text never defines a panic) |
 
 ### 3.5 Volume
 
@@ -163,13 +179,13 @@ Each row gives the rule and its source, what GSPS does now, the status, and the 
 
 | Item | Source | GSPS today | Status | Next step |
 |---|---|---|---|---|
-| Planetary averages (helio/geo, 6 planets and the 5 without Mars) | A2.3 1954 letter | none | Missing (research) | AS1: ephemeris library, rule fixed in advance, Dewey test, confluence only |
-| Active angles (a planet's longitude and its 90/120/180°) on the Circle Chart | A2.3 | none | Missing (research) | AS2 |
-| Jupiter–Saturn aspects; Saturn return; Mars half-return | A2.3; B03; A2.1 1931 lesson | none | Missing (research) | AS3, AS4 |
+| Planetary averages (helio/geo, 6 planets and the 5 without Mars), the COE average and the MOF formula | A2.3 and A12 (letter of March 20, 1954); COE/MOF decoding Tier B (Walker, Ganntrader) | **Built 2026-09-30 (owner):** `planetaryAverages.ts` (astronomy-engine). Resistance points A + k × 360/N; the six, MOF and COE (helio and geo) nearest points join the S/R list on the live scan and the replay (`masterLevels.ts`); card, trace, measured factors (`onPlanetaryAverage`, `onSixPlanetAverage`, `onMOF`, `onCOE`) | Aligned (acting as price resistance; measuring) | Measure on the next run |
+| Active angles (a planet's longitude and its 90/120/180°) on the Circle Chart | A2.3 | **Built 2026-10-16 (owner: "infuse the astrology connected to Gann, Jensen"):** `astroRules.ts`, Jupiter, Saturn and Uranus helio and geo at 0/60/90/120/135/180°, price as degrees by Gann points; closes through a planet; Sun-travel levels; natural angle; seasonal (15°) points; new moon and lunar return; the wheel of the year's extreme. Under the owner's 2026-10-01 "every Gann method acts", the active angles at 0/90/120/180° act as price resistance: each body's nearest point above and below price joins the S/R list (`activeAngleLevels`, `masterLevels.ts`). The rest are trace lines and measured factors (`astro*`) | Aligned for active-angle levels (acting; measuring); time readings context | Time readings act once item 7's time-window mechanism exists; measure on the next run |
+| Jupiter–Saturn aspects; Saturn return; Mars half-return | A2.3; B03; A2.1 1931 lesson | **Mars half-return built 2026-10-16** (`astroRules.ts`, geo Mars opposite its place at the low, ±2 days, pass count); Jensen's method (B16) the same day in `jensen.ts`, placed by the owner's delegation: the square of 90's price points from the low and the high as S/R levels (`jensenLevels`); its time counts, his Jupiter/Saturn/Uranus aspects with his orbs and Mars/Mercury trigger, and his exhaustion projection as dated windows (`jensenWindows`) for item 7, measured until then. Jupiter–Saturn aspects and the Saturn return are long-cycle and read only through active angles so far | Partly built (context, measuring) | AS3, AS4 |
 | Eclipse longitudes | B05 only (not in A02/A04) | none | Excluded until a Gann source is found | C-A4-2 |
 | Gann's sacred numbers (3, 7, 9, 12…), digital root | A10; blueprint | `digitalRoot.ts` confluence | Aligned (confluence only) | — |
 | Name and letter-count numerology; per-market price-to-degree scales chosen ad hoc | A2.1 Ch. 15A; A03 | none | Excluded | No validatable rule; multiple-comparisons pattern |
-| The undisclosed Master Time Factor forecast | A04; A07 | none | Cannot be copied | See Part 1 |
+| The undisclosed Master Time Factor forecast | A04; A07; A13 | none | Cannot be copied | See Part 1. A13 (2026-10-01) confirms nothing about its working was ever disclosed |
 
 ---
 

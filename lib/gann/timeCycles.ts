@@ -88,8 +88,10 @@ export const DAY_COUNT_BANDS: readonly [number, number][] = [
 /**
  * The full disclosed major/minor time-cycle hierarchy, in years, projected
  * forward from each anchor pivot — added 2026-09-16 per a fuller extraction
- * of `docs/GANN_HISTORICAL_SOURCES.md` A2.1's Chapter 7, "Master Time Factor
- * and Forecasting by Mathematical Rules." Replaces the previous 1-3-year-only
+ * of `docs/GANN_HISTORICAL_SOURCES.md` A2.1's Chapter 7 (Gann's
+ * "Forecasting" lesson, Nov 1935; often titled "Master Time Factor and
+ * Forecasting by Mathematical Rules", though the lesson never uses that term,
+ * see the memory bank's A13). Replaces the previous 1-3-year-only
  * anniversary loop: Gann's own text names 60 years ("Great Cycle... the
  * greatest and most important cycle of all"), 50, 30, 20 ("most stocks...
  * work closer to this cycle than any other"), 15, 10, 7, and 5-year cycles,
@@ -250,7 +252,7 @@ export interface YearCycleConvergence {
 }
 
 /**
- * The yearly half of the Master Time Factor, read on monthly bars — the part
+ * The yearly half of Ch. 7's cycle hierarchy, read on monthly bars — the part
  * `timeCycles()` cannot reach on the one year of daily bars the scans hold,
  * since every daily anchor is under a year old.
  *

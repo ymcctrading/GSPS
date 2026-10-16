@@ -228,7 +228,7 @@ function BudgetLine({ budget }: { budget: IntradayRefreshBudget }) {
  * One card per equity, not one per signal type.
  * -----------------------------------------------------------------------------
  * `evaluateSymbol` (lib/scanner/intraday.ts) can return several `Alert`s for
- * the same symbol from a single poll cycle -- opening momentum, trend
+ * the same symbol from a single poll cycle -- an old top crossed, trend
  * continuation, and unusual volume can all legitimately fire together on
  * the same pass, since each tests a different condition. Rendering one card
  * per alert meant a stock that qualified three ways showed up three times,

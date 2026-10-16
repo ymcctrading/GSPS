@@ -14,7 +14,11 @@ describe("seasonal counts from March 21", () => {
   it("ranks the half year first and finds the midseason points", () => {
     expect(readSeasonalCount(new Date("2026-09-23T15:00:00Z"))?.point.label).toBe("½");
     expect(readSeasonalCount(new Date("2026-08-05T15:00:00Z"))?.point.rank).toBe(4);
-    expect(readSeasonalCount(new Date("2026-10-15T15:00:00Z"))).toBeNull();
+    // Oct 15 became a point (9/16) when the plate's sixteenths were added on
+    // 2026-09-30; Oct 2 sits between the ½ (Sep 22) and 9/16 (Oct 15).
+    expect(readSeasonalCount(new Date("2026-10-02T15:00:00Z"))).toBeNull();
+    expect(readSeasonalCount(new Date("2026-10-15T15:00:00Z"))?.point.label).toBe("9/16");
+    expect(readSeasonalCount(new Date("2027-01-13T15:00:00Z"))?.point.rank).toBe(5);
   });
 });
 

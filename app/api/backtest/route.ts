@@ -56,6 +56,7 @@ import {
 } from "@/lib/backtest/run";
 import { byOutputState, byScoreRange } from "@/lib/backtest/replay";
 import { replaySignalEngineForUniverse } from "@/lib/backtest/replaySignals";
+import { replayOvernightForUniverse } from "@/lib/backtest/replayOvernight";
 import { isTimeframe } from "@/lib/timeframe";
 import { verifyAuth } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/server";
@@ -175,6 +176,7 @@ export async function GET(req: NextRequest) {
   const useProductionStop = productionStopRaw !== null && productionStopRaw !== "0" && productionStopRaw !== "false";
   const wantTrades = searchParams.get("trades") === "1";
   const wantSignalEngine = searchParams.get("engine") === "signal";
+  const wantOvernight = searchParams.get("engine") === "overnight";
   const includeSlippageSensitivity = searchParams.get("slippageSensitivity") === "1";
 
   if ([wantTrades, wantSignalEngine].filter(Boolean).length > 1) {
@@ -189,6 +191,23 @@ export async function GET(req: NextRequest) {
     // (lib/signals), parallel to the Gann/STRAT score's own replay above —
     // see lib/backtest/replaySignals.ts's header for why it reports tier
     // frequency rather than a simulated P&L.
+    // Gann's Overnight method (Master Course Ch. 3) on daily bars, stop and
+    // reverse included; `halfway=1` adds the worked log's half-way-point
+    // entries. Measurement only. See lib/backtest/replayOvernight.ts.
+    if (wantOvernight) {
+      const halfwayEntries = searchParams.get("halfway") === "1";
+      const result = await replayOvernightForUniverse(universe, { halfwayEntries });
+      return NextResponse.json({
+        engine: "overnight",
+        halfwayEntries,
+        symbols: universe,
+        skipped: result.skipped,
+        summary: result.summary,
+        perSymbol: result.results.map((r) => ({ symbol: r.symbol, bars: r.bars, trades: r.trades.length })),
+        ...(wantTrades ? { trades: result.results.flatMap((r) => r.trades.map((t) => ({ symbol: r.symbol, ...t }))) } : {}),
+      });
+    }
+
     if (wantSignalEngine) {
       const result = await replaySignalEngineForUniverse(universe, timeframe);
       return NextResponse.json({

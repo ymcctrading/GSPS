@@ -15,7 +15,7 @@
   - "Jupiter scale" of 12 pts per degree ⇒ 7°30′ Aries
   - 1¢ per degree ⇒ 27°16′ Gemini
   - the contract's dollar value $28,171 ⇒ 11°45′ Capricorn
-- **Price compared to planet positions:** the average of 5 options (8663) = 28° Aries, **60° from heliocentric Jupiter** (20°35′ Gemini). The 21° Capricorn price is **opposite heliocentric Uranus** (21°52′ Cancer).
+- **Price compared to planet positions:** the average of 5 options (8663) = 28° Aries, **60° from heliocentric Jupiter** (recognised as "20°35′ Gemini"; the ephemeris gives 29°43′ Gemini that day, so the scan likely reads 29°35′, which is also what "60° from 28° Aries" needs; A12 §4). The 21° Capricorn price is **opposite heliocentric Uranus** (21°52′ Cancer).
 - **Time angle from a low:** Apr 16 1931 low (435) + 276 months at **50 pts/month** ⇒ 45° angle crosses 8715 on Mar 19 1954.
   - Mar coffee: Oct 1 1936 low 300 + 210 months at 30 pts/month ⇒ 5600; at 40 pts/month ⇒ 4700.
   - The same idea as Gann angles, with pts-per-month as the scale.
@@ -32,7 +32,7 @@
 - **Nov 6 1954 note:**
   - "Apply the same rules to grains or any other commodity."
   - A secrecy agreement is invoked.
-  - The "CE AVERAGE" and "MOF FORMULA" are promised to top-tier students only. **Unknown content; nothing in the catalog discloses them.**
+  - The "COE AVERAGE" and "MOF FORMULA" are promised to top-tier students only. (Read as "CE" here until 2026-09-30; the letter says **COE**. Decoded, and built, from Walker and Ganntrader: see `A12_master_calculator_1953_and_1954_letter.md` §4.)
 
 ## Relevance to GSPS
 - The strongest primary evidence that Gann **used astrology operationally**: planetary longitudes, aspects and planetary returns counted from pivot dates, and price-to-degree scales.

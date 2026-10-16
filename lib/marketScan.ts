@@ -345,7 +345,7 @@ function tradeable(daily: Bar[]): boolean {
 /**
  * Coarse-pass rank bonus when this symbol's own Gann time-cycle projection
  * (`lib/gann/timeCycles.ts`) is inside a turn window matching the
- * candidate's direction — the per-symbol Master Time Factor hierarchy, not
+ * candidate's direction — the per-symbol Ch. 7 cycle hierarchy, not
  * the macro/market-wide calendar. Inverts `timeCycles()` from a post-hoc
  * confluence flag (its only role before this — see `scanTicker.ts` and
  * `lib/backtest/replay.ts`, both of which call it only on symbols already
@@ -771,7 +771,7 @@ const SHORTLIST_MULTIPLE = 4;
  * decides which qualified ones get the limited full-scan slots.
  *
  * Three-question mandate (AGENTS.md):
- * 1. Gann source: Ch.7's Master Time Factor yearly cycles
+ * 1. Gann source: Ch. 7's yearly cycles (the "Forecasting" lesson)
  *    (`docs/GANN_HISTORICAL_SOURCES.md` A2.1), counted as convergence the way
  *    his own worked DJIA example counts elapsed time against several anchors
  *    at once.
