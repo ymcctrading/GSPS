@@ -16,6 +16,10 @@
  * - **Move the stop so the combined position can't lose** (*New Stock Trend
  *   Detector* Rule 5), with a full stop-out losing no more than 10% of capital
  *   (Master Course).
+ * - **Add only once the trade has shown it is with the trend:** a profit at
+ *   the first close that is still there after three days (A-TIME-12, W006
+ *   p.23; `readHoldTime`). Before that, the first lot has not shown which
+ *   side of the trend it is on.
  *
  * How GSPS applies it: `readPyramidAdd` says whether the position has earned
  * an add now, how large, at what trigger, and where the whole position's stop
@@ -46,6 +50,7 @@
 import type { Bar } from "@/lib/types";
 import { beyondByThreePoints } from "@/lib/gann/pointScale";
 import { THREE_DAY_CHART, walkSwingChart } from "@/lib/gann/swingChart";
+import { readHoldTime } from "@/lib/gann/exitRules";
 
 export const MAX_LOTS = 4;
 
@@ -82,6 +87,8 @@ export interface PyramidReading {
   add: PyramidAdd | null;
   /** Why no add is due, in plain words. Null when one is. */
   reason: string | null;
+  /** The first lot closed against the trade on its first day (A-TIME-12): a warning that the trade may be wrong. */
+  holdWarning?: string | null;
 }
 
 export function readPyramidAdd(input: PyramidInput): PyramidReading {
@@ -94,6 +101,23 @@ export function readPyramidAdd(input: PyramidInput): PyramidReading {
   const last = lots[lots.length - 1];
   const risk = Math.abs(first.price - input.initialStop);
   if (!(risk > 0)) return { add: null, reason: "No risk unit to measure profit against." };
+
+  // Time to hold (A-TIME-12): with the trend only once the first lot showed a
+  // profit at its first close and still after three days.
+  const hold = readHoldTime(side, first.price, first.date, daily);
+  const holdWarning = hold?.firstCloseAgainst
+    ? "The first day closed against the trade, a sign it may be wrong."
+    : null;
+  if (hold?.withTrendAfter3 !== true) {
+    return {
+      add: null,
+      reason:
+        hold?.withTrendAfter3 === false
+          ? "The trade did not show a profit at its first close and three days on, so it hasn't shown it is with the trend."
+          : "Three days haven't closed since the first lot, so the trade hasn't shown it is with the trend yet.",
+      holdWarning,
+    };
+  }
 
   // Only add to a winner: the last lot must show a full risk unit of profit.
   const lastProfit = long ? price - last.price : last.price - price;

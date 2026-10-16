@@ -175,4 +175,8 @@
 // moves the section rule or the third-month clock; Gann's exit for a change of
 // trend now also fires on those two calls when they arise after the fill; the
 // live exit check and the exam no longer read the rest of the entry's month.
-export const STRATEGY_VERSION = "2026-10-16-gann-record-sections";
+// Item 7 step 4, 2026-10-16: time to hold (A-TIME-12, W006 p.23). A pyramid
+// add waits until the trade has shown a profit at its first close and again
+// three days on; a first close against the trade is shown as a warning. In the
+// replay's pyramid and the live add suggestion alike.
+export const STRATEGY_VERSION = "2026-10-16-gann-hold-time";

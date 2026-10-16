@@ -499,3 +499,11 @@ is unchecked here (collection-synthesis.md §1.6, §6).
 - L3: replay on the new version is next.
 - STRATEGY_VERSION 2026-10-16-gann-record-sections. Checks: vitest 2783 pass; tsc, check:terms, eslint clean.
 - 2026-10-16: passes flipped for A-TIME-04 and C-TIME-02 on the item 7 fresh review's PASS verdicts (item7c_review.md); only the passes field changed. 17 of 342 rules pass.
+
+## 2026-10-16 Item 7 step 4: time to hold (A-TIME-12, W006 p.23)
+- The three-adverse-closes exit was already built (readGannExit, the entry's written test). Built now: the other two halves. readHoldTime (exitRules.ts) reads the first close from the fill (a close against the entry is a warning) and whether the trade is in profit at the first close and three sessions on ("with the trend").
+- Where it acts: readPyramidAdd refuses an add until withTrendAfter3 is true (and says why), and passes holdWarning on; the live pyramid hint shows the warning. Same function in the replay's pyramid and the live /api/positions/pyramid route (the live lot date is the protocol_exits row's created_at, written when the position is open).
+- Tests: pyramid.test.ts "time to hold" (4 cases incl. a flat first close). They sit in pyramid.test.ts, not the entry's written test (exitRules.test.ts), which covers the exit half and is unchanged.
+- Rule-induced fixture changes: pyramid.test.ts base lot 102 -> 101.8 with stop 98.3 (risk still 3.5), threePoints.test.ts pyramid lots 102 -> 101.8 and 108 -> 108.2. Each lot had filled exactly at the first close, so under the new rule the trade never showed a profit; the asserted triggers are unchanged.
+- Mutations T1-T7 caught (T4, first close at entry read as against, after the flat-close case was added).
+- STRATEGY_VERSION 2026-10-16-gann-hold-time. Checks: vitest 2786 pass; tsc, check:terms, eslint clean.

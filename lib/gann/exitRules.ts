@@ -100,6 +100,31 @@ export interface GannExitReading {
 const day = (b: Bar) => b.t.slice(0, 10);
 
 /**
+ * Gann's time to hold (A-TIME-12, W006 p.23): a loss at the first close
+ * suggests you are wrong; a profit at the first close that is still there
+ * after three days means you are with the main trend. (Three closes against
+ * you is the `three_adverse_closes` exit below.) The fill's own session is
+ * day one. Null before the first close.
+ */
+export interface HoldTimeReading {
+  /** The first session closed against the trade: a warning, not an exit. */
+  firstCloseAgainst: boolean;
+  /** In profit at the first close and still at the third: with the trend. Null until three sessions have closed. */
+  withTrendAfter3: boolean | null;
+}
+
+export function readHoldTime(side: "long" | "short", entry: number, entryDate: string, daily: Bar[]): HoldTimeReading | null {
+  const since = daily.filter((b) => day(b) >= entryDate);
+  if (since.length === 0) return null;
+  const inProfit = (b: Bar) => (side === "long" ? b.c > entry : b.c < entry);
+  const against = (b: Bar) => (side === "long" ? b.c < entry : b.c > entry);
+  return {
+    firstCloseAgainst: against(since[0]),
+    withTrendAfter3: since.length >= 3 ? inProfit(since[0]) && inProfit(since[2]) : null,
+  };
+}
+
+/**
  * Read Gann's exit rules for one open position.
  *
  * `daily` is the completed daily sessions up to now, oldest first, including

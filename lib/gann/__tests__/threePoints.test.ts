@@ -82,7 +82,7 @@ describe("3 points on the entry side", () => {
 
   it("adds a pyramid lot only once the new swing top is crossed by 3 points", () => {
     const daily = bars([100, 101, 102, 104, 106, 108, 110, 109, 107, 105, 104, 106, 108, 117], 0.5, "2026-06-01");
-    const r = readPyramidAdd({ side: "long", lots: [{ qty: 100, price: 102, date: "2026-06-03" }], stop: 90, initialStop: 90, daily, price: 117 });
+    const r = readPyramidAdd({ side: "long", lots: [{ qty: 100, price: 101.8, date: "2026-06-03" }], stop: 90, initialStop: 90, daily, price: 117 });
     expect(r.add).not.toBeNull();
     expect(r.add!.trigger).toBeCloseTo(110.5 + gannThreePoints(110.5), 8);
   });
@@ -128,7 +128,7 @@ describe("3 points on the entry side", () => {
 
   it("adds to a short only once the new swing bottom is broken by 3 points", () => {
     const daily = bars([110, 109, 108, 106, 104, 102, 100, 101, 103, 105, 106, 104, 102, 93], 0.5, "2026-06-01");
-    const r = readPyramidAdd({ side: "short", lots: [{ qty: 100, price: 108, date: "2026-06-03" }], stop: 120, initialStop: 120, daily, price: 93 });
+    const r = readPyramidAdd({ side: "short", lots: [{ qty: 100, price: 108.2, date: "2026-06-03" }], stop: 120, initialStop: 120, daily, price: 93 });
     expect(r.add).not.toBeNull();
     expect(r.add!.trigger).toBeCloseTo(99.5 - gannThreePoints(99.5), 8);
   });
