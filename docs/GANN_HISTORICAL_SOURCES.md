@@ -1061,6 +1061,19 @@ reasoning Gann's own astrology material relies on (A2.1, A2.3, B11).
 **None of these are Gann sources; none should be cited as Gann's own
 claims.**
 
+**Lineage (CYC-20, added 2026-10-16).** Dewey warns that cycle lengths can
+cluster because investigators copy each other, not because the cycle is real
+(C6, criterion 17: 1,404 reports from 327 authors bunch at about 3½, 6 and 18
+years). So a period that several of these sources agree on counts as one
+line of evidence when they share a lineage, and as independent only when they
+don't.
+
+| Source | Lineage | Independent of |
+|---|---|---|
+| C1-C4 Tomes | Foundation for the Study of Cycles (C1 was published by it), then Tomes' own Cycles Research Institute. Builds on Dewey's catalogue of periods. | Not of C5-C6: a Tomes period that matches a Dewey period is one lineage. |
+| C5-C6 Dewey | Founder of the Foundation for the Study of Cycles (1941). His catalogue gathers other investigators' reports, which is the source of the clustering caveat. | Not of C1-C4. |
+| C7 Halberg | Chronobiology, University of Minnesota. Cosinor method; no FSC lineage. | Independent of C1-C6. |
+
 ### C1. Ray Tomes, "Towards a Unified Theory of Cycles" (Foundation for the
 Study of Cycles, 1990; republished 2005 with a correction)
 
