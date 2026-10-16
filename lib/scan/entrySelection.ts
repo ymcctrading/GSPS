@@ -32,6 +32,8 @@
 import type { Bar, StratPattern, TrendReading } from "@/lib/types";
 import type { SetupKind } from "@/lib/types";
 import { weightedTrendAgreement } from "@/lib/gann/timeframeWeight";
+import { readTrend } from "@/lib/analysis/trend";
+import { toWeeklyBars } from "@/lib/gann/disclosedRules";
 import { nearerBuyingPoint, OLDER_LEVELS_YEARS, olderGannLevels, selectGannEntry, type GannEntryTrigger, type OlderGannLevel } from "@/lib/gann/entryTrigger";
 import {
   CONTINUATION_PATTERNS,
@@ -126,10 +128,26 @@ export function isWithGannTrend(trends: Pick<TrendReading, "timeframe" | "direct
 type EntryOf = (direction: EntryDirection) => GannEntryTrigger | null;
 
 /**
+ * The trends a surface can read from the bars it holds: the monthly chart when
+ * it has monthly bars, the weekly chart rolled from the daily, and the daily
+ * (A-TREND-01, W006 p.19). For the surfaces that don't fetch the full scan's
+ * long weekly history: the coarse pass, the graduation exam and the live exit
+ * manager. Pass bars dated before the day being read.
+ */
+export function trendsFromBars(daily: Bar[], monthly: Bar[] = []): Pick<TrendReading, "timeframe" | "direction">[] {
+  return [
+    ...(monthly.length > 0 ? [readTrend(monthly, "1Month")] : []),
+    readTrend(toWeeklyBars(daily), "1Week"),
+    readTrend(daily, "1Day"),
+  ].map((t) => ({ timeframe: t.timeframe, direction: t.direction }));
+}
+
+/**
  * Each side's buying point as the scan prices it (`selectGannEntry`), read
  * from the entry chart, with a bear-market rally sold only while Gann's
  * weighted trend is down (A-ENTRY-18: the bear market is the main trend). The
- * live scan and the replay both price through this.
+ * live scan, the replay, the graduation exam and the live exit manager all
+ * price through this, and nothing else calls `selectGannEntry`.
  */
 export function gannEntryOf(
   bars: Bar[],

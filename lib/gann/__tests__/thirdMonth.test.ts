@@ -45,6 +45,13 @@ describe("a reaction into its third month (A-TIME-01)", () => {
     expect(readGannTrend(held).changing).toBe(false);
   });
 
+  it("counts a two-leg reaction from the section's top, not from its lower bounce (item 6 second review F1)", () => {
+    // 120 down to 110, a 5-day bounce to 113 (under the weekly chart's week), then new lows to day 70 from the top.
+    const twoLeg = daily([...CAMPAIGN, ...leg(120, 110, 30), ...leg(110, 113, 5), ...leg(113, 106, 35)]);
+    expect(buildCampaignLedger(twoLeg)!.counterMoveThirdMonth).toBe(true);
+    expect(readGannTrend(twoLeg).changing).toBe(true);
+  });
+
   it("leaves the trend alone in the second month", () => {
     const second = daily([...CAMPAIGN, ...leg(120, 110, 45)]);
     expect(buildCampaignLedger(second)!.counterMoveThirdMonth).toBe(false);

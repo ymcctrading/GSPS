@@ -26,11 +26,10 @@ import type { Bar } from "@/lib/types";
 import { getMarketDataProvider } from "@/lib/data/provider";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { getInstrumentReference } from "@/lib/data/instrumentReference";
-import { selectGannEntry } from "@/lib/gann/entryTrigger";
 import { restsWithoutCrossing } from "@/lib/gann/entryKind";
 import { readGannExit, type GannExitReading } from "@/lib/gann/exitRules";
 import { etDateKey } from "@/lib/market/session";
-import { entryChart, monthlyChartFrom } from "@/lib/scan/entrySelection";
+import { entryChart, gannEntryOf, monthlyChartFrom, trendsFromBars } from "@/lib/scan/entrySelection";
 
 /** About two years of sessions: enough for the weekly swing chart and the campaign ledger. */
 const DAILY_LOOKBACK_DAYS = 730;
@@ -74,7 +73,7 @@ export interface LiveGannExitInput {
 /**
  * The level a position's entry crossed, read from the same 52 weeks of daily
  * sessions, the same older levels and the same buying point the scan priced
- * the entry from (`entryChart`, `selectGannEntry`). Null when that buying
+ * the entry from (`entryChart`, `gannEntryOf`). Null when that buying
  * point is a double or triple bottom, which crosses nothing (its exit is the stop 3
  * points under it, as in the replay), or when the entry is not beyond the
  * level.
@@ -86,8 +85,12 @@ export function entryCrossedLevel(
   daily: Bar[],
   monthly: Bar[] = [],
 ): number | null {
-  const chart = entryChart(daily, monthly, etDateKey(new Date(openedAt)));
-  const trigger = selectGannEntry(chart.bars, side === "long" ? "bullish" : "bearish", chart.older);
+  const day = etDateKey(new Date(openedAt));
+  const chart = entryChart(daily, monthly, day);
+  // The trend as of the entry, so a short the scan armed as a crossing is not
+  // rebuilt as a bear-market rally sale (A-ENTRY-18; item 6 second review F3).
+  const before = (bars: Bar[]) => bars.filter((b) => b.t.slice(0, 10) < day);
+  const trigger = gannEntryOf(chart.bars, chart.older, trendsFromBars(before(daily), before(monthly)))(side === "long" ? "bullish" : "bearish");
   // A double or triple bottom, or a bottom that held, crossed nothing.
   if (!trigger || restsWithoutCrossing(trigger.kind)) return null;
   // The level only counts as crossed when the entry is actually beyond it.

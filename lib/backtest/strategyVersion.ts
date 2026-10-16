@@ -164,4 +164,10 @@
 // Item 7 step 3, 2026-10-16: a counter-move still making new extremes in its
 // third month (after day 60) changes the trend (A-TIME-01/-02, W006 p.38),
 // alongside the over-balances of space and time, live and in the replay.
-export const STRATEGY_VERSION = "2026-10-16-gann-third-month";
+// Item 6 second review, 2026-10-16: a section's top is the weekly chart's
+// turning point, not every 3-Day swing (W006 p.14), for the section-top rule
+// and the third-month clock; a reaction that broke a month and went under the
+// previous section's top keeps the trend changed until a new section top.
+// The graduation exam and the live exit manager price entries through
+// gannEntryOf, as the scan does.
+export const STRATEGY_VERSION = "2026-10-16-gann-weekly-sections";

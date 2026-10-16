@@ -38,7 +38,6 @@ import type { Bar, ScanResult, SetupKind } from "@/lib/types";
 import { fetchAllTimeframesBatch, getMarketDataProvider } from "@/lib/data/provider";
 import { fetchMostActives } from "@/lib/data/alpaca";
 import { readTrend } from "@/lib/analysis/trend";
-import { toWeeklyBars } from "@/lib/gann/disclosedRules";
 import { rangeMidpoint } from "@/lib/gann/retracement";
 import { etDateKey } from "@/lib/market/session";
 import { atr } from "@/lib/analysis/pivots";
@@ -50,7 +49,7 @@ import {
   type TimeCycleResult,
   type YearCycleConvergence,
 } from "@/lib/gann/timeCycles";
-import { gannMacroDirection, isWithGannTrend } from "@/lib/scan/entrySelection";
+import { gannMacroDirection, isWithGannTrend, trendsFromBars } from "@/lib/scan/entrySelection";
 import { MIN_EQUITY_PRICE_USD, meetsLiquidityFloor, readLiquidity } from "@/lib/scan/liquidity";
 import { scanTicker } from "@/lib/scanTicker";
 import { EXECUTION_TIMEFRAME } from "@/lib/timeframe";
@@ -383,12 +382,7 @@ function cycleBonus(direction: "bullish" | "bearish", cycles: TimeCycleResult | 
  * still differ where a year of history doesn't show the weekly trend.
  */
 export function coarseTrendDirection(daily: Bar[], monthly?: Bar[]): "bullish" | "bearish" | "sideways" {
-  const trends = [
-    ...(monthly && monthly.length > 0 ? [readTrend(monthly, "1Month")] : []),
-    readTrend(toWeeklyBars(daily), "1Week"),
-    readTrend(daily, "1Day"),
-  ];
-  return gannMacroDirection(trends) ?? "sideways";
+  return gannMacroDirection(trendsFromBars(daily, monthly)) ?? "sideways";
 }
 
 export function coarseReversion(
@@ -746,6 +740,16 @@ export async function filterShortable(results: ScanResult[]): Promise<ScanResult
 }
 
 /**
+ * The symbols already on a list, so the continuation pass doesn't re-scan
+ * them. The sell side is kept whole until its shortable cut, so only its top
+ * `perSide` rows count: a low-ranked short that will never publish must not
+ * block its own symbol's with-the-trend buy scan (item 6 second review F5).
+ */
+export function listedSymbols(lists: Record<"bullish" | "bearish", ScanResult[]>, perSide: number): Set<string> {
+  return new Set([...lists.bullish, ...lists.bearish.slice(0, perSide)].map((r) => r.symbol));
+}
+
+/**
  * The best `n` rows the broker reports as shortable, in their ranked order.
  * The list is cut only after the check (item 6 review R5), so a short that
  * can't be borrowed never pushes a shortable one off the list. Checks a chunk
@@ -1049,7 +1053,7 @@ export async function runMarketScan(
   }
 
   if (!continuationSkipped && continuationPool.length > 0) {
-    const published = new Set([...lists.bullish, ...lists.bearish].map((r) => r.symbol));
+    const published = listedSymbols(lists, perSide);
     const sides = (["bullish", "bearish"] as const).filter((d) => continuationPool.some((c) => c.direction === d));
     // Split the budget across the sides being scanned so one side's pool
     // can't consume every scan and leave the other empty.

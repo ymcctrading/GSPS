@@ -35,9 +35,9 @@
 
 import type { Bar } from "@/lib/types";
 import { readGannTrend } from "@/lib/gann/trendStrength";
-import { gannBreakLine, sameGannLevel, selectGannEntry, type GannEntryTrigger, type OlderGannLevel } from "@/lib/gann/entryTrigger";
+import { gannBreakLine, sameGannLevel, type GannEntryTrigger, type OlderGannLevel } from "@/lib/gann/entryTrigger";
 import { priorYearLevelName, regainedLevelName } from "@/lib/scoring/direction-copy";
-import { entryChart } from "@/lib/scan/entrySelection";
+import { entryChart, gannEntryOf, trendsFromBars } from "@/lib/scan/entrySelection";
 
 export type ExamTransition = "novice_to_pro" | "pro_to_expert";
 export const EXAM_TRANSITIONS: readonly ExamTransition[] = ["novice_to_pro", "pro_to_expert"];
@@ -238,7 +238,9 @@ export function buildScenario(
   // Read from the scan's own window, the 52 weeks of sessions before the day,
   // with the monthly chart's older levels.
   const chart = entryChart(daily, monthly, asOf);
-  const trigger = direction ? selectGannEntry(chart.bars, direction, chart.older) : null;
+  // Priced as the scan prices it, the rally sale only in a bear market (A-ENTRY-18).
+  const trends = trendsFromBars(before, monthly.filter((b) => b.t.slice(0, 10) < asOf));
+  const trigger = direction ? gannEntryOf(chart.bars, chart.older, trends)(direction) : null;
   const last = before[before.length - 1];
   // A trade when the old level is still to be crossed, or when it has been
   // crossed and holds, so the buy rests for the reaction (PLAN.md item 5).

@@ -24,7 +24,7 @@ vi.mock("@/lib/data/alpaca", () => ({ fetchMostActives: vi.fn(async () => []) })
 vi.mock("@/lib/scanTicker", () => ({ scanTicker: scanTickerMock }));
 vi.mock("@/lib/brokers/alpaca", () => ({ envCreds: () => ({ key: "k", secret: "s", mode: "paper" }), getAsset: getAssetMock }));
 
-import { runMarketScan, takeShortable } from "@/lib/marketScan";
+import { listedSymbols, runMarketScan, takeShortable } from "@/lib/marketScan";
 
 function daily(): Bar[] {
   return Array.from({ length: 120 }, (_, i) => {
@@ -73,7 +73,7 @@ describe("the sell list's shortable check", () => {
     expect(out.continuationFills.bearish).toBe(1);
   });
 
-  it("takes the best n shortable rows in order, checking no more than it needs", async () => {
+  it("takes the best n shortable rows in order, a chunk of n lookups at a time", async () => {
     const rows = [short("NOSH", 9), short("A", 8), short("B", 7), short("C", 6), short("D", 5)];
     expect((await takeShortable(rows, 2)).map((r) => r.symbol)).toEqual(["A", "B"]);
     getAssetMock.mockClear();
@@ -81,3 +81,12 @@ describe("the sell list's shortable check", () => {
     expect(getAssetMock).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("the symbols already listed (item 6 second review F5)", () => {
+  it("counts only the sell rows that can publish, so a low-ranked short doesn't block its own buy scan", () => {
+    const buys = [short("B1", 5)];
+    const sells = [short("S1", 9), short("S2", 8), short("S3", 2)];
+    expect([...listedSymbols({ bullish: buys, bearish: sells }, 2)].sort()).toEqual(["B1", "S1", "S2"]);
+  });
+});
+

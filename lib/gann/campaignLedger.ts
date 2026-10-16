@@ -108,6 +108,12 @@ export interface CampaignLedger {
    */
   reactionBelowPriorSection: boolean;
   /**
+   * A month since the current section's top broke the month before it. With
+   * `reactionBelowPriorSection` it ends the trend until a new section top: a
+   * later month that holds does not undo it (item 6 second review F4).
+   */
+  monthlyBreakInReaction: boolean;
+  /**
    * The campaign's last three completed counter-moves each smaller than the
    * one before (C-TREND-04, W003 p.17, class C: late in a trend reactions get
    * smaller until a sharp reversal). Context only, never gating.
@@ -214,13 +220,11 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
   }
   const openIsCounter = (bull ? lastPoint.kind === "top" : lastPoint.kind === "bottom") && !resumed;
   let currentCounterMove: CounterMoveSize | null = null;
-  let counterMoveThirdMonth = false;
   if (openIsCounter) {
     let extreme = lastPoint.index;
     for (let i = lastPoint.index + 1; i < bars.length; i++) {
       if (bull ? bars[i].l < bars[extreme].l : bars[i].h > bars[extreme].h) extreme = i;
     }
-    counterMoveThirdMonth = days(bars[lastPoint.index], bars[extreme]) > SECOND_MONTH_END_DAYS;
     const end = bull ? bars[extreme].l : bars[extreme].h;
     currentCounterMove = {
       pct: (Math.abs(lastPoint.price - end) / lastPoint.price) * 100,
@@ -256,18 +260,44 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
   for (let k = 1; k < campaignMonths.length - 1; k++) if (breaks(campaignMonths[k - 1], campaignMonths[k])) earlierBreak = true;
   const monthlyBreakFirst = monthlyBreak && !earlierBreak;
 
-  // The previous section's top (bottom): the trend-side swing point before the
-  // last one. The reaction is everything since the last one.
+  // The sections are the weekly chart's legs (item 6 second review F1): its
+  // trend-side turning points are the section tops (bottoms in a bear
+  // campaign), not every minor 3-Day swing, so a short bounce inside a
+  // reaction or a dip inside a section does not move them. Once price has gone
+  // past the last weekly top, a new section is running and its top is the
+  // running extreme; until then the reaction is still the one from that top.
   const trendKind = bull ? "top" : "bottom";
-  const trendPoints = points.filter((p) => p.kind === trendKind);
-  let reactionBelowPriorSection = false;
-  if (trendPoints.length >= 2) {
-    const priorTop = trendPoints[trendPoints.length - 2].price;
-    const lastTop = trendPoints[trendPoints.length - 1].index;
-    for (let i = lastTop + 1; i < bars.length; i++) {
-      if (bull ? bars[i].l < priorTop : bars[i].h > priorTop) reactionBelowPriorSection = true;
-    }
+  const weeklyTops = weekly.pivots.filter((p) => p.index >= start && p.kind === trendKind);
+  const beyond = (i: number, price: number) => (bull ? bars[i].h > price : bars[i].l < price);
+  let sectionTop = start;
+  let priorTop: number | null = null;
+  const lastTop = weeklyTops[weeklyTops.length - 1];
+  if (lastTop && !bars.slice(lastTop.index + 1).some((_, k) => beyond(lastTop.index + 1 + k, lastTop.price))) {
+    sectionTop = lastTop.index;
+    priorTop = weeklyTops.length >= 2 ? weeklyTops[weeklyTops.length - 2].price : null;
+  } else {
+    const from = lastTop ? lastTop.index : start;
+    sectionTop = from;
+    for (let i = from; i < bars.length; i++) if (beyond(i, bull ? bars[sectionTop].h : bars[sectionTop].l)) sectionTop = i;
+    priorTop = lastTop ? lastTop.price : null;
   }
+  // The reaction: everything since the section's top.
+  let reactionExtreme = -1;
+  for (let i = sectionTop + 1; i < bars.length; i++) {
+    if (reactionExtreme < 0 || (bull ? bars[i].l < bars[reactionExtreme].l : bars[i].h > bars[reactionExtreme].h)) reactionExtreme = i;
+  }
+  const reactionBelowPriorSection =
+    priorTop !== null && reactionExtreme >= 0 && (bull ? bars[reactionExtreme].l < priorTop : bars[reactionExtreme].h > priorTop);
+  // A month since the section's top broke the month before it: the reaction's
+  // part of each month (the top's own month from the day after the top) against
+  // the whole month before.
+  let monthlyBreakInReaction = false;
+  for (const r of monthRanges(bars, sectionTop + 1)) {
+    const k = months.findIndex((m) => m.month === r.month);
+    if (k > 0 && breaks(months[k - 1], r)) monthlyBreakInReaction = true;
+  }
+  // The reaction still making new extremes in its third month (A-TIME-01/-02).
+  const counterMoveThirdMonth = reactionExtreme >= 0 && days(bars[sectionTop], bars[reactionExtreme]) > SECOND_MONTH_END_DAYS;
 
   // Time balancing: the open leg measured against the last completed leg in
   // the same direction.
@@ -300,6 +330,7 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
     monthlyBreak,
     monthlyBreakFirst,
     reactionBelowPriorSection,
+    monthlyBreakInReaction,
     contracting,
     trendDays,
     counterDays,

@@ -65,13 +65,41 @@ describe("a monthly break with the reaction under the previous section's top (it
     expect(readGannTrend(third).direction).toBeNull();
   });
 
-  it("leaves the trend confirmed once the months stop breaking, though the reaction went under", () => {
-    // After the reaction to 75, a steady rise into the next months: no month breaks the one before.
+  // Item 6 second review F4, decided: a reaction that broke a month and went
+  // under the previous section's top has changed the trend; a later month that
+  // holds does not undo it. Only a new section top (the trend resuming) does.
+  it("keeps the trend changed after the months stop breaking, until a new section top", () => {
     const recovered = daily([...leg(30, 40, 20), ...leg(40, 81, 60), ...leg(81, 49.5, 50), ...leg(49.5, 110.5, 120), ...leg(110.5, 75, 30), ...leg(75, 100, 70)]);
     const ledger = buildCampaignLedger(recovered)!;
     expect(ledger.reactionBelowPriorSection).toBe(true);
     expect(ledger.monthlyBreak).toBe(false);
-    expect(readGannTrend(recovered)).toMatchObject({ changing: false, direction: "bullish" });
+    expect(readGannTrend(recovered).changing).toBe(true);
+    const resumed = daily([...leg(30, 40, 20), ...leg(40, 81, 60), ...leg(81, 49.5, 50), ...leg(49.5, 110.5, 120), ...leg(110.5, 75, 30), ...leg(75, 115, 70)]);
+    expect(readGannTrend(resumed).changing).toBe(false);
+  });
+
+  // Item 6 second review F1: the section tops come from the weekly chart, not
+  // every minor 3-day swing. Both shapes hold above the first section's 81, and
+  // their bounce and dip are under the weekly chart's week, so it ignores them.
+  const FIRST_TWO = [...leg(30, 40, 20), ...leg(40, 81, 60), ...leg(81, 49.5, 50)];
+  const TWO_LEG_REACTION = daily([...FIRST_TWO, ...leg(49.5, 110.5, 120), ...leg(110.5, 95, 15), ...leg(95, 100, 5), ...leg(100, 85, 15), ...leg(85, 88, 4)]);
+  const DIP_IN_SECTION = daily([...FIRST_TWO, ...leg(49.5, 90, 60), ...leg(90, 86, 6), ...leg(86, 110.5, 60), ...leg(110.5, 84, 30), ...leg(84, 87, 4)]);
+
+  it("measures a two-leg reaction from the section's top, not from its lower bounce", () => {
+    const ledger = buildCampaignLedger(TWO_LEG_REACTION)!;
+    expect(ledger.monthlyBreak).toBe(true);
+    expect(ledger.reactionBelowPriorSection).toBe(false);
+    // Not changing: the lower 3-day top still leaves the structure unconfirmed, a separate rule.
+    expect(readGannTrend(TWO_LEG_REACTION)).toMatchObject({ weekly: "bullish", changing: false, monthlyWarning: true });
+    expect(readGannTrend(mirror(TWO_LEG_REACTION))).toMatchObject({ weekly: "bearish", changing: false, monthlyWarning: true });
+  });
+
+  it("reads the previous section's top past a minor dip inside the section", () => {
+    const ledger = buildCampaignLedger(DIP_IN_SECTION)!;
+    expect(ledger.monthlyBreak).toBe(true);
+    expect(ledger.reactionBelowPriorSection).toBe(false);
+    expect(readGannTrend(DIP_IN_SECTION)).toMatchObject({ weekly: "bullish", changing: false, monthlyWarning: true });
+    expect(readGannTrend(mirror(DIP_IN_SECTION))).toMatchObject({ weekly: "bearish", changing: false, monthlyWarning: true });
   });
 
   it("reads the mirror the same way in a bear campaign", () => {

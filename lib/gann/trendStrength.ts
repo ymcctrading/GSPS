@@ -175,7 +175,7 @@ export function readGannTrend(bars: Bar[]): GannTrendRead {
       ledger.timeOverbalanced ||
       // A reaction still making new extremes in its third month (A-TIME-01/-02, W006 p.38).
       ledger.counterMoveThirdMonth ||
-      (ledger.monthlyBreak && ledger.reactionBelowPriorSection));
+      (ledger.monthlyBreakInReaction && ledger.reactionBelowPriorSection));
   const monthlyWarning = ledger !== null && ledger.monthlyBreak;
   const confirmed = weekly !== null && structureAgrees && !changing;
 
