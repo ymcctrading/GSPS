@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
-import { readPyramidAdd } from "@/lib/gann/pyramid";
+import { capitalSize, LARGE_CAPITAL_MIN_SHARES, readPyramidAdd } from "@/lib/gann/pyramid";
 import { readHoldTime } from "@/lib/gann/exitRules";
 
 function days(closes: number[], start = "2026-06-01"): Bar[] {
@@ -93,5 +93,52 @@ describe("time to hold (A-TIME-12, W006 p.23)", () => {
     expect(against.add).toBeNull();
     expect(against.reason).toMatch(/did not show a profit at its first close/);
     expect(against.holdWarning).toMatch(/first day closed against the trade/);
+  });
+});
+
+// Rule 21 of the twenty-four (Wall Street Stock Selector, 1930, Ch. II):
+// pyramid longs in stocks with small capital, shorts in stocks with large.
+describe("pyramid side by capital stock (never-failing rule 21)", () => {
+  const base = {
+    side: "long" as const,
+    lots: [{ qty: 100, price: 101.8, date: "2026-06-03" }],
+    stop: 98.3,
+    initialStop: 98.3,
+    daily,
+    price: 111,
+  };
+
+  it("adds to a long in a stock with a small capital stock", () => {
+    expect(readPyramidAdd({ ...base, capitalStock: 200_000_000 }).add?.qty).toBe(50);
+  });
+
+  it("does not add to a long in a stock with a large capital stock", () => {
+    const r = readPyramidAdd({ ...base, capitalStock: 5_000_000_000 });
+    expect(r.add).toBeNull();
+    expect(r.reason).toMatch(/small capital stock/);
+  });
+
+  it("does not add to a short in a stock with a small capital stock", () => {
+    const r = readPyramidAdd({ ...base, side: "short", stop: 105, initialStop: 105, price: 95, capitalStock: 200_000_000 });
+    expect(r.add).toBeNull();
+    expect(r.reason).toMatch(/large capital stock/);
+  });
+
+  it("lets a short in a stock with a large capital stock through to the other rules", () => {
+    const r = readPyramidAdd({ ...base, side: "short", stop: 105, initialStop: 105, price: 95, capitalStock: 5_000_000_000 });
+    expect(r.reason ?? "").not.toMatch(/capital stock/);
+  });
+
+  it("holds the add when a stock's share count is unknown", () => {
+    const r = readPyramidAdd({ ...base, capitalStock: null });
+    expect(r.add).toBeNull();
+    expect(r.reason).toMatch(/share count/);
+  });
+
+  it("reads small and large on the labelled cutoff", () => {
+    expect(capitalSize(LARGE_CAPITAL_MIN_SHARES - 1)).toBe("small");
+    expect(capitalSize(LARGE_CAPITAL_MIN_SHARES)).toBe("large");
+    expect(capitalSize(null)).toBeNull();
+    expect(capitalSize(0)).toBeNull();
   });
 });

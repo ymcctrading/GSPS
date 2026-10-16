@@ -12,6 +12,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getMarketDataProvider } from "@/lib/data/provider";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { readPyramidAdd } from "@/lib/gann/pyramid";
+import { getInstrumentReference } from "@/lib/data/instrumentReference";
 import { etDateKey } from "@/lib/market/session";
 
 export async function GET(req: NextRequest) {
@@ -39,9 +40,10 @@ export async function GET(req: NextRequest) {
     const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
     const provider = getMarketDataProvider();
     const now = new Date();
-    const [bars, price] = await Promise.all([
+    const [bars, price, reference] = await Promise.all([
       provider.fetchBars(symbol, "1Day", new Date(now.getTime() - 400 * 86_400_000), null, assetClass),
       provider.fetchLatestPrice(symbol, assetClass),
+      assetClass === "us_equity" ? getInstrumentReference(symbol) : Promise.resolve(null),
     ]);
     const today = etDateKey(now);
     const row = plan as {
@@ -59,6 +61,8 @@ export async function GET(req: NextRequest) {
       initialStop: Number(row.stop_loss),
       daily: bars.filter((b) => b.t.slice(0, 10) < today),
       price,
+      // Rule 21: the stored share count picks which side a stock is added to on.
+      ...(assetClass === "us_equity" ? { capitalStock: reference?.sharesOutstanding ?? null } : {}),
     });
     return NextResponse.json(reading);
   } catch (err) {

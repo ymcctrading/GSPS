@@ -1091,6 +1091,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           crossedLevel: restsWithoutCrossing(trigger.kind) ? null : trigger.pivot.price,
           scaleOut: exitRule === "gann-runner" ? { price: target, fraction: RUNNER_SCALE_OUT } : undefined,
           pyramid,
+          isStock: assetClass === "us_equity",
           sharesOn: instrument ? (date) => splitAdjustedSharesAsOf(instrument.sharesHistory, date) : undefined,
         });
         trades.push({
@@ -1372,8 +1373,10 @@ function walkGannExit(input: {
   scaleOut?: { price: number; fraction: number };
   /** Add to the winner on Gann's pyramiding rules (`lib/gann/pyramid.ts`). */
   pyramid?: boolean;
+  /** A stock, so rule 21 reads its capital stock for an add; false for crypto. */
+  isStock?: boolean;
 }): { exit: number; barsHeld: number; reason: GannStopReason | GannExitReason | "timeout"; lots: number; best: number | null } {
-  const { bars, from, maxBarsHeld, long, entry, dailyBars, crossedLevel, sharesOn, scaleOut, pyramid } = input;
+  const { bars, from, maxBarsHeld, long, entry, dailyBars, crossedLevel, sharesOn, scaleOut, pyramid, isStock = false } = input;
   const dir = long ? 1 : -1;
   // Position accounting in units of the first lot (1.0). The result is
   // reported as the single exit price that gives the same P&L per unit, so the
@@ -1421,6 +1424,8 @@ function walkGannExit(input: {
           initialStop: input.stop,
           daily: prior,
           price: prior[prior.length - 1].c,
+          // Rule 21, read as live reads it: the count public on this session.
+          ...(isStock ? { capitalStock: sharesOn?.(date) ?? null } : {}),
         }).add;
         // Lots are fractions of the first here, so the size rule is applied directly.
         if (add) pendingAdd = { qty: lots[lots.length - 1].qty / 2, trigger: add.trigger, newStop: add.newStop };

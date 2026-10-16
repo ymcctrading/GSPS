@@ -52,7 +52,7 @@ export const NEVER_FAILING_RULES: NeverFailingRule[] = [
   { n: 18, rule: "Be just as willing to sell short as to buy.", status: "enforced", where: "lib/gann/entryTrigger.ts", note: "Every entry rule has its short mirror." },
   { n: 19, rule: "Never buy because a price is low or sell short because it is high.", status: "enforced", where: "lib/gann/entryTrigger.ts", note: "Entries need a crossing of an old level, not a price level alone." },
   { n: 20, rule: "Pyramid only after resistance levels are crossed.", status: "enforced", where: "lib/gann/pyramid.ts" },
-  { n: 21, rule: "Pyramid longs in stocks with small capital and shorts in stocks with large capital.", status: "differs", where: "lib/gann/capitalStock.ts", note: "Capital stock is read as context; it doesn't pick which side to pyramid." },
+  { n: 21, rule: "Pyramid longs in stocks with small capital and shorts in stocks with large capital.", status: "enforced", where: "lib/gann/pyramid.ts", note: "Adds read the stored share count: longs under 500 million shares, shorts at or above it (an engineering cutoff; the text gives none). Live suggestion and replay alike." },
   { n: 22, rule: "Never hedge.", status: "person", note: "GSPS never opens a hedge; a person can." },
   { n: 23, rule: "Never change position without a good reason.", status: "person" },
   { n: 24, rule: "Avoid increasing trading after a long run of success.", status: "person" },
