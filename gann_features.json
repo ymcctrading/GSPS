@@ -6,7 +6,7 @@
     "class": "A",
     "gsps_location": "lib/analysis/trend.ts:readTrend; lib/gann/timeframeWeight.ts:weightedTrendAgreement; lib/scan/entrySelection.ts:preferredEntryDirection — differs: monthly/weekly/daily are weighted 30/7/1 and always all read, rather than daily used only for fast stocks",
     "test": "lib/gann/__tests__/timeframeWeight.test.ts > weightedTrendAgreement > lets a single monthly trend outweigh two flat 2-of-3 daily/weekly votes against it",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-TREND-02",
@@ -15,7 +15,7 @@
     "class": "A",
     "gsps_location": "lib/gann/trendStrength.ts:readGannTrend; lib/analysis/trend.ts:readTrend — differs: read off the 3-Day and 7-day swing charts' pivots, applied to monthly/weekly/daily bars alike",
     "test": "lib/gann/__tests__/trendStrength.test.ts > readGannTrend > confirms a stepping uptrend",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-TREND-03",
@@ -51,7 +51,7 @@
     "class": "A",
     "gsps_location": "lib/analysis/levelRole.ts:levelRole; lib/scoring/score.ts:computeScore (historicalSR) — differs: role flip of any clustered pivot level, not specifically the prior campaign's top",
     "test": "TO WRITE: lib/analysis/__tests__/levelRole.test.ts — a reaction low that stays above the prior campaign's top keeps readGannTrend bullish and reads that top as support.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-TREND-07",
@@ -60,7 +60,7 @@
     "class": "A",
     "gsps_location": "lib/gann/campaignLedger.ts:buildCampaignLedger (firstYearHigh); lib/gann/leadership.ts:readLeadership — differs: only a crossed/not-crossed flag on the first-year high, no two-year failure count, and usually null on a year of daily bars",
     "test": "TO WRITE: lib/gann/__tests__/campaignLedger.test.ts — a bull campaign whose first-year high is not exceeded for 24 months reads firstYearHigh.crossed=false and is flagged weak.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-TREND-08",
@@ -69,7 +69,7 @@
     "class": "A",
     "gsps_location": "lib/gann/campaignLedger.ts:buildCampaignLedger (firstYearHigh) — differs: first-year high, not the first 2-3-month rally's high",
     "test": "TO WRITE: lib/gann/__tests__/campaignLedger.test.ts — a campaign whose first 2-3-month rally high is never exceeded is flagged weak.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-TREND-09",
@@ -78,7 +78,7 @@
     "class": "A",
     "gsps_location": "lib/marketScan.ts:coarseContinuation; lib/scan/entrySelection.ts:isGannContinuation — differs: lib/marketScan.ts:coarseReversion (lines 416-429) adds coarse score for extension from the 50-bar range midpoint and fades the extended trend",
     "test": "TO WRITE: lib/__tests__/market-scan-continuation.test.ts — a bullish-trend symbol far above its range midpoint still qualifies as a continuation candidate and is not penalised for extension.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-TREND-10",
@@ -87,7 +87,7 @@
     "class": "A",
     "gsps_location": "lib/gann/stopBreach.ts:isReclaimedByClose; lib/gann/stopBreach.ts:reclaimLevel; lib/gann/pointScale.ts:gannThreePoints — differs: applied to a broken plan stop (failed break), not used as a bear-market-bottom buy signal",
     "test": "lib/gann/__tests__/stopBreach.test.ts > readStopBreach > stands the plan again when a closed bar has closed back through the line: a failed break",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-TREND-11",
@@ -186,7 +186,7 @@
     "class": "A",
     "gsps_location": "lib/lifecycle/entryConfirmation.ts:advanceEntryConfirmation; lib/lifecycle/confirmNow.ts:readEntryConfirmationNow; lib/trade/place-order.ts; lib/gann/accumulation.ts:readAccumulation — differs: the four-stage touch/break/retest/hold sequence comes from the GSPS spec pack, not Gann",
     "test": "lib/lifecycle/__tests__/entryConfirmation.test.ts > entry confirmation — bullish break/retest/confirm > an indicator flip / initial break alone can never produce entryReady",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-TIME-10",
@@ -429,7 +429,7 @@
     "class": "A",
     "gsps_location": "lib/gann/timeRules.ts:readTimeRules (halt) — differs: the 2-3-day halt is context only, and its stop is placed 0.3% (LOST_MOTION_BUFFER_PCT) beyond the extreme, not price-scaled 3 points (timeRules.ts:52); no 2-3-week hold rule",
     "test": "TO WRITE: lib/gann/__tests__/timeRulesAndTops.test.ts — a bottom held for 2-3 sessions yields a halt at 'bottom' with its stop gannThreePoints(price) below the lowest day.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-ENTRY-02",
@@ -438,7 +438,7 @@
     "class": "A",
     "gsps_location": "lib/gann/multipleTops.ts:readMultipleTops (bottom); lib/gann/disclosedRules.ts:readLevelTests — differs: context only; same-level band 1% (multipleTops.ts:34); no stop derived from it",
     "test": "TO WRITE: lib/gann/__tests__/timeRulesAndTops.test.ts — three bottoms within the band read as a bottom cluster with tests>=3, and a buy point there carries a stop no more than gannThreePoints below the level.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-ENTRY-03",
@@ -465,7 +465,7 @@
     "class": "A",
     "gsps_location": "none — differs: lib/gann/entryTrigger.ts:computeGannEntryTrigger crosses only the last completed 3-Day Chart top",
     "test": "TO WRITE: lib/gann/__tests__/entryTrigger.test.ts — a close above the prior calendar year's high by gannThreePoints marks a yearly-top crossing that a later reaction may be bought on.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-ENTRY-06",
@@ -483,7 +483,7 @@
     "class": "A",
     "gsps_location": "lib/signals/states/trendPullback.ts; lib/strat/levels.ts:computeEquityTradeLevels — differs: stop is the nearest support plus a 0.5% buffer inside a 3-15% band (levels.ts:153-157), not 3 points",
     "test": "lib/__tests__/equity-levels.test.ts > computeEquityTradeLevels > anchors the stop to the nearest support level within band, on a long",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-ENTRY-08",
@@ -519,7 +519,7 @@
     "class": "A",
     "gsps_location": "lib/gann/multipleTops.ts:readMultipleTops (top, failed); lib/gann/timeRules.ts:readTimeRules (halt at top) — differs: context only; halt stop 0.3% beyond (timeRules.ts:52)",
     "test": "lib/gann/__tests__/timeRulesAndTops.test.ts > double and triple tops > reads a triple top that failed on its third test",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-ENTRY-15",
@@ -555,7 +555,7 @@
     "class": "A",
     "gsps_location": "lib/gann/timeRules.ts:readTimeRules (reactionInZone, thirdWeek, bearish counter-move) — differs: context only; no weekly-high stop",
     "test": "TO WRITE: lib/gann/__tests__/timeRulesAndTops.test.ts — a 16-day rally against a bearish weekly trend reads reactionInZone and thirdWeek true, and its stop sits gannThreePoints above the prior week's high.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-ENTRY-19",
@@ -573,7 +573,7 @@
     "class": "A",
     "gsps_location": "lib/gann/multipleTops.ts:readMultipleTops; lib/gann/volumeClimax.ts:computeVolumeClimax (high anchor) — differs: the two readings are never combined; context only",
     "test": "TO WRITE: lib/gann/__tests__/volumeClimax.test.ts — a second test of a high on lower volume than the first, heavy-volume test reads retestOnLowerVolume=true and confirms the top.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-STOP-01",
@@ -825,7 +825,7 @@
     "class": "A",
     "gsps_location": "lib/gann/accumulation.ts:readAccumulation (breakout down) — differs: no lower-top precondition and no volume test on the breakout",
     "test": "TO WRITE: lib/gann/__tests__/missingRules.test.ts — after a lower top, a narrow range broken downward on above-average volume reads as a distribution breakout.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-VOLUME-04",
@@ -843,7 +843,7 @@
     "class": "A",
     "gsps_location": "lib/gann/volumeClimax.ts:computeVolumeClimax (retestOnLowerVolume) — differs: reads the lower-volume retest only, not the following advance on heavier volume",
     "test": "TO WRITE: lib/gann/__tests__/volumeRule.test.ts — a secondary low on lower volume than the first, followed by an up-leg on higher volume, confirms.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-VOLUME-06",
@@ -861,7 +861,7 @@
     "class": "A",
     "gsps_location": "lib/gann/capitalStock.ts:readCapitalStock; lib/data/instrumentReference.ts (splitAdjustedSharesAsOf) — differs: reads turnover at tops (A04/A2.1 rules); no float-size vs range rule",
     "test": "lib/gann/__tests__/capitalStock.test.ts > capital-stock turnover (parity D2) > reads two-thirds of the stock in one week at a top as distribution",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-VOLUME-09",
@@ -870,7 +870,7 @@
     "class": "A",
     "gsps_location": "lib/gann/volumeClimax.ts:computeVolumeClimax (dryingUp) — differs: compares the 5 bars at the pivot with the 20 before (DRY_UP_BARS), not a multi-year volume low",
     "test": "TO WRITE: lib/gann/__tests__/volumeRule.test.ts — a low printed on the lowest weekly volume of the stored multi-year history is flagged as a volume-extreme bottom.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-VOLUME-10",
@@ -915,7 +915,7 @@
     "class": "A",
     "gsps_location": "lib/gann/pointScale.ts:gannThreePointsPct — differs: one smooth curve for the allowance; no price-zone speed reading",
     "test": "lib/gann/__tests__/pointScale.test.ts > gannThreePoints > shrinks as a share of price as the price rises, within the clamp",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-PRICE-02",
@@ -924,7 +924,7 @@
     "class": "A",
     "gsps_location": "lib/gann/normalizedSlope.ts:normalizedSlope — differs: price change per bar in ATR units",
     "test": "lib/gann/__tests__/normalizedSlope.test.ts > normalizedSlope > computes (price_t - anchor_price) / (atr_at_anchor * bars_since_anchor)",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-PRICE-03",
@@ -1023,7 +1023,7 @@
     "class": "A",
     "gsps_location": "lib/gann/stopBreach.ts:isStopBreachedByBar / isReclaimedByClose; lib/gann/multipleTops.ts:readMultipleTops — differs: the 3-point tolerance is applied to plan stops only; level clusters use 1%",
     "test": "TO WRITE: lib/gann/__tests__/multipleTops.test.ts — a low that undercuts an old low by less than gannThreePoints counts as a test of that support, not a break.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-LEVELS-07",
@@ -1653,7 +1653,7 @@
     "class": "C",
     "gsps_location": "lib/gann/squareOf9.ts:squareOf9Levels — differs: levels are (√anchor + deg/180)² from a pivot price, not the fixed grid of integer squares and their midpoints; confluence-only, consistent with 'not tradable alone'",
     "test": "TO WRITE: lib/__tests__/gann.test.ts — a squares-of-numbers level set around price 110 contains 100, 110.5 and 121, and no scored criterion reads it.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "C-LEVELS-02",
@@ -1779,7 +1779,7 @@
     "class": "C",
     "gsps_location": "lib/gann/sevenZones.ts:readSevenZones — differs: zones 2–3 describe small reactions qualitatively; there is no shrinking-reaction detector",
     "test": "TO WRITE: lib/gann/__tests__/campaignLedger.test.ts — a campaign whose last three counter-moves each shrink in % size is flagged as contracting.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "C-TREND-05",
@@ -1806,7 +1806,7 @@
     "class": "C",
     "gsps_location": "lib/gann/campaignLedger.ts:buildCampaignLedger (legs[].days) — differs: leg durations are recorded but no up/down time ratio is read",
     "test": "TO WRITE: lib/gann/__tests__/campaignLedger.test.ts — a bullish campaign whose down-leg days exceed its up-leg days is flagged.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "C-OTHER-02",
@@ -2031,7 +2031,7 @@
     "class": "C",
     "gsps_location": "lib/scanner/intraday.ts:scanIntraday — differs: the session 50% point sets direction and invalidation, not a retest entry; lib/signals/states/trendPullback.ts:evaluateTrendPullback — differs: the 1/2 retracement is a with-trend pullback location",
     "test": "TO WRITE: lib/gann/__tests__/retracement.test.ts — after a close below rangeMidpoint, the first rally back to it is reported as a short entry, mirrored for longs.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "C-TIME-23",
