@@ -209,6 +209,7 @@ describe("the replay buys a held bottom at the last close", () => {
     expect(r.trades).toHaveLength(1);
     expect(r.trades[0].entry).toBeCloseTo(H.reactionEntry, 6);
     expect(r.trades[0].stop).toBeCloseTo(H.reactionStop, 6);
+    expect(r.trades[0].entryKind).toBe("hold");
   });
 
   it("does not buy while price stays over the last close", () => {

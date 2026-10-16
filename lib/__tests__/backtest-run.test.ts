@@ -147,6 +147,13 @@ describe("runBacktest", { timeout: REPLAY_TIMEOUT_MS }, () => {
     expect(report.useProductionStop).toBe(false);
   });
 
+  it("splits every trade by the kind of buying point that priced it", async () => {
+    const report = await runBacktest({ symbols: ["MSFT", "SPY"], timeframe: "15Min" });
+    const { crossing, oldLevel, hold } = report.entryKindSplit;
+    expect(report.overall.trades).toBeGreaterThan(0);
+    expect(crossing.trades + oldLevel.trades + hold.trades).toBe(report.overall.trades);
+  });
+
   it("echoes useProductionStop, and both stop models still partition the same trade count", async () => {
     const raw = await runBacktest({ symbols: ["MSFT"], timeframe: "15Min" });
     const widened = await runBacktest({ symbols: ["MSFT"], timeframe: "15Min", useProductionStop: true });

@@ -276,3 +276,17 @@
 - Mutations 14 of 14 caught (two needed new tests: the visible crossing, and the exam skip).
 - STRATEGY_VERSION 2026-10-16-gann-every-year. Full suite 2577 passed, tsc clean, eslint 0 errors
   (44 warnings, pre-existing), terms clean.
+
+== 2026-10-16 replay run 34 (step 2, fc343d9, STRATEGY_VERSION 2026-10-15-gann-double-bottoms) ==
+- 766 symbols, 15Min, 2026-08-17 to 2026-10-15, plan levels, reaction entry. Trades 514 (run 33: 223).
+- Bracket: all +0.029R [-0.044, +0.102], Execute +0.114R on 23, Watch +0.039R on 297. Halves
+  +0.127 / -0.068. Gann runner: all +0.027R, Execute +0.088R on 23; its gain rests on 196 trades
+  still open at the timeout (+0.538R each). Every interval includes zero; second half negative.
+- Continuation 24 trades +0.472R (bracket); reversion 490 +0.008R. Large-cap 44 trades -0.179R.
+- The report has no split by entry kind (crossing / old level); worth adding before step 4's run.
+- Superseded by 2026-10-16-gann-every-year (run dispatched on 67ac1c3).
+
+Note for item 3 (lost motion): the literature thread reports "lost motion 1 7/8 cents" sits in How to
+Make Profits Trading in Commodities p.38 (1951), not the Master Course the roadmap cites; that page
+is unchecked here (collection-synthesis.md §1.6, §6).
+2026-10-16 Replay report: entryKindSplit (crossing / oldLevel / hold) and each trade's entryKind, so the next run reads each buying point on its own. Measurement only, no version bump. Tests: holdWiring entryKind, backtest-run split sums to overall. 2578 passed; tsc, eslint (44 pre-existing warnings), terms clean.

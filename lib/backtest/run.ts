@@ -33,6 +33,7 @@ import {
   byOutputState,
   byScoreRange,
   bySetupKind,
+  byEntryKind,
   combine,
   replay,
   summarise as summariseTrades,
@@ -245,6 +246,12 @@ export interface BacktestReport {
    * only at Execute, so read that side together with the verdict buckets.
    */
   setupKindSplit: { reversion: RunSummary; continuation: RunSummary };
+  /**
+   * The run split by the buying point that priced each entry: a crossing, a
+   * double or triple bottom bought at the old level, or a buy at the close
+   * over a bottom that held.
+   */
+  entryKindSplit: { crossing: RunSummary; oldLevel: RunSummary; hold: RunSummary };
   /**
    * Under `exitRule: "gann"`, the run split by why each trade left (the stop
    * reason that was binding, a Gann exit signal, or the timeout), so each of
@@ -557,6 +564,7 @@ export function buildReport(
   const capSplit = byLargeCap(run.overall);
   const cycleSplit = byYearCycle(run.overall);
   const kindSplit = bySetupKind(run.overall);
+  const entrySplit = byEntryKind(run.overall);
 
   return {
     source: run.source,
@@ -586,6 +594,11 @@ export function buildReport(
     setupKindSplit: {
       reversion: summarise(kindSplit.reversion),
       continuation: summarise(kindSplit.continuation),
+    },
+    entryKindSplit: {
+      crossing: summarise(entrySplit.crossing),
+      oldLevel: summarise(entrySplit.oldLevel),
+      hold: summarise(entrySplit.hold),
     },
     exitReasonSplit: Object.fromEntries(
       [...new Set(run.overall.trades.flatMap((t) => (t.exitReason ? [t.exitReason] : [])))].map((reason) => [

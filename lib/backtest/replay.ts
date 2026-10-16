@@ -95,7 +95,7 @@ import {
 } from "@/lib/scoring/proximity";
 import type { CriterionWeights } from "@/lib/scoring/weights";
 import { computeGannEntryTrigger, sameGannLevel, selectGannEntry, type GannEntryTrigger } from "@/lib/gann/entryTrigger";
-import { restsWithoutCrossing } from "@/lib/gann/entryKind";
+import { restsWithoutCrossing, type GannEntryKind } from "@/lib/gann/entryKind";
 import { advanceEntryConfirmation, entryReady, freshEntryConfirmation } from "@/lib/lifecycle/entryConfirmation";
 import type { EntryConfirmationEvidence } from "@/lib/lifecycle/types";
 import { readTrend } from "@/lib/analysis/trend";
@@ -330,6 +330,13 @@ export interface ReplayTrade {
    * the market scan's continuation pass arms one.
    */
   setupKind: SetupKind;
+  /**
+   * Which of Gann's buying points priced the entry: a crossing of an old top
+   * (or bottom), a double or triple bottom bought at the old level, or a buy at
+   * the close over a bottom that held. Undefined only on records built before
+   * the field existed.
+   */
+  entryKind?: GannEntryKind;
   direction: "bullish" | "bearish";
   entry: number;
   stop: number;
@@ -984,7 +991,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           sharesOn: instrument ? (date) => splitAdjustedSharesAsOf(instrument.sharesHistory, date) : undefined,
         });
         trades.push({
-          symbol, openedAt: live.t, pattern: pattern?.name ?? null, setupKind, direction: trigger.direction,
+          symbol, openedAt: live.t, pattern: pattern?.name ?? null, setupKind, entryKind: trigger.kind, direction: trigger.direction,
           entry, stop, target,
           atrMultiple: executionAtr > 0 ? risk / executionAtr : 0,
           score: decision.score,
@@ -1016,7 +1023,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       }
 
       const base = {
-        symbol, openedAt: live.t, pattern: pattern?.name ?? null, setupKind, direction: trigger.direction,
+        symbol, openedAt: live.t, pattern: pattern?.name ?? null, setupKind, entryKind: trigger.kind, direction: trigger.direction,
         entry, stop, target,
         atrMultiple: executionAtr > 0 ? risk / executionAtr : 0,
         score: decision.score,
@@ -1062,6 +1069,15 @@ export function bySetupKind(result: ReplayResult): { reversion: ReplayResult; co
     reversion: summarise(result.trades.filter((t) => t.setupKind === "reversion")),
     continuation: summarise(result.trades.filter((t) => t.setupKind === "continuation")),
   };
+}
+
+/**
+ * Split a run by the kind of buying point that priced each entry, so the
+ * crossing, the double bottom and the held bottom can each be read on their own.
+ */
+export function byEntryKind(result: ReplayResult): Record<GannEntryKind, ReplayResult> {
+  const of = (kind: GannEntryKind) => summarise(result.trades.filter((t) => (t.entryKind ?? "crossing") === kind));
+  return { crossing: of("crossing"), oldLevel: of("oldLevel"), hold: of("hold") };
 }
 
 /**
