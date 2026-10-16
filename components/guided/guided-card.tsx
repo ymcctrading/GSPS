@@ -1,6 +1,8 @@
 "use client";
 
 import { RoundNumberNotice } from "@/components/gann/round-number-notice";
+import { PlanReadingLine } from "@/components/strategies/plan-reading-line";
+import { planFromLevels } from "@/lib/strategies/explain/params";
 import { useState } from "react";
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
@@ -155,6 +157,15 @@ function WhyPanel({ rec }: { rec: Recommendation }) {
         <Level label="Target 1" value={why.takeProfit1} tone="bull" />
         <Level label="MTP (next level)" value={why.masterProfit} tone="bull" />
       </div>
+      <PlanReadingLine
+        symbol={rec.symbol}
+        plan={planFromLevels(rec.action === "buy" ? "buy" : "sell", {
+          entry: why.entry,
+          stop: why.stopLoss,
+          tp1: why.takeProfit1,
+          mtp: why.masterProfit,
+        })}
+      />
       <RoundNumberNotice price={why.entry} direction={rec.action === "buy" ? "bullish" : "bearish"} />
       <p className="text-xs text-muted">{rec.exitSentence}</p>
       <p className="text-xs text-muted">Higher timeframes: {why.trend}.</p>

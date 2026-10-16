@@ -2,7 +2,10 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-10-01 (Built the three held items from the setup-lifecycle
+**Last updated:** 2026-10-16 (Strategy Modes and custom scripts became
+explain-only by owner decision: GSPS's plan sets every level and a chosen
+technique explains it. See the note on the "Strategy Modes" entry under Q1.)
+Previously 2026-10-01 (Built the three held items from the setup-lifecycle
 work: a dormant pre-entry plan retirement, the replay-only intraday profile and
 a measurable reclaim line; see the note under Q1 and
 `docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md` Part 5.)
@@ -207,7 +210,13 @@ both signal discovery and execution.
   the same on/score-5/no-quiet-hours default the settings API already
   promises, via a full `auth.admin.listUsers()` pass rather than the
   preferences table alone.)*
-- **Strategy Modes** *(2026-09-23, out-of-phase, direct request)* — fits no
+- **Strategy Modes** *(2026-09-23, out-of-phase, direct request)* *(Revised
+  2026-10-16, direct request: explain-only. A chosen mode or custom script no
+  longer supplies an order's levels; it explains GSPS's plan in that
+  technique's terms on the order ticket and, next, on the chart, setup card
+  and every other surface that shows a plan's levels. Built under
+  `lib/strategies/explain/`; see AGENTS.md's "Strategy Modes" section. Where
+  this entry says modes "generate" levels, read it as this narrower rule.)* — fits no
   Q1 strategic goal above (it's a signal-engine addition serving an
   individual trader's own execution style, not monetization/retention), but
   built now at direct request, the same precedent this document's other

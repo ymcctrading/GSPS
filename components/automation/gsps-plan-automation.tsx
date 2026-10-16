@@ -15,6 +15,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PlanReadingLine } from "@/components/strategies/plan-reading-line";
+import { planFromLevels } from "@/lib/strategies/explain/params";
 
 export interface EligiblePlanSummary {
   planId: string;
@@ -149,6 +151,15 @@ function EligiblePlanRow({ plan }: { plan: EligiblePlanSummary }) {
       <p className="mt-2 text-xs text-muted">
         Entry {plan.entryTrigger} · Stop {plan.invalidation} · TP1 {plan.takeProfit1}
       </p>
+      <PlanReadingLine
+        className="mt-1"
+        symbol={plan.instrument}
+        plan={planFromLevels(plan.direction, {
+          entry: plan.entryTrigger,
+          stop: plan.invalidation,
+          tp1: plan.takeProfit1,
+        })}
+      />
 
       {expanded && (
         <div className="mt-4 flex flex-col gap-3 border-t border-border pt-4">

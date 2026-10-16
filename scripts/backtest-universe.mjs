@@ -365,6 +365,7 @@ async function main() {
   try {
     const run = await server.ssrLoadModule("/lib/backtest/run.ts");
     const { replay, combine } = await server.ssrLoadModule("/lib/backtest/replay.ts");
+    const { replayIntraday } = await server.ssrLoadModule("/lib/backtest/replayIntraday.ts");
     const { getMarketDataProvider } = await server.ssrLoadModule("/lib/data/provider.ts");
     if (typeof run.buildReport !== "function") {
       throw new Error("lib/backtest/run.ts has no buildReport on this ref — merge main into it first.");
@@ -437,8 +438,17 @@ async function main() {
           const ref = references.get(symbol.toUpperCase());
           const instrument = ref ? { sharesHistory: ref.history, inception: ref.reference.inception } : undefined;
           cells.forEach((cell, c) => {
+            // `profile: "intraday"` is the replay-only intraday profile
+            // (lib/backtest/replayIntraday.ts); every other cell is the production method.
+            const opts = cell.options ?? {};
             perCell[c].push(
-              replay(symbol, bars, { targetR: args.targetR, ...(cell.options ?? {}), ...run.replaySeriesOptions(series, market), instrument }),
+              opts.profile === "intraday"
+                ? replayIntraday(symbol, bars, {
+                    ...(opts.costPerShare !== undefined ? { costPerShare: opts.costPerShare } : {}),
+                    ...(opts.reclaimPoints !== undefined ? { reclaimPoints: opts.reclaimPoints } : {}),
+                    dailyBars: series.daily,
+                  })
+                : replay(symbol, bars, { targetR: args.targetR, ...opts, ...run.replaySeriesOptions(series, market), instrument }),
             );
           });
           used.push(symbol);

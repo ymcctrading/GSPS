@@ -6,6 +6,8 @@ import { Check, ChevronDown, ChevronUp, Minus, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatUsd } from "@/lib/utils";
 import { rewardToRisk, type SetupCardModel, type SetupCheck } from "@/lib/setups/card";
+import { PlanReadingLine } from "@/components/strategies/plan-reading-line";
+import { planFromLevels } from "@/lib/strategies/explain/params";
 
 /**
  * The setup card, at the two depths it opens to.
@@ -148,6 +150,10 @@ export function SetupCardPanel({
               multiple={rewardToRisk(levels, levels.mtp)}
             />
           </dl>
+          <PlanReadingLine
+            symbol={model.symbol}
+            plan={planFromLevels(model.side, levels)}
+          />
 
           {model.checks.length > 0 && (
             <div className="flex flex-col gap-1.5">
