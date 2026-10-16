@@ -94,3 +94,15 @@ describe("C-TIME-17: the halving chain as calendar days from a pivot (Master Cou
     expect(r.hits).toHaveLength(0);
   });
 });
+
+describe("C-TIME-17: a halving-chain day is read within one day only (Master Course Ch.13 PDF 375, 379)", () => {
+  it("hits 324 days from the pivot, and not 2 days off it", async () => {
+    const { halvingChainTime } = await import("../masterTwelve");
+    const low = { date: "2025-01-01", price: 50 };
+    const high = { date: "2020-01-01", price: 90 };
+    const add = (d: number) => new Date(Date.parse("2025-01-01T00:00:00Z") + d * 86_400_000).toISOString().slice(0, 10);
+    expect(halvingChainTime(low, high, add(324)).hits.filter((h) => h.pivot === "low").map((h) => h.days)).toEqual([324]);
+    expect(halvingChainTime(low, high, add(325)).hits.some((h) => h.pivot === "low")).toBe(true);
+    expect(halvingChainTime(low, high, add(326)).hits.some((h) => h.pivot === "low")).toBe(false);
+  });
+});

@@ -80,6 +80,19 @@ describe("gap rules", () => {
     expect(g.extended).toBe(true);
   });
 
+  it("puts the extended line exactly at 6 gaps: 5 is not extended, 6 is (Commodities p.321)", () => {
+    const withGaps = (k: number) => {
+      const bars = rise(25);
+      for (let j = 0; j < k; j++) {
+        const q = bars[bars.length - 1];
+        bars.push(bar(25 + j, q.h + 1, q.h + 2, q.h + 0.5, q.h + 1.5));
+      }
+      return readGaps(bars).gapsInNewTerritory!;
+    };
+    expect(withGaps(5)).toMatchObject({ count: 5, extended: false });
+    expect(withGaps(6)).toMatchObject({ count: 6, extended: true });
+  });
+
   it("reads a filled gap as reversing the minor trend against it", () => {
     const bars = rise(25);
     const p = bars[bars.length - 1];

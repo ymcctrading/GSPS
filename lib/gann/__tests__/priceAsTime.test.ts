@@ -206,3 +206,32 @@ describe("price as time on the card and in the factor table", () => {
     expect(describeDisclosedRules(ctx).every((l) => !/gann/i.test(l))).toBe(true);
   });
 });
+
+describe("the review's pinned limits (M-P9, C-TIME-14, C-TIME-07, M-T18)", () => {
+  it("M-P9: repeats a price-as-time count six times by default (Ch.4 PDF 148-150 lists six dates)", () => {
+    expect(priceAsTimeDates(10, "2025-01-01", "days")).toHaveLength(6);
+  });
+
+  it("C-TIME-14: counts the square of 90 out to 180, 90 from 90 (Ch.4 PDF 144), and no further", () => {
+    const at = (months: number) => {
+      const y = 2000 + Math.floor(months / 12);
+      return new Date(Date.UTC(y, months % 12, 15));
+    };
+    const origin = { date: "2000-01-01", precision: "month" as const };
+    expect(squareOf90Counts(origin, "inception", at(180)).map((h) => h.step)).toEqual([180]);
+    expect(squareOf90Counts(origin, "inception", at(191))).toEqual([]);
+  });
+
+  it("C-TIME-07: counts market days at 11 1/4 out to 360 (Ch.7 PDF 229), and no further", () => {
+    const series = (n: number) =>
+      Array.from({ length: n + 1 }, (_, i) => ({ t: new Date(Date.UTC(2020, 0, 1) + i * 86_400_000).toISOString(), h: i === 0 ? 200 : 150, l: i === 0 ? 10 : 100 }));
+    expect(marketDayElevenths(series(360)).map((h) => h.multiple)).toContain(32);
+    expect(marketDayElevenths(series(382))).toEqual([]);
+  });
+
+  it("M-T18: counts whole calendar months when the inception is known only to the month", () => {
+    const hx = hexagonMonthsFromInception({ date: "2015-01-28", precision: "month" }, new Date("2025-08-02T20:00:00Z"));
+    expect(hx?.months).toBe(127);
+    expect(hx?.line?.number).toBe(127);
+  });
+});
