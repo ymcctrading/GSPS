@@ -87,6 +87,22 @@ export interface CampaignLedger {
   timeOverbalanced: boolean;
   /** The current bar broke the prior month's low (bullish campaign) or high (bearish). */
   monthlyBreak: boolean;
+  /**
+   * The campaign's last three completed counter-moves each smaller than the
+   * one before (C-TREND-04, W003 p.17, class C: late in a trend reactions get
+   * smaller until a sharp reversal). Context only, never gating.
+   */
+  contracting: boolean;
+  /** Calendar days spent moving with the campaign's trend, completed legs plus the open one. */
+  trendDays: number;
+  /** Calendar days spent moving against it, the same way. */
+  counterDays: number;
+  /**
+   * More time against the trend than with it (C-TREND-07, W003 p.17 and W034
+   * p.2, class C: a rising market should spend more time rising than falling).
+   * Context only, never gating.
+   */
+  timeRatioInverted: boolean;
   /** Dates when the current move will have lasted as long as the matching prior leg. */
   timeBalanceDates: string[];
   firstYearHigh: { price: number; crossed: boolean } | null;
@@ -191,6 +207,12 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
   const timeOverbalanced =
     currentCounterMove !== null && greatestCounterMove !== null && currentCounterMove.days > greatestCounterMove.days;
 
+  const lastCounters = counterLegs.slice(-3);
+  const contracting = lastCounters.length === 3 && lastCounters[1].pct < lastCounters[0].pct && lastCounters[2].pct < lastCounters[1].pct;
+  const openDays = days(bars[lastPoint.index], last);
+  const trendDays = legs.filter((l) => l.direction === trendDir).reduce((n, l) => n + l.days, 0) + (openIsCounter ? 0 : openDays);
+  const counterDays = counterLegs.reduce((n, l) => n + l.days, 0) + (openIsCounter ? openDays : 0);
+
   const priorMonthExtreme = monthlyExtremeBefore(bars, bull ? "low" : "high");
   const monthlyBreak = priorMonthExtreme !== null && (bull ? last.l < priorMonthExtreme : last.h > priorMonthExtreme);
 
@@ -222,6 +244,10 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
     spaceOverbalanced,
     timeOverbalanced,
     monthlyBreak,
+    contracting,
+    trendDays,
+    counterDays,
+    timeRatioInverted: counterDays > trendDays,
     timeBalanceDates,
     firstYearHigh,
   };
@@ -238,6 +264,8 @@ export function describeCampaignLedger(l: CampaignLedger): string[] {
     );
   }
   if (l.monthlyBreak) lines.push(`Broke the prior month's ${l.trend === "bullish" ? "low" : "high"}.`);
+  if (l.contracting) lines.push("Each of the last three reactions was smaller than the one before.");
+  if (l.timeRatioInverted) lines.push(`More time against the trend (${l.counterDays}d) than with it (${l.trendDays}d).`);
   if (l.timeBalanceDates.length > 0) lines.push(`Time balances with the prior matching swing on ${l.timeBalanceDates[0]}.`);
   if (l.firstYearHigh) lines.push(`First-year high ${l.firstYearHigh.price.toFixed(2)} ${l.firstYearHigh.crossed ? "crossed" : "not crossed"}.`);
   return lines;

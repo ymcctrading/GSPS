@@ -70,6 +70,9 @@ export function contextFactorsFor(
     f.overbalancedAgainstCampaign = against && (c.spaceOverbalanced || c.timeOverbalanced);
     f.monthlyBreakAgainstCampaign = against && c.monthlyBreak;
     f.lateSection = c.sections >= 3;
+    // Class C trend readings (W003 p.17), measured, never gating (item 6).
+    f.reactionsContractingWithTrade = !against && c.contracting;
+    f.timeRatioInvertedAgainstTrade = !against && c.timeRatioInverted;
   }
   // Class C entry readings (W003), measured, never gating (item 5 step 4b).
   if (ctx.halfwayRetest) f.halfwayReturnAgrees = ctx.halfwayRetest.state === "returning" && ctx.halfwayRetest.direction === direction;

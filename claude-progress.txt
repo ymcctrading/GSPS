@@ -327,3 +327,18 @@ is unchecked here (collection-synthesis.md §1.6, §6).
 - Tests T1-T3 pinned; mutations 14 of 14 caught (week start, previous-week high, 8/21 bounds both ways, held-top precedence, rally identity, since, days-form clock, weekly turn, height).
 - caad438 scan cost: both readings together take about 16 ms over 766 symbols of 260 bars (0.02 ms a symbol), off any user wait beyond that.
 - STRATEGY_VERSION 2026-10-16-gann-rally-review. 2634 passed; tsc, eslint (44 pre-existing warnings), terms clean.
+== 2026-10-16 replay run 38 (fe0b1eb, STRATEGY_VERSION 2026-10-16-gann-held-once, run 34's cells) ==
+- 766 symbols, 15Min, 2026-08-17 to 2026-10-15, plan levels, reaction entry. 1132 trades (run 34: 514).
+- Bracket (plan-reaction): all +0.025R [-0.018, +0.069], halves +0.100 / -0.050; Execute +0.076R on 34 [-0.164, +0.318]; Watch +0.008R on 645.
+- Gann runner: all +0.030R [-0.010, +0.073], halves +0.094 / -0.033; Execute +0.078R on 34; 541 timeouts at +0.412R carry it, initial stops 190 at -0.845R.
+- Entry kinds (runner): crossing 321 at -0.051R, oldLevel 267 at +0.053R, hold 544 at +0.067R (win 5.7%).
+- Setup kinds (runner): reversion 1095 at +0.023R, continuation 37 at +0.247R.
+- Every interval includes zero; the second half is negative again. Pre-rally version: superseded by 2026-10-16-gann-rally-review (dispatched on ad9f351 with the same cells).
+- Files: scratchpad/run38.json, run38_reports.json. parse_run.py needs the log wrapped as {"content": ...} (the raw log has a BOM).
+2026-10-16 Item 6 (trend), steps 1-2. Map: docs/gann-feature-map/item6_trend_map.md (read-only subagent, 20 entries + A-ENTRY-19).
+- Choices taken where the map offered forks (owner card only for the one where two of Gann's texts disagree): F1 (b) staged, with-trend pass on Gann's trend alone (PLAN's item 6 row already names it, Gann precedence); F2 (a) keep W004's 30/7/1, coarse pass on the weekly read; F4 subsumed by F1(b); F5 (a) regained bottom as a crossing; F6 (a) the market's bull market; F7 (a) A-ENTRY-19 context first; F8 (a) drop the always-false benchmark gate; F9 (a) over-balance still wins.
+- Owner card posted: a monthly-low break ends the trend (today) or only warns while the reaction holds above the previous section's top (A-TREND-11 vs A-TREND-06, W006 pp.14, 41). Recommended warn-only. A-TREND-06's pin fails under today's reading (the 1933 shape breaks monthly lows), so it is held for that answer.
+- Step 1: A-TREND-05 pin (lib/gann/__tests__/trendPins.test.ts) passes as is. A-TREND-04 needs no pin: no index series reaches entry selection (map §1).
+- Step 2: C-TREND-04 contracting and C-TREND-07 trendDays/counterDays/timeRatioInverted in campaignLedger.ts, card lines, contextFactors reactionsContractingWithTrade / timeRatioInvertedAgainstTrade. Context only, no version bump. Tests lib/gann/__tests__/trendClassC.test.ts (8); mutations 10 of 10 caught.
+- C-TREND-02 (blow-offs up to 20% a day) skipped: it reports a ceiling seen at climaxes, not a rule a reading can act on or be tested against.
+- 2642 passed; tsc, eslint (44 pre-existing warnings), terms clean.
