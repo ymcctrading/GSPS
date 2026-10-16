@@ -783,3 +783,7 @@ including the break) survive as equivalent on one session; B3 removed as redunda
 - readMultipleTops: a double/triple top is failed once a close after its latest test fell 3 points under, and stays failed until a later close passes it by the 3 points or a new swing (a further test) replaces it. Before: failed only while price sat 3 points under, so a rally back within 3 points lifted the hold (review 12 L3). Bottoms mirror.
 - Fixtures moved off accidental second levels (failedTop, confirmNow range-volume cases get a TP1 at the range top). Mutants OLD, P1 killed; P2/P3 equivalent (a close over the top without the 3 points forms a new test).
 - STRATEGY_VERSION 2026-10-16-gann-failed-tops-passed. Full suite 3011/3011. If Chuck picks "within 3 points", revert this commit.
+
+## Astrology hold lifted; item 7 inputs, 2026-10-16
+- Chuck, 11:41 UTC in the intraday thread ("those quotes are mine."): the 2026-10-01 decisions stand platform-wide (every Gann method acts, no more context-only for those). Hold removed.
+- Item 7 (time windows) takes as inputs, not a separate path: lib/gann/astroRules.ts time readings (Mars half-return, solarPoint, naturalAngle, newMoon, lunarReturn) and PR #310's lib/gann/jensen.ts#jensenWindows(bars, unit, from, to) -> {date, source, expect, label, price?}[] (aspect calendar market-wide, ~140 ms a year, compute once per run). No dated window shown to members until measured. Item 7 F1 card still open.
