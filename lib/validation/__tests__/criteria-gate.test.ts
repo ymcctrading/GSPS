@@ -242,7 +242,7 @@ describe("no divergence times a turn (C-TIME-02)", () => {
     // Every import, aliased or relative, resolved to a repo path.
     const banned = (target: string) => /^lib\/(indicators|analysis\/indicators)$|^lib\/strategies(\/|$)/.test(target);
     const offenders = scanned.filter((f) =>
-      [...readFileSync(f, "utf8").matchAll(/(?:from |import\()"([^"]+)"/g)].some(([, spec]) => {
+      [...readFileSync(f, "utf8").matchAll(/(?:from |import\()["']([^"']+)["']/g)].some(([, spec]) => {
         const target = spec.startsWith("@/")
           ? spec.slice(2)
           : spec.startsWith(".")
@@ -285,7 +285,7 @@ describe("cross-domain period matches never reach a verdict (CYC-41)", () => {
 
   it("keeps lib/research off the verdict path", () => {
     const offenders = verdictFiles().filter((f) =>
-      [...readFileSync(f, "utf8").matchAll(/(?:from |import\()"([^"]+)"/g)].some(([, spec]) => {
+      [...readFileSync(f, "utf8").matchAll(/(?:from |import\()["']([^"']+)["']/g)].some(([, spec]) => {
         const target = spec.startsWith("@/")
           ? spec.slice(2)
           : spec.startsWith(".")

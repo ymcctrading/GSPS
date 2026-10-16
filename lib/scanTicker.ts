@@ -178,7 +178,9 @@ export async function scanTicker(
     // context only, see lib/gann/swingChart.ts#computeCampaignLeg.
     const campaignLeg = computeCampaignLeg(daily);
     // Gann's Rule of Three, added 2026-09-16 — see lib/gann/ruleOfThree.ts.
-    const ruleOfThree = computeRuleOfThree(daily);
+    // Completed sessions only: a session still trading has no close yet, and
+    // the replay reads the same (review 25, R3-3).
+    const ruleOfThree = computeRuleOfThree(charts.daily);
     // Gann applies the rule to weekly and monthly closes too (2026-09-27).
     const ruleOfThreeWeekly = charts.weekly.length >= 4 ? computeRuleOfThree(charts.weekly) : null;
     const ruleOfThreeMonthly = charts.monthly.length >= 4 ? computeRuleOfThree(charts.monthly) : null;
