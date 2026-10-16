@@ -326,26 +326,31 @@ describe("the excused failed tops are measured (review 12 M3)", () => {
 });
 
 describe("a top passed and then failed back under is a failed top", () => {
-  it("counts the failure after a pass, on a seeded random walk where they differ", () => {
-    // The same seeded walk the reviewers' equivalence harness uses (seed 977*9+20).
-    let seed = 977 * 9 + 20;
-    const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
-    const gauss = () => Math.sqrt(-2 * Math.log(rnd() + 1e-12)) * Math.cos(2 * Math.PI * rnd());
-    const c: number[] = [20];
-    for (let i = 1; i < 300; i++) c.push(c[i - 1] * Math.exp(0.025 * gauss()));
-    const t0 = Date.parse("2025-01-01T00:00:00Z");
-    const b: Bar[] = c.map((x, i) => {
-      const o = c[i - 1] ?? x;
-      return { t: new Date(t0 + i * 86400000).toISOString(), o, h: Math.max(o, x) * (1 + 0.006 * rnd()), l: Math.min(o, x) * (1 - 0.006 * rnd()), c: x, v: 1e6 };
-    });
-    const top = readMultipleTops(b.slice(0, 136)).top!;
-    expect(top.state).toBe("failed");
-    // A close after the latest test passed the level by the 3 points before
-    // the close back under it: the pass did not hold, so the top stands.
-    const after = b.slice(top.lastTestIndex + 1, 136);
-    const back = after.findIndex((x) => x.c < beyondByThreePoints(top.level, -1));
-    expect(back).toBeGreaterThan(0);
-    expect(after.slice(0, back).some((x) => x.c > beyondByThreePoints(top.level, 1))).toBe(true);
+  // Since Q22 (2026-10-16) the pass line is 3 points over the highest test, so
+  // a close past it makes a swing top of its own, outside the cluster's band:
+  // a failed top can never have been passed since its latest test. Checked on
+  // the reviewers' seeded walks (seed s*977+20).
+  it("never reads failed after a close passed the line, on seeded random walks", () => {
+    let failed = 0;
+    for (let s0 = 1; s0 < 30; s0++) {
+      let seed = s0 * 977 + 20;
+      const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+      const gauss = () => Math.sqrt(-2 * Math.log(rnd() + 1e-12)) * Math.cos(2 * Math.PI * rnd());
+      const c: number[] = [20];
+      for (let i = 1; i < 300; i++) c.push(c[i - 1] * Math.exp(0.025 * gauss()));
+      const t0 = Date.parse("2025-01-01T00:00:00Z");
+      const b: Bar[] = c.map((x, i) => {
+        const o = c[i - 1] ?? x;
+        return { t: new Date(t0 + i * 86400000).toISOString(), o, h: Math.max(o, x) * (1 + 0.006 * rnd()), l: Math.min(o, x) * (1 - 0.006 * rnd()), c: x, v: 1e6 };
+      });
+      for (let end = 40; end <= 300; end += 5) {
+        const top = readMultipleTops(b.slice(0, end)).top;
+        if (top?.state !== "failed") continue;
+        failed++;
+        expect(b.slice(top.lastTestIndex + 1, end).some((x) => x.c > beyondByThreePoints(top.level, 1))).toBe(false);
+      }
+    }
+    expect(failed).toBeGreaterThan(100);
   });
 });
 
@@ -359,5 +364,27 @@ describe("a close exactly on the 3-point line (review 18 L1)", () => {
     expect(line).toBe(8.8);
     expect(readMultipleTops(mk([...base, line])).top?.state).not.toBe("failed");
     expect(readMultipleTops(mk([...base, 8.79])).top).toMatchObject({ level: 10, state: "failed" });
+  });
+});
+
+describe("A-LEVELS-04: a failed top passes only 3 points over its highest test (Q22, 2026-10-16)", () => {
+  // Tests at ~110.5 and ~113.5, then back to 103.
+  const uneven = [...leg(90, 110, 6), ...leg(110, 102, 5), ...leg(102, 113, 6), ...leg(113, 103, 5)];
+  const unevenBottom = [...leg(110, 90, 6), ...leg(90, 98, 5), ...leg(98, 87, 6), ...leg(87, 97, 5)];
+
+  it("reads the level at the highest test, and the lowest for a bottom", () => {
+    expect(readMultipleTops(bars(uneven)).top).toMatchObject({ tests: 2, state: "failed", level: 113.5 });
+    expect(readMultipleTops(bars(unevenBottom)).bottom).toMatchObject({ tests: 2, state: "failed", level: 86.5 });
+  });
+
+  it("stays failed on a close past the tests' mean but short of the highest test's line", () => {
+    const line = beyondByThreePoints(113.5, 1);
+    const overMean = (beyondByThreePoints(112, 1) + line) / 2;
+    expect(failedTestAgainst(readMultipleTops(bars([...uneven, overMean])), "bullish")).toMatchObject({ state: "failed" });
+    expect(failedTestAgainst(readMultipleTops(bars([...uneven, line + 0.5])), "bullish")).toBeNull();
+    const bottomLine = beyondByThreePoints(86.5, -1);
+    const underMean = (beyondByThreePoints(88, -1) + bottomLine) / 2;
+    expect(failedTestAgainst(readMultipleTops(bars([...unevenBottom, underMean])), "bearish")).toMatchObject({ state: "failed" });
+    expect(failedTestAgainst(readMultipleTops(bars([...unevenBottom, bottomLine - 0.5])), "bearish")).toBeNull();
   });
 });

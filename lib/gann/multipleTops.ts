@@ -23,7 +23,10 @@
  * Engineering choices, labelled as such: "crossed" is a close beyond the level
  * by the 3-point allowance within the last `RECENT_SESSIONS`; a level still
  * being tested counts only within `NEAR_PCT` of price; a cluster's band is the
- * allowance at its running mean.
+ * allowance at its running mean, and the mean is also what a failure falls 3
+ * points back from and what "near price" is measured from. The pass line is
+ * read from the highest test of a top and the lowest of a bottom, which is
+ * the reported `level` (owner, 2026-10-16, Q22; it was the mean).
  *
  * Three-question basis:
  * 1. Gann: as cited, Tier A.
@@ -54,15 +57,22 @@ export interface MultipleTopsReading {
   bottom: MultipleTestReading | null;
 }
 
-function cluster(prices: number[]): { level: number; tests: number; lastIndexInList: number }[] {
-  const out: { level: number; tests: number; lastIndexInList: number }[] = [];
+/**
+ * Tests within the 3 points of a cluster's running mean join it; the cluster's
+ * level is its highest test for tops and its lowest for bottoms, the line a
+ * close must pass by the 3 points (owner, 2026-10-16, Q22: "3 points over the
+ * highest test"). Until then the level was the mean.
+ */
+function cluster(prices: number[], kind: "top" | "bottom"): { mean: number; level: number; tests: number; lastIndexInList: number }[] {
+  const out: { mean: number; level: number; tests: number; lastIndexInList: number }[] = [];
   prices.forEach((p, i) => {
-    const hit = out.find((c) => (Math.abs(p - c.level) / c.level) * 100 <= gannThreePointsPct(c.level));
+    const hit = out.find((c) => (Math.abs(p - c.mean) / c.mean) * 100 <= gannThreePointsPct(c.mean));
     if (hit) {
-      hit.level = (hit.level * hit.tests + p) / (hit.tests + 1);
+      hit.mean = (hit.mean * hit.tests + p) / (hit.tests + 1);
+      hit.level = kind === "top" ? Math.max(hit.level, p) : Math.min(hit.level, p);
       hit.tests++;
       hit.lastIndexInList = i;
-    } else out.push({ level: p, tests: 1, lastIndexInList: i });
+    } else out.push({ mean: p, level: p, tests: 1, lastIndexInList: i });
   });
   return out;
 }
@@ -76,7 +86,7 @@ export function readMultipleTops(daily: Bar[]): MultipleTopsReading {
   for (const kind of ["top", "bottom"] as const) {
     const ofKind = pivots.filter((p) => p.kind === kind);
     const prices = ofKind.map((p) => p.price);
-    const groups = cluster(prices).filter((c) => c.tests >= 2);
+    const groups = cluster(prices, kind).filter((c) => c.tests >= 2);
     if (groups.length === 0) continue;
     const reading = (c: (typeof groups)[number], state: MultipleTestReading["state"]): MultipleTestReading => ({
       kind,
@@ -102,7 +112,7 @@ export function readMultipleTops(daily: Bar[]): MultipleTopsReading {
     const latest = groups.find((c) => c.lastIndexInList === prices.length - 1);
     if (latest) {
       const after = daily.slice(ofKind[latest.lastIndexInList].index + 1);
-      const away = (b: Bar) => (kind === "top" ? b.c < beyondByThreePoints(latest.level, -1) : b.c > beyondByThreePoints(latest.level, 1));
+      const away = (b: Bar) => (kind === "top" ? b.c < beyondByThreePoints(latest.mean, -1) : b.c > beyondByThreePoints(latest.mean, 1));
       const past = (b: Bar) => (kind === "top" ? b.c > beyondByThreePoints(latest.level, 1) : b.c < beyondByThreePoints(latest.level, -1));
       const back = after.findIndex(away);
       if (back >= 0 && !after.slice(back + 1).some(past)) {
@@ -110,11 +120,11 @@ export function readMultipleTops(daily: Bar[]): MultipleTopsReading {
         continue;
       }
     }
-    const nearest = groups.reduce((x, y) => (Math.abs(y.level - price) < Math.abs(x.level - price) ? y : x));
+    const nearest = groups.reduce((x, y) => (Math.abs(y.mean - price) < Math.abs(x.mean - price) ? y : x));
     const crossed = kind === "top" ? recent.some((b) => b.c > beyondByThreePoints(nearest.level, 1)) && price > nearest.level : recent.some((b) => b.c < beyondByThreePoints(nearest.level, -1)) && price < nearest.level;
     const state: MultipleTestReading["state"] = crossed ? "crossed" : "testing";
     // A level far from price is history, not a test in progress.
-    if (state === "testing" && (Math.abs(price - nearest.level) / nearest.level) * 100 > NEAR_PCT) continue;
+    if (state === "testing" && (Math.abs(price - nearest.mean) / nearest.mean) * 100 > NEAR_PCT) continue;
     out[kind] = reading(nearest, state);
   }
   return out;

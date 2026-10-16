@@ -333,4 +333,7 @@
 // retracement zone, and the coarse pass's fan and S/R gates) is within Gann's
 // price-scaled 3-point allowance, not half a day's average true range (N#27).
 // The bands widen on most names, so more setups score those points.
-export const STRATEGY_VERSION = "2026-10-16-gann-level-three-points";
+// 2026-10-16-gann-failed-top-highest-test: a failed double or triple top
+// passes only on a close 3 points over its highest test (a bottom, under its
+// lowest), not over the tests' mean (owner, Q22). Fewer failed tops lift.
+export const STRATEGY_VERSION = "2026-10-16-gann-failed-top-highest-test";
