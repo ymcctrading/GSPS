@@ -316,6 +316,12 @@ export function contextFactorsFor(
     f.rule8DateMostImportant = tc.rule8Date?.mostImportant === true;
     f.winterQuarterDateActive = tc.winterQuarter !== null;
     f.weekCountClassAActive = tc.weekCounts.length > 0;
+    // Weeks since the run began (M-T10), for a run in the trade's direction.
+    if (tc.boilingRun) {
+      const withRun = tc.boilingRun.run === (bull ? "up" : "down");
+      f.boilingRunClassicWithTrade = withRun && tc.boilingRun.phase === "classic";
+      f.boilingRunPastClassicWithTrade = withRun && (tc.boilingRun.phase === "extended" || tc.boilingRun.phase === "overrun");
+    }
   }
 
   // A-TIME-05/-21: a watched month count (18-48 months in sixes) from a major

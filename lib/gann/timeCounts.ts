@@ -46,6 +46,8 @@
  *   ⅞ of 90 (Ch.2 PDF 58). The compiler's "death zone" label for the 7th week
  *   is not carried: in Gann it names the Master 12's 8th and 9th sections
  *   (Ch.2 PDF 66-68), not a week count.
+ * - Weeks since the run began (M-T10): see `boilingPoint.ts`'s
+ *   `computeRunBoilingPoint`.
  *
  * Engineering choices, labelled as such: the anchors and windows follow the
  * class A reader each list sits beside (major daily pivots and ±2 days for the
@@ -66,6 +68,7 @@ import { findPivots, majorPivots } from "@/lib/analysis/pivots";
 import { lessonCycleHits, type LessonCycleHit } from "@/lib/gann/timeCycles";
 import { WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 import { readWinterQuarterCount, type WinterQuarterReading } from "@/lib/gann/seasonalCounts";
+import { computeRunBoilingPoint, type RunBoilingPointReading } from "@/lib/gann/boilingPoint";
 import type { PivotCountHit } from "@/lib/gann/secondaryTime";
 
 const DAY_MS = 86_400_000;
@@ -99,6 +102,8 @@ export interface TimeCountsReading {
   winterQuarter: WinterQuarterReading | null;
   /** The class A week counts open today, from major daily pivots. */
   weekCounts: PivotCountHit[];
+  /** Weeks since the current run began, on the weekly swing chart, or null. */
+  boilingRun: RunBoilingPointReading | null;
 }
 
 function hit(p: { bar: Bar; kind: "high" | "low" }, count: number, label: string): PivotCountHit {
@@ -257,6 +262,7 @@ export function readTimeCounts(daily: Bar[], monthly: Bar[] | null | undefined, 
     rule8Date: readRule8Date(asOf),
     winterQuarter: readWinterQuarterCount(asOf),
     weekCounts: readWeekCounts(daily, asOf),
+    boilingRun: computeRunBoilingPoint(daily),
   };
 }
 
@@ -284,6 +290,11 @@ export function describeTimeCounts(r: TimeCountsReading): string[] {
   }
   const wk = r.weekCounts[0];
   if (wk) lines.push(`${wk.label} from the ${wk.pivotKind} of ${wk.pivotDate}: a week count. ${CONTEXT}`);
+  const br = r.boilingRun;
+  if (br && br.phase !== "developing") {
+    const note = { classic: "the 6-7 weeks in which fast moves usually end", extended: "past the usual 6-7 weeks", overrun: "past 10 weeks, which a fast move rarely runs" }[br.phase];
+    lines.push(`${br.weeksSinceStart} weeks since the ${br.run === "up" ? "advance" : "decline"} began (${br.startDate}): ${note}. ${CONTEXT}`);
+  }
   const wq = r.winterQuarter;
   if (wq) {
     const p = wq.point;
