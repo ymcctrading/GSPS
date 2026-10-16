@@ -38,6 +38,17 @@ describe("a break of the 1x1 (C-STOP-02)", () => {
     expect(readOneByOneBreak(bars).find((b) => b.anchor.kind === "low")).toBeUndefined();
   });
 
+  it("is none when no close since the low ever held the 1x1", () => {
+    // A slow rise from the low: every close sits under the 1x1 and over the 1x2.
+    const bars = series([...down, 40, ...Array.from({ length: 16 }, (_, i) => 40 + (i + 1) * 0.75)]);
+    const price = bars[bars.length - 1].c;
+    const lines = computeFanLines(bars, price);
+    const unit = (lines.find((l) => l.angle === "1x1 (low)")!.price - 40) / 16;
+    expect(bars.slice(21).every((b, i) => b.c < 40 + unit * (i + 1))).toBe(true);
+    expect(price).toBeGreaterThan(lines.find((l) => l.angle === "1x2 (low)")!.price);
+    expect(readOneByOneBreak(bars)).toEqual([]);
+  });
+
   it("is none once price is under the 1x2 too", () => {
     const bars = series([...base, ...flat(10), ...Array.from({ length: 6 }, (_, i) => 50 - i * 2)]);
     const price = bars[bars.length - 1].c;
