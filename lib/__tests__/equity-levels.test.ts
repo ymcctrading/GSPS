@@ -1,3 +1,4 @@
+import { shortOfFigure } from "@/lib/gann/evenFigures";
 import { describe, expect, it } from "vitest";
 import {
   computeEquityTradeLevels,
@@ -149,7 +150,7 @@ describe("computeEquityTradeLevels", () => {
     // Entry 92: 100 is 8.7% away, inside the TP1 band, so TP1 sits just under it.
     const result = computeEquityTradeLevels({ direction: "bullish", entry: 92, structuralLevels: [], atrPct: 3 });
     expect(result.tp1FromStructure).toBe(true);
-    expect(result.takeProfit1).toBeCloseTo(99.5, 2);
+    expect(result.takeProfit1).toBeCloseTo(shortOfFigure(100, "below"), 2);
     // A structural stop just above 90 is moved under 90.
     const withStop = computeEquityTradeLevels({ direction: "bullish", entry: 93, structuralLevels: [90.2], atrPct: 3 });
     expect(withStop.stopLoss).toBeLessThan(90);

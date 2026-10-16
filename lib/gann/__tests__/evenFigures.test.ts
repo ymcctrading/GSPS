@@ -1,3 +1,4 @@
+import { gannPoint } from "../pointScale";
 import { describe, expect, it } from "vitest";
 import {
   approachingFigure,
@@ -30,9 +31,10 @@ describe("even figures", () => {
   });
 
   it("places orders just before the figure", () => {
-    expect(shortOfFigure(100, "below")).toBeCloseTo(99.5, 6);
-    expect(shortOfFigure(100, "above")).toBeCloseTo(100.5, 6);
-    expect(targetCandidates(92, 104, "bullish").map((p) => Math.round(p * 100) / 100)).toEqual([94.53, 99.5]);
+    // ¼ to ½ point inside the figure (WSSS Ch.V), taken as ⅜ of a price-scaled point.
+    expect(shortOfFigure(100, "below")).toBeCloseTo(100 - 0.375 * gannPoint(100), 6);
+    expect(shortOfFigure(100, "above")).toBeCloseTo(100 + 0.375 * gannPoint(100), 6);
+    expect(targetCandidates(92, 104, "bullish").map((p) => Math.round(p * 100) / 100)).toEqual([95, 100].map((f) => Math.round(shortOfFigure(f, "below") * 100) / 100));
   });
 
   it("moves a stop sitting just on a figure beyond it", () => {

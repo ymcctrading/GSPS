@@ -33,8 +33,8 @@
  *
  * Engineering choices, labelled as such:
  * - Gann's "full interval of profit" (3–5 or 10 points by price level) is
- *   price-scaled here as one risk unit, the same scaling the break-even rule
- *   uses (`exitRules.ts`).
+ *   price-scaled here as one risk unit (the break-even rule used the same
+ *   scaling until 2026-10-16; it now reads 3 points, `exitRules.ts`).
  * - The add trigger is a completed 3-Day Chart top (bottom) made after the last
  *   lot, crossed by the 3-point allowance: the same Buying Point the entry
  *   uses (`entryTrigger.ts`).
