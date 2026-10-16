@@ -888,7 +888,7 @@
     "class": "A",
     "gsps_location": "lib/gann/sharesPerPoint.ts:readSharesPerPoint — differs: compares the current up leg with the prior up leg, not whole campaigns; warning at 1.8x",
     "test": "TO WRITE: lib/gann/__tests__/missingRules.test.ts — an up leg whose volume per point is 1.8x the prior leg's, within 3% of the campaign high, sets topWarning=true.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-VOLUME-12",
