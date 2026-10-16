@@ -937,9 +937,11 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
     );
   }
   const g = ctx.extremes.gaps;
-  if (g.exhaustGap) lines.push(`Exhaust gap at a ${g.exhaustGap}: a one-day gap to a new extreme, filled the next day.`);
+  if (g.exhaustGap) lines.push(`Exhaust gap at a ${g.exhaustGap}: a one-day gap to a new extreme with a reverse signal day.`);
   if (g.gapsInNewTerritory && g.gapsInNewTerritory.count >= 3) {
-    lines.push(`${g.gapsInNewTerritory.count} ${g.gapsInNewTerritory.direction} gaps in new territory this swing: a culmination is near.`);
+    lines.push(
+      `${g.gapsInNewTerritory.count} ${g.gapsInNewTerritory.direction} gaps in new territory this swing: ${g.gapsInNewTerritory.extended ? "an extended run past the usual 3-4, which in extreme cases reaches 10 before a culmination" : "a culmination is near"}.`,
+    );
   }
   if (g.filledGapReversal) lines.push(`A recent gap has been filled: the minor trend turns ${g.filledGapReversal}.`);
   const t = ctx.timing;

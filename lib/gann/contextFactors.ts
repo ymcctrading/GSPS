@@ -113,7 +113,11 @@ export function contextFactorsFor(
   const gapsNew = ctx.extremes.gaps.gapsInNewTerritory;
   // Three or more gaps in new territory in the trade's own direction: that
   // move is near its culmination, a risk to this trade.
-  if (gapsNew) f.culminationGapsInTradeDirection = gapsNew.count >= 3 && gapsNew.direction === (bull ? "up" : "down");
+  if (gapsNew) {
+    f.culminationGapsInTradeDirection = gapsNew.count >= 3 && gapsNew.direction === (bull ? "up" : "down");
+    // M-E12 (Commodities p.321): 6 or more, an extended run, measured on its own.
+    f.extendedGapsInTradeDirection = gapsNew.extended && gapsNew.direction === (bull ? "up" : "down");
+  }
   if (ctx.timing.alternation) f.onAlternationTurnDay = ctx.timing.alternation.mark !== null;
   if (ctx.timing.square144) f.square144Convergence = ctx.timing.square144.units.length >= 2;
   if (ctx.timing.projection) f.tightTimeProjection = ctx.timing.projection.spreadDays <= 5;
