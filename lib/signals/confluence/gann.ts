@@ -43,6 +43,7 @@ import { nearestS9Level, recentSquareOf9Levels } from "@/lib/gann/squareOf9";
 import { timeCycles } from "@/lib/gann/timeCycles";
 import { computeDecadeCycle } from "@/lib/gann/decadeCycle";
 import { computeMacroCycle } from "@/lib/gann/macroCycle";
+import { displayableUpcomingMajor } from "@/lib/gann/timeRecords";
 import { masterTwelveLevels, nearestMasterTwelveLevel } from "@/lib/gann/masterTwelve";
 import { squareOf52Windows } from "@/lib/gann/squareOf52";
 import { angleMonthCounts as computeAngleMonthCounts } from "@/lib/gann/angleMonthCounts";
@@ -315,7 +316,8 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
       ? `Active structural time-cycle window (nearby dates: ${cycles.dates.slice(0, 3).join(", ") || "n/a"}).`
       : "No active structural time-cycle window.",
   );
-  const nextMajor = macroCycle.upcomingMajor[0];
+  // CYC-47: a forward date only with a measured record (`timeRecords.ts`).
+  const nextMajor = displayableUpcomingMajor(macroCycle)[0];
   explanationTrace.push(
     (macroCycle.active
       ? `Macro time-cycle month (hypothesis) from the cited historical DJIA turns: ${macroCycle.activeWindows

@@ -35,6 +35,98 @@ const baseSignals = {
   rangeReversion: null,
 };
 
+function makeResult(): ScanResult {
+  return {
+    ...baseResult,
+    signals: {
+      ...baseSignals,
+      gannConfluence: {
+        module: {
+          moduleId: "gann_confluence_layer",
+          moduleType: "gann",
+          displayName: "Structural Coordinate Confluence",
+          authorizedSource: "lib/gann",
+          version: "0.1.0",
+        },
+        market: "equities",
+        marketAdapterStatus: "supported",
+        alignment: "aligned",
+        root: 10.1,
+        nearestSquareOf9: { degree: 0, price: 105, distancePct: 1, rotation: 0, role: "support" },
+        nearestFanLine: null,
+        timeCycleActive: false,
+        timeCycleDates: [],
+        timeCycleFixedCalendarActive: false,
+        timeCycleFixedCalendarDates: [],
+        decadeCycle: { yearDigit: 5, bias: "bullish", label: "Year of Ascension", note: "" },
+        macroCycle: {
+          active: false,
+          majorActive: false,
+          bullishActive: false,
+          bearishActive: false,
+          activeWindows: [],
+          upcomingMajor: [],
+        },
+        nearestMasterTwelve: null,
+        squareOf52: { active: false, dates: [] },
+        angleMonthCounts: { active: false, dates: [] },
+        spectralCycle: {
+          active: false,
+          dominantPeriodBars: null,
+          dominancePower: null,
+          repetitionCount: null,
+          periodConsistent: null, schusterP: null, cosinor: null, atBandEdge: null, windowStable: null, holdout: null,
+          hypothesisOnly: true,
+          note: "",
+        },
+        campaignLeg: { legNumber: null, confidence: null },
+        boilingPoint: [],
+        vortexContext: {
+          priceDisplacement: {
+            rawValue: 25,
+            normalizationMethod: "price_displacement_ticks",
+            integerValue: 25,
+            mod9Residue: 7,
+            activeDigitalRoot: 7,
+            inputTimestamp: "x",
+            sourceTimeframe: "1d",
+            featureVersion: "0.1.0",
+          },
+          timeDisplacement: null,
+          priceVortexClass: "VORTEX_FLOW",
+          timeVortexClass: null,
+          relationship: null,
+          transition: null,
+        },
+        angleSlope: null,
+        coordinateLedger: [],
+        disclosedRules: EMPTY_DISCLOSED_RULES,
+        materialNumberClassification: "notImplemented",
+        evidence: { calculationVersion: "0.1.0", inputs: { secretNote: "internal threshold" }, sourceTimestamp: "x", explanationTrace: ["secret internal trace"] },
+        note: "Confluence only.",
+      },
+      saraConfluence: {
+        module: {
+          moduleId: "sara_sniper_confluence_layer",
+          moduleType: "sara",
+          displayName: "Price-Action Confirmation Confluence",
+          authorizedSource: "lib/strat/patterns.ts",
+          version: "0.1.0",
+        },
+        market: "equities",
+        marketAdapterStatus: "supported",
+        alignment: "conflict",
+        scenarioId: "2-1-2",
+        direction: "bullish",
+        timeframeContinuity: "notConfirmed",
+        confirmationState: "closedBarConfirmed",
+        evidence: { calculationVersion: "0.1.0", inputs: {}, sourceTimestamp: "x", explanationTrace: ["secret internal trace"] },
+        note: "Confluence factor only.",
+      },
+    },
+  };
+}
+
 describe("ConfluenceCard", () => {
   it("renders nothing when the scan has no signals field", () => {
     const { container } = render(<ConfluenceCard result={{ ...baseResult, signals: undefined }} />);
@@ -51,95 +143,7 @@ describe("ConfluenceCard", () => {
   });
 
   it("shows the structural and price-action alignment badges and the framework identity", () => {
-    const result: ScanResult = {
-      ...baseResult,
-      signals: {
-        ...baseSignals,
-        gannConfluence: {
-          module: {
-            moduleId: "gann_confluence_layer",
-            moduleType: "gann",
-            displayName: "Structural Coordinate Confluence",
-            authorizedSource: "lib/gann",
-            version: "0.1.0",
-          },
-          market: "equities",
-          marketAdapterStatus: "supported",
-          alignment: "aligned",
-          root: 10.1,
-          nearestSquareOf9: { degree: 0, price: 105, distancePct: 1, rotation: 0, role: "support" },
-          nearestFanLine: null,
-          timeCycleActive: false,
-          timeCycleDates: [],
-          timeCycleFixedCalendarActive: false,
-          timeCycleFixedCalendarDates: [],
-          decadeCycle: { yearDigit: 5, bias: "bullish", label: "Year of Ascension", note: "" },
-          macroCycle: {
-            active: false,
-            majorActive: false,
-            bullishActive: false,
-            bearishActive: false,
-            activeWindows: [],
-            upcomingMajor: [],
-          },
-          nearestMasterTwelve: null,
-          squareOf52: { active: false, dates: [] },
-          angleMonthCounts: { active: false, dates: [] },
-          spectralCycle: {
-            active: false,
-            dominantPeriodBars: null,
-            dominancePower: null,
-            repetitionCount: null,
-            periodConsistent: null, schusterP: null, cosinor: null, atBandEdge: null, windowStable: null, holdout: null,
-            hypothesisOnly: true,
-            note: "",
-          },
-          campaignLeg: { legNumber: null, confidence: null },
-          boilingPoint: [],
-          vortexContext: {
-            priceDisplacement: {
-              rawValue: 25,
-              normalizationMethod: "price_displacement_ticks",
-              integerValue: 25,
-              mod9Residue: 7,
-              activeDigitalRoot: 7,
-              inputTimestamp: "x",
-              sourceTimeframe: "1d",
-              featureVersion: "0.1.0",
-            },
-            timeDisplacement: null,
-            priceVortexClass: "VORTEX_FLOW",
-            timeVortexClass: null,
-            relationship: null,
-            transition: null,
-          },
-          angleSlope: null,
-          coordinateLedger: [],
-          disclosedRules: EMPTY_DISCLOSED_RULES,
-          materialNumberClassification: "notImplemented",
-          evidence: { calculationVersion: "0.1.0", inputs: { secretNote: "internal threshold" }, sourceTimestamp: "x", explanationTrace: ["secret internal trace"] },
-          note: "Confluence only.",
-        },
-        saraConfluence: {
-          module: {
-            moduleId: "sara_sniper_confluence_layer",
-            moduleType: "sara",
-            displayName: "Price-Action Confirmation Confluence",
-            authorizedSource: "lib/strat/patterns.ts",
-            version: "0.1.0",
-          },
-          market: "equities",
-          marketAdapterStatus: "supported",
-          alignment: "conflict",
-          scenarioId: "2-1-2",
-          direction: "bullish",
-          timeframeContinuity: "notConfirmed",
-          confirmationState: "closedBarConfirmed",
-          evidence: { calculationVersion: "0.1.0", inputs: {}, sourceTimestamp: "x", explanationTrace: ["secret internal trace"] },
-          note: "Confluence factor only.",
-        },
-      },
-    };
+    const result = makeResult();
 
     render(<ConfluenceCard result={result} />);
 
@@ -153,5 +157,55 @@ describe("ConfluenceCard", () => {
     // plain-language glossary term does.
     expect(screen.queryByText(/2-1-2/)).not.toBeInTheDocument();
     expect(screen.getByText(/Pause continuation/i)).toBeInTheDocument();
+  });
+});
+
+/**
+ * CYC-47 (Tomes, W043) and CYC-30 (Halberg, W041 pp. 29-30): a dated forward
+ * claim needs its method and a measured record, and a rhythm is shown by
+ * inference, not by eye alone. A time line on the card shows its measured
+ * record, or is not shown.
+ */
+describe("time lines carry their measured record or are hidden", () => {
+  function withTime(): ScanResult {
+    const r = makeResult();
+    const g = r.signals!.gannConfluence!;
+    g.timeCycleActive = true;
+    g.macroCycle = {
+      active: true,
+      majorActive: true,
+      bullishActive: true,
+      bearishActive: false,
+      activeWindows: [{ anchor: "August 1896 bottom", bullish: true, month: "2026-08", yearsElapsed: 130, cycleYears: [1, 2, 5, 10], majorCycleYears: [5, 10] }],
+      upcomingMajor: [{ anchor: "April 1897 low", bullish: true, month: "2027-04", yearsElapsed: 130, cycleYears: [1, 2, 5, 10], majorCycleYears: [5, 10] }],
+    };
+    g.squareOf52 = { active: true, dates: [] };
+    g.angleMonthCounts = { active: true, dates: [] };
+    g.disclosedRules = {
+      ...EMPTY_DISCLOSED_RULES,
+      dayCountBands: [{ pivotDate: "2026-07-01", pivotKind: "low", daysSincePivot: 30, band: [28, 31] }],
+      timing: { alternation: { daysSincePivot: 14, mark: 14 }, square144: null, projection: { kind: "top", medianDate: "2026-11-02", spreadDays: 4, count: 3 }, changeDates: null },
+    } as typeof g.disclosedRules;
+    return r;
+  }
+
+  it("drops the macro cycle's next major date, which has no measured record (CYC-47)", () => {
+    render(<ConfluenceCard result={withTime()} />);
+    expect(screen.queryByText(/Next major/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/2027-04/)).not.toBeInTheDocument();
+  });
+
+  it("shows the time-cycle and day-count lines with their measured record (CYC-30)", () => {
+    render(<ConfluenceCard result={withTime()} />);
+    expect(screen.getByText("Time cycle")).toBeInTheDocument();
+    expect(screen.getByText("Time from pivot")).toBeInTheDocument();
+    expect(screen.getAllByText(/no better than chance/i).length).toBe(2);
+  });
+
+  it("hides time lines that have no measured record (CYC-30)", () => {
+    render(<ConfluenceCard result={withTime()} />);
+    for (const label of [/Macro time cycle/, "Square of 52 window", "36-angle month-count", "Turn timing", /Next swing/]) {
+      expect(screen.queryByText(label)).not.toBeInTheDocument();
+    }
   });
 });
