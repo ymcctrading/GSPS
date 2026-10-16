@@ -2,7 +2,16 @@ import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import { CYCLE_YEARS_1955, MAJOR_CYCLE_YEARS, MINOR_CYCLE_YEARS_1931, WHEEL_COUNTS, lessonCycleHits, timeCycles } from "../timeCycles";
 import { CIRCLE_FINE_DIVISIONS, readCircleDivisions } from "../secondaryTime";
-import { WHEEL_COUNTS_CH5, readTimeBalanceSpans, readWheelCountsCh5 } from "../timeCounts";
+import {
+  COMMODITIES_DAY_BANDS,
+  RULE_8_MONTHLY_DATES,
+  WHEEL_COUNTS_CH5,
+  readCommoditiesDayBands,
+  readRule8Date,
+  readTimeBalanceSpans,
+  readWheelCountsCh5,
+} from "../timeCounts";
+import { DAY_COUNT_BANDS } from "../timeCycles";
 import { describeDisclosedRules, readDisclosedRules } from "../disclosedRules";
 import { contextFactorsFor } from "../contextFactors";
 
@@ -109,5 +118,57 @@ describe("time balance from top to top and bottom to bottom is class A (M-T11, C
     expect(readTimeBalanceSpans(b).map((x) => x.kind)).toEqual(["top"]);
     expect(contextFactorsFor(ctx, "bullish", 150).timeBalanceTurnAgainstTrade).toBe(true);
     expect(describeDisclosedRules(ctx).some((l) => l.includes("time balances, so a top may be due"))).toBe(true);
+  });
+});
+
+describe("the Commodities p.57 day bands (M-T7)", () => {
+  it("is its own cited list beside the Rule 8 bands, which are unchanged", () => {
+    expect(COMMODITIES_DAY_BANDS.map((b) => [...b])).toEqual([[42, 45], [49, 52], [90, 98], [120, 135]]);
+    expect(DAY_COUNT_BANDS.map((b) => [...b])).toEqual([
+      [7, 12], [18, 21], [28, 31], [42, 49], [57, 65], [85, 92], [112, 120], [150, 157], [175, 185],
+    ]);
+  });
+
+  it("is open on every day inside a band from a major low, and closed outside", () => {
+    const at = (d: number) => fromLow(readCommoditiesDayBands(withPivotLow(d + 1))).map((b) => b.band.join("-"));
+    expect(at(50)).toEqual(["49-52"]);
+    expect(at(95)).toEqual(["90-98"]);
+    expect(at(120)).toEqual(["120-135"]);
+    expect(at(135)).toEqual(["120-135"]);
+    expect(at(46)).toEqual([]);
+    expect(at(136)).toEqual([]);
+  });
+
+  it("is a measured factor with no direction, and a card line", () => {
+    const ctx = readDisclosedRules(withPivotLow(96), 140, null, after(95));
+    expect(contextFactorsFor(ctx, "bullish", 140).commoditiesDayBandActive).toBe(true);
+    expect(contextFactorsFor(ctx, "bearish", 140).commoditiesDayBandActive).toBe(true);
+    expect(describeDisclosedRules(ctx).some((l) => l.startsWith("95 days from the low of 2026-01-31: inside the 90-98 day band"))).toBe(true);
+  });
+});
+
+describe("the 45 Years Rule 8 calendar dates (M-T5)", () => {
+  it("carries only the dates the reading notes give", () => {
+    expect(RULE_8_MONTHLY_DATES.map((w) => `${w.month}/${w.startDay}-${w.endDay}${w.mostImportant ? "*" : ""}`)).toEqual([
+      "1/7-10", "1/19-24", "9/3-10*", "9/21-28*", "12/3-10", "12/15-24",
+    ]);
+  });
+
+  it("is open on the days of a window, and closed outside it", () => {
+    expect(readRule8Date(new Date(Date.UTC(2026, 0, 7)))).toMatchObject({ month: 1, startDay: 7, endDay: 10 });
+    expect(readRule8Date(new Date(Date.UTC(2026, 8, 25)))).toMatchObject({ month: 9, startDay: 21, mostImportant: true });
+    expect(readRule8Date(new Date(Date.UTC(2026, 0, 11)))).toBeNull();
+    expect(readRule8Date(new Date(Date.UTC(2026, 8, 15)))).toBeNull();
+    // A month the notes do not give is not read.
+    expect(readRule8Date(new Date(Date.UTC(2026, 3, 8)))).toBeNull();
+  });
+
+  it("is a measured factor, and a card line", () => {
+    const ctx = readDisclosedRules(withPivotLow(20), 115, null, new Date(Date.UTC(2026, 8, 5)));
+    const f = contextFactorsFor(ctx, "bullish", 115);
+    expect(f.rule8DateActive).toBe(true);
+    expect(f.rule8DateMostImportant).toBe(true);
+    expect(describeDisclosedRules(ctx).some((l) => l.startsWith("September 3-10: one of the month's turn dates"))).toBe(true);
+    expect(contextFactorsFor(readDisclosedRules(withPivotLow(20), 115, null, new Date(Date.UTC(2026, 3, 8))), "bullish", 115).rule8DateActive).toBe(false);
   });
 });

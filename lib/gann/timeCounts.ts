@@ -23,6 +23,18 @@
  *   top ... to the next top, and from any low ... to the next low. This is
  *   BALANCING OF TIME"; p.312, carry the periods forward. Moved here from
  *   the class C counts (`secondaryTime.ts`, where W032 also gives it).
+ * - The Commodities day bands (M-T7): *How to Make Profits Trading in
+ *   Commodities* p.57, "watch for TOP or BOTTOM around the 49th to 52nd day,
+ *   although at times a change will start on the 42nd to 45th day, because a
+ *   period of 45 days is ⅛ of a year", and "the end of 90-98 days and 120-135
+ *   days". A second cited list beside *45 Years* Rule 8's `DAY_COUNT_BANDS`.
+ * - The Rule 8 calendar dates (M-T5): *45 Years in Wall Street* (1949) Ch. II
+ *   Rule 8 (pp. 6-14) gives turn dates for every month. The reading notes
+ *   give only January (7-10, 19-24), September (3-10 and 21-28, "the most
+ *   important") and December (3-10, 15-24); **February to August, October
+ *   and November are missing from the notes** and are not read until the
+ *   page is transcribed. This is a different list from the 1930 permanent
+ *   cycle (`FIXED_CALENDAR_WINDOWS`), so it is kept apart.
  *
  * Engineering choices, labelled as such: the anchors and windows follow the
  * class A reader each list sits beside (major daily pivots and ±2 days for the
@@ -67,6 +79,10 @@ export interface TimeCountsReading {
   wheelCountsCh5: PivotCountHit[];
   /** Top-to-top and bottom-to-bottom balances due now (Commodities p.311). */
   timeBalanceSpans: TimeBalanceSpan[];
+  /** Commodities p.57's day bands open on the last bar. */
+  commoditiesDayBands: CommoditiesDayBandHit[];
+  /** The 45 Years Rule 8 calendar window today sits in, or null. */
+  rule8Date: (typeof RULE_8_MONTHLY_DATES)[number] | null;
 }
 
 function hit(p: { bar: Bar; kind: "high" | "low" }, count: number, label: string): PivotCountHit {
@@ -89,6 +105,58 @@ function projectedDayHits(bars: Bar[], asOf: Date, counts: readonly number[], un
 /** The Ch.5 wheel counts (C-TIME-06) from major daily pivots. */
 export function readWheelCountsCh5(bars: Bar[], asOf: Date): PivotCountHit[] {
   return projectedDayHits(bars, asOf, WHEEL_COUNTS_CH5, 1, "days");
+}
+
+/** M-T7: Commodities p.57's day bands from a top or bottom, inclusive. */
+export const COMMODITIES_DAY_BANDS: readonly [number, number][] = [
+  [42, 45],
+  [49, 52],
+  [90, 98],
+  [120, 135],
+];
+
+/**
+ * M-T5: the Rule 8 turn dates the reading notes give (45 Years Ch. II). Month
+ * 1-12, days inclusive. Months not listed are missing from the notes, not
+ * absent from the book.
+ */
+export const RULE_8_MONTHLY_DATES: readonly { month: number; startDay: number; endDay: number; mostImportant: boolean }[] = [
+  { month: 1, startDay: 7, endDay: 10, mostImportant: false },
+  { month: 1, startDay: 19, endDay: 24, mostImportant: false },
+  { month: 9, startDay: 3, endDay: 10, mostImportant: true },
+  { month: 9, startDay: 21, endDay: 28, mostImportant: true },
+  { month: 12, startDay: 3, endDay: 10, mostImportant: false },
+  { month: 12, startDay: 15, endDay: 24, mostImportant: false },
+];
+
+export interface CommoditiesDayBandHit {
+  pivotDate: string;
+  pivotKind: "high" | "low";
+  daysSincePivot: number;
+  band: [number, number];
+}
+
+/** M-T7: the Commodities bands open on the last bar, from the recent major pivots (`readDayCountBands`' anchors). */
+export function readCommoditiesDayBands(bars: Bar[]): CommoditiesDayBandHit[] {
+  if (bars.length === 0) return [];
+  const last = Date.parse(bars[bars.length - 1].t);
+  const out: CommoditiesDayBandHit[] = [];
+  for (const p of majorPivots(findPivots(bars, 5)).slice(-8).reverse()) {
+    const days = Math.round((last - Date.parse(p.bar.t)) / DAY_MS);
+    const band = COMMODITIES_DAY_BANDS.find(([lo, hi]) => days >= lo && days <= hi);
+    if (band) out.push({ pivotDate: p.bar.t.slice(0, 10), pivotKind: p.kind, daysSincePivot: days, band: [band[0], band[1]] });
+  }
+  return out;
+}
+
+/**
+ * M-T5: the Rule 8 window `asOf` falls in, by calendar day, or null. The
+ * windows are ranges already, so they are not widened (an engineering choice).
+ */
+export function readRule8Date(asOf: Date): (typeof RULE_8_MONTHLY_DATES)[number] | null {
+  const month = asOf.getUTCMonth() + 1;
+  const day = asOf.getUTCDate();
+  return RULE_8_MONTHLY_DATES.find((w) => w.month === month && day >= w.startDay && day <= w.endDay) ?? null;
 }
 
 /** M-T11: the tolerance, in weeks, for two spans to balance (an engineering choice). */
@@ -139,6 +207,8 @@ export function readTimeCounts(daily: Bar[], monthly: Bar[] | null | undefined, 
     lessonCycles: monthly ? lessonCycleHits(monthly, asOf) : null,
     wheelCountsCh5: readWheelCountsCh5(daily, asOf),
     timeBalanceSpans: readTimeBalanceSpans(daily),
+    commoditiesDayBands: readCommoditiesDayBands(daily),
+    rule8Date: readRule8Date(asOf),
   };
 }
 
@@ -155,6 +225,13 @@ export function describeTimeCounts(r: TimeCountsReading): string[] {
   if (w) lines.push(`${w.label} from the ${w.pivotKind} of ${w.pivotDate}: a count of the circle in days. ${CONTEXT}`);
   for (const b of r.timeBalanceSpans) {
     lines.push(`${b.openWeeks} weeks since the last ${b.kind}, against ${b.priorWeeks} weeks from ${b.kind} to ${b.kind} before it: time balances, so a ${b.kind} may be due${b.falseBreak ? `, and the last session made a false break past the prior ${b.kind}, which confirms it` : ""}. ${CONTEXT}`);
+  }
+  const band = r.commoditiesDayBands[0];
+  if (band) lines.push(`${band.daysSincePivot} days from the ${band.pivotKind} of ${band.pivotDate}: inside the ${band.band[0]}-${band.band[1]} day band. ${CONTEXT}`);
+  const d = r.rule8Date;
+  if (d) {
+    const name = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][d.month - 1];
+    lines.push(`${name} ${d.startDay}-${d.endDay}: one of the month's turn dates${d.mostImportant ? ", among the most important of the year" : ""}. ${CONTEXT}`);
   }
   return lines;
 }

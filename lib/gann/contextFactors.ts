@@ -310,6 +310,10 @@ export function contextFactorsFor(
     f.timeBalanceTurnAgainstTrade = tc.timeBalanceSpans.some((b) => b.kind === (bull ? "top" : "bottom"));
     // A due bottom confirmed by a false break, with a long; a top, with a short (C-STOP-03).
     f.timeBalanceFalseBreakWithTrade = tc.timeBalanceSpans.some((b) => b.falseBreak && b.kind === (bull ? "bottom" : "top"));
+    // The day bands and calendar dates carry no direction, like Rule 8's bands.
+    f.commoditiesDayBandActive = tc.commoditiesDayBands.length > 0;
+    f.rule8DateActive = tc.rule8Date !== null;
+    f.rule8DateMostImportant = tc.rule8Date?.mostImportant === true;
   }
 
   // A-TIME-05/-21: a watched month count (18-48 months in sixes) from a major
