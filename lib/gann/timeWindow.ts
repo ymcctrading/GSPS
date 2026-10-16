@@ -30,10 +30,13 @@
  *    owner's 2026-10-16 decisions to let them act through this mechanism.
  * 2. Cycles: these are recurrent-event claims. The F4 calendar test found no
  *    window set beating random placement on 2019-2025, and the base-rate
- *    harness (`lib/research/timeWindowBaseRate.ts`) scores the families. This
- *    hold is measured on the replay before any claim is made of it; Dewey's
- *    items (repetition against a base rate, persistence out of sample) are not
- *    cleared.
+ *    harness (`lib/research/timeWindowBaseRate.ts`) scores the families; on
+ *    its run 47 the wheel family hit at its base rate, and that harness's own
+ *    reading rule says no hold may rest on a family that does not beat it.
+ *    The owner's Q19 answer, on Gann's A-TIME-15, overrides that rule here;
+ *    the replay measures the hold before any claim is made of it. Dewey's
+ *    items (repetition against a base rate, persistence out of sample) are
+ *    not cleared.
  * 3. Hermetic: Rhythm and Cause and Effect: time is the cause that ripens a
  *    change of trend, and price is its effect showing; neither is read alone.
  *    Polarity: a bottom for a long, a top for a short.

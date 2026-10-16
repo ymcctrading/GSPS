@@ -350,6 +350,16 @@ async function main() {
     return;
   }
 
+  // The Q33/Q38/Q40 pre-registered research tests ride it too (scripts/preregistered-time-tests.mjs).
+  if (process.argv.includes("preregistered-time-tests")) {
+    const { runPreregisteredTimeTests } = await import("./preregistered-time-tests.mjs");
+    await runPreregisteredTimeTests({});
+    await mkdir(path.join(root, "out"), { recursive: true });
+    await writeFile(path.join(root, "out", "summary.md"), "Pre-registered time tests: see the job log.\n");
+    await writeFile(path.join(root, "out", "summary.json"), JSON.stringify({ note: "Pre-registered time tests: see the job log." }) + "\n");
+    return;
+  }
+
   const args = parseArgs(process.argv.slice(2));
   const cells = await loadCells(args.cells);
 
