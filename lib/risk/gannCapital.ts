@@ -72,7 +72,7 @@ export interface CapitalRuleInput {
 }
 
 export interface CapitalRuleRefusal {
-  code: "capital_per_share" | "max_open_symbols" | "risk_one_tenth";
+  code: "capital_per_share" | "max_open_symbols" | "risk_one_tenth" | "risk_tenth_of_profits";
   error: string;
 }
 
@@ -114,15 +114,45 @@ export function capitalRuleRefusal(input: CapitalRuleInput): CapitalRuleRefusal 
   return null;
 }
 
-/** The most a single trade may risk: a tenth of the capital, never below zero. */
-export function maxRiskForTrade(capital: number): number {
-  return capital > 0 ? capital * MAX_RISK_FRACTION : 0;
+/**
+ * A tenth of the profits after large profits (A-RISK-07, *Tunnel Thru the
+ * Air*, W022 pp.198-199, Tier A): "never risk more than 10% of the profits on
+ * the first new deal", and after a loss cut the size so the next loss is only
+ * 10% of the profits that remain, so the market would have to beat him ten
+ * times in a row to take them all. Read on the account's realised position:
+ * the ceiling is a tenth of equity above the starting capital, so a loss
+ * lowers it at once.
+ *
+ * Engineering choice, labelled: "large profits" is profits at least equal to
+ * the starting capital, the point at which Gann lets the trading unit double
+ * (`gannRiskCapital`, A-RISK-04). Below it the tenth of the unit governs
+ * alone. With no starting capital on record (a live account) the profits
+ * can't be read, so the rule does not apply.
+ *
+ * Three-question basis: 1. Gann, as cited. 2. Cycles: no periodicity claim.
+ * 3. Hermetic: Cause and Effect, banked profit is the cause the next risk is
+ * drawn from, and a loss shrinks it at once.
+ */
+export function profitRiskCeiling(equity: number, startingCapital: number): number | null {
+  if (!(startingCapital > 0)) return null;
+  const profits = equity - startingCapital;
+  return profits >= startingCapital ? profits * MAX_RISK_FRACTION : null;
 }
 
-/** The shares a tenth of the capital carries at `riskPerShare` (entry to stop). */
-export function maxSharesForRisk(capital: number, riskPerShare: number): number {
+/**
+ * The most a single trade may risk: a tenth of the capital, never below zero,
+ * and never more than a tenth of the profits when that ceiling applies
+ * (`profitRiskCeiling`).
+ */
+export function maxRiskForTrade(capital: number, profitCeiling: number | null = null): number {
+  const tenth = capital > 0 ? capital * MAX_RISK_FRACTION : 0;
+  return profitCeiling == null ? tenth : Math.max(0, Math.min(tenth, profitCeiling));
+}
+
+/** The shares that risk carries at `riskPerShare` (entry to stop). */
+export function maxSharesForRisk(capital: number, riskPerShare: number, profitCeiling: number | null = null): number {
   const risk = Math.abs(riskPerShare);
-  return risk > 0 && capital > 0 ? Math.floor(maxRiskForTrade(capital) / risk + 1e-9) : 0;
+  return risk > 0 && capital > 0 ? Math.floor(maxRiskForTrade(capital, profitCeiling) / risk + 1e-9) : 0;
 }
 
 export interface RiskTenthInput {
@@ -132,18 +162,29 @@ export interface RiskTenthInput {
   entry: number;
   stop: number;
   qty: number;
+  /** A tenth of the profits, when it applies (`profitRiskCeiling`). */
+  profitCeiling?: number | null;
 }
 
 /**
- * Refuses an entry that risks more than a tenth of the capital. Never called
+ * Refuses an entry that risks more than a tenth of the capital, or of the
+ * profits after large profits. Never called
  * for a protective order: closing or reducing a position risks nothing new.
  */
 export function riskTenthRefusal(input: RiskTenthInput): CapitalRuleRefusal | null {
   const perShare = Math.abs(input.entry - input.stop);
   const risk = Math.abs(input.qty) * perShare;
   // A cent of slack for rounding to the tick.
-  if (risk <= maxRiskForTrade(input.capital) + 0.01) return null;
-  const room = maxSharesForRisk(input.capital, perShare);
+  const ceiling = input.profitCeiling ?? null;
+  const allowed = maxRiskForTrade(input.capital, ceiling);
+  if (risk <= allowed + 0.01) return null;
+  const room = maxSharesForRisk(input.capital, perShare, ceiling);
+  if (ceiling != null && allowed < maxRiskForTrade(input.capital)) {
+    return {
+      code: "risk_tenth_of_profits",
+      error: `That trade risks ${risk.toFixed(2)}, more than a tenth of this account's profits (${allowed.toFixed(2)}). After large profits, a trade may risk only a tenth of them, so a losing run can't take them all. At this stop at most ${room} ${input.symbol.toUpperCase()} shares can be opened. Nothing was placed.`,
+    };
+  }
   return {
     code: "risk_one_tenth",
     error: `That trade risks ${risk.toFixed(2)}, more than a tenth of this account's trading capital (${maxRiskForTrade(input.capital).toFixed(2)}). At this stop at most ${room} ${input.symbol.toUpperCase()} shares can be opened. Nothing was placed.`,

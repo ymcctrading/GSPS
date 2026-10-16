@@ -179,3 +179,12 @@ describe("sizeGuidedTrade: never more than a tenth of the capital at risk (never
     expect(sizeGuidedTrade({ ...base, riskPct: 2, riskCapital: 10_000 }).qty).toBe(20);
   });
 });
+
+describe("sizeGuidedTrade: a tenth of the profits after large profits (A-RISK-07)", () => {
+  it("sizes no more than the profit ceiling carries", () => {
+    // 5% of 100k would risk $5,000; a $2,000 ceiling allows 200 shares at $10 a share.
+    expect(sizeGuidedTrade({ ...base, riskPct: 5 }).qty).toBe(500);
+    expect(sizeGuidedTrade({ ...base, riskPct: 5, profitCeiling: 2_000 }).qty).toBe(200);
+    expect(sizeGuidedTrade({ ...base, profitCeiling: null }).qty).toBe(100);
+  });
+});

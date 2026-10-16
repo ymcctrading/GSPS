@@ -45,7 +45,7 @@ import { readLiveAlpacaConnection } from "@/lib/brokers/live-creds";
 import { getAccount, getPositions, placeOrder } from "@/lib/brokers/alpaca";
 import { isLiveTradingRestricted } from "@/lib/risk/live-trade-loss";
 import { checkPositionLimits } from "@/lib/risk/position-limits";
-import { capitalRuleRefusal, riskTenthRefusal } from "@/lib/risk/gannCapital";
+import { capitalRuleRefusal, profitRiskCeiling, riskTenthRefusal } from "@/lib/risk/gannCapital";
 import { gannRiskCapital, readWinningRun } from "@/lib/risk/dynamic-risk";
 import { gateResolvedAction } from "@/lib/risk/cooldown";
 
@@ -338,10 +338,11 @@ function tenthRefusal(
   symbol: string,
   entry: number | null,
   input: Pick<OrderInput, "qty" | "attachLevels">,
+  profitCeiling: number | null = null,
 ): { status: number; body: Record<string, unknown> } | null {
   const stop = input.attachLevels?.stopLoss;
   if (stop == null || entry == null || !(entry > 0)) return null;
-  const refusal = riskTenthRefusal({ capital, symbol, entry, stop, qty: input.qty });
+  const refusal = riskTenthRefusal({ capital, symbol, entry, stop, qty: input.qty, profitCeiling });
   return refusal ? { status: 409, body: { error: refusal.error, code: refusal.code } } : null;
 }
 
@@ -523,7 +524,8 @@ export async function placeSimulatedOrder(
       const unit = run
         ? gannRiskCapital({ equity: Math.max(equity, 0), startingCapital: STARTING_CASH, ...run }).capital
         : Math.min(Math.max(equity, 0), STARTING_CASH);
-      const tenth = tenthRefusal(unit, candidateSymbol, referencePrice, input);
+      // A-RISK-07: after large profits, a tenth of the profits at most too.
+      const tenth = tenthRefusal(unit, candidateSymbol, referencePrice, input, profitRiskCeiling(Math.max(equity, 0), STARTING_CASH));
       if (tenth) return tenth;
     }
   }
@@ -1097,7 +1099,8 @@ async function placeLiveOrder(
     if (refusal) return { status: 409, body: { error: refusal.error, code: refusal.code } };
     // Never-failing rule 1, as on paper. No starting capital is on record for
     // a live account, so the unit is its equity, held during a long run of
-    // wins (rule 24), as the portfolio manager reads it.
+    // wins (rule 24), as the portfolio manager reads it, and A-RISK-07's tenth
+    // of the profits can't be read.
     const run = await readWinningRun(supabase, userId);
     const unit = run ? gannRiskCapital({ equity: Math.max(equity, 0), startingCapital: 0, ...run }).capital : Math.max(equity, 0);
     const tenth = tenthRefusal(unit, input.symbol, referencePrice, input);

@@ -63,6 +63,8 @@ export interface SizingInputs {
    * Defaults to `equity`. The capital and cash ceilings still read equity.
    */
   riskCapital?: number;
+  /** A tenth of the profits after large profits (A-RISK-07, `profitRiskCeiling`). */
+  profitCeiling?: number | null;
   /**
    * Capital Gann's rule already holds behind open shares (and any trade sized
    * ahead of this one in the same batch), in dollars (`capitalHeld`).
@@ -104,7 +106,7 @@ export interface SizedTrade {
 export function sizeGuidedTrade(input: SizingInputs): SizedTrade {
   const {
     side, equity, buyingPower, entry, stopLoss, takeProfit1, masterProfit,
-    riskPct, riskCapital = equity, capitalHeldUsd, wholeUnitsOnly = true,
+    riskPct, riskCapital = equity, profitCeiling = null, capitalHeldUsd, wholeUnitsOnly = true,
     minGuidedQty = MIN_GUIDED_QTY,
   } = input;
 
@@ -134,7 +136,8 @@ export function sizeGuidedTrade(input: SizingInputs): SizedTrade {
   const riskBudget = Math.min(riskCapital, equity) * (riskPct / 100);
   // Never-failing rule 1: a tenth of the trading capital at most, whatever riskPct says.
   // Unfloored, so a fractional unit is rounded once, below.
-  const byTenth = maxRiskForTrade(Math.min(riskCapital, equity)) / riskPerShare;
+  // A-RISK-07: after large profits, a tenth of the profits at most too.
+  const byTenth = maxRiskForTrade(Math.min(riskCapital, equity), profitCeiling) / riskPerShare;
   const byRisk = Math.min(riskBudget / riskPerShare, byTenth);
 
   const byCapital = maxSharesForCapital(equity - capitalHeldUsd, entry);
