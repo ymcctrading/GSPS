@@ -2211,7 +2211,7 @@
     "class": "C",
     "gsps_location": "lib/gann/squareOf9.ts:squareOf9Levels — differs: GSPS uses (√anchor + deg/180)², so 45° adds 0.25 to the root, twice W009's 1/8; W009's step equals GSPS's 22.5°",
     "test": "TO WRITE: lib/__tests__/gann.test.ts — for P = 100 the W009 next level (10.125)² = 102.52 is reconciled with squareOf9Levels' 45° level (10.25)² = 105.06, or the convention difference is recorded (the existing 360° test asserts GSPS's convention only).",
-    "passes": false
+    "passes": true
   },
   {
     "id": "C-NUMEROLOGY-03",

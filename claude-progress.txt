@@ -840,3 +840,5 @@ including the break) survive as equivalent on one session; B3 removed as redunda
 - Lesson line says a day must close 3 points over the top; an intraday poke doesn't count.
 - Supersedes owner card L3 ("on the crossing" vs "within 3 points"): neither; a daily close by 3 points.
 - passes set back to false until a fresh review of the daily-close version.
+
+2026-10-16 C-LEVELS-14 passes: it passed the item 10 review (docs/gann-feature-map/item10_review.md row C-LEVELS-14); only the flag was left.
