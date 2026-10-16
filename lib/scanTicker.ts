@@ -37,7 +37,7 @@ import { majorPricePercentageLevels } from "@/lib/gann/disclosedRules";
 import { computeTimePriceSquare } from "@/lib/gann/timePriceSquare";
 import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
 import { computeBoilingPoint } from "@/lib/gann/boilingPoint";
-import { entryChart, MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection, rankArmedPatterns } from "@/lib/scan/entrySelection";
+import { entryChart, MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection, rankArmedPatterns, reversionEntry } from "@/lib/scan/entrySelection";
 import { computeTradeLevels, gannEntrySource, type EntrySource } from "@/lib/strat/levels";
 import { selectGannEntry } from "@/lib/gann/entryTrigger";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
@@ -243,14 +243,26 @@ export async function scanTicker(
     const executionAtr = atr(closedExecutionBars.slice(-30), 14);
     // Direction and pattern ranking are shared with the backtest replay
     // (lib/scan/entrySelection.ts) so the two cannot drift — see that
-    // module's header. Direction: against the macro move, weighted by Gann's
-    // chart-timeframe power ratio (a single monthly trend outweighs weekly +
-    // daily disagreeing with it, per Wall Street Stock Selector, 1930). A
+    // module's header. With no direction asked for, the scan arms against
+    // Gann's trend, weighted by his chart-timeframe power ratio (a single
+    // monthly trend outweighs weekly + daily disagreeing with it, per Wall
+    // Street Stock Selector, 1930), and with no trend on any chart, the nearer
+    // of the two sides' buying points (PLAN.md item 6 step 11, fork F4 a). A
     // caller hunting a continuation supplies its own direction instead.
-    const preferredDirection = preferredEntryDirection(
-      [monthlyTrend, weeklyTrend, dailyTrend],
-      preference,
-    );
+    //
+    // Read from completed sessions in the last 52 weeks, the window the replay
+    // and every other surface read it from, with the monthly chart's previous
+    // year's levels and record (`entryChart`, item 5 step 3).
+    const chart = entryChart(daily, monthly, etDateKey(new Date(scannedAt)));
+    const entryDaily = chart.bars;
+    const macroTrends = [monthlyTrend, weeklyTrend, dailyTrend];
+    const entryOf = (d: "bullish" | "bearish") => selectGannEntry(entryDaily, d, chart.older);
+    const gannTrigger = preference
+      ? entryOf(preference.direction)
+      : entryDaily.length > 0
+        ? reversionEntry(macroTrends, entryOf, entryDaily[entryDaily.length - 1].c)
+        : null;
+    const preferredDirection = gannTrigger?.direction ?? preferredEntryDirection(macroTrends, preference);
     const armedPatterns = rankArmedPatterns({
       closedExecutionBars,
       currentPrice,
@@ -272,8 +284,7 @@ export async function scanTicker(
     // It is now Gann's own rule: crossing an old swing top or bottom plus the
     // 3-point allowance, price-scaled (`lib/gann/entryTrigger.ts`, sourced to the nine
     // Buying Points and nine Selling Points). Direction comes from
-    // `preferredDirection`, which is already Gann-derived — `weightedTrendAgreement`
-    // over monthly/weekly/daily using his chart-timeframe power ratio.
+    // `reversionEntry` above, Gann's weighted trend over monthly/weekly/daily.
     //
     // The bar-sequence pattern is NOT removed. It keeps its display and
     // confluence role (`armedPatterns`, the price-action confluence layer),
@@ -283,13 +294,6 @@ export async function scanTicker(
     // Since PLAN.md item 5 step 2 the old bottom (top) is a buying point too:
     // Gann's double and triple bottoms. Of the two, the plan is priced from
     // the one nearer the price (`selectGannEntry`).
-    //
-    // Read from completed sessions in the last 52 weeks, the window the replay
-    // and every other surface read it from, with the monthly chart's previous
-    // year's levels and record (`entryChart`, item 5 step 3).
-    const chart = entryChart(daily, monthly, etDateKey(new Date(scannedAt)));
-    const entryDaily = chart.bars;
-    const gannTrigger = selectGannEntry(entryDaily, preferredDirection, chart.older);
 
     const direction: "bullish" | "bearish" | "none" = gannTrigger?.direction ?? "none";
     const scoreDirection = gannTrigger?.direction ?? preferredDirection;

@@ -9,7 +9,7 @@
  * What arms a trade (rewritten 2026-09-25, alignment audit F3.1–F3.3): the
  * same thing that arms one in `lib/scanTicker.ts`. That is Gann's
  * swing-crossing trigger (`lib/gann/entryTrigger.ts`) computed from **daily**
- * bars, in the direction `preferredEntryDirection` derives from the macro
+ * bars, in the directions `armSessionEntries` derives from the macro
  * trends (`lib/scan/entrySelection.ts`, shared with the scan). Between
  * 2026-09-17 and this rewrite, the replay instead computed the trigger from
  * 15-minute bars, only on STRAT-detected candidates, in the pattern's
@@ -25,21 +25,18 @@
  * fill, that pivot does not arm again.
  *
  * Both of the scan's setup kinds are replayed (2026-09-26):
- *   - **Reversion**, in `preferredEntryDirection`'s direction, the way
- *     `scanTicker` arms every symbol.
- *   - **Continuation**, in the macro direction itself, the way
+ *   - **Reversion**, against Gann's weighted trend (`reversionEntry`), the
+ *     way `scanTicker` arms every symbol.
+ *   - **Continuation**, with Gann's weighted trend, the way
  *     `runMarketScan`'s continuation pass calls `scanTicker` with a
- *     direction. A session arms one only when that pass's own gate
- *     (`isMomentumContinuation`) could admit it: at least two of three macro
- *     timeframes agree (`macroBreadthAgrees`), momentum is elevated, and the
- *     daily swing chart already runs that way (`isGannContinuation`; the STRAT
- *     shape gate it replaced was removed 2026-09-28). The scan also requires an Execute score before
- *     publishing a continuation. The replay records every such trade with its
- *     score, so read continuation results from the Execute bucket
- *     (`bySetupKind` and then `byOutputState`). Filtering on score here would
- *     hide the attribution data the factor table needs. What is still not
- *     modelled is the pass's candidate pool and per-side quota. Those are
- *     cross-symbol, per-run rationing, not properties of one symbol's setup.
+ *     direction. Since PLAN.md item 6 step 11 (A-TREND-09, "never too high
+ *     to buy while the trend is up") the trend alone arms it
+ *     (`armSessionEntries`, `isWithGannTrend`): no momentum, breadth or score
+ *     gate, live or here. What is not modelled is the live pass's candidate
+ *     pool and per-side list length, which are cross-symbol rationing, not
+ *     properties of one symbol's setup.
+ *   - With no trend on any chart, one reversion: the nearer of the two
+ *     sides' buying points (fork F4 a), as `scanTicker` arms it.
  *
  * A session arms once it has `MIN_DAILY_BARS_FOR_SCAN` prior daily bars, the
  * same minimum `scanTicker` enforces (it was 120 here until 2026-09-26, which
@@ -68,10 +65,8 @@ import { computeStopWithLeeway, computeTradeLevels, gannEntrySource, type EntryS
 import type { TradeLevels } from "@/lib/types";
 import {
   MIN_DAILY_BARS_FOR_SCAN,
+  armSessionEntries,
   entryChart,
-  isGannContinuation,
-  macroBreadthAgrees,
-  preferredEntryDirection,
   rankArmedPatterns,
 } from "@/lib/scan/entrySelection";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
@@ -742,7 +737,6 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
             }
           : null;
       const context = buildMacroContext(priorSessions, price, new Date(`${date}T12:00:00Z`), priorMonthly, facts);
-      const reversionDirection = preferredEntryDirection(context.macroTrends);
       const triggers: SessionTrigger[] = [];
       // The reaction rule is production's, and production prices from the
       // nearer of the crossing and the old level (PLAN.md item 5, step 2). The
@@ -766,18 +760,12 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         monthlyWarning,
         pivotAt: trigger.formedAt,
       });
-      const reversion = entryOf(reversionDirection);
-      if (reversion) triggers.push(sessionTrigger("reversion", reversion));
-      // The continuation pass arms with the macro move, never against it, and
-      // only where its breadth and momentum gate could admit the result.
-      const continuationDirection = reversionDirection === "bullish" ? "bearish" : "bullish";
-      if (
-        context.momentumElevated &&
-        macroBreadthAgrees(context.macroTrends, continuationDirection) &&
-        isGannContinuation(context.macroTrends, continuationDirection)
-      ) {
-        const continuation = entryOf(continuationDirection);
-        if (continuation) triggers.push(sessionTrigger("continuation", continuation));
+      // The reversion against the trend, and the buying point with it on the
+      // trend alone (PLAN.md item 6 step 11), the scan's two passes.
+      if (entryDaily.length > 0) {
+        for (const { setupKind, trigger } of armSessionEntries(context.macroTrends, entryOf, entryDaily[entryDaily.length - 1].c)) {
+          triggers.push(sessionTrigger(setupKind, trigger));
+        }
       }
       arm = {
         context,

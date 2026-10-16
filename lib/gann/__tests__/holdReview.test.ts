@@ -9,7 +9,16 @@ import type { Bar } from "@/lib/types";
 
 vi.mock("@/lib/scan/entrySelection", async () => {
   const actual = await vi.importActual<typeof import("@/lib/scan/entrySelection")>("@/lib/scan/entrySelection");
-  return { ...actual, preferredEntryDirection: () => "bullish", macroBreadthAgrees: () => false };
+  // One bullish reversion a session, nothing with the trend: these reviews read the long side alone.
+  return {
+    ...actual,
+    preferredEntryDirection: () => "bullish",
+    reversionEntry: (_t: unknown, entryOf: (d: "bullish") => unknown) => entryOf("bullish"),
+    armSessionEntries: (_t: unknown, entryOf: (d: "bullish") => unknown) => {
+      const trigger = entryOf("bullish");
+      return trigger ? [{ setupKind: "reversion", trigger }] : [];
+    },
+  };
 });
 
 import {

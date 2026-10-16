@@ -5,8 +5,19 @@
  * than 5 points. Points are price-scaled (lib/gann/pointScale.ts). Shorts
  * mirror it.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Bar } from "@/lib/types";
+
+// These tests read the reaction rule on the reversion side alone; the buying
+// point with the trend (item 6 step 11) is covered in replay.test.ts.
+vi.mock("@/lib/scan/entrySelection", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/scan/entrySelection")>("@/lib/scan/entrySelection");
+  return {
+    ...actual,
+    armSessionEntries: (...args: Parameters<typeof actual.armSessionEntries>) =>
+      actual.armSessionEntries(...args).filter((a) => a.setupKind === "reversion"),
+  };
+});
 import {
   computeGannEntryTrigger,
   computeGannOldLevelEntry,
@@ -14,7 +25,7 @@ import {
   type GannEntryTrigger,
 } from "@/lib/gann/entryTrigger";
 import { gannThreePoints } from "@/lib/gann/pointScale";
-import { preferredEntryDirection } from "@/lib/scan/entrySelection";
+import { reversionEntry } from "@/lib/scan/entrySelection";
 import { buildMacroContext, replay } from "@/lib/backtest/replay";
 import { buildReport } from "@/lib/backtest/run";
 
@@ -75,7 +86,9 @@ function withBottomTested(daily: Bar[]): Bar[] {
 const FIXTURES = [
   {
     name: "a short below an old bottom",
-    daily: dailyHistory(300, DAY),
+    // No trend, so the nearer side arms (item 6 step 11, fork F4 a): 304
+    // sessions end the oscillation at its low, where the short is nearer.
+    daily: dailyHistory(304, DAY),
     expect: "bearish",
   },
   {
@@ -112,11 +125,11 @@ function session(
 
 describe.each(FIXTURES)("$name", ({ daily, expect: direction }) => {
   const DAILY = daily;
-  const T: GannEntryTrigger = computeGannEntryTrigger(
-    DAILY,
-    preferredEntryDirection(
-      buildMacroContext(DAILY, DAILY[DAILY.length - 1].c).macroTrends,
-    ),
+  // The side the scan and the replay arm (`reversionEntry`, item 6 step 11).
+  const T: GannEntryTrigger = reversionEntry(
+    buildMacroContext(DAILY, DAILY[DAILY.length - 1].c).macroTrends,
+    (d) => computeGannEntryTrigger(DAILY, d),
+    DAILY[DAILY.length - 1].c,
   )!;
   const S = T.direction === "bullish" ? 1 : -1;
   const L = T.pivot.price;

@@ -32,7 +32,7 @@
 import type { Bar, StratPattern, TrendReading } from "@/lib/types";
 import type { SetupKind } from "@/lib/types";
 import { weightedTrendAgreement } from "@/lib/gann/timeframeWeight";
-import { OLDER_LEVELS_YEARS, olderGannLevels, type OlderGannLevel } from "@/lib/gann/entryTrigger";
+import { nearerBuyingPoint, OLDER_LEVELS_YEARS, olderGannLevels, type GannEntryTrigger, type OlderGannLevel } from "@/lib/gann/entryTrigger";
 import {
   CONTINUATION_PATTERNS,
   detectPatterns,
@@ -100,48 +100,76 @@ export function entryChart(daily: Bar[], monthly: Bar[], asOf: string): { bars: 
 }
 
 /**
- * At least two of the three macro timeframes (monthly, weekly, daily; the
- * hourly never counts) read `direction`. This is the continuation pass's
- * breadth requirement. It is deliberately not the power-ratio weighting
- * `preferredEntryDirection` uses: a single heavily weighted timeframe would
- * satisfy a weighted score on its own, and this gate exists to demand
- * agreement across timeframes.
+ * Gann's trend over the monthly, weekly and daily charts, each weighted by his
+ * power ratio (A-TREND-01; *Wall Street Stock Selector*, 1930: a month counts
+ * 30 days, a week 7), or null when none of the three reads a trend. The hourly
+ * never counts.
  */
-export function macroBreadthAgrees(
-  trends: Pick<TrendReading, "timeframe" | "direction">[],
-  direction: EntryDirection,
-): boolean {
-  return trends.filter((t) => t.timeframe !== "1Hour" && t.direction === direction).length >= 2;
+export function gannMacroDirection(trends: Pick<TrendReading, "timeframe" | "direction">[]): EntryDirection | null {
+  const macro = trends.filter((t) => t.timeframe !== "1Hour") as TrendReading[];
+  const score = weightedTrendAgreement(macro, "bullish").weightedScore;
+  return score > 0 ? "bullish" : score < 0 ? "bearish" : null;
 }
 
 /**
- * Gann's continuation (2026-09-28, project owner: the STRAT shape gate "is not
- * Gann methodology, so implement Gann's methods"): buy on crossing an old top
- * while the trend is up, sell on breaking an old bottom while it is down (the
- * nine Buying and Selling Points, A8; "buy on crossing old tops in a bull
- * market", A5). The entry already crosses a swing extreme in `direction`
- * (`lib/gann/entryTrigger.ts`); what makes it a continuation rather than a
- * reversal is that the daily swing chart, confirmed by its stepping swings,
- * already runs that way (`readGannTrend`, via `readTrend`'s 1Day reading).
- * Replaces `isContinuationShape` as the gate on the live scan and the replay.
- *
- * Three-question basis: 1. Gann, as cited (Tier A). 2. No periodicity claim.
- * 3. Rhythm: a continuation joins the swing already under way instead of
- * reading a bar sequence.
+ * Whether a with-trend setup runs with Gann's trend (PLAN.md item 6 step 11,
+ * A-TREND-09: "a stock is never too high to buy so long as the trend is up,
+ * provided you place a stop", W006 p.22; the mirror for a short, pp.38-39).
+ * The trend alone admits it. The momentum, breadth and quota gates it replaced
+ * (a 4-hour spike, range expansion, two of three timeframes, two slots a side)
+ * had no source in Gann.
  */
-export function isGannContinuation(
+export function isWithGannTrend(trends: Pick<TrendReading, "timeframe" | "direction">[], direction: EntryDirection): boolean {
+  return gannMacroDirection(trends) === direction;
+}
+
+type EntryOf = (direction: EntryDirection) => GannEntryTrigger | null;
+
+/**
+ * The buying point a scan with no direction asked of it arms: against Gann's
+ * trend, where his counter-trend points stand (double and triple tops and
+ * bottoms, held levels, crossings). With no trend on any chart, both sides arm
+ * and the nearer buying point is the one (fork F4 a; Polarity: neither side is
+ * presumed). `price` is the last close of the chart the buying points were
+ * read from, the same price `selectGannEntry` measures nearness from.
+ */
+export function reversionEntry(
   trends: Pick<TrendReading, "timeframe" | "direction">[],
-  direction: EntryDirection,
-): boolean {
-  return trends.some((t) => t.timeframe === "1Day" && t.direction === direction);
+  entryOf: EntryOf,
+  price: number,
+): GannEntryTrigger | null {
+  const trend = gannMacroDirection(trends);
+  if (trend !== null) return entryOf(trend === "bullish" ? "bearish" : "bullish");
+  const up = entryOf("bullish");
+  const down = entryOf("bearish");
+  return up && down ? nearerBuyingPoint(up, down, price) : (up ?? down);
 }
 
 /**
- * The direction the scan arms a reversion setup in: against the macro move,
- * where the macro move is read with Gann's chart-timeframe power ratio rather
- * than a flat vote (a single monthly trend outweighs weekly and daily
- * disagreeing with it). A caller hunting a continuation supplies its own
- * direction instead.
+ * What one session arms, on the live scan's two passes and in the replay
+ * alike: the reversion (`reversionEntry`) and, when the charts read a trend,
+ * the buying point with it (`isWithGannTrend`). Each is the nearer of that
+ * side's crossing, old level and hold (`selectGannEntry`, via `entryOf`).
+ */
+export function armSessionEntries(
+  trends: Pick<TrendReading, "timeframe" | "direction">[],
+  entryOf: EntryOf,
+  price: number,
+): { setupKind: SetupKind; trigger: GannEntryTrigger }[] {
+  const out: { setupKind: SetupKind; trigger: GannEntryTrigger }[] = [];
+  const reversion = reversionEntry(trends, entryOf, price);
+  if (reversion) out.push({ setupKind: "reversion", trigger: reversion });
+  const trend = gannMacroDirection(trends);
+  const withTrend = trend !== null ? entryOf(trend) : null;
+  if (withTrend) out.push({ setupKind: "continuation", trigger: withTrend });
+  return out;
+}
+
+/**
+ * The direction the scan arms a reversion setup in when it has no buying
+ * point to read it from: against Gann's weighted trend, and short when no
+ * chart reads one. A caller hunting a continuation supplies its own
+ * direction instead. Where buying points exist, `reversionEntry` decides.
  */
 export function preferredEntryDirection(
   macroTrends: TrendReading[],

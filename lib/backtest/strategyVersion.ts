@@ -35,7 +35,8 @@
 // Same day, second bump: Gann's "3 points" in the exit rules is price-scaled
 // from his own bands (lib/gann/pointScale.ts) instead of the entry's 0.3%
 // lost-motion margin; the STRAT shape no longer gates publication or the
-// continuation pass (Gann's with-the-daily-trend rule, isGannContinuation);
+// continuation pass (Gann's with-the-daily-trend rule, since replaced by
+// isWithGannTrend in item 6 step 11);
 // the replay's pyramid adds now fire; macro/decade cycles read as of the bar.
 // Third bump: Gann's three-adverse-closes exit reads the first three sessions
 // from the fill, as the source counts them, not any three closes in the trade.
@@ -143,4 +144,11 @@
 // W006 p.30): an old bottom closed 3 points under, then 3 points back over, is
 // crossed like a top and bought on the reaction 1 point over it, stop 3 points
 // under. An old top lost after a 3-point break over it is the mirror sell.
-export const STRATEGY_VERSION = "2026-10-16-gann-regained-bottom";
+// Item 6 step 11, 2026-10-16: never too high to buy while the trend is up
+// (A-TREND-09, W006 pp.22, 38-39). The buying point with Gann's weighted trend
+// arms on the trend alone, live and in the replay (armSessionEntries,
+// isWithGannTrend): no 4-hour spike, range expansion, 120-session floor,
+// two-of-three breadth, Execute bar or two-slot quota, and it competes with
+// the reversions for the list's slots by score. With no trend on any chart the
+// nearer side's buying point arms (fork F4 a), where the scan used to sell.
+export const STRATEGY_VERSION = "2026-10-16-gann-with-trend";

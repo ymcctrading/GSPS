@@ -101,5 +101,22 @@ describe("the window each surface reads", () => {
       expect(readFromWindow()).toBe(true);
       expect(readFromWindow(spies.readBreakaway)).toBe(true);
     }, 30_000);
+
+    it("arms the side the replay arms, by the same rule (item 6 step 11)", async () => {
+      const { reversionEntry } = await vi.importActual<typeof import("@/lib/scan/entrySelection")>("@/lib/scan/entrySelection");
+      const { selectGannEntry } = await vi.importActual<typeof import("@/lib/gann/entryTrigger")>("@/lib/gann/entryTrigger");
+      const symbols = ["AAPL", "MSFT", "XOM", "JPM", "KO", "TSLA", "NVDA", "PFE"];
+      const sides = new Set<string>();
+      for (const symbol of symbols) {
+        spies.entryChart.mockClear();
+        const r = await scanTicker(symbol);
+        const chart = spies.entryChart.mock.results[0].value as { bars: Bar[]; older: Parameters<typeof selectGannEntry>[2] };
+        const macro = r.trends.filter((t) => t.timeframe !== "1Hour");
+        const expected = reversionEntry(macro, (d) => selectGannEntry(chart.bars, d, chart.older), chart.bars[chart.bars.length - 1].c);
+        expect(r.direction).toBe(expected?.direction ?? "none");
+        sides.add(r.direction);
+      }
+      expect(sides.size).toBeGreaterThan(1);
+    }, 60_000);
   });
 });

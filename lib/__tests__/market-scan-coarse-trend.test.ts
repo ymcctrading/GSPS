@@ -74,3 +74,29 @@ describe("the coarse pass's trend", () => {
     expect(coarseContinuation("X", daily, bars4h)?.direction).toBe("bullish");
   });
 });
+
+describe("the continuation pool (item 6 step 11, A-TREND-09)", () => {
+  /** A steady advance with no range expansion, 80 sessions, and no 4-hour bars at all. */
+  function quietAdvance(): Bar[] {
+    return Array.from({ length: 80 }, (_, i) => {
+      const c = 100 + i * 0.4;
+      return { t: new Date(Date.UTC(2025, 0, 1 + i)).toISOString(), o: c, h: c + 0.5, l: c - 0.5, c, v: 2e6 };
+    });
+  }
+
+  it("admits a symbol on its trend alone: no 4-hour spike, no range expansion, under 120 sessions", () => {
+    Object.assign(dirs, { "1Week": "bullish" });
+    expect(coarseContinuation("X", quietAdvance(), [])).toMatchObject({ direction: "bullish", kind: "continuation" });
+  });
+
+  it("ranks a trend with momentum behind it ahead of a quiet one", () => {
+    Object.assign(dirs, { "1Week": "bullish" });
+    const { daily, bars4h } = expandingAdvance();
+    expect(coarseContinuation("X", daily, bars4h)!.coarseScore).toBeGreaterThan(coarseContinuation("Y", quietAdvance(), [])!.coarseScore);
+  });
+
+  it("admits nothing without a trend", () => {
+    Object.assign(dirs, { "1Week": "sideways", "1Day": "sideways" });
+    expect(coarseContinuation("X", quietAdvance(), [])).toBeNull();
+  });
+});

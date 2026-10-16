@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import { CRITERION_KEYS, type CriterionWeights } from "@/lib/scoring/weights";
 import { computeGannEntryTrigger, selectGannEntry, type GannEntryTrigger } from "@/lib/gann/entryTrigger";
-import { entryChartBars, MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection } from "@/lib/scan/entrySelection";
+import { entryChartBars, MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection, reversionEntry } from "@/lib/scan/entrySelection";
 import { reclaimLevel } from "@/lib/gann/stopBreach";
 import {
   MIN_DAILY_BARS_FOR_SCORE,
@@ -48,13 +48,12 @@ const DAILY = dailyHistory(300, DAY);
 
 /**
  * The trigger the live scan would arm for DAY. It is computed here with the
- * same two calls `lib/scanTicker.ts` makes, so every assertion below checks
+ * rule `lib/scanTicker.ts` arms by (`reversionEntry`), so every assertion below checks
  * the replay against production's rule rather than against a hand-copied
  * number.
  */
 function liveTrigger(daily: Bar[] = DAILY): GannEntryTrigger {
-  const direction = preferredEntryDirection(buildMacroContext(daily, 100).macroTrends);
-  const t = computeGannEntryTrigger(daily, direction);
+  const t = reversionEntry(buildMacroContext(daily, 100).macroTrends, (d) => computeGannEntryTrigger(daily, d), daily[daily.length - 1].c);
   if (!t) throw new Error("fixture must arm a trigger");
   return t;
 }
@@ -506,7 +505,7 @@ describe("replay continuation setups", () => {
    * is short and the continuation arm is long, the way the market scan's
    * continuation pass would call scanTicker for this symbol.
    */
-  function risingDaily(count: number, before: string): Bar[] {
+  function risingDaily(count: number, before: string, widen = true): Bar[] {
     const out: Bar[] = [];
     const end = new Date(`${before}T00:00:00Z`).getTime();
     for (let i = count; i >= 1; i--) {
@@ -514,7 +513,7 @@ describe("replay continuation setups", () => {
       const d = new Date(end - i * 86_400_000).toISOString().slice(0, 10);
       const phase = k % 8;
       const step = phase < 5 ? phase : 8 - phase;
-      const late = k >= count - 20;
+      const late = widen && k >= count - 20;
       const c = 50 + k * 0.3 + 10 * Math.sin((2 * Math.PI * k) / 60) + step * (late ? 3 : 1);
       const w = late ? 3 : 1;
       out.push(dayBar(d, c, c + w, c - w, c));
@@ -560,9 +559,22 @@ describe("replay continuation setups", () => {
     expect(r.trades.filter((t) => t.setupKind === "continuation")).toHaveLength(1);
   });
 
-  it("does not arm a continuation where the breadth and momentum gate is shut", () => {
-    // The oscillating history reads no macro trend and no momentum expansion,
-    // so the pass would never be asked for a continuation on it.
+  it("arms a continuation on the trend alone, with no momentum behind it (item 6 step 11)", () => {
+    // Never too high to buy while the trend is up (W006 p.22): the same rising
+    // market without the late range expansion still arms the long.
+    const quiet = risingDaily(300, DAY, false);
+    expect(buildMacroContext(quiet, quiet[quiet.length - 1].c).momentumElevated).toBe(false);
+    const Q = computeGannEntryTrigger(quiet, "bullish")!.triggerPrice;
+    const shift = (b: { o: number; h: number; l: number; c: number }) => ({ o: b.o - T + Q, h: b.h - T + Q, l: b.l - T + Q, c: b.c - T + Q });
+    const r = replay("TEST", intraday([...warm, twoUp, inside, breakout, after].map(shift)), { entryRule: "stop", targetR: 2, dailyBars: quiet });
+    const cont = r.trades.filter((t) => t.setupKind === "continuation");
+    expect(cont).toHaveLength(1);
+    expect(cont[0].direction).toBe("bullish");
+  });
+
+  it("does not arm a continuation where no chart reads a trend", () => {
+    // The oscillating history reads no trend on any chart, so there is no
+    // trend to buy with; only the nearer side's reversion arms.
     const opposite = computeGannEntryTrigger(DAILY, TRIGGER.direction === "bullish" ? "bearish" : "bullish")!;
     const O = opposite.triggerPrice;
     const up = opposite.direction === "bullish" ? 1 : -1;

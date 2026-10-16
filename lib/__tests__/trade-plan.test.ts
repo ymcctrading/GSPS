@@ -13,7 +13,7 @@ import type {
   TrendReading,
 } from "@/lib/types";
 import { computeScore, type ScoreInputs } from "@/lib/scoring/score";
-import { hasTradePlan, isMomentumContinuation, qualifiesAsContinuationFill } from "@/lib/marketScan";
+import { hasTradePlan, isWithTrendContinuation, mergeContinuations, qualifiesAsContinuationFill } from "@/lib/marketScan";
 import { CRITERION_KEYS, EXECUTE_SCORE_THRESHOLD, type CriterionWeights } from "@/lib/scoring/weights";
 
 /**
@@ -223,108 +223,104 @@ describe("hasTradePlan", () => {
   });
 });
 
-describe("isMomentumContinuation", () => {
-  it("accepts a priced continuation pattern running with the macro trend", () => {
-    expect(isMomentumContinuation(continuation(), "bullish")).toBe(true);
+/**
+ * The continuation pass's admission (PLAN.md item 6 step 11, A-TREND-09:
+ * "never too high to buy so long as the trend is up, provided you place a
+ * stop", W006 p.22). The trend alone admits a priced plan: Gann's weighted
+ * trend over the monthly, weekly and daily charts. The momentum, daily-only,
+ * two-of-three breadth and Execute-score gates these tests used to pin had no
+ * source in Gann and were removed with it.
+ */
+describe("isWithTrendContinuation", () => {
+  it("accepts a priced setup running with the trend", () => {
+    expect(isWithTrendContinuation(continuation(), "bullish")).toBe(true);
   });
 
   it("does not depend on the bar-sequence shape", () => {
-    for (const name of ["2-2", "1-2-2", "3-2-2", "PMG"] as const) {
-      expect(
-        isMomentumContinuation(continuation({ pattern: { ...pattern, name } }), "bullish"),
-      ).toBe(true);
+    for (const name of ["2-2", "1-2-2", "3-2-2", "PMG", "3-1-2"] as const) {
+      expect(isWithTrendContinuation(continuation({ pattern: { ...pattern, name } }), "bullish")).toBe(true);
     }
-    expect(isMomentumContinuation(continuation({ pattern: null }), "bullish")).toBe(true);
+    expect(isWithTrendContinuation(continuation({ pattern: null }), "bullish")).toBe(true);
   });
 
-  it("rejects a continuation the daily swing chart does not run with", () => {
-    const againstDaily = continuation({
-      trends: [trend("1Month", "bullish"), trend("1Week", "bullish"), trend("1Day", "bearish"), trend("1Hour", "bullish")],
+  it("follows the monthly and weekly over a daily reaction against them", () => {
+    const reacting = continuation({
+      trends: [trend("1Month", "bullish"), trend("1Week", "bullish"), trend("1Day", "bearish"), trend("1Hour", "bearish")],
     });
-    expect(isMomentumContinuation(againstDaily, "bullish")).toBe(false);
+    expect(isWithTrendContinuation(reacting, "bullish")).toBe(true);
   });
 
-  it("accepts the other continuation shape (3-1-2)", () => {
-    expect(
-      isMomentumContinuation(continuation({ pattern: { ...pattern, name: "3-1-2" } }), "bullish"),
-    ).toBe(true);
+  it("needs no momentum: a quiet tape running with the trend is admitted", () => {
+    expect(isWithTrendContinuation(continuation({ momentumElevated: false }), "bullish")).toBe(true);
   });
 
-  it("rejects a flat tape — a continuation needs the range expansion", () => {
-    expect(isMomentumContinuation(continuation({ momentumElevated: false }), "bullish")).toBe(false);
-  });
-
-  it("rejects a trend the macro timeframes do not confirm", () => {
-    const chopped = continuation({
-      trends: [
-        trend("1Month", "bearish"),
-        trend("1Week", "sideways"),
-        trend("1Day", "bullish"),
-        trend("1Hour", "bullish"),
-      ],
+  it("rejects a setup against the weighted trend", () => {
+    const against = continuation({
+      trends: [trend("1Month", "bearish"), trend("1Week", "sideways"), trend("1Day", "bullish"), trend("1Hour", "bullish")],
     });
-    expect(isMomentumContinuation(chopped, "bullish")).toBe(false);
+    expect(isWithTrendContinuation(against, "bullish")).toBe(false);
   });
 
-  it("does not count the hourly trend toward macro confirmation", () => {
+  it("does not count the hourly trend", () => {
     const hourlyOnly = continuation({
-      trends: [
-        trend("1Month", "sideways"),
-        trend("1Week", "sideways"),
-        trend("1Day", "bullish"),
-        trend("1Hour", "bullish"),
-      ],
+      trends: [trend("1Month", "sideways"), trend("1Week", "sideways"), trend("1Day", "sideways"), trend("1Hour", "bullish")],
     });
-    expect(isMomentumContinuation(hourlyOnly, "bullish")).toBe(false);
+    expect(isWithTrendContinuation(hourlyOnly, "bullish")).toBe(false);
   });
 
   it("rejects a setup pointing the other way", () => {
-    expect(isMomentumContinuation(continuation(), "bearish")).toBe(false);
+    expect(isWithTrendContinuation(continuation(), "bearish")).toBe(false);
   });
 
   it("rejects a continuation with no priced plan", () => {
-    expect(isMomentumContinuation(continuation({ levels: null }), "bullish")).toBe(false);
+    expect(isWithTrendContinuation(continuation({ levels: null }), "bullish")).toBe(false);
   });
 });
 
-/**
- * The continuation top-up pass's actual gate: shape alone (isMomentumContinuation)
- * is necessary but not sufficient — a candidate must also clear the same
- * Execute-tier bar a reversion earns on its own merits. Six 7/9s over
- * eighteen setups trailing off through 6, 5, 4 — a weak-but-shaped
- * continuation must not fill a slot just because it's the best one left.
- */
 describe("qualifiesAsContinuationFill", () => {
-  it("accepts a shaped continuation that clears the Execute bar", () => {
+  it("admits a with-trend plan under the Execute bar: it competes for a slot by score", () => {
     expect(
       qualifiesAsContinuationFill(
-        continuation({ decision: { score: EXECUTE_SCORE_THRESHOLD, outputState: "Execute", breakdown: [] } }),
+        continuation({ decision: { score: EXECUTE_SCORE_THRESHOLD - 1, outputState: "Watch", breakdown: [] } }),
         "bullish",
       ),
     ).toBe(true);
   });
 
-  it("rejects a shaped continuation one point under the bar", () => {
+  it("rejects a high score against the trend", () => {
     expect(
       qualifiesAsContinuationFill(
         continuation({
-          decision: { score: EXECUTE_SCORE_THRESHOLD - 1, outputState: "Watch", breakdown: [] },
-        }),
-        "bullish",
-      ),
-    ).toBe(false);
-  });
-
-  it("rejects a high score against the daily swing trend", () => {
-    expect(
-      qualifiesAsContinuationFill(
-        continuation({
-          trends: [trend("1Month", "bullish"), trend("1Week", "bullish"), trend("1Day", "sideways"), trend("1Hour", "bullish")],
+          trends: [trend("1Month", "bearish"), trend("1Week", "bearish"), trend("1Day", "bullish"), trend("1Hour", "bullish")],
           decision: { score: 9, outputState: "Execute", breakdown: [] },
         }),
         "bullish",
       ),
     ).toBe(false);
+  });
+});
+
+describe("mergeContinuations", () => {
+  const scored = (symbol: string, score: number, overrides: Partial<ScanResult> = {}) =>
+    continuation({ symbol, decision: { score, outputState: score >= EXECUTE_SCORE_THRESHOLD ? "Execute" : "Watch", breakdown: [] }, ...overrides });
+
+  it("ranks the with-trend setups with the reversions for the same slots", () => {
+    const reversions = [scored("B", 7, { setupKind: "reversion" }), scored("A", 3, { setupKind: "reversion" })];
+    const { list, added } = mergeContinuations(reversions, [scored("C", 6), scored("D", 5)], "bullish", 2);
+    expect(list.map((r) => r.symbol)).toEqual(["B", "C"]);
+    expect(added).toBe(1);
+  });
+
+  it("is not limited to two slots when they outscore the reversions", () => {
+    const { list, added } = mergeContinuations([scored("A", 2, { setupKind: "reversion" })], [scored("C", 6), scored("D", 5), scored("E", 4)], "bullish", 3);
+    expect(list.map((r) => r.symbol)).toEqual(["C", "D", "E"]);
+    expect(added).toBe(3);
+  });
+
+  it("leaves out a scan against the trend, or one that failed", () => {
+    const against = scored("F", 9, { trends: [trend("1Month", "bearish"), trend("1Week", "bearish"), trend("1Day", "bearish"), trend("1Hour", "bearish")] });
+    const failed = { ...scored("G", 9), error: "no bars" };
+    expect(mergeContinuations([], [against, failed], "bullish", 5).list).toEqual([]);
   });
 });
 

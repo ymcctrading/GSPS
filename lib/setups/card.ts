@@ -75,7 +75,7 @@ export interface SetupCardModel {
   higherTimeframes: string | null;
   /** The approved plain-English name of the reversal pattern, or null. */
   patternLabel: string | null;
-  /** True for a momentum continuation: it trades with the trend the rest of the list fades. */
+  /** True for a with-trend setup: it trades with the trend, where a reversion trades against it. */
   continuation: boolean;
   synopsis: string;
   tickerHref: string;
