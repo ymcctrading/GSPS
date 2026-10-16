@@ -901,8 +901,8 @@ for the project owner** — do not fix it silently, and re-verify it first:
   `docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md` Part 5; live stays at 3. The
   intraday alerts are an exception by
   construction: they are recomputed from the session on every scan, and their
-  invalidation is the session's 50% point or opening range, so a break of it
-  already changes the alert.
+  invalidation is the session's 50% point or a point beyond the crossed prior
+  session's high or low, so a break of it already changes the alert.
 
 
 ## Gann-derived AND measured — standing principle
@@ -1747,7 +1747,7 @@ Standing facts for a session that touches any list of setups:
   reads it. Guided Mode and the onboarding walkthrough keep their plain-English
   "next level" and add "(MTP)". The internal field stays `masterProfit`.
 - **Intraday has no MTP, and its TP1 is a Gann level or nothing.** The
-  intraday scanner prices an exit (the session's 50% point or opening-range
+  intraday scanner prices an exit (the session's 50% point or a point beyond the crossed prior-session
   extreme) and a first target, and no master take profit. The first target was
   twice the risk, an R-multiple with no Gann source; on 2026-09-30 the owner
   ("everything must align with Gann") had it replaced by `gannFirstTarget`

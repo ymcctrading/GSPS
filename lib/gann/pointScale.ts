@@ -50,3 +50,25 @@ export function gannThreePointsPct(price: number): number {
 export function gannThreePoints(price: number): number {
   return (price * gannThreePointsPct(price)) / 100;
 }
+
+/**
+ * Floor on one intraday point, as a share of price. Engineering choice: keeps a
+ * quiet name from getting no allowance.
+ */
+export const MIN_POINT_PCT = 0.05;
+
+/**
+ * One intraday point at this price: a third of Gann's price-scaled 3 points
+ * times how large these bars' swings are against a day's, so the allowance is
+ * the same share of a typical swing at every chart scale. Zero when either ATR
+ * is unknown. The ratio and the floor are engineering choices (Gann gives the
+ * rule, not this magnitude at intraday scale). Used by the intraday replay
+ * profile (`lib/backtest/replayIntraday.ts`) and the intraday alerts
+ * (`lib/scanner/intraday.ts`), so both read one allowance. Moved here from the
+ * replay on 2026-10-16.
+ */
+export function intradayPoint(price: number, barAtr: number, dailyAtr: number): number {
+  if (!(price > 0) || !(barAtr > 0) || !(dailyAtr > 0)) return 0;
+  const scale = Math.min(1, barAtr / dailyAtr);
+  return Math.max((gannThreePoints(price) / 3) * scale, (price * MIN_POINT_PCT) / 100);
+}

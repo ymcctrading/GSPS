@@ -35,6 +35,27 @@
  * halfway point divides the day into its buying half and its selling half,
  * and which half price holds says whose day it is.
  *
+ * Every detector is Gann's (2026-10-16, project owner: "fix all non Gann
+ * gaps"). Three pieces had no source in his method and are replaced:
+ *
+ * | Was | Now | Gann source |
+ * |---|---|---|
+ * | Break of the first 15 minutes' range | A close beyond the prior session's top or bottom by one intraday point (`old_level_cross`) | Buy on crossing old tops, sell on breaking old bottoms (*New Stock Trend Detector* pp. 20-22); a close decides, since intraday pokes often reverse (*Master Course* rule 5) |
+ * | Move larger than 1.5 daily ATRs | The day's counter-move exceeds the greatest reaction of the daily campaign (`space_overbalance`) | The Space Rule's over-balance of space (*Master Course* Ch. 7, 10A, 11A; *Commodities* p. 51), read by the same `buildCampaignLedger` the daily trend verdict uses |
+ * | Higher highs and lows over six bars | The 3-bar swing chart's trend on the session's bars | The trend turns only when the last swing extreme breaks (NSTD pp. 19-20); "the hourly chart will give the first change in trend" (*Master Course* Ch. 13) |
+ *
+ * The failed-break alert reads the same prior-session levels: a cross that
+ * closes back one point inside the level is Gann's false break (NSTD p. 20,
+ * a crossed top "should not react back 3 points under it"). The intraday point
+ * is `intradayPoint` (`lib/gann/pointScale.ts`), the same scaling the intraday
+ * replay profile uses, so the alerts and the replay read one allowance.
+ * Three-question basis: 1. Gann, as tabled (Tier A; the *Master Course* and
+ * *Commodities* rows are read in `docs/memory-bank/sources/`). 2. No
+ * periodicity claim; Dewey's checklist does not apply. 3. Correspondence: the
+ * daily method's own constructions (old levels, swing chart, campaign ledger)
+ * read at the session's scale rather than a second method; Polarity: every
+ * detector is one rule with its mirror for the downside.
+ *
  * What it does and does not claim
  * -------------------------------
  * Every output is a *confirmation* of a move that has already happened, with
@@ -57,30 +78,29 @@ import { etDateKey, etParts } from "@/lib/market/session";
 import { meetsLiquidityFloor } from "@/lib/scan/liquidity";
 import { MAG7 } from "@/lib/sectors";
 import { APPROACH_WINDOW_PCT, targetCandidates } from "@/lib/gann/evenFigures";
+import { buildCampaignLedger } from "@/lib/gann/campaignLedger";
+import { intradayPoint } from "@/lib/gann/pointScale";
+import { walkSwingChart } from "@/lib/gann/swingChart";
 
 /** ---- Configuration ----------------------------------------------------- */
 
 export type SignalType =
-  | "opening_momentum"
+  | "old_level_cross"
   | "trend_continuation"
-  | "volatility_expansion"
+  | "space_overbalance"
   | "unusual_volume"
   | "reversal_risk";
 
 export type Direction = "up" | "down";
 
 /** What a move is measured against. Always stated; never left to inference. */
-export type MoveBasis = "prior_close" | "session_open" | "opening_range" | "midpoint";
+export type MoveBasis = "prior_close" | "session_open" | "prior_session" | "midpoint";
 
 export type AssetKind = "equity" | "etf" | "index" | "crypto";
 
 export interface ScannerConfig {
-  /** Minutes after the open that define the opening range. */
-  openingRangeMinutes: number;
   /** Cumulative volume vs. the same-time-of-day baseline to count as elevated. */
   relativeVolumeThreshold: number;
-  /** Move size as a multiple of intraday ATR to count as an expansion. */
-  atrExpansionMultiple: number;
   /** Unusual-volume alerting threshold, which is stricter than confirmation. */
   unusualVolumeThreshold: number;
   /** Minimum move, in percent, before any directional signal is considered. */
@@ -94,9 +114,7 @@ export interface ScannerConfig {
 }
 
 export const DEFAULT_CONFIG: ScannerConfig = {
-  openingRangeMinutes: 15,
   relativeVolumeThreshold: 1.2,
-  atrExpansionMultiple: 1.5,
   unusualVolumeThreshold: 2,
   minMovePct: 0.5,
   // Alpaca's free IEX feed is delayed ~15 minutes by contract, so anything
@@ -193,6 +211,14 @@ export interface SymbolInput {
   /** Daily ATR, for sizing a move against the symbol's usual range. */
   dailyAtr: number | null;
   /**
+   * Completed daily bars before this session, oldest first. The prior
+   * session's high and low are the old top and bottom the crossing and
+   * failed-break detectors read, and the campaign ledger behind the
+   * over-balance detector is built from them plus today's session. Without
+   * them those three detectors report "no data" rather than guessing.
+   */
+  priorDailyBars?: Bar[];
+  /**
    * Average daily volume over the recent sessions, for the platform-wide
    * liquidity floor (see lib/scan/liquidity.ts). Null when no daily history
    * came back, which fails the floor rather than passing it silently — a
@@ -222,10 +248,19 @@ export interface SessionMetrics {
   /** Gann's 50% point of the session's range so far. */
   midpoint: number;
   cumulativeVolume: number;
-  /** Opening-range high/low, null until the range has completed. */
-  openingRangeHigh: number | null;
-  openingRangeLow: number | null;
-  openingRangeComplete: boolean;
+  /** Close of the newest bar. Gann's rules act on a close, not an intraday poke. */
+  lastClose: number;
+  /** The prior session's high and low: the old top and bottom of the day. Null without daily history. */
+  priorHigh: number | null;
+  priorLow: number | null;
+  /**
+   * Gann's allowance at this chart's scale (`intradayPoint`): his 3 points
+   * price-scaled, a third of it, times the bars' ATR over the daily ATR.
+   * Zero when either ATR is unknown.
+   */
+  point: number;
+  /** The 3-bar swing chart's trend on the session's bars; null before a swing completes. */
+  swingTrend: Direction | null;
   /** ATR of the intraday bars — the noise floor a real move has to clear. */
   intradayAtr: number;
   /** Null when no baseline was available. Never defaulted to 1. */
@@ -237,18 +272,13 @@ export interface SessionMetrics {
 
 /**
  * Fold the session's bars into the handful of numbers every signal reads.
- *
- * The opening range uses bar *timestamps* rather than bar count, so a feed with
- * a gap in it produces a shorter range instead of a range that silently runs
- * fifteen bars past the intended window.
  */
-export function sessionMetrics(input: SymbolInput, config: ScannerConfig): SessionMetrics | null {
+export function sessionMetrics(input: SymbolInput, _config: ScannerConfig): SessionMetrics | null {
   // Equities are measured over the regular session only. The feed returns
   // pre-market bars from 04:00 ET, and anchoring on "the first bar of the day"
-  // put the opening range in the pre-market — where a handful of thin prints
-  // set a range two cents wide that essentially every symbol then "broke out"
-  // of the moment real trading started. The opening range is a statement about
-  // the auction, so it has to start at the auction.
+  // put the session's high, low and 50% point in the pre-market, where a
+  // handful of thin prints set a range two cents wide. The session is a
+  // statement about the auction, so it has to start at the auction.
   //
   // Crypto has no session boundary; its whole day is the session.
   const regularOnly = input.kind !== "crypto";
@@ -258,34 +288,21 @@ export function sessionMetrics(input: SymbolInput, config: ScannerConfig): Sessi
   if (bars.length === 0) return null;
 
   const first = bars[0];
-  // Anchor on the session open rather than on whichever bar arrived first, so a
-  // feed that drops the 09:30 bar doesn't slide the whole range later.
-  const openMinutes = regularOnly
-    ? REGULAR_OPEN_MINUTE
-    : etParts(new Date(first.t)).minutes;
-  const rangeEnd = openMinutes + config.openingRangeMinutes;
 
   let high = -Infinity;
   let low = Infinity;
   let cumulativeVolume = 0;
-  let orHigh: number | null = null;
-  let orLow: number | null = null;
-  let lastMinute = openMinutes;
-
   for (const bar of bars) {
     high = Math.max(high, bar.h);
     low = Math.min(low, bar.l);
     cumulativeVolume += bar.v;
-
-    const minute = etParts(new Date(bar.t)).minutes;
-    lastMinute = minute;
-    if (minute < rangeEnd) {
-      orHigh = orHigh === null ? bar.h : Math.max(orHigh, bar.h);
-      orLow = orLow === null ? bar.l : Math.min(orLow, bar.l);
-    }
   }
 
   const last = input.quote?.price ?? bars[bars.length - 1].c;
+  const lastClose = bars[bars.length - 1].c;
+  const intradayAtr = atr(bars.slice(-30), 14);
+  const prior = lastPriorBar(input.priorDailyBars);
+  const swing = walkSwingChart(bars, SWING_BARS).trend;
 
   return {
     sessionOpen: first.o,
@@ -296,10 +313,12 @@ export function sessionMetrics(input: SymbolInput, config: ScannerConfig): Sessi
     // is not Gann's; see AGENTS.md and `lib/gann/retracement.ts#rangeMidpoint`).
     midpoint: high > low ? (high + low) / 2 : last,
     cumulativeVolume,
-    openingRangeHigh: orHigh,
-    openingRangeLow: orLow,
-    openingRangeComplete: lastMinute >= rangeEnd && orHigh !== null && orLow !== null,
-    intradayAtr: atr(bars.slice(-30), 14),
+    lastClose,
+    priorHigh: prior?.h ?? null,
+    priorLow: prior?.l ?? null,
+    point: input.dailyAtr != null ? intradayPoint(lastClose, intradayAtr, input.dailyAtr) : 0,
+    swingTrend: swing === "bullish" ? "up" : swing === "bearish" ? "down" : null,
+    intradayAtr,
     relativeVolume:
       input.volumeBaseline && input.volumeBaseline > 0
         ? cumulativeVolume / input.volumeBaseline
@@ -307,6 +326,16 @@ export function sessionMetrics(input: SymbolInput, config: ScannerConfig): Sessi
     dataTimestamp: input.quote?.at ?? bars[bars.length - 1].t,
     barCount: bars.length,
   };
+}
+
+/** Gann's 3-bar swing chart, read on the session's own bars (`lib/gann/swingChart.ts`). */
+const SWING_BARS = 3;
+
+/** The newest usable completed daily bar, or null. */
+function lastPriorBar(daily: Bar[] | undefined): Bar | null {
+  if (!daily) return null;
+  for (let i = daily.length - 1; i >= 0; i--) if (isUsableBar(daily[i])) return daily[i];
+  return null;
 }
 
 /** 09:30 and 16:00 ET, as minutes since midnight. */
@@ -372,7 +401,7 @@ export function measureMove(current: number, reference: number, basis: MoveBasis
 export const MOVE_BASIS_LABELS: Record<MoveBasis, string> = {
   prior_close: "yesterday's close",
   session_open: "today's open",
-  opening_range: "the opening range",
+  prior_session: "the prior session's high or low",
   midpoint: "the middle of today's range",
 };
 
@@ -429,24 +458,24 @@ export interface Alert {
 }
 
 export const SIGNAL_LABELS: Record<SignalType, string> = {
-  opening_momentum: "Opening momentum",
+  old_level_cross: "Old top or bottom crossed",
   trend_continuation: "Trend continuation",
-  volatility_expansion: "Volatility expansion",
+  space_overbalance: "Over-balance of space",
   unusual_volume: "Unusual volume",
   reversal_risk: "Reversal risk",
 };
 
 export const SIGNAL_DESCRIPTIONS: Record<SignalType, string> = {
-  opening_momentum:
-    "Price broke out of the range it set in the first minutes of trading, with more volume than this symbol usually has by now.",
+  old_level_cross:
+    "A bar closed beyond yesterday's high or low by the method's allowance. An old top that is crossed tends to become support, and an old bottom that is broken tends to become resistance.",
   trend_continuation:
-    "Price is extended past both the opening range and the middle of the day's range, and is still making progress in the same direction.",
-  volatility_expansion:
-    "Today's move is large compared with how far this symbol normally travels, so the usual sense of what a big move looks like doesn't apply.",
+    "The swing chart on today's bars is running one way, and price is on that side of the middle of the day's range.",
+  space_overbalance:
+    "Today's move against the trend is bigger than any pullback since the trend began. In this method that says the trend has changed or soon will.",
   unusual_volume:
     "Far more shares have traded by this point in the day than is normal for this symbol, whichever way price ends up going.",
   reversal_risk:
-    "A breakout failed, or price lost the middle of the day's range. The move that was running may be ending — a reason to stand aside, not a reason to trade the other way on its own.",
+    "A cross of yesterday's high or low failed, or price lost the middle of the day's range. The move that was running may be ending — a reason to stand aside, not a reason to trade the other way on its own.",
 };
 
 /** ---- Audit trail ------------------------------------------------------- */
@@ -645,9 +674,9 @@ function scanSymbol(input: SymbolInput, config: ScannerConfig, now: Date): Symbo
   });
 
   const candidates = [
-    detectOpeningMomentum(input, metrics, dayMove, config, checks, now),
+    detectOldLevelCross(input, metrics, dayMove, config, checks, now),
     detectTrendContinuation(input, metrics, dayMove, config, checks, now),
-    detectVolatilityExpansion(input, metrics, dayMove, config, checks, now),
+    detectSpaceOverbalance(input, metrics, dayMove, config, checks, now),
     detectUnusualVolume(input, metrics, dayMove, config, checks, now),
     detectReversalRisk(input, metrics, dayMove, config, checks, now),
   ].filter((a): a is Alert => a !== null);
@@ -703,7 +732,14 @@ function scanSymbol(input: SymbolInput, config: ScannerConfig, now: Date): Symbo
 
 /** ---- Detectors --------------------------------------------------------- */
 
-function detectOpeningMomentum(
+/**
+ * Gann's buying and selling point at the session's scale: a bar has closed
+ * beyond yesterday's high (low) by one intraday point. Old tops crossed become
+ * support, so the alert is invalidated if price falls back a point under the
+ * crossed level (NSTD p. 20: a crossed top "should not react back 3 points
+ * under it"). Replaces the 15-minute opening-range break (2026-10-16).
+ */
+function detectOldLevelCross(
   input: SymbolInput,
   m: SessionMetrics,
   dayMove: Move,
@@ -711,45 +747,45 @@ function detectOpeningMomentum(
   checks: AuditCheck[],
   now: Date,
 ): Alert | null {
-  if (!m.openingRangeComplete || m.openingRangeHigh === null || m.openingRangeLow === null) {
+  if (m.priorHigh === null || m.priorLow === null || !(m.point > 0)) {
     checks.push({
-      name: "Opening momentum",
+      name: "Old top or bottom crossed",
       passed: false,
-      detail: `The first ${config.openingRangeMinutes} minutes haven't completed yet, so there is no opening range to break.`,
+      detail: "No prior session or no range history, so there is no old top or bottom to measure a cross against.",
     });
     return null;
   }
 
-  const brokeUp = m.last > m.openingRangeHigh;
-  const brokeDown = m.last < m.openingRangeLow;
-  if (!brokeUp && !brokeDown) {
+  const crossedUp = m.lastClose > m.priorHigh + m.point;
+  const crossedDown = m.lastClose < m.priorLow - m.point;
+  if (!crossedUp && !crossedDown) {
     checks.push({
-      name: "Opening momentum",
+      name: "Old top or bottom crossed",
       passed: false,
-      detail: `Price is inside the opening range (${m.openingRangeLow.toFixed(2)}–${m.openingRangeHigh.toFixed(2)}).`,
+      detail: `No bar has closed beyond yesterday's range (${m.priorLow.toFixed(2)}–${m.priorHigh.toFixed(2)}) by the allowance of ${m.point.toFixed(2)}.`,
     });
     return null;
   }
 
-  const direction: Direction = brokeUp ? "up" : "down";
-  const reference = brokeUp ? m.openingRangeHigh : m.openingRangeLow;
-  const move = measureMove(m.last, reference, "opening_range");
+  const direction: Direction = crossedUp ? "up" : "down";
+  const level = crossedUp ? m.priorHigh : m.priorLow;
+  const move = measureMove(m.lastClose, level, "prior_session");
   if (!move) return null;
 
   const volumeConfirmed =
     m.relativeVolume !== null && m.relativeVolume >= config.relativeVolumeThreshold;
   checks.push({
-    name: "Opening momentum",
+    name: "Old top or bottom crossed",
     passed: true,
-    detail: `Broke the opening range ${direction === "up" ? "high" : "low"} at ${reference.toFixed(2)}; relative volume ${formatRvol(m.relativeVolume)}.`,
+    detail: `Closed ${Math.abs(move.absolute).toFixed(2)} ${direction === "up" ? "above yesterday's high" : "below yesterday's low"} at ${level.toFixed(2)}; relative volume ${formatRvol(m.relativeVolume)}.`,
   });
 
   const factors: ConfidenceFactor[] = [
     {
-      label: "Opening range broken",
+      label: direction === "up" ? "Yesterday's high crossed on a close" : "Yesterday's low broken on a close",
       passed: true,
       weight: 30,
-      detail: `Price is ${Math.abs(move.absolute).toFixed(2)} beyond the ${direction === "up" ? "high" : "low"} of the first ${config.openingRangeMinutes} minutes.`,
+      detail: `The last bar closed at ${m.lastClose.toFixed(2)}, beyond ${level.toFixed(2)} by more than the allowance of ${m.point.toFixed(2)}.`,
     },
     {
       label: "Volume confirms",
@@ -757,9 +793,10 @@ function detectOpeningMomentum(
       weight: 25,
       detail:
         m.relativeVolume === null
-          ? "No volume baseline for this symbol, so the break is unconfirmed."
+          ? "No volume baseline for this symbol, so the cross is unconfirmed."
           : `${formatRvol(m.relativeVolume)} of the volume this symbol normally has by now.`,
     },
+    swingFactor(m, direction),
     midpointFactor(m, direction),
     dayDirectionFactor(dayMove, direction),
   ];
@@ -768,15 +805,21 @@ function detectOpeningMomentum(
     now,
     input,
     metrics: m,
-    type: "opening_momentum",
+    type: "old_level_cross",
     direction,
     move,
     factors,
-    invalidation: direction === "up" ? m.openingRangeLow : m.openingRangeHigh,
-    whyThisAppeared: `${input.symbol} traded ${direction === "up" ? "above" : "below"} the range it set in the first ${config.openingRangeMinutes} minutes of the day. That range is where buyers and sellers first agreed on a price, so leaving it says one side has taken control — ${volumeConfirmed ? "and the extra volume behind it says the move has participation" : "though volume has not confirmed it, which makes the break less reliable"}.`,
+    invalidation: direction === "up" ? level - m.point : level + m.point,
+    whyThisAppeared: `${input.symbol} closed ${direction === "up" ? "above yesterday's high" : "below yesterday's low"} at ${level.toFixed(2)}, by more than the method's allowance. An old top that is crossed tends to become a floor, and an old bottom that is broken tends to become a ceiling, so the level that would say this is wrong is a close back ${direction === "up" ? "under" : "over"} it by the same allowance — ${volumeConfirmed ? "and the extra volume behind it says the move has participation" : "though volume has not confirmed it, which makes the cross less reliable"}.`,
   });
 }
 
+/**
+ * The trend is still working: Gann's 3-bar swing chart on the session's bars
+ * runs this way (it turns only when the last swing extreme breaks), and price
+ * holds that side of the day's 50% point. Replaces "beyond the opening range
+ * with higher highs and lows over six bars" (2026-10-16).
+ */
 function detectTrendContinuation(
   input: SymbolInput,
   m: SessionMetrics,
@@ -785,44 +828,50 @@ function detectTrendContinuation(
   checks: AuditCheck[],
   now: Date,
 ): Alert | null {
-  if (!m.openingRangeComplete || m.openingRangeHigh === null || m.openingRangeLow === null) {
+  const direction = m.swingTrend;
+  if (direction === null) {
+    checks.push({
+      name: "Trend continuation",
+      passed: false,
+      detail: "The swing chart on today's bars has not completed a swing yet, so it has no trend to continue.",
+    });
     return null;
   }
-
-  const direction: Direction = m.last >= m.midpoint ? "up" : "down";
-  const beyondRange =
-    direction === "up" ? m.last > m.openingRangeHigh : m.last < m.openingRangeLow;
   const beyondMidpoint = direction === "up" ? m.last > m.midpoint : m.last < m.midpoint;
-  const structure = readStructure(input.bars, direction);
   const volumeSustained =
     m.relativeVolume !== null && m.relativeVolume >= config.relativeVolumeThreshold;
 
-  const qualifies = beyondRange && beyondMidpoint && structure.aligned;
   checks.push({
     name: "Trend continuation",
-    passed: qualifies,
-    detail: qualifies
-      ? `Extended past both the opening range and the middle of today's range with ${structure.label}.`
-      : `Needs price past the opening range (${beyondRange ? "yes" : "no"}), past the day's 50% point (${beyondMidpoint ? "yes" : "no"}) and ${direction === "up" ? "higher highs and lows" : "lower highs and lows"} (${structure.aligned ? "yes" : "no"}).`,
+    passed: beyondMidpoint,
+    detail: beyondMidpoint
+      ? `The swing chart is ${direction === "up" ? "up" : "down"} and price is on that side of the day's 50% point.`
+      : `The swing chart is ${direction === "up" ? "up" : "down"}, but price is not ${direction === "up" ? "above" : "below"} the day's 50% point (${m.midpoint.toFixed(2)}).`,
   });
-  if (!qualifies) return null;
+  if (!beyondMidpoint) return null;
 
   const move = measureMove(m.last, m.midpoint, "midpoint");
   if (!move) return null;
 
   const factors: ConfidenceFactor[] = [
-    {
-      label: "Past the opening range",
-      passed: true,
-      weight: 20,
-      detail: `Trading beyond the first ${config.openingRangeMinutes} minutes' ${direction === "up" ? "high" : "low"}.`,
-    },
+    { ...swingFactor(m, direction), weight: 30 },
     { label: "On the right side of the day's 50% point", passed: true, weight: 20, detail: `The middle of today's range is ${m.midpoint.toFixed(2)}.` },
-    { label: "Structure agrees", passed: true, weight: 20, detail: structure.label },
+    {
+      label: direction === "up" ? "Above yesterday's high" : "Below yesterday's low",
+      passed:
+        direction === "up"
+          ? m.priorHigh !== null && m.lastClose > m.priorHigh
+          : m.priorLow !== null && m.lastClose < m.priorLow,
+      weight: 15,
+      detail:
+        m.priorHigh === null || m.priorLow === null
+          ? "No prior session to compare with."
+          : `Yesterday's range was ${m.priorLow.toFixed(2)}–${m.priorHigh.toFixed(2)}.`,
+    },
     {
       label: "Volume sustained",
       passed: volumeSustained,
-      weight: 15,
+      weight: 20,
       detail:
         m.relativeVolume === null
           ? "No volume baseline available."
@@ -840,11 +889,19 @@ function detectTrendContinuation(
     move,
     factors,
     invalidation: m.midpoint,
-    whyThisAppeared: `${input.symbol} is ${direction === "up" ? "above" : "below"} both its opening range and the middle of today's range, and it is still making ${direction === "up" ? "higher highs and higher lows" : "lower highs and lower lows"}. That combination is what a trend that is still working looks like. It is not a promise that it continues — the level that would say otherwise is that halfway point, at ${m.midpoint.toFixed(2)}.`,
+    whyThisAppeared: `${input.symbol}'s swing chart on today's bars is ${direction === "up" ? "up: it has crossed its last swing top" : "down: it has broken its last swing bottom"}, and price is ${direction === "up" ? "above" : "below"} the middle of today's range. In this method the trend stands until the last swing extreme breaks. It is not a promise that it continues — the level that would say otherwise is that halfway point, at ${m.midpoint.toFixed(2)}.`,
   });
 }
 
-function detectVolatilityExpansion(
+/**
+ * Gann's over-balance of space: today's move against the daily campaign's
+ * trend has made the current reaction larger than the greatest reaction since
+ * the campaign began, which in his rules means the trend has changed or soon
+ * will. Read by `buildCampaignLedger`, the module the daily trend verdict
+ * uses, over the prior daily bars plus today's session as the newest bar.
+ * Replaces "moved more than 1.5 daily ATRs" (2026-10-16).
+ */
+function detectSpaceOverbalance(
   input: SymbolInput,
   m: SessionMetrics,
   dayMove: Move,
@@ -852,38 +909,32 @@ function detectVolatilityExpansion(
   checks: AuditCheck[],
   now: Date,
 ): Alert | null {
-  // Sizing against the symbol's own range is the whole point: a $3 move in a
-  // $600 name is noise and a $3 move in a $40 name is not, and a fixed dollar
-  // threshold cannot tell them apart. A percent threshold is better but still
-  // ignores how volatile the symbol usually is, which is what ATR measures.
-  const reference = input.dailyAtr ?? m.intradayAtr;
-  if (!reference || reference <= 0) {
+  const ledger = sessionCampaign(input, m);
+  if (!ledger || !ledger.greatestCounterMove) {
     checks.push({
-      name: "Volatility expansion",
+      name: "Over-balance of space",
       passed: false,
-      detail: "No usable range history to size today's move against.",
+      detail: "Not enough daily history to read the campaign and its greatest reaction.",
     });
     return null;
   }
-
-  const travelled = Math.abs(dayMove.absolute);
-  const multiple = travelled / reference;
-  const qualifies =
-    multiple >= config.atrExpansionMultiple && Math.abs(dayMove.percent) >= config.minMovePct;
-
+  const against: Direction = ledger.trend === "bullish" ? "down" : "up";
+  const current = ledger.currentCounterMove?.pct ?? 0;
+  const greatest = ledger.greatestCounterMove.pct;
+  const qualifies = ledger.spaceOverbalanced && dayMove.direction === against;
   checks.push({
-    name: "Volatility expansion",
+    name: "Over-balance of space",
     passed: qualifies,
-    detail: `Moved ${travelled.toFixed(2)} against a typical range of ${reference.toFixed(2)} (${multiple.toFixed(2)}×; needs ${config.atrExpansionMultiple}×).`,
+    detail: `The ${ledger.trend} campaign's current reaction is ${current.toFixed(1)}% against its greatest of ${greatest.toFixed(1)}%${qualifies ? ", and today's move made the difference" : ""}.`,
   });
   if (!qualifies) return null;
 
   const factors: ConfidenceFactor[] = [
     {
-      label: "Move is large for this symbol",
+      label: "Greatest reaction of the campaign exceeded",
       passed: true,
       weight: 35,
-      detail: `${multiple.toFixed(2)}× the range this symbol usually covers in a whole day.`,
+      detail: `${current.toFixed(1)}% against the trend, more than any reaction since the campaign began on ${ledger.campaignStartDate.slice(0, 10)} (largest ${greatest.toFixed(1)}%).`,
     },
     {
       label: "Volume supports it",
@@ -894,19 +945,25 @@ function detectVolatilityExpansion(
           ? "No volume baseline available."
           : `${formatRvol(m.relativeVolume)} of normal for this time of day.`,
     },
-    midpointFactor(m, dayMove.direction),
+    {
+      label: "Over-balance of time too",
+      passed: ledger.timeOverbalanced,
+      weight: 15,
+      detail: "Time ranks ahead of price here: a reaction that has also run longer than any before it carries more weight.",
+    },
+    midpointFactor(m, against),
   ];
 
   return buildAlert({
     now,
     input,
     metrics: m,
-    type: "volatility_expansion",
-    direction: dayMove.direction,
+    type: "space_overbalance",
+    direction: against,
     move: dayMove,
     factors,
     invalidation: m.midpoint,
-    whyThisAppeared: `${input.symbol} has moved ${formatMoney(travelled)} from ${MOVE_BASIS_LABELS[dayMove.basis]}, which is ${multiple.toFixed(1)} times the distance it normally covers in an entire day. Ranges this wide cut both ways: stops that would be sensible on a normal day are inside the noise today, so position size matters more than direction.`,
+    whyThisAppeared: `${input.symbol} has been in a ${ledger.trend === "bullish" ? "rising" : "falling"} campaign, and today's move ${against === "down" ? "down" : "up"} has made the current reaction (${current.toFixed(1)}%) larger than any reaction since it began (${greatest.toFixed(1)}%). In this method that over-balance says the trend has changed or soon will. It is a warning about the old trend, not by itself an entry the other way.`,
   });
 }
 
@@ -971,14 +1028,12 @@ function detectReversalRisk(
   checks: AuditCheck[],
   now: Date,
 ): Alert | null {
-  if (!m.openingRangeComplete || m.openingRangeHigh === null || m.openingRangeLow === null) {
-    return null;
-  }
-
-  // A failed breakout: the session traded beyond the opening range and price is
-  // now back inside it. The move that people entered on has been given back.
-  const failedUp = m.high > m.openingRangeHigh && m.last < m.openingRangeHigh;
-  const failedDown = m.low < m.openingRangeLow && m.last > m.openingRangeLow;
+  // Gann's false break: the session crossed yesterday's high (low) and has
+  // closed back a point inside it (NSTD p. 20). The move people entered on has
+  // been given back.
+  const levels = m.priorHigh !== null && m.priorLow !== null && m.point > 0;
+  const failedUp = levels && m.high > m.priorHigh! && m.lastClose < m.priorHigh! - m.point;
+  const failedDown = levels && m.low < m.priorLow! && m.lastClose > m.priorLow! + m.point;
   // A 50% rejection: the day ran one way but price has lost the middle of its range.
   const lostMidpoint =
     (dayMove.direction === "up" && m.last < m.midpoint) ||
@@ -988,7 +1043,7 @@ function detectReversalRisk(
     checks.push({
       name: "Reversal risk",
       passed: false,
-      detail: "No failed breakout and price is still on its side of the day's 50% point.",
+      detail: "No failed cross of yesterday's high or low, and price is still on its side of the day's 50% point.",
     });
     return null;
   }
@@ -999,15 +1054,15 @@ function detectReversalRisk(
   if (!move) return null;
 
   const cause = failedUp
-    ? `Price traded up through the opening-range high at ${m.openingRangeHigh.toFixed(2)} and has come back below it.`
+    ? `Price traded up through yesterday's high at ${m.priorHigh!.toFixed(2)} and has closed back below it by more than the allowance.`
     : failedDown
-      ? `Price traded down through the opening-range low at ${m.openingRangeLow.toFixed(2)} and has come back above it.`
+      ? `Price traded down through yesterday's low at ${m.priorLow!.toFixed(2)} and has closed back above it by more than the allowance.`
       : `The day was ${dayMove.direction === "up" ? "up" : "down"} but price has crossed back through the middle of today's range at ${m.midpoint.toFixed(2)}.`;
 
   checks.push({ name: "Reversal risk", passed: true, detail: cause });
 
   const factors: ConfidenceFactor[] = [
-    { label: "Breakout failed or the 50% point lost", passed: true, weight: 30, detail: cause },
+    { label: "Cross failed or the 50% point lost", passed: true, weight: 30, detail: cause },
     {
       label: "Volume behind the reversal",
       passed: m.relativeVolume !== null && m.relativeVolume >= config.relativeVolumeThreshold,
@@ -1017,6 +1072,7 @@ function detectReversalRisk(
           ? "No volume baseline available."
           : `${formatRvol(m.relativeVolume)} of normal for this time of day.`,
     },
+    swingFactor(m, direction),
   ];
 
   return buildAlert({
@@ -1033,6 +1089,29 @@ function detectReversalRisk(
 }
 
 /** ---- Shared factors ---------------------------------------------------- */
+
+function swingFactor(m: SessionMetrics, direction: Direction): ConfidenceFactor {
+  return {
+    label: "Today's swing chart agrees",
+    passed: m.swingTrend === direction,
+    weight: 15,
+    detail:
+      m.swingTrend === null
+        ? "The 3-bar swing chart on today's bars has not turned yet."
+        : `The 3-bar swing chart on today's bars is ${m.swingTrend}.`,
+  };
+}
+
+/**
+ * The daily campaign ledger with today's session as the newest bar, so a
+ * reaction that is happening now counts. Null without enough daily history.
+ */
+export function sessionCampaign(input: SymbolInput, m: SessionMetrics) {
+  const daily = input.priorDailyBars;
+  if (!daily || daily.length < 10) return null;
+  const today: Bar = { t: m.dataTimestamp, o: m.sessionOpen, h: m.high, l: m.low, c: m.last, v: m.cumulativeVolume };
+  return buildCampaignLedger([...daily, today]);
+}
 
 function midpointFactor(m: SessionMetrics, direction: Direction): ConfidenceFactor {
   const onside = direction === "up" ? m.last > m.midpoint : m.last < m.midpoint;
@@ -1051,35 +1130,6 @@ function dayDirectionFactor(dayMove: Move, direction: Direction): ConfidenceFact
     passed: agrees,
     weight: 10,
     detail: `Day is ${dayMove.percent >= 0 ? "+" : ""}${dayMove.percent.toFixed(2)}% from ${MOVE_BASIS_LABELS[dayMove.basis]}.`,
-  };
-}
-
-/**
- * Higher highs and higher lows, or the mirror image.
- *
- * Read over the last six bars rather than the whole session: structure is a
- * statement about what is happening now, and a session-long read would still
- * call a trend intact an hour after it stopped.
- */
-function readStructure(bars: Bar[], direction: Direction): { aligned: boolean; label: string } {
-  const recent = bars.filter(isUsableBar).slice(-6);
-  if (recent.length < 4) return { aligned: false, label: "Not enough bars to read structure." };
-
-  const mid = Math.floor(recent.length / 2);
-  const firstHalf = recent.slice(0, mid);
-  const secondHalf = recent.slice(mid);
-  const highRising = Math.max(...secondHalf.map((b) => b.h)) > Math.max(...firstHalf.map((b) => b.h));
-  const lowRising = Math.min(...secondHalf.map((b) => b.l)) > Math.min(...firstHalf.map((b) => b.l));
-
-  if (direction === "up") {
-    return {
-      aligned: highRising && lowRising,
-      label: highRising && lowRising ? "higher highs and higher lows" : "no higher highs and lows",
-    };
-  }
-  return {
-    aligned: !highRising && !lowRising,
-    label: !highRising && !lowRising ? "lower highs and lower lows" : "no lower highs and lows",
   };
 }
 
@@ -1242,9 +1292,9 @@ function pivotPlan(m: SessionMetrics, direction: Direction, invalidation: number
  * The "why did this only appear now" answer.
  *
  * Two honest reasons dominate, and both are properties of the data rather than
- * of the thresholds: an opening range cannot be broken before it has formed,
- * and a delayed feed means every evaluation is running against prices that are
- * already minutes old.
+ * of the thresholds: Gann's rules act on a closed bar, so a cross is reported
+ * only once a bar has closed beyond the level, and a delayed feed means every
+ * evaluation is running against prices that are already minutes old.
  */
 function explainLateness(dataAge: number, type: SignalType, marketClosed: boolean): string | null {
   const reasons: string[] = [];
@@ -1257,9 +1307,9 @@ function explainLateness(dataAge: number, type: SignalType, marketClosed: boolea
       `the price feed for this symbol runs about ${formatAge(dataAge)} behind, so every check is made against a print that has already happened`,
     );
   }
-  if (type === "opening_momentum" || type === "trend_continuation") {
+  if (type === "old_level_cross" || type === "trend_continuation") {
     reasons.push(
-      "signals built on the opening range can't be evaluated until that range has finished forming",
+      "the rules act on a close, so a cross or a swing only counts once a bar has closed beyond the level",
     );
   }
   if (reasons.length === 0) return null;
@@ -1374,6 +1424,3 @@ export function formatRvol(rvol: number | null): string {
   return rvol === null ? "no baseline" : `${rvol.toFixed(1)}×`;
 }
 
-function formatMoney(v: number): string {
-  return `$${v.toFixed(2)}`;
-}
