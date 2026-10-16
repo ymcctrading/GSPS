@@ -1532,10 +1532,11 @@ was **never applied to production**, so the whole feature was dead on the live
 site. The UI hid that by turning the 500 into "not included on your plan".
 Applied with project-owner sign-off. RLS was verified and the editor now shows
 load errors. `0080_tier_promotion_three_paths.sql` had the same gap and was
-applied in the same pass, also with sign-off. A live
-browser click-through is still owed (this session's network policy blocked
-both the site and Supabase). See `docs/STRATEGY_MODES.md`'s "Production
-verification pass". Generalises the live-weights lesson: **merging a
+applied in the same pass, also with sign-off. The live browser
+click-through ran on 2026-10-16 and passed end to end (save, reload, check
+levels, backtest, chart overlay, order ticket, `/promotion`); see
+`docs/STRATEGY_MODES.md`'s "Production verification pass" and "Live
+click-through". Generalises the live-weights lesson: **merging a
 migration is not applying it.**
 
 Any strategy plugin built or extended under this family must continue to
