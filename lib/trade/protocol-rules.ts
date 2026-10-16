@@ -24,6 +24,7 @@
  * constants each model prices against, so the two cannot drift apart again.
  */
 
+import { EXECUTE_SCORE_THRESHOLD, TOTAL_POINTS } from "@/lib/scoring/weights";
 import {
   EQUITY_LARGE_CAP_FALLBACK_STOP_PCT,
   EQUITY_LARGE_CAP_STOP_MAX_PCT,
@@ -77,14 +78,17 @@ export const STOP_RULE_DETAIL =
 /**
  * The Execute threshold, stated in full.
  *
- * Score 7 is necessary and never sufficient, which is why a 7-scored setup can
- * show as Watch: `computeScore` holds the state when there is no priced trade
- * plan to act on, `applyReversionConfirmation` holds a bare 2-2 that lacks
- * momentum and support/resistance confirmation, and `applyDataLagHold` holds
- * anything computed on bars a full execution candle behind the market. Settings
- * used to state the score cutoff alone, so every hold looked like a bug.
+ * The score cutoff is necessary and never sufficient, which is why a setup at
+ * or over it can show as Watch: `computeScore` holds the state when there is
+ * no priced trade plan, and the holds in `lib/scoring/score.ts` hold it for a
+ * range not yet broken away (`applyBreakawayHold`), a broken monthly low
+ * (`applyMonthlyBreakHold`), a distribution breakdown still standing
+ * (`applyDistributionBreakdownHold`), a failed top between the entry and the
+ * first target (`applyFailedTopHold`) and a stale feed (`applyDataLagHold`).
+ * Settings used to state the score cutoff alone, so every hold looked like a
+ * bug. No bar-sequence pattern holds a verdict since 2026-10-16 (N#1).
  */
-export const EXECUTE_RULE_LABEL = "Score 7+ of 9, with a priced trade plan";
+export const EXECUTE_RULE_LABEL = `Score ${EXECUTE_SCORE_THRESHOLD}+ of ${TOTAL_POINTS}, with a priced trade plan`;
 
 export const EXECUTE_RULE_DETAIL =
-  "A setup also needs an armed pattern with entry, stop and targets priced from it. Execute is held back to Watch when the trade plan is missing, when a bare failed-push reversal lacks both momentum and support/resistance confirmation, or when the price feed is a full execution candle or more behind the market.";
+  "A setup also needs a buying or selling point with its entry, stop and targets priced. Execute is held back to Watch when the trade plan is missing, when the market sits in a narrow range and has not yet broken out of it, when the month has broken last month's low against the trade, when a distribution breakdown still stands against a buy, when a failed top stands between the entry and the first target, or when the price feed is a full execution candle or more behind the market.";

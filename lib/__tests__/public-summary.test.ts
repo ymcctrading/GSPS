@@ -17,7 +17,8 @@ import type {
   TradeLevels,
   TrendReading,
 } from "@/lib/types";
-import { applyReversionConfirmation, computeScore, type ScoreInputs } from "@/lib/scoring/score";
+import { applyDataLagHold, computeScore, type ScoreInputs } from "@/lib/scoring/score";
+import { FREE_EQUITY_FEED_DELAY_MS, decisionLag } from "@/lib/data/latency";
 import {
   redactDecision,
   redactScanResult,
@@ -170,8 +171,8 @@ describe("toPublicScoreSummary", () => {
     expect(summary.stateNote).not.toBeNull();
   });
 
-  it("notes the downgrade of an unconfirmed reversal", () => {
-    const decision = applyReversionConfirmation(computeScore(allPass), pattern, false, false);
+  it("notes a downgrade from Execute", () => {
+    const decision = applyDataLagHold(computeScore(allPass), decisionLag("15Min", FREE_EQUITY_FEED_DELAY_MS));
     expect(toPublicScoreSummary(decision).stateNote).not.toBeNull();
   });
 

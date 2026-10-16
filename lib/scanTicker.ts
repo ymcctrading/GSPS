@@ -50,7 +50,6 @@ import {
   applyFailedTopHold,
   applyMonthlyBreakHold,
   applyDataLagHold,
-  applyReversionConfirmation,
   applyStopBreachHold,
   computeScore,
 } from "@/lib/scoring/score";
@@ -431,7 +430,7 @@ export async function scanTicker(
     });
 
     const decision = applyStopBreachHold(applyDataLagHold(
-      applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(applyReversionConfirmation(
+      applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(
         computeScore({
           direction: scoreDirection,
           macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
@@ -461,11 +460,7 @@ export async function scanTicker(
           setupKind,
           atrPct,
           weights: await getActiveCriterionWeights(),
-        }),
-        pattern,
-        momentumElevated,
-        nearSupportResistance,
-      ), breakaway), monthlyWarning, scoreDirection), distributionStanding, scoreDirection), failedTops, scoreDirection, levels),
+        }), breakaway), monthlyWarning, scoreDirection), distributionStanding, scoreDirection), failedTops, scoreDirection, levels),
       dataLag,
     ), stopBreach);
 

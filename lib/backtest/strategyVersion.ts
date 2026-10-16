@@ -319,4 +319,7 @@
 // distribution spell first (A-ENTRY-15, W006 p.22): ten narrow sessions near
 // the top in the 13 weeks before, held above the bottom. A previous year's or
 // the all-time bottom needs none. Fewer swing shorts arm, so the verdicts move.
-export const STRATEGY_VERSION = "2026-10-16-gann-distribution-short";
+// 2026-10-16-gann-no-pattern-hold: the bare 2-2 hold is gone (N#1). It was
+// the last bar-sequence pattern that could hold an Execute verdict to Watch,
+// and no such pattern may gate a verdict. Some Watch verdicts become Execute.
+export const STRATEGY_VERSION = "2026-10-16-gann-no-pattern-hold";

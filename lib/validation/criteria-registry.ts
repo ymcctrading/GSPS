@@ -666,8 +666,8 @@ const RETIRED: RegisteredCriterion[] = [
       "Replaced by `stopRoom`. On 1,005 unconditioned live trades it measured r=−0.0003, t=−0.01, " +
       "Δ=−0.002R: three ten-thousandths of a correlation, contributing a point of the nine for no " +
       "information at all. Every payload committed before 2026-09-08 measured it, which is why the " +
-      "entry stays. `momentumElevated` itself is still computed and still gates the bare-2-2 check " +
-      "in applyReversionConfirmation — that job was never the scored point.",
+      "entry stays. `momentumElevated` itself is still computed; the bare-2-2 hold it gated was " +
+      "removed on 2026-10-16 (N#1) — that job was never the scored point.",
   },
   {
     id: "fanProximity",
@@ -832,11 +832,13 @@ const SCORE_HOLDS: RegisteredCriterion[] = [
   {
     id: "reversionConfirmation",
     family: "scoreHold",
-    source: "lib/scoring/score.ts",
+    source: "lib/scoring/score.ts (until 2026-10-16)",
     label: "Bare reversal confirmation",
     expectedSign: "unknown",
-    evidence: "unmeasured",
+    evidence: "retired",
     note:
+      "Retired 2026-10-16 (N#1): it was the last bar-sequence pattern holding an Execute verdict, and " +
+      "no bar-sequence pattern may gate a verdict (AGENTS.md). Kept so committed runs still validate. Before that: " +
       "Failed by construction whenever it appears at all: `applyReversionConfirmation` only appends " +
       "this breakdown item on the early-return path taken when `confirmed` is false (a bare 2-2 pattern " +
       "on an Execute verdict that didn't get momentum+S/R confirmation) — there is no code path that " +
