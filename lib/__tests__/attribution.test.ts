@@ -157,3 +157,22 @@ describe("attributeByAtrMultiple", () => {
     expect(Number.isNaN(bands[1].arm.expectancyR)).toBe(false);
   });
 });
+
+// The swing-chart inversion (2026-10-16 diagnosis): equal win rates, lower
+// expectancy, so each arm reports the size of its wins and losses.
+describe("factor arms report average win and loss in R", () => {
+  it("averages R over wins and over losses separately", async () => {
+    const { attributeFactors } = await import("@/lib/backtest/attribution");
+    const trades = [
+      trade({ outcome: "win", rMultiple: 1, criteria: { a: true } }),
+      trade({ outcome: "win", rMultiple: 3, criteria: { a: true } }),
+      trade({ outcome: "loss", rMultiple: -1, criteria: { a: true } }),
+      trade({ outcome: "loss", rMultiple: -0.5, criteria: { a: false } }),
+    ];
+    const row = attributeFactors(trades, { minSamples: 1 }).find((r) => r.criterion === "a")!;
+    expect(row.passed.avgWinR).toBeCloseTo(2, 9);
+    expect(row.passed.avgLossR).toBeCloseTo(-1, 9);
+    expect(row.failed.avgWinR).toBe(0);
+    expect(row.failed.avgLossR).toBeCloseTo(-0.5, 9);
+  });
+});
