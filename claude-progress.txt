@@ -676,3 +676,15 @@ including the break) survive as equivalent on one session; B3 removed as redunda
 - Copy: the volume waiting note says only a new crossing on volume counts; "while price stays under the range" now says "for up to 20 sessions after the break" everywhere; Academy 4 (Pro) gained both rules.
 - STRATEGY_VERSION 2026-10-16-gann-volume-review2. Run 50 to follow run 49.
 - Not done (LOW, recorded): BV5, D9, D12, H5, L2a pins; the duplicate breakdown read on the live scan with confluence on (~32 ms per 250 symbols).
+
+## 2026-10-16 run 49 (0b6f9b1, 2026-10-16-gann-distribution-hold; 766 sym, 15Min, 2026-08-17..10-15)
+- gann-runner: all n 2746 -0.005R [-0.031,+0.020]; Execute n 134 +0.148R [+0.011,+0.292], both halves positive (+0.140/+0.156); Watch -0.024. Run 48: Execute 156 +0.125 [-0.007,+0.249].
+- bracket: all -0.039 [-0.067,-0.011]; Execute +0.086 [-0.047,+0.215].
+- 2 exits on "distribution"; 395 fewer trades overall, 22 fewer in Execute (inferred from the hold, not a reported count).
+- volumeClimax inside Execute still inverted: 120/134 pass, dR -0.557 (run 48 -0.668). Open.
+
+## 2026-10-16 item 9 step 3c: price readings as context (A-PRICE-01/-02/-05/-06, C-LEVELS-01)
+- lib/gann/priceZone.ts: priceZone (Gann's literal 50/100/150/200 dollars, edges to the zone above); readFirstFallFromHigh (52-week entry window, completed sessions; in the first fall once under the high by more than the 3 points and no more than 100); annualRange (median calendar-year range of the completed years in OLDER_LEVELS_YEARS); integerSquareLevels (n^2, midpoint, (n+1)^2; card only); monthlyAngle (low + points per calendar month; card uses 1 a month from the last campaign bottom).
+- computeAngleSlopes readings gain pointsPerDay (raw points per calendar day since the anchor).
+- Card lines; factors firstFallFromHighAgreesWithTrade, overMonthlyAngleAgreesWithTrade. A source pin keeps them out of score.ts, levels.ts, scanTicker.ts and replay.ts. No STRATEGY_VERSION bump.
+- priceZone restates the 364-day window (an import cycle via disclosedRules); a test pins it to ENTRY_CHART_DAYS. Mutants P1-P8, P5b, P5c killed.

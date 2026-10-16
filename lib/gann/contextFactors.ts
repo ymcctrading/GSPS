@@ -162,6 +162,15 @@ export function contextFactorsFor(
     const broken = ctx.campaignBottoms.bottoms[0].broken;
     f.campaignBottomBrokenAgreesWithTrade = bull ? !broken : broken;
   }
+  // The first 100 points down from a high fall fastest (A-PRICE-01): against
+  // a long, with a short.
+  if (ctx.firstFall) f.firstFallFromHighAgreesWithTrade = bull ? !ctx.firstFall.inFirstFall : ctx.firstFall.inFirstFall;
+  // Over the 1-point-a-month line from the last campaign bottom (A-PRICE-05):
+  // with a long, against a short.
+  if (ctx.monthlyAngle) {
+    const over = price > ctx.monthlyAngle.price;
+    f.overMonthlyAngleAgreesWithTrade = bull ? over : !over;
+  }
   // Double/triple tops and bottoms: crossed in the trade's direction, or a
   // failed test standing against it (the second or third since 2026-10-16,
   // A-LEVELS-04; the factor keeps its name so earlier runs still compare).

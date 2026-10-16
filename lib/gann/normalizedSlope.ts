@@ -64,6 +64,12 @@ export interface AngleSlopeReading {
   barsSinceAnchor: number;
   slope: number;
   nearestAngle: NearestGannAngle | null;
+  /**
+   * Gann's own speed, "a movement in price during a unit of time" (A-PRICE-02;
+   * W001 p.11): points moved since the anchor per calendar day, in raw price
+   * units. Context only; `slope` stays the ATR-scaled reading.
+   */
+  pointsPerDay: number;
 }
 
 /**
@@ -96,6 +102,7 @@ export function computeAngleSlopes(bars: Bar[], currentPrice: number): AngleSlop
       barsSinceAnchor: elapsed,
       slope,
       nearestAngle: nearestGannAngle(slope),
+      pointsPerDay: (currentPrice - anchor.price) / Math.max(1, (Date.parse(bars[lastIndex].t) - Date.parse(anchor.bar.t)) / 86_400_000),
     });
   }
   return readings;

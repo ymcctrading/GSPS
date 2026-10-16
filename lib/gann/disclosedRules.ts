@@ -74,7 +74,19 @@ import { readHalfwayRetest, type HalfwayRetestReading } from "@/lib/gann/halfway
 import { readNarrowRangeBreak, type NarrowRangeBreakReading } from "@/lib/gann/narrowRange";
 import { readNarrowWeekBreak, type NarrowWeekBreakReading } from "@/lib/gann/narrowWeek";
 import { readTimeRules, type TimeRulesReading } from "@/lib/gann/timeRules";
+import { etDateKey } from "@/lib/market/session";
 import { readCampaignBottoms, type CampaignBottomLadder } from "@/lib/gann/campaignBottoms";
+import {
+  annualRange,
+  integerSquareLevels,
+  monthlyAngle,
+  priceZone,
+  readFirstFallFromHigh,
+  STOCK_POINTS_PER_MONTH,
+  type AnnualRangeReading,
+  type FirstFallReading,
+  type PriceZone,
+} from "@/lib/gann/priceZone";
 import { gannThreePointsPct } from "@/lib/gann/pointScale";
 import { readMultipleTops, type MultipleTopsReading } from "@/lib/gann/multipleTops";
 import { readSeasonalCount, type SeasonalCountReading } from "@/lib/gann/seasonalCounts";
@@ -471,6 +483,16 @@ export interface DisclosedRulesContext {
   distributionStanding?: DistributionStanding | null;
   /** Old campaign bottoms, newest first, and the one to look to next (A-LEVELS-03, context only). See `campaignBottoms.ts`. */
   campaignBottoms?: CampaignBottomLadder | null;
+  /** Gann's price zone in his literal dollars (A-PRICE-01, context only). See `priceZone.ts`. */
+  priceZone?: PriceZone | null;
+  /** The fall from the 52-week high, and whether it is in the first 100 points (A-PRICE-01, context only). */
+  firstFall?: FirstFallReading | null;
+  /** The symbol's own median calendar-year range (A-PRICE-06, context only). */
+  annualRange?: AnnualRangeReading | null;
+  /** Squares of whole numbers either side of the price and the point between (C-LEVELS-01, card only). */
+  integerSquares?: [number, number, number] | null;
+  /** The 1-point-a-month line from the last campaign bottom, at the session's month (A-PRICE-05, context only). */
+  monthlyAngle?: { from: number; fromMonth: string; price: number } | null;
   /** The last completed session left a narrow range: its volume over the range's average (A-VOLUME-10, context only). See `breakaway.ts`. */
   breakawayVolume?: BreakawayVolumeReading | null;
   /** The class C day, week, month, circle and seasonal counts (context only). See `secondaryTime.ts`. */
@@ -545,6 +567,7 @@ export function readDisclosedRules(
   // The market's months with the month so far from its daily bars, as the
   // live scan's monthly bars have it; the replay passes closed months only.
   const longMonthly = instrument?.monthlyLong ?? instrument?.monthly ?? null;
+  const campaignBottoms = readCampaignBottoms(longMonthly, dailyBars, asOf);
   const marketMonthly = instrument?.marketMonthly
     ? monthlyWithCurrent(instrument.marketMonthly, (instrument.marketDaily ?? []).filter((b) => b.t <= dailyBars[dailyBars.length - 1].t))
     : null;
@@ -580,7 +603,18 @@ export function readDisclosedRules(
     topVolume: readTopVolumeWarning(toWeeklyBars(dailyBars), asOf),
     distribution: readDistributionBreakdown(dailyBars, asOf),
     distributionStanding: readDistributionStanding(dailyBars, asOf),
-    campaignBottoms: readCampaignBottoms(longMonthly, dailyBars, asOf),
+    campaignBottoms,
+    priceZone: priceZone(currentPrice),
+    firstFall: readFirstFallFromHigh(dailyBars, asOf),
+    annualRange: longMonthly ? annualRange(longMonthly, asOf) : null,
+    integerSquares: integerSquareLevels(currentPrice),
+    monthlyAngle: campaignBottoms?.bottoms[0]
+      ? {
+          from: campaignBottoms.bottoms[0].price,
+          fromMonth: campaignBottoms.bottoms[0].month,
+          price: monthlyAngle(campaignBottoms.bottoms[0].price, campaignBottoms.bottoms[0].month, STOCK_POINTS_PER_MONTH, etDateKey(asOf).slice(0, 7)),
+        }
+      : null,
     breakawayVolume: readBreakawayVolume(dailyBars, asOf),
     secondTopVolumeRatio: computeVolumeClimax(dailyBars, undefined, { asOf }).find((r) => r.anchorKind === "high")?.retestWeekVolumeRatio ?? null,
     secondaryTime: readSecondaryTime(dailyBars, longMonthly, asOf, counterMove),
@@ -618,6 +652,21 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   if (ctx.campaignBottoms?.bottoms[0]?.broken) {
     const next = ctx.campaignBottoms.nextSupport;
     lines.push(`The last campaign bottom (${ctx.campaignBottoms.bottoms[0].price.toFixed(2)}, ${ctx.campaignBottoms.bottoms[0].month}) is broken by 3 points: ${next ? `the next older campaign bottom, ${next.price.toFixed(2)} (${next.month}), is the support to watch` : "no older campaign bottom below it is in the record"}.`);
+  }
+  if (ctx.priceZone) {
+    const fall = ctx.firstFall?.inFirstFall ? `, ${ctx.firstFall.pointsDown.toFixed(2)} points under the 52-week high (${ctx.firstFall.high.toFixed(2)}): the first 100 points down from a high fall fastest` : "";
+    lines.push(`Price zone ${ctx.priceZone} (moves speed up above 50, faster above 100, widest above 150-200)${fall}. Shown for context; it does not change the setup.`);
+  }
+  if (ctx.annualRange) {
+    lines.push(`Its usual yearly range is ${ctx.annualRange.medianPoints.toFixed(2)} points (the median of ${ctx.annualRange.years} completed year${ctx.annualRange.years === 1 ? "" : "s"}). Watch the dates more than the points. Shown for context.`);
+  }
+  if (ctx.integerSquares) {
+    const [lo, mid, hi] = ctx.integerSquares;
+    lines.push(`Squares of whole numbers around the price: ${lo}, ${mid} (halfway) and ${hi}. Not a level to trade on alone.`);
+  }
+  if (ctx.monthlyAngle) {
+    const m = ctx.monthlyAngle;
+    lines.push(`The 45-degree line from the ${m.fromMonth} bottom (${m.from.toFixed(2)}) at 1 point a month stands at ${m.price.toFixed(2)}. Shown for context; it does not change the setup.`);
   }
   if (ctx.distributionStanding) {
     lines.push(`After a lower top, the narrow range broke down on ${ctx.distributionStanding.breakoutVolumeRatio.toFixed(1)}× its average volume: a sign of a further decline. A buy is held to Watch, and an open buy is closed, while price stays under the range, for up to 20 sessions after the break.`);
