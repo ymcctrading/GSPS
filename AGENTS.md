@@ -915,6 +915,11 @@ for the project owner** — do not fix it silently, and re-verify it first:
   comes last behind the tracked symbols, the rotation chunk (drawn from
   `LARGE_CAP_UNIVERSE` only) and the most-actives, inside a 250-slot cap.
   Check coverage in coarse telemetry, not list membership.
+  **No market-cap ceiling (owner, 2026-10-16):** "a min on the megacap, but
+  never a limit." `LARGE_CAP_UNIVERSE` had stopped at $200B, so every larger
+  name failed `novice_eligible`'s market-cap check and Guided Mode could never
+  show it. The $200B-and-up names now lead the list (hand-compiled, awaiting
+  the Alpaca validation pass). The $10B floor is the only cap rule.
 - Lesser items: the weight-promotion path can still promote non-uniform
   weights (F4.2); `policy_values` overrides have no bounds (F4.3); `stopRoom`'s
   "quarantined" status doesn't affect live scoring (F4.7). Kept rather than
@@ -1301,6 +1306,18 @@ They bound how the decision is built, not whether.
   search over orbs, scales or planets.
 
 ## Strategy Modes — scoped exception to the non-Gann boundary (2026-09-23, project owner direction)
+
+> **Narrowed 2026-10-16 (owner, confirming his 2026-10-01 note): explain-only.**
+> "Gann's method is still how we plot the chart; the indicator of choice will
+> just [be] how we explain the math on the front end." Asked whether that means
+> modes and scripts only explain levels while Gann's plan sets them, he said
+> yes. So a Strategy Mode or custom script no longer fills the order ticket's
+> stop or target: the "Use these levels" buttons are gone, and the ticket shows
+> the technique's reading next to Gann's plan (agrees or disagrees with its
+> direction, its own levels marked "for comparison only"). The evaluators,
+> chart overlays, script authoring and backtest stay as they were. Where this
+> section below says a mode may "generate" or supply levels a human acts on,
+> read it as this narrower rule.
 
 The "Gann-grounded platform" section above states a boundary "that must not
 move": no non-Gann indicator (PSAR, Supertrend, RSI, MACD, Bollinger, the

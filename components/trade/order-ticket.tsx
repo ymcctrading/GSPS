@@ -103,11 +103,10 @@ export function OrderTicket({
   const [manualStop, setManualStop] = useState("");
   const [manualTarget, setManualTarget] = useState("");
   // Strategy Modes (AGENTS.md's "Strategy Modes" section; docs/STRATEGY_MODES.md):
-  // an opt-in, non-default alternative to GSPS's own Gann trade plan. Defaults
-  // to the user's saved preference, but never auto-applies it — a human still
-  // has to explicitly load the computed levels into the manual stop/target
-  // fields below via "Use these levels", the same way any other manual entry
-  // works. Never touches `levels`/`result.direction` (the Gann plan) above.
+  // explain-only since 2026-10-16 (owner: Gann's method is how we plot the
+  // chart; the indicator of choice only explains the math). A chosen mode
+  // shows how that technique reads the setup next to Gann's plan. It never
+  // fills the stop/target fields and never touches `levels`/`result.direction`.
   const [strategyMode, setStrategyMode] = useState<StrategyModeId>("gann");
   // Server-resolved (`lib/entitlements/policy.ts#allowedStrategyModes`) —
   // null while loading, [] for a tier with no Strategy Mode access at all
@@ -121,9 +120,8 @@ export function OrderTicket({
   // Custom-script Strategy Modes (lib/strategies/custom/,
   // docs/STRATEGY_MODES.md's "Custom-script / plugin system" section,
   // AGENTS.md's "Strategy Modes" section). Same status as the built-in
-  // Strategy Mode block above: a parallel, opt-in, explicitly-labeled
-  // suggestion, never auto-applied — "Use these levels" still requires a
-  // human click. `customScripts` is server-resolved and private to the
+  // Strategy Mode block above: explain-only, never a source of the order's
+  // levels. `customScripts` is server-resolved and private to the
   // signed-in user (`/api/strategy-plugins` is RLS- and tier-scoped to the
   // author); an empty list here means either no saved scripts or a tier
   // that can't author them, and the section renders nothing either way —
@@ -180,8 +178,7 @@ export function OrderTicket({
 
   // Load the user's saved default Strategy Mode once (Settings ->
   // "Strategy mode"). Only pre-selects the dropdown above — it never
-  // auto-fetches levels or auto-fills the manual stop/target, which still
-  // need an explicit "Check levels" / "Use these levels" action.
+  // auto-fetches its reading, and never fills the manual stop/target.
   useEffect(() => {
     let cancelled = false;
     fetch("/api/strategy-mode-preference")
@@ -200,8 +197,8 @@ export function OrderTicket({
   }, []);
 
   // Load the signed-in user's own saved custom scripts, if any. Only
-  // populates the picker below — never auto-fetches levels or auto-fills
-  // the manual stop/target fields, same as the built-in Strategy Mode block.
+  // populates the picker below — never auto-fetches its reading and never
+  // fills the manual stop/target fields, same as the built-in Strategy Mode block.
   useEffect(() => {
     let cancelled = false;
     fetch("/api/strategy-plugins")
@@ -743,8 +740,8 @@ export function OrderTicket({
                 {allowedStrategyModes && allowedStrategyModes.length > 0 && (
                 <div className="rounded-lg border border-border p-3 text-xs">
                   <label className="flex flex-col gap-1 text-muted">
-                    Strategy mode (optional) — price this order from a different technique instead
-                    of GSPS&apos;s own structural analysis
+                    Explain with (optional) — see how another technique reads this setup. GSPS&apos;s
+                    plan still sets the entry, stop and targets
                     <select
                       className="mt-1 w-full rounded-md border px-2 py-1.5 text-xs bg-background"
                       value={strategyMode}
@@ -755,7 +752,7 @@ export function OrderTicket({
                         setStrategyError("");
                       }}
                     >
-                      <option value="gann">{STRATEGY_MODE_LABELS.gann} — no override</option>
+                      <option value="gann">{STRATEGY_MODE_LABELS.gann} only</option>
                       {allowedStrategyModes.map((m) => (
                         <option key={m} value={m}>
                           {STRATEGY_MODE_LABELS[m]}
@@ -788,7 +785,7 @@ export function OrderTicket({
                           }
                         }}
                       >
-                        {strategyStatus === "loading" ? "Checking…" : "Check levels"}
+                        {strategyStatus === "loading" ? "Reading…" : "Explain"}
                       </Button>
 
                       {strategyStatus === "error" && (
@@ -796,29 +793,16 @@ export function OrderTicket({
                       )}
                       {strategyStatus === "ready" && !strategyLevels && (
                         <p className="text-muted">
-                          Nothing currently armed under {STRATEGY_MODE_LABELS[strategyMode]}.
+                          {STRATEGY_MODE_LABELS[strategyMode]} has no reading on this setup right now.
                         </p>
                       )}
                       {strategyLevels && (
-                        <div className="rounded-md bg-surface-alt p-2">
-                          <p className="text-muted">{strategyLevels.rationale}</p>
-                          <p className="mt-1">
-                            Entry {formatUsd(strategyLevels.entry)} · Stop{" "}
-                            {formatUsd(strategyLevels.stopLoss)} · TP1{" "}
-                            {formatUsd(strategyLevels.takeProfit1)} · MTP (master target){" "}
-                            {formatUsd(strategyLevels.masterTarget)}
-                          </p>
-                          <button
-                            type="button"
-                            className="mt-2 min-h-9 cursor-pointer font-medium text-accent underline underline-offset-2"
-                            onClick={() => {
-                              setManualStop(String(strategyLevels.stopLoss));
-                              setManualTarget(String(strategyLevels.takeProfit1));
-                            }}
-                          >
-                            Use these levels (stop + TP1) →
-                          </button>
-                        </div>
+                        <ModeReading
+                          label={STRATEGY_MODE_LABELS[strategyMode]}
+                          reading={strategyLevels}
+                          plan={hasProtocolSignal ? levels : null}
+                          planDirection={result.direction}
+                        />
                       )}
                     </div>
                   )}
@@ -831,8 +815,8 @@ export function OrderTicket({
                 {customScripts && customScripts.length > 0 && (
                 <div className="rounded-lg border border-border p-3 text-xs">
                   <label className="flex flex-col gap-1 text-muted">
-                    Custom script (optional) — price this order from one of your own saved
-                    scripts instead
+                    Explain with your script (optional) — see how one of your saved scripts reads
+                    this setup. GSPS&apos;s plan still sets the levels
                     <select
                       className="mt-1 w-full rounded-md border px-2 py-1.5 text-xs bg-background"
                       value={selectedScriptId}
@@ -876,33 +860,20 @@ export function OrderTicket({
                           }
                         }}
                       >
-                        {scriptStatus === "loading" ? "Checking…" : "Check levels"}
+                        {scriptStatus === "loading" ? "Reading…" : "Explain"}
                       </Button>
 
                       {scriptStatus === "error" && <p className="text-warn">{scriptError}</p>}
                       {scriptStatus === "ready" && !scriptLevels && (
-                        <p className="text-muted">Nothing currently armed under this script.</p>
+                        <p className="text-muted">Your script has no reading on this setup right now.</p>
                       )}
                       {scriptLevels && (
-                        <div className="rounded-md bg-surface-alt p-2">
-                          <p className="text-muted">{scriptLevels.rationale}</p>
-                          <p className="mt-1">
-                            Entry {formatUsd(scriptLevels.entry)} · Stop{" "}
-                            {formatUsd(scriptLevels.stopLoss)} · TP1{" "}
-                            {formatUsd(scriptLevels.takeProfit1)} · MTP (master target){" "}
-                            {formatUsd(scriptLevels.masterTarget)}
-                          </p>
-                          <button
-                            type="button"
-                            className="mt-2 min-h-9 cursor-pointer font-medium text-accent underline underline-offset-2"
-                            onClick={() => {
-                              setManualStop(String(scriptLevels.stopLoss));
-                              setManualTarget(String(scriptLevels.takeProfit1));
-                            }}
-                          >
-                            Use these levels (stop + TP1) →
-                          </button>
-                        </div>
+                        <ModeReading
+                          label={scriptLevels.scriptName}
+                          reading={scriptLevels}
+                          plan={hasProtocolSignal ? levels : null}
+                          planDirection={result.direction}
+                        />
                       )}
                     </div>
                   )}
@@ -1043,6 +1014,61 @@ export function OrderTicket({
         </p>
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * How a chosen Strategy Mode or custom script reads the setup, shown next to
+ * Gann's plan. Explain-only (owner, 2026-10-16: Gann's method is how we plot
+ * the chart; the indicator of choice only explains the math): it says whether
+ * the technique agrees with the plan's direction and lists its own levels for
+ * comparison, and it has no control that writes them into the order.
+ */
+function ModeReading({
+  label,
+  reading,
+  plan,
+  planDirection,
+}: {
+  label: string;
+  reading: {
+    direction: "bullish" | "bearish";
+    rationale: string;
+    entry: number;
+    stopLoss: number;
+    takeProfit1: number;
+    masterTarget: number;
+  };
+  plan: ScanResult["levels"];
+  planDirection: ScanResult["direction"];
+}) {
+  const agrees = plan && planDirection !== "none" ? reading.direction === planDirection : null;
+  return (
+    <div className="flex flex-col gap-1 rounded-md bg-surface-alt p-2">
+      <p className="text-muted">{reading.rationale}</p>
+      {agrees === true && (
+        <p>
+          {label} reads this setup {reading.direction}, the same way as GSPS&apos;s plan.
+        </p>
+      )}
+      {agrees === false && (
+        <p className="text-warn">
+          {label} reads this setup {reading.direction}, against GSPS&apos;s plan. The order still
+          follows GSPS&apos;s plan.
+        </p>
+      )}
+      {plan && (
+        <p>
+          GSPS&apos;s plan: entry {formatUsd(plan.entry)} · stop {formatUsd(plan.stopLoss)} · TP1{" "}
+          {formatUsd(plan.takeProfit1)} · MTP {formatUsd(plan.masterProfit)}
+        </p>
+      )}
+      <p className="text-muted">
+        {label}&apos;s own levels, for comparison only: entry {formatUsd(reading.entry)} · stop{" "}
+        {formatUsd(reading.stopLoss)} · TP1 {formatUsd(reading.takeProfit1)} · MTP{" "}
+        {formatUsd(reading.masterTarget)}
+      </p>
+    </div>
   );
 }
 

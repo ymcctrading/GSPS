@@ -126,7 +126,7 @@ provider request:
 
 | `novice_eligible` component | Live source | Honesty note |
 |---|---|---|
-| `market_cap_pass` | `marketCapPassFromLargeCapCoverage`: membership in `lib/scan/large-cap-universe.ts`'s committed list | Real, sourced signal (a $10B-$200B cap screen), not a fabricated number. Non-membership fails closed — the list's coverage stops at rank 500 of 893, so absence isn't evidence of being under the floor, only of being unverifiable today. |
+| `market_cap_pass` | `marketCapPassFromLargeCapCoverage`: membership in `lib/scan/large-cap-universe.ts`'s committed list | Real, sourced signal (a $10B-and-up cap list, no ceiling since 2026-10-16), not a fabricated number. Non-membership fails closed — the list is a dated capture, so absence isn't evidence of being under the floor, only of being unverifiable today. |
 | `liquidity_pass` | `liquidity.avgDollarVolume`, already read off daily bars for the platform-wide floor | Real. |
 | `price_or_fractional_pass` | `currentPrice`; `fractionalConfirmed` always `null` (unknown, not assumed false) | No broker in scope for a symbol-only scan. |
 | `spread_pass` | Falls back to the liquidity-proxy branch (see below) | No bid/ask feed exists at scan time — see next section. |
@@ -135,10 +135,15 @@ provider request:
 | `data_quality_pass` | Quote timestamp/session/latency from the scan itself; corporate actions `null` (absence isn't a failure); earnings from `lib/macro/earnings.ts`'s new `nextKnownEarningsEvent`; fundamentals as-of date is `LARGE_CAP_SOURCE_CAPTURED` when the large-cap list covers the symbol | The earnings and fundamentals sub-checks inherit the same ~40-mega-cap / rank-500 coverage limits as the two rows above — a real gap, not simulated data standing in for it. |
 
 The net effect: `novice_eligible` is real and meaningful, but today it can
-only ever be `true` for the intersection of "in the $10B-$200B large-cap
+only ever be `true` for the intersection of "in the $10B-and-up large-cap
 list" and "in the ~40-symbol earnings calendar" — a few dozen names, not the
 hundreds the scanner otherwise covers. That gap is exactly the reason for
 the next section.
+
+Until 2026-10-16 the list stopped at $200B, so that intersection held only 7
+names (PEP, DIS, PFE, T, BA, MCD, NKE): every other calendar name is above
+$200B and failed `market_cap_pass`. With the ceiling removed, all 40 of them
+can pass it.
 
 ## Why informational, not gating
 

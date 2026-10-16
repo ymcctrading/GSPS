@@ -37,13 +37,22 @@ describe("the large-cap universe", () => {
   it("leads with the largest names", () => {
     // Order is load-bearing: a reduced budget takes from the front, so the
     // front has to be the most liquid end of the list.
-    expect(LARGE_CAP_UNIVERSE.slice(0, 5)).toEqual(["TMUS", "QCOM", "PEP", "SCHW", "DE"]);
+    expect(LARGE_CAP_UNIVERSE.slice(0, 5)).toEqual(["NVDA", "MSFT", "AAPL", "GOOGL", "GOOG"]);
+  });
+
+  it("has a floor and no ceiling", () => {
+    // Owner, 2026-10-16: a $10B minimum, never an upper limit. The 2026-09-10
+    // export stopped at $200B and left out every name above it; these are the
+    // ones the novice market-cap gate and the scan rotation must never lose.
+    for (const symbol of ["AAPL", "MSFT", "NVDA", "AMZN", "META", "JPM", "BRK.B", "NFLX"]) {
+      expect(LARGE_CAP_UNIVERSE).toContain(symbol);
+    }
   });
 
   it("covers substantially more names than the old 500-symbol capture", () => {
     // The whole point of the refresh: the old list stopped at rank 500 of a
     // reported 893 and had drifted with the market since. This one is a fresh
-    // pull re-filtered to the same $10B-$200B band, not a fixed page of ranks.
+    // pull filtered to the $10B floor, not a fixed page of ranks.
     expect(LARGE_CAP_UNIVERSE.length).toBeGreaterThan(700);
   });
 });
