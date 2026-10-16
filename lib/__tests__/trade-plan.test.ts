@@ -225,6 +225,7 @@ describe("hasTradePlan", () => {
   // not a setup: production published 11 of 14 such plans on 2026-10-16.
   it("rejects a plan the scan reports broken", () => {
     expect(hasTradePlan(result({ stopBreach: { stop: 99, price: 98.5, reclaimAt: 105 } }))).toBe(false);
+    expect(hasTradePlan(result({ stopBreach: { stop: 526.57, price: 544.9, reclaimAt: 520 } }))).toBe(false);
   });
 
   it("rejects a plan whose stop price is already through, long and short", () => {

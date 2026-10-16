@@ -1223,7 +1223,7 @@ averages only (AS1). Built in `lib/gann/planetaryAverages.ts`:
 - Gann's letter of March 20, 1954 (Tier A) gives the six major planets and the
   five with Mars left out, heliocentric and geocentric, as "the most powerful
   points for time and price resistance", and names the **COE** average (not
-  "CE") and the MOF formula. Their definitions, the circle of eight and the
+  "CE"; owner confirmed 2026-10-16) and the MOF formula. Their definitions, the circle of eight and the
   mean of five, are Tier B (Walker 2004; Ganntrader) and match the letter.
 - They act where Gann says they act, as price resistance: each Tier A
   average's nearest points join the S/R list on the live scan and the replay

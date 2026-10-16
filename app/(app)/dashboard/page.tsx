@@ -24,6 +24,7 @@ import { resolveExactScoreDisplayEnabled } from "@/lib/scoring/tier-display";
 import { getMarketRegimeSummary } from "@/lib/promotion/market-regime";
 import { getNoviceHomeSummary } from "@/lib/promotion/novice-home";
 import { NoviceHomeSummary } from "@/components/dashboard/novice-home-summary";
+import { bestQualifiedSetup } from "@/lib/dashboard/bestPlan";
 import { WelcomeBanner } from "@/components/dashboard/welcome-banner";
 import { RestReminder } from "@/components/dashboard/rest-reminder";
 import { IntradayAlerts } from "@/components/scan/intraday-alerts";
@@ -202,7 +203,7 @@ async function getNoviceSummaryIfApplicable(userId: string, bullish: ScanRow[], 
 
   const [regime, home] = await Promise.all([getMarketRegimeSummary(), getNoviceHomeSummary(service, userId)]);
 
-  const bestPlan = [...bullish, ...bearish].sort((a, b) => b.score - a.score)[0] ?? null;
+  const bestPlan = bestQualifiedSetup([...bullish, ...bearish]);
 
   return { regime, home, bestPlan };
 }
@@ -271,7 +272,13 @@ function ReversionPreview({
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        <ResultsTable rows={preview} emptyText={emptyText} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
+        {/* Once a scan has run, an empty list is its answer, not a scan still
+            in progress: "Scanning…" there read as though setups were coming. */}
+        <ResultsTable
+          rows={preview}
+          emptyText={scannedAt ? `No ${side} setup qualifies right now.` : emptyText}
+          exactScoreDisplayEnabled={exactScoreDisplayEnabled}
+        />
         {more > 0 && (
           <Link
             href={`/dashboard/${direction}`}
