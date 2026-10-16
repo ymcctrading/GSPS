@@ -94,6 +94,8 @@ const baseInput: OrderInput = {
   qty: 10,
   mode: "live",
   intradaySourced: false,
+  // Every new position carries a stop (A-STOP-01, Q1).
+  attachLevels: { stopLoss: 95, takeProfit: 110 },
 };
 
 describe("placeSimulatedOrder — live branch", () => {
@@ -143,20 +145,12 @@ describe("placeSimulatedOrder — live branch", () => {
     expect(placeOrder).not.toHaveBeenCalled();
   });
 
-  it("submits a market order with no bracket when there are no attach levels", async () => {
-    readLiveAlpacaConnection.mockResolvedValue(connection);
-    getAccount.mockResolvedValue({ equity: "450" });
-    evaluateLiveCircuitBreaker.mockResolvedValue({ decision: { newEntriesAllowed: true, state: "normal" } });
-    placeOrder.mockResolvedValue({ id: "alpaca-order-1", status: "accepted" });
-
-    const result = await placeSimulatedOrder(stubSupabase(), "u1", baseInput);
-
-    expect(placeOrder).toHaveBeenCalledWith(
-      connection.creds,
-      expect.objectContaining({ symbol: "AAPL", side: "buy", qty: 10, type: "market", bracket: undefined }),
-    );
-    expect(result.status).toBe(200);
-    expect((result.body as { brokerOrderId: string }).brokerOrderId).toBe("alpaca-order-1");
+  it("refuses a new live position with no stop, before the broker is read (A-STOP-01, Q1)", async () => {
+    const result = await placeSimulatedOrder(stubSupabase(), "u1", { ...baseInput, attachLevels: undefined });
+    expect(result.status).toBe(400);
+    expect((result.body as { code: string }).code).toBe("stop_required");
+    expect(readLiveAlpacaConnection).not.toHaveBeenCalled();
+    expect(placeOrder).not.toHaveBeenCalled();
   });
 
   it("passes a real live-entries-today count into the circuit-breaker gate, not a hardcoded 0", async () => {
@@ -206,11 +200,11 @@ describe("placeSimulatedOrder — live branch", () => {
 
   it("refuses when a real Alpaca rejection is thrown, and logs it", async () => {
     readLiveAlpacaConnection.mockResolvedValue(connection);
-    getAccount.mockResolvedValue({ equity: "450" });
+    getAccount.mockResolvedValue({ equity: "100000" });
     evaluateLiveCircuitBreaker.mockResolvedValue({ decision: { newEntriesAllowed: true, state: "normal" } });
     placeOrder.mockRejectedValue(new Error("insufficient buying power"));
 
-    const result = await placeSimulatedOrder(stubSupabase(), "u1", baseInput);
+    const result = await placeSimulatedOrder(stubSupabase(), "u1", { ...baseInput, referencePrice: 100 });
     expect(result.status).toBe(502);
     expect((result.body as { code: string }).code).toBe("live_order_rejected");
     expect(recordOrderExecution).toHaveBeenCalledWith(
@@ -288,6 +282,8 @@ describe("placeSimulatedOrder — live branch", () => {
       side: "sell",
       limitPrice: 100,
       referencePrice: 100,
+      // Closing a long needs no stop.
+      attachLevels: undefined,
     });
 
     expect(getPositions).not.toHaveBeenCalled();

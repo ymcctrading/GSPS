@@ -310,6 +310,20 @@ export async function placeSimulatedOrder(
   const halted = isProtective ? null : killSwitchRefusal();
   if (halted) return { status: 503, body: { ...halted } };
 
+  // A stop on every trade (A-STOP-01; owner, 2026-10-16, Q1): a new equity
+  // position is refused without one, the manual ticket's own orders included.
+  // An order that reduces or closes a position needs none. Options carry no
+  // staged exit here, which is the recorded broker exception (Q31).
+  if (!isProtective && input.assetClass !== "option" && input.attachLevels?.stopLoss == null) {
+    return {
+      status: 400,
+      body: {
+        error: "Every new position needs a stop. Add the protocol's levels or your own stop, then place the order again. Nothing was placed.",
+        code: "stop_required",
+      },
+    };
+  }
+
   if (input.mode === "live") {
     return placeLiveOrder(supabase, userId, input, isProtective);
   }

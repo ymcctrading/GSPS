@@ -185,14 +185,17 @@ describe("placeSimulatedOrder — bracket re-validated against the real fill", (
     }
   });
 
-  it("does not affect an order with no protocol levels attached", async () => {
+  // Since Q1 (2026-10-16) only an order that reduces a position may go
+  // without a stop, so that is the unbracketed case left to check.
+  it("does not affect a closing order with no protocol levels attached", async () => {
     quotePrice.mockResolvedValue(476.08);
+    getOpenPosition.mockResolvedValue({ side: "long", qty: 10, symbol: "NVDA" });
     const { supabase, ordersInsert } = stubSupabase();
 
     const result = await placeSimulatedOrder(supabase, "u1", {
       symbol: "NVDA",
       assetClass: "equity",
-      side: "buy",
+      side: "sell",
       qty: 10,
       mode: "paper",
       entryMode: "now",
