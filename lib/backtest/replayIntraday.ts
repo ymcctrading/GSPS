@@ -70,7 +70,7 @@ import type { Bar } from "@/lib/types";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { atr } from "@/lib/analysis/pivots";
 import { computeGannEntryTrigger } from "@/lib/gann/entryTrigger";
-import { gannFirstTarget } from "@/lib/scanner/intraday";
+import { gannFirstTarget, gannOldLevels } from "@/lib/scanner/intraday";
 import { gannThreePoints, intradayPoint } from "@/lib/gann/pointScale";
 import { RECLAIM_POINTS, isReclaimedByClose, isStopBreached, isStopBreachedByBar } from "@/lib/gann/stopBreach";
 import { swingPivots, walkSwingChart } from "@/lib/gann/swingChart";
@@ -273,6 +273,8 @@ export function replayIntraday(symbol: string, bars: Bar[], options: IntradayRep
         prevClose,
         dailyAtr: dailyAtr > 0 ? dailyAtr : null,
         intradayAtr: executionAtr,
+        // The same old tops and bottoms the live alert reads, as of this candle.
+        oldLevels: gannOldLevels(sessionBars, dailyBars.filter((d) => dateOf(d) < date)),
       });
 
       const walked = walkIntradayExit({ bars, from: i, maxBarsHeld, long, entry, stop, point, firstTarget });

@@ -81,7 +81,7 @@ import { MAG7 } from "@/lib/sectors";
 import { APPROACH_WINDOW_PCT, targetCandidates } from "@/lib/gann/evenFigures";
 import { buildCampaignLedger } from "@/lib/gann/campaignLedger";
 import { intradayPoint } from "@/lib/gann/pointScale";
-import { walkSwingChart } from "@/lib/gann/swingChart";
+import { THREE_DAY_CHART, swingPivots, walkSwingChart } from "@/lib/gann/swingChart";
 
 /** ---- Configuration ----------------------------------------------------- */
 
@@ -268,6 +268,12 @@ export interface SessionMetrics {
    * Zero when either ATR is unknown.
    */
   point: number;
+  /**
+   * The old tops and bottoms the first target is read from (`gannOldLevels`):
+   * the session's completed swings, the prior session's high and low, and the
+   * 3-Day Chart's swing tops and bottoms on the prior daily bars.
+   */
+  oldLevels: number[];
   /** The 3-bar swing chart's trend on the session's bars; null before a swing completes. */
   swingTrend: Direction | null;
   /**
@@ -372,6 +378,7 @@ export function sessionMetrics(input: SymbolInput, _config: ScannerConfig): Sess
     priorHigh: prior?.h ?? null,
     priorLow: prior?.l ?? null,
     point: input.dailyAtr != null ? intradayPoint(lastClose, intradayAtr, input.dailyAtr) : 0,
+    oldLevels: gannOldLevels(bars, input.priorDailyBars),
     swingTrend: swing === "bullish" ? "up" : swing === "bearish" ? "down" : null,
     hourly,
     intradayAtr,
@@ -386,6 +393,38 @@ export function sessionMetrics(input: SymbolInput, _config: ScannerConfig): Sess
 
 /** Gann's 3-bar swing chart, read on the session's own bars (`lib/gann/swingChart.ts`). */
 const SWING_BARS = 3;
+
+/**
+ * The old tops and bottoms behind a session's first target: where the market
+ * has turned before, so where it is expected to meet orders again ("old tops
+ * become bottoms", *New Stock Trend Detector* p. 13). Read three ways, each a
+ * completed turn rather than any bar's high or low:
+ * - the session's own completed swings (the 3-bar swing chart on its bars).
+ *   Gann's swing chart records the tops and bottoms of each reverse move, and
+ *   those are the "old tops" and "old bottoms" his Buying and Selling Points
+ *   are stated against (*How to Make Profits in Commodities*, 1951 New Rules,
+ *   p. 316; A8). Reading it on the session's bars is the hourly-chart use he
+ *   gives for active markets (*Master Stock Market Course* Ch. 13).
+ * - the prior session's high and low: the old top and bottom of the day, the
+ *   levels the crossing alert already reads ("buy on crossing old tops, sell on
+ *   breaking old bottoms", *New Stock Trend Detector* pp. 20-22).
+ * - the 3-Day Chart's swing tops and bottoms on the prior daily bars
+ *   (`THREE_DAY_CHART`: reverse moves of 2 to 3 days, A8 p. 316; *45 Years in
+ *   Wall Street* Ch. VII p. 62), the same chart the daily plans read structure
+ *   from, so an intraday target and a daily plan name the same old levels.
+ * Both kinds are returned: a top or a bottom above the price resists a rise,
+ * and either below it supports a fall. The caller keeps the ones beyond the
+ * price. The session's still-open extreme is not here; `gannFirstTarget`
+ * takes it separately.
+ */
+export function gannOldLevels(sessionBars: Bar[], priorDailyBars: Bar[] | undefined): number[] {
+  const levels = walkSwingChart(sessionBars, SWING_BARS).pivots.map((p) => p.price);
+  const daily = (priorDailyBars ?? []).filter(isUsableBar);
+  const prior = daily[daily.length - 1];
+  if (prior) levels.push(prior.h, prior.l);
+  for (const p of swingPivots(daily, THREE_DAY_CHART)) levels.push(p.price);
+  return levels.filter((p) => Number.isFinite(p) && p > 0);
+}
 
 /** The newest usable completed daily bar, or null. */
 function lastPriorBar(daily: Bar[] | undefined): Bar | null {
@@ -1292,10 +1331,11 @@ export function scoreConfidence(factors: ConfidenceFactor[]): number {
  * move has to clear (`SessionMetrics.intradayAtr`); and a round number counts
  * only within one daily ATR of the price (2% of it when the daily ATR is not
  * known, `APPROACH_WINDOW_PCT`), because one farther off is not a *first*
- * target. The old tops and bottoms read are the session's own extreme and the
- * prior close; the session's earlier swings and the prior sessions' highs and
- * lows are not passed in yet, so this can only under-name a level, never
- * invent one.
+ * target. The old tops and bottoms read are the session's own extreme, the
+ * prior close and `oldLevels` (`gannOldLevels`: the session's completed
+ * swings, the prior session's high and low, and the 3-Day Chart's swings on
+ * the daily bars). Until 2026-10-16 only the first two were read, which left
+ * many alerts with no target where an old level did lie ahead.
  */
 export function gannFirstTarget(input: {
   direction: Direction;
@@ -1305,8 +1345,10 @@ export function gannFirstTarget(input: {
   prevClose: number | null;
   dailyAtr: number | null;
   intradayAtr: number;
+  /** Old tops and bottoms from `gannOldLevels`; only those beyond the price count. */
+  oldLevels?: number[];
 }): number | null {
-  const { direction, last, sessionHigh, sessionLow, prevClose, dailyAtr, intradayAtr } = input;
+  const { direction, last, sessionHigh, sessionLow, prevClose, dailyAtr, intradayAtr, oldLevels = [] } = input;
   const up = direction === "up";
   const floor = Math.max(0, intradayAtr);
   const beyond = (p: number) => (up ? p - last : last - p) >= floor && (up ? p > last : p < last);
@@ -1316,6 +1358,7 @@ export function gannFirstTarget(input: {
   const candidates = [
     up ? sessionHigh : sessionLow,
     ...(prevClose != null && prevClose > 0 ? [prevClose] : []),
+    ...oldLevels,
     ...targetCandidates(last, limit, up ? "bullish" : "bearish"),
   ].filter((p) => Number.isFinite(p) && beyond(p));
 
@@ -1338,6 +1381,7 @@ function continuationPlan(
     prevClose,
     dailyAtr,
     intradayAtr: m.intradayAtr,
+    oldLevels: m.oldLevels,
   });
   return {
     confirmation: `Wait for a bar to close ${direction === "up" ? "above" : "below"} ${m.last.toFixed(2)} rather than entering into the move. Chasing an extended price is how a good read becomes a bad fill.`,

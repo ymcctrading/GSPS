@@ -4,6 +4,7 @@ import {
   DEFAULT_CONFIG,
   cooldownUntil,
   gannFirstTarget,
+  gannOldLevels,
   measureMove,
   scanIntraday,
   barsForSession,
@@ -766,6 +767,14 @@ describe("gannFirstTarget", () => {
     expect(t).toBeCloseTo(100.5, 6);
   });
 
+  it("reads an old level from the session's swings or the daily chart when it is the nearest", () => {
+    // 481.6 is a swing top of the session or a 3-Day Chart top: nearer than any figure.
+    expect(gannFirstTarget({ ...base, oldLevels: [478, 481.6, 486] })).toBe(481.6);
+    // Levels behind the price, or inside the noise, still name nothing.
+    expect(gannFirstTarget({ ...base, oldLevels: [478, 480.1] })).toBeNull();
+    expect(gannFirstTarget({ ...base, direction: "down", sessionLow: 479.95, prevClose: 490, oldLevels: [476.4, 483] })).toBe(476.4);
+  });
+
   it("does not turn a risk multiple into a target: with no level ahead, there is none", () => {
     const alert = scanIntraday([input()], DEFAULT_CONFIG, AT_1133).alerts.find((a) => a.type === "trend_continuation")!;
     const risk = Math.abs(alert.move.current - (alert.invalidation ?? alert.move.current));
@@ -812,5 +821,45 @@ describe("Gann's hourly chart (Master Course Ch. 13)", () => {
       const f = a.confidenceFactors.find((x) => x.label === "The hourly chart agrees");
       expect(f?.passed).toBe(a.direction === "up");
     }
+  });
+});
+
+describe("gannOldLevels", () => {
+  const day = (i: number, h: number, l: number): Bar => ({
+    t: new Date(Date.parse("2026-07-01T20:00:00Z") + i * 86_400_000).toISOString(),
+    o: (h + l) / 2,
+    h,
+    l,
+    c: (h + l) / 2,
+    v: 1_000_000,
+  });
+
+  it("returns the prior session's high and low and the 3-Day Chart's swings", () => {
+    // Up three days to 110, down three to 100, up three to 106, then one day.
+    const highs = [102, 106, 110, 108, 105, 102, 103, 104, 106, 105.5];
+    const daily = highs.map((h, i) => day(i, h, h - 2));
+    const levels = gannOldLevels([], daily);
+    expect(levels).toContain(105.5); // prior session's high
+    expect(levels).toContain(103.5); // prior session's low
+    expect(levels).toContain(110); // the 3-Day Chart's swing top
+    expect(levels).toContain(100); // and its swing bottom
+  });
+
+  it("returns the session's own completed swings", () => {
+    const session = [
+      bar(0, 500, 500.5, 499.5, 500),
+      bar(1, 500, 501, 500, 501),
+      bar(2, 501, 502, 501, 502),
+      bar(3, 502, 503, 502, 503),
+      bar(4, 503, 503, 501.5, 502),
+      bar(5, 502, 502.5, 500.8, 501),
+      bar(6, 501, 501.5, 500.2, 500.5),
+      bar(7, 500.5, 502, 500.5, 501.8),
+    ];
+    expect(gannOldLevels(session, undefined)).toContain(503);
+  });
+
+  it("is empty without bars", () => {
+    expect(gannOldLevels([], undefined)).toEqual([]);
   });
 });
