@@ -9,8 +9,13 @@
  *   prices. Every open share counts against the same capital, not only the
  *   new order's.
  * - A-RISK-08 (W022 pp.203-204, class A): specialise in two or three markets
- *   and do not diversify. At most `MAX_OPEN_SYMBOLS` symbols open at once; an
- *   order in a symbol already held is not a new market.
+ *   and do not diversify, and never-failing rule 8 (WSSS Ch. II rule 8; 45
+ *   Years pp.15-16): "spread risk over 4 or 5 stocks". The stock books give
+ *   stocks their own count, so stocks are held to `MAX_OPEN_STOCKS` (owner,
+ *   2026-10-16: "5 for stocks") and crypto, which no stock book covers, to
+ *   the two or three markets of *Tunnel* and *Commodities*
+ *   (`MAX_OPEN_OTHER_MARKETS`). Each class is counted on its own; an order in
+ *   a symbol already held is not a new market.
  * - Never-failing rule 1 (W006 p.46, Rule 1: "never risk more than 10% of
  *   capital on one trade"; *Commodities* p.29 "Capital Required" and p.30
  *   "never risk more than one-tenth of your capital on any one trade", and
@@ -37,11 +42,14 @@
  *    markets is attention lost; "do not diversify").
  */
 import { gannPoint } from "@/lib/gann/pointScale";
+import { isCryptoSymbol } from "@/lib/market/cryptoSymbol";
 
 /** $3,000 per 100 shares at Gann's $1 point. */
 export const CAPITAL_POINTS_PER_SHARE = 30;
-/** "Two or three markets": the upper end, so a third is allowed. */
-export const MAX_OPEN_SYMBOLS = 3;
+/** "Spread risk over 4 or 5 stocks": the upper end (owner, 2026-10-16). */
+export const MAX_OPEN_STOCKS = 5;
+/** "Two or three markets" for everything else: the upper end, so a third is allowed. */
+export const MAX_OPEN_OTHER_MARKETS = 3;
 /** "Never risk more than one-tenth of your capital on any one trade." */
 export const MAX_RISK_FRACTION = 1 / 10;
 
@@ -73,13 +81,26 @@ export function capitalHeld(open: CapitalRuleInput["open"]): number {
   return open.reduce((sum, p) => sum + Math.abs(p.qty) * capitalPerShare(p.price), 0);
 }
 
+/** How many markets of this symbol's class may be open at once. */
+export function maxOpenMarketsFor(symbol: string): number {
+  return isCryptoSymbol(symbol) ? MAX_OPEN_OTHER_MARKETS : MAX_OPEN_STOCKS;
+}
+
+/** "BTC/USD" and "BTCUSD" are the same market. */
+function marketKey(symbol: string): string {
+  return symbol.toUpperCase().replace("/", "");
+}
+
 export function capitalRuleRefusal(input: CapitalRuleInput): CapitalRuleRefusal | null {
   const symbol = input.symbol.toUpperCase();
-  const held = new Set(input.open.map((p) => p.symbol.toUpperCase()));
-  if (!held.has(symbol) && held.size >= MAX_OPEN_SYMBOLS) {
+  const crypto = isCryptoSymbol(symbol);
+  const held = new Set(input.open.filter((p) => isCryptoSymbol(p.symbol) === crypto).map((p) => marketKey(p.symbol)));
+  const cap = maxOpenMarketsFor(symbol);
+  if (!held.has(marketKey(symbol)) && held.size >= cap) {
+    const kind = crypto ? "crypto pairs" : "stocks";
     return {
       code: "max_open_symbols",
-      error: `You already hold ${held.size} markets. GSPS trades at most ${MAX_OPEN_SYMBOLS} at once, so close one before opening ${symbol}. Nothing was placed.`,
+      error: `You already hold ${held.size} ${kind}. GSPS trades at most ${cap} ${kind} at once, so close one before opening ${symbol}. Nothing was placed.`,
     };
   }
   const already = capitalHeld(input.open);

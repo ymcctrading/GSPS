@@ -10,7 +10,7 @@ import { GuidedCard } from "@/components/guided/guided-card";
 import { NearMissCard } from "@/components/guided/near-miss-card";
 import type { NearMiss } from "@/lib/guided/near-miss";
 import { formatUsd } from "@/lib/utils";
-import { MAX_OPEN_SYMBOLS } from "@/lib/risk/gannCapital";
+import { MAX_OPEN_STOCKS } from "@/lib/risk/gannCapital";
 import { GUIDED_DISCLOSURE } from "@/lib/guided/config";
 import type { Recommendation } from "@/lib/guided/service";
 
@@ -171,7 +171,7 @@ export function GuidedMode() {
       {data?.caps && data.usage && (
         <p className="text-sm text-muted">
           Risking {data.caps.riskPct}% of your paper equity per trade · {data.usage.openMarkets.length} of{" "}
-          {MAX_OPEN_SYMBOLS} markets open.
+          {MAX_OPEN_STOCKS} stocks open.
         </p>
       )}
 

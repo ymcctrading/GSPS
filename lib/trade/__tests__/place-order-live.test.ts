@@ -338,13 +338,13 @@ describe("placeSimulatedOrder — live branch", () => {
     expect(result.status).toBe(200);
   });
 
-  it("refuses a fourth market: at most three symbols open (A-RISK-08, Q6)", async () => {
+  it("refuses a sixth stock: at most five open (A-RISK-08, never-failing rule 8)", async () => {
     limits.bypass = true;
     readLiveAlpacaConnection.mockResolvedValue(connection);
     getAccount.mockResolvedValue({ equity: "100000" });
     evaluateLiveCircuitBreaker.mockResolvedValue({ decision: { newEntriesAllowed: true, state: "normal" } });
     getPositions.mockResolvedValue(
-      ["MSFT", "NVDA", "XOM"].map((symbol) => ({ symbol, qty: "1", avg_entry_price: "100", market_value: "100" })),
+      ["MSFT", "NVDA", "XOM", "JPM", "KO"].map((symbol) => ({ symbol, qty: "1", avg_entry_price: "100", market_value: "100" })),
     );
     const input = { ...baseInput, entryMode: "advised" as const, limitPrice: 100, referencePrice: 100 };
 

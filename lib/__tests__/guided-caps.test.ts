@@ -1,6 +1,6 @@
 /**
  * Guided Mode's room under Gann's capital rules (Q12, owner 2026-10-16): at
- * most three markets open (A-RISK-08) and 30 points of capital behind every
+ * most five stocks open (A-RISK-08, never-failing rule 8) and 30 points of capital behind every
  * share held (A-RISK-01). The retired trade-count and deployed-percent caps
  * are pinned as gone.
  */
@@ -21,11 +21,12 @@ describe("readCapUsage", () => {
     expect(usage.blockedReason).toBeNull();
   });
 
-  it("blocks a new market once three are open", () => {
-    const open = new Map(["AAPL", "MSFT", "XOM"].map((s) => [s, { qty: 1, avgEntry: 50 }] as const));
-    const usage = readCapUsage(open);
-    expect(usage.openMarkets).toEqual(["AAPL", "MSFT", "XOM"]);
-    expect(usage.blockedReason).toContain("at most 3");
+  it("blocks a new stock once five are open, and does not count crypto pairs", () => {
+    const four = ["AAPL", "MSFT", "XOM", "JPM"].map((s) => [s, { qty: 1, avgEntry: 50 }] as const);
+    expect(readCapUsage(new Map([...four, ["BTC/USD", { qty: 1, avgEntry: 50 }]])).blockedReason).toBeNull();
+    const usage = readCapUsage(new Map([...four, ["KO", { qty: 1, avgEntry: 50 }]]));
+    expect(usage.openMarkets).toEqual(["AAPL", "MSFT", "XOM", "JPM", "KO"]);
+    expect(usage.blockedReason).toContain("at most 5");
   });
 
   it("leaves option legs out, as the order path does", () => {

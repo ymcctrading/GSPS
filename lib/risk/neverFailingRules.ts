@@ -39,7 +39,7 @@ export const NEVER_FAILING_RULES: NeverFailingRule[] = [
   { n: 5, rule: "Never buck the trend.", status: "enforced", where: "lib/scan/entrySelection.ts", note: "Entries take the direction of the swing-chart trend." },
   { n: 6, rule: "When in doubt, get out, and don't get in when in doubt.", status: "person" },
   { n: 7, rule: "Trade only in active stocks.", status: "enforced", where: "lib/scan/liquidity.ts", note: "The platform-wide liquidity floor every scan applies." },
-  { n: 8, rule: "Spread risk over 4 or 5 stocks.", status: "differs", where: "lib/risk/gannCapital.ts", note: "GSPS holds at most 3 markets (Tunnel Thru the Air pp.203-204: two or three markets), not 4-5 stocks." },
+  { n: 8, rule: "Spread risk over 4 or 5 stocks.", status: "enforced", where: "lib/risk/gannCapital.ts", note: "At most 5 stocks open at once (owner, 2026-10-16); crypto keeps Tunnel Thru the Air pp.203-204's two or three markets." },
   { n: 9, rule: "Never limit orders; buy and sell at the market.", status: "enforced", where: "lib/gann/entryTrigger.ts", note: "The reaction entry keeps its zone (W006 pp.20, 46-47) and drops the fixed price: once a closed bar trades into the zone the entry is a market order (gannBuyZone; Commodities rule 9 pp.43-45 and p.19). Placement, confirmation and the replay (next bar's open) read it. A limit a person prices themselves stays theirs." },
   { n: 10, rule: "Don't close a trade without a good reason; follow with a stop.", status: "enforced", where: "lib/gann/exitRules.ts", note: "Positions exit on stops and exit signals, not a fixed target." },
   { n: 11, rule: "Accumulate a surplus.", status: "person" },

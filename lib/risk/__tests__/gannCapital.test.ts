@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { gannPoint } from "@/lib/gann/pointScale";
 import {
-  MAX_OPEN_SYMBOLS,
+  MAX_OPEN_OTHER_MARKETS,
+  MAX_OPEN_STOCKS,
+  maxOpenMarketsFor,
   MAX_RISK_FRACTION,
   capitalPerShare,
   capitalRuleRefusal,
@@ -37,12 +39,25 @@ describe("capitalRuleRefusal", () => {
     expect(capitalRuleRefusal({ ...base, capital: 6000, open: [{ symbol: "MSFT", qty: 100, price: 42.5 }] })).toBeNull();
     expect(capitalRuleRefusal({ ...base, capital: 6000, qty: 101, open: [{ symbol: "MSFT", qty: 100, price: 42.5 }] })?.code).toBe("capital_per_share");
   });
-  it("refuses a fourth market while three are open, and allows adding to one held", () => {
-    const three = ["MSFT", "NVDA", "XOM"].map((symbol) => ({ symbol, qty: 1, price: 42.5 }));
-    expect(MAX_OPEN_SYMBOLS).toBe(3);
-    expect(capitalRuleRefusal({ ...base, capital: 1e6, open: three })?.code).toBe("max_open_symbols");
-    expect(capitalRuleRefusal({ ...base, capital: 1e6, symbol: "XOM", open: three })).toBeNull();
-    expect(capitalRuleRefusal({ ...base, capital: 1e6, open: three.slice(0, 2) })).toBeNull();
+  // Never-failing rule 8 (WSSS Ch. II rule 8; 45 Years pp.15-16): spread the
+  // risk over 4 or 5 stocks. Owner, 2026-10-16: 5 for stocks. Commodities and
+  // crypto keep Tunnel pp.203-204's two or three markets.
+  it("refuses a sixth stock while five are open, and allows adding to one held", () => {
+    const five = ["MSFT", "NVDA", "XOM", "JPM", "KO"].map((symbol) => ({ symbol, qty: 1, price: 42.5 }));
+    expect(MAX_OPEN_STOCKS).toBe(5);
+    expect(capitalRuleRefusal({ ...base, capital: 1e6, open: five })?.code).toBe("max_open_symbols");
+    expect(capitalRuleRefusal({ ...base, capital: 1e6, symbol: "XOM", open: five })).toBeNull();
+    expect(capitalRuleRefusal({ ...base, capital: 1e6, open: five.slice(0, 4) })).toBeNull();
+  });
+  it("holds crypto to three pairs, counted apart from the stocks", () => {
+    const pairs = ["BTC/USD", "ETH/USD", "SOL/USD"].map((symbol) => ({ symbol, qty: 1, price: 42.5 }));
+    expect(MAX_OPEN_OTHER_MARKETS).toBe(3);
+    expect(maxOpenMarketsFor("DOGE/USD")).toBe(3);
+    expect(maxOpenMarketsFor("AAPL")).toBe(5);
+    expect(capitalRuleRefusal({ ...base, capital: 1e6, symbol: "DOGE/USD", open: pairs })?.code).toBe("max_open_symbols");
+    expect(capitalRuleRefusal({ ...base, capital: 1e6, symbol: "ETHUSD", open: pairs })).toBeNull();
+    // Three pairs open do not use up the stock slots.
+    expect(capitalRuleRefusal({ ...base, capital: 1e6, open: pairs })).toBeNull();
   });
 });
 

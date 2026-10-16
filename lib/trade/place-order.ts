@@ -495,7 +495,7 @@ export async function placeSimulatedOrder(
         };
       }
     }
-    // Gann's capital rules (Q4, Q6): at most three markets, and 30 points of
+    // Gann's capital rules (Q4, Q6): at most five stocks or three crypto pairs, and 30 points of
     // capital behind every share held (lib/risk/gannCapital.ts). Shares only:
     // an option contract is not a share.
     if (input.assetClass === "equity") {
