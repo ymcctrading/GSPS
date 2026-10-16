@@ -290,3 +290,15 @@ Note for item 3 (lost motion): the literature thread reports "lost motion 1 7/8 
 Make Profits Trading in Commodities p.38 (1951), not the Master Course the roadmap cites; that page
 is unchecked here (collection-synthesis.md §1.6, §6).
 2026-10-16 Replay report: entryKindSplit (crossing / oldLevel / hold) and each trade's entryKind, so the next run reads each buying point on its own. Measurement only, no version bump. Tests: holdWiring entryKind, backtest-run split sums to overall. 2578 passed; tsc, eslint (44 pre-existing warnings), terms clean.
+2026-10-16 Run 35 (67ac1c3) failed at checkout: the workflow cannot fetch a short SHA. Re-dispatched as run 36 on the full SHA d7f644333c834a090de930617705eeacff90d1b6 (includes the entry-kind split). Always pass the full SHA.
+2026-10-16 Lost-motion source, corrected by the literature thread: 1⅞ appears in Master Course Ch. 9 (1939) PDF p.268 as "1⅞ points" (the roadmap's citation stands) and in How to Make Profits Trading in Commodities p.38 as "1⅞¢" (pdfcoffee 1951 copy; another scan of the same book reads 1½¢). Neither page has been checked in this project yet. Use this for item 3's lost-motion work.
+2026-10-16 Item 5 step 4 review (scratchpad/item5_step4_review.md), fixed failing-test-first (lib/gann/__tests__/holdReview.test.ts, plus holdWiring open-under-close):
+- S1: replay keys a held crossing by its crossing date, so a level crossed again after a break is bought again, as live.
+- S2: record low (A-ENTRY-10) needs 4 weeks (HOLD_RECORD_MIN_DAYS=28, the feature test's reading of "weeks or months") within 3 points, counted from the day price came back, not the first visit in the 52 weeks.
+- S3: a hold is bought once: a session that offered it and a later one that traded to its buy spend it; the next needs a new low (matches the replay's key).
+- S4: crossingOf: a level price already stood over when the count starts re-arms only after a break.
+- S5 (P7): the days form reads its reaction at the low, so day 3 up still holds. The "active markets = bull-market reaction" reading goes to Chuck.
+- S6: tests for M2, M4, M5, M13, M21 added. M9 is now equivalent (a decline is never against a bearish weekly trend when read at the low); M22 equivalent (crossedLevel at the low fails only below the stop).
+- S7: examKeyedOlderLevel covers a record-low hold. S8: test title renamed; the range card already covers held bottoms. S9: A-ENTRY-09 names only; tell Chuck before passes flips.
+- Step 4 fixtures shortened so each hold is first offered on its last bar (bought-once rule). Mutations: 13 of 13 caught.
+- STRATEGY_VERSION 2026-10-16-gann-held-once. 2595 passed; tsc, eslint, terms clean.

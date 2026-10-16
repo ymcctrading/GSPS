@@ -400,6 +400,13 @@ export const HOLD_WEEKS_MIN_DAYS = 8;
 export const HOLD_DAYS_MIN_SESSIONS = 2;
 /** The bull-market reaction the days form buys after: "2-3 weeks", days 8-21 as in `timeRules.ts`. */
 const BULL_REACTION_DAYS: [number, number] = [8, 21];
+/**
+ * "Holds its all-time low for weeks or months" (W006 p.24, A-ENTRY-10): four
+ * weeks within 3 points of the record, counted from the day price came back
+ * to it. The feature list's test for the rule reads "weeks" as 4+ weeks, a
+ * reading rather than Gann's figure (step 4 review S2).
+ */
+export const HOLD_RECORD_MIN_DAYS = 28;
 
 const DAY_MS = 86_400_000;
 function calendarDays(fromIso: string, toIso: string): number {
@@ -427,13 +434,15 @@ function withinRiskCap(entry: number, stop: number): boolean {
  * low and the lowest day's low alike, so one stop serves both forms. Three
  * forms, the record first when both apply (the older level, p.24):
  * - `record` (long only): the record low from before the 52 weeks, not broken
- *   by 3 points since, with price within 3 points of it for 8 days or more.
+ *   by 3 points since, with price within 3 points of it for four weeks or
+ *   more, counted from the day it came back there (`HOLD_RECORD_MIN_DAYS`).
  *   The stop is 3 points under the record, not under a dip less than 3 points
  *   through it (p.24: U.S. Steel ⅝ under its 1907 low, stop 3 under that low).
  * - `weeks`: the reaction's low has stood 8 calendar days or more.
  * - `days` (long only): the weekly chart is bullish, the reaction has run 8-21
- *   days (`readCounterMove`), and its low has stood 2 sessions. "Active
- *   markets" is read as A-ENTRY-08's own condition, a bull-market reaction.
+ *   days (`readCounterMove`, read at the low), and its low has stood 2
+ *   sessions. "Active markets" is read as A-ENTRY-08's own condition, a
+ *   bull-market reaction: a rule reading, not Gann's words (review S5).
  *   The short side's days form is Rule 4's bear-rally sell, a rule of its own.
  *
  * Engineering choices, labelled as such: Gann says "buy" and names no price,
@@ -443,7 +452,8 @@ function withinRiskCap(entry: number, stop: number): boolean {
  * as no lower low (a lower one starts the count again). The buy is offered only
  * within Gann's 5-point risk cap, since Gann buys "near" the bottom (p.20);
  * further off it, the order at the old bottom (`computeGannOldLevelEntry`) is
- * the buy.
+ * the buy. A hold is bought once: after a session traded to the buy it offered,
+ * the next hold needs a new low.
  *
  * Three-question basis: 1. Gann, as cited, Tier A. 2. The hold lengths are
  * durations Gann gives from observation, not a periodic cycle, so Dewey's
@@ -457,6 +467,28 @@ export function computeGannHoldEntry(
   older: OlderGannLevel[] = [],
   swingDays: number = ENTRY_TRIGGER_SWING_DAYS,
 ): GannEntryTrigger | null {
+  const found = holdEntryOn(bars, direction, older, swingDays);
+  if (!found) return null;
+  // Bought once (step 4 review S3): a session that offered this hold, and a
+  // later one that traded to its buy, spend it. The next hold needs a new low,
+  // as a crossing needs a new crossing and the replay a new pivot.
+  const sign = direction === "bullish" ? 1 : -1;
+  for (let j = found.since; j < bars.length - 1; j++) {
+    const offered = holdEntryOn(bars.slice(0, j + 1), direction, older, swingDays);
+    if (!offered || offered.trigger.formedAt !== found.trigger.formedAt) continue;
+    const buy = offered.trigger.reactionEntry;
+    if (bars.slice(j + 1).some((b) => sign * ((sign === 1 ? b.l : b.h) - buy) <= 0)) return null;
+  }
+  return found.trigger;
+}
+
+/** The hold on `bars` as of their last session, and the first session it could have been offered on. */
+function holdEntryOn(
+  bars: Bar[],
+  direction: TriggerDirection,
+  older: OlderGannLevel[],
+  swingDays: number,
+): { trigger: GannEntryTrigger; since: number } | null {
   if (bars.length === 0) return null;
   const sign = direction === "bullish" ? 1 : -1;
   const last = bars[bars.length - 1];
@@ -472,14 +504,20 @@ export function computeGannHoldEntry(
     const points = gannThreePoints(record.price);
     const stop = record.price - points;
     const unbroken = bars.every((b) => b.l >= stop);
-    const near = bars.findIndex((b) => b.l <= record.price + points);
-    if (unbroken && near >= 0 && calendarDays(bars[near].t, last.t) >= HOLD_WEEKS_MIN_DAYS && withinRiskCap(entry, stop)) {
+    // The stay near the record: from the day after price was last more than
+    // 3 points over it (S2), not from an earlier visit in the 52 weeks.
+    let stay = bars.length;
+    while (stay > 0 && bars[stay - 1].l <= record.price + points) stay--;
+    if (unbroken && stay < bars.length && calendarDays(bars[stay].t, last.t) >= HOLD_RECORD_MIN_DAYS && withinRiskCap(entry, stop)) {
       const pivot: SwingPivot = { index: -1, price: record.price, kind: "bottom" };
       const top = [...pivots].reverse().find((p) => p.kind === "top") ?? pivot;
       return {
-        kind: "hold", direction, triggerPrice: entry, stopPrice: stop, pivot, level: record.price,
-        reactionEntry: entry, reactionStop: stop, protectivePivot: top, held: false, crossedAt: null,
-        swingDays, source: "allTime", formedAt: record.formedAt, holdBasis: "record",
+        trigger: {
+          kind: "hold", direction, triggerPrice: entry, stopPrice: stop, pivot, level: record.price,
+          reactionEntry: entry, reactionStop: stop, protectivePivot: top, held: false, crossedAt: null,
+          swingDays, source: "allTime", formedAt: record.formedAt, holdBasis: "record",
+        },
+        since: stay,
       };
     }
   }
@@ -500,16 +538,21 @@ export function computeGannHoldEntry(
     let holdBasis: "weeks" | "days" | null = null;
     if (calendarDays(bars[low].t, last.t) >= HOLD_WEEKS_MIN_DAYS) holdBasis = "weeks";
     else if (direction === "bullish" && bars.length - 1 - low >= HOLD_DAYS_MIN_SESSIONS) {
-      const cm = readCounterMove(bars);
+      // The reaction is read as it stood at its low, so a third day up that
+      // turns the 3-Day Chart still holds (step 4 review S5, probe P7).
+      const cm = readCounterMove(bars.slice(0, low + 1));
       if (cm?.trend === "bullish" && cm.inCounterMove && cm.days >= BULL_REACTION_DAYS[0] && cm.days <= BULL_REACTION_DAYS[1]) {
         holdBasis = "days";
       }
     }
     if (!holdBasis) return null;
     return {
-      kind: "hold", direction, triggerPrice: entry, stopPrice: stop, pivot: { index: low, price: level, kind: bottom },
-      level, reactionEntry: entry, reactionStop: stop, protectivePivot: top, held: false, crossedAt: null,
-      swingDays, source: "swing", formedAt: bars[low].t, holdBasis,
+      trigger: {
+        kind: "hold", direction, triggerPrice: entry, stopPrice: stop, pivot: { index: low, price: level, kind: bottom },
+        level, reactionEntry: entry, reactionStop: stop, protectivePivot: top, held: false, crossedAt: null,
+        swingDays, source: "swing", formedAt: bars[low].t, holdBasis,
+      },
+      since: low + 1,
     };
   }
   return null;
@@ -647,9 +690,12 @@ function crossingOf(bars: Bar[], from: number, level: number, sign: 1 | -1, buff
   let at = -1;
   // Looking for a crossing until one is found, then for the break that makes
   // the next crossing a new one. A level broken and not crossed again keeps
-  // its last crossing, which is then spent.
-  let looking = true;
-  for (let i = Math.max(from, 1); i < bars.length; i++) {
+  // its last crossing, which is then spent. Price already beyond the line
+  // when the count starts was crossed before it: only a break re-arms the
+  // level, as after a crossing found here (step 4 review S4).
+  const start = Math.max(from, 1);
+  let looking = start - 1 >= bars.length || sign * (bars[start - 1].c - line) < 0;
+  for (let i = start; i < bars.length; i++) {
     const c = bars[i].c;
     if (!looking) {
       if (sign * (c - broken) <= 0) looking = true;

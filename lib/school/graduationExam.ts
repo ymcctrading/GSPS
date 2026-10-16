@@ -35,7 +35,7 @@
 
 import type { Bar } from "@/lib/types";
 import { readGannTrend } from "@/lib/gann/trendStrength";
-import { gannBreakLine, sameGannLevel, selectGannEntry, type OlderGannLevel } from "@/lib/gann/entryTrigger";
+import { gannBreakLine, sameGannLevel, selectGannEntry, type GannEntryTrigger, type OlderGannLevel } from "@/lib/gann/entryTrigger";
 import { priorYearLevelName } from "@/lib/scoring/direction-copy";
 import { entryChart } from "@/lib/scan/entrySelection";
 
@@ -202,6 +202,17 @@ function shuffle<T>(xs: T[], rand: () => number): T[] {
 }
 
 /**
+ * The older level an exam key rests on, which the chart has to draw: the
+ * previous year's level or the record crossed, or the record low that held,
+ * whose stop is 3 points under it (step 3 review R6, step 4 review S7).
+ */
+export function examKeyedOlderLevel(trigger: GannEntryTrigger): number | null {
+  if (trigger.kind === "crossing" && trigger.source !== "swing") return trigger.level;
+  if (trigger.kind === "hold" && trigger.holdBasis === "record") return trigger.level;
+  return null;
+}
+
+/**
  * Build one scenario from daily bars around `asOf`. Only bars dated before
  * `asOf` feed the chart and the key; bars from `asOf` on are the play-forward.
  */
@@ -291,8 +302,8 @@ export function buildScenario(
   // The older levels near the price, drawn on every chart. A key resting on
   // an older level the chart would not show is not set (step 3 review R6).
   const levels = examLevels(chart.older, last.c);
-  const keyedOlder = decision === "trade" && trigger?.kind === "crossing" && trigger.source !== "swing";
-  if (keyedOlder && !levels.some((l) => sameGannLevel(l.price, trigger.level))) return null;
+  const keyedOlder = decision === "trade" && trigger ? examKeyedOlderLevel(trigger) : null;
+  if (keyedOlder !== null && !levels.some((l) => sameGannLevel(l.price, keyedOlder))) return null;
 
   return {
     view: {

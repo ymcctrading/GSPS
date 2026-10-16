@@ -212,6 +212,13 @@ describe("the replay buys a held bottom at the last close", () => {
     expect(r.trades[0].entryKind).toBe("hold");
   });
 
+  it("buys at the open when the session opens under the last close, with nothing to cross first", () => {
+    const under = Array.from({ length: 46 }, (_, i) => ({ ...candle(H.reactionEntry * 0.997), t: stamp(i), v: 1000 }));
+    const r = replay("TEST", under, { targetR: 2, dailyBars: DAILY });
+    expect(r.trades).toHaveLength(1);
+    expect(r.trades[0].entry).toBeLessThan(H.reactionEntry);
+  });
+
   it("does not buy while price stays over the last close", () => {
     const r = replay("TEST", session([candle(H.reactionEntry * 1.004), candle(H.reactionEntry * 1.004)]), { targetR: 2, dailyBars: DAILY });
     expect(r.trades).toHaveLength(0);

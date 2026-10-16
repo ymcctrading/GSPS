@@ -53,8 +53,9 @@ describe("the graduation exam on a held bottom", () => {
     const leg = (from: number, to: number, n: number) => Array.from({ length: n }, (_, i) => from + ((to - from) * (i + 1)) / n);
     const flat = (lo: number, hi: number, n: number) => Array.from({ length: n }, (_, i) => (i % 2 === 0 ? hi : lo));
     // An uptrend whose reactions run 12 points over 16 days, then a 9-point
-    // reaction from the last top and nine days over its low: a reaction of 3
-    // points or more that overbalances none before it, so the trend still reads up.
+    // reaction from the last top and eight days over its low, the first day
+    // the hold is offered: a reaction of 3 points or more that overbalances
+    // none before it, so the trend still reads up.
     const closes: number[] = [];
     let base = 80;
     for (let k = 0; k < 4; k++) {
@@ -62,7 +63,7 @@ describe("the graduation exam on a held bottom", () => {
       base += 12;
     }
     const low = base + 24 - 9;
-    closes.push(...leg(base, base + 24, 10), ...leg(base + 24, low, 4), ...flat(low + 0.8, low + 1.4, 9), ...leg(low + 1.4, low + 10, 8));
+    closes.push(...leg(base, base + 24, 10), ...leg(base + 24, low, 4), ...flat(low + 0.8, low + 1.4, 8), ...leg(low + 1.4, low + 10, 8));
     const t0 = Date.parse("2026-01-01T04:00:00Z");
     const bars: Bar[] = closes.map((c, i) => ({ t: new Date(t0 + i * DAY).toISOString(), o: c, h: c + 0.6, l: c - 0.6, c, v: 1e6 }));
     const asOf = bars[closes.length - 8].t.slice(0, 10);

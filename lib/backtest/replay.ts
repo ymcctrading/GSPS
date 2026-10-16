@@ -784,11 +784,20 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
 
     for (const { setupKind, trigger, breakaway, pivotAt } of arm.triggers) {
       const levelPrefix = `${setupKind}:${trigger.kind}:${trigger.direction}:${trigger.pivot.kind}`;
-      const pivotKey = `${levelPrefix}:${pivotAt}`;
+      // A crossing held for its reaction is one crossing of its level: a
+      // level crossed again after a break is a new buy, as it is live (step 4
+      // review S1), so the crossing's date is part of its key.
+      const crossedOn = trigger.kind === "crossing" && trigger.held && trigger.crossedAt ? trigger.crossedAt.slice(0, 10) : null;
+      const pivotKey = crossedOn ? `${levelPrefix}:${pivotAt}:${crossedOn}` : `${levelPrefix}:${pivotAt}`;
       if (consumedPivots.has(pivotKey)) continue;
+      // One level read two ways (a swing top that is also an older top) is
+      // still one level: bought on this crossing, or since it formed when not
+      // yet crossed, it is not bought again under the other reading (R2).
       if (
         trigger.kind === "crossing" &&
-        boughtLevels.some((b) => b.prefix === levelPrefix && sameGannLevel(b.level, trigger.level) && trigger.formedAt <= b.at)
+        boughtLevels.some(
+          (b) => b.prefix === levelPrefix && sameGannLevel(b.level, trigger.level) && (crossedOn ? crossedOn <= b.at.slice(0, 10) : trigger.formedAt <= b.at),
+        )
       ) {
         continue;
       }

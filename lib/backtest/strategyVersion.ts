@@ -107,4 +107,12 @@
 // crossing. Once a level is bought, a top the rally already crossed is not
 // offered; an uncrossed one still is. Two readings of one level within a cent
 // or 0.1% are one level, and the replay buys it once.
-export const STRATEGY_VERSION = "2026-10-16-gann-every-year";
+// Run 36 measured "2026-10-16-gann-every-year" (run 35 failed at checkout).
+// Step 4 review, 2026-10-16: a held bottom is bought once; after a session
+// trades to the buy it offered, the next needs a new low. The record low has
+// to hold four weeks within 3 points of it, counted from the day price came
+// back there. The days form reads its reaction at the low, so it still holds
+// on the third day up. A level the price already stood over when the count
+// starts is crossed again only after a break. The replay buys a level crossed
+// again after a break, as the live scan does.
+export const STRATEGY_VERSION = "2026-10-16-gann-held-once";

@@ -52,7 +52,7 @@ const M_TOP = monthly("2016-01", 125, (_i, month) => (month === "2025-06" ? [100
 const UP = [...zig(90, 96, 8), ...leg(90, 107, 10), ...leg(107, 103.5, 3)];
 const D_TOP = daily(UP, "2026-01-05");
 
-describe("olderGannLevels", () => {
+describe("the older levels from the monthly chart", () => {
   it("reads the previous calendar year's top and bottom, and the record before the 52 weeks", () => {
     const levels = olderGannLevels(M_TOP, ASOF, "2025-06-02");
     const prior = levels.filter((l) => l.source === "priorYear");

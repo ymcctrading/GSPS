@@ -81,8 +81,9 @@ describe("the weeks form (A-ENTRY-01)", () => {
   });
 
   it("reads the reaction from a top 3 points over the low, past the small tops of the hold", () => {
-    // Small tops inside the hold, under 3 points over the low, are not the reaction.
-    const bars = daily([...DOWN, ...REACTION, 100.6, 101.2, 101.8, 102.2, 101.4, 100.8, 100.6, 101, 101.4, 100.8]);
+    // Small tops inside the hold, under 3 points over the low, are not the
+    // reaction. The eighth day is the first the hold is offered.
+    const bars = daily([...DOWN, ...REACTION, 100.6, 101.2, 101.8, 102.2, 101.4, 100.8, 100.6, 101]);
     const t = computeGannHoldEntry(bars, "bullish")!;
     expect(t.protectivePivot.price).toBeCloseTo(110.3, 8);
     expect(t.level).toBeCloseTo(99.7, 8);
@@ -91,7 +92,7 @@ describe("the weeks form (A-ENTRY-01)", () => {
   it("is the mirror for a short: a single top that holds, stop 3 points over it", () => {
     const UP = leg(60, 110, 25);
     const RALLY = [...leg(110, 90, 10), ...leg(90, 100, 5)];
-    const bars = daily([...UP, ...RALLY, ...flat(98.6, 99.4, 9)]);
+    const bars = daily([...UP, ...RALLY, ...flat(98.6, 99.4, 8)]);
     const t = computeGannHoldEntry(bars, "bearish")!;
     expect(t).toMatchObject({ kind: "hold", holdBasis: "weeks", direction: "bearish" });
     expect(t.level).toBeCloseTo(100.3, 8);
@@ -149,8 +150,10 @@ describe("the days form (A-ENTRY-01 in active markets, A-ENTRY-08)", () => {
 
 describe("the record form (A-ENTRY-10)", () => {
   const record = (price: number): OlderGannLevel => ({ price, kind: "bottom", source: "allTime", formedAt: "2019-03-01T05:00:00Z", crossFrom: "2026-03-02" });
-  // Down to the record low of 50, a dip 1 point under it, then weeks near it.
-  const NEAR = [...leg(70, 50.5, 12), 49.5, 49, 49.6, ...flat(50.2, 50.8, 10)];
+  // Down to the record low of 50, a dip 1 point under it, then weeks near it:
+  // price comes within 3 points of the record on the fall's last two bars, so
+  // the stay reaches four weeks on the last bar, the first the hold is offered.
+  const NEAR = [...leg(70, 50.5, 12), 49.5, 49, 49.6, ...flat(50.2, 50.8, 24)];
 
   it("buys a record low that has held for weeks without a 3-point break, stop 3 points under the record", () => {
     const bars = daily(NEAR);
@@ -168,7 +171,7 @@ describe("the record form (A-ENTRY-10)", () => {
     expect(computeGannHoldEntry(bars, "bullish", [record(50)])?.holdBasis).not.toBe("record");
   });
 
-  it("waits the same days as the weeks form from the first day near the record", () => {
+  it("waits four weeks from the day price came back near the record", () => {
     const bars = daily([...leg(70, 50.5, 12), 49.5, 49, 49.6, 50.2, 50.8]);
     expect(computeGannHoldEntry(bars, "bullish", [record(50)])?.holdBasis).not.toBe("record");
   });
@@ -190,8 +193,10 @@ describe("selecting the buying point", () => {
 
   it("prefers the record to the reaction's own low on the same close", () => {
     // A top at 72 first, so the dip under the record is also a reaction low
-    // that has held: both forms buy at the close, and the older level wins.
-    const bars = daily([...leg(60, 72, 6), ...leg(72, 50.5, 12), 49.5, 49, 49.6, ...flat(50.2, 50.8, 10)]);
+    // that has held: both forms are first offered on the last close (the
+    // stay near the record reaches four weeks, the low its eighth day), and
+    // the older level wins.
+    const bars = daily([...leg(60, 72, 6), ...leg(72, 50.5, 12), ...flat(50.2, 50.8, 17), 49.5, 49, 49.6, ...flat(50.2, 50.8, 7)]);
     expect(computeGannHoldEntry(bars, "bullish")).toMatchObject({ holdBasis: "weeks", level: 48.7 });
     const older: OlderGannLevel[] = [{ price: 50, kind: "bottom", source: "allTime", formedAt: "2019-03-01T05:00:00Z", crossFrom: "2026-03-02" }];
     expect(selectGannEntry(bars, "bullish", older)?.holdBasis).toBe("record");
