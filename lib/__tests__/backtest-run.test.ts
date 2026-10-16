@@ -18,6 +18,15 @@ beforeAll(() => {
   // Pin the provider so a machine that happens to have vendor credentials
   // configured runs this against the same deterministic series as CI.
   process.env.MARKET_DATA_PROVIDER = "synthetic";
+  // The synthetic series ends at "now", so two replays that straddle a
+  // 15-minute bar boundary see different histories (CI, 2026-10-16 17:30).
+  // Pin the clock so every case reads the same bars.
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-16T17:14:59Z"));
+});
+
+afterAll(() => {
+  vi.useRealTimers();
 });
 
 // Each case replays several synthetic symbols end to end (1-3s locally), so the
