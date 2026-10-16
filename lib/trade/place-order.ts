@@ -78,6 +78,13 @@ export const OrderSchema = z.object({
    * absent is the crossing. Sent with `entryStop`.
    */
   entryKind: z.enum(["crossing", "oldLevel", "hold"]).optional(),
+  /**
+   * The protocol's first target behind an advised entry, sent with
+   * `entryStop`, so a target typed in Manual Override can't move it past a
+   * failed double top (A-LEVELS-04, review 12 M1). Absent, placement treats
+   * the target as unknown and holds the entry under any failed test beyond it.
+   */
+  entryTarget: z.number().positive().optional(),
   mode: z.enum(["paper", "live"]).default("paper"),
   /**
    * True only when this order was opened through the intraday alerts
@@ -213,7 +220,7 @@ export async function entryConfirmationRefusal(
   userId: string,
   input: Pick<
     OrderInput,
-    "symbol" | "assetClass" | "side" | "entryMode" | "limitPrice" | "attachLevels" | "sourcePlanId" | "entryStop" | "entryKind" | "referencePrice"
+    "symbol" | "assetClass" | "side" | "entryMode" | "limitPrice" | "attachLevels" | "sourcePlanId" | "entryStop" | "entryKind" | "entryTarget" | "referencePrice"
   >,
 ): Promise<{ status: number; body: Record<string, unknown> } | null> {
   if (input.assetClass === "option") return null;
@@ -256,7 +263,7 @@ export async function entryConfirmationRefusal(
         entryTrigger: input.limitPrice,
         stopPrice,
         entryKind: input.entryKind,
-        takeProfit1: input.attachLevels?.takeProfit,
+        takeProfit1: input.entryTarget,
       };
     }
   }

@@ -5,6 +5,7 @@ import { failedTestAgainst, failedTestInPath, readMultipleTops } from "@/lib/gan
 import { applyFailedTopHold } from "@/lib/scoring/score";
 import { FAILED_TOP_CHART_DAYS, readGannExit } from "@/lib/gann/exitRules";
 import { ENTRY_CHART_DAYS } from "@/lib/scan/entrySelection";
+import { beyondByThreePoints } from "@/lib/gann/pointScale";
 
 // A-LEVELS-04, fork FL3 a: failing to pass an old top is a top.
 
@@ -44,9 +45,18 @@ describe("failedTestAgainst", () => {
 
 describe("failedTestInPath (review 11 H1: only a failed test before the first target)", () => {
   const tops = readMultipleTops(bars(doubleTop));
-  it("counts a failed top between the entry and TP1", () => {
-    expect(failedTestInPath(tops, "bullish", 104, 115)).toMatchObject({ kind: "top" });
-    expect(failedTestInPath(tops, "bullish", 104, tops.top!.level)).not.toBeNull();
+  const L = tops.top!.level;
+  const pass = beyondByThreePoints(L, 1);
+  it("counts a failed top the trade must pass, by the 3 points, to reach TP1", () => {
+    expect(failedTestInPath(tops, "bullish", 104, 120)).toMatchObject({ kind: "top" });
+    expect(failedTestInPath(tops, "bullish", 104, pass + 0.01)).not.toBeNull();
+    // An entry at the level still has to pass it.
+    expect(failedTestInPath(tops, "bullish", L, 120)).not.toBeNull();
+  });
+  it("leaves a TP1 at the top, or within the 3 points of it: that sells at the top (review 12 M2)", () => {
+    expect(failedTestInPath(tops, "bullish", 104, L)).toBeNull();
+    expect(failedTestInPath(tops, "bullish", 104, pass)).toBeNull();
+    expect(failedTestInPath(tops, "bullish", L + 0.01, 120)).toBeNull();
   });
   it("leaves a long alone whose TP1 is under the failed top, or whose entry is over it", () => {
     expect(failedTestInPath(tops, "bullish", 104, 108)).toBeNull();
@@ -56,14 +66,19 @@ describe("failedTestInPath (review 11 H1: only a failed test before the first ta
   });
   it("mirrors for a short at a failed bottom", () => {
     const bottoms = readMultipleTops(bars(doubleBottom));
-    expect(failedTestInPath(bottoms, "bearish", 96, 85)).toMatchObject({ kind: "bottom" });
+    const B = bottoms.bottom!.level;
+    const below = beyondByThreePoints(B, -1);
+    expect(failedTestInPath(bottoms, "bearish", 96, 80)).toMatchObject({ kind: "bottom" });
+    expect(failedTestInPath(bottoms, "bearish", 96, below - 0.01)).not.toBeNull();
+    expect(failedTestInPath(bottoms, "bearish", B, 80)).not.toBeNull();
+    expect(failedTestInPath(bottoms, "bearish", 96, below)).toBeNull();
     expect(failedTestInPath(bottoms, "bearish", 96, 92)).toBeNull();
-    expect(failedTestInPath(bottoms, "bearish", 88, 80)).toBeNull();
+    expect(failedTestInPath(bottoms, "bearish", B - 0.01, 80)).toBeNull();
   });
 });
 
 describe("applyFailedTopHold", () => {
-  const path = { entry: 104, takeProfit1: 115 };
+  const path = { entry: 104, takeProfit1: 120 };
   it("holds a long Execute to Watch with a failed double top before TP1, and leaves a Watch or a Reject alone", () => {
     const tops = readMultipleTops(bars(doubleTop));
     const held = applyFailedTopHold(execute(), tops, "bullish", path);
@@ -88,7 +103,7 @@ describe("applyFailedTopHold", () => {
   });
 
   it("holds a short over a failed double bottom", () => {
-    const held = applyFailedTopHold(execute(), readMultipleTops(bars(doubleBottom)), "bearish", { entry: 96, takeProfit1: 85 });
+    const held = applyFailedTopHold(execute(), readMultipleTops(bars(doubleBottom)), "bearish", { entry: 96, takeProfit1: 80 });
     expect(held.outputState).toBe("Watch");
     expect(held.breakdown.at(-1)!.criterion).toMatch(/bottom/);
   });
@@ -117,6 +132,22 @@ describe("the failed-top exit", () => {
     expect(readGannExit(pos(21), b, null).exit?.reason).not.toBe("failed_top");
   });
 
+  it("exits a long bought under an excused failed top when a later test fails after the fill (review 12 H1)", () => {
+    // The ~110.5 tops failed; a buy at 100 aiming under them; then a third
+    // test that fails too.
+    const third = bars([...doubleTop, ...leg(103, 100, 3), ...leg(100, 110, 6), ...leg(110, 103, 5)]);
+    const p = { side: "long" as const, entry: third[24].c, initialStop: 80, entryDate: third[24].t.slice(0, 10), crossedLevel: null };
+    expect(readMultipleTops(third).top).toMatchObject({ tests: 3, state: "failed" });
+    expect(readGannExit(p, third, null).exit).toMatchObject({ reason: "failed_top", note: expect.stringMatching(/triple top/) });
+    // Without the third test, the failure that stood at entry does not exit it.
+    const noThird = bars([...doubleTop, ...leg(103, 100, 3), ...Array.from({ length: 11 }, (_, i) => 100 + (i % 2 ? 0.3 : -0.3))]);
+    expect(readGannExit({ ...p, entry: noThird[24].c, entryDate: noThird[24].t.slice(0, 10) }, noThird, null).exit?.reason).not.toBe("failed_top");
+  });
+
+  it("exits a long filled on the session the double top failed", () => {
+    expect(readGannExit(pos(20), b, null).exit).toMatchObject({ reason: "failed_top" });
+  });
+
   it("exits a short on the mirror at a failed double bottom", () => {
     const d = bars(doubleBottom);
     const short = { side: "short" as const, entry: d[13].c, initialStop: 130, entryDate: d[13].t.slice(0, 10), crossedLevel: null };
@@ -134,6 +165,14 @@ describe("the failed-top exit", () => {
     const recent = bars([...doubleTop, ...flat]);
     const p = { side: "long" as const, entry: 104.7, initialStop: 80, entryDate: recent[3].t.slice(0, 10), crossedLevel: null };
     expect(readGannExit(p, recent, null).exit).toMatchObject({ reason: "failed_top" });
+  });
+
+  it("does not read a double top whose first test is just outside the 52 weeks", () => {
+    // The first test (bar 6) is 390 days back; the second (bar 16) is inside.
+    const flat = Array.from({ length: 375 }, (_, i) => 103 + (i % 2 ? 0.2 : -0.2));
+    const edge = bars([...doubleTop, ...flat]);
+    const p = { side: "long" as const, entry: 103, initialStop: 80, entryDate: edge[3].t.slice(0, 10), crossedLevel: null };
+    expect(readGannExit(p, edge, null).exit?.reason).not.toBe("failed_top");
   });
 
   it("does not read a double top older than the 52 weeks", () => {
@@ -159,5 +198,22 @@ describe("the failed-top hold is wired on every surface", () => {
     expect(s).toMatch(/context\.disclosedRules\.multipleTops, gannTrigger\.direction, levels\)/);
     expect(s).toMatch(/\n\s+if \(failedTestInPath\(arm\.context\.disclosedRules\.multipleTops, trigger\.direction, path\?\.entry, path\?\.takeProfit1\)\) continue;/);
     expect(s).toMatch(/sessionPlanPaths\.set\(planKey, plan \? \{ entry: plan\.entry, takeProfit1: plan\.takeProfit1 \} : null\)/);
+  });
+});
+
+describe("the excused failed tops are measured (review 12 M3)", () => {
+  it("marks a failed top beyond TP1, and not one in the path or with no TP1", async () => {
+    const { contextFactorsFor } = await import("@/lib/gann/contextFactors");
+    const { readDisclosedRules } = await import("@/lib/gann/disclosedRules");
+    const b = bars(doubleTop);
+    const ctx = { ...readDisclosedRules(b, 103, { sharesOutstanding: null, inception: null, monthly: [] }, new Date("2026-01-24T15:00:00Z")), multipleTops: readMultipleTops(b) };
+    expect(contextFactorsFor(ctx, "bullish", 104, 108).failedTopBeyondFirstTarget).toBe(true);
+    expect(contextFactorsFor(ctx, "bullish", 104, 120).failedTopBeyondFirstTarget).toBe(false);
+    expect(contextFactorsFor(ctx, "bullish", 104).failedTopBeyondFirstTarget).toBeUndefined();
+    expect(contextFactorsFor(ctx, "bearish", 104, 90).failedTopBeyondFirstTarget).toBeUndefined();
+  });
+  it("is passed the session plan's TP1 in the replay", () => {
+    const s = readFileSync("lib/backtest/replay.ts", "utf8");
+    expect(s.match(/contextFactorsFor\(arm\.context\.disclosedRules, trigger\.direction, entry, path\?\.takeProfit1\)/g)?.length).toBe(2);
   });
 });

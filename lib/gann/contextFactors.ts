@@ -19,6 +19,7 @@
 
 import type { DisclosedRulesContext } from "@/lib/gann/disclosedRules";
 import { approachingFigure } from "@/lib/gann/evenFigures";
+import { failedTestInPath } from "@/lib/gann/multipleTops";
 import { computeMacroCycle } from "@/lib/gann/macroCycle";
 
 export type ContextFactors = Record<string, boolean>;
@@ -27,6 +28,8 @@ export function contextFactorsFor(
   ctx: DisclosedRulesContext,
   direction: "bullish" | "bearish",
   price: number,
+  /** The plan's first target, when known (A-LEVELS-04's excused population). */
+  takeProfit1?: number | null,
 ): ContextFactors {
   const bull = direction === "bullish";
   const f: ContextFactors = {};
@@ -181,6 +184,12 @@ export function contextFactorsFor(
     const inPath = bull ? ctx.multipleTops.top : ctx.multipleTops.bottom;
     f.multipleTopCrossedWithTrade = inPath?.state === "crossed";
     f.thirdTestFailedAgainstTrade = inPath?.state === "failed";
+    // The failed tops the hold excuses (review 12 M3): failed, but not one the
+    // trade must pass to reach TP1. Trades with one in the path are not
+    // entered, so this is the half of the rule a replay can still measure.
+    if (takeProfit1 != null && inPath?.state === "failed") {
+      f.failedTopBeyondFirstTarget = failedTestInPath(ctx.multipleTops, direction, price, takeProfit1) === null;
+    }
   }
   // Time balancing (B2): today within two days of a date when the open leg
   // has lasted as long as the matching prior leg.

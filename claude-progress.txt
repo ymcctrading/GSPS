@@ -763,3 +763,14 @@ including the break) survive as equivalent on one session; B3 removed as redunda
 - M3: School line on failed double/triple tops (Academy 4); triple wording; coarse pre-filter exception recorded on applyFailedTopHold (it narrows the universe only; every kept symbol is held on the full scan).
 - L1: closesAfter() one-pass suffix max/min. readTrend 0.38 ms on 250 bars, of which readGannTrend (unchanged) is 0.33; the level step is ~0.05 ms.
 - STRATEGY_VERSION 2026-10-16-gann-failed-tops-path. Full suite 3000/3000, tsc, terms, eslint clean.
+
+## Review 12 (docs/gann-feature-map/item9b_review12.md) fixes, 2026-10-16
+- Verdict at cd064b8: A-LEVELS-04 FAIL. Fixed:
+- H1: the failed-top exit now exits on any failing test later than the one that stood at entry (same latest swing session = same test); a long excused under a failed top exits when the third test fails after the fill.
+- M1: the ticket sends the protocol TP1 as entryTarget; placement reads it (never the Manual Override target), the plan path reads plan.coordinates.takeProfit1; no target known -> any failed test beyond the entry holds the order. Behavioural tests in failedTopPlacement.test.ts.
+- M2: in path only when TP1 is past the failed level by more than the 3-point allowance (passing = Gann's crossing); a TP1 at the top sells at the top and is not held.
+- M3: new context factor failedTopBeyondFirstTarget (the excused population), fed the session plan's TP1 in the replay.
+- L1: boundary edges A1-A6, fill-on-failure-session, 52-week edge (first test 390 days back) tested; mutants A1-A6, H1, H3, E4, O1-O3, F1 killed. L2a (entry window anchored on next weekday instead of the fill session) survives: an edge-only difference.
+- L2: exit windows anchored on the next session (the fill session at entry, the next weekday today), as entryChartBars.
+- L3 (hold lifts once price is within 3 points under the failed top, not on a crossing): held for Chuck.
+- STRATEGY_VERSION 2026-10-16-gann-failed-tops-third. Full suite 3010/3010, tsc, terms, eslint clean.

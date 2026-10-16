@@ -237,4 +237,10 @@
 // the entry and TP1, so the double-bottom buy at a range's foot is no longer
 // held; the failed-top exit reads the 52 weeks before each session, and fires
 // when the top fails after the fill.
-export const STRATEGY_VERSION = "2026-10-16-gann-failed-tops-path";
+//
+// 2026-10-16-gann-failed-tops-third: review 12. A TP1 at a failed top or
+// within its 3 points sells at the top and is not held; an open long exits
+// when a later test of an excused failed top fails after the fill; placement
+// reads the protocol's TP1 and holds under any failed test when it is unknown.
+// No run was made on the version before it.
+export const STRATEGY_VERSION = "2026-10-16-gann-failed-tops-third";

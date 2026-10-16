@@ -154,7 +154,11 @@ type ConfirmationInput = {
   entryTrigger: number;
   /** The plan's stop: selects Gann's reaction rule (see `confirmationFromBars`). */
   stopPrice?: number;
-  /** The plan's first target: a failed double top (bottom) between the entry and it holds the entry (A-LEVELS-04). */
+  /**
+   * The protocol's first target: a failed double top (bottom) the trade must
+   * pass to reach it holds the entry (A-LEVELS-04). Absent, the target is
+   * unknown, so any failed test beyond the entry holds it (review 12 M1).
+   */
   takeProfit1?: number;
   /** Which of Gann's buying points; `oldLevel` and `hold` have nothing to cross. */
   entryKind?: GannEntryKind;
@@ -182,7 +186,8 @@ export async function readEntryConfirmationNow(input: ConfirmationInput): Promis
   const year = new Date(now.getTime() - 365 * 24 * 3600 * 1000);
   const daily = (await getMarketDataProvider().fetchBars(input.symbol, "1Day", year, null, input.assetClass)) ?? [];
   if (input.direction === "bullish" && readDistributionStanding(daily, now)) return DISTRIBUTION_STANDS;
-  const failed = failedTestInPath(readMultipleTops(entryChartBars(daily, etDateKey(now))), input.direction, input.entryTrigger, input.takeProfit1);
+  const target = input.takeProfit1 ?? (input.direction === "bullish" ? Infinity : -Infinity);
+  const failed = failedTestInPath(readMultipleTops(entryChartBars(daily, etDateKey(now))), input.direction, input.entryTrigger, target);
   if (failed) {
     const top = failed.kind === "top";
     return {

@@ -239,7 +239,7 @@ describe("readEntryConfirmationNow: an entry waits under a failed double top (A-
       o: c, h: c + 0.5, l: c - 0.5, c, v: 1e6,
     }));
   const now = new Date("2026-10-15T15:00:00Z");
-  const read = (day: Bar[], direction: "bullish" | "bearish", stopPrice: number | undefined, takeProfit1: number | null = direction === "bullish" ? 115 : 95) => {
+  const read = (day: Bar[], direction: "bullish" | "bearish", stopPrice: number | undefined, takeProfit1: number | null = direction === "bullish" ? 120 : 90) => {
     const execution = direction === "bullish" ? [bar("2026-10-15T14:30:00Z", 103.5, 104, 103, 103.5)] : [bar("2026-10-15T14:30:00Z", 106.5, 107, 106, 106.5)];
     fetchBars.mockImplementation(async (_s: string, tf: string) => (tf === "1Day" ? day : execution));
     return readEntryConfirmationNow({ symbol: "AAPL", assetClass: "us_equity", direction, entryTrigger: direction === "bullish" ? 103 : 107, stopPrice, takeProfit1: takeProfit1 ?? undefined, entryKind: "oldLevel", now });
@@ -253,9 +253,15 @@ describe("readEntryConfirmationNow: an entry waits under a failed double top (A-
     expect(r.note).toMatch(/double top near 110/);
   });
 
-  it("does not wait when the first target is under the failed top, or unknown", async () => {
+  it("does not wait when the first target is under the failed top, or at it within the 3 points", async () => {
     expect((await read(daily(doubleTop), "bullish", 98, 108)).ready).toBe(true);
-    expect((await read(daily(doubleTop), "bullish", 98, null)).ready).toBe(true);
+    // The top is ~110.5 and its 3 points ~5.3: a target of 115 sells at the top.
+    expect((await read(daily(doubleTop), "bullish", 98, 115)).ready).toBe(true);
+  });
+
+  it("waits when the first target is unknown (review 12 M1)", async () => {
+    expect((await read(daily(doubleTop), "bullish", 98, null)).ready).toBe(false);
+    expect((await read(daily(doubleBottom), "bearish", 112, null)).ready).toBe(false);
   });
 
   it("reads completed sessions only: today's bar does not make the failure", async () => {

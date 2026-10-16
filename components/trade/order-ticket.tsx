@@ -447,6 +447,12 @@ export function OrderTicket({
                 entryMode === "advised" && levels?.entryKind && hasProtocolSignal && side === (result.direction === "bearish" ? "sell" : "buy")
                   ? levels.entryKind
                   : undefined,
+              // The protocol's first target, for the failed-top check; a
+              // Manual Override target doesn't replace it.
+              entryTarget:
+                entryMode === "advised" && levels && hasProtocolSignal && side === (result.direction === "bearish" ? "sell" : "buy")
+                  ? levels.takeProfit1
+                  : undefined,
               // The server re-validates and re-rounds; sending the mode keeps
               // its answer identical to the one shown above the button.
               rounding: effectiveRounding,

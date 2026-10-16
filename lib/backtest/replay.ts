@@ -1052,7 +1052,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           score: decision.score,
           outputState: decision.outputState,
           criteria: criteriaOf(decision),
-          contextFactors: contextFactorsFor(arm.context.disclosedRules, trigger.direction, entry),
+          contextFactors: contextFactorsFor(arm.context.disclosedRules, trigger.direction, entry, path?.takeProfit1),
           largeCap,
           yearCycleHits: monthlyBars ? yearCycleHitsAt(monthlyBars, live.t, trigger.direction) : undefined,
           barsHeld: walked.barsHeld,
@@ -1084,7 +1084,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         score: decision.score,
         outputState: decision.outputState,
         criteria: criteriaOf(decision),
-        contextFactors: contextFactorsFor(arm.context.disclosedRules, trigger.direction, entry),
+        contextFactors: contextFactorsFor(arm.context.disclosedRules, trigger.direction, entry, path?.takeProfit1),
         largeCap,
         yearCycleHits: monthlyBars ? yearCycleHitsAt(monthlyBars, live.t, trigger.direction) : undefined,
       };

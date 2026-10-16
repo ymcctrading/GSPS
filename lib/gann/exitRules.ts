@@ -203,22 +203,37 @@ export function readGannExit(
 
   // A-LEVELS-04 (fork FL3 a): "failing to pass an old top is a top". A long
   // exits when a double or triple top fails after the fill; a short exits on
-  // the mirror at a double or triple bottom. One already failed at entry was
-  // part of the setup (the scan holds it to Watch and placement refuses it
-  // when it stands before TP1), so the exit needs the failure to be new: the
-  // same reading on the sessions before the fill was not failed (review 11
-  // M1: the 3-Day Chart confirms the test's peak days after it prints, so the
-  // peak's own date is not the test). Each reading covers the 52 weeks before
-  // its next session, the entry chart's window (`FAILED_TOP_CHART_DAYS`).
+  // the mirror at a double or triple bottom. A test that had already failed at
+  // entry was part of the setup (the scan holds the long to Watch and
+  // placement refuses it only when that top stands before TP1), so the exit
+  // needs a new failure: either none had failed on the sessions before the
+  // fill (review 11 M1: the 3-Day Chart confirms the test's peak days after it
+  // prints, so the peak's own date is not the test), or the failing test now
+  // is a later one than the one that stood then, such as the third test of a
+  // top already failed twice (review 12 H1; W006 p.44, the third test
+  // decides). Each reading covers the 52 weeks before its next session, the
+  // entry chart's window (`FAILED_TOP_CHART_DAYS`; review 12 L2): the fill
+  // session for the reading at entry, the next weekday for today's.
   if (!exit) {
+    const nextWeekday = (d: string) => {
+      let t = Date.parse(`${d}T00:00:00Z`) + 86_400_000;
+      while ([0, 6].includes(new Date(t).getUTCDay())) t += 86_400_000;
+      return new Date(t).toISOString().slice(0, 10);
+    };
     const window = (upTo: number) => {
-      const from = new Date(Date.parse(`${day(daily[upTo - 1])}T00:00:00Z`) - (FAILED_TOP_CHART_DAYS - 1) * 86_400_000).toISOString().slice(0, 10);
+      const next = upTo < daily.length ? day(daily[upTo]) : nextWeekday(day(daily[upTo - 1]));
+      const from = new Date(Date.parse(`${next}T00:00:00Z`) - FAILED_TOP_CHART_DAYS * 86_400_000).toISOString().slice(0, 10);
       return daily.slice(0, upTo).filter((b) => day(b) >= from);
     };
     const side = long ? "bullish" : "bearish";
-    const failed = failedTestAgainst(readMultipleTops(window(daily.length)), side);
-    const atEntry = firstAfter > 0 ? failedTestAgainst(readMultipleTops(window(firstAfter)), side) : null;
-    if (failed && !atEntry) {
+    const nowBars = window(daily.length);
+    const failed = failedTestAgainst(readMultipleTops(nowBars), side);
+    const entryBars = firstAfter > 0 ? window(firstAfter) : [];
+    const atEntry = firstAfter > 0 ? failedTestAgainst(readMultipleTops(entryBars), side) : null;
+    // The same test: its latest swing extreme is the same session (a later
+    // test is a later swing).
+    const sameTest = failed !== null && atEntry !== null && nowBars[failed.lastTestIndex].t === entryBars[atEntry.lastTestIndex].t;
+    if (failed && !sameTest) {
       exit = {
         reason: "failed_top",
         note: `Failed at a ${failed.tests >= 3 ? "triple" : "double"} ${failed.kind} near ${failed.level.toFixed(2)} and closed back ${long ? "under" : "over"} it: a ${failed.kind}.`,

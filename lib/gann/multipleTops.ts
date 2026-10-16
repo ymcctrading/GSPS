@@ -115,11 +115,15 @@ export function failedTestAgainst(
 
 /**
  * The failed test a new trade would have to pass on its way to its first
- * target: at or beyond the entry and no further than TP1 (the map's FL3 a,
- * "in the trade's path"; review 11 H1, 2026-10-16). A failed top above TP1 is
- * not in the way: in a range, Gann's double-bottom buy at the range's foot
- * aims for a target under the failed top and is his own rule, so it is not
- * refused. Null without a TP1, since the path is then unknown.
+ * target: at or beyond the entry, with TP1 past it by more than the 3-point
+ * allowance (the map's FL3 a, "in the trade's path"; review 11 H1 and review
+ * 12 M2, 2026-10-16). Passing a top is a close beyond it by the 3 points, the
+ * same test `readMultipleTops` reads a crossing by, so a TP1 at the top or
+ * within the allowance of it sells at the top, as Gann's range trade does
+ * (W006 pp.14-15), and is not held. A failed top above TP1 is not in the way
+ * either: Gann's double-bottom buy at a range's foot aims under it. Null
+ * without a TP1; a caller that cannot know the path passes an unbounded one
+ * (`readEntryConfirmationNow`).
  */
 export function failedTestInPath(
   reading: MultipleTopsReading | null | undefined,
@@ -129,6 +133,9 @@ export function failedTestInPath(
 ): MultipleTestReading | null {
   const failed = failedTestAgainst(reading, direction);
   if (!failed || entry == null || takeProfit1 == null) return null;
-  const inPath = direction === "bullish" ? failed.level >= entry && failed.level <= takeProfit1 : failed.level <= entry && failed.level >= takeProfit1;
+  const inPath =
+    direction === "bullish"
+      ? failed.level >= entry && takeProfit1 > beyondByThreePoints(failed.level, 1)
+      : failed.level <= entry && takeProfit1 < beyondByThreePoints(failed.level, -1);
   return inPath ? failed : null;
 }
