@@ -64,6 +64,14 @@ vi.mock("@/lib/trade/kill-switch", async () => {
   return { ...actual, killSwitchRefusal: () => killSwitchRefusal() };
 });
 
+// Account tier: Novice unless a test says otherwise (lib/entitlements/policy.ts
+// reads profiles.tier, which these stubs don't model).
+const tier = vi.hoisted(() => ({ value: "PRACTICE" as "PRACTICE" | "SYSTEM_MASTERY" }));
+vi.mock("@/lib/entitlements/policy", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/entitlements/policy")>("@/lib/entitlements/policy");
+  return { ...actual, getUserEntitlementPolicy: vi.fn(async () => actual.getEntitlementPolicy(tier.value)) };
+});
+
 import { placeSimulatedOrder, type OrderInput } from "@/lib/trade/place-order";
 
 const connection = { connectionId: "conn-1", creds: { key: "k", secret: "s", mode: "live" as const } };
@@ -267,6 +275,35 @@ describe("placeSimulatedOrder — live branch", () => {
     expect(violations.some((v) => v.includes("open risk"))).toBe(true);
     expect(violations.some((v) => v.includes("correlated risk group"))).toBe(true);
     expect(placeOrder).not.toHaveBeenCalled();
+  });
+
+  it("does not cap correlated groups for a Wall Street account", async () => {
+    tier.value = "SYSTEM_MASTERY";
+    try {
+      readLiveAlpacaConnection.mockResolvedValue(connection);
+      getAccount.mockResolvedValue({ equity: "10000" });
+      evaluateLiveCircuitBreaker.mockResolvedValue({ decision: { newEntriesAllowed: true, state: "normal" } });
+      getPositions.mockResolvedValue([{ symbol: "MSFT", market_value: "3000" }]);
+
+      const result = await placeSimulatedOrder(
+        stubSupabase({ workingPlans: [{ qty: 30, entry_price: 100, stop_loss: 95 }] }),
+        "u1",
+        {
+          ...baseInput,
+          entryMode: "advised",
+          limitPrice: 100,
+          referencePrice: 100,
+          attachLevels: { stopLoss: 94.9, takeProfit: 110 },
+        },
+      );
+
+      expect(result.status).toBe(409);
+      const violations = (result.body as { violations: string[] }).violations;
+      expect(violations.some((v) => v.includes("open risk"))).toBe(true);
+      expect(violations.some((v) => v.includes("correlated risk group"))).toBe(false);
+    } finally {
+      tier.value = "PRACTICE";
+    }
   });
 
   it("fails closed with 502 when the broker's positions can't be read", async () => {

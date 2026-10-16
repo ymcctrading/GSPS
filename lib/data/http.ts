@@ -59,6 +59,11 @@ function retryAfterMs(res: Response): number | null {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** A single upstream request at or past this is logged (see fetchWithRetry). */
+const SLOW_FETCH_MS = 5_000;
+/** Time queued for our own rate-limit token at or past this is logged too. */
+const SLOW_QUEUE_MS = 2_000;
+
 /**
  * Token-bucket limiter, one per provider, shared by every call site that
  * routes through `fetchWithRetry`. A single market scan or ticker scan fires
@@ -172,8 +177,13 @@ export async function fetchWithRetry(
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     if (ratePerMinute > 0) {
+      const queued = Date.now();
       try {
         await limiterFor(opts.provider, ratePerMinute).acquire(queueDeadline);
+        const queuedMs = Date.now() - queued;
+        if (queuedMs >= SLOW_QUEUE_MS) {
+          console.warn(`[market-data] ${opts.provider} waited ${queuedMs}ms for a rate-limit token`);
+        }
       } catch {
         // Gave up waiting for a token — report it exactly like a live 429
         // rather than hanging until the platform kills the function.
@@ -186,8 +196,15 @@ export async function fetchWithRetry(
     }
 
     let res: Response;
+    const fetchStarted = Date.now();
     try {
       res = await fetch(url, init);
+      // Logged so a slow scan shows whether the provider itself is slow or
+      // throttling us; without it a 50-second batch fetch was a blind spot.
+      const tookMs = Date.now() - fetchStarted;
+      if (tookMs >= SLOW_FETCH_MS) {
+        console.warn(`[market-data] ${opts.provider} ${res.status} took ${tookMs}ms (attempt ${attempt + 1})`);
+      }
     } catch (err) {
       // A network-level failure is retriable on the same schedule as a 503.
       if (attempt === retries) {
@@ -207,7 +224,9 @@ export async function fetchWithRetry(
     lastRetryAfter = retryAfterMs(res);
 
     if (!retriable(res.status) || attempt === retries) break;
-    await sleep(backoff(attempt, baseDelay, maxDelay, lastRetryAfter));
+    const waitMs = backoff(attempt, baseDelay, maxDelay, lastRetryAfter);
+    console.warn(`[market-data] ${opts.provider} ${res.status}, retrying in ${waitMs}ms (attempt ${attempt + 1})`);
+    await sleep(waitMs);
   }
 
   throw new MarketDataError(describe(opts.provider, lastStatus, lastBody), {

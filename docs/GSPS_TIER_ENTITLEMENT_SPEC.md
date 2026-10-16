@@ -34,6 +34,7 @@ This specification is the server-authoritative product contract for GSPS plans, 
 | Saved watchlists | 3 | 10 | 25 | Unlimited, fair use |
 | Symbols/watchlist | 25 | 100 | 250 | Unlimited, fair use |
 | Scan-history retention (days) | 30 | 90 | 365 | Full available history/fair use |
+| Open correlated risk groups (symbols, for now) | 1 | Unlimited | Unlimited | Unlimited |
 
 “Unlimited” does not mean unbounded system consumption. No product daily cap is published, but rate, concurrency, cost, queue, provider, and abuse controls remain enforceable.
 
@@ -146,3 +147,7 @@ This document's "Plan entitlements" table lists "Intraday scans/movement" as No 
 The "Monitor eligibility and lifecycle" section originally read "A user may receive a notification only on a confirmed `WATCH → EXECUTE` transition" — Phase 1 deliberately scoped alerts to that one event. Widened here by direct product decision: a user tracking a setup (via an open `WATCH` or `EXECUTE` monitor) now also receives a notification when that setup breaks (`WATCH`/`EXECUTE` → `INVALIDATED`) — the counterpart event to "this became actionable," namely "this you were tracking no longer holds." `NO_SETUP` and `EXPIRED` remain silent: unlike `INVALIDATED`, neither asserts the setup broke, only that a later scan didn't reconfirm it.
 
 Implementation: `decideTransition` (`lib/entitlements/monitor.ts`) sets `notify: true` for `(WATCH|EXECUTE) → INVALIDATED` the same way it already did for `WATCH → EXECUTE`. The invalidation alert payload is deliberately narrower than the existing `EntitledAlertPayload` (`lib/entitlements/delivery.ts`) — a symbol dropping out of a scan's qualifying results carries no fresh entry/stop/target/score to disclose, only that the tracked setup no longer holds — delivered via a new `EntitledInvalidationPayload`/`sendSetupInvalidatedEmail` (`lib/notifications/resend-handler.ts`) template, through the same `notification_deliveries` idempotency ledger.
+
+## Correction (2026-10-16)
+
+The one-correlated-group ceiling from the Novice Risk, Account & Cooldown Engine spec pack (`lib/risk/config.ts#MAX_CORRELATED_RISK_GROUPS`, stated "at $450") was enforced on every tier. Group membership is approximated by the symbol itself, so the cap held every account, Wall Street included, to one open symbol at a time, and refused a second with "Novice accounts at this equity level may hold only 1 at a time." The cap is now a tier entitlement (`maxCorrelatedRiskGroups`, `lib/entitlements/policy.ts`): 1 for Novice, unlimited above it. The single-position (25%), aggregate (65%) and total-open-risk (2%) ceilings in `lib/risk/position-limits.ts` still apply to every tier.
