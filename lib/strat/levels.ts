@@ -569,6 +569,16 @@ export function gannEntrySource(trigger: GannEntryTrigger): EntrySource {
   };
 }
 
+/**
+ * The price targets the Gann reading offers a plan (fork FL6 a, 2026-10-16):
+ * the Square of Nine's prices, Gann's own wheel. The fan lines' prices are
+ * spaced in ATR units, not on Gann's scale, so they stay on the chart and
+ * card but are not targets until FL4 settles a Gann price unit.
+ */
+export function gannTargetPool(gann: { fanLines: { price: number }[]; squareOf9: { price: number }[] }): number[] {
+  return gann.squareOf9.map((s) => s.price);
+}
+
 export function computeTradeLevels(
   pattern: EntrySource,
   previousBar: Bar,

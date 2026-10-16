@@ -40,7 +40,8 @@ import { readDistributionStanding } from "@/lib/gann/distribution";
 import { readMultipleTops } from "@/lib/gann/multipleTops";
 import { computeBoilingPoint } from "@/lib/gann/boilingPoint";
 import { entryChart, gannEntryOf, MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection, rankArmedPatterns, reversionEntry } from "@/lib/scan/entrySelection";
-import { computeTradeLevels, gannEntrySource, type EntrySource } from "@/lib/strat/levels";
+import { computeTradeLevels, gannEntrySource, gannTargetPool, type EntrySource } from "@/lib/strat/levels";
+import { campaignSupportLevels, readCampaignBottoms } from "@/lib/gann/campaignBottoms";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
 import {
   applyBreakawayHold,
@@ -317,10 +318,7 @@ export async function scanTicker(
 
     // ---- Trade levels
     const previousBar = closedExecutionBars[closedExecutionBars.length - 2] ?? closedExecutionBars[closedExecutionBars.length - 1];
-    const gannTargets = [
-      ...gann.fanLines.map((f) => f.price),
-      ...gann.squareOf9.map((s) => s.price),
-    ];
+    const gannTargets = gannTargetPool(gann);
     // A trade-plan failure is confined to the trade plan. The rest of the scan
     // — price, trends, structural levels, checklist — is still valid and worth
     // showing, so it degrades to "no levels" with a note instead of collapsing
@@ -352,6 +350,8 @@ export async function scanTicker(
       // Gann's major percentage-of-price levels, anchored on the monthly
       // history's extremes (2026-09-27). See majorPricePercentageLevels.
       ...majorPricePercentageLevels([...charts.monthly, ...charts.daily]).map((price) => ({ price, timeframe: "1Month" as const })),
+      // The old campaign bottoms Gann looks to in turn (A-LEVELS-03, step 8).
+      ...campaignSupportLevels(readCampaignBottoms(charts.monthly, charts.daily, new Date(scannedAt)), currentPrice).map((price) => ({ price, timeframe: "1Month" as const })),
     ];
     const recentAtr = atr(daily.slice(-20), 14);
     const baselineAtr = atr(daily.slice(-100, -20), 14);

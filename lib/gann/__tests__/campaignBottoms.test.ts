@@ -78,3 +78,27 @@ describe("A-LEVELS-03: the ladder's span and sessions", () => {
     expect(contextFactorsFor(ctx, "bearish", 90).campaignBottomBrokenAgreesWithTrade).toBe(true);
   });
 });
+
+describe("A-LEVELS-03: the ladder joins the support and resistance pool (step 8)", () => {
+  it("offers every unbroken campaign bottom under the price, newest first", async () => {
+    const { campaignSupportLevels } = await import("@/lib/gann/campaignBottoms");
+    const r = readCampaignBottoms(monthly([...legs, [129, 90], [130, 90]]), [], asOf)!;
+    // 2023-06's ~98 is broken; 2020-03's ~83 and 2017-06's ~68.6 still hold.
+    const levels = campaignSupportLevels(r, 90);
+    expect(levels).toEqual([r.bottoms[1].price, r.bottoms[2].price]);
+    expect(campaignSupportLevels(r, 80)).toEqual([r.bottoms[2].price]);
+    // Back over the broken 2023 bottom: it is resistance now, not a support.
+    expect(campaignSupportLevels(r, 120)).toEqual([r.bottoms[1].price, r.bottoms[2].price]);
+    expect(campaignSupportLevels(null, 90)).toEqual([]);
+  });
+
+  it("is wired into the level pool on the live scan and the replay, and fan prices are no longer targets", async () => {
+    const { readFileSync } = await import("node:fs");
+    for (const f of ["lib/scanTicker.ts", "lib/backtest/replay.ts"]) {
+      const s = readFileSync(f, "utf8");
+      expect(s).toMatch(/campaignSupportLevels\(readCampaignBottoms\(charts\.monthly, charts\.daily, /);
+      expect(s).toMatch(/gannTargetPool\(/);
+      expect(s).not.toMatch(/fanLines\.map\(\(f\) => f\.price\)/);
+    }
+  });
+});

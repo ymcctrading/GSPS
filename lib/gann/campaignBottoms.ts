@@ -68,3 +68,14 @@ export function readCampaignBottoms(monthly: Bar[] | null | undefined, daily: Ba
   // first unbroken bottom, newest first, is always below every broken one.
   return { bottoms, nextSupport: bottoms.find((b) => !b.broken) ?? null };
 }
+
+/**
+ * The ladder's unbroken bottoms under `price`, newest first: the supports
+ * Gann looks to in turn (A-LEVELS-03; step 8, 2026-10-16). They join the
+ * support and resistance pool on both surfaces, so a short can take one as a
+ * target and a long's stop can rest under one. A broken bottom is resistance
+ * by the monthly trend's own reading (A-LEVELS-01), so it is not repeated here.
+ */
+export function campaignSupportLevels(ladder: CampaignBottomLadder | null, price: number): number[] {
+  return ladder ? ladder.bottoms.filter((b) => !b.broken && b.price < price).map((b) => b.price) : [];
+}

@@ -256,3 +256,10 @@ describe("computeEquityTradeLevels", () => {
     });
   });
 });
+
+describe("FL6 a: the target pool is the Square of Nine, not the ATR fans", () => {
+  it("takes only Square of Nine prices", async () => {
+    const { gannTargetPool } = await import("@/lib/strat/levels");
+    expect(gannTargetPool({ fanLines: [{ price: 1 }, { price: 2 }], squareOf9: [{ price: 3 }, { price: 4 }] })).toEqual([3, 4]);
+  });
+});

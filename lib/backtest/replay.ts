@@ -61,7 +61,8 @@
 
 import type { AssetClass, Bar, GannLevels, ScanDecision, SetupKind, StratPattern, Timeframe, TrendReading } from "@/lib/types";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
-import { computeStopWithLeeway, computeTradeLevels, gannEntrySource, type EntrySource } from "@/lib/strat/levels";
+import { computeStopWithLeeway, computeTradeLevels, gannEntrySource, gannTargetPool, type EntrySource } from "@/lib/strat/levels";
+import { campaignSupportLevels, readCampaignBottoms } from "@/lib/gann/campaignBottoms";
 import type { TradeLevels } from "@/lib/types";
 import {
   MIN_DAILY_BARS_FOR_SCAN,
@@ -594,6 +595,8 @@ export function buildMacroContext(
     ...monthlyTrend.resistance.map((p) => ({ price: p, timeframe: monthlyTrend.timeframe })),
     // Mirrors lib/scanTicker.ts: Gann's major percentage-of-price levels.
     ...majorPricePercentageLevels([...monthly, ...charts.daily]).map((p) => ({ price: p, timeframe: "1Month" as const })),
+    // Mirrors lib/scanTicker.ts: the old campaign bottoms (A-LEVELS-03).
+    ...campaignSupportLevels(readCampaignBottoms(charts.monthly, charts.daily, asOf), price).map((p) => ({ price: p, timeframe: "1Month" as const })),
   ];
   const recentAtr = atr(daily.slice(-20), 14);
   const baselineAtr = atr(daily.slice(-100, -20), 14);
@@ -1315,7 +1318,7 @@ function priceTradeLevels(input: {
     return computeTradeLevels(
       entrySource,
       history[history.length - 2] ?? history[history.length - 1],
-      [...context.gann.fanLines.map((f) => f.price), ...context.gann.squareOf9.map((s) => s.price)],
+      gannTargetPool(context.gann),
       undefined,
       executionAtr,
       assetClass,

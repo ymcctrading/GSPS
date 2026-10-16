@@ -227,4 +227,8 @@
 // new long from Execute to Watch, refuses its placement and is not entered in
 // the replay, and exits an open long when it fails after the fill (shorts
 // mirror at bottoms; A-LEVELS-04), all on the 52-week entry chart.
-export const STRATEGY_VERSION = "2026-10-16-gann-failed-tops";
+// Item 9 step 8 (fork FL6 a), same day: plan targets come from the Square of
+// Nine only (the ATR-spaced fan prices left the TP1 and master pool), and the
+// unbroken old campaign bottoms under the price join the support and
+// resistance pool on both surfaces (A-LEVELS-03).
+export const STRATEGY_VERSION = "2026-10-16-gann-target-ladder";
