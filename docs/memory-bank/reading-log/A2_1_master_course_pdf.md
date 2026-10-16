@@ -172,3 +172,82 @@ These illustrate the May 18, 1954 lesson "Speculation a Profitable Profession". 
 
   None is a chart or diagram. Samples were viewed as images: PDF 13, 49, 96, 244 and 398.
 - **Not yet done:** full-resolution transcription of the dense number plates. These are printed pp. 401, 408, 410, 412, 414 and 415, and the egg prices of p. 417. Their structure is recorded above; their cell values are not yet transcribed.
+
+## Plate transcriptions at full resolution (2026-10-16)
+
+Done on request from the GSPS project thread (Chuck: "use all means at your disposal"). Printed page = PDF − 3. Each plate was read from its embedded scan (about 300 dpi). Where a plate follows a rule, the rule is given and checked against sample cells across the plate. That replaces copying 500–1,200 hand-written cells by eye, which would add errors without adding information. Anything still unreadable is marked as such and not guessed.
+
+**p. 401, the Master 360° Square of 12 Chart for Eggs.**
+- **Rule, checked on every column:** the cell in column c, row r = 360(c − 1) + 15r, for 17 columns × 24 rows, from 15 to 6,120.
+- **Column header:** 1–12, then 1–5 again.
+- **Row margin:** the 24 rows are paired 1–12. The fractions 1/8 (row 3), 1/6 (4), 1/4 (6), 1/3 (8), 1/2 (12), 5/8 (15), 2/3 (16), 3/4 (18) and 7/8 (21) are written in.
+- **Foot:** 30° 1/12 … 360° 0. The 360° column is marked with a small square.
+- **Diagonals:** an X crosses each block of 3 columns × 6 rows.
+- **Circled: 750, 1,035, 5,370, 5,850 and 6,000.** Correction: the earlier reading's "5,880" is **5,850**. It matches the 58.50¢ high written on the p. 417 eggs plate (September 10, 1947).
+
+**p. 408, the two-number spiral. It is a hexagonal spiral, not a Square-of-Nine one.**
+- **Layout:** 0 is at the centre and 1 directly to its right. Ring k has 6k cells. It is drawn on square paper with rows offset by half a cell, which is why "the rows don't line up".
+- **Centre row, right:** 1, 8, 21, 40 (3k² − 2k).
+- **Centre row, left:** 4, 14, 30, 52, 80, 114, 154, 200 (3k² + k).
+- **Relation to the p. 422 plate:** these are its 60° and 240° lines, numbered from 0 instead of 1. Same layout and orientation.
+- **Price = 15 × n** in every cell sampled (for example 120/8, 600/40, 3,120/208, 6,750/450, 7,920/528).
+
+**p. 410, the circle inside a square.**
+- **Rays:** 24 at 15°, one clock hour each. 0°/360° is at 6–7 AM on the left, 90° at noon at the top, 180° at 6 PM on the right, 270° at midnight at the bottom. Same as `dayCircle.ts`.
+- **Ring k holds 12k numbers.** The 0° line carries:
+  - each ring's start just above it: 13, 37, 73, 121, 181, 253 (6k² − 6k + 1)
+  - each ring's end just below it: 36, 72, 120, 180, 252, 336 (6k(k + 1))
+- **The 180° line** carries start + 6 below it (19, 43, 79, 127, 187, 259) and end − 6 above it (30, 66, 114, 174, 246, 330).
+- **Not settled:** the order of numbers inside a ring doesn't follow one circular path, and it was not settled. The rings run to about 936.
+
+**p. 412, the Price and Time Chart for Cotton, Cocoa, Coffee, Eggs, Lard and Rubber.**
+- **Rings of 360 in steps of 5:** 72 cells, one per 5°. The 0° line carries each ring's end and the next ring's start (5,040/5,045, 5,400/5,405). The outer ring runs 5,405 to 5,760 (16 × 360).
+- **Inner sectors:** 1–12, counterclockwise from E.
+- **Circled: 1,500, 4,375, 5,190 and 5,275.**
+- **Dates on the rays, legible:**
+
+  | Angle | Date | Angle | Date | Angle | Date |
+  |---|---|---|---|---|---|
+  | 15° | Apr 5 | 90° | June 21 | 165° | Sept 8 |
+  | 30° | Apr 20 | 105° | July 7 | 210° | Oct 23 |
+  | 45° | May 6 | 120° | July 23 | 225° | Nov 7 |
+  | 60° | May 21 | 150° | Aug 23 | 240° | Nov 22 |
+  | 75° | June 6 | | | 255° | Dec 7 |
+
+  | Angle | Date | Angle | Date |
+  |---|---|---|---|
+  | 270° | Dec 21 | 315° | Feb 4 |
+  | 285° | Jan 6 | 330° | Feb 19 |
+  | 300° | Jan 20 | 345° | Mar 6 |
+
+- **Not legible:** 135° (Aug 6 or 8), 0° and 180°.
+
+**p. 414, "Coffee Rio Low 300 Oct 2 1936": a triangle counted up from the low.**
+- **Rule:** row n has n cells in steps of 30, so row n ends at 300 + 30 × n(n + 1)/2.
+- **Checked:** rows 1–9 (330; 360–390; … 1,410–1,650) and row 24 (8,610–9,300).
+- **A 25th row** is started and stops at 9,630.
+
+**p. 415, the Master Price & Time Chart for Cotton, Coffee, Cocoa, Wool and Grains: a square spiral.**
+- **Layout:** the centre is a grid intersection with 1–4 around it.
+- **Price = 12 × n** (1 → 12, 5 → 60, 26 → 312, 81 → 972, 121 → 1,452).
+- **Circled: 9, 25, 49, 81 and 121,** the odd squares running east along the row above the centre. That is the construction of the "Even Squares" plate (p. 416).
+- **Edge dates:** as already logged.
+
+**p. 417, "Eggs October Low May 28 1932": the egg prices.**
+- **Price = 1,500 + 25 × n:** the centre is 1,500, then 1 → 1,525, 36 → 2,400, 64 → 3,100, 100 → 4,000, 144 → 5,100, 169 → 5,725, 200 → 6,500. In the plate's units that is 15.00¢ plus ¼¢ a cell.
+- **"1510" is written above "Low" in the title.** It may be the low as 15.10¢; that is unconfirmed.
+- **The high:** "… High 585… Sept 10 1947", which fits p. 401's circled 5,850.
+- **Circled: 9, 25, 49, 81, 121 and 169,** the odd squares running west on the row above the centre.
+- **Newly legible:** 247½° is Feb 4 and 315° is Apr 12. Both fit 1° to a day from Feb 26 at 270°.
+- **Still illegible:** 292½° ("Mar 2…") and the day at 22½° ("June …").
+
+**p. 422, the marks around Gann's hand-drawn hexagon.** Read upright at full resolution. Corrections to the earlier reading:
+- **Beside 60°:** "**90 N**", not "10 N". This is the one mark that is clearly legible.
+- **The others are partly legible:** 90° → "12…", 120° → "150", 180° → "21…", 240° → "27…", 300° → "33…" (earlier read "357"), and 0°/360° → probably "30".
+- **Every reading fits one pattern: the angle + 30°.** The outer marks look like a second degree scale turned 30° from the inner one, which puts the 60° corner at 90° North.
+- **Not resolved:** the earlier readings "115", "135", "52" and "KE" are too faint to confirm. What the turned scale means is not settled, and it does not resolve the text's "66 on 180°" (66 sits on the 60° line, which this scale calls 90°).
+
+**Ch. 7's title (PDF 217–218).**
+- **"Master Time Factor and Forecasting by Mathematical Rules — How to Trade" is the compiler's divider page** (the "wheelsinthesky" compilation).
+- **Gann's own lesson heading, on his 88 Wall Street letterhead, is "FORECASTING".** The line above it, "[Master Time Factor and Forecasting by Mathematical Rules]", is in square brackets, the compiler's insertion.
+- **The term appears on those two pages only** (PDF 217–239 searched). That agrees with AGENTS.md: the November 1935 lesson never uses the term.
