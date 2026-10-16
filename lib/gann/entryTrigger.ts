@@ -83,7 +83,7 @@ import type { Bar } from "@/lib/types";
 import { beyondByThreePoints, gannThreePoints, gannThreePointsPct } from "@/lib/gann/pointScale";
 import { SWING_CHART_DAYS, WEEKLY_SWING_CHART, swingPivots, walkSwingChart, type SwingPivot } from "@/lib/gann/swingChart";
 import { readCounterMove } from "@/lib/gann/disclosedRules";
-import { restsWithoutCrossing, type GannEntryKind, type GannHoldBasis } from "@/lib/gann/entryKind";
+import { type GannEntryKind, type GannHoldBasis } from "@/lib/gann/entryKind";
 
 export type TriggerDirection = "bullish" | "bearish";
 
@@ -928,22 +928,3 @@ export function gannCrossedLevel(entry: number, stop: number): number {
   return (3 * entry + stop) / 4;
 }
 
-/**
- * The level a crossing entry crosses, recovered from the protocol's reaction
- * pair (`gannCrossedLevel`), or null for an entry that rests at its level.
- * Callers pass only the protocol's own stop, never one a person typed.
- */
-export function protocolCrossedLevel(entry: number, protocolStop: number | null | undefined, kind: GannEntryKind | undefined): number | null {
-  if (protocolStop == null || restsWithoutCrossing(kind)) return null;
-  // The plan's entry and stop are rounded to the cent (`lib/strat/levels.ts`),
-  // so the level read back can sit up to half a cent short of the one the scan
-  // crossed. It is read at the far end of that rounding, in the trade's
-  // direction, so placement does not refuse a crossing the scan and the replay
-  // let through (review 15 M1). The scan and the replay pass the exact level
-  // and compare it exactly (review 16 N-M1).
-  const sign = entry >= protocolStop ? 1 : -1;
-  return gannCrossedLevel(entry, protocolStop) + sign * CENT_ROUNDING;
-}
-
-/** Half a cent: the most a cent-rounded entry and stop move the level read back. */
-export const CENT_ROUNDING = 0.005;

@@ -1,12 +1,11 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { Bar, ScanDecision } from "@/lib/types";
-import { crossingLevelOf, failedTestAgainst, failedTestInPath, readMultipleTops } from "@/lib/gann/multipleTops";
+import { failedTestAgainst, failedTestInPath, readMultipleTops } from "@/lib/gann/multipleTops";
 import { applyFailedTopHold } from "@/lib/scoring/score";
 import { FAILED_TOP_CHART_DAYS, failedTopWindow, readGannExit } from "@/lib/gann/exitRules";
 import { ENTRY_CHART_DAYS } from "@/lib/scan/entrySelection";
 import { beyondByThreePoints } from "@/lib/gann/pointScale";
-import { gannCrossedLevel, protocolCrossedLevel } from "@/lib/gann/entryTrigger";
 
 // A-LEVELS-04, fork FL3 a: failing to pass an old top is a top.
 
@@ -107,18 +106,15 @@ describe("failedTestInPath (review 11 H1: only a failed test before the first ta
     // An entry at the level still has to pass it.
     expect(failedTestInPath(tops, "bullish", L, 120)).not.toBeNull();
   });
-  it("leaves a crossing entry at the failed top alone: its own crossing is the pass", () => {
-    expect(failedTestInPath(tops, "bullish", 104, 120, L)).toBeNull();
-    expect(failedTestInPath(tops, "bullish", 104, 120, L + 2)).toBeNull();
-    // A crossing of a lower level, even inside the 3 points, arms short of
-    // the pass and is held (review 14 H).
-    expect(failedTestInPath(tops, "bullish", 104, 120, L - 0.001)).not.toBeNull();
-    expect(failedTestInPath(tops, "bullish", 104, 120, beyondByThreePoints(L, -1))).not.toBeNull();
-    expect(failedTestInPath(tops, "bullish", 104, 120, null)).not.toBeNull();
-    expect(crossingLevelOf({ kind: "crossing", level: 110 })).toBe(110);
-    expect(crossingLevelOf({ kind: "oldLevel", level: 110 })).toBeNull();
-    expect(crossingLevelOf({ kind: "hold", level: 110 })).toBeNull();
-    expect(crossingLevelOf(null)).toBeNull();
+  it("holds a crossing entry until a daily close passes the failed top: an intraday crossing is not the pass", () => {
+    // Gann: "safest at 3" (W006 Rule 3) and "wait for a close beyond it"
+    // (Master Course rules 4-5). The function takes no crossing level at all.
+    expect(failedTestInPath.length).toBe(4);
+    expect(failedTestInPath(tops, "bullish", L + 1, 120)).not.toBeNull();
+    // The daily close past the line lifts the failure in the reading itself.
+    const passed = readMultipleTops(bars([...doubleTop, ...leg(103, pass + 1.5, 6)]));
+    expect(failedTestAgainst(passed, "bullish")).toBeNull();
+    expect(failedTestInPath(passed, "bullish", L + 1, 120)).toBeNull();
   });
 
   it("leaves a TP1 at the top, or within the 3 points of it: that sells at the top (review 12 M2)", () => {
@@ -144,8 +140,6 @@ describe("failedTestInPath (review 11 H1: only a failed test before the first ta
     expect(failedTestInPath(bottoms, "bearish", 96, below)).toBeNull();
     expect(failedTestInPath(bottoms, "bearish", 96, 92)).toBeNull();
     expect(failedTestInPath(bottoms, "bearish", B - 1, 80)).not.toBeNull();
-    expect(failedTestInPath(bottoms, "bearish", 96, 80, B)).toBeNull();
-    expect(failedTestInPath(bottoms, "bearish", 96, 80, B + 0.001)).not.toBeNull();
     expect(failedTestInPath(bottoms, "bearish", below, 80)).toBeNull();
   });
 });
@@ -161,7 +155,6 @@ describe("applyFailedTopHold", () => {
     expect(applyFailedTopHold(execute(), tops, "bearish", path).outputState).toBe("Execute");
     expect(applyFailedTopHold(execute(), null, "bullish", path).outputState).toBe("Execute");
     expect(applyFailedTopHold(execute(), tops, "bullish", null).outputState).toBe("Execute");
-    expect(applyFailedTopHold(execute(), tops, "bullish", path, tops.top!.level).outputState).toBe("Execute");
     const watch = { ...execute(), outputState: "Watch" } as ScanDecision;
     expect(applyFailedTopHold(watch, tops, "bullish", path)).toBe(watch);
     const reject = { ...execute(), outputState: "Reject" } as ScanDecision;
@@ -289,13 +282,13 @@ describe("the failed-top hold is wired on every surface", () => {
     const s = src("lib/scanTicker.ts");
     expect(s).toMatch(/const failedTops = readMultipleTops\(charts\.daily\)/);
     expect(s).toMatch(/applyFailedTopHold\(applyDistributionBreakdownHold\(/);
-    expect(s).toMatch(/distributionStanding, scoreDirection\), failedTops, scoreDirection, levels, crossingLevelOf\(gannTrigger\)\)/);
+    expect(s).toMatch(/distributionStanding, scoreDirection\), failedTops, scoreDirection, levels\),/);
   });
   it("holds the verdict and skips the entry in the replay", () => {
     const s = src("lib/backtest/replay.ts");
     expect(s).toMatch(/applyFailedTopHold\(applyDistributionBreakdownHold\(/);
-    expect(s).toMatch(/context\.disclosedRules\.multipleTops, gannTrigger\.direction, levels, crossingLevelOf\(gannTrigger\)\)/);
-    expect(s).toMatch(/\n\s+if \(failedTestInPath\(arm\.context\.disclosedRules\.multipleTops, trigger\.direction, path\?\.entry, path\?\.takeProfit1, crossingLevelOf\(trigger\)\)\) continue;/);
+    expect(s).toMatch(/context\.disclosedRules\.multipleTops, gannTrigger\.direction, levels\);/);
+    expect(s).toMatch(/\n\s+if \(failedTestInPath\(arm\.context\.disclosedRules\.multipleTops, trigger\.direction, path\?\.entry, path\?\.takeProfit1\)\) continue;/);
     expect(s).toMatch(/sessionPlanPaths\.set\(planKey, plan \? \{ entry: plan\.entry, takeProfit1: plan\.takeProfit1 \} : null\)/);
   });
 });
@@ -338,60 +331,6 @@ describe("a top passed and then failed back under is a failed top", () => {
     const back = after.findIndex((x) => x.c < beyondByThreePoints(top.level, -1));
     expect(back).toBeGreaterThan(0);
     expect(after.slice(0, back).some((x) => x.c > beyondByThreePoints(top.level, 1))).toBe(true);
-  });
-});
-
-describe("crossed level read back from cent prices (review 15 M1)", () => {
-  const at = (level: number) => ({
-    top: { kind: "top" as const, level, tests: 2, state: "failed" as const, lastTestIndex: 0 },
-    bottom: null,
-  });
-  const cents = (x: number) => Math.round(x * 100) / 100;
-  it("exempts the reviewer's equal-tops case placement rebuilds a fraction under the level", () => {
-    expect(gannCrossedLevel(10.45, 8.84)).toBeLessThan(10.05);
-    const crossed = protocolCrossedLevel(10.45, 8.84, undefined)!;
-    expect(failedTestInPath(at(10.05), "bullish", 10.45, 20, crossed)).toBeNull();
-  });
-  const atBottom = (level: number) => ({
-    top: null,
-    bottom: { kind: "bottom" as const, level, tests: 2, state: "failed" as const, lastTestIndex: 0 },
-  });
-  it("exempts every rounded short pair crossing the failed bottom itself", () => {
-    for (let k = 100; k <= 50000; k += 7) {
-      const B = k / 100;
-      const x = 0.013 * B + 0.017;
-      const crossed = protocolCrossedLevel(cents(B - x), cents(B + 3 * x), undefined)!;
-      expect(failedTestInPath(atBottom(B), "bearish", cents(B - x), 0, crossed)).toBeNull();
-    }
-  });
-  it("still holds a rebuilt crossing a cent or more short of the failed level", () => {
-    // Long: entry/stop around a crossing of 10.04, a cent under the top at 10.05.
-    const up = protocolCrossedLevel(10.44, 8.84, undefined)!;
-    expect(failedTestInPath(at(10.05), "bullish", 10.44, 20, up)).not.toBeNull();
-    const down = protocolCrossedLevel(9.66, 11.26, undefined)!;
-    expect(failedTestInPath(atBottom(10.05), "bearish", 9.66, 1, down)).not.toBeNull();
-  });
-  it("lets through a crossing of three equal tests whose running mean drifts by a float step", () => {
-    const level = (42.7 * 2 + 42.7) / 3; // the cluster's running mean of three tests at 42.70
-    expect(level).not.toBe(42.7);
-    expect(failedTestInPath(at(level), "bullish", 43, 60, 42.7)).toBeNull();
-    const low = (0.35 * 2 + 0.35) / 3; // drifts below for a bottom
-    expect(low).toBeLessThan(0.35);
-    expect(failedTestInPath(atBottom(low), "bearish", 0.34, 0.1, 0.35)).toBeNull();
-  });
-  it("compares an exact crossed level exactly, at any price", () => {
-    // The scan and the replay pass the level itself: no tolerance, so a
-    // lower second top on a 16-cent coin is still held.
-    expect(failedTestInPath(at(0.1612), "bullish", 0.17, 1, 0.1605)).not.toBeNull();
-    expect(failedTestInPath(atBottom(0.1612), "bearish", 0.15, 0.01, 0.1619)).not.toBeNull();
-  });
-  it("exempts every rounded reaction pair crossing the failed level itself", () => {
-    for (let k = 100; k <= 50000; k += 7) {
-      const L = k / 100;
-      const x = 0.013 * L + 0.017;
-      const crossed = protocolCrossedLevel(cents(L + x), cents(L - 3 * x), undefined)!;
-      expect(failedTestInPath(at(L), "bullish", cents(L + x), L * 2, crossed)).toBeNull();
-    }
   });
 });
 

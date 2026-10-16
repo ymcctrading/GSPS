@@ -150,35 +150,21 @@ export function failedTestAgainst(
  * TP1; a caller that cannot know the path passes an unbounded one
  * (`readEntryConfirmationNow`).
  *
- * `crossedLevel` is the level a crossing entry waits to close past by the 3
- * points (Gann's buying point over an old top). When that is the failed top's
- * level or above it, the close the entry waits for is the pass that ends the
- * failure, so it is not held: the crossing is the rule's own way out (found
- * 2026-10-16 when the replay's range breakouts were all held). A crossing of
- * a lower level, the lower second top included, arms short of the pass and is
- * held (review 14 H).
+ * A crossing entry is held the same way: Gann passes a failed top only on a
+ * daily close beyond it by the 3 points ("safest at 3", W006 Rule 3 p.46; "still
+ * safer to wait for a close beyond it ... intraday pokes often reverse by the
+ * close", Master Course rules 4-5), and that close lifts the failure in
+ * `readMultipleTops`. A 15-minute crossing does not (owner, 2026-10-16: "If
+ * Gann says it's a rule, then it's a rule").
  */
-/** Relative float tolerance on the crossed-level comparison. */
-export const LEVEL_EPSILON = 1e-9;
-
 export function failedTestInPath(
   reading: MultipleTopsReading | null | undefined,
   direction: "bullish" | "bearish" | "none",
   entry: number | null | undefined,
   takeProfit1: number | null | undefined,
-  crossedLevel?: number | null,
 ): MultipleTestReading | null {
   const failed = failedTestAgainst(reading, direction);
   if (!failed || entry == null || takeProfit1 == null) return null;
-  if (crossedLevel != null) {
-    // Relative to the level, so float drift in the cluster's running mean
-    // (three tests at 42.70 average to 42.70000000000001) does not hold a
-    // crossing of the level itself (review 17 M1). Far below a cent at any price.
-    const passesIt = direction === "bullish"
-      ? crossedLevel >= failed.level * (1 - LEVEL_EPSILON)
-      : crossedLevel <= failed.level * (1 + LEVEL_EPSILON);
-    if (passesIt) return null;
-  }
   const inPath =
     direction === "bullish"
       ? entry < beyondByThreePoints(failed.level, 1) && takeProfit1 > beyondByThreePoints(failed.level, 1)
@@ -186,7 +172,3 @@ export function failedTestInPath(
   return inPath ? failed : null;
 }
 
-/** The level a crossing entry waits to close past (`failedTestInPath`'s `crossedLevel`); null for one that rests. */
-export function crossingLevelOf(trigger: { kind: string; level: number } | null | undefined): number | null {
-  return trigger && trigger.kind === "crossing" ? trigger.level : null;
-}

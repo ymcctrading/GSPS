@@ -37,7 +37,7 @@ import { majorPricePercentageLevels } from "@/lib/gann/disclosedRules";
 import { computeTimePriceSquare } from "@/lib/gann/timePriceSquare";
 import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
 import { readDistributionStanding } from "@/lib/gann/distribution";
-import { crossingLevelOf, readMultipleTops } from "@/lib/gann/multipleTops";
+import { readMultipleTops } from "@/lib/gann/multipleTops";
 import { computeBoilingPoint } from "@/lib/gann/boilingPoint";
 import { entryChart, gannEntryOf, MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection, rankArmedPatterns, reversionEntry } from "@/lib/scan/entrySelection";
 import { computeTradeLevels, gannEntrySource, gannTargetPool, type EntrySource } from "@/lib/strat/levels";
@@ -458,7 +458,7 @@ export async function scanTicker(
         pattern,
         momentumElevated,
         nearSupportResistance,
-      ), breakaway), monthlyWarning, scoreDirection), distributionStanding, scoreDirection), failedTops, scoreDirection, levels, crossingLevelOf(gannTrigger)),
+      ), breakaway), monthlyWarning, scoreDirection), distributionStanding, scoreDirection), failedTops, scoreDirection, levels),
       dataLag,
     ), stopBreach);
 

@@ -160,12 +160,6 @@ type ConfirmationInput = {
    * unknown, so any failed test beyond the entry holds it (review 12 M1).
    */
   takeProfit1?: number;
-  /**
-   * The level a crossing entry waits to close past, from the protocol's own
-   * entry and stop (`protocolCrossedLevel`); its crossing of a failed top is
-   * the pass (A-LEVELS-04). Absent, no crossing is assumed.
-   */
-  crossedLevel?: number | null;
   /** Which of Gann's buying points; `oldLevel` and `hold` have nothing to cross. */
   entryKind?: GannEntryKind;
   /**
@@ -193,7 +187,7 @@ export async function readEntryConfirmationNow(input: ConfirmationInput): Promis
   const daily = (await getMarketDataProvider().fetchBars(input.symbol, "1Day", year, null, input.assetClass)) ?? [];
   if (input.direction === "bullish" && readDistributionStanding(daily, now)) return DISTRIBUTION_STANDS;
   const target = input.takeProfit1 ?? (input.direction === "bullish" ? Infinity : -Infinity);
-  const failed = failedTestInPath(readMultipleTops(entryChartBars(daily, etDateKey(now))), input.direction, input.entryTrigger, target, input.crossedLevel);
+  const failed = failedTestInPath(readMultipleTops(entryChartBars(daily, etDateKey(now))), input.direction, input.entryTrigger, target);
   if (failed) {
     const top = failed.kind === "top";
     return {

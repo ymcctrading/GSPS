@@ -271,4 +271,11 @@
 // 2026-10-16-gann-failed-tops-epsilon: review 17. The crossed-level
 // comparison allows a relative 1e-9, so a crossing of three equal tests whose
 // running mean drifted a float step past the price is no longer held.
-export const STRATEGY_VERSION = "2026-10-16-gann-failed-tops-epsilon";
+//
+// 2026-10-16-gann-failed-tops-daily-close: owner ("If Gann says it's a rule,
+// then it's a rule"). A failed top is passed only by a daily close 3 points
+// beyond it (W006 Rule 3; Master Course rules 4-5, "wait for a close beyond
+// it"). The crossing exemption is removed: a 15-minute crossing no longer
+// lets a buy through a failed top, on the scan, the replay, confirmation or
+// placement.
+export const STRATEGY_VERSION = "2026-10-16-gann-failed-tops-daily-close";

@@ -37,20 +37,6 @@ describe("placement reads the protocol's first target for the failed-top check",
     expect(target()).toBe(118);
   });
 
-  it("reads the crossed level from the protocol's stop only, never an attached one", async () => {
-    const crossed = () => readEntryConfirmationNow.mock.calls.at(-1)![0].crossedLevel;
-    // Gann's reaction pair either side of 100: entry a third of the 3 points over, stop 3 points under.
-    const order = (extra: Record<string, unknown>) =>
-      OrderSchema.parse({ symbol: "AAPL", side: "buy", qty: 1, entryMode: "advised", limitPrice: 100 + 4.9 / 3, attachLevels: { stopLoss: 99, takeProfit: 118 }, ...extra }) as OrderInput;
-    await entryConfirmationRefusal(supabase, "u1", order({ entryStop: 95.1 }));
-    expect(crossed()).toBeCloseTo(100.005, 6);
-    await entryConfirmationRefusal(supabase, "u1", order({ entryStop: 95.1, entryKind: "oldLevel" }));
-    expect(crossed()).toBeNull();
-    // No protocol stop: the attached (typed) stop does not place a crossing.
-    await entryConfirmationRefusal(supabase, "u1", order({}));
-    expect(crossed()).toBeNull();
-  });
-
   it("passes no target when the ticket sends none, even with levels attached", async () => {
     const order = OrderSchema.parse({
       symbol: "AAPL", side: "buy", qty: 1, entryMode: "advised", limitPrice: 101, entryStop: 97,
@@ -72,6 +58,5 @@ describe("placement reads the protocol's first target for the failed-top check",
     };
     await entryConfirmationRefusal(supabase, "u1", order);
     expect(target()).toBe(116);
-    expect(readEntryConfirmationNow.mock.calls.at(-1)![0].crossedLevel).toBeCloseTo((3 * 101 + 97) / 4 + 0.005, 6);
   });
 });

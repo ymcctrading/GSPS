@@ -76,7 +76,7 @@ import { readLiquidity } from "@/lib/scan/liquidity";
 import { levelCharts } from "@/lib/scan/levelCharts";
 import { etDateKey } from "@/lib/market/session";
 import { applyBreakawayHold, applyDistributionBreakdownHold, applyFailedTopHold, applyMonthlyBreakHold, applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
-import { crossingLevelOf, failedTestInPath } from "@/lib/gann/multipleTops";
+import { failedTestInPath } from "@/lib/gann/multipleTops";
 import { breakawayVolumeMet, readBreakaway, type BreakawayReading } from "@/lib/gann/breakaway";
 import { readMonthlyBreakWarning, type MonthlyBreakWarning } from "@/lib/gann/campaignLedger";
 import { RECLAIM_POINTS, isReclaimedByClose, isStopBreached, isStopBreachedByBar } from "@/lib/gann/stopBreach";
@@ -887,7 +887,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       // A-LEVELS-04 (fork FL3 a): nor a long with a failed double top between
       // its entry and TP1 (a short with a failed bottom), as production refuses it too.
       const path = sessionPlanPaths.get(planKey);
-      if (failedTestInPath(arm.context.disclosedRules.multipleTops, trigger.direction, path?.entry, path?.takeProfit1, crossingLevelOf(trigger))) continue;
+      if (failedTestInPath(arm.context.disclosedRules.multipleTops, trigger.direction, path?.entry, path?.takeProfit1)) continue;
 
       const long = trigger.direction === "bullish";
       const dir = long ? 1 : -1;
@@ -1395,7 +1395,7 @@ function scoreSetup(input: {
     context.momentumElevated,
     context.nearSupportResistance,
   ), breakaway), monthlyWarning, gannTrigger.direction), context.disclosedRules.distributionStanding ?? null, gannTrigger.direction),
-    context.disclosedRules.multipleTops, gannTrigger.direction, levels, crossingLevelOf(gannTrigger));
+    context.disclosedRules.multipleTops, gannTrigger.direction, levels);
   return { decision, levels };
 }
 

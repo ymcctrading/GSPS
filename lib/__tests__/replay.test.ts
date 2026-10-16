@@ -28,8 +28,11 @@ function dayBar(date: string, o: number, h: number, l: number, c: number): Bar {
  * `count` daily bars ending the day before `before`, oscillating around 100 in
  * an 8-day cycle (four rising closes, four falling). The swing walk skips flat
  * closes, so a flat history completes no swing and arms nothing. Runs of four
- * let the 3-day swing chart flip, so tops near 103 and bottoms near 95
- * complete on both sides.
+ * let the 3-day swing chart flip, so tops near 102 and bottoms near 97
+ * complete on both sides. The range is narrower than Gann's 3 points at 100,
+ * so no close falls 3 points under a top: no failed double top stands in a
+ * breakout's path (a failed top holds a crossing until a daily close passes
+ * it, A-LEVELS-04).
  */
 function dailyHistory(count: number, before: string): Bar[] {
   const out: Bar[] = [];
@@ -38,7 +41,7 @@ function dailyHistory(count: number, before: string): Bar[] {
     const d = new Date(end - i * 86_400_000).toISOString().slice(0, 10);
     const phase = (count - i) % 8;
     const step = phase < 4 ? phase : 7 - phase;
-    const c = 96 + step * 2;
+    const c = 98 + step;
     out.push(dayBar(d, c, c + 1, c - 1, c));
   }
   return out;

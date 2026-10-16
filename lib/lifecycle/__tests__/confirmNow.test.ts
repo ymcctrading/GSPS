@@ -261,16 +261,6 @@ describe("readEntryConfirmationNow: an entry waits under a failed double top (A-
     expect((await read(daily(doubleTop), "bullish", 98, 115)).ready).toBe(true);
   });
 
-  it("lets a crossing of the failed top through and holds a crossing under it", async () => {
-    const r = (crossedLevel: number | null) => {
-      fetchBars.mockImplementation(async (_s: string, tf: string) => (tf === "1Day" ? daily(doubleTop) : [bar("2026-10-15T14:30:00Z", 103.5, 104, 103, 103.5)]));
-      return readEntryConfirmationNow({ symbol: "AAPL", assetClass: "us_equity", direction: "bullish", entryTrigger: 103, stopPrice: 98, takeProfit1: 125, crossedLevel, entryKind: "oldLevel", now });
-    };
-    expect((await r(110.5)).ready).toBe(true);
-    expect((await r(108)).ready).toBe(false);
-    expect((await r(null)).ready).toBe(false);
-  });
-
   it("waits when the first target is unknown (review 12 M1)", async () => {
     expect((await read(daily(doubleTop), "bullish", 98, null)).ready).toBe(false);
     expect((await read(daily(doubleBottom), "bearish", 112, null)).ready).toBe(false);
