@@ -475,3 +475,72 @@ export function jensenWindows(bars: Bar[], unit: number, from: Date, to: Date): 
   }
   return out.sort((x, y) => x.date.localeCompare(y.date));
 }
+
+// ---------------------------------------------------------------- Plate 1 protractor
+
+/**
+ * C-LEVELS-22 (class C, Jensen, Plate 1, printed p. 110, PDF 61L; re-read at
+ * 300 dpi, W049 visuals-reinspection): a table that turns square-of-90
+ * points into protractor angles, so a line can be drawn without laying out
+ * the whole square. Each scale point is 90 x up/over (45 = 4 up, 8 over). A
+ * ray to the right margin at `points` rises `points` over 90, so its angle is
+ * atan(points / 90); a ray to the top margin is the complement.
+ *
+ * GSPS gives the exact angle. The printed angles are rounded to quarter
+ * degrees (26¼° for 45 points, against 26.57°). The X–G top angle prints as
+ * 54½°, which is neither the complement of its own 37½° nor the geometry; it
+ * is kept as printed and flagged, not corrected. The 15-point row appears
+ * only in the scale table and has no ray.
+ *
+ * Display only: the angle is a label for a line, never a level, stop or gate.
+ * Three-question basis: class C; no periodicity claim; Correspondence, the
+ * same proportion read as a count of points and as an angle on the chart.
+ */
+export interface Plate1Row {
+  ray: "A" | "B" | "C" | "D" | "E" | "F" | "G" | null;
+  points: number;
+  over: number;
+  up: number;
+  /** As printed ("Right Margin Upward"); null where the row has no ray. */
+  printedRight: number | null;
+  /** As printed ("Top of Graph to Right"). */
+  printedTop: number | null;
+  /** Exact: atan(points / 90), in degrees. */
+  rightAngle: number;
+  /** Exact: 90 minus `rightAngle`. */
+  topAngle: number;
+  /** The printed top angle is not the complement of the printed right angle. */
+  misprint: boolean;
+}
+
+/** A square-of-90 point's line angle, exactly: atan(points / 90) in degrees. */
+export function jensenPointAngle(points: number): number {
+  return (Math.atan(points / JENSEN_SQUARE) * 180) / Math.PI;
+}
+
+const plate1Row = (ray: Plate1Row["ray"], over: number, up: number, printedRight: number | null, printedTop: number | null): Plate1Row => {
+  const points = (JENSEN_SQUARE * up) / over;
+  const rightAngle = jensenPointAngle(points);
+  return {
+    ray,
+    points,
+    over,
+    up,
+    printedRight,
+    printedTop,
+    rightAngle,
+    topAngle: 90 - rightAngle,
+    misprint: printedRight !== null && printedTop !== null && printedTop !== 90 - printedRight,
+  };
+};
+
+export const PLATE_1: readonly Plate1Row[] = [
+  plate1Row("A", 16, 1, 3.75, 86.25),
+  plate1Row("B", 16, 2, 7.5, 82.5),
+  plate1Row(null, 12, 2, null, null),
+  plate1Row("C", 16, 4, 15, 75),
+  plate1Row("D", 12, 4, 18.75, 71.25),
+  plate1Row("E", 8, 4, 26.25, 63.75),
+  plate1Row("F", 12, 8, 33.75, 56.25),
+  plate1Row("G", 16, 12, 37.5, 54.5),
+];
