@@ -14,6 +14,33 @@ import {
 } from "@/lib/strat/levels";
 
 describe("computeEquityTradeLevels", () => {
+  // Resistance points near the same levels are averaged into one (parity P4,
+  // lib/strat/levels.ts combineNearbyLevels; tolerance 1% of price).
+  it("averages two support levels within 1% into one before anchoring the stop", () => {
+    const entry = 100;
+    const merged = computeEquityTradeLevels({
+      direction: "bullish",
+      entry,
+      structuralLevels: [95, 95.6],
+      evenFigures: false,
+    });
+    // Mean 95.3 -> 4.7% below entry, plus the buffer. Unmerged, the nearer
+    // 95.6 would have given 4.4% + buffer.
+    expect(merged.stopFromStructure).toBe(true);
+    expect(merged.stopLoss).toBeCloseTo(entry * (1 - (4.7 + EQUITY_STOP_BUFFER_PCT) / 100), 2);
+  });
+
+  it("keeps levels more than 1% apart separate", () => {
+    const entry = 100;
+    const apart = computeEquityTradeLevels({
+      direction: "bullish",
+      entry,
+      structuralLevels: [93, 95.6],
+      evenFigures: false,
+    });
+    expect(apart.stopLoss).toBeCloseTo(entry * (1 - (4.4 + EQUITY_STOP_BUFFER_PCT) / 100), 2);
+  });
+
   it("anchors the stop to the nearest support level within band, on a long", () => {
     const entry = 100;
     // 5% below entry — inside [3%, 15%].

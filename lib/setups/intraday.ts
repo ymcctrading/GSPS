@@ -11,7 +11,7 @@
  *  - **Entry** is the level the alert's own plan says to wait on: a bar closing
  *    beyond the price the move had reached when it was flagged ("wait for a bar
  *    to close … rather than entering into the move"). It is not a fill price.
- *  - **Exit (S/L)** is the alert's invalidation — the opening-range extreme, or
+ *  - **Exit (S/L)** is the alert's invalidation — a point beyond the crossed old level, or
  *    the day's 50% point, depending on the signal.
  *  - **TP1** is the plan's first target: the nearest old top or bottom beyond the
  *    price, or a round number just short of one (`gannFirstTarget`,

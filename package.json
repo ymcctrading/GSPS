@@ -19,6 +19,7 @@
     "@sentry/nextjs": "^8.55.0",
     "@supabase/ssr": "^0.12.3",
     "@supabase/supabase-js": "^2.110.7",
+    "astronomy-engine": "2.1.19",
     "clsx": "^2.1.1",
     "exceljs": "^4.4.0",
     "lightweight-charts": "^5.2.0",

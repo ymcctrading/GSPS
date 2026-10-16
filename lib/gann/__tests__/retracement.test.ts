@@ -54,6 +54,17 @@ describe("computeRetracementLevels", () => {
     expect(byLabel["5/8"]).toBeNull();
   });
 
+  // Gann's divisions are eighths and thirds; 3/8 and 5/8 are Gann's own
+  // counterparts of the Fibonacci levels (W031 p.1). Each sits halfway between
+  // its neighbouring quarter and the half.
+  it("places 3/8 and 5/8 at their eighths of the swing", () => {
+    const levels = computeRetracementLevels(upSwingBars(), 100);
+    const price = Object.fromEntries(levels.map((l) => [l.label, l.price]));
+    expect(price["3/8"]).toBeCloseTo((price["1/4"] + price["1/2"]) / 2, 6);
+    expect(price["5/8"]).toBeCloseTo((price["1/2"] + price["3/4"]) / 2, 6);
+    expect(price["3/8"]).not.toBeCloseTo(price["5/8"], 2);
+  });
+
   it("breaks a near-tie in distance in favor of the more important fraction", () => {
     // Two levels at the exact same price (a degenerate but valid tie) --
     // more important one should sort first.

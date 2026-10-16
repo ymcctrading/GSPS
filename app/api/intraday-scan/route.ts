@@ -75,9 +75,15 @@ import type { Bar } from "@/lib/types";
 
 export const maxDuration = 120;
 
-/** Sessions of history behind the relative-volume baseline and the daily ATR. */
+/** Sessions of history behind the relative-volume baseline. */
 const BASELINE_DAYS = 12;
-const DAILY_ATR_DAYS = 45;
+/**
+ * Daily history fetched per symbol: a year, so the campaign ledger behind the
+ * over-balance-of-space alert can find the weekly trend's start, the same
+ * year of daily bars the daily scan reads (2026-10-16). The ATR and the
+ * liquidity floor still read only their own trailing windows of it.
+ */
+const DAILY_HISTORY_DAYS = 400;
 
 /**
  * `intraday_alerts` (migration 0016, renumbered from 0008 — see that file's
@@ -445,9 +451,7 @@ function resolveConfig(params: URLSearchParams): ScannerConfig {
   };
 
   return {
-    openingRangeMinutes: num("openingRange", DEFAULT_CONFIG.openingRangeMinutes),
     relativeVolumeThreshold: num("rvol", DEFAULT_CONFIG.relativeVolumeThreshold),
-    atrExpansionMultiple: num("atrMultiple", DEFAULT_CONFIG.atrExpansionMultiple),
     unusualVolumeThreshold: num("unusualVolume", DEFAULT_CONFIG.unusualVolumeThreshold),
     minMovePct: num("minMovePct", DEFAULT_CONFIG.minMovePct),
     maxDataAgeSeconds: num("maxDataAge", DEFAULT_CONFIG.maxDataAgeSeconds),
@@ -895,7 +899,7 @@ async function buildInput(
     const [minuteBars, baselineBars, dailyBars] = await Promise.all([
       provider.fetchBars(symbol, "1Min", daysAgo(minuteLookbackDays), end, assetClass, 2000),
       provider.fetchBars(symbol, "5Min", daysAgo(BASELINE_DAYS), end, assetClass, 5000),
-      provider.fetchBars(symbol, "1Day", daysAgo(DAILY_ATR_DAYS), end, assetClass, 200),
+      provider.fetchBars(symbol, "1Day", daysAgo(DAILY_HISTORY_DAYS), end, assetClass, 300),
     ]);
 
     const sessionBars = pickSessionBars(minuteBars, baselineBars, todayEt, marketClosed);
@@ -923,6 +927,15 @@ async function buildInput(
         sessionBars.sessionDate,
       ),
       dailyAtr: dailyBars.length > 2 ? atr(dailyBars.slice(-20), 14) : null,
+      // Completed sessions only: the prior session's high and low are the old
+      // top and bottom the crossing alerts read, and today is appended by the
+      // scanner itself from the session's own bars.
+      // Recent sessions' five-minute bars, rolled up by the scanner into Gann's
+      // hourly chart ("the Hourly Chart will give the first change in trend").
+      recentBars: baselineBars,
+      priorDailyBars: dailyBars.filter(
+        (b) => !Number.isNaN(Date.parse(b.t)) && etDateKey(new Date(b.t)) < sessionBars.sessionDate,
+      ),
       // The volume half of the platform-wide liquidity floor, read off the
       // daily bars already fetched above for the ATR — see lib/scan/liquidity.ts.
       avgDailyVolume: readLiquidity(dailyBars)?.avgVolume ?? null,

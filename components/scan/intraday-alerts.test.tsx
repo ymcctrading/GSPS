@@ -19,7 +19,7 @@ import type { IntradayRefreshBudget } from "@/lib/entitlements/intraday-refresh"
 const spyAlert: Alert = {
   symbol: "SPY",
   kind: "etf",
-  type: "opening_momentum",
+  type: "old_level_cross",
   direction: "up",
   triggerTime: "2026-08-07T15:33:00.000Z",
   dataTimestamp: "2026-08-07T15:17:00.000Z",
@@ -197,8 +197,8 @@ describe("IntradayAlerts", () => {
 
     // Exactly one SPY card — the symbol control renders once, not twice.
     expect(await screen.findAllByRole("button", { name: "SPY" })).toHaveLength(1);
-    // The higher-confidence signal (Opening momentum) is the card's own badge...
-    expect(screen.getByText("Opening momentum ↑")).toBeInTheDocument();
+    // The higher-confidence signal (Old top or bottom crossed) is the card's own badge...
+    expect(screen.getByText("Old top or bottom crossed ↑")).toBeInTheDocument();
     // ...and the lower-confidence one (Unusual volume) is folded in as a
     // confirming signal, not dropped and not given its own card.
     expect(screen.getByText(/Also qualified this pass:/)).toBeInTheDocument();

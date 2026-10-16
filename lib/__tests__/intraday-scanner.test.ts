@@ -13,6 +13,7 @@ import {
   type ScannerConfig,
   type SymbolInput,
 } from "@/lib/scanner/intraday";
+import { intradayPoint } from "@/lib/gann/pointScale";
 
 /**
  * The session these tests replay is 2026-08-07, the day the scanner was
@@ -46,6 +47,36 @@ function trendingUpBars(): Bar[] {
   return bars;
 }
 
+/**
+ * A rising daily campaign: legs of five sessions up about 3.5%, then four down
+ * about 2.8%, rescaled so the last session (high 501.5, low 499, the second
+ * day of a reaction) closes at 500. Its greatest reaction is about 2.8%, so a
+ * session down 3% on top of the two before it over-balances it.
+ */
+function campaignDaily(): Bar[] {
+  const raw: Bar[] = [];
+  let price = 400;
+  const start = Date.parse("2026-02-02T05:00:00Z");
+  let day = 0;
+  const push = (next: number) => {
+    const o = price;
+    const c = next;
+    raw.push({ t: new Date(start + day * 86_400_000).toISOString(), o, h: Math.max(o, c) * 1.002, l: Math.min(o, c) * 0.998, c, v: 50_000_000 });
+    price = next;
+    day += 1;
+  };
+  for (let leg = 0; leg < 16; leg++) {
+    for (let i = 0; i < 5; i++) push(price * 1.006);
+    // The last leg's reaction is two sessions old, so today can be its third.
+    for (let i = 0; i < (leg < 15 ? 4 : 2); i++) push(price * 0.994);
+  }
+  const k = 500 / raw[raw.length - 1].c;
+  const scaled = raw.map((b) => ({ ...b, o: b.o * k, h: b.h * k, l: b.l * k, c: b.c * k }));
+  const last = scaled[scaled.length - 1];
+  scaled[scaled.length - 1] = { ...last, h: 501.5, l: 499 };
+  return scaled;
+}
+
 function input(overrides: Partial<SymbolInput> = {}): SymbolInput {
   const bars = overrides.bars ?? trendingUpBars();
   const last = bars[bars.length - 1];
@@ -58,6 +89,7 @@ function input(overrides: Partial<SymbolInput> = {}): SymbolInput {
     quote: last ? { price: last.c, at: last.t } : null,
     volumeBaseline: 80_000_000,
     dailyAtr: 2.5,
+    priorDailyBars: campaignDaily(),
     ...overrides,
   };
 }
@@ -66,17 +98,26 @@ function input(overrides: Partial<SymbolInput> = {}): SymbolInput {
 const AT_1133 = new Date("2026-08-07T15:33:00Z");
 
 describe("sessionMetrics", () => {
-  it("derives the opening range from bar timestamps, not bar count", () => {
+  it("reads the prior session's high and low as the day's old top and bottom", () => {
     const m = sessionMetrics(input(), DEFAULT_CONFIG)!;
-    expect(m.openingRangeComplete).toBe(true);
-    expect(m.openingRangeHigh).toBeCloseTo(501, 5);
-    expect(m.openingRangeLow).toBeCloseTo(500, 5);
+    expect(m.priorHigh).toBeCloseTo(501.5, 5);
+    expect(m.priorLow).toBeCloseTo(499, 5);
   });
 
-  it("reports the range as incomplete before it has finished forming", () => {
-    const partial = trendingUpBars().slice(0, 8);
-    const m = sessionMetrics(input({ bars: partial }), DEFAULT_CONFIG)!;
-    expect(m.openingRangeComplete).toBe(false);
+  it("has no old levels without daily history, rather than inventing them", () => {
+    const m = sessionMetrics(input({ priorDailyBars: undefined }), DEFAULT_CONFIG)!;
+    expect(m.priorHigh).toBeNull();
+    expect(m.point).toBeGreaterThan(0);
+  });
+
+  it("scales Gann's allowance to the bars, the same point the intraday replay uses", () => {
+    const m = sessionMetrics(input(), DEFAULT_CONFIG)!;
+    expect(m.point).toBeCloseTo(intradayPoint(m.lastClose, m.intradayAtr, 2.5), 10);
+    expect(sessionMetrics(input({ dailyAtr: null }), DEFAULT_CONFIG)!.point).toBe(0);
+  });
+
+  it("reads the trend from Gann's 3-bar swing chart on the session's bars", () => {
+    expect(sessionMetrics(input(), DEFAULT_CONFIG)!.swingTrend).toBe("up");
   });
 
   it("computes VWAP from typical price, so a bar closing at its extreme doesn't dominate", () => {
@@ -129,18 +170,55 @@ describe("scanIntraday — the reported SPY miss", () => {
 
     expect(alerts.length).toBeGreaterThan(0);
     const types = alerts.map((a) => a.type);
-    expect(types).toContain("opening_momentum");
+    expect(types).toContain("old_level_cross");
     expect(types).toContain("trend_continuation");
     expect(alerts.every((a) => a.symbol === "SPY")).toBe(true);
   });
 
   it("reports the move against an explicit, named basis", () => {
     const alert = scanIntraday([input()], DEFAULT_CONFIG, AT_1133).alerts.find(
-      (a) => a.type === "volatility_expansion",
+      (a) => a.type === "old_level_cross",
     )!;
-    expect(alert.move.basis).toBe("prior_close");
-    expect(alert.move.reference).toBe(500);
-    expect(alert.move.absolute).toBeGreaterThan(3);
+    expect(alert.move.basis).toBe("prior_session");
+    expect(alert.move.reference).toBe(501.5);
+    expect(alert.move.absolute).toBeGreaterThan(2.5);
+  });
+
+  it("invalidates a crossed top a point back under it, not at an arbitrary range", () => {
+    const output = scanIntraday([input()], DEFAULT_CONFIG, AT_1133);
+    const alert = output.alerts.find((a) => a.type === "old_level_cross")!;
+    const m = output.audit[0].metrics!;
+    expect(alert.direction).toBe("up");
+    expect(alert.invalidation).toBeCloseTo(501.5 - m.point, 10);
+  });
+
+  it("does not call a cross until a bar has closed beyond the level by the allowance", () => {
+    // The session pokes above yesterday's high but closes back at it.
+    const bars = trendingUpBars().slice(0, 15);
+    bars.push(bar(15, 500.6, 502.4, 500.5, 501.6));
+    const last = bars[bars.length - 1];
+    const output = scanIntraday(
+      [input({ bars, quote: { price: last.c, at: last.t } })],
+      DEFAULT_CONFIG,
+      new Date("2026-08-07T14:00:00Z"),
+    );
+    expect(output.alerts.map((a) => a.type)).not.toContain("old_level_cross");
+  });
+
+  it("mirrors the cross for the downside (Polarity)", () => {
+    const bars: Bar[] = [];
+    for (let i = 0; i < 60; i++) {
+      const base = 499 - (i / 60) * 6;
+      bars.push(bar(i, base, base + 0.1, base - 0.25, base - 0.2, 1_200_000));
+    }
+    const last = bars[bars.length - 1];
+    const alert = scanIntraday(
+      [input({ bars, quote: { price: last.c, at: last.t } })],
+      DEFAULT_CONFIG,
+      new Date("2026-08-07T14:45:00Z"),
+    ).alerts.find((a) => a.type === "old_level_cross")!;
+    expect(alert.direction).toBe("down");
+    expect(alert.move.reference).toBe(499);
   });
 
   it("carries an invalidation level on every alert", () => {
@@ -297,32 +375,63 @@ describe("scanIntraday — data freshness", () => {
     expect(alert.dataAgeSeconds).toBeGreaterThan(0);
   });
 
-  it("explains a late detection in terms of the feed delay and the opening range", () => {
+  it("explains a late detection in terms of the feed delay and Gann's closing rule", () => {
     const alert = scanIntraday([input()], DEFAULT_CONFIG, AT_1133).alerts.find(
-      (a) => a.type === "opening_momentum",
+      (a) => a.type === "old_level_cross",
     )!;
-    expect(alert.whyNotEarlier).toContain("opening range");
+    expect(alert.whyNotEarlier).toContain("closed beyond the level");
   });
 });
 
-describe("scanIntraday — thresholds scale with the symbol", () => {
-  it("does not call a $3 move in a $600 name an expansion when its range is $12", () => {
-    const bars = trendingUpBars();
-    const output = scanIntraday(
-      [input({ bars, prevClose: 500, dailyAtr: 12 })],
-      DEFAULT_CONFIG,
-      AT_1133,
-    );
-    expect(output.alerts.map((a) => a.type)).not.toContain("volatility_expansion");
+describe("scanIntraday — over-balance of space", () => {
+  /** A session that falls about 3% from yesterday's close of 500. */
+  function fallingBars(): Bar[] {
+    const bars: Bar[] = [];
+    for (let i = 0; i < 90; i++) {
+      const base = 500 - (i / 90) * 15;
+      bars.push(bar(i, base, base + 0.1, base - 0.25, base - 0.2, 1_500_000));
+    }
+    return bars;
+  }
+
+  it("does not fire on a move with the campaign's trend, however large", () => {
+    const output = scanIntraday([input()], DEFAULT_CONFIG, AT_1133);
+    expect(output.alerts.map((a) => a.type)).not.toContain("space_overbalance");
   });
 
-  it("does call the same dollar move an expansion when the symbol's range is small", () => {
-    const output = scanIntraday(
-      [input({ dailyAtr: 1.2 })],
+  it("fires when today's reaction exceeds the greatest reaction of the campaign", () => {
+    const bars = fallingBars();
+    const last = bars[bars.length - 1];
+    const alert = scanIntraday(
+      [input({ bars, quote: { price: last.c, at: last.t } })],
       DEFAULT_CONFIG,
-      AT_1133,
+      new Date("2026-08-07T15:05:00Z"),
+    ).alerts.find((a) => a.type === "space_overbalance");
+    expect(alert).toBeDefined();
+    expect(alert!.direction).toBe("down");
+    expect(alert!.whyThisAppeared).toMatch(/larger than any reaction/);
+  });
+
+  it("stays quiet when the reaction is no larger than the campaign has already seen", () => {
+    const bars = fallingBars().slice(0, 12); // about 0.4% down
+    const last = bars[bars.length - 1];
+    const output = scanIntraday(
+      [input({ bars, quote: { price: last.c, at: last.t } })],
+      DEFAULT_CONFIG,
+      new Date("2026-08-07T13:50:00Z"),
     );
-    expect(output.alerts.map((a) => a.type)).toContain("volatility_expansion");
+    expect(output.alerts.map((a) => a.type)).not.toContain("space_overbalance");
+  });
+
+  it("reports no over-balance without daily history, rather than guessing", () => {
+    const bars = fallingBars();
+    const last = bars[bars.length - 1];
+    const output = scanIntraday(
+      [input({ bars, quote: { price: last.c, at: last.t }, priorDailyBars: undefined })],
+      DEFAULT_CONFIG,
+      new Date("2026-08-07T15:05:00Z"),
+    );
+    expect(output.alerts.map((a) => a.type)).not.toContain("space_overbalance");
   });
 
   it("skips a symbol with too little volume to be worth calling", () => {
@@ -337,7 +446,7 @@ describe("scanIntraday — reversal risk", () => {
   it("flags a breakout that was given back", () => {
     const bars = trendingUpBars();
     // Round-trip: the last twenty minutes give the whole move back and close
-    // below the opening-range high.
+    // back under yesterday's high by more than Gann's allowance.
     for (let i = 105; i < 125; i++) {
       const base = 504.5 - ((i - 105) / 20) * 4.6;
       bars.push(bar(i, base, base + 0.1, base - 0.25, base - 0.2, 2_000_000));
@@ -358,12 +467,12 @@ describe("scanIntraday — reversal risk", () => {
 
 describe("scanIntraday — suppression", () => {
   const recent = [
-    { type: "opening_momentum" as const, direction: "up" as const, at: "2026-08-07T15:20:00Z" },
+    { type: "old_level_cross" as const, direction: "up" as const, at: "2026-08-07T15:20:00Z" },
   ];
 
   it("suppresses a repeat of the same signal inside the cooldown", () => {
     const output = scanIntraday([input({ lastAlerts: recent })], DEFAULT_CONFIG, AT_1133);
-    expect(output.alerts.map((a) => a.type)).not.toContain("opening_momentum");
+    expect(output.alerts.map((a) => a.type)).not.toContain("old_level_cross");
   });
 
   it("records the suppression in the audit rather than looking like no signal", () => {
@@ -384,10 +493,10 @@ describe("scanIntraday — suppression", () => {
 
   it("lets the same signal through once the cooldown has expired", () => {
     const old = [
-      { type: "opening_momentum" as const, direction: "up" as const, at: "2026-08-07T14:00:00Z" },
+      { type: "old_level_cross" as const, direction: "up" as const, at: "2026-08-07T14:00:00Z" },
     ];
     const output = scanIntraday([input({ lastAlerts: old })], DEFAULT_CONFIG, AT_1133);
-    expect(output.alerts.map((a) => a.type)).toContain("opening_momentum");
+    expect(output.alerts.map((a) => a.type)).toContain("old_level_cross");
   });
 });
 
@@ -557,11 +666,10 @@ describe("session boundaries", () => {
     return { t, o: price, h: price + 0.1, l: price - 0.1, c: price, v };
   }
 
-  // The feed serves pre-market from 04:00 ET. Anchoring the opening range on
-  // "the first bar of the day" put it in the pre-market, where a few thin
-  // prints set a range two cents wide that everything then "broke out" of at
-  // 09:30 — turning the detector into a clock.
-  it("ignores pre-market bars when setting the opening range", () => {
+  // The feed serves pre-market from 04:00 ET. Counting it put the session's
+  // high, low and 50% point in the pre-market, where a few thin prints set a
+  // range two cents wide.
+  it("ignores pre-market bars when setting the session's range", () => {
     const bars = [
       etBar(4, 0, 400),
       etBar(4, 5, 401),
@@ -573,13 +681,9 @@ describe("session boundaries", () => {
     ];
     const m = sessionMetrics(input({ bars, kind: "etf" }), DEFAULT_CONFIG)!;
 
-    // The range is 09:30–09:45, so the 09:30 and 09:40 bars are in it and the
-    // three pre-market bars are not — a range anchored on the first bar of the
-    // day would have been 400–402.
-    expect(m.openingRangeHigh).toBeCloseTo(501.1, 5);
-    expect(m.openingRangeLow).toBeCloseTo(499.9, 5);
-    // And the pre-market prints are not in the session high/low either.
-    expect(m.low).toBeGreaterThan(490);
+    expect(m.low).toBeCloseTo(499.9, 5);
+    expect(m.high).toBeCloseTo(503.1, 5);
+    expect(m.barCount).toBe(4);
   });
 
   it("excludes pre-market volume from the session total", () => {
@@ -594,19 +698,11 @@ describe("session boundaries", () => {
     expect(m.high).toBeLessThan(510);
   });
 
-  it("anchors the range at 09:30 even when that bar is missing from the feed", () => {
-    const bars = [etBar(9, 42, 500), etBar(9, 50, 505), etBar(10, 0, 510)];
-    const m = sessionMetrics(input({ bars }), DEFAULT_CONFIG)!;
-    // Range is 09:30–09:45, so only the 09:42 bar falls inside it — the window
-    // does not slide forward to start at the first bar that happened to arrive.
-    expect(m.openingRangeHigh).toBeCloseTo(500.1, 5);
-  });
-
   it("treats the whole day as the session for crypto, which has no open", () => {
     const bars = [etBar(2, 0, 100), etBar(2, 30, 101), etBar(20, 0, 102)];
     const m = sessionMetrics(input({ bars, kind: "crypto", symbol: "BTC/USD" }), DEFAULT_CONFIG)!;
     expect(m.barCount).toBe(3);
-    expect(m.openingRangeHigh).toBeCloseTo(100.1, 5);
+    expect(m.low).toBeCloseTo(99.9, 5);
   });
 
   it("returns null when a symbol traded only outside the regular session", () => {
@@ -674,5 +770,47 @@ describe("gannFirstTarget", () => {
     const alert = scanIntraday([input()], DEFAULT_CONFIG, AT_1133).alerts.find((a) => a.type === "trend_continuation")!;
     const risk = Math.abs(alert.move.current - (alert.invalidation ?? alert.move.current));
     expect(alert.continuationPlan.firstTarget).not.toBeCloseTo(alert.move.current + risk * 2, 6);
+  });
+});
+
+describe("Gann's hourly chart (Master Course Ch. 13)", () => {
+  // Five-minute bars over three prior sessions, rolled into hours that climb
+  // three hours and give back one: rising swings, an up trend.
+  function recentFiveMinute(sign = 1): Bar[] {
+    const out: Bar[] = [];
+    let price = 480;
+    const pattern = [1, 1, 1, -0.8];
+    let k = 0;
+    for (let d = 3; d >= 1; d--) {
+      const day = Date.parse("2026-08-07T13:30:00Z") - d * 86_400_000;
+      for (let m = 0; m < 390; m += 5) {
+        if (m % 60 === 0) price += sign * pattern[k++ % pattern.length];
+        const t = new Date(day + m * 60_000).toISOString();
+        out.push({ t, o: price, h: price + 0.2, l: price - 0.2, c: price, v: 10_000 });
+      }
+    }
+    return out;
+  }
+
+  it("reads the swing chart on hourly roll-ups of recent sessions", () => {
+    const m = sessionMetrics(input({ recentBars: recentFiveMinute() }), DEFAULT_CONFIG)!;
+    expect(m.hourly?.trend).toBe("up");
+    expect(sessionMetrics(input({ recentBars: recentFiveMinute(-1) }), DEFAULT_CONFIG)!.hourly?.trend).toBe("down");
+  });
+
+  it("is absent without recent bars, and its factor is left out rather than failed", () => {
+    expect(sessionMetrics(input(), DEFAULT_CONFIG)!.hourly).toBeNull();
+    const without = scanIntraday([input()], DEFAULT_CONFIG, AT_1133).alerts.flatMap((a) => a.confidenceFactors.map((f) => f.label));
+    expect(without).not.toContain("The hourly chart agrees");
+  });
+
+  it("adds the hourly factor to an alert when the history is there", () => {
+    const alerts = scanIntraday([input({ recentBars: recentFiveMinute() })], DEFAULT_CONFIG, AT_1133).alerts;
+    const withTrend = alerts.filter((a) => a.type === "old_level_cross" || a.type === "trend_continuation");
+    expect(withTrend.length).toBeGreaterThan(0);
+    for (const a of withTrend) {
+      const f = a.confidenceFactors.find((x) => x.label === "The hourly chart agrees");
+      expect(f?.passed).toBe(a.direction === "up");
+    }
   });
 });
