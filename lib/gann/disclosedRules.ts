@@ -279,7 +279,7 @@ export type CounterMovePhase =
   | "extended"
   /** 31-60 days: into a 2nd month, which strong trends seldom reach. */
   | "secondMonth"
-  /** 61+ days: a 3rd month, which signals a change in trend. */
+  /** 61+ days: a 3rd month. The trend changes only when the reaction is still making new extremes there (`CampaignLedger.counterMoveThirdMonth`). */
   | "thirdMonth";
 
 export interface CounterMoveReading {
@@ -618,11 +618,15 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
     );
   }
   if (ctx.counterMove?.inCounterMove && ctx.counterMove.phase) {
+    // The change of trend is the ledger's call (new extremes after day 60 from
+    // the section's top), so this line only says so when the ledger agrees.
     const note = {
       normal: "within the usual 2-3 weeks",
       extended: "longer than the usual 3 weeks",
       secondMonth: "into a second month, which strong trends seldom reach",
-      thirdMonth: "in its third month, which signals a change in trend",
+      thirdMonth: ctx.campaign?.counterMoveThirdMonth
+        ? "in its third month, which signals a change in trend"
+        : "past two months, though it has made no new extreme in its third month",
     }[ctx.counterMove.phase];
     lines.push(`Counter-move against the ${ctx.counterMove.trend} trend: ${ctx.counterMove.days} days, ${note}.`);
   }

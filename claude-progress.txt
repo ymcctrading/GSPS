@@ -487,3 +487,14 @@ is unchecked here (collection-synthesis.md §1.6, §6).
 - Each has a card line ending "Shown for context; it does not change the setup." Context only, no version bump.
 - Tests: secondaryTime.test.ts now 28. Mutations W1-W13 and X1-X10 caught (W7, W12 and X3 after a test was added for each).
 - Checks: vitest 275 files / 2773 tests pass; tsc clean; check:terms clean; eslint clean.
+
+## 2026-10-16 Item 7 fresh review (docs/gann-feature-map/item7c_review.md): fixes
+- Verdicts: A-TIME-04 and C-TIME-02 PASS; A-TIME-01/-02 FAIL on H1/M1 (fixed below, need re-review); A-TIME-08 partial ("late tops make late bottoms" not built); C-TIME-18 partial ("watch the 3rd-4th day", "14 most significant" absent).
+- H1 (high): a lower weekly top inside a reaction (a bounce of a week or more) was taken as a new section top, so the section rule and the third-month clock misfired. Only a record weekly top (record bottom in a bear campaign) starts a section now (campaignLedger.ts). Tests: thirdMonth (lower top, resumed, new lows turn the weekly chart down first; bear mirror), monthlyWarning three-section bear mirror. Mutations H1a/H1b caught (H1b after the bear three-section test was added).
+- M1 (med): the card's counter-move line said "3rd month: trend change" from the 3-Day clock while the trend read did not. The line and the card tile now say "past two months" unless the ledger's counterMoveThirdMonth holds; a tile shows the ledger's call. Curriculum (lesson text and quiz) now says "still making new lows in its third month, counted from the top it started from". Test in thirdMonth; mutation M1a caught.
+- M2 (med): the live exit check and the exam read the provider's bar for the entry month, which includes later sessions. Both now use months before the entry's month plus that month rolled from the sessions before the day (monthlyWithCurrent). Tests in bearMarketCallers; M2a/M2b caught.
+- M3 (med/low): a short past perSide could be rescanned and listed twice, and a symbol could reach both lists. continuationExclusions (the sell pass skips every sell row), mergeContinuations dedupes by symbol, dropSellsAlsoBought before the shortable cut. Unit tests in market-scan-shortable; M3a-c caught. Not covered: a composed runMarketScan duplicate case (the harness has no reversion rows).
+- L1 (low): Gann's change-of-trend exit now also fires on the ledger's third-month and section calls when they arise after the fill (not when already standing at entry). Tests in exitRules (3); L1a/L1b caught.
+- L2 (low): A-TIME-04's window pinned at ±2 (±3 closed); the oscillator guard now covers lib/analysis, lib/strat, lib/trade and resolves relative imports (an injected relative import fails it); trendsFromBars pins the weekly roll-up.
+- L3: replay on the new version is next.
+- STRATEGY_VERSION 2026-10-16-gann-record-sections. Checks: vitest 2783 pass; tsc, check:terms, eslint clean.

@@ -266,8 +266,16 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
   // reaction or a dip inside a section does not move them. Once price has gone
   // past the last weekly top, a new section is running and its top is the
   // running extreme; until then the reaction is still the one from that top.
+  // Only a record top (above every earlier one in the campaign; a record
+  // bottom in a bear campaign) starts a section: a lower weekly top is a rally
+  // inside the reaction, not a new section (item 7 review H1).
   const trendKind = bull ? "top" : "bottom";
-  const weeklyTops = weekly.pivots.filter((p) => p.index >= start && p.kind === trendKind);
+  const weeklyTops: typeof weekly.pivots = [];
+  for (const p of weekly.pivots) {
+    if (p.index < start || p.kind !== trendKind) continue;
+    const record = weeklyTops[weeklyTops.length - 1];
+    if (!record || (bull ? p.price > record.price : p.price < record.price)) weeklyTops.push(p);
+  }
   const beyond = (i: number, price: number) => (bull ? bars[i].h > price : bars[i].l < price);
   let sectionTop = start;
   let priorTop: number | null = null;

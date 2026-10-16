@@ -23,6 +23,7 @@
  */
 
 import type { Bar } from "@/lib/types";
+import { monthlyWithCurrent } from "@/lib/gann/leadership";
 import { getMarketDataProvider } from "@/lib/data/provider";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { getInstrumentReference } from "@/lib/data/instrumentReference";
@@ -89,8 +90,12 @@ export function entryCrossedLevel(
   const chart = entryChart(daily, monthly, day);
   // The trend as of the entry, so a short the scan armed as a crossing is not
   // rebuilt as a bear-market rally sale (A-ENTRY-18; item 6 second review F3).
-  const before = (bars: Bar[]) => bars.filter((b) => b.t.slice(0, 10) < day);
-  const trigger = gannEntryOf(chart.bars, chart.older, trendsFromBars(before(daily), before(monthly)))(side === "long" ? "bullish" : "bearish");
+  // Months before the entry's month, plus that month so far rolled from the
+  // sessions before the entry: a monthly bar dated the 1st holds the whole
+  // month, later sessions included (item 7 review M2).
+  const priorDaily = daily.filter((b) => b.t.slice(0, 10) < day);
+  const trends = trendsFromBars(priorDaily, monthly.length > 0 ? monthlyWithCurrent(monthly, priorDaily) : []);
+  const trigger = gannEntryOf(chart.bars, chart.older, trends)(side === "long" ? "bullish" : "bearish");
   // A double or triple bottom, or a bottom that held, crossed nothing.
   if (!trigger || restsWithoutCrossing(trigger.kind)) return null;
   // The level only counts as crossed when the entry is actually beyond it.

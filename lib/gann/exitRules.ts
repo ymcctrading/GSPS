@@ -183,6 +183,25 @@ export function readGannExit(
     };
   }
 
+  // The ledger's other trend-change calls (item 7 review L1): a reaction still
+  // making new extremes in its third month (A-TIME-01/-02), or a monthly break
+  // whose reaction went under the previous section's top (A-TREND-06). Only
+  // when the call was not already standing at entry: one that was is part of
+  // the setup, the same rule as the over-balance above.
+  const sectionChange = (l: NonNullable<typeof ledger>) =>
+    l.counterMoveThirdMonth || (l.monthlyBreakInReaction && l.reactionBelowPriorSection);
+  if (!exit && withCampaign && sectionChange(ledger!)) {
+    const atEntry = buildCampaignLedger(daily.slice(0, firstAfter));
+    if (!(atEntry && atEntry.trend === ledger!.trend && sectionChange(atEntry))) {
+      exit = {
+        reason: "trend_change",
+        note: ledger!.counterMoveThirdMonth
+          ? "The reaction is still making new extremes in its third month: the trend is changing."
+          : "A month broke the one before it and the reaction went past the previous section's top: the trend is changing.",
+      };
+    }
+  }
+
   // D2: a distribution week at a top, printed after the fill.
   if (!exit && long && sharesOutstanding) {
     const cs = readCapitalStock(daily, toWeeklyBars(daily), sharesOutstanding);

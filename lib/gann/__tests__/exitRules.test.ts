@@ -178,3 +178,30 @@ describe("readGannExit: under each week's bottom (A-STOP-05)", () => {
     expect(readGannExit(pos, bars, bars[12].h).stopReason).not.toBe("prior_week");
   });
 });
+
+describe("a change of trend from the campaign ledger after entry (item 7 review L1)", () => {
+  const leg = (from: number, to: number, n: number) => Array.from({ length: n }, (_, i) => from + ((to - from) * (i + 1)) / n);
+  const CAMPAIGN = [...leg(30, 40, 20), ...leg(40, 81, 60), ...leg(81, 60, 80), ...leg(60, 120, 120)];
+  // From the 120 top: down to 108 by day 50, a 4-day bounce (the entry), then new lows to day 70.
+  const closes = [...CAMPAIGN, ...leg(120, 108, 50), ...leg(108, 110, 4), ...leg(110, 106, 16)];
+  const entryIndex = CAMPAIGN.length + 49;
+
+  it("exits a long when the reaction makes new lows in its third month after the fill", () => {
+    const bars = daily(closes);
+    const exit = readGannExit(position(bars, entryIndex, { initialStop: 90 }), bars, 110).exit;
+    expect(exit?.reason).toBe("trend_change");
+    expect(exit?.note).toContain("third month");
+  });
+
+  it("does not exit when the reaction made its low in the second month and held", () => {
+    const held = daily([...CAMPAIGN, ...leg(120, 108, 50), ...leg(108, 110, 4), ...Array.from({ length: 16 }, () => 109)]);
+    expect(readGannExit(position(held, entryIndex, { initialStop: 90 }), held, 110).exit).toBeNull();
+  });
+
+  it("does not exit on a call that already stood at entry", () => {
+    // The same reaction, entered on day 66, already in its third month and making new lows.
+    const bars = daily([...CAMPAIGN, ...leg(120, 106, 65), ...leg(106, 108, 4)]);
+    const exit = readGannExit(position(bars, CAMPAIGN.length + 65, { initialStop: 90 }), bars, 108).exit;
+    expect(exit?.reason).not.toBe("trend_change");
+  });
+});

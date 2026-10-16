@@ -156,7 +156,7 @@ const COUNTER_MOVE_LABEL = {
   normal: "normal (2-3 weeks)",
   extended: "longer than usual",
   secondMonth: "into a 2nd month",
-  thirdMonth: "3rd month: trend change",
+  thirdMonth: "past 2 months",
 } as const;
 
 /**
@@ -175,6 +175,11 @@ function DisclosedRuleTiles({
       label: "Counter-move length",
       value: `${rules.counterMove.days}d (${COUNTER_MOVE_LABEL[rules.counterMove.phase]})`,
     });
+  }
+  // The trend-change call is the ledger's: new extremes in the reaction's third
+  // month, counted from the section's top (A-TIME-01/-02).
+  if (rules.campaign?.counterMoveThirdMonth) {
+    tiles.push({ label: "Reaction from the section's top", value: "new extremes in its 3rd month: trend change" });
   }
   const pct = rules.pricePercentages;
   if (pct?.nearestAbove || pct?.nearestBelow) {

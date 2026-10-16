@@ -63,6 +63,11 @@ describe("a monthly break with the reaction under the previous section's top (it
     expect(ledger.spaceOverbalanced || ledger.timeOverbalanced).toBe(false);
     expect(ledger.reactionBelowPriorSection).toBe(true);
     expect(readGannTrend(third).direction).toBeNull();
+    // The bear mirror: bottoms 219, 189.5 and 160; the rally to 195 goes over 189.5.
+    const bear = buildCampaignLedger(mirror(third))!;
+    expect(bear.trend).toBe("bearish");
+    expect(bear.reactionBelowPriorSection).toBe(true);
+    expect(readGannTrend(mirror(third)).direction).toBeNull();
   });
 
   // Item 6 second review F4, decided: a reaction that broke a month and went

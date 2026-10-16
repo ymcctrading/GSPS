@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import { buildCampaignLedger, describeCampaignLedger } from "@/lib/gann/campaignLedger";
 import { readGannTrend } from "@/lib/gann/trendStrength";
-import { counterMovePhase } from "@/lib/gann/disclosedRules";
+import { counterMovePhase, describeDisclosedRules, readDisclosedRules } from "@/lib/gann/disclosedRules";
 
 const DAY = 86_400_000;
 const leg = (from: number, to: number, n: number) => Array.from({ length: n }, (_, i) => from + ((to - from) * (i + 1)) / n);
@@ -31,6 +31,7 @@ describe("a reaction into its third month (A-TIME-01)", () => {
     expect(ledger.spaceOverbalanced || ledger.timeOverbalanced).toBe(false);
     expect(ledger.counterMoveThirdMonth).toBe(true);
     expect(describeCampaignLedger(ledger)).toContain("Still making new lows in the counter-move's third month: the trend is changing.");
+    expect(describeDisclosedRules(readDisclosedRules(third, 106)).some((l) => l.includes("in its third month, which signals a change in trend"))).toBe(true);
     const t = readGannTrend(third);
     expect(t.changing).toBe(true);
     expect(t.direction).toBeNull();
@@ -43,6 +44,10 @@ describe("a reaction into its third month (A-TIME-01)", () => {
     expect(ledger.currentCounterMove?.days).toBe(70);
     expect(ledger.counterMoveThirdMonth).toBe(false);
     expect(readGannTrend(held).changing).toBe(false);
+    // The card's counter-move line agrees with the trend read (item 7 review M1).
+    const lines = describeDisclosedRules(readDisclosedRules(held, 106));
+    expect(lines.some((l) => l.includes("past two months, though it has made no new extreme in its third month"))).toBe(true);
+    expect(lines.some((l) => l.includes("signals a change in trend"))).toBe(false);
   });
 
   it("counts a two-leg reaction from the section's top, not from its lower bounce (item 6 second review F1)", () => {
@@ -50,6 +55,22 @@ describe("a reaction into its third month (A-TIME-01)", () => {
     const twoLeg = daily([...CAMPAIGN, ...leg(120, 110, 30), ...leg(110, 113, 5), ...leg(113, 106, 35)]);
     expect(buildCampaignLedger(twoLeg)!.counterMoveThirdMonth).toBe(true);
     expect(readGannTrend(twoLeg).changing).toBe(true);
+  });
+
+  it("counts from the section's top when a bounce of a week or more inside the reaction makes a lower weekly top (item 7 review H1)", () => {
+    // 120 down to 110 in 20 days, a 10-day bounce to 115, then a drift that holds above 110.
+    const lowerTop = [...CAMPAIGN, ...leg(120, 110, 20), ...leg(110, 115, 10), ...leg(115, 111, 62)];
+    const ledger = buildCampaignLedger(daily(lowerTop))!;
+    expect(ledger.counterMoveThirdMonth).toBe(false);
+    expect(ledger.reactionBelowPriorSection).toBe(false);
+    expect(readGannTrend(daily(lowerTop)).changing).toBe(false);
+    // The same with the 3-day swings stepping up again reads the trend up.
+    const resumed = [...lowerTop, ...leg(111, 114, 6), ...leg(114, 112, 4), ...leg(112, 114.5, 5), ...leg(114.5, 113, 3)];
+    expect(readGannTrend(daily(resumed)).direction).toBe("bullish");
+    // New lows under that weekly bottom turn the weekly chart down first (its own rule), so the trend is no longer up.
+    const newLows = daily([...CAMPAIGN, ...leg(120, 110, 20), ...leg(110, 115, 10), ...leg(115, 106, 45)]);
+    expect(readGannTrend(newLows).weekly).toBe("bearish");
+    expect(readGannTrend(newLows).direction).not.toBe("bullish");
   });
 
   it("leaves the trend alone in the second month", () => {
@@ -76,5 +97,14 @@ describe("a bear-market rally into its third month (A-TIME-02)", () => {
     expect(readGannTrend(third).direction).toBeNull();
     const second = mirror(daily([...CAMPAIGN, ...leg(120, 110, 45)]));
     expect(readGannTrend(second).direction).toBe("bearish");
+  });
+
+  it("counts from the section's bottom when a dip of a week or more makes a higher weekly bottom", () => {
+    const higherBottom = mirror(daily([...CAMPAIGN, ...leg(120, 110, 20), ...leg(110, 115, 10), ...leg(115, 111, 62)]));
+    const ledger = buildCampaignLedger(higherBottom)!;
+    expect(ledger.trend).toBe("bearish");
+    expect(ledger.counterMoveThirdMonth).toBe(false);
+    expect(ledger.reactionBelowPriorSection).toBe(false);
+    expect(readGannTrend(higherBottom).changing).toBe(false);
   });
 });

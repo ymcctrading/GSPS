@@ -24,7 +24,7 @@ vi.mock("@/lib/data/alpaca", () => ({ fetchMostActives: vi.fn(async () => []) })
 vi.mock("@/lib/scanTicker", () => ({ scanTicker: scanTickerMock }));
 vi.mock("@/lib/brokers/alpaca", () => ({ envCreds: () => ({ key: "k", secret: "s", mode: "paper" }), getAsset: getAssetMock }));
 
-import { listedSymbols, runMarketScan, takeShortable } from "@/lib/marketScan";
+import { continuationExclusions, dropSellsAlsoBought, listedSymbols, mergeContinuations, runMarketScan, takeShortable } from "@/lib/marketScan";
 
 function daily(): Bar[] {
   return Array.from({ length: 120 }, (_, i) => {
@@ -90,3 +90,24 @@ describe("the symbols already listed (item 6 second review F5)", () => {
   });
 });
 
+
+describe("a symbol is listed once (item 7 review M3)", () => {
+  const buy = (symbol: string, score: number): ScanResult => ({ ...short(symbol, score), direction: "bullish" }) as ScanResult;
+
+  it("does not rescan a low-ranked short as a sell continuation, nor a listed buy as a sell", () => {
+    const lists = { bullish: [buy("B1", 5)], bearish: [short("S1", 9), short("S2", 8), short("S3", 2)] };
+    const ex = continuationExclusions(lists, 2);
+    expect([...ex.bearish].sort()).toEqual(["B1", "S1", "S2", "S3"]);
+    expect([...ex.bullish].sort()).toEqual(["B1", "S1", "S2"]);
+  });
+
+  it("keeps a symbol already on the list from being merged in twice", () => {
+    const merged = mergeContinuations([short("A", 7), short("C", 6)], [short("C", 6)], "bearish", 3);
+    expect(merged.list.map((r) => r.symbol)).toEqual(["A", "C"]);
+    expect(merged.added).toBe(0);
+  });
+
+  it("drops a sell whose symbol made the buy list", () => {
+    expect(dropSellsAlsoBought({ bullish: [buy("S3", 5)], bearish: [short("S1", 9), short("S3", 2)] }).map((r) => r.symbol)).toEqual(["S1"]);
+  });
+});

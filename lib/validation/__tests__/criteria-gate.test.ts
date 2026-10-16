@@ -233,10 +233,23 @@ describe("no divergence times a turn (C-TIME-02)", () => {
         } else if (p.endsWith(".ts")) files.push(p);
       }
     };
-    for (const d of ["lib/scoring", "lib/signals", "lib/gann", "lib/scan", "lib/lifecycle"]) walk(path.join(ROOT, d));
+    for (const d of ["lib/scoring", "lib/signals", "lib/gann", "lib/scan", "lib/lifecycle", "lib/analysis", "lib/strat", "lib/trade"]) {
+      walk(path.join(ROOT, d));
+    }
     files.push(...["lib/scanTicker.ts", "lib/marketScan.ts", "lib/backtest/replay.ts"].map((f) => path.join(ROOT, f)));
-    const offenders = files.filter((f) =>
-      /from "@\/lib\/(indicators|analysis\/indicators|strategies)/.test(readFileSync(f, "utf8")),
+    // The oscillator module itself is not a consumer of it.
+    const scanned = files.filter((f) => path.relative(ROOT, f) !== "lib/analysis/indicators.ts");
+    // Every import, aliased or relative, resolved to a repo path.
+    const banned = (target: string) => /^lib\/(indicators|analysis\/indicators)$|^lib\/strategies(\/|$)/.test(target);
+    const offenders = scanned.filter((f) =>
+      [...readFileSync(f, "utf8").matchAll(/from "([^"]+)"/g)].some(([, spec]) => {
+        const target = spec.startsWith("@/")
+          ? spec.slice(2)
+          : spec.startsWith(".")
+            ? path.relative(ROOT, path.resolve(path.dirname(f), spec))
+            : null;
+        return target !== null && banned(target.replace(/\.tsx?$/, ""));
+      }),
     );
     expect(offenders.map((f) => path.relative(ROOT, f))).toEqual([]);
   });

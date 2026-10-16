@@ -654,7 +654,9 @@ export function mergeContinuations(
   direction: "bullish" | "bearish",
   perSide: number,
 ): { list: ScanResult[]; added: number } {
-  const qualifying = scans.filter((r) => !r.error && qualifiesAsContinuationFill(r, direction));
+  // A symbol already on this list is not listed twice (item 7 review M3).
+  const onList = new Set(list.map((r) => r.symbol));
+  const qualifying = scans.filter((r) => !r.error && qualifiesAsContinuationFill(r, direction) && !onList.has(r.symbol));
   const merged = [...list, ...qualifying].sort((a, b) => b.decision.score - a.decision.score).slice(0, perSide);
   return { list: merged, added: merged.filter((r) => qualifying.includes(r)).length };
 }
@@ -747,6 +749,29 @@ export async function filterShortable(results: ScanResult[]): Promise<ScanResult
  */
 export function listedSymbols(lists: Record<"bullish" | "bearish", ScanResult[]>, perSide: number): Set<string> {
   return new Set([...lists.bullish, ...lists.bearish.slice(0, perSide)].map((r) => r.symbol));
+}
+
+/**
+ * The symbols each side's continuation pass skips: everything `listedSymbols`
+ * counts, and for the sell side every row already on the sell list too, so a
+ * low-ranked short is not scanned and listed a second time (item 7 review M3).
+ */
+export function continuationExclusions(
+  lists: Record<"bullish" | "bearish", ScanResult[]>,
+  perSide: number,
+): Record<"bullish" | "bearish", Set<string>> {
+  const published = listedSymbols(lists, perSide);
+  return { bullish: published, bearish: new Set([...published, ...lists.bearish.map((r) => r.symbol)]) };
+}
+
+/**
+ * A symbol is on one list only. A with-the-trend buy can be listed for a
+ * symbol whose short ranked too low to publish (F5); its sell row then goes,
+ * so the cut after the shortable check can't bring it back (item 7 review M3).
+ */
+export function dropSellsAlsoBought(lists: Record<"bullish" | "bearish", ScanResult[]>): ScanResult[] {
+  const bought = new Set(lists.bullish.map((r) => r.symbol));
+  return lists.bearish.filter((r) => !bought.has(r.symbol));
 }
 
 /**
@@ -1053,7 +1078,7 @@ export async function runMarketScan(
   }
 
   if (!continuationSkipped && continuationPool.length > 0) {
-    const published = listedSymbols(lists, perSide);
+    const excluded = continuationExclusions(lists, perSide);
     const sides = (["bullish", "bearish"] as const).filter((d) => continuationPool.some((c) => c.direction === d));
     // Split the budget across the sides being scanned so one side's pool
     // can't consume every scan and leave the other empty.
@@ -1070,7 +1095,7 @@ export async function runMarketScan(
 
     const fills = sides.flatMap((dir) =>
       continuationPool
-        .filter((c) => c.direction === dir && !published.has(c.symbol) && !cannotArm(c))
+        .filter((c) => c.direction === dir && !excluded[dir].has(c.symbol) && !cannotArm(c))
         .slice(0, perSideBudget),
     );
 
@@ -1094,7 +1119,7 @@ export async function runMarketScan(
     }
   }
 
-  lists.bearish = await takeShortable(lists.bearish, perSide);
+  lists.bearish = await takeShortable(dropSellsAlsoBought(lists), perSide);
   const continuationScans = new Set(continuationScanResults);
   continuationFills.bearish = lists.bearish.filter((r) => continuationScans.has(r)).length;
 

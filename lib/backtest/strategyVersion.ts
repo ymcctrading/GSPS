@@ -170,4 +170,9 @@
 // previous section's top keeps the trend changed until a new section top.
 // The graduation exam and the live exit manager price entries through
 // gannEntryOf, as the scan does.
-export const STRATEGY_VERSION = "2026-10-16-gann-weekly-sections";
+// Item 7 review, 2026-10-16: only a record weekly top (bottom in a bear
+// campaign) starts a section, so a lower weekly top inside a reaction no longer
+// moves the section rule or the third-month clock; Gann's exit for a change of
+// trend now also fires on those two calls when they arise after the fill; the
+// live exit check and the exam no longer read the rest of the entry's month.
+export const STRATEGY_VERSION = "2026-10-16-gann-record-sections";

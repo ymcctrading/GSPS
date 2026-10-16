@@ -521,6 +521,9 @@ describe("turn windows one, two and three years from an important top or bottom 
     for (const y of [1, 2, 3]) {
       expect(timeCycles(oneTurn("low"), turnAt(y))).toMatchObject({ active: true, bullishActive: true, bearishActive: false });
       expect(timeCycles(oneTurn("low"), turnAt(y, 2)).bullishActive).toBe(true);
+      expect(timeCycles(oneTurn("low"), turnAt(y, -2)).bullishActive).toBe(true);
+      expect(timeCycles(oneTurn("low"), turnAt(y, 3)).active).toBe(false);
+      expect(timeCycles(oneTurn("low"), turnAt(y, -3)).active).toBe(false);
       expect(timeCycles(oneTurn("low"), turnAt(y, 6)).active).toBe(false);
     }
   });

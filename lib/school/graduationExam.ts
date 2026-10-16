@@ -34,6 +34,7 @@
  */
 
 import type { Bar } from "@/lib/types";
+import { monthlyWithCurrent } from "@/lib/gann/leadership";
 import { readGannTrend } from "@/lib/gann/trendStrength";
 import { gannBreakLine, sameGannLevel, type GannEntryTrigger, type OlderGannLevel } from "@/lib/gann/entryTrigger";
 import { priorYearLevelName, regainedLevelName } from "@/lib/scoring/direction-copy";
@@ -239,7 +240,9 @@ export function buildScenario(
   // with the monthly chart's older levels.
   const chart = entryChart(daily, monthly, asOf);
   // Priced as the scan prices it, the rally sale only in a bear market (A-ENTRY-18).
-  const trends = trendsFromBars(before, monthly.filter((b) => b.t.slice(0, 10) < asOf));
+  // Closed months before the day's month plus that month so far from the
+  // sessions shown: the month's own bar would include sessions after the day.
+  const trends = trendsFromBars(before, monthly.length > 0 ? monthlyWithCurrent(monthly, before) : []);
   const trigger = direction ? gannEntryOf(chart.bars, chart.older, trends)(direction) : null;
   const last = before[before.length - 1];
   // A trade when the old level is still to be crossed, or when it has been
