@@ -528,7 +528,7 @@
     "class": "A",
     "gsps_location": "lib/gann/entryTrigger.ts:computeGannEntryTrigger (bearish) — differs: breaks by 0.3% lost motion, not 3 points; no distribution precondition",
     "test": "lib/gann/__tests__/entryTrigger.test.ts > computeGannEntryTrigger > mirrors exactly for a short",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-ENTRY-16",
@@ -1707,7 +1707,7 @@
     "class": "UNVERIFIABLE",
     "gsps_location": "lib/gann/multipleTops.ts:readMultipleTops",
     "test": "lib/gann/__tests__/timeRulesAndTops.test.ts > double and triple tops > reads the crossing of a double or triple top",
-    "passes": false
+    "passes": true
   },
   {
     "id": "C-LEVELS-07",
@@ -1752,7 +1752,7 @@
     "class": "UNVERIFIABLE",
     "gsps_location": "lib/gann/stopBreach.ts:readStopBreach, reclaimLevel (RECLAIM_POINTS = 3); lib/gann/pointScale.ts:gannThreePoints — differs: the price-scaled 3-point test is applied to a broken plan stop, with no one-week window and no range-breakout reading; lib/gann/multipleTops.ts:readMultipleTops — differs: 'crossed' uses the 0.3% lost-motion buffer, not 3 points",
     "test": "TO WRITE: lib/gann/__tests__/timeRulesAndTops.test.ts — a close above a range top by less than gannThreePoints(price) that falls back inside within the next 5 sessions is read as a false breakout, and one exceeding it is not.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "C-ENTRY-02",
@@ -1770,7 +1770,7 @@
     "class": "UNVERIFIABLE",
     "gsps_location": "lib/gann/trendStrength.ts:readGannTrend — differs: confirms a trend on rising tops and bottoms but does not count which higher bottom a move starts from",
     "test": "TO WRITE: lib/gann/__tests__/trendStrength.test.ts — a count of successive higher 3-Day Chart bottoms returns 3 on the third higher low and 4 on the fourth.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "C-TREND-04",
@@ -3066,7 +3066,7 @@
     "class": "CYCLE",
     "gsps_location": "lib/gann/spectralCycle.ts:detectSpectralCycle (Schuster independent-frequency multiplier); lib/research/calendarTest.ts:holm — differs: no correction in timeCycles() (about 21 counts × 12 anchors + 9 bands) or yearCycleConvergence",
     "test": "TO WRITE: lib/research/__tests__/calendarTest.test.ts — holm marks a cell significant at raw p = 0.02 alone but not when it is one of five cells with that p.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "CYC-52",
