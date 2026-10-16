@@ -70,6 +70,8 @@
  *    whether the market's pull-back rhythm is still normal).
  */
 
+import { readHalfwayRetest, type HalfwayRetestReading } from "@/lib/gann/halfwayRetest";
+import { readNarrowRangeBreak, type NarrowRangeBreakReading } from "@/lib/gann/narrowRange";
 import { readTimeRules, type TimeRulesReading } from "@/lib/gann/timeRules";
 import { readMultipleTops, type MultipleTopsReading } from "@/lib/gann/multipleTops";
 import { readSeasonalCount, type SeasonalCountReading } from "@/lib/gann/seasonalCounts";
@@ -435,6 +437,10 @@ export interface DisclosedRulesContext {
   timeRules: TimeRulesReading | null;
   /** Double and triple tops and bottoms. See `multipleTops.ts`. */
   multipleTops: MultipleTopsReading | null;
+  /** The first return to a broken 50% point (class C, context only). See `halfwayRetest.ts`. */
+  halfwayRetest?: HalfwayRetestReading | null;
+  /** A narrow 3-4 day range breaking (class C, context only). See `narrowRange.ts`. */
+  narrowRangeBreak?: NarrowRangeBreakReading | null;
   /** The session this was read for (YYYY-MM-DD). */
   asOf: string;
 }
@@ -511,6 +517,8 @@ export function readDisclosedRules(
     leadership: readLeadership(dailyBars, instrument?.marketDaily ?? null, campaign),
     timeRules: readTimeRules(dailyBars, counterMove),
     multipleTops: readMultipleTops(dailyBars),
+    halfwayRetest: readHalfwayRetest(dailyBars),
+    narrowRangeBreak: readNarrowRangeBreak(dailyBars),
     asOf: asOf.toISOString().slice(0, 10),
   };
 }
