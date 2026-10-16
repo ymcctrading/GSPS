@@ -78,7 +78,6 @@ export function evaluateDisqualifiers(gates: SignalGates): SignalDisqualifier[] 
 export function allSafetyGatesPass(gates: SignalGates): boolean {
   return (
     gates.liquiditySpreadPass &&
-    gates.benchmarkSectorAlignment &&
     gates.targetRoomAvailable &&
     gates.stopWithinNovicePolicy &&
     gates.positionSizeAvailable &&

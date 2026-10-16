@@ -34,7 +34,6 @@ const ALL_GATES_PASS: SignalGates = {
   staleData: false,
   binaryEventInHoldPeriod: false,
   liquiditySpreadPass: true,
-  benchmarkSectorAlignment: true,
   targetRoomAvailable: true,
   stopWithinNovicePolicy: true,
   positionSizeAvailable: true,

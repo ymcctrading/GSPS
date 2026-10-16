@@ -32,9 +32,6 @@ export function buildScanMarketGates(inputs: ScanGateInputs): SignalGates {
     // No bid/ask spread feed exists yet — the liquidity floor is used as the
     // best available proxy for "cost to enter is acceptable" until one does.
     liquiditySpreadPass: liquidityOk,
-    // No correlation/benchmark module exists yet (see docs/SIGNAL_REGIME_ENGINE.md).
-    // Conservatively fails rather than assuming alignment with no data to back it.
-    benchmarkSectorAlignment: false,
     // --- Account-only placeholders; see this module's doc comment. ---
     targetRoomAvailable: true,
     stopWithinNovicePolicy: true,

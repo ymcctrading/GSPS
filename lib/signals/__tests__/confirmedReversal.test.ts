@@ -13,7 +13,6 @@ const PASSING_GATES: SignalGates = {
   staleData: false,
   binaryEventInHoldPeriod: false,
   liquiditySpreadPass: true,
-  benchmarkSectorAlignment: true,
   targetRoomAvailable: true,
   stopWithinNovicePolicy: true,
   positionSizeAvailable: true,
@@ -124,6 +123,15 @@ describe("evaluateConfirmedReversal", () => {
     if (verdict.status === "evaluated") {
       expect(verdict.tradeable).toBe(false);
       expect(verdict.plan).toBeNull();
+    }
+  });
+
+  it("reads the stock's own trend, with no benchmark or sector check (each stock on its own trend)", () => {
+    const bars = reversalBars({ confirmed: true, breakoutVolume: 1200 });
+    const verdict = evaluateConfirmedReversal({ direction: "bullish", htfBars: bars, executionBars: bars, gates: PASSING_GATES });
+    expect(verdict.status).toBe("evaluated");
+    if (verdict.status === "evaluated") {
+      expect(verdict.alignment.breakdown.find((b) => b.key === "benchmarkSector")?.applicable).toBe(false);
     }
   });
 

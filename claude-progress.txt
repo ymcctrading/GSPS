@@ -399,3 +399,7 @@ is unchecked here (collection-synthesis.md §1.6, §6).
 - readDisclosedRules field narrowWeekBreak (live scan and replay through the same call), card line, measured factor narrowWeekBreakAgrees.
 - Tests: lib/gann/__tests__/narrowWeek.test.ts (9). Mutations 9 of 9 caught (narrowest-of-4, volume test, its window, 3 points, mirror, the week after, the narrow week's position, the factor's direction).
 - Context only: no STRATEGY_VERSION bump. Fork F7 (b)/(c) (feed the trend change, or a short inside the 5-point cap) waits on the measurement.
+2026-10-16 Item 6 step 12 (A-TREND-04, F8a): no benchmark or sector gate in the Signal & Regime Engine (W006 pp.16-18: trade each stock's own trend, not the averages).
+- SignalGates.benchmarkSectorAlignment removed. It was always false on the live scan (scanGates.ts) and always true in the signal replay (replaySignals.ts), so the two surfaces disagreed as well. allSafetyGatesPass no longer reads it; the four states' "Benchmark/sector alignment" item is not applicable (excluded from the score) with a note saying why.
+- Display only: the regime tiers and "Tradeable" label move; plans take their expiry from the first evaluated verdict, not the tradeable one, so no STRATEGY_VERSION bump.
+- Tests: scanGates.test (the always-false pin replaced by the rule: a clean scan passes every safety gate), one test per state. Mutations 5 of 5 caught.

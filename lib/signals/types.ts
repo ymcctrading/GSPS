@@ -134,7 +134,9 @@ export interface SignalGates {
   /** True = a binary event (earnings, etc.) falls inside the expected Novice hold period. Unknown blocks. */
   binaryEventInHoldPeriod: boolean | null;
   liquiditySpreadPass: boolean;
-  benchmarkSectorAlignment: boolean;
+  // No benchmark or sector gate: Gann trades each stock on its own trend, not
+  // the averages (A-TREND-04, W006 pp.16-18; removed 2026-10-16, it had always
+  // failed on the live scan and always passed in the replay).
   targetRoomAvailable: boolean;
   stopWithinNovicePolicy: boolean;
   positionSizeAvailable: boolean;

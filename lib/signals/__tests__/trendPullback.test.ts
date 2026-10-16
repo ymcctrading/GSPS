@@ -30,7 +30,6 @@ const PASSING_GATES: SignalGates = {
   staleData: false,
   binaryEventInHoldPeriod: false,
   liquiditySpreadPass: true,
-  benchmarkSectorAlignment: true,
   targetRoomAvailable: true,
   stopWithinNovicePolicy: true,
   positionSizeAvailable: true,
@@ -52,6 +51,15 @@ describe("evaluateTrendPullback", () => {
     expect(verdict.status).toBe("disqualified");
     if (verdict.status === "disqualified") {
       expect(verdict.disqualifiers.map((d) => d.key)).toContain("staleData");
+    }
+  });
+
+  it("reads the stock's own trend, with no benchmark or sector check (each stock on its own trend)", () => {
+    const bars = uptrendBars(120, { finalPullback: true });
+    const verdict = evaluateTrendPullback({ direction: "bullish", htfBars: bars, executionBars: bars, gates: PASSING_GATES });
+    expect(verdict.status).toBe("evaluated");
+    if (verdict.status === "evaluated") {
+      expect(verdict.alignment.breakdown.find((b) => b.key === "benchmarkSector")?.applicable).toBe(false);
     }
   });
 
