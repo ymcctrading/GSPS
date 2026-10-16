@@ -16,9 +16,10 @@
  *   Detector* p. 23). Read on the first three sessions after the fill only.
  * - **C2 break-even.** Move the stop to break-even after 3-4 points of profit,
  *   with a 3-point stop (*Truth of the Stock Tape*, Book II; *Wall Street
- *   Stock Selector*, Rule 3). That is a profit equal to the risk taken, so the
- *   price-scaled form is: break-even once the trade has gone one risk unit in
- *   its favour.
+ *   Stock Selector*, Rule 3; Ch.II rule 4, "once 3 points ahead"). Since
+ *   2026-10-16 (M-E6) the price-scaled form is his own: break-even once the
+ *   best price is 3 points (`gannThreePoints`) past the entry. It had been
+ *   read as one risk unit.
  * - **Weekly trail** (A-STOP-05, PLAN.md item 4). Trail the stop 3 points
  *   under each completed week's bottom once the trade is into a new week
  *   (W006 p.46: "1, 2, 3 or 5 points"; 3 is the stop he calls safest).
@@ -336,9 +337,12 @@ export function readGannExit(
     }
   }
 
-  // C2: break-even after a profit equal to the risk taken.
-  const risk = Math.abs(pos.entry - pos.initialStop);
-  if (best !== null && risk > 0 && (long ? best >= pos.entry + risk : best <= pos.entry - risk)) {
+  // Break-even once 3 points ahead (M-E6): "at 3-4 points' profit, move the
+  // stop to breakeven" (*Truth of the Stock Tape* Ch.VIII rule 4; the *Stock
+  // Selector* Ch.II rule 4, "once 3 points ahead"), price-scaled as his 3
+  // points are, which covers his "4-5 in high-priced" stocks. Until
+  // 2026-10-16 it waited for a profit equal to the risk taken.
+  if (best !== null && (long ? best >= pos.entry + gannThreePoints(pos.entry) : best <= pos.entry - gannThreePoints(pos.entry))) {
     adopt(pos.entry, "break_even");
   }
 

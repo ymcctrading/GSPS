@@ -16,6 +16,7 @@ import {
   type SymbolInput,
 } from "@/lib/scanner/intraday";
 import { gannPoint, intradayPoint } from "@/lib/gann/pointScale";
+import { shortOfFigure } from "@/lib/gann/evenFigures";
 
 /**
  * The session these tests replay is 2026-08-07, the day the scanner was
@@ -752,7 +753,7 @@ describe("gannFirstTarget", () => {
   it("names a round number just short of it, when one lies within a day's range", () => {
     // 100 is a figure; markets turn just short of it, so the target sits under it.
     const t = gannFirstTarget({ ...base, last: 97.2, sessionHigh: 97.25, sessionLow: 95, prevClose: 96, intradayAtr: 0.2 });
-    expect(t).toBeCloseTo(99.5, 6);
+    expect(t).toBeCloseTo(shortOfFigure(100, "below"), 6);
   });
 
   it("takes the prior close above a price still under it as the nearest old level", () => {
@@ -776,7 +777,7 @@ describe("gannFirstTarget", () => {
       dailyAtr: 3,
       intradayAtr: 0.2,
     });
-    expect(t).toBeCloseTo(100.5, 6);
+    expect(t).toBeCloseTo(shortOfFigure(100, "above"), 6);
   });
 
   it("reads an old level from the session's swings or the daily chart when it is the nearest", () => {

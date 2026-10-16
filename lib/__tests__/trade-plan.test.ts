@@ -131,6 +131,14 @@ describe("computeScore output state", () => {
     expect(decision.outputState).toBe("Execute");
   });
 
+  it("holds at Watch when the first target is no farther than the risk (M-K5)", () => {
+    // "Don't risk 3-5 points for 3-5" (Stock Selector Ch.II): equal risk and reward is refused.
+    const even = { ...levels, takeProfit1: 101, rewardToRiskTp1: 1 };
+    const decision = computeScore(inputs({ levels: even }));
+    expect(decision.outputState).toBe("Watch");
+    expect(decision.breakdown.at(-1)?.note).toMatch(/no farther than the risk/);
+  });
+
   it("holds at Watch when the context scores 6+ but no trigger is armed", () => {
     // `gannTrigger` is what arms the trade now; `pattern` no longer does.
     // With no plan there is no stop either, so the stop point fails too (Q23).

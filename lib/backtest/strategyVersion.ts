@@ -379,4 +379,8 @@
 // stop or a change of trend is reversed at Gann's geometry (lib/gann/reverse.ts):
 // automation seeds the opposite plan, a person is offered it, and the replay
 // walks it (`reverseWhenCaught`, default on).
-export const STRATEGY_VERSION = "2026-10-16-gann-reverse-when-caught";
+// 2026-10-16-gann-book-rules: three rules confirmed in the read books move
+// verdicts, stops and levels: break-even once 3 points ahead (M-E6), orders ¼
+// to ½ point inside an even figure (M-P10), and no Execute whose first target
+// is no farther than its risk (M-K5).
+export const STRATEGY_VERSION = "2026-10-16-gann-book-rules";

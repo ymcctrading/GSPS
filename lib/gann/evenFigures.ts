@@ -31,9 +31,12 @@
  *   below the price (a $45 stock's unit is 10, a $150 stock's is 100). Major
  *   figures are multiples of the unit. Popular prices are quarters of it at
  *   $100 and above (25, 50, 75, as Gann lists) and halves below (the 5s).
- * - Gann's ½–¾ point off 100 is taken as `ORDER_OFFSET_PCT` = 0.5% of the
- *   figure; his 3 points beyond it is `pointScale.ts`'s price-scaled 3
- *   points, the same figure the entry trigger uses.
+ * - Orders go ¼ to ½ point inside the figure (*Wall Street Stock Selector*
+ *   Ch.V; read in the long-book notes 2026-10-16). Taken as the middle of
+ *   that band, `ORDER_OFFSET_POINTS` = ⅜ of a price-scaled point
+ *   (`pointScale.ts`). Until 2026-10-16 it was ½ to ¾ point, read as 0.5% of
+ *   the figure (M-P10). His 3 points beyond it is `pointScale.ts`'s
+ *   price-scaled 3 points, the same figure the entry trigger uses.
  * - "Approaching" is within `APPROACH_WINDOW_PCT` of the figure.
  *
  * Three-question basis:
@@ -47,9 +50,10 @@
  *    that support mirrors resistance.
  */
 
-import { beyondByThreePoints } from "@/lib/gann/pointScale";
+import { beyondByThreePoints, gannPoint } from "@/lib/gann/pointScale";
 
-export const ORDER_OFFSET_PCT = 0.5;
+/** ⅜ of a point: the middle of Gann's ¼ to ½ point inside an even figure. */
+export const ORDER_OFFSET_POINTS = 0.375;
 export const APPROACH_WINDOW_PCT = 2;
 
 export type FigureKind = "major" | "popular";
@@ -139,7 +143,7 @@ export function approachingFigure(price: number, direction: "bullish" | "bearish
 
 /** Where an order resting at a figure belongs instead: just before it. */
 export function shortOfFigure(figure: number, from: "below" | "above"): number {
-  const off = figure * (ORDER_OFFSET_PCT / 100);
+  const off = ORDER_OFFSET_POINTS * gannPoint(figure);
   return from === "below" ? figure - off : figure + off;
 }
 

@@ -71,13 +71,13 @@ describe("readGannExit", () => {
     expect(readGannExit(pos, bars, 126).exit?.reason).not.toBe("three_adverse_closes");
   });
 
-  it("moves the stop to break-even once the trade has gone one risk unit its way", () => {
+  it("moves the stop to break-even once the trade is 3 points ahead", () => {
     // Too short a history for a campaign or a swing, so only break-even can move the stop.
     const bars = daily([121, 122, 123, 124, 125, 126]);
     const pos = position(bars, bars.length - 2, { initialStop: 123 });
     const before = readGannExit(pos, bars, 126.5);
     expect(before.stop).toBe(123);
-    const after = readGannExit(pos, bars, 127.1);
+    const after = readGannExit(pos, bars, 125 + gannThreePoints(125) + 0.1);
     expect(after.stop).toBe(125);
     expect(after.stopReason).toBe("break_even");
   });
@@ -176,6 +176,19 @@ describe("readGannExit: under each week's bottom (A-STOP-05)", () => {
     // 2026-01-13 is a Tuesday; entered on the Monday of that week.
     const pos = position(bars, 11, { initialStop: bars[11].c - 20 });
     expect(readGannExit(pos, bars, bars[12].h).stopReason).not.toBe("prior_week");
+  });
+});
+
+describe("break-even once 3 points ahead (M-E6, TST Ch.VIII rule 4)", () => {
+  it("moves the stop to the entry once the best price is 3 points past it, not one risk unit", () => {
+    const bars = daily(Array.from({ length: 13 }, (_, i) => 101 + i * 0.1));
+    const entry = bars[11].c;
+    // A wide initial stop: one risk unit (20) is far beyond 3 points.
+    const pos = position(bars, 11, { initialStop: entry - 20 });
+    const ahead = entry + gannThreePoints(entry) + 0.01;
+    const r = readGannExit(pos, bars, ahead);
+    expect(r.stop).toBeGreaterThanOrEqual(entry);
+    expect(readGannExit(pos, bars, entry + gannThreePoints(entry) - 0.5).stop).toBeLessThan(entry);
   });
 });
 

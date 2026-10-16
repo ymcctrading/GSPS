@@ -566,15 +566,23 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // and can all pass with no armed pattern and no priced trade plan, which is
   // exactly the 7/9 that would otherwise read as Execute with no entry, stop or
   // targets. Without a plan the strongest honest reading is Watch.
-  const tradePlanReady = patternValid && levels !== null;
+  // M-K5: "Don't risk 3-5 points for 3-5" (*Wall Street Stock Selector*
+  // Ch.II; "scalpers ... simply get scalped"). Gann sets no ratio beyond "not
+  // equal", so the minimal reading is used: a first target no farther than the
+  // risk is not a trade. Added 2026-10-16.
+  const evenMoney =
+    levels !== null && Math.abs(levels.takeProfit1 - levels.entry) <= Math.abs(levels.entry - levels.stopLoss);
+  const tradePlanReady = patternValid && levels !== null && !evenMoney;
   if (score >= EXECUTE_SCORE_THRESHOLD && !tradePlanReady) {
     breakdown.push({
       key: "tradePlanPriced",
       criterion: "Trade plan priced (entry / stop / TP1 / master)",
       passed: false,
-      note: levels
-        ? "No armed pattern in the setup direction — nothing to enter against, so the state is held at Watch."
-        : "No trade plan computed — no entry, stop or targets to act on, so the state is held at Watch.",
+      note: !levels
+        ? "No trade plan computed — no entry, stop or targets to act on, so the state is held at Watch."
+        : !patternValid
+          ? "No armed pattern in the setup direction — nothing to enter against, so the state is held at Watch."
+          : "The first target is no farther than the risk: the method does not risk a move to make the same move, so the state is held at Watch.",
     });
   }
 
