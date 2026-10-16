@@ -346,4 +346,9 @@
 // 2026-10-16-gann-parity-angles: PR #309 merged with main after PR #311. The
 // failed-top highest-test rule and the rest of #309 now sit with the pattern
 // angles and their parallels.
-export const STRATEGY_VERSION = "2026-10-16-gann-parity-angles";
+// 2026-10-16-gann-angle-points: the fans, the scored angle slope, the square
+// of price and time and the 50% fan read Gann points a daily bar on his full
+// angle set (16x1 to 1x16), the unit and set the S/R angles use, not one ATR a
+// bar on five angles (owner, Q27, "default to Gann's method"). The fan gate,
+// gannAngleSlope and timePriceSquare move, so verdicts move.
+export const STRATEGY_VERSION = "2026-10-16-gann-angle-points";

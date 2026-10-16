@@ -37,10 +37,9 @@
  * - "Major pivots": the extremes plus the weekly swing chart's last top and
  *   bottom. Gann says "every important top and bottom" and doesn't count
  *   them; these four are the ones his own examples start from.
- * - `fans.ts` and `normalizedSlope.ts` (the scored angle criterion) still use
- *   an ATR unit and five angles. Their unit is the subject of PR #309's fork
- *   FL4, which measures ATR against Gann's fixed scale, so they are left to
- *   that measurement rather than changed twice.
+ * - `fans.ts`, `normalizedSlope.ts` (the scored angle criterion),
+ *   `timePriceSquare.ts` and `midpointFan.ts` read the same unit and set since
+ *   Q27 (owner, 2026-10-16, "default to Gann's method"; `fans.ts#angleUnit`).
  *
  * Three-question basis:
  * 1. Gann: as cited, Tier A.

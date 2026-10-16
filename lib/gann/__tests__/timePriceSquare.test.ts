@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
-import { atr } from "@/lib/analysis/pivots";
+import { angleUnit } from "@/lib/gann/fans";
 import { computeTimePriceSquare, SQUARE_TOLERANCE_BARS } from "../timePriceSquare";
 
 function bar(t: string, price: number): Bar {
@@ -27,26 +27,26 @@ describe("computeTimePriceSquare", () => {
     expect(kinds).toEqual(["high", "low"]);
   });
 
-  it("squares when the bar count and the ATR-normalized price move land within tolerance", () => {
+  it("squares when the bar count and the price move in points land within tolerance", () => {
     // Low anchor at index 5 (price 90); last bar is index 24, so 19 bars
-    // elapsed. A price move of 19 ATR-units above 90 squares.
-    const unit = atr(bars(), 14);
+    // elapsed. A price move of 19 Gann points above 90 squares.
+    const unit = angleUnit(bars());
     const readings = computeTimePriceSquare(bars(), 90 + 19 * unit);
     const low = readings.find((r) => r.anchorKind === "low");
     expect(low?.barsSinceAnchor).toBe(19);
-    expect(low?.priceMoveAtrUnits).toBeCloseTo(19, 5);
+    expect(low?.priceMovePoints).toBeCloseTo(19, 5);
     expect(low?.squared).toBe(true);
   });
 
   it("does not square when the price move sits far outside the bar-count tolerance", () => {
-    const unit = atr(bars(), 14);
+    const unit = angleUnit(bars());
     const readings = computeTimePriceSquare(bars(), 90 + (19 + SQUARE_TOLERANCE_BARS + 5) * unit);
     const low = readings.find((r) => r.anchorKind === "low");
     expect(low?.squared).toBe(false);
   });
 
-  it("tolerates a small mismatch between bars and the ATR-normalized price move", () => {
-    const unit = atr(bars(), 14);
+  it("tolerates a small mismatch between bars and the price move in points", () => {
+    const unit = angleUnit(bars());
     const readings = computeTimePriceSquare(bars(), 90 + (19 + SQUARE_TOLERANCE_BARS) * unit);
     const low = readings.find((r) => r.anchorKind === "low");
     expect(low?.squared).toBe(true);

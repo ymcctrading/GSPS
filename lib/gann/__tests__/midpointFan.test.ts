@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
-import { atr } from "@/lib/analysis/pivots";
+import { angleUnit } from "@/lib/gann/fans";
 import { computeMidpointFan } from "@/lib/gann/midpointFan";
 import { readMonthlySquareFromHigh, squareFromHigh, squareFromLow } from "@/lib/gann/midpointFan";
 
@@ -20,7 +20,7 @@ describe("C-LEVELS-10: angles from the 50% mark", () => {
     // The last close through 120: the first close at or under it on the fall.
     const cross = closes.findIndex((c, i) => i > 30 && c <= 120);
     expect(fan.originIndex).toBe(cross);
-    const unit = atr(bars, 14);
+    const unit = angleUnit(bars);
     const elapsed = bars.length - 1 - cross;
     const up = fan.lines.find((l) => l.angle === "1x1" && l.direction === "up")!;
     const down = fan.lines.find((l) => l.angle === "1x1" && l.direction === "down")!;

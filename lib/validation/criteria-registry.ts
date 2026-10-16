@@ -214,12 +214,14 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "rather than live.",
     note:
       "Replaces `fanProximity` (retired 2026-09-10; see RETIRED). Wraps lib/gann/normalizedSlope.ts's " +
-      "realized ATR-per-bar slope since the direction-matched swing anchor, judged against a fixed " +
+      "realized slope since the direction-matched swing anchor, judged against a fixed " +
       "structural angle ratio — a literal angle-of-ascent/descent check, unlike the generic " +
       "fan-line-distance proximity it replaces. Loosened 2026-09-11 from requiring 1x1-or-steeper to " +
       "1x2-or-steeper; see " +
       "quarantineReason for the 2026-09-10 saturation findings that drove the change and why the " +
-      "criterion stays quarantined pending a fresh reading of the new threshold.",
+      "criterion stays quarantined pending a fresh reading of the new threshold. Since 2026-10-16 " +
+      "(owner, Q27) the slope is in price-scaled points per bar on the full angle set, not ATR, so " +
+      "its earlier readings describe a different unit.",
   },
   {
     id: "volumeClimax",

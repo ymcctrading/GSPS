@@ -22,8 +22,8 @@
  * - A-PRICE-05 (W046 p.1, class A; the Master Course's 1 point a month for a
  *   45-degree line): a line from a low at a fixed number of points per
  *   calendar month. `pointsPerMonth` is a labelled per-instrument input; the
- *   card uses the Master Course's 1 a month for stocks. The ATR fans stay as
- *   they are until a replay compares the two (fork FL4 a).
+ *   card uses the Master Course's 1 a month for stocks. The fans read Gann
+ *   points a daily bar since Q27 (2026-10-16), the same point scale.
  *
  * Engineering choices, labelled: the first fall starts once price is under
  * the high by more than the 3-point allowance and ends at 100 points (the top

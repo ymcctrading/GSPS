@@ -1,13 +1,18 @@
 /**
  * Gann Fan angles from major swing pivots.
  *
- * The 1x1 line rises one "unit of price" per unit of time. The price unit is
- * scaled from the ATR of the anchor timeframe so fans stay meaningful across
- * assets with wildly different prices (a $5 stock vs BTC).
+ * The 1x1 line rises one Gann point per daily bar. Since 2026-10-16 (owner,
+ * Q27, "default to Gann's method") the unit is the Gann point
+ * (`pointScale.ts#gannPointForBars`), fixed from the chart's own range, and the
+ * angles are Gann's full set (`patternAngles.ts#PATTERN_ANGLES`), the unit and
+ * set the S/R angles already use. It was one 14-bar ATR per bar on five
+ * angles, an engineering scale with no Gann source.
  */
 
 import type { Bar } from "@/lib/types";
-import { findPivots, atr, type Pivot } from "@/lib/analysis/pivots";
+import { findPivots, type Pivot } from "@/lib/analysis/pivots";
+import { gannPointForBars } from "@/lib/gann/pointScale";
+import { PATTERN_ANGLES } from "@/lib/gann/patternAngles";
 import { levelRole, type LevelRole } from "@/lib/analysis/levelRole";
 
 export interface FanLine {
@@ -34,13 +39,12 @@ export interface FanLine {
 }
 
 /** Exported for `lib/gann/normalizedSlope.ts`, which classifies an already-realized slope against this same ratio set. */
-export const ANGLES: { label: string; ratio: number }[] = [
-  { label: "1x4", ratio: 0.25 },
-  { label: "1x2", ratio: 0.5 },
-  { label: "1x1", ratio: 1 },
-  { label: "2x1", ratio: 2 },
-  { label: "4x1", ratio: 4 },
-];
+export const ANGLES: { label: string; ratio: number }[] = PATTERN_ANGLES;
+
+/** One Gann point per bar: the price unit every angle here is drawn in. */
+export function angleUnit(bars: Bar[]): number {
+  return gannPointForBars(bars);
+}
 
 /**
  * The fans' two anchors (the latest pivot high and low) and each one's base
@@ -71,7 +75,7 @@ export function fanAnchors(bars: Bar[]): { anchor: Pivot; preceding: Pivot | nul
 export function computeFanLines(bars: Bar[], currentPrice: number): FanLine[] {
   if (bars.length < 20) return [];
 
-  const unit = atr(bars, 14); // price per bar for the 1x1
+  const unit = angleUnit(bars); // price per bar for the 1x1
   if (unit <= 0) return [];
 
   const lines: FanLine[] = [];

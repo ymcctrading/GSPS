@@ -501,7 +501,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       pillar: "trend",
       passed: angleHolding,
       note: angleReading?.nearestAngle
-        ? `Realized slope ${angleReading.slope.toFixed(2)} ATR/bar since the ${angleReading.anchorKind} anchor at ${angleReading.anchorPrice.toFixed(2)} (${angleReading.barsSinceAnchor} bars) — nearest to the ${angleReading.nearestAngle.label} structural angle, moving ${angleReading.nearestAngle.direction}.`
+        ? `Realized slope ${angleReading.slope.toFixed(2)} points a bar since the ${angleReading.anchorKind} anchor at ${angleReading.anchorPrice.toFixed(2)} (${angleReading.barsSinceAnchor} bars) — nearest to the ${angleReading.nearestAngle.label} structural angle, moving ${angleReading.nearestAngle.direction}.`
         : `No measurable structural angle slope since the last significant ${angleAnchorKind}.`,
     },
     {

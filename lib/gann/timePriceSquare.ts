@@ -9,10 +9,10 @@
  * ratios — this checks a literal count-for-count match between elapsed time
  * and the price move.
  *
- * "One point" is now one ATR, not one raw dollar, matching
- * `normalizedSlope.ts`'s own unit ("ATR-per-bar... matching `fans.ts`'s own
- * `unit`") — see `SQUARE_TOLERANCE_BARS` below for why this changed and what
- * it fixes.
+ * "One point" is one Gann point (`fans.ts#angleUnit`, the price-scaled point
+ * of `pointScale.ts`), the unit the angles use (owner, Q27, 2026-10-16). It was
+ * one ATR from 2026-09-14, and one raw dollar before that; see
+ * `SQUARE_TOLERANCE_BARS` below.
  *
  * Shares `lib/analysis/pivots.ts`'s pivot detection and the dual-anchor
  * convention `computeAngleSlopes` already uses (a low anchor for the bullish
@@ -20,8 +20,9 @@
  * against the swing that actually bears on it.
  */
 
-import { atr, findPivots } from "@/lib/analysis/pivots";
+import { findPivots } from "@/lib/analysis/pivots";
 import type { Bar } from "@/lib/types";
+import { angleUnit } from "@/lib/gann/fans";
 
 /**
  * How close the bar count and the ATR-normalized price move have to land to
@@ -40,7 +41,9 @@ import type { Bar } from "@/lib/types";
  * 12sym.json`): 130/615 (21.1%) passing, Δ+0.111R — positive and informative
  * for the first time since this criterion existed, where the pre-ATR-fix
  * version had read Δ−0.221R. See
- * `lib/validation/criteria-registry.ts`'s `timePriceSquare` entry.
+ * `lib/validation/criteria-registry.ts`'s `timePriceSquare` entry. Since
+ * 2026-10-16 (Q27) the move is counted in Gann points, so those readings
+ * describe the ATR unit; `4` is carried forward and needs a fresh run.
  */
 export const SQUARE_TOLERANCE_BARS = 4;
 
@@ -50,16 +53,16 @@ export interface TimePriceSquareReading {
   barsSinceAnchor: number;
   /** Raw price move since the anchor, in price units — kept for display/debugging. */
   priceMove: number;
-  /** `priceMove` expressed in ATR units — the quantity actually compared against `barsSinceAnchor`. */
-  priceMoveAtrUnits: number;
-  /** Whether elapsed bars and the ATR-normalized price move land within `SQUARE_TOLERANCE_BARS` of each other. */
+  /** `priceMove` in Gann points — the quantity actually compared against `barsSinceAnchor`. */
+  priceMovePoints: number;
+  /** Whether elapsed bars and the price move in points land within `SQUARE_TOLERANCE_BARS` of each other. */
   squared: boolean;
 }
 
 export function computeTimePriceSquare(bars: Bar[], currentPrice: number): TimePriceSquareReading[] {
   if (bars.length < 20) return [];
 
-  const unit = atr(bars, 14);
+  const unit = angleUnit(bars);
   if (unit <= 0) return [];
 
   const pivots = findPivots(bars, 4);
@@ -73,14 +76,14 @@ export function computeTimePriceSquare(bars: Bar[], currentPrice: number): TimeP
     const elapsed = lastIndex - anchor.index;
     if (elapsed <= 0) continue;
     const priceMove = Math.abs(currentPrice - anchor.price);
-    const priceMoveAtrUnits = priceMove / unit;
+    const priceMovePoints = priceMove / unit;
     readings.push({
       anchorKind: anchor.kind,
       anchorPrice: anchor.price,
       barsSinceAnchor: elapsed,
       priceMove,
-      priceMoveAtrUnits,
-      squared: Math.abs(elapsed - priceMoveAtrUnits) <= SQUARE_TOLERANCE_BARS,
+      priceMovePoints,
+      squared: Math.abs(elapsed - priceMovePoints) <= SQUARE_TOLERANCE_BARS,
     });
   }
   return readings;

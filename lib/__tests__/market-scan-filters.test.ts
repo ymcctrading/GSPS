@@ -50,8 +50,11 @@ describe("coarseReversion price floor", () => {
     // to two different prices — both comfortably above the floor — has to
     // produce the same read. Only crossing the floor itself should change
     // the outcome.
-    const atSeven = coarseReversion("A", extendedDowntrend(0.15));
-    const atTwelve = coarseReversion("B", extendedDowntrend(0.25));
+    // Since Q27 (2026-10-16) the fans rise a Gann point a bar, a larger share
+    // of a cheap stock's price, so this shape sits on a fan line at $47 and
+    // $475 but not at $7 or $12.
+    const atSeven = coarseReversion("A", extendedDowntrend(1));
+    const atTwelve = coarseReversion("B", extendedDowntrend(10));
     // Guard against a vacuous pass: this fixture previously read as sideways,
     // so both calls returned null and null matched null.
     expect(atSeven).not.toBeNull();

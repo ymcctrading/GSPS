@@ -106,7 +106,7 @@ function inputs(overrides: Partial<ScoreInputs> = {}): ScoreInputs {
     hourlyTrend: trend("1Hour", "bullish"),
     swingChart: { threeDay: "bullish", weekly: "bullish" },
     timePriceSquare: [
-      { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMoveAtrUnits: 10, squared: true },
+      { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMovePoints: 10, squared: true },
     ],
     volumeClimax: [
       { anchorKind: "low", anchorPrice: 90, anchorIndex: 0, relativeVolume: 2, bestRecentRelativeVolume: 2, climax: true, dryingUp: false, retestOnLowerVolume: false, confirms: true },

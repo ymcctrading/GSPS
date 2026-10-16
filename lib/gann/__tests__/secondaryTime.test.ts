@@ -215,7 +215,7 @@ describe("the class C time counts stay context", () => {
       [7, 12], [18, 21], [28, 31], [42, 49], [57, 65], [85, 92], [112, 120], [150, 157], [175, 185],
     ]);
     expect(MAJOR_CYCLE_YEARS).toEqual([1, 2, 3, 5, 7, 10, 15, 20, 30, 50, 60]);
-    expect(ANGLES.map((a) => a.ratio)).toEqual([0.25, 0.5, 1, 2, 4]);
+    expect(ANGLES.map((a) => a.ratio)).toEqual([16, 8, 4, 3, 2, 1, 1 / 2, 1 / 3, 1 / 4, 1 / 8, 1 / 16]);
     expect(SEASONAL_POINTS.map((p) => `${p.month}-${p.day}`)).toEqual([
       "5-5", "6-21", "7-23", "8-5", "9-22", "11-8", "11-22", "12-21", "2-4", "3-21",
       "4-12", "5-27", "7-14", "8-31", "10-15", "11-30", "1-13", "2-28",
@@ -341,7 +341,8 @@ describe("the fan as a time calculator (C-TIME-40, W033 pp.1-3)", () => {
   });
 
   it("leaves the scored fan angles' own list alone", () => {
-    expect(ANGLES.map((a) => a.label)).toEqual(["1x4", "1x2", "1x1", "2x1", "4x1"]);
+    // Gann's full set since Q27 (2026-10-16), not extended by the time ratios.
+    expect(ANGLES.map((a) => a.label)).toEqual(["16x1", "8x1", "4x1", "3x1", "2x1", "1x1", "1x2", "1x3", "1x4", "1x8", "1x16"]);
   });
 });
 

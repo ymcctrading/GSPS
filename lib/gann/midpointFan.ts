@@ -6,9 +6,8 @@
  *   own two anchors (`fanAnchors`: the latest pivot high and low), its 50%
  *   point the origin in price. Gann gives no origin in time for these angles,
  *   so the bar where the close last crossed the 50% point is the engineering
- *   choice, labelled. The price unit is the fans' ATR per bar, so the two fans
- *   read alike until fork FL4's replay compares the ATR unit with Gann's fixed
- *   scale.
+ *   choice, labelled. The price unit is the fans' Gann point per bar
+ *   (`fans.ts#angleUnit`; owner, Q27), so the two fans read alike.
  * - C-LEVELS-08 (W003 p.20; Master Course: a 100-point fall needs about 100
  *   months): a 1x1 from a high reaches zero after as many units of time as the
  *   high has points. `squareFromHigh` is that line at a fixed rate, on any
@@ -28,8 +27,7 @@
  *    and time squared, the same units on both axes).
  */
 import type { Bar } from "@/lib/types";
-import { atr } from "@/lib/analysis/pivots";
-import { ANGLES, fanAnchors } from "@/lib/gann/fans";
+import { ANGLES, angleUnit, fanAnchors } from "@/lib/gann/fans";
 import { findPivots } from "@/lib/analysis/pivots";
 import { etDateKey } from "@/lib/market/session";
 import { OLDER_LEVELS_YEARS } from "@/lib/gann/entryTrigger";
@@ -50,7 +48,7 @@ export interface MidpointFan {
 
 export function computeMidpointFan(bars: Bar[]): MidpointFan | null {
   if (bars.length < 20) return null;
-  const unit = atr(bars, 14);
+  const unit = angleUnit(bars);
   if (!(unit > 0)) return null;
   const anchors = fanAnchors(bars).map((a) => a.anchor);
   const high = anchors.find((a) => a.kind === "high");
