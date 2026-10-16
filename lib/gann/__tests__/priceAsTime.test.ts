@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { contextFactorsFor } from "../contextFactors";
+import { describeDisclosedRules, readDisclosedRules } from "../disclosedRules";
 import {
+  describePriceAsTime,
   hexagonMonthsFromInception,
   marketDayElevenths,
   priceAsTimeDates,
   priceAsTimeHits,
+  readPriceAsTime,
   squareOf90Counts,
   timePriceBalance,
   twoPivotFraction,
@@ -142,5 +146,36 @@ describe("M-T18: months from the first trade on the hexagon's rings (Master Cour
   it("reads nothing between lines and nothing from a year-only date", () => {
     expect(hexagonMonthsFromInception({ date: "1901-03-28", precision: "day" }, new Date("1911-06-25T12:00:00Z"))).toBeNull();
     expect(hexagonMonthsFromInception({ date: "1901-01-01", precision: "year" }, new Date("1911-10-28T12:00:00Z"))).toBeNull();
+  });
+});
+
+describe("price as time on the card and in the factor table", () => {
+  const daily = (n: number) =>
+    Array.from({ length: n }, (_, i) => {
+      const c = 40 + 8 * Math.sin(i / 6);
+      return { t: new Date(Date.UTC(2025, 0, 1) + i * 86_400_000).toISOString(), o: c, h: c + 0.5, l: c - 0.5, c, v: 1000 };
+    });
+
+  it("reads every count in one reading", () => {
+    const r = readPriceAsTime(daily(200), 42, 1, { date: "2010-05-01", precision: "day" }, new Date("2025-07-20T21:00:00Z"))!;
+    expect(r.unit).toBe(1);
+    expect(r.inceptionRead).toBe(true);
+    expect(Array.isArray(r.hits)).toBe(true);
+    expect(r.upcoming === null || r.upcoming.date > "2025-07-19").toBe(true);
+    expect(r.halving.next.length).toBeGreaterThan(0);
+    expect(describePriceAsTime(r).every((l) => !/gann/i.test(l))).toBe(true);
+  });
+
+  it("is wired into the disclosed rules and the factor table", () => {
+    const bars = daily(200);
+    const ctx = readDisclosedRules(bars, 42, { sharesOutstanding: null, inception: { date: "2010-05-01", precision: "day" } }, new Date("2025-07-20T21:00:00Z"));
+    expect(ctx.priceAsTime).toBeTruthy();
+    const f = contextFactorsFor(ctx, "bullish", 42);
+    for (const k of ["priceAsTimeOnCount", "priceTimeBalanceWeeks", "halvingChainDay", "twoPivotFractionMeet", "squareOf90Count", "marketDayEleventhCount", "squareOf90FromInception", "hexagonMonthFromInception"]) {
+      expect(typeof f[k]).toBe("boolean");
+    }
+    const noInception = contextFactorsFor(readDisclosedRules(bars, 42, null, new Date("2025-07-20T21:00:00Z")), "bullish", 42);
+    expect(noInception.hexagonMonthFromInception).toBeUndefined();
+    expect(describeDisclosedRules(ctx).every((l) => !/gann/i.test(l))).toBe(true);
   });
 });

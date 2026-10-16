@@ -48,7 +48,8 @@
  * - Multiples up to 6, the number of repeats in Gann's 386 example.
  * - Tolerance 1 day, ½ week, ½ month; counts under 7 points are skipped (they
  *   recur too often to say anything).
- * - The Ch.18 balance holds when points and weeks agree within 1.
+ * - The Ch.18 balance holds when points and weeks agree within 1, from 7
+ *   points (the counts' floor) up.
  * - C-TIME-20: the last major low and high (`findPivots` strength 5,
  *   `majorPivots`), a 2-day window (as the year fractions), and ½ and ¾ of
  *   the range measured up from the low, within one point.
@@ -75,6 +76,9 @@
 
 import { hexLinesAt, HEX_NAMED_MONTHS, type HexLineHit } from "@/lib/gann/hexagonTime";
 import type { Inception } from "@/lib/gann/incorporationCycle";
+import { halvingChainTime, type HalvingChainReading } from "@/lib/gann/masterTwelve";
+import { findPivots, majorPivots } from "@/lib/analysis/pivots";
+import type { Bar } from "@/lib/types";
 
 export type CountUnit = "days" | "weeks" | "months";
 
@@ -159,7 +163,7 @@ export function timePriceBalance(
   const side = (p: DatedPrice, points: number): BalanceSide => {
     const weeks = elapsedDays(p.date, lastDate) / 7;
     const pts = unit > 0 ? Math.round((points / unit) * 100) / 100 : 0;
-    return { pivotDate: p.date.slice(0, 10), points: pts, weeks, balanced: unit > 0 && pts > 0 && weeks > 0 && Math.abs(pts - weeks) <= BALANCE_TOLERANCE };
+    return { pivotDate: p.date.slice(0, 10), points: pts, weeks, balanced: unit > 0 && pts >= MIN_POINTS && Math.abs(pts - weeks) <= BALANCE_TOLERANCE };
   };
   return { fromLow: side(low, price - low.price), fromHigh: side(high, high.price - price) };
 }
@@ -298,4 +302,115 @@ export function hexagonMonthsFromInception(inception: Inception | null | undefin
   const line = hexLinesAt(m, TOLERANCE.months)[0] ?? null;
   const named = HEX_NAMED_MONTHS.find((n) => Math.abs(m - n) <= TOLERANCE.months) ?? null;
   return line || named ? { inception: inception.date.slice(0, 10), months: m, line, named } : null;
+}
+
+// ---------------------------------------------------------------------------
+// The whole reading, for `readDisclosedRules`
+
+export interface PriceAsTimeReading {
+  unit: number;
+  /** The stored inception date was usable (known to the month or the day). */
+  inceptionRead: boolean;
+  hits: PriceAsTimeHit[];
+  /** The next date the low, high or range comes out on, in days, weeks or months. */
+  upcoming: { source: PriceAsTimeHit["source"]; unit: CountUnit; points: number; date: string } | null;
+  balance: ReturnType<typeof timePriceBalance>;
+  halving: HalvingChainReading;
+  twoPivot: TwoPivotFractionReading | null;
+  squareOf90: SquareOf90Hit[];
+  marketDays: MarketDayHit[];
+  hexagonInception: HexagonInceptionHit | null;
+}
+
+export function readPriceAsTime(
+  bars: Bar[],
+  price: number,
+  unit: number,
+  inception: Inception | null | undefined,
+  asOf: Date,
+): PriceAsTimeReading | null {
+  if (bars.length < 2 || !(unit > 0)) return null;
+  let hi = 0;
+  let lo = 0;
+  for (let i = 1; i < bars.length; i++) {
+    if (bars[i].h > bars[hi].h) hi = i;
+    if (bars[i].l < bars[lo].l) lo = i;
+  }
+  const low = { date: bars[lo].t.slice(0, 10), price: bars[lo].l };
+  const high = { date: bars[hi].t.slice(0, 10), price: bars[hi].h };
+  const lastDate = bars[bars.length - 1].t.slice(0, 10);
+
+  let upcoming: PriceAsTimeReading["upcoming"] = null;
+  const later = day(low.date) >= day(high.date) ? low : high;
+  for (const [source, from, points] of [
+    ["low", low.date, low.price / unit],
+    ["high", high.date, high.price / unit],
+    ["range", later.date, (high.price - low.price) / unit],
+  ] as const) {
+    if (!(points >= MIN_POINTS)) continue;
+    for (const u of ["days", "weeks", "months"] as const) {
+      const date = priceAsTimeDates(points, from, u).find((d) => d > lastDate);
+      if (date && (!upcoming || date < upcoming.date)) upcoming = { source, unit: u, points: Math.round(points * 100) / 100, date };
+    }
+  }
+
+  const majors = majorPivots(findPivots(bars, 5));
+  const lastLow = [...majors].reverse().find((p) => p.kind === "low");
+  const lastHigh = [...majors].reverse().find((p) => p.kind === "high");
+  const twoPivot =
+    lastLow && lastHigh
+      ? twoPivotFraction({ date: lastLow.bar.t, price: lastLow.price }, { date: lastHigh.bar.t, price: lastHigh.price }, lastDate, price, unit)
+      : null;
+
+  const inceptionRead = !!inception && inception.precision !== "year";
+  const lastAt = new Date(day(lastDate));
+  return {
+    unit,
+    inceptionRead,
+    hits: priceAsTimeHits(low, high, lastDate, unit),
+    upcoming,
+    balance: timePriceBalance(low, high, lastDate, price, unit),
+    halving: halvingChainTime(low, high, lastDate),
+    twoPivot,
+    squareOf90: [
+      ...(inception ? squareOf90Counts(inception, "inception", asOf) : []),
+      ...squareOf90Counts({ date: low.date, precision: "day" }, "low", lastAt),
+    ],
+    marketDays: marketDayElevenths(bars),
+    hexagonInception: hexagonMonthsFromInception(inception, asOf),
+  };
+}
+
+const fmt = (x: number) => (Number.isInteger(x) ? String(x) : x.toFixed(2).replace(/0$/, ""));
+
+/** Plain-language lines for the explanation trace. */
+export function describePriceAsTime(r: PriceAsTimeReading): string[] {
+  const lines: string[] = [];
+  for (const h of r.hits) {
+    const what = h.source === "range" ? "the range" : `the ${h.source}`;
+    lines.push(
+      `${what[0].toUpperCase()}${what.slice(1)} (${fmt(h.points)} points) comes out in time: ${Math.round(h.elapsed)} ${h.unit} from ${h.pivotDate}${h.multiple > 1 ? `, ${h.multiple} times the count` : ""}. Price and time square.`,
+    );
+  }
+  if (r.upcoming) lines.push(`Next price-as-time date: ${r.upcoming.date}, the ${r.upcoming.source} (${fmt(r.upcoming.points)} points) counted in ${r.upcoming.unit}.`);
+  for (const [name, b] of [["up from the low", r.balance.fromLow], ["down from the high", r.balance.fromHigh]] as const) {
+    if (b.balanced) lines.push(`${fmt(b.points)} points ${name} in ${Math.round(b.weeks)} weeks: time and price balance.`);
+  }
+  for (const h of r.halving.hits) lines.push(`${h.days} days from the ${h.pivot} of ${h.pivotDate}: a term of the 20,736-day halving chain.`);
+  if (r.twoPivot) {
+    lines.push(
+      `${r.twoPivot.fromLow} year from the ${r.twoPivot.lowDate} low meets ${r.twoPivot.fromHigh} year from the ${r.twoPivot.highDate} high${r.twoPivot.priceAtHalfOrThreeQuarter ? ", with price at the 1/2 or 3/4 point of the range" : ""}.`,
+    );
+  }
+  for (const s of r.squareOf90) {
+    lines.push(`${fmt(Math.round(s.count * 10) / 10)} ${s.unit} from the ${s.origin === "inception" ? "company's inception" : "low"} (${s.originDate}): on ${fmt(s.step)} of the square of 90${s.quarter ? ", a quarter" : ""}.`);
+  }
+  for (const m of r.marketDays) lines.push(`${m.marketDays} market days from the ${m.pivot} of ${m.pivotDate}: ${m.multiple} x 11 1/4.`);
+  const hx = r.hexagonInception;
+  if (hx) {
+    lines.push(
+      `${fmt(Math.round(hx.months * 10) / 10)} months from the company's inception (${hx.inception})${hx.line ? `: on ${hx.line.number} of the Hexagon Chart (${hx.line.kind === "completion" ? "a ring completion" : hx.line.kind === "corner" ? "a corner" : "a mid-side"})` : ""}${hx.named !== null ? `; the ${hx.named}th month is a named count` : ""}.`,
+    );
+  }
+  return lines;
 }

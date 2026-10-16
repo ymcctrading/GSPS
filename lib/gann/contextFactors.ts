@@ -466,5 +466,22 @@ export function contextFactorsFor(
     const proj = astro.jensen.projection;
     if (proj) f.jensenAtProjectedExhaustion = proj.direction === "up" ? price >= proj.price - astro.unit : price <= proj.price + astro.unit;
   }
+  // Price read as time and the long counts (priceAsTime.ts; Master Course
+  // Ch.4 PDF 125, 144-150; Ch.6 PDF 191-197; Ch.13 PDF 375, 379; Ch.15B PDF
+  // 422-423; Ch.16 PDF 428-430; Ch.18 PDF 440). No direction in the text.
+  const pt = ctx.priceAsTime;
+  if (pt) {
+    f.priceAsTimeOnCount = pt.hits.length > 0;
+    f.priceTimeBalanceWeeks = pt.balance.fromLow.balanced || pt.balance.fromHigh.balanced;
+    f.halvingChainDay = pt.halving.hits.length > 0;
+    f.twoPivotFractionMeet = pt.twoPivot !== null;
+    f.twoPivotFractionAtHalfOrThreeQuarter = pt.twoPivot?.priceAtHalfOrThreeQuarter ?? false;
+    f.squareOf90Count = pt.squareOf90.length > 0;
+    f.marketDayEleventhCount = pt.marketDays.length > 0;
+    if (pt.inceptionRead) {
+      f.squareOf90FromInception = pt.squareOf90.some((s) => s.origin === "inception");
+      f.hexagonMonthFromInception = pt.hexagonInception !== null;
+    }
+  }
   return f;
 }
