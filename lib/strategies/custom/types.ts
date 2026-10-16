@@ -95,8 +95,11 @@ export type BoolExpr =
 export interface CustomScriptRule {
   direction: StrategyDirection;
   condition: BoolExpr;
-  entry: NumExpr;
-  stopLoss: NumExpr;
+  /** Optional since 2026-10-16 (owner: the lines "stay as optional"). A rule
+   * with neither is a signal-only rule: it says when it fires and which way,
+   * and GSPS's plan supplies every level. `entry` and `stop` come as a pair. */
+  entry: NumExpr | null;
+  stopLoss: NumExpr | null;
   /** R-multiple targets — same shared shape `lib/strategies/targets.ts#buildLevels`
    * uses for every built-in mode. Defaults applied by the parser when omitted
    * (1.5R / 3R, matching the majority of the nine built-in modes). */
@@ -131,11 +134,12 @@ export interface CustomScriptLevels {
   author: string;
   version: number;
   direction: StrategyDirection;
-  entry: number;
-  stopLoss: number;
-  takeProfit1: number;
-  masterTarget: number;
-  riskPerShare: number;
+  /** All five are null for a signal-only rule (no `entry`/`stop` lines). */
+  entry: number | null;
+  stopLoss: number | null;
+  takeProfit1: number | null;
+  masterTarget: number | null;
+  riskPerShare: number | null;
   rationale: string;
 }
 

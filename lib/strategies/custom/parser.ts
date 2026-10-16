@@ -14,6 +14,8 @@
  *   ruleBlock := 'rule' direction 'when' boolExpr '{' statement* '}'
  *   direction := 'bullish' | 'bearish'
  *   statement := ('entry'|'stop'|'tp1r'|'mtpr') '=' numExpr
+ *               (all optional; 'entry' and 'stop' only as a pair, and
+ *               'tp1r'/'mtpr' only with them. A block with none is signal-only.)
  *
  *   boolExpr  := orExpr
  *   orExpr    := andExpr ('or' andExpr)*
@@ -430,6 +432,8 @@ class Parser {
     let stopLoss: NumExpr | null = null;
     let tp1R = 1.5;
     let mtpR = 3;
+    let sawTp1R = false;
+    let sawMtpR = false;
 
     while (!this.at("}")) {
       const key = this.expect("ident", "'entry', 'stop', 'tp1r', or 'mtpr'");
@@ -443,9 +447,11 @@ class Parser {
           break;
         case "tp1r":
           tp1R = this.boundedNumber({ min: 0.1, max: 20, integer: false }, "'tp1r'");
+          sawTp1R = true;
           break;
         case "mtpr":
           mtpR = this.boundedNumber({ min: 0.1, max: 20, integer: false }, "'mtpr'");
+          sawMtpR = true;
           break;
         default:
           throw new ParseError(`Unknown statement '${key.text}' at position ${key.pos}; expected 'entry', 'stop', 'tp1r', or 'mtpr'`);
@@ -453,8 +459,15 @@ class Parser {
     }
     this.expect("}", "'}'");
 
-    if (!entry) throw new ParseError(`Rule block for '${direction}' is missing 'entry = ...'`);
-    if (!stopLoss) throw new ParseError(`Rule block for '${direction}' is missing 'stop = ...'`);
+    // `entry` and `stop` are optional, but only as a pair: a stop means
+    // nothing without the entry it is measured from. Without them the rule is
+    // signal-only, and `tp1r`/`mtpr` (multiples of entry-to-stop) have
+    // nothing to measure.
+    if (entry && !stopLoss) throw new ParseError(`Rule block for '${direction}' has 'entry' but no 'stop = ...'`);
+    if (stopLoss && !entry) throw new ParseError(`Rule block for '${direction}' has 'stop' but no 'entry = ...'`);
+    if (!entry && (sawTp1R || sawMtpR)) {
+      throw new ParseError(`Rule block for '${direction}' sets 'tp1r'/'mtpr' without 'entry' and 'stop'`);
+    }
     if (mtpR <= tp1R) {
       throw new ParseError(`'mtpr' (${mtpR}) must be greater than 'tp1r' (${tp1R})`);
     }

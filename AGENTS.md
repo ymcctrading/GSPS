@@ -1372,6 +1372,9 @@ owed.
 > technique is known when they are sent). VWAP now anchors at the latest
 > session in the mode, the reading and the chart alike
 > (`lib/strategies/math.ts#latestSession`), so it arms only on intraday bars.
+> Follow-up the same day: a script's `entry`/`stop`/`tp1r`/`mtpr` lines are
+> optional (a block with none is signal-only), and `/api/strategy-levels`
+> no longer sends a built-in mode's own prices, only the direction it arms in.
 
 The "Gann-grounded platform" section above states a boundary "that must not
 move": no non-Gann indicator (PSAR, Supertrend, RSI, MACD, Bollinger, the

@@ -246,7 +246,11 @@ built exactly that.
   <expr> tp1r = <n> mtpr = <n> }`, condition supports comparisons,
   `crossesAbove`/`crossesBelow`, `and`/`or`/`not`; expressions support bar
   series (`close[1]` = one bar back), indicator calls with an optional
-  `.field` and offset, and `+ - * /`.
+  `.field` and offset, and `+ - * /`. Every line in the braces is optional
+  (owner decision 2026-10-16): `entry` and `stop` come as a pair, `tp1r` and
+  `mtpr` only with them, and a block with none (`{ }`) is signal-only. It
+  fires with a direction and no prices of its own, which is all the order
+  ticket's explanation reads.
 - `limits.ts` — bounds enforced at parse time: max source length, AST node
   count, expression nesting depth, indicator period/offset. There is no
   loop or recursion in the language itself, so runtime cost per evaluated

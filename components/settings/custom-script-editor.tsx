@@ -64,8 +64,6 @@ const DSL_EXAMPLE = `rule bullish when crossesAbove(ema(9), sma(20)) {
 }
 
 rule bearish when crossesBelow(ema(9), sma(20)) {
-  entry = low[0] * 0.9995
-  stop = highest(high, 10)
 }`;
 
 async function readJson(res: Response): Promise<Record<string, unknown>> {
@@ -129,7 +127,7 @@ export function CustomScriptEditor() {
     armedCount: number;
     bullishCount: number;
     bearishCount: number;
-    events: { index: number; date: string; direction: string; entry: number; stopLoss: number }[];
+    events: { index: number; date: string; direction: string; entry: number | null; stopLoss: number | null }[];
   } | null>(null);
 
   const loadList = useCallback(() => {
@@ -267,7 +265,7 @@ export function CustomScriptEditor() {
           armedCount: number;
           bullishCount: number;
           bearishCount: number;
-          events: { index: number; date: string; direction: string; entry: number; stopLoss: number }[];
+          events: { index: number; date: string; direction: string; entry: number | null; stopLoss: number | null }[];
         },
       );
       setBacktestStatus("ready");
@@ -481,15 +479,19 @@ export function CustomScriptEditor() {
                 {checkLevels && (
                   <div className="rounded-md bg-surface-alt p-2 text-xs">
                     <p className="text-muted">{checkLevels.rationale}</p>
-                    <p className="mt-1 text-muted">
-                      These are the script&apos;s own lines, for testing the rule. Orders always use
-                      GSPS&apos;s plan; on the order ticket this script explains that plan instead.
-                    </p>
-                    <p className="mt-1">
-                      Entry {formatUsd(checkLevels.entry)} · Stop {formatUsd(checkLevels.stopLoss)} · TP1{" "}
-                      {formatUsd(checkLevels.takeProfit1)} · MTP (master target){" "}
-                      {formatUsd(checkLevels.masterTarget)}
-                    </p>
+                    {checkLevels.entry != null && checkLevels.stopLoss != null && (
+                      <>
+                        <p className="mt-1 text-muted">
+                          These are the script&apos;s own lines, for testing the rule. Orders always use
+                          GSPS&apos;s plan; on the order ticket this script explains that plan instead.
+                        </p>
+                        <p className="mt-1">
+                          Entry {formatUsd(checkLevels.entry)} · Stop {formatUsd(checkLevels.stopLoss)} · TP1{" "}
+                          {formatUsd(checkLevels.takeProfit1 ?? 0)} · MTP (master target){" "}
+                          {formatUsd(checkLevels.masterTarget ?? 0)}
+                        </p>
+                      </>
+                    )}
                   </div>
                 )}
 
@@ -521,8 +523,8 @@ export function CustomScriptEditor() {
                             <tr key={i}>
                               <td className="pr-2">{new Date(e.date).toLocaleDateString()}</td>
                               <td className="pr-2">{e.direction}</td>
-                              <td className="pr-2">{formatUsd(e.entry)}</td>
-                              <td>{formatUsd(e.stopLoss)}</td>
+                              <td className="pr-2">{e.entry != null ? formatUsd(e.entry) : "—"}</td>
+                              <td>{e.stopLoss != null ? formatUsd(e.stopLoss) : "—"}</td>
                             </tr>
                           ))}
                         </tbody>
