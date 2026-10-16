@@ -59,12 +59,9 @@
  */
 
 import type { Bar } from "@/lib/types";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { gannPoint } from "@/lib/gann/pointScale";
 
-/** One of Gann's points at this price: a third of his price-scaled 3 points. */
-export function gannPoint(price: number): number {
-  return gannThreePoints(price) / 3;
-}
+export { gannPoint };
 
 export interface OvernightPivot {
   index: number;

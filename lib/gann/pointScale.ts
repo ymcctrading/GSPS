@@ -52,6 +52,18 @@ export function gannThreePoints(price: number): number {
 }
 
 /**
+ * One of Gann's points at this price, in dollars: his 3-point allowance ÷ 3.
+ * At $42.50, the middle of the band he wrote most of his stock rules for, it
+ * is exactly $1, his literal point. Used by the Overnight Chart's 1-point
+ * stops and ¼-point filter (`overnightChart.ts`) and Rule 8's "around the same
+ * price" (`closeCluster.ts`). The same definition as PR #306's, so the two
+ * reconcile on merge. Engineering choice, labelled as such.
+ */
+export function gannPoint(price: number): number {
+  return gannThreePoints(price) / 3;
+}
+
+/**
  * Floor on one intraday point, as a share of price. Engineering choice: keeps a
  * quiet name from getting no allowance.
  */

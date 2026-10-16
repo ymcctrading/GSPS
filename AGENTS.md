@@ -193,9 +193,9 @@ pre-registered calendar test is designed, not run, pending the owner.
 **Master Course methods with no plan, built 2026-10-16 (owner: "Build the 5
 Gann plans identified to be missing"):** the Overnight Chart and its
 stop-and-reverse method (`lib/gann/overnightChart.ts`), Rule 8's three closes
-around one price (`closeCluster.ts`), the Square of 144's fractions and
-convergence (`squareOf144.ts`), all context and measured factors on the live
-scan and the replay; the hourly chart as a factor on the intraday alerts
+around one price (`closeCluster.ts`), both context and measured factors on the
+live scan and the replay (the Square of 144's fractions and convergence are
+PR #306's `masterCalculator.ts`); the hourly chart as a factor on the intraday alerts
 (`lib/scanner/intraday.ts#hourlyChart`). The reversal is measured
 (`lib/backtest/replayOvernight.ts`, `/api/backtest?engine=overnight`), never
 placed: whether a caught stop opens the opposite plan is the owner's call.

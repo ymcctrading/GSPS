@@ -13,7 +13,7 @@
  *
  * Engineering choices, labelled as such: "around the same price" is a spread
  * of the three closes of one of Gann's points (a third of his price-scaled
- * 3 points, `overnightChart.ts#gannPoint`); the break is a close beyond the
+ * 3 points, `pointScale.ts#gannPoint`); the break is a close beyond the
  * three bars' high or low; a cluster counts only if it ended within the last
  * `RECENT_BARS` bars of its timeframe, since an old one has already had its
  * move. `accumulation.ts` reads the related rule on time in a range; this one
@@ -28,7 +28,7 @@
  */
 
 import type { Bar } from "@/lib/types";
-import { gannPoint } from "@/lib/gann/overnightChart";
+import { gannPoint } from "@/lib/gann/pointScale";
 
 export const CLUSTER_CLOSES = 3;
 export const RECENT_BARS = { daily: 5, weekly: 3, monthly: 2 } as const;
