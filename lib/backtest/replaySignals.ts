@@ -24,6 +24,7 @@
 
 import type { Bar, Timeframe } from "@/lib/types";
 import { classifyRegime } from "@/lib/signals/regime";
+import { isScheduledReportDay } from "@/lib/macro/earnings";
 import { evaluateTrendPullback } from "@/lib/signals/states/trendPullback";
 import type { Regime, RulesAlignmentTier, SignalGates } from "@/lib/signals/types";
 import { fetchSeries } from "@/lib/backtest/run";
@@ -73,7 +74,7 @@ export function replaySignalEngine(symbol: string, dailyBars: Bar[]): SignalRepl
 
   for (let i = MIN_WINDOW_BARS; i < dailyBars.length; i++) {
     const window = dailyBars.slice(0, i + 1);
-    const regime = classifyRegime({ bars: window });
+    const regime = classifyRegime({ bars: window, scheduledReportDay: isScheduledReportDay(symbol.toUpperCase(), new Date(dailyBars[i].t)) });
     if (regime.regime !== "trend" || regime.direction === "sideways") continue;
 
     const verdict = evaluateTrendPullback({

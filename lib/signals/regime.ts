@@ -42,8 +42,14 @@ export interface RegimeInputs {
   /** Closed bars on the timeframe the regime is being read on, ascending. */
   bars: Bar[];
   atrPeriod?: number;
-  /** Explicit event-risk flags — these short-circuit to the "event" regime. */
-  scheduledBinaryEvent?: boolean;
+  /**
+   * A scheduled report falls on this session. Gann reads report dates as turn
+   * dates (A-TIME-36, W022 pp.195-197, 217), so it is recorded as `turnDate`
+   * context and never stands the regime aside (owner, Q26, 2026-10-16; it
+   * was a `scheduledBinaryEvent` flag that forced the "event" regime).
+   */
+  scheduledReportDay?: boolean;
+  /** Explicit data-risk flags — these short-circuit to the "event" regime. */
   staleData?: boolean;
   abnormalSpread?: boolean;
   extremeGapRisk?: boolean;
@@ -72,10 +78,19 @@ function noTrendReason(t: ReturnType<typeof readGannTrend>): string {
 }
 
 export function classifyRegime(inputs: RegimeInputs): RegimeRead {
+  const read = classifyRegimeCore(inputs);
+  const turnDate = inputs.scheduledReportDay === true;
+  return {
+    ...read,
+    turnDate,
+    reasons: turnDate ? [...read.reasons, "Scheduled report date: a turn date (context)."] : read.reasons,
+  };
+}
+
+function classifyRegimeCore(inputs: RegimeInputs): RegimeRead {
   const {
     bars,
     atrPeriod = DEFAULTS.atrPeriod,
-    scheduledBinaryEvent = false,
     staleData = false,
     abnormalSpread = false,
     extremeGapRisk = false,
@@ -84,7 +99,6 @@ export function classifyRegime(inputs: RegimeInputs): RegimeRead {
   // Event/high uncertainty takes priority over every other read: none of the
   // other regimes' entry logic is trustworthy against stale or abnormal data.
   const eventReasons: string[] = [];
-  if (scheduledBinaryEvent) eventReasons.push("Scheduled binary event.");
   if (staleData) eventReasons.push("Stale market data.");
   if (abnormalSpread) eventReasons.push("Abnormal spread.");
   if (extremeGapRisk) eventReasons.push("Extreme gap risk.");

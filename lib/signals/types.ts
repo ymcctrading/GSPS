@@ -22,6 +22,8 @@ export interface RegimeRead {
   reasons: string[];
   /** Which disqualifying conditions were matched (regime is still reported). */
   disqualifiers: string[];
+  /** A scheduled report falls on this session: a turn date, context only (A-TIME-36). Absent on plans stored before 2026-10-16. */
+  turnDate?: boolean;
 }
 
 export type ScannerStateName =

@@ -39,9 +39,21 @@ function rangeBars(n: number): Bar[] {
 
 describe("classifyRegime", () => {
   it("flags event/high-uncertainty regardless of price action when a hard flag is set", () => {
-    const read = classifyRegime({ bars: uptrendBars(80), scheduledBinaryEvent: true });
+    const read = classifyRegime({ bars: uptrendBars(80), staleData: true });
     expect(read.regime).toBe("event");
     expect(read.direction).toBe("sideways");
+  });
+
+  // A-TIME-36 (W022 pp.195-197, 217; owner, Q26): a scheduled report date is
+  // a turn date, recorded as context, not a reason to stand aside.
+  it("records a scheduled report day as a turn date and keeps reading the trend", () => {
+    const plain = classifyRegime({ bars: uptrendBars(120) });
+    const read = classifyRegime({ bars: uptrendBars(120), scheduledReportDay: true });
+    expect(read.regime).toBe(plain.regime);
+    expect(read.direction).toBe(plain.direction);
+    expect(read.turnDate).toBe(true);
+    expect(read.reasons.some((r) => r.startsWith("Scheduled report date"))).toBe(true);
+    expect(plain.turnDate).toBe(false);
   });
 
   it("reads a clean, sustained uptrend as a bullish trend", () => {
@@ -60,5 +72,22 @@ describe("classifyRegime", () => {
     const read = classifyRegime({ bars: rangeBars(120) });
     expect(read.regime).toBe("range");
     expect(read.direction).toBe("sideways");
+  });
+});
+
+describe("the report-day turn date on every surface", () => {
+  it("is read on the live scan and the signal replay", async () => {
+    const { readFileSync } = await import("node:fs");
+    expect(readFileSync("lib/scanTicker.ts", "utf8")).toMatch(/classifyRegime\(\{ bars: daily, scheduledReportDay: isScheduledReportDay\(/);
+    expect(readFileSync("lib/backtest/replaySignals.ts", "utf8")).toMatch(/classifyRegime\(\{ bars: window, scheduledReportDay: isScheduledReportDay\(/);
+  });
+
+  it("finds a generated report date on its own day only", async () => {
+    const { generateEarningsForMonth, isScheduledReportDay } = await import("@/lib/macro/earnings");
+    const e = generateEarningsForMonth(new Date("2026-10-01T00:00:00Z"))[0];
+    expect(isScheduledReportDay(e.symbol, new Date(`${e.date}T15:00:00Z`))).toBe(true);
+    const next = new Date(Date.parse(`${e.date}T15:00:00Z`) + 86_400_000);
+    const sameNext = generateEarningsForMonth(next).some((x) => x.symbol === e.symbol && x.date === next.toISOString().slice(0, 10));
+    if (!sameNext) expect(isScheduledReportDay(e.symbol, next)).toBe(false);
   });
 });

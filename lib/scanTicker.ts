@@ -67,6 +67,7 @@ import {
 import { getActiveCriterionWeights } from "@/lib/scoring/active-weights";
 import { meetsLiquidityFloor, readLiquidity } from "@/lib/scan/liquidity";
 import { classifyRegime } from "@/lib/signals/regime";
+import { isScheduledReportDay } from "@/lib/macro/earnings";
 import { evaluateTrendPullback } from "@/lib/signals/states/trendPullback";
 import { evaluateTrendBreakout } from "@/lib/signals/states/trendBreakout";
 import { evaluateConfirmedReversal } from "@/lib/signals/states/confirmedReversal";
@@ -491,7 +492,8 @@ export async function scanTicker(
       },
       universeThresholds,
     );
-    const regime = classifyRegime({ bars: daily });
+    // A scheduled report on the session is a turn date, context only (A-TIME-36).
+    const regime = classifyRegime({ bars: daily, scheduledReportDay: isScheduledReportDay(symbol.toUpperCase(), new Date(scannedAt)) });
 
     // ---- Gann Confluence Layer / Sara Confluence Layer — the addendum's
     // cross-market confluence modules (2026-08-28). Additive and
