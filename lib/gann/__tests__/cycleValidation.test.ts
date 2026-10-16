@@ -125,7 +125,8 @@ describe("CYC-25 / CYC-26: crest spacing is tested against chance, and scored fo
       .map((x) => x.p);
     expect(ps.length).toBeGreaterThanOrEqual(8);
     expect(ps.filter((p) => p < 0.05).length).toBeLessThanOrEqual(2);
-  });
+    // 40 full validations with 99 surrogates each: slow under full-suite load.
+  }, 30_000);
 });
 
 describe("CYC-37: two near-equal periods beat", () => {
