@@ -81,6 +81,7 @@ import { MAG7 } from "@/lib/sectors";
 import { APPROACH_WINDOW_PCT, targetCandidates } from "@/lib/gann/evenFigures";
 import { buildCampaignLedger } from "@/lib/gann/campaignLedger";
 import { intradayPoint } from "@/lib/gann/pointScale";
+import { readOvernightChart } from "@/lib/gann/overnightChart";
 import { THREE_DAY_CHART, swingPivots, walkSwingChart } from "@/lib/gann/swingChart";
 
 /** ---- Configuration ----------------------------------------------------- */
@@ -89,7 +90,8 @@ export type SignalType =
   | "old_level_cross"
   | "trend_continuation"
   | "space_overbalance"
-  | "unusual_volume"
+  | "overnight_turn"
+  | "hourly_turn"
   | "reversal_risk";
 
 export type Direction = "up" | "down";
@@ -102,8 +104,6 @@ export type AssetKind = "equity" | "etf" | "index" | "crypto";
 export interface ScannerConfig {
   /** Cumulative volume vs. the same-time-of-day baseline to count as elevated. */
   relativeVolumeThreshold: number;
-  /** Unusual-volume alerting threshold, which is stricter than confirmation. */
-  unusualVolumeThreshold: number;
   /** Minimum move, in percent, before any directional signal is considered. */
   minMovePct: number;
   /** Seconds after which the newest bar is too old to alert on. */
@@ -116,7 +116,6 @@ export interface ScannerConfig {
 
 export const DEFAULT_CONFIG: ScannerConfig = {
   relativeVolumeThreshold: 1.2,
-  unusualVolumeThreshold: 2,
   minMovePct: 0.5,
   // Alpaca's free IEX feed is delayed ~15 minutes by contract, so anything
   // beyond twenty minutes means the feed itself has stalled on top of that.
@@ -556,7 +555,8 @@ export const SIGNAL_LABELS: Record<SignalType, string> = {
   old_level_cross: "Old top or bottom crossed",
   trend_continuation: "Trend continuation",
   space_overbalance: "Over-balance of space",
-  unusual_volume: "Unusual volume",
+  overnight_turn: "Overnight Chart turned",
+  hourly_turn: "Hourly chart turned",
   reversal_risk: "Reversal risk",
 };
 
@@ -567,8 +567,10 @@ export const SIGNAL_DESCRIPTIONS: Record<SignalType, string> = {
     "The swing chart on today's bars is running one way, and price is on that side of the middle of the day's range.",
   space_overbalance:
     "Today's move against the trend is bigger than any pullback since the trend began. In this method that says the trend has changed or soon will.",
-  unusual_volume:
-    "Far more shares have traded by this point in the day than is normal for this symbol, whichever way price ends up going.",
+  overnight_turn:
+    "The one-day swing chart keyed on the lows turned today: a higher bottom after a run of lower ones turns it up, a low that breaks the prior day's bottom turns it down. Its stop goes 1 point beyond the last bottom or top.",
+  hourly_turn:
+    "The swing chart on hourly bars changed trend on the latest hour. In a very active market this is the first sign the trend is changing.",
   reversal_risk:
     "A cross of yesterday's high or low failed, or price lost the middle of the day's range. The move that was running may be ending — a reason to stand aside, not a reason to trade the other way on its own.",
 };
@@ -782,7 +784,8 @@ function scanSymbol(input: SymbolInput, config: ScannerConfig, now: Date): Symbo
     detectOldLevelCross(input, metrics, dayMove, config, checks, now),
     detectTrendContinuation(input, metrics, dayMove, config, checks, now),
     detectSpaceOverbalance(input, metrics, dayMove, config, checks, now),
-    detectUnusualVolume(input, metrics, dayMove, config, checks, now),
+    detectOvernightTurn(input, metrics, dayMove, checks, now),
+    detectHourlyTurn(input, metrics, checks, now),
     detectReversalRisk(input, metrics, dayMove, config, checks, now),
   ].filter((a): a is Alert => a !== null);
 
@@ -1074,56 +1077,99 @@ function detectSpaceOverbalance(
   });
 }
 
-function detectUnusualVolume(
+/**
+ * Gann's Overnight Chart turning on today's session (*Master Stock Market
+ * Course* Ch. 3, pp. 68-71; Q29, owner 2026-10-16, "Switch all nine": the
+ * volume-only alert this replaced had no Gann source). The chart is read on the
+ * daily bars with today's session as the newest bar. A turn up is a higher
+ * bottom after the line was down; a turn down is a low that breaks the prior
+ * day's bottom by ¼ point. The stop is 1 point beyond the last Overnight bottom
+ * (top), the method's own stop (`lib/gann/overnightChart.ts`).
+ */
+function detectOvernightTurn(
   input: SymbolInput,
   m: SessionMetrics,
   dayMove: Move,
-  config: ScannerConfig,
   checks: AuditCheck[],
   now: Date,
 ): Alert | null {
-  if (m.relativeVolume === null) {
+  const daily = input.priorDailyBars;
+  if (!daily || daily.length < 3) {
+    checks.push({ name: "Overnight Chart", passed: false, detail: "Not enough daily history to read the Overnight Chart." });
+    return null;
+  }
+  const today: Bar = { t: m.dataTimestamp, o: m.sessionOpen, h: m.high, l: m.low, c: m.last, v: m.cumulativeVolume };
+  const r = readOvernightChart([...daily, today]);
+  if (!r || !r.turnedToday) {
     checks.push({
-      name: "Unusual volume",
+      name: "Overnight Chart",
       passed: false,
-      detail: "No same-time-of-day baseline, so relative volume can't be computed.",
+      detail: r ? `The Overnight Chart is ${r.line} and did not turn today.` : "The Overnight Chart has not turned yet.",
     });
     return null;
   }
-
-  const qualifies = m.relativeVolume >= config.unusualVolumeThreshold;
-  checks.push({
-    name: "Unusual volume",
-    passed: qualifies,
-    detail: `${formatRvol(m.relativeVolume)} of normal (needs ${config.unusualVolumeThreshold.toFixed(1)}×).`,
-  });
-  if (!qualifies) return null;
-
+  const direction: Direction = r.line;
+  const stop = direction === "up" ? r.longStop : r.shortStop;
+  const anchor = direction === "up" ? r.lastBottom : r.lastTop;
+  const cause =
+    direction === "up"
+      ? `Today's low held above yesterday's bottom: the Overnight Chart turned up${anchor !== null ? ` from its last bottom at ${anchor.toFixed(2)}` : ""}.`
+      : `Today's low broke yesterday's bottom by more than ¼ point: the Overnight Chart turned down${anchor !== null ? ` from its last top at ${anchor.toFixed(2)}` : ""}.`;
+  checks.push({ name: "Overnight Chart", passed: true, detail: cause });
   const factors: ConfidenceFactor[] = [
-    {
-      label: "Volume far above normal",
-      passed: true,
-      weight: 40,
-      detail: `${formatRvol(m.relativeVolume)} of what this symbol normally trades by this time.`,
-    },
-    {
-      label: "Price is moving with it",
-      passed: Math.abs(dayMove.percent) >= config.minMovePct,
-      weight: 20,
-      detail: `${dayMove.percent.toFixed(2)}% from ${MOVE_BASIS_LABELS[dayMove.basis]}.`,
-    },
+    { label: "The Overnight Chart turned today", passed: true, weight: 30, detail: cause },
+    midpointFactor(m, direction),
+    ...hourlyFactors(m, direction),
+    dayDirectionFactor(dayMove, direction),
   ];
-
   return buildAlert({
     now,
     input,
     metrics: m,
-    type: "unusual_volume",
-    direction: dayMove.direction,
+    type: "overnight_turn",
+    direction,
     move: dayMove,
     factors,
+    invalidation: stop ?? m.midpoint,
+    whyThisAppeared: `${cause} The method trades with the line and keeps its stop 1 point beyond the last Overnight ${direction === "up" ? "bottom" : "top"}${stop !== null ? `, ${stop.toFixed(2)}` : ""}; when that stop is caught the line has reversed.`,
+  });
+}
+
+/**
+ * The first change in trend on Gann's hourly chart (*Master Stock Market
+ * Course* Ch. 13: in very active markets an hourly chart shows the first
+ * change in trend; Q29). Fires only on the hour the chart turned. The stop is
+ * the session's 50% point, the intraday alerts' Gann invalidation.
+ */
+function detectHourlyTurn(input: SymbolInput, m: SessionMetrics, checks: AuditCheck[], now: Date): Alert | null {
+  if (!m.hourly || !m.hourly.turned || !m.hourly.trend) {
+    checks.push({
+      name: "Hourly chart",
+      passed: false,
+      detail: !m.hourly ? "Not enough hourly history to read the hourly chart." : "The hourly chart did not change trend on the latest hour.",
+    });
+    return null;
+  }
+  const direction = m.hourly.trend;
+  const move = measureMove(m.last, m.midpoint, "midpoint");
+  if (!move) return null;
+  const cause = `The hourly swing chart turned ${direction} on the latest hour: the first change in trend.`;
+  checks.push({ name: "Hourly chart", passed: true, detail: cause });
+  const factors: ConfidenceFactor[] = [
+    { label: "The hourly chart turned", passed: true, weight: 30, detail: cause },
+    midpointFactor(m, direction),
+    swingFactor(m, direction),
+  ];
+  return buildAlert({
+    now,
+    input,
+    metrics: m,
+    type: "hourly_turn",
+    direction,
+    move,
+    factors,
     invalidation: m.midpoint,
-    whyThisAppeared: `${formatVolume(m.cumulativeVolume, input.kind === "crypto" ? "coins" : "shares")} of ${input.symbol} has traded today — ${formatRvol(m.relativeVolume)} what it normally does by this point. Volume like that usually means news or a large participant. It says something is happening; it does not say which way it resolves.`,
+    whyThisAppeared: `${cause} In a very active market the hourly chart shows a change before the daily chart does. A close back through the day's 50% point at ${m.midpoint.toFixed(2)} undoes it.`,
   });
 }
 
