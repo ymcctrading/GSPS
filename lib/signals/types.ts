@@ -131,8 +131,9 @@ export interface SignalGates {
   eligibleUniverse: boolean;
   operatingCandleClosed: boolean;
   staleData: boolean;
-  /** True = a binary event (earnings, etc.) falls inside the expected Novice hold period. Unknown blocks. */
-  binaryEventInHoldPeriod: boolean | null;
+  // No earnings/binary-event gate: the dates were generated from a reporting
+  // cadence, and no source of the method gates a trade on a report date
+  // (owner, Q25, 2026-10-16).
   liquiditySpreadPass: boolean;
   // No benchmark or sector gate: Gann trades each stock on its own trend, not
   // the averages (A-TREND-04, W006 pp.16-18; removed 2026-10-16, it had always

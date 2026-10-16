@@ -43,13 +43,6 @@ export interface CorporateActionQuality {
   identified: boolean;
 }
 
-export interface EarningsEventQuality {
-  /** Null when no date is known at all — distinct from a known date with low confidence. */
-  dateTimeZone: string | null;
-  confidence: "confirmed" | "estimated" | "unknown";
-  source: string | null;
-}
-
 export interface FundamentalsQuality {
   asOfDate: string | Date;
   /** False when the market-cap figure and the price it was derived from come from different providers/timestamps. */
@@ -59,7 +52,6 @@ export interface FundamentalsQuality {
 export interface DataQualityInputs {
   quote: QuoteQuality | null;
   corporateActions: CorporateActionQuality | null;
-  earningsEvent: EarningsEventQuality | null;
   fundamentals: FundamentalsQuality | null;
   now?: Date;
 }
@@ -81,9 +73,6 @@ export function dataQualityPass(
 
   const corpFail = corporateActionFail(inputs.corporateActions);
   if (corpFail) failures.push(corpFail);
-
-  const earningsFail = earningsEventFail(inputs.earningsEvent);
-  if (earningsFail) failures.push(earningsFail);
 
   const fundamentalsFail = fundamentalsFail_(inputs.fundamentals, now, thresholds);
   if (fundamentalsFail) failures.push(fundamentalsFail);
@@ -122,13 +111,6 @@ function corporateActionFail(ca: CorporateActionQuality | null): string | null {
   }
   if (!ca.identified) {
     return "A corporate action lacks a stable identifier to audit against.";
-  }
-  return null;
-}
-
-function earningsEventFail(event: EarningsEventQuality | null): string | null {
-  if (event === null || event.confidence === "unknown" || !event.dateTimeZone) {
-    return "Earnings/event date is unknown or ambiguous — no Novice entry without a confirmed calendar read.";
   }
   return null;
 }

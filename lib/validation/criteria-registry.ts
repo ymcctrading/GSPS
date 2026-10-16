@@ -944,7 +944,6 @@ const ALIGNMENT_STATES: Record<string, string[]> = {
     "liquiditySpread",
     "benchmarkSector",
     "volumeResumption",
-    "noBinaryEventConflict",
     "targetStopFeasibility",
   ],
   trendBreakout: [
@@ -955,7 +954,6 @@ const ALIGNMENT_STATES: Record<string, string[]> = {
     "liquiditySpread",
     "benchmarkSector",
     "volumeExpansion",
-    "noBinaryEventConflict",
     "targetStopFeasibility",
   ],
   confirmedReversal: [
@@ -966,7 +964,6 @@ const ALIGNMENT_STATES: Record<string, string[]> = {
     "liquiditySpread",
     "benchmarkSector",
     "volumeConfirmation",
-    "noBinaryEventConflict",
     "targetStopFeasibility",
   ],
   rangeReversion: [
@@ -977,7 +974,6 @@ const ALIGNMENT_STATES: Record<string, string[]> = {
     "liquiditySpread",
     "benchmarkSector",
     "noBreakoutVolumeSpike",
-    "noBinaryEventConflict",
     "targetStopFeasibility",
   ],
 };
@@ -1019,7 +1015,6 @@ const RULES_ALIGNMENT: RegisteredCriterion[] = Object.entries(ALIGNMENT_STATES).
 const DISQUALIFIERS: RegisteredCriterion[] = [
   "unclosedCandle",
   "staleData",
-  "binaryEvent",
   "targetBlocked",
   "stopPolicy",
   "positionSize",

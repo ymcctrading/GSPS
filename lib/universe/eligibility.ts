@@ -10,11 +10,10 @@ import { marketCapPass, DEFAULT_MARKET_CAP_THRESHOLDS, type MarketCapThresholds 
 import { liquidityPass, DEFAULT_LIQUIDITY_THRESHOLDS, type LiquidityThresholds } from "./liquidity";
 import { priceOrFractionalPass, DEFAULT_PRICE_BAND_THRESHOLDS, type PriceBandThresholds } from "./priceAccessibility";
 import { spreadPass, DEFAULT_SPREAD_THRESHOLDS, type SpreadQuote, type SpreadThresholds } from "./spread";
-import { eventRiskPass } from "./eventRisk";
 import { volatilityPass, DEFAULT_VOLATILITY_THRESHOLDS, type VolatilityThresholds } from "./volatility";
 import { dataQualityPass, DEFAULT_DATA_QUALITY_THRESHOLDS, type DataQualityInputs, type DataQualityThresholds } from "./dataQuality";
 import type { Bar } from "@/lib/types";
-import type { NoviceEligibility, TradeQualification, TriState, UniverseFilterResult } from "./types";
+import type { NoviceEligibility, TradeQualification, UniverseFilterResult } from "./types";
 
 /**
  * Every `policy_values`-overridable threshold `assessNoviceEligibility`'s
@@ -56,7 +55,6 @@ export interface NoviceEligibilityInputs {
   price: number | null;
   fractionalConfirmed: boolean | null;
   spreadQuote: SpreadQuote | null;
-  binaryEventInHoldWindow: TriState;
   dailyBars: Bar[];
   dataQuality: DataQualityInputs;
 }
@@ -90,7 +88,6 @@ export function assessNoviceEligibility(
     liquidity,
     priceOrFractionalPass(inputs.price, inputs.fractionalConfirmed, thresholds.priceBand),
     spreadPass(inputs.spreadQuote, liquidity.pass, thresholds.spread),
-    eventRiskPass(inputs.binaryEventInHoldWindow),
     volatilityPass(inputs.dailyBars, 14, thresholds.volatility),
     dataQualityPass(inputs.dataQuality, thresholds.dataQuality),
   ];

@@ -15,20 +15,17 @@ import type { SignalGates } from "./types";
 export interface ScanGateInputs {
   liquidity: LiquidityRead | null;
   liquidityOk: boolean;
-  /** True if a binary event (earnings, etc.) falls inside the hold-period window; null if unknown. */
-  binaryEventInHoldPeriod: boolean | null;
   /** True when the decision was already held for feed lag — see `lib/data/latency.ts`. */
   dataLagged: boolean;
 }
 
 export function buildScanMarketGates(inputs: ScanGateInputs): SignalGates {
-  const { liquidityOk, binaryEventInHoldPeriod, dataLagged } = inputs;
+  const { liquidityOk, dataLagged } = inputs;
 
   return {
     eligibleUniverse: liquidityOk,
     operatingCandleClosed: true, // the caller passes only closed bars (e.g. `closedM15`)
     staleData: dataLagged,
-    binaryEventInHoldPeriod,
     // No bid/ask spread feed exists yet — the liquidity floor is used as the
     // best available proxy for "cost to enter is acceptable" until one does.
     liquiditySpreadPass: liquidityOk,

@@ -32,7 +32,6 @@ const ALL_GATES_PASS: SignalGates = {
   eligibleUniverse: true,
   operatingCandleClosed: true,
   staleData: false,
-  binaryEventInHoldPeriod: false,
   liquiditySpreadPass: true,
   targetRoomAvailable: true,
   stopWithinNovicePolicy: true,

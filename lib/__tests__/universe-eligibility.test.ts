@@ -12,7 +12,6 @@ import { marketCapPass, isCoreMarketCap } from "@/lib/universe/marketCap";
 import { liquidityPass, isCoreLiquidity } from "@/lib/universe/liquidity";
 import { priceOrFractionalPass } from "@/lib/universe/priceAccessibility";
 import { spreadPass } from "@/lib/universe/spread";
-import { eventRiskPass } from "@/lib/universe/eventRisk";
 import { volatilityPass } from "@/lib/universe/volatility";
 import { dataQualityPass, type DataQualityInputs } from "@/lib/universe/dataQuality";
 import { checkProhibited } from "@/lib/universe/prohibited";
@@ -40,7 +39,6 @@ function goodDataQuality(now = new Date()): DataQualityInputs {
   return {
     quote: { timestamp: now, exchangeSession: "NASDAQ regular", adjusted: true, latencyStatus: "live" },
     corporateActions: { adjustmentsApplied: true, identified: true },
-    earningsEvent: { dateTimeZone: "2026-11-01T21:00:00Z", confidence: "confirmed", source: "vendor" },
     fundamentals: { asOfDate: now, sourceConsistent: true },
     now,
   };
@@ -104,18 +102,6 @@ describe("spread_pass", () => {
   });
 });
 
-describe("event_risk_pass", () => {
-  it("blocks a known binary event in the hold window", () => {
-    expect(eventRiskPass(true).pass).toBe(false);
-  });
-  it("blocks unknown event data (defaults to caution/block)", () => {
-    expect(eventRiskPass("unknown").pass).toBe(false);
-  });
-  it("passes a confirmed-clear window", () => {
-    expect(eventRiskPass(false).pass).toBe(true);
-  });
-});
-
 describe("volatility_pass", () => {
   it("blocks too little movement", () => {
     expect(volatilityPass(dailyBars(20, { atrPct: 0.1 })).pass).toBe(false);
@@ -135,11 +121,6 @@ describe("data_quality_pass", () => {
   it("blocks stale quotes", () => {
     const q = goodDataQuality();
     q.quote = { ...q.quote!, latencyStatus: "stale" };
-    expect(dataQualityPass(q).pass).toBe(false);
-  });
-  it("blocks unconfirmed/ambiguous earnings data", () => {
-    const q = goodDataQuality();
-    q.earningsEvent = { dateTimeZone: null, confidence: "unknown", source: null };
     expect(dataQualityPass(q).pass).toBe(false);
   });
   it("blocks stale fundamentals", () => {
@@ -167,7 +148,6 @@ describe("assessNoviceEligibility", () => {
     price: 50,
     fractionalConfirmed: null,
     spreadQuote: null,
-    binaryEventInHoldWindow: false as const,
     dailyBars: dailyBars(20, { close: 50, atrPct: 2 }),
     dataQuality: goodDataQuality(now),
   };
@@ -201,7 +181,6 @@ describe("assessTradeQualification", () => {
       price: 50,
       fractionalConfirmed: null,
       spreadQuote: null,
-      binaryEventInHoldWindow: false,
       dailyBars: dailyBars(20, { close: 50, atrPct: 2 }),
       dataQuality: goodDataQuality(),
     });
@@ -236,7 +215,6 @@ describe("assessNoviceEligibility policy_values threshold overrides", () => {
     price: 50,
     fractionalConfirmed: null,
     spreadQuote: null,
-    binaryEventInHoldWindow: false as const,
     dailyBars: dailyBars(20, { close: 50, atrPct: 2 }),
     dataQuality: goodDataQuality(),
   };

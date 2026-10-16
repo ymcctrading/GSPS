@@ -66,7 +66,6 @@ import {
 } from "@/lib/scoring/proximity";
 import { getActiveCriterionWeights } from "@/lib/scoring/active-weights";
 import { meetsLiquidityFloor, readLiquidity } from "@/lib/scan/liquidity";
-import { isBinaryEventInHoldPeriod } from "@/lib/macro/earnings";
 import { classifyRegime } from "@/lib/signals/regime";
 import { evaluateTrendPullback } from "@/lib/signals/states/trendPullback";
 import { evaluateTrendBreakout } from "@/lib/signals/states/trendBreakout";
@@ -469,16 +468,9 @@ export async function scanTicker(
     // placeholders — see `accountContextAssumed` on the returned verdict and
     // `lib/signals/scanGates.ts`. Callers with a real account (e.g. Guided
     // Decision Mode) should treat `tradeable` here as informational only.
-    const HOLD_PERIOD_DAYS = 7;
-    const binaryEventInHoldPeriod = isBinaryEventInHoldPeriod(
-      symbol.toUpperCase(),
-      new Date(scannedAt),
-      HOLD_PERIOD_DAYS,
-    );
     const marketGates = buildScanMarketGates({
       liquidity: liquidity ?? null,
       liquidityOk: meetsLiquidityFloor(liquidity ?? null, assetClass).ok,
-      binaryEventInHoldPeriod,
       dataLagged: dataLag.holdsExecute,
     });
 
@@ -494,7 +486,6 @@ export async function scanTicker(
         currentPrice,
         liquidity: liquidity ?? null,
         dailyBars: daily,
-        binaryEventInHoldPeriod,
         dataLagged: dataLag.holdsExecute,
         scannedAt,
       },

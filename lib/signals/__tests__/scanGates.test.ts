@@ -3,22 +3,10 @@ import { buildScanMarketGates } from "../scanGates";
 import { allSafetyGatesPass, evaluateDisqualifiers } from "../disqualifiers";
 
 describe("buildScanMarketGates", () => {
-  it("blocks on unknown binary-event status rather than assuming it's clear", () => {
-    const gates = buildScanMarketGates({
-      liquidity: null,
-      liquidityOk: true,
-      binaryEventInHoldPeriod: null,
-      dataLagged: false,
-    });
-    const disqualifiers = evaluateDisqualifiers(gates);
-    expect(disqualifiers.some((d) => d.key === "binaryEvent")).toBe(true);
-  });
-
   it("fails the liquidity/universe gates when the liquidity floor isn't met", () => {
     const gates = buildScanMarketGates({
       liquidity: null,
       liquidityOk: false,
-      binaryEventInHoldPeriod: false,
       dataLagged: false,
     });
     expect(gates.eligibleUniverse).toBe(false);
@@ -29,7 +17,6 @@ describe("buildScanMarketGates", () => {
     const gates = buildScanMarketGates({
       liquidity: null,
       liquidityOk: true,
-      binaryEventInHoldPeriod: false,
       dataLagged: false,
     });
     expect(allSafetyGatesPass(gates)).toBe(true);
@@ -39,7 +26,6 @@ describe("buildScanMarketGates", () => {
     const gates = buildScanMarketGates({
       liquidity: null,
       liquidityOk: true,
-      binaryEventInHoldPeriod: false,
       dataLagged: false,
     });
     expect(evaluateDisqualifiers(gates)).toHaveLength(0);

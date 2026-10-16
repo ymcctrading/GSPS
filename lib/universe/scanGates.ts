@@ -11,12 +11,11 @@
 import type { AssetClass, Bar } from "@/lib/types";
 import type { LiquidityRead } from "@/lib/scan/liquidity";
 import { LARGE_CAP_SOURCE_CAPTURED, LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
-import { nextKnownEarningsEvent } from "@/lib/macro/earnings";
 import { marketSession } from "@/lib/market/session";
 import { assessNoviceEligibility, DEFAULT_UNIVERSE_THRESHOLDS, type UniverseThresholds } from "./eligibility";
 import { marketCapPassFromLargeCapCoverage } from "./marketCap";
 import type { DataQualityInputs } from "./dataQuality";
-import type { NoviceEligibility, TriState } from "./types";
+import type { NoviceEligibility } from "./types";
 
 const LARGE_CAP_SET: ReadonlySet<string> = new Set(LARGE_CAP_UNIVERSE.map((s) => s.toUpperCase()));
 
@@ -26,8 +25,6 @@ export interface ScanUniverseGateInputs {
   currentPrice: number;
   liquidity: LiquidityRead | null;
   dailyBars: Bar[];
-  /** Same tri-state read `buildScanMarketGates` already computes for `SignalGates.binaryEventInHoldPeriod`. */
-  binaryEventInHoldPeriod: boolean | null;
   /** `dataLag.holdsExecute` — the same lag hold `buildScanMarketGates` uses. */
   dataLagged: boolean;
   scannedAt: string;
@@ -46,7 +43,6 @@ export function buildScanNoviceEligibility(
   const symbol = inputs.symbol.toUpperCase();
   const inLargeCapUniverse = inputs.assetClass === "us_equity" && LARGE_CAP_SET.has(symbol);
   const now = new Date(inputs.scannedAt);
-  const earningsEvent = nextKnownEarningsEvent(symbol, now);
 
   const dataQuality: DataQualityInputs = {
     quote: {
@@ -61,14 +57,6 @@ export function buildScanNoviceEligibility(
     // No corporate-action feed exists — absence is not itself a failure
     // (see dataQuality.ts), so this stays null rather than fabricated.
     corporateActions: null,
-    earningsEvent: earningsEvent
-      ? {
-          dateTimeZone: `${earningsEvent.date} (${earningsEvent.timing})`,
-          // Generated from reporting cadence, not vendor-confirmed — see lib/macro/earnings.ts.
-          confidence: "estimated",
-          source: "lib/macro/earnings.ts generated calendar",
-        }
-      : null,
     fundamentals: inLargeCapUniverse
       ? { asOfDate: LARGE_CAP_SOURCE_CAPTURED, sourceConsistent: true }
       : null,
@@ -86,12 +74,7 @@ export function buildScanNoviceEligibility(
     // No bid/ask feed at scan time — `spreadPass` falls back to the liquidity
     // proxy, the same documented fallback `lib/signals/scanGates.ts` uses today.
     spreadQuote: null,
-    binaryEventInHoldWindow: toTriState(inputs.binaryEventInHoldPeriod),
     dailyBars: inputs.dailyBars,
     dataQuality,
   }, thresholds);
-}
-
-function toTriState(v: boolean | null): TriState {
-  return v === null ? "unknown" : v;
 }
