@@ -828,3 +828,8 @@ including the break) survive as equivalent on one session; B3 removed as redunda
 - plan-reaction: Execute n182 +0.082R [-0.031,+0.195]; Watch -0.069R.
 - vs run 53 (05ad97e): Execute +10 trades, gann-runner E -0.046R, CI now spans zero; population unchanged (bucket moves only).
 - Execute factors (gann-runner): historicalSR 44.0% dR +0.158; stopRoom 96.2% (past the 95% saturation ceiling) dR +0.200; volumeClimax 91.8% dR -0.208.
+
+2026-10-16 A-LEVELS-04 review 18: PASS. passes flipped to true.
+- L1: a close exactly on the 3-point line is pinned as not failed (strict reading, documented); the <= mutant is killed.
+- L2 carried: placement half-cent slack (cent-rounded plan prices).
+- Open owner cards on this rule (not blocking the flip): L3 (re-entry on the crossing vs within 3 points), 15-minute crossing as the pass.

@@ -1005,7 +1005,7 @@
     "class": "A",
     "gsps_location": "lib/gann/multipleTops.ts:readMultipleTops; lib/gann/disclosedRules.ts:readLevelTests",
     "test": "lib/gann/__tests__/timeRulesAndTops.test.ts > double and triple tops > reads a triple top that failed on its third test",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-LEVELS-05",

@@ -92,6 +92,9 @@ export function readMultipleTops(daily: Bar[]): MultipleTopsReading {
     // and stays failed until a later close passes it by the 3 points or a new
     // swing replaces it (owner card, 2026-10-16, recommended option: a failed
     // top is a top until it is passed).
+    // A close exactly on the 3-point line does not count either way: the
+    // test needs a close beyond it (an engineering reading of Gann's "3
+    // points under", the same strict test as the crossing; review 18 L1).
     // One reading per kind (review 14 M1, a known limit): while that latest
     // cluster reads failed, a nearer cluster price has crossed is not
     // reported, so the card and `multipleTopCrossedWithTrade` show the failed

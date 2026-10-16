@@ -394,3 +394,16 @@ describe("crossed level read back from cent prices (review 15 M1)", () => {
     }
   });
 });
+
+describe("a close exactly on the 3-point line (review 18 L1)", () => {
+  const t0 = Date.parse("2026-01-01T00:00:00Z");
+  const mk = (cs: number[]): Bar[] => cs.map((c, i) => ({ t: new Date(t0 + i * 86_400_000).toISOString(), o: c, h: c, l: c, c, v: 1e6 }));
+  const leg = (a: number, b: number, n: number) => Array.from({ length: n }, (_, i) => Math.round((a + ((b - a) * (i + 1)) / n) * 100) / 100);
+  const base = [...leg(8, 10, 6), ...leg(10, 9.2, 5), ...leg(9.2, 10, 6), ...leg(10, 9.3, 4)];
+  it("reads failed only once a close is more than 3 points under the top", () => {
+    const line = beyondByThreePoints(10, -1);
+    expect(line).toBe(8.8);
+    expect(readMultipleTops(mk([...base, line])).top?.state).not.toBe("failed");
+    expect(readMultipleTops(mk([...base, 8.79])).top).toMatchObject({ level: 10, state: "failed" });
+  });
+});
