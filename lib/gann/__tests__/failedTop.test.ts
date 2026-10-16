@@ -73,6 +73,20 @@ describe("failedTestAgainst", () => {
     expect(readGannExit(p, post, null).exit?.reason).not.toBe("failed_top");
   });
 
+  it("forgets an old failed top once a newer swing top stands apart from it (review 14 M)", () => {
+    // The ~110.5 double top failed; a later rally tops at ~104.5, outside its band.
+    const newer = bars([...doubleTop, ...leg(103, 100, 3), ...leg(100, 104, 4), ...leg(104, 101, 4)]);
+    expect(failedTestAgainst(readMultipleTops(newer), "bullish")).toBeNull();
+  });
+
+  it("judges the cluster the latest top joined, not the newest cluster formed", () => {
+    // Tops near 96 twice, then near 110.5 twice, then a third test near 96 that fails.
+    const closes = [...leg(88, 96, 5), ...leg(96, 91, 4), ...leg(91, 96, 4), ...leg(96, 92, 4), ...leg(92, 110, 8), ...leg(110, 102, 5), ...leg(102, 110, 6), ...leg(110, 90, 10), ...leg(90, 96, 5), ...leg(96, 89, 6)];
+    const r = readMultipleTops(bars(closes));
+    expect(r.top).toMatchObject({ state: "failed", tests: 3 });
+    expect(r.top!.level).toBeLessThan(100);
+  });
+
   it("indexes the latest test's swing extreme in the bars read", () => {
     const b = bars(doubleTop);
     const r = readMultipleTops(b).top!;
@@ -94,9 +108,11 @@ describe("failedTestInPath (review 11 H1: only a failed test before the first ta
   });
   it("leaves a crossing entry at the failed top alone: its own crossing is the pass", () => {
     expect(failedTestInPath(tops, "bullish", 104, 120, L)).toBeNull();
-    expect(failedTestInPath(tops, "bullish", 104, 120, beyondByThreePoints(L, -1))).toBeNull();
-    // A crossing of a lower level still has the failed top ahead of it.
-    expect(failedTestInPath(tops, "bullish", 104, 120, beyondByThreePoints(L, -1) - 0.01)).not.toBeNull();
+    expect(failedTestInPath(tops, "bullish", 104, 120, L + 2)).toBeNull();
+    // A crossing of a lower level, even inside the 3 points, arms short of
+    // the pass and is held (review 14 H).
+    expect(failedTestInPath(tops, "bullish", 104, 120, L - 0.01)).not.toBeNull();
+    expect(failedTestInPath(tops, "bullish", 104, 120, beyondByThreePoints(L, -1))).not.toBeNull();
     expect(failedTestInPath(tops, "bullish", 104, 120, null)).not.toBeNull();
     expect(crossingLevelOf({ kind: "crossing", level: 110 })).toBe(110);
     expect(crossingLevelOf({ kind: "oldLevel", level: 110 })).toBeNull();
@@ -127,8 +143,8 @@ describe("failedTestInPath (review 11 H1: only a failed test before the first ta
     expect(failedTestInPath(bottoms, "bearish", 96, below)).toBeNull();
     expect(failedTestInPath(bottoms, "bearish", 96, 92)).toBeNull();
     expect(failedTestInPath(bottoms, "bearish", B - 1, 80)).not.toBeNull();
-    expect(failedTestInPath(bottoms, "bearish", 96, 80, beyondByThreePoints(B, 1))).toBeNull();
-    expect(failedTestInPath(bottoms, "bearish", 96, 80, beyondByThreePoints(B, 1) + 0.01)).not.toBeNull();
+    expect(failedTestInPath(bottoms, "bearish", 96, 80, B)).toBeNull();
+    expect(failedTestInPath(bottoms, "bearish", 96, 80, B + 0.01)).not.toBeNull();
     expect(failedTestInPath(bottoms, "bearish", below, 80)).toBeNull();
   });
 });

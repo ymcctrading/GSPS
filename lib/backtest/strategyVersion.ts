@@ -252,4 +252,9 @@
 // the latest top's own cluster, so an older level nearer to price no longer
 // hides it; a trade is in its path while the entry is short of passing it;
 // Guided Mode and the demo send the protocol's TP1.
-export const STRATEGY_VERSION = "2026-10-16-gann-failed-tops-latest";
+//
+// 2026-10-16-gann-failed-tops-crossing: review 14. A crossing entry is exempt
+// from a failed top only when the level it crosses is at or past that top;
+// a crossing of a lower level is held. Confirmation and placement read the
+// crossed level from the protocol's own stop, never an attached one.
+export const STRATEGY_VERSION = "2026-10-16-gann-failed-tops-crossing";

@@ -36,7 +36,7 @@ import { failedTestInPath, readMultipleTops } from "@/lib/gann/multipleTops";
 import type { AssetClass, Bar } from "@/lib/types";
 import { getMarketDataProvider } from "@/lib/data/provider";
 import { EXECUTION_TIMEFRAME, TF_INTERVAL_MS } from "@/lib/timeframe";
-import { computeGannEntryTrigger, gannBreakLine, gannCrossedLevel } from "@/lib/gann/entryTrigger";
+import { computeGannEntryTrigger, gannBreakLine } from "@/lib/gann/entryTrigger";
 import { breakawayVolumeMet } from "@/lib/gann/breakaway";
 import { restsWithoutCrossing, type GannEntryKind } from "@/lib/gann/entryKind";
 import { etDateKey } from "@/lib/market/session";
@@ -160,6 +160,12 @@ type ConfirmationInput = {
    * unknown, so any failed test beyond the entry holds it (review 12 M1).
    */
   takeProfit1?: number;
+  /**
+   * The level a crossing entry waits to close past, from the protocol's own
+   * entry and stop (`protocolCrossedLevel`); its crossing of a failed top is
+   * the pass (A-LEVELS-04). Absent, no crossing is assumed.
+   */
+  crossedLevel?: number | null;
   /** Which of Gann's buying points; `oldLevel` and `hold` have nothing to cross. */
   entryKind?: GannEntryKind;
   /**
@@ -187,10 +193,7 @@ export async function readEntryConfirmationNow(input: ConfirmationInput): Promis
   const daily = (await getMarketDataProvider().fetchBars(input.symbol, "1Day", year, null, input.assetClass)) ?? [];
   if (input.direction === "bullish" && readDistributionStanding(daily, now)) return DISTRIBUTION_STANDS;
   const target = input.takeProfit1 ?? (input.direction === "bullish" ? Infinity : -Infinity);
-  // A crossing entry (no kind given is the crossing) waits for its own close
-  // past the level it crosses, recovered from its entry and stop.
-  const crossed = restsWithoutCrossing(input.entryKind) ? null : gannCrossedLevel(input.entryTrigger, input.stopPrice);
-  const failed = failedTestInPath(readMultipleTops(entryChartBars(daily, etDateKey(now))), input.direction, input.entryTrigger, target, crossed);
+  const failed = failedTestInPath(readMultipleTops(entryChartBars(daily, etDateKey(now))), input.direction, input.entryTrigger, target, input.crossedLevel);
   if (failed) {
     const top = failed.kind === "top";
     return {
@@ -288,3 +291,4 @@ export function heldOnDailyChart(
   if (!trigger?.held) return false;
   return Math.abs(trigger.reactionEntry - entry) <= Math.max(0.01, entry * 0.001);
 }
+

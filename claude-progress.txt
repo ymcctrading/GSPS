@@ -798,3 +798,11 @@ including the break) survive as equivalent on one session; B3 removed as redunda
 - New, found by the replay tests: a crossing entry at the failed top is itself the pass, so it is exempt (crossingLevelOf / failedTestInPath crossedLevel); a crossing of a lower level is still held. Without this every breakout over a range top was held. Mutants X1-X4 killed.
 - M3 measurement and L3 (TP1 band, client-sent entryTarget trusted like entryStop) stay open: replay pending; L3 noted for Chuck.
 - STRATEGY_VERSION 2026-10-16-gann-failed-tops-latest. Full suite 3017/3017, tsc, terms, eslint clean.
+
+2026-10-16 A-LEVELS-04 review 14 fixes (STRATEGY_VERSION 2026-10-16-gann-failed-tops-crossing)
+- H: the crossing exemption now needs the crossed level at or past the failed level (was level minus 3 points); behavioural tests at L, L+2, L-0.01, L-3pts, bottoms mirrored.
+- M: latest-cluster selection pinned by two tests (newer swing apart; latest joins an older cluster).
+- L: confirmNow takes crossedLevel from its caller; place-order reads it from the plan's own stop or entryStop via protocolCrossedLevel (entryTrigger.ts), never the attached stop; a resting kind yields none.
+- M (card masking), documented, not changed: while the latest cluster reads failed, a nearer crossed cluster is not reported on the card or in multipleTopCrossedWithTrade. thirdTestFailedAgainstTrade's meaning moved three times today; compare runs on one STRATEGY_VERSION only.
+- Open for the owner: a pass that falls back reads failed again (design choice); the rule's reach (failed top stands in 47% of readings, 13.7% of 10-session longs exit on it) needs a replay.
+- Mutants M1-M6 (loose exemption, strict exemption, newest cluster, attached stop, null advised, resting kind) all killed. 3020 tests pass, tsc, check:terms clean.

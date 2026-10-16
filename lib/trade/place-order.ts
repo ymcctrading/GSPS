@@ -14,6 +14,7 @@
  */
 
 import { readEntryConfirmationNow } from "@/lib/lifecycle/confirmNow";
+import { protocolCrossedLevel } from "@/lib/gann/entryTrigger";
 import { getTradePlan } from "@/lib/lifecycle/store";
 import { isPivotSignal } from "@/lib/lifecycle/fromPivot";
 import { gannThreePoints } from "@/lib/gann/pointScale";
@@ -234,6 +235,7 @@ export async function entryConfirmationRefusal(
     stopPrice?: number;
     entryKind?: "crossing" | "oldLevel" | "hold";
     takeProfit1?: number;
+    crossedLevel?: number | null;
     since?: string;
   } | null = null;
   if (input.sourcePlanId) {
@@ -249,6 +251,10 @@ export async function entryConfirmationRefusal(
       stopPrice: isPivotSignal(plan.signalId) ? undefined : plan.coordinates.invalidation,
       entryKind: plan.coordinates.entryKind,
       takeProfit1: plan.coordinates.takeProfit1,
+      // The plan's own stop is the protocol's, so its crossed level is read from it.
+      crossedLevel: isPivotSignal(plan.signalId)
+        ? null
+        : protocolCrossedLevel(plan.coordinates.entryTrigger, plan.coordinates.invalidation, plan.coordinates.entryKind),
       since: plan.generatedAt,
     };
   } else if (input.entryMode === "advised" && input.limitPrice != null) {
@@ -264,6 +270,9 @@ export async function entryConfirmationRefusal(
         stopPrice,
         entryKind: input.entryKind,
         takeProfit1: input.entryTarget,
+        // Only the protocol's stop places the crossing: an attached stop may
+        // be one the person typed (review 14 L4).
+        crossedLevel: protocolCrossedLevel(input.limitPrice, input.entryStop, input.entryKind),
       };
     }
   }

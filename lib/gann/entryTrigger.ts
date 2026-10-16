@@ -83,7 +83,7 @@ import type { Bar } from "@/lib/types";
 import { beyondByThreePoints, gannThreePoints, gannThreePointsPct } from "@/lib/gann/pointScale";
 import { SWING_CHART_DAYS, WEEKLY_SWING_CHART, swingPivots, walkSwingChart, type SwingPivot } from "@/lib/gann/swingChart";
 import { readCounterMove } from "@/lib/gann/disclosedRules";
-import type { GannEntryKind, GannHoldBasis } from "@/lib/gann/entryKind";
+import { restsWithoutCrossing, type GannEntryKind, type GannHoldBasis } from "@/lib/gann/entryKind";
 
 export type TriggerDirection = "bullish" | "bearish";
 
@@ -926,4 +926,14 @@ export function gannBreakLine(entry: number, stop: number): number {
 /** The crossed level itself, recovered the same way: `(3 * entry + stop) / 4`. */
 export function gannCrossedLevel(entry: number, stop: number): number {
   return (3 * entry + stop) / 4;
+}
+
+/**
+ * The level a crossing entry crosses, recovered from the protocol's reaction
+ * pair (`gannCrossedLevel`), or null for an entry that rests at its level.
+ * Callers pass only the protocol's own stop, never one a person typed.
+ */
+export function protocolCrossedLevel(entry: number, protocolStop: number | null | undefined, kind: GannEntryKind | undefined): number | null {
+  if (protocolStop == null || restsWithoutCrossing(kind)) return null;
+  return gannCrossedLevel(entry, protocolStop);
 }

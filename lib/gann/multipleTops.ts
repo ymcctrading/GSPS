@@ -92,6 +92,10 @@ export function readMultipleTops(daily: Bar[]): MultipleTopsReading {
     // and stays failed until a later close passes it by the 3 points or a new
     // swing replaces it (owner card, 2026-10-16, recommended option: a failed
     // top is a top until it is passed).
+    // One reading per kind (review 14 M1, a known limit): while that latest
+    // cluster reads failed, a nearer cluster price has crossed is not
+    // reported, so the card and `multipleTopCrossedWithTrade` show the failed
+    // top only. The hold reads the failed top, which is the one it needs.
     const latest = groups.find((c) => c.lastIndexInList === prices.length - 1);
     if (latest) {
       const after = daily.slice(ofKind[latest.lastIndexInList].index + 1);
@@ -144,11 +148,12 @@ export function failedTestAgainst(
  * (`readEntryConfirmationNow`).
  *
  * `crossedLevel` is the level a crossing entry waits to close past by the 3
- * points (Gann's buying point over an old top). When that is the failed top,
- * or above it, the entry is itself the pass that ends the failure, so it is
- * not held: the crossing is the rule's own way out (found 2026-10-16 when the
- * replay's range breakouts were all held). Engineering choice, labelled: "the
- * failed top" is a crossed level no lower than 3 points under it.
+ * points (Gann's buying point over an old top). When that is the failed top's
+ * level or above it, the close the entry waits for is the pass that ends the
+ * failure, so it is not held: the crossing is the rule's own way out (found
+ * 2026-10-16 when the replay's range breakouts were all held). A crossing of
+ * a lower level, the lower second top included, arms short of the pass and is
+ * held (review 14 H).
  */
 export function failedTestInPath(
   reading: MultipleTopsReading | null | undefined,
@@ -160,7 +165,7 @@ export function failedTestInPath(
   const failed = failedTestAgainst(reading, direction);
   if (!failed || entry == null || takeProfit1 == null) return null;
   if (crossedLevel != null) {
-    const passesIt = direction === "bullish" ? crossedLevel >= beyondByThreePoints(failed.level, -1) : crossedLevel <= beyondByThreePoints(failed.level, 1);
+    const passesIt = direction === "bullish" ? crossedLevel >= failed.level : crossedLevel <= failed.level;
     if (passesIt) return null;
   }
   const inPath =
