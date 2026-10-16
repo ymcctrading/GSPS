@@ -749,3 +749,8 @@ including the break) survive as equivalent on one session; B3 removed as redunda
 - gannTargetPool (levels.ts): Square of Nine prices only; fans stay on chart/card. Used by scanTicker and replay priceTradeLevels (also the crypto master path, which reads gannTargets).
 - campaignSupportLevels (campaignBottoms.ts): unbroken ladder bottoms under price join allLevels as 1Month on both surfaces (readCampaignBottoms(charts.monthly, charts.daily, asOf)); shorts can target them, a long's stop can rest under them.
 - Mutants G1-G3 killed. STRATEGY_VERSION 2026-10-16-gann-target-ladder. Replays for steps 5-8 queued one at a time after run 51.
+
+## Run 51 (38888547753, 05ad97e level-parity) — wrong cells, not comparable
+- Dispatched without the cells input, so it ran the default single baseline cell (production stop, bracket), not run 50's plan-reaction / plan-reaction-gannrunner pair. Baseline Execute n172 +0.171R [+0.013,+0.331]; all -0.040. Not compared with run 50. Run 52 (same mistake, at 4d05920) cancelled.
+- ALWAYS pass cells: [{"label":"plan-reaction-gannrunner","options":{"usePlanLevels":true,"entryRule":"reaction","exitRule":"gann-runner"}},{"label":"plan-reaction","options":{"usePlanLevels":true,"entryRule":"reaction"}}]
+- Rerunning 05ad97e with the cells as run 53, then steps 5-8 one at a time.
