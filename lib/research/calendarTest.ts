@@ -213,6 +213,24 @@ export function scoreCellByPhase(
   }));
 }
 
+/**
+ * CYC-40 (Halberg, W041 pp. 10-11, 25): don't force the nominal period; a
+ * rhythm may fit better off it (28 h and 178 h beat 24 h and 168 h). Each
+ * year convention is scored, Holm is applied across the three, and the best
+ * fit (largest edge over its own base rate) is reported rather than assumed.
+ * Research only.
+ */
+export function bestConvention(
+  series: string,
+  input: SeriesInput,
+  setName: "W1" | "W3",
+  years?: [number, number],
+): { cells: CellResult[]; best: Convention; bestHolmSignificant: boolean } {
+  const cells = holm(CONVENTIONS.map((c) => scoreCell(series, input, setName, c, years)));
+  const best = cells.reduce((a, b) => (b.hitRate - b.baseMean > a.hitRate - a.baseMean ? b : a));
+  return { cells, best: best.convention, bestHolmSignificant: best.holmSignificant === true };
+}
+
 /** Holm–Bonferroni at family-wise alpha. Mutates and returns the results. */
 export function holm<T extends { p: number; holmSignificant?: boolean }>(results: T[], alpha = 0.05): T[] {
   const order = [...results].sort((a, b) => a.p - b.p);
