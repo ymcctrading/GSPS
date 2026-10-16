@@ -65,6 +65,7 @@ import {
   proximityBandPct,
 } from "@/lib/scoring/proximity";
 import { envCreds, getAsset } from "@/lib/brokers/alpaca";
+import { isStopBreached } from "@/lib/gann/stopBreach";
 
 /**
  * SEC's own line for a "penny stock" is under $5, and it doubles as a proxy
@@ -558,11 +559,17 @@ export function hasTradePlan(r: ScanResult): boolean {
   // The plan's levels come only from Gann's entry trigger (scanTicker), so a
   // complete plan is the whole test. The STRAT pattern no longer gates
   // publication (2026-09-28, project owner; see AGENTS.md).
+  // A plan whose own stop is broken is retired (owner, 2026-09-30, "a breach
+  // retires the plan") and never takes a slot: the scan reports it
+  // (`stopBreach`), and the price it ran at is checked against the stop
+  // directly as well. Production published 11 of 14 such plans on 2026-10-16.
   return (
     l !== null &&
     [l.entry, l.stopLoss, l.takeProfit1, l.masterProfit].every(
       (v) => typeof v === "number" && Number.isFinite(v),
-    )
+    ) &&
+    !r.stopBreach &&
+    !(r.direction !== "none" && isStopBreached(r.direction, l.stopLoss, r.currentPrice))
   );
 }
 

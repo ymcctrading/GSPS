@@ -221,6 +221,18 @@ describe("hasTradePlan", () => {
   it("rejects a scan carrying a non-finite level", () => {
     expect(hasTradePlan(result({ levels: { ...levels, masterProfit: Number.NaN } }))).toBe(false);
   });
+  // A plan whose stop is already broken is retired (owner, 2026-09-30) and is
+  // not a setup: production published 11 of 14 such plans on 2026-10-16.
+  it("rejects a plan the scan reports broken", () => {
+    expect(hasTradePlan(result({ stopBreach: { stop: 99, price: 98.5, reclaimAt: 105 } }))).toBe(false);
+  });
+
+  it("rejects a plan whose stop price is already through, long and short", () => {
+    expect(hasTradePlan(result({ currentPrice: 98 }))).toBe(false);
+    const short = { ...levels, entry: 100, stopLoss: 101, takeProfit1: 98, takeProfit2: 97, masterProfit: 97 };
+    expect(hasTradePlan(result({ direction: "bearish", levels: short, currentPrice: 102 }))).toBe(false);
+    expect(hasTradePlan(result({ direction: "bearish", levels: short, currentPrice: 100.5 }))).toBe(true);
+  });
 });
 
 /**

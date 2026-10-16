@@ -447,7 +447,7 @@
     "class": "A",
     "gsps_location": "lib/gann/multipleTops.ts:readMultipleTops; lib/analysis/levelRole.ts:levelTestConfidence",
     "test": "lib/analysis/__tests__/levelRole.test.ts > levelTestConfidence > reads 1-3 tests as reliable",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-ENTRY-04",
@@ -510,7 +510,7 @@
     "class": "A",
     "gsps_location": "none",
     "test": "TO WRITE: lib/gann/__tests__/allTimeHigh.test.ts — a stock holding within gannThreePoints of its all-time low for 4+ weeks is flagged as a buy point with that stop.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-ENTRY-14",
@@ -546,7 +546,7 @@
     "class": "A",
     "gsps_location": "none",
     "test": "TO WRITE: lib/gann/__tests__/entryTrigger.test.ts — a close below the prior calendar year's low by gannThreePoints marks a yearly-bottom break in the short direction.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-ENTRY-18",
@@ -564,7 +564,7 @@
     "class": "A",
     "gsps_location": "none",
     "test": "TO WRITE: lib/gann/__tests__/narrowWeek.test.ts — a week whose range is the narrowest of the last N followed by a week down on above-average volume is flagged as a bearish turn.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-ENTRY-20",
@@ -879,7 +879,7 @@
     "class": "A",
     "gsps_location": "lib/gann/breakaway.ts:readBreakaway; lib/scoring/score.ts:applyBreakawayHold; lib/gann/accumulation.ts:readAccumulation — differs: no volume condition on the breakaway",
     "test": "lib/gann/__tests__/breakaway.test.ts > readBreakaway (Commodities pp. 51-52) > reads a sideways market as range-bound and holds an entry inside the range",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-VOLUME-11",
