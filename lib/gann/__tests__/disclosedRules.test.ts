@@ -3,6 +3,7 @@ import type { Bar } from "@/lib/types";
 import {
   counterMovePhase,
   pricePercentageLevels,
+  majorPricePercentageLevels,
   readBarMidpoint,
   readCounterMove,
   readDayCountBands,
@@ -53,6 +54,22 @@ describe("percentages of the extreme price (Commodities pp. 32-34)", () => {
     expect(levels.find((l) => l.label === "50% above the low")?.price).toBe(150);
     expect(levels.find((l) => l.label === "100% above the low")?.importance).toBe(1);
     expect(levels.find((l) => l.label === "4/8 of the high")?.importance).toBe(1);
+  });
+
+  it("C-PRICE-02: adds the multiples of the low inside the record (45 Years Ch. IV; rye to 700%)", () => {
+    const levels = pricePercentageLevels(10, 45);
+    const multiples = levels.filter((l) => l.multiple !== undefined).map((l) => l.price);
+    // 200% and 300% above the low; 400% (50) is past the record's high.
+    expect(multiples).toEqual([30, 40]);
+    expect(levels.find((l) => l.price === 30)).toMatchObject({ label: "200% above the low", importance: 1 });
+    // The 1929 top: 500% above 64 is 384.
+    expect(pricePercentageLevels(64, 390).find((l) => l.label === "500% above the low")?.price).toBe(384);
+  });
+
+  it("keeps the multiples on the card until their replay, out of the scan's level pool", () => {
+    const b = [bar("2026-01-01T00:00:00Z", 10, 10, 10), bar("2026-01-02T00:00:00Z", 45, 45, 45)];
+    expect(majorPricePercentageLevels(b)).toEqual([20, 22.5, 15].sort((x, y) => x - y));
+    expect(readPricePercentages(b, 39.5)?.nearestAbove).toMatchObject({ price: 40, label: "300% above the low" });
   });
 
   it("finds the nearest level on each side of price", () => {

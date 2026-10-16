@@ -697,3 +697,7 @@ including the break) survive as equivalent on one session; B3 removed as redunda
 - lib/gann/midpointFan.ts: computeMidpointFan (the fans' latest pivot high and low halved; origin in time the bar where the close last crossed it, labelled engineering; ATR unit like fans.ts until FL4's replay); squareFromHigh(high, rate, units), research-only, no consumer.
 - Card line only (midpointFan); a source pin keeps both out of score.ts, levels.ts, scanTicker.ts, replay.ts and fans.ts. Mutants M1-M3, M5 killed.
 - C-PRICE-02 (FL8) waits on a page check of 45 Years Ch. IV; C-LEVELS-12/-15 research modules next.
+
+## 2026-10-16 item 9 step 3f: multiples of the low (C-PRICE-02 under FL8 a)
+- Page check: 45 Years Ch. IV p.30 (checkpoint W009 notes) ranks "100% of the low and multiples" second after 50%, with the 1929 proof 500% of 64 = 384; Commodities pp.161-162 (W001) runs rye to 700%. Class A.
+- pricePercentageLevels adds 200%, 300% ... above the low up to the record's high, importance 1, tagged `multiple`. Card and the nearMajorPercentLevel factor read them; majorPricePercentageLevels excludes them, so the scan and replay pools are unchanged until FL8's replay (step 5). W003's 7/9/12 list stays out. Mutants Q1-Q4 killed.

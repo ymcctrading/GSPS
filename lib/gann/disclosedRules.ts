@@ -154,8 +154,10 @@ export function readBarMidpoint(bars: Bar[]): BarMidpointReading | null {
 export interface PricePercentageLevel {
   price: number;
   label: string;
-  /** 1 = most important (50% and 100% of the low, 50% of the high), 2 = the rest. */
+  /** 1 = most important (50% and 100% of the low and its multiples, 50% of the high), 2 = the rest. */
   importance: 1 | 2;
+  /** For a multiple of the low past 100%: how many times the low it is above it (2 = 200% above). */
+  multiple?: number;
 }
 
 export interface PricePercentageReading {
@@ -181,6 +183,13 @@ export function pricePercentageLevels(low: number, high: number): PricePercentag
       importance: k === 4 ? 1 : 2,
     });
   }
+  // "100% of the low and multiples", second only to 50% (45 Years Ch. IV
+  // p. 30, class A, page-checked 2026-10-16; the rye table runs to 700%,
+  // Commodities pp. 161-162): 200%, 300% ... above the low, inside the
+  // record (no higher than its high).
+  for (let m = 2; low * (1 + m) <= high; m++) {
+    levels.push({ price: low * (1 + m), label: `${m * 100}% above the low`, importance: 1, multiple: m });
+  }
   levels.push({ price: high / 3, label: "1/3 of the high", importance: 2 });
   levels.push({ price: (high * 2) / 3, label: "2/3 of the high", importance: 2 });
   return levels.sort((a, b) => a.price - b.price);
@@ -199,8 +208,10 @@ export function majorPricePercentageLevels(bars: Bar[]): number[] {
   const low = Math.min(...bars.map((b) => b.l));
   const high = Math.max(...bars.map((b) => b.h));
   if (!(low > 0) || !(high > low)) return [];
+  // The multiples of the low past 100% stay on the card until a replay
+  // measures them in the pool (fork FL8, item 9 step 5).
   return pricePercentageLevels(low, high)
-    .filter((l) => l.importance === 1)
+    .filter((l) => l.importance === 1 && l.multiple === undefined)
     .map((l) => l.price);
 }
 
