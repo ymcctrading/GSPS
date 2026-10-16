@@ -15,9 +15,9 @@ function bars(closes: number[]): Bar[] {
 }
 const leg = (from: number, to: number, n: number) => Array.from({ length: n }, (_, i) => from + ((to - from) * (i + 1)) / n);
 // Two rallies to ~110, the second failing back to 103 (more than the 3 points under).
-const doubleTop = [...leg(100, 110, 6), ...leg(110, 102, 5), ...leg(102, 110, 6), ...leg(110, 103, 5)];
+const doubleTop = [...leg(90, 110, 6), ...leg(110, 102, 5), ...leg(102, 110, 6), ...leg(110, 103, 5)];
 // The mirror: two declines to ~90, the second failing back up to 97.
-const doubleBottom = [...leg(100, 90, 6), ...leg(90, 98, 5), ...leg(98, 90, 6), ...leg(90, 97, 5)];
+const doubleBottom = [...leg(110, 90, 6), ...leg(90, 98, 5), ...leg(98, 90, 6), ...leg(90, 97, 5)];
 const execute = (): ScanDecision => ({ outputState: "Execute", breakdown: [] }) as unknown as ScanDecision;
 
 describe("failedTestAgainst", () => {
@@ -32,6 +32,26 @@ describe("failedTestAgainst", () => {
   it("is silent while the double top is still being tested", () => {
     const testing = readMultipleTops(bars([...leg(100, 110, 6), ...leg(110, 102, 5), ...leg(102, 110, 6), ...leg(110, 108, 4)]));
     expect(failedTestAgainst(testing, "bullish")).toBeNull();
+  });
+
+  it("stays failed on a rally back under the top, until a close passes it by the 3 points (owner card)", () => {
+    // Back up to 108, inside the 3 points under ~110.5: still under the top.
+    const back = [...doubleTop, ...leg(103, 108, 3)];
+    expect(failedTestAgainst(readMultipleTops(bars(back)), "bullish")).toMatchObject({ state: "failed" });
+    // A close over ~115.8 passes it.
+    expect(failedTestAgainst(readMultipleTops(bars([...back, 116.5])), "bullish")).toBeNull();
+    // Passed some sessions ago and back under it: no longer failed.
+    const passedThenBack = [...back, 116.5, ...leg(116.5, 109, 6)];
+    expect(failedTestAgainst(readMultipleTops(bars(passedThenBack)), "bullish")).toBeNull();
+    // Over the top but not by the 3 points is a third test, a new swing:
+    // being tested until it too falls back 3 points under.
+    const third = [...back, 112, ...leg(112, 108.5, 6)];
+    expect(readMultipleTops(bars(third)).top).toMatchObject({ tests: 3, state: "testing" });
+    expect(failedTestAgainst(readMultipleTops(bars([...third, 104])), "bullish")).toMatchObject({ tests: 3 });
+    // The mirror: a decline back toward a held double bottom.
+    const down = [...doubleBottom, ...leg(97, 92, 3)];
+    expect(failedTestAgainst(readMultipleTops(bars(down)), "bearish")).toMatchObject({ state: "failed" });
+    expect(failedTestAgainst(readMultipleTops(bars([...down, 84])), "bearish")).toBeNull();
   });
 
   it("indexes the latest test's swing extreme in the bars read", () => {

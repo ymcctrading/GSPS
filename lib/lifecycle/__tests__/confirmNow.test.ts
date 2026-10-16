@@ -88,7 +88,9 @@ describe("readEntryConfirmationNow: leaving a range on volume (A-VOLUME-10)", ()
   });
   const crossDay = (v: number): Bar => ({ t: "2026-10-14T04:00:00Z", o: 102, h: 103.6, l: 101.8, c: 103.2, v });
   const byTimeframe = (day: Bar[]) => fetchBars.mockImplementation(async (_s: string, tf: string) => (tf === "1Day" ? day : [yesterday, today]));
-  const read = () => readEntryConfirmationNow({ symbol: "AAPL", assetClass: "us_equity", direction: "bullish", entryTrigger: 101, stopPrice: 97, now });
+  // A first target at the range's top (within its 3 points), so the range's
+  // failed tops are not in the way (A-LEVELS-04).
+  const read = () => readEntryConfirmationNow({ symbol: "AAPL", assetClass: "us_equity", direction: "bullish", entryTrigger: 101, stopPrice: 97, takeProfit1: 104, now });
 
   it("is ready when the session that left the range closed past the line on more than its volume", async () => {
     byTimeframe([...range, crossDay(2e6)]);
@@ -115,7 +117,7 @@ describe("readEntryConfirmationNow: leaving a range on volume (A-VOLUME-10)", ()
   it("asks no volume of a resting buy at an old bottom inside the range (review M5, BV12)", async () => {
     byTimeframe(range);
     const r = await readEntryConfirmationNow({
-      symbol: "AAPL", assetClass: "us_equity", direction: "bullish", entryTrigger: 96, stopPrice: 92, entryKind: "oldLevel", now,
+      symbol: "AAPL", assetClass: "us_equity", direction: "bullish", entryTrigger: 96, stopPrice: 92, takeProfit1: 101, entryKind: "oldLevel", now,
     });
     expect(r.ready).toBe(true);
   });
@@ -245,7 +247,7 @@ describe("readEntryConfirmationNow: an entry waits under a failed double top (A-
     return readEntryConfirmationNow({ symbol: "AAPL", assetClass: "us_equity", direction, entryTrigger: direction === "bullish" ? 103 : 107, stopPrice, takeProfit1: takeProfit1 ?? undefined, entryKind: "oldLevel", now });
   };
   const doubleTop = [...leg(100, 110, 6), ...leg(110, 102, 5), ...leg(102, 110, 6), ...leg(110, 103, 5)];
-  const doubleBottom = [...leg(110, 100, 6), ...leg(100, 108, 5), ...leg(108, 100, 6), ...leg(100, 107, 5)];
+  const doubleBottom = [...leg(120, 100, 6), ...leg(100, 108, 5), ...leg(108, 100, 6), ...leg(100, 107, 5)];
 
   it("waits on a long under a failed double top", async () => {
     const r = await read(daily(doubleTop), "bullish", 98);

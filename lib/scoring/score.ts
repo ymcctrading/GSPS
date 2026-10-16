@@ -794,7 +794,7 @@ export function applyFailedTopHold(
         key: "failedTop",
         criterion: top ? "No failed double top overhead" : "No failed double bottom underneath",
         passed: false,
-        note: `The market failed at a ${name} near ${failed.level.toFixed(2)}, which stands before the first target, and closed back ${top ? "under" : "over"} it by the usual allowance: that is a ${failed.kind}. Held from Execute to Watch until price comes back within the allowance of the level or a new swing replaces it.`,
+        note: `The market failed at a ${name} near ${failed.level.toFixed(2)}, which stands before the first target, and closed back ${top ? "under" : "over"} it by the usual allowance: that is a ${failed.kind}. Held from Execute to Watch until a close passes the level by the usual allowance or a new swing replaces it.`,
       },
     ],
   };

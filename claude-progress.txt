@@ -774,3 +774,12 @@ including the break) survive as equivalent on one session; B3 removed as redunda
 - L2: exit windows anchored on the next session (the fill session at entry, the next weekday today), as entryChartBars.
 - L3 (hold lifts once price is within 3 points under the failed top, not on a crossing): held for Chuck.
 - STRATEGY_VERSION 2026-10-16-gann-failed-tops-third. Full suite 3010/3010, tsc, terms, eslint clean.
+
+## Run 53 (38892166900, 05ad97e level-parity, cells correct), 2026-10-16
+- STRATEGY_VERSION 2026-10-16-gann-level-parity. gann-runner Execute n172 +0.144R [+0.025,+0.258], halves +0.097/+0.190; all -0.006; Watch n1815 -0.041. plan-reaction Execute +0.100 [-0.013,+0.210]. Run 50: n134 +0.148.
+- Inside Execute: historicalSR 0.401 (in bounds), dR +0.051; stopRoom 0.942 (near the 0.95 ceiling), dR -0.309 (run 50 +0.059) - look at it; volumeClimax dR -0.081 (run 50 -0.438). thirdTestFailedAgainstTrade 16 (run 50 7).
+
+## Failed top held until passed (owner card posted, building the recommended option), 2026-10-16
+- readMultipleTops: a double/triple top is failed once a close after its latest test fell 3 points under, and stays failed until a later close passes it by the 3 points or a new swing (a further test) replaces it. Before: failed only while price sat 3 points under, so a rally back within 3 points lifted the hold (review 12 L3). Bottoms mirror.
+- Fixtures moved off accidental second levels (failedTop, confirmNow range-volume cases get a TP1 at the range top). Mutants OLD, P1 killed; P2/P3 equivalent (a close over the top without the 3 points forms a new test).
+- STRATEGY_VERSION 2026-10-16-gann-failed-tops-passed. Full suite 3011/3011. If Chuck picks "within 3 points", revert this commit.

@@ -82,12 +82,19 @@ export function readMultipleTops(daily: Bar[]): MultipleTopsReading {
     let state: MultipleTestReading["state"] = "testing";
     const crossed = kind === "top" ? recent.some((b) => b.c > beyondByThreePoints(nearest.level, 1)) && price > nearest.level : recent.some((b) => b.c < beyondByThreePoints(nearest.level, -1)) && price < nearest.level;
     if (crossed) state = "crossed";
-    else if (
+    else if (nearest.lastIndexInList === prices.length - 1) {
       // The failed test must be the latest swing of its kind, not an old one.
-      nearest.lastIndexInList === prices.length - 1 &&
-      (kind === "top" ? price < beyondByThreePoints(nearest.level, -1) : price > beyondByThreePoints(nearest.level, 1))
-    ) {
-      state = "failed";
+      // It failed once a close after it went 3 points back under the level
+      // (over, for a bottom), and stays failed until a later close passes the
+      // level by the 3 points or a new swing replaces it (owner card,
+      // 2026-10-16, recommended option: a failed top is a top until it is
+      // passed; until then a rally back near it is still under it).
+      const after = daily.slice(ofKind[nearest.lastIndexInList].index + 1);
+      const back = after.findIndex((b) => (kind === "top" ? b.c < beyondByThreePoints(nearest.level, -1) : b.c > beyondByThreePoints(nearest.level, 1)));
+      const passed =
+        back >= 0 &&
+        after.slice(back + 1).some((b) => (kind === "top" ? b.c > beyondByThreePoints(nearest.level, 1) : b.c < beyondByThreePoints(nearest.level, -1)));
+      if (back >= 0 && !passed) state = "failed";
     }
     // A level far from price is history, not a test in progress.
     if (state === "testing" && (Math.abs(price - nearest.level) / nearest.level) * 100 > NEAR_PCT) continue;

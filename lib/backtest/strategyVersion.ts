@@ -243,4 +243,8 @@
 // when a later test of an excused failed top fails after the fill; placement
 // reads the protocol's TP1 and holds under any failed test when it is unknown.
 // No run was made on the version before it.
-export const STRATEGY_VERSION = "2026-10-16-gann-failed-tops-third";
+//
+// 2026-10-16-gann-failed-tops-passed: owner card, recommended option. A failed
+// double or triple top stays failed until a close passes it by the 3 points or
+// a new swing replaces it, not only while price is 3 points under it.
+export const STRATEGY_VERSION = "2026-10-16-gann-failed-tops-passed";
