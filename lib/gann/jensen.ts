@@ -86,6 +86,8 @@
 import type { Bar } from "@/lib/types";
 import { ephemerisInstant, planetLongitudes } from "@/lib/gann/planetaryAverages";
 import { THREE_DAY_CHART, walkSwingChart } from "@/lib/gann/swingChart";
+import { readMultipleTops } from "@/lib/gann/multipleTops";
+import { gannThreePoints } from "@/lib/gann/pointScale";
 
 const DAY_MS = 86_400_000;
 const MONTH_DAYS = 30.4375;
@@ -474,4 +476,176 @@ export function jensenWindows(bars: Bar[], unit: number, from: Date, to: Date): 
     }
   }
   return out.sort((x, y) => x.date.localeCompare(y.date));
+}
+
+// ---------------------------------------------------------------- Plate 1 protractor
+
+/**
+ * C-LEVELS-22 (class C, Jensen, Plate 1, printed p. 110, PDF 61L; re-read at
+ * 300 dpi, W049 visuals-reinspection): a table that turns square-of-90
+ * points into protractor angles, so a line can be drawn without laying out
+ * the whole square. Each scale point is 90 x up/over (45 = 4 up, 8 over). A
+ * ray to the right margin at `points` rises `points` over 90, so its angle is
+ * atan(points / 90); a ray to the top margin is the complement.
+ *
+ * GSPS gives the exact angle. The printed angles are rounded to quarter
+ * degrees (26¼° for 45 points, against 26.57°). The X–G top angle prints as
+ * 54½°, which is neither the complement of its own 37½° nor the geometry; it
+ * is kept as printed and flagged, not corrected. The 15-point row appears
+ * only in the scale table and has no ray.
+ *
+ * Display only: the angle is a label for a line, never a level, stop or gate.
+ * Three-question basis: class C; no periodicity claim; Correspondence, the
+ * same proportion read as a count of points and as an angle on the chart.
+ */
+export interface Plate1Row {
+  ray: "A" | "B" | "C" | "D" | "E" | "F" | "G" | null;
+  points: number;
+  over: number;
+  up: number;
+  /** As printed ("Right Margin Upward"); null where the row has no ray. */
+  printedRight: number | null;
+  /** As printed ("Top of Graph to Right"). */
+  printedTop: number | null;
+  /** Exact: atan(points / 90), in degrees. */
+  rightAngle: number;
+  /** Exact: 90 minus `rightAngle`. */
+  topAngle: number;
+  /** The printed top angle is not the complement of the printed right angle. */
+  misprint: boolean;
+}
+
+/** A square-of-90 point's line angle, exactly: atan(points / 90) in degrees. */
+export function jensenPointAngle(points: number): number {
+  return (Math.atan(points / JENSEN_SQUARE) * 180) / Math.PI;
+}
+
+const plate1Row = (ray: Plate1Row["ray"], over: number, up: number, printedRight: number | null, printedTop: number | null): Plate1Row => {
+  const points = (JENSEN_SQUARE * up) / over;
+  const rightAngle = jensenPointAngle(points);
+  return {
+    ray,
+    points,
+    over,
+    up,
+    printedRight,
+    printedTop,
+    rightAngle,
+    topAngle: 90 - rightAngle,
+    misprint: printedRight !== null && printedTop !== null && printedTop !== 90 - printedRight,
+  };
+};
+
+export const PLATE_1: readonly Plate1Row[] = [
+  plate1Row("A", 16, 1, 3.75, 86.25),
+  plate1Row("B", 16, 2, 7.5, 82.5),
+  plate1Row(null, 12, 2, null, null),
+  plate1Row("C", 16, 4, 15, 75),
+  plate1Row("D", 12, 4, 18.75, 71.25),
+  plate1Row("E", 8, 4, 26.25, 63.75),
+  plate1Row("F", 12, 8, 33.75, 56.25),
+  plate1Row("G", 16, 12, 37.5, 54.5),
+];
+
+// ---------------------------------------------------------------- converging lines from multiple bottoms
+
+/**
+ * C-LEVELS-24 (class C, Jensen, printed pp. 111-113; Plate 3, the U.S. Steel
+ * weekly from the July 1932 low, where a new base line is set at a
+ * convergence): lines of 90, 45 and 22½ drawn from the tests of a double or
+ * triple bottom converge on a major point. Jensen inverts the square at
+ * highs (J-2), so a double or triple top is read the same way, lines falling.
+ *
+ * How GSPS reads it: the tests are the 3-Day Chart swing bottoms (tops) of the
+ * cluster `readMultipleTops` reports. The lines are read in Jensen's points,
+ * as Plate 1 lays them out: a line of N points rises N per 90 bars in the
+ * Gann point (`unit`), so 90 is the 1x1, and each line carries its exact
+ * angle (`jensenPointAngle`, C-LEVELS-22).
+ *
+ * Engineering choices, labelled: the candidate points are the crossings of
+ * lines from different tests after the last test; a line passes a point
+ * when it is within Jensen's one point (J-5) there; the major point is the
+ * crossing the most lines pass, the earliest on a tie, then the one nearest
+ * the last close; a crossing more than `CONVERGENCE_PAST_BARS` behind the last
+ * bar is history and is not reported. A test belongs to the cluster when it
+ * lies within twice the 3-point allowance of the cluster's level.
+ *
+ * Context only: shown and measured, never a level, stop, target or gate.
+ * Three-question basis: class C, Jensen's own. Cycles: no periodicity claim.
+ * Hermetic: Correspondence (separate tests of one level answering to one
+ * point ahead), and Polarity for the top's mirror.
+ */
+export const CONVERGENCE_POINTS = [90, 45, 22.5] as const;
+export const CONVERGENCE_PAST_BARS = 5;
+
+export interface ConvergenceLine {
+  testIndex: number;
+  points: (typeof CONVERGENCE_POINTS)[number];
+  /** Exact line angle in degrees (Plate 1, C-LEVELS-22). */
+  angle: number;
+}
+
+export interface JensenConvergence {
+  kind: "bottom" | "top";
+  tests: { index: number; date: string; price: number }[];
+  point: { index: number; barsFromNow: number; price: number; lines: ConvergenceLine[] };
+}
+
+export function jensenBottomConvergence(bars: Bar[], unit: number): JensenConvergence | null {
+  if (bars.length < 20 || !(unit > 0)) return null;
+  const multiple = readMultipleTops(bars);
+  const last = bars.length - 1;
+  const close = bars[last].c;
+  let best: JensenConvergence | null = null;
+  for (const m of [multiple.bottom, multiple.top]) {
+    if (!m) continue;
+    const band = 2 * gannThreePoints(m.level);
+    const tests = walkSwingChart(bars, THREE_DAY_CHART)
+      .pivots.filter((p) => p.kind === m.kind && p.index <= m.lastTestIndex && Math.abs(p.price - m.level) <= band)
+      .slice(-m.tests);
+    if (tests.length < 2) continue;
+    const sign = m.kind === "bottom" ? 1 : -1;
+    const lines = tests.flatMap((t) => CONVERGENCE_POINTS.map((points) => ({ t, points, slope: (sign * points * unit) / JENSEN_SQUARE })));
+    const at = (l: (typeof lines)[number], i: number) => l.t.price + l.slope * (i - l.t.index);
+    const lastTest = tests[tests.length - 1].index;
+    for (let a = 0; a < lines.length; a++) {
+      for (let b = a + 1; b < lines.length; b++) {
+        const la = lines[a];
+        const lb = lines[b];
+        if (la.t.index === lb.t.index || la.slope === lb.slope) continue;
+        const index = (lb.t.price - la.t.price + la.slope * la.t.index - lb.slope * lb.t.index) / (la.slope - lb.slope);
+        if (!(index > lastTest) || index < last - CONVERGENCE_PAST_BARS) continue;
+        const price = at(la, index);
+        if (!(price > 0)) continue;
+        const through = lines.filter((l) => Math.abs(at(l, index) - price) <= JENSEN_TOLERANCE * unit);
+        const point = {
+          index: Math.round(index),
+          barsFromNow: Math.round(index) - last,
+          price,
+          lines: through.map((l) => ({ testIndex: l.t.index, points: l.points, angle: jensenPointAngle(l.points) })),
+        };
+        const cur = best?.point;
+        const better =
+          !cur ||
+          point.lines.length > cur.lines.length ||
+          (point.lines.length === cur.lines.length &&
+            (point.index < cur.index || (point.index === cur.index && Math.abs(price - close) < Math.abs(cur.price - close))));
+        if (better) {
+          best = {
+            kind: m.kind,
+            tests: tests.map((t) => ({ index: t.index, date: bars[t.index].t.slice(0, 10), price: t.price })),
+            point,
+          };
+        }
+      }
+    }
+  }
+  return best;
+}
+
+export function describeJensenConvergence(r: JensenConvergence): string {
+  const name = `${r.tests.length >= 3 ? "triple" : "double"} ${r.kind}`;
+  const when = r.point.barsFromNow === 0 ? "at this session" : r.point.barsFromNow > 0 ? `in ${r.point.barsFromNow} sessions` : `${-r.point.barsFromNow} sessions ago`;
+  const lines = r.point.lines.map((l) => `${l.points} (${l.angle.toFixed(2)}°)`).join(", ");
+  return `Lines from the ${name} at ${r.tests.map((t) => t.price.toFixed(2)).join(" and ")} converge near ${r.point.price.toFixed(2)} ${when}: ${lines}. Shown for context; it does not change the setup.`;
 }

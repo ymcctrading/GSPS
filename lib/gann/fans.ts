@@ -146,3 +146,64 @@ export function nearestFanLine(lines: FanLine[], proximityPct = 1.5): FanLine | 
   const nearest = lines[0];
   return nearest && nearest.distancePct <= proximityPct ? nearest : null;
 }
+
+/**
+ * C-STOP-02 (class C, *Additional Cycle Findings*, anonymous compiler, p. 20):
+ * breaking the 1x1 means weakness down to the next angle. After a close
+ * through the 1x1 from a fan anchor, the next angle beyond it, the 1x2 from
+ * the same anchor (half the 1x1's slope in this module's points-per-bar
+ * labels; the feature row's "2x1 up" is the same line under the other naming
+ * convention), is reported as the next level. Class C, so it is shown and
+ * measured and is never a stop, a target or a gate.
+ *
+ * Engineering choices, labelled: a break needs a close after the anchor that
+ * held the 1x1 first (a swing that never kept pace with the 1x1 has nothing
+ * to break), and the reading stands while the last close sits between the
+ * 1x1 and the 1x2; past the 1x2 it is spent.
+ *
+ * Three-question basis. Source: class C, as above. Cycles: no periodicity
+ * claim. Hermetic: Polarity, the line that was support from a low becomes the
+ * edge price has fallen through, mirrored from a high.
+ */
+export interface OneByOneBreak {
+  anchor: { price: number; index: number; kind: "high" | "low" };
+  /** The 1x1's price at the last bar. */
+  oneByOne: number;
+  /** The next angle beyond it, where the break points. */
+  next: { angle: "1x2"; price: number };
+  /** Down after a break under the 1x1 from a low; up after a break over it from a high. */
+  direction: "down" | "up";
+}
+
+export function readOneByOneBreak(bars: Bar[]): OneByOneBreak[] {
+  if (bars.length < 20) return [];
+  const unit = angleUnit(bars);
+  if (unit <= 0) return [];
+  const last = bars.length - 1;
+  const close = bars[last].c;
+  const out: OneByOneBreak[] = [];
+  for (const { anchor } of fanAnchors(bars)) {
+    if (anchor.index >= last) continue;
+    const sign = anchor.kind === "low" ? 1 : -1;
+    const at = (ratio: number, i: number) => anchor.price + sign * ratio * unit * (i - anchor.index);
+    const oneByOne = at(1, last);
+    const next = at(1 / 2, last);
+    const beyond = sign * (close - oneByOne) < 0;
+    const short = sign * (close - next) > 0;
+    let held = false;
+    for (let i = anchor.index + 1; i < last && !held; i++) held = sign * (bars[i].c - at(1, i)) >= 0;
+    if (!beyond || !short || !held || next <= 0) continue;
+    out.push({
+      anchor: { price: anchor.price, index: anchor.index, kind: anchor.kind },
+      oneByOne,
+      next: { angle: "1x2", price: next },
+      direction: anchor.kind === "low" ? "down" : "up",
+    });
+  }
+  return out;
+}
+
+export function describeOneByOneBreak(b: OneByOneBreak): string {
+  const from = b.anchor.kind === "low" ? "bottom" : "top";
+  return `Price closed ${b.direction === "down" ? "under" : "over"} the 1x1 from the ${b.anchor.price.toFixed(2)} ${from} (${b.oneByOne.toFixed(2)}): the next angle, the 1x2, stands at ${b.next.price.toFixed(2)}. Shown as the next level to watch; it is not a stop or a target.`;
+}

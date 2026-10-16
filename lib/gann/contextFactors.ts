@@ -514,5 +514,22 @@ export function contextFactorsFor(
   const dc = ctx.decadeCycle;
   if (dc && dc.bias !== "mixed") f.decadeYearWithTrade = dc.bias === (bull ? "bullish" : "bearish");
   if (dc?.ninetiethMonth) f.decadeNinetiethMonth = dc.ninetiethMonth.active;
+  // A-TIME-07: the market's bull campaign at the prior one's length. No direction in the text.
+  const cl = ctx.campaignLength;
+  if (cl?.current && cl.prior) f.bullCampaignAtPriorLength = cl.atPriorLength;
+  // A-TIME-32: a fixed count from the founding date. No direction in the text.
+  const fc = ctx.foundingCounts;
+  if (fc) {
+    f.foundingCountYear = fc.years.length > 0;
+    f.foundingCount42Months = fc.months42;
+  }
+  // A-TIME-33: a 490, 1,290 or 1,335-day count from a major monthly turn. No direction in the text.
+  if (ctx.outbreakCounts) f.outbreakDayCount = ctx.outbreakCounts.length > 0;
+  // A-SELECTION-07: a small number of shares, read on short candidates only.
+  if (!bull && ctx.capitalStock?.smallFloat !== undefined) f.smallFloatShort = ctx.capitalStock.smallFloat;
+  // C-STOP-02: a break of the 1x1 points down from a low and up from a high.
+  if (ctx.oneByOneBreak && ctx.oneByOneBreak.length > 0) f.oneByOneBreakWithTrade = ctx.oneByOneBreak.some((b) => b.direction === (bull ? "up" : "down"));
+  // C-LEVELS-24: the session is on the convergence of lines from a double or triple bottom (top), within a bar. No direction in the text.
+  if (ctx.jensenConvergence) f.jensenConvergenceNow = Math.abs(ctx.jensenConvergence.point.barsFromNow) <= 1;
   return f;
 }
