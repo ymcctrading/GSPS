@@ -108,8 +108,9 @@ The only prior GSPS School references found before the pilot:
 
 One pilot program, scoped to the one requirement above: **Live-Trading
 Risk Re-Certification** — four lessons covering the loss-notification
-cascade, the 50% force-close/restriction trigger, and live stop-override
-friction, with a quiz per lesson as the mastery check. Completing every
+cascade, the retired 50% force-close/restriction trigger (removed
+2026-10-16, Q11; the stop on every trade is the backstop), and live stop
+discipline, with a quiz per lesson as the mastery check. Completing every
 lesson calls `completeSchoolReverification` (`lib/school/service.ts`),
 which writes `school_completed_at` via a service-role client. This program
 now lives at `/school/recertification` (moved from `/school`, which is now

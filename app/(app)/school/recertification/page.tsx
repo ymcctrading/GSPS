@@ -14,7 +14,7 @@ export default function RecertificationPage() {
       <div>
         <h1 className="text-xl font-semibold sm:text-2xl">Live-Trading Risk Re-Certification</h1>
         <p className="text-sm text-muted">
-          Required after a 50% live-loss restriction, open to any member. Part of GSPS School&apos;s Wall Street academy as Course W2.
+          Lifts a restriction recorded under the retired 50% loss rule, open to any member. Part of GSPS School&apos;s Wall Street academy as Course W2.
         </p>
       </div>
       <SchoolFlow />

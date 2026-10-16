@@ -8,9 +8,12 @@
  *
  *   6%, 9%, 15%: email (+ SMS, once a channel exists) once per threshold per trade
  *   30%: hard warning, once per trade, regardless of membership level
- *   50%: pause automation on this symbol, close/flatten the position
- *        (which also cancels its resting orders — see closePosition),
- *        restrict live trading, keep paper access untouched
+ *
+ * The spec pack's 50% force-close (pause automation, flatten, restrict live
+ * trading) was removed 2026-10-16 (owner, Q11, "Switch all nine"): it has no
+ * Gann source, and Gann's backstop is the stop every position carries
+ * (A-STOP-01, enforced in `lib/trade/place-order.ts`). A restriction already
+ * recorded is still honoured by `isLiveTradingRestricted`.
  *
  * "Loss thresholds are based on total funds allocated to the individual
  * trade." This reads Alpaca's own `unrealized_plpc` (already
@@ -23,11 +26,9 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AlpacaCreds, AlpacaPosition } from "@/lib/brokers/alpaca";
-import { closePosition } from "@/lib/brokers/alpaca";
 import { sendLiveLossThresholdEmail } from "@/lib/notifications/live-risk-email";
 
 const NOTIFY_THRESHOLDS = [6, 9, 15, 30] as const;
-const FORCE_CLOSE_THRESHOLD = 50;
 
 export interface LivePositionRow {
   id: string;
@@ -38,7 +39,6 @@ export interface LiveTradeLossOutcome {
   positionId: string;
   lossPct: number;
   newlyNotifiedThresholds: number[];
-  forcedClose: boolean;
 }
 
 /** Pure: which of the fixed thresholds are newly crossed and not yet notified. */
@@ -64,7 +64,6 @@ export async function evaluateLiveTradeLoss(
     .maybeSingle();
 
   const alreadyNotified: number[] = (stateRow?.notified_thresholds as number[] | null) ?? [];
-  const pausedAt: string | null = stateRow?.paused_at ?? null;
 
   if (!stateRow) {
     await supabase.from("risk_trade_loss_state").insert({
@@ -94,78 +93,7 @@ export async function evaluateLiveTradeLoss(
       .eq("position_id", position.id);
   }
 
-  let forcedClose = false;
-  if (lossPct >= FORCE_CLOSE_THRESHOLD && pausedAt == null) {
-    forcedClose = true;
-    await forceCloseAndRestrict(supabase, creds, userId, position);
-  }
-
-  return { positionId: position.id, lossPct, newlyNotifiedThresholds: newlyCrossed, forcedClose };
-}
-
-async function forceCloseAndRestrict(
-  supabase: SupabaseClient,
-  creds: AlpacaCreds,
-  userId: string,
-  position: LivePositionRow,
-): Promise<void> {
-  // 1. Pause any active live automation profile pointed at a plan for this symbol.
-  const { data: profiles } = await supabase
-    .from("automation_profiles")
-    .select("profile_id, plan_id")
-    .eq("user_id", userId)
-    .eq("execution_mode", "live")
-    .eq("status", "active");
-  const { data: plansForSymbol } = await supabase
-    .from("trade_plans")
-    .select("plan_id")
-    .eq("user_id", userId)
-    .eq("instrument", position.symbol);
-  const symbolPlanIds = new Set((plansForSymbol ?? []).map((p) => p.plan_id as string));
-
-  for (const row of (profiles ?? []) as { profile_id: string; plan_id: string }[]) {
-    if (!symbolPlanIds.has(row.plan_id)) continue;
-    await supabase
-      .from("automation_profiles")
-      .update({ status: "paused", paused_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-      .eq("profile_id", row.profile_id);
-    await supabase.from("automation_events").insert({
-      profile_id: row.profile_id,
-      user_id: userId,
-      kind: "paused",
-      detail: { reason: "live_trade_loss_50pct" },
-    });
-  }
-
-  // 2. Cancel pending orders + flatten. closePosition cancels resting
-  // orders on the symbol as part of liquidation (lib/brokers/alpaca.ts).
-  let flattenResult: unknown = null;
-  let flattenError: string | null = null;
-  try {
-    flattenResult = await closePosition(creds, position.symbol);
-  } catch (err) {
-    flattenError = err instanceof Error ? err.message : String(err);
-  }
-
-  await supabase
-    .from("risk_trade_loss_state")
-    .update({
-      paused_at: new Date().toISOString(),
-      flatten_attempted_at: new Date().toISOString(),
-      flatten_order_result: flattenError ? { error: flattenError } : flattenResult,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("position_id", position.id);
-
-  // 3. Restrict live trading account-wide until GSPS School re-completion
-  // is verified. Paper access is untouched — no code path here reaches it.
-  await supabase.from("live_trading_restrictions").upsert({
-    user_id: userId,
-    restricted: true,
-    reason: `Live position ${position.symbol} reached a 50% allocated-funds loss.`,
-    restricted_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  });
+  return { positionId: position.id, lossPct, newlyNotifiedThresholds: newlyCrossed };
 }
 
 async function resolveUserEmail(supabase: SupabaseClient, userId: string): Promise<string | null> {

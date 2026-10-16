@@ -1319,7 +1319,7 @@ const ACADEMY_8: Academy = {
       slug: "w2-live-capital-recertification",
       title: "Course W2: Live-Trading Risk Re-Certification",
       outcome:
-        "The existing live-capital/loss-cascade/stop-rule re-certification pilot — unchanged. Required only after a 50% live-loss restriction, not for initial Wall Street purchase.",
+        "The existing live-capital/loss-cascade/stop-rule re-certification pilot — unchanged. Required only to lift a live-trading restriction recorded under the retired 50% loss rule, not for initial Wall Street purchase.",
       lessons: [],
     },
   ],
