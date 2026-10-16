@@ -14,7 +14,7 @@
  *
  * Engineering choices, labelled: positions are the shared ephemeris
  * (`planetaryAverages.ts#planetLongitudes`, heliocentric, tropical, of date,
- * at noon UTC), stepped a day at a time; a conjunction is the first day the
+ * at noon UTC), stepped by 30 days and refined to the day; a conjunction is the first day the
  * Jupiter-minus-Saturn separation turns from below zero to zero or above.
  * The ephemeris lands one day after each of the source's three dates (17 Apr
  * 1981, 23 Jun 2000, 3 Nov 2020; see the test); the window uses the ephemeris.
@@ -38,14 +38,29 @@ const separation = (d: Date) => {
 
 /** Heliocentric Jupiter-Saturn conjunction dates (YYYY-MM-DD) between `from` and `to`. */
 export function jupiterSaturnConjunctions(from: Date, to: Date): string[] {
+  // Jupiter gains about 1.5 degrees a month on Saturn, so a 30-day step never
+  // skips a crossing; each bracketed crossing is then walked a day at a time.
+  // A wrap from +180 to -180 is the opposition side, not a conjunction.
+  const STEP = 30 * DAY_MS;
   const out: string[] = [];
+  let t0 = from.getTime();
   let prev = separation(from);
-  for (let t = from.getTime() + DAY_MS; t <= to.getTime(); t += DAY_MS) {
-    const d = new Date(t);
-    const s = separation(d);
-    // Jupiter gains about 0.05 degrees a day on Saturn; a wrap from +180 to -180 is not a conjunction.
-    if (prev < 0 && s >= 0 && s - prev < 90) out.push(d.toISOString().slice(0, 10));
-    prev = s;
+  while (t0 < to.getTime()) {
+    const t1 = Math.min(t0 + STEP, to.getTime());
+    const s1 = separation(new Date(t1));
+    if (prev < 0 && s1 >= 0 && s1 - prev < 90) {
+      let p = prev;
+      for (let t = t0 + DAY_MS; t <= t1; t += DAY_MS) {
+        const s = separation(new Date(t));
+        if (p < 0 && s >= 0) {
+          out.push(new Date(t).toISOString().slice(0, 10));
+          break;
+        }
+        p = s;
+      }
+    }
+    t0 = t1;
+    prev = s1;
   }
   return out;
 }
