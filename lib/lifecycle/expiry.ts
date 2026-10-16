@@ -9,7 +9,7 @@
  * constructing an event.
  */
 
-import { equitySession } from "@/lib/market/session";
+import { equitySession, etDateKey } from "@/lib/market/session";
 
 /** True once `barsSinceGenerated` has reached or passed the plan's bar-count expiry. */
 export function isExpiredByBars(barsSinceGenerated: number, expiresAfterBars: number): boolean {
@@ -40,35 +40,33 @@ export function withinTriggerTolerance(
 }
 
 /**
- * The deadline `bars` closed bars of `intervalMs` after `generatedAt`,
- * counting only bars the market is open for. "Signals must expire after a
- * defined number of closed operating-timeframe bars" — a plan generated after
- * the equity close used to run out overnight on the wall clock, before a
- * single bar it could confirm on had formed, so no plan ever armed. Equities
- * count regular-session bars (09:30-16:00 ET, weekdays; holidays are not
- * known here, so a holiday still counts as a session). Other markets keep
- * the wall clock.
+ * When a pre-entry plan ends unless its stop retires it first (Q17, owner
+ * 2026-10-16: the 3-20 bar clock is replaced on Gann's terms). A plan's
+ * trigger and stop are read from completed daily sessions, so they hold for
+ * the session the plan trades in; once that session's bar completes, the next
+ * read of the swing chart is what replaces them (Overnight Chart rule 4, NSTD
+ * Rule 6: a new trade takes new structure, never the old levels resumed). The
+ * replay arms the same way, one trigger per session (`lib/backtest/replay.ts`).
  *
- * Interim: the parity work (#309) replaces the expiry clock with Gann's
- * stop-breach retirement, and this helper goes with it.
+ * US equities: the next regular-session close at or after `generatedAt`, so a
+ * plan made after the close or at a weekend lives through the next session
+ * (holidays are not known here, so a holiday still counts as a session).
+ * Other markets: the end of the ET day, when their daily bar completes, the
+ * same day key the scan reads sessions by (`etDateKey`).
  */
-export function sessionBarsDeadline(
-  generatedAt: string,
-  bars: number,
-  intervalMs: number,
-  /** A plan's `market`; only US equities have a closed session to skip. */
-  market: string,
-): string {
-  const start = new Date(generatedAt).getTime();
-  if (market !== "us_equity") return new Date(start + bars * intervalMs).toISOString();
-  let t = start;
-  let counted = 0;
-  // Bounded walk: two weeks of steps covers any weekend plus a long session count.
-  const maxSteps = Math.ceil((14 * 24 * 3600 * 1000) / intervalMs) + bars;
-  for (let i = 0; i < maxSteps && counted < bars; i++) {
-    t += intervalMs;
-    // A bar ending at t is a session bar when its opening moment is in the regular session.
-    if (equitySession(new Date(t - intervalMs)) === "regular") counted++;
+export function sessionCloseDeadline(generatedAt: string, market: string): string {
+  const MINUTE = 60_000;
+  let t = Math.floor(new Date(generatedAt).getTime() / MINUTE) * MINUTE;
+  if (market !== "us_equity") {
+    const day = etDateKey(new Date(t));
+    // Bounded: a day plus a DST hour.
+    for (let i = 0; i < 26 * 60 && etDateKey(new Date(t)) === day; i++) t += MINUTE;
+    return new Date(t).toISOString();
   }
+  // Bounded walk: a long weekend to the next open, then the session itself.
+  const max = 5 * 24 * 60;
+  let i = 0;
+  while (i++ < max && equitySession(new Date(t)) !== "regular") t += MINUTE;
+  while (i++ < max && equitySession(new Date(t)) === "regular") t += MINUTE;
   return new Date(t).toISOString();
 }

@@ -355,4 +355,9 @@
 // points in front of the stop (W006 pp.20-24, 46-47; owner, Q23), on every
 // asset class, replacing stopRoom (a 1.5x ATR multiple, or "anchored to S/R"
 // for stocks). Verdicts move.
-export const STRATEGY_VERSION = "2026-10-16-gann-stop-old-level";
+// 2026-10-16-gann-session-plans: a stored plan lasts the session it trades in
+// (until the session's close; a plan made after the close, through the next
+// one) instead of a 3-20 bar clock, and a broken stop retires it sooner (owner,
+// Q17). The replay already armed one trigger per session, so its output does
+// not move; live plans now match it.
+export const STRATEGY_VERSION = "2026-10-16-gann-session-plans";

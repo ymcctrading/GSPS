@@ -87,9 +87,12 @@ export const INTRADAY_WINDOW_BARS = 400;
 /** The 3-bar swing chart, Gann's own, at the bars' scale. */
 const SWING_BARS = 3;
 /**
- * How long an armed plan is carried, in bars. The lifecycle's own default
- * (`lib/lifecycle/fromScanResult.ts`, `DEFAULT_EXPIRES_AFTER_BARS`: 20 bars of
- * the 15-minute execution timeframe, five hours). Not tuned.
+ * How long an armed plan is carried, in bars: the lifecycle's default when
+ * this profile's run was pre-registered (20 bars of the 15-minute execution
+ * timeframe, five hours; docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md Part 5).
+ * Q17 (2026-10-16) has since replaced that clock on stored plans, which now
+ * last their session (`lib/lifecycle/expiry.ts`). It stays here because the
+ * run's rules are fixed before it runs; changing it is a new registration.
  */
 export const PLAN_LIFETIME_BARS = 20;
 // One intraday point lives in `lib/gann/pointScale.ts` (2026-10-16), so the

@@ -2014,7 +2014,7 @@ Standing facts for a session that touches any list of setups:
   user's watchlist symbols into the system scan's universe (capped at 50 total),
   so a symbol added there can be covered by that scan.
 - **Timeline, in one line.** Entry is minutes to a few hours (four closed
-  15-minute bars at least; a plan expires after 45 minutes to 5 hours); the
+  15-minute bars at least; a plan lasts its session unless its stop breaks first, Q17, 2026-10-16); the
   trade is days to weeks (median about 5 to 7 sessions in the replay, and 60%
   of trades on the live exits were still open at its 10-session limit).
 

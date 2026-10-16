@@ -36,12 +36,11 @@
  * never fires a trade.
  */
 
-import { TF_INTERVAL_MS, isTimeframe } from "@/lib/timeframe";
 import type { RulesAlignmentScore } from "@/lib/signals/types";
 import type { TradePlan } from "./types";
 import type { NewTradePlan } from "./store";
 import { freshEntryConfirmation } from "./entryConfirmation";
-import { sessionBarsDeadline } from "./expiry";
+import { sessionCloseDeadline } from "./expiry";
 
 /** Every reversal plan this module builds carries a `signalId` with this prefix. */
 export const PIVOT_SIGNAL_PREFIX = "pivot:";
@@ -57,9 +56,6 @@ export function isPivotSignal(signalId: string | null | undefined): boolean {
   return typeof signalId === "string" && signalId.startsWith(PIVOT_SIGNAL_PREFIX);
 }
 
-/** Same fallback used when no fresh scan verdict exists to carry a real expiry from — see fromScanResult.ts. */
-const DEFAULT_EXPIRES_AFTER_BARS = 20;
-const FALLBACK_TIMEFRAME = "15Min" as const;
 
 const WATCHLIST_TIER_SCORE: RulesAlignmentScore = {
   score: 0,
@@ -96,8 +92,6 @@ export function buildPivotTradePlanFromStoppedPlan(
   // isn't actually beyond the new entry in the reversal's own direction.
   if (dir * (takeProfit1 - entryTrigger) <= 0 || dir * (takeProfit2 - takeProfit1) <= 0) return null;
 
-  const timeframe = isTimeframe(stopped.timeframe) ? stopped.timeframe : FALLBACK_TIMEFRAME;
-
   return {
     strategyVersion: stopped.strategyVersion,
     signalId: `${PIVOT_SIGNAL_PREFIX}${stopped.planId}`,
@@ -105,7 +99,7 @@ export function buildPivotTradePlanFromStoppedPlan(
     market: stopped.market,
     timeframe: stopped.timeframe,
     generatedAt: opts.generatedAt,
-    expiresAt: sessionBarsDeadline(opts.generatedAt, DEFAULT_EXPIRES_AFTER_BARS, TF_INTERVAL_MS[timeframe], stopped.market),
+    expiresAt: sessionCloseDeadline(opts.generatedAt, stopped.market),
     direction,
     // Idempotency key: one pivot plan per stop-out. A retried/duplicated
     // stop-out handling call for the same event lands on the same row
