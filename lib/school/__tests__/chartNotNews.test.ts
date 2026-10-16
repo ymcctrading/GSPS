@@ -19,6 +19,11 @@ describe("the chart, not the news (C-OTHER-02)", () => {
     expect(text).toMatch(/chart/i);
     expect(text).toMatch(/news|headline/i);
     expect(lesson.quiz.some((q) => /news|headline/i.test(q.question))).toBe(true);
+    const instruction = lesson.instruction.join(" ");
+    expect(instruction).toMatch(/trust the chart/i);
+    expect(instruction).not.toMatch(/trust the news/i);
+    const headline = lesson.quiz.find((q) => /headline/i.test(q.question) && /chart/i.test(q.question))!;
+    expect(headline.choices[headline.correctIndex]).toBe("The chart");
   });
 
   it("names no source or method author in the lesson text", () => {
