@@ -414,3 +414,12 @@ is unchecked here (collection-synthesis.md §1.6, §6).
 - New tests: lib/scan/__tests__/withTrend.test.ts (6), replay continuation on the trend alone with momentum off, coarse pool (3), mergeContinuations (3), scanTicker arms the side reversionEntry arms on 8 synthetic symbols (both sides seen). Mutations 12 of 12 caught.
 - Docs for item 14: AGENTS.md's "STRAT gated publication" paragraph still names isGannContinuation.
 - STRATEGY_VERSION 2026-10-16-gann-with-trend.
+
+## 2026-10-16 Item 6 follow-up (A-ENTRY-18): a rally is sold only in a bear market
+- Diagnosis: runs 39-40 show the rally sale at -0.151R on 145 trades (win rate 9%). It read "bear market" off the weekly chart alone; nearly all its shorts came from the reversion pass, i.e. shorts inside a weighted (monthly-led) uptrend. Gann's bear market is the main trend (A-TREND-01).
+- Change: selectGannEntry/computeGannHoldEntry take `bearMarket`; the rally sale arms only when it is true. `gannEntryOf(bars, older, trends)` (lib/scan/entrySelection.ts) sets it from gannMacroDirection === "bearish", and both the live scan (lib/scanTicker.ts) and the replay (lib/backtest/replay.ts) price entries through it. Expert lesson says the main trend must be down.
+- STRATEGY_VERSION 2026-10-16-gann-rally-bear-market.
+- Tests: lib/gann/__tests__/rallyMainTrend.test.ts (4), entryChartWiring spies on gannEntryOf and asserts the bear-market flag reaches selectGannEntry live and in the replay.
+- Mutations R1-R6 caught (R5/R6 after the wiring spy was added).
+- Checks: vitest 270 files / 2712 tests pass; tsc clean; check:terms clean; eslint 0 errors.
+- Open: the replay reads monthly/weekly trends from rolled daily bars (about 6 years) while the live scan uses long monthly/weekly histories. Possible cross-platform difference, not fixed here.

@@ -7,11 +7,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Bar } from "@/lib/types";
 
-const spies = vi.hoisted(() => ({ entryChart: vi.fn(), selectGannEntry: vi.fn(), readBreakaway: vi.fn() }));
+const spies = vi.hoisted(() => ({ entryChart: vi.fn(), selectGannEntry: vi.fn(), readBreakaway: vi.fn(), gannEntryOf: vi.fn() }));
 vi.mock("@/lib/scan/entrySelection", async () => {
   const actual = await vi.importActual<typeof import("@/lib/scan/entrySelection")>("@/lib/scan/entrySelection");
   spies.entryChart.mockImplementation(actual.entryChart);
-  return { ...actual, entryChart: spies.entryChart };
+  spies.gannEntryOf.mockImplementation(actual.gannEntryOf);
+  return { ...actual, entryChart: spies.entryChart, gannEntryOf: spies.gannEntryOf };
 });
 vi.mock("@/lib/gann/entryTrigger", async () => {
   const actual = await vi.importActual<typeof import("@/lib/gann/entryTrigger")>("@/lib/gann/entryTrigger");
@@ -50,7 +51,18 @@ function readFromWindow(spy = spies.selectGannEntry, withOlder = spy === spies.s
   );
 }
 
+/** Whether every buying point was priced with the scan's own monthly, weekly and daily trends (the rally sale's bear market). */
+function pricedOnMacroTrends(): boolean {
+  return (
+    spies.gannEntryOf.mock.calls.length > 0 &&
+    spies.gannEntryOf.mock.calls.every(([, , trends]) =>
+      ["1Month", "1Week", "1Day"].every((tf) => (trends as { timeframe: string }[]).some((t) => t.timeframe === tf)),
+    )
+  );
+}
+
 beforeEach(() => {
+  spies.gannEntryOf.mockClear();
   spies.entryChart.mockClear();
   spies.selectGannEntry.mockClear();
   spies.readBreakaway.mockClear();
@@ -80,6 +92,9 @@ describe("the window each surface reads", () => {
     expect(readFromWindow()).toBe(true);
     // The breakaway hold reads the same bars as the entry it holds.
     expect(readFromWindow(spies.readBreakaway)).toBe(true);
+    // A rally is sold only on the main trend's say (A-ENTRY-18, gannEntryOf).
+    expect(spies.selectGannEntry.mock.calls.every((c) => typeof c[4] === "boolean")).toBe(true);
+    expect(pricedOnMacroTrends()).toBe(true);
   });
 
   describe("the live scan", () => {
@@ -100,19 +115,20 @@ describe("the window each surface reads", () => {
       expect((monthly as Bar[]).length).toBeGreaterThan(12);
       expect(readFromWindow()).toBe(true);
       expect(readFromWindow(spies.readBreakaway)).toBe(true);
+      expect(spies.selectGannEntry.mock.calls.every((c) => typeof c[4] === "boolean")).toBe(true);
+      expect(pricedOnMacroTrends()).toBe(true);
     }, 30_000);
 
     it("arms the side the replay arms, by the same rule (item 6 step 11)", async () => {
-      const { reversionEntry } = await vi.importActual<typeof import("@/lib/scan/entrySelection")>("@/lib/scan/entrySelection");
-      const { selectGannEntry } = await vi.importActual<typeof import("@/lib/gann/entryTrigger")>("@/lib/gann/entryTrigger");
+      const { gannEntryOf, reversionEntry } = await vi.importActual<typeof import("@/lib/scan/entrySelection")>("@/lib/scan/entrySelection");
       const symbols = ["AAPL", "MSFT", "XOM", "JPM", "KO", "TSLA", "NVDA", "PFE"];
       const sides = new Set<string>();
       for (const symbol of symbols) {
         spies.entryChart.mockClear();
         const r = await scanTicker(symbol);
-        const chart = spies.entryChart.mock.results[0].value as { bars: Bar[]; older: Parameters<typeof selectGannEntry>[2] };
+        const chart = spies.entryChart.mock.results[0].value as { bars: Bar[]; older: Parameters<typeof gannEntryOf>[1] };
         const macro = r.trends.filter((t) => t.timeframe !== "1Hour");
-        const expected = reversionEntry(macro, (d) => selectGannEntry(chart.bars, d, chart.older), chart.bars[chart.bars.length - 1].c);
+        const expected = reversionEntry(macro, gannEntryOf(chart.bars, chart.older, macro), chart.bars[chart.bars.length - 1].c);
         expect(r.direction).toBe(expected?.direction ?? "none");
         sides.add(r.direction);
       }

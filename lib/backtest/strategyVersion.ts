@@ -151,4 +151,8 @@
 // two-of-three breadth, Execute bar or two-slot quota, and it competes with
 // the reversions for the list's slots by score. With no trend on any chart the
 // nearer side's buying point arms (fork F4 a), where the scan used to sell.
-export const STRATEGY_VERSION = "2026-10-16-gann-with-trend";
+// Item 6 follow-up, 2026-10-16: a bear-market rally is sold only while Gann's
+// weighted trend is down (A-ENTRY-18, the bear market is the main trend;
+// gannEntryOf), not on the weekly chart alone. Runs 39-40 measured the rally
+// sale at -0.15R on 145 trades, armed almost all against the weighted trend.
+export const STRATEGY_VERSION = "2026-10-16-gann-rally-bear-market";

@@ -32,7 +32,7 @@
 import type { Bar, StratPattern, TrendReading } from "@/lib/types";
 import type { SetupKind } from "@/lib/types";
 import { weightedTrendAgreement } from "@/lib/gann/timeframeWeight";
-import { nearerBuyingPoint, OLDER_LEVELS_YEARS, olderGannLevels, type GannEntryTrigger, type OlderGannLevel } from "@/lib/gann/entryTrigger";
+import { nearerBuyingPoint, OLDER_LEVELS_YEARS, olderGannLevels, selectGannEntry, type GannEntryTrigger, type OlderGannLevel } from "@/lib/gann/entryTrigger";
 import {
   CONTINUATION_PATTERNS,
   detectPatterns,
@@ -124,6 +124,21 @@ export function isWithGannTrend(trends: Pick<TrendReading, "timeframe" | "direct
 }
 
 type EntryOf = (direction: EntryDirection) => GannEntryTrigger | null;
+
+/**
+ * Each side's buying point as the scan prices it (`selectGannEntry`), read
+ * from the entry chart, with a bear-market rally sold only while Gann's
+ * weighted trend is down (A-ENTRY-18: the bear market is the main trend). The
+ * live scan and the replay both price through this.
+ */
+export function gannEntryOf(
+  bars: Bar[],
+  older: OlderGannLevel[],
+  trends: Pick<TrendReading, "timeframe" | "direction">[],
+): EntryOf {
+  const bearMarket = gannMacroDirection(trends) === "bearish";
+  return (d) => selectGannEntry(bars, d, older, undefined, bearMarket);
+}
 
 /**
  * The buying point a scan with no direction asked of it arms: against Gann's

@@ -475,15 +475,17 @@ export function computeGannHoldEntry(
   direction: TriggerDirection,
   older: OlderGannLevel[] = [],
   swingDays: number = ENTRY_TRIGGER_SWING_DAYS,
+  /** The bear-market rally sale may be offered: the main trend is down (`bearRallySell`). */
+  bearMarket = true,
 ): GannEntryTrigger | null {
-  const found = holdEntryOn(bars, direction, older, swingDays);
+  const found = holdEntryOn(bars, direction, older, swingDays, bearMarket);
   if (!found) return null;
   // Bought once (step 4 review S3): a session that offered this hold, and a
   // later one that traded to its buy, spend it. The next hold needs a new low,
   // as a crossing needs a new crossing and the replay a new pivot.
   const sign = direction === "bullish" ? 1 : -1;
   for (let j = found.since; j < bars.length - 1; j++) {
-    const offered = holdEntryOn(bars.slice(0, j + 1), direction, older, swingDays);
+    const offered = holdEntryOn(bars.slice(0, j + 1), direction, older, swingDays, bearMarket);
     if (!offered || offered.trigger.formedAt !== found.trigger.formedAt) continue;
     const buy = offered.trigger.reactionEntry;
     if (bars.slice(j + 1).some((b) => sign * ((sign === 1 ? b.l : b.h) - buy) <= 0)) return null;
@@ -497,6 +499,7 @@ function holdEntryOn(
   direction: TriggerDirection,
   older: OlderGannLevel[],
   swingDays: number,
+  bearMarket: boolean,
 ): { trigger: GannEntryTrigger; since: number } | null {
   if (bars.length === 0) return null;
   const sign = direction === "bullish" ? 1 : -1;
@@ -533,7 +536,7 @@ function holdEntryOn(
 
   const swing = swingHold();
   if (swing || direction === "bullish") return swing;
-  return bearRallySell(bars, entry, swingDays);
+  return bearMarket ? bearRallySell(bars, entry, swingDays) : null;
 
   function swingHold(): { trigger: GannEntryTrigger; since: number } | null {
     // The reaction: from the latest top that stands 3 points over the low since it.
@@ -601,7 +604,11 @@ function counterMoveSince(bars: Bar[]): { trend: "bullish" | "bearish"; start: n
 /**
  * The bear-market rally sell (W006 p.47, Rule 4, A-ENTRY-18): "bear-market
  * rallies last 2-3 weeks; sell at the end of the second or third week with a
- * stop 3 points above the previous week's high". The weekly chart is bearish
+ * stop 3 points above the previous week's high". The bear market is the main
+ * trend down: Gann's weighted trend over the monthly, weekly and daily charts
+ * (A-TREND-01), which the caller passes as `bearMarket` (item 6 follow-up,
+ * 2026-10-16; the weekly chart alone admitted rallies inside monthly
+ * advances, which are bull-market reactions). The weekly chart is bearish
  * and the rally has run 8-21 days from its low ("2-3 weeks" read as in
  * `timeRules.ts`), the low being the lowest since the weekly chart's last top
  * (`counterMoveSince`). The sell is at the close of the week's last session,
@@ -684,11 +691,13 @@ export function selectGannEntry(
   direction: TriggerDirection,
   older: OlderGannLevel[] = [],
   swingDays: number = ENTRY_TRIGGER_SWING_DAYS,
+  /** Whether the main trend is down, so a bear-market rally may be sold (`bearRallySell`). */
+  bearMarket = true,
 ): GannEntryTrigger | null {
   const candidates = [
     computeGannEntryTrigger(bars, direction, swingDays, undefined, true, older),
     computeGannOldLevelEntry(bars, direction, swingDays),
-    computeGannHoldEntry(bars, direction, older, swingDays),
+    computeGannHoldEntry(bars, direction, older, swingDays, bearMarket),
   ].filter((t): t is GannEntryTrigger => t !== null);
   if (candidates.length === 0) return null;
   const price = bars[bars.length - 1].c;

@@ -67,6 +67,7 @@ import {
   MIN_DAILY_BARS_FOR_SCAN,
   armSessionEntries,
   entryChart,
+  gannEntryOf,
   rankArmedPatterns,
 } from "@/lib/scan/entrySelection";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
@@ -90,7 +91,7 @@ import {
   proximityBandPct,
 } from "@/lib/scoring/proximity";
 import type { CriterionWeights } from "@/lib/scoring/weights";
-import { computeGannEntryTrigger, sameGannLevel, selectGannEntry, type GannEntryTrigger } from "@/lib/gann/entryTrigger";
+import { computeGannEntryTrigger, sameGannLevel, type GannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { restsWithoutCrossing, type GannEntryKind, type GannHoldBasis } from "@/lib/gann/entryKind";
 import { advanceEntryConfirmation, entryReady, freshEntryConfirmation } from "@/lib/lifecycle/entryConfirmation";
 import type { EntryConfirmationEvidence } from "@/lib/lifecycle/types";
@@ -750,8 +751,9 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       // before the session (item 5 step 3).
       const chart = entryChart(dailyBars, monthlyBars ?? [], date);
       const entryDaily = chart.bars;
+      const reactionEntryOf = gannEntryOf(entryDaily, chart.older, context.macroTrends);
       const entryOf = (d: "bullish" | "bearish") =>
-        entryRule === "reaction" ? selectGannEntry(entryDaily, d, chart.older) : computeGannEntryTrigger(entryDaily, d);
+        entryRule === "reaction" ? reactionEntryOf(d) : computeGannEntryTrigger(entryDaily, d);
       const monthlyWarning = readMonthlyBreakWarning(entryDaily);
       const sessionTrigger = (setupKind: SetupKind, trigger: GannEntryTrigger): SessionTrigger => ({
         setupKind,

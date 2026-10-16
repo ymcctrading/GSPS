@@ -37,9 +37,8 @@ import { majorPricePercentageLevels } from "@/lib/gann/disclosedRules";
 import { computeTimePriceSquare } from "@/lib/gann/timePriceSquare";
 import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
 import { computeBoilingPoint } from "@/lib/gann/boilingPoint";
-import { entryChart, MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection, rankArmedPatterns, reversionEntry } from "@/lib/scan/entrySelection";
+import { entryChart, gannEntryOf, MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection, rankArmedPatterns, reversionEntry } from "@/lib/scan/entrySelection";
 import { computeTradeLevels, gannEntrySource, type EntrySource } from "@/lib/strat/levels";
-import { selectGannEntry } from "@/lib/gann/entryTrigger";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
 import {
   applyBreakawayHold,
@@ -256,7 +255,7 @@ export async function scanTicker(
     const chart = entryChart(daily, monthly, etDateKey(new Date(scannedAt)));
     const entryDaily = chart.bars;
     const macroTrends = [monthlyTrend, weeklyTrend, dailyTrend];
-    const entryOf = (d: "bullish" | "bearish") => selectGannEntry(entryDaily, d, chart.older);
+    const entryOf = gannEntryOf(entryDaily, chart.older, macroTrends);
     const gannTrigger = preference
       ? entryOf(preference.direction)
       : entryDaily.length > 0
