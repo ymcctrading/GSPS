@@ -14,7 +14,7 @@
  *   high has points. `squareFromHigh` is that line at a fixed rate, on any
  *   time unit, and `squareFromLow` its mirror up from a low. The card reads
  *   both on the monthly chart at the Master Course's 1 point a month
- *   (`readMonthlySquares`): down from the latest monthly top, and up from the
+ *   (`readMonthlySquareFromHigh`, and `monthlyAngle` in priceZone.ts): down from the latest monthly top, and up from the
  *   latest campaign bottom (the same line as A-PRICE-05's 45-degree line).
  *   The point the square closes is a date ahead, so it is not shown (no dated
  *   window reaches members until measured); the line's price today is.

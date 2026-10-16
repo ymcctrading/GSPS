@@ -195,3 +195,32 @@ export function readGannTrend(bars: Bar[]): GannTrendRead {
 export function isGannRangeBound(bars: Bar[]): boolean {
   return !readGannTrend(bars).confirmed;
 }
+
+export interface SuccessiveSwings {
+  /** Higher bottoms in a row on the 3-Day Chart, ending at the latest bottom (0 when it is not higher). */
+  higherBottoms: number;
+  /** Lower tops in a row, ending at the latest top. */
+  lowerTops: number;
+}
+
+/**
+ * Which higher bottom (or lower top) the market stands on (C-ENTRY-03). Gann:
+ * the move is "strongest after the 2nd-3rd higher bottom" (Master Course
+ * Ch.8, PDF pp.251-252), and "watch the first, second and third lower tops"
+ * (Commodities p.46); W003 p.17 restates it as the 3rd or 4th. Context only.
+ * Engineering choices, labelled: bottoms and tops are the 3-Day Chart's
+ * (`STRUCTURE_SWING_CHART`), compared strictly, and the count restarts at the
+ * last bottom that was not higher.
+ */
+export function readSuccessiveSwings(bars: Bar[]): SuccessiveSwings {
+  const pivots = swingPivots(bars, STRUCTURE_SWING_CHART);
+  const run = (prices: number[], sign: 1 | -1): number => {
+    let n = 0;
+    for (let i = prices.length - 1; i > 0 && sign * (prices[i] - prices[i - 1]) > 0; i--) n++;
+    return n;
+  };
+  return {
+    higherBottoms: run(pivots.filter((p) => p.kind === "bottom").map((p) => p.price), 1),
+    lowerTops: run(pivots.filter((p) => p.kind === "top").map((p) => p.price), -1),
+  };
+}

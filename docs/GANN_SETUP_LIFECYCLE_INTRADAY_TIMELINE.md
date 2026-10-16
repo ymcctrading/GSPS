@@ -401,7 +401,8 @@ the stricter reading. Live uses 3 (`RECLAIM_POINTS`).
 **Run.** The same request twice, on the 766-symbol universe, 15-minute bars, `usePlanLevels`,
 `entryRule=confirmed`, `exitRule=gann-runner` (the rule live positions use), `within=all&trades=1`,
 differing only in `?reclaimPoints=3` and `?reclaimPoints=5`. Those are the only two values; no third is
-searched.
+searched. (The route also accepts `?reclaimPoints=1` since 2026-10-16. That is Gann's 1-point
+penetration, C-STOP-04, a separate rule measured on its own; it is not a third candidate in this test.)
 
 **Reading.** Plans a close of 3 points reinstates but 5 does not are the disputed set (the trades in the
 first run absent from the second, matched on symbol and `openedAt`). The live figure moves to 5 only if

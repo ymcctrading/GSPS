@@ -84,6 +84,11 @@ export function contextFactorsFor(
   if (ctx.halfwayRetest) f.halfwayReturnAgrees = ctx.halfwayRetest.state === "returning" && ctx.halfwayRetest.direction === direction;
   if (ctx.narrowRangeBreak) f.narrowRangeBreakAgrees = ctx.narrowRangeBreak.direction === direction;
   if (ctx.narrowWeekBreak) f.narrowWeekBreakAgrees = ctx.narrowWeekBreak.direction === direction;
+  // C-ENTRY-03 (Master Course Ch.8): the 2nd or 3rd higher bottom (lower top for a short).
+  if (ctx.successiveSwings) {
+    const n = bull ? ctx.successiveSwings.higherBottoms : ctx.successiveSwings.lowerTops;
+    f.secondOrThirdSwingWithTrade = n === 2 || n === 3;
+  }
   // Stage F1: extreme-price and timing rules, in the trade's direction.
   const rs = ctx.extremes.reverseSignal.signal;
   if (rs) f.reverseSignalAgrees = rs === (bull ? "bottom" : "top");
