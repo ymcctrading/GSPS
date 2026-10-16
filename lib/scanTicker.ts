@@ -75,7 +75,7 @@ import { buildScanNoviceEligibility } from "@/lib/universe/scanGates";
 import { DEFAULT_UNIVERSE_THRESHOLDS, type UniverseThresholds } from "@/lib/universe/eligibility";
 import { evaluateGannConfluence } from "@/lib/signals/confluence/gann";
 import { getInstrumentReference } from "@/lib/data/instrumentReference";
-import { getMarketDailyBars } from "@/lib/data/marketBenchmark";
+import { getMarketDailyBars, getMarketMonthlyBars } from "@/lib/data/marketBenchmark";
 import { evaluateSaraConfluence } from "@/lib/signals/confluence/sara";
 import { routeMarketAdapter } from "@/lib/signals/confluence/marketAdapters";
 import { isConfluenceModuleEnabled } from "@/lib/signals/confluence/flags";
@@ -141,12 +141,14 @@ export async function scanTicker(
     // The stored shares outstanding and inception date (parity roadmap D2,
     // D3) load alongside the bars. The whole table is read once per server
     // instance and cached, so after the first symbol this resolves at once.
-    const [{ monthly, weekly, daily, hourly, execution }, currentPrice, instrumentReference, marketDaily] = await Promise.all([
+    const [{ monthly, weekly, daily, hourly, execution }, currentPrice, instrumentReference, marketDaily, marketMonthly] = await Promise.all([
       prefetched ?? fetchAllTimeframes(symbol, assetClass, EXECUTION_TIMEFRAME),
       provider.fetchLatestPrice(symbol, assetClass),
       assetClass === "us_equity" ? getInstrumentReference(symbol) : Promise.resolve(null),
       // The market's daily bars for Gann's early/late leaders; read once a day.
       assetClass === "us_equity" ? getMarketDailyBars() : Promise.resolve(null),
+      // The market's monthly bars, to date its bull market for Gann's weak stocks.
+      assetClass === "us_equity" ? getMarketMonthlyBars() : Promise.resolve(null),
     ]);
 
     if (daily.length < MIN_DAILY_BARS_FOR_SCAN || execution.length < 10) {
@@ -496,7 +498,11 @@ export async function scanTicker(
           dailyBars: daily,
           currentPrice,
           direction: scoreDirection,
-          instrument: instrumentReference ? { ...instrumentReference, marketDaily } : marketDaily ? { sharesOutstanding: null, inception: null, marketDaily } : null,
+          instrument: instrumentReference
+            ? { ...instrumentReference, marketDaily, monthly, marketMonthly }
+            : marketDaily
+              ? { sharesOutstanding: null, inception: null, marketDaily, monthly, marketMonthly }
+              : null,
         })
       : null;
     const saraConfluence = isConfluenceModuleEnabled(

@@ -372,3 +372,17 @@ is unchecked here (collection-synthesis.md §1.6, §6).
 - Copy everywhere a crossing is named: score note, setup label ("regained old bottom" / "lost old top"), TradeLevels.entryRegained and the signal-card headline, the exam key and its explanations, both Academy crossing paragraphs. The exit note now says "the old level it crossed" (it read "top").
 - Tests: lib/gann/__tests__/regainedBottom.test.ts (7), score.test.ts and olderLevelsExam.test.ts additions. Mutations 7 of 7 caught (break needs 3 points, break side, swing and older candidates, flag, mirror, break after forming).
 - STRATEGY_VERSION 2026-10-16-gann-regained-bottom.
+== 2026-10-16 replay run 39 (ad9f351, STRATEGY_VERSION 2026-10-16-gann-rally-review, run 34's cells) ==
+- 766 symbols, 15Min, 2026-08-18 to 2026-10-15, plan levels, reaction entry. 1256 trades (run 38: 1132).
+- Runner: all +0.013R [-0.026, +0.052], halves +0.092 / -0.065; Execute +0.070R on 37 [-0.169, +0.325]; Watch -0.019R on 733.
+- Bracket: all +0.006R [-0.035, +0.047], halves +0.093 / -0.082; Execute +0.064R on 37.
+- Entry kinds (runner): crossing 316 at -0.047R, oldLevel 265 at +0.052R, hold 675 at +0.026R.
+- Hold basis (runner): weeks 519 at +0.079R, days 21 at -0.185R, record 1, rally 134 at -0.142R (bracket -0.156R). The rally sell is the new rule and it is negative on 134 trades in a rising two-month window; presumed a translation question before a verdict on the rule (AGENTS "Gann-derived AND measured"). Next check: the rally trades' symbols' weekly trend and market direction, and whether the 8-21 day window or the week-high stop is what loses.
+- Continuation 38 at +0.239R (runner). Every interval includes zero; the second half is negative again.
+- Superseded by 2026-10-16-gann-regained-bottom (6aca033), dispatched with the same cells.
+- Files: scratchpad/run39.wrapped.json, run39.json.
+2026-10-16 Item 6 step 9 (A-TREND-07/-08, F6a): weak stocks in a bull market, context only (W006 pp.25, 27, 35).
+- leadership.ts readWeakStock(stockMonthly, marketMonthly): the bull market dates from the market's (SPY) monthly chart, the lowest month before its 2-bar swing chart turned up (marketBullStart; the 2-month reaction is an engineering choice citing W006 p.38). A-TREND-07: the stock's highest month in the first 24 months from that start, then 24 months with none above it. A-TREND-08: the first top on the stock's 2-bar monthly chart from the start, reached in 3 months or less from the low before it, never exceeded since. monthlyWithCurrent builds the month in progress from daily bars so live and replay read the same chart.
+- Wired: scanTicker reads SPY monthly once a day (marketBenchmark.getMarketMonthlyBars) and passes the stock's and market's monthly bars in the instrument facts; the replay gets marketMonthlyBars from run.ts and each session reads only months before its own. Card lines "Weak in this bull market: ..."; measured context factor weakStockLong (buys only). Gann's action on a weak stock (A-SELECTION-04) is item 11, not built here.
+- Tests: lib/gann/__tests__/weakStock.test.ts (12). Mutations 9 of 9 caught (bull trend required, bull-start low, both 24-month spans, never-exceeded tests, the 3-month cap, month in progress, either reading, slicing from the bull start).
+- Context only, no gate: no STRATEGY_VERSION bump.

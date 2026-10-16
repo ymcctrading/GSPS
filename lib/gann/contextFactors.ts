@@ -157,6 +157,9 @@ export function contextFactorsFor(
     if (bull) f.lateMoverLong = ctx.leadership.bottomedLate;
     if (bull && ctx.leadership.firstYearHighCrossed !== null) f.firstYearHighCrossed = ctx.leadership.firstYearHighCrossed;
   }
+  // A-TREND-07/-08: a weak stock in a bull market; Gann leaves it alone on
+  // the buy side (the action is A-SELECTION-04, PLAN.md item 11).
+  if (bull && ctx.weakStock) f.weakStockLong = ctx.weakStock.weak;
 
   // D2: Gann's capital-stock readings are top warnings, so they count against
   // a long and with a short. Absent when no share count is stored.

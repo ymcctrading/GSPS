@@ -434,9 +434,10 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
   // readings are then simply absent from every trade.
   const references = await loadInstrumentReferenceHistory(symbols);
   // The market's daily bars (SPY) once, for Gann's early/late leaders (G25).
-  const marketDailyBars = await fetchSeries("SPY", timeframe)
-    .then((s) => s.daily)
-    .catch(() => undefined);
+  // Its monthly bars too, to date the bull market for Gann's weak stocks.
+  const market = await fetchSeries("SPY", timeframe, true).catch(() => undefined);
+  const marketDailyBars = market?.daily;
+  const marketMonthlyBars = market?.monthly;
 
   for (const symbol of symbols) {
     try {
@@ -473,7 +474,7 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
               ...(reclaimPoints !== undefined ? { reclaimPoints } : {}),
               dailyBars: daily,
             })
-          : replay(symbol, bars, { ...options, dailyBars: daily, monthlyBars: monthly, instrument, marketDailyBars }),
+          : replay(symbol, bars, { ...options, dailyBars: daily, monthlyBars: monthly, instrument, marketDailyBars, marketMonthlyBars }),
       );
       used.push(symbol);
     } catch (err) {

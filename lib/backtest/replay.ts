@@ -304,6 +304,12 @@ export interface ReplayOptions {
    * reading carries only the first-year high.
    */
   marketDailyBars?: Bar[];
+  /**
+   * The market's monthly bars (SPY), to date its bull market for Gann's weak
+   * stocks (`readWeakStock`). Each session reads only the months before its
+   * own; the current month is built from the daily bars, as live.
+   */
+  marketMonthlyBars?: Bar[];
 }
 
 /** Why an intraday-profile trade left (`lib/backtest/replayIntraday.ts`). */
@@ -675,6 +681,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     pyramid = false,
     instrument,
     marketDailyBars,
+    marketMonthlyBars,
   } = options;
 
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
@@ -730,6 +737,8 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
               sharesOutstanding: instrument ? splitAdjustedSharesAsOf(instrument.sharesHistory, date) : null,
               inception: instrument?.inception ?? null,
               marketDaily: marketDailyBars ?? null,
+              monthly: monthlyBars ? priorMonthly : null,
+              marketMonthly: marketMonthlyBars ? marketMonthlyBars.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)) : null,
             }
           : null;
       const context = buildMacroContext(priorSessions, price, new Date(`${date}T12:00:00Z`), priorMonthly, facts);

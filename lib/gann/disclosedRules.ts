@@ -77,7 +77,7 @@ import { readMultipleTops, type MultipleTopsReading } from "@/lib/gann/multipleT
 import { readSeasonalCount, type SeasonalCountReading } from "@/lib/gann/seasonalCounts";
 import { readAccumulation, type AccumulationReading } from "@/lib/gann/accumulation";
 import { readSharesPerPoint, type SharesPerPointReading } from "@/lib/gann/sharesPerPoint";
-import { readLeadership, type LeadershipReading } from "@/lib/gann/leadership";
+import { monthlyWithCurrent, readLeadership, readWeakStock, type LeadershipReading, type WeakStockReading } from "@/lib/gann/leadership";
 import { describeSevenZones, readSevenZones, type ZoneReading } from "@/lib/gann/sevenZones";
 import { approachingFigure, type ApproachReading } from "@/lib/gann/evenFigures";
 import type { Bar } from "@/lib/types";
@@ -433,6 +433,8 @@ export interface DisclosedRulesContext {
   sharesPerPoint: SharesPerPointReading | null;
   /** Early and late leaders, and the first-year high. See `leadership.ts`. */
   leadership: LeadershipReading | null;
+  /** Gann's weak stocks in a bull market (A-TREND-07/-08, context only). See `readWeakStock`. */
+  weakStock?: WeakStockReading | null;
   /** The 2–3-day halt and the reaction-week rules. See `timeRules.ts`. */
   timeRules: TimeRulesReading | null;
   /** Double and triple tops and bottoms. See `multipleTops.ts`. */
@@ -455,6 +457,10 @@ export interface InstrumentFacts {
   inception: Inception | null;
   /** The market's daily bars (SPY), for early and late leaders (G25). See `leadership.ts`. */
   marketDaily?: Bar[] | null;
+  /** The stock's monthly bars, for the weak-stock readings (`readWeakStock`). */
+  monthly?: Bar[] | null;
+  /** The market's monthly bars (SPY), to date its bull market (`readWeakStock`). */
+  marketMonthly?: Bar[] | null;
 }
 
 export const EMPTY_DISCLOSED_RULES: DisclosedRulesContext = {
@@ -515,6 +521,13 @@ export function readDisclosedRules(
     accumulation: readAccumulation(dailyBars),
     sharesPerPoint: readSharesPerPoint(dailyBars, campaign),
     leadership: readLeadership(dailyBars, instrument?.marketDaily ?? null, campaign),
+    weakStock:
+      instrument?.monthly && instrument.marketMonthly
+        ? readWeakStock(
+            monthlyWithCurrent(instrument.monthly, dailyBars),
+            monthlyWithCurrent(instrument.marketMonthly, (instrument.marketDaily ?? []).filter((b) => b.t <= dailyBars[dailyBars.length - 1].t)),
+          )
+        : null,
     timeRules: readTimeRules(dailyBars, counterMove),
     multipleTops: readMultipleTops(dailyBars),
     halfwayRetest: readHalfwayRetest(dailyBars),
@@ -555,6 +568,14 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
     if (l.bottomedLate) lines.push("Bottomed after the market: a late mover.");
     if (l.toppedFirst) lines.push("Topped before the market: watch for early weakness.");
     if (l.firstYearHighCrossed !== null) lines.push(`First-year high of the campaign ${l.firstYearHighCrossed ? "crossed" : "not yet crossed"}.`);
+  }
+  if (ctx.weakStock?.earlyTopFailed) {
+    const w = ctx.weakStock.earlyTopFailed;
+    lines.push(`Weak in this bull market: its ${w.month} top (${w.top.toFixed(2)}), made in the market's first two years up, has not been exceeded in two years.`);
+  }
+  if (ctx.weakStock?.firstRallyNotExceeded) {
+    const w = ctx.weakStock.firstRallyNotExceeded;
+    lines.push(`Weak in this bull market: its first rally ran only ${w.months} month${w.months === 1 ? "" : "s"}, to ${w.top.toFixed(2)} in ${w.month}, and has not been exceeded since.`);
   }
   if (ctx.evenFigures.overhead) lines.push(ctx.evenFigures.overhead.note);
   if (ctx.evenFigures.underneath) lines.push(ctx.evenFigures.underneath.note);
