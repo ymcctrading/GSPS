@@ -337,6 +337,14 @@ async function main() {
     await writeFile(path.join(root, "out", "summary.md"), "Calendar test: see the job log.\n");
     return;
   }
+  // The item 7 time-window base-rate test rides it too (scripts/time-window-base-rates.mjs).
+  if (process.argv.includes("time-window-base-rates")) {
+    const { runTimeWindowBaseRates } = await import("./time-window-base-rates.mjs");
+    await runTimeWindowBaseRates({});
+    await mkdir(path.join(root, "out"), { recursive: true });
+    await writeFile(path.join(root, "out", "summary.md"), "Time-window base rates: see the job log.\n");
+    return;
+  }
 
   const args = parseArgs(process.argv.slice(2));
   const cells = await loadCells(args.cells);
