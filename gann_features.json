@@ -114,7 +114,7 @@
     "class": "A",
     "gsps_location": "lib/gann/disclosedRules.ts:readCounterMove; lib/gann/disclosedRules.ts:counterMovePhase — differs: context only; phases in days (≤21 normal, 22-30 extended, 31-60 second month, 61+ third month)",
     "test": "lib/gann/__tests__/disclosedRules.test.ts > counter-move clock (Master Course Ch. 11B; Stock Selector Ch. IV) > classifies durations by the source's weeks and months",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-TIME-02",
@@ -123,7 +123,7 @@
     "class": "A",
     "gsps_location": "lib/gann/disclosedRules.ts:readCounterMove (bearish weekly trend) — differs: context only, same day thresholds as the bull side",
     "test": "TO WRITE: lib/gann/__tests__/disclosedRules.test.ts — readCounterMove on a bearish weekly trend with a 45-day rally reports inCounterMove=true, phase secondMonth, and a 70-day rally reports thirdMonth.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-TIME-03",
@@ -1887,7 +1887,7 @@
     "class": "C",
     "gsps_location": "lib/gann/disclosedRules.ts:readYearFraction (YEAR_FRACTIONS); lib/gann/squareOf52.ts:squareOf52Windows — differs: fractions are applied to the 360-day and 52-week year only, never to the 5- to 60-year cycles in MAJOR_CYCLE_YEARS",
     "test": "TO WRITE: lib/gann/__tests__/disclosedRules.test.ts — fractions of a 30-year cycle return 3.75, 7.5 and 10 years.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "C-TIME-13",
@@ -1968,7 +1968,7 @@
     "class": "C",
     "gsps_location": "lib/gann/squareOf52.ts:SQUARE_OF_52_FRACTIONS (39 and 17.33 weeks) — differs: 35 weeks absent",
     "test": "TO WRITE: lib/gann/__tests__/squareOf52.test.ts — squareOf52Windows projects a 35-week window.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "C-TIME-22",
@@ -2076,7 +2076,7 @@
     "class": "C",
     "gsps_location": "lib/gann/disclosedRules.ts:counterMovePhase (normal ≤ 21 days); lib/gann/extremeRules.ts:readReverseSignal (7–10 Day Rule, 7–14 days) — differs: GSPS's normal reaction runs to 3 weeks, and its 7–10 Day Rule counts days without a lower low, not counter-move length",
     "test": "TO WRITE: lib/gann/__tests__/disclosedRules.test.ts — a 5-day counter-move on a stock is classified as past the normal 3–5-day length and a 7–10-day one as the next counter-move.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "C-TIME-26",
@@ -2256,7 +2256,7 @@
     "class": "C",
     "gsps_location": "lib/gann/seasonalCounts.ts:readSeasonalCount (SEASONAL_POINTS) — differs: eighths (45°) and thirds from 21 Mar at day precision; no 22.5° points and no hours",
     "test": "TO WRITE: lib/gann/__tests__/missingRules.test.ts — readSeasonalCount reports the 22.5° point on 12 Apr.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "C-LEVELS-16",
@@ -2274,7 +2274,7 @@
     "class": "C",
     "gsps_location": "lib/gann/seasonalCounts.ts:SEASONAL_POINTS — differs: 45° steps and thirds only, with 45° on 5 May rather than 6 May",
     "test": "TO WRITE: lib/gann/__tests__/missingRules.test.ts — a 24-division seasonal reading marks about 5 Apr (15°) after 21 Mar.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "C-LEVELS-17",
@@ -2319,7 +2319,7 @@
     "class": "C",
     "gsps_location": "lib/gann/fans.ts:computeFanLines (timeProjectionDate = base swing duration × ratio) — differs: only 25%, 50%, 100%, 200% and 400%; no 1x8, 1x3, 3x1 or 8x1",
     "test": "lib/__tests__/gann.test.ts > computeFanLines > projects the 1x1 angle's time target as exactly one base-swing interval forward, and 2x1 as double",
-    "passes": false
+    "passes": true
   },
   {
     "id": "C-PRICE-03",
@@ -2346,7 +2346,7 @@
     "class": "C",
     "gsps_location": "lib/gann/campaignLedger.ts:buildCampaignLedger (timeBalanceDates) — differs: projects only the matching prior leg's duration, with no high-to-high or low-to-low spans and no tolerance",
     "test": "lib/gann/__tests__/campaignLedger.test.ts > buildCampaignLedger > projects a time-balance date from the matching prior leg",
-    "passes": false
+    "passes": true
   },
   {
     "id": "C-STOP-03",
@@ -2382,7 +2382,7 @@
     "class": "C",
     "gsps_location": "lib/gann/timeCycles.ts:timeCycles (WHEEL_COUNTS, days); lib/gann/angleMonthCounts.ts:ANGLE_MONTH_COUNTS (11.25 grid plus 60/120/240/300, months) — differs: in days only the ten WHEEL_COUNTS; 150 and 165 absent in months",
     "test": "TO WRITE: lib/__tests__/gann.test.ts — timeCycles is active 112, 150, 157, 165, 202, 247, 292 and 337 days after a major low.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "C-TIME-45",
