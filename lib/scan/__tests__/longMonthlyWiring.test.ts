@@ -1,7 +1,7 @@
 /**
  * The live scan hands the long monthly series (`LONG_MONTHLY_YEARS`) to the
- * class C long counts and keeps ten years for its own monthly readings (item 7
- * second review M-b).
+ * class C long counts and keeps ten calendar years for its own monthly readings
+ * (item 7 second review M-b; the level charts' span since item 9 step 4).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Bar } from "@/lib/types";
@@ -44,6 +44,8 @@ describe("the live scan's monthly series", () => {
     expect(facts).toBeDefined();
     const span = (bars: Bar[]) => (Date.parse(bars[bars.length - 1].t) - Date.parse(bars[0].t)) / (365.25 * 86_400_000);
     expect(span(facts!.monthlyLong!)).toBeGreaterThan(LONG_MONTHLY_YEARS - 1);
-    expect(span(facts!.monthly!)).toBeLessThanOrEqual(10);
+    // The level charts' months: from 1 January ten years before this year (item 9 step 4).
+    expect(span(facts!.monthly!)).toBeLessThanOrEqual(11);
+    expect(facts!.monthly![0].t.slice(0, 7)).toBe(`${new Date().getUTCFullYear() - 10}-01`);
   }, 30_000);
 });

@@ -210,4 +210,10 @@
 // points is no longer read as a lower secondary rally (higher secondary low),
 // H1; "the same level" for a retest is Gann's 3 points on the near side too,
 // not 1% (M3). Both move the volume criterion.
-export const STRATEGY_VERSION = "2026-10-16-gann-retest-bands";
+// Item 9 step 4 (level parity), same day: the trends' support and resistance,
+// the target angles, the retracements, Gann's percentage levels and the
+// disclosed rules read one set of charts on both surfaces (lib/scan/
+// levelCharts.ts): 52 weeks of completed sessions, 5 years of Monday weeks, 10
+// calendar years of months, each bar in progress from completed sessions. The
+// replay had read up to six years of daily bars and rolled-up weeks and months.
+export const STRATEGY_VERSION = "2026-10-16-gann-level-parity";

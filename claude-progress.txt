@@ -715,3 +715,10 @@ including the break) survive as equivalent on one session; B3 removed as redunda
 - M2 (live 1y vs replay 6y for multipleTops/levelTests) goes into step 4's level parity.
 - A-VOLUME-11's gsps_location still says "differs" (only `passes` may change in the feature list); its pass rests on the review in item8b_review.md.
 - STRATEGY_VERSION 2026-10-16-gann-retest-bands. Replay waits for step 4 so one run measures both.
+
+## 2026-10-16 item 9 step 4: level parity (lib/scan/levelCharts.ts)
+- One window on both surfaces: daily = entryChartBars (52 weeks, completed); weekly = Monday weeks within 5 years, the week in progress from completed sessions (replay rolls them from daily; the old "weeks since 1 Jan" buckets are gone); monthly = from 1 Jan OLDER_LEVELS_YEARS before the year (live now reads monthlyLong, was a rolling 10 years), the month in progress from completed sessions.
+- Feeds: readTrend x3 (support/resistance and macro direction), ruleOfThree weekly/monthly, fans, Square of 9, retracements, majorPricePercentageLevels, readDisclosedRules (live via the confluence layer's dailyBars and instrument.monthly). Live drops today's forming bar from all of these. Covers review M2 (multipleTops/levelTests now read the same sessions).
+- Not changed (noted for later): the swing chart, campaign leg, rule of three daily, angle slopes, time-price square, volume climax and cycles still read the raw daily on each surface (live 1y with today, replay up to 6y).
+- Cost: levelCharts 0.09 ms per symbol live (~25 ms per 250-symbol scan), 0.72 ms per replay call (memoised Mondays).
+- Equality test: a live-shaped feed and a replay-shaped one give identical charts. Mutants L1-L6 killed. STRATEGY_VERSION 2026-10-16-gann-level-parity. Run 51 next (after run 50).

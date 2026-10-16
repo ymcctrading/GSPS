@@ -72,6 +72,8 @@ import {
 } from "@/lib/scan/entrySelection";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
 import { readLiquidity } from "@/lib/scan/liquidity";
+import { levelCharts } from "@/lib/scan/levelCharts";
+import { etDateKey } from "@/lib/market/session";
 import { applyBreakawayHold, applyDistributionBreakdownHold, applyMonthlyBreakHold, applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
 import { breakawayVolumeMet, readBreakaway, type BreakawayReading } from "@/lib/gann/breakaway";
 import { readMonthlyBreakWarning, type MonthlyBreakWarning } from "@/lib/gann/campaignLedger";
@@ -491,12 +493,6 @@ export function rollUp(bars: Bar[], key: (bar: Bar) => string): Bar[] {
   return out;
 }
 
-/** Whole weeks since the start of the bar's year. Buckets, not ISO weeks. */
-const weekKey = (b: Bar) => {
-  const t = new Date(b.t);
-  const yearStart = Date.UTC(t.getUTCFullYear(), 0, 1);
-  return `${t.getUTCFullYear()}-${Math.floor((t.getTime() - yearStart) / 604_800_000)}`;
-};
 
 /**
  * The slower-moving half of a scan: macro trends, structural levels and the
@@ -560,24 +556,27 @@ export function buildMacroContext(
   /** Shares outstanding as of this session and the inception date (D2, D3), when stored. */
   instrument: InstrumentFacts | null = null,
 ): MacroContext {
-  const weekly = rollUp(daily, weekKey);
-  const monthly = rollUp(daily, (b) => b.t.slice(0, 7));
+  // Mirrors lib/scanTicker.ts: the level charts both surfaces read (PLAN.md
+  // item 9 step 4), from the completed sessions and closed months held here.
+  const charts = levelCharts({ daily, weekly: null, monthly: priorMonthly }, etDateKey(asOf));
+  const weekly = charts.weekly;
+  const monthly = charts.monthly;
   const monthlyTrend = readTrend(monthly, "1Month");
   const weeklyTrend = readTrend(weekly, "1Week");
-  const dailyTrend = readTrend(daily, "1Day");
+  const dailyTrend = readTrend(charts.daily, "1Day");
   const swingChart = computeSwingChart(daily);
   const campaignLeg = computeCampaignLeg(daily);
   const ruleOfThree = computeRuleOfThree(daily);
 
-  const fanLines = computeFanLines(daily, price);
-  const s9 = recentSquareOf9Levels(daily, price).slice(0, 12);
+  const fanLines = computeFanLines(charts.daily, price);
+  const s9 = recentSquareOf9Levels(charts.daily, price).slice(0, 12);
   const cycles = timeCycles(daily, asOf);
   const angleSlopes = computeAngleSlopes(daily, price);
   const timePriceSquare = computeTimePriceSquare(daily, price);
   // Mirrors lib/scanTicker.ts: completed sessions, and the closed months for A-VOLUME-09.
   const volumeClimax = computeVolumeClimax(daily, undefined, { asOf, monthly: priorMonthly.length > 0 ? priorMonthly : null });
   const boilingPoint = computeBoilingPoint(daily, volumeClimax);
-  const retracementLevels = computeRetracementLevels(daily, price);
+  const retracementLevels = computeRetracementLevels(charts.daily, price);
   const digitalRootConfluences = angleSlopes
     .map((r) => {
       const confluence = priceTimeConfluence(price, r.anchorPrice, r.barsSinceAnchor);
@@ -593,7 +592,7 @@ export function buildMacroContext(
     ...monthlyTrend.support.map((p) => ({ price: p, timeframe: monthlyTrend.timeframe })),
     ...monthlyTrend.resistance.map((p) => ({ price: p, timeframe: monthlyTrend.timeframe })),
     // Mirrors lib/scanTicker.ts: Gann's major percentage-of-price levels.
-    ...majorPricePercentageLevels([...priorMonthly, ...daily]).map((p) => ({ price: p, timeframe: "1Month" as const })),
+    ...majorPricePercentageLevels([...monthly, ...charts.daily]).map((p) => ({ price: p, timeframe: "1Month" as const })),
   ];
   const recentAtr = atr(daily.slice(-20), 14);
   const baselineAtr = atr(daily.slice(-100, -20), 14);
@@ -645,7 +644,7 @@ export function buildMacroContext(
     momentumElevated: baselineAtr > 0 && recentAtr / baselineAtr >= 1.2,
     atrPct,
     structuralLevels: allLevels.map((l) => l.price),
-    disclosedRules: readDisclosedRules(daily, price, instrument, asOf),
+    disclosedRules: readDisclosedRules(charts.daily, price, instrument ? { ...instrument, monthly: instrument.monthly ? monthly : instrument.monthly } : instrument, asOf),
   };
 }
 

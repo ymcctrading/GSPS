@@ -55,6 +55,7 @@ import { readMonthlyBreakWarning } from "@/lib/gann/campaignLedger";
 import { readStopBreach } from "@/lib/gann/stopBreach";
 import { decisionLag, feedDelayMs } from "@/lib/data/latency";
 import { etDateKey, marketSession } from "@/lib/market/session";
+import { levelCharts } from "@/lib/scan/levelCharts";
 import {
   FALLBACK_SR_PCT,
   SR_PROXIMITY_ATR,
@@ -156,10 +157,14 @@ export async function scanTicker(
       throw new Error(`Insufficient bar data for ${symbol}`);
     }
 
-    // ---- Level 1: macro trends + S/R (10yr monthly, 5yr weekly, 1yr daily)
-    const monthlyTrend = readTrend(monthly, "1Month");
-    const weeklyTrend = readTrend(weekly, "1Week");
-    const dailyTrend = readTrend(daily, "1Day");
+    // ---- Level 1: macro trends + S/R, read from the level charts the replay
+    // reads too (PLAN.md item 9 step 4): 52 weeks of completed sessions, 5
+    // years of weeks and 10 calendar years of months, each bar in progress
+    // built from completed sessions. See lib/scan/levelCharts.ts.
+    const charts = levelCharts({ daily, weekly, monthly: monthlyLong ?? monthly }, etDateKey(new Date(scannedAt)));
+    const monthlyTrend = readTrend(charts.monthly, "1Month");
+    const weeklyTrend = readTrend(charts.weekly, "1Week");
+    const dailyTrend = readTrend(charts.daily, "1Day");
     // Gann's 3-Day and 7-day weekly swing charts, replacing the monthly/weekly/daily
     // macroTrend agreement check — same daily bars, a different (reversal-
     // count) construction. See lib/gann/swingChart.ts.
@@ -170,15 +175,15 @@ export async function scanTicker(
     // Gann's Rule of Three, added 2026-09-16 — see lib/gann/ruleOfThree.ts.
     const ruleOfThree = computeRuleOfThree(daily);
     // Gann applies the rule to weekly and monthly closes too (2026-09-27).
-    const ruleOfThreeWeekly = weekly.length >= 4 ? computeRuleOfThree(weekly) : null;
-    const ruleOfThreeMonthly = monthly.length >= 4 ? computeRuleOfThree(monthly) : null;
+    const ruleOfThreeWeekly = charts.weekly.length >= 4 ? computeRuleOfThree(charts.weekly) : null;
+    const ruleOfThreeMonthly = charts.monthly.length >= 4 ? computeRuleOfThree(charts.monthly) : null;
 
     // ---- Level 2: 1hr refinement
     const hourlyTrend = readTrend(hourly, "1Hour");
 
     // ---- Gann structures (anchored on the daily chart)
-    const fanLines = computeFanLines(daily, currentPrice);
-    const s9 = recentSquareOf9Levels(daily, currentPrice).slice(0, 12);
+    const fanLines = computeFanLines(charts.daily, currentPrice);
+    const s9 = recentSquareOf9Levels(charts.daily, currentPrice).slice(0, 12);
     const cycles = timeCycles(daily);
     // The yearly cycles need the 10-year monthly chart; the daily read above
     // only reaches the day-count wheel. See yearCycleConvergence.
@@ -193,7 +198,7 @@ export async function scanTicker(
     // Gann's "boiling point" blow-off duration off the same climax anchors,
     // added 2026-09-16 — confluence/context only, see lib/gann/boilingPoint.ts.
     const boilingPoint = computeBoilingPoint(daily, volumeClimax);
-    const retracementLevels = computeRetracementLevels(daily, currentPrice);
+    const retracementLevels = computeRetracementLevels(charts.daily, currentPrice);
     // Digital-root/vortex confluence off the same anchors angleSlopes reads —
     // confluence/context only (blueprint 7.4); score.ts's gannRetracementConfluence
     // criterion ANDs this with the retracement match above rather than gating on
@@ -344,7 +349,7 @@ export async function scanTicker(
       ...monthlyTrend.resistance.map((price) => ({ price, timeframe: monthlyTrend.timeframe })),
       // Gann's major percentage-of-price levels, anchored on the monthly
       // history's extremes (2026-09-27). See majorPricePercentageLevels.
-      ...majorPricePercentageLevels([...monthly, ...daily]).map((price) => ({ price, timeframe: "1Month" as const })),
+      ...majorPricePercentageLevels([...charts.monthly, ...charts.daily]).map((price) => ({ price, timeframe: "1Month" as const })),
     ];
     const recentAtr = atr(daily.slice(-20), 14);
     const baselineAtr = atr(daily.slice(-100, -20), 14);
@@ -504,13 +509,14 @@ export async function scanTicker(
       ? evaluateGannConfluence({
           assetClass,
           symbol,
-          dailyBars: daily,
+          // The level charts' daily and monthly, as the replay reads them.
+          dailyBars: charts.daily,
           currentPrice,
           direction: scoreDirection,
           instrument: instrumentReference
-            ? { ...instrumentReference, marketDaily, monthly, monthlyLong, marketMonthly }
+            ? { ...instrumentReference, marketDaily, monthly: charts.monthly, monthlyLong, marketMonthly }
             : marketDaily
-              ? { sharesOutstanding: null, inception: null, marketDaily, monthly, monthlyLong, marketMonthly }
+              ? { sharesOutstanding: null, inception: null, marketDaily, monthly: charts.monthly, monthlyLong, marketMonthly }
               : null,
         })
       : null;
