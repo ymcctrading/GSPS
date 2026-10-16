@@ -9,7 +9,8 @@ import { STRATEGY_MODE_LABELS, type StrategyModeId } from "@/lib/strategies/type
  * docs/STRATEGY_MODES.md) — an opt-in, non-default alternative to GSPS's own
  * Gann-grounded trade plan, for a user actively trading a specific
  * technique (PSAR+Supertrend, Sara Strat bar patterns, etc.) who wants
- * entry/stop/target levels priced that way instead. This setting only
+ * each setup explained in that technique's terms. Explain-only since
+ * 2026-10-16: Gann's plan sets the levels, the mode never does. This setting only
  * changes what the order ticket/chart *default to* pre-selecting — it never
  * touches scanning, scoring, SignalGates, or Automation, all of which remain
  * Gann-only regardless of this setting. "Structural analysis (default)" is
@@ -75,10 +76,11 @@ export function StrategyModeSettings() {
       <CardHeader>
         <CardTitle>Strategy mode</CardTitle>
         <CardDescription>
-          GSPS prices every trade plan from its own structural analysis by default. If you
-          actively trade a different technique, pick it here to have the order ticket also offer
-          entry/stop/target levels priced that way — one at a time, and always shown separately
-          from GSPS&apos;s own structural trade plan. You can still override it per ticket.
+          GSPS&apos;s structural analysis sets every trade plan&apos;s entry, stop and
+          targets. If you think in terms of a different technique, pick it here and the order
+          ticket will explain each setup in that technique&apos;s terms, next to GSPS&apos;s
+          plan. It never changes the plan&apos;s levels. You can still pick a different one per
+          ticket.
         </CardDescription>
       </CardHeader>
       <CardContent>

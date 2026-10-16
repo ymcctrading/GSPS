@@ -1,9 +1,34 @@
 /**
  * GSPS — the large-cap scanning universe.
  *
- * US-tradeable large caps ($10B–$200B market cap band), ranked by market
- * capitalisation, from a companiesmarketcap.com "Companies ranked by Market
- * Cap" export supplied on 2026-09-10.
+ * US-tradeable large caps: every company at or above $10B market cap, with no
+ * ceiling, ranked by market capitalisation. Two parts, in this order:
+ *
+ * - the $200B-and-up names (added 2026-10-16, see "No ceiling" below), and
+ * - the $10B–$200B band from a companiesmarketcap.com "Companies ranked by
+ *   Market Cap" export supplied on 2026-09-10.
+ *
+ * ## No ceiling (project owner, 2026-10-16)
+ *
+ * "There should be a min on the megacap, but never a limit. It is human error
+ * that didn't include caps above $200B." The 2026-09-10 export was filtered to
+ * a $10B–$200B band, so every company above $200B was left out: AAPL, MSFT,
+ * NVDA, JPM and the rest of the largest, most liquid names in the market. The
+ * scan reached a few of them only through `MAG7` and the sector lists, and
+ * `lib/universe/scanGates.ts` reads membership here as the `market_cap_pass`
+ * proof, so `novice_eligible` failed closed for all of them. The floor is the
+ * only cap rule: $10B (`MARKET_CAP_FLOOR_USD`, lib/universe/config.ts).
+ *
+ * The $200B-and-up names were compiled by hand on 2026-10-16. They are not from
+ * a dated export, and they have not been through the Alpaca validation below
+ * yet. Their order (largest first) is approximate. Run
+ * `scripts/validate-large-cap-universe.mjs` or
+ * `/api/admin/large-cap-universe-check` to check them. A name below $200B in
+ * that group still clears the floor, so the only risk is an unresolvable
+ * ticker, which costs a wasted slot and never gives a wrong answer. Foreign
+ * companies are included only where the US listing is on NYSE or Nasdaq (TSM,
+ * ASML, SAP, BABA, AZN, NVS, TM, HSBC, SHEL, RY). OTC-only listings such as
+ * LVMUY or TCEHY are left out.
  *
  * ## Why this is a committed file rather than a live fetch
  *
@@ -25,7 +50,7 @@
  * ## Coverage, stated honestly
  *
  * The source export lists 11,299 companies globally, unfiltered by exchange.
- * This file keeps only rows priced $10B–$200B whose ticker is either
+ * The band part of this file keeps only rows priced $10B–$200B whose ticker is either
  * US-domiciled (`country === "United States"`) or was already present in the
  * previous version of this list (i.e. a foreign company with a verified US
  * ADR/dual listing, like UBS or Sony). Foreign primary-exchange tickers with no
@@ -56,14 +81,15 @@
  * Alpaca's active-asset catalog simply didn't resolve at check time. None
  * were non-tradable/halted — every symbol Alpaca did recognize was tradable.
  *
- * To refresh: re-export the source list, re-run the $10B–$200B band filter,
+ * To refresh: re-export the source list, filter it to $10B and up (no upper
+ * bound; this replaces both parts of the list),
  * replace the array below wholesale, update LARGE_CAP_SOURCE_CAPTURED, and
  * re-run the Alpaca validation before committing.
  */
 
 /** Where this list came from, so a future reader can tell what it covers. */
 export const LARGE_CAP_SOURCE =
-  "companiesmarketcap.com Companies ranked by Market Cap, filtered to the $10B-$200B band";
+  "companiesmarketcap.com Companies ranked by Market Cap ($10B-$200B, 2026-09-10) plus a hand-compiled $200B-and-up list (2026-10-16); $10B floor, no ceiling";
 export const LARGE_CAP_SOURCE_CAPTURED = "2026-09-10";
 
 /**
@@ -84,6 +110,16 @@ export const LARGE_CAP_SOURCE_CAPTURED = "2026-09-10";
  * than patch it by hand.
  */
 export const LARGE_CAP_UNIVERSE: string[] = [
+  // $200B and up: hand-compiled 2026-10-16, approximate cap order, not yet
+  // Alpaca-validated (see "No ceiling" in this file's header).
+  "NVDA", "MSFT", "AAPL", "GOOGL", "GOOG", "AMZN", "META", "AVGO", "TSM", "TSLA",
+  "BRK.B", "JPM", "WMT", "LLY", "ORCL", "V", "MA", "NFLX", "XOM", "COST",
+  "JNJ", "PLTR", "HD", "ABBV", "BAC", "PG", "AMD", "UNH", "SAP", "ASML",
+  "KO", "GE", "CSCO", "CVX", "BABA", "IBM", "WFC", "MU", "PM", "AZN",
+  "NVS", "TM", "HSBC", "MS", "GS", "CAT", "CRM", "AXP", "RTX", "MRK",
+  "LRCX", "AMAT", "TMO", "LIN", "TXN", "SHEL", "RY", "INTC", "KLAC", "ANET",
+  "APH", "PANW", "CRWD", "AMGN", "C", "VZ",
+  // $10B-$200B: the 2026-09-10 export, Alpaca-validated.
   "TMUS", "QCOM", "PEP", "SCHW", "DE", "ABT", "GILD", "DIS", "MCD", "ADI",
   "SCCO", "BLK", "WDC", "NEE", "T", "WELL", "UNP", "RIO", "UBS", "SMFG",
   "SHOP", "COP", "BA", "ETN", "BBVA", "PFE", "BX", "IBKR", "BUD", "UBER",

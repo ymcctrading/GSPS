@@ -57,10 +57,23 @@ function isComplete(r: DailyScanRow): boolean {
  * intraday after the scan runs is still caught on the next run.
  */
 function isInvalidated(r: DailyScanRow): boolean {
+  if (isRetiredByScan(r)) return true;
   const price = r.detail?.currentPrice;
   if (price == null || !Number.isFinite(price)) return false;
   const side = r.direction === "bullish" ? "buy" : "sell";
   return isInvalidatedByStop({ side, stop_price: r.stop_loss }, price);
+}
+
+/**
+ * The scan itself retired this plan: its own stop broke during the session
+ * (`applyStopBreachHold`, `lib/gann/stopBreach.ts`), which can happen with the
+ * scan-time price back above the stop, so the price check above misses it.
+ * Rows published before `hasTradePlan` refused retired plans are still in the
+ * table; this keeps them off every list that reads it.
+ */
+export function isRetiredByScan(r: { detail?: { breakdown?: { key?: string; passed: boolean }[] | null } | null }): boolean {
+  const breakdown = r.detail?.breakdown;
+  return Array.isArray(breakdown) && breakdown.some((b) => b.key === "stopBreach" && !b.passed);
 }
 
 /**

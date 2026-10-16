@@ -618,7 +618,13 @@ export function hasTradePlan(r: ScanResult): boolean {
     l !== null &&
     [l.entry, l.stopLoss, l.takeProfit1, l.masterProfit].every(
       (v) => typeof v === "number" && Number.isFinite(v),
-    )
+    ) &&
+    // A plan whose own stop the scan found broken is retired, not a plan
+    // (owner decision 2026-09-30, `lib/gann/stopBreach.ts`): "the plan leaves
+    // the lists". Until 2026-10-16 the scan marked it Reject but still published
+    // it, so most published rows were dead on arrival (11 of 14 that morning)
+    // and the dashboard read them as setups.
+    !r.stopBreach
   );
 }
 
