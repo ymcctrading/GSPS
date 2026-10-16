@@ -30,7 +30,7 @@ vi.mock("@/lib/entitlements/delivery", () => ({
 
 import { evaluateMonitorsAndNotify } from "@/lib/entitlements/scan-fanout";
 
-function fakeSetup(symbol: string, outputState: "Execute" | "Watch"): RankedSetup<ScanResult> {
+function fakeSetup(symbol: string, outputState: "Execute" | "Watch" | "Reject"): RankedSetup<ScanResult> {
   return {
     side: "buy",
     rank: 8,
@@ -59,6 +59,25 @@ beforeEach(() => {
 });
 
 describe("evaluateMonitorsAndNotify", () => {
+  it("never arms a monitor for a Reject on the list, so a retired plan can't re-arm and re-invalidate every scan", async () => {
+    evaluateMonitorMock.mockResolvedValue({ outcome: "applied", monitorId: "m1", transitionId: "t1", notify: false });
+
+    await evaluateMonitorsAndNotify(insertOnlyClient(), {
+      profileId: "p1",
+      source: "scheduled_morning_scan",
+      scanExecutionId: "se1",
+      visible: [fakeSetup("MSFT", "Reject"), fakeSetup("AAPL", "Watch")],
+      rejectedSymbols: new Set(["MSFT"]),
+      maxActiveWatchMonitors: 15,
+    });
+
+    const calls = evaluateMonitorMock.mock.calls.map((c) => [c[1].symbol, c[1].candidateState]);
+    expect(calls).toEqual([
+      ["AAPL", "WATCH"],
+      ["MSFT", "INVALIDATED"],
+    ]);
+  });
+
   it("records and dispatches a notification for a confirmed WATCH -> EXECUTE transition", async () => {
     evaluateMonitorMock.mockResolvedValueOnce({
       outcome: "applied",
