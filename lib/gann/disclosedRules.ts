@@ -7,12 +7,19 @@
  * so the backtest can measure it before anything is allowed to gate (AGENTS.md
  * "Gann-derived AND measured").
  *
- * The rules, each with its source (all Tier A, Gann's own books or lessons):
+ * The rules, each with its source (Tier A, Gann's own books or lessons,
+ * except rule 1):
  *
- * 1. **Close vs the bar's midpoint** (Master Course Ch. 13; master report
- *    Part I §3.2). A close above the half-way point of the bar's range reads
- *    up, below reads down, "at least temporarily". Gann's own per-bar trend
- *    read.
+ * 1. **Close vs the bar's midpoint** — **class C, relabelled 2026-10-16
+ *    (M-R7).** A close above the half-way point of the bar's range reads up,
+ *    below reads down. The finished reading of the Master Course did not find
+ *    this up/down reading in Gann's text: Ch. 13 (PDF 377, 1953) lists "high,
+ *    low, half-way, open, close" as five factors but gives no reading of the
+ *    close against the half-way point, and Ch. 3 (PDF 72) uses the half-way
+ *    point of the last *move*, not of a bar. It is this repo's own reading,
+ *    so it stays context only: it feeds one measured factor
+ *    (`closeVsMidpointAgrees`) and a card tile, and never a score, gate,
+ *    plan or order.
  * 2. **Percentages of the extreme price**, not only of the range (*How to
  *    Make Profits in Commodities*, pp. 32-34; *45 Years in Wall Street*,
  *    Rule 3). Divide the low by 8 and add the eighths above it (12½% to
@@ -95,6 +102,7 @@ import { readMultipleTops, type MultipleTopsReading } from "@/lib/gann/multipleT
 import { readRuleFollowing, type RuleFollowingReading } from "@/lib/gann/ruleFollowing";
 import { readSeasonalCount, type SeasonalCountReading } from "@/lib/gann/seasonalCounts";
 import { describeSecondaryTime, readSecondaryTime, type SecondaryTimeReading } from "@/lib/gann/secondaryTime";
+import { describeTimeCounts, readTimeCounts, type TimeCountsReading } from "@/lib/gann/timeCounts";
 import { readAccumulation, type AccumulationReading } from "@/lib/gann/accumulation";
 import { readSharesPerPoint, type SharesPerPointReading } from "@/lib/gann/sharesPerPoint";
 import { monthlyWithCurrent, readLeadership, readWeakStock, type LeadershipReading, type WeakStockReading } from "@/lib/gann/leadership";
@@ -150,7 +158,7 @@ function daysBetween(fromIso: string, toIso: string): number {
 }
 
 // ---------------------------------------------------------------------------
-// 1. Close vs the bar's midpoint
+// 1. Close vs the bar's midpoint (class C, the repo's own reading; M-R7)
 
 export interface BarMidpointReading {
   /** "up" when the last close is above (high + low) / 2, "down" below, "even" on it. */
@@ -603,6 +611,8 @@ export interface DisclosedRulesContext {
   breakawayVolume?: BreakawayVolumeReading | null;
   /** The class C day, week, month, circle and seasonal counts (context only). See `secondaryTime.ts`. */
   secondaryTime?: SecondaryTimeReading | null;
+  /** The class A time counts read as context only (2026-10-16). See `timeCounts.ts`. */
+  timeCounts?: TimeCountsReading | null;
   /** Months from the monthly chart's major tops and bottoms (A-TIME-05, context only). See `angleMonthCounts.ts`. */
   monthCounts?: PivotMonthCount[] | null;
   /** Months from the weekly swing chart's tops and bottoms, dated to the day, to the month in hand (A-TIME-21, W046 p.2). Context only. */
@@ -779,6 +789,7 @@ export function readDisclosedRules(
     breakawayVolume: readBreakawayVolume(dailyBars, asOf),
     secondTopVolumeRatio: computeVolumeClimax(dailyBars, undefined, { asOf }).find((r) => r.anchorKind === "high")?.retestWeekVolumeRatio ?? null,
     secondaryTime: readSecondaryTime(dailyBars, longMonthly, asOf, counterMove),
+    timeCounts: readTimeCounts(dailyBars, longMonthly, asOf),
     monthCounts: longMonthly ? readMonthCounts(monthlyWithCurrent(longMonthly, dailyBars), asOf) : null,
     swingMonthCounts: readSwingMonthCounts(dailyBars, asOf),
     bearDuration: marketMonthly ? readBearDuration(marketMonthly, asOf) : null,
@@ -812,6 +823,7 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   if (ctx.incorporation) lines.push(...describeIncorporationCycle(ctx.incorporation));
   if (ctx.zone) lines.push(describeSevenZones(ctx.zone));
   if (ctx.secondaryTime) lines.push(...describeSecondaryTime(ctx.secondaryTime));
+  if (ctx.timeCounts) lines.push(...describeTimeCounts(ctx.timeCounts));
   if (ctx.monthCounts && ctx.monthCounts.length > 0) {
     const list = ctx.monthCounts.map((c) => `${c.months}${c.watched ? " (a watched count)" : ""} from the ${c.pivotMonth} ${c.kind === "high" ? "top" : "bottom"}`);
     lines.push(`Months from the major tops and bottoms: ${list.join(", ")}. Shown for context; it does not change the setup.`);

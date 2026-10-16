@@ -290,15 +290,38 @@ export function contextFactorsFor(
       f.counterMovePastFourthDay = st.shortCounterMove.phase === "pastFourthDay";
       f.counterMoveSevenToTen = st.shortCounterMove.phase === "sevenToTen";
     }
-    // A top due counts against a long, a bottom due against a short.
-    if (st.timeBalanceSpans) f.timeBalanceTurnAgainstTrade = st.timeBalanceSpans.some((b) => b.kind === (bull ? "top" : "bottom"));
-    // A due bottom confirmed by a false break, with a long; a top, with a short (C-STOP-03).
-    if (st.timeBalanceSpans) f.timeBalanceFalseBreakWithTrade = st.timeBalanceSpans.some((b) => b.falseBreak && b.kind === (bull ? "bottom" : "top"));
     if (st.fanTimeRatios) f.fanTimeRatioActive = st.fanTimeRatios.length > 0;
     // A rise from a low meeting its level on time argues for a turn down,
     // against a long; a fall from a high, the mirror.
     if (st.retracementTiming) f.retracementTurnAgainstTrade = st.retracementTiming.some((h) => (h.anchorKind === "low") === bull);
     if (st.halfPriceHalfTime !== undefined) f.halfPriceHalfTimeRecent = st.halfPriceHalfTime !== null;
+  }
+
+  // Class A time counts read as context (2026-10-16, `timeCounts.ts`):
+  // measured, never gating. Directions follow each count's class A
+  // counterpart: from an anchor, a low argues up.
+  const tc = ctx.timeCounts;
+  if (tc) {
+    if (tc.lessonCycles) f.lessonCycleWithTrade = tc.lessonCycles.some((h) => (h.kind === "low") === bull);
+    f.wheelCountCh5WithTrade = tc.wheelCountsCh5.some((h) => (h.pivotKind === "low") === bull);
+    // Time balance (M-T11, class A since 2026-10-16; the factor names are kept
+    // so earlier runs still compare). A top due counts against a long, a
+    // bottom due against a short.
+    f.timeBalanceTurnAgainstTrade = tc.timeBalanceSpans.some((b) => b.kind === (bull ? "top" : "bottom"));
+    // A due bottom confirmed by a false break, with a long; a top, with a short (C-STOP-03).
+    f.timeBalanceFalseBreakWithTrade = tc.timeBalanceSpans.some((b) => b.falseBreak && b.kind === (bull ? "bottom" : "top"));
+    // The day bands and calendar dates carry no direction, like Rule 8's bands.
+    f.commoditiesDayBandActive = tc.commoditiesDayBands.length > 0;
+    f.rule8DateActive = tc.rule8Date !== null;
+    f.rule8DateMostImportant = tc.rule8Date?.mostImportant === true;
+    f.winterQuarterDateActive = tc.winterQuarter !== null;
+    f.weekCountClassAActive = tc.weekCounts.length > 0;
+    // Weeks since the run began (M-T10), for a run in the trade's direction.
+    if (tc.boilingRun) {
+      const withRun = tc.boilingRun.run === (bull ? "up" : "down");
+      f.boilingRunClassicWithTrade = withRun && tc.boilingRun.phase === "classic";
+      f.boilingRunPastClassicWithTrade = withRun && (tc.boilingRun.phase === "extended" || tc.boilingRun.phase === "overrun");
+    }
   }
 
   // A-TIME-05/-21: a watched month count (18-48 months in sixes) from a major
