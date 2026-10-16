@@ -783,8 +783,8 @@ A2.1 alludes to but doesn't show:
 - A composite/averaging technique: the mean of six heliocentric
   planetary longitudes, plus explicit half-sum midpoints between planet
   pairs.
-- (2026-09-30, revised 2026-10-16: *Collected Writings* Vol. 3 prints
-  "COE"; the Drive scan prints "CE". Unsettled. The COE and MOF are
+- (2026-09-30: the name is "COE", not "CE"; owner confirmed 2026-10-16.
+  The Drive scan prints "CE", a recorded variant. The COE and MOF are
   decoded and built in `docs/memory-bank/sources/A12_master_calculator_1953_and_1954_letter.md`.)
 - Explicitly withholds further material ("the CE AVERAGE," "the MOF
   FORMULA") for higher-tier paying students and reminds the reader of a
