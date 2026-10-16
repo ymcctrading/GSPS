@@ -148,6 +148,7 @@ import { describePlanetaryAverages, readPlanetaryAverages, type PlanetaryReading
 import { describeSquareOfNineTime, readSquareOfNineTime, type SquareOfNineTimeHit } from "@/lib/gann/squareOfNineTime";
 import { describeHexagonTime, readHexagonTime, type HexagonTimeHit } from "@/lib/gann/hexagonTime";
 import { describeMasterChartTime, readMasterChartTime, type MasterChartHit } from "@/lib/gann/masterChartTime";
+import { describeCampaignLength, readCampaignLength, type CampaignLengthReading } from "@/lib/gann/campaignLength";
 import { describePatternAngles, readPatternAngles, type PatternAngleReading } from "@/lib/gann/patternAngles";
 import { describeDayCircle, readDayCircle, type DayCircleReading } from "@/lib/gann/dayCircle";
 import {
@@ -665,6 +666,8 @@ export interface DisclosedRulesContext {
   squareOf52?: SquareOf52Result | null;
   /** The decade digit's character and the 90th month (M-T17, C-TIME-24, context only). See `decadeCycle.ts`; the card reads the same. */
   decadeCycle?: DecadeCycleReading | null;
+  /** The prior bull campaign's length projected on the current one (A-TIME-07, context only). See `campaignLength.ts`. */
+  campaignLength?: CampaignLengthReading | null;
   /** The session this was read for (YYYY-MM-DD). */
   asOf: string;
 }
@@ -836,6 +839,7 @@ export function readDisclosedRules(
     decadeAnalogue: readDecadeAnalogue(longMonthly, asOf),
     squareOf52: squareOf52Windows(dailyBars, asOf),
     decadeCycle: computeDecadeCycle(asOf),
+    campaignLength: marketMonthly ? readCampaignLength(marketMonthly, asOf) : null,
     asOf: asOf.toISOString().slice(0, 10),
   };
 }
@@ -1062,5 +1066,7 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
       `Next swing ${t.projection.kind} projected around ${t.projection.medianDate} from ${t.projection.count} earlier cycles (spread ${t.projection.spreadDays} days${t.projection.spreadDays <= 5 ? ", tight" : ""}).`,
     );
   }
+  const cl = ctx.campaignLength ? describeCampaignLength(ctx.campaignLength) : null;
+  if (cl) lines.push(cl);
   return lines;
 }

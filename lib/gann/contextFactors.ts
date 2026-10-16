@@ -514,5 +514,8 @@ export function contextFactorsFor(
   const dc = ctx.decadeCycle;
   if (dc && dc.bias !== "mixed") f.decadeYearWithTrade = dc.bias === (bull ? "bullish" : "bearish");
   if (dc?.ninetiethMonth) f.decadeNinetiethMonth = dc.ninetiethMonth.active;
+  // A-TIME-07: the market's bull campaign at the prior one's length. No direction in the text.
+  const cl = ctx.campaignLength;
+  if (cl?.current && cl.prior) f.bullCampaignAtPriorLength = cl.atPriorLength;
   return f;
 }
