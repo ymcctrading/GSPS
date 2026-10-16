@@ -16,7 +16,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getPolicyOverrides, setPolicyValue } from "@/lib/policy/store";
+import { getPolicyOverrides, setPolicyValue, type PolicyDirection } from "@/lib/policy/store";
 import { DEFAULT_GUIDED_POLICY, type GuidedPolicy } from "@/lib/guided/config";
 
 const GUIDED_POLICY_DOMAIN = "guided";
@@ -24,12 +24,35 @@ const GUIDED_POLICY_DOMAIN = "guided";
 export const GUIDED_POLICY_KEYS = Object.keys(DEFAULT_GUIDED_POLICY) as (keyof GuidedPolicy)[];
 
 /**
+ * Which way each key tightens (Q13, owner 2026-10-16): a row may only tighten.
+ * Every risk, count, budget, lifetime and scan bound tightens downward (a
+ * higher minimum risk or budget would force more risk); the smallest
+ * tradeable quantity tightens upward.
+ */
+export const GUIDED_POLICY_DIRECTIONS: Record<keyof GuidedPolicy, PolicyDirection> = {
+  defaultRiskPct: "atMost",
+  minRiskPct: "atMost",
+  maxRiskPct: "atMost",
+  defaultMaxTradesPerDay: "atMost",
+  defaultMaxTradesPerWeek: "atMost",
+  defaultMaxDeployedPct: "atMost",
+  minGuidedBudgetUsd: "atMost",
+  maxGuidedBudgetUsd: "atMost",
+  defaultGuidedBudgetUsd: "atMost",
+  minGuidedQty: "atLeast",
+  recommendationTtlMinutes: "atMost",
+  maxCandidatesScanned: "atMost",
+  guidedScanBatch: "atMost",
+  maxRecommendations: "atMost",
+};
+
+/**
  * Resolves the effective guided policy: code defaults with any valid
  * `policy_values` (domain "guided") override applied on top. `supabase`
  * should be a service-role client — the table has no client select policy.
  */
 export async function getGuidedPolicy(supabase: SupabaseClient): Promise<GuidedPolicy> {
-  return getPolicyOverrides(supabase, GUIDED_POLICY_DOMAIN, DEFAULT_GUIDED_POLICY, GUIDED_POLICY_KEYS);
+  return getPolicyOverrides(supabase, GUIDED_POLICY_DOMAIN, DEFAULT_GUIDED_POLICY, GUIDED_POLICY_KEYS, GUIDED_POLICY_DIRECTIONS);
 }
 
 /** Server/admin-only. Sets one guided-domain policy value, auditable via `policy_change_log`. */
@@ -39,5 +62,8 @@ export async function setGuidedPolicyValue(
   value: number,
   updatedBy: string | null,
 ): Promise<void> {
-  await setPolicyValue(supabase, GUIDED_POLICY_DOMAIN, key, value, updatedBy);
+  await setPolicyValue(supabase, GUIDED_POLICY_DOMAIN, key, value, updatedBy, {
+    default: DEFAULT_GUIDED_POLICY[key],
+    direction: GUIDED_POLICY_DIRECTIONS[key],
+  });
 }

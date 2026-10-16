@@ -12,7 +12,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getPolicyOverrides, setPolicyValue } from "@/lib/policy/store";
+import { getPolicyOverrides, setPolicyValue, type PolicyDirection } from "@/lib/policy/store";
 import { DEFAULT_CIRCUIT_THRESHOLDS, type CircuitThresholds } from "@/lib/risk/circuit-breaker";
 import { DEFAULT_RISK_BAND_THRESHOLDS, type RiskBandThresholds } from "@/lib/risk/dynamic-risk";
 
@@ -61,6 +61,32 @@ export const DEFAULT_RISK_POLICY_VALUES: RiskPolicyValues = {
 
 export const RISK_POLICY_KEYS = Object.keys(DEFAULT_RISK_POLICY_VALUES) as (keyof RiskPolicyValues)[];
 
+/**
+ * Which way each key tightens (Q13, owner 2026-10-16): a `policy_values` row
+ * may only tighten a risk limit. Loss and drawdown triggers, the position cap
+ * and the risk rates tighten downward; the blocked days and the trade counts
+ * needed before risk rises tighten upward.
+ */
+export const RISK_POLICY_DIRECTIONS: Record<keyof RiskPolicyValues, PolicyDirection> = {
+  maxNewPositionsPerDay: "atMost",
+  warning48hLossPct: "atMost",
+  softCooldown48hLossPct: "atMost",
+  hardCooldown48hLossPct: "atMost",
+  criticalLock30dDrawdownPct: "atMost",
+  emergencyLock30dDrawdownPct: "atMost",
+  severeOverride30dDrawdownPct: "atMost",
+  hardCooldownBlockedDays: "atLeast",
+  criticalLockBlockedDays: "atLeast",
+  emergencyLockBlockedDays: "atLeast",
+  minTradesForRiskIncrease: "atLeast",
+  exceptionalBandMinTrades: "atLeast",
+  absoluteTierCapPct: "atMost",
+  riskBandRateBase: "atMost",
+  riskBandRateATier: "atMost",
+  riskBandRateAPlus: "atMost",
+  riskBandRateExceptionalAPlus: "atMost",
+};
+
 export interface ResolvedRiskPolicy {
   circuit: CircuitThresholds;
   band: RiskBandThresholds;
@@ -102,7 +128,7 @@ function toBandThresholds(v: RiskPolicyValues): RiskBandThresholds {
  * accept. `supabase` should be a service-role client.
  */
 export async function getRiskPolicy(supabase: SupabaseClient): Promise<ResolvedRiskPolicy> {
-  const values = await getPolicyOverrides(supabase, RISK_POLICY_DOMAIN, DEFAULT_RISK_POLICY_VALUES, RISK_POLICY_KEYS);
+  const values = await getPolicyOverrides(supabase, RISK_POLICY_DOMAIN, DEFAULT_RISK_POLICY_VALUES, RISK_POLICY_KEYS, RISK_POLICY_DIRECTIONS);
   return { circuit: toCircuitThresholds(values), band: toBandThresholds(values) };
 }
 
@@ -113,5 +139,8 @@ export async function setRiskPolicyValue(
   value: number,
   updatedBy: string | null,
 ): Promise<void> {
-  await setPolicyValue(supabase, RISK_POLICY_DOMAIN, key, value, updatedBy);
+  await setPolicyValue(supabase, RISK_POLICY_DOMAIN, key, value, updatedBy, {
+    default: DEFAULT_RISK_POLICY_VALUES[key],
+    direction: RISK_POLICY_DIRECTIONS[key],
+  });
 }

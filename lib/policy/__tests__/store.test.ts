@@ -77,3 +77,31 @@ describe("setPolicyValue", () => {
     await expect(setPolicyValue(errClient, "test", "a", 1, null)).rejects.toThrow("write failed");
   });
 });
+
+// Q13 (owner, 2026-10-16): a database row may tighten a limit, never loosen
+// it. Each key says which way is tighter; a looser row is ignored on read
+// and refused on write.
+describe("policy overrides only tighten", () => {
+  const defaults = { cap: 10, floor: 5 };
+  const directions = { cap: "atMost", floor: "atLeast" } as const;
+
+  it("applies a tighter row and ignores a looser one", async () => {
+    const { client } = makeSupabase([{ key: "cap", value: 8 }, { key: "floor", value: 4 }]);
+    expect(await getPolicyOverrides(client, "test", defaults, undefined, directions)).toEqual({ cap: 8, floor: 5 });
+    const { client: c2 } = makeSupabase([{ key: "cap", value: 12 }, { key: "floor", value: 6 }]);
+    expect(await getPolicyOverrides(c2, "test", defaults, undefined, directions)).toEqual({ cap: 10, floor: 6 });
+  });
+
+  it("ignores a negative row", async () => {
+    const { client } = makeSupabase([{ key: "cap", value: -1 }]);
+    expect((await getPolicyOverrides(client, "test", defaults, undefined, directions)).cap).toBe(10);
+  });
+
+  it("refuses to write a looser value", async () => {
+    const { client, upserts } = makeSupabase([]);
+    await expect(setPolicyValue(client, "test", "cap", 11, null, { default: 10, direction: "atMost" })).rejects.toThrow(/looser/);
+    await expect(setPolicyValue(client, "test", "floor", 4, null, { default: 5, direction: "atLeast" })).rejects.toThrow(/looser/);
+    await setPolicyValue(client, "test", "cap", 9, null, { default: 10, direction: "atMost" });
+    expect(upserts).toHaveLength(1);
+  });
+});

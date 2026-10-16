@@ -17,7 +17,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getPolicyOverrides, setPolicyValue } from "@/lib/policy/store";
+import { getPolicyOverrides, setPolicyValue, type PolicyDirection } from "@/lib/policy/store";
 import { DEFAULT_MARKET_CAP_THRESHOLDS, type MarketCapThresholds } from "@/lib/universe/marketCap";
 import { DEFAULT_LIQUIDITY_THRESHOLDS, type LiquidityThresholds } from "@/lib/universe/liquidity";
 import { DEFAULT_PRICE_BAND_THRESHOLDS, type PriceBandThresholds } from "@/lib/universe/priceAccessibility";
@@ -64,6 +64,26 @@ export const DEFAULT_UNIVERSE_POLICY_VALUES: UniversePolicyValues = {
 
 export const UNIVERSE_POLICY_KEYS = Object.keys(DEFAULT_UNIVERSE_POLICY_VALUES) as (keyof UniversePolicyValues)[];
 
+/**
+ * Which way each key tightens (Q13, owner 2026-10-16): a row may only narrow
+ * the universe. Floors tighten upward, ceilings and staleness limits downward.
+ */
+export const UNIVERSE_POLICY_DIRECTIONS: Record<keyof UniversePolicyValues, PolicyDirection> = {
+  marketCapFloorUsd: "atLeast",
+  marketCapCoreFloorUsd: "atLeast",
+  noviceLiquidityFloorUsd: "atLeast",
+  noviceLiquidityCoreFloorUsd: "atLeast",
+  priceBandMinUsd: "atLeast",
+  priceBandMaxUsd: "atMost",
+  maxSpreadPctOfPrice: "atMost",
+  maxSpreadFractionOfStop: "atMost",
+  minAtrPctOfPrice: "atLeast",
+  maxAtrPctOfPrice: "atMost",
+  maxQuoteStalenessSeconds: "atMost",
+  maxFundamentalsStalenessDays: "atMost",
+  minWholeUnitsForStagedExit: "atLeast",
+};
+
 export interface ResolvedUniversePolicy {
   universe: UniverseThresholds;
   smallAccount: SmallAccountThresholds;
@@ -101,6 +121,7 @@ export async function getUniversePolicy(supabase: SupabaseClient): Promise<Resol
     UNIVERSE_POLICY_DOMAIN,
     DEFAULT_UNIVERSE_POLICY_VALUES,
     UNIVERSE_POLICY_KEYS,
+    UNIVERSE_POLICY_DIRECTIONS,
   );
   return {
     universe: toUniverseThresholds(values),
@@ -115,5 +136,8 @@ export async function setUniversePolicyValue(
   value: number,
   updatedBy: string | null,
 ): Promise<void> {
-  await setPolicyValue(supabase, UNIVERSE_POLICY_DOMAIN, key, value, updatedBy);
+  await setPolicyValue(supabase, UNIVERSE_POLICY_DOMAIN, key, value, updatedBy, {
+    default: DEFAULT_UNIVERSE_POLICY_VALUES[key],
+    direction: UNIVERSE_POLICY_DIRECTIONS[key],
+  });
 }
