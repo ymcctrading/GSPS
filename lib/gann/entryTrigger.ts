@@ -477,15 +477,17 @@ export function computeGannHoldEntry(
   swingDays: number = ENTRY_TRIGGER_SWING_DAYS,
   /** The bear-market rally sale may be offered: the main trend is down (`bearRallySell`). */
   bearMarket = true,
+  /** The days-form reaction buy may be offered: the main trend is up (A-ENTRY-08). */
+  bullMarket = true,
 ): GannEntryTrigger | null {
-  const found = holdEntryOn(bars, direction, older, swingDays, bearMarket);
+  const found = holdEntryOn(bars, direction, older, swingDays, bearMarket, bullMarket);
   if (!found) return null;
   // Bought once (step 4 review S3): a session that offered this hold, and a
   // later one that traded to its buy, spend it. The next hold needs a new low,
   // as a crossing needs a new crossing and the replay a new pivot.
   const sign = direction === "bullish" ? 1 : -1;
   for (let j = found.since; j < bars.length - 1; j++) {
-    const offered = holdEntryOn(bars.slice(0, j + 1), direction, older, swingDays, bearMarket);
+    const offered = holdEntryOn(bars.slice(0, j + 1), direction, older, swingDays, bearMarket, bullMarket);
     if (!offered || offered.trigger.formedAt !== found.trigger.formedAt) continue;
     const buy = offered.trigger.reactionEntry;
     if (bars.slice(j + 1).some((b) => sign * ((sign === 1 ? b.l : b.h) - buy) <= 0)) return null;
@@ -500,6 +502,7 @@ function holdEntryOn(
   older: OlderGannLevel[],
   swingDays: number,
   bearMarket: boolean,
+  bullMarket: boolean,
 ): { trigger: GannEntryTrigger; since: number } | null {
   if (bars.length === 0) return null;
   const sign = direction === "bullish" ? 1 : -1;
@@ -554,7 +557,10 @@ function holdEntryOn(
       if (!withinRiskCap(entry, stop)) return null;
       let holdBasis: "weeks" | "days" | null = null;
       if (calendarDays(bars[low].t, last.t) >= HOLD_WEEKS_MIN_DAYS) holdBasis = "weeks";
-      else if (direction === "bullish" && bars.length - 1 - low >= HOLD_DAYS_MIN_SESSIONS) {
+      else if (direction === "bullish" && bullMarket && bars.length - 1 - low >= HOLD_DAYS_MIN_SESSIONS) {
+        // "In bull markets" (W006 p.47, A-ENTRY-08) is the main trend up, read
+        // as the rally sale's bear market is (A-TREND-01; batch review A2),
+        // not the weekly chart alone.
         // The reaction is read as it stood at its low, so a third day up that
         // turns the 3-Day Chart still holds (step 4 review S5, probe P7).
         // Timed from the reaction's top, not from a 3-day bounce inside it
@@ -693,11 +699,13 @@ export function selectGannEntry(
   swingDays: number = ENTRY_TRIGGER_SWING_DAYS,
   /** Whether the main trend is down, so a bear-market rally may be sold (`bearRallySell`). */
   bearMarket = true,
+  /** Whether the main trend is up, so a bull-market reaction may be bought on the days form (A-ENTRY-08). */
+  bullMarket = true,
 ): GannEntryTrigger | null {
   const candidates = [
     computeGannEntryTrigger(bars, direction, swingDays, undefined, true, older),
     computeGannOldLevelEntry(bars, direction, swingDays),
-    computeGannHoldEntry(bars, direction, older, swingDays, bearMarket),
+    computeGannHoldEntry(bars, direction, older, swingDays, bearMarket, bullMarket),
   ].filter((t): t is GannEntryTrigger => t !== null);
   if (candidates.length === 0) return null;
   const price = bars[bars.length - 1].c;

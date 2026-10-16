@@ -154,8 +154,8 @@ export function gannEntryOf(
   older: OlderGannLevel[],
   trends: Pick<TrendReading, "timeframe" | "direction">[],
 ): EntryOf {
-  const bearMarket = gannMacroDirection(trends) === "bearish";
-  return (d) => selectGannEntry(bars, d, older, undefined, bearMarket);
+  const main = gannMacroDirection(trends);
+  return (d) => selectGannEntry(bars, d, older, undefined, main === "bearish", main === "bullish");
 }
 
 /**

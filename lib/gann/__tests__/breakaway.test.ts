@@ -201,6 +201,15 @@ describe("the breakaway waits for a session that closes past the range on volume
     expect(breakawayVolumeMet(session(range(), 111, 600), "bullish", 110)).toBe(false);
   });
 
+  it("has no volume condition for a range too wide to be narrow (batch review A2)", async () => {
+    const { isGannRangeBound } = await import("@/lib/gann/trendStrength");
+    // The same swings three times as wide, about 85 to 115.
+    const wide = daily(sideways(6).map((c) => 100 + (c - 100) * 3)).map((b, i) => ({ ...b, v: i % 2 ? 1500 : 500 }));
+    expect(isGannRangeBound(wide)).toBe(true);
+    expect(breakawayVolumeMet(session(wide, 121, 600), "bullish", 120)).toBe(true);
+    expect(breakawayVolumeMet(range(), "bullish", 110)).toBe(false);
+  });
+
   it("waits while no completed session has closed past the line", () => {
     expect(breakawayVolumeMet(range(), "bullish", 110)).toBe(false);
     expect(breakawayVolumeMet(session(range(), 108, 3000), "bullish", 110)).toBe(false);

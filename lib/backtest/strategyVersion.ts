@@ -304,4 +304,10 @@
 // Square of 144, planetary-average, active-angle and Jensen levels. The
 // master levels are read from the same level charts on the scan and the
 // replay (lib/scan/levelCharts.ts).
-export const STRATEGY_VERSION = "2026-10-16-gann-parity-jensen";
+//
+// 2026-10-16-gann-batch-review-fixes: the batch reviews of the built rules.
+// The days-form reaction buy needs the main trend up, not the weekly chart
+// alone (A-ENTRY-08, read as the rally sale's bear market is), and the
+// breakaway's volume condition applies to narrow ranges only (A-VOLUME-10,
+// NARROW_RANGE_ALLOWANCES in lib/gann/breakaway.ts).
+export const STRATEGY_VERSION = "2026-10-16-gann-batch-review-fixes";

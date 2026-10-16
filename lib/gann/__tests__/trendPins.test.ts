@@ -19,8 +19,10 @@ function daily(closes: number[], half = 0.3): Bar[] {
 
 describe("a smaller, shorter secondary rally leaves a falling trend down (A-TREND-05)", () => {
   it("reads the trend down after a rally of 10% in 14 days that followed one of 20% in 30", () => {
-    const bars = daily([...leg(180, 200, 20), ...leg(200, 120, 40), ...leg(120, 144, 30), ...leg(144, 100, 30), ...leg(100, 110, 14), ...leg(110, 106, 4)]);
+    // The smaller rally is still open, so the comparison is made (batch review A1).
+    const bars = daily([...leg(180, 200, 20), ...leg(200, 120, 40), ...leg(120, 144, 30), ...leg(144, 100, 30), ...leg(100, 110, 14)]);
     const ledger = buildCampaignLedger(bars)!;
+    expect(ledger.currentCounterMove).not.toBeNull();
     expect(ledger.spaceOverbalanced).toBe(false);
     expect(ledger.timeOverbalanced).toBe(false);
     expect(readGannTrend(bars).direction).toBe("bearish");

@@ -144,9 +144,10 @@ describe("readEntryConfirmationNow: the window under the 3-point crossing rule",
 
 describe("the completed daily chart, for a reaction longer than the window", () => {
   const leg = (from: number, to: number, n: number) => Array.from({ length: n }, (_, i) => from + ((to - from) * (i + 1)) / n);
-  // An old top near 50 crossed by 3 points on the way to 56, then a reaction
-  // to 52 that has not reached the buy near 51.2. Dated to end yesterday.
-  const closes = [...leg(40, 50, 6), ...leg(50, 44, 4), ...leg(44, 56, 8), ...leg(56, 52, 4)];
+  // An old top near 44 crossed by 3 points on the way to 49, then a reaction
+  // to 46 that has not reached the buy. The range before the crossing is
+  // narrow (A-VOLUME-10). Dated to end yesterday.
+  const closes = [...leg(40, 44, 6), ...leg(44, 41, 4), ...leg(41, 49, 8), ...leg(49, 46, 4)];
   const end = Date.parse("2026-10-14T04:00:00Z");
   // The advance out of the range runs on heavier volume, as a breakaway must.
   const daily: Bar[] = closes.map((c, i) => ({ t: new Date(end - (closes.length - 1 - i) * 86_400_000).toISOString(), o: c, h: c + 0.3, l: c - 0.3, c, v: i >= 10 && i < 18 ? 2e6 : 1e6 }));

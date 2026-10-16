@@ -10,7 +10,8 @@
  * points above (pp.22, 47, A-ENTRY-14).
  */
 import { describe, expect, it } from "vitest";
-import type { Bar } from "@/lib/types";
+import type { Bar, TrendReading } from "@/lib/types";
+import { gannEntryOf } from "@/lib/scan/entrySelection";
 import { HOLD_WEEKS_MIN_DAYS, computeGannHoldEntry, selectGannEntry, type OlderGannLevel } from "@/lib/gann/entryTrigger";
 import { beyondByThreePoints, gannThreePoints } from "@/lib/gann/pointScale";
 import { readCounterMove } from "@/lib/gann/disclosedRules";
@@ -131,6 +132,17 @@ describe("the days form (A-ENTRY-01 in active markets, A-ENTRY-08)", () => {
     const bars = daily([...BULL, ...leg(110, 100, 5), 100.8, 101.2]);
     expect(readCounterMove(bars)!.days).toBeLessThan(8);
     expect(computeGannHoldEntry(bars, "bullish")).toBeNull();
+  });
+
+  it("needs the main trend up, not the weekly chart alone (batch review A2)", () => {
+    const bars = daily([...BULL, ...REACT, 100.8, 101.2]);
+    const trend = (timeframe: TrendReading["timeframe"], direction: TrendReading["direction"]) =>
+      ({ timeframe, direction, support: [], resistance: [] }) as unknown as TrendReading;
+    expect(computeGannHoldEntry(bars, "bullish", [], undefined, true, false)?.holdBasis).not.toBe("days");
+    const bear = [trend("1Month", "bearish"), trend("1Week", "bearish"), trend("1Day", "bearish")];
+    expect(gannEntryOf(bars, [], bear)("bullish")?.holdBasis).not.toBe("days");
+    const bull = [trend("1Month", "bullish"), trend("1Week", "bullish"), trend("1Day", "bullish")];
+    expect(gannEntryOf(bars, [], bull)("bullish")?.holdBasis).toBe("days");
   });
 
   it("is not taken outside a bull market", () => {

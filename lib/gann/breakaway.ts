@@ -31,7 +31,7 @@
  *    is the market's rest between swings, and the breakaway is the next beat.
  */
 
-import { beyondByThreePoints } from "@/lib/gann/pointScale";
+import { beyondByThreePoints, gannThreePoints } from "@/lib/gann/pointScale";
 import type { Bar } from "@/lib/types";
 import type { GannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { restsWithoutCrossing } from "@/lib/gann/entryKind";
@@ -169,11 +169,19 @@ export function readBreakawayVolume(daily: Bar[], asOf: Date): BreakawayVolumeRe
  * reading `readBreakaway` holds a range-bound Execute on), the entry is
  * ready only once that session has closed past the line on more than the
  * mean volume of the 91 days before it. A market that is not range-bound has
- * no volume condition. Engineering choices, labelled: "on volume" is above the
- * range sessions' mean; the search window is the 91-day range bound.
+ * no volume condition, nor does a range wider than `NARROW_RANGE_ALLOWANCES`.
+ * Engineering choices, labelled: "on volume" is above the range sessions'
+ * mean; the search window is the 91-day range bound; the width limit.
  */
 /** Fewer completed sessions than this before the crossing are not read as a range. */
 export const MIN_RANGE_SESSIONS = 10;
+/**
+ * A range wider than this many 3-point allowances at its low is not "narrow"
+ * (Gann gives no width; an engineering figure, labelled; batch review A2).
+ * Wider than `NARROW_SPELL_ALLOWANCES`, because a range of up to 13 weeks is
+ * longer than the distribution spell.
+ */
+export const NARROW_RANGE_ALLOWANCES = 3;
 
 export function breakawayVolumeMet(chart: Bar[], direction: "bullish" | "bearish", line: number): boolean {
   const up = direction === "bullish";
@@ -192,9 +200,12 @@ export function breakawayVolumeMet(chart: Bar[], direction: "bullish" | "bearish
   // Gann's shortest range is about two weeks, so fewer sessions than that are
   // not read as a range (an engineering floor, labelled).
   if (prior.length < MIN_RANGE_SESSIONS || !isGannRangeBound(prior)) return true;
-  if (k === -1) return false;
-  const from = Date.parse(chart[k].t) - BREAKAWAY_RANGE_DAYS * DAY_MS;
+  const from = Date.parse((k === -1 ? chart[end - 1] : chart[k]).t) - BREAKAWAY_RANGE_DAYS * DAY_MS;
   const range = prior.filter((b) => Date.parse(b.t) >= from);
+  // Gann's rule is for long, narrow ranges: a wide one has no volume condition.
+  const low = Math.min(...range.map((b) => b.l));
+  if (Math.max(...range.map((b) => b.h)) - low > NARROW_RANGE_ALLOWANCES * gannThreePoints(low)) return true;
+  if (k === -1) return false;
   const mean = range.reduce((s, b) => s + b.v, 0) / range.length;
   return mean > 0 && chart[k].v > mean;
 }
