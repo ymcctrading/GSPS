@@ -27,6 +27,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getUserTier, type PlatformTier } from "@/lib/tiers";
 import type { StrategyModeId } from "@/lib/strategies/types";
+import { MAX_CORRELATED_RISK_GROUPS } from "@/lib/risk/config";
 
 export type Limit = number | "unlimited";
 
@@ -124,6 +125,18 @@ export type EntitlementPolicy = {
    * only ever runs for the account that authored it.
    */
   customScriptAuthoringEnabled: boolean;
+  /**
+   * Distinct correlated risk groups an account may hold open at once
+   * (`lib/risk/position-limits.ts`), or `"unlimited"` for no cap. The spec
+   * pack's one-group rule is stated for a Novice account at low equity ("at
+   * $450", `lib/risk/config.ts#MAX_CORRELATED_RISK_GROUPS`). Until
+   * 2026-10-16 it was applied to every tier, and because group membership is
+   * approximated by the symbol itself, that limited every account, Wall
+   * Street included, to one open symbol at a time. Novice keeps the cap; the
+   * other tiers stay bounded by the single-position, aggregate and open-risk
+   * ceilings, which apply to every account.
+   */
+  maxCorrelatedRiskGroups: Limit;
   maxActiveWatchMonitors: Limit;
   maxAutomationWorkflows: Limit;
   maxCustomAlertRules: Limit;
@@ -166,6 +179,7 @@ const ENTITLEMENT_POLICY: Record<PlatformTier, EntitlementPolicy> = {
     exactScoreDisplayEnabled: false,
     allowedStrategyModes: [],
     customScriptAuthoringEnabled: false,
+    maxCorrelatedRiskGroups: MAX_CORRELATED_RISK_GROUPS,
     maxActiveWatchMonitors: 15,
     maxAutomationWorkflows: 0,
     maxCustomAlertRules: 10,
@@ -191,6 +205,7 @@ const ENTITLEMENT_POLICY: Record<PlatformTier, EntitlementPolicy> = {
     exactScoreDisplayEnabled: false,
     allowedStrategyModes: ["macdMomentum", "rsiReversal", "maCrossover", "vwap"],
     customScriptAuthoringEnabled: false,
+    maxCorrelatedRiskGroups: "unlimited",
     maxActiveWatchMonitors: 50,
     maxAutomationWorkflows: 0,
     maxCustomAlertRules: 50,
@@ -216,6 +231,7 @@ const ENTITLEMENT_POLICY: Record<PlatformTier, EntitlementPolicy> = {
     exactScoreDisplayEnabled: true,
     allowedStrategyModes: "all",
     customScriptAuthoringEnabled: false,
+    maxCorrelatedRiskGroups: "unlimited",
     maxActiveWatchMonitors: 150,
     maxAutomationWorkflows: 0,
     maxCustomAlertRules: 200,
@@ -241,6 +257,7 @@ const ENTITLEMENT_POLICY: Record<PlatformTier, EntitlementPolicy> = {
     exactScoreDisplayEnabled: true,
     allowedStrategyModes: "all",
     customScriptAuthoringEnabled: true,
+    maxCorrelatedRiskGroups: "unlimited",
     maxActiveWatchMonitors: "unlimited",
     maxAutomationWorkflows: "unlimited",
     maxCustomAlertRules: "unlimited",

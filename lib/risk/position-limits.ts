@@ -1,14 +1,14 @@
 /**
- * Allocation and correlation constraints a Novice position must satisfy
+ * Allocation and correlation constraints a new position must satisfy
  * simultaneously alongside risk sizing (lib/risk/dynamic-risk.ts) and
  * buying-power/fractional-share limits, which are already enforced
  * elsewhere (lib/guided/sizing.ts, lib/brokers/simulator.ts) and are not
  * duplicated here.
  */
 
+import type { Limit } from "@/lib/entitlements/policy";
 import {
   MAX_AGGREGATE_DEPLOYED_ALLOCATION_PCT,
-  MAX_CORRELATED_RISK_GROUPS,
   MAX_SINGLE_POSITION_ALLOCATION_PCT,
   MAX_TOTAL_OPEN_RISK_PCT,
 } from "@/lib/risk/config";
@@ -25,6 +25,12 @@ export interface PositionLimitInputs {
   openCorrelatedGroupsExcludingThis: number;
   /** True when this candidate belongs to a correlated group already represented above. */
   candidateJoinsExistingGroup: boolean;
+  /**
+   * The account tier's cap on open correlated groups
+   * (`EntitlementPolicy.maxCorrelatedRiskGroups`): 1 for Novice, unlimited
+   * otherwise. The three percentage ceilings apply to every tier.
+   */
+  maxCorrelatedRiskGroups: Limit;
 }
 
 export interface PositionLimitVerdict {
@@ -42,29 +48,30 @@ export function checkPositionLimits(input: PositionLimitInputs): PositionLimitVe
   const singlePositionPct = (input.newPositionNotionalUsd / input.equity) * 100;
   if (singlePositionPct > MAX_SINGLE_POSITION_ALLOCATION_PCT) {
     violations.push(
-      `Single-position allocation would be ${singlePositionPct.toFixed(1)}% of equity, over the ${MAX_SINGLE_POSITION_ALLOCATION_PCT}% Novice ceiling.`,
+      `Single-position allocation would be ${singlePositionPct.toFixed(1)}% of equity, over the ${MAX_SINGLE_POSITION_ALLOCATION_PCT}% ceiling.`,
     );
   }
 
   const aggregatePct = ((input.currentlyDeployedUsd + input.newPositionNotionalUsd) / input.equity) * 100;
   if (aggregatePct > MAX_AGGREGATE_DEPLOYED_ALLOCATION_PCT) {
     violations.push(
-      `Aggregate deployed allocation would be ${aggregatePct.toFixed(1)}% of equity, over the ${MAX_AGGREGATE_DEPLOYED_ALLOCATION_PCT}% Novice ceiling.`,
+      `Aggregate deployed allocation would be ${aggregatePct.toFixed(1)}% of equity, over the ${MAX_AGGREGATE_DEPLOYED_ALLOCATION_PCT}% ceiling.`,
     );
   }
 
   const totalOpenRiskPct = ((input.currentOpenRiskUsd + input.newPositionRiskUsd) / input.equity) * 100;
   if (totalOpenRiskPct > MAX_TOTAL_OPEN_RISK_PCT) {
     violations.push(
-      `Total planned open risk would be ${totalOpenRiskPct.toFixed(2)}% of equity, over the ${MAX_TOTAL_OPEN_RISK_PCT}% Novice ceiling.`,
+      `Total planned open risk would be ${totalOpenRiskPct.toFixed(2)}% of equity, over the ${MAX_TOTAL_OPEN_RISK_PCT}% ceiling.`,
     );
   }
 
   const groupsAfter =
     input.openCorrelatedGroupsExcludingThis + (input.candidateJoinsExistingGroup ? 0 : 1);
-  if (!input.candidateJoinsExistingGroup && groupsAfter > MAX_CORRELATED_RISK_GROUPS) {
+  const maxGroups = input.maxCorrelatedRiskGroups;
+  if (maxGroups !== "unlimited" && !input.candidateJoinsExistingGroup && groupsAfter > maxGroups) {
     violations.push(
-      `This would open a new correlated risk group; Novice accounts at this equity level may hold only ${MAX_CORRELATED_RISK_GROUPS} at a time.`,
+      `This would open a new correlated risk group; Novice accounts may hold only ${maxGroups} at a time.`,
     );
   }
 
