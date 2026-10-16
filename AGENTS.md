@@ -93,6 +93,15 @@ disclosed-by-Gann-himself versus later reconstruction versus unrelated.
 `docs/GANN_METHOD_COMPLETENESS_AUDIT.md` is the implementation audit built
 from it.
 
+**Every book in the collection has been read (owner, 2026-10-16).** Never
+hold a rule as unverifiable on an unread book. The readings are in
+`/mnt/project-files/literature-reading-output/` (the long books' per-work notes
+under `external/checkpoint_v7/`, which numbers works its own way: its W023 is
+the *Master Stock Market Course*, W005 *Truth of the Stock Tape* and the *Stock
+Selector*, W001/W004 *Commodities*, W009 *45 Years*). Read-only. A rule found
+in Gann's own text there is his rule and is carried; one found in no book stays
+context only.
+
 `docs/memory-bank/` holds the page-by-page reads (2026-09-27) of the Gann,
 Observation of Cycles and Hermetic (Hauck) source folders, synthesised in our
 own words with no book text stored. **Start with

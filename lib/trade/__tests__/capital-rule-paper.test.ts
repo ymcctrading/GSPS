@@ -32,6 +32,11 @@ vi.mock("@/lib/risk/position-limits", async () => {
   return { ...actual, checkPositionLimits: () => ({ ok: true, violations: [] }) };
 });
 
+vi.mock("@/lib/entitlements/policy", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/entitlements/policy")>("@/lib/entitlements/policy");
+  return { ...actual, getUserEntitlementPolicy: async () => ({ maxCorrelatedRiskGroups: "unlimited" }) };
+});
+
 import { placeSimulatedOrder, type OrderInput } from "@/lib/trade/place-order";
 
 const base = {
