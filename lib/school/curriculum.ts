@@ -394,7 +394,7 @@ const ACADEMY_2: Academy = {
           ],
           estimatedMinutes: 9,
           instruction: [
-            "Mr. Bull likes to measure. Take the highest and lowest price of a move and find the point halfway between them. Pullbacks often stop near that halfway point, and a market that holds above it is still healthy. A market that falls well below it is losing strength.",
+            "Mr. Bull likes to measure. Take the highest and lowest price of a move and find the point halfway between them. Pullbacks often stop near that halfway point, and a market that holds above it is still healthy. A market that falls well below it is losing strength. After the halfway point, the quarter and three-quarter points of the move matter most, then the thirds, then the eighths.",
             "Round numbers such as 20, 50, 100 or 200 are where many people place their orders, because people think in round numbers. That crowd of orders often stops a rally just under the round number, or a fall just above it.",
             "Mrs. Bear's warning: don't place your own order right on the round number, where everyone else's is. Place it a little before it. And when a stock finally breaks through a big round number, that is often a sign of real strength. The first time a stock gets above 200, expect it to reach about 202 or 203 and fall back; the second time often does the same. GSPS waits for the third time through before it buys, and holds the earlier tries to Watch.",
           ],

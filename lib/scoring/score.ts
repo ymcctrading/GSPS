@@ -17,6 +17,7 @@ import type { StopBreachReading } from "@/lib/gann/stopBreach";
 import { needsWindowTurn, type WindowTurn } from "@/lib/gann/timeWindow";
 import type { RuleFollowingReading } from "@/lib/gann/ruleFollowing";
 import type { WeakStockReading } from "@/lib/gann/leadership";
+import { LOWEST_RANK } from "@/lib/gann/retracement";
 import { FIGURE_BUY_TIME, type FigureCrossingReading } from "@/lib/gann/evenFigures";
 import type {
   AssetClass,
@@ -527,7 +528,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
         ? `Price within ${retracementMatch.distancePct.toFixed(2)}% of the ${retracementMatch.label} retracement ${levelRoleLabel(retracementMatch.role).toLowerCase()} at ${retracementMatch.price.toFixed(2)}, inside the ${levelBandPct(retracementMatch.price).toFixed(2)}% band (${LEVEL_BAND_BASIS}).` +
           (drConfluenceHolds ? " A signal-flow reading off the same anchor agrees (context only)." : "") +
           (retracementMatch.importance != null
-            ? ` Importance rank ${retracementMatch.importance} of 6 (1 = 50%, the most important).`
+            ? ` Importance rank ${retracementMatch.importance} of ${LOWEST_RANK} (1 = 50%, the most important; 2 = the quarters and the full range; 3 = the thirds; 4 = the eighths and sixteenths).`
             : " Not one of the explicitly ranked fractions.")
         : `No ${levelRoleLabel(wantedRole).toLowerCase()} retracement zone within ${LEVEL_BAND_BASIS}.`,
     },
