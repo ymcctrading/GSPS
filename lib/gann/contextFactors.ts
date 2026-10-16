@@ -189,6 +189,16 @@ export function contextFactorsFor(
     if (st.halfPriceHalfTime !== undefined) f.halfPriceHalfTimeRecent = st.halfPriceHalfTime !== null;
   }
 
+  // A-TIME-05/-21: a watched month count (18-48 months in sixes) from a major
+  // pivot, its direction from the anchor (a low argues up). Measured, never gating.
+  if (ctx.monthCounts) f.watchedMonthCountWithTrade = ctx.monthCounts.some((c) => c.watched && (c.kind === "low") === bull);
+  // A-TIME-06: for a long in a market bear, its bottom windows (months 30-36
+  // and 40-43) and a bear younger than the shortest on record (time not run out).
+  if (bull && ctx.bearDuration) {
+    f.marketBearBottomWindow = ctx.bearDuration.inBottomWindow;
+    f.marketBearYoung = ctx.bearDuration.beforeShortest;
+  }
+
   // D2: Gann's capital-stock readings are top warnings, so they count against
   // a long and with a short. Absent when no share count is stored.
   const cs = ctx.capitalStock;

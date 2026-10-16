@@ -91,6 +91,8 @@ import { THREE_DAY_CHART, WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/
 import { readExtremeRules, type ExtremeRulesReading } from "@/lib/gann/extremeRules";
 import { readTiming, type TimingReading } from "@/lib/gann/timeConvergence";
 import { describeCapitalStock, readCapitalStock, type CapitalStockReading } from "@/lib/gann/capitalStock";
+import { readMonthCounts, type PivotMonthCount } from "@/lib/gann/angleMonthCounts";
+import { describeBearDuration, readBearDuration, type BearDurationReading } from "@/lib/gann/bearDuration";
 import {
   describeIncorporationCycle,
   readIncorporationCycle,
@@ -451,6 +453,10 @@ export interface DisclosedRulesContext {
   narrowWeekBreak?: NarrowWeekBreakReading | null;
   /** The class C day, week, month, circle and seasonal counts (context only). See `secondaryTime.ts`. */
   secondaryTime?: SecondaryTimeReading | null;
+  /** Months from the monthly chart's major tops and bottoms (A-TIME-05/-21, context only). See `angleMonthCounts.ts`. */
+  monthCounts?: PivotMonthCount[] | null;
+  /** Months into the market's bear market from its top (A-TIME-06, context only). See `bearDuration.ts`. */
+  bearDuration?: BearDurationReading | null;
   /** The session this was read for (YYYY-MM-DD). */
   asOf: string;
 }
@@ -507,6 +513,11 @@ export function readDisclosedRules(
 ): DisclosedRulesContext {
   const campaign = buildCampaignLedger(dailyBars);
   const counterMove = readCounterMove(dailyBars);
+  // The market's months with the month so far from its daily bars, as the
+  // live scan's monthly bars have it; the replay passes closed months only.
+  const marketMonthly = instrument?.marketMonthly
+    ? monthlyWithCurrent(instrument.marketMonthly, (instrument.marketDaily ?? []).filter((b) => b.t <= dailyBars[dailyBars.length - 1].t))
+    : null;
   return {
     barMidpoint: readBarMidpoint(dailyBars),
     pricePercentages: readPricePercentages(dailyBars, currentPrice),
@@ -530,18 +541,15 @@ export function readDisclosedRules(
     sharesPerPoint: readSharesPerPoint(dailyBars, campaign),
     leadership: readLeadership(dailyBars, instrument?.marketDaily ?? null, campaign),
     weakStock:
-      instrument?.monthly && instrument.marketMonthly
-        ? readWeakStock(
-            monthlyWithCurrent(instrument.monthly, dailyBars),
-            monthlyWithCurrent(instrument.marketMonthly, (instrument.marketDaily ?? []).filter((b) => b.t <= dailyBars[dailyBars.length - 1].t)),
-          )
-        : null,
+      instrument?.monthly && marketMonthly ? readWeakStock(monthlyWithCurrent(instrument.monthly, dailyBars), marketMonthly) : null,
     timeRules: readTimeRules(dailyBars, counterMove),
     multipleTops: readMultipleTops(dailyBars),
     halfwayRetest: readHalfwayRetest(dailyBars),
     narrowRangeBreak: readNarrowRangeBreak(dailyBars),
     narrowWeekBreak: readNarrowWeekBreak(toWeeklyBars(dailyBars)),
     secondaryTime: readSecondaryTime(dailyBars, instrument?.monthly ?? null, asOf, counterMove),
+    monthCounts: instrument?.monthly ? readMonthCounts(monthlyWithCurrent(instrument.monthly, dailyBars), asOf) : null,
+    bearDuration: marketMonthly ? readBearDuration(marketMonthly, asOf) : null,
     asOf: asOf.toISOString().slice(0, 10),
   };
 }
@@ -553,6 +561,11 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   if (ctx.incorporation) lines.push(...describeIncorporationCycle(ctx.incorporation));
   if (ctx.zone) lines.push(describeSevenZones(ctx.zone));
   if (ctx.secondaryTime) lines.push(...describeSecondaryTime(ctx.secondaryTime));
+  if (ctx.monthCounts && ctx.monthCounts.length > 0) {
+    const list = ctx.monthCounts.map((c) => `${c.months}${c.watched ? " (a watched count)" : ""} from the ${c.pivotMonth} ${c.kind === "high" ? "top" : "bottom"}`);
+    lines.push(`Months from the major tops and bottoms: ${list.join(", ")}. Shown for context; it does not change the setup.`);
+  }
+  if (ctx.bearDuration) lines.push(describeBearDuration(ctx.bearDuration));
   if (ctx.seasonal) lines.push(`Seasonal count: ${ctx.seasonal.point.label} of the year from March 21 (${ctx.seasonal.offsetDays === 0 ? "today" : `${Math.abs(ctx.seasonal.offsetDays)}d ${ctx.seasonal.offsetDays > 0 ? "after" : "before"}`}).`);
   if (ctx.accumulation) {
     const a = ctx.accumulation;

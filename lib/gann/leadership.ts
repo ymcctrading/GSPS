@@ -146,6 +146,24 @@ export function marketBullStart(marketMonthly: Bar[]): string | null {
 }
 
 /**
+ * The month the market's current bear market began, or null when the market's
+ * monthly chart is not in a bear trend: the highest monthly high between the
+ * chart's previous trend change and the change to down. The mirror of
+ * `marketBullStart`, for Gann's bear-market durations (`bearDuration.ts`).
+ */
+export function marketBearStart(marketMonthly: Bar[]): string | null {
+  if (marketMonthly.length < 6) return null;
+  const walk = walkSwingChart(marketMonthly, MONTHLY_REACTION_CHART);
+  if (walk.trend !== "bearish") return null;
+  const changes = walk.trendChanges;
+  const changeAt = changes.length > 0 ? changes[changes.length - 1] : marketMonthly.length - 1;
+  const prev = changes.length > 1 ? changes[changes.length - 2] : 0;
+  let start = prev;
+  for (let i = prev; i <= changeAt; i++) if (marketMonthly[i].h > marketMonthly[start].h) start = i;
+  return marketMonthly[start].t.slice(0, 7);
+}
+
+/**
  * Gann's two weak-stock readings in a bull market (A-TREND-07, W006 pp.25,
  * 27; A-TREND-08, p.35), on the stock's and the market's monthly bars from
  * the market's bull start. Context only: Gann's action on a weak stock
