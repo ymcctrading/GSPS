@@ -153,6 +153,7 @@ import { describeCampaignLength, readCampaignLength, type CampaignLengthReading 
 import { describeFoundingCounts, readFoundingCounts, type FoundingCountReading } from "@/lib/gann/incorporationCycle";
 import { describeOutbreakCounts, readOutbreakCounts, type OutbreakCountHit } from "@/lib/gann/outbreakCounts";
 import { describeOneByOneBreak, readOneByOneBreak, type OneByOneBreak } from "@/lib/gann/fans";
+import { describeWeeklyOneBar, walkWeeklyOneBar, type WeeklyOneBarReading } from "@/lib/gann/weeklyOneBar";
 import { describeJensenConvergence, jensenBottomConvergence, type JensenConvergence } from "@/lib/gann/jensen";
 import { describeFirstRally, readFirstRally, type FirstRallyReading } from "@/lib/gann/firstRally";
 import { describeCycleRangeBreak, readCycleRangeBreak, type CycleRangeBreak } from "@/lib/gann/cycleRangeBreak";
@@ -689,6 +690,8 @@ export interface DisclosedRulesContext {
   firstRally?: FirstRallyReading | null;
   /** A 3-4 day range broken down on volume, and whether on a time-cycle date (C-TIME-03, class C, context only). See `cycleRangeBreak.ts`. */
   cycleRangeBreak?: CycleRangeBreak | null;
+  /** Gann's weekly green/red trend line, the one-week swing chart (M-R8, context only). See `weeklyOneBar.ts`. */
+  weeklyOneBar?: WeeklyOneBarReading | null;
   /** The session this was read for (YYYY-MM-DD). */
   asOf: string;
 }
@@ -870,6 +873,7 @@ export function readDisclosedRules(
     jensenConvergence: jensenBottomConvergence(dailyBars, unit),
     firstRally: readFirstRally(instrument?.monthly ? monthlyWithCurrent(instrument.monthly, dailyBars) : toMonthlyBars(dailyBars)),
     cycleRangeBreak: readCycleRangeBreak(dailyBars, timeCycles(dailyBars, asOf).active),
+    weeklyOneBar: walkWeeklyOneBar(toWeeklyBars(dailyBars)),
     asOf: asOf.toISOString().slice(0, 10),
   };
 }
@@ -1124,5 +1128,7 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   const fr = ctx.firstRally ? describeFirstRally(ctx.firstRally) : null;
   if (fr) lines.push(fr);
   if (ctx.cycleRangeBreak) lines.push(describeCycleRangeBreak(ctx.cycleRangeBreak));
+  const wl = ctx.weeklyOneBar ? describeWeeklyOneBar(ctx.weeklyOneBar) : null;
+  if (wl) lines.push(wl);
   return lines;
 }

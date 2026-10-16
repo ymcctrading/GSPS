@@ -116,7 +116,7 @@ function GannRow({ result }: { result: NonNullable<ScanResult["signals"]>["gannC
           )}
           {result.nearestMasterTwelve && (
             <div className="rounded-md border border-border bg-surface p-2">
-              <p className="text-muted">Nearest Master Twelve level</p>
+              <p className="text-muted">Nearest base-12 spiral level (GSPS construction)</p>
               <p className="font-mono font-semibold">{result.nearestMasterTwelve.price.toFixed(2)}</p>
             </div>
           )}

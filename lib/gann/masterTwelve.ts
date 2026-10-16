@@ -32,7 +32,9 @@
  *
  * Note (2026-10-16, item 9): this spiral is GSPS's reconstruction. The Master
  * Course's own "Master 12" chart is a 12×12 grid whose squares end at 144,
- * 288, 432 and 576 (C-NUMEROLOGY-03, held as UNVERIFIABLE until a page check).
+ * 288, 432 and 576; it is built below as `masterTwelveCell` (M-T16, review B,
+ * 2026-10-16), and the spiral is labelled a GSPS construction wherever it is
+ * shown. The Square of 144's readings are `masterCalculator.ts`'s.
  */
 
 import { levelRole, type LevelRole } from "@/lib/analysis/levelRole";
@@ -100,6 +102,80 @@ export function squareMonthsFromPriceRange(lowCents: number, highCents: number):
   return highCents - lowCents;
 }
 
+// ---------------------------------------------------------------------------
+// Gann's Master 12 chart: the 12x12 grid (M-T16)
+//
+// Master Course Ch. 13 (pp. 62-64) and Ch. 15A ("Master Charts"), Tier A;
+// source note `docs/memory-bank/sources/A2_1_master_stock_market_course.md`.
+// 12 x 12 = 144, and the squares end at 144, 288, 432 and 576. The numbers
+// run up columns of 12: the bottom of each column is 1, 13, 25 ... 133, the
+// top 12, 24 ... 144 ("very important to measure time"). The chart is read
+// for time, space, price or volume. Its named points, as he lists them:
+// the major centre 66, 67, 78 and 79 (the strongest resistance); the minor
+// centres; the two 45-degree diagonals; the horizontal half line (rows 6
+// and 7). Sections are the columns: 3 over is the square of its own place,
+// 6 the half-way point, 9 the three-quarter point, the 8th and 9th the
+// "death zone", and the 12th the strongest. Unlike the spiral below, this
+// is Gann's chart; the spiral is GSPS's own construction.
+// ---------------------------------------------------------------------------
+
+export const MASTER_TWELVE_SIDE = 12;
+export const MASTER_TWELVE_SQUARE = MASTER_TWELVE_SIDE * MASTER_TWELVE_SIDE;
+/** "Squares end at 144, 288, 432, 576." */
+export const MASTER_TWELVE_SQUARE_ENDS = [1, 2, 3, 4].map((k) => k * MASTER_TWELVE_SQUARE);
+/** The major centre, the strongest resistance. */
+export const MASTER_TWELVE_MAJOR_CENTRE = [66, 67, 78, 79] as const;
+/** The minor centres, minor tops and bottoms. */
+export const MASTER_TWELVE_MINOR_CENTRES = [14, 17, 20, 23, 50, 53, 56, 59, 86, 89, 92, 95, 122, 125, 128, 131] as const;
+
+export interface MasterTwelveCell {
+  /** Which square of 144 the value is in, the first being 1. */
+  square: number;
+  /** Its place in that square, 1 to 144. */
+  place: number;
+  /** The column (section), 1 to 12. */
+  section: number;
+  /** The row up the column, 1 to 12. */
+  row: number;
+  /** The place ends a square (144, 288, 432, 576 ...). */
+  squareEnd: boolean;
+  majorCentre: boolean;
+  minorCentre: boolean;
+  /** On either 45-degree diagonal (1, 14 ... 144 or 12, 23 ... 133). */
+  diagonal: boolean;
+  /** On the horizontal half line, rows 6 and 7. */
+  halfLine: boolean;
+  /** In the 8th or 9th section, the "death zone". */
+  deathZone: boolean;
+}
+
+/** Where a whole value (points, days, weeks or months) sits on the Master 12 chart. */
+export function masterTwelveCell(value: number): MasterTwelveCell | null {
+  const v = Math.round(value);
+  if (!(v >= 1)) return null;
+  const square = Math.ceil(v / MASTER_TWELVE_SQUARE);
+  const place = v - (square - 1) * MASTER_TWELVE_SQUARE;
+  const section = Math.ceil(place / MASTER_TWELVE_SIDE);
+  const row = place - (section - 1) * MASTER_TWELVE_SIDE;
+  return {
+    square,
+    place,
+    section,
+    row,
+    squareEnd: place === MASTER_TWELVE_SQUARE,
+    majorCentre: (MASTER_TWELVE_MAJOR_CENTRE as readonly number[]).includes(place),
+    minorCentre: (MASTER_TWELVE_MINOR_CENTRES as readonly number[]).includes(place),
+    diagonal: row === section || row === MASTER_TWELVE_SIDE + 1 - section,
+    halfLine: row === 6 || row === 7,
+    deathZone: section === 8 || section === 9,
+  };
+}
+
+/**
+ * The spiral levels below: **a GSPS construction** (a base-12 analog of the
+ * Square of Nine's square-root spiral), not Gann's Master 12 chart, which is
+ * `masterTwelveCell` above. Shown on the confluence card under that label.
+ */
 export interface MasterTwelveLevel {
   degree: number;
   price: number;

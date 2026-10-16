@@ -31,6 +31,16 @@ describe("computeEquityTradeLevels", () => {
     expect(merged.stopLoss).toBeCloseTo(95.3 - gannThreePoints(95.3), 2);
   });
 
+  it("averages two resistance levels within 1% into one target (M-P4)", () => {
+    const long = computeEquityTradeLevels({ direction: "bullish", entry: 100, structuralLevels: [], extensionLevels: [105, 105.6], evenFigures: false });
+    expect(long.tp1FromStructure).toBe(true);
+    expect(long.takeProfit1).toBeCloseTo(105.3, 2);
+    const short = computeEquityTradeLevels({ direction: "bearish", entry: 100, structuralLevels: [], extensionLevels: [95, 94.4], evenFigures: false });
+    expect(short.takeProfit1).toBeCloseTo(94.7, 2);
+    // More than 1% apart, the nearer stands alone as TP1.
+    expect(computeEquityTradeLevels({ direction: "bullish", entry: 100, structuralLevels: [], extensionLevels: [105, 107], evenFigures: false }).takeProfit1).toBeCloseTo(105, 2);
+  });
+
   it("keeps levels more than 1% apart separate", () => {
     const entry = 100;
     const apart = computeEquityTradeLevels({

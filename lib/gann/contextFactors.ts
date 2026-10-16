@@ -551,5 +551,7 @@ export function contextFactorsFor(
   }
   // C-TIME-03 (W003 p.16, class C): the range break at a cycle's expiry, a short setup only.
   if (!bull && ctx.cycleRangeBreak) f.cycleRangeBreakShort = ctx.cycleRangeBreak.shortSetup;
+  // M-R8: the weekly trend line is green for a long, red for a short.
+  if (ctx.weeklyOneBar?.colour) f.weeklyOneBarWithTrade = ctx.weeklyOneBar.colour === (bull ? "green" : "red");
   return f;
 }

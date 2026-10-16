@@ -48,9 +48,26 @@ describe("Jensen's square of 90", () => {
 
   it("counts down from the high as well as up from the low", () => {
     const levels = jensenLevels(series, 98, 1);
-    // From the high: 100 − 5⅝ = 94.375 below; from the low: 40 + 60 = 100 above.
-    expect(levels.map((l) => l.price)).toEqual([94.375, 100]);
+    // From the high: 100 − 5⅝ = 94.375 below; from the low: 40 + 67½ = 107.5
+    // above (40 + 60 = 100 is a trine point, so not a level).
+    expect(levels.map((l) => l.price)).toEqual([94.375, 107.5]);
     expect(levels[0].label).toContain("below the high");
+  });
+
+  // C-LEVELS-21: the square points mark resistance, the trine points
+  // consolidation, and 90 and 45 are doubly strong.
+  it("classes 15, 30, 60 and 75 points from the low as trine points, and 22½, 45, 67½ and 90 as squares", () => {
+    for (const p of [15, 30, 60, 75]) expect(jensenPriceHit(series, 40 + p, 1), String(p)).toMatchObject({ points: p, square: false, strong: false });
+    for (const p of [22.5, 45, 67.5, 90]) expect(jensenPriceHit(series, 40 + p, 1), String(p)).toMatchObject({ points: p, square: true });
+    expect(jensenPriceHit(series, 85, 1)!.strong).toBe(true);
+    expect(jensenPriceHit(series, 130, 1)!.strong).toBe(true);
+    expect(jensenPriceHit(series, 62.5, 1)!.strong).toBe(false);
+  });
+
+  it("puts only square points in the levels, never a trine point", () => {
+    for (let price = 41; price < 200; price += 0.75) {
+      for (const l of jensenLevels(series, price, 1)) expect(l.label, `${price}: ${l.label}`).toContain("(square point");
+    }
   });
 
   it("repeats the square past 90 points", () => {

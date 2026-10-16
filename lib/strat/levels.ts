@@ -412,7 +412,10 @@ export function computeEquityTradeLevels(params: {
   // lib/gann/evenFigures.ts).
   const capForFigures = entry + dir * (EQUITY_MASTER_CAP_PCT / 100) * entry;
   const figureTargets = evenFigures ? targetCandidates(entry, capForFigures, direction) : [];
-  const ascending = [...extensionLevels, ...figureTargets].sort((a, b) => dir * (a - b));
+  // Resistance points near the same level are one point (M-P4, the same rule
+  // as the stop's, `combineNearbyLevels`): averaged before TP1 and the master
+  // are read from them (review B, 2026-10-16; until then only the stop was).
+  const ascending = [...combineNearbyLevels(extensionLevels), ...figureTargets].sort((a, b) => dir * (a - b));
   const levelTp1 = ascending.find((l) => pctFrom(l) >= EQUITY_TP1_MIN_PCT && pctFrom(l) <= EQUITY_TP1_MAX_PCT);
   const tp1FromStructure = levelTp1 !== undefined;
   const takeProfit1 = levelTp1 ?? atrTp1;
@@ -732,7 +735,7 @@ export function computeTradeLevels(
   const masterFloor = tp1OverrunsTP2 ? takeProfit1 : tp2Target;
   const steppedMaster = tp1OverrunsTP2 ? takeProfit1 + dir * risk : tp2Target;
   const masterCap = dir * (fiveR - steppedMaster) > 0 ? fiveR : steppedMaster + dir * risk;
-  const structuralExtension = gannTargets
+  const structuralExtension = combineNearbyLevels(gannTargets)
     .filter((g) => dir * (g - masterFloor) > 0 && dir * (g - masterCap) <= 0)
     .sort((a, b) => dir * (a - b))[0];
   const masterFromStructure = structuralExtension !== undefined;

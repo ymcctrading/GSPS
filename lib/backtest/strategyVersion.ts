@@ -435,4 +435,10 @@
 // (A-LEVELS-02), so stops, targets and the S/R match move. Range divisions are
 // ranked by Master Course Ch. 6's tiers (M-P1). The calendar-day 1x1
 // (C-LEVELS-20) is context only. Verdicts, levels and list order move.
-export const STRATEGY_VERSION = "2026-10-16-gann-selection-levels";
+// 2026-10-17-gann-review-b-fixes: review B of the built rules. Only Jensen's
+// square points join the S/R list; his trine points mark consolidation and
+// stay context (C-LEVELS-21). Resistance points within 1% are averaged into
+// one before TP1 and the master are read, as the stop's were (M-P4). Plan
+// levels and targets move; the new weekly trend line, Master 12 grid and
+// spectral-cycle changes are context only.
+export const STRATEGY_VERSION = "2026-10-17-gann-review-b-fixes";

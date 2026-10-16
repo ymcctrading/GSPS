@@ -289,7 +289,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
   }
   if (nearestMasterTwelve) {
     explanationTrace.push(
-      `Nearest Master Twelve level: ${nearestMasterTwelve.price.toFixed(2)} (${nearestMasterTwelve.role}, ${nearestMasterTwelve.distancePct.toFixed(2)}% away, degree ${nearestMasterTwelve.degree}, rotation ${nearestMasterTwelve.rotation}).`,
+      `Nearest base-12 spiral level (a GSPS construction, not the Master 12 chart): ${nearestMasterTwelve.price.toFixed(2)} (${nearestMasterTwelve.role}, ${nearestMasterTwelve.distancePct.toFixed(2)}% away, degree ${nearestMasterTwelve.degree}, rotation ${nearestMasterTwelve.rotation}).`,
     );
   }
   if (squareOf52.active) {

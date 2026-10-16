@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectSpectralCycle, fitCosinor, MIN_REPETITIONS, minRepetitions } from "../spectralCycle";
+import { detectSpectralCycle, fitCosinor, MIN_REPETITIONS, schusterAlpha } from "../spectralCycle";
 import type { Bar } from "@/lib/types";
 
 function makeBars(closes: number[]): Bar[] {
@@ -150,11 +150,41 @@ describe("significance and hold-out before a cycle is credited", () => {
     expect(r.active).toBe(false);
   });
 
-  // CYC-27: short periods arise more easily by chance.
-  it("asks more repetitions of a 5-bar peak than of a 40-bar peak", () => {
-    expect(minRepetitions(5)).toBeGreaterThan(minRepetitions(40));
-    expect(minRepetitions(40)).toBe(MIN_REPETITIONS);
-    expect(minRepetitions(5)).toBe(10);
+  // CYC-04: the repetitions floor alone blocks this one. A 50-bar sine in 240
+  // bars is dominant and significant, off the band edge, but repeats 4.8 times.
+  it("does not credit a dominant, significant peak that repeats under the floor", () => {
+    const r = detectSpectralCycle(makeBars(Array.from({ length: 240 }, (_, i) => 100 + 10 * Math.sin((2 * Math.PI * i) / 50))));
+    expect(r.dominancePower!).toBeCloseTo(8.76, 1);
+    expect(r.schusterP!).toBeCloseTo(0.007, 3);
+    expect(r.atBandEdge).toBe(false);
+    expect(r.repetitionCount).toBe(4.8);
+    expect(r.repetitionCount!).toBeLessThan(MIN_REPETITIONS);
+    expect(r.active).toBe(false);
+  });
+
+  // CYC-27: short periods arise more easily by chance (W040 p.5), so a short
+  // peak needs a smaller Schuster p.
+  it("asks a 5-bar peak for a smaller Schuster p than a 40-bar peak", () => {
+    expect(schusterAlpha(40)).toBe(0.05);
+    expect(schusterAlpha(20)).toBe(0.05);
+    expect(schusterAlpha(5)).toBeCloseTo(0.0125, 10);
+    const peak = (period: number, amp: number) => {
+      let seed = 7;
+      const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+      return detectSpectralCycle(makeBars(Array.from({ length: 240 }, (_, i) => 100 + 2 * (rnd() - 0.5) + amp * Math.sin((2 * Math.PI * i) / period))));
+    };
+    const short = peak(5, 0.18);
+    const long = peak(40, 0.2);
+    // About the same Schuster p, both under 0.05.
+    for (const r of [short, long]) {
+      expect(r.schusterP!).toBeGreaterThan(0.02);
+      expect(r.schusterP!).toBeLessThan(0.05);
+      expect(r.atBandEdge).toBe(false);
+    }
+    expect(short.dominantPeriodBars).toBe(5);
+    expect(short.active).toBe(false);
+    expect(Math.abs(long.dominantPeriodBars! - 40)).toBeLessThanOrEqual(2);
+    expect(long.active).toBe(true);
   });
 
   // CYC-08: decide on the first 70% alone, then test on the rest against a null.
@@ -212,5 +242,62 @@ describe("repetition label on the yearly cycle list", () => {
     const { FEW_REPETITION_CYCLE_YEARS, MAJOR_CYCLE_YEARS } = await import("../timeCycles");
     expect([...FEW_REPETITION_CYCLE_YEARS]).toEqual([30, 50, 60]);
     for (const y of FEW_REPETITION_CYCLE_YEARS) expect(MAJOR_CYCLE_YEARS).toContain(y);
+  });
+});
+
+describe("the null rate of an active cycle (CYC-28)", () => {
+  // 100 seeded white-noise series and 100 seeded random walks, 240 bars each.
+  // None holds a cycle, so an active reading on them is a false positive.
+  let seed = 12345;
+  const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+  const gauss = () => Math.sqrt(-2 * Math.log(rnd() + 1e-12)) * Math.cos(2 * Math.PI * rnd());
+  const n = 240;
+  let noiseActive = 0;
+  let walkActive = 0;
+  for (let k = 0; k < 100; k++) {
+    if (detectSpectralCycle(makeBars(Array.from({ length: n }, () => 100 * Math.exp(0.01 * gauss())))).active) noiseActive++;
+    let p = 100;
+    if (detectSpectralCycle(makeBars(Array.from({ length: n }, () => (p *= Math.exp(0.01 * gauss()))))).active) walkActive++;
+  }
+
+  it("calls a cycle on at most 5% of the noise series and walks together", () => {
+    expect((noiseActive + walkActive) / 200).toBeLessThanOrEqual(0.05);
+  });
+
+  it("keeps each kind of null series under 10%", () => {
+    expect(noiseActive).toBeLessThanOrEqual(10);
+    expect(walkActive).toBeLessThanOrEqual(10);
+  });
+});
+
+describe("persistence through changed conditions (CYC-07)", () => {
+  // Dewey's item 6: a real cycle survives a change of regime. The split-half
+  // check (`periodConsistent`) re-finds the period on each half of the window,
+  // so a change at mid-series is the regime change it has to survive.
+  const shifted = (cycleInSecondHalf: boolean) => {
+    let seed = 99;
+    const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+    const n = 300;
+    let drift = 0;
+    return makeBars(
+      Array.from({ length: n }, (_, i) => {
+        const late = i >= n / 2;
+        // The second half trends up and is three times as volatile.
+        drift += late ? 0.002 : 0;
+        const noise = (late ? 0.03 : 0.01) * (rnd() - 0.5);
+        const cycle = !late || cycleInSecondHalf ? 0.05 * Math.sin((2 * Math.PI * i) / 20) : 0;
+        return 100 * Math.exp(drift + cycle + noise);
+      }),
+    );
+  };
+
+  it("keeps the period when a 20-bar cycle runs on through a shift in drift and volatility", () => {
+    const r = detectSpectralCycle(shifted(true));
+    expect(r.periodConsistent).toBe(true);
+    expect(r.dominantPeriodBars).toBe(20);
+  });
+
+  it("does not call the period constant when the cycle stops at the shift", () => {
+    expect(detectSpectralCycle(shifted(false)).periodConsistent).toBe(false);
   });
 });

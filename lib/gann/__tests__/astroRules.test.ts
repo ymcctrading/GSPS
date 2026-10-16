@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { Body, Ecliptic, GeoVector, SunPosition } from "astronomy-engine";
 import type { Bar } from "@/lib/types";
 import { activeAngleLevels, jensenLevels, readAstroRules } from "../astroRules";
 import { gannMasterLevels } from "../masterLevels";
@@ -104,15 +105,62 @@ describe("activeAngleLevels (active angles act as price resistance)", () => {
 
 describe("jensenLevels (square of 90 as price levels)", () => {
   it("gives the nearest square-of-90 point above and below price, measured from the low", () => {
-    // Low 40 (bar 40 days back), price 72: 30 points above sits below, 45 above.
+    // Low 40 (bar 40 days back), price 72 at the high of 72.5: 5⅝ under the
+    // high sits below (30 over the low, 70, is a trine point, so not a level),
+    // and 45 over the low above, doubly strong.
     const levels = jensenLevels(bars("2026-06-01", 40, 72), 72, 1);
-    expect(levels.map((l) => l.price)).toEqual([70, 85]);
-    expect(levels[1].label).toContain("45 points above the low (square point)");
-    expect(levels[0].label).toContain("(trine point)");
+    expect(levels.map((l) => l.price)).toEqual([66.875, 85]);
+    expect(levels[1].label).toContain("45 points above the low (square point, doubly strong)");
+    expect(levels[0].label).toContain("below the high (square point)");
   });
 
   it("reaches the S/R list through the master levels", () => {
     const daily = bars("2026-06-01", 40, 72);
     expect(gannMasterLevels(daily, daily, 72, new Date("2026-06-01T12:00:00Z")).filter((l) => l.source === "jensen")).toHaveLength(2);
+  });
+});
+
+describe("readAstroRules: the Sun's travel and Mars's half return (A-ASTRO-03, A-ASTRO-07)", () => {
+  const noon = (d: string) => new Date(`${d}T12:00:00Z`);
+  const mod = (x: number) => ((x % 360) + 360) % 360;
+  /** A low on `lowDate`, then daily bars from `from` to `to` closing at `close`. */
+  function lowThen(lowDate: string, low: number, from: string, to: string, close: number): Bar[] {
+    const out: Bar[] = [{ t: noon(lowDate).toISOString(), o: low + 1, h: low + 2, l: low, c: low + 1, v: 1000 }];
+    for (let t = noon(from).getTime(); t <= noon(to).getTime(); t += DAY) {
+      out.push({ t: new Date(t).toISOString(), o: close, h: close + 0.5, l: close - 0.5, c: close, v: 1000 });
+    }
+    return out;
+  }
+
+  it("adds the Sun's travel since the low to the low: the coffee case, 435 + 8253 degrees near 8688", () => {
+    // 8373 days after the low is 8253 degrees of mean solar travel.
+    const asOf = noon("2022-12-13");
+    const series = lowThen("2000-01-10", 435, "2022-11-10", "2022-12-13", 500);
+    const r = readAstroRules(series, asOf, 1)!;
+    const travel = (8373 * 360) / 365.2422;
+    expect(Math.floor(travel / 360)).toBe(22);
+    const exact = mod(SunPosition(asOf).elon - SunPosition(noon("2000-01-10")).elon);
+    expect(r.sunTravel!.level).toBeCloseTo(435 + 22 * 360 + exact, 6);
+    expect(Math.abs(r.sunTravel!.level - 8688)).toBeLessThan(3);
+  });
+
+  const marsAt = (d: Date) => Ecliptic(GeoVector(Body.Mars, d, true)).elon;
+
+  it("projects the date geocentric Mars stands opposite its place at the low", () => {
+    const r = readAstroRules(bars("2026-06-01", 40, 50), noon("2026-06-01"), 1)!;
+    const lowDate = r.marsHalfReturn!.lowDate;
+    const next = r.marsHalfReturn!.next!;
+    const target = mod(marsAt(noon(lowDate)) + 180);
+    const off = Math.abs(((mod(planetLongitudes(noon(next)).geo.Mars - target) + 180) % 360) - 180);
+    expect(off).toBeLessThan(1);
+  });
+
+  it("counts the third pass of a retrograde loop over the opposite point", () => {
+    // Low on 2024-02-06 with Mars near 294.8; the opposite point, 114.8, is
+    // crossed on 2024-10-22, again retrograde on 2025-01-20, and a third time
+    // on 2025-04-05.
+    const series = lowThen("2024-02-06", 40, "2024-02-07", "2025-04-05", 50);
+    const r = readAstroRules(series, noon("2025-04-05"), 1)!;
+    expect(r.marsHalfReturn).toMatchObject({ lowDate: "2024-02-06", today: true, pass: 3 });
   });
 });

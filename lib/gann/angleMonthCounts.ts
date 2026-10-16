@@ -26,7 +26,10 @@
  * "36 geometric angles," but its worked list is the 32-way division of
  * 360°; that mismatch is in the transcription itself, not introduced here —
  * see `ALL_DIVISIONS_DEG` below, which reproduces the disclosed numeric list
- * exactly rather than forcing a count of 36.)
+ * exactly rather than forcing a count of 36. Review B, 2026-10-16, M-T16:
+ * the gap stands. This builds the 32-way division plus the four starred
+ * thirds and sixths, not 36 counts; the 36 are not recoverable from the
+ * source as read.)
  *
  * Twelve of these are separately named "very important": 45, 60, 90, 120,
  * 135, 180, 225, 240, 270, 300, 315, 360. Four of those (60, 120, 240, 300)
