@@ -108,6 +108,7 @@ import { readSharesPerPoint, type SharesPerPointReading } from "@/lib/gann/share
 import { monthlyWithCurrent, readLeadership, readWeakStockFrom, type LeadershipReading, type WeakStockReading } from "@/lib/gann/leadership";
 import { describeSevenZones, readSevenZones, type ZoneReading } from "@/lib/gann/sevenZones";
 import { approachingFigure, type ApproachReading } from "@/lib/gann/evenFigures";
+import { readCalendarDayAngles, type CalendarDayAngleReading } from "@/lib/gann/normalizedSlope";
 import { describePriceGrids, readPriceGrids, type PriceGridReading } from "@/lib/gann/priceGrids";
 import { describePriceAsTime, readPriceAsTime, type PriceAsTimeReading } from "@/lib/gann/priceAsTime";
 import { describeAngleCrossings, readAngleCrossings, type AngleCrossingsReading } from "@/lib/gann/angleCrossings";
@@ -620,6 +621,8 @@ export interface DisclosedRulesContext {
   monthlyAngle?: { from: number; fromMonth: string; price: number } | null;
   /** The 1x1 down from the latest monthly top at 1 point a month (C-LEVELS-08, context only). */
   monthlySquareFromHigh?: MonthlySquareReading | null;
+  /** The 1x1 on a scale of one price unit per calendar day (C-LEVELS-20, Jensen; context only). See `normalizedSlope.ts#readCalendarDayAngles`. */
+  calendarDayAngles?: CalendarDayAngleReading | null;
   /** The last completed session left a narrow range: its volume over the range's average (A-VOLUME-10, context only). See `breakaway.ts`. */
   breakawayVolume?: BreakawayVolumeReading | null;
   /** The class C day, week, month, circle and seasonal counts (context only). See `secondaryTime.ts`. */
@@ -827,6 +830,7 @@ export function readDisclosedRules(
         }
       : null,
     monthlySquareFromHigh: readMonthlySquareFromHigh(longMonthly, asOf, STOCK_POINTS_PER_MONTH * unit),
+    calendarDayAngles: readCalendarDayAngles(dailyBars, currentPrice),
     breakawayVolume: readBreakawayVolume(dailyBars, asOf),
     secondTopVolumeRatio: computeVolumeClimax(dailyBars, undefined, { asOf }).find((r) => r.anchorKind === "high")?.retestWeekVolumeRatio ?? null,
     secondaryTime: readSecondaryTime(dailyBars, longMonthly, asOf, counterMove),
@@ -923,6 +927,12 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   if (ctx.monthlySquareFromHigh) {
     const q = ctx.monthlySquareFromHigh;
     lines.push(`The square of price and time down from the ${q.fromMonth} top (${q.from.toFixed(2)}) at 1 point a month stands at ${q.price.toFixed(2)}. Not a level to trade on alone.`);
+  }
+  if (ctx.calendarDayAngles?.fromLow || ctx.calendarDayAngles?.fromHigh) {
+    const a = ctx.calendarDayAngles;
+    const up = a.fromLow ? `${a.fromLow.price.toFixed(2)} up from the ${a.fromLow.anchorDate} low` : null;
+    const down = a.fromHigh ? `${a.fromHigh.price.toFixed(2)} down from the ${a.fromHigh.anchorDate} high` : null;
+    lines.push(`Counting every calendar day as one point, the 1x1 stands at ${[up, down].filter(Boolean).join(" and ")}. Shown for context; it does not change the setup.`);
   }
   if (ctx.distributionStanding) {
     lines.push(`After a lower top, the narrow range broke down on ${ctx.distributionStanding.breakoutVolumeRatio.toFixed(1)}× its average volume: a sign of a further decline. A buy is held to Watch, and an open buy is closed, while price stays under the range, for up to 20 sessions after the break.`);

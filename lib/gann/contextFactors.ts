@@ -229,6 +229,11 @@ export function contextFactorsFor(
     const over = price > ctx.monthlySquareFromHigh.price;
     f.overSquareFromHighAgreesWithTrade = bull ? over : !over;
   }
+  // Over the rising 1x1 from the last low on the calendar-day scale for a
+  // long, under the falling one from the last high for a short (C-LEVELS-20,
+  // Jensen; context only).
+  const calLine = bull ? ctx.calendarDayAngles?.fromLow : ctx.calendarDayAngles?.fromHigh;
+  if (calLine) f.calendarDayAngleAgreesWithTrade = bull ? price > calLine.price : price < calLine.price;
   // Double/triple tops and bottoms: crossed in the trade's direction, or a
   // failed test standing against it (the second or third since 2026-10-16,
   // A-LEVELS-04; the factor keeps its name so earlier runs still compare,
