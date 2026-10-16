@@ -121,20 +121,39 @@ describe("time-window base rates", () => {
     for (const f of report.families.filter((f) => f.family !== "wheel")) expect(f.beatsRandom).toBe(false);
   });
 
-  it("corrects the long cycles' anniversaries with the rest: the year-cycle re-rank's counts (CYC-51)", () => {
+  it("corrects the year-cycle re-rank's own counts: monthly major pivots, every cycle, the whole month (CYC-51)", async () => {
+    const { yearCycleConvergence, MAJOR_CYCLE_YEARS } = await import("@/lib/gann/timeCycles");
     expect(WINDOW_FAMILIES).toContain("yearCycles");
-    expect(YEAR_CYCLE_FAMILY_YEARS[0]).toBe(5);
+    expect([...YEAR_CYCLE_FAMILY_YEARS]).toEqual([...MAJOR_CYCLE_YEARS]);
     const bars: Bar[] = Array.from({ length: 2300 }, (_, i) => {
-      const c = 100 + 20 * Math.sin((2 * Math.PI * i) / 180);
+      const c = 100 + 20 * Math.sin((2 * Math.PI * i) / 300);
       return { t: new Date(T0 + i * DAY).toISOString(), o: c, h: c + 1, l: c - 1, c, v: 1000 };
     });
     const w = symbolWindows(bars);
-    const anchors = majorPivots(findPivots(bars, 5)).map((p) => Date.parse(p.bar.t.slice(0, 10)));
     expect(w.windows.yearCycles.length).toBeGreaterThan(0);
-    for (const [a] of w.windows.yearCycles) {
-      const mid = a + 2 * DAY;
-      expect(anchors.some((t) => { const d = new Date(t); d.setUTCFullYear(d.getUTCFullYear() + 5); return d.getTime() === mid; })).toBe(true);
+    // Every session inside a yearCycles window is a month the re-rank counts a hit in, and the reverse.
+    const months: Bar[] = [];
+    for (const b of bars) {
+      const m = months[months.length - 1];
+      if (m && m.t.slice(0, 7) === b.t.slice(0, 7)) { m.h = Math.max(m.h, b.h); m.l = Math.min(m.l, b.l); m.c = b.c; } else months.push({ ...b });
     }
+    // Read on the whole record (the windows are, like every family's), over the months wholly inside it.
+    const lastMonth = new Date(w.sessions[w.sessions.length - 1]).toISOString().slice(0, 7);
+    for (const t of w.sessions) {
+      const asOf = new Date(t);
+      if (asOf.toISOString().slice(0, 7) >= lastMonth) continue;
+      const inside = w.windows.yearCycles.some(([a, b]) => t >= a && t <= b);
+      const r = yearCycleConvergence(months, asOf);
+      expect(inside).toBe(r.bullishHits + r.bearishHits > 0);
+    }
+  });
+
+  it("applies Holm across the six families: a raw 0.02 among six is not significant", async () => {
+    type R = { p: number; holmSignificant?: boolean };
+    const six = holm<R>([{ p: 0.02 }, { p: 0.4 }, { p: 0.5 }, { p: 0.6 }, { p: 0.7 }, { p: 0.8 }]);
+    expect(six[0].holmSignificant).toBe(false);
+    const fs = await import("node:fs");
+    expect(fs.readFileSync("lib/research/timeWindowBaseRate.ts", "utf8")).toMatch(/const families = holm\(WINDOW_FAMILIES\.map/);
   });
 
   it("opens each family's windows from the record's major pivots, inside the record", () => {

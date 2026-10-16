@@ -420,7 +420,7 @@ export function readTimeBalanceSpans(bars: Bar[]): NonNullable<SecondaryTimeRead
     const priorWeeks = weeks(same[same.length - 2].index, same[same.length - 1].index);
     const openWeeks = weeks(same[same.length - 1].index, bars.length - 1);
     if (Math.abs(openWeeks - priorWeeks) <= TIME_BALANCE_TOLERANCE_WEEKS) {
-      out.push({ kind, priorWeeks: Math.round(priorWeeks * 10) / 10, openWeeks: Math.round(openWeeks * 10) / 10, falseBreak: falseBreakAt(bars, lastPivot.index, kind) });
+      out.push({ kind, priorWeeks: Math.round(priorWeeks * 10) / 10, openWeeks: Math.round(openWeeks * 10) / 10, falseBreak: falseBreakAt(bars, same[same.length - 1].price, kind) });
     }
   }
   return out;
@@ -428,21 +428,14 @@ export function readTimeBalanceSpans(bars: Bar[]): NonNullable<SecondaryTimeRead
 
 /**
  * C-STOP-03 (W032 pp.5-6, class C): time alone is not enough; a false break
- * confirms it. For a bottom due, the last session traded under the lowest low
- * since the last top (`from`) and closed back over it; the mirror for a top.
- * Engineering choice, labelled: "the prior low" is that swing's low before the
- * last session. Context only.
+ * confirms it. For a bottom due, the last session traded under the prior
+ * swing bottom (`line`, the bottom the bottom-to-bottom span is counted from)
+ * and closed back over it; the mirror for a top. Context only.
  */
-export function falseBreakAt(bars: Bar[], from: number, kind: "top" | "bottom"): boolean {
+export function falseBreakAt(bars: Bar[], line: number, kind: "top" | "bottom"): boolean {
   const last = bars[bars.length - 1];
-  const before = bars.slice(from, -1);
-  if (!last || before.length === 0) return false;
-  if (kind === "bottom") {
-    const low = Math.min(...before.map((b) => b.l));
-    return last.l < low && last.c > low;
-  }
-  const high = Math.max(...before.map((b) => b.h));
-  return last.h > high && last.c < high;
+  if (!last) return false;
+  return kind === "bottom" ? last.l < line && last.c > line : last.h > line && last.c < line;
 }
 
 /** Fan time ratios (C-TIME-40) due within ±`windowDays` of `asOf`. */
@@ -590,7 +583,7 @@ export function describeSecondaryTime(r: SecondaryTimeReading): string[] {
     lines.push(`Counter-move against the ${scm.trend} trend: ${scm.tradingDays} trading days, ${note}. Shown for context; it does not change the setup.`);
   }
   for (const b of r.timeBalanceSpans ?? []) {
-    lines.push(`${b.openWeeks} weeks since the last ${b.kind}, against ${b.priorWeeks} weeks from ${b.kind} to ${b.kind} before it: time balances, so a ${b.kind} may be due${b.falseBreak ? `, and the last session made a false break past the swing's ${b.kind === "bottom" ? "low" : "high"}, which confirms it` : ""}. Shown for context; it does not change the setup.`);
+    lines.push(`${b.openWeeks} weeks since the last ${b.kind}, against ${b.priorWeeks} weeks from ${b.kind} to ${b.kind} before it: time balances, so a ${b.kind} may be due${b.falseBreak ? `, and the last session made a false break past the prior ${b.kind}, which confirms it` : ""}. Shown for context; it does not change the setup.`);
   }
   const rt = r.retracementTiming?.[0];
   if (rt) lines.push(`The ${rt.label} retracement (${rt.level.toFixed(2)}) was reached ${rt.date}, at the time the ${rt.angle} angle from the ${rt.anchorKind} gives: a turn is likelier. Shown for context; it does not change the setup.`);

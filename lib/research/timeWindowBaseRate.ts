@@ -49,8 +49,28 @@ export const WINDOW_DAYS = 2;
 export const SHIFTS = 364;
 
 export const WINDOW_FAMILIES = ["anniversary1", "anniversary2", "anniversary3", "wheel", "dayBands", "yearCycles"] as const;
-/** The long cycles' anniversaries (`MAJOR_CYCLE_YEARS` of 5 years and more), the counts the shortlist's year-cycle re-rank reads (CYC-51; batch review C1). */
-export const YEAR_CYCLE_FAMILY_YEARS: readonly number[] = MAJOR_CYCLE_YEARS.filter((y) => y >= 5);
+/**
+ * The shortlist's year-cycle re-rank, as `yearCycleConvergence` reads it
+ * (CYC-51; reviews C1 and 20): the major pivots of the monthly chart
+ * (`majorPivots(findPivots(monthly, 3))`), each cycle of `MAJOR_CYCLE_YEARS`
+ * after one, and the whole calendar month it lands in as the window.
+ */
+export const YEAR_CYCLE_FAMILY_YEARS: readonly number[] = MAJOR_CYCLE_YEARS;
+
+/** Daily bars rolled into calendar months (the monthly chart the re-rank reads). */
+function monthsOf(daily: Bar[]): Bar[] {
+  const out: Bar[] = [];
+  for (const b of daily) {
+    const last = out[out.length - 1];
+    if (last && last.t.slice(0, 7) === b.t.slice(0, 7)) {
+      last.h = Math.max(last.h, b.h);
+      last.l = Math.min(last.l, b.l);
+      last.c = b.c;
+      last.v += b.v;
+    } else out.push({ ...b });
+  }
+  return out;
+}
 export type WindowFamily = (typeof WINDOW_FAMILIES)[number];
 
 export interface SymbolWindows {
@@ -81,13 +101,16 @@ export function symbolWindows(daily: Bar[]): SymbolWindows {
       d.setUTCFullYear(d.getUTCFullYear() + k);
       keep(`anniversary${k}`, [d.getTime() - WINDOW_DAYS * DAY, d.getTime() + WINDOW_DAYS * DAY]);
     }
-    for (const y of YEAR_CYCLE_FAMILY_YEARS) {
-      const d = new Date(at);
-      d.setUTCFullYear(d.getUTCFullYear() + y);
-      keep("yearCycles", [d.getTime() - WINDOW_DAYS * DAY, d.getTime() + WINDOW_DAYS * DAY]);
-    }
     for (const c of WHEEL_COUNTS) keep("wheel", [at + (c - WINDOW_DAYS) * DAY, at + (c + WINDOW_DAYS) * DAY]);
     for (const [lo, hi] of DAY_COUNT_BANDS) keep("dayBands", [at + lo * DAY, at + hi * DAY]);
+  }
+  for (const a of majorPivots(findPivots(monthsOf(daily), 3))) {
+    const d = new Date(a.bar.t);
+    for (const y of YEAR_CYCLE_FAMILY_YEARS) {
+      const from = Date.UTC(d.getUTCFullYear() + y, d.getUTCMonth(), 1);
+      const to = Date.UTC(d.getUTCFullYear() + y, d.getUTCMonth() + 1, 1) - DAY;
+      keep("yearCycles", [from, to]);
+    }
   }
   return { sessions, turns, windows };
 }

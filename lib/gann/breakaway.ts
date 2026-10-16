@@ -148,6 +148,8 @@ export function readBreakawayVolume(daily: Bar[], asOf: Date): BreakawayVolumeRe
   if (!direction) return null;
   const cutoff = Date.parse(prior[prior.length - 1].t) - BREAKAWAY_RANGE_DAYS * DAY_MS;
   const sessions = prior.filter((b) => Date.parse(b.t) >= cutoff);
+  // The same "narrow" the confirmation reads (review 20): a wide range is not one.
+  if (!isNarrowRange(sessions)) return null;
   const mean = sessions.reduce((s, b) => s + b.v, 0) / sessions.length;
   if (!(mean > 0)) return null;
   return { direction, ratio: last.v / mean };
@@ -183,6 +185,13 @@ export const MIN_RANGE_SESSIONS = 10;
  */
 export const NARROW_RANGE_ALLOWANCES = 3;
 
+/** The range's span is within `NARROW_RANGE_ALLOWANCES` 3-point allowances at its low. */
+export function isNarrowRange(range: Bar[]): boolean {
+  if (range.length === 0) return false;
+  const low = Math.min(...range.map((b) => b.l));
+  return Math.max(...range.map((b) => b.h)) - low <= NARROW_RANGE_ALLOWANCES * gannThreePoints(low);
+}
+
 export function breakawayVolumeMet(chart: Bar[], direction: "bullish" | "bearish", line: number): boolean {
   const up = direction === "bullish";
   const beyond = (b: Bar) => (up ? b.c >= line : b.c <= line);
@@ -203,8 +212,7 @@ export function breakawayVolumeMet(chart: Bar[], direction: "bullish" | "bearish
   const from = Date.parse((k === -1 ? chart[end - 1] : chart[k]).t) - BREAKAWAY_RANGE_DAYS * DAY_MS;
   const range = prior.filter((b) => Date.parse(b.t) >= from);
   // Gann's rule is for long, narrow ranges: a wide one has no volume condition.
-  const low = Math.min(...range.map((b) => b.l));
-  if (Math.max(...range.map((b) => b.h)) - low > NARROW_RANGE_ALLOWANCES * gannThreePoints(low)) return true;
+  if (!isNarrowRange(range)) return true;
   if (k === -1) return false;
   const mean = range.reduce((s, b) => s + b.v, 0) / range.length;
   return mean > 0 && chart[k].v > mean;

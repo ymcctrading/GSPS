@@ -285,20 +285,26 @@ describe("time balance from top to top and bottom to bottom (C-TIME-42, W032)", 
     expect(readTimeBalanceSpans(three(60))).toEqual([]);
   });
 
-  it("confirms a due turn with a false break: past the swing's extreme intraday, closed back inside it (C-STOP-03, W032)", () => {
-    const bars = swing(30);
-    const k = readTimeBalanceSpans(bars)[0];
-    expect(k).toMatchObject({ kind: "top", falseBreak: false });
-    const high = Math.max(...bars.slice(-30, -1).map((b) => b.h));
-    const last = bars[bars.length - 1];
-    const poked = [...bars.slice(0, -1), { ...last, h: high + 1, c: high - 0.5 }];
+  it("confirms a due turn with a false break: past the prior top intraday, closed back under it (C-STOP-03, W032)", () => {
+    // Tops near 140 at day 80; the rise since runs to about 137, 50 days on.
+    const base = legs([[30, 1], [20, -1], [30, 1], [20, -1], [29, 0.6]]);
+    const last = base[base.length - 1];
+    const next = (h: number, c: number): Bar[] => [...base, { ...last, t: new Date(Date.parse(last.t) + DAY).toISOString(), o: c, h, l: c - 0.5, c }];
+    const priorTop = 140.5;
+    const poked = next(priorTop + 1, priorTop - 1);
     expect(readTimeBalanceSpans(poked)[0]).toMatchObject({ kind: "top", falseBreak: true });
-    // Closed past the high: a break, not a false one.
-    expect(readTimeBalanceSpans([...bars.slice(0, -1), { ...last, h: high + 1, c: high + 0.5 }])[0]?.falseBreak).not.toBe(true);
-    // The mirror, on its own: under the swing's low and closed back over it.
+    // Past the swing's running high but short of the prior top: not a false break.
+    expect(readTimeBalanceSpans(next(139, 137.5))[0]).toMatchObject({ kind: "top", falseBreak: false });
+    // Closed past the prior top: a break, not a false one.
+    expect(readTimeBalanceSpans(next(priorTop + 1, priorTop + 0.5))[0]?.falseBreak).not.toBe(true);
+    // The mirror, on its own: under the prior bottom and closed back over it.
     const down: Bar[] = [100, 98, 96, 94, 95].map((c, i) => ({ t: new Date(Date.UTC(2026, 0, 1 + i)).toISOString(), o: c, h: c + 0.5, l: c - 0.5, c, v: 1 }));
-    expect(falseBreakAt([...down, { ...down[4], t: "2026-01-06T00:00:00.000Z", l: 92, c: 94 }], 0, "bottom")).toBe(true);
-    expect(falseBreakAt([...down, { ...down[4], t: "2026-01-06T00:00:00.000Z", l: 92, c: 93 }], 0, "bottom")).toBe(false);
+    expect(falseBreakAt([...down, { ...down[4], t: "2026-01-06T00:00:00.000Z", l: 92, c: 94 }], 93.5, "bottom")).toBe(true);
+    expect(falseBreakAt([...down, { ...down[4], t: "2026-01-06T00:00:00.000Z", l: 92, c: 93 }], 93.5, "bottom")).toBe(false);
+    // The factor: a due top confirmed by a false break is with a short, not a long.
+    const ctx = readDisclosedRules(poked, priorTop - 1);
+    expect(contextFactorsFor(ctx, "bearish", priorTop - 1).timeBalanceFalseBreakWithTrade).toBe(true);
+    expect(contextFactorsFor(ctx, "bullish", priorTop - 1).timeBalanceFalseBreakWithTrade).toBe(false);
   });
 
   it("does not look for a bottom while the swing runs up from one", () => {

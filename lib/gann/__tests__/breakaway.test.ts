@@ -179,7 +179,7 @@ describe("the breakaway's volume (A-VOLUME-10)", () => {
 
   it("reads the same on a year of history or six", () => {
     const tail = [...sideways(6), 112];
-    const long = withVolume(daily([...Array.from({ length: 1900 }, (_, i) => 40 + 15 * Math.sin(i / 23)), ...tail]), 3000);
+    const long = withVolume(daily([...Array.from({ length: 1900 }, (_, i) => 100 + 3 * Math.sin(i / 23)), ...tail]), 3000);
     const short = long.slice(-252);
     expect(readBreakawayVolume(short, after(long))).toEqual(readBreakawayVolume(long, after(long)));
     expect(readBreakawayVolume(long, after(long))?.direction).toBe("bullish");
@@ -208,6 +208,9 @@ describe("the breakaway waits for a session that closes past the range on volume
     expect(isGannRangeBound(wide)).toBe(true);
     expect(breakawayVolumeMet(session(wide, 121, 600), "bullish", 120)).toBe(true);
     expect(breakawayVolumeMet(range(), "bullish", 110)).toBe(false);
+    // The card and the factor read the same "narrow" (review 20): nothing to report for a wide range.
+    const out = session(wide, 125, 3000);
+    expect(readBreakawayVolume(out, new Date(Date.parse(out[out.length - 1].t) + 2 * 86_400_000))).toBeNull();
   });
 
   it("waits while no completed session has closed past the line", () => {
