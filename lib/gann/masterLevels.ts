@@ -24,7 +24,10 @@
  *   2026-10-16 under the owner's "every Gann method acts");
  * - Jensen's square of 90 contributes its nearest point above and below price,
  *   counted up from the daily bars' low and down from their high, across
- *   successive squares (`jensen.ts#jensenLevels`, 2026-10-16).
+ *   successive squares (`jensen.ts#jensenLevels`, 2026-10-16);
+ * - Gann's full angle set, drawn from the major pivots and copied to the
+ *   preceding opposite pivots, contributes its nearest line above and below
+ *   price (`patternAngles.ts#patternAngleLevels`, gap G27, 2026-10-16).
  *
  * The Gann point is fixed from the daily bars' extremes, and the extremes
  * are the longest history supplied (monthly plus daily), which Gann ranks
@@ -41,11 +44,12 @@ import { squareBoundaryLevels } from "@/lib/gann/masterCalculator";
 import { planetaryLevels } from "@/lib/gann/planetaryAverages";
 import { activeAngleLevels } from "@/lib/gann/astroRules";
 import { jensenLevels } from "@/lib/gann/jensen";
+import { patternAngleLevels } from "@/lib/gann/patternAngles";
 
 export interface MasterLevel {
   price: number;
   label: string;
-  source: "squareOf144" | "planetary" | "activeAngle" | "jensen";
+  source: "squareOf144" | "planetary" | "activeAngle" | "jensen" | "patternAngle";
 }
 
 export function gannMasterLevels(longHistory: Bar[], daily: Bar[], price: number, asOf: Date): MasterLevel[] {
@@ -66,5 +70,6 @@ export function gannMasterLevels(longHistory: Bar[], daily: Bar[], price: number
   for (const l of planetaryLevels(asOf, price, unit)) out.push({ ...l, source: "planetary" });
   for (const l of activeAngleLevels(asOf, price, unit)) out.push({ ...l, source: "activeAngle" });
   for (const l of jensenLevels(daily, price, unit)) out.push({ ...l, source: "jensen" });
+  for (const l of patternAngleLevels(daily, price, unit)) out.push({ ...l, source: "patternAngle" });
   return out;
 }

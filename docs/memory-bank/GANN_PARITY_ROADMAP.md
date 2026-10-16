@@ -37,8 +37,8 @@ The goal is that every rule Gann **disclosed** runs in GSPS the way he stated it
 
 | Domain | Aligned | Partial | Conflict | Missing | Other |
 |---|---|---|---|---|---|
-| Time | 17 | 0 | 0 | 1 (hexagon counts, G26) | 1 research-only |
-| Price and levels | 9 | 1 (angles, G27) | 0 | 1 (G28) | — |
+| Time | 18 | 0 | 0 | 0 | 1 research-only |
+| Price and levels | 10 | 1 (angles: the scored criterion's unit, PR #309 FL4) | 0 | 0 | — |
 | Trend | 11 | 0 | 0 | 0 | — |
 | Entries, stops, exits, lifecycle | 11 | 1 (pyramiding not automated) | 0 | 0 | — |
 | Volume | 4 | 0 | 0 | 0 | — |
@@ -84,7 +84,7 @@ Each row gives the rule and its source, what GSPS does now, the status, and the 
 | Squares of time: Master 12, Square of 52, 36 angle month-counts | A2.1 Ch. 7, 13, 14 | `masterTwelve.ts`, `squareOf52.ts`, `angleMonthCounts.ts` (confluence) | Aligned | — |
 | Decade-digit bull/bear years | A2.1 Ch. 7 | `decadeCycle.ts` (confluence) | Aligned | — |
 | Square of 20 and Hexagon | A2.1 Ch. 7, 15B | research-only | Research-only | Keep, unless new source material appears. 2026-10-01: B15's hexagon drawing is the B12 reconstruction again, not Gann's plate |
-| The Hexagon Chart's time counts stated in Gann's text (ring completions, the second series, 60/66, 127 and 169 months) | A2.1 Ch. 15A/15B (Jan 1931) | `hexagonChart.ts` only (research-only) | Missing | Candidate G26: the counts don't need the lost plate. Held for the owner |
+| The Hexagon Chart's time counts stated in Gann's text (ring completions, the second series, 60/66, 127 and 169 months) | A2.1 Ch. 15A/15B (Jan 1931) | `hexagonTime.ts` (trace and measured factors; lines read from Gann's plate, p. 422) | Aligned (2026-10-16) | G26 built. Acts as a time window once the shared mechanism exists. Text/plate conflict on 66 recorded |
 
 ### 3.2 Price and levels
 
@@ -102,8 +102,8 @@ Each row gives the rule and its source, what GSPS does now, the status, and the 
 | Double and triple tops within a price-scaled band; the 3rd test decides | A05; A8 p. 53 | **Built 2026-09-28:** `multipleTops.ts`: tests clustered per level; testing, crossed, or failed on the third test | Aligned (context, measuring) | Decide on the next full run |
 | The 4th test of a level goes through | A8 p. 43; A09 | **Stage A:** `readLevelTests` counts tests and notes that a 4th usually breaks; measured factors | Aligned (context, measuring) | G15: an invalidation or confluence field |
 | Square of Nine (180° = +1 root) | A2.1 Ch. 13 | `squareOf9.ts` | Aligned | Don't "fix" it to the D-levels table (C5) |
-| Gann angles / 1x1 | A2.1 Ch. 2 (Jan 1931), Ch. 4 | `fans.ts`, `normalizedSlope.ts`, `gannAngleSlope` (scored) | Partial (2026-10-01: five of Gann's angles on an ATR unit; the 3×1, 8×1, 16×1 and 1×3 are missing, and the unit should be the Gann point) | G27 |
-| The Master Chart of 360°: 48 divisions of 7½° and the division by 7 | A2.1 Ch. 15A | `circleOf360.ts` has the 1953 order only | Missing | G28 |
+| Gann angles / 1x1 | A2.1 Ch. 2 (Jan 1931), Ch. 4 | `fans.ts`, `normalizedSlope.ts`, `gannAngleSlope` (scored) | Partial (2026-10-16: the full set 16×1 to 1×16 on the Gann point, from the major pivots with parallels to the preceding opposite pivot, now acts as S/R through `patternAngles.ts` and `masterLevels.ts`. The scored `gannAngleSlope` and `fans.ts` still use ATR and five angles, left to PR #309's FL4 measurement) | G27 |
+| The Master Chart of 360°: 48 divisions of 7½° and the division by 7 | A2.1 Ch. 15A | `masterChartTime.ts` (trace and measured factors) | Aligned (2026-10-16) | G28 built |
 | Price = time squaring | A2.1; A8 | `timePriceSquare` (scored) | Aligned | — |
 | Even figures (100, 200) attract orders; place orders ½–¾ off them | A04 Ch. I, V | **Built 2026-09-28:** `evenFigures.ts`: targets just before a figure and stops beyond one on every plan (live and replay); a notice on the card, chart and ticket (switchable); the portfolio manager holds entries into a figure unless the breakout is that figure (setting, default off); `roundNumberAhead` measured | Aligned | — |
 

@@ -63,4 +63,10 @@
 // placement): Jensen's square of 90 is laid at the high as well as the low,
 // repeats past 90 points, and includes the 7½ and 15 trine points
 // (lib/gann/jensen.ts), so the Jensen levels move again.
-export const STRATEGY_VERSION = "2026-10-16-jensen-square-high-and-low";
+// Same day (owner, 2026-10-01, "every Gann method acts"; gaps G26-G28): the S/R
+// list gains the nearest line above and below price of Gann's full angle set
+// (16x1 to 1x16, on the Gann point) from the major pivots, with each angle
+// copied to the preceding opposite pivot (lib/gann/patternAngles.ts), so plan
+// stops and targets can move. The Hexagon Chart's time counts and the Master
+// Chart of 360°'s 48ths and sevenths are new measured context.
+export const STRATEGY_VERSION = "2026-10-16-gann-pattern-angles";
