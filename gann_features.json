@@ -42,7 +42,7 @@
     "class": "A",
     "gsps_location": "lib/gann/campaignLedger.ts:buildCampaignLedger; lib/gann/trendStrength.ts:readGannTrend — differs: compares the current counter-move with the campaign's greatest counter-move (size in %, length in days), not with the immediately preceding one",
     "test": "lib/gann/__tests__/campaignLedger.test.ts > buildCampaignLedger > records a bullish campaign's sections and its greatest reaction",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-TREND-06",
@@ -492,7 +492,7 @@
     "class": "A",
     "gsps_location": "lib/gann/timeRules.ts:readTimeRules (reactionInZone, thirdWeek, halt) — differs: context only, not an entry",
     "test": "lib/gann/__tests__/timeRulesAndTops.test.ts > time rules > places a reaction in its week and flags the 2-3 week zone and the third week",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-ENTRY-09",
@@ -1005,7 +1005,7 @@
     "class": "A",
     "gsps_location": "lib/gann/multipleTops.ts:readMultipleTops; lib/gann/disclosedRules.ts:readLevelTests",
     "test": "lib/gann/__tests__/timeRulesAndTops.test.ts > double and triple tops > reads a triple top that failed on its third test",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-LEVELS-05",
@@ -1761,7 +1761,7 @@
     "class": "C",
     "gsps_location": "lib/gann/breakaway.ts:readBreakaway — differs: reads a 13-week range, not a 3–4-day one",
     "test": "TO WRITE: lib/gann/__tests__/breakaway.test.ts — a 4-bar range narrower than a pre-registered fraction of ATR is flagged, and its break is reported with the following 3-day move.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "C-ENTRY-03",
@@ -1986,7 +1986,7 @@
     "class": "C",
     "gsps_location": "lib/gann/fans.ts:computeFanLines; lib/gann/timePriceSquare.ts:computeTimePriceSquare — differs: one price unit is one ATR, so the square never closes at price zero",
     "test": "TO WRITE: lib/__tests__/gann.test.ts — a 1x1 drawn from a high of 60 at one point per day reaches 0 on day 60.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "C-LEVELS-09",
@@ -2058,7 +2058,7 @@
     "class": "C",
     "gsps_location": "lib/gann/disclosedRules.ts:pricePercentageLevels — differs: eighths of the low up to 100% above it (2×); no 3×, 4×, 7×, 9× or 12×",
     "test": "TO WRITE: lib/gann/__tests__/disclosedRules.test.ts — levels from a low of 10 include 30, 40, 70, 90 and 120.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "C-TIME-24",
@@ -2589,7 +2589,7 @@
     "class": "C",
     "gsps_location": "lib/gann/stopBreach.ts:reclaimLevel; lib/gann/pointScale.ts:gannThreePoints; lib/lifecycle/entryConfirmation.ts:advanceEntryConfirmation (DEFAULT_CONFIRMATION_BUFFER_PCT 0.3%) — differs: GSPS uses Gann's price-scaled 3 points for stops and exits and 0.3% at entry, never 1 point",
     "test": "TO WRITE: lib/gann/__tests__/stopBreach.test.ts — reclaimLevel(level, 'long', 1) sits one price-scaled point above the level, so the replay can measure Jensen's 1 point against Gann's 3.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "C-ASTRO-16",
