@@ -238,6 +238,17 @@ points only; a stop still breaks on Gann's 3-point rule. Not built: the Node
 against 9° Gemini, base charts and progressions, the Uranus and sunspot
 cycles, the tables and the lunar grain keys (no testable rule, or too few
 repetitions). About 0.7 ms per symbol (65 ms on the first call).
+**Yearly counts in the time-window hold, 2026-10-16 (A-TIME-11; owner: the
+20-year count acts through the hold):** `readWindowTurn` takes the monthly
+chart (`monthlyLong ?? charts.monthly` live, `instrument?.monthlyLong ??
+charts.monthly` in the replay, months before the turn's only) and
+`timeWindowsAt` adds a labelled window for each `MAJOR_CYCLE_YEARS` hit from a
+major monthly pivot on the turn's side (`yearCycleHits`). No new fetch; about
+0.05 ms, read only when a counter-trend Execute needs it. The 13-year series
+held reaches the 1-10-year counts, not yet the 20-year one. Verdicts move:
+`STRATEGY_VERSION` is `2026-10-16-gann-yearly-count-windows`. Same day, guard
+(C-ASTRO-15): an astro or Jensen window counts only on a 3-Day Chart turn,
+never alone (`timeWindow.test.ts`).
 
 **Master Course methods with no plan, built 2026-10-16 (owner: "Build the 5
 Gann plans identified to be missing"):** the Overnight Chart and its

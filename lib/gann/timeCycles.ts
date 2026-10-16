@@ -358,19 +358,36 @@ export interface YearCycleConvergence {
  */
 export function yearCycleConvergence(monthlyBars: Bar[], asOf: Date = new Date()): YearCycleConvergence {
   const result: YearCycleConvergence = { bullishHits: 0, bearishHits: 0 };
-  if (monthlyBars.length < 24) return result;
-
-  const monthIndex = (d: Date) => d.getUTCFullYear() * 12 + d.getUTCMonth();
-  const now = monthIndex(asOf);
-  const anchors = majorPivots(findPivots(monthlyBars, 3));
-
-  for (const anchor of anchors) {
-    const ageMonths = now - monthIndex(new Date(anchor.bar.t));
-    for (const years of MAJOR_CYCLE_YEARS) {
-      if (ageMonths !== years * 12) continue;
-      if (anchor.kind === "low") result.bullishHits += 1;
-      else result.bearishHits += 1;
-    }
+  for (const hit of yearCycleHits(monthlyBars, asOf)) {
+    if (hit.kind === "low") result.bullishHits += 1;
+    else result.bearishHits += 1;
   }
   return result;
+}
+
+export interface YearCycleHit {
+  /** The cycle's length in years, from `MAJOR_CYCLE_YEARS`. */
+  years: number;
+  kind: "high" | "low";
+  /** The anchor's month (YYYY-MM). */
+  pivotMonth: string;
+}
+
+/**
+ * The (major pivot, cycle length) pairs `yearCycleConvergence` counts, one per
+ * hit, so a hit can be named: the time-window hold labels each one
+ * (A-TIME-11, `timeWindow.ts`). Same anchors, list and exact-month rule.
+ */
+export function yearCycleHits(monthlyBars: Bar[], asOf: Date = new Date()): YearCycleHit[] {
+  if (monthlyBars.length < 24) return [];
+  const monthIndex = (d: Date) => d.getUTCFullYear() * 12 + d.getUTCMonth();
+  const now = monthIndex(asOf);
+  const out: YearCycleHit[] = [];
+  for (const anchor of majorPivots(findPivots(monthlyBars, 3))) {
+    const ageMonths = now - monthIndex(new Date(anchor.bar.t));
+    for (const years of MAJOR_CYCLE_YEARS) {
+      if (ageMonths === years * 12) out.push({ years, kind: anchor.kind, pivotMonth: anchor.bar.t.slice(0, 7) });
+    }
+  }
+  return out;
 }

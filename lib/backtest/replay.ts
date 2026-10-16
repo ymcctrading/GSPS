@@ -682,7 +682,7 @@ export function buildMacroContext(
     structuralLevels: allLevels.map((l) => l.price),
     disclosedRules: readDisclosedRules(charts.daily, price, instrument ? { ...instrument, monthly: instrument.monthly ? monthly : instrument.monthly } : instrument, asOf),
     windowTurn: (direction) => {
-      if (!windowTurns.has(direction)) windowTurns.set(direction, readWindowTurn(charts.daily, direction));
+      if (!windowTurns.has(direction)) windowTurns.set(direction, readWindowTurn(charts.daily, direction, instrument?.monthlyLong ?? charts.monthly));
       return windowTurns.get(direction) ?? null;
     },
   };

@@ -468,7 +468,7 @@ export async function scanTicker(
         // Q19: a counter-trend Execute needs its turn to come on a dated window
         // (lib/gann/timeWindow.ts), read on the replay's chart, and only when needed.
         setupKind,
-        () => readWindowTurn(charts.daily, scoreDirection),
+        () => readWindowTurn(charts.daily, scoreDirection, monthlyLong ?? charts.monthly),
       ),
         // Q24: leave queer-acting stocks alone (A-SELECTION-01), on the chart the replay reads.
         readRuleFollowing(charts.daily),
