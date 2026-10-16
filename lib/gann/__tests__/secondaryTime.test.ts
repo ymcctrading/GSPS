@@ -220,7 +220,7 @@ describe("the class C time counts stay context", () => {
       "5-5", "6-21", "7-23", "8-5", "9-22", "11-8", "11-22", "12-21", "2-4", "3-21",
       "4-12", "5-27", "7-14", "8-31", "10-15", "11-30", "1-13", "2-28",
     ]);
-    expect(SQUARE_OF_52_FRACTIONS.filter((f) => f.disclosed).map((f) => f.weeks)).toEqual([6.5, 13, 17.33, 26, 32.5, 39]);
+    expect(SQUARE_OF_52_FRACTIONS.filter((f) => f.disclosed).map((f) => f.weeks)).toEqual([3.25, 6.5, 13, 17.33, 19.5, 26, 32.5, 34.67, 39, 45.5]);
   });
 
   it("records each count as a measured factor and a card line, live and in the replay alike", () => {

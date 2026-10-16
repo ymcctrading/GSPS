@@ -61,22 +61,28 @@ function weeks(fraction: number): number {
  * fraction is kept here and flagged in a comment, per the task's own
  * "actually 17.33, check source" note), 1/2 = 26wk ("a most important time
  * and resistance level"), 5/8 = 32.5wk, 3/4 = 39wk ("very important").
- * Remaining eighths/sixteenths/the second third are interpolated on the
- * same disclosed grid, not independently quoted, and flagged `disclosed:
- * false`.
+ *
+ * **Flags corrected 2026-10-16 (M-T6, C-TIME-46).** 3/8 (19½wk), 2/3 (35wk)
+ * and 7/8 (45½wk) are in Gann's own week list: Master Course Ch.14 PDF 385
+ * (1955: "6½, 13, 17, 19½, 26, 32½, 35, 39, 45½ weeks") and Ch.18 TP-2 PDF
+ * 440 (the same ten divisions of the 52-week year). 1/16 (22½ days) is in
+ * *How to Make Profits Trading in Commodities* p.58 ("How to Divide the
+ * Yearly Time Period"). All four are now `disclosed: true`. 3/16, 15/16 and
+ * the whole year stay interpolated on the same grid (the whole year is the
+ * anniversary, carried by `timeCycles.ts`).
  */
 export const SQUARE_OF_52_FRACTIONS: WeekFraction[] = [
-  { fraction: 1 / 16, label: "1/16", weeks: weeks(1 / 16), emphasis: null, disclosed: false },
+  { fraction: 1 / 16, label: "1/16", weeks: weeks(1 / 16), emphasis: null, disclosed: true },
   { fraction: 1 / 8, label: "1/8", weeks: weeks(1 / 8), emphasis: null, disclosed: true },
   { fraction: 3 / 16, label: "3/16", weeks: weeks(3 / 16), emphasis: null, disclosed: false },
   { fraction: 1 / 4, label: "1/4", weeks: weeks(1 / 4), emphasis: null, disclosed: true },
   { fraction: 1 / 3, label: "1/3", weeks: weeks(1 / 3), emphasis: null, disclosed: true }, // exact 17.33wk; source prose rounds to "17wk"
-  { fraction: 3 / 8, label: "3/8", weeks: weeks(3 / 8), emphasis: null, disclosed: false },
+  { fraction: 3 / 8, label: "3/8", weeks: weeks(3 / 8), emphasis: null, disclosed: true },
   { fraction: 1 / 2, label: "1/2", weeks: weeks(1 / 2), emphasis: "most-important", disclosed: true },
   { fraction: 5 / 8, label: "5/8", weeks: weeks(5 / 8), emphasis: null, disclosed: true },
-  { fraction: 2 / 3, label: "2/3", weeks: weeks(2 / 3), emphasis: null, disclosed: false },
+  { fraction: 2 / 3, label: "2/3", weeks: weeks(2 / 3), emphasis: null, disclosed: true },
   { fraction: 3 / 4, label: "3/4", weeks: weeks(3 / 4), emphasis: "very-important", disclosed: true },
-  { fraction: 7 / 8, label: "7/8", weeks: weeks(7 / 8), emphasis: null, disclosed: false },
+  { fraction: 7 / 8, label: "7/8", weeks: weeks(7 / 8), emphasis: null, disclosed: true },
   { fraction: 15 / 16, label: "15/16", weeks: weeks(15 / 16), emphasis: null, disclosed: false },
   { fraction: 1, label: "1/1", weeks: weeks(1), emphasis: null, disclosed: false },
 ];
