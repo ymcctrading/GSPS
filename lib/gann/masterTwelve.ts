@@ -19,6 +19,10 @@
  * / 648 / 324 / 162 / 81 — and 81 is exactly 9², the Square of Nine's own
  * total cell count (`__tests__/masterTwelve.test.ts` asserts this chain and
  * the 81/9² identity directly).
+ *
+ * Note (2026-10-16, item 9): this spiral is GSPS's reconstruction. The Master
+ * Course's own "Master 12" chart is a 12×12 grid whose squares end at 144,
+ * 288, 432 and 576 (C-NUMEROLOGY-03, held as UNVERIFIABLE until a page check).
  */
 
 import { levelRole, type LevelRole } from "@/lib/analysis/levelRole";
@@ -98,7 +102,7 @@ const DEGREES = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330]; // 12-f
 
 /**
  * Base-12 analog of `lib/gann/squareOf9.ts`'s spiral coordinate system: one
- * full 360° rotation multiplies sqrt(price) by 12/6 = 2, same as base 9 (the
+ * full 360° rotation adds 12/6 = 2 to sqrt(price), same as base 9 (the
  * rotation constant is fixed by the square-root relationship, not the base);
  * what changes is the angular resolution, 12-fold here instead of 8-fold.
  */

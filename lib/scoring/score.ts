@@ -91,9 +91,9 @@ export interface ScoreInputs {
    * Gann's squaring of price and time off the daily bars
    * (`lib/gann/timePriceSquare.ts#computeTimePriceSquare`) — bars elapsed
    * since the direction-matched swing pivot (low for bullish, high for
-   * bearish) checked against the raw price move since that pivot, one point
-   * per day. A different question from `gannAngleSlope`'s ATR-normalized
-   * rate of change. Empty when there isn't enough daily history to find a
+   * bearish) checked against the price move since that pivot measured in
+   * 14-bar ATRs, one ATR per day (an engineering unit, not Gann's raw point).
+   * A different question from `gannAngleSlope`'s rate of change. Empty when there isn't enough daily history to find a
    * pivot, which scores as a fail.
    */
   timePriceSquare?: TimePriceSquareReading[];

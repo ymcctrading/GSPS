@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { squareOf9Levels, nearestS9Level, recentSquareOf9Levels } from "@/lib/gann/squareOf9";
 import { computeFanLines } from "@/lib/gann/fans";
+import { RETRACEMENT_ANGLE_PAIRS } from "@/lib/gann/secondaryTime";
 import { timeCycles } from "@/lib/gann/timeCycles";
 import { computeScore } from "@/lib/scoring/score";
 import { CRITERION_KEYS, type CriterionWeights } from "@/lib/scoring/weights";
@@ -544,3 +545,36 @@ describe("turn windows one, two and three years from an important top or bottom 
   });
 });
 
+
+describe("C-LEVELS-14: the Square of Nine's step per 45 degrees", () => {
+  // Convention recorded: GSPS adds deg/180 to the root, so 45 degrees adds 0.25
+  // and a full turn adds 2. The anonymous W009 table adds 1/8 per 45 degrees
+  // (half that); the Master Course wheel's own diagonals (3, 13, 31, 57, 91)
+  // step about 2 per turn, so GSPS keeps the Master Course convention.
+  it("puts the 45-degree level from 100 at 10.25 squared, where W009's 10.125 squared is a 22.5-degree step", () => {
+    const up45 = squareOf9Levels(100, 100).find((l) => l.degree === 45 && l.rotation === 0 && l.price > 100)!;
+    expect(up45.price).toBeCloseTo(10.25 ** 2, 9);
+    expect((Math.sqrt(100) + 22.5 / 180) ** 2).toBeCloseTo(10.125 ** 2, 9);
+  });
+
+  it("reproduces the wheel's diagonals within 1 point per full turn", () => {
+    const diagonals = [3, 13, 31, 57, 91];
+    for (let i = 0; i + 1 < diagonals.length; i++) {
+      const turn = squareOf9Levels(diagonals[i], diagonals[i]).find((l) => l.degree === 0 && l.rotation === 1)!;
+      expect(Math.abs(turn.price - diagonals[i + 1])).toBeLessThan(1);
+    }
+  });
+});
+
+describe("C-LEVELS-18: each retracement fraction paired with a fan angle", () => {
+  it("maps 1/8 to 1x8 through 7/8 to 8x1", () => {
+    expect(RETRACEMENT_ANGLE_PAIRS.map((p) => [p.label, p.angle])).toEqual([
+      ["1/8", "1x8"], ["1/4", "1x4"], ["1/3", "1x3"], ["3/8", "1x2"], ["1/2", "1x1"],
+      ["5/8", "2x1"], ["2/3", "3x1"], ["3/4", "4x1"], ["7/8", "8x1"],
+    ]);
+    for (const p of RETRACEMENT_ANGLE_PAIRS) {
+      const [n, d] = p.label.split("/").map(Number);
+      expect(p.fraction).toBeCloseTo(n / d, 12);
+    }
+  });
+});

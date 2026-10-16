@@ -15,20 +15,23 @@ import type { Bar } from "@/lib/types";
 import { ANGLES } from "./fans";
 
 /**
- * `normalized_slope = (price_t - anchor_price) / (atr_at_anchor * bars_since_anchor)`.
+ * `normalized_slope = (price_t - anchor_price) / (atr_unit * bars_since_anchor)`.
+ * `atrUnit` is the ATR the caller measures in: `computeAngleSlopes` below
+ * passes the 14-bar ATR as of the current bar, the confluence card
+ * (`lib/signals/confluence/gann.ts`) the ATR as of the anchor.
  * Null when the inputs can't support a meaningful slope — no ATR, or the
  * anchor bar is the current bar — rather than dividing by zero.
  */
 export function normalizedSlope(
   currentPrice: number,
   anchorPrice: number,
-  atrAtAnchor: number,
+  atrUnit: number,
   barsSinceAnchor: number,
 ): number | null {
-  if (!(atrAtAnchor > 0) || !(barsSinceAnchor > 0) || !Number.isFinite(currentPrice) || !Number.isFinite(anchorPrice)) {
+  if (!(atrUnit > 0) || !(barsSinceAnchor > 0) || !Number.isFinite(currentPrice) || !Number.isFinite(anchorPrice)) {
     return null;
   }
-  return (currentPrice - anchorPrice) / (atrAtAnchor * barsSinceAnchor);
+  return (currentPrice - anchorPrice) / (atrUnit * barsSinceAnchor);
 }
 
 export interface NearestGannAngle {

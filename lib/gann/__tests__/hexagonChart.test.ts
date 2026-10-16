@@ -47,3 +47,12 @@ describe("the cross-construction confluence citation (66 / Master Twelve / squar
     expect(example.constructions).toContain("Hexagon Chart");
   });
 });
+
+describe("C-LEVELS-16: the hexagon's rings reach the 1,518 cells of the later grid", () => {
+  it("covers 1 to 1,518 in 22 full rings, the 23rd starting at 1,519", () => {
+    const rings = centeredHexagonalNumbers(23);
+    expect(rings[11].value).toBe(397);
+    expect(rings[21].value).toBe(1387);
+    expect(rings[22].value).toBe(1519);
+  });
+});

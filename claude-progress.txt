@@ -648,3 +648,10 @@ including the break) survive as equivalent on one session; B3 removed as redunda
 - Tests: market-scan-coarse-trend.test.ts (widening range ranks equal; rising volume ranks ahead); market-scan-continuation.test.ts deleted with the function. Mutants M1 (volume point off), M2 (a range point back in) killed.
 - Coarse pool only: no verdict, risk or order change, and the replay does not model the coarse pool, so STRATEGY_VERSION stays.
 - Still open for item 11: applyReversionConfirmation (STRAT 2-2 plus ATR momentumElevated holds Execute) and guided/copy.ts's ATR-expansion sentence.
+
+## 2026-10-16 item 9 (price and levels) steps 1-2
+- Map: docs/gann-feature-map/item9_levels_map.md (48 entries; forks FL1-FL12; build order in its §4).
+- Step 1 pins (test-only, all pass on current code): C-NUMEROLOGY-04 (digitalRoot.test.ts), C-LEVELS-16 (hexagonChart.test.ts, 1,519 starts ring 23), C-PRICE-03 (disclosedRules.test.ts, 1184 -> 2368), C-LEVELS-14 (gann.test.ts, convention recorded: GSPS +2 per turn matches the Master Course diagonals; W009 is GSPS's 22.5 degrees), C-LEVELS-18 (gann.test.ts, RETRACEMENT_ANGLE_PAIRS), A-PRICE-07 (stopBreach.test.ts, trigger arms, stop retires unchanged), A-LEVELS-05 second half (levelRole.test.ts). Mutants S9, RP, L5 killed.
+- C-LEVELS-19 pin deferred to FL6: fan prices still sit in the TP1 pool, so "no target reads the next fan line" is not yet true.
+- Step 2 copy fixes: squareOf9/masterTwelve "multiplies" -> "adds 2"; masterTwelve marked a reconstruction of the Master 12 grid; score.ts timePriceSquare doc says ATR units; normalizedSlope's atrAtAnchor renamed atrUnit (the card passes the anchor's ATR, computeAngleSlopes the current one).
+- Full suite 2912 passing, tsc clean, terms clean.

@@ -38,6 +38,11 @@ describe("close vs bar midpoint (Master Course Ch. 13)", () => {
 });
 
 describe("percentages of the extreme price (Commodities pp. 32-34)", () => {
+  it("C-PRICE-03: doubles a major low, 1184 giving 2368", () => {
+    const levels = pricePercentageLevels(1184, 2500);
+    expect(levels.find((l) => l.label === "100% above the low")?.price).toBe(2368);
+  });
+
   it("builds eighths of the low above it and eighths and thirds of the high", () => {
     const levels = pricePercentageLevels(100, 200);
     const labels = levels.map((l) => l.label);

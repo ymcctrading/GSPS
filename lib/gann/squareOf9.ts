@@ -1,8 +1,10 @@
 /**
  * Gann Square of 9.
  *
- * Prices map onto a square-root spiral: one full 360° rotation multiplies
- * sqrt(price) by 2. From an anchor price (major low or high), levels at the
+ * Prices map onto a square-root spiral: one full 360° rotation adds 2 to
+ * sqrt(price) (the Master Course wheel's diagonals, 3, 13, 31, 57, 91, step
+ * this way; the anonymous W009 table steps half as far, see C-LEVELS-14 in
+ * `lib/__tests__/gann.test.ts`). From an anchor price (major low or high), levels at the
  * cardinal (0/90/180/270°) and ordinal (45/135/225/315°) angles are:
  *
  *   level(deg) = (sqrt(anchor) + deg/180)²

@@ -10,6 +10,7 @@ import {
 } from "@/lib/gann/stopBreach";
 import { gannThreePoints } from "@/lib/gann/pointScale";
 import { applyStopBreachHold } from "@/lib/scoring/score";
+import { confirmationFromBars } from "@/lib/lifecycle/confirmNow";
 import { toPublicScoreSummary } from "@/lib/scoring/public-summary";
 import type { ScanDecision } from "@/lib/types";
 
@@ -187,5 +188,31 @@ describe("applyStopBreachHold", () => {
     expect(summary.stateNote).toMatch(/plan is retired/i);
     expect(summary.stateNote).toMatch(/false break/);
     expect(JSON.stringify(summary)).not.toMatch(/swingChartTrend|Swing chart trend/);
+  });
+});
+
+/**
+ * A-PRICE-07 (W036 pp. 22-23): both prices are stated before the event, and each
+ * acts when it is reached. The plan's trigger arms the entry on a close past it;
+ * its stop, unchanged, retires the plan once price goes through it.
+ */
+describe("A-PRICE-07: a trigger and a stop stated in advance, each acting", () => {
+  const trigger = 100;
+  const stop = 97;
+  const b = (t: string, l: number, h: number, c: number) => ({ t, o: c, h, l, c, v: 1000 });
+  const before = b("2026-09-25T13:30:00Z", 96.5, 99, 98.5);
+  const crossed = b("2026-09-25T13:45:00Z", 98.5, 104.5, 104);
+  const broke = b("2026-09-25T14:00:00Z", 95, 104, 95.5);
+
+  it("arms only once a close has gone past the stated trigger", () => {
+    expect(confirmationFromBars([before], "bullish", trigger, stop).ready).toBe(false);
+    expect(confirmationFromBars([before, crossed], "bullish", trigger, stop).ready).toBe(true);
+  });
+
+  it("retires the plan on the stated stop, which has not moved", () => {
+    expect(confirmationFromBars([before, crossed, broke], "bullish", trigger, stop).stage).toBe("dead");
+    const breach = readStopBreach({ direction: "bullish", stopLoss: stop, price: broke.c })!;
+    expect(breach).toMatchObject({ breached: true, stop });
+    expect(applyStopBreachHold(decision("Execute"), breach).outputState).toBe("Reject");
   });
 });
