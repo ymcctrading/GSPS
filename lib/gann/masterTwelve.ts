@@ -162,3 +162,54 @@ export function nearestMasterTwelveLevel(
   const nearest = levels[0];
   return nearest && nearest.distancePct <= proximityPct ? nearest : null;
 }
+
+/**
+ * C-TIME-17 (class A; Master Course Ch.13 PDF 375, 379): the halving chain
+ * read as calendar days from a pivot. Gann gives 20,736 as "the great cycle"
+ * in days, "fractions to 81 days", and the same count in weeks (2,962 weeks
+ * 2 days), months (681 months 23 days) and years (56 years 9 months 23 days,
+ * in 365-day years); ½ = 28 y 5 m 8 d, ¼ = 14 y 2 m 19 d, ⅛ = 7 y 1 m 10 d
+ * (PDF 379). PDF 375 prints the ½ as "28 years, 9 months and 23 days", which
+ * does not agree with PDF 379; the day counts are exact either way, so the
+ * code counts days and does not choose. Context only.
+ *
+ * Engineering choices, labelled as such: pivots are the extreme high and low
+ * of the bars read (as `hexagonTime.ts`); tolerance 1 day.
+ */
+export interface HalvingChainHit {
+  pivot: "high" | "low";
+  pivotDate: string;
+  days: number;
+}
+
+export interface HalvingChainReading {
+  /** Pivots whose elapsed calendar days sit on a term of the chain. */
+  hits: HalvingChainHit[];
+  /** The next term ahead from each pivot, with its date. */
+  next: (HalvingChainHit & { date: string })[];
+}
+
+const HALVING_TOLERANCE_DAYS = 1;
+const CHAIN_DAY_MS = 86_400_000;
+
+export function halvingChainTime(
+  low: { date: string; price: number },
+  high: { date: string; price: number },
+  lastDate: string,
+): HalvingChainReading {
+  const at = (iso: string) => Date.parse(`${iso.slice(0, 10)}T00:00:00Z`);
+  const ascending = [...HALVING_CHAIN].sort((a, b) => a - b);
+  const out: HalvingChainReading = { hits: [], next: [] };
+  for (const [pivot, p] of [["high", high], ["low", low]] as const) {
+    const elapsed = (at(lastDate) - at(p.date)) / CHAIN_DAY_MS;
+    if (!(elapsed > 0)) continue;
+    const pivotDate = p.date.slice(0, 10);
+    const on = ascending.find((n) => Math.abs(elapsed - n) <= HALVING_TOLERANCE_DAYS);
+    if (on !== undefined) out.hits.push({ pivot, pivotDate, days: on });
+    const ahead = ascending.find((n) => n > elapsed + HALVING_TOLERANCE_DAYS);
+    if (ahead !== undefined) {
+      out.next.push({ pivot, pivotDate, days: ahead, date: new Date(at(p.date) + ahead * CHAIN_DAY_MS).toISOString().slice(0, 10) });
+    }
+  }
+  return out;
+}

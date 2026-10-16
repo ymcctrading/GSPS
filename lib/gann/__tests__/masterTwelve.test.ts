@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   GREAT_CYCLE,
   HALVING_CHAIN,
+  halvingChainTime,
   SQUARE_OF_9_TOTAL_CELLS,
   MASTER_NUMBERS,
   WHEAT_SQUARE_EXAMPLE,
@@ -66,5 +67,30 @@ describe("masterTwelveLevels", () => {
     for (const d of [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330]) {
       expect(degrees.has(d)).toBe(true);
     }
+  });
+});
+
+describe("C-TIME-17: the halving chain as calendar days from a pivot (Master Course Ch.13 PDF 375, 379)", () => {
+  const addDays = (iso: string, d: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + d * 86_400_000).toISOString().slice(0, 10);
+
+  it("is on the chain 324 days after the low and projects the next term", () => {
+    const r = halvingChainTime({ date: "2025-01-01", price: 10 }, { date: "2024-06-01", price: 20 }, addDays("2025-01-01", 324));
+    expect(r.hits).toEqual([expect.objectContaining({ pivot: "low", days: 324 })]);
+    const next = r.next.find((n) => n.pivot === "low")!;
+    expect(next.days).toBe(648);
+    expect(next.date).toBe(addDays("2025-01-01", 648));
+  });
+
+  it("reads the full cycle as 56 years 9 months and about 23 days of 365-day years", () => {
+    // Ch.13 PDF 379: "56 years, 9 months and 23 days".
+    const years = Math.floor(GREAT_CYCLE / 365);
+    const rest = GREAT_CYCLE - years * 365;
+    expect(years).toBe(56);
+    expect(Math.floor(rest / (365 / 12))).toBe(9);
+  });
+
+  it("is off the chain between terms", () => {
+    const r = halvingChainTime({ date: "2025-01-01", price: 10 }, { date: "2024-06-01", price: 20 }, addDays("2025-01-01", 200));
+    expect(r.hits).toHaveLength(0);
   });
 });
