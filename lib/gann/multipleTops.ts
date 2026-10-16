@@ -45,6 +45,8 @@ export interface MultipleTestReading {
   level: number;
   tests: number;
   state: "testing" | "crossed" | "failed";
+  /** Index, in the bars read, of the latest test's swing extreme. */
+  lastTestIndex: number;
 }
 
 export interface MultipleTopsReading {
@@ -72,7 +74,8 @@ export function readMultipleTops(daily: Bar[]): MultipleTopsReading {
   const price = daily[daily.length - 1].c;
   const recent = daily.slice(-RECENT_SESSIONS);
   for (const kind of ["top", "bottom"] as const) {
-    const prices = pivots.filter((p) => p.kind === kind).map((p) => p.price);
+    const ofKind = pivots.filter((p) => p.kind === kind);
+    const prices = ofKind.map((p) => p.price);
     const groups = cluster(prices).filter((c) => c.tests >= 2);
     if (groups.length === 0) continue;
     const nearest = groups.reduce((x, y) => (Math.abs(y.level - price) < Math.abs(x.level - price) ? y : x));
@@ -88,7 +91,24 @@ export function readMultipleTops(daily: Bar[]): MultipleTopsReading {
     }
     // A level far from price is history, not a test in progress.
     if (state === "testing" && (Math.abs(price - nearest.level) / nearest.level) * 100 > NEAR_PCT) continue;
-    out[kind] = { kind, level: nearest.level, tests: nearest.tests, state };
+    out[kind] = { kind, level: nearest.level, tests: nearest.tests, state, lastTestIndex: ofKind[nearest.lastIndexInList].index };
   }
   return out;
+}
+
+/**
+ * A failed double or triple top standing against a long, or a failed double
+ * or triple bottom against a short (A-LEVELS-04, W006 pp.14-15, 44; fork FL3
+ * a, 2026-10-16): "failing to pass an old top is a top". A failed top is
+ * always above the price (a close back under it by the 3 points), so it
+ * stands in a long's path; the bottom mirrors for shorts. Null when none
+ * stands. Read by the scan's hold, the placement check, the replay and the
+ * exit rules alike.
+ */
+export function failedTestAgainst(
+  reading: MultipleTopsReading | null | undefined,
+  direction: "bullish" | "bearish" | "none",
+): MultipleTestReading | null {
+  const r = direction === "bullish" ? reading?.top : direction === "bearish" ? reading?.bottom : null;
+  return r?.state === "failed" ? r : null;
 }

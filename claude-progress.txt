@@ -735,3 +735,12 @@ including the break) survive as equivalent on one session; B3 removed as redunda
 ## Item 9 step 6, FL5 a (C-NUMEROLOGY-04), 2026-10-16
 - gannRetracementConfluence passes on the role-matched retracement zone alone; the digital-root AND is gone (score.ts). The reading stays in the card note as context. Label "Retracement zone" (weights.ts, registry); key unchanged so committed runs validate. Registry note rewritten; scanTicker/digitalRoot comments updated.
 - Mutants D1 (restore AND), D2 (always pass) killed. STRATEGY_VERSION 2026-10-16-gann-retracement-alone. Replay pending.
+
+## Item 9 step 7, FL3 a (A-LEVELS-04), 2026-10-16
+- multipleTops.ts: lastTestIndex on each reading; failedTestAgainst(reading, direction) is the one helper.
+- applyFailedTopHold (score.ts, hold key failedTop, registry entry): long Execute -> Watch under a failed double/triple top; short mirror at bottoms. Wired outermost of the volume holds on the live scan (readMultipleTops(charts.daily)) and the replay (disclosedRules.multipleTops, same charts.daily).
+- Placement: readEntryConfirmationNow refuses both sides while one stands (entry chart from the fetched year). Replay skips the entry the same way.
+- Exit: readGannExit "failed_top" when the latest test printed after the fill, on the 364 days before the next session (FAILED_TOP_CHART_DAYS pinned = ENTRY_CHART_DAYS); checked before C4 so the label is not hidden.
+- holdWiring's falling fixture had a real failed double top at 156 (tops within the 3 points); a last lower rally was added so it tests the held bottom alone.
+- Mutants E1-E3, H1-H4, P1-P2 killed. STRATEGY_VERSION 2026-10-16-gann-failed-tops.
+- Cost: readMultipleTops on 252 sessions 0.013 ms (live adds one per symbol, ~3 ms per 250-symbol scan; off the user's wait otherwise). Placement adds one 1-year daily fetch for shorts too (off the scan path). replay-reaction's falling fixtures rescaled to start at 3000 for the long cases (at 300 the band read the rally tops as a failed double top).

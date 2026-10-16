@@ -74,7 +74,8 @@ import { isLargeCapStock } from "@/lib/strat/large-cap";
 import { readLiquidity } from "@/lib/scan/liquidity";
 import { levelCharts } from "@/lib/scan/levelCharts";
 import { etDateKey } from "@/lib/market/session";
-import { applyBreakawayHold, applyDistributionBreakdownHold, applyMonthlyBreakHold, applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
+import { applyBreakawayHold, applyDistributionBreakdownHold, applyFailedTopHold, applyMonthlyBreakHold, applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
+import { failedTestAgainst } from "@/lib/gann/multipleTops";
 import { breakawayVolumeMet, readBreakaway, type BreakawayReading } from "@/lib/gann/breakaway";
 import { readMonthlyBreakWarning, type MonthlyBreakWarning } from "@/lib/gann/campaignLedger";
 import { RECLAIM_POINTS, isReclaimedByClose, isStopBreached, isStopBreachedByBar } from "@/lib/gann/stopBreach";
@@ -877,6 +878,9 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       // A-VOLUME-03: no long is entered while a distribution breakdown stands,
       // as production refuses the placement (`entryConfirmationRefusal`).
       if (trigger.direction === "bullish" && arm.context.disclosedRules.distributionStanding) continue;
+      // A-LEVELS-04 (fork FL3 a): nor a long under a failed double top (a
+      // short over a failed double bottom), as production refuses it too.
+      if (failedTestAgainst(arm.context.disclosedRules.multipleTops, trigger.direction)) continue;
 
       const long = trigger.direction === "bullish";
       const dir = long ? 1 : -1;
@@ -1354,7 +1358,7 @@ function scoreSetup(input: {
 
   const levels = priceTradeLevels({ context, gannTrigger, history, executionAtr, assetClass, largeCap });
 
-  const decision = applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(applyReversionConfirmation(
+  const decision = applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(applyReversionConfirmation(
     computeScore({
       direction: gannTrigger.direction,
       macroTrends: context.macroTrends,
@@ -1383,7 +1387,8 @@ function scoreSetup(input: {
     pattern,
     context.momentumElevated,
     context.nearSupportResistance,
-  ), breakaway), monthlyWarning, gannTrigger.direction), context.disclosedRules.distributionStanding ?? null, gannTrigger.direction);
+  ), breakaway), monthlyWarning, gannTrigger.direction), context.disclosedRules.distributionStanding ?? null, gannTrigger.direction),
+    context.disclosedRules.multipleTops, gannTrigger.direction);
   return { decision, levels };
 }
 

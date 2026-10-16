@@ -12,6 +12,7 @@
 import type { BreakawayReading } from "@/lib/gann/breakaway";
 import type { MonthlyBreakWarning } from "@/lib/gann/campaignLedger";
 import type { DistributionStanding } from "@/lib/gann/distribution";
+import { failedTestAgainst, type MultipleTopsReading } from "@/lib/gann/multipleTops";
 import type { StopBreachReading } from "@/lib/gann/stopBreach";
 import type {
   AssetClass,
@@ -757,6 +758,37 @@ export function applyDistributionBreakdownHold(
         criterion: "No breakdown after a lower top",
         passed: false,
         note: `After a lower top, the narrow range broke down on ${standing.breakoutVolumeRatio.toFixed(1)}× its average volume (${standing.breakDate}), a sign of a further decline. Held from Execute to Watch while price stays under the range, for up to 20 sessions after the break.`,
+      },
+    ],
+  };
+}
+
+/**
+ * Gann's failed double or triple top (A-LEVELS-04, W006 pp.14-15, 44; fork
+ * FL3 a, 2026-10-16): "failing to pass an old top is a top". While a failed
+ * top stands above the price, a new long is held from Execute to Watch; a
+ * failed bottom holds a new short the same way (Polarity). The reading is
+ * `readMultipleTops` on the 52-week entry chart, the same on both surfaces.
+ */
+export function applyFailedTopHold(
+  decision: ScanDecision,
+  tops: MultipleTopsReading | null | undefined,
+  direction: "bullish" | "bearish" | "none",
+): ScanDecision {
+  const failed = failedTestAgainst(tops, direction);
+  if (!failed || decision.outputState !== "Execute") return decision;
+  const top = failed.kind === "top";
+  const name = `${failed.tests >= 3 ? "triple" : "double"} ${failed.kind}`;
+  return {
+    ...decision,
+    outputState: "Watch",
+    breakdown: [
+      ...decision.breakdown,
+      {
+        key: "failedTop",
+        criterion: top ? "No failed double top overhead" : "No failed double bottom underneath",
+        passed: false,
+        note: `The market failed at a ${name} near ${failed.level.toFixed(2)} and closed back ${top ? "under" : "over"} it by the usual allowance: that is a ${failed.kind}. Held from Execute to Watch until price ${top ? "crosses" : "breaks"} the level or a new swing replaces it.`,
       },
     ],
   };

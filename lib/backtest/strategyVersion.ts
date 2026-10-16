@@ -223,4 +223,8 @@
 // Item 9 step 6 (fork FL5 a), same day: the retracement point scores on Gann's
 // retracement zone alone; the digital-root reading no longer gates it and
 // stays on the card as context (C-NUMEROLOGY-04, class C never gates).
-export const STRATEGY_VERSION = "2026-10-16-gann-retracement-alone";
+// Item 9 step 7 (fork FL3 a), same day: a failed double or triple top holds a
+// new long from Execute to Watch, refuses its placement and is not entered in
+// the replay, and exits an open long when it fails after the fill (shorts
+// mirror at bottoms; A-LEVELS-04), all on the 52-week entry chart.
+export const STRATEGY_VERSION = "2026-10-16-gann-failed-tops";

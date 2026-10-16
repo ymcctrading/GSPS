@@ -182,10 +182,14 @@ describe("the replay buys a held bottom at the last close", () => {
   const start = new Date(Date.parse(`${DAY}T00:00:00Z`) - 300 * DAY_MS);
   const closes: number[] = [];
   let c = 300;
-  for (let k = 0; k < 286; k++) {
+  for (let k = 0; k < 276; k++) {
     c *= k % 10 < 6 ? 0.994 : 1 + 0.004 * (1 - (0.5 * k) / 300);
     closes.push(c);
   }
+  // A last, lower rally top well under the one before, so the latest tops are
+  // not a failed double top (which holds a long, A-LEVELS-04).
+  closes.push(...leg(c, c * 0.9, 6), ...leg(c * 0.9, c * 0.93, 4));
+  c *= 0.93;
   closes.push(...leg(c, c * 0.94, 5), ...flat(c * 0.94 * 1.004, c * 0.94 * 1.008, 9));
   const DAILY: Bar[] = closes.map((x, i) => ({
     t: new Date(start.getTime() + i * DAY_MS).toISOString().slice(0, 10) + "T00:00:00Z",

@@ -888,6 +888,19 @@ const SCORE_HOLDS: RegisteredCriterion[] = [
     saturation: { minPassRate: 0, maxPassRate: 1 },
   },
   {
+    id: "failedTop",
+    family: "scoreHold",
+    source: "lib/gann/multipleTops.ts",
+    label: "No failed double top overhead",
+    expectedSign: "unknown",
+    evidence: "unmeasured",
+    note:
+      "PLAN.md item 9 step 7 (2026-10-16, fork FL3 a): failing to pass an old top is a top (A-LEVELS-04, " +
+      "W006 pp.14-15, 44). Appended only when it holds an Execute while a failed double or triple top stands " +
+      "above a long (bottom below a short), so it is failed by construction whenever present.",
+    saturation: { minPassRate: 0, maxPassRate: 1 },
+  },
+  {
     id: "stopBreach",
     family: "scoreHold",
     source: "lib/gann/stopBreach.ts",

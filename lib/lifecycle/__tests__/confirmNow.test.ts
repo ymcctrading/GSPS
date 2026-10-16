@@ -230,3 +230,31 @@ describe("readEntryConfirmationNow: a long waits while a distribution breakdown 
     expect((await read(daily(1.2e6))).ready).toBe(true);
   });
 });
+
+describe("readEntryConfirmationNow: an entry waits under a failed double top (A-LEVELS-04)", () => {
+  const leg = (from: number, to: number, n: number) => Array.from({ length: n }, (_, i) => from + ((to - from) * (i + 1)) / n);
+  const daily = (closes: number[]): Bar[] =>
+    closes.map((c, i) => ({
+      t: new Date(Date.parse("2026-10-14T04:00:00Z") - (closes.length - 1 - i) * 86_400_000).toISOString(),
+      o: c, h: c + 0.5, l: c - 0.5, c, v: 1e6,
+    }));
+  const now = new Date("2026-10-15T15:00:00Z");
+  const read = (day: Bar[], direction: "bullish" | "bearish", stopPrice: number | undefined) => {
+    const execution = direction === "bullish" ? [bar("2026-10-15T14:30:00Z", 103.5, 104, 103, 103.5)] : [bar("2026-10-15T14:30:00Z", 106.5, 107, 106, 106.5)];
+    fetchBars.mockImplementation(async (_s: string, tf: string) => (tf === "1Day" ? day : execution));
+    return readEntryConfirmationNow({ symbol: "AAPL", assetClass: "us_equity", direction, entryTrigger: direction === "bullish" ? 103 : 107, stopPrice, entryKind: "oldLevel", now });
+  };
+  const doubleTop = [...leg(100, 110, 6), ...leg(110, 102, 5), ...leg(102, 110, 6), ...leg(110, 103, 5)];
+  const doubleBottom = [...leg(110, 100, 6), ...leg(100, 108, 5), ...leg(108, 100, 6), ...leg(100, 107, 5)];
+
+  it("waits on a long under a failed double top", async () => {
+    const r = await read(daily(doubleTop), "bullish", 98);
+    expect(r).toMatchObject({ ready: false, stage: "broken" });
+    expect(r.note).toMatch(/double top near 110/);
+  });
+
+  it("waits on a short over a failed double bottom, and not on a long there", async () => {
+    expect((await read(daily(doubleBottom), "bearish", 112)).note).toMatch(/double bottom near 99\.5/);
+    expect((await read(daily(doubleBottom), "bullish", 98)).note).not.toMatch(/failed at a double/);
+  });
+});

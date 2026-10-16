@@ -48,6 +48,10 @@
  *   when such a breakdown, printed since the fill, still stands
  *   (`distribution.ts`). Longs only: shorts take the breakaway down as their
  *   own entry. Reported as "distribution", the same reason as D2.
+ * - **A-LEVELS-04 failed double or triple top** (added 2026-10-16, fork FL3
+ *   a). "Failing to pass an old top is a top" (W006 pp.14-15, 44): a long
+ *   leaves when a double or triple top fails after the fill; a short on the
+ *   mirror at a double or triple bottom. Reported as "failed_top".
  *
  * Engineering choices, labelled as such:
  * - Gann's "3 points" is price-scaled from his own bands (`pointScale.ts`).
@@ -71,12 +75,20 @@
 
 import type { Bar } from "@/lib/types";
 import { readDistributionStanding } from "@/lib/gann/distribution";
+import { failedTestAgainst, readMultipleTops } from "@/lib/gann/multipleTops";
 import { gannThreePoints } from "@/lib/gann/pointScale";
 import { THREE_DAY_CHART, WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 import { buildCampaignLedger } from "@/lib/gann/campaignLedger";
 import { readCapitalStock } from "@/lib/gann/capitalStock";
 import { toWeeklyBars } from "@/lib/gann/disclosedRules";
 
+
+/**
+ * Days of completed sessions the failed-top exit reads: `ENTRY_CHART_DAYS`
+ * (`lib/scan/entrySelection.ts`), restated to keep this module free of the
+ * scan's imports; a test pins the two equal.
+ */
+export const FAILED_TOP_CHART_DAYS = 364;
 
 /** Gann's final stage: the 3rd section of a campaign or later. */
 export const FINAL_STAGE_SECTION = 3;
@@ -94,7 +106,7 @@ export interface GannExitPosition {
 }
 
 export type GannStopReason = "initial" | "break_even" | "last_reaction" | "prior_week" | "prior_month" | "final_stage";
-export type GannExitReason = "hold_test_failed" | "three_adverse_closes" | "trend_change" | "distribution";
+export type GannExitReason = "hold_test_failed" | "three_adverse_closes" | "trend_change" | "distribution" | "failed_top";
 
 export interface GannExitReading {
   /** The tightest stop Gann's rules allow now. Callers ratchet: never loosen a stop already placed. */
@@ -187,6 +199,24 @@ export function readGannExit(
   if (!exit && since.length >= 3) {
     const adverse = since.slice(0, 3).every((b) => (long ? b.c < pos.entry : b.c > pos.entry));
     if (adverse) exit = { reason: "three_adverse_closes", note: "Closed against the trade on each of its first three days." };
+  }
+
+  // A-LEVELS-04 (fork FL3 a): "failing to pass an old top is a top". A long
+  // exits when a double or triple top fails after the fill (its latest test
+  // printed since); a short exits on the mirror at a double or triple bottom.
+  // One that stood at entry was part of the setup (the scan holds it to Watch
+  // and placement refuses it). Read over the 52 weeks before the next session,
+  // the entry chart's window (`FAILED_TOP_CHART_DAYS`).
+  if (!exit) {
+    const from = new Date(Date.parse(`${day(last)}T00:00:00Z`) - (FAILED_TOP_CHART_DAYS - 1) * 86_400_000).toISOString().slice(0, 10);
+    const offset = daily.findIndex((b) => day(b) >= from);
+    const failed = failedTestAgainst(readMultipleTops(daily.slice(offset)), long ? "bullish" : "bearish");
+    if (failed && offset + failed.lastTestIndex >= firstAfter) {
+      exit = {
+        reason: "failed_top",
+        note: `Failed at a ${failed.tests >= 3 ? "triple" : "double"} ${failed.kind} near ${failed.level.toFixed(2)} and closed back ${long ? "under" : "over"} it: a ${failed.kind}.`,
+      };
+    }
   }
 
   // C4: a change of trend after entry.

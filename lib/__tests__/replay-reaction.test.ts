@@ -48,11 +48,15 @@ function dailyHistory(count: number, before: string): Bar[] {
  * A falling market: each leg down is longer than the rally after it, and the
  * rallies shrink in percentage, so the trend reads bearish without a
  * counter-move over-balancing it. The reversion pass then arms a long.
+ * `start` sets the scale: at 300 the 3-point band (about 4% there) is wider
+ * than the step between successive rally tops, which reads them as a failed
+ * double top and holds the long (A-LEVELS-04); the long fixtures start at 3000,
+ * where the band is under 2%.
  */
-function fallingHistory(count: number, before: string): Bar[] {
+function fallingHistory(count: number, before: string, start = 300): Bar[] {
   const out: Bar[] = [];
   const end = new Date(`${before}T00:00:00Z`).getTime();
-  let c = 300;
+  let c = start;
   for (let i = count; i >= 1; i--) {
     const d = new Date(end - i * 86_400_000).toISOString().slice(0, 10);
     const k = count - i;
@@ -109,7 +113,7 @@ const FIXTURES = [
   },
   {
     name: "a long above an old top",
-    daily: withBottomTested(fallingHistory(299, "2026-06-14")),
+    daily: withBottomTested(fallingHistory(299, "2026-06-14", 3000)),
     expect: "bullish",
   },
 ] as const;
@@ -284,7 +288,7 @@ describe("replay entryRule: reaction on a level the daily chart already crossed"
 describe("replay entryRule: reaction at an old bottom (double or triple bottom)", () => {
   // The falling fixture's latest bottom is untested, so it is the nearer
   // buying point and the order rests at it.
-  const DAILY = fallingHistory(300, DAY);
+  const DAILY = fallingHistory(300, DAY, 3000);
   const T = selectGannEntry(DAILY, "bullish")!;
   const L = T.level;
   const P = gannThreePoints(L);
