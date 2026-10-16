@@ -43,6 +43,7 @@ import type { Bar, ScanResult, SetupKind } from "@/lib/types";
 import { fetchAllTimeframesBatch, getMarketDataProvider } from "@/lib/data/provider";
 import { fetchMostActives } from "@/lib/data/alpaca";
 import { readTrend } from "@/lib/analysis/trend";
+import { toWeeklyBars } from "@/lib/gann/disclosedRules";
 import { rangeMidpoint } from "@/lib/gann/retracement";
 import { etDateKey } from "@/lib/market/session";
 import { atr } from "@/lib/analysis/pivots";
@@ -375,20 +376,40 @@ function cycleBonus(direction: "bullish" | "bearish", cycles: TimeCycleResult | 
   return matches ? CYCLE_WINDOW_BONUS : 0;
 }
 
+/**
+ * The trend the coarse pass reads (PLAN.md item 6 step 7, A-TREND-01): Gann
+ * reads the main trend from the monthly chart, the weekly next, and the daily
+ * only for fast, active stocks (W006 p.19; the weekly is "the best chart for
+ * trading purposes", p.46). The coarse pass has a year of daily bars, too few
+ * months for a monthly read, so it reads the weekly chart rolled from them,
+ * the same way the full scan reads its weekly bars, and falls back to the
+ * daily only when the weekly shows no trend (the full scan's 30/7/1 weighting
+ * lets the daily decide only then too).
+ */
+export function coarseTrendDirection(daily: Bar[]): "bullish" | "bearish" | "sideways" {
+  const weekly = readTrend(toWeeklyBars(daily), "1Week").direction;
+  if (weekly !== "sideways") return weekly;
+  return readTrend(daily, "1Day").direction;
+}
+
 export function coarseReversion(
   symbol: string,
   daily: Bar[],
   cycles?: TimeCycleResult,
+  /** Read once per symbol by the caller; computed here when omitted. */
+  trendRead?: "bullish" | "bearish" | "sideways",
 ): CoarseCandidate | null {
   if (daily.length < 60) return null;
   if (!tradeable(daily)) return null;
   const price = daily[daily.length - 1].c;
   if (price < MIN_SCAN_PRICE) return null;
+  const trendDirection = trendRead ?? coarseTrendDirection(daily);
+  if (trendDirection === "sideways") return null;
+  // Support and resistance still come from the daily chart's tops and bottoms.
   const trend = readTrend(daily, "1Day");
-  if (trend.direction === "sideways") return null;
 
-  // A reversion candidate moves opposite its current extended trend.
-  const direction = trend.direction === "bearish" ? "bullish" : "bearish";
+  // A reversion candidate moves opposite its current trend.
+  const direction = trendDirection === "bearish" ? "bullish" : "bearish";
 
   let score = 0;
 
@@ -451,6 +472,7 @@ export function coarseContinuation(
   daily: Bar[],
   bars4h: Bar[],
   cycles?: TimeCycleResult,
+  trendRead?: "bullish" | "bearish" | "sideways",
 ): CoarseCandidate | null {
   // Needs the full trailing window the baseline is measured over.
   if (daily.length < 120) return null;
@@ -458,11 +480,11 @@ export function coarseContinuation(
   if (!hasExceptional4hMomentum(bars4h)) return null;
   const price = daily[daily.length - 1].c;
   if (price < MIN_SCAN_PRICE) return null;
-  const trend = readTrend(daily, "1Day");
-  if (trend.direction === "sideways") return null;
+  const trendDirection = trendRead ?? coarseTrendDirection(daily);
+  if (trendDirection === "sideways") return null;
 
   // A continuation candidate moves WITH its trend.
-  const direction = trend.direction;
+  const direction = trendDirection;
 
   const ratio = expansionRatio(daily);
   if (ratio < MOMENTUM_EXPANSION) return null;
@@ -502,7 +524,7 @@ export function coarseContinuation(
 
 interface CoarseDiagnostics {
   symbol: string;
-  /** The underlying daily trend read, or null when sideways/unreadable. Not
+  /** The coarse pass's trend read (`coarseTrendDirection`), or null when sideways/unreadable. Not
    * the same as either gate's candidate direction — a reversion candidate
    * trades against this. */
   trendDirection: "bullish" | "bearish" | null;
@@ -534,6 +556,7 @@ function coarseDiagnostics(
   symbol: string,
   daily: Bar[],
   cycles?: TimeCycleResult,
+  trendRead?: "bullish" | "bearish" | "sideways",
 ): CoarseDiagnostics | null {
   if (daily.length < 60) return null;
   const price = daily[daily.length - 1].c;
@@ -543,13 +566,13 @@ function coarseDiagnostics(
   const extensionPct = mid50 ? (Math.abs(price - mid50) / mid50) * 100 : 0;
   const extensionAtr = atrPct !== null && atrPct > 0 ? extensionPct / atrPct : null;
 
-  const trend = daily.length >= 120 ? readTrend(daily, "1Day") : null;
+  const read = daily.length >= 120 ? (trendRead ?? coarseTrendDirection(daily)) : "sideways";
   let trendDirection: "bullish" | "bearish" | null = null;
   let travelPct: number | null = null;
   let travelAtr: number | null = null;
-  if (trend && trend.direction !== "sideways") {
-    trendDirection = trend.direction;
-    const dir = trend.direction === "bullish" ? 1 : -1;
+  if (read !== "sideways") {
+    trendDirection = read;
+    const dir = read === "bullish" ? 1 : -1;
     travelPct = mid50 ? ((price - mid50) / mid50) * 100 * dir : 0;
     travelAtr = atrPct !== null && atrPct > 0 ? travelPct / atrPct : null;
   }
@@ -914,10 +937,12 @@ export async function runMarketScan(
       // `CYCLE_WINDOW_BONUS`'s own comment for what this does and doesn't
       // claim.
       const cycles = timeCycles(daily);
+      // One trend read per symbol, shared by both gates and the telemetry.
+      const trendRead = daily.length >= 60 ? coarseTrendDirection(daily) : "sideways";
       return {
-        reversion: coarseReversion(symbol, daily, cycles),
-        continuation: coarseContinuation(symbol, daily, bars4h, cycles),
-        diagnostics: coarseDiagnostics(symbol, daily, cycles),
+        reversion: coarseReversion(symbol, daily, cycles, trendRead),
+        continuation: coarseContinuation(symbol, daily, bars4h, cycles, trendRead),
+        diagnostics: coarseDiagnostics(symbol, daily, cycles, trendRead),
       };
     } catch {
       return { reversion: null, continuation: null, diagnostics: null };

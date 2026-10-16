@@ -360,3 +360,10 @@ is unchecked here (collection-synthesis.md §1.6, §6).
 - Academy (swing-chart lesson): one sentence for the rule.
 - Tests: market-scan-filters (a fixture far under its 50% point with only the fan line no longer passes), confirmedReversal (a stretched low at no old level is not meaningful). Both fail on the old code. Fixture changes, intent kept: the coarse fixtures got heavy volume at their last swing low (bar 105) so they still clear the floor on the remaining criteria; the tradeable reversal fixture got an older swing to the same low (withOldBottom).
 - STRATEGY_VERSION 2026-10-16-gann-never-too-high. 2659 passed; tsc, eslint (44 pre-existing), terms clean.
+2026-10-16 Item 6 step 7 (A-TREND-01, F2a): the coarse pass reads the weekly trend first.
+- marketScan.ts coarseTrendDirection(daily): readTrend(toWeeklyBars(daily), "1Week"), the daily only when the weekly is sideways (W006 p.19; the full scan's 30/7/1 weighting is unchanged and is W004's own ratio). Read once per symbol and shared by coarseReversion, coarseContinuation and the telemetry row; reversion still takes S/R from the daily chart.
+- Note for item 6 step 11 and the monthly question in map §A-TREND-01 "Differs 3": on rolled weekly bars the 3-Day Chart needs reactions of three or more weekly bars to make pivots, so the weekly read is sideways for trends whose reactions last two to three weeks. Same function the full scan uses on its weekly bars; not changed here.
+- Tests: lib/__tests__/market-scan-coarse-trend.test.ts (4; trend reads pinned per timeframe with vi.mock, so the wiring is under test). The first coarseContinuation test in the repo. Mutations caught: reversion and continuation on the daily, weekly ignored, no fallback.
+- Cost: the weekly read takes about 0.28 ms a symbol (rollup plus read; 212 ms over 766 warmed), replacing two daily reads (0.13 ms each), so about +0.02 to +0.15 ms a symbol: under 40 ms for a 250-symbol coarse pass.
+- Academy: one sentence on the monthly, weekly, daily order.
+- STRATEGY_VERSION 2026-10-16-gann-weekly-coarse (live only).

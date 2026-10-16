@@ -136,4 +136,7 @@
 // (W006 pp.22, 38-39). The coarse reversion score no longer counts distance
 // from the 50% point (live only; the replay has no coarse pass), and the
 // confirmed-reversal state's meaningful location is an old level only.
-export const STRATEGY_VERSION = "2026-10-16-gann-never-too-high";
+// Item 6 step 7, 2026-10-16: the coarse pass reads the weekly trend rolled from
+// its daily bars, and the daily only when the weekly shows none (W006 p.19).
+// Live only: the replay has no coarse pass.
+export const STRATEGY_VERSION = "2026-10-16-gann-weekly-coarse";
