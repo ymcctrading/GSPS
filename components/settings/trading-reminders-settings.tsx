@@ -1,9 +1,10 @@
 "use client";
 
 /**
- * Two of the method's rules the trader can switch on or off
- * (lib/gann/traderPrefs.ts): the round-number notice and the twice-yearly
- * rest reminder. Both are reminders; neither changes a plan or closes a trade.
+ * The method's rules the trader can switch on or off (lib/gann/traderPrefs.ts):
+ * the round-number notice, the twice-yearly rest reminder, and the close-out
+ * reminder before an absence. All are reminders; none changes a plan or
+ * closes a trade.
  */
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,6 +47,29 @@ export function TradingRemindersSettings() {
             checked={prefs.restReminder}
             onChange={() => save({ restReminder: !prefs.restReminder })}
           />
+        </div>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium">Going away</p>
+            <p className="text-xs text-muted">
+              Set the day you&apos;ll be away from the market. In the days before it, a reminder to close
+              out your trades so nothing moves against you while you can&apos;t watch it.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              aria-label="Away from"
+              className="min-h-9 rounded-md border border-border bg-surface px-2 text-sm"
+              value={prefs.awayFrom ?? ""}
+              onChange={(e) => save({ awayFrom: e.target.value || null })}
+            />
+            {prefs.awayFrom && (
+              <button type="button" className="text-xs text-muted underline" onClick={() => save({ awayFrom: null })}>
+                Clear
+              </button>
+            )}
+          </div>
         </div>
         {error && <p className="text-xs text-bear">{error}</p>}
       </CardContent>

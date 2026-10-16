@@ -2,14 +2,20 @@
  * GSPS — /api/settings/gann-rules
  *
  * The trader's switches for Gann's round-number notice, the twice-yearly rest
- * reminder, and the autonomous portfolio manager's round-number setting. See
+ * reminder, the close-out reminder before an absence (A-EXIT-05), and the autonomous portfolio manager's round-number setting. See
  * lib/gann/traderPrefs.ts. Stored under `settings.prefs.gannRules`.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { resolveGannRulePrefs, restReminderDue, REST_REMINDER_COPY } from "@/lib/gann/traderPrefs";
+import {
+  AWAY_REMINDER_COPY,
+  awayReminderDue,
+  resolveGannRulePrefs,
+  restReminderDue,
+  REST_REMINDER_COPY,
+} from "@/lib/gann/traderPrefs";
 
 const PatchSchema = z
   .object({
@@ -17,6 +23,7 @@ const PatchSchema = z
     restReminder: z.boolean(),
     autoOrderRoundNumbers: z.boolean(),
     restDismissedFor: z.string().regex(/^\d{4}-(06|12)$/).nullable(),
+    awayFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
   })
   .partial();
 
@@ -33,7 +40,12 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   const prefs = resolveGannRulePrefs(await load(supabase, user.id));
   const rest = restReminderDue(prefs);
-  return NextResponse.json({ prefs, restReminder: rest ? { ...rest, message: REST_REMINDER_COPY } : null });
+  const away = awayReminderDue(prefs);
+  return NextResponse.json({
+    prefs,
+    restReminder: rest ? { ...rest, message: REST_REMINDER_COPY } : null,
+    awayReminder: away ? { ...away, message: AWAY_REMINDER_COPY } : null,
+  });
 }
 
 export async function PUT(req: NextRequest) {

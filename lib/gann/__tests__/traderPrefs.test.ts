@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { currentRestWindow, resolveGannRulePrefs, restReminderDue } from "@/lib/gann/traderPrefs";
+import { AWAY_REMINDER_COPY, awayReminderDue, currentRestWindow, resolveGannRulePrefs, restReminderDue } from "@/lib/gann/traderPrefs";
 
 describe("trader rule preferences", () => {
   it("defaults: notices and the rest reminder on, round-number auto-orders off", () => {
@@ -8,6 +8,7 @@ describe("trader rule preferences", () => {
       restReminder: true,
       autoOrderRoundNumbers: false,
       restDismissedFor: null,
+      awayFrom: null,
     });
     expect(resolveGannRulePrefs({ gannRules: { autoOrderRoundNumbers: true, restReminder: "x" } }).autoOrderRoundNumbers).toBe(true);
   });
@@ -25,5 +26,27 @@ describe("trader rule preferences", () => {
     expect(restReminderDue(base, now)).not.toBeNull();
     expect(restReminderDue({ ...base, restReminder: false }, now)).toBeNull();
     expect(restReminderDue({ ...base, restDismissedFor: "2026-06" }, now)).toBeNull();
+  });
+});
+
+describe("go flat before you will be away (A-EXIT-05, W022 p.113)", () => {
+  const at = (d: string) => new Date(`${d}T15:00:00Z`);
+  const prefs = { ...resolveGannRulePrefs({}), awayFrom: "2026-11-20" };
+  it("reminds the trader to close out in the days before the absence starts", () => {
+    expect(awayReminderDue(prefs, at("2026-11-16"))).toBeNull();
+    expect(awayReminderDue(prefs, at("2026-11-17"))?.awayFrom).toBe("2026-11-20");
+    expect(awayReminderDue(prefs, at("2026-11-20"))?.awayFrom).toBe("2026-11-20");
+    expect(awayReminderDue(prefs, at("2026-11-21"))).toBeNull();
+  });
+  it("says nothing with no absence set", () => {
+    expect(awayReminderDue(resolveGannRulePrefs({}), at("2026-11-18"))).toBeNull();
+  });
+  it("reads a stored absence date and ignores a malformed one", () => {
+    expect(resolveGannRulePrefs({ gannRules: { awayFrom: "2026-11-20" } }).awayFrom).toBe("2026-11-20");
+    expect(resolveGannRulePrefs({ gannRules: { awayFrom: "soon" } }).awayFrom).toBeNull();
+  });
+  it("never claims to close anything", () => {
+    expect(AWAY_REMINDER_COPY).toMatch(/nothing is closed for you/i);
+    expect(AWAY_REMINDER_COPY).not.toMatch(/gann/i);
   });
 });
