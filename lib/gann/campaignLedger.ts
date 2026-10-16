@@ -94,6 +94,8 @@ export interface CampaignLedger {
    * since is resuming, and is not flagged.
    */
   counterMoveThirdMonth: boolean;
+  /** The day of the current section's top (bottom in a bear campaign), which the reaction is counted from. */
+  sectionTopDate: string;
   /** This month so far has broken the prior month's low (bullish campaign) or high (bearish). */
   monthlyBreak: boolean;
   /** It is the campaign's first: no earlier month in the campaign broke the one before it. */
@@ -335,6 +337,7 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
     spaceOverbalanced,
     timeOverbalanced,
     counterMoveThirdMonth,
+    sectionTopDate: bars[sectionTop].t.slice(0, 10),
     monthlyBreak,
     monthlyBreakFirst,
     reactionBelowPriorSection,

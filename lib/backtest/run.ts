@@ -47,6 +47,7 @@ import { STRATEGY_VERSION } from "./strategyVersion";
 import type { CriterionWeights } from "@/lib/scoring/weights";
 import { RECLAIM_POINTS } from "@/lib/gann/stopBreach";
 import { monthlyChartFrom } from "@/lib/scan/entrySelection";
+import { LONG_MONTHLY_YEARS } from "@/lib/gann/secondaryTime";
 import { replayIntraday } from "./replayIntraday";
 
 /** Verdict buckets, plus the trades the score could not reach. */
@@ -349,20 +350,25 @@ export async function fetchSeries(
   symbol: string,
   timeframe: Timeframe,
   includeMonthly = false,
-): Promise<{ bars: Bar[]; daily: Bar[]; monthly?: Bar[] }> {
+): Promise<{ bars: Bar[]; daily: Bar[]; monthly?: Bar[]; monthlyLong?: Bar[] }> {
   const provider = getMarketDataProvider();
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
   const now = Date.now();
   const window = (tf: Timeframe) => new Date(now - TF_LOOKBACK_DAYS[tf] * 86_400_000);
   // The older levels on the first daily session read the span before it (step 3 review R10).
   const monthlyFrom = monthlyChartFrom(window("1Day"));
+  // The class C long counts read `LONG_MONTHLY_YEARS` before each session, as
+  // the live scan does; every other reading keeps the span above.
+  const start = window("1Day");
+  const longFrom = new Date(Math.min(monthlyFrom.getTime(), Date.UTC(start.getUTCFullYear() - LONG_MONTHLY_YEARS, start.getUTCMonth(), 1)));
 
-  const [bars, daily, monthly] = await Promise.all([
+  const [bars, daily, monthlyLong] = await Promise.all([
     provider.fetchBars(symbol, timeframe, window(timeframe), null, assetClass, TF_MAX_BARS[timeframe]),
     provider.fetchBars(symbol, "1Day", window("1Day"), null, assetClass, TF_MAX_BARS["1Day"]),
-    includeMonthly ? provider.fetchBars(symbol, "1Month", monthlyFrom, null, assetClass) : Promise.resolve(undefined),
+    includeMonthly ? provider.fetchBars(symbol, "1Month", longFrom, null, assetClass) : Promise.resolve(undefined),
   ]);
-  return { bars, daily, ...(monthly ? { monthly } : {}) };
+  const monthly = monthlyLong?.filter((b) => Date.parse(b.t) >= monthlyFrom.getTime());
+  return { bars, daily, ...(monthly && monthlyLong ? { monthly, monthlyLong } : {}) };
 }
 
 export interface RunOutcome {
@@ -441,7 +447,7 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
 
   for (const symbol of symbols) {
     try {
-      const { bars: fetched, daily, monthly } = await fetchSeries(symbol, timeframe, true);
+      const { bars: fetched, daily, monthly, monthlyLong } = await fetchSeries(symbol, timeframe, true);
       const bars = sinceMs === null ? fetched : fetched.filter((b) => Date.parse(b.t) >= sinceMs);
       if (bars.length === 0) {
         skipped.push({
@@ -474,7 +480,7 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
               ...(reclaimPoints !== undefined ? { reclaimPoints } : {}),
               dailyBars: daily,
             })
-          : replay(symbol, bars, { ...options, dailyBars: daily, monthlyBars: monthly, instrument, marketDailyBars, marketMonthlyBars }),
+          : replay(symbol, bars, { ...options, dailyBars: daily, monthlyBars: monthly, longMonthlyBars: monthlyLong, instrument, marketDailyBars, marketMonthlyBars }),
       );
       used.push(symbol);
     } catch (err) {

@@ -79,6 +79,7 @@ import { RECLAIM_POINTS, isReclaimedByClose, isStopBreached, isStopBreachedByBar
 import { readGannExit, type GannExitReason, type GannStopReason } from "@/lib/gann/exitRules";
 import { SCALE_OUT_PCT } from "@/lib/trade/protocol-exit";
 import { readPyramidAdd, type PyramidLot } from "@/lib/gann/pyramid";
+import { longMonthlyWindow } from "@/lib/gann/secondaryTime";
 
 /** Whole-share scale for fractional replay lots (1 lot = 1024 shares, so four halvings stay whole). */
 const PYRAMID_SHARE_SCALE = 1024;
@@ -306,6 +307,13 @@ export interface ReplayOptions {
    * own; the current month is built from the daily bars, as live.
    */
   marketMonthlyBars?: Bar[];
+  /**
+   * The stock's monthly bars over a longer span, for the class C long month
+   * counts only (C-TIME-09's 144 months); each session reads the
+   * `LONG_MONTHLY_YEARS` before it, as the live scan holds them. Falls back to
+   * `monthlyBars`.
+   */
+  longMonthlyBars?: Bar[];
 }
 
 /** Why an intraday-profile trade left (`lib/backtest/replayIntraday.ts`). */
@@ -678,6 +686,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     instrument,
     marketDailyBars,
     marketMonthlyBars,
+    longMonthlyBars,
   } = options;
 
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
@@ -734,6 +743,9 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
               inception: instrument?.inception ?? null,
               marketDaily: marketDailyBars ?? null,
               monthly: monthlyBars ? priorMonthly : null,
+              monthlyLong: longMonthlyBars
+                ? longMonthlyWindow(longMonthlyBars.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)), new Date(`${date}T12:00:00Z`))
+                : null,
               marketMonthly: marketMonthlyBars ? marketMonthlyBars.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)) : null,
             }
           : null;

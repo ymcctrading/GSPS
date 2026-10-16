@@ -39,11 +39,16 @@
  *   paired angle gives, from the fans' anchor, makes a turn likelier. W031's
  *   pairs: 1/8-1x8, 1/4-1x4, 1/3-1x3, 3/8-1x2, 1/2-1x1, 5/8-2x1, 2/3-3x1,
  *   3/4-4x1, 7/8-8x1. The anchor swing's price range and its duration are
- *   the two sides of the square (the fans' own time convention), so an angle
- *   of ratio r reaches the fraction f of the range f / r of the way through
- *   the swing's duration: 50% on the 1x1 comes due at half the time.
+ *   the two sides of the square (the fans' own time convention). An angle's
+ *   time multiple is W033's (`FAN_TIME_RATIOS`: a 1xN angle crosses the
+ *   range in 1/N of the time, an Nx1 in N times it), so it reaches the
+ *   fraction f of the range at f times its multiple of the swing's duration:
+ *   50% on the 1x1 comes due at half the time, 3/8 on the 1x2 at 3/16 and
+ *   2/3 on the 3x1 at twice it. (Corrected 2026-10-16: the first build
+ *   divided by the multiple, reading the angle labels the other way round.)
  * - C-TIME-23 (W003 pp.20-21): that same 50%-at-half-the-time meeting, after
- *   which a three-month fast move may follow; it is recorded for 90 days.
+ *   which a three-month fast move may follow; it is recorded for 90 days,
+ *   read from every swing of that time, not only the fans' current anchors.
  *
  * Engineering choices for those two, labelled as such and fixed before any
  * measurement: a level counts as reached when a bar's range spans it, and the
@@ -52,13 +57,14 @@
  * stand in for the square; that is our reading, not the source's.
  *
  * Engineering choices, labelled as such: the anchors and windows follow the
- * class A reader each list sits beside (major daily pivots, exact day for the
- * day counts and ±2 days for the circle and week counts; major monthly pivots
- * at exact months for the month counts and cycle fractions; ±1 day for the
- * fine seasonal steps, since they fall 7-8 days apart). A degree of the
- * seasonal circle is 365.2422 / 360 days, and a step falls on the day it is
- * reached (rounded down), which puts 15° on April 5 and 22.5° on April 12 as
- * the sources do.
+ * class A reader each list sits beside (major daily pivots, the exact day for
+ * the day counts, read on the first session on or after it, and ±2 days for
+ * the circle and week counts; major monthly pivots at exact months for the
+ * month counts and cycle fractions; ±1 day for the
+ * fine seasonal steps, since they fall 7-8 days apart). A fine step is placed
+ * between the two class A seasonal points around it, in proportion, on the
+ * day it is reached (rounded down): 15° on April 5 and 22.5° on April 12 as
+ * the sources have them, and 195° on October 7.
  *
  * Three-question basis:
  * 1. Gann: none of these is in Gann's own text as we hold it; they are the
@@ -97,6 +103,22 @@ export const CIRCLE_FINE_DIVISIONS: readonly number[] = [112.5, 150, 157.5, 165,
 /** C-TIME-09: month counts from a major monthly pivot. */
 export const SECONDARY_MONTH_COUNTS: readonly number[] = [6, 12, 144];
 
+/**
+ * Years of monthly history the long counts read (C-TIME-09's 144 months and
+ * C-TIME-12's longest fractions): 144 months, the three months that confirm a
+ * monthly pivot, and a year's margin. The live scan fetches this much and
+ * hands it only to these context readings (every other monthly reading keeps
+ * its ten years); the replay caps each session at the same span. An
+ * engineering choice, sized to reach the count.
+ */
+export const LONG_MONTHLY_YEARS = 13;
+
+/** The monthly bars within `LONG_MONTHLY_YEARS` before `asOf`, as the live scan holds them. */
+export function longMonthlyWindow(monthly: Bar[], asOf: Date): Bar[] {
+  const from = new Date(Date.UTC(asOf.getUTCFullYear() - LONG_MONTHLY_YEARS, asOf.getUTCMonth(), 1)).toISOString().slice(0, 7);
+  return monthly.filter((b) => b.t.slice(0, 7) >= from);
+}
+
 /** C-TIME-12: the fractions any cycle is divided into. */
 export const CYCLE_FRACTIONS: readonly { label: string; fraction: number }[] = [
   { label: "1/8", fraction: 1 / 8 },
@@ -110,7 +132,11 @@ export const CYCLE_FRACTIONS: readonly { label: string; fraction: number }[] = [
   { label: "7/8", fraction: 7 / 8 },
 ];
 
-/** The long cycles C-TIME-12 divides: the 5- to 60-year cycles (the 1-3-year ones are the year fractions already). */
+/**
+ * The long cycles C-TIME-12 divides: the 5- to 60-year cycles. The 1-year
+ * cycle's fractions are the year fractions already; the 2- and 3-year cycles
+ * are left undivided here, as the entry's gap is the long cycles.
+ */
 export const DIVIDED_CYCLE_YEARS: readonly number[] = MAJOR_CYCLE_YEARS.filter((y) => y >= 5);
 
 /** C-TIME-12: the fractions of a cycle of `years`, in years. */
@@ -118,7 +144,40 @@ export function cycleFractions(years: number): { label: string; years: number }[
   return CYCLE_FRACTIONS.map((f) => ({ label: f.label, years: years * f.fraction }));
 }
 
-const DAYS_PER_DEGREE = 365.2422 / 360;
+/**
+ * The class A seasonal points as degrees from March 21 and their calendar
+ * dates (`SEASONAL_POINTS`), the frame the fine steps are placed in: a fine
+ * step falls between the two class A points around it, in proportion. A
+ * uniform 365.2422/360 days a degree drifts up to three days from the
+ * sources' own dates after the September equinox (item 7 second review L-a).
+ */
+export const SEASONAL_FRAME: readonly { degrees: number; month: number; day: number }[] = [
+  { degrees: 0, month: 3, day: 21 },
+  { degrees: 45, month: 5, day: 5 },
+  { degrees: 90, month: 6, day: 21 },
+  { degrees: 120, month: 7, day: 23 },
+  { degrees: 135, month: 8, day: 5 },
+  { degrees: 180, month: 9, day: 22 },
+  { degrees: 225, month: 11, day: 8 },
+  { degrees: 240, month: 11, day: 22 },
+  { degrees: 270, month: 12, day: 21 },
+  { degrees: 315, month: 2, day: 4 },
+  { degrees: 360, month: 3, day: 21 },
+];
+
+/** The day (UTC day number) `deg` degrees after March 21 of `year` falls on. */
+function seasonalDay(year: number, deg: number): number {
+  // Points before March 21 in the calendar belong to the next year.
+  const at = (p: (typeof SEASONAL_FRAME)[number]) => utcDay(new Date(Date.UTC(p.month < 3 || (p.month === 3 && p.degrees === 360) ? year + 1 : year, p.month - 1, p.day)));
+  for (let i = 0; i < SEASONAL_FRAME.length - 1; i++) {
+    const a = SEASONAL_FRAME[i];
+    const b = SEASONAL_FRAME[i + 1];
+    if (deg >= a.degrees && deg <= b.degrees) {
+      return at(a) + Math.floor(((deg - a.degrees) / (b.degrees - a.degrees)) * (at(b) - at(a)));
+    }
+  }
+  throw new Error(`degrees out of range: ${deg}`);
+}
 
 /**
  * C-TIME-37/-38: the 22.5° and 15° steps of the seasonal circle from March 21
@@ -233,15 +292,25 @@ function hit(p: { bar: Bar; kind: "high" | "low" }, count: number, label: string
   return { pivotDate: p.bar.t.slice(0, 10), pivotKind: p.kind, count, label };
 }
 
-/** Day counts (C-TIME-19), on `readDayCountBands`'s anchors: exact days, most recent pivot first. */
+/**
+ * Day counts (C-TIME-19), on `readDayCountBands`'s anchors, most recent pivot
+ * first. A count is read on the first session on or after its calendar day,
+ * so one that falls on a weekend or holiday is read on the next session
+ * rather than missed, and only once. The hit carries the count reached.
+ */
 export function readSecondaryDayCounts(bars: Bar[]): PivotCountHit[] {
   if (bars.length === 0) return [];
   const today = utcDay(bars[bars.length - 1].t);
+  const prevDay = bars.length > 1 ? utcDay(bars[bars.length - 2].t) : today - 1;
   const out: PivotCountHit[] = [];
   for (const p of majorPivots(findPivots(bars, 5)).slice(-8).reverse()) {
     const days = today - utcDay(p.bar.t);
-    const band = SECONDARY_DAY_COUNTS.find(([lo, hi]) => days >= lo && days <= hi);
-    if (band) out.push(hit(p, days, band[0] === band[1] ? `${band[0]} days` : `${band[0]}-${band[1]} days`));
+    const before = prevDay - utcDay(p.bar.t);
+    // The counts in (before, days]: reached since the previous session.
+    for (const [lo, hi] of SECONDARY_DAY_COUNTS) {
+      const first = Math.max(lo, before + 1);
+      if (first <= hi && first <= days) out.push(hit(p, first, lo === hi ? `${lo} days` : `${lo}-${hi} days`));
+    }
   }
   return out;
 }
@@ -305,9 +374,8 @@ export function readSeasonalFineStep(asOf: Date): SecondaryTimeReading["seasonal
   const today = utcDay(new Date(Date.UTC(asOf.getUTCFullYear(), asOf.getUTCMonth(), asOf.getUTCDate())));
   let best: SecondaryTimeReading["seasonalFineStep"] = null;
   for (const y of [asOf.getUTCFullYear() - 1, asOf.getUTCFullYear()]) {
-    const start = utcDay(new Date(Date.UTC(y, 2, 21)));
     for (const deg of SEASONAL_FINE_DEGREES) {
-      const day = start + Math.floor(deg * DAYS_PER_DEGREE);
+      const day = seasonalDay(y, deg);
       const offsetDays = today - day;
       if (Math.abs(offsetDays) > SEASONAL_FINE_TOLERANCE_DAYS) continue;
       if (!best || Math.abs(offsetDays) < Math.abs(best.offsetDays)) {
@@ -366,8 +434,11 @@ function retracementTiming(daily: Bar[]): Pick<SecondaryTimeReading, "retracemen
     level: h.level,
     date: h.date,
   });
-  const half = hits
-    .filter((h) => h.label === "1/2" && last - Date.parse(`${h.date}T00:00:00Z`) <= HALF_PRICE_HALF_TIME_DAYS * DAY_MS)
+  // The meeting is kept for 90 days, so it is read from every swing of the
+  // last 90 days, not only the fans' current anchors: a newer small swing must
+  // not erase it.
+  const half = retracementHitsFrom(daily, everyAnchor(daily), RETRACEMENT_ANGLE_PAIRS.filter((p) => p.label === "1/2"))
+    .filter((h) => last - Date.parse(`${h.date}T00:00:00Z`) <= HALF_PRICE_HALF_TIME_DAYS * DAY_MS)
     .sort((a, b) => b.date.localeCompare(a.date))[0];
   return {
     // Still inside the angle's time window on the last bar: the turn it argues for is now.
@@ -379,8 +450,26 @@ function retracementTiming(daily: Bar[]): Pick<SecondaryTimeReading, "retracemen
 /** Every retracement level reached inside its paired angle's time window, from the fans' anchors. */
 export function readRetracementTimingHits(bars: Bar[]): (RetracementTimingHit & { windowEnd: number })[] {
   if (bars.length < 20) return [];
+  return retracementHitsFrom(bars, fanAnchors(bars), RETRACEMENT_ANGLE_PAIRS);
+}
+
+/** Every pivot (on the fans' pivot strength) with the swing that made it, as `fanAnchors` pairs its two. */
+function everyAnchor(bars: Bar[]): ReturnType<typeof fanAnchors> {
+  if (bars.length < 20) return [];
+  const pivots = findPivots(bars, 4);
+  return pivots.map((anchor, i) => {
+    const preceding = pivots.slice(0, i).reverse().find((p) => p.kind !== anchor.kind) ?? null;
+    return { anchor, preceding, baseIntervalMs: preceding ? Date.parse(anchor.bar.t) - Date.parse(preceding.bar.t) : null };
+  });
+}
+
+function retracementHitsFrom(
+  bars: Bar[],
+  anchors: ReturnType<typeof fanAnchors>,
+  pairs: readonly (typeof RETRACEMENT_ANGLE_PAIRS)[number][],
+): (RetracementTimingHit & { windowEnd: number })[] {
   const out: (RetracementTimingHit & { windowEnd: number })[] = [];
-  for (const { anchor, preceding, baseIntervalMs } of fanAnchors(bars)) {
+  for (const { anchor, preceding, baseIntervalMs } of anchors) {
     if (!preceding || baseIntervalMs === null || baseIntervalMs <= 0) continue;
     const range = Math.abs(anchor.price - preceding.price);
     if (range <= 0) continue;
@@ -388,9 +477,13 @@ export function readRetracementTimingHits(bars: Bar[]): (RetracementTimingHit & 
     const tol = Math.max(DAY_MS, baseIntervalMs / 16);
     // From a low the counter-move rises back into the fall; from a high it falls.
     const sign = anchor.kind === "low" ? 1 : -1;
-    for (const p of RETRACEMENT_ANGLE_PAIRS) {
+    for (const p of pairs) {
       const level = anchor.price + sign * p.fraction * range;
-      const due = t0 + (p.fraction / p.ratio) * baseIntervalMs;
+      // The angle's time multiple (`FAN_TIME_RATIOS`, W033: a 1xN angle
+      // takes 1/N of the square's time to the whole range, an Nx1 angle N
+      // times it) applied to the fraction of the range: f of the way at f
+      // times the angle's time.
+      const due = t0 + p.fraction * p.ratio * baseIntervalMs;
       for (let i = anchor.index + 1; i < bars.length; i++) {
         const t = Date.parse(bars[i].t);
         if (t < due - tol) continue;

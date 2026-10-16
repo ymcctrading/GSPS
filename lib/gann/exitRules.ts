@@ -212,12 +212,14 @@ export function readGannExit(
   // making new extremes in its third month (A-TIME-01/-02), or a monthly break
   // whose reaction went under the previous section's top (A-TREND-06). Only
   // when the call was not already standing at entry: one that was is part of
-  // the setup, the same rule as the over-balance above.
+  // the setup, the same rule as the over-balance above. The same call means
+  // the same reaction, counted from the same section top; a new section's
+  // own call after the fill exits (item 7 second review L-c).
   const sectionChange = (l: NonNullable<typeof ledger>) =>
     l.counterMoveThirdMonth || (l.monthlyBreakInReaction && l.reactionBelowPriorSection);
   if (!exit && withCampaign && sectionChange(ledger!)) {
     const atEntry = buildCampaignLedger(daily.slice(0, firstAfter));
-    if (!(atEntry && atEntry.trend === ledger!.trend && sectionChange(atEntry))) {
+    if (!(atEntry && atEntry.trend === ledger!.trend && atEntry.sectionTopDate === ledger!.sectionTopDate && sectionChange(atEntry))) {
       exit = {
         reason: "trend_change",
         note: ledger!.counterMoveThirdMonth

@@ -473,6 +473,11 @@ export interface InstrumentFacts {
   marketDaily?: Bar[] | null;
   /** The stock's monthly bars, for the weak-stock readings (`readWeakStock`). */
   monthly?: Bar[] | null;
+  /**
+   * The stock's monthly bars over `LONG_MONTHLY_YEARS`, for the long month
+   * counts (C-TIME-09/-12, A-TIME-05/-21) only. Falls back to `monthly`.
+   */
+  monthlyLong?: Bar[] | null;
   /** The market's monthly bars (SPY), to date its bull market (`readWeakStock`). */
   marketMonthly?: Bar[] | null;
 }
@@ -515,6 +520,7 @@ export function readDisclosedRules(
   const counterMove = readCounterMove(dailyBars);
   // The market's months with the month so far from its daily bars, as the
   // live scan's monthly bars have it; the replay passes closed months only.
+  const longMonthly = instrument?.monthlyLong ?? instrument?.monthly ?? null;
   const marketMonthly = instrument?.marketMonthly
     ? monthlyWithCurrent(instrument.marketMonthly, (instrument.marketDaily ?? []).filter((b) => b.t <= dailyBars[dailyBars.length - 1].t))
     : null;
@@ -547,8 +553,8 @@ export function readDisclosedRules(
     halfwayRetest: readHalfwayRetest(dailyBars),
     narrowRangeBreak: readNarrowRangeBreak(dailyBars),
     narrowWeekBreak: readNarrowWeekBreak(toWeeklyBars(dailyBars)),
-    secondaryTime: readSecondaryTime(dailyBars, instrument?.monthly ?? null, asOf, counterMove),
-    monthCounts: instrument?.monthly ? readMonthCounts(monthlyWithCurrent(instrument.monthly, dailyBars), asOf) : null,
+    secondaryTime: readSecondaryTime(dailyBars, longMonthly, asOf, counterMove),
+    monthCounts: longMonthly ? readMonthCounts(monthlyWithCurrent(longMonthly, dailyBars), asOf) : null,
     bearDuration: marketMonthly ? readBearDuration(marketMonthly, asOf) : null,
     asOf: asOf.toISOString().slice(0, 10),
   };
@@ -639,7 +645,9 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
       secondMonth: "into a second month, which strong trends seldom reach",
       thirdMonth: ctx.campaign?.counterMoveThirdMonth
         ? "in its third month, which signals a change in trend"
-        : "past two months, though it has made no new extreme in its third month",
+        : ctx.campaign
+          ? "past two months, though it has made no new extreme in its third month"
+          : "past two months",
     }[ctx.counterMove.phase];
     lines.push(`Counter-move against the ${ctx.counterMove.trend} trend: ${ctx.counterMove.days} days, ${note}.`);
   }

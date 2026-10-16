@@ -179,4 +179,10 @@
 // add waits until the trade has shown a profit at its first close and again
 // three days on; a first close against the trade is shown as a warning. In the
 // replay's pyramid and the live add suggestion alike.
-export const STRATEGY_VERSION = "2026-10-16-gann-hold-time";
+// Item 7 second review, 2026-10-16: Gann's change-of-trend exit compares the
+// reaction itself, so a new section's own third-month or section call after
+// the fill exits even when the last section's call stood at entry (L-c). The
+// class C time readings were corrected (angle timing, weekday day counts, the
+// 90-day half-and-half record, the seasonal steps' dates, and 13 years of
+// monthly bars for the 144-month count); those are context only.
+export const STRATEGY_VERSION = "2026-10-16-gann-section-exits";

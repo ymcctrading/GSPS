@@ -12,6 +12,7 @@ import {
   readCircleDivisions,
   readCycleFractions,
   readSeasonalFineStep,
+  SEASONAL_FRAME,
   readSecondaryDayCounts,
   readSecondaryMonthCounts,
   readSecondaryWeekCounts,
@@ -53,6 +54,29 @@ describe("secondary day counts (C-TIME-19, W003 p.19)", () => {
     for (const d of [23, 45, 46, 49]) {
       expect(fromLow(readSecondaryDayCounts(withPivotLow(d + 1))).map((h) => h.count)).toEqual([d]);
     }
+  });
+
+  it("on weekday bars, flags each count on the first session on or after it, once", () => {
+    // Weekdays from Monday 2026-01-05; the low on Thursday 2026-02-12 (index 28).
+    const dates: string[] = [];
+    for (let d = Date.UTC(2026, 0, 5); dates.length < 90; d += DAY) {
+      const wd = new Date(d).getUTCDay();
+      if (wd !== 0 && wd !== 6) dates.push(new Date(d).toISOString());
+    }
+    const closes = [...Array.from({ length: 29 }, (_, i) => 150 - i * 1.5), ...Array.from({ length: 61 }, (_, i) => 110 + i * 0.5 + (i % 6 < 3 ? 0 : -1))];
+    const bars = closes.map((c, i) => bar(dates[i], c));
+    const low = "2026-02-12";
+    expect(new Date(`${low}T00:00:00Z`).getUTCDay()).toBe(4);
+    const age = (i: number) => (Date.parse(dates[i]) - Date.parse(`${low}T00:00:00Z`)) / DAY;
+    const counted = (n: number) => readSecondaryDayCounts(bars.slice(0, n + 1)).filter((h) => h.pivotDate === low).map((h) => h.label);
+    for (const [target, label] of [[23, "23 days"], [45, "45-46 days"], [49, "49 days"]] as const) {
+      const first = dates.findIndex((_, i) => age(i) >= target);
+      expect(counted(first)).toEqual([label]);
+      expect(counted(first + 1)).toEqual([]);
+      expect(counted(first - 1)).toEqual([]);
+    }
+    // Day 23 falls on a Saturday: it is read on the Monday.
+    expect(age(dates.findIndex((_, i) => age(i) >= 23))).toBe(25);
   });
 
   it("flags nothing on the days beside them", () => {
@@ -110,6 +134,29 @@ describe("fractions of a long cycle (C-TIME-12, W003 p.18)", () => {
     expect(labels).toContain("1/8 of the 30-year cycle");
     expect(readCycleFractions(monthly, monthAfter(10, 44))).toEqual([]);
   });
+
+  it("rounds a fraction that is not a whole month to the nearest month", () => {
+    // 1/8 of 5 years is 7.5 months, read in month 8; 1/8 of 7 years, 10.5, in month 11.
+    const monthly = monthlyWithLow(10, 60);
+    expect(fromAny(readCycleFractions(monthly, monthAfter(10, 8)))).toContain("1/8 of the 5-year cycle");
+    expect(fromAny(readCycleFractions(monthly, monthAfter(10, 7)))).not.toContain("1/8 of the 5-year cycle");
+    expect(fromAny(readCycleFractions(monthly, monthAfter(10, 11)))).toContain("1/8 of the 7-year cycle");
+    expect(fromAny(readCycleFractions(monthly, monthAfter(10, 10)))).not.toContain("1/8 of the 7-year cycle");
+  });
+
+  it("takes the month counts' and fractions' direction from the anchor: a low argues up", () => {
+    const ctx = readDisclosedRules(withPivotLow(20), 120, null, after(19));
+    const low = { pivotDate: LOW_DATE, pivotKind: "low" as const, count: 6, label: "6 months" };
+    const high = { ...low, pivotKind: "high" as const };
+    for (const key of ["monthCounts", "cycleFractions"] as const) {
+      const factor = key === "monthCounts" ? "secondaryMonthCountWithTrade" : "cycleFractionWithTrade";
+      for (const [hits, bullish, bearish] of [[[low], true, false], [[high], false, true]] as const) {
+        const c = { ...ctx, secondaryTime: { ...ctx.secondaryTime!, [key]: hits } };
+        expect(contextFactorsFor(c, "bullish", 120)[factor]).toBe(bullish);
+        expect(contextFactorsFor(c, "bearish", 120)[factor]).toBe(bearish);
+      }
+    }
+  });
 });
 
 function fromAny(hs: { pivotKind: string; label: string }[]): string[] {
@@ -128,6 +175,26 @@ describe("finer seasonal steps (C-TIME-37/-38)", () => {
   it("reads the 22.5 degree point on April 12 and the 15 degree point on April 5", () => {
     expect(readSeasonalFineStep(new Date(Date.UTC(2026, 3, 12)))).toMatchObject({ degrees: 22.5, offsetDays: 0 });
     expect(readSeasonalFineStep(new Date(Date.UTC(2026, 3, 5)))).toMatchObject({ degrees: 15, offsetDays: 0 });
+  });
+
+  it("is open a day either side of a step and closed at two", () => {
+    expect(readSeasonalFineStep(new Date(Date.UTC(2026, 3, 11)))).toMatchObject({ degrees: 22.5, offsetDays: -1 });
+    expect(readSeasonalFineStep(new Date(Date.UTC(2026, 3, 10)))).toBeNull();
+    expect(readSeasonalFineStep(new Date(Date.UTC(2026, 3, 14)))).toBeNull();
+  });
+
+  it("places each step between the class A points around it, so it stays on the sources' dates through the year", () => {
+    // The frame is the class A points' own dates.
+    expect(SEASONAL_FRAME.slice(1, -1).map((p) => `${p.month}-${p.day}`).sort()).toEqual(
+      SEASONAL_POINTS.filter((p) => p.label !== "the full year").map((p) => `${p.month}-${p.day}`).sort(),
+    );
+    // 195° is a third of the way from Sep 22 (180°) to Nov 8 (225°).
+    expect(readSeasonalFineStep(new Date(Date.UTC(2026, 9, 7)))).toMatchObject({ degrees: 195, offsetDays: 0 });
+    // 337.5° is half way from Feb 4 (315°) to Mar 21 (360°), in the next calendar year.
+    expect(readSeasonalFineStep(new Date(Date.UTC(2027, 1, 26)))).toMatchObject({ degrees: 337.5, offsetDays: 0 });
+    // Across the new year: 285° a third and 292.5° half way from Dec 21 (270°) to Feb 4 (315°).
+    expect(readSeasonalFineStep(new Date(Date.UTC(2027, 0, 5)))).toMatchObject({ degrees: 285, offsetDays: 0 });
+    expect(readSeasonalFineStep(new Date(Date.UTC(2027, 0, 12)))).toMatchObject({ degrees: 292.5, offsetDays: 0 });
   });
 
   it("leaves the class A seasonal points and the days between steps alone", () => {
@@ -239,6 +306,9 @@ describe("the fan as a time calculator (C-TIME-40, W033 pp.1-3)", () => {
     expect(due(60)).toEqual(["3x1"]);
     expect(due(160)).toEqual(["8x1"]);
     expect(due(100)).toEqual([]);
+    // Open two days either side, closed at three.
+    expect(due(62)).toEqual(["3x1"]);
+    expect(due(63)).toEqual([]);
     const lines = describeSecondaryTime(readSecondaryTime(b, null, new Date(lowMs + 60 * DAY)));
     expect(lines.some((l) => l.startsWith("The 3x1 time ratio from the last low comes due"))).toBe(true);
   });
@@ -257,13 +327,18 @@ describe("a retracement reached at its angle's time (C-TIME-39, W031) and half t
     expect(hits.map((h) => `${h.label} ${h.angle} ${h.date}`)).toEqual(["1/2 1x1 2026-02-10"]);
   });
 
-  it("does not flag the 50% level reached on another date, and pairs 3/8 with the 1x2", () => {
-    // At half the speed, 50% comes at day 20 of the rise, outside the 1x1's window;
-    // 3/8 then comes at day 15, which is the 1x2's own time.
-    const hits = readRetracementTimingHits(swing(0.5, 25));
-    expect(hits.some((h) => h.label === "1/2")).toBe(false);
-    expect(hits.map((h) => `${h.label} ${h.angle}`)).toEqual(["3/8 1x2"]);
+  it("does not flag the 50% level reached on another date, and times each fraction by its angle's time", () => {
+    // At half the speed, 50% comes at day 21 of the rise, outside the 1x1's window.
+    expect(readRetracementTimingHits(swing(0.5, 25)).some((h) => h.label === "1/2")).toBe(false);
+    // The 1x2 takes half the square's time (W033), so 3/8 is due at 3/8 x 1/2 x 20 =
+    // 3.75 days: a rise of 1.8 a day reaches it on day 4 (and 1/8 on the 1x8's day 1).
+    expect(readRetracementTimingHits(swing(1.8, 25)).map((h) => `${h.label} ${h.angle} ${h.date}`)).toEqual([
+      "1/8 1x8 2026-02-01",
+      "3/8 1x2 2026-02-04",
+    ]);
     expect(readRetracementTimingHits(swing(1, 25)).some((h) => h.label === "3/8")).toBe(false);
+    // The 3x1 takes three times it, so 2/3 is due at day 40, not day 4.4.
+    expect(readRetracementTimingHits(swing(0.35, 45)).map((h) => `${h.label} ${h.angle}`)).toEqual(["2/3 3x1"]);
   });
 
   it("allows a sixteenth of the swing's time either side, not more", () => {
@@ -281,6 +356,12 @@ describe("a retracement reached at its angle's time (C-TIME-39, W031) and half t
     expect(later.halfPriceHalfTime?.date).toBe("2026-02-10");
     const b = legs([[10, 1], [20, -1], [10, 1], [100, 0.01]]);
     expect(readSecondaryTime(b, null, new Date(b[b.length - 1].t)).halfPriceHalfTime).toBeNull();
+    const eighty = legs([[10, 1], [20, -1], [10, 1], [80, 0.01]]);
+    expect(readSecondaryTime(eighty, null, new Date(eighty[eighty.length - 1].t)).halfPriceHalfTime?.date).toBe("2026-02-10");
+    // A small dip after the meeting makes newer swings; the meeting is still kept.
+    const dip = legs([[10, 1], [20, -1], [10, 1], [5, 1], [3, -1], [10, 0.3]]);
+    expect(readRetracementTimingHits(dip).some((h) => h.date === "2026-02-10")).toBe(false);
+    expect(readSecondaryTime(dip, null, new Date(dip[dip.length - 1].t)).halfPriceHalfTime?.date).toBe("2026-02-10");
   });
 
   it("counts a turn due against the trade and records it on the card", () => {

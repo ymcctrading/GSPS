@@ -204,4 +204,33 @@ describe("a change of trend from the campaign ledger after entry (item 7 review 
     const exit = readGannExit(position(bars, CAMPAIGN.length + 65, { initialStop: 90 }), bars, 108).exit;
     expect(exit?.reason).not.toBe("trend_change");
   });
+
+  it("exits when a month breaks and the reaction goes under the previous section's top after the fill (A-TREND-06)", () => {
+    // Sections topping at 100 and 120 (the reaction between them 50%, so this one over-balances nothing).
+    const campaign = [...leg(30, 40, 20), ...leg(40, 100, 60), ...leg(100, 50, 60), ...leg(50, 120, 100)];
+    // From 120: down to 105, a bounce (the entry), then under 100 inside two months.
+    const bars = daily([...campaign, ...leg(120, 105, 10), ...leg(105, 108, 4), ...leg(108, 95, 26)]);
+    const r = readGannExit(position(bars, campaign.length + 10, { initialStop: 70 }), bars, 108);
+    expect(r.exit?.reason).toBe("trend_change");
+    expect(r.exit?.note).toContain("previous section's top");
+    // Before the reaction went under 100, no exit.
+    const before = daily([...campaign, ...leg(120, 105, 10), ...leg(105, 108, 4), ...leg(108, 101, 10)]);
+    expect(readGannExit(position(before, campaign.length + 10, { initialStop: 70 }), before, 108).exit).toBeNull();
+  });
+
+  it("does not exit on the reaction under the previous section's top while no month has broken the one before", () => {
+    // A fast climb from 50 to 120 through June, then a reaction under 100 inside July:
+    // July's low stays above June's, so no month broke.
+    const campaign = [...leg(30, 40, 20), ...leg(40, 100, 60), ...leg(100, 50, 60), ...leg(50, 120, 40)];
+    const bars = daily([...campaign, ...leg(120, 105, 10), ...leg(105, 108, 4), ...leg(108, 95, 16)]);
+    expect(bars[bars.length - 1].t.slice(0, 7)).toBe("2026-07");
+    expect(readGannExit(position(bars, campaign.length + 10, { initialStop: 70 }), bars, 108).exit?.reason).not.toBe("trend_change");
+  });
+
+  it("exits on a new section's own call after the fill, even when the last section's call stood at entry (item 7 second review L-c)", () => {
+    // Entered with the third-month call standing, then a new record top at 130 and a reaction from it into its third month.
+    const bars = daily([...CAMPAIGN, ...leg(120, 106, 65), ...leg(106, 108, 4), ...leg(108, 130, 30), ...leg(130, 118, 70)]);
+    const exit = readGannExit(position(bars, CAMPAIGN.length + 65, { initialStop: 90 }), bars, 130).exit;
+    expect(exit?.reason).toBe("trend_change");
+  });
 });

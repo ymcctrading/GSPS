@@ -140,7 +140,7 @@ export async function scanTicker(
     // The stored shares outstanding and inception date (parity roadmap D2,
     // D3) load alongside the bars. The whole table is read once per server
     // instance and cached, so after the first symbol this resolves at once.
-    const [{ monthly, weekly, daily, hourly, execution }, currentPrice, instrumentReference, marketDaily, marketMonthly] = await Promise.all([
+    const [{ monthly, monthlyLong, weekly, daily, hourly, execution }, currentPrice, instrumentReference, marketDaily, marketMonthly] = await Promise.all([
       prefetched ?? fetchAllTimeframes(symbol, assetClass, EXECUTION_TIMEFRAME),
       provider.fetchLatestPrice(symbol, assetClass),
       assetClass === "us_equity" ? getInstrumentReference(symbol) : Promise.resolve(null),
@@ -502,9 +502,9 @@ export async function scanTicker(
           currentPrice,
           direction: scoreDirection,
           instrument: instrumentReference
-            ? { ...instrumentReference, marketDaily, monthly, marketMonthly }
+            ? { ...instrumentReference, marketDaily, monthly, monthlyLong, marketMonthly }
             : marketDaily
-              ? { sharesOutstanding: null, inception: null, marketDaily, monthly, marketMonthly }
+              ? { sharesOutstanding: null, inception: null, marketDaily, monthly, monthlyLong, marketMonthly }
               : null,
         })
       : null;

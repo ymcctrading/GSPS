@@ -48,6 +48,11 @@ describe("a reaction into its third month (A-TIME-01)", () => {
     const lines = describeDisclosedRules(readDisclosedRules(held, 106));
     expect(lines.some((l) => l.includes("past two months, though it has made no new extreme in its third month"))).toBe(true);
     expect(lines.some((l) => l.includes("signals a change in trend"))).toBe(false);
+    // With no campaign read, the line makes no claim about the third month either way.
+    const ctx = readDisclosedRules(held, 106);
+    const noCampaign = describeDisclosedRules({ ...ctx, campaign: null });
+    const line = noCampaign.find((l) => l.startsWith("Counter-move against") && l.includes("past two months"));
+    expect(line).toMatch(/past two months\.$/);
   });
 
   it("counts a two-leg reaction from the section's top, not from its lower bounce (item 6 second review F1)", () => {

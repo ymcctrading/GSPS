@@ -481,6 +481,43 @@ describe("replay yearCycleHits", () => {
     expect(r.trades.every((t) => t.yearCycleHits === undefined)).toBe(true);
   });
 
+  it("reads the long month counts from the longer monthly series, as the live scan does (C-TIME-09)", () => {
+    // Monthly bars from Jan 2012 with a V pivoting in Jan 2014, 144 months before the session.
+    const long: Bar[] = [];
+    for (let i = 0; i < 168; i++) {
+      const c = SIDE < 0 ? 300 - Math.abs(i - 24) * 1.5 : 100 + Math.abs(i - 24) * 1.5;
+      long.push({ t: new Date(Date.UTC(2012, i, 1)).toISOString(), o: c, h: c + 1, l: c - 1, c, v: 1000 });
+    }
+    const tenYears = long.filter((b) => b.t >= "2016-01");
+    const base = { entryRule: "stop" as const, targetR: 2, dailyBars: janDaily, monthlyBars: tenYears, marketDailyBars: [] };
+    const withLong = replay("TEST", janBars, { ...base, longMonthlyBars: long });
+    expect(withLong.trades.length).toBeGreaterThan(0);
+    for (const t of withLong.trades) expect(t.contextFactors?.secondaryMonthCountWithTrade).toBe(true);
+    for (const t of replay("TEST", janBars, base).trades) expect(t.contextFactors?.secondaryMonthCountWithTrade).toBe(false);
+    // Months at or after the session stay out of it.
+    const future: Bar[] = [];
+    for (let i = 0; i < 36; i++) {
+      const c = 200 + 190 * Math.sin((i / 6) * 2 * Math.PI);
+      future.push({ t: new Date(Date.UTC(2026, i, 1)).toISOString(), o: c, h: c + 1, l: c - 1, c, v: 1000 });
+    }
+    const seenFuture = replay("TEST", janBars, { ...base, longMonthlyBars: [...long, ...future] });
+    expect(seenFuture.trades.map((t) => t.contextFactors)).toEqual(withLong.trades.map((t) => t.contextFactors));
+  });
+
+  it("caps the longer series at the live scan's span before each session", () => {
+    // A V pivoting in Jan 2011, 180 months (3/4 of the 20-year cycle) before
+    // the session: past the long span, so the live scan never holds it.
+    const old: Bar[] = [];
+    for (let i = 0; i < 180; i++) {
+      const c = SIDE < 0 ? 300 - Math.abs(i - 12) * 1.5 : 100 + Math.abs(i - 12) * 1.5;
+      old.push({ t: new Date(Date.UTC(2010, i, 1)).toISOString(), o: c, h: c + 1, l: c - 1, c, v: 1000 });
+    }
+    const base = { entryRule: "stop" as const, targetR: 2, dailyBars: janDaily, monthlyBars: old.filter((b) => b.t >= "2016-01"), marketDailyBars: [] };
+    const r = replay("TEST", janBars, { ...base, longMonthlyBars: old });
+    expect(r.trades.length).toBeGreaterThan(0);
+    for (const t of r.trades) expect(t.contextFactors?.cycleFractionWithTrade).toBe(false);
+  });
+
   it("cannot see months at or after the trade", () => {
     const history = monthlyPivot();
     // Three years of violent swings from Jan 2026 on. Read without the guard,
