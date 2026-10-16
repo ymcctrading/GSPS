@@ -8,6 +8,7 @@ import {
   readFanTimeRatios,
   readRetracementTimingHits,
   readTimeBalanceSpans,
+  falseBreakAt,
   shortCounterMovePhase,
   readCircleDivisions,
   readCycleFractions,
@@ -282,6 +283,22 @@ describe("time balance from top to top and bottom to bottom (C-TIME-42, W032)", 
     const three = (n: number) => legs([[30, 1], [20, -1], [20, 1], [10, -1], [30, 1], [20, -1], [n, 1]]);
     expect(readTimeBalanceSpans(three(20)).map((b) => b.kind)).toEqual(["top"]);
     expect(readTimeBalanceSpans(three(60))).toEqual([]);
+  });
+
+  it("confirms a due turn with a false break: past the swing's extreme intraday, closed back inside it (C-STOP-03, W032)", () => {
+    const bars = swing(30);
+    const k = readTimeBalanceSpans(bars)[0];
+    expect(k).toMatchObject({ kind: "top", falseBreak: false });
+    const high = Math.max(...bars.slice(-30, -1).map((b) => b.h));
+    const last = bars[bars.length - 1];
+    const poked = [...bars.slice(0, -1), { ...last, h: high + 1, c: high - 0.5 }];
+    expect(readTimeBalanceSpans(poked)[0]).toMatchObject({ kind: "top", falseBreak: true });
+    // Closed past the high: a break, not a false one.
+    expect(readTimeBalanceSpans([...bars.slice(0, -1), { ...last, h: high + 1, c: high + 0.5 }])[0]?.falseBreak).not.toBe(true);
+    // The mirror, on its own: under the swing's low and closed back over it.
+    const down: Bar[] = [100, 98, 96, 94, 95].map((c, i) => ({ t: new Date(Date.UTC(2026, 0, 1 + i)).toISOString(), o: c, h: c + 0.5, l: c - 0.5, c, v: 1 }));
+    expect(falseBreakAt([...down, { ...down[4], t: "2026-01-06T00:00:00.000Z", l: 92, c: 94 }], 0, "bottom")).toBe(true);
+    expect(falseBreakAt([...down, { ...down[4], t: "2026-01-06T00:00:00.000Z", l: 92, c: 93 }], 0, "bottom")).toBe(false);
   });
 
   it("does not look for a bottom while the swing runs up from one", () => {

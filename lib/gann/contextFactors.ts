@@ -181,6 +181,12 @@ export function contextFactorsFor(
     const over = price > ctx.monthlyAngle.price;
     f.overMonthlyAngleAgreesWithTrade = bull ? over : !over;
   }
+  // Over the square down from the latest monthly top (C-LEVELS-08): with a
+  // long, against a short.
+  if (ctx.monthlySquareFromHigh) {
+    const over = price > ctx.monthlySquareFromHigh.price;
+    f.overSquareFromHighAgreesWithTrade = bull ? over : !over;
+  }
   // Double/triple tops and bottoms: crossed in the trade's direction, or a
   // failed test standing against it (the second or third since 2026-10-16,
   // A-LEVELS-04; the factor keeps its name so earlier runs still compare,
@@ -244,6 +250,8 @@ export function contextFactorsFor(
     }
     // A top due counts against a long, a bottom due against a short.
     if (st.timeBalanceSpans) f.timeBalanceTurnAgainstTrade = st.timeBalanceSpans.some((b) => b.kind === (bull ? "top" : "bottom"));
+    // A due bottom confirmed by a false break, with a long; a top, with a short (C-STOP-03).
+    if (st.timeBalanceSpans) f.timeBalanceFalseBreakWithTrade = st.timeBalanceSpans.some((b) => b.falseBreak && b.kind === (bull ? "bottom" : "top"));
     if (st.fanTimeRatios) f.fanTimeRatioActive = st.fanTimeRatios.length > 0;
     // A rise from a low meeting its level on time argues for a turn down,
     // against a long; a fall from a high, the mirror.

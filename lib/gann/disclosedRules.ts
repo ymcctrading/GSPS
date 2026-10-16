@@ -75,7 +75,7 @@ import { readNarrowRangeBreak, type NarrowRangeBreakReading } from "@/lib/gann/n
 import { readNarrowWeekBreak, type NarrowWeekBreakReading } from "@/lib/gann/narrowWeek";
 import { readTimeRules, type TimeRulesReading } from "@/lib/gann/timeRules";
 import { etDateKey } from "@/lib/market/session";
-import { computeMidpointFan, type MidpointFan } from "@/lib/gann/midpointFan";
+import { computeMidpointFan, readMonthlySquareFromHigh, type MonthlySquareReading, type MidpointFan } from "@/lib/gann/midpointFan";
 import { readCampaignBottoms, type CampaignBottomLadder } from "@/lib/gann/campaignBottoms";
 import {
   annualRange,
@@ -202,10 +202,15 @@ export function pricePercentageLevels(low: number, high: number): PricePercentag
   }
   // "100% of the low and multiples", second only to 50% (45 Years Ch. IV
   // p. 30, class A, page-checked 2026-10-16; the rye table runs to 700%,
-  // Commodities pp. 161-162): 200%, 300% ... above the low, inside the
-  // record (no higher than its high).
-  for (let m = 2; low * (1 + m) <= high; m++) {
+  // Commodities pp. 161-162): 200%, 300% ... above the low, projected up to
+  // 12 times the low (the compiler's 1-12 times, C-PRICE-02, W003 p.21) and
+  // past the record's high to the first multiple over it, so a market at a
+  // new high still has one ahead (batch review C1; the reach is an
+  // engineering choice, labelled).
+  const reach = Math.max(12 * low, high);
+  for (let m = 2; low > 0; m++) {
     levels.push({ price: low * (1 + m), label: `${m * 100}% above the low`, importance: 1, multiple: m });
+    if (low * (1 + m) >= reach) break;
   }
   levels.push({ price: high / 3, label: "1/3 of the high", importance: 2 });
   levels.push({ price: (high * 2) / 3, label: "2/3 of the high", importance: 2 });
@@ -531,6 +536,8 @@ export interface DisclosedRulesContext {
   integerSquares?: [number, number, number] | null;
   /** The 1-point-a-month line from the last campaign bottom, at the session's month (A-PRICE-05, context only). */
   monthlyAngle?: { from: number; fromMonth: string; price: number } | null;
+  /** The 1x1 down from the latest monthly top at 1 point a month (C-LEVELS-08, context only). */
+  monthlySquareFromHigh?: MonthlySquareReading | null;
   /** The last completed session left a narrow range: its volume over the range's average (A-VOLUME-10, context only). See `breakaway.ts`. */
   breakawayVolume?: BreakawayVolumeReading | null;
   /** The class C day, week, month, circle and seasonal counts (context only). See `secondaryTime.ts`. */
@@ -690,6 +697,7 @@ export function readDisclosedRules(
           price: monthlyAngle(campaignBottoms.bottoms[0].price, campaignBottoms.bottoms[0].month, STOCK_POINTS_PER_MONTH, etDateKey(asOf).slice(0, 7)),
         }
       : null,
+    monthlySquareFromHigh: readMonthlySquareFromHigh(longMonthly, asOf, STOCK_POINTS_PER_MONTH),
     breakawayVolume: readBreakawayVolume(dailyBars, asOf),
     secondTopVolumeRatio: computeVolumeClimax(dailyBars, undefined, { asOf }).find((r) => r.anchorKind === "high")?.retestWeekVolumeRatio ?? null,
     secondaryTime: readSecondaryTime(dailyBars, longMonthly, asOf, counterMove),
@@ -762,6 +770,10 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   if (ctx.monthlyAngle) {
     const m = ctx.monthlyAngle;
     lines.push(`The 45-degree line from the ${m.fromMonth} bottom (${m.from.toFixed(2)}) at 1 point a month stands at ${m.price.toFixed(2)}. Shown for context; it does not change the setup.`);
+  }
+  if (ctx.monthlySquareFromHigh) {
+    const q = ctx.monthlySquareFromHigh;
+    lines.push(`The square of price and time down from the ${q.fromMonth} top (${q.from.toFixed(2)}) at 1 point a month stands at ${q.price.toFixed(2)}. Not a level to trade on alone.`);
   }
   if (ctx.distributionStanding) {
     lines.push(`After a lower top, the narrow range broke down on ${ctx.distributionStanding.breakoutVolumeRatio.toFixed(1)}× its average volume: a sign of a further decline. A buy is held to Watch, and an open buy is closed, while price stays under the range, for up to 20 sessions after the break.`);

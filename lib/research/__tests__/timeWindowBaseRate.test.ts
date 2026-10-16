@@ -8,6 +8,7 @@ import {
   symbolWindows,
   WINDOW_DAYS,
   WINDOW_FAMILIES,
+  YEAR_CYCLE_FAMILY_YEARS,
   type SymbolWindows,
 } from "@/lib/research/timeWindowBaseRate";
 import { findPivots, majorPivots } from "@/lib/analysis/pivots";
@@ -33,7 +34,7 @@ function series(days: number, seed: number): { sessions: number[]; turns: number
   return { sessions, turns };
 }
 
-const empty = (): SymbolWindows["windows"] => ({ anniversary1: [], anniversary2: [], anniversary3: [], wheel: [], dayBands: [] });
+const empty = (): SymbolWindows["windows"] => ({ anniversary1: [], anniversary2: [], anniversary3: [], wheel: [], dayBands: [], yearCycles: [] });
 
 describe("time-window base rates", () => {
   it("gives a low p to windows planted on the turns and a high p to windows placed at random", () => {
@@ -118,6 +119,22 @@ describe("time-window base rates", () => {
     expect(wheel.holmSignificant).toBe(true);
     expect(wheel.beatsRandom).toBe(true);
     for (const f of report.families.filter((f) => f.family !== "wheel")) expect(f.beatsRandom).toBe(false);
+  });
+
+  it("corrects the long cycles' anniversaries with the rest: the year-cycle re-rank's counts (CYC-51)", () => {
+    expect(WINDOW_FAMILIES).toContain("yearCycles");
+    expect(YEAR_CYCLE_FAMILY_YEARS[0]).toBe(5);
+    const bars: Bar[] = Array.from({ length: 2300 }, (_, i) => {
+      const c = 100 + 20 * Math.sin((2 * Math.PI * i) / 180);
+      return { t: new Date(T0 + i * DAY).toISOString(), o: c, h: c + 1, l: c - 1, c, v: 1000 };
+    });
+    const w = symbolWindows(bars);
+    const anchors = majorPivots(findPivots(bars, 5)).map((p) => Date.parse(p.bar.t.slice(0, 10)));
+    expect(w.windows.yearCycles.length).toBeGreaterThan(0);
+    for (const [a] of w.windows.yearCycles) {
+      const mid = a + 2 * DAY;
+      expect(anchors.some((t) => { const d = new Date(t); d.setUTCFullYear(d.getUTCFullYear() + 5); return d.getTime() === mid; })).toBe(true);
+    }
   });
 
   it("opens each family's windows from the record's major pivots, inside the record", () => {

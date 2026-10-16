@@ -88,8 +88,15 @@ describe("a narrow range breaking into a sharp move (C-ENTRY-02)", () => {
   });
 
   it("needs fifteen sessions before the range to know the average day", () => {
-    expect(readNarrowRangeBreak(daily([...WIDE.slice(-15), 100, 100.2, 99.9, 100.1, 102.5], 0.3))?.direction).toBe("bullish");
-    expect(readNarrowRangeBreak(daily([...WIDE.slice(-14), 100, 100.2, 99.9, 100.1, 102.5], 0.3))).toBeNull();
+    expect(readNarrowRangeBreak(daily([...WIDE.slice(-15), 100, 100.2, 99.9, 100.1, 102.5], 0.3))).toMatchObject({ days: 4 });
+    // Fourteen before the four days is fifteen before the last three of them.
+    expect(readNarrowRangeBreak(daily([...WIDE.slice(-14), 100, 100.2, 99.9, 100.1, 102.5], 0.3))).toMatchObject({ days: 3 });
+    expect(readNarrowRangeBreak(daily([...WIDE.slice(-13), 100, 100.2, 99.9, 100.1, 102.5], 0.3))).toBeNull();
+  });
+
+  it("reads a narrow three-day range beside a wide fourth day (batch review C1)", () => {
+    const bars = daily([...WIDE, 106, 100, 100.2, 99.9, 102.5], 0.3);
+    expect(readNarrowRangeBreak(bars)).toMatchObject({ direction: "bullish", days: 3 });
   });
 
   it("does not flag a narrow range until a close leaves it", () => {

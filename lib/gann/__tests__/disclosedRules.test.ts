@@ -56,11 +56,15 @@ describe("percentages of the extreme price (Commodities pp. 32-34)", () => {
     expect(levels.find((l) => l.label === "4/8 of the high")?.importance).toBe(1);
   });
 
-  it("C-PRICE-02: adds the multiples of the low inside the record (45 Years Ch. IV; rye to 700%)", () => {
+  it("C-PRICE-02: adds the multiples of the low, projected to 12 times it and past the high (45 Years Ch. IV; rye to 700%)", () => {
     const levels = pricePercentageLevels(10, 45);
     const multiples = levels.filter((l) => l.multiple !== undefined).map((l) => l.price);
-    // 200% and 300% above the low; 400% (50) is past the record's high.
-    expect(multiples).toEqual([30, 40]);
+    // 3, 4, 7, 9 and 12 times the low, past the record's high of 45.
+    for (const p of [30, 40, 70, 90, 120]) expect(multiples).toContain(p);
+    expect(Math.max(...multiples)).toBe(120);
+    expect(pricePercentageLevels(10, 120).filter((l) => l.multiple !== undefined).map((l) => l.price)).toEqual([30, 40, 50, 60, 70, 80, 90, 100, 110, 120]);
+    // A high past 12 times the low still has the first multiple over it.
+    expect(Math.max(...pricePercentageLevels(10, 135).map((l) => l.price))).toBe(140);
     expect(levels.find((l) => l.price === 30)).toMatchObject({ label: "200% above the low", importance: 1 });
     // The 1929 top: 500% above 64 is 384.
     expect(pricePercentageLevels(64, 390).find((l) => l.label === "500% above the low")?.price).toBe(384);

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import { atr } from "@/lib/analysis/pivots";
 import { computeMidpointFan } from "@/lib/gann/midpointFan";
-import { squareFromHigh } from "@/lib/gann/midpointFan";
+import { readMonthlySquareFromHigh, squareFromHigh, squareFromLow } from "@/lib/gann/midpointFan";
 
 const DAY = 86_400_000;
 const daily = (closes: number[]): Bar[] =>
@@ -57,5 +57,28 @@ describe("C-LEVELS-08: squaring price with time from a high", () => {
 
   it("brings a 100-point fall in about 100 months at the Master Course's 1 a month", () => {
     expect(squareFromHigh(100, 1, 100)).toBe(0);
+  });
+
+  it("mirrors up from a low (batch review C1)", () => {
+    expect(squareFromLow(60, 1, 60)).toBe(120);
+    expect(squareFromLow(60, 1, 15)).toBe(75);
+  });
+
+  // Monthly bars rising to a top in 2024-06 (high 200), then falling.
+  const highs = [...Array.from({ length: 18 }, (_, i) => 115 + 4 * i), 200, ...Array.from({ length: 21 }, (_, i) => 190 - 3 * i)];
+  const monthly: Bar[] = highs.map((h, i) => ({ t: new Date(Date.UTC(2022, 11 + i, 1)).toISOString(), o: h - 5, h, l: h - 10, c: h - 5, v: 1e6 }));
+  const asOf = new Date("2026-06-15T15:00:00Z");
+
+  it("reads the square down from the latest monthly top at 1 point a month, on the card and as a factor", async () => {
+    expect(monthly[18].t.slice(0, 7)).toBe("2024-06");
+    expect(readMonthlySquareFromHigh(monthly, asOf, 1)).toEqual({ fromMonth: "2024-06", from: 200, price: 176 });
+    expect(readMonthlySquareFromHigh(monthly, asOf, 9)).toBeNull();
+    const { readDisclosedRules, describeDisclosedRules } = await import("@/lib/gann/disclosedRules");
+    const { contextFactorsFor } = await import("@/lib/gann/contextFactors");
+    const ctx = readDisclosedRules(daily(line(150, 130, 40)), 130, { sharesOutstanding: null, inception: null, monthly }, asOf);
+    expect(ctx.monthlySquareFromHigh?.price).toBe(176);
+    expect(describeDisclosedRules(ctx).some((l) => l.includes("down from the 2024-06 top (200.00) at 1 point a month stands at 176.00"))).toBe(true);
+    expect(contextFactorsFor(ctx, "bullish", 130).overSquareFromHighAgreesWithTrade).toBe(false);
+    expect(contextFactorsFor(ctx, "bearish", 130).overSquareFromHighAgreesWithTrade).toBe(true);
   });
 });

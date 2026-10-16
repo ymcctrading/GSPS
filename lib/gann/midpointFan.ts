@@ -12,7 +12,12 @@
  * - C-LEVELS-08 (W003 p.20; Master Course: a 100-point fall needs about 100
  *   months): a 1x1 from a high reaches zero after as many units of time as the
  *   high has points. `squareFromHigh` is that line at a fixed rate, on any
- *   time unit; research-only for now, with no consumer.
+ *   time unit, and `squareFromLow` its mirror up from a low. The card reads
+ *   both on the monthly chart at the Master Course's 1 point a month
+ *   (`readMonthlySquares`): down from the latest monthly top, and up from the
+ *   latest campaign bottom (the same line as A-PRICE-05's 45-degree line).
+ *   The point the square closes is a date ahead, so it is not shown (no dated
+ *   window reaches members until measured); the line's price today is.
  *
  * Three-question basis:
  * 1. Gann: class C (W003), with the Master Course's monthly square as his own
@@ -25,6 +30,9 @@
 import type { Bar } from "@/lib/types";
 import { atr } from "@/lib/analysis/pivots";
 import { ANGLES, fanAnchors } from "@/lib/gann/fans";
+import { findPivots } from "@/lib/analysis/pivots";
+import { etDateKey } from "@/lib/market/session";
+import { OLDER_LEVELS_YEARS } from "@/lib/gann/entryTrigger";
 
 export interface MidpointFanLine {
   angle: string;
@@ -70,4 +78,37 @@ export function computeMidpointFan(bars: Bar[]): MidpointFan | null {
 /** A 1x1 from `high` falling `pointsPerUnit` a unit of time, after `units` (C-LEVELS-08). */
 export function squareFromHigh(high: number, pointsPerUnit: number, units: number): number {
   return high - pointsPerUnit * units;
+}
+
+/** The mirror: a 1x1 from `low` rising `pointsPerUnit` a unit of time, after `units` (C-LEVELS-08). */
+export function squareFromLow(low: number, pointsPerUnit: number, units: number): number {
+  return low + pointsPerUnit * units;
+}
+
+const monthsApart = (from: string, to: string) =>
+  (Number(to.slice(0, 4)) - Number(from.slice(0, 4))) * 12 + (Number(to.slice(5, 7)) - Number(from.slice(5, 7)));
+
+export interface MonthlySquareReading {
+  /** The latest monthly pivot top, "YYYY-MM", and its price. */
+  fromMonth: string;
+  from: number;
+  /** The 1x1 down from it, read this month. */
+  price: number;
+}
+
+/**
+ * The square down from the latest monthly top (C-LEVELS-08), at
+ * `pointsPerMonth`, on closed months over `OLDER_LEVELS_YEARS` (the window the
+ * campaign bottoms are read on). Null below zero: the square has closed.
+ */
+export function readMonthlySquareFromHigh(monthly: Bar[] | null | undefined, asOf: Date, pointsPerMonth: number): MonthlySquareReading | null {
+  if (!monthly || monthly.length < 24) return null;
+  const thisMonth = etDateKey(asOf).slice(0, 7);
+  const first = `${Number(thisMonth.slice(0, 4)) - OLDER_LEVELS_YEARS}-01`;
+  const months = monthly.filter((b) => b.t.slice(0, 7) >= first && b.t.slice(0, 7) < thisMonth);
+  const top = findPivots(months, 3).filter((p) => p.kind === "high").at(-1);
+  if (!top) return null;
+  const fromMonth = top.bar.t.slice(0, 7);
+  const price = squareFromHigh(top.price, pointsPerMonth, monthsApart(fromMonth, thisMonth));
+  return price > 0 ? { fromMonth, from: top.price, price } : null;
 }

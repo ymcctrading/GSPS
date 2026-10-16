@@ -20,7 +20,8 @@
  *                          uses since PLAN.md item 4. See ReplayOptions.entryRule
  *   ?reclaimPoints=5       how many of Gann's points a close must clear a broken
  *                          stop by for the plan to stand again: 3 (default, the
- *                          live scan's figure) or 5 (the stricter reading). See
+ *                          live scan's figure), 5 (the stricter reading) or 1
+ *                          (the 1-point penetration, C-STOP-04). See
  *                          ReplayOptions.reclaimPoints
  *   ?profile=intraday      walk the replay-only intraday profile (Gann's rules read
  *                          from the run's own bars, unscored) instead of the
@@ -161,8 +162,8 @@ export async function GET(req: NextRequest) {
   // Only the two pre-registered readings (docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md
   // Part 5). Rejected rather than coerced, so no third value gets searched.
   const reclaimPointsRaw = searchParams.get("reclaimPoints");
-  if (reclaimPointsRaw !== null && reclaimPointsRaw !== "3" && reclaimPointsRaw !== "5") {
-    return NextResponse.json({ error: `Invalid reclaimPoints '${reclaimPointsRaw}' (3 | 5)` }, { status: 400 });
+  if (reclaimPointsRaw !== null && !["1", "3", "5"].includes(reclaimPointsRaw)) {
+    return NextResponse.json({ error: `Invalid reclaimPoints '${reclaimPointsRaw}' (1 | 3 | 5)` }, { status: 400 });
   }
   const reclaimPoints = reclaimPointsRaw === null ? undefined : Number(reclaimPointsRaw);
 

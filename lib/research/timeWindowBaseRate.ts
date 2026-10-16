@@ -24,7 +24,9 @@
  *   pooled over every symbol.
  * - The base rate moves every window forward by s days, s = 1..364, keeping
  *   those still inside the record; p = (shifts scoring ≥ observed + 1) / 365.
- * - Holm–Bonferroni across the five families at family-wise 0.05.
+ * - Holm–Bonferroni across the six families at family-wise 0.05. The sixth,
+ *   the long cycles' anniversaries, was added 2026-10-16 (batch review C1) so
+ *   the shortlist's year-cycle re-rank is corrected with the rest.
  * - Reading rule: a family beats placement at random only if it is
  *   Holm-significant and its hit rate is above the shifted mean. Otherwise it
  *   stays context, and no hold may be built on it.
@@ -38,7 +40,7 @@
 import type { Bar } from "@/lib/types";
 import { findPivots, majorPivots } from "@/lib/analysis/pivots";
 import { WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
-import { DAY_COUNT_BANDS, WHEEL_COUNTS } from "@/lib/gann/timeCycles";
+import { DAY_COUNT_BANDS, MAJOR_CYCLE_YEARS, WHEEL_COUNTS } from "@/lib/gann/timeCycles";
 import { holm } from "@/lib/research/calendarTest";
 
 const DAY = 86_400_000;
@@ -46,7 +48,9 @@ const DAY = 86_400_000;
 export const WINDOW_DAYS = 2;
 export const SHIFTS = 364;
 
-export const WINDOW_FAMILIES = ["anniversary1", "anniversary2", "anniversary3", "wheel", "dayBands"] as const;
+export const WINDOW_FAMILIES = ["anniversary1", "anniversary2", "anniversary3", "wheel", "dayBands", "yearCycles"] as const;
+/** The long cycles' anniversaries (`MAJOR_CYCLE_YEARS` of 5 years and more), the counts the shortlist's year-cycle re-rank reads (CYC-51; batch review C1). */
+export const YEAR_CYCLE_FAMILY_YEARS: readonly number[] = MAJOR_CYCLE_YEARS.filter((y) => y >= 5);
 export type WindowFamily = (typeof WINDOW_FAMILIES)[number];
 
 export interface SymbolWindows {
@@ -66,7 +70,7 @@ export function symbolWindows(daily: Bar[]): SymbolWindows {
   const turns = walk.pivots.slice(0, -1).map((p) => p.index);
   const first = sessions[0] ?? 0;
   const last = sessions[sessions.length - 1] ?? 0;
-  const windows: Record<WindowFamily, [number, number][]> = { anniversary1: [], anniversary2: [], anniversary3: [], wheel: [], dayBands: [] };
+  const windows: Record<WindowFamily, [number, number][]> = { anniversary1: [], anniversary2: [], anniversary3: [], wheel: [], dayBands: [], yearCycles: [] };
   const keep = (family: WindowFamily, w: [number, number]) => {
     if (w[0] >= first && w[1] <= last) windows[family].push(w);
   };
@@ -76,6 +80,11 @@ export function symbolWindows(daily: Bar[]): SymbolWindows {
       const d = new Date(at);
       d.setUTCFullYear(d.getUTCFullYear() + k);
       keep(`anniversary${k}`, [d.getTime() - WINDOW_DAYS * DAY, d.getTime() + WINDOW_DAYS * DAY]);
+    }
+    for (const y of YEAR_CYCLE_FAMILY_YEARS) {
+      const d = new Date(at);
+      d.setUTCFullYear(d.getUTCFullYear() + y);
+      keep("yearCycles", [d.getTime() - WINDOW_DAYS * DAY, d.getTime() + WINDOW_DAYS * DAY]);
     }
     for (const c of WHEEL_COUNTS) keep("wheel", [at + (c - WINDOW_DAYS) * DAY, at + (c + WINDOW_DAYS) * DAY]);
     for (const [lo, hi] of DAY_COUNT_BANDS) keep("dayBands", [at + lo * DAY, at + hi * DAY]);
@@ -168,7 +177,7 @@ export function coverage(series: SymbolWindows[], families: readonly WindowFamil
 
 export interface BaseRateReport {
   families: FamilyResult[];
-  /** Share of sessions inside any of the five families' windows: what "a window is active" selects. */
+  /** Share of sessions inside any of the families' windows: what "a window is active" selects. */
   coverageAll: number;
 }
 

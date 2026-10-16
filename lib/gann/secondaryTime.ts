@@ -31,7 +31,8 @@
  *   last completed top-to-top (or bottom-to-bottom) span points to the next
  *   top (or bottom). The matching-leg balance (high to low, low to high) is
  *   the campaign ledger's `timeBalanceDates` already. W032 adds that a
- *   balance needs a price event to act on (C-STOP-03); here it only records.
+ *   balance needs a price event to act on (C-STOP-03): a false break, read
+ *   on the last session (`falseBreakAt`), as context.
  * - C-TIME-40 (W033 pp.1-3): the fan as a time calculator, every ratio from
  *   1x8 (12.5%) to 8x1 (800%) of the anchor swing's own duration, from the
  *   fans' own anchors. `ANGLES` (which feeds a quarantined score) is not
@@ -290,7 +291,8 @@ export interface SecondaryTimeReading {
   /** The open counter-move's length against the weekly trend, or null when not in one. */
   shortCounterMove?: { trend: "bullish" | "bearish"; tradingDays: number; phase: ShortCounterMovePhase } | null;
   /** Top-to-top and bottom-to-bottom balances due now. */
-  timeBalanceSpans?: { kind: "top" | "bottom"; priorWeeks: number; openWeeks: number }[];
+  /** `falseBreak`: the last session traded past the swing's extreme since the last opposite pivot and closed back inside it (C-STOP-03). */
+  timeBalanceSpans?: { kind: "top" | "bottom"; priorWeeks: number; openWeeks: number; falseBreak: boolean }[];
   /** Fan time ratios due within two days of today. */
   fanTimeRatios?: { label: string; anchorKind: "high" | "low"; date: string }[];
   /** Retracement levels reached at their angle's time, with the window still open today (C-TIME-39). */
@@ -418,10 +420,29 @@ export function readTimeBalanceSpans(bars: Bar[]): NonNullable<SecondaryTimeRead
     const priorWeeks = weeks(same[same.length - 2].index, same[same.length - 1].index);
     const openWeeks = weeks(same[same.length - 1].index, bars.length - 1);
     if (Math.abs(openWeeks - priorWeeks) <= TIME_BALANCE_TOLERANCE_WEEKS) {
-      out.push({ kind, priorWeeks: Math.round(priorWeeks * 10) / 10, openWeeks: Math.round(openWeeks * 10) / 10 });
+      out.push({ kind, priorWeeks: Math.round(priorWeeks * 10) / 10, openWeeks: Math.round(openWeeks * 10) / 10, falseBreak: falseBreakAt(bars, lastPivot.index, kind) });
     }
   }
   return out;
+}
+
+/**
+ * C-STOP-03 (W032 pp.5-6, class C): time alone is not enough; a false break
+ * confirms it. For a bottom due, the last session traded under the lowest low
+ * since the last top (`from`) and closed back over it; the mirror for a top.
+ * Engineering choice, labelled: "the prior low" is that swing's low before the
+ * last session. Context only.
+ */
+export function falseBreakAt(bars: Bar[], from: number, kind: "top" | "bottom"): boolean {
+  const last = bars[bars.length - 1];
+  const before = bars.slice(from, -1);
+  if (!last || before.length === 0) return false;
+  if (kind === "bottom") {
+    const low = Math.min(...before.map((b) => b.l));
+    return last.l < low && last.c > low;
+  }
+  const high = Math.max(...before.map((b) => b.h));
+  return last.h > high && last.c < high;
 }
 
 /** Fan time ratios (C-TIME-40) due within ±`windowDays` of `asOf`. */
@@ -569,7 +590,7 @@ export function describeSecondaryTime(r: SecondaryTimeReading): string[] {
     lines.push(`Counter-move against the ${scm.trend} trend: ${scm.tradingDays} trading days, ${note}. Shown for context; it does not change the setup.`);
   }
   for (const b of r.timeBalanceSpans ?? []) {
-    lines.push(`${b.openWeeks} weeks since the last ${b.kind}, against ${b.priorWeeks} weeks from ${b.kind} to ${b.kind} before it: time balances, so a ${b.kind} may be due. Shown for context; it does not change the setup.`);
+    lines.push(`${b.openWeeks} weeks since the last ${b.kind}, against ${b.priorWeeks} weeks from ${b.kind} to ${b.kind} before it: time balances, so a ${b.kind} may be due${b.falseBreak ? `, and the last session made a false break past the swing's ${b.kind === "bottom" ? "low" : "high"}, which confirms it` : ""}. Shown for context; it does not change the setup.`);
   }
   const rt = r.retracementTiming?.[0];
   if (rt) lines.push(`The ${rt.label} retracement (${rt.level.toFixed(2)}) was reached ${rt.date}, at the time the ${rt.angle} angle from the ${rt.anchorKind} gives: a turn is likelier. Shown for context; it does not change the setup.`);

@@ -67,6 +67,17 @@ describe("reclaimLevel", () => {
     expect(pctAt(20)).toBeGreaterThan(pctAt(500));
   });
 
+  it("reads the 1-point penetration as a third of the 3-point allowance, both ways (C-STOP-04)", () => {
+    expect(reclaimLevel("bullish", 88, 1) - 88).toBeCloseTo(gannThreePoints(88) / 3, 10);
+    expect(88 - reclaimLevel("bearish", 88, 1)).toBeCloseTo(gannThreePoints(88) / 3, 10);
+  });
+
+  it("lets the replay route measure 1, 3 or 5 points", async () => {
+    const fs = await import("node:fs");
+    const route = fs.readFileSync("app/api/backtest/route.ts", "utf8");
+    expect(route).toMatch(/\["1", "3", "5"\]\.includes\(reclaimPointsRaw\)/);
+  });
+
   it("defaults to his 3 points, and the replay can ask for the stricter 5", () => {
     expect(RECLAIM_POINTS).toBe(3);
     expect(RECLAIM_POINTS_STRICT).toBe(5);
