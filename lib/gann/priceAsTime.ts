@@ -150,6 +150,19 @@ export interface BalanceSide {
   points: number;
   weeks: number;
   balanced: boolean;
+  /**
+   * A-PRICE-03, Ch.4 PDF 151 ("price ahead of time") on TP-2's 52 scale:
+   * more points than weeks is ahead, fewer is behind, within the balance
+   * tolerance is balanced.
+   */
+  position: "ahead" | "behind" | "balanced";
+  /**
+   * A-PRICE-03, Ch.6 PDF 202: "a stock cannot maintain a gain of more than
+   * one point per month". Points up from the low against calendar months
+   * since it. Gann states it for a gain, so the side down from the high is
+   * always false.
+   */
+  beyondPointPerMonth: boolean;
 }
 
 /** Ch.18 TP-2: points moved from the low (or the high) against weeks since it. */
@@ -160,12 +173,21 @@ export function timePriceBalance(
   price: number,
   unit: number,
 ): { fromLow: BalanceSide; fromHigh: BalanceSide } {
-  const side = (p: DatedPrice, points: number): BalanceSide => {
-    const weeks = elapsedDays(p.date, lastDate) / 7;
+  const side = (p: DatedPrice, points: number, gain: boolean): BalanceSide => {
+    const days = elapsedDays(p.date, lastDate);
+    const weeks = days / 7;
     const pts = unit > 0 ? Math.round((points / unit) * 100) / 100 : 0;
-    return { pivotDate: p.date.slice(0, 10), points: pts, weeks, balanced: unit > 0 && pts >= MIN_POINTS && Math.abs(pts - weeks) <= BALANCE_TOLERANCE };
+    const position = Math.abs(pts - weeks) <= BALANCE_TOLERANCE ? "balanced" : pts > weeks ? "ahead" : "behind";
+    return {
+      pivotDate: p.date.slice(0, 10),
+      points: pts,
+      weeks,
+      balanced: unit > 0 && pts >= MIN_POINTS && Math.abs(pts - weeks) <= BALANCE_TOLERANCE,
+      position,
+      beyondPointPerMonth: gain && unit > 0 && pts > 0 && pts > days / DAYS_PER.months,
+    };
   };
-  return { fromLow: side(low, price - low.price), fromHigh: side(high, high.price - price) };
+  return { fromLow: side(low, price - low.price, true), fromHigh: side(high, high.price - price, false) };
 }
 
 // ---------------------------------------------------------------------------
@@ -395,7 +417,9 @@ export function describePriceAsTime(r: PriceAsTimeReading): string[] {
   if (r.upcoming) lines.push(`Next price-as-time date: ${r.upcoming.date}, the ${r.upcoming.source} (${fmt(r.upcoming.points)} points) counted in ${r.upcoming.unit}.`);
   for (const [name, b] of [["up from the low", r.balance.fromLow], ["down from the high", r.balance.fromHigh]] as const) {
     if (b.balanced) lines.push(`${fmt(b.points)} points ${name} in ${Math.round(b.weeks)} weeks: time and price balance.`);
+    else if (b.points >= MIN_POINTS) lines.push(`${fmt(b.points)} points ${name} in ${Math.round(b.weeks)} weeks: price is ${b.position} of time.`);
   }
+  if (r.balance.fromLow.beyondPointPerMonth) lines.push("The gain from the low runs more than one point a month, faster than a stock can hold.");
   for (const h of r.halving.hits) lines.push(`${h.days} days from the ${h.pivot} of ${h.pivotDate}: a term of the 20,736-day halving chain.`);
   if (r.twoPivot) {
     lines.push(

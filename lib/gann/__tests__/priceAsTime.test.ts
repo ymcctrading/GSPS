@@ -68,6 +68,33 @@ describe("Ch.18 TP-2: n points equal n weeks (Master Course PDF 440)", () => {
   });
 });
 
+describe("A-PRICE-03: price ahead of or behind time, and the one-point-a-month limit (Master Course Ch.4 PDF 151, Ch.6 PDF 202, Ch.18 TP-2 PDF 440)", () => {
+  it("reads price ahead of time when it has moved more points than weeks have run", () => {
+    // 60 points up from the low in 52 weeks: ahead of the 52 scale.
+    const b = timePriceBalance({ date: "2025-01-01", price: 50 }, { date: "2024-06-01", price: 200 }, addDays("2025-01-01", 364), 110, 1);
+    expect(b.fromLow.position).toBe("ahead");
+  });
+
+  it("reads price behind time when it has moved fewer points than weeks have run", () => {
+    const b = timePriceBalance({ date: "2025-01-01", price: 50 }, { date: "2024-06-01", price: 200 }, addDays("2025-01-01", 364), 80, 1);
+    expect(b.fromLow.position).toBe("behind");
+  });
+
+  it("reads balance on the scale itself", () => {
+    const b = timePriceBalance({ date: "2025-01-01", price: 50 }, { date: "2024-06-01", price: 200 }, addDays("2025-01-01", 364), 102, 1);
+    expect(b.fromLow.position).toBe("balanced");
+  });
+
+  it("flags a gain of more than one point a month from the low (PDF 202)", () => {
+    // 15 points up in about 12 months: more than one a month.
+    const fast = timePriceBalance({ date: "2025-01-01", price: 50 }, { date: "2024-06-01", price: 200 }, addDays("2025-01-01", 364), 65, 1);
+    expect(fast.fromLow.beyondPointPerMonth).toBe(true);
+    // 10 points in about 12 months: within it.
+    const slow = timePriceBalance({ date: "2025-01-01", price: 50 }, { date: "2024-06-01", price: 200 }, addDays("2025-01-01", 364), 60, 1);
+    expect(slow.fromLow.beyondPointPerMonth).toBe(false);
+  });
+});
+
 describe("C-TIME-20: fractions of the year from the low meeting fractions from the high (Master Course Ch.18 TP-2 PDF 440)", () => {
   it("flags the date where 1/4 year from the low meets 1/3 year from the high", () => {
     // High first, low 30 days later: 91 days from the low = 121 days from the high.
@@ -171,7 +198,7 @@ describe("price as time on the card and in the factor table", () => {
     const ctx = readDisclosedRules(bars, 42, { sharesOutstanding: null, inception: { date: "2010-05-01", precision: "day" } }, new Date("2025-07-20T21:00:00Z"));
     expect(ctx.priceAsTime).toBeTruthy();
     const f = contextFactorsFor(ctx, "bullish", 42);
-    for (const k of ["priceAsTimeOnCount", "priceTimeBalanceWeeks", "halvingChainDay", "twoPivotFractionMeet", "squareOf90Count", "marketDayEleventhCount", "squareOf90FromInception", "hexagonMonthFromInception"]) {
+    for (const k of ["priceAsTimeOnCount", "priceTimeBalanceWeeks", "priceAheadOfTime", "gainBeyondPointPerMonth", "halvingChainDay", "twoPivotFractionMeet", "squareOf90Count", "marketDayEleventhCount", "squareOf90FromInception", "hexagonMonthFromInception"]) {
       expect(typeof f[k]).toBe("boolean");
     }
     const noInception = contextFactorsFor(readDisclosedRules(bars, 42, null, new Date("2025-07-20T21:00:00Z")), "bullish", 42);
