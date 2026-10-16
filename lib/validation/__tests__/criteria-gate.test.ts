@@ -299,6 +299,23 @@ describe("cross-domain period matches never reach a verdict (CYC-41)", () => {
     expect(offenders.map((f) => path.relative(ROOT, f))).toEqual([]);
   });
 
+  // CYC-21 (Dewey, W039 pp.30-31): so many cycles exist that a period fitting a
+  // x2/x3 family from 17.75 years is easy, and periods are measured too
+  // crudely, so no criterion or gate may award credit for such a fit.
+  const FAMILY_FIT = /\b\w*(?:famil(?:y|ies)Fit|cycleFamil\w*|periodFamil\w*|harmonicFamil\w*|doublingFit|triplingFit|progressionFit)\w*\b/;
+  it("has no scored criterion or registry entry for a period's fit to a x2/x3 family (CYC-21)", () => {
+    for (const key of CRITERION_KEYS) expect(key).not.toMatch(/famil|progression|doubling|tripling/i);
+    for (const e of CRITERIA_REGISTRY) expect(e.id).not.toMatch(/famil|progression|doubling|tripling/i);
+  });
+
+  it("finds a family fit by name, and none on the verdict path (CYC-21)", () => {
+    expect(FAMILY_FIT.test("const credit = cycleFamilyMatch(period);")).toBe(true);
+    expect(FAMILY_FIT.test("const credit = harmonicFamilyScore(p);")).toBe(true);
+    expect(FAMILY_FIT.test("WHEEL_COUNTS halves and thirds")).toBe(false);
+    const offenders = verdictFiles().filter((f) => FAMILY_FIT.test(readFileSync(f, "utf8")));
+    expect(offenders.map((f) => path.relative(ROOT, f))).toEqual([]);
+  });
+
   it("never calls validateCycle outside its own module", () => {
     const callers = verdictFiles().filter((f) => path.relative(ROOT, f) !== "lib/gann/spectralCycle.ts" && /\bvalidateCycle\b/.test(readFileSync(f, "utf8")));
     expect(callers.map((f) => path.relative(ROOT, f))).toEqual([]);
