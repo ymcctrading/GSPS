@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
-import { buildCampaignLedger } from "../campaignLedger";
+import { buildCampaignLedger, describeCampaignLedger } from "../campaignLedger";
 import { contextFactorsFor } from "../contextFactors";
 import { readDisclosedRules } from "../disclosedRules";
 
@@ -97,5 +97,40 @@ describe("contextFactorsFor", () => {
     expect(typeof bull.dayCountBandActive).toBe("boolean");
     expect(bull.withWeeklyTrend).toBe(true);
     expect(bear.withWeeklyTrend).toBe(false);
+  });
+});
+
+describe("A-LEVELS-02: the top of a secondary rally is an important point to watch", () => {
+  const line = (from: number, to: number, n: number) => Array.from({ length: n }, (_, i) => from + ((to - from) * (i + 1)) / n);
+  /** The 1929-30 averages, scaled: a dip, the 386 top, the panic to 198, the secondary rally to 297, the fall to 155. */
+  const dow = [...line(300, 250, 15), ...line(250, 386, 40), ...line(386, 198, 40), ...line(198, 297, 30), ...line(297, 155, 40)];
+
+  it("names 297 as the secondary rally top of the bear campaign from 386", () => {
+    const l = buildCampaignLedger(daily(dow))!;
+    expect(l.trend).toBe("bearish");
+    expect(l.secondaryTurn?.kind).toBe("top");
+    expect(l.secondaryTurn?.price).toBeCloseTo(297.5, 6);
+  });
+
+  it("mirrors in a bull campaign: the secondary reaction's bottom", () => {
+    const l = buildCampaignLedger(daily(dow.map((c) => 500 - c)))!;
+    expect(l.trend).toBe("bullish");
+    expect(l.secondaryTurn).toMatchObject({ kind: "bottom" });
+    expect(l.secondaryTurn?.price).toBeCloseTo(202.5, 6);
+  });
+
+  it("is not named before the rally has ended", () => {
+    const early = [...line(300, 250, 15), ...line(250, 386, 40), ...line(386, 198, 40), ...line(198, 290, 28)];
+    expect(buildCampaignLedger(daily(early))?.secondaryTurn ?? null).toBeNull();
+  });
+
+  it("is on the card and counts with a short below it", () => {
+    const bars = daily(dow);
+    const ctx = readDisclosedRules(bars, 155);
+    expect(ctx.campaign?.secondaryTurn?.price).toBeCloseTo(297.5, 6);
+    expect(describeCampaignLedger(ctx.campaign!).some((s) => s.includes("secondary rally top") && s.includes("297.50"))).toBe(true);
+    expect(contextFactorsFor(ctx, "bearish", 155).belowSecondaryRallyTop).toBe(true);
+    expect(contextFactorsFor(ctx, "bullish", 155).belowSecondaryRallyTop).toBe(true);
+    expect(contextFactorsFor(ctx, "bearish", 300).belowSecondaryRallyTop).toBe(false);
   });
 });

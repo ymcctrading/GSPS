@@ -134,6 +134,18 @@ export interface CampaignLedger {
   /** Dates when the current move will have lasted as long as the matching prior leg. */
   timeBalanceDates: string[];
   firstYearHigh: { price: number; crossed: boolean } | null;
+  /**
+   * The top of the secondary rally (A-LEVELS-02, W006 p.13: after the 1929
+   * top, the rally to 297 in April 1930 "is always an important point to
+   * watch"): the first weekly-chart top after a bear campaign's start, once
+   * the chart has turned down from it. The bull campaign's mirror, the first
+   * weekly bottom after the start, is the same rule turned over (Polarity; an
+   * engineering symmetry, Gann gives the bear case). Context only. It carries
+   * no "crossed" flag: crossing it crosses the campaign's last weekly top
+   * too (each later one is lower), which turns the weekly chart and starts a
+   * new campaign.
+   */
+  secondaryTurn: { kind: "top" | "bottom"; price: number; date: string } | null;
 }
 
 /** Each calendar month's low and high, oldest first, from `from` on. */
@@ -327,6 +339,18 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
     firstYearHigh = { price: high, crossed: last.c > high };
   }
 
+  // The secondary rally: Gann defines it by example only, so "the first weekly
+  // counter-swing after the campaign's start" is the engineering reading.
+  const counterKind = bull ? "bottom" : "top";
+  const secondary = weekly.pivots.find((p) => p.index > start && p.kind === counterKind);
+  const secondaryTurn: CampaignLedger["secondaryTurn"] = secondary
+    ? {
+        kind: counterKind,
+        price: secondary.price,
+        date: bars[secondary.index].t.slice(0, 10),
+      }
+    : null;
+
   return {
     trend: weekly.trend,
     campaignStartDate: bars[start].t.slice(0, 10),
@@ -348,6 +372,7 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
     timeRatioInverted: counterDays > trendDays,
     timeBalanceDates,
     firstYearHigh,
+    secondaryTurn,
   };
 }
 
@@ -384,6 +409,11 @@ export function describeCampaignLedger(l: CampaignLedger): string[] {
   if (l.contracting) lines.push("Each of the last three reactions was smaller than the one before.");
   if (l.timeRatioInverted) lines.push(`More time against the trend (${l.counterDays}d) than with it (${l.trendDays}d).`);
   if (l.timeBalanceDates.length > 0) lines.push(`Time balances with the prior matching swing on ${l.timeBalanceDates[0]}.`);
+  if (l.secondaryTurn) {
+    const t = l.secondaryTurn;
+    const name = t.kind === "top" ? "secondary rally top" : "secondary reaction bottom";
+    lines.push(`The campaign's ${name}, ${t.price.toFixed(2)} (${t.date}), is a point to watch.`);
+  }
   if (l.firstYearHigh) lines.push(`First-year high ${l.firstYearHigh.price.toFixed(2)} ${l.firstYearHigh.crossed ? "crossed" : "not crossed"}.`);
   return lines;
 }

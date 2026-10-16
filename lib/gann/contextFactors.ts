@@ -162,6 +162,8 @@ export function contextFactorsFor(
     const broken = ctx.campaignBottoms.bottoms[0].broken;
     f.campaignBottomBrokenAgreesWithTrade = bull ? !broken : broken;
   }
+  // Price under the bear campaign's secondary rally top (A-LEVELS-02).
+  if (ctx.campaign?.secondaryTurn?.kind === "top") f.belowSecondaryRallyTop = price < ctx.campaign.secondaryTurn.price;
   // The first 100 points down from a high fall fastest (A-PRICE-01): against
   // a long, with a short.
   if (ctx.firstFall) f.firstFallFromHighAgreesWithTrade = bull ? !ctx.firstFall.inFirstFall : ctx.firstFall.inFirstFall;

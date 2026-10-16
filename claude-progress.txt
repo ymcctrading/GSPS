@@ -688,3 +688,7 @@ including the break) survive as equivalent on one session; B3 removed as redunda
 - computeAngleSlopes readings gain pointsPerDay (raw points per calendar day since the anchor).
 - Card lines; factors firstFallFromHighAgreesWithTrade, overMonthlyAngleAgreesWithTrade. A source pin keeps them out of score.ts, levels.ts, scanTicker.ts and replay.ts. No STRATEGY_VERSION bump.
 - priceZone restates the 364-day window (an import cycle via disclosedRules); a test pins it to ENTRY_CHART_DAYS. Mutants P1-P8, P5b, P5c killed.
+
+## 2026-10-16 item 9 step 3d: secondary rally top (A-LEVELS-02, context)
+- campaignLedger.secondaryTurn: the first weekly-chart top after a bear campaign's start (the bull mirror: first weekly bottom, labelled engineering symmetry). Card line; factor belowSecondaryRallyTop. No "crossed" flag: crossing it crosses the campaign's last weekly top too, which turns the weekly chart (dead state, removed after mutant S3 survived).
+- Joining the S/R pool waits for FL1's replay, as the map says. Mutants S1-S5 killed.
