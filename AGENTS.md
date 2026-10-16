@@ -715,7 +715,10 @@ config = { matcher: ... }`), and `lib/validation/health.ts#MIN_SIGNIFICANCE_T`/
    checked against Gann's lost hand-drawn wheel) has not changed since the
    2026-09-16 exception was recorded, and nothing in either source document
    supports reconstructing it from text alone. Do not re-litigate this
-   without new source material.
+   without new source material. **Update 2026-10-16:** new source material
+   arrived. The hexagon plate is printed p. 422 of the owner's Master Course
+   PDF, and its time counts now act through `hexagonTime.ts`; `hexagonChart.ts`
+   stays as the research copy of the text. `squareOf20.ts` is unchanged.
 8. **Migration 0048's `strategy_modules`/`gann_evaluations`/`sara_evaluations`**
    — split verdict. `strategy_modules`: REQUIRED AND ALIGNED, kept — has a
    real (if thin) purpose, module identity queryable independent of a
@@ -1305,6 +1308,17 @@ They bound how the decision is built, not whether.
 - The Dewey discipline holds: each rule is fixed before it is tested, with no
   search over orbs, scales or planets.
 
+**Built 2026-10-16 under this decision (gaps G26–G28).** Gann's full angle set
+(16x1 to 1x16) on the Gann point, from the major pivots, with the 45°, 2x1 and
+4x1 copied to the preceding opposite pivot (GA-12 to GA-16), joins the S/R list (`lib/gann/patternAngles.ts`, via
+`masterLevels.ts`, live and replay). `STRATEGY_VERSION` is
+`2026-10-16-gann-pattern-angles`. The Hexagon Chart's time counts, read from
+Gann's own plate (`hexagonTime.ts`), and the Master Chart of 360°'s 48ths and
+sevenths (`masterChartTime.ts`) are trace and measured factors until the
+shared time-window mechanism exists. The plate is not lost (Master Course
+p. 422), and it puts 66 on 60°, not 180°. The replay measurement is still
+owed.
+
 ## Strategy Modes — scoped exception to the non-Gann boundary (2026-09-23, project owner direction)
 
 > **Narrowed 2026-10-16 (owner, confirming his 2026-10-01 note): explain-only.**
@@ -1539,10 +1553,11 @@ was **never applied to production**, so the whole feature was dead on the live
 site. The UI hid that by turning the 500 into "not included on your plan".
 Applied with project-owner sign-off. RLS was verified and the editor now shows
 load errors. `0080_tier_promotion_three_paths.sql` had the same gap and was
-applied in the same pass, also with sign-off. A live
-browser click-through is still owed (this session's network policy blocked
-both the site and Supabase). See `docs/STRATEGY_MODES.md`'s "Production
-verification pass". Generalises the live-weights lesson: **merging a
+applied in the same pass, also with sign-off. The live browser
+click-through ran on 2026-10-16 and passed end to end (save, reload, check
+levels, backtest, chart overlay, order ticket, `/promotion`); see
+`docs/STRATEGY_MODES.md`'s "Production verification pass" and "Live
+click-through". Generalises the live-weights lesson: **merging a
 migration is not applying it.**
 
 Any strategy plugin built or extended under this family must continue to

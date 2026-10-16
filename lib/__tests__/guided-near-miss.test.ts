@@ -46,6 +46,13 @@ describe("pickNearestMiss", () => {
     expect(pickNearestMiss([failed])).toBeNull();
   });
 
+  it("never offers a retired plan, however high it scored", () => {
+    const retired = scan({ symbol: "NEE", score: 7, stopBreach: { stop: 79.76, price: 79.5, reclaimAt: 80.5 } });
+    const live = scan({ symbol: "AAPL", score: 5 });
+    expect(pickNearestMiss([retired, live])?.symbol).toBe("AAPL");
+    expect(pickNearestMiss([retired])).toBeNull();
+  });
+
   it("picks the highest score", () => {
     const result = pickNearestMiss([
       scan({ symbol: "LOW", score: 3 }),

@@ -355,6 +355,27 @@ export function contextFactorsFor(
     f.timeSquareCardinal = ctx.squareOfNineTime.some((h) => h.line.kind === "cardinal");
     f.timeSquareOnCross = ctx.squareOfNineTime.some((h) => h.line.kind !== "sixteenth");
   }
+  // The Hexagon Chart in time (G26): a ring completion, a corner, or one of
+  // Gann's named month counts (60, 66, 127, 169). No direction in his text.
+  if (ctx.hexagonTime) {
+    f.hexagonTimeCompletion = ctx.hexagonTime.some((h) => h.line?.kind === "completion");
+    f.hexagonTimeCorner = ctx.hexagonTime.some((h) => h.line !== null && h.line.kind !== "midside");
+    f.hexagonNamedCount = ctx.hexagonTime.some((h) => h.named !== null);
+  }
+  // The Master Chart of 360° (G28): a 48th the 1953 order lacks, or a seventh.
+  if (ctx.masterChartTime) {
+    f.masterChartTime48th = ctx.masterChartTime.some((h) => h.fortyEighth !== null);
+    f.masterChartTimeSeventh = ctx.masterChartTime.some((h) => h.seventh !== null);
+  }
+  // Gann's full angle set from the major pivots (G27). The levels act through
+  // the S/R list; this records price on a line, on a parallel, and on the 3×1
+  // or steeper from a bottom.
+  const pa = ctx.patternAngles;
+  if (pa) {
+    f.onPatternAngle = pa.on !== null;
+    f.onPatternAngleParallel = pa.onParallel;
+    f.onSteepAngleFromBottom = pa.onSteepFromBottom;
+  }
   // Gann's day clock at the entry bar: a major degree of the day inside the
   // bar, and price on the degree of its time angle.
   if (entryBar) {

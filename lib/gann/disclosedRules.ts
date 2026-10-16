@@ -130,6 +130,9 @@ import {
 } from "@/lib/gann/circleOf360";
 import { describePlanetaryAverages, readPlanetaryAverages, type PlanetaryReading } from "@/lib/gann/planetaryAverages";
 import { describeSquareOfNineTime, readSquareOfNineTime, type SquareOfNineTimeHit } from "@/lib/gann/squareOfNineTime";
+import { describeHexagonTime, readHexagonTime, type HexagonTimeHit } from "@/lib/gann/hexagonTime";
+import { describeMasterChartTime, readMasterChartTime, type MasterChartHit } from "@/lib/gann/masterChartTime";
+import { describePatternAngles, readPatternAngles, type PatternAngleReading } from "@/lib/gann/patternAngles";
 import { describeDayCircle, readDayCircle, type DayCircleReading } from "@/lib/gann/dayCircle";
 import {
   describeIncorporationCycle,
@@ -568,6 +571,12 @@ export interface DisclosedRulesContext {
   planetary?: PlanetaryReading | null;
   /** Days, weeks and months from the extreme high and low on the time square's lines (Gann's plate). See `squareOfNineTime.ts`. */
   squareOfNineTime?: SquareOfNineTimeHit[];
+  /** Days, weeks and months from the extreme high and low on the Hexagon Chart's lines (Gann's plate, G26). See `hexagonTime.ts`. */
+  hexagonTime?: HexagonTimeHit[];
+  /** The Master Chart of 360°'s 48ths and sevenths in time (G28). See `masterChartTime.ts`. */
+  masterChartTime?: MasterChartHit[];
+  /** Price on one of Gann's full angle set from the major pivots, or a parallel (G27). See `patternAngles.ts`. */
+  patternAngles?: PatternAngleReading | null;
   /** Gann's day clock at the time of the read (live scan only). See `dayCircle.ts`. */
   dayCircle?: DayCircleReading | null;
   /** Gann's planetary rules beyond the averages, and Jensen's square of 90: research context. See `astroRules.ts`. */
@@ -628,6 +637,9 @@ export const EMPTY_DISCLOSED_RULES: DisclosedRulesContext = {
   timeAngle: null,
   planetary: null,
   squareOfNineTime: [],
+  hexagonTime: [],
+  masterChartTime: [],
+  patternAngles: null,
   dayCircle: null,
   astro: null,
   asOf: "",
@@ -724,6 +736,9 @@ export function readDisclosedRules(
       inception && inception.precision !== "year" ? readTimeAngle(currentPrice, unit, inception.date, asOf) : null,
     planetary: readPlanetaryAverages(asOf, currentPrice, unit),
     squareOfNineTime: readSquareOfNineTime(dailyBars),
+    hexagonTime: readHexagonTime(dailyBars),
+    masterChartTime: readMasterChartTime(dailyBars),
+    patternAngles: readPatternAngles(dailyBars, currentPrice, unit),
     dayCircle: clock ? readDayCircle(clock, 0, currentPrice, unit) : null,
     astro: readAstroRules(dailyBars, asOf, unit),
     asOf: asOf.toISOString().slice(0, 10),
@@ -928,6 +943,9 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   if (ctx.timeAngle) lines.push(describeTimeAngle(ctx.timeAngle));
   if (ctx.planetary) lines.push(...describePlanetaryAverages(ctx.planetary));
   if (ctx.squareOfNineTime) lines.push(...describeSquareOfNineTime(ctx.squareOfNineTime));
+  if (ctx.hexagonTime) lines.push(...describeHexagonTime(ctx.hexagonTime));
+  if (ctx.masterChartTime) lines.push(...describeMasterChartTime(ctx.masterChartTime));
+  if (ctx.patternAngles) lines.push(...describePatternAngles(ctx.patternAngles));
   if (ctx.dayCircle) lines.push(describeDayCircle(ctx.dayCircle));
   if (t.projection) {
     lines.push(

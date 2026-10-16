@@ -1,4 +1,14 @@
 /**
+ * **Update 2026-10-16.** Gann's hand-drawn Hexagon plate is not lost: it is
+ * printed p. 422 of the owner's Master Course PDF (reading log
+ * `docs/memory-bank/reading-log/A2_1_master_course_pdf.md`). On it, 66 sits on
+ * the **60°** line (2, 9, 22, 41, 66 …), not 180° as the text below says; the
+ * conflict between Gann's text and his plate is recorded, not resolved.
+ * `CROSS_CONSTRUCTION_EXAMPLE` keeps the text's claim as quoted data. The
+ * plate's time counts now act through `hexagonTime.ts` (gap G26), which reads
+ * the lines from the plate; this module stays as the research copy of the
+ * text's own statements.
+ *
  * Gann's Hexagon Chart (PRIVATE-GANN — Chapter 15B,
  * `docs/GANN_HISTORICAL_SOURCES.md` A2.1). Internal/research use only —
  * **never** wire this into `lib/signals/confluence/gann.ts` /

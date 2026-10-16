@@ -475,14 +475,14 @@ Every item below is an **open recommendation**. Items that touch scoring, gating
 26. **G26 — The Hexagon Chart's time counts, from Gann's text** (A2.1 Ch. 15A/15B, January 1931; reprinted in B15).
     - The counts: the ring completions 7, 19, 37, 61, 91, 127, 169, 217, 271, 331, 397; the second series 2, 9, 22, 41, 66, 97, 134, 177, 226, 281, 342; the 60th and 66th months; 127 months (10 yr 7 mo) and 169 months (14 yr 1 mo).
     - Gann names them as points in time measurement for days, weeks, months and years. The numbers are stated in his text, so they don't depend on the lost plate. The plate is needed only to say *which angle* a number sits on.
-    - They live today only in `hexagonChart.ts`, which is research-only. A candidate time count, read like `squareOfNineTime.ts`, under the owner's 2026-09-30 direction. Held for the owner's go-ahead (proposed 2026-10-01).
+    - **Built 2026-10-16** (owner, "every Gann method acts"): `lib/gann/hexagonTime.ts`, with the lines read from Gann's plate (p. 422), the counts in days, weeks and months from the extreme high and low, and the named month counts. Trace and measured factors; it acts as a time window once the shared mechanism exists. The plate puts 66 on 60°, not 180°.
 27. **G27 — Gann's full Pattern-Chart angle set on the Gann point** (A2.1 Ch. 2, Jan 1931, and Ch. 4, GA-4 to GA-11; surfaced by comparison with B16).
     - `fans.ts` draws 1×4, 1×2, 1×1, 2×1 and 4×1 on an ATR unit.
     - Gann's set runs from 16×1 to 1×16. He says to keep the **3×1 "at all times"** on monthly charts from any important bottom, and the 8×1 and 16×1 matter after long declines.
     - The unit should be the Gann point (`pointScale.ts#gannPoint`), adopted 2026-09-30, not ATR.
     - From every major pivot, with each angle also **copied to the preceding opposite pivot** (Gann's parallel angles, GA-12 to GA-16; Jensen pp. 112–113; the visible mechanism of the B17 article).
-    - Changes levels and the scored angle criterion, so held for the owner. If built, it is measured on the daily and the execution timeframe.
-28. **G28 — The Master Chart of 360°'s ÷48 (7½°) and ÷7 divisions** (A2.1 Ch. 15A; corroborated by B16's trine harmonics). Missing from `circleOf360.ts`. Measured context first.
+    - **Built 2026-10-16** as S/R: `lib/gann/patternAngles.ts` feeds the nearest line above and below price into `masterLevels.ts`, on the live scan and the replay. `STRATEGY_VERSION` is `2026-10-16-gann-pattern-angles`. The scored `gannAngleSlope` still runs on ATR, left to PR #309's FL4 measurement. **The replay measurement is still owed:** this container had no market-data credentials.
+28. **G28 — The Master Chart of 360°'s ÷48 (7½°) and ÷7 divisions** (A2.1 Ch. 15A; corroborated by B16's trine harmonics). **Built 2026-10-16:** `lib/gann/masterChartTime.ts` (the odd 7½° steps, the sevenths, and the 49th/52nd day, 7th week/month and 77th counts), as trace and measured factors.
 19. **G19 — Wheel angle from prior extremes** (Master Egg Course, quoted in B05). Place each prior high and low on a 360-unit price wheel and treat prices at 0/90/120/180 from them as levels. Research and confluence only, since the illustrations are lost (same caveat as `squareOf20.ts`).
 
 ### Measurement-method enhancements (cycle literature; confluence and diagnostics only)
@@ -586,6 +586,8 @@ Not low priority, and not first. Where Gann himself names the technique and our 
 - ***The Magic Word*:** 11 image pages.
 - ***Economic Forecaster* (1954):** 8 pages were read, but the catalog describes a 16-page booklet. Check the page count.
 - **Secondary:** Mikula Vol. 2's chart-only pages; Ingram's Elliott Wave paper (title page only; not Gann); Jensen's base and locality chart pages (B16, ~40 pages).
+
+**Status 2026-10-16: every item above has been read.** The Master Course PDF (all 464 pages, A2.1 reading log), the 45 Years plates, the Commodities plates, the New Stock Trend Detector charts (the Chrysler tables are on PDF 36–37), the Magic Word image pages and the full 16-page Economic Forecaster were done on 2026-10-01. Truth of the Stock Tape and the Stock Selector (all 488 pages OCR'd and every picture page viewed), Jensen's base charts and Mikula's chart pages were done on 2026-10-16 (`reading-log/other_gann_books_pictures.md`). None of the pictures adds a rule beyond the hexagon plate (G26) and the Master Chart divisions (G28), both now built. The 1929 forecast plate is the output of the undisclosed Master Time Factor. Ingram stays out of scope (Elliott Wave).
 
 **Recommended addition:** *The Kybalion* (1908, public domain), the actual text of the seven principles AGENTS.md uses.
 
