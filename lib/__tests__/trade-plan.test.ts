@@ -221,6 +221,10 @@ describe("hasTradePlan", () => {
   it("rejects a scan carrying a non-finite level", () => {
     expect(hasTradePlan(result({ levels: { ...levels, masterProfit: Number.NaN } }))).toBe(false);
   });
+
+  it("rejects a plan the scan retired because its own stop broke", () => {
+    expect(hasTradePlan(result({ stopBreach: { stop: 526.57, price: 544.9, reclaimAt: 520 } }))).toBe(false);
+  });
 });
 
 describe("isMomentumContinuation", () => {
