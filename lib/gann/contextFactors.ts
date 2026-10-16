@@ -473,6 +473,9 @@ export function contextFactorsFor(
   if (pt) {
     f.priceAsTimeOnCount = pt.hits.length > 0;
     f.priceTimeBalanceWeeks = pt.balance.fromLow.balanced || pt.balance.fromHigh.balanced;
+    // A-PRICE-03 (Ch.4 PDF 151, Ch.6 PDF 202): ahead of time, and a gain past one point a month.
+    f.priceAheadOfTime = pt.balance.fromLow.position === "ahead" || pt.balance.fromHigh.position === "ahead";
+    f.gainBeyondPointPerMonth = pt.balance.fromLow.beyondPointPerMonth;
     f.halvingChainDay = pt.halving.hits.length > 0;
     f.twoPivotFractionMeet = pt.twoPivot !== null;
     f.twoPivotFractionAtHalfOrThreeQuarter = pt.twoPivot?.priceAtHalfOrThreeQuarter ?? false;
