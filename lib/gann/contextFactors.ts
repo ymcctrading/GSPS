@@ -103,6 +103,16 @@ export function contextFactorsFor(
     // Fast moves start from the third or fourth (W003 p.17; Master Course p.248).
     f.thirdOrFourthSwingWithTrade = n === 3 || n === 4;
   }
+  // Price grids (priceGrids.ts; Master Course Ch.6 PDF 186, 209-210; Ch.13
+  // PDF 375, 378): price within 1% of a level, the levelTests tolerance.
+  if (ctx.priceGrids) {
+    const g = ctx.priceGrids;
+    const near = (...xs: (number | null)[]) => xs.some((x) => x !== null && (Math.abs(x - price) / price) * 100 <= 1);
+    f.nearParitySquare = near(g.paritySquares.squareBelow, g.paritySquares.squareAbove);
+    f.nearSquareHalfway = near(g.paritySquares.halfwayBelow, g.paritySquares.halfwayAbove);
+    f.nearNineTwelveLevel = near(g.nineTwelve.nineBelow, g.nineTwelve.nineAbove, g.nineTwelve.twelveBelow, g.nineTwelve.twelveAbove);
+    f.rangeApproachingMultipleOf144 = g.range144.approaching;
+  }
   // C-TREND-08 (Master Course Ch.7 PDF 223): the 5th unit of a run on days,
   // weeks or months, in the trade's direction or against it.
   if (ctx.ascension) {

@@ -100,6 +100,7 @@ import { readSharesPerPoint, type SharesPerPointReading } from "@/lib/gann/share
 import { monthlyWithCurrent, readLeadership, readWeakStock, type LeadershipReading, type WeakStockReading } from "@/lib/gann/leadership";
 import { describeSevenZones, readSevenZones, type ZoneReading } from "@/lib/gann/sevenZones";
 import { approachingFigure, type ApproachReading } from "@/lib/gann/evenFigures";
+import { describePriceGrids, readPriceGrids, type PriceGridReading } from "@/lib/gann/priceGrids";
 import type { Bar } from "@/lib/types";
 import { findPivots, majorPivots } from "@/lib/analysis/pivots";
 import { closesAfter } from "@/lib/analysis/trend";
@@ -634,6 +635,8 @@ export interface DisclosedRulesContext {
   astro?: AstroReading | null;
   /** The 5th consecutive close in one direction on days, weeks and months (C-TREND-08, context only). */
   ascension?: AscensionReading | null;
+  /** Odd/even squares, the 9 and 12 grid, and the range against 144 (C-NUMEROLOGY-01, C-TIME-15/-16, context only). See `priceGrids.ts`. */
+  priceGrids?: PriceGridReading | null;
   /** The session this was read for (YYYY-MM-DD). */
   asOf: string;
 }
@@ -797,6 +800,7 @@ export function readDisclosedRules(
     dayCircle: clock ? readDayCircle(clock, 0, currentPrice, unit) : null,
     astro: readAstroRules(dailyBars, asOf, unit),
     ascension: readAscension(dailyBars),
+    priceGrids: readPriceGrids(dailyBars, currentPrice, unit),
     asOf: asOf.toISOString().slice(0, 10),
   };
 }
@@ -1003,6 +1007,7 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   if (t.square144 && t.square144.units.length >= 2) {
     lines.push(`Time from the ${t.square144.pivotDate} extreme is on a multiple of 12 in ${t.square144.units.join(" and ")}: time counts converge.`);
   }
+  if (ctx.priceGrids) lines.push(...describePriceGrids(ctx.priceGrids));
   if (ctx.masterCalculator) lines.push(...describeMasterCalculator(ctx.masterCalculator));
   if (ctx.circle) lines.push(...describeCircle(ctx.circle));
   if (ctx.timeAngle) lines.push(describeTimeAngle(ctx.timeAngle));
