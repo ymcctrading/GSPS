@@ -569,3 +569,13 @@ nothing confirms on it (FV2 awaiting owner). Mutations M1-M8 killed. Full suite 
 
 ## 2026-10-16 Run 46 (section exits)
 - Run 46 (b7b2900, version 2026-10-16-gann-section-exits, 766 symbols, 15Min, 2026-08-17 to 2026-10-15): gann-runner Execute n=139 +0.134R [+0.003, +0.266], halves +0.095/+0.172; Watch n=1886 -0.023R; all n=3141 -0.011R (total -33.55R vs -33.61R on run 45). Bracket unchanged from run 45 (Execute +0.122R [-0.008, +0.249], all -0.044R). The section-exit fix moves a handful of runner exits a bar or two earlier (avg bars held 130.03 -> 129.92) and nothing else; no entry or verdict changed, as expected. Run 46 lacked long/market monthly series in the runner (fixed in 991e468), which affects context factors only. Time-window base-rate run dispatched at c83e590.
+
+2026-10-16 item 8 step 2 (A-VOLUME-03): new lib/gann/distribution.ts readDistributionBreakdown
+(completed sessions only, last 252): the weekly chart's last two tops, the later lower; the
+accumulation range broken down by the 3-point allowance; the break's volume over the range's
+mean, above 1. Context field `distribution`, card line, factors distributionBreakdownAgainst/With.
+Live and replay read the same sessions (the replay already passes completed sessions; live drops
+today's bar). First version formatted the ET date of every bar and walked the full history: the
+backtest-run test went 27s -> 156s; fixed by dropping only trailing bars and reading 252 sessions
+(~120 ms per 250 symbols on six years of bars). Mutations D1-D11 killed except two removed as
+equivalent. Full suite 2845 pass.

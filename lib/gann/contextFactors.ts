@@ -128,6 +128,11 @@ export function contextFactorsFor(
     f.secondTopThirdVolumeAgainst = bull && third;
     f.secondTopThirdVolumeWith = !bull && third;
   }
+  // A-VOLUME-03: a distribution breakdown counts against a long and with a short.
+  if (ctx.distribution) {
+    f.distributionBreakdownAgainst = bull && ctx.distribution.distributionBreakdown;
+    f.distributionBreakdownWith = !bull && ctx.distribution.distributionBreakdown;
+  }
   // G7: a top warning counts against a long and with a short.
   if (ctx.sharesPerPoint) {
     f.sharesPerPointTopAgainst = bull && ctx.sharesPerPoint.topWarning;

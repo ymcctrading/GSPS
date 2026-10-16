@@ -4,6 +4,7 @@ import { readSeasonalCount } from "@/lib/gann/seasonalCounts";
 import { readAccumulation } from "@/lib/gann/accumulation";
 import { readLeadership } from "@/lib/gann/leadership";
 import { readSharesPerPoint } from "@/lib/gann/sharesPerPoint";
+import { readDistributionBreakdown } from "@/lib/gann/distribution";
 
 function bars(closes: number[], vol: (i: number) => number = () => 1e6, start = "2025-01-01"): Bar[] {
   const t0 = Date.parse(`${start}T00:00:00Z`);
@@ -142,5 +143,98 @@ describe("leadership: topping first and bottoming late", () => {
     const r = readLeadership(stock, market)!;
     expect(r.bottomedLate).toBe(true);
     expect(r.bottomedFirst).toBe(false);
+  });
+});
+
+// W006 pp.39-40, volume Rule 2: after a second, lower top, a dull narrow
+// sideways spell broken downward on increased volume signals a further decline.
+const barsUtc = bars;
+describe("distribution: a narrow spell after a lower top, broken down on volume (A-VOLUME-03)", () => {
+  /** Top 100, lower top 95, a 30-day spell near 82, then a break to `breakClose`. */
+  function lowerTopThenSpell(secondTop: number, breakClose: number): number[] {
+    const c: number[] = [];
+    for (let i = 0; i <= 20; i++) c.push(70 + 1.5 * i); // to the first top, 100
+    for (let i = 1; i <= 15; i++) c.push(100 - i); // to 85
+    for (let i = 1; i <= 12; i++) c.push(85 + ((secondTop - 85) * i) / 12); // to the second top
+    for (let i = 1; i <= 15; i++) c.push(secondTop - ((secondTop - 82) * i) / 15); // to 82
+    for (let i = 0; i < 30; i++) c.push(82 + (i % 2 ? 0.5 : -0.5)); // the dull narrow spell
+    c.push(breakClose);
+    return c;
+  }
+  /** Daily bars stamped at midnight New York time, as the data feed stamps them. */
+  const bars = (closes: number[], vol: (i: number) => number) =>
+    barsUtc(closes, vol).map((x) => ({ ...x, t: new Date(Date.parse(x.t) + 5 * 3_600_000).toISOString() }));
+  const asOfAfter = (b: Bar[]) => new Date(Date.parse(b[b.length - 1].t) + 1.6 * 86_400_000);
+  // The spell trades 1.0 and 1.5 million on alternate days (mean 1.25 million); the break trades 2.5 million.
+  const heavyBreak = (n: number) => (i: number) => (i === n - 1 ? 2.5e6 : i % 2 ? 1.5e6 : 1e6);
+
+  it("reads the break below the spell on above-average volume as a distribution breakdown", () => {
+    const closes = lowerTopThenSpell(95, 74);
+    const b = bars(closes, heavyBreak(closes.length));
+    const r = readDistributionBreakdown(b, asOfAfter(b))!;
+    expect(r.afterLowerTop).toBe(true);
+    expect(r.brokeDown).toBe(true);
+    expect(r.breakoutVolumeRatio).toBeCloseTo(2, 6);
+    expect(r.distributionBreakdown).toBe(true);
+  });
+
+  it("does not on below-average volume", () => {
+    const closes = lowerTopThenSpell(95, 74);
+    const b = bars(closes, (i) => (i === closes.length - 1 ? 1.2e6 : i % 2 ? 1.5e6 : 1e6));
+    const r = readDistributionBreakdown(b, asOfAfter(b))!;
+    expect(r.brokeDown).toBe(true);
+    expect(r.distributionBreakdown).toBe(false);
+  });
+
+  it("does not without the lower top", () => {
+    const closes = lowerTopThenSpell(105, 74);
+    const b = bars(closes, heavyBreak(closes.length));
+    const r = readDistributionBreakdown(b, asOfAfter(b))!;
+    expect(r.afterLowerTop).toBe(false);
+    expect(r.brokeDown).toBe(true);
+    expect(r.distributionBreakdown).toBe(false);
+  });
+
+  it("does not while the close is still inside the spell", () => {
+    const closes = lowerTopThenSpell(95, 81);
+    const b = bars(closes, heavyBreak(closes.length));
+    const r = readDistributionBreakdown(b, asOfAfter(b))!;
+    expect(r.afterLowerTop).toBe(true);
+    expect(r.brokeDown).toBe(false);
+    expect(r.distributionBreakdown).toBe(false);
+  });
+
+  it("puts the breakdown on the setup's card and counts it against a long and with a short", async () => {
+    const { readDisclosedRules, describeDisclosedRules } = await import("@/lib/gann/disclosedRules");
+    const { contextFactorsFor } = await import("@/lib/gann/contextFactors");
+    const closes = lowerTopThenSpell(95, 74);
+    const b = bars(closes, heavyBreak(closes.length));
+    const ctx = readDisclosedRules(b, 74, null, asOfAfter(b));
+    expect(ctx.distribution?.distributionBreakdown).toBe(true);
+    expect(describeDisclosedRules(ctx)).toContain("After a lower top, the narrow range broke down on 2.0× its average volume: a sign of a further decline. Shown for context; it does not change the setup.");
+    expect(contextFactorsFor(ctx, "bullish", 74)).toMatchObject({ distributionBreakdownAgainst: true, distributionBreakdownWith: false });
+    expect(contextFactorsFor(ctx, "bearish", 74)).toMatchObject({ distributionBreakdownAgainst: false, distributionBreakdownWith: true });
+    const quiet = readDisclosedRules(bars(closes, () => 1e6), 74, null, asOfAfter(b));
+    expect(describeDisclosedRules(quiet).some((l) => l.startsWith("After a lower top"))).toBe(false);
+  });
+
+  it("reads the same on a year of history or six", () => {
+    const closes = lowerTopThenSpell(95, 74);
+    const yearOf = [...Array.from({ length: 260 }, (_, i) => 60 + 5 * Math.sin(i / 9)), ...closes];
+    const longer = [...Array.from({ length: 1900 }, (_, i) => 40 + 15 * Math.sin(i / 23)), ...yearOf];
+    const a = bars(yearOf.slice(-252), heavyBreak(252));
+    const l = bars(longer, heavyBreak(longer.length));
+    expect(a[a.length - 1].c).toBe(74);
+    // Same last day on both: shift the shorter series onto the longer one's dates.
+    const shifted = a.map((x, i) => ({ ...x, t: l[l.length - a.length + i].t }));
+    expect(readDistributionBreakdown(shifted, asOfAfter(l))).toEqual(readDistributionBreakdown(l, asOfAfter(l)));
+  });
+
+  it("never reads the session still trading", () => {
+    const closes = lowerTopThenSpell(95, 74);
+    const b = bars(closes, heavyBreak(closes.length));
+    // On the break's own day it is still trading, so the last completed session is inside the spell.
+    const sameDay = new Date(Date.parse(b[b.length - 1].t) + 15 * 3_600_000);
+    expect(readDistributionBreakdown(b, sameDay)!.brokeDown).toBe(false);
   });
 });
