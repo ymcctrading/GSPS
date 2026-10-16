@@ -206,8 +206,8 @@ function DisclosedRuleTiles({
   }
   const rot = rules.ruleOfThree;
   const rotText = [
-    rot.weekly?.bearishSignal ? "weekly 3 lower" : rot.weekly?.bullishSignal ? "weekly 2 higher" : null,
-    rot.monthly?.bearishSignal ? "monthly 3 lower" : rot.monthly?.bullishSignal ? "monthly 2 higher" : null,
+    rot.weekly?.bearishSignal ? "weekly 3 lower" : rot.weekly?.bullishSignal ? "weekly 3 higher" : null,
+    rot.monthly?.bearishSignal ? "monthly 3 lower" : rot.monthly?.bullishSignal ? "monthly 3 higher" : null,
   ].filter(Boolean);
   if (rotText.length > 0) tiles.push({ label: "Rule of Three (W/M)", value: rotText.join(", ") });
   // Stage F1: extreme-price and timing rules (cached results may predate them).

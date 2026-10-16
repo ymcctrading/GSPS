@@ -324,9 +324,9 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // Added 2026-09-16: Gann's "Rule of Three" (see lib/gann/ruleOfThree.ts's
   // header for the exact rule and its generalization to both reversion and
   // continuation setups). A bullish call reads the downtrend-reversal mirror
-  // (>= 2 consecutive higher closes); a bearish call reads the uptrend rule
-  // (>= 3 consecutive lower closes) — Gann's own stated asymmetry, not
-  // symmetrized here.
+  // (>= 3 consecutive higher closes); a bearish call reads the uptrend rule
+  // (>= 3 consecutive lower closes). Gann's count is 3 both ways (M-R3,
+  // 2026-10-16; the bullish count was 2 before).
   const fires = (r: RuleOfThreeReading | null | undefined): boolean =>
     r != null && (direction === "bullish" ? r.bullishSignal : r.bearishSignal);
   const ruleOfThreeDaily = fires(ruleOfThree);

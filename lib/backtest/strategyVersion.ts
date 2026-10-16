@@ -322,4 +322,8 @@
 // 2026-10-16-gann-no-pattern-hold: the bare 2-2 hold is gone (N#1). It was
 // the last bar-sequence pattern that could hold an Execute verdict to Watch,
 // and no such pattern may gate a verdict. Some Watch verdicts become Execute.
-export const STRATEGY_VERSION = "2026-10-16-gann-no-pattern-hold";
+// 2026-10-16-gann-rule-of-three-3: the Rule of Three's bullish signal is the
+// third higher close, not the second (M-R3, WSSS pp.67-74: a declining stock
+// "will never close more than 2 days with gains"). The scored ruleOfThree
+// criterion passes less often on buys, so verdicts move.
+export const STRATEGY_VERSION = "2026-10-16-gann-rule-of-three-3";

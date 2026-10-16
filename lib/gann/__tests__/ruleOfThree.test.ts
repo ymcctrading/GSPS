@@ -22,9 +22,15 @@ describe("computeRuleOfThree", () => {
     expect(result.bullishSignal).toBe(false);
   });
 
-  it("signals bullish on two consecutive higher closes", () => {
+  it("does not signal bullish on two higher closes: a decline never closes more than 2 days with gains (M-R3)", () => {
     const result = computeRuleOfThree(bars([100, 101, 102]));
     expect(result.consecutiveHigherCloses).toBe(2);
+    expect(result.bullishSignal).toBe(false);
+  });
+
+  it("signals bullish on the third consecutive higher close", () => {
+    const result = computeRuleOfThree(bars([100, 101, 102, 103]));
+    expect(result.consecutiveHigherCloses).toBe(3);
     expect(result.bullishSignal).toBe(true);
     expect(result.bearishSignal).toBe(false);
   });

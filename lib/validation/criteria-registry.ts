@@ -557,9 +557,9 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "for this rule') into the live scorer immediately, overriding this codebase's normal unmeasured " +
       "-> attribution -> in/out-of-sample discipline (PROPOSAL_NEW_GANN_CRITERIA.md) rather than " +
       "quarantining it as a hypothesis first. No replay has ever measured it — this entry exists so " +
-      "that gap is visible, not hidden. The literal book rule is directional and asymmetric (an uptrend " +
-      "needs 3 consecutive lower closes to signal reversal; a downtrend needs only 2 consecutive higher " +
-      "closes) and is about a REVERSAL forming, not a trade's own direction generically — " +
+      "that gap is visible, not hidden. The literal book rule is directional (an uptrend needs 3 " +
+      "consecutive lower closes to signal reversal, and a downtrend the third higher close; until " +
+      "2026-10-16 the bullish count was 2, M-R3) and is about a REVERSAL forming, not a trade's own direction generically — " +
       "lib/gann/ruleOfThree.ts's docblock states exactly how this criterion generalizes that to 'the " +
       "immediate closes support this trade's own direction' for both reversion and continuation setups, " +
       "which is a broader reading than the source's literal text. Needs a fresh committed replay before any " +

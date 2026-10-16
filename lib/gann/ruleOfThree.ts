@@ -3,9 +3,12 @@
  * `docs/GANN_HISTORICAL_SOURCES.md` A4). His own words frame this as his
  * highest-conviction disclosed rule ("traders paid me $1,000 for it"): a
  * stock in a confirmed uptrend will never close three consecutive days lower
- * without signaling at least a temporary reversal; the downtrend mirror
- * needs only two consecutive higher closes — an explicit, stated asymmetry,
- * not a copy-paste error. Worked in full against U.S. Steel's actual 1929
+ * without signaling at least a temporary reversal, and a declining stock
+ * "will never close more than 2 days with gains", so the third higher close
+ * is the mirror's signal (WSSS pp.67-74; the book's own U.S. Steel 1929
+ * example marks "3 up closes (trend up)" and lets a 2-day rally pass). Until
+ * 2026-10-16 the bullish count was 2, read as a stated asymmetry; M-R3 found
+ * the text says 3 both ways. Worked in full against U.S. Steel's actual 1929
  * daily closes in the source book.
  *
  * Added live 2026-09-16 as `ruleOfThree` (`lib/scoring/weights.ts`
@@ -23,7 +26,7 @@
  * only. Rather than leaving continuation setups unscored by this criterion,
  * this reads the same asymmetric close-count rule against the trade's own
  * direction generically: a bullish call (reversion or continuation) passes
- * when the downtrend-reversal mirror has fired (>= 2 consecutive higher
+ * when the downtrend-reversal mirror has fired (>= 3 consecutive higher
  * closes — the market is doing what Gann's rule says an upturn looks like,
  * whether that upturn is brand new or already running); a bearish call
  * passes on the mirror image (>= 3 consecutive lower closes). This is a
@@ -35,8 +38,8 @@ import type { Bar } from "@/lib/types";
 
 /** An uptrend needs this many consecutive lower closes to signal reversal — Gann's stated figure. */
 export const BEARISH_SIGNAL_CLOSES = 3;
-/** A downtrend needs only this many consecutive higher closes — Gann's own stated asymmetry. */
-export const BULLISH_SIGNAL_CLOSES = 2;
+/** A downtrend signals reversal on the third consecutive higher close ("never more than 2 days with gains"). */
+export const BULLISH_SIGNAL_CLOSES = 3;
 
 export interface RuleOfThreeReading {
   /** Consecutive lower closes ending at the most recent bar. */
