@@ -83,7 +83,9 @@ export function samePeriodAcrossSeries(
 /**
  * CYC-16: an index's well-established cycle as a prior for a constituent.
  * When the periods match, the two Schuster p-values combine by Fisher's
- * method; otherwise the constituent's own p stands.
+ * method; otherwise the constituent's own p stands. Fisher assumes the two
+ * tests are independent, and an index and its constituent are not, so the
+ * combined p overstates the evidence; read it as an upper bound on strength.
  */
 export function periodPrior(
   index: SeriesCycle,
@@ -134,7 +136,8 @@ function corr(x: number[], y: number[]): number {
 
 /**
  * CYC-17: fold each series at `period` on their shared dates, average each
- * phase bin, and correlate the two average waves.
+ * phase bin, and correlate the two average waves. The period is in bars, so
+ * the fold counts bars in the date-aligned shared series, not calendar days.
  */
 export function waveShapeCorrelation(a: Bar[], b: Bar[], period: number, bins = 12): { correlation: number; cycles: number } | null {
   const bByDay = new Map(b.map((x) => [day(x.t), x.c]));
@@ -142,14 +145,13 @@ export function waveShapeCorrelation(a: Bar[], b: Bar[], period: number, bins = 
   if (!(period > 1) || shared.length < 3 * period) return null;
   const da = detrendLog(shared.map((x) => x.c));
   const db = detrendLog(shared.map((x) => bByDay.get(day(x.t))!));
-  // Fold on the shared calendar so a series that starts later keeps its phase.
-  const t0 = Date.parse(`${day(shared[0].t)}T00:00:00Z`);
+  // Fold on the bar index of the shared series: both series sit on the same
+  // dates, so the same index is the same bar in each.
   const profile = (d: number[]) => {
     const sum = new Array(bins).fill(0);
     const cnt = new Array(bins).fill(0);
-    shared.forEach((x, i) => {
-      const k = Math.round((Date.parse(`${day(x.t)}T00:00:00Z`) - t0) / 86_400_000);
-      const bin = Math.floor((((k % period) + period) % period) / (period / bins));
+    shared.forEach((_, i) => {
+      const bin = Math.min(bins - 1, Math.floor((i % period) / (period / bins)));
       sum[bin] += d[i];
       cnt[bin]++;
     });
