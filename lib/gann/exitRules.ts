@@ -140,7 +140,8 @@ export function readGannExit(
     if (failed) {
       exit = {
         reason: "hold_test_failed",
-        note: `Closed back ${long ? "under" : "over"} the ${long ? "top" : "bottom"} it crossed (${pos.crossedLevel.toFixed(2)}): the breakout did not hold.`,
+        // The level may be an old top crossed or an old bottom regained (A-TREND-10).
+        note: `Closed back ${long ? "under" : "over"} the old level it crossed (${pos.crossedLevel.toFixed(2)}): the breakout did not hold.`,
       };
     }
   }

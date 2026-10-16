@@ -374,6 +374,15 @@ describe("computeScore entryTriggerArmed note", () => {
     expect(note({ ...crossing, source: "allTime" })).toMatch(/crosses the record high before the last 52 weeks by 3 points/);
   });
 
+  it("names a regained old bottom, and a lost old top, as such (A-TREND-10)", () => {
+    expect(note({ ...crossing, source: "swing", regained: true })).toMatch(
+      /a close at 125\.50 is 3 points back over the old swing low after a 3-point break under it, and the entry then waits/,
+    );
+    expect(note({ ...crossing, direction: "bearish", source: "priorYear", levelYear: 2024, regained: true })).toMatch(
+      /3 points back under the 2024 top after a 3-point break over it/,
+    );
+  });
+
   it("names a previous year's level by its year", () => {
     expect(note({ ...crossing, source: "priorYear", levelYear: 2024 })).toMatch(/crosses the 2024 top by 3 points/);
     expect(note({ ...crossing, direction: "bearish", source: "priorYear", levelYear: 2024 })).toMatch(/crosses the 2024 bottom by 3 points/);

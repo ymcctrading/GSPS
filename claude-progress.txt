@@ -367,3 +367,8 @@ is unchecked here (collection-synthesis.md §1.6, §6).
 - Cost: the weekly read takes about 0.28 ms a symbol (rollup plus read; 212 ms over 766 warmed), replacing two daily reads (0.13 ms each), so about +0.02 to +0.15 ms a symbol: under 40 ms for a 250-symbol coarse pass.
 - Academy: one sentence on the monthly, weekly, daily order.
 - STRATEGY_VERSION 2026-10-16-gann-weekly-coarse (live only).
+2026-10-16 Item 6 step 8 (A-TREND-10, F5a): a regained old bottom is a buying point (W006 p.30, AT&T 88 / 70 1/4 / 91).
+- entryTrigger.ts latestCrossedLevel: old bottoms (swing and older monthly-chart levels) that a close broke by 3 points are crossed from below like a top, counted from the break; the mirror for shorts (an old top lost after a 3-point break over it, A-ENTRY-16's side). Trigger flag `regained`. Same reaction buy (1 point over, stop 3 under: 4/3 of the 3 points, inside the 5-point cap). Labelled an inference (fork F5 a).
+- Copy everywhere a crossing is named: score note, setup label ("regained old bottom" / "lost old top"), TradeLevels.entryRegained and the signal-card headline, the exam key and its explanations, both Academy crossing paragraphs. The exit note now says "the old level it crossed" (it read "top").
+- Tests: lib/gann/__tests__/regainedBottom.test.ts (7), score.test.ts and olderLevelsExam.test.ts additions. Mutations 7 of 7 caught (break needs 3 points, break side, swing and older candidates, flag, mirror, break after forming).
+- STRATEGY_VERSION 2026-10-16-gann-regained-bottom.

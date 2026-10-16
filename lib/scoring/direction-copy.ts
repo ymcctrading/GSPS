@@ -46,6 +46,17 @@ export function priorYearLevelName(up: boolean, year?: number): string {
   return year !== undefined ? `the ${year} ${side}` : `the previous year's ${side}`;
 }
 
+/**
+ * The old level a regained crossing went back through (A-TREND-10, W006
+ * p.30): for a buy, the old bottom price had closed 3 points under; for a
+ * sell, the old top it had closed 3 points over.
+ */
+export function regainedLevelName(up: boolean, source?: "priorYear" | "allTime", year?: number): string {
+  if (source === "priorYear") return priorYearLevelName(!up, year);
+  if (source === "allTime") return up ? "the record low from before the last 52 weeks" : "the record high from before the last 52 weeks";
+  return up ? "the old swing low" : "the old swing high";
+}
+
 export function structuralTriggerHeadline(
   direction: "bullish" | "bearish",
   entryKind?: "crossing" | "oldLevel" | "hold",
@@ -53,6 +64,8 @@ export function structuralTriggerHeadline(
   holdBasis?: "weeks" | "days" | "record" | "rally",
   /** A previous year's level: its year (step 3 review R9). */
   levelYear?: number,
+  /** A level regained after a break (A-TREND-10). */
+  regained?: boolean,
 ): string {
   if (entryKind === "hold" && holdBasis === "rally") {
     // The sell at the end of a bear-market rally (item 5, step 4b).
@@ -79,6 +92,12 @@ export function structuralTriggerHeadline(
   // Since step 3 the level crossed can also be a previous year's top or
   // bottom, or the record from before the last 52 weeks.
   const up = direction === "bullish";
+  if (regained) {
+    const old = regainedLevelName(up, entrySource, levelYear);
+    return up
+      ? `A close 3 points back over ${old} after a break under it, then a buy on the pullback toward it.`
+      : `A close 3 points back under ${old} after a break over it, then a sell on the bounce toward it.`;
+  }
   const level =
     entrySource === "priorYear"
       ? priorYearLevelName(up, levelYear)

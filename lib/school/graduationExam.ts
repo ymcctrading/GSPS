@@ -36,7 +36,7 @@
 import type { Bar } from "@/lib/types";
 import { readGannTrend } from "@/lib/gann/trendStrength";
 import { gannBreakLine, sameGannLevel, selectGannEntry, type GannEntryTrigger, type OlderGannLevel } from "@/lib/gann/entryTrigger";
-import { priorYearLevelName } from "@/lib/scoring/direction-copy";
+import { priorYearLevelName, regainedLevelName } from "@/lib/scoring/direction-copy";
 import { entryChart } from "@/lib/scan/entrySelection";
 
 export type ExamTransition = "novice_to_pro" | "pro_to_expert";
@@ -122,6 +122,8 @@ export interface ScenarioKey {
   source?: "priorYear" | "allTime";
   /** With `source` "priorYear": the year whose top or bottom was crossed (step 3 review R9). */
   levelYear?: number;
+  /** The crossing regained an old bottom (lost an old top, for a short) after a 3-point break (A-TREND-10). */
+  regained?: true;
 }
 
 export interface StoredScenario {
@@ -323,6 +325,7 @@ export function buildScenario(
       ...(decision === "trade" && trigger?.kind === "crossing" && trigger.source === "priorYear" && trigger.levelYear !== undefined
         ? { levelYear: trigger.levelYear }
         : {}),
+      ...(decision === "trade" && trigger?.kind === "crossing" && trigger.regained ? { regained: true as const } : {}),
     },
     playback: after.map((b) => ({ t: b.t.slice(0, 10), h: b.h, l: b.l, c: b.c })),
   };
@@ -392,6 +395,7 @@ const TREND_WORD: Record<Trend, string> = { up: "up", down: "down", sideways: "s
 /** The old level a crossing key crossed, in the explanation's words. */
 function crossedName(k: ScenarioKey): string {
   const up = k.direction !== "bearish";
+  if (k.regained) return `${regainedLevelName(up, k.source, k.levelYear)} it had broken`;
   if (k.source === "priorYear") return priorYearLevelName(up, k.levelYear);
   if (k.source === "allTime") return up ? "the record high from before the last 52 weeks" : "the record low from before the last 52 weeks";
   return `the last swing ${up ? "top" : "bottom"}`;

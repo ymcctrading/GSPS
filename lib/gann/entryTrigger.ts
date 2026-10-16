@@ -210,6 +210,13 @@ export interface GannEntryTrigger {
   /** A `priorYear` crossing: the calendar year whose top or bottom was crossed. */
   levelYear?: number;
   /**
+   * A held crossing of an old bottom regained from below (a top lost from
+   * above, for a short) after a close 3 points through it: Gann's sign that
+   * the decline is over (A-TREND-10, W006 p.30). `pivot.kind` is then the
+   * opposite of an ordinary crossing's.
+   */
+  regained?: true;
+  /**
    * `hold` only: which of Gann's rules found the bottom that held. `weeks`:
    * the reaction's low stood into its second week (A-ENTRY-01). `days`: in a
    * bull market, a reaction of two to three weeks whose low held two days
@@ -287,6 +294,7 @@ export function computeGannEntryTrigger(
       reactionEntry, reactionStop, protectivePivot, held: true, crossedAt: bars[held.crossedAt].t, swingDays,
       source: held.source, formedAt: held.formedAt,
       ...(held.levelYear !== undefined ? { levelYear: held.levelYear } : {}),
+      ...(held.regained ? { regained: true as const } : {}),
       ...(record ? { newRecord: isNewRecord(bars, held.crossedAt, record.price, sign) } : {}),
     };
   }
@@ -718,10 +726,10 @@ function latestCrossedLevel(
   direction: TriggerDirection,
   bufferPct?: number,
   older: OlderGannLevel[] = [],
-): { pivot: SwingPivot; crossedAt: number; spent: boolean; source: GannLevelSource; formedAt: string; levelYear?: number } | null {
+): { pivot: SwingPivot; crossedAt: number; spent: boolean; source: GannLevelSource; formedAt: string; levelYear?: number; regained?: true } | null {
   const kind = direction === "bullish" ? "top" : "bottom";
   const sign = direction === "bullish" ? 1 : -1;
-  type Candidate = { pivot: SwingPivot; from: number; source: GannLevelSource; formedAt: string; levelYear?: number };
+  type Candidate = { pivot: SwingPivot; from: number; source: GannLevelSource; formedAt: string; levelYear?: number; regained?: true };
   const candidates: Candidate[] = pivots
     .filter((p) => p.kind === kind)
     .map((p) => ({ pivot: p, from: p.index + 1, source: "swing" as const, formedAt: bars[p.index].t }));
@@ -732,6 +740,34 @@ function latestCrossedLevel(
       candidates.push({
         pivot: { index: -1, price: l.price, kind }, from, source: l.source, formedAt: l.formedAt,
         ...(l.year !== undefined ? { levelYear: l.year } : {}),
+      });
+    }
+  }
+  // A regained old bottom (A-TREND-10, W006 p.30): "after a stock declines to
+  // new low levels and then rallies back 3 points above the old bottom, it is
+  // an indication that the decline is over". A bottom closed 3 points under
+  // is crossed from below like a top, counted from the close that broke it
+  // (fork F5 a: the crossing construct, an inference). The mirror, an old top
+  // crossed and then lost by 3 points, is a sell (A-ENTRY-16's side).
+  const opposite = direction === "bullish" ? "bottom" : "top";
+  const brokenFrom = (from: number, level: number) => {
+    const line = buffered(level, sign === 1 ? -1 : 1, bufferPct);
+    for (let i = Math.max(from, 0); i < bars.length; i++) if (sign * (bars[i].c - line) <= 0) return i + 1;
+    return -1;
+  };
+  for (const p of pivots) {
+    if (p.kind !== opposite) continue;
+    const from = brokenFrom(p.index + 1, p.price);
+    if (from > 0) candidates.push({ pivot: p, from, source: "swing", formedAt: bars[p.index].t, regained: true });
+  }
+  for (const l of older) {
+    if (l.kind !== opposite) continue;
+    const start = bars.findIndex((b) => b.t.slice(0, 10) >= l.crossFrom);
+    const from = start >= 0 ? brokenFrom(start, l.price) : -1;
+    if (from > 0) {
+      candidates.push({
+        pivot: { index: -1, price: l.price, kind: opposite }, from, source: l.source, formedAt: l.formedAt,
+        ...(l.year !== undefined ? { levelYear: l.year } : {}), regained: true,
       });
     }
   }
@@ -753,6 +789,7 @@ function latestCrossedLevel(
   const found = {
     pivot: best.pivot, crossedAt: best.crossedAt, source: best.source, formedAt: best.formedAt,
     ...(best.levelYear !== undefined ? { levelYear: best.levelYear } : {}),
+    ...(best.regained ? { regained: true as const } : {}),
   };
   // Bought once a later bar trades to the buy. A close 3 points back through
   // the level (broken) always trades through the buy first, so this one test

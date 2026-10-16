@@ -505,6 +505,8 @@ export interface EntrySource {
   entrySource?: "priorYear" | "allTime";
   /** A previous year's level: its year (`TradeLevels.entryLevelYear`). */
   entryLevelYear?: number;
+  /** A crossing that regained an old level after a break (`TradeLevels.entryRegained`). */
+  entryRegained?: true;
   /** A held bottom's rule (`TradeLevels.holdBasis`). */
   holdBasis?: "weeks" | "days" | "record" | "rally";
   /**
@@ -541,6 +543,10 @@ export function gannEntrySource(trigger: GannEntryTrigger): EntrySource {
             : `single ${long ? "bottom" : "top"}`
         : trigger.kind === "oldLevel"
           ? `${multiple} ${long ? "bottom" : "top"}`
+          : trigger.regained
+            ? long
+              ? "regained old bottom"
+              : "lost old top"
           : trigger.source === "priorYear"
             ? trigger.levelYear !== undefined
               ? `${trigger.levelYear} ${long ? "top crossing" : "bottom break"}`
@@ -557,6 +563,7 @@ export function gannEntrySource(trigger: GannEntryTrigger): EntrySource {
     entryKind: trigger.kind,
     ...(trigger.kind === "crossing" && trigger.source !== "swing" ? { entrySource: trigger.source } : {}),
     ...(trigger.kind === "crossing" && trigger.source === "priorYear" && trigger.levelYear !== undefined ? { entryLevelYear: trigger.levelYear } : {}),
+    ...(trigger.kind === "crossing" && trigger.regained ? { entryRegained: true as const } : {}),
     ...(trigger.kind === "hold" && trigger.holdBasis ? { holdBasis: trigger.holdBasis } : {}),
     gannReaction: true,
   };
@@ -603,6 +610,7 @@ export function computeTradeLevels(
       ...(pattern.entrySource ? { entrySource: pattern.entrySource } : {}),
       ...(pattern.entryLevelYear !== undefined ? { entryLevelYear: pattern.entryLevelYear } : {}),
     ...(pattern.entryLevelYear !== undefined ? { entryLevelYear: pattern.entryLevelYear } : {}),
+      ...(pattern.entryRegained ? { entryRegained: true as const } : {}),
       ...(pattern.holdBasis ? { holdBasis: pattern.holdBasis } : {}),
       entry: round(entry),
       stopLoss: equity.stopLoss,
@@ -733,6 +741,7 @@ export function computeTradeLevels(
     ...(pattern.entryKind ? { entryKind: pattern.entryKind } : {}),
     ...(pattern.entrySource ? { entrySource: pattern.entrySource } : {}),
     ...(pattern.entryLevelYear !== undefined ? { entryLevelYear: pattern.entryLevelYear } : {}),
+    ...(pattern.entryRegained ? { entryRegained: true as const } : {}),
     ...(pattern.holdBasis ? { holdBasis: pattern.holdBasis } : {}),
     entry: round(entry),
     stopLoss: round(stopLoss),

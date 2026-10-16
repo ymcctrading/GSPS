@@ -162,6 +162,12 @@ export interface TradeLevels {
   entrySource?: "priorYear" | "allTime";
   /** With `entrySource` "priorYear": the year whose top or bottom was crossed (step 3 review R9). */
   entryLevelYear?: number;
+  /**
+   * For a crossing: the level is an old bottom regained from below (an old
+   * top lost from above, for a short) after a 3-point break (A-TREND-10).
+   * Display only; the geometry is the same.
+   */
+  entryRegained?: true;
   entry: number;
   stopLoss: number;
   takeProfit1: number;

@@ -118,6 +118,12 @@ describe("the exam's words (R7)", () => {
     expect(text(s, "entry")).toMatch(/1 point past the 2024 top/);
   });
 
+  it("names a regained old bottom as the bottom it had broken (A-TREND-10)", () => {
+    const s = key({ regained: true });
+    expect(text(s, "decision")).toMatch(/already closed 3 points past the old swing low it had broken/);
+    expect(text(s, "entry")).toMatch(/1 point past the old swing low it had broken/);
+  });
+
   it("says the last swing top was still to cross when it was", () => {
     expect(text(key({ crossed: false }), "decision")).toMatch(/the last swing top was still to cross/);
     expect(text(key({ source: "allTime" }), "decision")).toMatch(/already closed 3 points past the record high/);

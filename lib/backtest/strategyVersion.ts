@@ -139,4 +139,8 @@
 // Item 6 step 7, 2026-10-16: the coarse pass reads the weekly trend rolled from
 // its daily bars, and the daily only when the weekly shows none (W006 p.19).
 // Live only: the replay has no coarse pass.
-export const STRATEGY_VERSION = "2026-10-16-gann-weekly-coarse";
+// Item 6 step 8, 2026-10-16: a regained old bottom is a buying point (A-TREND-10,
+// W006 p.30): an old bottom closed 3 points under, then 3 points back over, is
+// crossed like a top and bought on the reaction 1 point over it, stop 3 points
+// under. An old top lost after a 3-point break over it is the mirror sell.
+export const STRATEGY_VERSION = "2026-10-16-gann-regained-bottom";
