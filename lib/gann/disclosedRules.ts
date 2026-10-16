@@ -721,7 +721,7 @@ export const EMPTY_DISCLOSED_RULES: DisclosedRulesContext = {
     reverseSignal: { signal: null, rule: null, runDays: null },
     gaps: { exhaustGap: null, gapsInNewTerritory: null, filledGapReversal: null },
   },
-  timing: { alternation: null, square144: null, projection: null },
+  timing: { alternation: null, square144: null, projection: null, changeDates: null },
   capitalStock: null,
   incorporation: null,
   evenFigures: { overhead: null, underneath: null },
@@ -1092,6 +1092,13 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   if (ctx.outbreakCounts) lines.push(...describeOutbreakCounts(ctx.outbreakCounts));
   for (const b of ctx.oneByOneBreak ?? []) lines.push(describeOneByOneBreak(b));
   if (ctx.jensenConvergence) lines.push(describeJensenConvergence(ctx.jensenConvergence));
+  const cd = ctx.timing.changeDates;
+  if (cd?.next) {
+    const missed = cd.dates.find((c) => c.came !== null && c.came !== c.expect);
+    lines.push(
+      `Next change date ${cd.next.date} (${cd.next.days} days from the last swing): a ${cd.next.expect} is expected${missed ? `, since ${missed.date} came in ${missed.came} on a ${missed.expect} date` : ""}. A date marks some rally or decline, not always the extreme. Shown for context; it does not change the setup.`,
+    );
+  }
   const fr = ctx.firstRally ? describeFirstRally(ctx.firstRally) : null;
   if (fr) lines.push(fr);
   return lines;

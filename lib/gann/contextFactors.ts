@@ -531,6 +531,8 @@ export function contextFactorsFor(
   if (ctx.oneByOneBreak && ctx.oneByOneBreak.length > 0) f.oneByOneBreakWithTrade = ctx.oneByOneBreak.some((b) => b.direction === (bull ? "up" : "down"));
   // C-LEVELS-24: the session is on the convergence of lines from a double or triple bottom (top), within a bar. No direction in the text.
   if (ctx.jensenConvergence) f.jensenConvergenceNow = Math.abs(ctx.jensenConvergence.point.barsFromNow) <= 1;
+  // A-TIME-16: the next change date's label. No direction in the text.
+  if (ctx.timing.changeDates?.next) f.nextChangeDateExpectsHigh = ctx.timing.changeDates.next.expect === "high";
   // A-TIME-03: the advance out of a bear market's low. Bull side only in the text; read the same for both directions.
   const fr = ctx.firstRally;
   if (fr && fr.state !== "early") {
