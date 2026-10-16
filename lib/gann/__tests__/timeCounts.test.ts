@@ -12,6 +12,7 @@ import {
   readWheelCountsCh5,
 } from "../timeCounts";
 import { DAY_COUNT_BANDS } from "../timeCycles";
+import { SEASONAL_POINTS, WINTER_QUARTER_POINTS, readSeasonalCount, readWinterQuarterCount } from "../seasonalCounts";
 import { describeDisclosedRules, readDisclosedRules } from "../disclosedRules";
 import { contextFactorsFor } from "../contextFactors";
 
@@ -170,5 +171,39 @@ describe("the 45 Years Rule 8 calendar dates (M-T5)", () => {
     expect(f.rule8DateMostImportant).toBe(true);
     expect(describeDisclosedRules(ctx).some((l) => l.startsWith("September 3-10: one of the month's turn dates"))).toBe(true);
     expect(contextFactorsFor(readDisclosedRules(withPivotLow(20), 115, null, new Date(Date.UTC(2026, 3, 8))), "bullish", 115).rule8DateActive).toBe(false);
+  });
+});
+
+describe("the Winter-quarter seasonal dates (C-TIME-05, Master Course Ch.5 PDF 161)", () => {
+  it("carries the Ch.5 list counted from December 22", () => {
+    expect(WINTER_QUARTER_POINTS.map((p) => `${p.month}/${p.startDay}${p.endDay !== p.startDay ? `-${p.endDay}` : ""}`)).toEqual([
+      "1/5-6", "2/5", "3/21", "5/6", "6/22", "7/7", "8/8", "9/23", "11/8", "12/22",
+    ]);
+  });
+
+  it("is open two days either side of a date, and closed beyond", () => {
+    expect(readWinterQuarterCount(new Date(Date.UTC(2026, 6, 7)))).toMatchObject({ point: { month: 7, startDay: 7 }, offsetDays: 0 });
+    expect(readWinterQuarterCount(new Date(Date.UTC(2026, 0, 8)))).toMatchObject({ point: { month: 1, startDay: 5 }, offsetDays: 2 });
+    expect(readWinterQuarterCount(new Date(Date.UTC(2026, 6, 10)))).toBeNull();
+    // Across the year end: December 22 read on January 1 is ten days off, closed.
+    expect(readWinterQuarterCount(new Date(Date.UTC(2027, 0, 1)))).toBeNull();
+    expect(readWinterQuarterCount(new Date(Date.UTC(2026, 11, 24)))).toMatchObject({ point: { month: 12, startDay: 22 }, offsetDays: 2 });
+  });
+
+  it("is a measured factor and a card line, and leaves the March 21 reading alone", () => {
+    const asOf = new Date(Date.UTC(2026, 6, 7));
+    const ctx = readDisclosedRules(withPivotLow(20), 115, null, asOf);
+    expect(contextFactorsFor(ctx, "bullish", 115).winterQuarterDateActive).toBe(true);
+    expect(describeDisclosedRules(ctx).some((l) => l.startsWith("July 7: a seasonal date counted from the winter quarter"))).toBe(true);
+    expect(readSeasonalCount(asOf)).toBeNull();
+  });
+});
+
+describe("the seasonal ranking (M-T8, Master Course Ch.18 TP-1 PDF 439)", () => {
+  it("ranks 1/2 and the end of the seasonal year first, then 1/4 and 3/4, then 1/3 and 2/3", () => {
+    const rank = (label: string) => SEASONAL_POINTS.find((p) => p.label === label)?.rank;
+    expect([rank("½"), rank("the full year")]).toEqual([1, 1]);
+    expect([rank("¼"), rank("¾")]).toEqual([2, 2]);
+    expect([rank("⅓"), rank("⅔")]).toEqual([3, 3]);
   });
 });

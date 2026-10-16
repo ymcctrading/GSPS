@@ -35,6 +35,8 @@
  *   and November are missing from the notes** and are not read until the
  *   page is transcribed. This is a different list from the 1930 permanent
  *   cycle (`FIXED_CALENDAR_WINDOWS`), so it is kept apart.
+ * - The Winter-quarter seasonal dates (C-TIME-05): Master Course Ch.5 PDF
+ *   161; see `seasonalCounts.ts`'s `WINTER_QUARTER_POINTS`.
  *
  * Engineering choices, labelled as such: the anchors and windows follow the
  * class A reader each list sits beside (major daily pivots and ±2 days for the
@@ -54,6 +56,7 @@ import type { Bar } from "@/lib/types";
 import { findPivots, majorPivots } from "@/lib/analysis/pivots";
 import { lessonCycleHits, type LessonCycleHit } from "@/lib/gann/timeCycles";
 import { WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
+import { readWinterQuarterCount, type WinterQuarterReading } from "@/lib/gann/seasonalCounts";
 import type { PivotCountHit } from "@/lib/gann/secondaryTime";
 
 const DAY_MS = 86_400_000;
@@ -83,6 +86,8 @@ export interface TimeCountsReading {
   commoditiesDayBands: CommoditiesDayBandHit[];
   /** The 45 Years Rule 8 calendar window today sits in, or null. */
   rule8Date: (typeof RULE_8_MONTHLY_DATES)[number] | null;
+  /** The Winter-quarter seasonal date today sits on, or null. */
+  winterQuarter: WinterQuarterReading | null;
 }
 
 function hit(p: { bar: Bar; kind: "high" | "low" }, count: number, label: string): PivotCountHit {
@@ -209,10 +214,12 @@ export function readTimeCounts(daily: Bar[], monthly: Bar[] | null | undefined, 
     timeBalanceSpans: readTimeBalanceSpans(daily),
     commoditiesDayBands: readCommoditiesDayBands(daily),
     rule8Date: readRule8Date(asOf),
+    winterQuarter: readWinterQuarterCount(asOf),
   };
 }
 
 const CONTEXT = "Shown for context; it does not change the setup.";
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 /** Plain-language lines for the explanation trace. */
 export function describeTimeCounts(r: TimeCountsReading): string[] {
@@ -230,8 +237,15 @@ export function describeTimeCounts(r: TimeCountsReading): string[] {
   if (band) lines.push(`${band.daysSincePivot} days from the ${band.pivotKind} of ${band.pivotDate}: inside the ${band.band[0]}-${band.band[1]} day band. ${CONTEXT}`);
   const d = r.rule8Date;
   if (d) {
-    const name = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][d.month - 1];
+    const name = MONTH_NAMES[d.month - 1];
     lines.push(`${name} ${d.startDay}-${d.endDay}: one of the month's turn dates${d.mostImportant ? ", among the most important of the year" : ""}. ${CONTEXT}`);
+  }
+  const wq = r.winterQuarter;
+  if (wq) {
+    const p = wq.point;
+    const date = `${MONTH_NAMES[p.month - 1]} ${p.startDay}${p.endDay !== p.startDay ? `-${p.endDay}` : ""}`;
+    const what = /^[A-Z]/.test(p.label) ? "" : ` (${p.label})`;
+    lines.push(`${date}: a seasonal date counted from the winter quarter, December 22${what}. ${CONTEXT}`);
   }
   return lines;
 }

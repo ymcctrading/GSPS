@@ -314,6 +314,7 @@ export function contextFactorsFor(
     f.commoditiesDayBandActive = tc.commoditiesDayBands.length > 0;
     f.rule8DateActive = tc.rule8Date !== null;
     f.rule8DateMostImportant = tc.rule8Date?.mostImportant === true;
+    f.winterQuarterDateActive = tc.winterQuarter !== null;
   }
 
   // A-TIME-05/-21: a watched month count (18-48 months in sixes) from a major
