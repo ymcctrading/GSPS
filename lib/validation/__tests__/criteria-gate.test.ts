@@ -211,3 +211,34 @@ describe("committed replay runs", () => {
     },
   );
 });
+
+/**
+ * C-TIME-02 (W003 p.16): divergences do not time a turn; time cycles do. No
+ * scored criterion is a price/oscillator divergence, and nothing on the
+ * verdict path imports the oscillator modules (the chart overlays and the
+ * opt-in Strategy Modes are the documented exceptions).
+ */
+describe("no divergence times a turn (C-TIME-02)", () => {
+  it("has no scored criterion that reads an oscillator or a divergence", () => {
+    for (const key of CRITERION_KEYS) expect(key).not.toMatch(/diverg|rsi|macd|stoch|oscillat/i);
+  });
+
+  it("keeps the oscillator modules off the verdict path", () => {
+    const files: string[] = [];
+    const walk = (dir: string) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = path.join(dir, e.name);
+        if (e.isDirectory()) {
+          if (e.name !== "__tests__") walk(p);
+        } else if (p.endsWith(".ts")) files.push(p);
+      }
+    };
+    for (const d of ["lib/scoring", "lib/signals", "lib/gann", "lib/scan", "lib/lifecycle"]) walk(path.join(ROOT, d));
+    files.push(...["lib/scanTicker.ts", "lib/marketScan.ts", "lib/backtest/replay.ts"].map((f) => path.join(ROOT, f)));
+    const offenders = files.filter((f) =>
+      /from "@\/lib\/(indicators|analysis\/indicators|strategies)/.test(readFileSync(f, "utf8")),
+    );
+    expect(offenders.map((f) => path.relative(ROOT, f))).toEqual([]);
+  });
+});
+

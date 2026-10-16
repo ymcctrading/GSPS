@@ -499,3 +499,45 @@ describe("computeScore", () => {
   });
 
 });
+
+describe("turn windows one, two and three years from an important top or bottom (A-TIME-04, W006 pp.14, 44)", () => {
+  const DAY = 86_400_000;
+  const T0 = Date.UTC(2020, 0, 1);
+  /** Flat at 100 with one V to 50 at day 40 (or an inverted V to 150), so the series has a single pivot. */
+  function oneTurn(kind: "low" | "high"): Bar[] {
+    return Array.from({ length: 120 }, (_, i) => {
+      const depth = Math.max(0, 25 - Math.abs(i - 40)) * 2;
+      const c = kind === "low" ? 100 - depth : 100 + depth;
+      return { t: new Date(T0 + i * DAY).toISOString(), o: c, h: c + 0.5, l: c - 0.5, c, v: 1e6 };
+    });
+  }
+  const turnAt = (years: number, plusDays = 0) => {
+    const d = new Date(T0 + 40 * DAY);
+    d.setUTCFullYear(d.getUTCFullYear() + years);
+    return new Date(d.getTime() + plusDays * DAY);
+  };
+
+  it("opens a buy-side window 1, 2 and 3 years after the low, and only within two days of it", () => {
+    for (const y of [1, 2, 3]) {
+      expect(timeCycles(oneTurn("low"), turnAt(y))).toMatchObject({ active: true, bullishActive: true, bearishActive: false });
+      expect(timeCycles(oneTurn("low"), turnAt(y, 2)).bullishActive).toBe(true);
+      expect(timeCycles(oneTurn("low"), turnAt(y, 6)).active).toBe(false);
+    }
+  });
+
+  it("projects each stock from its own turn (A-TIME-08, W006 pp.31, 35-37: each stock keeps its own time)", () => {
+    // The same V a month later: its anniversary is a month later too.
+    const later = oneTurn("low").map((b, i, all) => ({ ...all[Math.max(0, i - 30)], t: b.t }));
+    expect(timeCycles(oneTurn("low"), turnAt(1)).active).toBe(true);
+    expect(timeCycles(later, turnAt(1)).active).toBe(false);
+    expect(timeCycles(later, turnAt(1, 30)).bullishActive).toBe(true);
+  });
+
+  it("opens a sell-side window 1, 2 and 3 years after the top", () => {
+    for (const y of [1, 2, 3]) {
+      expect(timeCycles(oneTurn("high"), turnAt(y))).toMatchObject({ active: true, bullishActive: false, bearishActive: true });
+      expect(timeCycles(oneTurn("high"), turnAt(y, 6)).active).toBe(false);
+    }
+  });
+});
+
