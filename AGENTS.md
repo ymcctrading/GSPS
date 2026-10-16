@@ -1300,6 +1300,18 @@ They bound how the decision is built, not whether.
 
 ## Strategy Modes — scoped exception to the non-Gann boundary (2026-09-23, project owner direction)
 
+> **Narrowed 2026-10-16 (owner, confirming his 2026-10-01 note): explain-only.**
+> "Gann's method is still how we plot the chart; the indicator of choice will
+> just [be] how we explain the math on the front end." Asked whether that means
+> modes and scripts only explain levels while Gann's plan sets them, he said
+> yes. So a Strategy Mode or custom script no longer fills the order ticket's
+> stop or target: the "Use these levels" buttons are gone, and the ticket shows
+> the technique's reading next to Gann's plan (agrees or disagrees with its
+> direction, its own levels marked "for comparison only"). The evaluators,
+> chart overlays, script authoring and backtest stay as they were. Where this
+> section below says a mode may "generate" or supply levels a human acts on,
+> read it as this narrower rule.
+
 The "Gann-grounded platform" section above states a boundary "that must not
 move": no non-Gann indicator (PSAR, Supertrend, RSI, MACD, Bollinger, the
 STRAT bar-sequence taxonomy, etc.) may feed a scored criterion, a signal

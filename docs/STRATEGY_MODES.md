@@ -19,6 +19,15 @@ narrow, project-owner-authorized exception to the "no non-Gann indicator may
 feed an entry/stop/target" boundary that otherwise governs this codebase.
 Read that section before touching anything under `lib/strategies/`.
 
+**Explain-only since 2026-10-16 (project owner).** Gann's method sets the
+entry, stop and targets; a chosen mode or custom script only explains the
+setup in that technique's terms. The order ticket shows its reading next to
+Gann's plan (whether it agrees with the plan's direction, and its own levels
+marked "for comparison only") and no longer has a "Use these levels" button
+that copies them into the manual stop and target. See AGENTS.md's Strategy
+Modes section for the owner's wording. Everything below that describes a mode
+supplying levels a human acts on is superseded by this.
+
 ## Hard rules (do not relax without new project-owner direction)
 
 1. **Gann is always the default.** Every scan, the scorecard, `SignalGates`,
