@@ -527,5 +527,7 @@ export function contextFactorsFor(
   if (ctx.outbreakCounts) f.outbreakDayCount = ctx.outbreakCounts.length > 0;
   // A-SELECTION-07: a small number of shares, read on short candidates only.
   if (!bull && ctx.capitalStock?.smallFloat !== undefined) f.smallFloatShort = ctx.capitalStock.smallFloat;
+  // C-STOP-02: a break of the 1x1 points down from a low and up from a high.
+  if (ctx.oneByOneBreak && ctx.oneByOneBreak.length > 0) f.oneByOneBreakWithTrade = ctx.oneByOneBreak.some((b) => b.direction === (bull ? "up" : "down"));
   return f;
 }

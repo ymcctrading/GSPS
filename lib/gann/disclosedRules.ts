@@ -151,6 +151,7 @@ import { describeMasterChartTime, readMasterChartTime, type MasterChartHit } fro
 import { describeCampaignLength, readCampaignLength, type CampaignLengthReading } from "@/lib/gann/campaignLength";
 import { describeFoundingCounts, readFoundingCounts, type FoundingCountReading } from "@/lib/gann/incorporationCycle";
 import { describeOutbreakCounts, readOutbreakCounts, type OutbreakCountHit } from "@/lib/gann/outbreakCounts";
+import { describeOneByOneBreak, readOneByOneBreak, type OneByOneBreak } from "@/lib/gann/fans";
 import { describePatternAngles, readPatternAngles, type PatternAngleReading } from "@/lib/gann/patternAngles";
 import { describeDayCircle, readDayCircle, type DayCircleReading } from "@/lib/gann/dayCircle";
 import {
@@ -674,6 +675,8 @@ export interface DisclosedRulesContext {
   foundingCounts?: FoundingCountReading | null;
   /** 490, 1,290 and 1,335 days from the long monthly chart's major turns (A-TIME-33, context only). See `outbreakCounts.ts`. */
   outbreakCounts?: OutbreakCountHit[];
+  /** A close through the 1x1 from a fan anchor, and the 1x2 it points to (C-STOP-02, class C, context only). See `fans.ts`. */
+  oneByOneBreak?: OneByOneBreak[];
   /** The session this was read for (YYYY-MM-DD). */
   asOf: string;
 }
@@ -848,6 +851,7 @@ export function readDisclosedRules(
     campaignLength: marketMonthly ? readCampaignLength(marketMonthly, asOf) : null,
     foundingCounts: readFoundingCounts(inception, asOf),
     outbreakCounts: readOutbreakCounts(longMonthly, asOf),
+    oneByOneBreak: readOneByOneBreak(dailyBars),
     asOf: asOf.toISOString().slice(0, 10),
   };
 }
@@ -1078,5 +1082,6 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   if (cl) lines.push(cl);
   if (ctx.foundingCounts) lines.push(...describeFoundingCounts(ctx.foundingCounts));
   if (ctx.outbreakCounts) lines.push(...describeOutbreakCounts(ctx.outbreakCounts));
+  for (const b of ctx.oneByOneBreak ?? []) lines.push(describeOneByOneBreak(b));
   return lines;
 }
