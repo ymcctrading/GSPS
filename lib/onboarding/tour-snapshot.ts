@@ -151,7 +151,7 @@ export const SNAPSHOT_GUIDED = {
   qty: 2222,
   notionalUsd: 55_105.60,
   riskUsd: 999.90,
-  rewardUsd: 1_955.45,
+  rewardUsd: 2_555.30,
   /** Which cap produced the size. */
   bindingCap: "risk" as const,
   qtyAllowedByRiskCap: 2222,
@@ -168,11 +168,11 @@ export const SNAPSHOT_GUIDED = {
   reason:
     "F has sold off into a price area that has stopped declines before, and is turning back up through $24.80. The daily range is ordinary, so this is happening at a level rather than during a burst of activity.",
   riskRewardSentence:
-    "You could lose about $1,000 if this doesn't work, or make about $1,955 if it reaches the target.",
+    "You could lose about $1,000 if this doesn't work, or make about $2,555 if it reaches the target.",
   sizeSentence:
     "2222 shares — not a number you typed, but what 1% of the account at risk buys with this stop.",
   exitSentence:
-    "If it works, 1333 of the 2222 shares are sold at the first target and the other 889 run on until the trend changes, with the stop moved up behind each higher bottom. If it doesn't, the whole position is sold at the stop.",
+    "If it works, all 2222 shares run on until the trend changes, with the stop moved up behind each higher bottom. No profit target is fixed. If it doesn't, the whole position is sold at the stop.",
   scoreOutOf9: 8,
   verdict: "Execute" as const,
   trend: "Weekly and daily both pointing up.",
@@ -180,21 +180,17 @@ export const SNAPSHOT_GUIDED = {
 
 /**
  * The staged exit, as share counts rather than percentages — a beginner can
- * check "1333 + 889 = 2222" and cannot check "60% of the position".
+ * check a share count and cannot check "60% of the position". Since Q14
+ * (2026-10-16) nothing sells at a fixed target, so the whole position is one
+ * stage.
  */
 export const SNAPSHOT_EXIT_LADDER = [
   {
-    stage: "First target",
-    price: SNAPSHOT_PLAN.takeProfit1,
-    shares: 1333,
-    plain: "Most of the position is sold here, which locks in a profit early.",
-  },
-  {
     stage: "Runner",
     price: null,
-    shares: 889,
+    shares: 2222,
     plain:
-      "The rest keep going while the trend holds, with the stop raised under each higher bottom and never lowered. They're sold when the trend changes.",
+      "All of them keep going while the trend holds, with the stop raised under each higher bottom and never lowered. They're sold when the trend changes. No profit target is fixed.",
   },
 ] as const;
 

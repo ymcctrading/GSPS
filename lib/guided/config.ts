@@ -38,14 +38,12 @@ export const MAX_RISK_PCT = 2;
 /**
  * Minimum shares a guided order may be placed for.
  *
- * The protocol exits in tranches — 60% at TP1, half of the rest at the master
- * target, the remainder running behind a trailing stop. A single share cannot be
- * split, so `planProtocolExit` degrades it to "exits whole at TP1", which
- * silently converts the trade's reward from the staged plan the card described
- * into a flat 1.5R. Guided Mode states a dollar reward computed from the staged
- * plan, so it must not place an order that cannot follow it.
+ * Was 2 while the protocol sold 60% at TP1, because one share cannot be split.
+ * Since 2026-10-16 (owner, Q14) nothing leaves at a fixed target: the whole
+ * position runs on Gann's stop and exit signals, so one share follows the
+ * plan as well as a hundred.
  */
-export const MIN_GUIDED_QTY = 2;
+export const MIN_GUIDED_QTY = 1;
 
 /**
  * How long a recommendation stays tappable.

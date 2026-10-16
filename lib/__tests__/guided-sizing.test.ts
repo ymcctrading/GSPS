@@ -31,17 +31,13 @@ describe("sizeGuidedTrade", () => {
     expect(sized.boundBy).toBe("risk");
   });
 
-  it("states the reward the staged exit actually produces, not qty × (target − entry)", () => {
-    const sized = sizeGuidedTrade(base);
-    // 60 shares out at 115, the remaining 40 at 125.
-    expect(sized.rewardUsd).toBeCloseTo(60 * 15 + 40 * 25, 6);
-    // The naive figure would be 100 × 25 = 2,500, which nothing about this
-    // trade would ever pay.
-    expect(sized.rewardUsd).not.toBeCloseTo(2500, 6);
+  it("values the whole position at the MTP, since nothing sells at a fixed target (Q14)", () => {
+    // No 60% at TP1 any more: all 100 shares run, so reaching 125 is 100 × 25.
+    expect(sizeGuidedTrade(base).rewardUsd).toBeCloseTo(100 * 25, 6);
   });
 
-  it("reports the partial outcome where only the first target fills", () => {
-    expect(sizeGuidedTrade(base).rewardAtTp1Usd).toBeCloseTo(60 * 15, 6);
+  it("values the whole position at TP1 for the first level ahead", () => {
+    expect(sizeGuidedTrade(base).rewardAtTp1Usd).toBeCloseTo(100 * 15, 6);
   });
 
   it("lets the capital rule bind when a tight stop implies a large position (A-RISK-01)", () => {
@@ -65,11 +61,12 @@ describe("sizeGuidedTrade", () => {
     expect(sized.boundBy).toBe("buying_power");
   });
 
-  it("refuses a trade too small for the protocol's staged exit", () => {
-    // $15 of risk budget against $10 a share — one share, which cannot scale out.
+  it("places a single share, now that nothing has to be split (Q14)", () => {
+    // $15 of risk budget against $10 a share: one share.
+    expect(MIN_GUIDED_QTY).toBe(1);
     const sized = sizeGuidedTrade({ ...base, equity: 1_500, buyingPower: 1_500 });
-    expect(sized.qty).toBe(0);
-    expect(sized.blockedReason).toContain(`${MIN_GUIDED_QTY}`);
+    expect(sized.qty).toBe(1);
+    expect(sized.blockedReason).toBeNull();
   });
 
   it("says the room is spent when the capital is already held", () => {
@@ -112,8 +109,8 @@ describe("sizeGuidedTrade — shorts", () => {
 
   it("counts a falling price as the reward, not as a loss", () => {
     const sized = sizeGuidedTrade(short);
-    // 60 shares covered at 85, the remaining 40 at 75.
-    expect(sized.rewardUsd).toBeCloseTo(60 * 15 + 40 * 25, 6);
+    // All 100 shares covered at 75.
+    expect(sized.rewardUsd).toBeCloseTo(100 * 25, 6);
     expect(sized.rewardUsd).toBeGreaterThan(0);
   });
 

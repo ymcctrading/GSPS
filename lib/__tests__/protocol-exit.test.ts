@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  LIVE_EXIT_RULE,
   extendHighWater,
   planProtocolExit,
   planStopAdjustment,
@@ -183,11 +184,21 @@ describe("Gann exit rules (live since 2026-09-28)", () => {
     ...over,
   });
 
-  it("places no master-target order: everything after TP1 runs", () => {
-    const plan = planProtocolExit(10, levels, "gann");
+  it("places no master-target order under the runner rule: everything after TP1 runs", () => {
+    const plan = planProtocolExit(10, levels, "gann-runner");
     expect(plan.tranches.map((t) => t.key)).toEqual(["scale_out", "runner"]);
     expect(plan.scaleOutQty).toBe(6);
     expect(plan.runnerQty).toBe(4);
+  });
+
+  it("fixes no target at all under the live rule: the whole position runs (Q14)", () => {
+    expect(LIVE_EXIT_RULE).toBe("gann");
+    for (const qty of [1, 10]) {
+      const plan = planProtocolExit(qty, levels);
+      expect(plan.tranches).toEqual([expect.objectContaining({ key: "runner", qty, takeProfit: null })]);
+      expect(plan.scaleOutQty).toBe(0);
+      expect(plan.splittable).toBe(true);
+    }
   });
 
   it("keeps the resting stop when Gann's rules couldn't be read this pass", () => {

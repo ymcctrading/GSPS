@@ -23,9 +23,8 @@
  *                        `executeFill` in lib/brokers/simulator.ts). Sizing a
  *                        short against buying power would be arithmetic on a
  *                        number that grows as the position grows.
- *   4. Tradeability    — below MIN_GUIDED_QTY the protocol's staged exit collapses
- *                        into a single all-or-nothing target, which is not the
- *                        trade the card describes. Below it, there is no trade.
+ *   4. Tradeability    — below MIN_GUIDED_QTY (one share since Q14, when the
+ *                        staged exit was retired) there is no trade.
  *
  * Everything below is written in terms of "the risk side" and "the reward
  * side" rather than above/below, because a short is the mirror image of a long
@@ -81,12 +80,13 @@ export interface SizedTrade {
   /** Dollars lost if the stop is hit on the whole position. */
   riskUsd: number;
   /**
-   * Dollars made if the trade runs to the master target, following the
-   * protocol's staged exit — 60% out at TP1, then the rest at the master. Not
-   * `qty × (master − entry)`, which nothing about this trade would produce.
+   * Dollars made if the trade runs to the master take profit (MTP), the level
+   * the card names. Since Q14 (2026-10-16) no target is fixed and nothing
+   * sells at TP1, so the whole position counts; the exit itself comes on
+   * Gann's signals, which can be before or past this level.
    */
   rewardUsd: number;
-  /** Dollars made if the trade reaches TP1 and the remainder is closed at entry. */
+  /** Dollars made if the whole position is closed at TP1, the first level ahead. */
   rewardAtTp1Usd: number;
   /** Realised reward-to-risk of the staged plan, for the "why" panel. */
   rewardToRisk: number;
@@ -151,22 +151,20 @@ export function sizeGuidedTrade(input: SizingInputs): SizedTrade {
   }
 
   // The reward figure has to describe the exit the order will actually place.
-  // `planProtocolExit` owns that split, so it is asked rather than approximated
-  // — a 60% scale-out on 7 shares is 4 shares, not 4.2, and the difference
-  // shows up in the dollar figure the user is shown.
+  // `planProtocolExit` owns that split, so it is asked rather than
+  // approximated. Under the live rule nothing scales out (Q14), so the whole
+  // position is valued at each named level.
   const plan = planProtocolExit(qty, { stopLoss, takeProfit1, masterProfit });
-  const tp1Gain = (takeProfit1 - entry) * dir * plan.scaleOutQty;
-  const masterGain = (masterProfit - entry) * dir * (plan.masterQty + plan.runnerQty);
+  const tp1Gain = (takeProfit1 - entry) * dir * (plan.scaleOutQty || qty);
+  const masterGain = (masterProfit - entry) * dir * (plan.scaleOutQty ? plan.masterQty + plan.runnerQty : qty);
 
   const riskUsd = riskPerShare * qty;
-  const rewardUsd = tp1Gain + masterGain;
+  const rewardUsd = plan.scaleOutQty ? tp1Gain + masterGain : masterGain;
 
   return {
     qty,
     notionalUsd: entry * qty,
     riskUsd,
-    // If TP1 fills and the stop has ratcheted to break-even, the remainder
-    // leaves for nothing — the honest floor on a trade that works partway.
     rewardAtTp1Usd: tp1Gain,
     rewardUsd,
     rewardToRisk: riskUsd > 0 ? rewardUsd / riskUsd : 0,
@@ -189,7 +187,7 @@ function blockedCopy(boundBy: SizedTrade["boundBy"], qty: number, alreadyHeld: b
       : "Your per-trade risk cap doesn't stretch to a single share of this symbol.";
   }
   const sizedTo = boundBy === "capital" ? "the capital rule" : "your risk cap";
-  return `A trade sized to ${sizedTo} would be ${qty} share${qty === 1 ? "" : "s"}, and the protocol's staged exit needs at least ${minGuidedQty} to scale out of. Skipped rather than placed as an all-or-nothing trade.`;
+  return `A trade sized to ${sizedTo} would be ${qty} share${qty === 1 ? "" : "s"}, and the protocol's minimum is ${minGuidedQty}. Skipped.`;
 }
 
 /** The share of the position that leaves at TP1, for copy that needs to say so. */

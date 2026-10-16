@@ -196,7 +196,7 @@ export const TOUR_STEPS: TourStep[] = [
       "Choosing how many shares to buy is where beginners lose money, so GSPS makes that call for you.",
       "Three limits are checked every time. The risk limit caps one trade's loss at 1% of the account, which permits 2,222 shares here. The capital rule holds capital behind every share, which permits 4,584. Cash permits 4,032.",
       "When limits disagree, the strictest number wins. Hence 2,222 shares: if the stop is hit, the account loses 1%, never more.",
-      "GSPS then translates the position into money: roughly $1,000 at risk, roughly $1,955 if both profit targets are reached. Dollars, not percentages.",
+      "GSPS then translates the position into money: roughly $1,000 at risk, roughly $2,555 if it reaches the master take profit (MTP). Dollars, not percentages.",
     ],
   },
   {

@@ -46,17 +46,31 @@
  * stop already resting protects the trade, and nothing loosens.
  * The replay measures the same rule as `exitRule: "gann-runner"`.
  * "bracket" keeps the previous behaviour, for a revert.
+ *
+ * No fixed target either (2026-10-16, owner, "Switch all nine", Q14)
+ * ------------------------------------------------------------------
+ * `LIVE_EXIT_RULE` is now "gann": Gann never fixes a profit objective
+ * ("never fix a target price", parity X4), so nothing leaves at TP1. The whole
+ * position runs on Gann's stop and exit signals above, exactly as the replay's
+ * `exitRule: "gann"` measures. TP1 stays on the plan as the level the card
+ * names, but no order rests there. The 60%-at-TP1 rule above is kept as
+ * "gann-runner", for a revert.
  */
 
 import { snapToTick, tickSizeFor } from "@/lib/trade/tick-size";
 import type { GannExitReading, GannStopReason } from "@/lib/gann/exitRules";
 
 /** Which exit rules manage live and paper positions. See the header. */
-export type LiveExitRule = "gann" | "bracket";
+export type LiveExitRule = "gann" | "gann-runner" | "bracket";
 export const LIVE_EXIT_RULE: LiveExitRule = "gann";
 
-/** Share of the position that leaves at TP1. */
+/** Share of the position that leaves at TP1 under "gann-runner" and "bracket". */
 export const SCALE_OUT_PCT = 0.6;
+
+/** Share that leaves at TP1 under the live rule: none under "gann" (Q14). */
+export function scaleOutPctFor(rule: LiveExitRule = LIVE_EXIT_RULE): number {
+  return rule === "gann" ? 0 : SCALE_OUT_PCT;
+}
 
 /** Share of *what remains after TP1* that leaves at the master target. */
 export const MASTER_SCALE_OUT_PCT = 0.5;
@@ -88,9 +102,10 @@ export interface Tranche {
 export interface ExitPlan {
   tranches: Tranche[];
   /**
-   * False when the quantity is too small to divide — a single share can only
-   * be all-in or all-out, and pretending otherwise would round 60% up to 100%
-   * without saying so.
+   * False when the quantity is too small to follow the plan — under the
+   * staged rules a single share can only be all-in or all-out, and pretending
+   * otherwise would round 60% up to 100% without saying so. Always true under
+   * "gann", which divides nothing.
    */
   splittable: boolean;
   scaleOutQty: number;
@@ -118,7 +133,7 @@ export function planProtocolExit(
 ): ExitPlan {
   const whole = Math.floor(qty);
   // Under Gann's rules there is no fixed master target: the remainder runs.
-  const mp = rule === "gann" ? null : (levels.masterProfit ?? null);
+  const mp = rule === "bracket" ? (levels.masterProfit ?? null) : null;
 
   // Non-finite or non-positive input (a cleared quantity field, a bad read from
   // the broker) has nothing to build a plan from. `Math.max(1, whole)` used to
@@ -133,6 +148,30 @@ export function planProtocolExit(
       runnerQty: 0,
       scaleOutPct: 0,
       summary: "No shares to exit.",
+    };
+  }
+
+  // Q14: no target at all. One tranche, the whole position, runs on Gann's
+  // stop and exit signals; a single share needs no split.
+  if (rule === "gann") {
+    return {
+      tranches: [
+        {
+          key: "runner",
+          qty: whole,
+          takeProfit: null,
+          stopLoss: levels.stopLoss,
+          label: "Runs on until the trend changes, stop moved on the swings",
+        },
+      ],
+      // Nothing to divide, and nothing lost by not dividing: the plan is
+      // followed as written, which is what `splittable` tells the ticket.
+      splittable: true,
+      scaleOutQty: 0,
+      masterQty: 0,
+      runnerQty: whole,
+      scaleOutPct: 0,
+      summary: `All ${whole} share${whole === 1 ? "" : "s"} run on until the trend changes, with the stop raised under each higher bottom. No profit target is fixed. The stop covers the whole position, so a stop-out closes the trade completely.`,
     };
   }
 
@@ -188,7 +227,7 @@ export function planProtocolExit(
       qty: runnerQty,
       takeProfit: null,
       stopLoss: levels.stopLoss,
-      label: rule === "gann" ? "Runs on until the trend changes, stop moved on the swings" : "Runs on, protected by the trailing stop",
+      label: rule === "bracket" ? "Runs on, protected by the trailing stop" : "Runs on until the trend changes, stop moved on the swings",
     });
   }
 
@@ -217,9 +256,9 @@ function buildSummary(
   if (master > 0) parts.push(`${master} at the final target`);
   if (runner > 0) {
     parts.push(
-      rule === "gann"
-        ? `${runner} run on until the trend changes, with the stop raised under each higher bottom`
-        : `${runner} run on behind a trailing stop`,
+      rule === "bracket"
+        ? `${runner} run on behind a trailing stop`
+        : `${runner} run on until the trend changes, with the stop raised under each higher bottom`,
     );
   }
   return `${parts.join(", ")}. The stop covers all ${qty} shares, so a stop-out closes the trade completely.`;
@@ -254,7 +293,7 @@ export interface ExitState {
   /** Which rule set applies. Defaults to `LIVE_EXIT_RULE`. */
   rule?: LiveExitRule;
   /**
-   * Gann's reading for this position (`readGannExit`), when `rule` is "gann".
+   * Gann's reading for this position (`readGannExit`), under either Gann rule.
    * Null when it couldn't be read this pass: the resting stop stays.
    */
   gann?: GannExitReading | null;
@@ -322,7 +361,7 @@ export function planStopAdjustment(state: ExitState): ExitAction {
   const best = highWater ?? lastPrice;
   const rule = state.rule ?? LIVE_EXIT_RULE;
 
-  if (rule === "gann") {
+  if (rule !== "bracket") {
     const g = state.gann ?? null;
     let gannReason: GannStopReason | null = null;
     if (g) {

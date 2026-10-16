@@ -382,7 +382,7 @@ export function OrderTicket({
   const attachingLevels = attachLevels && !bracketBlocked;
 
   // How the position will be exited, computed from the same function the server
-  // runs. Shown before the button is pressed, because "60% out at TP1" changes
+  // runs. Shown before the button is pressed, because how it exits changes
   // what the order *is* — a user who reads "attach protocol levels" and expects
   // an all-or-nothing bracket has been told the wrong thing.
   const exitPlan =
@@ -1090,9 +1090,9 @@ function ModeReading({ reading }: { reading: PlanReading }) {
  * What the protocol will do on the way out.
  *
  * This sits under the checkbox because "attach protocol levels" no longer means
- * one bracket that exits the whole position. It means a staged exit — most of
- * the position at TP1, part of the rest at the master target, a runner behind a
- * stop that ratchets to break-even and then trails. A user who presses the
+ * one bracket that exits the whole position. Since Q14 (2026-10-16) it means
+ * no fixed target: the whole position runs behind a stop that moves to
+ * break-even and then on the swings, and leaves on the method's exit signals. A user who presses the
  * button expecting all-or-nothing has been misled by the old wording, so the
  * real behaviour is spelled out in the real quantities before they commit.
  */
@@ -1118,7 +1118,7 @@ function ExitPlanNotice({
         <p className="mt-1">
           Once the trade has gained as much as it risked, the stop moves to your entry. After that it
           moves up under each higher swing bottom, and under last month&apos;s low once a new month
-          starts. The rest is closed if price falls back under the level it broke out of, closes
+          starts. The position is closed if price falls back under the level it broke out of, closes
           against the trade three days running, or the trend turns.
           {hasMaster
             ? " If price pushes through the MTP (master take profit) and falls back through it, the rest is closed."

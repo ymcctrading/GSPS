@@ -10,8 +10,8 @@
  *      permanently and leave any shares that fill afterward with no stop and no
  *      exit orders at all.
  *   2. Attaches the exits, the first time there is a position to attach them to
- *      — 60% at TP1, half the remainder at the master target, the rest behind a
- *      stop.
+ *      — under the live rule (Q14, 2026-10-16) one stop covering the whole
+ *      position, with no profit leg; `planProtocolExit` decides the tranches.
  *   3. Moves the protective stop, once the trade has earned a tighter one.
  *   4. Closes the plan, when the position is gone or the master-target reversal
  *      rule fires.
@@ -47,7 +47,7 @@
  * What runs where
  * ---------------
  * The tranche orders rest at the broker. They fill whether or not this app is
- * running — that is what makes "60% out at TP1, everything out at the stop" a
+ * running — that is what makes "everything out at the stop" a
  * promise rather than a hope. The trailing stop and the reversal rule cannot
  * rest as orders, because both depend on where price has *been*; they advance
  * on this pass, which runs while the app polls. Between polls the protection in
@@ -280,7 +280,7 @@ async function advance(
   }
 
   const gann =
-    LIVE_EXIT_RULE === "gann"
+    LIVE_EXIT_RULE !== "bracket"
       ? await readLiveGannExit({
           symbol: plan.symbol,
           side: plan.side,

@@ -198,7 +198,7 @@ async function advance(supabase: Supabase, userId: string, plan: SimPlanRow, run
   let stopAction: ReturnType<typeof planStopAdjustment> | null = null;
   if (remainingQty > 1e-9) {
     const gann =
-      LIVE_EXIT_RULE === "gann"
+      LIVE_EXIT_RULE !== "bracket"
         ? await readLiveGannExit({
             symbol: plan.symbol,
             side: plan.side,

@@ -203,7 +203,7 @@ function PlanLevels() {
   const rows = [
     { label: "Entry", value: SNAPSHOT_PLAN.entry, tone: "accent", plain: "where the trade starts" },
     { label: "Stop loss", value: SNAPSHOT_PLAN.stopLoss, tone: "bear", plain: "where you get out if it goes wrong" },
-    { label: "First target", value: SNAPSHOT_PLAN.takeProfit1, tone: "bull", plain: "where most of it is sold" },
+    { label: "First target", value: SNAPSHOT_PLAN.takeProfit1, tone: "bull", plain: "the first level ahead, to watch" },
     { label: "Next level (MTP)", value: SNAPSHOT_PLAN.masterProfit, tone: "bull", plain: "the next level above, where the move may stall" },
   ] as const;
 
@@ -324,8 +324,8 @@ function ExitLadder() {
         </li>
       ))}
       <li className="border-t border-border pt-2 text-xs text-muted">
-        {sumText} = {total}, the whole position. If the stop is hit first, all {total} are sold at once and the
-        trade is over.
+        {SNAPSHOT_EXIT_LADDER.length > 1 ? `${sumText} = ${total}` : `All ${total} shares`}, the whole position. If
+        the stop is hit first, all {total} are sold at once and the trade is over.
       </li>
     </ol>
   );

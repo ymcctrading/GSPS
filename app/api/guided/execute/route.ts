@@ -12,7 +12,7 @@
  *   4. The caps still allow it, re-counted at this moment rather than trusted
  *      from the render.
  *   5. The size is re-derived from current equity, and refused if it no longer
- *      clears the minimum the staged exit needs.
+ *      clears the minimum size.
  *
  * Only then does it submit, through the same `placeSimulatedOrder` path the
  * manual ticket uses — a real bracket, with stop, TP1 and master attached.
@@ -165,7 +165,7 @@ export async function POST(req: NextRequest) {
   });
   if (sized.blockedReason || !sizeIsTradeable(sized.qty, guidedPolicy.minGuidedQty)) {
     return NextResponse.json(
-      { error: sized.blockedReason ?? "This trade is too small to place under the protocol's staged exit.", code: "unsizeable" },
+      { error: sized.blockedReason ?? "This trade is too small to place.", code: "unsizeable" },
       { status: 422 },
     );
   }

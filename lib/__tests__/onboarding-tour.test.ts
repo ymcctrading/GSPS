@@ -399,7 +399,7 @@ describe("the frozen snapshot holds together", () => {
       riskRewardSentence(SNAPSHOT_GUIDED.riskUsd, SNAPSHOT_GUIDED.rewardUsd),
     );
     expect(SNAPSHOT_GUIDED.exitSentence).toBe(
-      exitSentence(SNAPSHOT_EXIT_LADDER[0].shares, SNAPSHOT_GUIDED.qty, "buy"),
+      exitSentence(0, SNAPSHOT_GUIDED.qty, "buy"),
     );
   });
 

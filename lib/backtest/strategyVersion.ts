@@ -369,4 +369,10 @@
 // "Both"; A-SELECTION-01): an Execute holds to Watch when under a third of
 // the stock's last four or more buying and selling points carried on
 // (lib/gann/ruleFollowing.ts). The universe floors stay. Verdicts move.
-export const STRATEGY_VERSION = "2026-10-16-gann-queer-acting";
+// 2026-10-16-gann-no-fixed-target: live and paper positions fix no profit
+// target (owner, "Switch all nine", Q14; parity X4): nothing sells at TP1, the
+// whole position runs on Gann's stop and exit signals, as the replay's
+// `exitRule: "gann"` measures. Gann's capital rules (30 points a share, three
+// markets; Q4, Q6, Q12) size and refuse orders. Verdicts do not move; trades
+// and fills do.
+export const STRATEGY_VERSION = "2026-10-16-gann-no-fixed-target";
