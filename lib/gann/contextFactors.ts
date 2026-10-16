@@ -156,6 +156,12 @@ export function contextFactorsFor(
     }
     f.reactionAbnormalLength = ctx.timeRules.reactionAbnormal;
   }
+  // The last campaign bottom broken by 3 points (A-LEVELS-03): bearish
+  // context, against a long and with a short.
+  if (ctx.campaignBottoms && ctx.campaignBottoms.bottoms.length > 0) {
+    const broken = ctx.campaignBottoms.bottoms[0].broken;
+    f.campaignBottomBrokenAgreesWithTrade = bull ? !broken : broken;
+  }
   // Double/triple tops and bottoms: crossed in the trade's direction, or a
   // failed test standing against it (the second or third since 2026-10-16,
   // A-LEVELS-04; the factor keeps its name so earlier runs still compare).

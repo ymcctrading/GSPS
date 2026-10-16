@@ -661,3 +661,8 @@ including the break) survive as equivalent on one session; B3 removed as redunda
 - Context only (card, contextFactors), so no STRATEGY_VERSION bump. thirdTestFailedAgainstTrade keeps its name.
 - Tests: timeRulesAndTops.test.ts (failed double top; inside the 3 points still testing; 64 under 66 is a second test; 61 under 66 is a new level). Mutants T1-T4 killed.
 - Random-walk saturation (200 walks x 11 cut points, both sides): a reading present 40% -> 69%, "failed" 6% -> 22%. Worth weighing before FL3 makes "failed" hold a long.
+
+## 2026-10-16 item 9 step 3b: ladder of old campaign bottoms (A-LEVELS-03, context)
+- lib/gann/campaignBottoms.ts: monthly strength-3 pivot lows over OLDER_LEVELS_YEARS calendar years (completed months; completed sessions this month for a break), newest first; broken = a later close under by Gann's 3 points; nextSupport = first unbroken. Not majorPivots (its prominence quantile dropped the newest, smaller campaign in tests). Card line + factor campaignBottomBrokenAgreesWithTrade. Context only, no version bump; joins plan levels later (FL7/FL6 step).
+- Tests: campaignBottoms.test.ts (holds, broken, inside 3 points, older-higher bottom, 10-year span parity, forming session ignored, card and factors). Mutants C1-C3 killed; the old "older bottom above a broken one" guard was redundant (equivalent) and removed.
+- Fresh review of item 8 steps 4-5 in docs/gann-feature-map/item8b_review.md: A-VOLUME-11 PASS; A-VOLUME-09/-10 PASS pending run 49 and M5 pins; A-VOLUME-03 and A-ENTRY-20 FAIL on small fixes (M1-M3). Fixing next.
