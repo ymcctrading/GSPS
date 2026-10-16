@@ -23,6 +23,7 @@ import { scanTicker } from "@/lib/scanTicker";
 import { DEFAULT_UNIVERSE_THRESHOLDS, type UniverseThresholds } from "@/lib/universe/eligibility";
 import { assetClassOf, getOrCreateAccount, listOpenPositions, quotePrice, STARTING_CASH } from "@/lib/brokers/simulator";
 import { gannRiskCapital, readWinningRun } from "@/lib/risk/dynamic-risk";
+import { profitRiskCeiling } from "@/lib/risk/gannCapital";
 import { parseOccSymbol } from "@/lib/portfolio/occ";
 import { assessEligibility } from "@/lib/guided/eligibility";
 import { sizeGuidedTrade, type SizedTrade } from "@/lib/guided/sizing";
@@ -47,6 +48,8 @@ export interface GuidedAccount {
    * (`gannRiskCapital`, A-RISK-04 and rule 24; owner, 2026-10-16, Q7).
    */
   riskCapital: number;
+  /** A tenth of the profits after large profits (A-RISK-07, `profitRiskCeiling`); null below them. */
+  profitCeiling: number | null;
 }
 
 /**
@@ -86,6 +89,7 @@ export async function readGuidedAccount(
   return {
     equity,
     riskCapital,
+    profitCeiling: profitRiskCeiling(equity, STARTING_CASH),
     // No margin is modelled — a simulated cash account can only buy what it holds.
     buyingPower: account.cash,
     openSymbols,
@@ -397,6 +401,7 @@ function collectBatch(params: {
       masterProfit: levels.masterProfit,
       riskPct: caps.riskPct,
       riskCapital: account.riskCapital,
+      profitCeiling: account.profitCeiling,
       capitalHeldUsd: committed,
       minGuidedQty,
     });

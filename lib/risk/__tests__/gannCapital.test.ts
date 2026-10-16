@@ -8,6 +8,7 @@ import {
   capitalPerShare,
   capitalRuleRefusal,
   maxRiskForTrade,
+  profitRiskCeiling,
   maxSharesForCapital,
   maxSharesForRisk,
   riskTenthRefusal,
@@ -103,5 +104,34 @@ describe("the one-tenth risk ceiling", () => {
   });
   it("refuses any risk when there is no capital", () => {
     expect(riskTenthRefusal({ capital: 0, symbol: "AAPL", entry: 100, stop: 95, qty: 1 })?.code).toBe("risk_one_tenth");
+  });
+});
+
+describe("a tenth of the profits after large profits (A-RISK-07, W022 pp.198-199)", () => {
+  it("applies once profits equal the starting capital", () => {
+    expect(profitRiskCeiling(150_000, 100_000)).toBeNull();
+    expect(profitRiskCeiling(200_000, 100_000)).toBe(10_000);
+    expect(profitRiskCeiling(250_000, 100_000)).toBe(15_000);
+  });
+  it("shrinks after a loss to a tenth of the profits that remain", () => {
+    // 150,000 of profit, then a 20,000 loss: the next trade risks 13,000.
+    expect(profitRiskCeiling(230_000, 100_000)).toBe(13_000);
+  });
+  it("does not apply with no starting capital on record", () => {
+    expect(profitRiskCeiling(500_000, 0)).toBeNull();
+  });
+  it("lowers the most a trade may risk only when it is below a tenth of the unit", () => {
+    expect(maxRiskForTrade(200_000, 15_000)).toBe(15_000);
+    expect(maxRiskForTrade(200_000, 30_000)).toBe(20_000);
+    expect(maxRiskForTrade(200_000, null)).toBe(20_000);
+    expect(maxSharesForRisk(200_000, 10, 15_000)).toBe(1_500);
+  });
+  it("refuses a trade risking more than a tenth of the profits", () => {
+    const base = { capital: 200_000, symbol: "AAPL", entry: 100, stop: 90, qty: 1_500, profitCeiling: 15_000 };
+    expect(riskTenthRefusal(base)).toBeNull();
+    const over = riskTenthRefusal({ ...base, qty: 1_501 });
+    expect(over?.code).toBe("risk_tenth_of_profits");
+    expect(over?.error).toMatch(/1500/);
+    expect(over?.error).not.toMatch(/gann/i);
   });
 });

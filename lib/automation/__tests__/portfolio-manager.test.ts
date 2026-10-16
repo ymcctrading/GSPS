@@ -51,3 +51,11 @@ describe("allocatedDollarRiskFor: never more than a tenth of the capital (never-
     expect(allocatedDollarRiskFor(0, "AGGRESSIVE")).toBe(0);
   });
 });
+
+describe("allocatedDollarRiskFor: a tenth of the profits after large profits (A-RISK-07)", () => {
+  it("is held to the profit ceiling when that is lower", () => {
+    expect(allocatedDollarRiskFor(200_000, "MODERATE")).toBe(2_000);
+    expect(allocatedDollarRiskFor(200_000, "MODERATE", 1_500)).toBe(1_500);
+    expect(allocatedDollarRiskFor(200_000, "MODERATE", 5_000)).toBe(2_000);
+  });
+});

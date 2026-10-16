@@ -58,7 +58,7 @@ import { restsWithoutCrossing } from "@/lib/gann/entryKind";
 import { levelBeforeThreePoints } from "@/lib/gann/pointScale";
 import { isPivotSignal } from "@/lib/lifecycle/fromPivot";
 import { resolveGannRulePrefs } from "@/lib/gann/traderPrefs";
-import { maxRiskForTrade } from "@/lib/risk/gannCapital";
+import { maxRiskForTrade, profitRiskCeiling } from "@/lib/risk/gannCapital";
 
 export type RiskProfile = "PASSIVE" | "MODERATE" | "AGGRESSIVE";
 type DirectionalBias = "BULLISH_ONLY" | "BEARISH_ONLY" | "BOTH";
@@ -128,9 +128,9 @@ const MIN_ALLOCATED_DOLLAR_RISK = 25;
  * lift a small account past it. Placement checks the same tenth again
  * (`lib/trade/place-order.ts`).
  */
-export function allocatedDollarRiskFor(capital: number, riskProfile: RiskProfile): number {
+export function allocatedDollarRiskFor(capital: number, riskProfile: RiskProfile, profitCeiling: number | null = null): number {
   const dial = Math.max(MIN_ALLOCATED_DOLLAR_RISK, Math.round(capital * RISK_PCT[riskProfile]));
-  return Math.min(dial, maxRiskForTrade(capital));
+  return Math.min(dial, maxRiskForTrade(capital, profitCeiling));
 }
 
 export interface PortfolioManagerRunResult {
@@ -294,11 +294,15 @@ async function runForProfile(
   // neither account steps up on a long run of wins. No starting capital is on
   // record for a live account, so only the rule-24 hold applies there.
   const run = await readWinningRun(supabase, profile.user_id);
+  // A-RISK-07: after large profits, a tenth of the profits at most, read on
+  // the equity before the unit (paper only; no starting capital is on record
+  // for a live account).
+  const profitCeiling = executionMode === "live" ? null : profitRiskCeiling(equityBasis, STARTING_CASH);
   equityBasis = run
     ? gannRiskCapital({ equity: equityBasis, startingCapital: executionMode === "live" ? 0 : STARTING_CASH, ...run }).capital
     : Math.min(equityBasis, executionMode === "live" ? equityBasis : STARTING_CASH);
 
-  const allocatedDollarRisk = allocatedDollarRiskFor(equityBasis, profile.risk_profile);
+  const allocatedDollarRisk = allocatedDollarRiskFor(equityBasis, profile.risk_profile, profitCeiling);
   if (!(allocatedDollarRisk > 0)) {
     result.plansSkipped += candidates.length;
     if (candidates.length > 0) {
