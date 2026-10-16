@@ -1325,6 +1325,33 @@ owed.
 > chart overlays, script authoring and backtest stay as they were. Where this
 > section below says a mode may "generate" or supply levels a human acts on,
 > read it as this narrower rule.
+>
+> **Built the same day:** `lib/strategies/explain/` gives each of the nine
+> modes, and any custom script, a reader that takes GSPS's plan and returns
+> words only (`PlanReading`: a lean, a summary, one line per plan level). It
+> has no output that can become a level, score, gate or order. The order
+> ticket sends the plan to `/api/strategy-levels` and
+> `/api/strategy-plugins/[id]/evaluate`, which return `reading`, and shows it
+> in both protocol and manual mode, read on `EXECUTION_TIMEFRAME`. Owner
+> decisions for the rest of the rollout: the setup card shows a one-line
+> reading for the saved default technique, the chart switches the chosen
+> technique's overlay on automatically, scripts keep `entry`/`stop`/`tp1r`/
+> `mtpr` as optional lines, and every surface that shows a plan's levels gets
+> the reading where it fits (cross-platform rule above).
+>
+> **Rolled out the same day.** `components/strategies/plan-reading-line.tsx`
+> shows the saved default technique's reading of the plan on the setup card
+> (so the daily lists, scanner rows, tracked, saved and intraday alerts), the
+> ticker page's plan card, Guided Mode and plan-scoped Automation. It shows
+> nothing for Novice or a saved default of GSPS's own plan. Choosing a
+> technique in the ticket switches its chart overlay on (VWAP, Donchian and
+> stochastic were added to `lib/indicators.ts` for this). Deliberate gaps:
+> open positions (their levels may be a person's own edits, not the plan),
+> scan history (an old plan read against today's bars), the Novice home
+> summary (Novice has no techniques) and notifications (no per-person
+> technique is known when they are sent). VWAP now anchors at the latest
+> session in the mode, the reading and the chart alike
+> (`lib/strategies/math.ts#latestSession`), so it arms only on intraday bars.
 
 The "Gann-grounded platform" section above states a boundary "that must not
 move": no non-Gann indicator (PSAR, Supertrend, RSI, MACD, Bollinger, the

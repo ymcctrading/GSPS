@@ -29,6 +29,7 @@ import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { TF_LOOKBACK_DAYS, TF_MAX_BARS, parseTimeframe } from "@/lib/timeframe";
 import { compileCustomScript } from "@/lib/strategies/custom/compile";
 import { computeScriptPlotSeries } from "@/lib/strategies/custom/plot";
+import { explainCustomScript, parsePlanParams } from "@/lib/strategies/explain";
 
 // Same reasoning as /api/strategy-levels and /api/bars: a symbol fetch can
 // queue behind the shared per-provider rate limiter.
@@ -116,11 +117,19 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
         .filter((p): p is { time: number; value: number } => p !== null),
     }));
 
+    // Explain-only (AGENTS.md "Strategy Modes", 2026-10-16): with GSPS's plan
+    // passed in, the script reads that plan through the indicators it names.
+    const plan = parsePlanParams(searchParams);
+    const reading = plan
+      ? explainCustomScript({ id: plugin.id, name: plugin.name }, compiled.ast!, compiled.evaluator!, bars, plan)
+      : null;
+
     return NextResponse.json({
       symbol: symbol.toUpperCase(),
       timeframe,
       plugin: { id: plugin.id, name: plugin.name, author: plugin.author, version: plugin.version },
       levels, // null when nothing is currently armed under this script
+      reading, // null without a plan
       series,
     });
   } catch (err) {

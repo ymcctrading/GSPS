@@ -21,6 +21,7 @@ import { hasFeature, type PlatformTier } from "@/lib/tiers";
 import type { ScanResult } from "@/lib/types";
 import type { SignalPlan } from "@/lib/signals/types";
 import type { LiveQuote } from "@/app/api/quote/route";
+import type { StrategyModeId } from "@/lib/strategies/types";
 
 const TIER_RANK = { watchlistOnly: 0, qualified: 1, aTier: 2, aPlusTier: 3 } as const;
 
@@ -55,6 +56,12 @@ export function TickerView({ symbol }: { symbol: string }) {
   const { prefs: gannPrefs } = useGannRulePrefs();
   // Bumping this re-runs the scan without remounting the page.
   const [reloadKey, setReloadKey] = useState(0);
+  // The technique (or script) the order ticket is explaining the plan with,
+  // so the chart can switch its lines on (AGENTS.md "Strategy Modes", 2026-10-16).
+  const [explain, setExplain] = useState<{
+    mode: StrategyModeId;
+    scriptId: string | null;
+  } | null>(null);
   const [mounted, setMounted] = useState(false);
   const quote = useLiveQuote(symbol);
 
@@ -274,6 +281,8 @@ export function TickerView({ symbol }: { symbol: string }) {
               livePrice={quote?.price ?? null}
               enableTrading
               saraMarkersUnlocked={saraMarkersUnlocked}
+              explainMode={explain?.mode ?? null}
+              explainScriptId={explain?.scriptId ?? null}
             />
           </CardContent>
         </Card>
@@ -307,6 +316,7 @@ export function TickerView({ symbol }: { symbol: string }) {
               livePrice={livePrice}
               intradaySourced={intradaySourced}
               forceSide={forceSide}
+              onExplainChange={setExplain}
             />
           )}
         </div>

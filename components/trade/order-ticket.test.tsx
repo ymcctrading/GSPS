@@ -388,3 +388,50 @@ describe("OrderTicket with no bar-sequence pattern", () => {
     expect(screen.getByText(/armed structural entry trigger is bearish/)).toBeInTheDocument();
   });
 });
+
+describe("OrderTicket explain-only technique reading", () => {
+  const reading = {
+    source: "rsiReversal",
+    label: "RSI 14 reversal (overbought/oversold)",
+    agrees: true,
+    summary: "RSI 14 is 58 (neutral). RSI 14 reversal (overbought/oversold) leans bullish, the same way as GSPS's plan.",
+    levels: [
+      { level: "entry", price: 49.76, text: "Entry $49.76: a close here would put RSI 14 near 61 (neutral)." },
+      { level: "stopLoss", price: 43.78, text: "Stop $43.78: a close here would put RSI 14 near 29 (oversold)." },
+    ],
+  };
+
+  function mockExplain() {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      const json = (body: unknown) =>
+        Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(body) } as Response);
+      if (url.includes("/api/strategy-mode-preference")) {
+        return json({ mode: "rsiReversal", allowedModes: ["rsiReversal"] });
+      }
+      if (url.includes("/api/strategy-levels")) return json({ levels: null, reading });
+      if (url.includes("/api/strategy-plugins")) return json({ plugins: [] });
+      return json({ symbol: "DRAM", shortable: true, tradable: true });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+
+  it("sends GSPS's plan and the execution timeframe, and shows the reading with no way to copy levels", async () => {
+    const user = userEvent.setup();
+    const fetchMock = mockExplain();
+    render(<OrderTicket result={scanWithEntry(50)} />);
+
+    await user.click(await screen.findByRole("button", { name: "Explain" }));
+    expect(await screen.findByText(/leans bullish, the same way as GSPS's plan/)).toBeTruthy();
+    expect(screen.getByText(/Stop \$43\.78: a close here would put RSI 14 near 29/)).toBeTruthy();
+    expect(screen.queryByText(/Use these levels/)).toBeNull();
+
+    const call = fetchMock.mock.calls.map(([u]) => String(u)).find((u) => u.includes("/api/strategy-levels"))!;
+    const params = new URL(call, "http://x").searchParams;
+    expect(params.get("timeframe")).toBe("15Min");
+    expect(params.get("direction")).toBe("bullish");
+    expect(Number(params.get("entry"))).toBe(50);
+    expect(Number(params.get("stop"))).toBeCloseTo(44);
+  });
+});

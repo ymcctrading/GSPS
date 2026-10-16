@@ -285,6 +285,91 @@ export function supertrend(candles: Candle[], period = 10, multiplier = 3): Supe
   return out;
 }
 
+/**
+ * Session VWAP: cumulative (typical price × volume) / cumulative volume,
+ * restarting each calendar day (UTC date of the bar). On daily or longer bars
+ * every bar is its own session, so the line is each bar's typical price.
+ * Added 2026-10-16 so the VWAP technique's explain-the-math reading has a line
+ * to look at on the chart (AGENTS.md "Strategy Modes", cross-platform rule).
+ */
+export function vwap(candles: Candle[]): LinePoint[] {
+  const out: LinePoint[] = [];
+  let day = "";
+  let pv = 0;
+  let vol = 0;
+  for (const c of candles) {
+    const d = new Date(c.time * 1000).toISOString().slice(0, 10);
+    if (d !== day) {
+      day = d;
+      pv = 0;
+      vol = 0;
+    }
+    const v = c.volume ?? 0;
+    pv += ((c.high + c.low + c.close) / 3) * v;
+    vol += v;
+    if (vol > 0) out.push({ time: c.time, value: pv / vol });
+  }
+  return out;
+}
+
+/** Donchian channel: highest high and lowest low of the `period` bars before each bar. */
+export function donchian(
+  candles: Candle[],
+  period = 20,
+): { upper: LinePoint[]; lower: LinePoint[] } {
+  const upper: LinePoint[] = [];
+  const lower: LinePoint[] = [];
+  for (let i = period; i < candles.length; i++) {
+    let hi = -Infinity;
+    let lo = Infinity;
+    for (let j = i - period; j < i; j++) {
+      hi = Math.max(hi, candles[j].high);
+      lo = Math.min(lo, candles[j].low);
+    }
+    upper.push({ time: candles[i].time, value: hi });
+    lower.push({ time: candles[i].time, value: lo });
+  }
+  return { upper, lower };
+}
+
+/** Stochastic oscillator (14, 3, 3): %K smoothed by `kSmooth`, %D its `dSmooth` average. */
+export function stochastic(
+  candles: Candle[],
+  period = 14,
+  kSmooth = 3,
+  dSmooth = 3,
+): { k: LinePoint[]; d: LinePoint[] } {
+  const raw: (number | null)[] = candles.map((_, i) => {
+    if (i < period - 1) return null;
+    let hi = -Infinity;
+    let lo = Infinity;
+    for (let j = i - period + 1; j <= i; j++) {
+      hi = Math.max(hi, candles[j].high);
+      lo = Math.min(lo, candles[j].low);
+    }
+    return hi === lo ? 50 : ((candles[i].close - lo) / (hi - lo)) * 100;
+  });
+  const avg = (series: (number | null)[], n: number): (number | null)[] =>
+    series.map((_, i) => {
+      if (i < n - 1) return null;
+      const win = series.slice(i - n + 1, i + 1);
+      return win.every((x) => x != null)
+        ? (win as number[]).reduce((a, b) => a + b, 0) / n
+        : null;
+    });
+  const kSeries = avg(raw, kSmooth);
+  const dSeries = avg(kSeries, dSmooth);
+  const k: LinePoint[] = [];
+  const d: LinePoint[] = [];
+  candles.forEach((c, i) => {
+    if (kSeries[i] != null)
+      k.push({ time: c.time, value: kSeries[i] as number });
+    if (dSeries[i] != null)
+      d.push({ time: c.time, value: dSeries[i] as number });
+  });
+  return { k, d };
+}
+
 /** Volume histogram data colored by candle direction. */
 export function volumeBars(candles: Candle[]): { time: number; value: number; color: string }[] {
   return candles

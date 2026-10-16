@@ -467,7 +467,7 @@ export function CustomScriptEditor() {
                     </select>
                   </label>
                   <Button size="sm" variant="outline" disabled={!symbol || checkStatus === "loading"} onClick={checkLevelsNow}>
-                    {checkStatus === "loading" ? "Checking…" : "Check levels"}
+                    {checkStatus === "loading" ? "Checking…" : "Check if it fires"}
                   </Button>
                   <Button size="sm" variant="outline" disabled={!symbol || backtestStatus === "loading"} onClick={runBacktest}>
                     {backtestStatus === "loading" ? "Running…" : "Run backtest"}
@@ -476,11 +476,15 @@ export function CustomScriptEditor() {
 
                 {checkStatus === "error" && <p className="text-xs text-warn">{checkError}</p>}
                 {checkStatus === "ready" && !checkLevels && (
-                  <p className="text-xs text-muted">Nothing currently armed under this script.</p>
+                  <p className="text-xs text-muted">Neither rule fires on the latest bar.</p>
                 )}
                 {checkLevels && (
                   <div className="rounded-md bg-surface-alt p-2 text-xs">
                     <p className="text-muted">{checkLevels.rationale}</p>
+                    <p className="mt-1 text-muted">
+                      These are the script&apos;s own lines, for testing the rule. Orders always use
+                      GSPS&apos;s plan; on the order ticket this script explains that plan instead.
+                    </p>
                     <p className="mt-1">
                       Entry {formatUsd(checkLevels.entry)} · Stop {formatUsd(checkLevels.stopLoss)} · TP1{" "}
                       {formatUsd(checkLevels.takeProfit1)} · MTP (master target){" "}

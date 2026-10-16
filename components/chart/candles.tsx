@@ -28,7 +28,21 @@ import {
   TIMEFRAMES,
 } from "@/lib/timeframe";
 import { barSession, isExtended } from "@/lib/market/session";
-import { sma, ema, bollinger, rsi, macd, psar, supertrend, volumeBars, type Candle as CalcCandle } from "@/lib/indicators";
+import {
+  sma,
+  ema,
+  bollinger,
+  rsi,
+  macd,
+  psar,
+  supertrend,
+  vwap,
+  donchian,
+  stochastic,
+  volumeBars,
+  type Candle as CalcCandle,
+} from "@/lib/indicators";
+import type { StrategyModeId } from "@/lib/strategies/types";
 import { classifySeries } from "@/lib/strat/classify";
 import { cn, parseJsonResponse } from "@/lib/utils";
 
@@ -88,9 +102,17 @@ type Point = { time: Time; price: number };
 type Trendline = { a: Point; b: Point };
 
 // Overlay indicators drawn in the main price pane.
-type Overlay = "sma20" | "sma50" | "ema9" | "bb" | "psar" | "supertrend";
+type Overlay =
+  | "sma20"
+  | "sma50"
+  | "ema9"
+  | "bb"
+  | "psar"
+  | "supertrend"
+  | "vwap"
+  | "donchian";
 // Study indicators drawn in their own pane below price.
-type Study = "volume" | "rsi" | "macd";
+type Study = "volume" | "rsi" | "macd" | "stoch";
 
 const OVERLAY_META: Record<Overlay, { label: string; color: string }> = {
   sma20: { label: "SMA 20", color: "#f59e0b" },
@@ -108,11 +130,36 @@ const OVERLAY_META: Record<Overlay, { label: string; color: string }> = {
   // settled the way the always-free SMA/EMA/RSI/MACD family is.
   psar: { label: "PSAR", color: "#eab308" },
   supertrend: { label: "Supertrend", color: "#14b8a6" },
+  // Added 2026-10-16 so every explain-the-math technique has its line on the
+  // chart (AGENTS.md "Strategy Modes"). Display only, same carve-out as above.
+  vwap: { label: "VWAP", color: "#ec4899" },
+  donchian: { label: "Donchian 20", color: "#64748b" },
 };
 const STUDY_META: Record<Study, { label: string }> = {
   volume: { label: "Volume" },
   rsi: { label: "RSI 14" },
   macd: { label: "MACD 12/26/9" },
+  stoch: { label: "Stoch 14/3/3" },
+};
+
+/**
+ * What the chart switches on when a technique is chosen to explain the plan
+ * (owner decision 2026-10-16: automatic). The bar-pattern technique has no
+ * line; its per-bar labels stay behind their own tier opt-in.
+ */
+const EXPLAIN_CHART: Record<
+  Exclude<StrategyModeId, "gann">,
+  { overlays: Overlay[]; studies: Study[] }
+> = {
+  psarSupertrend: { overlays: ["psar", "supertrend"], studies: [] },
+  saraStrat: { overlays: [], studies: [] },
+  maCrossover: { overlays: ["ema9", "sma20"], studies: [] },
+  bollinger: { overlays: ["bb"], studies: [] },
+  rsiReversal: { overlays: [], studies: ["rsi"] },
+  macdMomentum: { overlays: [], studies: ["macd"] },
+  vwap: { overlays: ["vwap"], studies: [] },
+  stochastic: { overlays: [], studies: ["stoch"] },
+  donchian: { overlays: ["donchian"], studies: [] },
 };
 
 /**
@@ -123,7 +170,7 @@ const STUDY_META: Record<Study, { label: string }> = {
  * will actually look. The chip strip scrolls sideways on a phone, which is
  * where "Volume" spent most of its life off the edge of the screen.
  */
-const CHIP_STUDIES: Study[] = ["rsi", "macd"];
+const CHIP_STUDIES: Study[] = ["rsi", "macd", "stoch"];
 
 const MACD_LINE = "#2563eb";
 const MACD_SIGNAL = "#f59e0b";
@@ -167,6 +214,8 @@ export function CandleChart({
   initialTimeframe = "1Day",
   enableTrading = false,
   saraMarkersUnlocked = false,
+  explainMode = null,
+  explainScriptId = null,
 }: {
   symbol: string;
   markers: PriceMarker[];
@@ -182,6 +231,14 @@ export function CandleChart({
    * snapshot) never shows it.
    */
   saraMarkersUnlocked?: boolean;
+  /**
+   * The technique chosen on the order ticket to explain GSPS's plan. Its lines
+   * switch on automatically (owner decision 2026-10-16); the person can still
+   * switch them off. Never changes the plan's own lines.
+   */
+  explainMode?: StrategyModeId | null;
+  /** A custom script chosen on the order ticket: its lines plot the same way. */
+  explainScriptId?: string | null;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -230,6 +287,30 @@ export function CandleChart({
   // nothing either way, same convention order-ticket.tsx uses.
   const [customScripts, setCustomScripts] = useState<{ id: string; name: string }[]>([]);
   const [selectedCustomScriptId, setSelectedCustomScriptId] = useState("");
+
+  // Explain-the-math (AGENTS.md "Strategy Modes", 2026-10-16): when the order
+  // ticket picks a technique or a script, its lines come on automatically. A
+  // change of technique adds the new one's lines and leaves the rest as the
+  // person set them.
+  useEffect(() => {
+    if (!explainMode || explainMode === "gann") return;
+    const want = EXPLAIN_CHART[explainMode];
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setOverlays((prev) =>
+      want.overlays.every((o) => prev.has(o))
+        ? prev
+        : new Set([...prev, ...want.overlays]),
+    );
+    setStudies((prev) =>
+      want.studies.every((o) => prev.has(o))
+        ? prev
+        : new Set([...prev, ...want.studies]),
+    );
+  }, [explainMode]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (explainScriptId) setSelectedCustomScriptId(explainScriptId);
+  }, [explainScriptId]);
   const [customScriptSeries, setCustomScriptSeries] = useState<
     { label: string; points: { time: number; value: number }[] }[]
   >([]);
@@ -803,6 +884,14 @@ export function CandleChart({
       flushRun();
     }
 
+    if (overlays.has("vwap"))
+      addLine(vwap(calcCandles), OVERLAY_META.vwap.color);
+    if (overlays.has("donchian")) {
+      const ch = donchian(calcCandles, 20);
+      addLine(ch.upper, OVERLAY_META.donchian.color, 1, true);
+      addLine(ch.lower, OVERLAY_META.donchian.color, 1, true);
+    }
+
     return () => created.forEach((s) => chart.removeSeries(s));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [overlayKey, candleData, status]);
@@ -927,6 +1016,50 @@ export function CandleChart({
         title: "",
       });
       created.push(signalLine);
+      paneIndex += 1;
+    }
+    if (studies.has("stoch")) {
+      const st = stochastic(calcCandles);
+      const k = chart.addSeries(
+        LineSeries,
+        {
+          color: MACD_LINE,
+          lineWidth: 2,
+          priceLineVisible: false,
+          lastValueVisible: true,
+        },
+        paneIndex,
+      );
+      k.setData(st.k.map((d) => ({ time: d.time as Time, value: d.value })));
+      k.createPriceLine({
+        price: 80,
+        color: "#dc2626",
+        lineWidth: 1,
+        lineStyle: 2,
+        axisLabelVisible: true,
+        title: "80",
+      });
+      k.createPriceLine({
+        price: 20,
+        color: "#059669",
+        lineWidth: 1,
+        lineStyle: 2,
+        axisLabelVisible: true,
+        title: "20",
+      });
+      created.push(k);
+      const d = chart.addSeries(
+        LineSeries,
+        {
+          color: MACD_SIGNAL,
+          lineWidth: 1,
+          priceLineVisible: false,
+          lastValueVisible: true,
+        },
+        paneIndex,
+      );
+      d.setData(st.d.map((p) => ({ time: p.time as Time, value: p.value })));
+      created.push(d);
       paneIndex += 1;
     }
 
