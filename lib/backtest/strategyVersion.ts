@@ -326,4 +326,7 @@
 // third higher close, not the second (M-R3, WSSS pp.67-74: a declining stock
 // "will never close more than 2 days with gains"). The scored ruleOfThree
 // criterion passes less often on buys, so verdicts move.
-export const STRATEGY_VERSION = "2026-10-16-gann-rule-of-three-3";
+// 2026-10-16-gann-review21-fixes: the distribution gate on swing shorts now
+// spares an old top lost by 3 points and the intraday profile, and its spell
+// is narrow at 2 allowances, as the distribution rule reads one (review 21).
+export const STRATEGY_VERSION = "2026-10-16-gann-review21-fixes";

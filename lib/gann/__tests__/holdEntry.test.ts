@@ -183,6 +183,13 @@ describe("the record form (A-ENTRY-10)", () => {
     expect(computeGannHoldEntry(bars, "bullish", [record(50)])?.holdBasis).not.toBe("record");
   });
 
+  it("is off when a dip during the four weeks broke the record by more than 3 points", () => {
+    // NEAR, with one bar of the stay replaced by a dip to 46.
+    const bars = daily(NEAR.map((c, i) => (i === NEAR.length - 12 ? 46 : c)));
+    expect(46 - 0.3).toBeLessThan(beyondByThreePoints(50, -1));
+    expect(computeGannHoldEntry(bars, "bullish", [record(50)])?.holdBasis).not.toBe("record");
+  });
+
   it("waits four weeks from the day price came back near the record", () => {
     const bars = daily([...leg(70, 50.5, 12), 49.5, 49, 49.6, 50.2, 50.8]);
     expect(computeGannHoldEntry(bars, "bullish", [record(50)])?.holdBasis).not.toBe("record");

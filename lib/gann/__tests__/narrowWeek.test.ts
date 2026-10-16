@@ -72,10 +72,11 @@ describe("a narrow week, then a sharp drop on large volume (A-ENTRY-19)", () => 
     const ctx = readDisclosedRules(daily, daily[daily.length - 1].c, null, new Date("2025-05-10T20:00:00Z"));
     expect(ctx.narrowWeekBreak?.direction).toBe("bearish");
     const line = describeDisclosedRules(ctx).find((l) => l.startsWith("A narrow week, then a sharp drop on heavy volume"));
-    // The card must not claim it moved the trend read (item 6 review R6); since
-    // 2026-10-16 it names the sale.
+    // The card must not claim it moved the trend read (item 6 review R6), nor
+    // that a sale rests: only the plan that sells it says so, in its armed
+    // note (review 21 H; the bounce may have used it, or the week be forming).
     expect(line).toMatch(/does not change the trend read/);
-    expect(line).toMatch(/A sell rests 1 point under the narrow week's low/);
+    expect(line).not.toMatch(/sell rests/);
     const price = daily[daily.length - 1].c;
     expect(contextFactorsFor(ctx, "bullish", price).narrowWeekBreakAgrees).toBe(false);
     expect(contextFactorsFor(ctx, "bearish", price).narrowWeekBreakAgrees).toBe(true);

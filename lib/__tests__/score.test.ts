@@ -328,6 +328,12 @@ describe("computeScore entryTriggerArmed note", () => {
     );
   });
 
+  it("states the narrow-week sale on the plan that carries it (A-ENTRY-19)", () => {
+    expect(note({ triggerPrice: 99, stopPrice: 102, direction: "bearish", kind: "hold", level: 99.5, holdBasis: "narrowWeek" })).toMatch(
+      /a sell rests 1 point under that week's low at 99\.50, for the bounce, with the stop 3 points over it/,
+    );
+  });
+
   it("names a previous year's level by its year", () => {
     expect(note({ ...crossing, source: "priorYear", levelYear: 2024 })).toMatch(/crosses the 2024 top by 3 points/);
     expect(note({ ...crossing, direction: "bearish", source: "priorYear", levelYear: 2024 })).toMatch(/crosses the 2024 bottom by 3 points/);

@@ -37,3 +37,16 @@ describe("calendar test", () => {
     expect(typeof r.holmSignificant).toBe("boolean");
   });
 });
+
+describe("holm", () => {
+  it("stops at the first p that fails: none of [0.03, 0.04] is significant at 0.05", () => {
+    const rs = holm([{ p: 0.04 }, { p: 0.03 }] as { p: number; holmSignificant?: boolean }[]);
+    expect(rs.map((r) => r.holmSignificant)).toEqual([false, false]);
+  });
+
+  it("marks each p under its step's bound until one fails", () => {
+    const rs = holm([{ p: 0.01 }, { p: 0.02 }, { p: 0.5 }] as { p: number; holmSignificant?: boolean }[]);
+    expect(rs.map((r) => r.holmSignificant)).toEqual([true, true, false]);
+  });
+});
+

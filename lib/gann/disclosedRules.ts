@@ -752,7 +752,7 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   }
   if (ctx.breakawayVolume) {
     const b = ctx.breakawayVolume;
-    lines.push(`The last session ${b.direction === "bullish" ? "crossed the top" : "broke the bottom"} of a narrow range on ${b.ratio.toFixed(1)}× the range's average volume${b.ratio > 1 ? "" : ": a breakout without volume"}. Shown for context; it does not change the setup.`);
+    lines.push(`The last session ${b.direction === "bullish" ? "crossed the top" : "broke the bottom"} of a narrow range on ${b.ratio.toFixed(1)}× the range's average volume${b.ratio > 1 ? "." : ": a breakout without volume, so an entry out of this range waits for a session that closes past the line on volume."}`);
   }
   if (ctx.campaignBottoms?.bottoms[0]?.broken) {
     const next = ctx.campaignBottoms.nextSupport;
@@ -825,7 +825,7 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
     const n = ctx.narrowWeekBreak;
     lines.push(
       n.direction === "bearish"
-        ? `A narrow week, then a sharp drop on heavy volume: closed ${n.breakClose.toFixed(2)}, 3 points under that week's low (${n.narrowLow.toFixed(2)}) on ${n.volumeRatio.toFixed(1)}x the usual weekly volume. The rule reads this as a sign the trend is turning down, even while the market rises. A sell rests 1 point under the narrow week's low for the bounce, with the stop 3 points over it; it does not change the trend read here.`
+        ? `A narrow week, then a sharp drop on heavy volume: closed ${n.breakClose.toFixed(2)}, 3 points under that week's low (${n.narrowLow.toFixed(2)}) on ${n.volumeRatio.toFixed(1)}x the usual weekly volume. The rule reads this as a sign the trend is turning down, even while the market rises; it does not change the trend read here.`
         : `A narrow week, then a sharp rise on heavy volume: closed ${n.breakClose.toFixed(2)}, 3 points over that week's high (${n.narrowHigh.toFixed(2)}) on ${n.volumeRatio.toFixed(1)}x the usual weekly volume.`,
     );
   }

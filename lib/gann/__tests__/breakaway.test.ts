@@ -157,12 +157,12 @@ describe("the breakaway's volume (A-VOLUME-10)", () => {
     const { contextFactorsFor } = await import("@/lib/gann/contextFactors");
     const up = withVolume(daily([...sideways(6), 112]), 3000);
     const ctx = readDisclosedRules(up, 112, null, after(up));
-    expect(describeDisclosedRules(ctx)).toContain("The last session crossed the top of a narrow range on 3.0× the range's average volume. Shown for context; it does not change the setup.");
+    expect(describeDisclosedRules(ctx)).toContain("The last session crossed the top of a narrow range on 3.0× the range's average volume.");
     expect(contextFactorsFor(ctx, "bullish", 112)).toMatchObject({ breakawayOnVolumeWith: true, breakawayWithoutVolumeWith: false, breakawayOnVolumeAgainst: false });
     expect(contextFactorsFor(ctx, "bearish", 112)).toMatchObject({ breakawayOnVolumeWith: false, breakawayWithoutVolumeWith: false, breakawayOnVolumeAgainst: true });
     const quiet = withVolume(daily([...sideways(6), 88]), 600);
     const q = readDisclosedRules(quiet, 88, null, after(quiet));
-    expect(describeDisclosedRules(q)).toContain("The last session broke the bottom of a narrow range on 0.6× the range's average volume: a breakout without volume. Shown for context; it does not change the setup.");
+    expect(describeDisclosedRules(q)).toContain("The last session broke the bottom of a narrow range on 0.6× the range's average volume: a breakout without volume, so an entry out of this range waits for a session that closes past the line on volume.");
     expect(contextFactorsFor(q, "bearish", 88)).toMatchObject({ breakawayOnVolumeWith: false, breakawayWithoutVolumeWith: true });
   });
 
@@ -199,6 +199,20 @@ describe("the breakaway waits for a session that closes past the range on volume
 
   it("waits when that session came on less than the range's average", () => {
     expect(breakawayVolumeMet(session(range(), 111, 600), "bullish", 110)).toBe(false);
+  });
+
+  it("has no volume condition when the market before the crossing was trending, not ranging", async () => {
+    const { isGannRangeBound } = await import("@/lib/gann/trendStrength");
+    // Narrow in span but stepping up: rising tops and bottoms, 100 to about 106.
+    const closes: number[] = [];
+    for (let k = 0; k < 6; k++) {
+      const base = 100 + k;
+      for (let i = 1; i <= 5; i++) closes.push(base + (1.6 * i) / 5);
+      for (let i = 1; i <= 5; i++) closes.push(base + 1.6 - (0.6 * i) / 5);
+    }
+    const trending = daily(closes).map((b, i) => ({ ...b, v: i % 2 ? 1500 : 500 }));
+    expect(isGannRangeBound(trending)).toBe(false);
+    expect(breakawayVolumeMet(session(trending, 108, 600), "bullish", 107.5)).toBe(true);
   });
 
   it("has no volume condition for a range too wide to be narrow (batch review A2)", async () => {

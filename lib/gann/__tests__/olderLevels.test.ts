@@ -114,6 +114,12 @@ describe("the bottom of a previous year (A-ENTRY-17)", () => {
     expect(t.reactionEntry).toBeCloseTo(100 - P100 / 3, 8);
     expect(t.reactionStop).toBeCloseTo(100 + P100, 8);
   });
+
+  it("needs no distribution spell before it, unlike a swing bottom (A-ENTRY-15)", () => {
+    const d = daily([...zig(104, 124, 4), ...leg(104, 93, 10), ...leg(93, 96.5, 3)], "2026-01-05");
+    const t = selectGannEntry(d, "bearish", older)!;
+    expect(t).toMatchObject({ source: "priorYear", level: 100, direction: "bearish" });
+  });
 });
 
 describe("the all-time high (A-ENTRY-06)", () => {

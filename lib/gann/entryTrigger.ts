@@ -84,7 +84,7 @@ import { beyondByThreePoints, gannThreePoints, gannThreePointsPct } from "@/lib/
 import { SWING_CHART_DAYS, WEEKLY_SWING_CHART, swingPivots, walkSwingChart, type SwingPivot } from "@/lib/gann/swingChart";
 import { readCounterMove, toWeeklyBars } from "@/lib/gann/disclosedRules";
 import { readNarrowWeekBreak } from "@/lib/gann/narrowWeek";
-import { isNarrowRange } from "@/lib/gann/breakaway";
+import { NARROW_SPELL_ALLOWANCES } from "@/lib/gann/distribution";
 import { type GannEntryKind, type GannHoldBasis } from "@/lib/gann/entryKind";
 
 export type TriggerDirection = "bullish" | "bearish";
@@ -274,8 +274,17 @@ export function computeGannEntryTrigger(
   const held = crossed && !crossed.spent ? crossed : null;
   const pivot = held?.pivot ?? (direction === "bullish" ? lastTop : lastBottom);
   // A-ENTRY-15: a short on a swing bottom's break comes after distribution
-  // (W006 p.22). A previous year's bottom needs none (A-ENTRY-17).
-  if (direction === "bearish" && (held?.source ?? "swing") === "swing" && !distributedBefore(bars, held ? held.crossedAt : bars.length, pivot.price)) {
+  // (W006 p.22). A previous year's bottom needs none (A-ENTRY-17), nor does an
+  // old top lost by 3 points (A-ENTRY-16's side; Gann ties distribution to the
+  // bottom's break only). The spell is read on daily sessions, so the
+  // intraday profile, which passes its own `bufferPct`, does not read it.
+  if (
+    direction === "bearish" &&
+    bufferPct === undefined &&
+    (held?.source ?? "swing") === "swing" &&
+    !held?.regained &&
+    !distributedBefore(bars, held ? held.crossedAt : bars.length, pivot.price)
+  ) {
     return null;
   }
   // A level already bought (or broken) is not offered again, and neither is a
@@ -726,10 +735,10 @@ export const DISTRIBUTION_LOOKBACK_DAYS = 91;
  * Course: a narrow range of 2-6 weeks at a top). Before session `end` (the
  * break, or the end of `bars` when no break has closed yet): some
  * `DISTRIBUTION_SESSIONS` consecutive sessions within `DISTRIBUTION_LOOKBACK_DAYS`
- * formed a narrow range (`isNarrowRange`) whose high stands within 3 points of
+ * formed a narrow range whose high stands within 3 points of
  * the highest high of those days, at or over the level that breaks. Engineering
  * choices, labelled: the spell's length, the look-back, "narrow" as the
- * breakaway reads it, and "at a top" as within 3 points of the look-back's high.
+ * distribution rule reads its spell (`NARROW_SPELL_ALLOWANCES`, 2 allowances), and "at a top" as within 3 points of the look-back's high.
  */
 export function distributedBefore(bars: Bar[], end: number, level: number): boolean {
   if (end <= 0) return false;
@@ -742,7 +751,8 @@ export function distributedBefore(bars: Bar[], end: number, level: number): bool
   for (let i = 0; i + DISTRIBUTION_SESSIONS <= window.length; i++) {
     const spell = window.slice(i, i + DISTRIBUTION_SESSIONS);
     const high = Math.max(...spell.map((b) => b.h));
-    if (high >= top - gannThreePoints(top) && Math.min(...spell.map((b) => b.l)) >= level - gannThreePoints(level) && isNarrowRange(spell)) return true;
+    const low = Math.min(...spell.map((b) => b.l));
+    if (high >= top - gannThreePoints(top) && low >= level - gannThreePoints(level) && high - low <= NARROW_SPELL_ALLOWANCES * gannThreePoints(low)) return true;
   }
   return false;
 }

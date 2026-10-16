@@ -45,7 +45,9 @@ describe("the crossed level persists through the reaction", () => {
   });
 
   it("holds the broken bottom for a short in the mirror case", () => {
-    const mirror = (xs: number[]) => xs.map((x) => 100 - x);
+    // Two narrow weeks at the top first: a swing short follows distribution (A-ENTRY-15).
+    const top = Array.from({ length: 10 }, (_, i) => 40 + (i % 2 ? 0.1 : -0.1));
+    const mirror = (xs: number[]) => [...top, ...xs].map((x) => 100 - x);
     const before = computeGannEntryTrigger(bars(mirror(BASE)), "bearish")!;
     const t = computeGannEntryTrigger(bars(mirror([...BASE, ...REACTION])), "bearish")!;
     expect(t.level).toBeCloseTo(before.level, 8);

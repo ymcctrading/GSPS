@@ -474,7 +474,7 @@
     "class": "A",
     "gsps_location": "none",
     "test": "TO WRITE: lib/gann/__tests__/allTimeHigh.test.ts — a close above the highest high in the stored history is flagged as a new all-time high in the buy direction.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-ENTRY-07",
@@ -501,7 +501,7 @@
     "class": "A",
     "gsps_location": "none",
     "test": "TO WRITE: lib/__tests__/score.test.ts — a crossed level formed years earlier ranks above an equally near level formed weeks earlier.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-ENTRY-10",
@@ -2355,7 +2355,7 @@
     "class": "C",
     "gsps_location": "lib/gann/stopBreach.ts:readStopBreach, isReclaimedByClose; lib/gann/extremeRules.ts:readReverseSignal — differs: GSPS's failed break needs a close back through the broken stop by its price-scaled 3 points",
     "test": "lib/gann/__tests__/stopBreach.test.ts > readStopBreach > stands the plan again when a closed bar has closed back through the line: a failed break",
-    "passes": false
+    "passes": true
   },
   {
     "id": "C-OTHER-03",
