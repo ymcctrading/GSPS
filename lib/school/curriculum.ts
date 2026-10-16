@@ -451,6 +451,38 @@ const ACADEMY_2: Academy = {
           ],
           reviewMeta: AUTHOR,
         },
+        {
+          // C-OTHER-02 (class C, Additional Cycle Findings p. 17): ignore the
+          // financial press. Written in our own words.
+          id: "academy-2/simple-rules/the-chart-not-the-news",
+          title: "Judge the Market From Its Own Chart",
+          objectives: [
+            "Explain why the chart, not the headlines, decides a trade.",
+            "Use news only to know when risk is higher, not to pick a direction.",
+          ],
+          estimatedMinutes: 8,
+          instruction: [
+            "Mrs. Bear's warning: headlines are written after the move. A story about why a stock jumped is an explanation of yesterday, and by the time you read it, the buying or selling it describes is already in the price.",
+            "Mr. Bull's rule: the chart is the record of what people actually did with their money. Tops, bottoms, the trend and the volume tell you where the market is going more honestly than anyone's opinion about it. If the chart and the news disagree, trust the chart.",
+            "Exciting news often arrives near the end of a move, when the last buyers are rushing in, and gloomy news near the end of a fall. Acting on how a story makes you feel is how traders buy near tops and sell near bottoms.",
+            "News still has one use: knowing when a scheduled event, such as an earnings report, can make price jump past your stop. That tells you when risk is higher and when to stay out. It does not tell you which way to trade.",
+          ],
+          application:
+            "Find a stock in the headlines today. Before reading the story, write down what its chart says: the trend, the last top and bottom, and where you would be wrong. Then read the story and ask whether it changes anything the chart told you.",
+          quiz: [
+            q(
+              "A headline says a stock is soaring on great news, but its chart shows lower tops and lower bottoms. What should guide your decision?",
+              ["The headline", "The chart", "Whichever you read first", "A friend's opinion"],
+              1,
+            ),
+            q(
+              "The sound use of scheduled news, such as an earnings date, is to:",
+              ["Pick which way to trade", "Know when risk is higher and when to stay out", "Remove your stop", "Trade bigger"],
+              1,
+            ),
+          ],
+          reviewMeta: AUTHOR,
+        },
       ],
     },
   ],
