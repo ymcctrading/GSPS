@@ -19,6 +19,37 @@ narrow, project-owner-authorized exception to the "no non-Gann indicator may
 feed an entry/stop/target" boundary that otherwise governs this codebase.
 Read that section before touching anything under `lib/strategies/`.
 
+**Explain-only since 2026-10-16 (project owner).** Gann's method sets the
+entry, stop and targets; a chosen mode or custom script only explains the
+setup in that technique's terms. The order ticket shows its reading next to
+Gann's plan (whether it agrees with the plan's direction, and its own levels
+marked "for comparison only") and no longer has a "Use these levels" button
+that copies them into the manual stop and target. See AGENTS.md's Strategy
+Modes section for the owner's wording. Everything below that describes a mode
+supplying levels a human acts on is superseded by this.
+
+**How the reading works (`lib/strategies/explain/`).** Each mode has an
+explainer that takes the closed bars and GSPS's plan (direction, entry, stop,
+TP1, MTP) and returns a `PlanReading`: whether the technique leans the plan's
+way, a one-sentence state, and one line per plan level. Line indicators
+(PSAR, Supertrend, EMA 9/SMA 20, Bollinger bands, VWAP, Donchian) compare each
+level with the line's latest value, in % and ATRs. Oscillators (RSI, MACD,
+stochastic) append one hypothetical bar closing at the level and report the
+value they would read there. The bar-pattern mode compares the levels with the
+armed pattern's trigger and stop. A custom script is read through every
+indicator it names (`collectPlotNodes`), and its lean is whichever of its rules
+fires on the latest bar. The script editor's check still shows the script's own
+lines, labelled as a test of the rule, never an order's levels.
+
+**Where the reading shows.** The order ticket (any technique, on request), and
+a one-line reading in the person's saved default technique
+(`components/strategies/plan-reading-line.tsx`) on the setup card, the ticker
+page's plan card, Guided Mode and plan-scoped Automation. Choosing a technique
+in the ticket also switches its chart overlay on. Not shown on open positions,
+scan history, the Novice home summary or notifications, for the reasons in
+AGENTS.md's Strategy Modes note. VWAP is session-anchored
+(`math.ts#latestSession`) in the mode, the reading and the chart line.
+
 ## Hard rules (do not relax without new project-owner direction)
 
 1. **Gann is always the default.** Every scan, the scorecard, `SignalGates`,
@@ -215,7 +246,11 @@ built exactly that.
   <expr> tp1r = <n> mtpr = <n> }`, condition supports comparisons,
   `crossesAbove`/`crossesBelow`, `and`/`or`/`not`; expressions support bar
   series (`close[1]` = one bar back), indicator calls with an optional
-  `.field` and offset, and `+ - * /`.
+  `.field` and offset, and `+ - * /`. Every line in the braces is optional
+  (owner decision 2026-10-16): `entry` and `stop` come as a pair, `tp1r` and
+  `mtpr` only with them, and a block with none (`{ }`) is signal-only. It
+  fires with a direction and no prices of its own, which is all the order
+  ticket's explanation reads.
 - `limits.ts` — bounds enforced at parse time: max source length, AST node
   count, expression nesting depth, indicator period/offset. There is no
   loop or recursion in the language itself, so runtime cost per evaluated
@@ -421,6 +456,37 @@ built-in modes. **No live browser click-through happened.** The session's
 network policy blocked the production site and the Supabase API host, so a
 local dev server could not reach the database either. That click-through
 is still owed.
+
+### Live click-through (2026-10-16)
+
+Run in Chromium against `gsps.vercel.app` and production Supabase, as a new
+Wall Street test account (`gsps-e2e-custom-scripts-20261016@mailinator.com`,
+kept for the owner; Supabase rejects `example.com` addresses, and the email
+confirmation and tier were set by SQL on that one row with the owner's
+go-ahead). Everything on the checklist worked, with no failed app request:
+
+- `/settings/scripts`: "EMA9/SMA20 crossover (test)" saved as v1, survived a
+  reload and re-selected with its source intact.
+- SPY: Check levels answered "Nothing currently armed" (the crossover arms
+  only on the crossing bar). Run backtest evaluated 913 bars and armed 43
+  times (21 bullish / 22 bearish), with the "Evidence only, not a
+  performance claim" text shown in the UI.
+- `/ticker/AAPL`: the "My scripts" picker drew all four series (`ema(9)`,
+  `sma(20)`, `lowest(low,10)`, `highest(high,10)`) on the daily chart.
+- Order ticket: the "Custom script" picker appears under Manual Override and
+  lists the script. Since the crossover was armed on none of 30 liquid
+  symbols, a temporary always-armed script (`close > 0`) was used to check
+  that "Use these levels" fills the manual stop and target; it did, and the
+  script was deleted afterwards. This tested the ticket as deployed that day,
+  before the explain-only change (PR #316) removed that button.
+- `/promotion` rendered (a Wall Street account sees "No further tier
+  promotion is available").
+
+Two small things noticed, not fixed here because the ticket was being
+reworked in #316: the ticket's script check calls `/evaluate` without a
+timeframe, so it reads the route's default rather than the chart's
+timeframe, and "Use these levels" wrote the unrounded TP1 (`347.5030625`)
+into the field.
 
 Roadmap placement: Q2/Q3, alongside the existing "Expanded indicator
 library for self-directed strategy testing" initiative (ROADMAP.md) — see

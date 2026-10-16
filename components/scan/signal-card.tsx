@@ -1,4 +1,6 @@
 import { RoundNumberNotice } from "@/components/gann/round-number-notice";
+import { PlanReadingLine } from "@/components/strategies/plan-reading-line";
+import { planFromLevels } from "@/lib/strategies/explain/params";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ScoreBadge } from "@/components/scan/score-badge";
 import { Badge } from "@/components/ui/badge";
@@ -207,6 +209,18 @@ export function SignalCard({
               tone="bull"
             />
           </div>
+        )}
+
+        {levels && !result.stopBreach && result.direction !== "none" && (
+          <PlanReadingLine
+            symbol={result.symbol}
+            plan={planFromLevels(result.direction, {
+              entry: levels.entry,
+              stop: levels.stopLoss,
+              tp1: levels.takeProfit1,
+              mtp: levels.masterProfit,
+            })}
+          />
         )}
 
         {levels?.stopBandWarning && <Badge variant="warn">{levels.stopBandWarning}</Badge>}

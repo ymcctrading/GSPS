@@ -43,11 +43,12 @@ export interface CustomScriptReplayEvent {
   index: number;
   date: string;
   direction: StrategyDirection;
-  entry: number;
-  stopLoss: number;
-  takeProfit1: number;
-  masterTarget: number;
-  riskPerShare: number;
+  /** Null for a signal-only rule (no `entry`/`stop` lines). */
+  entry: number | null;
+  stopLoss: number | null;
+  takeProfit1: number | null;
+  masterTarget: number | null;
+  riskPerShare: number | null;
 }
 
 export type CustomScriptReplayResult =

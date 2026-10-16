@@ -624,7 +624,10 @@ export function scanIntraday(
   for (const input of inputs) {
     const result = scanSymbol(input, config, now);
     audit.push(result.audit);
-    alerts.push(...result.alerts);
+    // An alert whose price is already through its own exit is retired before
+    // it is shown, the same rule as a daily plan whose stop broke
+    // (`lib/gann/stopBreach.ts`).
+    alerts.push(...result.alerts.filter((a) => !isThroughInvalidation(a)));
     if (result.audit.outcome === "stale_data") staleSymbols.push(input.symbol);
   }
 
@@ -632,6 +635,13 @@ export function scanIntraday(
   alerts.sort((a, b) => b.confidence - a.confidence || a.symbol.localeCompare(b.symbol));
 
   return { scannedAt: now.toISOString(), alerts, audit, config, staleSymbols };
+}
+
+/** True when the alert's current price has already reached its own exit level. */
+export function isThroughInvalidation(alert: Pick<Alert, "direction" | "invalidation" | "move">): boolean {
+  const { invalidation, direction, move } = alert;
+  if (invalidation == null || !Number.isFinite(invalidation)) return false;
+  return direction === "up" ? move.current <= invalidation : move.current >= invalidation;
 }
 
 interface SymbolResult {

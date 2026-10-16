@@ -10,6 +10,7 @@
  * callers pass in the qualifying ranked setups a scan already produced.
  */
 
+import { isQualifiedSetup } from "@/lib/dashboard/bestPlan";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { selectVisibleResults, type RankedSetup } from "@/lib/entitlements/result-selection";
 import { evaluateMonitor } from "@/lib/entitlements/monitor-store";
@@ -141,6 +142,15 @@ export async function evaluateMonitorsAndNotify(
   const notifyWorthy: { transitionId: string; setup: RankedSetup<ScanResult> }[] = [];
 
   for (const setup of args.visible) {
+    // Only a qualified setup (Execute or Watch) arms a monitor. A Reject on a
+    // published list, a retired plan (its stop broke) above all, used to be
+    // read as WATCH here and then invalidated by `rejectedSymbols` in the same
+    // pass, so every scan re-armed and re-invalidated it: about 5,300 of each
+    // in the week to 2026-10-16, each one an "invalidated" notification for a
+    // setup that was never live. The Reject is handled below, as the
+    // invalidation it is.
+    if (!isQualifiedSetup(setup.value.decision)) continue;
+
     // Advance any already-open AWAITING_ENTRY_CONFIRMATION plan for this
     // symbol before evaluating the monitor -- confirmation is observed
     // across scans, independent of whether this pass is itself alert-worthy.

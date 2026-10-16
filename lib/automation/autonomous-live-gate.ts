@@ -26,6 +26,25 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { isFeatureAuthorized } from "@/lib/compliance/signoff";
 
 /**
+ * The proving period (owner, 2026-10-16: "remove the live broker connection,
+ * environment kill switch (enable), remove human compliance sign-off (it will
+ * go back on AFTER we have proven that the portfolio manager actually
+ * works)").
+ *
+ * While true, the Automated Portfolio Manager runs every enabled profile on
+ * paper, whatever execution mode the member picked, so it needs no live
+ * broker connection, and neither the compliance sign-off nor
+ * AUTONOMOUS_LIVE_TRADING_HALTED is consulted. No order the loop places can
+ * reach a real broker account while this is true.
+ *
+ * To put the sign-off back once the manager has proven itself, set this to
+ * false. That restores the live path exactly as it was: a member who picks
+ * "live" trades live only with a verified live broker account, the kill
+ * switch off, and an active `autonomous_live_trading` sign-off.
+ */
+export const AUTONOMOUS_PROVING_PERIOD = true;
+
+/**
  * A second, narrower env-var kill switch, checked in addition to (never
  * instead of) `TRADING_DISABLED`. Reason for a dedicated flag: an incident
  * specific to the autonomous loop (a sizing bug, a runaway activation loop)

@@ -154,7 +154,7 @@ chapter.
 - **Examples.** 15-minute and hourly charts (S&P 1982–93, copper, D-Mark, gold, T-bonds, crude, Motorola) and 4-minute S&P 1995. Chart-only.
 
 **Ch. 7: double-numbered price/time charts.**
-- Gann's own double-numbered Hexagon Chart has the zodiac written around it; the replica is from a Gann original.
+- Gann's own double-numbered Hexagon Chart has the zodiac written around it; the replica is from a Gann original. **Qualified 2026-10-16:** Mikula's Fig. 7-8 is the triangular-cell construction (completions 6, 18, 36, 60 …), the unsigned typeset plate of Master Course p. 423, not Gann's hand-drawn p. 422 (`hexagonTime.ts`; reading log `other_gann_books_pictures.md`).
 - **Mikula's reading.** The top number is price and the bottom is time or longitude. A balancing point matters more when it lands on a chart's cardinal or fixed cross (Square of Nine, Even Square) or on a 30° line (Hexagon).
 - **Triangle Chart.** Mikula tells readers to invent their own price/time charts.
   - **Assessment:** that is an open invitation to multiple comparisons.

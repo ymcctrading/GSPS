@@ -715,7 +715,10 @@ config = { matcher: ... }`), and `lib/validation/health.ts#MIN_SIGNIFICANCE_T`/
    checked against Gann's lost hand-drawn wheel) has not changed since the
    2026-09-16 exception was recorded, and nothing in either source document
    supports reconstructing it from text alone. Do not re-litigate this
-   without new source material.
+   without new source material. **Update 2026-10-16:** new source material
+   arrived. The hexagon plate is printed p. 422 of the owner's Master Course
+   PDF, and its time counts now act through `hexagonTime.ts`; `hexagonChart.ts`
+   stays as the research copy of the text. `squareOf20.ts` is unchanged.
 8. **Migration 0048's `strategy_modules`/`gann_evaluations`/`sara_evaluations`**
    — split verdict. `strategy_modules`: REQUIRED AND ALIGNED, kept — has a
    real (if thin) purpose, module identity queryable independent of a
@@ -795,6 +798,19 @@ for the project owner** — do not fix it silently, and re-verify it first:
   cites this finding. `isFeatureAuthorized("autonomous_live_trading")` is
   now false. Re-record it with `scripts/record-autonomous-live-signoff.mjs`
   only once a real compliance/legal review exists.
+  **Proving period, 2026-10-16 (owner: "remove the live broker connection,
+  environment kill switch (enable), remove human compliance sign-off (it will
+  go back on AFTER we have proven that the portfolio manager actually
+  works)").** `AUTONOMOUS_PROVING_PERIOD` in
+  `lib/automation/autonomous-live-gate.ts` runs every manager profile on paper,
+  so neither the broker, the kill switch nor the sign-off is consulted, and no
+  order it places can reach a real account. Setting it to `false` restores the
+  live gates. The same day's diagnosis: no `trade_plans` row had ever armed
+  (all 165 expired), because equity plan windows ran out overnight on the wall
+  clock and confirmation advanced only one scan price per pass. Fixed by
+  counting session bars (`sessionBarsDeadline`, interim until #309 drops the
+  clock) and arming from real closed bars in the manager's own run
+  (`lib/lifecycle/armFromBars.ts`), which also skips any plan whose stop broke.
 - **Entry confirmation isn't uniform (F3.4).** Guided execute, the demo
   auto-trader and the manual ticket place orders without it. Only plan-scoped
   automation requires an `armed` plan.
@@ -1298,7 +1314,60 @@ They bound how the decision is built, not whether.
 - The Dewey discipline holds: each rule is fixed before it is tested, with no
   search over orbs, scales or planets.
 
+**Built 2026-10-16 under this decision (gaps G26–G28).** Gann's full angle set
+(16x1 to 1x16) on the Gann point, from the major pivots, with the 45°, 2x1 and
+4x1 copied to the preceding opposite pivot (GA-12 to GA-16), joins the S/R list (`lib/gann/patternAngles.ts`, via
+`masterLevels.ts`, live and replay). `STRATEGY_VERSION` is
+`2026-10-16-gann-pattern-angles`. The Hexagon Chart's time counts, read from
+Gann's own plate (`hexagonTime.ts`), and the Master Chart of 360°'s 48ths and
+sevenths (`masterChartTime.ts`) are trace and measured factors until the
+shared time-window mechanism exists. The plate is not lost (Master Course
+p. 422), and it puts 66 on 60°, not 180°. The replay measurement is still
+owed.
+
 ## Strategy Modes — scoped exception to the non-Gann boundary (2026-09-23, project owner direction)
+
+> **Narrowed 2026-10-16 (owner, confirming his 2026-10-01 note): explain-only.**
+> "Gann's method is still how we plot the chart; the indicator of choice will
+> just [be] how we explain the math on the front end." Asked whether that means
+> modes and scripts only explain levels while Gann's plan sets them, he said
+> yes. So a Strategy Mode or custom script no longer fills the order ticket's
+> stop or target: the "Use these levels" buttons are gone, and the ticket shows
+> the technique's reading next to Gann's plan (agrees or disagrees with its
+> direction, its own levels marked "for comparison only"). The evaluators,
+> chart overlays, script authoring and backtest stay as they were. Where this
+> section below says a mode may "generate" or supply levels a human acts on,
+> read it as this narrower rule.
+>
+> **Built the same day:** `lib/strategies/explain/` gives each of the nine
+> modes, and any custom script, a reader that takes GSPS's plan and returns
+> words only (`PlanReading`: a lean, a summary, one line per plan level). It
+> has no output that can become a level, score, gate or order. The order
+> ticket sends the plan to `/api/strategy-levels` and
+> `/api/strategy-plugins/[id]/evaluate`, which return `reading`, and shows it
+> in both protocol and manual mode, read on `EXECUTION_TIMEFRAME`. Owner
+> decisions for the rest of the rollout: the setup card shows a one-line
+> reading for the saved default technique, the chart switches the chosen
+> technique's overlay on automatically, scripts keep `entry`/`stop`/`tp1r`/
+> `mtpr` as optional lines, and every surface that shows a plan's levels gets
+> the reading where it fits (cross-platform rule above).
+>
+> **Rolled out the same day.** `components/strategies/plan-reading-line.tsx`
+> shows the saved default technique's reading of the plan on the setup card
+> (so the daily lists, scanner rows, tracked, saved and intraday alerts), the
+> ticker page's plan card, Guided Mode and plan-scoped Automation. It shows
+> nothing for Novice or a saved default of GSPS's own plan. Choosing a
+> technique in the ticket switches its chart overlay on (VWAP, Donchian and
+> stochastic were added to `lib/indicators.ts` for this). Deliberate gaps:
+> open positions (their levels may be a person's own edits, not the plan),
+> scan history (an old plan read against today's bars), the Novice home
+> summary (Novice has no techniques) and notifications (no per-person
+> technique is known when they are sent). VWAP now anchors at the latest
+> session in the mode, the reading and the chart alike
+> (`lib/strategies/math.ts#latestSession`), so it arms only on intraday bars.
+> Follow-up the same day: a script's `entry`/`stop`/`tp1r`/`mtpr` lines are
+> optional (a block with none is signal-only), and `/api/strategy-levels`
+> no longer sends a built-in mode's own prices, only the direction it arms in.
 
 The "Gann-grounded platform" section above states a boundary "that must not
 move": no non-Gann indicator (PSAR, Supertrend, RSI, MACD, Bollinger, the
@@ -1520,10 +1589,11 @@ was **never applied to production**, so the whole feature was dead on the live
 site. The UI hid that by turning the 500 into "not included on your plan".
 Applied with project-owner sign-off. RLS was verified and the editor now shows
 load errors. `0080_tier_promotion_three_paths.sql` had the same gap and was
-applied in the same pass, also with sign-off. A live
-browser click-through is still owed (this session's network policy blocked
-both the site and Supabase). See `docs/STRATEGY_MODES.md`'s "Production
-verification pass". Generalises the live-weights lesson: **merging a
+applied in the same pass, also with sign-off. The live browser
+click-through ran on 2026-10-16 and passed end to end (save, reload, check
+levels, backtest, chart overlay, order ticket, `/promotion`); see
+`docs/STRATEGY_MODES.md`'s "Production verification pass" and "Live
+click-through". Generalises the live-weights lesson: **merging a
 migration is not applying it.**
 
 Any strategy plugin built or extended under this family must continue to

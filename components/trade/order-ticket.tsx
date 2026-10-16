@@ -21,10 +21,11 @@ import type { ScanResult } from "@/lib/types";
 import type { AssetTradability } from "@/app/api/assets/route";
 import {
   STRATEGY_MODE_LABELS,
-  type StrategyLevels,
   type StrategyModeId,
 } from "@/lib/strategies/types";
-import type { CustomScriptLevels } from "@/lib/strategies/custom/types";
+import { planQuery } from "@/lib/strategies/explain/params";
+import type { PlanReading } from "@/lib/strategies/explain/types";
+import { EXECUTION_TIMEFRAME } from "@/lib/timeframe";
 
 type EntryMode = "advised" | "now";
 type AssetType = "shares" | "options";
@@ -52,6 +53,7 @@ export function OrderTicket({
   livePrice,
   intradaySourced = false,
   forceSide,
+  onExplainChange,
 }: {
   result: ScanResult;
   livePrice?: number | null;
@@ -64,6 +66,14 @@ export function OrderTicket({
   intradaySourced?: boolean;
   /** Preselects the side from the alert's direction; the user can still change it. */
   forceSide?: Side;
+  /**
+   * Tells the page which technique or script is explaining the plan, so the
+   * chart can switch its lines on (owner decision 2026-10-16: automatic).
+   */
+  onExplainChange?: (choice: {
+    mode: StrategyModeId;
+    scriptId: string | null;
+  }) => void;
 }) {
   const { levels, pattern, symbol } = result;
   const currentPrice = livePrice ?? (result.currentPrice > 0 ? result.currentPrice : null);
@@ -103,17 +113,16 @@ export function OrderTicket({
   const [manualStop, setManualStop] = useState("");
   const [manualTarget, setManualTarget] = useState("");
   // Strategy Modes (AGENTS.md's "Strategy Modes" section; docs/STRATEGY_MODES.md):
-  // an opt-in, non-default alternative to GSPS's own Gann trade plan. Defaults
-  // to the user's saved preference, but never auto-applies it — a human still
-  // has to explicitly load the computed levels into the manual stop/target
-  // fields below via "Use these levels", the same way any other manual entry
-  // works. Never touches `levels`/`result.direction` (the Gann plan) above.
+  // explain-only since 2026-10-16 (owner: Gann's method is how we plot the
+  // chart; the indicator of choice only explains the math). A chosen mode
+  // shows how that technique reads the setup next to Gann's plan. It never
+  // fills the stop/target fields and never touches `levels`/`result.direction`.
   const [strategyMode, setStrategyMode] = useState<StrategyModeId>("gann");
   // Server-resolved (`lib/entitlements/policy.ts#allowedStrategyModes`) —
   // null while loading, [] for a tier with no Strategy Mode access at all
   // (Novice). Never computed client-side.
   const [allowedStrategyModes, setAllowedStrategyModes] = useState<StrategyModeId[] | null>(null);
-  const [strategyLevels, setStrategyLevels] = useState<StrategyLevels | null>(null);
+  const [strategyReading, setStrategyReading] = useState<PlanReading | null>(null);
   const [strategyStatus, setStrategyStatus] = useState<"idle" | "loading" | "ready" | "error">(
     "idle",
   );
@@ -121,9 +130,8 @@ export function OrderTicket({
   // Custom-script Strategy Modes (lib/strategies/custom/,
   // docs/STRATEGY_MODES.md's "Custom-script / plugin system" section,
   // AGENTS.md's "Strategy Modes" section). Same status as the built-in
-  // Strategy Mode block above: a parallel, opt-in, explicitly-labeled
-  // suggestion, never auto-applied — "Use these levels" still requires a
-  // human click. `customScripts` is server-resolved and private to the
+  // Strategy Mode block above: explain-only, never a source of the order's
+  // levels. `customScripts` is server-resolved and private to the
   // signed-in user (`/api/strategy-plugins` is RLS- and tier-scoped to the
   // author); an empty list here means either no saved scripts or a tier
   // that can't author them, and the section renders nothing either way —
@@ -132,10 +140,13 @@ export function OrderTicket({
     { id: string; name: string; author: string; version: number; active: boolean }[] | null
   >(null);
   const [selectedScriptId, setSelectedScriptId] = useState("");
-  const [scriptLevels, setScriptLevels] = useState<CustomScriptLevels | null>(null);
+  const [scriptReading, setScriptReading] = useState<PlanReading | null>(null);
   const [scriptStatus, setScriptStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [scriptError, setScriptError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  useEffect(() => {
+    onExplainChange?.({ mode: strategyMode, scriptId: selectedScriptId || null });
+  }, [strategyMode, selectedScriptId, onExplainChange]);
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string; code?: string } | null>(null);
   /**
    * Null means "use the conservative default for this side" — a buy rounds
@@ -180,8 +191,7 @@ export function OrderTicket({
 
   // Load the user's saved default Strategy Mode once (Settings ->
   // "Strategy mode"). Only pre-selects the dropdown above — it never
-  // auto-fetches levels or auto-fills the manual stop/target, which still
-  // need an explicit "Check levels" / "Use these levels" action.
+  // auto-fetches its reading, and never fills the manual stop/target.
   useEffect(() => {
     let cancelled = false;
     fetch("/api/strategy-mode-preference")
@@ -200,8 +210,8 @@ export function OrderTicket({
   }, []);
 
   // Load the signed-in user's own saved custom scripts, if any. Only
-  // populates the picker below — never auto-fetches levels or auto-fills
-  // the manual stop/target fields, same as the built-in Strategy Mode block.
+  // populates the picker below — never auto-fetches its reading and never
+  // fills the manual stop/target fields, same as the built-in Strategy Mode block.
   useEffect(() => {
     let cancelled = false;
     fetch("/api/strategy-plugins")
@@ -218,6 +228,19 @@ export function OrderTicket({
   }, []);
 
   const advised = levels?.entry ?? currentPrice ?? 0;
+  // GSPS's plan, sent to the explain routes so a chosen technique reads these
+  // levels and nothing else (explain-only, AGENTS.md "Strategy Modes").
+  const explainPlan =
+    hasProtocolSignal && levels && result.direction !== "none"
+      ? {
+          direction: result.direction,
+          entry: levels.entry,
+          stopLoss: levels.stopLoss,
+          takeProfit1: levels.takeProfit1,
+          masterTarget: levels.masterProfit,
+        }
+      : null;
+  const planParam = explainPlan ? `&${planQuery(explainPlan)}` : "";
 
   // Only a definitive `false` blocks the short side; a lookup that didn't
   // resolve leaves the button enabled and defers to the broker.
@@ -326,6 +349,14 @@ export function OrderTicket({
   const latchedBreachPrice = breachLatch?.scannedAt === result.scannedAt ? breachLatch.price : null;
   const breachPrice = liveBreach ? currentPrice : (latchedBreachPrice ?? result.stopBreach?.price ?? null);
   const protocolInvalidated = useProtocolLevels && !!levels && breachPrice != null;
+  // The same retirement, read in either mode, for the technique panels: a
+  // retired plan has no levels left for a technique to explain.
+  const planRetired =
+    !!levels &&
+    (breachPrice != null ||
+      (currentPrice != null &&
+        isInvalidatedByStop({ side: signalSide, stop_price: levels.stopLoss }, currentPrice)));
+  const explainable = planRetired ? null : explainPlan;
 
   // The price Alpaca measures the bracket legs against: the limit on an advised
   // entry, the live quote on a market entry. Choosing "buy now" below the
@@ -709,187 +740,6 @@ export function OrderTicket({
                   managed exit.
                 </p>
 
-                {/* Novice (allowedStrategyModes === []) sees the explainer
-                    below instead of the selector — a designed counterpart,
-                    not silence. Both branches are server-resolved, not a
-                    client-side tier guess. See AGENTS.md's Polarity-audit
-                    section. */}
-                {allowedStrategyModes && allowedStrategyModes.length === 0 && (
-                  <p className="rounded-lg border border-border p-3 text-xs text-muted">
-                    GSPS prices every trade plan from its own structural analysis — no Strategy Mode
-                    override at this tier. That&apos;s the one set of levels this platform stands
-                    behind, and it&apos;s the one worth learning to read first.
-                  </p>
-                )}
-                {allowedStrategyModes && allowedStrategyModes.length > 0 && (
-                <div className="rounded-lg border border-border p-3 text-xs">
-                  <label className="flex flex-col gap-1 text-muted">
-                    Strategy mode (optional) — price this order from a different technique instead
-                    of GSPS&apos;s own structural analysis
-                    <select
-                      className="mt-1 w-full rounded-md border px-2 py-1.5 text-xs bg-background"
-                      value={strategyMode}
-                      onChange={(e) => {
-                        setStrategyMode(e.target.value as StrategyModeId);
-                        setStrategyLevels(null);
-                        setStrategyStatus("idle");
-                        setStrategyError("");
-                      }}
-                    >
-                      <option value="gann">{STRATEGY_MODE_LABELS.gann} — no override</option>
-                      {allowedStrategyModes.map((m) => (
-                        <option key={m} value={m}>
-                          {STRATEGY_MODE_LABELS[m]}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  {strategyMode !== "gann" && (
-                    <div className="mt-2 flex flex-col gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="w-fit"
-                        disabled={strategyStatus === "loading"}
-                        onClick={async () => {
-                          setStrategyStatus("loading");
-                          setStrategyError("");
-                          try {
-                            const res = await fetch(
-                              `/api/strategy-levels?symbol=${encodeURIComponent(symbol)}&mode=${strategyMode}`,
-                            );
-                            const body = await res.json();
-                            if (!res.ok) throw new Error(body.error ?? "Couldn't check levels.");
-                            setStrategyLevels(body.levels ?? null);
-                            setStrategyStatus("ready");
-                          } catch (err) {
-                            setStrategyError(err instanceof Error ? err.message : String(err));
-                            setStrategyStatus("error");
-                          }
-                        }}
-                      >
-                        {strategyStatus === "loading" ? "Checking…" : "Check levels"}
-                      </Button>
-
-                      {strategyStatus === "error" && (
-                        <p className="text-warn">{strategyError}</p>
-                      )}
-                      {strategyStatus === "ready" && !strategyLevels && (
-                        <p className="text-muted">
-                          Nothing currently armed under {STRATEGY_MODE_LABELS[strategyMode]}.
-                        </p>
-                      )}
-                      {strategyLevels && (
-                        <div className="rounded-md bg-surface-alt p-2">
-                          <p className="text-muted">{strategyLevels.rationale}</p>
-                          <p className="mt-1">
-                            Entry {formatUsd(strategyLevels.entry)} · Stop{" "}
-                            {formatUsd(strategyLevels.stopLoss)} · TP1{" "}
-                            {formatUsd(strategyLevels.takeProfit1)} · MTP (master target){" "}
-                            {formatUsd(strategyLevels.masterTarget)}
-                          </p>
-                          <button
-                            type="button"
-                            className="mt-2 min-h-9 cursor-pointer font-medium text-accent underline underline-offset-2"
-                            onClick={() => {
-                              setManualStop(String(strategyLevels.stopLoss));
-                              setManualTarget(String(strategyLevels.takeProfit1));
-                            }}
-                          >
-                            Use these levels (stop + TP1) →
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-                )}
-
-                {/* Empty list means either no saved scripts or a tier that
-                    can't author them — server-resolved either way, no
-                    client-side tier guess. */}
-                {customScripts && customScripts.length > 0 && (
-                <div className="rounded-lg border border-border p-3 text-xs">
-                  <label className="flex flex-col gap-1 text-muted">
-                    Custom script (optional) — price this order from one of your own saved
-                    scripts instead
-                    <select
-                      className="mt-1 w-full rounded-md border px-2 py-1.5 text-xs bg-background"
-                      value={selectedScriptId}
-                      onChange={(e) => {
-                        setSelectedScriptId(e.target.value);
-                        setScriptLevels(null);
-                        setScriptStatus("idle");
-                        setScriptError("");
-                      }}
-                    >
-                      <option value="">None</option>
-                      {customScripts.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name} (v{s.version}) — {s.author}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  {selectedScriptId && (
-                    <div className="mt-2 flex flex-col gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="w-fit"
-                        disabled={scriptStatus === "loading"}
-                        onClick={async () => {
-                          setScriptStatus("loading");
-                          setScriptError("");
-                          try {
-                            const res = await fetch(
-                              `/api/strategy-plugins/${selectedScriptId}/evaluate?symbol=${encodeURIComponent(symbol)}`,
-                            );
-                            const body = await res.json();
-                            if (!res.ok) throw new Error(body.error ?? "Couldn't check levels.");
-                            setScriptLevels(body.levels ?? null);
-                            setScriptStatus("ready");
-                          } catch (err) {
-                            setScriptError(err instanceof Error ? err.message : String(err));
-                            setScriptStatus("error");
-                          }
-                        }}
-                      >
-                        {scriptStatus === "loading" ? "Checking…" : "Check levels"}
-                      </Button>
-
-                      {scriptStatus === "error" && <p className="text-warn">{scriptError}</p>}
-                      {scriptStatus === "ready" && !scriptLevels && (
-                        <p className="text-muted">Nothing currently armed under this script.</p>
-                      )}
-                      {scriptLevels && (
-                        <div className="rounded-md bg-surface-alt p-2">
-                          <p className="text-muted">{scriptLevels.rationale}</p>
-                          <p className="mt-1">
-                            Entry {formatUsd(scriptLevels.entry)} · Stop{" "}
-                            {formatUsd(scriptLevels.stopLoss)} · TP1{" "}
-                            {formatUsd(scriptLevels.takeProfit1)} · MTP (master target){" "}
-                            {formatUsd(scriptLevels.masterTarget)}
-                          </p>
-                          <button
-                            type="button"
-                            className="mt-2 min-h-9 cursor-pointer font-medium text-accent underline underline-offset-2"
-                            onClick={() => {
-                              setManualStop(String(scriptLevels.stopLoss));
-                              setManualTarget(String(scriptLevels.takeProfit1));
-                            }}
-                          >
-                            Use these levels (stop + TP1) →
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-                )}
-
                 <div className="grid grid-cols-2 gap-2">
                   <label className="flex flex-col gap-1 text-xs text-muted">
                     Stop-loss
@@ -933,6 +783,163 @@ export function OrderTicket({
                 )}
               </div>
             )}
+
+            {/* Explain-only (AGENTS.md "Strategy Modes", 2026-10-16): shown in
+                both modes, since what it explains is GSPS's plan, not the manual exit. */}
+            {/* Novice (allowedStrategyModes === []) sees the explainer
+                below instead of the selector — a designed counterpart,
+                not silence. Both branches are server-resolved, not a
+                client-side tier guess. See AGENTS.md's Polarity-audit
+                section. */}
+            {allowedStrategyModes && allowedStrategyModes.length === 0 && (
+              <p className="rounded-lg border border-border p-3 text-xs text-muted">
+                GSPS prices every trade plan from its own structural analysis. Seeing that plan
+                explained through other techniques starts at Pro. For now, this plan is the one
+                worth learning to read first.
+              </p>
+            )}
+            {planRetired && explainPlan &&
+              ((allowedStrategyModes?.length ?? 0) > 0 || (customScripts?.length ?? 0) > 0) && (
+              <p className="rounded-lg border border-border p-3 text-xs text-muted">
+                This plan is retired, so there are no levels for a technique to explain. A new
+                scan will either confirm it or replace it with a new plan.
+              </p>
+            )}
+            {explainable && allowedStrategyModes && allowedStrategyModes.length > 0 && (
+            <div className="rounded-lg border border-border p-3 text-xs">
+              <label className="flex flex-col gap-1 text-muted">
+                Explain with (optional) — see how another technique reads this setup. GSPS&apos;s
+                plan still sets the entry, stop and targets
+                <select
+                  className="mt-1 w-full rounded-md border px-2 py-1.5 text-xs bg-background"
+                  value={strategyMode}
+                  onChange={(e) => {
+                    setStrategyMode(e.target.value as StrategyModeId);
+                    setStrategyReading(null);
+                    setStrategyStatus("idle");
+                    setStrategyError("");
+                  }}
+                >
+                  <option value="gann">{STRATEGY_MODE_LABELS.gann} only</option>
+                  {allowedStrategyModes.map((m) => (
+                    <option key={m} value={m}>
+                      {STRATEGY_MODE_LABELS[m]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {strategyMode !== "gann" && (
+                <div className="mt-2 flex flex-col gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-fit"
+                    disabled={strategyStatus === "loading"}
+                    onClick={async () => {
+                      setStrategyStatus("loading");
+                      setStrategyError("");
+                      try {
+                        const res = await fetch(
+                          `/api/strategy-levels?symbol=${encodeURIComponent(symbol)}&mode=${strategyMode}&timeframe=${EXECUTION_TIMEFRAME}${planParam}`,
+                        );
+                        const body = await res.json();
+                        if (!res.ok) throw new Error(body.error ?? "Couldn't read this setup.");
+                        setStrategyReading(body.reading ?? null);
+                        setStrategyStatus("ready");
+                      } catch (err) {
+                        setStrategyError(err instanceof Error ? err.message : String(err));
+                        setStrategyStatus("error");
+                      }
+                    }}
+                  >
+                    {strategyStatus === "loading" ? "Reading…" : "Explain"}
+                  </Button>
+
+                  {strategyStatus === "error" && (
+                    <p className="text-warn">{strategyError}</p>
+                  )}
+                  {strategyStatus === "ready" && !strategyReading && (
+                    <p className="text-muted">
+                      {explainPlan
+                        ? `${STRATEGY_MODE_LABELS[strategyMode]} has no reading on this setup right now.`
+                        : "There's no plan on this setup for it to explain."}
+                    </p>
+                  )}
+                  {strategyReading && <ModeReading reading={strategyReading} />}
+                </div>
+              )}
+            </div>
+            )}
+
+            {/* Empty list means either no saved scripts or a tier that
+                can't author them — server-resolved either way, no
+                client-side tier guess. */}
+            {explainable && customScripts && customScripts.length > 0 && (
+            <div className="rounded-lg border border-border p-3 text-xs">
+              <label className="flex flex-col gap-1 text-muted">
+                Explain with your script (optional) — see how one of your saved scripts reads
+                this setup. GSPS&apos;s plan still sets the levels
+                <select
+                  className="mt-1 w-full rounded-md border px-2 py-1.5 text-xs bg-background"
+                  value={selectedScriptId}
+                  onChange={(e) => {
+                    setSelectedScriptId(e.target.value);
+                    setScriptReading(null);
+                    setScriptStatus("idle");
+                    setScriptError("");
+                  }}
+                >
+                  <option value="">None</option>
+                  {customScripts.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} (v{s.version}) — {s.author}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {selectedScriptId && (
+                <div className="mt-2 flex flex-col gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-fit"
+                    disabled={scriptStatus === "loading"}
+                    onClick={async () => {
+                      setScriptStatus("loading");
+                      setScriptError("");
+                      try {
+                        const res = await fetch(
+                          `/api/strategy-plugins/${selectedScriptId}/evaluate?symbol=${encodeURIComponent(symbol)}&timeframe=${EXECUTION_TIMEFRAME}${planParam}`,
+                        );
+                        const body = await res.json();
+                        if (!res.ok) throw new Error(body.error ?? "Couldn't read this setup.");
+                        setScriptReading(body.reading ?? null);
+                        setScriptStatus("ready");
+                      } catch (err) {
+                        setScriptError(err instanceof Error ? err.message : String(err));
+                        setScriptStatus("error");
+                      }
+                    }}
+                  >
+                    {scriptStatus === "loading" ? "Reading…" : "Explain"}
+                  </Button>
+
+                  {scriptStatus === "error" && <p className="text-warn">{scriptError}</p>}
+                  {scriptStatus === "ready" && !scriptReading && (
+                    <p className="text-muted">
+                      {explainPlan
+                        ? "Your script has no reading on this setup right now."
+                        : "There's no plan on this setup for it to explain."}
+                    </p>
+                  )}
+                  {scriptReading && <ModeReading reading={scriptReading} />}
+                </div>
+              )}
+            </div>
+            )}
+
           </>
         ) : (
           <OptionsPicker
@@ -1024,6 +1031,28 @@ export function OrderTicket({
         </p>
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * How a chosen Strategy Mode or custom script reads GSPS's plan. Explain-only
+ * (owner, 2026-10-16: Gann's method is how we plot the chart; the indicator of
+ * choice only explains the math): whether the technique leans the plan's way,
+ * then what it reads at each of the plan's own levels. Nothing here can write
+ * a level into the order.
+ */
+function ModeReading({ reading }: { reading: PlanReading }) {
+  return (
+    <div className="flex flex-col gap-1 rounded-md bg-surface-alt p-2">
+      <p className={reading.agrees === false ? "text-warn" : undefined}>{reading.summary}</p>
+      {reading.levels.length > 0 && (
+        <ul className="flex flex-col gap-1 text-muted">
+          {reading.levels.map((l) => (
+            <li key={l.level}>{l.text}</li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 

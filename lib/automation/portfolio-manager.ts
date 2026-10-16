@@ -43,10 +43,12 @@ import { readLiveAccountValue } from "@/lib/risk/live-account";
 import { activateAutomationProfile } from "@/lib/automation/service";
 import {
   checkAutonomousLiveTradingAuthorized,
+  AUTONOMOUS_PROVING_PERIOD,
   AUTONOMOUS_LIVE_MAX_DOLLAR_RISK_PER_TRADE,
   AUTONOMOUS_LIVE_MAX_DAILY_DOLLAR_RISK,
 } from "@/lib/automation/autonomous-live-gate";
 import { MAX_NEW_POSITIONS_PER_DAY } from "@/lib/risk/config";
+import { armConfirmedPlansFromBars, planStopBroken } from "@/lib/lifecycle/armFromBars";
 import { etDateKey } from "@/lib/market/session";
 import type { RulesAlignmentTier } from "@/lib/signals/types";
 import { roundNumberEntryBlocked } from "@/lib/gann/evenFigures";
@@ -74,6 +76,7 @@ interface CandidatePlanRow {
   market: string;
   entry_trigger: number;
   invalidation: number;
+  generated_at: string;
   /** Signal & Regime Engine rollup recorded at plan-creation time (see
    * lib/lifecycle/fromScanResult.ts). trade_plans carries no Gann 0-9 score
    * column of its own -- every plan here already cleared the Gann Execute
@@ -183,9 +186,14 @@ async function runForProfile(
     .in("status", ["active", "paused"]);
   const alreadyAutomated = new Set((openProfiles ?? []).map((r) => r.plan_id as string));
 
+  // Arm whatever has confirmed on the closed bars since it was generated,
+  // before reading the armed plans (lib/lifecycle/armFromBars.ts).
+  const arming = await armConfirmedPlansFromBars(supabase, profile.user_id, { market: "us_equity" });
+  for (const e of arming.errors) result.errors.push({ userId: profile.user_id, planId: e.planId, reason: `Arming: ${e.reason}` });
+
   const { data: plans, error: plansError } = await supabase
     .from("trade_plans")
-    .select("plan_id, instrument, direction, market, entry_trigger, invalidation, alignment")
+    .select("plan_id, instrument, direction, market, entry_trigger, invalidation, generated_at, alignment")
     .eq("user_id", profile.user_id)
     .eq("market", "us_equity")
     .eq("state", "armed");
@@ -213,7 +221,8 @@ async function runForProfile(
   // deployments" reads as "not authorized yet," not as an unexplained no-op.
   let executionMode: "paper" | "live" = "paper";
   let liveDollarRiskSpentToday = 0;
-  if (profile.execution_mode === "live") {
+  // During the proving period every profile runs on paper (AUTONOMOUS_PROVING_PERIOD).
+  if (profile.execution_mode === "live" && !AUTONOMOUS_PROVING_PERIOD) {
     const authorization = await checkAutonomousLiveTradingAuthorized(supabase);
     if (!authorization.authorized) {
       result.plansSkipped += candidates.length;
@@ -301,6 +310,23 @@ async function runForProfile(
     }
     if (!matchesVolatilityTrigger(plan, profile.volatility_trigger_type, profile.volatility_trigger_value)) {
       result.plansSkipped++;
+      continue;
+    }
+    // A plan whose stop has broken is retired, not a candidate (lib/lifecycle/armFromBars.ts#stopBrokenSince).
+    const broken = await planStopBroken({
+      instrument: plan.instrument,
+      market: plan.market,
+      direction: plan.direction,
+      invalidation: Number(plan.invalidation),
+      generatedAt: plan.generated_at,
+    }).catch(() => null);
+    if (broken !== false) {
+      result.plansSkipped++;
+      result.errors.push({
+        userId: profile.user_id,
+        planId: plan.plan_id,
+        reason: broken ? "Stop already broken; the plan is retired." : "Couldn't read bars to check the stop; skipped this run.",
+      });
       continue;
     }
     if (!gannPrefs.autoOrderRoundNumbers) {
