@@ -37,6 +37,7 @@ import type { GannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { restsWithoutCrossing } from "@/lib/gann/entryKind";
 import { isGannRangeBound } from "@/lib/gann/trendStrength";
 import { swingPivots } from "@/lib/gann/swingChart";
+import { etDateKey } from "@/lib/market/session";
 
 /** Gann's upper bound for a narrow sideways range: 13 weeks. */
 export const BREAKAWAY_RANGE_DAYS = 91;
@@ -103,4 +104,51 @@ export function readBreakaway(daily: Bar[], trigger: GannEntryTrigger | null): B
         : rangeLow === null || trigger.triggerPrice <= beyondByThreePoints(rangeLow, -1) + EPS * rangeLow;
   }
   return { rangeBound: true, rangeHigh, rangeLow, breaksAway };
+}
+
+/** Completed sessions read for the breakaway's volume: a year, the live scan's daily span. */
+export const BREAKAWAY_VOLUME_SESSIONS = 252;
+
+export interface BreakawayVolumeReading {
+  /** The way the last completed session left the range. */
+  direction: "bullish" | "bearish";
+  /** That session's volume over the mean volume of the range's sessions (the 91 days before it). */
+  ratio: number;
+}
+
+/**
+ * Gann: avoid stocks in long, narrow ranges until they break out on volume
+ * (A-VOLUME-10; W006 p.20; Master Course: volume rises as a stock starts from
+ * dullness). Context only for now; fork FV6 puts the test at entry
+ * confirmation.
+ *
+ * Reads completed sessions only, so the live scan and the replay read the
+ * same ones: when the sessions before the last were range-bound
+ * (`readBreakaway`, whose range is null outside one) and the last closed beyond the range's top or bottom by
+ * the 3-point allowance, the ratio of its volume to the range sessions' mean.
+ * Null otherwise. Engineering choices, labelled: the mean is over the
+ * sessions of the 91-day range window; the last `BREAKAWAY_VOLUME_SESSIONS`
+ * are read, which bounds the cost on the replay's longer history.
+ */
+export function readBreakawayVolume(daily: Bar[], asOf: Date): BreakawayVolumeReading | null {
+  const today = etDateKey(asOf);
+  let end = daily.length;
+  while (end > 0 && etDateKey(new Date(daily[end - 1].t)) >= today) end--;
+  const done = daily.slice(Math.max(0, end - BREAKAWAY_VOLUME_SESSIONS), end);
+  if (done.length < 2) return null;
+  const last = done[done.length - 1];
+  const prior = done.slice(0, -1);
+  const range = readBreakaway(prior, null);
+  const direction =
+    range.rangeHigh !== null && last.c > beyondByThreePoints(range.rangeHigh, 1)
+      ? "bullish"
+      : range.rangeLow !== null && last.c < beyondByThreePoints(range.rangeLow, -1)
+        ? "bearish"
+        : null;
+  if (!direction) return null;
+  const cutoff = Date.parse(prior[prior.length - 1].t) - BREAKAWAY_RANGE_DAYS * DAY_MS;
+  const sessions = prior.filter((b) => Date.parse(b.t) >= cutoff);
+  const mean = sessions.reduce((s, b) => s + b.v, 0) / sessions.length;
+  if (!(mean > 0)) return null;
+  return { direction, ratio: last.v / mean };
 }

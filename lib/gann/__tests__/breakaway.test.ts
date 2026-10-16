@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
-import { readBreakaway } from "../breakaway";
+import { readBreakaway, readBreakawayVolume } from "../breakaway";
 import { computeGannEntryTrigger } from "../entryTrigger";
 import { applyBreakawayHold } from "@/lib/scoring/score";
 import type { ScanDecision } from "@/lib/types";
@@ -127,3 +127,61 @@ describe("readBreakaway on a held crossed level", () => {
   });
 });
 
+
+// W006 p.20: avoid stocks in long, narrow ranges until they break out on volume.
+describe("the breakaway's volume (A-VOLUME-10)", () => {
+  const withVolume = (bars: Bar[], last: number) => bars.map((b, i) => (i === bars.length - 1 ? { ...b, v: last } : { ...b, v: i % 2 ? 1500 : 500 }));
+  const after = (bars: Bar[]) => new Date(Date.parse(bars[bars.length - 1].t) + 2 * 86_400_000);
+
+  it("measures the session that leaves a range against the range's average volume", () => {
+    const up = withVolume(daily([...sideways(6), 112]), 3000);
+    expect(readBreakawayVolume(up, after(up))).toEqual({ direction: "bullish", ratio: 3 });
+    const down = withVolume(daily([...sideways(6), 88]), 600);
+    expect(readBreakawayVolume(down, after(down))).toEqual({ direction: "bearish", ratio: 0.6 });
+  });
+
+  it("reads nothing while the close stays inside the range, or outside a range", () => {
+    const inside = withVolume(daily([...sideways(6), 104]), 3000);
+    expect(readBreakawayVolume(inside, after(inside))).toBeNull();
+    // Beyond the top (~105.5) and the bottom (~94.5), but short of the 3-point allowance.
+    const short = withVolume(daily([...sideways(6), 107.5]), 3000);
+    expect(readBreakawayVolume(short, after(short))).toBeNull();
+    const shortDown = withVolume(daily([...sideways(6), 92.5]), 3000);
+    expect(readBreakawayVolume(shortDown, after(shortDown))).toBeNull();
+    const trend = withVolume(daily([...steppingAdvance(10), 200]), 3000);
+    expect(readBreakawayVolume(trend, after(trend))).toBeNull();
+  });
+
+  it("puts the breakaway's volume on the setup and measures it with and against the trade", async () => {
+    const { readDisclosedRules, describeDisclosedRules } = await import("@/lib/gann/disclosedRules");
+    const { contextFactorsFor } = await import("@/lib/gann/contextFactors");
+    const up = withVolume(daily([...sideways(6), 112]), 3000);
+    const ctx = readDisclosedRules(up, 112, null, after(up));
+    expect(describeDisclosedRules(ctx)).toContain("The last session crossed the top of a narrow range on 3.0× the range's average volume. Shown for context; it does not change the setup.");
+    expect(contextFactorsFor(ctx, "bullish", 112)).toMatchObject({ breakawayOnVolumeWith: true, breakawayWithoutVolumeWith: false, breakawayOnVolumeAgainst: false });
+    expect(contextFactorsFor(ctx, "bearish", 112)).toMatchObject({ breakawayOnVolumeWith: false, breakawayWithoutVolumeWith: false, breakawayOnVolumeAgainst: true });
+    const quiet = withVolume(daily([...sideways(6), 88]), 600);
+    const q = readDisclosedRules(quiet, 88, null, after(quiet));
+    expect(describeDisclosedRules(q)).toContain("The last session broke the bottom of a narrow range on 0.6× the range's average volume: a breakout without volume. Shown for context; it does not change the setup.");
+    expect(contextFactorsFor(q, "bearish", 88)).toMatchObject({ breakawayOnVolumeWith: false, breakawayWithoutVolumeWith: true });
+  });
+
+  it("never reads the session still trading", () => {
+    const up = withVolume(daily([...sideways(6), 112]), 3000);
+    const sameSession = new Date(Date.parse(up[up.length - 1].t) + 3_600_000);
+    expect(readBreakawayVolume(up, sameSession)).toBeNull();
+  });
+
+  it("averages only the range's 91 days, not the heavier sessions before them", () => {
+    const bars = daily([...sideways(12), 112]).map((b, i, all) => ({ ...b, v: i === all.length - 1 ? 3000 : i < all.length - 95 ? 9000 : i % 2 ? 1500 : 500 }));
+    expect(readBreakawayVolume(bars, after(bars))?.ratio).toBeCloseTo(3, 1);
+  });
+
+  it("reads the same on a year of history or six", () => {
+    const tail = [...sideways(6), 112];
+    const long = withVolume(daily([...Array.from({ length: 1900 }, (_, i) => 40 + 15 * Math.sin(i / 23)), ...tail]), 3000);
+    const short = long.slice(-252);
+    expect(readBreakawayVolume(short, after(long))).toEqual(readBreakawayVolume(long, after(long)));
+    expect(readBreakawayVolume(long, after(long))?.direction).toBe("bullish");
+  });
+});

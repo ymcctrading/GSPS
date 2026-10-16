@@ -93,6 +93,7 @@ import { readTiming, type TimingReading } from "@/lib/gann/timeConvergence";
 import { describeCapitalStock, readCapitalStock, type CapitalStockReading } from "@/lib/gann/capitalStock";
 import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
 import { readDistributionBreakdown, type DistributionReading } from "@/lib/gann/distribution";
+import { readBreakawayVolume, type BreakawayVolumeReading } from "@/lib/gann/breakaway";
 import { describeTopVolumeWarning, readTopVolumeWarning, type TopVolumeWarningReading } from "@/lib/gann/topVolume";
 import { readMonthCounts, readSwingMonthCounts, type PivotMonthCount } from "@/lib/gann/angleMonthCounts";
 import { describeBearDuration, readBearDuration, type BearDurationReading } from "@/lib/gann/bearDuration";
@@ -460,6 +461,8 @@ export interface DisclosedRulesContext {
   secondTopVolumeRatio?: number | null;
   /** After a lower weekly top, a narrow range broken down on volume (A-VOLUME-03, context only). See `distribution.ts`. */
   distribution?: DistributionReading | null;
+  /** The last completed session left a narrow range: its volume over the range's average (A-VOLUME-10, context only). See `breakaway.ts`. */
+  breakawayVolume?: BreakawayVolumeReading | null;
   /** The class C day, week, month, circle and seasonal counts (context only). See `secondaryTime.ts`. */
   secondaryTime?: SecondaryTimeReading | null;
   /** Months from the monthly chart's major tops and bottoms (A-TIME-05, context only). See `angleMonthCounts.ts`. */
@@ -566,6 +569,7 @@ export function readDisclosedRules(
     narrowWeekBreak: readNarrowWeekBreak(toWeeklyBars(dailyBars)),
     topVolume: readTopVolumeWarning(toWeeklyBars(dailyBars), asOf),
     distribution: readDistributionBreakdown(dailyBars, asOf),
+    breakawayVolume: readBreakawayVolume(dailyBars, asOf),
     secondTopVolumeRatio: computeVolumeClimax(dailyBars).find((r) => r.anchorKind === "high")?.retestWeekVolumeRatio ?? null,
     secondaryTime: readSecondaryTime(dailyBars, longMonthly, asOf, counterMove),
     monthCounts: longMonthly ? readMonthCounts(monthlyWithCurrent(longMonthly, dailyBars), asOf) : null,
@@ -594,6 +598,10 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   if (ctx.topVolume?.warning) lines.push(describeTopVolumeWarning(ctx.topVolume));
   if (ctx.secondTopVolumeRatio != null && ctx.secondTopVolumeRatio <= 2 / 3) {
     lines.push(`A second top at the first top's level on ${Math.round(ctx.secondTopVolumeRatio * 100)}% of its week's volume. Shown for context; it does not change the setup.`);
+  }
+  if (ctx.breakawayVolume) {
+    const b = ctx.breakawayVolume;
+    lines.push(`The last session ${b.direction === "bullish" ? "crossed the top" : "broke the bottom"} of a narrow range on ${b.ratio.toFixed(1)}× the range's average volume${b.ratio > 1 ? "" : ": a breakout without volume"}. Shown for context; it does not change the setup.`);
   }
   if (ctx.distribution?.distributionBreakdown) {
     lines.push(`After a lower top, the narrow range broke down on ${ctx.distribution.breakoutVolumeRatio.toFixed(1)}× its average volume: a sign of a further decline. Shown for context; it does not change the setup.`);

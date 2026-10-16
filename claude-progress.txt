@@ -580,3 +580,12 @@ backtest-run test went 27s -> 156s; fixed by dropping only trailing bars and rea
 (~120 ms per 250 symbols on six years of bars). Mutations D1-D11 killed except two removed as
 equivalent. Full suite 2845 pass.
 - Checked undisclosed-search/findings.md conflict 1 against gann_features.json: A-ASTRO-10 (CE average, MOF formula) stays UNDISCLOSED, passes false. The definitions found are Tier B (Walker 2004, Ganntrader), not Gann's own text; the letter names them without defining them. Only `passes` may change in that file anyway, and astrology is research-only. Conflicts 2-4 don't touch gann_features.json.
+
+2026-10-16 item 8 step 2 (A-VOLUME-10 context): readBreakawayVolume in breakaway.ts. On completed
+sessions (last 252): when the sessions before the last were range-bound (readBreakaway, null
+trigger) and the last closed beyond the range's top or bottom by the 3-point allowance, its
+volume over the mean of the range's 91-day sessions. Context field `breakawayVolume`, card line
+(says "a breakout without volume" at <=1x), factors breakawayOnVolumeWith / WithoutVolumeWith /
+OnVolumeAgainst. Mutations B2/B4/B5/B6/B8/B9 killed; B1 (the 252 slice) and B7 (the range read
+including the break) survive as equivalent on one session; B3 removed as redundant. Full suite
+2851 pass. Step 2's five context fields are done; step 3 (the scored rule) is next.

@@ -128,6 +128,14 @@ export function contextFactorsFor(
     f.secondTopThirdVolumeAgainst = bull && third;
     f.secondTopThirdVolumeWith = !bull && third;
   }
+  // A-VOLUME-10: a session leaving a narrow range, on volume or without it.
+  if (ctx.breakawayVolume) {
+    const withTrade = ctx.breakawayVolume.direction === direction;
+    const onVolume = ctx.breakawayVolume.ratio > 1;
+    f.breakawayOnVolumeWith = withTrade && onVolume;
+    f.breakawayWithoutVolumeWith = withTrade && !onVolume;
+    f.breakawayOnVolumeAgainst = !withTrade && onVolume;
+  }
   // A-VOLUME-03: a distribution breakdown counts against a long and with a short.
   if (ctx.distribution) {
     f.distributionBreakdownAgainst = bull && ctx.distribution.distributionBreakdown;
