@@ -27,6 +27,25 @@
  * - **First-year high.** A stock must cross the high of the first year of
  *   the campaign before it can lead a later section (*Wall Street Stock
  *   Selector* Ch. VII).
+ * - **Campaign age** (C-TIME-27). Campaigns last no more than 3 to 3½ years,
+ *   with culminations in the 23rd-24th, 34th-35th, 41st-42nd, 49th-60th,
+ *   67th-72nd and 84th-90th months (Master Course Ch. 2, PDF 51, the 1931
+ *   Time Rules); the 1935 lesson refines it to the 23rd, 24th, 27th or 30th
+ *   month, with extremes in the 34th-35th or 41st-42nd (Ch. 7, PDF 220).
+ *   Months are counted with the start month as the first, as Gann counts
+ *   them (Ch. 6, PDF 197: March 1901 to October 1911 is "the 128th month").
+ * - **Prior-range projection** (C-PRICE-01). A prior range added to a later
+ *   low marks a top: "136⅞ = 80 + (94⅞ − 38) exactly" (Master Course Ch. 6,
+ *   PDF 197). Gann gives it by example only. A resistance candidate, never a
+ *   target (he never fixes one, M-E8).
+ * - **Over-balance by a point** (C-TREND-06). The space rule's decline
+ *   exceeds the greatest previous reaction "by 1+ point" (Master Course
+ *   Ch. 8, PDF 249). `spaceOverbalanced` keeps its earlier no-margin reading
+ *   because the exit rules and the trend read use it; the margin is a
+ *   separate, context-only flag until a replay measures the switch.
+ *   *Commodities* p. 312 says a swing that exceeds the greatest "in price or
+ *   time" changes the trend (C-TREND-03): the two flags are read with "or"
+ *   everywhere they are used.
  *
  * Engineering choices, labelled as such:
  * - Size is measured in percent of price, not Gann's points, so the rule
@@ -36,6 +55,13 @@
  *   began from, and sections and reactions are counted on the 3-Day Chart.
  * - The first-year high needs a campaign at least a year old, which the
  *   scan's year of daily bars rarely holds, so it is usually null.
+ * - The campaign's age can't reach past the bars supplied, so the later
+ *   culmination months and the ceiling show only on a long history.
+ * - The prior range is the last completed leg with the trend, and the later
+ *   low is the bottom that ended the counter-move after it (mirrored in a
+ *   bear campaign, an engineering symmetry).
+ * - The 1-point margin is one price-scaled point (`pointScale.ts#gannPoint`)
+ *   at the counter-move's start, in percent of that price.
  *
  * Context only for now, like Stage A: nothing here scores or gates until the
  * replay has measured it.
@@ -52,6 +78,7 @@
 
 import type { Bar } from "@/lib/types";
 import { THREE_DAY_CHART, WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
+import { gannPoint } from "@/lib/gann/pointScale";
 
 const DAY_MS = 24 * 3600 * 1000;
 
@@ -73,6 +100,58 @@ export interface CounterMoveSize {
   days: number;
 }
 
+/** The campaign's month, counted with its start month as the first (Master Course Ch. 6, PDF 197). */
+export function campaignMonthOrdinal(startIso: string, asOfIso: string): number {
+  const y = Number(asOfIso.slice(0, 4)) - Number(startIso.slice(0, 4));
+  const m = Number(asOfIso.slice(5, 7)) - Number(startIso.slice(5, 7));
+  return y * 12 + m + 1;
+}
+
+/** Master Course Ch. 2, PDF 51 (1931 Time Rules): culminations by month of the campaign. */
+export const CULMINATION_MONTHS_1931: readonly (readonly [number, number])[] = [
+  [23, 24],
+  [34, 35],
+  [41, 42],
+  [49, 60],
+  [67, 72],
+  [84, 90],
+];
+/** Master Course Ch. 7, PDF 220 (1935): culminations in the 23rd, 24th, 27th or 30th month; extremes in the 34th-35th or 41st-42nd. */
+export const CULMINATION_MONTHS_1935: readonly number[] = [23, 24, 27, 30, 34, 35, 41, 42];
+/** "Campaigns last ≤3–3½ years" (Master Course Ch. 2, PDF 51), in months. */
+export const CAMPAIGN_CEILING_MONTHS: readonly [number, number] = [36, 42];
+
+export interface CampaignAge {
+  /** The campaign's month, the start month being the first. */
+  month: number;
+  culmination1931: boolean;
+  culmination1935: boolean;
+  /** Past 3 years: in the 37th month or later. */
+  pastThreeYears: boolean;
+  /** Past 3½ years: in the 43rd month or later. */
+  pastThreeAndHalfYears: boolean;
+}
+
+export function readCampaignAge(month: number): CampaignAge {
+  return {
+    month,
+    culmination1931: CULMINATION_MONTHS_1931.some(([a, b]) => month >= a && month <= b),
+    culmination1935: CULMINATION_MONTHS_1935.includes(month),
+    pastThreeYears: month > CAMPAIGN_CEILING_MONTHS[0],
+    pastThreeAndHalfYears: month > CAMPAIGN_CEILING_MONTHS[1],
+  };
+}
+
+export interface RangeProjection {
+  /** "resistance" over a bull campaign's later low; "support" under a bear campaign's later high. */
+  kind: "resistance" | "support";
+  price: number;
+  /** The later low (high in a bear campaign) the range is added to (taken from). */
+  base: number;
+  /** The prior leg's range in price. */
+  priorRange: number;
+}
+
 export interface CampaignLedger {
   trend: "bullish" | "bearish";
   campaignStartDate: string;
@@ -86,6 +165,12 @@ export interface CampaignLedger {
   currentCounterMove: CounterMoveSize | null;
   spaceOverbalanced: boolean;
   timeOverbalanced: boolean;
+  /** The counter-move exceeds the greatest by 1 point or more (C-TREND-06, Master Course Ch. 8 PDF 249). Context only. */
+  spaceOverbalancedByPoint: boolean;
+  /** The campaign's age in months and Gann's culmination months (C-TIME-27). Context only. */
+  age: CampaignAge;
+  /** A prior leg's range from the later low, as a resistance (support) candidate (C-PRICE-01). Context only. */
+  rangeProjection: RangeProjection | null;
   /**
    * The counter-move in progress made its latest extreme in its third month
    * (after `SECOND_MONTH_END_DAYS`): a rising stock that keeps falling in the
@@ -253,6 +338,26 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
     currentCounterMove !== null && greatestCounterMove !== null && currentCounterMove.pct > greatestCounterMove.pct;
   const timeOverbalanced =
     currentCounterMove !== null && greatestCounterMove !== null && currentCounterMove.days > greatestCounterMove.days;
+  // C-TREND-06: "by 1+ point" (Master Course Ch. 8, PDF 249), one point at the counter-move's start price.
+  const pointPct = (gannPoint(lastPoint.price) / lastPoint.price) * 100;
+  const spaceOverbalancedByPoint =
+    currentCounterMove !== null && greatestCounterMove !== null && currentCounterMove.pct >= greatestCounterMove.pct + pointPct;
+
+  // C-PRICE-01: the last completed leg with the trend, added to the extreme
+  // that ended the counter-move after it (Master Course Ch. 6, PDF 197).
+  let rangeProjection: RangeProjection | null = null;
+  for (let k = points.length - 1; k >= 2; k--) {
+    const [a, b, c] = [points[k - 2], points[k - 1], points[k]];
+    if (c.kind !== (bull ? "bottom" : "top")) continue;
+    const priorRange = Math.abs(b.price - a.price);
+    rangeProjection = {
+      kind: bull ? "resistance" : "support",
+      price: bull ? c.price + priorRange : c.price - priorRange,
+      base: c.price,
+      priorRange,
+    };
+    break;
+  }
 
   const lastCounters = counterLegs.slice(-3);
   const contracting = lastCounters.length === 3 && lastCounters[1].pct < lastCounters[0].pct && lastCounters[2].pct < lastCounters[1].pct;
@@ -360,6 +465,9 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
     currentCounterMove,
     spaceOverbalanced,
     timeOverbalanced,
+    spaceOverbalancedByPoint,
+    age: readCampaignAge(campaignMonthOrdinal(bars[start].t.slice(0, 10), last.t.slice(0, 10))),
+    rangeProjection,
     counterMoveThirdMonth,
     sectionTopDate: bars[sectionTop].t.slice(0, 10),
     monthlyBreak,
@@ -402,6 +510,21 @@ export function describeCampaignLedger(l: CampaignLedger): string[] {
         (l.spaceOverbalanced || l.timeOverbalanced
           ? ` — over-balanced in ${[l.spaceOverbalanced && "space", l.timeOverbalanced && "time"].filter(Boolean).join(" and ")}${l.sections >= 3 ? " after the 3rd section" : ""}.`
           : "."),
+    );
+  }
+  const age = l.age;
+  if (age.culmination1931 || age.culmination1935 || age.pastThreeYears) {
+    const ord = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] ?? "th"}`;
+    const notes = [
+      (age.culmination1931 || age.culmination1935) && "a month in which campaigns often culminate",
+      age.pastThreeAndHalfYears ? "past the 3½ years campaigns seldom outlast" : age.pastThreeYears && "past 3 years, near the 3-3½ years campaigns seldom outlast",
+    ].filter(Boolean);
+    lines.push(`The campaign is in its ${ord(age.month)} month: ${notes.join("; ")}.`);
+  }
+  if (l.rangeProjection) {
+    const p = l.rangeProjection;
+    lines.push(
+      `The prior range (${p.priorRange.toFixed(2)}) ${p.kind === "resistance" ? "added to the later low" : "taken from the later high"} (${p.base.toFixed(2)}) gives ${p.price.toFixed(2)}, a ${p.kind} level to watch, not a target.`,
     );
   }
   if (l.counterMoveThirdMonth) lines.push(`Still making new ${l.trend === "bullish" ? "lows" : "highs"} in the counter-move's third month: the trend is changing.`);

@@ -79,6 +79,16 @@ export function contextFactorsFor(
     // Class C trend readings (W003 p.17), measured, never gating (item 6).
     f.reactionsContractingWithTrade = !against && c.contracting;
     f.timeRatioInvertedAgainstTrade = !against && c.timeRatioInverted;
+    // C-TREND-03/-06 (Commodities p.312 "price or time"; Master Course Ch.8
+    // PDF 249 "by 1+ point"): over-balance with Gann's 1-point margin.
+    f.overbalancedByPointAgainstCampaign = against && (c.spaceOverbalancedByPoint || c.timeOverbalanced);
+    // C-TIME-27 (Master Course Ch.2 PDF 51, Ch.7 PDF 220): a campaign with
+    // the trade in a culmination month, or past 3 years.
+    f.campaignCulminationMonthWithTrade = !against && (c.age.culmination1931 || c.age.culmination1935);
+    f.campaignPastCeilingWithTrade = !against && c.age.pastThreeYears;
+    // C-PRICE-01 (Master Course Ch.6 PDF 197): price within 1% of the
+    // prior-range projection, the levelTests tolerance.
+    if (c.rangeProjection) f.nearRangeProjection = (Math.abs(c.rangeProjection.price - price) / price) * 100 <= 1;
   }
   // Class C entry readings (W003), measured, never gating (item 5 step 4b).
   if (ctx.halfwayRetest) f.halfwayReturnAgrees = ctx.halfwayRetest.state === "returning" && ctx.halfwayRetest.direction === direction;
