@@ -27,6 +27,11 @@ describe("fixed counts from a founding date (A-TIME-32)", () => {
     expect(readFoundingCounts({ date: "1614-01-01", precision: "year" }, on("1908-06-01"))?.years).toEqual([294]);
   });
 
+  it("counts multiples of the score (1492 + 440 = 1932, 22 scores; 40 years)", () => {
+    expect(readFoundingCounts({ date: "1492-10-12", precision: "day" }, on("1932-06-01"))?.years).toEqual([440]);
+    expect(readFoundingCounts({ date: "1986-03-01", precision: "month" }, on("2026-05-01"))?.years).toEqual([40]);
+  });
+
   it("counts 42 months (half a seven) when the month is known", () => {
     expect(readFoundingCounts({ date: "1914-08-01", precision: "month" }, on("1918-02-15"))?.months42).toBe(true);
     expect(readFoundingCounts({ date: "1914-08-01", precision: "month" }, on("1918-03-15"))?.months42).toBe(false);

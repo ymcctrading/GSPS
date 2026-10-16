@@ -193,7 +193,9 @@ export function describeIncorporationCycle(r: IncorporationCycleReading): string
  * read that way here; the feature row's "7/14 months" does not match the page.
  *
  * Pre-registered before any measurement, no search: the list is the page's,
- * plus every multiple of 49 (the page's own 3 x 49 and 6 x 49). The 24½ the
+ * plus every multiple of 49 (the page's own 3 x 49 and 6 x 49) and every
+ * multiple of the score, 20 (the page's 1492 + 440 = 1932 is 22 scores, and
+ * p. 373 counts "the next score" on from 1916 to 1936). The 24½ the
  * page adds once (1908 + 24½ = 1932) is not used. The only anchor is the
  * stored inception date; the page's historical event dates are not
  * company dates and are not anchors here.
@@ -206,6 +208,8 @@ export function describeIncorporationCycle(r: IncorporationCycleReading): string
  */
 export const FOUNDING_COUNT_YEARS = [7, 14, 20, 49, 70, 140, 343, 490] as const;
 export const FOUNDING_JUBILEE_YEARS = 49;
+/** The score: the page's 1492 + 440 = 1932 is 22 scores, and it chains "the next score" (1916 + 20 = 1936). */
+export const FOUNDING_SCORE_YEARS = 20;
 export const FOUNDING_COUNT_MONTHS = 42;
 
 export interface FoundingCountReading {
@@ -222,7 +226,7 @@ export function readFoundingCounts(inception: Inception | null | undefined, asOf
   if (Number.isNaN(birth.getTime()) || birth.getTime() > asOf.getTime()) return null;
   const elapsed = asOf.getUTCFullYear() - birth.getUTCFullYear();
   const years =
-    elapsed > 0 && ((FOUNDING_COUNT_YEARS as readonly number[]).includes(elapsed) || elapsed % FOUNDING_JUBILEE_YEARS === 0) ? [elapsed] : [];
+    elapsed > 0 && ((FOUNDING_COUNT_YEARS as readonly number[]).includes(elapsed) || elapsed % FOUNDING_JUBILEE_YEARS === 0 || elapsed % FOUNDING_SCORE_YEARS === 0) ? [elapsed] : [];
   const months = elapsed * 12 + asOf.getUTCMonth() - birth.getUTCMonth();
   return {
     inception: inception.date.slice(0, inception.precision === "year" ? 4 : inception.precision === "month" ? 7 : 10),
