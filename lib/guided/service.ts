@@ -21,7 +21,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ScanResult } from "@/lib/types";
 import { scanTicker } from "@/lib/scanTicker";
 import { DEFAULT_UNIVERSE_THRESHOLDS, type UniverseThresholds } from "@/lib/universe/eligibility";
-import { assetClassOf, getOrCreateAccount, listOpenPositions, quotePrice } from "@/lib/brokers/simulator";
+import { assetClassOf, getOrCreateAccount, listOpenPositions, quotePrice, STARTING_CASH } from "@/lib/brokers/simulator";
+import { gannRiskCapital, readWinningRun } from "@/lib/risk/dynamic-risk";
 import { parseOccSymbol } from "@/lib/portfolio/occ";
 import { assessEligibility } from "@/lib/guided/eligibility";
 import { sizeGuidedTrade, type SizedTrade } from "@/lib/guided/sizing";
@@ -40,6 +41,11 @@ export interface GuidedAccount {
   buyingPower: number;
   /** Open paper positions by symbol, for the deployed-capital cap. */
   openSymbols: Map<string, { qty: number; avgEntry: number }>;
+  /**
+   * Gann's trading unit, the capital the per-trade risk percent applies to
+   * (`gannRiskCapital`, A-RISK-04 and rule 24; owner, 2026-10-16, Q7).
+   */
+  riskCapital: number;
 }
 
 /**
@@ -51,9 +57,10 @@ export async function readGuidedAccount(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<GuidedAccount> {
-  const [account, positions] = await Promise.all([
+  const [account, positions, run] = await Promise.all([
     getOrCreateAccount(supabase, userId),
     listOpenPositions(supabase, userId),
+    readWinningRun(supabase, userId),
   ]);
 
   const marks = await Promise.all(
@@ -70,8 +77,14 @@ export async function readGuidedAccount(
     positions.map((p) => [p.symbol.toUpperCase(), { qty: p.qty, avgEntry: p.avg_entry_price }]),
   );
 
+  const equity = account.cash + marketValue;
+  const riskCapital = run
+    ? gannRiskCapital({ equity, startingCapital: STARTING_CASH, ...run }).capital
+    : Math.min(equity, STARTING_CASH);
+
   return {
-    equity: account.cash + marketValue,
+    equity,
+    riskCapital,
     // No margin is modelled — a simulated cash account can only buy what it holds.
     buyingPower: account.cash,
     openSymbols,
@@ -370,6 +383,7 @@ function collectBatch(params: {
       takeProfit1: levels.takeProfit1,
       masterProfit: levels.masterProfit,
       riskPct: caps.riskPct,
+      riskCapital: account.riskCapital,
       maxDeployedPct: caps.maxDeployedPct,
       deployedUsd: committed,
       maxNotionalUsd: caps.budgetUsd,

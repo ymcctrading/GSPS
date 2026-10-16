@@ -159,6 +159,7 @@ export async function POST(req: NextRequest) {
     takeProfit1: agreed.takeProfit1,
     masterProfit: agreed.masterProfit,
     riskPct: caps.riskPct,
+    riskCapital: account.riskCapital,
     maxDeployedPct: caps.maxDeployedPct,
     deployedUsd: usage.deployedUsd,
     maxNotionalUsd: caps.budgetUsd,

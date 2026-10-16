@@ -185,3 +185,18 @@ describe("sizeGuidedTrade — shorts", () => {
     expect(sized.riskUsd).toBeLessThanOrEqual(short.equity * (short.riskPct / 100));
   });
 });
+
+// A-RISK-04 / Q7: the risk percent applies to Gann's trading unit, not to
+// equity that a run of profits has raised (`gannRiskCapital`).
+describe("sizeGuidedTrade on Gann's trading unit", () => {
+  it("sizes the risk budget off riskCapital when it is given", () => {
+    const sized = sizeGuidedTrade({ ...base, equity: 150_000, buyingPower: 150_000, riskCapital: 100_000 });
+    expect(sized.riskUsd).toBeCloseTo(1000, 6);
+  });
+  it("is wired into both Guided paths", async () => {
+    const { readFileSync } = await import("node:fs");
+    expect(readFileSync("lib/guided/service.ts", "utf8")).toMatch(/riskCapital: account\.riskCapital/);
+    expect(readFileSync("app/api/guided/execute/route.ts", "utf8")).toMatch(/riskCapital: account\.riskCapital/);
+    expect(readFileSync("lib/guided/service.ts", "utf8")).toMatch(/gannRiskCapital\(/);
+  });
+});

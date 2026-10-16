@@ -54,6 +54,7 @@ vi.mock("@/lib/entitlements/policy", () => ({
 }));
 
 vi.mock("@/lib/brokers/simulator", () => ({
+  STARTING_CASH: 100_000,
   assetClassOf: () => "us_equity",
   getOrCreateAccount: vi.fn().mockResolvedValue({ cash: 100_000 }),
   getOpenPosition: vi.fn().mockResolvedValue(null),

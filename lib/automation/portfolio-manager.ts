@@ -38,7 +38,8 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
-import { getOrCreateAccount } from "@/lib/brokers/simulator";
+import { getOrCreateAccount, STARTING_CASH } from "@/lib/brokers/simulator";
+import { gannRiskCapital, readWinningRun } from "@/lib/risk/dynamic-risk";
 import { readLiveAccountValue } from "@/lib/risk/live-account";
 import { activateAutomationProfile } from "@/lib/automation/service";
 import {
@@ -265,6 +266,14 @@ async function runForProfile(
   } else {
     equityBasis = (await getOrCreateAccount(supabase, profile.user_id)).cash;
   }
+  // Gann's trading unit (A-RISK-04, rule 24; owner, 2026-10-16, Q7): the
+  // paper account steps up only once profits equal its starting capital, and
+  // neither account steps up on a long run of wins. No starting capital is on
+  // record for a live account, so only the rule-24 hold applies there.
+  const run = await readWinningRun(supabase, profile.user_id);
+  equityBasis = run
+    ? gannRiskCapital({ equity: equityBasis, startingCapital: executionMode === "live" ? 0 : STARTING_CASH, ...run }).capital
+    : Math.min(equityBasis, executionMode === "live" ? equityBasis : STARTING_CASH);
 
   const allocatedDollarRisk = Math.max(
     MIN_ALLOCATED_DOLLAR_RISK,

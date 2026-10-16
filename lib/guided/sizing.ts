@@ -61,6 +61,12 @@ export interface SizingInputs {
   masterProfit: number;
   /** Percent of equity to risk on this trade. */
   riskPct: number;
+  /**
+   * The capital `riskPct` applies to: Gann's trading unit (`gannRiskCapital`,
+   * A-RISK-04), which stays at the starting capital until profits equal it.
+   * Defaults to `equity`. The portfolio and cash ceilings still read equity.
+   */
+  riskCapital?: number;
   /** Ceiling on total guided capital deployed at once, as a percent of equity. */
   maxDeployedPct: number;
   /** Capital already tied up in open guided positions, in dollars. */
@@ -103,7 +109,7 @@ export interface SizedTrade {
 export function sizeGuidedTrade(input: SizingInputs): SizedTrade {
   const {
     side, equity, buyingPower, entry, stopLoss, takeProfit1, masterProfit,
-    riskPct, maxDeployedPct, deployedUsd, maxNotionalUsd = null, wholeUnitsOnly = true,
+    riskPct, riskCapital = equity, maxDeployedPct, deployedUsd, maxNotionalUsd = null, wholeUnitsOnly = true,
     minGuidedQty = MIN_GUIDED_QTY,
   } = input;
 
@@ -130,7 +136,7 @@ export function sizeGuidedTrade(input: SizingInputs): SizedTrade {
     return empty("Your paper account has no equity to size a trade against.");
   }
 
-  const riskBudget = equity * (riskPct / 100);
+  const riskBudget = Math.min(riskCapital, equity) * (riskPct / 100);
   const byRisk = riskBudget / riskPerShare;
 
   const deployableUsd = Math.max(equity * (maxDeployedPct / 100) - deployedUsd, 0);
