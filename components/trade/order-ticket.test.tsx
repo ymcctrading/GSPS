@@ -409,7 +409,7 @@ describe("OrderTicket explain-only technique reading", () => {
       if (url.includes("/api/strategy-mode-preference")) {
         return json({ mode: "rsiReversal", allowedModes: ["rsiReversal"] });
       }
-      if (url.includes("/api/strategy-levels")) return json({ levels: null, reading });
+      if (url.includes("/api/strategy-levels")) return json({ armed: null, reading });
       if (url.includes("/api/strategy-plugins")) return json({ plugins: [] });
       return json({ symbol: "DRAM", shortable: true, tradable: true });
     });

@@ -199,6 +199,19 @@ function evaluateRule(
 ): CustomScriptLevels | null {
   if (!ctx.bool(rule.condition, i)) return null;
 
+  if (!rule.entry || !rule.stopLoss) {
+    return {
+      ...identity,
+      direction: rule.direction,
+      entry: null,
+      stopLoss: null,
+      takeProfit1: null,
+      masterTarget: null,
+      riskPerShare: null,
+      rationale: `'${identity.scriptName}' by ${identity.author}: ${rule.direction} rule condition met (signal only, no levels of its own).`,
+    };
+  }
+
   const entry = ctx.num(rule.entry, i);
   const stopLoss = ctx.num(rule.stopLoss, i);
   if (entry == null || stopLoss == null) return null;

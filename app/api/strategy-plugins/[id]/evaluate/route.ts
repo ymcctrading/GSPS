@@ -4,12 +4,19 @@
  * Phase 3's "level-generation hook" and the data source for its chart-
  * plotting hook (`docs/STRATEGY_MODES.md`'s "Custom-script / plugin system"
  * section): computes one saved custom script's entry/stop/TP1/master-target
- * for a symbol (mirroring `/api/strategy-levels`'s built-in-mode shape) AND
+ * for a symbol AND
  * the script's referenced indicator series for chart display
  * (`lib/strategies/custom/plot.ts`), in one call — a chart panel that wants
  * both a script's plotted lines and its computed levels needs only this one
  * fetch, matching the design sketch's "reuse the existing overlay-series
  * rendering path" instruction rather than adding a second data path.
+ *
+ * Those levels are the script's own rule test, shown only in the script
+ * editor (they are null for a signal-only rule). The order ticket reads
+ * `reading`, the script's explanation of GSPS's plan, and never these
+ * levels (explain-only, 2026-10-16). Unlike `/api/strategy-levels`, which
+ * sends no prices of a built-in mode's own, the author's own lines come back
+ * here because the author wrote them and tests them.
  *
  * Never wired into scanning, scoring, `SignalGates`, or Automation. Private
  * to the authoring user: the plugin lookup is scoped to `user_id = auth

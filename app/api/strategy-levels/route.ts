@@ -1,8 +1,10 @@
 /**
  * GSPS — /api/strategy-levels
  *
- * Computes one non-Gann Strategy Mode's entry/stop/TP1/master-target for a
- * symbol (AGENTS.md's "Strategy Modes" section; docs/STRATEGY_MODES.md).
+ * Reads GSPS's plan in one non-Gann Strategy Mode's terms for a symbol
+ * (AGENTS.md's "Strategy Modes" section; docs/STRATEGY_MODES.md). Explain-only
+ * since 2026-10-16: it returns words about the plan's levels and, at most,
+ * which way the mode currently arms, never a price of the mode's own.
  * Never wired into scanning, scoring, SignalGates, or Automation — this
  * route exists solely to feed the order ticket's optional Strategy Mode
  * display when a human has explicitly selected one for this ticket.
@@ -86,10 +88,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "No bar data available" }, { status: 404 });
     }
 
-    const levels = evaluateStrategyMode(mode, bars);
-    // Explain-only (AGENTS.md "Strategy Modes", 2026-10-16): when the caller
-    // passes GSPS's plan, the mode reads that plan's levels. `levels` stays
-    // for callers that show the mode's own arming, never as an order's levels.
+    // Explain-only (AGENTS.md "Strategy Modes", 2026-10-16): the mode reads
+    // GSPS's plan. Its own entry/stop/targets are not sent at all, so no
+    // client can show or use them; only the direction it arms in, if any.
+    const own = evaluateStrategyMode(mode, bars);
+    const armed = own ? { direction: own.direction, rationale: own.rationale } : null;
     const plan = parsePlanParams(searchParams);
     const reading = plan ? explainPlan(mode, bars, plan) : null;
     return NextResponse.json({
@@ -97,7 +100,7 @@ export async function GET(req: NextRequest) {
       timeframe,
       mode: mode as StrategyModeId,
       label: STRATEGY_MODE_LABELS[mode as StrategyModeId],
-      levels, // null when nothing is currently armed under this mode
+      armed, // null when nothing is currently armed under this mode
       reading, // null without a plan, or when the mode has too few bars to read
     });
   } catch (err) {
