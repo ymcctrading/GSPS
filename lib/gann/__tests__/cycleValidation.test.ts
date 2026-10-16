@@ -149,3 +149,46 @@ describe("validateCycle is research only", () => {
     expect(validateCycle(bars(cycle(300))).hypothesisOnly).toBe(true);
   });
 });
+
+describe("CYC-22: forced needs both persistence and resumption", () => {
+  it("reads all four cases", async () => {
+    const { forcedOrFree } = await import("../spectralCycle");
+    expect(forcedOrFree(true, true)).toBe("forced");
+    expect(forcedOrFree(true, false)).toBe("free");
+    expect(forcedOrFree(false, true)).toBe("free");
+    expect(forcedOrFree(false, false)).toBe("free");
+  });
+});
+
+describe("CYC-34: the interval holds a fractional period, about P²/N wide", () => {
+  it("contains 20.5 and has a half-power width near P²/N", () => {
+    const n = 400;
+    const ci = validateCycle(bars(Array.from({ length: n }, (_, i) => 100 * Math.exp(0.05 * Math.sin((TAU * i) / 20.5))))).periodCi!;
+    expect(ci[0]).toBeLessThanOrEqual(20.5);
+    expect(ci[1]).toBeGreaterThanOrEqual(20.5);
+    const width = ci[1] - ci[0];
+    const expected = (20.5 * 20.5) / n;
+    expect(width).toBeGreaterThan(0.6 * expected);
+    expect(width).toBeLessThan(1.4 * expected);
+  });
+});
+
+describe("CYC-45: the hold-out error shows a period that changed", () => {
+  it("reports a large error when the period moves from 20 to 26 after 70%", () => {
+    const n = 400;
+    const cut = Math.floor(n * 0.7);
+    // Continuous phase across the change.
+    let ph = 0;
+    const closes = Array.from({ length: n }, (_, i) => {
+      ph += TAU / (i < cut ? 20 : 26);
+      return 100 * Math.exp(0.05 * Math.sin(ph));
+    });
+    expect(validateCycle(bars(closes)).holdoutPeriodError!).toBeGreaterThan(0.15);
+  });
+
+  it("reports an error wider than the interval on pure noise", () => {
+    const v = validateCycle(bars(randomWalk(400, 21)));
+    const halfWidthRel = (v.periodCi![1] - v.periodCi![0]) / 2 / v.period!;
+    expect(v.holdoutPeriodError!).toBeGreaterThan(halfWidthRel);
+  });
+});

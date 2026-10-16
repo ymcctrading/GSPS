@@ -448,6 +448,11 @@ const cvOf = (xs: number[]) => {
   return m > 0 ? sd / m : 0;
 };
 
+/** CYC-22: a cycle is forced only when it persists through a trimmed window AND its phase resumes. */
+export function forcedOrFree(persists: boolean, resumed: boolean): "forced" | "free" {
+  return persists && resumed ? "forced" : "free";
+}
+
 export function validateCycle(dailyBars: Bar[], seed = 1): CycleValidation {
   const empty = (homogeneity: CycleValidation["homogeneity"], period: number | null = null): CycleValidation => ({
     period,
@@ -584,7 +589,7 @@ export function validateCycle(dailyBars: Bar[], seed = 1): CycleValidation {
     const trimmed = logs.slice(Math.floor(n * 0.1));
     const tp = dominantPeriod(linearDetrend(trimmed), Math.floor(trimmed.length * MAX_PERIOD_FRACTION));
     const persists = !!tp && Math.abs(tp.period - P) / P <= PERIOD_CONSISTENCY_TOLERANCE;
-    out.forcedOrFree = persists && out.phaseResumption.resumed ? "forced" : "free";
+    out.forcedOrFree = forcedOrFree(persists, out.phaseResumption.resumed);
   }
 
   // CYC-25 / CYC-26: crest spacing against shuffled-return surrogates, and its regularity.
