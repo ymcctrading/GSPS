@@ -197,11 +197,13 @@ averages. Under the 2026-10-01 decision ("Every Gann method acts" below), the
 active angles act: each of Jupiter, Saturn and Uranus puts its nearest
 longitude, square, trine or opposition above and below price into the S/R
 list (`activeAngleLevels`, via `masterLevels.ts`), so plan levels move
-(`STRATEGY_VERSION` `2026-10-16-active-angle-levels`). The time readings (the
+(`STRATEGY_VERSION` `2026-10-16-active-angle-jensen-levels`). The time readings (the
 Mars half-return, the Sun's travel and seasonal points, the natural angle,
 new moon and lunar return, the wheel) are trace lines and measured factors
 until a shared time-window mechanism exists for them to act through.
-Jensen's square of 90 stays context until the owner places it. About 0.7 ms
+Jensen's square of 90 puts its nearest price point above and below into the
+S/R list too (`jensenLevels`), on the placement recommended to the owner on
+2026-10-16 (he places Jensen item by item); its time counts stay context. About 0.7 ms
 per symbol (38 ms on the first call).
 
 **Master Course methods with no plan, built 2026-10-16 (owner: "Build the 5

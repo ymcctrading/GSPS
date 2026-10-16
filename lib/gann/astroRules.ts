@@ -17,8 +17,9 @@
  * mark windows for a turn; they act once GSPS has one shared place where a
  * time window acts on the verdict (the parity plan's item 7), and until then
  * they are shown in the trace and measured as factors. Jensen's readings act
- * where the owner places them, item by item (AGENTS.md); until he does, they
- * are context. No source in the collection measures a planetary timing rule
+ * where the owner places them, item by item (AGENTS.md): his square of 90's
+ * price points join the S/R list (`jensenLevels`) on the placement
+ * recommended to him on 2026-10-16, and his time counts stay context. No source in the collection measures a planetary timing rule
  * against chance, so each one starts at zero evidence, and an inversion in
  * the replay is presumed a translation defect first.
  *
@@ -254,6 +255,35 @@ export function activeAngleLevels(asOf: Date, price: number, unit: number): { pr
     if (below) out.push({ price: below.pts * unit, label: below.label });
     if (above) out.push({ price: above.pts * unit, label: above.label });
   }
+  return out;
+}
+
+/**
+ * Jensen's square of 90 as price levels (J-2). Placed by the owner's 2026-10-01
+ * decision that Jensen's astrology acts where he places it; the recommended
+ * placement (price points as levels, time counts as context) was posted to him
+ * on 2026-10-16 and is followed until he answers. Jensen calls the square
+ * points resistance and the trine points consolidation, so both join the
+ * support and resistance list. The low is the same one `readAstroRules`
+ * measures from (the lowest low of the bars supplied). Engineering choice,
+ * labelled as such: only the nearest point above and below price, so the list
+ * stays sparse.
+ */
+export function jensenLevels(bars: Bar[], price: number, unit: number): { price: number; label: string }[] {
+  if (bars.length === 0 || !(price > 0) || !(unit > 0)) return [];
+  const lowPts = bars[extremes(bars).lo].l / unit;
+  const pts = price / unit;
+  let above: number | null = null;
+  let below: number | null = null;
+  for (const p of JENSEN_POINTS) {
+    const level = lowPts + p;
+    if (level <= pts && (below === null || level > lowPts + below)) below = p;
+    if (level > pts && (above === null || level < lowPts + above)) above = p;
+  }
+  const label = (p: number) => `Jensen's square of 90: ${p} points above the low (${JENSEN_SQUARE_POINTS.has(p) ? "square point" : "trine point"})`;
+  const out: { price: number; label: string }[] = [];
+  if (below !== null) out.push({ price: (lowPts + below) * unit, label: label(below) });
+  if (above !== null) out.push({ price: (lowPts + above) * unit, label: label(above) });
   return out;
 }
 

@@ -56,5 +56,7 @@
 // 2026-10-16 (owner, 2026-10-01: "every Gann method acts"): the S/R list also
 // gains the nearest active angle above and below price for Jupiter, Saturn and
 // Uranus (a planet's longitude, square, trine or opposition, 1954 letter), via
-// lib/gann/astroRules.ts#activeAngleLevels and masterLevels.ts.
-export const STRATEGY_VERSION = "2026-10-16-active-angle-levels";
+// lib/gann/astroRules.ts#activeAngleLevels and masterLevels.ts; and the nearest
+// point of Jensen's square of 90 above and below price (jensenLevels), on the
+// placement recommended to the owner, who places Jensen item by item.
+export const STRATEGY_VERSION = "2026-10-16-active-angle-jensen-levels";

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
-import { activeAngleLevels, readAstroRules } from "../astroRules";
+import { activeAngleLevels, jensenLevels, readAstroRules } from "../astroRules";
 import { gannMasterLevels } from "../masterLevels";
 import { planetLongitudes } from "../planetaryAverages";
 
@@ -99,5 +99,20 @@ describe("activeAngleLevels (active angles act as price resistance)", () => {
     // One above price per body always; one below only where a point sits above zero.
     expect(angles.filter((l) => l.price > 50)).toHaveLength(3);
     expect(angles.every((l) => l.price > 0)).toBe(true);
+  });
+});
+
+describe("jensenLevels (square of 90 as price levels)", () => {
+  it("gives the nearest square-of-90 point above and below price, measured from the low", () => {
+    // Low 40 (bar 40 days back), price 72: 30 points above sits below, 45 above.
+    const levels = jensenLevels(bars("2026-06-01", 40, 72), 72, 1);
+    expect(levels.map((l) => l.price)).toEqual([70, 85]);
+    expect(levels[1].label).toContain("45 points above the low (square point)");
+    expect(levels[0].label).toContain("(trine point)");
+  });
+
+  it("reaches the S/R list through the master levels", () => {
+    const daily = bars("2026-06-01", 40, 72);
+    expect(gannMasterLevels(daily, daily, 72, new Date("2026-06-01T12:00:00Z")).filter((l) => l.source === "jensen")).toHaveLength(2);
   });
 });
