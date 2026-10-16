@@ -1,9 +1,9 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { Bar, ScanDecision } from "@/lib/types";
-import { failedTestAgainst, failedTestInPath, readMultipleTops } from "@/lib/gann/multipleTops";
+import { crossingLevelOf, failedTestAgainst, failedTestInPath, readMultipleTops } from "@/lib/gann/multipleTops";
 import { applyFailedTopHold } from "@/lib/scoring/score";
-import { FAILED_TOP_CHART_DAYS, readGannExit } from "@/lib/gann/exitRules";
+import { FAILED_TOP_CHART_DAYS, failedTopWindow, readGannExit } from "@/lib/gann/exitRules";
 import { ENTRY_CHART_DAYS } from "@/lib/scan/entrySelection";
 import { beyondByThreePoints } from "@/lib/gann/pointScale";
 
@@ -40,6 +40,12 @@ describe("failedTestAgainst", () => {
     expect(failedTestAgainst(readMultipleTops(bars(back)), "bullish")).toMatchObject({ state: "failed" });
     // A close over ~115.8 passes it.
     expect(failedTestAgainst(readMultipleTops(bars([...back, 116.5])), "bullish")).toBeNull();
+    // Still rising, over the top but short of the 3 points: still failed.
+    expect(failedTestAgainst(readMultipleTops(bars([...doubleTop, ...leg(103, 113, 4)])), "bullish")).toMatchObject({ state: "failed" });
+    expect(failedTestAgainst(readMultipleTops(bars([...doubleBottom, ...leg(97, 87, 4)])), "bearish")).toMatchObject({ state: "failed" });
+    // Still rising, past it by the 3 points: crossed, not failed.
+    expect(readMultipleTops(bars([...doubleTop, ...leg(103, 117, 5)])).top).toMatchObject({ state: "crossed" });
+    expect(readMultipleTops(bars([...doubleBottom, ...leg(97, 83, 5)])).bottom).toMatchObject({ state: "crossed" });
     // Passed some sessions ago and back under it: no longer failed.
     const passedThenBack = [...back, 116.5, ...leg(116.5, 109, 6)];
     expect(failedTestAgainst(readMultipleTops(bars(passedThenBack)), "bullish")).toBeNull();
@@ -52,6 +58,19 @@ describe("failedTestAgainst", () => {
     const down = [...doubleBottom, ...leg(97, 92, 3)];
     expect(failedTestAgainst(readMultipleTops(bars(down)), "bearish")).toMatchObject({ state: "failed" });
     expect(failedTestAgainst(readMultipleTops(bars([...down, 84])), "bearish")).toBeNull();
+  });
+
+  it("reads a failed top even while an older double top lies nearer to price (review 13 H1)", () => {
+    // A double top near 96, then one near 110 that failed back to 97.
+    const pre = [...leg(88, 96, 5), ...leg(96, 91, 4), ...leg(91, 96, 4), ...leg(96, 92, 4), ...leg(92, 110, 8), ...leg(110, 102, 5), ...leg(102, 110, 6), ...leg(110, 97, 8)];
+    const r = readMultipleTops(bars(pre));
+    expect(r.top).toMatchObject({ state: "failed" });
+    expect(r.top!.level).toBeGreaterThan(105);
+    expect(failedTestInPath(r, "bullish", 97, 120)).not.toBeNull();
+    // A long bought there anyway does not exit on that same failure later.
+    const post = bars([...pre, ...leg(97, 104, 5)]);
+    const p = { side: "long" as const, entry: 97, initialStop: 85, entryDate: post[pre.length].t.slice(0, 10), crossedLevel: null };
+    expect(readGannExit(p, post, null).exit?.reason).not.toBe("failed_top");
   });
 
   it("indexes the latest test's swing extreme in the bars read", () => {
@@ -73,14 +92,28 @@ describe("failedTestInPath (review 11 H1: only a failed test before the first ta
     // An entry at the level still has to pass it.
     expect(failedTestInPath(tops, "bullish", L, 120)).not.toBeNull();
   });
+  it("leaves a crossing entry at the failed top alone: its own crossing is the pass", () => {
+    expect(failedTestInPath(tops, "bullish", 104, 120, L)).toBeNull();
+    expect(failedTestInPath(tops, "bullish", 104, 120, beyondByThreePoints(L, -1))).toBeNull();
+    // A crossing of a lower level still has the failed top ahead of it.
+    expect(failedTestInPath(tops, "bullish", 104, 120, beyondByThreePoints(L, -1) - 0.01)).not.toBeNull();
+    expect(failedTestInPath(tops, "bullish", 104, 120, null)).not.toBeNull();
+    expect(crossingLevelOf({ kind: "crossing", level: 110 })).toBe(110);
+    expect(crossingLevelOf({ kind: "oldLevel", level: 110 })).toBeNull();
+    expect(crossingLevelOf({ kind: "hold", level: 110 })).toBeNull();
+    expect(crossingLevelOf(null)).toBeNull();
+  });
+
   it("leaves a TP1 at the top, or within the 3 points of it: that sells at the top (review 12 M2)", () => {
     expect(failedTestInPath(tops, "bullish", 104, L)).toBeNull();
     expect(failedTestInPath(tops, "bullish", 104, pass)).toBeNull();
-    expect(failedTestInPath(tops, "bullish", L + 0.01, 120)).toBeNull();
+    // Over the top but short of passing it is still under it (review 13 L2).
+    expect(failedTestInPath(tops, "bullish", L + 1, 120)).not.toBeNull();
+    expect(failedTestInPath(tops, "bullish", pass, 120)).toBeNull();
   });
-  it("leaves a long alone whose TP1 is under the failed top, or whose entry is over it", () => {
+  it("leaves a long alone whose TP1 is under the failed top, or whose entry is past it", () => {
     expect(failedTestInPath(tops, "bullish", 104, 108)).toBeNull();
-    expect(failedTestInPath(tops, "bullish", 112, 120)).toBeNull();
+    expect(failedTestInPath(tops, "bullish", 116, 125)).toBeNull();
     expect(failedTestInPath(tops, "bullish", 104, null)).toBeNull();
     expect(failedTestInPath(tops, "bullish", null, 115)).toBeNull();
   });
@@ -93,7 +126,10 @@ describe("failedTestInPath (review 11 H1: only a failed test before the first ta
     expect(failedTestInPath(bottoms, "bearish", B, 80)).not.toBeNull();
     expect(failedTestInPath(bottoms, "bearish", 96, below)).toBeNull();
     expect(failedTestInPath(bottoms, "bearish", 96, 92)).toBeNull();
-    expect(failedTestInPath(bottoms, "bearish", B - 0.01, 80)).toBeNull();
+    expect(failedTestInPath(bottoms, "bearish", B - 1, 80)).not.toBeNull();
+    expect(failedTestInPath(bottoms, "bearish", 96, 80, beyondByThreePoints(B, 1))).toBeNull();
+    expect(failedTestInPath(bottoms, "bearish", 96, 80, beyondByThreePoints(B, 1) + 0.01)).not.toBeNull();
+    expect(failedTestInPath(bottoms, "bearish", below, 80)).toBeNull();
   });
 });
 
@@ -108,6 +144,7 @@ describe("applyFailedTopHold", () => {
     expect(applyFailedTopHold(execute(), tops, "bearish", path).outputState).toBe("Execute");
     expect(applyFailedTopHold(execute(), null, "bullish", path).outputState).toBe("Execute");
     expect(applyFailedTopHold(execute(), tops, "bullish", null).outputState).toBe("Execute");
+    expect(applyFailedTopHold(execute(), tops, "bullish", path, tops.top!.level).outputState).toBe("Execute");
     const watch = { ...execute(), outputState: "Watch" } as ScanDecision;
     expect(applyFailedTopHold(watch, tops, "bullish", path)).toBe(watch);
     const reject = { ...execute(), outputState: "Reject" } as ScanDecision;
@@ -195,6 +232,31 @@ describe("the failed-top exit", () => {
     expect(readGannExit(p, edge, null).exit?.reason).not.toBe("failed_top");
   });
 
+  it("reads the 52 weeks before the next session: the fill session at entry, the next weekday today", () => {
+    // Daily bars from Thursday 2026-01-01, weekends included.
+    const b = bars(Array.from({ length: 400 }, () => 100));
+    // Bars before index 380 (2027-01-16, a Saturday): the fill session is that bar.
+    expect(failedTopWindow(b, 380)[0].t.slice(0, 10)).toBe("2026-01-17");
+    // Today: the last bar is Friday 2027-01-15 at index 379, so the next
+    // weekday is Monday 2027-01-18 and the window starts 364 days before it.
+    const today = b.slice(0, 380);
+    expect(today.at(-1)!.t.slice(0, 10)).toBe("2027-01-15");
+    expect(failedTopWindow(today, today.length)[0].t.slice(0, 10)).toBe("2026-01-19");
+    expect(failedTopWindow(today, today.length).at(-1)).toBe(today.at(-1));
+  });
+
+  it("matches the test standing at entry by its session, not its place in the window (review 13 L1)", () => {
+    // A year of quiet before the double top, so the window's start moves
+    // between the fill and today; the long is bought under the failed top.
+    const pre = Array.from({ length: 330 }, (_, i) => 90 + (i % 2 ? 0.2 : -0.2));
+    const after = Array.from({ length: 60 }, (_, i) => 101 + (i % 2 ? 0.2 : -0.2));
+    const b = bars([...pre, ...doubleTop, ...after]);
+    const k = pre.length + doubleTop.length;
+    expect(readMultipleTops(b.slice(0, k)).top).toMatchObject({ state: "failed" });
+    const p = { side: "long" as const, entry: b[k].c, initialStop: 80, entryDate: b[k].t.slice(0, 10), crossedLevel: null };
+    expect(readGannExit(p, b, null).exit?.reason).not.toBe("failed_top");
+  });
+
   it("does not read a double top older than the 52 weeks", () => {
     // The same failed double top, then a long flat year before the fill.
     const flat = Array.from({ length: 400 }, (_, i) => 103 + (i % 2 ? 0.2 : -0.2));
@@ -210,13 +272,13 @@ describe("the failed-top hold is wired on every surface", () => {
     const s = src("lib/scanTicker.ts");
     expect(s).toMatch(/const failedTops = readMultipleTops\(charts\.daily\)/);
     expect(s).toMatch(/applyFailedTopHold\(applyDistributionBreakdownHold\(/);
-    expect(s).toMatch(/distributionStanding, scoreDirection\), failedTops, scoreDirection, levels\)/);
+    expect(s).toMatch(/distributionStanding, scoreDirection\), failedTops, scoreDirection, levels, crossingLevelOf\(gannTrigger\)\)/);
   });
   it("holds the verdict and skips the entry in the replay", () => {
     const s = src("lib/backtest/replay.ts");
     expect(s).toMatch(/applyFailedTopHold\(applyDistributionBreakdownHold\(/);
-    expect(s).toMatch(/context\.disclosedRules\.multipleTops, gannTrigger\.direction, levels\)/);
-    expect(s).toMatch(/\n\s+if \(failedTestInPath\(arm\.context\.disclosedRules\.multipleTops, trigger\.direction, path\?\.entry, path\?\.takeProfit1\)\) continue;/);
+    expect(s).toMatch(/context\.disclosedRules\.multipleTops, gannTrigger\.direction, levels, crossingLevelOf\(gannTrigger\)\)/);
+    expect(s).toMatch(/\n\s+if \(failedTestInPath\(arm\.context\.disclosedRules\.multipleTops, trigger\.direction, path\?\.entry, path\?\.takeProfit1, crossingLevelOf\(trigger\)\)\) continue;/);
     expect(s).toMatch(/sessionPlanPaths\.set\(planKey, plan \? \{ entry: plan\.entry, takeProfit1: plan\.takeProfit1 \} : null\)/);
   });
 });
@@ -235,5 +297,29 @@ describe("the excused failed tops are measured (review 12 M3)", () => {
   it("is passed the session plan's TP1 in the replay", () => {
     const s = readFileSync("lib/backtest/replay.ts", "utf8");
     expect(s.match(/contextFactorsFor\(arm\.context\.disclosedRules, trigger\.direction, entry, path\?\.takeProfit1\)/g)?.length).toBe(2);
+  });
+});
+
+describe("a top passed and then failed back under is a failed top", () => {
+  it("counts the failure after a pass, on a seeded random walk where they differ", () => {
+    // The same seeded walk the reviewers' equivalence harness uses (seed 977*9+20).
+    let seed = 977 * 9 + 20;
+    const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+    const gauss = () => Math.sqrt(-2 * Math.log(rnd() + 1e-12)) * Math.cos(2 * Math.PI * rnd());
+    const c: number[] = [20];
+    for (let i = 1; i < 300; i++) c.push(c[i - 1] * Math.exp(0.025 * gauss()));
+    const t0 = Date.parse("2025-01-01T00:00:00Z");
+    const b: Bar[] = c.map((x, i) => {
+      const o = c[i - 1] ?? x;
+      return { t: new Date(t0 + i * 86400000).toISOString(), o, h: Math.max(o, x) * (1 + 0.006 * rnd()), l: Math.min(o, x) * (1 - 0.006 * rnd()), c: x, v: 1e6 };
+    });
+    const top = readMultipleTops(b.slice(0, 136)).top!;
+    expect(top.state).toBe("failed");
+    // A close after the latest test passed the level by the 3 points before
+    // the close back under it: the pass did not hold, so the top stands.
+    const after = b.slice(top.lastTestIndex + 1, 136);
+    const back = after.findIndex((x) => x.c < beyondByThreePoints(top.level, -1));
+    expect(back).toBeGreaterThan(0);
+    expect(after.slice(0, back).some((x) => x.c > beyondByThreePoints(top.level, 1))).toBe(true);
   });
 });

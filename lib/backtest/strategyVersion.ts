@@ -247,4 +247,9 @@
 // 2026-10-16-gann-failed-tops-passed: owner card, recommended option. A failed
 // double or triple top stays failed until a close passes it by the 3 points or
 // a new swing replaces it, not only while price is 3 points under it.
-export const STRATEGY_VERSION = "2026-10-16-gann-failed-tops-passed";
+//
+// 2026-10-16-gann-failed-tops-latest: review 13. A failed top is judged on
+// the latest top's own cluster, so an older level nearer to price no longer
+// hides it; a trade is in its path while the entry is short of passing it;
+// Guided Mode and the demo send the protocol's TP1.
+export const STRATEGY_VERSION = "2026-10-16-gann-failed-tops-latest";

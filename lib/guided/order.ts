@@ -40,6 +40,8 @@ export function guidedOrder(input: {
     limitPrice: levels.entry,
     // The protocol's own pair: the confirmation reads its line from these.
     entryStop: levels.stopLoss,
+    // And its first target, for the failed-top check (A-LEVELS-04, review 13 M1).
+    entryTarget: levels.takeProfit1,
     ...(levels.entryKind ? { entryKind: levels.entryKind } : {}),
     referencePrice: input.referencePrice,
     // Guided Decision Mode, never the intraday alerts panel: this is not

@@ -261,6 +261,16 @@ describe("readEntryConfirmationNow: an entry waits under a failed double top (A-
     expect((await read(daily(doubleTop), "bullish", 98, 115)).ready).toBe(true);
   });
 
+  it("reads a crossing entry's level from its entry and stop, and passes it to the check", async () => {
+    const { gannCrossedLevel } = await import("@/lib/gann/entryTrigger");
+    const { readFileSync } = await import("node:fs");
+    // Gann's reaction pair either side of a level: entry a third of the 3 points over, stop 3 points under.
+    expect(gannCrossedLevel(110.5 + 5.3 / 3, 110.5 - 5.3)).toBeCloseTo(110.5, 6);
+    const src = readFileSync("lib/lifecycle/confirmNow.ts", "utf8");
+    expect(src).toMatch(/const crossed = restsWithoutCrossing\(input\.entryKind\) \? null : gannCrossedLevel\(input\.entryTrigger, input\.stopPrice\);/);
+    expect(src).toMatch(/input\.entryTrigger, target, crossed\)/);
+  });
+
   it("waits when the first target is unknown (review 12 M1)", async () => {
     expect((await read(daily(doubleTop), "bullish", 98, null)).ready).toBe(false);
     expect((await read(daily(doubleBottom), "bearish", 112, null)).ready).toBe(false);

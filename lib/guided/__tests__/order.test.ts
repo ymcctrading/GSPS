@@ -23,7 +23,7 @@ const levels = { entry: 39.7, stopLoss: 37.74, takeProfit1: 44, masterProfit: 48
 describe("guidedOrder", () => {
   it("is a limit at the entry, judged on the stop and the kind of buying point", () => {
     const o = guidedOrder({ symbol: "AAPL", side: "buy", qty: 10, referencePrice: 41, levels });
-    expect(o).toMatchObject({ entryMode: "advised", limitPrice: 39.7, entryStop: 37.74, entryKind: "oldLevel", mode: "paper" });
+    expect(o).toMatchObject({ entryMode: "advised", limitPrice: 39.7, entryStop: 37.74, entryTarget: 44, entryKind: "oldLevel", mode: "paper" });
     expect(o.attachLevels).toEqual({ stopLoss: 37.74, takeProfit: 44, masterProfit: 48 });
     const crossing = { ...levels, entryKind: undefined };
     expect(guidedOrder({ symbol: "AAPL", side: "buy", qty: 10, referencePrice: 41, levels: crossing })).not.toHaveProperty("entryKind");
@@ -32,6 +32,7 @@ describe("guidedOrder", () => {
   it("keeps the kind through the order form's schema", () => {
     const parsed = OrderSchema.parse(guidedOrder({ symbol: "AAPL", side: "buy", qty: 10, referencePrice: 41, levels }));
     expect(parsed.entryKind).toBe("oldLevel");
+    expect(parsed.entryTarget).toBe(44);
     // The ticket's own advised body, as the order route parses it.
     const ticket = OrderSchema.parse({ symbol: "AAPL", side: "buy", qty: 1, entryMode: "advised", limitPrice: 39.7, entryStop: 37.74, entryKind: "oldLevel" });
     expect(ticket.entryKind).toBe("oldLevel");

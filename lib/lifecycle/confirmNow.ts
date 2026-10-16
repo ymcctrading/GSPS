@@ -36,7 +36,7 @@ import { failedTestInPath, readMultipleTops } from "@/lib/gann/multipleTops";
 import type { AssetClass, Bar } from "@/lib/types";
 import { getMarketDataProvider } from "@/lib/data/provider";
 import { EXECUTION_TIMEFRAME, TF_INTERVAL_MS } from "@/lib/timeframe";
-import { computeGannEntryTrigger, gannBreakLine } from "@/lib/gann/entryTrigger";
+import { computeGannEntryTrigger, gannBreakLine, gannCrossedLevel } from "@/lib/gann/entryTrigger";
 import { breakawayVolumeMet } from "@/lib/gann/breakaway";
 import { restsWithoutCrossing, type GannEntryKind } from "@/lib/gann/entryKind";
 import { etDateKey } from "@/lib/market/session";
@@ -187,7 +187,10 @@ export async function readEntryConfirmationNow(input: ConfirmationInput): Promis
   const daily = (await getMarketDataProvider().fetchBars(input.symbol, "1Day", year, null, input.assetClass)) ?? [];
   if (input.direction === "bullish" && readDistributionStanding(daily, now)) return DISTRIBUTION_STANDS;
   const target = input.takeProfit1 ?? (input.direction === "bullish" ? Infinity : -Infinity);
-  const failed = failedTestInPath(readMultipleTops(entryChartBars(daily, etDateKey(now))), input.direction, input.entryTrigger, target);
+  // A crossing entry (no kind given is the crossing) waits for its own close
+  // past the level it crosses, recovered from its entry and stop.
+  const crossed = restsWithoutCrossing(input.entryKind) ? null : gannCrossedLevel(input.entryTrigger, input.stopPrice);
+  const failed = failedTestInPath(readMultipleTops(entryChartBars(daily, etDateKey(now))), input.direction, input.entryTrigger, target, crossed);
   if (failed) {
     const top = failed.kind === "top";
     return {

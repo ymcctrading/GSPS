@@ -90,6 +90,27 @@ import { toWeeklyBars } from "@/lib/gann/disclosedRules";
  */
 export const FAILED_TOP_CHART_DAYS = 364;
 
+/**
+ * The bars the failed-top exit reads for the bars before `upTo`: the 52 weeks
+ * (`FAILED_TOP_CHART_DAYS`) before their next session, which is
+ * `daily[upTo]` when it exists (the fill session, for the reading at entry)
+ * and otherwise the next weekday, as `entryChartBars` reads the session's
+ * window (review 12 L2). Holidays are not known here, so the day after a
+ * holiday reads one day further back than the scan; an engineering choice.
+ */
+export function failedTopWindow(daily: Bar[], upTo: number): Bar[] {
+  const day = (b: Bar) => b.t.slice(0, 10);
+  let next: string;
+  if (upTo < daily.length) next = day(daily[upTo]);
+  else {
+    let t = Date.parse(`${day(daily[upTo - 1])}T00:00:00Z`) + 86_400_000;
+    while ([0, 6].includes(new Date(t).getUTCDay())) t += 86_400_000;
+    next = new Date(t).toISOString().slice(0, 10);
+  }
+  const from = new Date(Date.parse(`${next}T00:00:00Z`) - FAILED_TOP_CHART_DAYS * 86_400_000).toISOString().slice(0, 10);
+  return daily.slice(0, upTo).filter((b) => day(b) >= from);
+}
+
 /** Gann's final stage: the 3rd section of a campaign or later. */
 export const FINAL_STAGE_SECTION = 3;
 
@@ -215,16 +236,7 @@ export function readGannExit(
   // entry chart's window (`FAILED_TOP_CHART_DAYS`; review 12 L2): the fill
   // session for the reading at entry, the next weekday for today's.
   if (!exit) {
-    const nextWeekday = (d: string) => {
-      let t = Date.parse(`${d}T00:00:00Z`) + 86_400_000;
-      while ([0, 6].includes(new Date(t).getUTCDay())) t += 86_400_000;
-      return new Date(t).toISOString().slice(0, 10);
-    };
-    const window = (upTo: number) => {
-      const next = upTo < daily.length ? day(daily[upTo]) : nextWeekday(day(daily[upTo - 1]));
-      const from = new Date(Date.parse(`${next}T00:00:00Z`) - FAILED_TOP_CHART_DAYS * 86_400_000).toISOString().slice(0, 10);
-      return daily.slice(0, upTo).filter((b) => day(b) >= from);
-    };
+    const window = (upTo: number) => failedTopWindow(daily, upTo);
     const side = long ? "bullish" : "bearish";
     const nowBars = window(daily.length);
     const failed = failedTestAgainst(readMultipleTops(nowBars), side);

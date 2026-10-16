@@ -780,8 +780,10 @@ export function applyFailedTopHold(
   tops: MultipleTopsReading | null | undefined,
   direction: "bullish" | "bearish" | "none",
   levels: Pick<TradeLevels, "entry" | "takeProfit1"> | null | undefined,
+  /** A crossing entry's level (`crossingLevelOf`): crossing the failed top is the pass. */
+  crossedLevel?: number | null,
 ): ScanDecision {
-  const failed = failedTestInPath(tops, direction, levels?.entry, levels?.takeProfit1);
+  const failed = failedTestInPath(tops, direction, levels?.entry, levels?.takeProfit1, crossedLevel);
   if (!failed || decision.outputState !== "Execute") return decision;
   const top = failed.kind === "top";
   const name = `${failed.tests >= 3 ? "triple" : "double"} ${failed.kind}`;

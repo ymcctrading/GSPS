@@ -150,6 +150,8 @@ describe("OrderTicket price increments", () => {
     const orderCall = fetchMock.mock.calls.find(([url]) => String(url).includes("/api/orders"));
     const body = JSON.parse(String(orderCall![1]?.body));
     expect(body.entryStop).toBeCloseTo(49.755 * 0.88, 6);
+    // And its first target, for the failed-top check (A-LEVELS-04).
+    expect(body.entryTarget).toBeCloseTo(49.755 * 1.24, 6);
   });
 
   it("sends an old-level plan's kind with its stop", async () => {
@@ -191,6 +193,7 @@ describe("OrderTicket price increments", () => {
     const body = JSON.parse(String(orderCall![1]?.body));
     expect(body.side).toBe("buy");
     expect(body.entryStop).toBeUndefined();
+    expect(body.entryTarget).toBeUndefined();
   });
 });
 

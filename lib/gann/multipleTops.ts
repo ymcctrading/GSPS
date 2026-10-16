@@ -78,27 +78,37 @@ export function readMultipleTops(daily: Bar[]): MultipleTopsReading {
     const prices = ofKind.map((p) => p.price);
     const groups = cluster(prices).filter((c) => c.tests >= 2);
     if (groups.length === 0) continue;
-    const nearest = groups.reduce((x, y) => (Math.abs(y.level - price) < Math.abs(x.level - price) ? y : x));
-    let state: MultipleTestReading["state"] = "testing";
-    const crossed = kind === "top" ? recent.some((b) => b.c > beyondByThreePoints(nearest.level, 1)) && price > nearest.level : recent.some((b) => b.c < beyondByThreePoints(nearest.level, -1)) && price < nearest.level;
-    if (crossed) state = "crossed";
-    else if (nearest.lastIndexInList === prices.length - 1) {
-      // The failed test must be the latest swing of its kind, not an old one.
-      // It failed once a close after it went 3 points back under the level
-      // (over, for a bottom), and stays failed until a later close passes the
-      // level by the 3 points or a new swing replaces it (owner card,
-      // 2026-10-16, recommended option: a failed top is a top until it is
-      // passed; until then a rally back near it is still under it).
-      const after = daily.slice(ofKind[nearest.lastIndexInList].index + 1);
-      const back = after.findIndex((b) => (kind === "top" ? b.c < beyondByThreePoints(nearest.level, -1) : b.c > beyondByThreePoints(nearest.level, 1)));
-      const passed =
-        back >= 0 &&
-        after.slice(back + 1).some((b) => (kind === "top" ? b.c > beyondByThreePoints(nearest.level, 1) : b.c < beyondByThreePoints(nearest.level, -1)));
-      if (back >= 0 && !passed) state = "failed";
+    const reading = (c: (typeof groups)[number], state: MultipleTestReading["state"]): MultipleTestReading => ({
+      kind,
+      level: c.level,
+      tests: c.tests,
+      state,
+      lastTestIndex: ofKind[c.lastIndexInList].index,
+    });
+    // A failed test is judged on the cluster holding the latest swing of its
+    // kind, wherever price is: a failed top stays a top while an older level
+    // happens to lie nearer to price (review 13 H1). It failed once a close
+    // after its latest test went 3 points back under it (over, for a bottom),
+    // and stays failed until a later close passes it by the 3 points or a new
+    // swing replaces it (owner card, 2026-10-16, recommended option: a failed
+    // top is a top until it is passed).
+    const latest = groups.find((c) => c.lastIndexInList === prices.length - 1);
+    if (latest) {
+      const after = daily.slice(ofKind[latest.lastIndexInList].index + 1);
+      const away = (b: Bar) => (kind === "top" ? b.c < beyondByThreePoints(latest.level, -1) : b.c > beyondByThreePoints(latest.level, 1));
+      const past = (b: Bar) => (kind === "top" ? b.c > beyondByThreePoints(latest.level, 1) : b.c < beyondByThreePoints(latest.level, -1));
+      const back = after.findIndex(away);
+      if (back >= 0 && !after.slice(back + 1).some(past)) {
+        out[kind] = reading(latest, "failed");
+        continue;
+      }
     }
+    const nearest = groups.reduce((x, y) => (Math.abs(y.level - price) < Math.abs(x.level - price) ? y : x));
+    const crossed = kind === "top" ? recent.some((b) => b.c > beyondByThreePoints(nearest.level, 1)) && price > nearest.level : recent.some((b) => b.c < beyondByThreePoints(nearest.level, -1)) && price < nearest.level;
+    const state: MultipleTestReading["state"] = crossed ? "crossed" : "testing";
     // A level far from price is history, not a test in progress.
     if (state === "testing" && (Math.abs(price - nearest.level) / nearest.level) * 100 > NEAR_PCT) continue;
-    out[kind] = { kind, level: nearest.level, tests: nearest.tests, state, lastTestIndex: ofKind[nearest.lastIndexInList].index };
+    out[kind] = reading(nearest, state);
   }
   return out;
 }
@@ -122,27 +132,45 @@ export function failedTestAgainst(
 
 /**
  * The failed test a new trade would have to pass on its way to its first
- * target: at or beyond the entry, with TP1 past it by more than the 3-point
- * allowance (the map's FL3 a, "in the trade's path"; review 11 H1 and review
- * 12 M2, 2026-10-16). Passing a top is a close beyond it by the 3 points, the
- * same test `readMultipleTops` reads a crossing by, so a TP1 at the top or
- * within the allowance of it sells at the top, as Gann's range trade does
- * (W006 pp.14-15), and is not held. A failed top above TP1 is not in the way
- * either: Gann's double-bottom buy at a range's foot aims under it. Null
- * without a TP1; a caller that cannot know the path passes an unbounded one
+ * target (the map's FL3 a, "in the trade's path"; reviews 11 H1, 12 M2 and
+ * 13 L2, 2026-10-16). Passing a top is a close beyond it by the 3 points, the
+ * same test `readMultipleTops` reads a crossing by, so the trade must cross
+ * that line between the entry and TP1: the entry short of it (an entry over
+ * the top but not past it is still under the top) and TP1 beyond it. A TP1 at
+ * the top or within the allowance of it sells at the top, as Gann's range
+ * trade does (W006 pp.14-15), and is not held; nor is a failed top above TP1,
+ * which Gann's double-bottom buy at a range's foot aims under. Null without a
+ * TP1; a caller that cannot know the path passes an unbounded one
  * (`readEntryConfirmationNow`).
+ *
+ * `crossedLevel` is the level a crossing entry waits to close past by the 3
+ * points (Gann's buying point over an old top). When that is the failed top,
+ * or above it, the entry is itself the pass that ends the failure, so it is
+ * not held: the crossing is the rule's own way out (found 2026-10-16 when the
+ * replay's range breakouts were all held). Engineering choice, labelled: "the
+ * failed top" is a crossed level no lower than 3 points under it.
  */
 export function failedTestInPath(
   reading: MultipleTopsReading | null | undefined,
   direction: "bullish" | "bearish" | "none",
   entry: number | null | undefined,
   takeProfit1: number | null | undefined,
+  crossedLevel?: number | null,
 ): MultipleTestReading | null {
   const failed = failedTestAgainst(reading, direction);
   if (!failed || entry == null || takeProfit1 == null) return null;
+  if (crossedLevel != null) {
+    const passesIt = direction === "bullish" ? crossedLevel >= beyondByThreePoints(failed.level, -1) : crossedLevel <= beyondByThreePoints(failed.level, 1);
+    if (passesIt) return null;
+  }
   const inPath =
     direction === "bullish"
-      ? failed.level >= entry && takeProfit1 > beyondByThreePoints(failed.level, 1)
-      : failed.level <= entry && takeProfit1 < beyondByThreePoints(failed.level, -1);
+      ? entry < beyondByThreePoints(failed.level, 1) && takeProfit1 > beyondByThreePoints(failed.level, 1)
+      : entry > beyondByThreePoints(failed.level, -1) && takeProfit1 < beyondByThreePoints(failed.level, -1);
   return inPath ? failed : null;
+}
+
+/** The level a crossing entry waits to close past (`failedTestInPath`'s `crossedLevel`); null for one that rests. */
+export function crossingLevelOf(trigger: { kind: string; level: number } | null | undefined): number | null {
+  return trigger && trigger.kind === "crossing" ? trigger.level : null;
 }

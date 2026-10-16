@@ -787,3 +787,14 @@ including the break) survive as equivalent on one session; B3 removed as redunda
 ## Astrology hold lifted; item 7 inputs, 2026-10-16
 - Chuck, 11:41 UTC in the intraday thread ("those quotes are mine."): the 2026-10-01 decisions stand platform-wide (every Gann method acts, no more context-only for those). Hold removed.
 - Item 7 (time windows) takes as inputs, not a separate path: lib/gann/astroRules.ts time readings (Mars half-return, solarPoint, naturalAngle, newMoon, lunarReturn) and PR #310's lib/gann/jensen.ts#jensenWindows(bars, unit, from, to) -> {date, source, expect, label, price?}[] (aspect calendar market-wide, ~140 ms a year, compute once per run). No dated window shown to members until measured. Item 7 F1 card still open.
+
+## Review 13 (docs/gann-feature-map/item9b_review13.md) fixes, 2026-10-16
+- Verdict at de40345: A-LEVELS-04 FAIL. Fixed:
+- H1: readMultipleTops judges "failed" on the cluster holding the latest swing of its kind, wherever price is; an older level nearer to price no longer hides it (Q1 test: held at entry, no stale exit later).
+- M1: guidedOrder sends entryTarget (Guided Mode and the demo now read the protocol TP1); ticket test pins entryTarget.
+- M2: "until passed" now tested: rising over the top short of the 3 points stays failed (P2/P2b), past it reads crossed (M4), a pass followed by a close back under stays failed (P3, pinned on the reviewers' seeded walk). The earlier "P2/P3 equivalent" note was wrong.
+- L1: the exit window is failedTopWindow() (exported), pinned on dates; M8, M9, M10, M10c killed.
+- L2: in path when the entry is short of the pass line (level + 3 points) and TP1 beyond it.
+- New, found by the replay tests: a crossing entry at the failed top is itself the pass, so it is exempt (crossingLevelOf / failedTestInPath crossedLevel); a crossing of a lower level is still held. Without this every breakout over a range top was held. Mutants X1-X4 killed.
+- M3 measurement and L3 (TP1 band, client-sent entryTarget trusted like entryStop) stay open: replay pending; L3 noted for Chuck.
+- STRATEGY_VERSION 2026-10-16-gann-failed-tops-latest. Full suite 3017/3017, tsc, terms, eslint clean.
