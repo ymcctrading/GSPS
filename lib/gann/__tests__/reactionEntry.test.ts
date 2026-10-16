@@ -20,6 +20,8 @@ function bars(closes: number[], half = 0.5): Bar[] {
 }
 
 const ZIGZAG = bars([10, 11, 12, 13, 14, 15, 16, 15, 14, 13, 12, 13, 14, 15, 16, 17, 18].map((c) => c * 4), 1);
+// The short's mirror, after distribution (A-ENTRY-15): two narrow weeks at the top, then the same zigzag down.
+const ZIGZAG_SHORT = bars([...Array.from({ length: 10 }, (_, i) => 18 + (i % 2 ? 0.1 : -0.1)), 17, 16, 15, 14, 13, 12, 13, 14, 15, 16, 15, 14, 13, 12, 11, 10].map((c) => c * 4), 1);
 const prev: Bar = { t: "2026-01-20T00:00:00Z", o: 70, h: 71, l: 69, c: 70, v: 1 };
 
 function bar(t: string, h: number, l: number, c: number): Bar {
@@ -28,7 +30,7 @@ function bar(t: string, h: number, l: number, c: number): Bar {
 
 describe("the reaction buy on the live plan", () => {
   for (const direction of ["bullish", "bearish"] as const) {
-    const t = computeGannEntryTrigger(ZIGZAG, direction)!;
+    const t = computeGannEntryTrigger(direction === "bullish" ? ZIGZAG : ZIGZAG_SHORT, direction)!;
     const sign = direction === "bullish" ? 1 : -1;
     const point = gannThreePoints(t.level) / 3;
 

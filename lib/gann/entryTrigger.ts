@@ -84,6 +84,7 @@ import { beyondByThreePoints, gannThreePoints, gannThreePointsPct } from "@/lib/
 import { SWING_CHART_DAYS, WEEKLY_SWING_CHART, swingPivots, walkSwingChart, type SwingPivot } from "@/lib/gann/swingChart";
 import { readCounterMove, toWeeklyBars } from "@/lib/gann/disclosedRules";
 import { readNarrowWeekBreak } from "@/lib/gann/narrowWeek";
+import { isNarrowRange } from "@/lib/gann/breakaway";
 import { type GannEntryKind, type GannHoldBasis } from "@/lib/gann/entryKind";
 
 export type TriggerDirection = "bullish" | "bearish";
@@ -272,6 +273,11 @@ export function computeGannEntryTrigger(
   const crossed = holdCrossedLevel ? latestCrossedLevel(bars, pivots, direction, bufferPct, older) : null;
   const held = crossed && !crossed.spent ? crossed : null;
   const pivot = held?.pivot ?? (direction === "bullish" ? lastTop : lastBottom);
+  // A-ENTRY-15: a short on a swing bottom's break comes after distribution
+  // (W006 p.22). A previous year's bottom needs none (A-ENTRY-17).
+  if (direction === "bearish" && (held?.source ?? "swing") === "swing" && !distributedBefore(bars, held ? held.crossedAt : bars.length, pivot.price)) {
+    return null;
+  }
   // A level already bought (or broken) is not offered again, and neither is a
   // top the rally crossed on the way: until a newer top forms, or an older
   // one still stands uncrossed, there is no buying point (PLAN.md item 5;
@@ -707,6 +713,38 @@ function narrowWeekSell(bars: Bar[], entry: number, swingDays: number): { trigge
     },
     since,
   };
+}
+
+/** Sessions of the distribution spell: two weeks, the Master Course's shortest range (2-6 weeks). */
+export const DISTRIBUTION_SESSIONS = 10;
+/** How far back from the break the spell is looked for, and the high it must stand at: the 13-week range bound. */
+export const DISTRIBUTION_LOOKBACK_DAYS = 91;
+
+/**
+ * Distribution before a break (A-ENTRY-15; W006 p.22: "sell after
+ * distribution and a 3-point break of the last important bottom"; the Master
+ * Course: a narrow range of 2-6 weeks at a top). Before session `end` (the
+ * break, or the end of `bars` when no break has closed yet): some
+ * `DISTRIBUTION_SESSIONS` consecutive sessions within `DISTRIBUTION_LOOKBACK_DAYS`
+ * formed a narrow range (`isNarrowRange`) whose high stands within 3 points of
+ * the highest high of those days, at or over the level that breaks. Engineering
+ * choices, labelled: the spell's length, the look-back, "narrow" as the
+ * breakaway reads it, and "at a top" as within 3 points of the look-back's high.
+ */
+export function distributedBefore(bars: Bar[], end: number, level: number): boolean {
+  if (end <= 0) return false;
+  const from = Date.parse(bars[end - 1].t) - DISTRIBUTION_LOOKBACK_DAYS * DAY_MS;
+  let start = end;
+  while (start > 0 && Date.parse(bars[start - 1].t) >= from) start--;
+  const window = bars.slice(start, end);
+  if (window.length < DISTRIBUTION_SESSIONS) return false;
+  const top = Math.max(...window.map((b) => b.h));
+  for (let i = 0; i + DISTRIBUTION_SESSIONS <= window.length; i++) {
+    const spell = window.slice(i, i + DISTRIBUTION_SESSIONS);
+    const high = Math.max(...spell.map((b) => b.h));
+    if (high >= top - gannThreePoints(top) && Math.min(...spell.map((b) => b.l)) >= level - gannThreePoints(level) && isNarrowRange(spell)) return true;
+  }
+  return false;
 }
 
 /** The price a buying point fills at: the reaction buy, or the old level. */

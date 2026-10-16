@@ -27,6 +27,8 @@ function bars(closes: number[], half = 0.5, start = "2026-01-01"): Bar[] {
 }
 
 const ZIGZAG = bars([10, 11, 12, 13, 14, 15, 16, 15, 14, 13, 12, 13, 14, 15, 16, 17, 18].map((c) => c * 4), 1);
+// The short's mirror, after distribution (A-ENTRY-15): a rise, two narrow weeks at the top, then the same zigzag down.
+const ZIGZAG_SHORT = bars([10, 12, 14, 16, ...Array.from({ length: 10 }, (_, i) => 18 + (i % 2 ? 0.1 : -0.1)), 17, 16, 15, 14, 13, 12, 13, 14, 15, 16, 15, 14, 13, 12, 11, 10].map((c) => c * 4), 1);
 
 describe("3 points on the entry side", () => {
   it("crosses the old top by 3 points and stops 3 points beyond the protective bottom", () => {
@@ -45,7 +47,7 @@ describe("3 points on the entry side", () => {
   });
 
   it("breaks the old bottom by 3 points for a short, the exact mirror", () => {
-    const t = computeGannEntryTrigger(ZIGZAG, "bearish")!;
+    const t = computeGannEntryTrigger(ZIGZAG_SHORT.slice(0, -2), "bearish")!;
     expect(t.triggerPrice).toBeCloseTo(t.pivot.price - gannThreePoints(t.pivot.price), 8);
     expect(t.stopPrice).toBeCloseTo(t.protectivePivot.price + gannThreePoints(t.protectivePivot.price), 8);
   });

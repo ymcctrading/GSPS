@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import {
   computeGannEntryTrigger,
+  distributedBefore,
   ENTRY_TRIGGER_SWING_DAYS,
 } from "@/lib/gann/entryTrigger";
 import { swingPivots } from "@/lib/gann/swingChart";
@@ -34,6 +35,9 @@ const ZIGZAG = bars([
   15, 14, 13, 12, // four down closes: 3-day chart flips
   13, 14, 15, 16, 17, 18, // rally again
 ]);
+
+// The short's mirror, after distribution (A-ENTRY-15): two narrow weeks at the top, then a zigzag down.
+const ZIGZAG_SHORT = bars([...Array.from({ length: 10 }, (_, i) => 18 + (i % 2 ? 0.1 : -0.1)), 17, 16, 15, 14, 13, 12, 13, 14, 15, 16, 15, 14, 13, 12, 11, 10]);
 
 describe("swingPivots", () => {
   it("returns completed swing extremes, not per-bar extremes", () => {
@@ -85,11 +89,25 @@ describe("computeGannEntryTrigger", () => {
   });
 
   it("mirrors exactly for a short", () => {
-    const t = computeGannEntryTrigger(ZIGZAG, "bearish")!;
+    const t = computeGannEntryTrigger(ZIGZAG_SHORT, "bearish")!;
     expect(t.pivot.kind).toBe("bottom");
     expect(t.protectivePivot.kind).toBe("top");
     expect(t.triggerPrice).toBeLessThan(t.pivot.price);
     expect(t.stopPrice).toBeGreaterThan(t.triggerPrice);
+  });
+
+  it("does not sell a swing bottom short without a distribution spell first (A-ENTRY-15)", () => {
+    const plain = bars([18, 17, 16, 15, 14, 13, 12, 13, 14, 15, 16, 15, 14, 13, 12, 11, 10]);
+    expect(computeGannEntryTrigger(plain, "bearish")).toBeNull();
+    expect(computeGannEntryTrigger(ZIGZAG_SHORT, "bearish")).not.toBeNull();
+  });
+
+  it("reads distribution as ten narrow sessions near the top, held above the level", () => {
+    expect(distributedBefore(ZIGZAG_SHORT, ZIGZAG_SHORT.length, 11)).toBe(true);
+    // The spell sat above the level; one that traded under it was not distribution there.
+    expect(distributedBefore(ZIGZAG_SHORT, ZIGZAG_SHORT.length, 30)).toBe(false);
+    // Fewer than ten sessions read: nothing to find.
+    expect(distributedBefore(ZIGZAG_SHORT, 9, 11)).toBe(false);
   });
 
   it("returns null rather than a plan with no history to price it from", () => {

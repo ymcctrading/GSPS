@@ -315,4 +315,8 @@
 // large volume is a sale (A-ENTRY-19, W006 p.27), resting 1 point under the
 // narrow week's low with the stop 3 points over it (narrowWeekSell in
 // lib/gann/entryTrigger.ts), with no bear market needed.
-export const STRATEGY_VERSION = "2026-10-16-gann-narrow-week-sale";
+// 2026-10-16-gann-distribution-short: a short on a swing bottom needs a
+// distribution spell first (A-ENTRY-15, W006 p.22): ten narrow sessions near
+// the top in the 13 weeks before, held above the bottom. A previous year's or
+// the all-time bottom needs none. Fewer swing shorts arm, so the verdicts move.
+export const STRATEGY_VERSION = "2026-10-16-gann-distribution-short";
