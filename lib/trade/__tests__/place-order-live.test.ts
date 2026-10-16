@@ -164,11 +164,11 @@ describe("placeSimulatedOrder — live branch", () => {
     expect(placeOrder).not.toHaveBeenCalled();
   });
 
-  it("refuses a new live position with no stop, before the broker is read (A-STOP-01, Q1)", async () => {
+  it("refuses a new live position with no stop, before any order is sent (A-STOP-01, Q1)", async () => {
     const result = await placeSimulatedOrder(stubSupabase(), "u1", { ...baseInput, attachLevels: undefined });
     expect(result.status).toBe(400);
     expect((result.body as { code: string }).code).toBe("stop_required");
-    expect(readLiveAlpacaConnection).not.toHaveBeenCalled();
+    expect(getAccount).not.toHaveBeenCalled();
     expect(placeOrder).not.toHaveBeenCalled();
   });
 
@@ -319,7 +319,8 @@ describe("placeSimulatedOrder — live branch", () => {
   });
 
   it("skips the ceilings for a protective (position-reducing) live order", async () => {
-    getOpenPosition.mockResolvedValue({ side: "long", qty: 10, symbol: "AAPL" });
+    // The live account's own long (ST-4), read once to judge the order protective.
+    getPositions.mockResolvedValue([{ symbol: "AAPL", qty: "10", side: "long" }]);
     readLiveAlpacaConnection.mockResolvedValue(connection);
     getAccount.mockResolvedValue({ equity: "450" });
     evaluateLiveCircuitBreaker.mockResolvedValue({ decision: { newEntriesAllowed: true, state: "normal" } });
@@ -334,7 +335,8 @@ describe("placeSimulatedOrder — live branch", () => {
       attachLevels: undefined,
     });
 
-    expect(getPositions).not.toHaveBeenCalled();
+    // Read once for the protective check; the ceilings' read is skipped.
+    expect(getPositions).toHaveBeenCalledTimes(1);
     expect(result.status).toBe(200);
   });
 

@@ -242,7 +242,7 @@ describe("no divergence times a turn (C-TIME-02)", () => {
     // Every import, aliased or relative, resolved to a repo path.
     const banned = (target: string) => /^lib\/(indicators|analysis\/indicators)$|^lib\/strategies(\/|$)/.test(target);
     const offenders = scanned.filter((f) =>
-      [...readFileSync(f, "utf8").matchAll(/from "([^"]+)"/g)].some(([, spec]) => {
+      [...readFileSync(f, "utf8").matchAll(/(?:from |import\()"([^"]+)"/g)].some(([, spec]) => {
         const target = spec.startsWith("@/")
           ? spec.slice(2)
           : spec.startsWith(".")
@@ -269,14 +269,13 @@ describe("cross-domain period matches never reach a verdict (CYC-41)", () => {
       for (const e of readdirSync(dir, { withFileTypes: true })) {
         const p = path.join(dir, e.name);
         if (e.isDirectory()) {
-          if (e.name !== "__tests__") walk(p);
+          // Everything that runs in the app, except research and validation themselves.
+          const rel = path.relative(ROOT, p);
+          if (e.name !== "__tests__" && rel !== "lib/research" && rel !== "lib/validation") walk(p);
         } else if (/\.tsx?$/.test(p)) files.push(p);
       }
     };
-    for (const d of ["lib/scoring", "lib/signals", "lib/gann", "lib/scan", "lib/lifecycle", "lib/analysis", "lib/strat", "lib/trade", "lib/risk", "lib/automation", "lib/backtest", "app", "components"]) {
-      walk(path.join(ROOT, d));
-    }
-    files.push(...["lib/scanTicker.ts", "lib/marketScan.ts"].map((f) => path.join(ROOT, f)));
+    for (const d of ["lib", "app", "components"]) walk(path.join(ROOT, d));
     return files;
   };
 
@@ -286,7 +285,7 @@ describe("cross-domain period matches never reach a verdict (CYC-41)", () => {
 
   it("keeps lib/research off the verdict path", () => {
     const offenders = verdictFiles().filter((f) =>
-      [...readFileSync(f, "utf8").matchAll(/from "([^"]+)"/g)].some(([, spec]) => {
+      [...readFileSync(f, "utf8").matchAll(/(?:from |import\()"([^"]+)"/g)].some(([, spec]) => {
         const target = spec.startsWith("@/")
           ? spec.slice(2)
           : spec.startsWith(".")

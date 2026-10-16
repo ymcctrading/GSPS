@@ -361,7 +361,14 @@ export async function placeSimulatedOrder(
   // when this order moves the position toward flat, not away from it. Every
   // order here is paper, so nothing requires this yet — it's ahead of live
   // trading, on the reasoning that will apply once real capital is at risk.
-  const existingPosition = await getOpenPosition(supabase, userId, input.symbol);
+  // A live order is judged against the live account's own position, read from
+  // the broker, never the paper book (review 25, ST-4): a paper long must not
+  // let a stopless live sell through as "protective", which would open a naked
+  // live short. Fails closed: an unreadable broker means not protective.
+  const existingPosition =
+    input.mode === "live" && input.assetClass !== "option"
+      ? await readLivePosition(supabase, userId, input.symbol)
+      : await getOpenPosition(supabase, userId, input.symbol);
   const isProtective = isProtectiveOrder(
     existingPosition?.side ?? null,
     input.side,
@@ -910,6 +917,28 @@ export async function placeSimulatedOrder(
  * called from somewhere that polls (see its header) for a live order to ever
  * show as filled, exit, or close in this app's own ledger.
  */
+/** The live account's position in `symbol`, or null when flat or unreadable. */
+async function readLivePosition(
+  supabase: SupabaseClient,
+  userId: string,
+  symbol: string,
+): Promise<{ side: "long" | "short"; qty: number } | null> {
+  try {
+    const connection = await readLiveAlpacaConnection(supabase, userId);
+    if (!connection) return null;
+    const positions = await getPositions(connection.creds);
+    if (!Array.isArray(positions)) return null;
+    const key = symbol.toUpperCase().replace("/", "");
+    const p = positions.find((x) => x.symbol.toUpperCase().replace("/", "") === key);
+    const qty = p ? Number(p.qty) : 0;
+    if (!p || !Number.isFinite(qty) || qty === 0) return null;
+    const side = p.side === "long" || p.side === "short" ? p.side : qty < 0 ? "short" : "long";
+    return { side, qty: Math.abs(qty) };
+  } catch {
+    return null;
+  }
+}
+
 async function placeLiveOrder(
   supabase: SupabaseClient,
   userId: string,

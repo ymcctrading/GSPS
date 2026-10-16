@@ -26,6 +26,8 @@ describe("review 24: wiring the mutation run found unasserted", () => {
   it("sizes the portfolio manager on the trading unit", () => {
     const pm = readFileSync("lib/automation/portfolio-manager.ts", "utf8");
     expect(pm).toMatch(/\? gannRiskCapital\(\{ equity: equityBasis, startingCapital: executionMode === "live" \? 0 : STARTING_CASH, \.\.\.run \}\)\.capital/);
+    // With no readable run there is no step-up (review 25, RK-7).
+    expect(pm).toMatch(/: Math\.min\(equityBasis, executionMode === "live" \? equityBasis : STARTING_CASH\)/);
   });
 
   it("measures the confluence card's angle slope in price-scaled points", () => {

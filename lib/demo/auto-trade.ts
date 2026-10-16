@@ -14,10 +14,10 @@
  * budget/cap ceilings — because the point is to show what the product
  * actually does, not a more exciting fiction of it.
  *
- * One thing is specific to this account: its equity compounds.
- * `readGuidedAccount` sizes every trade against current equity (cash plus
- * marked positions), not a fixed starting balance, so a profitable stretch
- * enlarges the risk budget on its own and a loss shrinks it.
+ * Sizing uses the trading unit, not raw equity (A-RISK-04):
+ * `readGuidedAccount`'s `riskCapital` starts at the starting balance, doubles
+ * only once profits equal it, and holds on a long run of wins. A loss still
+ * shrinks it.
  *
  * Removed 2026-10-16 (owner, Q30; NONGANN #8): the A/B strategy "arms" that
  * moved its caps by date, the favourite symbol picked by win rate, and the
