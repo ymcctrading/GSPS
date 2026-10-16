@@ -104,3 +104,35 @@ describe("CYC-17: the fold counts bars, not calendar days", () => {
     expect(waveShapeCorrelation(a, b, 20)!.correlation).toBeGreaterThan(0.8);
   });
 });
+
+describe("CYC-15: synchrony within a lag window", () => {
+  it("counts crests a few bars apart as synchronous, not only same-bar ones", async () => {
+    const { crestSynchrony } = await import("@/lib/research/crossSeries");
+    const f = (i: number) => 100 * Math.exp(0.05 * Math.sin((TAU * i) / 20));
+    const a = bars(Array.from({ length: 200 }, (_, i) => f(i)));
+    const b = bars(Array.from({ length: 200 }, (_, i) => f(i - 3)));
+    const r = crestSynchrony(a, b, 20, 4)!;
+    expect(r.sameBarShare).toBeLessThan(0.2);
+    expect(r.withinLagShare).toBeGreaterThanOrEqual(0.9);
+    expect(r.meanLag).toBeCloseTo(3, 0);
+  });
+});
+
+describe("CYC-49: the chance baseline for a doubling-and-tripling grid", () => {
+  it("reports the share of random periods near the grid, and counts the periods that miss", async () => {
+    const { gridMatchBaseline } = await import("@/lib/research/crossSeries");
+    let seed = 3;
+    const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+    const random = Array.from({ length: 30 }, () => Math.exp(Math.log(1) + rnd() * Math.log(500)));
+    const r = gridMatchBaseline(17.75, random, { minPeriod: 1, maxPeriod: 500 });
+    // A dense grid: a large share of the band lies within ±5% of a grid period.
+    expect(r.baseline).toBeGreaterThan(0.2);
+    expect(r.baseline).toBeLessThan(0.6);
+    expect(r.hits + r.misses).toBe(30);
+    expect(r.misses).toBeGreaterThan(0);
+    expect(r.p).toBeGreaterThan(0.05);
+    const onGrid = gridMatchBaseline(17.75, [17.75, 35.5, 53.25, 8.875, 5.92, 106.5, 4.44, 71, 142, 159.75], { minPeriod: 1, maxPeriod: 500 });
+    expect(onGrid.misses).toBe(0);
+    expect(onGrid.p).toBeLessThan(0.05);
+  });
+});
