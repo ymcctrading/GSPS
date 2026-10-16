@@ -5,8 +5,8 @@ import type { Bar, ScanResult } from "@/lib/types";
 /**
  * A synthetic 80-day series that reads as an extended downtrend against a
  * bullish reversion candidate — every criterion coarseReversion scores is a
- * ratio of price (distance from the range's 50% point, pivot direction, level proximity as a % of
- * price), so scaling every bar by the same factor reproduces the identical
+ * ratio of price (distance from the range's 50% point, pivot direction), apart from level
+ * proximity, which is Gann's price-scaled 3 points (N#27), so scaling every bar by the same factor reproduces the identical
  * read at a different absolute price. That isolates the $5 price floor as
  * the only thing that can tell the two apart.
  */
@@ -50,13 +50,16 @@ describe("coarseReversion price floor", () => {
     // to two different prices — both comfortably above the floor — has to
     // produce the same read. Only crossing the floor itself should change
     // the outcome.
-    const at1000 = coarseReversion("A", extendedDowntrend(10));
-    const at2000 = coarseReversion("B", extendedDowntrend(20));
+    const atSeven = coarseReversion("A", extendedDowntrend(0.15));
+    const atTwelve = coarseReversion("B", extendedDowntrend(0.25));
     // Guard against a vacuous pass: this fixture previously read as sideways,
     // so both calls returned null and null matched null.
-    expect(at1000).not.toBeNull();
-    expect(at1000?.coarseScore).toEqual(at2000?.coarseScore);
-    expect(at1000?.direction).toEqual(at2000?.direction);
+    expect(atSeven).not.toBeNull();
+    expect(atTwelve).not.toBeNull();
+    expect(atSeven?.direction).toEqual(atTwelve?.direction);
+    // The score itself may differ: since 2026-10-16 "at a level" is Gann's
+    // 3-point allowance (N#27), which is a smaller share of a higher price,
+    // so the same shape need not score its level points at both prices.
   });
 });
 

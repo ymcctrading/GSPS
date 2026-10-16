@@ -89,11 +89,9 @@ import { longMonthlyWindow } from "@/lib/gann/secondaryTime";
 const PYRAMID_SHARE_SCALE = 1024;
 import { roundNumberEntryBlocked } from "@/lib/gann/evenFigures";
 import {
-  FALLBACK_SR_PCT,
-  SR_PROXIMITY_ATR,
   atrPercentOfPrice,
   nearestLevelMatch,
-  proximityBandPct,
+  levelBandPct,
 } from "@/lib/scoring/proximity";
 import type { CriterionWeights } from "@/lib/scoring/weights";
 import { computeGannEntryTrigger, gannBreakLine, sameGannLevel, type GannEntryTrigger } from "@/lib/gann/entryTrigger";
@@ -611,7 +609,7 @@ export function buildMacroContext(
   // Mirrors lib/scanTicker.ts: keep the matched level (and its role at
   // current price) rather than just a boolean, so the score can tell whether
   // it's on the trade's side or not.
-  const srBandPct = proximityBandPct(SR_PROXIMITY_ATR, FALLBACK_SR_PCT, atrPct);
+  const srBandPct = levelBandPct(price);
   const srMatch = nearestLevelMatch(price, allLevels, srBandPct);
 
   return {

@@ -60,11 +60,8 @@ import { MAG7, SECTORS } from "@/lib/sectors";
 import { LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
 import type { CoarseTelemetryRow } from "@/lib/scan/telemetry";
 import {
-  FALLBACK_FAN_PCT,
-  FALLBACK_SR_PCT,
-  FAN_PROXIMITY_ATR,
-  SR_PROXIMITY_ATR,
   atrPercentOfPrice,
+  levelBandPct,
   proximityBandPct,
 } from "@/lib/scoring/proximity";
 import { envCreds, getAsset } from "@/lib/brokers/alpaca";
@@ -370,9 +367,8 @@ function reversionScore(daily: Bar[], price: number, direction: "bullish" | "bea
 
   let score = 0;
 
-  // Every distance below is measured against this symbol's own daily range,
-  // not a flat percent of price.
-  const atrPct = atrPercentOfPrice(atr(daily.slice(-20), 14), price);
+  // Every "at a level" distance below is Gann's 3-point allowance at the
+  // price (`levelBandPct`, N#27).
 
   // How far price has run from its 50% point no longer scores (PLAN.md item 6
   // step 6, A-TREND-09): "a stock is never too high to buy so long as the
@@ -381,12 +377,11 @@ function reversionScore(daily: Bar[], price: number, direction: "bullish" | "bea
   // the trend; a reversion has to stand on Gann's own criteria below (a fan
   // line, volume at the turn, an old level, a time window).
 
-  // Proximity to a Gann fan line — the same ATR-relative band the full
-  // scan's gannAngleSlope-adjacent proximity criteria use, so a symbol that
-  // clears this coarse gate is likely to clear the real one too.
-  const fanBandPct = proximityBandPct(FAN_PROXIMITY_ATR, FALLBACK_FAN_PCT, atrPct);
+  // Proximity to a Gann fan line: within Gann's 3-point allowance, the band
+  // the full scan's level criteria use (N#27), so a symbol that clears this
+  // coarse gate is likely to clear the real one too.
   const fans = computeFanLines(daily, price);
-  if (fans.length > 0 && fans[0].distancePct <= fanBandPct) score += 2;
+  if (fans.length > 0 && fans[0].distancePct <= levelBandPct(price)) score += 2;
   // Same anchor convention and rule as the full scan's volumeClimax
   // criterion (lib/scoring/score.ts): Gann's volume rule at the turn, drying
   // up at a normal bottom or a climax in a panic, heavy at a top (parity D1).
@@ -398,7 +393,7 @@ function reversionScore(daily: Bar[], price: number, direction: "bullish" | "bea
   if (climax?.confirms) score += 2;
 
   // Proximity to a clustered S/R level in the reversion direction
-  const srBandPct = proximityBandPct(SR_PROXIMITY_ATR, FALLBACK_SR_PCT, atrPct);
+  const srBandPct = levelBandPct(price);
   const levels = direction === "bullish" ? trend.support : trend.resistance;
   if (levels.some((l) => (Math.abs(price - l) / price) * 100 <= srBandPct)) score += 2;
 

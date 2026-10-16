@@ -329,4 +329,8 @@
 // 2026-10-16-gann-review21-fixes: the distribution gate on swing shorts now
 // spares an old top lost by 3 points and the intraday profile, and its spell
 // is narrow at 2 allowances, as the distribution rule reads one (review 21).
-export const STRATEGY_VERSION = "2026-10-16-gann-review21-fixes";
+// 2026-10-16-gann-level-three-points: "at a level" (historicalSR, the
+// retracement zone, and the coarse pass's fan and S/R gates) is within Gann's
+// price-scaled 3-point allowance, not half a day's average true range (N#27).
+// The bands widen on most names, so more setups score those points.
+export const STRATEGY_VERSION = "2026-10-16-gann-level-three-points";

@@ -60,11 +60,9 @@ import { decisionLag, feedDelayMs } from "@/lib/data/latency";
 import { etDateKey, marketSession } from "@/lib/market/session";
 import { levelCharts } from "@/lib/scan/levelCharts";
 import {
-  FALLBACK_SR_PCT,
-  SR_PROXIMITY_ATR,
   atrPercentOfPrice,
   nearestLevelMatch,
-  proximityBandPct,
+  levelBandPct,
 } from "@/lib/scoring/proximity";
 import { getActiveCriterionWeights } from "@/lib/scoring/active-weights";
 import { meetsLiquidityFloor, readLiquidity } from "@/lib/scan/liquidity";
@@ -387,7 +385,7 @@ export async function scanTicker(
         levelsError = err instanceof Error ? err.message : String(err);
       }
     }
-    const srBandPct = proximityBandPct(SR_PROXIMITY_ATR, FALLBACK_SR_PCT, atrPct);
+    const srBandPct = levelBandPct(currentPrice);
     const srMatch = nearestLevelMatch(currentPrice, allLevels, srBandPct);
     const nearSupportResistance = srMatch !== null;
 

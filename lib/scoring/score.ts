@@ -26,10 +26,8 @@ import type {
   TrendReading,
 } from "@/lib/types";
 import {
-  FALLBACK_FAN_PCT,
-  FAN_PROXIMITY_ATR,
-  bandBasis,
-  proximityBandPct,
+  LEVEL_BAND_BASIS,
+  levelBandPct,
 } from "@/lib/scoring/proximity";
 import { LEVEL_TIMEFRAME_USAGE, levelRoleLabel, levelTestConfidence, type LevelRole } from "@/lib/analysis/levelRole";
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
@@ -189,10 +187,9 @@ export interface ScoreInputs {
   /** Defaults to "reversion" — the protocol's primary setup. */
   setupKind?: SetupKind;
   /**
-   * Daily ATR as a percentage of price. The structural proximity criteria are
-   * measured in multiples of it, so "near a level" means the same fraction of a
-   * day's range on every instrument — see lib/scoring/proximity.ts. Omitted
-   * means no volatility read is available and the old fixed bands apply.
+   * Daily ATR as a percentage of price. Accepted but no longer read here:
+   * since 2026-10-16 "at a level" is Gann's 3-point allowance
+   * (`levelBandPct`, N#27). The field stays so callers keep one shape.
    */
   atrPct?: number;
   /**
@@ -302,7 +299,6 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     direction, swingChart, campaignLeg, ruleOfThree, ruleOfThreeWeekly = null, ruleOfThreeMonthly = null, timePriceSquare, volumeClimax, boilingPoint, gann,
     nearSupportResistance, srMatch, pattern, gannTrigger = null, levels, stopAtrMultiple, assetClass,
     setupKind = "reversion",
-    atrPct,
     weights = DEFAULT_CRITERION_WEIGHTS,
   } = inputs;
 
@@ -357,10 +353,6 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       ? levels?.stopFromStructure === true
       : stopAtrMultiple != null && stopAtrMultiple >= MIN_STOP_ROOM_ATR;
 
-  // "Near a level" is a multiple of the instrument's own daily range, not a
-  // fixed percentage of price — see lib/scoring/proximity.ts for why a fixed
-  // band made a 7/9 mean different things on different names.
-  const fanBandPct = proximityBandPct(FAN_PROXIMITY_ATR, FALLBACK_FAN_PCT, atrPct);
 
   // A structural level only confirms a trade when it's on the *right side* of
   // it — a long wants a support floor underneath, a short wants a resistance
@@ -432,10 +424,10 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     ? ` ${boilingPointReading.weeksSinceClimax} weeks since that climax (${boilingPointReading.phase} — the disclosed exhaustion window is 6-7 weeks, rarely past 10).`
     : "";
 
-  // Gann's percentage-retracement zone (eighths), reusing the same band the
-  // (now retired) fan-line criterion used.
+  // Gann's percentage-retracement zone (eighths): price within the level's
+  // 3-point allowance (N#27, `levelBandPct`).
   const retracementMatch =
-    gann.retracementLevels.find((r) => r.role === wantedRole && r.distancePct <= fanBandPct) ?? null;
+    gann.retracementLevels.find((r) => r.role === wantedRole && r.distancePct <= levelBandPct(r.price)) ?? null;
   // Digital-root/vortex reading off the same direction-matched anchor: card
   // context only. Until 2026-10-16 it was ANDed into this point; fork FL5 a
   // removed that, since a class C reading (W011, arithmetic mod 9) may never
@@ -588,12 +580,12 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       pillar: "riskReward",
       passed: gannConfluenceStackPassed,
       note: retracementMatch
-        ? `Price within ${retracementMatch.distancePct.toFixed(2)}% of the ${retracementMatch.label} retracement ${levelRoleLabel(retracementMatch.role).toLowerCase()} at ${retracementMatch.price.toFixed(2)}, inside the ${fanBandPct.toFixed(2)}% band (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}).` +
+        ? `Price within ${retracementMatch.distancePct.toFixed(2)}% of the ${retracementMatch.label} retracement ${levelRoleLabel(retracementMatch.role).toLowerCase()} at ${retracementMatch.price.toFixed(2)}, inside the ${levelBandPct(retracementMatch.price).toFixed(2)}% band (${LEVEL_BAND_BASIS}).` +
           (drConfluenceHolds ? " A signal-flow reading off the same anchor agrees (context only)." : "") +
           (retracementMatch.importance != null
             ? ` Importance rank ${retracementMatch.importance} of 6 (1 = 50%, the most important).`
             : " Not one of the explicitly ranked fractions.")
-        : `No ${levelRoleLabel(wantedRole).toLowerCase()} retracement zone within ${fanBandPct.toFixed(2)}% (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}).`,
+        : `No ${levelRoleLabel(wantedRole).toLowerCase()} retracement zone within ${LEVEL_BAND_BASIS}.`,
     },
     {
       key: "ruleOfThree",
