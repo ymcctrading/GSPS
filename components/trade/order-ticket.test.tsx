@@ -434,4 +434,14 @@ describe("OrderTicket explain-only technique reading", () => {
     expect(Number(params.get("entry"))).toBe(50);
     expect(Number(params.get("stop"))).toBeCloseTo(44);
   });
+
+  it("says the plan is retired instead of explaining it once its stop has broken", async () => {
+    const fetchMock = mockExplain();
+    const scan = { ...scanWithEntry(50), stopBreach: { stop: 44, price: 43, reclaimAt: 44.5 } };
+    render(<OrderTicket result={scan} livePrice={50} />);
+
+    expect(await screen.findByText(/This plan is retired, so there are no levels/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Explain" })).toBeNull();
+    expect(fetchMock.mock.calls.some(([u]) => String(u).includes("/api/strategy-levels"))).toBe(false);
+  });
 });

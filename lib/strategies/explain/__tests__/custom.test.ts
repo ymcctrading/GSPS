@@ -37,7 +37,7 @@ const id = {
 };
 
 describe("explainCustomScript", () => {
-  it("reads every indicator the script names at each plan level", async () => {
+  it("reads the nearest lines and the oscillators at each plan level", async () => {
     const b = await bars();
     const c = compileCustomScript(SRC, id);
     expect(c.ok).toBe(true);
@@ -59,10 +59,13 @@ describe("explainCustomScript", () => {
     expect(r.source).toBe("custom:s1");
     expect(r.levels).toHaveLength(4);
     for (const l of r.levels) {
-      expect(l.text).toContain("ema(9)");
-      expect(l.text).toContain("sma(20)");
+      // At most the nearest line below, the nearest above, and rsi(14).
+      expect(l.text.split("; ").length).toBeLessThanOrEqual(3);
       expect(l.text).toMatch(/rsi\(14\) would read \d/);
     }
+    // The stop sits below every line, so only the nearest one above is named.
+    const stop = r.levels.find((l) => l.level === "stopLoss")!;
+    expect(stop.text.split("; ")).toHaveLength(2);
   });
 
   it("leans the way the rule that fires points, and nowhere when none fires", async () => {
