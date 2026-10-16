@@ -8,10 +8,28 @@ import {
   angleMonthCounts,
   monthCountsToTurn,
   readMonthCounts,
+  readSwingMonthCounts,
 } from "../angleMonthCounts";
 
 function bar(t: string, price: number): Bar {
   return { t, o: price, h: price, l: price, c: price, v: 1000 };
+}
+
+/** Weekday bars along straight legs between dated turning points. */
+function dailyThrough(points: [string, number][]): Bar[] {
+  const out: Bar[] = [];
+  for (let k = 1; k < points.length; k++) {
+    const [fromT, fromP] = points[k - 1];
+    const [toT, toP] = points[k];
+    const a = Date.parse(`${fromT}T00:00:00Z`);
+    const b = Date.parse(`${toT}T00:00:00Z`);
+    for (let t = k === 1 ? a : a + 86_400_000; t <= b; t += 86_400_000) {
+      const wd = new Date(t).getUTCDay();
+      if (wd === 0 || wd === 6) continue;
+      out.push(bar(new Date(t).toISOString(), fromP + ((toP - fromP) * (t - a)) / (b - a)));
+    }
+  }
+  return out;
 }
 
 describe("ANGLE_MONTH_COUNTS", () => {
@@ -116,6 +134,46 @@ describe("month counts from every prior pivot to the turn (A-TIME-21, W046 p.2; 
     expect(r!.length).toBeGreaterThan(0);
     for (const c of r!) expect(c.months).toBe(monthsElapsed(new Date(`${c.pivotMonth}-01T00:00:00Z`), new Date(Date.UTC(2021, 11, 15))));
     expect(readMonthCounts(monthly.slice(0, 20), new Date(Date.UTC(2020, 8, 15)))).toBeNull();
+  });
+});
+
+describe("month counts from the swing chart's dated tops and bottoms (A-TIME-21, item 7e review M3)", () => {
+  // The coffee swings of W046 p.2, dated to the day: a low on 19 Jun 1953, a
+  // rally, a low on 15 Sep, a high on 19 Oct, a low on 19 Jan 1954, and the
+  // rise to the 19 Mar 1954 high.
+  const coffee = dailyThrough([
+    ["1953-04-01", 70],
+    ["1953-06-19", 50],
+    ["1953-08-12", 62],
+    ["1953-09-15", 55],
+    ["1953-10-19", 68],
+    ["1954-01-19", 58],
+    ["1954-03-19", 80],
+  ]);
+
+  it("counts 9, 2, 6 and 5 months to the 19 March 1954 turn, as the letter does", () => {
+    const counts = readSwingMonthCounts(coffee, new Date("1954-03-19T00:00:00Z"))!;
+    const by = (month: string, kind: "high" | "low") => counts.find((c) => c.pivotMonth === month && c.kind === kind)?.months;
+    expect(by("1953-06", "low")).toBe(9);
+    expect(by("1954-01", "low")).toBe(2);
+    expect(by("1953-09", "low")).toBe(6);
+    expect(by("1953-10", "high")).toBe(5);
+  });
+
+  it("reads tops and bottoms to the day, so a pivot two months back and two a month apart are both counted", () => {
+    const counts = readSwingMonthCounts(coffee, new Date("1954-03-19T00:00:00Z"))!;
+    expect(counts.some((c) => c.months === 2)).toBe(true);
+    expect(counts.filter((c) => c.pivotMonth === "1953-09" || c.pivotMonth === "1953-10").map((c) => c.kind).sort()).toEqual(["high", "low"]);
+    expect(counts.map((c) => c.months)).toEqual([...counts.map((c) => c.months)].sort((a, b) => a - b));
+    expect(readSwingMonthCounts(coffee.slice(0, 10), new Date("1953-04-14T00:00:00Z"))).toBeNull();
+  });
+
+  it("is shown on the setup next to the major monthly counts", async () => {
+    const { readDisclosedRules, describeDisclosedRules } = await import("@/lib/gann/disclosedRules");
+    const asOf = new Date(coffee[coffee.length - 1].t);
+    const ctx = readDisclosedRules(coffee, 80, null, asOf);
+    expect(ctx.swingMonthCounts?.find((c) => c.pivotMonth === "1954-01")?.months).toBe(2);
+    expect(describeDisclosedRules(ctx).some((l) => l.startsWith("Months from the recent swing tops and bottoms:") && l.includes("2 from the 1954-01 bottom"))).toBe(true);
   });
 });
 

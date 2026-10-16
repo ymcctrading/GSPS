@@ -45,6 +45,7 @@
 import type { Bar } from "@/lib/types";
 import { majorPivots } from "@/lib/analysis/pivots";
 import { findPivots } from "@/lib/analysis/pivots";
+import { WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 
 /** The 1/32 division of 360° in 11.25° steps, exactly as disclosed. */
 const GRID_STEP_DEG = 11.25;
@@ -189,4 +190,23 @@ export function readMonthCounts(monthly: Bar[], asOf: Date, limit = 8): PivotMon
   if (monthly.length < 24) return null;
   const anchors = majorPivots(findPivots(monthly, 3)).map((p) => ({ t: p.bar.t, kind: p.kind, price: p.price }));
   return monthCountsToTurn(anchors, asOf).slice(0, limit);
+}
+
+/**
+ * The counts from the weekly swing chart's tops and bottoms, dated to the day,
+ * to `asOf`'s month (A-TIME-21, W046 p.2). The coffee letter counts from
+ * swings two months back and from a low and a high a month apart, which the
+ * major monthly pivots `readMonthCounts` reads can never show (item 7e review
+ * M3). The weekly chart is the engineering choice of which swings to count:
+ * the letter dates its pivots to the day but names no chart. Null with under
+ * twenty sessions.
+ */
+export function readSwingMonthCounts(daily: Bar[], asOf: Date, limit = 8): PivotMonthCount[] | null {
+  if (daily.length < 20) return null;
+  const pivots = walkSwingChart(daily, WEEKLY_SWING_CHART).pivots.map((p) => ({
+    t: daily[p.index].t,
+    kind: p.kind === "top" ? ("high" as const) : ("low" as const),
+    price: p.price,
+  }));
+  return monthCountsToTurn(pivots, asOf).slice(0, limit);
 }

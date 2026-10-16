@@ -227,7 +227,12 @@ export const FAN_TIME_RATIOS: readonly { label: string; ratio: number }[] = [
   { label: "8x1", ratio: 8 },
 ];
 
-/** C-TIME-39: W031's pairs of a retracement fraction and its angle. */
+/**
+ * C-TIME-39: W031's pairs of a retracement fraction and its angle. Under the
+ * angle multiples, 1/8 on the 1x8 and 1/4 on the 1x4 fall due within a few
+ * days of the anchor, and a pivot confirms four bars late, so those two show
+ * only on swings longer than about 50-60 days (item 7e review L4).
+ */
 export const RETRACEMENT_ANGLE_PAIRS: readonly { fraction: number; label: string; angle: string; ratio: number }[] = [
   { fraction: 1 / 8, label: "1/8", angle: "1x8", ratio: 1 / 8 },
   { fraction: 1 / 4, label: "1/4", angle: "1x4", ratio: 1 / 4 },
@@ -434,10 +439,11 @@ function retracementTiming(daily: Bar[]): Pick<SecondaryTimeReading, "retracemen
     level: h.level,
     date: h.date,
   });
-  // The meeting is kept for 90 days, so it is read from every swing of the
-  // last 90 days, not only the fans' current anchors: a newer small swing must
-  // not erase it.
-  const half = retracementHitsFrom(daily, everyAnchor(daily), RETRACEMENT_ANGLE_PAIRS.filter((p) => p.label === "1/2"))
+  // The meeting is kept for 90 days, as each session read it (item 7e review
+  // M2): counting every strength-4 swing as "the range" put a meeting on 98%
+  // of random-walk sessions; read this way it is on 79% (the saturation test
+  // in secondaryTime.test.ts), so it is weak context, and labelled so.
+  const half = halfMeetingsAsRead(daily)
     .filter((h) => last - Date.parse(`${h.date}T00:00:00Z`) <= HALF_PRICE_HALF_TIME_DAYS * DAY_MS)
     .sort((a, b) => b.date.localeCompare(a.date))[0];
   return {
@@ -453,14 +459,24 @@ export function readRetracementTimingHits(bars: Bar[]): (RetracementTimingHit & 
   return retracementHitsFrom(bars, fanAnchors(bars), RETRACEMENT_ANGLE_PAIRS);
 }
 
-/** Every pivot (on the fans' pivot strength) with the swing that made it, as `fanAnchors` pairs its two. */
-function everyAnchor(bars: Bar[]): ReturnType<typeof fanAnchors> {
-  if (bars.length < 20) return [];
-  const pivots = findPivots(bars, 4);
-  return pivots.map((anchor, i) => {
-    const preceding = pivots.slice(0, i).reverse().find((p) => p.kind !== anchor.kind) ?? null;
-    return { anchor, preceding, baseIntervalMs: preceding ? Date.parse(anchor.bar.t) - Date.parse(preceding.bar.t) : null };
-  });
+/**
+ * The 1/2-at-half-time meetings as each session read them: on every session of
+ * the last 90 days, the fans' anchors as of that session, keeping a meeting
+ * seen on that session. A newer swing then can't erase a meeting already
+ * recorded, and the range stays the swing the fans were drawn from.
+ */
+function halfMeetingsAsRead(daily: Bar[]): (RetracementTimingHit & { windowEnd: number })[] {
+  if (daily.length < 20) return [];
+  const last = Date.parse(daily[daily.length - 1].t);
+  const half = RETRACEMENT_ANGLE_PAIRS.filter((p) => p.label === "1/2");
+  const out: (RetracementTimingHit & { windowEnd: number })[] = [];
+  for (let j = daily.length - 1; j >= 19; j--) {
+    const day = daily[j].t.slice(0, 10);
+    if (last - Date.parse(`${day}T00:00:00Z`) > HALF_PRICE_HALF_TIME_DAYS * DAY_MS) break;
+    const slice = daily.slice(0, j + 1);
+    for (const h of retracementHitsFrom(slice, fanAnchors(slice), half)) if (h.date === day) out.push(h);
+  }
+  return out;
 }
 
 function retracementHitsFrom(

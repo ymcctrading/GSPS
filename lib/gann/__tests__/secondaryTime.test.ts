@@ -23,6 +23,7 @@ import { SEASONAL_POINTS } from "../seasonalCounts";
 import { SQUARE_OF_52_FRACTIONS } from "../squareOf52";
 import { describeDisclosedRules, readDisclosedRules } from "../disclosedRules";
 import { contextFactorsFor } from "../contextFactors";
+import { DEFAULT_SATURATION_BOUNDS } from "@/lib/validation/health";
 
 const DAY = 86_400_000;
 
@@ -362,6 +363,32 @@ describe("a retracement reached at its angle's time (C-TIME-39, W031) and half t
     const dip = legs([[10, 1], [20, -1], [10, 1], [5, 1], [3, -1], [10, 0.3]]);
     expect(readRetracementTimingHits(dip).some((h) => h.date === "2026-02-10")).toBe(false);
     expect(readSecondaryTime(dip, null, new Date(dip[dip.length - 1].t)).halfPriceHalfTime?.date).toBe("2026-02-10");
+  });
+
+  it("keeps the half-and-half meeting rare enough to mean something on a random walk (item 7e review M2)", () => {
+    // Seeded random walks on weekday bars. Counting every small swing as "the
+    // range" put the meeting on 98% of sessions; the range is a major swing.
+    let seed = 1;
+    const rand = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 2 ** 32);
+    let hit = 0;
+    let n = 0;
+    for (let k = 0; k < 20; k++) {
+      const b: Bar[] = [];
+      let c = 100;
+      for (let d = Date.UTC(2024, 0, 1); b.length < 260; d += DAY) {
+        const wd = new Date(d).getUTCDay();
+        if (wd === 0 || wd === 6) continue;
+        const o = c;
+        c = c * (1 + (rand() - 0.5) * 0.04);
+        b.push({ t: new Date(d).toISOString(), o, h: Math.max(o, c) * (1 + rand() * 0.01), l: Math.min(o, c) * (1 - rand() * 0.01), c, v: 1e6 });
+      }
+      for (let i = 120; i < b.length; i += 3) {
+        const s = b.slice(0, i + 1);
+        n++;
+        if (readSecondaryTime(s, null, new Date(s[s.length - 1].t)).halfPriceHalfTime) hit++;
+      }
+    }
+    expect(hit / n).toBeLessThan(DEFAULT_SATURATION_BOUNDS.maxPassRate);
   });
 
   it("counts a turn due against the trade and records it on the card", () => {

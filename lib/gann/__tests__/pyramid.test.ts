@@ -68,6 +68,8 @@ describe("time to hold (A-TIME-12, W006 p.23)", () => {
     expect(readHoldTime("long", 108.5, "2026-06-07", daily)).toEqual({ firstCloseAgainst: false, withTrendAfter3: false });
     // Only two sessions closed: not yet known.
     expect(readHoldTime("long", 101.8, "2026-06-03", daily.slice(0, 4))?.withTrendAfter3).toBeNull();
+    // Exactly three sessions closed: known (item 7e review L1).
+    expect(readHoldTime("long", 101.8, "2026-06-03", daily.slice(0, 5))?.withTrendAfter3).toBe(true);
     expect(readHoldTime("short", 112, "2026-06-07", daily)?.withTrendAfter3).toBe(true);
   });
 

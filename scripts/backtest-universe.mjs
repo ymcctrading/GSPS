@@ -408,19 +408,22 @@ async function main() {
     const started = Date.now();
     const paceMs = args.symbolsPerMinute > 0 ? 60_000 / args.symbolsPerMinute : 0;
 
-    // The market's daily bars (SPY) once, for Gann's early/late leaders (G25).
-    let marketDailyBars;
+    // The market's bars (SPY) once: its daily for Gann's early/late leaders
+    // (G25), its monthly to date the bull and bear markets (weak stocks,
+    // A-TIME-06).
+    let market;
     try {
-      marketDailyBars = (await run.fetchSeries("SPY", args.timeframe, true)).daily;
+      market = await run.fetchSeries("SPY", args.timeframe, true);
     } catch {
-      marketDailyBars = undefined;
+      market = undefined;
     }
 
     for (let i = 0; i < universe.length; i++) {
       const symbol = universe[i];
       const tickStart = Date.now();
       try {
-        const { bars: fetched, daily, monthly } = await run.fetchSeries(symbol, args.timeframe, true);
+        const series = await run.fetchSeries(symbol, args.timeframe, true);
+        const fetched = series.bars;
         const bars = sinceMs === null ? fetched : fetched.filter((b) => Date.parse(b.t) >= sinceMs);
         if (bars.length === 0) {
           skipped.push({ symbol, reason: "no execution-timeframe bars" });
@@ -431,7 +434,7 @@ async function main() {
           const instrument = ref ? { sharesHistory: ref.history, inception: ref.reference.inception } : undefined;
           cells.forEach((cell, c) => {
             perCell[c].push(
-              replay(symbol, bars, { targetR: args.targetR, ...(cell.options ?? {}), dailyBars: daily, monthlyBars: monthly, instrument, marketDailyBars }),
+              replay(symbol, bars, { targetR: args.targetR, ...(cell.options ?? {}), ...run.replaySeriesOptions(series, market), instrument }),
             );
           });
           used.push(symbol);

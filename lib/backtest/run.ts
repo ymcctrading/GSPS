@@ -371,6 +371,23 @@ export async function fetchSeries(
   return { bars, daily, ...(monthly && monthlyLong ? { monthly, monthlyLong } : {}) };
 }
 
+type FetchedSeries = Awaited<ReturnType<typeof fetchSeries>>;
+
+/**
+ * The bars every replay of a symbol is handed: its own daily, monthly and long
+ * monthly series, and the market's (SPY) daily and monthly. One helper, so the
+ * route and the universe runner read the same series (item 7e review M1).
+ */
+export function replaySeriesOptions(series: FetchedSeries, market: FetchedSeries | undefined) {
+  return {
+    dailyBars: series.daily,
+    monthlyBars: series.monthly,
+    longMonthlyBars: series.monthlyLong,
+    marketDailyBars: market?.daily,
+    marketMonthlyBars: market?.monthly,
+  };
+}
+
 export interface RunOutcome {
   source: string;
   live: boolean;
@@ -442,12 +459,11 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
   // The market's daily bars (SPY) once, for Gann's early/late leaders (G25).
   // Its monthly bars too, to date the bull market for Gann's weak stocks.
   const market = await fetchSeries("SPY", timeframe, true).catch(() => undefined);
-  const marketDailyBars = market?.daily;
-  const marketMonthlyBars = market?.monthly;
 
   for (const symbol of symbols) {
     try {
-      const { bars: fetched, daily, monthly, monthlyLong } = await fetchSeries(symbol, timeframe, true);
+      const series = await fetchSeries(symbol, timeframe, true);
+      const { bars: fetched, daily } = series;
       const bars = sinceMs === null ? fetched : fetched.filter((b) => Date.parse(b.t) >= sinceMs);
       if (bars.length === 0) {
         skipped.push({
@@ -480,7 +496,7 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
               ...(reclaimPoints !== undefined ? { reclaimPoints } : {}),
               dailyBars: daily,
             })
-          : replay(symbol, bars, { ...options, dailyBars: daily, monthlyBars: monthly, longMonthlyBars: monthlyLong, instrument, marketDailyBars, marketMonthlyBars }),
+          : replay(symbol, bars, { ...options, ...replaySeriesOptions(series, market), instrument }),
       );
       used.push(symbol);
     } catch (err) {
