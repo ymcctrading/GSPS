@@ -75,7 +75,8 @@ import { isLargeCapStock } from "@/lib/strat/large-cap";
 import { readLiquidity } from "@/lib/scan/liquidity";
 import { levelCharts } from "@/lib/scan/levelCharts";
 import { etDateKey } from "@/lib/market/session";
-import { applyBreakawayHold, applyDistributionBreakdownHold, applyFailedTopHold, applyMonthlyBreakHold, computeScore } from "@/lib/scoring/score";
+import { applyBreakawayHold, applyDistributionBreakdownHold, applyFailedTopHold, applyMonthlyBreakHold, applyTimeWindowHold, computeScore } from "@/lib/scoring/score";
+import { readWindowTurn, type WindowTurn } from "@/lib/gann/timeWindow";
 import { failedTestInPath } from "@/lib/gann/multipleTops";
 import { breakawayVolumeMet, readBreakaway, type BreakawayReading } from "@/lib/gann/breakaway";
 import { readMonthlyBreakWarning, type MonthlyBreakWarning } from "@/lib/gann/campaignLedger";
@@ -539,6 +540,8 @@ export interface MacroContext {
   structuralLevels: number[];
   /** Stage A readings and the B2 campaign ledger, as the live scan's confluence card shows them. */
   disclosedRules: DisclosedRulesContext;
+  /** The turn at a dated window (Q19, `lib/gann/timeWindow.ts`), read on the same chart as the live scan, once per direction when needed. */
+  windowTurn: (direction: "bullish" | "bearish") => WindowTurn | null;
 }
 
 /**
@@ -557,6 +560,7 @@ export function buildMacroContext(
   /** Shares outstanding as of this session and the inception date (D2, D3), when stored. */
   instrument: InstrumentFacts | null = null,
 ): MacroContext {
+  const windowTurns = new Map<"bullish" | "bearish", WindowTurn | null>();
   // Mirrors lib/scanTicker.ts: the level charts both surfaces read (PLAN.md
   // item 9 step 4), from the completed sessions and closed months held here.
   const charts = levelCharts({ daily, weekly: null, monthly: priorMonthly }, etDateKey(asOf));
@@ -653,6 +657,10 @@ export function buildMacroContext(
     atrPct,
     structuralLevels: allLevels.map((l) => l.price),
     disclosedRules: readDisclosedRules(charts.daily, price, instrument ? { ...instrument, monthly: instrument.monthly ? monthly : instrument.monthly } : instrument, asOf),
+    windowTurn: (direction) => {
+      if (!windowTurns.has(direction)) windowTurns.set(direction, readWindowTurn(charts.daily, direction));
+      return windowTurns.get(direction) ?? null;
+    },
   };
 }
 
@@ -1392,7 +1400,7 @@ function scoreSetup(input: {
 
   const levels = priceTradeLevels({ context, gannTrigger, history, executionAtr, assetClass, largeCap });
 
-  const decision = applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(
+  const decision = applyTimeWindowHold(applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(
     computeScore({
       direction: gannTrigger.direction,
       macroTrends: context.macroTrends,
@@ -1418,7 +1426,7 @@ function scoreSetup(input: {
       atrPct: context.atrPct,
       ...(weights ? { weights } : {}),
     }), breakaway), monthlyWarning, gannTrigger.direction), context.disclosedRules.distributionStanding ?? null, gannTrigger.direction),
-    context.disclosedRules.multipleTops, gannTrigger.direction, levels);
+    context.disclosedRules.multipleTops, gannTrigger.direction, levels), setupKind, () => context.windowTurn(gannTrigger.direction));
   return { decision, levels };
 }
 

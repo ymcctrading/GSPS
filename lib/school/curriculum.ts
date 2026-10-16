@@ -962,7 +962,7 @@ const ACADEMY_6: Academy = {
           estimatedMinutes: 14,
           instruction: [
             "Counter-moves in a healthy trend are usually short: two to three weeks is normal, and strong markets seldom react into a second month. A reaction that is still making new lows in its third month, counted from the top it started from, is treated as a change of trend, not a pause; one that made its low in the second month and has held is not.",
-            "Turns tend to cluster at set distances from a major top or bottom: at fractions of the year (a quarter, a third, a half, and the full year, with the half year ranked highest) and at recurring day counts. GSPS shows these as time windows. They are a reason to watch closely, never a reason to trade on their own.",
+            "Turns tend to cluster at set distances from a major top or bottom: at fractions of the year (a quarter, a third, a half, and the full year, with the half year ranked highest) and at recurring day counts. GSPS shows these as time windows. They are a reason to watch closely, never a reason to trade on their own: a window counts only when the market turns on it, and a trade against the trend waits for its turn to come on one.",
             "The three-close rule: after a run, three lower closes in a row turn a short-term uptrend down, and three higher closes turn a downtrend up. It is read on daily bars, and again on weekly and monthly bars, where it carries more weight.",
           ],
           application:

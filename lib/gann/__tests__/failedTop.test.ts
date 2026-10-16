@@ -302,7 +302,7 @@ describe("the failed-top hold is wired on every surface", () => {
   it("holds the verdict and skips the entry in the replay", () => {
     const s = src("lib/backtest/replay.ts");
     expect(s).toMatch(/applyFailedTopHold\(applyDistributionBreakdownHold\(/);
-    expect(s).toMatch(/context\.disclosedRules\.multipleTops, gannTrigger\.direction, levels\);/);
+    expect(s).toMatch(/context\.disclosedRules\.multipleTops, gannTrigger\.direction, levels\)/);
     expect(s).toMatch(/\n\s+if \(failedTestInPath\(arm\.context\.disclosedRules\.multipleTops, trigger\.direction, path\?\.entry, path\?\.takeProfit1\)\) continue;/);
     expect(s).toMatch(/sessionPlanPaths\.set\(planKey, plan \? \{ entry: plan\.entry, takeProfit1: plan\.takeProfit1 \} : null\)/);
   });

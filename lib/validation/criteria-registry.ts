@@ -923,6 +923,19 @@ const SCORE_HOLDS: RegisteredCriterion[] = [
     saturation: { minPassRate: 0, maxPassRate: 1 },
   },
   {
+    id: "timeWindowTurn",
+    family: "scoreHold",
+    source: "lib/gann/timeWindow.ts",
+    label: "Turn came at a time window",
+    expectedSign: "unknown",
+    evidence: "unmeasured",
+    note:
+      "Q19 (owner, 2026-10-16, \"Window\"): a counter-trend Execute holds to Watch unless its swing extreme came " +
+      "on a dated window (A-TIME-15, W036 p.22; C-STOP-03; HTMPC p.56). Appended to every counter-trend Execute, " +
+      "passed when the turn came on a window and failed when it holds the verdict.",
+    saturation: { minPassRate: 0, maxPassRate: 1 },
+  },
+  {
     id: "stopBreach",
     family: "scoreHold",
     source: "lib/gann/stopBreach.ts",

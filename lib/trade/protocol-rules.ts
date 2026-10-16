@@ -84,11 +84,13 @@ export const STOP_RULE_DETAIL =
  * range not yet broken away (`applyBreakawayHold`), a broken monthly low
  * (`applyMonthlyBreakHold`), a distribution breakdown still standing
  * (`applyDistributionBreakdownHold`), a failed top between the entry and the
- * first target (`applyFailedTopHold`) and a stale feed (`applyDataLagHold`).
+ * first target (`applyFailedTopHold`), a counter-trend turn that came on no
+ * dated time window (`applyTimeWindowHold`, Q19) and a stale feed
+ * (`applyDataLagHold`).
  * Settings used to state the score cutoff alone, so every hold looked like a
  * bug. No bar-sequence pattern holds a verdict since 2026-10-16 (N#1).
  */
 export const EXECUTE_RULE_LABEL = `Score ${EXECUTE_SCORE_THRESHOLD}+ of ${TOTAL_POINTS}, with a priced trade plan`;
 
 export const EXECUTE_RULE_DETAIL =
-  "A setup also needs a buying or selling point with its entry, stop and targets priced. Execute is held back to Watch when the trade plan is missing, when the market sits in a narrow range and has not yet broken out of it, when the month has broken last month's low against the trade, when a distribution breakdown still stands against a buy, when a failed top stands between the entry and the first target, or when the price feed is a full execution candle or more behind the market.";
+  "A setup also needs a buying or selling point with its entry, stop and targets priced. Execute is held back to Watch when the trade plan is missing, when the market sits in a narrow range and has not yet broken out of it, when the month has broken last month's low against the trade, when a distribution breakdown still stands against a buy, when a failed top stands between the entry and the first target, when a trade against the trend turned on no dated time window, or when the price feed is a full execution candle or more behind the market.";

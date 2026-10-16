@@ -360,4 +360,9 @@
 // one) instead of a 3-20 bar clock, and a broken stop retires it sooner (owner,
 // Q17). The replay already armed one trigger per session, so its output does
 // not move; live plans now match it.
-export const STRATEGY_VERSION = "2026-10-16-gann-session-plans";
+// 2026-10-16-gann-time-window-turn: the shared time-window mechanism (owner,
+// Q19, "Window"; A-TIME-15). A counter-trend Execute holds to Watch unless its
+// swing extreme came on a dated window: Gann's pivot windows, his time counts,
+// Jensen's dates or the planetary time readings (lib/gann/timeWindow.ts).
+// Verdicts move.
+export const STRATEGY_VERSION = "2026-10-16-gann-time-window-turn";

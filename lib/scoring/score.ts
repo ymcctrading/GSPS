@@ -14,6 +14,7 @@ import type { MonthlyBreakWarning } from "@/lib/gann/campaignLedger";
 import type { DistributionStanding } from "@/lib/gann/distribution";
 import { failedTestInPath, type MultipleTopsReading } from "@/lib/gann/multipleTops";
 import type { StopBreachReading } from "@/lib/gann/stopBreach";
+import { needsWindowTurn, type WindowTurn } from "@/lib/gann/timeWindow";
 import type {
   AssetClass,
   GannLevels,
@@ -730,6 +731,50 @@ export function applyFailedTopHold(
         criterion: top ? "No failed double top overhead" : "No failed double bottom underneath",
         passed: false,
         note: `The market failed at a ${name} near ${failed.level.toFixed(2)}, which stands before the first target, and closed back ${top ? "under" : "over"} it by the usual allowance: that is a ${failed.kind}. Held from Execute to Watch until a daily close passes the level by the usual allowance or a new swing replaces it.`,
+      },
+    ],
+  };
+}
+
+/**
+ * The shared time-window mechanism (Q19, owner 2026-10-16; `lib/gann/timeWindow.ts`):
+ * Gann trades a change of trend when the market turns close to a dated window
+ * (A-TIME-15, W036 p.22), and the turn's price confirms it (C-STOP-03). A
+ * counter-trend Execute whose bottom (top, for a short) did not come on any
+ * open window is held to Watch; a with-the-trend setup acts on price alone.
+ */
+export function applyTimeWindowHold(
+  decision: ScanDecision,
+  setupKind: SetupKind,
+  /** The turn, or a function reading it: read only when a counter-trend Execute needs it. */
+  turnOrRead: WindowTurn | null | undefined | (() => WindowTurn | null),
+): ScanDecision {
+  if (decision.outputState !== "Execute" || !needsWindowTurn(setupKind)) return decision;
+  const turn = typeof turnOrRead === "function" ? turnOrRead() : turnOrRead;
+  if (turn) {
+    return {
+      ...decision,
+      breakdown: [
+        ...decision.breakdown,
+        {
+          key: "timeWindowTurn",
+          criterion: "Turn came at a time window",
+          passed: true,
+          note: `The ${turn.kind} on ${turn.date} came on ${turn.windows.slice(0, 3).join("; ")}. Time and price agree on the turn.`,
+        },
+      ],
+    };
+  }
+  return {
+    ...decision,
+    outputState: "Watch",
+    breakdown: [
+      ...decision.breakdown,
+      {
+        key: "timeWindowTurn",
+        criterion: "Turn came at a time window",
+        passed: false,
+        note: "This trade goes against the trend, and its turn did not come on any dated time window. A change of trend comes at time, so it is held from Execute to Watch until a turn comes on one.",
       },
     ],
   };

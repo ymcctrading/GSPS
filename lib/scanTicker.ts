@@ -34,6 +34,7 @@ import { priceTimeConfluence } from "@/lib/gann/digitalRoot";
 import { computeCampaignLeg, computeSwingChart } from "@/lib/gann/swingChart";
 import { computeRuleOfThree } from "@/lib/gann/ruleOfThree";
 import { majorPricePercentageLevels } from "@/lib/gann/disclosedRules";
+import { readWindowTurn } from "@/lib/gann/timeWindow";
 import { gannMasterLevels } from "@/lib/gann/masterLevels";
 import { computeTimePriceSquare } from "@/lib/gann/timePriceSquare";
 import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
@@ -48,6 +49,7 @@ import {
   applyBreakawayHold,
   applyDistributionBreakdownHold,
   applyFailedTopHold,
+  applyTimeWindowHold,
   applyMonthlyBreakHold,
   applyDataLagHold,
   applyStopBreachHold,
@@ -428,7 +430,7 @@ export async function scanTicker(
     });
 
     const decision = applyStopBreachHold(applyDataLagHold(
-      applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(
+      applyTimeWindowHold(applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(
         computeScore({
           direction: scoreDirection,
           macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
@@ -459,6 +461,11 @@ export async function scanTicker(
           atrPct,
           weights: await getActiveCriterionWeights(),
         }), breakaway), monthlyWarning, scoreDirection), distributionStanding, scoreDirection), failedTops, scoreDirection, levels),
+        // Q19: a counter-trend Execute needs its turn to come on a dated window
+        // (lib/gann/timeWindow.ts), read on the replay's chart, and only when needed.
+        setupKind,
+        () => readWindowTurn(charts.daily, scoreDirection),
+      ),
       dataLag,
     ), stopBreach);
 
