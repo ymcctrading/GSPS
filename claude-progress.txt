@@ -601,3 +601,10 @@ including the break) survive as equivalent on one session; B3 removed as redunda
 - Cost: computeVolumeClimax 12 ms -> 54 ms per 250 symbols per call (it runs in four places live, ~170 ms). Getting there: etDateKey now reuses one Intl formatter (building one per call made a first version 3.3 s per 250), month keys from the bar's own date, weekOf without Date objects.
 - Notes (score.ts), lessons (Academy 4 and 6), registry note, module header updated. STRATEGY_VERSION 2026-10-16-gann-volume-rules.
 - Tests fail on the old module (11 of 22 at the time). Mutations V1-V19, H1-H5 killed; H4 (the top's own week filter) removed as unreachable. Full suite 2870 pass. Replay owed.
+
+## 2026-10-16 Time-window base rates (item 7 step 6, CYC-24/-51), run 47
+- Run 47 (c83e590, research only): 736 symbols with enough history (30 skipped, too few sessions), daily bars 2017-08-29 to 2026-10-15 (the feed reaches 2017, not the 2000 the header asked for). Turns: weekly swing pivots; windows ±2 days from major daily pivots; base = the same windows shifted 1..364 days; Holm across the five families.
+- anniversary1 hit 0.2325 vs shifted 0.2097, p 0.025, not Holm-significant; anniversary2 0.202 vs 0.214 (p 0.75); anniversary3 0.198 vs 0.212 (p 0.76); wheel 0.2096 vs 0.2096 (p 0.51, covers 49% of days); dayBands 0.303 vs 0.301 (p 0.42, 59%). All five windows together cover 71% of sessions. No family beats random placement, the same answer as the F4 calendar test.
+- Under the pre-registered rule, no window set earns a gate: item 7 F1 (b)'s "time not run out" hold has no measured window to stand on. F1 goes back to the owner with this result. Saved as docs/replay-runs/2026-10-16-time-window-base-rates-736sym.json.
+- The workflow's print step failed after the run finished (it reads out/summary.json, which the research handoffs never wrote). Both handoffs now write a placeholder summary.json.
+- Run 48 (c6f9db0, item 8 step 3, version 2026-10-16-gann-volume-rules) dispatched.

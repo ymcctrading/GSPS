@@ -335,6 +335,8 @@ async function main() {
     await runCalendarTest({});
     await mkdir(path.join(root, "out"), { recursive: true });
     await writeFile(path.join(root, "out", "summary.md"), "Calendar test: see the job log.\n");
+    // The workflow's print step reads summary.json; the result itself is in the job log.
+    await writeFile(path.join(root, "out", "summary.json"), JSON.stringify({ note: "Calendar test: see the job log." }) + "\n");
     return;
   }
   // The item 7 time-window base-rate test rides it too (scripts/time-window-base-rates.mjs).
@@ -343,6 +345,8 @@ async function main() {
     await runTimeWindowBaseRates({});
     await mkdir(path.join(root, "out"), { recursive: true });
     await writeFile(path.join(root, "out", "summary.md"), "Time-window base rates: see the job log.\n");
+    // The workflow's print step reads summary.json; the result itself is in the job log.
+    await writeFile(path.join(root, "out", "summary.json"), JSON.stringify({ note: "Time-window base rates: see the job log." }) + "\n");
     return;
   }
 
