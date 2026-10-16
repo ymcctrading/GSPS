@@ -1983,10 +1983,10 @@ Standing facts for a session that touches any list of setups:
   or a round number just short of one, at least one intraday ATR away. Where
   none lies ahead the target is null, "no target is fixed, the stop trails"
   (Gann's "never fix a target price"), and the card, alert and email say so
-  rather than inventing one. The session's own extreme and the prior close are
-  the only old levels read so far (the session's earlier swings and prior
-  sessions' highs and lows are not passed in), so it can under-name a level,
-  never invent one. A replay-only intraday profile to measure the method at
+  rather than inventing one. The old levels read are the session's own extreme,
+  the prior close, the session's completed swings, the prior session's high and
+  low, and the 3-Day Chart's swings on the daily bars (`gannOldLevels`, added
+  2026-10-16; live alert and intraday replay alike). A replay-only intraday profile to measure the method at
   intraday scale is built (2026-10-01, `lib/backtest/replayIntraday.ts`,
   `?profile=intraday`) and **not run**; its rules and the rule for reading the
   run are fixed in the doc's Part 5. Nothing measures it yet.

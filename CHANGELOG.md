@@ -7,6 +7,16 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-10-16
+
+### Changed
+- **Intraday first target reads more of Gann's old levels**
+  (`lib/scanner/intraday.ts#gannOldLevels`). Besides the session's own extreme
+  and the prior close, the target now considers the session's completed swings,
+  the prior session's high and low, and the 3-Day Chart's swing tops and bottoms
+  on the daily bars. Fewer alerts show "no target is fixed" where an old level
+  lies ahead. The intraday replay profile reads the same levels.
+
 ## 2026-10-01
 
 ### Added (owner go-ahead on the three items held from 2026-09-30)
