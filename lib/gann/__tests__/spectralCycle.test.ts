@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectSpectralCycle } from "../spectralCycle";
+import { detectSpectralCycle, fitCosinor, MIN_REPETITIONS, minRepetitions } from "../spectralCycle";
 import type { Bar } from "@/lib/types";
 
 function makeBars(closes: number[]): Bar[] {
@@ -100,5 +100,117 @@ describe("F3 cycle checks: cosinor, artifact guards, hold-out", () => {
     expect(expected).toBeLessThan(1);
     expect(Math.abs((r.schusterP ?? -1) - expected)).toBeLessThanOrEqual(expected * 0.006 + 0.0006);
     expect(detectSpectralCycle(noise(11)).schusterP).toBe(1);
+  });
+});
+
+// X4: chance is ruled out before a cycle is credited (Dewey, The Case for
+// Cycles 1967; Halberg et al. 2003 on the cosinor). Context only.
+describe("significance and hold-out before a cycle is credited", () => {
+  const lcg = (s0: number) => {
+    let seed = s0;
+    return () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+  };
+  const noiseBars = (s0: number, n = 240) => {
+    const rnd = lcg(s0);
+    return makeBars(Array.from({ length: n }, () => 100 + 2 * (rnd() - 0.5)));
+  };
+
+  // CYC-01: assume chance first.
+  it("never reports a peak with Schuster p above 0.05 as active", () => {
+    let dominantButChance = 0;
+    for (let s = 1; s <= 60; s++) {
+      const r = detectSpectralCycle(noiseBars(s));
+      if ((r.dominancePower ?? 0) >= 3 && (r.schusterP ?? 1) > 0.05) dominantButChance++;
+      if ((r.schusterP ?? 1) > 0.05) expect(r.active).toBe(false);
+    }
+    // The fixture must exercise the case: dominant peaks that chance explains.
+    expect(dominantButChance).toBeGreaterThan(0);
+  });
+
+  // CYC-13: dominance alone never establishes non-chance.
+  it("says chance was not ruled out when a dominant peak is not significant", () => {
+    for (let s = 1; s <= 60; s++) {
+      const r = detectSpectralCycle(noiseBars(s));
+      if ((r.dominancePower ?? 0) >= 3 && (r.schusterP ?? 1) > 0.05 && !r.atBandEdge) {
+        expect(r.active).toBe(false);
+        expect(r.note).toMatch(/chance not ruled out/);
+        return;
+      }
+    }
+    throw new Error("no dominant-but-insignificant draw in the fixture");
+  });
+
+  // CYC-04: too few repetitions decides nothing.
+  it("does not credit a strong peak with fewer than the minimum repetitions", () => {
+    // A 60-bar cycle in 240 bars repeats 4 times, under the floor of 5.
+    const closes = Array.from({ length: 240 }, (_, i) => 100 + 10 * Math.sin((2 * Math.PI * i) / 60));
+    const r = detectSpectralCycle(makeBars(closes));
+    expect(Math.abs((r.dominantPeriodBars ?? 0) - 60)).toBeLessThanOrEqual(2);
+    expect(r.repetitionCount).toBeLessThan(MIN_REPETITIONS);
+    expect(r.active).toBe(false);
+  });
+
+  // CYC-27: short periods arise more easily by chance.
+  it("asks more repetitions of a 5-bar peak than of a 40-bar peak", () => {
+    expect(minRepetitions(5)).toBeGreaterThan(minRepetitions(40));
+    expect(minRepetitions(40)).toBe(MIN_REPETITIONS);
+    expect(minRepetitions(5)).toBe(10);
+  });
+
+  // CYC-08: decide on the first 70% alone, then test on the rest against a null.
+  it("runs the hold-out from the first 70% even when the full window is not active, with a null", () => {
+    const r = detectSpectralCycle(noiseBars(5));
+    expect(r.active).toBe(false);
+    expect(r.holdout).not.toBeNull();
+    expect(r.holdout!.nullP).toBeGreaterThan(0);
+    const real = detectSpectralCycle(makeBars(Array.from({ length: 240 }, (_, i) => 100 + 5 * Math.sin((2 * Math.PI * i) / 20))));
+    expect(real.holdout!.trainPeriodBars).toBe(20);
+    expect(real.holdout!.nullP).toBeLessThanOrEqual(0.05);
+    expect(real.holdout!.carriedForward).toBe(true);
+  });
+
+  // CYC-32: zero-amplitude test, run where the period was fixed beforehand.
+  it("tests a real cycle's amplitude on the unseen 30% at the period fitted on the first 70%", () => {
+    const r = detectSpectralCycle(makeBars(Array.from({ length: 240 }, (_, i) => 100 * Math.exp(0.05 * Math.sin((2 * Math.PI * i) / 20)))));
+    expect(r.holdout!.zeroAmplitudeP).toBeLessThan(0.001);
+  });
+
+  // CYC-33: a cosinor at a period fixed beforehand keeps its nominal 5% error rate.
+  it("keeps the hold-out zero-amplitude test near 5% false positives on noise", () => {
+    let hits = 0;
+    const draws = 200;
+    for (let s = 1; s <= draws; s++) {
+      const p = detectSpectralCycle(noiseBars(1000 + s)).holdout?.zeroAmplitudeP;
+      expect(p).toBeDefined();
+      if ((p ?? 1) < 0.05) hits++;
+    }
+    expect(hits / draws).toBeLessThanOrEqual(0.09);
+  });
+});
+
+// CYC-31: Halberg's single cosinor, with the MESOR and acrophase each carrying a 95% interval.
+describe("fitCosinor", () => {
+  it("reports a MESOR and an acrophase whose intervals contain the fixture's mean and phase", () => {
+    let seed = 42;
+    const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+    const period = 24;
+    const values = Array.from({ length: 240 }, (_, t) => 3 + 0.5 * Math.cos((2 * Math.PI * t) / period - 1) + 0.4 * (rnd() - 0.5));
+    const fit = fitCosinor(values, period)!;
+    expect(fit.mesorCi[0]).toBeLessThanOrEqual(3);
+    expect(fit.mesorCi[1]).toBeGreaterThanOrEqual(3);
+    expect(fit.acrophaseCi[0]).toBeLessThanOrEqual(-1);
+    expect(fit.acrophaseCi[1]).toBeGreaterThanOrEqual(-1);
+    expect(fit.amplitudeCi[0]).toBeLessThanOrEqual(0.5);
+    expect(fit.amplitudeCi[1]).toBeGreaterThanOrEqual(0.5);
+    expect(fit.zeroAmplitudeP).toBeLessThan(0.001);
+  });
+});
+
+// CYC-04: the 1935 list's longest cycles repeat too few times in any US equity record.
+describe("repetition label on the yearly cycle list", () => {
+  it("labels the 30-, 50- and 60-year cycles as too few repetitions to confirm", async () => {
+    const { FEW_REPETITION_CYCLE_YEARS, MAJOR_CYCLE_YEARS } = await import("../timeCycles");
+    expect([...FEW_REPETITION_CYCLE_YEARS]).toEqual([30, 50, 60]);
+    for (const y of FEW_REPETITION_CYCLE_YEARS) expect(MAJOR_CYCLE_YEARS).toContain(y);
   });
 });
