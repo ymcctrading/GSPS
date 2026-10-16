@@ -106,8 +106,8 @@ export function readBreakaway(daily: Bar[], trigger: GannEntryTrigger | null): B
   return { rangeBound: true, rangeHigh, rangeLow, breaksAway };
 }
 
-/** Completed sessions read for the breakaway's volume: a year, the live scan's daily span. */
-export const BREAKAWAY_VOLUME_SESSIONS = 252;
+/** Completed sessions read for the breakaway's volume: inside the live scan's year of daily bars (about 250). */
+export const BREAKAWAY_VOLUME_SESSIONS = 240;
 
 export interface BreakawayVolumeReading {
   /** The way the last completed session left the range. */

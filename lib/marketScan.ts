@@ -439,7 +439,10 @@ function reversionScore(daily: Bar[], price: number, direction: "bullish" | "bea
   // criterion (lib/scoring/score.ts): Gann's volume rule at the turn, drying
   // up at a normal bottom or a climax in a panic, heavy at a top (parity D1).
   const climaxAnchorKind = direction === "bullish" ? "low" : "high";
-  const climax = computeVolumeClimax(daily).find((r) => r.anchorKind === climaxAnchorKind);
+  // Completed sessions, as the full scan reads them. The coarse pass has no
+  // monthly bars, so the smallest-month-in-years bottom (A-VOLUME-09) is read
+  // only by the full scan: a documented live-only gap in this pre-filter.
+  const climax = computeVolumeClimax(daily, undefined, { asOf: new Date() }).find((r) => r.anchorKind === climaxAnchorKind);
   if (climax?.confirms) score += 2;
 
   // Proximity to a clustered S/R level in the reversion direction

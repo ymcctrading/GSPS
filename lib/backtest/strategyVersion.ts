@@ -185,4 +185,9 @@
 // class C time readings were corrected (angle timing, weekday day counts, the
 // 90-day half-and-half record, the seasonal steps' dates, and 13 years of
 // monthly bars for the 144-month count); those are context only.
-export const STRATEGY_VERSION = "2026-10-16-gann-section-exits";
+// Same day (PLAN.md item 8 step 3): Gann's volume rules in the scored
+// volumeClimax criterion. Retests compare the turns' weeks (FV3); lower
+// secondary tops, higher secondary lows out of a bear, a panic's quiet
+// secondary low, the heaviest week before a top and the smallest month in
+// five years also confirm (FV1, FV4, FV5); completed sessions only.
+export const STRATEGY_VERSION = "2026-10-16-gann-volume-rules";

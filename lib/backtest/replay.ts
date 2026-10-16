@@ -574,7 +574,8 @@ export function buildMacroContext(
   const cycles = timeCycles(daily, asOf);
   const angleSlopes = computeAngleSlopes(daily, price);
   const timePriceSquare = computeTimePriceSquare(daily, price);
-  const volumeClimax = computeVolumeClimax(daily);
+  // Mirrors lib/scanTicker.ts: completed sessions, and the closed months for A-VOLUME-09.
+  const volumeClimax = computeVolumeClimax(daily, undefined, { asOf, monthly: priorMonthly.length > 0 ? priorMonthly : null });
   const boilingPoint = computeBoilingPoint(daily, volumeClimax);
   const retracementLevels = computeRetracementLevels(daily, price);
   const digitalRootConfluences = angleSlopes

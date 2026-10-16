@@ -186,7 +186,8 @@ export async function scanTicker(
     // as angleSlopes, a different (raw count-for-count) construction.
     const timePriceSquare = computeTimePriceSquare(daily, currentPrice);
     // Volume climax at the same pivots, replacing harmonicProximity.
-    const volumeClimax = computeVolumeClimax(daily);
+    // Completed sessions and months only, and the smallest month in years (A-VOLUME-09).
+    const volumeClimax = computeVolumeClimax(daily, undefined, { asOf: new Date(scannedAt), monthly });
     // Gann's "boiling point" blow-off duration off the same climax anchors,
     // added 2026-09-16 — confluence/context only, see lib/gann/boilingPoint.ts.
     const boilingPoint = computeBoilingPoint(daily, volumeClimax);

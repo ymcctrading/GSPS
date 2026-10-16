@@ -570,7 +570,7 @@ export function readDisclosedRules(
     topVolume: readTopVolumeWarning(toWeeklyBars(dailyBars), asOf),
     distribution: readDistributionBreakdown(dailyBars, asOf),
     breakawayVolume: readBreakawayVolume(dailyBars, asOf),
-    secondTopVolumeRatio: computeVolumeClimax(dailyBars).find((r) => r.anchorKind === "high")?.retestWeekVolumeRatio ?? null,
+    secondTopVolumeRatio: computeVolumeClimax(dailyBars, undefined, { asOf }).find((r) => r.anchorKind === "high")?.retestWeekVolumeRatio ?? null,
     secondaryTime: readSecondaryTime(dailyBars, longMonthly, asOf, counterMove),
     monthCounts: longMonthly ? readMonthCounts(monthlyWithCurrent(longMonthly, dailyBars), asOf) : null,
     swingMonthCounts: readSwingMonthCounts(dailyBars, asOf),

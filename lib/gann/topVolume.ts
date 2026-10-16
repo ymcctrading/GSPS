@@ -10,7 +10,7 @@
  *
  * Engineering choices, labelled: the prior top is the most recent major top
  * of the weekly bars (`majorPivots(findPivots(weekly, 3))`); "since" counts
- * the weeks after the top week; only the last 52 completed weeks are read, so
+ * the weeks after the top week; only the last 48 completed weeks are read, so
  * the live scan's year of daily bars and the replay's longer history pick the
  * same top; the week still in progress is never counted
  * (a part week's volume is not comparable), on the live scan and the replay
@@ -26,8 +26,11 @@ import type { Bar } from "@/lib/types";
 import { findPivots, majorPivots } from "@/lib/analysis/pivots";
 
 const DAY_MS = 86_400_000;
-/** The weeks read, a year, the live scan's daily span. */
-export const WEEKS_READ = 52;
+/**
+ * The completed weeks read: 48, inside the live scan's year of daily bars,
+ * which is fetched 365 days back and so may open on a part week.
+ */
+export const WEEKS_READ = 48;
 
 export interface TopVolumeWarningReading {
   /** The prior major top's week (YYYY-MM-DD). */

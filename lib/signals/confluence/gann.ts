@@ -198,7 +198,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
   const angleMonthCountsResult = computeAngleMonthCounts(inputs.dailyBars);
   const spectralCycle = detectSpectralCycle(inputs.dailyBars);
   const campaignLeg = computeCampaignLeg(inputs.dailyBars);
-  const volumeClimaxReadings = computeVolumeClimax(inputs.dailyBars);
+  const volumeClimaxReadings = computeVolumeClimax(inputs.dailyBars, undefined, { asOf: new Date(), monthly: inputs.instrument?.monthly ?? null });
   const boilingPoint = computeBoilingPoint(inputs.dailyBars, volumeClimaxReadings);
 
   // Digital Root/Vortex context (blueprint sections 2, 7, 18): price_dr from

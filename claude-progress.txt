@@ -589,3 +589,15 @@ volume over the mean of the range's 91-day sessions. Context field `breakawayVol
 OnVolumeAgainst. Mutations B2/B4/B5/B6/B8/B9 killed; B1 (the 252 slice) and B7 (the range read
 including the break) survive as equivalent on one session; B3 removed as redundant. Full suite
 2851 pass. Step 2's five context fields are done; step 3 (the scored rule) is next.
+
+## 2026-10-16 Item 8 step 3: Gann's volume rules in the scored volumeClimax (A-VOLUME-05/-06/-07/-09/-13; FV1-FV5 at their recommendations)
+- FV3: retests compare the two turns' calendar weeks (raw volume), not each bar's relative volume.
+- FV1: a lower secondary top after a decline on heavy volume, on a smaller week (Rules 1/7); a higher secondary low out of a bear (the earlier low the lowest of the last 252 sessions read) on less volume than the first advance, with the advance after it heavier (Rule 4); a panic's secondary low at or above the climax low on <= half the climax week (A-VOLUME-06).
+- FV4: a high also confirms when the heaviest week since the last major weekly top (majorPivots, the last 48 weeks of the bars read) came in the advance into it and was >1.5x the mean week since. A first version (heaviest week since the previous local top) passed 80% of random-walk tops and was dropped.
+- FV5: a low also confirms when the last completed month traded the least of the last 60 completed months (>= 36 needed); live 10-year monthly, replay priorMonthly. Not in the live coarse pre-filter (it has no monthly bars), recorded there.
+- FV2 (a): any smaller volume, the ratio stays context.
+- Completed sessions only (asOf) on the scan, replay, confluence, card and coarse pass. topVolume WEEKS_READ 52 -> 48 and the distribution/breakaway reads 252 -> 240 sessions, inside the live scan's 365-day daily fetch.
+- Random walks (1880 reads): high confirms 0.559 -> 0.661, low 0.665 -> 0.662; under the 0.95 saturation bound.
+- Cost: computeVolumeClimax 12 ms -> 54 ms per 250 symbols per call (it runs in four places live, ~170 ms). Getting there: etDateKey now reuses one Intl formatter (building one per call made a first version 3.3 s per 250), month keys from the bar's own date, weekOf without Date objects.
+- Notes (score.ts), lessons (Academy 4 and 6), registry note, module header updated. STRATEGY_VERSION 2026-10-16-gann-volume-rules.
+- Tests fail on the old module (11 of 22 at the time). Mutations V1-V19, H1-H5 killed; H4 (the top's own week filter) removed as unreachable. Full suite 2870 pass. Replay owed.

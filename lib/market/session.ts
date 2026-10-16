@@ -23,13 +23,17 @@ const POST_CLOSE = 20 * 60; // 20:00 ET
  * the close: a UTC date would file that run under tomorrow, and tomorrow would
  * then open showing last night's levels as though they were current.
  */
+// One formatter for every call: building an Intl.DateTimeFormat costs far
+// more than formatting with one, and the volume readings call this per bar.
+const ET_DATE_KEY = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/New_York",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
 export function etDateKey(date: Date = new Date()): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/New_York",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
+  return ET_DATE_KEY.format(date);
 }
 
 /** Minutes-since-midnight and weekday (0=Sun…6=Sat) in America/New_York. */

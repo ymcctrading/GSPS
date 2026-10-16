@@ -35,8 +35,8 @@ import { etDateKey } from "@/lib/market/session";
 import { readAccumulation, RANGE_LOOKBACK } from "@/lib/gann/accumulation";
 import { WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 
-/** Completed sessions read: a year, the live scan's daily span (and a bound on the walk's cost). */
-export const SESSIONS_READ = 252;
+/** Completed sessions read: inside the live scan's year of daily bars (about 250), and a bound on the walk's cost. */
+export const SESSIONS_READ = 240;
 
 export interface DistributionReading {
   /** The last two completed weekly-chart tops, the later one lower. */

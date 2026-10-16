@@ -233,6 +233,12 @@ const SCAN_SCORE: RegisteredCriterion[] = [
     // retest, or a climax (the panic exception); a high on heavy volume or a
     // lower-volume secondary top. The measurements below describe the
     // climax-only construction and do not transfer; treat it as unmeasured.
+    // 2026-10-16 (PLAN.md item 8 step 3, FV1-FV5 at their recommendations):
+    // retests compare the two turns' weeks, not each bar's relative volume; a
+    // lower secondary top after a heavy decline, the heaviest week in the
+    // advance into a top, a higher secondary low out of a bear, a panic's
+    // quiet secondary low and the smallest month in five years also pass.
+    // Completed sessions only. Still unmeasured on this construction.
     note:
       "Replaces `harmonicProximity` (retired 2026-09-10; see RETIRED) — its key-price-level-proximity " +
       "approach measured negligible even after fixing its stale-anchor defect twice. This is a " +

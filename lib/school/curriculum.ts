@@ -732,7 +732,7 @@ const ACADEMY_4: Academy = {
           instruction: [
             "A strong uptrend rarely closes lower three days in a row. Mrs. Bear watches for the third lower close: it says the short-term trend has turned, at least for now. Three higher closes in a downtrend say the same thing the other way.",
             "At a bottom, selling usually dries up: volume gets smaller as the fall slows, and a retest of the low comes on lighter volume than the first low. That quiet is Mr. Bull's sign that the sellers are done. A panic day with huge volume can also end a fall, but it is the exception.",
-            "At a top, very heavy volume while price stops rising says the stock is being handed from strong holders to late buyers. Mrs. Bear reads that as a warning.",
+            "At a top, very heavy volume while price stops rising says the stock is being handed from strong holders to late buyers. Mrs. Bear reads that as a warning. The heaviest week often comes just before the final top, and a second rally that stops short of the top on smaller volume says the buyers are spent.",
           ],
           application: "Find a recent bottom on a chart. Did volume shrink into it, and was the retest quieter than the first low?",
           quiz: [
@@ -1018,7 +1018,7 @@ const ACADEMY_6: Academy = {
           ],
           estimatedMinutes: 12,
           instruction: [
-            "Sales tend to increase near tops and decrease near bottoms. A normal bottom forms on shrinking volume and a narrowing range as selling runs out; a retest of the low on smaller volume says the selling is over. Very heavy volume at a low is the exception, a panic, and it is usually followed by a sharp rebound. A top tends to come on heavy volume, and a second top on smaller volume than the first says the advance is tiring.",
+            "Sales tend to increase near tops and decrease near bottoms. A normal bottom forms on shrinking volume and a narrowing range as selling runs out; a retest of the low on smaller volume says the selling is over. Very heavy volume at a low is the exception, a panic, and it is usually followed by a sharp rebound. A top tends to come on heavy volume, often heaviest in the weeks just before it, and a second top, or a lower rally after a heavy fall, on smaller volume than the first says the advance is tiring. Out of a long decline, a higher second low on less volume than the first advance, followed by a heavier advance, points to higher prices; so does the smallest monthly volume in years. Volume is compared week against week, the second turn's week against the first's.",
             "After three losing trades in a row, GSPS pauses new entries for the rest of that day and the next trading day. The point is to stop and find out what changed, the market or your judgment, before the next trade. Stops and closes are never blocked.",
             "Size is a fixed share of what the account is worth now, so a loss shrinks the next trade automatically. Nothing in GSPS raises size because of a winning streak: confidence after a run of wins is the moment to be most careful, not to trade bigger.",
           ],
