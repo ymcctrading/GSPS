@@ -541,5 +541,7 @@ export function contextFactorsFor(
     f.firstRallyOnly = fr.state === "firstRally";
     f.bullCampaignThreeMonths = fr.state === "bullCampaign";
   }
+  // C-TIME-03 (W003 p.16, class C): the range break at a cycle's expiry, a short setup only.
+  if (!bull && ctx.cycleRangeBreak) f.cycleRangeBreakShort = ctx.cycleRangeBreak.shortSetup;
   return f;
 }

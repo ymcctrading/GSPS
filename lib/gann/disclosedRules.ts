@@ -119,7 +119,7 @@ import type { Bar } from "@/lib/types";
 import { findPivots, majorPivots } from "@/lib/analysis/pivots";
 import { closesAfter } from "@/lib/analysis/trend";
 import { computeRuleOfThree, type RuleOfThreeReading } from "@/lib/gann/ruleOfThree";
-import { DAY_COUNT_BANDS } from "@/lib/gann/timeCycles";
+import { DAY_COUNT_BANDS, timeCycles } from "@/lib/gann/timeCycles";
 import { buildCampaignLedger, describeCampaignLedger, SECOND_MONTH_END_DAYS, type CampaignLedger } from "@/lib/gann/campaignLedger";
 import { THREE_DAY_CHART, WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 import { readExtremeRules, type ExtremeRulesReading } from "@/lib/gann/extremeRules";
@@ -154,6 +154,7 @@ import { describeOutbreakCounts, readOutbreakCounts, type OutbreakCountHit } fro
 import { describeOneByOneBreak, readOneByOneBreak, type OneByOneBreak } from "@/lib/gann/fans";
 import { describeJensenConvergence, jensenBottomConvergence, type JensenConvergence } from "@/lib/gann/jensen";
 import { describeFirstRally, readFirstRally, type FirstRallyReading } from "@/lib/gann/firstRally";
+import { describeCycleRangeBreak, readCycleRangeBreak, type CycleRangeBreak } from "@/lib/gann/cycleRangeBreak";
 import { describePatternAngles, readPatternAngles, type PatternAngleReading } from "@/lib/gann/patternAngles";
 import { describeDayCircle, readDayCircle, type DayCircleReading } from "@/lib/gann/dayCircle";
 import {
@@ -683,6 +684,8 @@ export interface DisclosedRulesContext {
   jensenConvergence?: JensenConvergence | null;
   /** The advance out of a bear market's low: a first rally or a bull campaign (A-TIME-03, context only). See `firstRally.ts`. */
   firstRally?: FirstRallyReading | null;
+  /** A 3-4 day range broken down on volume, and whether on a time-cycle date (C-TIME-03, class C, context only). See `cycleRangeBreak.ts`. */
+  cycleRangeBreak?: CycleRangeBreak | null;
   /** The session this was read for (YYYY-MM-DD). */
   asOf: string;
 }
@@ -860,6 +863,7 @@ export function readDisclosedRules(
     oneByOneBreak: readOneByOneBreak(dailyBars),
     jensenConvergence: jensenBottomConvergence(dailyBars, unit),
     firstRally: readFirstRally(instrument?.monthly ? monthlyWithCurrent(instrument.monthly, dailyBars) : toMonthlyBars(dailyBars)),
+    cycleRangeBreak: readCycleRangeBreak(dailyBars, timeCycles(dailyBars, asOf).active),
     asOf: asOf.toISOString().slice(0, 10),
   };
 }
@@ -1101,5 +1105,6 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   }
   const fr = ctx.firstRally ? describeFirstRally(ctx.firstRally) : null;
   if (fr) lines.push(fr);
+  if (ctx.cycleRangeBreak) lines.push(describeCycleRangeBreak(ctx.cycleRangeBreak));
   return lines;
 }
