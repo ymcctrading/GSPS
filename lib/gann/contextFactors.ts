@@ -21,6 +21,7 @@ import type { DisclosedRulesContext } from "@/lib/gann/disclosedRules";
 import { approachingFigure } from "@/lib/gann/evenFigures";
 import { failedTestInPath } from "@/lib/gann/multipleTops";
 import { computeMacroCycle } from "@/lib/gann/macroCycle";
+import { readDayCircle } from "@/lib/gann/dayCircle";
 
 export type ContextFactors = Record<string, boolean>;
 
@@ -30,6 +31,8 @@ export function contextFactorsFor(
   price: number,
   /** The plan's first target, when known (A-LEVELS-04's excused population). */
   takeProfit1?: number | null,
+  /** The entry bar, for Gann's day clock (`dayCircle.ts`). The replay passes it; omitted, those two factors are absent. */
+  entryBar?: { time: string; barMinutes: number },
 ): ContextFactors {
   const bull = direction === "bullish";
   const f: ContextFactors = {};
@@ -112,6 +115,8 @@ export function contextFactorsFor(
   if (ctx.seasonal !== undefined) {
     f.seasonalCountActive = ctx.seasonal !== null;
     f.seasonalCountMajor = ctx.seasonal !== null && ctx.seasonal.point.rank <= 2;
+    // The plate's sixteenths (2026-09-30), measured on their own.
+    f.seasonalCountSixteenth = ctx.seasonal !== null && ctx.seasonal.point.rank === 5;
   }
   // G22: a breakout from a long range in the trade's direction.
   if (ctx.accumulation) {
@@ -275,6 +280,98 @@ export function contextFactorsFor(
     }
     if (inc.precision !== "year") f.incorporationMonth = inc.anniversaryMonth;
     f.incorporationCycleYear = inc.completingCycles.length > 0;
+  }
+  // Master Course Ch. 3: the Overnight Chart and the mechanical method on it.
+  const o = ctx.overnight;
+  if (o) {
+    const side = bull ? "up" : "down";
+    f.overnightLineWithTrade = o.line === side;
+    f.overnightTurnedWithTrade = o.turnedToday && o.line === side;
+    if (o.system) f.overnightSystemWithTrade = o.system === (bull ? "long" : "short");
+    // The worked log's buying (selling) point: the half-way point of the last
+    // swing in the trade's direction, within one point.
+    if (o.halfway) f.atOvernightHalfwayWithTrade = o.halfway.swing === side && Math.abs(price - o.halfway.price) <= o.point;
+  }
+  // Rule 8: three closes around one price, then a break, on any timeframe.
+  const clusters = [ctx.closeClusters.daily, ctx.closeClusters.weekly, ctx.closeClusters.monthly].filter((c) => c?.breakout);
+  if (clusters.length > 0) {
+    f.closeClusterBreakWithTrade = clusters.some((c) => c?.breakout === (bull ? "up" : "down"));
+    f.closeClusterBreakAgainstTrade = clusters.some((c) => c?.breakout === (bull ? "down" : "up"));
+  }
+
+  // The Square of 144 Master Calculator (1953). Gann gives these points no
+  // direction: they are where trend changes come, so they are recorded as
+  // they stand, like the day-count bands.
+  const mc = ctx.masterCalculator;
+  if (mc) {
+    f.square144PriceOnStrongPoint = mc.strongPlacements.length > 0;
+    const pivots = [mc.fromHigh, mc.fromLow].filter((p) => p !== null);
+    f.square144TimeOnChangePoint = pivots.some((p) => p!.onChangePoint.some((h) => h.unit !== "marketDays"));
+    f.square144TimePriceSquare = pivots.some((p) => p!.timePriceSquare.length > 0);
+    f.square144SquaringPrice = pivots.some((p) => p!.squaringPrice.length > 0);
+    f.greatCycleFraction = pivots.some((p) => p!.greatCycleFraction !== null);
+  }
+  // The circle of 360° (1953): half-way points and moves on a major degree.
+  const circle = ctx.circle;
+  if (circle) {
+    f.circleHalfwayMajor = circle.halfway.major || circle.halfHigh.major;
+    f.circleMoveMajor = circle.upFromLow.major || circle.downFromHigh.major;
+    f.circleTimeMajor = circle.time.some((t) => t.reading.major);
+  }
+  // GA-32: price on the degree of its time angle from inception.
+  if (ctx.timeAngle) {
+    f.timeAngleBalanced = ctx.timeAngle.state === "balanced";
+    f.priceAheadOfTimeWithTrade = ctx.timeAngle.state === (bull ? "ahead" : "behind");
+  }
+  // The planetary averages (1954 letter), Tier A ones only.
+  const pl = ctx.planetary;
+  if (pl) {
+    const on = (prefix: string) => pl.averages.some((a) => a.tier === "A" && a.id.startsWith(prefix) && a.on);
+    f.onPlanetaryAverage = pl.averages.some((a) => a.tier === "A" && a.on);
+    f.onSixPlanetAverage = on("six");
+    f.onMOF = on("mof");
+    f.onCOE = on("coe");
+  }
+  // The time square (Gann's Square of Nine plate read in time): days, weeks or
+  // months from the extreme high or low on its cardinal cross, or on either
+  // cross. No direction in Gann's text; recorded as it stands.
+  if (ctx.squareOfNineTime) {
+    f.timeSquareCardinal = ctx.squareOfNineTime.some((h) => h.line.kind === "cardinal");
+    f.timeSquareOnCross = ctx.squareOfNineTime.some((h) => h.line.kind !== "sixteenth");
+  }
+  // Gann's day clock at the entry bar: a major degree of the day inside the
+  // bar, and price on the degree of its time angle.
+  if (entryBar) {
+    const unit = ctx.masterCalculator?.unit;
+    const r = readDayCircle(new Date(entryBar.time), entryBar.barMinutes, price, unit);
+    f.entryOnDayCircleMajor = r.majorDegree !== null;
+    if (unit) f.entryPriceOnDayTimeAngle = r.priceOnTimeAngle;
+  }
+  // Gann's planetary rules and Jensen's method (`astroRules.ts`, `jensen.ts`):
+  // measured here. The levels act through the S/R list and the dated readings
+  // through the shared time-window mechanism once it exists. Only the close
+  // through a planet's longitude has a direction in Gann's text.
+  const astro = ctx.astro;
+  if (astro) {
+    f.astroOnActiveAngle = astro.activeAngles.length > 0;
+    if (astro.closedThroughBody) f.astroClosedThroughPlanetWithTrade = astro.closedThroughBody.direction === (bull ? "up" : "down");
+    if (astro.sunTravel) f.astroOnSunTravelLevel = astro.sunTravel.on;
+    if (astro.marsHalfReturn) f.astroMarsHalfReturn = astro.marsHalfReturn.today;
+    f.astroOnWheelOfExtreme = astro.wheel !== null;
+    f.astroNaturalAngleNear = astro.naturalAngle.near;
+    f.astroSolarSeasonalPoint = astro.solarPoint !== null;
+    f.astroNewMoon = astro.newMoon !== null;
+    f.astroLunarReturnFromPivot = astro.lunarReturn !== null;
+    f.jensenSquareOf90Price = astro.jensen.price !== null;
+    f.jensenSquareOf90Time = astro.jensen.time !== null;
+    // Jensen's slow-planet aspects: the square family bearish, the trine
+    // family bullish (`jensen.ts`). Read only when one family outnumbers the other.
+    const bias = astro.jensen.aspects.bias;
+    if (bias === "bullish" || bias === "bearish") f.jensenAspectsWithTrade = bias === (bull ? "bullish" : "bearish");
+    f.jensenAspectTriggered = astro.jensen.aspects.triggered;
+    // Jensen's projection: price has reached the estimated exhaustion of the move, within his one point.
+    const proj = astro.jensen.projection;
+    if (proj) f.jensenAtProjectedExhaustion = proj.direction === "up" ? price >= proj.price - astro.unit : price <= proj.price + astro.unit;
   }
   return f;
 }

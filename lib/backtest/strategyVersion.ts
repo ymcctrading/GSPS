@@ -278,4 +278,30 @@
 // it"). The crossing exemption is removed: a 15-minute crossing no longer
 // lets a buy through a failed top, on the scan, the replay, confirmation or
 // placement.
-export const STRATEGY_VERSION = "2026-10-16-gann-failed-tops-daily-close";
+//
+// --- from main (PR #310) ---
+// 2026-09-30 (owner: "zero gaps", COE and MOF "embedded throughout"): the S/R
+// list gains Gann's Square of 144 square ends and centres and the nearest
+// resistance points of his planetary averages (the six, the MOF and the COE,
+// heliocentric and geocentric), via lib/gann/masterLevels.ts on the live scan
+// and the replay. The Master Calculator's time readings, the circle of 360°
+// and the GA-32 time angle are new measured context, not scored.
+// 2026-10-16: both 2026-09-30 changes together once PR #306 was merged with
+// main (the stop-breach retirement and the calculator/planetary levels).
+// 2026-10-16 (owner, 2026-10-01: "every Gann method acts"): the S/R list also
+// gains the nearest active angle above and below price for Jupiter, Saturn and
+// Uranus (a planet's longitude, square, trine or opposition, 1954 letter), via
+// lib/gann/astroRules.ts#activeAngleLevels and masterLevels.ts; and the nearest
+// point of Jensen's square of 90 above and below price (jensenLevels), on the
+// placement recommended to the owner, who places Jensen item by item.
+// Same day (owner: "Determine the best way to use Jensen work", delegating the
+// placement): Jensen's square of 90 is laid at the high as well as the low,
+// repeats past 90 points, and includes the 7½ and 15 trine points
+// (lib/gann/jensen.ts), so the Jensen levels move again.
+//
+// 2026-10-16-gann-parity-jensen: PR #309 merged with main after PR #310. The
+// failed-top daily-close rule and level parity now sit together with the
+// Square of 144, planetary-average, active-angle and Jensen levels. The
+// master levels are read from the same level charts on the scan and the
+// replay (lib/scan/levelCharts.ts).
+export const STRATEGY_VERSION = "2026-10-16-gann-parity-jensen";

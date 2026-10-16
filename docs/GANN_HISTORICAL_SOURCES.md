@@ -458,6 +458,27 @@ more openly astrological in his final years, at least in this specific
 9, 12 tied to his "Master Calculator" device and to his own stated
 Masonic membership), not zodiacal.
 
+### A12. The Master Calculator lesson (Sept 29, 1953), the circle of 360°, GA-32, and the letter of March 20, 1954
+
+Read in full 2026-09-30 from the owner's upload (*Collected Writings of
+W. D. Gann* Vol. 3, 35 pages, and 18 screenshots). Full note:
+`docs/memory-bank/sources/A12_master_calculator_1953_and_1954_letter.md`.
+Built from it: `masterCalculator.ts`, `circleOf360.ts`,
+`planetaryAverages.ts` (the COE and MOF), `masterLevels.ts`.
+
+### A13. *W. D. Gann on The Master Time Factor* (Gann Study Group compilation, 2014)
+
+A free 52-page compilation of every statement Gann made about the Master
+Time Factor: a 1927 letter, interviews of 1919, 1922 and 1923, passages
+from his books and brochures, and about 40 of his newspaper advertisements
+from 1921 to 1946. Read in full 2026-10-01. Tier A for Gann's statements,
+Tier B for the compiler's notes. **It confirms the Master Time Factor was
+never disclosed.** Every statement says what it does: tells when cycles
+repeat and run out, and when accumulation or distribution is under way.
+None says how. Adds the earliest dated use of the name (July 9, 1927) and
+three corrections (C-A13-1 to -3). Full note:
+`docs/memory-bank/sources/A13_master_time_factor_compilation_2014.md`.
+
 ## Part A2 — Gann's private course and subscriber-bulletin material
 (primary, but not among the ten public books)
 
@@ -555,6 +576,14 @@ single largest remaining primary-source gap in the whole 25-document
 catalog: Chapter 7, "Master Time Factor and Forecasting by Mathematical
 Rules" — the chapter title itself names the thing every other source in
 this catalog could only gesture at as withheld.
+
+**Correction (2026-10-01, A13, C-A13-2):** that title is the compiler's,
+not Gann's. Gann headed the lesson "Forecasting" (pages F-1 to F-21), and
+neither "Master Time Factor" nor "time factor" appears in it. The cycle
+hierarchy below is disclosed and built. That it is the Master Time Factor,
+or its outer shell, is our inference, not Gann's statement. Every statement
+Gann made about the Master Time Factor says what it does and none says how
+(see A13).
 
 - **Chapter 7 — Master Time Factor: major/minor cycles, named and dated.**
   A full cycle hierarchy with exact lengths: 60 years ("Great Cycle —
@@ -754,6 +783,8 @@ A2.1 alludes to but doesn't show:
 - A composite/averaging technique: the mean of six heliocentric
   planetary longitudes, plus explicit half-sum midpoints between planet
   pairs.
+- (2026-09-30: the letter reads "COE", not "CE". The COE and MOF are
+  decoded and built in `docs/memory-bank/sources/A12_master_calculator_1953_and_1954_letter.md`.)
 - Explicitly withholds further material ("the CE AVERAGE," "the MOF
   FORMULA") for higher-tier paying students and reminds the reader of a
   signed non-disclosure agreement — the same withholding pattern already
@@ -930,7 +961,14 @@ to the technique catalog.
 
 ### B12. "Gann Master Chart.xls" (a working spreadsheet, bundled as
 `Gann-Master-Chart.rar`; internal file dates March/April 2001, archived
-into the rar Oct 2004; compiler/author not stated)
+into the rar Oct 2004)
+
+**Superseded 2026-09-30 by the full read** in
+`docs/memory-bank/sources/B12_gann_master_chart_spreadsheet.md`. The
+workbook credits Utaro Hayashi (Chicago), was last saved by Ray Tomes,
+and comes from the Cycles Research Institute, the owner-trusted source of
+Part C. Its Square of Nine layout and date/time labels reproduce Gann's own
+plate. The entry below is the 2026-09-15 inspection, kept as history.
 
 Not a text source — a live, formula-driven Excel calculator, six sheets:
 `SQ9 Price-1/2`, `SQ9 Time-1/2`, `Hexagon-Price`, `Hexagon-Time`.
@@ -972,6 +1010,43 @@ Confirmed non-Gann (Elliott Wave, not Gann), consistent with how B6/B7
 were treated. Extraction only surfaced the title page — actual
 mathematical content unread; re-extract only if a future task
 specifically needs Elliott Wave math, not for Gann research.
+
+### B15. Global View Technology online help, "Square of Nine" and "Gann Hexagon Chart" (2002)
+
+Charting-software help pages, sent by the owner as screenshots on
+2026-10-01. Its Square of Nine examples (S&P 500, 2001–2002) are the
+relative method `squareOf9.ts` already runs, and agree with it to within a
+cell, apart from two misprints. Its hexagon drawing is the same
+reconstruction as B12, not Gann's lost plate. It reprints Gann's January
+1931 Hexagon lesson, which matches A2.1 Ch. 15A/15B. No new Gann source.
+Full note: `docs/memory-bank/sources/B15_global_view_technology_2002_square_of_nine_hexagon.md`.
+
+### B16. L. J. Jensen, *Astro-Cycles and Speculative Markets* (Library of Gann, 1978; from brochures of 1934–36)
+
+Read in full 2026-10-01 (154 pp.). Jensen never names Gann. The only link
+is the publisher. Section III ("Market Charts", 1934) is Gann's own
+January 1931 Pattern Chart, the Square of 90 with the same angle table,
+credited by Jensen to his partner George Liggett and to Virgil Moore. It
+corroborates Gann and adds worked examples. Sections I, II and IV are
+Jensen's own geocentric aspect method (Jupiter, Saturn, Uranus, the Moon's
+Node against 9° Gemini, the quintile family). It is not a decoding of
+Gann's astrology. Its dated planetary positions check out against
+`astronomy-engine`. Gives a fixed aspect-and-orb specification usable for
+testing Gann's Jupiter–Saturn aspects (AS3), and surfaced two gaps in
+Gann's own rules (G27, G28). Full note:
+`docs/memory-bank/sources/B16_jensen_astro_cycles_and_speculative_markets.md`.
+
+### B17. "The Market Geometry of Luther Jensen" (tradingwdgann.com, Arcanum Research)
+
+A course seller's article, read from 20 screenshots on 2026-10-01. It
+claims Jensen and Gann were colleagues (no evidence shown), and that
+Jensen's square-of-90 lines work through fixed "astral points" once tuned
+by an undisclosed Law of Vibration key. It also claims a decoding of "Gann's
+section on Descartes" in *Tunnel Thru the Air*: in the full text, Descartes
+is a doctor in the plot (pp. 244–246). Its visible mechanism (a line from
+each pivot, copied to the preceding opposite pivot) is Gann's own
+parallel-angle rule (A2.1 GA-12 to GA-16). Folded into gap G27. Full note:
+`docs/memory-bank/sources/B17_tradingwdgann_jensen_geometry_article.md`.
 
 ## Part C — General cycle-theory sources (non-Gann), from "Observation of
 Cycles"
@@ -1072,7 +1147,7 @@ application; included for completeness since it was in the source folder.
 | Percentage retracement (eighths/thirds) | A8, explicit and central | B4 | Yes — `lib/gann/retracement.ts`, scored inside `gannRetracementConfluence` |
 | Fixed annual/anniversary time cycles | A4 (permanent calendar-date cycle), A3 (age/anniversary timing), A7 (WWI-anchor cycle projection), **A2.1 (independent second citation, with exact day-ranges: Jan 2-7/15-21, Jul 3-7/20-27)** | — | Yes, as a documented interpretation — `lib/gann/timeCycles.ts` (context-only), extended 2026-09-16 with the literal A4 calendar windows |
 | "Sections of a campaign" (3–4 legs, later sections weighted more) | A5, A8 | — | **Corrected — this row understated it.** Directly implemented — `lib/gann/swingChart.ts`'s `computeCampaignLeg`, added 2026-09-16, counts 3-day-chart legs since the last 9-day trend change and classifies against Gann's disclosed 3-4-leg pattern (`"low"` legs 1-2, `"high"` legs 3-4, `"extended"` leg 5+). Confluence/context only, not scored. |
-| Multi-cycle major/minor time hierarchy (60/50/30/20/15/10/7/5/3/2/1-year cycles, numbered forecasting rules, monthly/weekly/daily scaled-down versions) | **A2.1 Ch. 7, "Master Time Factor"** — the fullest disclosed statement of the withheld timing mechanism's outer shell in this catalog, including a complete worked 1896-1935 DJIA case study against the 1/32-of-360° month-count angles | — | **Corrected — this row was stale.** `lib/gann/timeCycles.ts`'s `MAJOR_CYCLE_YEARS = [1, 2, 3, 5, 7, 10, 15, 20, 30, 50, 60]` is an exact match to the full disclosed year-cycle list, projected forward from a symbol's own pivots — not the "small subset" this row previously claimed. **Macro layer added 2026-09-26:** `lib/gann/macroCycle.ts` runs the same hierarchy as recurring anniversary months of Gann's own cited DJIA turns from this case study (Aug 1896, Apr 1897, Nov 1907, Sep 1909, Sep 1929 — the 1897/1909 months derived from Gann's own 127/240-month counts), independent of any symbol; confluence-only hypothesis. Still genuinely open: the numbered forecasting rules (Rule 7's 3+3+4-year sequence in particular — Rules 4/5's repeated +10 years is covered by the recurrence), the monthly/weekly/daily scaled-down versions of the hierarchy, and the day-of-month "natural change" table; and none of it has been validated against the worked 1896-1935 DJIA case study. |
+| Multi-cycle major/minor time hierarchy (60/50/30/20/15/10/7/5/3/2/1-year cycles, numbered forecasting rules, monthly/weekly/daily scaled-down versions) | **A2.1 Ch. 7, "Forecasting"** (Nov 1935; often titled "Master Time Factor and Forecasting by Mathematical Rules", though the lesson never uses the term, see A13) — the fullest disclosed cycle hierarchy in this catalog, including a complete worked 1896-1935 DJIA case study against the 1/32-of-360° month-count angles | — | **Corrected — this row was stale.** `lib/gann/timeCycles.ts`'s `MAJOR_CYCLE_YEARS = [1, 2, 3, 5, 7, 10, 15, 20, 30, 50, 60]` is an exact match to the full disclosed year-cycle list, projected forward from a symbol's own pivots — not the "small subset" this row previously claimed. **Macro layer added 2026-09-26:** `lib/gann/macroCycle.ts` runs the same hierarchy as recurring anniversary months of Gann's own cited DJIA turns from this case study (Aug 1896, Apr 1897, Nov 1907, Sep 1909, Sep 1929 — the 1897/1909 months derived from Gann's own 127/240-month counts), independent of any symbol; confluence-only hypothesis. Still genuinely open: the numbered forecasting rules (Rule 7's 3+3+4-year sequence in particular — Rules 4/5's repeated +10 years is covered by the recurrence), the monthly/weekly/daily scaled-down versions of the hierarchy, and the day-of-month "natural change" table; and none of it has been validated against the worked 1896-1935 DJIA case study. |
 | "Decade digit" bull/bear year cycle (each 1-10 year of a calendar decade assigned a market character) | **A2.1 Ch. 7** — now primary-confirmed | Previously only B9 (unverifiable secondary, now corroborated) | **Corrected — this row was stale.** Implemented — `lib/gann/decadeCycle.ts`. Confluence/context only; per B9's original caution should still clear its own attribution pass before being treated as more than a hypothesis, notwithstanding the upgraded source tier. |
 | Master Square of Twelve / Square of 144 ("Master Numbers" 3, 5, 7, 9, 12; nested inside Square of 9 at nine full cycles) | **Absent from all ten public books; directly disclosed by Gann himself in A2.1 Ch. 13**, with full fractional structure and a worked wheat-commodity example | B9's 144×144=20,736 table (independently corroborates the same construction from a low-reliability source) | **Corrected — this row was stale.** Implemented — `lib/gann/masterTwelve.ts`, wired into the live confluence layer (`lib/signals/confluence/gann.ts`) since 2026-09-16. Not scored. |
 | Square of 52 (weekly time-period calculator, 7-day weeks) | **Absent from all ten public books; directly disclosed by Gann himself in A2.1 Ch. 14** | — | **Corrected — this row was stale.** Implemented — `lib/gann/squareOf52.ts`, wired into the live confluence layer since 2026-09-16. Not scored. |

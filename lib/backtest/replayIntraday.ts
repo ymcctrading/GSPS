@@ -71,7 +71,7 @@ import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { atr } from "@/lib/analysis/pivots";
 import { computeGannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { gannFirstTarget } from "@/lib/scanner/intraday";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { gannThreePoints, intradayPoint } from "@/lib/gann/pointScale";
 import { RECLAIM_POINTS, isReclaimedByClose, isStopBreached, isStopBreachedByBar } from "@/lib/gann/stopBreach";
 import { swingPivots, walkSwingChart } from "@/lib/gann/swingChart";
 import { advanceEntryConfirmation, entryReady, freshEntryConfirmation } from "@/lib/lifecycle/entryConfirmation";
@@ -92,8 +92,9 @@ const SWING_BARS = 3;
  * the 15-minute execution timeframe, five hours). Not tuned.
  */
 export const PLAN_LIFETIME_BARS = 20;
-/** Floor on one point, as a share of price. Engineering choice: keeps a quiet name from getting no allowance. */
-export const MIN_POINT_PCT = 0.05;
+// One intraday point lives in `lib/gann/pointScale.ts` (2026-10-16), so the
+// intraday alerts read the same allowance this profile does.
+export { MIN_POINT_PCT, intradayPoint } from "@/lib/gann/pointScale";
 
 export interface IntradayReplayOptions {
   /** Round-trip friction per share. */
@@ -125,16 +126,6 @@ interface Plan {
 const hourKey = (b: Bar) => b.t.slice(0, 13);
 const dateOf = (b: Bar) => b.t.slice(0, 10);
 
-/**
- * One intraday point at this price: a third of Gann's price-scaled 3 points
- * times how large these bars' swings are against a day's. Zero when either
- * ATR is unknown.
- */
-export function intradayPoint(price: number, barAtr: number, dailyAtr: number): number {
-  if (!(price > 0) || !(barAtr > 0) || !(dailyAtr > 0)) return 0;
-  const scale = Math.min(1, barAtr / dailyAtr);
-  return Math.max((gannThreePoints(price) / 3) * scale, (price * MIN_POINT_PCT) / 100);
-}
 
 /** The scale the stop-breach allowance takes on these bars: one point against the daily 3-point allowance's third. */
 function allowanceScale(price: number, point: number): number {

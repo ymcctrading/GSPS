@@ -306,7 +306,7 @@ describe("the excused failed tops are measured (review 12 M3)", () => {
   });
   it("is passed the session plan's TP1 in the replay", () => {
     const s = readFileSync("lib/backtest/replay.ts", "utf8");
-    expect(s.match(/contextFactorsFor\(arm\.context\.disclosedRules, trigger\.direction, entry, path\?\.takeProfit1\)/g)?.length).toBe(2);
+    expect(s.match(/contextFactorsFor\(arm\.context\.disclosedRules, trigger\.direction, entry, path\?\.takeProfit1[,)]/g)?.length).toBe(2);
   });
 });
 

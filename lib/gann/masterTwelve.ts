@@ -12,9 +12,19 @@
  * genuinely have. Confluence/ranking only, same non-authoritative role as
  * `nearestSquareOf9`.
  *
+ * **Corrected 2026-09-30, after the full Chapter 13 text was read** (source
+ * note A12): the spiral below is GSPS's own construction, a base-12 analog of
+ * `squareOf9.ts`. Gann's Master Calculator is not a spiral. It reads a price
+ * or a time as a position inside a square of 144 (436¾ is 4¾ in the fourth
+ * square) and marks its strongest points; that is `masterCalculator.ts`,
+ * which supplies the Square of 144 readings and levels now. This module stays
+ * as a confluence display until it is replaced or grounded; do not cite it as
+ * Gann's calculator.
+ *
  * `lib/gann/squareOf9.ts` generalizes the square-root spiral to base 9; this
- * module is the base-12 analog Chapter 13 itself describes as *literally
- * nested* inside the Square of Nine, not an independent system: its "Great
+ * module's spiral is the base-12 analog. The earlier claim here that
+ * Chapter 13 describes the spiral as *literally nested* inside the Square of
+ * Nine is not in the text; what is in it is the arithmetic below: its "Great
  * Cycle" of 20,736 (144²) halves down through 10,368 / 5,184 / 2,592 / 1,296
  * / 648 / 324 / 162 / 81 — and 81 is exactly 9², the Square of Nine's own
  * total cell count (`__tests__/masterTwelve.test.ts` asserts this chain and

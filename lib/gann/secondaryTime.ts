@@ -21,7 +21,8 @@
  *   (a 30-year cycle gives 3.75, 7.5 and 10 years).
  * - C-TIME-37 / -38 (W023; W035 p.3; W050 images 5 and 7): the seasonal
  *   circle in 22.5° and 15° steps from March 21, on the days the class A
- *   eighths and thirds leave out.
+ *   eighths, thirds and sixteenths leave out (only the 15° steps since the
+ *   sixteenths became class A on main, 2026-10-16).
  * - C-TIME-25 (W003 p.22; W034 p.5): a counter-trend move normally lasts 3-5
  *   trading days on a stock; one past its 4th day signals consolidation or a
  *   reversal, and the next counter-move runs 7-10 days.
@@ -153,15 +154,23 @@ export function cycleFractions(years: number): { label: string; years: number }[
  */
 export const SEASONAL_FRAME: readonly { degrees: number; month: number; day: number }[] = [
   { degrees: 0, month: 3, day: 21 },
+  { degrees: 22.5, month: 4, day: 12 },
   { degrees: 45, month: 5, day: 5 },
+  { degrees: 67.5, month: 5, day: 27 },
   { degrees: 90, month: 6, day: 21 },
+  { degrees: 112.5, month: 7, day: 14 },
   { degrees: 120, month: 7, day: 23 },
   { degrees: 135, month: 8, day: 5 },
+  { degrees: 157.5, month: 8, day: 31 },
   { degrees: 180, month: 9, day: 22 },
+  { degrees: 202.5, month: 10, day: 15 },
   { degrees: 225, month: 11, day: 8 },
   { degrees: 240, month: 11, day: 22 },
+  { degrees: 247.5, month: 11, day: 30 },
   { degrees: 270, month: 12, day: 21 },
+  { degrees: 292.5, month: 1, day: 13 },
   { degrees: 315, month: 2, day: 4 },
+  { degrees: 337.5, month: 2, day: 28 },
   { degrees: 360, month: 3, day: 21 },
 ];
 
@@ -181,10 +190,12 @@ function seasonalDay(year: number, deg: number): number {
 
 /**
  * C-TIME-37/-38: the 22.5° and 15° steps of the seasonal circle from March 21
- * that are not already a class A seasonal point (the eighths and thirds).
+ * that are not already a class A seasonal point (the eighths, thirds and,
+ * since the Square of Nine plate's dated sixteenths joined `SEASONAL_POINTS`,
+ * every 22.5° step; so only the 15° steps remain here).
  */
 export const SEASONAL_FINE_DEGREES: readonly number[] = (() => {
-  const classA = new Set([0, 45, 90, 120, 135, 180, 225, 240, 270, 315]);
+  const classA = new Set([0, 22.5, 45, 67.5, 90, 112.5, 120, 135, 157.5, 180, 202.5, 225, 240, 247.5, 270, 292.5, 315, 337.5]);
   const out = new Set<number>();
   for (let d = 0; d < 360; d += 22.5) if (!classA.has(d)) out.add(d);
   for (let d = 0; d < 360; d += 15) if (!classA.has(d)) out.add(d);

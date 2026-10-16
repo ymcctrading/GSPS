@@ -193,7 +193,7 @@ building it, each of which counsel may want to see:
   `trade_plans`: the scan is the authority, as the owner decided.
 
 The intraday alerts need nothing: each scan recomputes them from the session, and their invalidation is
-the session's 50% point or opening range.
+the session's 50% point or a point beyond the crossed prior-session high or low.
 
 ---
 
@@ -318,7 +318,12 @@ do not, and have to be re-derived in the unit of the chart. That is the same mov
 | Exit on trend change | Weekly swing chart turns | The hourly swing chart turns | Same rule, finer chart. |
 
 The intraday scanner (`lib/scanner/intraday.ts`) already used two of these: the session's 50% point
-(replacing VWAP, 2026-09-28) and the opening range. Its first target was the exception: twice the
+(replacing VWAP, 2026-09-28) and the opening range. **2026-10-16 (owner: "fix all non Gann gaps"):**
+the opening range, the ATR "volatility expansion" detector and the six-bar structure check had no Gann
+source and are replaced by a close beyond the prior session's high or low by one intraday point
+(`intradayPoint`, now in `lib/gann/pointScale.ts`, the same allowance as this table's replay), the
+over-balance of space read by `buildCampaignLedger` with today's session as the newest bar, and the
+3-bar swing chart on the session's bars. Its first target was the exception: twice the
 risk, an R-multiple with no Gann source, and the one intraday component that failed the Gann-grounded
 standard. **Replaced 2026-09-30** (owner: "everything must align with Gann") by `gannFirstTarget`, the
 table's "first target" row: the nearest old top (up) or bottom (down) beyond the price, or a round

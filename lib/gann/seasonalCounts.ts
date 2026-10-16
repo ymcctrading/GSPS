@@ -15,6 +15,17 @@
  * fraction of the seasonal year today sits on) and its rank, so the ranking
  * can be read and measured. The ⅓ and ⅔ dates join the fixed calendar too.
  *
+ * **The sixteenths, added 2026-09-30.** Gann's Square of Nine plate labels the
+ * wheel every 22.5° with a date (Collected Writings Vol. 3 p. 34; the Cycles
+ * Research Institute workbook, source note B12): April 12, May 27, July 14,
+ * August 31, October 15, November 30, January 13 and February 28, between the
+ * eighths. His 1951 lesson gives 1/16 of a year (about 23 days) as why moves so
+ * often run three weeks to a month (Master Course Ch. 17). They rank below the
+ * eighths (rank 5), the next division down in his order. The plate's dates are
+ * used as printed: they are the Sun's 22.5° points, so they are not equal day
+ * counts (the summer half of the year is longer), and Gann's dates win over an
+ * even split.
+ *
  * Engineering choice, labelled as such: "around" is ±`SEASONAL_TOLERANCE_DAYS`.
  *
  * Three-question basis:
@@ -33,8 +44,8 @@ export interface SeasonalPoint {
   /** Month (1-12) and day. */
   month: number;
   day: number;
-  /** 1 highest. */
-  rank: 1 | 2 | 3 | 4;
+  /** 1 highest; 5 is the sixteenths. */
+  rank: 1 | 2 | 3 | 4 | 5;
 }
 
 export const SEASONAL_POINTS: readonly SeasonalPoint[] = [
@@ -48,6 +59,15 @@ export const SEASONAL_POINTS: readonly SeasonalPoint[] = [
   { label: "¾", month: 12, day: 21, rank: 2 },
   { label: "⅞ (midseason)", month: 2, day: 4, rank: 4 },
   { label: "the full year", month: 3, day: 21, rank: 1 },
+  // The sixteenths, as dated on Gann's Square of Nine plate (every 22.5°).
+  { label: "1/16", month: 4, day: 12, rank: 5 },
+  { label: "3/16", month: 5, day: 27, rank: 5 },
+  { label: "5/16", month: 7, day: 14, rank: 5 },
+  { label: "7/16", month: 8, day: 31, rank: 5 },
+  { label: "9/16", month: 10, day: 15, rank: 5 },
+  { label: "11/16", month: 11, day: 30, rank: 5 },
+  { label: "13/16", month: 1, day: 13, rank: 5 },
+  { label: "15/16", month: 2, day: 28, rank: 5 },
 ];
 
 export interface SeasonalCountReading {

@@ -13,6 +13,7 @@ import {
   readCycleFractions,
   readSeasonalFineStep,
   SEASONAL_FRAME,
+  SEASONAL_FINE_DEGREES,
   readSecondaryDayCounts,
   readSecondaryMonthCounts,
   readSecondaryWeekCounts,
@@ -173,15 +174,17 @@ describe("secondary month counts (C-TIME-09, W003 p.18)", () => {
 });
 
 describe("finer seasonal steps (C-TIME-37/-38)", () => {
-  it("reads the 22.5 degree point on April 12 and the 15 degree point on April 5", () => {
-    expect(readSeasonalFineStep(new Date(Date.UTC(2026, 3, 12)))).toMatchObject({ degrees: 22.5, offsetDays: 0 });
-    expect(readSeasonalFineStep(new Date(Date.UTC(2026, 3, 5)))).toMatchObject({ degrees: 15, offsetDays: 0 });
+  it("reads the 15 degree point on April 4, and leaves April 12 to the class A sixteenths", () => {
+    expect(readSeasonalFineStep(new Date(Date.UTC(2026, 3, 4)))).toMatchObject({ degrees: 15, offsetDays: 0 });
+    // 22.5 degrees is the 1/16 point, now a class A seasonal point.
+    expect(readSeasonalFineStep(new Date(Date.UTC(2026, 3, 12)))).toBeNull();
+    expect(SEASONAL_FINE_DEGREES.some((d) => d % 22.5 === 0)).toBe(false);
   });
 
   it("is open a day either side of a step and closed at two", () => {
-    expect(readSeasonalFineStep(new Date(Date.UTC(2026, 3, 11)))).toMatchObject({ degrees: 22.5, offsetDays: -1 });
-    expect(readSeasonalFineStep(new Date(Date.UTC(2026, 3, 10)))).toBeNull();
-    expect(readSeasonalFineStep(new Date(Date.UTC(2026, 3, 14)))).toBeNull();
+    expect(readSeasonalFineStep(new Date(Date.UTC(2026, 3, 5)))).toMatchObject({ degrees: 15, offsetDays: 1 });
+    expect(readSeasonalFineStep(new Date(Date.UTC(2026, 3, 2)))).toBeNull();
+    expect(readSeasonalFineStep(new Date(Date.UTC(2026, 3, 6)))).toBeNull();
   });
 
   it("places each step between the class A points around it, so it stays on the sources' dates through the year", () => {
@@ -189,13 +192,12 @@ describe("finer seasonal steps (C-TIME-37/-38)", () => {
     expect(SEASONAL_FRAME.slice(1, -1).map((p) => `${p.month}-${p.day}`).sort()).toEqual(
       SEASONAL_POINTS.filter((p) => p.label !== "the full year").map((p) => `${p.month}-${p.day}`).sort(),
     );
-    // 195° is a third of the way from Sep 22 (180°) to Nov 8 (225°).
+    // 195° is two thirds of the way from Sep 22 (180°) to Oct 15 (202.5°).
     expect(readSeasonalFineStep(new Date(Date.UTC(2026, 9, 7)))).toMatchObject({ degrees: 195, offsetDays: 0 });
-    // 337.5° is half way from Feb 4 (315°) to Mar 21 (360°), in the next calendar year.
-    expect(readSeasonalFineStep(new Date(Date.UTC(2027, 1, 26)))).toMatchObject({ degrees: 337.5, offsetDays: 0 });
-    // Across the new year: 285° a third and 292.5° half way from Dec 21 (270°) to Feb 4 (315°).
+    // 330° is two thirds of the way from Feb 4 (315°) to Feb 28 (337.5°), in the next calendar year.
+    expect(readSeasonalFineStep(new Date(Date.UTC(2027, 1, 20)))).toMatchObject({ degrees: 330, offsetDays: 0 });
+    // Across the new year: 285° two thirds of the way from Dec 21 (270°) to Jan 13 (292.5°).
     expect(readSeasonalFineStep(new Date(Date.UTC(2027, 0, 5)))).toMatchObject({ degrees: 285, offsetDays: 0 });
-    expect(readSeasonalFineStep(new Date(Date.UTC(2027, 0, 12)))).toMatchObject({ degrees: 292.5, offsetDays: 0 });
   });
 
   it("leaves the class A seasonal points and the days between steps alone", () => {
@@ -215,6 +217,7 @@ describe("the class C time counts stay context", () => {
     expect(ANGLES.map((a) => a.ratio)).toEqual([0.25, 0.5, 1, 2, 4]);
     expect(SEASONAL_POINTS.map((p) => `${p.month}-${p.day}`)).toEqual([
       "5-5", "6-21", "7-23", "8-5", "9-22", "11-8", "11-22", "12-21", "2-4", "3-21",
+      "4-12", "5-27", "7-14", "8-31", "10-15", "11-30", "1-13", "2-28",
     ]);
     expect(SQUARE_OF_52_FRACTIONS.filter((f) => f.disclosed).map((f) => f.weeks)).toEqual([6.5, 13, 17.33, 26, 32.5, 39]);
   });

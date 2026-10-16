@@ -5,7 +5,7 @@ import type { Alert } from "@/lib/scanner/intraday";
 const alert: Alert = {
   symbol: "SPY",
   kind: "etf",
-  type: "opening_momentum",
+  type: "old_level_cross",
   direction: "up",
   triggerTime: "2026-08-07T15:33:00.000Z",
   dataTimestamp: "2026-08-07T15:17:00.000Z",
@@ -41,7 +41,7 @@ describe("intradayLevels", () => {
 describe("buildIntradaySynopsis", () => {
   it("counts the confidence factors that passed and states the plan in the daily card's terms", () => {
     expect(buildIntradaySynopsis(alert)).toBe(
-      "Opening momentum, up: 1 of 2 checks line up (confidence 75/100). " +
+      "Old top or bottom crossed, up: 1 of 2 checks line up (confidence 75/100). " +
         "Wait for a bar to close above $504.50, exit at $500.00 if it fails, first target $513.50 (2.0× the risk).",
     );
   });
@@ -85,7 +85,7 @@ describe("buildIntradayCardModel", () => {
     const model = buildIntradayCardModel(alert);
     expect(model.side).toBe("buy");
     expect(model.price).toBe(504.5);
-    expect(model.verdict).toBe("Opening momentum");
+    expect(model.verdict).toBe("Old top or bottom crossed");
     expect(model.checks).toEqual([
       { label: "Opening range broken", state: "met", detail: "30 pts — Price is 3.50 beyond the high." },
       { label: "Volume confirms", state: "missed", detail: "25 pts — 1.8× of normal." },

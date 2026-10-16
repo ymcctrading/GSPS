@@ -34,6 +34,7 @@ import { priceTimeConfluence } from "@/lib/gann/digitalRoot";
 import { computeCampaignLeg, computeSwingChart } from "@/lib/gann/swingChart";
 import { computeRuleOfThree } from "@/lib/gann/ruleOfThree";
 import { majorPricePercentageLevels } from "@/lib/gann/disclosedRules";
+import { gannMasterLevels } from "@/lib/gann/masterLevels";
 import { computeTimePriceSquare } from "@/lib/gann/timePriceSquare";
 import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
 import { readDistributionStanding } from "@/lib/gann/distribution";
@@ -352,6 +353,12 @@ export async function scanTicker(
       ...majorPricePercentageLevels([...charts.monthly, ...charts.daily]).map((price) => ({ price, timeframe: "1Month" as const })),
       // The old campaign bottoms Gann looks to in turn (A-LEVELS-03, step 8).
       ...campaignSupportLevels(readCampaignBottoms(charts.monthly, charts.daily, new Date(scannedAt)), currentPrice).map((price) => ({ price, timeframe: "1Month" as const })),
+      // Gann's Square of 144 squares and his planetary averages (COE, MOF,
+      // the six), as price resistance (2026-09-30). See lib/gann/masterLevels.ts.
+      ...gannMasterLevels([...charts.monthly, ...charts.daily], charts.daily, currentPrice, new Date(scannedAt)).map((l) => ({
+        price: l.price,
+        timeframe: "1Month" as const,
+      })),
     ];
     const recentAtr = atr(daily.slice(-20), 14);
     const baselineAtr = atr(daily.slice(-100, -20), 14);
