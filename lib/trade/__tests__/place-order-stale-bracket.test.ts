@@ -54,6 +54,14 @@ vi.mock("@/lib/learning/record", async () => {
   return { ...actual, recordOrderExecution: (...args: unknown[]) => recordOrderExecution(...args) };
 });
 
+// Account tier: Novice unless a test says otherwise (lib/entitlements/policy.ts
+// reads profiles.tier, which these stubs don't model).
+const tier = vi.hoisted(() => ({ value: "PRACTICE" as "PRACTICE" | "SYSTEM_MASTERY" }));
+vi.mock("@/lib/entitlements/policy", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/entitlements/policy")>("@/lib/entitlements/policy");
+  return { ...actual, getUserEntitlementPolicy: vi.fn(async () => actual.getEntitlementPolicy(tier.value)) };
+});
+
 import { placeSimulatedOrder, type OrderInput } from "@/lib/trade/place-order";
 
 function stubSupabase() {

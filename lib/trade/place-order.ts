@@ -278,15 +278,20 @@ export async function placeSimulatedOrder(
   // known, documented limitation of this wiring, not a silent gap: the
   // notional/aggregate/open-risk ceilings below do not depend on this proxy
   // and are enforced fully.
+  //
+  // The group cap is the tier's (`maxCorrelatedRiskGroups`): one for Novice,
+  // none above it. Applied to every tier until 2026-10-16, it held a Wall
+  // Street account to one open symbol at a time.
   if (!isProtective) {
     const paused = await lossSeriesRefusal(supabase, userId);
     if (paused) return paused;
   }
 
   if (!isProtective) {
-    const [account, openPositions] = await Promise.all([
+    const [account, openPositions, entitlements] = await Promise.all([
       getOrCreateAccount(supabase, userId),
       listOpenPositions(supabase, userId),
+      getUserEntitlementPolicy(supabase, userId),
     ]);
     const deployedUsd = openPositions.reduce((sum, p) => sum + p.qty * p.avg_entry_price, 0);
     const openRiskUsd = openPositions.reduce(
@@ -313,6 +318,7 @@ export async function placeSimulatedOrder(
           ? correlatedGroups - 1
           : correlatedGroups,
         candidateJoinsExistingGroup,
+        maxCorrelatedRiskGroups: entitlements.maxCorrelatedRiskGroups,
       });
       if (!verdict.ok) {
         return {
@@ -845,6 +851,7 @@ async function placeLiveOrder(
           : 0,
         openCorrelatedGroupsExcludingThis: candidateJoinsExistingGroup ? heldSymbols.size - 1 : heldSymbols.size,
         candidateJoinsExistingGroup,
+        maxCorrelatedRiskGroups: (await getUserEntitlementPolicy(supabase, userId)).maxCorrelatedRiskGroups,
       });
       if (!verdict.ok) {
         return {

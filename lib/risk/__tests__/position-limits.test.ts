@@ -10,6 +10,7 @@ describe("checkPositionLimits", () => {
     newPositionRiskUsd: 4.5, // 1%
     openCorrelatedGroupsExcludingThis: 0,
     candidateJoinsExistingGroup: false,
+    maxCorrelatedRiskGroups: 1 as const,
   };
 
   it("passes a well-sized single position with no correlated exposure", () => {
@@ -38,6 +39,15 @@ describe("checkPositionLimits", () => {
     const v = checkPositionLimits({ ...base, openCorrelatedGroupsExcludingThis: 1 });
     expect(v.ok).toBe(false);
     expect(v.violations.some((m) => m.includes("correlated"))).toBe(true);
+  });
+
+  it("leaves the group count uncapped for tiers above Novice", () => {
+    const v = checkPositionLimits({
+      ...base,
+      openCorrelatedGroupsExcludingThis: 5,
+      maxCorrelatedRiskGroups: "unlimited",
+    });
+    expect(v.violations.some((m) => m.includes("correlated"))).toBe(false);
   });
 
   it("allows adding to an already-open correlated group without opening a new one", () => {
