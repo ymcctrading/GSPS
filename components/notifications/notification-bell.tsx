@@ -10,7 +10,9 @@ import { cn } from "@/lib/utils";
 interface InboxNotification {
   id: string;
   symbol: string;
-  verdict: "Execute" | "INVALIDATED";
+  // "Watch" is an intraday system alert — a confirmation that a move is
+  // underway, which is not a scored Execute verdict (migration 0086).
+  verdict: "Execute" | "Watch" | "INVALIDATED";
   title: string;
   body: string;
   read_at: string | null;
@@ -119,7 +121,8 @@ export function NotificationBell() {
           <div className="max-h-96 overflow-y-auto">
             {notifications.length === 0 ? (
               <p className="px-3 py-6 text-center text-sm text-muted">
-                Nothing yet — an Execute setup or an invalidated one you were tracking shows up here.
+                Nothing yet — an Execute setup, an intraday move on a covered symbol, or a tracked setup
+                breaking all show up here.
               </p>
             ) : (
               notifications.map((n) => (
@@ -133,7 +136,17 @@ export function NotificationBell() {
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className={cn("font-medium", n.verdict === "INVALIDATED" ? "text-bear" : "text-bull")}>
+                    {/* "Watch" (an intraday alert) is deliberately neutral:
+                        the row carries no direction field, and the alert is
+                        bullish or bearish either way, so colouring it would
+                        assert a direction half of them don't have. */}
+                    <span
+                      className={cn(
+                        "font-medium",
+                        n.verdict === "INVALIDATED" && "text-bear",
+                        n.verdict === "Execute" && "text-bull",
+                      )}
+                    >
                       {n.title}
                     </span>
                     <span className="shrink-0 text-xs text-muted">{formatOpenedAt(n.created_at)}</span>

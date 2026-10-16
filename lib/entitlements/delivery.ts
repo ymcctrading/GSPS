@@ -21,6 +21,8 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendAlertEmail, sendSetupInvalidatedEmail } from "@/lib/notifications/resend-handler";
+import { sendWebPushToProfile, type PushPayload } from "@/lib/notifications/webpush";
+import { tickerHref } from "@/lib/routes";
 import { isPreviewEnvironment } from "@/lib/env/preview";
 import type { PublicSignalSummary } from "@/lib/signals/publicSummary";
 import { formatScore, SCORE_MAX } from "@/lib/scoring/display";
@@ -133,6 +135,31 @@ export const MAX_DISPATCH_ATTEMPTS = 5;
 const DISPATCHABLE_STATUSES = ["pending", "failed"];
 
 /**
+ * The tray-sized version of a notification payload. A push body is read on a
+ * lock screen in a glance, so it carries the decision (which symbol, which
+ * way, at what levels) and nothing else -- the app is one tap away for the
+ * rest. `tag` is the symbol, so a re-fired alert for one symbol replaces its
+ * own previous entry instead of burying every other symbol's.
+ */
+function pushPayloadFor(payload: NotificationPayload): PushPayload {
+  if (payload.verdict === "INVALIDATED") {
+    return {
+      title: `${payload.symbol} invalidated`,
+      body: `The setup you were tracking on ${payload.symbol} no longer holds.`,
+      url: tickerHref(payload.symbol),
+      tag: `gsps-${payload.symbol}`,
+    };
+  }
+  const score = formatScore(payload.score, payload.exactScoreDisplayEnabled);
+  return {
+    title: `${payload.symbol} — ${payload.verdict} (${score}/${SCORE_MAX})`,
+    body: `${payload.direction === "bullish" ? "Buy" : "Sell"} setup. Entry ${payload.entry}, stop ${payload.stopLoss}, target ${payload.takeProfit}.`,
+    url: tickerHref(payload.symbol),
+    tag: `gsps-${payload.symbol}`,
+  };
+}
+
+/**
  * Sends the notification for an already-recorded delivery row still in a
  * dispatchable status (`pending` or `failed`) and updates its status.
  * Re-reads the row's current status first: if it has already reached `sent`
@@ -149,9 +176,10 @@ const DISPATCHABLE_STATUSES = ["pending", "failed"];
  * preview deployment either. The row is left untouched, so preview activity
  * never fabricates a `sent`/`failed` record.
  *
- * Email is the only channel with a real provider today (`sendAlertEmail`);
- * sms/push are recorded but not yet dispatchable and are left `pending` for
- * a future channel implementation rather than falsely marked `sent`.
+ * Email (`sendAlertEmail`) and push (`sendWebPushToProfile`) are the two
+ * channels with a real provider. SMS is still recorded but not dispatchable
+ * and is left `pending` for a future channel implementation rather than
+ * falsely marked `sent`.
  */
 export async function dispatchNotificationDelivery(
   service: SupabaseClient,
@@ -170,26 +198,42 @@ export async function dispatchNotificationDelivery(
   if (!DISPATCHABLE_STATUSES.includes(current.status)) return { dispatched: false, reason: "not_pending" };
   if ((current.attempt_count ?? 0) >= MAX_DISPATCH_ATTEMPTS) return { dispatched: false, reason: "max_attempts" };
 
-  if (current.channel !== "email") {
+  if (current.channel === "sms") {
     return { dispatched: false, reason: "channel_unsupported" };
   }
 
-  const { data: userRecord } = await service.auth.admin.getUserById(args.profileId);
-  const email = userRecord?.user?.email;
-  if (!email) return { dispatched: false, reason: "no_email" };
-
   const payload = current.payload as NotificationPayload;
-  const result =
-    payload.verdict === "INVALIDATED"
-      ? await sendSetupInvalidatedEmail({ userEmail: email, symbol: payload.symbol })
-      : await sendAlertEmail({ userEmail: email, ...payload });
-  const status: "sent" | "failed" = result.success ? "sent" : "failed";
+  let succeeded: boolean;
+  let providerRef: string | null = null;
+
+  if (current.channel === "push") {
+    // A push send has no single provider id to record — one delivery fans out
+    // to every device the member registered — so `provider_ref` stays null and
+    // the per-device outcome is `webpush`'s own concern (including pruning a
+    // subscription the push service reports gone). One device reached is a
+    // delivered notification: the member saw it.
+    const push = await sendWebPushToProfile(service, args.profileId, pushPayloadFor(payload));
+    succeeded = push.sent > 0;
+  } else {
+    const { data: userRecord } = await service.auth.admin.getUserById(args.profileId);
+    const email = userRecord?.user?.email;
+    if (!email) return { dispatched: false, reason: "no_email" };
+
+    const result =
+      payload.verdict === "INVALIDATED"
+        ? await sendSetupInvalidatedEmail({ userEmail: email, symbol: payload.symbol })
+        : await sendAlertEmail({ userEmail: email, ...payload });
+    succeeded = result.success;
+    providerRef = result.success ? (result.id ?? null) : null;
+  }
+
+  const status: "sent" | "failed" = succeeded ? "sent" : "failed";
 
   await service
     .from("notification_deliveries")
     .update({
       status,
-      provider_ref: result.success ? (result.id ?? null) : null,
+      provider_ref: providerRef,
       attempt_count: (current.attempt_count ?? 0) + 1,
       updated_at: new Date().toISOString(),
     })
@@ -256,6 +300,100 @@ export async function recordInAppNotification(
     ...row,
   });
   if (error) throw new Error(`recordInAppNotification: ${error.message}`);
+}
+
+/** What an intraday system alert needs to reach the bell and a phone. Flatter
+ * than `EntitledAlertPayload` because an intraday alert has no scored verdict
+ * or tier-dependent score display to carry -- its 0-9 confidence is already a
+ * whole number (see `notifySubscribedUsers`'s own note on why the Novice/Pro
+ * rounding split does not apply to it). */
+export type IntradayAlertNotification = {
+  symbol: string;
+  direction: "bullish" | "bearish";
+  score: number;
+  /** The level the move was confirmed at. */
+  entry: number;
+  invalidation: number | null;
+  /** Null where no Gann level lies ahead -- `lib/scanner/intraday.ts` leaves
+   * the target unset rather than inventing one ("never fix a target price"),
+   * and the copy here has to say so rather than print a number. */
+  firstTarget: number | null;
+};
+
+function intradayBody(alert: IntradayAlertNotification): string {
+  const side = alert.direction === "bullish" ? "Upside" : "Downside";
+  const stop = alert.invalidation != null ? `, invalidation ${alert.invalidation}` : "";
+  const target =
+    alert.firstTarget != null
+      ? `, first target ${alert.firstTarget}`
+      : ", no target fixed — the stop trails";
+  return `${side} move confirmed at ${alert.entry}${stop}${target}.`;
+}
+
+/**
+ * Writes the in-app ("on the platform itself") notification for an intraday
+ * system alert, and pushes it to the member's registered devices.
+ *
+ * Why this exists next to `recordInAppNotification` rather than inside it:
+ * that one serves a monitor transition and keys its dedup on
+ * `transition_id`, which an intraday alert does not have. The caller
+ * (`app/api/intraday-scan/route.ts#notifySubscribedUsers`) dedups on its own
+ * `notification_log` signal hash over a 24-hour window before reaching here,
+ * so this does not repeat that check -- stated explicitly because a second,
+ * differently-keyed dedup would be the kind of silent divergence AGENTS.md's
+ * cross-platform consistency rule exists to catch.
+ *
+ * `verdict` is 'Watch', not 'Execute'. An intraday alert is a confirmation
+ * that a move is underway, not a scored Execute verdict -- the same rule
+ * `applyMonitorsForUser` already applies when it opens a WATCH monitor and
+ * never an EXECUTE one for these alerts (project owner, 2026-09-28).
+ *
+ * Best-effort: never throws. A bell row or a push that fails must not stop
+ * the rest of the fan-out, and must not fail the scan that produced it.
+ */
+export async function notifyIntradayAlert(
+  service: SupabaseClient,
+  args: { profileId: string; alert: IntradayAlertNotification; pushEnabled: boolean },
+): Promise<{ inApp: boolean; pushSent: number }> {
+  const { alert } = args;
+  const direction = alert.direction === "bullish" ? "Bullish" : "Bearish";
+  const title = `${alert.symbol} — intraday ${direction.toLowerCase()} (${alert.score}/${SCORE_MAX})`;
+  const body = intradayBody(alert);
+
+  let inApp = false;
+  try {
+    const { error } = await service.from("in_app_notifications").insert({
+      profile_id: args.profileId,
+      // No monitor transition produced this one -- the column is nullable
+      // exactly so this table could generalize past transitions (0067).
+      transition_id: null,
+      symbol: alert.symbol,
+      verdict: "Watch",
+      title,
+      body,
+    });
+    if (error) console.error("[notifyIntradayAlert] in-app insert failed:", error);
+    else inApp = true;
+  } catch (err) {
+    console.error("[notifyIntradayAlert] in-app insert threw:", err);
+  }
+
+  let pushSent = 0;
+  if (args.pushEnabled) {
+    try {
+      const result = await sendWebPushToProfile(service, args.profileId, {
+        title,
+        body,
+        url: tickerHref(alert.symbol),
+        tag: `gsps-${alert.symbol}`,
+      });
+      pushSent = result.sent;
+    } catch (err) {
+      console.error("[notifyIntradayAlert] push threw:", err);
+    }
+  }
+
+  return { inApp, pushSent };
 }
 
 /**
