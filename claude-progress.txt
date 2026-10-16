@@ -349,3 +349,8 @@ is unchecked here (collection-synthesis.md §1.6, §6).
 - Tests: monthlyBreak.test.ts (8), monthlyWarning.test.ts. Mutations caught: month-to-date low/high, null guards, direction, first-break loop bound, campaign start.
 - Scan cost: about 119 ms over 766 symbols of 300 bars (0.16 ms a symbol), off any user wait in practice.
 - STRATEGY_VERSION 2026-10-16-gann-monthly-warning.
+2026-10-16 Item 6 step 4 (A-TREND-02 i): one definition of swing structure.
+- regime.ts: HH/HL is gannTrend.structureAgrees in the weekly chart's direction (the 3-Day Chart swings readGannTrend steps through). The fractal test (last of four findPivots highs/lows vs the first) is gone; the fractal pivots still supply the horizontal levels and the transition break.
+- Found while testing: the range reason said "3-day and weekly swing charts do not agree (bullish vs bullish)" when both agreed and the swings weren't stepping. It now names the actual cause: no weekly direction, swings not stepping, or an over-balance (trend changing).
+- Tests: lib/signals/__tests__/regimeStructure.test.ts (4): a clean trend under a spike four swings back, its mirror, both range reasons. Mutations: direction and reason order caught; dropping structureAgrees from HH/HL, or its direction, is equivalent (the trend branch also needs confirmed and the weekly direction).
+- STRATEGY_VERSION 2026-10-16-gann-one-structure (regime labels feed the pullback/breakout states and plan expiry).

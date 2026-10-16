@@ -128,4 +128,8 @@
 // stays above the previous section's top (A-TREND-06), and only an
 // over-balance of space or time ends its confirmation. While the month stands
 // broken against the trade, Execute is held to Watch, live and in the replay.
-export const STRATEGY_VERSION = "2026-10-16-gann-monthly-warning";
+// Item 6 step 4, 2026-10-16: the regime reads rising or falling tops and
+// bottoms from the 3-Day Chart swings readGannTrend uses, not a second
+// fractal-pivot test, so a trend those swings confirm is a clean trend for the
+// pullback and breakout states (regime labels and plan expiry can move).
+export const STRATEGY_VERSION = "2026-10-16-gann-one-structure";
