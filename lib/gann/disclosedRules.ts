@@ -7,12 +7,19 @@
  * so the backtest can measure it before anything is allowed to gate (AGENTS.md
  * "Gann-derived AND measured").
  *
- * The rules, each with its source (all Tier A, Gann's own books or lessons):
+ * The rules, each with its source (Tier A, Gann's own books or lessons,
+ * except rule 1):
  *
- * 1. **Close vs the bar's midpoint** (Master Course Ch. 13; master report
- *    Part I §3.2). A close above the half-way point of the bar's range reads
- *    up, below reads down, "at least temporarily". Gann's own per-bar trend
- *    read.
+ * 1. **Close vs the bar's midpoint** — **class C, relabelled 2026-10-16
+ *    (M-R7).** A close above the half-way point of the bar's range reads up,
+ *    below reads down. The finished reading of the Master Course did not find
+ *    this up/down reading in Gann's text: Ch. 13 (PDF 377, 1953) lists "high,
+ *    low, half-way, open, close" as five factors but gives no reading of the
+ *    close against the half-way point, and Ch. 3 (PDF 72) uses the half-way
+ *    point of the last *move*, not of a bar. It is this repo's own reading,
+ *    so it stays context only: it feeds one measured factor
+ *    (`closeVsMidpointAgrees`) and a card tile, and never a score, gate,
+ *    plan or order.
  * 2. **Percentages of the extreme price**, not only of the range (*How to
  *    Make Profits in Commodities*, pp. 32-34; *45 Years in Wall Street*,
  *    Rule 3). Divide the low by 8 and add the eighths above it (12½% to
@@ -151,7 +158,7 @@ function daysBetween(fromIso: string, toIso: string): number {
 }
 
 // ---------------------------------------------------------------------------
-// 1. Close vs the bar's midpoint
+// 1. Close vs the bar's midpoint (class C, the repo's own reading; M-R7)
 
 export interface BarMidpointReading {
   /** "up" when the last close is above (high + low) / 2, "down" below, "even" on it. */
