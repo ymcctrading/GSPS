@@ -3,6 +3,7 @@ import fs from "node:fs";
 import type { Bar, ScanDecision } from "@/lib/types";
 import { applyTimeWindowHold } from "@/lib/scoring/score";
 import { readWindowTurn, timeWindowsAt, type WindowsAt } from "@/lib/gann/timeWindow";
+import { CRITERION_KEYS } from "@/lib/scoring/weights";
 
 // Q19 (owner: "Window"): A-TIME-15, W036 p.22, "when the market turns close to
 // a forecast date, buy or sell", with C-STOP-03's "time alone is not enough":
@@ -92,5 +93,55 @@ describe("applyTimeWindowHold", () => {
     for (const f of ["lib/scanTicker.ts", "lib/backtest/replay.ts"]) {
       expect(fs.readFileSync(f, "utf8")).toMatch(/applyTimeWindowHold\(/);
     }
+  });
+});
+
+// C-ASTRO-15 (owner, 2026-10-16): an astro or Jensen/planetary window may count
+// toward the hold only alongside a price turn, never alone.
+describe("astro windows never decide the hold alone (C-ASTRO-15)", () => {
+  const execute: ScanDecision = { score: 8, outputState: "Execute", breakdown: [] };
+  const astroOnly = ["a New Moon", "Mars opposite its place at the major low", "the Sun at 90°", "a Jensen date"];
+
+  // A straight fall has no 3-Day Chart bottom for a long's stop to sit behind,
+  // and a straight rise no top for a short's: no price turn at all.
+  const falling = days(Array.from({ length: 30 }, (_, i) => 130 - i));
+  const rising = days(Array.from({ length: 30 }, (_, i) => 100 + i));
+
+  for (const [label, series, direction] of [
+    ["a long", falling, "bullish"],
+    ["a short", rising, "bearish"],
+  ] as const) {
+    it(`leaves the verdict where no window would when ${label} has no price turn`, () => {
+      let asked = 0;
+      const astro: WindowsAt = () => {
+        asked++;
+        return astroOnly;
+      };
+      expect(readWindowTurn(series, direction, astro)).toBeNull();
+      expect(asked).toBe(0);
+      const withAstro = applyTimeWindowHold(execute, "reversion", () => readWindowTurn(series, direction, astro));
+      const withNone = applyTimeWindowHold(execute, "reversion", () => readWindowTurn(series, direction, () => []));
+      expect(withAstro).toEqual(withNone);
+      expect(withAstro.outputState).toBe("Watch");
+    });
+  }
+
+  it("asks for windows only on a price turn's own date", () => {
+    const seen: string[] = [];
+    const turn = readWindowTurn(bars, "bullish", (_b, date) => {
+      seen.push(date);
+      return astroOnly;
+    });
+    // The only date read is the 3-Day Chart's bottom, and the turn carries its price.
+    expect(seen).toEqual(["2026-03-08"]);
+    expect(turn).toMatchObject({ kind: "bottom", date: "2026-03-08", price: 97.5 });
+  });
+
+  it("does not hold a with-trend setup from astro windows, which act there on price alone", () => {
+    expect(applyTimeWindowHold(execute, "continuation", () => readWindowTurn(rising, "bullish", () => astroOnly))).toBe(execute);
+  });
+
+  it("puts no astro, planetary or Jensen reading among the scored criteria", () => {
+    for (const k of CRITERION_KEYS) expect(k).not.toMatch(/astro|planet|lunar|moon|sun|mars|jensen/i);
   });
 });
